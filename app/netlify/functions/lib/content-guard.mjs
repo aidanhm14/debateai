@@ -168,7 +168,7 @@ function normalize(raw) {
   // Strip ASCII control chars except \n \t — those are legitimate in
   // longer text fields. Keep the original line breaks for the
   // length-check + the eventual write.
-  s = s.replace(/[ --]/g, '');
+  s = s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
   return s;
 }
 

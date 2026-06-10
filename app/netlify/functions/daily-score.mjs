@@ -96,7 +96,7 @@ export default async (request) => {
       headers: { 'Content-Type': 'application/json', ...CORS },
     });
   }
-  const uid = decoded.uid;
+  const uid = decoded.sub;
 
   // Derive today's daily motion server-side. Submissions for any other
   // date are rejected — the leaderboard is "today" only.

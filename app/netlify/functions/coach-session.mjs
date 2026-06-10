@@ -19,7 +19,7 @@
 
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
-import { getDb, FieldValue } from './lib/firestore.mjs';
+import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 
 const FREE_VOICE_LIFETIME_LIMIT = 3;
 
@@ -210,11 +210,28 @@ export default async (request) => {
     const profileSnap = await db.collection('user_profiles').doc(uid).get();
     if (profileSnap.exists) {
       profile = profileSnap.data() || {};
-      isPro = profile.plan === 'pro' || profile.plan === 'team' || profile.plan === 'lifetime' || profile.isPro === true;
       voiceUsedBefore = Math.max(0, parseInt(profile.voiceSessionsUsed, 10) || 0);
     }
   } catch (err) {
     console.warn('[coach-session] user_profiles read failed:', err.message);
+  }
+  // Plan state lives on the TEAMS collection (written by stripe-webhook /
+  // razorpay-activate) — user_profiles never gets plan/isPro. Resolve via
+  // getUserTeam the way the brain endpoints do (see claude.mjs): paid
+  // plans are individual/lifetime/team/byok; subscriptions only lose
+  // access on EXPLICIT Stripe-bad statuses. Lookup failure degrades to
+  // free (the cap still applies).
+  try {
+    const teamResult = await getUserTeam(uid);
+    const team = teamResult && teamResult.team;
+    if (team) {
+      const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+      const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+      isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
+        && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
+    }
+  } catch (err) {
+    console.warn('[coach-session] plan lookup failed:', err.message);
   }
   if (isOwnerEmail(email)) isPro = true;
 

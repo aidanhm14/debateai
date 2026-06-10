@@ -47,8 +47,8 @@ export default async (request) => {
     const token = extractBearerToken(request);
     if (token) {
       const decoded = await verifyIdToken(token);
-      if (decoded && decoded.uid) {
-        key = 'u:' + decoded.uid;
+      if (decoded && decoded.sub) {
+        key = 'u:' + decoded.sub;
         signedIn = true;
       }
     }
@@ -82,3 +82,5 @@ export default async (request) => {
     return jsonResponse({ ok: false, error: 'write failed' }, 200, request);
   }
 };
+
+export const config = { path: '/api/presence-ping' };

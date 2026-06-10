@@ -113,7 +113,7 @@ export default async (req) => {
   let uid = null;
   try {
     const decoded = await verifyIdToken(token);
-    uid = decoded && decoded.uid;
+    uid = decoded && decoded.sub;
   } catch (e) {
     return jsonResponse(401, { error: 'Invalid token: ' + (e.message || 'unknown') });
   }

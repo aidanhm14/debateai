@@ -19,7 +19,7 @@
 
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
-import { getDb, FieldValue } from './lib/firestore.mjs';
+import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 
 // Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
 // and owner-allowlisted emails (see lib/auth.mjs) bypass. Anon users
@@ -658,11 +658,11 @@ export default async (request, context) => {
 
   // ── Voice usage gate (signed-in lifetime cap) ─────────────────────
   // Anon callers fall through (client gates them at 1 + the IP rate
-  // limit above stops abuse). Signed-in callers get 3 lifetime free
-  // sessions; Pro / Team / Lifetime plans bypass. We compute the
-  // verdict here so we can reject before paying the OpenAI mint cost.
-  // The actual increment happens AFTER the mint succeeds — failed
-  // mints don't burn the user's quota.
+  // limit above stops abuse). Signed-in free callers get a lifetime
+  // cap; paid plans (individual / lifetime / team / byok) bypass. We
+  // compute the verdict here so we can reject before paying the OpenAI
+  // mint cost. The actual increment happens AFTER the mint succeeds —
+  // failed mints don't burn the user's quota.
   let signedInUid = null;
   let isPro = false;
   let voiceUsedBefore = 0;
@@ -675,8 +675,25 @@ export default async (request, context) => {
       const profileSnap = await db.collection('user_profiles').doc(signedInUid).get();
       if (profileSnap.exists){
         const p = profileSnap.data() || {};
-        isPro = p.plan === 'pro' || p.plan === 'team' || p.plan === 'lifetime' || p.isPro === true;
         voiceUsedBefore = Math.max(0, parseInt(p.voiceSessionsUsed, 10) || 0);
+      }
+      // Plan state lives on the TEAMS collection (written by
+      // stripe-webhook / razorpay-activate) — user_profiles never gets
+      // plan/isPro. Resolve via getUserTeam the way the brain endpoints
+      // do (see claude.mjs): paid plans are individual/lifetime/team/byok;
+      // subscriptions only lose access on EXPLICIT Stripe-bad statuses.
+      // Lookup failure degrades to free (the cap still applies).
+      try {
+        const teamResult = await getUserTeam(signedInUid);
+        const team = teamResult && teamResult.team;
+        if (team){
+          const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+          const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+          isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
+            && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
+        }
+      } catch(planErr){
+        console.warn('[realtime-session] plan lookup failed:', planErr && planErr.message);
       }
       if (isOwnerEmail(decoded.email)){
         isPro = true;
@@ -726,7 +743,7 @@ export default async (request, context) => {
     // prompt that runs against the user's audio for ~minutes, so we
     // strip control chars + cap lengths.
     const sanitize = (s, max) => String(s || '')
-      .replace(/[ -]/g, ' ')
+      .replace(/[\x00-\x1f\x7f]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, max);

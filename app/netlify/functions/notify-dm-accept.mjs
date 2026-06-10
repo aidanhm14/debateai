@@ -102,7 +102,7 @@ export default async (req) => {
   let callerName = null;
   try {
     const decoded = await verifyIdToken(token);
-    callerUid = decoded && decoded.uid;
+    callerUid = decoded && decoded.sub;
     callerName = (decoded && (decoded.name || decoded.email)) || null;
   } catch (e) {
     return jsonResponse(401, { error: 'Invalid token: ' + (e.message || 'unknown') });

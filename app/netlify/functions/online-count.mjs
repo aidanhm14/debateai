@@ -91,3 +91,5 @@ export default async (request) => {
     return jsonResponse(emptyPayload(err && err.message), 200, request);
   }
 };
+
+export const config = { path: '/api/online-count' };
