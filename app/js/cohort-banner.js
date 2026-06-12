@@ -26,7 +26,7 @@
   } catch (e) {}
 
   var CSS = '\
-.cohort-banner{display:flex;align-items:center;gap:12px;padding:9px clamp(14px,3vw,24px);background:linear-gradient(90deg,#b91c1c 0%,#ef4444 100%);color:#fff;font-family:Inter,-apple-system,system-ui,sans-serif;font-size:.86rem;font-weight:500;line-height:1.4;border-bottom:1px solid rgba(0,0,0,.18);position:relative;z-index:60}\
+.cohort-banner{display:flex;align-items:center;gap:12px;padding:9px clamp(14px,3vw,24px);background-color:#c81e1e;background-image:linear-gradient(90deg,#b91c1c 0%,#ef4444 100%);color:#fff;font-family:Inter,-apple-system,system-ui,sans-serif;font-size:.86rem;font-weight:500;line-height:1.4;border-bottom:1px solid rgba(0,0,0,.18);position:relative;z-index:60}\
 .cohort-banner-dot{width:7px;height:7px;border-radius:50%;background:#fff;flex-shrink:0;box-shadow:0 0 8px rgba(255,255,255,.6);animation:cbPulse 2s ease-in-out infinite}\
 @keyframes cbPulse{0%,100%{opacity:.65}50%{opacity:1}}\
 .cohort-banner-msg{flex:1;min-width:0}\
