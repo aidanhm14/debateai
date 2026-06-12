@@ -337,6 +337,64 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .queue-stats strong{color:var(--text);font-variant-numeric:tabular-nums}
 
+/* Round setup — style chips + judge-instructions note under the
+   search controls. The opponent approves both via the consent card
+   before the round starts. */
+.setup-card{
+  max-width:560px;margin:18px auto 0;padding:16px 18px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  text-align:left;
+}
+.setup-head{
+  display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;margin-bottom:10px;
+  font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);
+}
+.setup-head span{
+  font-weight:500;letter-spacing:0;text-transform:none;color:var(--text-ghost);
+}
+.style-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.style-chip{
+  padding:7px 13px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-size:.76rem;font-weight:600;
+  cursor:pointer;font-family:inherit;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.style-chip:hover{border-color:var(--border-strong);color:var(--text)}
+.style-chip.on{
+  background:rgba(239,68,68,.12);border-color:var(--accent);color:var(--accent);
+}
+.paradigm-row label{
+  display:block;font-size:.74rem;font-weight:700;color:var(--text-dim);margin-bottom:6px;
+}
+.paradigm-row label .opt{font-weight:500;color:var(--text-ghost)}
+.paradigm-row textarea{
+  width:100%;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;
+  color:var(--text);font-family:inherit;font-size:.8rem;line-height:1.5;
+  padding:9px 11px;resize:vertical;min-height:46px;
+}
+.paradigm-row textarea:focus{outline:none;border-color:var(--accent)}
+.paradigm-meta{
+  display:flex;justify-content:space-between;gap:8px;margin-top:5px;
+  font-size:.66rem;color:var(--text-ghost);
+}
+#paradigmSaved{color:var(--green)}
+
+/* Consent card — a proposed round with judge instructions, awaiting
+   the opponent's accept/pass. */
+.consent-wrap{max-width:580px;margin:0 auto}
+.consent-note{
+  max-width:480px;margin:14px auto 0;padding:13px 16px;text-align:left;
+  background:rgba(239,68,68,.07);border:1px solid var(--accent-glow);border-radius:12px;
+  font-size:.86rem;line-height:1.55;color:var(--text);
+}
+.consent-note.mine{
+  background:var(--bg-card);border-color:var(--border);color:var(--text-dim);
+}
+.consent-note-label{
+  font-size:.64rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-ghost);margin-bottom:5px;
+}
+
 /* Live waitlist tile — shows other debaters currently queued in the
    same format, with avatars, short names, and how long they've been
    waiting. Replaces the older single-line "X in your queue" text. */
@@ -876,12 +934,31 @@ h1 em{color:var(--accent);font-style:normal}
   } catch(e){ console.warn('[spar] firebase init', e); }
 
   // ── URL params ───────────────────────────────────────
-  // /spar?format=quick — auto-pick format. Defaults to 'quick' since
-  // it's the most-newcomer-friendly + universal pair point.
+  // /spar?format=quick — auto-pick format. URL wins, then the style
+  // the user picked last session, then 'quick' (most newcomer-friendly
+  // + universal pair point). The on-page style chips rewrite all three.
   var qs = new URLSearchParams(location.search);
   var FORMATS = ['quick','apda','bp','worlds','asian','ld','pf','policy'];
-  var formatParam = (qs.get('format') || 'quick').toLowerCase();
+  var FORMAT_LABELS = {
+    quick: 'Quick Clash', apda: 'APDA', bp: 'BP', worlds: 'Worlds (WUDC)',
+    asian: 'Asian Parli', ld: 'LD', pf: 'Public Forum', policy: 'Policy',
+  };
+  var storedFormat = '';
+  try { storedFormat = localStorage.getItem('debateos-spar-format') || ''; } catch(e){}
+  var formatParam = (qs.get('format') || storedFormat || 'quick').toLowerCase();
   if (FORMATS.indexOf(formatParam) < 0) formatParam = 'quick';
+
+  // Judge-paradigm note: the user's instructions for how the AI judge
+  // should weigh the round. Rides on the queue doc; ONLY reaches the
+  // judge after the opponent reads and accepts it (consent handshake
+  // in spar-pair.mjs). Same hygiene rule as the server: one line,
+  // 240 chars, control chars out.
+  var PARADIGM_MAX = 240;
+  function cleanParadigm(s){
+    return String(s || "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, PARADIGM_MAX);
+  }
+  var storedParadigm = '';
+  try { storedParadigm = cleanParadigm(localStorage.getItem('debateos-spar-paradigm')); } catch(e){}
 
   // ── State ────────────────────────────────────────────
   var state = {
@@ -898,6 +975,11 @@ h1 em{color:var(--accent);font-style:normal}
     cancelled: false,
     broaden: false,
     broadenOffered: false,
+    paradigm: storedParadigm,      // my judge-paradigm note (queue doc `paradigm`)
+    skipUids: [],                  // mirror of my doc's mutual-skip list (declined proposals)
+    inConsent: false,              // a 'consent' proposal is on screen
+    consentKey: '',                // fingerprint of the rendered consent state (skip echo re-renders)
+    consentTimer: null,            // auto-pass countdown interval
   };
 
   // 60-second timer until AI fallback. After this, we mark the user's
@@ -1090,6 +1172,24 @@ h1 em{color:var(--accent);font-style:normal}
         '<a class="btn" href="/debate-it">Skip to AI now</a>' +
         '<button class="btn ghost" id="bgAvailBtn" title="We keep matching you in the background and ping you the moment a human is found, even while you prep." style="border-color:rgba(34,197,94,.5);color:#22c55e">Prep while you wait &rarr;</button>' +
       '</div>' +
+      // Round setup — pick the style you queue under, and optionally
+      // tell the judge how to evaluate. Switching style requeues under
+      // the new format (fresh doc, fresh clock); the judge note rides
+      // the queue doc and only reaches the round after the opponent
+      // reads + accepts it on the consent card.
+      '<div class="setup-card" id="setupCard">' +
+        '<div class="setup-head">Round setup<span>Your opponent sees and approves this before the round starts.</span></div>' +
+        '<div class="style-chips" id="styleChips">' +
+          FORMATS.map(function(k){
+            return '<button type="button" class="style-chip' + (k === formatParam ? ' on' : '') + '" data-fmt="' + k + '">' + escHtml(FORMAT_LABELS[k] || k.toUpperCase()) + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="paradigm-row">' +
+          '<label for="paradigmInput">Judge instructions <span class="opt">optional · your opponent must accept them</span></label>' +
+          '<textarea id="paradigmInput" maxlength="' + PARADIGM_MAX + '" rows="2" placeholder="How should the judge evaluate? e.g. Weigh probability before magnitude. Punish drops hard. Truth over tech on factual claims."></textarea>' +
+          '<div class="paradigm-meta"><span id="paradigmSaved"></span><span id="paradigmCount">0/' + PARADIGM_MAX + '</span></div>' +
+        '</div>' +
+      '</div>' +
       // 2026-05-18: while the user is waiting on the random matchmaker,
       // give them a clear pivot to /live (the schedule board with
       // upcoming + live-now scheduled rounds, "what's on my schedule"
@@ -1142,6 +1242,67 @@ h1 em{color:var(--accent);font-style:normal}
     fetchMissedMatchCount();
     logSparAttempt();
     mountGlobalMap('globalDebateMap');
+    wireSetupCard();
+  }
+
+  // ── Round setup wiring ───────────────────────────────
+  // Style switch = clean requeue. The snapshot watcher, meta strip,
+  // and AI-fallback clock are all format-bound; rejoining under the
+  // new format beats surgically repointing each listener.
+  function switchFormat(key){
+    if (key === formatParam || FORMATS.indexOf(key) < 0) return;
+    formatParam = key;
+    try { localStorage.setItem('debateos-spar-format', key); } catch(e){}
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set('format', key);
+      history.replaceState(null, '', u.toString());
+    } catch(e){}
+    try { gtag('event', 'spar_style_pick', { format: key }); } catch(e){}
+    teardownQueue();
+    // Anon visitors (and any no-firebase load) run the queue-less
+    // searching UI — joinQueue() would early-return and leave a dead
+    // screen with no countdown. Route them back through the anon join.
+    if (state.user && firebaseDb) joinQueue();
+    else joinQueueAnon();
+  }
+
+  function wireSetupCard(){
+    var chips = document.getElementById('styleChips');
+    if (chips){
+      chips.addEventListener('click', function(ev){
+        var b = ev.target && ev.target.closest ? ev.target.closest('[data-fmt]') : null;
+        if (b) switchFormat(b.getAttribute('data-fmt'));
+      });
+    }
+    var ta = document.getElementById('paradigmInput');
+    if (!ta) return;
+    ta.value = state.paradigm || '';
+    var count = document.getElementById('paradigmCount');
+    var saved = document.getElementById('paradigmSaved');
+    if (count) count.textContent = ta.value.length + '/' + PARADIGM_MAX;
+    var deb = null;
+    function save(){
+      var v = cleanParadigm(ta.value);
+      if (v === state.paradigm) return;
+      state.paradigm = v;
+      try { localStorage.setItem('debateos-spar-paradigm', v); } catch(e){}
+      try { gtag('event', 'spar_paradigm_set', { format: formatParam, len: v.length }); } catch(e){}
+      if (state.queueDocRef){
+        state.queueDocRef.update({ paradigm: v }).then(function(){
+          if (saved) saved.textContent = v ? 'Saved. Your opponent reads this before accepting.' : 'Cleared.';
+        }).catch(function(){});
+      } else if (saved){
+        saved.textContent = v ? 'Saved.' : '';
+      }
+    }
+    ta.addEventListener('input', function(){
+      if (count) count.textContent = ta.value.length + '/' + PARADIGM_MAX;
+      if (saved) saved.textContent = '';
+      if (deb) clearTimeout(deb);
+      deb = setTimeout(save, 600);
+    });
+    ta.addEventListener('blur', save);
   }
 
   // Pulls the public "missed each other this week / this month" counts
@@ -1517,8 +1678,16 @@ h1 em{color:var(--accent);font-style:normal}
 
   // ── Queue logic ──────────────────────────────────────
   // matchmaking_queue/{uid}: {
-  //   uid, format, status: 'waiting' | 'matched' | 'matched_ai' | 'cancelled',
-  //   joinedAt, matchedWith, room
+  //   uid, format, status: 'waiting' | 'consent' | 'matched' | 'matched_ai' | 'cancelled',
+  //   joinedAt, matchedWith, room,
+  //   paradigm,                  // my judge-instructions note (≤240 chars)
+  //   skipUids,                  // peers I declined / who declined me (mutual, per session)
+  //   // status 'consent' adds (written by spar-pair, admin SDK):
+  //   paradigms: {uid: note},    // both notes, per uid
+  //   consents: {uid: bool},     // per-uid handshake; both true → matched
+  //   proposedAt, lastPassBy, lastPassAt,
+  //   // status 'matched' adds:
+  //   pairedParadigm,            // name-attributed agreed notes → /live-round ballot
   // }
   // Pairing strategy: real-time onSnapshot listener on the queue +
   // 2s polling fallback + transaction. The listener triggers an
@@ -1574,6 +1743,7 @@ h1 em{color:var(--accent);font-style:normal}
       displayName: shortName,
       photoURL: state.user.photoURL || '',
       format: formatParam,
+      paradigm: state.paradigm || '',
       status: 'waiting',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).then(function(){
@@ -1610,6 +1780,9 @@ h1 em{color:var(--accent);font-style:normal}
     state.queueUnsub = state.queueDocRef.onSnapshot(function(doc){
       if (!doc.exists) return;
       var d = doc.data();
+      // Mirror my mutual-skip list (declined consent proposals) so
+      // tryMatch stops POSTing at peers the server will refuse anyway.
+      state.skipUids = Array.isArray(d.skipUids) ? d.skipUids : [];
       if (d.status === 'matched' && d.room && d.matchedWith){
         teardownQueue();
         // The matched-state render is cosmetic; navigation into the
@@ -1629,9 +1802,25 @@ h1 em{color:var(--accent);font-style:normal}
           proUid: d.proUid || state.user.uid,
           conUid: d.conUid || d.matchedWith,
           room: d.room,
+          paradigm: d.pairedParadigm || '',
           source: 'spar',
         });
         setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, 900);
+      } else if (d.status === 'consent' && d.matchedWith){
+        // Two-phase match: someone's judge-paradigm note needs eyes
+        // before the round exists. spar-pair wrote the full proposal
+        // onto both docs; render the accept/pass card off mine.
+        try { renderConsentGate(d); }
+        catch (e) {
+          // A render error here would strand both users — bail out of
+          // the proposal instead so the queues unwind.
+          console.warn('[spar] renderConsentGate failed, passing', e);
+          sendConsent(d.matchedWith, false);
+        }
+      } else if (d.status === 'waiting' && state.inConsent){
+        // Proposal fell through (opponent passed, withdrew, or timed
+        // out) — server already reverted my doc; back to the hunt.
+        exitConsentToSearch(d);
       } else if (d.status === 'cancelled'){
         // Distinguish a system cancel from a user cancel. The pair
         // function's stale-peer skip and the reaper sweep both stamp a
@@ -1664,6 +1853,172 @@ h1 em{color:var(--accent);font-style:normal}
     return parts.length >= 2
       ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
       : (parts[0] || 'You');
+  }
+
+  // ── Consent gate ─────────────────────────────────────
+  // A judge-paradigm note never reaches the round without both
+  // debaters' eyes on it. When spar-pair lands a candidate pair where
+  // either side filed one, both docs sit in status 'consent' and this
+  // card renders. Accept POSTs phase 2; pass (or the auto-pass timer,
+  // or a dead peer) unwinds both docs back to 'waiting' with a mutual
+  // skip so the same pair isn't re-proposed.
+  var CONSENT_DECIDE_SEC = 20;   // reading + deciding window
+  var CONSENT_WAIT_SEC   = 45;   // waiting-on-peer safety net (dead-tab case)
+
+  // Stop the search machinery without dropping my own doc listener —
+  // subscribeMyDoc is what drives every consent transition. The
+  // AI-fallback countdown pauses too: a proposal on screen is not
+  // "nobody showed up."
+  function pauseSearchForConsent(){
+    if (state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
+    if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
+    if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} state.queueWatchUnsub = null; }
+    state.pairInFlight = false;
+  }
+
+  function clearConsentTimer(){
+    if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
+  }
+
+  // secs → auto-pass; pass showNum=false for the silent safety net on
+  // the waiting-on-peer view (a visible timer there reads as pressure
+  // on YOU when the wait is on THEM).
+  function startConsentCountdown(peerUid, secs, showNum){
+    clearConsentTimer();
+    var deadline = Date.now() + secs * 1000;
+    state.consentTimer = setInterval(function(){
+      var left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      if (showNum){
+        var el = document.getElementById('consentCountNum');
+        if (el) el.textContent = String(left);
+      }
+      if (left <= 0){
+        clearConsentTimer();
+        sendConsent(peerUid, false);
+      }
+    }, 250);
+  }
+
+  function renderConsentGate(d){
+    var me = state.user.uid;
+    var peerUid = d.matchedWith;
+    var paradigms = d.paradigms || {};
+    var consents = d.consents || {};
+    var myConsent = !!consents[me];
+    var peerConsent = !!consents[peerUid];
+    // Snapshot streams echo every write; only re-render (and reset the
+    // countdown) when the consent state actually moved.
+    var key = peerUid + '|' + (myConsent ? 1 : 0) + '|' + (peerConsent ? 1 : 0);
+    if (state.inConsent && state.consentKey === key) return;
+    var firstRender = !state.inConsent;
+    state.inConsent = true;
+    state.consentKey = key;
+    if (firstRender) pauseSearchForConsent();
+
+    var peerName = escHtml(d.matchedWithName || 'Your opponent');
+    var fmtLabel = escHtml(FORMAT_LABELS[d.pairedFormat] || String(d.pairedFormat || 'this').toUpperCase());
+    var theirNote = cleanParadigm(paradigms[peerUid]);
+    var myNote = cleanParadigm(paradigms[me]);
+
+    if (myConsent){
+      // My half of the handshake is in (their note was empty, or I
+      // already accepted). The wait is on them reading my note.
+      shell.innerHTML =
+        '<div class="consent-wrap">' +
+          '<div class="eyebrow"><span class="pip"></span>Match found · awaiting opponent</div>' +
+          '<h1>Waiting on <em>' + peerName + '.</em></h1>' +
+          '<p class="lede">They\'re reading your judge instructions. The round starts the moment they accept.</p>' +
+          (myNote ? '<div class="consent-note mine"><div class="consent-note-label">Your instructions to the judge</div>' + escHtml(myNote) + '</div>' : '') +
+          '<div class="btn-row"><button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button></div>' +
+        '</div>';
+      var wb = document.getElementById('consentPassBtn');
+      if (wb) wb.addEventListener('click', function(){
+        clearConsentTimer();
+        sendConsent(peerUid, false);
+      });
+      // Silent safety net: if their tab died mid-read, unwind instead
+      // of waiting forever. A live peer's own 20s timer fires first.
+      startConsentCountdown(peerUid, CONSENT_WAIT_SEC, false);
+      return;
+    }
+
+    var noteBlocks = '';
+    if (theirNote){
+      noteBlocks += '<div class="consent-note"><div class="consent-note-label">' + peerName + '\'s instructions to the judge</div>' + escHtml(theirNote) + '</div>';
+    }
+    if (myNote){
+      noteBlocks += '<div class="consent-note mine"><div class="consent-note-label">Yours · they\'re accepting this too</div>' + escHtml(myNote) + '</div>';
+    }
+    shell.innerHTML =
+      '<div class="consent-wrap">' +
+        '<div class="eyebrow"><span class="pip"></span>Match found · needs your OK</div>' +
+        '<h1>' + peerName + ' proposes a <em>' + fmtLabel + '</em> round.</h1>' +
+        '<p class="lede">The judge applies the instructions below on top of the standard ballot method. Accept to start, pass to keep searching.</p>' +
+        noteBlocks +
+        '<div class="btn-row">' +
+          '<button class="btn primary" id="consentAcceptBtn">Accept &amp; start</button>' +
+          '<button class="btn ghost" id="consentDeclineBtn">Pass</button>' +
+        '</div>' +
+        '<div class="countdown">Auto-pass in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
+      '</div>';
+    document.getElementById('consentAcceptBtn').addEventListener('click', function(){
+      this.disabled = true;
+      this.textContent = 'Locking in…';
+      var dec = document.getElementById('consentDeclineBtn');
+      if (dec) dec.disabled = true;
+      clearConsentTimer();
+      sendConsent(peerUid, true);
+    });
+    document.getElementById('consentDeclineBtn').addEventListener('click', function(){
+      clearConsentTimer();
+      sendConsent(peerUid, false);
+    });
+    startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true);
+  }
+
+  function sendConsent(peerUid, accept){
+    if (!firebaseAuth || !firebaseAuth.currentUser) return;
+    try { gtag('event', accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam }); } catch(e){}
+    firebaseAuth.currentUser.getIdToken().then(function(idToken){
+      return fetch('/.netlify/functions/spar-pair', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + idToken,
+        },
+        body: JSON.stringify({ action: 'consent', accept: !!accept, peerUid: peerUid }),
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return {}; });
+    }).then(function(j){
+      // Doc snapshots drive every UI transition. The one case with
+      // nothing to wait on: the proposal evaporated under us — my own
+      // snapshot already moved me (or is about to).
+      if (j && j.ok === false && j.reason === 'consent_state_gone'){
+        console.info('[spar] consent state gone before my ' + (accept ? 'accept' : 'pass'));
+      }
+    }).catch(function(err){
+      // Leave the card up — the auto-pass timer (mine or the peer's)
+      // unwinds the proposal even if this POST never lands.
+      console.warn('[spar] consent POST failed', err);
+    });
+  }
+
+  function exitConsentToSearch(d){
+    state.inConsent = false;
+    state.consentKey = '';
+    clearConsentTimer();
+    // Server refreshed joinedAt on the revert — restart the local
+    // clocks to match so the AI fallback gets a fresh 60s.
+    state.joinedAtMs = Date.now();
+    renderSearching();
+    startMatchPolling();
+    if (d && d.lastPassBy){
+      var stats = document.getElementById('queueStats');
+      if (stats){
+        stats.innerHTML = '<div style="margin-top:14px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-dim);font-size:.78rem;font-weight:600">' + escHtml(d.lastPassBy) + ' passed on the proposal. Still searching.</div>';
+      }
+    }
   }
 
   // Real-time queue watcher + polling fallback. The snapshot listener
@@ -1724,6 +2079,12 @@ h1 em{color:var(--accent);font-style:normal}
         snap.docs.forEach(function(d){
           if (d.id === state.user.uid) return;
           if (seen[d.id]) return;
+          // Mutual-skip filter (declined consent proposals): the server
+          // would refuse the pair anyway; don't waste the POST or stall
+          // the poll loop on it.
+          if (state.skipUids && state.skipUids.indexOf(d.id) >= 0) return;
+          var dd = d.data();
+          if (Array.isArray(dd.skipUids) && dd.skipUids.indexOf(state.user.uid) >= 0) return;
           seen[d.id] = true;
           others.push(d);
         });
@@ -1806,7 +2167,8 @@ h1 em{color:var(--accent);font-style:normal}
       if (!r.ok || !r.body || !r.body.ok) {
         var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
         var soft = (reason === 'lost_race' || reason === 'format_mismatch'
-                 || reason === 'queue_doc_missing' || reason === 'stale_peer');
+                 || reason === 'queue_doc_missing' || reason === 'stale_peer'
+                 || reason === 'skipped_peer');
         // Soft fails are recoverable — keep polling. Surface them in
         // the diag line so the user can see retries happening instead
         // of staring at a silent countdown. Hard fails still get the
@@ -1821,6 +2183,14 @@ h1 em{color:var(--accent);font-style:normal}
         return;
       }
       clearPairError();
+      if (r.body.pending === 'consent'){
+        // Not a match yet — a judge-note proposal both sides now have
+        // to sign off on. My own doc snapshot renders the consent
+        // card; spar_consent_accept/pass instrument the outcome.
+        updateDiag({ last: 'consent' });
+        try { gtag('event', 'spar_consent_proposed', { format: formatParam }); } catch(e){}
+        return;
+      }
       updateDiag({ last: 'matched' });
       try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
       // The snapshot listener on my own doc will fire (the function
@@ -1912,6 +2282,9 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   function teardownQueue(){
+    if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
+    state.inConsent = false;
+    state.consentKey = '';
     if (state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
