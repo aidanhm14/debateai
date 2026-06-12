@@ -255,14 +255,14 @@ button{font-family:inherit}
 
 /* ─── Hero ─────────────────────────────────────────── */
 .hero{
-  max-width:1100px;margin:0 auto;padding:56px 24px 28px;text-align:center;
+  max-width:1100px;margin:0 auto;padding:28px 24px 14px;text-align:center;
 }
 /* Quiet text eyebrow. The loud red pill made the page read busy
    before the user had a chance to read the headline. */
 .hero-eyebrow{
   display:inline-flex;align-items:center;gap:8px;
   font-size:.66rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--text-dim);margin-bottom:14px;
+  color:var(--text-dim);margin-bottom:8px;
 }
 .hero-eyebrow .live-dot{
   width:6px;height:6px;border-radius:50%;background:var(--accent);
@@ -271,14 +271,14 @@ button{font-family:inherit}
 @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 .hero h1{
   font-family:'Fraunces','Inter',serif;
-  font-size:clamp(2rem,4.6vw,3rem);
-  font-weight:500;line-height:1.02;letter-spacing:-.022em;
-  margin-bottom:12px;
+  font-size:clamp(1.5rem,3vw,2.1rem);
+  font-weight:500;line-height:1.05;letter-spacing:-.022em;
+  margin-bottom:8px;
 }
 .hero h1 em{color:var(--accent);font-style:italic;font-weight:500}
 .hero-sub{
-  font-size:clamp(.98rem,1.3vw,1.08rem);
-  color:var(--text-dim);max-width:560px;margin:0 auto 22px;line-height:1.5;
+  font-size:clamp(.9rem,1.2vw,1rem);
+  color:var(--text-dim);max-width:560px;margin:0 auto 14px;line-height:1.5;
 }
 .hero-cta-row{
   display:flex;gap:18px;justify-content:center;align-items:center;flex-wrap:wrap;
@@ -297,17 +297,14 @@ button{font-family:inherit}
 
 /* Missed-match callout under the hero CTA row. Honest data pulled
    from /api/log-missed-match — hidden by default, revealed only when
-   the count earns it. Quiet card, not a banner. */
+   the count earns it. One quiet line of muted text, no card chrome. */
 .hero-missed{
-  margin-top:14px;
-  display:inline-block;
-  font-size:.86rem;line-height:1.5;
+  margin-top:10px;
+  display:block;
+  font-size:.78rem;line-height:1.5;
   color:var(--text-dim);
-  padding:10px 16px;
-  background:var(--bg-card);
-  border:1px solid var(--border);
-  border-radius:10px;
-  max-width:560px;text-align:left;
+  padding:0;background:transparent;border:none;
+  max-width:560px;margin-left:auto;margin-right:auto;text-align:center;
 }
 .hero-missed strong{color:var(--text);font-variant-numeric:tabular-nums;font-weight:700}
 .hero-missed a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(239,68,68,.32);padding-bottom:1px;font-weight:600;margin-left:2px}
@@ -316,9 +313,12 @@ button{font-family:inherit}
 
 /* ─── Layout ───────────────────────────────────────── */
 .wrap{max-width:1100px;margin:0 auto;padding:0 24px 80px}
+/* Single content column: the feed + "Your next debate" panel get the
+   full width. The composer aside flows below the feed (it renders
+   nothing while collapsed). */
 .layout{
   display:grid;
-  grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
+  grid-template-columns:minmax(0,1fr);
   gap:36px;
   margin-top:8px;
 }
@@ -396,7 +396,7 @@ button{font-family:inherit}
 .btn-ghost{padding:6px 12px;font-size:.7rem}
 
 .empty{
-  padding:36px 22px;text-align:center;
+  padding:24px 20px;text-align:center;
   background:var(--bg-card);border:1px dashed var(--border);
   border-radius:var(--radius-md);
   color:var(--text-dim);font-size:.88rem;line-height:1.55;
@@ -418,7 +418,7 @@ button{font-family:inherit}
 
 /* ─── Post form ────────────────────────────────────── */
 .aside{
-  position:sticky;top:80px;align-self:start;
+  position:static;align-self:start;max-width:560px;
 }
 /* Collapsed state: show only the trigger button. The form's 7 fields
    stay out of sight until the user signals intent to post. */
@@ -1320,16 +1320,25 @@ button{font-family:inherit}
 .snav-div{display:none}
 .snav-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 6px rgba(34,197,94,.6)}
 @media(min-width:1000px){
-  body{padding-left:218px}
-  .side-nav{
-    position:fixed;left:14px;top:86px;bottom:auto;width:188px;
-    flex-direction:column;align-items:stretch;gap:3px;
-    margin:0;padding:14px 10px;border:1px solid var(--border);
-    border-bottom:1px solid var(--border);border-radius:16px;
-    background:var(--bg-card);overflow:visible;z-index:40;
-    box-shadow:0 10px 34px rgba(0,0,0,.22);
+  /* Two-column shell: sticky sidebar + content column. .page-cols
+     shares the same 1100px/24px gutter as the hero above it, so the
+     sidebar's left edge lines up with the page content and its top
+     aligns with the start of the board (not the hero). */
+  .page-cols{
+    display:flex;align-items:flex-start;gap:32px;
+    max-width:1100px;margin:0 auto;padding:0 24px;
   }
-  [data-theme="light"] .side-nav{box-shadow:0 6px 22px rgba(0,0,0,.07)}
+  .page-main{flex:1;min-width:0}
+  .page-main .wrap{max-width:none;padding-left:0;padding-right:0}
+  .page-main .how-wrap{max-width:none;padding-left:0;padding-right:0}
+  .side-nav{
+    position:sticky;top:76px;width:188px;flex-shrink:0;
+    flex-direction:column;align-items:stretch;gap:3px;
+    margin:0;padding:12px 10px;border:1px solid var(--border);
+    border-bottom:1px solid var(--border);border-radius:14px;
+    background:transparent;overflow:visible;z-index:40;
+    box-shadow:none;
+  }
   .snav-item{border-radius:10px;justify-content:flex-start;font-size:.8rem;padding:9px 12px}
   .snav-item .tab-badge{margin-left:auto}
   .snav-div{display:block;height:1px;background:var(--border);margin:8px 4px}
@@ -1337,7 +1346,7 @@ button{font-family:inherit}
 
 /* ─── "Your next debate" command center ────────────── */
 .next-debate{
-  margin:0 0 22px;padding:20px 22px;
+  margin:0 0 18px;padding:14px 18px;
   background:var(--bg-card);border:1px solid var(--border-strong);
   border-radius:16px;position:relative;
 }
@@ -1556,10 +1565,11 @@ button{font-family:inherit}
        /api/log-missed-match reads >=3. Pitches the schedule as the
        fix for the timing-roulette problem the random matchmaker has. -->
   <div class="hero-missed" id="heroMissed" hidden>
-    <strong id="heroMissedNum">0</strong> debaters missed a partner on the random matchmaker this week. Scheduling beats luck. <a href="#postForm">Schedule a debate →</a>
+    <strong id="heroMissedNum">0</strong> debaters missed a partner this week. <a href="#postForm">Schedule a debate →</a>
   </div>
 </section>
 
+<div class="page-cols">
 <nav class="side-nav" id="sideNav" aria-label="Debate navigation">
   <button class="snav-item active" data-nav="upcoming" data-tab="browse" type="button">Upcoming <span class="tab-badge" id="tabBadgeBrowse" hidden>0</span></button>
   <button class="snav-item" data-nav="live" data-tab="browse" type="button"><span class="snav-dot" aria-hidden="true"></span>Live Now <span class="tab-badge" id="navBadgeLive" hidden>0</span></button>
@@ -1572,6 +1582,8 @@ button{font-family:inherit}
   <button class="snav-item" data-nav="mine" data-tab="mine" type="button">My Debates <span class="tab-badge" id="tabBadgeMine" hidden>0</span></button>
   <button class="snav-item" data-nav="profile" data-tab="manage" type="button">Profile</button>
 </nav>
+
+<div class="page-main">
 
 <div id="browseView" class="wrap">
   <div class="layout">
@@ -1630,17 +1642,12 @@ button{font-family:inherit}
 
     </div>
 
-    <!-- RIGHT: Post a challenge. Collapsed by default so the page reads
-         as "browse a board" instead of "fill out a 7-field form." The
-         hero CTA + the trigger button below both expand it. -->
+    <!-- Composer. Collapsed (hidden) by default so the page reads as
+         "browse a board" instead of "fill out a 7-field form." The
+         hero CTA, sidebar item, and empty state all expand it. The old
+         standalone trigger card was cut; it was the fourth "Schedule a
+         debate" CTA on the first screen. -->
     <aside class="aside aside--collapsed" id="postAside">
-      <button type="button" id="postTrigger" class="post-trigger" aria-expanded="false" aria-controls="postForm">
-        <span class="post-trigger-plus" aria-hidden="true">+</span>
-        <span class="post-trigger-copy">
-          <strong>Schedule a debate</strong>
-          <em>Motion, format, date and time</em>
-        </span>
-      </button>
       <form id="postForm" class="post-form">
         <h3>Schedule a debate</h3>
         <div class="step-head"><span class="step-num">1</span><strong>1 · Motion</strong></div>
@@ -2040,6 +2047,9 @@ button{font-family:inherit}
     </div>
   </div>
 </div>
+
+</div><!-- /.page-main -->
+</div><!-- /.page-cols -->
 
 <footer class="footer">
   <div><span style="color:var(--accent)">DebateIt</span><sup style="font-size:.55em;opacity:.6;margin-left:2px">&trade;</sup> · <a href="/">Home</a> · <a href="/debate-it">Spar with AI</a> · <a href="/pricing">Pricing</a></div>
