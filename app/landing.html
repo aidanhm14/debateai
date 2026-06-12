@@ -4737,12 +4737,14 @@ section.hero .hero-illustrated h1.hi-headline{
    room: smaller, tilted toward it, never glowing. Meters sweep on
    slow offsets so the panel reads as alive, not loading. */
 .hero-illustrated .hi-judge{
-  position:absolute;top:12%;bottom:14%;right:3%;width:27.5%;
-  display:flex;flex-direction:column;gap:9px;
+  /* Content-sized and centered on the old band — the flow strip +
+     scored meters need more height than the fixed 12%/14% box gave. */
+  position:absolute;top:6%;right:3%;width:27.5%;
+  display:flex;flex-direction:column;gap:6px;
   background:var(--hi-card-bg);
   border:1px solid var(--hi-card-line);
   border-radius:14px;
-  padding:clamp(10px,1.4vw,18px);
+  padding:clamp(8px,1.1vw,14px);
   box-shadow:0 18px 44px var(--hi-card-shadow);
   transform:translate3d(calc(var(--mx)*8px), calc(var(--my)*6px), 0) rotateY(-7deg) translateZ(-60px);
   transition:transform .38s cubic-bezier(.2,.6,.3,1);
@@ -4763,8 +4765,8 @@ section.hero .hero-illustrated h1.hi-headline{
 }
 .hero-illustrated .hi-meter{display:flex;align-items:center;gap:8px}
 .hero-illustrated .hi-meter label{
-  font-size:.62rem;font-weight:500;color:var(--hi-ink-soft);
-  width:45%;flex:none;letter-spacing:.01em;
+  font-size:.58rem;font-weight:500;color:var(--hi-ink-soft);
+  width:34%;flex:none;letter-spacing:.01em;white-space:nowrap;
 }
 .hero-illustrated .hi-bar{
   flex:1;height:4px;border-radius:99px;overflow:hidden;
@@ -4783,10 +4785,47 @@ section.hero .hero-illustrated h1.hi-headline{
 @keyframes hiBarB{0%,100%{transform:scaleX(.58)}38%{transform:scaleX(.49)}70%{transform:scaleX(.69)}}
 @keyframes hiBarC{0%,100%{transform:scaleX(.8)}50%{transform:scaleX(.7)}80%{transform:scaleX(.87)}}
 @keyframes hiBarD{0%,100%{transform:scaleX(.64)}42%{transform:scaleX(.75)}68%{transform:scaleX(.57)}}
-.hero-illustrated .hi-judge-note{
-  margin:auto 0 0;padding-top:8px;
+.hero-illustrated .hi-meter-val{
+  flex:none;min-width:24px;text-align:right;
+  font-size:.6rem;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--hi-chip-ink);opacity:.85;
+}
+.hero-illustrated .hi-meter-val small{
+  font-size:.46rem;font-weight:500;margin-left:1px;
+  color:var(--hi-ink-soft);
+}
+/* The flow strip — tracked arguments with their round status. */
+.hero-illustrated .hi-flow{
+  list-style:none;margin:1px 0 0;padding:5px 0 0;
   border-top:1px solid var(--hi-card-line);
-  font-size:.66rem;line-height:1.4;color:var(--hi-ink-soft);
+  display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden;
+}
+.hero-illustrated .hi-flow li{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.hero-illustrated .hi-flow-arg{
+  font-size:.6rem;font-weight:500;color:var(--hi-ink-soft);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.hero-illustrated .hi-flow-tag{
+  flex:none;padding:1px 7px;border-radius:99px;
+  font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--hi-ink-soft);background:var(--hi-meter-track);
+}
+.hero-illustrated .hi-flow-tag.is-live{
+  color:var(--hi-red);background:transparent;
+  border:1px solid var(--hi-red);opacity:.85;
+}
+.hero-illustrated .hi-flow-tag.is-drop{
+  color:var(--hi-red);background:var(--hi-meter-track);opacity:.8;
+}
+.hero-illustrated .hi-judge-note span{
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.hero-illustrated .hi-judge-note{
+  margin:auto 0 0;padding-top:6px;
+  border-top:1px solid var(--hi-card-line);
+  font-size:.6rem;line-height:1.4;color:var(--hi-ink-soft);
   font-style:italic;
   transition:opacity .4s ease;
 }
@@ -4852,6 +4891,14 @@ section.hero .hero-illustrated h1.hi-headline{
 .hero-illustrated .hi-room-motion b{
   font-weight:700;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;
   color:var(--hi-red);margin-right:7px;
+}
+.hero-illustrated .hi-room-speech{
+  margin:0;padding:4px 16px 0;
+  font-size:.6rem;font-weight:500;letter-spacing:.02em;
+  color:var(--hi-ink-soft);opacity:.85;
+}
+.hero-illustrated .hi-room-speech b{
+  font-weight:700;color:var(--hi-chip-ink);
 }
 .hero-illustrated .hi-room-seats{
   flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;
@@ -5131,6 +5178,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .hero-illustrated .hi-stage{aspect-ratio:1100 / 470}
   .hero-illustrated .hi-room{left:8%;right:35%}
   .hero-illustrated .hi-judge{right:1.5%;width:31%}
+  /* Mid widths can't hold the full judge stack — the flow strip is
+     the depth cue for big screens; meters + note carry it here. */
+  .hero-illustrated .hi-flow{display:none}
 }
 @media(max-width:640px){
   .hero-illustrated .hi-headline{font-size:clamp(2rem, 9vw, 2.6rem) !important}
@@ -6437,12 +6487,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <!-- L3 · the judge, working. Professional assistant, not a
                robot: four live meters and a flowing note. -->
           <aside class="hi-judge">
-            <header class="hi-judge-head"><span class="hi-judge-dot"></span>AI judge<em>listening</em></header>
-            <div class="hi-meter"><label>Clash analysis</label><span class="hi-bar"><i class="hi-bar-1"></i></span></div>
-            <div class="hi-meter"><label>Evidence quality</label><span class="hi-bar"><i class="hi-bar-2"></i></span></div>
-            <div class="hi-meter"><label>Reasoning</label><span class="hi-bar"><i class="hi-bar-3"></i></span></div>
-            <div class="hi-meter"><label>Speaking pace</label><span class="hi-bar"><i class="hi-bar-4"></i></span></div>
-            <p class="hi-judge-note"><b>Live notes</b><span id="hiJudgeNote">Opp owes an answer on access.</span></p>
+            <header class="hi-judge-head"><span class="hi-judge-dot"></span>AI judge<em>flowing</em></header>
+            <div class="hi-meter"><label>Clash</label><span class="hi-bar"><i class="hi-bar-1"></i></span><b class="hi-meter-val">7.8</b></div>
+            <div class="hi-meter"><label>Warrants</label><span class="hi-bar"><i class="hi-bar-2"></i></span><b class="hi-meter-val">6.9</b></div>
+            <div class="hi-meter"><label>Weighing</label><span class="hi-bar"><i class="hi-bar-3"></i></span><b class="hi-meter-val">8.2</b></div>
+            <div class="hi-meter"><label>Pace</label><span class="hi-bar"><i class="hi-bar-4"></i></span><b class="hi-meter-val">172<small>wpm</small></b></div>
+            <!-- The flow: tracked arguments with their current status,
+                 the way a judge actually keeps a round. -->
+            <ul class="hi-flow">
+              <li><span class="hi-flow-arg">AI access gap</span><b class="hi-flow-tag is-live">in clash</b></li>
+              <li><span class="hi-flow-arg">Teacher shortage</span><b class="hi-flow-tag is-drop">dropped</b></li>
+              <li><span class="hi-flow-arg">Privacy turn</span><b class="hi-flow-tag">weighed</b></li>
+            </ul>
+            <p class="hi-judge-note"><b>Live notes</b><span id="hiJudgeNote">Opp owes an answer on the access gap. two speeches left to fix it.</span></p>
           </aside>
 
           <!-- L4·5 · the room itself: motion, clock, two seats. -->
@@ -6454,6 +6511,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <span class="hi-room-timer" id="hiRoomTimer">7:42</span>
             </header>
             <p class="hi-room-motion"><b>Motion</b>This House would regulate AI tutors.</p>
+            <p class="hi-room-speech"><b>Speech 3 of 4</b> · Rebuttal · POIs open until 1:00</p>
             <div class="hi-room-seats">
               <figure class="hi-seat hi-seat-you">
                 <span class="hi-ava">
@@ -6546,10 +6604,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           var noteEl  = document.getElementById('hiJudgeNote');
           var noteWrap = noteEl ? noteEl.parentNode : null;
           var NOTES = [
-            'Opp owes an answer on access.',
-            'Definition of tutor is doing the heavy lifting.',
-            'Prop\'s harm claim is still standing.',
-            'Weighing needs a timeframe.'
+            'Opp owes an answer on the access gap. two speeches left to fix it.',
+            'The "tutor" definition is carrying Prop\'s case. push it and the model thins.',
+            'Teacher-shortage harm went unanswered last speech. extending it cleanly wins the clash.',
+            'Both sides claim access. the round needs a timeframe to split them.',
+            'Privacy turn landed but nobody weighed it against learning outcomes yet.'
           ];
           var secs = 462, watch = 124, noteIdx = 0, timers = [];
           function tickClock(){
