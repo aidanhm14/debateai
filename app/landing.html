@@ -4664,6 +4664,18 @@ section.hero .hero-illustrated h1.hi-headline{
   max-width:540px;
   font-weight:400;
 }
+/* Quiet live-stat strip under the subhead: real sign-up count + this
+   week's live-round searches. Numbers carry the hero red; the rest
+   stays soft ink so it reads as proof, not a shout. */
+.hero-illustrated .hi-proof-note{
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-size:.85rem;
+  line-height:1.5;
+  color:var(--hi-ink-soft);
+  margin:9px auto 0;
+  max-width:720px;
+}
+.hero-illustrated .hi-proof-note .hi-proof-num{color:#c83232;font-weight:800}
 
 /* ── LIVE DEBATE ROOM STAGE (2026-06-12) ──────────────────────────
    The metaphor era is over: the stage now shows the product itself.
@@ -6387,6 +6399,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="hi-subhead">
           <strong class="hi-live-em">Debate real people live</strong>, or practice against the AI. Pick where to start.
         </p>
+        <!-- Honest proof strip (2026-06-12). Both numbers hydrate from
+             /api/public-join-history via the IIFE next to the (hidden)
+             editorial-hero bookmark note; the static "78" fallback
+             matches the live Firebase Auth count so a failed fetch
+             never overclaims. The weekly clause renders ONLY from live
+             data — no static fallback, hidden at zero, so it can't go
+             stale. NOTE: this is the LIVE hero arm; the editorial-hero
+             bookmark note carrying the same numbers is display:none. -->
+        <p class="hi-proof-note" aria-live="polite">
+          <span class="hi-proof-num" id="hiStatGoogle">78</span> debaters signed in with Google so far<span id="hiStatSparWeek" hidden></span>
+        </p>
       </div>
 
       <!-- 2026-06-01: big "where to go" buttons, ABOVE the illustration so
@@ -7161,6 +7184,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 wk.innerHTML = '<span class="hero-bookmark-count">' + w.toLocaleString() + '</span> ' +
                   (w === 1 ? 'search' : 'searches') + ' for a live round this week.';
                 wk.hidden = false;
+              }
+              // Same numbers on the LIVE illustrated-hero proof strip
+              // (the elements above live in the hidden editorial arm).
+              var g2 = document.getElementById('hiStatGoogle');
+              if (g2 && n) g2.textContent = n.toLocaleString();
+              var wk2 = document.getElementById('hiStatSparWeek');
+              if (wk2 && w > 0) {
+                wk2.innerHTML = ' · <span class="hi-proof-num">' + w.toLocaleString() + '</span> ' +
+                  (w === 1 ? 'search' : 'searches') + ' for a live round this week';
+                wk2.hidden = false;
               }
             })
             .catch(function(){ /* keep fallback */ });
