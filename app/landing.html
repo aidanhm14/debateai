@@ -2741,9 +2741,9 @@ section.hero{
    "still building" line in the hero pill rail. Same flex-basis:100%
    trick to break to its own row. Counter (.hero-bookmark-count) gets
    the brand red; <kbd> shortcuts get a quiet keycap chip so power
-   users see the macOS / Windows hotkeys without it shouting. Update
-   the count in the markup as the signed-in member roll-up grows;
-   no live wiring needed for now. */
+   users see the macOS / Windows hotkeys without it shouting. Both
+   counts hydrate live from /api/public-join-history; the markup
+   number is only the fetch-failure fallback. */
 /* 2026-05-26 rev5: real-time online count line. Sits between the
    "still building" note and the cumulative "N signed in" line so
    the live + cumulative numbers read together. Green pulsing dot
@@ -7026,7 +7026,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <strong id="heroOnlineCount">1</strong> online in the last 5 minutes
       </p>
       <p class="hero-bookmark-note">
-        <span class="hero-bookmark-count" id="heroBookmarkCount">76</span> debaters signed in with Google so far. Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
+        <span class="hero-bookmark-count" id="heroBookmarkCount">140</span> debaters signed in with Google so far. <span id="heroSparWeekNote" hidden></span> Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
       </p>
       <!-- Founding-cohort CTA. Reveals to signed-out visitors only;
            body.signed-in hides it via CSS. Click delegates to the
@@ -7097,9 +7097,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         // Live Google sign-in count for #heroBookmarkCount. Pulls
         // /api/public-join-history (1h-cached server-side, no PII,
         // returns totals.google = Auth-listed Google sign-ins). The
-        // hardcoded "76" in markup is the fallback if the fetch fails
+        // hardcoded "140" in markup is the fallback if the fetch fails
         // or hasn't returned by render — never shows nothing. Updates
         // in-place with a small comma format for >999.
+        //
+        // Same response carries totals.liveSearchesWeek (spar queue
+        // joins + background-Available flips in the last 7 days, from
+        // the events log). That clause has NO static fallback — a
+        // hardcoded weekly number rots into a lie within a week, so
+        // #heroSparWeekNote stays hidden until live data arrives and
+        // stays hidden at zero.
         (function(){
           var el = document.getElementById('heroBookmarkCount');
           if (!el) return;
@@ -7108,8 +7115,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             .then(function(j){
               if (!j || !j.totals) return;
               var n = Math.max(0, parseInt(j.totals.google, 10) || 0);
-              if (!n) return; // keep fallback if zero
-              el.textContent = n.toLocaleString();
+              if (n) el.textContent = n.toLocaleString();
+              var wk = document.getElementById('heroSparWeekNote');
+              var w = Math.max(0, parseInt(j.totals.liveSearchesWeek, 10) || 0);
+              if (wk && w > 0) {
+                wk.innerHTML = '<span class="hero-bookmark-count">' + w.toLocaleString() + '</span> ' +
+                  (w === 1 ? 'search' : 'searches') + ' for a live round this week.';
+                wk.hidden = false;
+              }
             })
             .catch(function(){ /* keep fallback */ });
         })();

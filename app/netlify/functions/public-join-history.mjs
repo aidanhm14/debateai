@@ -20,7 +20,7 @@
 //   {
 //     since: 'YYYY-MM-DD',          // earliest tracked day, or null
 //     now:   'YYYY-MM-DD',
-//     totals: { visits, members, google },
+//     totals: { visits, members, google, liveSearchesWeek },
 //     milestones: [
 //       { kind: 'visitor' | 'member', n: 1|10|100|..., date: 'YYYY-MM-DD' }
 //     ]
@@ -70,7 +70,7 @@ function emptyPayload(error){
   const out = {
     since: null,
     now: ymd(new Date()),
-    totals: { visits: 0, members: 0, google: 0 },
+    totals: { visits: 0, members: 0, google: 0, liveSearchesWeek: 0 },
     milestones: [],
   };
   if (error) out.error = String(error).slice(0, 400);
@@ -125,6 +125,36 @@ export default async (request) => {
   } catch (err) {
     console.warn('public-join-history daily-visit read failed:', err.message);
     // visit data stays empty; members section still runs.
+  }
+
+  // ── 1.5 Live-round searches this week ─────────────────────────
+  // Source: the `events` collection, not matchmaking_queue. Queue docs
+  // can't serve this number honestly — clients delete their own doc on
+  // clean exits (toggle-off, pagehide, leaving the search), so only
+  // ghosts and currently-active docs would remain. The gtag → track
+  // bridge in js/track.js mirrors every gtag event into `events` as
+  // app_event with the original name under metadata.name; spar.html
+  // fires 'spar_queue_join' on every foreground queue join and
+  // js/notifications.js fires 'spar_bg_on' when a user flips the
+  // background Available pill. Counting both = "times someone went
+  // looking for a live round this week."
+  //
+  // Composite index required: events (metadata.name ASC, createdAt ASC)
+  // — declared in app/firestore.indexes.json. count() aggregation = 1
+  // read, cached 1h with the rest of this payload. Failure (index still
+  // building, quota) degrades to 0 and the landing hides the clause
+  // rather than rendering a lie.
+  let liveSearchesWeek = 0;
+  try {
+    const weekCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const agg = await db.collection('events')
+      .where('metadata.name', 'in', ['spar_queue_join', 'spar_bg_on'])
+      .where('createdAt', '>=', weekCutoff)
+      .count()
+      .get();
+    liveSearchesWeek = (agg.data() && agg.data().count) || 0;
+  } catch (err) {
+    console.warn('public-join-history live-search count failed:', err.message);
   }
 
   try {
@@ -237,7 +267,7 @@ export default async (request) => {
     const payload = {
       since,
       now: ymd(new Date()),
-      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers },
+      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek },
       memberSource,
       milestones,
     };
