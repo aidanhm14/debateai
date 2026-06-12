@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Spar · Debate it live with another debater · DebateIt</title>
-<meta name="description" content="Match into a live debate with another human in 30 seconds, or post to the waitlist and DM another debater in the global DebateIt community to organize a round. If nobody pairs in 60 seconds, an AI opponent steps in. An AI judge writes the verdict at the end." />
+<meta name="description" content="Match into a live debate with another human in 30 seconds, or post to the waitlist and DM another debater in the global DebateIt community to organize a round. If nobody pairs in 4 minutes, an AI opponent steps in. An AI judge writes the verdict at the end." />
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -693,6 +693,88 @@ h1 em{color:var(--accent);font-style:normal}
   background:#fff; color:var(--accent); font-size:.62rem; font-weight:800;
 }
 
+/* ── While-you-wait rail (right side, searching state only) ──
+   Counterpart to the left waitlist rail: things to DO during the
+   4-minute human-match window, plus the "your spot follows you"
+   reassurance. Desktop-only — below 1280px the lede + status copy
+   carry the same message and the organized-pivot links remain. */
+.wait-rail{
+  position:fixed; top:90px; right:24px; bottom:24px;
+  width:300px; max-width:calc(100vw - 48px);
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  display:none; flex-direction:column;
+  overflow:hidden;
+  z-index:30;
+  box-shadow:var(--shadow-lg);
+}
+@media (min-width: 1281px){ .wait-rail{ display:flex } }
+.wait-rail__head{
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  font-weight:800; font-size:.78rem;
+  letter-spacing:.07em; text-transform:uppercase;
+  display:flex; align-items:center; gap:8px;
+}
+.wait-rail__head .live-dot{
+  width:7px; height:7px; border-radius:50%;
+  background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,.7);
+}
+.wait-rail__body{
+  padding:14px 16px;
+  display:flex; flex-direction:column; gap:12px;
+  overflow-y:auto;
+}
+.wait-rail__note{
+  background:rgba(34,197,94,.07);
+  border:1px solid rgba(34,197,94,.3);
+  border-radius:12px; padding:11px 13px;
+  font-size:.74rem; line-height:1.55; color:var(--text-dim);
+}
+.wait-rail__note strong{ color:#4ade80; font-weight:700 }
+.wait-rail__card{
+  border:1px solid var(--border);
+  border-radius:12px; padding:11px 13px;
+}
+.wait-rail__label{
+  font-size:.64rem; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--text-ghost);
+  margin-bottom:7px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.wait-rail__shuffle{
+  background:none; border:none; cursor:pointer;
+  color:var(--accent); font:inherit; font-size:.64rem;
+  font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  padding:0;
+}
+.wait-rail__motion{
+  font-size:.8rem; font-weight:600; line-height:1.45;
+  color:var(--text); margin-bottom:9px;
+}
+.wait-rail__pad{
+  width:100%; min-height:96px; resize:vertical;
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:8px; padding:8px 10px;
+  font:inherit; font-size:.76rem; line-height:1.5; color:var(--text);
+}
+.wait-rail__pad:focus{ outline:none; border-color:var(--accent) }
+.wait-rail__links{ display:flex; flex-direction:column; gap:6px }
+.wait-rail__link{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:9px 12px;
+  border:1px solid var(--border); border-radius:10px;
+  font-size:.76rem; font-weight:600;
+  color:var(--text); text-decoration:none;
+  transition:border-color .15s ease, background .15s ease;
+}
+.wait-rail__link:hover{ border-color:var(--accent); background:rgba(239,68,68,.05) }
+.wait-rail__link .spot-tag{
+  font-size:.58rem; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:#4ade80; white-space:nowrap;
+}
+
 /* Mobile: rail slides off-screen, FAB toggles it. */
 @media (max-width: 1100px){
   .waitlist-rail{
@@ -970,6 +1052,7 @@ h1 em{color:var(--accent);font-style:normal}
     pairInFlight: false,           // gate on the spar-pair POST so polling doesn't fan out duplicates
     joinedAtMs: 0,
     countdownInterval: null,
+    heartbeatInterval: null,
     matchPollInterval: null,
     waitingPeers: 0,
     cancelled: false,
@@ -982,11 +1065,21 @@ h1 em{color:var(--accent);font-style:normal}
     consentTimer: null,            // auto-pass countdown interval
   };
 
-  // 60-second timer until AI fallback. After this, we mark the user's
+  // Timer until AI fallback. After this, we mark the user's
   // queue doc as 'matched_ai' and bounce them to /debate-it with the
   // motion preserved. This is the load-bearing decision: a debate
   // engine where AI is the FALLBACK, not the headline.
-  var AI_FALLBACK_SEC = 60;
+  // 2026-06-12: 60s → 4 min per Aidan — give humans a real window
+  // before AI takes the round. Two things make the longer window
+  // safe: (1) the queue doc now heartbeats every 90s (see
+  // startQueueHeartbeat) so spar-pair's 3-min STALE_PEER_MS skip
+  // can't cull a live waiter mid-countdown, and (2) searching now
+  // doubles as sitewide background availability, so the user isn't
+  // trapped staring at this page for 4 minutes.
+  var AI_FALLBACK_SEC = 240;
+  // Re-stamp cadence for the searching queue doc. Mirrors
+  // HEARTBEAT_MS in js/notifications.js sparLive().
+  var QUEUE_HEARTBEAT_MS = 90 * 1000;
   // After 45s with no match, surface a 'broaden formats' toggle so
   // users in thin-pair queues (Worlds, Asian Parli) can match across
   // formats instead of timing out into AI. Click → flip my queue
@@ -1118,11 +1211,13 @@ h1 em{color:var(--accent);font-style:normal}
   // phase suggests the queue is actively working a different angle.
   // updateStatusPhase() picks the right one based on elapsed seconds.
   var STATUS_PHASES = [
-    { until:  8, text: 'Matching argument styles',   sub: 'Comparing speed, format, and recent rounds across the live queue.' },
-    { until: 18, text: 'Pinging recent sparrers',    sub: 'Reaching out to debaters who matched in the last hour.' },
-    { until: 30, text: 'Searching active circuits',  sub: 'Checking who is online across the wider competitive scene.' },
-    { until: 45, text: 'Finding your clash',         sub: 'Most matches land between twenty and fifty seconds. Hold.' },
-    { until: 60, text: 'Almost time to switch to AI',sub: 'If nobody pairs by zero, you get the AI sparring partner.' },
+    { until:   8, text: 'Matching argument styles',   sub: 'Comparing speed, format, and recent rounds across the live queue.' },
+    { until:  18, text: 'Pinging recent sparrers',    sub: 'Reaching out to debaters who matched in the last hour.' },
+    { until:  35, text: 'Searching active circuits',  sub: 'Checking who is online across the wider competitive scene.' },
+    { until:  60, text: 'Finding your clash',         sub: 'Warm queues pair inside a minute. Hold.' },
+    { until: 110, text: 'Still hunting',              sub: 'No need to wait here. Prep, learn, or browse; your spot in the queue follows you.' },
+    { until: 170, text: 'Casting a wider net',        sub: 'Broaden formats below to pair with any available debater.' },
+    { until: 240, text: 'Last stretch before AI',     sub: 'If nobody pairs by zero, the AI sparring partner takes the round.' },
   ];
 
   // RECENT_PAIRINGS removed (2026-05-25). The 8 handles + pair-second
@@ -1137,7 +1232,7 @@ h1 em{color:var(--accent);font-style:normal}
     shell.innerHTML =
       '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
       '<h1>Finding someone to <em>argue with.</em></h1>' +
-      '<p class="lede">We\'ll match you with another human running the same format. AI fallback if nobody pairs in 60 seconds.</p>' +
+      '<p class="lede">We\'ll match you with another human running the same format. If nobody pairs in 4 minutes, the AI takes the round. No need to wait here: leave this page and you stay in the queue anywhere on the site.</p>' +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
       // across time zones," not "tracking targets." Self-contained
@@ -1166,7 +1261,7 @@ h1 em{color:var(--accent);font-style:normal}
         '<span class="meta-cell meta-month-cell" id="metaMonthCell" style="display:none"><strong id="metaMonth">0</strong> this month</span>' +
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
-      '<div class="countdown">AI fallback in <strong id="countdownNum">60</strong>s</div>' +
+      '<div class="countdown">AI fallback in <strong id="countdownNum">4:00</strong></div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" id="cancelBtn">Cancel & go home</button>' +
         '<a class="btn" href="/debate-it">Skip to AI now</a>' +
@@ -1243,6 +1338,7 @@ h1 em{color:var(--accent);font-style:normal}
     logSparAttempt();
     mountGlobalMap('globalDebateMap');
     wireSetupCard();
+    mountWaitRail();
   }
 
   // ── Round setup wiring ───────────────────────────────
@@ -1303,6 +1399,73 @@ h1 em{color:var(--accent);font-style:normal}
       deb = setTimeout(save, 600);
     });
     ta.addEventListener('blur', save);
+  }
+
+  // ── While-you-wait rail (right side, searching only) ─────
+  // The 4-minute window is long enough that "stare at the countdown"
+  // is bad UX. The rail gives the wait a job: a warm-up motion +
+  // scratchpad (persisted to localStorage so it survives navigation
+  // into the round), the "your spot follows you" reassurance, and
+  // safe links into the rest of the app — safe because searching now
+  // flips the background-availability flag (see joinQueue).
+  var WARMUP_MOTIONS = [
+    'THBT social media platforms should ban political advertising.',
+    'THW make voting compulsory.',
+    'THBT elite universities do more harm than good.',
+    'THW ban targeted advertising to minors.',
+    'THBT space exploration is a waste of public money.',
+    'THW abolish cash bail.',
+    'THBT AI tutors will do more for educational equality than smaller class sizes.',
+    'THW require a year of national service.',
+    'THBT professional athletes are overpaid.',
+    'THW give every citizen a universal basic income.',
+    'THBT the nuclear family is an outdated ideal.',
+    'THW ban private schools.',
+  ];
+
+  function mountWaitRail(){
+    removeWaitRail();
+    var rail = document.createElement('aside');
+    rail.id = 'waitRail';
+    rail.className = 'wait-rail';
+    rail.setAttribute('aria-label', 'Things to do while you wait');
+    var savedPad = '';
+    try { savedPad = localStorage.getItem('da-spar-warmup') || ''; } catch(e){}
+    rail.innerHTML =
+      '<div class="wait-rail__head"><span class="live-dot"></span>While you wait</div>' +
+      '<div class="wait-rail__body">' +
+        '<div class="wait-rail__note"><strong>Your spot follows you.</strong> Leave this page and you stay in the queue; the green Available pill in the top bar tracks it, and a match card pops on whatever page you\'re on. Cancel here turns it off.</div>' +
+        '<div class="wait-rail__card">' +
+          '<div class="wait-rail__label">Warm-up motion <button class="wait-rail__shuffle" id="warmupShuffle" type="button">New motion</button></div>' +
+          '<div class="wait-rail__motion" id="warmupMotion"></div>' +
+          '<textarea class="wait-rail__pad" id="warmupPad" placeholder="Outline: main argument / why it matters / what the other side says, and why that\'s wrong."></textarea>' +
+        '</div>' +
+        '<div class="wait-rail__links">' +
+          '<a class="wait-rail__link" href="/app#case">Prep a case <span class="spot-tag">spot kept</span></a>' +
+          '<a class="wait-rail__link" href="/learn">Run a drill <span class="spot-tag">spot kept</span></a>' +
+          '<a class="wait-rail__link" href="/live">Browse scheduled rounds <span class="spot-tag">spot kept</span></a>' +
+          '<a class="wait-rail__link" href="/community">Read the community <span class="spot-tag">spot kept</span></a>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(rail);
+    var motionEl = rail.querySelector('#warmupMotion');
+    var idx = Math.floor(Math.random() * WARMUP_MOTIONS.length);
+    function showMotion(){ if (motionEl) motionEl.textContent = WARMUP_MOTIONS[idx % WARMUP_MOTIONS.length]; }
+    showMotion();
+    var shuffle = rail.querySelector('#warmupShuffle');
+    if (shuffle) shuffle.addEventListener('click', function(){ idx++; showMotion(); });
+    var pad = rail.querySelector('#warmupPad');
+    if (pad){
+      pad.value = savedPad;
+      pad.addEventListener('input', function(){
+        try { localStorage.setItem('da-spar-warmup', pad.value); } catch(e){}
+      });
+    }
+  }
+
+  function removeWaitRail(){
+    var existing = document.getElementById('waitRail');
+    if (existing) existing.remove();
   }
 
   // Pulls the public "missed each other this week / this month" counts
@@ -1432,7 +1595,9 @@ h1 em{color:var(--accent);font-style:normal}
     if (statusCycleInterval) clearInterval(statusCycleInterval);
     function tick(){
       var elapsed = Math.floor((Date.now() - state.joinedAtMs) / 1000);
-      var phase = STATUS_PHASES[0];
+      // Default to the LAST phase so elapsed >= the final `until`
+      // (a tick racing the fallback) doesn't snap back to phase one.
+      var phase = STATUS_PHASES[STATUS_PHASES.length - 1];
       for (var i = 0; i < STATUS_PHASES.length; i++){
         if (elapsed < STATUS_PHASES[i].until){ phase = STATUS_PHASES[i]; break; }
       }
@@ -1526,6 +1691,7 @@ h1 em{color:var(--accent);font-style:normal}
   // crashed rendering the match.
   var radarHandle = null;
   function renderMatched(roomName, peerName){
+    removeWaitRail();
     try { gtag('event', 'spar_match_found', { format: formatParam }); } catch(e){}
 
     // Cinematic two-step: trigger the radar convergence FIRST (nodes
@@ -1620,14 +1786,15 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   function renderFallback(){
+    removeWaitRail();
     shell.innerHTML =
       '<div class="eyebrow" style="background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.4);color:#fbbf24"><span class="pip" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span>AI Fallback</div>' +
-      '<h1>No human in 60s. <em>Spinning up the AI</em>.</h1>' +
-      '<p class="lede">The queue is thin right now. Handing you to the AI sparring partner so you don\'t lose your prep time.</p>' +
+      '<h1>No human in 4 minutes. <em>Spinning up the AI</em>.</h1>' +
+      '<p class="lede">The queue is thin right now. Handing you to the AI sparring partner so you don\'t lose your prep time. You stay available in the background; if a human shows up, a match card pops wherever you are.</p>' +
       '<div class="orb-wrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
       '<div class="status">Loading AI round…</div>';
     try { gtag('event', 'spar_ai_fallback', { format: formatParam }); } catch(e){}
-    // 60s timeout = a real "missed match" — they tried, nobody showed.
+    // Fallback timeout = a real "missed match" — they tried, nobody showed.
     logMissedMatch('fallback');
     setTimeout(function(){ location.href = '/debate-it'; }, 1200);
   }
@@ -1639,7 +1806,11 @@ h1 em{color:var(--accent);font-style:normal}
       var elapsed = Math.floor((Date.now() - state.joinedAtMs) / 1000);
       var remaining = Math.max(0, AI_FALLBACK_SEC - elapsed);
       var num = document.getElementById('countdownNum');
-      if (num) num.textContent = String(remaining);
+      if (num){
+        var mm = Math.floor(remaining / 60);
+        var ss = remaining % 60;
+        num.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss;
+      }
       // Broaden-formats offer at 45s. Surfaces below the cancel/skip
       // buttons; user click flips state + queue doc.
       if (elapsed >= BROADEN_OFFER_SEC && !state.broadenOffered && !state.broaden){
@@ -1721,7 +1892,7 @@ h1 em{color:var(--accent);font-style:normal}
   //
   // Without (1) clients can't write/read the queue at all. Without
   // (2) the polling + snapshot queries return empty silently and
-  // every spar request falls through to the AI fallback at 60s.
+  // every spar request falls through to the AI fallback at 4 min.
   // ──────────────────────────────────────────────────────────
   function joinQueue(){
     if (!state.user || !firebaseDb) return;
@@ -1731,6 +1902,13 @@ h1 em{color:var(--accent);font-style:normal}
     // js/notifications.js fmt() reads 'debateos-spar-format' and falls
     // back to 'apda' when it was never written.
     try { localStorage.setItem('debateos-spar-format', formatParam); } catch(e){}
+    // 2026-06-12: searching doubles as sitewide availability. Flip the
+    // same 'da-spar-bg' flag the topbar "Available" pill + background
+    // matcher read, so leaving /spar mid-search keeps this user
+    // matchable everywhere (notifications.js heartbeats the doc and
+    // pops the match card on whatever page they're on). Cleared by
+    // Cancel below; a match consumes the doc through the normal flow.
+    try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
     var ref = firebaseDb.collection('matchmaking_queue').doc(state.user.uid);
     state.queueDocRef = ref;
     var fullName = (state.user.displayName || '').trim();
@@ -1750,6 +1928,7 @@ h1 em{color:var(--accent);font-style:normal}
       try { gtag('event', 'spar_queue_join', { format: formatParam }); } catch(e){}
       subscribeMyDoc();
       startMatchPolling();
+      startQueueHeartbeat();
     }).catch(function(err){
       console.warn('[spar] queue join failed:', err);
       // Pattern-match on the error so the user gets a real next step
@@ -2124,7 +2303,7 @@ h1 em{color:var(--accent);font-style:normal}
   //                      will sort to a fresher peer next tick
   // Anything else (auth/5xx/network) is a hard fail; we surface it so
   // the user knows pairing is having trouble rather than burning the
-  // full 60s clock in silence.
+  // full fallback clock in silence.
   var PAIR_REQUEST_TIMEOUT_MS = 8000;
   function attemptMatch(peerUid /* peerData unused now */){
     if (state.cancelled || !state.user || !firebaseAuth) return;
@@ -2232,7 +2411,7 @@ h1 em{color:var(--accent);font-style:normal}
   // Render a small banner near the queue stats when pairing
   // hard-fails. Auto-clears on next successful attempt. Without this,
   // a misconfigured auth or function 5xx leaves the user staring at
-  // "Scanning the queue" with no feedback until the AI fallback at 60s.
+  // "Scanning the queue" with no feedback until the AI fallback fires.
   function surfacePairError(reason){
     var stats = document.getElementById('queueStats');
     if (!stats) return;
@@ -2263,8 +2442,30 @@ h1 em{color:var(--accent);font-style:normal}
     renderFallback();
   }
 
+  // Re-stamp joinedAt every 90s while searching, mirroring the
+  // background matcher in js/notifications.js. spar-pair skips (and
+  // cancels) peers older than 3 min (STALE_PEER_MS) — without this
+  // heartbeat the 4-minute fallback window would guarantee a
+  // stale-skip cancel at 3:00 for every waiter. Trade: each re-stamp
+  // moves you to the back of the joinedAt ordering, which is
+  // irrelevant at current queue depth. The visible countdown reads
+  // state.joinedAtMs (local), so re-stamping never resets the clock.
+  function startQueueHeartbeat(){
+    if (state.heartbeatInterval) clearInterval(state.heartbeatInterval);
+    state.heartbeatInterval = setInterval(function(){
+      if (state.cancelled || !state.queueDocRef) return;
+      state.queueDocRef.update({
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(){});
+    }, QUEUE_HEARTBEAT_MS);
+  }
+
   function cancelQueue(){
     state.cancelled = true;
+    // Cancel means OFF everywhere: clear the sitewide availability
+    // flag joinQueue set, so the background matcher doesn't resurrect
+    // the queue doc on the next page.
+    try { localStorage.removeItem('da-spar-bg'); } catch(e){}
     // Only count as a "miss" if the user spent real time in the queue
     // (>=15s). A quick click-through isn't a missed match, it's a user
     // who never really tried.
@@ -2285,6 +2486,7 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
     state.inConsent = false;
     state.consentKey = '';
+    if (state.heartbeatInterval){ clearInterval(state.heartbeatInterval); state.heartbeatInterval = null; }
     if (state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
@@ -2297,12 +2499,15 @@ h1 em{color:var(--accent);font-style:normal}
     state.pairInFlight = false;
   }
 
-  // Tab close / nav away — drop our queue doc so we don't ghost.
-  window.addEventListener('pagehide', function(){
-    if (state.queueDocRef && !state.cancelled){
-      state.queueDocRef.delete().catch(function(){});
-    }
-  });
+  // Tab close / nav away. 2026-06-12: we deliberately do NOT delete
+  // the queue doc anymore. Searching flips 'da-spar-bg' (see
+  // joinQueue), so on any in-app navigation js/notifications.js
+  // adopts the doc — heartbeats it, re-creates it if reaped, and
+  // pops the match card wherever the user lands. On a true tab
+  // close, the heartbeat stops and spar-pair's stale-skip/reaper
+  // retires the doc server-side within minutes; if the user comes
+  // back, the bg matcher self-heals. Deleting here would kill the
+  // "stay available while you browse the rest of the app" promise.
 
   // ╭───────────────────────────────────────────────────────╮
   // │  WAITLIST + DMs (left rail)                          │
@@ -3190,7 +3395,7 @@ h1 em{color:var(--accent);font-style:normal}
         // have to sign in for this to work"), anon users now go straight
         // into the searching UI. They can't actually pair with a human
         // (matchmaking_queue requires auth at the Firestore-rules level),
-        // but the radar + status phases + countdown play and at 60s the
+        // but the radar + status phases + countdown play and at 4 min the
         // existing triggerAIFallback path ferries them to /debate-it.
         // joinQueueAnon below is renderSearching wrapped with the
         // state.joinedAtMs init that joinQueue normally sets. The Firestore
