@@ -163,6 +163,15 @@ h1 em{color:var(--accent);font-style:normal}
      a surface instead of next to a puddle. */
   filter:drop-shadow(0 18px 28px rgba(40, 25, 10, 0.22));
 }
+/* Mobile triage 2026-06-12: the globe ate most of the first screen and
+   the fixed bottom chrome (signup nudge, waitlist FAB, coach FAB) piled
+   on top of the countdown + CTAs. Cap the globe, give the page bottom
+   room, and lift the nudge bar clear of the corner FABs. */
+@media (max-width: 640px){
+  .globe-wrap{width:220px;max-width:60vw;margin:6px auto 14px}
+  #shell{padding-bottom:150px}
+  .signup-nudge{bottom:88px !important;right:12px !important;left:12px !important;max-width:none !important}
+}
 [data-theme="light"] .globe-frame{
   filter:drop-shadow(0 18px 28px rgba(40, 25, 10, 0.18));
 }
@@ -1066,6 +1075,7 @@ h1 em{color:var(--accent);font-style:normal}
     consentPending: 0,             // spar-pair said 'consent' but my doc snapshot hasn't landed yet
     lastConsentDoc: null,          // latest consent snapshot — POST-failure card recovery
     noticeUntil: 0,                // hold a queue-stats notice against tryMatch repaints
+    anonTried: false,              // one-shot guard on the guest anonymous sign-in
   };
 
   // Timer until AI fallback. After this, we mark the user's
@@ -1926,6 +1936,11 @@ h1 em{color:var(--accent);font-style:normal}
     var shortName = parts.length >= 2
       ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
       : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Anonymous'));
+    // Guests (anonymous auth) get a readable label instead of 'Anonymous'
+    // so their opponent sees a name on the consent card and in the round.
+    if (state.user.isAnonymous){
+      shortName = 'Guest ' + state.user.uid.slice(-4).toUpperCase();
+    }
     ref.set({
       uid: state.user.uid,
       displayName: shortName,
@@ -2001,10 +2016,11 @@ h1 em{color:var(--accent);font-style:normal}
         // onto both docs; render the accept/pass card off mine.
         try { renderConsentGate(d); }
         catch (e) {
-          // A render error here would strand both users — bail out of
-          // the proposal instead so the queues unwind.
-          console.warn('[spar] renderConsentGate failed, passing', e);
-          sendConsent(d.matchedWith, false);
+          // Log only. Auto-passing here used to dissolve the pair with
+          // a MUTUAL skip on a transient render bug, which silently
+          // bricked rematching for the whole session. The peer's
+          // timers (20s/30s) unwind a genuinely dead handshake anyway.
+          console.warn('[spar] renderConsentGate failed', e);
         }
       } else if (d.status === 'waiting' && state.inConsent){
         // Proposal fell through (opponent passed, withdrew, or timed
@@ -3452,21 +3468,26 @@ h1 em{color:var(--accent);font-style:normal}
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // 2026-05-26: drop the hard sign-in gate. Anon visitors hitting
-        // /spar (e.g. from "Debate Omegle" on the landing) used to bounce
-        // into renderGate() with a wall of Google sign-in copy + no way
-        // to try the matchmaking. Per user feedback ("viewers shouldn't
-        // have to sign in for this to work"), anon users now go straight
-        // into the searching UI. They can't actually pair with a human
-        // (matchmaking_queue requires auth at the Firestore-rules level),
-        // but the radar + status phases + countdown play and at 4 min the
-        // existing triggerAIFallback path ferries them to /debate-it.
-        // joinQueueAnon below is renderSearching wrapped with the
-        // state.joinedAtMs init that joinQueue normally sets. The Firestore
-        // writes inside renderSearching's wired functions (cancelQueue,
-        // triggerAIFallback) are guarded with `if (state.queueDocRef)`
-        // checks that no-op when state.queueDocRef stays null for anon.
-        joinQueueAnon();
+        // 2026-06-12: guests can REALLY play now. The 2026-05-26 state
+        // (signed-out visitors got the searching UI but could never
+        // pair, because matchmaking_queue requires auth) read as
+        // "spar is broken" the moment two real people tried it with
+        // one side signed out. Firebase anonymous auth is enabled on
+        // the project, so a guest gets a real uid + ID token and the
+        // queue, spar-pair, and the consent handshake all work
+        // unchanged. onAuthStateChanged re-fires with the anon user
+        // and the normal joinQueue path takes over. If the anonymous
+        // sign-in fails (network, provider toggled off), fall back to
+        // the old queue-less searching UI so the page never hard-dies.
+        if (!state.anonTried){
+          state.anonTried = true;
+          firebaseAuth.signInAnonymously().catch(function(err){
+            console.warn('[spar] anonymous sign-in failed, queue-less fallback', err);
+            joinQueueAnon();
+          });
+        } else {
+          joinQueueAnon();
+        }
       }
     });
   } else {

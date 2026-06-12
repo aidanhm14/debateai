@@ -634,7 +634,7 @@
     // Suppress the background matcher there so the two don't fight over the
     // doc; /spar instead sets the availability flag + sends the user to
     // prep, and the matcher activates on the next page.
-    var ON_SPAR = /\/spar(?:[/?#]|$)/.test(location.pathname);
+    var ON_SPAR = /\/spar(?:\.html)?(?:[/?#]|$)/.test(location.pathname);
     // Don't run the background matcher on public marketing / landing surfaces
     // (the homepage especially). A first-time visitor, or a returning signed-in
     // user who once flipped "Available", should never be yanked off a marketing
@@ -660,6 +660,9 @@
     }
     function shortNm(u) {
       if (!u) return 'You';
+      // Guests (anonymous auth) get a readable label so opponents see
+      // a name on match cards instead of 'You'.
+      if (u.isAnonymous) return 'Guest ' + String(u.uid || '').slice(-4).toUpperCase();
       var full = (u.displayName || '').trim();
       var p = full.split(/\s+/).filter(Boolean);
       return p.length >= 2 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.'
