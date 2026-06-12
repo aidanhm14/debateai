@@ -1063,6 +1063,9 @@ h1 em{color:var(--accent);font-style:normal}
     inConsent: false,              // a 'consent' proposal is on screen
     consentKey: '',                // fingerprint of the rendered consent state (skip echo re-renders)
     consentTimer: null,            // auto-pass countdown interval
+    consentPending: 0,             // spar-pair said 'consent' but my doc snapshot hasn't landed yet
+    lastConsentDoc: null,          // latest consent snapshot — POST-failure card recovery
+    noticeUntil: 0,                // hold a queue-stats notice against tryMatch repaints
   };
 
   // Timer until AI fallback. After this, we mark the user's
@@ -1818,6 +1821,13 @@ h1 em{color:var(--accent);font-style:normal}
         offerBroaden();
       }
       if (remaining <= 0){
+        // Consent race guard: a proposal can land in the same beat the
+        // clock hits zero. If spar-pair just told us 'consent' but the
+        // doc snapshot hasn't painted yet, DON'T clear the interval —
+        // keep ticking so the fallback still fires if the snapshot
+        // never arrives (15s grace), instead of dying silently at 0:00.
+        if (state.inConsent) return;
+        if (state.consentPending && Date.now() - state.consentPending < 15000) return;
         clearInterval(state.countdownInterval);
         state.countdownInterval = null;
         triggerAIFallback();
@@ -2009,7 +2019,12 @@ h1 em{color:var(--accent);font-style:normal}
         // (e.g. an unresolved serverTimestamp on a fresh peer) ejected
         // a live, waiting debater straight to the homepage.
         var systemCancel = (d.cancelReason === 'stale_peer_skip'
-                         || d.cancelReason === 'stale_reaper');
+                         || d.cancelReason === 'stale_reaper'
+                         // My doc got ghost-cancelled by a consent
+                         // proposer whose timers gave up on me — if
+                         // I'm actually here (snapshot stream stall,
+                         // OS sleep), rejoin with a clean doc.
+                         || d.cancelReason === 'consent_ghost');
         if (systemCancel && !state.cancelled){
           console.info('[spar] system cancel (' + d.cancelReason + '), re-queueing');
           updateDiag({ last: 're-queue' });
@@ -2042,7 +2057,14 @@ h1 em{color:var(--accent);font-style:normal}
   // or a dead peer) unwinds both docs back to 'waiting' with a mutual
   // skip so the same pair isn't re-proposed.
   var CONSENT_DECIDE_SEC = 20;   // reading + deciding window
-  var CONSENT_WAIT_SEC   = 45;   // waiting-on-peer safety net (dead-tab case)
+  // Waiting-on-peer net. Tab close no longer deletes queue docs (the
+  // queue follows users across the app), so proposing to a ghost is a
+  // ROUTINE case: a live deciding peer always acts by ~20s (their own
+  // auto-pass), so 30s of silence means dead tab — unwind and move on.
+  // Server-side ghost detection (spar-pair GHOST_CONSENT_MS, 25s) sits
+  // between the two windows.
+  var CONSENT_WAIT_SEC   = 30;
+  var BASE_TITLE = document.title;
 
   // Stop the search machinery without dropping my own doc listener —
   // subscribeMyDoc is what drives every consent transition. The
@@ -2061,7 +2083,9 @@ h1 em{color:var(--accent);font-style:normal}
 
   // secs → auto-pass; pass showNum=false for the silent safety net on
   // the waiting-on-peer view (a visible timer there reads as pressure
-  // on YOU when the wait is on THEM).
+  // on YOU when the wait is on THEM). Timer-fired declines carry
+  // auto:true so the server can tell idle-timeout from a human pass —
+  // that flag feeds its dead-tab heuristic.
   function startConsentCountdown(peerUid, secs, showNum){
     clearConsentTimer();
     var deadline = Date.now() + secs * 1000;
@@ -2073,7 +2097,7 @@ h1 em{color:var(--accent);font-style:normal}
       }
       if (left <= 0){
         clearConsentTimer();
-        sendConsent(peerUid, false);
+        sendConsent(peerUid, false, true);
       }
     }, 250);
   }
@@ -2092,6 +2116,10 @@ h1 em{color:var(--accent);font-style:normal}
     var firstRender = !state.inConsent;
     state.inConsent = true;
     state.consentKey = key;
+    // Keep the latest doc around so a failed consent POST can restore
+    // a usable card instead of leaving dead disabled buttons.
+    state.lastConsentDoc = d;
+    state.consentPending = 0;
     if (firstRender) pauseSearchForConsent();
 
     var peerName = escHtml(d.matchedWithName || 'Your opponent');
@@ -2153,11 +2181,14 @@ h1 em{color:var(--accent);font-style:normal}
       sendConsent(peerUid, false);
     });
     startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true);
+    // Tab-title nudge — the proposal has a 20s shelf life and the user
+    // may be in another tab ("queue follows you" makes that common).
+    document.title = '● Your OK needed · Spar';
   }
 
-  function sendConsent(peerUid, accept){
+  function sendConsent(peerUid, accept, auto){
     if (!firebaseAuth || !firebaseAuth.currentUser) return;
-    try { gtag('event', accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam }); } catch(e){}
+    try { gtag('event', accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam, auto: !!auto }); } catch(e){}
     firebaseAuth.currentUser.getIdToken().then(function(idToken){
       return fetch('/.netlify/functions/spar-pair', {
         method: 'POST',
@@ -2165,36 +2196,59 @@ h1 em{color:var(--accent);font-style:normal}
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + idToken,
         },
-        body: JSON.stringify({ action: 'consent', accept: !!accept, peerUid: peerUid }),
+        body: JSON.stringify({ action: 'consent', accept: !!accept, auto: !!auto, peerUid: peerUid }),
       });
     }).then(function(res){
       return res.json().catch(function(){ return {}; });
     }).then(function(j){
-      // Doc snapshots drive every UI transition. The one case with
-      // nothing to wait on: the proposal evaporated under us — my own
-      // snapshot already moved me (or is about to).
-      if (j && j.ok === false && j.reason === 'consent_state_gone'){
+      if (j && j.ok) return;
+      // Doc snapshots drive every UI transition. 'consent_state_gone'
+      // needs nothing from us — my own snapshot already moved me (or
+      // is about to). Anything else (throttle 429, 5xx, weird body)
+      // left the proposal ALIVE but my click dead — restore a usable
+      // card so the user can act again instead of staring at disabled
+      // buttons until a timer unwinds everything.
+      var reason = (j && (j.reason || j.error)) || 'unknown';
+      if (reason === 'consent_state_gone'){
         console.info('[spar] consent state gone before my ' + (accept ? 'accept' : 'pass'));
+        return;
       }
+      console.warn('[spar] consent POST soft-failed:', reason);
+      recoverConsentCard();
     }).catch(function(err){
-      // Leave the card up — the auto-pass timer (mine or the peer's)
-      // unwinds the proposal even if this POST never lands.
+      // Network blip mid-click: same recovery. The auto-pass timers
+      // (mine or the peer's) still backstop a never-delivered decline.
       console.warn('[spar] consent POST failed', err);
+      recoverConsentCard();
     });
+  }
+
+  // Re-render the consent card from the last doc snapshot after a
+  // failed POST — fresh buttons, fresh countdown, user can retry.
+  function recoverConsentCard(){
+    if (!state.inConsent || !state.lastConsentDoc) return;
+    state.consentKey = '';
+    try { renderConsentGate(state.lastConsentDoc); } catch(e){}
   }
 
   function exitConsentToSearch(d){
     state.inConsent = false;
     state.consentKey = '';
+    state.consentPending = 0;
+    state.lastConsentDoc = null;
     clearConsentTimer();
+    document.title = BASE_TITLE;
     // Server refreshed joinedAt on the revert — restart the local
-    // clocks to match so the AI fallback gets a fresh 60s.
+    // clocks to match so the AI fallback gets a fresh window.
     state.joinedAtMs = Date.now();
     renderSearching();
     startMatchPolling();
     if (d && d.lastPassBy){
       var stats = document.getElementById('queueStats');
       if (stats){
+        // Hold the notice on screen — tryMatch repaints the stats slot
+        // every ~2s and would otherwise blink this away unread.
+        state.noticeUntil = Date.now() + 7000;
         stats.innerHTML = '<div style="margin-top:14px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-dim);font-size:.78rem;font-weight:600">' + escHtml(d.lastPassBy) + ' passed on the proposal. Still searching.</div>';
       }
     }
@@ -2270,7 +2324,7 @@ h1 em{color:var(--accent);font-style:normal}
       });
       state.waitingPeers = others.length;
       var stats = document.getElementById('queueStats');
-      if (stats && !state.broadenOffered){
+      if (stats && !state.broadenOffered && Date.now() > (state.noticeUntil || 0)){
         stats.innerHTML = renderWaitlist(others, formatParam);
       }
       updateDiag({ peers: others.length });
@@ -2365,7 +2419,10 @@ h1 em{color:var(--accent);font-style:normal}
       if (r.body.pending === 'consent'){
         // Not a match yet — a judge-note proposal both sides now have
         // to sign off on. My own doc snapshot renders the consent
-        // card; spar_consent_accept/pass instrument the outcome.
+        // card; spar_consent_accept/pass instrument the outcome. Stamp
+        // consentPending so the AI-fallback clock can't fire in the
+        // gap between this response and the snapshot landing.
+        state.consentPending = Date.now();
         updateDiag({ last: 'consent' });
         try { gtag('event', 'spar_consent_proposed', { format: formatParam }); } catch(e){}
         return;
@@ -2432,6 +2489,10 @@ h1 em{color:var(--accent);font-style:normal}
 
   function triggerAIFallback(){
     if (state.cancelled) return;
+    // Never bulldoze a live consent handshake into matched_ai — the
+    // countdown tick already guards this, but teardownQueue below
+    // resets inConsent, so a stray second caller would slip through.
+    if (state.inConsent) return;
     teardownQueue();
     if (state.queueDocRef){
       state.queueDocRef.update({
@@ -2486,6 +2547,9 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
     state.inConsent = false;
     state.consentKey = '';
+    state.consentPending = 0;
+    state.lastConsentDoc = null;
+    document.title = BASE_TITLE;
     if (state.heartbeatInterval){ clearInterval(state.heartbeatInterval); state.heartbeatInterval = null; }
     if (state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }

@@ -74,15 +74,21 @@ function buildPairedParadigm(paradigms, doc) {
   return notes.join(' | ');
 }
 
-// Per-uid throttle so a misbehaving client can't fan out pair attempts.
+// Per-key throttle so a misbehaving client can't fan out pair attempts.
+// Pair polling and consent clicks get SEPARATE keys: the client polls
+// pair attempts every ~2s, and sharing one 600ms window meant a human's
+// Accept click landing within 600ms of a poll POST got eaten by a 429
+// (the card sat dead until a timer unwound the whole proposal). Consent
+// is a one-shot human action — its window only needs to stop a spammer.
 const pairAttempts = new Map();
-const PAIR_THROTTLE_MS = 600; // soft cap; one attempt every ~0.6s
+const PAIR_THROTTLE_MS = 600;    // pair polling: one attempt every ~0.6s
+const CONSENT_THROTTLE_MS = 250; // consent clicks: stop a runaway loop, never a human
 
-function isThrottled(uid) {
+function isThrottled(key, windowMs = PAIR_THROTTLE_MS) {
   const now = Date.now();
-  const last = pairAttempts.get(uid) || 0;
-  if (now - last < PAIR_THROTTLE_MS) return true;
-  pairAttempts.set(uid, now);
+  const last = pairAttempts.get(key) || 0;
+  if (now - last < windowMs) return true;
+  pairAttempts.set(key, now);
   return false;
 }
 
@@ -116,15 +122,25 @@ let lastReaperAt = 0;
 // instant two users joined within ~1s of each other. Default to "now"
 // (age ≈ 0 = fresh) so we never cancel a peer we can't age. The reaper
 // query (joinedAt < cutoff) skips unresolved-timestamp docs anyway.
-function joinedAtMs(data) {
-  if (!data) return Date.now();
-  const j = data.joinedAt;
-  if (!j) return Date.now();
-  if (typeof j.toMillis === 'function') return j.toMillis();
-  if (j._seconds != null) return j._seconds * 1000;
-  if (j.seconds != null) return j.seconds * 1000;
+function tsMs(t) {
+  if (!t) return Date.now();
+  if (typeof t.toMillis === 'function') return t.toMillis();
+  if (t._seconds != null) return t._seconds * 1000;
+  if (t.seconds != null) return t.seconds * 1000;
   return Date.now();
 }
+function joinedAtMs(data) {
+  return data ? tsMs(data.joinedAt) : Date.now();
+}
+
+// Dead-tab detection inside a consent handshake. The DECIDING side's
+// client auto-passes at 20s; if a proposal is older than this and the
+// peer still hasn't acted, their tab is gone (tab close no longer
+// deletes the queue doc — the queue follows users across the app — so
+// consent proposals against ghosts are a routine case, not an edge).
+// Must stay above the 20s deciding window plus network slop, and below
+// the waiting side's 30s client timer that triggers the check.
+const GHOST_CONSENT_MS = 25 * 1000;
 
 // One-shot reaper sweep. Marks any waiting doc older than REAPER_MS
 // as cancelled so the next polling cycle stops seeing it. Throttled
@@ -201,10 +217,6 @@ export default async (request) => {
   const myUid = decoded.sub;
   if (!myUid) return errorResponse('Invalid token subject', 401, request);
 
-  if (isThrottled(myUid)) {
-    return errorResponse('Pair attempts throttled. Wait a moment.', 429, request);
-  }
-
   let body;
   try { body = await request.json(); }
   catch { return errorResponse('Invalid JSON body', 400, request); }
@@ -213,6 +225,16 @@ export default async (request) => {
   const peerUid = String(body?.peerUid || '').trim();
   const format = String(body?.format || '').trim().toLowerCase();
   const broaden = !!body?.broaden;
+
+  // Separate throttle lanes — see the isThrottled comment. A consent
+  // click must never 429 because the queue poller POSTed recently.
+  if (action === 'consent') {
+    if (isThrottled(myUid + ':consent', CONSENT_THROTTLE_MS)) {
+      return errorResponse('Consent attempts throttled. Wait a moment.', 429, request);
+    }
+  } else if (isThrottled(myUid)) {
+    return errorResponse('Pair attempts throttled. Wait a moment.', 429, request);
+  }
 
   if (!peerUid || peerUid === myUid) {
     return errorResponse('Invalid peerUid', 400, request);
@@ -229,6 +251,10 @@ export default async (request) => {
   // ── action: 'consent' — phase 2 of the handshake ───────────────
   if (action === 'consent') {
     const accept = !!body?.accept;
+    // True when a client TIMER fired this decline (auto-pass nets),
+    // false for a human clicking Pass/Withdraw. Timers feed the
+    // ghost-cancel heuristic below; human passes never do.
+    const auto = !!body?.auto;
     // Everything a revert needs to put a doc back in the plain
     // 'waiting' shape. joinedAt refreshes so neither side gets
     // stale-skipped for time burned inside the consent window.
@@ -271,6 +297,26 @@ export default async (request) => {
           return { ok: true, freed: true };
         }
         if (!accept) {
+          // Ghost detection: my idle timer fired, the peer never acted
+          // on a proposal older than the deciding window, so their tab
+          // is dead (a live deciding client auto-passes at 20s). Cancel
+          // the ghost instead of reverting it to 'waiting' with a FRESH
+          // joinedAt — that revert would dress a corpse up as the
+          // youngest doc in the queue and feed it to the next pairer.
+          // If the "ghost" is actually alive with a stalled snapshot
+          // stream, its client sees cancelReason 'consent_ghost' and
+          // the system-cancel path re-queues it with a clean doc.
+          const proposalAge = Date.now() - tsMs(mine.proposedAt);
+          const peerNeverActed = !(mine.consents && mine.consents[peerUid]);
+          if (auto && peerNeverActed && proposalAge > GHOST_CONSENT_MS) {
+            tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid) });
+            tx.update(peerRef, {
+              status: 'cancelled',
+              cancelledAt: FieldValue.serverTimestamp(),
+              cancelReason: 'consent_ghost',
+            });
+            return { ok: true, declined: true, ghosted: true };
+          }
           // Mutual skip so polling doesn't re-propose the same pair in
           // a loop. lastPassBy on the PEER doc tells their client who
           // walked, for the "still searching" note.
@@ -412,6 +458,12 @@ export default async (request) => {
           ...common,
           status: 'consent',
           proposedAt: FieldValue.serverTimestamp(),
+          // Re-stamp joinedAt so the reaper's consent sweep measures
+          // from the PROPOSAL, not each side's original queue join —
+          // otherwise a long-waiting joiner could get swept mid-
+          // handshake while their fresh peer survives, splitting the
+          // pair into two half-states.
+          joinedAt: FieldValue.serverTimestamp(),
           paradigms: { [myUid]: myParadigm, [peerUid]: theirParadigm },
           // You consent to the OTHER side's note; nothing to review
           // means your half of the handshake is auto-yes.
