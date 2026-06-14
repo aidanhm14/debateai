@@ -36,6 +36,35 @@
   window.__daNotificationsLoaded = true;
 
   var FIRESTORE_SDK_URL = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js';
+  // Self-bootstrap firebase so the Available pill + DM bell work on ANY
+  // page that loads this script, including marketing/content sub-pages
+  // that don't set up firebase themselves. Pages that already init
+  // firebase are detected and left alone (no double init).
+  var APP_SDK_URL = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js';
+  var AUTH_SDK_URL = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js';
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  function loadScriptOnce(id, src, cb) {
+    var ex = document.getElementById(id);
+    if (ex) { if (ex.dataset.loaded) cb(); else ex.addEventListener('load', cb, { once: true }); return; }
+    var s = document.createElement('script'); s.id = id; s.src = src;
+    s.addEventListener('load', function () { s.dataset.loaded = '1'; cb(); }, { once: true });
+    s.addEventListener('error', function () {});
+    document.head.appendChild(s);
+  }
+  function ensureApp() {
+    try {
+      if (window.firebase && firebase.auth && (!firebase.apps || !firebase.apps.length)) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+    } catch (e) {}
+  }
 
   // ── helpers ──────────────────────────────────────────────────────
   function escHtml(s) {
@@ -98,12 +127,23 @@
   }
 
   function whenFirebaseReady(cb) {
-    if (window.firebase && window.firebase.auth) { cb(); return; }
+    var done = false;
+    function fire() { if (done) return; done = true; cb(); }
+    function ready() { return window.firebase && window.firebase.auth && window.firebase.apps && window.firebase.apps.length; }
+    if (ready()) { fire(); return; }
     var n = 0;
     var iv = setInterval(function () {
       n++;
-      if (window.firebase && window.firebase.auth) { clearInterval(iv); cb(); }
-      else if (n > 40) { clearInterval(iv); } // ~4s, give up — page has no auth
+      if (ready()) { clearInterval(iv); fire(); return; }
+      // ~1.5s in: the page clearly isn't bringing its own firebase, so
+      // bootstrap it ourselves. The poll then catches ready() once our
+      // SDKs load + ensureApp() inits the shared app.
+      if (n === 15) {
+        loadScriptOnce('da-fb-app', APP_SDK_URL, function () {
+          loadScriptOnce('da-fb-auth', AUTH_SDK_URL, function () { ensureApp(); });
+        });
+      }
+      if (n > 80) { clearInterval(iv); } // ~8s hard stop
     }, 100);
   }
 
