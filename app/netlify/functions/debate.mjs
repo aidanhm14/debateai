@@ -421,7 +421,7 @@ function renderMotionPage(m) {
 <meta name="twitter:image" content="${OG_IMAGE}">
 <meta name="theme-color" content="#080C14">
 <link rel="icon" href="/icons/icon-192.png">
-<script defer src="/js/track.js"></script>
+<script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
 <script type="application/ld+json">${jsonLd(ld)}</script>
 <style>${commonStyles()}</style>
 </head>
@@ -652,7 +652,7 @@ function renderHubPage() {
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="theme-color" content="#080C14">
 <link rel="icon" href="/icons/icon-192.png">
-<script defer src="/js/track.js"></script>
+<script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
 <script type="application/ld+json">${jsonLd(ld)}</script>
 <style>${commonStyles()}</style>
 </head>

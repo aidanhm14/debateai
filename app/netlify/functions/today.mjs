@@ -466,7 +466,7 @@ ${isToday ? `<script>
   }
 })();
 </script>` : ''}
-</body></html>`;
+<script defer src="/js/home-magnet.js"></script></body></html>`;
 }
 
 export default async (request) => {

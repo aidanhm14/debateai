@@ -52,7 +52,7 @@ function notFoundResponse() {
 <h1>Unknown education topic</h1>
 <p>Try one of: ${links}</p>
 <p><a href="/learn/education">All topics</a> · <a href="/learn">Learn to argue</a> · <a href="/debate-it">Start a round</a></p>
-</body></html>`;
+<script defer src="/js/home-magnet.js"></script></body></html>`;
   return new Response(body, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
 
@@ -253,7 +253,7 @@ function renderIndex() {
     <span><a href="/">Home</a> · <a href="/learn">Learn to Argue</a> · <a href="/topics">Topics hub</a> · <a href="/today">Today's motion</a></span>
   </footer>
 </main>
-</body></html>`;
+<script defer src="/js/home-magnet.js"></script></body></html>`;
 }
 
 // ───────── /education/{slug} (single primer) ─────────
@@ -432,7 +432,7 @@ ${quizBox}
   </footer>
 </main>
 ${quiz.length ? renderQuizScript() : ''}
-</body></html>`;
+<script defer src="/js/home-magnet.js"></script></body></html>`;
 }
 
 // ───────── quiz interactivity ─────────

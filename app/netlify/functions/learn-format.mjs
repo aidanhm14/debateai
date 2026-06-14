@@ -167,7 +167,7 @@ function renderPage(format) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/ui.css">
-<script defer src="/js/track.js"></script>
+<script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
 <script type="application/ld+json">${jsonLd(ldCourse)}</script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}

@@ -296,7 +296,7 @@ function renderFundamentalPage(item) {
 <meta name="twitter:image" content="${OG_IMAGE}">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/icons/icon-192.png">
-<script defer src="/js/track.js"></script>
+<script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
 <script type="application/ld+json">${jsonLd(ldHowTo)}</script>
 <script type="application/ld+json">${jsonLd(ldBreadcrumb)}</script>
 <style>${commonStyles()}</style>
@@ -389,7 +389,7 @@ function renderHubPage() {
 <meta name="twitter:image" content="${OG_IMAGE}">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/icons/icon-192.png">
-<script defer src="/js/track.js"></script>
+<script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
 <script type="application/ld+json">${jsonLd(ldCollection)}</script>
 <style>${commonStyles()}</style>
 </head>

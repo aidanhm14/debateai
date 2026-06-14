@@ -327,7 +327,7 @@ ${hasAny ? '' : `<div class="page-watermark" aria-hidden="true">
     <span><a href="/">Home</a> · <a href="/debate-it">New round</a> · <a href="/today">Today's motion</a> · <a href="${esc(NEXT_FINAL.discordUrl)}" target="_blank" rel="noopener">Discord</a></span>
   </footer>
 </main>
-</body></html>`;
+<script defer src="/js/home-magnet.js"></script></body></html>`;
 }
 
 export default async () => {
