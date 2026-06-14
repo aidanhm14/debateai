@@ -35,7 +35,7 @@ import { listAllAuthUsers } from './lib/auth-admin.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCached, setCached } from './lib/admin-cache.mjs';
 
-const CACHE_KEY = 'public-join-history';
+const CACHE_KEY = 'public-join-history-v2';
 const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
 
 // Last-known-good member counts from a SUCCESSFUL Firebase Auth read,
@@ -178,6 +178,7 @@ export default async (request) => {
   // events(event ASC, createdAt ASC), added to firestore.indexes.json.
   // No static fallback; the landing hides the clause at 0.
   let viewsWeek = 0;
+  let viewsDbg = null; // TEMP diagnostic
   try {
     const weekCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const agg = await db.collection('events')
@@ -186,8 +187,10 @@ export default async (request) => {
       .count()
       .get();
     viewsWeek = (agg.data() && agg.data().count) || 0;
+    viewsDbg = 'ok:' + viewsWeek;
   } catch (err) {
     console.warn('public-join-history views count failed:', err.message);
+    viewsDbg = 'ERR:' + (err.code || '') + ':' + (err.message || '').slice(0, 160);
   }
 
   try {
@@ -317,6 +320,7 @@ export default async (request) => {
       since,
       now: ymd(new Date()),
       totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek, viewsWeek },
+      _viewsDbg: viewsDbg,
       memberSource,
       milestones,
     };
