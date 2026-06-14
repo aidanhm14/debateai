@@ -5116,6 +5116,21 @@ button{font-family:inherit}
     expandPostAside();
   });
 
+  // Carry a motion in from another surface (the voice-rfd "Schedule this
+  // motion live" loop sends /live?motion=...&compose=1). Prefill the
+  // composer and open it so the round-to-round loop is one tap, not a
+  // retype. Capped to the same 280 chars the composer enforces.
+  (function(){
+    try {
+      var p = new URLSearchParams(location.search);
+      var m = (p.get('motion') || '').replace(/\s+/g, ' ').trim().slice(0, 280);
+      if (!m && p.get('compose') !== '1') return;
+      var motionEl = document.getElementById('motion');
+      if (m && motionEl){ motionEl.value = m; motionEl.dispatchEvent(new Event('input')); }
+      expandPostAside();
+    } catch (e) {}
+  })();
+
   // ════════════════════════════════════════════════════════════════
   // Day-of system. Three pieces that share the same data source
   // (challenges where the viewer is poster or accepter):

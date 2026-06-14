@@ -768,23 +768,31 @@ body{
         + '<a href="/spar" class="cta-btn primary" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'spar_cta_click\',{from:\'voice_rfd\'})}catch(e){}">Find a human &rarr;</a>'
       + '</section>';
 
+    // Carry the motion forward so the loop is real, not generic. "Run it
+    // back" replays THIS motion (makes the "second round is better"
+    // promise honest), and "Post this motion live" lands on /live with
+    // the composer prefilled. A round should always end one tap from the
+    // next one, same topic or a live human.
+    var motionQ = payload.motion ? '?motion=' + encodeURIComponent(payload.motion) : '';
+    var runBackHref = '/voice-debate' + motionQ;
+    var liveHref = '/live' + (payload.motion ? motionQ + '&compose=1' : '');
     html +=
       '<div class="cta-row">'
         + '<div class="cta-text">Ballot saved. <strong>Run it back</strong>; the second round is always the better one.</div>'
-        + '<a href="/voice-debate" class="cta-btn primary">Run another round →</a>'
+        + '<a href="' + runBackHref + '" class="cta-btn primary">' + (payload.motion ? 'Run this motion again →' : 'Run another round →') + '</a>'
         + '<button class="cta-btn ghost" id="copyBallot" type="button">Copy ballot</button>'
         + '<button class="cta-btn ghost" id="shareBallot" type="button">Share link</button>'
       + '</div>'
       // ── Next-step row: surface /live + /spar after the user has just
       // finished a voice round and is at peak engagement. The primary
-      // "Run another" above is the obvious second-tap; this gives the
+      // "Run it back" above is the obvious second-tap; this gives the
       // more-engaged user a path to face a real human while the prep
       // is still fresh in their head. Quiet visual register so it
       // doesn't compete with the primary CTA above.
       + '<div class="next-step-row">'
-        + '<span class="next-step-label">Or try a different surface:</span>'
-        + '<a href="/live" class="next-step-link">Post this motion live →</a>'
-        + '<a href="/spar" class="next-step-link">Spar with a human →</a>'
+        + '<span class="next-step-label">Take it to a human:</span>'
+        + '<a href="' + liveHref + '" class="next-step-link">Schedule this motion live →</a>'
+        + '<a href="/spar" class="next-step-link">Spar now →</a>'
       + '</div>'
       + '<div class="foot">All ballots are written by Claude Haiku per DebateIt\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
 
