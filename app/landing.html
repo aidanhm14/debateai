@@ -6548,7 +6548,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <div class="hi-meter"><label>Pace</label><span class="hi-bar"><i class="hi-bar-4"></i></span><b class="hi-meter-val">172<small>wpm</small></b></div>
             <!-- The flow: tracked arguments with their current status,
                  the way a judge actually keeps a round. -->
-            <ul class="hi-flow">
+            <ul class="hi-flow" id="hiFlow">
               <li><span class="hi-flow-arg">AI access gap</span><b class="hi-flow-tag is-live">in clash</b></li>
               <li><span class="hi-flow-arg">Teacher shortage</span><b class="hi-flow-tag is-drop">dropped</b></li>
               <li><span class="hi-flow-arg">Privacy turn</span><b class="hi-flow-tag">weighed</b></li>
@@ -6564,12 +6564,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <span class="hi-room-watch"><b id="hiWatchCount">124</b>&nbsp;watching</span>
               <span class="hi-room-timer" id="hiRoomTimer">7:42</span>
             </header>
-            <p class="hi-room-motion"><b>Motion</b>This House would regulate AI tutors.</p>
-            <p class="hi-room-speech"><b>Speech 3 of 4</b> · Rebuttal · POIs open until 1:00</p>
+            <p class="hi-room-motion"><b>Motion</b><span id="hiRoomMotion">This House would regulate AI tutors.</span></p>
+            <p class="hi-room-speech" id="hiRoomSpeech"><b>Speech 3 of 4</b> · Rebuttal · POIs open until 1:00</p>
             <div class="hi-room-seats">
               <figure class="hi-seat hi-seat-you">
                 <img class="hi-seat-cam rot-cam" src="/img/round/seat-you.jpg" alt="" decoding="async" />
-                <span class="hi-seat-tag hi-seat-tag--pro">Proposition</span>
+                <span class="hi-seat-tag hi-seat-tag--pro" id="hiSeatYou">Proposition</span>
                 <div class="hi-seat-bar">
                   <b class="hi-seat-who">You</b>
                   <span class="hi-seat-state"><span class="hi-wave"><i></i><i></i><i></i><i></i><i></i></span>Speaking</span>
@@ -6577,7 +6577,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               </figure>
               <figure class="hi-seat hi-seat-opp">
                 <img class="hi-seat-cam rot-cam" src="/img/round/seat-opp.jpg" alt="" decoding="async" />
-                <span class="hi-seat-tag">Opposition</span>
+                <span class="hi-seat-tag" id="hiSeatOpp">Opposition</span>
                 <div class="hi-seat-bar">
                   <b class="hi-seat-who">Opponent</b>
                   <span class="hi-seat-state"><svg viewBox="0 0 16 16" focusable="false"><rect x="6.2" y="2.4" width="3.6" height="6.4" rx="1.8" fill="currentColor" opacity=".8"/><path d="M4.4 8.2 a3.6 3.6 0 0 0 7.2 0 M8 12 v1.6 M5.8 13.8 h4.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="3.4" y1="2.8" x2="12.6" y2="13.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Up next</span>
@@ -6636,15 +6636,51 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           var timerEl = document.getElementById('hiRoomTimer');
           var watchEl = document.getElementById('hiWatchCount');
           var noteEl  = document.getElementById('hiJudgeNote');
-          var noteWrap = noteEl ? noteEl.parentNode : null;
-          var NOTES = [
-            'Opp owes an answer on the access gap. two speeches left to fix it.',
-            'The "tutor" definition is carrying Prop\'s case. push it and the model thins.',
-            'Teacher-shortage harm went unanswered last speech. extending it cleanly wins the clash.',
-            'Both sides claim access. the round needs a timeframe to split them.',
-            'Privacy turn landed but nobody weighed it against learning outcomes yet.'
+
+          // ── Round rotator ──────────────────────────────────────────
+          // The mock cycles through real motions across formats so the
+          // hero reads as a living product, not one frozen screenshot.
+          // Each entry is a COHERENT set: motion, speech/format line,
+          // both seat labels, the judge's three tracked args, and the
+          // live note all match — rotating the motion alone would make
+          // the judge panel contradict the resolution. Round 0 is the
+          // exact content already in the DOM, so no-JS and
+          // reduced-motion visitors keep a correct, static frame.
+          var ROUNDS = [
+            { motion:'This House would regulate AI tutors.',
+              speech:'<b>Speech 3 of 4</b> · Rebuttal · POIs open until 1:00',
+              you:'Proposition', opp:'Opposition',
+              flow:[['AI access gap','in clash','is-live'],['Teacher shortage','dropped','is-drop'],['Privacy turn','weighed','']],
+              note:'Opp owes an answer on the access gap. two speeches left to fix it.' },
+            { motion:'Resolved: The United States should ban TikTok.',
+              speech:'<b>Summary · Pro</b> · 3 min · Grand Crossfire next',
+              you:'Pro', opp:'Con',
+              flow:[['Data security','in clash','is-live'],['First Amendment','turned','is-drop'],['Creator economy','weighed','']],
+              note:'Con dropped the data-security link. Pro should extend and weigh it in summary.' },
+            { motion:'Resolved: A just government ought to prioritize universal healthcare.',
+              speech:'<b>1AR · Aff</b> · Value: Justice · Criterion: Wellbeing',
+              you:'Aff', opp:'Neg',
+              flow:[['Util framework','in clash','is-live'],['Tradeoff DA','dropped','is-drop'],['Rights priority','weighed','']],
+              note:'Neg conceded the framework. Aff should collapse to wellbeing and weigh now.' },
+            { motion:'Resolved: The USFG should substantially increase Arctic cooperation.',
+              speech:'<b>2NC · Neg</b> · Block · cards flowing',
+              you:'Neg', opp:'Aff',
+              flow:[['Warming impact','in clash','is-live'],['Topicality','dropped','is-drop'],['Heg DA','weighed','']],
+              note:'Aff never answered the T-violation. Neg can go for it in the 2NR.' },
+            { motion:'This House would abolish capital punishment.',
+              speech:'<b>Deputy PM · Gov</b> · Rebuild · POIs open',
+              you:'Government', opp:'Opposition',
+              flow:[['Deterrence claim','in clash','is-live'],['Wrongful conviction','dropped','is-drop'],['Retribution','weighed','']],
+              note:'Opp never answered wrongful conviction. Gov should weigh it as the clearest harm.' }
           ];
-          var secs = 462, watch = 124, noteIdx = 0, timers = [];
+          var motionEl  = document.getElementById('hiRoomMotion');
+          var speechEl  = document.getElementById('hiRoomSpeech');
+          var seatYouEl = document.getElementById('hiSeatYou');
+          var seatOppEl = document.getElementById('hiSeatOpp');
+          var flowEl    = document.getElementById('hiFlow');
+          var fadeEls   = [motionEl, speechEl, seatYouEl, seatOppEl, flowEl, noteEl].filter(Boolean);
+
+          var secs = 462, watch = 124, roundIdx = 0, timers = [];
           function tickClock(){
             secs -= 1;
             if (secs < 300) secs = 462;
@@ -6657,20 +6693,34 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             if (watch > 132) watch = 132;
             if (watchEl) watchEl.textContent = watch;
           }
-          function swapNote(){
-            if (!noteEl || !noteWrap) return;
-            noteIdx = (noteIdx + 1) % NOTES.length;
-            noteWrap.classList.add('is-fading');
+          function renderFlow(flow){
+            if (!flowEl) return;
+            var html = '';
+            for (var i = 0; i < flow.length; i++){
+              var f = flow[i];
+              html += '<li><span class="hi-flow-arg">' + f[0] + '</span><b class="hi-flow-tag' + (f[2] ? ' ' + f[2] : '') + '">' + f[1] + '</b></li>';
+            }
+            flowEl.innerHTML = html;
+          }
+          function swapRound(){
+            roundIdx = (roundIdx + 1) % ROUNDS.length;
+            var r = ROUNDS[roundIdx];
+            fadeEls.forEach(function(el){ el.style.transition = 'opacity .38s ease'; el.style.opacity = '0'; });
             setTimeout(function(){
-              noteEl.textContent = NOTES[noteIdx];
-              noteWrap.classList.remove('is-fading');
-            }, 420);
+              if (motionEl)  motionEl.textContent = r.motion;
+              if (speechEl)  speechEl.innerHTML  = r.speech;
+              if (seatYouEl) seatYouEl.textContent = r.you;
+              if (seatOppEl) seatOppEl.textContent = r.opp;
+              renderFlow(r.flow);
+              if (noteEl) noteEl.textContent = r.note;
+              fadeEls.forEach(function(el){ el.style.opacity = '1'; });
+            }, 400);
           }
           function start(){
             if (timers.length || reduced) return;
             timers.push(setInterval(tickClock, 1000));
             timers.push(setInterval(driftWatch, 6800));
-            timers.push(setInterval(swapNote, 8600));
+            timers.push(setInterval(swapRound, 7000));
           }
           function stop(){
             timers.forEach(function(t){ clearInterval(t); });
