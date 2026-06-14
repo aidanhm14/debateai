@@ -255,7 +255,7 @@ button{font-family:inherit}
 
 /* ─── Hero ─────────────────────────────────────────── */
 .hero{
-  max-width:1100px;margin:0 auto;padding:28px 24px 14px;text-align:center;
+  max-width:1100px;margin:0 auto;padding:20px 24px 10px;text-align:center;
 }
 /* Quiet text eyebrow. The loud red pill made the page read busy
    before the user had a chance to read the headline. */
@@ -271,14 +271,14 @@ button{font-family:inherit}
 @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 .hero h1{
   font-family:'Fraunces','Inter',serif;
-  font-size:clamp(1.5rem,3vw,2.1rem);
+  font-size:clamp(1.4rem,2.6vw,1.85rem);
   font-weight:500;line-height:1.05;letter-spacing:-.022em;
-  margin-bottom:8px;
+  margin-bottom:6px;
 }
 .hero h1 em{color:var(--accent);font-style:italic;font-weight:500}
 .hero-sub{
-  font-size:clamp(.9rem,1.2vw,1rem);
-  color:var(--text-dim);max-width:560px;margin:0 auto 14px;line-height:1.5;
+  font-size:clamp(.86rem,1.1vw,.94rem);
+  color:var(--text-dim);max-width:540px;margin:0 auto 12px;line-height:1.5;
 }
 .hero-cta-row{
   display:flex;gap:18px;justify-content:center;align-items:center;flex-wrap:wrap;
@@ -396,10 +396,63 @@ button{font-family:inherit}
 .btn-ghost{padding:6px 12px;font-size:.7rem}
 
 .empty{
-  padding:24px 20px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:38px 20px;text-align:center;
   background:var(--bg-card);border:1px dashed var(--border);
   border-radius:var(--radius-md);
   color:var(--text-dim);font-size:.88rem;line-height:1.55;
+}
+.empty-glyph{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:48px;height:48px;border-radius:14px;margin-bottom:4px;
+  background:var(--bg);border:1px solid var(--border);color:var(--text-ghost);
+}
+.empty-title{font-size:.98rem;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.empty-sub{max-width:380px;font-size:.82rem;color:var(--text-dim)}
+
+/* ─── Schedule board panel ─────────────────────────────
+   Wraps the heading, week ruler, filters and feed into one
+   surface so the page reads as a single scheduling module
+   rather than a loose stack of boxes on the body BG. */
+.sched-board{
+  background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:18px 18px 20px;
+}
+[data-theme="light"] .sched-board{box-shadow:var(--shadow-card)}
+.sched-board .sec-head{margin-bottom:14px}
+@media(max-width:560px){.sched-board{padding:14px 12px 16px}}
+
+/* ─── Week-ahead ruler ─────────────────────────────────
+   Seven real day cells starting today. Honest empty board:
+   cells with no debates just show the date; days with
+   scheduled rounds show a count dot. */
+.week-strip{
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;
+  margin:0 0 16px;
+}
+.week-cell{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:8px 4px 9px;border:1px solid var(--border);border-radius:11px;
+  background:var(--bg-card);cursor:pointer;
+  font-family:inherit;color:var(--text-dim);
+  transition:border-color .15s,background .15s,color .15s,transform .12s;
+}
+.week-cell:hover{border-color:var(--border-strong);color:var(--text);transform:translateY(-1px)}
+.week-cell .wc-dow{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost)}
+.week-cell .wc-day{font-size:1.02rem;font-weight:800;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+.week-cell .wc-dot{
+  height:5px;display:flex;align-items:center;gap:3px;margin-top:1px;
+  font-size:.56rem;font-weight:800;color:var(--accent);letter-spacing:.02em;
+}
+.week-cell .wc-dot i{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;font-style:normal}
+.week-cell.is-today{border-color:var(--accent);background:var(--accent);}
+.week-cell.is-today .wc-dow,.week-cell.is-today .wc-day{color:#fff}
+.week-cell.is-today .wc-dot{color:#fff}
+.week-cell.is-today .wc-dot i{background:#fff}
+.week-cell.has-events{border-color:var(--border-strong)}
+@media(max-width:560px){
+  .week-cell{padding:7px 2px 8px;border-radius:9px}
+  .week-cell .wc-day{font-size:.9rem}
 }
 /* Quiet single-line footnote under a dashed rule. The pink banner
    competed with the actual board for attention. */
@@ -1318,6 +1371,7 @@ button{font-family:inherit}
 .snav-item.active .tab-badge{background:rgba(255,255,255,.22);color:#fff}
 [data-theme="light"] .snav-item:hover{background:rgba(0,0,0,.05)}
 .snav-div{display:none}
+.snav-label{display:none}
 .snav-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 6px rgba(34,197,94,.6)}
 @media(min-width:1000px){
   /* Two-column shell: sticky sidebar + content column. .page-cols
@@ -1341,7 +1395,12 @@ button{font-family:inherit}
   }
   .snav-item{border-radius:10px;justify-content:flex-start;font-size:.8rem;padding:9px 12px}
   .snav-item .tab-badge{margin-left:auto}
-  .snav-div{display:block;height:1px;background:var(--border);margin:8px 4px}
+  .snav-div{display:block;height:1px;background:var(--border);margin:9px 4px 3px}
+  .snav-label{
+    display:block;padding:2px 12px 4px;
+    font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text-ghost);
+  }
 }
 
 /* ─── "Your next debate" command center ────────────── */
@@ -1571,14 +1630,17 @@ button{font-family:inherit}
 
 <div class="page-cols">
 <nav class="side-nav" id="sideNav" aria-label="Debate navigation">
+  <span class="snav-label" aria-hidden="true">Browse</span>
   <button class="snav-item active" data-nav="upcoming" data-tab="browse" type="button">Upcoming <span class="tab-badge" id="tabBadgeBrowse" hidden>0</span></button>
   <button class="snav-item" data-nav="live" data-tab="browse" type="button"><span class="snav-dot" aria-hidden="true"></span>Live Now <span class="tab-badge" id="navBadgeLive" hidden>0</span></button>
   <button class="snav-item" data-nav="past" data-tab="archive" type="button">Past Debates <span class="tab-badge" id="tabBadgeArchive" hidden>0</span></button>
   <span class="snav-div" aria-hidden="true"></span>
+  <span class="snav-label" aria-hidden="true">Create</span>
   <a class="snav-item" href="/spar">Find Opponent</a>
   <button class="snav-item" data-nav="schedule" type="button">Schedule a Debate</button>
   <button class="snav-item" data-nav="calendar" type="button">Calendar</button>
   <span class="snav-div" aria-hidden="true"></span>
+  <span class="snav-label" aria-hidden="true">You</span>
   <button class="snav-item" data-nav="mine" data-tab="mine" type="button">My Debates <span class="tab-badge" id="tabBadgeMine" hidden>0</span></button>
   <button class="snav-item" data-nav="profile" data-tab="manage" type="button">Profile</button>
 </nav>
@@ -1600,6 +1662,7 @@ button{font-family:inherit}
 
       <div id="todayPanel" class="today-panel" hidden></div>
 
+      <div class="sched-board">
       <div class="sec-head">
         <h2>Upcoming Debates</h2>
         <span id="challengeCount" class="count">0 scheduled</span>
@@ -1608,6 +1671,14 @@ button{font-family:inherit}
           <button type="button" data-view="calendar">Calendar</button>
         </div>
       </div>
+
+      <!-- Week-ahead ruler. A real 7-day strip starting today so the
+           board reads as a calendar tool even before it fills. Each cell
+           shows weekday + date and a count of debates scheduled that day;
+           clicking a day opens the composer. Rendered by renderWeekStrip()
+           from the live feed, hidden in Calendar view (the month grid
+           covers it). -->
+      <div id="weekStrip" class="week-strip" aria-label="Next seven days" hidden></div>
 
       <!-- Filter chips. Four lenses on the upcoming feed. "Completed"
            jumps straight to the Past Debates view. -->
@@ -1635,8 +1706,13 @@ button{font-family:inherit}
         <!-- debates render here -->
       </div>
       <div id="empty" class="empty" style="display:none">
-        Nothing scheduled right now. Schedule the first debate, or browse Past Debates for finished rounds.
+        <span class="empty-glyph" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>
+        </span>
+        <span class="empty-title">Your board is clear</span>
+        <span class="empty-sub">Nothing scheduled right now. Schedule the first debate, or browse Past Debates for finished rounds.</span>
       </div>
+      </div><!-- /.sched-board -->
 
       <p class="microcopy-foot">All times shown in your local time. Debates can be joined as <strong style="color:var(--text)">debater</strong>, <strong style="color:var(--text)">judge</strong>, or <strong style="color:var(--text)">viewer</strong> depending on availability.</p>
 
@@ -3287,6 +3363,8 @@ button{font-family:inherit}
     host.innerHTML = '';
     if (count) count.textContent = list.length + ' scheduled';
 
+    renderWeekStrip(fullList);
+
     if (viewMode === 'calendar'){
       if (calWrap){ calWrap.style.display = ''; renderCalendar(list); }
       host.style.display = 'none';
@@ -3294,7 +3372,7 @@ button{font-family:inherit}
     } else {
       if (calWrap) calWrap.style.display = 'none';
       host.style.display = '';
-      if (empty) empty.style.display = list.length === 0 ? 'block' : 'none';
+      if (empty) empty.style.display = list.length === 0 ? 'flex' : 'none';
       list.forEach(function(c){
         host.appendChild(buildEventCard(c, activeRooms));
       });
@@ -3388,6 +3466,46 @@ button{font-family:inherit}
       participantChips(c, f) +
       '<div class="card-actions">' + actions + '</div>';
     return card;
+  }
+
+  // ── Week-ahead ruler. Seven real day cells starting today. Honest
+  // about an empty board — a day with no scheduled debates just shows
+  // its date; days with rounds show a count. Clicking any day opens the
+  // composer. Hidden in Calendar view (the month grid covers it).
+  function renderWeekStrip(fullList){
+    var host = document.getElementById('weekStrip');
+    if (!host) return;
+    if (viewMode === 'calendar'){ host.hidden = true; return; }
+    var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var today = new Date(); today.setHours(0,0,0,0);
+    // Tally scheduled (not-yet-expired, no-ballot) debates per calendar day.
+    var counts = {};
+    (fullList || []).forEach(function(c){
+      if (!c.scheduledAt) return;
+      var info = classifyChallenge(c);
+      if (info.expired || info.hasBallot) return;
+      var d = new Date(c.scheduledAt); d.setHours(0,0,0,0);
+      var key = d.getTime();
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    var html = '';
+    for (var i = 0; i < 7; i++){
+      var d = new Date(today.getTime() + i * 86400000);
+      var key = d.getTime();
+      var n = counts[key] || 0;
+      var cls = 'week-cell' + (i === 0 ? ' is-today' : '') + (n ? ' has-events' : '');
+      var dot = n
+        ? '<span class="wc-dot"><i></i>' + n + '</span>'
+        : '<span class="wc-dot"></span>';
+      html += '<button type="button" class="' + cls + '" data-week-day="' + key + '" '
+        + 'aria-label="' + DOW[d.getDay()] + ' ' + d.getDate() + (n ? ', ' + n + ' scheduled' : ', nothing scheduled') + '">'
+        + '<span class="wc-dow">' + DOW[d.getDay()] + '</span>'
+        + '<span class="wc-day">' + d.getDate() + '</span>'
+        + dot
+        + '</button>';
+    }
+    host.innerHTML = html;
+    host.hidden = false;
   }
 
   // ── "Your next debate" command center. Nearest debate the viewer
@@ -4640,6 +4758,29 @@ button{font-family:inherit}
     if (el){ e.preventDefault(); closeDrawer(); return; }
     el = t.closest('[data-nd-schedule]');
     if (el){ e.preventDefault(); expandPostAside(); return; }
+    el = t.closest('[data-week-day]');
+    if (el){
+      e.preventDefault();
+      // Prefill the composer's date with the clicked day (default 6pm
+      // local) so the week ruler acts as a real day-picker.
+      var dayMs = parseInt(el.getAttribute('data-week-day'), 10);
+      expandPostAside();
+      if (dayMs){
+        // Flip the composer to "Custom" time and prefill the clicked day
+        // (default 6pm local) so the week ruler acts as a day-picker.
+        var customBtn = document.querySelector('[data-when="custom"]');
+        if (customBtn) customBtn.click();
+        var schedInput = document.getElementById('customTime');
+        if (schedInput){
+          var when = new Date(dayMs); when.setHours(18, 0, 0, 0);
+          var pad = function(n){ return (n < 10 ? '0' : '') + n; };
+          schedInput.value = when.getFullYear() + '-' + pad(when.getMonth()+1) + '-' + pad(when.getDate())
+            + 'T' + pad(when.getHours()) + ':' + pad(when.getMinutes());
+          try { schedInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){}
+        }
+      }
+      return;
+    }
     el = t.closest('[data-cal-nav]');
     if (el){
       e.preventDefault();
