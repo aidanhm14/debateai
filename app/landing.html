@@ -12600,7 +12600,17 @@ window.addEventListener('load', function(){
   function renderUserChip(user){
     var host = document.getElementById('barUser');
     if (!host) return;
-    if (!user){ host.style.display = 'none'; host.innerHTML = ''; return; }
+    if (!user){
+      // Signed out: show a Sign in button in the topbar slot (not an
+      // empty slot). Wired to the landing Google flow (popup -> redirect
+      // fallback, lands on /app#chat). Replaces the old clear-and-hide,
+      // which left the bar with no sign-in affordance.
+      host.style.display = 'inline-flex';
+      host.innerHTML = '<button class="ui-btn ui-btn-ghost ui-btn-sm" id="landingSignInBtn" type="button" title="Sign in with Google. Free.">Sign in</button>';
+      var sib = document.getElementById('landingSignInBtn');
+      if (sib) sib.addEventListener('click', function(){ triggerGoogleSignIn('topbar'); });
+      return;
+    }
     var photo = user.photoURL || '';
     var nm = (user.displayName || user.email || 'You').split(/\s+/)[0];
     var initials = (user.displayName || user.email || '?').split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');

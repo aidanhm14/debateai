@@ -4880,7 +4880,15 @@ button{font-family:inherit}
   function renderUserChip(){
     var host = document.getElementById('barUser');
     if (!host) return;
-    if (!currentUser){ host.innerHTML = ''; return; }
+    if (!currentUser){
+      // Signed out: show a Sign in button in the topbar slot (not an
+      // empty slot), wired to the live Google flow.
+      host.style.display = 'inline-flex';
+      host.innerHTML = '<button class="ui-btn ui-btn-ghost ui-btn-sm" id="liveSignInBtn" type="button" title="Sign in with Google. Free.">Sign in</button>';
+      var sb = document.getElementById('liveSignInBtn');
+      if (sb) sb.addEventListener('click', function(){ doGoogleSignIn(); });
+      return;
+    }
     var u = currentUser;
     var photo = u.photoURL || '';
     var nm = (u.displayName || u.email || 'You').split(/\s+/)[0];
