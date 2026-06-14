@@ -302,6 +302,10 @@ button{font-family:inherit}
   padding:14px 16px;background:rgba(255,255,255,.03);border:1px solid var(--border);
   border-radius:12px;margin-bottom:14px;
 }
+.motion-display[contenteditable]{cursor:text;transition:border-color .15s,background .15s}
+.motion-display[contenteditable]:hover{border-color:var(--text-dim,rgba(255,255,255,.3))}
+.motion-display[contenteditable]:focus{outline:none;border-color:var(--accent,#ef4444);background:rgba(255,255,255,.05)}
+.motion-display[contenteditable]:empty:before{content:attr(data-ph);color:var(--text-dim,rgba(255,255,255,.4));font-weight:500}
 .format-display{
   display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;
 }
@@ -908,8 +912,8 @@ button{font-family:inherit}
     <!-- ── SETUP ── -->
     <div id="setupView">
       <div class="panel-section">
-        <div class="label">Motion</div>
-        <div class="motion-display" id="motionDisplay">(set ?motion= in URL)</div>
+        <div class="label">Motion <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· tap to edit before you start</span></div>
+        <div class="motion-display" id="motionDisplay" contenteditable="true" spellcheck="true" role="textbox" aria-label="Motion (editable)" data-ph="Type or paste the motion…"></div>
         <div class="label">Format</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
@@ -1446,7 +1450,7 @@ button{font-family:inherit}
   // ── Setup view rendering
   function renderSetup(){
     var f = FORMATS[state.formatKey];
-    $('motionDisplay').textContent = state.motion || '(no motion provided, paste one in via the URL or set it now)';
+    if (document.activeElement !== $('motionDisplay')) $('motionDisplay').textContent = state.motion || '';
     // For 4-team formats, render a chip per team (OG / OO / CG / CO).
     // The 2-side formats keep the original pro/con chip pair.
     var sideChips = isFourTeam(f)
@@ -2416,12 +2420,13 @@ button{font-family:inherit}
 
   // ── Phase transitions
   function startRound(){
-    state.motion = ($('motionDisplay').textContent === '(no motion provided, paste one in via the URL or set it now)') ? '' : state.motion;
-    if (!state.motion){
-      var m = prompt('Motion?');
-      if (!m || m.trim().length < 5){ return; }
-      state.motion = m.trim();
-      $('motionDisplay').textContent = state.motion;
+    // Motion is editable in the setup box (contenteditable). Read it
+    // straight from there so a revised motion is what the round uses.
+    state.motion = ($('motionDisplay').textContent || '').trim();
+    if (state.motion.length < 5){
+      alert('Add a motion first — tap the Motion box and type or paste it.');
+      try { $('motionDisplay').focus(); } catch(e){}
+      return;
     }
     state.proName = $('proName').value.trim();
     state.conName = $('conName').value.trim();
@@ -3924,7 +3929,7 @@ button{font-family:inherit}
       // gave us — they're the ones that matter for spectator gating.
     }
     if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
-    if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md) md.textContent = d.motion; changedSetup = true; }
+    if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
     if (d.conName && state.conName !== d.conName){ state.conName = d.conName; var cn=$('conName'); if (cn) cn.value = d.conName; changedSetup = true; }
@@ -4176,15 +4181,17 @@ button{font-family:inherit}
     else if (e.key === 'Enter'){ e.preventDefault(); endSpeech(); }
   });
 
-  // Allow editing motion inline if missing
-  $('motionDisplay').addEventListener('click', function(){
-    if (state.motion) return;
-    var m = prompt('Motion?');
-    if (m && m.trim().length > 5){
-      state.motion = m.trim();
-      $('motionDisplay').textContent = state.motion;
-      updateStartBtn();
-    }
+  // Motion is edited directly in the contenteditable box. Keep state +
+  // the Start button in sync as the user types or pastes.
+  $('motionDisplay').addEventListener('input', function(){
+    state.motion = ($('motionDisplay').textContent || '').trim();
+    updateStartBtn();
+  });
+  // Paste as plain text so pasted rich content doesn't inject markup.
+  $('motionDisplay').addEventListener('paste', function(e){
+    e.preventDefault();
+    var t = (e.clipboardData || window.clipboardData).getData('text');
+    document.execCommand('insertText', false, t);
   });
 
   // ── Auth gate. Required for Firestore writes (live round sync) and
