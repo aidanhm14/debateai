@@ -168,18 +168,20 @@ export default async (request) => {
   }
 
   // ── 1.6 Site views this week ──────────────────────────────────
-  // Real page_view events from the same `events` log (track.js fires
-  // page_view for anonymous visitors too — it's in the anon-allowed
-  // set). Top-of-funnel count so the proof strip reads as a funnel
-  // (views » searches » sign-ins) instead of one lonely number. Same
-  // composite index as liveSearchesWeek (metadata.name + createdAt),
-  // so no new index. No static fallback — a hardcoded weekly number
-  // rots into a lie within a week; the landing hides the clause at 0.
+  // Real page_view events from the same `events` log. NOTE: log-event
+  // stores the event name in the top-level `event` field; only
+  // gtag-bridged events carry metadata.name (that's why liveSearchesWeek
+  // above filters metadata.name but this filters `event`). page_view
+  // currently fires for signed-in users only — anon lifecycle is off for
+  // cost (see track.js) — so this is a floor: real signed-in page loads
+  // in the last 7 days, never inflated. Needs its own composite index
+  // events(event ASC, createdAt ASC), added to firestore.indexes.json.
+  // No static fallback; the landing hides the clause at 0.
   let viewsWeek = 0;
   try {
     const weekCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const agg = await db.collection('events')
-      .where('metadata.name', '==', 'page_view')
+      .where('event', '==', 'page_view')
       .where('createdAt', '>=', weekCutoff)
       .count()
       .get();
