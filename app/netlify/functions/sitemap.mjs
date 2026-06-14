@@ -58,6 +58,11 @@ const URLS = [
   // (HowTo + SoftwareApplication + FAQPage + BreadcrumbList), strong
   // CTA into /exhibition. Same playbook as /debate-an-ai → /voice-debate.
   { path: '/ai-vs-ai-debate',                         changefreq: 'weekly',  priority: '0.88' },
+  // Dedicated SEO doorway for "ai debate judge" / "judge a debate
+  // round" / "debate ballot" intents. Paste-a-round produces a
+  // tournament-grade RFD + speaker points; PF-first, targets the
+  // lay-parent-judge gap. Same playbook as /debate-an-ai.
+  { path: '/judge',                                   changefreq: 'weekly',  priority: '0.88' },
   { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debateit-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debateit-vs-claude',              changefreq: 'monthly', priority: '0.84' },

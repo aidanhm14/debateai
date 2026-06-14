@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Debate Judge · Get a real ballot on any round · DebateIt</title>
+<meta name="description" content="Paste a full debate round and get a tournament-grade AI ballot: who won, speaker points per side, and a reason-for-decision that names the key clashes. Built for Public Forum and every other format that runs on lay parent judges who don't flow. Free in beta." />
+<meta name="keywords" content="AI debate judge, debate ballot, judge a debate round, Public Forum judge, RFD, reason for decision, speaker points, online debate judge, lay judge, ai judge debate, debate adjudication, judge my debate round">
+
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/judge">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/judge">
+<meta property="og:title" content="AI Debate Judge · Get a real ballot on any round · DebateIt">
+<meta property="og:description" content="Most rounds are scored by lay judges who don't flow. Paste yours and get an objective ballot: who won, why, and speaker points per side. Free in beta.">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=debateit1">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AI Debate Judge · Get a real ballot on any round">
+<meta name="twitter:description" content="Paste a full round, get a tournament-grade ballot: winner, speaker points, and an RFD that names the clashes. Built for Public Forum and every format.">
+<meta name="twitter:image" content="https://debateai.com/og-image.png?v=debateit1">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- Theme boot. Respects the saved da-theme preference (crimson / grey /
+     stone / light) so the page renders in the right palette on first
+     paint. ui.css ships the tokens; this just sets data-theme early. -->
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<link rel="stylesheet" href="/css/ui.css">
+
+<!-- Firebase (deferred). notifications.js self-bootstraps firebase, so
+     the Available pill + bell work here for free once these load. -->
+<script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
+<script defer src="/js/app-check.js"></script>
+<script defer src="/js/track.js"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root,[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.18);--border-strong:rgba(255,255,255,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.6);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.22);--border-strong:rgba(239,68,68,.45);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.55);
+  --green:#22c55e;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.6);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.6);
+}
+[data-theme="stone"]{
+  --bg:#1a1815;--bg-elev:#232019;--bg-card:#2a261e;
+  --border:rgba(255,255,255,.16);--border-strong:rgba(255,255,255,.30);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;
+  --text:#f5f1e8;--text-dim:rgba(245,241,232,.82);--text-ghost:rgba(245,241,232,.56);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.5);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.22);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.22);
+  --green:#16a34a;
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.7);--text-ghost:rgba(0,0,0,.46);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
+}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;flex-direction:column;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit}
+
+main{flex:1}
+.wrap{max-width:880px;margin:0 auto;padding:76px 22px 80px}
+@media (max-width:880px){.wrap{padding-top:86px}}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  padding:5px 12px;border-radius:999px;
+  background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.34);
+  color:var(--accent);margin-bottom:18px;
+}
+.eyebrow .pip{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+
+/* Brand bar / breadcrumb (always-visible home link). */
+.brand-bar{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 22px;font-size:.86rem;line-height:1.2}
+.brand-mark{font-weight:800;color:var(--text);letter-spacing:-.012em;text-decoration:none;font-size:.86rem;transition:color .15s}
+.brand-mark strong{color:var(--accent);font-weight:800}
+.brand-mark .tld{color:var(--text-ghost);font-weight:500}
+.brand-mark:hover{color:var(--accent)}
+.brand-sep{color:var(--text-ghost);font-weight:300;opacity:.6}
+.brand-here{color:var(--text-ghost);font-weight:600;font-size:.8rem}
+
+h1{font-size:clamp(2rem,5vw,2.9rem);font-weight:900;letter-spacing:-.03em;line-height:1.04;margin:0 0 16px}
+h1 em{font-style:normal;color:var(--accent)}
+h2{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:46px 0 14px}
+.lede{font-size:1.08rem;line-height:1.6;color:var(--text-dim);max-width:680px;margin:0 0 28px}
+p{line-height:1.65;color:var(--text-dim);margin:0 0 14px}
+
+/* ── Form card ─────────────────────────────────────────── */
+.judge-form{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
+  padding:26px;margin:8px 0 24px;box-shadow:var(--shadow-lg);
+}
+.field{margin-bottom:18px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:7px}
+.field .hint{font-weight:500;letter-spacing:0;text-transform:none;color:var(--text-ghost);font-size:.74rem;margin-left:6px}
+.ctl{
+  width:100%;background:var(--bg-elev);color:var(--text);
+  border:1px solid var(--border);border-radius:11px;
+  padding:12px 14px;font-size:.96rem;line-height:1.5;
+  transition:border-color .15s,box-shadow .15s;
+}
+.ctl:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+select.ctl{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%23999' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
+textarea.ctl{resize:vertical;min-height:200px;line-height:1.55}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:560px){.two-col{grid-template-columns:1fr}}
+
+.btn-judge{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--accent);color:#fff;
+  padding:14px 26px;border-radius:12px;
+  font-size:1rem;font-weight:800;letter-spacing:-.003em;
+  box-shadow:0 12px 28px -8px rgba(239,68,68,.45);
+  transition:transform .15s,box-shadow .15s,background .15s,opacity .15s;
+}
+.btn-judge:hover{background:#dc2626;transform:translateY(-1px);box-shadow:0 16px 34px -6px rgba(239,68,68,.55)}
+.btn-judge:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+.form-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:4px}
+.form-note{font-size:.78rem;color:var(--text-ghost)}
+.form-error{color:#fca5a5;font-size:.86rem;font-weight:600;margin-top:12px;display:none}
+
+/* ── Loading + ballot ──────────────────────────────────── */
+.loading{display:none;text-align:center;padding:46px 20px}
+.loading .spin{width:34px;height:34px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);margin:0 auto 16px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading .lbl{font-weight:700;color:var(--text-dim)}
+.loading .sub{font-size:.82rem;color:var(--text-ghost);margin-top:6px}
+
+.ballot{display:none;margin-top:8px}
+.win-banner{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(255,255,255,.02));
+  border:1px solid rgba(34,197,94,.34);border-radius:16px;
+  padding:20px 24px;margin-bottom:18px;
+}
+.win-banner .tag{font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+.win-banner .who{font-size:1.5rem;font-weight:900;letter-spacing:-.02em;line-height:1.1}
+.scores{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+@media (max-width:560px){.scores{grid-template-columns:1fr}}
+.score-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;text-align:center}
+.score-card.winner{border-color:rgba(34,197,94,.45)}
+.score-card .side{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:4px}
+.score-card .name{font-size:1.02rem;font-weight:700;margin-bottom:10px;color:var(--text)}
+.score-card .pts{font-size:2.4rem;font-weight:900;letter-spacing:-.03em;line-height:1;color:var(--accent)}
+.score-card.winner .pts{color:var(--green)}
+.score-card .pts-lbl{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-ghost);margin-top:6px}
+
+.rfd-block{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:16px}
+.rfd-block h3{font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+.rfd-block p{font-size:.98rem;line-height:1.7;color:var(--text-dim);margin:0}
+.fb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media (max-width:640px){.fb-grid{grid-template-columns:1fr}}
+.fb-block{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.fb-block h4{font-size:.72rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:10px}
+.fb-block p{font-size:.9rem;line-height:1.62;color:var(--text-dim);margin:0}
+.ballot-cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.ballot-cta a,.ballot-cta button{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 20px;border-radius:11px;font-size:.9rem;font-weight:800;
+}
+.ballot-cta .primary{background:var(--accent);color:#fff}
+.ballot-cta .primary:hover{background:#dc2626}
+.ballot-cta .ghost{border:1px solid var(--border-strong);color:var(--text-dim)}
+.ballot-cta .ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Supporting copy ───────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+@media (max-width:760px){.cards{grid-template-columns:1fr}}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.card h3{font-size:1rem;font-weight:800;margin-bottom:8px}
+.card p{font-size:.88rem;line-height:1.6;color:var(--text-ghost);margin:0}
+.faq details{border-top:1px solid var(--border);padding:14px 0}
+.faq summary{font-weight:700;cursor:pointer;list-style:none;font-size:.98rem}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{content:"+ ";color:var(--accent);font-weight:800}
+.faq details[open] summary::before{content:"– "}
+.faq p{margin:10px 0 0;font-size:.92rem;color:var(--text-ghost)}
+.cross-links{display:flex;flex-wrap:wrap;gap:10px;margin:28px 0 0}
+.cross-links a{font-size:.82rem;font-weight:600;color:var(--text-ghost);border:1px solid var(--border);border-radius:999px;padding:7px 14px;transition:color .15s,border-color .15s}
+.cross-links a:hover{color:var(--text);border-color:var(--border-strong)}
+
+footer.foot{padding:24px 22px;border-top:1px solid var(--border);text-align:center;font-size:.74rem;color:var(--text-ghost)}
+footer.foot a{color:var(--text-dim)}
+</style>
+</head>
+<body>
+
+<div id="daTopbar"></div>
+<script defer src="/js/topbar.js"></script>
+<script defer src="/js/notifications.js"></script>
+<script defer src="/js/cohort-banner.js"></script>
+
+<main>
+<div class="wrap">
+
+  <nav class="brand-bar" aria-label="Breadcrumb">
+    <a class="brand-mark" href="/" aria-label="DebateIt home">Debate<strong>It</strong><span class="tld">.com</span></a>
+    <span class="brand-sep" aria-hidden="true">/</span>
+    <span class="brand-here" aria-current="page">AI Judge</span>
+  </nav>
+
+  <span class="eyebrow"><span class="pip"></span> AI Judge · Free in beta</span>
+  <h1>Get a real ballot <em>on any round.</em></h1>
+  <p class="lede">Most rounds are scored by lay judges who don't flow. Paste yours and get an objective ballot: who won, why, and speaker points per side. The AI reads the whole flow, names the key clashes, and writes the reason-for-decision the way a circuit judge would.</p>
+
+  <!-- ── The judge form ──────────────────────────────────── -->
+  <section class="judge-form" aria-label="Judge a debate round">
+    <div class="field">
+      <label for="motion">Motion <span class="hint">the resolution both sides argued</span></label>
+      <input id="motion" class="ctl" type="text" placeholder="THBT social media platforms should be liable for the content their algorithms amplify" autocomplete="off">
+    </div>
+
+    <div class="two-col">
+      <div class="field">
+        <label for="format">Format</label>
+        <select id="format" class="ctl">
+          <option value="pf" selected>Public Forum</option>
+          <option value="ld">Lincoln-Douglas</option>
+          <option value="policy">Policy (CX)</option>
+          <option value="congress">Student Congress</option>
+          <option value="apda">APDA Parliamentary</option>
+          <option value="bp">British Parliamentary</option>
+          <option value="worlds">Worlds (WUDC)</option>
+          <option value="asian">Asian Parliamentary</option>
+          <option value="quick">Quick Clash</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="proName" id="proLabel">Pro speaker</label>
+        <input id="proName" class="ctl" type="text" placeholder="Side 1 name" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="field">
+        <label for="conName" id="conLabel">Con speaker</label>
+        <input id="conName" class="ctl" type="text" placeholder="Side 2 name" autocomplete="off">
+      </div>
+      <div class="field" aria-hidden="true"></div>
+    </div>
+
+    <div class="field">
+      <label for="transcript">Round transcript <span class="hint">paste the full round, both sides' speeches</span></label>
+      <textarea id="transcript" class="ctl" placeholder="Paste both sides' speeches here. Label them by speech if you can (Pro Constructive, Con Rebuttal, and so on). More detail produces a sharper ballot."></textarea>
+    </div>
+
+    <div class="form-foot">
+      <button id="judgeBtn" class="btn-judge" type="button">Judge the round <span aria-hidden="true">&rarr;</span></button>
+      <span class="form-note">More of the round you paste, the better the ballot.</span>
+    </div>
+    <div id="formError" class="form-error"></div>
+  </section>
+
+  <!-- ── Loading ─────────────────────────────────────────── -->
+  <div id="loading" class="loading">
+    <div class="spin"></div>
+    <div class="lbl">Reading the flow…</div>
+    <div class="sub">Identifying the key clashes and weighing the round.</div>
+  </div>
+
+  <!-- ── Ballot output ───────────────────────────────────── -->
+  <div id="ballot" class="ballot" aria-live="polite">
+    <div id="winBanner" class="win-banner">
+      <div>
+        <div class="tag">Ballot · Winner</div>
+        <div id="winWho" class="who"></div>
+      </div>
+    </div>
+    <div class="scores">
+      <div id="scorePro" class="score-card">
+        <div class="side" id="scoreProSide">Pro</div>
+        <div class="name" id="scoreProName"></div>
+        <div class="pts" id="scoreProPts"></div>
+        <div class="pts-lbl">Speaker points</div>
+      </div>
+      <div id="scoreCon" class="score-card">
+        <div class="side" id="scoreConSide">Con</div>
+        <div class="name" id="scoreConName"></div>
+        <div class="pts" id="scoreConPts"></div>
+        <div class="pts-lbl">Speaker points</div>
+      </div>
+    </div>
+    <div class="rfd-block">
+      <h3>Reason for decision</h3>
+      <p id="rfdText"></p>
+    </div>
+    <div class="fb-grid">
+      <div class="fb-block">
+        <h4 id="fbProLabel">Pro feedback</h4>
+        <p id="fbProText"></p>
+      </div>
+      <div class="fb-block">
+        <h4 id="fbConLabel">Con feedback</h4>
+        <p id="fbConText"></p>
+      </div>
+    </div>
+    <div class="ballot-cta">
+      <button class="primary" type="button" onclick="document.getElementById('transcript').value='';document.getElementById('judgeBtn').scrollIntoView({behavior:'smooth'});">Judge another round</button>
+      <a class="ghost" href="/voice-debate">Run a live round instead</a>
+    </div>
+  </div>
+
+  <!-- ── Why this exists ─────────────────────────────────── -->
+  <h2>Built for the lay-judge gap</h2>
+  <p>Public Forum runs on parent judges who never flowed a round in their life. You can give the cleanest summary of the year and still drop the ballot because the judge voted on who sounded more confident. This gives you an objective second opinion: a ballot that actually engages the arguments, walks the weighing, and tells you which clash decided the round.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Names the clashes</h3>
+      <p>The RFD identifies the two or three key clashes by name, says who won each and why, and flags the arguments that got dropped. Drops decide rounds.</p>
+    </div>
+    <div class="card">
+      <h3>Speaker points per side</h3>
+      <p>Both speakers get a score on the format's real scale, calibrated honestly. No clustering everyone at 28 to be polite.</p>
+    </div>
+    <div class="card">
+      <h3>Format-aware</h3>
+      <p>It judges through the lens of your format: PF summary-to-final-focus rules, LD framework, Policy collapse, APDA tight calls. Not generic feedback.</p>
+    </div>
+  </div>
+
+  <h2>How it works in three steps</h2>
+  <p><strong>One.</strong> Paste the full round. Both sides, every speech you have. Type the motion and pick the format. <strong>Two.</strong> Hit judge. The AI reads the whole flow and weighs the clashes the way a tournament judge does. <strong>Three.</strong> You get a winner, speaker points for each side, a reason-for-decision, and one concrete fix per speaker.</p>
+
+  <h2>AI debate judge FAQ</h2>
+  <div class="faq">
+    <details><summary>Is there an AI that can judge a debate round?</summary><p>Yes. Paste a full round here and the AI returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's actual adjudication norms, not generic feedback.</p></details>
+    <details><summary>Does this work for Public Forum?</summary><p>Public Forum is the default format and the case this page was built for. PF runs on lay parent judges who don't flow, so an objective ballot that actually tracks the summary-to-final-focus chain and the first-versus-second-speaker rules is exactly the gap. LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, and a Quick Clash mode are all supported too.</p></details>
+    <details><summary>How accurate is the AI ballot?</summary><p>It runs the same adjudication engine as our live rounds: format-pinned judging rules, explicit weighing across magnitude, probability, timeframe, and reversibility, and a speaker-point scale calibrated to use the full range. Treat it as a sharp second opinion, not a replacement for a real tournament panel. It catches drops and weighing gaps that a lay judge misses.</p></details>
+    <details><summary>What should I paste in?</summary><p>The fuller the better. Both sides' speeches, labeled by speech if you can (Pro Constructive, Con Rebuttal, and so on). A clean transcript or a detailed flow both work. The more of the round the AI can see, the more specific the ballot.</p></details>
+    <details><summary>Does it replace a tournament judge?</summary><p>No. It gives you an objective ballot when you don't have a flowing judge in the room, and a second read after a round you think you got robbed in. The point is to fill the lay-judge gap, not to stand in for a real panel.</p></details>
+    <details><summary>Is it free?</summary><p>Yes, while DebateIt is in beta every tier is $0. Anonymous visitors get a handful of rounds; signing in with Google adds more. The post-beta plans on <a href="/pricing">/pricing</a> are reference only.</p></details>
+  </div>
+
+  <div class="cross-links">
+    <a href="/voice-debate">Voice debate AI</a>
+    <a href="/debate-it">Typed debate AI</a>
+    <a href="/debate-an-ai">Debate an AI</a>
+    <a href="/topics/public-forum">Public Forum guide</a>
+    <a href="/topics">All format guides</a>
+    <a href="/learn">Learn the formats</a>
+    <a href="/landing">About DebateIt</a>
+  </div>
+
+</div>
+</main>
+
+<footer class="foot">
+  <a href="/landing">debateit.com</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · An objective ballot on any round.
+</footer>
+
+<!-- JSON-LD: WebApplication + FAQPage + Breadcrumb -->
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@graph":[
+    {
+      "@type":"WebApplication",
+      "name":"DebateIt · AI Debate Judge",
+      "url":"https://debateai.com/judge",
+      "applicationCategory":"EducationalApplication",
+      "operatingSystem":"Web",
+      "description":"Paste a full debate round and get a tournament-grade AI ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes. Built for Public Forum and every other competitive format. Free in beta.",
+      "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+      "featureList":["AI judge ballot for any pasted round","Winner and speaker points per side","Reason-for-decision that names the key clashes","Format-aware adjudication across PF, LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, Quick Clash","Explicit weighing of magnitude, probability, timeframe, reversibility","Per-speaker feedback with one concrete fix"]
+    },
+    {
+      "@type":"FAQPage",
+      "mainEntity":[
+        {"@type":"Question","name":"Is there an AI that can judge a debate round?","acceptedAnswer":{"@type":"Answer","text":"Yes. Paste a full round and the AI returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's actual adjudication norms, not generic feedback."}},
+        {"@type":"Question","name":"Does this AI judge work for Public Forum?","acceptedAnswer":{"@type":"Answer","text":"Public Forum is the default format and the case this page was built for. PF runs on lay parent judges who don't flow, so an objective ballot that tracks the summary-to-final-focus chain and the first-versus-second-speaker rules is exactly the gap. LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, and a Quick Clash mode are supported too."}},
+        {"@type":"Question","name":"How accurate is the AI ballot?","acceptedAnswer":{"@type":"Answer","text":"It runs the same adjudication engine as our live rounds: format-pinned judging rules, explicit weighing across magnitude, probability, timeframe, and reversibility, and a speaker-point scale calibrated to use the full range. Treat it as a sharp second opinion, not a replacement for a real tournament panel."}},
+        {"@type":"Question","name":"Does the AI judge replace a tournament judge?","acceptedAnswer":{"@type":"Answer","text":"No. It gives you an objective ballot when you don't have a flowing judge in the room, and a second read after a round you think you got robbed in. The point is to fill the lay-judge gap, not to stand in for a real panel."}}
+      ]
+    },
+    {
+      "@type":"BreadcrumbList",
+      "itemListElement":[
+        {"@type":"ListItem","position":1,"name":"DebateIt","item":"https://debateai.com/"},
+        {"@type":"ListItem","position":2,"name":"AI Judge","item":"https://debateai.com/judge"}
+      ]
+    }
+  ]
+}
+</script>
+
+<!-- ── Judge logic. Builds the 2-side ballot prompt (mirrors
+     live-round.html buildBallotPrompt + generateBallot), posts to
+     /api/claude with _feature:'live-round' so claude.mjs injects the
+     server-side adjudication core, parses the JSON ballot robustly,
+     and renders it. ───────────────────────────────────────────── -->
+<script>
+(function(){
+  // 2-side format subset. BP / Worlds are natively 4-team; here we
+  // judge a pasted transcript on the gov/opp bench split, which is the
+  // honest 2-side read for a single pasted round.
+  var FORMATS = {
+    pf:       { name:'Public Forum',        sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'} },
+    ld:       { name:'Lincoln-Douglas',     sides:['aff','neg'], sideLabels:{aff:'Affirmative',neg:'Negative'} },
+    policy:   { name:'Policy (CX)',         sides:['aff','neg'], sideLabels:{aff:'Affirmative',neg:'Negative'} },
+    congress: { name:'Student Congress',    sides:['pro','con'], sideLabels:{pro:'Proponent',con:'Opponent'} },
+    apda:     { name:'APDA Parliamentary',  sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'} },
+    bp:       { name:'British Parliamentary',sides:['gov','opp'],sideLabels:{gov:'Government',opp:'Opposition'} },
+    worlds:   { name:'Worlds (WUDC)',       sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'} },
+    asian:    { name:'Asian Parliamentary', sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'} },
+    quick:    { name:'Quick Clash',         sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'} }
+  };
+
+  // Per-format judging instincts. Subset of live-round.html JUDGE_RULES
+  // for the 2-side formats; rides along so the RFD reads format-aware.
+  var JUDGE_RULES = {
+    pf: [
+      "- Summary is the pivot. What summary KEPT decides what Final Focus is allowed to argue. Penalize Final Focus that extends a contention the summary dropped.",
+      "- FIRST-vs-SECOND ASYMMETRY: 1st rebuttal is pure attack; 2nd rebuttal must frontline + attack. 1st final focus can introduce new weighing; 2nd cannot introduce new content. Penalize violations.",
+      "- Lay-judge accessibility matters. Heavy jargon underperforms in a format built for non-debate-trained judges; match jargon tolerance to the round.",
+      "- Final Focus weighing should name a mechanism: scope, severity, reversibility, magnitude, probability, timeframe. A FF without explicit comparative weighing loses to one with it.",
+      "- SPEAKER POINTS: 24.0-30.0 scale, norm 26-30. Below 25 = obnoxious or rude. 30.0 reserved for a generational speech. Don't inflate."
+    ],
+    ld: [
+      "- Framework debate (value/criterion clash) decides most rounds. Resolve framework BEFORE contention-level wins.",
+      "- 2AR is the last word; only 2-3 voters survive. Penalize a 2AR that tries to extend everything.",
+      "- TRAD vs CIRCUIT: read the round context. Circuit (kritiks, theory, speed) evaluates on technical merit; traditional prioritizes values clash and penalizes jargon-dumping.",
+      "- Dropped arguments are conceded. State explicitly which drops cost the round; NR drops are decisive.",
+      "- Reward 'Kant in Groundwork argues...' over 'drawing from Rawls' with no text reference."
+    ],
+    policy: [
+      "- 2NR collapse is mandatory. Pick 1-2 positions and go deep; a 'go for everything' 2NR loses to a focused one.",
+      "- Theory shells (condo, T-violation) are a-priori voters when made and dropped; evaluate before substance.",
+      "- Card tag accuracy matters. If a tag overclaimed the evidence, that's the team's loss on the flow.",
+      "- Drops are weighed only if the other team CALLED them. A dropped sub-point nobody extended is dead weight.",
+      "- Speed is normal; penalize unclear tag-lines, unwarranted cards, or 1AR coverage failures, not delivery."
+    ],
+    congress: [
+      "- The speech POSITIONS are different jobs. Crystallization RESOLVES the debate by weighing; penalize crystallization that only summarizes.",
+      "- Late-round speeches must bring new content or crystallize. Pure rehash is a significant penalty.",
+      "- Questioning periods score separately. Sharp advancing questions get credit; gotcha aggression hurts.",
+      "- Style is heavily weighted: clarity, vocabulary, presence, extemporaneous polish. Monotone script-reading is a floor."
+    ],
+    apda: [
+      "- APDA is impromptu. Fabricated citations are a strike, not a credit. General-knowledge claims are the correct register.",
+      "- PMR is gov's last word: collapse + weigh, no new arguments. LOR is opp's last word: voting issues, no new arguments.",
+      "- MG must spend the first minutes ATTACKING LOC's off-case, not just defending. A purely-defensive MG underperforms.",
+      "- TIGHT CALL: a tight case has no winnable path for Opp. If Opp called tight on a beatable motion, penalize the lazy call; if Gov ran a genuinely tight case, drop Gov."
+    ],
+    bp: [
+      "- Closing teams must EXTEND with new analytical terrain (new actor, timeframe, impact layer). A new example is not extension.",
+      "- Whip speeches are ADJUDICATION, not partner-recap: global weighing structured by issues.",
+      "- OG without a clear MODEL (who does what, funded how, enforced how) loses the first burden.",
+      "- Reward teams that paint BOTH counterfactual worlds: motion passes vs motion fails."
+    ],
+    worlds: [
+      "- Closing teams must extend with new analytical terrain; whip speeches are adjudication, not recap.",
+      "- Reward international grounding over US-default examples. The principled-vs-practical split is canonical.",
+      "- Weighing vocabulary is reach, magnitude, probability, severity.",
+      "- An OG without a clear model loses the first burden; single-world cases underperform two-world painting."
+    ],
+    asian: [
+      "- The REPLY speech is mandatory and biased, delivered by PM/DPM or LO/DLO, not the Whip. No new arguments in reply.",
+      "- Only the LO can challenge a definition, in the first 60 seconds, with a named basis and a counter-definition.",
+      "- Whips do rebuttal + extension-blocking, not global summary; that is the Reply's job.",
+      "- MATTER / MANNER / METHOD is 40 / 40 / 20. Method rewards naming and resolving the clashes the other side raised."
+    ],
+    quick: [
+      "- Casual, no-jargon mode. Reward clear claims, real warrants, and direct clash; penalize hand-waving.",
+      "- Weigh the round on which side's strongest argument survived the rebuttals."
+    ]
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var busy = false;
+
+  // Keep the speaker-name labels and placeholders in sync with the
+  // picked format's side labels.
+  function syncLabels(){
+    var f = FORMATS[$('format').value] || FORMATS.pf;
+    var s0 = f.sideLabels[f.sides[0]], s1 = f.sideLabels[f.sides[1]];
+    $('proLabel').textContent = s0 + ' speaker';
+    $('conLabel').textContent = s1 + ' speaker';
+    $('proName').placeholder = s0 + ' name';
+    $('conName').placeholder = s1 + ' name';
+  }
+  $('format').addEventListener('change', syncLabels);
+  syncLabels();
+
+  function showError(msg){
+    var e = $('formError');
+    e.textContent = msg;
+    e.style.display = 'block';
+  }
+  function clearError(){ $('formError').style.display = 'none'; }
+
+  // ── Build the 2-side ballot prompt. Mirrors live-round.html
+  //    buildBallotPrompt (2-side branch). ─────────────────────────
+  function buildPrompt(motion, formatKey, proName, conName, transcript){
+    var f = FORMATS[formatKey] || FORMATS.pf;
+    var system = [
+      "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round.",
+      "",
+      "JUDGING APPROACH:",
+      "- Treat this like a real RFD at a championship round: identify the 2-3 KEY CLASHES by name (not just topics, name the specific arguments).",
+      "- For each clash, walk through how it played out: who initiated it, who responded, how the response landed, who collapsed it.",
+      "- Name DROPPED arguments, anything one side put forward that the other didn't engage with. Drops decide rounds.",
+      "- Do explicit WEIGHING: magnitude vs probability vs timeframe vs reversibility. Tell the debaters which argument outweighed which and why.",
+      "- The deciding issue should be a single sentence ('The round comes down to X because...') and the rest of the RFD justifies it.",
+      "- Quote-style references are great. Cite specific phrases or claims from the transcript so debaters can find the exact moment.",
+      "",
+      "FORMAT RULES, judge through this lens:",
+      "- " + f.name + " conventions apply.",
+    ].concat(JUDGE_RULES[formatKey] || []).concat([
+      "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
+      "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
+      "- Speaker points: use the FULL RANGE including the low end. Most AI judges inflate to 28+. Default to the middle of the format's scale. If a speaker dropped a contention, had no real weighing, or never warranted a key claim, score them at or below average. If one debater clearly outclassed the other, separate them by a meaningful margin, not half a point.",
+      "- If the transcript is thin or a side ran no real arguments, say so plainly and score accordingly. Do not invent arguments that are not in the transcript.",
+      "",
+      "OUTPUT, return ONLY a single JSON object with NO prose before or after. Schema:",
+      "{",
+      '  "winner": "pro" | "con",',
+      '  "proName": "<name>",',
+      '  "conName": "<name>",',
+      '  "proPoints": <number>,',
+      '  "conPoints": <number>,',
+      '  "rfd": "<8-14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2-3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
+      '  "proFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[0]] + ' speaker: one specific strategic strength, one technical fix with a concrete example from their speech, one big-picture observation about their approach to this format.>",',
+      '  "conFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[1]] + ' speaker: same structure as proFeedback.>"',
+      "}",
+      "",
+      "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
+      "Be specific to what was said. Do not be sycophantic. Call out drops, missed weighing, and weak warrants."
+    ]).join('\n');
+
+    var user = "MOTION: " + motion
+      + "\n\nFORMAT: " + f.name
+      + "\n\n" + f.sideLabels[f.sides[0]].toUpperCase() + " SPEAKER: " + (proName || '(unnamed)')
+      + "\n" + f.sideLabels[f.sides[1]].toUpperCase() + " SPEAKER: " + (conName || '(unnamed)')
+      + "\n\nFULL ROUND TRANSCRIPT:\n\n" + transcript
+      + "\n\nReturn the JSON ballot now.";
+
+    return { system: system, user: user };
+  }
+
+  // ── Robust ballot parse. Mirrors live-round.html parseBallot:
+  //    unwrap a Claude content wrapper if present, then find the
+  //    outermost {...} and validate the 2-side shape. ──────────────
+  function parseBallot(raw){
+    if (!raw) return null;
+    var s = String(raw).replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    if (!s) return null;
+    var inner = s;
+    try {
+      var maybeWrapper = JSON.parse(s);
+      if (maybeWrapper && Array.isArray(maybeWrapper.content)){
+        var combined = maybeWrapper.content.map(function(c){
+          return (c && typeof c.text === 'string') ? c.text : '';
+        }).join('');
+        if (combined) inner = combined;
+      }
+    } catch(e){ /* not JSON, treat as plain text */ }
+    inner = inner.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    var first = inner.indexOf('{'), last = inner.lastIndexOf('}');
+    if (first < 0 || last <= first) return null;
+    try {
+      var obj = JSON.parse(inner.slice(first, last + 1));
+      obj.winner = String(obj.winner || '').toLowerCase();
+      if (obj.winner !== 'pro' && obj.winner !== 'con') return null;
+      return obj;
+    } catch(e){ return null; }
+  }
+
+  function esc(str){
+    var d = document.createElement('div');
+    d.textContent = str == null ? '' : String(str);
+    return d.innerHTML;
+  }
+
+  function renderBallot(b, formatKey){
+    var f = FORMATS[formatKey] || FORMATS.pf;
+    var s0 = f.sideLabels[f.sides[0]], s1 = f.sideLabels[f.sides[1]];
+    var proWon = b.winner === 'pro';
+    var winnerName = proWon ? (b.proName || s0) : (b.conName || s1);
+    var winnerSide = proWon ? s0 : s1;
+
+    $('winWho').textContent = winnerName + ' wins (' + winnerSide + ')';
+
+    $('scoreProSide').textContent = s0;
+    $('scoreConSide').textContent = s1;
+    $('scoreProName').textContent = b.proName || s0;
+    $('scoreConName').textContent = b.conName || s1;
+    $('scoreProPts').textContent = (b.proPoints != null ? b.proPoints : '--');
+    $('scoreConPts').textContent = (b.conPoints != null ? b.conPoints : '--');
+    $('scorePro').classList.toggle('winner', proWon);
+    $('scoreCon').classList.toggle('winner', !proWon);
+
+    $('rfdText').textContent = b.rfd || '';
+    $('fbProLabel').textContent = s0 + ' feedback';
+    $('fbConLabel').textContent = s1 + ' feedback';
+    $('fbProText').textContent = b.proFeedback || '';
+    $('fbConText').textContent = b.conFeedback || '';
+
+    $('loading').style.display = 'none';
+    $('ballot').style.display = 'block';
+    $('ballot').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function judge(){
+    if (busy) return;
+    clearError();
+    var motion = $('motion').value.trim();
+    var formatKey = $('format').value;
+    var proName = $('proName').value.trim();
+    var conName = $('conName').value.trim();
+    var transcript = $('transcript').value.trim();
+
+    if (!motion){ showError('Add the motion both sides argued.'); return; }
+    if (!transcript){ showError('Paste the round transcript so the AI has something to judge.'); return; }
+    if (transcript.length < 120){ showError('That transcript looks short. Paste more of the round for a real ballot.'); return; }
+
+    busy = true;
+    $('judgeBtn').disabled = true;
+    $('ballot').style.display = 'none';
+    $('loading').style.display = 'block';
+    $('loading').scrollIntoView({ behavior:'smooth', block:'center' });
+    try { gtag('event', 'judge_round_submit', { format: formatKey }); } catch(e){}
+
+    var p = buildPrompt(motion, formatKey, proName, conName, transcript);
+
+    fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        stream: false,
+        system: p.system,
+        messages: [{ role:'user', content: p.user }],
+        // _feature:'live-round' is what makes claude.mjs inject the
+        // server-side ADJUDICATION CORE (the elite-judge reasoning).
+        _feature: 'live-round'
+      })
+    }).then(function(r){
+      if (!r.ok) throw new Error('The judge service returned ' + r.status + '. Try again in a moment.');
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('text/event-stream') >= 0){
+        return r.text().then(function(text){
+          var chunks = text.split('\n').filter(function(l){ return l.indexOf('data:') === 0; }).map(function(l){
+            try { return JSON.parse(l.slice(5).trim()); } catch(e){ return null; }
+          }).filter(Boolean);
+          return chunks.map(function(c){
+            if (c.delta && c.delta.text) return c.delta.text;
+            if (c.content_block && c.content_block.text) return c.content_block.text;
+            return '';
+          }).join('');
+        });
+      }
+      return r.text();
+    }).then(function(raw){
+      var parsed = parseBallot(raw);
+      if (!parsed) throw new Error('The ballot came back in a shape we could not read. Try again, or trim the transcript if it is very long.');
+      renderBallot(parsed, formatKey);
+      try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner }); } catch(e){}
+    }).catch(function(err){
+      $('loading').style.display = 'none';
+      showError(err && err.message ? err.message : 'Something went wrong judging the round. Try again.');
+    }).then(function(){
+      busy = false;
+      $('judgeBtn').disabled = false;
+    });
+  }
+
+  $('judgeBtn').addEventListener('click', judge);
+})();
+</script>
+
+</body>
+</html>
