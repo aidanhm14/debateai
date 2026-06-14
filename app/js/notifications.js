@@ -238,7 +238,10 @@
     // Already mounted somewhere? (defensive — placeBell is called once.)
     if (bell.isConnected) return;
     function attempt() {
-      var tb = document.querySelector('.ui-topbar-right');
+      // .app-topbar-right is the main /app (index.html) React topbar;
+      // without it the bell + Available pill had no anchor there and the
+      // bell fell back to floating.
+      var tb = document.querySelector('.ui-topbar-right') || document.querySelector('.app-topbar-right');
       if (tb) {
         var anchor = tb.querySelector('.ui-btn-primary') || document.getElementById('barUser');
         tb.insertBefore(bell, anchor || null);
@@ -259,7 +262,9 @@
     var iv = setInterval(function () {
       n++;
       if (attempt()) { clearInterval(iv); return; }
-      if (n > 15) { // ~1.5s
+      // ~6s: the /app React topbar (.app-topbar-right) can render well
+      // after us; wait it out before falling back to a floating chip.
+      if (n > 60) {
         clearInterval(iv);
         if (!bell.isConnected) {
           bell.classList.add('ui-bell--floating');
@@ -723,14 +728,14 @@
     }
     function placePill(p) {
       function attempt() {
-        var tb = document.querySelector('.ui-topbar-right');
+        var tb = document.querySelector('.ui-topbar-right') || document.querySelector('.app-topbar-right');
         if (tb) { var bell = tb.querySelector('.ui-bell'); tb.insertBefore(p, bell || tb.firstChild); return true; }
         var bl = document.querySelector('.bar-links');
         if (bl) { bl.insertBefore(p, bl.firstChild); return true; }
         return false;
       }
       if (attempt()) return;
-      var n = 0, iv = setInterval(function () { n++; if (attempt() || n > 20) clearInterval(iv); }, 100);
+      var n = 0, iv = setInterval(function () { n++; if (attempt() || n > 60) clearInterval(iv); }, 100); // ~6s for the /app React topbar
     }
     function paintPill() {
       if (!pill) return;
