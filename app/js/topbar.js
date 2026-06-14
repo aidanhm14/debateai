@@ -118,7 +118,7 @@
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
-    { href: '/spar',          label: 'Spar', pulse: true },
+    { href: '/spar',          label: 'LIVE', pulse: true },
     { href: '/app#case',      label: 'Prep'         },
     { href: '/learn',         label: 'Learn'        },
     // 2026-05-26: /credentials surfaced into the topbar per user ask.
