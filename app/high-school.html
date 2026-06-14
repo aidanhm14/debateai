@@ -70,7 +70,7 @@
     }
   });
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/ui.css">
 <!-- Body palette is hardcoded dark (#111) below, so the shared topbar
      must always render its DARK token set. Force crimson unconditionally
@@ -82,10 +82,43 @@ document.documentElement.setAttribute('data-theme','crimson');
 document.documentElement.setAttribute('data-force-theme','crimson');
 </script>
 <style>
+/* ── Design tokens (mirrors landing's editorial palette) ── */
+:root{
+  --bg:#0e0e12;
+  --hero-grad:linear-gradient(150deg,#15151a 0%,#0c0c10 28%,#121218 52%,#0c0c10 76%,#15151a 100%);
+  --accent:#ef4444;
+  --accent-2:#dc2626;
+  --accent-soft:#fca5a5;
+  --text:#e8e8f0;
+  --text-dim:rgba(255,255,255,.64);
+  --text-faint:rgba(255,255,255,.42);
+  --card:linear-gradient(180deg,rgba(255,255,255,.038),rgba(255,255,255,.012));
+  --card-border:rgba(255,255,255,.09);
+  --card-border-hover:rgba(255,255,255,.2);
+  --serif:'Fraunces',Georgia,'Times New Roman',serif;
+}
+
 /* ── Reset & Base ─────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{height:100%;width:100%;overflow-x:hidden}
-body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;background:#111;color:#e0e0e8;font-size:16px}
+body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:16px}
+
+/* Editorial atmosphere: a subtle diagonal gradient + two low-alpha
+   crimson halos behind the content. Crimson as accent, not wash. The
+   shared neural canvas still draws its constellation on top of this. */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:var(--hero-grad);
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(70% 50% at 72% 8%, rgba(220,38,38,.16) 0%, transparent 62%),
+    radial-gradient(60% 45% at 18% 30%, rgba(220,38,38,.08) 0%, transparent 60%);
+  opacity:.9;
+}
+body.light-theme::before{background:linear-gradient(150deg,#fafaf7,#f3f3ee)}
+body.light-theme::after{display:none}
 
 /* ── Top Bar (landing-style) ──────────────────── */
 .hs-bar{
@@ -104,12 +137,56 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;backgroun
 
 /* ── App Shell ────────────────────────────────── */
 .app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding-top:60px}
-.header{text-align:center;padding:28px 20px 0}
-.logo{font-size:2.6rem;font-weight:800;letter-spacing:-1px}
-.logo .red{color:#ef4444}
-.logo .white{color:#fff}
-.subtitle{color:#8888a0;font-size:.92rem;margin-top:2px;letter-spacing:.5px}
-.badge{display:inline-block;background:#ef444422;border:1px solid #ef444444;color:#ef4444;font-size:.68rem;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;margin-top:8px}
+
+/* ── Editorial Hero ───────────────────────────── */
+.hs-hero{text-align:center;padding:40px 20px 4px;max-width:780px;margin:0 auto}
+.hs-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:18px;
+}
+.hs-eyebrow::before{
+  content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 10px rgba(239,68,68,.9);animation:rec-pulse 1.7s ease-in-out infinite;
+}
+@keyframes rec-pulse{0%,100%{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+.hs-title{
+  font-family:var(--serif);font-weight:600;
+  font-size:clamp(2.3rem,5.2vw,3.5rem);line-height:1.04;letter-spacing:-.02em;
+  color:var(--text);margin:0;
+}
+.hs-title .em{color:var(--accent);font-style:italic;font-weight:600}
+.hs-sub{
+  margin:18px auto 0;max-width:560px;
+  font-size:1.04rem;line-height:1.6;color:var(--text-dim);
+}
+.hs-format-row{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:22px}
+.hs-fmt-chip{
+  font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);padding:5px 12px;border-radius:999px;
+  border:1px solid var(--card-border);background:rgba(255,255,255,.025);
+  transition:.18s;
+}
+.hs-fmt-chip:hover{border-color:rgba(239,68,68,.4);color:var(--accent-soft)}
+/* Scenario on-ramp: speaks to the moment a HS debater is actually in,
+   then drops them into the right tool. Outcome-framed, not job-framed,
+   so it complements the nav below rather than duplicating it. */
+.hs-onramp{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+.hs-onramp-card{
+  display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;
+  padding:13px 18px;border-radius:14px;border:1px solid var(--card-border);
+  background:var(--card);cursor:pointer;transition:.18s ease;font-family:inherit;
+  min-width:210px;flex:1;max-width:260px;
+}
+.hs-onramp-card:hover{border-color:rgba(239,68,68,.45);transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.28)}
+.hs-onramp-q{font-size:.84rem;font-weight:700;color:var(--text)}
+.hs-onramp-a{font-size:.74rem;color:var(--accent-soft);font-weight:600}
+.light-theme .hs-onramp-q{color:#1a1a2e}
+.light-theme .hs-onramp-a{color:#dc2626}
+@media(max-width:640px){.hs-onramp-card{min-width:unset;max-width:none;flex:1 1 100%}}
+.light-theme .hs-title{color:#1a1a2e}
+.light-theme .hs-sub{color:rgba(0,0,0,.62)}
+.light-theme .hs-fmt-chip{color:rgba(0,0,0,.55);border-color:rgba(0,0,0,.1);background:rgba(0,0,0,.02)}
 
 /* ── Back Link ────────────────────────────────── */
 .back-link{
@@ -120,50 +197,82 @@ body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;backgroun
 }
 .back-link:hover{color:#fff}
 
-/* ── Nav Tabs ─────────────────────────────────── */
-.nav{display:flex;gap:6px;margin:22px auto 0;padding:4px;flex-wrap:wrap;justify-content:center}
-.nav-btn{
-  background:transparent;border:1.5px solid transparent;color:#8888a0;
-  padding:10px 22px;border-radius:14px;font-size:.88rem;font-weight:600;
-  letter-spacing:1.2px;text-transform:uppercase;cursor:pointer;transition:.2s;
-  font-family:inherit;white-space:nowrap;
+/* ── Nav Tabs (segmented rail) ────────────────── */
+.nav-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;margin:30px auto 0;padding:0 16px}
+.nav{
+  display:flex;gap:4px;padding:5px;
+  background:rgba(255,255,255,.03);border:1px solid var(--card-border);
+  border-radius:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  max-width:100%;overflow-x:auto;scrollbar-width:none;
 }
-.nav-btn:hover{color:#ccc;border-color:#ffffff22}
-.nav-btn.active{color:#ef4444;border-color:#ef4444;background:#ef444412}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{
+  background:transparent;border:1px solid transparent;color:var(--text-faint);
+  padding:9px 16px;border-radius:11px;font-size:.78rem;font-weight:600;
+  letter-spacing:.02em;cursor:pointer;transition:.18s;
+  font-family:inherit;white-space:nowrap;flex-shrink:0;
+}
+.nav-btn:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-btn.active{
+  color:#fff;background:linear-gradient(180deg,#ef4444,#dc2626);
+  box-shadow:0 4px 14px rgba(239,68,68,.32);
+}
+.light-theme .nav{background:rgba(0,0,0,.025);border-color:rgba(0,0,0,.08)}
+.light-theme .nav-btn{color:rgba(0,0,0,.5)}
+.light-theme .nav-btn:hover{color:#1a1a2e;background:rgba(0,0,0,.04)}
+
+/* Tier 2: tools within the active job */
+.nav-sub{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:100%}
+.nav-sub-btn{
+  background:transparent;border:1px solid transparent;color:var(--text-faint);
+  padding:6px 15px;border-radius:999px;font-size:.76rem;font-weight:600;
+  cursor:pointer;transition:.18s;font-family:inherit;white-space:nowrap;
+}
+.nav-sub-btn:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-sub-btn.active{color:var(--accent-soft);background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.32)}
+.light-theme .nav-sub-btn{color:rgba(0,0,0,.5)}
+.light-theme .nav-sub-btn:hover{color:#1a1a2e;background:rgba(0,0,0,.04)}
+.light-theme .nav-sub-btn.active{color:#dc2626;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.28)}
 
 /* ── Cards / Panels ───────────────────────────── */
 .panel{
-  width:100%;max-width:1100px;margin:28px auto 40px;
-  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
-  border-radius:16px;padding:32px 36px;
+  width:100%;max-width:1100px;margin:30px auto 40px;
+  background:
+    radial-gradient(820px 320px at 12% -10%, rgba(239,68,68,.07), transparent 58%),
+    var(--card);
+  border:1px solid var(--card-border);
+  border-radius:20px;padding:34px 38px;
+  box-shadow:0 24px 60px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.04);
   backdrop-filter:blur(12px);
 }
 .panel-inner{
-  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);
-  border-radius:10px;padding:16px 18px;margin-top:10px;
+  background:var(--card);border:1px solid var(--card-border);
+  border-radius:14px;padding:16px 18px;margin-top:10px;
 }
 
 /* ── Form Elements ────────────────────────────── */
-label.field-label{display:block;font-size:.82rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ef4444;margin-bottom:8px}
-label.field-label.red{color:#ef4444}
+label.field-label{display:block;font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+label.field-label.red{color:var(--accent)}
 textarea,select,input[type="text"]{
-  width:100%;background:rgba(255,255,255,.04);color:#e0e0e8;
-  border:1px solid rgba(255,255,255,.08);border-radius:10px;
+  width:100%;background:rgba(255,255,255,.04);color:var(--text);
+  border:1px solid var(--card-border);border-radius:12px;
   padding:14px 16px;font-size:1rem;font-family:inherit;
   resize:vertical;outline:none;transition:.2s;
 }
-textarea:focus,select:focus,input[type="text"]:focus{border-color:#ef444466}
+textarea:focus,select:focus,input[type="text"]:focus{border-color:rgba(239,68,68,.55);box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+textarea::placeholder{color:var(--text-faint)}
 textarea{min-height:90px}
 select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238888a0' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
 
 /* ── Buttons ──────────────────────────────────── */
 .btn{
-  padding:14px 28px;border-radius:12px;font-size:1rem;font-weight:600;
-  cursor:pointer;border:none;font-family:inherit;transition:.2s;
-  letter-spacing:.5px;
+  padding:14px 30px;border-radius:999px;font-size:.98rem;font-weight:700;
+  cursor:pointer;border:none;font-family:inherit;transition:.18s ease;
+  letter-spacing:.01em;
 }
-.btn-primary{background:#ef4444;color:#fff}
-.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 24px #ef444444;background:#dc2626}
+.btn-primary{background:linear-gradient(180deg,#ef4444,#dc2626);color:#fff;box-shadow:0 6px 20px rgba(239,68,68,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(239,68,68,.42)}
+.btn-primary:disabled{opacity:.6;cursor:default;transform:none;box-shadow:none}
 .btn-orange{background:#ef4444;color:#fff}
 .btn-orange:hover{transform:translateY(-1px);box-shadow:0 6px 24px #ef444444;background:#dc2626}
 .btn-secondary{background:#ffffff12;color:#e0e0e8;border:1px solid #ffffff18}
@@ -192,16 +301,20 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 /* ── Depth Selector ────────────────────────────── */
 .depth-selector{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
 .depth-card{
-  flex:1;min-width:140px;padding:14px 16px;border-radius:12px;
-  border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);cursor:pointer;
-  transition:.2s;text-align:center;
+  flex:1;min-width:140px;padding:14px 16px;border-radius:14px;
+  border:1px solid var(--card-border);background:var(--card);cursor:pointer;
+  transition:.18s ease;text-align:center;
 }
-.depth-card:hover{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.04)}
-.depth-card.active{border-color:#ef4444;background:#ef444408}
-.depth-card .depth-title{font-size:.88rem;font-weight:700;color:#e0e0e8;margin-bottom:4px}
-.depth-card .depth-desc{font-size:.72rem;color:#888;line-height:1.4}
-.depth-card.active .depth-title{color:#ef4444}
-.depth-card .depth-words{font-size:.68rem;color:#666;margin-top:6px;font-style:italic}
+.depth-card:hover{border-color:var(--card-border-hover);transform:translateY(-2px)}
+.depth-card.active{
+  border-color:rgba(239,68,68,.6);
+  background:linear-gradient(180deg,rgba(239,68,68,.12),rgba(239,68,68,.04));
+  box-shadow:0 8px 24px rgba(239,68,68,.16);
+}
+.depth-card .depth-title{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:4px}
+.depth-card .depth-desc{font-size:.72rem;color:var(--text-faint);line-height:1.4}
+.depth-card.active .depth-title{color:var(--accent-soft)}
+.depth-card .depth-words{font-size:.68rem;color:var(--text-faint);margin-top:6px;font-style:italic}
 
 /* ── API Key Input ────────────────────────────── */
 .api-bar{
@@ -253,7 +366,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .thinking-status{font-size:.82rem;color:#888;text-align:center;min-height:20px}
 
 /* ── Streaming output ─────────────────────────── */
-.output-wrapper{display:flex;gap:0;margin-top:20px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#111}
+.output-wrapper{display:flex;gap:0;margin-top:22px;border-radius:16px;overflow:hidden;border:1px solid var(--card-border);background:rgba(255,255,255,.018);box-shadow:0 16px 44px rgba(0,0,0,.3)}
 .output-main{flex:1;min-width:0}
 .output-stream{position:relative}
 .output-stream .stream-indicator{
@@ -338,12 +451,14 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
 /* ── Generated Output ─────────────────────────── */
 .output{
-  padding:24px;white-space:pre-wrap;line-height:1.75;
-  font-size:1rem;max-height:700px;overflow-y:auto;
+  margin-top:22px;padding:26px 30px;white-space:pre-wrap;line-height:1.78;
+  font-size:1rem;max-height:720px;overflow-y:auto;color:var(--text);
+  background:rgba(255,255,255,.02);border:1px solid var(--card-border);
+  border-radius:16px;box-shadow:0 16px 44px rgba(0,0,0,.3);
 }
-.output h3{color:#ef4444;margin-bottom:8px;font-size:1rem}
-.output h4{color:#ef4444;margin:16px 0 6px;font-size:.92rem}
-.output .section{margin-bottom:16px}
+.output h3{color:var(--accent);margin-bottom:8px;font-size:1.06rem;font-weight:700}
+.output h4{color:var(--accent-soft);margin:18px 0 6px;font-size:.95rem;font-weight:700}
+.output .section{margin-bottom:18px}
 
 /* ── Loading Spinner ──────────────────────────── */
 .spinner{display:inline-block;width:20px;height:20px;border:2.5px solid #ffffff33;border-top-color:#ef4444;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px;vertical-align:middle}
@@ -352,14 +467,18 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 /* ── Format Cards ─────────────────────────────── */
 .format-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:16px 0}
 .format-card{
-  padding:20px;border-radius:12px;border:1.5px solid rgba(255,255,255,.08);
-  background:rgba(255,255,255,.02);cursor:pointer;transition:.2s;text-align:center;
+  padding:18px 20px;border-radius:14px;border:1px solid var(--card-border);
+  background:var(--card);cursor:pointer;transition:.18s ease;text-align:center;
 }
-.format-card:hover{border-color:rgba(255,255,255,.18)}
-.format-card.active{border-color:#ef4444;background:#ef444408}
-.format-card .format-name{font-size:1rem;font-weight:700;color:#e0e0e8;margin-bottom:4px}
-.format-card.active .format-name{color:#ef4444}
-.format-card .format-desc{font-size:.75rem;color:#888;line-height:1.4}
+.format-card:hover{border-color:var(--card-border-hover);transform:translateY(-2px)}
+.format-card.active{
+  border-color:rgba(239,68,68,.6);
+  background:linear-gradient(180deg,rgba(239,68,68,.12),rgba(239,68,68,.04));
+  box-shadow:0 8px 24px rgba(239,68,68,.16);transform:translateY(-2px);
+}
+.format-card .format-name{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:4px}
+.format-card.active .format-name{color:var(--accent-soft)}
+.format-card .format-desc{font-size:.75rem;color:var(--text-faint);line-height:1.4}
 
 /* ── Scrollbar ────────────────────────────────── */
 ::-webkit-scrollbar{width:6px}
@@ -1228,7 +1347,7 @@ Keep it to 200 words max. Be specific and practical.`;
   };
 
   return React.createElement('div', { className: 'panel', style: { textAlign: 'center' } },
-  React.createElement('p', { style: { color: '#888', fontSize: '.95rem', marginBottom: 16 } },
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.95rem', marginBottom: 16 } },
   'Practice resolutions for PF, LD, Policy, and Congress.'
   ),
   React.createElement('div', { className: 'chips', style: { justifyContent: 'center' } },
@@ -1355,7 +1474,7 @@ RULES:
       whiteSpace: 'pre-line'
     } }, m.text)
   ),
-  loading && React.createElement('div', { style: { alignSelf: 'flex-start', color: '#888', fontSize: '.85rem' } },
+  loading && React.createElement('div', { style: { alignSelf: 'flex-start', color: 'var(--text-faint)', fontSize: '.85rem' } },
   React.createElement('span', { className: 'spinner' }), 'Thinking...'
   ),
   React.createElement('div', { ref: bottomRef })
@@ -1417,7 +1536,7 @@ function EvidenceFinder() {
   };
 
   return React.createElement('div', { className: 'panel' },
-  React.createElement('p', { style: { color: '#888', marginBottom: 16, fontSize: '.92rem' } },
+  React.createElement('p', { style: { color: 'var(--text-faint)', marginBottom: 16, fontSize: '.92rem' } },
   'Live web research via Perplexity. Returns real sources with citations, verify the link still says what the tag claims before reading in-round.'
   ),
   React.createElement('label', { className: 'field-label' }, 'Topic or Resolution'),
@@ -1559,7 +1678,7 @@ Keep it to ~400 words. Be specific and tactical. No filler.`;
   React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
   React.createElement('div', null,
   React.createElement('div', { style: { fontSize: '.72rem', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#22c55e', marginBottom: 4 } }, 'Live Topics'),
-  React.createElement('p', { style: { color: '#888', fontSize: '.88rem' } }, 'Current NSDA resolutions with pre-loaded arguments and quick prep.')
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.88rem' } }, 'Current NSDA resolutions with pre-loaded arguments and quick prep.')
   )
   ),
 
@@ -1706,19 +1825,19 @@ function SpeedDrill() {
     React.createElement('div', { style: { display: 'flex', justifyContent: 'center', gap: 40, flexWrap: 'wrap', marginBottom: 24 } },
     React.createElement('div', null,
     React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: color } }, actualWPM),
-    React.createElement('div', { style: { fontSize: '.78rem', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' } }, 'Your WPM')
+    React.createElement('div', { style: { fontSize: '.78rem', color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '1px' } }, 'Your WPM')
     ),
     React.createElement('div', null,
     React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: '#ffffff40' } }, targetWPM),
-    React.createElement('div', { style: { fontSize: '.78rem', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' } }, 'Target WPM')
+    React.createElement('div', { style: { fontSize: '.78rem', color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '1px' } }, 'Target WPM')
     ),
     React.createElement('div', null,
     React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: '#ffffff60' } }, formatTime(elapsed)),
-    React.createElement('div', { style: { fontSize: '.78rem', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' } }, 'Time')
+    React.createElement('div', { style: { fontSize: '.78rem', color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '1px' } }, 'Time')
     )
     ),
     React.createElement('div', { style: { fontSize: '1rem', color: color, marginBottom: 8, fontWeight: 600 } }, rating),
-    React.createElement('div', { style: { fontSize: '.85rem', color: '#888', marginBottom: 24, maxWidth: 500, margin: '0 auto 24px' } },
+    React.createElement('div', { style: { fontSize: '.85rem', color: 'var(--text-faint)', marginBottom: 24, maxWidth: 500, margin: '0 auto 24px' } },
     actualWPM < 150 ? 'Most judges will struggle to follow arguments this slow. Practice reading your cards faster while maintaining eye contact.' :
     actualWPM < 200 ? 'Good conversational pace. Works for lay judges. For flow judges, you can push faster.' :
     actualWPM < 280 ? 'Strong pace for most HS formats. Focus on clarity and emphasis on tag lines.' :
@@ -1736,7 +1855,7 @@ function SpeedDrill() {
     return React.createElement('div', { className: 'panel' },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
     React.createElement('div', { style: { fontSize: '1.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#ef4444' } }, formatTime(elapsed)),
-    React.createElement('div', { style: { fontSize: '.82rem', color: '#888' } }, wordCount + ' words · Target: ' + targetWPM + ' WPM')
+    React.createElement('div', { style: { fontSize: '.82rem', color: 'var(--text-faint)' } }, wordCount + ' words · Target: ' + targetWPM + ' WPM')
     ),
     React.createElement('div', { style: { padding: 24, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, fontSize: '1.05rem', lineHeight: 1.8, color: '#e0e0e8', maxHeight: 400, overflowY: 'auto', marginBottom: 20 } }, currentText.text),
     React.createElement('button', { className: 'btn btn-primary', onClick: finishDrill, style: { width: '100%', fontSize: '1.1rem', padding: '18px' } }, 'Done. Stop Timer.')
@@ -1744,7 +1863,7 @@ function SpeedDrill() {
   }
 
   return React.createElement('div', { className: 'panel' },
-  React.createElement('p', { style: { color: '#888', fontSize: '.92rem', marginBottom: 20 } },
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.92rem', marginBottom: 20 } },
   'Practice reading debate speeches at competition speed. Set your target WPM, read the text aloud, and see how you measure up.'
   ),
   // Text selector
@@ -1753,7 +1872,7 @@ function SpeedDrill() {
   DRILL_TEXTS.map((t, i) =>
   React.createElement('div', { key: i, style: { padding: 14, background: selectedText === i ? '#ef444412' : '#ffffff06', border: '1px solid ' + (selectedText === i ? '#ef444440' : '#ffffff12'), borderRadius: 10, cursor: 'pointer', transition: '.2s' }, onClick: () => setSelectedText(i) },
   React.createElement('div', { style: { fontWeight: 700, fontSize: '.9rem', color: selectedText === i ? '#f87171' : '#e0e0e8' } }, t.name),
-  React.createElement('div', { style: { fontSize: '.75rem', color: '#888', marginTop: 2 } }, t.wc + ' words · ' + t.time + ' target')
+  React.createElement('div', { style: { fontSize: '.75rem', color: 'var(--text-faint)', marginTop: 2 } }, t.wc + ' words · ' + t.time + ' target')
   )
   )
   ),
@@ -1764,7 +1883,7 @@ function SpeedDrill() {
   React.createElement('button', { key: wpm, className: 'chip' + (targetWPM === wpm ? ' active' : ''), onClick: () => setTargetWPM(wpm) }, wpm + ' WPM')
   )
   ),
-  React.createElement('div', { style: { fontSize: '.78rem', color: '#888', marginBottom: 20 } },
+  React.createElement('div', { style: { fontSize: '.78rem', color: 'var(--text-faint)', marginBottom: 20 } },
   targetWPM <= 160 ? 'Conversational pace. Good for lay judges and Congress.' :
   targetWPM <= 200 ? 'Standard HS pace. Works for most PF and LD rounds.' :
   targetWPM <= 260 ? 'Fast pace. Flow judges, competitive LD and PF.' :
@@ -2023,7 +2142,7 @@ Output plain text. No markdown. No bullet characters.`;
 
   // BILL ANALYSIS sub-tab
   subTab === 'bills' && React.createElement(React.Fragment, null,
-  React.createElement('p', { style: { color: '#888', fontSize: '.88rem', marginBottom: 16 } }, 'Select a practice bill or paste your own. Get a strategic breakdown for both sides.'),
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.88rem', marginBottom: 16 } }, 'Select a practice bill or paste your own. Get a strategic breakdown for both sides.'),
   React.createElement('label', { className: 'field-label' }, 'Practice Bills'),
   SAMPLE_BILLS.map((b, i) =>
   React.createElement('div', { key: i, style: { padding: 14, background: selectedBill === i ? '#ef444412' : '#ffffff06', border: '1px solid ' + (selectedBill === i ? '#ef444440' : '#ffffff12'), borderRadius: 10, marginBottom: 8, cursor: 'pointer', transition: '.2s' }, onClick: () => {setSelectedBill(i);setAnalysisOutput(null);} },
@@ -2035,7 +2154,7 @@ Output plain text. No markdown. No bullet characters.`;
   ),
   // Saved bill library, user-pasted bills, persisted across reloads.
   savedBills.length > 0 && React.createElement('div', { style: { marginTop: 14 } },
-  React.createElement('label', { className: 'field-label', style: { color: '#888' } }, 'Your Saved Bills (' + savedBills.length + ')'),
+  React.createElement('label', { className: 'field-label', style: { color: 'var(--text-faint)' } }, 'Your Saved Bills (' + savedBills.length + ')'),
   React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
   savedBills.slice().reverse().map((sb, i) =>
   React.createElement('div', { key: sb.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#ffffff04', border: '1px solid #ffffff10', borderRadius: 8 } },
@@ -2050,7 +2169,7 @@ Output plain text. No markdown. No bullet characters.`;
   ),
   // Custom bill input
   React.createElement('div', { style: { marginTop: 12 } },
-  React.createElement('label', { className: 'field-label', style: { color: '#888' } }, 'Or Paste Your Own Bill'),
+  React.createElement('label', { className: 'field-label', style: { color: 'var(--text-faint)' } }, 'Or Paste Your Own Bill'),
   React.createElement('textarea', { placeholder: 'Paste bill text here...', value: customBill, onChange: (e) => setCustomBill(e.target.value), rows: 3 }),
   // Save-this-bill row, only shown once user has actual text pasted.
   customBill.trim().length > 50 && React.createElement('div', { style: { display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' } },
@@ -2071,7 +2190,7 @@ Output plain text. No markdown. No bullet characters.`;
 
   // SPEECH WRITER sub-tab
   subTab === 'speech' && React.createElement(React.Fragment, null,
-  React.createElement('p', { style: { color: '#888', fontSize: '.88rem', marginBottom: 16 } }, 'Generate a competition-ready 3-minute Congress speech for any bill.'),
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.88rem', marginBottom: 16 } }, 'Generate a competition-ready 3-minute Congress speech for any bill.'),
   React.createElement('label', { className: 'field-label' }, 'Bill'),
   React.createElement('select', { value: selectedBill, onChange: (e) => setSelectedBill(Number(e.target.value)), style: { marginBottom: 16 } },
   SAMPLE_BILLS.map((b, i) => React.createElement('option', { key: i, value: i }, b.title))
@@ -2104,7 +2223,7 @@ Output plain text. No markdown. No bullet characters.`;
   // points are won. Outputs both sides: sharp questions to ask + tough
   // questions you'll face with tight answers.
   subTab === 'questions' && React.createElement(React.Fragment, null,
-  React.createElement('p', { style: { color: '#888', fontSize: '.88rem', marginBottom: 16 } }, 'Questioning-period prep. Get six sharp questions to ask + six likely questions you\'ll face, with 30-second answers. Speaker points are won here.'),
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.88rem', marginBottom: 16 } }, 'Questioning-period prep. Get six sharp questions to ask + six likely questions you\'ll face, with 30-second answers. Speaker points are won here.'),
   React.createElement('label', { className: 'field-label' }, 'Bill'),
   React.createElement('select', { value: selectedBill, onChange: (e) => {setSelectedBill(Number(e.target.value));setQOutput(null);}, style: { marginBottom: 16 } },
   SAMPLE_BILLS.map((b, i) => React.createElement('option', { key: i, value: i }, b.title))
@@ -2126,7 +2245,7 @@ Output plain text. No markdown. No bullet characters.`;
 
   // PARLIPRO sub-tab
   subTab === 'parlipro' && React.createElement(React.Fragment, null,
-  React.createElement('p', { style: { color: '#888', fontSize: '.88rem', marginBottom: 16 } }, 'Parliamentary procedure essentials for Congressional Debate. Know these cold.'),
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.88rem', marginBottom: 16 } }, 'Parliamentary procedure essentials for Congressional Debate. Know these cold.'),
   PARLIPRO_TERMS.map((item, i) =>
   React.createElement('div', { key: i, style: { padding: 14, background: '#ffffff06', border: '1px solid #ffffff0a', borderRadius: 10, marginBottom: 8 } },
   React.createElement('div', { style: { fontWeight: 700, fontSize: '.92rem', color: '#ef4444', marginBottom: 4 } }, item.term),
@@ -2226,7 +2345,7 @@ Be specific and actionable. Reference the judge's own words. Keep it under 400 w
   };
 
   return React.createElement('div', { className: 'panel' },
-  React.createElement('p', { style: { color: '#888', fontSize: '.92rem', marginBottom: 16 } },
+  React.createElement('p', { style: { color: 'var(--text-faint)', fontSize: '.92rem', marginBottom: 16 } },
   'Paste a judge\'s paradigm from Tabroom and get specific strategic advice for how to adapt your round.'
   ),
   React.createElement('label', { className: 'field-label' }, 'Judge Paradigm'),
@@ -2426,6 +2545,25 @@ var TABS = [
 { id: 'topics', label: 'Practice Topics' },
 { id: 'learn', label: 'Learn' }];
 
+// Grouped two-tier nav. Tier 1 = the four jobs you do to prep (plus
+// Learn); tier 2 = the tools inside the active job. Keeps a HS debater
+// from facing a flat wall of 9 tabs. Tab ids + hash routing are
+// unchanged, so deep links (/high-school#evidence) still resolve.
+var TAB_LABELS = {};
+TABS.forEach(function (t) {TAB_LABELS[t.id] = t.label;});
+var TAB_GROUPS = [
+{ id: 'build', label: 'Build', hint: 'Cases & speeches', tabs: ['case', 'congress'] },
+{ id: 'topics', label: 'Topics', hint: 'What to debate', tabs: ['current', 'topics'] },
+{ id: 'drill', label: 'Drill', hint: 'Sharpen live', tabs: ['rebuttal', 'speed'] },
+{ id: 'scout', label: 'Scout', hint: 'Know the room', tabs: ['evidence', 'judge'] },
+{ id: 'learn', label: 'Learn', hint: 'Fundamentals', tabs: ['learn'] }];
+function groupForTab(id) {
+  for (var i = 0; i < TAB_GROUPS.length; i++) {
+    if (TAB_GROUPS[i].tabs.indexOf(id) !== -1) return TAB_GROUPS[i];
+  }
+  return TAB_GROUPS[0];
+}
+
 
 function ByokInput({ compact }) {
   var el = React.createElement;
@@ -2558,6 +2696,12 @@ function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  var activeGroup = groupForTab(tab);
+  var goTab = function (id) {
+    setTab(id);
+    try {history.replaceState(null, '', '#' + id);} catch (e) {}
+  };
+
   var renderTab = () => {
     switch (tab) {
       case 'case':return React.createElement(CaseGenerator);
@@ -2586,22 +2730,44 @@ function App() {
   // theme-toggle buttons in the top-right corner. Subtitle is
   // dropped (the topbar's "High School" link already names the
   // section); the format badge stays as page-content context.
-  React.createElement('div', { className: 'header', style: { padding: '12px 20px 0' } },
-  React.createElement('div', { className: 'badge' }, 'PF \u00B7 LD \u00B7 Policy \u00B7 Congress \u00B7 Parli \u00B7 MUN')
+  React.createElement('div', { className: 'hs-hero' },
+  React.createElement('div', { className: 'hs-eyebrow' }, 'Prep room for every format'),
+  React.createElement('h1', { className: 'hs-title' }, 'Win your ', React.createElement('span', { className: 'em' }, 'high school round.')),
+  React.createElement('p', { className: 'hs-sub' }, 'Build your case, drill rebuttals, dig up evidence, and read the judge before you ever walk in.'),
+  React.createElement('div', { className: 'hs-format-row' },
+  ['PF', 'LD', 'Policy', 'Congress', 'Parli', 'MUN'].map((f) =>
+  React.createElement('span', { key: f, className: 'hs-fmt-chip' }, f))
   ),
+  React.createElement('div', { className: 'hs-onramp' },
+  [{ q: 'Tournament this weekend?', a: 'Build a case →', tab: 'case' },
+  { q: 'New to the team?', a: 'Learn the basics →', tab: 'learn' },
+  { q: 'Stuck on their argument?', a: 'Drill a rebuttal →', tab: 'rebuttal' }].map((c) =>
+  React.createElement('button', { key: c.tab, className: 'hs-onramp-card', onClick: () => goTab(c.tab) },
+  React.createElement('span', { className: 'hs-onramp-q' }, c.q),
+  React.createElement('span', { className: 'hs-onramp-a' }, c.a)))
+  )
+  ),
+  React.createElement('div', { className: 'nav-wrap' },
+  // Tier 1: the job you're doing. Selecting a job opens its first tool.
   React.createElement('nav', { className: 'nav' },
-  TABS.map((t) =>
+  TAB_GROUPS.map((g) =>
   React.createElement('button', {
-    key: t.id,
-    className: 'nav-btn' + (tab === t.id ? ' active' : ''),
-    onClick: () => {
-      setTab(t.id);
-      // Mirror the active tab to the URL hash so back/forward and
-      // refreshes preserve the user's spot, and external deep links
-      // (landing-page topic cards) line up with what they see.
-      try {history.replaceState(null, '', '#' + t.id);} catch (e) {}
-    }
-  }, t.label)
+    key: g.id,
+    className: 'nav-btn' + (activeGroup.id === g.id ? ' active' : ''),
+    onClick: () => goTab(g.tabs[0]),
+    title: g.hint
+  }, g.label)
+  )
+  ),
+  // Tier 2: the tools inside the active job (hidden for single-tool jobs).
+  activeGroup.tabs.length > 1 && React.createElement('div', { className: 'nav-sub' },
+  activeGroup.tabs.map((id) =>
+  React.createElement('button', {
+    key: id,
+    className: 'nav-sub-btn' + (tab === id ? ' active' : ''),
+    onClick: () => goTab(id)
+  }, TAB_LABELS[id])
+  )
   )
   ),
   React.createElement(HsUsageBanner),
