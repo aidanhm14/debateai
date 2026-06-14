@@ -13323,5 +13323,150 @@ window.addEventListener('load', function(){
   }
 })();
 </script>
+
+<!-- ── Live-now join ─────────────────────────────────────────────────
+     When a real human round is in progress, show a Join button on the
+     live band. Clicking asks a debater in that room to let the visitor
+     in (20s auto-reject; a declined visitor can send a note + ask again).
+     Firestore is lazy-loaded after idle so first paint isn't taxed. -->
+<script>
+(function(){
+  if (typeof window === 'undefined') return;
+  var FS_URL = 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js';
+  var CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var db = null, liveRooms = [], reqUnsub = null, cdTimer = null;
+
+  function loadFS(cb){
+    if (window.firebase && firebase.firestore){ cb(); return; }
+    var ex = document.getElementById('da-fs-sdk');
+    if (ex){ ex.addEventListener('load', cb, { once:true }); return; }
+    var s = document.createElement('script'); s.id = 'da-fs-sdk'; s.src = FS_URL;
+    s.addEventListener('load', cb, { once:true }); s.addEventListener('error', function(){});
+    document.head.appendChild(s);
+  }
+  function ensureApp(){ try { if (window.firebase && firebase.apps && !firebase.apps.length) firebase.initializeApp(CONFIG); } catch(e){} }
+
+  var css = document.createElement('style');
+  css.textContent =
+    '.livenow-live{display:inline-flex;align-items:center;gap:10px;margin:4px auto 18px;padding:9px 16px;border-radius:999px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.4);font-weight:700;font-size:.9rem;color:var(--text,#1a1a1f)}' +
+    '[data-theme="grey"] .livenow-live,[data-theme="crimson"] .livenow-live,[data-theme="dark"] .livenow-live{color:#f4f1ea}' +
+    '.livenow-live-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 9px #22c55e;animation:ljPulse 1.6s infinite}' +
+    '@keyframes ljPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
+    '.lj-join{margin-left:4px;padding:8px 18px;border-radius:999px;border:0;background:var(--accent,#ef4444);color:#fff;font-weight:800;font-size:.84rem;cursor:pointer}' +
+    '.lj-join:hover{background:#dc2626}' +
+    '#ljModal{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;background:rgba(8,6,4,.55)}' +
+    '#ljModal.on{display:flex}' +
+    '.lj-card{background:#fff;color:#16130f;width:min(400px,calc(100vw - 32px));border-radius:18px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.4);text-align:center;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}' +
+    '[data-theme="grey"] .lj-card,[data-theme="crimson"] .lj-card,[data-theme="dark"] .lj-card{background:#1c160f;color:#f4f1ea}' +
+    '.lj-h{font-size:1.15rem;font-weight:800;margin:0 0 8px}' +
+    '.lj-p{font-size:.9rem;opacity:.72;margin:0 0 14px;line-height:1.45}' +
+    '.lj-count{font-size:2.1rem;font-weight:800;font-variant-numeric:tabular-nums;color:#ef4444;margin:4px 0 12px}' +
+    '.lj-btn{display:block;width:100%;padding:12px;border-radius:11px;border:0;font-weight:800;font-size:.95rem;cursor:pointer;margin-top:8px;font-family:inherit}' +
+    '.lj-btn-primary{background:#ef4444;color:#fff}.lj-btn-primary:hover{background:#dc2626}' +
+    '.lj-btn-ghost{background:rgba(127,127,127,.14);color:inherit}' +
+    '.lj-note{width:100%;box-sizing:border-box;border:1px solid rgba(127,127,127,.35);border-radius:10px;padding:10px;font:inherit;font-size:.9rem;margin:6px 0 4px;resize:vertical;min-height:62px;background:transparent;color:inherit}';
+  document.head.appendChild(css);
+
+  var modal = document.createElement('div');
+  modal.id = 'ljModal';
+  modal.innerHTML = '<div class="lj-card" id="ljCard"></div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+  function closeModal(){ modal.classList.remove('on'); cleanup(); }
+  function cleanup(){ if (reqUnsub){ reqUnsub(); reqUnsub = null; } if (cdTimer){ clearInterval(cdTimer); cdTimer = null; } }
+  function card(html){ document.getElementById('ljCard').innerHTML = html; modal.classList.add('on'); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function renderBand(){
+    var wrap = document.querySelector('.livenow-wrap'); if (!wrap) return;
+    var strip = document.getElementById('livenowLive');
+    if (!liveRooms.length){ if (strip) strip.remove(); return; }
+    if (!strip){
+      strip = document.createElement('div'); strip.id = 'livenowLive'; strip.className = 'livenow-live';
+      var cta = wrap.querySelector('.livenow-cta');
+      if (cta && cta.parentNode) cta.parentNode.insertBefore(strip, cta); else wrap.appendChild(strip);
+    }
+    strip.innerHTML = '<span class="livenow-live-dot"></span><span>' + liveRooms.length + ' debate' + (liveRooms.length===1?'':'s') + ' live now</span><button type="button" class="lj-join" id="ljJoinBtn">Join a live round &rarr;</button>';
+    document.getElementById('ljJoinBtn').addEventListener('click', onJoinClick);
+  }
+
+  function recentEnough(d){
+    if (d.completedAt || d.isPrivate || d.status !== 'round') return false;
+    var ms = (d.createdAt && d.createdAt.toMillis) ? d.createdAt.toMillis() : 0;
+    if (ms && (Date.now() - ms) > 3*60*60*1000) return false; // stale
+    return true;
+  }
+
+  function startFeed(){
+    loadFS(function(){
+      ensureApp();
+      if (!window.firebase || !firebase.firestore) return;
+      db = firebase.firestore();
+      db.collection('live_rounds').where('status','==','round').limit(20).onSnapshot(function(snap){
+        var rooms = [];
+        snap.forEach(function(doc){ var d = doc.data()||{}; if (recentEnough(d)) rooms.push({ id: doc.id, motion: d.motion||'' }); });
+        liveRooms = rooms; renderBand();
+      }, function(){});
+    });
+  }
+
+  function authThen(cb){
+    if (!window.firebase || !firebase.auth){ cb(null); return; }
+    var u = firebase.auth().currentUser;
+    if (u){ cb(u); return; }
+    firebase.auth().signInAnonymously().then(function(r){ cb(r.user); }).catch(function(){ cb(null); });
+  }
+
+  function onJoinClick(){
+    if (!liveRooms.length || !db) return;
+    var room = liveRooms[0];
+    card('<div class="lj-h">Join a live debate</div><div class="lj-p">Asking a debater in the room to let you in. They have 20 seconds.</div><div class="lj-count" id="ljCountdown">20</div>' + (room.motion ? '<div class="lj-p" style="margin:0;font-size:.82rem">Motion: ' + esc(room.motion.slice(0,120)) + '</div>' : ''));
+    authThen(function(u){
+      if (!u){ card('<div class="lj-h">Could not start a session</div><div class="lj-p">Try again in a moment.</div><button class="lj-btn lj-btn-ghost" id="ljX">Close</button>'); document.getElementById('ljX').addEventListener('click', closeModal); return; }
+      sendRequest(room, u, null);
+    });
+  }
+
+  function sendRequest(room, u, comment){
+    cleanup();
+    var reqRef = db.collection('live_rounds').doc(room.id).collection('joinRequests').doc(u.uid);
+    var payload = { name: (u.displayName || 'A debater'), status: 'pending', requestedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    payload.comment = comment ? comment : firebase.firestore.FieldValue.delete();
+    reqRef.set(payload, { merge:true }).catch(function(){});
+    var resolved = false;
+    reqUnsub = reqRef.onSnapshot(function(doc){
+      var d = doc.data()||{};
+      if (d.status === 'accepted'){ resolved = true; cleanup(); window.location.href = '/live-round?room=' + encodeURIComponent(room.id); }
+      else if (d.status === 'rejected'){ resolved = true; cleanup(); showRejected(room, u); }
+    });
+    var secs = 20;
+    cdTimer = setInterval(function(){
+      secs--; var el = document.getElementById('ljCountdown'); if (el) el.textContent = secs;
+      if (secs <= 0){ clearInterval(cdTimer); cdTimer = null; if (!resolved) showRejected(room, u); }
+    }, 1000);
+  }
+
+  function showRejected(room, u){
+    cleanup();
+    card('<div class="lj-h">Not let in yet</div><div class="lj-p">No one accepted in time. Send the debaters a quick note and ask again.</div><textarea class="lj-note" id="ljNote" maxlength="280" placeholder="e.g. Same circuit, would love to watch and learn"></textarea><button class="lj-btn lj-btn-primary" id="ljResend">Send note + ask again</button><button class="lj-btn lj-btn-ghost" id="ljClose">Maybe later</button>');
+    document.getElementById('ljResend').addEventListener('click', function(){
+      var note = (document.getElementById('ljNote').value||'').trim().slice(0,280);
+      card('<div class="lj-h">Join a live debate</div><div class="lj-p">Note sent. Asking again — 20 seconds.</div><div class="lj-count" id="ljCountdown">20</div>');
+      sendRequest(room, u, note || null);
+    });
+    document.getElementById('ljClose').addEventListener('click', closeModal);
+  }
+
+  function boot(){ if ('requestIdleCallback' in window) requestIdleCallback(startFeed, { timeout:3000 }); else setTimeout(startFeed, 2200); }
+  if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
+})();
+</script>
 </body>
 </html>

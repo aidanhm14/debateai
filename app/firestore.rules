@@ -260,6 +260,34 @@ service cloud.firestore {
         allow create, update, delete: if isSignedIn()
                       && watcherUid == request.auth.uid;
       }
+
+      // Join requests — a visitor on the landing "live now" feed asks a
+      // debater in this room to let them in. Doc id == requester uid.
+      // Public read (requester polls own status; participants list all
+      // pending). The requester writes only their OWN doc and only at
+      // status 'pending'/'withdrawn' — they can't self-admit. A
+      // participant (pro/con on the parent round) resolves any request
+      // to accepted/rejected. A get() reads the parent round to learn
+      // who the participants are.
+      match /joinRequests/{reqUid} {
+        function parentRound() {
+          return get(/databases/$(database)/documents/live_rounds/$(roomId)).data;
+        }
+        function isRoundParticipant() {
+          return isSignedIn()
+            && (parentRound().get('proUid', '') == request.auth.uid
+             || parentRound().get('conUid', '') == request.auth.uid);
+        }
+        allow read: if true;
+        allow create, update: if isSignedIn() && (
+          (reqUid == request.auth.uid
+            && request.resource.data.status in ['pending', 'withdrawn'])
+          || (isRoundParticipant()
+            && request.resource.data.status in ['pending', 'accepted', 'rejected'])
+        );
+        allow delete: if isSignedIn()
+                      && (reqUid == request.auth.uid || isRoundParticipant());
+      }
     }
 
     // ── matchmaking_queue ────────────────────────────────────────────

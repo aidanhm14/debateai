@@ -309,6 +309,23 @@ button{font-family:inherit}
 .format-display{
   display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;
 }
+/* Incoming join-request card (participant side, bottom-right toast) */
+.join-req-card{position:fixed;right:18px;bottom:18px;z-index:9999;width:min(330px,calc(100vw - 28px));
+  background:var(--bg-elev,#1a1a1f);border:1px solid var(--accent,#ef4444);border-radius:14px;
+  padding:14px 16px;box-shadow:0 18px 50px rgba(0,0,0,.45);animation:joinReqIn .25s ease}
+@keyframes joinReqIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.join-req-top{font-size:.9rem;color:var(--text,#fff);margin-bottom:6px}
+.join-req-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;margin-right:7px;vertical-align:middle}
+.join-req-comment{font-size:.82rem;font-style:italic;color:var(--text-dim,rgba(255,255,255,.7));margin:0 0 10px;line-height:1.4}
+.join-req-actions{display:flex;align-items:center;gap:8px}
+.join-req-actions .btn{padding:8px 14px;font-size:.78rem}
+.join-req-timer{margin-left:auto;font-size:.72rem;color:var(--text-dim,rgba(255,255,255,.55));font-variant-numeric:tabular-nums}
+/* Prep countdown banner (shown before Speech 1) */
+.prep-banner{display:flex;align-items:center;gap:10px;justify-content:center;margin:0 0 14px;padding:10px 14px;
+  border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);
+  font-size:.82rem;color:var(--text,#fff)}
+.prep-banner strong{font-variant-numeric:tabular-nums;font-size:1rem}
+.prep-banner.is-over{background:rgba(255,255,255,.04);border-color:var(--border)}
 .tag{
   display:inline-flex;padding:3px 10px;border-radius:999px;
   font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
@@ -956,6 +973,17 @@ button{font-family:inherit}
         </div>
         <div class="label">Speech sequence</div>
         <div id="sequencePreview" style="font-size:.78rem;color:var(--text-dim);line-height:1.6"></div>
+        <div class="label" style="margin-top:14px">Prep time</div>
+        <div class="field">
+          <select id="prepSel">
+            <option value="0">No prep — start right away</option>
+            <option value="1">1 minute</option>
+            <option value="3">3 minutes</option>
+            <option value="5" selected>5 minutes</option>
+            <option value="10">10 minutes</option>
+            <option value="15">15 minutes</option>
+          </select>
+        </div>
       </div>
       <div class="panel-section">
         <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
@@ -1975,6 +2003,7 @@ button{font-family:inherit}
   }
   function startSpeechTimer(){
     if (state.timerState === 'running' || state.timerState === 'ended') return;
+    hidePrepBanner();   // prep is over once a speech actually starts
     var wasReady = state.timerState === 'ready';
     state.timerStart = Date.now();
     state.timerState = 'running';
@@ -2437,6 +2466,7 @@ button{font-family:inherit}
     state.teamNames.cg = cgEl ? cgEl.value.trim() : '';
     state.teamNames.co = coEl ? coEl.value.trim() : '';
     state.formatKey = $('formatSel').value;
+    var prepEl = $('prepSel'); state.prepMin = prepEl ? (parseInt(prepEl.value, 10) || 0) : 0;
     state.speechIdx = 0;
     state.log = [];
     state.phase = 'round';
@@ -2450,7 +2480,9 @@ button{font-family:inherit}
     // Push initial round doc so the second speaker landing on this
     // URL sees a Firestore-backed round in progress and joins it.
     publishRoundInit();
+    startJoinRequestHost();   // now a participant + room doc exists
     renderRound();
+    startPrepBanner();
     try { gtag('event', 'live_round_start', { format: state.formatKey }); } catch(e){}
   }
 
@@ -3806,6 +3838,7 @@ button{font-family:inherit}
       onRoundSnapshot(doc.data() || {});
     }, function(e){ console.warn('[Round sync] snapshot error', e); });
     startWatchPresence();
+    startJoinRequestHost();
   }
 
   // ── Watcher presence + count ─────────────────────────
@@ -3893,6 +3926,115 @@ button{font-family:inherit}
     }
   }
 
+  // ── Incoming join requests (participant side) ─────────────────────
+  // A visitor on the landing "live now" feed asks to be let into this
+  // room. Debaters in the round see an accept/reject card with a 20s
+  // auto-reject. A declined visitor can re-send with a note, which
+  // re-surfaces the card with their comment.
+  function startJoinRequestHost(){
+    if (state.joinHostInit) return;
+    if (!state.user || !firebaseDb) return;
+    if (isSpectator()) return;            // only debaters resolve requests
+    var r = getRoundDocRef(); if (!r) return;
+    state.joinHostInit = true;
+    var col = r.collection('joinRequests');
+    var handled = {};
+    state.joinHostUnsub = col.onSnapshot(function(snap){
+      snap.forEach(function(docSnap){
+        var req = docSnap.data() || {};
+        if (req.status !== 'pending'){
+          delete handled[docSnap.id];
+          var stale = document.getElementById('joinReq-' + docSnap.id);
+          if (stale) stale.remove();
+          return;
+        }
+        var stamp = (req.requestedAt && req.requestedAt.toMillis) ? req.requestedAt.toMillis() : 0;
+        var key = (req.comment || '') + ':' + stamp;
+        if (handled[docSnap.id] === key) return;   // already showing this exact pending state
+        handled[docSnap.id] = key;
+        showJoinRequestCard(col.doc(docSnap.id), req);
+      });
+    }, function(){});
+  }
+  function showJoinRequestCard(reqRef, req){
+    var prev = document.getElementById('joinReq-' + reqRef.id);
+    if (prev) prev.remove();
+    var card = document.createElement('div');
+    card.id = 'joinReq-' + reqRef.id;
+    card.className = 'join-req-card';
+    var name = escHtml(req.name || 'A debater');
+    var comment = req.comment ? '<div class="join-req-comment">“' + escHtml(req.comment) + '”</div>' : '';
+    card.innerHTML =
+      '<div class="join-req-top"><span class="join-req-dot"></span><strong>' + name + '</strong> wants to join this round</div>' +
+      comment +
+      '<div class="join-req-actions">' +
+        '<button type="button" class="btn btn-primary join-req-accept">Let in</button>' +
+        '<button type="button" class="btn join-req-reject">Decline</button>' +
+        '<span class="join-req-timer" aria-hidden="true">20</span>' +
+      '</div>';
+    document.body.appendChild(card);
+    try { window.SFX && window.SFX.notify && window.SFX.notify(); } catch(e){}
+    var secs = 20, timerEl = card.querySelector('.join-req-timer'), done = false;
+    function resolve(status){
+      if (done) return; done = true;
+      clearInterval(iv);
+      reqRef.set({
+        status: status,
+        respondedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        respondedBy: state.user.uid,
+      }, { merge: true }).catch(function(e){ console.warn('[join] resolve failed', e); });
+      card.remove();
+    }
+    var iv = setInterval(function(){
+      secs--; if (timerEl) timerEl.textContent = secs;
+      if (secs <= 0) resolve('rejected');   // 20s → auto-reject
+    }, 1000);
+    card.querySelector('.join-req-accept').addEventListener('click', function(){ resolve('accepted'); });
+    card.querySelector('.join-req-reject').addEventListener('click', function(){ resolve('rejected'); });
+  }
+
+  // ── Prep countdown (before Speech 1) ──────────────────────────────
+  // A shared, configurable prep period both sides see before the first
+  // speech. It doesn't lock anything — the speaker can hit Start speech
+  // whenever — it's a visible timer to prepare against. Synced via the
+  // round doc's createdAt + prepMin so both clients show the same clock.
+  function startPrepBanner(){
+    if (!state.prepMin || state.prepMin <= 0) return;
+    if (state.speechIdx > 0 || state.phase !== 'round') return;  // only before Speech 1
+    if (state.prepBannerShown) return;
+    state.prepBannerShown = true;
+    var rv = document.getElementById('roundView');
+    if (!rv) { state.prepBannerShown = false; return; }
+    var banner = document.getElementById('prepBanner');
+    if (!banner){
+      banner = document.createElement('div');
+      banner.id = 'prepBanner';
+      banner.className = 'prep-banner';
+      rv.insertBefore(banner, rv.firstChild);
+    }
+    var startMs = state.roundCreatedAtMs || (state.roundCreatedAtMs = Date.now());
+    var endMs = startMs + state.prepMin * 60000;
+    function tick(){
+      if (state.speechIdx > 0 || state.phase !== 'round'){ hidePrepBanner(); return; }
+      var rem = Math.max(0, Math.round((endMs - Date.now()) / 1000));
+      var mm = Math.floor(rem / 60), ss = rem % 60;
+      if (rem > 0){
+        banner.classList.remove('is-over');
+        banner.innerHTML = '<span>Prep time · both sides prepare</span><strong>' + mm + ':' + (ss < 10 ? '0' : '') + ss + '</strong>';
+      } else {
+        banner.classList.add('is-over');
+        banner.innerHTML = '<span>Prep over — hit Start speech when you are ready.</span>';
+        if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
+      }
+    }
+    tick();
+    state.prepInterval = setInterval(tick, 1000);
+  }
+  function hidePrepBanner(){
+    if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
+    var b = document.getElementById('prepBanner'); if (b) b.remove();
+  }
+
   // Reconciliation: pick up any remote field that's ahead of us.
   // Writers don't suppress their own snapshots, the conditions here
   // (length > local, idx > local, ballot && phase != ballot) ensure
@@ -3947,7 +4089,10 @@ button{font-family:inherit}
       mountDaily();
       if (typeof d.speechIdx === 'number') state.speechIdx = d.speechIdx;
       if (Array.isArray(d.speeches)) state.log = d.speeches.slice();
+      if (typeof d.prepMin === 'number' && !state.prepMin) state.prepMin = d.prepMin;
+      if (d.createdAt && d.createdAt.toMillis) state.roundCreatedAtMs = d.createdAt.toMillis();
       renderRound();
+      startPrepBanner();
     }
 
     // Speech reconciliation
@@ -4052,6 +4197,7 @@ button{font-family:inherit}
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       status: 'round',
       speechIdx: 0,
+      prepMin: state.prepMin || 0,
       // Spar rounds are watchable by default; the /spar "Watch a live
       // round" panel lists public rounds. A debater can flip this to
       // drop the round from that list (go-private toggle, follow-up).
