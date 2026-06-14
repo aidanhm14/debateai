@@ -249,6 +249,17 @@ service cloud.firestore {
                       || resource.data.conUid == request.auth.uid
                     );
       allow delete: if false;
+
+      // Watcher presence — live "N watching" count for spar rounds.
+      // Public read (mirrors the round). Each watcher writes only their
+      // OWN heartbeat doc (path id == uid), guests included. No PII
+      // beyond a display name + timestamp; stale docs age out of the
+      // count client-side at 75s.
+      match /watchers/{watcherUid} {
+        allow read: if true;
+        allow create, update, delete: if isSignedIn()
+                      && watcherUid == request.auth.uid;
+      }
     }
 
     // ── matchmaking_queue ────────────────────────────────────────────

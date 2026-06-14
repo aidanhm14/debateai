@@ -184,6 +184,12 @@ button{font-family:inherit}
 .bar-meta{display:flex;align-items:center;gap:14px;font-size:.74rem;color:var(--text-dim);font-weight:600}
 .bar-meta .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+.watch-count-pill{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.watch-count-pill[hidden]{display:none}
+.watch-count-pill .wcp-eye{font-size:.8rem;opacity:.7}
+.privacy-toggle{padding:5px 12px;border:1px solid var(--border);border-radius:999px;font-size:.7rem;font-weight:700;color:var(--text-dim);background:transparent;cursor:pointer;font-family:inherit;transition:color .15s,border-color .15s,background .15s}
+.privacy-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+.privacy-toggle.is-private{color:var(--amber);border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.08)}
 .bar-back{padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.72rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s}
 .bar-back:hover{color:var(--text);border-color:var(--border-strong)}
 
@@ -836,6 +842,8 @@ button{font-family:inherit}
   <a href="/live" class="bar-logo"><em>DebateIt</em> · Live Round</a>
   <div class="bar-meta">
     <span id="phaseLabel"><span class="dot"></span> Setup</span>
+    <span id="watchCountPill" class="watch-count-pill" hidden><span class="wcp-eye" aria-hidden="true">&#128065;</span><span id="watchCountNum">0</span> watching</span>
+    <button id="privacyToggle" class="privacy-toggle" type="button" hidden>Public</button>
     <span id="barUser" style="display:none"></span>
     <a href="/live" class="bar-back">← Back to board</a>
   </div>
@@ -3792,6 +3800,92 @@ button{font-family:inherit}
       if (!doc || !doc.exists) return;
       onRoundSnapshot(doc.data() || {});
     }, function(e){ console.warn('[Round sync] snapshot error', e); });
+    startWatchPresence();
+  }
+
+  // ── Watcher presence + count ─────────────────────────
+  // Spectators write a heartbeat doc to live_rounds/{room}/watchers/{uid};
+  // everyone (debaters + watchers) subscribes and renders the live count.
+  // Counts only heartbeats touched in the last 75s so a closed tab drops
+  // off within ~one cycle even when pagehide doesn't fire (iOS).
+  var WATCH_HB_MS = 30000;
+  function watchersRef(){
+    var r = getRoundDocRef();
+    return r ? r.collection('watchers') : null;
+  }
+  function startWatchPresence(){
+    if (state.watchInit) return;
+    if (!state.user || !firebaseDb) return;
+    var col = watchersRef();
+    if (!col) return;
+    state.watchInit = true;
+
+    // (a) I'm a spectator → write + heartbeat my presence.
+    if (isSpectator()){
+      var mine = col.doc(state.user.uid);
+      var beat = function(){
+        mine.set({
+          name: (state.user.displayName || 'A watcher'),
+          ts: firebase.firestore.FieldValue.serverTimestamp(),
+        }).catch(function(){});
+      };
+      beat();
+      state.watchHbInterval = setInterval(beat, WATCH_HB_MS);
+      window.addEventListener('pagehide', function(){ mine.delete().catch(function(){}); });
+    }
+
+    // (b) Everyone subscribes to the count.
+    state.watchUnsub = col.onSnapshot(function(snap){
+      var now = Date.now(), live = 0;
+      snap.forEach(function(d){
+        var t = (d.data() || {}).ts;
+        var ms = (t && t.toMillis) ? t.toMillis() : now; // unresolved serverTimestamp = just written
+        if (now - ms < 75000) live++;
+      });
+      renderWatchCount(live);
+    }, function(){});
+
+    // (c) Participants get the go-private toggle.
+    if (!isSpectator()){
+      var tog = document.getElementById('privacyToggle');
+      if (tog){
+        tog.hidden = false;
+        tog.addEventListener('click', function(){
+          var ref = getRoundDocRef();
+          if (!ref) return;
+          var next = !state.isPrivate;
+          ref.update({ isPrivate: next }).then(function(){
+            state.isPrivate = next;
+            paintPrivacyToggle();
+          }).catch(function(e){ console.warn('[watch] privacy toggle failed', e); });
+        });
+        paintPrivacyToggle();
+      }
+    }
+  }
+  function renderWatchCount(n){
+    var pill = document.getElementById('watchCountPill');
+    if (!pill) return;
+    if (n > 0){
+      pill.hidden = false;
+      var num = document.getElementById('watchCountNum');
+      if (num) num.textContent = n;
+    } else {
+      pill.hidden = true;
+    }
+  }
+  function paintPrivacyToggle(){
+    var tog = document.getElementById('privacyToggle');
+    if (!tog) return;
+    if (state.isPrivate){
+      tog.textContent = 'Private';
+      tog.classList.add('is-private');
+      tog.title = 'Round is hidden from the watch list. Tap to make it public.';
+    } else {
+      tog.textContent = 'Public';
+      tog.classList.remove('is-private');
+      tog.title = 'Anyone can watch from the /spar list. Tap to go private.';
+    }
   }
 
   // Reconciliation: pick up any remote field that's ahead of us.
@@ -3829,6 +3923,7 @@ button{font-family:inherit}
       // posterUid alone, so leave proUid/conUid as the URL params
       // gave us — they're the ones that matter for spectator gating.
     }
+    if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md) md.textContent = d.motion; changedSetup = true; }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
