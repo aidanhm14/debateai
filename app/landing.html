@@ -87,7 +87,7 @@
       "keywords": "DebateIt, DebateIt app, debate practice online, AI debate coach, debate feedback tool, public speaking practice online, how to get better at debating, debate with real people online, AI debate practice, voice AI debate, AI debate opponent, Asian Parliamentary debate, WSDC, British Parliamentary debate, Public Forum, Lincoln-Douglas, Policy debate, APDA, Congress debate, MUN, judge RFD, speaker points, debate prep online, AI judge feedback, communication skills practice, argumentation training",
       "contactPoint": {
         "@type": "ContactPoint",
-        "email": "feedback@debateai.com",
+        "email": "contact@devilsadvocateteam.com",
         "contactType": "customer support",
         "availableLanguage": ["English", "Hindi", "Spanish", "French", "German", "Portuguese", "Mandarin", "Japanese", "Korean", "Arabic", "Russian", "Indonesian", "Vietnamese", "Turkish"]
       },
@@ -5447,7 +5447,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var bar = document.createElement('div');
     bar.setAttribute('role','dialog');
     bar.setAttribute('aria-label','Read the site in Hindi');
-    bar.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);' +
+    // On phones the centered banner and the bottom-right Feedback pill share
+    // the same row and overlap; lift it above the pill there. Desktop keeps 18px.
+    var hbBottom = (window.matchMedia && window.matchMedia('(max-width:600px)').matches) ? '82px' : '18px';
+    bar.style.cssText = 'position:fixed;left:50%;bottom:' + hbBottom + ';transform:translateX(-50%);' +
       'z-index:9998;display:flex;align-items:center;gap:10px;' +
       'padding:10px 14px 10px 16px;border-radius:999px;' +
       'background:rgba(20,10,18,.92);color:#fff;font-family:Inter,system-ui,-apple-system,sans-serif;' +
@@ -6312,7 +6315,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <iframe id="fbIframe" data-src="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform?embedded=true&hl=en&v=20260518b" title="DebateIt feedback form" loading="lazy"></iframe>
     </div>
     <div class="fb-fallback">
-      Form not loading? Email <a href="mailto:feedback@debateai.com?subject=Debate%20AI%20feedback">feedback@debateai.com</a> directly, or <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform?hl=en" target="_blank" rel="noopener">open the form in a new tab</a>.
+      Form not loading? Email <a href="mailto:contact@devilsadvocateteam.com?subject=Debate%20AI%20feedback">contact@devilsadvocateteam.com</a> directly, or <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform?hl=en" target="_blank" rel="noopener">open the form in a new tab</a>.
     </div>
     <div class="fb-foot">
       <span>Beta build. Every reply gets read.</span>
@@ -8066,7 +8069,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <span class="review-eyebrow"><span class="dot" aria-hidden="true"></span>From the circuit</span>
       <h2 class="review-headline">Four circuits. Same verdict.</h2>
     </div>
-    <div class="review-grid">
+    <div class="review-grid" id="reviewGrid">
       <figure class="review-card review-card--lead">
         <blockquote class="review-quote">
           I captained Zimbabwe at Worlds and competed at Columbia in the US. <span class="review-hl">The real gap between circuits isn't talent, it's access to quality practice.</span> DebateIt closes it. The AI argues back at full strength, knows what a World Schools round demands, and the ballot tells you exactly where the round was won or lost.
@@ -8128,8 +8131,69 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </figcaption>
       </figure>
     </div>
+    <!-- Swipe affordance + dots. On the narrow swipe track (<900px) the
+         four cards are a horizontal carousel; without a cue most people
+         only ever see the first one. The dots track scroll position and
+         tap-to-scroll; the hint line names the gesture. Hidden on the
+         desktop 2x2 grid where everything is already visible. -->
+    <div class="review-nav" aria-hidden="false">
+      <span class="review-swipe-hint">Swipe for more <span aria-hidden="true">→</span></span>
+      <div class="review-dots" id="reviewDots" role="tablist" aria-label="Choose a review"></div>
+    </div>
   </div>
 </section>
+<script>
+(function(){
+  var grid = document.getElementById('reviewGrid');
+  var dotsWrap = document.getElementById('reviewDots');
+  if (!grid || !dotsWrap) return;
+  var cards = [].slice.call(grid.querySelectorAll('.review-card'));
+  if (cards.length < 2) return;
+  var dots = cards.map(function(card, i){
+    var d = document.createElement('button');
+    d.type = 'button';
+    d.className = 'review-dot';
+    d.setAttribute('role','tab');
+    d.setAttribute('aria-label', 'Review ' + (i + 1) + ' of ' + cards.length);
+    d.addEventListener('click', function(){
+      // Center the chosen card in the track.
+      var left = card.offsetLeft - (grid.clientWidth - card.clientWidth) / 2;
+      grid.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+    });
+    dotsWrap.appendChild(d);
+    return d;
+  });
+  var active = -1;
+  function setActive(i){
+    if (i === active) return;
+    active = i;
+    for (var k = 0; k < dots.length; k++){
+      var on = k === i;
+      dots[k].classList.toggle('on', on);
+      dots[k].setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+  }
+  function sync(){
+    // Whichever card's center is nearest the track center is "active".
+    var mid = grid.scrollLeft + grid.clientWidth / 2;
+    var best = 0, bestDist = Infinity;
+    for (var i = 0; i < cards.length; i++){
+      var c = cards[i].offsetLeft + cards[i].clientWidth / 2;
+      var dist = Math.abs(c - mid);
+      if (dist < bestDist){ bestDist = dist; best = i; }
+    }
+    setActive(best);
+    // Once the reader reaches the last card the swipe hint has done its job.
+    if (best >= cards.length - 1) dotsWrap.parentNode.classList.add('reviewed');
+  }
+  var raf;
+  grid.addEventListener('scroll', function(){
+    if (raf) return;
+    raf = requestAnimationFrame(function(){ raf = 0; sync(); });
+  }, { passive: true });
+  sync();
+})();
+</script>
 
 <!-- 2026-06-12: founder strip (price compare + founder letter) moved up here, right after the reviews, per Aidan. Was buried below proPanel. -->
 <section class="price-compare" aria-label="Different premise">
@@ -8161,7 +8225,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="cc-eyebrow">Co-founders wanted</div>
         <h3 class="cc-h">Solo built. Want a co-founder.</h3>
         <p class="cc-body">Engineer who debates, designer who debates, growth person who debates. If that's you and you'd ship every day, hit me up.</p>
-        <a class="cc-cta" href="mailto:feedback@debateai.com?subject=Co-founder%20interest">feedback@debateai.com →</a>
+        <a class="cc-cta" href="mailto:contact@devilsadvocateteam.com?subject=Co-founder%20interest">contact@devilsadvocateteam.com →</a>
       </article>
 
       <!-- MIDDLE: founder letter. The wall-of-text version split
@@ -8330,7 +8394,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           Building this at scale requires a strong team: leadership and global ambassadors (people who help implement this in schools). I'm on a bare-bones budget for growth right now, and I'm not paying for marketing this. Right now, it's me monitoring dashboards from Chicago. And honestly, there's still AI fluff throughout the website. Working on it.
         </p>
         <p>
-          If you run a club, judge tournaments, or want to contribute to the work in whatever way, give ideas. <a href="mailto:feedback@debateai.com?subject=Help%20build%20this">Write me</a>. One paragraph is fine.
+          If you run a club, judge tournaments, or want to contribute to the work in whatever way, give ideas. <a href="mailto:contact@devilsadvocateteam.com?subject=Help%20build%20this">Write me</a>. One paragraph is fine.
         </p>
       </aside>
     </div>
@@ -8586,10 +8650,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   @media(max-width:600px){
     .review{padding:48px 18px}
-    
-    
+
+
     .review-chip{white-space:normal}
   }
+
+  /* Carousel affordance — only meaningful on the <900px swipe track.
+     On the desktop 2x2 grid the whole thing is on screen, so it hides. */
+  .review-nav{
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    margin-top:18px;
+  }
+  .review-swipe-hint{
+    font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--text-dim,rgba(255,255,255,.55));
+    display:inline-flex;align-items:center;gap:6px;
+    animation:reviewHintPulse 2.4s ease-in-out infinite;
+  }
+  .review-swipe-hint span{display:inline-block;animation:reviewHintNudge 1.4s ease-in-out infinite}
+  @keyframes reviewHintPulse{0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes reviewHintNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+  /* Once the reader has swiped to the last card, retire the hint. */
+  .review-nav.reviewed .review-swipe-hint{opacity:0;transition:opacity .4s ease;pointer-events:none}
+  .review-dots{display:flex;align-items:center;gap:8px}
+  .review-dot{
+    width:8px;height:8px;padding:0;border-radius:50%;cursor:pointer;
+    border:1px solid rgba(239,68,68,.45);background:transparent;
+    transition:transform .2s ease,background .2s ease,width .2s ease;
+  }
+  .review-dot.on{background:#ef4444;border-color:#ef4444;width:22px;border-radius:99px}
+  [data-theme="light"] .review-dot{border-color:rgba(220,38,38,.5)}
+  [data-theme="light"] .review-dot.on{background:#dc2626;border-color:#dc2626}
+  @media (prefers-reduced-motion:reduce){
+    .review-swipe-hint,.review-swipe-hint span{animation:none}
+  }
+  /* Desktop grid shows all four — no carousel chrome needed. */
+  @media (min-width:900px){ .review-nav{display:none} }
 </style>
 
 <!-- 2026-06-10: the "Different premise" header + DeepAI Pro price
@@ -12039,7 +12135,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <summary class="faq-stack-q">Can my school get access for the whole team?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
         <div class="faq-stack-a">
           <p>Yes. The Team tier covers 50 seats with shared usage; free in beta like the rest. <a href="/schools">/schools</a> has the longer pitch aimed at coaches and program directors.</p>
-          <p>Running 50+ debaters across a district? <a href="mailto:feedback@debateai.com?subject=School%20%2F%20district%20plan">Email us</a> and we'll figure something out.</p>
+          <p>Running 50+ debaters across a district? <a href="mailto:contact@devilsadvocateteam.com?subject=School%20%2F%20district%20plan">Email us</a> and we'll figure something out.</p>
         </div>
       </details>
 
@@ -12078,7 +12174,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <p><strong>Live human-vs-human?</strong> Yes, on <a href="/live">/live</a>. Scheduled rounds with other users, AI judging at the end. <a href="/leaderboard">/leaderboard</a> tracks the cross-format ranking.</p>
           <p><strong>Is this still being built?</strong> Yes, most weeks. <a href="/changelog">/changelog</a> has what shipped recently; most of it traces back to someone writing in.</p>
           <p><strong>Who built this?</strong> One person: a national parliamentary debater at UChicago.</p>
-          <p style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">Still nothing matches? Write <a href="mailto:feedback@debateai.com">feedback@debateai.com</a>. Real inbox; usually a reply within a day.</p>
+          <p style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">Still nothing matches? Write <a href="mailto:contact@devilsadvocateteam.com">contact@devilsadvocateteam.com</a>. Real inbox; usually a reply within a day.</p>
         </div>
       </details>
 
@@ -12381,7 +12477,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <a href="/debatable">About DebateIt</a>
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
-      <a href="mailto:feedback@debateai.com">Contact</a>
+      <a href="mailto:contact@devilsadvocateteam.com">Contact</a>
     </div>
   </div>
   <!-- Format-guide link rail. SEO: gives Google a discoverable path to
@@ -12435,9 +12531,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
   <div style="padding-top:14px;border-top:1px solid var(--border);font-size:.82rem;color:var(--text);line-height:1.6;max-width:720px;margin:0 auto;text-align:center">
     debateit.com is built by a real human <span aria-hidden="true">:)</span> <span style="color:var(--text-dim);font-style:italic">Everything here is debatable.</span>
-  </div>
-  <div class="footer-legal" style="padding-top:14px;font-size:.72rem;color:var(--text-dim);line-height:1.6;max-width:720px;margin:0 auto;text-align:center">
-    Optional background music (topbar music toggle): tracks by <a href="https://incompetech.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Kevin MacLeod</a>, licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">CC BY 4.0</a>. Compressed for web playback.
   </div>
   <div class="footer-legal" style="padding-top:14px;font-size:.72rem;color:var(--text-dim);line-height:1.6;max-width:720px;margin:0 auto;text-align:center">
     &copy; 2026 DebateIt. All rights reserved. &ldquo;DebateIt&rdquo; and the DebateIt logo are trademarks of DebateIt. Unauthorized use, reproduction, scraping, or derivative training of this site's voice guidelines, prompts, or content is prohibited. AI outputs are for educational and practice use only and are not a substitute for professional coaching, legal, or academic advice.
@@ -12982,7 +13075,7 @@ window.addEventListener('load', function(){
     var t = document.createElement('div');
     t.setAttribute('role','status');
     t.style.cssText = [
-      'position:fixed','right:20px','bottom:20px','z-index:9000',
+      'position:fixed','left:20px','bottom:20px','z-index:9000',
       'max-width:320px','padding:14px 16px','border-radius:14px',
       'background:rgba(20,18,20,.92)','color:#fff',
       'border:1px solid rgba(255,255,255,.12)',

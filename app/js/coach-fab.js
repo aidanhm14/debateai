@@ -17,6 +17,10 @@
   var here = (location.pathname || '/').replace(/\/$/, '') || '/';
   if (here === '/coach' || here.indexOf('/coach') === 0) return;
   if (here.indexOf('/tools/copy-edit') !== -1) return;
+  // Marketing home: the page is wall-to-wall CTAs already, and the Feedback
+  // pill + sign-in nudge own the bottom-right corner. A third floating button
+  // there just collides with them, so the Coach FAB sits this page out.
+  if (here === '/' || /\/(landing|index)(\.html)?$/.test(here.toLowerCase())) return;
   if (window.top !== window) return; // never render inside an iframe
 
   var STORAGE_KEY = 'debateai-coach-gender';

@@ -61,25 +61,46 @@
 
   function injectHomeBar() {
     if (document.getElementById('ditHomeBar')) return;
-    var bar = document.createElement('a');
+    // Two real, separate destinations. The old bar was one <a href="/"> whose
+    // right edge read "Live debates →" — the label promised /live but the tap
+    // went home. Now the home label goes home and the live label goes to /live.
+    var bar = document.createElement('div');
     bar.id = 'ditHomeBar';
-    bar.href = HOME;
-    bar.setAttribute('aria-label', 'Go to DebateIt home');
-    bar.innerHTML =
-      '<span aria-hidden="true" style="font-size:15px;line-height:1;transform:translateY(-1px)">←</span>' +
-      '<strong style="font-weight:800;letter-spacing:-.01em">DebateIt</strong>' +
-      '<span style="opacity:.75;font-weight:600">home</span>' +
-      '<span style="margin-left:auto;opacity:.9;font-weight:700">Live debates →</span>';
+    bar.setAttribute('role', 'navigation');
+    bar.setAttribute('aria-label', 'DebateIt');
     bar.style.cssText = [
       'position:sticky', 'top:0', 'z-index:2147482000',
       'display:flex', 'align-items:center', 'gap:8px',
-      'padding:9px 16px',
+      'padding:8px 14px',
       'font:600 13px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif',
-      'color:#fff', 'background:#ef4444', 'text-decoration:none',
+      'color:#fff', 'background:#ef4444',
       'box-shadow:0 1px 0 rgba(0,0,0,.10)'
     ].join(';');
-    bar.addEventListener('mouseenter', function () { bar.style.background = '#dc2626'; });
-    bar.addEventListener('mouseleave', function () { bar.style.background = '#ef4444'; });
+
+    var home = document.createElement('a');
+    home.href = HOME;
+    home.setAttribute('aria-label', 'Go to the DebateIt home page');
+    home.style.cssText = 'display:inline-flex;align-items:center;gap:7px;color:#fff;text-decoration:none;padding:2px 2px;border-radius:7px';
+    home.innerHTML =
+      '<span aria-hidden="true" style="font-size:15px;line-height:1;transform:translateY(-1px)">←</span>' +
+      '<strong style="font-weight:800;letter-spacing:-.01em">DebateIt</strong>' +
+      '<span style="opacity:.78;font-weight:600">home</span>';
+
+    var live = document.createElement('a');
+    live.href = '/live';
+    live.setAttribute('aria-label', 'Browse live debates');
+    live.style.cssText = 'margin-left:auto;display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;font-weight:700;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.16)';
+    live.innerHTML = 'Live debates <span aria-hidden="true">→</span>';
+
+    function hover(el, on, off){
+      el.addEventListener('mouseenter', function(){ el.style.background = on; });
+      el.addEventListener('mouseleave', function(){ el.style.background = off; });
+    }
+    hover(home, 'rgba(255,255,255,.14)', 'transparent');
+    hover(live, 'rgba(255,255,255,.28)', 'rgba(255,255,255,.16)');
+
+    bar.appendChild(home);
+    bar.appendChild(live);
     document.body.insertBefore(bar, document.body.firstChild);
   }
 
@@ -192,8 +213,10 @@
     if (!topHomeLinkExists()) injectHomeBar();
 
     if (NO_POPUP || seen() || cameFromUs()) return;
+    // ~5s after a first-time cold landing: long enough that it reads as
+    // "want the full thing?" rather than an immediate interstitial.
     setTimeout(function () {
       if (!document.hidden && !seen.__shown) showPopup();
-    }, 1500);
+    }, 5000);
   });
 })();
