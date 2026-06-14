@@ -346,6 +346,37 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .queue-stats strong{color:var(--text);font-variant-numeric:tabular-nums}
 
+/* Watch a live round — spectator discovery on the searching screen. */
+.watch-panel{
+  max-width:460px;margin:18px auto 0;text-align:left;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:12px 14px;
+}
+.watch-head{
+  display:flex;align-items:center;gap:8px;
+  font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:8px;
+}
+.watch-head-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;flex:none}
+.watch-count{margin-left:auto;font-weight:700;letter-spacing:.04em;color:#22c55e}
+.watch-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 8px;border-radius:10px;text-decoration:none;
+  transition:background .14s;
+}
+.watch-row:hover{background:rgba(34,197,94,.07)}
+.watch-row + .watch-row{border-top:1px solid var(--border)}
+.watch-live{
+  flex:none;display:inline-flex;align-items:center;gap:4px;
+  font-size:.56rem;font-weight:800;letter-spacing:.08em;color:#ef4444;
+}
+.watch-blink{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:watchBlink 1.4s ease-in-out infinite}
+@keyframes watchBlink{0%,100%{opacity:1}50%{opacity:.3}}
+.watch-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.watch-motion{font-size:.82rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.watch-meta{font-size:.68rem;color:var(--text-ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.watch-go{flex:none;font-size:.74rem;font-weight:700;color:var(--accent)}
+
 /* Round setup — style chips + judge-instructions note under the
    search controls. The opponent approves both via the consent card
    before the round starts. */
@@ -1076,6 +1107,7 @@ h1 em{color:var(--accent);font-style:normal}
     lastConsentDoc: null,          // latest consent snapshot — POST-failure card recovery
     noticeUntil: 0,                // hold a queue-stats notice against tryMatch repaints
     anonTried: false,              // one-shot guard on the guest anonymous sign-in
+    watchPollInterval: null,       // "watch a live round" panel refresh
   };
 
   // Timer until AI fallback. After this, we mark the user's
@@ -1315,6 +1347,12 @@ h1 em{color:var(--accent);font-style:normal}
       // line cycled 8 fabricated handles every 3s. Same dead-internet dishonesty
       // ruled out in community.html (May 2026). Status text below is the honest signal.
       '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
+      // Watch-a-round panel: live rounds happening right now that anyone
+      // (incl. guests) can drop into as a spectator. Directly answers
+      // "can't see who's around." Populated by mountWatchPanel() from the
+      // public-read live_rounds collection; hidden until there's at least
+      // one round to watch so it never shows an empty shell.
+      '<div class="watch-panel" id="watchPanel" hidden></div>' +
       // Live diagnostic line. Always visible during the search (unlike
       // queueStats, which gets replaced by the broaden CTA at 45s).
       // Shows: peer count from the last query, my uid tail (so two
@@ -1352,6 +1390,67 @@ h1 em{color:var(--accent);font-style:normal}
     mountGlobalMap('globalDebateMap');
     wireSetupCard();
     mountWaitRail();
+    mountWatchPanel();
+  }
+
+  // ── Watch a live round ───────────────────────────────
+  // Lists rounds happening right now from the public-read live_rounds
+  // collection. Anyone (guests included) can drop in as a spectator;
+  // live-round.html treats a viewer with no seat as read-only. Refreshes
+  // on an interval; torn down with the rest of the search machinery.
+  var WATCH_FORMAT_LABELS = FORMAT_LABELS; // reuse the style-chip labels
+  function watchRoundIsLive(d){
+    if (!d || d.status !== 'round' || d.isPrivate) return false;
+    // Only rounds touched in the last 30 min: drops abandoned docs that
+    // never reached a ballot. createdAt is always present; updatedAt
+    // appears once a speech lands.
+    var t = d.updatedAt || d.createdAt;
+    var sec = (t && t.seconds) ? t.seconds : 0;
+    if (!sec) return false;
+    return (Date.now() / 1000 - sec) < 30 * 60;
+  }
+  function renderWatchRow(id, d){
+    var fmt = escHtml(WATCH_FORMAT_LABELS[d.format] || String(d.format || '').toUpperCase());
+    var motion = escHtml((d.motion || 'Live debate').slice(0, 90));
+    var who = escHtml([d.proName, d.conName].filter(Boolean).join(' vs ') || 'In progress');
+    var url = '/live-round.html?room=' + encodeURIComponent(id) + '&spectate=1';
+    return '<a class="watch-row" href="' + url + '">' +
+      '<span class="watch-live"><span class="watch-blink"></span>LIVE</span>' +
+      '<span class="watch-body"><span class="watch-motion">' + motion + '</span>' +
+      '<span class="watch-meta">' + fmt + ' · ' + who + '</span></span>' +
+      '<span class="watch-go">Watch &rsaquo;</span>' +
+    '</a>';
+  }
+  function paintWatchPanel(rounds){
+    var el = document.getElementById('watchPanel');
+    if (!el) return;
+    if (!rounds.length){ el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    el.innerHTML =
+      '<div class="watch-head"><span class="watch-head-dot"></span>Watch a live round' +
+        '<span class="watch-count">' + rounds.length + ' live</span></div>' +
+      rounds.slice(0, 5).map(function(r){ return renderWatchRow(r.id, r.d); }).join('');
+  }
+  function pollWatchPanel(){
+    if (!firebaseDb || state.cancelled) return;
+    firebaseDb.collection('live_rounds').orderBy('createdAt', 'desc').limit(30).get()
+      .then(function(snap){
+        var mine = state.user ? state.user.uid : null;
+        var rounds = [];
+        snap.forEach(function(doc){
+          var d = doc.data();
+          if (!watchRoundIsLive(d)) return;
+          if (mine && (d.proUid === mine || d.conUid === mine)) return; // don't offer your own round
+          rounds.push({ id: doc.id, d: d });
+        });
+        paintWatchPanel(rounds);
+      })
+      .catch(function(err){ console.warn('[spar] watch poll failed', err && err.message); });
+  }
+  function mountWatchPanel(){
+    pollWatchPanel();
+    if (state.watchPollInterval) clearInterval(state.watchPollInterval);
+    state.watchPollInterval = setInterval(pollWatchPanel, 12000);
   }
 
   // ── Round setup wiring ───────────────────────────────
@@ -2567,6 +2666,7 @@ h1 em{color:var(--accent);font-style:normal}
     state.lastConsentDoc = null;
     document.title = BASE_TITLE;
     if (state.heartbeatInterval){ clearInterval(state.heartbeatInterval); state.heartbeatInterval = null; }
+    if (state.watchPollInterval){ clearInterval(state.watchPollInterval); state.watchPollInterval = null; }
     if (state.countdownInterval){ clearInterval(state.countdownInterval); state.countdownInterval = null; }
     if (state.matchPollInterval){ clearInterval(state.matchPollInterval); state.matchPollInterval = null; }
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} state.queueUnsub = null; }
