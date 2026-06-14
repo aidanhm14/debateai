@@ -42,6 +42,10 @@
   // built, not a generic "keep your rounds" pitch. Founder-voice
   // first-person where it fits.
   var pageConfig = [
+    // /spar and /live own their sign-in prompt (the gate + the "board
+    // becomes yours" guest tooltip). Skip the global nudge there so the
+    // two don't stack into a doubled sign-in nag. 2026-06-14.
+    { match: /^\/(spar|live)(?:\.html)?(?:[/?#]|$)/, skip: true },
     { match: /^\/(landing|index)?(\.html)?($|\?)/,
       delay: 8,
       variant: 'community',
@@ -165,6 +169,7 @@
   function mount(){
     if (bar) return;
     var cfg = getConfig();
+    if (cfg.skip) return; // page owns its own sign-in CTA (e.g. /spar, /live)
     injectStyle();
     bar = document.createElement('div');
     bar.className = 'signup-nudge';

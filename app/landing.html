@@ -4667,7 +4667,7 @@ section.hero .hero-illustrated h1.hi-headline{
   line-height:1.5;
   color:var(--hi-ink-soft);
   margin:0 auto;
-  max-width:560px;
+  max-width:870px;
   font-weight:400;
 }
 /* Quiet live-stat strip under the subhead: real sign-up count + this
@@ -4920,46 +4920,47 @@ section.hero .hero-illustrated h1.hi-headline{
   flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;
   padding:10px 16px 14px;min-height:0;
 }
+/* Seats are live webcam tiles: the feed fills the tile, labels overlay
+   on top so the viewer still reads who's on which side. */
 .hero-illustrated .hi-seat{
-  position:relative;margin:0;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  position:relative;margin:0;overflow:hidden;
   background:var(--hi-seat-bg);
   border:1px solid var(--hi-card-line);
   border-radius:12px;
-  padding:10px;min-height:0;
+  min-height:0;
 }
-/* Depth inside the room: you sit a breath closer, the opponent a
-   breath further back. Shadow + scale, not 3D — the room's
-   overflow:hidden would flatten a real translateZ anyway. */
-.hero-illustrated .hi-seat-you{box-shadow:0 8px 22px var(--hi-card-shadow);transform:scale(1.015)}
-.hero-illustrated .hi-seat-opp{opacity:.94}
-.hero-illustrated .hi-ava{
-  position:relative;flex:none;
-  width:clamp(40px,4.6vw,54px);height:clamp(40px,4.6vw,54px);
-  border-radius:50%;
-  box-shadow:inset 0 0 0 1px var(--hi-card-line);
+/* Depth: you sit a breath closer (scale + red active-speaker ring like
+   a video call), the opponent a breath further back. */
+.hero-illustrated .hi-seat-you{box-shadow:inset 0 0 0 2px var(--hi-red), 0 8px 22px var(--hi-card-shadow);transform:scale(1.015)}
+.hero-illustrated .hi-seat-opp{opacity:.96}
+.hero-illustrated .hi-seat-cam{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:block;
+  /* Slightly soft + dimmed so it reads as a real webcam feed, not a
+     crisp stock photo. The file is downscaled too. */
+  filter:saturate(.95) contrast(1.03) brightness(.97);
 }
-.hero-illustrated .hi-ava svg{display:block;width:100%;height:100%}
-.hero-illustrated .hi-seat-you .hi-ava::after{
-  content:'';position:absolute;inset:-2px;border-radius:50%;
-  border:2px solid var(--hi-red);opacity:0;
-  animation:hiSpeakRing 2.4s ease-out infinite;
+/* PROPOSITION / OPPOSITION chip, top-left, over the feed. */
+.hero-illustrated .hi-seat-tag{
+  position:absolute;top:7px;left:7px;z-index:2;
+  padding:2px 7px;border-radius:6px;
+  font-size:.5rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:#fff;background:rgba(0,0,0,.55);
 }
-@keyframes hiSpeakRing{0%{opacity:.65;transform:scale(.92)}65%,100%{opacity:0;transform:scale(1.18)}}
-.hero-illustrated .hi-seat-name{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center}
-.hero-illustrated .hi-seat-name b{
-  font-size:.72rem;font-weight:700;letter-spacing:-.005em;
-  color:var(--hi-chip-ink);
+.hero-illustrated .hi-seat-tag--pro{background:rgba(200,50,50,.85)}
+/* Bottom nameplate bar, over the feed. */
+.hero-illustrated .hi-seat-bar{
+  position:absolute;left:0;right:0;bottom:0;z-index:2;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:16px 9px 7px;
+  background:linear-gradient(transparent, rgba(0,0,0,.76));
 }
-.hero-illustrated .hi-seat-name span{
-  font-size:.58rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
-  color:var(--hi-ink-soft);opacity:.85;
-}
+.hero-illustrated .hi-seat-who{font-size:.74rem;font-weight:800;color:#fff;letter-spacing:-.01em}
 .hero-illustrated .hi-seat-state{
-  display:inline-flex;align-items:center;gap:6px;
-  font-size:.6rem;font-weight:600;color:var(--hi-ink-soft);
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:.58rem;font-weight:700;color:rgba(255,255,255,.92);
 }
-.hero-illustrated .hi-seat-you .hi-seat-state{color:var(--hi-red)}
+.hero-illustrated .hi-seat-you .hi-seat-state{color:#fff}
 .hero-illustrated .hi-seat-state svg{width:11px;height:11px;flex:none}
 .hero-illustrated .hi-wave{display:inline-flex;align-items:flex-end;gap:2px;height:10px}
 .hero-illustrated .hi-wave i{
@@ -5742,7 +5743,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var doc = document.documentElement.scrollHeight;
       var nearTop = y < h * 0.55;
       var nearBottom = (y + h) > (doc - 240);
-      inRange = !nearTop && !nearBottom;
+      // Width gate: the rail is fixed at left:32px (right edge ~228px).
+      // Below ~1800px the centered content reaches into that band and
+      // the rail overlaps the section text (it was bleeding over the
+      // reviews). Only show it when there's real margin to sit in.
+      var roomForRail = window.innerWidth >= 1800;
+      inRange = !nearTop && !nearBottom && roomForRail;
     }
     function onScroll(){
       updateRange();
@@ -6412,9 +6418,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="hi-subhead">
           <strong class="hi-live-em">Debate real people in live timed rounds.</strong> The AI works underneath: it judges every round, writes the ballot, and steps in as your opponent when nobody is online.
         </p>
-        <!-- 2026-06-12 clarity pass: the interaction, spelled out. A
-             first-time visitor should know what they DO within 5s. -->
-        <p class="hi-steps" aria-label="How it works">Pick a motion<span class="hi-step-sep">→</span>pick a side<span class="hi-step-sep">→</span>debate<span class="hi-step-sep">→</span>read your ballot.</p>
+        <!-- 2026-06-14: the "pick a motion → ... → read your ballot"
+             steps line removed per Aidan (the arrows row). The subhead
+             above + the live-room mock below carry the how-it-works. -->
         <!-- Honest proof strip (2026-06-12). Both numbers hydrate from
              /api/public-join-history via the IIFE next to the (hidden)
              editorial-hero bookmark note; the static "78" fallback
@@ -6543,40 +6549,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <p class="hi-room-speech"><b>Speech 3 of 4</b> · Rebuttal · POIs open until 1:00</p>
             <div class="hi-room-seats">
               <figure class="hi-seat hi-seat-you">
-                <span class="hi-ava">
-                  <svg viewBox="0 0 64 64" focusable="false">
-                    <defs><clipPath id="hiAvaClipA"><circle cx="32" cy="32" r="32"/></clipPath></defs>
-                    <g clip-path="url(#hiAvaClipA)">
-                      <circle cx="32" cy="32" r="32" fill="#ece0c6"/>
-                      <rect x="27" y="33" width="10" height="10" rx="4" fill="#d3a276"/>
-                      <path d="M9 66 C 11 48 21 41 32 41 C 43 41 53 48 55 66 Z" fill="#352e26"/>
-                      <path d="M26 42 L 32 49 L 38 42 L 35.5 40 L 28.5 40 Z" fill="#f6f1e6"/>
-                      <path d="M30.8 48 L 33.2 48 L 34.8 57 L 32 61.5 L 29.2 57 Z" fill="#c83232"/>
-                      <circle cx="32" cy="25" r="12.5" fill="#e3b58a"/>
-                      <path d="M19.5 25.5 C 18.5 13 27 7 33 7.5 C 41.5 8.2 45.8 15.5 44.6 23.5 C 41.5 16.5 36.5 14.3 32 15.3 C 25.5 13.3 21 19 19.5 25.5 Z" fill="#241e18"/>
-                    </g>
-                  </svg>
-                </span>
-                <figcaption class="hi-seat-name"><b>You</b><span>Proposition</span></figcaption>
-                <span class="hi-seat-state"><span class="hi-wave"><i></i><i></i><i></i><i></i><i></i></span>Speaking</span>
+                <img class="hi-seat-cam rot-cam" src="/img/round/seat-you.jpg" alt="" decoding="async" />
+                <span class="hi-seat-tag hi-seat-tag--pro">Proposition</span>
+                <div class="hi-seat-bar">
+                  <b class="hi-seat-who">You</b>
+                  <span class="hi-seat-state"><span class="hi-wave"><i></i><i></i><i></i><i></i><i></i></span>Speaking</span>
+                </div>
               </figure>
               <figure class="hi-seat hi-seat-opp">
-                <span class="hi-ava">
-                  <svg viewBox="0 0 64 64" focusable="false">
-                    <defs><clipPath id="hiAvaClipB"><circle cx="32" cy="32" r="32"/></clipPath></defs>
-                    <g clip-path="url(#hiAvaClipB)">
-                      <circle cx="32" cy="32" r="32" fill="#e6d6b8"/>
-                      <rect x="27" y="33" width="10" height="10" rx="4" fill="#9c6843"/>
-                      <path d="M9 66 C 11 48 21 41 32 41 C 43 41 53 48 55 66 Z" fill="#7a3030"/>
-                      <path d="M27 41.5 C 29 44 35 44 37 41.5 L 37 40 L 27 40 Z" fill="#5e2424"/>
-                      <circle cx="32" cy="25" r="12.5" fill="#c08552"/>
-                      <path d="M44.5 13.5 a4.4 4.4 0 1 1 -6 5.4" fill="#1d1915"/>
-                      <path d="M19.4 26 C 18.6 13.5 26 7 32 7.5 C 40 8 45.2 13.5 44.8 23.8 C 43.5 17.5 39.5 14.8 35.5 15 C 29.5 12.5 21.2 17.5 19.4 26 Z" fill="#1d1915"/>
-                    </g>
-                  </svg>
-                </span>
-                <figcaption class="hi-seat-name"><b>Opponent</b><span>Opposition</span></figcaption>
-                <span class="hi-seat-state"><svg viewBox="0 0 16 16" focusable="false"><rect x="6.2" y="2.4" width="3.6" height="6.4" rx="1.8" fill="currentColor" opacity=".8"/><path d="M4.4 8.2 a3.6 3.6 0 0 0 7.2 0 M8 12 v1.6 M5.8 13.8 h4.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="3.4" y1="2.8" x2="12.6" y2="13.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Up next</span>
+                <img class="hi-seat-cam rot-cam" src="/img/round/seat-opp.jpg" alt="" decoding="async" />
+                <span class="hi-seat-tag">Opposition</span>
+                <div class="hi-seat-bar">
+                  <b class="hi-seat-who">Opponent</b>
+                  <span class="hi-seat-state"><svg viewBox="0 0 16 16" focusable="false"><rect x="6.2" y="2.4" width="3.6" height="6.4" rx="1.8" fill="currentColor" opacity=".8"/><path d="M4.4 8.2 a3.6 3.6 0 0 0 7.2 0 M8 12 v1.6 M5.8 13.8 h4.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="3.4" y1="2.8" x2="12.6" y2="13.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Up next</span>
+                </div>
               </figure>
             </div>
           </div>
@@ -7874,6 +7860,87 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fl-cta-secondary,
   [data-theme="stone"] .fl-cta-secondary{background:rgba(0,0,0,.04);color:#1a1a1f;border-color:rgba(0,0,0,.12)}
 </style>
+<!-- ── Live debates band (2026-06-14) ───────────────────────────────
+     A dedicated "debate real people, live" section right under the hero
+     so live human debate is unmistakable. Face wall = real webcam
+     tiles (AI-generated faces, cut from a grid) that cycle every ~5s
+     via the .rot-cam rotator below, so the room reads as alive. -->
+<section class="livenow" aria-label="Debate real people live">
+  <style>
+    .livenow{padding:clamp(40px,5vh,72px) 20px;display:flex;justify-content:center}
+    .livenow-wrap{width:100%;max-width:1120px;text-align:center}
+    .livenow-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.6));margin-bottom:12px}
+    .livenow-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:lnDot 1.8s ease-in-out infinite}
+    @keyframes lnDot{0%,100%{opacity:1}50%{opacity:.4}}
+    .livenow-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(1.9rem,3.4vw,2.8rem);font-weight:700;letter-spacing:-.02em;line-height:1.05;margin:0 0 12px;color:var(--text,#f4f4f2)}
+    [data-theme="light"] .livenow-title{color:#1a1a1f}
+    .livenow-title em{font-style:italic;color:#ef4444}
+    .livenow-sub{font-size:clamp(1rem,1.3vw,1.1rem);line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));max-width:620px;margin:0 auto 28px}
+    [data-theme="light"] .livenow-sub{color:rgba(0,0,0,.66)}
+    .livenow-wall{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:0 auto 28px;max-width:1000px}
+    @media(max-width:900px){.livenow-wall{grid-template-columns:repeat(3,1fr);max-width:560px}}
+    @media(max-width:520px){.livenow-wall{grid-template-columns:repeat(2,1fr)}}
+    .ln-tile{position:relative;aspect-ratio:4/3;border-radius:11px;overflow:hidden;background:rgba(127,127,127,.12);border:1px solid var(--border,rgba(255,255,255,.1))}
+    .ln-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.95) contrast(1.03) brightness(.97);transition:opacity .5s ease}
+    .ln-tile::after{content:'';position:absolute;top:7px;left:7px;width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 7px #ef4444;z-index:2}
+    .livenow-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-weight:800;font-size:1rem;text-decoration:none;transition:transform .15s,background .15s;box-shadow:0 8px 28px rgba(239,68,68,.28)}
+    .livenow-cta:hover{background:#dc2626;transform:translateY(-1px)}
+  </style>
+  <div class="livenow-wrap">
+    <span class="livenow-eyebrow"><span class="dot"></span>Live debates</span>
+    <h2 class="livenow-title">Debate real people. <em>Live.</em></h2>
+    <p class="livenow-sub">Match with another debater in your format, argue under a real clock, and read the AI judge's ballot when the round ends. Rooms open around the clock.</p>
+    <div class="livenow-wall" id="livenowWall">
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face03.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face09.jpg" alt="" decoding="async" /></span>
+    </div>
+    <a class="livenow-cta" href="/spar">Match with a debater &rarr;</a>
+  </div>
+</section>
+<script>
+/* Circulating webcam faces (2026-06-14): every ~5s each .rot-cam swaps
+   to another face from the pool with a crossfade, so the hero seats and
+   the live-debates wall read as a live, rotating room. Staggered so the
+   tiles don't all flip at once. Pauses off-screen + reduced-motion. */
+(function(){
+  if (typeof window === 'undefined') return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var POOL = [];
+  for (var i=1;i<=45;i++){ POOL.push('/img/round/faces/face'+(i<10?'0':'')+i+'.jpg'); }
+  POOL.push('/img/round/seat-you.jpg','/img/round/seat-opp.jpg');
+  var cams = Array.prototype.slice.call(document.querySelectorAll('.rot-cam'));
+  if (!cams.length) return;
+  var live = true, timers = [];
+  function shown(){ return cams.map(function(c){ return c.getAttribute('src'); }); }
+  function pick(){ var cur = shown(), p, n=0; do { p = POOL[Math.floor(Math.random()*POOL.length)]; n++; } while (cur.indexOf(p) >= 0 && n < 14); return p; }
+  function swap(c){
+    var nx = pick(); var pre = new Image();
+    pre.onload = function(){ c.style.opacity = '0'; setTimeout(function(){ c.src = nx; c.style.opacity = ''; }, 280); };
+    pre.src = nx;
+  }
+  cams.forEach(function(c){ c.style.transition = 'opacity .5s ease'; });
+  function start(){
+    if (timers.length) return;
+    cams.forEach(function(c, idx){
+      var t = setTimeout(function(){
+        if (live && !document.hidden) swap(c);
+        timers.push(setInterval(function(){ if (live && !document.hidden) swap(c); }, 5000));
+      }, idx * 700 + 4000);
+      timers.push(t);
+    });
+  }
+  if ('IntersectionObserver' in window){
+    new IntersectionObserver(function(es){
+      live = es.some(function(e){ return e.isIntersecting; });
+    }, { rootMargin: '160px 0px' }).observe(document.querySelector('.hero') || cams[0]);
+  }
+  start();
+})();
+</script>
+
 <!-- Reviews · first scroll-stop after the hero. 2026-06-10: the
      one-at-a-time swipe carousel (arrows + dots + snap JS) is gone —
      it hid two of the three quotes and set every word at the same
@@ -8304,7 +8371,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      muted to match the page; brand red only on the eyebrow dot, the
      marker highlights, and the lead card's border tint. No JS. */
   .review{padding:64px 24px;display:flex;justify-content:center}
-  .review-wrap{width:100%;max-width:1500px;display:flex;flex-direction:column;gap:22px}
+  .review-wrap{width:100%;max-width:1120px;display:flex;flex-direction:column;gap:20px}
   .review-head{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
   .review-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55))}
   .review-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.15)}
@@ -8346,12 +8413,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       padding:0;
       /* Wider 2x2 so each quote spans more horizontally, wraps to fewer
          lines, and the whole block is shorter on the Y axis. */
-      max-width:1500px;
+      max-width:1120px;
       margin:0 auto;
     }
     .review-grid > .review-card{flex:none;height:auto}
     .review-card--lead .review-quote{
-      font-family:'Fraunces',Georgia,serif;font-size:1.18rem;line-height:1.5;
+      font-family:'Fraunces',Georgia,serif;font-size:1rem;line-height:1.5;
     }
   }
   .review-grid .review-quote{
@@ -8364,7 +8431,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .review-card{background:#fff;border-color:rgba(0,0,0,.10);box-shadow:0 18px 50px -28px rgba(0,0,0,.18)}
   [data-theme="light"] .review-card--lead{border-color:rgba(239,68,68,.32)}
 
-  .review-quote{margin:0 0 14px;font-size:.95rem;line-height:1.58;font-weight:500;color:var(--text,#f4f4f2);letter-spacing:-.005em}
+  .review-quote{margin:0 0 14px;font-size:.84rem;line-height:1.55;font-weight:500;color:var(--text,#f4f4f2);letter-spacing:-.005em}
   /* margin:auto 0 centers the lead quote in the column height so the
      card reads composed beside the taller right-hand stack. */
   .review-card--lead .review-quote{font-size:.86rem}
@@ -9432,7 +9499,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </p>
 
         <h3 id="goals">Goals</h3>
-        <p>Where the platform is headed in the next year. These are ambitions, not announcements; the day-to-day product still does the three jobs at the bottom of this section.</p>
+        <p>Where the platform is headed in the next year. These are ambitions, not announcements; the day-to-day product still does the three jobs at the bottom of this section. The full long-term roadmap lives here: <a href="/future">Philosophy &amp; future outlook &rarr;</a></p>
         <ul class="articleList">
           <li><strong>Host a flagship online tournament.</strong> Open entry from any school in any country. AI judges the prelim rounds; top human judges call the elimination rounds. The aim is a real bid-equivalent event where the only thing between a kid in a Tier-3 city and a competitive global circuit is a working phone.</li>
           <li><strong>An ambassador on every major circuit.</strong> Student leads in India, the UK, the US, Singapore, the Philippines, Kenya, Australia, and the Indian school federations. Their job is to bring the AI into clubs without a varsity team, and to keep the format-specific voice honest with feedback from real rounds.</li>

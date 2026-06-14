@@ -132,8 +132,10 @@
     // to Community below, so a separate Rounds entry would just point
     // to the same surface twice.
     // 2026-06-12: label "Live" → "Schedule" per Aidan (the /live hub's
-    // job on the bar is scheduling rounds; the live-pulse dot stays).
-    { href: '/live',          label: 'Schedule', live: true },
+    // job on the bar is scheduling rounds). 2026-06-14: dropped the
+    // red live-dot here. it doubled the Spar dot and read as confusing;
+    // the live signal belongs to Spar only.
+    { href: '/live',          label: 'Schedule' },
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
     { href: '/community',     label: 'Community'    },
@@ -318,6 +320,7 @@
         a.style.display = 'inline-flex';
         a.style.alignItems = 'center';
         a.style.gap = '6px';
+        a.style.fontWeight = '800'; // Spar reads bold: it's the live-human headline action
         if (!document.getElementById('daSparPulseStyle')){
           var ps = document.createElement('style');
           ps.id = 'daSparPulseStyle';
