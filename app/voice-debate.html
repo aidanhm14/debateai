@@ -1970,16 +1970,25 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
 
 /* Mute button — sits in the live-controls row */
 .mute-btn{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:6px 12px;border-radius:8px;
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
-  color:#e6e6ee;font-size:.7rem;font-weight:600;letter-spacing:.02em;
+  display:inline-flex;align-items:center;gap:9px;
+  padding:12px 22px;border-radius:11px;
+  background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.16);
+  color:#f0f0f6;font-size:.92rem;font-weight:700;letter-spacing:.01em;
   transition:all .12s;
 }
-.mute-btn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2)}
+.mute-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28)}
+/* Muted (manual) — loud crimson + a soft pulsing ring so it's
+   unmistakable that the mic is off and the user must unmute to be
+   heard (they start muted for the round intro). */
 .mute-btn.on{
-  background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);
-  color:#fecaca;
+  background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.7);
+  color:#fee2e2;
+  box-shadow:0 0 0 3px rgba(239,68,68,.14), 0 4px 14px rgba(239,68,68,.18);
+  animation:muteNudge 2.4s ease-in-out infinite;
+}
+@keyframes muteNudge{
+  0%,100%{box-shadow:0 0 0 3px rgba(239,68,68,.12), 0 4px 14px rgba(239,68,68,.16);}
+  50%{box-shadow:0 0 0 5px rgba(239,68,68,.22), 0 4px 18px rgba(239,68,68,.28);}
 }
 /* Auto-muted (AI is speaking) — softer than the manual-mute crimson
    so the user reads it as "passively listening" not "I muted myself". */
@@ -2366,11 +2375,11 @@ html[data-theme="light"] .voice-gate .vg-fallback{color:#5a5a64}
    light mode needs explicit dark text on near-white pills so each
    control reads instead of fading into the cream background. */
 html[data-theme="light"] .mute-btn{
-  background:#fff;border:1px solid rgba(0,0,0,.10);color:#1a1a1f;
+  background:#fff;border:1.5px solid rgba(0,0,0,.12);color:#1a1a1f;
 }
 html[data-theme="light"] .mute-btn:hover{background:#f3f3ef;border-color:rgba(0,0,0,.22)}
 html[data-theme="light"] .mute-btn.on{
-  background:rgba(220,38,38,.10);border-color:rgba(220,38,38,.40);color:#b91c1c;
+  background:rgba(220,38,38,.14);border-color:rgba(220,38,38,.65);color:#b91c1c;
 }
 html[data-theme="light"] .mute-btn.listening{
   background:rgba(124,58,237,.10);border-color:rgba(124,58,237,.40);color:#6d28d9;
@@ -3303,10 +3312,21 @@ function App() {
   // debaters open conversational and ramp inside substantive blocks.
   // The slider lets the user push to 3.0× when they want auctioneer
   // mode for spread-format drills.
-  var [playbackRate, setPlaybackRate] = useState(1.0);
+  // Default bumped 1.0 → 1.25 (+0.25): the natural-pace opening read as
+  // sluggish out of the box. Slider still pulls it back or up to 3.0×.
+  var [playbackRate, setPlaybackRate] = useState(1.25);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
-  var [muted, setMuted] = useState(false);
+  // Default ON: the user starts muted so the AI can deliver its round
+  // intro uninterrupted. The user unmutes when they're ready to debate
+  // (that first unmute also ends the intro phase — see introActiveRef).
+  var [muted, setMuted] = useState(true);
+  // Intro phase: true from session start until the user first unmutes.
+  // While true, a muted mic means "listening to the round intro," NOT
+  // "monologue mode" — so we suppress both the [Mode change] monologue
+  // note and the response.done auto-continue. The AI gives its intro
+  // once and waits for the user to begin.
+  var introActiveRef = useRef(true);
   // Which model + endpoint the server actually negotiated. Surfaced
   // in the live UI so the user can see whether they're talking to
   // gpt-realtime, gpt-realtime-2, or the legacy preview model.
@@ -4039,6 +4059,8 @@ function App() {
     // Drop auto-mute state on teardown so a session that ends while
     // the AI is mid-speech doesn't strand the flag for the next round.
     autoMutedRef.current = false;
+    // Re-arm the intro phase for the next session.
+    introActiveRef.current = true;
     aiRespondingRef.current = false;
     endingFromIdxRef.current = -1;
     // Stop the recorder before tearing down audio sources so the
@@ -4233,6 +4255,13 @@ function App() {
     applyTrackEnabledFromState();
     var dc = dcRef.current;
     if (!dc || dc.readyState !== 'open') return;
+    // First unmute ends the intro phase. Before this, muting just meant
+    // "listening to the intro"; after, muting means the user has opted
+    // out of clash (monologue mode).
+    if (!muted && introActiveRef.current) introActiveRef.current = false;
+    // During the intro phase a muted mic is "listening," not a request
+    // for monologue mode — don't push the [Mode change] note.
+    if (muted && introActiveRef.current) return;
     try {
       var note = muted ?
       '[Mode change] The user just MUTED their mic to listen. Switch to continuous-monologue mode: keep building your argument across multiple beats without pausing for clash. Aim for 60-90 second runs per beat, then immediately roll into the next contention or extension. Do NOT ask "are you still there?" or check in. Do NOT acknowledge this note. Just keep speaking until you are unmuted.' :
@@ -4403,11 +4432,11 @@ function App() {
           // ('done'): endCurrentSpeech already fired a response.create to
           // ask for the RFD, and a second one here would make the AI
           // launch a fresh beat right after asking to wrap up.
-          if (mutedRef.current && phaseRef.current !== 'done') {
+          if (mutedRef.current && !introActiveRef.current && phaseRef.current !== 'done') {
             setTimeout(() => {
               var dc = dcRef.current;
               if (!dc || dc.readyState !== 'open') return;
-              if (!mutedRef.current || phaseRef.current === 'done') return;
+              if (!mutedRef.current || introActiveRef.current || phaseRef.current === 'done') return;
               try {
                 dc.send(JSON.stringify({
                   type: 'response.create',
@@ -5076,7 +5105,14 @@ function App() {
           // shorthand.
           var m = expandMotionAcronyms(motion.trim());
           var greetingInstructions = m ?
-          `Open in character. Under 12 seconds total. The motion is verbatim: "${m}". You are on ${aiSideLabel}; the user is on ${userSideLabel}. Three beats, in order: (1) say the motion exactly as written — NEVER spell out "THBT" / "THW" / "THR" / "THS" / "THO" / "THP", those abbreviations have already been expanded for you, read what is written; (2) name your side in one short clause (e.g. "I'm on ${aiSideLabel}"); (3) ask ONE short readiness question and then STOP — pick from: "Want a minute to prep${nameSuffix}, or ready to start?" / "Need prep time, or shall we begin?" / "Ready when you are${nameSuffix}. Want a beat to prep first?". Do NOT launch your contention yet. Do NOT invent a different motion. Do NOT paraphrase the motion. Do NOT say "Absolutely", "Let's get into it", "Sure", or any enthusiastic interjection. Dry and direct.` :
+          `Introduce the round in character before any debating starts. Calm, warm, unhurried. Under 30 seconds total. Do NOT be pushy, salesy, or over-eager — you are setting up a round, not hyping it. Walk these beats in order, plainly, then STOP:
+(1) Read the motion exactly as written: "${m}". NEVER spell out "THBT" / "THW" / "THR" / "THS" / "THO" / "THP" — those abbreviations are already expanded for you, just read what is written. Do not invent or paraphrase the motion.
+(2) Say who is on what side in one short clause: you are on ${aiSideLabel}, the user is on ${userSideLabel}.
+(3) Offer, do not insist, to give a little background or framing on the motion if it helps: e.g. "I can give you a quick bit of context on this one if you'd like, or we can just go." One short offer.
+(4) On prep: let them take their time${nameSuffix}. e.g. "Take a minute or two to prep, no rush — a minute or so is standard but go as long as you need." Be agreeable about it, not prescriptive.
+(5) One line on how the round runs: speeches with clash in between, and they can take points / you'll take points too. Keep it to a single sentence.
+(6) Close by handing control to them: tell them they're muted right now so they can listen, and to UNMUTE when they're ready to begin. e.g. "You're muted while I set this up — unmute whenever you're ready and we'll start."
+Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let's get into it", "Let's dive in", "Sure thing", or any enthusiastic interjection. Even, dry, and direct.` :
           `Open with exactly this line, in your character's voice and dry register: "what's up${nameSuffix}, what are we debating?" Then stop. Do not suggest motions. Do not list options. Do not say "Absolutely" or any enthusiastic filler. One short line, then silence.`;
           // GA Realtime response.create dropped `modalities` (it's
           // inherited from session.output_modalities now). Just send
