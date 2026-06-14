@@ -424,11 +424,13 @@
         style: { padding: '8px 18px' },
       }, 'Voice AI');
     }
-    right.appendChild(cta);
-
+    // Sign-in / account slot, just left of the primary CTA. Always
+    // rendered: shows a "Sign in" button when signed out (not only the
+    // signed-in pill), so every page surfaces a path to the free
+    // account. hydrateUser() below paints + wires it.
     var userSlot = el('span', { id: 'barUser' });
-    userSlot.style.display = 'none';
     right.appendChild(userSlot);
+    right.appendChild(cta);
 
     nav.appendChild(left);
     nav.appendChild(right);
@@ -463,6 +465,25 @@
       role: 'menuitem',
     }, onVoiceDebate ? 'Debate it →' : 'Voice AI →');
     sheet.appendChild(sheetCta);
+
+    // Auth row in the mobile sheet. On desktop the Sign in pill lives in
+    // the topbar; on mobile the right-side slot is hidden, so the sheet
+    // carries it. Label flips to "Sign out" once signed in (hydrateUser
+    // updates it); the handler branches on live auth at click time so it
+    // always does the right thing.
+    var sheetSignIn = el('button', {
+      type: 'button',
+      id: 'sheetSignIn',
+      class: 'ui-topbar-sheet-link',
+      role: 'menuitem',
+    }, 'Sign in · free');
+    sheetSignIn.style.cssText = 'background:none;border:none;width:100%;text-align:left;font:inherit;cursor:pointer;color:inherit';
+    sheetSignIn.addEventListener('click', function(){
+      closeSheet();
+      if (fbCurrentUser()){ try { window.firebase.auth().signOut(); } catch(e){} }
+      else { startGoogleSignIn(); }
+    });
+    sheet.appendChild(sheetSignIn);
 
     var sheetBackdrop = el('div', {
       class: 'ui-topbar-sheet-backdrop',
@@ -659,96 +680,179 @@
     }
   }
 
-  // Sign-in slot. Only hydrates if the page already loaded firebase
-  // (so we don't bloat pages that don't need it). Shows initial +
-  // signs out on click.
-  //
-  // Extension hook: if the page sets `window.daTopbarUserSlot = function(slot, user){...}`
-  // BEFORE this script loads, we hand off rendering after auth state
-  // is known. /debate-it uses this to add an "Account" button that
-  // opens its in-app modal — without that hook we'd lose access to
-  // BYOK / API key / plan settings on /debate-it.
+  // ── Firebase bootstrap (self-contained so the Sign in button works
+  //    on every page, including content/SEO pages that don't preload
+  //    firebase). Mirrors notifications.js — shared script ids mean
+  //    nothing double-loads. ─────────────────────────────────────────
+  var FB_APP_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js';
+  var FB_AUTH_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js';
+  var FB_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  function fbLoadOnce(id, src, cb){
+    var ex = document.getElementById(id);
+    if (ex){ if (ex.dataset.loaded) cb(); else ex.addEventListener('load', cb, { once: true }); return; }
+    var sc = document.createElement('script'); sc.id = id; sc.src = src;
+    sc.addEventListener('load', function(){ sc.dataset.loaded = '1'; cb(); }, { once: true });
+    sc.addEventListener('error', function(){});
+    document.head.appendChild(sc);
+  }
+  function fbEnsureApp(){
+    try { if (window.firebase && firebase.auth && (!firebase.apps || !firebase.apps.length)) firebase.initializeApp(FB_CONFIG); } catch(e){}
+  }
+  function fbAuthReady(){ return !!(window.firebase && window.firebase.auth && window.firebase.apps && window.firebase.apps.length); }
+  function fbCurrentUser(){ try { return window.firebase && firebase.auth && firebase.auth().currentUser; } catch(e){ return null; } }
+  function fbBootstrap(cb){
+    if (fbAuthReady()){ cb(); return; }
+    fbLoadOnce('da-fb-app', FB_APP_SDK, function(){
+      fbLoadOnce('da-fb-auth', FB_AUTH_SDK, function(){ fbEnsureApp(); cb(); });
+    });
+  }
+  function startGoogleSignIn(){
+    fbBootstrap(function(){
+      try {
+        var provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider).catch(function(){});
+      } catch(e){}
+    });
+  }
+
+  // Signed-OUT state: a ghost "Sign in" button. Click bootstraps
+  // firebase if the page didn't preload it, then runs the Google popup.
+  function renderSignedOut(slot){
+    slot.style.display = 'inline-flex';
+    slot.style.alignItems = 'center';
+    slot.innerHTML = '';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'barSignIn';
+    btn.className = 'ui-btn ui-btn-ghost ui-btn-sm';
+    btn.title = 'Sign in with Google. Free.';
+    btn.textContent = 'Sign in';
+    btn.addEventListener('click', function(){
+      btn.disabled = true;
+      btn.textContent = 'Opening…';
+      startGoogleSignIn();
+      // If they close the Google popup without finishing, restore it.
+      setTimeout(function(){
+        if (document.getElementById('barSignIn') === btn && !fbCurrentUser()){ btn.disabled = false; btn.textContent = 'Sign in'; }
+      }, 4000);
+    });
+    slot.appendChild(btn);
+  }
+
+  // Neutral placeholder for a returning (cached) signed-in user while
+  // firebase finishes loading, so we never flash "Sign in" at someone
+  // who is actually logged in.
+  function renderAccountPlaceholder(slot){
+    slot.style.display = 'inline-flex';
+    slot.style.alignItems = 'center';
+    slot.innerHTML = '';
+    var a = document.createElement('a');
+    a.href = '/profile';
+    a.title = 'Open your dashboard';
+    a.style.cssText = 'color:var(--text-dim);text-decoration:none;font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--border)';
+    a.textContent = 'Account';
+    slot.appendChild(a);
+  }
+
+  // Signed-IN state: name pill (-> /profile) + Sign out. Extension hook:
+  // if the page sets window.daTopbarUserSlot(slot, user) BEFORE this
+  // script loads, we hand off rendering (e.g. /debate-it adds an Account
+  // button that opens its in-app BYOK / plan modal).
+  function renderSignedIn(slot, u){
+    if (typeof window.daTopbarUserSlot === 'function'){
+      slot.style.display = 'inline-flex';
+      slot.style.alignItems = 'center';
+      slot.style.gap = '8px';
+      slot.innerHTML = '';
+      try { window.daTopbarUserSlot(slot, u); return; } catch(e){ /* fall through */ }
+    }
+    slot.style.display = 'inline-flex';
+    slot.style.alignItems = 'center';
+    slot.style.gap = '10px';
+    slot.style.fontSize = '.72rem';
+    slot.style.color = 'var(--text-dim)';
+    var first = ((u.displayName || u.email || '').split(/\s+/)[0]) || 'Account';
+    slot.innerHTML = '';
+    var onProfile = /^\/profile/.test(here);
+    var nameLink;
+    if (onProfile){
+      nameLink = document.createElement('span');
+      nameLink.style.cssText = 'color:var(--text);font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--accent);background:var(--bg-elev)';
+    } else {
+      nameLink = document.createElement('a');
+      nameLink.href = '/profile';
+      nameLink.title = 'Open your dashboard';
+      nameLink.style.cssText = 'color:var(--text);text-decoration:none;font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg-card,transparent);transition:background .15s,border-color .15s';
+      nameLink.addEventListener('mouseenter', function(){ nameLink.style.background = 'var(--bg-elev)'; nameLink.style.borderColor = 'var(--accent)'; });
+      nameLink.addEventListener('mouseleave', function(){ nameLink.style.background = 'var(--bg-card,transparent)'; nameLink.style.borderColor = 'var(--border)'; });
+    }
+    if (u.photoURL){
+      var img = document.createElement('img');
+      img.src = u.photoURL; img.alt = ''; img.referrerPolicy = 'no-referrer';
+      img.style.cssText = 'width:18px;height:18px;border-radius:50%;object-fit:cover';
+      nameLink.appendChild(img);
+    }
+    var nameText = document.createElement('span');
+    nameText.textContent = first;
+    nameLink.appendChild(nameText);
+    var out = document.createElement('button');
+    out.type = 'button';
+    out.textContent = 'Sign out';
+    out.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.68rem;padding:0';
+    out.addEventListener('click', function(){ try { window.firebase.auth().signOut(); } catch(e){} });
+    slot.appendChild(nameLink);
+    slot.appendChild(out);
+  }
+
+  // Orchestration. Paint immediately (Sign in button, or an Account
+  // placeholder for cached-signed-in users), then attach the real auth
+  // listener once firebase is ready. notifications.js bootstraps
+  // firebase site-wide, so "ready" usually arrives within ~1.5s;
+  // cached-signed-in pages force the bootstrap so name + Sign out
+  // resolve even where it doesn't.
   function hydrateUser(slot){
-    if (typeof window.firebase === 'undefined' || !window.firebase.auth) return;
-    // Track the first auth event so we can distinguish "page loaded
-    // with an already-signed-in user" (no sound) from "user just
-    // completed the OAuth flow" (chime). Without this guard, every
-    // page navigation while signed in would re-fire the chime.
-    var seenAuth = false;
+    var cachedSignedIn = false;
     try {
-      window.firebase.auth().onAuthStateChanged(function(u){
-        var wasFirst = !seenAuth;
-        seenAuth = true;
-        // Fire SFX.success only on a genuine sign-in: the very FIRST
-        // auth event in this page session was a null user (or no event
-        // came before) and now we have a user. The pre-existing case
-        // (first event already has u set) means they were already
-        // signed in from a prior page — no chime.
-        if (u && !wasFirst) {
-          try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
-        }
-        if (!u){ slot.style.display = 'none'; slot.innerHTML = ''; return; }
-        if (typeof window.daTopbarUserSlot === 'function'){
-          slot.style.display = 'inline-flex';
-          slot.style.alignItems = 'center';
-          slot.style.gap = '8px';
-          try { window.daTopbarUserSlot(slot, u); return; } catch(e){ /* fall through */ }
-        }
-        slot.style.display = 'inline-flex';
-        slot.style.alignItems = 'center';
-        slot.style.gap = '10px';
-        slot.style.fontSize = '.72rem';
-        slot.style.color = 'var(--text-dim)';
-        var first = ((u.displayName || u.email || '').split(/\s+/)[0]) || 'Account';
-        slot.innerHTML = '';
-        // Name doubles as the entry point to /profile so every signed-in
-        // page surfaces a path to the dashboard. Pill chrome (rounded
-        // border, optional photo, hover highlight) signals it's
-        // clickable. On the /profile page itself we render a non-link
-        // span so we don't show a "you are here → here" dead link;
-        // the pill border switches to the accent to indicate "you're
-        // already on this page."
-        var onProfile = /^\/profile/.test(here);
-        var nameLink;
-        if (onProfile){
-          nameLink = document.createElement('span');
-          nameLink.style.cssText = 'color:var(--text);font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--accent);background:var(--bg-elev)';
-        } else {
-          nameLink = document.createElement('a');
-          nameLink.href = '/profile';
-          nameLink.title = 'Open your dashboard';
-          nameLink.style.cssText = 'color:var(--text);text-decoration:none;font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg-card,transparent);transition:background .15s,border-color .15s';
-          nameLink.addEventListener('mouseenter', function(){
-            nameLink.style.background = 'var(--bg-elev)';
-            nameLink.style.borderColor = 'var(--accent)';
-          });
-          nameLink.addEventListener('mouseleave', function(){
-            nameLink.style.background = 'var(--bg-card,transparent)';
-            nameLink.style.borderColor = 'var(--border)';
-          });
-        }
-        if (u.photoURL){
-          var img = document.createElement('img');
-          img.src = u.photoURL;
-          img.alt = '';
-          img.referrerPolicy = 'no-referrer';
-          img.style.cssText = 'width:18px;height:18px;border-radius:50%;object-fit:cover';
-          nameLink.appendChild(img);
-        }
-        var nameText = document.createElement('span');
-        nameText.textContent = first;
-        nameLink.appendChild(nameText);
-        var out = document.createElement('button');
-        out.type = 'button';
-        out.textContent = 'Sign out';
-        out.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.68rem;padding:0';
-        out.addEventListener('click', function(){
-          try { window.firebase.auth().signOut(); } catch(e){}
-        });
-        slot.appendChild(nameLink);
-        slot.appendChild(out);
-      });
+      for (var i = 0; i < localStorage.length; i++){
+        if (/^firebase:authUser:/.test(localStorage.key(i))){ cachedSignedIn = true; break; }
+      }
     } catch(e){}
+
+    if (cachedSignedIn) renderAccountPlaceholder(slot); else renderSignedOut(slot);
+
+    var seenAuth = false;
+    function attach(){
+      try {
+        window.firebase.auth().onAuthStateChanged(function(u){
+          var wasFirst = !seenAuth; seenAuth = true;
+          if (u && !wasFirst){ try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){ } }
+          var ss = document.getElementById('sheetSignIn');
+          if (ss) ss.textContent = u ? 'Sign out' : 'Sign in · free';
+          if (!u){ renderSignedOut(slot); return; }
+          renderSignedIn(slot, u);
+        });
+      } catch(e){}
+    }
+
+    if (cachedSignedIn){
+      fbBootstrap(attach);
+    } else if (fbAuthReady()){
+      attach();
+    } else {
+      var n = 0;
+      var iv = setInterval(function(){
+        n++;
+        if (fbAuthReady()){ clearInterval(iv); attach(); }
+        else if (n > 70){ clearInterval(iv); } // ~7s; Sign in click bootstraps on demand
+      }, 100);
+    }
   }
 
   if (document.readyState === 'loading'){
