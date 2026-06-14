@@ -907,15 +907,23 @@ body{
     var shareBtn = document.getElementById('shareBallot');
     if (shareBtn) shareBtn.addEventListener('click', function(){
       try {
-        // Encode the payload as a URL-safe base64 string so /voice-rfd?p=...
-        // round-trips on a fresh tab. ~3-6 KB typical.
-        var json = JSON.stringify(payload);
-        var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_');
-        var url = window.location.origin + '/voice-rfd?p=' + b64;
+        var url;
+        if (payload.id) {
+          // Saved round → short, stable link. The doc is public-read by
+          // id, so this resolves for anyone and always reflects the
+          // canonical saved ballot + transcript.
+          url = window.location.origin + '/voice-rfd?id=' + encodeURIComponent(payload.id);
+        } else {
+          // Anon / unsaved round → self-contained URL-safe base64 payload
+          // so the ballot still round-trips on a fresh tab. ~3-6 KB.
+          var json = JSON.stringify(payload);
+          var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_');
+          url = window.location.origin + '/voice-rfd?p=' + b64;
+        }
         navigator.clipboard.writeText(url);
         shareBtn.textContent = '✓ Link copied';
         setTimeout(function(){ shareBtn.textContent = 'Share link'; }, 1800);
-        try { gtag('event', 'voice_rfd_share'); } catch(e){}
+        try { gtag('event', 'voice_rfd_share', { kind: payload.id ? 'id' : 'payload' }); } catch(e){}
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
     });
 
