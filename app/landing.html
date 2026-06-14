@@ -4603,16 +4603,28 @@ section.ui-section .ui-lede{
    illustrated arm it ate the room the CTAs needed. The illustrated arm
    only needs ~72px to clear the topbar (60px topbar + 12px breathing). */
 :root[data-hero-ab="illustrated"] section.hero{
+  /* 2026-06-14: no opaque base layer here, and the warm tint fades on a
+     single continuous ramp (no hard 36%/78% plateau). The body paints one
+     continuous --hero-grad across the whole page; letting it show through
+     the hero (instead of repainting it on this box) kills the horizontal
+     seam where the hero's own gradient used to meet the section below —
+     a diagonal (135deg) gradient on a differently-positioned box never
+     lines up phase-wise. Only the soft, transparent-tailed radials sit on
+     top now, so there is nothing to terminate at an edge. */
   background:
-    radial-gradient(ellipse 1100px 720px at 50% 38%, var(--hero-grad, #fafaf7) 0%, transparent 60%),
-    radial-gradient(ellipse 1100px 720px at 50% 38%, #f6f1e6 0%, #f6f1e6 36%, transparent 78%),
-    var(--hero-grad);
+    radial-gradient(ellipse 1100px 720px at 50% 36%, var(--hero-grad, #fafaf7) 0%, transparent 60%),
+    radial-gradient(ellipse 1240px 880px at 50% 33%, #f6f1e6 0%, transparent 72%);
   padding-top:clamp(64px, 7vh, 88px) !important;
   padding-bottom:clamp(28px, 4vh, 56px) !important;
   min-height:auto !important;
 }
 :root[data-hero-ab="illustrated"] .hero-bg::before,
 :root[data-hero-ab="illustrated"] .hero-bg::after{display:none !important}
+/* 2026-06-14: drop the .hero-bg gradient on the illustrated arm. It's a
+   masked duplicate of the body's --hero-grad, positioned differently, so
+   its fade-out edge read as a faint horizontal seam against the body
+   gradient. The body already paints the gradient continuously underneath. */
+:root[data-hero-ab="illustrated"] .hero-bg{background:none !important}
 :root[data-hero-ab="illustrated"] .hero-grain{opacity:.04 !important}
 
 /* 2026-06-14: scale the hero content down ~15% on larger viewports so the
@@ -7860,6 +7872,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fl-mod-body{display:grid;grid-template-columns:1fr;gap:14px;align-items:start}
   .fl-mod-body--media{grid-template-columns:1fr 280px}
   @media (max-width:720px){.fl-mod-body--media{grid-template-columns:1fr}}
+  /* Paired media module (01 + 02). The still spans the right column while
+     both beats stack on the left, so "02" sits directly under "01" instead
+     of clearing below the full image height. */
+  .fl-module--media{display:grid;grid-template-columns:1fr 280px;gap:14px 28px;align-items:start}
+  .fl-media-text{display:flex;flex-direction:column;gap:16px}
+  .fl-beat{display:flex;flex-direction:column;gap:6px}
+  @media (max-width:720px){.fl-module--media{grid-template-columns:1fr}}
   .her-screen{margin:0}
   .her-screen-frame{
     aspect-ratio:16/9;
@@ -8137,10 +8156,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <div class="fl-byline-meta">National APDA Pro-Ams champion · UChicago sophomore</div>
         </header>
 
-        <div class="fl-module">
-          <h4 class="fl-mod-h"><span class="fl-mod-num">01</span> Why I built this</h4>
-          <div class="fl-mod-body fl-mod-body--media">
-            <p>The thing I wanted as a debater didn't exist: the Samantha from <em>Her</em>. Not to fall in love with. To challenge me. Something that argues format-accurately, holds the clock, and writes a real judge ballot when the round ends.</p>
+        <!-- Modules 01 + 02 share a 2-col grid so the (tall) Her still
+             spans both beats on the right while 01 and 02 stack tight on
+             the left. Previously the still lived inside module 01 only,
+             so module 02 cleared below the full image height and left a
+             big dead gap above "02". -->
+        <div class="fl-module fl-module--media">
+          <div class="fl-media-text">
+            <div class="fl-beat">
+              <h4 class="fl-mod-h"><span class="fl-mod-num">01</span> Why I built this</h4>
+              <p>The thing I wanted as a debater didn't exist: the Samantha from <em>Her</em>. Not to fall in love with. To challenge me. Something that argues format-accurately, holds the clock, and writes a real judge ballot when the round ends.</p>
+            </div>
+            <div class="fl-beat">
+              <h4 class="fl-mod-h"><span class="fl-mod-num">02</span> What general AI gets wrong</h4>
+              <p>General AI hedges, agrees, and reaches for Wikipedia. It doesn't know Policy spreads tagged cards, APDA bans them, or what a whip speech is for. It performs reasonableness instead of running the format.</p>
+            </div>
+          </div>
             <!-- 2026-05-24 (rev 2, user override): swapped the
                  stylized SVG glyph for the actual film still per user
                  request. Earlier rev kept it abstract for copyright
@@ -8164,12 +8195,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 <a href="/future">Where this is going →</a>
               </span>
             </figure>
-          </div>
-        </div>
-
-        <div class="fl-module">
-          <h4 class="fl-mod-h"><span class="fl-mod-num">02</span> What general AI gets wrong</h4>
-          <p>General AI hedges, agrees, and reaches for Wikipedia. It doesn't know Policy spreads tagged cards, APDA bans them, or what a whip speech is for. It performs reasonableness instead of running the format.</p>
         </div>
 
         <div class="fl-module">
