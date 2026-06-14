@@ -38,6 +38,16 @@ import { getCached, setCached } from './lib/admin-cache.mjs';
 const CACHE_KEY = 'public-join-history';
 const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
 
+// Last-known-good member counts from a SUCCESSFUL Firebase Auth read,
+// stashed at module scope so a transient Auth failure (token/network)
+// never makes the public counter visibly DIP. Without this, a failed
+// listAllAuthUsers() falls through to the user_profiles scan, which
+// only sees users who saved a profile (a large undercount) — so the
+// "N debaters signed in with Google" line would drop from 79 to ~30
+// for an hour. The authoritative count only ever grows or holds; the
+// fallback below reuses this snapshot before it ever touches profiles.
+let lastGoodAuth = null;  // { membersByDay, totalMembers, totalGoogleMembers, firstMemberDay }
+
 const MAX_DAYS = 400;
 const MAX_PROFILES = 20_000;
 
@@ -201,6 +211,22 @@ export default async (request) => {
         if (providers.includes('google.com')) totalGoogleMembers += 1;
         if (!firstMemberDay || k < firstMemberDay) firstMemberDay = k;
       }
+      // Stash this good read so a later Auth failure can reuse it
+      // instead of dipping to the undercounting profiles scan.
+      lastGoodAuth = {
+        membersByDay: { ...membersByDay },
+        totalMembers,
+        totalGoogleMembers,
+        firstMemberDay,
+      };
+    } else if (lastGoodAuth) {
+      // Auth read failed but we have a prior good snapshot — reuse it.
+      // The count holds at its last true value rather than dropping.
+      Object.assign(membersByDay, lastGoodAuth.membersByDay);
+      totalMembers = lastGoodAuth.totalMembers;
+      totalGoogleMembers = lastGoodAuth.totalGoogleMembers;
+      firstMemberDay = lastGoodAuth.firstMemberDay;
+      memberSource = 'auth_last_good';
     } else {
       // Fallback path — user_profiles scan.
       let skippedNoTs = 0;
