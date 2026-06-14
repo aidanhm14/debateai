@@ -694,7 +694,15 @@
     }
     function paintPill() {
       if (!pill) return;
-      pill.style.display = (myUid && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) ? 'inline-flex' : 'none';
+      // On public/marketing/content pages we don't show the "Spar live"
+      // toggle to cold visitors. But once the user IS available (they
+      // went available at /spar), the green "Available" status follows
+      // them everywhere so they know they're still matchable and can
+      // turn it off, which is the whole queue-follows-you promise. So:
+      // always hidden in a round / on /spar; on public pages show ONLY
+      // when available; on app pages show always.
+      var show = myUid && !ON_ROUND && !ON_SPAR && (available || !ON_PUBLIC);
+      pill.style.display = show ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
       if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. We'll ping you when a rival is found, anywhere on the site."; }
       else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; }
