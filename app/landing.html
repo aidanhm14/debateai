@@ -4901,7 +4901,11 @@ section.hero .hero-illustrated h1.hi-headline{
   background:var(--hi-card-solid,var(--hi-card-bg));
   border:1px solid var(--hi-card-line);
   border-radius:18px;
-  box-shadow:0 34px 70px var(--hi-card-shadow),0 6px 18px var(--hi-card-shadow);
+  /* 2026-06-14: was 0 34px 70px — a big offset blur that read as a muddy
+     grey smudge below the card on the flat cream bg. Cleaner layered
+     elevation: a tight close shadow + a soft lifted one with negative
+     spread so the footprint stays under the card, not a wide band. */
+  box-shadow:0 2px 6px rgba(29,25,21,.05), 0 16px 38px -12px rgba(29,25,21,.16);
   transform:translate3d(calc(var(--mx)*12px), calc(var(--my)*9px), 0) rotateX(1.4deg) rotateY(-2deg) translateZ(30px);
   transition:transform .32s cubic-bezier(.2,.6,.3,1);
   font-family:'Inter',-apple-system,system-ui,sans-serif;
@@ -8002,7 +8006,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .livenow-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(1.9rem,3.4vw,2.8rem);font-weight:700;letter-spacing:-.02em;line-height:1.05;margin:0 0 12px;color:var(--text,#f4f4f2)}
     [data-theme="light"] .livenow-title{color:#1a1a1f}
     .livenow-title em{font-style:italic;color:#ef4444}
-    .livenow-sub{font-size:clamp(1rem,1.3vw,1.1rem);line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));max-width:620px;margin:0 auto 28px}
+    .livenow-sub{font-size:clamp(1rem,1.3vw,1.1rem);line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));max-width:860px;margin:0 auto 24px}
     [data-theme="light"] .livenow-sub{color:rgba(0,0,0,.66)}
     .livenow-wall{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:0 auto 28px;max-width:1080px}
     @media(max-width:900px){.livenow-wall{grid-template-columns:repeat(3,1fr);max-width:560px}}
@@ -8012,9 +8016,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .ln-tile::after{content:'';position:absolute;top:7px;left:7px;width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 7px #ef4444;z-index:2}
     .livenow-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-weight:800;font-size:1rem;text-decoration:none;transition:transform .15s,background .15s;box-shadow:0 8px 28px rgba(239,68,68,.28)}
     .livenow-cta:hover{background:#dc2626;transform:translateY(-1px)}
-    .lf-label{display:block;font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));margin:0 auto 11px}
+    .lf-label{display:block;font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));margin:0 0 10px}
     [data-theme="light"] .lf-label{color:rgba(0,0,0,.45)}
-    .livenow-formats{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;max-width:780px;margin:0 auto 28px}
+    /* Two groups side by side (formats + the AI underneath) so the band
+       reads wide and short, not a tall stack of chip rows. */
+    .livenow-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:22px 52px;max-width:1180px;margin:0 auto 26px;text-align:left}
+    .lf-group{flex:1 1 400px;min-width:0}
+    .lf-chips{display:flex;flex-wrap:wrap;gap:7px}
+    @media(max-width:600px){.livenow-meta{text-align:center}.lf-chips{justify-content:center}}
     .lf-chip{font-size:.74rem;font-weight:700;padding:6px 13px;border-radius:999px;border:1px solid var(--border,rgba(255,255,255,.16));color:var(--text-dim,rgba(255,255,255,.72));background:var(--bg-card,rgba(255,255,255,.03))}
     [data-theme="light"] .lf-chip{color:rgba(0,0,0,.66);border-color:rgba(0,0,0,.12);background:rgba(0,0,0,.02)}
     .lf-chip--lead{border-color:var(--accent,#ef4444);color:var(--accent,#ef4444)}
@@ -8024,18 +8033,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <span class="livenow-eyebrow"><span class="dot"></span>Live debates</span>
     <h2 class="livenow-title">Debate real people. <em>Live.</em></h2>
     <p class="livenow-sub">Match with another debater in your format, argue under a real clock, and read the AI judge's ballot when the round ends. Rooms open around the clock.</p>
-    <span class="lf-label">Your format, run to spec</span>
-    <div class="livenow-formats">
-      <span class="lf-chip lf-chip--lead">Public Forum</span>
-      <span class="lf-chip lf-chip--lead">Parliamentary</span>
-      <span class="lf-chip lf-chip--lead">Lincoln-Douglas</span>
-      <span class="lf-chip">British Parliamentary</span>
-      <span class="lf-chip">APDA</span>
-      <span class="lf-chip">World Schools</span>
-      <span class="lf-chip">Asian Parliamentary</span>
-      <span class="lf-chip">Policy</span>
-      <span class="lf-chip">Congress</span>
-      <span class="lf-chip">Quick Clash</span>
+    <div class="livenow-meta">
+      <div class="lf-group">
+        <span class="lf-label">Your format, run to spec</span>
+        <div class="lf-chips">
+          <span class="lf-chip lf-chip--lead">Public Forum</span>
+          <span class="lf-chip lf-chip--lead">Parliamentary</span>
+          <span class="lf-chip lf-chip--lead">Lincoln-Douglas</span>
+          <span class="lf-chip">British Parliamentary</span>
+          <span class="lf-chip">APDA</span>
+          <span class="lf-chip">World Schools</span>
+          <span class="lf-chip">Asian Parliamentary</span>
+          <span class="lf-chip">Policy</span>
+          <span class="lf-chip">Congress</span>
+          <span class="lf-chip">Quick Clash</span>
+        </div>
+      </div>
+      <div class="lf-group">
+        <span class="lf-label">The AI runs the room underneath</span>
+        <div class="lf-chips">
+          <span class="lf-chip">Judge writes the ballot</span>
+          <span class="lf-chip">Opponent when nobody's online</span>
+          <span class="lf-chip">6 brains</span>
+          <span class="lf-chip">HD voice</span>
+          <span class="lf-chip">Live RFD + speaks</span>
+        </div>
+      </div>
     </div>
     <div class="livenow-wall" id="livenowWall">
       <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /></span>
