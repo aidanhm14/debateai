@@ -72,14 +72,17 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/ui.css">
-<!-- Body palette is hardcoded dark (#111) below, so the shared topbar
-     must always render its DARK token set. Force crimson unconditionally
-     — don't read da-theme, or a visitor carrying light from the app gets
-     a cream topbar floating over a #111 body. data-force-theme tells the
-     shared topbar.js to honor this and skip its localStorage read. -->
+<!-- Join the site theme system. The body now supports a light palette
+     (token overrides under body.light-theme below), so we no longer
+     force-pin the topbar to crimson. Read the saved da-theme for a
+     flash-free first paint; the shared topbar toggle drives da-theme,
+     and the App's data-theme observer keeps the body + tokens in sync. -->
 <script>
-document.documentElement.setAttribute('data-theme','crimson');
-document.documentElement.setAttribute('data-force-theme','crimson');
+(function(){
+  var t='crimson';
+  try{ if(localStorage.getItem('da-theme')==='light') t='light'; }catch(e){}
+  document.documentElement.setAttribute('data-theme', t);
+})();
 </script>
 <style>
 /* ── Design tokens (mirrors landing's editorial palette) ── */
@@ -95,7 +98,26 @@ document.documentElement.setAttribute('data-force-theme','crimson');
   --card:linear-gradient(180deg,rgba(255,255,255,.038),rgba(255,255,255,.012));
   --card-border:rgba(255,255,255,.09);
   --card-border-hover:rgba(255,255,255,.2);
+  --field:rgba(255,255,255,.04);
   --serif:'Fraunces',Georgia,'Times New Roman',serif;
+}
+
+/* Light palette: flip every token so token-driven surfaces (panel,
+   cards, inputs, output, on-ramp, nav) re-skin to light automatically.
+   Accent shifts to the deeper #dc2626 for AA contrast on near-white. */
+body.light-theme{
+  --bg:#fafaf7;
+  --hero-grad:linear-gradient(150deg,#fafaf7 0%,#f2f1ea 28%,#f7f6f0 52%,#f2f1ea 76%,#fafaf7 100%);
+  --accent:#dc2626;
+  --accent-2:#b91c1c;
+  --accent-soft:#dc2626;
+  --text:#1a1a1f;
+  --text-dim:rgba(0,0,0,.6);
+  --text-faint:rgba(0,0,0,.46);
+  --card:linear-gradient(180deg,#ffffff,#fbfaf6);
+  --card-border:rgba(0,0,0,.1);
+  --card-border-hover:rgba(0,0,0,.24);
+  --field:#f1f0ea;
 }
 
 /* ── Reset & Base ─────────────────────────────── */
@@ -1199,12 +1221,12 @@ function CaseGenerator() {
     onClick: pickRandomMotion,
     style: {
       background: 'transparent', border: '1px solid rgba(239,68,68,.35)',
-      color: '#fca5a5', fontSize: '.7rem', fontWeight: 700,
+      color: 'var(--accent-soft)', fontSize: '.7rem', fontWeight: 700,
       letterSpacing: '.04em', padding: '4px 10px', borderRadius: 999,
       cursor: 'pointer', fontFamily: 'inherit', transition: '.15s'
     },
-    onMouseEnter: (e) => {e.currentTarget.style.background = 'rgba(239,68,68,.10)';e.currentTarget.style.color = '#fff';},
-    onMouseLeave: (e) => {e.currentTarget.style.background = 'transparent';e.currentTarget.style.color = '#fca5a5';},
+    onMouseEnter: (e) => {e.currentTarget.style.background = 'var(--accent)';e.currentTarget.style.color = '#fff';e.currentTarget.style.borderColor = 'var(--accent)';},
+    onMouseLeave: (e) => {e.currentTarget.style.background = 'transparent';e.currentTarget.style.color = 'var(--accent-soft)';e.currentTarget.style.borderColor = 'rgba(239,68,68,.35)';},
     title: 'Fill in a random ' + (fmt.label || format) + '-style motion'
   }, '↻ Random ' + (format === 'Congress' ? 'bill' : format === 'MUN' ? 'topic' : 'motion'))
   ),
@@ -1278,7 +1300,7 @@ function CaseGenerator() {
 
   error && React.createElement('div', { style: {
       marginTop: 16, padding: 14, background: '#ef444422', border: '1px solid #ef444444',
-      borderRadius: 10, color: '#fca5a5', fontSize: '.88rem'
+      borderRadius: 10, color: 'var(--accent-soft)', fontSize: '.88rem'
     } }, error),
 
   loading && !output && React.createElement('div', { className: 'thinking-container' },
@@ -1557,7 +1579,7 @@ function EvidenceFinder() {
   ),
   output && React.createElement('div', { className: 'output', style: { whiteSpace: 'pre-wrap' } }, output),
   citations.length > 0 && React.createElement('div', {
-    style: { marginTop: 18, padding: '14px 16px', background: '#ffffff06', border: '1px solid #ffffff14', borderRadius: 10 }
+    style: { marginTop: 18, padding: '14px 16px', background: '#ffffff06', border: '1px solid var(--card-border)', borderRadius: 10 }
   },
   React.createElement('div', { style: { fontSize: '.7rem', fontWeight: 800, letterSpacing: '.14em', color: '#ef4444', textTransform: 'uppercase', marginBottom: 10 } }, 'Sources (' + citations.length + ')'),
   React.createElement('ol', { style: { paddingLeft: 20, margin: 0, fontSize: '.85rem', lineHeight: 1.65 } },
@@ -1696,7 +1718,7 @@ Keep it to ~400 words. Be specific and tactical. No filler.`;
   // Resolution display
   React.createElement('div', { style: { padding: 20, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, marginBottom: 20 } },
   React.createElement('div', { style: { fontSize: '.68rem', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#ef4444', marginBottom: 6 } }, topic.month),
-  React.createElement('div', { style: { fontSize: '1.05rem', lineHeight: 1.6, color: '#e0e0e8' } }, topic.resolution)
+  React.createElement('div', { style: { fontSize: '1.05rem', lineHeight: 1.6, color: 'var(--text)' } }, topic.resolution)
   ),
 
   // Pro/Con columns
@@ -1706,8 +1728,8 @@ Keep it to ~400 words. Be specific and tactical. No filler.`;
   React.createElement('div', { style: { fontSize: '.72rem', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#22c55e', marginBottom: 10 } }, selectedFormat === 'LD' || selectedFormat === 'Policy' ? 'Affirmative' : 'Pro'),
   topic.proArgs.map((arg, i) =>
   React.createElement('div', { key: i, style: { padding: 12, background: '#22c55e08', border: '1px solid #22c55e20', borderRadius: 10, marginBottom: 8, cursor: 'pointer', transition: '.2s' }, onClick: () => setExpandedArg(expandedArg === 'pro-' + i ? null : 'pro-' + i) },
-  React.createElement('div', { style: { fontWeight: 700, fontSize: '.88rem', color: '#e0e0e8', marginBottom: expandedArg === 'pro-' + i ? 6 : 0 } }, arg.name),
-  expandedArg === 'pro-' + i && React.createElement('div', { style: { fontSize: '.82rem', color: '#aaa', lineHeight: 1.6 } }, arg.summary)
+  React.createElement('div', { style: { fontWeight: 700, fontSize: '.88rem', color: 'var(--text)', marginBottom: expandedArg === 'pro-' + i ? 6 : 0 } }, arg.name),
+  expandedArg === 'pro-' + i && React.createElement('div', { style: { fontSize: '.82rem', color: 'var(--text-dim)', lineHeight: 1.6 } }, arg.summary)
   )
   ),
   React.createElement('button', { className: 'btn btn-sm', onClick: () => quickPrep(selectedFormat === 'LD' || selectedFormat === 'Policy' ? 'Affirmative' : 'Pro'), disabled: prepLoading, style: { background: '#22c55e18', border: '1px solid #22c55e30', color: '#22c55e', width: '100%', marginTop: 4 } },
@@ -1719,8 +1741,8 @@ Keep it to ~400 words. Be specific and tactical. No filler.`;
   React.createElement('div', { style: { fontSize: '.72rem', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#ef4444', marginBottom: 10 } }, selectedFormat === 'LD' || selectedFormat === 'Policy' ? 'Negative' : 'Con'),
   topic.conArgs.map((arg, i) =>
   React.createElement('div', { key: i, style: { padding: 12, background: '#ef444408', border: '1px solid #ef444420', borderRadius: 10, marginBottom: 8, cursor: 'pointer', transition: '.2s' }, onClick: () => setExpandedArg(expandedArg === 'con-' + i ? null : 'con-' + i) },
-  React.createElement('div', { style: { fontWeight: 700, fontSize: '.88rem', color: '#e0e0e8', marginBottom: expandedArg === 'con-' + i ? 6 : 0 } }, arg.name),
-  expandedArg === 'con-' + i && React.createElement('div', { style: { fontSize: '.82rem', color: '#aaa', lineHeight: 1.6 } }, arg.summary)
+  React.createElement('div', { style: { fontWeight: 700, fontSize: '.88rem', color: 'var(--text)', marginBottom: expandedArg === 'con-' + i ? 6 : 0 } }, arg.name),
+  expandedArg === 'con-' + i && React.createElement('div', { style: { fontSize: '.82rem', color: 'var(--text-dim)', lineHeight: 1.6 } }, arg.summary)
   )
   ),
   React.createElement('button', { className: 'btn btn-sm', onClick: () => quickPrep(selectedFormat === 'LD' || selectedFormat === 'Policy' ? 'Negative' : 'Con'), disabled: prepLoading, style: { background: '#ef444418', border: '1px solid #ef444430', color: '#f87171', width: '100%', marginTop: 4 } },
@@ -1733,7 +1755,7 @@ Keep it to ~400 words. Be specific and tactical. No filler.`;
   React.createElement('div', { style: { marginBottom: 20 } },
   React.createElement('div', { style: { fontSize: '.72rem', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#ef4444', marginBottom: 8 } }, 'Key Evidence to Find'),
   topic.keyEvidence.map((ev, i) =>
-  React.createElement('div', { key: i, style: { padding: '8px 12px', background: '#ef44440a', border: '1px solid #ef444420', borderRadius: 8, marginBottom: 6, fontSize: '.82rem', color: '#ccc', lineHeight: 1.5 } }, ev)
+  React.createElement('div', { key: i, style: { padding: '8px 12px', background: '#ef44440a', border: '1px solid #ef444420', borderRadius: 8, marginBottom: 6, fontSize: '.82rem', color: 'var(--text-dim)', lineHeight: 1.5 } }, ev)
   )
   ),
 
@@ -1857,7 +1879,7 @@ function SpeedDrill() {
     React.createElement('div', { style: { fontSize: '1.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#ef4444' } }, formatTime(elapsed)),
     React.createElement('div', { style: { fontSize: '.82rem', color: 'var(--text-faint)' } }, wordCount + ' words · Target: ' + targetWPM + ' WPM')
     ),
-    React.createElement('div', { style: { padding: 24, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, fontSize: '1.05rem', lineHeight: 1.8, color: '#e0e0e8', maxHeight: 400, overflowY: 'auto', marginBottom: 20 } }, currentText.text),
+    React.createElement('div', { style: { padding: 24, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, fontSize: '1.05rem', lineHeight: 1.8, color: 'var(--text)', maxHeight: 400, overflowY: 'auto', marginBottom: 20 } }, currentText.text),
     React.createElement('button', { className: 'btn btn-primary', onClick: finishDrill, style: { width: '100%', fontSize: '1.1rem', padding: '18px' } }, 'Done. Stop Timer.')
     );
   }
@@ -1871,7 +1893,7 @@ function SpeedDrill() {
   React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 } },
   DRILL_TEXTS.map((t, i) =>
   React.createElement('div', { key: i, style: { padding: 14, background: selectedText === i ? '#ef444412' : '#ffffff06', border: '1px solid ' + (selectedText === i ? '#ef444440' : '#ffffff12'), borderRadius: 10, cursor: 'pointer', transition: '.2s' }, onClick: () => setSelectedText(i) },
-  React.createElement('div', { style: { fontWeight: 700, fontSize: '.9rem', color: selectedText === i ? '#f87171' : '#e0e0e8' } }, t.name),
+  React.createElement('div', { style: { fontWeight: 700, fontSize: '.9rem', color: selectedText === i ? '#f87171' : 'var(--text)' } }, t.name),
   React.createElement('div', { style: { fontSize: '.75rem', color: 'var(--text-faint)', marginTop: 2 } }, t.wc + ' words · ' + t.time + ' target')
   )
   )
@@ -1903,7 +1925,7 @@ function SpeedDrill() {
     onChange: (e) => {setCustomText(e.target.value);setCustomSaved(false);},
     rows: 5,
     placeholder: 'Paste a speech, card block, or rebuttal here…',
-    style: { width: '100%', padding: 10, background: 'rgba(0,0,0,.35)', border: '1px solid #ffffff14', borderRadius: 8, color: '#e2e8f0', fontSize: '.86rem', fontFamily: 'inherit', resize: 'vertical' }
+    style: { width: '100%', padding: 10, background: 'var(--field)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--text)', fontSize: '.86rem', fontFamily: 'inherit', resize: 'vertical' }
   }),
   React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 } },
   React.createElement('span', { style: { fontSize: '.72rem', color: '#64748b' } }, customText.trim() ? customText.trim().split(/\s+/).length + ' words' : ''),
@@ -2147,7 +2169,7 @@ Output plain text. No markdown. No bullet characters.`;
   SAMPLE_BILLS.map((b, i) =>
   React.createElement('div', { key: i, style: { padding: 14, background: selectedBill === i ? '#ef444412' : '#ffffff06', border: '1px solid ' + (selectedBill === i ? '#ef444440' : '#ffffff12'), borderRadius: 10, marginBottom: 8, cursor: 'pointer', transition: '.2s' }, onClick: () => {setSelectedBill(i);setAnalysisOutput(null);} },
   React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-  React.createElement('div', { style: { fontWeight: 700, fontSize: '.88rem', color: selectedBill === i ? '#f87171' : '#e0e0e8' } }, b.title),
+  React.createElement('div', { style: { fontWeight: 700, fontSize: '.88rem', color: selectedBill === i ? '#f87171' : 'var(--text)' } }, b.title),
   React.createElement('span', { style: { fontSize: '.68rem', padding: '3px 8px', borderRadius: 4, background: b.type === 'Bill' ? '#3b82f615' : '#22c55e15', color: b.type === 'Bill' ? '#60a5fa' : '#4ade80', fontWeight: 600 } }, b.chamber + ' ' + b.type)
   )
   )
@@ -2158,8 +2180,8 @@ Output plain text. No markdown. No bullet characters.`;
   React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
   savedBills.slice().reverse().map((sb, i) =>
   React.createElement('div', { key: sb.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#ffffff04', border: '1px solid #ffffff10', borderRadius: 8 } },
-  React.createElement('button', { type: 'button', onClick: () => {setCustomBill(sb.text);setBillNameInput(sb.name);setAnalysisOutput(null);}, style: { flex: 1, textAlign: 'left', background: 'none', border: 'none', color: '#cbd5e1', fontSize: '.84rem', cursor: 'pointer', padding: 0, fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-  React.createElement('span', { style: { fontWeight: 700, color: '#e2e8f0' } }, sb.name),
+  React.createElement('button', { type: 'button', onClick: () => {setCustomBill(sb.text);setBillNameInput(sb.name);setAnalysisOutput(null);}, style: { flex: 1, textAlign: 'left', background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '.84rem', cursor: 'pointer', padding: 0, fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+  React.createElement('span', { style: { fontWeight: 700, color: 'var(--text)' } }, sb.name),
   React.createElement('span', { style: { color: '#64748b', fontSize: '.7rem', marginLeft: 8 } }, new Date(sb.ts).toLocaleDateString())
   ),
   React.createElement('button', { type: 'button', title: 'Delete', onClick: () => {var next = savedBills.filter((x) => x.id !== sb.id);setSavedBills(next);saveSavedBills(next);}, style: { background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: '4px 6px', fontSize: '.9rem', fontFamily: 'inherit' } }, '\u00D7')
@@ -2173,12 +2195,12 @@ Output plain text. No markdown. No bullet characters.`;
   React.createElement('textarea', { placeholder: 'Paste bill text here...', value: customBill, onChange: (e) => setCustomBill(e.target.value), rows: 3 }),
   // Save-this-bill row, only shown once user has actual text pasted.
   customBill.trim().length > 50 && React.createElement('div', { style: { display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' } },
-  React.createElement('input', { type: 'text', value: billNameInput, onChange: (e) => setBillNameInput(e.target.value), placeholder: 'Name this bill (e.g. "S. 14, Carbon Tax")', style: { flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,.35)', border: '1px solid #ffffff14', borderRadius: 8, color: '#e2e8f0', fontSize: '.82rem', fontFamily: 'inherit' } }),
+  React.createElement('input', { type: 'text', value: billNameInput, onChange: (e) => setBillNameInput(e.target.value), placeholder: 'Name this bill (e.g. "S. 14, Carbon Tax")', style: { flex: 1, padding: '8px 10px', background: 'var(--field)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--text)', fontSize: '.82rem', fontFamily: 'inherit' } }),
   React.createElement('button', { type: 'button', onClick: () => {var name = (billNameInput || 'Untitled bill').trim();var next = [...savedBills, { id: Date.now() + '_' + Math.random().toString(36).slice(2, 7), name: name, text: customBill.trim(), ts: Date.now() }];setSavedBills(next);saveSavedBills(next);setBillNameInput('');}, style: { background: '#22c55e', color: '#0a0a0c', border: 'none', borderRadius: 6, padding: '8px 14px', fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' } }, 'Save bill')
   )
   ),
   // Bill text display
-  React.createElement('div', { style: { marginTop: 16, padding: 16, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, fontSize: '.88rem', color: '#ccc', lineHeight: 1.7, maxHeight: 250, overflowY: 'auto', whiteSpace: 'pre-wrap' } }, customBill.trim() || bill.text),
+  React.createElement('div', { style: { marginTop: 16, padding: 16, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, fontSize: '.88rem', color: 'var(--text-dim)', lineHeight: 1.7, maxHeight: 250, overflowY: 'auto', whiteSpace: 'pre-wrap' } }, customBill.trim() || bill.text),
   // Analyze button
   React.createElement('div', { style: { marginTop: 16 } },
   React.createElement('button', { className: 'btn btn-primary', onClick: () => analyzeBill(customBill.trim() || bill.text), disabled: analysisLoading },
@@ -2249,7 +2271,7 @@ Output plain text. No markdown. No bullet characters.`;
   PARLIPRO_TERMS.map((item, i) =>
   React.createElement('div', { key: i, style: { padding: 14, background: '#ffffff06', border: '1px solid #ffffff0a', borderRadius: 10, marginBottom: 8 } },
   React.createElement('div', { style: { fontWeight: 700, fontSize: '.92rem', color: '#ef4444', marginBottom: 4 } }, item.term),
-  React.createElement('div', { style: { fontSize: '.85rem', color: '#ccc', lineHeight: 1.6, marginBottom: 6 } }, item.def),
+  React.createElement('div', { style: { fontSize: '.85rem', color: 'var(--text-dim)', lineHeight: 1.6, marginBottom: 6 } }, item.def),
   React.createElement('div', { style: { fontSize: '.78rem', color: '#ef4444', fontStyle: 'italic' } }, 'When to use: ' + item.when)
   )
   )
@@ -2372,11 +2394,11 @@ Be specific and actionable. Reference the judge's own words. Keep it under 400 w
   React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 } },
   parsedTraits.map((tr, i) => {
     var colors = {
-      red: { bg: '#ef444418', bd: '#ef444440', tx: '#fca5a5' },
+      red: { bg: '#ef444418', bd: '#ef444440', tx: 'var(--accent-soft)' },
       blue: { bg: '#3b82f618', bd: '#3b82f640', tx: '#93c5fd' },
       green: { bg: '#22c55e18', bd: '#22c55e40', tx: '#86efac' },
       amber: { bg: '#f59e0b18', bd: '#f59e0b40', tx: '#fcd34d' }
-    }[tr.tone] || { bg: '#ffffff08', bd: '#ffffff20', tx: '#cbd5e1' };
+    }[tr.tone] || { bg: '#ffffff08', bd: '#ffffff20', tx: 'var(--text-dim)' };
     return React.createElement('span', {
       key: i,
       title: tr.why,
@@ -2616,7 +2638,7 @@ function HsUsageBanner() {
 
   if (remaining <= 0) {
     return el('div', { style: { maxWidth: 1100, width: '94%', margin: '12px auto 0', padding: '18px 20px', background: 'linear-gradient(135deg,#ef444418,#ef44440a)', border: '1px solid #ef444440', borderRadius: 12 } },
-    el('p', { style: { color: '#fca5a5', fontSize: '.88rem', fontWeight: 600, marginBottom: 14, textAlign: 'center' } }, 'You\'ve used your free requests. Sign in with Google for more, or pick a plan to keep going:'),
+    el('p', { style: { color: 'var(--accent-soft)', fontSize: '.88rem', fontWeight: 600, marginBottom: 14, textAlign: 'center' } }, 'You\'ve used your free requests. Sign in with Google for more, or pick a plan to keep going:'),
     el('div', { className: 'pricing-grid' },
     // Free tier
     el('div', { className: 'pricing-card' },
@@ -2683,11 +2705,27 @@ function tabFromHash() {
 
 function App() {
   var [tab, setTab] = useState(tabFromHash);
-  var [theme, setTheme] = useState('dark');
+  // Initialize from the site theme (set on <html> by the head + topbar)
+  // so the body palette matches the topbar from first paint.
+  var [theme, setTheme] = useState(function () {
+    try {return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';} catch (e) {return 'dark';}
+  });
 
   useEffect(() => {
     document.body.className = theme === 'light' ? 'light-theme' : '';
   }, [theme]);
+
+  // Follow the shared topbar's theme toggle. It flips <html data-theme>
+  // and reloads, but the new-visitor default also sets it after mount,
+  // so observe the attribute and mirror it into our theme state.
+  useEffect(() => {
+    var de = document.documentElement;
+    var sync = function () {setTheme(de.getAttribute('data-theme') === 'light' ? 'light' : 'dark');};
+    sync();
+    var mo = new MutationObserver(sync);
+    mo.observe(de, { attributes: true, attributeFilter: ['data-theme'] });
+    return function () {mo.disconnect();};
+  }, []);
 
   // React to manual hash navigation (back button, in-page anchor click).
   useEffect(() => {
