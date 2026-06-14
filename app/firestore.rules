@@ -518,6 +518,22 @@ service cloud.firestore {
                     && resource.data.uid == request.auth.uid;
     }
 
+    // ── voice_rounds ─────────────────────────────────────────────────
+    // Saved, revisitable voice-round records (ballot + full transcript +
+    // stats). Written client-side by voice-debate.html on RFD generation.
+    // Public read so a shared ballot link (/voice-rfd?id=) resolves for
+    // anyone with the unguessable doc id — same privacy model as
+    // certificates. Create is owner-only and the doc must carry the
+    // writer's uid; rounds are immutable once written (no update/delete).
+    match /voice_rounds/{roundId} {
+      allow read:   if true;
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && stringUnder('motion', 1024)
+                    && stringUnder('rfd', 20000);
+      allow update, delete: if false;
+    }
+
     // ── waitlist_posts ───────────────────────────────────────────────
     // /spar left-rail "open invites" board. Anyone signed in can read
     // the board; you can only create/edit/delete your own post. Note

@@ -323,6 +323,25 @@ body{
 .transcript-turn.you .transcript-who{color:#fca5a5}
 .transcript-turn.ai .transcript-who{color:var(--text-dim)}
 .transcript-body{font-size:.94rem;line-height:1.6;color:var(--text);white-space:pre-wrap}
+.transcript-who{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.t-phase{
+  font-size:.55rem;letter-spacing:.1em;font-weight:800;
+  padding:2px 7px;border-radius:999px;
+  background:rgba(255,255,255,.07);color:var(--text-dim);
+}
+.t-time{
+  font-size:.58rem;letter-spacing:.04em;font-weight:700;
+  color:var(--text-dim);opacity:.8;font-variant-numeric:tabular-nums;
+}
+.tx-search-rfd{
+  width:100%;box-sizing:border-box;padding:9px 13px;margin-bottom:12px;
+  border-radius:9px;border:1px solid var(--border);
+  background:rgba(255,255,255,.03);color:var(--text);
+  font:500 .9rem/1.2 inherit;font-family:inherit;
+}
+.tx-search-rfd::placeholder{color:var(--text-dim)}
+.tx-search-rfd:focus{outline:none;border-color:rgba(239,68,68,.45)}
+.tx-nomatch{color:var(--text-dim);font-size:.88rem;padding:18px 4px;text-align:center}
 
 /* ── CTA row ─────────────────────── */
 .cta-row{
@@ -530,6 +549,35 @@ body{
     return null;
   }
 
+  // Resolve the payload, preferring the instant sessionStorage path and
+  // falling back to a saved round doc fetched by ?id=. This is what makes
+  // a ballot survive refresh / back / a shared link: voice-debate writes
+  // voice_rounds/{id} and hands off to /voice-rfd?id={id}. A round doc
+  // mirrors the sessionStorage payload shape, minus the generationId (we
+  // only want the live rating widget on the just-finished round, not on
+  // revisits or someone else's shared round).
+  function loadPayloadResolved(cb){
+    var sync = loadPayload();
+    var id;
+    try { id = new URL(window.location.href).searchParams.get('id'); } catch(e){ id = null; }
+    // Instant path: sessionStorage payload that matches (or no id asked).
+    if (sync && (!id || sync.id === id || !sync.id)) { cb(sync); return; }
+    if (id && typeof firebase !== 'undefined' && firebase.firestore){
+      try {
+        firebase.firestore().collection('voice_rounds').doc(id).get().then(function(snap){
+          if (snap.exists){
+            var d = snap.data() || {};
+            d.id = id;
+            d.generationId = null; // no rating on revisit/share
+            cb(d);
+          } else { cb(sync); }
+        }).catch(function(e){ console.warn('[rfd] round fetch failed', e); cb(sync); });
+        return;
+      } catch(e){ console.warn('[rfd] round fetch threw', e); }
+    }
+    cb(sync);
+  }
+
   function demoPayload(){
     return {
       rfd: 'SPEAKER POINTS: 27.8\n\nDECISION\nUSER wins on the flow.\n\nBEST MOMENT\nWhen you pinned the AI on the reversibility test in your second turn; they conceded that irreversible coercion is the bright line, which collapsed half their case.\n\nCOSTLIEST MOMENT\nYou dropped the legitimacy framing in your third turn and never picked it back up. The AI re-extended on it twice without engagement; in a tight round that\'s an easy win for them.\n\nTWO FIXES FOR NEXT ROUND\n1. Carry your framework explicitly into every turn; even a single sentence reminding the judge "this is why reversibility outweighs" keeps the offense alive.\n2. After you pin a concession, name it in the next turn ("they conceded reversibility") so the judge writes it on the flow.',
@@ -709,15 +757,20 @@ body{
     if (Array.isArray(payload.transcript) && payload.transcript.length){
       var turnsHtml = payload.transcript.map(function(t){
         var who = t.who === 'you' ? 'You' : t.who === 'ai' ? 'AI' : (t.who || '');
-        return '<div class="transcript-turn ' + escHtml(t.who||'') + '">'
-          + '<div class="transcript-who">' + escHtml(who) + (t.interrupted ? ' · interrupted' : '') + '</div>'
+        var meta = '';
+        if (t.phase) meta += '<span class="t-phase">' + escHtml(t.phase) + '</span>';
+        if (typeof t.t === 'number') meta += '<span class="t-time">' + fmtDuration(Math.floor(t.t/1000)) + '</span>';
+        return '<div class="transcript-turn ' + escHtml(t.who||'') + '" data-tx="' + escHtml((t.text||'').toLowerCase()) + '">'
+          + '<div class="transcript-who">' + escHtml(who) + (t.interrupted ? ' · interrupted' : '') + meta + '</div>'
           + '<div class="transcript-body">' + escHtml(t.text || '') + '</div>'
         + '</div>';
       }).join('');
       html +=
         '<section class="section section--transcript">'
           + '<div class="section-head"><div class="icon">¶</div><h2>Transcript</h2><div class="sub">' + payload.transcript.length + ' turns</div></div>'
-          + '<div>' + turnsHtml + '</div>'
+          + '<input type="text" id="txSearch" class="tx-search-rfd" placeholder="Search the transcript…" />'
+          + '<div id="txList">' + turnsHtml + '</div>'
+          + '<div id="txNoMatch" class="tx-nomatch" style="display:none">Nothing matches that filter.</div>'
         + '</section>';
     }
 
@@ -797,6 +850,26 @@ body{
       + '<div class="foot">All ballots are written by Claude Haiku per DebateIt\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
 
     root.innerHTML = html;
+
+    // Transcript filter: hide non-matching turns as the user types. The
+    // match key is precomputed into data-tx so this stays O(n) per keypress.
+    (function(){
+      var input = document.getElementById('txSearch');
+      var list = document.getElementById('txList');
+      var noMatch = document.getElementById('txNoMatch');
+      if (!input || !list) return;
+      input.addEventListener('input', function(){
+        var q = input.value.trim().toLowerCase();
+        var rows = list.querySelectorAll('.transcript-turn');
+        var shown = 0;
+        Array.prototype.forEach.call(rows, function(r){
+          var hit = !q || (r.getAttribute('data-tx') || '').indexOf(q) !== -1;
+          r.style.display = hit ? '' : 'none';
+          if (hit) shown++;
+        });
+        if (noMatch) noMatch.style.display = shown === 0 ? 'block' : 'none';
+      });
+    })();
 
     // Staggered entrance: each top-level block slides up in sequence.
     var blocks = root.querySelectorAll('.eyebrow, .verdict, .section, .cta-row, .foot');
@@ -1029,13 +1102,14 @@ body{
   // /voice-debate reads as a continuous beat (its deliberation overlay
   // dissolves into this one), then fade it out and reveal the ballot.
   setTimeout(function(){
-    var payload = loadPayload();
-    if (loading) loading.classList.add('out');
-    setTimeout(function(){
-      if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
-      render(payload);
-      try { gtag('event', 'voice_rfd_view', { has_payload: !!(payload && payload.rfd) }); } catch(e){}
-    }, 340);
+    loadPayloadResolved(function(payload){
+      if (loading) loading.classList.add('out');
+      setTimeout(function(){
+        if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+        render(payload);
+        try { gtag('event', 'voice_rfd_view', { has_payload: !!(payload && payload.rfd) }); } catch(e){}
+      }, 340);
+    });
   }, 480);
 })();
 </script>
