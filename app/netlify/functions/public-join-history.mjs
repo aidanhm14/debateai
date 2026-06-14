@@ -167,6 +167,27 @@ export default async (request) => {
     console.warn('public-join-history live-search count failed:', err.message);
   }
 
+  // ── 1.6 Site views this week ──────────────────────────────────
+  // Real page_view events from the same `events` log (track.js fires
+  // page_view for anonymous visitors too — it's in the anon-allowed
+  // set). Top-of-funnel count so the proof strip reads as a funnel
+  // (views » searches » sign-ins) instead of one lonely number. Same
+  // composite index as liveSearchesWeek (metadata.name + createdAt),
+  // so no new index. No static fallback — a hardcoded weekly number
+  // rots into a lie within a week; the landing hides the clause at 0.
+  let viewsWeek = 0;
+  try {
+    const weekCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const agg = await db.collection('events')
+      .where('metadata.name', '==', 'page_view')
+      .where('createdAt', '>=', weekCutoff)
+      .count()
+      .get();
+    viewsWeek = (agg.data() && agg.data().count) || 0;
+  } catch (err) {
+    console.warn('public-join-history views count failed:', err.message);
+  }
+
   try {
 
     // ── 2. Members per day, from Firebase Auth ────────────────────
@@ -293,7 +314,7 @@ export default async (request) => {
     const payload = {
       since,
       now: ymd(new Date()),
-      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek },
+      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek, viewsWeek },
       memberSource,
       milestones,
     };

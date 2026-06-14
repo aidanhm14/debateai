@@ -5206,9 +5206,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 :root[data-theme="crimson"][data-hero-ab="illustrated"] section.hero,
 :root[data-theme="stone"][data-hero-ab="illustrated"] section.hero,
 :root[data-theme="dark"][data-hero-ab="illustrated"] section.hero{
+  /* 2026-06-14: same seam fix as the light arm. No opaque --hero-grad base
+     here — the body paints one continuous dark gradient across the page, so
+     repainting it on this box made the 135deg diagonal mismatch read as a
+     horizontal seam at the hero's bottom. The warm glow now fades on a
+     single ramp (no 32%/78% plateau) to nothing, so there's no edge. */
   background:
-    radial-gradient(ellipse 1100px 720px at 50% 38%, rgba(58,30,20,.55) 0%, rgba(40,22,16,.32) 32%, transparent 78%),
-    var(--hero-grad, #0b0907) !important;
+    radial-gradient(ellipse 1240px 880px at 50% 33%, rgba(58,30,20,.52) 0%, rgba(45,24,17,.18) 38%, transparent 72%) !important;
 }
 /* Element-level dark adjustments for the live-room stage. Card
    chrome flips via the token block above; the land mass needs a
@@ -6461,7 +6465,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              stale. NOTE: this is the LIVE hero arm; the editorial-hero
              bookmark note carrying the same numbers is display:none. -->
         <p class="hi-proof-note" aria-live="polite">
-          <span class="hi-proof-num" id="hiStatGoogle">78</span> debaters signed in with Google so far<span id="hiStatSparWeek" hidden></span>
+          <span id="hiStatViewsWeek" hidden></span><span class="hi-proof-num" id="hiStatGoogle">78</span> debaters signed in with Google so far<span id="hiStatSparWeek" hidden></span>
         </p>
       </div>
 
@@ -7274,6 +7278,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               // (the elements above live in the hidden editorial arm).
               var g2 = document.getElementById('hiStatGoogle');
               if (g2 && n) g2.textContent = n.toLocaleString();
+              // Top-of-funnel: site views this week, prepended so the strip
+              // reads views » searches » sign-ins. Hidden at 0 (no static
+              // fallback — a stale weekly number would be a lie).
+              var v = Math.max(0, parseInt(j.totals.viewsWeek, 10) || 0);
+              var vw2 = document.getElementById('hiStatViewsWeek');
+              if (vw2 && v > 0) {
+                vw2.innerHTML = '<span class="hi-proof-num">' + v.toLocaleString() + '</span> viewed the site this week · ';
+                vw2.hidden = false;
+              }
               var wk2 = document.getElementById('hiStatSparWeek');
               if (wk2 && w > 0) {
                 wk2.innerHTML = ' · <span class="hi-proof-num">' + w.toLocaleString() + '</span> ' +
@@ -7945,6 +7958,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   [data-theme="light"] .fl-module p,
   [data-theme="stone"] .fl-module p{color:#1a1a1f}
+  /* Contrast: the founder-letter card flips to a WHITE background in
+     light/stone, where the dark-theme pink em (#fca5a5) and the .85-alpha
+     #ef4444 section numbers wash out. Darker reds clear WCAG AA on white. */
+  [data-theme="light"] .fl-module p em,
+  [data-theme="stone"] .fl-module p em{color:#b91c1c}
+  [data-theme="light"] .fl-mod-num,
+  [data-theme="stone"] .fl-mod-num{color:#c81e1e;opacity:1}
   [data-theme="light"] .fl-cta-secondary,
   [data-theme="stone"] .fl-cta-secondary{background:rgba(0,0,0,.04);color:#1a1a1f;border-color:rgba(0,0,0,.12)}
 </style>
