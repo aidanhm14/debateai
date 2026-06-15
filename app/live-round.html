@@ -88,7 +88,7 @@ html,body{height:100%;overflow:hidden}
   --bar-bg:rgba(250,250,247,.85);
 }
 body{
-  font-family:'Geist','Fraunces',Georgia,"Times New Roman",serif;
+  font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;
   background:var(--bg);color:var(--text);
   -webkit-font-smoothing:antialiased;
   display:flex;flex-direction:column;height:100vh;
@@ -326,6 +326,19 @@ button{font-family:inherit}
   font-size:.82rem;color:var(--text,#fff)}
 .prep-banner strong{font-variant-numeric:tabular-nums;font-size:1rem}
 .prep-banner.is-over{background:rgba(255,255,255,.04);border-color:var(--border)}
+/* Pre-Speech-1 round editor: change resolution + format before the
+   first speech locks the sequence. Hidden once Speech 1 begins. */
+.round-edit-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:9px 13px;
+  border:1px dashed var(--border,rgba(255,255,255,.2));border-radius:12px;
+  font-size:.78rem;color:var(--text-dim,rgba(255,255,255,.6));background:rgba(127,127,127,.06)}
+.round-edit-bar .reb-note{font-weight:600}
+.round-edit-bar .reb-edit{padding:5px 13px;border-radius:999px;border:1px solid var(--border,rgba(255,255,255,.22));
+  background:transparent;color:var(--text,#fff);font:inherit;font-size:.74rem;font-weight:700;cursor:pointer}
+.round-edit-bar .reb-edit:hover{border-color:var(--text-dim,rgba(255,255,255,.5))}
+.round-edit-bar .reb-fmt{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.round-edit-bar .reb-fmt select{font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.22));
+  background:var(--bg-card,rgba(255,255,255,.04));color:var(--text,#fff);cursor:pointer}
+.round-motion-bar .rmb-motion[contenteditable="true"]{outline:1px dashed var(--accent,#ef4444);outline-offset:3px;border-radius:6px;cursor:text}
 .tag{
   display:inline-flex;padding:3px 10px;border-radius:999px;
   font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
@@ -856,7 +869,7 @@ button{font-family:inherit}
 }
 .clip-close:hover{background:rgba(0,0,0,.78)}
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
 <body>
 
@@ -1006,6 +1019,13 @@ button{font-family:inherit}
           </button>
           <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden>0:00</span>
         </div>
+      </div>
+      <div class="round-edit-bar" id="roundEditBar" hidden>
+        <span class="reb-note">Before Speech 1 you can still set the round:</span>
+        <button type="button" class="reb-edit" id="rebMotionBtn">Edit resolution</button>
+        <label class="reb-fmt">Format
+          <select id="roundFormatSel" aria-label="Debate format"></select>
+        </label>
       </div>
       <div class="round-roster" id="roundRoster">
         <div class="roster-card" id="rosterYou">
@@ -1673,7 +1693,24 @@ button{font-family:inherit}
     // Motion bar — keep the resolution glance-visible during the
     // round so the speaker doesn't have to leave the page to recall it.
     var rmb = $('rmbMotion');
-    if (rmb) rmb.textContent = state.motion || '(motion not set)';
+    if (rmb && document.activeElement !== rmb) rmb.textContent = state.motion || '(motion not set)';
+
+    // In-round editor: before Speech 1, debaters can still fix the
+    // resolution + format (format drives speaker count + the AI judging
+    // lens). Locks the moment Speech 1 starts.
+    var reb = $('roundEditBar');
+    if (reb){
+      var canEdit = !isSpectator() && state.speechIdx === 0 && state.phase === 'round';
+      reb.hidden = !canEdit;
+      var rfs = $('roundFormatSel');
+      if (rfs){
+        if (!rfs.options.length){ var srcSel = $('formatSel'); if (srcSel) rfs.innerHTML = srcSel.innerHTML; }
+        rfs.value = state.formatKey;
+      }
+      if (rmb && !canEdit && rmb.getAttribute('contenteditable') === 'true'){
+        rmb.removeAttribute('contenteditable');
+      }
+    }
 
     // Roster bar — left card is YOU, right card is OPPONENT, each
     // tagged with their side. The currently-speaking card gets the
@@ -3457,6 +3494,56 @@ button{font-family:inherit}
   });
   $('startBtn').addEventListener('click', startRound);
 
+  // ── In-round editor (pre-Speech-1). Lets either debater fix the
+  // resolution + change the format from the round view, not only the
+  // host's setup screen. Format drives speaker count + the AI judging
+  // lens (FORMATS + JUDGE_RULES). Synced via the round doc; locks once
+  // Speech 1 begins (renderRound hides the bar at speechIdx > 0).
+  (function(){
+    function publishRoundMeta(){
+      if (isSpectator()) return;
+      var ref = getRoundDocRef();
+      if (!ref) return;
+      ref.update({
+        motion: state.motion,
+        format: state.formatKey,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(){});
+    }
+    var rebBtn = $('rebMotionBtn');
+    if (rebBtn) rebBtn.addEventListener('click', function(){
+      var rmb = $('rmbMotion'); if (!rmb) return;
+      rmb.setAttribute('contenteditable', 'true');
+      rmb.focus();
+      try { var rng = document.createRange(); rng.selectNodeContents(rmb); rng.collapse(false); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); } catch(e){}
+    });
+    var rmbEl = $('rmbMotion');
+    if (rmbEl) rmbEl.addEventListener('blur', function(){
+      if (rmbEl.getAttribute('contenteditable') !== 'true') return;
+      rmbEl.removeAttribute('contenteditable');
+      var v = (rmbEl.textContent || '').trim();
+      if (v && v !== state.motion){
+        state.motion = v;
+        var md = $('motionDisplay'); if (md) md.textContent = v;
+        publishRoundMeta();
+        try { gtag('event', 'live_round_motion_edit_inround'); } catch(e){}
+      } else {
+        rmbEl.textContent = state.motion || '(motion not set)';
+      }
+    });
+    var rfs = $('roundFormatSel');
+    if (rfs) rfs.addEventListener('change', function(){
+      if (isSpectator() || state.speechIdx > 0 || !FORMATS[this.value]){ this.value = state.formatKey; return; }
+      state.formatKey = this.value;
+      var fsMain = $('formatSel'); if (fsMain) fsMain.value = this.value;
+      var pl = $('phaseLabel');
+      if (pl) pl.innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
+      renderRound();
+      publishRoundMeta();
+      try { gtag('event', 'live_round_format_change_inround', { format: state.formatKey }); } catch(e){}
+    });
+  })();
+
   // Call card controls. The "Copy page link" button copies THIS
   // page's URL (incl. motion/format/names/room params) so sharing
   // it puts the recipient straight into the same round on the same
@@ -4026,6 +4113,10 @@ button{font-family:inherit}
   // speech. It doesn't lock anything — the speaker can hit Start speech
   // whenever — it's a visible timer to prepare against. Synced via the
   // round doc's createdAt + prepMin so both clients show the same clock.
+  // Prep clock is PRESS-TO-START. We no longer auto-run it from round
+  // creation. The banner shows the full prep time + a Start control; a
+  // debater hits Start and the clock begins, syncing to the other side
+  // via the round doc's prepStartedAtMs (see onRoundSnapshot).
   function startPrepBanner(){
     if (!state.prepMin || state.prepMin <= 0) return;
     if (state.speechIdx > 0 || state.phase !== 'round') return;  // only before Speech 1
@@ -4040,23 +4131,53 @@ button{font-family:inherit}
       banner.className = 'prep-banner';
       rv.insertBefore(banner, rv.firstChild);
     }
-    var startMs = state.roundCreatedAtMs || (state.roundCreatedAtMs = Date.now());
-    var endMs = startMs + state.prepMin * 60000;
-    function tick(){
-      if (state.speechIdx > 0 || state.phase !== 'round'){ hidePrepBanner(); return; }
-      var rem = Math.max(0, Math.round((endMs - Date.now()) / 1000));
-      var mm = Math.floor(rem / 60), ss = rem % 60;
-      if (rem > 0){
-        banner.classList.remove('is-over');
-        banner.innerHTML = '<span>Prep time · both sides prepare</span><strong>' + mm + ':' + (ss < 10 ? '0' : '') + ss + '</strong>';
-      } else {
-        banner.classList.add('is-over');
-        banner.innerHTML = '<span>Prep over — hit Start speech when you are ready.</span>';
-        if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
+    function fmt(rem){ var mm = Math.floor(rem / 60), ss = rem % 60; return mm + ':' + (ss < 10 ? '0' : '') + ss; }
+    function renderIdle(){
+      banner.classList.remove('is-over');
+      if (isSpectator()){
+        banner.innerHTML = '<span>Prep · ' + state.prepMin + ':00 · waiting for a debater to start the clock</span>';
+        return;
       }
+      banner.innerHTML = '<span>Prep time · both sides prepare · <strong>' + state.prepMin + ':00</strong></span>'
+        + '<button type="button" id="prepStartBtn" class="btn btn-primary" style="margin-left:4px;padding:6px 16px;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase">&#9654; Start prep</button>';
+      var sb = document.getElementById('prepStartBtn');
+      if (sb) sb.addEventListener('click', function(){ beginPrepClock(true); });
     }
-    tick();
-    state.prepInterval = setInterval(tick, 1000);
+    function startTicking(){
+      var endMs = state.prepStartedAtMs + state.prepMin * 60000;
+      function tick(){
+        if (state.speechIdx > 0 || state.phase !== 'round'){ hidePrepBanner(); return; }
+        var rem = Math.max(0, Math.round((endMs - Date.now()) / 1000));
+        if (rem > 0){
+          banner.classList.remove('is-over');
+          banner.innerHTML = '<span>Prep time · both sides prepare</span><strong>' + fmt(rem) + '</strong>';
+        } else {
+          banner.classList.add('is-over');
+          banner.innerHTML = '<span>Prep over. Hit Start speech when you are ready.</span>';
+          if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
+        }
+      }
+      tick();
+      if (state.prepInterval){ clearInterval(state.prepInterval); }
+      state.prepInterval = setInterval(tick, 1000);
+    }
+    // Exposed so onRoundSnapshot can kick the clock when the peer starts it.
+    state._prepStartTicking = startTicking;
+    if (state.prepStartedAtMs){ startTicking(); } else { renderIdle(); }
+  }
+  // A debater pressed Start (publish=true), or the peer did (via snapshot,
+  // publish=false). Stamp the start, optionally sync it, then tick.
+  function beginPrepClock(publish){
+    if (state.prepStartedAtMs) return;
+    state.prepStartedAtMs = Date.now();
+    if (publish) publishPrepStart();
+    if (state._prepStartTicking) state._prepStartTicking();
+  }
+  function publishPrepStart(){
+    if (isSpectator()) return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    ref.update({ prepStartedAtMs: state.prepStartedAtMs }).catch(function(){});
   }
   function hidePrepBanner(){
     if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
@@ -4104,6 +4225,19 @@ button{font-family:inherit}
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
     if (d.conName && state.conName !== d.conName){ state.conName = d.conName; var cn=$('conName'); if (cn) cn.value = d.conName; changedSetup = true; }
     if (changedSetup && state.phase === 'setup') renderSetup();
+    // Mid-round (pre-Speech-1) resolution/format edits from the other
+    // side: repaint the round view + phase label with the new format.
+    if (changedSetup && state.phase === 'round' && state.speechIdx === 0){
+      var plE = $('phaseLabel');
+      if (plE && FORMATS[state.formatKey]) plE.innerHTML = '<span class="dot"></span> ' + (isSpectator() ? 'Spectating · Speech ' : 'Live · Speech ') + '1/' + FORMATS[state.formatKey].speeches.length;
+      renderRound();
+    }
+    // Peer pressed "Start prep" — adopt their start time so both clocks run.
+    if (typeof d.prepStartedAtMs === 'number' && !state.prepStartedAtMs && state.phase === 'round' && state.speechIdx === 0){
+      state.prepStartedAtMs = d.prepStartedAtMs;
+      if (state._prepStartTicking) state._prepStartTicking();
+      else startPrepBanner();
+    }
 
     // Phase advance: remote is in round/ballot but we're still in setup
     if ((d.status === 'round' || d.status === 'ballot') && state.phase === 'setup'){

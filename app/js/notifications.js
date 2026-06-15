@@ -215,15 +215,17 @@
       '.da-golive__dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:daSparPulse 1.7s ease-out infinite}' +
       '.da-golive__p{font-size:.8rem;line-height:1.45;color:var(--text-dim,#9aa);margin:0 0 12px}' +
       // Webcam preview strip — shows a cold visitor what a live round
-      // actually looks like (face-to-face on webcam) before they opt in.
-      // CSS silhouettes, not real photos: privacy-safe + theme-agnostic.
+      // actually looks like before they opt in. Real face-library shots
+      // (face02 + face12) so the preview reads as two real debaters,
+      // not as the placeholder silhouettes that came before. The two
+      // faces are picked from visually distinct rooms (kitchen vs
+      // white-walled bedroom) on purpose — seat-you / seat-opp share a
+      // shoot and read as AI-clone (see landing.html's SKIP/same-shoot
+      // note for the same fix on the hero).
       '.da-golive__camcap{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost,#888);margin:0 0 6px}' +
-      '.da-golive__cams{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:0 0 13px}' +
-      '.da-golive__cam{position:relative;aspect-ratio:4/5;border-radius:7px;overflow:hidden;' +
-        'background:radial-gradient(circle at var(--hx,50%) 37%,#4b5066 0 10px,transparent 11px),' +
-        'radial-gradient(62% 44% at var(--hx,50%) 106%,#3a3f54 0 44%,transparent 64%),' +
-        'linear-gradient(160deg,#1e202b,#0f1117)}' +
-      '.da-golive__cam i{position:absolute;top:4px;left:4px;width:5px;height:5px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;animation:daSparPulse 1.7s ease-out infinite}' +
+      '.da-golive__cams{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 13px}' +
+      '.da-golive__cam{position:relative;aspect-ratio:1/1;border-radius:7px;overflow:hidden;background-color:#0f1117;background-size:cover;background-position:50% 30%}' +
+      '.da-golive__cam::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.20),transparent 38%)}' +
       '.da-golive__btns{display:flex;gap:8px}' +
       '.da-golive__go{flex:1;height:38px;border-radius:10px;border:none;background:#22c55e;color:#06210f;font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer;transition:filter .15s}' +
       '.da-golive__go:hover{filter:brightness(1.08)}' +
@@ -314,6 +316,16 @@
     // is alive" perception → sign-in conversions).
     var activity = [], activitySeen = 0, activitySeenSnapshot = 0;
     try { activitySeen = parseInt(localStorage.getItem('da-activity-seen') || '0', 10) || 0; } catch (_) {}
+
+    // First-visit baselines. If there's no stored "seen" marker yet, this
+    // visitor has never had a chance to see anything, so everything that
+    // exists right now is treated as already-seen and the badge starts at
+    // 0. Without this a brand-new visitor saw a phantom "9+" for items
+    // that predate their arrival. Only things published AFTER this visit
+    // count from here on.
+    var hadUpdatesBaseline = false, hadActivityBaseline = false;
+    try { hadUpdatesBaseline = localStorage.getItem('da-updates-seen') != null; } catch (_) {}
+    try { hadActivityBaseline = localStorage.getItem('da-activity-seen') != null; } catch (_) {}
     // presence — real "N online in the last 5 min" from /api/online-count.
     // Pinned at the top of the activity section. Honest number per the
     // landing-page presence pipeline (admin SDK reads presence/{uid|pid}
@@ -321,7 +333,7 @@
     var onlineCount = null;
 
     // DM state
-    var myUid = null, dmRows = [], dmUnread = 0;
+    var myUid = null, dmRows = [], dmUnread = 0, signedInReal = false;
     var threadsUnsub = null, prevUnread = {}, firstSnap = true;
 
     bell.style.display = 'inline-flex'; // visible to everyone for updates, not just signed-in users
@@ -345,6 +357,7 @@
         .then(function (list) {
           updates = (Array.isArray(list) ? list : []).slice()
             .sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
+          if (!hadUpdatesBaseline) { markUpdatesSeen(); hadUpdatesBaseline = true; } // first visit: caught up
           if (panel) { markUpdatesSeen(); paintPanel(); } // open while loading: count as read
           renderBadge();
         })
@@ -381,6 +394,7 @@
         .then(function (j) {
           if (!j || !Array.isArray(j.items)) return;
           activity = j.items.slice();
+          if (!hadActivityBaseline) { markActivitySeen(); hadActivityBaseline = true; } // first visit: caught up
           if (panel) { markActivitySeen(); paintPanel(); }
           renderBadge();
         })
@@ -413,7 +427,11 @@
     // ── combined unread badge (DMs + new updates + new activity) ─────
     function renderBadge() {
       if (!badge) return;
-      var n = dmUnread + updatesUnreadCount() + activityUnreadCount();
+      // The unread count is for real signed-in users only. A signed-out
+      // (or anonymous) visitor has no DMs and nothing they've "missed", so
+      // the old phantom "9+" was noise. They still get the bell + the
+      // panel (activity / what's-new) on click; just no nagging number.
+      var n = signedInReal ? (dmUnread + updatesUnreadCount() + activityUnreadCount()) : 0;
       if (n > 0) { badge.hidden = false; badge.textContent = n > 9 ? '9+' : String(n); bell.classList.add('has-unread'); }
       else { badge.hidden = true; bell.classList.remove('has-unread'); }
     }
@@ -421,6 +439,10 @@
     // ── DM layer (auth + firestore) ──────────────────────────────────
     whenFirebaseReady(function () {
       window.firebase.auth().onAuthStateChanged(function (u) {
+        // Only a real (non-anonymous) account counts as "signed in" for the
+        // badge — /spar signs visitors in anonymously, and that shouldn't
+        // light up an unread count.
+        signedInReal = !!(u && !u.isAnonymous);
         if (!u) {
           if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
           myUid = null; dmRows = []; dmUnread = 0; prevUnread = {}; firstSnap = true;
@@ -428,6 +450,7 @@
           return;
         }
         myUid = u.uid;
+        renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
       });
     });
@@ -692,7 +715,8 @@
     var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
     var STALE_MS = 3 * 60 * 1000;             // ignore peers older than this
     var COUNTDOWN_S = 20;                     // accept window
-    var VALID = ['quick','apda','bp','worlds','asian','ld','pf','policy','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
+    var REINVITE_COOLDOWN_MS = 2 * 60 * 1000; // after a decline/timeout, stay quiet this long before any re-invite
+    var VALID =['quick','apda','bp','worlds','asian','ld','pf','policy','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
     // Don't run the matcher ON an active round (notifications.js loads on
     // /live-round + /voice-debate too) — you're already debating; being
     // re-queued as "waiting" there would pop a match mid-round.
@@ -726,6 +750,10 @@
     var ownUnsub = null, hbTimer = null, scanTimer = null;
     var pill = null, overlay = null, handledRoom = null, navigating = false;
     var declinedPeer = null, declinedAt = 0, scanning = false, pairing = false;
+    // After a decline (or a timed-out invite) we step out of the queue and stay
+    // quiet until declineUntil, so an available user is never re-pinged in a
+    // tight loop. A manual "go available" toggle clears it (see setAvailable).
+    var declineUntil = 0, cooldownTimer = null;
     var docGone = false; // own queue doc reaped/cancelled while we still think we're available
 
     function fmt() {
@@ -789,6 +817,9 @@
       try { localStorage.setItem(LSKEY, available ? '1' : '0'); } catch (e) {}
       try { if (window.gtag) gtag('event', on ? 'spar_bg_on' : 'spar_bg_off'); } catch (e) {}
       paintPill();
+      // A manual opt-in is an explicit "match me now", so it clears any
+      // lingering post-decline quiet window.
+      if (on) { declineUntil = 0; if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; } }
       if (available && myUid && !ON_ROUND && !ON_SPAR) goAvailable();
       else goOffline();
     }
@@ -819,6 +850,7 @@
     // peers can't see. Guards mirror goAvailable + the overlay/nav states.
     function requeue() {
       if (!myUid || !myRef || !available || ON_ROUND || ON_SPAR || ON_PUBLIC || overlay || navigating) return;
+      if (Date.now() < declineUntil) return; // honour the post-decline quiet window
       docGone = false;
       myRef.set({
         uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
@@ -865,6 +897,10 @@
         var matched = d.status === 'matched' && d.room && d.matchedWith;
         if (matched) {
           if (handledRoom === d.room || navigating || overlay) return;
+          // Post-decline quiet window: a peer paired us before we finished
+          // stepping out. Release them back to 'waiting' and stay quiet
+          // instead of popping another invite.
+          if (Date.now() < declineUntil) { releaseMatch(); return; }
           handledRoom = d.room;
           showMatch(d);
         } else if (overlay && !navigating) {
@@ -879,7 +915,7 @@
 
     // ── peer scan → server pair ──
     function scan() {
-      if (!available || !db || !myUid || navigating || overlay || scanning) return;
+      if (!available || !db || !myUid || navigating || overlay || scanning || Date.now() < declineUntil) return;
       scanning = true;
       db.collection('matchmaking_queue')
         .where('broaden', '==', true)
@@ -891,7 +927,7 @@
           var peer = null, now = Date.now();
           snap.forEach(function (s) {
             if (peer || s.id === myUid) return;
-            if (s.id === declinedPeer && (now - declinedAt) < 60000) return;
+            if (s.id === declinedPeer && (now - declinedAt) < REINVITE_COOLDOWN_MS) return;
             var dt = s.data() || {};
             var ms = (dt.joinedAt && dt.joinedAt.toMillis) ? dt.joinedAt.toMillis() : 0;
             if (ms && (now - ms) > STALE_MS) return;
@@ -1003,6 +1039,35 @@
       });
       location.href = '/live-round.html?' + params.toString();
     }
+    // Release the current match back to the queue (the peer returns to
+    // 'waiting' via the admin SDK, so their card closes instead of landing in
+    // an empty room) and then drop our OWN waiting doc so nobody can re-pair us.
+    // Shared by decline and the cooldown-race guard in watchOwnDoc.
+    function releaseMatch() {
+      handledRoom = null;
+      function dropMine() { if (myRef) myRef.delete().catch(function () {}); }
+      try {
+        window.firebase.auth().currentUser.getIdToken().then(function (tok) {
+          return fetch('/.netlify/functions/spar-unmatch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: '{}'
+          });
+        }).then(dropMine).catch(dropMine);
+      } catch (e) { dropMine(); }
+    }
+    // Re-enter the queue once the post-decline quiet window elapses, but only
+    // if the user is still available and idle (no card / round / nav / hidden).
+    // A hidden tab at fire time is picked up by the visibilitychange requeue.
+    function pauseForCooldown() {
+      if (cooldownTimer) clearTimeout(cooldownTimer);
+      cooldownTimer = setTimeout(function () {
+        cooldownTimer = null;
+        if (available && myUid && !ON_ROUND && !ON_SPAR && !ON_PUBLIC && !overlay && !navigating && !document.hidden) {
+          goAvailable();
+        }
+      }, Math.max(0, declineUntil - Date.now()));
+    }
     function decline(d) {
       closeOverlay();
       declinedPeer = (d && d.matchedWith) || null;
@@ -1010,19 +1075,16 @@
       handledRoom = null;
       try { if (window.gtag) gtag('event', 'spar_bg_decline'); } catch (e) {}
       if (!available || ON_ROUND || ON_SPAR) return;
-      // Server releases BOTH docs back to waiting (admin SDK bypasses the
-      // rule that blocks writing a peer's doc), so the peer's own-doc
-      // listener closes its card too instead of landing in an empty room.
-      // Then I resume scanning. Local re-queue is the network-fail fallback.
-      window.firebase.auth().currentUser.getIdToken().then(function (tok) {
-        return fetch('/.netlify/functions/spar-unmatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-          body: '{}'
-        });
-      }).then(function () { if (available) startTimers(); }).catch(function () {
-        requeue();
-      });
+      // Don't re-invite someone who just declined (or let an invite time out).
+      // Stay quiet for REINVITE_COOLDOWN_MS: stop scanning, release the peer
+      // back to 'waiting' so they aren't stranded, drop our own queue doc so
+      // no one re-pairs us, then re-enter the queue once the window elapses.
+      // requeue()/scan() both self-guard on declineUntil, so an inbound pair or
+      // a tab-focus can't sneak a card in during the window.
+      declineUntil = Date.now() + REINVITE_COOLDOWN_MS;
+      stopTimers();
+      releaseMatch();
+      pauseForCooldown();
     }
 
     // ── go-live opt-in prompt ("be live for live debates while you scroll?") ──
@@ -1078,10 +1140,10 @@
           '<p class="da-golive__p">Stay matchable while you browse. We’ll ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
           '<div class="da-golive__camcap">What a live round looks like</div>' +
           '<div class="da-golive__cams" aria-hidden="true">' +
-            '<div class="da-golive__cam" style="--hx:52%"><i></i></div>' +
-            '<div class="da-golive__cam" style="--hx:44%"><i style="animation-delay:.4s"></i></div>' +
-            '<div class="da-golive__cam" style="--hx:55%"><i style="animation-delay:.8s"></i></div>' +
-            '<div class="da-golive__cam" style="--hx:47%"><i style="animation-delay:1.2s"></i></div>' +
+            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face02.jpg)"></div>' +
+            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face12.jpg)"></div>' +
+            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face10.jpg)"></div>' +
+            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face17.jpg)"></div>' +
           '</div>' +
           '<div class="da-golive__btns">' +
             '<button type="button" class="da-golive__go">Go live</button>' +

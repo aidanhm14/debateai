@@ -16,11 +16,11 @@
 <meta property="og:url" content="https://debateai.com/spar">
 <meta property="og:title" content="Spar · Debate it live with another debater · DebateIt">
 <meta property="og:description" content="Post on the waitlist, DM another debater, or matchmake into a live voice round in 30 seconds. The global DebateIt community of debaters. AI judges at the end.">
-<meta property="og:image" content="https://debateai.com/og-image.png?v=debateit1">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=cards3">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Spar · Debate it live with another debater · DebateIt">
 <meta name="twitter:description" content="The global DebateIt community. Post, DM, or matchmake into a live voice round. AI judges at the end.">
-<meta name="twitter:image" content="https://debateai.com/og-image.png?v=debateit1">
+<meta name="twitter:image" content="https://debateai.com/og-image.png?v=cards3">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -81,7 +81,7 @@
   --bar-bg:rgba(250,250,247,.85);
 }
 body{
-  font-family:'Geist','Fraunces',Georgia,"Times New Roman",serif;
+  font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;
   background:var(--bg);color:var(--text);
   min-height:100vh;
   display:flex;flex-direction:column;
@@ -214,7 +214,7 @@ h1 em{color:var(--accent);font-style:normal}
 .gdmap-card .gdmap-card-arrow{color:rgba(96, 70, 40, .6);font-weight:400;margin:0 2px}
 .gdmap-card .gdmap-card-sub{
   color:rgba(70, 50, 30, 0.7);
-  font-family:'Geist','Inter','SF Pro Text',system-ui,sans-serif;
+  font-family:'Crimson Pro','Inter','SF Pro Text',system-ui,sans-serif;
   font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
 }
 [data-theme="midnight"] .gdmap-card,
@@ -230,7 +230,7 @@ h1 em{color:var(--accent);font-style:normal}
 
 /* Tooltip on idle dot hover — "London · BP practice", "Delhi · WSDC prep". */
 .gdmap-tooltip{
-  font-family:'Geist','Inter','SF Pro Text',system-ui,sans-serif;
+  font-family:'Crimson Pro','Inter','SF Pro Text',system-ui,sans-serif;
   font-size:.66rem;font-weight:600;letter-spacing:.04em;
   padding:4px 9px;border-radius:999px;
   background:rgba(252, 248, 240, 0.96);
@@ -473,6 +473,19 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.64rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
   color:var(--text-ghost);margin-bottom:5px;
 }
+/* Cross-format proposal block — "you queued X, they queued Y, play Z?" */
+.consent-format{
+  max-width:480px;margin:14px auto 0;padding:13px 16px;text-align:left;
+  background:rgba(239,68,68,.07);border:1px solid var(--accent-glow);border-radius:12px;
+}
+.consent-format-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:.82rem;line-height:1.5;color:var(--text-dim);
+}
+.consent-format-row + .consent-format-row{margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
+.consent-format-row strong{color:var(--text);font-weight:700}
+.consent-format-row.play strong{color:var(--accent)}
+.consent-format-who{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost)}
 
 /* Live waitlist tile — shows other debaters currently queued in the
    same format, with avatars, short names, and how long they've been
@@ -498,10 +511,21 @@ h1 em{color:var(--accent);font-style:normal}
   display:flex;flex-direction:column;gap:2px;
 }
 .wl-row{
-  display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:10px;
+  display:grid;grid-template-columns:24px 1fr auto auto;align-items:center;gap:10px;
   padding:6px 4px;border-radius:6px;
 }
 .wl-row + .wl-row{border-top:1px solid var(--border)}
+/* Per-peer DM action in the live queue list. Lets you reach out to
+   someone who's searching right now and organise a round directly,
+   instead of only waiting on the random pair. Reuses openDMThread +
+   the existing dm_threads marketplace. */
+.wl-msg-btn{
+  font-family:inherit;font-size:.68rem;font-weight:700;letter-spacing:.02em;
+  color:var(--accent);background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.32);border-radius:999px;
+  padding:4px 11px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s;
+}
+.wl-msg-btn:hover{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.55)}
 .wl-avi{
   width:24px;height:24px;border-radius:50%;
   background:rgba(239,68,68,.12);
@@ -1041,7 +1065,7 @@ h1 em{color:var(--accent);font-style:normal}
   background:var(--accent); flex-shrink:0;
 }
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
 <body>
 
@@ -1173,6 +1197,23 @@ h1 em{color:var(--accent);font-style:normal}
   var BROADEN_OFFER_SEC = 45;
 
   var shell = document.getElementById('shell');
+  // Delegated DM action for the live queue list. Bound once on the stable
+  // shell so it survives every renderWaitlist() re-render (the queue list
+  // re-paints on each poll). Clicking "Message them" on a peer who's
+  // searching opens a 1:1 thread with them via the existing dm_threads
+  // marketplace, so you can organise a round instead of only waiting on
+  // the random pair. openDMThread no-ops for signed-out users.
+  if (shell){
+    shell.addEventListener('click', function(e){
+      var btn = e.target && e.target.closest ? e.target.closest('[data-dm-uid]') : null;
+      if (!btn) return;
+      var uid = btn.getAttribute('data-dm-uid');
+      if (!uid) return;
+      e.preventDefault();
+      openDMThread(uid, btn.getAttribute('data-dm-name') || 'Debater', btn.getAttribute('data-dm-photo') || '');
+      try { if (window.gtag) gtag('event', 'spar_queue_dm', { format: formatParam }); } catch(err){}
+    });
+  }
 
   function escHtml(s){
     return String(s||'').replace(/[&<>"']/g, function(c){
@@ -1194,6 +1235,7 @@ h1 em{color:var(--accent);font-style:normal}
     var now = Math.floor(Date.now() / 1000);
     var rows = others.slice(0, 6).map(function(d){
       var data = d.data ? d.data() : d;
+      var uid = (d && d.id) ? d.id : (data.uid || '');
       var name = escHtml(data.displayName || 'Anonymous');
       var initial = (name.replace(/&[^;]+;/g,'').charAt(0) || '?').toUpperCase();
       var avi = data.photoURL
@@ -1202,10 +1244,19 @@ h1 em{color:var(--accent);font-style:normal}
       var sec = (data.joinedAt && data.joinedAt.seconds)
         ? Math.max(0, now - data.joinedAt.seconds)
         : 0;
+      // "Message them" — DM a peer who's searching right now so you can
+      // organise a round directly. Only when we have a uid to reach and
+      // it isn't us. Click handled by the delegated listener on `shell`.
+      var msgBtn = (uid && (!state.user || uid !== state.user.uid))
+        ? '<button class="wl-msg-btn" type="button" data-dm-uid="' + escHtml(uid) +
+            '" data-dm-name="' + escHtml(data.displayName || 'Debater') +
+            '" data-dm-photo="' + escHtml(data.photoURL || '') + '">Message them</button>'
+        : '';
       return '<li class="wl-row">' +
         '<span class="wl-avi">' + avi + '</span>' +
         '<span class="wl-name">' + name + '</span>' +
         '<span class="wl-time">' + sec + 's</span>' +
+        msgBtn +
         '</li>';
     }).join('');
     var more = others.length > 6
@@ -2056,7 +2107,7 @@ h1 em{color:var(--accent);font-style:normal}
     stats.innerHTML =
       '<div style="margin-top:14px;padding:14px 16px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.32);border-radius:12px;text-align:left;color:var(--text)">' +
         '<div style="font-size:.82rem;font-weight:700;margin-bottom:6px;color:#bfdbfe">Thin queue on ' + escHtml(formatParam.toUpperCase()) + '?</div>' +
-        '<div style="font-size:.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px">Match across formats instead. We\'ll pair you with any debater who\'s also broadened. Format gets picked on the round itself.</div>' +
+        '<div style="font-size:.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px">Match across formats instead. We\'ll pair you with any debater who\'s also broadened, then ask you both to OK the format before the round starts.</div>' +
         '<button class="btn primary" id="broadenBtn" style="font-size:.78rem;padding:8px 16px">Broaden formats</button>' +
       '</div>';
     var bb = document.getElementById('broadenBtn');
@@ -2347,6 +2398,20 @@ h1 em{color:var(--accent);font-style:normal}
     var fmtLabel = escHtml(FORMAT_LABELS[d.pairedFormat] || String(d.pairedFormat || 'this').toUpperCase());
     var theirNote = cleanParadigm(paradigms[peerUid]);
     var myNote = cleanParadigm(paradigms[me]);
+    // Cross-format proposal: the two queued for different styles. Build a
+    // "you queued X · they queued Y · play Z" block so nobody is dropped
+    // into a format they didn't pick without saying yes first.
+    var crossFmt = !!d.crossFormat;
+    var labelFor = function(f){ return escHtml(FORMAT_LABELS[f] || String(f || '').toUpperCase()); };
+    var formatBlock = '';
+    if (crossFmt){
+      formatBlock =
+        '<div class="consent-format">' +
+          '<div class="consent-format-row"><span class="consent-format-who">You queued</span><strong>' + labelFor(d.myFormatPref) + '</strong></div>' +
+          '<div class="consent-format-row"><span class="consent-format-who">' + peerName + ' queued</span><strong>' + labelFor(d.peerFormat) + '</strong></div>' +
+          '<div class="consent-format-row play"><span class="consent-format-who">Proposed round</span><strong>' + fmtLabel + '</strong></div>' +
+        '</div>';
+    }
 
     if (myConsent){
       // My half of the handshake is in (their note was empty, or I
@@ -2355,7 +2420,8 @@ h1 em{color:var(--accent);font-style:normal}
         '<div class="consent-wrap">' +
           '<div class="eyebrow"><span class="pip"></span>Match found · awaiting opponent</div>' +
           '<h1>Waiting on <em>' + peerName + '.</em></h1>' +
-          '<p class="lede">They\'re reading your judge instructions. The round starts the moment they accept.</p>' +
+          '<p class="lede">' + (crossFmt ? 'They\'re confirming the <strong>' + fmtLabel + '</strong> round. It starts the moment they accept.' : 'They\'re reading your judge instructions. The round starts the moment they accept.') + '</p>' +
+          (crossFmt ? formatBlock : '') +
           (myNote ? '<div class="consent-note mine"><div class="consent-note-label">Your instructions to the judge</div>' + escHtml(myNote) + '</div>' : '') +
           '<div class="btn-row"><button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button></div>' +
         '</div>';
@@ -2377,11 +2443,23 @@ h1 em{color:var(--accent);font-style:normal}
     if (myNote){
       noteBlocks += '<div class="consent-note mine"><div class="consent-note-label">Yours · they\'re accepting this too</div>' + escHtml(myNote) + '</div>';
     }
+    // Lede depends on what they're being asked to OK: a format switch, a
+    // judge note, or both. Format gets named first since it changes the
+    // whole round; the note rides on top of the standard ballot method.
+    var lede;
+    if (crossFmt && (theirNote || myNote)){
+      lede = 'You two prefer different formats. Run the <strong>' + fmtLabel + '</strong> round, with the judge instructions below applied on top. Accept to start, pass to keep searching.';
+    } else if (crossFmt){
+      lede = 'You two prefer different formats. Most debaters can run a new style with a quick heads-up. Accept to debate this round in <strong>' + fmtLabel + '</strong>, or pass to keep searching for your format.';
+    } else {
+      lede = 'The judge applies the instructions below on top of the standard ballot method. Accept to start, pass to keep searching.';
+    }
     shell.innerHTML =
       '<div class="consent-wrap">' +
         '<div class="eyebrow"><span class="pip"></span>Match found · needs your OK</div>' +
         '<h1>' + peerName + ' proposes a <em>' + fmtLabel + '</em> round.</h1>' +
-        '<p class="lede">The judge applies the instructions below on top of the standard ballot method. Accept to start, pass to keep searching.</p>' +
+        '<p class="lede">' + lede + '</p>' +
+        formatBlock +
         noteBlocks +
         '<div class="btn-row">' +
           '<button class="btn primary" id="consentAcceptBtn">Accept &amp; start</button>' +
