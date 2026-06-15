@@ -269,6 +269,32 @@ h1 em{color:var(--accent);font-style:normal}
 }
 @keyframes meta-dot-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
+/* Recent-attempts timeline. Sits under the live counts: the strip says
+   "N looked this week," this shows WHO (anonymously) and exactly when,
+   newest first, so an empty live queue still reads as a place people
+   actually come to. Each row = one prior attempt. */
+.seek-feed{margin:-6px auto 20px;max-width:360px;width:100%}
+.seek-feed__head{
+  font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-ghost);opacity:.85;margin:0 0 8px;text-align:center;
+}
+.seek-feed__list{display:flex;flex-direction:column;gap:1px}
+.seek-row{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 10px;border-radius:8px;font-size:.76rem;
+  transition:background .15s ease;
+}
+.seek-row:hover{background:rgba(127,127,127,.07)}
+.seek-row__dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--text-ghost);opacity:.4}
+.seek-row__fmt{color:var(--text-dim);font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seek-row__time{
+  color:var(--text-ghost);font-weight:500;white-space:nowrap;
+  font-family:ui-monospace,SFMono-Regular,monospace;font-variant-numeric:tabular-nums;
+}
+/* Anything inside ~12 min reads as "someone's basically here right now." */
+.seek-row--fresh .seek-row__dot{background:#22c55e;opacity:.95;box-shadow:0 0 6px rgba(34,197,94,.55)}
+.seek-row--fresh .seek-row__time{color:#22c55e}
+
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
 .orb-wrap{
@@ -1318,6 +1344,15 @@ h1 em{color:var(--accent);font-style:normal}
         '<span class="meta-sep meta-month-sep" id="metaMonthSep" style="display:none">·</span>' +
         '<span class="meta-cell meta-month-cell" id="metaMonthCell" style="display:none"><strong id="metaMonth">0</strong> this month</span>' +
       '</div>' +
+      // Recent-attempts timeline. An ordered "who came looking, and when"
+      // list so a "0 in queue" arrival sees that real debaters tried —
+      // and roughly when — instead of a dead empty state. Populated by
+      // renderRecentSeeks() from /api/log-missed-match's `recent` array;
+      // stays hidden until there's at least one event to show.
+      '<div class="seek-feed" id="seekFeed" hidden>' +
+        '<div class="seek-feed__head">Recent attempts to find a live round</div>' +
+        '<div class="seek-feed__list" id="seekFeedList"></div>' +
+      '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">AI fallback in <strong id="countdownNum">4:00</strong></div>' +
       // One clear action while waiting: prep (you stay in the queue and
@@ -1636,8 +1671,54 @@ h1 em{color:var(--accent);font-style:normal}
           if (cellM) cellM.style.display = '';
           if (cellM) cellM.innerHTML = '<strong id="metaMonth">' + String(nM) + '</strong> ' + labelM;
         }
+        // Ordered "who looked, and when" timeline under the counts.
+        renderRecentSeeks(Array.isArray(j.recent) ? j.recent : []);
       })
       .catch(function(){});
+  }
+
+  // Format slugs the recent-seeks ring can hand back. Covers both the
+  // client style-chip slugs (worlds/asian) and the server's allow-list
+  // names (wsdc/asian_parli/congress/mun/india_*), since the logger
+  // normalizes to its own set. Unknown/'other' falls through to a
+  // generic "a live round" so a row never shows a raw slug.
+  var SEEK_LABELS = {
+    quick: 'Quick Clash', apda: 'APDA', bp: 'BP',
+    worlds: 'Worlds (WUDC)', wsdc: 'Worlds (WUDC)',
+    asian: 'Asian Parli', asian_parli: 'Asian Parli',
+    ld: 'LD', pf: 'Public Forum', policy: 'Policy',
+    congress: 'Congress', mun: 'MUN',
+    india_school: 'India circuit', india_college: 'India circuit',
+  };
+  var SEEK_FRESH_MS = 12 * 60 * 1000; // green dot = looked within ~12 min
+
+  // Render the recent-attempts list. Each row is one prior debater who
+  // pressed "find a round" (anonymous by design — that press isn't an
+  // opt-in to be named, unlike the waitlist rail), labeled with the
+  // format they wanted and how long ago. Newest first; the exact local
+  // time rides in the row's title attribute for an on-hover precise read.
+  function renderRecentSeeks(list){
+    var wrap = document.getElementById('seekFeed');
+    var host = document.getElementById('seekFeedList');
+    if (!wrap || !host) return;
+    var rows = (list || [])
+      .filter(function(e){ return e && typeof e.ts === 'number'; })
+      .sort(function(a, b){ return b.ts - a.ts; })
+      .slice(0, 6);
+    if (!rows.length){ wrap.hidden = true; host.innerHTML = ''; return; }
+    var now = Date.now();
+    host.innerHTML = rows.map(function(e){
+      var fresh = (now - e.ts) <= SEEK_FRESH_MS;
+      var label = SEEK_LABELS[e.fmt] || 'a live round';
+      var exact = '';
+      try { exact = new Date(e.ts).toLocaleString(); } catch (err) {}
+      return '<div class="seek-row' + (fresh ? ' seek-row--fresh' : '') + '" title="' + escHtml(exact) + '">' +
+               '<span class="seek-row__dot"></span>' +
+               '<span class="seek-row__fmt">A debater looked for ' + escHtml(label) + '</span>' +
+               '<span class="seek-row__time">' + escHtml(relTime(e.ts)) + '</span>' +
+             '</div>';
+    }).join('');
+    wrap.hidden = false;
   }
 
   // Live ops strip: real counts pulled from Firestore via onSnapshot.
