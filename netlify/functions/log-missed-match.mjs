@@ -47,6 +47,18 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 const COUNTER_DOC = 'metrics/missed_matches';
 const ATTEMPTS_DOC = 'metrics/spar_attempts';
 
+// Recent-seeks ring. The aggregate counters above answer "how many
+// looked this week"; this answers "who looked, in what order, and when"
+// so /spar can render an ordered timeline ("APDA · 2h ago") instead of a
+// dead "0 in queue" empty state. One doc holding a capped array, newest
+// first. Anonymous on purpose — an attempt is "I pressed find a round,"
+// not an opt-in to be named publicly (that's the waitlist rail's job),
+// so we store the format + a server-stamped time and nothing else.
+const RECENT_DOC = 'metrics/spar_recent_seeks';
+const MAX_RECENT_STORED = 24;       // ring size kept in Firestore
+const MAX_RECENT_RETURNED = 12;     // most the GET ever hands back
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // drop events older than 7d
+
 // Per-IP tick budget. The spar matchmaker queues you for ~60s before
 // AI fallback fires, so a real user is unlikely to legitimately
 // generate >6 misses/hr.
@@ -180,6 +192,39 @@ async function tickCounter(docRef, format, reason){
   return await readCounts(docRef);
 }
 
+// Read the recent-seeks ring: newest first, stale events (older than the
+// window) filtered out, capped to what the strip will actually show. A
+// single cheap doc read — no collection scan, no composite index.
+async function readRecentSeeks(docRef){
+  const snap = await docRef.get();
+  if (!snap.exists) return [];
+  const d = snap.data() || {};
+  const events = Array.isArray(d.events) ? d.events : [];
+  const cutoff = Date.now() - RECENT_WINDOW_MS;
+  return events
+    .filter((e) => e && typeof e.ts === 'number' && e.ts >= cutoff && typeof e.fmt === 'string')
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, MAX_RECENT_RETURNED)
+    .map((e) => ({ fmt: e.fmt, ts: e.ts }));
+}
+
+// Push one attempt onto the ring inside a transaction so concurrent
+// seeks don't clobber each other, prepend newest, drop anything past the
+// window, and trim to MAX_RECENT_STORED. Time is stamped server-side
+// (Date.now ms) — FieldValue.serverTimestamp() can't live inside an
+// array element, so a plain epoch number is the right shape here.
+async function pushRecentSeek(db, docRef, format){
+  const now = Date.now();
+  const cutoff = now - RECENT_WINDOW_MS;
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(docRef);
+    const prior = snap.exists && Array.isArray(snap.data().events) ? snap.data().events : [];
+    const fresh = prior.filter((e) => e && typeof e.ts === 'number' && e.ts >= cutoff);
+    const events = [{ fmt: format, ts: now }, ...fresh].slice(0, MAX_RECENT_STORED);
+    tx.set(docRef, { events, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  });
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET' && request.method !== 'POST'){
@@ -194,21 +239,24 @@ export default async (request) => {
   }
   const missesRef = db.doc(COUNTER_DOC);
   const attemptsRef = db.doc(ATTEMPTS_DOC);
+  const recentRef = db.doc(RECENT_DOC);
 
   if (request.method === 'GET'){
     try {
-      // Read both counters in parallel. Misses stay top-level for
-      // backward-compat; attempts ride alongside under `attempts`.
-      // Stale week_key on read is fine — we don't reset on GET (avoids a
-      // write per anonymous read).
-      const [misses, attempts] = await Promise.all([
+      // Read both counters + the recent-seeks ring in parallel. Misses
+      // stay top-level for backward-compat; attempts ride alongside under
+      // `attempts`; the ordered "who looked, and when" timeline rides
+      // under `recent`. Stale week_key on read is fine — we don't reset
+      // on GET (avoids a write per anonymous read).
+      const [misses, attempts, recent] = await Promise.all([
         readCounts(missesRef),
         readCounts(attemptsRef),
+        readRecentSeeks(recentRef),
       ]);
-      return jsonResponse({ ...misses, attempts }, 200, request);
+      return jsonResponse({ ...misses, attempts, recent }, 200, request);
     } catch (err) {
       console.error('log-missed-match GET failed:', err.message);
-      return jsonResponse({ ...defaultCounts(), attempts: defaultCounts() }, 200, request);
+      return jsonResponse({ ...defaultCounts(), attempts: defaultCounts(), recent: [] }, 200, request);
     }
   }
 
@@ -251,6 +299,14 @@ export default async (request) => {
 
   try {
     const counts = await tickCounter(targetRef, format, reason);
+    // Only a genuine "looked for a round" intent joins the ordered
+    // timeline. Misses/cancels already had their own 'attempt' tick when
+    // the search started, so logging them again would double up the same
+    // person. Best-effort: a ring write failing never fails the tick.
+    if (isAttempt){
+      try { await pushRecentSeek(db, recentRef, format); }
+      catch (e) { console.warn('spar_recent_seeks push failed:', e.message); }
+    }
     return jsonResponse({ ...counts, ticked: true, kind: isAttempt ? 'attempt' : 'miss' }, 200, request);
   } catch (err) {
     console.error('log-missed-match POST failed:', err.message);
