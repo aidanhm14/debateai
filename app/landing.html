@@ -14387,9 +14387,18 @@ window.addEventListener('load', function(){
     });
   }
 
-  // Delay so the hero loads first. Skipped on return visits (the
-  // suppression flag) or if the visitor deep-linked to a section.
-  if (autoOpenAllowed) setTimeout(open, 2500);
+  // Let the visitor browse before prompting. Fires after they scroll
+  // past the hero (~500px) with at least 8s on page, OR after 25s idle.
+  // Skipped on return visits or deep-links.
+  if (autoOpenAllowed) {
+    var fired = false;
+    var pageReady = false;
+    var fire = function(){ if (fired) return; fired = true; open(); window.removeEventListener('scroll', onScroll); };
+    setTimeout(function(){ pageReady = true; }, 8000);
+    setTimeout(fire, 25000);
+    var onScroll = function(){ if (pageReady && window.scrollY > 500) fire(); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
 })();
 </script>
 </body>
