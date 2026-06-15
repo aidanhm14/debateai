@@ -69,6 +69,14 @@
     '.dafab-x:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.06);}',
     '.dafab-sub{color:rgba(255,255,255,.62);font-size:.78rem;line-height:1.5;margin:0 0 14px;}',
 
+    '.dafab-drills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}',
+    '.dafab-chip{font-size:.72rem;font-weight:700;color:rgba(255,255,255,.82);text-decoration:none;',
+      'background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);',
+      'border-radius:999px;padding:6px 11px;transition:.15s;cursor:pointer;}',
+    '.dafab-chip:hover{border-color:#ef4444;color:#fff;background:rgba(239,68,68,.14);}',
+    '.dafab-lbl{font-size:.64rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;',
+      'color:rgba(255,255,255,.4);margin:0 0 8px;}',
+
     '.dafab-pick{display:flex;gap:8px;margin-bottom:14px;}',
     '.dafab-opt{flex:1;cursor:pointer;background:transparent;',
       'border:1px solid rgba(255,255,255,.12);border-radius:10px;',
@@ -116,13 +124,21 @@
     +   '<div class="dafab-h-l">Your coach</div>'
     +   '<button class="dafab-x" type="button" aria-label="Close">✕</button>'
     + '</div>'
-    + '<p class="dafab-sub">Knows your format, your moves, the spots you hedge. Live voice. Sign-in required.</p>'
+    + '<p class="dafab-sub">A live voice drill partner that knows your format and the spots you hedge. Sign-in required.</p>'
+    + '<p class="dafab-lbl">Jump into a drill</p>'
+    + '<div class="dafab-drills">'
+    +   '<a class="dafab-chip" href="/coach?drill=poi" data-drill="poi">POI gauntlet</a>'
+    +   '<a class="dafab-chip" href="/coach?drill=rebuttal" data-drill="rebuttal">Rebuttal sprint</a>'
+    +   '<a class="dafab-chip" href="/coach?drill=impact" data-drill="impact">Impact calculus</a>'
+    +   '<a class="dafab-chip" href="/coach?drill=crossex" data-drill="crossex">Cross-ex</a>'
+    + '</div>'
+    + '<p class="dafab-lbl">Coach voice</p>'
     + '<div class="dafab-pick" role="radiogroup" aria-label="Coach voice">'
     +   '<button class="dafab-opt" type="button" data-g="female">Female</button>'
     +   '<button class="dafab-opt" type="button" data-g="male">Male</button>'
     + '</div>'
-    + '<a class="dafab-start" href="/coach" data-action="start">Start the session</a>'
-    + '<a class="dafab-open" href="/coach">or open the full session →</a>';
+    + '<a class="dafab-start" href="/coach" data-action="start">Open spar</a>'
+    + '<a class="dafab-open" href="/coach">or open the full coach →</a>';
 
   document.body.appendChild(backdrop);
   document.body.appendChild(btn);
@@ -169,5 +185,10 @@
   });
   drawer.querySelector('[data-action="start"]').addEventListener('click', function(){
     try { window.gtag && gtag('event', 'coach_fab_start', { gender: loadGender(), path: here }); } catch(e){}
+  });
+  Array.prototype.forEach.call(drawer.querySelectorAll('.dafab-chip'), function(c){
+    c.addEventListener('click', function(){
+      try { window.gtag && gtag('event', 'coach_fab_drill', { drill: c.getAttribute('data-drill'), path: here }); } catch(e){}
+    });
   });
 })();
