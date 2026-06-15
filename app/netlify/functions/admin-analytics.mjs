@@ -1,7 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, getCachedSharedStale, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 // Hardcoded admin UID — the app owner's Firebase UID
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
@@ -158,7 +158,7 @@ export default async (request) => {
     try {
       const recentEvents = await db.collection('events')
         .where('createdAt', '>=', thirtyDaysAgo)
-        .limit(2000) // 2026-06-15: 5000→2000 to shrink a cold-miss read burst under the Spark daily cap
+        .limit(5000)
         .get();
       recentEvents.docs.forEach(doc => {
         const ev = doc.data().event || 'unknown';
@@ -260,11 +260,6 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-analytics error:', err);
-    // Quota blown / transient Firestore failure: serve the last cached
-    // payload (expiry ignored) so the panel shows last-known numbers
-    // instead of a 500. _stale lets the UI flag it.
-    const stale = await getCachedSharedStale(CACHE_KEY);
-    if (stale) return jsonResponse({ ...stale, _stale: true }, 200, request);
     return errorResponse('Something went wrong. Please try again.', 500, request);
   }
 };

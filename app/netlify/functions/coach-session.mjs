@@ -38,14 +38,9 @@ const ALLOWED_GENDERS = new Set(Object.keys(COACH_VOICES));
 // does on turn one so it launches straight into the drill).
 const DRILLS = {
   open: {
-    label: 'Talk to coach',
+    label: 'Open spar',
     focus: 'Free back and forth. Let them set the motion and pick a side, then take the other side and be a sharp opponent and second.',
     open: 'ask what motion they want to run and which side they are taking, then take the opposite side and go.',
-  },
-  dynamics: {
-    label: 'Dynamics lab',
-    focus: 'Build their grasp of how one real-world system actually works, then make them deploy it. This drill trains matter, not technique, so you teach more than you spar until the end. Pick one high-leverage dynamic (how a rate hike transmits to inflation and jobs over a twelve to eighteen month lag, why civil wars persist on lootable resources and outside backers, how sanctions bite through dollar clearing and then leak through third countries, how a sovereign debt spiral feeds itself, how carbon pricing shifts behavior) or read the dynamic out of the motion they gave. Walk the causal chain one link at a time: ask them to predict the next step, then confirm and sharpen it with the real mechanism, a real number or named case, and the lag or the failure mode where the chain breaks or reverses. Keep your turns to a sentence or two, never a lecture, and correct them plainly when they are wrong instead of nodding along. When the chain is built, make them say the whole chain back in their own words before you move on. Then hand them a live motion that turns on this dynamic and pressure-test it with one hard point. Close by naming two or three other motions the same chain unlocks.',
-    open: 'name the system you are about to teach, or pull it from their motion, then ask them to predict the very first causal link before you give it.',
   },
   poi: {
     label: 'POI gauntlet',
@@ -254,51 +249,39 @@ export default async (request) => {
     }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  // ── Memory load + Pro check ────────────────────────────────────
-  // Three independent startup reads (profile, plan/team, style
-  // fingerprint), each of which already degrades gracefully on failure.
-  // Run them in PARALLEL behind a hard timeout so a slow or throttled
-  // Firestore can't stall the OpenAI mint and leave the client stuck on
-  // "Starting…". This bites under a blown free-tier read quota, where
-  // every get() returns RESOURCE_EXHAUSTED only after retrying under the
-  // hood: sequential + retried reads turned a ~1s start into a
-  // multi-second hang. Worst case the coach now starts on safe defaults
-  // (free tier, no memory) ~2.5s later instead of hanging.
+  // ── Memory load + Pro check (one Firestore read) ───────────────
   const db = getDb();
   let isPro = false;
   let voiceUsedBefore = 0;
   let profile = {};
   let fingerprint = '';
 
-  const READ_TIMEOUT_MS = 2500;
-  const withTimeout = (p) => Promise.race([
-    Promise.resolve(p).catch(() => null),
-    new Promise((res) => setTimeout(() => res(null), READ_TIMEOUT_MS)),
-  ]);
-
-  const [profileSnap, teamResult, fpSnap] = await Promise.all([
-    withTimeout(db.collection('user_profiles').doc(uid).get()),
-    withTimeout(getUserTeam(uid)),
-    withTimeout(db.collection('user_fingerprints').doc(uid).get()),
-  ]);
-
-  if (profileSnap && profileSnap.exists) {
-    profile = profileSnap.data() || {};
-    voiceUsedBefore = Math.max(0, parseInt(profile.voiceSessionsUsed, 10) || 0);
+  try {
+    const profileSnap = await db.collection('user_profiles').doc(uid).get();
+    if (profileSnap.exists) {
+      profile = profileSnap.data() || {};
+      voiceUsedBefore = Math.max(0, parseInt(profile.voiceSessionsUsed, 10) || 0);
+    }
+  } catch (err) {
+    console.warn('[coach-session] user_profiles read failed:', err.message);
   }
-
   // Plan state lives on the TEAMS collection (written by stripe-webhook /
   // razorpay-activate) — user_profiles never gets plan/isPro. Resolve via
   // getUserTeam the way the brain endpoints do (see claude.mjs): paid
   // plans are individual/lifetime/team/byok; subscriptions only lose
-  // access on EXPLICIT Stripe-bad statuses. A null result (read failed or
-  // timed out) degrades to free (the cap still applies).
-  const team = teamResult && teamResult.team;
-  if (team) {
-    const SUB_PLANS = new Set(['byok', 'individual', 'team']);
-    const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
-    isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
-      && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
+  // access on EXPLICIT Stripe-bad statuses. Lookup failure degrades to
+  // free (the cap still applies).
+  try {
+    const teamResult = await getUserTeam(uid);
+    const team = teamResult && teamResult.team;
+    if (team) {
+      const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+      const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+      isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
+        && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
+    }
+  } catch (err) {
+    console.warn('[coach-session] plan lookup failed:', err.message);
   }
   if (isOwnerEmail(email)) isPro = true;
 
@@ -309,7 +292,13 @@ export default async (request) => {
     }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  if (fpSnap && fpSnap.exists) fingerprint = String(fpSnap.data()?.fingerprint || '');
+  // Nightly style fingerprint (separate doc, cheap read).
+  try {
+    const fpSnap = await db.collection('user_fingerprints').doc(uid).get();
+    if (fpSnap.exists) fingerprint = String(fpSnap.data()?.fingerprint || '');
+  } catch (err) {
+    console.warn('[coach-session] user_fingerprints read failed:', err.message);
+  }
 
   // ── Parse body + pick voice ─────────────────────────────────────
   let body;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Spar · Debate it live with another debater · DebateIt</title>
-<meta name="description" content="Match into a live debate with another human, or post to the waitlist and DM another debater in the global DebateIt community to organize a round. Wait with no time limit and get pinged the moment a human is ready, or take an AI round anytime. An AI judge writes the verdict at the end." />
+<meta name="description" content="Match into a live debate with another human in 30 seconds, or post to the waitlist and DM another debater in the global DebateIt community to organize a round. If nobody pairs in 4 minutes, an AI opponent steps in. An AI judge writes the verdict at the end." />
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -1378,7 +1378,7 @@ h1 em{color:var(--accent);font-style:normal}
     shell.innerHTML =
       '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
       '<h1>Finding someone to <em>argue with.</em></h1>' +
-      '<p class="lede">Matching you with another debater in your format. No time limit. Keep this open or prep in another tab, and we\'ll ping you the moment a human is ready. Prefer not to wait? Take an AI round anytime.</p>' +
+      '<p class="lede">Matching you with another debater in your format. If nobody pairs in 4 minutes, the AI takes the round.</p>' +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
       // across time zones," not "tracking targets." Self-contained
@@ -1416,7 +1416,7 @@ h1 em{color:var(--accent);font-style:normal}
         '<div class="seek-feed__list" id="seekFeedList"></div>' +
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
-      '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> · no time limit. Switch tabs and keep working, we\'ll ping you the moment a debater is ready.</div>' +
+      '<div class="countdown">AI fallback in <strong id="countdownNum">4:00</strong></div>' +
       // One clear action while waiting: prep (you stay in the queue and
       // get pinged the moment a human is found, anywhere on the site).
       // Cancel + Skip-to-AI demoted to quiet links so the screen reads
@@ -2100,26 +2100,15 @@ h1 em{color:var(--accent);font-style:normal}
 
   // ── Countdown timer ──────────────────────────────────
   function startCountdown(){
-    // No hard time limit. We count UP (elapsed) and never bulldoze the
-    // user into an AI round; the 90s heartbeat (startQueueHeartbeat)
-    // keeps the queue doc fresh so polling keeps hunting for a human
-    // indefinitely. AI is opt-in ("Skip to AI now"), and the user can
-    // leave the tab — we ping them when a human lands (see pingMatchFound
-    // + the background matcher in js/notifications.js).
     if (state.countdownInterval) clearInterval(state.countdownInterval);
     state.countdownInterval = setInterval(function(){
       var elapsed = Math.floor((Date.now() - state.joinedAtMs) / 1000);
+      var remaining = Math.max(0, AI_FALLBACK_SEC - elapsed);
       var num = document.getElementById('countdownNum');
       if (num){
-        var mm = Math.floor(elapsed / 60);
-        var ss = elapsed % 60;
+        var mm = Math.floor(remaining / 60);
+        var ss = remaining % 60;
         num.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss;
-      }
-      // Ask for notification permission a few seconds in, so a user who
-      // tabs away still gets a desktop ping the moment a human is found.
-      if (elapsed >= 8 && !state.pingAsked){
-        state.pingAsked = true;
-        requestPingPermission();
       }
       // Broaden-formats offer at 45s. Surfaces below the cancel/skip
       // buttons; user click flips state + queue doc.
@@ -2127,37 +2116,19 @@ h1 em{color:var(--accent);font-style:normal}
         state.broadenOffered = true;
         offerBroaden();
       }
+      if (remaining <= 0){
+        // Consent race guard: a proposal can land in the same beat the
+        // clock hits zero. If spar-pair just told us 'consent' but the
+        // doc snapshot hasn't painted yet, DON'T clear the interval —
+        // keep ticking so the fallback still fires if the snapshot
+        // never arrives (15s grace), instead of dying silently at 0:00.
+        if (state.inConsent) return;
+        if (state.consentPending && Date.now() - state.consentPending < 15000) return;
+        clearInterval(state.countdownInterval);
+        state.countdownInterval = null;
+        triggerAIFallback();
+      }
     }, 250);
-  }
-
-  // Ask once for desktop-notification permission (best-effort; silent on
-  // refusal). Lets pingMatchFound fire a real OS notification when the
-  // /spar tab is backgrounded.
-  function requestPingPermission(){
-    try {
-      if (window.Notification && Notification.permission === 'default'){
-        var r = Notification.requestPermission();
-        if (r && r.catch) r.catch(function(){});
-      }
-    } catch(e){}
-  }
-
-  // Ping the user that a human opponent landed. Sound always (cheap, and
-  // they may have the tab visible but muted-attention); a desktop
-  // notification only when the tab is hidden, so we don't double-notify
-  // someone already staring at the match card.
-  function pingMatchFound(name){
-    try { if (window.SFX){ if (SFX.success) SFX.success(); else if (SFX.notify) SFX.notify(); } } catch(e){}
-    try {
-      if (document.hidden && window.Notification && Notification.permission === 'granted'){
-        var n = new Notification('Opponent ready', {
-          body: 'vs ' + (name || 'a debater') + '. Jump back in to start the round.',
-          icon: '/favicon.svg',
-          tag: 'da-spar-match',
-        });
-        n.onclick = function(){ try { window.focus(); } catch(e){} try { n.close(); } catch(e){} };
-      }
-    } catch(e){}
   }
 
   function offerBroaden(){
@@ -2303,7 +2274,6 @@ h1 em{color:var(--accent);font-style:normal}
       // tryMatch stops POSTing at peers the server will refuse anyway.
       state.skipUids = Array.isArray(d.skipUids) ? d.skipUids : [];
       if (d.status === 'matched' && d.room && d.matchedWith){
-        pingMatchFound(d.matchedWithName);
         teardownQueue();
         // The matched-state render is cosmetic; navigation into the
         // round is the load-bearing step. Never let a render error
@@ -2330,7 +2300,6 @@ h1 em{color:var(--accent);font-style:normal}
         // Two-phase match: someone's judge-paradigm note needs eyes
         // before the round exists. spar-pair wrote the full proposal
         // onto both docs; render the accept/pass card off mine.
-        if (!state.inConsent) pingMatchFound(d.matchedWithName);
         try { renderConsentGate(d); }
         catch (e) {
           // Log only. Auto-passing here used to dissolve the pair with

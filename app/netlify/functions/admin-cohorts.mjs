@@ -21,14 +21,14 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, getCachedSharedStale, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 16;
 // 2026-05-19: 50K → 10K. Cohort retention is robust to sampling at
 // 10K events across an 8-week window because uniqueness is per-uid-per-week,
 // not per-event. Paired with the cache below.
-const MAX_EVENT_DOCS = 4_000;  // 2026-06-15: 10K→4K so a cold recompute stays well under the Spark 50K/day read cap; retention buckets stay representative at this sample
+const MAX_EVENT_DOCS = 10_000;
 
 // Sunday 00:00 in UTC at the start of the week containing `ms`.
 function weekStartUTC(ms) {
@@ -198,9 +198,6 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-cohorts error:', err);
-    // Quota blown / transient Firestore failure: serve last-known data.
-    const stale = await getCachedSharedStale(cacheKey);
-    if (stale) return jsonResponse({ ...stale, _stale: true }, 200, request);
     return errorResponse('Failed to load cohorts: ' + (err.message || 'unknown'), 500, request);
   }
 };

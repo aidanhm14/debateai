@@ -83,13 +83,6 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
-<!-- Shared telemetry: session_start + page_view + heartbeat for signed-in
-     users, plus the gtag->events bridge. /app was the only major signed-in
-     surface NOT loading this, so page_view never fired here and the weekly
-     views metric undercounted the room users actually live in. Reuses the
-     Firebase compat SDK already loaded above (track.js no-ops the duplicate
-     initializeApp). 2026-06-15. -->
-<script defer src="/js/track.js"></script>
 <!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
      top of <body>, above the fixed .app-topbar. The .app-topbar reads
      --cohort-banner-h (wired in the CSS above) and translates down by the
@@ -3485,12 +3478,12 @@ function PolyBackground() {
 
 
 
+
+
     // Small delay to ensure DOM is ready
-  }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }),
-    // Fractal-noise grain overlay matching landing.html .hero-grain.
+  }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
-    el('div', { className: 'bg-grain' }),
-    el('div', { className: 'bg-debate-side bg-debate-left' },
+    el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' },
     el('div', { className: 'geo-shape geo-diamond' }),
     el('div', { className: 'geo-shape geo-hex' }),
     el('div', { className: 'geo-shape geo-ring' })
@@ -4184,7 +4177,7 @@ function markFeedbackGiven() {try {localStorage.setItem('debateos-feedback-given
 // bypassable by a motivated user; the server-side per-account cap in
 // `canUseProFeature` is the hard limit. The counter exists to show an
 // honest "X left" pill and trigger the paywall at the expected boundary.
-function getAnonLimit() {return 3;}  // 2026-06-14: 5->3 to disincentivize guest mode + push the easy 3-method sign-in (Google / email link / phone)
+function getAnonLimit() {return 3;} // 2026-06-14: 5->3 to disincentivize guest mode + push the easy 3-method sign-in (Google / email link / phone)
 // Back-compat alias. existing code references ANON_LIMIT.
 // Must be `configurable: true` because Babel re-evaluates this script and
 // would otherwise throw "Cannot redefine property" on the second pass,
@@ -5156,13 +5149,13 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
 
 
+
+
       // If check fails, proceed anyway
     }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
     // (DevTools, stale contextHint) that would bypass the UI gate.
-    if (genMode === 'tightblock' && !isPro(team, user)) {
-      try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}
-      return;
+    if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;
     }
     if (typeof gtag === 'function') {
       gtag('event', 'case_generate', {
@@ -10893,7 +10886,7 @@ function useAuth() {
   var [user, setUser] = useState(null);
   var [loading, setLoading] = useState(true);
   useEffect(() => {
-    var unsub = null, cancelled = false;
+    var unsub = null,cancelled = false;
     (async () => {
       // Firebase now loads `defer`, so the global may not exist at parse time.
       // Deferred scripts execute before React flushes passive effects, so in
@@ -10901,7 +10894,7 @@ function useAuth() {
       // succeeds without any network work. If the CDN was blocked, fall back
       // to the multi-CDN dynamic loader before giving up.
       if (!firebaseAuth) {
-        if (typeof firebase === 'undefined') { try { await loadFirebaseDynamically(); } catch (e) {} }
+        if (typeof firebase === 'undefined') {try {await loadFirebaseDynamically();} catch (e) {}}
         initFirebase();
       }
       if (cancelled) return;
@@ -10918,7 +10911,7 @@ function useAuth() {
       } catch (e) {}
       unsub = firebaseAuth.onAuthStateChanged((u) => {setUser(u);setLoading(false);});
     })();
-    return () => { cancelled = true; if (unsub) unsub(); };
+    return () => {cancelled = true;if (unsub) unsub();};
   }, []);
   var signIn = async () => {
     // If sync-script init failed, try a dynamic reload before surfacing an
@@ -16653,7 +16646,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
   // 30fps cap + lifecycle. rAF runs at the display's native rate; a slow
   // decorative drift is indistinguishable at 30fps and it halves the
   // O(N^2) physics + canvas work on /app, where users sit for minutes.
-  var FRAME_MIN_MS = 1000 / 30 - 1, lastDrawAt = 0, running = true, rafId = 0;
+  var FRAME_MIN_MS = 1000 / 30 - 1,lastDrawAt = 0,running = true,rafId = 0;
 
   function resize() {
     W = window.innerWidth;H = window.innerHeight;
@@ -16680,7 +16673,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
 
   var frame = 0;
   function tick(ts) {
-    if (!running) { rafId = 0; return; }
+    if (!running) {rafId = 0;return;}
     rafId = requestAnimationFrame(tick);
     var now = ts || performance.now();
     if (now - lastDrawAt < FRAME_MIN_MS) return; // 30fps cap
@@ -16805,10 +16798,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
   // but never fully stops this loop). Restart on return.
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
-      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      if (rafId) {cancelAnimationFrame(rafId);rafId = 0;}
       running = false;
     } else if (!running) {
-      running = true; lastDrawAt = 0; tick();
+      running = true;lastDrawAt = 0;tick();
     }
   });
   tick();

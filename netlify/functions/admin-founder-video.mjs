@@ -31,14 +31,14 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 60;
 // 2026-05-20: was 20000. Missed by the 2026-05-19 admin-cache pass —
 // see admin-funnel.mjs. Cap lowered + 5-min cache added below.
-const MAX_DOCS = 2500;  // 2026-06-15: halved; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
+const MAX_DOCS = 5000;
 
 const BUCKETS = ['play', '25', '50', '75', 'complete'];
 
@@ -79,7 +79,7 @@ export default async (request) => {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   const cacheKey = 'founder-video:' + days;
-  const cached = await getCachedShared(cacheKey);
+  const cached = getCached(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
@@ -132,7 +132,7 @@ export default async (request) => {
       retentionPct: retention,
       timestamp: new Date().toISOString(),
     };
-    await setCachedShared(cacheKey, result, TTL_HEAVY);
+    setCached(cacheKey, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-founder-video error:', err);

@@ -12,11 +12,11 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, getCachedSharedStale, setCachedShared, TTL_TAIL } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_TAIL } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 const MAX_TAIL = 80;
-const MAX_DOCS = 800;  // 2026-06-15: 1200→800 to trim the realtime tail's read cost under the Spark daily cap (polls more often than the heavy panels)
+const MAX_DOCS = 1200;
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -147,9 +147,6 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-realtime error:', err);
-    // Quota blown / transient Firestore failure: serve last-known tail.
-    const stale = await getCachedSharedStale(cacheKey);
-    if (stale) return jsonResponse({ ...stale, _stale: true }, 200, request);
     return errorResponse('Failed to load realtime: ' + (err.message || 'unknown'), 500, request);
   }
 };

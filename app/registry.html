@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Credential Registry · Debatable</title>
+<meta name="description" content="A rolling public list of recently issued Debatable credentials. Every credential is verifiable at its own /verify/{id} URL — this page is the index." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/registry">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/registry">
+<meta property="og:title" content="Credential Registry · Debatable">
+<meta property="og:description" content="Public list of recently issued credentials. Every record links to its own verify URL.">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=orb4">
+<meta name="twitter:card" content="summary_large_image">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','crimson');
+  }
+})();
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+
+:root,[data-theme="crimson"]{
+  --bg:#0a0a0a;--bg-elev:#111;--bg-card:#141414;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.18);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.16);
+  --gold:#a8865c;--gold-soft:rgba(168,134,92,.10);--gold-line:rgba(168,134,92,.30);
+  --text:#fff;--text-dim:rgba(255,255,255,.66);--text-ghost:rgba(255,255,255,.42);
+  --serif:'Fraunces',Georgia,serif;
+}
+[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.18);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.14);
+  --gold:#a8865c;--gold-soft:rgba(168,134,92,.08);--gold-line:rgba(168,134,92,.26);
+  --text:#fff;--text-dim:rgba(255,255,255,.66);--text-ghost:rgba(255,255,255,.40);
+  --serif:'Fraunces',Georgia,serif;
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.10);
+  --gold:#7d5f2d;--gold-soft:rgba(125,95,45,.08);--gold-line:rgba(125,95,45,.26);
+  --text:#0a0a0a;--text-dim:rgba(10,10,10,.62);--text-ghost:rgba(10,10,10,.40);
+  --serif:'Fraunces',Georgia,serif;
+}
+
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  font-weight:400;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  padding:14px clamp(16px,4vw,28px);
+  background:rgba(0,0,0,.72);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+}
+[data-theme="light"] .topbar{background:rgba(255,255,255,.85)}
+.brand{display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:1.04rem;letter-spacing:-.02em;color:var(--text);text-decoration:none}
+.brand .b-mark{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
+.spacer{flex:1}
+.bar-ghost,.bar-cta{
+  font-family:inherit;font-size:.76rem;font-weight:800;
+  letter-spacing:.04em;cursor:pointer;border-radius:999px;
+  padding:8px 16px;text-decoration:none;
+  border:1px solid transparent;
+}
+.bar-cta{background:var(--accent);color:#fff;border-color:var(--accent)}
+.bar-cta:hover{background:#dc2626}
+.bar-ghost{background:transparent;color:var(--text-dim);border-color:var(--border)}
+.bar-ghost:hover{color:var(--text);border-color:var(--border-strong)}
+
+.wrap{max-width:1100px;margin:0 auto;padding:clamp(28px,5vw,52px) clamp(20px,4vw,36px) 100px}
+
+/* Header */
+.head{margin-bottom:36px;max-width:720px}
+.head-eyebrow{
+  font-size:.66rem;font-weight:600;letter-spacing:.18em;
+  color:var(--text-ghost);text-transform:uppercase;margin-bottom:14px;
+}
+.head h1{
+  font-family:var(--serif);font-weight:600;font-style:normal;color:var(--text);
+  font-size:clamp(1.9rem,3.6vw,2.6rem);
+  line-height:1.15;letter-spacing:-.018em;margin-bottom:14px;
+}
+.head-lede{
+  font-size:1rem;color:var(--text-dim);line-height:1.65;max-width:600px;
+}
+.head-lede a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent)}
+.head-lede a:hover{opacity:.85}
+
+/* Filter strip */
+.filters{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+  margin-bottom:24px;padding-bottom:18px;
+  border-bottom:1px solid var(--border);
+}
+.filter-label{font-size:.7rem;font-weight:600;letter-spacing:.14em;color:var(--text-ghost);text-transform:uppercase;margin-right:6px}
+.filter-pill{
+  font-family:inherit;font-size:.78rem;font-weight:600;
+  padding:6px 14px;border-radius:999px;cursor:pointer;
+  background:transparent;color:var(--text-dim);
+  border:1px solid var(--border-strong);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.filter-pill:hover{color:var(--text);border-color:var(--text-dim)}
+.filter-pill.active{
+  background:var(--accent);color:#fff;border-color:var(--accent);
+}
+.filter-pill.active:hover{background:#dc2626;border-color:#dc2626}
+.filter-pill.gold.active{background:var(--gold);border-color:var(--gold)}
+
+/* Cert grid */
+.grid{
+  display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+  gap:14px;
+}
+.cert-row{
+  display:block;text-decoration:none;color:inherit;
+  padding:18px 20px;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:10px;
+  transition:transform .15s,border-color .15s,background .15s;
+}
+.cert-row:hover{
+  transform:translateY(-1px);
+  border-color:var(--border-strong);
+  background:var(--bg-elev);
+}
+.cert-row__head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:10px;
+}
+.cert-row__tier{
+  font-family:'Inter',sans-serif;font-weight:700;font-size:.7rem;
+  letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 10px;border-radius:999px;
+  background:rgba(255,255,255,.05);color:var(--text-dim);
+  border:1px solid var(--border-strong);
+}
+.cert-row__tier.t-novice{color:#a3a3a3;border-color:rgba(163,163,163,.32)}
+.cert-row__tier.t-varsity{color:#60a5fa;border-color:rgba(96,165,250,.32);background:rgba(96,165,250,.06)}
+.cert-row__tier.t-circuit{color:#ef4444;border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.06)}
+.cert-row__tier.t-champion{color:var(--gold);border-color:var(--gold-line);background:var(--gold-soft)}
+.cert-row__score{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:.78rem;font-weight:700;color:var(--text);letter-spacing:.04em;
+}
+.cert-row__name{
+  font-family:var(--serif);font-weight:600;font-size:1.04rem;
+  color:var(--text);line-height:1.25;margin-bottom:6px;letter-spacing:-.005em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.cert-row__motion{
+  font-size:.84rem;color:var(--text-dim);line-height:1.5;
+  font-style:italic;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;margin-bottom:12px;min-height:2.5em;
+}
+.cert-row__motion::before{content:'"'}
+.cert-row__motion::after{content:'"'}
+.cert-row__foot{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.72rem;color:var(--text-ghost);letter-spacing:.02em;
+  padding-top:10px;border-top:1px solid var(--border);
+}
+.cert-row__id{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+}
+
+.empty,.loading,.errstate{
+  padding:60px 24px;text-align:center;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  color:var(--text-dim);font-size:.96rem;
+}
+.empty h3,.errstate h3{
+  font-family:var(--serif);font-weight:700;color:var(--text);
+  margin-bottom:8px;font-size:1.2rem;
+}
+.spin{
+  display:inline-block;width:24px;height:24px;
+  border:2px solid var(--border-strong);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.load-more-row{display:flex;justify-content:center;margin-top:28px}
+.load-more{
+  font-family:inherit;font-size:.86rem;font-weight:700;
+  padding:11px 24px;border-radius:999px;cursor:pointer;
+  background:transparent;color:var(--text);border:1px solid var(--border-strong);
+  transition:background .15s,border-color .15s;
+}
+.load-more:hover{background:var(--bg-elev);border-color:var(--text-dim)}
+.load-more[disabled]{opacity:.5;cursor:default}
+
+.foot{
+  margin-top:48px;padding-top:24px;border-top:1px solid var(--border);
+  text-align:center;font-size:.78rem;color:var(--text-ghost);
+}
+.foot a{color:var(--text-dim);text-decoration:none;border-bottom:1px dashed var(--border)}
+.foot a:hover{color:var(--text);border-color:var(--text-dim)}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand"><span class="b-mark"></span>Debatable</a>
+  <div class="spacer"></div>
+  <a href="/credentials" class="bar-ghost">About credentials</a>
+  <a href="/voice-debate" class="bar-cta">Earn yours</a>
+</header>
+
+<main class="wrap">
+
+  <div class="head">
+    <div class="head-eyebrow">Public registry</div>
+    <h1>Every credential that's been issued, in chronological order.</h1>
+    <p class="head-lede">
+      Each row is a real round, judged on the 25-30 academic speaker-points scale, with the credential bound to a unique verify URL. Click any row to open the full credential and read the judge's ballot. <a href="/credentials#methodology">How issuance works →</a>
+    </p>
+  </div>
+
+  <div class="filters" role="tablist" aria-label="Filter by tier">
+    <span class="filter-label">Tier</span>
+    <button class="filter-pill active" data-tier="" type="button">All</button>
+    <button class="filter-pill" data-tier="novice" type="button">Novice</button>
+    <button class="filter-pill" data-tier="varsity" type="button">Varsity</button>
+    <button class="filter-pill" data-tier="circuit" type="button">Circuit</button>
+    <button class="filter-pill gold" data-tier="champion" type="button">Champion</button>
+  </div>
+
+  <div id="loadingState" class="loading">
+    <span class="spin" aria-hidden="true"></span>
+    <p style="margin-top:14px">Loading registry…</p>
+  </div>
+
+  <div id="emptyState" class="empty" style="display:none">
+    <h3>No credentials yet at this tier</h3>
+    <p>The registry updates the moment a real round mints a credential. Try a different tier filter, or earn the first one.</p>
+    <p style="margin-top:14px"><a href="/voice-debate" style="color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent);font-weight:700">Start a voice round →</a></p>
+  </div>
+
+  <div id="errState" class="errstate" style="display:none">
+    <h3>Couldn't load registry</h3>
+    <p id="errStateMsg">Network error. Try again in a moment.</p>
+  </div>
+
+  <div id="grid" class="grid" style="display:none"></div>
+
+  <div id="loadMoreRow" class="load-more-row" style="display:none">
+    <button class="load-more" id="loadMoreBtn" type="button">Load more</button>
+  </div>
+
+  <div class="foot">
+    Debatable · <a href="/">debateai.com</a> · Credentials are free and publicly verifiable. <a href="/credentials">About the program</a> · <a href="/credentials#methodology">Methodology</a>
+  </div>
+</main>
+
+<script>
+(function(){
+  var state = { tier: '', cursor: 0, loading: false, certs: [], hasMore: false };
+
+  function fmtDate(ms){
+    if (!ms) return '—';
+    try{
+      var d = new Date(ms);
+      var now = new Date();
+      var sameYear = d.getUTCFullYear() === now.getUTCFullYear();
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' });
+    }catch(e){ return '—'; }
+  }
+
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function renderCert(c){
+    var tier = (c.tier || 'novice').toLowerCase();
+    return (
+      '<a class="cert-row" href="/verify/' + encodeURIComponent(c.certId) + '">' +
+        '<div class="cert-row__head">' +
+          '<span class="cert-row__tier t-' + tier + '">' + escHtml(c.tierName || tier) + '</span>' +
+          '<span class="cert-row__score">' + (c.score != null ? c.score.toFixed(1) : '—') + '/30</span>' +
+        '</div>' +
+        '<div class="cert-row__name">' + escHtml(c.displayName || 'Anonymous') + '</div>' +
+        '<div class="cert-row__motion">' + escHtml(c.motion || '(impromptu motion)') + '</div>' +
+        '<div class="cert-row__foot">' +
+          '<span>' + escHtml(c.formatLabel || '—') + ' · ' + escHtml(c.sideLabel || '—') + ' · ' + fmtDate(c.issuedAtMs) + '</span>' +
+          '<span class="cert-row__id">' + escHtml((c.certId || '').slice(0,8)) + '</span>' +
+        '</div>' +
+      '</a>'
+    );
+  }
+
+  function showState(which){
+    ['loadingState','emptyState','errState'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = (id === which) ? '' : 'none';
+    });
+    document.getElementById('grid').style.display = (which === '') ? 'grid' : 'none';
+    document.getElementById('loadMoreRow').style.display = (which === '' && state.hasMore) ? 'flex' : 'none';
+  }
+
+  function fetchPage(reset){
+    if (state.loading) return;
+    state.loading = true;
+    if (reset) {
+      state.cursor = 0;
+      state.certs = [];
+      document.getElementById('grid').innerHTML = '';
+      showState('loadingState');
+    } else {
+      var b = document.getElementById('loadMoreBtn');
+      if (b) { b.disabled = true; b.textContent = 'Loading…'; }
+    }
+
+    var qs = 'limit=24';
+    if (state.cursor) qs += '&cursor=' + encodeURIComponent(state.cursor);
+    if (state.tier)   qs += '&tier='   + encodeURIComponent(state.tier);
+
+    fetch('/api/list-recent-certs?' + qs)
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        state.loading = false;
+        if (!j || !j.ok) {
+          showState('errState');
+          document.getElementById('errStateMsg').textContent = j && j.reason ? j.reason : 'Couldn\'t load registry.';
+          return;
+        }
+        state.hasMore = !!j.hasMore;
+        state.cursor = j.nextCursor || 0;
+        var fresh = j.certs || [];
+        state.certs = state.certs.concat(fresh);
+        if (!state.certs.length) {
+          showState('emptyState');
+          return;
+        }
+        var grid = document.getElementById('grid');
+        grid.insertAdjacentHTML('beforeend', fresh.map(renderCert).join(''));
+        showState('');
+        var b = document.getElementById('loadMoreBtn');
+        if (b) { b.disabled = false; b.textContent = 'Load more'; }
+      })
+      .catch(function(e){
+        state.loading = false;
+        showState('errState');
+        document.getElementById('errStateMsg').textContent = 'Network error loading registry.';
+        console.warn('[registry] fetch failed', e);
+      });
+  }
+
+  // Wire the filter pills.
+  Array.prototype.forEach.call(document.querySelectorAll('.filter-pill'), function(pill){
+    pill.addEventListener('click', function(){
+      var tier = pill.dataset.tier || '';
+      if (state.tier === tier) return;
+      state.tier = tier;
+      Array.prototype.forEach.call(document.querySelectorAll('.filter-pill'), function(p){
+        p.classList.toggle('active', p.dataset.tier === tier);
+      });
+      try { gtag('event', 'registry_filter', { tier: tier || 'all' }); } catch(e){}
+      fetchPage(true);
+    });
+  });
+
+  document.getElementById('loadMoreBtn').addEventListener('click', function(){ fetchPage(false); });
+
+  fetchPage(true);
+})();
+</script>
+
+</body>
+</html>

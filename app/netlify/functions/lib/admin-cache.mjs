@@ -88,28 +88,6 @@ export async function getCachedShared(key) {
   }
 }
 
-// Last-resort read: return the shared value IGNORING expiry. Called only
-// on a recompute FAILURE (e.g. the daily read quota is blown, so the
-// fresh recompute threw) — serving slightly-stale numbers beats a 500.
-// On a low-traffic Spark deploy a single cold recompute is thousands of
-// reads, so once the 50K/day quota blows the dashboard would otherwise
-// hard-fail every panel until midnight reset. The stale doc read is one
-// document, which may still succeed when a thousand-doc recompute can't.
-// Returns null if the doc is missing or the read itself also fails.
-export async function getCachedSharedStale(key) {
-  const entry = store.get(key);
-  if (entry) return entry.value; // in-memory copy, expiry ignored
-  try {
-    const snap = await getDb().collection(SHARED_COLL).doc(sharedDocId(key)).get();
-    if (!snap.exists) return null;
-    const d = snap.data() || {};
-    if (typeof d.json !== 'string') return null;
-    return JSON.parse(d.json);
-  } catch {
-    return null;
-  }
-}
-
 // Write-through: in-memory + the shared Firestore doc. The value is
 // stored as a JSON string to sidestep every Firestore nested-field /
 // undefined-value quirk. Awaited so the cache write completes before

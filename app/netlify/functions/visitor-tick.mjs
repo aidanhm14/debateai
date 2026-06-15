@@ -11,7 +11,7 @@
  *     count: number (cumulative all-time)
  *     updatedAt: server timestamp
  *
- *   metrics_daily/{YYYY-MM-DD}
+ *   metrics/daily/{YYYY-MM-DD}
  *     count: number (visits on that UTC day)
  *     updatedAt: server timestamp
  *
@@ -34,12 +34,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { writeJoinEvent } from './chat-feed.mjs';
 
 const COUNTER_DOC = 'metrics/visitor_counter';
-// 2026-06-15: was 'metrics/daily', which made db.doc(`metrics/daily/${date}`)
-// a 3-segment (odd) path — not a valid document ref, so every daily
-// write/read threw and `visits` summed to 0. Flattened to a 2-segment
-// collection so the per-day docs actually persist. public-join-history.mjs
-// reads the same path.
-const DAILY_COLLECTION = 'metrics_daily';
+const DAILY_COLLECTION = 'metrics/daily';
 const BASELINE = 7074;
 
 // 30-day window — how many daily docs to sum for the rolling count.
