@@ -48,8 +48,23 @@
     '.pt-bar.pt-bar-active { transform: translateX(100%); }\n';
   document.head.appendChild(style);
 
+  // Match the <html> backdrop to the page's body colour. The fade drops
+  // body to opacity:0, which would otherwise reveal the browser's white
+  // root and flash white when handing off between a dark and a light
+  // page. Keeping <html> the same colour as <body> makes the handoff
+  // read as one continuous surface. (2026-06-15)
+  function syncRootBg() {
+    try {
+      var bg = getComputedStyle(document.body).backgroundColor;
+      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+        document.documentElement.style.backgroundColor = bg;
+      }
+    } catch (e) {}
+  }
+
   // ── Fade-in on initial page load ────────────────────────────────
   function fadeIn() {
+    syncRootBg();
     // Some pages (debate-ai, voice-debate) wrap everything in a #root
     // mount, so set the class on body and let opacity cascade.
     document.body.classList.add('pt-in');
@@ -131,7 +146,9 @@
     document.body.appendChild(bar);
     requestAnimationFrame(function () { bar.classList.add('pt-bar-active'); });
 
-    // Fade body out.
+    // Fade body out. Sync the root colour first so the opacity drop
+    // reveals the matching backdrop, not white.
+    syncRootBg();
     document.body.classList.add('pt-out');
 
     // Navigate after the fade so the next page's fade-in feels
