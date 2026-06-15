@@ -249,39 +249,51 @@ export default async (request) => {
     }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  // ── Memory load + Pro check (one Firestore read) ───────────────
+  // ── Memory load + Pro check ────────────────────────────────────
+  // Three independent startup reads (profile, plan/team, style
+  // fingerprint), each of which already degrades gracefully on failure.
+  // Run them in PARALLEL behind a hard timeout so a slow or throttled
+  // Firestore can't stall the OpenAI mint and leave the client stuck on
+  // "Starting…". This bites under a blown free-tier read quota, where
+  // every get() returns RESOURCE_EXHAUSTED only after retrying under the
+  // hood: sequential + retried reads turned a ~1s start into a
+  // multi-second hang. Worst case the coach now starts on safe defaults
+  // (free tier, no memory) ~2.5s later instead of hanging.
   const db = getDb();
   let isPro = false;
   let voiceUsedBefore = 0;
   let profile = {};
   let fingerprint = '';
 
-  try {
-    const profileSnap = await db.collection('user_profiles').doc(uid).get();
-    if (profileSnap.exists) {
-      profile = profileSnap.data() || {};
-      voiceUsedBefore = Math.max(0, parseInt(profile.voiceSessionsUsed, 10) || 0);
-    }
-  } catch (err) {
-    console.warn('[coach-session] user_profiles read failed:', err.message);
+  const READ_TIMEOUT_MS = 2500;
+  const withTimeout = (p) => Promise.race([
+    Promise.resolve(p).catch(() => null),
+    new Promise((res) => setTimeout(() => res(null), READ_TIMEOUT_MS)),
+  ]);
+
+  const [profileSnap, teamResult, fpSnap] = await Promise.all([
+    withTimeout(db.collection('user_profiles').doc(uid).get()),
+    withTimeout(getUserTeam(uid)),
+    withTimeout(db.collection('user_fingerprints').doc(uid).get()),
+  ]);
+
+  if (profileSnap && profileSnap.exists) {
+    profile = profileSnap.data() || {};
+    voiceUsedBefore = Math.max(0, parseInt(profile.voiceSessionsUsed, 10) || 0);
   }
+
   // Plan state lives on the TEAMS collection (written by stripe-webhook /
   // razorpay-activate) — user_profiles never gets plan/isPro. Resolve via
   // getUserTeam the way the brain endpoints do (see claude.mjs): paid
   // plans are individual/lifetime/team/byok; subscriptions only lose
-  // access on EXPLICIT Stripe-bad statuses. Lookup failure degrades to
-  // free (the cap still applies).
-  try {
-    const teamResult = await getUserTeam(uid);
-    const team = teamResult && teamResult.team;
-    if (team) {
-      const SUB_PLANS = new Set(['byok', 'individual', 'team']);
-      const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
-      isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
-        && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
-    }
-  } catch (err) {
-    console.warn('[coach-session] plan lookup failed:', err.message);
+  // access on EXPLICIT Stripe-bad statuses. A null result (read failed or
+  // timed out) degrades to free (the cap still applies).
+  const team = teamResult && teamResult.team;
+  if (team) {
+    const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+    const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+    isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
+      && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
   }
   if (isOwnerEmail(email)) isPro = true;
 
@@ -292,13 +304,7 @@ export default async (request) => {
     }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  // Nightly style fingerprint (separate doc, cheap read).
-  try {
-    const fpSnap = await db.collection('user_fingerprints').doc(uid).get();
-    if (fpSnap.exists) fingerprint = String(fpSnap.data()?.fingerprint || '');
-  } catch (err) {
-    console.warn('[coach-session] user_fingerprints read failed:', err.message);
-  }
+  if (fpSnap && fpSnap.exists) fingerprint = String(fpSnap.data()?.fingerprint || '');
 
   // ── Parse body + pick voice ─────────────────────────────────────
   let body;

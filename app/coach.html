@@ -875,14 +875,25 @@
   async function loadProfile(user){
     setStatus('reading', 'Reading your last rounds…');
     var profile = {}, fingerprint = '';
+    // Cap each read so a slow or throttled Firestore (a blown free-tier
+    // read quota makes every get() retry before failing) degrades to the
+    // honest empty state in ~2.5s instead of leaving the panel stuck on
+    // "Reading your last rounds…". Both reads run in parallel.
+    function withTimeout(p){
+      return Promise.race([
+        Promise.resolve(p).catch(function(){ return null; }),
+        new Promise(function(res){ setTimeout(function(){ res(null); }, 2500); })
+      ]);
+    }
     try {
       if (firebase.firestore) {
-        var snap = await firebase.firestore().collection('user_profiles').doc(user.uid).get();
-        if (snap.exists) profile = snap.data() || {};
-        try {
-          var fp = await firebase.firestore().collection('user_fingerprints').doc(user.uid).get();
-          if (fp.exists) fingerprint = String((fp.data() || {}).fingerprint || '');
-        } catch (e) {}
+        var results = await Promise.all([
+          withTimeout(firebase.firestore().collection('user_profiles').doc(user.uid).get()),
+          withTimeout(firebase.firestore().collection('user_fingerprints').doc(user.uid).get())
+        ]);
+        var snap = results[0], fp = results[1];
+        if (snap && snap.exists) profile = snap.data() || {};
+        if (fp && fp.exists) fingerprint = String((fp.data() || {}).fingerprint || '');
       }
     } catch (e) { console.warn('[coach] profile read failed:', e.message); }
     renderRead(user, profile, fingerprint);
