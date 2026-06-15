@@ -17,6 +17,39 @@
 (function(){
   var here = (location.pathname || '/').replace(/\/$/,'') || '/';
 
+  // ── Brand face: load Fraunces reliably on EVERY topbar page ──
+  // landing.html / index.html ship an explicit <link> for Fraunces in
+  // <head>, so the wordmark + headings render in Fraunces there. Other
+  // pages relied only on the `@import` buried in css/ui.css — a chained
+  // request (HTML → ui.css → @import → Google Fonts → font file) that
+  // paints in the Georgia fallback first and swaps late, so the SAME
+  // topbar wordmark rendered in a different font page-to-page. That's the
+  // "fonts look inconsistent" gap. Fix: inject the same real <link>
+  // (+ preconnect) here, once, on any page that doesn't already have it.
+  // Identical URL to landing's <link> so the font file is a shared cache
+  // hit, not a second download. (2026-06-15)
+  (function ensureBrandFont(){
+    try {
+      var head = document.head || document.getElementsByTagName('head')[0];
+      if (!head) return;
+      function addLink(rel, href, opts){
+        if (document.querySelector('link[data-da-font][href="' + href + '"]')) return;
+        var l = document.createElement('link');
+        l.rel = rel; l.href = href; l.setAttribute('data-da-font','1');
+        if (opts && opts.crossorigin) l.crossOrigin = 'anonymous';
+        head.appendChild(l);
+      }
+      addLink('preconnect', 'https://fonts.googleapis.com');
+      addLink('preconnect', 'https://fonts.gstatic.com', { crossorigin: true });
+      var FRAUNCES = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&display=swap';
+      // Skip if the page already loads Fraunces (landing/index) — avoid a
+      // duplicate <link>; the cache key is the same either way.
+      if (!document.querySelector('link[href*="family=Fraunces"]')) {
+        addLink('stylesheet', FRAUNCES);
+      }
+    } catch (e) {}
+  })();
+
   // ── Defensive: nuke any stray theme-dot / lighting-toggle markup ──
   // The grey/red/white "theme dot" tray was removed across the site on
   // 2026-05-10 (brand consolidation), but cached old HTML still ships
