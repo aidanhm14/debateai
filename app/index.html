@@ -16626,9 +16626,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
   if (!c) return;
   var ctx = c.getContext('2d');
   var nodes = [],pulses = [];
-  var W,H,dpr = window.devicePixelRatio || 1;
+  // dpr capped at 1 (was window.devicePixelRatio): this is a decorative
+  // full-screen background, so retina resolution isn't worth ~14MB of
+  // backing-buffer texture + 4x the pixels to clear/fill each frame on a
+  // 2x display. Mirrors js/ui-neural.js's 2026-05-27 DPR cap.
+  var W,H,dpr = 1;
   var NODE_COUNT = 40,CONNECT_DIST_DARK = 150,CONNECT_DIST_LIGHT = 180;
   var MIN_SPEED = .04; // Minimum drift so nodes never stagnate
+  // 30fps cap + lifecycle. rAF runs at the display's native rate; a slow
+  // decorative drift is indistinguishable at 30fps and it halves the
+  // O(N^2) physics + canvas work on /app, where users sit for minutes.
+  var FRAME_MIN_MS = 1000 / 30 - 1, lastDrawAt = 0, running = true, rafId = 0;
 
   function resize() {
     W = window.innerWidth;H = window.innerHeight;
@@ -16654,10 +16662,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
   function addPulse(fi, ti) {pulses.push({ from: fi, to: ti, t: 0, speed: .006 + Math.random() * .008 });}
 
   var frame = 0;
-  function tick() {
+  function tick(ts) {
+    if (!running) { rafId = 0; return; }
+    rafId = requestAnimationFrame(tick);
+    var now = ts || performance.now();
+    if (now - lastDrawAt < FRAME_MIN_MS) return; // 30fps cap
     var isLight = document.body.classList.contains('light-theme');
     var isDark = document.body.classList.contains('crimson-theme');
-    if (!isDark && !isLight) {requestAnimationFrame(tick);return;}
+    if (!isDark && !isLight) return; // default theme: nothing to draw
+    lastDrawAt = now;
     frame++;
     ctx.clearRect(0, 0, W, H);
 
@@ -16767,11 +16780,20 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
       addPulse(e[0], e[1]);
     }
 
-    requestAnimationFrame(tick);
   }
 
   init();
   window.addEventListener('resize', function () {resize();});
+  // Pause entirely when the tab is backgrounded (rAF throttles hidden tabs
+  // but never fully stops this loop). Restart on return.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      running = false;
+    } else if (!running) {
+      running = true; lastDrawAt = 0; tick();
+    }
+  });
   tick();
 })();</script>
 <script defer src="/js/notifications.js"></script>
