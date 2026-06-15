@@ -175,7 +175,7 @@
     // credential"), still acquiring distribution. Sits after Learn
     // because cert is the outcome of a learning loop — natural pairing
     // on the bar. 2026-06-12: label "Cert" → "Certificate" per Aidan.
-    { href: '/credentials',   label: 'Certificate', italic: false },
+    { href: '/credentials',   label: 'Certificate' },
     // 2026-05-18: /rounds standalone listing retired — the published-
     // rounds tab now lives inside /community. The topbar already links
     // to Community below, so a separate Rounds entry would just point
@@ -380,10 +380,6 @@
         }
         a.appendChild(el('span', { class: 'ui-topbar-spar-dot', 'aria-hidden': 'true' }));
       }
-      // Certificate reads in Fraunces italic — it's the credential, the
-      // "proof of live communication" outcome, so it carries editorial
-      // emphasis the other utility links don't. (per Aidan, 2026-06-15)
-      if (L.italic){ a.style.fontStyle = 'italic'; a.style.fontWeight = '600'; }
       a.appendChild(document.createTextNode(L.label));
       right.appendChild(a);
     });
@@ -511,7 +507,6 @@
         var sdot = el('span', { class: 'ui-topbar-sheet-dot' });
         sheetLink.appendChild(sdot);
       }
-      if (L.italic){ sheetLink.style.fontStyle = 'italic'; }
       sheetLink.appendChild(document.createTextNode(L.label));
       sheet.appendChild(sheetLink);
     });
