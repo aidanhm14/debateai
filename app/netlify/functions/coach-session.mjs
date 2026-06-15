@@ -42,6 +42,11 @@ const DRILLS = {
     focus: 'Free back and forth. Let them set the motion and pick a side, then take the other side and be a sharp opponent and second.',
     open: 'ask what motion they want to run and which side they are taking, then take the opposite side and go.',
   },
+  dynamics: {
+    label: 'Dynamics lab',
+    focus: 'Build their grasp of how one real-world system actually works, then make them deploy it. This drill trains matter, not technique, so you teach more than you spar until the end. Pick one high-leverage dynamic (how a rate hike transmits to inflation and jobs over a twelve to eighteen month lag, why civil wars persist on lootable resources and outside backers, how sanctions bite through dollar clearing and then leak through third countries, how a sovereign debt spiral feeds itself, how carbon pricing shifts behavior) or read the dynamic out of the motion they gave. Walk the causal chain one link at a time: ask them to predict the next step, then confirm and sharpen it with the real mechanism, a real number or named case, and the lag or the failure mode where the chain breaks or reverses. Keep your turns to a sentence or two, never a lecture, and correct them plainly when they are wrong instead of nodding along. When the chain is built, make them say the whole chain back in their own words before you move on. Then hand them a live motion that turns on this dynamic and pressure-test it with one hard point. Close by naming two or three other motions the same chain unlocks.',
+    open: 'name the system you are about to teach, or pull it from their motion, then ask them to predict the very first causal link before you give it.',
+  },
   poi: {
     label: 'POI gauntlet',
     focus: 'They are giving a speech; your job is points of information. Offer short, barbed POIs at the moments that hurt most, make them accept and answer under pressure, then immediately exploit a weak answer. Do not let them duck every point.',
