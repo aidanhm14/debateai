@@ -4049,7 +4049,7 @@ function App() {
   // often self-heals — only tear down if it doesn't recover.
   var statusRef = useRef('idle');
   var connDropTimerRef = useRef(null);
-  // Connect-handshake watchdog: AbortController + a 20s timer so a cold
+  // Connect-handshake watchdog: AbortController + a 30s timer so a cold
   // mint function or a black-holed SDP POST can't strand the user on the
   // spinner. connectTimedOutRef distinguishes a timeout from a manual Cancel.
   var connectAbortRef = useRef(null);
@@ -4655,7 +4655,7 @@ function App() {
     cleanup();
     setStatus('connecting');
     setConnectStep('Minting session…');
-    // Bound the whole handshake. Aborts at 20s (or via the Cancel button);
+    // Bound the whole handshake. Aborts at 30s (or via the Cancel button);
     // the outer catch rolls back to idle so the spinner can't hang forever.
     var connectAbort = new AbortController();
     connectAbortRef.current = connectAbort;
@@ -4664,7 +4664,7 @@ function App() {
     connectTimerRef.current = setTimeout(() => {
       connectTimedOutRef.current = true;
       try {connectAbort.abort();} catch (e) {}
-    }, 20000);
+    }, 30000);
     // Fresh funnel for this round. Fire `start` — the denominator for
     // every downstream completion rate.
     funnelFiredRef.current = {};
@@ -4803,8 +4803,25 @@ function App() {
 
       setConnectStep('Requesting microphone…');
 
-      // 2. WebRTC peer connection
-      var pc = new RTCPeerConnection();
+      // 2. WebRTC peer connection.
+      // ICE servers matter: with none, the browser only gathers host
+      // (private-IP) candidates, so on any NAT'd network — school WiFi,
+      // corporate, mobile carrier — it can't form a working candidate
+      // pair with OpenAI and the handshake dies at the 20s watchdog
+      // ("Connection timed out. Check your network"). Public STUN lets
+      // the browser discover its server-reflexive (public) address so
+      // the offer carries a reachable candidate. The server may also
+      // supply iceServers (e.g. TURN creds) — prefer those, append STUN
+      // as the always-present fallback. No TURN by default: that needs
+      // credentialed infra; STUN clears the large majority of NATs.
+      var stunServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ];
+      var iceServers = Array.isArray(session.iceServers) && session.iceServers.length
+        ? session.iceServers.concat(stunServers)
+        : stunServers;
+      var pc = new RTCPeerConnection({ iceServers: iceServers });
       pcRef.current = pc;
       // Surface a dropped connection instead of hanging "live" forever
       // with dead audio. cleanup() nulls this handler before it closes
@@ -5204,6 +5221,24 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       var offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      // Signaling here is a SINGLE POST — there is no channel to trickle
+      // ICE candidates to OpenAI after the fact. So the offer we send
+      // MUST already contain the gathered candidates; sending the bare
+      // createOffer() SDP (zero candidates) leaves OpenAI guessing the
+      // browser's address from connectivity checks, which silently fails
+      // on stricter NATs. Wait for ICE gathering to finish (capped at 3s
+      // so a slow STUN server can't eat the whole connect budget — even a
+      // partial candidate set beats none), then send the live
+      // localDescription that includes them.
+      await new Promise((resolve) => {
+        if (pc.iceGatheringState === 'complete') return resolve();
+        var done = false;
+        var finish = () => { if (done) return; done = true; pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
+        var onChange = () => { if (pc.iceGatheringState === 'complete') finish(); };
+        pc.addEventListener('icegatheringstatechange', onChange);
+        setTimeout(finish, 3000);
+      });
+
       // The server tells us where to POST the SDP and which headers to
       // include — different between the GA Realtime API
       // (POST /v1/realtime/calls, no extra headers) and the legacy beta
@@ -5214,7 +5249,7 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       var extraSdpHeaders = session.sdpHeaders || {};
       var sdpRes = await fetch(sdpUrl, {
         method: 'POST',
-        body: offer.sdp,
+        body: (pc.localDescription && pc.localDescription.sdp) || offer.sdp,
         headers: {
           'Authorization': 'Bearer ' + ephemeralKey,
           'Content-Type': 'application/sdp',
