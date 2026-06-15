@@ -1416,7 +1416,7 @@ h1 em{color:var(--accent);font-style:normal}
         '<div class="seek-feed__list" id="seekFeedList"></div>' +
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
-      '<div class="countdown">AI fallback in <strong id="countdownNum">4:00</strong></div>' +
+      '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
       // One clear action while waiting: prep (you stay in the queue and
       // get pinged the moment a human is found, anywhere on the site).
       // Cancel + Skip-to-AI demoted to quiet links so the screen reads
@@ -2098,37 +2098,55 @@ h1 em{color:var(--accent);font-style:normal}
     setTimeout(function(){ location.href = '/debate-it'; }, 1200);
   }
 
-  // ── Countdown timer ──────────────────────────────────
+  // ── Count-up timer (no forced AI fallback) ───────────
+  // The user can leave the page and come back — no 4-minute wall.
+  // AI fallback is still reachable via the "Skip to AI" link.
+  // Notification permission is requested at 8s so the OS can ping
+  // the user when a match lands while they're in another tab.
   function startCountdown(){
     if (state.countdownInterval) clearInterval(state.countdownInterval);
+    state.pingAsked = false;
     state.countdownInterval = setInterval(function(){
       var elapsed = Math.floor((Date.now() - state.joinedAtMs) / 1000);
-      var remaining = Math.max(0, AI_FALLBACK_SEC - elapsed);
       var num = document.getElementById('countdownNum');
       if (num){
-        var mm = Math.floor(remaining / 60);
-        var ss = remaining % 60;
+        var mm = Math.floor(elapsed / 60);
+        var ss = elapsed % 60;
         num.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss;
       }
-      // Broaden-formats offer at 45s. Surfaces below the cancel/skip
-      // buttons; user click flips state + queue doc.
+      if (elapsed >= 8 && !state.pingAsked){
+        state.pingAsked = true;
+        requestPingPermission();
+      }
+      // Broaden-formats offer at 45s.
       if (elapsed >= BROADEN_OFFER_SEC && !state.broadenOffered && !state.broaden){
         state.broadenOffered = true;
         offerBroaden();
       }
-      if (remaining <= 0){
-        // Consent race guard: a proposal can land in the same beat the
-        // clock hits zero. If spar-pair just told us 'consent' but the
-        // doc snapshot hasn't painted yet, DON'T clear the interval —
-        // keep ticking so the fallback still fires if the snapshot
-        // never arrives (15s grace), instead of dying silently at 0:00.
-        if (state.inConsent) return;
-        if (state.consentPending && Date.now() - state.consentPending < 15000) return;
-        clearInterval(state.countdownInterval);
-        state.countdownInterval = null;
-        triggerAIFallback();
-      }
     }, 250);
+  }
+
+  function requestPingPermission(){
+    try {
+      if (window.Notification && Notification.permission === 'default'){
+        var r = Notification.requestPermission();
+        if (r && r.catch) r.catch(function(){});
+      }
+    } catch(e){}
+  }
+
+  function pingMatchFound(name){
+    try { if (window.SFX){ if (SFX.success) SFX.success(); else if (SFX.notify) SFX.notify(); } } catch(e){}
+    try {
+      if (document.hidden && window.Notification && Notification.permission === 'granted'){
+        var n = new Notification('Opponent ready', {
+          body: 'vs ' + (name || 'a debater') + '. Jump back in to start.',
+          icon: '/favicon.svg',
+          tag: 'da-spar-match'
+        });
+        n.onclick = function(){ try { window.focus(); } catch(e){} try { n.close(); } catch(e){} };
+      }
+    } catch(e){}
   }
 
   function offerBroaden(){
@@ -2274,6 +2292,7 @@ h1 em{color:var(--accent);font-style:normal}
       // tryMatch stops POSTing at peers the server will refuse anyway.
       state.skipUids = Array.isArray(d.skipUids) ? d.skipUids : [];
       if (d.status === 'matched' && d.room && d.matchedWith){
+        pingMatchFound(d.matchedWithName || '');
         teardownQueue();
         // The matched-state render is cosmetic; navigation into the
         // round is the load-bearing step. Never let a render error
@@ -2297,6 +2316,7 @@ h1 em{color:var(--accent);font-style:normal}
         });
         setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, 900);
       } else if (d.status === 'consent' && d.matchedWith){
+        pingMatchFound(d.matchedWithName || '');
         // Two-phase match: someone's judge-paradigm note needs eyes
         // before the round exists. spar-pair wrote the full proposal
         // onto both docs; render the accept/pass card off mine.

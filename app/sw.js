@@ -6,8 +6,10 @@
 
 
 
+<<<<<<< HEAD
 
-const CACHE_NAME = 'debateos-v1100';
+=======
+const CACHE_NAME = 'debateos-v1101';
 
 
 
