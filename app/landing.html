@@ -4719,6 +4719,22 @@ section.hero .hero-illustrated h1.hi-headline{
 }
 .hero-illustrated .hi-proof-note .hi-proof-num{color:#c83232;font-weight:800}
 
+/* Persistent re-trigger for the onboarding modal. Quiet ghost pill —
+   small, slightly transparent, with a red arrow to telegraph it's a
+   clickable doorway. Sits between the proof strip and the CTA row;
+   centered so it tracks the hero's vertical spine. */
+.hero-illustrated .hi-first-time{
+  display:flex;align-items:center;gap:6px;
+  margin:14px auto 0;padding:7px 14px;width:max-content;
+  background:transparent;color:var(--hi-ink-soft);
+  border:1px solid var(--hi-line-soft,rgba(29,25,21,.22));border-radius:999px;
+  font-family:'Geist','Inter',system-ui,sans-serif;font-size:.78rem;font-weight:600;letter-spacing:.005em;
+  cursor:pointer;transition:color .15s,border-color .15s,background .15s,transform .12s}
+.hero-illustrated .hi-first-time:hover{
+  color:#c83232;border-color:#c83232;background:rgba(200,30,30,.06);transform:translateY(-1px)}
+.hero-illustrated .hi-first-time-arrow{color:#c83232;transition:transform .15s}
+.hero-illustrated .hi-first-time:hover .hi-first-time-arrow{transform:translateX(3px)}
+
 /* ── LIVE DEBATE ROOM STAGE (2026-06-12) ──────────────────────────
    The metaphor era is over: the stage now shows the product itself.
    Layered command center, back to front — world map (the network),
@@ -6623,6 +6639,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="hi-proof-note" aria-live="polite">
         <span id="hiStatViewsWeek" hidden></span><span class="hi-proof-num" id="hiStatGoogle">78</span> debaters signed in with Google so far<span id="hiStatSparWeek" hidden></span>
       </p>
+
+      <!-- Persistent re-trigger for the first-visit onboarding modal.
+           The modal auto-pops once per browser; this button lets return
+           visitors who dismissed it (or anyone who just wants the
+           "where do I start" prompt) reopen it on demand. Quiet pill
+           style — small, ghosted, sits between the proof note and the
+           CTA row so it doesn't compete with the mode cards but stays
+           a click away. Inline style so it carries no extra CSS file. -->
+      <button type="button" class="hi-first-time" data-ob-trigger="hero-first-time"
+              aria-label="Open the first-time visitor guide">
+        First time here? <span class="hi-first-time-arrow" aria-hidden="true">&rarr;</span>
+      </button>
 
       <!-- 2026-06-01: big "where to go" buttons, ABOVE the illustration so
            they're the prominent above-the-fold framework per Aidan
@@ -14000,15 +14028,20 @@ window.addEventListener('load', function(){
 <script>
 (function(){
   // First-visit experience-level onboarding. Self-contained, no deps.
-  // Suppression key persists in localStorage so the modal only shows
-  // once per browser. The hash-skip lets visitors who deep-linked to a
-  // section land where they wanted without an interruption.
+  // Suppression key persists in localStorage so the AUTO-POP only fires
+  // once per browser. Explicit re-triggers (the "First time?" hero
+  // button below, or any code that calls window.daOpenOnboarding())
+  // ignore the suppression — the user is asking for it.
   var KEY = 'da-onboarding-shown';
-  try { if (localStorage.getItem(KEY) === '1') return; } catch (e) {}
-  if (location.hash && location.hash !== '#') return;
-
   var modal = document.getElementById('obModal');
   if (!modal) return;
+
+  // Whether the auto-pop should fire on this page load.
+  // Suppressed if the user has seen + interacted with the modal before,
+  // OR if they deep-linked to a #section (came for something specific).
+  var autoOpenAllowed = true;
+  try { if (localStorage.getItem(KEY) === '1') autoOpenAllowed = false; } catch (e) {}
+  if (location.hash && location.hash !== '#') autoOpenAllowed = false;
 
   function setView(name){
     var views = modal.querySelectorAll('[data-ob-view]');
@@ -14081,11 +14114,26 @@ window.addEventListener('load', function(){
     if (e.key === 'Escape' && modal.classList.contains('is-open')) close('esc');
   });
 
-  // Delay so the hero loads first. Don't gate on document.hidden —
-  // if the tab opened in the background and the user switches in
-  // later, the modal should still be there waiting (it's their first
-  // visit, after all).
-  setTimeout(open, 2500);
+  // Public re-trigger so the "First time?" hero button (and any future
+  // entry point) can reopen the modal even after dismissal. Resets to
+  // the question view so it starts fresh each time.
+  window.daOpenOnboarding = function(source){
+    open();
+    try { if (window.gtag) gtag('event', 'onboarding_reopen', { source: source || 'unknown' }); } catch (e) {}
+  };
+
+  // Wire the persistent "First time?" trigger(s) on the page.
+  var triggers = document.querySelectorAll('[data-ob-trigger]');
+  for (var t=0;t<triggers.length;t++) {
+    triggers[t].addEventListener('click', function(e){
+      e.preventDefault();
+      window.daOpenOnboarding(this.getAttribute('data-ob-trigger') || 'trigger');
+    });
+  }
+
+  // Delay so the hero loads first. Skipped on return visits (the
+  // suppression flag) or if the visitor deep-linked to a section.
+  if (autoOpenAllowed) setTimeout(open, 2500);
 })();
 </script>
 </body>
