@@ -83,7 +83,7 @@
       'padding:0',
       'pointer-events:none',
       'max-width:min(380px, calc(100vw - 28px))',
-      'font-family:Inter,system-ui,-apple-system,sans-serif',
+      'font-family:Geist,Inter,system-ui,-apple-system,sans-serif',
     ].join(';');
     if (document.body) document.body.appendChild(rootEl);
     else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(rootEl));

@@ -103,7 +103,7 @@
     mounted = true;
     var root = document.createElement('div');
     root.id = 'corpusNudgeRoot';
-    root.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-family:Inter,-apple-system,sans-serif;animation:corpusFadeIn .18s ease-out';
+    root.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-family:Geist,Inter,-apple-system,sans-serif;animation:corpusFadeIn .18s ease-out';
 
     root.innerHTML = ''
       + '<style>'
