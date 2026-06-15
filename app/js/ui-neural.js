@@ -32,9 +32,13 @@
   var TWO_PI=Math.PI*2;
   // Frame cap. rAF fires at the display's native rate (60Hz on most
   // laptops, 120-144Hz on newer phones / iPad / gaming displays).
-  // Drawing this background 144× per second is wasted work — the
-  // motion is slow enough that 60fps is indistinguishable from 144.
-  var FRAME_MIN_MS = 1000/60 - 1;
+  // This is a slow decorative drift in the background. Capping at 30fps
+  // (was 60) halves the per-second canvas + O(N^2) physics work and the
+  // battery draw during a long active session — this layer runs on /app
+  // and /debate-it where users sit for minutes. Integration is per-tick
+  // (n.x += n.vx), so the drift is correspondingly gentler at 30fps;
+  // for a background constellation that reads as calmer, not broken.
+  var FRAME_MIN_MS = 1000/30 - 1;
   var lastDrawAt = 0;
   // Visibility gate. Pause when the canvas scrolls fully offscreen
   // (rAF already throttles hidden tabs, but on a long landing page
