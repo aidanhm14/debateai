@@ -6058,6 +6058,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     function open(){
       modal.hidden = false;
       modal.setAttribute('aria-hidden','false');
+      // Kill any signup-nudge corner pill that beat us onto the screen so
+      // the two sign-in asks never stack at the bottom (signup-nudge.js
+      // mounts on an 8s timer; this modal opens later, after scroll).
+      var nudge = document.querySelector('.signup-nudge');
+      if (nudge) {
+        nudge.classList.remove('is-in');
+        setTimeout(function(){ if (nudge && nudge.parentNode) nudge.parentNode.removeChild(nudge); }, 280);
+      }
       // Next frame so the transition runs
       requestAnimationFrame(function(){ modal.classList.add('is-open'); });
       // Lazy-mount the prospect-capture form so the inputs exist + theme

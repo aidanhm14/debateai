@@ -190,6 +190,11 @@
     window.addEventListener('resize', syncFeedbackPill, { passive: true });
   }
 
+  function introSeen(){
+    try { return localStorage.getItem('debateai-intro-seen') === '1'; }
+    catch (e) { return false; }
+  }
+
   function mount(){
     if (bar) return;
     var cfg = getConfig();
@@ -198,6 +203,12 @@
     // ask, and the two collided at the bottom of the screen). Defer until
     // that modal is dismissed; the bar then appears on its own.
     if (document.querySelector('.intro-modal.is-open')){ setTimeout(mount, 1500); return; }
+    // If a first-visit intro modal lives on this page but hasn't been
+    // resolved yet, it's the SAME sign-in ask and is about to open after
+    // the visitor scrolls. Skip the nudge entirely for this page-load so
+    // the two never stack at the bottom of the screen. On the next visit
+    // (intro already seen) the nudge takes over as the recurring prompt.
+    if (document.getElementById('introModal') && !introSeen()){ return; }
     injectStyle();
     bar = document.createElement('div');
     bar.className = 'signup-nudge';
