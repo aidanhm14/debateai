@@ -1831,8 +1831,28 @@ h1 em{color:var(--accent);font-style:normal}
         .where('status', '==', 'waiting')
         .onSnapshot(function(snap){
           var selfUid = state.user && state.user.uid;
+          // Count only PAIRABLE peers. The pair function (spar-pair.mjs)
+          // skips any peer whose joinedAt is older than 3 min as a ghost
+          // (STALE_PEER_MS) — iOS Safari often doesn't fire `pagehide` so
+          // backgrounded sessions leave `status: 'waiting'` docs that
+          // will never match. Counting them made the strip read "7 in
+          // queue" with a green "live" dot while the matcher found
+          // nothing pairable. Mirror the 3-min cutoff here so the number
+          // is honest. Docs with an unresolved/missing joinedAt
+          // (serverTimestamp lands a beat after the local write) count as
+          // fresh — same default as joinedAtMs() server-side.
+          var STALE_MS = 3 * 60 * 1000;
+          var now = Date.now();
           var n = 0;
-          snap.forEach(function(d){ if (!selfUid || d.id !== selfUid) n++; });
+          snap.forEach(function(d){
+            if (selfUid && d.id === selfUid) return;
+            var v = d.data() || {};
+            var j = v.joinedAt;
+            var t = (j && typeof j.toMillis === 'function') ? j.toMillis()
+                  : (j && j.seconds != null) ? j.seconds * 1000
+                  : now; // unresolved timestamp = just written = fresh
+            if (now - t <= STALE_MS) n++;
+          });
           metaLiveCounts.queue = n;
           renderMetaLive();
         }, function(err){
