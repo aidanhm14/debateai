@@ -419,6 +419,12 @@ export default async (request) => {
 
       const myShort = shortName(mine);
       const peerShort = shortName(theirs);
+      // Opponent avatar for the match card. Queue docs carry the
+      // signed-in user's photoURL (anon guests have ''). Each side is
+      // written the OTHER side's photo so the "vs {name}" card can show
+      // who they're about to debate.
+      const myPhoto = String(mine.photoURL || '');
+      const peerPhoto = String(theirs.photoURL || '');
       // Older joiner's motion wins (theirs is older because the
       // poller sorted oldest-first). Both clients read pairedMotion
       // from their now-matched queue doc so the casual-room banner
@@ -473,11 +479,13 @@ export default async (request) => {
           ...proposal,
           matchedWith: peerUid,
           matchedWithName: peerShort,
+          matchedWithPhoto: peerPhoto,
         });
         tx.update(peerRef, {
           ...proposal,
           matchedWith: myUid,
           matchedWithName: myShort,
+          matchedWithPhoto: myPhoto,
         });
         return { ok: true, pending: 'consent', room, pairedFormat };
       }
@@ -492,11 +500,13 @@ export default async (request) => {
         ...matched,
         matchedWith: peerUid,
         matchedWithName: peerShort,
+        matchedWithPhoto: peerPhoto,
       });
       tx.update(peerRef, {
         ...matched,
         matchedWith: myUid,
         matchedWithName: myShort,
+        matchedWithPhoto: myPhoto,
       });
 
       return {
@@ -507,6 +517,7 @@ export default async (request) => {
         proName: common.proName,
         conName: common.conName,
         matchedWithName: peerShort,
+        matchedWithPhoto: peerPhoto,
         pairedFormat,
       };
     });

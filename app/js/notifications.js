@@ -199,7 +199,8 @@
       '.da-match-ring svg{transform:rotate(-90deg);width:72px;height:72px}' +
       '.da-match-ring__track{fill:none;stroke:rgba(255,255,255,.12);stroke-width:5}' +
       '.da-match-ring__bar{fill:none;stroke:#22c55e;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 1s linear}' +
-      '.da-match-ring__num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:var(--text,#fff);font-variant-numeric:tabular-nums}' +
+      '.da-match-av{position:absolute;inset:8px;width:56px;height:56px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;background:var(--bg-elev,#101014);border:1px solid var(--border,rgba(255,255,255,.14));color:var(--text,#fff);font-size:1.3rem;font-weight:800}' +
+      '.da-match-ring__num{position:absolute;right:-3px;bottom:-3px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:#22c55e;color:#06210f;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--bg-card,#15151a)}' +
       '.da-match-name{font-size:1.05rem;font-weight:800;color:var(--text,#fff);margin-bottom:3px}' +
       '.da-match-sub{font-size:.8rem;color:var(--text-dim,#9aa);margin-bottom:18px}' +
       '.da-match-btns{display:flex;gap:10px}' +
@@ -208,7 +209,18 @@
       '.da-match-btn--accept:hover{filter:brightness(1.08)}' +
       '.da-match-btn--decline{background:transparent;border-color:var(--border,rgba(255,255,255,.16));color:var(--text-dim,#9aa)}' +
       '.da-match-btn--decline:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
-      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-match-overlay,.da-match-card,.da-spar-pill.is-on .da-spar-pill__dot{animation:none;transition:none}}';
+      '.da-golive{position:fixed;left:18px;bottom:18px;z-index:99990;width:330px;max-width:calc(100vw - 36px);background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#0a0a0c);border:1px solid rgba(34,197,94,.4);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:16px 16px 14px;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s}' +
+      '.da-golive.in{opacity:1;transform:none}' +
+      '.da-golive__h{display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:800;color:var(--text,#fff);margin-bottom:5px}' +
+      '.da-golive__dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:daSparPulse 1.7s ease-out infinite}' +
+      '.da-golive__p{font-size:.8rem;line-height:1.45;color:var(--text-dim,#9aa);margin:0 0 13px}' +
+      '.da-golive__btns{display:flex;gap:8px}' +
+      '.da-golive__go{flex:1;height:38px;border-radius:10px;border:none;background:#22c55e;color:#06210f;font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer;transition:filter .15s}' +
+      '.da-golive__go:hover{filter:brightness(1.08)}' +
+      '.da-golive__no{height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.16));background:transparent;color:var(--text-dim,#9aa);font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;transition:color .15s,border-color .15s}' +
+      '.da-golive__no:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
+      '@media(max-width:480px){.da-golive{left:12px;right:12px;bottom:12px;width:auto}}' +
+      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-match-overlay,.da-match-card,.da-spar-pill.is-on .da-spar-pill__dot,.da-golive,.da-golive__dot{animation:none;transition:none}}';
     var style = document.createElement('style');
     style.id = 'da-bell-styles';
     style.textContent = css;
@@ -686,9 +698,17 @@
     // page into a live round. The availability flag persists; matching resumes
     // when they are back in the app (Prep). This was redirecting plain homepage
     // visitors into /live-round?source=spar-bg ~1s after load. Fixed 2026-06.
-    var ON_PUBLIC = location.pathname === '/' ||
-      /^\/(index|landing|pricing|schools|india|us|pro|story|credentials|debatable|counter|learn|leaderboard|report|privacy|terms)(?:\.html)?(?:[/?#]|$)/.test(location.pathname) ||
-      /^\/(topics|debate)(?:[/?#]|$|\/)/.test(location.pathname);
+    // 2026-06-15: live matching now runs everywhere the topbar shows
+    // (user ask: "be live for live debates while you scroll"). The
+    // earlier gate that disabled the matcher on public/marketing pages
+    // existed to stop a returning available user from being yanked into
+    // a round on the homepage. That risk is handled differently now:
+    // showMatch is CARD-ONLY (it never auto-navigates — Accept is always
+    // required), so a visitor can't be pulled into a round without an
+    // explicit tap. Availability stays opt-in (the Go-live prompt / the
+    // pill), so only users who chose it ever write to the queue. With
+    // those two guarantees the public-page exclusion is no longer needed.
+    var ON_PUBLIC = false;
 
     var available = false;
     try { available = localStorage.getItem(LSKEY) === '1'; } catch (e) {}
@@ -900,17 +920,24 @@
         }
       } catch (e) {}
       var C = 2 * Math.PI * 32;
+      var oppNm = d.matchedWithName || 'a debater';
+      var oppPhoto = d.matchedWithPhoto || '';
+      var oppInitial = (String(oppNm).replace(/^vs\s+/i, '').trim()[0] || '?').toUpperCase();
+      var oppAv = oppPhoto
+        ? '<img class="da-match-av" src="' + escHtml(oppPhoto) + '" alt="" referrerpolicy="no-referrer">'
+        : '<span class="da-match-av">' + escHtml(oppInitial) + '</span>';
       overlay = document.createElement('div');
       overlay.className = 'da-match-overlay';
       overlay.innerHTML =
         '<div class="da-match-card" role="alertdialog" aria-label="Match found">' +
-          '<div class="da-match-eyebrow">Match found</div>' +
+          '<div class="da-match-eyebrow">Opponent in the room</div>' +
           '<div class="da-match-ring">' +
             '<svg viewBox="0 0 72 72"><circle class="da-match-ring__track" cx="36" cy="36" r="32"/>' +
             '<circle class="da-match-ring__bar" cx="36" cy="36" r="32" stroke-dasharray="' + C + '" stroke-dashoffset="0"/></svg>' +
+            oppAv +
             '<span class="da-match-ring__num">' + COUNTDOWN_S + '</span>' +
           '</div>' +
-          '<div class="da-match-name">vs ' + escHtml(d.matchedWithName || 'a debater') + '</div>' +
+          '<div class="da-match-name">vs ' + escHtml(oppNm) + '</div>' +
           '<div class="da-match-sub">Live round · ' + escHtml((d.pairedFormat || fmt()).toUpperCase()) + '</div>' +
           '<div class="da-match-btns">' +
             '<button type="button" class="da-match-btn da-match-btn--decline">Decline</button>' +
@@ -988,9 +1015,85 @@
       });
     }
 
+    // ── go-live opt-in prompt ("be live for live debates while you scroll?") ──
+    // Low-friction, scroll-triggered invitation to become matchable.
+    // Anonymous (not-signed-in) visitors are signed in anonymously on
+    // accept so they can queue too — the matcher already labels them
+    // "Guest XXXX" and the queue rules allow any authed user (incl.
+    // anon) to write their OWN doc. Strictly opt-in; a "Not now"
+    // dismissal is remembered for 7 days so it never nags.
+    function goLiveNow() {
+      try { localStorage.setItem(LSKEY, '1'); } catch (e) {}
+      available = true; paintPill();
+      try { if (window.gtag) gtag('event', 'spar_golive_accept'); } catch (e) {}
+      whenFirebaseReady(function () {
+        var u = null;
+        try { u = window.firebase.auth().currentUser; } catch (e) {}
+        if (u) { setAvailable(true); }   // already authed → queue immediately
+        else {
+          // Anonymous visitor: sign them in so they get a uid + queue doc.
+          // boot's onAuthStateChanged then sets myUid and, since available
+          // is already true, calls goAvailable() to put them in the queue.
+          try { window.firebase.auth().signInAnonymously().catch(function () {}); } catch (e) {}
+        }
+      });
+    }
+    function goLivePrompt() {
+      var DKEY = 'da-golive-dismissed';
+      if (ON_ROUND || ON_SPAR) return;                                       // not during a round / on /spar
+      try { if (localStorage.getItem(LSKEY) === '1') return; } catch (e) {}  // already available
+      try {
+        var last = parseInt(localStorage.getItem(DKEY) || '0', 10) || 0;
+        if (last && (Date.now() - last) < 7 * 24 * 3600 * 1000) return;      // dismissed < 7d ago
+      } catch (e) {}
+      var armed = true;
+      function onScroll() {
+        if (!armed) return;
+        var y = window.scrollY || document.documentElement.scrollTop || 0;
+        if (y > Math.max(420, window.innerHeight * 0.6)) {
+          armed = false;
+          window.removeEventListener('scroll', onScroll);
+          show();
+        }
+      }
+      function show() {
+        try { if (localStorage.getItem(LSKEY) === '1') return; } catch (e) {} // toggled on meanwhile
+        if (overlay || document.querySelector('.da-golive')) return;          // match card up / already shown
+        var el = document.createElement('div');
+        el.className = 'da-golive';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Be live for live debates');
+        el.innerHTML =
+          '<div class="da-golive__h"><span class="da-golive__dot" aria-hidden="true"></span>Be live for live debates?</div>' +
+          '<p class="da-golive__p">Stay matchable while you browse. We’ll ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
+          '<div class="da-golive__btns">' +
+            '<button type="button" class="da-golive__go">Go live</button>' +
+            '<button type="button" class="da-golive__no">Not now</button>' +
+          '</div>';
+        document.body.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('in'); });
+        el.querySelector('.da-golive__go').addEventListener('click', function () {
+          goLiveNow();
+          sparNote('You’re live. We’ll ping you when a rival’s ready.');
+          close(el, false);
+        });
+        el.querySelector('.da-golive__no').addEventListener('click', function () {
+          try { if (window.gtag) gtag('event', 'spar_golive_dismiss'); } catch (e) {}
+          close(el, true);
+        });
+      }
+      function close(el, remember) {
+        if (remember) { try { localStorage.setItem(DKEY, String(Date.now())); } catch (e) {} }
+        el.classList.remove('in');
+        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320);
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+    }
+
     // ── boot ──
     pill = makePill();
     placePill(pill);
+    goLivePrompt();
     whenFirebaseReady(function () {
       window.firebase.auth().onAuthStateChanged(function (u) {
         myUid = u ? u.uid : null;
