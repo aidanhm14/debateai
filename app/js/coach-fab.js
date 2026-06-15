@@ -110,6 +110,26 @@
 
     '@media (max-width:480px){.dafab-orb{right:14px;bottom:14px;}',
       '.dafab-drawer{right:14px;bottom:14px;}.dafab-tip{display:none;}}',
+
+    // ── Light theme overrides ────────────────────────────────
+    '[data-theme="light"] .dafab-tip{background:#fff;color:rgba(0,0,0,.88);',
+      'border-color:rgba(0,0,0,.12);box-shadow:0 6px 18px rgba(0,0,0,.12);}',
+    '[data-theme="light"] .dafab-backdrop{background:rgba(0,0,0,.28);}',
+    '[data-theme="light"] .dafab-drawer{background:#fff;color:rgba(0,0,0,.88);',
+      'border-color:rgba(0,0,0,.10);box-shadow:0 16px 48px rgba(0,0,0,.14);}',
+    '[data-theme="light"] .dafab-h-l{color:rgba(0,0,0,.92);}',
+    '[data-theme="light"] .dafab-x{color:rgba(0,0,0,.4);}',
+    '[data-theme="light"] .dafab-x:hover{color:rgba(0,0,0,.8);background:rgba(0,0,0,.05);}',
+    '[data-theme="light"] .dafab-sub{color:rgba(0,0,0,.55);}',
+    '[data-theme="light"] .dafab-lbl{color:rgba(0,0,0,.42);}',
+    '[data-theme="light"] .dafab-chip{color:rgba(0,0,0,.72);background:rgba(0,0,0,.04);',
+      'border-color:rgba(0,0,0,.12);}',
+    '[data-theme="light"] .dafab-chip:hover{border-color:#ef4444;color:#b91c1c;background:rgba(239,68,68,.08);}',
+    '[data-theme="light"] .dafab-opt{color:rgba(0,0,0,.64);border-color:rgba(0,0,0,.14);}',
+    '[data-theme="light"] .dafab-opt:hover{border-color:rgba(239,68,68,.4);color:rgba(0,0,0,.88);}',
+    '[data-theme="light"] .dafab-opt.on{border-color:#ef4444;background:rgba(239,68,68,.08);color:#b91c1c;}',
+    '[data-theme="light"] .dafab-open{color:rgba(0,0,0,.48);}',
+    '[data-theme="light"] .dafab-open:hover{color:rgba(0,0,0,.82);}',
   ].join('');
 
   var style = document.createElement('style');
@@ -142,7 +162,7 @@
     +   '<div class="dafab-h-l">Your coach</div>'
     +   '<button class="dafab-x" type="button" aria-label="Close">✕</button>'
     + '</div>'
-    + '<p class="dafab-sub">A live voice drill partner that knows your format and the spots you hedge. Sign-in required.</p>'
+    + '<p class="dafab-sub">Your coach follows you across DebateIt. Jump into a drill from any page; close it, navigate somewhere else, and the orb is still here.</p>'
     + '<p class="dafab-lbl">Jump into a drill</p>'
     + '<div class="dafab-drills">'
     +   '<a class="dafab-chip" href="/coach?drill=poi" data-drill="poi">POI gauntlet</a>'
