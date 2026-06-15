@@ -46,6 +46,11 @@
 
   // ── 1. Guarantee a top-of-page home link ─────────────────────────
   function topHomeLinkExists() {
+    // The shared topbar (#daTopbar, rendered by topbar.js) mounts a home
+    // wordmark asynchronously — after this check would otherwise run. Treat
+    // its presence as "a top home link exists" so we don't inject a
+    // redundant bar above it.
+    if (document.getElementById('daTopbar')) return true;
     var links = document.querySelectorAll(
       'a[href="/"],a[href="/landing"],a[href="/landing.html"],' +
       'a[href="https://debateai.com/"],a[href="https://debateai.com"]'
