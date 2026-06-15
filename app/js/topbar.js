@@ -138,7 +138,9 @@
     { href: '/live',          label: 'Schedule' },
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
-    { href: '/community',     label: 'Community'    },
+    // 2026-06-14: Community folded into Leaderboard per user ask — one
+    // nav button, routes to /leaderboard. (/community still exists; it's
+    // just not its own top-nav slot.)
     { href: '/leaderboard',   label: 'Leaderboard'  },
     { href: '/#faq',          label: 'FAQ'          },
   ];
