@@ -17,17 +17,14 @@
 (function(){
   var here = (location.pathname || '/').replace(/\/$/,'') || '/';
 
-  // ── Brand face: load Fraunces reliably on EVERY topbar page ──
-  // landing.html / index.html ship an explicit <link> for Fraunces in
-  // <head>, so the wordmark + headings render in Fraunces there. Other
-  // pages relied only on the `@import` buried in css/ui.css — a chained
-  // request (HTML → ui.css → @import → Google Fonts → font file) that
-  // paints in the Georgia fallback first and swaps late, so the SAME
-  // topbar wordmark rendered in a different font page-to-page. That's the
-  // "fonts look inconsistent" gap. Fix: inject the same real <link>
-  // (+ preconnect) here, once, on any page that doesn't already have it.
-  // Identical URL to landing's <link> so the font file is a shared cache
-  // hit, not a second download. (2026-06-15)
+  // ── Brand face: load Geist reliably on EVERY topbar page ──
+  // Geist is the site-wide house face (chosen over Fraunces 2026-06-15).
+  // Most pages ship their own <link> for it, but to guarantee the SAME
+  // wordmark + headings render in Geist page-to-page (and avoid the
+  // paint-in-fallback-then-swap flash when a page relies only on a CSS
+  // @import), inject the real <link> (+ preconnect) here, once, on any
+  // page that doesn't already load it. Identical URL everywhere so the
+  // font file is a shared cache hit, not a second download.
   (function ensureBrandFont(){
     try {
       var head = document.head || document.getElementsByTagName('head')[0];
