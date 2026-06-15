@@ -1540,6 +1540,9 @@ button{font-family:inherit;cursor:pointer}
 /* Same treatment for #current-topics — sec-title + body p got dim too. */
 [data-theme="grey"] #current-topics .sec-title,
 [data-theme="crimson"] #current-topics .sec-title{color:#fff !important;text-shadow:0 2px 24px rgba(34,197,94,.16)}
+/* And the certificate advert — same .sec-title dim risk on dark themes. */
+[data-theme="grey"] #credential .sec-title,
+[data-theme="crimson"] #credential .sec-title{color:#fff !important;text-shadow:0 2px 24px rgba(239,68,68,.16)}
 
 /* ── Adults / Professionals grid ─────────────────────────────
    Seven audience cards (Debaters / Lawyers / Sales / Teams /
@@ -4705,12 +4708,18 @@ section.hero .hero-illustrated h1.hi-headline{
 /* Quiet live-stat strip under the subhead: real sign-up count + this
    week's live-round searches. Numbers carry the hero red; the rest
    stays soft ink so it reads as proof, not a shout. */
+/* Proof line + "First time here?" doorway on one centered row, so the
+   onboarding re-trigger costs no vertical height. Wraps only on narrow. */
+.hero-illustrated .hi-proof-row{
+  display:flex;align-items:center;justify-content:center;
+  gap:8px 16px;flex-wrap:wrap;margin:18px auto 0;
+}
 .hero-illustrated .hi-proof-note{
   font-family:'Geist','Inter',-apple-system,system-ui,sans-serif;
   font-size:.85rem;
   line-height:1.5;
   color:var(--hi-ink-soft);
-  margin:18px auto 0;
+  margin:0;
   /* Size to content so the three-stat funnel sits on one line on desktop
      (instead of orphaning "for a live round this week"); the max-width cap
      lets it wrap normally once the viewport is narrower than the line. */
@@ -4724,8 +4733,8 @@ section.hero .hero-illustrated h1.hi-headline{
    clickable doorway. Sits between the proof strip and the CTA row;
    centered so it tracks the hero's vertical spine. */
 .hero-illustrated .hi-first-time{
-  display:flex;align-items:center;gap:6px;
-  margin:14px auto 0;padding:7px 14px;width:max-content;
+  display:inline-flex;align-items:center;gap:6px;
+  margin:0;padding:6px 13px;width:max-content;
   background:transparent;color:var(--hi-ink-soft);
   border:1px solid var(--hi-line-soft,rgba(29,25,21,.22));border-radius:999px;
   font-family:'Geist','Inter',system-ui,sans-serif;font-size:.78rem;font-weight:600;letter-spacing:.005em;
@@ -5654,6 +5663,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <a href="/live">Scheduled</a>
   <a href="/community">Community</a>
   <a href="/leaderboard">Leaderboard</a>
+  <a href="/credentials">Certificate</a>
   <a href="#tools">Tools</a>
   <a href="#topics">Current Topics</a>
   <a href="#global">Global</a>
@@ -6639,21 +6649,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <!-- Proof strip sits OUTSIDE .hi-head (which caps at 820px for the
            headline's line length) so the three-stat funnel can center in
            the full hero width and stay on one line. -->
-      <p class="hi-proof-note" aria-live="polite">
-        <span id="hiStatViewsWeek" hidden></span><span class="hi-proof-num" id="hiStatGoogle">78</span> debaters signed in with Google so far<span id="hiStatSparWeek" hidden></span>
-      </p>
-
-      <!-- Persistent re-trigger for the first-visit onboarding modal.
-           The modal auto-pops once per browser; this button lets return
-           visitors who dismissed it (or anyone who just wants the
-           "where do I start" prompt) reopen it on demand. Quiet pill
-           style — small, ghosted, sits between the proof note and the
-           CTA row so it doesn't compete with the mode cards but stays
-           a click away. Inline style so it carries no extra CSS file. -->
-      <button type="button" class="hi-first-time" data-ob-trigger="hero-first-time"
-              aria-label="Open the first-time visitor guide">
-        First time here? <span class="hi-first-time-arrow" aria-hidden="true">&rarr;</span>
-      </button>
+      <!-- Proof line + the first-visit onboarding re-trigger share ONE row
+           so the "First time here?" doorway adds no vertical height to the
+           hero (it used to be its own centered band between proof + CTA).
+           The button auto-pops once per browser; this lets return visitors
+           who dismissed it reopen the "where do I start" guide on demand. -->
+      <div class="hi-proof-row">
+        <p class="hi-proof-note" aria-live="polite">
+          <span id="hiStatViewsWeek" hidden></span><span class="hi-proof-num" id="hiStatGoogle">78</span> debaters signed in with Google so far<span id="hiStatSparWeek" hidden></span>
+        </p>
+        <button type="button" class="hi-first-time" data-ob-trigger="hero-first-time"
+                aria-label="Open the first-time visitor guide">
+          First time here? <span class="hi-first-time-arrow" aria-hidden="true">&rarr;</span>
+        </button>
+      </div>
 
       <!-- 2026-06-01: big "where to go" buttons, ABOVE the illustration so
            they're the prominent above-the-fold framework per Aidan
@@ -8656,6 +8665,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <p>AI rounds when no one's around. Human rounds through the spar board when they are. Tournaments on-platform. A public library of judge verdicts (RFDs) so the best ballots teach instead of dying in Google Docs.</p>
         </div>
 
+        <!-- Closing note, folded in from the old "why this exists" essay per
+             Aidan: the team/ambassadors + transparency line, bolded. -->
+        <p class="fl-closer">Building this at scale also takes global ambassadors: debaters and coaches who carry it onto their own circuits and into their schools. Growth runs on a bare-bones budget with nothing going to marketing, and for now it's me reading the dashboards from Chicago. There's still AI fluff scattered across the site, and I'm clearing it out.</p>
+
         <div class="fl-cta">
           <a class="fl-cta-primary" href="/voice-debate">Take a voice round →</a>
           <a class="fl-cta-secondary" href="/spar">Find a human partner</a>
@@ -8719,39 +8732,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </a>
     </nav>
 
-    <div class="story-row">
-      <!-- 2026-06-15: the "Where users argue from" globe moved UP into the
-           live-debates band (.livenow-stage), sitting left of the rotating
-           debater faces so the geo-spread reads next to the actual people.
-           Single #heroGlobeCanvas in the DOM; the 2D init binds by id, so
-           the move is position-independent. The founder essay below is now
-           a single centered column. -->
-      <!-- Variant B figure-slot: the .sf-travel-figure lands here at the end
-           of the scroll arc. Empty in the DOM; the travel layer positions
-           the figure visually over this slot when progress reaches 1. The
-           sized .figure-slot-inner reserves vertical space so the founder
-           prose doesn't reflow when the figure lands. -->
-      <div class="figure-slot lab-only-b" aria-hidden="true" id="founderFigureSlot">
-        <div class="figure-slot-inner"></div>
-      </div>
-      <aside class="founder-video-side" id="story" aria-label="Why this exists">
-        <p class="fvs-lead">
-          An AI judge that writes the verdict the second you finish. No half-hour wait.
-        </p>
-        <p>
-          Sometimes it judges fairer than the human did. Try one and see. The same engine runs oral-exam prep. Schools are bringing oral exams back because AI fakes the written ones; defending your reasoning out loud still has to be done by you. Viva mode drills that. The examiner pushes on the weak link until you patch it or the clock runs out.
-        </p>
-        <p>
-          Two voice modes. A short drill for the speech you're prepping. A full round against a named opponent on the clock. Typed prep tools too. The goal isn't comfort. It's hearing yourself drop a contention and fixing it next round.
-        </p>
-        <p class="fvs-outro">
-          Building this at scale takes a real team: leadership and global ambassadors who bring it into schools on their own circuits. Growth runs on a bare-bones budget right now, with nothing going to marketing. For now it's me, reading the dashboards from Chicago. There's still AI fluff scattered across the site, and I'm clearing it out.
-        </p>
-        <p>
-          If you run a club, judge tournaments, or want to contribute to the work in whatever way, give ideas. <a href="mailto:feedback@debateai.com?subject=Help%20build%20this">Write me</a>. One paragraph is fine.
-        </p>
-      </aside>
-    </div>
+    <!-- 2026-06-15: the old "Why this exists" essay was removed here. It
+         duplicated the new "A letter from the founder" section above; the
+         founder's team/ambassadors + transparency note was folded into that
+         letter's closing (.fl-closer). The "If you run a club, write me"
+         ask is covered by the co-founder card + the letter's CTA row. The
+         #story anchor moves to the letter so old in-page links still land. -->
+    <span id="story" aria-hidden="true"></span>
 
     <!-- 2026-05-26: variant-B globe-relocation retired per user
          ("put the globe back on the left of the text here"). The
@@ -9106,6 +9093,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* 2026-05-21: modest top breathing room. The hero now fills the viewport
      (min-height:100svh) so this frame already sits below the fold; this
      padding is just spacing for when the user scrolls to it. */
+  /* Folded-in founder closing note (team/ambassadors + transparency). Bold,
+     set off from the numbered beats with a top divider. (2026-06-15) */
+  .founder-letter .fl-closer{
+    font-weight:700;color:var(--text);line-height:1.6;
+    margin:22px 0 0;padding-top:18px;border-top:1px solid var(--border);
+  }
+  [data-theme="light"] .founder-letter .fl-closer{color:#1a1a1f;border-top-color:rgba(0,0,0,.08)}
   .founder-video-section{padding:clamp(44px,5vh,80px) 24px 24px}
 
   /* ─────────────────────────────────────────────────────────────────────
@@ -12279,7 +12273,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="pro-wrap">
     <div class="pro-eyebrow">Debate is the source</div>
     <h2 class="pro-title">The skills travel.</h2>
-    <p class="pro-sub">Debate is communication and critical thinking under pressure, the two things every job runs on. The interview, the board, the negotiation, the oral exam: the room changes, the skill does not.</p>
+    <p class="pro-sub">Defend a case. Answer a board. Handle the objection. Sit the oral exam. The room changes; the skill does not.</p>
 
     <div class="pro-layout">
 
@@ -12448,6 +12442,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </div>
 
     <p class="pro-foot">Same loop in every room: <b>make the case, take the hit, hold the line, get the ballot.</b></p>
+  </div>
+</section>
+
+<!-- Certificate / resume-builder advert (2026-06-15, Aidan). Pitches the
+     /credentials Communication Credential as a resume asset. Reuses the
+     generic .sec / .wrap / .sec-label / .sec-title / .sec-sub convention
+     + theme tokens; one CTA out to the cert page. Jump-nav "Certificate"
+     entry added to the TOC to match. -->
+<section id="credential" class="sec" style="text-align:center">
+  <div class="wrap">
+    <div class="sec-label">Want a resume builder?</div>
+    <h2 class="sec-title">Turn a round into a credential.</h2>
+    <p class="sec-sub">Take one live, judged voice round. DebateIt scores your communication out of 100, ranks you against debaters worldwide, and breaks it into five skills: clarity, reasoning, responsiveness, listening, and persuasion. Verifiable in one click. Put it on a college application, an ESL portfolio, or a resume.</p>
+    <a href="/credentials" data-cta="landing-credential" style="display:inline-block;padding:14px 30px;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em;box-shadow:0 8px 28px var(--accent-glow)">Get your certificate &rarr;</a>
+    <p style="margin-top:16px;font-size:.78rem;color:var(--text-ghost);letter-spacing:.02em">Free. No test center. No sitting fee.</p>
   </div>
 </section>
 
