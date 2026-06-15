@@ -61,16 +61,20 @@
       'box-shadow:0 8px 22px rgba(0,0,0,.4);}',
     '.dafab-tip.on{opacity:1;transform:translateX(0);}',
 
+    // Invisible click-catcher only — no screen dim. The drawer is a corner
+    // popover that hugs the orb, not a modal that takes over the page.
     '.dafab-backdrop{position:fixed;inset:0;z-index:8998;',
-      'background:rgba(0,0,0,.52);opacity:0;pointer-events:none;',
+      'background:transparent;opacity:0;pointer-events:none;',
       'transition:opacity .18s;}',
     '.dafab-backdrop.on{opacity:1;pointer-events:auto;}',
 
-    '.dafab-drawer{position:fixed;right:18px;bottom:18px;z-index:9001;',
-      'width:min(360px,calc(100vw - 36px));',
+    // Sits just above the orb (bottom:84px clears the ~52px orb + gap) so it
+    // reads as a popover anchored to the bar, not a floating sheet.
+    '.dafab-drawer{position:fixed;right:18px;bottom:84px;z-index:9001;',
+      'width:min(308px,calc(100vw - 32px));',
       'background:#11111c;color:rgba(255,255,255,.92);',
-      'border:1px solid rgba(255,255,255,.12);border-radius:18px;',
-      'padding:20px 20px 16px;',
+      'border:1px solid rgba(255,255,255,.14);border-radius:16px;',
+      'padding:15px 16px 14px;',
       'box-shadow:0 20px 60px rgba(0,0,0,.45);',
       'font-family:Crimson Pro,Inter,system-ui,-apple-system,sans-serif;',
       'transform:translateY(14px) scale(.96);opacity:0;pointer-events:none;',
@@ -108,13 +112,42 @@
       'font-size:.72rem;color:rgba(255,255,255,.55);text-decoration:none;}',
     '.dafab-open:hover{color:rgba(255,255,255,.9);}',
 
+    // ── Live "round to join" alert (fed by /api/log-missed-match) ──
+    '.dafab-alert{display:none;align-items:center;gap:9px;text-decoration:none;',
+      'margin:0 0 13px;padding:9px 11px;border-radius:11px;',
+      'background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.42);',
+      'transition:background .15s;}',
+    '.dafab-alert.on{display:flex;}',
+    '.dafab-alert:hover{background:rgba(34,197,94,.18);}',
+    '.dafab-alert__dot{flex:none;width:8px;height:8px;border-radius:50%;background:#22c55e;',
+      'box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:dafab-glow 1.8s ease-out infinite;}',
+    '.dafab-alert__txt{flex:1;min-width:0;font-size:.76rem;line-height:1.3;',
+      'color:#bbf7d0;font-weight:600;}',
+    '.dafab-alert__txt b{color:#fff;font-weight:800;}',
+    '.dafab-alert__go{flex:none;font-size:.66rem;font-weight:800;color:#22c55e;',
+      'text-transform:uppercase;letter-spacing:.05em;}',
+    '@keyframes dafab-glow{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}',
+      '50%{box-shadow:0 0 0 6px rgba(34,197,94,0)}}',
+    // Green presence badge on the orb so a waiting round is visible while closed.
+    '.dafab-orb__badge{position:absolute;top:-1px;right:-1px;width:14px;height:14px;',
+      'border-radius:50%;background:#22c55e;border:2px solid #11111c;display:none;}',
+    '.dafab-orb__badge.on{display:block;animation:dafab-glow 1.8s ease-out infinite;}',
+    '@media (prefers-reduced-motion:reduce){',
+      '.dafab-alert__dot,.dafab-orb__badge.on{animation:none;}}',
+
     '@media (max-width:480px){.dafab-orb{right:14px;bottom:14px;}',
-      '.dafab-drawer{right:14px;bottom:14px;}.dafab-tip{display:none;}}',
+      '.dafab-drawer{right:14px;bottom:78px;}.dafab-tip{display:none;}}',
 
     // ── Light theme overrides ────────────────────────────────
     '[data-theme="light"] .dafab-tip{background:#fff;color:rgba(0,0,0,.88);',
       'border-color:rgba(0,0,0,.12);box-shadow:0 6px 18px rgba(0,0,0,.12);}',
-    '[data-theme="light"] .dafab-backdrop{background:rgba(0,0,0,.28);}',
+    '[data-theme="light"] .dafab-backdrop{background:transparent;}',
+    '[data-theme="light"] .dafab-alert{background:rgba(34,197,94,.10);border-color:rgba(22,163,74,.45);}',
+    '[data-theme="light"] .dafab-alert:hover{background:rgba(34,197,94,.16);}',
+    '[data-theme="light"] .dafab-alert__txt{color:#166534;}',
+    '[data-theme="light"] .dafab-alert__txt b{color:#14532d;}',
+    '[data-theme="light"] .dafab-alert__go{color:#16a34a;}',
+    '[data-theme="light"] .dafab-orb__badge{border-color:#fff;}',
     '[data-theme="light"] .dafab-drawer{background:#fff;color:rgba(0,0,0,.88);',
       'border-color:rgba(0,0,0,.10);box-shadow:0 16px 48px rgba(0,0,0,.14);}',
     '[data-theme="light"] .dafab-h-l{color:rgba(0,0,0,.92);}',
@@ -147,7 +180,7 @@
   btn.setAttribute('aria-haspopup', 'dialog');
   btn.setAttribute('aria-expanded', 'false');
   btn.setAttribute('aria-label', 'Open your coach');
-  btn.innerHTML = '';
+  btn.innerHTML = '<span class="dafab-orb__badge" aria-hidden="true"></span>';
 
   var tip = document.createElement('div');
   tip.className = 'dafab-tip';
@@ -162,7 +195,12 @@
     +   '<div class="dafab-h-l">Your coach</div>'
     +   '<button class="dafab-x" type="button" aria-label="Close">✕</button>'
     + '</div>'
-    + '<p class="dafab-sub">Your coach follows you across DebateIt. Jump into a drill from any page; close it, navigate somewhere else, and the orb is still here.</p>'
+    + '<a class="dafab-alert" href="/spar" data-action="join-round" aria-live="polite">'
+    +   '<span class="dafab-alert__dot" aria-hidden="true"></span>'
+    +   '<span class="dafab-alert__txt"></span>'
+    +   '<span class="dafab-alert__go">Join</span>'
+    + '</a>'
+    + '<p class="dafab-sub">Jump into a drill from any page. The orb follows you across DebateIt.</p>'
     + '<p class="dafab-lbl">Jump into a drill</p>'
     + '<div class="dafab-drills">'
     +   '<a class="dafab-chip" href="/coach?drill=poi" data-drill="poi">POI gauntlet</a>'
@@ -203,6 +241,51 @@
       setGender(o.getAttribute('data-g'));
       paintPicker();
     });
+  });
+
+  // ── Live "round to join" alert ─────────────────────────────
+  // Polls the public spar activity ring (/api/log-missed-match → recent[])
+  // for anyone who looked for a live round in the last few minutes. If
+  // someone's searching, the orb shows a green badge and the drawer offers
+  // a one-tap Join into /spar (where matchmaking pairs them live). Honest
+  // framing: "someone's looking," not "a room is waiting" — the queue pairs
+  // on arrival, it isn't a held seat.
+  var FRESH_MS = 6 * 60 * 1000;
+  var alertEl = drawer.querySelector('.dafab-alert');
+  var alertTxt = drawer.querySelector('.dafab-alert__txt');
+  var badge = btn.querySelector('.dafab-orb__badge');
+  var FMT_LABELS = { apda:'APDA', bp:'BP', policy:'Policy', ld:'LD', pf:'PF',
+    wsdc:'WSDC', 'asian-parli':'Asian Parli', asian:'Asian Parli', mun:'MUN',
+    congress:'Congress', worlds:'Worlds', 'quick-clash':'Quick Clash' };
+  function fmtLabel(s){ return FMT_LABELS[s] || 'live'; }
+  function paintAlert(recent){
+    var now = Date.now();
+    var fresh = (recent || []).filter(function(e){
+      if (!e || typeof e.ts !== 'number' || typeof e.fmt !== 'string') return false;
+      var t = e.ts < 1e12 ? e.ts * 1000 : e.ts; // tolerate s vs ms
+      return (now - t) < FRESH_MS;
+    });
+    var on = fresh.length > 0;
+    alertEl.classList.toggle('on', on);
+    badge.classList.toggle('on', on);
+    if (on) {
+      alertTxt.innerHTML = fresh.length > 1
+        ? '<b>' + fresh.length + ' debaters</b> looking for a round now'
+        : '<b>Someone</b>’s up for ' + fmtLabel(fresh[0].fmt) + ' right now';
+    }
+  }
+  function pollRounds(){
+    if (document.hidden) return; // don't poll background tabs
+    fetch('/api/log-missed-match', { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ if (d) paintAlert(d.recent); })
+      .catch(function(){});
+  }
+  pollRounds();
+  var roundsTimer = setInterval(pollRounds, 60000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) pollRounds(); });
+  alertEl.addEventListener('click', function(){
+    try { window.gtag && gtag('event', 'coach_fab_join_round', { path: here }); } catch(e){}
   });
 
   function open(){
