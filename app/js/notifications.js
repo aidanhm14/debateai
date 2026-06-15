@@ -314,6 +314,16 @@
     // is alive" perception → sign-in conversions).
     var activity = [], activitySeen = 0, activitySeenSnapshot = 0;
     try { activitySeen = parseInt(localStorage.getItem('da-activity-seen') || '0', 10) || 0; } catch (_) {}
+
+    // First-visit baselines. If there's no stored "seen" marker yet, this
+    // visitor has never had a chance to see anything, so everything that
+    // exists right now is treated as already-seen and the badge starts at
+    // 0. Without this a brand-new visitor saw a phantom "9+" for items
+    // that predate their arrival. Only things published AFTER this visit
+    // count from here on.
+    var hadUpdatesBaseline = false, hadActivityBaseline = false;
+    try { hadUpdatesBaseline = localStorage.getItem('da-updates-seen') != null; } catch (_) {}
+    try { hadActivityBaseline = localStorage.getItem('da-activity-seen') != null; } catch (_) {}
     // presence — real "N online in the last 5 min" from /api/online-count.
     // Pinned at the top of the activity section. Honest number per the
     // landing-page presence pipeline (admin SDK reads presence/{uid|pid}
@@ -321,7 +331,7 @@
     var onlineCount = null;
 
     // DM state
-    var myUid = null, dmRows = [], dmUnread = 0;
+    var myUid = null, dmRows = [], dmUnread = 0, signedInReal = false;
     var threadsUnsub = null, prevUnread = {}, firstSnap = true;
 
     bell.style.display = 'inline-flex'; // visible to everyone for updates, not just signed-in users
@@ -345,6 +355,7 @@
         .then(function (list) {
           updates = (Array.isArray(list) ? list : []).slice()
             .sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
+          if (!hadUpdatesBaseline) { markUpdatesSeen(); hadUpdatesBaseline = true; } // first visit: caught up
           if (panel) { markUpdatesSeen(); paintPanel(); } // open while loading: count as read
           renderBadge();
         })
@@ -381,6 +392,7 @@
         .then(function (j) {
           if (!j || !Array.isArray(j.items)) return;
           activity = j.items.slice();
+          if (!hadActivityBaseline) { markActivitySeen(); hadActivityBaseline = true; } // first visit: caught up
           if (panel) { markActivitySeen(); paintPanel(); }
           renderBadge();
         })
@@ -413,7 +425,11 @@
     // ── combined unread badge (DMs + new updates + new activity) ─────
     function renderBadge() {
       if (!badge) return;
-      var n = dmUnread + updatesUnreadCount() + activityUnreadCount();
+      // The unread count is for real signed-in users only. A signed-out
+      // (or anonymous) visitor has no DMs and nothing they've "missed", so
+      // the old phantom "9+" was noise. They still get the bell + the
+      // panel (activity / what's-new) on click; just no nagging number.
+      var n = signedInReal ? (dmUnread + updatesUnreadCount() + activityUnreadCount()) : 0;
       if (n > 0) { badge.hidden = false; badge.textContent = n > 9 ? '9+' : String(n); bell.classList.add('has-unread'); }
       else { badge.hidden = true; bell.classList.remove('has-unread'); }
     }
@@ -421,6 +437,10 @@
     // ── DM layer (auth + firestore) ──────────────────────────────────
     whenFirebaseReady(function () {
       window.firebase.auth().onAuthStateChanged(function (u) {
+        // Only a real (non-anonymous) account counts as "signed in" for the
+        // badge — /spar signs visitors in anonymously, and that shouldn't
+        // light up an unread count.
+        signedInReal = !!(u && !u.isAnonymous);
         if (!u) {
           if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
           myUid = null; dmRows = []; dmUnread = 0; prevUnread = {}; firstSnap = true;
@@ -428,6 +448,7 @@
           return;
         }
         myUid = u.uid;
+        renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
       });
     });
