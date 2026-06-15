@@ -194,6 +194,10 @@
     if (bar) return;
     var cfg = getConfig();
     if (cfg.skip) return; // page owns its own sign-in CTA (e.g. /spar, /live)
+    // Don't stack on top of the first-visit intro modal (it's the same
+    // ask, and the two collided at the bottom of the screen). Defer until
+    // that modal is dismissed; the bar then appears on its own.
+    if (document.querySelector('.intro-modal.is-open')){ setTimeout(mount, 1500); return; }
     injectStyle();
     bar = document.createElement('div');
     bar.className = 'signup-nudge';

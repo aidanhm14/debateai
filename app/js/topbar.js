@@ -78,6 +78,19 @@
     document.head.appendChild(s);
   })();
 
+  // Shared multi-method sign-in modal (Google / email link / phone).
+  // Loaded site-wide so window.openAuthModal exists for the Sign in
+  // button AND so its email-link completion handler runs when a user
+  // returns via a magic link. It only pulls firebase when actually
+  // arriving from a link, so it's cheap on normal loads.
+  (function ensureAuthModalLoaded(){
+    if (document.querySelector('script[src*="/js/auth-modal.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/auth-modal.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+
   // Normalize a few synonyms so "/" and "/landing" both light up Home.
   function pathMatches(href){
     var h = href.replace(/\/$/,'') || '/';
@@ -721,21 +734,15 @@
     });
   }
   function startGoogleSignIn(){
-    fbBootstrap(function(){
-      try {
-        var provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        var t0 = Date.now();
-        firebase.auth().signInWithPopup(provider).catch(function(err){
-          var code = (err && err.code) || 'unknown';
-          // Popups get silently blocked on Safari/mobile. Respect only a
-          // deliberate close (open >1.2s); every other failure falls back
-          // to a full-page redirect so the user still reaches Google.
-          if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
-          try { firebase.auth().signInWithRedirect(provider); } catch(e){}
-        });
-      } catch(e){}
-    });
+    // Opens the shared multi-method sign-in modal (Google / email link /
+    // phone) so guests get pushed toward a real, identified account.
+    // Lazy-loads /js/auth-modal.js the first time.
+    if (window.openAuthModal){ window.openAuthModal(); return; }
+    var ex = document.querySelector('script[src*="/js/auth-modal.js"]');
+    if (ex){ ex.addEventListener('load', function(){ if (window.openAuthModal) window.openAuthModal(); }, { once: true }); return; }
+    var s = document.createElement('script'); s.src = '/js/auth-modal.js';
+    s.addEventListener('load', function(){ if (window.openAuthModal) window.openAuthModal(); }, { once: true });
+    document.head.appendChild(s);
   }
 
   // Signed-OUT state: a ghost "Sign in" button. Click bootstraps
