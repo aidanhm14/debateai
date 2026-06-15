@@ -8178,6 +8178,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .ln-tile{position:relative;aspect-ratio:4/3;border-radius:11px;overflow:hidden;background:rgba(127,127,127,.12);border:1px solid var(--border,rgba(255,255,255,.1))}
     .ln-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.96);transition:opacity .5s ease}
     .ln-tile::after{content:'';position:absolute;top:7px;left:7px;width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 7px #ef4444;z-index:2}
+    /* 2026-06-15: globe ("Where users argue from") sits left of the faces
+       so the geo-spread reads next to the live debaters. Faces drop to a
+       3-wide grid beside it; whole stage stacks under 860px. */
+    .livenow-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,3.5vw,48px);max-width:1120px;margin:0 auto 28px;flex-wrap:wrap}
+    .livenow-stage .livenow-globe{flex:0 0 auto;width:auto;gap:8px}
+    .livenow-stage .livenow-globe .hero-globe-canvas-wrap{width:300px;max-width:300px}
+    .livenow-stage .livenow-globe .story-globe-caption{font-size:.72rem;max-width:240px}
+    .livenow-stage .livenow-wall{margin:0;flex:1 1 460px;min-width:300px;max-width:600px;grid-template-columns:repeat(3,1fr)}
+    @media(max-width:860px){
+      .livenow-stage{flex-direction:column;gap:18px}
+      .livenow-stage .livenow-globe .hero-globe-canvas-wrap{width:240px;max-width:240px}
+      .livenow-stage .livenow-wall{flex:none;width:100%;max-width:560px;grid-template-columns:repeat(3,1fr)}
+    }
+    @media(max-width:520px){
+      .livenow-stage .livenow-wall{grid-template-columns:repeat(2,1fr)}
+    }
     .livenow-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-weight:800;font-size:1rem;text-decoration:none;transition:transform .15s,background .15s;box-shadow:0 8px 28px rgba(239,68,68,.28)}
     .livenow-cta:hover{background:#dc2626;transform:translateY(-1px)}
     .lf-label{display:block;font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));margin:0 0 10px}
@@ -8225,13 +8241,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </div>
       </div>
     </div>
-    <div class="livenow-wall" id="livenowWall">
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face03.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face09.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face15.jpg" alt="" decoding="async" /></span>
+    <div class="livenow-stage">
+      <!-- "Where users argue from" globe, moved up from the founder story so
+           the geo-spread sits next to the live debater faces. -->
+      <div class="story-globe livenow-globe" id="storyGlobeBlock" aria-hidden="false">
+        <div class="hero-globe-canvas-wrap">
+          <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with markers on top user countries"></canvas>
+        </div>
+        <div class="story-globe-caption">Where users argue from.</div>
+      </div>
+      <div class="livenow-wall" id="livenowWall">
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face03.jpg" alt="" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face09.jpg" alt="" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face15.jpg" alt="" decoding="async" /></span>
+      </div>
     </div>
     <a class="livenow-cta" href="/spar">Match with a debater &rarr;</a>
   </div>
@@ -8640,18 +8666,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </nav>
 
     <div class="story-row">
-      <!-- .story-globe is moved out of .story-row in variant B by the
-           landing-variant move script (see end of section). In A it stays
-           inline as the left column; in B it lands in the
-           .story-globe-below-slot under the founder essay at a smaller
-           size with a "globe — secondary" treatment. Single canvas in the
-           DOM, so the init script's ID lookup stays unambiguous. -->
-      <div class="story-globe" id="storyGlobeBlock" aria-hidden="false">
-        <div class="hero-globe-canvas-wrap">
-          <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with markers on top user countries"></canvas>
-        </div>
-        <div class="story-globe-caption">Where users argue from.</div>
-      </div>
+      <!-- 2026-06-15: the "Where users argue from" globe moved UP into the
+           live-debates band (.livenow-stage), sitting left of the rotating
+           debater faces so the geo-spread reads next to the actual people.
+           Single #heroGlobeCanvas in the DOM; the 2D init binds by id, so
+           the move is position-independent. The founder essay below is now
+           a single centered column. -->
       <!-- Variant B figure-slot: the .sf-travel-figure lands here at the end
            of the scroll arc. Empty in the DOM; the travel layer positions
            the figure visually over this slot when progress reaches 1. The
@@ -8671,7 +8691,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           Two voice modes. A short drill for the speech you're prepping. A full round against a named opponent on the clock. Typed prep tools too. The goal isn't comfort. It's hearing yourself drop a contention and fixing it next round.
         </p>
         <p class="fvs-outro">
-          Building this at scale requires a strong team: leadership and global ambassadors (people who help implement this in schools). I'm on a bare-bones budget for growth right now, and I'm not paying for marketing this. Right now, it's me monitoring dashboards from Chicago. And honestly, there's still AI fluff throughout the website. Working on it.
+          Building this at scale takes a real team: leadership and global ambassadors who bring it into schools on their own circuits. Growth runs on a bare-bones budget right now, with nothing going to marketing. For now it's me, reading the dashboards from Chicago. There's still AI fluff scattered across the site, and I'm clearing it out.
         </p>
         <p>
           If you run a club, judge tournaments, or want to contribute to the work in whatever way, give ideas. <a href="mailto:feedback@debateai.com?subject=Help%20build%20this">Write me</a>. One paragraph is fine.
@@ -9352,7 +9372,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      with a wall of prose on small screens. */
   .story-row{
     display:grid;
-    grid-template-columns:minmax(320px, 1fr) minmax(0, 1.35fr);
+    /* 2026-06-15: globe moved up to the live band, so the founder essay is
+       now a single centered column instead of the old globe|prose 2-col. */
+    grid-template-columns:1fr;
     gap:clamp(28px, 4vw, 56px);
     align-items:center;
     /* 2026-05-23: top margin bumped (was clamp(28px,4vw,48px)) so the
@@ -9360,7 +9382,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        room before the "why this exists" globe + prose block. The card
        and the lead headline below it were reading as a single unit. */
     margin:clamp(64px, 9vw, 112px) auto clamp(28px, 4vw, 48px);
-    max-width:1120px;
+    max-width:760px;
   }
   .story-globe{
     display:flex;flex-direction:column;align-items:center;gap:14px;
@@ -9419,7 +9441,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     margin-bottom:18px;letter-spacing:-.01em;
   }
   .founder-video-side .fvs-outro{
-    font-weight:600;color:var(--text);
+    font-weight:700;color:var(--text);
     margin-top:18px;padding-top:16px;
     border-top:1px solid var(--border);
   }
