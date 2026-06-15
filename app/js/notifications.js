@@ -713,7 +713,8 @@
     var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
     var STALE_MS = 3 * 60 * 1000;             // ignore peers older than this
     var COUNTDOWN_S = 20;                     // accept window
-    var VALID = ['quick','apda','bp','worlds','asian','ld','pf','policy','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
+    var REINVITE_COOLDOWN_MS = 2 * 60 * 1000; // after a decline/timeout, stay quiet this long before any re-invite
+    var VALID =['quick','apda','bp','worlds','asian','ld','pf','policy','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
     // Don't run the matcher ON an active round (notifications.js loads on
     // /live-round + /voice-debate too) — you're already debating; being
     // re-queued as "waiting" there would pop a match mid-round.
@@ -747,6 +748,10 @@
     var ownUnsub = null, hbTimer = null, scanTimer = null;
     var pill = null, overlay = null, handledRoom = null, navigating = false;
     var declinedPeer = null, declinedAt = 0, scanning = false, pairing = false;
+    // After a decline (or a timed-out invite) we step out of the queue and stay
+    // quiet until declineUntil, so an available user is never re-pinged in a
+    // tight loop. A manual "go available" toggle clears it (see setAvailable).
+    var declineUntil = 0, cooldownTimer = null;
     var docGone = false; // own queue doc reaped/cancelled while we still think we're available
 
     function fmt() {
@@ -810,6 +815,9 @@
       try { localStorage.setItem(LSKEY, available ? '1' : '0'); } catch (e) {}
       try { if (window.gtag) gtag('event', on ? 'spar_bg_on' : 'spar_bg_off'); } catch (e) {}
       paintPill();
+      // A manual opt-in is an explicit "match me now", so it clears any
+      // lingering post-decline quiet window.
+      if (on) { declineUntil = 0; if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; } }
       if (available && myUid && !ON_ROUND && !ON_SPAR) goAvailable();
       else goOffline();
     }
@@ -840,6 +848,7 @@
     // peers can't see. Guards mirror goAvailable + the overlay/nav states.
     function requeue() {
       if (!myUid || !myRef || !available || ON_ROUND || ON_SPAR || ON_PUBLIC || overlay || navigating) return;
+      if (Date.now() < declineUntil) return; // honour the post-decline quiet window
       docGone = false;
       myRef.set({
         uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
@@ -886,6 +895,10 @@
         var matched = d.status === 'matched' && d.room && d.matchedWith;
         if (matched) {
           if (handledRoom === d.room || navigating || overlay) return;
+          // Post-decline quiet window: a peer paired us before we finished
+          // stepping out. Release them back to 'waiting' and stay quiet
+          // instead of popping another invite.
+          if (Date.now() < declineUntil) { releaseMatch(); return; }
           handledRoom = d.room;
           showMatch(d);
         } else if (overlay && !navigating) {
@@ -900,7 +913,7 @@
 
     // ── peer scan → server pair ──
     function scan() {
-      if (!available || !db || !myUid || navigating || overlay || scanning) return;
+      if (!available || !db || !myUid || navigating || overlay || scanning || Date.now() < declineUntil) return;
       scanning = true;
       db.collection('matchmaking_queue')
         .where('broaden', '==', true)
@@ -912,7 +925,7 @@
           var peer = null, now = Date.now();
           snap.forEach(function (s) {
             if (peer || s.id === myUid) return;
-            if (s.id === declinedPeer && (now - declinedAt) < 60000) return;
+            if (s.id === declinedPeer && (now - declinedAt) < REINVITE_COOLDOWN_MS) return;
             var dt = s.data() || {};
             var ms = (dt.joinedAt && dt.joinedAt.toMillis) ? dt.joinedAt.toMillis() : 0;
             if (ms && (now - ms) > STALE_MS) return;
@@ -1024,6 +1037,35 @@
       });
       location.href = '/live-round.html?' + params.toString();
     }
+    // Release the current match back to the queue (the peer returns to
+    // 'waiting' via the admin SDK, so their card closes instead of landing in
+    // an empty room) and then drop our OWN waiting doc so nobody can re-pair us.
+    // Shared by decline and the cooldown-race guard in watchOwnDoc.
+    function releaseMatch() {
+      handledRoom = null;
+      function dropMine() { if (myRef) myRef.delete().catch(function () {}); }
+      try {
+        window.firebase.auth().currentUser.getIdToken().then(function (tok) {
+          return fetch('/.netlify/functions/spar-unmatch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: '{}'
+          });
+        }).then(dropMine).catch(dropMine);
+      } catch (e) { dropMine(); }
+    }
+    // Re-enter the queue once the post-decline quiet window elapses, but only
+    // if the user is still available and idle (no card / round / nav / hidden).
+    // A hidden tab at fire time is picked up by the visibilitychange requeue.
+    function pauseForCooldown() {
+      if (cooldownTimer) clearTimeout(cooldownTimer);
+      cooldownTimer = setTimeout(function () {
+        cooldownTimer = null;
+        if (available && myUid && !ON_ROUND && !ON_SPAR && !ON_PUBLIC && !overlay && !navigating && !document.hidden) {
+          goAvailable();
+        }
+      }, Math.max(0, declineUntil - Date.now()));
+    }
     function decline(d) {
       closeOverlay();
       declinedPeer = (d && d.matchedWith) || null;
@@ -1031,19 +1073,16 @@
       handledRoom = null;
       try { if (window.gtag) gtag('event', 'spar_bg_decline'); } catch (e) {}
       if (!available || ON_ROUND || ON_SPAR) return;
-      // Server releases BOTH docs back to waiting (admin SDK bypasses the
-      // rule that blocks writing a peer's doc), so the peer's own-doc
-      // listener closes its card too instead of landing in an empty room.
-      // Then I resume scanning. Local re-queue is the network-fail fallback.
-      window.firebase.auth().currentUser.getIdToken().then(function (tok) {
-        return fetch('/.netlify/functions/spar-unmatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-          body: '{}'
-        });
-      }).then(function () { if (available) startTimers(); }).catch(function () {
-        requeue();
-      });
+      // Don't re-invite someone who just declined (or let an invite time out).
+      // Stay quiet for REINVITE_COOLDOWN_MS: stop scanning, release the peer
+      // back to 'waiting' so they aren't stranded, drop our own queue doc so
+      // no one re-pairs us, then re-enter the queue once the window elapses.
+      // requeue()/scan() both self-guard on declineUntil, so an inbound pair or
+      // a tab-focus can't sneak a card in during the window.
+      declineUntil = Date.now() + REINVITE_COOLDOWN_MS;
+      stopTimers();
+      releaseMatch();
+      pauseForCooldown();
     }
 
     // ── go-live opt-in prompt ("be live for live debates while you scroll?") ──
