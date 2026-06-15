@@ -177,7 +177,7 @@
     // credential"), still acquiring distribution. Sits after Learn
     // because cert is the outcome of a learning loop — natural pairing
     // on the bar. 2026-06-12: label "Cert" → "Certificate" per Aidan.
-    { href: '/credentials',   label: 'Certificate', italic: true },
+    { href: '/credentials',   label: 'Certificate', italic: false },
     // 2026-05-18: /rounds standalone listing retired — the published-
     // rounds tab now lives inside /community. The topbar already links
     // to Community below, so a separate Rounds entry would just point
