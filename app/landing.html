@@ -2011,9 +2011,11 @@ button{font-family:inherit;cursor:pointer}
    "AI arcade lobby" feel without breaking existing routing/auth.
    ────────────────────────────────────────────────────────────────── */
 
-/* Kill the legacy left-rail jump nav — was making the landing feel
-   like an app dashboard before users had any context. */
-.landing-jumpnav{display:none !important}
+/* 2026-06-15: re-enabled as a LIGHT, fading table of contents (per Aidan).
+   The old heavy left-rail dashboard card is gone; the airy restyle (thin
+   accent spine, faint-at-rest, brightens on hover) + scroll fade + active
+   scroll-spy live in the .landing-jumpnav rule + script below. Stays
+   desktop-only (hidden under 1100px). */
 
 /* Drop the old beta strip at top — editorial pages don't open with a
    gradient marquee. */
@@ -5524,27 +5526,33 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      so it doesn't steal real estate on mobile. -->
 <style>
   html{scroll-behavior:smooth}
+  /* Light, fading table of contents (2026-06-15). No heavy card: a thin
+     accent spine + airy uppercase links. Quiet at rest (~.4 opacity),
+     comes fully forward on hover/focus, and the scroll handler below
+     slides it away when you scroll down. The !important overrides the
+     per-theme panel backgrounds further down so it stays airy on every
+     theme. */
   .landing-jumpnav{
     position:fixed;left:20px;top:50%;transform:translateY(-50%);z-index:20;
-    display:flex;flex-direction:column;gap:4px;
-    padding:12px 8px;
-    background:rgba(15,15,18,.92);
-    border:1px solid var(--border);
-    border-radius:14px;
-    box-shadow:0 12px 40px rgba(0,0,0,.35);
+    display:flex;flex-direction:column;gap:1px;
+    padding:4px 4px 4px 14px;
+    background:transparent !important;border:none !important;box-shadow:none !important;
+    opacity:.4;transition:opacity .35s ease, transform .35s ease;
   }
+  .landing-jumpnav::before{
+    content:"";position:absolute;left:0;top:10px;bottom:10px;width:1px;
+    background:linear-gradient(var(--accent,#ef4444),transparent 90%);opacity:.55;
+  }
+  .landing-jumpnav:hover,.landing-jumpnav:focus-within{opacity:1}
   .landing-jumpnav a{
-    display:block;padding:8px 14px;
-    font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--text-dim);text-decoration:none;
-    border-radius:999px;
-    transition:color .15s, background .15s;
-    white-space:nowrap;
+    display:block;padding:5px 11px;
+    font-size:.67rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--text-dim);text-decoration:none;border-radius:8px;opacity:.82;
+    transition:color .15s, opacity .15s;white-space:nowrap;
   }
-  .landing-jumpnav a:hover{color:var(--text);background:rgba(255,255,255,.06)}
+  .landing-jumpnav a:hover{color:var(--text);opacity:1}
+  .landing-jumpnav a.is-active{color:var(--accent);opacity:1}
   .landing-jumpnav a.donate{color:var(--accent)}
-  .landing-jumpnav a.donate:hover{background:rgba(239,68,68,.12)}
-  .landing-jumpnav{transition:opacity .25s ease, transform .25s ease}
   /* Hidden state: fade + slide left + ignore pointer events so it doesn't
      intercept clicks on the content underneath when invisible. */
   .landing-jumpnav.is-hidden{opacity:0;transform:translate(-24px,-50%);pointer-events:none}
@@ -5576,6 +5584,43 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     window.addEventListener('scroll', function(){
       if (!ticking) { requestAnimationFrame(onScroll); ticking = true; }
     }, { passive: true });
+  })();
+
+  // Scroll-spy: highlight the jump-nav link for the section currently in
+  // view, so the light TOC reads as a real table of contents. Only the
+  // in-page (#anchor) links participate; off-page links (/live, etc.) are
+  // left alone. (2026-06-15)
+  (function(){
+    var links = null, targets = null, sticking = false;
+    function collect(){
+      var nav = document.querySelector('.landing-jumpnav');
+      if (!nav) return false;
+      links = []; targets = [];
+      nav.querySelectorAll('a[href^="#"]').forEach(function(a){
+        var id = a.getAttribute('href').slice(1);
+        if (!id) return;
+        var sec = document.getElementById(id);
+        if (sec){ links.push(a); targets.push(sec); }
+      });
+      return links.length > 0;
+    }
+    function spy(){
+      if (!links && !collect()) { sticking = false; return; }
+      var line = (window.scrollY || 0) + window.innerHeight * 0.34;
+      var bestI = -1, bestTop = -Infinity;
+      for (var i = 0; i < targets.length; i++){
+        var top = targets[i].getBoundingClientRect().top + (window.scrollY || 0);
+        if (top <= line && top > bestTop){ bestTop = top; bestI = i; }
+      }
+      for (var j = 0; j < links.length; j++){
+        links[j].classList.toggle('is-active', j === bestI);
+      }
+      sticking = false;
+    }
+    window.addEventListener('scroll', function(){
+      if (!sticking){ requestAnimationFrame(spy); sticking = true; }
+    }, { passive: true });
+    window.addEventListener('load', spy);
   })();
 </script>
 <nav class="landing-jumpnav" aria-label="Jump to section">

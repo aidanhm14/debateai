@@ -213,7 +213,17 @@
       '.da-golive.in{opacity:1;transform:none}' +
       '.da-golive__h{display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:800;color:var(--text,#fff);margin-bottom:5px}' +
       '.da-golive__dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:daSparPulse 1.7s ease-out infinite}' +
-      '.da-golive__p{font-size:.8rem;line-height:1.45;color:var(--text-dim,#9aa);margin:0 0 13px}' +
+      '.da-golive__p{font-size:.8rem;line-height:1.45;color:var(--text-dim,#9aa);margin:0 0 12px}' +
+      // Webcam preview strip — shows a cold visitor what a live round
+      // actually looks like (face-to-face on webcam) before they opt in.
+      // CSS silhouettes, not real photos: privacy-safe + theme-agnostic.
+      '.da-golive__camcap{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost,#888);margin:0 0 6px}' +
+      '.da-golive__cams{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:0 0 13px}' +
+      '.da-golive__cam{position:relative;aspect-ratio:4/5;border-radius:7px;overflow:hidden;' +
+        'background:radial-gradient(circle at var(--hx,50%) 37%,#4b5066 0 10px,transparent 11px),' +
+        'radial-gradient(62% 44% at var(--hx,50%) 106%,#3a3f54 0 44%,transparent 64%),' +
+        'linear-gradient(160deg,#1e202b,#0f1117)}' +
+      '.da-golive__cam i{position:absolute;top:4px;left:4px;width:5px;height:5px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;animation:daSparPulse 1.7s ease-out infinite}' +
       '.da-golive__btns{display:flex;gap:8px}' +
       '.da-golive__go{flex:1;height:38px;border-radius:10px;border:none;background:#22c55e;color:#06210f;font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer;transition:filter .15s}' +
       '.da-golive__go:hover{filter:brightness(1.08)}' +
@@ -1066,6 +1076,13 @@
         el.innerHTML =
           '<div class="da-golive__h"><span class="da-golive__dot" aria-hidden="true"></span>Be live for live debates?</div>' +
           '<p class="da-golive__p">Stay matchable while you browse. We’ll ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
+          '<div class="da-golive__camcap">What a live round looks like</div>' +
+          '<div class="da-golive__cams" aria-hidden="true">' +
+            '<div class="da-golive__cam" style="--hx:52%"><i></i></div>' +
+            '<div class="da-golive__cam" style="--hx:44%"><i style="animation-delay:.4s"></i></div>' +
+            '<div class="da-golive__cam" style="--hx:55%"><i style="animation-delay:.8s"></i></div>' +
+            '<div class="da-golive__cam" style="--hx:47%"><i style="animation-delay:1.2s"></i></div>' +
+          '</div>' +
           '<div class="da-golive__btns">' +
             '<button type="button" class="da-golive__go">Go live</button>' +
             '<button type="button" class="da-golive__no">Not now</button>' +
