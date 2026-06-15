@@ -8014,125 +8014,44 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      via the .rot-cam rotator below, so the room reads as alive. -->
 <section class="livenow" aria-label="Debate real people live">
   <style>
-    /* ── Live-debates band ── refactored 2026-06-15 from a centered
-       vertical stack into an asymmetric "live room." Reads like a
-       competitive lobby (Chess.com / Twitch / a tournament floor),
-       not a brochure. Diagonal eye path: red anchor with the headline
-       + CTA (upper-left) -> live-data rail (upper-right) -> participant
-       strip (center) -> three labeled feature clusters (lower). Every
-       number in the rail is real: #lnOnline hydrates from the live
-       presence count and #lnJoined from the real signup total (same
-       endpoints the hero uses). No invented traffic figures. */
-    .livenow{padding:clamp(26px,3.2vh,46px) 20px clamp(34px,4vh,58px);display:flex;justify-content:center}
-    .livenow-wrap{width:100%;max-width:1200px}
-    @keyframes lnDot{0%,100%{opacity:1}50%{opacity:.35}}
-
-    /* Top row: red anchor (wider) + live-data rail. */
-    .ln-top{display:grid;grid-template-columns:1.55fr 1fr;gap:18px;align-items:stretch}
-    @media(max-width:880px){.ln-top{grid-template-columns:1fr}}
-
-    /* ── Red anchor panel: the section's center of gravity ── */
-    .ln-anchor{position:relative;overflow:hidden;border-radius:22px;padding:clamp(24px,2.8vw,40px);
-      background:linear-gradient(135deg,#e23b3b 0%,#c01f1f 100%);color:#fff;
-      display:flex;flex-direction:column;justify-content:center;box-shadow:0 20px 52px rgba(192,31,31,.30)}
-    .ln-anchor::after{content:'';position:absolute;right:-90px;bottom:-100px;width:300px;height:300px;border-radius:50%;
-      background:radial-gradient(circle,rgba(255,255,255,.17),rgba(255,255,255,0) 70%);pointer-events:none}
-    /* Red-panel text is light in BOTH themes (the panel is always red).
-       Scoped under .livenow + !important to beat the page's global
-       [data-theme="light"] section h2 / section p color rules. */
-    .livenow .ln-anchor-eyebrow{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.85)!important;margin-bottom:14px}
-    .ln-anchor-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 9px rgba(255,255,255,.9);animation:lnDot 1.8s ease-in-out infinite}
-    .livenow .ln-anchor-title{position:relative;z-index:1;font-family:'Fraunces',Georgia,serif;font-size:clamp(2.05rem,3.6vw,3.1rem);font-weight:700;letter-spacing:-.02em;line-height:1.02;margin:0 0 13px;color:#fff!important}
-    .livenow .ln-anchor-title em{font-style:italic;color:#ffe0e0!important}
-    .livenow .ln-anchor-sub{position:relative;z-index:1;font-size:clamp(.98rem,1.15vw,1.1rem);line-height:1.45;color:rgba(255,255,255,.92)!important;max-width:30em;margin:0 0 22px}
-    .ln-anchor-cta{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-    .ln-cta-primary{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:999px;background:#fff;color:#c01f1f;font-weight:800;font-size:1rem;text-decoration:none;transition:transform .15s,box-shadow .15s;box-shadow:0 8px 24px rgba(0,0,0,.20)}
-    .ln-cta-primary:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(0,0,0,.26)}
-    .ln-cta-ghost{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.94);font-weight:700;font-size:.92rem;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.42);padding-bottom:2px;transition:border-color .15s}
-    .ln-cta-ghost:hover{border-color:#fff}
-
-    /* ── Live-data rail: honest signals, terminal-style ── */
-    .ln-rail{display:flex;flex-direction:column;border-radius:22px;border:1px solid var(--border,rgba(255,255,255,.12));background:var(--bg-card,rgba(255,255,255,.03));padding:18px 20px}
-    [data-theme="light"] .ln-rail{background:#fff;border-color:rgba(0,0,0,.1);box-shadow:0 10px 30px rgba(0,0,0,.06)}
-    .ln-rail-head{display:flex;align-items:center;gap:9px;padding-bottom:13px;border-bottom:1px solid var(--border,rgba(255,255,255,.12))}
-    .ln-rail-livedot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e;animation:lnDot 1.6s ease-in-out infinite;flex:none}
-    .ln-rail-livelabel{font-size:.64rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55))}
-    .ln-rail-online{margin-left:auto;font-weight:700;font-size:.92rem;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .ln-rail-online{color:#1a1a1f}
-    .ln-rail-online b{color:#22c55e;font-weight:800}
-    .ln-stat{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.07))}
-    .ln-stat-num{font-family:'Fraunces',Georgia,serif;font-weight:700;font-size:1.55rem;line-height:1;color:var(--text,#f4f4f2);white-space:nowrap}
-    [data-theme="light"] .ln-stat-num{color:#1a1a1f}
-    .ln-stat-num small{font-size:.78rem;font-weight:700;color:var(--text-dim,rgba(255,255,255,.5))}
-    .ln-stat-label{font-size:.82rem;line-height:1.3;color:var(--text-dim,rgba(255,255,255,.62));text-align:right;max-width:13.5em}
-    [data-theme="light"] .ln-stat-label{color:rgba(0,0,0,.6)}
-    .ln-rail-foot{margin-top:auto;padding-top:13px;font-size:.82rem;line-height:1.45;color:var(--text-dim,rgba(255,255,255,.6))}
-    [data-theme="light"] .ln-rail-foot{color:rgba(0,0,0,.58)}
-    .ln-rail-foot b{color:#22c55e;font-weight:800}
-
-    /* ── Participant strip: faces read as a room in session ── */
-    .livenow-wall{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:18px 0 0}
-    @media(max-width:900px){.livenow-wall{grid-template-columns:repeat(3,1fr)}}
+    .livenow{padding:clamp(40px,5vh,72px) 20px;display:flex;justify-content:center}
+    .livenow-wrap{width:100%;max-width:1120px;text-align:center}
+    .livenow-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.6));margin-bottom:12px}
+    .livenow-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:lnDot 1.8s ease-in-out infinite}
+    @keyframes lnDot{0%,100%{opacity:1}50%{opacity:.4}}
+    .livenow-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(1.9rem,3.4vw,2.8rem);font-weight:700;letter-spacing:-.02em;line-height:1.05;margin:0 0 12px;color:var(--text,#f4f4f2)}
+    [data-theme="light"] .livenow-title{color:#1a1a1f}
+    .livenow-title em{font-style:italic;color:#ef4444}
+    .livenow-sub{font-size:clamp(1rem,1.3vw,1.1rem);line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));max-width:860px;margin:0 auto 24px}
+    [data-theme="light"] .livenow-sub{color:rgba(0,0,0,.66)}
+    .livenow-wall{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:0 auto 28px;max-width:1080px}
+    @media(max-width:900px){.livenow-wall{grid-template-columns:repeat(3,1fr);max-width:560px}}
     @media(max-width:520px){.livenow-wall{grid-template-columns:repeat(2,1fr)}}
     .ln-tile{position:relative;aspect-ratio:4/3;border-radius:11px;overflow:hidden;background:rgba(127,127,127,.12);border:1px solid var(--border,rgba(255,255,255,.1))}
     .ln-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.96);transition:opacity .5s ease}
     .ln-tile::after{content:'';position:absolute;top:7px;left:7px;width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 7px #ef4444;z-index:2}
-    .ln-wall-cap{margin:11px 0 0;font-size:.8rem;line-height:1.4;color:var(--text-dim,rgba(255,255,255,.55))}
-    [data-theme="light"] .ln-wall-cap{color:rgba(0,0,0,.5)}
-
-    /* ── Feature clusters: grouped systems, not a flat pill soup ── */
-    .ln-clusters{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 30px;margin-top:26px}
-    @media(max-width:780px){.ln-clusters{grid-template-columns:1fr;gap:20px}}
-    .lf-label{display:block;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));margin:0 0 11px;padding-bottom:8px;border-bottom:1px solid var(--border,rgba(255,255,255,.12))}
+    .livenow-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-weight:800;font-size:1rem;text-decoration:none;transition:transform .15s,background .15s;box-shadow:0 8px 28px rgba(239,68,68,.28)}
+    .livenow-cta:hover{background:#dc2626;transform:translateY(-1px)}
+    .lf-label{display:block;font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));margin:0 0 10px}
     [data-theme="light"] .lf-label{color:rgba(0,0,0,.45)}
+    /* Two groups side by side (formats + the AI underneath) so the band
+       reads wide and short, not a tall stack of chip rows. */
+    .livenow-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:22px 52px;max-width:1180px;margin:0 auto 26px;text-align:left}
+    .lf-group{flex:1 1 400px;min-width:0}
     .lf-chips{display:flex;flex-wrap:wrap;gap:7px}
-    .lf-chip{font-size:.74rem;font-weight:700;padding:6px 12px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.16));color:var(--text-dim,rgba(255,255,255,.74));background:var(--bg-card,rgba(255,255,255,.03))}
-    [data-theme="light"] .lf-chip{color:rgba(0,0,0,.68);border-color:rgba(0,0,0,.12);background:rgba(0,0,0,.02)}
+    @media(max-width:600px){.livenow-meta{text-align:center}.lf-chips{justify-content:center}}
+    .lf-chip{font-size:.74rem;font-weight:700;padding:6px 13px;border-radius:999px;border:1px solid var(--border,rgba(255,255,255,.16));color:var(--text-dim,rgba(255,255,255,.72));background:var(--bg-card,rgba(255,255,255,.03))}
+    [data-theme="light"] .lf-chip{color:rgba(0,0,0,.66);border-color:rgba(0,0,0,.12);background:rgba(0,0,0,.02)}
     .lf-chip--lead{border-color:var(--accent,#ef4444);color:var(--accent,#ef4444)}
     [data-theme="light"] .lf-chip--lead{color:#dc2626;border-color:rgba(220,38,38,.45)}
   </style>
   <div class="livenow-wrap">
-    <div class="ln-top">
-      <!-- Red anchor: headline + primary CTA, upper-left -->
-      <div class="ln-anchor">
-        <span class="ln-anchor-eyebrow"><span class="dot"></span>Live debates</span>
-        <h2 class="ln-anchor-title">Debate real people. <em>Live.</em></h2>
-        <p class="ln-anchor-sub">Match with another debater in your format, argue under a real clock, and read the AI judge's ballot when the round ends. No opponent online? The AI steps in instantly.</p>
-        <div class="ln-anchor-cta">
-          <a class="ln-cta-primary" href="/spar" data-cta="livenow-match">Match with a debater &rarr;</a>
-          <a class="ln-cta-ghost" href="/voice-debate" data-cta="livenow-ai">or debate an AI now</a>
-        </div>
-      </div>
-      <!-- Live-data rail: real signals, upper-right -->
-      <aside class="ln-rail" aria-label="Live platform status">
-        <div class="ln-rail-head">
-          <span class="ln-rail-livedot" aria-hidden="true"></span>
-          <span class="ln-rail-livelabel">Live now</span>
-          <span class="ln-rail-online"><b id="lnOnline">1</b> online</span>
-        </div>
-        <div class="ln-stat"><span class="ln-stat-num" id="lnJoined">78</span><span class="ln-stat-label">debaters signed in so far</span></div>
-        <div class="ln-stat"><span class="ln-stat-num">15</span><span class="ln-stat-label">formats, each run to spec</span></div>
-        <div class="ln-stat"><span class="ln-stat-num">6</span><span class="ln-stat-label">AI brains behind the judge</span></div>
-        <div class="ln-stat"><span class="ln-stat-num">Seconds</span><span class="ln-stat-label">to a full written ballot</span></div>
-        <p class="ln-rail-foot"><b>An opponent is always online.</b> The AI takes the other side the moment no human is free.</p>
-      </aside>
-    </div>
-
-    <!-- Participant strip: webcam tiles cycle via the .rot-cam rotator -->
-    <div class="livenow-wall" id="livenowWall">
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face03.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face09.jpg" alt="" decoding="async" /></span>
-      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face15.jpg" alt="" decoding="async" /></span>
-    </div>
-    <p class="ln-wall-cap">Face-to-face webcam rounds in your format. Match in, argue, read the ballot.</p>
-
-    <!-- Feature clusters: three labeled systems -->
-    <div class="ln-clusters">
+    <span class="livenow-eyebrow"><span class="dot"></span>Live debates</span>
+    <h2 class="livenow-title">Debate real people. <em>Live.</em></h2>
+    <p class="livenow-sub">Match with another debater in your format, argue under a real clock, and read the AI judge's ballot when the round ends. Rooms open around the clock.</p>
+    <div class="livenow-meta">
       <div class="lf-group">
-        <span class="lf-label">Formats, run to spec</span>
+        <span class="lf-label">Your format, run to spec</span>
         <div class="lf-chips">
           <span class="lf-chip lf-chip--lead">Public Forum</span>
           <span class="lf-chip lf-chip--lead">Parliamentary</span>
@@ -8147,50 +8066,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </div>
       </div>
       <div class="lf-group">
-        <span class="lf-label">AI infrastructure</span>
+        <span class="lf-label">The AI runs the room underneath</span>
         <div class="lf-chips">
-          <span class="lf-chip">AI judge + ballot</span>
-          <span class="lf-chip">Always-on AI opponent</span>
-          <span class="lf-chip">6-brain panel</span>
+          <span class="lf-chip">Judge writes the ballot</span>
+          <span class="lf-chip">Opponent when nobody's online</span>
+          <span class="lf-chip">6 brains</span>
           <span class="lf-chip">HD voice</span>
           <span class="lf-chip">Live RFD + speaks</span>
         </div>
       </div>
-      <div class="lf-group">
-        <span class="lf-label">Live competition</span>
-        <div class="lf-chips">
-          <span class="lf-chip">Cross-format leaderboard</span>
-          <span class="lf-chip">Live tournament rooms</span>
-          <span class="lf-chip">Scheduled rounds</span>
-          <span class="lf-chip">Earn a certificate</span>
-        </div>
-      </div>
     </div>
+    <div class="livenow-wall" id="livenowWall">
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face03.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face09.jpg" alt="" decoding="async" /></span>
+      <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face15.jpg" alt="" decoding="async" /></span>
+    </div>
+    <a class="livenow-cta" href="/spar">Match with a debater &rarr;</a>
   </div>
-  <script>
-    /* Honest live signals for the rail. Reuses the same two endpoints
-       the hero reads: /api/online-count (real Firestore presence,
-       floored at 1) and /api/public-join-history (totals.google = real
-       signups). Both are server-cached, so a second read here is cheap.
-       Markup fallbacks (1 online / 78 joined) keep the rail from ever
-       showing nothing if a fetch fails or is slow. */
-    (function(){
-      var on = document.getElementById('lnOnline');
-      var jo = document.getElementById('lnJoined');
-      if (on) {
-        fetch('/api/online-count', { credentials: 'omit' })
-          .then(function(r){ return r.ok ? r.json() : null; })
-          .then(function(j){ if (j && typeof j.online === 'number') on.textContent = Math.max(j.online | 0, 1).toLocaleString(); })
-          .catch(function(){ /* keep fallback */ });
-      }
-      if (jo) {
-        fetch('/api/public-join-history', { credentials: 'omit' })
-          .then(function(r){ return r.ok ? r.json() : null; })
-          .then(function(j){ if (j && j.totals) { var n = Math.max(0, parseInt(j.totals.google, 10) || 0); if (n) jo.textContent = n.toLocaleString(); } })
-          .catch(function(){ /* keep fallback */ });
-      }
-    })();
-  </script>
 </section>
 <script>
 /* Circulating webcam faces (2026-06-14): every ~8s each .rot-cam swaps
@@ -13573,11 +13468,8 @@ window.addEventListener('load', function(){
     if (!liveRooms.length){ if (strip) strip.remove(); return; }
     if (!strip){
       strip = document.createElement('div'); strip.id = 'livenowLive'; strip.className = 'livenow-live';
-      // Drop the real "N debates live now" strip just above the
-      // participant wall so it reads as the room being active. (The
-      // anchor CTA is the .ln-anchor layout now, not .livenow-cta.)
-      var ref = wrap.querySelector('.livenow-wall') || wrap.querySelector('.ln-clusters');
-      if (ref && ref.parentNode) ref.parentNode.insertBefore(strip, ref); else wrap.appendChild(strip);
+      var cta = wrap.querySelector('.livenow-cta');
+      if (cta && cta.parentNode) cta.parentNode.insertBefore(strip, cta); else wrap.appendChild(strip);
     }
     strip.innerHTML = '<span class="livenow-live-dot"></span><span>' + liveRooms.length + ' debate' + (liveRooms.length===1?'':'s') + ' live now</span><button type="button" class="lj-join" id="ljJoinBtn">Join a live round &rarr;</button>';
     document.getElementById('ljJoinBtn').addEventListener('click', onJoinClick);
