@@ -6749,7 +6749,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <p class="hi-room-speech" id="hiRoomSpeech"><b>Speech 3 of 4</b> · Rebuttal · POIs open until 1:00</p>
             <div class="hi-room-seats">
               <figure class="hi-seat hi-seat-you">
-                <img class="hi-seat-cam rot-cam" src="/img/round/seat-you.jpg" alt="" decoding="async" />
+                <!-- Initial src: a face library image whose background is
+                     visually distinct from hi-seat-opp's. seat-you.jpg
+                     and seat-opp.jpg were shot in the same dorm room
+                     (same poster wall, same window with blinds) so
+                     using both side by side reads as AI-clone, not as
+                     two real debaters. See the SAME_SHOOT set below. -->
+                <img class="hi-seat-cam rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" />
                 <span class="hi-seat-tag hi-seat-tag--pro" id="hiSeatYou">Proposition</span>
                 <div class="hi-seat-bar">
                   <b class="hi-seat-who">You</b>
@@ -6757,7 +6763,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 </div>
               </figure>
               <figure class="hi-seat hi-seat-opp">
-                <img class="hi-seat-cam rot-cam" src="/img/round/seat-opp.jpg" alt="" decoding="async" />
+                <img class="hi-seat-cam rot-cam" src="/img/round/faces/face12.jpg" alt="" decoding="async" />
                 <span class="hi-seat-tag" id="hiSeatOpp">Opposition</span>
                 <div class="hi-seat-bar">
                   <b class="hi-seat-who">Opponent</b>
@@ -8240,13 +8246,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   if (typeof window === 'undefined') return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   var POOL = [];
-  // SKIP: faces 5/14/39 share the same library background as face19 — same
-  // room across multiple "people" reads as AI instantly, so keep one
-  // (face19) and drop the duplicates. Update this set if more shared-room
-  // faces are spotted.
+  // SAME-SHOOT collisions — faces that share a room or composition with
+  // another tile. Two webcam tiles drawn from the same shoot read as AI-
+  // clone instantly (same poster wall, same window, same desk). For each
+  // documented same-shoot cluster we keep ONE face and drop the rest.
+  // Extend this set when a new collision is spotted.
+  //   - 5/14/39 share the same library background as face19 → keep face19
+  //   - seat-you.jpg + seat-opp.jpg were shot in the same dorm room
+  //     (matching poster wall, window, couch) → dropped from the
+  //     rotator pool entirely; the hero initial src now uses face02 +
+  //     face12 (visibly distinct rooms) instead. seat-you/seat-opp
+  //     remain as named assets for other surfaces that explicitly want
+  //     a paired "you vs opponent" shot, but they should be retaken
+  //     before they're re-introduced into the pool.
   var SKIP = { 5:1, 14:1, 39:1 };
   for (var i=1;i<=45;i++){ if (SKIP[i]) continue; POOL.push('/img/round/faces/face'+(i<10?'0':'')+i+'.jpg'); }
-  POOL.push('/img/round/seat-you.jpg','/img/round/seat-opp.jpg');
   var cams = Array.prototype.slice.call(document.querySelectorAll('.rot-cam'));
   if (!cams.length) return;
   var live = true, timers = [];
