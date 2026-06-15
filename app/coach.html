@@ -669,7 +669,16 @@
                 transcription: { model: 'gpt-4o-mini-transcribe' },
                 turn_detection: {
                   type: 'server_vad',
-                  threshold: 0.5,
+                  // 0.5 -> 0.7 (2026-06-15): coach was getting interrupted
+                  // by background sounds — fan noise, distant voices, a
+                  // kid in the next room — because the API read them as
+                  // the user starting to talk and fired interrupt_response.
+                  // Bumping the threshold requires noticeably louder /
+                  // clearer voice before the API counts it as speech.
+                  // Range 0.0-1.0; 0.5 is OpenAI's default, 0.7 is a
+                  // meaningful step up without making the user shout.
+                  // Raise to 0.8 for really noisy rooms.
+                  threshold: 0.7,
                   prefix_padding_ms: 300,
                   // Middle ground for a back-and-forth drill: responsive
                   // without chopping a normal mid-thought pause. Lower for
