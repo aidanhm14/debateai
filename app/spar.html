@@ -668,6 +668,16 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.78rem; color:var(--text-ghost); padding:18px 8px;
   text-align:center; line-height:1.55;
 }
+/* Honest "real activity this week" note shown under the empty waitlist
+   when the live log-missed-match count clears the threshold. */
+.wl-rail-activity{
+  margin:4px 8px 12px; padding:10px 12px;
+  font-size:.76rem; color:var(--text-dim); line-height:1.5;
+  text-align:center;
+  background:rgba(239,68,68,.05); border:1px solid rgba(239,68,68,.16);
+  border-radius:10px;
+}
+.wl-rail-activity strong{ color:var(--accent); font-weight:800; }
 .waitlist-card{
   display:flex; flex-direction:column; gap:8px;
   padding:12px 12px;
@@ -2328,7 +2338,7 @@ h1 em{color:var(--accent);font-style:normal}
   // card renders. Accept POSTs phase 2; pass (or the auto-pass timer,
   // or a dead peer) unwinds both docs back to 'waiting' with a mutual
   // skip so the same pair isn't re-proposed.
-  var CONSENT_DECIDE_SEC = 20;   // reading + deciding window
+  var CONSENT_DECIDE_SEC = 15;   // reading + deciding window (auto-JOINS at 0 if visible)
   // Waiting-on-peer net. Tab close no longer deletes queue docs (the
   // queue follows users across the app), so proposing to a ghost is a
   // ROUTINE case: a live deciding peer always acts by ~20s (their own
@@ -2353,12 +2363,20 @@ h1 em{color:var(--accent);font-style:normal}
     if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
   }
 
-  // secs → auto-pass; pass showNum=false for the silent safety net on
-  // the waiting-on-peer view (a visible timer there reads as pressure
-  // on YOU when the wait is on THEM). Timer-fired declines carry
-  // auto:true so the server can tell idle-timeout from a human pass —
-  // that flag feeds its dead-tab heuristic.
-  function startConsentCountdown(peerUid, secs, showNum){
+  // secs → timeout. pass showNum=false for the silent safety net on the
+  // waiting-on-peer view (a visible timer there reads as pressure on YOU
+  // when the wait is on THEM). Timer-fired actions carry auto:true so the
+  // server can tell idle-timeout from a human click.
+  //
+  // autoAccept (2026-06-15, B): on the DECIDING card we now auto-JOIN at
+  // 0 instead of auto-passing — a present user who doesn't click still
+  // gets the match rather than losing it (matchmaking is low-liquidity;
+  // dropping rare pairs to a slow click hurt more than it helped). Guard:
+  // only auto-accept when the tab is VISIBLE. A hidden/dead tab can't
+  // actually navigate into the room, so accepting there would strand the
+  // opponent alone — fall back to the old auto-pass in that case. The
+  // waiting-on-peer net keeps autoAccept=false (always unwind a ghost).
+  function startConsentCountdown(peerUid, secs, showNum, autoAccept){
     clearConsentTimer();
     var deadline = Date.now() + secs * 1000;
     state.consentTimer = setInterval(function(){
@@ -2369,9 +2387,35 @@ h1 em{color:var(--accent);font-style:normal}
       }
       if (left <= 0){
         clearConsentTimer();
-        sendConsent(peerUid, false, true);
+        var join = !!autoAccept && (typeof document === 'undefined' || document.visibilityState === 'visible');
+        sendConsent(peerUid, join, true);
       }
     }, 250);
+  }
+
+  // Short two-note "match found" ping. WebAudio so we ship no asset; the
+  // context resumes off the click that put the user in the queue, so it's
+  // allowed to sound. Wrapped in try/catch — audio is a nicety, never a
+  // blocker for the consent card rendering.
+  function sparChime(){
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!state.audioCtx) state.audioCtx = new AC();
+      var ctx = state.audioCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch(e){} }
+      var t0 = ctx.currentTime;
+      [880, 1318.5].forEach(function(f, i){
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        var t = t0 + i * 0.15;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t); o.stop(t + 0.26);
+      });
+    } catch(e){}
   }
 
   function renderConsentGate(d){
@@ -2431,8 +2475,9 @@ h1 em{color:var(--accent);font-style:normal}
         sendConsent(peerUid, false);
       });
       // Silent safety net: if their tab died mid-read, unwind instead
-      // of waiting forever. A live peer's own 20s timer fires first.
-      startConsentCountdown(peerUid, CONSENT_WAIT_SEC, false);
+      // of waiting forever. Stays auto-PASS (autoAccept=false) — I've
+      // already accepted; this net only exists to free me from a ghost.
+      startConsentCountdown(peerUid, CONSENT_WAIT_SEC, false, false);
       return;
     }
 
@@ -2465,7 +2510,7 @@ h1 em{color:var(--accent);font-style:normal}
           '<button class="btn primary" id="consentAcceptBtn">Accept &amp; start</button>' +
           '<button class="btn ghost" id="consentDeclineBtn">Pass</button>' +
         '</div>' +
-        '<div class="countdown">Auto-pass in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
+        '<div class="countdown">Auto-join in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
       '</div>';
     document.getElementById('consentAcceptBtn').addEventListener('click', function(){
       this.disabled = true;
@@ -2479,10 +2524,14 @@ h1 em{color:var(--accent);font-style:normal}
       clearConsentTimer();
       sendConsent(peerUid, false);
     });
-    startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true);
-    // Tab-title nudge — the proposal has a 20s shelf life and the user
+    startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true, true);
+    // Ping the moment a real human match lands (B, 2026-06-15): the user
+    // asked not to be dropped in silently. Only on first render so a
+    // snapshot re-paint doesn't double-chime.
+    if (firstRender) sparChime();
+    // Tab-title nudge — the proposal has a short shelf life and the user
     // may be in another tab ("queue follows you" makes that common).
-    document.title = '● Your OK needed · Spar';
+    document.title = '● Match found · Spar';
   }
 
   function sendConsent(peerUid, accept, auto){
@@ -3093,19 +3142,47 @@ h1 em{color:var(--accent);font-style:normal}
         // so the failure path teaches the user the right next step instead
         // of asking them to refresh into the same wall.
         var list = document.getElementById('wlList');
-        if (list) list.innerHTML = '<div class="waitlist-rail__empty">No one on the waitlist right now.' +
-          (state.user ? ' Be the first; join above.' : ' Sign in to join.') +
-        '</div>';
+        if (list) list.innerHTML = waitlistEmptyHtml();
       });
+  }
+
+  // Honest empty-state for the waitlist rail. This file has repeatedly
+  // stripped FAKE debater activity ("dead-internet dishonesty"), so we do
+  // NOT seed people. Instead, when the open waitlist is genuinely empty we
+  // surface the REAL count of debaters who looked for a live round this
+  // week (from /api/log-missed-match) — the rail reads alive when there
+  // actually was activity, and stays a plain "be first" prompt when there
+  // wasn't. Threshold 3 mirrors the meta-strip pills (a "1 looked this
+  // week" line reads sadder than silence).
+  var wlWeekLooked = 0;
+  function waitlistEmptyHtml(){
+    var join = state.user ? ' Be the first; join above.' : ' Sign in to join.';
+    var activity = (wlWeekLooked >= 3)
+      ? '<div class="wl-rail-activity"><strong>' + wlWeekLooked + '</strong> debaters looked for a live round this week. Join the waitlist so the next one finds you.</div>'
+      : '';
+    return '<div class="waitlist-rail__empty">No one on the waitlist right now.' + join + '</div>' + activity;
+  }
+  function fetchWaitlistActivity(){
+    try {
+      fetch('/api/log-missed-match', { method: 'GET' })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){
+          if (!j) return;
+          var n = (j.attempts && typeof j.attempts.week_count === 'number') ? j.attempts.week_count : 0;
+          if (n === wlWeekLooked) return;
+          wlWeekLooked = n;
+          var list = document.getElementById('wlList');
+          if (list && !wl.posts.length) paintWaitlist(); // only repaint the empty state
+        })
+        .catch(function(){});
+    } catch(e){}
   }
 
   function paintWaitlist(){
     var list = document.getElementById('wlList');
     if (!list) return;
     if (!wl.posts.length){
-      list.innerHTML = '<div class="waitlist-rail__empty">No one on the waitlist right now.' +
-        (state.user ? ' Be the first; join above.' : ' Sign in to join.') +
-      '</div>';
+      list.innerHTML = waitlistEmptyHtml();
       return;
     }
     var myUid = state.user && state.user.uid;
@@ -3723,6 +3800,8 @@ h1 em{color:var(--accent);font-style:normal}
   buildWaitlistRail();
   renderWaitlistContent();
   if (firebaseDb) startWaitlistFeed();
+  // Real weekly activity for the waitlist empty-state (honest, no seeding).
+  fetchWaitlistActivity();
 
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
