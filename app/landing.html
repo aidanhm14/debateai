@@ -13482,9 +13482,14 @@ window.addEventListener('load', function(){
 
   function recentEnough(d){
     if (d.completedAt || d.isPrivate || d.status !== 'round') return false;
-    var ms = (d.createdAt && d.createdAt.toMillis) ? d.createdAt.toMillis() : 0;
-    if (ms && (Date.now() - ms) > 3*60*60*1000) return false; // stale
-    return true;
+    // Require a live participant heartbeat: live-round.html writes lastSeenAt
+    // every 30s while a debater is seated. Kills ghost rooms — an abandoned
+    // round stops beating and drops within ~100s, instead of showing on the
+    // hero "live now" strip for up to 3 hours on createdAt alone.
+    var hb = d.lastSeenAt;
+    var ms = (hb && hb.toMillis) ? hb.toMillis() : 0;
+    if (!ms) return false;
+    return (Date.now() - ms) < 100000;
   }
 
   function startFeed(){

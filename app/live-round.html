@@ -1456,6 +1456,7 @@ button{font-family:inherit}
     db: null,                // Firestore instance
     roundDocRef: null,       // doc ref for live_rounds/{room}
     roundUnsub: null,        // unsubscribe fn for the snapshot listener
+    seatHbInterval: null,    // seated-debater presence heartbeat onto the round doc
     suppressNextSync: false, // local-write guard (don't double-render our own writes)
   };
 
@@ -3901,6 +3902,32 @@ button{font-family:inherit}
           }).catch(function(e){ console.warn('[watch] privacy toggle failed', e); });
         });
         paintPrivacyToggle();
+      }
+    }
+
+    // (d) Seated debaters heartbeat their presence onto the round doc
+    // itself (separate from the watchers subcollection). /spar's "Watch a
+    // live round" list reads this to tell a live room from an abandoned
+    // one: when both debaters close their tabs the beat stops and the
+    // round ages off the watch list within ~1.5 cycles, instead of
+    // lingering 30 min on createdAt (the old ghost-room bug). Server
+    // stamped; stops once a ballot exists — a finished round shouldn't
+    // keep advertising as live.
+    if (!isSpectator()){
+      var rref = getRoundDocRef();
+      if (rref){
+        var seatBeat = function(){
+          if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return;
+          rref.set(
+            { lastSeenAt: firebase.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          ).catch(function(){});
+        };
+        seatBeat();
+        state.seatHbInterval = setInterval(seatBeat, WATCH_HB_MS);
+        window.addEventListener('pagehide', function(){
+          if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
+        });
       }
     }
   }

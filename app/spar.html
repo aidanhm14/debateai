@@ -1457,13 +1457,17 @@ h1 em{color:var(--accent);font-style:normal}
   var WATCH_FORMAT_LABELS = FORMAT_LABELS; // reuse the style-chip labels
   function watchRoundIsLive(d){
     if (!d || d.status !== 'round' || d.isPrivate) return false;
-    // Only rounds touched in the last 30 min: drops abandoned docs that
-    // never reached a ballot. createdAt is always present; updatedAt
-    // appears once a speech lands.
-    var t = d.updatedAt || d.createdAt;
-    var sec = (t && t.seconds) ? t.seconds : 0;
+    // Require a recent participant heartbeat — a seated debater actually
+    // in the room within the last ~100s (live-round.html writes lastSeenAt
+    // every 30s while present). This is what kills ghost rooms: when both
+    // debaters close their tabs the beat stops and the round drops off
+    // here within a couple of cycles, instead of lingering 30 min on
+    // createdAt. No heartbeat at all (abandoned/legacy doc) = not provably
+    // live, so it's hidden.
+    var hb = d.lastSeenAt;
+    var sec = (hb && hb.seconds) ? hb.seconds : 0;
     if (!sec) return false;
-    return (Date.now() / 1000 - sec) < 30 * 60;
+    return (Date.now() / 1000 - sec) < 100;
   }
   function renderWatchRow(id, d){
     var fmt = escHtml(WATCH_FORMAT_LABELS[d.format] || String(d.format || '').toUpperCase());
