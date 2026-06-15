@@ -71,10 +71,16 @@
      MindMapView force-graph, which mounts rarely (and currently not at all).
      Lazy-loaded on demand via loadD3() the first time that view renders, so
      every other app session no longer pays the download/parse/heap. -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
+<!-- Firebase (~500KB across the 4 compat SDKs, firestore-compat dominant) is
+     loaded `defer` so it no longer blocks first render. None of it is needed
+     to paint the app shell; auth wiring waits for it in useAuth (see below).
+     landing.html already loads Firebase deferred. defer preserves document
+     order, so these still execute before app-check.js and the other deferred
+     /js modules that depend on the firebase global. -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
@@ -103,7 +109,7 @@
      automatically via track.js. -->
 <script defer src="/js/page-transition.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><!-- 2026-05-26: trimmed font loads. Playfair Display + Sora were declared in the Google Fonts URL but never referenced by any CSS rule on /app (zero font-family hits). Clash Display from Fontshare same story (the JS `hoveredClash`/`linkedClashes` refs are state variable names, unrelated to fonts). Saves one Fontshare HTTP request + the Playfair + Sora font-file fetches per first paint. --><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><!-- 2026-05-26: trimmed font loads. Playfair Display + Sora were declared in the Google Fonts URL but never referenced by any CSS rule on /app (zero font-family hits). Clash Display from Fontshare same story (the JS `hoveredClash`/`linkedClashes` refs are state variable names, unrelated to fonts). Saves one Fontshare HTTP request + the Playfair + Sora font-file fetches per first paint. --><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"></noscript><style>
 /* ── View Transitions: matches landing.html so landing → /app feels continuous */
 @view-transition { navigation: auto; }
 ::view-transition-old(root),
@@ -2114,7 +2120,10 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 </head>
-<script src="/js/voice-guidelines.js"></script>
+<!-- voice-guidelines.js is a 1.4KB no-op stub (the real voice bank lives
+     server-side). Inlined here to drop a render-blocking round-trip while
+     preserving the window.DEBATE_VOICE.forFeature() global callers expect. -->
+<script>window.DEBATE_VOICE={CORE:'',STRATEGY:'',CHARACTER:'',CASE_CONSTRUCTION:'',LANGUAGE_CONSTRUCTION:'',FULL:'',FEATURE_MAP:{},forFeature:function(){return '';}};</script>
 <script src="/js/user-style.js"></script>
 <body>
 <!-- Welcome card removed: it was overlapping the auth gate on first visit and
@@ -10795,8 +10804,11 @@ function initFirebase() {
   } catch (e) {console.warn('[firebase] init failed:', e.message);}
   return false;
 }
+// Fast path: if the (now deferred) SDK already executed, init immediately.
+// Normally the deferred firebase scripts haven't run at parse time, so this
+// no-ops and useAuth completes init once they load (or recovers via the
+// dynamic loader below). No warning here — "not ready at parse" is expected.
 initFirebase();
-if (!firebaseAuth) console.warn('[firebase] sync init did not complete. will retry dynamically on first sign-in.');
 
 // Dynamically reload the Firebase SDK when the sync <script> tags didn't
 // produce a `firebase` global. Causes: network blip, ad blocker on gstatic,
@@ -10864,18 +10876,32 @@ function useAuth() {
   var [user, setUser] = useState(null);
   var [loading, setLoading] = useState(true);
   useEffect(() => {
-    if (!firebaseAuth) {setLoading(false);return;}
-    // Complete redirect-based sign-in if the user just returned from Google.
-    // Without this, signInWithRedirect silently strands the user on the gate.
-    try {
-      firebaseAuth.getRedirectResult().catch((err) => {
-        if (err && err.code !== 'auth/no-auth-event') {
-          console.warn('[auth] redirect result err:', err.code, err.message);
-          try {if (window.gtag) gtag('event', 'sign_in_error', { code: err.code || 'unknown', message: (err.message || '').slice(0, 200), surface: 'index_redirect_result', method: 'redirect' });} catch (e) {}
-        }
-      });
-    } catch (e) {}
-    return firebaseAuth.onAuthStateChanged((u) => {setUser(u);setLoading(false);});
+    var unsub = null, cancelled = false;
+    (async () => {
+      // Firebase now loads `defer`, so the global may not exist at parse time.
+      // Deferred scripts execute before React flushes passive effects, so in
+      // the normal case `firebase` is already present here and initFirebase()
+      // succeeds without any network work. If the CDN was blocked, fall back
+      // to the multi-CDN dynamic loader before giving up.
+      if (!firebaseAuth) {
+        if (typeof firebase === 'undefined') { try { await loadFirebaseDynamically(); } catch (e) {} }
+        initFirebase();
+      }
+      if (cancelled) return;
+      if (!firebaseAuth) {setLoading(false);return;}
+      // Complete redirect-based sign-in if the user just returned from Google.
+      // Without this, signInWithRedirect silently strands the user on the gate.
+      try {
+        firebaseAuth.getRedirectResult().catch((err) => {
+          if (err && err.code !== 'auth/no-auth-event') {
+            console.warn('[auth] redirect result err:', err.code, err.message);
+            try {if (window.gtag) gtag('event', 'sign_in_error', { code: err.code || 'unknown', message: (err.message || '').slice(0, 200), surface: 'index_redirect_result', method: 'redirect' });} catch (e) {}
+          }
+        });
+      } catch (e) {}
+      unsub = firebaseAuth.onAuthStateChanged((u) => {setUser(u);setLoading(false);});
+    })();
+    return () => { cancelled = true; if (unsub) unsub(); };
   }, []);
   var signIn = async () => {
     // If sync-script init failed, try a dynamic reload before surfacing an

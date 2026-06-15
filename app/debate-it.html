@@ -65,8 +65,12 @@
 })();</script>
 <!-- Microsoft Clarity. session replay + heatmaps. Configure ID in /js/clarity.js -->
 <script defer src="/js/clarity.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/ui.css">
+<!-- Font + shared UI CSS loaded non-render-blocking (media=print flip on load),
+     matching landing.html. Removes two stylesheets from the critical path. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap"></noscript>
+<link rel="stylesheet" href="/css/ui.css" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="/css/ui.css"></noscript>
 <!-- Early-load theme restore. ui.css already serves the three-theme
      tokens; this just sets data-theme on <html> before first paint
      so a user coming from / or /live doesn't flash grey if they're
@@ -82,11 +86,15 @@
   }
 })();
 </script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
+<!-- Firebase (~500KB across the 4 compat SDKs) loaded `defer` so it no longer
+     blocks first render. defer preserves document order, so app-check.js still
+     runs after firebase-app-check-compat, and auth is wired in useAuth once the
+     SDK is ready (see initFirebase + the readiness poll below). -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script defer src="/js/track.js"></script>
 <script defer src="/js/disclosure-guard.js"></script>
 <script defer src="/js/usage-banner.js"></script>
@@ -100,7 +108,10 @@
      wrapping implementation that broke setup → prep transitions. -->
 <script defer src="/js/voice-input.js"></script>
 
-<script src="/js/voice-guidelines.js"></script>
+<!-- voice-guidelines.js removed: this page never reads window.DEBATE_VOICE
+     (it uses a local DEBATE_VOICE_GUIDELINES='' var), so the stub fetch was
+     a dead render-blocking request. -->
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <style>
@@ -1231,36 +1242,59 @@ var FIREBASE_CONFIG = {
   appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
 };
 var firebaseApp, firebaseAuth, firebaseDb;
-try {
-  if (typeof firebase !== 'undefined') {
-    // Reuse the existing app if track.js / usage-banner.js / upgrade-cta.js
-    // (all defer-loaded) already initialized it. Calling initializeApp twice
-    // throws "Firebase App named '[DEFAULT]' already exists!", the catch
-    // below swallowed that silently, leaving firebaseAuth undefined and
-    // every Sign-in click hitting "Auth not available."
-    firebaseApp = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
-    firebaseAuth = firebase.auth();
-    firebaseDb = firebase.firestore();
-  }
-} catch (e) {console.warn('Firebase init skipped:', e.message);}
+// Firebase now loads `defer`, so the SDK is usually not present yet at parse
+// time. initFirebase() is idempotent and re-runnable: called once here (fast
+// path if the SDK already executed) and again from useAuth once the deferred
+// scripts have run.
+function initFirebase() {
+  if (firebaseAuth) return true;
+  try {
+    if (typeof firebase !== 'undefined') {
+      // Reuse the existing app if track.js / usage-banner.js / upgrade-cta.js
+      // (all defer-loaded) already initialized it. Calling initializeApp twice
+      // throws "Firebase App named '[DEFAULT]' already exists!".
+      firebaseApp = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseAuth = firebase.auth();
+      firebaseDb = firebase.firestore();
+      return true;
+    }
+  } catch (e) {console.warn('Firebase init skipped:', e.message);}
+  return false;
+}
+initFirebase();
 
 function useAuth() {
   var [user, setUser] = useState(null);
   var [team, setTeam] = useState(null);
   var [loading, setLoading] = useState(true);
   useEffect(() => {
-    if (!firebaseAuth) {setLoading(false);return;}
-    return firebaseAuth.onAuthStateChanged(async (u) => {
-      setUser(u);
-      if (u) {
-        try {
-          var token = await u.getIdToken();
-          var res = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
-          if (res.ok) setTeam(await res.json());
-        } catch {}
-      } else {setTeam(null);}
-      setLoading(false);
-    });
+    var unsub = null, cancelled = false, iv = null;
+    function wire() {
+      unsub = firebaseAuth.onAuthStateChanged(async (u) => {
+        setUser(u);
+        if (u) {
+          try {
+            var token = await u.getIdToken();
+            var res = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
+            if (res.ok) setTeam(await res.json());
+          } catch {}
+        } else {setTeam(null);}
+        setLoading(false);
+      });
+    }
+    // Firebase loads `defer`, so it's normally ready by the time this effect
+    // runs; poll briefly in case the deferred scripts haven't executed yet.
+    // After ~6s with no SDK (CDN blocked) give up and run anonymously.
+    if (initFirebase()) { wire(); }
+    else {
+      var tries = 0;
+      iv = setInterval(function () {
+        if (cancelled) { clearInterval(iv); return; }
+        if (initFirebase()) { clearInterval(iv); wire(); }
+        else if (++tries > 40) { clearInterval(iv); setLoading(false); }
+      }, 150);
+    }
+    return function () { cancelled = true; if (iv) clearInterval(iv); if (unsub) unsub(); };
   }, []);
   var signIn = async () => {
     if (!firebaseAuth) {
