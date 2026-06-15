@@ -13853,5 +13853,218 @@ window.addEventListener('load', function(){
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();
 </script>
+
+<!-- ── First-visit onboarding modal (2026-06-15) ─────────────────────
+     Asks visitors whether they're new to debate or a competitive
+     debater, then steers them to the right entry points. Suppressed
+     after one interaction via localStorage so it never re-pops on a
+     return visit. ESC + click-outside + X + "Skip" all dismiss.
+     Skipped if the URL has a hash (visitor came for a specific
+     section) or if cohort-banner already nags them — keeps the page
+     from feeling spammy. -->
+<div id="obModal" class="ob-modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="obTitle">
+  <div class="ob-backdrop" data-ob-close></div>
+  <div class="ob-card" role="document">
+    <button type="button" class="ob-x" data-ob-close aria-label="Close">&times;</button>
+
+    <!-- View 1: the question -->
+    <div class="ob-view" data-ob-view="q">
+      <h2 class="ob-title" id="obTitle">Welcome to DebateIt.</h2>
+      <p class="ob-sub">Two quick paths in. Pick the one that fits.</p>
+      <div class="ob-choices">
+        <button type="button" class="ob-choice" data-ob-pick="new">
+          <span class="ob-choice-h">I'm new to debate</span>
+          <span class="ob-choice-p">Show me how this works.</span>
+        </button>
+        <button type="button" class="ob-choice" data-ob-pick="competitive">
+          <span class="ob-choice-h">I'm a competitive debater</span>
+          <span class="ob-choice-p">Take me to the rounds.</span>
+        </button>
+      </div>
+      <button type="button" class="ob-skip" data-ob-close>Just let me browse</button>
+    </div>
+
+    <!-- View 2: new-to-debate path (jargon-free language by design) -->
+    <div class="ob-view" data-ob-view="new" hidden>
+      <h2 class="ob-title">Start with a one-on-one.</h2>
+      <p class="ob-sub">No tournament jargon. You'll get the hang of it the way most people do, by arguing.</p>
+      <a class="ob-route ob-route--primary" href="/voice-debate" data-ob-go="voice">
+        <span class="ob-route-h">Argue with the AI</span>
+        <span class="ob-route-p">A short voice round. You pick a side, the AI takes the other, you go back and forth.</span>
+      </a>
+      <a class="ob-route" href="/coach" data-ob-go="coach">
+        <span class="ob-route-h">Open the coach</span>
+        <span class="ob-route-p">A drill partner that explains things as they come up. Good for your first hour.</span>
+      </a>
+      <a class="ob-route" href="/learn" data-ob-go="learn">
+        <span class="ob-route-h">Read the basics first</span>
+        <span class="ob-route-p">What "the motion" means, why there are sides, how a round actually runs.</span>
+      </a>
+      <button type="button" class="ob-back" data-ob-back>&larr; Back</button>
+    </div>
+
+    <!-- View 3: competitive path (format-aware, can use jargon) -->
+    <div class="ob-view" data-ob-view="competitive" hidden>
+      <h2 class="ob-title">Welcome back.</h2>
+      <p class="ob-sub">The fastest ways into a round.</p>
+      <a class="ob-route ob-route--primary" href="/spar" data-ob-go="spar">
+        <span class="ob-route-h">Match with a human</span>
+        <span class="ob-route-p">Queue up. Real opponent, real clock. AI fallback if nobody's online.</span>
+      </a>
+      <a class="ob-route" href="/live" data-ob-go="live">
+        <span class="ob-route-h">Scheduled rounds</span>
+        <span class="ob-route-p">Post or accept a debate on a specific time. Adds to your calendar.</span>
+      </a>
+      <a class="ob-route" href="/debate-it" data-ob-go="debate-it">
+        <span class="ob-route-h">Voice AI in your format</span>
+        <span class="ob-route-p">APDA, BP, WSDC, PF, LD, Policy. Format-accurate persona on the other side.</span>
+      </a>
+      <a class="ob-route" href="/leaderboard" data-ob-go="leaderboard">
+        <span class="ob-route-h">Climb the board</span>
+        <span class="ob-route-p">Cross-format rating from judged rounds.</span>
+      </a>
+      <button type="button" class="ob-back" data-ob-back>&larr; Back</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.ob-modal{position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;padding:18px}
+.ob-modal.is-open{display:flex}
+.ob-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:obFadeIn .22s ease-out}
+.ob-card{position:relative;z-index:1;width:100%;max-width:480px;max-height:calc(100vh - 36px);overflow-y:auto;
+  background:var(--bg-card,#15151a);color:var(--text,#fff);border:1px solid var(--border,rgba(255,255,255,.12));
+  border-radius:18px;padding:28px 24px 24px;box-shadow:0 32px 90px rgba(0,0,0,.5);
+  animation:obRise .26s cubic-bezier(.2,.7,.3,1);font-family:'Geist','Inter',system-ui,sans-serif}
+[data-theme="light"] .ob-card{background:#fff;color:#1a1a1f;border-color:rgba(0,0,0,.10);box-shadow:0 32px 90px rgba(0,0,0,.18)}
+.ob-x{position:absolute;top:10px;right:12px;background:none;border:0;color:var(--text-dim,rgba(255,255,255,.55));
+  font-size:1.7rem;line-height:1;cursor:pointer;padding:6px 10px;border-radius:8px;transition:color .15s,background .15s}
+.ob-x:hover{color:var(--text);background:rgba(127,127,127,.12)}
+.ob-title{font-family:'Geist','Fraunces',Georgia,serif;font-size:1.45rem;font-weight:700;letter-spacing:-.015em;line-height:1.15;margin:0 0 6px}
+.ob-sub{font-size:.92rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));margin:0 0 20px}
+[data-theme="light"] .ob-sub{color:rgba(0,0,0,.62)}
+.ob-choices{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.ob-choice{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;
+  padding:14px 16px;border-radius:12px;
+  background:rgba(127,127,127,.07);border:1px solid var(--border,rgba(255,255,255,.12));
+  color:inherit;cursor:pointer;font-family:inherit;transition:transform .12s,border-color .12s,background .15s}
+.ob-choice:hover{border-color:#ef4444;background:rgba(239,68,68,.08);transform:translateY(-1px)}
+.ob-choice-h{font-size:.98rem;font-weight:700}
+.ob-choice-p{font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.65));font-weight:400}
+[data-theme="light"] .ob-choice-p{color:rgba(0,0,0,.58)}
+.ob-skip{display:block;margin:6px auto 0;background:none;border:0;color:var(--text-dim,rgba(255,255,255,.5));
+  font-size:.78rem;cursor:pointer;font-family:inherit;padding:6px 10px;border-radius:6px;transition:color .15s}
+.ob-skip:hover{color:var(--text)}
+.ob-route{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;text-decoration:none;
+  padding:13px 15px;margin-bottom:9px;border-radius:11px;
+  background:rgba(127,127,127,.06);border:1px solid var(--border,rgba(255,255,255,.10));
+  color:inherit;transition:transform .12s,border-color .15s,background .15s}
+.ob-route:hover{border-color:#ef4444;background:rgba(239,68,68,.07);transform:translateY(-1px)}
+.ob-route-h{font-size:.94rem;font-weight:700}
+.ob-route-p{font-size:.78rem;line-height:1.4;color:var(--text-dim,rgba(255,255,255,.62));font-weight:400}
+[data-theme="light"] .ob-route-p{color:rgba(0,0,0,.55)}
+.ob-route--primary{background:#ef4444;border-color:#ef4444;color:#fff}
+.ob-route--primary .ob-route-p{color:rgba(255,255,255,.86)}
+.ob-route--primary:hover{background:#dc2626;border-color:#dc2626}
+.ob-back{display:block;margin:10px 0 0;background:none;border:0;color:var(--text-dim,rgba(255,255,255,.55));
+  font-size:.8rem;cursor:pointer;font-family:inherit;padding:6px 0;transition:color .15s}
+.ob-back:hover{color:var(--text)}
+@keyframes obFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes obRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:480px){.ob-card{padding:22px 18px 18px;border-radius:14px}.ob-title{font-size:1.25rem}}
+@media(prefers-reduced-motion:reduce){.ob-backdrop,.ob-card{animation:none}}
+</style>
+
+<script>
+(function(){
+  // First-visit experience-level onboarding. Self-contained, no deps.
+  // Suppression key persists in localStorage so the modal only shows
+  // once per browser. The hash-skip lets visitors who deep-linked to a
+  // section land where they wanted without an interruption.
+  var KEY = 'da-onboarding-shown';
+  try { if (localStorage.getItem(KEY) === '1') return; } catch (e) {}
+  if (location.hash && location.hash !== '#') return;
+
+  var modal = document.getElementById('obModal');
+  if (!modal) return;
+
+  function setView(name){
+    var views = modal.querySelectorAll('[data-ob-view]');
+    for (var i=0;i<views.length;i++){
+      var v = views[i];
+      var match = v.getAttribute('data-ob-view') === name;
+      v.hidden = !match;
+    }
+  }
+
+  function track(event, params){
+    try { if (window.gtag) gtag('event', event, params || {}); } catch (e) {}
+  }
+
+  function suppress(){
+    try { localStorage.setItem(KEY, '1'); } catch (e) {}
+  }
+
+  function open(){
+    modal.classList.add('is-open');
+    modal.removeAttribute('hidden');
+    modal.setAttribute('aria-hidden','false');
+    setView('q');
+    track('onboarding_view');
+    // Move focus to the first choice for keyboard users.
+    var firstChoice = modal.querySelector('.ob-choice');
+    if (firstChoice) setTimeout(function(){ firstChoice.focus(); }, 50);
+  }
+
+  function close(reason){
+    modal.classList.remove('is-open');
+    modal.setAttribute('hidden','');
+    modal.setAttribute('aria-hidden','true');
+    suppress();
+    track('onboarding_dismiss', { reason: reason || 'x' });
+  }
+
+  // Wire dismiss controls (X, backdrop, Skip).
+  var closers = modal.querySelectorAll('[data-ob-close]');
+  for (var c=0;c<closers.length;c++) closers[c].addEventListener('click', function(){ close('close'); });
+
+  // Wire pick controls (the two top-level buttons).
+  var picks = modal.querySelectorAll('[data-ob-pick]');
+  for (var p=0;p<picks.length;p++) {
+    picks[p].addEventListener('click', function(){
+      var path = this.getAttribute('data-ob-pick');
+      track('onboarding_pick', { path: path });
+      setView(path);
+      var firstRoute = modal.querySelector('[data-ob-view="'+path+'"] .ob-route');
+      if (firstRoute) setTimeout(function(){ firstRoute.focus(); }, 50);
+    });
+  }
+
+  // Wire back controls.
+  var backs = modal.querySelectorAll('[data-ob-back]');
+  for (var b=0;b<backs.length;b++) backs[b].addEventListener('click', function(){ setView('q'); });
+
+  // Wire route clicks (track + suppress, then default navigation runs).
+  var routes = modal.querySelectorAll('[data-ob-go]');
+  for (var r=0;r<routes.length;r++) {
+    routes[r].addEventListener('click', function(){
+      track('onboarding_route', { route: this.getAttribute('data-ob-go') });
+      suppress();
+      // Let the anchor's href navigate normally.
+    });
+  }
+
+  // ESC dismisses.
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) close('esc');
+  });
+
+  // Delay so the hero loads first. Don't gate on document.hidden —
+  // if the tab opened in the background and the user switches in
+  // later, the modal should still be there waiting (it's their first
+  // visit, after all).
+  setTimeout(open, 2500);
+})();
+</script>
 </body>
 </html>
