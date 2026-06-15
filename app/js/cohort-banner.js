@@ -26,7 +26,7 @@
   } catch (e) {}
 
   var CSS = '\
-.cohort-banner{display:flex;align-items:center;gap:12px;padding:9px clamp(14px,3vw,24px);background-color:#c81e1e;background-image:linear-gradient(90deg,#b91c1c 0%,#ef4444 100%);color:#fff;font-family:Inter,-apple-system,system-ui,sans-serif;font-size:.86rem;font-weight:500;line-height:1.4;border-bottom:1px solid rgba(0,0,0,.18);position:relative;z-index:60}\
+.cohort-banner{display:flex;align-items:center;gap:12px;padding:9px clamp(14px,3vw,24px);background-color:#c81e1e;background-image:linear-gradient(90deg,#b91c1c 0%,#ef4444 100%);color:#fff;font-family:Inter,-apple-system,system-ui,sans-serif;font-size:.86rem;font-weight:500;line-height:1.4;border-bottom:1px solid rgba(0,0,0,.18);position:sticky;top:0;z-index:10001}\
 .cohort-banner-dot{width:7px;height:7px;border-radius:50%;background:#fff;flex-shrink:0;box-shadow:0 0 8px rgba(255,255,255,.6);animation:cbPulse 2s ease-in-out infinite}\
 @keyframes cbPulse{0%,100%{opacity:.65}50%{opacity:1}}\
 .cohort-banner-msg{flex:1;min-width:0}\
@@ -78,41 +78,31 @@
       document.body.appendChild(aside);
     }
 
-    // Publish the EFFECTIVE banner offset as --cohort-banner-h on :root.
-    // The fixed topbar reads this to push itself down so the banner is
-    // visible. The naive "always publish the full banner height" version
-    // left a 47px gap at the top of the viewport once the banner had
-    // scrolled out of view — the topbar was still translated down, but
-    // there was no banner above it any more.
+    // Publish the banner height as --cohort-banner-h on :root. The fixed
+    // topbar reads it (translateY) to sit just below the banner.
     //
-    // Fix: the published value is max(0, bannerHeight - scrollY), so the
-    // topbar tracks the banner as it scrolls up off the page and then
-    // locks to the top once the banner is gone. Recomputed on scroll
-    // (passive listener, rAF-throttled) and on resize. Reads the real
-    // bannerHeight off offsetHeight each tick so wrapping into two lines
-    // on a narrow viewport is handled for free.
-    var rafToken = 0;
-    function effectiveOffset(){
-      if (aside.classList.contains('is-dismissed')) return 0;
-      var h = aside.offsetHeight;
-      var sy = window.scrollY || document.documentElement.scrollTop || 0;
-      var v = h - sy;
-      if (v < 0) v = 0;
-      if (v > h) v = h;
-      return v;
+    // The banner is now position:sticky (pinned to the top), so it never
+    // scrolls away and the offset is simply its height — a STATIC value.
+    // The previous version published max(0, height - scrollY) and chased
+    // the topbar down on every scroll frame via a rAF'd scroll listener.
+    // Because the banner scrolled natively (compositor) but the topbar
+    // followed a frame late (JS), the two desynced and the banner looked
+    // like it was "scrolling away weirdly." Pinning the banner + a static
+    // offset means nothing moves on scroll, so there's nothing to jitter.
+    // Only resize / line-wrap changes the height, so we recompute there.
+    // No scroll listener and no rAF: resize + ResizeObserver fire rarely,
+    // so we publish synchronously and the topbar offset can never lag the
+    // real banner height. (Writing --cohort-banner-h only moves the
+    // topbar, not the banner, so the ResizeObserver can't loop.)
+    function bannerHeight(){
+      return aside.classList.contains('is-dismissed') ? 0 : aside.offsetHeight;
     }
     function publishOffset(){
-      rafToken = 0;
-      document.documentElement.style.setProperty('--cohort-banner-h', effectiveOffset() + 'px');
-    }
-    function schedulePublish(){
-      if (rafToken) return;
-      rafToken = requestAnimationFrame(publishOffset);
+      document.documentElement.style.setProperty('--cohort-banner-h', bannerHeight() + 'px');
     }
     publishOffset();
-    window.addEventListener('scroll', schedulePublish, { passive: true });
-    window.addEventListener('resize', schedulePublish);
-    try { new ResizeObserver(schedulePublish).observe(aside); } catch (e) {}
+    window.addEventListener('resize', publishOffset);
+    try { new ResizeObserver(publishOffset).observe(aside); } catch (e) {}
 
     try { if (window.gtag) gtag('event', 'cohort_banner_view', { surface: window.location.pathname }); } catch (e) {}
   }
