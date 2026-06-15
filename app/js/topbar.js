@@ -25,10 +25,10 @@
     try { localStorage.setItem('dit-visited-home', '1'); } catch(e){}
   }
 
-  // ── Brand face: load Geist reliably on EVERY topbar page ──
-  // Geist is the site-wide house face (chosen over Fraunces 2026-06-15).
+  // ── Brand face: load Crimson Pro reliably on EVERY topbar page ──
+  // Crimson Pro is the site-wide house face (switched from Geist 2026-06-15).
   // Most pages ship their own <link> for it, but to guarantee the SAME
-  // wordmark + headings render in Geist page-to-page (and avoid the
+  // wordmark + headings render in Crimson Pro page-to-page (and avoid the
   // paint-in-fallback-then-swap flash when a page relies only on a CSS
   // @import), inject the real <link> (+ preconnect) here, once, on any
   // page that doesn't already load it. Identical URL everywhere so the
@@ -46,12 +46,9 @@
       }
       addLink('preconnect', 'https://fonts.googleapis.com');
       addLink('preconnect', 'https://fonts.gstatic.com', { crossorigin: true });
-      var GEIST = 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap';
-      // Geist is the site-wide house face. Inject it on any topbar page that
-      // doesn't already load it, so the whole site reads in Geist without
-      // touching 50 <head>s. Skip if already present to avoid a dupe <link>.
-      if (!document.querySelector('link[href*="family=Geist"]')) {
-        addLink('stylesheet', GEIST);
+      var BRAND_FONT = 'https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap';
+      if (!document.querySelector('link[href*="family=Crimson"]')) {
+        addLink('stylesheet', BRAND_FONT);
       }
     } catch (e) {}
   })();
