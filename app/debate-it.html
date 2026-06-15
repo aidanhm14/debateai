@@ -5633,20 +5633,23 @@ function App() {
   // default vs the current page. The bucket is the experiment arm; the
   // sticky choice overrides it for returning power users.
   var [setupMode, setSetupMode] = useState(() => {
+    // Guided ("simple") is now the default experience for everyone — the
+    // dense advanced form was cognitively overwhelming for new users, so
+    // it's opt-in (the "Competitive debaters: advanced options" link, or
+    // a prior explicit choice persisted under da-setup-mode). The old
+    // 50/50 da-setup-ab split is retired; respect a user's saved choice
+    // but otherwise land them in the guided flow.
     try {
       var choice = localStorage.getItem('da-setup-mode');
       if (choice === 'simple' || choice === 'advanced') return choice;
-      var ab = localStorage.getItem('da-setup-ab');
-      if (ab !== 'simple' && ab !== 'advanced') {
-        ab = Math.random() < 0.5 ? 'simple' : 'advanced';
-        localStorage.setItem('da-setup-ab', ab);
-      }
-      return ab;
+      return 'simple';
     } catch (e) {return 'simple';}
   });
   var [showCustomize, setShowCustomize] = useState(false);
   var [simpleModal, setSimpleModal] = useState(null); // 'format' | 'judge' | 'language'
   var [simpleBgOpen, setSimpleBgOpen] = useState(false);
+  var [simpleLangQuery, setSimpleLangQuery] = useState(''); // language-modal search filter
+  var [simpleFmtMore, setSimpleFmtMore] = useState(false); // format modal: reveal the rarer formats
   // Simple-mode Start: if the user never typed a motion, fall back to
   // the Debate of the Week (or a random motion) before firing. Setting
   // motion then calling startDebate in the same tick won't see the new
@@ -8308,12 +8311,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   { icon: '🏛', title: 'Parliamentary Debate', desc: 'Asian Parli, WSDC, BP, APDA. Gov vs. Opp.', on: SIMPLE_PARLI_KEYS.indexOf(format) !== -1, go: () => chooseFormat('asian') },
   { icon: '🎤', title: 'Public Speaking / Oral Exam', desc: 'Defend a thesis out loud. An examiner probes you.', on: format === 'viva', go: () => chooseFormat('viva') },
   { icon: '💼', title: 'Work & Career', desc: 'Courtroom, negotiation, investor pitch. Argue like it\'s your job.', on: SIMPLE_CAREER_KEYS.indexOf(format) !== -1, go: () => chooseFormat('pitch') },
-  { icon: '✎', title: 'Custom Topic', desc: 'Any format, any motion. Pick exactly what you want.', on: format !== 'quick' && format !== 'viva' && SIMPLE_PARLI_KEYS.indexOf(format) === -1 && SIMPLE_CAREER_KEYS.indexOf(format) === -1, go: () => setSimpleModal('format') }];
+  { icon: '✎', title: 'Custom Topic', desc: 'Any format, any motion. Pick exactly what you want.', on: format !== 'quick' && format !== 'viva' && SIMPLE_PARLI_KEYS.indexOf(format) === -1 && SIMPLE_CAREER_KEYS.indexOf(format) === -1, go: () => {setSimpleFmtMore(false);setSimpleModal('format');} }];
 
   var simpleJudgeCards = [
   { key: 'hs_coach', icon: '🧑‍🏫', title: 'Friendly Coach', desc: 'Encouraging. Former debater. Meets you in the middle.' },
   { key: 'flow', icon: '⚖', title: 'Tough Judge', desc: 'Votes on the flow. Every dropped argument is fatal.' },
   { key: 'apda_alum', icon: '🎓', title: 'Competitive Debater', desc: 'College parli voice. Rewards creative framing.' }];
+
+  // Starting points so the topic step is never a blank box. Tapping a
+  // category drops in a random motion from it; the user can edit freely.
+  var SIMPLE_TOPIC_CATS = [
+  { label: 'Politics', icon: '🏛', motions: ['Should voting be mandatory?', 'Should the voting age be lowered to 16?', 'Should political donations be capped?', 'Should term limits apply to all elected officials?'] },
+  { label: 'Technology', icon: '💻', motions: ['Should social media require government ID to sign up?', 'Should facial recognition be banned in public spaces?', 'Should AI-generated art count as real art?', 'Should self-driving cars be allowed on public roads?'] },
+  { label: 'Philosophy', icon: '🤔', motions: ['Is it ever moral to lie?', 'Does free will exist?', 'Should we value happiness over truth?', 'Is civil disobedience ever justified?'] },
+  { label: 'History', icon: '📜', motions: ['Should countries pay reparations for historical wrongs?', 'Do great individuals or broad forces shape history?', 'Should controversial historical statues be removed?', 'Did the printing press matter more than the internet?'] },
+  { label: 'Sports', icon: '🏅', motions: ['Should college athletes be paid?', 'Should esports count as real sports?', 'Should performance-enhancing drugs be allowed in pro sports?', 'Should national teams recruit foreign-born athletes?'] },
+  { label: 'Business', icon: '💼', motions: ['Should a four-day work week be standard?', 'Should companies disclose their carbon footprint?', 'Should remote work be a legal right?', 'Should billionaires exist?'] }];
+  var pickTopicFromCat = (cat) => {
+    var list = cat.motions || [];
+    if (!list.length) return;
+    setMotion(list[Math.floor(Math.random() * list.length)]);
+  };
 
   var simpleStepHead = (n, label) => el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
   el('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.32)', color: '#ef4444', fontSize: '.78rem', fontWeight: 800, flexShrink: 0 } }, String(n)),
@@ -8354,7 +8372,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ),
   el('div', { style: { marginTop: 10, fontSize: '.76rem', color: 'var(--c-text)' } },
   'Format: ', el('strong', { style: { color: 'var(--c-bright)' } }, simpleFmtLabel), '   ',
-  el('button', { onClick: () => setSimpleModal('format'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Change format')
+  el('button', { onClick: () => {setSimpleFmtMore(false);setSimpleModal('format');}, style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Change format')
   )
   ),
   el('div', { style: { marginBottom: 26 } },
@@ -8369,7 +8387,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('span', { className: 'voice-input-host', style: { position: 'relative', display: 'block', width: '100%' } },
   el('textarea', { className: 'float-input', rows: 2, placeholder: 'Type a motion or topic…  e.g. "Social media does more harm than good."', value: motion, onChange: (e) => setMotion(e.target.value), style: { maxWidth: '100%', width: '100%' } })
   ),
-  el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 } },
+  el('div', { style: { fontSize: '.66rem', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--c-muted)', margin: '12px 0 8px' } }, 'Or start from a theme'),
+  el('div', { style: { display: 'flex', gap: 7, flexWrap: 'wrap' } },
+  SIMPLE_TOPIC_CATS.map((cat) => el('button', { key: cat.label, onClick: () => pickTopicFromCat(cat), style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '.8rem', fontWeight: 500, background: 'var(--c-surface3)', border: '1px solid var(--c-border3)', color: 'var(--c-text)', transition: 'border-color .15s, background .15s' } },
+  el('span', { 'aria-hidden': true }, cat.icon), cat.label
+  ))
+  ),
+  el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 } },
   el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => setMotion(randomMotionFor(format)) }, '🎲 Random motion'),
   el('button', { className: 'cta-ghost', style: { marginTop: 0 }, onClick: () => setSimpleBgOpen(!simpleBgOpen) }, (simpleBgOpen ? '▾ ' : '▸ ') + 'Add background / context')
   ),
@@ -8395,11 +8419,37 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ),
   el('div', { style: { marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' } },
   el('button', { onClick: () => setSimpleModal('judge'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'More judge styles'),
-  el('span', { style: { fontSize: '.74rem', color: 'var(--c-text)' } }, 'Language: ', el('strong', { style: { color: 'var(--c-bright)' } }, (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName)),
-  el('button', { onClick: () => setSimpleModal('language'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Change language'),
   customParadigm.trim() && el('span', { style: { fontSize: '.7rem', color: '#fca5a5', fontWeight: 600 } }, '· custom judge paradigm active')
   )
   ),
+  el('div', { style: { marginBottom: 26 } },
+  simpleStepHead(4, 'Language'),
+  el('button', { onClick: () => {setSimpleLangQuery('');setSimpleModal('language');}, style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minWidth: 220, padding: '11px 15px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: '.9rem', fontWeight: 600, background: 'var(--c-surface)', border: '1px solid var(--c-border2)', color: 'var(--c-bright)' } },
+  el('span', null, (LANGUAGES[aiLanguage] || LANGUAGES.en).label),
+  el('span', { style: { color: 'var(--c-dim)', fontSize: '.78rem' }, 'aria-hidden': true }, '▼')
+  ),
+  aiLanguage !== 'en' && el('div', { style: { marginTop: 8, fontSize: '.72rem', color: 'var(--c-text3)', lineHeight: 1.45, maxWidth: 420 } }, 'The AI writes and speaks in ', el('strong', { style: { color: 'var(--c-text)' } }, (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName), '. Voice timbre stays the same.')
+  ),
+  (function () {
+    var rfmt = FORMATS[format] || {};
+    var estSec = (rfmt.speeches || []).reduce(function (s, x) {return s + (x.time || 0);}, 0) + (rfmt.prep || 0);
+    var estMin = Math.max(1, Math.round(estSec / 60));
+    var reviewRow = (k, v, accent) => el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 14, padding: '8px 0', borderTop: '1px solid var(--c-border3)' } },
+    el('span', { style: { fontSize: '.66rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--c-muted)', flexShrink: 0 } }, k),
+    el('span', { style: { fontSize: '.86rem', fontWeight: 600, color: accent ? '#ef4444' : 'var(--c-bright)', textAlign: 'right', lineHeight: 1.35 } }, v)
+    );
+    return el('div', { style: { marginBottom: 18 } },
+    simpleStepHead(5, 'Review & start'),
+    el('div', { style: { padding: '4px 16px 12px', borderRadius: 16, background: 'var(--c-surface)', border: '1px solid var(--c-border2)' } },
+    reviewRow('Format', simpleFmtLabel),
+    reviewRow('Topic', motion.trim() ? motion.trim() : 'Random / Debate of the Week'),
+    reviewRow('Language', (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName),
+    reviewRow('Opponent', 'AI'),
+    reviewRow('Judge', customParadigm.trim() ? 'Custom paradigm' : ((JUDGE_PARADIGMS[judgeParadigm] || {}).label || 'Balanced')),
+    reviewRow('Est. time', '~' + estMin + ' min', true)
+    )
+    );
+  })(),
   el('button', { className: 'cta cta-setup-sticky', style: { width: '100%' }, onClick: simpleStart }, 'Start round'),
   !motion.trim() && el('div', { style: { textAlign: 'center', marginTop: 8, fontSize: '.72rem', color: 'var(--c-dim)' } }, 'No topic yet? Start uses the Debate of the Week or a random motion.')
   )
@@ -8421,11 +8471,23 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   );
   var simpleSetupModals = el(React.Fragment, null,
   simpleModal === 'format' && simpleModalShell('Choose a format',
+  el('div', null,
   el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
-  ['quick', 'asian', 'worlds', 'bp', 'apda', 'ld', 'pf', 'policy', 'congress', 'popper', 'viva', 'mun', 'courtroom', 'negotiation', 'pitch'].filter((k) => FORMATS[k]).map((k) => {
+  ['quick', 'asian', 'bp', 'pf', 'ld', 'policy'].filter((k) => FORMATS[k]).map((k) => {
     var v = FORMATS[k];var on = format === k;
     return el('button', { key: k, onClick: () => {chooseFormat(k);setSimpleModal(null);}, title: v.desc, style: simpleModalPill(on) }, v.name);
   })
+  ),
+  !simpleFmtMore && el('button', { onClick: () => setSimpleFmtMore(true), style: { marginTop: 14, background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.8rem', cursor: 'pointer', textDecoration: 'underline' } }, 'More formats →'),
+  simpleFmtMore && el('div', null,
+  el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-muted)', margin: '18px 0 8px' } }, 'More formats'),
+  el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
+  ['apda', 'worlds', 'congress', 'popper', 'mun', 'viva', 'courtroom', 'negotiation', 'pitch'].filter((k) => FORMATS[k]).map((k) => {
+    var v = FORMATS[k];var on = format === k;
+    return el('button', { key: k, onClick: () => {chooseFormat(k);setSimpleModal(null);}, title: v.desc, style: simpleModalPill(on) }, v.name);
+  })
+  )
+  )
   )
   ),
   simpleModal === 'judge' && simpleModalShell('Judge style',
@@ -8446,12 +8508,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   simpleModal === 'language' && simpleModalShell('AI speaking language',
   el('div', null,
   el('p', { style: { fontSize: '.78rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 14 } }, 'The AI writes and speaks in this language. Voice timbre stays the same; only the language of delivery changes.'),
-  el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
-  Object.values(LANGUAGES).map((L) => {
-    var on = aiLanguage === L.code;
-    return el('button', { key: L.code, onClick: () => {setAiLanguage(L.code);setSimpleModal(null);}, title: L.nativeName, style: simpleModalPill(on) }, L.label);
-  })
-  )
+  el('input', { type: 'text', value: simpleLangQuery, onChange: (e) => setSimpleLangQuery(e.target.value), placeholder: 'Search languages…', autoFocus: true, style: { width: '100%', padding: '11px 14px', marginBottom: 14, background: 'var(--c-surface3)', border: '1px solid var(--c-border3)', borderRadius: 10, color: 'var(--c-text)', fontSize: '.86rem', fontFamily: 'inherit', outline: 'none' } }),
+  (function () {
+    var q = simpleLangQuery.trim().toLowerCase();
+    var list = Object.values(LANGUAGES).filter((L) => !q || (L.nativeName + ' ' + L.label + ' ' + L.code).toLowerCase().indexOf(q) !== -1);
+    if (!list.length) return el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)', padding: '6px 2px' } }, 'No languages match “' + simpleLangQuery + '”.');
+    return el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
+    list.map((L) => {
+      var on = aiLanguage === L.code;
+      return el('button', { key: L.code, onClick: () => {setAiLanguage(L.code);setSimpleModal(null);}, title: L.nativeName, style: simpleModalPill(on) }, L.label);
+    })
+    );
+  })()
   )
   )
   );

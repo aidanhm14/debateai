@@ -6,11 +6,7 @@
 
 
 
-<<<<<<< HEAD
-const CACHE_NAME = 'debateos-v1075';
-=======
-const CACHE_NAME = 'debateos-v1071';
->>>>>>> f2fd2d8 (spar: ping + auto-join on human match (B); honest waitlist activity (C))
+const CACHE_NAME = 'debateos-v1076';
 
 
 
