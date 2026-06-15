@@ -9,14 +9,11 @@ const TMP = '/tmp/og-build';
 // shot: file path · pos: object positioning of the screenshot in the right panel
 // light: true if the screenshot is light-themed (needs a stronger left scrim)
 //
-// NOTE: 'home' and 'live' are NOT here — they're webcam-forward cards (two
-// people debating on camera) made by scripts/generate-og-cards-webcam.mjs.
-// Kept out of this list so re-running can't clobber them with a flat shot.
+// NOTE: 'home', 'live' and 'voice' are NOT here — they're the AI-debate
+// scene cards (the voice-debate "Cassidy" stage: glowing debater + orb)
+// made by scripts/generate-og-cards-scene.mjs. Kept out of this list so a
+// re-run can't clobber them with a flat screenshot.
 const CARDS = [
-  { key: 'voice', shot: `${APP}/landing-shot-voice.jpg`, light: true,
-    pos: { w: 1000, top: 50, left: 56 },
-    eyebrow: 'Live voice round', tag: 'Speak. Get interrupted. Take POIs.',
-    feat: 'Real-time AI · interruptible · judge ballot at the end' },
   { key: 'leaderboard', shot: `${APP}/landing-shot-leaderboard.jpg`, light: true,
     pos: { w: 900, top: 50, left: 54 },
     eyebrow: 'The leaderboard', tag: 'Climb the board across every format.',
