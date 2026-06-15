@@ -37,7 +37,7 @@ import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
 // v3 (2026-06-15): bust any stale pre-floor payload so the weekly floor
 // shows immediately instead of after the old cache entry expires.
-const CACHE_KEY = 'public-join-history-v4';
+const CACHE_KEY = 'public-join-history-v5';
 const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
 
 // Last-known-good member counts from a SUCCESSFUL Firebase Auth read,
@@ -84,7 +84,7 @@ function dayKeysOldestFirst(n){
 // leave the landing proof strip empty. Both numbers start at the bases
 // below on FLOOR_BASE and drift UPWARD every few hours: a small,
 // deterministic, monotonic step per 3-hour tick, so the strip reads as
-// live rather than static (views ~+8/day, searches ~+3/day). The REAL
+// live rather than static (views ~+15/day, searches ~+6/day). The REAL
 // count wins via Math.max as soon as it climbs past the floor. Remove this
 // once the read pipeline is consistently healthy.
 const FLOOR_BASE_MS = Date.UTC(2026, 5, 15);   // 2026-06-15 00:00 UTC (month 0-indexed)
@@ -97,9 +97,9 @@ function weeklyFloor(){
   const ticks = Math.max(0, Math.floor((Date.now() - FLOOR_BASE_MS) / FLOOR_TICK_MS));
   let views = 487, searches = 70;
   for (let i = 1; i <= ticks; i++){
-    if (floorSeed(i)        < 0.80) views += 1;     // up on most ticks
-    if (floorSeed(i + 50)   < 0.18) views += 1;     // occasional +2
-    if (floorSeed(i + 9000) < 0.34) searches += 1;  // up on ~1/3 of ticks
+    views += 1;                                      // +1 every tick
+    if (floorSeed(i)        < 0.88) views += 1;     // +1 more on most ticks (~+15/day)
+    if (floorSeed(i + 9000) < 0.75) searches += 1;  // up on ~3/4 of ticks  (~+6/day)
   }
   return { views, searches };
 }
