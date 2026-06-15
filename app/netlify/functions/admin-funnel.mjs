@@ -31,7 +31,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, getCachedSharedStale, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const DEFAULT_DAYS = 7;
@@ -42,7 +42,7 @@ const MAX_DAYS = 60;
 // enough to exhaust the free-tier Firestore read quota and 500 every
 // admin endpoint (incl. the cached ones, on a cache miss). Cap lowered
 // + 5-min cache added below to match the rest of the dashboard.
-const MAX_DOCS = 2500;  // 2026-06-15: halved; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
+const MAX_DOCS = 1200;  // 2026-06-15: 2500→1200 so a cold recompute fits under the Spark 50K/day read cap; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -193,6 +193,9 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-funnel error:', err);
+    // Quota blown / transient Firestore failure: serve last-known data.
+    const stale = await getCachedSharedStale(cacheKey);
+    if (stale) return jsonResponse({ ...stale, _stale: true }, 200, request);
     return errorResponse('Something went wrong. Please try again.', 500, request);
   }
 };

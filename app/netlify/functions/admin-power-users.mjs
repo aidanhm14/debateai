@@ -17,14 +17,14 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, getCachedSharedStale, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 // 2026-05-19: MAX_DOCS cut 30K → 5K. Power-users is rank-based; the
 // top 15-20 users by engagement are reliably surfaced from a 5K event
 // sample. Combined with caching, this is what keeps /admin under
 // the Firestore quota.
-const MAX_DOCS = 2500;  // 2026-06-15: halved; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
+const MAX_DOCS = 1200;  // 2026-06-15: 2500→1200 so a cold recompute fits under the Spark 50K/day read cap; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
 const DEFAULT_DAYS = 30;
 const MAX_DAYS = 90;
 const TOP_K = 20;
@@ -147,6 +147,9 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-power-users error:', err);
+    // Quota blown / transient Firestore failure: serve last-known data.
+    const stale = await getCachedSharedStale(cacheKey);
+    if (stale) return jsonResponse({ ...stale, _stale: true }, 200, request);
     return errorResponse('Failed to load power users: ' + (err.message || 'unknown'), 500, request);
   }
 };

@@ -31,14 +31,14 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, getCachedSharedStale, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 60;
 // 2026-05-20: was 20000. Missed by the 2026-05-19 admin-cache pass —
 // see admin-funnel.mjs. Cap lowered + 5-min cache added below.
-const MAX_DOCS = 2500;  // 2026-06-15: halved; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
+const MAX_DOCS = 1200;  // 2026-06-15: 2500→1200 so a cold recompute fits under the Spark 50K/day read cap; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
 
 const BUCKETS = ['play', '25', '50', '75', 'complete'];
 
@@ -136,6 +136,9 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-founder-video error:', err);
+    // Quota blown / transient Firestore failure: serve last-known data.
+    const stale = await getCachedSharedStale(cacheKey);
+    if (stale) return jsonResponse({ ...stale, _stale: true }, 200, request);
     return errorResponse('Something went wrong. Please try again.', 500, request);
   }
 };
