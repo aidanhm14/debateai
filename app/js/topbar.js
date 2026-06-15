@@ -41,11 +41,12 @@
       }
       addLink('preconnect', 'https://fonts.googleapis.com');
       addLink('preconnect', 'https://fonts.gstatic.com', { crossorigin: true });
-      var FRAUNCES = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&display=swap';
-      // Skip if the page already loads Fraunces (landing/index) — avoid a
-      // duplicate <link>; the cache key is the same either way.
-      if (!document.querySelector('link[href*="family=Fraunces"]')) {
-        addLink('stylesheet', FRAUNCES);
+      var GEIST = 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap';
+      // Geist is the site-wide house face. Inject it on any topbar page that
+      // doesn't already load it, so the whole site reads in Geist without
+      // touching 50 <head>s. Skip if already present to avoid a dupe <link>.
+      if (!document.querySelector('link[href*="family=Geist"]')) {
+        addLink('stylesheet', GEIST);
       }
     } catch (e) {}
   })();
