@@ -63,7 +63,7 @@
       'transform-origin:bottom right;transition:transform .18s,opacity .18s;}',
     '.dafab-drawer.on{transform:translateY(0) scale(1);opacity:1;pointer-events:auto;}',
     '.dafab-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}',
-    '.dafab-h-l{font-family:Geist,Fraunces,Georgia,serif;font-size:1.05rem;font-weight:700;letter-spacing:-.01em;}',
+    '.dafab-h-l{font-family:Geist,Inter,system-ui,-apple-system,sans-serif;font-size:1.05rem;font-weight:700;letter-spacing:-.01em;}',
     '.dafab-x{background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;',
       'font-size:1rem;padding:4px 6px;border-radius:6px;line-height:1;}',
     '.dafab-x:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.06);}',
