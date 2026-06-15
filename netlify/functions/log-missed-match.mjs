@@ -110,9 +110,16 @@ const ALLOWED_FORMATS = new Set([
   'apda', 'bp', 'wsdc', 'policy', 'ld', 'pf', 'congress', 'mun',
   'asian_parli', 'india_school', 'india_college', 'quick',
 ]);
+// spar.html's style chips send 'worlds' / 'asian'; the allow-list (and
+// the rest of the brain stack) calls those 'wsdc' / 'asian_parli'. Map
+// the client slugs onto the canonical names so Worlds/Asian-Parli seeks
+// land in by_format and the recent-seeks ring instead of collapsing to
+// 'other'. The client SEEK_LABELS renders either spelling correctly.
+const FORMAT_ALIASES = { worlds: 'wsdc', asian: 'asian_parli' };
 function normFormat(raw){
   if (!raw || typeof raw !== 'string') return 'other';
-  const s = raw.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  let s = raw.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (FORMAT_ALIASES[s]) s = FORMAT_ALIASES[s];
   return ALLOWED_FORMATS.has(s) ? s : 'other';
 }
 
