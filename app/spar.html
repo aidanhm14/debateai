@@ -498,10 +498,21 @@ h1 em{color:var(--accent);font-style:normal}
   display:flex;flex-direction:column;gap:2px;
 }
 .wl-row{
-  display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:10px;
+  display:grid;grid-template-columns:24px 1fr auto auto;align-items:center;gap:10px;
   padding:6px 4px;border-radius:6px;
 }
 .wl-row + .wl-row{border-top:1px solid var(--border)}
+/* Per-peer DM action in the live queue list. Lets you reach out to
+   someone who's searching right now and organise a round directly,
+   instead of only waiting on the random pair. Reuses openDMThread +
+   the existing dm_threads marketplace. */
+.wl-msg-btn{
+  font-family:inherit;font-size:.68rem;font-weight:700;letter-spacing:.02em;
+  color:var(--accent);background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.32);border-radius:999px;
+  padding:4px 11px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s;
+}
+.wl-msg-btn:hover{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.55)}
 .wl-avi{
   width:24px;height:24px;border-radius:50%;
   background:rgba(239,68,68,.12);
@@ -1173,6 +1184,23 @@ h1 em{color:var(--accent);font-style:normal}
   var BROADEN_OFFER_SEC = 45;
 
   var shell = document.getElementById('shell');
+  // Delegated DM action for the live queue list. Bound once on the stable
+  // shell so it survives every renderWaitlist() re-render (the queue list
+  // re-paints on each poll). Clicking "Message them" on a peer who's
+  // searching opens a 1:1 thread with them via the existing dm_threads
+  // marketplace, so you can organise a round instead of only waiting on
+  // the random pair. openDMThread no-ops for signed-out users.
+  if (shell){
+    shell.addEventListener('click', function(e){
+      var btn = e.target && e.target.closest ? e.target.closest('[data-dm-uid]') : null;
+      if (!btn) return;
+      var uid = btn.getAttribute('data-dm-uid');
+      if (!uid) return;
+      e.preventDefault();
+      openDMThread(uid, btn.getAttribute('data-dm-name') || 'Debater', btn.getAttribute('data-dm-photo') || '');
+      try { if (window.gtag) gtag('event', 'spar_queue_dm', { format: formatParam }); } catch(err){}
+    });
+  }
 
   function escHtml(s){
     return String(s||'').replace(/[&<>"']/g, function(c){
@@ -1194,6 +1222,7 @@ h1 em{color:var(--accent);font-style:normal}
     var now = Math.floor(Date.now() / 1000);
     var rows = others.slice(0, 6).map(function(d){
       var data = d.data ? d.data() : d;
+      var uid = (d && d.id) ? d.id : (data.uid || '');
       var name = escHtml(data.displayName || 'Anonymous');
       var initial = (name.replace(/&[^;]+;/g,'').charAt(0) || '?').toUpperCase();
       var avi = data.photoURL
@@ -1202,10 +1231,19 @@ h1 em{color:var(--accent);font-style:normal}
       var sec = (data.joinedAt && data.joinedAt.seconds)
         ? Math.max(0, now - data.joinedAt.seconds)
         : 0;
+      // "Message them" — DM a peer who's searching right now so you can
+      // organise a round directly. Only when we have a uid to reach and
+      // it isn't us. Click handled by the delegated listener on `shell`.
+      var msgBtn = (uid && (!state.user || uid !== state.user.uid))
+        ? '<button class="wl-msg-btn" type="button" data-dm-uid="' + escHtml(uid) +
+            '" data-dm-name="' + escHtml(data.displayName || 'Debater') +
+            '" data-dm-photo="' + escHtml(data.photoURL || '') + '">Message them</button>'
+        : '';
       return '<li class="wl-row">' +
         '<span class="wl-avi">' + avi + '</span>' +
         '<span class="wl-name">' + name + '</span>' +
         '<span class="wl-time">' + sec + 's</span>' +
+        msgBtn +
         '</li>';
     }).join('');
     var more = others.length > 6
