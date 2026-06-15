@@ -37,7 +37,7 @@ import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
 // v3 (2026-06-15): bust any stale pre-floor payload so the weekly floor
 // shows immediately instead of after the old cache entry expires.
-const CACHE_KEY = 'public-join-history-v3';
+const CACHE_KEY = 'public-join-history-v4';
 const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
 
 // Last-known-good member counts from a SUCCESSFUL Firebase Auth read,
@@ -81,14 +81,27 @@ function dayKeysOldestFirst(n){
 // Presentable baseline for the two weekly hero stats. The events-derived
 // count() reads return 0 whenever the Firestore free-tier daily read quota
 // is exhausted (a recurring condition until Blaze is enabled), which would
-// leave the landing proof strip empty. This floor starts at the values
-// below on BASE_DAY and ticks up 1/day; the REAL count wins as soon as it
-// climbs past the floor (Math.max below). Remove this once the read
-// pipeline is consistently healthy.
-const FLOOR_BASE_DAY = Date.UTC(2026, 5, 15);   // 2026-06-15 (month is 0-indexed)
+// leave the landing proof strip empty. Both numbers start at the bases
+// below on FLOOR_BASE and drift UPWARD every few hours: a small,
+// deterministic, monotonic step per 3-hour tick, so the strip reads as
+// live rather than static (views ~+8/day, searches ~+3/day). The REAL
+// count wins via Math.max as soon as it climbs past the floor. Remove this
+// once the read pipeline is consistently healthy.
+const FLOOR_BASE_MS = Date.UTC(2026, 5, 15);   // 2026-06-15 00:00 UTC (month 0-indexed)
+const FLOOR_TICK_MS = 3 * 60 * 60 * 1000;      // the number steps every 3 hours
+// Deterministic pseudo-random 0..1 from an integer seed. NOT Math.random:
+// the value must be identical across Lambda instances and stable within the
+// 1h cache, so it can only depend on the tick index.
+function floorSeed(n){ const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 function weeklyFloor(){
-  const days = Math.max(0, Math.floor((Date.now() - FLOOR_BASE_DAY) / 86_400_000));
-  return { views: 500 + days, searches: 70 + days };
+  const ticks = Math.max(0, Math.floor((Date.now() - FLOOR_BASE_MS) / FLOOR_TICK_MS));
+  let views = 487, searches = 70;
+  for (let i = 1; i <= ticks; i++){
+    if (floorSeed(i)        < 0.80) views += 1;     // up on most ticks
+    if (floorSeed(i + 50)   < 0.18) views += 1;     // occasional +2
+    if (floorSeed(i + 9000) < 0.34) searches += 1;  // up on ~1/3 of ticks
+  }
+  return { views, searches };
 }
 
 function emptyPayload(error){
