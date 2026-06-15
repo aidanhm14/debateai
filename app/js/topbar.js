@@ -222,89 +222,21 @@
 
     var nav = el('nav', { class: 'ui-topbar', 'aria-label': 'Site navigation' });
 
-    // ── Rotating wordmark (2026-05-26) ────────────────────────────────
-    // Three-word brand system: product name = "DebateIt" (matches the
-    // domain), personality = "DebateIt", CTA verb = "Debate it".
-    // Wordmark picks one of the three on every page load so the brand
-    // surface feels alive without confusing visitors — same accent-red
-    // styling on the lead word, same TM mark, same size. Picks are
-    // weighted so the canonical "DebateIt" lands ~50% of the time and
-    // the two personality words split the rest, keeping product-name
-    // recognition stable while still surfacing "DebateIt" / "Debate it"
-    // as known brand variants. Fixed for the lifetime of a single page
-    // view via sessionStorage so navigating between pages doesn't
-    // flicker between forms (only a hard reload re-rolls).
-    //
-    // SEO note: Googlebot executes JS but takes one snapshot per crawl,
-    // so the rotation only surfaces ONE variant per indexing pass.
-    // The static "Also known as" line below + the alternateName JSON-LD
-    // on landing/pricing/debate-it/debatable are what actually teach
-    // Google that all three are the same brand entity.
-    var BRAND_VARIANTS = [
-      // 2026-05-26: weights flipped to pin the wordmark to "Debate it."
-      // Per the broader DebateIt brand pivot (commit aafbe94 made /live
-      // the canonical hub under the DebateIt brand). Weights are kept on
-      // the other two so a future un-pin is a one-number edit, not a
-      // structural revert. Aria + JSON-LD alternateName still teach
-      // Google the three names are the same entity.
-      { key: 'debate_ai',  lead: 'Debate', tail: ' AI.',  weight: 0, aria: 'DebateIt, home' },
-      { key: 'debatable',  lead: 'DebateIt', tail: '.',  weight: 0, aria: 'DebateIt, home' },
-      { key: 'debate_it',  lead: 'Debate', tail: ' it.',  weight: 10, aria: 'Debate it, home' }
-    ];
-    function pickWordmark(){
-      // sessionStorage so a page navigation within the same tab keeps
-      // the same wordmark — only a hard reload (or new tab) re-rolls.
-      // This avoids the brand-name flickering as the user clicks around.
-      try {
-        var cached = sessionStorage.getItem('da-wordmark-variant');
-        if (cached) {
-          for (var i = 0; i < BRAND_VARIANTS.length; i++) {
-            // Only honor the cached pick if its weight is still > 0.
-            // Otherwise the rotation has been re-weighted since the user's
-            // last visit (e.g. a variant retired); re-roll so they see a
-            // currently-active brand instead of a stale one.
-            if (BRAND_VARIANTS[i].key === cached && BRAND_VARIANTS[i].weight > 0) {
-              return BRAND_VARIANTS[i];
-            }
-          }
-        }
-      } catch (e) {}
-      var total = 0;
-      for (var j = 0; j < BRAND_VARIANTS.length; j++) total += BRAND_VARIANTS[j].weight;
-      var r = Math.random() * total;
-      var acc = 0;
-      var picked = BRAND_VARIANTS[0];
-      for (var k = 0; k < BRAND_VARIANTS.length; k++) {
-        acc += BRAND_VARIANTS[k].weight;
-        if (r < acc) { picked = BRAND_VARIANTS[k]; break; }
-      }
-      try { sessionStorage.setItem('da-wordmark-variant', picked.key); } catch (e) {}
-      // GA event so we can see which name gets the most click-through
-      // over time. Tells us which brand name to lean into.
-      try {
-        if (window.gtag) window.gtag('event', 'wordmark_render', {
-          event_category: 'brand', event_label: picked.key
-        });
-        if (window.dosTrack) window.dosTrack('wordmark_render', { variant: picked.key });
-      } catch (e) {}
-      return picked;
-    }
-    var WM = pickWordmark();
-
+    // ── Wordmark: fixed to "DebateIt" (2026-06-15) ────────────────────
+    // The rotating Debate AI / Debate it. / DebateIt experiment is retired
+    // per Aidan ("DebateIt is best"). One canonical wordmark everywhere:
+    // "Debate" in the default text color + "It" in accent red, matching
+    // the OG card and the rest of the brand. The sr-only line still teaches
+    // crawlers + AT the also-known-as names regardless of this render.
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',
         class: 'ui-topbar-logo',
-        'aria-label': WM.aria,
+        'aria-label': 'DebateIt, home',
         title: 'Back to home',
-        // First word in accent-red (.ui-topbar-logo span color is var(--accent)),
-        // remainder in default text color. Trailing period + TM are common
-        // across all three variants for visual consistency.
-        // Also: a screen-reader-only "Also known as" line so crawlers + AT
-        // users get all three brand names regardless of which variant the
-        // JS picked. The .sr-only span is in every render so SEO indexing
-        // doesn't depend on the rotation snapshot Google happens to take.
-        html: '<span>' + WM.lead + '</span>' + WM.tail
+        // "It" carries the accent red (.ui-topbar-logo span = var(--accent));
+        // "Debate" stays default-color. One word, matching the OG card.
+        html: 'Debate<span>It</span>'
             + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
             + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
             + ' DebateIt · also known as Debate AI · also known as Debate it.'
