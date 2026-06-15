@@ -649,12 +649,47 @@
     state.dc = dc;
     dc.onmessage = handleEvent;
     dc.onopen = function() {
+      // GA Realtime handshake (mirrors voice-debate.html). Two sends:
+      //  1. session.update — pushes the FULL config. On GA, turn_detection
+      //     lives INSIDE session.audio.input and transcription moved to
+      //     session.audio.input.transcription. Without this the coach has
+      //     no VAD configured, so it never knows the user finished and
+      //     never replies. server_vad + create_response makes the coach
+      //     respond when you stop; interrupt_response lets you cut it off.
+      //  2. response.create — kicks off the coach's opening turn so it
+      //     launches straight into the drill instead of sitting silent.
       try {
         dc.send(JSON.stringify({
           type: 'session.update',
-          session: { input_audio_transcription: { model: 'gpt-4o-mini-transcribe' } },
+          session: {
+            type: 'realtime',
+            output_modalities: ['audio'],
+            audio: {
+              input: {
+                transcription: { model: 'gpt-4o-mini-transcribe' },
+                turn_detection: {
+                  type: 'server_vad',
+                  threshold: 0.5,
+                  prefix_padding_ms: 300,
+                  // Middle ground for a back-and-forth drill: responsive
+                  // without chopping a normal mid-thought pause. Lower for
+                  // snappier, raise toward 1700 to be more patient.
+                  silence_duration_ms: 900,
+                  create_response: true,
+                  interrupt_response: true,
+                },
+              },
+              output: {
+                voice: (mint && mint.voice) || 'shimmer',
+                speed: Math.max(0.25, Math.min(4.0, speed)),
+              },
+            },
+          },
         }));
-      } catch (e) {}
+      } catch (e) { console.warn('[coach] session.update failed:', e); }
+
+      // Kick off the coach's opening turn (it greets + states the drill).
+      try { dc.send(JSON.stringify({ type: 'response.create' })); } catch (e) {}
     };
 
     var offer = await pc.createOffer();
