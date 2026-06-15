@@ -719,7 +719,16 @@
     fbBootstrap(function(){
       try {
         var provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth().signInWithPopup(provider).catch(function(){});
+        provider.setCustomParameters({ prompt: 'select_account' });
+        var t0 = Date.now();
+        firebase.auth().signInWithPopup(provider).catch(function(err){
+          var code = (err && err.code) || 'unknown';
+          // Popups get silently blocked on Safari/mobile. Respect only a
+          // deliberate close (open >1.2s); every other failure falls back
+          // to a full-page redirect so the user still reaches Google.
+          if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
+          try { firebase.auth().signInWithRedirect(provider); } catch(e){}
+        });
       } catch(e){}
     });
   }

@@ -12820,6 +12820,7 @@ window.addEventListener('load', function(){
       window.location.href = '/app#chat';
       return;
     }
+    var t0 = Date.now();
     auth.signInWithPopup(provider).then(function(result){
       try { if (window.gtag) gtag('event', 'sign_up', { method: 'Google' }); } catch(e){}
       try { window.dosTrack && window.dosTrack('sign_in_complete',{source:source||'landing_hero'}) } catch(e){}
@@ -12832,17 +12833,20 @@ window.addEventListener('load', function(){
     }).catch(function(err){
       var code = (err && err.code) || 'unknown';
       var msg = (err && err.message) || '';
-      console.warn('[landing] Google signin popup error:', code, msg);
+      var elapsed = Date.now() - t0;
+      console.warn('[landing] Google signin popup error:', code, msg, elapsed + 'ms');
       try { if (window.gtag) gtag('event', 'sign_in_error', { code: code, message: msg.slice(0, 200), surface: source || 'landing_hero', method: 'popup' }); } catch(e){}
       if (btnText) btnText.textContent = 'Sign up free with Google. 6 brains, voice, judge verdicts.';
-      // Popup-blocked is the #1 cause of silent sign-in failure. When it happens,
-      // fall back to redirect-based auth so the user still reaches Google.
-      var popupBlocked = err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request');
-      if (popupBlocked && err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        try { auth.signInWithRedirect(provider); } catch(e){ alert('Sign-in failed: ' + (err.message || err.code)); }
-      } else if (err && err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        alert('Sign-in failed: ' + (err.message || err.code));
-      }
+      // Popups are silently blocked on Safari + mobile and surface as a grab
+      // bag of codes (popup-blocked, cancelled-popup-request, internal-error,
+      // web-storage-unsupported, or a near-instant "popup-closed-by-user" that
+      // really means blocked). Respect ONLY a deliberate close — the popup was
+      // genuinely open for >1.2s before closing. EVERY other failure falls back
+      // to a full-page redirect, which always reaches Google. This is the
+      // "make the sign-in button actually work" fix.
+      if (code === 'auth/popup-closed-by-user' && elapsed > 1200) return;
+      try { auth.signInWithRedirect(provider); }
+      catch(e){ alert('Sign-in failed: ' + (err.message || code)); }
     });
   }
 
