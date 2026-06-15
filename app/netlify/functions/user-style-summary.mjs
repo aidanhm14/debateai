@@ -96,6 +96,11 @@ export default async (request) => {
   const formatCounts = {};
   let firstSeenAt = null;
   let lastSeenAt = null;
+  // Turns captured in the last 7 days. Derived from the recent window
+  // (no extra query), so it's a floor capped at RECENT_LIMIT — plenty
+  // for a "you trained N times this week" greeting on the coach panel.
+  const weekCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  let roundsThisWeek = 0;
 
   for (const doc of recentDocs) {
     const d = doc.data();
@@ -103,6 +108,7 @@ export default async (request) => {
     if (ts) {
       if (!lastSeenAt || ts > lastSeenAt) lastSeenAt = ts;
       if (!firstSeenAt || ts < firstSeenAt) firstSeenAt = ts;
+      if (ts >= weekCutoff) roundsThisWeek += 1;
     }
     if (d.format) {
       formatCounts[d.format] = (formatCounts[d.format] || 0) + 1;
@@ -121,6 +127,7 @@ export default async (request) => {
 
   const data = {
     totalRounds,
+    roundsThisWeek,                // floor (capped at RECENT_LIMIT); for the coach greeting.
     recentMotions,
     formats: formatCounts,
     firstSeenAt,

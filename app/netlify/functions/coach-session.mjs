@@ -72,8 +72,34 @@ const DRILLS = {
     focus: 'First make them build the strongest version of a position, usually one they would argue against. Hold them to it until it is genuinely strong. Then switch sides and make them break the case they just built.',
     open: 'name a position and tell them to give you the best possible case for it before you let them lay a finger on it.',
   },
+  devil: {
+    label: "Devil's advocate",
+    focus: 'Take the opposite side of what this debater actually believes. Draw out their real view on a live issue, then argue the other side in good faith and hard. Make them defend their instinct with reasons instead of conviction. The point is to stress-test their priors, not to win.',
+    open: 'ask them what they actually believe on a live issue right now, then take the other side and come straight at it.',
+  },
+  killshot: {
+    label: 'Kill shot',
+    focus: 'Give one tight sixty-second case. They get exactly one response to find the decisive answer, the single move that beats it, not a scattershot of small ones. After their answer, tell them in one line whether they found the kill shot or swung at noise, then run another.',
+    open: 'tell them you are giving a sixty second case and they get one response to kill it, then deliver the case at pace.',
+  },
+  hotseat: {
+    label: 'Hot seat',
+    focus: 'You are not a debate coach this round. You are a hostile interviewer. Pick a role and commit to it: a skeptical VC, a sharp judge, an adversarial journalist, a cross-examining lawyer, or a tenured professor. Pressure them on their position the way that role would, with interruptions and follow-ups and no soft landings.',
+    open: 'tell them which hot seat they are in (VC, judge, journalist, lawyer, or professor), set the scenario in one line, and open with your first hard question.',
+  },
+  reconstruct: {
+    label: 'Speech reconstruction',
+    focus: 'Read them a compact argument once, at pace, then make them reconstruct its structure back to you: the claims, the warrants, the impacts, the order. Catch what they dropped or mangled. This trains flowing and listening, not generation, so do not let them improve the argument, only rebuild what you actually said.',
+    open: 'tell them to flow this and play it back, then deliver one tight thirty second argument with two or three distinct points.',
+  },
+  roundreview: {
+    label: 'Round review',
+    focus: 'You are reviewing game film. Work from the recent rounds listed below: reference the actual motions, the actual side they took, and the specific moves and mistakes. Be a scout, not a cheerleader. Name the pattern that shows up across rounds, pick the one habit costing them the most, then drill it live for a few exchanges before they leave.',
+    open: 'open by naming their most recent round and the one thing in it you want to talk about. Do not ask what they want to review; you already know.',
+  },
 };
 const ALLOWED_DRILLS = new Set(Object.keys(DRILLS));
+const RECENT_ROUNDS_LIMIT = 8; // generations scanned when building the round-review block
 
 const MODEL_FALLBACKS = [
   process.env.OPENAI_REALTIME_MODEL,
@@ -122,6 +148,49 @@ function clean(s, max) {
 }
 
 /**
+ * Build the "game film" block for the round-review drill: the user's
+ * most recent rounds, collapsed to one line each (motion / format /
+ * side) with a short excerpt of the judge ballot when there is one so
+ * the coach can reference an actual mistake instead of generalizing.
+ *
+ * Reads the generations collection (uid + createdAt index already
+ * exists — same query user-style-summary uses). Returns '' on any
+ * failure so a missing index or empty history just degrades the drill
+ * to a generalist review instead of breaking the mint.
+ */
+async function loadRecentRounds(db, uid) {
+  try {
+    const snap = await db.collection('generations')
+      .where('uid', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(RECENT_ROUNDS_LIMIT)
+      .get();
+    if (snap.empty) return '';
+
+    const seen = new Set();
+    const lines = [];
+    snap.forEach(doc => {
+      if (lines.length >= 4) return;
+      const d = doc.data() || {};
+      const motion = clean(d.motion, 140);
+      if (!motion || seen.has(motion)) return;
+      seen.add(motion);
+      const fmt = clean(d.format, 24);
+      const side = clean(d.side, 16);
+      const tag = [fmt, side].filter(Boolean).join(', ');
+      // A judge/RFD turn carries the actual verdict; surface a slice of it.
+      const isBallot = d.kind === 'judge' || d.kind === 'voice_round' || d.kind === 'rfd';
+      const ballot = isBallot ? clean(d.output, 220) : '';
+      lines.push(`- "${motion}"${tag ? ` (${tag})` : ''}${ballot ? ` — ballot read: ${ballot}` : ''}`);
+    });
+    return lines.join('\n');
+  } catch (err) {
+    console.warn('[coach-session] loadRecentRounds failed:', err.message);
+    return '';
+  }
+}
+
+/**
  * Build the personalized system prompt. This is the soul of the
  * coach surface — it's what makes the AI feel like it actually
  * knows the user instead of being a generic assistant.
@@ -130,12 +199,18 @@ function clean(s, max) {
  * under the realtime API's ~8KB instructions limit even for the
  * most active user.
  */
-function buildCoachInstructions({ displayName, debaterProfile, styleProfile, fingerprint, format, gender, drill, motion }) {
+function buildCoachInstructions({ displayName, debaterProfile, styleProfile, fingerprint, format, gender, drill, motion, recentRounds }) {
   const name = clean(displayName, 40);
   const namePart = name ? name : 'this debater';
   const formatLine = clean(format, 30) || 'their home format';
   const drillDef = DRILLS[drill] || DRILLS.open;
   const motionLine = motion ? `Run the drill on this motion: "${clean(motion, 180)}".` : '';
+  // Round-review pulls the actual recent rounds in as game film. Only
+  // injected for the roundreview drill (other drills don't need it and
+  // it would just eat the instructions budget).
+  const roundsBlock = (drill === 'roundreview' && recentRounds)
+    ? `\nRECENT ROUNDS (this is the game film — reference these specifically):\n${recentRounds}\n`
+    : '';
 
   const profAnalysis   = debaterProfile && clean(debaterProfile.analysis, 600);
   const profStrengths  = Array.isArray(debaterProfile?.strengths)  ? debaterProfile.strengths.slice(0, 5).map(s => clean(s, 120)).filter(Boolean) : [];
@@ -166,15 +241,19 @@ ${memoryBlock || '(No long-term memory loaded for this user yet. Be a great gene
 TODAY'S DRILL: ${drillDef.label}.
 ${drillDef.focus}
 ${motionLine}
-
+${roundsBlock}
 HOW YOU RUN A DRILL:
 - You drive. State the drill in one line, then start it. Don't ask permission to begin.
 - One thought at a time. Don't lecture. Don't recap. Don't restate them.
 - Push on the exact weak spot. Ask "and?" or "why?" instead of paragraphs.
-- When they hedge or go vague, name the hedge and make them commit. Never pair their name with a correction.
-- When they spike a real point, build on it instead of complimenting.
-- Stay a calm guide between exchanges; the aggression belongs inside the clash, not in how you treat them.
+- Make them DO the thing. Don't explain how rebuttal works; make them rebut. Don't describe weighing; make them weigh. Every turn ends with the ball back in their court.
+- When they spike a real point, build on it and raise the bar instead of complimenting.
 - After the drill has run a few rounds, give a fifteen second read: what's working, the one thing to fix. Then offer to run it again or switch.
+
+HOW YOU REACT:
+- You have opinions and you hold them. Verdicts on the argument are blunt and specific: "that's weak," "you dropped the warrant," "I don't buy that," "you're hiding behind abstraction," "try that again." Then say exactly what was missing.
+- The bluntness is about the ARGUMENT, never about them. You are an even, calm guide in how you treat the person. Don't dunk, don't get loud, and never pair their name with a correction ("not so fast, [name]" is exactly wrong). When they hedge, name the hedge, not the debater.
+- You do not hand out praise to be nice. "Great point," "excellent," "interesting perspective," "I love that" are banned. Earned approval is one word and then the next demand: "Better. Now defend it against X."
 
 WHAT YOU KNOW COLD:
 - Every format (APDA, BP, WUDC, Asian Parli, WSDC, Policy, LD, PF, Congress, MUN, Viva): voice, structure, evidence rules, timing. Run this drill the way ${formatLine} actually runs.
@@ -311,6 +390,10 @@ export default async (request) => {
   const drill = ALLOWED_DRILLS.has((body.drill || '').toLowerCase()) ? body.drill.toLowerCase() : 'open';
   const motion = clean(body.motion, 180);
 
+  // Round review needs the actual recent rounds as game film. Skip the
+  // extra read for every other drill.
+  const recentRounds = drill === 'roundreview' ? await loadRecentRounds(db, uid) : '';
+
   const instructions = buildCoachInstructions({
     displayName: profile.displayName || profile.name || email.split('@')[0],
     debaterProfile: profile.debaterProfile,
@@ -320,6 +403,7 @@ export default async (request) => {
     gender,
     drill,
     motion,
+    recentRounds,
   });
 
   // ── Mint try-matrix: GA /client_secrets first, then legacy /sessions
