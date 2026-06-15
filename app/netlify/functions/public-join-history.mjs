@@ -158,7 +158,7 @@ export default async (request) => {
   try {
     const weekCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const agg = await db.collection('events')
-      .where('metadata.name', 'in', ['spar_queue_join', 'spar_bg_on'])
+      .where('metadata.name', '==', 'spar_queue_join')
       .where('createdAt', '>=', weekCutoff)
       .count()
       .get();
