@@ -33,10 +33,16 @@
   var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
   var lower = path.toLowerCase();
 
-  // Already on the home / app shell? Do nothing.
-  if (path === '/' || /\/(landing|index)(\.html)?$/.test(lower)) return;
-
   var SEEN_KEY = 'dit-home-prompt-seen';
+  var VISITED_HOME_KEY = 'dit-visited-home';
+
+  // Already on the home / app shell? Record the visit — once someone has
+  // seen the main page, the "go to the main page" popup should never fire
+  // for them again — then do nothing else here.
+  if (path === '/' || /\/(landing|index)(\.html)?$/.test(lower)) {
+    try { localStorage.setItem(VISITED_HOME_KEY, '1'); } catch (e) {}
+    return;
+  }
 
   function ready(fn) {
     if (document.readyState === 'loading') {
@@ -112,6 +118,15 @@
   // ── 2. First-time popup ──────────────────────────────────────────
   function seen() { try { return localStorage.getItem(SEEN_KEY) === '1'; } catch (e) { return false; } }
   function markSeen() { try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) {} }
+  function visitedHome() { try { return localStorage.getItem(VISITED_HOME_KEY) === '1'; } catch (e) { return false; } }
+
+  // Signed-in visitors are not "new here", so the popup is pointless for
+  // them. Auth state is whatever firebase resolves to (topbar.js loads it
+  // lazily); it's null until it settles, which is why the decision is
+  // deferred ~5s and re-checked via onAuthStateChanged below.
+  function signedIn() {
+    try { return !!(window.firebase && window.firebase.auth && window.firebase.auth().currentUser); } catch (e) { return false; }
+  }
 
   function cameFromUs() {
     try {
@@ -217,11 +232,32 @@
   ready(function () {
     if (!topHomeLinkExists()) injectHomeBar();
 
-    if (NO_POPUP || seen() || cameFromUs()) return;
+    // The popup only makes sense for a genuinely new, signed-out visitor
+    // who landed deep from search and has never seen the main page. Skip
+    // it for app-ish pages, repeat shows, internal navigation, anyone who
+    // has already visited the landing/main page, and signed-in users.
+    if (NO_POPUP || seen() || cameFromUs() || visitedHome() || signedIn()) return;
+
+    // If firebase is on the page, a sign-in that resolves after this point
+    // still cancels the popup (and closes it if it already opened) — a
+    // signed-in user already knows the site.
+    try {
+      if (window.firebase && window.firebase.auth) {
+        window.firebase.auth().onAuthStateChanged(function (u) {
+          if (!u) return;
+          seen.__shown = true;
+          var p = document.getElementById('ditHomePop');
+          if (p && p.parentNode) p.parentNode.removeChild(p);
+        });
+      }
+    } catch (e) {}
+
     // ~5s after a first-time cold landing: long enough that it reads as
-    // "want the full thing?" rather than an immediate interstitial.
+    // "want the full thing?" rather than an immediate interstitial, and
+    // long enough for firebase auth to have resolved.
     setTimeout(function () {
-      if (!document.hidden && !seen.__shown) showPopup();
+      if (document.hidden || seen.__shown || signedIn()) return;
+      showPopup();
     }, 5000);
   });
 })();

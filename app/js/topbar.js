@@ -17,6 +17,14 @@
 (function(){
   var here = (location.pathname || '/').replace(/\/$/,'') || '/';
 
+  // Record that this visitor has reached the main page. home-magnet.js (on
+  // deep SEO pages) reads this flag and never shows the "go to the main
+  // page" popup to someone who has already been there. Path-guarded so it
+  // only fires on the landing / app shell, never on a deep content page.
+  if (here === '/' || /^\/(landing|index|app)(\.html)?$/.test(here)) {
+    try { localStorage.setItem('dit-visited-home', '1'); } catch(e){}
+  }
+
   // ── Brand face: load Geist reliably on EVERY topbar page ──
   // Geist is the site-wide house face (chosen over Fraunces 2026-06-15).
   // Most pages ship their own <link> for it, but to guarantee the SAME
