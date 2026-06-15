@@ -5656,6 +5656,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <a href="/leaderboard">Leaderboard</a>
   <a href="#tools">Tools</a>
   <a href="#topics">Current Topics</a>
+  <a href="#global">Global</a>
   <a href="#goals">Why Debate</a>
   <a href="#faq">FAQ</a>
   <a href="#story">Story</a>
@@ -6778,7 +6779,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <p class="hi-room-speech" id="hiRoomSpeech"><b>Speech 3 of 4</b> · Rebuttal · POIs open until 1:00</p>
             <div class="hi-room-seats">
               <figure class="hi-seat hi-seat-you">
-                <img class="hi-seat-cam rot-cam" src="/img/round/seat-you.jpg" alt="" decoding="async" />
+                <!-- Initial src: a face library image whose background is
+                     visually distinct from hi-seat-opp's. seat-you.jpg
+                     and seat-opp.jpg were shot in the same dorm room
+                     (same poster wall, same window with blinds) so
+                     using both side by side reads as AI-clone, not as
+                     two real debaters. See the SAME_SHOOT set below. -->
+                <img class="hi-seat-cam rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" />
                 <span class="hi-seat-tag hi-seat-tag--pro" id="hiSeatYou">Proposition</span>
                 <div class="hi-seat-bar">
                   <b class="hi-seat-who">You</b>
@@ -6786,7 +6793,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 </div>
               </figure>
               <figure class="hi-seat hi-seat-opp">
-                <img class="hi-seat-cam rot-cam" src="/img/round/seat-opp.jpg" alt="" decoding="async" />
+                <img class="hi-seat-cam rot-cam" src="/img/round/faces/face12.jpg" alt="" decoding="async" />
                 <span class="hi-seat-tag" id="hiSeatOpp">Opposition</span>
                 <div class="hi-seat-bar">
                   <b class="hi-seat-who">Opponent</b>
@@ -8301,13 +8308,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   if (typeof window === 'undefined') return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   var POOL = [];
-  // SKIP: faces 5/14/39 share the same library background as face19 — same
-  // room across multiple "people" reads as AI instantly, so keep one
-  // (face19) and drop the duplicates. Update this set if more shared-room
-  // faces are spotted.
+  // SAME-SHOOT collisions — faces that share a room or composition with
+  // another tile. Two webcam tiles drawn from the same shoot read as AI-
+  // clone instantly (same poster wall, same window, same desk). For each
+  // documented same-shoot cluster we keep ONE face and drop the rest.
+  // Extend this set when a new collision is spotted.
+  //   - 5/14/39 share the same library background as face19 → keep face19
+  //   - seat-you.jpg + seat-opp.jpg were shot in the same dorm room
+  //     (matching poster wall, window, couch) → dropped from the
+  //     rotator pool entirely; the hero initial src now uses face02 +
+  //     face12 (visibly distinct rooms) instead. seat-you/seat-opp
+  //     remain as named assets for other surfaces that explicitly want
+  //     a paired "you vs opponent" shot, but they should be retaken
+  //     before they're re-introduced into the pool.
   var SKIP = { 5:1, 14:1, 39:1 };
   for (var i=1;i<=45;i++){ if (SKIP[i]) continue; POOL.push('/img/round/faces/face'+(i<10?'0':'')+i+'.jpg'); }
-  POOL.push('/img/round/seat-you.jpg','/img/round/seat-opp.jpg');
   var cams = Array.prototype.slice.call(document.querySelectorAll('.rot-cam'));
   if (!cams.length) return;
   var live = true, timers = [];
@@ -9768,6 +9783,154 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      be slotted into the existing card frames. -->
 
 
+<!-- ── Global growth band (2026-06-15) ──────────────────────────────
+     Six-region snapshot: India + China headline the growth, then SE
+     Asia, Africa, Latin America, and the legacy Anglo circuits. Sits
+     above the collapsed encyclopedia so readers SEE this without
+     needing to opt into the deep editorial. The deeper version of the
+     same story lives under #circuits inside the encyclopedia for
+     readers who want the long read. -->
+<style>
+  .global-band {
+    padding: clamp(36px, 6vw, 80px) clamp(20px, 5vw, 72px);
+    background: transparent; color: var(--text);
+  }
+  .global-band .gb-wrap { max-width: 1180px; margin: 0 auto; }
+  .global-band .gb-eyebrow {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-size: .68rem; font-weight: 800; letter-spacing: .16em;
+    text-transform: uppercase; color: #ef4444; margin-bottom: 14px;
+  }
+  .global-band .gb-eyebrow .dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239,68,68,.16);
+  }
+  .global-band .gb-headline {
+    font-family: 'Geist', 'Inter', system-ui, sans-serif;
+    font-size: clamp(1.65rem, 3.4vw, 2.6rem); font-weight: 700;
+    line-height: 1.08; letter-spacing: -.022em; margin: 0 0 12px;
+    color: var(--text);
+  }
+  .global-band .gb-headline .accent { color: #ef4444; }
+  .global-band .gb-lead {
+    color: var(--text-dim); font-size: clamp(.95rem, 1.4vw, 1.05rem);
+    line-height: 1.6; max-width: 720px; margin: 0 0 28px;
+  }
+  .global-band .gb-grid {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px; margin-bottom: 22px;
+  }
+  .global-band .gb-card {
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 14px; padding: 18px 18px 16px;
+    transition: border-color .15s, background .15s, transform .12s;
+  }
+  .global-band .gb-card:hover {
+    border-color: rgba(239,68,68,.34);
+    background: rgba(239,68,68,.04);
+    transform: translateY(-1px);
+  }
+  .global-band .gb-region {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .global-band .gb-region b {
+    font-size: 1.02rem; font-weight: 700; color: var(--text); letter-spacing: -.01em;
+  }
+  .global-band .gb-region .gb-tag {
+    font-size: .58rem; font-weight: 800; letter-spacing: .12em;
+    text-transform: uppercase; color: rgba(239,68,68,.85);
+    background: rgba(239,68,68,.10); padding: 3px 7px; border-radius: 4px;
+  }
+  .global-band .gb-stat {
+    font-size: 1.18rem; font-weight: 700; color: #ef4444; line-height: 1.2;
+    margin-bottom: 6px; letter-spacing: -.01em;
+  }
+  .global-band .gb-ctx {
+    color: var(--text-dim); font-size: .86rem; line-height: 1.5;
+  }
+  .global-band .gb-foot {
+    color: var(--text-dim); font-size: .92rem; line-height: 1.55;
+    padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08);
+    margin: 0;
+  }
+  .global-band .gb-foot a {
+    color: #ef4444; text-decoration: none; font-weight: 700;
+    border-bottom: 1px solid rgba(239,68,68,.32);
+    padding-bottom: 1px; transition: border-color .15s;
+  }
+  .global-band .gb-foot a:hover { border-bottom-color: #ef4444; }
+
+  /* Light-theme overrides — the page supports a light theme, so the
+     band needs to read in both. Token vars (--text, --text-dim) already
+     theme on their own; only the rgba surfaces need a flip. */
+  [data-theme="light"] .global-band .gb-card,
+  [data-lighting="light"] .global-band .gb-card {
+    background: rgba(0,0,0,.025); border-color: rgba(0,0,0,.10);
+  }
+  [data-theme="light"] .global-band .gb-card:hover,
+  [data-lighting="light"] .global-band .gb-card:hover {
+    background: rgba(239,68,68,.05);
+    border-color: rgba(239,68,68,.32);
+  }
+  [data-theme="light"] .global-band .gb-foot,
+  [data-lighting="light"] .global-band .gb-foot {
+    border-top-color: rgba(0,0,0,.10);
+  }
+
+  @media (max-width: 1100px) {
+    .global-band .gb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .global-band .gb-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<section class="global-band" id="global" aria-label="Where debate is growing globally">
+  <div class="gb-wrap">
+    <div class="gb-eyebrow"><span class="dot" aria-hidden="true"></span>Global community · Where debate is growing</div>
+    <h2 class="gb-headline">The debate world is bigger than <span class="accent">the league you flew into.</span></h2>
+    <p class="gb-lead">Five regions putting up record participation right now. India and China lead the growth curve; the legacy Anglo circuits remain the technical center of gravity. DebateIt is built for the whole picture.</p>
+
+    <div class="gb-grid">
+      <div class="gb-card">
+        <div class="gb-region"><b>India</b><span class="gb-tag">Headline growth</span></div>
+        <div class="gb-stat">150,000+ schools</div>
+        <div class="gb-ctx">IIMUN's network. India won WSDC 2025 9-0 over Australia in the grand final. Asian Parli and BP anchor the college side at NLSIU, IIT Bombay, SRCC, and St. Stephen's.</div>
+      </div>
+      <div class="gb-card">
+        <div class="gb-region"><b>China</b><span class="gb-tag">Headline growth</span></div>
+        <div class="gb-stat">NSDA China</div>
+        <div class="gb-ctx">Public Forum, Lincoln-Douglas, and Policy across hundreds of partner schools. The college pipeline is now visible at UADC, NEAUDC, Australs, and WUDC every year.</div>
+      </div>
+      <div class="gb-card">
+        <div class="gb-region"><b>Southeast Asia</b></div>
+        <div class="gb-stat">All Asians · UADC · Australs</div>
+        <div class="gb-ctx">The Philippines, Singapore, Indonesia, Malaysia, and Thailand send strong delegations every year. Asian Parli is the home format; BP runs at the college level.</div>
+      </div>
+      <div class="gb-card">
+        <div class="gb-region"><b>Africa</b></div>
+        <div class="gb-stat">PAUDC, Kenya, Nigeria, SA</div>
+        <div class="gb-ctx">Kenya, Nigeria, and South Africa are putting up the fastest-growing university teams at international rounds. WUDC representation has climbed sharply in the last five years.</div>
+      </div>
+      <div class="gb-card">
+        <div class="gb-region"><b>Latin America</b></div>
+        <div class="gb-stat">CMUDE · Pan-American</div>
+        <div class="gb-ctx">Mexico, Brazil, Argentina, Peru, and Chile run a thickening Spanish- and Portuguese-language BP and parliamentary circuit. Language of instruction is the only ceiling left.</div>
+      </div>
+      <div class="gb-card">
+        <div class="gb-region"><b>Legacy Anglo</b><span class="gb-tag">Center of gravity</span></div>
+        <div class="gb-stat">WUDC 2026 → Sofia</div>
+        <div class="gb-ctx">US college (APDA, NDT, CEDA), UK universities (Cambridge, Oxford, LSE, Durham), Australia, and Canada keep producing the format theorists and judging norms the rest of the world references.</div>
+      </div>
+    </div>
+
+    <p class="gb-foot">Format-accurate AI delivery in every circuit's home register. Ballots in the voice of an adjudicator from that circuit. <a href="#circuits">Read the full picture →</a></p>
+  </div>
+</section>
+
+
 <!-- ── Encyclopedia overview. Wikipedia-inspired editorial block.
      White article panel on the page's dark wash, serif body type,
      two-column with an infobox on the right at desktop, single-
@@ -10044,6 +10207,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           then names a winner with a short Reason for Decision. In panel mode, three AI judges
           write independently, and a consensus banner sits above their reasoning.
         </p>
+
+        <h3 id="circuits">Where debate is growing</h3>
+        <p>The competitive debate community is the biggest it has ever been, and most of the growth sits outside the legacy Anglo-American circuits. A snapshot of where the momentum is right now.</p>
+        <ul class="articleList">
+          <li><strong>India.</strong> The largest school-debate base in the world by raw participation. IIMUN works with more than 150,000 schools. The Frank Anthony Memorial, India Today Cup, India Debate League, and Outspoken fill the calendar year-round. India won WSDC 9-0 over Australia in the 2025 grand final, a result the global circuit had not seen from any team in a decade. Asian Parliamentary and BP anchor the college side at NLSIU, IIT Bombay, SRCC, NMIMS, BITS, NLU Delhi, and St. Stephen's.</li>
+          <li><strong>China.</strong> NSDA China runs Public Forum, Lincoln-Douglas, and Policy across hundreds of partner schools, and the National High School Debate League of China feeds a college pipeline that increasingly travels to UADC, NEAUDC, Australs, and WUDC. The volume of Chinese university teams visible at major Asian rounds has climbed every year since 2020.</li>
+          <li><strong>Southeast Asia.</strong> The All Asians, UADC, and Australs knit the region together. The Philippines, Singapore, Indonesia, Malaysia, and Thailand send strong delegations every year. Asian Parliamentary is the home format; BP runs at the college level.</li>
+          <li><strong>Africa.</strong> Kenya, Nigeria, and South Africa are putting up the fastest-growing university teams at international rounds. The Pan African Universities Debating Championship now ranks among the largest regional tournaments by registration, and WUDC representation from African unions has grown sharply in the last five years.</li>
+          <li><strong>Latin America.</strong> Mexico, Brazil, Argentina, Peru, and Chile run a rapidly thickening Spanish- and Portuguese-language BP and parliamentary circuit. CMUDE and the Pan-American championships are the anchor events, and the language-of-instruction wall is the only thing keeping these debaters off the WUDC stage in larger numbers.</li>
+          <li><strong>The legacy Anglo circuits remain the technical center of gravity.</strong> US college (APDA, NDT, CEDA), UK universities (Cambridge, Oxford, LSE, Durham), Australia, and Canada keep producing the format theorists, the case-law conventions, and the judging norms the rest of the world references. WUDC 2026 is in Sofia.</li>
+        </ul>
+        <p>The product is built for this picture. Format-accurate AI delivery in every circuit's home register, motions in 14 languages, ballots in the voice a real adjudicator from that circuit would write, and a matchmaking pool that pairs debaters across regions instead of inside them.</p>
 
         <h3 id="goals">Goals</h3>
         <p>Where the platform is headed in the next year. These are ambitions, not announcements; the day-to-day product still does the three jobs at the bottom of this section. The full long-term roadmap lives here: <a href="/future">Philosophy &amp; future outlook &rarr;</a></p>
