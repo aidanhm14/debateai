@@ -59,6 +59,24 @@
   .progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:10001;
     background:var(--accent);box-shadow:0 0 12px var(--accent);transition:width .12s linear}
 
+  /* ── Section wayfinder: a labeled dot per chapter, fixed to the right
+     edge, so the long-scroll essay has a visible map + jump points. The
+     active dot tracks the section in view. Hidden under 900px (the
+     progress hairline still signals position there). ──────────────── */
+  .secnav{position:fixed;right:clamp(14px,2vw,32px);top:50%;transform:translateY(-50%);
+    z-index:9000;display:flex;flex-direction:column;gap:13px;align-items:flex-end}
+  .secnav a{display:flex;align-items:center;gap:9px;text-decoration:none}
+  .secnav .lbl{opacity:0;transform:translateX(6px);transition:opacity .2s,transform .2s,color .2s;
+    white-space:nowrap;text-transform:uppercase;letter-spacing:.13em;font:700 .6rem/1 var(--sans);color:var(--text-dim)}
+  .secnav .dt{width:8px;height:8px;border-radius:50%;background:var(--text-dim);opacity:.45;flex:0 0 auto;
+    transition:background .2s,transform .2s,box-shadow .2s,opacity .2s}
+  .secnav a:hover .lbl{opacity:.85;transform:none}
+  .secnav a:hover .dt{opacity:.9}
+  .secnav a.is-active .dt{background:var(--accent);opacity:1;transform:scale(1.5);box-shadow:0 0 10px var(--accent)}
+  .secnav a.is-active .lbl{opacity:1;transform:none;color:var(--text)}
+  @media (max-width:900px){.secnav{display:none}}
+  @media (prefers-reduced-motion:reduce){.secnav .dt,.secnav .lbl{transition:none}}
+
   /* ── Reveal-on-scroll utility ─────────────────────────── */
   .rv{opacity:0;transform:translateY(26px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1)}
   .rv.in{opacity:1;transform:none}
@@ -469,6 +487,20 @@
 <div class="progress" id="progress"></div>
 <div id="daTopbar"></div>
 
+<!-- Section wayfinder — one labeled dot per chapter so the long-scroll
+     essay reads as a navigable map, not an endless page. Active dot is
+     set by the IntersectionObserver below. Hidden under 900px. -->
+<nav class="secnav" aria-label="Jump to a section">
+  <a href="#moment"><span class="lbl">Start</span><span class="dt"></span></a>
+  <a href="#why-debate"><span class="lbl">Why debate</span><span class="dt"></span></a>
+  <a href="#teaches"><span class="lbl">What it teaches</span><span class="dt"></span></a>
+  <a href="#pressure"><span class="lbl">Under pressure</span><span class="dt"></span></a>
+  <a href="#access"><span class="lbl">Access</span><span class="dt"></span></a>
+  <a href="#language"><span class="lbl">Language</span><span class="dt"></span></a>
+  <a href="#product"><span class="lbl">The product</span><span class="dt"></span></a>
+  <a href="#movement"><span class="lbl">Join</span><span class="dt"></span></a>
+</nav>
+
 <!-- ════════════════════════════════════════════════════════
      §1 · THE MOMENT
      One observation everyone already feels, then the turn.
@@ -851,6 +883,26 @@
       }, {threshold:.12, rootMargin:'0px 0px -8% 0px'});
       rvs.forEach(function(el){ io.observe(el); });
     }
+
+    // ── Section wayfinder: light the dot for the section currently in
+    //    view. Tracks the most-visible section across the middle band of
+    //    the viewport. Clicks smooth-scroll via html{scroll-behavior}. ──
+    (function(){
+      var links = [].slice.call(document.querySelectorAll('.secnav a'));
+      if (!links.length || !('IntersectionObserver' in window)) return;
+      var map = {}, ratio = {};
+      links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+      var secs = links
+        .map(function(a){ return document.getElementById(a.getAttribute('href').slice(1)); })
+        .filter(Boolean);
+      var sio = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ ratio[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0; });
+        var bestId = null, best = -1;
+        Object.keys(ratio).forEach(function(id){ if (ratio[id] > best){ best = ratio[id]; bestId = id; } });
+        if (bestId && best > 0){ links.forEach(function(a){ a.classList.toggle('is-active', a === map[bestId]); }); }
+      }, {threshold:[0,.25,.5,.75,1], rootMargin:'-30% 0px -30% 0px'});
+      secs.forEach(function(s){ sio.observe(s); });
+    })();
 
     // ── Globe mount (retry until DebateGlobe is on window) ──
     function mountGlobe(retries){
