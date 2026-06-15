@@ -1143,7 +1143,7 @@
           '<div class="da-golive__cams" aria-hidden="true">' +
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face02.jpg)"><i></i></div>' +
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face12.jpg)"><i style="animation-delay:.4s"></i></div>' +
-            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face09.jpg)"><i style="animation-delay:.8s"></i></div>' +
+            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face10.jpg)"><i style="animation-delay:.8s"></i></div>' +
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face17.jpg)"><i style="animation-delay:1.2s"></i></div>' +
           '</div>' +
           '<div class="da-golive__btns">' +
