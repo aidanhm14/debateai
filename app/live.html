@@ -3461,9 +3461,9 @@ button{font-family:inherit}
     } else if (iAmIn && (accepted || hasAccepter || c.accepterUid)){
       // Matched participant. Join when live / opponent in room /
       // unscheduled "anytime" round; otherwise the drawer has the room.
-      var canJoinNow = info.live || rs.status === 'round' || !c.scheduledAt;
+      var canJoinNow = info.live || roomIsLiveNow(rs) || !c.scheduledAt;
       if (canJoinNow){
-        var lbl = rs.status === 'round' ? '▶ Join, opponent is in the room' : '▶ Join debate';
+        var lbl = roomIsLiveNow(rs) ? '▶ Join, opponent is in the room' : '▶ Join debate';
         actions = '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + escHtml(buildMyRoundUrl(c)) + '" data-start-round="' + escHtml(c.id) + '">' + lbl + '</a>' + details;
       } else {
         actions = '<button class="btn btn-primary" data-details="' + escHtml(c.id) + '" type="button">View details</button>';
@@ -3473,7 +3473,7 @@ button{font-family:inherit}
       actions = '<button class="btn btn-primary" data-details="' + escHtml(c.id) + '" type="button">View details</button>';
     } else if (hasAccepter){
       // Matched pair, I'm a third party: spectate.
-      var liveNow = rs.status === 'round' || rs.status === 'ballot' || info.live;
+      var liveNow = roomIsLiveNow(rs) || rs.status === 'ballot' || info.live;
       actions = (c.allowViewers !== false
         ? '<a class="btn ' + (liveNow ? 'btn-primary' : 'btn-ghost') + '" target="_blank" rel="noopener" href="' + escHtml(buildSpectateUrl(c)) + '" data-spectate="' + escHtml(c.id) + '">' + (liveNow ? 'Spectate live' : 'Open viewer') + '</a>'
         : '') + details;
@@ -5230,9 +5230,19 @@ button{font-family:inherit}
   // 'ballot'. We mirror those into roomStatus so the card render can
   // swap to a green 'Join now, opponent in room' CTA or a 'View
   // ballot' CTA without polling.
-  var roomStatus = {};        // roomName -> { status, ballot, updatedAt }
+  var roomStatus = {};        // roomName -> { status, hasBallot, lastSeenAtMs }
   var roomUnsubs = {};        // roomName -> unsubscribe fn
   function challengeRoom(c){ return 'DebateIt-' + String(c.id).replace(/[^a-zA-Z0-9]/g,''); }
+
+  // A live_rounds doc keeps status:'round' after BOTH debaters abandon the
+  // room, so raw `rs.status === 'round'` lit up "Spectate live" / "opponent
+  // is in the room" for empty rooms. Require a fresh participant heartbeat
+  // (within ~100s) so a dead round stops reading as live. Re-checked on the
+  // 20s full re-render, so an abandoned round drops within ~20s.
+  function roomIsLiveNow(rs){
+    if (!rs || rs.status !== 'round') return false;
+    return !!rs.lastSeenAtMs && (Date.now() - rs.lastSeenAtMs) < 100000;
+  }
 
   function ensureRoomSubscription(c){
     if (!firebaseDb || !currentUser) return;
@@ -5244,8 +5254,16 @@ button{font-family:inherit}
       roomStatus[room] = {
         status: d.status || null,
         hasBallot: !!d.ballot,
+        // Participant presence heartbeat (live-round.html writes lastSeenAt
+        // every 30s while a debater is seated). Stored so roomIsLiveNow()
+        // can age out a 'round' doc whose debaters abandoned it — the 20s
+        // full re-render re-evaluates freshness even with no doc change.
+        lastSeenAtMs: (d.lastSeenAt && d.lastSeenAt.toMillis) ? d.lastSeenAt.toMillis() : 0,
       };
-      // Only re-render if something visible to the card changed
+      // Only re-render if something visible to the card changed. Heartbeat
+      // writes update lastSeenAtMs above but don't trip this guard (status/
+      // hasBallot unchanged) — that's fine, the 20s render reads the fresh
+      // value; we just avoid a re-render storm every 30s per live room.
       if (prev.status !== roomStatus[room].status || prev.hasBallot !== roomStatus[room].hasBallot){
         render();
       }
