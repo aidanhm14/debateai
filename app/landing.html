@@ -8417,9 +8417,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="review-head">
       <span class="review-eyebrow"><span class="dot" aria-hidden="true"></span>From the circuit</span>
       <h2 class="review-headline">Four circuits. Same verdict.</h2>
+      <p class="review-subhead">Different formats, different countries, same thing keeps coming up: access to serious practice.</p>
     </div>
-    <div class="review-grid" id="reviewGrid">
-      <figure class="review-card review-card--lead">
+    <div class="testimonial-stack" id="reviewGrid" role="list">
+      <figure class="review-card review-card--lead" role="listitem">
+        <span class="tc-circuit">World Schools</span>
         <blockquote class="review-quote">
           I captained Zimbabwe at Worlds and competed at Columbia in the US. <span class="review-hl">The real gap between circuits isn't talent, it's access to quality practice.</span> DebateIt closes it. The AI argues back at full strength, knows what a World Schools round demands, and the ballot tells you exactly where the round was won or lost.
         </blockquote>
@@ -8434,7 +8436,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </span>
         </figcaption>
       </figure>
-      <figure class="review-card">
+      <figure class="review-card" role="listitem">
+        <span class="tc-circuit">Public Forum</span>
         <blockquote class="review-quote">
           DebateIt represents the future of enlightened debate. You can tell how much thought went into every layer of the experience, from case generation to the objectivity of the judging. It's proof that <span class="review-hl">AI can sharpen critical thinking rather than replace it</span>.
         </blockquote>
@@ -8448,7 +8451,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </span>
         </figcaption>
       </figure>
-      <figure class="review-card">
+      <figure class="review-card" role="listitem">
+        <span class="tc-circuit">British Parliamentary</span>
         <blockquote class="review-quote">
           In the four years I have been competing in British Parliamentary debate, <span class="review-hl">I have never seen a tool effectively able to summarize, refute, and analyze high-level argumentation</span> until I used Debate it. The platform would have made a substantive difference in my preparation for international majors, and I recommend it to all.
         </blockquote>
@@ -8464,7 +8468,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </span>
         </figcaption>
       </figure>
-      <figure class="review-card">
+      <figure class="review-card" role="listitem">
+        <span class="tc-circuit">APDA / UChicago</span>
         <blockquote class="review-quote">
           I've debated across 4 continents and 4 formats, and I think we need more of it. Having solved away manual labor in our lives, we now go to gyms to stay physically fit. <span class="review-hl">In a world where we can outsource our thinking to AI, we need more tools to keep us sharp.</span> Debate is one such tool that forces us to think critically and confront disagreements openly. DebateIt makes this activity more accessible and helps us get better at it, like the chess.com of debate.
         </blockquote>
@@ -8479,13 +8484,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </figcaption>
       </figure>
     </div>
-    <!-- Swipe affordance + dots. On the narrow swipe track (<900px) the
-         four cards are a horizontal carousel; without a cue most people
-         only ever see the first one. The dots track scroll position and
-         tap-to-scroll; the hint line names the gesture. Hidden on the
-         desktop 2x2 grid where everything is already visible. -->
-    <div class="review-nav" aria-hidden="false">
-      <span class="review-swipe-hint">Swipe for more <span aria-hidden="true">→</span></span>
+    <!-- swipe/dot nav -->
+    <div class="review-nav">
+      <span class="review-swipe-hint">Swipe reviews <span aria-hidden="true">→</span></span>
       <div class="review-dots" id="reviewDots" role="tablist" aria-label="Choose a review"></div>
     </div>
   </div>
@@ -8497,85 +8498,54 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   if (!grid || !dotsWrap) return;
   var cards = [].slice.call(grid.querySelectorAll('.review-card'));
   if (cards.length < 2) return;
-  var dots = cards.map(function(card, i){
+
+  /* Dot nav */
+  var dots = cards.map(function(card,i){
     var d = document.createElement('button');
-    d.type = 'button';
-    d.className = 'review-dot';
+    d.type='button'; d.className='review-dot';
     d.setAttribute('role','tab');
-    d.setAttribute('aria-label', 'Review ' + (i + 1) + ' of ' + cards.length);
-    d.addEventListener('click', function(){ goTo(i); });
+    d.setAttribute('aria-label','Review '+(i+1)+' of '+cards.length);
+    d.addEventListener('click',function(){ goTo(i); });
     dotsWrap.appendChild(d);
     return d;
   });
-  var active = -1;
+  var active=-1;
   function setActive(i){
-    if (i === active) return;
-    active = i;
-    for (var k = 0; k < dots.length; k++){
-      var on = k === i;
-      dots[k].classList.toggle('on', on);
-      dots[k].setAttribute('aria-selected', on ? 'true' : 'false');
-    }
+    if(i===active) return; active=i;
+    dots.forEach(function(d,k){ var on=k===i; d.classList.toggle('on',on); d.setAttribute('aria-selected',on?'true':'false'); });
+    if(active>=cards.length-1){ var nav=grid.parentNode&&grid.parentNode.querySelector('.review-nav'); if(nav) nav.classList.add('reviewed'); }
   }
   function sync(){
-    // Whichever card's center is nearest the track center is "active".
-    var mid = grid.scrollLeft + grid.clientWidth / 2;
-    var best = 0, bestDist = Infinity;
-    for (var i = 0; i < cards.length; i++){
-      var c = cards[i].offsetLeft + cards[i].clientWidth / 2;
-      var dist = Math.abs(c - mid);
-      if (dist < bestDist){ bestDist = dist; best = i; }
-    }
+    var mid=grid.scrollLeft+grid.clientWidth/2, best=0, bd=Infinity;
+    cards.forEach(function(c,i){ var d=Math.abs(c.offsetLeft+c.clientWidth/2-mid); if(d<bd){bd=d;best=i;} });
     setActive(best);
-    // Once the reader reaches the last card the swipe hint has done its job.
-    if (best >= cards.length - 1) dotsWrap.parentNode.classList.add('reviewed');
+  }
+  function goTo(i){
+    i=Math.max(0,Math.min(cards.length-1,i));
+    grid.scrollLeft=Math.max(0,cards[i].offsetLeft-(grid.clientWidth-cards[i].clientWidth)/2);
   }
   var raf;
-  grid.addEventListener('scroll', function(){
-    if (raf) return;
-    raf = requestAnimationFrame(function(){ raf = 0; sync(); });
-  }, { passive: true });
+  grid.addEventListener('scroll',function(){ if(raf)return; raf=requestAnimationFrame(function(){raf=0;sync();}); },{passive:true});
 
-  // Touch swipe → advance one card. iOS Safari often won't engage the
-  // native horizontal scroll for a snap container nested in a vertical
-  // page (reads as "swipe does nothing"); this makes a deliberate
-  // horizontal drag move the carousel regardless. Passive listeners — no
-  // preventDefault — so vertical page scrolling is untouched. If native
-  // scroll already moved the track we skip, so platforms where it works
-  // don't double-advance.
-  // Jump the chosen card to center. Deliberately a direct scrollLeft set,
-  // not scrollTo({behavior:'smooth'}): on this snap container the native
-  // smooth scroll gets cancelled back to 0 (so the dots were dead), and a
-  // per-frame rAF animation gets yanked back by scroll-snap between frames.
-  // A single assignment lands and parks on the card's snap point reliably.
-  function goTo(i){
-    i = Math.max(0, Math.min(cards.length - 1, i));
-    var card = cards[i];
-    grid.scrollLeft = Math.max(0, card.offsetLeft - (grid.clientWidth - card.clientWidth) / 2);
-  }
-  var tx = 0, ty = 0, tScroll = 0, tracking = false;
-  grid.addEventListener('touchstart', function(e){
-    if (e.touches.length !== 1) { tracking = false; return; }
-    tx = e.touches[0].clientX; ty = e.touches[0].clientY;
-    tScroll = grid.scrollLeft; tracking = true;
-  }, { passive: true });
-  grid.addEventListener('touchend', function(e){
-    if (!tracking) return;
-    tracking = false;
-    var t = e.changedTouches && e.changedTouches[0];
-    if (!t) return;
-    var dx = t.clientX - tx, dy = t.clientY - ty;
-    if (Math.abs(dx) < 36 || Math.abs(dx) < Math.abs(dy)) return; // tap / vertical
-    if (Math.abs(grid.scrollLeft - tScroll) > 24) return;          // native handled it
-    // Current centered card straight from scroll position (don't depend on
-    // the rAF-synced `active`, which can lag), then step one in the swipe dir.
-    var mid = grid.scrollLeft + grid.clientWidth / 2, cur = 0, bd = Infinity;
-    for (var k = 0; k < cards.length; k++){
-      var cc = cards[k].offsetLeft + cards[k].clientWidth / 2, d2 = Math.abs(cc - mid);
-      if (d2 < bd){ bd = d2; cur = k; }
-    }
-    goTo(cur + (dx < 0 ? 1 : -1));
-  }, { passive: true });
+  /* Mouse drag (desktop) */
+  var mx=0,mScroll=0,dragging=false;
+  grid.addEventListener('mousedown',function(e){ if(e.button!==0)return; mx=e.clientX; mScroll=grid.scrollLeft; dragging=true; e.preventDefault(); });
+  window.addEventListener('mousemove',function(e){ if(!dragging)return; grid.scrollLeft=mScroll-(e.clientX-mx); grid.classList.add('is-dragging'); });
+  window.addEventListener('mouseup',function(){ if(dragging){ dragging=false; grid.classList.remove('is-dragging'); } });
+
+  /* Touch swipe (mobile) */
+  var tx=0,ty=0,tScroll=0,tracking=false;
+  grid.addEventListener('touchstart',function(e){ if(e.touches.length!==1){tracking=false;return;} tx=e.touches[0].clientX; ty=e.touches[0].clientY; tScroll=grid.scrollLeft; tracking=true; },{passive:true});
+  grid.addEventListener('touchend',function(e){
+    if(!tracking)return; tracking=false;
+    var t=e.changedTouches&&e.changedTouches[0]; if(!t)return;
+    var dx=t.clientX-tx, dy=t.clientY-ty;
+    if(Math.abs(dx)<36||Math.abs(dx)<Math.abs(dy))return;
+    if(Math.abs(grid.scrollLeft-tScroll)>24)return;
+    var mid=grid.scrollLeft+grid.clientWidth/2,cur=0,bd=Infinity;
+    cards.forEach(function(c,k){var d=Math.abs(c.offsetLeft+c.clientWidth/2-mid);if(d<bd){bd=d;cur=k;}});
+    goTo(cur+(dx<0?1:-1));
+  },{passive:true});
 
   sync();
 })();
@@ -8901,131 +8871,88 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
 
 <style>
-  /* Review proof wall. Theme-aware (dark default + light override),
-     muted to match the page; brand red only on the eyebrow dot, the
-     marker highlights, and the lead card's border tint. No JS. */
-  .review{padding:64px 24px;display:flex;justify-content:center}
-  .review-wrap{width:100%;max-width:min(1900px,95vw);display:flex;flex-direction:column;gap:18px}
+  /* Review proof wall — overlapping diagonal card stack on desktop,
+     swipe carousel on mobile (<768px). Cards are warm-white "paper"
+     regardless of page theme. */
+
+  .review{padding:64px 24px 88px;display:flex;justify-content:center}
+  .review-wrap{width:100%;max-width:min(1080px,92vw);display:flex;flex-direction:column;gap:24px}
   .review-head{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
   .review-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55))}
   .review-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.15)}
   .review-headline{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.5rem,2.4vw,1.95rem);font-weight:700;letter-spacing:-.02em;line-height:1.12;margin:0;color:var(--text,#f4f4f2)}
   [data-theme="light"] .review-headline{color:#1a1a1f}
+  .review-subhead{margin:2px 0 0;font-size:.84rem;line-height:1.52;color:var(--text-dim,rgba(255,255,255,.52));max-width:54ch}
+  [data-theme="light"] .review-subhead{color:#5a5a64}
 
-  /* Lead quote takes the tall left column; the two supporting quotes
-     stack on the right. Everything visible at once — no swiping. */
-  /* 2026-06-12: four equal cards on a swipe track (the lead+stack grid
-     left a weird orphan slot once the fourth review landed). Equal
-     squares, smaller type, one compact row you swipe through. */
+  /* Base card — always light "paper" (intentional on dark bg) */
+  .review-card{
+    display:flex;flex-direction:column;position:relative;
+    margin:0;padding:26px 26px 22px;
+    border-radius:14px;
+    background:#fdfcf8;
+    border:1px solid rgba(239,68,68,.18);
+    box-shadow:0 24px 80px rgba(0,0,0,.11);
+    overflow:hidden;
+    box-sizing:border-box;
+  }
+  .review-card::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,#ef4444 0%,rgba(239,68,68,.25) 100%);
+    border-radius:14px 14px 0 0;
+  }
+  .tc-circuit{
+    display:inline-block;margin-bottom:14px;
+    font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:#ef4444;
+  }
+  .review-quote{margin:0 0 18px;font-size:.83rem;line-height:1.57;font-weight:500;color:#1a1a1f;letter-spacing:-.005em;flex:1}
+  .review-hl{
+    background:linear-gradient(transparent 63%,rgba(239,68,68,.22) 63%,rgba(239,68,68,.22) 93%,transparent 93%);
+    -webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 1px;
+  }
+  .review-attr{display:flex;align-items:center;gap:12px;margin-top:auto;padding-top:16px;border-top:1px solid rgba(0,0,0,.07)}
+  .review-ava{
+    flex:0 0 auto;width:38px;height:38px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:.8rem;font-weight:700;letter-spacing:.02em;
+    background:rgba(239,68,68,.09);color:#dc2626;border:1px solid rgba(239,68,68,.22);
+  }
+  .review-attr-text{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .review-attr-name{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:.95rem;font-weight:700;color:#1a1a1f;letter-spacing:-.01em;line-height:1.2}
+  .review-chips{display:flex;flex-wrap:wrap;gap:5px}
+  .review-chip{
+    font-size:.61rem;font-weight:700;letter-spacing:.03em;line-height:1;
+    padding:4px 8px;border-radius:999px;
+    color:#5a5a64;border:1px solid rgba(0,0,0,.10);background:rgba(0,0,0,.03);
+    white-space:nowrap;
+  }
+
+  /* Horizontal scroll row — same on desktop and mobile */
   .review-grid{
-    display:flex;
-    gap:14px;
+    display:flex;gap:16px;
     overflow-x:auto;
-    /* proximity (not mandatory) + overscroll containment: mandatory snap
-       fought iOS touch and read as "swipe does nothing"; proximity lets a
-       partial swipe settle on the next card, and overscroll-behavior-x
-       stops an edge swipe from triggering Safari's back-gesture. A JS
-       swipe handler (below) advances a card on any deliberate horizontal
-       drag, so navigation works even where native scroll-snap is flaky. */
     scroll-snap-type:x proximity;
     overscroll-behavior-x:contain;
     -webkit-overflow-scrolling:touch;
-    padding:2px 2px 14px;
+    padding:4px 2px 16px;
     scrollbar-width:thin;
+    cursor:grab;
   }
-  .review-grid::-webkit-scrollbar{height:6px}
-  .review-grid::-webkit-scrollbar-thumb{background:rgba(127,127,127,.25);border-radius:99px}
+  .review-grid.is-dragging{cursor:grabbing;user-select:none}
+  .review-grid::-webkit-scrollbar{height:5px}
+  .review-grid::-webkit-scrollbar-thumb{background:rgba(127,127,127,.22);border-radius:99px}
   .review-grid > .review-card{
-    flex:0 0 min(360px, 82vw);
+    flex:0 0 min(400px,82vw);
     scroll-snap-align:center;
   }
-  /* Desktop: a literal 2x2 of four equal squares, no swiping needed.
-     The swipe track stays for narrow screens below. */
-  @media (min-width: 900px){
-    /* Two packed columns: every card hugs its content, so no hollow
-       white middles, and the editorial serif lead keeps it from
-       reading as a generic testimonial grid. */
-    .review-grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      align-items:start;
-      gap:18px;
-      overflow:visible;
-      padding:0;
-      /* Wide 2x2: the block extends out toward the page edges so the
-         reviews read as a full-width proof wall, not a narrow column. */
-      max-width:min(1900px,95vw);
-      margin:0 auto;
-    }
-    .review-grid > .review-card{flex:none;height:auto}
-    .review-card--lead .review-quote{
-      font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1rem;line-height:1.5;
-    }
-  }
-  .review-grid .review-quote{
-    display:-webkit-box;-webkit-line-clamp:11;-webkit-box-orient:vertical;
-    overflow:hidden;
-  }
-  .review-grid .review-attr{margin-top:auto}
-  .review-card{display:flex;flex-direction:column;position:relative;margin:0;padding:20px 20px 18px;border-radius:20px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.09);box-shadow:0 18px 60px -30px rgba(0,0,0,.6)}
-  .review-card--lead{border-color:rgba(239,68,68,.30)}
-  [data-theme="light"] .review-card{background:#fff;border-color:rgba(0,0,0,.10);box-shadow:0 18px 50px -28px rgba(0,0,0,.18)}
-  [data-theme="light"] .review-card--lead{border-color:rgba(239,68,68,.32)}
-
-  .review-quote{margin:0 0 12px;font-size:.82rem;line-height:1.54;font-weight:500;color:var(--text,#f4f4f2);letter-spacing:-.005em}
-  /* margin:auto 0 centers the lead quote in the column height so the
-     card reads composed beside the taller right-hand stack. */
-  .review-card--lead .review-quote{font-size:.86rem}
-  [data-theme="light"] .review-quote{color:#1a1a1f}
-
-  /* Marker highlight on the strongest line of each quote — the words
-     are the reviewer's, verbatim; only the emphasis is ours. */
-  .review-hl{
-    background:linear-gradient(transparent 64%, rgba(239,68,68,.26) 64%, rgba(239,68,68,.26) 94%, transparent 94%);
-    -webkit-box-decoration-break:clone;box-decoration-break:clone;
-    padding:0 1px;
-  }
-  [data-theme="light"] .review-hl{background:linear-gradient(transparent 64%, rgba(239,68,68,.20) 64%, rgba(239,68,68,.20) 94%, transparent 94%)}
-
-  .review-attr{display:flex;align-items:center;gap:12px;margin-top:auto;padding-top:22px}
-  .review-ava{
-    flex:0 0 auto;width:40px;height:40px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:.86rem;font-weight:700;letter-spacing:.02em;
-    background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.28);
-  }
-  [data-theme="light"] .review-ava{background:rgba(239,68,68,.08);color:#dc2626}
-  .review-attr-text{display:flex;flex-direction:column;gap:6px;min-width:0}
-  .review-attr-name{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1rem;font-weight:700;color:var(--text,#f4f4f2);letter-spacing:-.01em;line-height:1.2}
-  [data-theme="light"] .review-attr-name{color:#1a1a1f}
-  .review-chips{display:flex;flex-wrap:wrap;gap:6px}
-  .review-chip{
-    font-size:.66rem;font-weight:700;letter-spacing:.03em;line-height:1;
-    padding:5px 9px;border-radius:999px;
-    color:var(--text-dim,rgba(255,255,255,.6));
-    border:1px solid rgba(255,255,255,.14);
-    background:rgba(255,255,255,.03);
-    white-space:nowrap;
-  }
-  [data-theme="light"] .review-chip{color:#5a5a64;border-color:rgba(0,0,0,.12);background:rgba(0,0,0,.025)}
-
-  @media(max-width:920px){
-    .review-grid > .review-card{flex-basis:86vw}
-    
-  }
-  @media(max-width:600px){
-    .review{padding:48px 18px}
-
-
+  .review-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px}
+  @media (max-width:767px){
+    .review{padding:48px 18px 64px}
+    .review-grid > .review-card{flex:0 0 88vw}
     .review-chip{white-space:normal}
   }
 
-  /* Carousel affordance — only meaningful on the <900px swipe track.
-     On the desktop 2x2 grid the whole thing is on screen, so it hides. */
-  .review-nav{
-    display:flex;align-items:center;justify-content:center;gap:14px;
-    margin-top:18px;
-  }
   .review-swipe-hint{
     font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
     color:var(--text-dim,rgba(255,255,255,.55));
@@ -9035,7 +8962,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .review-swipe-hint span{display:inline-block;animation:reviewHintNudge 1.4s ease-in-out infinite}
   @keyframes reviewHintPulse{0%,100%{opacity:.55}50%{opacity:1}}
   @keyframes reviewHintNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
-  /* Once the reader has swiped to the last card, retire the hint. */
   .review-nav.reviewed .review-swipe-hint{opacity:0;transition:opacity .4s ease;pointer-events:none}
   .review-dots{display:flex;align-items:center;gap:8px}
   .review-dot{
@@ -9049,8 +8975,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   @media (prefers-reduced-motion:reduce){
     .review-swipe-hint,.review-swipe-hint span{animation:none}
   }
-  /* Desktop grid shows all four — no carousel chrome needed. */
-  @media (min-width:900px){ .review-nav{display:none} }
 </style>
 
 <!-- 2026-06-10: the "Different premise" header + DeepAI Pro price
