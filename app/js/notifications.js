@@ -215,15 +215,18 @@
       '.da-golive__dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:daSparPulse 1.7s ease-out infinite}' +
       '.da-golive__p{font-size:.8rem;line-height:1.45;color:var(--text-dim,#9aa);margin:0 0 12px}' +
       // Webcam preview strip — shows a cold visitor what a live round
-      // actually looks like (face-to-face on webcam) before they opt in.
-      // CSS silhouettes, not real photos: privacy-safe + theme-agnostic.
+      // actually looks like before they opt in. Real face-library shots
+      // (face02 + face12) so the preview reads as two real debaters,
+      // not as the placeholder silhouettes that came before. The two
+      // faces are picked from visually distinct rooms (kitchen vs
+      // white-walled bedroom) on purpose — seat-you / seat-opp share a
+      // shoot and read as AI-clone (see landing.html's SKIP/same-shoot
+      // note for the same fix on the hero).
       '.da-golive__camcap{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost,#888);margin:0 0 6px}' +
-      '.da-golive__cams{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:0 0 13px}' +
-      '.da-golive__cam{position:relative;aspect-ratio:4/5;border-radius:7px;overflow:hidden;' +
-        'background:radial-gradient(circle at var(--hx,50%) 37%,#4b5066 0 10px,transparent 11px),' +
-        'radial-gradient(62% 44% at var(--hx,50%) 106%,#3a3f54 0 44%,transparent 64%),' +
-        'linear-gradient(160deg,#1e202b,#0f1117)}' +
-      '.da-golive__cam i{position:absolute;top:4px;left:4px;width:5px;height:5px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;animation:daSparPulse 1.7s ease-out infinite}' +
+      '.da-golive__cams{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:0 0 13px}' +
+      '.da-golive__cam{position:relative;aspect-ratio:4/3;border-radius:7px;overflow:hidden;background-color:#0f1117;background-size:cover}' +
+      '.da-golive__cam::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.20),transparent 38%)}' +
+      '.da-golive__cam i{position:absolute;top:4px;left:4px;width:5px;height:5px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;animation:daSparPulse 1.7s ease-out infinite;z-index:2}' +
       '.da-golive__btns{display:flex;gap:8px}' +
       '.da-golive__go{flex:1;height:38px;border-radius:10px;border:none;background:#22c55e;color:#06210f;font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer;transition:filter .15s}' +
       '.da-golive__go:hover{filter:brightness(1.08)}' +
@@ -1138,10 +1141,8 @@
           '<p class="da-golive__p">Stay matchable while you browse. We’ll ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
           '<div class="da-golive__camcap">What a live round looks like</div>' +
           '<div class="da-golive__cams" aria-hidden="true">' +
-            '<div class="da-golive__cam" style="--hx:52%"><i></i></div>' +
-            '<div class="da-golive__cam" style="--hx:44%"><i style="animation-delay:.4s"></i></div>' +
-            '<div class="da-golive__cam" style="--hx:55%"><i style="animation-delay:.8s"></i></div>' +
-            '<div class="da-golive__cam" style="--hx:47%"><i style="animation-delay:1.2s"></i></div>' +
+            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face02.jpg);background-position:50% 32%"><i></i></div>' +
+            '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face12.jpg);background-position:50% 36%"><i style="animation-delay:.7s"></i></div>' +
           '</div>' +
           '<div class="da-golive__btns">' +
             '<button type="button" class="da-golive__go">Go live</button>' +
