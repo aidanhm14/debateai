@@ -513,6 +513,43 @@
   })();
 </script>
 
+<!-- Mission hero A/B (2026-06-15). Tests a warmer, access-mission hero
+     LEAD against the canonical "Everything is debatable." arm. 'on' swaps
+     the headline + subhead to the mission ("Debate shouldn't depend on
+     your school"); 'off' keeps the rotating claim headline. 50/50 sticky
+     in localStorage; ?missionV=on|off forces an arm for QA. Fires
+     mission_ab_view so converting sessions stay segmentable by arm. CSS
+     toggles the sibling .hi-*--mission nodes off html[data-mission-ab].
+     The rotating default headline keeps ticking under display:none when
+     'on' — harmless, so no rotator JS change is needed. -->
+<script>
+  (function(){
+    var v='';
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]missionv=on(?:&|$)/.test(qp)) v='on';
+      else if(/[?&]missionv=off(?:&|$)/.test(qp)) v='off';
+    }catch(e){}
+    var assigned=false;
+    if(v!=='on'&&v!=='off'){
+      try{ v=localStorage.getItem('da-mission-ab')||''; }catch(e){}
+      if(v!=='on'&&v!=='off'){
+        v=(Math.random()<0.50)?'on':'off';
+        assigned=true;
+        try{ localStorage.setItem('da-mission-ab',v); }catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-mission-ab',v);
+    window.__missionAb=v;
+    try{
+      if(window.gtag){
+        gtag('set','user_properties',{mission_ab:v});
+        gtag('event','mission_ab_view',{variant:v,assigned:assigned});
+      }
+    }catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -6527,6 +6564,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="hi-subhead">
           <strong class="hi-live-em">Debate real people in live timed rounds.</strong> The AI works underneath.
         </p>
+        <!-- Mission hero A/B (2026-06-15): warmer access-mission lead,
+             toggled by html[data-mission-ab="on"] (see the <head> script).
+             Static (no rotator) so it stays stable for reduced-motion too.
+             The rotating default headline above keeps ticking under
+             display:none in the 'on' arm — invisible, harmless. -->
+        <h1 class="hi-headline hi-headline--mission">
+          <span class="hi-headline-lead">Debate shouldn't depend on</span>
+          <span class="hi-headline-accent">your school.</span>
+        </h1>
+        <p class="hi-subhead hi-subhead--mission">
+          <strong class="hi-live-em">Real opponents or the AI, judged in seconds, in your language.</strong> No coach, no team, no circuit required.
+        </p>
+        <style>
+          .hi-headline--mission,.hi-subhead--mission{display:none}
+          html[data-mission-ab="on"] .hero-illustrated .hi-headline[data-hi-rotates="headline"],
+          html[data-mission-ab="on"] .hero-illustrated .hi-subhead:not(.hi-subhead--mission){display:none}
+          html[data-mission-ab="on"] section.hero .hero-illustrated h1.hi-headline--mission{display:block;white-space:normal !important;text-wrap:balance}
+          html[data-mission-ab="on"] .hero-illustrated .hi-subhead--mission{display:block}
+        </style>
         <!-- 2026-06-14: the "pick a motion → ... → read your ballot"
              steps line removed per Aidan (the arrows row). The subhead
              above + the live-room mock below carry the how-it-works. -->
@@ -8212,6 +8268,367 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   start();
 })();
 </script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     MISSION NARRATIVE (2026-06-15). The access story, slotted between the
+     live room and the proof wall: mission → way of thinking → the access
+     gap → languages → ways in → who it's for → infrastructure → the game
+     → the credential. Reuses the page's .sec/.wrap/.sec-title/.hh-accent
+     conventions; every colour is a theme token so all four themes hold.
+     Decoration stays muted: the information is the visual, not red glow.
+     ════════════════════════════════════════════════════════════════ -->
+<style>
+  .ms-sec .wrap{max-width:1120px}
+  .ms-sec .sec-sub{max-width:730px}
+  .ms-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:22px 24px}
+
+  /* 1 · mission pillars */
+  .ms-pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:34px}
+  .ms-pill .ms-pill-tag{font-size:.62rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:11px}
+  .ms-pill h3{font-size:1.08rem;font-weight:700;margin:0 0 7px;letter-spacing:-.01em}
+  .ms-pill p{font-size:.94rem;line-height:1.55;color:var(--text-dim);margin:0}
+
+  /* 2 · way of thinking */
+  .ms-think{display:grid;grid-template-columns:repeat(2,1fr);gap:0 40px;margin-top:30px;padding:0}
+  .ms-think li{list-style:none;display:flex;gap:14px;font-size:1rem;line-height:1.5;color:var(--text);padding:13px 0;border-bottom:1px solid var(--border)}
+  .ms-think .ms-think-no{color:var(--accent);font-weight:800;font-variant-numeric:tabular-nums;flex:none;opacity:.85}
+  .ms-think-line{margin:30px auto 0;max-width:760px;text-align:center;font-size:1.2rem;line-height:1.5;font-weight:650;letter-spacing:-.01em}
+
+  /* 3 · access ledger */
+  .ms-ledger{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:34px}
+  .ms-led{border-radius:18px;border:1px solid var(--border);padding:24px 26px;background:var(--bg-card)}
+  .ms-led--us{border-color:var(--accent)}
+  .ms-led-head{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+  .ms-led-head h3{font-size:1.14rem;font-weight:700;margin:0}
+  .ms-led-tag{font-size:.6rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim)}
+  .ms-led--us .ms-led-tag{color:var(--accent)}
+  .ms-led ul{margin:0;padding:0;list-style:none}
+  .ms-led li{font-size:.95rem;line-height:1.45;padding:11px 0;border-top:1px solid var(--border);color:var(--text-dim);display:flex;gap:11px}
+  .ms-led li:first-child{border-top:none}
+  .ms-led--us li{color:var(--text)}
+  .ms-led-mark{flex:none;opacity:.6}
+  .ms-led--us .ms-led-mark{color:var(--accent);opacity:1}
+  .ms-empower{margin:32px auto 0;text-align:center;font-size:1.24rem;line-height:1.5;font-weight:650;letter-spacing:-.01em;max-width:780px}
+
+  /* 4 · languages */
+  .ms-langs{display:flex;flex-wrap:wrap;gap:10px;margin:30px auto 0;justify-content:center;max-width:900px}
+  .ms-lang{font-size:.95rem;padding:8px 16px;border-radius:999px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim)}
+  .ms-lang--en{border-color:var(--accent);color:var(--text)}
+  .ms-lang-foot{margin:24px 0 0;text-align:center;font-size:.98rem;color:var(--text-dim)}
+
+  /* 5 · ways in */
+  .ms-ways{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:34px}
+  .ms-way{display:block;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s,box-shadow .15s}
+  .ms-way:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 14px 34px rgba(0,0,0,.1)}
+  .ms-way .ms-way-tag{font-size:.62rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:9px}
+  .ms-way h3{font-size:1.04rem;font-weight:700;margin:0 0 7px;letter-spacing:-.01em}
+  .ms-way p{font-size:.92rem;line-height:1.5;color:var(--text-dim);margin:0 0 12px}
+  .ms-way .ms-go{font-size:.85rem;font-weight:700;color:var(--accent)}
+
+  /* 6 · who it's for */
+  .ms-cases{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:34px}
+  .ms-case-loc{font-size:.64rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .ms-case-loc::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+  .ms-case p{font-size:.97rem;line-height:1.55;color:var(--text);margin:0}
+
+  /* 7 · infrastructure */
+  .ms-infra{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:32px}
+  .ms-infra-item{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 14px;font-size:.9rem;font-weight:600;color:var(--text);text-align:center;line-height:1.35}
+
+  /* 8 · the game */
+  .ms-fun{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:32px}
+  .ms-fun-card h3{font-size:1.03rem;font-weight:700;margin:0 0 6px;letter-spacing:-.01em}
+  .ms-fun-card p{font-size:.9rem;line-height:1.45;color:var(--text-dim);margin:0}
+
+  /* 9 · credential */
+  .ms-cert{display:grid;grid-template-columns:1.1fr .9fr;gap:38px;align-items:center}
+  .ms-cert-copy .sec-label{text-align:left}
+  .ms-cert-copy h2{margin:6px 0 0;text-align:left}
+  .ms-cert-copy p{font-size:1rem;line-height:1.6;color:var(--text-dim);margin:16px 0 0}
+  .ms-cert-cta{display:inline-flex;align-items:center;gap:8px;margin-top:20px;font-weight:700;color:var(--accent);text-decoration:none;font-size:1rem}
+  .ms-cert-note{font-size:.82rem;color:var(--text-dim);margin:10px 0 0}
+  .ms-cert-mock{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:26px}
+  .ms-cert-mock-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .ms-cert-seal{font-weight:800;letter-spacing:-.02em;font-size:1.06rem}
+  .ms-cert-kind{font-size:.56rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:4px 9px}
+  .ms-cert-name{font-size:1.05rem;font-weight:650;margin-bottom:18px;letter-spacing:-.01em}
+  .ms-cb{display:flex;align-items:center;gap:12px;margin:10px 0;font-size:.82rem;color:var(--text-dim)}
+  .ms-cb span{flex:none;width:76px}
+  .ms-cb i{flex:1;height:7px;border-radius:999px;background:var(--border);position:relative;overflow:hidden}
+  .ms-cb i::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--accent);border-radius:999px;opacity:.85}
+  .ms-cert-foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:.74rem;color:var(--text-dim)}
+
+  @media(max-width:900px){
+    .ms-pillars,.ms-ways,.ms-cases,.ms-fun{grid-template-columns:repeat(2,1fr)}
+    .ms-infra{grid-template-columns:repeat(3,1fr)}
+    .ms-think{grid-template-columns:1fr}
+    .ms-cert{grid-template-columns:1fr;gap:24px}
+    .ms-cert-mock{order:-1}
+  }
+  @media(max-width:600px){
+    .ms-pillars,.ms-ways,.ms-cases,.ms-fun,.ms-ledger,.ms-infra{grid-template-columns:1fr}
+  }
+</style>
+
+<!-- 1 · MISSION -->
+<section id="mission" class="sec ms-sec" aria-label="The mission">
+  <div class="wrap">
+    <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>The mission</div>
+    <h2 class="sec-title">Debate should not depend on your <em class="hh-accent">school.</em></h2>
+    <p class="sec-sub">Or your language, or your budget, or whether anyone around you debates. Most people never have a coach, a squad, or a tournament an hour away. The skill should not have to wait for the infrastructure.</p>
+    <div class="ms-pillars">
+      <div class="ms-card ms-pill">
+        <span class="ms-pill-tag">Not your school</span>
+        <h3>No program, no problem</h3>
+        <p>The room, the opponent, and the judge come to you. You don't need a storied team to run a real round.</p>
+      </div>
+      <div class="ms-card ms-pill">
+        <span class="ms-pill-tag">Not your language</span>
+        <h3>Reason in your own words</h3>
+        <p>Argue in fourteen languages. Build the logic where you think fastest, then move to English when you choose to.</p>
+      </div>
+      <div class="ms-card ms-pill">
+        <span class="ms-pill-tag">Not your budget</span>
+        <h3>Free to start</h3>
+        <p>No travel, no entry fee, nothing to buy past a microphone. Open a round tonight.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · DEBATE IS A WAY OF THINKING -->
+<section id="why-debate" class="sec ms-sec" aria-label="Why debate">
+  <div class="wrap">
+    <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>Why debate</div>
+    <h2 class="sec-title">Debate is a <em class="hh-accent">way of thinking.</em></h2>
+    <p class="sec-sub">It trains the rare skill of thinking clearly while someone is actively trying to prove you wrong.</p>
+    <ul class="ms-think">
+      <li><span class="ms-think-no">01</span><span>Separate the argument from the person making it.</span></li>
+      <li><span class="ms-think-no">02</span><span>Build the strongest version of the other side before you answer it.</span></li>
+      <li><span class="ms-think-no">03</span><span>Hold a point under pressure without losing the thread.</span></li>
+      <li><span class="ms-think-no">04</span><span>Notice when the evidence is thinner than it sounds.</span></li>
+      <li><span class="ms-think-no">05</span><span>Weigh tradeoffs out loud instead of asserting them.</span></li>
+      <li><span class="ms-think-no">06</span><span>Change your mind when you're wrong, without falling apart.</span></li>
+      <li><span class="ms-think-no">07</span><span>Say exactly what you mean, in order.</span></li>
+      <li><span class="ms-think-no">08</span><span>Listen for the load-bearing claim, not the loudest one.</span></li>
+    </ul>
+    <p class="ms-think-line">Schools call it debate. Everywhere else, it is just thinking well in public, with the pressure on.</p>
+  </div>
+</section>
+
+<!-- 3 · THE ACCESS GAP (ledger) -->
+<section id="access" class="sec ms-sec" aria-label="The access gap">
+  <div class="wrap">
+    <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>The gap</div>
+    <h2 class="sec-title">The same skill, <em class="hh-accent">without the head start.</em></h2>
+    <p class="sec-sub">Some debaters get a coach, a team, a travel budget, and a tournament every weekend. Most get none of it. Here is the gap, and how it closes.</p>
+    <div class="ms-ledger">
+      <div class="ms-led ms-led--them">
+        <div class="ms-led-head">
+          <span class="ms-led-tag">What it usually takes</span>
+          <h3>The elite circuit</h3>
+        </div>
+        <ul>
+          <li><span class="ms-led-mark" aria-hidden="true">·</span>A coach on staff</li>
+          <li><span class="ms-led-mark" aria-hidden="true">·</span>A full squad to drill against</li>
+          <li><span class="ms-led-mark" aria-hidden="true">·</span>A travel budget for tournaments</li>
+          <li><span class="ms-led-mark" aria-hidden="true">·</span>Rounds in English only</li>
+          <li><span class="ms-led-mark" aria-hidden="true">·</span>Experienced judges in the room</li>
+          <li><span class="ms-led-mark" aria-hidden="true">·</span>Years of institutional memory</li>
+        </ul>
+      </div>
+      <div class="ms-led ms-led--us">
+        <div class="ms-led-head">
+          <span class="ms-led-tag">What you get tonight</span>
+          <h3>DebateIt</h3>
+        </div>
+        <ul>
+          <li><span class="ms-led-mark" aria-hidden="true">→</span>An AI coach that remembers your rounds</li>
+          <li><span class="ms-led-mark" aria-hidden="true">→</span>A live opponent or the AI, any hour</li>
+          <li><span class="ms-led-mark" aria-hidden="true">→</span>Nothing to travel to</li>
+          <li><span class="ms-led-mark" aria-hidden="true">→</span>Practice in your language first</li>
+          <li><span class="ms-led-mark" aria-hidden="true">→</span>An AI judge with a written ballot</li>
+          <li><span class="ms-led-mark" aria-hidden="true">→</span>The whole circuit's patterns, on tap</li>
+        </ul>
+      </div>
+    </div>
+    <p class="ms-empower">You should be able to learn debate even if nobody around you debates.</p>
+  </div>
+</section>
+
+<!-- 4 · LANGUAGES -->
+<section id="languages" class="sec ms-sec" aria-label="Multilingual debate">
+  <div class="wrap">
+    <div class="sec-label" style="text-align:center"><span class="ms-eyebrow-dot" aria-hidden="true"></span>Every language</div>
+    <h2 class="sec-title">Argument doesn't only happen in <em class="hh-accent">English.</em></h2>
+    <p class="sec-sub" style="margin-left:auto;margin-right:auto;text-align:center">Practice spoken reasoning, fluency, and clarity in the language you think in. The AI judge reads them all, and switches to English the moment you want to compete in it.</p>
+    <div class="ms-langs">
+      <span class="ms-lang ms-lang--en">English</span>
+      <span class="ms-lang">Español</span>
+      <span class="ms-lang">Français</span>
+      <span class="ms-lang">Deutsch</span>
+      <span class="ms-lang">Português</span>
+      <span class="ms-lang">हिन्दी</span>
+      <span class="ms-lang">中文</span>
+      <span class="ms-lang">日本語</span>
+      <span class="ms-lang">한국어</span>
+      <span class="ms-lang">العربية</span>
+      <span class="ms-lang">Русский</span>
+      <span class="ms-lang">Bahasa Indonesia</span>
+      <span class="ms-lang">Tiếng Việt</span>
+      <span class="ms-lang">Türkçe</span>
+    </div>
+    <p class="ms-lang-foot">Fourteen languages today, one judge that reads every one.</p>
+  </div>
+</section>
+
+<!-- 5 · WAYS IN -->
+<section id="ways-in" class="sec ms-sec" aria-label="Ways to use DebateIt">
+  <div class="wrap">
+    <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>Ways in</div>
+    <h2 class="sec-title">Find your <em class="hh-accent">way in.</em></h2>
+    <p class="sec-sub">One engine, many rooms. Start from wherever you are right now.</p>
+    <div class="ms-ways">
+      <a class="ms-card ms-way" href="/spar" data-cta="wayin-beginner">
+        <span class="ms-way-tag">New to it</span>
+        <h3>Start with Quick Clash</h3>
+        <p>Short speeches, plain prompts, no jargon. Learn the moves by making them.</p>
+        <span class="ms-go">Try a quick round →</span>
+      </a>
+      <a class="ms-card ms-way" href="/app" data-cta="wayin-competitive">
+        <span class="ms-way-tag">On a circuit</span>
+        <h3>Drill your format</h3>
+        <p>BP, APDA, PF, LD, Policy, Worlds, Asian Parliamentary, Congress. Format-accurate, judged in seconds.</p>
+        <span class="ms-go">Open the trainer →</span>
+      </a>
+      <a class="ms-card ms-way" href="/voice-debate" data-cta="wayin-english">
+        <span class="ms-way-tag">Building English</span>
+        <h3>Argue out loud</h3>
+        <p>Grow fluency and confidence under a clock. Your language first, English when you're ready.</p>
+        <span class="ms-go">Start a voice round →</span>
+      </a>
+      <a class="ms-card ms-way" href="/schools" data-cta="wayin-classroom">
+        <span class="ms-way-tag">Teaching a class</span>
+        <h3>Run debates without a tab room</h3>
+        <p>Motions, timing, and ballots are built in. No tournament staff required.</p>
+        <span class="ms-go">See it for schools →</span>
+      </a>
+      <a class="ms-card ms-way" href="/schools" data-cta="wayin-circuit">
+        <span class="ms-way-tag">A small circuit</span>
+        <h3>Borrow the infrastructure</h3>
+        <p>AI judging, coaching, and practice rooms between the rare tournaments you can host.</p>
+        <span class="ms-go">See it for schools →</span>
+      </a>
+      <a class="ms-card ms-way" href="/pro" data-cta="wayin-pro">
+        <span class="ms-way-tag">Past debate</span>
+        <h3>Train the high-pressure rooms</h3>
+        <p>Interviews, pitches, negotiation, courtroom and panel speaking. The pressure is the point.</p>
+        <span class="ms-go">See pro rooms →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · WHO IT'S FOR (use cases) -->
+<section id="for-who" class="sec ms-sec" aria-label="Who it is for">
+  <div class="wrap">
+    <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>Who it's for</div>
+    <h2 class="sec-title">Built for the debater <em class="hh-accent">without the circuit.</em></h2>
+    <p class="sec-sub">The kind of person DebateIt is for, and the round they run.</p>
+    <div class="ms-cases">
+      <div class="ms-card ms-case">
+        <span class="ms-case-loc">Nairobi</span>
+        <p>Wants to drill World Schools, but the nearest competitive circuit is a flight away. Spars a ranked opponent online at 9pm and reads the ballot before bed.</p>
+      </div>
+      <div class="ms-card ms-case">
+        <span class="ms-case-loc">São Paulo</span>
+        <p>Argues the motion in Portuguese to find the logic first, then runs the same round in English the week before the tournament.</p>
+      </div>
+      <div class="ms-card ms-case">
+        <span class="ms-case-loc">Rural Ohio</span>
+        <p>No debate team at school, no coach within fifty miles. Gets a written ballot and one drill to run after every round.</p>
+      </div>
+      <div class="ms-card ms-case">
+        <span class="ms-case-loc">Chicago, 1am</span>
+        <p>Prepping APDA cases the night before nationals. Runs the AI on the opp side until the case finally holds.</p>
+      </div>
+      <div class="ms-card ms-case">
+        <span class="ms-case-loc">Manila</span>
+        <p>A new club with four members and no judge. Lets the AI adjudicate so every practice round still ends with a real verdict.</p>
+      </div>
+      <div class="ms-card ms-case">
+        <span class="ms-case-loc">A founder's desk</span>
+        <p>Rehearsing the pitch against hostile questions before the board call. The AI does not go easy on the weak slide.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · INFRASTRUCTURE (AI as the missing layer) -->
+<section id="infrastructure" class="sec ms-sec" aria-label="Infrastructure for small circuits">
+  <div class="wrap">
+    <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>Infrastructure</div>
+    <h2 class="sec-title">The infrastructure big circuits <em class="hh-accent">take for granted.</em></h2>
+    <p class="sec-sub">Large programs run on trained judges, tab rooms, motion sets, ballots, archives, and years of memory. DebateIt provides that layer digitally, so a small circuit can run like a large one. The AI is not the show. It is the plumbing that makes a round possible when no coach, judge, or opponent is in the room.</p>
+    <div class="ms-infra">
+      <div class="ms-infra-item">AI judges</div>
+      <div class="ms-infra-item">Motion generation</div>
+      <div class="ms-infra-item">Live rooms</div>
+      <div class="ms-infra-item">Written ballots</div>
+      <div class="ms-infra-item">Round archives</div>
+      <div class="ms-infra-item">Coach drills</div>
+      <div class="ms-infra-item">Leaderboards</div>
+      <div class="ms-infra-item">Public profiles</div>
+      <div class="ms-infra-item">Multilingual access</div>
+      <div class="ms-infra-item">Earned credentials</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 · THE GAME (fun / competitive, restrained register) -->
+<section id="the-game" class="sec ms-sec" aria-label="Live and competitive">
+  <div class="wrap">
+    <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>Live and competitive</div>
+    <h2 class="sec-title">Serious skill. <em class="hh-accent">Still a game.</em></h2>
+    <p class="sec-sub">Ten minutes and a motion is a full round. Lose the ballot and run it back. Pick the side you disagree with just to see if you can carry it.</p>
+    <div class="ms-fun">
+      <div class="ms-card ms-fun-card"><h3>Quick Clash</h3><p>Three-minute rounds. Pure reflex, no prep.</p></div>
+      <div class="ms-card ms-fun-card"><h3>Beat the AI</h3><p>Take on a brain that argues at full strength and never gets tired.</p></div>
+      <div class="ms-card ms-fun-card"><h3>Switch sides</h3><p>Won as Gov? Now take the same motion as Opp.</p></div>
+      <div class="ms-card ms-fun-card"><h3>Run it back</h3><p>Lost the round? Rematch with exactly what the judge told you to fix.</p></div>
+      <div class="ms-card ms-fun-card"><h3>Leaderboards</h3><p>See where your rounds land against the rest of the room.</p></div>
+      <div class="ms-card ms-fun-card"><h3>Challenge a friend</h3><p>Send a motion, pick sides, and settle it.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 · THE CREDENTIAL (proof, tied to the mission) -->
+<section id="credential" class="sec ms-sec" aria-label="Proof of spoken reasoning">
+  <div class="wrap">
+    <div class="ms-cert">
+      <div class="ms-cert-copy">
+        <div class="sec-label"><span class="ms-eyebrow-dot" aria-hidden="true"></span>Proof</div>
+        <h2 class="sec-title">Proof you can <em class="hh-accent">think on your feet.</em></h2>
+        <p>Writing is easy to fake now. Spoken reasoning under pressure is not. A DebateIt credential is earned in a live round, not handed out: clarity, structure, rebuttal, listening, and persuasion, scored by the AI judge and your opponent.</p>
+        <p>It is built for the people a school name cannot speak for: international students, non-native English speakers, applicants, and debaters from programs nobody has heard of yet. Practice rounds stay free. The certified sitting is a real round against a human, with the AI as proctor and adversary.</p>
+        <a class="ms-cert-cta" href="/credentials" data-cta="mission-credential">Earn a credential →</a>
+        <p class="ms-cert-note">Free during beta.</p>
+      </div>
+      <div class="ms-cert-mock" aria-hidden="true">
+        <div class="ms-cert-mock-top">
+          <span class="ms-cert-seal">DebateIt</span>
+          <span class="ms-cert-kind">Certified · Proctored</span>
+        </div>
+        <div class="ms-cert-name">Spoken reasoning, under pressure</div>
+        <div class="ms-cb"><span>Clarity</span><i style="--w:88%"></i></div>
+        <div class="ms-cb"><span>Structure</span><i style="--w:82%"></i></div>
+        <div class="ms-cb"><span>Rebuttal</span><i style="--w:91%"></i></div>
+        <div class="ms-cb"><span>Listening</span><i style="--w:77%"></i></div>
+        <div class="ms-cert-foot">Earned in a live human and AI round. Verifiable.</div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- Reviews · first scroll-stop after the hero. 2026-06-10: the
      one-at-a-time swipe carousel (arrows + dots + snap JS) is gone —
