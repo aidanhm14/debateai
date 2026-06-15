@@ -126,29 +126,36 @@ def draw_orb(img, cx, cy, R, accent=RED):
 
 
 def main():
-    # Minimal, iconic card: a single centered orb above the "DebateIt"
-    # wordmark. Nothing else — no headline, sub-copy, chips, or URL. The
-    # orb is the brand surface; the wordmark identifies it.
+    # Iconic card: centered orb, the "DebateIt" wordmark, and one line of
+    # positioning. The orb is the brand surface; the tagline says what the
+    # product is so the share/search card sells the round, not just a logo.
     img = vertical_gradient().convert("RGBA")
 
-    # Orb centered, sitting in the upper-middle so the wordmark has room
-    # beneath it. Larger R than the text version — it's the hero now.
-    orb_cx, orb_cy, orb_R = W // 2, 248, 156
+    # Orb sits a touch higher than the wordmark-only version to leave room
+    # for the tagline beneath the brand.
+    orb_cx, orb_cy, orb_R = W // 2, 210, 140
     draw_orb(img, cx=orb_cx, cy=orb_cy, R=orb_R, accent=RED)
 
     draw = ImageDraw.Draw(img, "RGBA")
 
     # ── "DebateIt" wordmark, centered under the orb ──────────────
-    # White "Debate" + red "It", no space — mirrors the site wordmark
-    # treatment (the old "Debate"+red"AI" split, rebranded 2026-06-08).
-    brand = font(92, "black")
+    # White "Debate" + red "It", no space, mirroring the site wordmark
+    # (the old "Debate"+red"AI" split, rebranded 2026-06-08).
+    brand = font(82, "black")
     debate_w = draw.textbbox((0, 0), "Debate", font=brand)[2]
     it_w = draw.textbbox((0, 0), "It", font=brand)[2]
     total_w = debate_w + it_w
     wx = (W - total_w) // 2
-    wy = 470
+    wy = 388
     draw.text((wx, wy), "Debate", font=brand, fill=WHITE)
     draw.text((wx + debate_w, wy), "It", font=brand, fill=RED)
+
+    # ── Positioning line: live debate + AI adjudication ──────────
+    # The card's actual job. Matches og:title / the page <title>.
+    tag = font(36, "bold")
+    tagline = "Debate live. AI adjudicates every round."
+    tw = draw.textbbox((0, 0), tagline, font=tag)[2]
+    draw.text(((W - tw) // 2, 500), tagline, font=tag, fill=(255, 255, 255, 214))
 
     img.convert("RGB").save(OUT, "PNG", optimize=True)
     print(f"wrote {OUT} ({W}x{H})")
