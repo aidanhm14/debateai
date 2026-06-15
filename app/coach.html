@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>AI Debate Coach · Live Voice Drills & Instant Feedback · DebateIt</title>
 <meta name="description" content="An AI debate coach that runs live voice drills, gives instant feedback, and learns how you argue. Drill POIs, rebuttals, cross-ex, and impact weighing against the clock. Free in beta." />
-<meta name="theme-color" content="#0a0a12" />
+<meta name="theme-color" content="#f5f5f0" />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://debateai.com/coach">
+<link rel="canonical" href="https://debateit.com/coach">
 <meta name="robots" content="index,follow">
 
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://debateai.com/coach">
-<meta property="og:title" content="AI Debate Coach · DebateIt">
-<meta property="og:description" content="An AI debate coach that runs live voice drills, gives instant feedback, and learns how you argue. Free in beta.">
-<meta property="og:image" content="https://debateai.com/og-image.png?v=adjudicate1">
+<meta property="og:url" content="https://debateit.com/coach">
+<meta property="og:title" content="AI Debate Coach — Live Voice Drills, Instant Feedback · DebateIt">
+<meta property="og:description" content="An AI debate coach that runs live voice drills, gives instant feedback, and learns how you argue. POIs, rebuttals, cross-ex, impact weighing. Free in beta.">
+<meta property="og:image" content="https://debateit.com/og-image.png?v=cards3">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="AI Debate Coach · DebateIt">
-<meta name="twitter:description" content="An AI debate coach that runs live voice drills, gives instant feedback, and learns how you argue. Free in beta.">
-<meta name="twitter:image" content="https://debateai.com/og-image.png?v=adjudicate1">
+<meta name="twitter:title" content="AI Debate Coach — Live Voice Drills, Instant Feedback · DebateIt">
+<meta name="twitter:description" content="An AI debate coach that runs live voice drills, gives instant feedback, and learns how you argue. POIs, rebuttals, cross-ex, impact weighing. Free in beta.">
+<meta name="twitter:image" content="https://debateit.com/og-image.png?v=cards3">
 
 <!-- Structured data: target the "AI debate coach" / "debate coach" query
      cluster (the /coach page is the canonical landing for it). -->
@@ -29,10 +29,11 @@
   "@type": "Service",
   "name": "AI Debate Coach",
   "serviceType": "AI debate coaching",
-  "url": "https://debateai.com/coach",
+  "url": "https://debateit.com/coach",
   "description": "A live AI debate coach that runs voice drills, gives instant feedback, and adapts to how you argue. Practice POIs, rebuttals, cross-examination, framework clash, and impact weighing against the clock.",
   "areaServed": "Worldwide",
-  "provider": { "@type": "Organization", "name": "DebateIt", "url": "https://debateai.com" }
+  "provider": { "@type": "Organization", "name": "DebateIt", "url": "https://debateit.com" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Free in beta" }
 }
 </script>
 <script type="application/ld+json">
@@ -63,10 +64,24 @@
   ]
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "DebateIt", "item": "https://debateit.com/" },
+    { "@type": "ListItem", "position": 2, "name": "AI Debate Coach", "item": "https://debateit.com/coach" }
+  ]
+}
+</script>
 
-<!-- Firebase v10 compat — same versions + config as voice-debate.html. -->
+<!-- Firebase v10 compat — same versions + config as voice-debate.html.
+     Firestore added here (not on voice-debate) so the coach can read the
+     user's own debater profile + nightly fingerprint client-side and show
+     real observations on the page, not just inject them server-side. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
 <!-- Shared topbar (deferred so it doesn't block first paint). -->
 <script defer src="/js/topbar.js"></script>
@@ -86,82 +101,121 @@
     --red-2: #dc2626;
     --red-soft: rgba(239,68,68,.13);
     --green: #34d399;
+    --gold: #fbbf24;
     --radius: 16px;
   }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
-    font-family:'Geist','Inter',system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-family:'Crimson Pro','Inter',system-ui,-apple-system,"Segoe UI",sans-serif;
     -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
   }
-  /* Ambient wash so the page doesn't read as a flat slab. */
+  /* One restrained top wash. No second-color glow (reads generic). */
   body::before {
     content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background:
-      radial-gradient(900px 480px at 50% -8%, rgba(239,68,68,.10), transparent 70%),
-      radial-gradient(700px 420px at 92% 6%, rgba(120,80,255,.06), transparent 70%);
+    background: radial-gradient(1100px 360px at 50% -16%, rgba(239,68,68,.04), transparent 72%);
   }
-  .coach-shell { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 92px 22px 88px; }
+  .coach-shell { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 70px 22px 80px; }
 
-  /* ── Hero ──────────────────────────────────────────────────── */
+  .coach-crumb { font-size: .78rem; color: var(--text-faint); margin-bottom: 14px; }
+  .coach-crumb a { color: var(--red); text-decoration: none; font-weight: 600; }
+  .coach-crumb a:hover { text-decoration: underline; }
+  .coach-crumb .sep { margin: 0 5px; color: var(--text-faint); }
+
+  /* ── Header: eyebrow + live status + greeting + the coach's read ── */
+  .coach-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
   .coach-eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
     font-size: .64rem; font-weight: 800; letter-spacing: .15em;
-    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    text-transform: uppercase; color: var(--text-faint);
   }
   .coach-eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red);
     box-shadow: 0 0 0 4px rgba(239,68,68,.16); animation: dot 1.8s ease-in-out infinite; }
   @keyframes dot { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: .76rem; font-weight: 700; color: var(--text-dim);
+    background: rgba(255,255,255,.04); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 13px;
+  }
+  .status-pill .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+  .status-pill.online .live-dot { background: var(--green); box-shadow: 0 0 0 4px rgba(52,211,153,.14); animation: dot 1.8s ease-in-out infinite; }
+  .status-pill b { color: var(--text); font-weight: 800; }
+
   .coach-h1 {
-    font-family:'Geist','Inter',system-ui,-apple-system,sans-serif; font-weight: 700;
-    font-size: clamp(2.3rem, 5.4vw, 3.4rem); line-height: 1.04;
-    letter-spacing: -.022em; margin: 0 0 14px;
+    font-family:'Crimson Pro','Inter',system-ui,-apple-system,sans-serif; font-weight: 700;
+    font-size: clamp(1.9rem, 4vw, 2.7rem); line-height: 1.06;
+    letter-spacing: -.022em; margin: 0 0 8px;
   }
   .coach-h1 .accent { color: var(--red); }
-  .coach-sub { color: var(--text-dim); font-size: 1.06rem; line-height: 1.6; max-width: 600px; margin: 0 0 22px; }
+  .read-line { color: var(--text-dim); font-size: 1rem; line-height: 1.5; margin: 0 0 24px; max-width: 720px; }
+  .read-line b { color: var(--text); font-weight: 700; }
 
-  /* Memory chips — concrete proof it loads who you are. */
-  .mem-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 36px; }
-  .mem-chip {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: .76rem; font-weight: 600; color: var(--text-dim);
-    background: rgba(255,255,255,.035); border: 1px solid var(--border);
-    border-radius: 999px; padding: 7px 13px 7px 11px;
-  }
-  .mem-chip svg { width: 13px; height: 13px; color: var(--red); flex: none; }
-
-  /* ── Cards / sections ──────────────────────────────────────── */
+  /* ── Cards ─────────────────────────────────────────────────── */
   .card {
-    background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
-    border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 24px; margin-bottom: 18px;
+    background: rgba(255,255,255,.018);
+    border: 1px solid rgba(255,255,255,.07); border-radius: 12px;
+    padding: 20px; margin-bottom: 13px;
   }
-  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
-  .card h2 { font-family:'Geist','Inter',system-ui,-apple-system,sans-serif; font-size: 1.18rem; font-weight: 600; margin: 0; letter-spacing: -.01em; }
-  .card-note { font-size: .78rem; color: var(--text-faint); font-weight: 600; }
-  .card-sub { color: var(--text-dim); font-size: .86rem; margin: 0 0 18px; line-height: 1.5; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .card h2 { font-family:'Crimson Pro','Inter',system-ui,-apple-system,sans-serif; font-size: 1.02rem; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+  .card-note { font-size: .7rem; color: var(--text-faint); font-weight: 600; letter-spacing: .02em; }
+  .eyebrow-sm { font-size: .6rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 11px; }
 
-  /* ── Drill picker (the core) ───────────────────────────────── */
+  /* ── Workspace split ───────────────────────────────────────── */
+  .workspace { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+  .ws-left, .ws-right { min-width: 0; }
+  .ws-left .card:last-child, .ws-right .card:last-child { margin-bottom: 0; }
+
+  /* ── "The coach knows" checklist ───────────────────────────── */
+  .knows { display: flex; flex-direction: column; gap: 9px; }
+  .knows-row { display: flex; align-items: center; gap: 10px; font-size: .88rem; color: var(--text-dim); }
+  .knows-row svg { width: 14px; height: 14px; color: var(--text-faint); flex: none; }
+  .knows-row b { color: var(--text); font-weight: 600; }
+
+  /* ── Observations ──────────────────────────────────────────── */
+  .obs { display: flex; flex-direction: column; gap: 11px; }
+  .obs-row { display: flex; gap: 10px; font-size: .89rem; line-height: 1.45; color: var(--text); }
+  .obs-row .obs-k { flex: none; width: 46px; font-size: .58rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
+  .obs-k.good { color: var(--green); }
+  .obs-k.watch { color: var(--gold); }
+  .obs-k.note { color: var(--text-faint); }
+  .obs-empty { color: var(--text-dim); font-size: .89rem; line-height: 1.55; }
+
+  /* ── This week's training ──────────────────────────────────── */
+  .plan-progress { font-size: .72rem; font-weight: 800; color: var(--text-faint); }
+  .plan { display: flex; flex-direction: column; gap: 8px; }
+  .plan-row { display: flex; align-items: center; gap: 11px; font-size: .9rem; color: var(--text); cursor: pointer;
+    background: transparent; border: none; text-align: left; font-family: inherit; padding: 4px 0; width: 100%; }
+  .plan-num { width: 22px; height: 22px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 800; color: var(--text-dim); border: 1px solid var(--border-2); }
+  .plan-row.done .plan-num { background: var(--green); border-color: var(--green); color: #06281c; }
+  .plan-row.done .plan-label { color: var(--text-faint); text-decoration: line-through; }
+  .plan-label { font-weight: 600; }
+  .plan-row:hover .plan-label { color: var(--red); }
+
+  /* ── Sharpen / focus ───────────────────────────────────────── */
+  .reco { font-size: .82rem; color: var(--text-dim); margin: 0 0 14px; line-height: 1.45; }
+  .reco b { color: var(--text); font-weight: 700; }
+  .reco .reco-pill { color: var(--red); font-weight: 700; }
+
+  /* ── Drill cards (weakness-first, with metadata) ───────────── */
   .drill-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
   .drill {
     position: relative; text-align: left; cursor: pointer;
-    background: rgba(255,255,255,.025); border: 1px solid var(--border);
-    border-radius: 13px; padding: 15px 16px; transition: border-color .15s, background .15s, transform .12s;
-    display: flex; flex-direction: column; gap: 4px; font-family: inherit; color: var(--text);
+    background: transparent; border: 1px solid rgba(255,255,255,.08);
+    border-radius: 10px; padding: 14px 15px; transition: border-color .14s, background .14s;
+    display: flex; flex-direction: column; gap: 6px; font-family: inherit; color: var(--text);
   }
-  .drill:hover { border-color: var(--border-2); background: rgba(255,255,255,.05); transform: translateY(-1px); }
-  .drill.active { border-color: var(--red); background: var(--red-soft); }
-  .drill.active::after {
-    content: "✓"; position: absolute; top: 12px; right: 14px;
-    color: var(--red); font-weight: 800; font-size: .8rem;
-  }
-  .drill-name { font-weight: 700; font-size: .96rem; letter-spacing: -.01em; }
-  .drill-desc { color: var(--text-dim); font-size: .79rem; line-height: 1.4; }
-  .drill-tag {
-    align-self: flex-start; margin-top: 3px; font-size: .6rem; font-weight: 800;
-    letter-spacing: .1em; text-transform: uppercase; color: var(--red);
-    background: rgba(239,68,68,.1); border-radius: 5px; padding: 2px 6px;
-  }
+  .drill:hover { border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.025); }
+  /* Selected = a quiet left accent + check, not a loud red fill. */
+  .drill.active { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.05); }
+  .drill.active::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 2px; border-radius: 2px; background: var(--red); }
+  .drill.active::after { content: "✓"; position: absolute; top: 11px; right: 13px; color: var(--red); font-weight: 800; font-size: .78rem; }
+  .drill-name { font-weight: 600; font-size: .94rem; letter-spacing: -.01em; padding-right: 16px; }
+  .drill-sub { color: var(--text-dim); font-size: .78rem; line-height: 1.4; }
+  .drill-meta { margin-top: 2px; font-size: .72rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+  .drill-reco { align-self: flex-start; margin-top: 1px; font-size: .58rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--red); }
 
   /* ── Motion input ──────────────────────────────────────────── */
   .motion-wrap { margin-top: 16px; }
@@ -175,8 +229,8 @@
   .motion-input:focus { outline: none; border-color: rgba(239,68,68,.55); }
 
   /* ── Segmented controls (voice + pace) ─────────────────────── */
-  .seg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .seg-label { font-size: .78rem; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; }
+  .seg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .seg-label { font-size: .72rem; font-weight: 700; color: var(--text-dim); margin-bottom: 7px; letter-spacing: .02em; }
   .seg { display: flex; gap: 6px; background: rgba(0,0,0,.22); border: 1px solid var(--border); border-radius: 11px; padding: 4px; }
   .seg button {
     flex: 1; cursor: pointer; background: transparent; border: none; border-radius: 8px;
@@ -190,12 +244,11 @@
 
   /* ── Start + meters + sign-in ──────────────────────────────── */
   .start-btn {
-    width: 100%; appearance: none; border: none; cursor: pointer; margin-top: 22px;
-    background: var(--red); color: #fff; font-family: inherit; font-size: 1.02rem; font-weight: 800;
-    padding: 16px 20px; border-radius: 13px; transition: background .15s, transform .12s, box-shadow .15s;
-    box-shadow: 0 8px 24px rgba(239,68,68,.26);
+    width: 100%; appearance: none; border: none; cursor: pointer; margin-top: 18px;
+    background: var(--red); color: #fff; font-family: inherit; font-size: 1rem; font-weight: 700;
+    padding: 15px 20px; border-radius: 11px; transition: background .15s;
   }
-  .start-btn:hover:not(:disabled) { background: var(--red-2); transform: translateY(-1px); box-shadow: 0 12px 30px rgba(239,68,68,.34); }
+  .start-btn:hover:not(:disabled) { background: var(--red-2); }
   .start-btn:disabled { background: rgba(239,68,68,.32); box-shadow: none; cursor: wait; }
   .free-meter { font-size: .77rem; color: var(--text-faint); margin-top: 12px; text-align: center; }
 
@@ -219,12 +272,12 @@
   .error.on { display: block; }
 
   /* ── Live session ──────────────────────────────────────────── */
-  .live { display: none; }
+  .live { display: none; max-width: 760px; margin: 0 auto; }
   .live.on { display: block; }
   .stage {
-    background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
-    border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 30px 24px 24px; margin-bottom: 16px;
+    background: rgba(255,255,255,.018);
+    border: 1px solid rgba(255,255,255,.07); border-radius: 12px;
+    padding: 30px 24px 24px; margin-bottom: 14px;
   }
   .stage-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
   .drill-chip {
@@ -286,14 +339,14 @@
   /* ── End-of-session debrief ────────────────────────────────── */
   .debrief {
     display: none;
-    background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
-    border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 24px; margin-bottom: 16px;
+    background: rgba(255,255,255,.018);
+    border: 1px solid rgba(255,255,255,.07); border-radius: 12px;
+    padding: 24px; margin-bottom: 14px;
   }
   .debrief.on { display: block; }
   .debrief-head {
-    font-size: .66rem; font-weight: 800; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--red); margin-bottom: 12px;
+    font-size: .62rem; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 12px;
   }
   .debrief-body { color: var(--text); font-size: .96rem; line-height: 1.62; }
   .debrief-body p { margin: 0 0 12px; }
@@ -302,32 +355,143 @@
   .debrief-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: dot 1.1s ease-in-out infinite; }
   .debrief .start-btn { margin-top: 18px; }
 
+  @media (max-width: 860px) {
+    .workspace { grid-template-columns: 1fr; }
+    /* On mobile the action (right) comes first; the coach's read sits under it. */
+    .ws-right { order: -1; }
+  }
   @media (max-width: 720px) {
-    .coach-shell { padding: 74px 16px 64px; }
+    .coach-shell { padding: 64px 16px 64px; }
     .drill-grid { grid-template-columns: 1fr; }
     .seg-row { grid-template-columns: 1fr; gap: 14px; }
   }
+
+  /* ── Light theme ──────────────────────────────────────────── */
+  [data-theme="light"] {
+    --bg: #f5f5f0;
+    --bg-2: #ffffff;
+    --bg-3: #fbfaf5;
+    --text: rgba(0,0,0,.88);
+    --text-dim: rgba(0,0,0,.58);
+    --text-faint: rgba(0,0,0,.36);
+    --border: rgba(0,0,0,.10);
+    --border-2: rgba(0,0,0,.16);
+    --red: #dc2626;
+    --red-2: #b91c1c;
+    --red-soft: rgba(220,38,38,.08);
+    --green: #16a34a;
+    --gold: #d97706;
+  }
+  [data-theme="light"] body { background: var(--bg); }
+  [data-theme="light"] body::before {
+    background: radial-gradient(1100px 360px at 50% -16%, rgba(220,38,38,.03), transparent 72%);
+  }
+  [data-theme="light"] .card {
+    background: #ffffff;
+    border-color: rgba(0,0,0,.08);
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  [data-theme="light"] .status-pill {
+    background: rgba(0,0,0,.03);
+    border-color: rgba(0,0,0,.10);
+  }
+  [data-theme="light"] .drill {
+    border-color: rgba(0,0,0,.10);
+    background: #fff;
+  }
+  [data-theme="light"] .drill:hover {
+    border-color: rgba(0,0,0,.22);
+    background: #fbfaf5;
+  }
+  [data-theme="light"] .drill.active {
+    border-color: rgba(220,38,38,.45);
+    background: rgba(220,38,38,.04);
+  }
+  [data-theme="light"] .motion-input {
+    background: #fff;
+    border-color: rgba(0,0,0,.12);
+    color: var(--text);
+  }
+  [data-theme="light"] .motion-input::placeholder { color: var(--text-faint); }
+  [data-theme="light"] .seg {
+    background: rgba(0,0,0,.03);
+    border-color: rgba(0,0,0,.10);
+  }
+  [data-theme="light"] .seg button { color: var(--text-dim); }
+  [data-theme="light"] .seg button:hover { color: var(--text); }
+  [data-theme="light"] .seg button.on { background: var(--red); color: #fff; }
+  [data-theme="light"] .seg button.on .seg-sub { color: rgba(255,255,255,.82); }
+  [data-theme="light"] .signin-state {
+    background: rgba(0,0,0,.025);
+    border-color: rgba(0,0,0,.10);
+  }
+  [data-theme="light"] .signin-state.unauthed {
+    background: rgba(220,38,38,.04);
+    border-color: rgba(220,38,38,.22);
+  }
+  [data-theme="light"] .stage {
+    background: #ffffff;
+    border-color: rgba(0,0,0,.08);
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  [data-theme="light"] .transcript {
+    background: #fbfaf5;
+    border-color: rgba(0,0,0,.08);
+  }
+  [data-theme="light"] .transcript-empty { color: var(--text-faint); }
+  [data-theme="light"] .t-row.coach .t-who { color: var(--red); }
+  [data-theme="light"] .t-row.you .t-who { color: var(--green); }
+  [data-theme="light"] .ctrl-btn {
+    background: #fff;
+    border-color: rgba(0,0,0,.12);
+    color: var(--text-dim);
+  }
+  [data-theme="light"] .ctrl-btn:hover {
+    border-color: rgba(0,0,0,.24);
+    color: var(--text);
+  }
+  [data-theme="light"] .ctrl-btn.muted {
+    color: var(--red);
+    border-color: rgba(220,38,38,.4);
+    background: rgba(220,38,38,.06);
+  }
+  [data-theme="light"] .debrief {
+    background: #ffffff;
+    border-color: rgba(0,0,0,.08);
+  }
+  [data-theme="light"] .error {
+    background: rgba(220,38,38,.05);
+    border-color: rgba(220,38,38,.22);
+    color: #991b1b;
+  }
+  [data-theme="light"] .drill-chip {
+    background: rgba(0,0,0,.03);
+    border-color: rgba(0,0,0,.10);
+  }
+  [data-theme="light"] .start-btn { background: var(--red); }
+  [data-theme="light"] .start-btn:hover:not(:disabled) { background: var(--red-2); }
+  [data-theme="light"] .start-btn:disabled { background: rgba(220,38,38,.28); }
+  [data-theme="light"] .coach-seo a { color: var(--red); }
 </style>
-<!-- Geist is the universal site typeface (see css/ui.css). One face,
+<!-- Crimson Pro is the universal site typeface (see css/ui.css). One face,
      no italics, everything inherits it. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
 </head>
 <body>
+<div id="daTopbar"></div>
 
 <div class="coach-shell">
-  <div class="coach-eyebrow"><span class="dot"></span>AI debate coach · GPT Realtime</div>
-  <h1 class="coach-h1">Your AI debate coach. <span class="accent">Knows how you argue.</span></h1>
-  <p class="coach-sub">
-    Pick a drill. The AI debate coach runs it live, in voice, against the clock. It loads your
-    debater profile and the nightly read on your last fourteen days of rounds, so it knows your
-    format, your strengths, the moves you lean on, and the spots you hedge. Talk to it like a real second.
-  </p>
 
-  <div class="mem-row" id="memRow" aria-label="What the coach pulls in">
-    <span class="mem-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>Your debater profile</span>
-    <span class="mem-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>Last 14 days of rounds</span>
-    <span class="mem-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>Your home format</span>
+  <nav class="coach-crumb" aria-label="Breadcrumb"><a href="/">DebateIt</a> <span class="sep">&rsaquo;</span> <a href="/debate-it">Prep room</a> <span class="sep">&rsaquo;</span> <span>Coach</span></nav>
+
+  <div class="coach-top">
+    <div class="coach-eyebrow"><span class="dot"></span>AI debate coach · GPT Realtime</div>
+    <span class="status-pill" id="statusPill"><span class="live-dot"></span><span id="statusText">Warming up</span></span>
   </div>
+
+  <h1 class="coach-h1" id="greeting">Your AI debate coach is <span class="accent">ready.</span></h1>
+  <p class="read-line" id="readLine">Sign in and your AI debate coach reads your last fourteen days of rounds, then runs you through a live voice drill against the clock.</p>
 
   <div id="errorBox" class="error" role="alert"></div>
 
@@ -337,44 +501,71 @@
   </div>
 
   <div id="setup">
-    <!-- Drill picker -->
-    <div class="card">
-      <div class="card-head">
-        <h2>Pick a drill</h2>
-        <span class="card-note">Tap one</span>
-      </div>
-      <p class="card-sub">Each drill changes how the coach runs the session. Start open, or train one muscle hard.</p>
-      <div class="drill-grid" id="drillGrid" role="radiogroup" aria-label="Drill"></div>
+    <div class="workspace">
 
-      <div class="motion-wrap">
-        <label class="motion-label" for="motionInput">Working on a specific motion? (optional)</label>
-        <input id="motionInput" class="motion-input" type="text" maxlength="180"
-               placeholder="e.g. THW abolish the electoral college" autocomplete="off" />
-      </div>
-    </div>
-
-    <!-- Voice + pace -->
-    <div class="card">
-      <div class="seg-row">
-        <div>
-          <div class="seg-label">Coach voice</div>
-          <div class="seg" id="voiceSeg" role="radiogroup" aria-label="Coach voice">
-            <button type="button" data-gender="female" class="on">Female<span class="seg-sub">Calm, measured</span></button>
-            <button type="button" data-gender="male">Male<span class="seg-sub">Warm, varsity</span></button>
+      <!-- LEFT: the coach's read on you -->
+      <div class="ws-left">
+        <div class="card">
+          <div class="eyebrow-sm">What the coach knows</div>
+          <div class="knows">
+            <div class="knows-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg><span>Your <b>recent rounds</b></span></div>
+            <div class="knows-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg><span>Your <b>strongest format</b></span></div>
+            <div class="knows-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg><span>Your <b>recurring mistakes</b></span></div>
+            <div class="knows-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg><span>Your <b>judge feedback</b></span></div>
           </div>
         </div>
-        <div>
-          <div class="seg-label">Pace</div>
-          <div class="seg" id="paceSeg" role="radiogroup" aria-label="Coach pace">
-            <button type="button" data-speed="0.9">Measured<span class="seg-sub">Slower</span></button>
-            <button type="button" data-speed="1.0" class="on">Normal<span class="seg-sub">Default</span></button>
-            <button type="button" data-speed="1.15">Brisk<span class="seg-sub">Faster</span></button>
+
+        <div class="card">
+          <div class="card-head"><h2>What the coach sees</h2></div>
+          <div class="obs" id="obsList">
+            <div class="obs-empty">Reading your rounds…</div>
           </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>This week</h2><span class="plan-progress" id="planProgress"></span></div>
+          <div class="plan" id="planList"></div>
         </div>
       </div>
 
-      <button id="startBtn" class="start-btn" disabled>Loading…</button>
-      <div id="freeMeter" class="free-meter"></div>
+      <!-- RIGHT: the action -->
+      <div class="ws-right">
+        <div class="card">
+          <div class="card-head"><h2>What do you want to sharpen?</h2><span class="card-note">Tap one</span></div>
+          <p class="reco" id="recoNote">Pick what you want to drill. Each one changes how the coach runs the session.</p>
+          <div class="drill-grid" id="drillGrid" role="radiogroup" aria-label="Drill"></div>
+
+          <div class="motion-wrap">
+            <label class="motion-label" for="motionInput">Working on a specific motion? (optional)</label>
+            <input id="motionInput" class="motion-input" type="text" maxlength="180"
+                   placeholder="e.g. THW abolish the electoral college" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="seg-row">
+            <div>
+              <div class="seg-label">Coach voice</div>
+              <div class="seg" id="voiceSeg" role="radiogroup" aria-label="Coach voice">
+                <button type="button" data-gender="female" class="on">Female<span class="seg-sub">Calm, measured</span></button>
+                <button type="button" data-gender="male">Male<span class="seg-sub">Warm, varsity</span></button>
+              </div>
+            </div>
+            <div>
+              <div class="seg-label">Pace</div>
+              <div class="seg" id="paceSeg" role="radiogroup" aria-label="Coach pace">
+                <button type="button" data-speed="0.9">Measured<span class="seg-sub">Slower</span></button>
+                <button type="button" data-speed="1.0" class="on">Normal<span class="seg-sub">Default</span></button>
+                <button type="button" data-speed="1.15">Brisk<span class="seg-sub">Faster</span></button>
+              </div>
+            </div>
+          </div>
+
+          <button id="startBtn" class="start-btn" disabled>Loading…</button>
+          <div id="freeMeter" class="free-meter"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -418,8 +609,15 @@
   .coach-seo a{color:var(--text);text-decoration:underline;text-underline-offset:3px}
 </style>
 <section class="coach-seo" aria-label="About the AI debate coach">
+  <p style="font-size:.78rem;margin-bottom:22px"><a href="/" style="color:var(--red);font-weight:700;text-decoration:none">DebateIt</a> &rsaquo; <span style="color:var(--text-faint)">AI Debate Coach</span></p>
   <h2>The AI debate coach, explained</h2>
-  <p>An AI debate coach you can talk to out loud, any hour. It runs targeted drills, hears your speeches against a clock, and tells you exactly what to fix. The more rounds you run, the better it reads your style.</p>
+  <p>An AI debate coach you can talk to out loud, any hour. It runs targeted drills, hears your speeches against a clock, and tells you exactly what to fix. The more rounds you run, the better it reads your style. The coach is part of <a href="/">DebateIt</a>, a voice-first debate training platform with 15 formats, 6 AI brains, and a live sparring board.</p>
+
+  <h3 style="font-size:1.1rem;margin:28px 0 10px;color:var(--text)">Available drills</h3>
+  <p>The coach runs seven drill types, each targeting a different competitive skill: <strong>POI gauntlet</strong> (composure under interruption), <strong>rebuttal sprint</strong> (one-breath refutations), <strong>impact weighing</strong> (proving your harm outweighs), <strong>framework clash</strong> (defending your case philosophy), <strong>cross-examination</strong> (pinning opponents with rapid questions), <strong>steelman then break</strong> (building their best case, then taking it apart), and <strong>open spar</strong> (free-form practice on any motion).</p>
+
+  <h3 style="font-size:1.1rem;margin:28px 0 10px;color:var(--text)">The coach follows you across DebateIt</h3>
+  <p>A floating coach orb sits in the corner on every page. Click it to jump into a drill from wherever you are: the <a href="/debate-it">prep room</a>, the <a href="/spar">live sparring board</a>, or the <a href="/learn">fundamentals guide</a>. Finish a drill, close the session, and return to what you were doing. The coach remembers your last fourteen days of rounds and applies that context to every drill.</p>
 
   <div class="faq-q">What is an AI debate coach?</div>
   <p class="faq-a">A voice partner that runs targeted drills, hears your speeches against a clock, and gives instant feedback on structure, warrants, weighing, and delivery. DebateIt's coach loads your debater profile and recent rounds, so it knows your format and the moves you lean on.</p>
@@ -432,6 +630,8 @@
 
   <div class="faq-q">Which debate formats does the coach support?</div>
   <p class="faq-a">Public Forum, Lincoln-Douglas, Policy, British Parliamentary, APDA, Asian Parliamentary, World Schools, Congress, and MUN, plus career formats like mock trial, negotiation, and pitch defense. New to the formats? Start with the <a href="/learn">debate fundamentals guide</a>.</p>
+
+  <p style="margin-top:28px"><a href="/" style="font-weight:700">&larr; Back to DebateIt home</a></p>
 </section>
 
 <audio id="coachAudio" autoplay playsinline></audio>
@@ -459,17 +659,31 @@
   var DRILL_KEY  = 'debateai-coach-drill';
 
   // Drill catalog. Keys MUST match the DRILLS map in coach-session.mjs.
+  // Each carries plain-language framing (sub) + metadata so the page reads
+  // as training, not a feature list. `focus` keywords map a detected
+  // weakness from the profile to a recommended drill.
   var DRILLS = [
-    { key: 'open',      name: 'Open spar',         desc: 'You set the motion. Full back and forth.', tag: 'Default' },
-    { key: 'poi',       name: 'POI gauntlet',      desc: 'They hammer you with points. Take them, bat them away.' },
-    { key: 'rebuttal',  name: 'Rebuttal sprint',   desc: 'They give an argument. You get one breath to break it.' },
-    { key: 'framework', name: 'Framework clash',   desc: 'Definitions, burdens, the value debate before substance.' },
-    { key: 'impact',    name: 'Impact calculus',   desc: 'They make you weigh. Magnitude, probability, timeframe.' },
-    { key: 'crossex',   name: 'Cross-examination', desc: 'Rapid questions under pressure. No room to hide.' },
-    { key: 'steelman',  name: 'Steelman, then break', desc: 'Build their best case. Then take it apart.' },
+    { key: 'rebuttal',  name: 'Rebuttal sprint',   sub: 'Destroy arguments fast. One breath to break each one.', skill: 'Refutation', diff: 'Medium', time: '5 min', pressure: 'High',   focus: ['rebut','refut','respon to','answer the','line-by-line'] },
+    { key: 'impact',    name: 'Impact weighing',   sub: 'Prove your harm outweighs theirs.',                    skill: 'Weighing',   diff: 'Medium', time: '6 min', pressure: 'Medium', focus: ['weigh','impact','magnitude','outweigh','compar'] },
+    { key: 'poi',       name: 'POI gauntlet',      sub: 'Handle interruptions under pressure.',                 skill: 'Composure',  diff: 'Hard',   time: '6 min', pressure: 'High',   focus: ['poi','interrupt','point of info'] },
+    { key: 'framework', name: 'Framework clash',   sub: 'Defend the philosophy under your case.',               skill: 'Framing',    diff: 'Medium', time: '5 min', pressure: 'Medium', focus: ['frame','definition','burden','criterion','value'] },
+    { key: 'crossex',   name: 'Cross-examination', sub: 'Pin them down. Rapid questions, no hiding.',           skill: 'Questioning', diff: 'Hard',  time: '5 min', pressure: 'High',   focus: ['cross','question','c-x','cx'] },
+    { key: 'steelman',  name: 'Steelman, then break', sub: 'Build their best case, then take it apart.',        skill: 'Strategy',   diff: 'Hard',   time: '7 min', pressure: 'Medium', focus: ['hedge','commit','collapse','vague','signpost','structure','steelman'] },
+    { key: 'open',      name: 'Open spar',         sub: 'Free-form practice. You set the motion and side.',      skill: 'Everything', diff: 'Any',    time: 'Open',  pressure: 'Your call', tag: 'Default', focus: [] },
   ];
   var DRILL_NAMES = {};
   DRILLS.forEach(function(d){ DRILL_NAMES[d.key] = d.name; });
+
+  // This week's default training path (ordered). Tracked by ISO-ish week id
+  // in localStorage so progress survives reloads and resets each week.
+  var WEEK_PLAN = ['rebuttal', 'impact', 'framework'];
+  function weekId(){
+    var d = new Date();
+    var oneJan = new Date(d.getFullYear(), 0, 1);
+    var wk = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+    return d.getFullYear() + '-w' + wk;
+  }
+  var PLAN_KEY = 'debateai-coach-plan-' + weekId();
 
   var els = {
     setup:       document.getElementById('setup'),
@@ -499,6 +713,14 @@
     signin:      document.getElementById('signinState'),
     signinMsg:   document.getElementById('signinMsg'),
     signinBtn:   document.getElementById('signinBtn'),
+    statusPill:  document.getElementById('statusPill'),
+    statusText:  document.getElementById('statusText'),
+    greeting:    document.getElementById('greeting'),
+    readLine:    document.getElementById('readLine'),
+    obsList:     document.getElementById('obsList'),
+    planList:    document.getElementById('planList'),
+    planProgress: document.getElementById('planProgress'),
+    recoNote:    document.getElementById('recoNote'),
   };
   els.stage = document.querySelector('#live .stage');
 
@@ -506,20 +728,22 @@
     user: null, starting: false, pc: null, micStream: null, dc: null,
     partialUser: '', partialAgent: '', muted: false,
     audioCtx: null, analyser: null, raf: 0, timerId: 0, startedAt: 0,
+    recommended: '', // drill key the coach recommends from the profile
   };
 
   // ── Preference helpers ──────────────────────────────────────
   function lsGet(k, def){ try { var v = localStorage.getItem(k); return v == null ? def : v; } catch(e){ return def; } }
   function lsSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+  function lsRaw(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 
   function loadGender(){ var v = lsGet(GENDER_KEY, 'female'); return v === 'male' ? 'male' : 'female'; }
   function loadSpeed(){ var v = parseFloat(lsGet(SPEED_KEY, '1.0')); return (v >= 0.7 && v <= 1.4) ? v : 1.0; }
   function loadDrill(){
-    // URL ?drill= wins (deep-links from the FAB / landing), then localStorage.
+    // URL ?drill= wins (deep-links from the orb / landing), then localStorage.
     var fromUrl = '';
     try { fromUrl = new URLSearchParams(location.search).get('drill') || ''; } catch(e){}
-    var v = fromUrl || lsGet(DRILL_KEY, 'open');
-    return DRILL_NAMES[v] ? v : 'open';
+    var v = fromUrl || lsGet(DRILL_KEY, 'rebuttal');
+    return DRILL_NAMES[v] ? v : 'rebuttal';
   }
 
   // ── Build the drill picker ──────────────────────────────────
@@ -532,9 +756,12 @@
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', d.key === active ? 'true' : 'false');
       b.setAttribute('data-drill', d.key);
-      b.innerHTML = '<span class="drill-name">' + d.name + '</span>'
-                  + '<span class="drill-desc">' + d.desc + '</span>'
-                  + (d.tag ? '<span class="drill-tag">' + d.tag + '</span>' : '');
+      var reco = (d.key === state.recommended) ? '<span class="drill-reco">Recommended for you</span>' : '';
+      b.innerHTML =
+        reco +
+        '<span class="drill-name">' + d.name + '</span>' +
+        '<span class="drill-sub">' + d.sub + '</span>' +
+        '<span class="drill-meta">' + d.skill + '  ·  ' + d.diff + '  ·  ' + d.time + '  ·  ' + d.pressure + ' pressure</span>';
       b.addEventListener('click', function(){
         lsSet(DRILL_KEY, d.key);
         paintDrills(d.key);
@@ -543,6 +770,31 @@
     });
   }
   paintDrills(loadDrill());
+
+  // ── This week's training path ───────────────────────────────
+  function planDone(){ try { return JSON.parse(lsRaw(PLAN_KEY) || '[]') || []; } catch(e){ return []; } }
+  function markPlanDone(key){
+    if (WEEK_PLAN.indexOf(key) === -1) return;
+    var done = planDone();
+    if (done.indexOf(key) === -1) { done.push(key); lsSet(PLAN_KEY, JSON.stringify(done)); }
+  }
+  function paintPlan(){
+    var done = planDone();
+    els.planList.innerHTML = '';
+    WEEK_PLAN.forEach(function(key, i){
+      var d = DRILLS.filter(function(x){ return x.key === key; })[0];
+      if (!d) return;
+      var isDone = done.indexOf(key) !== -1;
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'plan-row' + (isDone ? ' done' : '');
+      row.innerHTML = '<span class="plan-num">' + (isDone ? '✓' : (i + 1)) + '</span><span class="plan-label">' + d.name + '</span>';
+      row.addEventListener('click', function(){ lsSet(DRILL_KEY, key); paintDrills(key); try { els.drillGrid.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch(e){} });
+      els.planList.appendChild(row);
+    });
+    els.planProgress.textContent = done.filter(function(k){ return WEEK_PLAN.indexOf(k) !== -1; }).length + '/' + WEEK_PLAN.length;
+  }
+  paintPlan();
 
   // ── Segmented controls ──────────────────────────────────────
   function wireSeg(seg, attr, storeKey, onPick){
@@ -555,22 +807,26 @@
       });
     });
   }
-  function paintSeg(seg, attr, val){
-    Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
-      b.classList.toggle('on', b.getAttribute(attr) === String(val));
-    });
-  }
   wireSeg(els.voiceSeg, 'data-gender', GENDER_KEY);
   wireSeg(els.paceSeg, 'data-speed', SPEED_KEY);
-  paintSeg(els.voiceSeg, 'data-gender', loadGender());
-  paintSeg(els.paceSeg, 'data-speed', loadSpeed().toFixed(2).replace(/0$/,'').replace(/\.$/,''));
-  // Normalize the pace button match (stored "1" vs "1.0" vs "1.15").
   (function(){
+    var g = loadGender();
+    Array.prototype.forEach.call(els.voiceSeg.querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-gender') === g); });
     var s = loadSpeed();
-    Array.prototype.forEach.call(els.paceSeg.querySelectorAll('button'), function(b){
-      b.classList.toggle('on', Math.abs(parseFloat(b.getAttribute('data-speed')) - s) < 0.001);
-    });
+    Array.prototype.forEach.call(els.paceSeg.querySelectorAll('button'), function(b){ b.classList.toggle('on', Math.abs(parseFloat(b.getAttribute('data-speed')) - s) < 0.001); });
   })();
+
+  // ── Status pill + greeting helpers ──────────────────────────
+  function setStatus(kind, text){
+    els.statusPill.classList.toggle('online', kind === 'online');
+    els.statusText.textContent = text;
+  }
+  function timeGreeting(){
+    var h = new Date().getHours();
+    return h < 12 ? 'Good morning' : (h < 18 ? 'Good afternoon' : 'Good evening');
+  }
+  function firstName(name){ return (name || '').trim().split(/\s+/)[0] || ''; }
+  function clampList(arr, n){ return (Array.isArray(arr) ? arr : []).map(function(s){ return String(s || '').trim(); }).filter(Boolean).slice(0, n); }
 
   // ── Auth state ──────────────────────────────────────────────
   function updateAuthUi(user) {
@@ -582,6 +838,8 @@
       els.signinBtn.hidden = true;
       els.startBtn.disabled = false;
       els.startBtn.textContent = 'Start the drill';
+      els.greeting.innerHTML = timeGreeting() + (firstName(user.displayName) ? ', <span class="accent">' + firstName(user.displayName) + '.</span>' : '<span class="accent"> coach.</span>');
+      loadProfile(user);
     } else {
       els.signin.hidden = false;
       els.signin.classList.add('unauthed');
@@ -589,6 +847,10 @@
       els.signinBtn.hidden = false;
       els.startBtn.disabled = true;
       els.startBtn.textContent = 'Sign in to start';
+      setStatus('off', 'Signed out');
+      els.greeting.innerHTML = 'Your AI debate coach is <span class="accent">ready.</span>';
+      els.readLine.textContent = 'Sign in and your AI debate coach reads your last fourteen days of rounds, then runs you through a live voice drill against the clock.';
+      els.obsList.innerHTML = '<div class="obs-empty">Sign in and I\'ll show you what your last rounds reveal.</div>';
     }
   }
   updateAuthUi(null);
@@ -606,6 +868,95 @@
       catch (e) { showError('Sign-in failed: ' + (err.message || err.code || 'unknown')); }
     });
   });
+
+  // ── Load the user's profile + fingerprint and render the read ──
+  // Reads the user's OWN docs only (rules permit self-reads). Any failure
+  // degrades gracefully to an honest empty state — never fabricated stats.
+  async function loadProfile(user){
+    setStatus('reading', 'Reading your last rounds…');
+    var profile = {}, fingerprint = '';
+    try {
+      if (firebase.firestore) {
+        var snap = await firebase.firestore().collection('user_profiles').doc(user.uid).get();
+        if (snap.exists) profile = snap.data() || {};
+        try {
+          var fp = await firebase.firestore().collection('user_fingerprints').doc(user.uid).get();
+          if (fp.exists) fingerprint = String((fp.data() || {}).fingerprint || '');
+        } catch (e) {}
+      }
+    } catch (e) { console.warn('[coach] profile read failed:', e.message); }
+    renderRead(user, profile, fingerprint);
+  }
+
+  function renderRead(user, profile, fingerprint){
+    var dp = profile.debaterProfile || {};
+    var strengths  = clampList(dp.strengths, 3);
+    var weaknesses = clampList(dp.weaknesses, 3);
+    var format = String(profile.preferredFormat || '').trim();
+    var hasData = strengths.length || weaknesses.length || format || fingerprint;
+
+    // Recommend a drill from the first weakness.
+    state.recommended = weaknesses.length ? recommendDrill(weaknesses[0]) : '';
+
+    // Status + read line.
+    setStatus('online', 'Coach online');
+    if (hasData) {
+      var bits = [];
+      if (format) bits.push('Home format <b>' + esc(format) + '</b>');
+      if (strengths.length) bits.push('strongest at <b>' + esc(strengths[0]) + '</b>');
+      if (weaknesses.length) bits.push('still costing you <b>' + esc(weaknesses[0]) + '</b>');
+      els.readLine.innerHTML = bits.length ? ('Reading your last rounds: ' + bits.join(', ') + '.') : 'I have your profile loaded. Pick a drill and let\'s work.';
+    } else {
+      els.readLine.textContent = 'I have not watched you debate yet. Run a drill and I\'ll start learning your game.';
+    }
+
+    // Observations panel.
+    var rows = [];
+    strengths.forEach(function(s){ rows.push(['good', 'Strong', s]); });
+    weaknesses.forEach(function(w){ rows.push(['watch', 'Watch', w]); });
+    if (format) rows.push(['note', 'Format', format]);
+    if (!rows.length && fingerprint) {
+      // Fingerprint is free text — surface the first sentence or two.
+      var fsent = fingerprint.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ').slice(0, 220);
+      if (fsent) rows.push(['note', 'Style', fsent]);
+    }
+    if (rows.length) {
+      els.obsList.innerHTML = '';
+      rows.slice(0, 6).forEach(function(r){
+        var div = document.createElement('div');
+        div.className = 'obs-row';
+        div.innerHTML = '<span class="obs-k ' + r[0] + '">' + r[1] + '</span><span>' + esc(r[2]) + '</span>';
+        els.obsList.appendChild(div);
+      });
+    } else {
+      els.obsList.innerHTML = '<div class="obs-empty">Nothing logged yet. Your first few drills teach me how you argue, then this fills in with what you do well and what keeps costing you ballots.</div>';
+    }
+
+    // Recommendation note + preselect the recommended drill on a fresh visit
+    // (no explicit prior choice). Existing choices are respected.
+    if (state.recommended && DRILL_NAMES[state.recommended]) {
+      var rd = DRILLS.filter(function(x){ return x.key === state.recommended; })[0];
+      els.recoNote.innerHTML = 'Based on your last rounds, start with <span class="reco-pill">' + esc(rd.name) + '</span>. ' + esc(rd.sub);
+      var hadChoice = false;
+      try { hadChoice = !!(new URLSearchParams(location.search).get('drill')) || lsRaw(DRILL_KEY) != null; } catch(e){}
+      if (!hadChoice) { lsSet(DRILL_KEY, state.recommended); paintDrills(state.recommended); }
+      else { paintDrills(loadDrill()); }
+    } else {
+      paintDrills(loadDrill());
+    }
+  }
+
+  // Map a free-text weakness to the drill that trains it.
+  function recommendDrill(weakness){
+    var t = (weakness || '').toLowerCase();
+    for (var i = 0; i < DRILLS.length; i++) {
+      var f = DRILLS[i].focus || [];
+      for (var j = 0; j < f.length; j++) { if (t.indexOf(f[j]) !== -1) return DRILLS[i].key; }
+    }
+    return 'rebuttal';
+  }
+
+  function esc(s){ var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
 
   function showError(msg) {
     els.error.textContent = msg;
@@ -901,6 +1252,7 @@
     els.signin.style.display = '';
     els.startBtn.disabled = !state.user;
     els.startBtn.textContent = state.user ? 'Start the drill' : 'Sign in to start';
+    paintPlan();
   }
 
   // Full reset used by start-error paths.
@@ -927,6 +1279,8 @@
     var rows = readTranscript();
     var userTurns = 0;
     for (var i = 0; i < rows.length; i++) if (rows[i].who === 'YOU') userTurns++;
+    // A real drill happened → count it toward this week's plan.
+    if (userTurns >= 1) markPlanDone(loadDrill());
     if (!state.user || rows.length < 2 || userTurns < 1) { resetToSetup(); return; }
 
     if (els.stage) els.stage.style.display = 'none';

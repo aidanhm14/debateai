@@ -45,11 +45,11 @@
 <meta property="og:url" content="https://debateai.com/voice-debate">
 <meta property="og:title" content="Voice round · Debate it out loud · DebateIt">
 <meta property="og:description" content="Talk to a debater. Interrupt them. Get the judge's verdict. Real-time voice, 16 personas, judging matched to your format.">
-<meta property="og:image" content="https://debateai.com/og-image.png?v=adjudicate1">
+<meta property="og:image" content="https://debateai.com/og-voice.png?v=cards3">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Voice round · Debate it out loud · DebateIt">
 <meta name="twitter:description" content="Talk to a debater. Interrupt them. Get the judge's verdict. Real-time voice debate.">
-<meta name="twitter:image" content="https://debateai.com/og-image.png?v=adjudicate1">
+<meta name="twitter:image" content="https://debateai.com/og-voice.png?v=cards3">
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -85,7 +85,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%;width:100%}
 body{
-  font-family:'Geist','Fraunces',Georgia,"Times New Roman",serif;
+  font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;
   /* 2026-05-19 PM: was #06060c — read as "demonic scary" dead black
      against the red orb. Warmed to #0f0a16 (deep plum-black) so the
      page has some body to it. Text bumped too (#e6e6ee → #f1f1f7)
@@ -805,6 +805,235 @@ input[type=text]:focus,select:focus,textarea:focus{
   transition:background .08s, height .08s;
 }
 .miclevel .bar.on{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.4)}
+
+/* ── ARENA (broadcast redesign 2026-06-15) ─────────────────────────
+   The live view is rebuilt as a two-entities-facing-off arena instead
+   of a centered orb with decorative bookends. Layout: a pinned motion
+   up top, a persistent round-phase timeline, then a 3-zone stage —
+   YOU (left) · live core (center) · AI (right) — over a slow idea-field
+   background, with a broadcast timing strip beneath. The center column
+   KEEPS the .stage class so the existing orb-glow / speaker-label /
+   timer / phase-pill / speech-ctrl rules still apply; everything else
+   is new and namespaced under .arena. Register: cinematic + alive but
+   restrained (F1 timing screen / chess.com live), not an esports HUD.
+   The two debaters are the existing line-art portraits (debaterFigure)
+   wrapped in a reactive abstract energy field — figure as the dignified
+   anchor, energy as the part that pulses, leans, and spikes. */
+.arena{ position:relative; isolation:isolate; }
+/* Widen the whole room when a round is live — the arena, the controls,
+   and the supporting cards all get the broadcast-width shell. The
+   transcript/controls cards stay capped to a readable measure so only
+   the stage itself goes full broadcast width (the page should feel like
+   software you stepped into, not a centered widget). */
+.shell.shell--arena{ max-width:min(1680px, calc(100vw - 32px)); }
+.shell.shell--arena .card{ max-width:1080px; margin-left:auto; margin-right:auto; }
+.shell.shell--arena .live-controls{ max-width:1080px; margin-left:auto; margin-right:auto; }
+
+/* Slow idea-network field behind the top of the arena. Two drifting
+   accent blobs (user-green + ai-red) over a masked dot grid, low
+   opacity so it reads as ambient depth, never decoration that competes
+   with the orb. Sits at z-index:-1 inside the arena's isolate context. */
+.arena__bg{
+  position:absolute; inset:-2px;
+  z-index:-1; overflow:hidden; border-radius:20px; pointer-events:none;
+}
+.arena__bg::before{
+  content:''; position:absolute; inset:-30%;
+  background:
+    radial-gradient(36% 42% at 22% 28%, rgba(239,68,68,.11), transparent 70%),
+    radial-gradient(36% 42% at 80% 70%, rgba(34,197,94,.07), transparent 70%);
+  animation:arenaDrift 28s ease-in-out infinite alternate;
+}
+.arena__bg::after{
+  content:''; position:absolute; inset:0; opacity:.45;
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1.5px);
+  background-size:32px 32px;
+  -webkit-mask-image:radial-gradient(ellipse 72% 68% at 50% 38%, #000 28%, transparent 76%);
+          mask-image:radial-gradient(ellipse 72% 68% at 50% 38%, #000 28%, transparent 76%);
+}
+@keyframes arenaDrift{ 0%{transform:translate3d(-2%,-1%,0) scale(1)} 100%{transform:translate3d(3%,2%,0) scale(1.07)} }
+
+/* Pinned motion — the round revolves around it, so it leads, centered
+   and large, always at the top of the frame. This is the thing being
+   debated; it should be impossible to miss. */
+.arena-motion{ text-align:center; max-width:1180px; margin:0 auto; padding:6px 20px 0; }
+.arena-motion .eyebrow{ font-size:.66rem; letter-spacing:.4em; text-transform:uppercase; color:#fca5a5; font-weight:800; }
+.arena-motion .text{ font-size:clamp(1.6rem,3.6vw,3rem); line-height:1.12; color:#f6f6fb; font-weight:700; letter-spacing:-.022em; margin-top:10px; text-wrap:balance; }
+
+/* Round-phase timeline — persistent stepper. Past speeches read done,
+   the current one glows (green if it's the user's speech, red if the
+   AI's), upcoming ones stay dim. Makes the round feel structured even
+   before a word is spoken. */
+.phase-timeline{ display:flex; align-items:flex-start; justify-content:center; flex-wrap:wrap; max-width:1240px; margin:18px auto 4px; padding:0 16px; }
+.phase-step{ display:flex; align-items:flex-start; }
+.phase-step__pill{ display:flex; flex-direction:column; align-items:center; gap:7px; padding:0 7px; min-width:64px; }
+.phase-step__dot{ width:12px; height:12px; border-radius:50%; background:rgba(255,255,255,.16); border:1.5px solid transparent; transition:background .35s, box-shadow .35s, border-color .35s; }
+.phase-step__label{ font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; font-weight:800; color:#6f6f80; transition:color .35s; white-space:nowrap; }
+.phase-step__bar{ width:clamp(24px,3vw,54px); height:2px; margin-top:5px; background:rgba(255,255,255,.1); border-radius:2px; transition:background .35s; }
+.phase-step.is-done .phase-step__dot{ background:rgba(255,255,255,.42); }
+.phase-step.is-done .phase-step__label{ color:#9a9aab; }
+.phase-step.is-done .phase-step__bar{ background:rgba(255,255,255,.3); }
+.phase-step.is-now .phase-step__dot{ background:#ef4444; border-color:rgba(239,68,68,.4); animation:phaseNow 1.9s ease-in-out infinite; }
+.phase-step.is-now .phase-step__label{ color:#fecaca; }
+.phase-step.is-now.is-user .phase-step__dot{ background:#22c55e; border-color:rgba(34,197,94,.4); animation:phaseNowU 1.9s ease-in-out infinite; }
+.phase-step.is-now.is-user .phase-step__label{ color:#86efac; }
+@keyframes phaseNow{ 0%,100%{box-shadow:0 0 0 4px rgba(239,68,68,.15),0 0 13px rgba(239,68,68,.5)} 50%{box-shadow:0 0 0 7px rgba(239,68,68,.05),0 0 20px rgba(239,68,68,.85)} }
+@keyframes phaseNowU{ 0%,100%{box-shadow:0 0 0 4px rgba(34,197,94,.15),0 0 13px rgba(34,197,94,.5)} 50%{box-shadow:0 0 0 7px rgba(34,197,94,.05),0 0 20px rgba(34,197,94,.85)} }
+
+/* Three-zone stage. YOU and AI flank the live core on desktop; on
+   tablet they sit in a row above the core; on phone the same, tighter. */
+.arena-stage{ display:grid; gap:clamp(18px,3.2vw,56px); align-items:center; grid-template-columns:minmax(0,1fr) minmax(0,1.16fr) minmax(0,1fr); grid-template-areas:"you core ai"; width:100%; margin:6px auto 0; }
+.player--you{ grid-area:you; margin-right:auto; } .player--ai{ grid-area:ai; margin-left:auto; } .arena-core{ grid-area:core; }
+@media(max-width:900px){ .arena-stage{ grid-template-columns:1fr 1fr; grid-template-areas:"you ai" "core core"; gap:16px; } .player--you,.player--ai{ margin:0; } }
+
+/* Entity card. --pc is the side's accent as "r,g,b" so one token drives
+   border, glow, status, and energy. Calm by default; lights up and
+   lifts when this side has the floor. */
+.player{ position:relative; --pc:239,68,68; display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px 18px 22px; border-radius:18px; width:100%; max-width:460px; background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012)); border:1px solid rgba(255,255,255,.07); transition:border-color .4s, box-shadow .4s, transform .35s, opacity .4s, filter .4s, background .4s; }
+.player--you{ --pc:34,197,94; } .player--ai{ --pc:239,68,68; }
+.player.is-listening{ opacity:.7; filter:saturate(.82); }
+.player.is-speaking{ border-color:rgba(var(--pc),.55); box-shadow:0 0 0 1px rgba(var(--pc),.28), 0 22px 60px -22px rgba(var(--pc),.9); background:linear-gradient(180deg,rgba(var(--pc),.12),rgba(var(--pc),.02)); transform:translateY(-3px) scale(1.035); }
+.player.is-thinking{ border-color:rgba(var(--pc),.34); background:linear-gradient(180deg,rgba(var(--pc),.05),rgba(255,255,255,.012)); }
+.player__top{ display:flex; flex-direction:column; align-items:center; gap:1px; }
+.player__name{ font-size:1.18rem; font-weight:800; letter-spacing:-.015em; color:#f3f3f8; }
+.player__role{ font-size:.62rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:rgb(var(--pc)); opacity:.92; }
+.player__viz{ position:relative; width:100%; height:200px; display:grid; place-items:center; }
+@media(max-width:560px){ .player__viz{ height:118px; } }
+.player__viz .stage-debater{ position:static; bottom:auto; left:auto; right:auto; width:auto; height:178px; opacity:.95; z-index:1; filter:drop-shadow(0 8px 18px rgba(0,0,0,.45)); }
+@media(max-width:560px){ .player__viz .stage-debater{ height:104px; } }
+/* Abstract reactive energy wrapped around the portrait. Idle: a slow
+   breathing core glow (always alive). Speaking: the glow brightens and
+   two rings pulse outward. */
+.player__energy{ position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; z-index:0; }
+.player__energy::before{ content:''; position:absolute; width:172px; height:172px; border-radius:50%; background:radial-gradient(circle, rgba(var(--pc),.30), transparent 66%); filter:blur(2px); opacity:.5; transition:opacity .4s; animation:energyBreath 4.6s ease-in-out infinite; }
+.player.is-speaking .player__energy::before{ opacity:1; animation-duration:1.7s; }
+.player.is-thinking .player__energy::before{ opacity:.8; animation-duration:2.6s; }
+.player__ring{ position:absolute; width:134px; height:134px; border-radius:50%; border:1.5px solid rgba(var(--pc),.5); opacity:0; }
+.player.is-speaking .player__ring{ animation:energyRing 1.9s ease-out infinite; }
+.player.is-speaking .player__ring:nth-of-type(2){ animation-delay:.95s; }
+@keyframes energyRing{ 0%{transform:scale(.58); opacity:.6} 70%{opacity:.16} 100%{transform:scale(1.75); opacity:0} }
+@keyframes energyBreath{ 0%,100%{transform:scale(.9)} 50%{transform:scale(1.06)} }
+/* Status chip — the at-a-glance state for this side. */
+.player__status{ display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px; font-size:.57rem; letter-spacing:.14em; text-transform:uppercase; font-weight:800; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:#a9a9b8; transition:background .35s, border-color .35s, color .35s; }
+.player__status .pulse{ width:6px; height:6px; border-radius:50%; background:currentColor; }
+.player.is-speaking .player__status{ background:rgba(var(--pc),.16); border-color:rgba(var(--pc),.5); color:rgb(var(--pc)); }
+.player.is-speaking .player__status .pulse{ animation:dotPulse 1s ease-in-out infinite; box-shadow:0 0 8px rgba(var(--pc),.9); }
+.player.is-thinking .player__status{ background:rgba(var(--pc),.1); border-color:rgba(var(--pc),.34); color:rgba(var(--pc),.95); }
+.player.is-challenged .player__status{ background:rgba(251,191,36,.16); border-color:rgba(251,191,36,.5); color:#fcd34d; }
+@keyframes dotPulse{ 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.4; transform:scale(.65)} }
+/* AI composing — forming-argument nodes (a reasoning map building). */
+.thinking-nodes{ display:flex; align-items:center; gap:5px; height:13px; }
+.thinking-nodes i{ width:6px; height:6px; border-radius:50%; background:rgba(var(--pc),.85); animation:nodePop 1.15s ease-in-out infinite; }
+.thinking-nodes i:nth-child(2){ animation-delay:.16s } .thinking-nodes i:nth-child(3){ animation-delay:.32s } .thinking-nodes i:nth-child(4){ animation-delay:.48s }
+@keyframes nodePop{ 0%,100%{opacity:.22; transform:translateY(0) scale(.8)} 40%{opacity:1; transform:translateY(-4px) scale(1.1)} }
+
+/* Center core lives on .stage (existing rules) + adds the judge node.
+   The center is where the debate actually happens, so it dominates the
+   frame: a big orb, a big timer, and a clear judge presence above. */
+.arena-core{ position:relative; }
+.arena-core.stage{ padding:14px 14px 16px; }
+.arena-core canvas.orb{ width:360px; height:360px; }
+@media(max-width:1180px){ .arena-core canvas.orb{ width:300px; height:300px; } }
+@media(max-width:560px){ .arena-core canvas.orb{ width:208px; height:208px; } }
+/* .arena-core.stage prefix (0,3,0) so these win over the later, equal-
+   specificity .stage .timer / .stage .label rules further down the sheet. */
+.arena-core.stage .label{ margin-top:14px; font-size:.78rem; }
+.arena-core.stage .timer{ font-size:clamp(2rem,2.7vw,2.85rem); margin-top:10px; }
+.arena-core.stage .timer .total{ font-size:1rem; }
+.arena-core.stage .phase-row{ font-size:.72rem; margin-top:16px; }
+[data-theme="light"] .arena-core.stage .timer, [data-theme="stone"] .arena-core.stage .timer{ color:#1a1a1f; }
+[data-theme="light"] .arena-core.stage .timer .total, [data-theme="stone"] .arena-core.stage .timer .total{ color:#6a6a72; }
+[data-theme="light"] .arena-core.stage .label, [data-theme="stone"] .arena-core.stage .label{ color:#52525b; text-shadow:none; }
+.judge-node{ display:inline-flex; align-items:center; gap:9px; margin-bottom:10px; padding:7px 15px; border-radius:999px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); }
+.judge-node .eye{ width:10px; height:10px; border-radius:50%; background:radial-gradient(circle,#fff 0 32%,#93c5fd 33% 100%); box-shadow:0 0 8px rgba(147,197,253,.5); animation:judgeBlink 5.5s ease-in-out infinite; }
+.judge-node .jl{ font-size:.6rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#d6d6e0; }
+.judge-node .js{ font-size:.6rem; letter-spacing:.04em; color:#8a8a98; font-weight:600; }
+@keyframes judgeBlink{ 0%,92%,100%{transform:scaleY(1)} 95%{transform:scaleY(.12)} }
+
+/* Broadcast timing strip — the full-width bottom bar. Interrupts ·
+   talk split · round clock (+ current speech in a full round). Spans
+   the room so it reads as an integrated broadcast HUD, not a footnote. */
+.timing-strip{ display:flex; align-items:center; justify-content:center; flex-wrap:wrap; max-width:1240px; width:100%; margin:20px auto 0; padding:14px 10px; border-radius:14px; background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.06); }
+.timing-cell{ display:flex; flex-direction:column; align-items:center; gap:5px; padding:4px 20px; flex:1; min-width:110px; }
+.timing-cell + .timing-cell{ border-left:1px solid rgba(255,255,255,.07); }
+.timing-cell .tv{ font-family:'JetBrains Mono',monospace; font-size:1.35rem; font-weight:700; color:#f1f1f7; font-variant-numeric:tabular-nums; }
+.timing-cell .tl{ font-size:.56rem; letter-spacing:.14em; text-transform:uppercase; color:#8a8a98; font-weight:700; }
+.split-bar{ width:clamp(96px,12vw,150px); height:8px; border-radius:4px; overflow:hidden; background:rgba(34,197,94,.55); display:flex; justify-content:flex-end; }
+.split-bar i{ height:100%; background:rgba(239,68,68,.88); transition:width .6s ease; }
+
+/* Argument flow — the exchange as it builds. Each real turn is a node,
+   you (green) vs AI (red), oldest left / newest right, joined by links.
+   Driven by the live `turns`, so it grows through the round and fills the
+   width the wide arena opens up. Hidden until a real exchange exists. */
+.exchange-wrap{ width:100%; margin-top:20px; }
+.exchange-head{ text-align:center; font-size:.56rem; letter-spacing:.26em; text-transform:uppercase; color:#7a7a8a; font-weight:800; margin-bottom:10px; }
+.exchange-flow{ display:flex; align-items:flex-start; justify-content:center; flex-wrap:nowrap; gap:0; max-width:1240px; width:100%; margin:0 auto; padding:0 16px; overflow-x:auto; }
+.exchange-node{ display:flex; flex-direction:column; align-items:center; gap:7px; flex:0 0 auto; width:clamp(98px,12vw,156px); }
+.exchange-node__dot{ width:13px; height:13px; border-radius:50%; flex:0 0 auto; }
+.exchange-node.you .exchange-node__dot{ background:#22c55e; box-shadow:0 0 11px rgba(34,197,94,.55); }
+.exchange-node.ai .exchange-node__dot{ background:#ef4444; box-shadow:0 0 11px rgba(239,68,68,.55); }
+.exchange-node__who{ font-size:.5rem; letter-spacing:.14em; text-transform:uppercase; font-weight:800; }
+.exchange-node.you .exchange-node__who{ color:#86efac; }
+.exchange-node.ai .exchange-node__who{ color:#fca5a5; }
+.exchange-node__text{ font-size:.64rem; line-height:1.32; color:#9a9aab; text-align:center; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.exchange-link{ flex:0 0 auto; width:clamp(14px,2.4vw,42px); height:2px; margin-top:6px; background:linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.22), rgba(255,255,255,.05)); }
+@media(max-width:560px){ .exchange-node{ width:90px; } }
+
+/* Interrupt shock — the room reacts when the user cuts the AI off. */
+.arena__shock{ position:absolute; inset:-2px; border-radius:20px; z-index:3; pointer-events:none; opacity:0; background:radial-gradient(ellipse 60% 50% at 78% 38%, rgba(239,68,68,.5), transparent 60%); mix-blend-mode:screen; }
+.arena.is-shock .arena__shock{ animation:shockFlash .72s ease-out; }
+@keyframes shockFlash{ 0%{opacity:0} 12%{opacity:1} 100%{opacity:0} }
+.arena.is-shock .player--ai{ animation:aiRecoil .72s ease-out; }
+@keyframes aiRecoil{ 0%{transform:none} 16%{transform:translateX(7px) rotate(.7deg)} 100%{transform:none} }
+
+/* Entrance ceremony — opponent steps up + 3-2-1 over the stage. */
+.arena-curtain{ position:absolute; inset:-2px; z-index:5; border-radius:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; text-align:center; background:radial-gradient(ellipse at 50% 38%, rgba(22,9,11,.84), rgba(8,6,12,.96)); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); animation:curtainIn .4s ease-out; }
+.arena-curtain__eyebrow{ font-size:.62rem; letter-spacing:.42em; text-transform:uppercase; color:#fca5a5; font-weight:800; }
+.arena-curtain__vs{ display:flex; align-items:center; gap:20px; }
+.arena-curtain__side{ display:flex; flex-direction:column; align-items:center; gap:4px; animation:vsIn .55s cubic-bezier(.2,.8,.2,1) both; }
+.arena-curtain__side.r{ animation-delay:.12s; }
+.arena-curtain__side .nm{ font-size:1.2rem; font-weight:800; color:#fff; letter-spacing:-.01em; }
+.arena-curtain__side .rl{ font-size:.56rem; letter-spacing:.16em; text-transform:uppercase; font-weight:800; }
+.arena-curtain__side.l .rl{ color:#86efac; } .arena-curtain__side.r .rl{ color:#fca5a5; }
+.arena-curtain__vsmark{ font-size:.82rem; font-weight:800; color:#7a7a8a; letter-spacing:.12em; }
+.arena-curtain__count{ font-family:'JetBrains Mono',monospace; font-size:3.6rem; font-weight:700; color:#fff; line-height:1; text-shadow:0 0 32px rgba(239,68,68,.6); }
+.arena-curtain__count span{ display:inline-block; animation:countPop .82s ease-out; }
+@keyframes curtainIn{ from{opacity:0} to{opacity:1} }
+@keyframes vsIn{ from{opacity:0; transform:translateY(9px) scale(.95)} to{opacity:1; transform:none} }
+@keyframes countPop{ 0%{opacity:0; transform:scale(1.7)} 28%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(.82)} }
+
+@media(max-width:560px){
+  .phase-step__bar{ display:none; }
+  .phase-timeline{ gap:7px; margin-top:12px; }
+  .timing-cell{ min-width:84px; padding:2px 10px; }
+  .arena-curtain__count{ font-size:2.8rem; }
+}
+
+/* Accessibility — calm the looping motion for reduced-motion users.
+   State transitions (border, glow, color) still read; only the endless
+   pulses stop. */
+@media (prefers-reduced-motion: reduce){
+  .arena__bg::before, .player__energy::before, .player.is-speaking .player__ring,
+  .phase-step.is-now .phase-step__dot, .phase-step.is-now.is-user .phase-step__dot,
+  .player.is-speaking .player__status .pulse, .thinking-nodes i, .judge-node .eye{
+    animation:none !important;
+  }
+}
+
+/* Light / stone theme — flip surfaces brighter than the cream page so
+   the cards and strip read (matches the dark-on-cream logic the rest of
+   the page uses). The portraits already swap to dark ink on light. */
+[data-theme="light"] .player, [data-theme="stone"] .player{ background:linear-gradient(180deg,#ffffff,#fbfaf5); border-color:rgba(0,0,0,.1); }
+[data-theme="light"] .player__name, [data-theme="stone"] .player__name{ color:#1a1a1f; }
+[data-theme="light"] .arena-motion .text, [data-theme="stone"] .arena-motion .text{ color:#1a1a1f; }
+[data-theme="light"] .timing-strip, [data-theme="stone"] .timing-strip{ background:#fff; border-color:rgba(0,0,0,.1); }
+[data-theme="light"] .timing-cell .tv, [data-theme="stone"] .timing-cell .tv{ color:#1a1a1f; }
+[data-theme="light"] .timing-cell + .timing-cell, [data-theme="stone"] .timing-cell + .timing-cell{ border-color:rgba(0,0,0,.08); }
+[data-theme="light"] .phase-step__label, [data-theme="stone"] .phase-step__label{ color:#64646e; }
+[data-theme="light"] .judge-node, [data-theme="stone"] .judge-node{ background:#fff; border-color:rgba(0,0,0,.1); }
+[data-theme="light"] .judge-node .jl, [data-theme="stone"] .judge-node .jl{ color:#1a1a1f; }
+[data-theme="light"] .exchange-node__text, [data-theme="stone"] .exchange-node__text{ color:#475569; }
+[data-theme="light"] .exchange-head, [data-theme="stone"] .exchange-head{ color:#5a5a64; }
 
 /* ── Transcript ───────────────────────────────────── */
 /* Action buttons in the transcript card header (Copy / .txt). Sized
@@ -2447,7 +2676,7 @@ html[data-theme="light"] .interrupts-row,
 html[data-theme="light"] .live-clock,
 html[data-theme="light"] .live-speaker{color:#1a1a1f}
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
 <body>
 <div class="bg" aria-hidden="true"></div>
@@ -2464,7 +2693,7 @@ html[data-theme="light"] .live-speaker{color:#1a1a1f}
        them a real H1, the five voice modes, the persona list, and an
        example RFD. React replaces the whole root on mount, so human
        users see the live voice interface. -->
-  <main class="seo-fallback" style="max-width:880px;margin:0 auto;padding:80px 28px;color:#e5e5ea;font-family:'Geist','Inter',system-ui,sans-serif;position:relative;z-index:1">
+  <main class="seo-fallback" style="max-width:880px;margin:0 auto;padding:80px 28px;color:#e5e5ea;font-family:'Crimson Pro','Inter',system-ui,sans-serif;position:relative;z-index:1">
     <h1 style="font-size:1.9rem;line-height:1.2;margin:0 0 18px;font-weight:800;color:#fff">Live voice debate against an AI opponent.</h1>
     <p style="font-size:1.05rem;line-height:1.6;color:#c5c5cf;margin:0 0 16px">Speak your speech under the clock. The AI listens, interrupts, takes points of information, and gives you the next speech in real time. The model thinks in voice, not in transcripts, so the back-and-forth feels like a real round.</p>
 
@@ -3333,16 +3562,15 @@ function App() {
   //   3. AI-side pacing nudge — debounced conversation.item.create with
   //      a wpm target. Kept as a belt-and-suspenders so the model also
   //      reasons about pace, not just synthesizes it.
-  // Range 0.85–3.0. Default 1.0 (2026-05-26) — natural conversational
-  // pace. The prior 1.2 ("touch faster than natural") still read as
-  // rushed in the opening: the AI was barreling into the motion
-  // restatement without leaving room for the user to breathe in. Real
-  // debaters open conversational and ramp inside substantive blocks.
-  // The slider lets the user push to 3.0× when they want auctioneer
-  // mode for spread-format drills.
-  // Default bumped 1.0 → 1.25 (+0.25): the natural-pace opening read as
-  // sluggish out of the box. Slider still pulls it back or up to 3.0×.
-  var [playbackRate, setPlaybackRate] = useState(1.25);
+  // Range 0.85–3.0. Default 1.2 — landed between two earlier
+  // defaults: 1.15 read as sluggish, 1.4 read as rushed in the
+  // opening ("Whenever you're ready, Aidan." arriving in one breath
+  // felt like the AI was talking AT the user instead of inviting
+  // them in). 1.45 is "noticeably brisker than natural" — bumped
+  // +0.25 from the old 1.2 default so delivery feels less sluggish out
+  // of the box. Users can still push it to 3.0 or pull it back with
+  // the spd buttons.
+  var [playbackRate, setPlaybackRate] = useState(1.45);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
   // Default ON: the user starts muted so the AI can deliver its round
@@ -3787,6 +4015,26 @@ function App() {
   var [aiSpeakingMs, setAiSpeakingMs] = useState(0);
   var [userSpeakingMs, setUserSpeakingMs] = useState(0);
 
+  // ── Arena visual state (broadcast redesign 2026-06-15) ──────────
+  // Purely presentational signals layered on top of the real session
+  // plumbing above. None of these drive audio / WebRTC; they make the
+  // live view read like a live event instead of a config screen.
+  //   aiThinking   — true in the gap between the user finishing and the
+  //                  first AI audio chunk (the "composing a response"
+  //                  window). Powers the AI entity's thinking animation.
+  //   interruptFlash/interruptShock — interruptFlash is bumped each time
+  //                  the user cuts the AI off; a watcher flips
+  //                  interruptShock on for ~0.7s so the arena visibly
+  //                  reacts (flash + lean), then clears it.
+  //   arenaIntro/arenaCount — the pre-round entrance ceremony: a brief
+  //                  "opponent steps up" reveal + 3-2-1 countdown the
+  //                  first time a session goes live.
+  var [aiThinking, setAiThinking] = useState(false);
+  var [interruptFlash, setInterruptFlash] = useState(0);
+  var [interruptShock, setInterruptShock] = useState(false);
+  var [arenaIntro, setArenaIntro] = useState(false);
+  var [arenaCount, setArenaCount] = useState(0);
+
   // ── Speech-phase state machine (APDA round) ─────────────────────
   // The voice round runs as a real APDA sequence with per-speech
   // timers and a grace window between speeches. Pressing "Start
@@ -4050,7 +4298,7 @@ function App() {
   // often self-heals — only tear down if it doesn't recover.
   var statusRef = useRef('idle');
   var connDropTimerRef = useRef(null);
-  // Connect-handshake watchdog: AbortController + a 20s timer so a cold
+  // Connect-handshake watchdog: AbortController + a 30s timer so a cold
   // mint function or a black-holed SDP POST can't strand the user on the
   // spinner. connectTimedOutRef distinguishes a timeout from a manual Cancel.
   var connectAbortRef = useRef(null);
@@ -4344,9 +4592,11 @@ function App() {
             upsertTurn({ ...cur, interrupted: true });
             currentAiTurnRef.current = null;
             setInterruptCount((n) => n + 1);
+            setInterruptFlash((n) => n + 1);
             try {window.SFX && SFX.interrupt && SFX.interrupt();} catch (sfxErr) {console.warn('[interrupt] SFX skipped:', sfxErr);}
           }
           setSpeaking('user');
+          setAiThinking(false);
           isUserSpeakingRef.current = true;
           // First time the user actually speaks — the single most
           // important engagement milestone. A connected session where
@@ -4378,6 +4628,9 @@ function App() {
               thinkingStopRef.current = SFX.thinking();
             }
           } catch (sfxErr) {console.warn('[speech_stopped] SFX.thinking skipped:', sfxErr);}
+          // Arena: the AI is now composing. Cleared on the first audio
+          // delta (it lands on screen as forming argument nodes).
+          setAiThinking(true);
           break;
         }
 
@@ -4434,6 +4687,7 @@ function App() {
             try {thinkingStopRef.current();} catch (_) {}
             thinkingStopRef.current = null;
           }
+          setAiThinking(false);
           var _cur = currentAiTurnRef.current;
           if (!_cur) {
             _cur = { id: 'ai-' + Date.now(), who: 'ai', text: '', ...turnStamp() };
@@ -4525,6 +4779,7 @@ function App() {
     // Kill any lingering thinking ambience so it doesn't drone after
     // the session ends (e.g. user hits End-drill mid-thinking-gap).
     if (thinkingStopRef.current) {try {thinkingStopRef.current();} catch (_) {}thinkingStopRef.current = null;}
+    setAiThinking(false);
     cleanup();
     setStatus('ended');
     if (systemMsg) addSystem(systemMsg);else
@@ -4656,7 +4911,7 @@ function App() {
     cleanup();
     setStatus('connecting');
     setConnectStep('Minting session…');
-    // Bound the whole handshake. Aborts at 20s (or via the Cancel button);
+    // Bound the whole handshake. Aborts at 30s (or via the Cancel button);
     // the outer catch rolls back to idle so the spinner can't hang forever.
     var connectAbort = new AbortController();
     connectAbortRef.current = connectAbort;
@@ -4665,7 +4920,7 @@ function App() {
     connectTimerRef.current = setTimeout(() => {
       connectTimedOutRef.current = true;
       try {connectAbort.abort();} catch (e) {}
-    }, 20000);
+    }, 30000);
     // Fresh funnel for this round. Fire `start` — the denominator for
     // every downstream completion rate.
     funnelFiredRef.current = {};
@@ -4804,8 +5059,25 @@ function App() {
 
       setConnectStep('Requesting microphone…');
 
-      // 2. WebRTC peer connection
-      var pc = new RTCPeerConnection();
+      // 2. WebRTC peer connection.
+      // ICE servers matter: with none, the browser only gathers host
+      // (private-IP) candidates, so on any NAT'd network — school WiFi,
+      // corporate, mobile carrier — it can't form a working candidate
+      // pair with OpenAI and the handshake dies at the 20s watchdog
+      // ("Connection timed out. Check your network"). Public STUN lets
+      // the browser discover its server-reflexive (public) address so
+      // the offer carries a reachable candidate. The server may also
+      // supply iceServers (e.g. TURN creds) — prefer those, append STUN
+      // as the always-present fallback. No TURN by default: that needs
+      // credentialed infra; STUN clears the large majority of NATs.
+      var stunServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ];
+      var iceServers = Array.isArray(session.iceServers) && session.iceServers.length
+        ? session.iceServers.concat(stunServers)
+        : stunServers;
+      var pc = new RTCPeerConnection({ iceServers: iceServers });
       pcRef.current = pc;
       // Surface a dropped connection instead of hanging "live" forever
       // with dead audio. cleanup() nulls this handler before it closes
@@ -5205,6 +5477,24 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       var offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      // Signaling here is a SINGLE POST — there is no channel to trickle
+      // ICE candidates to OpenAI after the fact. So the offer we send
+      // MUST already contain the gathered candidates; sending the bare
+      // createOffer() SDP (zero candidates) leaves OpenAI guessing the
+      // browser's address from connectivity checks, which silently fails
+      // on stricter NATs. Wait for ICE gathering to finish (capped at 3s
+      // so a slow STUN server can't eat the whole connect budget — even a
+      // partial candidate set beats none), then send the live
+      // localDescription that includes them.
+      await new Promise((resolve) => {
+        if (pc.iceGatheringState === 'complete') return resolve();
+        var done = false;
+        var finish = () => { if (done) return; done = true; pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
+        var onChange = () => { if (pc.iceGatheringState === 'complete') finish(); };
+        pc.addEventListener('icegatheringstatechange', onChange);
+        setTimeout(finish, 3000);
+      });
+
       // The server tells us where to POST the SDP and which headers to
       // include — different between the GA Realtime API
       // (POST /v1/realtime/calls, no extra headers) and the legacy beta
@@ -5215,7 +5505,7 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       var extraSdpHeaders = session.sdpHeaders || {};
       var sdpRes = await fetch(sdpUrl, {
         method: 'POST',
-        body: offer.sdp,
+        body: (pc.localDescription && pc.localDescription.sdp) || offer.sdp,
         headers: {
           'Authorization': 'Bearer ' + ephemeralKey,
           'Content-Type': 'application/sdp',
@@ -5428,6 +5718,33 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
         } catch (_) {}
       }
     }
+  }, [status]);
+
+  // Arena: interrupt shock. Each time the user cuts the AI off
+  // (interruptFlash bumps), flip interruptShock on for ~0.7s so the
+  // arena visibly reacts — flash wash + the AI entity recoils — then
+  // settle back. Decoupled from interruptCount so a flash replays even
+  // if the count display is mid-animation.
+  useEffect(() => {
+    if (!interruptFlash) return;
+    setInterruptShock(true);
+    var t = setTimeout(() => setInterruptShock(false), 720);
+    return () => clearTimeout(t);
+  }, [interruptFlash]);
+
+  // Arena: entrance ceremony. The first time a session goes live, play a
+  // short "opponent steps up" reveal + 3-2-1 countdown over the stage,
+  // then fade into the live round. Visual only — the WebRTC session is
+  // already connected and the mic is live underneath, so the AI hears
+  // the user from the first second even while the curtain is up.
+  useEffect(() => {
+    if (status !== 'live') { setArenaIntro(false); setArenaCount(0); return; }
+    setArenaIntro(true);
+    setArenaCount(3);
+    var t1 = setTimeout(() => setArenaCount(2), 820);
+    var t2 = setTimeout(() => setArenaCount(1), 1640);
+    var t3 = setTimeout(() => { setArenaCount(0); setArenaIntro(false); }, 2460);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [status]);
 
   /* ── Orb bootstrap (after canvas mounts) ──────── */
@@ -6041,7 +6358,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
 
   /* ── Render ───────────────────────────────────── */
 
-  return el('div', { className: 'shell' },
+  return el('div', { className: 'shell' + (isLive ? ' shell--arena' : '') },
   // Header
   el('div', { className: 'head' },
   el('div', { className: 'brand' },
@@ -6779,126 +7096,85 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   )
   ),
 
-  // LIVE — the showpiece
-  isLive && el('div', null,
-  // Motion banner — persistent on-screen resolution. The user used
-  // to land in the live view with no visible reminder of what they
-  // were debating; mid-round it's easy to drift on what the
-  // resolution actually was. If motion is empty (the AI is going
-  // to ask via mic), skip the banner so it doesn't show "" with
-  // an eyebrow alone.
-  motion && motion.trim() && el('div', { className: 'motion-banner' },
+  // LIVE — the arena. Two entities facing off (YOU left / AI right)
+  // across a live core, under a pinned motion + round-phase timeline,
+  // over a slow idea-field. The center column keeps the .stage class so
+  // the existing orb / speaker-label / timer / phase-pill / speech-ctrl
+  // rules still apply; the players, timeline, timing strip, judge node,
+  // entrance ceremony and interrupt shock are all new (.arena CSS).
+  isLive && el('div', { className: 'arena' + (speaking === 'user' ? ' is-user' : '') + (interruptShock ? ' is-shock' : '') },
+  el('div', { className: 'arena__bg', 'aria-hidden': 'true' }),
+  el('div', { className: 'arena__shock', 'aria-hidden': 'true' }),
+
+  // Pinned motion — the round revolves around it, so it leads.
+  el('div', { className: 'arena-motion' },
   el('div', { className: 'eyebrow' }, extMode === 'counter' ? 'Defending' : 'Motion'),
-  el('div', { className: 'text' }, motion.trim())
+  el('div', { className: 'text' }, motion && motion.trim() ? motion.trim() :
+  extMode === 'counter' ? 'Your examiner sets the topic on the mic.' : 'Name it on the mic, or it gets picked for you.')
   ),
-  el('div', { className: stageClass },
-  // Silhouette bookends — visual cue for who has the floor.
-  // Left silhouette = user (lights up green when speaking ===
-  // 'user'); right = AI (lights up red when speaking === 'ai').
-  // When neither is speaking, both fall back to the listening
-  // state so the eye reads "everyone is paying attention" not
-  // "the round froze." Hidden under 880px via CSS — mobile
-  // already gets the same signal from the speaking label and
-  // orb glow. aria-hidden because they duplicate the
-  // already-spoken label for assistive tech. Ported from
-  // scratch/hero-debaters.html.
-  el('div', { className: 'stage-debaters', 'aria-hidden': 'true' },
-  // Each silhouette is the same line-art figure (head + hair +
-  // neck + suit/lapel V + tie + shoulder + body sides + a
-  // gesturing arm + curved lectern + mic gooseneck). The right
-  // side is the same SVG mirrored via CSS scaleX(-1) so both
-  // figures face inward toward the orb. Sound-wave rings sit
-  // behind the head and only animate on the active speaker.
-  // Markup is duplicated rather than factored so React-via-CDN
-  // (no JSX, no fragments) stays readable. viewBox 200x460 →
-  // head:body ≈ 1:5.5 for a tall, elegant proportion.
-  el('svg', {
-    className: 'stage-debater stage-debater-left ' + (speaking === 'user' ? 'active' : 'listening'),
-    viewBox: '0 0 200 460',
-    role: 'presentation',
-    focusable: 'false'
-  },
-  // Sound rings — animate outward only on .active
-  el('circle', { className: 'deb-ring', cx: '100', cy: '80', r: '40' }),
-  el('circle', { className: 'deb-ring', cx: '100', cy: '80', r: '58' }),
-  el('circle', { className: 'deb-ring', cx: '100', cy: '80', r: '78' }),
-  // Persistent halo — faint dashed ring, slow rotate
-  el('circle', { className: 'deb-halo', cx: '100', cy: '80', r: '48', strokeDasharray: '2 7' }),
-  // Head group (fill ellipse + outline + hair sweep) — nods
-  // together via sd-nod
-  el('g', { className: 'deb-head' },
-  el('ellipse', { cx: '100', cy: '80', rx: '20', ry: '26' }),
-  el('ellipse', { className: 'deb-stroke', cx: '100', cy: '80', rx: '20', ry: '26', fill: 'none' }),
-  el('path', { className: 'deb-stroke', d: 'M82 70 Q86 50 100 50 Q116 50 118 76' })
+
+  // Round-phase timeline (APDA full round only). Past speeches read
+  // done, the current one glows (green if the user owns it, red if the
+  // AI does), upcoming ones stay dim. Makes the round feel structured.
+  mode === 'apda' && el('div', { className: 'phase-timeline', 'aria-hidden': 'true' },
+  APDA_SEQUENCE.map((sp, i) => {
+    var cls = i < speechIdx ? 'is-done' : i === speechIdx ? 'is-now' : 'is-future';
+    return el('div', { key: sp.name + i, className: 'phase-step ' + cls + (i === speechIdx && isUserSpeech(sp) ? ' is-user' : '') },
+    el('div', { className: 'phase-step__pill' },
+    el('div', { className: 'phase-step__dot' }),
+    el('div', { className: 'phase-step__label' }, sp.name)
+    ),
+    i < APDA_SEQUENCE.length - 1 && el('div', { className: 'phase-step__bar' })
+    );
+  })
   ),
-  // Neck — two short parallel strokes from jaw to collar
-  el('path', { className: 'deb-stroke', d: 'M94 108 L92 124 M106 108 L108 124' }),
-  // Shoulder slope + trapezius, then body sides tapering to the lectern
-  el('path', { className: 'deb-stroke', d: 'M54 144 Q76 129 100 127 Q124 129 146 144' }),
-  el('path', { className: 'deb-stroke', d: 'M54 144 Q49 198 56 262 L60 308' }),
-  el('path', { className: 'deb-stroke', d: 'M146 144 Q151 198 144 262 L140 308' }),
-  // Lapel V
-  el('path', { className: 'deb-stroke', d: 'M78 144 L100 186 L122 144' }),
-  // Collar inner V (fainter)
-  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M86 140 L100 160 L114 140' }),
-  // Tie diamond — accent-filled, the silhouette's color anchor
-  el('path', { className: 'deb-tie', d: 'M100 186 L96 198 L100 250 L104 198 Z' }),
-  // Resting arm — far shoulder bows out to a hand laid on the lectern top (static)
-  el('path', { className: 'deb-stroke', d: 'M144 154 Q160 196 153 246' }),
-  el('path', { className: 'deb-stroke', d: 'M153 246 Q150 284 142 308' }),
-  el('path', { className: 'deb-hand', d: 'M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z' }),
-  // Gesture arm — near shoulder, elbow tucked, forearm sweeps up to an open palm; sways via sd-gesture
-  el('g', { className: 'deb-arm' },
-  el('path', { className: 'deb-stroke', d: 'M58 152 Q50 184 47 214' }),
-  el('path', { className: 'deb-stroke', d: 'M47 214 Q49 188 60 168' }),
-  el('path', { className: 'deb-hand', d: 'M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z' })
+
+  // Three-zone stage. Grid areas place YOU left, core center, AI right
+  // (DOM order is you, ai, core; grid-template-areas does the layout).
+  el('div', { className: 'arena-stage' },
+
+  // YOU — your entity card: portrait + reactive energy field, name,
+  // side, live status, and your own mic meter.
+  el('div', { className: 'player player--you ' + (speaking === 'user' ? 'is-speaking' : 'is-listening') },
+  el('div', { className: 'player__top' },
+  el('div', { className: 'player__name' }, userFirstName || 'You'),
+  el('div', { className: 'player__role' }, extMode === 'counter' ? 'Candidate' : side === 'gov' ? 'Government' : 'Opposition')
   ),
-  // Lectern — filled silhouette with subtle inner ivory
-  el('ellipse', { className: 'deb-floor', cx: '100', cy: '434', rx: '82', ry: '9' }),
-  el('path', { className: 'deb-lectern', d: 'M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z' }),
-  el('path', { className: 'deb-lectern-top', d: 'M30 314 Q100 308 170 314 L168 326 L32 326 Z' }),
-  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M32 326 Q100 320 168 326' }),
-  // Microphone — gooseneck + capsule head, nudged inboard so it clears the resting hand
-  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M118 310 Q114 288 106 281 Q100 277 102 269' }),
-  el('ellipse', { className: 'deb-mic-head', cx: '102', cy: '263', rx: '4', ry: '6' })
+  el('div', { className: 'player__viz' },
+  el('div', { className: 'player__energy', 'aria-hidden': 'true' }, el('span', { className: 'player__ring' }), el('span', { className: 'player__ring' })),
+  debaterFigure('stage-debater-left ' + (speaking === 'user' ? 'active' : 'listening'))
   ),
-  el('svg', {
-    className: 'stage-debater stage-debater-right ' + (speaking === 'ai' ? 'active' : 'listening'),
-    viewBox: '0 0 200 460',
-    role: 'presentation',
-    focusable: 'false'
-  },
-  el('circle', { className: 'deb-ring', cx: '100', cy: '80', r: '40' }),
-  el('circle', { className: 'deb-ring', cx: '100', cy: '80', r: '58' }),
-  el('circle', { className: 'deb-ring', cx: '100', cy: '80', r: '78' }),
-  el('circle', { className: 'deb-halo', cx: '100', cy: '80', r: '48', strokeDasharray: '2 7' }),
-  el('g', { className: 'deb-head' },
-  el('ellipse', { cx: '100', cy: '80', rx: '20', ry: '26' }),
-  el('ellipse', { className: 'deb-stroke', cx: '100', cy: '80', rx: '20', ry: '26', fill: 'none' }),
-  el('path', { className: 'deb-stroke', d: 'M82 70 Q86 50 100 50 Q116 50 118 76' })
-  ),
-  el('path', { className: 'deb-stroke', d: 'M94 108 L92 124 M106 108 L108 124' }),
-  el('path', { className: 'deb-stroke', d: 'M54 144 Q76 129 100 127 Q124 129 146 144' }),
-  el('path', { className: 'deb-stroke', d: 'M54 144 Q49 198 56 262 L60 308' }),
-  el('path', { className: 'deb-stroke', d: 'M146 144 Q151 198 144 262 L140 308' }),
-  el('path', { className: 'deb-stroke', d: 'M78 144 L100 186 L122 144' }),
-  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M86 140 L100 160 L114 140' }),
-  el('path', { className: 'deb-tie', d: 'M100 186 L96 198 L100 250 L104 198 Z' }),
-  el('path', { className: 'deb-stroke', d: 'M144 154 Q160 196 153 246' }),
-  el('path', { className: 'deb-stroke', d: 'M153 246 Q150 284 142 308' }),
-  el('path', { className: 'deb-hand', d: 'M130 304 Q142 300 152 306 Q156 313 147 317 Q137 318 129 311 Z' }),
-  el('g', { className: 'deb-arm' },
-  el('path', { className: 'deb-stroke', d: 'M58 152 Q50 184 47 214' }),
-  el('path', { className: 'deb-stroke', d: 'M47 214 Q49 188 60 168' }),
-  el('path', { className: 'deb-hand', d: 'M54 165 Q64 159 75 165 Q79 173 70 177 Q60 178 54 172 Z' })
-  ),
-  el('ellipse', { className: 'deb-floor', cx: '100', cy: '434', rx: '82', ry: '9' }),
-  el('path', { className: 'deb-lectern', d: 'M22 312 Q100 304 178 312 L168 326 L158 410 Q100 414 42 410 L32 326 Z' }),
-  el('path', { className: 'deb-lectern-top', d: 'M30 314 Q100 308 170 314 L168 326 L32 326 Z' }),
-  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M32 326 Q100 320 168 326' }),
-  el('path', { className: 'deb-stroke deb-stroke-soft', d: 'M118 310 Q114 288 106 281 Q100 277 102 269' }),
-  el('ellipse', { className: 'deb-mic-head', cx: '102', cy: '263', rx: '4', ry: '6' })
+  el('div', { className: 'player__status' }, el('span', { className: 'pulse' }), speaking === 'user' ? 'Speaking' : 'Listening'),
+  el('div', { className: 'miclevel' }, 'mic',
+  el('div', { className: 'bars' }, micBars.map((on, i) => el('div', { key: i, className: 'bar' + (on ? ' on' : '') })))
   )
+  ),
+
+  // AI — opponent entity card. Same portrait + energy treatment, plus a
+  // composing state (forming-argument nodes) in the think gap and a
+  // cut-off state the instant the user interrupts.
+  el('div', { className: 'player player--ai ' + (interruptShock ? 'is-challenged ' : '') + (speaking === 'ai' ? 'is-speaking' : aiThinking ? 'is-thinking' : 'is-listening') },
+  el('div', { className: 'player__top' },
+  el('div', { className: 'player__name' }, persona.name.split(' ')[0]),
+  el('div', { className: 'player__role' }, persona.archetype)
+  ),
+  el('div', { className: 'player__viz' },
+  el('div', { className: 'player__energy', 'aria-hidden': 'true' }, el('span', { className: 'player__ring' }), el('span', { className: 'player__ring' })),
+  debaterFigure('stage-debater-right ' + (speaking === 'ai' ? 'active' : 'listening'))
+  ),
+  aiThinking ?
+  el('div', { className: 'thinking-nodes', 'aria-label': 'Composing a response' }, el('i'), el('i'), el('i'), el('i')) :
+  el('div', { className: 'player__status' }, el('span', { className: 'pulse' }), interruptShock ? 'Cut off' : speaking === 'ai' ? 'Speaking' : 'Listening')
+  ),
+
+  // CENTER CORE — keeps .stage (+ .user when the user holds the floor)
+  // so the existing orb glow / label / timer / phase-pill / speech-ctrl
+  // rules all still apply. Adds a neutral judge-presence node on top.
+  el('div', { className: 'arena-core stage' + (speaking === 'user' ? ' user' : '') },
+  el('div', { className: 'judge-node', title: 'An AI judge tracks the round and writes the ballot at the end.' },
+  el('span', { className: 'eye', 'aria-hidden': 'true' }),
+  el('span', { className: 'jl' }, 'Judge'),
+  el('span', { className: 'js' }, phase === 'done' ? 'Reading the flow' : 'Tracking the round')
   ),
   el('canvas', { className: 'orb', ref: orbCanvasRef }),
   el('div', { className: 'label' },
@@ -6969,18 +7245,67 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     )];
 
   })(),
-  el('div', { className: 'stats' },
-  el('span', null, el('strong', null, interruptCount), ' interrupts'),
-  el('span', null, 'AI ', el('strong', null, aiSharePct + '%'), ' / You ', el('strong', null, userSharePct + '%')),
-  el('span', null, 'Round ', el('strong', null, fmtTime(elapsed)))
+  )
   ),
-  el('div', { className: 'miclevel' },
-  'mic',
-  el('div', { className: 'bars' },
-  micBars.map((on, i) =>
-  el('div', { key: i, className: 'bar' + (on ? ' on' : '') })
+  // Argument flow — the live exchange as a row of connected nodes,
+  // you (green) vs AI (red), oldest left / newest right, growing through
+  // the round. Real `turns` only; hidden until there's a back-and-forth.
+  (() => {
+    var flow = turns.filter((t) => t.who === 'you' || t.who === 'ai').slice(-7);
+    if (flow.length < 2) return null;
+    return el('div', { className: 'exchange-wrap' },
+    el('div', { className: 'exchange-head' }, 'The exchange so far'),
+    el('div', { className: 'exchange-flow', 'aria-label': 'Argument flow' },
+    flow.map((t, i) => [
+    i > 0 && el('div', { key: 'lnk' + (t.id || i), className: 'exchange-link' }),
+    el('div', { key: t.id || i, className: 'exchange-node ' + (t.who === 'you' ? 'you' : 'ai') },
+    el('div', { className: 'exchange-node__dot' }),
+    el('div', { className: 'exchange-node__who' }, t.who === 'you' ? userFirstName || 'You' : persona.name.split(' ')[0]),
+    el('div', { className: 'exchange-node__text' }, (t.text || '').trim() || '…')
+    )]
+    ))
+    );
+  })(),
+  // Broadcast timing strip — interrupts · talk split · round clock
+  // (+ current speech in a full round). Full arena width.
+  el('div', { className: 'timing-strip' },
+  mode === 'apda' && (() => {
+    var sp = APDA_SEQUENCE[speechIdx] || null;
+    return el('div', { className: 'timing-cell', key: 'speechcell' },
+    el('div', { className: 'tv', style: { fontSize: '1rem', letterSpacing: '.04em' } }, sp ? sp.name : '—'),
+    el('div', { className: 'tl' }, 'Speech')
+    );
+  })(),
+  el('div', { className: 'timing-cell' },
+  el('div', { className: 'tv' }, interruptCount),
+  el('div', { className: 'tl' }, 'Interrupts')
+  ),
+  el('div', { className: 'timing-cell' },
+  el('div', { className: 'split-bar', title: 'You ' + userSharePct + '% · AI ' + aiSharePct + '%' }, el('i', { style: { width: aiSharePct + '%' } })),
+  el('div', { className: 'tl' }, 'You ' + userSharePct + ' / AI ' + aiSharePct)
+  ),
+  el('div', { className: 'timing-cell' },
+  el('div', { className: 'tv' }, fmtTime(elapsed)),
+  el('div', { className: 'tl' }, 'Round')
   )
+  ),
+  // Entrance ceremony — opponent steps up + 3-2-1 over the stage on the
+  // first go-live. Visual only; the mic is already live underneath, so
+  // the AI hears the user from the first second even with the curtain up.
+  arenaIntro && el('div', { className: 'arena-curtain', 'aria-hidden': 'true' },
+  el('div', { className: 'arena-curtain__eyebrow' }, mode === 'apda' ? 'Round starting' : 'Drill starting'),
+  el('div', { className: 'arena-curtain__vs' },
+  el('div', { className: 'arena-curtain__side l' },
+  el('div', { className: 'nm' }, userFirstName || 'You'),
+  el('div', { className: 'rl' }, extMode === 'counter' ? 'Candidate' : side === 'gov' ? 'Gov' : 'Opp')
+  ),
+  el('div', { className: 'arena-curtain__vsmark' }, 'VS'),
+  el('div', { className: 'arena-curtain__side r' },
+  el('div', { className: 'nm' }, persona.name.split(' ')[0]),
+  el('div', { className: 'rl' }, persona.archetype)
   )
+  ),
+  el('div', { className: 'arena-curtain__count' }, arenaCount > 0 ? el('span', { key: arenaCount }, arenaCount) : el('span', { key: 'go' }, 'Begin'))
   ),
   // Live controls — speed, mute, model badge, recording badge.
   // All tweakable mid-session.
@@ -7070,7 +7395,6 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     disabled: !textInput.trim(),
     title: 'Send. Cancels the AI\'s current turn and makes it respond to your text.'
   }, 'Send')
-  )
   ),
 
   el('div', { className: 'card' },
