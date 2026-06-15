@@ -202,6 +202,21 @@ textarea.ctl{resize:vertical;min-height:200px;line-height:1.55}
 .ballot-cta .primary:hover{background:#dc2626}
 .ballot-cta .ghost{border:1px solid var(--border-strong);color:var(--text-dim)}
 .ballot-cta .ghost:hover{border-color:var(--accent);color:var(--accent)}
+/* ── Dual adjudication: your call + you-vs-AI comparison ─── */
+.verdict-field .verdict-row{display:flex;gap:10px}
+.verdict-opt{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border-strong);background:transparent;color:var(--text);font-weight:700;font-size:.95rem;cursor:pointer;font-family:inherit;transition:border-color .15s,background .15s,color .15s}
+.verdict-opt:hover{border-color:var(--accent)}
+.verdict-opt.on{border-color:var(--accent);background:rgba(239,68,68,.10);color:var(--accent)}
+.vs-block{border:1px solid var(--border-strong);border-radius:14px;padding:16px 18px;margin-bottom:14px;background:rgba(127,127,127,.05)}
+.vs-head{font-size:.7rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:12px}
+.vs-calls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.vs-call{display:flex;flex-direction:column;gap:3px}
+.vs-label{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+.vs-val{font-size:1.02rem;font-weight:800}
+.vs-verdict{padding:5px 12px;border-radius:999px;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.vs-verdict.agree{background:rgba(34,197,94,.15);color:var(--green)}
+.vs-verdict.split{background:rgba(245,158,11,.16);color:#b45309}
+.vs-coach{margin:12px 0 0;font-size:.92rem;line-height:1.55;color:var(--text)}
 
 /* ── Supporting copy ───────────────────────────────────── */
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
@@ -284,8 +299,16 @@ footer.foot a{color:var(--text-dim)}
       <textarea id="transcript" class="ctl" placeholder="Paste both sides' speeches here. Label them by speech if you can (Pro Constructive, Con Rebuttal, and so on). More detail produces a sharper ballot."></textarea>
     </div>
 
+    <div class="field verdict-field">
+      <label>Make your call first <span class="hint">judge it yourself, then see how a trained AI judge scored it</span></label>
+      <div class="verdict-row" role="radiogroup" aria-label="Who won the round">
+        <button type="button" class="verdict-opt" id="vPro" data-side="pro" role="radio" aria-checked="false">Pro wins</button>
+        <button type="button" class="verdict-opt" id="vCon" data-side="con" role="radio" aria-checked="false">Con wins</button>
+      </div>
+      <input id="verdictWhy" class="ctl" type="text" placeholder="In one line, why? (optional)" autocomplete="off" style="margin-top:8px">
+    </div>
     <div class="form-foot">
-      <button id="judgeBtn" class="btn-judge" type="button">Judge the round <span aria-hidden="true">&rarr;</span></button>
+      <button id="judgeBtn" class="btn-judge" type="button">Reveal the AI judge <span aria-hidden="true">&rarr;</span></button>
       <span class="form-note">More of the round you paste, the better the ballot.</span>
     </div>
     <div id="formError" class="form-error"></div>
@@ -300,6 +323,15 @@ footer.foot a{color:var(--text-dim)}
 
   <!-- ── Ballot output ───────────────────────────────────── -->
   <div id="ballot" class="ballot" aria-live="polite">
+    <div id="vsBlock" class="vs-block">
+      <div class="vs-head">You vs the AI judge</div>
+      <div class="vs-calls">
+        <div class="vs-call"><span class="vs-label">Your call</span><span id="vsYou" class="vs-val"></span></div>
+        <div id="vsVerdict" class="vs-verdict"></div>
+        <div class="vs-call"><span class="vs-label">AI judge</span><span id="vsAi" class="vs-val"></span></div>
+      </div>
+      <p id="vsCoach" class="vs-coach"></p>
+    </div>
     <div id="winBanner" class="win-banner">
       <div>
         <div class="tag">Ballot · Winner</div>
@@ -517,6 +549,9 @@ footer.foot a{color:var(--text-dim)}
     $('conLabel').textContent = s1 + ' speaker';
     $('proName').placeholder = s0 + ' name';
     $('conName').placeholder = s1 + ' name';
+    var vp = document.getElementById('vPro'), vc = document.getElementById('vCon');
+    if (vp) vp.textContent = s0 + ' wins';
+    if (vc) vc.textContent = s1 + ' wins';
   }
   $('format').addEventListener('change', syncLabels);
   syncLabels();
@@ -530,8 +565,10 @@ footer.foot a{color:var(--text-dim)}
 
   // ── Build the 2-side ballot prompt. Mirrors live-round.html
   //    buildBallotPrompt (2-side branch). ─────────────────────────
-  function buildPrompt(motion, formatKey, proName, conName, transcript){
+  function buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason){
     var f = FORMATS[formatKey] || FORMATS.pf;
+    var humanSideLabel = humanWinner === 'pro' ? f.sideLabels[f.sides[0]]
+                       : humanWinner === 'con' ? f.sideLabels[f.sides[1]] : '';
     var system = [
       "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round.",
       "",
@@ -560,7 +597,8 @@ footer.foot a{color:var(--text-dim)}
       '  "conPoints": <number>,',
       '  "rfd": "<8-14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2-3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
       '  "proFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[0]] + ' speaker: one specific strategic strength, one technical fix with a concrete example from their speech, one big-picture observation about their approach to this format.>",',
-      '  "conFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[1]] + ' speaker: same structure as proFeedback.>"',
+      '  "conFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[1]] + ' speaker: same structure as proFeedback.>",',
+      '  "divergence": "<3-5 sentences written directly TO the person who judged this round before seeing your ballot. They called it for ' + (humanSideLabel || 'one side') + '. If your verdict DISAGREES with theirs, name what a lay judge most often over-weights (delivery, confidence, who spoke last, a vivid example) and the specific argument or piece of weighing they needed to flow to land where you did. If you AGREE with them, name the single clash that should have sealed it and one thing to watch next time. Coaching tone, plain language, gloss any jargon.>"',
       "}",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
@@ -572,6 +610,9 @@ footer.foot a{color:var(--text-dim)}
       + "\n\n" + f.sideLabels[f.sides[0]].toUpperCase() + " SPEAKER: " + (proName || '(unnamed)')
       + "\n" + f.sideLabels[f.sides[1]].toUpperCase() + " SPEAKER: " + (conName || '(unnamed)')
       + "\n\nFULL ROUND TRANSCRIPT:\n\n" + transcript
+      + "\n\nThe human who judged this round BEFORE seeing your ballot called it for: "
+        + (humanSideLabel ? humanSideLabel + (humanReason ? ' ("' + humanReason + '")' : '') : 'not stated')
+        + ". Reach your OWN independent verdict first, then fill the 'divergence' field comparing your verdict to theirs and coaching them."
       + "\n\nReturn the JSON ballot now.";
 
     return { system: system, user: user };
@@ -611,12 +652,26 @@ footer.foot a{color:var(--text-dim)}
     return d.innerHTML;
   }
 
-  function renderBallot(b, formatKey){
+  function renderBallot(b, formatKey, humanWinner){
     var f = FORMATS[formatKey] || FORMATS.pf;
     var s0 = f.sideLabels[f.sides[0]], s1 = f.sideLabels[f.sides[1]];
     var proWon = b.winner === 'pro';
     var winnerName = proWon ? (b.proName || s0) : (b.conName || s1);
     var winnerSide = proWon ? s0 : s1;
+
+    // Dual adjudication: you vs the AI judge.
+    if (humanWinner){
+      $('vsYou').textContent = humanWinner === 'pro' ? s0 : s1;
+      $('vsAi').textContent = winnerSide;
+      var agree = humanWinner === b.winner;
+      var vd = $('vsVerdict');
+      vd.textContent = agree ? 'You agreed' : 'Split decision';
+      vd.className = 'vs-verdict ' + (agree ? 'agree' : 'split');
+      $('vsCoach').textContent = b.divergence || '';
+      $('vsBlock').style.display = 'block';
+    } else {
+      $('vsBlock').style.display = 'none';
+    }
 
     $('winWho').textContent = winnerName + ' wins (' + winnerSide + ')';
 
@@ -652,6 +707,8 @@ footer.foot a{color:var(--text-dim)}
     if (!motion){ showError('Add the motion both sides argued.'); return; }
     if (!transcript){ showError('Paste the round transcript so the AI has something to judge.'); return; }
     if (transcript.length < 120){ showError('That transcript looks short. Paste more of the round for a real ballot.'); return; }
+    if (!humanWinner){ showError('Make your call first — tap Pro wins or Con wins, then reveal the AI judge.'); return; }
+    var humanReason = $('verdictWhy').value.trim();
 
     busy = true;
     $('judgeBtn').disabled = true;
@@ -660,7 +717,7 @@ footer.foot a{color:var(--text-dim)}
     $('loading').scrollIntoView({ behavior:'smooth', block:'center' });
     try { gtag('event', 'judge_round_submit', { format: formatKey }); } catch(e){}
 
-    var p = buildPrompt(motion, formatKey, proName, conName, transcript);
+    var p = buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason);
 
     fetch('/api/claude', {
       method: 'POST',
@@ -694,7 +751,7 @@ footer.foot a{color:var(--text-dim)}
     }).then(function(raw){
       var parsed = parseBallot(raw);
       if (!parsed) throw new Error('The ballot came back in a shape we could not read. Try again, or trim the transcript if it is very long.');
-      renderBallot(parsed, formatKey);
+      renderBallot(parsed, formatKey, humanWinner);
       try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner }); } catch(e){}
     }).catch(function(err){
       $('loading').style.display = 'none';
@@ -705,6 +762,17 @@ footer.foot a{color:var(--text-dim)}
     });
   }
 
+  // Dual adjudication: capture the human's call before revealing the AI's.
+  var humanWinner = '';
+  function pickVerdict(side){
+    humanWinner = side;
+    $('vPro').classList.toggle('on', side === 'pro');
+    $('vCon').classList.toggle('on', side === 'con');
+    $('vPro').setAttribute('aria-checked', side === 'pro' ? 'true' : 'false');
+    $('vCon').setAttribute('aria-checked', side === 'con' ? 'true' : 'false');
+  }
+  $('vPro').addEventListener('click', function(){ pickVerdict('pro'); });
+  $('vCon').addEventListener('click', function(){ pickVerdict('con'); });
   $('judgeBtn').addEventListener('click', judge);
 })();
 </script>
