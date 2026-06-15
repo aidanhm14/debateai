@@ -33,19 +33,33 @@
 
   // ── CSS ────────────────────────────────────────────────────
   var css = [
-    '.dafab-btn{position:fixed;right:18px;bottom:18px;z-index:9000;',
-      'display:inline-flex;align-items:center;gap:9px;',
-      'padding:11px 16px 11px 14px;border-radius:999px;',
-      'background:#ef4444;color:#fff;border:none;cursor:pointer;',
-      'font-family:Geist,Inter,system-ui,-apple-system,sans-serif;',
-      'font-size:.78rem;font-weight:700;letter-spacing:.01em;',
-      'box-shadow:0 6px 20px rgba(239,68,68,.32),0 2px 6px rgba(0,0,0,.18);',
+    // The coach is a presence that follows you across the app: a small
+    // red orb (same sphere language as the /coach live orb) parked bottom
+    // right. Glow pulse + expanding rings read as "alive"; a hover tooltip
+    // names it. Click opens the drawer.
+    '.dafab-orb{position:fixed;right:20px;bottom:20px;z-index:9000;',
+      'width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;padding:0;',
+      'background:radial-gradient(circle at 38% 32%, rgba(255,255,255,.45), transparent 42%),',
+      'radial-gradient(circle at 50% 50%, #ef4444 0%, #b91c1c 58%, #7f1d1d 100%);',
+      'animation:dafab-glow 3s ease-in-out infinite;',
       'transition:transform .15s,box-shadow .15s;}',
-    '.dafab-btn:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(239,68,68,.42),0 3px 8px rgba(0,0,0,.22);}',
-    '.dafab-btn:focus-visible{outline:2px solid #fff;outline-offset:2px;}',
-    '.dafab-dot{width:8px;height:8px;border-radius:50%;background:#fff;',
-      'animation:dafab-pulse 1.8s ease-in-out infinite;}',
-    '@keyframes dafab-pulse{0%,100%{opacity:.6}50%{opacity:1}}',
+    '.dafab-orb:hover{transform:scale(1.07);',
+      'box-shadow:0 14px 36px rgba(239,68,68,.5),0 3px 10px rgba(0,0,0,.32),inset 0 -5px 14px rgba(0,0,0,.4);}',
+    '.dafab-orb:focus-visible{outline:2px solid #fff;outline-offset:3px;}',
+    '@keyframes dafab-glow{0%,100%{box-shadow:0 8px 24px rgba(239,68,68,.34),inset 0 -5px 14px rgba(0,0,0,.4)}',
+      '50%{box-shadow:0 10px 32px rgba(239,68,68,.52),inset 0 -5px 14px rgba(0,0,0,.4)}}',
+    '.dafab-orb::before,.dafab-orb::after{content:"";position:absolute;inset:-5px;border-radius:50%;',
+      'border:1.5px solid rgba(239,68,68,.45);opacity:0;animation:dafab-ring 3s ease-out infinite;pointer-events:none;}',
+    '.dafab-orb::after{animation-delay:1.5s;}',
+    '@keyframes dafab-ring{0%{transform:scale(.88);opacity:.5}100%{transform:scale(1.5);opacity:0}}',
+    '@media(prefers-reduced-motion:reduce){.dafab-orb{animation:none}.dafab-orb::before,.dafab-orb::after{animation:none}}',
+    '.dafab-tip{position:fixed;right:90px;bottom:34px;z-index:9000;pointer-events:none;',
+      'background:#11111c;color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:9px;',
+      'padding:7px 12px;font-size:.74rem;font-weight:700;',
+      'font-family:Geist,Inter,system-ui,-apple-system,sans-serif;white-space:nowrap;',
+      'opacity:0;transform:translateX(8px);transition:opacity .15s,transform .15s;',
+      'box-shadow:0 8px 22px rgba(0,0,0,.4);}',
+    '.dafab-tip.on{opacity:1;transform:translateX(0);}',
 
     '.dafab-backdrop{position:fixed;inset:0;z-index:8998;',
       'background:rgba(0,0,0,.52);opacity:0;pointer-events:none;',
@@ -94,8 +108,8 @@
       'font-size:.72rem;color:rgba(255,255,255,.55);text-decoration:none;}',
     '.dafab-open:hover{color:rgba(255,255,255,.9);}',
 
-    '@media (max-width:480px){.dafab-btn{right:14px;bottom:14px;padding:10px 14px;}',
-      '.dafab-drawer{right:14px;bottom:14px;}}',
+    '@media (max-width:480px){.dafab-orb{right:14px;bottom:14px;}',
+      '.dafab-drawer{right:14px;bottom:14px;}.dafab-tip{display:none;}}',
   ].join('');
 
   var style = document.createElement('style');
@@ -109,11 +123,15 @@
 
   var btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'dafab-btn';
+  btn.className = 'dafab-orb';
   btn.setAttribute('aria-haspopup', 'dialog');
   btn.setAttribute('aria-expanded', 'false');
-  btn.setAttribute('aria-label', 'Open the Coach');
-  btn.innerHTML = '<span class="dafab-dot"></span>Coach';
+  btn.setAttribute('aria-label', 'Open your coach');
+  btn.innerHTML = '';
+
+  var tip = document.createElement('div');
+  tip.className = 'dafab-tip';
+  tip.textContent = 'Your coach';
 
   var drawer = document.createElement('div');
   drawer.className = 'dafab-drawer';
@@ -129,7 +147,7 @@
     + '<div class="dafab-drills">'
     +   '<a class="dafab-chip" href="/coach?drill=poi" data-drill="poi">POI gauntlet</a>'
     +   '<a class="dafab-chip" href="/coach?drill=rebuttal" data-drill="rebuttal">Rebuttal sprint</a>'
-    +   '<a class="dafab-chip" href="/coach?drill=impact" data-drill="impact">Impact calculus</a>'
+    +   '<a class="dafab-chip" href="/coach?drill=impact" data-drill="impact">Impact weighing</a>'
     +   '<a class="dafab-chip" href="/coach?drill=crossex" data-drill="crossex">Cross-ex</a>'
     + '</div>'
     + '<p class="dafab-lbl">Coach voice</p>'
@@ -142,7 +160,14 @@
 
   document.body.appendChild(backdrop);
   document.body.appendChild(btn);
+  document.body.appendChild(tip);
   document.body.appendChild(drawer);
+
+  // Hover tooltip (named presence). Hidden while the drawer is open.
+  btn.addEventListener('mouseenter', function(){ if (!drawer.classList.contains('on')) tip.classList.add('on'); });
+  btn.addEventListener('mouseleave', function(){ tip.classList.remove('on'); });
+  btn.addEventListener('focus', function(){ if (!drawer.classList.contains('on')) tip.classList.add('on'); });
+  btn.addEventListener('blur', function(){ tip.classList.remove('on'); });
 
   // ── Wire ───────────────────────────────────────────────────
   function paintPicker(){
@@ -163,6 +188,7 @@
   function open(){
     drawer.classList.add('on');
     backdrop.classList.add('on');
+    tip.classList.remove('on');
     btn.setAttribute('aria-expanded', 'true');
   }
   function close(){
