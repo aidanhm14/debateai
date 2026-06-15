@@ -8160,11 +8160,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var cams = Array.prototype.slice.call(document.querySelectorAll('.rot-cam'));
   if (!cams.length) return;
   var live = true, timers = [];
-  function shown(){ return cams.map(function(c){ return c.getAttribute('src'); }); }
-  function pick(){ var cur = shown(), p, n=0; do { p = POOL[Math.floor(Math.random()*POOL.length)]; n++; } while (cur.indexOf(p) >= 0 && n < 14); return p; }
+  // A tile during a swap is BOTH still showing its old src (until the
+  // ~480ms commit) AND claiming its incoming face (__rotTarget). To
+  // guarantee no two tiles ever display the same face, pick() must
+  // exclude every visible src AND every in-flight target across all
+  // tiles — not just one or the other. (The earlier bug: excluding only
+  // committed srcs let a near-simultaneous swap grab a face that was
+  // about to appear; excluding only targets let it grab a face still
+  // visible on a mid-swap tile.)
+  function claimedFaces(){
+    var s = [];
+    cams.forEach(function(c){ s.push(c.getAttribute('src')); if (c.__rotTarget) s.push(c.__rotTarget); });
+    return s;
+  }
+  function pick(){ var cur = claimedFaces(), p, n=0; do { p = POOL[Math.floor(Math.random()*POOL.length)]; n++; } while (cur.indexOf(p) >= 0 && n < 40); return p; }
   function swap(c){
-    var nx = pick(); var pre = new Image();
-    pre.onload = function(){ c.style.opacity = '0'; setTimeout(function(){ c.src = nx; c.style.opacity = ''; }, 480); };
+    var nx = pick(); c.__rotTarget = nx; // claim immediately so siblings exclude it
+    var pre = new Image();
+    pre.onload = function(){ c.style.opacity = '0'; setTimeout(function(){ c.src = nx; c.__rotTarget = null; c.style.opacity = ''; }, 480); };
+    pre.onerror = function(){ c.__rotTarget = null; }; // release the claim if the image fails
     pre.src = nx;
   }
   cams.forEach(function(c){ c.style.transition = 'opacity 1s ease'; });
