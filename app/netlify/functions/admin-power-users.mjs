@@ -17,14 +17,14 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 // 2026-05-19: MAX_DOCS cut 30K → 5K. Power-users is rank-based; the
 // top 15-20 users by engagement are reliably surfaced from a 5K event
 // sample. Combined with caching, this is what keeps /admin under
 // the Firestore quota.
-const MAX_DOCS = 5_000;
+const MAX_DOCS = 2500;  // 2026-06-15: halved; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
 const DEFAULT_DAYS = 30;
 const MAX_DAYS = 90;
 const TOP_K = 20;
@@ -43,7 +43,7 @@ export default async (request) => {
   const since = new Date(Date.now() - days * 86_400_000);
 
   const cacheKey = 'power-users:' + days + ':' + k;
-  const cached = getCached(cacheKey);
+  const cached = await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
@@ -143,7 +143,7 @@ export default async (request) => {
       totalScored,
       topUsers: out,
     };
-    setCached(cacheKey, result, TTL_HEAVY);
+    await setCachedShared(cacheKey, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-power-users error:', err);

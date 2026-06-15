@@ -33,7 +33,7 @@
 import { getDb } from './lib/firestore.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
 const CACHE_KEY = 'public-join-history-v2';
 const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
@@ -91,7 +91,7 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
-  const cached = getCached(CACHE_KEY);
+  const cached = await getCachedShared(CACHE_KEY);
   if (cached) return jsonResponse(cached, 200, request);
 
   let db;
@@ -320,7 +320,7 @@ export default async (request) => {
       memberSource,
       milestones,
     };
-    setCached(CACHE_KEY, payload, CACHE_TTL);
+    await setCachedShared(CACHE_KEY, payload, CACHE_TTL);
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.error('public-join-history failed:', err.message, err.stack);

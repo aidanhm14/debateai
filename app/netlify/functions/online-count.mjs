@@ -27,7 +27,7 @@
 
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
 const CACHE_KEY = 'online-count';
 const CACHE_TTL_MS = 30 * 1000;        // 30s
@@ -50,7 +50,7 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
-  const cached = getCached(CACHE_KEY);
+  const cached = await getCachedShared(CACHE_KEY);
   if (cached) return jsonResponse(cached, 200, request);
 
   let db;
@@ -84,7 +84,7 @@ export default async (request) => {
       windowSec: 300,
       at: Date.now(),
     };
-    setCached(CACHE_KEY, payload, CACHE_TTL_MS);
+    await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS);
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.warn('[online-count] query failed', err && err.message);

@@ -21,7 +21,7 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 16;
@@ -55,7 +55,7 @@ export default async (request) => {
   const weeks = Math.max(2, Math.min(MAX_WEEKS, parseInt(url.searchParams.get('weeks') || String(DEFAULT_WEEKS), 10)));
 
   const cacheKey = 'cohorts:' + weeks;
-  const cached = getCached(cacheKey);
+  const cached = await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
@@ -194,7 +194,7 @@ export default async (request) => {
       eventsScanned,
       sampled,
     };
-    setCached(cacheKey, result, TTL_HEAVY);
+    await setCachedShared(cacheKey, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-cohorts error:', err);

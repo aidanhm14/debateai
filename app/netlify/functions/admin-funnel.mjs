@@ -31,7 +31,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const DEFAULT_DAYS = 7;
@@ -42,7 +42,7 @@ const MAX_DAYS = 60;
 // enough to exhaust the free-tier Firestore read quota and 500 every
 // admin endpoint (incl. the cached ones, on a cache miss). Cap lowered
 // + 5-min cache added below to match the rest of the dashboard.
-const MAX_DOCS = 5000;
+const MAX_DOCS = 2500;  // 2026-06-15: halved; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -81,7 +81,7 @@ export default async (request) => {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   const cacheKey = 'funnel:' + days;
-  const cached = getCached(cacheKey);
+  const cached = await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
@@ -189,7 +189,7 @@ export default async (request) => {
 
       timestamp: new Date().toISOString(),
     };
-    setCached(cacheKey, result, TTL_HEAVY);
+    await setCachedShared(cacheKey, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-funnel error:', err);

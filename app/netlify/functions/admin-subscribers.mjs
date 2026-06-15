@@ -5,7 +5,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const CACHE_KEY = 'subscribers';
@@ -43,7 +43,7 @@ export default async (request) => {
   // 2026-05-20: this listed up to 5000 docs uncached on every dashboard
   // load — one of three endpoints missed by the 2026-05-19 admin-cache
   // pass that let the free-tier Firestore read quota get exhausted.
-  const cached = getCached(CACHE_KEY);
+  const cached = await getCachedShared(CACHE_KEY);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
@@ -72,7 +72,7 @@ export default async (request) => {
       subscribers: subs,
       timestamp: new Date().toISOString(),
     };
-    setCached(CACHE_KEY, result, TTL_HEAVY);
+    await setCachedShared(CACHE_KEY, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-subscribers fetch error:', err);

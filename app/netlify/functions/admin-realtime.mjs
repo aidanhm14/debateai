@@ -12,7 +12,7 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached, TTL_TAIL } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_TAIL } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 const MAX_TAIL = 80;
@@ -33,7 +33,7 @@ export default async (request) => {
   // collection. Client-side poll is also being slowed 8s → 60s, so the
   // dashboard still feels "live" (one real read per minute, max).
   const cacheKey = 'realtime:' + tailLimit;
-  const cached = getCached(cacheKey);
+  const cached = await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
@@ -143,7 +143,7 @@ export default async (request) => {
       sampleSize: snap.size,
       now: Date.now(),
     };
-    setCached(cacheKey, result, TTL_TAIL);
+    await setCachedShared(cacheKey, result, TTL_TAIL);
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-realtime error:', err);

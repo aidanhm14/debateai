@@ -35,7 +35,7 @@
 
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
 const CACHE_KEY = 'recent-activity';
 const CACHE_TTL = 30 * 1000;        // 30s
@@ -101,7 +101,7 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
-  const cached = getCached(CACHE_KEY);
+  const cached = await getCachedShared(CACHE_KEY);
   if (cached) return jsonResponse(cached, 200, request);
 
   let db;
@@ -177,7 +177,7 @@ export default async (request) => {
     at:    new Date().toISOString(),
     items: items.slice(0, MAX_ITEMS),
   };
-  setCached(CACHE_KEY, out, CACHE_TTL);
+  await setCachedShared(CACHE_KEY, out, CACHE_TTL);
   return jsonResponse(out, 200, request);
 };
 

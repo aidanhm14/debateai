@@ -24,7 +24,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCached, setCached, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 
@@ -84,7 +84,7 @@ export default async (request) => {
   if (!isAdmin) return errorResponse('Forbidden: admin access required', 403, request);
 
   const cacheKey = 'distillations:v1';
-  const cached = getCached(cacheKey);
+  const cached = await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
@@ -163,7 +163,7 @@ export default async (request) => {
       staleThresholdMs: STALE_MS,
       timestamp: new Date().toISOString(),
     };
-    setCached(cacheKey, result, TTL_HEAVY);
+    await setCachedShared(cacheKey, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-distillations error:', err);
