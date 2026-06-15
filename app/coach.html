@@ -51,12 +51,12 @@
     -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
   }
-  /* Ambient wash so the page doesn't read as a flat slab. */
+  /* Ambient wash so the page doesn't read as a flat slab. Centered, low
+     intensity, and well below the topbar so nothing at the top-right
+     edge can be misread as a clipped circular element. */
   body::before {
     content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background:
-      radial-gradient(900px 480px at 50% -8%, rgba(239,68,68,.10), transparent 70%),
-      radial-gradient(700px 420px at 92% 6%, rgba(120,80,255,.06), transparent 70%);
+    background: radial-gradient(1200px 560px at 50% 12%, rgba(239,68,68,.07), transparent 72%);
   }
   .coach-shell { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 92px 22px 88px; }
 
@@ -263,11 +263,51 @@
   .panel-eyebrow {
     position: relative; display: inline-flex; align-items: center; gap: 8px;
     font-size: .62rem; font-weight: 800; letter-spacing: .18em;
-    text-transform: uppercase; color: var(--red); margin-bottom: 12px;
+    text-transform: uppercase; color: var(--red); margin-bottom: 10px;
   }
   .panel-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 4px rgba(239,68,68,.18); }
+
+  /* Coach avatar — the resting form of the live-session orb. Same red
+     sphere with a specular highlight + inset shadow, sized down to 56px
+     and breathing slowly so the coach feels present even when nothing
+     is happening. The mic icon inside reads as "voice coach" without
+     resorting to a character face. */
+  .panel-head { position: relative; display: flex; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
+  .panel-head-text { flex: 1; min-width: 0; }
+  .coach-avatar {
+    flex: none; position: relative; width: 56px; height: 56px; border-radius: 50%;
+    background:
+      radial-gradient(circle at 38% 32%, rgba(255,255,255,.40), transparent 44%),
+      radial-gradient(circle at 50% 50%, var(--red) 0%, #b91c1c 60%, #7f1d1d 100%);
+    box-shadow:
+      0 0 0 1px rgba(239,68,68,.30),
+      0 10px 26px rgba(239,68,68,.22),
+      inset 0 -4px 12px rgba(0,0,0,.42);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,.94);
+    animation: coachBreathe 3.6s ease-in-out infinite;
+  }
+  .coach-avatar svg { width: 22px; height: 22px; position: relative; z-index: 1; }
+  .coach-avatar::after {
+    content: ""; position: absolute; inset: -8px; border-radius: 50%;
+    border: 1px solid rgba(239,68,68,.28); opacity: 0;
+    animation: coachRing 3.6s ease-in-out infinite;
+  }
+  @keyframes coachBreathe {
+    0%, 100% { transform: scale(.97); }
+    50%      { transform: scale(1.0); }
+  }
+  @keyframes coachRing {
+    0%, 100% { transform: scale(.85); opacity: 0; }
+    50%      { transform: scale(1.08); opacity: .55; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .coach-avatar { animation: none; }
+    .coach-avatar::after { animation: none; opacity: 0; }
+  }
+
   .panel-greet { position: relative; font-size: 1.32rem; font-weight: 700; letter-spacing: -.012em; margin: 0 0 4px; line-height: 1.25; }
-  .panel-trail { position: relative; color: var(--text-dim); font-size: .9rem; margin: 0 0 18px; line-height: 1.5; }
+  .panel-trail { position: relative; color: var(--text-dim); font-size: .9rem; margin: 0; line-height: 1.5; }
   .panel-trail b { color: var(--text); font-weight: 700; }
 
   .panel-callout {
@@ -445,9 +485,22 @@
   <div id="setup">
     <!-- ── Coach panel (above the fold, personalized) ──────────── -->
     <div class="coach-panel" id="coachPanel">
-      <div class="panel-eyebrow"><span class="dot"></span>Coach</div>
-      <p class="panel-greet" id="panelGreet">Loading your read…</p>
-      <p class="panel-trail" id="panelTrail">The coach is checking your last fourteen days of rounds.</p>
+      <div class="panel-head">
+        <div class="coach-avatar" aria-hidden="true">
+          <!-- Mic icon: this is the voice coach. The sphere itself is the
+               resting form of the live-session orb so the avatar visually
+               IS the coach. -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="3" width="6" height="12" rx="3"/>
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
+          </svg>
+        </div>
+        <div class="panel-head-text">
+          <div class="panel-eyebrow"><span class="dot"></span>Coach</div>
+          <p class="panel-greet" id="panelGreet">Loading your read…</p>
+          <p class="panel-trail" id="panelTrail">The coach is checking your last fourteen days of rounds.</p>
+        </div>
+      </div>
 
       <div class="panel-callout" id="panelCallout" hidden>
         <span class="panel-callout-ico">
