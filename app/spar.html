@@ -473,6 +473,19 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.64rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
   color:var(--text-ghost);margin-bottom:5px;
 }
+/* Cross-format proposal block — "you queued X, they queued Y, play Z?" */
+.consent-format{
+  max-width:480px;margin:14px auto 0;padding:13px 16px;text-align:left;
+  background:rgba(239,68,68,.07);border:1px solid var(--accent-glow);border-radius:12px;
+}
+.consent-format-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:.82rem;line-height:1.5;color:var(--text-dim);
+}
+.consent-format-row + .consent-format-row{margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
+.consent-format-row strong{color:var(--text);font-weight:700}
+.consent-format-row.play strong{color:var(--accent)}
+.consent-format-who{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost)}
 
 /* Live waitlist tile — shows other debaters currently queued in the
    same format, with avatars, short names, and how long they've been
@@ -2056,7 +2069,7 @@ h1 em{color:var(--accent);font-style:normal}
     stats.innerHTML =
       '<div style="margin-top:14px;padding:14px 16px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.32);border-radius:12px;text-align:left;color:var(--text)">' +
         '<div style="font-size:.82rem;font-weight:700;margin-bottom:6px;color:#bfdbfe">Thin queue on ' + escHtml(formatParam.toUpperCase()) + '?</div>' +
-        '<div style="font-size:.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px">Match across formats instead. We\'ll pair you with any debater who\'s also broadened. Format gets picked on the round itself.</div>' +
+        '<div style="font-size:.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px">Match across formats instead. We\'ll pair you with any debater who\'s also broadened, then ask you both to OK the format before the round starts.</div>' +
         '<button class="btn primary" id="broadenBtn" style="font-size:.78rem;padding:8px 16px">Broaden formats</button>' +
       '</div>';
     var bb = document.getElementById('broadenBtn');
@@ -2347,6 +2360,20 @@ h1 em{color:var(--accent);font-style:normal}
     var fmtLabel = escHtml(FORMAT_LABELS[d.pairedFormat] || String(d.pairedFormat || 'this').toUpperCase());
     var theirNote = cleanParadigm(paradigms[peerUid]);
     var myNote = cleanParadigm(paradigms[me]);
+    // Cross-format proposal: the two queued for different styles. Build a
+    // "you queued X · they queued Y · play Z" block so nobody is dropped
+    // into a format they didn't pick without saying yes first.
+    var crossFmt = !!d.crossFormat;
+    var labelFor = function(f){ return escHtml(FORMAT_LABELS[f] || String(f || '').toUpperCase()); };
+    var formatBlock = '';
+    if (crossFmt){
+      formatBlock =
+        '<div class="consent-format">' +
+          '<div class="consent-format-row"><span class="consent-format-who">You queued</span><strong>' + labelFor(d.myFormatPref) + '</strong></div>' +
+          '<div class="consent-format-row"><span class="consent-format-who">' + peerName + ' queued</span><strong>' + labelFor(d.peerFormat) + '</strong></div>' +
+          '<div class="consent-format-row play"><span class="consent-format-who">Proposed round</span><strong>' + fmtLabel + '</strong></div>' +
+        '</div>';
+    }
 
     if (myConsent){
       // My half of the handshake is in (their note was empty, or I
@@ -2355,7 +2382,8 @@ h1 em{color:var(--accent);font-style:normal}
         '<div class="consent-wrap">' +
           '<div class="eyebrow"><span class="pip"></span>Match found · awaiting opponent</div>' +
           '<h1>Waiting on <em>' + peerName + '.</em></h1>' +
-          '<p class="lede">They\'re reading your judge instructions. The round starts the moment they accept.</p>' +
+          '<p class="lede">' + (crossFmt ? 'They\'re confirming the <strong>' + fmtLabel + '</strong> round. It starts the moment they accept.' : 'They\'re reading your judge instructions. The round starts the moment they accept.') + '</p>' +
+          (crossFmt ? formatBlock : '') +
           (myNote ? '<div class="consent-note mine"><div class="consent-note-label">Your instructions to the judge</div>' + escHtml(myNote) + '</div>' : '') +
           '<div class="btn-row"><button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button></div>' +
         '</div>';
@@ -2377,11 +2405,23 @@ h1 em{color:var(--accent);font-style:normal}
     if (myNote){
       noteBlocks += '<div class="consent-note mine"><div class="consent-note-label">Yours · they\'re accepting this too</div>' + escHtml(myNote) + '</div>';
     }
+    // Lede depends on what they're being asked to OK: a format switch, a
+    // judge note, or both. Format gets named first since it changes the
+    // whole round; the note rides on top of the standard ballot method.
+    var lede;
+    if (crossFmt && (theirNote || myNote)){
+      lede = 'You two prefer different formats. Run the <strong>' + fmtLabel + '</strong> round, with the judge instructions below applied on top. Accept to start, pass to keep searching.';
+    } else if (crossFmt){
+      lede = 'You two prefer different formats. Most debaters can run a new style with a quick heads-up. Accept to debate this round in <strong>' + fmtLabel + '</strong>, or pass to keep searching for your format.';
+    } else {
+      lede = 'The judge applies the instructions below on top of the standard ballot method. Accept to start, pass to keep searching.';
+    }
     shell.innerHTML =
       '<div class="consent-wrap">' +
         '<div class="eyebrow"><span class="pip"></span>Match found · needs your OK</div>' +
         '<h1>' + peerName + ' proposes a <em>' + fmtLabel + '</em> round.</h1>' +
-        '<p class="lede">The judge applies the instructions below on top of the standard ballot method. Accept to start, pass to keep searching.</p>' +
+        '<p class="lede">' + lede + '</p>' +
+        formatBlock +
         noteBlocks +
         '<div class="btn-row">' +
           '<button class="btn primary" id="consentAcceptBtn">Accept &amp; start</button>' +

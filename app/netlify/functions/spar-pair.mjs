@@ -439,7 +439,15 @@ export default async (request) => {
       // SAME speech structure + judge rules instead of each side using
       // its own local format preference.
       const theirFormat = String(theirs.format || '').toLowerCase();
+      const myFormat = String(mine.format || '').toLowerCase();
       const pairedFormat = VALID_FORMATS.has(theirFormat) ? theirFormat : format;
+      // Cross-format pair: the two debaters queued for different styles
+      // and both broadened. We don't silently force the older joiner's
+      // format on the newer one — people can usually talk out a style,
+      // but they should agree to it first. crossFormat routes the pair
+      // through the same consent handshake as judge-paradigm notes, with
+      // a "they prefer X — OK?" card on both sides.
+      const crossFormat = !formatMatches;
       const common = {
         room,
         proUid,
@@ -448,6 +456,7 @@ export default async (request) => {
         conName: conUid === myUid ? myShort : peerShort,
         pairedMotion,
         pairedFormat,
+        crossFormat,
       };
 
       // Judge-paradigm notes gate the match behind consent. Background
@@ -457,7 +466,11 @@ export default async (request) => {
       const myParadigm = cleanParadigm(mine.paradigm);
       const theirParadigm = cleanParadigm(theirs.paradigm);
       const anyBackground = !!mine.background || !!theirs.background;
-      const needsConsent = !anyBackground && !!(myParadigm || theirParadigm);
+      // Consent gate fires for judge-paradigm notes OR a cross-format
+      // pair. Background ("Spar live") sessions have no consent surface,
+      // so those skip it: a cross-format background pair just runs in the
+      // older joiner's format silently, same as before.
+      const needsConsent = !anyBackground && (!!(myParadigm || theirParadigm) || crossFormat);
 
       if (needsConsent) {
         const proposal = {
@@ -471,21 +484,29 @@ export default async (request) => {
           // pair into two half-states.
           joinedAt: FieldValue.serverTimestamp(),
           paradigms: { [myUid]: myParadigm, [peerUid]: theirParadigm },
-          // You consent to the OTHER side's note; nothing to review
-          // means your half of the handshake is auto-yes.
-          consents: { [myUid]: !theirParadigm, [peerUid]: !myParadigm },
+          // You consent to the OTHER side's note AND to the proposed
+          // format when it isn't the one you queued for. Nothing to
+          // review on either axis means your half is auto-yes.
+          consents: {
+            [myUid]: !theirParadigm && (!crossFormat || pairedFormat === myFormat),
+            [peerUid]: !myParadigm && (!crossFormat || pairedFormat === theirFormat),
+          },
         };
         tx.update(myRef, {
           ...proposal,
           matchedWith: peerUid,
           matchedWithName: peerShort,
           matchedWithPhoto: peerPhoto,
+          myFormatPref: myFormat,
+          peerFormat: theirFormat,
         });
         tx.update(peerRef, {
           ...proposal,
           matchedWith: myUid,
           matchedWithName: myShort,
           matchedWithPhoto: myPhoto,
+          myFormatPref: theirFormat,
+          peerFormat: myFormat,
         });
         return { ok: true, pending: 'consent', room, pairedFormat };
       }
