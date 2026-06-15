@@ -108,9 +108,13 @@
   }
   .drill:hover { border-color: var(--border-2); background: rgba(255,255,255,.05); transform: translateY(-1px); }
   .drill.active { border-color: var(--red); background: var(--red-soft); }
+  /* Active marker: a small red bar on the right edge, drawn with a
+     pseudo. The red border + red-soft fill already say "selected" on
+     their own, but the bar adds a definitive visual anchor without
+     reaching for a checkmark character. */
   .drill.active::after {
-    content: "✓"; position: absolute; top: 12px; right: 14px;
-    color: var(--red); font-weight: 800; font-size: .8rem;
+    content: ""; position: absolute; top: 12px; right: 12px;
+    width: 3px; height: 18px; border-radius: 2px; background: var(--red);
   }
   .drill-name { font-weight: 700; font-size: .96rem; letter-spacing: -.01em; }
   .drill-desc { color: var(--text-dim); font-size: .79rem; line-height: 1.4; }
@@ -348,7 +352,8 @@
     letter-spacing: .04em;
   }
   .drill-meta b { color: var(--text-dim); font-weight: 700; }
-  .drill-meta .difficulty { color: #fbbf24; letter-spacing: 0; }
+  .drill-meta .difficulty { color: var(--text-dim); letter-spacing: .03em; }
+  .drill-meta .difficulty.pro { color: var(--red); }
   .drill-skill-tag {
     background: rgba(255,255,255,.04); color: var(--text-dim);
     border: 1px solid var(--border); border-radius: 5px;
@@ -460,7 +465,7 @@
           <div class="panel-suggest-name" id="panelSuggestName">Open spar</div>
           <div class="panel-suggest-sub" id="panelSuggestSub">Free back and forth. Warm up.</div>
           <div class="panel-suggest-meta" id="panelSuggestMeta">
-            <span class="difficulty">★★</span><span><b>10 min</b></span><span>General</span>
+            <span class="difficulty">Medium</span><span><b>10 min</b></span><span>General</span>
           </div>
         </div>
         <button id="panelStartBtn" class="panel-start" type="button" disabled>
@@ -609,7 +614,7 @@
 
   // Drill catalog. Keys MUST match the DRILLS map in coach-session.mjs.
   // skill = single tag used by the skill-rail filter.
-  // diff  = 1..4 → ★ count. len = minutes.
+  // diff  = 1..4 → Easy / Medium / Hard / Pro. len = minutes.
   var DRILLS = [
     { key: 'open',        name: 'Open spar',            desc: 'You set the motion. Full back and forth, no constraints.',          skill: 'General',           diff: 2, len: 10, ico: 'open' },
     { key: 'rebuttal',    name: 'Rebuttal sprint',      desc: 'Coach gives one tight argument. You get one breath to break it.',   skill: 'Rebuttal',          diff: 2, len: 5,  ico: 'rebuttal' },
@@ -698,7 +703,14 @@
   }
 
   // ── Build the drill picker (gym stations) ───────────────────
-  function stars(n){ var s=''; for (var i=0;i<4;i++) s += i < n ? '★' : '<span style="opacity:.28">★</span>'; return s; }
+  // Difficulty as a word, not a glyph. Level 4 picks up a brand-red
+  // accent via the .pro modifier so "Pro" stands out at a glance.
+  var DIFF_WORDS = { 1: 'Easy', 2: 'Medium', 3: 'Hard', 4: 'Pro' };
+  function difficultyLabel(n) {
+    var word = DIFF_WORDS[n] || 'Medium';
+    var cls = n >= 4 ? 'difficulty pro' : 'difficulty';
+    return '<span class="' + cls + '">' + word + '</span>';
+  }
   function visibleDrills(){
     if (currentSkill === 'All') return DRILLS;
     return DRILLS.filter(function(d){ return d.skill === currentSkill; });
@@ -721,7 +733,7 @@
       + '</div>'
       + '<span class="drill-desc">' + d.desc + '</span>'
       + '<div class="drill-meta">'
-      +   '<span class="difficulty">' + stars(d.diff) + '</span>'
+      +   difficultyLabel(d.diff)
       +   '<span><b>' + d.len + ' min</b></span>'
       +   '<span class="drill-skill-tag">' + d.skill + '</span>'
       + '</div>';
@@ -896,7 +908,7 @@
     els.panelSuggestName.textContent = d.name;
     els.panelSuggestSub.textContent  = d.desc;
     els.panelSuggestMeta.innerHTML   =
-      '<span class="difficulty">' + stars(d.diff) + '</span>'
+      difficultyLabel(d.diff)
     + '<span><b>' + d.len + ' min</b></span>'
     + '<span>' + d.skill + '</span>';
   }
