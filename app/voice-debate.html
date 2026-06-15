@@ -5133,12 +5133,12 @@ function App() {
       // as the always-present fallback. No TURN by default: that needs
       // credentialed infra; STUN clears the large majority of NATs.
       var stunServers = [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ];
-      var iceServers = Array.isArray(session.iceServers) && session.iceServers.length
-        ? session.iceServers.concat(stunServers)
-        : stunServers;
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }];
+
+      var iceServers = Array.isArray(session.iceServers) && session.iceServers.length ?
+      session.iceServers.concat(stunServers) :
+      stunServers;
       var pc = new RTCPeerConnection({ iceServers: iceServers });
       pcRef.current = pc;
       // Surface a dropped connection instead of hanging "live" forever
@@ -5173,6 +5173,15 @@ function App() {
       var audioEl = document.createElement('audio');
       audioEl.autoplay = true;
       audioEl.playsInline = true;
+      // Pin to 1.0x. Speed is controlled AI-side (the `speed` mint param
+      // + pacing nudge over the data channel), NOT via playbackRate on the
+      // audio element. Chrome/Safari ignore preservesPitch on a
+      // MediaStream-backed element so post-processing the rate chipmunks
+      // the voice regardless. The slider visually changes playbackRate state
+      // but the effect at line ~4433 keeps the element at 1.0.
+      audioEl.preservesPitch = true; // harmless; no effect on MediaStream
+      audioEl.mozPreservesPitch = true;
+      audioEl.webkitPreservesPitch = true;
       audioEl.playbackRate = 1.0;
       document.body.appendChild(audioEl);
       audioElRef.current = audioEl;
@@ -5544,8 +5553,8 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       await new Promise((resolve) => {
         if (pc.iceGatheringState === 'complete') return resolve();
         var done = false;
-        var finish = () => { if (done) return; done = true; pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
-        var onChange = () => { if (pc.iceGatheringState === 'complete') finish(); };
+        var finish = () => {if (done) return;done = true;pc.removeEventListener('icegatheringstatechange', onChange);resolve();};
+        var onChange = () => {if (pc.iceGatheringState === 'complete') finish();};
         pc.addEventListener('icegatheringstatechange', onChange);
         setTimeout(finish, 3000);
       });
@@ -5560,7 +5569,7 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       var extraSdpHeaders = session.sdpHeaders || {};
       var sdpRes = await fetch(sdpUrl, {
         method: 'POST',
-        body: (pc.localDescription && pc.localDescription.sdp) || offer.sdp,
+        body: pc.localDescription && pc.localDescription.sdp || offer.sdp,
         headers: {
           'Authorization': 'Bearer ' + ephemeralKey,
           'Content-Type': 'application/sdp',
@@ -5793,13 +5802,13 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
   // already connected and the mic is live underneath, so the AI hears
   // the user from the first second even while the curtain is up.
   useEffect(() => {
-    if (status !== 'live') { setArenaIntro(false); setArenaCount(0); return; }
+    if (status !== 'live') {setArenaIntro(false);setArenaCount(0);return;}
     setArenaIntro(true);
     setArenaCount(3);
     var t1 = setTimeout(() => setArenaCount(2), 820);
     var t2 = setTimeout(() => setArenaCount(1), 1640);
-    var t3 = setTimeout(() => { setArenaCount(0); setArenaIntro(false); }, 2460);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    var t3 = setTimeout(() => {setArenaCount(0);setArenaIntro(false);}, 2460);
+    return () => {clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
   }, [status]);
 
   /* ── Orb bootstrap (after canvas mounts) ──────── */
@@ -6165,14 +6174,14 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             transcript: (turnsRef.current || []).
             filter(function (tn) {return tn.who === 'you' || tn.who === 'ai';}).
             map(function (tn) {return {
-              who: tn.who,
-              text: (tn.text || '').trim(),
-              interrupted: !!tn.interrupted,
-              // session-relative ms offset + speech phase, for the
-              // interactive/saved transcript. Older turns may lack them.
-              t: typeof tn.t === 'number' ? tn.t : null,
-              phase: tn.phase || ''
-            };}),
+                who: tn.who,
+                text: (tn.text || '').trim(),
+                interrupted: !!tn.interrupted,
+                // session-relative ms offset + speech phase, for the
+                // interactive/saved transcript. Older turns may lack them.
+                t: typeof tn.t === 'number' ? tn.t : null,
+                phase: tn.phase || ''
+              };}),
             // Parsed ballot summary — saved alongside so a round-history
             // row can show the score/result without re-parsing the RFD.
             score: roundScore,
@@ -6255,7 +6264,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           // before we navigate away; if the user hammers Back the
           // inline render is still on the previous page.
           navScheduled = true;
-          var _rfdUrl = '/voice-rfd' + (roundDocId ? ('?id=' + encodeURIComponent(roundDocId)) : '');
+          var _rfdUrl = '/voice-rfd' + (roundDocId ? '?id=' + encodeURIComponent(roundDocId) : '');
           setTimeout(function () {try {window.location.href = _rfdUrl;} catch (e) {}}, 350);
         }
       } catch (handoffErr) {console.warn('[generateRFD] handoff failed', handoffErr);}
@@ -7299,7 +7308,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     }, 'End speech →')
     )];
 
-  })(),
+  })()
   )
   ),
   // Argument flow — the live exchange as a row of connected nodes,

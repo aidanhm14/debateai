@@ -70,11 +70,29 @@ function clamp(s, n) {
   return typeof s === 'string' ? s.slice(0, n) : '';
 }
 
+// Counter doc lives at early_cohort_signups/_meta so reading the count
+// costs exactly 1 doc read instead of an aggregation query (which has
+// the same 1-read cost but requires a newer SDK). Increment-on-write
+// keeps it in sync; if the meta doc is missing we try count() as fallback.
+const META_ID = '_meta';
+
 async function readCount(db) {
-  // Use Firestore aggregation count() — single read regardless of
-  // collection size. Cached 5 min on the public surface anyway.
-  const snap = await db.collection('early_cohort_signups').count().get();
-  return snap.data().count;
+  const metaRef = db.collection('early_cohort_signups').doc(META_ID);
+  const meta = await metaRef.get();
+  if (meta.exists && typeof meta.data().count === 'number') {
+    return meta.data().count;
+  }
+  // _meta not seeded yet — use count() aggregation to bootstrap it and
+  // store the result so future GETs read just the one counter doc.
+  try {
+    const snap = await db.collection('early_cohort_signups').count().get();
+    const n = snap.data().count;
+    // Best-effort seed (subtract 1 for the _meta doc itself which count() includes).
+    try { await metaRef.set({ count: Math.max(0, n - 1), seededAt: FieldValue.serverTimestamp() }); } catch (e) {}
+    return Math.max(0, n - 1);
+  } catch (e) {
+    return null;
+  }
 }
 
 export default async function handler(request) {
@@ -139,19 +157,36 @@ export default async function handler(request) {
       updatedAt: FieldValue.serverTimestamp(),
     };
     const ref = db.collection('early_cohort_signups').doc(id);
-    const existing = await ref.get();
-    if (!existing.exists) {
+
+    // Existence check is best-effort: if the read quota is exhausted we
+    // still want the write to land. On failure we treat the doc as new
+    // (adds createdAt); merge: true makes double-writes safe either way.
+    let existing = null;
+    try { existing = await ref.get(); } catch (e) {
+      console.warn('[early-signup] existence check failed (quota?):', e && e.message);
+    }
+    const isNew = !existing || !existing.exists;
+    if (isNew) {
       doc.createdAt = FieldValue.serverTimestamp();
       doc.source = clamp(body.source, 32) || 'early-page';
     }
     await ref.set(doc, { merge: true });
 
-    // Fresh count for the success-state counter on the client. One
-    // extra read per signup is fine at this volume.
+    // Increment the counter doc on new signups (upsert-safe).
+    if (isNew) {
+      try {
+        await db.collection('early_cohort_signups').doc(META_ID).set(
+          { count: FieldValue.increment(1) }, { merge: true }
+        );
+      } catch (e) {
+        console.warn('[early-signup] counter increment failed:', e && e.message);
+      }
+    }
+
     let count = null;
     try { count = await readCount(db); } catch (e) {}
 
-    return jsonResponse({ ok: true, returning: existing.exists, count }, 200, request);
+    return jsonResponse({ ok: true, returning: !isNew, count }, 200, request);
   } catch (e) {
     console.error('[early-signup] write failed:', e);
     return errorResponse('Could not save your signup. Try again in a moment.', 500, request);
