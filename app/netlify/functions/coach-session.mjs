@@ -38,7 +38,7 @@ const ALLOWED_GENDERS = new Set(Object.keys(COACH_VOICES));
 // does on turn one so it launches straight into the drill).
 const DRILLS = {
   open: {
-    label: 'Open spar',
+    label: 'Talk to coach',
     focus: 'Free back and forth. Let them set the motion and pick a side, then take the other side and be a sharp opponent and second.',
     open: 'ask what motion they want to run and which side they are taking, then take the opposite side and go.',
   },
