@@ -6,7 +6,7 @@
 // round-number milestone.
 //
 // Two sources:
-//   - metrics/daily/{YYYY-MM-DD}.count → anonymous visits per UTC day
+//   - metrics_daily/{YYYY-MM-DD}.count → anonymous visits per UTC day
 //     (written by visitor-tick on every first-device tick)
 //   - Firebase Auth listUsers() → every real sign-up (Google,
 //     email/password, ...). This is the authoritative source — the
@@ -28,7 +28,7 @@
 //
 // Cached 1 hour (public surface, staleness is fine and the cache also
 // caps Firestore read amplification — every uncached call does ~MAX_DAYS
-// metrics/daily gets + one Auth listUsers pagination).
+// metrics_daily gets + one Auth listUsers pagination).
 
 import { getDb } from './lib/firestore.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
@@ -102,24 +102,20 @@ export default async (request) => {
   }
 
   // ── 1. Per-day anonymous visits ───────────────────────────────
-  // Isolated try-catch so a failure here (e.g. the
-  // `metrics/daily/{date}` path being a 3-segment collection ref,
-  // not a 2-segment doc ref — see lib note below) doesn't take
-  // down the much more useful members read in section 2.
+  // Isolated try-catch so a failure here doesn't take down the much
+  // more useful members read in section 2.
   //
-  // TODO: visitor-tick.mjs writes daily counters at the same
-  // 3-segment path and has been silently throwing for months;
-  // its source string `metrics/daily/{date}` is not a valid
-  // Firestore document path. Real fix: either flatten to a
-  // 2-segment collection (`metrics_daily/{date}`) or nest into
-  // a true subcollection (`metrics/daily/days/{date}`). Until
-  // that lands, totalVisits stays at 0 here.
+  // 2026-06-15: reads `metrics_daily/{date}` (2-segment doc path).
+  // Was `metrics/daily/{date}`, a 3-segment (odd) path that is NOT a
+  // valid document ref, so db.doc() threw and totalVisits summed to 0
+  // for months. visitor-tick.mjs (the writer) was flattened to the
+  // same `metrics_daily` collection in the same change.
   const visitsByDay = Object.create(null);
   let firstVisitDay = null;
   let totalVisits = 0;
   try {
     const keys = dayKeysOldestFirst(MAX_DAYS);
-    const refs = keys.map(k => db.doc(`metrics/daily/${k}`));
+    const refs = keys.map(k => db.doc(`metrics_daily/${k}`));
     const snaps = await Promise.all(refs.map(r => r.get().catch(() => null)));
     for (let i = 0; i < snaps.length; i++){
       const snap = snaps[i];
@@ -276,7 +272,7 @@ export default async (request) => {
 
     // ── 3. Walk forward, emit milestone dates ─────────────────────
     // Iterate over each source's OWN sorted day-keys (not the shared
-    // metrics/daily window) so historical members from before visit
+    // metrics_daily window) so historical members from before visit
     // tracking began aren't dropped. The earliest of any source
     // becomes the timeline's "since".
     const milestones = [];
