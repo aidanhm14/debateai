@@ -14139,73 +14139,32 @@ window.addEventListener('load', function(){
 })();
 </script>
 
-<!-- ── First-visit onboarding modal (2026-06-15) ─────────────────────
-     Asks visitors whether they're new to debate or a competitive
-     debater, then steers them to the right entry points. Suppressed
-     after one interaction via localStorage so it never re-pops on a
-     return visit. ESC + click-outside + X + "Skip" all dismiss.
-     Skipped if the URL has a hash (visitor came for a specific
-     section) or if cohort-banner already nags them — keeps the page
-     from feeling spammy. -->
+<!-- ── Live-debates prompt (2026-06-16) ──────────────────────────────
+     Replaced the new-to-debate / competitive onboarding chooser. Pops
+     once, 10 seconds into the visit, nudging the visitor into a live
+     round. Suppressed after one show via localStorage so it never
+     re-pops on a return visit. ESC + click-outside + X + "Maybe later"
+     all dismiss. Skipped if the URL has a hash (visitor came for a
+     specific section). -->
 <div id="obModal" class="ob-modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="obTitle">
   <div class="ob-backdrop" data-ob-close></div>
   <div class="ob-card" role="document">
     <button type="button" class="ob-x" data-ob-close aria-label="Close">&times;</button>
 
-    <!-- View 1: the question -->
-    <div class="ob-view" data-ob-view="q">
-      <h2 class="ob-title" id="obTitle">Welcome to DebateIt.</h2>
-      <p class="ob-sub">Two quick paths in. Pick the one that fits.</p>
-      <div class="ob-choices">
-        <button type="button" class="ob-choice" data-ob-pick="new">
-          <span class="ob-choice-h">I'm new to debate</span>
-          <span class="ob-choice-p">Show me how this works.</span>
-        </button>
-        <button type="button" class="ob-choice" data-ob-pick="competitive">
-          <span class="ob-choice-h">I'm a competitive debater</span>
-          <span class="ob-choice-p">Take me to the rounds.</span>
-        </button>
-      </div>
-      <button type="button" class="ob-skip" data-ob-close>Just let me browse</button>
-    </div>
-
-    <!-- View 2: new-to-debate path (jargon-free language by design) -->
-    <div class="ob-view" data-ob-view="new" hidden>
-      <h2 class="ob-title">Start with a one-on-one.</h2>
-      <p class="ob-sub">No tournament jargon. You'll get the hang of it the way most people do, by arguing.</p>
-      <a class="ob-route ob-route--primary" href="/voice-debate" data-ob-go="voice">
-        <span class="ob-route-h">Argue with the AI <span class="ob-rec">Recommended</span></span>
-        <span class="ob-route-p">A short voice round. You pick a side, the AI takes the other, you go back and forth. Most people start here.</span>
-      </a>
-      <a class="ob-route" href="/learn" data-ob-go="learn">
-        <span class="ob-route-h">Read the basics first</span>
-        <span class="ob-route-p">What "the motion" means, why there are sides, how a round actually runs.</span>
-      </a>
-      <button type="button" class="ob-skip" data-ob-close>or keep scrolling the site</button>
-      <button type="button" class="ob-back" data-ob-back>&larr; Back</button>
-    </div>
-
-    <!-- View 3: competitive path (format-aware, can use jargon) -->
-    <div class="ob-view" data-ob-view="competitive" hidden>
-      <h2 class="ob-title">Welcome back.</h2>
-      <p class="ob-sub">The fastest ways into a round.</p>
+    <!-- Single live-debates prompt (replaced the new-to-debate / competitive
+         onboarding chooser 2026-06-16). Fires once, 10s into the visit. -->
+    <div class="ob-view" data-ob-view="live">
+      <h2 class="ob-title" id="obTitle">Debate someone live, right now.</h2>
+      <p class="ob-sub">Queue up and get matched with a real debater on a real clock. No one online? The AI steps in so you still get a full round.</p>
       <a class="ob-route ob-route--primary" href="/spar" data-ob-go="spar">
-        <span class="ob-route-h">Match with a human</span>
-        <span class="ob-route-p">Queue up. Real opponent, real clock. AI fallback if nobody's online.</span>
+        <span class="ob-route-h">Find a debater <span class="ob-rec">Live now</span></span>
+        <span class="ob-route-p">Match with a human, pick a format, go. AI fallback if the queue is quiet.</span>
       </a>
       <a class="ob-route" href="/live" data-ob-go="live">
-        <span class="ob-route-h">Scheduled rounds</span>
-        <span class="ob-route-p">Post or accept a debate on a specific time. Adds to your calendar.</span>
+        <span class="ob-route-h">Schedule a round</span>
+        <span class="ob-route-p">Post or accept a debate at a set time. Adds to your calendar.</span>
       </a>
-      <a class="ob-route" href="/debate-it" data-ob-go="debate-it">
-        <span class="ob-route-h">Voice AI in your format</span>
-        <span class="ob-route-p">APDA, BP, WSDC, PF, LD, Policy. Format-accurate persona on the other side.</span>
-      </a>
-      <a class="ob-route" href="/leaderboard" data-ob-go="leaderboard">
-        <span class="ob-route-h">Climb the board</span>
-        <span class="ob-route-p">Cross-format rating from judged rounds.</span>
-      </a>
-      <button type="button" class="ob-back" data-ob-back>&larr; Back</button>
+      <button type="button" class="ob-skip" data-ob-close>Maybe later</button>
     </div>
   </div>
 </div>
@@ -14261,30 +14220,22 @@ window.addEventListener('load', function(){
 
 <script>
 (function(){
-  // First-visit experience-level onboarding. Self-contained, no deps.
-  // Suppression key persists in localStorage so the AUTO-POP only fires
-  // once per browser. Explicit re-triggers (the "First time?" hero
-  // button below, or any code that calls window.daOpenOnboarding())
-  // ignore the suppression — the user is asking for it.
-  var KEY = 'da-onboarding-shown';
+  // Live-debates prompt. Self-contained, no deps. Pops once, 10s into
+  // the visit (suppression key persists in localStorage). Re-openable via
+  // window.daOpenLivePopup().
+  // New key (2026-06-16): the modal is now the live-debates prompt, not
+  // the new-to-debate chooser, so it pops once per browser on its own key
+  // even for visitors who dismissed the old onboarding.
+  var KEY = 'da-live-popup-shown';
   var modal = document.getElementById('obModal');
   if (!modal) return;
 
   // Whether the auto-pop should fire on this page load.
-  // Suppressed if the user has seen + interacted with the modal before,
-  // OR if they deep-linked to a #section (came for something specific).
+  // Suppressed if it has popped before, OR if the visitor deep-linked to
+  // a #section (came for something specific — don't interrupt).
   var autoOpenAllowed = true;
   try { if (localStorage.getItem(KEY) === '1') autoOpenAllowed = false; } catch (e) {}
   if (location.hash && location.hash !== '#') autoOpenAllowed = false;
-
-  function setView(name){
-    var views = modal.querySelectorAll('[data-ob-view]');
-    for (var i=0;i<views.length;i++){
-      var v = views[i];
-      var match = v.getAttribute('data-ob-view') === name;
-      v.hidden = !match;
-    }
-  }
 
   function track(event, params){
     try { if (window.gtag) gtag('event', event, params || {}); } catch (e) {}
@@ -14298,11 +14249,10 @@ window.addEventListener('load', function(){
     modal.classList.add('is-open');
     modal.removeAttribute('hidden');
     modal.setAttribute('aria-hidden','false');
-    setView('q');
-    track('onboarding_view');
-    // Move focus to the first choice for keyboard users.
-    var firstChoice = modal.querySelector('.ob-choice');
-    if (firstChoice) setTimeout(function(){ firstChoice.focus(); }, 50);
+    track('live_popup_view');
+    // Move focus to the primary CTA for keyboard users.
+    var firstRoute = modal.querySelector('.ob-route');
+    if (firstRoute) setTimeout(function(){ firstRoute.focus(); }, 50);
   }
 
   function close(reason){
@@ -14310,34 +14260,18 @@ window.addEventListener('load', function(){
     modal.setAttribute('hidden','');
     modal.setAttribute('aria-hidden','true');
     suppress();
-    track('onboarding_dismiss', { reason: reason || 'x' });
+    track('live_popup_dismiss', { reason: reason || 'x' });
   }
 
-  // Wire dismiss controls (X, backdrop, Skip).
+  // Wire dismiss controls (X, backdrop, Maybe later).
   var closers = modal.querySelectorAll('[data-ob-close]');
   for (var c=0;c<closers.length;c++) closers[c].addEventListener('click', function(){ close('close'); });
-
-  // Wire pick controls (the two top-level buttons).
-  var picks = modal.querySelectorAll('[data-ob-pick]');
-  for (var p=0;p<picks.length;p++) {
-    picks[p].addEventListener('click', function(){
-      var path = this.getAttribute('data-ob-pick');
-      track('onboarding_pick', { path: path });
-      setView(path);
-      var firstRoute = modal.querySelector('[data-ob-view="'+path+'"] .ob-route');
-      if (firstRoute) setTimeout(function(){ firstRoute.focus(); }, 50);
-    });
-  }
-
-  // Wire back controls.
-  var backs = modal.querySelectorAll('[data-ob-back]');
-  for (var b=0;b<backs.length;b++) backs[b].addEventListener('click', function(){ setView('q'); });
 
   // Wire route clicks (track + suppress, then default navigation runs).
   var routes = modal.querySelectorAll('[data-ob-go]');
   for (var r=0;r<routes.length;r++) {
     routes[r].addEventListener('click', function(){
-      track('onboarding_route', { route: this.getAttribute('data-ob-go') });
+      track('live_popup_route', { route: this.getAttribute('data-ob-go') });
       suppress();
       // Let the anchor's href navigate normally.
     });
@@ -14348,34 +14282,16 @@ window.addEventListener('load', function(){
     if (e.key === 'Escape' && modal.classList.contains('is-open')) close('esc');
   });
 
-  // Public re-trigger so the "First time?" hero button (and any future
-  // entry point) can reopen the modal even after dismissal. Resets to
-  // the question view so it starts fresh each time.
-  window.daOpenOnboarding = function(source){
+  // Public re-trigger so any entry point can reopen the live-debate prompt.
+  window.daOpenLivePopup = function(source){
     open();
-    try { if (window.gtag) gtag('event', 'onboarding_reopen', { source: source || 'unknown' }); } catch (e) {}
+    try { if (window.gtag) gtag('event', 'live_popup_reopen', { source: source || 'unknown' }); } catch (e) {}
   };
 
-  // Wire the persistent "First time?" trigger(s) on the page.
-  var triggers = document.querySelectorAll('[data-ob-trigger]');
-  for (var t=0;t<triggers.length;t++) {
-    triggers[t].addEventListener('click', function(e){
-      e.preventDefault();
-      window.daOpenOnboarding(this.getAttribute('data-ob-trigger') || 'trigger');
-    });
-  }
-
-  // Let the visitor browse before prompting. Fires after they scroll
-  // past the hero (~500px) with at least 8s on page, OR after 25s idle.
-  // Skipped on return visits or deep-links.
+  // Pop the live-debates prompt 10 seconds into the visit. Once per
+  // browser (suppression key above); skipped on deep-links.
   if (autoOpenAllowed) {
-    var fired = false;
-    var pageReady = false;
-    var fire = function(){ if (fired) return; fired = true; open(); window.removeEventListener('scroll', onScroll); };
-    setTimeout(function(){ pageReady = true; }, 8000);
-    setTimeout(fire, 25000);
-    var onScroll = function(){ if (pageReady && window.scrollY > 500) fire(); };
-    window.addEventListener('scroll', onScroll, { passive: true });
+    setTimeout(function(){ if (!modal.classList.contains('is-open')) open(); }, 10000);
   }
 })();
 </script>
