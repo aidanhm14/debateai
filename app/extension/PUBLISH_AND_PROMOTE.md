@@ -82,7 +82,7 @@ each lives in the numbered sections below; this is the spine.
 ./app/extension/build.sh
 ```
 
-Output: `app/extension/dist/counter-v0.15.3.zip` (the name follows the
+Output: `app/extension/dist/counter-v0.16.0.zip` (the name follows the
 `version` in `manifest.json`). Open the zip to confirm `manifest.json`
 sits at the root, not inside an `extension/` folder.
 
@@ -112,7 +112,7 @@ that is the whole point of the extension. Ship with OAuth.
 
 1. Open https://chrome.google.com/webstore/devconsole/.
 2. Click **New item** (top right).
-3. **Upload** the `counter-v0.15.3.zip` you just built. Wait for the
+3. **Upload** the `counter-v0.16.0.zip` you just built. Wait for the
    analyzer; if it flags anything, fix in the source repo (don't edit the
    zip directly) and rebuild.
 4. **Store listing tab** — paste from `STORE_LISTING.md`:

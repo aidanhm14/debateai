@@ -68,6 +68,7 @@ const STORAGE_KEYS = {
   counterCardOpen: 'counter:card-open',
   counterReader: 'counter:reader',
   counterScope: 'counter:scope', // 'paragraph' | 'full-draft' (avoid clash w/ legacy 'mode')
+  counterTask: 'counter:task',   // 'counter' (written) | 'quiz' (voice oral-exam)
   counterTried: 'da-counter-tried', // '1' after first successful Counter run
 };
 
@@ -149,6 +150,9 @@ const els = {
   frame: document.getElementById('frame'),
   // Counter-your-draft section
   counterCard: document.getElementById('counterCard'),
+  counterTaskTabs: document.getElementById('counterTaskTabs'),
+  counterPrimaryTitle: document.getElementById('counterPrimaryTitle'),
+  counterPrimarySub: document.getElementById('counterPrimarySub'),
   counterToggle: document.getElementById('counterToggle'),
   counterBody: document.getElementById('counterBody'),
   counterPassage: document.getElementById('counterPassage'),
@@ -220,6 +224,9 @@ const state = {
   counterIntensity: 'firm',
   counterReader: 'generic',
   counterScope: 'paragraph',
+  // Which half of Counter is active: 'counter' (written critique via
+  // /api/counter-doc) or 'quiz' (voice oral-exam drill in the iframe).
+  counterTask: 'counter',
   counterPending: false,
   counterResults: null,
 };
@@ -643,6 +650,67 @@ function setCounterScope(key) {
   }
   updateCounterCount();
 }
+// Task switch: written "Counter my draft" vs spoken "Quiz me out loud".
+// Both share the passage textarea; the task decides what the CTA does —
+// runCounter() POSTs to /api/counter-doc, launchQuiz() seeds the voice
+// drill iframe. Quiz mode hides the text-only controls via .is-quiz (CSS)
+// and swaps the head + CTA copy.
+const COUNTER_TASK_COPY = {
+  counter: {
+    title: 'Counter your draft',
+    sub: "Paste a paragraph from your Google Doc, essay, or case file. The AI plays your toughest reader, finds the weakest claim, builds three rebuttals, and hands you the question you'll be asked first.",
+  },
+  quiz: {
+    title: 'Quiz me out loud',
+    sub: 'Paste a paragraph, then defend it out loud. Dr. Iyer presses on your weakest claim and you answer by voice, one question at a time, the way a real viva or panel runs.',
+  },
+};
+function setCounterTask(key) {
+  if (key !== 'counter' && key !== 'quiz') return;
+  state.counterTask = key;
+  saveLocal(STORAGE_KEYS.counterTask, key);
+  document.querySelectorAll('.counter-task__btn').forEach((b) => {
+    const on = b.dataset.task === key;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  els.counterCard?.classList.toggle('is-quiz', key === 'quiz');
+  const copy = COUNTER_TASK_COPY[key];
+  if (els.counterPrimaryTitle) els.counterPrimaryTitle.textContent = copy.title;
+  if (els.counterPrimarySub) els.counterPrimarySub.textContent = copy.sub;
+  if (key === 'quiz') {
+    const ctaTail = document.querySelector('.counter-card__cta--lg span:last-child');
+    if (ctaTail) ctaTail.innerHTML = '<span class="counter-card__cta-label">Quiz me</span> out loud';
+  } else {
+    // Restore the written-counter CTA (handles paragraph vs full-draft copy).
+    setCounterScope(state.counterScope);
+  }
+  showCounterError('');
+  updateCounterCount();
+}
+// Voice oral-exam launch. Same passage as the written counter, but instead
+// of POSTing to /api/counter-doc we hand the voice-debate iframe a quiz-me
+// payload and flip the stage to the live drill. The ext-mode defaults
+// (examiner persona + cross-exam mode) are exactly the viva/panel register.
+function launchQuiz() {
+  const passage = (els.counterPassage?.value || '').trim();
+  if (passage.length < 40) {
+    showCounterError('Paste a paragraph or longer to be quizzed on.');
+    return;
+  }
+  showCounterError('');
+  // Topic drives the live-pill label; the full passage rides the payload.
+  setTopic(passage.slice(0, 900));
+  setDrilling(true);
+  sendToIframe({
+    action: 'quiz-me',
+    text: passage,
+    mode: state.mode,
+    persona: state.persona,
+    autoStart: true,
+  });
+  try { SFX.captured?.(); } catch (_) {}
+}
 // Doc-context strip. Asks background for the active-tab metadata; if
 // the tab is a Google Doc, render the strip with the title + a Pull
 // CTA. Otherwise hide the strip entirely.
@@ -1030,7 +1098,17 @@ els.counterPassage?.addEventListener('input', () => {
   updateCounterCount();
   showCounterError('');
 });
-els.counterRun?.addEventListener('click', runCounter);
+// The primary CTA runs the written counter or launches the voice quiz,
+// depending on which task tab is active.
+function runActiveCounterTask() {
+  if (state.counterTask === 'quiz') launchQuiz();
+  else runCounter();
+}
+els.counterRun?.addEventListener('click', runActiveCounterTask);
+els.counterTaskTabs?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-task]');
+  if (btn) setCounterTask(btn.dataset.task);
+});
 els.counterBody?.addEventListener('click', (ev) => {
   const t = ev.target;
   if (!(t instanceof HTMLButtonElement)) return;
@@ -1045,7 +1123,7 @@ els.docStripPull?.addEventListener('click', pullSelectionIntoCounter);
 els.counterPassage?.addEventListener('keydown', (ev) => {
   if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
     ev.preventDefault();
-    runCounter();
+    runActiveCounterTask();
   }
 });
 
@@ -1540,6 +1618,11 @@ els.clearRecentBtn?.addEventListener('click', () => {
     state.counterScope = savedScope;
   }
   setCounterScope(state.counterScope);
+  // Task restore: written counter (default) vs voice quiz. Applied after
+  // scope so the quiz-mode CTA override wins when restored to 'quiz'.
+  const savedTask = readLocal(STORAGE_KEYS.counterTask);
+  state.counterTask = savedTask === 'quiz' ? 'quiz' : 'counter';
+  setCounterTask(state.counterTask);
   updateCounterCount();
   // First-use sample pill — hidden once the user has run Counter once.
   renderSampleButton();

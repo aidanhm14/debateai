@@ -13,9 +13,9 @@ it as the source-of-truth when you update the listing.
 Counter — DebateIt for Google Docs
 ```
 
-**Short description** (≤132 chars, 128 used)
+**Short description** (≤132 chars, 123 used)
 ```
-Counter your draft. The AI plays your toughest reader — admissions, op-ed, thesis, opposing counsel — and finds the weak link.
+Counter your draft, or defend it out loud. The AI plays your toughest reader: admissions, op-ed, thesis, counsel, examiner.
 ```
 
 **Category**
@@ -80,6 +80,7 @@ Built for:
 • Any setting where you have to argue out loud, not just write — including English-medium and Hindi-medium
 
 What you get
+• Two ways to be challenged, switchable at the top of the panel: "Counter my draft" (written critique + three rebuttals) or "Quiz me out loud" (a voice oral-exam on the same passage, examiner persona)
 • Side-panel "Counter your draft" card: paste or pull a passage, pick from 7 reader personas, pick intensity (measured / firm / fierce), pick scope (A claim / Whole draft up to 25k chars), get three rebuttals + the examiner's first question + a drill-this-in-voice handoff
 • First-use sample paragraph button: no draft handy? Load one of three real-shape samples (admissions essay, op-ed thesis, debate case) and see Counter work before bringing your own
 • "Copy as comment" close-the-loop CTA: formats the whole counter as a Docs-comment-shaped payload + shows the ⌘⌥M / Ctrl+Alt+M paste-as-comment hotkey
@@ -103,7 +104,7 @@ How it differs from "AI assistant" extensions
 • No debate jargon in oral mode. "Warrant" and "magnitude / probability / timeframe" stay silent in the examiner's head; the student gets plain academic English.
 
 Pricing
-• Free: 5 anonymous + 45 more on sign-in (50 drills per month total)
+• Free: 5 anonymous + 5 more on sign-in (10 drills per month total)
 • Individual at $5/year: 250 drills/month, six AI brains (Claude / GPT / Gemini / Grok / DeepSeek / Open Lab), premium voice
 • Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited

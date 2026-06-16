@@ -1021,6 +1021,63 @@
     color: var(--fg);
   }
 
+  /* Task switch: the two halves of Counter, made co-equal. "Counter my
+     draft" runs the written critique; "Quiz me out loud" launches the
+     voice oral-exam drill on the same passage. Sits at the very top of
+     the card so the user picks the kind of pushback before anything else. */
+  .counter-task {
+    display: flex;
+    gap: 6px;
+    padding: 12px 14px 0 14px;
+  }
+  .counter-task__btn {
+    appearance: none;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 11px;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .counter-task__btn:not(.is-on):hover { border-color: #3a3a42; }
+  .counter-task__btn.is-on {
+    border-color: var(--crimson);
+    background: rgba(229, 69, 69, 0.08);
+  }
+  .counter-task__t { font-size: 12.5px; font-weight: 800; color: var(--fg); }
+  .counter-task__btn.is-on .counter-task__t { color: var(--crimson); }
+  .counter-task__d { font-size: 10.5px; font-weight: 600; color: var(--muted); letter-spacing: 0.01em; }
+
+  /* Quiz mode hides the text-critique-only controls (reader, scope,
+     intensity, char-count, results, sample) and surfaces a short
+     examiner note in their place. Toggled by .is-quiz on the card. */
+  .counter-card.is-quiz .reader-row,
+  .counter-card.is-quiz .mode-tabs,
+  .counter-card.is-quiz .counter-card__row,
+  .counter-card.is-quiz .counter-results,
+  .counter-card.is-quiz .counter-card__sample { display: none; }
+  .counter-card__quiz-note {
+    display: none;
+    gap: 9px;
+    align-items: flex-start;
+    margin: 12px 0 2px;
+    padding: 10px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--crimson);
+    border-radius: 8px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .counter-card.is-quiz .counter-card__quiz-note { display: flex; }
+  .counter-card__quiz-note strong { color: var(--fg); font-weight: 700; }
+
   /* Reader row — full-width chip rail above intensity. The chips
      scroll horizontally if they overflow the side-panel width. */
   .reader-row {
@@ -1498,7 +1555,7 @@
     <div class="brandbar__brand">
       <span class="brandbar__dot" aria-hidden="true"></span>
       <span class="brandbar__name">COUNTER</span>
-      <span class="brandbar__sub">DEBATEAI · DOCS</span>
+      <span class="brandbar__sub">DEBATEIT · DOCS</span>
     </div>
     <span class="brandbar__spacer"></span>
     <button class="streak-chip" id="streakChip" type="button" title="Drill streak">Start a streak</button>
@@ -1518,10 +1575,22 @@
          this in voice" CTA after a counter lands. -->
     <section class="setup setup--counter-only" id="setup">
       <section class="counter-card is-open is-primary" id="counterCard">
+        <!-- Task switch: written counter vs spoken oral-exam. The two
+             halves of Counter's pitch, made co-equal and chosen up front. -->
+        <div class="counter-task" id="counterTaskTabs" role="tablist" aria-label="Choose how the AI pushes back">
+          <button type="button" class="counter-task__btn is-on" role="tab" data-task="counter" aria-selected="true">
+            <span class="counter-task__t">Counter my draft</span>
+            <span class="counter-task__d">Written critique + 3 rebuttals</span>
+          </button>
+          <button type="button" class="counter-task__btn" role="tab" data-task="quiz" aria-selected="false">
+            <span class="counter-task__t">Quiz me out loud</span>
+            <span class="counter-task__d">Voice oral-exam drill</span>
+          </button>
+        </div>
         <div class="counter-card__primary-head">
-          <h2 class="counter-card__primary-title">Counter your draft</h2>
-          <p class="counter-card__primary-sub">
-            Paste a paragraph from your Google Doc, essay, or case file. The AI plays your toughest reader — finds the weakest claim, builds three rebuttals, and hands you the question you'll be asked first.
+          <h2 class="counter-card__primary-title" id="counterPrimaryTitle">Counter your draft</h2>
+          <p class="counter-card__primary-sub" id="counterPrimarySub">
+            Paste a paragraph from your Google Doc, essay, or case file. The AI plays your toughest reader, finds the weakest claim, builds three rebuttals, and hands you the question you'll be asked first.
           </p>
         </div>
         <div class="counter-card__body" id="counterBody">
@@ -1564,6 +1633,14 @@
             <span class="counter-card__sample-label">No draft handy? Try with a sample paragraph</span>
             <span class="counter-card__sample-hint">→</span>
           </button>
+
+          <!-- Examiner note: only shown in "Quiz me out loud" mode, where
+               the reader / scope / intensity controls are hidden because
+               the voice drill uses the examiner persona + cross-exam mode. -->
+          <div class="counter-card__quiz-note">
+            <span aria-hidden="true">🎙</span>
+            <span><strong>Dr. Iyer</strong> quizzes you out loud on this passage. One precise question at a time, then silence while you answer by voice. Closes with an examiner-style verdict on what to tighten.</span>
+          </div>
 
           <!-- Reader picker: who the AI plays when reading the user's
                argument. Distinct from intensity (how harshly they push)
