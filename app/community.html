@@ -235,25 +235,33 @@ body::before{
 [data-theme="light"] .search{background:#fff}
 .search:focus{border-color:rgba(239,68,68,.5)}
 
-/* Disclosure cards */
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+/* Disclosure list — forum rows (2026-06-16). Was a card grid; now a
+   single-column list with a left vote rail, like a real discussion
+   board. Rows share one bordered container and divide with hairlines
+   instead of floating as separated cards. */
+.cards{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-card)}
 .card{
-  padding:13px 15px;background:var(--bg-card);border:1px solid var(--border);
-  border-radius:12px;display:flex;flex-direction:column;gap:7px;
-  transition:border-color .2s,transform .15s;
+  padding:13px 16px;background:transparent;border:0;
+  border-bottom:1px solid var(--border);border-radius:0;
+  display:flex;flex-direction:row;align-items:flex-start;gap:13px;
+  transition:background .15s;
 }
-.card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
-.card .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.card .row.between{justify-content:space-between}
-.card .motion{font-size:.86rem;font-weight:700;line-height:1.3;color:var(--text);letter-spacing:-.01em;flex:1;min-width:0}
-.card .meta{font-size:.68rem;color:var(--text-ghost);font-weight:600;letter-spacing:.04em}
+.card:last-child{border-bottom:0}
+.card:hover{background:var(--bg-hover,rgba(127,127,127,.05));transform:none}
+/* Left vote rail — vertical up / score / down, the forum signature. */
+.card .vote-rail{display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;width:34px;padding-top:1px}
+.card .vote-rail .vote-btn{padding:1px 7px;font-size:.78rem;line-height:1.15;border-radius:7px}
+.card .vote-rail .vote-score{font-size:.8rem;font-weight:800;margin:1px 0}
+.card .row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.card .row-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.card .motion{font-size:.95rem;font-weight:700;line-height:1.32;color:var(--text);letter-spacing:-.01em;cursor:pointer}
+.card .motion:hover{color:var(--accent)}
+.card .meta{font-size:.7rem;color:var(--text-ghost);font-weight:600;letter-spacing:.03em}
 .card .preview{
-  font-size:.74rem;color:var(--text-dim);line-height:1.5;
-  max-height:44px;overflow:hidden;
-  -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);
-  mask-image:linear-gradient(to bottom,#000 55%,transparent);
+  font-size:.78rem;color:var(--text-dim);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
-.card .actions{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:6px;border-top:1px dashed var(--border)}
+.card .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
 .tag{
   display:inline-flex;padding:3px 9px;border-radius:999px;
@@ -1053,21 +1061,23 @@ body::before{
       var myVote = myVotes[c.id] || 0;
       return '' +
         '<div class="card' + (isAiAccount(c) ? ' is-ai' : '') + '" data-id="' + escHtml(c.id) + '">' +
-          '<div class="row">' +
-            (sideLabel ? '<span class="tag ' + sideClass + '">' + sideLabel + '</span>' : '') +
-            (fmtLabel ? '<span class="tag format">' + fmtLabel + '</span>' : '') +
+          '<div class="vote-rail">' +
+            '<button class="vote-btn up' + (myVote === 1 ? ' on' : '') + '" data-vote="up" data-id="' + escHtml(c.id) + '" title="Helpful disclosure">▲</button>' +
+            '<span class="vote-score ' + scoreClass + '">' + (score > 0 ? '+' : '') + score + '</span>' +
+            '<button class="vote-btn down' + (myVote === -1 ? ' on' : '') + '" data-vote="down" data-id="' + escHtml(c.id) + '" title="Low quality">▼</button>' +
           '</div>' +
-          '<div class="motion">' + escHtml(c.motion || 'Untitled motion') + '</div>' +
-          '<div class="preview">' + escHtml(preview) + '</div>' +
-          '<div class="actions">' +
-            '<div class="vote-group">' +
-              '<button class="vote-btn up' + (myVote === 1 ? ' on' : '') + '" data-vote="up" data-id="' + escHtml(c.id) + '" title="Helpful disclosure">▲</button>' +
-              '<span class="vote-score ' + scoreClass + '">' + (score > 0 ? '+' : '') + score + '</span>' +
-              '<button class="vote-btn down' + (myVote === -1 ? ' on' : '') + '" data-vote="down" data-id="' + escHtml(c.id) + '" title="Low quality">▼</button>' +
+          '<div class="row-body">' +
+            '<div class="row-head">' +
+              (sideLabel ? '<span class="tag ' + sideClass + '">' + sideLabel + '</span>' : '') +
+              (fmtLabel ? '<span class="tag format">' + fmtLabel + '</span>' : '') +
+              '<span class="motion" data-open="' + escHtml(c.id) + '">' + escHtml(c.motion || 'Untitled motion') + '</span>' +
             '</div>' +
-            '<div class="meta">' + authorLink(c.sharedBy || 'Anonymous', c) + identityBadges(c) + (date ? ' · ' + date : '') + '</div>' +
-            '<button class="btn primary" data-open="' + escHtml(c.id) + '">Read full case</button>' +
-            '<button class="btn" data-import="' + escHtml(c.id) + '">Import</button>' +
+            '<div class="preview" data-open="' + escHtml(c.id) + '">' + escHtml(preview) + '</div>' +
+            '<div class="actions">' +
+              '<div class="meta">' + authorLink(c.sharedBy || 'Anonymous', c) + identityBadges(c) + (date ? ' · ' + date : '') + '</div>' +
+              '<button class="btn primary" data-open="' + escHtml(c.id) + '">Read full case</button>' +
+              '<button class="btn" data-import="' + escHtml(c.id) + '">Import</button>' +
+            '</div>' +
           '</div>' +
         '</div>';
     }).join('');

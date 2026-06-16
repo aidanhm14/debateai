@@ -172,6 +172,12 @@ Pro-voice: impromptu formats (APDA, Worlds) are basically a live voice round, so
   // The AI personas are scaffolding, not the building.
   const FLOOR_THRESHOLD = 8;
 
+  // Cap how many AI-persona seed threads surface (2026-06-16). The bank
+  // exists so the discussion board isn't empty, but a wall of bot-
+  // authored threads read as an AI feed, not a forum. Show only the
+  // freshest few; real human threads always rank above these.
+  const MAX_SEED_THREADS = 3;
+
   function merge(realRows, opts){
     const limit = (opts && opts.limit) || 100;
     const real = Array.isArray(realRows) ? realRows : [];
@@ -180,7 +186,9 @@ Pro-voice: impromptu formats (APDA, Worlds) are basically a live voice round, so
     if (threshold > 0 && real.length >= threshold){
       return real.slice(0, limit);
     }
-    const seeds = build();
+    // build() returns threads newest-first by construction (THREADS_RAW
+    // is ordered by ageHours ascending); cap to the freshest MAX.
+    const seeds = build().slice(0, MAX_SEED_THREADS);
     // Humans always rank above AI seeds: real threads first (by recency),
     // then the AI starters fill the tail.
     real.sort((a, b) => {

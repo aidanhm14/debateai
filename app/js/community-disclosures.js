@@ -506,6 +506,30 @@ short shell, drop on me if you must, i'll go for case. dont eat 30 seconds of cx
   // entirely. Tunable via opts.floorThreshold.
   const FLOOR_THRESHOLD = 10;
 
+  // Cap how many AI-persona seed cases ever surface (2026-06-16). The
+  // full bank is scaffolding so the board isn't empty, but showing all
+  // ~17 made the Cases tab read as AI-authored. Pick a format-diverse
+  // handful: one case per format first (so the visible set spans APDA /
+  // BP / Asian / LD / Worlds / PF), then fill any remaining slots. Real
+  // human cases always merge in on top, so as the room fills the AI
+  // share shrinks further until the floor threshold retires seeds.
+  const MAX_SEED_CASES = 6;
+  function pickSeedCases(){
+    const all = build();
+    const out = [];
+    const seenFormat = {};
+    for (const c of all){
+      const f = c.format || '';
+      if (!seenFormat[f]){ seenFormat[f] = true; out.push(c); }
+      if (out.length >= MAX_SEED_CASES) return out;
+    }
+    for (const c of all){
+      if (out.indexOf(c) === -1) out.push(c);
+      if (out.length >= MAX_SEED_CASES) break;
+    }
+    return out;
+  }
+
   // Merge real entries with seed pool. Real entries take precedence on
   // id collision (none expected — seeds are 'da-disc-*'-prefixed).
   function merge(realRows, opts){
@@ -518,7 +542,7 @@ short shell, drop on me if you must, i'll go for case. dont eat 30 seconds of cx
     if (threshold > 0 && real.length >= threshold){
       return real.slice(0, limit);
     }
-    const seeds = build();
+    const seeds = pickSeedCases();
     const all = real.concat(seeds);
     // Default sort matches the page's 'recent' sort: newest first by
     // sharedAt.seconds. The community page re-sorts client-side when
