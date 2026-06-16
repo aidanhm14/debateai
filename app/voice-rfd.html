@@ -629,6 +629,41 @@ body{
     return sections;
   }
 
+  // Viva mode ships an examiner's report instead of a debate ballot.
+  // voice-debate.html (vivaRfdSys) emits: OVERALL MASTERY, STAGE SCORES
+  // (Definitional / Mechanism / Edge cases / Synthesis, each N/5),
+  // STRONGEST ANSWER, WHERE IT BROKE, TWO THINGS TO STUDY. Parse the
+  // per-stage scores for the graded breakdown; fall back gracefully if
+  // a section is missing (the raw report still shows in Full ballot).
+  function parseVivaScorecard(raw){
+    var text = String(raw || '');
+    var out = { overall:null, stages:[], strongest:'', broke:'', study:[] };
+    var ov = text.match(/OVERALL\s*MASTERY\s*[:\-]?\s*(\d{1,3})/i);
+    if (ov) out.overall = Math.max(0, Math.min(100, parseInt(ov[1],10)));
+    var stageDefs = [
+      ['Definitional', /DEFINITIONAL\s*[:\-]?\s*([0-5])\s*\/\s*5\s*[—:\-]*\s*([^\n]*)/i],
+      ['Mechanism',    /MECHANISM\s*[:\-]?\s*([0-5])\s*\/\s*5\s*[—:\-]*\s*([^\n]*)/i],
+      ['Edge cases',   /EDGE\s*CASES?\s*[:\-]?\s*([0-5])\s*\/\s*5\s*[—:\-]*\s*([^\n]*)/i],
+      ['Synthesis',    /SYNTHESIS\s*[:\-]?\s*([0-5])\s*\/\s*5\s*[—:\-]*\s*([^\n]*)/i]
+    ];
+    stageDefs.forEach(function(d){
+      var m = text.match(d[1]);
+      if (m) out.stages.push({ label: d[0], score: parseInt(m[1],10), note: (m[2]||'').trim() });
+    });
+    function grab(label, nextLabels){
+      var pattern = new RegExp(label + '\\b[^\\n]*\\n+([\\s\\S]*?)(?=\\n\\s*(?:' + nextLabels.join('|') + ')\\b|$)', 'i');
+      var m = text.match(pattern);
+      return m ? m[1].trim() : '';
+    }
+    out.strongest = grab('STRONGEST\\s*ANSWER', ['WHERE\\s*IT\\s*BROKE','TWO\\s*THINGS']);
+    out.broke     = grab('WHERE\\s*IT\\s*BROKE', ['TWO\\s*THINGS','STRONGEST\\s*ANSWER']);
+    var studyBlock = grab('TWO\\s*THINGS\\s*TO\\s*STUDY', ['__never__']);
+    if (studyBlock){
+      out.study = studyBlock.split(/\n+/).map(function(l){ return l.replace(/^\s*\d+[\.\)]\s*/, '').trim(); }).filter(function(l){ return l.length > 2; });
+    }
+    return out;
+  }
+
   function detectWinner(decisionLine){
     var d = String(decisionLine || '');
     var userIdx = d.search(/\bUSER\b|\bYOU\b/i);
@@ -655,6 +690,13 @@ body{
       return;
     }
     var sections = parseRfd(payload.rfd);
+    var isViva = payload.format === 'viva';
+    var viva = isViva ? parseVivaScorecard(payload.rfd) : null;
+    if (isViva && viva){
+      if (viva.strongest) sections.best = viva.strongest;
+      if (viva.broke) sections.costliest = viva.broke;
+      if (viva.study && viva.study.length) sections.fixes = viva.study;
+    }
     var winner = detectWinner(sections.decision);
     var winnerLabel = winner === 'user' ? 'You take the round' :
                       winner === 'ai'   ? 'The AI takes the round' :
@@ -671,7 +713,41 @@ body{
     if (payload.sideLabel) rowParts.push(escHtml(payload.sideLabel));
     if (payload.personaLabel) rowParts.push('vs ' + escHtml(payload.personaLabel));
 
-    var html =
+    var html;
+    if (isViva){
+      var stageGrid = (viva && viva.stages.length)
+        ? '<div style="margin-top:18px;display:grid;gap:12px">' + viva.stages.map(function(s){
+            var pct = Math.round((s.score/5)*100);
+            var col = s.score>=4 ? '#4ade80' : s.score<=2 ? '#f87171' : 'var(--text)';
+            return '<div>'
+              + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
+                + '<span style="font-weight:600">' + escHtml(s.label) + '</span>'
+                + '<span style="font-variant-numeric:tabular-nums;color:' + col + ';font-weight:700">' + s.score + '<span style="opacity:.5;font-weight:400"> / 5</span></span>'
+              + '</div>'
+              + '<div style="height:6px;border-radius:99px;background:rgba(127,127,127,.18);overflow:hidden"><i style="display:block;height:100%;width:' + pct + '%;background:' + col + '"></i></div>'
+              + (s.note ? '<div style="margin-top:5px;font-size:.86rem;color:var(--text-dim)">' + escHtml(s.note) + '</div>' : '')
+            + '</div>';
+          }).join('') + '</div>'
+        : '';
+      var mastery = (viva && viva.overall != null) ? viva.overall : null;
+      html =
+        '<div class="eyebrow">Oral exam · Examiner&#39;s report</div>'
+        + '<section class="verdict"><div class="verdict-inner">'
+          + '<div class="verdict-row">' + rowParts.map(function(p, i){
+              return (i > 0 ? '<span class="dot"></span>' : '') + '<span>' + p + '</span>';
+            }).join('') + '</div>'
+          + '<h1 class="verdict-headline">Viva complete.</h1>'
+          + (payload.motion ? '<p class="verdict-sub">Subject: <em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
+          + '<div class="verdict-stats">'
+            + '<div class="verdict-stat"><div class="verdict-stat-label">Mastery</div><div class="verdict-stat-value ' + (mastery!=null && mastery>=80 ? 'good' : mastery!=null && mastery<40 ? 'low' : '') + '">' + (mastery!=null ? mastery : '—') + (mastery!=null ? '<span class="unit">/ 100</span>' : '') + '</div></div>'
+            + '<div class="verdict-stat"><div class="verdict-stat-label">Exam time</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
+            + '<div class="verdict-stat"><div class="verdict-stat-label">Your answers</div><div class="verdict-stat-value">' + (stats.yourTurns != null ? stats.yourTurns : '—') + '</div></div>'
+            + '<div class="verdict-stat"><div class="verdict-stat-label">Stages scored</div><div class="verdict-stat-value">' + (viva ? viva.stages.length : 0) + '<span class="unit">/ 4</span></div></div>'
+          + '</div>'
+          + stageGrid
+        + '</div></section>';
+    } else {
+      html =
       '<div class="eyebrow">Ballot · Reason for decision</div>'
       + '<section class="verdict"><div class="verdict-inner">'
         + '<div class="verdict-row">' + rowParts.map(function(p, i){
@@ -686,6 +762,7 @@ body{
           + '<div class="verdict-stat"><div class="verdict-stat-label">Talk-time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
         + '</div>'
       + '</div></section>';
+    }
 
     // Cert award banner — only when voice-debate.html attached a
     // freshly-issued cert to the payload (signed-in user, score >= 27).
@@ -732,19 +809,19 @@ body{
 
     if (sections.best) html +=
       '<section class="section section--best">'
-        + '<div class="section-head"><div class="icon">✓</div><h2>Best moment</h2><div class="sub">What landed</div></div>'
+        + '<div class="section-head"><div class="icon">✓</div><h2>' + (isViva ? 'Strongest answer' : 'Best moment') + '</h2><div class="sub">' + (isViva ? 'What you nailed' : 'What landed') + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.best) + '</div>'
       + '</section>';
 
     if (sections.costliest) html +=
       '<section class="section section--costliest">'
-        + '<div class="section-head"><div class="icon">!</div><h2>Costliest moment</h2><div class="sub">What slipped</div></div>'
+        + '<div class="section-head"><div class="icon">!</div><h2>' + (isViva ? 'Where it broke' : 'Costliest moment') + '</h2><div class="sub">' + (isViva ? 'Where knowledge gave out' : 'What slipped') + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.costliest) + '</div>'
       + '</section>';
 
     if (sections.fixes && sections.fixes.length) html +=
       '<section class="section section--fixes">'
-        + '<div class="section-head"><div class="icon">↗</div><h2>Two fixes for next round</h2><div class="sub">Actionable</div></div>'
+        + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : 'Two fixes for next round') + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : 'Actionable') + '</div></div>'
         + '<ol class="fixes-list">' + sections.fixes.map(function(f){ return '<li>' + escHtml(f) + '</li>'; }).join('') + '</ol>'
       + '</section>';
 

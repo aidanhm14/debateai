@@ -6012,7 +6012,40 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       join('\n\n');
       var modeLabel = MODES.find((m) => m.key === mode)?.title || mode;
       var modeLens = (MODE_JUDGE_RULES[mode] || []).map((b) => '- ' + b).join('\n');
-      var sys = `You are a debate judge giving a Reason for Decision after a live voice debate. Mode: ${modeLabel}. Motion: "${motion}". Side the user took: ${side === 'gov' ? 'Government' : 'Opposition'}.
+      // Viva mode gets an examiner's report (per-stage rubric), not a
+      // debate ballot. Same Haiku call + handoff; only the system prompt
+      // and the /voice-rfd render branch (payload.format==='viva') differ.
+      var vivaRfdSys = `You are Dr. Iyer, a senior oral examiner, writing the post-viva report for a student you just examined on: "${motion}". This is an EXAMINER'S REPORT, not a debate ballot. No debate vocabulary, no "winner", no speaker points.
+
+Score the four stages of the viva, each out of 5, based ONLY on what the student actually demonstrated in the transcript:
+- DEFINITIONAL: could they state the core claim plainly and precisely?
+- MECHANISM: did they understand HOW it works, the causal steps, the load-bearing assumptions?
+- EDGE CASES: did they know the boundary conditions, counter-cases, where it stops holding?
+- SYNTHESIS: could they extend the idea to an implication or an adjacent domain?
+
+Format the report EXACTLY as:
+
+OVERALL MASTERY: NN/100
+(holistic command of the subject, 0 to 100. 80+ is distinction level; 50 is a bare pass; below 40 means the core was not secure. Be honest, calibrate to what was actually shown.)
+
+STAGE SCORES
+DEFINITIONAL: N/5 — one specific clause on what they showed
+MECHANISM: N/5 — one specific clause
+EDGE CASES: N/5 — one specific clause
+SYNTHESIS: N/5 — one specific clause
+
+STRONGEST ANSWER
+(1-2 sentences. Name the exact answer that showed real understanding.)
+
+WHERE IT BROKE
+(1-2 sentences. Name the precise point the student's knowledge gave out: which assumption, which edge case, which step in the chain.)
+
+TWO THINGS TO STUDY
+1. ...
+2. ...
+
+Tone: measured examiner register, precise, never cruel. Cite the student's actual answers. No em-dashes. No debate jargon. If the student barely spoke, say the viva was too short to assess fully and score conservatively.`;
+      var sys = mode === 'viva' ? vivaRfdSys : `You are a debate judge giving a Reason for Decision after a live voice debate. Mode: ${modeLabel}. Motion: "${motion}". Side the user took: ${side === 'gov' ? 'Government' : 'Opposition'}.
 
 ${modeLens ? 'MODE LENS — judge through this:\n' + modeLens + '\n\n' : ''}Format the RFD exactly as:
 
