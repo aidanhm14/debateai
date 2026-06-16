@@ -1246,6 +1246,8 @@ h1 em{color:var(--accent);font-style:normal}
     lastConsentDoc: null,          // latest consent snapshot — POST-failure card recovery
     noticeUntil: 0,                // hold a queue-stats notice against tryMatch repaints
     anonTried: false,              // one-shot guard on the guest anonymous sign-in
+    guestUpgradeTimer: null,       // deferred anon sign-in (only mint an account after a real dwell)
+    guestUpgrading: false,         // true while a guest is being upgraded — preserves the countdown
     watchPollInterval: null,       // "watch a live round" panel refresh
   };
 
@@ -2319,7 +2321,10 @@ h1 em{color:var(--accent);font-style:normal}
   function joinQueue(){
     if (!state.user || !firebaseDb) return;
     state.cancelled = false;
-    state.joinedAtMs = Date.now();
+    // A guest who dwelled and just got upgraded keeps their original
+    // search start so the countdown doesn't jump back to 0:00.
+    if (state.guestUpgrading && state.joinedAtMs){ state.guestUpgrading = false; }
+    else { state.joinedAtMs = Date.now(); }
     // Remember the chosen format for the background matcher —
     // js/notifications.js fmt() reads 'debateos-spar-format' and falls
     // back to 'apda' when it was never written.
@@ -3009,6 +3014,8 @@ h1 em{color:var(--accent);font-style:normal}
 
   function cancelQueue(){
     state.cancelled = true;
+    // Don't mint a guest account for someone who's leaving the queue.
+    if (state.guestUpgradeTimer){ clearTimeout(state.guestUpgradeTimer); state.guestUpgradeTimer = null; }
     // Cancel means OFF everywhere: clear the sitewide availability
     // flag joinQueue set, so the background matcher doesn't resurrect
     // the queue doc on the next page.
@@ -4111,30 +4118,47 @@ h1 em{color:var(--accent);font-style:normal}
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // 2026-06-12: guests can REALLY play now. The 2026-05-26 state
-        // (signed-out visitors got the searching UI but could never
-        // pair, because matchmaking_queue requires auth) read as
-        // "spar is broken" the moment two real people tried it with
-        // one side signed out. Firebase anonymous auth is enabled on
-        // the project, so a guest gets a real uid + ID token and the
-        // queue, spar-pair, and the consent handshake all work
-        // unchanged. onAuthStateChanged re-fires with the anon user
-        // and the normal joinQueue path takes over. If the anonymous
-        // sign-in fails (network, provider toggled off), fall back to
-        // the old queue-less searching UI so the page never hard-dies.
-        if (!state.anonTried){
-          state.anonTried = true;
-          firebaseAuth.signInAnonymously().catch(function(err){
-            console.warn('[spar] anonymous sign-in failed, queue-less fallback', err);
-            joinQueueAnon();
-          });
-        } else {
-          joinQueueAnon();
-        }
+        // 2026-06-12: guests can REALLY play — an anonymous Firebase
+        // account gives them a uid + token so the queue / spar-pair /
+        // consent handshake all work. 2026-06-16: but minting that
+        // account on bare page load piled up throwaway accounts from
+        // drive-by visits (and local testing). So DON'T sign in on
+        // load. Show the queue-less searching UI immediately, and only
+        // mint the anonymous account (and join the REAL queue) once the
+        // guest has dwelled long enough to actually want a round. A
+        // returning guest whose anon account is still in IndexedDB skips
+        // all this — onAuthStateChanged fires with that user and goes
+        // straight to joinQueue, reusing the existing account.
+        joinQueueAnon();
+        scheduleGuestUpgrade();
       }
     });
   } else {
     joinQueueAnon();
+  }
+
+  // Mint the guest's anonymous account only after they've stuck around
+  // on the searching screen this long — a real "I want a round" signal.
+  // Drive-by visits (and quick test loads) leave before this fires and
+  // never create an account. Tradeoff: first match for a brand-new guest
+  // is delayed by up to this much (they're not in the real queue yet).
+  var GUEST_UPGRADE_MS = 5000;
+  function scheduleGuestUpgrade(){
+    if (state.anonTried || state.guestUpgradeTimer || !firebaseAuth) return;
+    state.guestUpgradeTimer = setTimeout(function(){
+      state.guestUpgradeTimer = null;
+      // Bail if they cancelled, navigated to a DM, or already have a user.
+      if (state.cancelled || state.user || state.anonTried) return;
+      state.anonTried = true;
+      state.guestUpgrading = true; // joinQueue keeps the existing countdown
+      firebaseAuth.signInAnonymously().catch(function(err){
+        state.guestUpgrading = false;
+        // Stay in the queue-less searching UI we're already showing.
+        console.warn('[spar] anonymous sign-in failed, staying queue-less', err);
+      });
+      // On success, onAuthStateChanged re-fires with the anon user and
+      // the if(user) branch runs joinQueue() — now we're in the real queue.
+    }, GUEST_UPGRADE_MS);
   }
 
   function joinQueueAnon(){
