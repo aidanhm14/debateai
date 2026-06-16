@@ -5394,9 +5394,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     max-width:140px;
   }
   #langPickerSel:hover{border-color:rgba(255,255,255,.28)}
-  /* Tight viewports, collapse to flag-only so the topbar still fits */
+  /* Tight viewports, collapse to flag-only so the topbar still fits.
+     2026-06-16: taller hit box (min-height 36px) so the collapsed picker
+     is a real thumb target, not a 14px chevron sliver. */
   @media(max-width:720px){
-    #langPickerSel{max-width:54px;font-size:0;padding:6px 16px 6px 6px}
+    #langPickerSel{max-width:54px;font-size:0;padding:9px 18px 9px 8px;min-height:36px;box-sizing:border-box}
     #langPickerSel option{font-size:.78rem}
   }
   /* Google Translate strips */
@@ -8600,6 +8602,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   var down=false, sx=0, sy=0, sLeft=0, axis=null, moved=false;
   stack.addEventListener('pointerdown',function(e){
+    // Touch + pen scroll natively (touch-action:auto on the stack); the
+    // JS drag is a mouse-only enhancement for narrow desktop windows. On
+    // touch, letting native scroll-snap own the gesture is what makes the
+    // carousel reliably swipeable.
+    if(e.pointerType && e.pointerType!=='mouse') return;
     if(!canSwipe()) return;
     down=true; moved=false; axis=null;
     sx=e.clientX; sy=e.clientY; sLeft=stack.scrollLeft;
@@ -9127,9 +9134,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       overflow-x:auto;scroll-snap-type:x mandatory;
       overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
       padding:4px 4px 14px;scrollbar-width:thin;
-      /* Horizontal drag is JS-driven (pointer events); pan-y keeps
-         vertical page scroll native so a card grab never traps it. */
-      touch-action:pan-y;cursor:grab;
+      /* 2026-06-16: native horizontal scroll. touch-action:auto lets the
+         browser scroll the carousel sideways on a horizontal swipe and
+         pass vertical swipes to the page — the reliable mobile-carousel
+         behavior. The old pan-y disabled native horizontal scroll and
+         handed it entirely to a JS pointer-drag, which was flaky on touch
+         (the "can't scroll the reviews" bug). The JS drag is now mouse-only
+         (see canSwipe gate below), so phones use pure native scroll-snap. */
+      touch-action:auto;cursor:grab;
     }
     .testimonial-stack::-webkit-scrollbar{height:5px}
     .testimonial-stack::-webkit-scrollbar-thumb{background:rgba(127,127,127,.22);border-radius:99px}
@@ -9148,15 +9160,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   @keyframes reviewHintPulse{0%,100%{opacity:.55}50%{opacity:1}}
   @keyframes reviewHintNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
   .review-nav.reviewed .review-swipe-hint{opacity:0;transition:opacity .4s ease;pointer-events:none}
-  .review-dots{display:flex;align-items:center;gap:8px}
+  .review-dots{display:flex;align-items:center;gap:2px}
+  /* 2026-06-16: the dot button is now a ~32px thumb target; the visible
+     dot is drawn by ::before and stays small. Was an 8px button — almost
+     impossible to tap on a phone. */
   .review-dot{
-    width:8px;height:8px;padding:0;border-radius:50%;cursor:pointer;
+    width:32px;height:32px;padding:0;border:none;background:transparent;
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .review-dot::before{
+    content:'';display:block;width:8px;height:8px;border-radius:50%;
     border:1px solid rgba(239,68,68,.45);background:transparent;
     transition:transform .2s ease,background .2s ease,width .2s ease;
   }
-  .review-dot.on{background:#ef4444;border-color:#ef4444;width:22px;border-radius:99px}
-  [data-theme="light"] .review-dot{border-color:rgba(220,38,38,.5)}
-  [data-theme="light"] .review-dot.on{background:#dc2626;border-color:#dc2626}
+  .review-dot.on::before{background:#ef4444;border-color:#ef4444;width:22px;border-radius:99px}
+  [data-theme="light"] .review-dot::before{border-color:rgba(220,38,38,.5)}
+  [data-theme="light"] .review-dot.on::before{background:#dc2626;border-color:#dc2626}
   @media (prefers-reduced-motion:reduce){
     .review-swipe-hint,.review-swipe-hint span{animation:none}
     .testimonial-card{animation:none !important;transition:none !important}
