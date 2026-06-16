@@ -8420,7 +8420,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="review-subhead">Different formats, different countries, same thing keeps coming up: access to serious practice.</p>
     </div>
     <div class="testimonial-stack" id="reviewGrid" role="list">
-      <figure class="review-card review-card--lead" role="listitem">
+      <figure class="review-card testimonial-card card-1" role="listitem" tabindex="0">
         <span class="tc-circuit">World Schools</span>
         <blockquote class="review-quote">
           I captained Zimbabwe at Worlds and competed at Columbia in the US. <span class="review-hl">The real gap between circuits isn't talent, it's access to quality practice.</span> DebateIt closes it. The AI argues back at full strength, knows what a World Schools round demands, and the ballot tells you exactly where the round was won or lost.
@@ -8436,7 +8436,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </span>
         </figcaption>
       </figure>
-      <figure class="review-card" role="listitem">
+      <figure class="review-card testimonial-card card-2" role="listitem" tabindex="0">
         <span class="tc-circuit">Public Forum</span>
         <blockquote class="review-quote">
           DebateIt represents the future of enlightened debate. You can tell how much thought went into every layer of the experience, from case generation to the objectivity of the judging. It's proof that <span class="review-hl">AI can sharpen critical thinking rather than replace it</span>.
@@ -8451,7 +8451,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </span>
         </figcaption>
       </figure>
-      <figure class="review-card" role="listitem">
+      <figure class="review-card testimonial-card card-3" role="listitem" tabindex="0">
         <span class="tc-circuit">British Parliamentary</span>
         <blockquote class="review-quote">
           In the four years I have been competing in British Parliamentary debate, <span class="review-hl">I have never seen a tool effectively able to summarize, refute, and analyze high-level argumentation</span> until I used Debate it. The platform would have made a substantive difference in my preparation for international majors, and I recommend it to all.
@@ -8468,7 +8468,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </span>
         </figcaption>
       </figure>
-      <figure class="review-card" role="listitem">
+      <figure class="review-card testimonial-card card-4" role="listitem" tabindex="0">
         <span class="tc-circuit">APDA / UChicago</span>
         <blockquote class="review-quote">
           I've debated across 4 continents and 4 formats, and I think we need more of it. Having solved away manual labor in our lives, we now go to gyms to stay physically fit. <span class="review-hl">In a world where we can outsource our thinking to AI, we need more tools to keep us sharp.</span> Debate is one such tool that forces us to think critically and confront disagreements openly. DebateIt makes this activity more accessible and helps us get better at it, like the chess.com of debate.
@@ -8493,60 +8493,89 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 </section>
 <script>
 (function(){
-  var grid = document.getElementById('reviewGrid');
-  var dotsWrap = document.getElementById('reviewDots');
-  if (!grid || !dotsWrap) return;
-  var cards = [].slice.call(grid.querySelectorAll('.review-card'));
-  if (cards.length < 2) return;
+  var stack = document.getElementById('reviewGrid');
+  if (!stack) return;
+  var isMobile = function(){ return window.innerWidth < 768; };
+  var cards = [].slice.call(stack.querySelectorAll('.testimonial-card'));
+  if (!cards.length) return;
 
-  /* Dot nav */
-  var dots = cards.map(function(card,i){
-    var d = document.createElement('button');
-    d.type='button'; d.className='review-dot';
-    d.setAttribute('role','tab');
-    d.setAttribute('aria-label','Review '+(i+1)+' of '+cards.length);
-    d.addEventListener('click',function(){ goTo(i); });
-    dotsWrap.appendChild(d);
-    return d;
+  function activateCard(card){
+    if (isMobile()) return;
+    stack.classList.add('tc-stack-active');
+    cards.forEach(function(c){
+      c.classList.toggle('tc-hovered', c === card);
+      c.classList.toggle('tc-dimmed', c !== card);
+    });
+  }
+  function deactivateAll(){
+    stack.classList.remove('tc-stack-active');
+    cards.forEach(function(c){ c.classList.remove('tc-hovered','tc-dimmed'); });
+  }
+  cards.forEach(function(card){
+    card.addEventListener('mouseenter', function(){ activateCard(card); });
+    card.addEventListener('focus',      function(){ activateCard(card); });
   });
-  var active=-1;
+  stack.addEventListener('mouseleave', deactivateAll);
+  stack.addEventListener('focusout', function(e){
+    if (!stack.contains(e.relatedTarget)) deactivateAll();
+  });
+
+  var dotsWrap = document.getElementById('reviewDots');
+  var dots = [];
+  var active = -1;
+  if (dotsWrap){
+    dots = cards.map(function(card,i){
+      var d = document.createElement('button');
+      d.type='button';d.className='review-dot';
+      d.setAttribute('role','tab');
+      d.setAttribute('aria-label','Review '+(i+1)+' of '+cards.length);
+      d.addEventListener('click',function(){goTo(i);});
+      dotsWrap.appendChild(d);
+      return d;
+    });
+  }
   function setActive(i){
     if(i===active) return; active=i;
-    dots.forEach(function(d,k){ var on=k===i; d.classList.toggle('on',on); d.setAttribute('aria-selected',on?'true':'false'); });
-    if(active>=cards.length-1){ var nav=grid.parentNode&&grid.parentNode.querySelector('.review-nav'); if(nav) nav.classList.add('reviewed'); }
+    dots.forEach(function(d,k){
+      var on=k===i;d.classList.toggle('on',on);
+      d.setAttribute('aria-selected',on?'true':'false');
+    });
+    if(active>=cards.length-1){
+      var nav=stack.parentNode&&stack.parentNode.querySelector('.review-nav');
+      if(nav) nav.classList.add('reviewed');
+    }
   }
   function sync(){
-    var mid=grid.scrollLeft+grid.clientWidth/2, best=0, bd=Infinity;
-    cards.forEach(function(c,i){ var d=Math.abs(c.offsetLeft+c.clientWidth/2-mid); if(d<bd){bd=d;best=i;} });
+    var mid=stack.scrollLeft+stack.clientWidth/2,best=0,bd=Infinity;
+    cards.forEach(function(c,i){var d=Math.abs(c.offsetLeft+c.clientWidth/2-mid);if(d<bd){bd=d;best=i;}});
     setActive(best);
   }
   function goTo(i){
     i=Math.max(0,Math.min(cards.length-1,i));
-    grid.scrollLeft=Math.max(0,cards[i].offsetLeft-(grid.clientWidth-cards[i].clientWidth)/2);
+    var c=cards[i];
+    stack.scrollLeft=Math.max(0,c.offsetLeft-(stack.clientWidth-c.clientWidth)/2);
   }
   var raf;
-  grid.addEventListener('scroll',function(){ if(raf)return; raf=requestAnimationFrame(function(){raf=0;sync();}); },{passive:true});
-
-  /* Mouse drag (desktop) */
-  var mx=0,mScroll=0,dragging=false;
-  grid.addEventListener('mousedown',function(e){ if(e.button!==0)return; mx=e.clientX; mScroll=grid.scrollLeft; dragging=true; e.preventDefault(); });
-  window.addEventListener('mousemove',function(e){ if(!dragging)return; grid.scrollLeft=mScroll-(e.clientX-mx); grid.classList.add('is-dragging'); });
-  window.addEventListener('mouseup',function(){ if(dragging){ dragging=false; grid.classList.remove('is-dragging'); } });
-
-  /* Touch swipe (mobile) */
-  var tx=0,ty=0,tScroll=0,tracking=false;
-  grid.addEventListener('touchstart',function(e){ if(e.touches.length!==1){tracking=false;return;} tx=e.touches[0].clientX; ty=e.touches[0].clientY; tScroll=grid.scrollLeft; tracking=true; },{passive:true});
-  grid.addEventListener('touchend',function(e){
-    if(!tracking)return; tracking=false;
-    var t=e.changedTouches&&e.changedTouches[0]; if(!t)return;
-    var dx=t.clientX-tx, dy=t.clientY-ty;
-    if(Math.abs(dx)<36||Math.abs(dx)<Math.abs(dy))return;
-    if(Math.abs(grid.scrollLeft-tScroll)>24)return;
-    var mid=grid.scrollLeft+grid.clientWidth/2,cur=0,bd=Infinity;
+  stack.addEventListener('scroll',function(){
+    if(!isMobile()) return;
+    if(raf) return;
+    raf=requestAnimationFrame(function(){raf=0;sync();});
+  },{passive:true});
+  var tx=0,ty=0,tS=0,tracking=false;
+  stack.addEventListener('touchstart',function(e){
+    if(!isMobile()){return;} if(e.touches.length!==1){tracking=false;return;}
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;tS=stack.scrollLeft;tracking=true;
+  },{passive:true});
+  stack.addEventListener('touchend',function(e){
+    if(!isMobile()||!tracking) return;tracking=false;
+    var t=e.changedTouches&&e.changedTouches[0];if(!t) return;
+    var dx=t.clientX-tx,dy=t.clientY-ty;
+    if(Math.abs(dx)<36||Math.abs(dx)<Math.abs(dy)) return;
+    if(Math.abs(stack.scrollLeft-tS)>24) return;
+    var mid=stack.scrollLeft+stack.clientWidth/2,cur=0,bd=Infinity;
     cards.forEach(function(c,k){var d=Math.abs(c.offsetLeft+c.clientWidth/2-mid);if(d<bd){bd=d;cur=k;}});
     goTo(cur+(dx<0?1:-1));
   },{passive:true});
-
   sync();
 })();
 </script>
@@ -8928,29 +8957,51 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     white-space:nowrap;
   }
 
-  /* Horizontal scroll row — same on desktop and mobile */
-  .review-grid{
-    display:flex;gap:16px;
-    overflow-x:auto;
-    scroll-snap-type:x proximity;
-    overscroll-behavior-x:contain;
-    -webkit-overflow-scrolling:touch;
-    padding:4px 2px 16px;
-    scrollbar-width:thin;
-    cursor:grab;
+  /* Entry animations — rotation baked in per card so transform composes cleanly */
+  @keyframes tc-in-1{from{opacity:0;transform:rotate(-1.5deg) translateY(20px)}to{opacity:1;transform:rotate(-1.5deg)}}
+  @keyframes tc-in-2{from{opacity:0;transform:rotate(1.2deg) translateY(20px)}to{opacity:1;transform:rotate(1.2deg)}}
+  @keyframes tc-in-3{from{opacity:0;transform:rotate(0.8deg) translateY(20px)}to{opacity:1;transform:rotate(0.8deg)}}
+  @keyframes tc-in-4{from{opacity:0;transform:rotate(-1deg) translateY(20px)}to{opacity:1;transform:rotate(-1deg)}}
+
+  /* Desktop: diagonal absolute stack */
+  @media (min-width:768px){
+    .testimonial-stack{position:relative;height:710px;overflow:visible}
+    .testimonial-card{
+      position:absolute;
+      width:min(640px,72%);
+      will-change:transform,opacity,box-shadow;
+      transition:transform 300ms ease-out,box-shadow 300ms ease-out,opacity 280ms ease-out,border-color 280ms ease-out;
+    }
+    .card-1{top:0;left:3%;z-index:4;animation:tc-in-1 520ms ease-out both}
+    .card-2{top:98px;left:24%;z-index:3;animation:tc-in-2 520ms ease-out both;animation-delay:90ms}
+    .card-3{top:228px;left:10%;z-index:2;animation:tc-in-3 520ms ease-out both;animation-delay:180ms}
+    .card-4{top:348px;left:30%;z-index:1;animation:tc-in-4 520ms ease-out both;animation-delay:270ms}
+    .testimonial-card.tc-hovered{
+      transform:rotate(0deg) scale(1.04) translateY(-12px) !important;
+      z-index:20 !important;
+      box-shadow:0 34px 110px rgba(0,0,0,.18) !important;
+      border-color:rgba(239,68,68,.38) !important;
+      opacity:1 !important;
+    }
+    .testimonial-card.tc-dimmed{opacity:.7 !important}
+    .testimonial-card:focus-visible{outline:2px solid rgba(239,68,68,.6);outline-offset:4px}
+    .review-nav{display:none}
   }
-  .review-grid.is-dragging{cursor:grabbing;user-select:none}
-  .review-grid::-webkit-scrollbar{height:5px}
-  .review-grid::-webkit-scrollbar-thumb{background:rgba(127,127,127,.22);border-radius:99px}
-  .review-grid > .review-card{
-    flex:0 0 min(400px,82vw);
-    scroll-snap-align:center;
-  }
-  .review-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px}
+
+  /* Mobile: horizontal swipe carousel */
   @media (max-width:767px){
     .review{padding:48px 18px 64px}
-    .review-grid > .review-card{flex:0 0 88vw}
+    .testimonial-stack{
+      display:flex;gap:14px;
+      overflow-x:auto;scroll-snap-type:x proximity;
+      overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
+      padding:4px 4px 14px;scrollbar-width:thin;
+    }
+    .testimonial-stack::-webkit-scrollbar{height:5px}
+    .testimonial-stack::-webkit-scrollbar-thumb{background:rgba(127,127,127,.22);border-radius:99px}
+    .testimonial-card{flex:0 0 88vw;scroll-snap-align:center}
     .review-chip{white-space:normal}
+    .review-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px}
   }
 
   .review-swipe-hint{
@@ -8974,6 +9025,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .review-dot.on{background:#dc2626;border-color:#dc2626}
   @media (prefers-reduced-motion:reduce){
     .review-swipe-hint,.review-swipe-hint span{animation:none}
+    .testimonial-card{animation:none !important;transition:none !important}
   }
 </style>
 

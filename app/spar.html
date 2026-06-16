@@ -1018,6 +1018,52 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .wl-btn.ghost:hover{color:var(--text); border-color:var(--border-strong)}
 
+/* Schedule panel inside DM modal */
+.wl-schedule-panel{
+  display:none; flex-direction:column; gap:12px;
+  padding:14px 18px 16px; border-top:1px solid var(--border);
+  background:var(--bg-elev,rgba(255,255,255,.04));
+}
+.wl-schedule-panel.open{ display:flex }
+.wl-schedule-row{ display:flex; gap:10px; flex-wrap:wrap }
+.wl-schedule-row .wl-field{ flex:1; min-width:120px }
+.wl-schedule-panel .wl-input[type="date"],
+.wl-schedule-panel .wl-input[type="time"],
+.wl-schedule-panel .wl-select{
+  color-scheme:dark; font-size:.84rem; padding:8px 10px;
+}
+.wl-schedule-panel .wl-input[type="text"]{ font-size:.84rem; padding:8px 10px }
+.wl-schedule-label{
+  font-size:.64rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-ghost); margin-bottom:4px; display:block;
+}
+.wl-schedule-actions{ display:flex; gap:8px; margin-top:2px }
+.wl-cal-btn{
+  flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:9px 14px; border-radius:999px;
+  font-family:inherit; font-weight:700; font-size:.82rem;
+  cursor:pointer; transition:background .15s, border-color .15s;
+  background:var(--accent); color:#fff; border:1px solid var(--accent);
+}
+.wl-cal-btn:hover{ background:#dc2626; border-color:#dc2626 }
+.wl-cal-cancel{
+  padding:9px 14px; border-radius:999px;
+  font-family:inherit; font-weight:700; font-size:.82rem;
+  cursor:pointer; background:transparent; color:var(--text-dim);
+  border:1px solid var(--border); transition:border-color .15s;
+}
+.wl-cal-cancel:hover{ border-color:var(--border-strong); color:var(--text) }
+/* Calendar icon button in modal footer */
+.wl-cal-toggle{
+  padding:9px 12px; border-radius:999px;
+  font-family:inherit; font-size:.82rem; font-weight:700;
+  cursor:pointer; background:transparent;
+  border:1px solid var(--border); color:var(--text-dim);
+  display:flex; align-items:center; gap:5px; white-space:nowrap;
+  transition:border-color .15s, color .15s;
+}
+.wl-cal-toggle:hover,.wl-cal-toggle.active{ border-color:var(--accent); color:var(--accent) }
+
 /* DM thread */
 .wl-thread{
   display:flex; flex-direction:column; gap:8px;
@@ -3405,12 +3451,51 @@ h1 em{color:var(--accent);font-style:normal}
         '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(info.name || 'Debater') + '</span>';
     }
     openModal(titleHtml,
-      '<div class="wl-thread" id="wlThread"><div class="wl-msg__empty">Loading messages…</div></div>',
+      '<div class="wl-thread" id="wlThread"><div class="wl-msg__empty">Loading messages…</div></div>' +
+      '<div class="wl-schedule-panel" id="wlSchedulePanel">' +
+        '<div class="wl-schedule-row">' +
+          '<div class="wl-field"><label class="wl-schedule-label">Date</label><input class="wl-input" type="date" id="wlSchedDate"></div>' +
+          '<div class="wl-field"><label class="wl-schedule-label">Time</label><input class="wl-input" type="time" id="wlSchedTime"></div>' +
+          '<div class="wl-field"><label class="wl-schedule-label">Duration</label>' +
+            '<select class="wl-input wl-select" id="wlSchedDur">' +
+              '<option value="30">30 min</option>' +
+              '<option value="60" selected>1 hour</option>' +
+              '<option value="90">1.5 hours</option>' +
+              '<option value="120">2 hours</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div class="wl-field"><label class="wl-schedule-label">Motion (optional)</label><input class="wl-input" type="text" id="wlSchedMotion" placeholder="e.g. THW ban social media for under-16s" maxlength="140"></div>' +
+        '<div class="wl-schedule-actions">' +
+          '<button class="wl-cal-btn" id="wlSchedSend" type="button">📅 Propose &amp; add to calendar</button>' +
+          '<button class="wl-cal-cancel" id="wlSchedCancel" type="button">Cancel</button>' +
+        '</div>' +
+      '</div>',
       [
-        { html: '<input class="wl-input wl-send-input" id="wlSendInput" placeholder="' + (at.isGroup ? 'Message the group…' : 'Set a time, propose a motion, etc.') + '" maxlength="' + WL_MSG_MAX + '">' },
+        { html: '<button class="wl-cal-toggle" id="wlCalToggle" type="button">📅 Schedule</button>' },
+        { html: '<input class="wl-input wl-send-input" id="wlSendInput" placeholder="' + (at.isGroup ? 'Message the group…' : 'Message…') + '" maxlength="' + WL_MSG_MAX + '" style="flex:1">' },
         { label: 'Send', kind: 'primary', id: 'wlSendBtn', onClick: sendThreadMessage },
       ]
     );
+    setTimeout(function(){
+      var calBtn = document.getElementById('wlCalToggle');
+      if (calBtn) calBtn.addEventListener('click', toggleSchedulePanel);
+      var sendPropose = document.getElementById('wlSchedSend');
+      if (sendPropose) sendPropose.addEventListener('click', sendScheduleProposal);
+      var cancelBtn = document.getElementById('wlSchedCancel');
+      if (cancelBtn) cancelBtn.addEventListener('click', function(){ toggleSchedulePanel(null, false); });
+      // Default date = tomorrow, time = next round hour
+      var scDate = document.getElementById('wlSchedDate');
+      var scTime = document.getElementById('wlSchedTime');
+      if (scDate && scTime){
+        var now = new Date();
+        var tom = new Date(now.getTime() + 86400000);
+        scDate.value = tom.toISOString().slice(0, 10);
+        var nextHour = new Date(now);
+        nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+        scTime.value = nextHour.toTimeString().slice(0, 5);
+      }
+    }, 30);
     if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} }
     wl.activeThreadUnsub = firebaseDb
       .collection('dm_threads').doc(at.id).collection('messages')
@@ -3474,6 +3559,106 @@ h1 em{color:var(--accent);font-style:normal}
   // Generalized send: works for 1:1 and group threads. Reads
   // wl.activeThread for participants, bumps unread for everyone except
   // the sender, and stamps fromName so group messages can be labeled.
+  function toggleSchedulePanel(e, forceOpen){
+    var panel = document.getElementById('wlSchedulePanel');
+    var btn = document.getElementById('wlCalToggle');
+    if (!panel) return;
+    var open = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
+    panel.classList.toggle('open', open);
+    if (btn) btn.classList.toggle('active', open);
+    if (open){
+      var f = document.getElementById('wlSchedDate');
+      if (f) f.focus();
+    } else {
+      var inp = document.getElementById('wlSendInput');
+      if (inp) inp.focus();
+    }
+  }
+
+  function sendScheduleProposal(){
+    var at = wl.activeThread;
+    if (!at || !state.user) return;
+    var dateVal = (document.getElementById('wlSchedDate') || {}).value || '';
+    var timeVal = (document.getElementById('wlSchedTime') || {}).value || '';
+    var durVal  = parseInt((document.getElementById('wlSchedDur') || {}).value || '60', 10);
+    var motion  = ((document.getElementById('wlSchedMotion') || {}).value || '').trim();
+    if (!dateVal || !timeVal){ alert('Pick a date and time first.'); return; }
+
+    // Build a readable label
+    var startDt = new Date(dateVal + 'T' + timeVal);
+    if (isNaN(startDt.getTime())){ alert('Invalid date or time.'); return; }
+    var endDt = new Date(startDt.getTime() + durVal * 60000);
+
+    var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var label = dayNames[startDt.getDay()] + ' ' + monthNames[startDt.getMonth()] + ' ' + startDt.getDate();
+    var h = startDt.getHours(), m = startDt.getMinutes();
+    var ampm = h >= 12 ? 'pm' : 'am';
+    var h12 = h % 12 || 12;
+    var timeLabel = h12 + (m ? ':' + (m < 10 ? '0' + m : m) : '') + ampm;
+    var durLabel = durVal < 60 ? durVal + ' min' : (durVal / 60) + ' hr';
+
+    // Google Calendar URL (local time, no Z suffix so it uses the user's timezone)
+    function fmtGcal(d){
+      return d.getFullYear() +
+        String(d.getMonth()+1).padStart(2,'0') +
+        String(d.getDate()).padStart(2,'0') + 'T' +
+        String(d.getHours()).padStart(2,'0') +
+        String(d.getMinutes()).padStart(2,'0') + '00';
+    }
+    var joinUrl = 'https://debateit.com/spar';
+    var details = 'Debate practice round via DebateIt.' + (motion ? '\n\nMotion: ' + motion : '') + '\n\nJoin at: ' + joinUrl;
+    var calUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+      '&text=' + encodeURIComponent('Debate Round — DebateIt') +
+      '&dates=' + fmtGcal(startDt) + '/' + fmtGcal(endDt) +
+      '&details=' + encodeURIComponent(details) +
+      '&location=' + encodeURIComponent(joinUrl);
+
+    // Compose the DM message
+    var msg = '📅 Round proposed: ' + label + ' at ' + timeLabel + ' · ' + durLabel;
+    if (motion) msg += '\nMotion: ' + motion;
+    msg += '\n\nAdd to Google Calendar:\n' + calUrl;
+
+    // Send it via the existing thread machinery
+    var at2 = wl.activeThread;
+    var me = state.user.uid;
+    var threadRef = firebaseDb.collection('dm_threads').doc(at2.id);
+    var msgsRef = threadRef.collection('messages');
+    var preview = '📅 ' + label + ' at ' + timeLabel;
+    var participantInfo = Object.assign({}, at2.participantInfo);
+    participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
+    var unread = {};
+    at2.participants.forEach(function(uid){
+      unread[uid] = (uid === me) ? 0 : firebase.firestore.FieldValue.increment(1);
+    });
+    var btn = document.getElementById('wlSchedSend');
+    if (btn) btn.disabled = true;
+    threadRef.set({
+      participants: at2.participants,
+      participantInfo: participantInfo,
+      lastMessage: preview,
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageFrom: me,
+      unread: unread,
+    }, { merge: true }).then(function(){
+      return msgsRef.add({
+        fromUid: me,
+        fromName: shortNameOf(state.user),
+        text: msg,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }).then(function(){
+      if (btn) btn.disabled = false;
+      toggleSchedulePanel(null, false);
+      try { gtag('event', 'dm_schedule_propose', {}); } catch(e){}
+      window.open(calUrl, '_blank', 'noopener');
+    }).catch(function(err){
+      if (btn) btn.disabled = false;
+      console.warn('[sched] send failed', err && err.message);
+      alert('Could not send. Try again.');
+    });
+  }
+
   function sendThreadMessage(){
     var at = wl.activeThread;
     var input = document.getElementById('wlSendInput');
