@@ -193,11 +193,26 @@ button{font-family:inherit}
 .bar-back{padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.72rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s}
 .bar-back:hover{color:var(--text);border-color:var(--border-strong)}
 
-/* Main split: Jitsi (left) + round panel (right) */
+/* Main split: video (left) + round panel (right), with a drag handle
+   between them. --vid-w sizes the video column; drag the handle right to
+   widen the video (and shrink the text panel). Persisted per device. */
 .split{
-  flex:1;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(380px,1fr);
+  flex:1;display:grid;
+  grid-template-columns:var(--vid-w,1.4fr) 7px minmax(380px,1fr);
   min-height:0;
 }
+.split-resizer{
+  cursor:col-resize;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--border,rgba(255,255,255,.08));
+  transition:background .15s ease;touch-action:none;
+}
+.split-resizer:hover,.split-resizer.dragging{background:var(--accent,#ef4444)}
+.split-resizer::before{
+  content:'';position:absolute;width:3px;height:36px;border-radius:3px;
+  background:rgba(127,127,127,.55);transition:background .15s ease;
+}
+.split-resizer:hover::before,.split-resizer.dragging::before{background:#fff}
 @media(max-width:1000px){
   /* 2026-05-18: was 50% 50% which fought with body{height:auto} and
      ended up giving the video pane half the page and squishing the
@@ -206,6 +221,7 @@ button{font-family:inherit}
      ratio: video tile is a fixed compact pane up top, speech UI
      flows naturally below and gets all the room it needs. */
   .split{grid-template-columns:1fr;grid-template-rows:auto auto}
+  .split-resizer{display:none}
   body{height:auto;overflow:auto}
   html,body{height:auto;overflow:auto}
   .jitsi-pane{height:34vh;max-height:320px;min-height:200px;padding:0}
@@ -576,6 +592,25 @@ button{font-family:inherit}
 }
 @media (max-width:540px){
   .round-roster{flex-direction:column;gap:8px}
+}
+/* 4-team roster (BP / Worlds): map all four teams as a 2v2 — Government
+   bench (OG over CG) on the left, Opposition bench (OO over CO) on the
+   right. The team whose speech is live gets the active highlight. */
+.round-roster-4{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+  padding:12px 22px;border-bottom:1px solid var(--border);
+}
+.round-roster-4[hidden]{display:none}
+.rr4-bench{display:flex;flex-direction:column;gap:8px;min-width:0}
+.rr4-bench-label{
+  font-size:.56rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);padding:0 2px;
+}
+.rr4-gov .rr4-bench-label{color:#4ade80}
+.rr4-opp .rr4-bench-label{color:#fca5a5}
+.rr4-seat{flex:none}
+@media (max-width:540px){
+  .round-roster-4{grid-template-columns:1fr;gap:8px}
 }
 
 .timer-row{
@@ -951,6 +986,10 @@ button{font-family:inherit}
     </div>
   </div>
 
+  <!-- Drag handle: pull right to widen the video, left to widen the text.
+       Double-click resets. Hidden on the stacked mobile layout. -->
+  <div class="split-resizer" id="splitResizer" role="separator" aria-orientation="vertical" aria-label="Resize video and panel" title="Drag to resize · double-click to reset"></div>
+
   <!-- RIGHT: Round panel. swaps between setup, round, and ballot views. -->
   <div class="panel" id="panel">
 
@@ -1061,6 +1100,9 @@ button{font-family:inherit}
           <span class="rc-side" id="rosterOppSide">—</span>
         </div>
       </div>
+      <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
+           instead of the 2-card roster when the format is 4-team. -->
+      <div class="round-roster-4" id="roundRoster4" hidden></div>
       <div class="speech-header">
         <div class="speech-progress" id="speechProgress" style="font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim);opacity:.8;margin-bottom:6px">Speech 1 of 4 · then ballot</div>
         <div class="speaker-line">
@@ -1123,6 +1165,63 @@ button{font-family:inherit}
 </div>
 
 <div id="toastHost"></div>
+
+<!-- Split resizer: drag the handle between the video and the panel.
+     Right = bigger video / smaller text. Self-contained; persists the
+     ratio in localStorage and no-ops on the stacked mobile layout. -->
+<script>
+(function(){
+  var split = document.querySelector('.split');
+  var rez = document.getElementById('splitResizer');
+  if (!split || !rez) return;
+  var KEY = 'lr-vid-w';
+  function stacked(){ return window.matchMedia('(max-width:1000px)').matches; }
+  try {
+    var saved = localStorage.getItem(KEY);
+    if (saved && /^[0-9.]+%$/.test(saved) && !stacked()) split.style.setProperty('--vid-w', saved);
+  } catch (e) {}
+  var dragging = false;
+  function pctFromX(clientX){
+    var r = split.getBoundingClientRect();
+    var pct = (clientX - r.left) / r.width * 100;
+    // Keep the text panel >= ~380px and the video >= ~28%.
+    var maxVid = Math.min(80, (1 - 388 / r.width) * 100);
+    return Math.max(28, Math.min(maxVid, pct));
+  }
+  function move(e){
+    if (!dragging) return;
+    var x = e.touches ? e.touches[0].clientX : e.clientX;
+    split.style.setProperty('--vid-w', pctFromX(x).toFixed(1) + '%');
+    if (e.cancelable) e.preventDefault();
+  }
+  function up(){
+    if (!dragging) return;
+    dragging = false; rez.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    try { localStorage.setItem(KEY, split.style.getPropertyValue('--vid-w')); } catch (e) {}
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    window.removeEventListener('touchmove', move);
+    window.removeEventListener('touchend', up);
+  }
+  function down(e){
+    if (stacked()) return;
+    dragging = true; rez.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', up);
+    if (e.cancelable) e.preventDefault();
+  }
+  rez.addEventListener('mousedown', down);
+  rez.addEventListener('touchstart', down, { passive: false });
+  rez.addEventListener('dblclick', function(){
+    split.style.removeProperty('--vid-w');
+    try { localStorage.removeItem(KEY); } catch (e) {}
+  });
+})();
+</script>
 
 <script>
 (function(){
@@ -1735,7 +1834,36 @@ button{font-family:inherit}
     // labels (no 'You'/'Opponent' framing).
     var rYou = $('rosterYou');
     var rOpp = $('rosterOpp');
-    if (rYou && rOpp){
+    var roster2 = $('roundRoster');
+    var roster4 = $('roundRoster4');
+    if (isFourTeam(f) && roster4){
+      // 4-team (BP / Worlds): map all four teams visually as a 2v2.
+      if (roster2) roster2.style.display = 'none';
+      roster4.hidden = false; roster4.style.display = '';
+      var teamNm = function(s){
+        return (state.teamNames && state.teamNames[s])
+          || (s === 'og' ? state.proName : s === 'oo' ? state.conName : '')
+          || 'anonymous';
+      };
+      var benchHtml = function(benchClass, benchLabel, sides){
+        return '<div class="rr4-bench ' + benchClass + '">'
+          + '<div class="rr4-bench-label">' + escHtml(benchLabel) + '</div>'
+          + sides.map(function(s){
+              var active = s === sp.side;
+              return '<div class="roster-card rr4-seat' + (active ? ' is-active' : '') + '" data-side="' + s + '">'
+                + '<span class="rc-active-dot"></span>'
+                + '<div class="rc-meta">'
+                +   '<span class="rc-eyebrow">' + escHtml(f.sideLabels[s]) + '</span>'
+                +   '<span class="rc-name">' + escHtml(teamNm(s)) + '</span>'
+                + '</div></div>';
+            }).join('')
+          + '</div>';
+      };
+      roster4.innerHTML = benchHtml('rr4-gov', 'Government', govSides(f))
+                        + benchHtml('rr4-opp', 'Opposition', oppSides(f));
+    } else if (rYou && rOpp){
+      if (roster4) roster4.hidden = true;
+      if (roster2) roster2.style.display = '';
       var firstLabel = f.sideLabels[f.sides[0]];
       var secondLabel = f.sideLabels[f.sides[1]];
       var proName = state.proName || 'anonymous';
