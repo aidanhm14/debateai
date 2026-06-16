@@ -1073,6 +1073,7 @@ button{font-family:inherit}
         <div class="rmb-text">
           <span class="rmb-eyebrow">Resolution</span>
           <div class="rmb-motion" id="rmbMotion">—</div>
+          <div class="rmb-brief" id="rmbBrief" hidden></div>
         </div>
         <div class="rmb-rec" id="rmbRec" title="Record this round locally, file downloads when you stop">
           <button type="button" class="rmb-rec-btn" id="rmbRecBtn">
@@ -1085,6 +1086,8 @@ button{font-family:inherit}
       <div class="round-edit-bar" id="roundEditBar" hidden>
         <span class="reb-note">Before Speech 1 you can still set the round:</span>
         <button type="button" class="reb-edit" id="rebMotionBtn">Edit resolution</button>
+        <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 New motion</button>
+        <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Background</button>
         <label class="reb-fmt">Format
           <select id="roundFormatSel" aria-label="Debate format"></select>
         </label>
@@ -1105,6 +1108,7 @@ button{font-family:inherit}
             <span class="rc-name" id="rosterOppName">—</span>
           </div>
           <span class="rc-side" id="rosterOppSide">—</span>
+          <button type="button" class="rc-dm" id="rosterOppDm" hidden title="Message your opponent">✉ Message</button>
         </div>
       </div>
       <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
@@ -1818,6 +1822,11 @@ button{font-family:inherit}
     // round so the speaker doesn't have to leave the page to recall it.
     var rmb = $('rmbMotion');
     if (rmb && document.activeElement !== rmb) rmb.textContent = state.motion || '(motion not set)';
+    var rmbBr = $('rmbBrief');
+    if (rmbBr){
+      if (state.background){ rmbBr.textContent = state.background; rmbBr.hidden = false; }
+      else { rmbBr.hidden = true; rmbBr.textContent = ''; }
+    }
 
     // In-round editor: before Speech 1, debaters can still fix the
     // resolution + format (format drives speaker count + the AI judging
@@ -1933,6 +1942,15 @@ button{font-family:inherit}
       // card is the viewer's (i.e. mySide is set and not spectator).
       rYou.classList.toggle('is-you', !!ms && !spectator);
       rOpp.classList.remove('is-you'); // opponent card never gets the "is-you" emphasis
+      // Stash the opponent for the DM composer + show the Message button.
+      // Offered whenever we know the opponent's account (uid) and we are a
+      // real debater (not a spectator), so you can ping a no-show.
+      var _oppUid = (ms === 'pro') ? state.conUid : (ms === 'con') ? state.proUid : '';
+      var _oppNm  = (ms === 'pro') ? (state.conName || 'your opponent')
+                  : (ms === 'con') ? (state.proName || 'your opponent') : '';
+      state.oppDm = { uid: _oppUid || '', name: _oppNm };
+      var _dmBtn = $('rosterOppDm');
+      if (_dmBtn){ var _me = state.user && state.user.uid; _dmBtn.hidden = !(_me && _oppUid && _oppUid !== _me && !spectator); }
     }
     $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
     $('speechText').value = '';
@@ -3695,6 +3713,93 @@ button{font-family:inherit}
       publishRoundMeta();
       try { gtag('event', 'live_round_format_change_inround', { format: state.formatKey }); } catch(e){}
     });
+
+    // ── Generation from the round view: a fresh random motion + an AI
+    //    background brief. Mirrors the setup-screen controls; syncs both
+    //    sides via the round doc. Locked once Speech 1 begins. ──
+    function genBriefRound(motion, btn){
+      var rb = $('rmbBrief');
+      if (rb){ rb.hidden = false; rb.textContent = 'Writing a quick brief…'; }
+      if (btn){ btn.disabled = true; }
+      var sys = 'You are a debate case-writer. Given a motion, write a SHORT factual background brief of 2 to 3 sentences that a debater could read aloud to set context: what the motion is about, the real-world facts and stakes, and the central tension. Neutral, take no side. No jargon, no preamble, no markdown, no em-dashes.';
+      fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:400, stream:false, system:sys, messages:[{role:'user',content:'Motion: '+motion}], _feature:'live-round-brief' })
+      }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+        var text = (j && j.content && j.content[0] && j.content[0].text) || (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || (j && j.text) || '';
+        text = (text||'').trim();
+        if (text){
+          state.background = text;
+          if (rb) rb.textContent = text;
+          var body = $('motionBriefBody'); if (body && document.activeElement !== body) body.textContent = text;
+          var brief = $('motionBrief'); if (brief) brief.hidden = false;
+          var ref = (typeof getRoundDocRef === 'function') ? getRoundDocRef() : null;
+          if (ref) ref.set({ motion: state.motion||'', background: state.background||'' }, {merge:true}).catch(function(){});
+        } else if (rb){ rb.textContent = 'Could not write a brief. You can debate the motion as-is.'; }
+      }).catch(function(){ if (rb) rb.textContent = 'Could not write a brief. You can debate the motion as-is.'; })
+        .then(function(){ if (btn) btn.disabled = false; });
+    }
+    var gmBtn = $('rebGenMotion');
+    if (gmBtn) gmBtn.addEventListener('click', function(){
+      if (isSpectator() || state.speechIdx > 0) return;
+      var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
+      var m = pool[Math.floor(Math.random()*pool.length)] || SPAR_MOTIONS[0];
+      state.motion = m; state.background = '';
+      var rmb = $('rmbMotion'); if (rmb && document.activeElement !== rmb) rmb.textContent = m;
+      var md = $('motionDisplay'); if (md) md.textContent = m;
+      publishRoundMeta();
+      genBriefRound(m, gmBtn);
+      try { gtag('event','live_round_random_motion_inround'); } catch(e){}
+    });
+    var gbBtn = $('rebGenBrief');
+    if (gbBtn) gbBtn.addEventListener('click', function(){
+      if (isSpectator() || state.speechIdx > 0) return;
+      if (!state.motion){ toast('Set a resolution first.'); return; }
+      genBriefRound(state.motion, gbBtn);
+      try { gtag('event','live_round_gen_brief_inround'); } catch(e){}
+    });
+  })();
+
+  // ── DM your opponent (pre-join). Writes to dm_threads in the exact
+  //    shape /spar uses, so it lands in the opponent's notification bell
+  //    even if they have not opened the room yet. ──
+  (function(){
+    function myName(){ var s=mySide(); var nm=(s==='pro')?state.proName:(s==='con')?state.conName:''; return (nm&&nm.trim())||(state.user&&state.user.displayName)||'A debater'; }
+    function openDm(){
+      var m=$('dmModal'); if(!m) return;
+      var d=state.oppDm||{}; var nm=$('dmOppName'); if(nm) nm.textContent=d.name||'your opponent';
+      var st=$('dmStatus'); if(st) st.textContent='';
+      m.hidden=false; m.classList.add('is-open');
+      var ta=$('dmText'); if(ta) setTimeout(function(){ ta.focus(); }, 40);
+      try{ gtag('event','live_round_dm_open'); }catch(e){}
+    }
+    function closeDm(){ var m=$('dmModal'); if(!m) return; m.hidden=true; m.classList.remove('is-open'); }
+    function sendDm(){
+      var me=state.user&&state.user.uid; var d=state.oppDm||{};
+      var ta=$('dmText'), st=$('dmStatus'), btn=$('dmSend');
+      if(!me||!d.uid){ if(st) st.textContent='Your opponent needs an account to receive messages.'; return; }
+      var text=((ta&&ta.value)||'').trim(); if(!text) return;
+      if(text.length>1000) text=text.slice(0,1000);
+      if(btn) btn.disabled=true; if(st) st.textContent='Sending…';
+      var tid=[me,d.uid].sort().join('_');
+      var ref=firebaseDb.collection('dm_threads').doc(tid);
+      var nm=myName();
+      var pInfo={}; pInfo[me]={name:nm,photo:(state.user.photoURL||'')}; pInfo[d.uid]={name:d.name||'Opponent',photo:''};
+      var unread={}; unread[me]=0; unread[d.uid]=firebase.firestore.FieldValue.increment(1);
+      var preview=text.length>80?text.slice(0,77)+'…':text;
+      ref.set({ participants:[me,d.uid], participantInfo:pInfo, lastMessage:preview, lastMessageAt:firebase.firestore.FieldValue.serverTimestamp(), lastMessageFrom:me, unread:unread }, {merge:true})
+        .then(function(){ return ref.collection('messages').add({ fromUid:me, fromName:nm, text:text, createdAt:firebase.firestore.FieldValue.serverTimestamp() }); })
+        .then(function(){ if(ta) ta.value=''; if(btn) btn.disabled=false; if(st) st.textContent='Sent. They will see it in their notifications.'; try{ gtag('event','live_round_dm_send'); }catch(e){} setTimeout(closeDm, 1500); })
+        .catch(function(e){ if(btn) btn.disabled=false; if(st) st.textContent='Could not send. Try again.'; try{ console.warn('[live-round dm]', e); }catch(_){} });
+    }
+    // The dmModal markup lives at end-of-body, AFTER this script, so its
+    // elements do not exist yet at parse time. Wire on DOMContentLoaded.
+    function wireDm(){
+      var ob=$('rosterOppDm'); if(ob && !ob._dmWired){ ob._dmWired=1; ob.addEventListener('click', openDm); }
+      var sb=$('dmSend'); if(sb && !sb._dmWired){ sb._dmWired=1; sb.addEventListener('click', sendDm); }
+      var mm=$('dmModal'); if(mm && !mm._dmWired){ mm._dmWired=1; [].forEach.call(mm.querySelectorAll('[data-dm-close]'), function(c){ c.addEventListener('click', closeDm); }); }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireDm); else wireDm();
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeDm(); } });
   })();
 
   // Call card controls. The "Copy page link" button copies THIS
@@ -4922,5 +5027,40 @@ button{font-family:inherit}
 </script>
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/notifications.js"></script>
+<style>
+.rc-dm{margin-left:8px;padding:4px 11px;border-radius:999px;border:1px solid var(--accent,#ef4444);background:rgba(239,68,68,.1);color:var(--accent,#ef4444);font:inherit;font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .15s,transform .12s}
+.rc-dm:hover{background:rgba(239,68,68,.2);transform:translateY(-1px)}
+.rmb-brief{margin-top:8px;padding:9px 12px;background:var(--bg-card,rgba(255,255,255,.03));border:1px solid var(--border,rgba(255,255,255,.12));border-radius:9px;font-size:.78rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.72))}
+.dm-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;padding:18px}
+.dm-modal.is-open{display:flex}
+.dm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+.dm-card{position:relative;z-index:1;width:100%;max-width:440px;background:var(--bg-card,#16161b);color:var(--text,#fff);border:1px solid var(--border-strong,rgba(255,255,255,.16));border-radius:16px;padding:22px 20px 18px;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.dm-x{position:absolute;top:9px;right:11px;background:none;border:0;color:var(--text-dim,rgba(255,255,255,.55));font-size:1.5rem;line-height:1;cursor:pointer;padding:4px 9px;border-radius:8px}
+.dm-x:hover{color:var(--text);background:rgba(127,127,127,.14)}
+.dm-eyebrow{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:5px}
+.dm-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.2rem;font-weight:700;margin:0 0 5px}
+.dm-hint{font-size:.78rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.66));margin:0 0 12px}
+.dm-text{width:100%;box-sizing:border-box;min-height:84px;resize:vertical;padding:11px 13px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));background:rgba(255,255,255,.03);color:var(--text,#fff);font:inherit;font-size:.9rem;line-height:1.5}
+.dm-text:focus{outline:none;border-color:var(--accent,#ef4444)}
+.dm-row{display:flex;align-items:center;gap:12px;margin-top:12px}
+.dm-send{padding:9px 20px;border-radius:999px;border:1px solid var(--accent,#ef4444);background:var(--accent,#ef4444);color:#fff;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;transition:background .15s}
+.dm-send:hover{background:#dc2626}
+.dm-send:disabled{opacity:.6;cursor:default}
+.dm-status{font-size:.76rem;color:var(--text-dim,rgba(255,255,255,.72))}
+</style>
+<div id="dmModal" class="dm-modal" hidden role="dialog" aria-modal="true" aria-label="Message opponent">
+  <div class="dm-backdrop" data-dm-close></div>
+  <div class="dm-card">
+    <button type="button" class="dm-x" data-dm-close aria-label="Close">&times;</button>
+    <div class="dm-eyebrow">Direct message</div>
+    <h3 class="dm-title">Message <span id="dmOppName">your opponent</span></h3>
+    <p class="dm-hint">They will see this in their notifications, even if they have not joined the room yet.</p>
+    <textarea id="dmText" class="dm-text" maxlength="1000" placeholder="e.g. Ready when you are, jump into the room and we will start."></textarea>
+    <div class="dm-row">
+      <button type="button" class="dm-send" id="dmSend">Send message</button>
+      <span class="dm-status" id="dmStatus"></span>
+    </div>
+  </div>
+</div>
 </body>
 </html>
