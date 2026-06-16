@@ -8503,25 +8503,59 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   var raf;
   stack.addEventListener('scroll',function(){
-    if(!isMobile()) return;
     if(raf) return;
     raf=requestAnimationFrame(function(){raf=0;sync();});
   },{passive:true});
-  var tx=0,ty=0,tS=0,tracking=false;
-  stack.addEventListener('touchstart',function(e){
-    if(!isMobile()){return;} if(e.touches.length!==1){tracking=false;return;}
-    tx=e.touches[0].clientX;ty=e.touches[0].clientY;tS=stack.scrollLeft;tracking=true;
-  },{passive:true});
-  stack.addEventListener('touchend',function(e){
-    if(!isMobile()||!tracking) return;tracking=false;
-    var t=e.changedTouches&&e.changedTouches[0];if(!t) return;
-    var dx=t.clientX-tx,dy=t.clientY-ty;
-    if(Math.abs(dx)<36||Math.abs(dx)<Math.abs(dy)) return;
-    if(Math.abs(stack.scrollLeft-tS)>24) return;
-    var mid=stack.scrollLeft+stack.clientWidth/2,cur=0,bd=Infinity;
-    cards.forEach(function(c,k){var d=Math.abs(c.offsetLeft+c.clientWidth/2-mid);if(d<bd){bd=d;cur=k;}});
-    goTo(cur+(dx<0?1:-1));
-  },{passive:true});
+
+  // Swipe / drag to scroll the review carousel. We drive the horizontal
+  // scroll ourselves via Pointer Events so the swipe is reliable across
+  // mobile browsers (where native overflow-scroll on a card with
+  // focusable content can be flaky) AND draggable by mouse on desktop-
+  // narrow. Active only when the stack actually has horizontal overflow
+  // (the mobile flex carousel); the desktop diagonal stack has
+  // overflow:visible, so canSwipe() is false there and the hover-to-front
+  // interaction is left completely untouched. The mobile stack sets
+  // touch-action:pan-y in CSS so vertical gestures still scroll the page
+  // and only horizontal drags are ours.
+  function canSwipe(){ return stack.scrollWidth > stack.clientWidth + 4; }
+  function nearestIndex(){
+    var mid=stack.scrollLeft+stack.clientWidth/2, best=0, bd=Infinity;
+    cards.forEach(function(c,k){var d=Math.abs(c.offsetLeft+c.clientWidth/2-mid);if(d<bd){bd=d;best=k;}});
+    return best;
+  }
+  var down=false, sx=0, sy=0, sLeft=0, axis=null, moved=false;
+  stack.addEventListener('pointerdown',function(e){
+    if(!canSwipe()) return;
+    down=true; moved=false; axis=null;
+    sx=e.clientX; sy=e.clientY; sLeft=stack.scrollLeft;
+  });
+  stack.addEventListener('pointermove',function(e){
+    if(!down) return;
+    var dx=e.clientX-sx, dy=e.clientY-sy;
+    if(axis===null && (Math.abs(dx)>6 || Math.abs(dy)>6)){
+      axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+      if(axis==='x'){ try{ stack.setPointerCapture(e.pointerId); }catch(_){} stack.style.cursor='grabbing'; }
+    }
+    if(axis==='x'){
+      moved=true;
+      if(e.cancelable) e.preventDefault();
+      stack.scrollLeft = sLeft - dx;
+    }
+  },{passive:false});
+  function endSwipe(e){
+    if(!down) return; down=false;
+    stack.style.cursor='';
+    if(axis==='x'){
+      try{ stack.releasePointerCapture(e.pointerId); }catch(_){}
+      goTo(nearestIndex()); // settle on the nearest snapped card
+    }
+    axis=null;
+  }
+  stack.addEventListener('pointerup',endSwipe);
+  stack.addEventListener('pointercancel',endSwipe);
+  // Swallow the click that follows a real drag so a swipe doesn't also
+  // trigger a card focus / activate.
+  stack.addEventListener('click',function(e){ if(moved){ e.preventDefault(); e.stopPropagation(); moved=false; } },true);
   sync();
 })();
 </script>
@@ -8948,6 +8982,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       overflow-x:auto;scroll-snap-type:x mandatory;
       overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
       padding:4px 4px 14px;scrollbar-width:thin;
+      /* Horizontal drag is JS-driven (pointer events); pan-y keeps
+         vertical page scroll native so a card grab never traps it. */
+      touch-action:pan-y;cursor:grab;
     }
     .testimonial-stack::-webkit-scrollbar{height:5px}
     .testimonial-stack::-webkit-scrollbar-thumb{background:rgba(127,127,127,.22);border-radius:99px}
