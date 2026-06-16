@@ -80,7 +80,7 @@ function emptyPayload(error){
   const out = {
     since: null,
     now: ymd(new Date()),
-    totals: { visits: 0, members: 0, google: 0, liveSearchesWeek: 0 },
+    totals: { visits: 0, members: 0, google: 0, liveSearchesWeek: 0, viewsLast30d: 0, liveSearchesLast30d: 0 },
     milestones: [],
   };
   if (error) out.error = String(error).slice(0, 400);
@@ -188,6 +188,37 @@ export default async (request) => {
     viewsWeek = (agg.data() && agg.data().count) || 0;
   } catch (err) {
     console.warn('public-join-history views count failed:', err.message);
+  }
+
+  // ── 1.7 Last-30-day funnel windows ───────────────────────────
+  // 30-day versions of the live-search + page_view counts above, for the
+  // landing proof funnel ("viewed in the last month · signed in with
+  // Google · tried a live round"). Same queries, 30-day cutoff — reuses
+  // the SAME composite indexes (field ASC, createdAt ASC), so no new
+  // index needed. Both degrade to 0 on failure; the landing hides the
+  // clause at 0 rather than rendering a lie.
+  const monthCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  let viewsLast30d = 0;
+  try {
+    const agg = await db.collection('events')
+      .where('event', '==', 'page_view')
+      .where('createdAt', '>=', monthCutoff)
+      .count()
+      .get();
+    viewsLast30d = (agg.data() && agg.data().count) || 0;
+  } catch (err) {
+    console.warn('public-join-history views-30d count failed:', err.message);
+  }
+  let liveSearchesLast30d = 0;
+  try {
+    const agg = await db.collection('events')
+      .where('metadata.name', '==', 'spar_queue_join')
+      .where('createdAt', '>=', monthCutoff)
+      .count()
+      .get();
+    liveSearchesLast30d = (agg.data() && agg.data().count) || 0;
+  } catch (err) {
+    console.warn('public-join-history live-search-30d count failed:', err.message);
   }
 
   try {
@@ -316,7 +347,7 @@ export default async (request) => {
     const payload = {
       since,
       now: ymd(new Date()),
-      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek, viewsWeek },
+      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek, viewsWeek, viewsLast30d, liveSearchesLast30d },
       memberSource,
       milestones,
     };
