@@ -1669,6 +1669,28 @@ html{background:#111}html:has(body.light-theme){background:#f5f5f7!important}bod
 .light-theme .speech-title{color:#1a1a2e!important}
 .light-theme .speech-time{color:#6b7fa0!important}
 .light-theme .speech-badge{background:#dc2626!important}
+/* Mirror the flow-notes light styles onto the [data-theme="light"]
+   attribute too — without this the speech cards + tags stay dark when the
+   page is light via the attribute path but the .light-theme class isn't on
+   the body (the "dark cards on a cream page" state). */
+[data-theme="light"] .speech-card{background:#fff!important;border-color:#e7d6d0!important;border-left:3px solid #ef4444!important}
+[data-theme="light"] .speech-title{color:#1a1a2e!important}
+[data-theme="light"] .speech-time{color:#6b7fa0!important}
+[data-theme="light"] .speech-badge{background:#dc2626!important}
+[data-theme="light"] .tag{background:#fef2f2!important;color:#dc2626!important;border-color:#fca5a580!important}
+/* Judge-type note: theme-aware (was hardcoded dark inline). */
+.flow-judge-note{margin-bottom:16px;padding:10px 14px;border-radius:10px;font-size:.82rem;line-height:1.5;
+  background:rgba(255,255,255,.04);border:1px solid #ffffff12;color:#94a3b8}
+.flow-judge-note strong{color:var(--text,#e4e8f0)}
+.light-theme .flow-judge-note,[data-theme="light"] .flow-judge-note{background:#fff;border-color:#e7d6d0;color:#475569}
+.light-theme .flow-judge-note strong,[data-theme="light"] .flow-judge-note strong{color:#1a1a2e}
+/* "For in-person rounds" guidance banner at the top of Flow Notes. */
+.flow-inperson-note{margin-bottom:16px;padding:11px 15px;border-radius:12px;font-size:.82rem;line-height:1.5;
+  border:1px solid rgba(239,68,68,.28);background:rgba(239,68,68,.08);color:var(--text,#e4e8f0)}
+.flow-inperson-note strong{color:var(--text,#fff);font-weight:700}
+.flow-inperson-note a{color:inherit;font-weight:700;text-decoration:underline}
+.light-theme .flow-inperson-note,[data-theme="light"] .flow-inperson-note{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}
+.light-theme .flow-inperson-note strong,[data-theme="light"] .flow-inperson-note strong{color:#991b1b}
 .light-theme .rc-user{background:#fef2f2!important;border-color:#fca5a540!important}
 .light-theme .rc-ai{background:#fff!important;border-color:#e7d6d0!important}
 .light-theme .rc-text{color:#1a1a2e!important}
@@ -9668,7 +9690,14 @@ Think through the strategic implications. Be specific, reference debate theory, 
   judgeMode === 'analyzer' && React.createElement(JudgeAnalyzer, { team, user, onNavigateTab }),
   // Ballot OCR mode
   judgeMode === 'ballot' && React.createElement(BallotOCR),
-  // Flow Notes mode
+  // Flow Notes mode — what it's for (an in-person round you're flowing
+  // live) so it isn't confused with the online video rounds on /live.
+  judgeMode === 'flow' && React.createElement('div', { className: 'flow-inperson-note' },
+  React.createElement('strong', null, 'For debating in person. '),
+  'When you and your partner are in the room together, flow each speech here, tag the key moments, and get the AI read after each one. Debating online over video? That lives in ',
+  React.createElement('a', { href: '/live' }, 'Live'),
+  '.'
+  ),
   judgeMode === 'flow' && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' } },
   React.createElement('label', { style: { fontSize: '.8rem', fontWeight: 600, color: '#a8b8c8', letterSpacing: '.5px', textTransform: 'uppercase' } }, 'Format:'),
   React.createElement('select', { value: format, onChange: (e) => {setFormat(e.target.value);setNotes({});setTags({});setFeedback({});} },
@@ -9679,8 +9708,8 @@ Think through the strategic implications. Be specific, reference debate theory, 
   Object.entries(JUDGE_EVAL_TYPES).map(([k, v]) => React.createElement('option', { key: k, value: k }, v.label))
   )
   ),
-  judgeMode === 'flow' && React.createElement('div', { style: { marginBottom: 16, padding: '10px 14px', background: 'var(--card-bg,#363638)', border: '1px solid var(--card-border,#ffffff10)', borderRadius: 10, fontSize: '.82rem', color: '#94a3b8', lineHeight: 1.5 } },
-  React.createElement('strong', { style: { color: 'var(--text-primary,#e4e8f0)' } }, JUDGE_EVAL_TYPES[judgeType].label + ': '),
+  judgeMode === 'flow' && React.createElement('div', { className: 'flow-judge-note' },
+  React.createElement('strong', null, JUDGE_EVAL_TYPES[judgeType].label + ': '),
   JUDGE_EVAL_TYPES[judgeType].desc
   ),
   judgeMode === 'flow' && speeches.map((speech) =>
