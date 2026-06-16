@@ -621,6 +621,31 @@ body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webki
   .tab-hero-howto .thh-steps li{font-size:.86rem}
 }
 
+/* Vocab Quiz surfaces (2026-06-16): the term card + answer options used
+   var(--bg-card) inline, which is rgba(0,0,0,.03) on light theme — a 3%
+   tint that's effectively invisible on the cream page (the boxes vanished).
+   Real surfaces + borders + hover, brighter-than-bg on light (same fix the
+   dashboard cards got 2026-05-20), so the options read as tappable cards. */
+.vq-card{
+  background:var(--bg-card,rgba(255,255,255,.03));
+  border:1px solid var(--border,rgba(255,255,255,.12));
+  border-radius:16px;
+}
+.light-theme .vq-card{background:#fff;border-color:rgba(0,0,0,.10);box-shadow:0 2px 16px rgba(0,0,0,.05)}
+.vq-option{
+  display:block;width:100%;text-align:left;padding:13px 16px;border-radius:10px;
+  background:var(--bg-card,rgba(255,255,255,.03));
+  border:1px solid var(--border,rgba(255,255,255,.14));
+  color:var(--text,#fff);font-family:inherit;font-size:.88rem;line-height:1.5;
+  cursor:pointer;transition:background .15s,border-color .15s,transform .15s,box-shadow .15s;
+}
+.vq-option:not(:disabled):hover{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.06);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.vq-option:disabled{cursor:default}
+.vq-option.is-correct{background:rgba(34,197,94,.15)!important;border-color:rgba(34,197,94,.6)!important}
+.vq-option.is-wrong{background:rgba(239,68,68,.15)!important;border-color:rgba(239,68,68,.6)!important}
+.light-theme .vq-option{background:#fdfcf8;border-color:rgba(0,0,0,.13);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.light-theme .vq-option:not(:disabled):hover{background:#fff;border-color:rgba(220,38,38,.4);box-shadow:0 4px 14px rgba(0,0,0,.08)}
+
 /* ── Form Elements ────────────────────────────── */
 label.field-label{display:block;font-size:.85rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:10px}
 label.field-label.green{color:#ef4444}
@@ -3485,11 +3510,11 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
-    el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })), el('div', { className: 'bg-debate-side bg-debate-right' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }),
-      el('div', { className: 'geo-shape geo-ring' })
+    el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })), el('div', { className: 'bg-debate-side bg-debate-right' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })
     ),
     // Geometric debater at podium
     el('div', { className: 'geo-debater' + (genActive ? ' gen-active' : '') },
@@ -5156,12 +5181,12 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
 
 
+
       // If check fails, proceed anyway
     }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
     // (DevTools, stale contextHint) that would bypass the UI gate.
-    if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {gtag('event', 'case_generate', { mode: genMode, side, motion_length: motion.length, feature: 'case'
-        });
+    if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {gtag('event', 'case_generate', { mode: genMode, side, motion_length: motion.length, feature: 'case' });
     }
     // Auto-version: if regenerating same motion, save previous output as a version
     var motionKey = motion.trim().toLowerCase() + '|' + side;
@@ -15654,7 +15679,7 @@ function VocabQuiz() {
   ),
 
   // Card
-  el('div', { style: { background: panel, border, borderRadius: 16, padding: 24, marginBottom: 16 } },
+  el('div', { className: 'vq-card', style: { padding: 24, marginBottom: 16 } },
   el('div', { style: { fontSize: '.7rem', fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: 8 } }, 'Term'),
   el('div', { style: { fontSize: '1.8rem', fontWeight: 900, color: text, marginBottom: 20, letterSpacing: '-.01em' } }, card.correct.term),
 
@@ -15663,11 +15688,9 @@ function VocabQuiz() {
   card.options.map((opt, i) => {
     var isCorrect = picked && opt.term === card.correct.term;
     var isWrongPick = picked && picked.term === opt.term && !isCorrect;
-    var bg = isCorrect ? 'rgba(34,197,94,.15)' : isWrongPick ? 'rgba(239,68,68,.15)' : panel;
-    var brd = isCorrect ? '1.5px solid rgba(34,197,94,.6)' : isWrongPick ? '1.5px solid rgba(239,68,68,.6)' : border;
     return el('button', {
       key: i, onClick: () => answer(opt), disabled: !!picked,
-      style: { textAlign: 'left', padding: '12px 16px', background: bg, border: brd, borderRadius: 10, color: text, cursor: picked ? 'default' : 'pointer', fontSize: '.88rem', fontFamily: 'inherit', lineHeight: 1.5, transition: '.15s' }
+      className: 'vq-option' + (isCorrect ? ' is-correct' : '') + (isWrongPick ? ' is-wrong' : '')
     }, opt.def);
   })
   ) :
