@@ -3480,13 +3480,13 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
-    el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' },
-    el('div', { className: 'geo-shape geo-diamond' }),
-    el('div', { className: 'geo-shape geo-hex' }),
-    el('div', { className: 'geo-shape geo-ring' })
+    el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' }, el('div', { className: 'geo-shape geo-diamond' }),
+      el('div', { className: 'geo-shape geo-hex' }),
+      el('div', { className: 'geo-shape geo-ring' })
     ),
     el('div', { className: 'bg-debate-side bg-debate-right' },
     el('div', { className: 'geo-shape geo-diamond' }),
@@ -5151,12 +5151,12 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
 
 
+
       // If check fails, proceed anyway
     }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
     // (DevTools, stale contextHint) that would bypass the UI gate.
-    if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;
-    }
+    if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}
     if (typeof gtag === 'function') {
       gtag('event', 'case_generate', {
         mode: genMode,
@@ -9866,6 +9866,111 @@ function buildJudgeFeedback(speech, note, activeTags) {
    TAB: PRACTICE
    ═══════════════════════════════════════════════════ */
 
+// Format-aware coaching for Practice (2026-06-16). Practice used to
+// hardcode an APDA coach, the APDA 26-35 speaker scale, and APDA-only
+// speech rubrics, so a BP whip, WSDC reply, or Karl Popper rebuttal got
+// generic feedback calibrated to the wrong format. These maps make the AI
+// coach speak each format\u0027s own language. Format accuracy is the moat
+// (soul.md 3), so the scales below are the real ones each circuit uses
+// (WUDC Imperial 50-100, WSDC 60-80, etc.), not one unified scale.
+var PRACTICE_COACH = {
+  'APDA': { who: `the best APDA (American Parliamentary) debate coach in the country`,
+    scale: `APDA speaker points (per speech), calibrate honestly:
+   26-27: Below average. Major structural or strategic problems.
+   28-29: Average varsity. Competent but generic warrants, limited strategic awareness.
+   30-31: Above average. Specific warrants, some weighing, good structure.
+   32-33: Strong. Would break at most tournaments. Deep warrants, clear strategy.
+   34-35: Excellent. Nationals-caliber. Airtight warrants, dominant strategy.` },
+  'BP': { who: `a top WUDC-circuit British Parliamentary adjudicator`,
+    scale: `BP uses the WUDC Imperial scale (50-100), where 75 is a bang-average speech. Calibrate on THIS scale, not an APDA number:
+   below 70: serious problems, hard to follow or off-role.
+   70-74: below average. The argument exists but is under-explained.
+   75: average. Claims with thin warrants, little engagement.
+   76-79: good. Clear mechanism, real engagement and some weighing.
+   80-84: very good. Well-warranted, responsive, strategically aware.
+   85-89: excellent. Break-deciding at a major.
+   90+: exceptional, best-in-room at a top international.` },
+  'WSDC': { who: `an experienced World Schools (WSDC) adjudicator`,
+    scale: `WSDC scores each substantive speech 60-80 (70 = par), split across Content (40), Style (40), Strategy (20); reply speeches are halved (about 30-40). Calibrate on THIS scale:
+   67-69: below par. Gaps in content or unclear delivery.
+   70: par. Solid but unremarkable.
+   71-73: good. Strong content or notably clean style.
+   74-76: very good. Content, style, and strategy all land.
+   77-80: excellent. The best speeches at an international.` },
+  'AP': { who: `an experienced Asian Parliamentary adjudicator`,
+    scale: `Asian Parliamentary commonly scores each speech 70-80 (75 = par). Give the number on THIS scale, never an APDA 30-style number:
+   below 73: below average, role unfulfilled or thin matter.
+   75: average, competent but generic.
+   76-77: good, clear matter and engagement.
+   78-80: excellent, deep matter, sharp clash, strong manner.` },
+  'CP': { who: `an experienced Canadian Parliamentary (CUSID) adjudicator`,
+    scale: `Calibrate on the speaker range the Canadian Parliamentary circuit actually uses (par in the middle of the range; reward clear mechanism, engagement, and role-fulfilment). Give a number on that scale and justify it; do NOT import the APDA 26-35 scale.` },
+  'KP': { who: `an experienced Karl Popper (IDEA) adjudicator`,
+    scale: `Karl Popper is judged on a rubric, not a single speaker number. Instead of a number, rate each of these four criteria (weak / developing / solid / strong / excellent) with one specific reason: argumentation, cross-examination, refutation and clash, delivery and teamwork. Then give an overall.` },
+  '1v1': { who: `a sharp, format-agnostic debate coach`,
+    scale: `Give a holistic speech-quality rating (weak / developing / solid / strong / excellent) with a one-line justification tied to warrant depth, responsiveness, and weighing. Keep it transferable across formats.` }
+};
+
+// Per-speech role expectations, keyed FORMAT:CODE. The AI coach injects the
+// matching one so feedback is graded against the speech\u0027s ACTUAL job in
+// that format, not a generic good-speech rubric.
+var PRACTICE_RUBRICS = {
+  'APDA:PMC': `A good PMC needs: a clear framework that actually resolves disputes (not decorative philosophy), 2-3 independent arguments with specific warrants and named sub-points, strategic setup for the MG, and pre-loaded weighing. The speech should feel like a trap for opp, not just an opening statement.`,
+  'APDA:LOC': `A good LOC needs: off-case arguments (own framework + 1-2 independent arguments) for roughly 60% of the speech, then on-case rebuttals for 40%. The off-case should directly challenge Gov's evaluative lens. The on-case should attack specific warrants, not just assert that something is wrong. The LO should identify Gov's weakest argument and spend the most time there.`,
+  'APDA:MG': `A good MG needs: response to LO's off-case first, then extension of PM's strongest arguments with NEW depth (not repetition), then explicit impact calculus. The MG should strategically concede weak ground and double down where Gov is strongest. Never introduce entirely new arguments.`,
+  'APDA:MO': `A good MO needs: extension of LO's best arguments with new warrants, direct responses to MG, and crystallization of why Opp is winning. Flag any drops by the MG. Reframe the round in Opp's favor. This is the last chance for new analysis before rebuttals.`,
+  'APDA:LOR': `A good LOR needs: identification of 2-3 key clash points, clear explanation of why Opp wins each one, and a decisive voting issue. No new arguments. Aggressive but precise weighing. Drop arguments that don't matter and spend time where the round is actually decided.`,
+  'APDA:PMR': `A good PMR needs: a big-picture reframe (what is this round about?), multiple independent paths to the ballot (each path should win the round on its own), explicit weighing against Opp best points, and 1-2 key questions that simplify the round for the judge. No new arguments. Address the LOR directly where they mischaracterized or dropped arguments. Flag any shadow extensions from Opp (new analysis in MO that was not in LO).`,
+  'BP:PM': `A good PM sets the motion up cleanly (definition, framing, actor) and runs 1-2 fully-mechanised arguments. The opening half cannot see closing, so front-load your strongest material and make the mechanism airtight.`,
+  'BP:LO': `A good LO does two jobs: rebut the PM head-on, then build an independent Opp case (1-2 mechanised arguments). Establish the central clash of the round and engage PM's actual mechanism, not a caricature.`,
+  'BP:DPM': `A good DPM rebuilds Gov against the LO, then EXTENDS with genuinely new material or new depth (not repetition), and resolves the opening clash in Gov's favour with weighing.`,
+  'BP:DLO': `A good DLO rebuilds Opp, rebuts the DPM, and extends the Opp case. By the end of the opening half the key clashes should be framed in Opp's favour.`,
+  'BP:MG': `A good Member of Government (closing) brings a genuinely NEW argument, the extension, distinct from opening Gov, while engaging everything said so far. The extension must add a new layer, not re-skin opening. This is what wins the closing half.`,
+  'BP:MO': `A good Member of Opposition (closing) brings a new Opp extension distinct from opening Opp, rebuts the MG's extension directly, and engages the whole round. Differentiate from opening Opp to earn the closing-half rank.`,
+  'BP:GW': `A good Government Whip takes NO new arguments. Reframe the round into 2-3 clashes, explain why Gov wins each comparatively, prioritise your own half's material, and crystallise. You are judging the round for the judge.`,
+  'BP:OW': `A good Opposition Whip takes no new arguments. Reframe into the key clashes, weigh Opp against Gov, defend your closing extension, and crystallise why Opp wins. Comparative, not just a summary.`,
+  'WSDC:P1': `A good First Proposition defines the motion, sets a clear team framework or model, and delivers 1-2 well-evidenced arguments. Set the standard the round is judged against.`,
+  'WSDC:O1': `A good First Opposition engages the Prop model directly, rebuts P1, and presents a coherent Opp case with 1-2 arguments. Establish the clash.`,
+  'WSDC:P2': `A good Second Proposition rebuts O1 substantively, rebuilds Prop, and extends with new material. This is the engine speech: most of the round's clash should be resolved here in Prop's favour.`,
+  'WSDC:O2': `A good Second Opposition rebuts P2, rebuilds Opp, and extends. Drive the clash and weigh; this is Opp's engine speech.`,
+  'WSDC:P3': `A good Third Proposition is mostly rebuttal and crystallisation, no major new arguments. Identify the 2-3 deciding clashes and explain why Prop wins each.`,
+  'WSDC:O3': `A good Third Opposition mirrors P3 for Opp: rebut, crystallise, and weigh the key clashes. No new case.`,
+  'WSDC:PR': `A good Proposition Reply is a biased adjudication by the 1st or 2nd speaker: the 2-3 reasons Prop wins, comparatively weighed. No new arguments.`,
+  'WSDC:OR': `A good Opposition Reply is a biased adjudication: why Opp wins, on the key clashes, weighed against Prop. No new material.`,
+  'AP:PM': `A good PM defines the motion, sets the framework, and runs 1-2 arguments with clear matter. Set up the burden and the clash.`,
+  'AP:LO': `A good LO rebuts the PM and builds the Opp case with counter-arguments. Establish the central disagreement.`,
+  'AP:DPM': `A good DPM rebuilds Gov, rebuts the LO, and extends with new matter, resolving the opening clash for Gov.`,
+  'AP:DLO': `A good DLO rebuilds Opp, rebuts the DPM, and extends Opp matter.`,
+  'AP:GW': `A good Government Whip takes no new arguments: reframe into the key clashes, weigh Gov vs Opp, respond to Opp attacks, and crystallise.`,
+  'AP:OW': `A good Opposition Whip takes no new arguments: summarise and weigh the clashes for Opp, defend against Gov, and crystallise.`,
+  'AP:GR': `A good Government Reply (1st or 2nd speaker) is a biased adjudication: why Gov wins the key clashes. No new arguments.`,
+  'AP:OR': `A good Opposition Reply is a biased adjudication: why Opp wins, comparatively weighed. No new arguments.`,
+  'CP:PMC': `A good PM Constructive defines the motion and lays out the Gov framework and opening arguments with clear mechanism.`,
+  'CP:LOC': `A good LO Constructive rebuts the PM and presents the Opp case.`,
+  'CP:MGC': `A good Member of Gov Constructive extends Gov with new material and rebuts the LOC.`,
+  'CP:MOC': `A good Member of Opp Constructive extends Opp with new material and rebuts the MG.`,
+  'CP:GW': `A good Government Whip summarises and weighs the Gov case. No new arguments.`,
+  'CP:OW': `A good Opposition Whip summarises and weighs the Opp case. No new arguments.`,
+  'CP:GR': `A good Government Reply is a biased summary of why Gov wins. No new arguments.`,
+  'CP:OR': `A good Opposition Reply is a biased summary of why Opp wins. No new arguments.`,
+  'KP:1AC': `A good 1AC presents the Affirmative case for the prepared resolution: clear definitions, a criterion, and 2-3 contentions backed by real research and evidence (prepared topics expect citations).`,
+  'KP:1NC': `A good 1NC presents the Negative case and begins direct refutation of the Aff, contesting the criterion and the contentions, not just asserting a counter-case.`,
+  'KP:2AC': `A good 2AC rebuilds the Aff against the 1NC and refutes the Negative case point by point.`,
+  'KP:2NC': `A good 2NC rebuilds the Neg, refutes the Aff rebuilds, and deepens the clash.`,
+  'KP:3AR': `A good 3AR is the final Aff rebuttal: crystallise the key voting issues, weigh, and explain why Aff wins on the criterion. No new arguments.`,
+  'KP:3NR': `A good 3NR is the final Neg rebuttal: crystallise, weigh, and explain why Neg wins on the criterion. No new arguments.`,
+  'KP:CX1': `Cross-examination: ask short, pointed questions that expose a gap or pin the opponent to a damaging concession. Control the time, do not make speeches; a good CX sets up your next speech.`,
+  'KP:CX2': `Cross-examination: pin down definitions, criterion, or evidence quality with short questions. No speeches; build the trap you will spring later.`,
+  'KP:CX3': `Cross-examination: target the rebuild from the 2AC and expose unwarranted links. Stay in control.`,
+  'KP:CX4': `Cross-examination: target the 2NC; force concessions you can extend in the 3AR. Short, pointed, controlled.`,
+  '1v1:PRO1': `A good Pro Opening sets the framework and runs 2-3 arguments with explicit warrants. Make it hard for Con to reframe.`,
+  '1v1:CON1': `A good Con Response rebuts Pro directly and builds a counter-case. Establish why Con's world is better.`,
+  '1v1:PRO2': `A good Pro Rebuttal defends against Con's attacks and extends your strongest argument with new depth.`,
+  '1v1:CON2': `A good Con Rebuttal defends the counter-case and answers Pro's extensions.`,
+  '1v1:PRO3': `A good Pro Closing crystallises: why does the judge vote Pro? Weigh the key impacts. No new arguments.`,
+  '1v1:CON3': `A good Con Closing crystallises why Con wins, weighed against Pro. No new arguments.`
+};
+
 function Practice() {
   var el = React.createElement;
   var { t } = React.useContext(I18nContext);
@@ -9960,30 +10065,30 @@ function Practice() {
     setMode('review');
     logBetaEvent('practice', { speech: selectedSpeech.code, words: wordCount });
 
-    var sysPrompt = `You are the best APDA debate coach in the country. A debater just practiced their ${selectedSpeech.title} (${selectedSpeech.time}) and you are reviewing it.
+    var coach = PRACTICE_COACH[practiceFormat] || PRACTICE_COACH.APDA;
+    var rubric = PRACTICE_RUBRICS[practiceFormat + ':' + selectedSpeech.code] ||
+    'Fulfil the role of the ' + selectedSpeech.title + ' as that speech is defined in ' + practiceFormat + ': ' + selectedSpeech.desc + ' Judge it against what this specific speech is supposed to do in this format, not a generic good-speech standard.';
+
+    var sysPrompt = `You are ${coach.who}. A debater just practiced their ${selectedSpeech.title} (${selectedSpeech.time}) in ${practiceFormat} format and you are reviewing it.
 
 You are reviewing a ${selectedSpeech.code} speech. Here is what this speech should accomplish: ${selectedSpeech.desc}
 
 SPEECH-SPECIFIC EXPECTATIONS:
-${selectedSpeech.code === 'PMC' ? 'A good PMC needs: a clear framework that actually resolves disputes (not decorative philosophy), 2-3 independent arguments with specific warrants and named sub-points, strategic setup for the MG, and pre-loaded weighing. The speech should feel like a trap for opp, not just an opening statement.' : ''}${selectedSpeech.code === 'LOC' ? 'A good LOC needs: off-case arguments (own framework + 1-2 independent arguments) for roughly 60% of the speech, then on-case rebuttals for 40%. The off-case should directly challenge Gov\u0027s evaluative lens. The on-case should attack specific warrants, not just assert "this is wrong." The LO should identify Gov\u0027s weakest argument and spend the most time there.' : ''}${selectedSpeech.code === 'MG' ? 'A good MG needs: response to LO\u0027s off-case first, then extension of PM\u0027s strongest arguments with NEW depth (not repetition), then explicit impact calculus. The MG should strategically concede weak ground and double down where Gov is strongest. Never introduce entirely new arguments.' : ''}${selectedSpeech.code === 'MO' ? 'A good MO needs: extension of LO\u0027s best arguments with new warrants, direct responses to MG, and crystallization of why Opp is winning. Flag any drops by the MG. Reframe the round in Opp\u0027s favor. This is the last chance for new analysis before rebuttals.' : ''}${selectedSpeech.code === 'LOR' ? 'A good LOR needs: identification of 2-3 key clash points, clear explanation of why Opp wins each one, and a decisive voting issue. No new arguments. Aggressive but precise weighing. Drop arguments that don\u0027t matter and spend time where the round is actually decided.' : ''}${selectedSpeech.code === 'PMR' ? 'A good PMR needs: a big-picture reframe ("what is this round about?"), multiple independent paths to the ballot (each path should win the round on its own, e.g. Path 1: drop their procedural objection because they conceded X. Path 2: even on substance, our impact outweighs. Path 3: their own argument proves our case), explicit weighing against Opp best points, and 1-2 key questions that simplify the round for the judge. No new arguments. Address the LOR directly where they mischaracterized or dropped arguments. Flag any shadow extensions from Opp (new analysis in MO that was not in LO).' : ''}
+${rubric}
 
 YOUR REVIEW:
 
-1. OVERALL IMPRESSION (2-3 sentences): Your gut reaction as a coach who has seen hundreds of these speeches. Be calibrated. "This is a 30-speak speech. The structure is there and most warrants land, but the framework is doing no work and you'll get crushed by anyone who notices." or "This is strong. 32-speak range. The warrants are specific and the strategic awareness is obvious."
+1. OVERALL IMPRESSION (2-3 sentences): Your gut reaction as a coach who has seen hundreds of these speeches, calibrated to this format's standard. Name roughly where it lands and why. "This is a middling speech for this position. The structure is there and most warrants land, but the framework is doing no work and you'll get crushed by anyone who notices." or "This is strong. The warrants are specific and the strategic awareness is obvious."
 
-2. BEST MOMENT: Quote one specific passage from their speech that was effective and explain exactly why it works. "When you said [exact quote], that was genuinely good because it gives the judge a concrete mechanism and it's hard for opp to contest."
+2. BEST MOMENT: Quote one specific passage from their speech that was effective and explain exactly why it works. "When you said [exact quote], that was genuinely good because it gives the judge a concrete mechanism and it's hard for the other side to contest."
 
-3. WHAT DIDN'T WORK: Identify 2-3 specific problems. Be brutally specific. "Your second warrant about economic growth is doing nothing. You said 'this harms the economy' but never explained the mechanism. A decent LO will just say 'how?' and you'll be stuck." Quote exact phrases from their speech that need work.
+3. WHAT DIDN'T WORK: Identify 2-3 specific problems. Be brutally specific. "Your second warrant about economic growth is doing nothing. You said this harms the economy but never explained the mechanism. A decent opponent will just say how? and you'll be stuck." Quote exact phrases from their speech that need work.
 
-4. STRUCTURAL/STRATEGIC GAPS: What did they forget to do or do wrong structurally? Did they fulfill their role? Did they miss a critical element for this speech type? Was the time allocation wrong (too long on framework, not enough on arguments)?
+4. STRUCTURAL/STRATEGIC GAPS: What did they forget to do or do wrong structurally? Did they fulfill the role of this speech IN THIS FORMAT? Did they miss a critical element for this speech type? Was the time allocation wrong (too long on framework, not enough on arguments)?
 
-5. SPEAKER POINTS: Give a realistic APDA speaker point estimate with calibration:
-   26-27: Below average. Major structural or strategic problems.
-   28-29: Average varsity. Competent but generic warrants, limited strategic awareness.
-   30-31: Above average. Specific warrants, some weighing, good structure.
-   32-33: Strong. Would break at most tournaments. Deep warrants, clear strategy.
-   34-35: Excellent. Nationals-caliber. Airtight warrants, dominant strategy.
-   Give the number and a one-sentence justification tied to specific elements of the speech.
+5. SPEAKER ASSESSMENT: Assess using THIS format's real scale, not a generic one:
+${coach.scale}
+   Give the rating and a one-sentence justification tied to specific elements of the speech.
 
 6. ONE DRILL: If they had 30 minutes before their next round, what specific thing should they practice? Not generic advice like "work on warrants." Something concrete: "Practice explaining your causal chains out loud to someone who doesn't debate. If you can't make the link from A to B to C conversational, your warrant isn't ready."
 
