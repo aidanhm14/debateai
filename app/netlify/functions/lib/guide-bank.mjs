@@ -621,8 +621,8 @@ export const GUIDE_BANK = {
 
   'ld-value-criterion': {
     slug: 'ld-value-criterion',
-    question: 'LD value and criterion examples',
-    hook: 'Value names what matters; criterion gives you the test. Pick a value that fits the resolution and a criterion you can actually warrant. Don\'t reach for Kant if your case is consequentialist.',
+    question: 'LD value and criterion: 6 classic pairings',
+    hook: 'Six LD value-criterion pairs with full warrants: Justice/Veil of Ignorance, Morality/Categorical Imperative, Wellbeing/Util, Liberty/Harm Principle, and more. Plus a link test for picking the pair your contentions actually hit.',
     format: 'ld',
     formatName: 'Lincoln-Douglas',
     readTime: '5 min',
@@ -698,6 +698,28 @@ export const GUIDE_BANK = {
       'how to pick ld framework',
       'ld value premise',
       'lincoln douglas debate framework',
+    ],
+    faqs: [
+      {
+        q: 'What is the difference between value and criterion in LD debate?',
+        a: 'The value is the abstract concept the round is about (Justice, Liberty, Wellbeing). The criterion is the standard for measuring whether something achieves the value. If your value is Justice, your criterion might be the Rawlsian Veil of Ignorance or the Categorical Imperative. The structure: I value X, achieved through Y, and my contentions prove the Aff/Neg achieves Y better.',
+      },
+      {
+        q: 'What are examples of LD values and criteria?',
+        a: 'Six classic pairings: Justice with the Rawlsian Veil of Ignorance (institutional fairness), Morality with the Categorical Imperative (Kantian cases), Wellbeing with Utilitarianism (consequence-heavy resolutions), Liberty with Mill\'s Harm Principle (autonomy cases), Justice with the Social Contract (government legitimacy), and Equality with Rawls\' Difference Principle (redistribution cases).',
+      },
+      {
+        q: 'How do I pick a value and criterion for Lincoln-Douglas?',
+        a: 'Read the resolution and ask: what is this resolution actually about? Apply two tests. Reach test: can you defend this criterion if attacked? Link test: do your contentions actually hit the criterion? A simpler framework your contentions warrant beats a fancy framework that does not link.',
+      },
+      {
+        q: 'What is the most common value in LD debate?',
+        a: 'Justice and Morality are the most common LD values. Justice pairs with the Veil of Ignorance, Social Contract, or Harm Principle. Morality pairs with the Categorical Imperative for Kantian cases. For policy-flavored resolutions, Wellbeing with Utilitarianism is the default. Liberty with Mill\'s Harm Principle dominates autonomy and speech topics.',
+      },
+      {
+        q: 'How do I defend my LD framework in cross-examination?',
+        a: 'Prepare for three attacks: value attacks (why this value?), criterion attacks (why this standard?), and link attacks (does your evidence actually prove what you say?). For each, have a two-sentence response ready. The link attack is where most LD rounds are won and lost: make each contention explicitly say "this hits the criterion because X" rather than leaving the judge to connect it.',
+      },
     ],
     ctaLabel: 'Practice an LD round',
     ctaHref: '/debate-it?format=ld&motion=Resolved%3A%20The%20United%20States%20ought%20to%20abolish%20capital%20punishment.',

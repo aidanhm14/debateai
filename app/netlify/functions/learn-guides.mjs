@@ -360,6 +360,15 @@ function renderGuidePage(guide) {
 <link rel="icon" href="/icons/icon-192.png">
 <script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
 <script type="application/ld+json">${jsonLd(ldArticle)}</script>
+${guide.faqs && guide.faqs.length ? `<script type="application/ld+json">${jsonLd({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: guide.faqs.map(f => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+})}</script>` : ''}
 <style>${commonStyles()}</style>
 </head>
 <body>
