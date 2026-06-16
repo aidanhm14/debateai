@@ -8937,11 +8937,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     white-space:nowrap;
   }
 
-  /* Entry animations — rotation baked in per card so transform composes cleanly */
-  @keyframes tc-in-1{from{opacity:0;transform:rotate(-1.5deg) translateY(20px)}to{opacity:1;transform:rotate(-1.5deg)}}
-  @keyframes tc-in-2{from{opacity:0;transform:rotate(1.2deg) translateY(20px)}to{opacity:1;transform:rotate(1.2deg)}}
-  @keyframes tc-in-3{from{opacity:0;transform:rotate(0.8deg) translateY(20px)}to{opacity:1;transform:rotate(0.8deg)}}
-  @keyframes tc-in-4{from{opacity:0;transform:rotate(-1deg) translateY(20px)}to{opacity:1;transform:rotate(-1deg)}}
+  /* Entry animations — each card is dealt in along the diagonal: it
+     slides down-and-right from up-left into its resting slot. Rotation
+     is baked into both ends so the transform composes cleanly with the
+     down-right cascade and the gentle fan tilt holds at rest. */
+  @keyframes tc-in-1{from{opacity:0;transform:translate(-58px,-40px) rotate(-1.8deg) scale(.965)}to{opacity:1;transform:translate(0,0) rotate(-1.8deg) scale(1)}}
+  @keyframes tc-in-2{from{opacity:0;transform:translate(-58px,-40px) rotate(-0.6deg) scale(.965)}to{opacity:1;transform:translate(0,0) rotate(-0.6deg) scale(1)}}
+  @keyframes tc-in-3{from{opacity:0;transform:translate(-58px,-40px) rotate(0.6deg) scale(.965)}to{opacity:1;transform:translate(0,0) rotate(0.6deg) scale(1)}}
+  @keyframes tc-in-4{from{opacity:0;transform:translate(-58px,-40px) rotate(1.8deg) scale(.965)}to{opacity:1;transform:translate(0,0) rotate(1.8deg) scale(1)}}
   /* Push-to-front spring: overshoots slightly then settles */
   @keyframes tc-push{
     0%  {transform:rotate(0deg) scale(1)    translateY(0px)}
@@ -8949,19 +8952,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     100%{transform:rotate(0deg) scale(1.05) translateY(-16px)}
   }
 
-  /* Desktop: diagonal absolute stack */
+  /* Desktop: diagonal absolute stack — cards march from the top-left
+     down to the bottom-right, each stepping consistently right AND down
+     so the cascade reads as a wide diagonal, not a vertical pile. The
+     front-most (last) card sits on top so every card's top-left corner —
+     its circuit label and opening line — stays visible along the run. */
   @media (min-width:768px){
     .testimonial-stack{position:relative;height:600px;overflow:visible}
     .testimonial-card{
       position:absolute;
-      width:min(880px,86%);
+      width:min(720px,55%);
       will-change:transform,opacity,box-shadow;
       transition:transform 360ms cubic-bezier(.34,1.56,.64,1),box-shadow 360ms ease-out,opacity 240ms ease-out,border-color 240ms ease-out,scale 360ms cubic-bezier(.34,1.56,.64,1);
     }
-    .card-1{top:0;left:0%;z-index:4;animation:tc-in-1 520ms ease-out both}
-    .card-2{top:80px;left:14%;z-index:3;animation:tc-in-2 520ms ease-out both;animation-delay:90ms}
-    .card-3{top:176px;left:4%;z-index:2;animation:tc-in-3 520ms ease-out both;animation-delay:180ms}
-    .card-4{top:268px;left:14%;z-index:1;animation:tc-in-4 520ms ease-out both;animation-delay:270ms}
+    .card-1{top:0;left:0%;z-index:1;animation:tc-in-1 560ms cubic-bezier(.22,1,.36,1) both}
+    .card-2{top:84px;left:15%;z-index:2;animation:tc-in-2 560ms cubic-bezier(.22,1,.36,1) both;animation-delay:120ms}
+    .card-3{top:168px;left:30%;z-index:3;animation:tc-in-3 560ms cubic-bezier(.22,1,.36,1) both;animation-delay:240ms}
+    .card-4{top:252px;left:45%;z-index:4;animation:tc-in-4 560ms cubic-bezier(.22,1,.36,1) both;animation-delay:360ms}
     .testimonial-card.tc-hovered{
       animation:tc-push 380ms cubic-bezier(.34,1.56,.64,1) both !important;
       z-index:20 !important;
