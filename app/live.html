@@ -1800,6 +1800,13 @@ button{font-family:inherit}
           <p style="font-size:.7rem;color:var(--text-ghost);margin-top:4px;line-height:1.45">Don’t like the random one? Hit reroll. <span id="motionCatHint" hidden>Category: <strong id="motionCatLabel" style="color:var(--text-dim);font-weight:700"></strong></span></p>
         </div>
         <div class="field">
+          <label for="bgText" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Background <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· optional, both sides see it</span></span>
+            <button type="button" id="genBgBtn" class="btn btn-ghost" style="padding:4px 10px;font-size:.62rem;letter-spacing:.06em;display:inline-flex;align-items:center;gap:5px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M12 18v3M5 12H2M22 12h-3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Generate brief</button>
+          </label>
+          <textarea id="bgText" rows="3" placeholder="Optional context both debaters read before the round. Write your own, or generate a neutral brief from the motion." maxlength="900"></textarea>
+        </div>
+        <div class="field">
           <label for="motionCategory">Category</label>
           <select id="motionCategory">
             <option value="any">Any category</option>
@@ -3162,6 +3169,7 @@ button{font-family:inherit}
     var oppName = isPoster ? (c.accepterName || 'Opponent') : (c.handle || 'Opponent');
     var params = new URLSearchParams({
       motion: c.motion || c.topicLine || c.themeLine || '',
+      background: c.background || '',
       format: c.format || 'quick',
       pro: mySide === 'pro' ? myName : oppName,
       con: mySide === 'con' ? myName : oppName,
@@ -3386,6 +3394,7 @@ button{font-family:inherit}
     var posterIsPro = c.side === 'pro';
     var params = new URLSearchParams({
       motion: c.motion || c.topicLine || c.themeLine || '',
+      background: c.background || '',
       format: c.format || 'quick',
       pro: posterIsPro ? (c.posterName || c.handle || 'Pro') : (c.accepterName || 'Pro'),
       con: posterIsPro ? (c.accepterName || 'Con') : (c.posterName || c.handle || 'Con'),
@@ -4054,6 +4063,29 @@ button{font-family:inherit}
     var b = document.querySelector('#whenRow [data-when="now"]');
     if (b) b.classList.add('active');
   })();
+  // Background brief: editable textarea + AI generation from the motion.
+  // The brief rides into the posted challenge (entry.background) and on to
+  // the live room, which already reads + syncs a background field.
+  var bgTextEl = document.getElementById('bgText');
+  var genBgBtn = document.getElementById('genBgBtn');
+  if (genBgBtn && bgTextEl){
+    genBgBtn.addEventListener('click', function(){
+      var motion = (motionEl.value || '').trim();
+      if (!motion){ motionEl.focus(); bgTextEl.setAttribute('placeholder', 'Add or roll a motion first, then generate.'); return; }
+      var orig = genBgBtn.textContent;
+      genBgBtn.disabled = true; genBgBtn.textContent = 'Writing…';
+      var sys = 'You are a debate case-writer. Given a motion, write a SHORT factual background brief of 2 to 3 sentences both debaters can read to set context: what it is about, the real-world facts and stakes, and the central tension. Neutral, take no side. No jargon, no preamble, no markdown, no em-dashes.';
+      fetch('/api/claude', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, stream: false, system: sys, messages: [{ role: 'user', content: 'Motion: ' + motion }], _feature: 'live-compose-brief' })
+      }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+        var text = (j && j.content && j.content[0] && j.content[0].text) || (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || (j && j.text) || '';
+        text = (text || '').trim();
+        if (text){ bgTextEl.value = text; updateSubmit(); }
+      }).catch(function(){}).then(function(){ genBgBtn.disabled = false; genBgBtn.textContent = orig; });
+      try { window.gtag && gtag('event', 'live_compose_gen_brief'); } catch(e){}
+    });
+  }
   motionEl.addEventListener('input', updateSubmit);
   topicLineEl.addEventListener('input', updateSubmit);
   themeLineEl.addEventListener('change', updateSubmit);
@@ -4119,6 +4151,7 @@ button{font-family:inherit}
     var entry = {
       id: 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2,8),
       motion: motionEl.value.trim(),
+      background: (bgTextEl && bgTextEl.value.trim()) || '',
       side: selectedSide,           // legacy 1v1 alias
       posterSlot: selectedSlot,     // which named seat the poster took
       slots: slots,                 // full N-seat roster (poster filled, rest open)
@@ -4144,6 +4177,7 @@ button{font-family:inherit}
     // because the post is a commit but not yet a match.
     try { window.SFX && window.SFX.confirm(); } catch(e){}
     motionEl.value = '';
+    if (bgTextEl) bgTextEl.value = '';
     topicLineEl.value = '';
     themeLineEl.value = '';
     customTimeEl.value = '';
@@ -4236,6 +4270,8 @@ button{font-family:inherit}
         var profile = loadProfile();
         var roundParams = new URLSearchParams({
           motion: c.motion || c.topicLine || c.themeLine || '',
+      background: c.background || '',
+          background: c.background || '',
           format: c.format,
           pro: yourSide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
           con: yourSide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
@@ -5176,6 +5212,7 @@ button{font-family:inherit}
     var yourSide = challenge.side === 'pro' ? 'con' : 'pro';
     var roundParams = new URLSearchParams({
       motion: challenge.motion || challenge.topicLine || challenge.themeLine || '',
+      background: challenge.background || '',
       format: challenge.format,
       pro: yourSide === 'pro' ? (payload.name || profile.name || 'You') : (challenge.posterName || challenge.handle || 'Opponent'),
       con: yourSide === 'con' ? (payload.name || profile.name || 'You') : (challenge.posterName || challenge.handle || 'Opponent'),
@@ -5192,6 +5229,7 @@ button{font-family:inherit}
         body: JSON.stringify({
           challengeId: challenge.id,
           motion: challenge.motion || challenge.topicLine || challenge.themeLine || '',
+      background: challenge.background || '',
           format: (FORMATS[challenge.format] || FORMATS.quick).name,
           scheduledAt: challenge.scheduledAt || null,
           roomUrl: roundUrl,
@@ -5467,6 +5505,7 @@ button{font-family:inherit}
       : (c.side === 'pro' ? 'con' : 'pro');
     var roundParams = new URLSearchParams({
       motion: c.motion || c.topicLine || c.themeLine || '',
+      background: c.background || '',
       format: c.format || 'quick',
       pro: mySide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
       con: mySide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
@@ -5603,6 +5642,8 @@ button{font-family:inherit}
         var mySide = (currentUser && c.posterUid === currentUser.uid) ? c.side : (c.side === 'pro' ? 'con' : 'pro');
         var roundParams = new URLSearchParams({
           motion: c.motion || c.topicLine || c.themeLine || '',
+      background: c.background || '',
+          background: c.background || '',
           format: c.format || 'quick',
           pro: mySide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
           con: mySide === 'con' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
