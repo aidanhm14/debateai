@@ -96,6 +96,19 @@
      is exposed for ad-hoc page events (challenge_post, challenge_accept,
      etc — added inline in this page's script block). -->
 <script defer src="/js/track.js"></script>
+<script defer src="/js/global-debate-map.js?v=1"></script>
+<script>
+// Mount the global-activity globe in the hero once the module is ready.
+(function(){
+  function tryMount(n){
+    if(!window.GlobalDebateMap){ if(n>0) return setTimeout(function(){tryMount(n-1);},80); return; }
+    var c=document.getElementById('globalDebateMap'); if(!c) return;
+    try{ window.GlobalDebateMap.mount(c,{maxActiveDots:7,maxActiveArcs:2,spawnEveryMs:1700,roomEveryMs:4200,rotateSec:240,palette:'auto'}); }catch(e){}
+  }
+  if(document.readyState!=='loading') tryMount(40);
+  else document.addEventListener('DOMContentLoaded',function(){tryMount(40);});
+})();
+</script>
 <script defer src="/js/voice-input.js"></script>
 <!-- Global UI sound effects. live.html fires confirm() on post +
      success() on accept so the high-friction actions get audible
@@ -263,6 +276,15 @@ button{font-family:inherit}
      the bar travels with it, so this single offset holds in both states. */
   max-width:1100px;margin:0 auto;padding:76px 24px 10px;text-align:center;
 }
+/* Global-activity globe (shared with /spar). The module fills the round
+   frame via its viewBox; we just size + center it above the eyebrow. */
+.hero-globe{position:relative;width:168px;max-width:40vw;margin:0 auto 12px;aspect-ratio:1/1}
+.globe-frame{position:relative;width:100%;height:100%;border-radius:50%;background:transparent;overflow:visible;
+  filter:drop-shadow(0 14px 22px rgba(40,25,10,.20));}
+[data-theme="light"] .globe-frame{filter:drop-shadow(0 14px 22px rgba(40,25,10,.16));}
+.globe-frame > .gdmap-host-inner,.globe-frame > div{width:100%;height:100%}
+.globe-frame svg.gdmap-svg{display:block;width:100%;height:100%}
+@media(max-width:560px){ .hero-globe{width:120px;margin-bottom:8px} }
 /* Quiet text eyebrow. The loud red pill made the page read busy
    before the user had a chance to read the headline. */
 .hero-eyebrow{
@@ -1626,6 +1648,9 @@ button{font-family:inherit}
 <div id="dayofBanner" class="dayof-banner" hidden role="status" aria-live="polite"></div>
 
 <section class="hero">
+  <!-- Same "where debaters are right now" globe used on /spar — quiet
+       global-activity visual mounted by /js/global-debate-map.js. -->
+  <div class="hero-globe"><div class="globe-frame"><div id="globalDebateMap" role="img" aria-label="Globe showing debate rooms opening between cities worldwide"></div></div></div>
   <div class="hero-eyebrow"><span class="live-dot"></span>Live debates, AI-judged</div>
   <h1>Debate humans, live. <em>AI judges.</em></h1>
   <p class="hero-sub">Post a motion (the topic). A friend (or a stranger) accepts. The AI judge scores the round.</p>
