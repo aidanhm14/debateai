@@ -2836,6 +2836,22 @@ var MODES = [
 { key: 'steelman', icon: '', title: 'Steelman Drill', desc: 'Defend the position you disagree with. Best version.' },
 { key: 'viva', icon: '', title: 'Viva / Oral Exam', desc: 'Dr. Iyer examines. Surface claim to edge case.' }];
 
+// Mode-aware turn-detection silence floor (ms). server_vad declares the
+// user's turn over only after this much CONTINUOUS silence, so a bigger
+// number = the AI interrupts less. We do NOT use semantic_vad: it was
+// tried and reverted (even eagerness:'low' scored natural 1-2s thinking
+// pauses as turn-end — see the session.update comment). Instead the floor
+// is tuned to the drill: long-answer modes (a full APDA round, a viva
+// where the student is reasoning out loud) get a more patient floor;
+// fast back-and-forth drills get a snappier one so the AI stays
+// responsive. This is the deterministic, content-shaped version of
+// "smarter interruptions" without the semantic_vad regression.
+function vadSilenceMs(m) {
+  if (m === 'viva' || m === 'apda') return 2100; // long, reasoned turns — be patient
+  if (m === 'quickclash' || m === 'rebuttal' || m === 'crossex') return 1300; // fast exchanges — stay snappy
+  return 1700; // layjudge / aggressive / steelman — default floor
+}
+
 
 // MODE_JUDGE_RULES. Drill-specific lenses the AI judge applies when
 // writing the RFD. voice-debate's "mode" is a drill type, not a debate
@@ -5455,7 +5471,7 @@ function App() {
                     type: 'server_vad',
                     threshold: 0.5,
                     prefix_padding_ms: 300,
-                    silence_duration_ms: 1700,
+                    silence_duration_ms: vadSilenceMs(mode), // mode-aware floor; see vadSilenceMs() near MODES
                     create_response: true,
                     // The user can still cut the AI off by speaking —
                     // server_vad cancels the in-progress AI response when it
