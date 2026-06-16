@@ -80,7 +80,7 @@ function emptyPayload(error){
   const out = {
     since: null,
     now: ymd(new Date()),
-    totals: { visits: 0, members: 0, google: 0, liveSearchesWeek: 0 },
+    totals: { visits: 0, members: 0, google: 0, membersLast30d: 0, liveSearchesWeek: 0 },
     milestones: [],
   };
   if (error) out.error = String(error).slice(0, 400);
@@ -283,6 +283,19 @@ export default async (request) => {
     const visitDays  = Object.keys(visitsByDay).sort();
     const memberDays = Object.keys(membersByDay).sort();
 
+    // Members who joined in the last 30 days. Computed from the same
+    // Auth-derived membersByDay buckets (no extra Firestore reads, so
+    // it's quota-safe even when the daily read quota is tight). This is
+    // the growth/momentum stat on the landing proof strip — reliably
+    // non-zero on a growing product, unlike the events-log weekly
+    // numbers (viewsWeek/liveSearchesWeek) which sit at 0 whenever the
+    // telemetry pipeline is quiet. Floor at 0; hidden client-side at 0.
+    const cutoff30 = ymd(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+    let membersLast30d = 0;
+    for (const k of memberDays){
+      if (k >= cutoff30) membersLast30d += membersByDay[k] || 0;
+    }
+
     const candidates = [firstVisitDay, firstMemberDay].filter(Boolean).sort();
     const since = candidates[0] || ymd(new Date());
 
@@ -316,7 +329,7 @@ export default async (request) => {
     const payload = {
       since,
       now: ymd(new Date()),
-      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek, viewsWeek },
+      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, membersLast30d, liveSearchesWeek, viewsWeek },
       memberSource,
       milestones,
     };

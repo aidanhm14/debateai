@@ -9,8 +9,12 @@ service cloud.firestore {
 
     // Guests (Firebase anonymous auth, enabled 2026-06-12 so /spar
     // matchmaking works without a Google account) count as signed in
-    // everywhere EXCEPT the social surfaces gated below — posting and
-    // DMs keep the named-account bar so guest spam stays impossible.
+    // everywhere EXCEPT waitlist posting, which keeps the named-account
+    // bar so the public open-invite board can't be spammed by throwaway
+    // guests. DMs were opened to guests 2026-06-16: a guest can only
+    // reach a thread with someone they matched with or a named waitlist
+    // poster who opted into DMs, so the spam surface is narrow, and a
+    // guest who matches needs to coordinate the round somehow.
     function isNamedAccount() {
       return isSignedIn()
         && request.auth.token.firebase.sign_in_provider != 'anonymous';
@@ -586,15 +590,22 @@ service cloud.firestore {
     match /dm_threads/{threadId} {
       allow read, update: if isSignedIn()
                     && request.auth.uid in resource.data.participants;
-      allow create: if isNamedAccount()
+      // Create is open to any signed-in user (named OR guest, since
+      // 2026-06-16) as long as they put THEMSELVES in the participants
+      // array — you can't fabricate a thread you're not in. The
+      // participant gate is the real guard; named-only was dropped so a
+      // guest who matched can actually message to set up the round.
+      allow create: if isSignedIn()
                     && request.auth.uid in request.resource.data.participants;
       // Messages: only participants can read; only the author can post,
-      // and only as themselves with a length-capped body.
+      // and only as themselves with a length-capped body. Guests allowed
+      // (2026-06-16) — the fromUid==auth.uid + participant checks mean a
+      // guest can only post as themselves into a thread they belong to.
       match /messages/{msgId} {
         allow read: if isSignedIn()
                     && request.auth.uid in
                        get(/databases/$(database)/documents/dm_threads/$(threadId)).data.participants;
-        allow create: if isNamedAccount()
+        allow create: if isSignedIn()
                     && request.resource.data.fromUid == request.auth.uid
                     && request.auth.uid in
                        get(/databases/$(database)/documents/dm_threads/$(threadId)).data.participants

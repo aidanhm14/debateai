@@ -6668,7 +6668,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            who dismissed it reopen the "where do I start" guide on demand. -->
       <div class="hi-proof-row">
         <p class="hi-proof-note" aria-live="polite">
-          <span id="hiStatViewsWeek" hidden></span><span class="hi-proof-num" id="hiStatGoogle">78</span> debaters signed in with Google so far<span id="hiStatSparWeek" hidden></span>
+          <span class="hi-proof-num" id="hiStatGoogle">79</span> debaters signed in with Google<span id="hiStatLast30" hidden></span><span id="hiStatSince" hidden></span>
         </p>
       </div>
 
@@ -7495,24 +7495,33 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                   (w === 1 ? 'search' : 'searches') + ' for a live round this week.';
                 wk.hidden = false;
               }
-              // Same numbers on the LIVE illustrated-hero proof strip
-              // (the elements above live in the hidden editorial arm).
+              // Same number on the LIVE illustrated-hero proof strip
+              // (the element above lives in the hidden editorial arm too).
               var g2 = document.getElementById('hiStatGoogle');
               if (g2 && n) g2.textContent = n.toLocaleString();
-              // Top-of-funnel: site views this week, prepended so the strip
-              // reads views » searches » sign-ins. Hidden at 0 (no static
-              // fallback — a stale weekly number would be a lie).
-              var v = Math.max(0, parseInt(j.totals.viewsWeek, 10) || 0);
-              var vw2 = document.getElementById('hiStatViewsWeek');
-              if (vw2 && v > 0) {
-                vw2.innerHTML = '<span class="hi-proof-num">' + v.toLocaleString() + '</span> viewed the site this week · ';
-                vw2.hidden = false;
+              // Three-point proof funnel, all sourced from the reliable
+              // Firebase Auth read (NOT the events log — viewsWeek /
+              // liveSearchesWeek sit at 0 whenever telemetry is quiet,
+              // which collapsed the strip to a single stat). Reads:
+              //   N signed in with Google · M in the last 30 days · live since {month year}
+              // (2) growth/momentum — joined in the last 30 days. Hidden
+              // at 0 so a flat month doesn't render "0 in the last 30 days".
+              var m30 = Math.max(0, parseInt(j.totals.membersLast30d, 10) || 0);
+              var l30 = document.getElementById('hiStatLast30');
+              if (l30 && m30 > 0) {
+                l30.innerHTML = ' · <span class="hi-proof-num">' + m30.toLocaleString() + '</span> in the last 30 days';
+                l30.hidden = false;
               }
-              var wk2 = document.getElementById('hiStatSparWeek');
-              if (wk2 && w > 0) {
-                wk2.innerHTML = ' · <span class="hi-proof-num">' + w.toLocaleString() + '</span> ' +
-                  (w === 1 ? 'search' : 'searches') + ' for a live round this week';
-                wk2.hidden = false;
+              // (3) longevity — live since the first member's month. The
+              // `since` field is an ISO day string (YYYY-MM-DD) from the
+              // server; format to "Month YYYY". Honest and always present.
+              var sn = document.getElementById('hiStatSince');
+              if (sn && typeof j.since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(j.since)) {
+                var MO = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                var parts = j.since.split('-');
+                var label = MO[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+                sn.innerHTML = ' · live since <span class="hi-proof-num" style="font-weight:700">' + label + '</span>';
+                sn.hidden = false;
               }
             })
             .catch(function(){ /* keep fallback */ });
