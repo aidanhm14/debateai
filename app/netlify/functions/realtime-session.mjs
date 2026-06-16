@@ -77,6 +77,30 @@ EVIDENCE / EXAMPLES (2 real ones, no fabrication)
 Do NOT write the speech. Just prep notes. Under 250 words total. No throat-clearing, no em-dashes, no name-dropping philosophers unless the motion demands it.`;
 }
 
+function buildVivaCouncilPrompt(subject) {
+  return `You are a senior examiner prepping to run an oral examination (viva) on this subject: "${subject || '(the student will state the subject — assume a substantive academic topic and prep the most commonly examined version of it)'}".
+
+Map where a student's understanding typically breaks so the examiner knows exactly where to dig. Be specific to THIS subject, not generic.
+
+Format:
+CORE CLAIM
+- The central thing the student must be able to state plainly (one sentence).
+
+MECHANISM / LOAD-BEARING ASSUMPTIONS (3)
+- The causal steps or assumptions a shallow student skips or fudges.
+
+EDGE CASES / BOUNDARY CONDITIONS (2-3)
+- Where the claim stops holding; the counter-cases that separate memorization from understanding.
+
+COMMON MISCONCEPTIONS (2)
+- The wrong answers students confidently give, so you can probe for them.
+
+SYNTHESIS HOOK (1)
+- A real-world implication or adjacent domain that tests whether they can extend the idea.
+
+No fabricated citations or invented statistics. Under 250 words. No em-dashes. This is the examiner's private map, not a script to read aloud.`;
+}
+
 async function callClaudeCouncil(prompt) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
@@ -144,9 +168,10 @@ async function callGPT5Council(prompt) {
   return j?.choices?.[0]?.message?.content || null;
 }
 
-async function gatherCouncil(motion, sideLabel, smartness) {
+async function gatherCouncil(motion, sideLabel, smartness, mode) {
   if (!smartness || smartness <= 1) return '';
-  const prompt = buildCouncilPrompt(motion, sideLabel);
+  const isViva = mode === 'viva';
+  const prompt = isViva ? buildVivaCouncilPrompt(motion) : buildCouncilPrompt(motion, sideLabel);
   // Smartness → which brains to consult.
   //   2 = Claude only
   //   3 = Claude + Gemini
@@ -166,11 +191,15 @@ async function gatherCouncil(motion, sideLabel, smartness) {
   if (blocks.length === 0) return '';
   return [
     '═══════════════════════════════════════════════',
-    'COUNCIL RESEARCH (you have prep notes from ' + blocks.length + ' AI coach' + (blocks.length === 1 ? '' : 'es') + '):',
+    (isViva
+      ? 'EXAMINER PREP (subject scaffolding from ' + blocks.length + ' research pass' + (blocks.length === 1 ? '' : 'es') + ' — this is YOUR knowledge of the subject, not the student\'s answers):'
+      : 'COUNCIL RESEARCH (you have prep notes from ' + blocks.length + ' AI coach' + (blocks.length === 1 ? '' : 'es') + '):'),
     '═══════════════════════════════════════════════',
     blocks.join('\n\n'),
     '═══════════════════════════════════════════════',
-    'Use the strongest arguments above as the spine of your first speech. Do NOT read them verbatim — synthesize them in your own character\'s voice. If multiple coaches converge on the same argument, that\'s your A1.',
+    (isViva
+      ? 'Use this scaffolding to know WHERE the hard questions live — the load-bearing assumptions, the mechanism steps students skip, the edge cases that expose shallow understanding. Build your probe sequence around these. Do NOT read it aloud; it is your map of where to dig.'
+      : 'Use the strongest arguments above as the spine of your first speech. Do NOT read them verbatim — synthesize them in your own character\'s voice. If multiple coaches converge on the same argument, that\'s your A1.'),
     '═══════════════════════════════════════════════',
   ].join('\n');
 }
@@ -659,6 +688,15 @@ OPENER — override the universal opener. Use this exactly:
 - If a subject IS provided: "Good morning. Let's begin with [subject]. [First definitional question from Stage 1 below]." No preamble.
 - If NO subject was provided: "Good morning. What's your name, and what subject or topic are you preparing to defend today?" Stop. After they answer, identify the topic, then move directly to Stage 1.
 
+SUBJECT CALIBRATION — do this silently before your first real question:
+Infer the DISCIPLINE of the subject and tune how you examine it. Different fields are examined differently; a generic viva exposes that you do not know the field.
+- STEM / engineering / math: Stage 2 drills the derivation and the assumptions behind each step; Stage 3 probes limiting cases, units, what breaks when a variable goes to zero or infinity, where the model stops applying.
+- Medicine / clinical: Stage 2 drills pathophysiology and the mechanism of action; Stage 3 is the atypical presentation, the contraindication, the differential they did not consider.
+- Law: Stage 2 drills the rule and its elements; Stage 3 applies it to a fact pattern that sits on the boundary, the case that does not fit cleanly.
+- Humanities / social science / philosophy: Stage 2 drills the interpretation and the warrant for the reading; Stage 3 is the strongest counter-reading and the evidence that resists their thesis.
+- CS / data: Stage 2 drills complexity, correctness, and why the approach works; Stage 3 is the failure mode, the adversarial input, the scaling wall.
+If the discipline is unclear, ask one clean opening question to surface it, then calibrate. Do not announce that you are calibrating.
+
 PROBE SEQUENCE — 4 to 6 questions in exactly this order. Do not skip stages. Do not loop back once you leave a stage.
 
 STAGE 1 — SURFACE / DEFINITIONAL (1-2 questions):
@@ -699,6 +737,15 @@ QUESTION DISCIPLINE — non-negotiable:
 - If partially right: "You have the first step. What comes next in the chain?"
 - If wrong: "That's not quite right. Take another pass." OR "What makes you confident that holds?" — probe the gap without correcting directly.
 - If they say "I don't know": "Fair. Let's step back. [One smaller entry question they can answer]." Accept it cleanly, pivot to the smaller question — do not lecture, do not pile on.
+
+DIFFICULTY — adaptive, not fixed. Read the student and meet them where they are:
+- If they answer cleanly and fast, ESCALATE: skip the easy version, go straight to the graduate-level follow-up, compress the early stages, spend the saved time on edge cases and synthesis. A strong student is bored by questions they have already proven they can answer.
+- If they are struggling, REBUILD: drop to a smaller, more concrete sub-question, get one solid answer to restore footing, then climb back up. Do not keep hammering a stage they cannot clear.
+- Track the trajectory across the whole viva. The point is to find the exact altitude where their understanding gives out, then probe right at that ceiling — not to run a fixed difficulty regardless of who is in the chair.
+
+FOLLOW THE THREAD — this is what separates a real examiner from a checklist:
+- When an answer opens a more revealing gap than your scripted next question, PURSUE THAT GAP instead. If a student defending a clean answer lets slip an assumption they cannot defend, drop the plan and chase the assumption. The best viva question is almost always the one the student's own last sentence just handed you.
+- Stay anchored to the stage logic (surface → mechanism → edges → synthesis) so you still cover the ground, but let the student's specific words choose WHICH question inside the stage. A canned sequence that ignores what they just said is the tell of an examiner who is not really listening.
 
 REGISTER:
 - Measured academic. Even cadence. Mid-formal, slightly Indian-English in lilt. No theatrics.
@@ -933,7 +980,7 @@ export default async (request, context) => {
     if (smartness > 1) {
       const sideLabel = (side === 'gov' || side === 'pm' || side === 'mg') ? 'Government' : 'Opposition';
       try {
-        councilResearch = await gatherCouncil(motion, sideLabel, smartness);
+        councilResearch = await gatherCouncil(motion, sideLabel, smartness, mode);
       } catch(e) { console.error('Council assembly failed:', e); }
     }
 
