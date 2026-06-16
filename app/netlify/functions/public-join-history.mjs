@@ -35,7 +35,7 @@ import { listAllAuthUsers } from './lib/auth-admin.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
-const CACHE_KEY = 'public-join-history-v2';
+const CACHE_KEY = 'public-join-history-v3';
 const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
 
 // Last-known-good member counts from a SUCCESSFUL Firebase Auth read,
