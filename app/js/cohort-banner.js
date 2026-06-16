@@ -14,6 +14,12 @@
 
 (function(){
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  // Founding-cohort banner RETIRED 2026-06-16 (Aidan: "get rid of this, we
+  // don't need it anymore at all for the entire website"). Neutered to a
+  // no-op here so it vanishes everywhere it's loaded (~16 pages) in one
+  // change; the dead <script> tags + this file can be swept later. The
+  // --cohort-banner-h CSS var stays 0, so dependent layouts are unaffected.
+  return;
   if (window.__daCohortBannerStamped) return;
   window.__daCohortBannerStamped = true;
 
