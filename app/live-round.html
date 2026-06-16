@@ -303,6 +303,10 @@ button{font-family:inherit}
   border-radius:12px;margin-bottom:14px;
 }
 .motion-display[contenteditable]{cursor:text;transition:border-color .15s,background .15s}
+/* Generated background brief under the motion (Random resolution + brief). */
+.motion-brief{margin-top:11px;padding:11px 13px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:.82rem;line-height:1.55;color:var(--text-dim)}
+.motion-brief .mb-label{font-size:.58rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:5px;display:block}
+.motion-brief.is-loading{opacity:.6}
 .motion-display[contenteditable]:hover{border-color:var(--text-dim,rgba(255,255,255,.3))}
 .motion-display[contenteditable]:focus{outline:none;border-color:var(--accent,#ef4444);background:rgba(255,255,255,.05)}
 .motion-display[contenteditable]:empty:before{content:attr(data-ph);color:var(--text-dim,rgba(255,255,255,.4));font-weight:500}
@@ -955,6 +959,8 @@ button{font-family:inherit}
       <div class="panel-section">
         <div class="label">Motion <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· tap to edit before you start</span></div>
         <div class="motion-display" id="motionDisplay" contenteditable="true" spellcheck="true" role="textbox" aria-label="Motion (editable)" data-ph="Type or paste the motion…"></div>
+        <button type="button" class="btn" id="randomMotionBtn" style="margin-top:9px;font-size:.74rem;padding:8px 14px;letter-spacing:.04em">Random resolution + brief</button>
+        <div class="motion-brief" id="motionBrief" hidden></div>
         <div class="label">Format</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
@@ -4254,6 +4260,7 @@ button{font-family:inherit}
     }
     if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; }
+    if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
     if (d.conName && state.conName !== d.conName){ state.conName = d.conName; var cn=$('conName'); if (cn) cn.value = d.conName; changedSetup = true; }
@@ -4390,6 +4397,7 @@ button{font-family:inherit}
     if (!ref) return;
     var payload = {
       motion: state.motion,
+      background: state.background || '',
       format: state.formatKey,
       proName: state.proName,
       conName: state.conName,
@@ -4540,6 +4548,60 @@ button{font-family:inherit}
     var t = (e.clipboardData || window.clipboardData).getData('text');
     document.execCommand('insertText', false, t);
   });
+
+  // ── Random resolution + AI background brief ──────────────────────
+  // For debaters who drop into the room without a motion (or want a
+  // fresh one): pick a random motion from the spar bank and have Haiku
+  // write a short neutral context brief. Both the motion and the brief
+  // sync to the other side via the round doc (publishRoundInit payload
+  // + onRoundSnapshot above), so both debaters land on the same thing.
+  function renderBrief(){
+    var brief = $('motionBrief');
+    if (!brief) return;
+    if (state.background){
+      brief.hidden = false; brief.classList.remove('is-loading');
+      brief.innerHTML = '<span class="mb-label">Background</span>' + escHtml(state.background);
+    } else {
+      brief.hidden = true; brief.innerHTML = '';
+    }
+  }
+  function genBrief(motion, btn){
+    var brief = $('motionBrief');
+    if (brief){ brief.hidden = false; brief.classList.add('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Writing a quick brief…'; }
+    var sys = 'You are a debate case-writer. Given a motion, write a SHORT factual background brief of 2 to 3 sentences that a debater could read aloud to set context: what the motion is about, the real-world facts and stakes, and the central tension. Neutral, take no side. No jargon, no preamble, no markdown, no em-dashes.';
+    fetch('/api/claude', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, stream: false, system: sys, messages: [{ role: 'user', content: 'Motion: ' + motion }], _feature: 'live-round-brief' })
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+      var text = (j && j.content && j.content[0] && j.content[0].text) || (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || (j && j.text) || '';
+      text = (text || '').trim();
+      if (text){ state.background = text; renderBrief(); pushSetupSync(); }
+      else if (brief){ brief.classList.remove('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Could not write a brief, but the motion is set. You can debate it as-is.'; }
+    }).catch(function(){
+      if (brief){ brief.classList.remove('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Could not write a brief, but the motion is set.'; }
+    }).then(function(){ if (btn){ btn.disabled = false; btn.textContent = 'New resolution + brief'; } });
+  }
+  function pushSetupSync(){
+    if (isSpectator()) return;
+    try {
+      var ref = getRoundDocRef();
+      if (ref) ref.set({ motion: state.motion || '', background: state.background || '' }, { merge: true }).catch(function(){});
+    } catch(e){}
+  }
+  function genRandomResolution(){
+    var btn = $('randomMotionBtn');
+    var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
+    var m = pool[Math.floor(Math.random() * pool.length)] || SPAR_MOTIONS[0];
+    state.motion = m;
+    var md = $('motionDisplay'); if (md) md.textContent = m;
+    if (typeof updateStartBtn === 'function') updateStartBtn();
+    state.background = '';
+    if (btn){ btn.disabled = true; btn.textContent = 'Generating…'; }
+    pushSetupSync();
+    genBrief(m, btn);
+    try { gtag('event', 'live_round_random_motion'); } catch(e){}
+  }
+  (function(){ var rb = $('randomMotionBtn'); if (rb) rb.addEventListener('click', genRandomResolution); })();
 
   // ── Auth gate. Required for Firestore writes (live round sync) and
   // ballot save-to-record. If Firebase didn't load (script blocked,
