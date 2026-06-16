@@ -323,6 +323,10 @@ button{font-family:inherit}
 .motion-brief{margin-top:11px;padding:11px 13px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:.82rem;line-height:1.55;color:var(--text-dim)}
 .motion-brief .mb-label{font-size:.58rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:5px;display:block}
 .motion-brief.is-loading{opacity:.6}
+.motion-brief .mb-hint{font-weight:600;opacity:.5;letter-spacing:0;text-transform:none}
+.motion-brief .mb-body{outline:none;min-height:1.4em;white-space:pre-wrap}
+.motion-brief .mb-body:empty:before{content:attr(data-ph);color:var(--text-dim);opacity:.6}
+.motion-brief .mb-body:focus{outline:1px dashed var(--accent,#ef4444);outline-offset:4px;border-radius:6px}
 .motion-display[contenteditable]:hover{border-color:var(--text-dim,rgba(255,255,255,.3))}
 .motion-display[contenteditable]:focus{outline:none;border-color:var(--accent,#ef4444);background:rgba(255,255,255,.05)}
 .motion-display[contenteditable]:empty:before{content:attr(data-ph);color:var(--text-dim,rgba(255,255,255,.4));font-weight:500}
@@ -999,7 +1003,10 @@ button{font-family:inherit}
         <div class="label">Motion <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· tap to edit before you start</span></div>
         <div class="motion-display" id="motionDisplay" contenteditable="true" spellcheck="true" role="textbox" aria-label="Motion (editable)" data-ph="Type or paste the motion…"></div>
         <button type="button" class="btn" id="randomMotionBtn" style="margin-top:9px;font-size:.74rem;padding:8px 14px;letter-spacing:.04em">Random resolution + brief</button>
-        <div class="motion-brief" id="motionBrief" hidden></div>
+        <div class="motion-brief" id="motionBrief" hidden>
+          <span class="mb-label">Background <span class="mb-hint">· tap to edit, both sides see it</span></span>
+          <div class="mb-body" id="motionBriefBody" contenteditable="true" spellcheck="true" data-ph="Write the context here, or roll a brief with the button above."></div>
+        </div>
         <div class="label">Format</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
@@ -1474,6 +1481,7 @@ button{font-family:inherit}
   var qs = new URLSearchParams(location.search);
   var prefill = {
     motion: qs.get('motion') || '',
+    background: qs.get('background') || '',
     format: qs.get('format') || 'quick',
     pro:    qs.get('pro')    || '',
     con:    qs.get('con')    || '',
@@ -1561,6 +1569,7 @@ button{font-family:inherit}
     phase: 'setup',          // 'setup' | 'round' | 'ballot'
     formatKey: prefill.format,
     motion: prefill.motion,
+    background: prefill.background || '',
     proName: prefill.pro,
     conName: prefill.con,
     // 4-team formats (BP / Worlds) carry team names for Closing Gov +
@@ -4686,16 +4695,18 @@ button{font-family:inherit}
   function renderBrief(){
     var brief = $('motionBrief');
     if (!brief) return;
+    var body = $('motionBriefBody');
     if (state.background){
       brief.hidden = false; brief.classList.remove('is-loading');
-      brief.innerHTML = '<span class="mb-label">Background</span>' + escHtml(state.background);
-    } else {
-      brief.hidden = true; brief.innerHTML = '';
+      if (body && document.activeElement !== body) body.textContent = state.background;
+    } else if (!(body && document.activeElement === body)){
+      brief.hidden = true; if (body) body.textContent = '';
     }
   }
   function genBrief(motion, btn){
-    var brief = $('motionBrief');
-    if (brief){ brief.hidden = false; brief.classList.add('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Writing a quick brief…'; }
+    var brief = $('motionBrief'); var body = $('motionBriefBody');
+    if (brief){ brief.hidden = false; brief.classList.add('is-loading'); }
+    if (body){ body.textContent = 'Writing a quick brief…'; }
     var sys = 'You are a debate case-writer. Given a motion, write a SHORT factual background brief of 2 to 3 sentences that a debater could read aloud to set context: what the motion is about, the real-world facts and stakes, and the central tension. Neutral, take no side. No jargon, no preamble, no markdown, no em-dashes.';
     fetch('/api/claude', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -4703,10 +4714,12 @@ button{font-family:inherit}
     }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
       var text = (j && j.content && j.content[0] && j.content[0].text) || (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || (j && j.text) || '';
       text = (text || '').trim();
-      if (text){ state.background = text; renderBrief(); pushSetupSync(); }
-      else if (brief){ brief.classList.remove('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Could not write a brief, but the motion is set. You can debate it as-is.'; }
+      if (brief) brief.classList.remove('is-loading');
+      if (text){ state.background = text; if (body) body.textContent = text; pushSetupSync(); }
+      else if (body){ body.textContent = 'Could not write a brief, but the motion is set. You can debate it as-is.'; }
     }).catch(function(){
-      if (brief){ brief.classList.remove('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Could not write a brief, but the motion is set.'; }
+      if (brief) brief.classList.remove('is-loading');
+      if (body){ body.textContent = 'Could not write a brief, but the motion is set.'; }
     }).then(function(){ if (btn){ btn.disabled = false; btn.textContent = 'New resolution + brief'; } });
   }
   function pushSetupSync(){
@@ -4716,6 +4729,19 @@ button{font-family:inherit}
       if (ref) ref.set({ motion: state.motion || '', background: state.background || '' }, { merge: true }).catch(function(){});
     } catch(e){}
   }
+  // Editable background: typing in the brief updates state + syncs to the
+  // other side (debounced), the same way the motion edits sync.
+  (function(){
+    var body = $('motionBriefBody');
+    if (!body) return;
+    var t = null;
+    body.addEventListener('input', function(){
+      state.background = (body.textContent || '').trim();
+      if (t) clearTimeout(t);
+      t = setTimeout(pushSetupSync, 700);
+    });
+    body.addEventListener('blur', pushSetupSync);
+  })();
   function genRandomResolution(){
     var btn = $('randomMotionBtn');
     var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
