@@ -519,6 +519,44 @@
   })();
 </script>
 
+<!-- "Trained on real debate" A/B (2026-06-16). One coherent treatment vs
+     control: the 'on' arm sees BOTH the hero trust line AND the #trained
+     moat band (hundreds of cases / real adjudication / debaters in the
+     loop); 'off' sees neither, so the GA segment is clean and uncluttered
+     by a second confound. 50/50 sticky in localStorage; ?trained=on|off
+     forces an arm for QA. Fires trained_band_view so converting sessions
+     stay segmentable by arm. Fail-open: if the script never runs, no
+     attribute is set, the html[data-trained-ab="off"] hide rules don't
+     match, and the content shows. CSS toggles live in the #trained section
+     style block and the hero stylesheet. -->
+<script>
+  (function(){
+    var v='';
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]trained=on(?:&|$)/.test(qp)) v='on';
+      else if(/[?&]trained=off(?:&|$)/.test(qp)) v='off';
+    }catch(e){}
+    var assigned=false;
+    if(v!=='on'&&v!=='off'){
+      try{ v=localStorage.getItem('da-trained-ab')||''; }catch(e){}
+      if(v!=='on'&&v!=='off'){
+        v=(Math.random()<0.50)?'on':'off';
+        assigned=true;
+        try{ localStorage.setItem('da-trained-ab',v); }catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-trained-ab',v);
+    window.__trainedAb=v;
+    try{
+      if(window.gtag){
+        gtag('set','user_properties',{trained_ab:v});
+        gtag('event','trained_band_view',{variant:v,assigned:assigned});
+      }
+    }catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -2238,6 +2276,12 @@ section.hero{
   .hero-illustrated .hi-subhead--flow{display:none}
   html[data-hero-msg="flow"] .hero-illustrated .hi-subhead--default{display:none}
   html[data-hero-msg="flow"] .hero-illustrated .hi-subhead--flow{display:block}
+  /* 2026-06-16: trained-on-debate tail swap on the live subhead. Control
+     tail shows by default + no-JS; the 'on' arm names the training
+     credential instead. Inline spans, exactly one visible, shared bold lead. */
+  .hero-illustrated .hi-sub-tail--trained{display:none}
+  html[data-trained-ab="on"] .hero-illustrated .hi-sub-tail--control{display:none}
+  html[data-trained-ab="on"] .hero-illustrated .hi-sub-tail--trained{display:inline}
   [data-theme="grey"] .editorial-hero .hero-subhead,
   [data-theme="crimson"] .editorial-hero .hero-subhead,
   [data-theme="stone"] .editorial-hero .hero-subhead{color:rgba(255,255,255,.7)}
@@ -6637,8 +6681,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              overwhelming and confusing"). Dropped the two-variant
              default/flow swap; one clear line now. The big "where to
              start" buttons below carry the navigation. -->
+        <!-- 2026-06-16: the tail clause swaps under the da-trained-ab A/B.
+             The bold humans-first lead is shared and unchanged (real people
+             stay the product); only the AI-underneath clause names the
+             training credential on the 'on' arm. Exactly one tail shows. -->
         <p class="hi-subhead">
-          <strong class="hi-live-em">Debate real people in live timed rounds.</strong> The AI works underneath.
+          <strong class="hi-live-em">Debate real people in live timed rounds.</strong><span class="hi-sub-tail hi-sub-tail--control"> The AI works underneath.</span><span class="hi-sub-tail hi-sub-tail--trained"> The AI underneath is trained on real cases and real judge ballots.</span>
         </p>
         <!-- 2026-06-14: the "pick a motion → ... → read your ballot"
              steps line removed per Aidan (the arrows row). The subhead
@@ -11097,6 +11145,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .trained-band{ padding:56px 20px; }
     .trained-band .tdb-grid{ grid-template-columns:1fr; }
   }
+  /* A/B gate: the 'off' arm never sees the band. Fail-open: if the head
+     script never set the attribute, this rule doesn't match and the band
+     shows. Pairs with the hero subhead swap above (same da-trained-ab bucket). */
+  html[data-trained-ab="off"] .trained-band{ display:none; }
 </style>
 
 <section class="trained-band" id="trained" aria-label="How the AI is trained">
