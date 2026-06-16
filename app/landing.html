@@ -8977,16 +8977,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .review-subhead{margin:2px 0 0;font-size:.84rem;line-height:1.52;color:var(--text-dim,rgba(255,255,255,.52));max-width:54ch}
   [data-theme="light"] .review-subhead{color:#5a5a64}
 
-  /* Base card — warm dark brown, matching the hero room + feature
-     cards (Aidan 2026-06-16: "use color of this for the review cards"). */
+  /* Base card — true neutral black (Aidan 2026-06-16: dropped the warm
+     brown #33291f/#251d18 for #111 so text + badges clear WCAG AA on the
+     dark theme). Red top-bar + circuit label + avatar stay as accents. */
   .review-card{
     display:flex;flex-direction:column;position:relative;
     margin:0;padding:26px 26px 22px;
     border-radius:14px;
-    background:linear-gradient(160deg,#33291f 0%,#251d18 100%);
-    border:1px solid rgba(255,226,198,.12);
-    /* Dark theme: deep shadow for card-on-card depth + a faint warm halo
-       and hairline ring so the cream edge isn't stark against black. */
+    background:#111111;
+    border:1px solid rgba(255,255,255,.1);
+    /* Deep shadow for card-on-card depth + a faint red halo and hairline
+       ring so the card edge separates cleanly from the near-black section. */
     box-shadow:0 30px 90px rgba(0,0,0,.55), 0 2px 50px rgba(239,68,68,.08), 0 0 0 1px rgba(255,255,255,.05);
     overflow:hidden;
     box-sizing:border-box;
@@ -9002,7 +9003,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
     color:#ef4444;
   }
-  .review-quote{margin:0 0 18px;font-size:.83rem;line-height:1.57;font-weight:500;color:rgba(245,238,228,.9);letter-spacing:-.005em;flex:1}
+  .review-quote{margin:0 0 18px;font-size:.83rem;line-height:1.57;font-weight:500;color:rgba(245,240,232,.93);letter-spacing:-.005em;flex:1}
   /* Key line gets weight + a touch darker ink — no underline/marker band. */
   .review-hl{font-weight:650;color:#fff}
   .review-attr{display:flex;align-items:center;gap:12px;margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.1)}
@@ -9018,7 +9019,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .review-chip{
     font-size:.61rem;font-weight:700;letter-spacing:.03em;line-height:1;
     padding:4px 8px;border-radius:999px;
-    color:rgba(245,238,228,.62);border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);
+    color:rgba(245,240,232,.82);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);
     white-space:nowrap;
   }
 
@@ -9043,16 +9044,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     100%{transform:rotate(0deg) scale(1.05) translateY(-16px)}
   }
 
-  /* Desktop: diagonal absolute stack — cards march from the top-left
-     down to the bottom-right, each stepping consistently right AND down
-     so the cascade reads as a wide diagonal, not a vertical pile. The
-     front-most (last) card sits on top so every card's top-left corner —
-     its circuit label and opening line — stays visible along the run. */
+  /* Desktop: a straight, aligned grid — no tilt, no overlap. Four quote
+     cards plus the two real-debater portraits (Muku, Aidan) on one even
+     grid so the section reads as structured and easy to scan. */
   @media (min-width:768px){
-    .testimonial-stack{position:relative;height:560px;overflow:visible}
-    /* Soft desk surface under the cluster — grounds the scattered cards +
-       speaker photos so they read as documents on a desk, not islands on
-       black. Sits behind every card/photo; off on the light theme. */
+    .testimonial-stack{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch;overflow:visible}
+    /* Soft surface under the cluster so the cards read as grounded, not
+       islands on black. Off on the light theme. */
     .testimonial-stack::before{
       content:'';position:absolute;inset:-7% -5% -10% -5%;z-index:0;border-radius:30px;
       background:radial-gradient(78% 74% at 50% 46%, rgba(255,255,255,.05), rgba(255,255,255,.014) 52%, transparent 76%);
@@ -9060,44 +9058,53 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     [data-theme="light"] .testimonial-stack::before{display:none}
     .testimonial-card{
-      position:absolute;
-      width:min(600px,46%);
-      will-change:transform,opacity,box-shadow;
-      transition:transform 360ms cubic-bezier(.34,1.56,.64,1),box-shadow 360ms ease-out,opacity 240ms ease-out,border-color 240ms ease-out,scale 360ms cubic-bezier(.34,1.56,.64,1);
+      position:relative;z-index:1;width:auto;
+      will-change:transform,box-shadow;
+      transition:transform 320ms cubic-bezier(.34,1.56,.64,1),box-shadow 320ms ease-out,border-color 240ms ease-out;
     }
-    .card-1{top:0;left:0%;z-index:1;animation:tc-in-1 560ms cubic-bezier(.22,1,.36,1) both}
-    .card-2{top:78px;left:18%;z-index:2;animation:tc-in-2 560ms cubic-bezier(.22,1,.36,1) both;animation-delay:120ms}
-    .card-3{top:156px;left:36%;z-index:3;animation:tc-in-3 560ms cubic-bezier(.22,1,.36,1) both;animation-delay:240ms}
-    .card-4{top:234px;left:54%;z-index:4;animation:tc-in-4 560ms cubic-bezier(.22,1,.36,1) both;animation-delay:360ms}
+    /* Plain grid items: straight (no rotation), visible by default — no
+       opacity-0 entry that could strand a testimonial invisible if the
+       tab is backgrounded or the animation never runs. */
+    .card-1,.card-2,.card-3,.card-4{animation:none;opacity:1;transform:none}
+    /* Hover: a gentle lift, siblings stay put (nothing overlaps). */
     .testimonial-card.tc-hovered{
-      animation:tc-push 380ms cubic-bezier(.34,1.56,.64,1) both !important;
+      transform:translateY(-6px) !important;
       z-index:20 !important;
-      box-shadow:0 44px 130px rgba(0,0,0,.22),0 0 0 1.5px rgba(239,68,68,.35) !important;
+      box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1.5px rgba(239,68,68,.35) !important;
       border-color:rgba(239,68,68,.45) !important;
-      opacity:1 !important;
     }
-    /* Dim by darkening the opaque paper, NOT by going transparent — at
-       .5 opacity the cream card lets the near-black page bleed through and
-       turns muddy on the dark theme. brightness keeps it solid on both. */
-    .testimonial-card.tc-dimmed{opacity:1 !important;filter:brightness(.9) saturate(.97);transform:scale(0.97) !important}
+    /* Siblings stay fully readable — no dimming. */
+    .testimonial-card.tc-dimmed{opacity:1 !important;filter:none;transform:none !important}
     .testimonial-card:focus-visible{outline:2px solid rgba(239,68,68,.6);outline-offset:4px}
+    /* Portraits are ordinary grid items: straight, fully visible, never
+       cropped or overlapped by a card. */
     .review-photo{
-      display:flex;flex-direction:column;position:absolute;z-index:0;
-      /* responsive: shrinks on narrower desktops so it never collides
-         with the %-positioned card diagonal; capped at 230px on wide. */
-      width:min(230px,19%);margin:0;overflow:hidden;border-radius:14px;
+      display:flex;flex-direction:column;position:relative;z-index:1;
+      width:auto;margin:0;overflow:hidden;border-radius:14px;
       background:#fdfcf8;border:1px solid rgba(239,68,68,.18);
       box-shadow:0 22px 70px rgba(0,0,0,.16);
-      transition:transform 360ms cubic-bezier(.34,1.56,.64,1),box-shadow 360ms ease-out;
+      transition:transform 320ms cubic-bezier(.34,1.56,.64,1),box-shadow 320ms ease-out;
     }
-    .review-photo img{display:block;width:100%;aspect-ratio:3/2;object-fit:cover}
-    .review-photo-cap{display:flex;align-items:center;gap:7px;padding:9px 13px 10px}
+    .review-photo img{display:block;width:100%;height:100%;min-height:210px;object-fit:cover;flex:1}
+    .review-photo-cap{display:flex;align-items:center;gap:7px;padding:9px 13px 10px;background:#fdfcf8}
     .review-photo-cap .dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.15)}
     .review-photo-name{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:.92rem;font-weight:700;color:#1a1a1f;letter-spacing:-.01em;line-height:1}
-    .review-photo--bl{left:6px;bottom:14px;transform:rotate(-2.4deg)}
-    .review-photo--tr{top:8px;right:6px;transform:rotate(2.4deg)}
-    .review-photo:hover{transform:rotate(0) scale(1.03);box-shadow:0 32px 96px rgba(0,0,0,.24);z-index:25}
+    .review-photo--bl,.review-photo--tr{transform:none}
+    .review-photo:hover{transform:scale(1.03);box-shadow:0 32px 96px rgba(0,0,0,.24);z-index:25}
     .review-nav{display:none}
+  }
+
+  /* Wide desktop: 3-up so the two portraits balance the four quote cards.
+     Explicit placement — Aidan top-right, Muku bottom-left — both fully
+     visible on a straight, evenly-gapped grid. */
+  @media (min-width:980px){
+    .testimonial-stack{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .card-1{grid-area:1 / 1}
+    .card-2{grid-area:1 / 2}
+    .review-photo--tr{grid-area:1 / 3}   /* Aidan — top-right */
+    .review-photo--bl{grid-area:2 / 1}   /* Muku — bottom-left */
+    .card-3{grid-area:2 / 2}
+    .card-4{grid-area:2 / 3}
   }
 
   /* Mobile: horizontal swipe carousel */
