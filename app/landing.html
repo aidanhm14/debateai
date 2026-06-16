@@ -4713,6 +4713,16 @@ section.hero .hero-illustrated h1.hi-headline{
 /* Quiet live-stat strip under the subhead: real sign-up count + this
    week's live-round searches. Numbers carry the hero red; the rest
    stays soft ink so it reads as proof, not a shout. */
+.hero-illustrated .hi-proof-row{
+  display:flex;align-items:center;justify-content:center;
+  gap:8px 16px;flex-wrap:wrap;margin:18px auto 0;
+}
+.hero-illustrated .hi-proof-note{
+  font-family:'Crimson Pro','Inter',-apple-system,system-ui,sans-serif;
+  font-size:.85rem;line-height:1.5;color:var(--hi-ink-soft);margin:0;
+  width:max-content;max-width:min(980px, 92vw);
+}
+.hero-illustrated .hi-proof-note .hi-proof-num{color:#c83232;font-weight:800}
 
 /* Persistent re-trigger for the onboarding modal. Quiet ghost pill —
    small, slightly transparent, with a red arrow to telegraph it's a
@@ -6639,6 +6649,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              bookmark note carrying the same numbers is display:none. -->
       </div>
 
+      <!-- Proof funnel restored 2026-06-16 (Aidan: "bring back stats on
+           viewed in last month, signed up with google, tried a live
+           round"). Sits OUTSIDE .hi-head so the three stats center in the
+           full hero width. Hydrated from /api/public-join-history; the
+           Google clause has a static fallback (always present), the
+           views + live clauses are hidden at 0 so a quiet metric never
+           renders a lie or an orphan separator. -->
+      <div class="hi-proof-row">
+        <p class="hi-proof-note" id="hiProofNote" aria-live="polite"><span class="hi-proof-num">78</span> signed in with Google</p>
+      </div>
+
       <!-- 2026-06-01: big "where to go" buttons, ABOVE the illustration so
            they're the prominent above-the-fold framework per Aidan
            ("bring back the big buttons to each area: live debates, prep").
@@ -7464,6 +7485,30 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               }
             })
             .catch(function(){ /* keep fallback */ });
+        })();
+
+        // Proof funnel: viewed in the last month / signed in with Google /
+        // tried a live round. Clauses are joined with " \u00b7 " only when
+        // present, so a 0 metric drops out cleanly (no orphan separator).
+        // Google always shows (static fallback 78). views/live come from
+        // the 30-day windows added to /api/public-join-history.
+        (function(){
+          var note = document.getElementById('hiProofNote');
+          if (!note) return;
+          function paint(t){
+            var views = Math.max(0, parseInt(t && t.viewsLast30d, 10) || 0);
+            var google = Math.max(0, parseInt(t && t.google, 10) || 0);
+            var live = Math.max(0, parseInt(t && t.liveSearchesLast30d, 10) || 0);
+            var parts = [];
+            if (views > 0) parts.push('<span class="hi-proof-num">' + views.toLocaleString() + '</span> viewed in the last month');
+            parts.push('<span class="hi-proof-num">' + (google > 0 ? google.toLocaleString() : '78') + '</span> signed in with Google');
+            if (live > 0) parts.push('<span class="hi-proof-num">' + live.toLocaleString() + '</span> tried a live round');
+            note.innerHTML = parts.join(' \u00b7 ');
+          }
+          fetch('/api/public-join-history', { credentials: 'omit' })
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(j){ if (j && j.totals) paint(j.totals); })
+            .catch(function(){ /* static fallback already in the markup */ });
         })();
       </script>
 
