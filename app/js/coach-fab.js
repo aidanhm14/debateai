@@ -130,6 +130,25 @@
     '[data-theme="light"] .dafab-opt.on{border-color:#ef4444;background:rgba(239,68,68,.08);color:#b91c1c;}',
     '[data-theme="light"] .dafab-open{color:rgba(0,0,0,.48);}',
     '[data-theme="light"] .dafab-open:hover{color:rgba(0,0,0,.82);}',
+
+    // ── Live-session mode: the drawer expands to host the /coach
+    //    iframe so the session runs IN the popup (on any page), not on a
+    //    separate page. The iframe stays mounted while the drawer is
+    //    closed, so the session keeps running as you move around the app.
+    '.dafab-drawer.in-session{width:min(460px,calc(100vw - 24px));height:min(700px,calc(100vh - 84px));padding:0;overflow:hidden;display:flex;flex-direction:column;}',
+    '.dafab-drawer.in-session .dafab-h{padding:11px 14px;margin:0;border-bottom:1px solid rgba(255,255,255,.1);}',
+    '.dafab-drawer.in-session .dafab-launch{display:none;}',
+    '.dafab-launch{display:block;}',
+    '.dafab-session{display:none;flex:1;min-height:0;}',
+    '.dafab-drawer.in-session .dafab-session{display:flex;}',
+    '.dafab-session iframe{flex:1;width:100%;height:100%;border:none;background:#0a0509;display:block;}',
+    '.dafab-h-r{display:flex;align-items:center;gap:5px;}',
+    '.dafab-end{background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.42);color:#fca5a5;font-size:.6rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;border-radius:8px;padding:4px 9px;cursor:pointer;font-family:inherit;line-height:1;}',
+    '.dafab-end:hover{background:rgba(239,68,68,.3);color:#fff;}',
+    // Orb turns green while a session is live, so you can see it running
+    // even with the popup closed.
+    '.dafab-orb.live{background:radial-gradient(circle at 38% 32%, rgba(255,255,255,.5), transparent 42%),radial-gradient(circle at 50% 50%, #22c55e 0%, #15803d 58%, #14532d 100%);animation:dafab-glow-live 2.2s ease-in-out infinite;}',
+    '@keyframes dafab-glow-live{0%,100%{box-shadow:0 8px 24px rgba(34,197,94,.4),inset 0 -5px 14px rgba(0,0,0,.4)}50%{box-shadow:0 10px 34px rgba(34,197,94,.62),inset 0 -5px 14px rgba(0,0,0,.4)}}',
   ].join('');
 
   var style = document.createElement('style');
@@ -159,24 +178,30 @@
   drawer.setAttribute('aria-label', 'Start a coach session');
   drawer.innerHTML = ''
     + '<div class="dafab-h">'
-    +   '<div class="dafab-h-l">Your coach</div>'
-    +   '<button class="dafab-x" type="button" aria-label="Close">✕</button>'
+    +   '<div class="dafab-h-l" id="dafabTitle">Your coach</div>'
+    +   '<div class="dafab-h-r">'
+    +     '<button class="dafab-end" type="button" hidden>End</button>'
+    +     '<button class="dafab-x" type="button" aria-label="Close">✕</button>'
+    +   '</div>'
     + '</div>'
-    + '<p class="dafab-sub">Your coach follows you across DebateIt. Jump into a drill from any page; close it, navigate somewhere else, and the orb is still here.</p>'
-    + '<p class="dafab-lbl">Jump into a drill</p>'
-    + '<div class="dafab-drills">'
-    +   '<a class="dafab-chip" href="/coach?drill=poi" data-drill="poi">POI gauntlet</a>'
-    +   '<a class="dafab-chip" href="/coach?drill=rebuttal" data-drill="rebuttal">Rebuttal sprint</a>'
-    +   '<a class="dafab-chip" href="/coach?drill=impact" data-drill="impact">Impact weighing</a>'
-    +   '<a class="dafab-chip" href="/coach?drill=crossex" data-drill="crossex">Cross-ex</a>'
+    + '<div class="dafab-launch">'
+    +   '<p class="dafab-sub">Runs right here in this popup. Start a drill, then keep moving around the app — the coach stays live in this panel, no separate page.</p>'
+    +   '<p class="dafab-lbl">Jump into a drill</p>'
+    +   '<div class="dafab-drills">'
+    +     '<button class="dafab-chip" type="button" data-drill="poi">POI gauntlet</button>'
+    +     '<button class="dafab-chip" type="button" data-drill="rebuttal">Rebuttal sprint</button>'
+    +     '<button class="dafab-chip" type="button" data-drill="impact">Impact weighing</button>'
+    +     '<button class="dafab-chip" type="button" data-drill="crossex">Cross-ex</button>'
+    +   '</div>'
+    +   '<p class="dafab-lbl">Coach voice</p>'
+    +   '<div class="dafab-pick" role="radiogroup" aria-label="Coach voice">'
+    +     '<button class="dafab-opt" type="button" data-g="female">Female</button>'
+    +     '<button class="dafab-opt" type="button" data-g="male">Male</button>'
+    +   '</div>'
+    +   '<button class="dafab-start" type="button" data-action="start">Start a session</button>'
+    +   '<a class="dafab-open" href="/coach" target="_blank" rel="noopener">or open the full page →</a>'
     + '</div>'
-    + '<p class="dafab-lbl">Coach voice</p>'
-    + '<div class="dafab-pick" role="radiogroup" aria-label="Coach voice">'
-    +   '<button class="dafab-opt" type="button" data-g="female">Female</button>'
-    +   '<button class="dafab-opt" type="button" data-g="male">Male</button>'
-    + '</div>'
-    + '<a class="dafab-start" href="/coach" data-action="start">Open spar</a>'
-    + '<a class="dafab-open" href="/coach">or open the full coach →</a>';
+    + '<div class="dafab-session"></div>';
 
   document.body.appendChild(backdrop);
   document.body.appendChild(btn);
@@ -229,12 +254,49 @@
   btn.addEventListener('click', function(){
     try { window.gtag && gtag('event', 'coach_fab_open', { path: here }); } catch(e){}
   });
-  drawer.querySelector('[data-action="start"]').addEventListener('click', function(){
-    try { window.gtag && gtag('event', 'coach_fab_start', { gender: loadGender(), path: here }); } catch(e){}
-  });
+
+  // ── Session in the popup ─────────────────────────────────────
+  // Start a drill -> load /coach?embed=1 in an iframe INSIDE the drawer.
+  // The iframe stays mounted while the drawer is closed (the .on class
+  // only transforms/fades the drawer, it doesn't unmount), so on the SPA
+  // (/app) the WebRTC session keeps running as you switch tools. End it
+  // explicitly with the End button.
+  var sessionEl = drawer.querySelector('.dafab-session');
+  var endBtn    = drawer.querySelector('.dafab-end');
+  var titleEl   = drawer.querySelector('#dafabTitle');
+  var sessIframe = null;
+
+  function startSession(drill){
+    var src = '/coach?embed=1';
+    if (drill) src += '&drill=' + encodeURIComponent(drill);
+    if (!sessIframe){
+      sessIframe = document.createElement('iframe');
+      sessIframe.setAttribute('allow', 'microphone; autoplay');
+      sessIframe.setAttribute('title', 'AI debate coach');
+      sessionEl.appendChild(sessIframe);
+    }
+    // Picked voice rides through shared localStorage (same origin), so the
+    // embedded /coach reads the same debateai-coach-gender the drawer set.
+    sessIframe.src = src;
+    drawer.classList.add('in-session');
+    if (endBtn) endBtn.hidden = false;
+    if (titleEl) titleEl.textContent = 'Coach · live';
+    btn.classList.add('live');
+    open();
+    try { window.gtag && gtag('event', 'coach_fab_start', { gender: loadGender(), drill: drill || '', path: here }); } catch(e){}
+  }
+  function endSession(){
+    if (sessIframe){ try { sessIframe.src = 'about:blank'; } catch(e){} try { sessionEl.removeChild(sessIframe); } catch(e){} sessIframe = null; }
+    drawer.classList.remove('in-session');
+    if (endBtn) endBtn.hidden = true;
+    if (titleEl) titleEl.textContent = 'Your coach';
+    btn.classList.remove('live');
+  }
+  if (endBtn) endBtn.addEventListener('click', endSession);
+
+  var startBtnEl = drawer.querySelector('[data-action="start"]');
+  if (startBtnEl) startBtnEl.addEventListener('click', function(){ startSession(''); });
   Array.prototype.forEach.call(drawer.querySelectorAll('.dafab-chip'), function(c){
-    c.addEventListener('click', function(){
-      try { window.gtag && gtag('event', 'coach_fab_drill', { drill: c.getAttribute('data-drill'), path: here }); } catch(e){}
-    });
+    c.addEventListener('click', function(){ startSession(c.getAttribute('data-drill')); });
   });
 })();
