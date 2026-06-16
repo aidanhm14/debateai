@@ -4024,14 +4024,17 @@ h1 em{color:var(--accent);font-style:normal}
   // post-button / sign-in-overlay slot when the auth state lands.
   buildWaitlistRail();
   renderWaitlistContent();
-  if (firebaseDb) startWaitlistFeed();
-  // Real weekly activity for the waitlist empty-state (honest, no seeding).
+  // waitlist_posts requires isSignedIn() — start the feed only after
+  // auth resolves (named user OR anonymous) so the first snapshot
+  // doesn't fail with Missing or insufficient permissions and leave
+  // the listener permanently dead.
   fetchWaitlistActivity();
 
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
       state.user = user || null;
       renderWaitlistContent();
+      if (firebaseDb && user) startWaitlistFeed();
       if (user){
         startInboxFeed();
         // Deep link from a DM notification (topbar bell / toast / OS
