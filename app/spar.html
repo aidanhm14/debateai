@@ -278,12 +278,18 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:var(--text-ghost);opacity:.85;margin:0 0 8px;text-align:center;
 }
-.seek-feed__list{display:flex;flex-direction:column;gap:1px}
+/* Single-slot ticker: rows stack at the SAME position (absolute) and only
+   one is shown at a time; the JS cycles which is .is-active so each
+   attempt fades in where the last faded out — no downward cascade. */
+.seek-feed__list{position:relative;min-height:30px}
 .seek-row{
+  position:absolute;left:0;right:0;top:0;
   display:flex;align-items:center;gap:8px;
   padding:5px 10px;border-radius:8px;font-size:.76rem;
-  transition:background .15s ease;
+  opacity:0;pointer-events:none;
+  transition:opacity .55s ease, background .15s ease;
 }
+.seek-row.is-active{opacity:1;pointer-events:auto}
 .seek-row:hover{background:rgba(127,127,127,.07)}
 .seek-row__dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--text-ghost);opacity:.4}
 .seek-row__fmt{color:var(--text-dim);font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -294,23 +300,18 @@ h1 em{color:var(--accent);font-style:normal}
 /* Anything inside ~12 min reads as "someone's basically here right now." */
 .seek-row--fresh .seek-row__dot{background:#22c55e;opacity:.95;box-shadow:0 0 6px rgba(34,197,94,.55)}
 .seek-row--fresh .seek-row__time{color:#22c55e}
-/* Each attempt fades in from just above — JS staggers the delay so the
-   lines reveal one at a time, sweeping downward, then the cascade loops. */
-@keyframes seekFadeIn{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:translateY(0)}}
-/* Lift the timeline out of the centered column and dock it as a quiet
-   rail on the right edge, vertically centered. Capped at 1280px: from
-   1281px the .wait-rail (the "while you wait" panel) takes the right
-   edge and the centre orb fills the middle, leaving no clean slot — so
-   above that the feed stays in the column flow (still with the cascade). */
-@media (min-width:1180px) and (max-width:1280px){
+/* Dock the single-line ticker as a quiet rail on the right edge,
+   vertically centered. Capped at 1280px: from 1281px the .wait-rail
+   ("while you wait" panel) owns the right edge and the centre orb fills
+   the middle, leaving no clean slot — so above that the ticker stays in
+   the column flow (still single-slot, still cycling). */
+@media (min-width:900px) and (max-width:1280px){
   .seek-feed{
     position:fixed;right:28px;top:50%;transform:translateY(-50%);
-    margin:0;width:230px;max-width:230px;z-index:6;text-align:left;
+    margin:0;width:240px;max-width:240px;z-index:6;text-align:left;
   }
   .seek-feed__head{text-align:left;margin-bottom:10px}
-  .seek-feed__list{gap:3px}
   .seek-row{padding:5px 8px}
-  .seek-row__fmt{white-space:normal;line-height:1.3}
 }
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
@@ -1849,37 +1850,39 @@ h1 em{color:var(--accent);font-style:normal}
              '</div>';
     }).join('');
     wrap.hidden = false;
-    playSeekCascade();
-    startSeekLoop();
+    startSeekTicker();
   }
 
-  // Reveal the attempts one at a time, sweeping downward: each row restarts
-  // its fade-in with a delay proportional to its position, so line 1 lands,
-  // then line 2, then line 3, down the list. Animation is JS-applied (not a
-  // base style) so if it never runs the rows simply show statically.
-  function playSeekCascade(){
+  // Single-slot ticker. One attempt is shown at a time in the same spot;
+  // every SEEK_TICK_MS the current one fades out and the next fades in
+  // where it was (the rows are absolutely stacked, so there's no vertical
+  // movement). Slow + calm on purpose. Self-clears once the searching
+  // screen (and its #seekFeedList) is gone.
+  var seekLoopTimer = null;
+  var SEEK_TICK_MS = 4500;   // ~4.5s per attempt — deliberately slow
+  var SEEK_FADE_MS = 600;    // matches the .seek-row opacity transition
+  function startSeekTicker(){
+    if (seekLoopTimer){ clearInterval(seekLoopTimer); seekLoopTimer = null; }
     var host = document.getElementById('seekFeedList');
     if (!host) return;
     var rows = host.querySelectorAll('.seek-row');
-    for (var i = 0; i < rows.length; i++){
-      var r = rows[i];
-      r.style.animation = 'none';
-      void r.offsetWidth; // reflow so re-adding the animation restarts it
-      r.style.animation = 'seekFadeIn .52s ease both';
-      r.style.animationDelay = (i * 0.42) + 's';
-    }
-  }
-
-  // Loop the cascade so the rail keeps feeling alive on a quiet queue.
-  // Self-clears once the searching screen (and its #seekFeedList) is gone.
-  var seekLoopTimer = null;
-  function startSeekLoop(){
-    if (seekLoopTimer) return;
+    if (!rows.length) return;
+    var idx = 0;
+    for (var i = 0; i < rows.length; i++) rows[i].classList.toggle('is-active', i === 0);
+    if (rows.length < 2) return; // nothing to cycle
     seekLoopTimer = setInterval(function(){
-      var host = document.getElementById('seekFeedList');
-      if (!host){ clearInterval(seekLoopTimer); seekLoopTimer = null; return; }
-      playSeekCascade();
-    }, 6500);
+      var h = document.getElementById('seekFeedList');
+      if (!h){ clearInterval(seekLoopTimer); seekLoopTimer = null; return; }
+      var rs = h.querySelectorAll('.seek-row');
+      if (rs.length < 2){ clearInterval(seekLoopTimer); seekLoopTimer = null; return; }
+      var cur = rs[idx % rs.length];
+      cur.classList.remove('is-active');               // fade the current out
+      idx = (idx + 1) % rs.length;
+      var nxt = rs[idx];
+      // Bring the next one in only after the outgoing has faded, so they
+      // never overlap as mush at the shared position.
+      setTimeout(function(){ if (nxt && nxt.isConnected) nxt.classList.add('is-active'); }, SEEK_FADE_MS);
+    }, SEEK_TICK_MS);
   }
 
   // Live ops strip: real counts pulled from Firestore via onSnapshot.
