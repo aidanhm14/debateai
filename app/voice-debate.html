@@ -1852,6 +1852,71 @@ input[type=text]:focus,select:focus,textarea:focus{
   .shell--viva .setup-orb-hero .standby-figures{display:none}
 }
 
+/* ── Viva 3D depth (2026-06-16) ───────────────────────────────────
+   Give the oral-exam stage real depth instead of a flat board: a
+   perspective on the hero, the chalkboard tilted back into the room
+   and pushed deepest, the examiner/candidate standing mid-depth, and
+   the voice orb floating forward toward the viewer. Pure CSS 3D with a
+   slow parallax drift so the room feels alive. Scoped to .shell--viva;
+   off under reduced-motion and below 980px where the board is hidden. */
+@media (min-width:981px){
+  .shell--viva .setup-orb-hero{
+    perspective:1300px; perspective-origin:50% 42%;
+    transform-style:preserve-3d; padding-top:30px;
+  }
+  /* Board: tilt back, sit deepest, deeper frame + floor shadow. */
+  .shell--viva .setup-orb-hero::before{
+    transform:translateX(-50%) translateZ(-90px) rotateX(7deg);
+    transform-origin:50% 100%;
+    box-shadow:
+      inset 0 0 0 2px rgba(0,0,0,.34),
+      inset 0 3px 26px rgba(0,0,0,.42),
+      inset 0 -26px 50px rgba(0,0,0,.30),
+      0 40px 64px -26px rgba(20,14,6,.72),
+      0 9px 0 -2px rgba(120,92,56,.55);
+    animation:viva-board-drift 13s ease-in-out infinite;
+  }
+  .shell--viva .setup-orb-hero::after{
+    transform:translateX(-50%) translateX(-168px) translateZ(-80px) rotateX(7deg);
+  }
+  /* Orb: float forward, in front of the board, with a cast shadow. */
+  .shell--viva .setup-orb-hero canvas.setup-orb{
+    transform:translateZ(70px);
+    animation:viva-orb-float 6.5s ease-in-out infinite;
+    filter:drop-shadow(0 26px 32px rgba(0,0,0,.5));
+  }
+  /* Figures: stand mid-depth between board and orb, slow desynced sway. */
+  .shell--viva .standby-figures{transform-style:preserve-3d}
+  .shell--viva .standby-figures .sf-left{
+    transform:translateZ(-34px); animation:viva-sway-l 9s ease-in-out infinite;
+  }
+  .shell--viva .standby-figures .sf-right{
+    transform:scaleX(-1) translateZ(-34px); animation:viva-sway-r 10.5s ease-in-out infinite;
+  }
+  @keyframes viva-board-drift{
+    0%,100%{transform:translateX(-50%) translateZ(-90px) rotateX(7deg)}
+    50%{transform:translateX(-50%) translateZ(-76px) rotateX(5.6deg)}
+  }
+  @keyframes viva-orb-float{
+    0%,100%{transform:translateZ(70px) translateY(0)}
+    50%{transform:translateZ(84px) translateY(-9px)}
+  }
+  @keyframes viva-sway-l{
+    0%,100%{transform:translateZ(-34px) translateY(0)}
+    50%{transform:translateZ(-24px) translateY(-5px)}
+  }
+  @keyframes viva-sway-r{
+    0%,100%{transform:scaleX(-1) translateZ(-34px) translateY(0)}
+    50%{transform:scaleX(-1) translateZ(-24px) translateY(-5px)}
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .shell--viva .setup-orb-hero::before,
+  .shell--viva .setup-orb-hero canvas.setup-orb,
+  .shell--viva .standby-figures .sf-left,
+  .shell--viva .standby-figures .sf-right{animation:none}
+}
+
 /* Numbered step heading */
 .step{margin-bottom:18px}
 .step-h{
@@ -6659,7 +6724,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   el('div', { className: 'step' },
   el('div', { className: 'step-h' },
   el('div', { className: 'step-num' }, '1'),
-  el('div', { className: 'step-title' }, 'Pick a motion')
+  el('div', { className: 'step-title' }, extMode === 'counter' ? 'What you’re defending' : 'Pick a motion')
   ),
   el('div', { className: 'step-help' }, extMode === 'counter' ?
   'Paste your essay’s thesis, project claim, or paper’s argument. Tap a sample if you want, or leave blank and Dr. Iyer opens with the mic.' :
