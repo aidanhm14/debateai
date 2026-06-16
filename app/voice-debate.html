@@ -2833,7 +2833,8 @@ var MODES = [
 { key: 'rebuttal', icon: '', title: 'Rebuttal Sparring', desc: 'Short alternating clash. Respond, don\'t restart.' },
 { key: 'layjudge', icon: '', title: 'Persuasion Pitch', desc: 'Make your case to a smart non-expert. Plain English.' },
 { key: 'aggressive', icon: '', title: 'Sharp Opponent', desc: 'High-pressure adversarial. They will not be polite.' },
-{ key: 'steelman', icon: '', title: 'Steelman Drill', desc: 'Defend the position you disagree with. Best version.' }];
+{ key: 'steelman', icon: '', title: 'Steelman Drill', desc: 'Defend the position you disagree with. Best version.' },
+{ key: 'viva', icon: '', title: 'Viva / Oral Exam', desc: 'Dr. Iyer examines. Surface claim to edge case.' }];
 
 
 // MODE_JUDGE_RULES. Drill-specific lenses the AI judge applies when
@@ -2888,7 +2889,15 @@ var MODE_JUDGE_RULES = {
   'This is a steelman drill. The user defended the position they DISAGREE with; the AI argued the opposite (the user\'s actual view). Judge intellectual range, not surface persuasion.',
   'Reward: best-case defenses of the disagreeable position (not strawmen), engaging the AI\'s actual objection rather than a sympathetic version of it, charity to the position even when conceding would be easier.',
   'Penalize: secretly conceding ("the other side has a point"), arguing for the position the user actually believes, halfhearted advocacy, breaking character to acknowledge the drill.',
-  'The whole point is range — flag moments where the user broke character or pulled punches.']
+  'The whole point is range — flag moments where the user broke character or pulled punches.'],
+
+  viva: [
+  'This is a VIVA / ORAL EXAM. Do NOT score it like a debate round. The AI was the examiner; the user was the student being assessed.',
+  'Judge: depth of understanding across the four probe stages (surface definition → mechanism → edge cases → synthesis). Not rhetoric, not persuasion, not flow.',
+  'Reward: precise definitions without prompted help, naming specific steps in the causal mechanism, handling at least one edge case or counter-position, connecting the subject to a concrete implication or real case.',
+  'Penalize: circular definitions ("X means X"), vague mechanism ("it just works that way"), edge cases the student couldn\'t address at all, synthesis that is too abstract or disconnected from the subject.',
+  'Stage-by-stage verdict: note which stage the student was strongest at and which stage first revealed a gap. That gap is the one sentence the student should take away from this session.',
+  'No debate vocabulary in the ballot — no "framework," "weighing," "drops," "warranting." Academic register only. Example: "Clear on the definition; mechanism was incomplete — missed the X-to-Y step; could not handle the counter-case where Z." That is a viva verdict.']
 
 };
 
@@ -3754,11 +3763,8 @@ function App() {
     } catch (e) {}
     setExtMode(mode);
     if (mode === 'counter') {
-      // Auto-pick the closest realtime mode for oral examination — the
-      // realtime engine's `crossex` prompt is short-question / pause /
-      // probe, which is exactly the viva shape. (When/if a dedicated
-      // 'viva' mode ships in MODES, swap this to that key.)
-      try {setMode('crossex');} catch (e) {}
+      // Auto-pick the dedicated viva mode for oral examination.
+      try {setMode('viva');} catch (e) {}
       // Auto-pick the Examiner persona if available; fall back to the
       // user's remembered persona otherwise.
       try {
