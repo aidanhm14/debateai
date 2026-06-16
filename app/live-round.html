@@ -326,6 +326,16 @@ button{font-family:inherit}
   font-size:.82rem;color:var(--text,#fff)}
 .prep-banner strong{font-variant-numeric:tabular-nums;font-size:1rem}
 .prep-banner.is-over{background:rgba(255,255,255,.04);border-color:var(--border)}
+/* Inline prep-time editor: −/+ steppers around the clock so either
+   debater can adjust prep length before the clock starts. */
+.prep-edit{display:inline-flex;align-items:center;gap:8px}
+.prep-edit strong{min-width:46px;text-align:center}
+.prep-step{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid rgba(34,197,94,.45);background:rgba(34,197,94,.12);color:var(--text,#fff);
+  border-radius:50%;cursor:pointer;font-size:1.05rem;line-height:1;padding:0;
+  font-family:inherit;transition:background .15s,border-color .15s}
+.prep-step:hover{background:rgba(34,197,94,.24)}
+.prep-step:disabled{opacity:.35;cursor:default}
 /* Pre-Speech-1 round editor: change resolution + format before the
    first speech locks the sequence. Hidden once Speech 1 begins. */
 .round-edit-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:9px 13px;
@@ -4117,6 +4127,7 @@ button{font-family:inherit}
   // creation. The banner shows the full prep time + a Start control; a
   // debater hits Start and the clock begins, syncing to the other side
   // via the round doc's prepStartedAtMs (see onRoundSnapshot).
+  var PREP_MAX = 30; // minutes — cap for the inline +/- editor
   function startPrepBanner(){
     if (!state.prepMin || state.prepMin <= 0) return;
     if (state.speechIdx > 0 || state.phase !== 'round') return;  // only before Speech 1
@@ -4138,11 +4149,33 @@ button{font-family:inherit}
         banner.innerHTML = '<span>Prep · ' + state.prepMin + ':00 · waiting for a debater to start the clock</span>';
         return;
       }
-      banner.innerHTML = '<span>Prep time · both sides prepare · <strong>' + state.prepMin + ':00</strong></span>'
+      banner.innerHTML = '<span>Prep time · both sides prepare</span>'
+        + '<span class="prep-edit">'
+        +   '<button type="button" id="prepMinus" class="prep-step" aria-label="Less prep time"' + (state.prepMin <= 0 ? ' disabled' : '') + '>&minus;</button>'
+        +   '<strong id="prepVal">' + state.prepMin + ':00</strong>'
+        +   '<button type="button" id="prepPlus" class="prep-step" aria-label="More prep time"' + (state.prepMin >= PREP_MAX ? ' disabled' : '') + '>+</button>'
+        + '</span>'
         + '<button type="button" id="prepStartBtn" class="btn btn-primary" style="margin-left:4px;padding:6px 16px;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase">&#9654; Start prep</button>';
+      var mn = document.getElementById('prepMinus');
+      if (mn) mn.addEventListener('click', function(){ adjustPrep(-1); });
+      var pl = document.getElementById('prepPlus');
+      if (pl) pl.addEventListener('click', function(){ adjustPrep(1); });
       var sb = document.getElementById('prepStartBtn');
       if (sb) sb.addEventListener('click', function(){ beginPrepClock(true); });
     }
+    // Either debater can nudge the prep length before the clock starts.
+    // Clamp 0..PREP_MAX, re-render, and push to the round doc so the
+    // peer's banner (and the eventual synced clock) matches.
+    function adjustPrep(delta){
+      if (isSpectator() || state.prepStartedAtMs) return;
+      var next = Math.max(0, Math.min(PREP_MAX, (state.prepMin || 0) + delta));
+      if (next === state.prepMin) return;
+      state.prepMin = next;
+      var ref = getRoundDocRef();
+      if (ref) ref.update({ prepMin: state.prepMin }).catch(function(){});
+      renderIdle();
+    }
+    state._prepRenderIdle = renderIdle;
     function startTicking(){
       var endMs = state.prepStartedAtMs + state.prepMin * 60000;
       function tick(){
@@ -4231,6 +4264,12 @@ button{font-family:inherit}
       var plE = $('phaseLabel');
       if (plE && FORMATS[state.formatKey]) plE.innerHTML = '<span class="dot"></span> ' + (isSpectator() ? 'Spectating · Speech ' : 'Live · Speech ') + '1/' + FORMATS[state.formatKey].speeches.length;
       renderRound();
+    }
+    // Peer adjusted the prep length before the clock started — adopt it
+    // and re-render the idle banner so both sides show the same time.
+    if (typeof d.prepMin === 'number' && d.prepMin !== state.prepMin && !state.prepStartedAtMs && state.phase === 'round' && state.speechIdx === 0){
+      state.prepMin = d.prepMin;
+      if (state._prepRenderIdle) state._prepRenderIdle();
     }
     // Peer pressed "Start prep" — adopt their start time so both clocks run.
     if (typeof d.prepStartedAtMs === 'number' && !state.prepStartedAtMs && state.phase === 'round' && state.speechIdx === 0){
