@@ -294,6 +294,24 @@ h1 em{color:var(--accent);font-style:normal}
 /* Anything inside ~12 min reads as "someone's basically here right now." */
 .seek-row--fresh .seek-row__dot{background:#22c55e;opacity:.95;box-shadow:0 0 6px rgba(34,197,94,.55)}
 .seek-row--fresh .seek-row__time{color:#22c55e}
+/* Each attempt fades in from just above — JS staggers the delay so the
+   lines reveal one at a time, sweeping downward, then the cascade loops. */
+@keyframes seekFadeIn{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:translateY(0)}}
+/* Lift the timeline out of the centered column and dock it as a quiet
+   rail on the right edge, vertically centered. Capped at 1280px: from
+   1281px the .wait-rail (the "while you wait" panel) takes the right
+   edge and the centre orb fills the middle, leaving no clean slot — so
+   above that the feed stays in the column flow (still with the cascade). */
+@media (min-width:1180px) and (max-width:1280px){
+  .seek-feed{
+    position:fixed;right:28px;top:50%;transform:translateY(-50%);
+    margin:0;width:230px;max-width:230px;z-index:6;text-align:left;
+  }
+  .seek-feed__head{text-align:left;margin-bottom:10px}
+  .seek-feed__list{gap:3px}
+  .seek-row{padding:5px 8px}
+  .seek-row__fmt{white-space:normal;line-height:1.3}
+}
 
 /* Legacy orb — still used by renderMatched() and renderFallback() as
    brief transition states. Kept for those two short-lived screens. */
@@ -1831,6 +1849,37 @@ h1 em{color:var(--accent);font-style:normal}
              '</div>';
     }).join('');
     wrap.hidden = false;
+    playSeekCascade();
+    startSeekLoop();
+  }
+
+  // Reveal the attempts one at a time, sweeping downward: each row restarts
+  // its fade-in with a delay proportional to its position, so line 1 lands,
+  // then line 2, then line 3, down the list. Animation is JS-applied (not a
+  // base style) so if it never runs the rows simply show statically.
+  function playSeekCascade(){
+    var host = document.getElementById('seekFeedList');
+    if (!host) return;
+    var rows = host.querySelectorAll('.seek-row');
+    for (var i = 0; i < rows.length; i++){
+      var r = rows[i];
+      r.style.animation = 'none';
+      void r.offsetWidth; // reflow so re-adding the animation restarts it
+      r.style.animation = 'seekFadeIn .52s ease both';
+      r.style.animationDelay = (i * 0.42) + 's';
+    }
+  }
+
+  // Loop the cascade so the rail keeps feeling alive on a quiet queue.
+  // Self-clears once the searching screen (and its #seekFeedList) is gone.
+  var seekLoopTimer = null;
+  function startSeekLoop(){
+    if (seekLoopTimer) return;
+    seekLoopTimer = setInterval(function(){
+      var host = document.getElementById('seekFeedList');
+      if (!host){ clearInterval(seekLoopTimer); seekLoopTimer = null; return; }
+      playSeekCascade();
+    }, 6500);
   }
 
   // Live ops strip: real counts pulled from Firestore via onSnapshot.
