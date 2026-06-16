@@ -3482,11 +3482,11 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
-    el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }),
-      el('div', { className: 'geo-shape geo-ring' })
+    el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })
     ),
     el('div', { className: 'bg-debate-side bg-debate-right' },
     el('div', { className: 'geo-shape geo-diamond' }),
@@ -5153,12 +5153,12 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
 
 
+
       // If check fails, proceed anyway
     }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
     // (DevTools, stale contextHint) that would bypass the UI gate.
-    if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {
-      gtag('event', 'case_generate', {
+    if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {gtag('event', 'case_generate', {
         mode: genMode,
         side,
         motion_length: motion.length,
@@ -16459,10 +16459,15 @@ function App() {
   React.createElement('span', { style: { fontWeight: 700, fontSize: '1rem', color: '#e4e8f0' } }, t('nav.navigate', 'Navigate')),
   React.createElement('button', { onClick: () => setHamburgerOpen(false), style: { background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1.2rem', padding: '4px 8px' } }, '\u2715')
   ),
-  [{ title: 'Build', items: [{ id: 'case', label: 'Case Gen' }, { id: 'feedback', label: 'Feedback' }, { id: 'res', label: 'Motions' }] },
-  { title: 'Practice', items: [{ id: 'battle', label: 'Battle' }, { id: 'debate-ai', label: 'DebateIt', href: '/debate-it' }, { id: 'practice', label: 'Practice' }, { id: 'vision', label: 'Vision' }] },
-  { title: 'Learn', items: [{ id: 'newbies', label: 'Guide' }, { id: 'phil', label: 'Philosophy' }, { id: 'casual', label: 'Casual' }] },
-  { title: 'Tools', items: [{ id: 'judge', label: 'Judge' }, { id: 'shared', label: 'Cases' }, { id: 'team', label: 'Team' }, { id: 'analytics', label: 'Analytics' }] }].
+  // Mobile menu mirrors the desktop rail by rendering the SAME canonical
+  // tab arrays (TABS_PRIMARY / TABS_COMPETITIVE / TABS_OTHER). Previously
+  // this was a hand-maintained duplicate that had drifted out of sync —
+  // Topics, Debate Chat, Vocab Quiz, and Mapper existed on desktop but
+  // were unreachable on mobile. Sourcing from the canonical arrays means
+  // the two can never diverge again.
+  [{ title: 'Core', items: TABS_PRIMARY },
+  { title: 'Competitive', items: TABS_COMPETITIVE },
+  { title: 'More', items: TABS_OTHER }].
   map((group) =>
   React.createElement('div', { key: group.title, className: 'hamburger-group' },
   React.createElement('div', { className: 'hamburger-group-title' }, group.title),
