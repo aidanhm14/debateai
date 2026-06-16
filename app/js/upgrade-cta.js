@@ -98,7 +98,7 @@
       'display:flex',
       'align-items:center',
       'gap:14px',
-      'max-width:340px',
+      'max-width:min(400px,calc(100vw - 28px))',
       'font-size:.82rem',
       'font-weight:600',
       'line-height:1.35',

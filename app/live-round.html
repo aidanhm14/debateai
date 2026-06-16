@@ -193,11 +193,26 @@ button{font-family:inherit}
 .bar-back{padding:6px 14px;border:1px solid var(--border);border-radius:999px;font-size:.72rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s}
 .bar-back:hover{color:var(--text);border-color:var(--border-strong)}
 
-/* Main split: Jitsi (left) + round panel (right) */
+/* Main split: video (left) + round panel (right), with a drag handle
+   between them. --vid-w sizes the video column; drag the handle right to
+   widen the video (and shrink the text panel). Persisted per device. */
 .split{
-  flex:1;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(380px,1fr);
+  flex:1;display:grid;
+  grid-template-columns:var(--vid-w,1.4fr) 7px minmax(380px,1fr);
   min-height:0;
 }
+.split-resizer{
+  cursor:col-resize;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--border,rgba(255,255,255,.08));
+  transition:background .15s ease;touch-action:none;
+}
+.split-resizer:hover,.split-resizer.dragging{background:var(--accent,#ef4444)}
+.split-resizer::before{
+  content:'';position:absolute;width:3px;height:36px;border-radius:3px;
+  background:rgba(127,127,127,.55);transition:background .15s ease;
+}
+.split-resizer:hover::before,.split-resizer.dragging::before{background:#fff}
 @media(max-width:1000px){
   /* 2026-05-18: was 50% 50% which fought with body{height:auto} and
      ended up giving the video pane half the page and squishing the
@@ -206,6 +221,7 @@ button{font-family:inherit}
      ratio: video tile is a fixed compact pane up top, speech UI
      flows naturally below and gets all the room it needs. */
   .split{grid-template-columns:1fr;grid-template-rows:auto auto}
+  .split-resizer{display:none}
   body{height:auto;overflow:auto}
   html,body{height:auto;overflow:auto}
   .jitsi-pane{height:34vh;max-height:320px;min-height:200px;padding:0}
@@ -303,6 +319,10 @@ button{font-family:inherit}
   border-radius:12px;margin-bottom:14px;
 }
 .motion-display[contenteditable]{cursor:text;transition:border-color .15s,background .15s}
+/* Generated background brief under the motion (Random resolution + brief). */
+.motion-brief{margin-top:11px;padding:11px 13px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:.82rem;line-height:1.55;color:var(--text-dim)}
+.motion-brief .mb-label{font-size:.58rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:5px;display:block}
+.motion-brief.is-loading{opacity:.6}
 .motion-display[contenteditable]:hover{border-color:var(--text-dim,rgba(255,255,255,.3))}
 .motion-display[contenteditable]:focus{outline:none;border-color:var(--accent,#ef4444);background:rgba(255,255,255,.05)}
 .motion-display[contenteditable]:empty:before{content:attr(data-ph);color:var(--text-dim,rgba(255,255,255,.4));font-weight:500}
@@ -326,6 +346,16 @@ button{font-family:inherit}
   font-size:.82rem;color:var(--text,#fff)}
 .prep-banner strong{font-variant-numeric:tabular-nums;font-size:1rem}
 .prep-banner.is-over{background:rgba(255,255,255,.04);border-color:var(--border)}
+/* Inline prep-time editor: −/+ steppers around the clock so either
+   debater can adjust prep length before the clock starts. */
+.prep-edit{display:inline-flex;align-items:center;gap:8px}
+.prep-edit strong{min-width:46px;text-align:center}
+.prep-step{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid rgba(34,197,94,.45);background:rgba(34,197,94,.12);color:var(--text,#fff);
+  border-radius:50%;cursor:pointer;font-size:1.05rem;line-height:1;padding:0;
+  font-family:inherit;transition:background .15s,border-color .15s}
+.prep-step:hover{background:rgba(34,197,94,.24)}
+.prep-step:disabled{opacity:.35;cursor:default}
 /* Pre-Speech-1 round editor: change resolution + format before the
    first speech locks the sequence. Hidden once Speech 1 begins. */
 .round-edit-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:9px 13px;
@@ -562,6 +592,25 @@ button{font-family:inherit}
 }
 @media (max-width:540px){
   .round-roster{flex-direction:column;gap:8px}
+}
+/* 4-team roster (BP / Worlds): map all four teams as a 2v2 — Government
+   bench (OG over CG) on the left, Opposition bench (OO over CO) on the
+   right. The team whose speech is live gets the active highlight. */
+.round-roster-4{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+  padding:12px 22px;border-bottom:1px solid var(--border);
+}
+.round-roster-4[hidden]{display:none}
+.rr4-bench{display:flex;flex-direction:column;gap:8px;min-width:0}
+.rr4-bench-label{
+  font-size:.56rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);padding:0 2px;
+}
+.rr4-gov .rr4-bench-label{color:#4ade80}
+.rr4-opp .rr4-bench-label{color:#fca5a5}
+.rr4-seat{flex:none}
+@media (max-width:540px){
+  .round-roster-4{grid-template-columns:1fr;gap:8px}
 }
 
 .timer-row{
@@ -937,6 +986,10 @@ button{font-family:inherit}
     </div>
   </div>
 
+  <!-- Drag handle: pull right to widen the video, left to widen the text.
+       Double-click resets. Hidden on the stacked mobile layout. -->
+  <div class="split-resizer" id="splitResizer" role="separator" aria-orientation="vertical" aria-label="Resize video and panel" title="Drag to resize · double-click to reset"></div>
+
   <!-- RIGHT: Round panel. swaps between setup, round, and ballot views. -->
   <div class="panel" id="panel">
 
@@ -945,6 +998,8 @@ button{font-family:inherit}
       <div class="panel-section">
         <div class="label">Motion <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· tap to edit before you start</span></div>
         <div class="motion-display" id="motionDisplay" contenteditable="true" spellcheck="true" role="textbox" aria-label="Motion (editable)" data-ph="Type or paste the motion…"></div>
+        <button type="button" class="btn" id="randomMotionBtn" style="margin-top:9px;font-size:.74rem;padding:8px 14px;letter-spacing:.04em">Random resolution + brief</button>
+        <div class="motion-brief" id="motionBrief" hidden></div>
         <div class="label">Format</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
@@ -1045,6 +1100,9 @@ button{font-family:inherit}
           <span class="rc-side" id="rosterOppSide">—</span>
         </div>
       </div>
+      <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
+           instead of the 2-card roster when the format is 4-team. -->
+      <div class="round-roster-4" id="roundRoster4" hidden></div>
       <div class="speech-header">
         <div class="speech-progress" id="speechProgress" style="font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--text-dim);opacity:.8;margin-bottom:6px">Speech 1 of 4 · then ballot</div>
         <div class="speaker-line">
@@ -1107,6 +1165,63 @@ button{font-family:inherit}
 </div>
 
 <div id="toastHost"></div>
+
+<!-- Split resizer: drag the handle between the video and the panel.
+     Right = bigger video / smaller text. Self-contained; persists the
+     ratio in localStorage and no-ops on the stacked mobile layout. -->
+<script>
+(function(){
+  var split = document.querySelector('.split');
+  var rez = document.getElementById('splitResizer');
+  if (!split || !rez) return;
+  var KEY = 'lr-vid-w';
+  function stacked(){ return window.matchMedia('(max-width:1000px)').matches; }
+  try {
+    var saved = localStorage.getItem(KEY);
+    if (saved && /^[0-9.]+%$/.test(saved) && !stacked()) split.style.setProperty('--vid-w', saved);
+  } catch (e) {}
+  var dragging = false;
+  function pctFromX(clientX){
+    var r = split.getBoundingClientRect();
+    var pct = (clientX - r.left) / r.width * 100;
+    // Keep the text panel >= ~380px and the video >= ~28%.
+    var maxVid = Math.min(80, (1 - 388 / r.width) * 100);
+    return Math.max(28, Math.min(maxVid, pct));
+  }
+  function move(e){
+    if (!dragging) return;
+    var x = e.touches ? e.touches[0].clientX : e.clientX;
+    split.style.setProperty('--vid-w', pctFromX(x).toFixed(1) + '%');
+    if (e.cancelable) e.preventDefault();
+  }
+  function up(){
+    if (!dragging) return;
+    dragging = false; rez.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    try { localStorage.setItem(KEY, split.style.getPropertyValue('--vid-w')); } catch (e) {}
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    window.removeEventListener('touchmove', move);
+    window.removeEventListener('touchend', up);
+  }
+  function down(e){
+    if (stacked()) return;
+    dragging = true; rez.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', up);
+    if (e.cancelable) e.preventDefault();
+  }
+  rez.addEventListener('mousedown', down);
+  rez.addEventListener('touchstart', down, { passive: false });
+  rez.addEventListener('dblclick', function(){
+    split.style.removeProperty('--vid-w');
+    try { localStorage.removeItem(KEY); } catch (e) {}
+  });
+})();
+</script>
 
 <script>
 (function(){
@@ -1719,7 +1834,36 @@ button{font-family:inherit}
     // labels (no 'You'/'Opponent' framing).
     var rYou = $('rosterYou');
     var rOpp = $('rosterOpp');
-    if (rYou && rOpp){
+    var roster2 = $('roundRoster');
+    var roster4 = $('roundRoster4');
+    if (isFourTeam(f) && roster4){
+      // 4-team (BP / Worlds): map all four teams visually as a 2v2.
+      if (roster2) roster2.style.display = 'none';
+      roster4.hidden = false; roster4.style.display = '';
+      var teamNm = function(s){
+        return (state.teamNames && state.teamNames[s])
+          || (s === 'og' ? state.proName : s === 'oo' ? state.conName : '')
+          || 'anonymous';
+      };
+      var benchHtml = function(benchClass, benchLabel, sides){
+        return '<div class="rr4-bench ' + benchClass + '">'
+          + '<div class="rr4-bench-label">' + escHtml(benchLabel) + '</div>'
+          + sides.map(function(s){
+              var active = s === sp.side;
+              return '<div class="roster-card rr4-seat' + (active ? ' is-active' : '') + '" data-side="' + s + '">'
+                + '<span class="rc-active-dot"></span>'
+                + '<div class="rc-meta">'
+                +   '<span class="rc-eyebrow">' + escHtml(f.sideLabels[s]) + '</span>'
+                +   '<span class="rc-name">' + escHtml(teamNm(s)) + '</span>'
+                + '</div></div>';
+            }).join('')
+          + '</div>';
+      };
+      roster4.innerHTML = benchHtml('rr4-gov', 'Government', govSides(f))
+                        + benchHtml('rr4-opp', 'Opposition', oppSides(f));
+    } else if (rYou && rOpp){
+      if (roster4) roster4.hidden = true;
+      if (roster2) roster2.style.display = '';
       var firstLabel = f.sideLabels[f.sides[0]];
       var secondLabel = f.sideLabels[f.sides[1]];
       var proName = state.proName || 'anonymous';
@@ -4117,6 +4261,7 @@ button{font-family:inherit}
   // creation. The banner shows the full prep time + a Start control; a
   // debater hits Start and the clock begins, syncing to the other side
   // via the round doc's prepStartedAtMs (see onRoundSnapshot).
+  var PREP_MAX = 30; // minutes — cap for the inline +/- editor
   function startPrepBanner(){
     if (!state.prepMin || state.prepMin <= 0) return;
     if (state.speechIdx > 0 || state.phase !== 'round') return;  // only before Speech 1
@@ -4138,11 +4283,33 @@ button{font-family:inherit}
         banner.innerHTML = '<span>Prep · ' + state.prepMin + ':00 · waiting for a debater to start the clock</span>';
         return;
       }
-      banner.innerHTML = '<span>Prep time · both sides prepare · <strong>' + state.prepMin + ':00</strong></span>'
+      banner.innerHTML = '<span>Prep time · both sides prepare</span>'
+        + '<span class="prep-edit">'
+        +   '<button type="button" id="prepMinus" class="prep-step" aria-label="Less prep time"' + (state.prepMin <= 0 ? ' disabled' : '') + '>&minus;</button>'
+        +   '<strong id="prepVal">' + state.prepMin + ':00</strong>'
+        +   '<button type="button" id="prepPlus" class="prep-step" aria-label="More prep time"' + (state.prepMin >= PREP_MAX ? ' disabled' : '') + '>+</button>'
+        + '</span>'
         + '<button type="button" id="prepStartBtn" class="btn btn-primary" style="margin-left:4px;padding:6px 16px;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase">&#9654; Start prep</button>';
+      var mn = document.getElementById('prepMinus');
+      if (mn) mn.addEventListener('click', function(){ adjustPrep(-1); });
+      var pl = document.getElementById('prepPlus');
+      if (pl) pl.addEventListener('click', function(){ adjustPrep(1); });
       var sb = document.getElementById('prepStartBtn');
       if (sb) sb.addEventListener('click', function(){ beginPrepClock(true); });
     }
+    // Either debater can nudge the prep length before the clock starts.
+    // Clamp 0..PREP_MAX, re-render, and push to the round doc so the
+    // peer's banner (and the eventual synced clock) matches.
+    function adjustPrep(delta){
+      if (isSpectator() || state.prepStartedAtMs) return;
+      var next = Math.max(0, Math.min(PREP_MAX, (state.prepMin || 0) + delta));
+      if (next === state.prepMin) return;
+      state.prepMin = next;
+      var ref = getRoundDocRef();
+      if (ref) ref.update({ prepMin: state.prepMin }).catch(function(){});
+      renderIdle();
+    }
+    state._prepRenderIdle = renderIdle;
     function startTicking(){
       var endMs = state.prepStartedAtMs + state.prepMin * 60000;
       function tick(){
@@ -4221,6 +4388,7 @@ button{font-family:inherit}
     }
     if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; }
+    if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
     if (d.conName && state.conName !== d.conName){ state.conName = d.conName; var cn=$('conName'); if (cn) cn.value = d.conName; changedSetup = true; }
@@ -4231,6 +4399,12 @@ button{font-family:inherit}
       var plE = $('phaseLabel');
       if (plE && FORMATS[state.formatKey]) plE.innerHTML = '<span class="dot"></span> ' + (isSpectator() ? 'Spectating · Speech ' : 'Live · Speech ') + '1/' + FORMATS[state.formatKey].speeches.length;
       renderRound();
+    }
+    // Peer adjusted the prep length before the clock started — adopt it
+    // and re-render the idle banner so both sides show the same time.
+    if (typeof d.prepMin === 'number' && d.prepMin !== state.prepMin && !state.prepStartedAtMs && state.phase === 'round' && state.speechIdx === 0){
+      state.prepMin = d.prepMin;
+      if (state._prepRenderIdle) state._prepRenderIdle();
     }
     // Peer pressed "Start prep" — adopt their start time so both clocks run.
     if (typeof d.prepStartedAtMs === 'number' && !state.prepStartedAtMs && state.phase === 'round' && state.speechIdx === 0){
@@ -4351,6 +4525,7 @@ button{font-family:inherit}
     if (!ref) return;
     var payload = {
       motion: state.motion,
+      background: state.background || '',
       format: state.formatKey,
       proName: state.proName,
       conName: state.conName,
@@ -4501,6 +4676,60 @@ button{font-family:inherit}
     var t = (e.clipboardData || window.clipboardData).getData('text');
     document.execCommand('insertText', false, t);
   });
+
+  // ── Random resolution + AI background brief ──────────────────────
+  // For debaters who drop into the room without a motion (or want a
+  // fresh one): pick a random motion from the spar bank and have Haiku
+  // write a short neutral context brief. Both the motion and the brief
+  // sync to the other side via the round doc (publishRoundInit payload
+  // + onRoundSnapshot above), so both debaters land on the same thing.
+  function renderBrief(){
+    var brief = $('motionBrief');
+    if (!brief) return;
+    if (state.background){
+      brief.hidden = false; brief.classList.remove('is-loading');
+      brief.innerHTML = '<span class="mb-label">Background</span>' + escHtml(state.background);
+    } else {
+      brief.hidden = true; brief.innerHTML = '';
+    }
+  }
+  function genBrief(motion, btn){
+    var brief = $('motionBrief');
+    if (brief){ brief.hidden = false; brief.classList.add('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Writing a quick brief…'; }
+    var sys = 'You are a debate case-writer. Given a motion, write a SHORT factual background brief of 2 to 3 sentences that a debater could read aloud to set context: what the motion is about, the real-world facts and stakes, and the central tension. Neutral, take no side. No jargon, no preamble, no markdown, no em-dashes.';
+    fetch('/api/claude', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, stream: false, system: sys, messages: [{ role: 'user', content: 'Motion: ' + motion }], _feature: 'live-round-brief' })
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+      var text = (j && j.content && j.content[0] && j.content[0].text) || (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || (j && j.text) || '';
+      text = (text || '').trim();
+      if (text){ state.background = text; renderBrief(); pushSetupSync(); }
+      else if (brief){ brief.classList.remove('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Could not write a brief, but the motion is set. You can debate it as-is.'; }
+    }).catch(function(){
+      if (brief){ brief.classList.remove('is-loading'); brief.innerHTML = '<span class="mb-label">Background</span>Could not write a brief, but the motion is set.'; }
+    }).then(function(){ if (btn){ btn.disabled = false; btn.textContent = 'New resolution + brief'; } });
+  }
+  function pushSetupSync(){
+    if (isSpectator()) return;
+    try {
+      var ref = getRoundDocRef();
+      if (ref) ref.set({ motion: state.motion || '', background: state.background || '' }, { merge: true }).catch(function(){});
+    } catch(e){}
+  }
+  function genRandomResolution(){
+    var btn = $('randomMotionBtn');
+    var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
+    var m = pool[Math.floor(Math.random() * pool.length)] || SPAR_MOTIONS[0];
+    state.motion = m;
+    var md = $('motionDisplay'); if (md) md.textContent = m;
+    if (typeof updateStartBtn === 'function') updateStartBtn();
+    state.background = '';
+    if (btn){ btn.disabled = true; btn.textContent = 'Generating…'; }
+    pushSetupSync();
+    genBrief(m, btn);
+    try { gtag('event', 'live_round_random_motion'); } catch(e){}
+  }
+  (function(){ var rb = $('randomMotionBtn'); if (rb) rb.addEventListener('click', genRandomResolution); })();
 
   // ── Auth gate. Required for Firestore writes (live round sync) and
   // ballot save-to-record. If Firebase didn't load (script blocked,
