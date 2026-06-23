@@ -2,7 +2,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v1184';
+const CACHE_NAME = 'debateos-v1185';
 
 
 
@@ -49,6 +49,38 @@ self.addEventListener('activate', (event) => {
     )
   );
   self.clients.claim();
+});
+
+// ── Web Push ──────────────────────────────────────────────────────
+// Show the notification the server sent (a spar match, a DM) even when the
+// tab or installed PWA is closed, and focus/open the app on tap. The push
+// payload is JSON: { title, body, url, tag }.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; }
+  catch (e) { data = { title: 'DebateIt', body: (event.data && event.data.text && event.data.text()) || '' }; }
+  const title = data.title || 'DebateIt';
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/favicon.svg',
+    badge: data.badge || '/favicon.svg',
+    tag: data.tag || 'da-push',
+    renotify: true,
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cls) => {
+      for (const c of cls) {
+        if ('focus' in c) { try { c.navigate && c.navigate(url); } catch (e) {} return c.focus(); }
+      }
+      return self.clients.openWindow ? self.clients.openWindow(url) : null;
+    })
+  );
 });
 
 // Only cache successful, basic/cors responses. Never cache 4xx/5xx.

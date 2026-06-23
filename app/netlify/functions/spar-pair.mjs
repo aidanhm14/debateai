@@ -1,6 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
+import { sendToUser } from './lib/webpush.mjs';
 
 // Server-side pair-matcher for /spar.
 //
@@ -542,6 +543,18 @@ export default async (request) => {
         pairedFormat,
       };
     });
+
+    // Web Push on a completed direct (background "Spar live") match. This is
+    // exactly the away/closed case: a debater went available and walked off,
+    // so a system push pulls them back. Server-side here = trusted, no client
+    // relationship-check needed. Best-effort + awaited so the Lambda doesn't
+    // freeze mid-send; sendToUser no-ops when VAPID isn't configured yet.
+    if (result && result.ok && !result.pending && result.proUid && result.conUid) {
+      try {
+        const payload = { title: 'Match found', body: 'A debater is ready. Tap to accept.', url: '/spar', tag: 'da-spar-match' };
+        await Promise.allSettled([ sendToUser(result.proUid, payload), sendToUser(result.conUid, payload) ]);
+      } catch (e) { /* push is best-effort; never fail the pair on it */ }
+    }
 
     return jsonResponse(result, 200, request);
   } catch (err) {

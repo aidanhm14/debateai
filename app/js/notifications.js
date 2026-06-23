@@ -46,7 +46,50 @@
   // Ask for notification permission on a real user gesture (Safari refuses
   // a passive request). Safe to call repeatedly; no-ops once decided.
   function daAskNotify(){
-    try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission().catch(function(){}); } catch (_) {}
+    try {
+      if (!window.Notification) return;
+      if (Notification.permission === 'granted') { daRegisterPush(); return; }
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(function (p) { if (p === 'granted') daRegisterPush(); }).catch(function () {});
+      }
+    } catch (_) {}
+  }
+  // Register this browser/device for Web Push so a spar match (or a DM) can
+  // reach the user even with the tab or installed PWA fully closed. Needs a
+  // signed-in identity (push is routed by uid) and server-side VAPID keys; if
+  // push isn't configured server-side yet, this no-ops. Runs once per page.
+  function daB64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4); var s = (b + p).replace(/-/g, '+').replace(/_/g, '/'); var raw = atob(s); var arr = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i); return arr; }
+  function daCurrentUser(){ try { return window.firebase && window.firebase.auth && window.firebase.auth().currentUser; } catch (_) { return null; } }
+  var _daPushRegistered = false;
+  function daRegisterPush(){
+    try {
+      if (_daPushRegistered) return;
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      if (!window.Notification || Notification.permission !== 'granted') return;
+      var user = daCurrentUser();
+      if (!user) return;
+      _daPushRegistered = true;
+      navigator.serviceWorker.ready.then(function (reg) {
+        fetch('/.netlify/functions/push-subscribe', { method: 'GET' })
+          .then(function (r) { return r.json(); })
+          .then(function (cfg) {
+            if (!cfg || !cfg.configured || !cfg.publicKey) { _daPushRegistered = false; return; }
+            return reg.pushManager.getSubscription().then(function (existing) {
+              return existing || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: daB64ToU8(cfg.publicKey) });
+            }).then(function (sub) {
+              if (!sub) return;
+              return user.getIdToken().then(function (tok) {
+                return fetch('/.netlify/functions/push-subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+                  body: JSON.stringify({ subscription: sub.toJSON(), ua: navigator.userAgent }),
+                });
+              });
+            });
+          })
+          .catch(function () { _daPushRegistered = false; });
+      }).catch(function () { _daPushRegistered = false; });
+    } catch (_) { _daPushRegistered = false; }
   }
   // Cross-platform attention signal: blink the tab title until the user
   // returns. Works where new Notification() doesn't — notably iOS Safari,
@@ -372,11 +415,7 @@
     bell.addEventListener('click', function (e) {
       e.stopPropagation();
       togglePanel();
-      try {
-        if (window.Notification && Notification.permission === 'default') {
-          Notification.requestPermission().catch(function () {});
-        }
-      } catch (_) {}
+      daAskNotify(); // request permission (if needed) + register Web Push on grant
     });
     document.addEventListener('click', function () { if (panel) closePanel(); });
 
@@ -481,6 +520,7 @@
           return;
         }
         myUid = u.uid;
+        if (!u.isAnonymous) daRegisterPush(); // Web Push: subscribe a signed-in device on load (no-op if permission/VAPID absent)
         renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
       });
