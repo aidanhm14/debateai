@@ -1604,6 +1604,11 @@ button{font-family:inherit}
     roundUnsub: null,        // unsubscribe fn for the snapshot listener
     seatHbInterval: null,    // seated-debater presence heartbeat onto the round doc
     suppressNextSync: false, // local-write guard (don't double-render our own writes)
+    arrivedAtMs: Date.now(), // when I opened the room — grace anchor for the no-show prompt
+    seatSeen: null,          // { uid: ts } per-debater presence read from the round doc
+    noShowTimer: null,       // interval that watches whether the opponent has entered
+    noShowEl: null,          // the "opponent hasn't joined" prompt element
+    noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
   };
 
   // ── Firebase init (shared project across the app)
@@ -4186,6 +4191,10 @@ button{font-family:inherit}
     }, function(e){ console.warn('[Round sync] snapshot error', e); });
     startWatchPresence();
     startJoinRequestHost();
+    // Poll opponent presence so the no-show prompt appears promptly after
+    // the grace window even between the slow (30s) round-doc snapshots.
+    if (!state.noShowTimer) state.noShowTimer = setInterval(checkOpponentPresence, 7000);
+    window.addEventListener('pagehide', function(){ if (state.noShowTimer){ clearInterval(state.noShowTimer); state.noShowTimer = null; } });
   }
 
   // ── Watcher presence + count ─────────────────────────
@@ -4261,10 +4270,17 @@ button{font-family:inherit}
       if (rref){
         var seatBeat = function(){
           if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return;
-          rref.set(
-            { lastSeenAt: firebase.firestore.FieldValue.serverTimestamp() },
-            { merge: true }
-          ).catch(function(){});
+          var beat = { lastSeenAt: firebase.firestore.FieldValue.serverTimestamp() };
+          // Per-uid presence so each debater can tell whether the OTHER has
+          // actually entered the room — the single lastSeenAt can't, since
+          // either side writes it. Nested-map merge preserves the opponent's
+          // entry. Only signed-in debaters key in (the no-show prompt is for
+          // identified human-vs-human rounds).
+          if (state.user && state.user.uid){
+            beat.seatSeen = {};
+            beat.seatSeen[state.user.uid] = firebase.firestore.FieldValue.serverTimestamp();
+          }
+          rref.set(beat, { merge: true }).catch(function(){});
         };
         seatBeat();
         state.seatHbInterval = setInterval(seatBeat, WATCH_HB_MS);
@@ -4469,6 +4485,67 @@ button{font-family:inherit}
   // Writers don't suppress their own snapshots, the conditions here
   // (length > local, idx > local, ballot && phase != ballot) ensure
   // we only act on truly-new info, so re-renders are idempotent.
+  // ── "Opponent hasn't joined" prompt ──────────────────────────────
+  // For a signed-in debater in a real human-vs-human round that hasn't
+  // started, watch whether the opponent has actually entered the room
+  // (per-uid seatSeen presence). If they never show, tell the user and
+  // give them a clean out instead of staring at an empty room. Absence
+  // is detected by the opponent's uid simply not being in the presence
+  // map — no timestamp math, so no clock-skew false positives.
+  var NOSHOW_GRACE_MS = 28000;   // let the opponent navigate in from /spar first
+  function noShowOpponentUid(){
+    var me = state.user && state.user.uid; if (!me) return '';
+    if (me === state.proUid) return state.conUid || '';
+    if (me === state.conUid) return state.proUid || '';
+    return '';
+  }
+  function checkOpponentPresence(){
+    var me = state.user && state.user.uid;
+    var oppUid = noShowOpponentUid();
+    // Only identified human-vs-human rounds, pre-start, non-spectator.
+    var eligible = me && oppUid && oppUid !== me && !isSpectator() && state.phase === 'setup';
+    if (!eligible){ hideNoShow(); return; }
+    if (Date.now() - state.arrivedAtMs < NOSHOW_GRACE_MS){ hideNoShow(); return; }
+    if (state.noShowSnoozeUntil && Date.now() < state.noShowSnoozeUntil) return;
+    // Trust the signal only once MY OWN presence write has round-tripped.
+    // If the write is denied (rules) or hasn't landed, seatSeen[me] is
+    // absent — bail rather than false-fire "opponent hasn't joined" at
+    // everyone. This makes the feature degrade safely.
+    if (!(state.seatSeen && state.seatSeen[me])) { hideNoShow(); return; }
+    var present = !!state.seatSeen[oppUid];
+    if (present) hideNoShow(); else showNoShow(oppUid);
+  }
+  function nsBtn(label, fn, primary){
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    b.style.cssText = 'padding:9px 16px;border-radius:10px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid ' +
+      (primary ? 'var(--green,#22c55e)' : 'var(--border,rgba(255,255,255,.2))') + ';background:' +
+      (primary ? 'var(--green,#22c55e)' : 'transparent') + ';color:' + (primary ? '#06240f' : 'var(--text,#fff)');
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function showNoShow(oppUid){
+    if (state.noShowEl){ state.noShowEl.style.display = 'flex'; return; }
+    var fromSpar = (prefill.source || '').indexOf('spar') === 0;
+    var oppNm = (state.user && state.user.uid === state.proUid) ? (state.conName || 'Your opponent') : (state.proName || 'Your opponent');
+    var el = document.createElement('div');
+    el.id = 'noShowPrompt';
+    el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:540px;width:calc(100% - 32px);padding:16px 18px;background:var(--bg-elev,#16131a);border:1px solid rgba(245,158,11,.5);border-radius:16px;z-index:320;box-shadow:0 16px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:12px;text-align:center;font-family:inherit';
+    el.innerHTML = '<div style="font-size:.95rem;font-weight:800;color:#fbbf24">' + escHtml(oppNm) + ' hasn\'t joined the room yet.</div>' +
+      '<div style="font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.6));line-height:1.5">Give it a moment, message them, or head out and find another debater. This closes the second they arrive.</div>' +
+      '<div id="nspBtns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"></div>';
+    document.body.appendChild(el);
+    var btns = el.querySelector('#nspBtns');
+    var dmBtn = document.getElementById('rosterOppDm');
+    if (dmBtn && !dmBtn.hidden && state.user && oppUid){ btns.appendChild(nsBtn('Message them', function(){ dmBtn.click(); })); }
+    if (fromSpar){ btns.appendChild(nsBtn('Find another', function(){ location.href = '/spar?format=' + encodeURIComponent(state.formatKey); }, true)); }
+    btns.appendChild(nsBtn('Leave', function(){ location.href = fromSpar ? '/spar' : '/'; }));
+    btns.appendChild(nsBtn('Keep waiting', function(){ hideNoShow(); state.noShowSnoozeUntil = Date.now() + 45000; }));
+    state.noShowEl = el;
+    try { gtag('event', 'live_opponent_noshow_shown', { format: state.formatKey }); } catch(e){}
+  }
+  function hideNoShow(){ if (state.noShowEl) state.noShowEl.style.display = 'none'; }
+
   function onRoundSnapshot(d){
     var changedSetup = false;
     // Opponent forfeited (spar 'Next →' was hit by the other side).
@@ -4492,6 +4569,9 @@ button{font-family:inherit}
       }, 4000);
       return; // skip the rest of the snapshot processing — round's done
     }
+    // Per-uid presence: keep the latest map so checkOpponentPresence() can
+    // tell if the opponent has actually entered the room yet.
+    if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); }
     // Spectators take participant UIDs from the round doc on first
     // snapshot so isSpectator() and mySide() resolve correctly.
     if (d.posterUid && !state.proUid && !state.conUid){
