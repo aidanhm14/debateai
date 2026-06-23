@@ -143,7 +143,7 @@
     margin-top:16px;padding-top:13px;border-top:1px solid var(--panel-line)}
 
   /* ── Opportunity / TAM panel (bottom-right) ─────────────── */
-  .tam{position:fixed;right:14px;bottom:30px;z-index:1100;width:264px;background:var(--panel);
+  .tam{position:fixed;right:14px;bottom:30px;z-index:1100;width:320px;background:var(--panel);
     backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--panel-line);
     border-radius:16px;padding:15px 16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
   .tam h2{font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
@@ -160,6 +160,35 @@
   .fbar.f-all{background:rgba(255,255,255,.24)}
   .fbar.f-with{background:var(--st-contacted)}
   .fbar.f-map{background:var(--accent);box-shadow:0 0 8px var(--glow)}
+  /* opportunity tabs + revenue calculator */
+  .opp-tabs{display:flex;gap:5px;margin-bottom:11px}
+  .opp-tab{flex:1;font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-dim);background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:8px;
+    padding:7px 4px;cursor:pointer;transition:background .16s,color .16s}
+  .opp-tab.on{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
+  .opp-tab:not(.on):hover{color:var(--ink)}
+  .calc-readout{margin:4px 0 2px}
+  .calc-arr{display:block;font-family:var(--mono);font-weight:700;font-size:2.2rem;line-height:1;
+    letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums}
+  .calc-arr-l{display:block;font-family:var(--mono);font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);margin-top:5px}
+  .calc-sub{font-family:var(--mono);font-size:.56rem;letter-spacing:.02em;color:var(--ink-ghost);margin:7px 0 4px}
+  .calc-l{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-dim);margin:13px 0 6px}
+  .calc-l b{color:var(--ink);font-weight:700;float:right}
+  .tam input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:5px;
+    background:rgba(255,255,255,.14);outline:none;margin:0}
+  .tam input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;
+    border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px var(--glow)}
+  .tam input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;
+    background:var(--accent);cursor:pointer;box-shadow:0 0 8px var(--glow)}
+  .calc-presets{display:flex;flex-wrap:wrap;gap:5px;margin:13px 0 4px}
+  .calc-presets button{font-family:var(--mono);font-size:.54rem;letter-spacing:.02em;color:var(--ink-dim);
+    background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:999px;padding:5px 9px;
+    cursor:pointer;transition:border-color .16s,color .16s}
+  .calc-presets button:hover{border-color:var(--accent);color:var(--accent)}
+  .calc-gap{font-size:.86rem;line-height:1.4;color:var(--ink-dim);margin:10px 0 8px}
+  .calc-gap b{color:var(--ink);font-weight:700}
 
   /* ── School detail card (slides up, bottom-center, clear of side panels) ─ */
   .card{position:fixed;left:50%;bottom:14px;z-index:1150;width:340px;background:var(--panel);
@@ -282,15 +311,39 @@
 
 <!-- Opportunity panel -->
 <aside class="tam">
-  <h2>The opportunity</h2>
-  <p>The pins are the competitive circuit. They sit on a far bigger base.</p>
-  <div class="funnel">
-    <div class="frow"><span class="flab"><b>~27,000</b> US high schools</span><span class="ftrack"><span class="fbar f-all" style="width:100%"></span></span></div>
-    <div class="frow"><span class="flab"><b>~3,000</b> run a debate program</span><span class="ftrack"><span class="fbar f-with" style="width:11%"></span></span></div>
-    <div class="frow"><span class="flab"><b>~200</b> on the mapped circuit</span><span class="ftrack"><span class="fbar f-map" style="width:3%"></span></span></div>
+  <div class="opp-tabs">
+    <button class="opp-tab" data-t="market">Market</button>
+    <button class="opp-tab on" data-t="revenue">Revenue</button>
   </div>
-  <p><b>~24,000</b> US schools have no program, and under <b>1%</b> of students ever debate. The schools without it are the market.</p>
-  <p class="src">Sources: NCES school counts; NSDA chapters + members. Global counts are estimates.</p>
+
+  <div class="opp-pane" id="pane-market" hidden>
+    <h2>The opportunity</h2>
+    <p>The pins are the competitive circuit. They sit on a far bigger base.</p>
+    <div class="funnel">
+      <div class="frow"><span class="flab"><b>~27,000</b> US high schools</span><span class="ftrack"><span class="fbar f-all" style="width:100%"></span></span></div>
+      <div class="frow"><span class="flab"><b>~3,000</b> run a debate program</span><span class="ftrack"><span class="fbar f-with" style="width:11%"></span></span></div>
+      <div class="frow"><span class="flab"><b>~200</b> on the mapped circuit</span><span class="ftrack"><span class="fbar f-map" style="width:3%"></span></span></div>
+    </div>
+    <p><b>~24,000</b> US schools have no program, and under <b>1%</b> of students ever debate. The schools without it are the market.</p>
+    <p class="src">Sources: NCES school counts; NSDA chapters + members.</p>
+  </div>
+
+  <div class="opp-pane" id="pane-revenue">
+    <h2>If schools pay to compete</h2>
+    <div class="calc-readout"><span class="calc-arr" id="calc-arr">$1.08M</span><span class="calc-arr-l">annual recurring revenue</span></div>
+    <div class="calc-sub" id="calc-sub">3,000 schools &times; $30/mo &times; 12</div>
+    <label class="calc-l">Schools paying <b id="calc-schools-v">3,000</b></label>
+    <input type="range" id="calc-schools" min="0" max="27000" step="100" value="3000">
+    <label class="calc-l">Fee / school / month <b id="calc-price-v">$30</b></label>
+    <input type="range" id="calc-price" min="5" max="60" step="5" value="30">
+    <div class="calc-presets">
+      <button data-n="300">10% of programs</button>
+      <button data-n="3000">Today's ~3,000</button>
+      <button data-n="27000">Every US school</button>
+    </div>
+    <p class="calc-gap" id="calc-gap"></p>
+    <p class="src">Illustrative B2B model: schools at a flat monthly fee, separate from consumer pricing. US only; global multiplies the base.</p>
+  </div>
 </aside>
 
 <!-- School detail card -->
@@ -997,6 +1050,43 @@ buildChips('chips-format',FORMATS,FMT_COLOR,activeFormats);
 document.getElementById('panel-toggle').addEventListener('click',function(){
   document.getElementById('panel').classList.toggle('open');
 });
+
+/* ── Opportunity: Market funnel <-> Revenue calculator ──────────────── */
+document.querySelectorAll('.opp-tab').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.opp-tab').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on'); var t=b.getAttribute('data-t');
+    document.getElementById('pane-market').hidden = (t!=='market');
+    document.getElementById('pane-revenue').hidden = (t!=='revenue');
+  });
+});
+var calcSchools=document.getElementById('calc-schools'), calcPrice=document.getElementById('calc-price');
+function fmtMoney(n){ n=Math.round(n);
+  if(n>=1e9) return '$'+(n/1e9).toFixed(2).replace(/\.?0+$/,'')+'B';
+  if(n>=1e6) return '$'+(n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';
+  if(n>=1e3) return '$'+Math.round(n/1e3)+'k';
+  return '$'+n; }
+function fmtNum(n){ return Number(n).toLocaleString('en-US'); }
+function calcUpdate(){
+  if(!calcSchools) return;
+  var s=+calcSchools.value, p=+calcPrice.value, mrr=s*p, arr=mrr*12;
+  document.getElementById('calc-arr').textContent=fmtMoney(arr);
+  document.getElementById('calc-sub').textContent=fmtNum(s)+' schools × $'+p+'/mo × 12 = '+fmtMoney(mrr)+'/mo';
+  document.getElementById('calc-schools-v').textContent=fmtNum(s);
+  document.getElementById('calc-price-v').textContent='$'+p;
+  var now=3000*p*12, all=27000*p*12;
+  document.getElementById('calc-gap').innerHTML='Today’s ~3,000 programs bill <b>'+fmtMoney(now)+
+    '</b>. Reaching all ~27,000 US schools is <b>'+fmtMoney(all)+'</b>. The 24,000-school gap is <b>'+
+    fmtMoney(all-now)+'</b> of upside.';
+}
+if(calcSchools){
+  calcSchools.addEventListener('input',calcUpdate);
+  calcPrice.addEventListener('input',calcUpdate);
+  document.querySelectorAll('.calc-presets button').forEach(function(b){
+    b.addEventListener('click',function(){ calcSchools.value=b.getAttribute('data-n'); calcUpdate(); });
+  });
+  calcUpdate();
+}
 
 /* ── Shared pipeline sync (Firestore) ──────────────────────────────
    Statuses live in a shared collection so the whole team sees one map
