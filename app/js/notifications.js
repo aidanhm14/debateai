@@ -35,6 +35,37 @@
   if (window.__daNotificationsLoaded) return;
   window.__daNotificationsLoaded = true;
 
+  // ── Attention helpers (shared by the DM bell + the spar matchmaker) ──
+  // "Away" = the user isn't actively looking at this tab. document.hidden
+  // alone misses the common desktop case: another browser window or app is
+  // focused while this tab is still the active one in its own window.
+  // hasFocus() catches that, so a "match found" while you're in a different
+  // window or app actually pings you.
+  function daAway(){ try { return document.hidden || !document.hasFocus(); } catch (_) { return !!document.hidden; } }
+  function daCanOsNotify(){ return !!(window.Notification && Notification.permission === 'granted' && daAway()); }
+  // Ask for notification permission on a real user gesture (Safari refuses
+  // a passive request). Safe to call repeatedly; no-ops once decided.
+  function daAskNotify(){
+    try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission().catch(function(){}); } catch (_) {}
+  }
+  // Cross-platform attention signal: blink the tab title until the user
+  // returns. Works where new Notification() doesn't — notably iOS Safari,
+  // which can't fire OS notifications without an installed-PWA push build.
+  var _daTitleTimer = null, _daTitleReal = null;
+  function daFlashTitle(msg){
+    if (!daAway() || _daTitleTimer) return;
+    _daTitleReal = document.title;
+    var on = true;
+    _daTitleTimer = setInterval(function(){ document.title = on ? msg : _daTitleReal; on = !on; }, 1100);
+  }
+  function daStopFlashTitle(){
+    if (!_daTitleTimer) return;
+    clearInterval(_daTitleTimer); _daTitleTimer = null;
+    if (_daTitleReal != null) { document.title = _daTitleReal; _daTitleReal = null; }
+  }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) daStopFlashTitle(); });
+  window.addEventListener('focus', daStopFlashTitle);
+
   var FIRESTORE_SDK_URL = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js';
   // Self-bootstrap firebase so the Available pill + DM bell work on ANY
   // page that loads this script, including marketing/content sub-pages
@@ -653,8 +684,9 @@
     function announce(disp, preview) {
       showToast(disp, preview);
       try { window.SFX && (window.SFX.notify ? window.SFX.notify() : (window.SFX.success && window.SFX.success())); } catch (_) {}
+      daFlashTitle('New message'); // cross-platform (incl. iOS) tab-title ping
       try {
-        if (window.Notification && Notification.permission === 'granted' && document.hidden) {
+        if (daCanOsNotify()) {
           var title = disp.isGroup ? disp.name : ('New message from ' + disp.name);
           var n = new Notification(title, {
             body: preview,
@@ -814,6 +846,10 @@
     // ── availability ──
     function setAvailable(on) {
       available = !!on;
+      // Going available = the moment the user most wants to be pinged when a
+      // match lands while they browse elsewhere. Ask for OS-notification
+      // permission here, on this real click (Safari ignores passive asks).
+      if (available) daAskNotify();
       try { localStorage.setItem(LSKEY, available ? '1' : '0'); } catch (e) {}
       try { if (window.gtag) gtag('event', on ? 'spar_bg_on' : 'spar_bg_off'); } catch (e) {}
       paintPill();
@@ -959,8 +995,9 @@
       stopTimers();
       closeOverlay();
       try { window.SFX && (window.SFX.notify ? window.SFX.notify() : (window.SFX.success && window.SFX.success())); } catch (e) {}
+      daFlashTitle('Match found!'); // cross-platform (incl. iOS) tab-title ping
       try {
-        if (window.Notification && Notification.permission === 'granted' && document.hidden) {
+        if (daCanOsNotify()) {
           var nn = new Notification('Match found', { body: 'vs ' + (d.matchedWithName || 'a debater') + '. Tap to accept.', icon: '/favicon.svg', tag: 'da-spar-match' });
           nn.onclick = function () { window.focus(); accept(d); nn.close(); };
         }
