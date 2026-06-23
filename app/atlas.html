@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Debate Atlas · DebateIt</title>
+<meta name="description" content="Every serious debate program in the world, on one map. The competitive debate landscape across the US and the globe, and where DebateIt grows next.">
+<link rel="canonical" href="https://debateai.com/atlas">
+<meta property="og:title" content="The Debate Atlas · DebateIt">
+<meta property="og:description" content="The competitive debate world, mapped. Programs across the US and the globe, filterable by format and level, with the DebateIt growth pipeline on top.">
+<meta property="og:url" content="https://debateai.com/atlas">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon-192.png">
+
+<!-- Leaflet + clustering + heat. CDN, no API key. Dark CartoDB tiles. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
+<!-- Brand faces: Crimson Pro (house serif) + JetBrains Mono for counters. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0a10;
+    --ink:#f4f1ec;
+    --ink-dim:rgba(244,241,236,.66);
+    --ink-ghost:rgba(244,241,236,.40);
+    --accent:#ef4444;
+    --accent-hover:#f87171;
+    --glow:rgba(239,68,68,.45);
+    --panel:rgba(17,15,22,.82);
+    --panel-line:rgba(255,255,255,.10);
+    --serif:'Crimson Pro',Georgia,serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    /* pipeline */
+    --st-prospect:#ef4444;
+    --st-contacted:#f59e0b;
+    --st-partnered:#22c55e;
+  }
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--serif);
+    overflow:hidden;-webkit-font-smoothing:antialiased}
+  em,i{font-style:normal}
+  a{color:var(--accent);text-decoration:none}
+
+  /* ── Map canvas fills the viewport ──────────────────────── */
+  #map{position:absolute;inset:0;z-index:1;background:#0b0a10}
+  .leaflet-container{background:#0b0a10;font-family:var(--serif)}
+  .leaflet-control-zoom a{background:rgba(17,15,22,.92)!important;color:var(--ink)!important;
+    border-color:var(--panel-line)!important}
+  .leaflet-control-zoom a:hover{background:rgba(40,30,30,.95)!important;color:var(--accent)!important}
+  .leaflet-control-attribution{background:rgba(11,10,16,.7)!important;color:var(--ink-ghost)!important}
+  .leaflet-control-attribution a{color:var(--ink-dim)!important}
+  .leaflet-bar{border:none!important;box-shadow:0 4px 18px rgba(0,0,0,.5)!important}
+
+  /* ── Top bar ────────────────────────────────────────────── */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:1200;height:54px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;background:linear-gradient(180deg,rgba(11,10,16,.92),rgba(11,10,16,.55) 70%,transparent);
+    pointer-events:none}
+  .topbar > *{pointer-events:auto}
+  .brand{font-family:var(--serif);font-weight:700;font-size:1.28rem;letter-spacing:-.01em;color:var(--ink)}
+  .brand .it{color:var(--accent)}
+  .brand .tag{font-family:var(--mono);font-size:.6rem;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--ink-ghost);margin-left:12px;vertical-align:middle}
+  .topbar .back{font-family:var(--mono);font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-dim);border:1px solid var(--panel-line);border-radius:999px;padding:7px 14px;
+    transition:border-color .2s,color .2s}
+  .topbar .back:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ── Left control panel ─────────────────────────────────── */
+  .panel{position:fixed;top:64px;left:14px;z-index:1100;width:320px;max-height:calc(100vh - 80px);
+    overflow-y:auto;background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--panel-line);border-radius:18px;padding:18px 18px 16px;
+    box-shadow:0 18px 50px rgba(0,0,0,.55);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
+  .panel::-webkit-scrollbar{width:7px}
+  .panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:6px}
+  .panel h1{font-size:1.5rem;font-weight:700;line-height:1.08;letter-spacing:-.015em}
+  .panel .sub{font-size:.96rem;color:var(--ink-dim);margin-top:5px;line-height:1.35}
+
+  .counters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:16px 0 4px}
+  .ctr{background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;
+    padding:11px 8px 9px;text-align:center}
+  .ctr .n{font-family:var(--mono);font-weight:700;font-size:1.42rem;color:var(--ink);line-height:1;
+    letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .ctr .l{font-family:var(--mono);font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-ghost);margin-top:6px}
+
+  .blocklabel{font-family:var(--mono);font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-ghost);margin:18px 0 9px;display:flex;align-items:center;gap:8px}
+  .blocklabel::after{content:"";flex:1;height:1px;background:var(--panel-line)}
+
+  /* segmented control */
+  .seg{display:flex;background:rgba(255,255,255,.04);border:1px solid var(--panel-line);
+    border-radius:11px;padding:3px;gap:3px}
+  .seg button{flex:1;font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-dim);background:transparent;border:none;border-radius:8px;padding:7px 4px;cursor:pointer;
+    transition:background .18s,color .18s}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:700}
+  .seg button:not(.on):hover{color:var(--ink)}
+
+  /* chip toggles (formats / regions) */
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-family:var(--mono);font-size:.62rem;letter-spacing:.04em;color:var(--ink-dim);cursor:pointer;
+    border:1px solid var(--panel-line);border-radius:999px;padding:6px 10px;display:flex;align-items:center;gap:6px;
+    transition:border-color .18s,color .18s,background .18s;user-select:none}
+  .chip .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 6px currentColor}
+  .chip.off{opacity:.34;border-color:rgba(255,255,255,.06)}
+  .chip:hover{border-color:rgba(255,255,255,.28)}
+
+  /* heatmap toggle row */
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;
+    background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;padding:11px 13px}
+  .toggle-row .lab{font-size:1rem;color:var(--ink)}
+  .toggle-row .lab small{display:block;font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;
+    color:var(--ink-ghost);text-transform:uppercase;margin-top:3px}
+  .sw{width:42px;height:24px;border-radius:999px;background:rgba(255,255,255,.12);position:relative;
+    cursor:pointer;transition:background .2s;flex:0 0 auto}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+    background:#fff;transition:transform .2s}
+  .sw.on{background:var(--accent)}
+  .sw.on::after{transform:translateX(18px)}
+
+  /* pipeline legend */
+  .legend{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+  .legend .row{display:flex;align-items:center;gap:9px;font-size:.92rem;color:var(--ink-dim)}
+  .legend .row .dot{width:11px;height:11px;border-radius:50%;box-shadow:0 0 8px currentColor;flex:0 0 auto}
+  .legend .row .nm{flex:1}
+  .legend .row .ct{font-family:var(--mono);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+
+  .note{font-family:var(--mono);font-size:.56rem;line-height:1.5;letter-spacing:.02em;color:var(--ink-ghost);
+    margin-top:16px;padding-top:13px;border-top:1px solid var(--panel-line)}
+
+  /* ── Opportunity / TAM panel (bottom-right) ─────────────── */
+  .tam{position:fixed;right:14px;bottom:14px;z-index:1100;width:264px;background:var(--panel);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--panel-line);
+    border-radius:16px;padding:15px 16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .tam h2{font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:10px}
+  .tam p{font-size:.95rem;line-height:1.4;color:var(--ink-dim);margin-bottom:8px}
+  .tam p b{color:var(--ink);font-weight:700}
+  .tam .src{font-family:var(--mono);font-size:.52rem;letter-spacing:.02em;color:var(--ink-ghost);margin-top:4px}
+
+  /* ── School detail card (slides up, bottom-center, clear of side panels) ─ */
+  .card{position:fixed;left:50%;bottom:14px;z-index:1150;width:340px;background:var(--panel);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--panel-line);
+    border-radius:18px;padding:17px 18px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6);
+    transform:translate(-50%,150%);transition:transform .34s cubic-bezier(.16,1,.3,1),opacity .34s;opacity:0}
+  .card.show{transform:translate(-50%,0);opacity:1}
+  .card .x{position:absolute;top:12px;right:14px;color:var(--ink-ghost);font-size:1.2rem;cursor:pointer;
+    line-height:1;background:none;border:none}
+  .card .x:hover{color:var(--ink)}
+  .card .nm{font-size:1.3rem;font-weight:700;line-height:1.12;padding-right:18px;letter-spacing:-.01em}
+  .card .loc{font-family:var(--mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-dim);margin-top:6px}
+  .card .badges{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+  .card .badge{font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid var(--panel-line);border-radius:999px;padding:4px 9px;color:var(--ink-dim)}
+  .card .badge.lvl{border-color:var(--accent);color:var(--accent-hover)}
+  .card .stagelab{font-family:var(--mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-ghost);margin:10px 0 7px}
+  .stage-pills{display:flex;gap:6px}
+  .stage-pills button{flex:1;font-family:var(--mono);font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;
+    background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:9px;padding:8px 4px;
+    color:var(--ink-dim);cursor:pointer;transition:all .16s}
+  .stage-pills button.on{color:#fff;font-weight:700;border-color:transparent}
+  .stage-pills button[data-s="prospect"].on{background:var(--st-prospect)}
+  .stage-pills button[data-s="contacted"].on{background:var(--st-contacted)}
+  .stage-pills button[data-s="partnered"].on{background:var(--st-partnered)}
+
+  /* ── Custom map pins + clusters ─────────────────────────── */
+  .pin{border-radius:50%;border:2px solid rgba(11,10,16,.85);box-shadow:0 0 0 1px rgba(0,0,0,.3),0 0 10px 1px currentColor}
+  .cluster{display:flex;align-items:center;justify-content:center;border-radius:50%;
+    font-family:var(--mono);font-weight:700;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(248,113,113,.95),rgba(220,38,38,.92));
+    border:2px solid rgba(255,255,255,.35);box-shadow:0 0 16px 3px var(--glow)}
+
+  /* leaflet popup -> we use our own card, suppress default popups */
+  .leaflet-popup{display:none}
+
+  /* ── Mobile ─────────────────────────────────────────────── */
+  .panel-toggle{display:none;position:fixed;left:14px;bottom:14px;z-index:1300;
+    font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
+    background:var(--accent);color:#fff;border:none;border-radius:999px;padding:12px 18px;font-weight:700;
+    box-shadow:0 10px 30px var(--glow)}
+  @media (max-width:760px){
+    .panel{width:calc(100vw - 28px);max-height:72vh;top:auto;bottom:64px;transform:translateY(120%);
+      transition:transform .3s cubic-bezier(.16,1,.3,1)}
+    .panel.open{transform:none}
+    .tam{display:none}
+    .card{width:calc(100vw - 28px)}
+    .panel-toggle{display:block}
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<header class="topbar">
+  <div class="brand">Debate<span class="it">It</span><span class="tag">The Debate Atlas</span></div>
+  <a class="back" href="/">Back to site</a>
+</header>
+
+<!-- Left control panel -->
+<aside class="panel" id="panel">
+  <h1>The Debate Atlas</h1>
+  <div class="sub">Every serious debate program in the world, on one map. Filter by format and level; watch the network grow.</div>
+
+  <div class="counters">
+    <div class="ctr"><div class="n" id="c-prog">0</div><div class="l">Programs</div></div>
+    <div class="ctr"><div class="n" id="c-cty">0</div><div class="l">Countries</div></div>
+    <div class="ctr"><div class="n" id="c-fmt">0</div><div class="l">Formats</div></div>
+  </div>
+
+  <div class="blocklabel">Color pins by</div>
+  <div class="seg" id="seg-color">
+    <button data-m="status" class="on">Pipeline</button>
+    <button data-m="format">Format</button>
+    <button data-m="level">Level</button>
+  </div>
+
+  <div class="blocklabel">Level</div>
+  <div class="seg" id="seg-level">
+    <button data-l="all" class="on">All</button>
+    <button data-l="college">College</button>
+    <button data-l="hs">High school</button>
+  </div>
+
+  <div class="blocklabel">Density heatmap</div>
+  <div class="toggle-row">
+    <div class="lab">Show concentration<small>Where debate clusters</small></div>
+    <div class="sw" id="sw-heat" role="switch" aria-checked="false" tabindex="0"></div>
+  </div>
+
+  <div class="blocklabel" id="lab-legend">Pipeline stage</div>
+  <div class="legend" id="legend"></div>
+
+  <div class="blocklabel">Regions</div>
+  <div class="chips" id="chips-region"></div>
+
+  <div class="blocklabel">Formats</div>
+  <div class="chips" id="chips-format"></div>
+
+  <div class="note" id="note">
+    Flagship and powerhouse programs, curated. Pins sit at city level. Pipeline stages are yours to set:
+    click any pin, then tap a stage. Choices save in this browser. Set your real partnered and in-conversation
+    schools before you screenshot for a deck.
+  </div>
+</aside>
+
+<!-- Opportunity panel -->
+<aside class="tam">
+  <h2>The opportunity</h2>
+  <p><b>The map you see is a sample.</b> Under it sits the real market.</p>
+  <p><b>3,500+</b> US schools compete through the NSDA, with 140,000+ active student members.</p>
+  <p>India, Singapore, and the Philippines field some of the largest school circuits on earth.</p>
+  <p class="src">US figures: NSDA public reporting. Global counts are estimates; verify before citing.</p>
+</aside>
+
+<!-- School detail card -->
+<aside class="card" id="card">
+  <button class="x" id="card-x" aria-label="Close">&times;</button>
+  <div class="nm" id="card-nm"></div>
+  <div class="loc" id="card-loc"></div>
+  <div class="badges" id="card-badges"></div>
+  <div class="stagelab">Outreach stage</div>
+  <div class="stage-pills" id="card-stage">
+    <button data-s="prospect">Prospect</button>
+    <button data-s="contacted">In conversation</button>
+    <button data-s="partnered">Partnered</button>
+  </div>
+</aside>
+
+<button class="panel-toggle" id="panel-toggle">Filters &amp; stats</button>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+/* ============================================================
+   THE DEBATE ATLAS — data + map
+   Self-contained. Vanilla JS + Leaflet. No build step.
+   ============================================================ */
+
+/* City lookup: name -> { ll:[lat,lng], c:country, r:region } -------------- */
+var CITY = {
+  /* US */
+  'Cambridge, MA':{ll:[42.3736,-71.1097],c:'United States',r:'North America'},
+  'New Haven, CT':{ll:[41.3083,-72.9279],c:'United States',r:'North America'},
+  'Princeton, NJ':{ll:[40.3431,-74.6551],c:'United States',r:'North America'},
+  'Waltham, MA':{ll:[42.3765,-71.2356],c:'United States',r:'North America'},
+  'New York, NY':{ll:[40.7128,-74.0060],c:'United States',r:'North America'},
+  'Philadelphia, PA':{ll:[39.9526,-75.1652],c:'United States',r:'North America'},
+  'Providence, RI':{ll:[41.8240,-71.4128],c:'United States',r:'North America'},
+  'Medford, MA':{ll:[42.4184,-71.1062],c:'United States',r:'North America'},
+  'Stanford, CA':{ll:[37.4275,-122.1697],c:'United States',r:'North America'},
+  'Chicago, IL':{ll:[41.8781,-87.6298],c:'United States',r:'North America'},
+  'Ithaca, NY':{ll:[42.4440,-76.5019],c:'United States',r:'North America'},
+  'Middletown, CT':{ll:[41.5623,-72.6506],c:'United States',r:'North America'},
+  'Williamstown, MA':{ll:[42.7112,-73.2037],c:'United States',r:'North America'},
+  'Amherst, MA':{ll:[42.3732,-72.5199],c:'United States',r:'North America'},
+  'Swarthmore, PA':{ll:[39.9023,-75.3496],c:'United States',r:'North America'},
+  'New Brunswick, NJ':{ll:[40.4862,-74.4518],c:'United States',r:'North America'},
+  'Chestnut Hill, MA':{ll:[42.3350,-71.1662],c:'United States',r:'North America'},
+  'Boston, MA':{ll:[42.3601,-71.0589],c:'United States',r:'North America'},
+  'Baltimore, MD':{ll:[39.2904,-76.6122],c:'United States',r:'North America'},
+  'Washington, DC':{ll:[38.9072,-77.0369],c:'United States',r:'North America'},
+  'College Park, MD':{ll:[38.9897,-76.9378],c:'United States',r:'North America'},
+  'Williamsburg, VA':{ll:[37.2707,-76.7075],c:'United States',r:'North America'},
+  'Poughkeepsie, NY':{ll:[41.7004,-73.9209],c:'United States',r:'North America'},
+  'Northampton, MA':{ll:[42.3251,-72.6412],c:'United States',r:'North America'},
+  'Lexington, KY':{ll:[38.0406,-84.5037],c:'United States',r:'North America'},
+  'Ann Arbor, MI':{ll:[42.2808,-83.7430],c:'United States',r:'North America'},
+  'Evanston, IL':{ll:[42.0451,-87.6877],c:'United States',r:'North America'},
+  'Atlanta, GA':{ll:[33.7490,-84.3880],c:'United States',r:'North America'},
+  'Winston-Salem, NC':{ll:[36.0999,-80.2442],c:'United States',r:'North America'},
+  'Austin, TX':{ll:[30.2672,-97.7431],c:'United States',r:'North America'},
+  'East Lansing, MI':{ll:[42.7370,-84.4839],c:'United States',r:'North America'},
+  'Hanover, NH':{ll:[43.7022,-72.2896],c:'United States',r:'North America'},
+  'Berkeley, CA':{ll:[37.8715,-122.2730],c:'United States',r:'North America'},
+  'Lawrence, KS':{ll:[38.9717,-95.2353],c:'United States',r:'North America'},
+  'Athens, GA':{ll:[33.9519,-83.3576],c:'United States',r:'North America'},
+  'Waco, TX':{ll:[31.5493,-97.1467],c:'United States',r:'North America'},
+  'Binghamton, NY':{ll:[42.0987,-75.9180],c:'United States',r:'North America'},
+  'Los Angeles, CA':{ll:[34.0522,-118.2437],c:'United States',r:'North America'},
+  'Minneapolis, MN':{ll:[44.9778,-93.2650],c:'United States',r:'North America'},
+  'Nashville, TN':{ll:[36.1627,-86.7816],c:'United States',r:'North America'},
+  'Houston, TX':{ll:[29.7604,-95.3698],c:'United States',r:'North America'},
+  'Alexandria, VA':{ll:[38.8048,-77.0469],c:'United States',r:'North America'},
+  'Addison, TX':{ll:[32.9618,-96.8292],c:'United States',r:'North America'},
+  'Dallas, TX':{ll:[32.7767,-96.7970],c:'United States',r:'North America'},
+  'Winnetka, IL':{ll:[42.1081,-87.7359],c:'United States',r:'North America'},
+  'Plano, TX':{ll:[33.0198,-96.6989],c:'United States',r:'North America'},
+  'Scarsdale, NY':{ll:[40.9890,-73.7846],c:'United States',r:'North America'},
+  'Plantation, FL':{ll:[26.1276,-80.2331],c:'United States',r:'North America'},
+  'Orlando, FL':{ll:[28.5383,-81.3792],c:'United States',r:'North America'},
+  'Bethesda, MD':{ll:[38.9847,-77.0947],c:'United States',r:'North America'},
+  'Apple Valley, MN':{ll:[44.7319,-93.2177],c:'United States',r:'North America'},
+  'Newark, NJ':{ll:[40.7357,-74.1724],c:'United States',r:'North America'},
+  'Fremont, CA':{ll:[37.5485,-121.9886],c:'United States',r:'North America'},
+  'Portland, OR':{ll:[45.5152,-122.6784],c:'United States',r:'North America'},
+  'Durham, NC':{ll:[35.9940,-78.8986],c:'United States',r:'North America'},
+  /* Canada */
+  'Toronto, ON':{ll:[43.6532,-79.3832],c:'Canada',r:'North America'},
+  'Montreal, QC':{ll:[45.5017,-73.5673],c:'Canada',r:'North America'},
+  'Vancouver, BC':{ll:[49.2827,-123.1207],c:'Canada',r:'North America'},
+  'Kingston, ON':{ll:[44.2312,-76.4860],c:'Canada',r:'North America'},
+  /* India */
+  'Bengaluru':{ll:[12.9716,77.5946],c:'India',r:'Asia'},
+  'Hyderabad':{ll:[17.3850,78.4867],c:'India',r:'Asia'},
+  'Mumbai':{ll:[19.0760,72.8777],c:'India',r:'Asia'},
+  'New Delhi':{ll:[28.6139,77.2090],c:'India',r:'Asia'},
+  'Chennai':{ll:[13.0827,80.2707],c:'India',r:'Asia'},
+  'Pune':{ll:[18.5204,73.8567],c:'India',r:'Asia'},
+  'Sonipat':{ll:[28.9931,77.0151],c:'India',r:'Asia'},
+  /* UK + Ireland */
+  'London':{ll:[51.5074,-0.1278],c:'United Kingdom',r:'Europe'},
+  'Oxford':{ll:[51.7520,-1.2577],c:'United Kingdom',r:'Europe'},
+  'Cambridge, UK':{ll:[52.2053,0.1218],c:'United Kingdom',r:'Europe'},
+  'Durham, UK':{ll:[54.7761,-1.5733],c:'United Kingdom',r:'Europe'},
+  'Edinburgh':{ll:[55.9533,-3.1883],c:'United Kingdom',r:'Europe'},
+  'Glasgow':{ll:[55.8642,-4.2518],c:'United Kingdom',r:'Europe'},
+  'Dublin':{ll:[53.3498,-6.2603],c:'Ireland',r:'Europe'},
+  /* Europe (continental) */
+  'Leiden':{ll:[52.1601,4.4970],c:'Netherlands',r:'Europe'},
+  'Amsterdam':{ll:[52.3676,4.9041],c:'Netherlands',r:'Europe'},
+  'Berlin':{ll:[52.5200,13.4050],c:'Germany',r:'Europe'},
+  'Paris':{ll:[48.8566,2.3522],c:'France',r:'Europe'},
+  'Belgrade':{ll:[44.7866,20.4489],c:'Serbia',r:'Europe'},
+  'Athens':{ll:[37.9838,23.7275],c:'Greece',r:'Europe'},
+  'Tallinn':{ll:[59.4370,24.7536],c:'Estonia',r:'Europe'},
+  /* Oceania */
+  'Sydney':{ll:[-33.8688,151.2093],c:'Australia',r:'Oceania'},
+  'Melbourne':{ll:[-37.8136,144.9631],c:'Australia',r:'Oceania'},
+  'Canberra':{ll:[-35.2809,149.1300],c:'Australia',r:'Oceania'},
+  'Brisbane':{ll:[-27.4698,153.0251],c:'Australia',r:'Oceania'},
+  'Perth':{ll:[-31.9523,115.8613],c:'Australia',r:'Oceania'},
+  'Auckland':{ll:[-36.8485,174.7633],c:'New Zealand',r:'Oceania'},
+  'Wellington':{ll:[-41.2865,174.7762],c:'New Zealand',r:'Oceania'},
+  /* Asia (East + SE + South) */
+  'Singapore':{ll:[1.3521,103.8198],c:'Singapore',r:'Asia'},
+  'Manila':{ll:[14.5995,120.9842],c:'Philippines',r:'Asia'},
+  'Quezon City':{ll:[14.6760,121.0437],c:'Philippines',r:'Asia'},
+  'Kuala Lumpur':{ll:[3.1390,101.6869],c:'Malaysia',r:'Asia'},
+  'Hong Kong':{ll:[22.3193,114.1694],c:'Hong Kong',r:'Asia'},
+  'Dhaka':{ll:[23.8103,90.4125],c:'Bangladesh',r:'Asia'},
+  'Lahore':{ll:[31.5204,74.3587],c:'Pakistan',r:'Asia'},
+  'Tokyo':{ll:[35.6762,139.6503],c:'Japan',r:'Asia'},
+  'Seoul':{ll:[37.5665,126.9780],c:'South Korea',r:'Asia'},
+  /* Middle East */
+  'Tel Aviv':{ll:[32.0853,34.7818],c:'Israel',r:'Middle East'},
+  'Doha':{ll:[25.2854,51.5310],c:'Qatar',r:'Middle East'},
+  'Beirut':{ll:[33.8938,35.5018],c:'Lebanon',r:'Middle East'},
+  /* Africa */
+  'Cape Town':{ll:[-33.9249,18.4241],c:'South Africa',r:'Africa'},
+  'Johannesburg':{ll:[-26.2041,28.0473],c:'South Africa',r:'Africa'},
+  'Nairobi':{ll:[-1.2921,36.8219],c:'Kenya',r:'Africa'},
+  'Accra':{ll:[5.6037,-0.1870],c:'Ghana',r:'Africa'},
+  'Lagos':{ll:[6.5244,3.3792],c:'Nigeria',r:'Africa'},
+  'Kampala':{ll:[0.3476,32.5825],c:'Uganda',r:'Africa'},
+  'Cairo':{ll:[30.0444,31.2357],c:'Egypt',r:'Africa'},
+  /* South America */
+  'Mexico City':{ll:[19.4326,-99.1332],c:'Mexico',r:'North America'},
+  'Monterrey':{ll:[25.6866,-100.3161],c:'Mexico',r:'North America'},
+  'Bogota':{ll:[4.7110,-74.0721],c:'Colombia',r:'South America'},
+  'Buenos Aires':{ll:[-34.6037,-58.3816],c:'Argentina',r:'South America'},
+  'Lima':{ll:[-12.0464,-77.0428],c:'Peru',r:'South America'}
+};
+
+/* Programs. n=name, city, lvl=college|hs, fmt=[primary, ...], tier 1-3 ----- */
+var SCHOOLS = [
+  /* ---- US college: APDA (parliamentary) ---- */
+  {n:'Harvard College Debating Union',city:'Cambridge, MA',lvl:'college',fmt:['APDA','Worlds'],tier:1},
+  {n:'Yale Debate Association',city:'New Haven, CT',lvl:'college',fmt:['APDA','Worlds'],tier:1},
+  {n:'Princeton Debate Panel',city:'Princeton, NJ',lvl:'college',fmt:['APDA'],tier:1},
+  {n:'Brandeis Academic Debate',city:'Waltham, MA',lvl:'college',fmt:['APDA'],tier:1},
+  {n:'Columbia Debate Society',city:'New York, NY',lvl:'college',fmt:['APDA'],tier:1},
+  {n:'Penn (APDA)',city:'Philadelphia, PA',lvl:'college',fmt:['APDA'],tier:1},
+  {n:'Brown Debating Union',city:'Providence, RI',lvl:'college',fmt:['APDA'],tier:1},
+  {n:'MIT Debate',city:'Cambridge, MA',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Tufts Debate Society',city:'Medford, MA',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Stanford Debate (APDA)',city:'Stanford, CA',lvl:'college',fmt:['APDA','Parli'],tier:1},
+  {n:'University of Chicago (APDA)',city:'Chicago, IL',lvl:'college',fmt:['APDA'],tier:1},
+  {n:'Cornell Speech & Debate',city:'Ithaca, NY',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Wesleyan Debate Society',city:'Middletown, CT',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Williams Debate',city:'Williamstown, MA',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Swarthmore (APDA)',city:'Swarthmore, PA',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Rutgers Debate Union',city:'New Brunswick, NJ',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'NYU Debate',city:'New York, NY',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Boston College (APDA)',city:'Chestnut Hill, MA',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'Northeastern Debate Society',city:'Boston, MA',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'Johns Hopkins Debate Council',city:'Baltimore, MD',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Vassar Debate',city:'Poughkeepsie, NY',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'Smith College Debate',city:'Northampton, MA',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'William & Mary Debate',city:'Williamsburg, VA',lvl:'college',fmt:['APDA'],tier:1},
+  /* ---- US college: NDT/CEDA policy ---- */
+  {n:'Kentucky Debate',city:'Lexington, KY',lvl:'college',fmt:['Policy'],tier:1},
+  {n:'Michigan Debate',city:'Ann Arbor, MI',lvl:'college',fmt:['Policy'],tier:1},
+  {n:'Northwestern Debate Society',city:'Evanston, IL',lvl:'college',fmt:['Policy'],tier:1},
+  {n:'Emory Debate (Barkley Forum)',city:'Atlanta, GA',lvl:'college',fmt:['Policy'],tier:1},
+  {n:'Georgetown Debate',city:'Washington, DC',lvl:'college',fmt:['Policy','APDA'],tier:1},
+  {n:'Wake Forest Debate',city:'Winston-Salem, NC',lvl:'college',fmt:['Policy'],tier:1},
+  {n:'Texas Debate',city:'Austin, TX',lvl:'college',fmt:['Policy'],tier:2},
+  {n:'Michigan State Debate',city:'East Lansing, MI',lvl:'college',fmt:['Policy'],tier:2},
+  {n:'Dartmouth Forensic Union',city:'Hanover, NH',lvl:'college',fmt:['Policy','APDA'],tier:1},
+  {n:'Cal Debate (Berkeley)',city:'Berkeley, CA',lvl:'college',fmt:['Policy','Parli'],tier:1},
+  {n:'Kansas Debate',city:'Lawrence, KS',lvl:'college',fmt:['Policy'],tier:2},
+  {n:'Georgia Debate',city:'Athens, GA',lvl:'college',fmt:['Policy'],tier:2},
+  {n:'Baylor Debate',city:'Waco, TX',lvl:'college',fmt:['Policy'],tier:3},
+  {n:'Binghamton Debate',city:'Binghamton, NY',lvl:'college',fmt:['Policy'],tier:2},
+  /* ---- US college: NPDA parli + BP ---- */
+  {n:'GW Debate',city:'Washington, DC',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Maryland Debate',city:'College Park, MD',lvl:'college',fmt:['APDA','Policy'],tier:3},
+  {n:'Lewis & Clark Forensics',city:'Portland, OR',lvl:'college',fmt:['Parli'],tier:2},
+  {n:'Rice Debate',city:'Houston, TX',lvl:'college',fmt:['Parli','BP'],tier:3},
+  /* ---- US high school ---- */
+  {n:'Bronx Science Speech & Debate',city:'New York, NY',lvl:'hs',fmt:['PF','Policy','LD'],tier:1},
+  {n:'Stuyvesant Debate',city:'New York, NY',lvl:'hs',fmt:['PF','Congress'],tier:2},
+  {n:'Thomas Jefferson HSST',city:'Alexandria, VA',lvl:'hs',fmt:['Policy','PF'],tier:1},
+  {n:'Harvard-Westlake Debate',city:'Los Angeles, CA',lvl:'hs',fmt:['LD','PF'],tier:1},
+  {n:'Greenhill School Debate',city:'Addison, TX',lvl:'hs',fmt:['LD','Policy'],tier:1},
+  {n:'St. Mark’s School of Texas',city:'Dallas, TX',lvl:'hs',fmt:['LD'],tier:1},
+  {n:'The Westminster Schools',city:'Atlanta, GA',lvl:'hs',fmt:['Policy'],tier:2},
+  {n:'New Trier Debate',city:'Winnetka, IL',lvl:'hs',fmt:['Congress','PF'],tier:2},
+  {n:'Hockaday Debate',city:'Dallas, TX',lvl:'hs',fmt:['LD'],tier:2},
+  {n:'Plano West / Plano East',city:'Plano, TX',lvl:'hs',fmt:['Policy','Congress'],tier:2},
+  {n:'Edgemont / Scarsdale',city:'Scarsdale, NY',lvl:'hs',fmt:['PF'],tier:2},
+  {n:'American Heritage Debate',city:'Plantation, FL',lvl:'hs',fmt:['Congress','PF'],tier:1},
+  {n:'Lake Highland Prep',city:'Orlando, FL',lvl:'hs',fmt:['PF','Congress'],tier:2},
+  {n:'Strake Jesuit',city:'Houston, TX',lvl:'hs',fmt:['Policy'],tier:2},
+  {n:'Walt Whitman HS',city:'Bethesda, MD',lvl:'hs',fmt:['Policy'],tier:3},
+  {n:'Montgomery Bell Academy',city:'Nashville, TN',lvl:'hs',fmt:['LD','Policy'],tier:2},
+  {n:'Apple Valley HS',city:'Apple Valley, MN',lvl:'hs',fmt:['LD'],tier:2},
+  {n:'Newark Science',city:'Newark, NJ',lvl:'hs',fmt:['Policy','LD'],tier:2},
+  {n:'Mission San Jose HS',city:'Fremont, CA',lvl:'hs',fmt:['PF'],tier:3},
+  {n:'Durham Academy',city:'Durham, NC',lvl:'hs',fmt:['PF','LD'],tier:3},
+  /* ---- India: college ---- */
+  {n:'NLSIU Bengaluru',city:'Bengaluru',lvl:'college',fmt:['Asian Parli','BP'],tier:1},
+  {n:'NALSAR Hyderabad',city:'Hyderabad',lvl:'college',fmt:['Asian Parli','BP'],tier:1},
+  {n:'IIT Bombay',city:'Mumbai',lvl:'college',fmt:['BP','Asian Parli'],tier:1},
+  {n:'IIT Delhi',city:'New Delhi',lvl:'college',fmt:['BP','Asian Parli'],tier:2},
+  {n:'IIT Madras',city:'Chennai',lvl:'college',fmt:['Asian Parli'],tier:2},
+  {n:'Shri Ram College of Commerce',city:'New Delhi',lvl:'college',fmt:['Asian Parli','BP'],tier:1},
+  {n:'St. Stephen’s College',city:'New Delhi',lvl:'college',fmt:['Asian Parli'],tier:1},
+  {n:'NMIMS Mumbai',city:'Mumbai',lvl:'college',fmt:['Asian Parli'],tier:2},
+  {n:'Symbiosis Pune',city:'Pune',lvl:'college',fmt:['Asian Parli','BP'],tier:2},
+  {n:'Lady Shri Ram College',city:'New Delhi',lvl:'college',fmt:['Asian Parli'],tier:2},
+  {n:'O.P. Jindal Global University',city:'Sonipat',lvl:'college',fmt:['BP','Asian Parli'],tier:2},
+  {n:'Christ University',city:'Bengaluru',lvl:'college',fmt:['Asian Parli'],tier:3},
+  /* ---- India: school ---- */
+  {n:'DPS R.K. Puram',city:'New Delhi',lvl:'hs',fmt:['Asian Parli','Worlds'],tier:1},
+  {n:'Cathedral & John Connon',city:'Mumbai',lvl:'hs',fmt:['Worlds','Asian Parli'],tier:2},
+  {n:'Vasant Valley School',city:'New Delhi',lvl:'hs',fmt:['Asian Parli'],tier:2},
+  /* ---- UK + Ireland ---- */
+  {n:'Oxford Union / OUDS',city:'Oxford',lvl:'college',fmt:['BP','Worlds'],tier:1},
+  {n:'Cambridge Union',city:'Cambridge, UK',lvl:'college',fmt:['BP','Worlds'],tier:1},
+  {n:'LSE Debate',city:'London',lvl:'college',fmt:['BP'],tier:1},
+  {n:'King’s College London',city:'London',lvl:'college',fmt:['BP'],tier:2},
+  {n:'UCL Debate',city:'London',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Durham Union',city:'Durham, UK',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Edinburgh University Debates',city:'Edinburgh',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Glasgow University Union',city:'Glasgow',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Trinity College Dublin (Hist)',city:'Dublin',lvl:'college',fmt:['BP','Worlds'],tier:1},
+  /* ---- Europe (continental) ---- */
+  {n:'Leiden Debating Union',city:'Leiden',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Bonaparte / Amsterdam',city:'Amsterdam',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Berlin Debating Union',city:'Berlin',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Sciences Po Debate',city:'Paris',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Open Communication Belgrade',city:'Belgrade',lvl:'college',fmt:['BP','Worlds'],tier:2},
+  {n:'Tallinn Debate',city:'Tallinn',lvl:'college',fmt:['Karl Popper','BP'],tier:3},
+  {n:'Athens Debate',city:'Athens',lvl:'college',fmt:['BP'],tier:3},
+  /* ---- Oceania ---- */
+  {n:'Sydney Union (SUDS)',city:'Sydney',lvl:'college',fmt:['Worlds','Asian Parli'],tier:1},
+  {n:'Monash Association of Debaters',city:'Melbourne',lvl:'college',fmt:['Worlds','Asian Parli'],tier:1},
+  {n:'Melbourne University Debating',city:'Melbourne',lvl:'college',fmt:['Worlds'],tier:1},
+  {n:'UNSW Debating',city:'Sydney',lvl:'college',fmt:['Worlds'],tier:2},
+  {n:'ANU Debating',city:'Canberra',lvl:'college',fmt:['Worlds'],tier:2},
+  {n:'UQ Debating',city:'Brisbane',lvl:'college',fmt:['Worlds'],tier:2},
+  {n:'UWA Debating',city:'Perth',lvl:'college',fmt:['Worlds'],tier:3},
+  {n:'Auckland Debating',city:'Auckland',lvl:'college',fmt:['Worlds'],tier:2},
+  {n:'Victoria Wellington Debate',city:'Wellington',lvl:'college',fmt:['Worlds'],tier:3},
+  /* ---- Asia (East + SE + South) ---- */
+  {n:'NUS Debate',city:'Singapore',lvl:'college',fmt:['BP','Asian Parli'],tier:1},
+  {n:'NTU Debate',city:'Singapore',lvl:'college',fmt:['BP','Asian Parli'],tier:2},
+  {n:'Raffles Institution',city:'Singapore',lvl:'hs',fmt:['Worlds','Asian Parli'],tier:1},
+  {n:'Ateneo de Manila Debate',city:'Manila',lvl:'college',fmt:['Asian Parli','BP'],tier:1},
+  {n:'De La Salle Debate',city:'Manila',lvl:'college',fmt:['Asian Parli'],tier:2},
+  {n:'University of the Philippines',city:'Quezon City',lvl:'college',fmt:['Asian Parli','BP'],tier:1},
+  {n:'University of Malaya',city:'Kuala Lumpur',lvl:'college',fmt:['Asian Parli','BP'],tier:2},
+  {n:'HKU Debating',city:'Hong Kong',lvl:'college',fmt:['BP','Worlds'],tier:2},
+  {n:'Dhaka University Debate',city:'Dhaka',lvl:'college',fmt:['BP','Asian Parli'],tier:2},
+  {n:'LUMS Debate',city:'Lahore',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Tokyo (UTDS)',city:'Tokyo',lvl:'college',fmt:['BP','Worlds'],tier:3},
+  {n:'Seoul National Debate',city:'Seoul',lvl:'college',fmt:['BP'],tier:3},
+  /* ---- Middle East ---- */
+  {n:'Tel Aviv University Debate',city:'Tel Aviv',lvl:'college',fmt:['BP','Worlds'],tier:1},
+  {n:'QatarDebate',city:'Doha',lvl:'college',fmt:['BP','Worlds'],tier:2},
+  {n:'American University of Beirut',city:'Beirut',lvl:'college',fmt:['BP'],tier:3},
+  /* ---- Africa ---- */
+  {n:'University of Cape Town Debate',city:'Cape Town',lvl:'college',fmt:['Worlds','BP'],tier:1},
+  {n:'Wits Debating Union',city:'Johannesburg',lvl:'college',fmt:['Worlds','BP'],tier:2},
+  {n:'University of Nairobi Debate',city:'Nairobi',lvl:'college',fmt:['BP','Worlds'],tier:2},
+  {n:'Ashesi / Accra Debate',city:'Accra',lvl:'college',fmt:['BP'],tier:3},
+  {n:'University of Lagos Debate',city:'Lagos',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Makerere Debate',city:'Kampala',lvl:'college',fmt:['BP'],tier:3},
+  {n:'American University in Cairo',city:'Cairo',lvl:'college',fmt:['BP','Worlds'],tier:3},
+  /* ---- Canada ---- */
+  {n:'Hart House (Toronto)',city:'Toronto, ON',lvl:'college',fmt:['BP','Worlds'],tier:1},
+  {n:'McGill Debating Union',city:'Montreal, QC',lvl:'college',fmt:['BP','APDA'],tier:1},
+  {n:'UBC Debate',city:'Vancouver, BC',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Queen’s Debating Union',city:'Kingston, ON',lvl:'college',fmt:['BP'],tier:2},
+  /* ---- Latin America ---- */
+  {n:'ITAM Debate',city:'Mexico City',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Tec de Monterrey',city:'Monterrey',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Universidad de los Andes',city:'Bogota',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Universidad de Buenos Aires',city:'Buenos Aires',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Lima Debate Society',city:'Lima',lvl:'college',fmt:['BP'],tier:3}
+];
+
+/* Format palette -------------------------------------------------------- */
+var FMT_COLOR = {
+  'APDA':'#ef4444','BP':'#3b82f6','Worlds':'#14b8a6','Policy':'#a855f7',
+  'LD':'#f97316','PF':'#22c55e','Parli':'#ec4899','Congress':'#eab308',
+  'Asian Parli':'#06b6d4','Karl Popper':'#d946ef'
+};
+var LVL_COLOR = {college:'#ef4444',hs:'#3b82f6'};
+var STATUS_COLOR = {prospect:'#ef4444',contacted:'#f59e0b',partnered:'#22c55e'};
+var STATUS_LABEL = {prospect:'Prospect',contacted:'In conversation',partnered:'Partnered'};
+
+/* ---- state ---- */
+var STORE_KEY='debateit-atlas-status';
+var statusMap = {};
+try{ statusMap = JSON.parse(localStorage.getItem(STORE_KEY)||'{}'); }catch(e){ statusMap={}; }
+var colorMode='status', levelFilter='all', heatOn=false;
+var activeFormats={}, activeRegions={};
+var FORMATS = Object.keys(FMT_COLOR);
+var REGIONS = ['North America','South America','Europe','Asia','Oceania','Africa','Middle East'];
+FORMATS.forEach(function(f){ activeFormats[f]=true; });
+REGIONS.forEach(function(r){ activeRegions[r]=true; });
+
+function statusOf(d){ return statusMap[d.n] || 'prospect'; }
+function hashOff(s){ var h=0; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; }
+  var a=((h%97)/97-0.5), b=(((h>>3)%89)/89-0.5); return [a*0.05,b*0.05]; }
+
+/* attach coords + meta to each school */
+SCHOOLS.forEach(function(d){
+  var c=CITY[d.city]; if(!c){ console.warn('No city',d.city); return; }
+  var o=hashOff(d.n);
+  d.lat=c.ll[0]+o[0]; d.lng=c.ll[1]+o[1];
+  d.country=c.c; d.region=c.r;
+});
+
+/* ---- map ---- */
+var map = L.map('map',{worldCopyJump:true,minZoom:2,maxZoom:16,zoomControl:true,
+  attributionControl:true}).setView([28,8],2.4);
+L.tileLayer('https://{s}.basemap.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+function colorFor(d){
+  if(colorMode==='status') return STATUS_COLOR[statusOf(d)];
+  if(colorMode==='level') return LVL_COLOR[d.lvl];
+  return FMT_COLOR[d.fmt[0]] || '#ef4444';
+}
+function pinIcon(d){
+  var size = d.tier===1?16:d.tier===2?12:9;
+  var col = colorFor(d);
+  return L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
+    html:'<div class="pin" style="width:'+size+'px;height:'+size+'px;background:'+col+';color:'+col+'"></div>'});
+}
+
+var markers = {};
+SCHOOLS.forEach(function(d){
+  if(!d.lat) return;
+  var m=L.marker([d.lat,d.lng],{icon:pinIcon(d)});
+  m.on('click',function(){ openCard(d); });
+  m._data=d;
+  markers[d.n]=m;
+});
+
+var cluster = L.markerClusterGroup({
+  maxClusterRadius:46,
+  spiderfyOnMaxZoom:true,
+  showCoverageOnHover:false,
+  iconCreateFunction:function(c){
+    var n=c.getChildCount();
+    var s = n<10?34:n<30?42:n<60?50:60;
+    return L.divIcon({className:'',iconSize:[s,s],
+      html:'<div class="cluster" style="width:'+s+'px;height:'+s+'px;font-size:'+(n<100?14:12)+'px">'+n+'</div>'});
+  }
+});
+map.addLayer(cluster);
+
+var heatLayer=null;
+
+/* ---- filtering ---- */
+function passes(d){
+  if(levelFilter!=='all' && d.lvl!==levelFilter) return false;
+  if(!activeRegions[d.region]) return false;
+  var fmtOk=false; for(var i=0;i<d.fmt.length;i++){ if(activeFormats[d.fmt[i]]){ fmtOk=true; break; } }
+  return fmtOk;
+}
+
+function visibleSet(){ return SCHOOLS.filter(function(d){ return d.lat && passes(d); }); }
+
+function rebuild(){
+  var vis=visibleSet();
+  /* markers */
+  cluster.clearLayers();
+  if(!heatOn){
+    var layers=vis.map(function(d){ var m=markers[d.n]; m.setIcon(pinIcon(d)); return m; });
+    cluster.addLayers(layers);
+  }
+  /* heat */
+  if(heatLayer){ map.removeLayer(heatLayer); heatLayer=null; }
+  if(heatOn){
+    var pts=vis.map(function(d){ return [d.lat,d.lng, d.tier===1?1.0:d.tier===2?0.7:0.45]; });
+    heatLayer=L.heatLayer(pts,{radius:26,blur:22,maxZoom:9,minOpacity:0.35,
+      gradient:{0.0:'rgba(120,20,20,0)',0.3:'#7f1d1d',0.55:'#dc2626',0.8:'#f87171',1.0:'#fee2e2'}}).addTo(map);
+  }
+  updateCounters(vis);
+  updateLegend(vis);
+}
+
+/* ---- counters ---- */
+function animateValue(el,to){
+  var from=parseInt(el.textContent.replace(/\D/g,''))||0;
+  if(from===to){ el.textContent=to; return; }
+  var t0=null,dur=620;
+  function step(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur);
+    var e=1-Math.pow(1-p,3); el.textContent=Math.round(from+(to-from)*e); if(p<1)requestAnimationFrame(step); }
+  requestAnimationFrame(step);
+}
+function updateCounters(vis){
+  var cties={},fmts={};
+  vis.forEach(function(d){ cties[d.country]=1; d.fmt.forEach(function(f){ fmts[f]=1; }); });
+  animateValue(document.getElementById('c-prog'),vis.length);
+  animateValue(document.getElementById('c-cty'),Object.keys(cties).length);
+  animateValue(document.getElementById('c-fmt'),Object.keys(fmts).length);
+}
+
+/* ---- legend (changes with color mode) ---- */
+function updateLegend(vis){
+  var lab=document.getElementById('lab-legend'), box=document.getElementById('legend');
+  var rows=[];
+  if(colorMode==='status'){
+    lab.textContent='Pipeline stage';
+    var counts={prospect:0,contacted:0,partnered:0};
+    vis.forEach(function(d){ counts[statusOf(d)]++; });
+    ['partnered','contacted','prospect'].forEach(function(s){
+      rows.push({c:STATUS_COLOR[s],nm:STATUS_LABEL[s],ct:counts[s]});
+    });
+  } else if(colorMode==='level'){
+    lab.textContent='Level';
+    var lc={college:0,hs:0}; vis.forEach(function(d){ lc[d.lvl]++; });
+    rows.push({c:LVL_COLOR.college,nm:'College / university',ct:lc.college});
+    rows.push({c:LVL_COLOR.hs,nm:'High school',ct:lc.hs});
+  } else {
+    lab.textContent='Format';
+    var fc={}; vis.forEach(function(d){ fc[d.fmt[0]]=(fc[d.fmt[0]]||0)+1; });
+    Object.keys(FMT_COLOR).forEach(function(f){ if(fc[f]) rows.push({c:FMT_COLOR[f],nm:f,ct:fc[f]}); });
+  }
+  box.innerHTML=rows.map(function(r){
+    return '<div class="row"><span class="dot" style="background:'+r.c+';color:'+r.c+'"></span>'+
+      '<span class="nm">'+r.nm+'</span><span class="ct">'+r.ct+'</span></div>';
+  }).join('');
+}
+
+/* ---- detail card ---- */
+var cardEl=document.getElementById('card'), current=null;
+function openCard(d){
+  current=d;
+  document.getElementById('card-nm').textContent=d.n;
+  document.getElementById('card-loc').textContent=d.city+' · '+d.country;
+  var bd=[];
+  bd.push('<span class="badge lvl">'+(d.lvl==='hs'?'High school':'College')+'</span>');
+  d.fmt.forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
+  document.getElementById('card-badges').innerHTML=bd.join('');
+  paintStage();
+  cardEl.classList.add('show');
+  map.panTo([d.lat,d.lng],{animate:true});
+}
+function paintStage(){
+  var st=statusOf(current);
+  document.querySelectorAll('#card-stage button').forEach(function(b){
+    b.classList.toggle('on', b.getAttribute('data-s')===st);
+  });
+}
+document.querySelectorAll('#card-stage button').forEach(function(b){
+  b.addEventListener('click',function(){
+    if(!current) return;
+    var s=b.getAttribute('data-s');
+    statusMap[current.n]=s;
+    try{ localStorage.setItem(STORE_KEY,JSON.stringify(statusMap)); }catch(e){}
+    paintStage();
+    if(markers[current.n]) markers[current.n].setIcon(pinIcon(current));
+    rebuild();
+  });
+});
+document.getElementById('card-x').addEventListener('click',function(){
+  cardEl.classList.remove('show'); current=null;
+});
+
+/* ---- controls ---- */
+document.querySelectorAll('#seg-color button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('#seg-color button').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on'); colorMode=b.getAttribute('data-m'); rebuild();
+  });
+});
+document.querySelectorAll('#seg-level button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('#seg-level button').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on'); levelFilter=b.getAttribute('data-l'); rebuild();
+  });
+});
+var sw=document.getElementById('sw-heat');
+function toggleHeat(){ heatOn=!heatOn; sw.classList.toggle('on',heatOn);
+  sw.setAttribute('aria-checked',heatOn); rebuild(); }
+sw.addEventListener('click',toggleHeat);
+sw.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleHeat(); } });
+
+/* region + format chips */
+function buildChips(id,keys,colorMap,active){
+  var box=document.getElementById(id);
+  box.innerHTML=keys.map(function(k){
+    var c = colorMap?colorMap[k]:'#ef4444';
+    return '<span class="chip" data-k="'+k+'">'+(colorMap?'<span class="dot" style="background:'+c+';color:'+c+'"></span>':'')+k+'</span>';
+  }).join('');
+  box.querySelectorAll('.chip').forEach(function(ch){
+    ch.addEventListener('click',function(){
+      var k=ch.getAttribute('data-k'); active[k]=!active[k];
+      ch.classList.toggle('off',!active[k]); rebuild();
+    });
+  });
+}
+buildChips('chips-region',REGIONS,null,activeRegions);
+buildChips('chips-format',FORMATS,FMT_COLOR,activeFormats);
+
+/* mobile panel toggle */
+document.getElementById('panel-toggle').addEventListener('click',function(){
+  document.getElementById('panel').classList.toggle('open');
+});
+
+/* go */
+rebuild();
+</script>
+</body>
+</html>
