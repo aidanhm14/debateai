@@ -113,7 +113,6 @@
      here. Self-contained IIFE — renders the bottom-right orb + drawer and
      self-hides on /coach and inside iframes. Lets the coach follow you
      onto the prep surface, not just the marketing/tool pages. -->
-<script defer src="/js/coach-fab.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><!-- 2026-05-26: trimmed font loads. Playfair Display + Sora were declared in the Google Fonts URL but never referenced by any CSS rule on /app (zero font-family hits). Clash Display from Fontshare same story (the JS `hoveredClash`/`linkedClashes` refs are state variable names, unrelated to fonts). Saves one Fontshare HTTP request + the Playfair + Sora font-file fetches per first paint. --><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"></noscript><style>
 /* ── View Transitions: matches landing.html so landing → /app feels continuous */
@@ -3554,13 +3553,13 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
     el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })), el('div', { className: 'bg-debate-side bg-debate-right' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })), // Geometric debater at podium
     el('div', { className: 'geo-debater' + (genActive ? ' gen-active' : '') }, el('svg', { viewBox: '0 0 120 180', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' }, // Podium. geometric trapezoid
-        el('polygon', { points: '25,130 95,130 105,175 15,175', stroke: '#da7756', strokeWidth: 1.5, fill: 'none', opacity: .6 }), el('line', { x1: 30, y1: 140, x2: 90, y2: 140, stroke: '#da7756', strokeWidth: 1, opacity: .3 }),
-        el('line', { x1: 28, y1: 150, x2: 92, y2: 150, stroke: '#da7756', strokeWidth: 1, opacity: .2 }),
+        el('polygon', { points: '25,130 95,130 105,175 15,175', stroke: '#da7756', strokeWidth: 1.5, fill: 'none', opacity: .6 }), el('line', { x1: 30, y1: 140, x2: 90, y2: 140, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 28, y1: 150, x2: 92, y2: 150, stroke: '#da7756', strokeWidth: 1, opacity: .2 }),
         // Body. angular torso
         el('polygon', { points: '60,55 42,95 50,130 70,130 78,95', stroke: '#ffffff', strokeWidth: 1.2, fill: 'none', opacity: .5 }),
         // Shoulders
@@ -5225,13 +5224,13 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
 
 
+
       // If check fails, proceed anyway
     }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
     // (DevTools, stale contextHint) that would bypass the UI gate.
     if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {gtag('event', 'case_generate', { mode: genMode, side, motion_length: motion.length, feature: 'case' });} // Auto-version: if regenerating same motion, save previous output as a version
-    var motionKey = motion.trim().toLowerCase() + '|' + side;var isRegeneration = output && lastGeneratedMotion.current === motionKey;if (isRegeneration) {setCaseVersions((prev) => [...prev, { text: output, savedAt: new Date().toISOString(), label: 'v' + (prev.length + 1) }]);
-      // Prior case was judged insufficient. that's a negative training signal.
+    var motionKey = motion.trim().toLowerCase() + '|' + side;var isRegeneration = output && lastGeneratedMotion.current === motionKey;if (isRegeneration) {setCaseVersions((prev) => [...prev, { text: output, savedAt: new Date().toISOString(), label: 'v' + (prev.length + 1) }]); // Prior case was judged insufficient. that's a negative training signal.
       logGenerationSignal('regenerate', null, { previousLength: output.length });
     } else if (lastGeneratedMotion.current !== motionKey) {
       // New motion. clear version history
@@ -16478,7 +16477,7 @@ function App() {
   ),
   React.createElement('button', { className: 'topbar-signout', onClick: signOut }, 'Sign Out')
   ) :
-  React.createElement('button', { className: 'topbar-signin', onClick: () => setShowAuth(true), style: { background: '#ef4444', color: '#fff', padding: '6px 14px', borderRadius: 999, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.04em', whiteSpace: 'nowrap' } }, (typeof window !== 'undefined' && window.innerWidth <= 640) ? 'Sign in' : 'Sign in. keep your history.')
+  React.createElement('button', { className: 'topbar-signin', onClick: () => setShowAuth(true), style: { background: '#ef4444', color: '#fff', padding: '6px 14px', borderRadius: 999, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.04em', whiteSpace: 'nowrap' } }, typeof window !== 'undefined' && window.innerWidth <= 640 ? 'Sign in' : 'Sign in. keep your history.')
   )
   ),
   // ── Feature Tab Row ───────────────────────────────────────────────

@@ -100,19 +100,11 @@
     return ensureSfxLoadedOnDemand._inFlight;
   }
 
-  // Site-wide Coach FAB — bottom-right floating button on every page
-  // that mounts the shared topbar. The FAB script itself is a
-  // self-rendering IIFE that hides on /coach (would be redundant)
-  // and inside the /tools/copy-edit iframe shell. Same auto-injection
-  // pattern as sfx.js above so individual page HTML never has to
-  // think about including it. Idempotent.
-  (function ensureCoachFabLoaded(){
-    if (document.querySelector('script[src*="/js/coach-fab.js"]')) return;
-    var s = document.createElement('script');
-    s.src = '/js/coach-fab.js';
-    s.defer = true;
-    document.head.appendChild(s);
-  })();
+  // 2026-06-23: the site-wide Coach FAB (floating orb + in-tab drawer/
+  // iframe session) was RETIRED per Aidan — the in-tab popup was glitchy.
+  // Coach now lives only on its own page at /coach (the "Coach" nav link
+  // below routes there). /js/coach-fab.js is now a no-op stub; the
+  // auto-injector that used to mount the orb on every topbar page is gone.
 
   // Shared multi-method sign-in modal (Google / email link / phone).
   // Loaded site-wide so window.openAuthModal exists for the Sign in
