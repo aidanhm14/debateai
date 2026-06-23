@@ -249,6 +249,7 @@
     Flagship and powerhouse programs, curated. Pins sit at city level. Pipeline stages are yours to set:
     click any pin, then tap a stage. Choices save in this browser. Set your real partnered and in-conversation
     schools before you screenshot for a deck.
+    <br><br>Basemap: Natural Earth (public domain). Internal DebateIt tool.
   </div>
 </aside>
 
@@ -280,6 +281,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="/js/atlas-world.js"></script>
 <script>
 /* ============================================================
    THE DEBATE ATLAS — data + map
@@ -595,10 +597,16 @@ SCHOOLS.forEach(function(d){
 });
 
 /* ---- map ---- */
-var map = L.map('map',{worldCopyJump:true,minZoom:2,maxZoom:16,zoomControl:true,
-  attributionControl:true}).setView([28,8],2.4);
-L.tileLayer('https://{s}.basemap.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-  attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19
+var map = L.map('map',{worldCopyJump:false,minZoom:2,maxZoom:11,zoomControl:true,
+  attributionControl:false,maxBounds:[[-78,-205],[88,205]],maxBoundsViscosity:0.65})
+  .setView([30,5],2.4);
+
+/* Vector basemap drawn from a bundled GeoJSON (window.WORLD_GEO). No external
+   tile CDN, so the map renders instantly and reliably on any network. */
+L.geoJSON(window.WORLD_GEO,{
+  interactive:false,
+  renderer:L.canvas({padding:0.5}),
+  style:{color:'rgba(248,245,240,0.14)',weight:0.6,fillColor:'#1a1724',fillOpacity:1}
 }).addTo(map);
 
 function colorFor(d){
