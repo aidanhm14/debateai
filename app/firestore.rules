@@ -722,6 +722,22 @@ service cloud.firestore {
                   && resource.data.uid == request.auth.uid;
     }
 
+    // ── atlas_pipeline (Debate Atlas shared outreach tracker) ────────
+    // One doc per program (slug id). Read is public so the /atlas map can
+    // be shared with investors as a live link. Writes need a signed-in
+    // named (non-anonymous) account, are self-attributed via `by`, and
+    // the status is enum-validated. The URL is unlisted; tighten to an
+    // explicit editor allowlist later if the team grows.
+    match /atlas_pipeline/{slug} {
+      allow read: if true;
+      allow create, update: if isNamedAccount()
+        && request.resource.data.status in ['prospect', 'contacted', 'partnered']
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 160;
+      allow delete: if isNamedAccount();
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }

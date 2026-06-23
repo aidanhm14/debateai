@@ -71,6 +71,13 @@
     color:var(--ink-dim);border:1px solid var(--panel-line);border-radius:999px;padding:7px 14px;
     transition:border-color .2s,color .2s}
   .topbar .back:hover{border-color:var(--accent);color:var(--accent)}
+  .topright{display:flex;align-items:center;gap:10px}
+  .signin{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;
+    color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:7px 14px}
+  .signin:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+  .signin.in{background:transparent;color:var(--ink-dim);border-color:var(--panel-line)}
+  .signin.in:hover{color:var(--ink);border-color:var(--ink-dim)}
+  @media(max-width:680px){.brand .tag{display:none}.topbar .back{display:none}}
 
   /* ── Left control panel ─────────────────────────────────── */
   .panel{position:fixed;top:64px;left:14px;z-index:1100;width:320px;max-height:calc(100vh - 80px);
@@ -202,7 +209,10 @@
 
 <header class="topbar">
   <div class="brand">Debate<span class="it">It</span><span class="tag">The Debate Atlas</span></div>
-  <a class="back" href="/">Back to site</a>
+  <div class="topright">
+    <button class="signin" id="signin">Sign in to edit</button>
+    <a class="back" href="/">Back to site</a>
+  </div>
 </header>
 
 <!-- Left control panel -->
@@ -281,6 +291,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/js/atlas-world.js"></script>
 <script>
 /* ============================================================
@@ -410,7 +423,60 @@ var CITY = {
   'Monterrey':{ll:[25.6866,-100.3161],c:'Mexico',r:'North America'},
   'Bogota':{ll:[4.7110,-74.0721],c:'Colombia',r:'South America'},
   'Buenos Aires':{ll:[-34.6037,-58.3816],c:'Argentina',r:'South America'},
-  'Lima':{ll:[-12.0464,-77.0428],c:'Peru',r:'South America'}
+  'Lima':{ll:[-12.0464,-77.0428],c:'Peru',r:'South America'},
+  /* ---- expansion batch ---- */
+  'Wellesley, MA':{ll:[42.2968,-71.2924],c:'United States',r:'North America'},
+  'South Hadley, MA':{ll:[42.2587,-72.5751],c:'United States',r:'North America'},
+  'Pittsburgh, PA':{ll:[40.4406,-79.9959],c:'United States',r:'North America'},
+  'Lynchburg, VA':{ll:[37.4138,-79.1422],c:'United States',r:'North America'},
+  'Detroit, MI':{ll:[42.3314,-83.0458],c:'United States',r:'North America'},
+  'Bloomington, IN':{ll:[39.1653,-86.5264],c:'United States',r:'North America'},
+  'Iowa City, IA':{ll:[41.6611,-91.5302],c:'United States',r:'North America'},
+  'Fairfax, VA':{ll:[38.8462,-77.3064],c:'United States',r:'North America'},
+  'San Antonio, TX':{ll:[29.4241,-98.4936],c:'United States',r:'North America'},
+  'Spokane, WA':{ll:[47.6588,-117.4260],c:'United States',r:'North America'},
+  'Lubbock, TX':{ll:[33.5779,-101.8552],c:'United States',r:'North America'},
+  'Honolulu, HI':{ll:[21.3069,-157.8583],c:'United States',r:'North America'},
+  'San Diego, CA':{ll:[32.7157,-117.1611],c:'United States',r:'North America'},
+  'Newton, MA':{ll:[42.3370,-71.2092],c:'United States',r:'North America'},
+  'Northbrook, IL':{ll:[42.1275,-87.8290],c:'United States',r:'North America'},
+  'Katy, TX':{ll:[29.7858,-95.8245],c:'United States',r:'North America'},
+  'San Jose, CA':{ll:[37.3382,-121.8863],c:'United States',r:'North America'},
+  'Palo Alto, CA':{ll:[37.4419,-122.1430],c:'United States',r:'North America'},
+  'Seattle, WA':{ll:[47.6062,-122.3321],c:'United States',r:'North America'},
+  'Edina, MN':{ll:[44.8897,-93.3499],c:'United States',r:'North America'},
+  'Greenwood Village, CO':{ll:[39.6172,-104.9508],c:'United States',r:'North America'},
+  'Weston, FL':{ll:[26.1004,-80.3998],c:'United States',r:'North America'},
+  'Coventry':{ll:[52.4068,-1.5197],c:'United Kingdom',r:'Europe'},
+  'Manchester':{ll:[53.4808,-2.2426],c:'United Kingdom',r:'Europe'},
+  'St Andrews':{ll:[56.3398,-2.7967],c:'United Kingdom',r:'Europe'},
+  'Galway':{ll:[53.2707,-9.0568],c:'Ireland',r:'Europe'},
+  'Milan':{ll:[45.4642,9.1900],c:'Italy',r:'Europe'},
+  'Munich':{ll:[48.1351,11.5820],c:'Germany',r:'Europe'},
+  'Vienna':{ll:[48.2082,16.3738],c:'Austria',r:'Europe'},
+  'Madrid':{ll:[40.4168,-3.7038],c:'Spain',r:'Europe'},
+  'Barcelona':{ll:[41.3874,2.1686],c:'Spain',r:'Europe'},
+  'Stockholm':{ll:[59.3293,18.0686],c:'Sweden',r:'Europe'},
+  'Zagreb':{ll:[45.8150,15.9819],c:'Croatia',r:'Europe'},
+  'Ahmedabad':{ll:[23.0225,72.5714],c:'India',r:'Asia'},
+  'Kolkata':{ll:[22.5726,88.3639],c:'India',r:'Asia'},
+  'Vellore':{ll:[12.9165,79.1325],c:'India',r:'Asia'},
+  'Bangkok':{ll:[13.7563,100.5018],c:'Thailand',r:'Asia'},
+  'Jakarta':{ll:[-6.2088,106.8456],c:'Indonesia',r:'Asia'},
+  'Yogyakarta':{ll:[-7.7956,110.3695],c:'Indonesia',r:'Asia'},
+  'Beijing':{ll:[39.9042,116.4074],c:'China',r:'Asia'},
+  'Shanghai':{ll:[31.2304,121.4737],c:'China',r:'Asia'},
+  'Dubai':{ll:[25.2048,55.2708],c:'United Arab Emirates',r:'Middle East'},
+  'Abu Dhabi':{ll:[24.4539,54.3773],c:'United Arab Emirates',r:'Middle East'},
+  'Istanbul':{ll:[41.0082,28.9784],c:'Turkey',r:'Middle East'},
+  'Pretoria':{ll:[-25.7479,28.2293],c:'South Africa',r:'Africa'},
+  'Kigali':{ll:[-1.9706,30.1044],c:'Rwanda',r:'Africa'},
+  'Addis Ababa':{ll:[9.0249,38.7469],c:'Ethiopia',r:'Africa'},
+  'Sao Paulo':{ll:[-23.5505,-46.6333],c:'Brazil',r:'South America'},
+  'Santiago':{ll:[-33.4489,-70.6693],c:'Chile',r:'South America'},
+  'Quito':{ll:[-0.1807,-78.4678],c:'Ecuador',r:'South America'},
+  'Adelaide':{ll:[-34.9285,138.6007],c:'Australia',r:'Oceania'},
+  'Dunedin':{ll:[-45.8788,170.5028],c:'New Zealand',r:'Oceania'}
 };
 
 /* Programs. n=name, city, lvl=college|hs, fmt=[primary, ...], tier 1-3 ----- */
@@ -560,7 +626,84 @@ var SCHOOLS = [
   {n:'Tec de Monterrey',city:'Monterrey',lvl:'college',fmt:['BP'],tier:3},
   {n:'Universidad de los Andes',city:'Bogota',lvl:'college',fmt:['BP'],tier:3},
   {n:'Universidad de Buenos Aires',city:'Buenos Aires',lvl:'college',fmt:['BP'],tier:3},
-  {n:'Lima Debate Society',city:'Lima',lvl:'college',fmt:['BP'],tier:3}
+  {n:'Lima Debate Society',city:'Lima',lvl:'college',fmt:['BP'],tier:3},
+  /* ---- expansion batch: more US college ---- */
+  {n:'Wellesley College Debate',city:'Wellesley, MA',lvl:'college',fmt:['APDA'],tier:2},
+  {n:'Mount Holyoke Debate',city:'South Hadley, MA',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'Boston University Debate',city:'Boston, MA',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'Fordham Debate',city:'New York, NY',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'Carnegie Mellon Debate',city:'Pittsburgh, PA',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'American University Debate',city:'Washington, DC',lvl:'college',fmt:['APDA'],tier:3},
+  {n:'USC Debate',city:'Los Angeles, CA',lvl:'college',fmt:['Policy'],tier:2},
+  {n:'Liberty Debate',city:'Lynchburg, VA',lvl:'college',fmt:['Policy'],tier:2},
+  {n:'Wayne State Debate',city:'Detroit, MI',lvl:'college',fmt:['Policy'],tier:2},
+  {n:'Indiana Debate',city:'Bloomington, IN',lvl:'college',fmt:['Policy'],tier:3},
+  {n:'Iowa Debate',city:'Iowa City, IA',lvl:'college',fmt:['Policy'],tier:3},
+  {n:'Vanderbilt Debate',city:'Nashville, TN',lvl:'college',fmt:['Policy'],tier:3},
+  {n:'George Mason Debate',city:'Fairfax, VA',lvl:'college',fmt:['Policy'],tier:3},
+  {n:'Trinity University Debate',city:'San Antonio, TX',lvl:'college',fmt:['Policy'],tier:3},
+  {n:'Gonzaga Debate',city:'Spokane, WA',lvl:'college',fmt:['Policy'],tier:3},
+  {n:'Texas Tech Debate',city:'Lubbock, TX',lvl:'college',fmt:['Parli','Policy'],tier:3},
+  {n:'Hawaii Debate',city:'Honolulu, HI',lvl:'college',fmt:['Parli'],tier:3},
+  {n:'UC San Diego Debate',city:'San Diego, CA',lvl:'college',fmt:['Parli','BP'],tier:3},
+  /* ---- expansion batch: more US high school ---- */
+  {n:'Newton South Debate',city:'Newton, MA',lvl:'hs',fmt:['Congress','PF'],tier:3},
+  {n:'Hunter College HS',city:'New York, NY',lvl:'hs',fmt:['PF','Policy'],tier:2},
+  {n:'Glenbrook North & South',city:'Northbrook, IL',lvl:'hs',fmt:['LD','Policy'],tier:2},
+  {n:'Walter Payton College Prep',city:'Chicago, IL',lvl:'hs',fmt:['Congress','PF'],tier:2},
+  {n:'Bellaire HS',city:'Houston, TX',lvl:'hs',fmt:['Policy','Congress'],tier:2},
+  {n:'Seven Lakes HS',city:'Katy, TX',lvl:'hs',fmt:['Congress','PF'],tier:2},
+  {n:'The Harker School',city:'San Jose, CA',lvl:'hs',fmt:['PF','Parli'],tier:2},
+  {n:'Palo Alto HS',city:'Palo Alto, CA',lvl:'hs',fmt:['PF'],tier:3},
+  {n:'Lakeside School',city:'Seattle, WA',lvl:'hs',fmt:['Policy','PF'],tier:3},
+  {n:'Edina HS',city:'Edina, MN',lvl:'hs',fmt:['LD'],tier:3},
+  {n:'Cherry Creek HS',city:'Greenwood Village, CO',lvl:'hs',fmt:['Policy','LD'],tier:2},
+  {n:'Cypress Bay HS',city:'Weston, FL',lvl:'hs',fmt:['Congress'],tier:3},
+  /* ---- expansion batch: more Europe ---- */
+  {n:'Warwick Debating Union',city:'Coventry',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Manchester Debating Union',city:'Manchester',lvl:'college',fmt:['BP'],tier:2},
+  {n:'St Andrews Union Debating',city:'St Andrews',lvl:'college',fmt:['BP'],tier:2},
+  {n:'Imperial College Debating',city:'London',lvl:'college',fmt:['BP'],tier:2},
+  {n:'NUI Galway Lit & Deb',city:'Galway',lvl:'college',fmt:['BP','Worlds'],tier:3},
+  {n:'Bocconi Debating',city:'Milan',lvl:'college',fmt:['BP'],tier:3},
+  {n:'LMU Munich Debating',city:'Munich',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Debating Society Vienna',city:'Vienna',lvl:'college',fmt:['BP'],tier:3},
+  {n:'IE University Debate',city:'Madrid',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Barcelona Debate (ESADE)',city:'Barcelona',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Stockholm Debate',city:'Stockholm',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Zagreb Debate',city:'Zagreb',lvl:'college',fmt:['BP','Karl Popper'],tier:3},
+  /* ---- expansion batch: more Asia ---- */
+  {n:'IIM Ahmedabad',city:'Ahmedabad',lvl:'college',fmt:['Asian Parli','BP'],tier:2},
+  {n:'Jadavpur University',city:'Kolkata',lvl:'college',fmt:['Asian Parli'],tier:3},
+  {n:'VIT Vellore',city:'Vellore',lvl:'college',fmt:['Asian Parli'],tier:3},
+  {n:'Ashoka University',city:'Sonipat',lvl:'college',fmt:['BP','Asian Parli'],tier:2},
+  {n:'SMU Debate (Singapore)',city:'Singapore',lvl:'college',fmt:['BP','Asian Parli'],tier:2},
+  {n:'Chulalongkorn Debate',city:'Bangkok',lvl:'college',fmt:['BP','Asian Parli'],tier:2},
+  {n:'University of Indonesia',city:'Jakarta',lvl:'college',fmt:['Asian Parli','BP'],tier:2},
+  {n:'Gadjah Mada (UGM)',city:'Yogyakarta',lvl:'college',fmt:['Asian Parli'],tier:3},
+  {n:'CUHK Debating',city:'Hong Kong',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Peking University Debate',city:'Beijing',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Fudan Debate',city:'Shanghai',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Waseda ESS Debate',city:'Tokyo',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Yonsei Debate',city:'Seoul',lvl:'college',fmt:['BP'],tier:3},
+  /* ---- expansion batch: more Middle East ---- */
+  {n:'American University of Sharjah',city:'Dubai',lvl:'college',fmt:['BP','Worlds'],tier:2},
+  {n:'NYU Abu Dhabi Debate',city:'Abu Dhabi',lvl:'college',fmt:['BP','Worlds'],tier:2},
+  {n:'Bogazici Debating',city:'Istanbul',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Reichman University Debate',city:'Tel Aviv',lvl:'college',fmt:['BP','Worlds'],tier:3},
+  /* ---- expansion batch: more Africa ---- */
+  {n:'University of Pretoria',city:'Pretoria',lvl:'college',fmt:['Worlds','BP'],tier:2},
+  {n:'Strathmore University',city:'Nairobi',lvl:'college',fmt:['BP'],tier:3},
+  {n:'University of Rwanda',city:'Kigali',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Addis Ababa University',city:'Addis Ababa',lvl:'college',fmt:['BP'],tier:3},
+  /* ---- expansion batch: more Latin America ---- */
+  {n:'USP Sao Paulo Debate',city:'Sao Paulo',lvl:'college',fmt:['BP'],tier:3},
+  {n:'Catolica Chile Debate',city:'Santiago',lvl:'college',fmt:['BP'],tier:3},
+  {n:'USFQ Quito Debate',city:'Quito',lvl:'college',fmt:['BP'],tier:3},
+  /* ---- expansion batch: more Oceania ---- */
+  {n:'Adelaide University Debating',city:'Adelaide',lvl:'college',fmt:['Worlds'],tier:2},
+  {n:'Otago University Debating',city:'Dunedin',lvl:'college',fmt:['Worlds'],tier:3},
+  {n:'Macquarie University Debating',city:'Sydney',lvl:'college',fmt:['Worlds'],tier:3}
 ];
 
 /* Format palette -------------------------------------------------------- */
@@ -576,7 +719,8 @@ var STATUS_LABEL = {prospect:'Prospect',contacted:'In conversation',partnered:'P
 /* ---- state ---- */
 var STORE_KEY='debateit-atlas-status';
 var statusMap = {};
-try{ statusMap = JSON.parse(localStorage.getItem(STORE_KEY)||'{}'); }catch(e){ statusMap={}; }
+/* localStorage is only the offline fallback; the shared Firestore pipeline
+   (wired at the bottom of this script) is the source of truth when online. */
 var colorMode='status', levelFilter='all', heatOn=false;
 var activeFormats={}, activeRegions={};
 var FORMATS = Object.keys(FMT_COLOR);
@@ -742,8 +886,10 @@ document.querySelectorAll('#card-stage button').forEach(function(b){
   b.addEventListener('click',function(){
     if(!current) return;
     var s=b.getAttribute('data-s');
+    if(fbReady && !isEditor()){ promptSignIn(); return; }   // viewer: ask to sign in
     statusMap[current.n]=s;
-    try{ localStorage.setItem(STORE_KEY,JSON.stringify(statusMap)); }catch(e){}
+    if(isEditor()){ setStatusRemote(current,s); }            // shared write
+    else { try{ localStorage.setItem(STORE_KEY,JSON.stringify(statusMap)); }catch(e){} } // offline fallback
     paintStage();
     if(markers[current.n]) markers[current.n].setIcon(pinIcon(current));
     rebuild();
@@ -793,6 +939,67 @@ buildChips('chips-format',FORMATS,FMT_COLOR,activeFormats);
 document.getElementById('panel-toggle').addEventListener('click',function(){
   document.getElementById('panel').classList.toggle('open');
 });
+
+/* ── Shared pipeline sync (Firestore) ──────────────────────────────
+   Statuses live in a shared collection so the whole team sees one map
+   and investors can view it. Read is public; writing needs a Google
+   sign-in. Falls back to localStorage when Firebase is unavailable. */
+var FB_CONFIG={apiKey:["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain:"debateos-78ac5.firebaseapp.com",projectId:"debateos-78ac5",
+  storageBucket:"debateos-78ac5.firebasestorage.app",messagingSenderId:"860359449192",
+  appId:"1:860359449192:web:f5dc0060dbd50d6c4fb9dd"};
+var fbAuth=null, fbDb=null, fbUser=null, fbReady=false;
+function pslug(name){ return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+var SLUG2NAME={}; SCHOOLS.forEach(function(d){ SLUG2NAME[pslug(d.n)]=d.n; });
+try{
+  if(typeof firebase!=='undefined'){
+    if(!(firebase.apps&&firebase.apps.length)) firebase.initializeApp(FB_CONFIG);
+    fbAuth=firebase.auth(); fbDb=firebase.firestore(); fbReady=true;
+  }
+}catch(e){ console.warn('[atlas] firebase init',e); fbReady=false; }
+if(!fbReady){ try{ statusMap=JSON.parse(localStorage.getItem(STORE_KEY)||'{}'); }catch(e){} }
+function isEditor(){ return !!(fbReady&&fbUser); }
+function promptSignIn(){
+  if(!fbAuth) return;
+  var p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'});
+  fbAuth.signInWithPopup(p).catch(function(err){
+    if(err&&err.code==='auth/popup-closed-by-user') return;
+    try{ fbAuth.signInWithRedirect(p); }catch(e){}
+  });
+}
+function setStatusRemote(d,s){
+  if(!fbDb||!fbUser) return false;
+  fbDb.collection('atlas_pipeline').doc(pslug(d.n)).set({
+    name:d.n, status:s, by:fbUser.uid,
+    byName:(fbUser.displayName||fbUser.email||'editor'),
+    at:firebase.firestore.FieldValue.serverTimestamp()
+  },{merge:true}).catch(function(err){
+    console.warn('[atlas] write',err);
+    if(err&&err.code==='permission-denied') alert('Saving needs a Google sign-in.');
+  });
+  return true;
+}
+function syncPipeline(){
+  if(!fbDb) return;
+  fbDb.collection('atlas_pipeline').onSnapshot(function(snap){
+    snap.forEach(function(doc){ var data=doc.data()||{}; var nm=SLUG2NAME[doc.id]||data.name;
+      if(nm&&data.status) statusMap[nm]=data.status; });
+    rebuild(); if(current) paintStage();
+  },function(err){ console.warn('[atlas] pipeline read',err); });
+}
+var signinBtn=document.getElementById('signin');
+function updateAuthUI(){
+  if(!signinBtn) return;
+  if(!fbReady){ signinBtn.style.display='none'; return; }
+  if(fbUser){ signinBtn.textContent=(fbUser.displayName||'Account').split(' ')[0]+' · sign out'; signinBtn.classList.add('in'); }
+  else { signinBtn.textContent='Sign in to edit'; signinBtn.classList.remove('in'); }
+}
+if(signinBtn) signinBtn.addEventListener('click',function(){ if(fbUser) fbAuth.signOut(); else promptSignIn(); });
+if(fbReady){
+  fbAuth.onAuthStateChanged(function(u){ fbUser=u||null; updateAuthUI(); if(current) paintStage(); rebuild(); });
+  syncPipeline();
+}
+updateAuthUI();
 
 /* go */
 rebuild();
