@@ -614,9 +614,21 @@ body.light-theme .ui-btn-voice{
   box-shadow:0 18px 40px rgba(0,0,0,.4);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   transform:translateY(-12px);opacity:0;
+  /* CRITICAL: the closed sheet must NOT catch taps. The class rule
+     `display:flex` above outranks the UA `[hidden]{display:none}` rule
+     (author beats user-agent origin), so the `hidden` attribute the JS
+     sets does nothing on its own — leaving an invisible, full-screen,
+     z-index:999 overlay that swallowed every tap on mobile and routed it
+     to whichever stacked nav link sat under the finger ("tap Live Debates,
+     land on Learn"). Two guards make the closed state truly inert:
+       1) pointer-events:none whenever .is-open is absent;
+       2) [hidden] hard-hides via display:none (restores intended behavior).
+     Only .is-open re-enables interaction. */
+  pointer-events:none;
   transition:transform .2s ease, opacity .2s ease;
 }
-.ui-topbar-sheet.is-open{transform:translateY(0);opacity:1}
+.ui-topbar-sheet[hidden]{display:none}
+.ui-topbar-sheet.is-open{transform:translateY(0);opacity:1;pointer-events:auto}
 body.has-beta-strip .ui-topbar-sheet{top:88px}
 .ui-topbar-sheet-link{
   display:flex;align-items:center;gap:10px;

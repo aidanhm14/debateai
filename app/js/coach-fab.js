@@ -17,6 +17,15 @@
   var here = (location.pathname || '/').replace(/\/$/, '') || '/';
   if (here === '/coach' || here.indexOf('/coach') === 0) return;
   if (here.indexOf('/tools/copy-edit') !== -1) return;
+  // 2026-06-23: skip the floating coach orb on phones per Aidan ("get rid
+  // of coach orb in mobile for now"). It crowded the bottom-right corner
+  // against the Feedback pill on small screens. Mount-time guard so the
+  // orb + drawer + backdrop + session iframe never get created on mobile;
+  // Coach is still reachable from the topbar hamburger ("Coach" link).
+  // Drop this block to bring the mobile orb back.
+  try {
+    if (window.matchMedia && window.matchMedia('(max-width:560px)').matches) return;
+  } catch (e) {}
   // Marketing home: the page is wall-to-wall CTAs already, and the Feedback
   // pill + sign-in nudge own the bottom-right corner. A third floating button
   // there just collides with them, so the Coach FAB sits this page out.
