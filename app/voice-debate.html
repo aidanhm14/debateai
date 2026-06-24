@@ -2931,9 +2931,11 @@ var MODES = [
 // responsive. This is the deterministic, content-shaped version of
 // "smarter interruptions" without the semantic_vad regression.
 function vadSilenceMs(m) {
-  if (m === 'viva' || m === 'apda') return 2100; // long, reasoned turns — be patient
-  if (m === 'quickclash' || m === 'rebuttal' || m === 'crossex') return 1300; // fast exchanges — stay snappy
-  return 1700; // layjudge / aggressive / steelman — default floor
+  // 2026 retune (user: still interrupting). A debater composing a speech
+  // takes 2-3s mid-thought pauses; the AI must NOT read those as turn-end.
+  if (m === 'viva' || m === 'apda') return 3500; // long, reasoned turns — very patient
+  if (m === 'quickclash' || m === 'rebuttal' || m === 'crossex') return 2000; // fast drills, but 2s is a clear stop
+  return 2800; // layjudge / aggressive / steelman — patient default
 }
 
 
@@ -3742,7 +3744,7 @@ function App() {
   // +0.25 from the old 1.2 default so delivery feels less sluggish out
   // of the box. Users can still push it to 3.0 or pull it back with
   // the spd buttons.
-  var [playbackRate, setPlaybackRate] = useState(1.45);
+  var [playbackRate, setPlaybackRate] = useState(1.0);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
   // Default ON: the user starts muted so the AI can deliver its round
