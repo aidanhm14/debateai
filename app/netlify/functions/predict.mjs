@@ -89,6 +89,18 @@ const MOTION_BANK = [
   { m:'This house believes remote work has been bad for early-career workers.', pro:'Juniors lose the ambient mentorship, networks, and visibility that build a career.', con:'It widened access, cut brutal commutes, and let talent compete regardless of geography.' },
   { m:'This house would make voting compulsory.', pro:'Universal turnout pulls policy toward the median citizen and away from extreme, motivated minorities.', con:'Coercing the disengaged adds noise, not signal, and a non-vote is itself legitimate speech.' },
   { m:'This house would ban influencers from marketing to children.', pro:'Kids cannot tell a friend from an ad, and parasocial trust makes the manipulation worse.', con:'It is unenforceable, kills a real income ladder, and parents, not the state, should police it.' },
+  { m:'This house believes the West should cut all subsidies to fossil fuel companies.', pro:'Public money should not bankroll the industry most responsible for the climate bill we are all paying.', con:'Yanking subsidies overnight spikes energy prices on the poor and hands the market to dirtier foreign producers.' },
+  { m:'This house would replace the income tax with a wealth tax.', pro:'Taxing stocks of hoarded wealth hits the rentier class income tax lets slip through loopholes.', con:'Wealth is hard to value, easy to move offshore, and the tax collapses the moment capital flees.' },
+  { m:'This house believes universities should abolish tenure.', pro:'Lifetime job security shields deadwood and lets the protected coast while adjuncts carry the teaching.', con:'Tenure is the last real guard for academic freedom; kill it and research bends to whoever signs the checks.' },
+  { m:'This house would let private companies operate their own armed forces.', pro:'States already outsource security; formalizing it brings oversight to a market that runs in the shadows now.', con:'Private armies answer to shareholders, not citizens, and put lethal force on the open auction block.' },
+  { m:'This house believes professional sports should have no salary caps.', pro:'Caps are owner collusion dressed as fairness; players should earn what an open market will pay.', con:'Without caps three rich franchises buy every title and the league dies of its own predictability.' },
+  { m:'This house would make all public transit free.', pro:'Free transit cuts cars, clears air, and ends the cruelty of fining the poor for needing to move.', con:'Someone pays; free fares gut the maintenance budget and the system rots into the unreliable mess that empties it.' },
+  { m:'This house believes anonymous online speech does more harm than good.', pro:'Anonymity is the shield behind which harassment, fraud, and disinformation operate with impunity.', con:'It is the only protection whistleblowers, dissidents, and abuse survivors have against retaliation.' },
+  { m:'This house would abolish the monarchy in constitutional monarchies.', pro:'Inherited power is an affront to democracy and a costly relic dressed up as tradition.', con:'A neutral head of state above politics is a stabilizer republics keep trying and failing to replace.' },
+  { m:'This house believes effective altruism has corrupted modern philanthropy.', pro:'It reduces moral life to a spreadsheet and lets the rich buy moral cover with cold cost-per-life math.', con:'Measuring impact rescued giving from vanity and vibes; the alternative is feeling good while helping less.' },
+  { m:'This house would ban single-use plastics outright.', pro:'A hard ban is the only thing that has ever moved industry off a material choking the oceans.', con:'Blunt bans push users to higher-carbon substitutes and hit the disabled who rely on single-use tools.' },
+  { m:'This house believes sports betting should be banned.', pro:'Legal betting turned every game into a vector for addiction and quietly corrupts the players inside it.', con:'Prohibition just hands the market to offshore books with zero protections; regulation beats a black market.' },
+  { m:'This house would require a license to become a parent.', pro:'We license far lower-stakes acts than raising a human; screening could prevent foreseeable abuse.', con:'Reproductive licensing is the door to eugenics and hands the state power no government should hold.' },
 ];
 function newRoomId(){ return 'ai-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7); }
 const AI_TARGET_OPEN = 7;
@@ -112,9 +124,12 @@ async function ensureMarkets(db) {
   const open = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
   const need = AI_TARGET_OPEN - open.size;
   if (need <= 0) return;
-  // Avoid minting duplicate motions that are already on the board.
-  const live = new Set(open.docs.map(d => d.data().motion));
-  const pool = MOTION_BANK.filter(p => !live.has(p.m));
+  // Avoid minting a motion that's already open OR sitting in the resolved feed,
+  // so open and settled cards never collide (which would shrink the visible
+  // resolved feed after dedupe).
+  const settled = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
+  const taken = new Set([...open.docs, ...settled.docs].map(d => (d.data().motion || '').trim().toLowerCase()));
+  const pool = MOTION_BANK.filter(p => !taken.has(p.m.trim().toLowerCase()));
   const batch = db.batch();
   for (let i = 0; i < need; i++) {
     const pick = (pool.length ? pool : MOTION_BANK)[Math.floor(Math.random() * (pool.length ? pool.length : MOTION_BANK.length))];
