@@ -176,6 +176,17 @@
   .choro-legend.show{display:flex}
   .choro-legend .cl{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.58rem;letter-spacing:.04em;color:var(--ink-dim)}
   .choro-legend .cl-sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .tz-ctl{display:none;margin-top:8px}
+  .tz-ctl.show{display:block}
+  .tz-hdr{font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-hover);margin:2px 0 9px}
+  .tz-read{display:flex;flex-direction:column;gap:4px;margin-top:11px}
+  .tzr{display:flex;align-items:center;gap:8px;font-size:.86rem}
+  .tzr-n{flex:1;color:var(--ink-dim)}
+  .tzr-t{font-family:var(--mono);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  .tzr-m{width:14px;text-align:center;font-weight:700}
+  .tzr-good .tzr-m{color:#22c55e}.tzr-ok .tzr-m{color:#f59e0b}.tzr-bad .tzr-m{color:#ef4444}
+  .tzr-bad .tzr-n,.tzr-bad .tzr-t{opacity:.5}
+  .tzlbl{font-family:var(--mono);font-size:9px;font-weight:700;color:rgba(255,255,255,.5);text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.85)}
   .card-extra{font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-hover);margin-top:6px}
   .comm-del{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
     color:var(--ink-dim);background:rgba(255,255,255,.05);border:1px solid var(--panel-line);border-radius:9px;padding:8px 12px}
@@ -430,6 +441,17 @@
     <div class="sw" id="sw-choro" role="switch" aria-checked="false" tabindex="0"></div>
   </div>
   <div class="choro-legend" id="choro-legend"></div>
+
+  <div class="blocklabel">Time zones</div>
+  <div class="toggle-row">
+    <div class="lab">Find a host slot<small>When can these debate?</small></div>
+    <div class="sw" id="sw-tz" role="switch" aria-checked="false" tabindex="0"></div>
+  </div>
+  <div class="tz-ctl" id="tz-ctl">
+    <div class="tz-hdr" id="tz-hdr"></div>
+    <input type="range" id="tz-slider" min="0" max="23" step="1" value="18">
+    <div class="tz-read" id="tz-read"></div>
+  </div>
 
   <div class="blocklabel" id="lab-legend">Pipeline stage</div>
   <div class="legend" id="legend"></div>
@@ -1073,6 +1095,39 @@ function toggleChoro(){ choroOn=!choroOn; swChoro.classList.toggle('on',choroOn)
   if(choroOn){ choroLayer.addTo(map); refreshChoro(visibleSet()); } else map.removeLayer(choroLayer); }
 swChoro.addEventListener('click',toggleChoro);
 swChoro.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleChoro(); } });
+
+/* ── Time zones: find a host slot that works across regions ─────────── */
+map.createPane('tz'); map.getPane('tz').style.zIndex=240; map.getPane('tz').style.pointerEvents='none';
+var tzLayer=L.layerGroup(), tzOn=false, hostUTC=18;
+var TZ_HUBS=[['US West',-8],['US East',-5],['Brazil',-3],['UK',0],['C. Europe',1],['South Africa',2],['India',5.5],['SE Asia',8],['Japan / Korea',9],['Australia E',10],['NZ',12]];
+var TZ_FILL={good:'#22c55e',ok:'#f59e0b',bad:'#ef4444'}, TZ_OP={good:0.20,ok:0.17,bad:0.17};
+function hourBucket(h){ h=((h%24)+24)%24; return (h>=8&&h<22)?'good':((h>=6&&h<8)||(h>=22))?'ok':'bad'; }
+function fmtH(h){ h=((h%24)+24)%24; var hh=Math.floor(h); return (hh<10?'0':'')+hh+':'+((h-hh)>=0.5?'30':'00'); }
+function buildTZ(){
+  tzLayer.clearLayers();
+  for(var off=-12; off<=11; off++){
+    var w=off*15, b=hourBucket(hostUTC+off);
+    tzLayer.addLayer(L.rectangle([[-85,w],[85,w+15]],{pane:'tz',interactive:false,color:'rgba(255,255,255,.06)',weight:1,fillColor:TZ_FILL[b],fillOpacity:TZ_OP[b]}));
+    tzLayer.addLayer(L.marker([80,w+7.5],{pane:'tz',interactive:false,keyboard:false,
+      icon:L.divIcon({className:'',iconSize:[36,14],html:'<div class="tzlbl">'+(off>=0?'+':'')+off+'</div>'})}));
+  }
+}
+function tzReadout(){
+  var hdr=document.getElementById('tz-hdr'), box=document.getElementById('tz-read'); if(!box) return;
+  var good=0;
+  box.innerHTML=TZ_HUBS.map(function(h){ var b=hourBucket(hostUTC+h[1]); if(b==='good') good++;
+    var mark=b==='good'?'✓':b==='ok'?'~':'✗';
+    return '<div class="tzr tzr-'+b+'"><span class="tzr-n">'+h[0]+'</span><span class="tzr-t">'+fmtH(hostUTC+h[1])+'</span><span class="tzr-m">'+mark+'</span></div>'; }).join('');
+  if(hdr) hdr.textContent='Host '+fmtH(hostUTC)+' UTC · '+good+'/'+TZ_HUBS.length+' regions awake';
+}
+var swTZ=document.getElementById('sw-tz');
+function toggleTZ(){ tzOn=!tzOn; swTZ.classList.toggle('on',tzOn); swTZ.setAttribute('aria-checked',tzOn);
+  var ctl=document.getElementById('tz-ctl'); if(ctl) ctl.classList.toggle('show',tzOn);
+  if(tzOn){ buildTZ(); tzLayer.addTo(map); tzReadout(); } else map.removeLayer(tzLayer); }
+swTZ.addEventListener('click',toggleTZ);
+swTZ.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleTZ(); } });
+var tzSlider=document.getElementById('tz-slider');
+if(tzSlider) tzSlider.addEventListener('input',function(){ hostUTC=+tzSlider.value; if(tzOn) buildTZ(); tzReadout(); });
 
 /* Real tiled basemaps (Esri ArcGIS, free, no API key, enterprise-grade CDN).
    Default dark to match the brand; switch to satellite / streets from the
