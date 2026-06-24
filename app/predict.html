@@ -3,566 +3,301 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- HIDDEN PROTOTYPE — not linked from nav, not in sitemap. v2 of the
-     stakes/prediction layer (see vault: DebateIt — Monetization Concepts).
-     Virtual-currency only, no real money.
-
-     v2 adds, over the v1 commit-reveal demo:
-       - a LIVE round timeline (speeches advance on a clock)
-       - a PARIMUTUEL market: a crowd pool whose odds move as the round leans
-       - betting LOCKS at the middle speeches (you cannot buy in late)
-       - an AI-style verdict + one-line ballot at the end
-       - settlement: winners split the whole pool pro-rata to their stake
-     Anti-insider-trading model (all shown in-product):
-       1. the verdict is SEALED (SHA-256 commit) before betting opens, so it
-          provably can't react to the market;
-       2. the judge is segregated — bets never reach it;
-       3. betting locks at the middle speeches — no late-information buy-in;
-       4. self-exclusion — you can't bet on a round you're debating in;
-       5. picks are blind until the round locks.
-     TODO (v3): wire to real human/AI rounds, server-sign the commit + lock
-     timestamp, run the real AI judge on the actual flow, enforce
-     self-exclusion + one-bet-per-user server-side, real shared pool. -->
-<title>Predict (internal prototype) · debateit.com</title>
+<!-- /predict — a real prediction market on AI-judged debate rounds. POINTS
+     ONLY (virtual, non-redeemable). Backed by the server-authoritative
+     predict.mjs function + Firestore: real shared pools, real cross-user
+     leaderboard, parimutuel settlement. App-run AI markets (a motion with two
+     framed sides; the AI judge resolves it at lock) keep the board live with
+     no human round needed. Human-round markets run on /live-round. No client
+     can write balances/pools/payouts (rules deny it). -->
+<title>Predict · live debate markets · DebateIt</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/icons/icon-192.png">
-<!-- Rich embeds so a shared /predict link unfurls in Discord / iMessage / X
-     (the low-barrier connector: a debater drops it in their server and it
-     looks like something worth clicking). noindex stays; OG is read anyway. -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Predict the verdict · DebateIt">
-<meta property="og:description" content="Bet points on who wins a live debate, judged by AI. Odds move as the round leans, bets lock at the middle speeches. Think you can call them better than your team?">
+<meta property="og:title" content="DebateIt · Predict — live debate markets">
+<meta property="og:description" content="A live market on AI-judged debates. Stake points on who wins, parimutuel payouts, a real leaderboard. Points only.">
 <meta property="og:url" content="https://debateai.com/predict">
 <meta property="og:image" content="https://debateai.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Predict the verdict · DebateIt">
-<meta name="twitter:description" content="Bet points on who wins a live debate, AI judges the round. think you can call them?">
-<meta name="twitter:image" content="https://debateai.com/og-image.png">
+<meta name="twitter:title" content="DebateIt · Predict — live debate markets">
+<meta name="twitter:description" content="Stake points on AI-judged debates. real pools, real leaderboard.">
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try { if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG); }
+catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap">
 <style>
   :root{
-    --bg:#0f0f13;--panel:#16161c;--panel2:#1d1d25;--bd:rgba(255,255,255,.1);
-    --bd2:rgba(255,255,255,.18);--tx:rgba(255,255,255,.9);--dim:rgba(255,255,255,.55);
-    --faint:rgba(255,255,255,.32);--red:#ef4444;--red-dim:rgba(239,68,68,.14);
-    --green:#22c55e;--green-dim:rgba(34,197,94,.14);--blue:#60a5fa;--amber:#fbbf24;
-    --radius:16px;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --bg:#0b0c10; --panel:#14161c; --panel2:#1b1e26; --bd:rgba(255,255,255,.09);
+    --bd2:rgba(255,255,255,.18); --tx:rgba(255,255,255,.92); --dim:rgba(255,255,255,.56);
+    --faint:rgba(255,255,255,.34); --pro:#22c55e; --pro-d:#16a34a; --con:#ef4444; --con-d:#dc2626;
+    --blue:#60a5fa; --amber:#fbbf24; --r:14px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--tx);font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;
-    line-height:1.5;-webkit-font-smoothing:antialiased;padding:24px 16px 90px}
-  .wrap{max-width:680px;margin:0 auto}
-  .topline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
-  .brand{font-weight:800;letter-spacing:-.02em}.brand em{color:var(--red);font-style:normal}
-  .proto-tag{font-size:.56rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--amber);background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.32);
-    padding:3px 8px;border-radius:999px}
-  .bal{font-size:.8rem;color:var(--dim)}.bal b{color:var(--green);font-variant-numeric:tabular-nums}
-  h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:18px 0 4px}
-  .sub{color:var(--dim);font-size:.9rem;margin-bottom:20px}
-  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--radius);
-    padding:18px;margin-bottom:14px}
-  .lbl{font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--faint);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .motion{font-size:1.1rem;font-weight:700;line-height:1.35}
+  body{background:var(--bg);color:var(--tx);font-family:'Crimson Pro',Georgia,serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  a{color:var(--blue);text-decoration:none}
 
-  /* sides with live odds */
-  .sides{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-  .side{background:var(--panel2);border:1px solid var(--bd);border-radius:12px;padding:14px;
-    cursor:pointer;transition:.15s;text-align:left;color:var(--tx);font-family:inherit;position:relative;overflow:hidden}
-  .side:hover{border-color:var(--bd2)}
-  .side.on{border-color:var(--red);background:var(--red-dim)}
-  .side.locked{cursor:not-allowed;opacity:.7}
-  .side .who{font-weight:700;font-size:.95rem;margin-bottom:4px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-  .side .odds{font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--blue)}
-  .side .arg{font-size:.78rem;color:var(--dim);line-height:1.45}
-  .side .prob{position:absolute;left:0;bottom:0;height:3px;background:var(--blue);transition:width .5s ease}
+  /* topbar */
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-bottom:1px solid var(--bd);position:sticky;top:0;background:rgba(11,12,16,.92);backdrop-filter:blur(10px);z-index:50}
+  .brand{font-weight:800;letter-spacing:-.02em;font-size:1.12rem}.brand em{color:var(--con);font-style:normal}
+  .brand .tag{font-size:.54rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .top-right{display:flex;align-items:center;gap:10px}
+  .bal{font-family:var(--mono);font-size:.82rem;color:var(--dim)}.bal b{color:var(--pro)}
+  .rankchip{font-family:var(--mono);font-size:.64rem;font-weight:700;color:var(--blue);background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.3);padding:3px 8px;border-radius:999px}
+  .btn{font-family:'Crimson Pro',serif;font-weight:700;border:none;border-radius:999px;cursor:pointer;transition:.15s}
+  .signin{background:#fff;color:#14161c;font-size:.8rem;padding:7px 14px;display:inline-flex;align-items:center;gap:7px}
+  .signin:hover{background:#eee}
+  .acct{font-size:.78rem;color:var(--dim);background:transparent;border:1px solid var(--bd2);padding:6px 12px;border-radius:999px;cursor:pointer}
 
-  /* live round timeline */
-  .timeline{display:flex;gap:6px;margin:4px 0 12px}
-  .ph{flex:1;text-align:center;font-size:.56rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-    color:var(--faint);padding:7px 2px;border-radius:8px;border:1px solid var(--bd);background:var(--panel2);transition:.25s}
-  .ph.done{color:var(--dim);border-color:var(--bd2)}
-  .ph.now{color:#fff;border-color:var(--red);background:var(--red-dim);box-shadow:0 0 0 1px var(--red)}
-  .ph.locked-edge{border-left:2px dashed var(--amber)}
-  .clockrow{display:flex;align-items:center;gap:10px;font-size:.8rem;color:var(--dim);flex-wrap:wrap}
-  .pill{font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
-  .pill.open{background:var(--green-dim);color:var(--green)}
-  .pill.locked{background:rgba(251,191,36,.14);color:var(--amber)}
-  .pill.settled{background:rgba(96,165,250,.14);color:var(--blue)}
-  .nowspeech{color:var(--tx);font-weight:600}
+  .head{padding:26px 0 8px}
+  .head h1{font-size:clamp(1.6rem,4vw,2.3rem);font-weight:800;letter-spacing:-.02em}
+  .head p{color:var(--dim);font-size:.96rem;margin-top:4px;max-width:60ch}
+  .head .pts{color:var(--faint);font-size:.8rem;margin-top:6px}
 
-  /* market / pool */
-  .market{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
-  .stat{flex:1;min-width:120px}
-  .stat .n{font-family:var(--mono);font-size:1.3rem;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
-  .stat .k{font-size:.62rem;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+  .layout{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start;padding:18px 0 90px}
+  @media(max-width:820px){.layout{grid-template-columns:1fr}}
 
-  .commit{font-family:var(--mono);font-size:.7rem;color:var(--blue);word-break:break-all;
-    background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.22);padding:8px 10px;border-radius:8px}
-  .verify-ok{color:var(--green)}.verify-bad{color:var(--red)}
-  .stakeRow{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
-  input[type=number]{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;
-    color:var(--tx);font-family:inherit;font-size:.9rem;padding:8px 12px;width:120px}
-  .btn{background:var(--red);color:#fff;border:none;border-radius:999px;font-family:inherit;
-    font-weight:700;font-size:.88rem;padding:11px 24px;cursor:pointer;transition:.15s}
-  .btn:hover{filter:brightness(1.08)}.btn:disabled{opacity:.4;cursor:not-allowed}
-  .btn.ghost{background:transparent;border:1px solid var(--bd2);color:var(--tx)}
-  .quick{display:flex;gap:6px}
-  .quick button{background:var(--panel2);border:1px solid var(--bd);color:var(--dim);border-radius:8px;
-    font-family:inherit;font-size:.78rem;padding:7px 11px;cursor:pointer}
-  .quick button:hover{border-color:var(--bd2);color:var(--tx)}
-  .chip{display:inline-block;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
-    padding:3px 8px;border-radius:999px;margin-left:8px}
-  .chip.win{background:var(--green-dim);color:var(--green)}
-  .chip.lose{background:var(--red-dim);color:var(--red)}
+  .seclbl{font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:6px 0 12px;display:flex;align-items:center;justify-content:space-between}
+
+  /* market card */
+  .mkt{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:16px 16px 14px;margin-bottom:14px}
+  .mkt-q{font-size:1.08rem;font-weight:700;line-height:1.3;margin-bottom:12px}
+  .mkt-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem;color:var(--faint);margin-top:12px;font-family:var(--mono)}
+  .mkt-meta b{color:var(--dim);font-weight:700}
+  .outcome{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .out-btn{flex:1;text-align:left;background:var(--panel2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--tx);font-family:inherit;position:relative;overflow:hidden;transition:.13s}
+  .out-btn:hover{border-color:var(--bd2)}
+  .out-btn[disabled]{cursor:default;opacity:.85}
+  .out-btn .lab{display:flex;align-items:baseline;justify-content:space-between;gap:8px;position:relative;z-index:1}
+  .out-btn .nm{font-weight:700;font-size:.92rem}
+  .out-btn .px{font-family:var(--mono);font-weight:800;font-size:1.02rem}
+  .out-btn .fill{position:absolute;left:0;top:0;bottom:0;border-radius:10px;transition:width .5s ease;z-index:0}
+  .out-pro .px{color:var(--pro)} .out-pro .fill{background:rgba(34,197,94,.13)} .out-pro.sel{border-color:var(--pro)}
+  .out-con .px{color:var(--con)} .out-con .fill{background:rgba(239,68,68,.13)} .out-con.sel{border-color:var(--con)}
+  .mkt-sub{font-size:.78rem;color:var(--dim);line-height:1.45;margin:2px 0 12px}
+  .mkt-sub .vs{color:var(--faint);font-weight:700;margin:0 4px}
+
+  /* bet row */
+  .betrow{display:none;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .betrow.on{display:flex}
+  .betrow input{width:88px;background:var(--panel2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-family:inherit;font-size:.88rem;padding:8px 10px}
+  .betrow .qk{font-size:.72rem;color:var(--dim);background:var(--panel2);border:1px solid var(--bd);border-radius:7px;padding:7px 9px;cursor:pointer}
+  .betrow .buy{background:var(--con);color:#fff;font-size:.84rem;padding:9px 18px;font-weight:700}
+  .betrow .buy.pro{background:var(--pro-d)}
+  .betrow .hint{font-size:.74rem;color:var(--faint);flex:1 1 100%;font-family:var(--mono)}
+  .pos{font-size:.8rem;color:var(--dim);margin-top:8px;background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:8px 11px}
+  .pos b{color:var(--tx)}
+  .status-pill{font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+  .sp-open{background:rgba(34,197,94,.14);color:var(--pro)} .sp-lock{background:rgba(251,191,36,.14);color:var(--amber)} .sp-done{background:rgba(96,165,250,.14);color:var(--blue)}
+
+  /* resolved */
+  .res .mkt{opacity:.92}
+  .res-line{font-size:.84rem;color:var(--dim);margin-top:8px}
+  .res-line b{color:var(--tx)}
+  .rfd{font-size:.82rem;color:var(--dim);line-height:1.5;background:var(--panel2);border-left:2px solid var(--blue);border-radius:8px;padding:9px 12px;margin-top:8px}
+  .chip{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border-radius:999px;margin-left:8px}
+  .chip.win{background:rgba(34,197,94,.16);color:var(--pro)} .chip.lose{background:rgba(239,68,68,.16);color:var(--con)}
+
+  /* rail */
+  .rail{position:sticky;top:72px}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:16px}
+  .lb-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:.84rem}
+  .lb-row:last-child{border-bottom:none}.lb-row.me{color:var(--tx);font-weight:700}
+  .lb-row .tier{font-size:.6rem;color:var(--faint);margin-left:6px}
+  .lb-row .rt{font-family:var(--mono);color:var(--blue)}
   .note{font-size:.72rem;color:var(--faint);line-height:1.5;margin-top:10px}
-  .you{font-size:.82rem;color:var(--dim);margin-top:12px}
-  .you b{color:var(--tx)}
-  .fairlist{list-style:none;margin:6px 0 0;padding:0}
-  .fairlist li{font-size:.76rem;color:var(--dim);line-height:1.5;padding:6px 0 6px 22px;position:relative;border-bottom:1px solid var(--bd)}
-  .fairlist li:last-child{border-bottom:none}
-  .fairlist li::before{content:'\2713';position:absolute;left:0;top:6px;color:var(--green);font-weight:800}
-  .fair{margin-top:10px}.fair summary{cursor:pointer;font-size:.74rem;color:var(--dim);font-weight:600}
-  .fair p{font-size:.74rem;color:var(--faint);margin-top:8px;line-height:1.55}
-  .result{font-size:1.1rem;font-weight:700;margin-bottom:6px}
-  .rfd{font-size:.86rem;color:var(--dim);line-height:1.5;background:var(--panel2);border:1px solid var(--bd);
-    border-left:2px solid var(--blue);border-radius:8px;padding:11px 13px;margin:10px 0}
-  .rfd b{color:var(--tx)}
-  .hist{font-size:.78rem;color:var(--dim)}
-  .hist .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd)}
-  .hist .row:last-child{border-bottom:none}
-  .hist .pos{color:var(--green)}.hist .neg{color:var(--red)}
-  .hist .row.me{color:var(--tx);font-weight:700}
-  .hist .tier{font-size:.6rem;color:var(--faint);margin-left:6px}
-  .hist .rt{font-family:var(--mono);color:var(--blue)}
-  .rankchip{font-family:var(--mono);font-size:.64rem;font-weight:700;color:var(--blue);
-    background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.3);padding:2px 7px;border-radius:999px;margin-left:6px}
-  .hidden{display:none}
-  a{color:var(--blue)}
+  .empty{color:var(--faint);font-size:.9rem;padding:30px 0;text-align:center}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b1e26;border:1px solid var(--bd2);color:var(--tx);padding:10px 18px;border-radius:999px;font-size:.84rem;z-index:200;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(-4px)}
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
 <body>
 <div class="wrap">
-  <div class="topline">
-    <span class="brand"><em>DebateIt</em> · Predict <span class="proto-tag">Internal prototype</span></span>
-    <span class="bal">Balance: <b id="bal">0</b> pts <span id="rankChip" class="rankchip">—</span></span>
-  </div>
-  <h1>Bet the round. Beat the clock.</h1>
-  <p class="sub">A live market on who wins a debate the AI will judge. Points only, no real money. Bets lock at the middle speeches, so nobody trades on the ending.</p>
-
-  <!-- THE ROUND + live odds -->
-  <div class="card">
-    <div class="lbl"><span>The round</span><span id="statusPill" class="pill open">Betting open</span></div>
-    <div class="motion" id="motion">—</div>
-    <div class="sides" id="sides"></div>
-  </div>
-
-  <!-- LIVE TIMELINE -->
-  <div class="card">
-    <div class="lbl"><span>Live · speeches</span><span id="clockTag" class="hist"></span></div>
-    <div class="timeline" id="timeline"></div>
-    <div class="clockrow">
-      <span id="nowSpeech" class="nowspeech">—</span>
-      <span id="lockMsg"></span>
+  <div class="top">
+    <span class="brand"><em>DebateIt</em> · Predict <span class="tag">Beta · points only</span></span>
+    <div class="top-right">
+      <span class="bal" id="balWrap" hidden>Balance <b id="bal">—</b> · <span id="rankChip" class="rankchip">—</span></span>
+      <button class="btn signin" id="authBtn">Sign in</button>
     </div>
-  </div>
-
-  <!-- MARKET -->
-  <div class="card">
-    <div class="lbl">Market · parimutuel pool</div>
-    <div class="market">
-      <div class="stat"><div class="n" id="poolTotal">0</div><div class="k">Total pool</div></div>
-      <div class="stat"><div class="n" id="oddsPro">—</div><div class="k">Pro pays</div></div>
-      <div class="stat"><div class="n" id="oddsCon">—</div><div class="k">Con pays</div></div>
-    </div>
-    <p class="note">Odds move as the crowd reads the room. Winners split the entire pool in proportion to their stake, so the payout is set by the final pool, not a fixed line.</p>
-  </div>
-
-  <!-- YOUR BET -->
-  <div class="card" id="betCard">
-    <div class="lbl">Your bet</div>
-    <p class="note" style="margin-top:0">Tap a side above, set a stake, and place it before the lock. Picks are blind. you never see anyone else's until the round locks.</p>
-    <div class="stakeRow">
-      <input type="number" id="stake" value="50" min="1" step="10">
-      <div class="quick">
-        <button data-q="25">25</button><button data-q="100">100</button>
-        <button data-q="250">250</button><button data-q="max">Max</button>
-      </div>
-      <button class="btn" id="betBtn" disabled>Place bet</button>
-    </div>
-    <div class="you" id="youLine"></div>
-    <p class="note">You can't bet on a round you're debating in (self-exclusion). This demo is spectator-side only.</p>
-  </div>
-
-  <!-- RESULT -->
-  <div class="card hidden" id="resultCard">
-    <div class="lbl">AI verdict</div>
-    <div class="result" id="result">—</div>
-    <div class="rfd" id="rfd"></div>
-    <details class="fair">
-      <summary>Why this couldn't be gamed</summary>
-      <ul class="fairlist">
-        <li>The verdict was <b>sealed</b> before betting opened (hash below), so it provably can't react to the market.</li>
-        <li>The AI judge is <b>segregated</b>. it scores the flow and never sees the pool.</li>
-        <li>Betting <b>locked at the middle speeches</b>, so no one buys in once the round is decided.</li>
-        <li><b>Self-exclusion</b>: debaters can't bet on their own round.</li>
-        <li>Picks were <b>blind</b> until the lock.</li>
-      </ul>
-      <p>Sealed commit (shown before betting): <span class="commit" id="commitOut" style="display:inline-block;margin-top:6px"></span></p>
-      <p>Revealed seed: <span class="commit" id="seedOut" style="display:inline-block"></span></p>
-      <p>SHA-256(seed) = <span class="commit" id="recompute" style="display:inline-block"></span></p>
-      <p id="verifyMsg"></p>
-    </details>
-    <div class="stakeRow">
-      <button class="btn" id="nextBtn">Next round</button>
-    </div>
-  </div>
-
-  <!-- YOUR RECORD -->
-  <div class="card">
-    <div class="lbl"><span>Your record</span><span id="rkSeason" class="hist"></span></div>
-    <div class="market">
-      <div class="stat"><div class="n" id="rkRating">1000</div><div class="k" id="rkTier">Spectator</div></div>
-      <div class="stat"><div class="n" id="rkAcc">0%</div><div class="k">Accuracy</div></div>
-      <div class="stat"><div class="n" id="rkWL">0&ndash;0</div><div class="k">Record</div></div>
-    </div>
-    <div class="you"><b id="rkRoi">+0%</b> return on stake &middot; current streak <b id="rkStreak">0</b></div>
-    <p class="note">Rating rewards beating the odds: call an underdog right and you climb fast; blow a favorite and you drop hard. Volume alone won't carry you.</p>
-  </div>
-
-  <!-- SKILL LADDER -->
-  <div class="card">
-    <div class="lbl"><span>Skill ladder</span><span id="boardRank" class="hist"></span></div>
-    <div class="hist" id="board"></div>
-    <div class="stakeRow" style="margin-top:14px">
-      <button class="btn ghost" id="shareBtn" type="button">Challenge your circuit</button>
-    </div>
-    <p class="note" id="shareNote">Drop it in your team's Discord and see who actually calls rounds best. real cross-player standings land with accounts (v3).</p>
-  </div>
-
-  <!-- HISTORY -->
-  <div class="card">
-    <div class="lbl">Your last bets</div>
-    <div class="hist" id="hist"><span class="note" style="margin:0">No bets yet.</span></div>
   </div>
 </div>
 
+<div class="wrap head">
+  <h1>Live debate markets.</h1>
+  <p>Stake reputation points on who wins an AI-judged debate. Odds move with the crowd, the pool pays out parimutuel, and the leaderboard is real. No real money.</p>
+  <div class="pts" id="signedOutNote" hidden>Browsing as a guest. <a href="#" id="inlineSignin">Sign in</a> to place bets and climb the ladder.</div>
+</div>
+
+<div class="wrap layout">
+  <div>
+    <div class="seclbl"><span>Open markets</span><span id="openCount"></span></div>
+    <div id="openWrap"><div class="empty">Loading markets…</div></div>
+
+    <div class="seclbl" style="margin-top:24px">Recently resolved</div>
+    <div id="resWrap" class="res"><div class="empty" style="padding:14px 0">No resolved markets yet.</div></div>
+  </div>
+
+  <div class="rail">
+    <div class="card">
+      <div class="seclbl" style="margin:0 0 10px">Skill ladder</div>
+      <div id="lb"><div class="empty" style="padding:14px 0">No predictors yet.</div></div>
+      <p class="note">Rating rewards calling underdogs right. it drops hard when you blow a favorite. Points are virtual, non-redeemable.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
 (function(){
-  var $=function(id){ return document.getElementById(id); };
-  // ── Virtual currency + history (localStorage, non-redeemable) ──────
-  var BAL_KEY='predict-balance', HIST_KEY='predict-history';
-  function getBal(){ var v=parseInt(localStorage.getItem(BAL_KEY)||'',10); return isNaN(v)?1000:v; }
-  function setBal(n){ localStorage.setItem(BAL_KEY,String(n)); $('bal').textContent=n; }
-  function getHist(){ try{ return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch(e){ return []; } }
-  function pushHist(h){ var a=getHist(); a.unshift(h); a=a.slice(0,8); localStorage.setItem(HIST_KEY,JSON.stringify(a)); renderHist(); }
-  function renderHist(){
-    var a=getHist(), el=$('hist');
-    if(!a.length){ el.innerHTML='<span class="note" style="margin:0">No bets yet.</span>'; return; }
-    el.innerHTML=a.map(function(h){
-      var net=h.net, cls=net>=0?'pos':'neg', sign=net>=0?'+':'';
-      return '<div class="row"><span>'+h.pick.toUpperCase()+' · '+h.stake+' pts · '+h.motion+'</span>'+
-             '<span class="'+cls+'">'+sign+net+'</span></div>';
-    }).join('');
+  var $=function(id){return document.getElementById(id);};
+  var API='/.netlify/functions/predict';
+  var user=null, lastData=null, selPick={}, tickTimer=null, pollTimer=null;
+
+  function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(function(){ t.classList.remove('on'); },2600); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function fmtCountdown(ms){ if(ms<=0) return 'resolving'; var m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000); if(m>=60){ return Math.floor(m/60)+'h '+(m%60)+'m'; } return m>0 ? (m+'m '+s+'s') : (s+'s'); }
+
+  async function api(action, payload){
+    var headers={'Content-Type':'application/json'};
+    try { if(user){ var tok=await user.getIdToken(); headers['Authorization']='Bearer '+tok; } } catch(e){}
+    var r=await fetch(API,{method:'POST',headers:headers,body:JSON.stringify(Object.assign({action:action},payload||{}))});
+    return r.json();
   }
 
-  // ── Skill rating, rank tiers, seasons, leaderboard ────────────────
-  var STATS_KEY='predict-stats', SEASON_MS=14*24*3600*1000;
-  var TIERS=[{min:1500,name:'Oracle'},{min:1300,name:'Forecaster'},{min:1150,name:'Pundit'},{min:1000,name:'Spectator'},{min:0,name:'Rookie'}];
-  function tierFor(r){ for(var i=0;i<TIERS.length;i++){ if(r>=TIERS[i].min) return TIERS[i].name; } return 'Rookie'; }
-  function defStats(){ return {rating:1000,best:1000,bets:0,wins:0,staked:0,returned:0,streak:0,bestStreak:0,seasonNo:1,seasonStart:Date.now(),seasonBets:0,seasonNet:0,lastSeason:null}; }
-  function rollSeason(s){
-    if(Date.now() > s.seasonStart + SEASON_MS){
-      s.lastSeason={no:s.seasonNo,net:s.seasonNet,bets:s.seasonBets,rating:s.rating};
-      s.seasonNo+=1; s.seasonStart=Date.now(); s.seasonBets=0; s.seasonNet=0;
+  function pct(market, side){ var tot=(market.poolPro||0)+(market.poolCon||0); if(tot<=0) return 50; return Math.round(((side==='pro'?market.poolPro:market.poolCon)/tot)*100); }
+  function multi(market, side){ var tot=(market.poolPro||0)+(market.poolCon||0); var p=side==='pro'?market.poolPro:market.poolCon; if(!p) return null; return (tot/p); }
+
+  function outcomeBtn(m, side){
+    var p=pct(m,side), mu=multi(m,side), locked=m.status!=='open';
+    var nm=side==='pro'?(m.proName||'Pro'):(m.conName||'Con');
+    var sel=selPick[m.room]===side?' sel':'';
+    var mult=mu?('· '+mu.toFixed(2)+'x'):'';
+    return '<button class="out-btn out-'+side+sel+'" data-room="'+m.room+'" data-side="'+side+'" '+(locked?'disabled':'')+'>'+
+      '<span class="fill" style="width:'+p+'%"></span>'+
+      '<span class="lab"><span class="nm">'+esc(nm)+' <span style="color:var(--faint);font-weight:400;font-size:.78rem">'+mult+'</span></span><span class="px">'+p+'%</span></span></button>';
+  }
+
+  function marketCard(m){
+    var locked=m.status!=='open', pool=(m.poolPro||0)+(m.poolCon||0);
+    var spill = locked ? '<span class="status-pill sp-lock">Locked</span>' : '<span class="status-pill sp-open">Open</span>';
+    var sub = (m.proCase||m.conCase) ? '<div class="mkt-sub"><b style="color:var(--pro)">Pro:</b> '+esc(m.proCase)+'<span class="vs">·</span><b style="color:var(--con)">Con:</b> '+esc(m.conCase)+'</div>' : '';
+    var bet = '<div class="betrow" id="bet-'+m.room+'">'+
+        '<input type="number" id="stk-'+m.room+'" value="50" min="1" step="10">'+
+        '<span class="qk" data-stk="'+m.room+'" data-v="100">100</span><span class="qk" data-stk="'+m.room+'" data-v="250">250</span>'+
+        '<button class="buy" id="buy-'+m.room+'" data-room="'+m.room+'">Place bet</button>'+
+        '<span class="hint" id="hint-'+m.room+'"></span></div>';
+    var pos = m.myBet ? '<div class="pos">Your position: <b>'+m.myBet.stake+'</b> pts on <b>'+m.myBet.pick.toUpperCase()+'</b>.</div>' : '';
+    return '<div class="mkt" data-card="'+m.room+'">'+
+      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="mkt-q">'+esc(m.motion)+'</div>'+spill+'</div>'+
+      sub+
+      '<div class="outcome">'+outcomeBtn(m,'pro')+'</div>'+
+      '<div class="outcome">'+outcomeBtn(m,'con')+'</div>'+
+      (locked ? '' : bet) + pos +
+      '<div class="mkt-meta"><span><b>'+pool+'</b> pts pool</span><span><b>'+(m.betCount||0)+'</b> bets</span><span>'+(locked?'awaiting AI verdict':'locks in <b data-lock="'+(m.lockAt||0)+'">'+fmtCountdown((m.lockAt||0)-Date.now())+'</b>')+'</span></div>'+
+      '</div>';
+  }
+
+  function resolvedCard(m){
+    var winNm = m.verdict==='pro'?(m.proName||'Pro'):(m.conName||'Con');
+    var chip = m.myBet ? (m.myBet.pick===m.verdict ? '<span class="chip win">you called it</span>' : '<span class="chip lose">missed</span>') : '';
+    return '<div class="mkt"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="mkt-q">'+esc(m.motion)+'</div><span class="status-pill sp-done">Settled</span></div>'+
+      '<div class="res-line">Verdict: <b style="color:'+(m.verdict==='pro'?'var(--pro)':'var(--con)')+'">'+esc(winNm)+'</b>'+chip+'</div>'+
+      (m.rfd?'<div class="rfd">'+esc(m.rfd)+'</div>':'')+
+      '<div class="mkt-meta"><span><b>'+((m.poolPro||0)+(m.poolCon||0))+'</b> pts pool</span><span><b>'+(m.betCount||0)+'</b> bets</span></div></div>';
+  }
+
+  function render(d){
+    lastData=d;
+    if(d.signedIn){ $('balWrap').hidden=false; $('bal').textContent=(d.balance!=null?d.balance:'—'); $('rankChip').textContent=(d.tier||'Spectator')+' · '+(d.rating||1000); $('signedOutNote').hidden=true; }
+    else { $('balWrap').hidden=true; $('signedOutNote').hidden=false; }
+    var open=(d.markets||[]).filter(function(m){return m.status==='open'||m.status==='resolving';});
+    var res=(d.markets||[]).filter(function(m){return m.status==='settled';});
+    $('openCount').textContent=open.length?(open.length+' live'):'';
+    $('openWrap').innerHTML = open.length ? open.map(marketCard).join('') : '<div class="empty">No open markets right now. fresh ones are minted automatically. refresh in a moment.</div>';
+    $('resWrap').innerHTML = res.length ? res.map(resolvedCard).join('') : '<div class="empty" style="padding:14px 0">No resolved markets yet.</div>';
+    if(d.leaderboard && d.leaderboard.length){
+      $('lb').innerHTML=d.leaderboard.map(function(r,i){ return '<div class="lb-row'+(r.me?' me':'')+'"><span>'+(i+1)+'. '+(r.me?'<b>you</b>':esc(r.name))+'<span class="tier">'+esc(r.tier)+'</span></span><span class="rt">'+r.rating+'</span></div>'; }).join('');
     }
-    return s;
-  }
-  function getStats(){ var s; try{ s=Object.assign(defStats(),JSON.parse(localStorage.getItem(STATS_KEY)||'{}')); }catch(e){ s=defStats(); } return rollSeason(s); }
-  function saveStats(s){ localStorage.setItem(STATS_KEY,JSON.stringify(s)); }
-  // Calibration-aware: backing an underdog (low implied prob) and winning
-  // pays a big rating gain; blowing a favorite costs a big drop. Volume
-  // alone is flat EV on rating.
-  function recordBet(pick,stake,won,payout,impliedProb){
-    var s=getStats();
-    s.bets++; s.seasonBets++; s.staked+=stake;
-    var net = won ? (payout-stake) : -stake;
-    if(won){ s.wins++; s.returned+=payout; s.streak++; if(s.streak>s.bestStreak) s.bestStreak=s.streak; }
-    else { s.streak=0; }
-    s.seasonNet+=net;
-    var delta = won ? Math.round(6+30*(1-impliedProb)) : -Math.round(6+30*impliedProb);
-    s.rating=Math.max(100,s.rating+delta); if(s.rating>s.best) s.best=s.rating;
-    saveStats(s);
-    return {net:net,delta:delta};
-  }
-  var FIELD=[
-    {name:'flowqueen',rating:1612},{name:'tabroom_tony',rating:1548},{name:'pointsplease',rating:1487},
-    {name:'whip_smart',rating:1431},{name:'caseneg',rating:1372},{name:'oraclette',rating:1318},
-    {name:'spreadsheet_sam',rating:1256},{name:'pmr_andy',rating:1191},{name:'lay_judge_lou',rating:1118},
-    {name:'novice_nia',rating:1043}
-  ];
-  function renderRecord(){
-    var s=getStats(); saveStats(s);
-    var acc=s.bets?Math.round(100*s.wins/s.bets):0;
-    var roi=s.staked?Math.round(100*(s.returned-s.staked)/s.staked):0;
-    var dleft=Math.max(0,Math.ceil((s.seasonStart+SEASON_MS-Date.now())/86400000));
-    $('rkRating').textContent=s.rating;
-    $('rkTier').textContent=tierFor(s.rating);
-    $('rkAcc').textContent=acc+'%';
-    $('rkWL').textContent=s.wins+'–'+(s.bets-s.wins);
-    $('rkRoi').textContent=(roi>=0?'+':'')+roi+'%';
-    $('rkRoi').style.color = roi>=0?'var(--green)':'var(--red)';
-    $('rkStreak').textContent=s.streak+(s.bestStreak?(' (best '+s.bestStreak+')'):'');
-    $('rkSeason').textContent='Season '+s.seasonNo+' · '+dleft+'d left · '+(s.seasonNet>=0?'+':'')+s.seasonNet+' pts';
-    $('rankChip').textContent=tierFor(s.rating)+' · '+s.rating;
-  }
-  function renderBoard(){
-    var s=getStats();
-    var rows=FIELD.concat([{name:'you',rating:s.rating,you:true}]).sort(function(a,b){return b.rating-a.rating;});
-    var rank=0; rows.forEach(function(r,i){ if(r.you) rank=i+1; });
-    $('boardRank').textContent='#'+rank+' of '+rows.length;
-    $('board').innerHTML=rows.slice(0,11).map(function(r,i){
-      return '<div class="row'+(r.you?' me':'')+'"><span>'+(i+1)+'. '+(r.you?'<b>you</b>':r.name)+
-             '<span class="tier">'+tierFor(r.rating)+'</span></span><span class="rt">'+r.rating+'</span></div>';
-    }).join('');
-  }
-  function flashShare(msg){ var n=$('shareNote'); if(!n._d) n._d=n.textContent; n.textContent=msg; setTimeout(function(){ n.textContent=n._d; },4000); }
-  function shareInvite(){
-    var s=getStats();
-    var txt = s.bets
-      ? ("I'm "+tierFor(s.rating)+" ("+s.rating+") calling debate rounds on DebateIt, "+s.wins+"–"+(s.bets-s.wins)+". think you can call them better?")
-      : "Predicting who wins live debates on DebateIt, an AI judges the round. think you can call them?";
-    var url=location.origin+'/predict';
-    if(navigator.share){ navigator.share({title:'DebateIt · Predict',text:txt,url:url}).catch(function(){}); return; }
-    var full=txt+' '+url;
-    try{ navigator.clipboard.writeText(full).then(function(){ flashShare('Copied. drop it in your team’s Discord.'); }, function(){ flashShare(full); }); }
-    catch(e){ flashShare(full); }
+    wire();
   }
 
-  // ── Motion bank ───────────────────────────────────────────────────
-  var ROUNDS=[
-    { m:'This house would ban targeted political advertising.',
-      pro:'Microtargeting fractures the shared public square and lets campaigns lie privately to narrow slices of voters.',
-      con:'A ban hands incumbents and big brands the advantage; small challengers rely on cheap targeted reach to be heard.' },
-    { m:'This house believes social media has done more harm than good.',
-      pro:'Engagement-maximizing feeds trade teen mental health and shared truth for time-on-app.',
-      con:'It collapsed the cost of organizing, learning, and reaching an audience for billions with no other platform.' },
-    { m:'This house would require AI systems to disclose their training data.',
-      pro:'Without provenance you cannot audit bias, theft, or safety; disclosure is the floor for accountability.',
-      con:'Forced disclosure leaks trade secrets and entrenches incumbents who can afford the compliance and litigation.' },
-    { m:'This house regrets the rise of the gig economy.',
-      pro:'It rebranded precarity as freedom and offloaded every employer risk onto the worker.',
-      con:'It gave flexible income to millions locked out of rigid 9-to-5 work and undercut exploitative local monopolies.' }
-  ];
-
-  // ── Round structure: 6 speeches, alternating benches. Betting locks
-  //    after the MIDDLE speech (index 2 of 0..5), i.e. you can bet through
-  //    the first three speeches only. ──────────────────────────────────
-  var PHASES=[
-    {k:'PMC',side:'pro',name:'Prime Minister'},
-    {k:'LOC',side:'con',name:'Leader of Opp'},
-    {k:'MG', side:'pro',name:'Member of Gov'},
-    {k:'MO', side:'con',name:'Member of Opp'},
-    {k:'LOR',side:'con',name:'Leader of Opp Rebuttal'},
-    {k:'PMR',side:'pro',name:'PM Rebuttal'}
-  ];
-  var LOCK_AFTER=2;            // betting closes once we pass speech index 2 (MG)
-  var OPEN_MS=5200, FAST_MS=1500; // per-speech pace before / after the lock
-
-  var state={};
-
-  function bufToHex(buf){ return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''); }
-  async function sha256(str){ var h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str)); return bufToHex(h); }
-  function randSeed(){ var a=new Uint8Array(16); crypto.getRandomValues(a); return bufToHex(a.buffer); }
-  // Sealed verdict: derived deterministically from the seed (committed
-  // before betting). Provably can't react to the pool.
-  async function deriveWinner(seed,motion){ var h=await sha256(seed+'|'+motion); return (parseInt(h.slice(0,2),16)%2===0)?'pro':'con'; }
-  // A pseudo-random but seed-deterministic 0..1 for the crowd lean noise,
-  // so the whole round (incl. how the odds drift) is reproducible from the seed.
-  function seedRand(seed,i){ var x=0; var s=seed+':'+i; for(var j=0;j<s.length;j++){ x=(x*31+s.charCodeAt(j))>>>0; } return (x%10000)/10000; }
-
-  function fmtOdds(side){
-    var pool=side==='pro'?state.poolPro:state.poolCon, total=state.poolPro+state.poolCon;
-    if(pool<=0||total<=0) return '—';
-    return (total/pool).toFixed(2)+'x';
-  }
-  function prob(side){ var total=state.poolPro+state.poolCon; if(total<=0) return 0.5; return (side==='pro'?state.poolPro:state.poolCon)/total; }
-
-  function renderMarket(){
-    $('poolTotal').textContent=Math.round(state.poolPro+state.poolCon);
-    $('oddsPro').textContent=fmtOdds('pro');
-    $('oddsCon').textContent=fmtOdds('con');
-    ['pro','con'].forEach(function(s){
-      var el=document.querySelector('.side[data-side="'+s+'"]'); if(!el) return;
-      el.querySelector('.odds').textContent=fmtOdds(s);
-      el.querySelector('.prob').style.width=(prob(s)*100).toFixed(1)+'%';
+  function wire(){
+    // outcome select -> open bet row
+    [].forEach.call(document.querySelectorAll('.out-btn'),function(b){
+      b.onclick=function(){
+        if(b.disabled) return;
+        if(!user){ doSignIn(); return; }
+        var room=b.getAttribute('data-room'), side=b.getAttribute('data-side');
+        selPick[room]=side;
+        [].forEach.call(document.querySelectorAll('.out-btn[data-room="'+room+'"]'),function(x){ x.classList.toggle('sel', x.getAttribute('data-side')===side); });
+        var row=$('bet-'+room); if(row) row.classList.add('on');
+        var buy=$('buy-'+room); if(buy) buy.classList.toggle('pro', side==='pro');
+        updHint(room);
+      };
     });
-    // live "if you win" hint
-    if(state.pick && !state.bet){
-      var stake=clampStake();
-      var winPool=(state.pick==='pro'?state.poolPro:state.poolCon)+stake;
-      var total=state.poolPro+state.poolCon+stake;
-      var payout=Math.floor(stake*total/winPool);
-      $('youLine').innerHTML='If <b>'+state.pick.toUpperCase()+'</b> wins, '+stake+' pts returns about <b>'+payout+'</b> at the current pool.';
-    }
+    [].forEach.call(document.querySelectorAll('.qk'),function(q){ q.onclick=function(){ var r=q.getAttribute('data-stk'); var inp=$('stk-'+r); if(inp){ inp.value=q.getAttribute('data-v'); updHint(r); } }; });
+    [].forEach.call(document.querySelectorAll('.betrow input'),function(inp){ inp.oninput=function(){ updHint(inp.id.replace('stk-','')); }; });
+    [].forEach.call(document.querySelectorAll('.buy'),function(b){ b.onclick=function(){ placeBet(b.getAttribute('data-room')); }; });
   }
 
-  function renderTimeline(){
-    var tl=$('timeline'); tl.innerHTML='';
-    PHASES.forEach(function(p,i){
-      var d=document.createElement('div');
-      d.className='ph'+(i<state.phase?' done':'')+(i===state.phase?' now':'')+(i===LOCK_AFTER+1?' locked-edge':'');
-      d.textContent=p.k; tl.appendChild(d);
+  function findMkt(room){ return (lastData&&lastData.markets||[]).filter(function(m){return m.room===room;})[0]; }
+  function updHint(room){
+    var m=findMkt(room), side=selPick[room]; if(!m||!side) return;
+    var stake=Math.max(1,parseInt(($('stk-'+room)||{}).value,10)||0);
+    var winPool=(side==='pro'?m.poolPro:m.poolCon)+stake, tot=(m.poolPro||0)+(m.poolCon||0)+stake;
+    var payout=Math.floor(stake*tot/winPool);
+    var h=$('hint-'+room); if(h) h.textContent='If '+side.toUpperCase()+' wins, '+stake+' returns ~'+payout+' at the current pool.';
+  }
+
+  async function placeBet(room){
+    var side=selPick[room]; if(!side){ toast('Pick a side first.'); return; }
+    var stake=Math.max(1,parseInt(($('stk-'+room)||{}).value,10)||0);
+    var buy=$('buy-'+room); if(buy){ buy.disabled=true; buy.textContent='Placing…'; }
+    var d=await api('bet',{room:room,pick:side,stake:stake});
+    if(d&&d.ok){ toast('Bet placed: '+stake+' on '+side.toUpperCase()+'.'); load(); }
+    else { toast((d&&d.error)||'Could not place bet.'); if(buy){ buy.disabled=false; buy.textContent='Place bet'; } }
+  }
+
+  async function load(){
+    var d=await api('list');
+    if(d&&d.ok) render(d);
+    else $('openWrap').innerHTML='<div class="empty">Could not load markets. refresh.</div>';
+  }
+
+  // live countdowns
+  function startTick(){ if(tickTimer) clearInterval(tickTimer); tickTimer=setInterval(function(){
+    [].forEach.call(document.querySelectorAll('[data-lock]'),function(el){ var t=parseInt(el.getAttribute('data-lock'),10)||0; el.textContent=fmtCountdown(t-Date.now()); });
+  },1000); }
+
+  // auth
+  function doSignIn(){ var p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); firebase.auth().signInWithPopup(p).catch(function(e){ try{ firebase.auth().signInWithRedirect(p); }catch(_){} }); }
+  $('authBtn').onclick=function(){ if(user) firebase.auth().signOut(); else doSignIn(); };
+  $('inlineSignin').onclick=function(e){ e.preventDefault(); doSignIn(); };
+
+  try {
+    firebase.auth().onAuthStateChanged(function(u){
+      user=u||null;
+      $('authBtn').textContent = user ? 'Sign out' : 'Sign in';
+      $('authBtn').className = user ? 'btn acct' : 'btn signin';
+      load();
     });
-    var p=PHASES[state.phase];
-    $('nowSpeech').textContent = state.settled ? 'Round complete.' : (p? p.name+' speaking ('+p.side.toUpperCase()+')' : '');
-    var remaining=LOCK_AFTER-state.phase;
-    if(state.settled){ $('lockMsg').textContent=''; }
-    else if(state.locked){ $('lockMsg').innerHTML='<span style="color:var(--amber)">Betting locked.</span> watching the back half.'; }
-    else { $('lockMsg').innerHTML='Betting locks after the <b style="color:var(--amber)">middle speech</b> ('+(remaining>0?remaining+' speech'+(remaining>1?'es':'')+' left to bet':'last call')+').'; }
-  }
+  } catch(e){ load(); }
 
-  function clampStake(){ return Math.max(1, Math.min(getBal(), parseInt($('stake').value,10)||0)); }
-
-  function setStatus(kind,text){ var p=$('statusPill'); p.className='pill '+kind; p.textContent=text; }
-
-  function selectSide(s){
-    if(state.locked||state.bet) return;
-    state.pick=s;
-    Array.prototype.forEach.call(document.querySelectorAll('.side'),function(c){ c.classList.toggle('on',c.dataset.side===s); });
-    $('betBtn').disabled=false;
-    renderMarket();
-  }
-
-  function placeBet(){
-    if(!state.pick||state.locked||state.bet) return;
-    var stake=clampStake(); if(stake<1) return;
-    setBal(getBal()-stake);             // escrowed
-    if(state.pick==='pro') state.poolPro+=stake; else state.poolCon+=stake;
-    state.bet={pick:state.pick,stake:stake};
-    $('betBtn').disabled=true; $('stake').disabled=true;
-    $('youLine').innerHTML='Bet placed: <b>'+stake+'</b> pts on <b>'+state.pick.toUpperCase()+'</b>. locked in until the verdict.';
-    renderMarket();
-  }
-
-  // crowd money flows toward whichever side the round is leaning, with
-  // seed-deterministic noise so the drift is reproducible + fair.
-  function crowdTick(){
-    var lean = prob(state.winner); // truth pulls the crowd over time
-    var drift = 0.5 + (seedRand(state.seed, state.phase)*0.5); // 0.5..1.0 intensity
-    var add = 40 + Math.floor(seedRand(state.seed, state.phase+99)*120);
-    var toWinner = Math.floor(add*(0.45+0.4*drift));
-    var toLoser = add-toWinner;
-    if(state.winner==='pro'){ state.poolPro+=toWinner; state.poolCon+=toLoser; }
-    else { state.poolCon+=toWinner; state.poolPro+=toLoser; }
-    void lean;
-  }
-
-  function tick(){
-    renderTimeline(); renderMarket();
-    if(state.phase>LOCK_AFTER && !state.locked){ lockBetting(); }
-    if(state.phase>=PHASES.length-1){ setTimeout(settle, state.locked?FAST_MS:OPEN_MS); return; }
-    crowdTick();
-    state.phase++;
-    state.timer=setTimeout(tick, (state.phase>LOCK_AFTER)?FAST_MS:OPEN_MS);
-  }
-
-  function lockBetting(){
-    state.locked=true;
-    $('betBtn').disabled=true; $('stake').disabled=true;
-    Array.prototype.forEach.call(document.querySelectorAll('.side'),function(c){ c.classList.add('locked'); });
-    setStatus('locked','Locked');
-    if(!state.bet){ $('youLine').innerHTML='<span style="color:var(--amber)">No bet placed.</span> betting is closed for this round.'; }
-  }
-
-  async function settle(){
-    state.settled=true; state.locked=true;
-    renderTimeline();
-    setStatus('settled','Settled');
-    var winner=state.winner, total=state.poolPro+state.poolCon;
-    var winPool=winner==='pro'?state.poolPro:state.poolCon;
-    var wlabel=winner==='pro'?'Pro / Government':'Con / Opposition';
-
-    var net=0, payout=0, won=false, rec=null;
-    if(state.bet){
-      won = state.bet.pick===winner;
-      if(won){ payout=Math.floor(state.bet.stake*total/winPool); setBal(getBal()+payout); net=payout-state.bet.stake; }
-      else { net=-state.bet.stake; }
-      rec = recordBet(state.bet.pick, state.bet.stake, won, won?payout:0, prob(state.bet.pick));
-    }
-
-    $('betCard').classList.add('hidden');
-    $('resultCard').classList.remove('hidden');
-    var rdelta = rec ? ' <span class="hist" style="color:'+(rec.delta>=0?'var(--green)':'var(--red)')+'">rating '+(rec.delta>=0?'+':'')+rec.delta+'</span>' : '';
-    var chip = !state.bet ? ''
-      : (won?'<span class="chip win">You won +'+net+'</span>':'<span class="chip lose">You lost '+state.bet.stake+'</span>')+rdelta;
-    $('result').innerHTML='Verdict: <b>'+wlabel+'</b>'+chip;
-    renderRecord(); renderBoard();
-    $('rfd').innerHTML='<b>AI ballot.</b> '+rfd(winner);
-
-    // provably-fair reveal
-    $('commitOut').textContent=state.commit;
-    $('seedOut').textContent=state.seed;
-    var recomputed=await sha256(state.seed);
-    $('recompute').textContent=recomputed;
-    var ok=recomputed===state.commit;
-    var vm=$('verifyMsg'); vm.className=ok?'verify-ok':'verify-bad';
-    vm.textContent=ok?'✓ Matches the commit shown before betting opened. The verdict was sealed, not reactive.'
-                     :'✗ Mismatch — this round would be voided.';
-
-    if(state.bet) pushHist({pick:state.bet.pick,stake:state.bet.stake,net:net,motion:shortMotion(state.round.m)});
-  }
-
-  function shortMotion(m){ return m.replace(/^This house (would|believes|regrets|requires|supports)?\s*/i,'').slice(0,34)+'…'; }
-  function rfd(winner){
-    var w=winner==='pro'?'Government':'Opposition', l=winner==='pro'?'Opposition':'Government';
-    var lines=[
-      'The '+w+' bench controlled the central clash and weighed it through to the end; '+l+'’s best line never got causally linked to a real impact.',
-      ''+w+' won the framing and kept their case clean under fire. '+l+' landed hits but dropped the comparative that mattered.',
-      'Close round. '+w+' edged it on impact calculus. they showed their harm was bigger and more likely than '+l+'’s.'
-    ];
-    return lines[parseInt(state.commit.slice(0,1),16)%lines.length];
-  }
-
-  async function newRound(){
-    if(state.timer) clearTimeout(state.timer);
-    var round=ROUNDS[Math.floor(seedRandSafe()*ROUNDS.length)];
-    var seed=randSeed(), commit=await sha256(seed), winner=await deriveWinner(seed,round.m);
-    state={ round:round, seed:seed, commit:commit, winner:winner, phase:0, locked:false, settled:false,
-            pick:null, bet:null, poolPro:120+Math.floor(seedRand(seed,7)*120), poolCon:120+Math.floor(seedRand(seed,8)*120), timer:null };
-
-    $('motion').textContent=round.m;
-    $('resultCard').classList.add('hidden');
-    $('betCard').classList.remove('hidden');
-    $('betBtn').disabled=true; $('stake').disabled=false;
-    $('youLine').textContent='';
-    setStatus('open','Betting open');
-
-    var sides=$('sides'); sides.innerHTML='';
-    [['pro','Pro / Government'],['con','Con / Opposition']].forEach(function(s){
-      var b=document.createElement('button');
-      b.className='side'; b.dataset.side=s[0];
-      b.innerHTML='<div class="who"><span>'+s[1]+'</span><span class="odds">—</span></div>'+
-                  '<div class="arg">'+round[s[0]]+'</div><div class="prob" style="width:50%"></div>';
-      b.onclick=function(){ selectSide(s[0]); };
-      sides.appendChild(b);
-    });
-    renderTimeline(); renderMarket();
-    state.timer=setTimeout(tick, OPEN_MS);
-  }
-  // crypto-based fairness for round selection (not seed-tied on purpose)
-  function seedRandSafe(){ var a=new Uint8Array(2); crypto.getRandomValues(a); return ((a[0]<<8)|a[1])/65536; }
-
-  // wires
-  $('betBtn').onclick=placeBet;
-  $('nextBtn').onclick=newRound;
-  $('shareBtn').onclick=shareInvite;
-  $('stake').oninput=function(){ if(!state.bet&&!state.locked) renderMarket(); };
-  Array.prototype.forEach.call(document.querySelectorAll('.quick button'),function(q){
-    q.onclick=function(){ var v=q.dataset.q; $('stake').value = v==='max'?getBal():v; if(!state.bet&&!state.locked) renderMarket(); };
-  });
-
-  setBal(getBal()); renderHist(); renderRecord(); renderBoard(); newRound();
+  startTick();
+  pollTimer=setInterval(load, 15000);
 })();
 </script>
 </body>

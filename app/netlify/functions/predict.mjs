@@ -49,38 +49,148 @@ async function ensureBalance(db, uid) {
   return START_BALANCE;
 }
 
+function ms(v){ return v ? (v.toMillis ? v.toMillis() : v) : null; }
 function publicMarket(m, id) {
   if (!m) return null;
   return {
     room: id,
+    kind: m.kind || 'human',
     motion: m.motion || '',
     format: m.format || '',
     proName: m.proName || 'Pro',
     conName: m.conName || 'Con',
+    proCase: m.proCase || '',
+    conCase: m.conCase || '',
     status: m.status || 'open',
-    lockAt: m.lockAt ? (m.lockAt.toMillis ? m.lockAt.toMillis() : m.lockAt) : null,
+    lockAt: ms(m.lockAt),
+    resolvesAt: ms(m.lockAt),
     poolPro: m.poolPro || 0,
     poolCon: m.poolCon || 0,
     betCount: m.betCount || 0,
     verdict: m.verdict || null,
+    rfd: m.rfd || '',
+    settledAt: ms(m.settledAt),
   };
+}
+
+// ── App-run AI markets ────────────────────────────────────────────────
+// Always-on markets so /predict is a live market even with no human rounds.
+// Each market = a motion with two framed sides; the AI judge resolves it at
+// lockAt. The outcome is genuinely unknown until resolution (you predict the
+// judge's call), so no sealing is needed; bets just lock before resolution.
+const MOTION_BANK = [
+  { m:'This house would ban targeted political advertising.', pro:'Microtargeting fractures the shared public square and lets campaigns lie privately to narrow slices of voters.', con:'A ban hands incumbents and big brands the advantage; small challengers rely on cheap targeted reach to be heard.' },
+  { m:'This house believes social media has done more harm than good.', pro:'Engagement-maximizing feeds trade teen mental health and shared truth for time-on-app.', con:'It collapsed the cost of organizing, learning, and reaching an audience for billions with no other platform.' },
+  { m:'This house would require AI systems to disclose their training data.', pro:'Without provenance you cannot audit bias, theft, or safety; disclosure is the floor for accountability.', con:'Forced disclosure leaks trade secrets and entrenches incumbents who can afford the compliance and litigation.' },
+  { m:'This house regrets the rise of the gig economy.', pro:'It rebranded precarity as freedom and offloaded every employer risk onto the worker.', con:'It gave flexible income to millions locked out of rigid 9-to-5 work and undercut exploitative local monopolies.' },
+  { m:'This house would abolish standardized testing in university admissions.', pro:'The tests measure wealth and prep access more than aptitude and entrench inequality.', con:'Removing the one common yardstick makes admissions more arbitrary and easier for the connected to game.' },
+  { m:'This house believes billionaire philanthropy does more harm than good.', pro:'It launders reputations and lets unelected donors set public priorities with no accountability.', con:'It funds moonshots and unpopular causes that slow, vote-seeking governments never would.' },
+  { m:'This house would let cities ban cars from their centers.', pro:'Car-free centers cut deaths, emissions, and noise while reviving street life and local trade.', con:'It punishes the disabled, tradespeople, and the poor who cannot just switch to a bike.' },
+  { m:'This house believes remote work has been bad for early-career workers.', pro:'Juniors lose the ambient mentorship, networks, and visibility that build a career.', con:'It widened access, cut brutal commutes, and let talent compete regardless of geography.' },
+  { m:'This house would make voting compulsory.', pro:'Universal turnout pulls policy toward the median citizen and away from extreme, motivated minorities.', con:'Coercing the disengaged adds noise, not signal, and a non-vote is itself legitimate speech.' },
+  { m:'This house would ban influencers from marketing to children.', pro:'Kids cannot tell a friend from an ad, and parasocial trust makes the manipulation worse.', con:'It is unenforceable, kills a real income ladder, and parents, not the state, should police it.' },
+];
+function newRoomId(){ return 'ai-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7); }
+const AI_TARGET_OPEN = 6;
+function aiLockWindowMs(){ return (15 + Math.floor(Math.random() * 75)) * 60 * 1000; } // 15-90 min betting window
+
+async function ensureMarkets(db) {
+  // Single-field query (liveKey) so no composite index is needed.
+  const open = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
+  const need = AI_TARGET_OPEN - open.size;
+  if (need <= 0) return;
+  const batch = db.batch();
+  for (let i = 0; i < need; i++) {
+    const pick = MOTION_BANK[Math.floor(Math.random() * MOTION_BANK.length)];
+    const ref = db.collection('predict_markets').doc(newRoomId());
+    batch.set(ref, {
+      kind: 'ai', liveKey: 'ai_open', motion: pick.m, proName: 'Pro', conName: 'Con',
+      proCase: pick.pro, conCase: pick.con, format: 'quick',
+      proUid: '', conUid: '',
+      status: 'open', lockAt: new Date(Date.now() + aiLockWindowMs()),
+      createdAt: FieldValue.serverTimestamp(), poolPro: 0, poolCon: 0, betCount: 0, verdict: null,
+    });
+  }
+  await batch.commit();
+}
+
+// Ask the AI judge to call a market's motion. Returns { verdict, rfd }.
+async function judgeMotion(origin, m) {
+  const sys = 'You are an impartial competitive-debate judge. Decide which side wins the motion on the merits of the two framed cases. Be decisive. Respond ONLY with compact JSON: {"winner":"pro"|"con","reason":"one tight sentence"}';
+  const usr = 'Motion: ' + m.motion + '\nPro/Government case: ' + (m.proCase || '') + '\nCon/Opposition case: ' + (m.conCase || '') + '\n\nWho wins? JSON only.';
+  const r = await fetch(origin + '/api/claude', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, stream: false, system: sys, messages: [{ role: 'user', content: usr }], _feature: 'predict-resolve' }),
+  });
+  const txt = await r.text();
+  let inner = txt;
+  try { const j = JSON.parse(txt); if (j && Array.isArray(j.content)) inner = j.content.map(c => c.text || '').join(''); } catch (e) {}
+  const a = inner.indexOf('{'), b = inner.lastIndexOf('}');
+  if (a >= 0 && b > a) { try { const o = JSON.parse(inner.slice(a, b + 1)); const w = String(o.winner || '').toLowerCase(); if (w === 'pro' || w === 'con') return { verdict: w, rfd: String(o.reason || '').slice(0, 240) }; } catch (e) {} }
+  // Fallback: deterministic-ish coin from the motion text so a parse miss still resolves.
+  return { verdict: (m.motion.length % 2 === 0) ? 'pro' : 'con', rfd: '' };
+}
+
+// Settle a market to a verdict (parimutuel). Shared by human-round settle + AI resolve.
+async function settleMarket(db, mRef, pm, verdict, rfd) {
+  const bets = await mRef.collection('bets').get();
+  const total = (pm.poolPro || 0) + (pm.poolCon || 0);
+  const winnerPool = verdict === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0);
+  const batch = db.batch();
+  batch.update(mRef, { status: 'settled', liveKey: 'ai_settled', verdict, rfd: rfd || pm.rfd || '', settledAt: FieldValue.serverTimestamp() });
+  bets.forEach((b) => {
+    const d = b.data();
+    const won = d.pick === verdict;
+    const impliedProb = total > 0 ? ((d.pick === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0)) / total) : 0.5;
+    const payout = (won && winnerPool > 0) ? Math.floor(d.stake * total / winnerPool) : 0;
+    const ratingDelta = won ? Math.round(6 + 30 * (1 - impliedProb)) : -Math.round(6 + 30 * impliedProb);
+    if (payout > 0) batch.update(db.collection('predict_balances').doc(d.uid), { balance: FieldValue.increment(payout), updatedAt: FieldValue.serverTimestamp() });
+    batch.set(db.collection('predict_leaderboard').doc(d.uid), {
+      uid: d.uid, name: d.name || 'Anon', rating: FieldValue.increment(ratingDelta),
+      bets: FieldValue.increment(1), wins: FieldValue.increment(won ? 1 : 0),
+      net: FieldValue.increment(won ? (payout - d.stake) : -d.stake), updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+  await batch.commit();
+  return { settled: bets.size, pool: total };
+}
+
+// Resolve one AI market if it's past lockAt. Claim-guarded so it judges once.
+async function resolveAiMarket(db, origin, room) {
+  const mRef = db.collection('predict_markets').doc(room);
+  const claimed = await db.runTransaction(async (t) => {
+    const s = await t.get(mRef);
+    if (!s.exists) return null;
+    const md = s.data();
+    if (md.kind !== 'ai' || md.status === 'settled' || md.status === 'resolving') return null;
+    if (!ms(md.lockAt) || Date.now() < ms(md.lockAt)) return null;
+    t.update(mRef, { status: 'resolving', liveKey: 'ai_resolving' });
+    return md;
+  });
+  if (!claimed) return null;
+  const { verdict, rfd } = await judgeMotion(origin, claimed);
+  const fresh = await mRef.get();
+  await settleMarket(db, mRef, fresh.data(), verdict, rfd);
+  return verdict;
 }
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
+  // Auth is OPTIONAL so the market board (`list`) is browsable signed-out.
+  // Every mutating / user-specific action below requires a uid (guarded next).
   const token = extractBearerToken(request);
-  if (!token) return errorResponse('Authorization required', 401, request);
-  let decoded;
-  try { decoded = await verifyIdToken(token); } catch (e) { return errorResponse('Invalid token', 401, request); }
-  const uid = decoded.sub;
-  const name = String((decoded.name || '').split(/\s+/)[0] || 'Anon').slice(0, 24);
+  let decoded = null;
+  if (token) { try { decoded = await verifyIdToken(token); } catch (e) { decoded = null; } }
+  const uid = decoded ? decoded.sub : null;
+  const name = decoded ? String((decoded.name || '').split(/\s+/)[0] || 'Anon').slice(0, 24) : 'Anon';
 
   let body;
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }
   const action = body && body.action;
   const db = getDb();
+  if (!uid && action !== 'list') return errorResponse('Sign in to do that', 401, request);
 
   // ── state: my balance + (optional) a market + my bet + top leaderboard ──
   if (action === 'state') {
@@ -248,6 +358,58 @@ export default async (request) => {
 
     await batch.commit();
     return jsonResponse({ ok: true, verdict, settled: bets.size, pool: total }, 200, request);
+  }
+
+  // ── list: the live AI market board (Kalshi-style) ──────────────────────
+  if (action === 'list') {
+    const origin = new URL(request.url).origin;
+    try { await ensureMarkets(db); } catch (e) {}
+    // Resolve up to 2 overdue markets inline (bounded latency); the cron + the
+    // next loads sweep the rest.
+    try {
+      const openish = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
+      let did = 0;
+      for (const d of openish.docs) {
+        if (did >= 2) break;
+        if (ms(d.data().lockAt) && Date.now() >= ms(d.data().lockAt)) { await resolveAiMarket(db, origin, d.id); did++; }
+      }
+    } catch (e) {}
+    const balance = uid ? await ensureBalance(db, uid) : null;
+    const out = { ok: true, balance, signedIn: !!uid, markets: [] };
+    try {
+      const openSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
+      const settledSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
+      const settled = settledSnap.docs
+        .sort((a, b) => (ms(b.data().settledAt) || 0) - (ms(a.data().settledAt) || 0))
+        .slice(0, 6);
+      const openSorted = openSnap.docs.sort((a, b) => (ms(a.data().lockAt) || 0) - (ms(b.data().lockAt) || 0));
+      for (const d of [...openSorted, ...settled]) {
+        const pm = publicMarket(d.data(), d.id);
+        if (uid) { const bet = await d.ref.collection('bets').doc(uid).get(); pm.myBet = bet.exists ? { pick: bet.data().pick, stake: bet.data().stake } : null; }
+        out.markets.push(pm);
+      }
+    } catch (e) { out.marketsError = String(e.message || e); }
+    try {
+      const lb = await db.collection('predict_leaderboard').orderBy('rating', 'desc').limit(12).get();
+      out.leaderboard = lb.docs.map(x => ({ name: x.data().name || 'Anon', rating: x.data().rating || 1000, tier: tierFor(x.data().rating || 1000), me: uid && x.id === uid }));
+      if (uid) { const meLb = await db.collection('predict_leaderboard').doc(uid).get(); out.rating = meLb.exists ? (meLb.data().rating || 1000) : 1000; out.tier = tierFor(out.rating); }
+    } catch (e) { out.leaderboard = []; }
+    return jsonResponse(out, 200, request);
+  }
+
+  // ── resolve: judge + settle overdue AI markets (cron or on-demand) ──────
+  if (action === 'resolve') {
+    const origin = new URL(request.url).origin;
+    const room = body.room && String(body.room).slice(0, 80);
+    if (room) { const v = await resolveAiMarket(db, origin, room); return jsonResponse({ ok: true, verdict: v }, 200, request); }
+    // sweep all overdue (bounded)
+    let n = 0;
+    try {
+      const openSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
+      for (const d of openSnap.docs) { if (n >= 10) break; if (ms(d.data().lockAt) && Date.now() >= ms(d.data().lockAt)) { await resolveAiMarket(db, origin, d.id); n++; } }
+    } catch (e) {}
+    try { await ensureMarkets(db); } catch (e) {}
+    return jsonResponse({ ok: true, resolved: n }, 200, request);
   }
 
   return errorResponse('Unknown action', 400, request);
