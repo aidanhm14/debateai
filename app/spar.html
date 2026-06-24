@@ -3710,12 +3710,36 @@ h1 em{color:var(--accent);font-style:normal}
       if (btn) btn.disabled = false;
       toggleSchedulePanel(null, false);
       try { gtag('event', 'dm_schedule_propose', {}); } catch(e){}
+      firePushDM(at2.participants, at2.id); // Web Push the recipient(s)
       window.open(calUrl, '_blank', 'noopener');
     }).catch(function(err){
       if (btn) btn.disabled = false;
       console.warn('[sched] send failed', err && err.message);
       alert('Could not send. Try again.');
     });
+  }
+
+  // Web Push: ping every other participant's devices about a new DM so it
+  // lands even with the tab or installed PWA closed. Mirrors the in-page
+  // bell toast + the email nudge. The server verifies both sides share the
+  // thread and builds the notification text, so there's no spoofing vector.
+  // No-ops until VAPID is configured server-side.
+  function firePushDM(participants, threadId){
+    try {
+      if (!state.user || !threadId || !Array.isArray(participants)) return;
+      var me = state.user.uid;
+      var others = participants.filter(function(uid){ return uid && uid !== me; });
+      if (!others.length) return;
+      state.user.getIdToken().then(function(tok){
+        others.forEach(function(uid){
+          fetch('/.netlify/functions/push-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ recipientUid: uid, threadId: threadId }),
+          }).catch(function(){});
+        });
+      }).catch(function(){});
+    } catch (e) {}
   }
 
   function sendThreadMessage(){
@@ -3765,6 +3789,7 @@ h1 em{color:var(--accent);font-style:normal}
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
       try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
+      firePushDM(at.participants, at.id); // Web Push the recipient(s)
       // Fire-and-forget: notify recipient by email on the first DM
       // in a 1:1 thread. Endpoint is idempotent (server stamps
       // acceptEmailSentAt) so a race where two clients call it

@@ -3793,7 +3793,10 @@ button{font-family:inherit}
       var preview=text.length>80?text.slice(0,77)+'…':text;
       ref.set({ participants:[me,d.uid], participantInfo:pInfo, lastMessage:preview, lastMessageAt:firebase.firestore.FieldValue.serverTimestamp(), lastMessageFrom:me, unread:unread }, {merge:true})
         .then(function(){ return ref.collection('messages').add({ fromUid:me, fromName:nm, text:text, createdAt:firebase.firestore.FieldValue.serverTimestamp() }); })
-        .then(function(){ if(ta) ta.value=''; if(btn) btn.disabled=false; if(st) st.textContent='Sent. They will see it in their notifications.'; try{ gtag('event','live_round_dm_send'); }catch(e){} setTimeout(closeDm, 1500); })
+        .then(function(){ if(ta) ta.value=''; if(btn) btn.disabled=false; if(st) st.textContent='Sent. They will see it in their notifications.'; try{ gtag('event','live_round_dm_send'); }catch(e){}
+          // Web Push the opponent's devices (server verifies the shared thread; no-ops until VAPID is configured).
+          try { state.user.getIdToken().then(function(tok){ fetch('/.netlify/functions/push-send', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body: JSON.stringify({ recipientUid: d.uid, threadId: tid }) }).catch(function(){}); }).catch(function(){}); } catch(_){}
+          setTimeout(closeDm, 1500); })
         .catch(function(e){ if(btn) btn.disabled=false; if(st) st.textContent='Could not send. Try again.'; try{ console.warn('[live-round dm]', e); }catch(_){} });
     }
     // The dmModal markup lives at end-of-body, AFTER this script, so its
