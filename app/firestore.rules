@@ -776,6 +776,28 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == uid || isAtlasAdmin());
     }
 
+    // ── Prediction market (predict_*) ────────────────────────────────
+    // POINTS ONLY, server-authoritative. Every economy mutation goes through
+    // the predict.mjs Netlify function (admin credentials, validated). Clients
+    // can NEVER write balances, pools, payouts, or bets; they may only read
+    // public market state, the public leaderboard, and their own balance.
+    match /predict_markets/{room} {
+      allow read:  if true;     // public market state (motion, pools, status, verdict)
+      allow write: if false;    // opened / updated / settled only by the server
+      match /bets/{betUid} {
+        allow read:  if false;  // bets are blind; only the server function reads them
+        allow write: if false;  // placed only via the server (atomic balance debit)
+      }
+    }
+    match /predict_balances/{uid} {
+      allow read:  if isOwner(uid);  // you can see your own points
+      allow write: if false;         // server-authoritative
+    }
+    match /predict_leaderboard/{uid} {
+      allow read:  if true;          // public skill ladder
+      allow write: if false;         // server-authoritative
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }
