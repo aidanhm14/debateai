@@ -160,6 +160,11 @@
     box-shadow:0 6px 18px rgba(0,0,0,.5);white-space:nowrap}
   .leaflet-tooltip.atlas-tt::before{display:none}
   .leaflet-tooltip.atlas-tt-tour{color:#e8edf3;border-color:#3a3f4a}
+  .copylink{width:100%;margin-top:12px;font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;
+    cursor:pointer;color:var(--ink-dim);background:rgba(255,255,255,.04);border:1px solid var(--panel-line);
+    border-radius:11px;padding:10px;transition:border-color .2s,color .2s}
+  .copylink:hover{border-color:var(--accent);color:var(--accent)}
+  .copylink.done{border-color:var(--st-partnered);color:var(--st-partnered)}
   .card .badge.tour{border-color:#cbd5e1;color:#e8edf3}
   .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;
     background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;padding:11px 13px}
@@ -260,10 +265,25 @@
   .stage-pills button[data-s="partnered"].on{background:var(--st-partnered)}
 
   /* ── Custom map pins + clusters ─────────────────────────── */
-  .pin{border-radius:50%;border:2px solid rgba(11,10,16,.85);box-shadow:0 0 0 1px rgba(0,0,0,.3),0 0 10px 1px currentColor}
+  .pin{border-radius:50%;border:2px solid rgba(11,10,16,.85);box-shadow:0 0 0 1px rgba(0,0,0,.3),0 0 10px 1px currentColor;transition:transform .15s ease}
   .cluster{display:flex;align-items:center;justify-content:center;border-radius:50%;
     font-family:var(--mono);font-weight:700;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(248,113,113,.95),rgba(220,38,38,.92));
-    border:2px solid rgba(255,255,255,.35);box-shadow:0 0 16px 3px var(--glow)}
+    border:2px solid rgba(255,255,255,.35);box-shadow:0 0 16px 3px var(--glow);transition:transform .16s cubic-bezier(.16,1,.3,1),box-shadow .16s}
+  .leaflet-marker-icon:hover{z-index:10000!important}
+  .leaflet-marker-icon:hover .pin{transform:scale(1.5)}
+  .leaflet-marker-icon:hover .cluster{transform:scale(1.09);box-shadow:0 0 24px 6px var(--glow)}
+  .leaflet-marker-icon:hover .tpin{transform:rotate(45deg) scale(1.4)}
+  .leaflet-home{display:flex!important;align-items:center;justify-content:center;width:30px;height:30px;
+    background:rgba(17,15,22,.92)!important;color:var(--ink)!important;border:none!important;border-radius:6px;
+    font-size:16px;line-height:1;text-decoration:none}
+  .leaflet-home:hover{color:var(--accent)!important;background:rgba(40,30,30,.95)!important}
+  .loader{position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:18px;background:#0b0a10;transition:opacity .7s ease}
+  .loader.hide{opacity:0;pointer-events:none}
+  .loader-dot{width:16px;height:16px;border-radius:50%;background:var(--accent);box-shadow:0 0 26px 7px var(--glow);
+    animation:loaderpulse 1.15s ease-in-out infinite}
+  @keyframes loaderpulse{0%,100%{transform:scale(.7);opacity:.55}50%{transform:scale(1.18);opacity:1}}
+  .loader-txt{font-family:var(--mono);font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim)}
 
   /* leaflet popup -> we use our own card, suppress default popups */
   .leaflet-popup{display:none}
@@ -290,6 +310,7 @@
 <body>
 
 <div id="map"></div>
+<div class="loader" id="loader"><div class="loader-dot"></div><div class="loader-txt">Mapping the debate world</div></div>
 
 <header class="topbar">
   <div class="brand">Debate<span class="it">It</span><span class="tag">The Debate Atlas</span></div>
@@ -369,6 +390,7 @@
     schools before you screenshot for a deck.
     <br><br>Basemap: Natural Earth (public domain). Internal DebateIt tool.
   </div>
+  <button class="copylink" id="copylink">Copy view link</button>
 </aside>
 
 <!-- Opportunity panel -->
@@ -895,9 +917,9 @@ SCHOOLS.forEach(function(d){
 });
 
 /* ---- map ---- */
-var map = L.map('map',{worldCopyJump:false,minZoom:2,maxZoom:18,zoomControl:true,
+var map = L.map('map',{worldCopyJump:false,minZoom:1.5,maxZoom:18,zoomControl:true,zoomSnap:0.25,
   attributionControl:true,maxBounds:[[-85,-200],[85,200]],maxBoundsViscosity:0.6})
-  .setView([30,5],2.4);
+  .setView([24,8],1.7);
 map.attributionControl.setPrefix('');
 
 /* Vector floor: a bundled GeoJSON world drawn in a low pane UNDER the tiles.
@@ -919,10 +941,16 @@ var BASEMAPS={
   streets:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',opt:{maxZoom:18,attribution:'Esri'}}
 };
 var baseTileLayer=null, baseMode='dark';
+var labelLayer=null;
 function setBasemap(key){
   baseMode=key;
   if(baseTileLayer){ map.removeLayer(baseTileLayer); baseTileLayer=null; }
+  if(labelLayer){ map.removeLayer(labelLayer); labelLayer=null; }
   if(key!=='minimal' && BASEMAPS[key]){ baseTileLayer=L.tileLayer(BASEMAPS[key].url,BASEMAPS[key].opt); baseTileLayer.addTo(map); }
+  /* dark mode gets a place-label overlay (city/country names) so it reads
+     like a real map and labels resolve in as you zoom. */
+  if(key==='dark'){ labelLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,opacity:.85}); labelLayer.addTo(map); }
+  if(typeof syncURL==='function') syncURL();
 }
 setBasemap('dark');
 /* Make sure tiles cover the full viewport (no partial-coverage seam) on
@@ -997,6 +1025,7 @@ function rebuild(){
   updateLegend(vis);
   updateTopCountries(vis);
   if(typeof tourOn!=='undefined' && tourOn) rebuildTour();
+  if(typeof syncURL==='function') syncURL();
 }
 
 /* ---- counters ---- */
@@ -1302,7 +1331,7 @@ if(calcSchools){
   document.querySelectorAll('#seg-scope button').forEach(function(b){
     b.addEventListener('click',function(){
       document.querySelectorAll('#seg-scope button').forEach(function(x){ x.classList.remove('on'); });
-      b.classList.add('on'); setScope(b.getAttribute('data-s'));
+      b.classList.add('on'); setScope(b.getAttribute('data-s')); if(typeof syncURL==='function') syncURL();
     });
   });
   renderPresets();
@@ -1381,8 +1410,60 @@ updateAuthUI();
   setTimeout(function(){ if(hint.classList.contains('show')) dismiss(); },12000);
 })();
 
+/* ── shareable view links: encode region/color/level/basemap/toggles/scope
+   in the URL so a sent link opens to a specific view. ───────────────── */
+function setSegOn(id,attr,val){ document.querySelectorAll('#'+id+' button').forEach(function(b){ b.classList.toggle('on', b.getAttribute(attr)===val); }); }
+function syncURL(){
+  var p=[];
+  if(colorMode!=='status') p.push('c='+colorMode);
+  if(levelFilter!=='all') p.push('lvl='+levelFilter);
+  if(focusRegion) p.push('r='+encodeURIComponent(focusRegion));
+  if(typeof baseMode!=='undefined' && baseMode!=='dark') p.push('b='+baseMode);
+  if(typeof heatOn!=='undefined' && heatOn) p.push('h=1');
+  if(typeof tourOn!=='undefined' && tourOn) p.push('t=1');
+  if(typeof calcScope!=='undefined' && calcScope==='global') p.push('scope=global');
+  try{ history.replaceState(null,'', p.length?('?'+p.join('&')):location.pathname); }catch(e){}
+}
+(function applyURLState(){
+  var p; try{ p=new URLSearchParams(location.search); }catch(e){ return; }
+  if(p.get('c')){ colorMode=p.get('c'); setSegOn('seg-color','data-m',colorMode); }
+  if(p.get('lvl')){ levelFilter=p.get('lvl'); setSegOn('seg-level','data-l',levelFilter); }
+  if(p.get('b') && typeof setBasemap==='function'){ var bm=p.get('b'); setBasemap(bm); setSegOn('seg-base','data-b',bm); }
+  if(p.get('h')==='1' && typeof toggleHeat==='function'){ toggleHeat(); }
+  if(p.get('t')==='1' && typeof toggleTour==='function'){ toggleTour(); }
+  if(p.get('scope')==='global'){ var gb=document.querySelector('#seg-scope button[data-s="global"]'); if(gb) gb.click(); }
+  var rg=p.get('r');
+  if(rg && REGIONS.indexOf(rg)>=0){ focusRegion=rg; REGIONS.forEach(function(x){ activeRegions[x]=(x===rg); });
+    if(typeof buildRegionChips==='function') buildRegionChips();
+    var bnd=REGION_BOUNDS[rg]; if(bnd) setTimeout(function(){ try{ map.flyToBounds(bnd,{duration:.6,padding:[40,40]}); }catch(e){} },300); }
+})();
+var copylink=document.getElementById('copylink');
+if(copylink) copylink.addEventListener('click',function(){
+  syncURL();
+  var done=function(){ copylink.textContent='Link copied'; copylink.classList.add('done');
+    setTimeout(function(){ copylink.textContent='Copy view link'; copylink.classList.remove('done'); },1600); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(location.href).then(done,done); } else { done(); }
+});
+
+/* home (reset to world) control */
+var HomeCtl=L.Control.extend({options:{position:'topleft'},onAdd:function(){
+  var c=L.DomUtil.create('div','leaflet-bar leaflet-control');
+  var b=L.DomUtil.create('a','leaflet-home',c); b.innerHTML='&#8634;'; b.href='#'; b.title='Reset to world view';
+  L.DomEvent.on(b,'click',function(e){ L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e);
+    if(focusRegion){ focusRegion=null; REGIONS.forEach(function(r){ activeRegions[r]=true; }); buildRegionChips(); rebuild(); }
+    map.flyTo([28,5],2.3,{duration:1.0}); });
+  return c; }});
+map.addControl(new HomeCtl());
+
 /* go */
 rebuild();
+
+/* cinematic intro: reveal + a gentle zoom-in from the wide opening frame */
+(function(){
+  var loader=document.getElementById('loader');
+  setTimeout(function(){ if(loader) loader.classList.add('hide'); }, 750);
+  if(!focusRegion){ setTimeout(function(){ try{ map.flyTo([28,5],2.35,{duration:1.9}); }catch(e){} }, 350); }
+})();
 </script>
 </body>
 </html>
