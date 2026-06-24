@@ -208,6 +208,12 @@
     color:#fff;background:var(--accent);border:none;border-radius:11px;padding:12px;font-weight:700}
   .sub-go:hover{background:var(--accent-hover)}
   .sub-go:disabled{opacity:.6;cursor:default}
+  .addmember{background:transparent;color:#c4b5fd;border:1px solid #6d28d9;margin-top:8px}
+  .addmember:hover{background:rgba(124,58,237,.16)}
+  .mpin{border-radius:50%;background:#a78bfa;border:2px solid rgba(11,10,16,.85);box-shadow:0 0 9px 2px rgba(167,139,250,.7);transition:transform .15s}
+  .leaflet-marker-icon:hover .mpin{transform:scale(1.45)}
+  .leaflet-tooltip.atlas-tt-mem{color:#c4b5fd;border-color:#4c3a82}
+  .card .badge.mem{border-color:#a78bfa;color:#c4b5fd}
   .card .badge.tour{border-color:#cbd5e1;color:#e8edf3}
   .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;
     background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;padding:11px 13px}
@@ -375,6 +381,7 @@
   </div>
 
   <button class="addprog" id="addprog">+ Add your program</button>
+  <button class="addprog addmember" id="addmember">+ Put yourself on the map</button>
 
   <div class="counters">
     <div class="ctr"><div class="n" id="c-prog">0</div><div class="l">Programs</div></div>
@@ -518,6 +525,20 @@
   <div class="sub-seg" id="sub-lvl"><button data-l="college" class="on">College</button><button data-l="hs">High school</button></div>
   <div class="sub-fmt" id="sub-fmt"></div>
   <button class="sub-go" id="sub-go">Add to the map</button>
+</div></div>
+<div class="submodal" id="memmodal"><div class="submodal-card">
+  <button class="x" id="mem-x" aria-label="Close">&times;</button>
+  <div class="submodal-h">Put yourself on the map</div>
+  <div class="submodal-sub" id="mem-loc"></div>
+  <input id="mem-name" type="text" placeholder="Your name or handle" maxlength="60" autocomplete="off">
+  <input id="mem-city" type="text" placeholder="City (optional)" maxlength="60" autocomplete="off">
+  <div class="sub-seg" id="mem-role">
+    <button data-r="Debater" class="on">Debater</button>
+    <button data-r="Coach">Coach</button>
+    <button data-r="Alum">Alum</button>
+    <button data-r="Fan">Fan</button>
+  </div>
+  <button class="sub-go" id="mem-go">Add me to the map</button>
 </div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -1188,36 +1209,40 @@ var _ctot=null;
 function countryTotal(c){ if(!_ctot){ _ctot={}; SCHOOLS.forEach(function(d){ _ctot[d.country]=(_ctot[d.country]||0)+1; }); } return _ctot[c]||0; }
 function openCard(d){
   current=d;
-  var isTour=(d.kind==='tournament'), isComm=(d.kind==='community');
+  var isTour=(d.kind==='tournament'), isComm=(d.kind==='community'), isMem=(d.kind==='member');
   document.getElementById('card-nm').textContent=d.n;
   document.getElementById('card-loc').textContent=(d.city||'')+((d.city&&d.country)?' · ':'')+(d.country||'');
   var bd=[];
   if(isTour){ bd.push('<span class="badge tour">Tournament</span>'); }
+  else if(isMem){ bd.push('<span class="badge mem">Member</span>'); if(d.role) bd.push('<span class="badge">'+d.role+'</span>'); }
   else { if(isComm) bd.push('<span class="badge comm">Community</span>');
     bd.push('<span class="badge lvl">'+(d.lvl==='hs'?'High school':'College')+'</span>'); }
-  (d.fmt||[]).forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
+  if(!isMem) (d.fmt||[]).forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
   document.getElementById('card-badges').innerHTML=bd.join('');
   var ex=document.getElementById('card-extra');
-  if(isTour){ ex.style.display='none'; }
+  if(isTour||isMem){ ex.style.display='none'; }
   else if(isComm){ ex.style.display=''; ex.textContent='Community-added pin'; }
   else { ex.style.display='';
     var strength=d.tier===1?'Flagship program':d.tier===2?'Strong competitor':'Notable program';
     var n=countryTotal(d.country); ex.textContent=strength+' · '+n+' program'+(n===1?'':'s')+' in '+(d.country||'region'); }
-  document.getElementById('card-stage-wrap').hidden=(isTour||isComm);
-  var cc=document.getElementById('card-comm'); cc.hidden=!isComm;
-  if(isComm){
-    document.getElementById('card-comm-by').textContent='Added by '+(d.byName||'a member');
+  document.getElementById('card-stage-wrap').hidden=(isTour||isComm||isMem);
+  var cc=document.getElementById('card-comm'); cc.hidden=!(isComm||isMem);
+  if(isComm||isMem){
+    document.getElementById('card-comm-by').textContent = isMem ? ((d.role||'Member')+(d.city?(' · '+d.city):'')) : ('Added by '+(d.byName||'a member'));
     var act=document.getElementById('card-comm-act'); act.innerHTML='';
-    if(typeof fbUser!=='undefined' && fbUser && (d.by===fbUser.uid || isAdminUser)){
+    var me=(typeof fbUser!=='undefined' && fbUser);
+    var mine = me && (isMem ? (d.uid===fbUser.uid) : (d.by===fbUser.uid));
+    if(me && (mine || isAdminUser)){
       var btn=document.createElement('button'); btn.className='comm-del';
-      btn.textContent=(d.by===fbUser.uid?'Withdraw this pin':'Remove (admin)');
+      btn.textContent = mine ? (isMem?'Remove me from the map':'Withdraw this pin') : 'Remove (admin)';
       btn.addEventListener('click',function(){ if(!confirm('Remove this pin from the map?')) return;
-        fbDb.collection('atlas_submissions').doc(d.id).delete().then(function(){ cardEl.classList.remove('show'); current=null; })
+        var coll=isMem?'atlas_members':'atlas_submissions', docId=isMem?d.uid:d.id;
+        fbDb.collection(coll).doc(docId).delete().then(function(){ cardEl.classList.remove('show'); current=null; })
           .catch(function(e){ alert('Could not remove: '+((e&&e.code)||'error')); }); });
       act.appendChild(btn);
     }
   }
-  if(!isTour && !isComm) paintStage();
+  if(!isTour && !isComm && !isMem) paintStage();
   cardEl.classList.add('show');
   map.panTo([d.lat,d.lng],{animate:true});
 }
@@ -1461,9 +1486,11 @@ if(calcSchools){
 }
 
 /* ── Community: "Add your program" pins ───────────────────────────── */
-var subLayer=L.layerGroup(), SUBS=[], isAdminUser=false, placing=false, placeLatLng=null;
-subLayer.addTo(map);
-function checkAdmin(){ isAdminUser=false; if(!fbDb||!fbUser) return;
+var subLayer=L.layerGroup(), SUBS=[], memberLayer=L.layerGroup(), MEMBERS=[], isAdminUser=false, placeMode=null, placeLatLng=null;
+subLayer.addTo(map); memberLayer.addTo(map);
+function checkAdmin(){ isAdminUser=false; if(!fbUser) return;
+  if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ isAdminUser=true; return; }
+  if(!fbDb) return;
   fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){ isAdminUser=!!(s.exists&&s.data()&&s.data().isAdmin); }).catch(function(){ isAdminUser=false; }); }
 function renderSubs(){
   subLayer.clearLayers();
@@ -1483,7 +1510,38 @@ function subscribeSubs(){
     renderSubs();
   },function(e){ console.warn('[atlas] subs',e); });
 }
-function exitPlacing(){ placing=false; var pb=document.getElementById('placebanner'); if(pb) pb.classList.remove('show'); var mp=document.getElementById('map'); if(mp) mp.style.cursor=''; }
+function renderMembers(){
+  memberLayer.clearLayers();
+  MEMBERS.forEach(function(s){
+    var ic=L.divIcon({className:'',iconSize:[16,16],iconAnchor:[8,8],html:'<div class="mpin" style="width:12px;height:12px"></div>'});
+    var m=L.marker([s.lat,s.lng],{icon:ic,zIndexOffset:1100});
+    m.on('click',function(){ openCard(s); });
+    m.bindTooltip((s.name||'Member')+(s.role?(' · '+s.role):''),{direction:'top',offset:[0,-3],className:'atlas-tt atlas-tt-mem',opacity:1});
+    memberLayer.addLayer(m);
+  });
+}
+function subscribeMembers(){
+  if(!fbDb) return;
+  fbDb.collection('atlas_members').onSnapshot(function(snap){
+    MEMBERS=[]; snap.forEach(function(doc){ var d=doc.data()||{}; d.id=doc.id; d.uid=doc.id; d.kind='member'; d.n=d.name||'Member';
+      if(typeof d.lat==='number'&&typeof d.lng==='number') MEMBERS.push(d); });
+    renderMembers();
+  },function(e){ console.warn('[atlas] members',e); });
+}
+function openMemberModal(){
+  var sl=document.getElementById('mem-loc'); if(sl&&placeLatLng) sl.textContent='You are at '+placeLatLng.lat.toFixed(2)+', '+placeLatLng.lng.toFixed(2);
+  var nm=document.getElementById('mem-name'); if(nm && fbUser && !nm.value) nm.value=(fbUser.displayName||'');
+  var mm=document.getElementById('memmodal'); if(mm) mm.classList.add('show');
+}
+function exitPlacing(){ placeMode=null; var pb=document.getElementById('placebanner'); if(pb) pb.classList.remove('show'); var mp=document.getElementById('map'); if(mp) mp.style.cursor=''; }
+function startPlacing(mode,label){
+  if(!fbReady){ alert('This needs Firebase, which is unavailable here.'); return; }
+  if(!fbUser){ promptSignIn(); return; }
+  placeMode=mode; var pb=document.getElementById('placebanner');
+  if(pb){ var t=pb.querySelector('span'); if(t) t.textContent=label; pb.classList.add('show'); }
+  var mp=document.getElementById('map'); if(mp) mp.style.cursor='crosshair';
+  var pn=document.getElementById('panel'); if(pn) pn.classList.remove('open');
+}
 function openSubModal(){
   var sl=document.getElementById('sub-loc'); if(sl&&placeLatLng) sl.textContent='Pin set near '+placeLatLng.lat.toFixed(2)+', '+placeLatLng.lng.toFixed(2);
   var fb=document.getElementById('sub-fmt'); if(fb) fb.innerHTML=Object.keys(FMT_COLOR).map(function(f){ return '<label><input type="checkbox" value="'+f+'"> '+f+'</label>'; }).join('');
@@ -1491,15 +1549,30 @@ function openSubModal(){
 }
 (function(){
   var addprog=document.getElementById('addprog');
-  if(addprog) addprog.addEventListener('click',function(){
-    if(!fbReady){ alert('Adding programs needs Firebase, which is unavailable here.'); return; }
-    if(!fbUser){ promptSignIn(); return; }
-    placing=true; var pb=document.getElementById('placebanner'); if(pb) pb.classList.add('show');
-    var mp=document.getElementById('map'); if(mp) mp.style.cursor='crosshair';
-    var pn=document.getElementById('panel'); if(pn) pn.classList.remove('open');
-  });
+  if(addprog) addprog.addEventListener('click',function(){ startPlacing('program','Click the map where your program is.'); });
+  var addmem=document.getElementById('addmember');
+  if(addmem) addmem.addEventListener('click',function(){ startPlacing('member','Click the map where you are.'); });
   var pc=document.getElementById('place-cancel'); if(pc) pc.addEventListener('click',exitPlacing);
-  map.on('click',function(e){ if(!placing) return; placeLatLng=e.latlng; exitPlacing(); openSubModal(); });
+  map.on('click',function(e){ if(!placeMode) return; placeLatLng=e.latlng; var mode=placeMode; exitPlacing(); if(mode==='program') openSubModal(); else openMemberModal(); });
+  var mx=document.getElementById('mem-x'); if(mx) mx.addEventListener('click',function(){ document.getElementById('memmodal').classList.remove('show'); });
+  document.querySelectorAll('#mem-role button').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('#mem-role button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }); });
+  var mg=document.getElementById('mem-go');
+  if(mg) mg.addEventListener('click',function(){
+    if(!fbDb||!fbUser){ promptSignIn(); return; }
+    var name=(document.getElementById('mem-name').value||'').trim();
+    if(!name){ alert('Add your name or handle.'); return; }
+    if(!placeLatLng){ alert('Pick your spot on the map first.'); return; }
+    var rb=document.querySelector('#mem-role button.on'); var role=rb?rb.getAttribute('data-r'):'Debater';
+    mg.disabled=true; mg.textContent='Saving…';
+    fbDb.collection('atlas_members').doc(fbUser.uid).set({
+      name:name, role:role, city:(document.getElementById('mem-city').value||'').trim(),
+      lat:placeLatLng.lat, lng:placeLatLng.lng, at:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true}).then(function(){
+      document.getElementById('memmodal').classList.remove('show'); mg.disabled=false; mg.textContent='Add me to the map';
+      try{ map.flyTo([placeLatLng.lat,placeLatLng.lng],6,{duration:1.0}); }catch(e){}
+    }).catch(function(err){ mg.disabled=false; mg.textContent='Add me to the map';
+      alert('Could not save: '+((err&&err.code==='permission-denied')?'sign in with Google.':((err&&err.code)||'error'))); });
+  });
   var sx=document.getElementById('sub-x'); if(sx) sx.addEventListener('click',function(){ document.getElementById('submodal').classList.remove('show'); });
   document.querySelectorAll('#sub-lvl button').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('#sub-lvl button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }); });
   var sg=document.getElementById('sub-go');
@@ -1586,6 +1659,7 @@ if(fbReady){
   fbAuth.onAuthStateChanged(function(u){ fbUser=u||null; updateAuthUI(); checkAdmin(); if(current) paintStage(); rebuild(); });
   syncPipeline();
   subscribeSubs();
+  subscribeMembers();
 }
 updateAuthUI();
 

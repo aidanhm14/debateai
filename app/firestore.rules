@@ -22,8 +22,9 @@ service cloud.firestore {
 
     function isAtlasAdmin() {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.isAdmin == true;
+        && (request.auth.uid == 'Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'
+            || (exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid))
+                && get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.isAdmin == true));
     }
 
     function isOwner(uid) {
@@ -761,6 +762,18 @@ service cloud.firestore {
         && request.resource.data.lvl in ['college', 'hs'];
       allow update: if isSignedIn() && (resource.data.by == request.auth.uid || isAtlasAdmin());
       allow delete: if isSignedIn() && (resource.data.by == request.auth.uid || isAtlasAdmin());
+    }
+
+    // ── atlas_members (debaters place themselves on the globe) ───────
+    // One doc per user (keyed by uid). A signed-in named account writes
+    // only its own member pin; anyone can read; admins can remove.
+    match /atlas_members/{uid} {
+      allow read: if true;
+      allow write: if isNamedAccount() && uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.lat is number && request.resource.data.lat >= -85 && request.resource.data.lat <= 85
+        && request.resource.data.lng is number && request.resource.data.lng >= -180 && request.resource.data.lng <= 180;
+      allow delete: if isSignedIn() && (request.auth.uid == uid || isAtlasAdmin());
     }
 
     // ── Default deny ─────────────────────────────────────────────────
