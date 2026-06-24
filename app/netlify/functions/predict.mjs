@@ -173,9 +173,15 @@ async function seedActivity(db, origin, want) {
 }
 
 // Ask the AI judge to call a market's motion. Returns { verdict, rfd }.
+// Side labels are BLINDED to A/B in random order before judging, so the model
+// can't lean on an affirmative/primacy bias (which made every verdict come back
+// "pro"). The A/B winner is mapped back to pro/con after.
 async function judgeMotion(origin, m) {
-  const sys = 'You are an impartial competitive-debate judge. Decide which side wins the motion on the merits of the two framed cases. Be decisive. Respond ONLY with compact JSON: {"winner":"pro"|"con","reason":"one tight sentence"}';
-  const usr = 'Motion: ' + m.motion + '\nPro/Government case: ' + (m.proCase || '') + '\nCon/Opposition case: ' + (m.conCase || '') + '\n\nWho wins? JSON only.';
+  const flip = Math.random() < 0.5;                    // 50% present con first
+  const sideA = flip ? { tag: 'con', text: m.conCase || '' } : { tag: 'pro', text: m.proCase || '' };
+  const sideB = flip ? { tag: 'pro', text: m.proCase || '' } : { tag: 'con', text: m.conCase || '' };
+  const sys = 'You are an impartial competitive-debate judge. Two sides argued the motion. Decide which side better discharged its burden on the merits of the cases as written. Ignore which side spoke first. Be decisive, no draws. Respond ONLY with compact JSON: {"winner":"A"|"B","reason":"one tight sentence on why, naming the clash that decided it"}';
+  const usr = 'Motion: ' + m.motion + '\n\nSide A: ' + sideA.text + '\n\nSide B: ' + sideB.text + '\n\nWhich side wins, A or B? JSON only.';
   const r = await fetch(origin + '/api/claude', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, stream: false, system: sys, messages: [{ role: 'user', content: usr }], _feature: 'predict-resolve' }),
@@ -184,7 +190,11 @@ async function judgeMotion(origin, m) {
   let inner = txt;
   try { const j = JSON.parse(txt); if (j && Array.isArray(j.content)) inner = j.content.map(c => c.text || '').join(''); } catch (e) {}
   const a = inner.indexOf('{'), b = inner.lastIndexOf('}');
-  if (a >= 0 && b > a) { try { const o = JSON.parse(inner.slice(a, b + 1)); const w = String(o.winner || '').toLowerCase(); if (w === 'pro' || w === 'con') return { verdict: w, rfd: String(o.reason || '').slice(0, 240) }; } catch (e) {} }
+  if (a >= 0 && b > a) { try {
+    const o = JSON.parse(inner.slice(a, b + 1));
+    const w = String(o.winner || '').toUpperCase();
+    if (w === 'A' || w === 'B') return { verdict: (w === 'A' ? sideA.tag : sideB.tag), rfd: String(o.reason || '').slice(0, 240) };
+  } catch (e) {} }
   // Fallback: deterministic-ish coin from the motion text so a parse miss still resolves.
   return { verdict: (m.motion.length % 2 === 0) ? 'pro' : 'con', rfd: '' };
 }
