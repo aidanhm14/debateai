@@ -20,6 +20,12 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
+    function isAtlasAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -736,6 +742,25 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 160;
       allow delete: if isNamedAccount();
+    }
+
+    // ── atlas_submissions (community "add your program" pins) ────────
+    // Signed-in named accounts add a pin (self-attributed, validated, in
+    // range). Authors can edit/withdraw their own; atlas admins can
+    // remove or verify any. Read is public so pins show on the map.
+    match /atlas_submissions/{id} {
+      allow read: if true;
+      allow create: if isNamedAccount()
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 160
+        && (!('city' in request.resource.data) || (request.resource.data.city is string && request.resource.data.city.size() <= 120))
+        && (!('country' in request.resource.data) || (request.resource.data.country is string && request.resource.data.country.size() <= 80))
+        && request.resource.data.lat is number && request.resource.data.lat >= -85 && request.resource.data.lat <= 85
+        && request.resource.data.lng is number && request.resource.data.lng >= -180 && request.resource.data.lng <= 180
+        && request.resource.data.lvl in ['college', 'hs'];
+      allow update: if isSignedIn() && (resource.data.by == request.auth.uid || isAtlasAdmin());
+      allow delete: if isSignedIn() && (resource.data.by == request.auth.uid || isAtlasAdmin());
     }
 
     // ── Default deny ─────────────────────────────────────────────────
