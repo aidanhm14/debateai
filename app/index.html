@@ -3554,13 +3554,13 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
     el('div', { className: 'bg-grain' }), el('div', { className: 'bg-debate-side bg-debate-left' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })), el('div', { className: 'bg-debate-side bg-debate-right' }, el('div', { className: 'geo-shape geo-diamond' }), el('div', { className: 'geo-shape geo-hex' }), el('div', { className: 'geo-shape geo-ring' })), // Geometric debater at podium
     el('div', { className: 'geo-debater' + (genActive ? ' gen-active' : '') }, el('svg', { viewBox: '0 0 120 180', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' }, // Podium. geometric trapezoid
-        el('polygon', { points: '25,130 95,130 105,175 15,175', stroke: '#da7756', strokeWidth: 1.5, fill: 'none', opacity: .6 }), el('line', { x1: 30, y1: 140, x2: 90, y2: 140, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 28, y1: 150, x2: 92, y2: 150, stroke: '#da7756', strokeWidth: 1, opacity: .2 }),
-        // Body. angular torso
+        el('polygon', { points: '25,130 95,130 105,175 15,175', stroke: '#da7756', strokeWidth: 1.5, fill: 'none', opacity: .6 }), el('line', { x1: 30, y1: 140, x2: 90, y2: 140, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 28, y1: 150, x2: 92, y2: 150, stroke: '#da7756', strokeWidth: 1, opacity: .2 }), // Body. angular torso
         el('polygon', { points: '60,55 42,95 50,130 70,130 78,95', stroke: '#ffffff', strokeWidth: 1.2, fill: 'none', opacity: .5 }),
         // Shoulders
         el('line', { x1: 42, y1: 68, x2: 28, y2: 78, stroke: '#ffffff', strokeWidth: 1.2, opacity: .4 }),
@@ -5225,14 +5225,14 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
 
 
+
       // If check fails, proceed anyway
     }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
     // (DevTools, stale contextHint) that would bypass the UI gate.
     if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {gtag('event', 'case_generate', { mode: genMode, side, motion_length: motion.length, feature: 'case' });} // Auto-version: if regenerating same motion, save previous output as a version
     var motionKey = motion.trim().toLowerCase() + '|' + side;var isRegeneration = output && lastGeneratedMotion.current === motionKey;if (isRegeneration) {setCaseVersions((prev) => [...prev, { text: output, savedAt: new Date().toISOString(), label: 'v' + (prev.length + 1) }]); // Prior case was judged insufficient. that's a negative training signal.
-      logGenerationSignal('regenerate', null, { previousLength: output.length });
-    } else if (lastGeneratedMotion.current !== motionKey) {
+      logGenerationSignal('regenerate', null, { previousLength: output.length });} else if (lastGeneratedMotion.current !== motionKey) {
       // New motion. clear version history
       setCaseVersions([]);
     }
@@ -16206,6 +16206,11 @@ function App() {
   }, [anonUsed, user, authLoading]);
 
   var saveCase = useCallback((caseData) => {
+    // Gate the good stuff: saving a case to your library requires an account.
+    // Guest-only branch (user === null) — signed-in users skip it entirely,
+    // so their save flow is untouched. The [user] dep keeps this from a stale
+    // closure capturing a null user.
+    if (!user) {setShowAuth(true);setToast('Sign in to save your case.');setTimeout(() => setToast(''), 2500);return;}
     // Case version history: if we have a loadedCase and motion+side match, push a new version onto existing case.
     setSavedCases((prev) => {
       var existing = prev.find((c) =>
@@ -16235,7 +16240,7 @@ function App() {
     funnelEvent('case_saved');
     // Log insight for recursive learning
     logInsight('case_feedback', { motion: (caseData.motion || '').substring(0, 200), side: caseData.side, depth: caseData.depth, format: caseData.format, mode: caseData.mode, action: 'saved' });
-  }, []);
+  }, [user]);
 
   var updateCase = useCallback((id, updates) => {
     setSavedCases((prev) => {
@@ -16440,7 +16445,7 @@ function App() {
   // Wording shifts based on whether we've captured enough to show a real profile.
   React.createElement('button', {
     className: 'topbar-pill',
-    onClick: () => setShowStyleProfile(true),
+    onClick: () => {if (!user) {setShowAuth(true);return;}setShowStyleProfile(true);}, // the style profile is per-account: gate it behind sign-in for guests
     title: 'Set or update how the AI learns your debate style',
     style: { cursor: 'pointer', background: 'rgba(239,68,68,.10)', borderColor: 'rgba(239,68,68,.28)', color: '#fca5a5', fontWeight: 700, padding: '4px 10px' }
   }, (() => {try {return window.DebateStyle && window.DebateStyle.hasMeaningfulProfile() ? 'My style' : 'Teach AI your style';} catch (e) {return 'Teach AI your style';}})()),
