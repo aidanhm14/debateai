@@ -2685,6 +2685,7 @@ button{font-family:inherit}
     state.speechIdx = 0;
     state.log = [];
     state.phase = 'round';
+    try { pmOpen(); pmInitSpectator(); } catch(e){}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
     $('setupView').classList.add('hidden');
     $('roundView').classList.remove('hidden');
@@ -2725,6 +2726,7 @@ button{font-family:inherit}
     };
     state.log.push(entry);
     state.speechIdx++;
+    try { pmLockCheck(); } catch(e){}
     publishSpeech(entry);
     // Clear the currentTimer + currentTranscript mirrors so the next
     // speaker doesn't see the prior speech's elapsed value or transcript
@@ -2923,6 +2925,93 @@ button{font-family:inherit}
     return { system: system, user: user };
   }
 
+  // ── Prediction market (spectators bet on this round; AI judges) ──────
+  // Talks to /.netlify/functions/predict (server-authoritative, points only).
+  // Debaters open/lock/settle their round's market; spectators bet before the
+  // middle speech. Every call is fail-safe and can never break the round.
+  var PM_API='/.netlify/functions/predict';
+  var pmOpened=false, pmLocked=false, pmSettled=false, pmPollTimer=null, pmPanel=null, pmPick=null, pmHasBet=false;
+  function pmTok(){ return (state.user&&state.user.getIdToken)?state.user.getIdToken():Promise.reject(new Error('no-user')); }
+  function pmCall(payload){ return pmTok().then(function(tok){ return fetch(PM_API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify(payload)}).then(function(r){return r.json();}); }); }
+  function pmIsDebater(){ var s=mySide(); return s==='pro'||s==='con'; }
+  function pmMotion(){ try{ return state.motion || ($('motionDisplay')&&$('motionDisplay').textContent) || ''; }catch(e){ return ''; } }
+  function pmOpen(){
+    if (pmOpened||!pmIsDebater()||!state.room||!state.proUid||!state.conUid) return;
+    pmOpened=true;
+    pmCall({action:'open',room:state.room,proUid:state.proUid,conUid:state.conUid,proName:state.proName||'Pro',conName:state.conName||'Con',motion:pmMotion(),format:state.formatKey||''}).catch(function(){ pmOpened=false; });
+  }
+  function pmLockCheck(){
+    if (pmLocked||!pmIsDebater()||!state.room) return;
+    var f=FORMATS[state.formatKey]; if(!f||!f.speeches) return;
+    if (state.speechIdx >= Math.ceil(f.speeches.length/2)){ pmLocked=true; pmCall({action:'lock',room:state.room}).catch(function(){ pmLocked=false; }); }
+  }
+  function pmSettleVerdict(winner){
+    if (pmSettled||!pmIsDebater()||!state.room||(winner!=='pro'&&winner!=='con')) return;
+    pmSettled=true;
+    pmCall({action:'settle',room:state.room,verdict:winner}).catch(function(){ pmSettled=false; });
+  }
+  // ---- spectator side ----
+  function pmInitSpectator(){
+    try{ if (!isSpectator()||!state.user||!state.room||pmPanel) return; pmRenderPanel(); pmPoll(); }catch(e){}
+  }
+  function pmRenderPanel(){
+    if (pmPanel) return;
+    var el=document.createElement('div'); el.id='pmPanel';
+    el.style.cssText='position:fixed;left:16px;bottom:16px;z-index:6000;width:280px;max-width:calc(100vw - 32px);background:#16161c;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5);padding:14px;font-family:inherit;font-size:.82rem;color:#fff';
+    el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">Live market · call the verdict</div>'+
+      '<div id="pmSides" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>'+
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" type="number" value="50" min="1" step="10" style="width:78px;background:#1d1d25;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#fff;padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Place bet</button></div>'+
+      '<div id="pmStatus" style="font-size:.72rem;color:rgba(255,255,255,.55);line-height:1.45"></div>';
+    document.body.appendChild(el); pmPanel=el;
+    el.querySelector('#pmBet').addEventListener('click', pmPlaceBet);
+  }
+  function pmPoll(){
+    pmCall({action:'state',room:state.room}).then(function(d){ if(d&&d.ok) pmUpdate(d); }).catch(function(){}).then(function(){
+      if (!pmSettled) pmPollTimer=setTimeout(pmPoll, 5000);
+    });
+  }
+  function pmSelect(side){ if(pmHasBet) return; pmPick=side; pmUpdateSidesSelection(); var b=pmPanel&&pmPanel.querySelector('#pmBet'); if(b){ b.disabled=false; b.style.opacity='1'; } }
+  function pmUpdateSidesSelection(){
+    if(!pmPanel) return;
+    [].forEach.call(pmPanel.querySelectorAll('[data-pmside]'),function(c){ c.style.borderColor = c.getAttribute('data-pmside')===pmPick ? '#ef4444' : 'rgba(255,255,255,.14)'; });
+  }
+  function pmPlaceBet(){
+    if(pmHasBet||!pmPick) return;
+    var stake=Math.max(1,parseInt((pmPanel.querySelector('#pmStake')||{}).value,10)||0);
+    var btn=pmPanel.querySelector('#pmBet'); if(btn){ btn.disabled=true; btn.textContent='Placing…'; }
+    pmCall({action:'bet',room:state.room,pick:pmPick,stake:stake}).then(function(d){
+      if(d&&d.ok){ pmHasBet=true; var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+'</b> on <b>'+pmPick.toUpperCase()+'</b>. balance '+d.balance+'.'; if(btn){ btn.textContent='Bet in'; } }
+      else { if(btn){ btn.disabled=false; btn.textContent='Place bet'; } var s2=pmPanel.querySelector('#pmStatus'); if(s2) s2.textContent=(d&&d.error)||'Could not place bet'; }
+    }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Place bet'; } });
+  }
+  function pmUpdate(d){
+    if(!pmPanel||!d.market) return;
+    var m=d.market, total=(m.poolPro||0)+(m.poolCon||0);
+    var oPro=m.poolPro>0?(total/m.poolPro).toFixed(2)+'x':'—', oCon=m.poolCon>0?(total/m.poolCon).toFixed(2)+'x':'—';
+    var locked=m.status!=='open', settled=m.status==='settled';
+    var sides=pmPanel.querySelector('#pmSides');
+    sides.innerHTML=[['pro',m.proName||'Pro',oPro],['con',m.conName||'Con',oCon]].map(function(x){
+      return '<button data-pmside="'+x[0]+'" '+(locked?'disabled':'')+' style="text-align:left;background:#1d1d25;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 10px;color:#fff;font:inherit;cursor:'+(locked?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
+    }).join('');
+    if(!locked){ [].forEach.call(sides.querySelectorAll('[data-pmside]'),function(c){ c.addEventListener('click',function(){ pmSelect(c.getAttribute('data-pmside')); }); }); pmUpdateSidesSelection(); }
+    var st=pmPanel.querySelector('#pmStatus'), inp=pmPanel.querySelector('#pmStake'), bet=pmPanel.querySelector('#pmBet');
+    if(settled){
+      if(pmPollTimer) clearTimeout(pmPollTimer);
+      var won = d.myBet && d.myBet.pick===m.verdict;
+      st.innerHTML='<b>'+( (m.verdict==='pro'?(m.proName||'Pro'):(m.conName||'Con')) )+' won.</b> '+(d.myBet?(won?'you called it. balance '+d.balance+'.':'you missed it.'):'')+' Rating '+(d.tier||'')+' '+(d.rating||'');
+      if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
+    } else if(locked){
+      st.textContent='Betting locked at the middle speech. pool '+total+' pts.';
+      if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
+    } else if(d.myBet){
+      pmHasBet=true; st.innerHTML='Bet in: <b>'+d.myBet.stake+'</b> on <b>'+d.myBet.pick.toUpperCase()+'</b>. pool '+total+'.';
+      if(bet){ bet.disabled=true; bet.textContent='Bet in'; bet.style.opacity='.5'; }
+      if(inp) inp.disabled=true;
+    } else {
+      st.innerHTML='Pool '+total+' pts. balance <b>'+(d.balance!=null?d.balance:'—')+'</b>. bets lock at the middle speech.';
+    }
+  }
+
   function generateBallot(){
     var p = buildBallotPrompt();
     fetch('/api/claude', {
@@ -2968,6 +3057,7 @@ button{font-family:inherit}
         throw new Error('Could not parse ballot. See browser console for the raw response.');
       }
       renderBallot(parsed);
+      try { pmSettleVerdict(parsed.winner); } catch(e){}
       // Push to Firestore so the other speaker's screen flips to the
       // ballot view automatically, no manual share, no refresh.
       publishBallot(parsed);
@@ -4625,6 +4715,7 @@ button{font-family:inherit}
       if (typeof d.prepMin === 'number' && !state.prepMin) state.prepMin = d.prepMin;
       if (d.createdAt && d.createdAt.toMillis) state.roundCreatedAtMs = d.createdAt.toMillis();
       renderRound();
+      try { pmOpen(); pmInitSpectator(); pmLockCheck(); } catch(e){}
       startPrepBanner();
     }
 
@@ -4635,6 +4726,7 @@ button{font-family:inherit}
     }
     if (typeof d.speechIdx === 'number' && d.speechIdx > state.speechIdx && state.phase === 'round'){
       state.speechIdx = d.speechIdx;
+      try { pmLockCheck(); } catch(e){}
       var f = FORMATS[state.formatKey];
       if (state.speechIdx < f.speeches.length){
         $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;

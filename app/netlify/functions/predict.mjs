@@ -182,6 +182,21 @@ export default async (request) => {
     }
   }
 
+  // ── lock: close betting at the middle speeches (called by a debater) ────
+  // Time-based lockAt is unreliable for human rounds (pauses, prep), so the
+  // live round triggers this when the round actually crosses its middle speech.
+  if (action === 'lock') {
+    const room = body.room && String(body.room).slice(0, 80);
+    if (!room) return errorResponse('Missing room', 400, request);
+    const mRef = db.collection('predict_markets').doc(room);
+    const m = await mRef.get();
+    if (!m.exists) return errorResponse('No market', 404, request);
+    const md = m.data();
+    if (uid !== md.proUid && uid !== md.conUid) return errorResponse('Not a participant', 403, request);
+    if (md.status === 'open') await mRef.update({ status: 'locked', lockedAt: FieldValue.serverTimestamp() });
+    return jsonResponse({ ok: true, status: 'locked' }, 200, request);
+  }
+
   // ── settle: resolve the market by the AI verdict (idempotent) ───────────
   if (action === 'settle') {
     const room = body.room && String(body.room).slice(0, 80);
