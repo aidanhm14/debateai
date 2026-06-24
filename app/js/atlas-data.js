@@ -1,3 +1,2376 @@
 /* Research-compiled debate-program dataset (city-level coords).
    Auto-generated; deduped against the curated core. Merged into SCHOOLS at runtime. */
 window.ATLAS_EXTRA = [{"n":"University of Pennsylvania Debate","city":"Philadelphia","country":"United States","lat":39.9522,"lng":-75.1932,"lvl":"college","fmt":["APDA"],"region":"North America","tier":2},{"n":"Amherst College Debate Society","city":"Amherst","country":"United States","lat":42.3709,"lng":-72.517,"lvl":"college","fmt":["APDA"],"region":"North America","tier":2},{"n":"Hamilton College Debate Society","city":"Clinton","country":"United States","lat":43.0517,"lng":-75.4054,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Haverford College Debate","city":"Haverford","country":"United States","lat":40.0095,"lng":-75.306,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Bates College Brooks Quimby Debate Council","city":"Lewiston","country":"United States","lat":44.1059,"lng":-70.2026,"lvl":"college","fmt":["APDA"],"region":"North America","tier":2},{"n":"Bowdoin College Debate","city":"Brunswick","country":"United States","lat":43.9075,"lng":-69.9637,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Middlebury College Debate Society","city":"Middlebury","country":"United States","lat":44.0089,"lng":-73.176,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Colby College Debate","city":"Waterville","country":"United States","lat":44.5634,"lng":-69.6625,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Bard College Debate Union","city":"Annandale-on-Hudson","country":"United States","lat":42.0207,"lng":-73.9112,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Colgate University Debate Society","city":"Hamilton","country":"United States","lat":42.8189,"lng":-75.5377,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Trinity College Debate","city":"Hartford","country":"United States","lat":41.7476,"lng":-72.6905,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Colorado College Debate","city":"Colorado Springs","country":"United States","lat":38.8473,"lng":-104.8214,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"George Washington University Debate","city":"Washington","country":"United States","lat":38.8997,"lng":-77.0488,"lvl":"college","fmt":["APDA"],"region":"North America","tier":2},{"n":"University of Virginia Debate (APDA)","city":"Charlottesville","country":"United States","lat":38.0336,"lng":-78.508,"lvl":"college","fmt":["APDA"],"region":"North America","tier":2},{"n":"Drexel Parliamentary Debate","city":"Philadelphia","country":"United States","lat":39.9566,"lng":-75.1899,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Lehigh University Debate","city":"Bethlehem","country":"United States","lat":40.6069,"lng":-75.3782,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Temple University Debate Society","city":"Philadelphia","country":"United States","lat":39.9812,"lng":-75.1554,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"University of Pittsburgh Debating Union","city":"Pittsburgh","country":"United States","lat":40.4444,"lng":-79.9608,"lvl":"college","fmt":["APDA"],"region":"North America","tier":2},{"n":"Stony Brook University Debate","city":"Stony Brook","country":"United States","lat":40.9128,"lng":-73.1233,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"University of Rochester Debate Union","city":"Rochester","country":"United States","lat":43.1283,"lng":-77.6285,"lvl":"college","fmt":["APDA","Policy"],"region":"North America","tier":2},{"n":"Marist College Debate","city":"Poughkeepsie","country":"United States","lat":41.7195,"lng":-73.9341,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"The College of New Jersey Debate","city":"Ewing","country":"United States","lat":40.2685,"lng":-74.779,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Babson College Debate","city":"Wellesley","country":"United States","lat":42.2987,"lng":-71.2647,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Bentley University Debate","city":"Waltham","country":"United States","lat":42.3886,"lng":-71.2204,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"University of Massachusetts Amherst Debate","city":"Amherst","country":"United States","lat":42.3868,"lng":-72.5301,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"University of Delaware Debate","city":"Newark","country":"United States","lat":39.6837,"lng":-75.7497,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"CUNY Baruch Debate","city":"New York","country":"United States","lat":40.7402,"lng":-73.9836,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Queens College Debate","city":"Queens","country":"United States","lat":40.7361,"lng":-73.8189,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"St. John's University Debate","city":"Queens","country":"United States","lat":40.7222,"lng":-73.7949,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Seton Hall University Debate","city":"South Orange","country":"United States","lat":40.7424,"lng":-74.2462,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Monmouth University Debate","city":"West Long Branch","country":"United States","lat":40.2789,"lng":-74.0029,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Hofstra University Debate","city":"Hempstead","country":"United States","lat":40.7146,"lng":-73.6004,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Wilkes University Debate","city":"Wilkes-Barre","country":"United States","lat":41.2459,"lng":-75.8813,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"St. Anselm College Debate","city":"Manchester","country":"United States","lat":42.9847,"lng":-71.5152,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Hobart and William Smith Colleges Debate","city":"Geneva","country":"United States","lat":42.8636,"lng":-76.9839,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"Lafayette College Debate","city":"Easton","country":"United States","lat":40.6985,"lng":-75.2074,"lvl":"college","fmt":["APDA"],"region":"North America","tier":3},{"n":"University of California Berkeley Policy Debate","city":"Berkeley","country":"United States","lat":37.8719,"lng":-122.2585,"lvl":"college","fmt":["Policy"],"region":"North America","tier":1},{"n":"University of Southern California Debate","city":"Los Angeles","country":"United States","lat":34.0224,"lng":-118.2851,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Minnesota Debate","city":"Minneapolis","country":"United States","lat":44.974,"lng":-93.2277,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Oklahoma Debate","city":"Norman","country":"United States","lat":35.2058,"lng":-97.4457,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Wyoming Debate","city":"Laramie","country":"United States","lat":41.3149,"lng":-105.5666,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Rochester Policy Debate","city":"Rochester","country":"United States","lat":43.1283,"lng":-77.6285,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Mary Washington Debate","city":"Fredericksburg","country":"United States","lat":38.3032,"lng":-77.4753,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"James Madison University Debate","city":"Harrisonburg","country":"United States","lat":38.4357,"lng":-78.8694,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Houston Policy Debate","city":"Houston","country":"United States","lat":29.7199,"lng":-95.3422,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of North Texas Debate","city":"Denton","country":"United States","lat":33.2104,"lng":-97.1483,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Nevada Las Vegas Debate","city":"Las Vegas","country":"United States","lat":36.1077,"lng":-115.1428,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"Kansas State University Debate","city":"Manhattan","country":"United States","lat":39.1974,"lng":-96.5847,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Missouri Kansas City Debate","city":"Kansas City","country":"United States","lat":39.0347,"lng":-94.5783,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Missouri State University Debate","city":"Springfield","country":"United States","lat":37.1969,"lng":-93.2829,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Central Oklahoma Debate","city":"Edmond","country":"United States","lat":35.6565,"lng":-97.4714,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Wichita State University Debate","city":"Wichita","country":"United States","lat":37.7197,"lng":-97.292,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Samford University Debate","city":"Birmingham","country":"United States","lat":33.4636,"lng":-86.7919,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"University of Miami Debate","city":"Coral Gables","country":"United States","lat":25.7215,"lng":-80.2793,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Binghamton Policy Debate","city":"Vestal","country":"United States","lat":42.0888,"lng":-75.9686,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Mercer University Debate","city":"Macon","country":"United States","lat":32.8285,"lng":-83.6494,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Case Western Reserve University Debate","city":"Cleveland","country":"United States","lat":41.5043,"lng":-81.6084,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"University of West Georgia Debate","city":"Carrollton","country":"United States","lat":33.5718,"lng":-85.0966,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Fresno State Debate","city":"Fresno","country":"United States","lat":36.8129,"lng":-119.7456,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Weber State University Debate","city":"Ogden","country":"United States","lat":41.1929,"lng":-111.9447,"lvl":"college","fmt":["Policy","Parli"],"region":"North America","tier":3},{"n":"Idaho State University Debate","city":"Pocatello","country":"United States","lat":42.8616,"lng":-112.4347,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Whitman College Debate Union","city":"Walla Walla","country":"United States","lat":46.0707,"lng":-118.3299,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"Concordia University Irvine Debate","city":"Irvine","country":"United States","lat":33.6647,"lng":-117.8255,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"William Jewell College Debate","city":"Liberty","country":"United States","lat":39.2461,"lng":-94.4191,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"Washburn University Debate","city":"Topeka","country":"United States","lat":39.0345,"lng":-95.7008,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"Western Washington University Debate Union","city":"Bellingham","country":"United States","lat":48.7335,"lng":-122.4853,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"University of the Pacific Speech and Debate","city":"Stockton","country":"United States","lat":37.9803,"lng":-121.3115,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"Point Loma Nazarene University Debate","city":"San Diego","country":"United States","lat":32.7184,"lng":-117.248,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"McKendree University Debate","city":"Lebanon","country":"United States","lat":38.6042,"lng":-89.8104,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"University of California Berkeley Parliamentary Debate","city":"Berkeley","country":"United States","lat":37.8719,"lng":-122.2585,"lvl":"college","fmt":["Parli"],"region":"North America","tier":1},{"n":"University of Oregon Forensics","city":"Eugene","country":"United States","lat":44.0448,"lng":-123.0726,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"University of Nevada Reno Debate","city":"Reno","country":"United States","lat":39.5447,"lng":-119.8142,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"University of Utah Debate","city":"Salt Lake City","country":"United States","lat":40.7649,"lng":-111.8421,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"University of Puget Sound Debate","city":"Tacoma","country":"United States","lat":47.2607,"lng":-122.481,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Truman State University Debate","city":"Kirksville","country":"United States","lat":40.1948,"lng":-92.5829,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"University of Alaska Anchorage Debate","city":"Anchorage","country":"United States","lat":61.1899,"lng":-149.8253,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Colorado State University Debate","city":"Fort Collins","country":"United States","lat":40.5734,"lng":-105.0865,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Concordia University Nebraska Debate","city":"Seward","country":"United States","lat":40.9097,"lng":-97.0945,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Regis University Debate","city":"Denver","country":"United States","lat":39.7714,"lng":-105.0306,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Southern Illinois University Carbondale Debate","city":"Carbondale","country":"United States","lat":37.7141,"lng":-89.2243,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Kansas City Kansas Community College Debate","city":"Kansas City","country":"United States","lat":39.1141,"lng":-94.6275,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Saint Mary's College of California Debate","city":"Moraga","country":"United States","lat":37.8403,"lng":-122.1097,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"University of Wisconsin Whitewater Forensics","city":"Whitewater","country":"United States","lat":42.8347,"lng":-88.7334,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Wisconsin Eau Claire Forensics","city":"Eau Claire","country":"United States","lat":44.7977,"lng":-91.4988,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Linfield University Forensics","city":"McMinnville","country":"United States","lat":45.2007,"lng":-123.1968,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Pacific University Forensics","city":"Forest Grove","country":"United States","lat":45.5184,"lng":-123.1112,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Willamette University Debate","city":"Salem","country":"United States","lat":44.9365,"lng":-123.0307,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Whitworth University Debate","city":"Spokane","country":"United States","lat":47.7531,"lng":-117.4151,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Seattle University Debate","city":"Seattle","country":"United States","lat":47.6101,"lng":-122.3185,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Montana State University Forensics","city":"Bozeman","country":"United States","lat":45.6677,"lng":-111.0492,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Montana Debate","city":"Missoula","country":"United States","lat":46.8625,"lng":-113.9852,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Boise State University Forensics","city":"Boise","country":"United States","lat":43.6044,"lng":-116.204,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"The College of Idaho Debate","city":"Caldwell","country":"United States","lat":43.6611,"lng":-116.6857,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Northwest Nazarene University Debate","city":"Nampa","country":"United States","lat":43.5737,"lng":-116.5635,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Carroll College Forensics","city":"Helena","country":"United States","lat":46.6005,"lng":-112.0388,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"California Polytechnic State University Debate","city":"San Luis Obispo","country":"United States","lat":35.305,"lng":-120.6625,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"California State University Long Beach Debate","city":"Long Beach","country":"United States","lat":33.7838,"lng":-118.1141,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"California State University Fullerton Debate","city":"Fullerton","country":"United States","lat":33.8829,"lng":-117.8855,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"California State University Northridge Debate","city":"Northridge","country":"United States","lat":34.241,"lng":-118.5279,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"California State University Chico Debate","city":"Chico","country":"United States","lat":39.7285,"lng":-121.8458,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"California State University Sacramento Debate","city":"Sacramento","country":"United States","lat":38.5599,"lng":-121.4239,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"San Francisco State University Forensics","city":"San Francisco","country":"United States","lat":37.7241,"lng":-122.4799,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"San Jose State University Debate","city":"San Jose","country":"United States","lat":37.3352,"lng":-121.8811,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"San Diego State University Forensics","city":"San Diego","country":"United States","lat":32.7757,"lng":-117.0719,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of San Francisco Debate","city":"San Francisco","country":"United States","lat":37.7766,"lng":-122.4505,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Loyola Marymount University Debate","city":"Los Angeles","country":"United States","lat":33.9697,"lng":-118.4168,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of La Verne Forensics","city":"La Verne","country":"United States","lat":34.1009,"lng":-117.7676,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Pepperdine University Debate","city":"Malibu","country":"United States","lat":34.0413,"lng":-118.7095,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"California Baptist University Debate","city":"Riverside","country":"United States","lat":33.9285,"lng":-117.4255,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of California Riverside Debate","city":"Riverside","country":"United States","lat":33.9737,"lng":-117.3281,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of California Los Angeles Debate","city":"Los Angeles","country":"United States","lat":34.0689,"lng":-118.4452,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Texas Christian University Debate","city":"Fort Worth","country":"United States","lat":32.709,"lng":-97.3628,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Southern Methodist University Debate","city":"Dallas","country":"United States","lat":32.8412,"lng":-96.7845,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Texas at Tyler Debate","city":"Tyler","country":"United States","lat":32.3132,"lng":-95.262,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"University of Texas at El Paso Debate","city":"El Paso","country":"United States","lat":31.771,"lng":-106.505,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Texas at Dallas Debate","city":"Richardson","country":"United States","lat":32.9858,"lng":-96.7501,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Texas State University Debate","city":"San Marcos","country":"United States","lat":29.8884,"lng":-97.9384,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Tulane University Debate","city":"New Orleans","country":"United States","lat":29.9404,"lng":-90.1206,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Louisiana State University Debate","city":"Baton Rouge","country":"United States","lat":30.4133,"lng":-91.18,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Tennessee State University Debate","city":"Nashville","country":"United States","lat":36.1659,"lng":-86.8295,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Murray State University Debate","city":"Murray","country":"United States","lat":36.6182,"lng":-88.3209,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Marshall University Debate","city":"Huntington","country":"United States","lat":38.4239,"lng":-82.4266,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"West Virginia University Debate","city":"Morgantown","country":"United States","lat":39.6356,"lng":-79.954,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Ohio University Forensics","city":"Athens","country":"United States","lat":39.3267,"lng":-82.1013,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Ohio State University Debate","city":"Columbus","country":"United States","lat":39.999,"lng":-83.0124,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Bradley University Debate","city":"Peoria","country":"United States","lat":40.6979,"lng":-89.6157,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Illinois State University Debate","city":"Normal","country":"United States","lat":40.5095,"lng":-88.9928,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"DePaul University Debate","city":"Chicago","country":"United States","lat":41.925,"lng":-87.6539,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Loyola University Chicago Debate","city":"Chicago","country":"United States","lat":41.9994,"lng":-87.6576,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"North Central College Debate","city":"Naperville","country":"United States","lat":41.772,"lng":-88.1465,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Minnesota State University Mankato Debate","city":"Mankato","country":"United States","lat":44.1463,"lng":-93.9994,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"St. Cloud State University Debate","city":"St. Cloud","country":"United States","lat":45.551,"lng":-94.149,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Macalester College Forensics","city":"Saint Paul","country":"United States","lat":44.9379,"lng":-93.1686,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"St. Olaf College Debate","city":"Northfield","country":"United States","lat":44.4615,"lng":-93.1837,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"North Dakota State University Debate","city":"Fargo","country":"United States","lat":46.8978,"lng":-96.8016,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of North Dakota Debate","city":"Grand Forks","country":"United States","lat":47.9224,"lng":-97.0727,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"South Dakota State University Debate","city":"Brookings","country":"United States","lat":44.3192,"lng":-96.782,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Nebraska Lincoln Forensics","city":"Lincoln","country":"United States","lat":40.8202,"lng":-96.7005,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Nebraska Omaha Debate","city":"Omaha","country":"United States","lat":41.2581,"lng":-96.0103,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Nebraska Kearney Debate","city":"Kearney","country":"United States","lat":40.7,"lng":-99.1054,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Hastings College Debate","city":"Hastings","country":"United States","lat":40.5897,"lng":-98.3839,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Doane University Forensics","city":"Crete","country":"United States","lat":40.628,"lng":-96.9425,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Midland University Debate","city":"Fremont","country":"United States","lat":41.4336,"lng":-96.4886,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Northern Arizona University Debate","city":"Flagstaff","country":"United States","lat":35.1853,"lng":-111.6542,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Arizona State University Forensics","city":"Tempe","country":"United States","lat":33.4242,"lng":-111.9281,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Grand Canyon University Debate","city":"Phoenix","country":"United States","lat":33.5101,"lng":-112.1252,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Utah State University Debate","city":"Logan","country":"United States","lat":41.7456,"lng":-111.8097,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Westminster University Debate","city":"Salt Lake City","country":"United States","lat":40.7363,"lng":-111.8551,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Lewis-Clark State College Debate","city":"Lewiston","country":"United States","lat":46.4087,"lng":-117.0231,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Oregon State University Forensics","city":"Corvallis","country":"United States","lat":44.5638,"lng":-123.2794,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Washington State University Debate","city":"Pullman","country":"United States","lat":46.7319,"lng":-117.1542,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Washington Debate","city":"Seattle","country":"United States","lat":47.6553,"lng":-122.3035,"lvl":"college","fmt":["Parli"],"region":"North America","tier":2},{"n":"Ball State University BP Debate","city":"Muncie","country":"United States","lat":40.2034,"lng":-85.4093,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Claremont Colleges Debate Union","city":"Claremont","country":"United States","lat":34.1016,"lng":-117.7079,"lvl":"college","fmt":["BP","Parli"],"region":"North America","tier":3},{"n":"Patrick Henry College Debate","city":"Purcellville","country":"United States","lat":39.1368,"lng":-77.7144,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Hillsdale College Debate","city":"Hillsdale","country":"United States","lat":41.922,"lng":-84.6305,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Cedarville University Debate","city":"Cedarville","country":"United States","lat":39.744,"lng":-83.8052,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Harding University Debate","city":"Searcy","country":"United States","lat":35.2506,"lng":-91.7376,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Oklahoma City University Debate","city":"Oklahoma City","country":"United States","lat":35.4934,"lng":-97.5298,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Oral Roberts University Debate","city":"Tulsa","country":"United States","lat":36.051,"lng":-95.951,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Tulsa Debate","city":"Tulsa","country":"United States","lat":36.1517,"lng":-95.9456,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"University of Central Florida Debate","city":"Orlando","country":"United States","lat":28.6024,"lng":-81.2001,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Florida State University Debate","city":"Tallahassee","country":"United States","lat":30.4419,"lng":-84.2985,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Rollins College Debate","city":"Winter Park","country":"United States","lat":28.5925,"lng":-81.3487,"lvl":"college","fmt":["Parli"],"region":"North America","tier":3},{"n":"Howard University Debate Team","city":"Washington","country":"United States","lat":38.9226,"lng":-77.0194,"lvl":"college","fmt":["Policy"],"region":"North America","tier":2},{"n":"Morehouse College Debate","city":"Atlanta","country":"United States","lat":33.7461,"lng":-84.4146,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Spelman College Debate","city":"Atlanta","country":"United States","lat":33.7458,"lng":-84.4119,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Wiley College Debate","city":"Marshall","country":"United States","lat":32.5251,"lng":-94.3963,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Texas Southern University Debate","city":"Houston","country":"United States","lat":29.7239,"lng":-95.3597,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"Hampton University Debate","city":"Hampton","country":"United States","lat":37.0211,"lng":-76.3367,"lvl":"college","fmt":["Policy"],"region":"North America","tier":3},{"n":"University of Toronto Hart House Debating Club","city":"Toronto","country":"Canada","lat":43.6629,"lng":-79.3957,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":1},{"n":"University of British Columbia Debate Society","city":"Vancouver","country":"Canada","lat":49.2606,"lng":-123.246,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":1},{"n":"McMaster Debating Society","city":"Hamilton","country":"Canada","lat":43.2609,"lng":-79.9192,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"University of Ottawa Debating Society","city":"Ottawa","country":"Canada","lat":45.4231,"lng":-75.6831,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"Carleton University Debating Society","city":"Ottawa","country":"Canada","lat":45.3876,"lng":-75.696,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"University of Waterloo Debate Society","city":"Waterloo","country":"Canada","lat":43.4723,"lng":-80.5449,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"Wilfrid Laurier University Debate","city":"Waterloo","country":"Canada","lat":43.4738,"lng":-80.5272,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":3},{"n":"Western University Debating Society","city":"London","country":"Canada","lat":43.0096,"lng":-81.2737,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"York University Debating Society","city":"Toronto","country":"Canada","lat":43.7735,"lng":-79.5019,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Toronto Metropolitan University Debate","city":"Toronto","country":"Canada","lat":43.6577,"lng":-79.3788,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"University of Guelph Debate Society","city":"Guelph","country":"Canada","lat":43.5327,"lng":-80.2262,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Concordia University Debate","city":"Montreal","country":"Canada","lat":45.4972,"lng":-73.579,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"University of Alberta Debate Society","city":"Edmonton","country":"Canada","lat":53.5232,"lng":-113.5263,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"University of Calgary Debate Society","city":"Calgary","country":"Canada","lat":51.0782,"lng":-114.1366,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"University of Victoria Debate Society","city":"Victoria","country":"Canada","lat":48.4634,"lng":-123.3117,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Simon Fraser University Debate","city":"Burnaby","country":"Canada","lat":49.2781,"lng":-122.9199,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Dalhousie Debating Society","city":"Halifax","country":"Canada","lat":44.6366,"lng":-63.5917,"lvl":"college","fmt":["BP","Worlds"],"region":"North America","tier":2},{"n":"Saint Mary's University Debating Society","city":"Halifax","country":"Canada","lat":44.6312,"lng":-63.5807,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"University of King's College Debate","city":"Halifax","country":"Canada","lat":44.6378,"lng":-63.5907,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Acadia University Debate","city":"Wolfville","country":"Canada","lat":45.0918,"lng":-64.3669,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Mount Allison University Debate","city":"Sackville","country":"Canada","lat":45.8975,"lng":-64.3681,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Memorial University Debating Society","city":"St. John's","country":"Canada","lat":47.5712,"lng":-52.7314,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"University of Saskatchewan Debate","city":"Saskatoon","country":"Canada","lat":52.1318,"lng":-106.6332,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"University of Manitoba Debate","city":"Winnipeg","country":"Canada","lat":49.8075,"lng":-97.1366,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Bishop's University Debate","city":"Sherbrooke","country":"Canada","lat":45.282,"lng":-71.951,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Royal Military College of Canada Debate","city":"Kingston","country":"Canada","lat":44.2295,"lng":-76.4636,"lvl":"college","fmt":["BP"],"region":"North America","tier":3},{"n":"Coppell High School","city":"Coppell","country":"United States","lat":32.9546,"lng":-96.99,"lvl":"hs","fmt":["LD","Congress"],"region":"North America","tier":1},{"n":"American Heritage School (Palm Beach)","city":"Delray Beach","country":"United States","lat":26.4615,"lng":-80.0728,"lvl":"hs","fmt":["LD","PF","Congress"],"region":"North America","tier":1},{"n":"Pine View School","city":"Osprey","country":"United States","lat":27.1789,"lng":-82.4901,"lvl":"hs","fmt":["PF"],"region":"North America","tier":1},{"n":"Nova High School","city":"Davie","country":"United States","lat":26.0765,"lng":-80.2381,"lvl":"hs","fmt":["Congress"],"region":"North America","tier":1},{"n":"The Blake School","city":"Minneapolis","country":"United States","lat":44.9476,"lng":-93.3201,"lvl":"hs","fmt":["Policy","PF"],"region":"North America","tier":1},{"n":"Eagan High School","city":"Eagan","country":"United States","lat":44.8041,"lng":-93.1668,"lvl":"hs","fmt":["Policy","LD"],"region":"North America","tier":2},{"n":"Wayzata High School","city":"Plymouth","country":"United States","lat":45.0258,"lng":-93.4738,"lvl":"hs","fmt":["Policy","LD"],"region":"North America","tier":2},{"n":"Eden Prairie High School","city":"Eden Prairie","country":"United States","lat":44.8547,"lng":-93.4708,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Bronx High School of Science","city":"Bronx","country":"United States","lat":40.8782,"lng":-73.8908,"lvl":"hs","fmt":["LD","PF","Policy"],"region":"North America","tier":1},{"n":"Horace Greeley High School","city":"Chappaqua","country":"United States","lat":41.1593,"lng":-73.7682,"lvl":"hs","fmt":["LD"],"region":"North America","tier":1},{"n":"Scarsdale High School","city":"Scarsdale","country":"United States","lat":40.9912,"lng":-73.8085,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Byram Hills High School","city":"Armonk","country":"United States","lat":41.1265,"lng":-73.714,"lvl":"hs","fmt":["LD","Congress"],"region":"North America","tier":2},{"n":"Harrison High School","city":"Harrison","country":"United States","lat":40.969,"lng":-73.7129,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Regis High School","city":"New York","country":"United States","lat":40.7758,"lng":-73.9591,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Horace Mann School","city":"Bronx","country":"United States","lat":40.9036,"lng":-73.9042,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Brooklyn Technical High School","city":"Brooklyn","country":"United States","lat":40.6892,"lng":-73.9766,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":3},{"n":"Ridge High School","city":"Basking Ridge","country":"United States","lat":40.6735,"lng":-74.5671,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":1},{"n":"Millburn High School","city":"Millburn","country":"United States","lat":40.729,"lng":-74.3032,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":1},{"n":"Delbarton School","city":"Morristown","country":"United States","lat":40.8095,"lng":-74.5326,"lvl":"hs","fmt":["PF"],"region":"North America","tier":1},{"n":"The Lawrenceville School","city":"Lawrenceville","country":"United States","lat":40.2965,"lng":-74.729,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":1},{"n":"Mountain Lakes High School","city":"Mountain Lakes","country":"United States","lat":40.8951,"lng":-74.4332,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Livingston High School","city":"Livingston","country":"United States","lat":40.7959,"lng":-74.3149,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Northern Valley Regional High School at Demarest","city":"Demarest","country":"United States","lat":40.9576,"lng":-73.9579,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Newark Academy","city":"Livingston","country":"United States","lat":40.7745,"lng":-74.3457,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"West Windsor-Plainsboro High School North","city":"Plainsboro","country":"United States","lat":40.3318,"lng":-74.5907,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Princeton High School","city":"Princeton","country":"United States","lat":40.3573,"lng":-74.6672,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":2},{"n":"Glenbrook South High School","city":"Glenview","country":"United States","lat":42.0698,"lng":-87.8222,"lvl":"hs","fmt":["Policy","PF","LD"],"region":"North America","tier":1},{"n":"Maine East High School","city":"Park Ridge","country":"United States","lat":42.0364,"lng":-87.8425,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Niles West High School","city":"Skokie","country":"United States","lat":42.0444,"lng":-87.7621,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Northside College Preparatory High School","city":"Chicago","country":"United States","lat":41.9756,"lng":-87.7172,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"Whitney M. Young Magnet High School","city":"Chicago","country":"United States","lat":41.8786,"lng":-87.6692,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Thomas S. Wootton High School","city":"Rockville","country":"United States","lat":39.084,"lng":-77.1858,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Richard Montgomery High School","city":"Rockville","country":"United States","lat":39.0875,"lng":-77.153,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":2},{"n":"Montgomery Blair High School","city":"Silver Spring","country":"United States","lat":39.0156,"lng":-77.0214,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":2},{"n":"River Hill High School","city":"Clarksville","country":"United States","lat":39.2095,"lng":-76.953,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Winston Churchill High School","city":"Potomac","country":"United States","lat":39.0382,"lng":-77.2092,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Lake Braddock Secondary School","city":"Burke","country":"United States","lat":38.7855,"lng":-77.2858,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":1},{"n":"James Madison High School","city":"Vienna","country":"United States","lat":38.9097,"lng":-77.2622,"lvl":"hs","fmt":["Policy","PF"],"region":"North America","tier":2},{"n":"George C. Marshall High School","city":"Falls Church","country":"United States","lat":38.8895,"lng":-77.2003,"lvl":"hs","fmt":["Policy","PF"],"region":"North America","tier":2},{"n":"Langley High School","city":"McLean","country":"United States","lat":38.9686,"lng":-77.1772,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"McLean High School","city":"McLean","country":"United States","lat":38.9351,"lng":-77.1747,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":2},{"n":"Washington-Liberty High School","city":"Arlington","country":"United States","lat":38.8869,"lng":-77.1131,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":2},{"n":"Vestavia Hills High School","city":"Vestavia Hills","country":"United States","lat":33.4488,"lng":-86.7877,"lvl":"hs","fmt":["LD"],"region":"North America","tier":1},{"n":"Altamont School","city":"Birmingham","country":"United States","lat":33.53,"lng":-86.7568,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Homewood High School","city":"Homewood","country":"United States","lat":33.4654,"lng":-86.8003,"lvl":"hs","fmt":["LD","Congress"],"region":"North America","tier":2},{"n":"Washburn Rural High School","city":"Topeka","country":"United States","lat":38.9636,"lng":-95.7561,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":1},{"n":"Shawnee Mission South High School","city":"Overland Park","country":"United States","lat":38.9542,"lng":-94.6766,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":1},{"n":"Shawnee Mission East High School","city":"Prairie Village","country":"United States","lat":38.9849,"lng":-94.6363,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Blue Valley Southwest High School","city":"Overland Park","country":"United States","lat":38.8606,"lng":-94.7,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Blue Valley Northwest High School","city":"Overland Park","country":"United States","lat":38.9024,"lng":-94.7163,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Blue Valley North High School","city":"Overland Park","country":"United States","lat":38.9352,"lng":-94.6731,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Lawrence Free State High School","city":"Lawrence","country":"United States","lat":38.9941,"lng":-95.2769,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Lawrence High School","city":"Lawrence","country":"United States","lat":38.9587,"lng":-95.2476,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":3},{"n":"Wichita East High School","city":"Wichita","country":"United States","lat":37.6889,"lng":-97.2779,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Olathe Northwest High School","city":"Olathe","country":"United States","lat":38.908,"lng":-94.8516,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":3},{"n":"Pembroke Hill School","city":"Kansas City","country":"United States","lat":39.0344,"lng":-94.5916,"lvl":"hs","fmt":["Policy","LD"],"region":"North America","tier":2},{"n":"Liberty North High School","city":"Liberty","country":"United States","lat":39.2697,"lng":-94.4191,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":2},{"n":"Marquette High School","city":"Chesterfield","country":"United States","lat":38.602,"lng":-90.5384,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"Parkway West High School","city":"Ballwin","country":"United States","lat":38.5953,"lng":-90.5076,"lvl":"hs","fmt":["Policy"],"region":"North America","tier":3},{"n":"Valley High School","city":"West Des Moines","country":"United States","lat":41.5566,"lng":-93.744,"lvl":"hs","fmt":["LD"],"region":"North America","tier":1},{"n":"Dowling Catholic High School","city":"West Des Moines","country":"United States","lat":41.6014,"lng":-93.771,"lvl":"hs","fmt":["LD","Congress"],"region":"North America","tier":2},{"n":"Iowa City West High School","city":"Iowa City","country":"United States","lat":41.6618,"lng":-91.5641,"lvl":"hs","fmt":["LD","Policy"],"region":"North America","tier":2},{"n":"Millard North High School","city":"Omaha","country":"United States","lat":41.2773,"lng":-96.1289,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Millard West High School","city":"Omaha","country":"United States","lat":41.236,"lng":-96.1859,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Westside High School","city":"Omaha","country":"United States","lat":41.251,"lng":-96.0699,"lvl":"hs","fmt":["LD","Policy"],"region":"North America","tier":2},{"n":"Pittsburgh Central Catholic High School","city":"Pittsburgh","country":"United States","lat":40.449,"lng":-79.9472,"lvl":"hs","fmt":["PF"],"region":"North America","tier":1},{"n":"Strath Haven High School","city":"Wallingford","country":"United States","lat":39.9043,"lng":-75.3735,"lvl":"hs","fmt":["PF"],"region":"North America","tier":1},{"n":"Council Rock High School North","city":"Newtown","country":"United States","lat":40.248,"lng":-74.9385,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Germantown Friends School","city":"Philadelphia","country":"United States","lat":40.0357,"lng":-75.1745,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Masterman School","city":"Philadelphia","country":"United States","lat":39.9602,"lng":-75.1683,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Unionville High School","city":"Kennett Square","country":"United States","lat":39.8771,"lng":-75.7129,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":2},{"n":"La Salle College High School","city":"Wyndmoor","country":"United States","lat":40.0851,"lng":-75.1899,"lvl":"hs","fmt":["Congress","PF"],"region":"North America","tier":2},{"n":"Bellarmine College Preparatory","city":"San Jose","country":"United States","lat":37.3463,"lng":-121.9081,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"The College Preparatory School","city":"Oakland","country":"United States","lat":37.8542,"lng":-122.241,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":1},{"n":"The Nueva School","city":"San Mateo","country":"United States","lat":37.5224,"lng":-122.3255,"lvl":"hs","fmt":["PF"],"region":"North America","tier":1},{"n":"Monta Vista High School","city":"Cupertino","country":"United States","lat":37.3164,"lng":-122.0521,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Lynbrook High School","city":"San Jose","country":"United States","lat":37.311,"lng":-122.0046,"lvl":"hs","fmt":["LD"],"region":"North America","tier":1},{"n":"Henry M. Gunn High School","city":"Palo Alto","country":"United States","lat":37.4031,"lng":-122.131,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Dougherty Valley High School","city":"San Ramon","country":"United States","lat":37.7593,"lng":-121.909,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Leland High School","city":"San Jose","country":"United States","lat":37.2306,"lng":-121.8331,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Los Altos High School","city":"Los Altos","country":"United States","lat":37.3741,"lng":-122.0966,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Miramonte High School","city":"Orinda","country":"United States","lat":37.8595,"lng":-122.1718,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Bishop O'Dowd High School","city":"Oakland","country":"United States","lat":37.7637,"lng":-122.1503,"lvl":"hs","fmt":["Policy","PF"],"region":"North America","tier":2},{"n":"Marlborough School","city":"Los Angeles","country":"United States","lat":34.0648,"lng":-118.327,"lvl":"hs","fmt":["LD"],"region":"North America","tier":1},{"n":"Immaculate Heart High School","city":"Los Angeles","country":"United States","lat":34.1062,"lng":-118.2969,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Flintridge Preparatory School","city":"La Canada Flintridge","country":"United States","lat":34.1939,"lng":-118.205,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Loyola High School","city":"Los Angeles","country":"United States","lat":34.0541,"lng":-118.2851,"lvl":"hs","fmt":["LD","Policy"],"region":"North America","tier":2},{"n":"Chaminade College Preparatory","city":"West Hills","country":"United States","lat":34.2009,"lng":-118.6457,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Campbell Hall School","city":"Los Angeles","country":"United States","lat":34.1486,"lng":-118.4001,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Oakwood School","city":"Los Angeles","country":"United States","lat":34.1623,"lng":-118.37,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Peninsula High School","city":"Rolling Hills Estates","country":"United States","lat":33.7733,"lng":-118.3651,"lvl":"hs","fmt":["LD"],"region":"North America","tier":1},{"n":"Mira Costa High School","city":"Manhattan Beach","country":"United States","lat":33.8866,"lng":-118.4046,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Orange County School of the Arts","city":"Santa Ana","country":"United States","lat":33.7494,"lng":-117.8678,"lvl":"hs","fmt":["LD"],"region":"North America","tier":1},{"n":"University High School","city":"Irvine","country":"United States","lat":33.6504,"lng":-117.824,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Torrey Pines High School","city":"San Diego","country":"United States","lat":32.9569,"lng":-117.2294,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Sonoma Academy","city":"Santa Rosa","country":"United States","lat":38.4193,"lng":-122.6701,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Interlake High School","city":"Bellevue","country":"United States","lat":47.6175,"lng":-122.1855,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":1},{"n":"Mercer Island High School","city":"Mercer Island","country":"United States","lat":47.5641,"lng":-122.2295,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Bellevue High School","city":"Bellevue","country":"United States","lat":47.6177,"lng":-122.2056,"lvl":"hs","fmt":["LD","Policy"],"region":"North America","tier":2},{"n":"Sehome High School","city":"Bellingham","country":"United States","lat":48.7283,"lng":-122.4793,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Gonzaga Preparatory School","city":"Spokane","country":"United States","lat":47.685,"lng":-117.3963,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"Pace Academy","city":"Atlanta","country":"United States","lat":33.8417,"lng":-84.4188,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"The Lovett School","city":"Atlanta","country":"United States","lat":33.8665,"lng":-84.4346,"lvl":"hs","fmt":["LD","Policy"],"region":"North America","tier":2},{"n":"Marist School","city":"Atlanta","country":"United States","lat":33.9043,"lng":-84.3266,"lvl":"hs","fmt":["Congress","PF"],"region":"North America","tier":2},{"n":"Northview High School","city":"Johns Creek","country":"United States","lat":34.0289,"lng":-84.2333,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Milton High School","city":"Milton","country":"United States","lat":34.1318,"lng":-84.2997,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Walton High School","city":"Marietta","country":"United States","lat":34.0235,"lng":-84.435,"lvl":"hs","fmt":["Congress","PF"],"region":"North America","tier":2},{"n":"Chamblee Charter High School","city":"Chamblee","country":"United States","lat":33.8855,"lng":-84.3018,"lvl":"hs","fmt":["LD","Policy"],"region":"North America","tier":3},{"n":"Charlotte Latin School","city":"Charlotte","country":"United States","lat":35.0935,"lng":-80.7757,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Myers Park High School","city":"Charlotte","country":"United States","lat":35.1857,"lng":-80.8194,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":2},{"n":"Cary Academy","city":"Cary","country":"United States","lat":35.8186,"lng":-78.8225,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Ardrey Kell High School","city":"Charlotte","country":"United States","lat":35.0529,"lng":-80.823,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":3},{"n":"Phillips Exeter Academy","city":"Exeter","country":"United States","lat":42.9803,"lng":-70.951,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":1},{"n":"Phillips Academy Andover","city":"Andover","country":"United States","lat":42.6469,"lng":-71.137,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Lexington High School","city":"Lexington","country":"United States","lat":42.443,"lng":-71.229,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":1},{"n":"Acton-Boxborough Regional High School","city":"Acton","country":"United States","lat":42.476,"lng":-71.4413,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":1},{"n":"Lincoln-Sudbury Regional High School","city":"Sudbury","country":"United States","lat":42.3742,"lng":-71.4036,"lvl":"hs","fmt":["PF"],"region":"North America","tier":1},{"n":"Milton Academy","city":"Milton","country":"United States","lat":42.2495,"lng":-71.0773,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Arlington High School","city":"Arlington","country":"United States","lat":42.4187,"lng":-71.1612,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Barrington High School","city":"Barrington","country":"United States","lat":41.7401,"lng":-71.318,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Isidore Newman School","city":"New Orleans","country":"United States","lat":29.9285,"lng":-90.1085,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Kent Denver School","city":"Englewood","country":"United States","lat":39.6228,"lng":-104.9094,"lvl":"hs","fmt":["LD","Policy"],"region":"North America","tier":2},{"n":"Denver East High School","city":"Denver","country":"United States","lat":39.7411,"lng":-104.953,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"West High School","city":"Salt Lake City","country":"United States","lat":40.7717,"lng":-111.908,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Desert Vista High School","city":"Phoenix","country":"United States","lat":33.3093,"lng":-111.9876,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"Hamilton High School","city":"Chandler","country":"United States","lat":33.2825,"lng":-111.85,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":3},{"n":"BASIS Scottsdale","city":"Scottsdale","country":"United States","lat":33.5731,"lng":-111.891,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"BASIS Chandler","city":"Chandler","country":"United States","lat":33.3062,"lng":-111.8413,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":3},{"n":"Southlake Carroll Senior High School","city":"Southlake","country":"United States","lat":32.953,"lng":-97.1417,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":1},{"n":"Westwood High School","city":"Austin","country":"United States","lat":30.4366,"lng":-97.7203,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":1},{"n":"Clements High School","city":"Sugar Land","country":"United States","lat":29.5894,"lng":-95.6313,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Dulles High School","city":"Sugar Land","country":"United States","lat":29.6055,"lng":-95.624,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Clear Lake High School","city":"Houston","country":"United States","lat":29.5648,"lng":-95.1085,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Bellaire High School","city":"Bellaire","country":"United States","lat":29.705,"lng":-95.4594,"lvl":"hs","fmt":["Congress","PF"],"region":"North America","tier":2},{"n":"Awty International School","city":"Houston","country":"United States","lat":29.792,"lng":-95.486,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Northland Christian School","city":"Houston","country":"United States","lat":29.908,"lng":-95.528,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"The Woodlands High School","city":"The Woodlands","country":"United States","lat":30.1658,"lng":-95.4613,"lvl":"hs","fmt":["LD","Congress"],"region":"North America","tier":2},{"n":"McNeil High School","city":"Austin","country":"United States","lat":30.45,"lng":-97.733,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Memorial High School","city":"Houston","country":"United States","lat":29.779,"lng":-95.567,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Jasper High School","city":"Plano","country":"United States","lat":33.085,"lng":-96.757,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Heritage Hall","city":"Oklahoma City","country":"United States","lat":35.565,"lng":-97.626,"lvl":"hs","fmt":["Policy","LD"],"region":"North America","tier":2},{"n":"Solon High School","city":"Solon","country":"United States","lat":41.392,"lng":-81.441,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Hawken School","city":"Gates Mills","country":"United States","lat":41.521,"lng":-81.404,"lvl":"hs","fmt":["LD","PF"],"region":"North America","tier":2},{"n":"Mason High School","city":"Mason","country":"United States","lat":39.36,"lng":-84.31,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":2},{"n":"Detroit Country Day School","city":"Beverly Hills","country":"United States","lat":42.524,"lng":-83.235,"lvl":"hs","fmt":["LD","Congress"],"region":"North America","tier":2},{"n":"Cranbrook Schools","city":"Bloomfield Hills","country":"United States","lat":42.575,"lng":-83.253,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Trinity Preparatory School","city":"Winter Park","country":"United States","lat":28.626,"lng":-81.317,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Palm Harbor University High School","city":"Palm Harbor","country":"United States","lat":28.076,"lng":-82.753,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":2},{"n":"Holy Trinity Episcopal Academy","city":"Melbourne","country":"United States","lat":28.083,"lng":-80.608,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Christopher Columbus High School","city":"Miami","country":"United States","lat":25.717,"lng":-80.353,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":2},{"n":"University School of Nova Southeastern","city":"Davie","country":"United States","lat":26.082,"lng":-80.241,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Cabot High School","city":"Cabot","country":"United States","lat":34.9745,"lng":-92.0165,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Brentwood High School","city":"Brentwood","country":"United States","lat":36.019,"lng":-86.783,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"duPont Manual High School","city":"Louisville","country":"United States","lat":38.235,"lng":-85.766,"lvl":"hs","fmt":["LD","Policy","Congress"],"region":"North America","tier":2},{"n":"BASIS Independent McLean","city":"McLean","country":"United States","lat":38.923,"lng":-77.203,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"Maggie Walker Governor's School","city":"Richmond","country":"United States","lat":37.555,"lng":-77.46,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":2},{"n":"Mountain View High School","city":"Mountain View","country":"United States","lat":37.4015,"lng":-122.086,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"BASIS Silicon Valley","city":"San Jose","country":"United States","lat":37.353,"lng":-121.93,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Notre Dame High School","city":"Sherman Oaks","country":"United States","lat":34.153,"lng":-118.438,"lvl":"hs","fmt":["Policy","LD"],"region":"North America","tier":3},{"n":"Damien High School","city":"La Verne","country":"United States","lat":34.109,"lng":-117.767,"lvl":"hs","fmt":["Policy","LD"],"region":"North America","tier":3},{"n":"Brophy College Preparatory","city":"Phoenix","country":"United States","lat":33.507,"lng":-112.07,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"Fairmont Preparatory Academy","city":"Anaheim","country":"United States","lat":33.835,"lng":-117.914,"lvl":"hs","fmt":["PF"],"region":"North America","tier":2},{"n":"Berkeley Carroll School","city":"Brooklyn","country":"United States","lat":40.679,"lng":-73.976,"lvl":"hs","fmt":["LD"],"region":"North America","tier":2},{"n":"Syosset High School","city":"Syosset","country":"United States","lat":40.82,"lng":-73.498,"lvl":"hs","fmt":["PF","Congress"],"region":"North America","tier":3},{"n":"Great Neck South High School","city":"Great Neck","country":"United States","lat":40.77,"lng":-73.728,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":2},{"n":"Bergen County Academies","city":"Hackensack","country":"United States","lat":40.887,"lng":-74.043,"lvl":"hs","fmt":["PF","Policy"],"region":"North America","tier":2},{"n":"Naperville North High School","city":"Naperville","country":"United States","lat":41.796,"lng":-88.147,"lvl":"hs","fmt":["Congress","PF"],"region":"North America","tier":2},{"n":"Naperville Central High School","city":"Naperville","country":"United States","lat":41.772,"lng":-88.148,"lvl":"hs","fmt":["Congress","PF","Policy"],"region":"North America","tier":2},{"n":"Hinsdale Central High School","city":"Hinsdale","country":"United States","lat":41.8,"lng":-87.927,"lvl":"hs","fmt":["Policy","Congress"],"region":"North America","tier":2},{"n":"Canyon Crest Academy","city":"San Diego","country":"United States","lat":32.9595,"lng":-117.2009,"lvl":"hs","fmt":["PF","LD"],"region":"North America","tier":2},{"n":"University College Dublin Literary and Historical Society","city":"Dublin","country":"Ireland","lat":53.3065,"lng":-6.2255,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"Strathclyde University Debating Society","city":"Glasgow","country":"United Kingdom","lat":55.8616,"lng":-4.2425,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"University of Aberdeen Debating Society","city":"Aberdeen","country":"United Kingdom","lat":57.1647,"lng":-2.0998,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Bristol University Debating Union","city":"Bristol","country":"United Kingdom","lat":51.4584,"lng":-2.603,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"SOAS Debating Society","city":"London","country":"United Kingdom","lat":51.5223,"lng":-0.129,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"University of Birmingham Debating Society","city":"Birmingham","country":"United Kingdom","lat":52.4508,"lng":-1.9305,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"University of Sheffield Debating Society","city":"Sheffield","country":"United Kingdom","lat":53.3811,"lng":-1.4884,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"University of Leeds Debating Society","city":"Leeds","country":"United Kingdom","lat":53.8067,"lng":-1.555,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"University of Nottingham Debating Union","city":"Nottingham","country":"United Kingdom","lat":52.9385,"lng":-1.1958,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"University of York Debating Society","city":"York","country":"United Kingdom","lat":53.9465,"lng":-1.0524,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Lancaster University Debating Society","city":"Lancaster","country":"United Kingdom","lat":54.01,"lng":-2.7857,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"University of Exeter Debating Society","city":"Exeter","country":"United Kingdom","lat":50.735,"lng":-3.5339,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"University of Reading Debating Society","city":"Reading","country":"United Kingdom","lat":51.4414,"lng":-0.9418,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Newcastle University Debating Society","city":"Newcastle upon Tyne","country":"United Kingdom","lat":54.9799,"lng":-1.615,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Queen's University Belfast Literific","city":"Belfast","country":"United Kingdom","lat":54.584,"lng":-5.9351,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"University of Galway Literary and Debating Society","city":"Galway","country":"Ireland","lat":53.2785,"lng":-9.061,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"University College Cork Philosophical Society","city":"Cork","country":"Ireland","lat":51.8935,"lng":-8.492,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"Dublin City University Law and Debating Society","city":"Dublin","country":"Ireland","lat":53.3858,"lng":-6.257,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Maynooth University Literary and Debating Society","city":"Maynooth","country":"Ireland","lat":53.3818,"lng":-6.5994,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"King's Inns Debating Society","city":"Dublin","country":"Ireland","lat":53.3522,"lng":-6.2705,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Cardiff University Debating Society","city":"Cardiff","country":"United Kingdom","lat":51.487,"lng":-3.179,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"Aberystwyth University Debating Union","city":"Aberystwyth","country":"United Kingdom","lat":52.4153,"lng":-4.0637,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Swansea University Debating Society","city":"Swansea","country":"United Kingdom","lat":51.6079,"lng":-3.9806,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Bangor University Debating Union","city":"Bangor","country":"United Kingdom","lat":53.2274,"lng":-4.1294,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Dundee University Debating Society","city":"Dundee","country":"United Kingdom","lat":56.4575,"lng":-2.9803,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Stirling Debating Society","city":"Stirling","country":"United Kingdom","lat":56.1448,"lng":-3.9211,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Heriot-Watt University Debating Society","city":"Edinburgh","country":"United Kingdom","lat":55.91,"lng":-3.321,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Queen Mary University of London Debating Society","city":"London","country":"United Kingdom","lat":51.5246,"lng":-0.0405,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Royal Holloway Debating Society","city":"Egham","country":"United Kingdom","lat":51.4253,"lng":-0.5639,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"City University of London Debating Society","city":"London","country":"United Kingdom","lat":51.5279,"lng":-0.1028,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Bath Debating Society","city":"Bath","country":"United Kingdom","lat":51.3801,"lng":-2.3285,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Southampton Debating Union","city":"Southampton","country":"United Kingdom","lat":50.9347,"lng":-1.3962,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Liverpool Debating Society","city":"Liverpool","country":"United Kingdom","lat":53.4054,"lng":-2.9665,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Leicester Debating Society","city":"Leicester","country":"United Kingdom","lat":52.6215,"lng":-1.1249,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Loughborough University Debating Society","city":"Loughborough","country":"United Kingdom","lat":52.7646,"lng":-1.2289,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Kent Debating Society","city":"Canterbury","country":"United Kingdom","lat":51.2978,"lng":1.0698,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Sussex Debating Society","city":"Brighton","country":"United Kingdom","lat":50.8662,"lng":-0.0875,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of East Anglia Debating Society","city":"Norwich","country":"United Kingdom","lat":52.6219,"lng":1.2402,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Hull Debating Society","city":"Hull","country":"United Kingdom","lat":53.7714,"lng":-0.368,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Hertford College Oxford Debating","city":"Oxford","country":"United Kingdom","lat":51.754,"lng":-1.253,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"University College Cork Law Society","city":"Cork","country":"Ireland","lat":51.8935,"lng":-8.492,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Plymouth University Debating Society","city":"Plymouth","country":"United Kingdom","lat":50.3755,"lng":-4.1427,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Portsmouth Debating Society","city":"Portsmouth","country":"United Kingdom","lat":50.798,"lng":-1.0975,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Goldsmiths University Debating Society","city":"London","country":"United Kingdom","lat":51.4742,"lng":-0.0356,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Surrey Debating Society","city":"Guildford","country":"United Kingdom","lat":51.243,"lng":-0.589,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Erasmus Debating Society","city":"Rotterdam","country":"Netherlands","lat":51.9244,"lng":4.4777,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"A.S.D.V. Bonaparte","city":"Amsterdam","country":"Netherlands","lat":52.3676,"lng":4.9041,"lvl":"college","fmt":["BP"],"region":"Europe","tier":1},{"n":"Utrecht Debating Society","city":"Utrecht","country":"Netherlands","lat":52.0907,"lng":5.1214,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"G.D.S. Kalliope","city":"Groningen","country":"Netherlands","lat":53.2194,"lng":6.5665,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"N.S.D.V. Trivium","city":"Nijmegen","country":"Netherlands","lat":51.8126,"lng":5.8372,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"T.D.V. Cicero","city":"Tilburg","country":"Netherlands","lat":51.5555,"lng":5.0913,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"TU Delft Debating Club","city":"Delft","country":"Netherlands","lat":52.0116,"lng":4.3571,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Streitkultur Tübingen","city":"Tübingen","country":"Germany","lat":48.5216,"lng":9.0576,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Debating Club Heidelberg","city":"Heidelberg","country":"Germany","lat":49.3988,"lng":8.6724,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Debattierclub der Universität Münster","city":"Münster","country":"Germany","lat":51.9607,"lng":7.6261,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Debattierclub Johannes Gutenberg Mainz","city":"Mainz","country":"Germany","lat":49.9929,"lng":8.2473,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Debattierclub Goethes Faust Frankfurt","city":"Frankfurt","country":"Germany","lat":50.1109,"lng":8.6821,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Debattierclub Bonn","city":"Bonn","country":"Germany","lat":50.7374,"lng":7.0982,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Debattierclub Köln","city":"Cologne","country":"Germany","lat":50.9375,"lng":6.9603,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Debattierclub Hamburg","city":"Hamburg","country":"Germany","lat":53.5511,"lng":9.9937,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Debattierclub München","city":"Munich","country":"Germany","lat":48.1351,"lng":11.582,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Debattierclub Göttingen","city":"Göttingen","country":"Germany","lat":51.5413,"lng":9.9158,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Debattierclub Leipzig","city":"Leipzig","country":"Germany","lat":51.3397,"lng":12.3731,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Dresden Debating Union","city":"Dresden","country":"Germany","lat":51.0504,"lng":13.7373,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Debattierclub Stuttgart","city":"Stuttgart","country":"Germany","lat":48.7758,"lng":9.1829,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Debattierclub Karlsruhe","city":"Karlsruhe","country":"Germany","lat":49.0069,"lng":8.4037,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Debattierclub Freiburg","city":"Freiburg","country":"Germany","lat":47.999,"lng":7.8421,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Debattierclub Mannheim","city":"Mannheim","country":"Germany","lat":49.4875,"lng":8.466,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"École Polytechnique Debating Society","city":"Palaiseau","country":"France","lat":48.7139,"lng":2.2089,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"HEC Débats","city":"Jouy-en-Josas","country":"France","lat":48.7558,"lng":2.1694,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Sciences Po Reims Debate Union","city":"Reims","country":"France","lat":49.2583,"lng":4.0317,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Leuven Debating Society","city":"Leuven","country":"Belgium","lat":50.8798,"lng":4.7005,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Campus Brussels Debate Club","city":"Brussels","country":"Belgium","lat":50.8503,"lng":4.3517,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Debattierklub Wien","city":"Vienna","country":"Austria","lat":48.2082,"lng":16.3738,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Debattierklub Graz","city":"Graz","country":"Austria","lat":47.0707,"lng":15.4395,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Debate Club Zürich","city":"Zurich","country":"Switzerland","lat":47.3769,"lng":8.5417,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"Debattierclub St. Gallen","city":"St. Gallen","country":"Switzerland","lat":47.4245,"lng":9.3767,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":3},{"n":"Geneva Debate Society","city":"Geneva","country":"Switzerland","lat":46.2044,"lng":6.1432,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"UF Uppsala Debate Club","city":"Uppsala","country":"Sweden","lat":59.8586,"lng":17.6389,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Lund Debate Society","city":"Lund","country":"Sweden","lat":55.7047,"lng":13.191,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Oslo Debating Society","city":"Oslo","country":"Norway","lat":59.9139,"lng":10.7522,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Copenhagen Debating Society","city":"Copenhagen","country":"Denmark","lat":55.6761,"lng":12.5683,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"CBS Debating Society","city":"Copenhagen","country":"Denmark","lat":55.6815,"lng":12.53,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Helsinki Debating Society","city":"Helsinki","country":"Finland","lat":60.1699,"lng":24.9384,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Aalto Debating Society","city":"Espoo","country":"Finland","lat":60.1841,"lng":24.8301,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Tampere Debate Society","city":"Tampere","country":"Finland","lat":61.4978,"lng":23.761,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"University of Tartu Debate Club","city":"Tartu","country":"Estonia","lat":58.3776,"lng":26.729,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"TalTech Debate Club","city":"Tallinn","country":"Estonia","lat":59.437,"lng":24.7536,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"SSE Riga Debate Society","city":"Riga","country":"Latvia","lat":56.9519,"lng":24.118,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"University of Latvia Debate Club","city":"Riga","country":"Latvia","lat":56.9505,"lng":24.1163,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Vilnius University Debate Society","city":"Vilnius","country":"Lithuania","lat":54.6837,"lng":25.288,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"VMU Debate Club Kaunas","city":"Kaunas","country":"Lithuania","lat":54.8985,"lng":23.9036,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Klub Debat UW","city":"Warsaw","country":"Poland","lat":52.237,"lng":21.0175,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"SGH Debate Club","city":"Warsaw","country":"Poland","lat":52.209,"lng":21.0186,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Klub Debat Parlamentarnych UJ","city":"Krakow","country":"Poland","lat":50.0614,"lng":19.9366,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"Klub Debat UAM Poznan","city":"Poznan","country":"Poland","lat":52.4064,"lng":16.9252,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"Klub Debat Uniwersytetu Wrocławskiego","city":"Wroclaw","country":"Poland","lat":51.114,"lng":17.0386,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Charles University Debate Club (DKUK)","city":"Prague","country":"Czechia","lat":50.0875,"lng":14.4214,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"Masaryk University Debate Club","city":"Brno","country":"Czechia","lat":49.1951,"lng":16.6068,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":3},{"n":"Comenius University Debate Club (SDA)","city":"Bratislava","country":"Slovakia","lat":48.1486,"lng":17.1077,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"Technical University of Košice Debate Club","city":"Košice","country":"Slovakia","lat":48.7164,"lng":21.2611,"lvl":"college","fmt":["Karl Popper","BP"],"region":"Europe","tier":3},{"n":"CEU Debate Society","city":"Budapest","country":"Hungary","lat":47.4979,"lng":19.0402,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"Corvinus University Debate Club","city":"Budapest","country":"Hungary","lat":47.4861,"lng":19.0586,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"BBU Debate Society Cluj","city":"Cluj-Napoca","country":"Romania","lat":46.7712,"lng":23.6236,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"University of Bucharest Debate Society (ARDOR)","city":"Bucharest","country":"Romania","lat":44.4268,"lng":26.1025,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"AUBG Debate Club","city":"Blagoevgrad","country":"Bulgaria","lat":42.0209,"lng":23.0943,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":1},{"n":"Sofia University Debate Club","city":"Sofia","country":"Bulgaria","lat":42.6938,"lng":23.3342,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"University of Novi Sad Debate Club","city":"Novi Sad","country":"Serbia","lat":45.2671,"lng":19.8335,"lvl":"college","fmt":["Karl Popper","BP"],"region":"Europe","tier":3},{"n":"Croatian Debate Society (HDD) Zagreb","city":"Zagreb","country":"Croatia","lat":45.815,"lng":15.9819,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"University of Rijeka Debate Club","city":"Rijeka","country":"Croatia","lat":45.3271,"lng":14.4422,"lvl":"college","fmt":["Karl Popper","BP"],"region":"Europe","tier":3},{"n":"ZIP - Za in proti (University of Ljubljana)","city":"Ljubljana","country":"Slovenia","lat":46.0569,"lng":14.5058,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":2},{"n":"Youth Educational Forum Debate Skopje","city":"Skopje","country":"North Macedonia","lat":41.9981,"lng":21.4254,"lvl":"college","fmt":["Karl Popper","BP"],"region":"Europe","tier":2},{"n":"Lëvizja FOL Debate","city":"Pristina","country":"Kosovo","lat":42.6629,"lng":21.1655,"lvl":"college","fmt":["Karl Popper"],"region":"Europe","tier":3},{"n":"Center for Cultivating Dialogue Debate Sarajevo","city":"Sarajevo","country":"Bosnia and Herzegovina","lat":43.8563,"lng":18.4131,"lvl":"college","fmt":["Karl Popper"],"region":"Europe","tier":3},{"n":"Debate Society of Thessaloniki","city":"Thessaloniki","country":"Greece","lat":40.6401,"lng":22.9444,"lvl":"college","fmt":["BP","Worlds"],"region":"Europe","tier":2},{"n":"Hellenic American University Debate Team","city":"Athens","country":"Greece","lat":37.9838,"lng":23.7275,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Sabancı University Debate Society","city":"Istanbul","country":"Turkey","lat":40.891,"lng":29.379,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":1},{"n":"Istanbul Bilgi University Debate Society","city":"Istanbul","country":"Turkey","lat":41.0405,"lng":28.9637,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":1},{"n":"Koç University Debate Society","city":"Istanbul","country":"Turkey","lat":41.205,"lng":29.062,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":1},{"n":"Boğaziçi University Debate Society","city":"Istanbul","country":"Turkey","lat":41.0844,"lng":29.051,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":1},{"n":"Bilkent Debate Society","city":"Ankara","country":"Turkey","lat":39.868,"lng":32.749,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":1},{"n":"METU (ODTÜ) Debate Society","city":"Ankara","country":"Turkey","lat":39.8917,"lng":32.7833,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":2},{"n":"Kyiv-Mohyla Academy Debate Club","city":"Kyiv","country":"Ukraine","lat":50.4501,"lng":30.5234,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Taras Shevchenko National University Debate Club","city":"Kyiv","country":"Ukraine","lat":50.4419,"lng":30.5217,"lvl":"college","fmt":["BP"],"region":"Europe","tier":3},{"n":"Tbilisi State University Debate Club","city":"Tbilisi","country":"Georgia","lat":41.7151,"lng":44.8271,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":3},{"n":"AUA Speak-up Club Yerevan","city":"Yerevan","country":"Armenia","lat":40.1872,"lng":44.5152,"lvl":"college","fmt":["BP","Karl Popper"],"region":"Europe","tier":3},{"n":"Yerevan State University Debate Club","city":"Yerevan","country":"Armenia","lat":40.1843,"lng":44.4946,"lvl":"college","fmt":["Karl Popper","BP"],"region":"Europe","tier":3},{"n":"Club de Debate Comillas (ICAI-ICADE)","city":"Madrid","country":"Spain","lat":40.42,"lng":-3.7,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Sociedad de Debates Complutense","city":"Madrid","country":"Spain","lat":40.45,"lng":-3.73,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Sociedad de Debate UC3M","city":"Getafe","country":"Spain","lat":40.32,"lng":-3.77,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Sociedad de Debates UAM Madrid","city":"Madrid","country":"Spain","lat":40.54,"lng":-3.69,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Club de Debate Dikaios (Universidad de Navarra)","city":"Pamplona","country":"Spain","lat":42.8,"lng":-1.66,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Club de Debate Universidad de Deusto","city":"Bilbao","country":"Spain","lat":43.27,"lng":-2.94,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Club de Debate Universitario de Granada","city":"Granada","country":"Spain","lat":37.18,"lng":-3.6,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Sociedad de Debate de la Universidad de Sevilla","city":"Seville","country":"Spain","lat":37.39,"lng":-5.99,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Asociación de Debate USAL","city":"Salamanca","country":"Spain","lat":40.97,"lng":-5.66,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Liga de Debate Universitat de València","city":"Valencia","country":"Spain","lat":39.47,"lng":-0.38,"lvl":"college","fmt":["Parli"],"region":"Europe","tier":2},{"n":"Liga de Debate Universidad de Zaragoza","city":"Zaragoza","country":"Spain","lat":41.65,"lng":-0.89,"lvl":"college","fmt":["Parli"],"region":"Europe","tier":2},{"n":"Asociación de Debate Universitario de Málaga","city":"Malaga","country":"Spain","lat":36.72,"lng":-4.42,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Club de Debate Universidad Loyola Andalucía","city":"Cordoba","country":"Spain","lat":37.89,"lng":-4.78,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Club Debate Compostela (USC)","city":"Santiago de Compostela","country":"Spain","lat":42.88,"lng":-8.54,"lvl":"college","fmt":["Parli"],"region":"Europe","tier":3},{"n":"Sociedade de Debate da Universidade de Lisboa","city":"Lisbon","country":"Portugal","lat":38.72,"lng":-9.14,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"NOVA Debate (Universidade Nova de Lisboa)","city":"Lisbon","country":"Portugal","lat":38.74,"lng":-9.16,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Sociedade de Debates da Universidade do Porto","city":"Porto","country":"Portugal","lat":41.15,"lng":-8.61,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":1},{"n":"Sociedade de Debates da Universidade de Coimbra","city":"Coimbra","country":"Portugal","lat":40.21,"lng":-8.42,"lvl":"college","fmt":["BP","Parli"],"region":"Europe","tier":2},{"n":"Società di Dibattito Bolognese","city":"Bologna","country":"Italy","lat":44.49,"lng":11.34,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Palestra di Botta e Risposta (Università di Padova)","city":"Padua","country":"Italy","lat":45.41,"lng":11.88,"lvl":"college","fmt":["BP"],"region":"Europe","tier":2},{"n":"Stellenbosch University Debating Society","city":"Stellenbosch","country":"South Africa","lat":-33.9328,"lng":18.8644,"lvl":"college","fmt":["BP","Worlds"],"region":"Africa","tier":1},{"n":"Rhodes University Debating Society","city":"Makhanda","country":"South Africa","lat":-33.3107,"lng":26.5219,"lvl":"college","fmt":["BP","Worlds"],"region":"Africa","tier":1},{"n":"UJ Debating Union","city":"Johannesburg","country":"South Africa","lat":-26.1827,"lng":27.9977,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"University of the Free State Debating Society","city":"Bloemfontein","country":"South Africa","lat":-29.1086,"lng":26.1856,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"University of Fort Hare Debating Society","city":"Alice","country":"South Africa","lat":-32.7861,"lng":26.8466,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Venda Debate Fraternity","city":"Thohoyandou","country":"South Africa","lat":-22.9772,"lng":30.4517,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Limpopo Debating Society","city":"Polokwane","country":"South Africa","lat":-23.8889,"lng":29.738,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"Kenyatta University Debating Society","city":"Nairobi","country":"Kenya","lat":-1.181,"lng":36.932,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"USIU-Africa Debate Society","city":"Nairobi","country":"Kenya","lat":-1.2197,"lng":36.8866,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Ibadan Literary and Debating Society","city":"Ibadan","country":"Nigeria","lat":7.4441,"lng":3.9002,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"Obafemi Awolowo University Debating Society","city":"Ile-Ife","country":"Nigeria","lat":7.5181,"lng":4.5274,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"Covenant University Debating Society","city":"Ota","country":"Nigeria","lat":6.6718,"lng":3.1581,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"Veritas University Debating Society","city":"Abuja","country":"Nigeria","lat":8.9162,"lng":7.2106,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"University of Calabar Debating Society","city":"Calabar","country":"Nigeria","lat":4.9517,"lng":8.3417,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Ilorin Debating Society","city":"Ilorin","country":"Nigeria","lat":8.4799,"lng":4.5418,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"KNUST Debate Society","city":"Kumasi","country":"Ghana","lat":6.6745,"lng":-1.5716,"lvl":"college","fmt":["BP","Worlds"],"region":"Africa","tier":1},{"n":"University of Ghana Debate Society","city":"Accra","country":"Ghana","lat":5.6505,"lng":-0.187,"lvl":"college","fmt":["BP","Worlds"],"region":"Africa","tier":1},{"n":"GIMPA Debate Society","city":"Accra","country":"Ghana","lat":5.628,"lng":-0.207,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Cape Coast Debating Society","city":"Cape Coast","country":"Ghana","lat":5.1131,"lng":-1.2906,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"Kyambogo University Debate Society","city":"Kampala","country":"Uganda","lat":0.3486,"lng":32.6357,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Botswana Debate Masters Association","city":"Gaborone","country":"Botswana","lat":-24.6645,"lng":25.9117,"lvl":"college","fmt":["BP","Worlds"],"region":"Africa","tier":2},{"n":"Midlands State University Debating Society","city":"Gweru","country":"Zimbabwe","lat":-19.45,"lng":29.8167,"lvl":"college","fmt":["BP"],"region":"Africa","tier":2},{"n":"University of Zimbabwe Debating Society","city":"Harare","country":"Zimbabwe","lat":-17.784,"lng":31.0534,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Buea Debate Society","city":"Buea","country":"Cameroon","lat":4.1437,"lng":9.292,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Dar es Salaam Debating Society","city":"Dar es Salaam","country":"Tanzania","lat":-6.779,"lng":39.207,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"University of Namibia Debating Society","city":"Windhoek","country":"Namibia","lat":-22.5984,"lng":17.076,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"Cairo University Debate Society","city":"Cairo","country":"Egypt","lat":30.0276,"lng":31.212,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"Université de Lomé Debate Society","city":"Lomé","country":"Togo","lat":6.1725,"lng":1.2136,"lvl":"college","fmt":["BP"],"region":"Africa","tier":3},{"n":"Hebrew University Debating Society","city":"Jerusalem","country":"Israel","lat":31.77,"lng":35.21,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":1},{"n":"Technion Debating Society","city":"Haifa","country":"Israel","lat":32.79,"lng":34.99,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":2},{"n":"Ben-Gurion University Debating Society","city":"Beersheba","country":"Israel","lat":31.26,"lng":34.8,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":2},{"n":"Bar-Ilan University Debating Society","city":"Ramat Gan","country":"Israel","lat":32.07,"lng":34.84,"lvl":"college","fmt":["BP","Worlds"],"region":"Middle East","tier":3},{"n":"Georgetown University Qatar Debate","city":"Doha","country":"Qatar","lat":25.29,"lng":51.53,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":1},{"n":"Northwestern University Qatar Debate","city":"Doha","country":"Qatar","lat":25.3,"lng":51.53,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":2},{"n":"Carnegie Mellon University Qatar Debate","city":"Doha","country":"Qatar","lat":25.31,"lng":51.44,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":2},{"n":"Texas A&M University Qatar Debate","city":"Doha","country":"Qatar","lat":25.32,"lng":51.43,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":2},{"n":"Qatar University Debate","city":"Doha","country":"Qatar","lat":25.38,"lng":51.49,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":2},{"n":"Hamad Bin Khalifa University Debate","city":"Doha","country":"Qatar","lat":25.31,"lng":51.44,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"Zayed University Debate Society","city":"Dubai","country":"United Arab Emirates","lat":25.2,"lng":55.27,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"United Arab Emirates University Debating Society","city":"Al Ain","country":"United Arab Emirates","lat":24.21,"lng":55.74,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"Lebanese American University Debate Society","city":"Beirut","country":"Lebanon","lat":33.89,"lng":35.5,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"German Jordanian University Debate Club","city":"Amman","country":"Jordan","lat":31.95,"lng":35.93,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"University of Jordan Debating Society","city":"Amman","country":"Jordan","lat":31.99,"lng":35.87,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"Princess Sumaya University for Technology Debating Society","city":"Amman","country":"Jordan","lat":32.02,"lng":35.87,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"American University of Kuwait Debate Society","city":"Kuwait City","country":"Kuwait","lat":29.38,"lng":47.99,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"American University of the Middle East Debate Society","city":"Kuwait City","country":"Kuwait","lat":29.25,"lng":47.94,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"Sultan Qaboos University Debating Society","city":"Muscat","country":"Oman","lat":23.59,"lng":58.38,"lvl":"college","fmt":["BP"],"region":"Middle East","tier":3},{"n":"IIT Kharagpur","city":"Kharagpur","country":"India","lat":22.3149,"lng":87.3105,"lvl":"college","fmt":["Asian Parli","BP","Worlds"],"region":"Asia","tier":1},{"n":"IIT Kanpur","city":"Kanpur","country":"India","lat":26.5123,"lng":80.2329,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"IIT Roorkee","city":"Roorkee","country":"India","lat":29.865,"lng":77.8965,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"IIT Guwahati","city":"Guwahati","country":"India","lat":26.1869,"lng":91.6919,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"IIT Hyderabad","city":"Hyderabad","country":"India","lat":17.5946,"lng":78.1234,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"IIT BHU Varanasi","city":"Varanasi","country":"India","lat":25.2677,"lng":82.9913,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"IIT Indore","city":"Indore","country":"India","lat":22.5203,"lng":75.9207,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"IIT Gandhinagar","city":"Gandhinagar","country":"India","lat":23.2156,"lng":72.6841,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"NLU Delhi","city":"New Delhi","country":"India","lat":28.6126,"lng":77.0382,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":1},{"n":"NLU Jodhpur","city":"Jodhpur","country":"India","lat":26.2389,"lng":73.0243,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"WBNUJS Kolkata","city":"Kolkata","country":"India","lat":22.5726,"lng":88.3639,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"GNLU Gandhinagar","city":"Gandhinagar","country":"India","lat":23.2156,"lng":72.6369,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"NLIU Bhopal","city":"Bhopal","country":"India","lat":23.2599,"lng":77.4126,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"NLU Nagpur (MNLU)","city":"Nagpur","country":"India","lat":21.1458,"lng":79.0882,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"NUSRL Ranchi","city":"Ranchi","country":"India","lat":23.3441,"lng":85.3096,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"HNLU Raipur","city":"Raipur","country":"India","lat":21.2514,"lng":81.6296,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"RMLNLU Lucknow","city":"Lucknow","country":"India","lat":26.8467,"lng":80.9462,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Hindu College, Delhi","city":"New Delhi","country":"India","lat":28.6875,"lng":77.212,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":1},{"n":"Hansraj College","city":"New Delhi","country":"India","lat":28.6814,"lng":77.2057,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Miranda House","city":"New Delhi","country":"India","lat":28.6889,"lng":77.2099,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Ramjas College","city":"New Delhi","country":"India","lat":28.6873,"lng":77.2114,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Kirori Mal College","city":"New Delhi","country":"India","lat":28.6889,"lng":77.2069,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Sri Venkateswara College","city":"New Delhi","country":"India","lat":28.5494,"lng":77.201,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Faculty of Law, Delhi University","city":"New Delhi","country":"India","lat":28.6886,"lng":77.209,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"BITS Pilani","city":"Pilani","country":"India","lat":28.364,"lng":75.587,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"BITS Pilani Goa","city":"Goa","country":"India","lat":15.3905,"lng":73.8784,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"BITS Pilani Hyderabad","city":"Hyderabad","country":"India","lat":17.5448,"lng":78.5728,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Manipal Institute of Technology","city":"Manipal","country":"India","lat":13.3525,"lng":74.7868,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"IIM Bangalore","city":"Bengaluru","country":"India","lat":12.9123,"lng":77.597,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"IIM Calcutta","city":"Kolkata","country":"India","lat":22.4566,"lng":88.3033,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"IIM Lucknow","city":"Lucknow","country":"India","lat":26.8932,"lng":80.9426,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"St. Xavier's College, Mumbai","city":"Mumbai","country":"India","lat":18.9445,"lng":72.8302,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Government Law College, Mumbai","city":"Mumbai","country":"India","lat":18.9296,"lng":72.8311,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"St. Xavier's College, Kolkata","city":"Kolkata","country":"India","lat":22.555,"lng":88.352,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Presidency University Kolkata","city":"Kolkata","country":"India","lat":22.5757,"lng":88.3639,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Loyola College, Chennai","city":"Chennai","country":"India","lat":13.064,"lng":80.2349,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Madras Christian College","city":"Chennai","country":"India","lat":12.9214,"lng":80.1287,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"St. Joseph's College, Bengaluru","city":"Bengaluru","country":"India","lat":12.9591,"lng":77.5934,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Jawaharlal Nehru University","city":"New Delhi","country":"India","lat":28.5383,"lng":77.1641,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Jamia Millia Islamia","city":"New Delhi","country":"India","lat":28.5616,"lng":77.2807,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"AIIMS Delhi","city":"New Delhi","country":"India","lat":28.5672,"lng":77.21,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"SCMHRD Pune","city":"Pune","country":"India","lat":18.4636,"lng":73.8682,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"University of Mumbai","city":"Mumbai","country":"India","lat":18.9583,"lng":72.8266,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Doon School","city":"Dehradun","country":"India","lat":30.3437,"lng":78.056,"lvl":"hs","fmt":["Worlds","MUN"],"region":"Asia","tier":2},{"n":"Delhi Public School R.K. Puram","city":"New Delhi","country":"India","lat":28.5645,"lng":77.1791,"lvl":"hs","fmt":["Worlds","MUN"],"region":"Asia","tier":2},{"n":"National University of Singapore","city":"Singapore","country":"Singapore","lat":1.2966,"lng":103.7764,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Asia","tier":1},{"n":"Nanyang Technological University","city":"Singapore","country":"Singapore","lat":1.3483,"lng":103.6831,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Asia","tier":1},{"n":"Singapore Management University","city":"Singapore","country":"Singapore","lat":1.2966,"lng":103.8497,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Asia","tier":2},{"n":"Yale-NUS College","city":"Singapore","country":"Singapore","lat":1.3072,"lng":103.7726,"lvl":"college","fmt":["Worlds","BP"],"region":"Asia","tier":2},{"n":"Singapore University of Technology and Design","city":"Singapore","country":"Singapore","lat":1.3413,"lng":103.9636,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"Hwa Chong Institution","city":"Singapore","country":"Singapore","lat":1.326,"lng":103.8043,"lvl":"hs","fmt":["Worlds","MUN"],"region":"Asia","tier":2},{"n":"Ateneo de Manila University","city":"Quezon City","country":"Philippines","lat":14.6396,"lng":121.0779,"lvl":"college","fmt":["Asian Parli","Worlds"],"region":"Asia","tier":1},{"n":"University of Santo Tomas","city":"Manila","country":"Philippines","lat":14.6091,"lng":120.9892,"lvl":"college","fmt":["Asian Parli","Worlds"],"region":"Asia","tier":2},{"n":"University of the Philippines Manila","city":"Manila","country":"Philippines","lat":14.5777,"lng":120.9897,"lvl":"college","fmt":["Asian Parli"],"region":"Asia","tier":2},{"n":"Far Eastern University","city":"Manila","country":"Philippines","lat":14.6046,"lng":120.9888,"lvl":"college","fmt":["Asian Parli"],"region":"Asia","tier":3},{"n":"University of the Philippines Visayas","city":"Iloilo City","country":"Philippines","lat":10.6407,"lng":122.2289,"lvl":"college","fmt":["Asian Parli"],"region":"Asia","tier":3},{"n":"Ateneo de Davao University","city":"Davao City","country":"Philippines","lat":7.0731,"lng":125.6128,"lvl":"college","fmt":["Asian Parli"],"region":"Asia","tier":3},{"n":"Silliman University","city":"Dumaguete","country":"Philippines","lat":9.3052,"lng":123.3072,"lvl":"college","fmt":["Asian Parli"],"region":"Asia","tier":3},{"n":"University of Asia and the Pacific","city":"Pasig","country":"Philippines","lat":14.5862,"lng":121.0614,"lvl":"college","fmt":["Asian Parli"],"region":"Asia","tier":3},{"n":"International Islamic University Malaysia","city":"Kuala Lumpur","country":"Malaysia","lat":3.2502,"lng":101.7376,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":1},{"n":"Multimedia University","city":"Cyberjaya","country":"Malaysia","lat":2.9277,"lng":101.6418,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Universiti Teknologi MARA","city":"Shah Alam","country":"Malaysia","lat":3.0683,"lng":101.5009,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Universiti Kebangsaan Malaysia","city":"Bangi","country":"Malaysia","lat":2.93,"lng":101.777,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Universiti Putra Malaysia","city":"Serdang","country":"Malaysia","lat":2.9926,"lng":101.7077,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Taylor's University","city":"Subang Jaya","country":"Malaysia","lat":3.0653,"lng":101.6079,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Asia Pacific University","city":"Kuala Lumpur","country":"Malaysia","lat":3.0556,"lng":101.7012,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Monash University Malaysia","city":"Subang Jaya","country":"Malaysia","lat":3.0654,"lng":101.601,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"Universitas Indonesia","city":"Depok","country":"Indonesia","lat":-6.3618,"lng":106.827,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":1},{"n":"Universitas Gadjah Mada","city":"Yogyakarta","country":"Indonesia","lat":-7.7713,"lng":110.3777,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":1},{"n":"Institut Teknologi Bandung","city":"Bandung","country":"Indonesia","lat":-6.8915,"lng":107.6107,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Binus University","city":"Jakarta","country":"Indonesia","lat":-6.2017,"lng":106.7821,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Universitas Airlangga","city":"Surabaya","country":"Indonesia","lat":-7.2658,"lng":112.7585,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Universitas Padjadjaran","city":"Bandung","country":"Indonesia","lat":-6.9257,"lng":107.7714,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Universitas Brawijaya","city":"Malang","country":"Indonesia","lat":-7.9525,"lng":112.6131,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Universitas Katolik Parahyangan","city":"Bandung","country":"Indonesia","lat":-6.873,"lng":107.6045,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"President University","city":"Cikarang","country":"Indonesia","lat":-6.2756,"lng":107.1592,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"Assumption University","city":"Bangkok","country":"Thailand","lat":13.6121,"lng":100.8378,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Thammasat University","city":"Bangkok","country":"Thailand","lat":13.7563,"lng":100.4901,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Mahidol University International College","city":"Nakhon Pathom","country":"Thailand","lat":13.795,"lng":100.322,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Foreign Trade University","city":"Hanoi","country":"Vietnam","lat":21.0376,"lng":105.7822,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"RMIT University Vietnam","city":"Ho Chi Minh City","country":"Vietnam","lat":10.7295,"lng":106.6936,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"Vietnam National University Hanoi","city":"Hanoi","country":"Vietnam","lat":21.0382,"lng":105.7825,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Fulbright University Vietnam","city":"Ho Chi Minh City","country":"Vietnam","lat":10.7327,"lng":106.7195,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Keio University","city":"Tokyo","country":"Japan","lat":35.6486,"lng":139.7426,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":2},{"n":"International Christian University","city":"Tokyo","country":"Japan","lat":35.6878,"lng":139.5277,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"Kyoto University","city":"Kyoto","country":"Japan","lat":35.0262,"lng":135.7809,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Osaka University","city":"Osaka","country":"Japan","lat":34.8224,"lng":135.524,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Sophia University","city":"Tokyo","country":"Japan","lat":35.6836,"lng":139.733,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"Korea University","city":"Seoul","country":"South Korea","lat":37.5894,"lng":127.0327,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":2},{"n":"KAIST","city":"Daejeon","country":"South Korea","lat":36.3741,"lng":127.365,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Hankuk University of Foreign Studies","city":"Seoul","country":"South Korea","lat":37.5974,"lng":127.0584,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"SolBridge International School of Business","city":"Daejeon","country":"South Korea","lat":36.327,"lng":127.428,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Tsinghua University","city":"Beijing","country":"China","lat":40.0008,"lng":116.3266,"lvl":"college","fmt":["BP","Worlds"],"region":"Asia","tier":2},{"n":"Shanghai International Studies University","city":"Shanghai","country":"China","lat":31.3019,"lng":121.505,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Zhejiang University","city":"Hangzhou","country":"China","lat":30.2636,"lng":120.1217,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Sun Yat-sen University","city":"Guangzhou","country":"China","lat":23.0972,"lng":113.298,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":3},{"n":"Nankai University","city":"Tianjin","country":"China","lat":39.1027,"lng":117.1665,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"University of Hong Kong","city":"Hong Kong","country":"Hong Kong","lat":22.283,"lng":114.1371,"lvl":"college","fmt":["BP","Worlds"],"region":"Asia","tier":1},{"n":"Chinese University of Hong Kong","city":"Hong Kong","country":"Hong Kong","lat":22.4193,"lng":114.2069,"lvl":"college","fmt":["BP","Worlds"],"region":"Asia","tier":2},{"n":"Hong Kong University of Science and Technology","city":"Hong Kong","country":"Hong Kong","lat":22.3364,"lng":114.2654,"lvl":"college","fmt":["BP","Worlds"],"region":"Asia","tier":2},{"n":"City University of Hong Kong","city":"Hong Kong","country":"Hong Kong","lat":22.3373,"lng":114.1719,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"National Taiwan University","city":"Taipei","country":"Taiwan","lat":25.0173,"lng":121.5397,"lvl":"college","fmt":["BP","Asian Parli"],"region":"Asia","tier":2},{"n":"National Chengchi University","city":"Taipei","country":"Taiwan","lat":24.987,"lng":121.5767,"lvl":"college","fmt":["BP"],"region":"Asia","tier":3},{"n":"Lahore University of Management Sciences","city":"Lahore","country":"Pakistan","lat":31.471,"lng":74.4108,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":1},{"n":"IBA Karachi","city":"Karachi","country":"Pakistan","lat":24.9322,"lng":67.1187,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"NUST Islamabad","city":"Islamabad","country":"Pakistan","lat":33.6426,"lng":72.9906,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"FAST NUCES","city":"Lahore","country":"Pakistan","lat":31.4818,"lng":74.303,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"GIKI","city":"Topi","country":"Pakistan","lat":34.0651,"lng":72.636,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Aga Khan University","city":"Karachi","country":"Pakistan","lat":24.8915,"lng":67.0739,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Forman Christian College","city":"Lahore","country":"Pakistan","lat":31.5219,"lng":74.3327,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"BRAC University","city":"Dhaka","country":"Bangladesh","lat":23.772,"lng":90.425,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":1},{"n":"North South University","city":"Dhaka","country":"Bangladesh","lat":23.8154,"lng":90.4254,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"Independent University Bangladesh","city":"Dhaka","country":"Bangladesh","lat":23.8085,"lng":90.4263,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Bangladesh University of Engineering and Technology","city":"Dhaka","country":"Bangladesh","lat":23.7268,"lng":90.3925,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Jahangirnagar University","city":"Savar","country":"Bangladesh","lat":23.8821,"lng":90.267,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"University of Colombo","city":"Colombo","country":"Sri Lanka","lat":6.902,"lng":79.8607,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":2},{"n":"University of Moratuwa","city":"Moratuwa","country":"Sri Lanka","lat":6.7951,"lng":79.9009,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"University of Peradeniya","city":"Kandy","country":"Sri Lanka","lat":7.2599,"lng":80.5977,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"SLIIT","city":"Malabe","country":"Sri Lanka","lat":6.9147,"lng":79.973,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Tribhuvan University","city":"Kathmandu","country":"Nepal","lat":27.6796,"lng":85.287,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Kathmandu University","city":"Dhulikhel","country":"Nepal","lat":27.619,"lng":85.539,"lvl":"college","fmt":["Asian Parli","BP"],"region":"Asia","tier":3},{"n":"Australian National University","city":"Canberra","country":"Australia","lat":-35.2777,"lng":149.1185,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":1},{"n":"University of Queensland","city":"Brisbane","country":"Australia","lat":-27.4975,"lng":153.0137,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":1},{"n":"University of New South Wales","city":"Sydney","country":"Australia","lat":-33.9173,"lng":151.2313,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":2},{"n":"University of Western Australia","city":"Perth","country":"Australia","lat":-31.9806,"lng":115.8189,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":2},{"n":"University of Technology Sydney","city":"Sydney","country":"Australia","lat":-33.8838,"lng":151.2005,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":3},{"n":"University of Tasmania","city":"Hobart","country":"Australia","lat":-42.9038,"lng":147.3272,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":3},{"n":"Western Sydney University","city":"Sydney","country":"Australia","lat":-33.8101,"lng":150.9,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":3},{"n":"University of Wollongong","city":"Wollongong","country":"Australia","lat":-34.4053,"lng":150.8782,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":3},{"n":"Bond University","city":"Gold Coast","country":"Australia","lat":-28.0742,"lng":153.4137,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":3},{"n":"University of Canterbury","city":"Christchurch","country":"New Zealand","lat":-43.5226,"lng":172.5841,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":2},{"n":"University of Waikato","city":"Hamilton","country":"New Zealand","lat":-37.7877,"lng":175.317,"lvl":"college","fmt":["Worlds","Asian Parli"],"region":"Oceania","tier":3},{"n":"Universidad Francisco Marroquin","city":"Guatemala City","country":"Guatemala","lat":14.5917,"lng":-90.4881,"lvl":"college","fmt":["Worlds","Parli"],"region":"North America","tier":2},{"n":"Tecnologico de Monterrey","city":"Monterrey","country":"Mexico","lat":25.6515,"lng":-100.2895,"lvl":"college","fmt":["Worlds","Parli"],"region":"North America","tier":2},{"n":"Tecnologico de Monterrey CEM","city":"Mexico City","country":"Mexico","lat":19.5847,"lng":-99.2206,"lvl":"college","fmt":["Worlds","Parli"],"region":"North America","tier":3},{"n":"Universidad Nacional Autonoma de Mexico","city":"Mexico City","country":"Mexico","lat":19.3324,"lng":-99.1869,"lvl":"college","fmt":["Worlds","Parli"],"region":"North America","tier":2},{"n":"Instituto Tecnologico Autonomo de Mexico","city":"Mexico City","country":"Mexico","lat":19.346,"lng":-99.1875,"lvl":"college","fmt":["Worlds","Parli"],"region":"North America","tier":3},{"n":"Universidad Iberoamericana","city":"Mexico City","country":"Mexico","lat":19.3672,"lng":-99.2604,"lvl":"college","fmt":["Worlds","Parli"],"region":"North America","tier":3},{"n":"Universidad Austral","city":"Buenos Aires","country":"Argentina","lat":-34.4708,"lng":-58.5142,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad Torcuato Di Tella","city":"Buenos Aires","country":"Argentina","lat":-34.5455,"lng":-58.448,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad de Sao Paulo","city":"Sao Paulo","country":"Brazil","lat":-23.5587,"lng":-46.7314,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":2},{"n":"Pontificia Universidade Catolica de Sao Paulo","city":"Sao Paulo","country":"Brazil","lat":-23.535,"lng":-46.668,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Insper","city":"Sao Paulo","country":"Brazil","lat":-23.599,"lng":-46.676,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Pontificia Universidad Catolica de Chile","city":"Santiago","country":"Chile","lat":-33.4983,"lng":-70.6109,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":2},{"n":"Universidad de Chile","city":"Santiago","country":"Chile","lat":-33.4569,"lng":-70.6483,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad Adolfo Ibanez","city":"Santiago","country":"Chile","lat":-33.403,"lng":-70.507,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad del Rosario","city":"Bogota","country":"Colombia","lat":4.6011,"lng":-74.0703,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":2},{"n":"Pontificia Universidad Javeriana","city":"Bogota","country":"Colombia","lat":4.6286,"lng":-74.0644,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad EAFIT","city":"Medellin","country":"Colombia","lat":6.2006,"lng":-75.5783,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Pontificia Universidad Catolica del Peru","city":"Lima","country":"Peru","lat":-12.0686,"lng":-77.0789,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":2},{"n":"Universidad del Pacifico","city":"Lima","country":"Peru","lat":-12.082,"lng":-77.044,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad San Francisco de Quito","city":"Quito","country":"Ecuador","lat":-0.1965,"lng":-78.435,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Pontificia Universidad Catolica del Ecuador","city":"Quito","country":"Ecuador","lat":-0.2105,"lng":-78.49,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad Catolica Andres Bello","city":"Caracas","country":"Venezuela","lat":10.463,"lng":-66.975,"lvl":"college","fmt":["Worlds","Parli"],"region":"South America","tier":3},{"n":"Universidad de Costa Rica","city":"San Jose","country":"Costa Rica","lat":9.9377,"lng":-84.0518,"lvl":"college","fmt":["Worlds","Parli"],"region":"North America","tier":3}];
+
+/* geocoded HS additions from the Tabroom pull — 150 schools */
+window.ATLAS_EXTRA = (window.ATLAS_EXTRA||[]).concat([
+ {
+  "n": "Palo Alto High School",
+  "lat": 37.4358,
+  "lng": -122.1553,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Erin Matheson Ritchie"
+ },
+ {
+  "n": "Dougherty Valley High School",
+  "lat": 37.7694,
+  "lng": -121.9037,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Minu Basu"
+ },
+ {
+  "n": "The Nueva School",
+  "lat": 37.5443,
+  "lng": -122.3001,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Julie Herman"
+ },
+ {
+  "n": "Menlo-Atherton High School",
+  "lat": 37.4623,
+  "lng": -122.1746,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Menlo-Atherton Debate"
+ },
+ {
+  "n": "Irvington High School",
+  "lat": 37.5249,
+  "lng": -121.9668,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Anika Mangla"
+ },
+ {
+  "n": "Los Altos High School",
+  "lat": 37.3868,
+  "lng": -122.1091,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Julie Herman"
+ },
+ {
+  "n": "Monte Vista",
+  "lat": 33.5386,
+  "lng": -117.129,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "David Matley"
+ },
+ {
+  "n": "Berkeley",
+  "lat": 37.8708,
+  "lng": -122.2729,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hunter Valencia"
+ },
+ {
+  "n": "Archbishop Mitty",
+  "lat": 37.3145,
+  "lng": -121.9938,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Johnathan Harris"
+ },
+ {
+  "n": "James Logan High School",
+  "lat": 37.5912,
+  "lng": -122.0247,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Justin Kurup"
+ },
+ {
+  "n": "Monta Vista High School",
+  "lat": 37.3146,
+  "lng": -122.0568,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Soham Dwivedi"
+ },
+ {
+  "n": "Miramonte High School",
+  "lat": 37.8412,
+  "lng": -122.1464,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kristen Plant"
+ },
+ {
+  "n": "Bellarmine College Preparatory",
+  "lat": 37.3428,
+  "lng": -121.9181,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Rohan Sontakke"
+ },
+ {
+  "n": "Loyola High School",
+  "lat": 34.0443,
+  "lng": -118.2966,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "James Zucker"
+ },
+ {
+  "n": "Dougherty Valley Bridge",
+  "lat": 37.7738,
+  "lng": -121.9302,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Minu Basu"
+ },
+ {
+  "n": "Washington High School",
+  "lat": 37.5534,
+  "lng": -121.9938,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Artem Raskin"
+ },
+ {
+  "n": "Leland High School",
+  "lat": 37.2167,
+  "lng": -121.8441,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Gay Brasher"
+ },
+ {
+  "n": "Menlo School",
+  "lat": 37.4532,
+  "lng": -122.1917,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Neal Goel"
+ },
+ {
+  "n": "Mountain View High School",
+  "lat": 37.3591,
+  "lng": -122.0672,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Julie Herman"
+ },
+ {
+  "n": "Princeton",
+  "lat": 39.402,
+  "lng": -122.0202,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Chen Jiang"
+ },
+ {
+  "n": "El Cerrito",
+  "lat": 37.9154,
+  "lng": -122.3014,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "AnnMarie Baines"
+ },
+ {
+  "n": "Ridge High School",
+  "lat": 33.124,
+  "lng": -117.2499,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "David Yastremski"
+ },
+ {
+  "n": "Campolindo High School",
+  "lat": 37.8663,
+  "lng": -122.1271,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Campolindo Debate"
+ },
+ {
+  "n": "Papaya Valley",
+  "lat": 32.962,
+  "lng": -117.1898,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Anika Nangia"
+ },
+ {
+  "n": "Las Lomas High School",
+  "lat": 37.89,
+  "lng": -122.0554,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Wendy Reeves-Hampton"
+ },
+ {
+  "n": "Milpitas",
+  "lat": 37.4332,
+  "lng": -121.8989,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Charles Schletzbaum"
+ },
+ {
+  "n": "Carlmont High School",
+  "lat": 37.5051,
+  "lng": -122.2887,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Maria Robinson"
+ },
+ {
+  "n": "Able2Shine",
+  "lat": 37.4938,
+  "lng": -121.9299,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Mat Marr"
+ },
+ {
+  "n": "Lowell High School",
+  "lat": 37.7292,
+  "lng": -122.4829,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Debnil Sur"
+ },
+ {
+  "n": "Honor Academy",
+  "lat": 33.86,
+  "lng": -118.0503,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "BJ Ryu"
+ },
+ {
+  "n": "Harvard-Westlake School",
+  "lat": 34.1395,
+  "lng": -118.4126,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Sarina Wang"
+ },
+ {
+  "n": "College Prep",
+  "lat": 37.3428,
+  "lng": -121.9181,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Lexy Green"
+ },
+ {
+  "n": "San Marino High School",
+  "lat": 34.1272,
+  "lng": -118.0989,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Michael Murray"
+ },
+ {
+  "n": "Bergen Debate Club",
+  "lat": 40.8591,
+  "lng": -73.9719,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hanna Shak"
+ },
+ {
+  "n": "Tierra Linda Middle School",
+  "lat": 37.5087,
+  "lng": -122.2865,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Marty De"
+ },
+ {
+  "n": "Marlborough School",
+  "lat": 34.0698,
+  "lng": -118.3267,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Adam Torson"
+ },
+ {
+  "n": "Horace Greeley HS",
+  "lat": 41.1753,
+  "lng": -73.7575,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Frasat Chaudhry"
+ },
+ {
+  "n": "Westwood",
+  "lat": 34.0669,
+  "lng": -118.4399,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "DH Henderson"
+ },
+ {
+  "n": "Notre Dame San Jose",
+  "lat": 37.3284,
+  "lng": -121.8827,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Julie Herman"
+ },
+ {
+  "n": "Gabrielino High School",
+  "lat": 34.0832,
+  "lng": -118.092,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Derek Yuill"
+ },
+ {
+  "n": "George Washington HS",
+  "lat": 37.7785,
+  "lng": -122.4911,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Maryrose Kohan"
+ },
+ {
+  "n": "Tessellations",
+  "lat": 37.3039,
+  "lng": -122.047,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Cal Invitational"
+ },
+ {
+  "n": "Canyon Crest Academy",
+  "lat": 32.9572,
+  "lng": -117.1893,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Charlie Synn"
+ },
+ {
+  "n": "Emerald High School",
+  "lat": 37.7075,
+  "lng": -121.8646,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Veena Devarakonda"
+ },
+ {
+  "n": "Claremont",
+  "lat": 38.2571,
+  "lng": -85.6769,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Dave Chamberlain"
+ },
+ {
+  "n": "Hillbrook",
+  "lat": 37.7206,
+  "lng": -121.8747,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Reid Matsuoka"
+ },
+ {
+  "n": "Peninsula High School",
+  "lat": 37.598,
+  "lng": -122.3694,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Gordon Krauss"
+ },
+ {
+  "n": "Polytechnic School",
+  "lat": 34.1335,
+  "lng": -118.1286,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Michael Murray"
+ },
+ {
+  "n": "Syosset High School",
+  "lat": 40.8304,
+  "lng": -73.4847,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Lydia Esslinger"
+ },
+ {
+  "n": "Summit HS",
+  "lat": 44.0563,
+  "lng": -121.361,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Anne Poyner"
+ },
+ {
+  "n": "San Ramon Academy",
+  "lat": 37.8248,
+  "lng": -121.9986,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "David Matley"
+ },
+ {
+  "n": "CT Independent",
+  "lat": 42.6477,
+  "lng": -73.7085,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Elias Ratchman"
+ },
+ {
+  "n": "Friends Seminary",
+  "lat": 40.7341,
+  "lng": -73.9853,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Maliha Thomas"
+ },
+ {
+  "n": "Cabot High School",
+  "lat": 34.9763,
+  "lng": -92.0037,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Joe Kieklak"
+ },
+ {
+  "n": "Cupertino High School",
+  "lat": 37.3193,
+  "lng": -122.0091,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Cupertino SD"
+ },
+ {
+  "n": "Valley Christian High School",
+  "lat": 33.8705,
+  "lng": -118.1031,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Barb Lindsay"
+ },
+ {
+  "n": "Los Altos - Hacienda Heights",
+  "lat": 34.0078,
+  "lng": -117.977,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "megan thompson"
+ },
+ {
+  "n": "Flintridge Preparatory",
+  "lat": 34.1983,
+  "lng": -118.1847,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Maggie Woodward"
+ },
+ {
+  "n": "Trinity School",
+  "lat": 40.7905,
+  "lng": -73.9713,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Fiona Kiely"
+ },
+ {
+  "n": "Carlsbad High School",
+  "lat": 33.163,
+  "lng": -117.3277,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Mikendra McCoy"
+ },
+ {
+  "n": "Little Rock Central",
+  "lat": 30.5529,
+  "lng": -91.0521,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Rosie Valdez"
+ },
+ {
+  "n": "American High",
+  "lat": 37.7754,
+  "lng": -122.4218,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ana Reid"
+ },
+ {
+  "n": "Cajon High School",
+  "lat": 34.1778,
+  "lng": -117.3104,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jacob Winter"
+ },
+ {
+  "n": "Windward School",
+  "lat": 34.0168,
+  "lng": -118.4263,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hatim Malek"
+ },
+ {
+  "n": "Troy High School",
+  "lat": 33.8797,
+  "lng": -117.8931,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Alexandria Williamson"
+ },
+ {
+  "n": "Harrison",
+  "lat": 40.2694,
+  "lng": -81.1289,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Chetan Hertzig"
+ },
+ {
+  "n": "Vista Del Lago High School",
+  "lat": 38.6553,
+  "lng": -121.1056,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ananth Gopalakrishnan"
+ },
+ {
+  "n": "Lynbrook HS",
+  "lat": 37.3006,
+  "lng": -122.004,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Brian Ogata"
+ },
+ {
+  "n": "Redlands High School",
+  "lat": 34.0536,
+  "lng": -117.1714,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Gabrielle Faulkner-Milligan"
+ },
+ {
+  "n": "Cranbrook",
+  "lat": 38.5598,
+  "lng": -121.7414,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "christopher bryant"
+ },
+ {
+  "n": "Hunter College",
+  "lat": 40.772,
+  "lng": -77.8627,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Noel Selegzi"
+ },
+ {
+  "n": "Bentley School",
+  "lat": 37.8529,
+  "lng": -122.2335,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kimberly Fradelis"
+ },
+ {
+  "n": "Lakeville North High School",
+  "lat": 44.6637,
+  "lng": -93.2561,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Maddie Cook"
+ },
+ {
+  "n": "Lexington HS",
+  "lat": 45.1387,
+  "lng": -93.1686,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Janet Novack"
+ },
+ {
+  "n": "Edina High School",
+  "lat": 44.884,
+  "lng": -93.3763,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Joe Schmitt"
+ },
+ {
+  "n": "Evergreen Valley",
+  "lat": 37.3011,
+  "lng": -121.7637,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Anika Nangia"
+ },
+ {
+  "n": "Crystal Springs Uplands School",
+  "lat": 37.558,
+  "lng": -122.338,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Anthony Carrillo"
+ },
+ {
+  "n": "San Marin",
+  "lat": 33.4978,
+  "lng": -117.6977,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Disha Divakar"
+ },
+ {
+  "n": "Hawken",
+  "lat": 32.5658,
+  "lng": -117.0329,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Bob Shurtz"
+ },
+ {
+  "n": "Delbarton School",
+  "lat": 40.784,
+  "lng": -74.5287,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Andrew Fostiropoulos"
+ },
+ {
+  "n": "Eagan High School",
+  "lat": 44.8079,
+  "lng": -93.1333,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Christopher McDonald"
+ },
+ {
+  "n": "Wilson HS Hacienda Heights",
+  "lat": 33.9997,
+  "lng": -117.9464,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "megan thompson"
+ },
+ {
+  "n": "Isidore Newman School",
+  "lat": 29.931,
+  "lng": -90.1115,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Christopher Vincent"
+ },
+ {
+  "n": "University High School",
+  "lat": 34.0453,
+  "lng": -118.46,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Brian John"
+ },
+ {
+  "n": "St. Ignatius College Preparatory",
+  "lat": 37.7481,
+  "lng": -122.496,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Christian Rodriguez"
+ },
+ {
+  "n": "Eden Prairie High School",
+  "lat": 44.8725,
+  "lng": -93.491,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Nolan Trinh"
+ },
+ {
+  "n": "Greenhill School",
+  "lat": 32.9401,
+  "lng": -96.8435,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Aaron Timmons"
+ },
+ {
+  "n": "North Allegheny",
+  "lat": 34.1698,
+  "lng": -118.8294,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Dominic Moore"
+ },
+ {
+  "n": "Lumos",
+  "lat": 44.9509,
+  "lng": -93.2973,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Kassie Zavaliagkos"
+ },
+ {
+  "n": "King School",
+  "lat": 33.8836,
+  "lng": -117.3338,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "John Harrison"
+ },
+ {
+  "n": "BC Academy",
+  "lat": 34.0957,
+  "lng": -118.3278,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "David Jung"
+ },
+ {
+  "n": "San Ramon Valley High School",
+  "lat": 37.8259,
+  "lng": -122.0068,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Janet Willford"
+ },
+ {
+  "n": "Bishop O'Dowd High School",
+  "lat": 37.7532,
+  "lng": -122.1549,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Joel Jacobs"
+ },
+ {
+  "n": "St. Andrew's Episcopal School",
+  "lat": 29.9466,
+  "lng": -90.1292,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Darin Maier"
+ },
+ {
+  "n": "Mission San Jose High School",
+  "lat": 37.5447,
+  "lng": -121.9357,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Yu Cong Colin (YC) Low"
+ },
+ {
+  "n": "Westlake High School",
+  "lat": 34.1612,
+  "lng": -118.8163,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Barbara Ixba"
+ },
+ {
+  "n": "Castilleja School",
+  "lat": 37.4386,
+  "lng": -122.1517,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Becca Winslow"
+ },
+ {
+  "n": "Midtown High School",
+  "lat": 36.0948,
+  "lng": -115.1177,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Mario Herrera"
+ },
+ {
+  "n": "Ransom Everglades",
+  "lat": 25.7228,
+  "lng": -80.2443,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Justinmar Perez"
+ },
+ {
+  "n": "Granite Bay High School",
+  "lat": 38.7323,
+  "lng": -121.2119,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Christine Doherty"
+ },
+ {
+  "n": "Montgomery Academy",
+  "lat": 32.3519,
+  "lng": -86.2603,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jay Rye"
+ },
+ {
+  "n": "Albuquerque Academy",
+  "lat": 35.1512,
+  "lng": -106.5206,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Elise Matton"
+ },
+ {
+  "n": "Hopkins",
+  "lat": 43.3014,
+  "lng": -78.8881,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Chloe Wang"
+ },
+ {
+  "n": "McDowell HS",
+  "lat": 37.4559,
+  "lng": -82.7363,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "William Caugherty"
+ },
+ {
+  "n": "QD Learning",
+  "lat": 32.882,
+  "lng": -117.2397,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Wei Wang"
+ },
+ {
+  "n": "Lambert High School",
+  "lat": 36.1033,
+  "lng": -115.2773,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Tracie Andrews"
+ },
+ {
+  "n": "Trinity Preparatory School",
+  "lat": 28.6116,
+  "lng": -81.2727,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Antonina Clementi"
+ },
+ {
+  "n": "La Salle College Preparatory",
+  "lat": 34.161,
+  "lng": -118.0699,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Adam Alamy"
+ },
+ {
+  "n": "Saint Ann's School",
+  "lat": 40.6952,
+  "lng": -73.9922,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Henry Schrank"
+ },
+ {
+  "n": "Saratoga HS",
+  "lat": 37.2656,
+  "lng": -122.0294,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jenny Cook"
+ },
+ {
+  "n": "Scarsdale High School",
+  "lat": 40.9945,
+  "lng": -73.7936,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Joe Vaughan"
+ },
+ {
+  "n": "Valencia HS - Placentia",
+  "lat": 33.877,
+  "lng": -117.867,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Candace Alonzo"
+ },
+ {
+  "n": "BASIS Silicon Valley",
+  "lat": 37.3161,
+  "lng": -121.91,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jennifer Cho"
+ },
+ {
+  "n": "George Washington High School",
+  "lat": 37.7785,
+  "lng": -122.4911,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ellen Kerr"
+ },
+ {
+  "n": "Presentation High School",
+  "lat": 37.2829,
+  "lng": -121.9013,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jyleesa Hampton"
+ },
+ {
+  "n": "Abraham Lincoln High School",
+  "lat": 37.3277,
+  "lng": -121.9239,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Rex Ridgeway"
+ },
+ {
+  "n": "Horace Mann School",
+  "lat": 42.4687,
+  "lng": -71.0567,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Avner Halevy"
+ },
+ {
+  "n": "Silicon Valley Independent",
+  "lat": 37.3161,
+  "lng": -121.91,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Leah Ammon"
+ },
+ {
+  "n": "Cent",
+  "lat": 40.6847,
+  "lng": -73.7809,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Vasanth Rajasekaran"
+ },
+ {
+  "n": "Orosi High School",
+  "lat": 36.5478,
+  "lng": -119.2892,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Karson Kalashian"
+ },
+ {
+  "n": "Grace Church School",
+  "lat": 40.7319,
+  "lng": -73.9906,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Emma Golden"
+ },
+ {
+  "n": "Gulf Breeze High School",
+  "lat": 30.3578,
+  "lng": -87.1679,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Torie Fowler"
+ },
+ {
+  "n": "Oakwood",
+  "lat": 36.343,
+  "lng": -119.3343,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hannah Taylor"
+ },
+ {
+  "n": "Alhambra High School",
+  "lat": 38.0032,
+  "lng": -122.1343,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Kevin Tong"
+ },
+ {
+  "n": "West",
+  "lat": 32.7163,
+  "lng": -117.1651,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "TJ Rosas"
+ },
+ {
+  "n": "Regis High School",
+  "lat": 40.7796,
+  "lng": -73.9588,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Eric DiMichele"
+ },
+ {
+  "n": "Desert Vista High School",
+  "lat": 36.1028,
+  "lng": -115.1067,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kelly Rawlings"
+ },
+ {
+  "n": "Carrollton",
+  "lat": 29.9473,
+  "lng": -90.1296,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Richard Bracknell"
+ },
+ {
+  "n": "Bellevue High School",
+  "lat": 39.1022,
+  "lng": -84.4821,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Amy McCormick"
+ },
+ {
+  "n": "Albany",
+  "lat": 42.6512,
+  "lng": -73.755,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Alex Brizzi"
+ },
+ {
+  "n": "Chaminade High School",
+  "lat": 34.208,
+  "lng": -118.6358,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "William Clemens"
+ },
+ {
+  "n": "SD Academy",
+  "lat": 43.4564,
+  "lng": -99.0798,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hui Meng"
+ },
+ {
+  "n": "Mountain Brook High School",
+  "lat": 36.1638,
+  "lng": -115.0601,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Liz Weas"
+ },
+ {
+  "n": "Stratford Osgood",
+  "lat": 37.521,
+  "lng": -121.9481,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Anupama Toutem"
+ },
+ {
+  "n": "Redwood MS",
+  "lat": 37.2654,
+  "lng": -122.0153,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Radhika Dixit"
+ },
+ {
+  "n": "Saint Joseph Notre Dame High School",
+  "lat": 37.7655,
+  "lng": -122.2554,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Nicole Wong"
+ },
+ {
+  "n": "Piedmont High School",
+  "lat": 37.823,
+  "lng": -122.233,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Eduardo Wolbert"
+ },
+ {
+  "n": "Shrewsbury",
+  "lat": 33.5045,
+  "lng": -117.7414,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Gabriel Hopkins"
+ },
+ {
+  "n": "Sequoyah High School",
+  "lat": 35.2297,
+  "lng": -85.1662,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Missy Daigle"
+ },
+ {
+  "n": "Waring School",
+  "lat": 39.965,
+  "lng": -75.1679,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Karen Byron"
+ },
+ {
+  "n": "Atlantic Ivy",
+  "lat": 32.5917,
+  "lng": -84.9146,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hexuan Huang"
+ },
+ {
+  "n": "Poly Prep",
+  "lat": 40.6138,
+  "lng": -74.0248,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Sohail Jouya"
+ },
+ {
+  "n": "St Thomas More",
+  "lat": 40.0064,
+  "lng": -83.0111,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Megan Broussard"
+ },
+ {
+  "n": "Saint Francis High School",
+  "lat": 34.1953,
+  "lng": -118.1826,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Thomas Woodhead"
+ },
+ {
+  "n": "Prospect High School",
+  "lat": 37.2913,
+  "lng": -121.9998,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Aditya Siddabathuni"
+ },
+ {
+  "n": "Randolph High School",
+  "lat": 42.1617,
+  "lng": -71.0453,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Katherine Burke"
+ },
+ {
+  "n": "IS 318",
+  "lat": 38.9723,
+  "lng": -79.9617,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Hanna Grayson"
+ },
+ {
+  "n": "Etiwanda High School",
+  "lat": 34.1305,
+  "lng": -117.5102,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Yunhan Hong"
+ },
+ {
+  "n": "Campbell Hall",
+  "lat": 34.074,
+  "lng": -118.4413,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Doug Miller"
+ },
+ {
+  "n": "Corona del Mar High School",
+  "lat": 33.6344,
+  "lng": -117.8784,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Laura Mayberry"
+ }
+]);
