@@ -147,8 +147,11 @@ async function seedActivity(db, origin, want) {
   const settled = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
   let need = Math.max(0, (want || 5) - settled.size);
   if (need <= 0) return 0;
-  const have = new Set(settled.docs.map(d => d.data().motion));
-  const pool = MOTION_BANK.filter(p => !have.has(p.m));
+  // Exclude motions already open OR settled so seeded resolved cards never
+  // collide with an open card (which would hide them after the board dedupe).
+  const open = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
+  const have = new Set([...settled.docs, ...open.docs].map(d => (d.data().motion || '').trim().toLowerCase()));
+  const pool = MOTION_BANK.filter(p => !have.has(p.m.trim().toLowerCase()));
   let made = 0;
   for (let i = 0; i < need && i < pool.length; i++) {
     const pick = pool[i];
@@ -247,7 +250,7 @@ export default async (request) => {
   const db = getDb();
   // 'list'/'resolve'/'seed' are public market upkeep (no economy mutation, self-
   // limiting): they keep the board fresh whether or not anyone is signed in.
-  const PUBLIC_ACTIONS = { list: 1, resolve: 1, seed: 1 };
+  const PUBLIC_ACTIONS = { list: 1, resolve: 1, seed: 1, reset: 1 };
   if (!uid && !PUBLIC_ACTIONS[action]) return errorResponse('Sign in to do that', 401, request);
 
   // ── state: my balance + (optional) a market + my bet + top leaderboard ──
@@ -485,6 +488,27 @@ export default async (request) => {
     try { made = await seedActivity(db, origin, Math.min(8, parseInt(body.want, 10) || 5)); } catch (e) {}
     try { await ensureMarkets(db); } catch (e) {}
     return jsonResponse({ ok: true, seeded: made }, 200, request);
+  }
+
+  // ── reset: rebuild a clean board. SAFETY: refuses once any real bet exists,
+  // so it can never wipe live positions. Only useful pre-launch to clear seed
+  // collisions. ──
+  if (action === 'reset') {
+    const all = await db.collection('predict_markets').get();
+    const realBets = all.docs.reduce((n, d) => n + (d.data().betCount || 0), 0);
+    if (realBets > 0) return errorResponse('Reset disabled: the board has live bets', 403, request);
+    for (const d of all.docs) {
+      const bets = await d.ref.collection('bets').get();
+      const batch = db.batch();
+      bets.docs.forEach(b => batch.delete(b.ref));
+      batch.delete(d.ref);
+      await batch.commit();
+    }
+    const origin = new URL(request.url).origin;
+    try { await ensureMarkets(db); } catch (e) {}
+    let made = 0;
+    try { made = await seedActivity(db, origin, 6); } catch (e) {}
+    return jsonResponse({ ok: true, reset: true, seeded: made }, 200, request);
   }
 
   return errorResponse('Unknown action', 400, request);
