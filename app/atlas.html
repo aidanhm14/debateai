@@ -77,6 +77,13 @@
   .signin:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
   .signin.in{background:transparent;color:var(--ink-dim);border-color:var(--panel-line)}
   .signin.in:hover{color:var(--ink);border-color:var(--ink-dim)}
+  .present-btn{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;
+    color:var(--ink-dim);background:transparent;border:1px solid var(--panel-line);border-radius:999px;padding:7px 14px;transition:all .2s}
+  .present-btn:hover{border-color:var(--accent);color:var(--accent)}
+  body.present .present-btn{background:var(--accent);color:#fff;border-color:transparent}
+  body.present #signin,body.present .search{display:none}
+  body.present .panel .blocklabel,body.present .panel .seg,body.present .panel .toggle-row,
+  body.present .panel .legend,body.present .panel .chips,body.present .panel .note{display:none}
   @media(max-width:680px){.brand .tag{display:none}.topbar .back{display:none}}
 
   /* ── Left control panel ─────────────────────────────────── */
@@ -118,6 +125,7 @@
   .chip .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 6px currentColor}
   .chip.off{opacity:.34;border-color:rgba(255,255,255,.06)}
   .chip:hover{border-color:rgba(255,255,255,.28)}
+  .chip.on{border-color:var(--accent);color:var(--accent);background:rgba(239,68,68,.12)}
 
   /* heatmap toggle row */
   .search{position:relative;margin:14px 0 2px}
@@ -135,6 +143,11 @@
   .search-res .sr-n{display:block;font-size:.95rem;color:var(--ink)}
   .search-res .sr-c{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-ghost);margin-top:2px}
   .tpin{transform:rotate(45deg);border:1.5px solid rgba(11,10,16,.9);box-shadow:0 0 8px 1px currentColor}
+  .leaflet-tooltip.atlas-tt{background:rgba(13,12,18,.96);border:1px solid var(--panel-line);color:var(--ink);
+    font-family:var(--mono);font-size:.62rem;letter-spacing:.02em;padding:4px 8px;border-radius:7px;
+    box-shadow:0 6px 18px rgba(0,0,0,.5);white-space:nowrap}
+  .leaflet-tooltip.atlas-tt::before{display:none}
+  .leaflet-tooltip.atlas-tt-tour{color:#e8edf3;border-color:#3a3f4a}
   .card .badge.tour{border-color:#cbd5e1;color:#e8edf3}
   .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;
     background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;padding:11px 13px}
@@ -269,6 +282,7 @@
 <header class="topbar">
   <div class="brand">Debate<span class="it">It</span><span class="tag">The Debate Atlas</span></div>
   <div class="topright">
+    <button class="present-btn" id="present-btn">Present</button>
     <button class="signin" id="signin">Sign in to edit</button>
     <a class="back" href="/">Back to site</a>
   </div>
@@ -835,6 +849,8 @@ var colorMode='status', levelFilter='all', heatOn=false;
 var activeFormats={}, activeRegions={};
 var FORMATS = Object.keys(FMT_COLOR);
 var REGIONS = ['North America','South America','Europe','Asia','Oceania','Africa','Middle East'];
+var REGION_BOUNDS={'North America':[[7,-168],[72,-52]],'South America':[[-56,-82],[13,-34]],'Europe':[[35,-11],[71,40]],'Asia':[[5,40],[55,150]],'Oceania':[[-48,108],[-8,179]],'Africa':[[-35,-18],[37,52]],'Middle East':[[12,25],[42,63]]};
+var focusRegion=null;
 FORMATS.forEach(function(f){ activeFormats[f]=true; });
 REGIONS.forEach(function(r){ activeRegions[r]=true; });
 
@@ -915,6 +931,7 @@ SCHOOLS.forEach(function(d){
   if(!d.lat) return;
   var m=L.marker([d.lat,d.lng],{icon:pinIcon(d)});
   m.on('click',function(){ openCard(d); });
+  m.bindTooltip(d.n,{direction:'top',offset:[0,-3],className:'atlas-tt',opacity:1});
   m._data=d;
   markers[d.n]=m;
 });
@@ -1134,6 +1151,7 @@ TOURNAMENTS.forEach(function(t){
     html:'<div class="tpin" style="width:11px;height:11px;background:#e8edf3;color:#cbd5e1"></div>'});
   var m=L.marker([t.lat,t.lng],{icon:ic,zIndexOffset:1000});
   m.on('click',function(){ openCard(t); });
+  m.bindTooltip(t.n,{direction:'top',offset:[0,-3],className:'atlas-tt atlas-tt-tour',opacity:1});
   tourLayer.addLayer(m);
 });
 var tourOn=false, swTour=document.getElementById('sw-tour');
@@ -1156,8 +1174,33 @@ function buildChips(id,keys,colorMap,active){
     });
   });
 }
-buildChips('chips-region',REGIONS,null,activeRegions);
+/* region chips work as a drill-down: click a region to isolate + fly to it,
+   click All to reset to the whole world. */
+function buildRegionChips(){
+  var box=document.getElementById('chips-region');
+  var items=['All'].concat(REGIONS);
+  box.innerHTML=items.map(function(k){ var on=(k==='All'&&!focusRegion)||(k===focusRegion);
+    return '<span class="chip'+(on?' on':'')+'" data-k="'+k+'">'+k+'</span>'; }).join('');
+  box.querySelectorAll('.chip').forEach(function(ch){
+    ch.addEventListener('click',function(){
+      var k=ch.getAttribute('data-k');
+      if(k==='All'){ focusRegion=null; REGIONS.forEach(function(r){ activeRegions[r]=true; }); map.flyTo([28,5],2.2,{duration:.9}); }
+      else { focusRegion=k; REGIONS.forEach(function(r){ activeRegions[r]=(r===k); });
+        var b=REGION_BOUNDS[k]; if(b) map.flyToBounds(b,{duration:.9,padding:[40,40]}); }
+      buildRegionChips(); rebuild();
+    });
+  });
+}
+buildRegionChips();
 buildChips('chips-format',FORMATS,FMT_COLOR,activeFormats);
+
+/* present mode: hide the editing chrome for a clean investor view */
+var presentBtn=document.getElementById('present-btn');
+if(presentBtn) presentBtn.addEventListener('click',function(){
+  var on=document.body.classList.toggle('present');
+  presentBtn.textContent=on?'Exit':'Present';
+  setTimeout(function(){ try{ map.invalidateSize(false); }catch(e){} },120);
+});
 
 /* mobile panel + revenue sheet toggles (each closes the other) */
 document.getElementById('panel-toggle').addEventListener('click',function(){
