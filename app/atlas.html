@@ -172,6 +172,11 @@
   .leaflet-marker-icon:hover .cpin{transform:scale(1.4)}
   .card .badge.comm{border-color:#34d399;color:#6ee7b7}
   .card-comm-by{font-size:.92rem;color:var(--ink-dim);margin-bottom:8px}
+  .choro-legend{display:none;flex-wrap:wrap;gap:8px 12px;margin-top:9px}
+  .choro-legend.show{display:flex}
+  .choro-legend .cl{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.58rem;letter-spacing:.04em;color:var(--ink-dim)}
+  .choro-legend .cl-sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .card-extra{font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-hover);margin-top:6px}
   .comm-del{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
     color:var(--ink-dim);background:rgba(255,255,255,.05);border:1px solid var(--panel-line);border-radius:9px;padding:8px 12px}
   .comm-del:hover{border-color:var(--accent);color:var(--accent)}
@@ -412,6 +417,13 @@
     <div class="sw" id="sw-tour" role="switch" aria-checked="false" tabindex="0"></div>
   </div>
 
+  <div class="blocklabel">Country density</div>
+  <div class="toggle-row">
+    <div class="lab">Shade by program count<small>Choropleth overlay</small></div>
+    <div class="sw" id="sw-choro" role="switch" aria-checked="false" tabindex="0"></div>
+  </div>
+  <div class="choro-legend" id="choro-legend"></div>
+
   <div class="blocklabel" id="lab-legend">Pipeline stage</div>
   <div class="legend" id="legend"></div>
 
@@ -475,6 +487,7 @@
   <button class="x" id="card-x" aria-label="Close">&times;</button>
   <div class="nm" id="card-nm"></div>
   <div class="loc" id="card-loc"></div>
+  <div class="card-extra" id="card-extra"></div>
   <div class="badges" id="card-badges"></div>
   <div id="card-stage-wrap">
     <div class="stagelab">Outreach stage</div>
@@ -989,6 +1002,35 @@ L.geoJSON(window.WORLD_GEO,{interactive:false,pane:'floor',
   style:{color:'rgba(248,245,240,0.10)',weight:0.5,fillColor:'#26262b',fillOpacity:1}
 }).addTo(map);
 
+/* Country-density choropleth: shade each country by how many programs it
+   holds. Drawn above the tiles, below the markers, toggled from the panel. */
+map.createPane('choro'); map.getPane('choro').style.zIndex=250; map.getPane('choro').style.pointerEvents='none';
+var CHORO_ALIAS={'united states of america':'united states','england':'united kingdom','scotland':'united kingdom',
+  'great britain':'united kingdom','britain':'united kingdom','republic of korea':'south korea','korea':'south korea',
+  'czechia':'czech republic','czech rep.':'czech republic','united arab emirates':'uae','u.a.e.':'uae',
+  'bosnia and herz.':'bosnia and herzegovina','dominican rep.':'dominican republic','uk':'united kingdom','usa':'united states'};
+function canonC(name){ var s=String(name||'').toLowerCase().trim(); return CHORO_ALIAS[s]||s; }
+var choroCounts={}, choroOn=false;
+var CHORO_FILL=['#7f1d1d','#b91c1c','#ef4444','#fb7185'], CHORO_OP=[0.40,0.52,0.62,0.78], CHORO_LBL=['1–5','6–15','16–50','50+'];
+function bucketOf(c){ return c<=0?-1:c<=5?0:c<=15?1:c<=50?2:3; }
+function choroStyle(f){ var c=choroCounts[canonC(f.properties&&f.properties.n)]||0; var b=bucketOf(c);
+  if(b<0) return {stroke:false,fillOpacity:0,opacity:0,weight:0};
+  return {stroke:true,color:'rgba(251,113,133,.5)',weight:0.6,fillColor:CHORO_FILL[b],fillOpacity:CHORO_OP[b]}; }
+var choroLayer=L.geoJSON(window.WORLD_GEO,{pane:'choro',interactive:false,style:choroStyle});
+function refreshChoro(vis){
+  if(!choroOn) return;
+  choroCounts={}; vis.forEach(function(d){ var k=canonC(d.country); choroCounts[k]=(choroCounts[k]||0)+1; });
+  choroLayer.setStyle(choroStyle);
+  var lg=document.getElementById('choro-legend');
+  if(lg) lg.innerHTML=CHORO_LBL.map(function(l,i){ return '<span class="cl"><span class="cl-sw" style="background:'+CHORO_FILL[i]+';opacity:'+CHORO_OP[i]+'"></span>'+l+'</span>'; }).join('');
+}
+var swChoro=document.getElementById('sw-choro');
+function toggleChoro(){ choroOn=!choroOn; swChoro.classList.toggle('on',choroOn); swChoro.setAttribute('aria-checked',choroOn);
+  var lg=document.getElementById('choro-legend'); if(lg) lg.classList.toggle('show',choroOn);
+  if(choroOn){ choroLayer.addTo(map); refreshChoro(visibleSet()); } else map.removeLayer(choroLayer); }
+swChoro.addEventListener('click',toggleChoro);
+swChoro.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleChoro(); } });
+
 /* Real tiled basemaps (Esri ArcGIS, free, no API key, enterprise-grade CDN).
    Default dark to match the brand; switch to satellite / streets from the
    panel. The vector floor above guarantees geography even if tiles are blocked. */
@@ -1081,6 +1123,7 @@ function rebuild(){
   updateCounters(vis);
   updateLegend(vis);
   updateTopCountries(vis);
+  if(typeof refreshChoro==='function') refreshChoro(vis);
   if(typeof tourOn!=='undefined' && tourOn) rebuildTour();
   if(typeof syncURL==='function') syncURL();
 }
@@ -1141,6 +1184,8 @@ function updateLegend(vis){
 
 /* ---- detail card ---- */
 var cardEl=document.getElementById('card'), current=null;
+var _ctot=null;
+function countryTotal(c){ if(!_ctot){ _ctot={}; SCHOOLS.forEach(function(d){ _ctot[d.country]=(_ctot[d.country]||0)+1; }); } return _ctot[c]||0; }
 function openCard(d){
   current=d;
   var isTour=(d.kind==='tournament'), isComm=(d.kind==='community');
@@ -1152,6 +1197,12 @@ function openCard(d){
     bd.push('<span class="badge lvl">'+(d.lvl==='hs'?'High school':'College')+'</span>'); }
   (d.fmt||[]).forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
   document.getElementById('card-badges').innerHTML=bd.join('');
+  var ex=document.getElementById('card-extra');
+  if(isTour){ ex.style.display='none'; }
+  else if(isComm){ ex.style.display=''; ex.textContent='Community-added pin'; }
+  else { ex.style.display='';
+    var strength=d.tier===1?'Flagship program':d.tier===2?'Strong competitor':'Notable program';
+    var n=countryTotal(d.country); ex.textContent=strength+' · '+n+' program'+(n===1?'':'s')+' in '+(d.country||'region'); }
   document.getElementById('card-stage-wrap').hidden=(isTour||isComm);
   var cc=document.getElementById('card-comm'); cc.hidden=!isComm;
   if(isComm){
