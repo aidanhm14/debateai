@@ -91,27 +91,67 @@ const MOTION_BANK = [
   { m:'This house would ban influencers from marketing to children.', pro:'Kids cannot tell a friend from an ad, and parasocial trust makes the manipulation worse.', con:'It is unenforceable, kills a real income ladder, and parents, not the state, should police it.' },
 ];
 function newRoomId(){ return 'ai-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7); }
-const AI_TARGET_OPEN = 6;
-function aiLockWindowMs(){ return (15 + Math.floor(Math.random() * 75)) * 60 * 1000; } // 15-90 min betting window
+const AI_TARGET_OPEN = 7;
+const HOUSE_SEED = 100;        // opening liquidity per side so a fresh market isn't an empty 0-pool book
+// Stagger lock windows so the board churns: some resolve within minutes (so the
+// "recently resolved" feed fills fast and stays alive), some hold open longer.
+function aiLockWindowMs(i){ const floor = 6 + ((i || 0) % 4) * 9; return (floor + Math.floor(Math.random() * 12)) * 60 * 1000; } // ~6-45 min
+
+function newMarketDoc(pick, i){
+  return {
+    kind: 'ai', liveKey: 'ai_open', motion: pick.m, proName: 'Pro', conName: 'Con',
+    proCase: pick.pro, conCase: pick.con, format: 'quick',
+    proUid: '', conUid: '',
+    status: 'open', lockAt: new Date(Date.now() + aiLockWindowMs(i)),
+    createdAt: FieldValue.serverTimestamp(), poolPro: HOUSE_SEED, poolCon: HOUSE_SEED, betCount: 0, verdict: null,
+  };
+}
 
 async function ensureMarkets(db) {
   // Single-field query (liveKey) so no composite index is needed.
   const open = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
   const need = AI_TARGET_OPEN - open.size;
   if (need <= 0) return;
+  // Avoid minting duplicate motions that are already on the board.
+  const live = new Set(open.docs.map(d => d.data().motion));
+  const pool = MOTION_BANK.filter(p => !live.has(p.m));
   const batch = db.batch();
   for (let i = 0; i < need; i++) {
-    const pick = MOTION_BANK[Math.floor(Math.random() * MOTION_BANK.length)];
-    const ref = db.collection('predict_markets').doc(newRoomId());
-    batch.set(ref, {
-      kind: 'ai', liveKey: 'ai_open', motion: pick.m, proName: 'Pro', conName: 'Con',
-      proCase: pick.pro, conCase: pick.con, format: 'quick',
-      proUid: '', conUid: '',
-      status: 'open', lockAt: new Date(Date.now() + aiLockWindowMs()),
-      createdAt: FieldValue.serverTimestamp(), poolPro: 0, poolCon: 0, betCount: 0, verdict: null,
-    });
+    const pick = (pool.length ? pool : MOTION_BANK)[Math.floor(Math.random() * (pool.length ? pool.length : MOTION_BANK.length))];
+    if (pool.length) pool.splice(pool.indexOf(pick), 1);
+    batch.set(db.collection('predict_markets').doc(newRoomId()), newMarketDoc(pick, i));
   }
   await batch.commit();
+}
+
+// One-time activity seed: judge a handful of motions and store them already
+// settled, so "recently resolved" shows real AI verdicts from the first load.
+// Idempotent-ish: no-op once enough settled markets exist. No fake leaderboard
+// entries are created — the skill ladder stays real.
+async function seedActivity(db, origin, want) {
+  const settled = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
+  let need = Math.max(0, (want || 5) - settled.size);
+  if (need <= 0) return 0;
+  const have = new Set(settled.docs.map(d => d.data().motion));
+  const pool = MOTION_BANK.filter(p => !have.has(p.m));
+  let made = 0;
+  for (let i = 0; i < need && i < pool.length; i++) {
+    const pick = pool[i];
+    const j = await judgeMotion(origin, { motion: pick.m, proCase: pick.pro, conCase: pick.con });
+    // Plausible opening book: weight the seeded pool toward the eventual loser a
+    // little so payouts read realistically; these are house points, not bets.
+    const a = HOUSE_SEED + Math.floor(Math.random() * 240), b = HOUSE_SEED + Math.floor(Math.random() * 240);
+    await db.collection('predict_markets').doc(newRoomId()).set({
+      kind: 'ai', liveKey: 'ai_settled', motion: pick.m, proName: 'Pro', conName: 'Con',
+      proCase: pick.pro, conCase: pick.con, format: 'quick', proUid: '', conUid: '',
+      status: 'settled', verdict: j.verdict, rfd: j.rfd,
+      poolPro: j.verdict === 'pro' ? a : b, poolCon: j.verdict === 'pro' ? b : a,
+      betCount: 0, createdAt: FieldValue.serverTimestamp(),
+      lockAt: new Date(Date.now() - 60000), settledAt: FieldValue.serverTimestamp(),
+    });
+    made++;
+  }
+  return made;
 }
 
 // Ask the AI judge to call a market's motion. Returns { verdict, rfd }.
@@ -410,6 +450,15 @@ export default async (request) => {
     } catch (e) {}
     try { await ensureMarkets(db); } catch (e) {}
     return jsonResponse({ ok: true, resolved: n }, 200, request);
+  }
+
+  // ── seed: one-time activity seed (real AI verdicts into recently-resolved) ──
+  if (action === 'seed') {
+    const origin = new URL(request.url).origin;
+    let made = 0;
+    try { made = await seedActivity(db, origin, Math.min(8, parseInt(body.want, 10) || 5)); } catch (e) {}
+    try { await ensureMarkets(db); } catch (e) {}
+    return jsonResponse({ ok: true, seeded: made }, 200, request);
   }
 
   return errorResponse('Unknown action', 400, request);
