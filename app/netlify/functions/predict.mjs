@@ -422,12 +422,20 @@ export default async (request) => {
     try {
       const openSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
       const settledSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
-      const settled = settledSnap.docs
-        .sort((a, b) => (ms(b.data().settledAt) || 0) - (ms(a.data().settledAt) || 0))
-        .slice(0, 6);
+      const settledSorted = settledSnap.docs.sort((a, b) => (ms(b.data().settledAt) || 0) - (ms(a.data().settledAt) || 0));
       const openSorted = openSnap.docs.sort((a, b) => (ms(a.data().lockAt) || 0) - (ms(b.data().lockAt) || 0));
-      for (const d of [...openSorted, ...settled]) {
-        const pm = publicMarket(d.data(), d.id);
+      // Dedupe by motion so the board never shows the same question twice (open
+      // wins over settled; newest settled wins over older). Guards against the
+      // inline-resolver / seed race producing duplicate cards.
+      const seenMotion = new Set();
+      let settledShown = 0;
+      for (const d of [...openSorted, ...settledSorted]) {
+        const data = d.data();
+        const key = (data.motion || '').trim().toLowerCase();
+        if (key && seenMotion.has(key)) continue;
+        if (data.status === 'settled') { if (settledShown >= 6) continue; settledShown++; }
+        if (key) seenMotion.add(key);
+        const pm = publicMarket(data, d.id);
         if (uid) { const bet = await d.ref.collection('bets').doc(uid).get(); pm.myBet = bet.exists ? { pick: bet.data().pick, stake: bet.data().stake } : null; }
         out.markets.push(pm);
       }
