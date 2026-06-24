@@ -26,6 +26,18 @@
 <title>Predict (internal prototype) · debateit.com</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/icons/icon-192.png">
+<!-- Rich embeds so a shared /predict link unfurls in Discord / iMessage / X
+     (the low-barrier connector: a debater drops it in their server and it
+     looks like something worth clicking). noindex stays; OG is read anyway. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Predict the verdict · DebateIt">
+<meta property="og:description" content="Bet points on who wins a live debate, judged by AI. Odds move as the round leans, bets lock at the middle speeches. Think you can call them better than your team?">
+<meta property="og:url" content="https://debateai.com/predict">
+<meta property="og:image" content="https://debateai.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Predict the verdict · DebateIt">
+<meta name="twitter:description" content="Bet points on who wins a live debate, AI judges the round. think you can call them?">
+<meta name="twitter:image" content="https://debateai.com/og-image.png">
 <style>
   :root{
     --bg:#0f0f13;--panel:#16161c;--panel2:#1d1d25;--bd:rgba(255,255,255,.1);
@@ -222,7 +234,10 @@
   <div class="card">
     <div class="lbl"><span>Skill ladder</span><span id="boardRank" class="hist"></span></div>
     <div class="hist" id="board"></div>
-    <p class="note">Demo field for now. real cross-player standings land with accounts (v3).</p>
+    <div class="stakeRow" style="margin-top:14px">
+      <button class="btn ghost" id="shareBtn" type="button">Challenge your circuit</button>
+    </div>
+    <p class="note" id="shareNote">Drop it in your team's Discord and see who actually calls rounds best. real cross-player standings land with accounts (v3).</p>
   </div>
 
   <!-- HISTORY -->
@@ -310,6 +325,18 @@
       return '<div class="row'+(r.you?' me':'')+'"><span>'+(i+1)+'. '+(r.you?'<b>you</b>':r.name)+
              '<span class="tier">'+tierFor(r.rating)+'</span></span><span class="rt">'+r.rating+'</span></div>';
     }).join('');
+  }
+  function flashShare(msg){ var n=$('shareNote'); if(!n._d) n._d=n.textContent; n.textContent=msg; setTimeout(function(){ n.textContent=n._d; },4000); }
+  function shareInvite(){
+    var s=getStats();
+    var txt = s.bets
+      ? ("I'm "+tierFor(s.rating)+" ("+s.rating+") calling debate rounds on DebateIt, "+s.wins+"–"+(s.bets-s.wins)+". think you can call them better?")
+      : "Predicting who wins live debates on DebateIt, an AI judges the round. think you can call them?";
+    var url=location.origin+'/predict';
+    if(navigator.share){ navigator.share({title:'DebateIt · Predict',text:txt,url:url}).catch(function(){}); return; }
+    var full=txt+' '+url;
+    try{ navigator.clipboard.writeText(full).then(function(){ flashShare('Copied. drop it in your team’s Discord.'); }, function(){ flashShare(full); }); }
+    catch(e){ flashShare(full); }
   }
 
   // ── Motion bank ───────────────────────────────────────────────────
@@ -529,6 +556,7 @@
   // wires
   $('betBtn').onclick=placeBet;
   $('nextBtn').onclick=newRound;
+  $('shareBtn').onclick=shareInvite;
   $('stake').oninput=function(){ if(!state.bet&&!state.locked) renderMarket(); };
   Array.prototype.forEach.call(document.querySelectorAll('.quick button'),function(q){
     q.onclick=function(){ var v=q.dataset.q; $('stake').value = v==='max'?getBal():v; if(!state.bet&&!state.locked) renderMarket(); };
