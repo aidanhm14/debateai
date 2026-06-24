@@ -119,6 +119,11 @@
   .hist .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd)}
   .hist .row:last-child{border-bottom:none}
   .hist .pos{color:var(--green)}.hist .neg{color:var(--red)}
+  .hist .row.me{color:var(--tx);font-weight:700}
+  .hist .tier{font-size:.6rem;color:var(--faint);margin-left:6px}
+  .hist .rt{font-family:var(--mono);color:var(--blue)}
+  .rankchip{font-family:var(--mono);font-size:.64rem;font-weight:700;color:var(--blue);
+    background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.3);padding:2px 7px;border-radius:999px;margin-left:6px}
   .hidden{display:none}
   a{color:var(--blue)}
 </style>
@@ -128,7 +133,7 @@
 <div class="wrap">
   <div class="topline">
     <span class="brand"><em>DebateIt</em> · Predict <span class="proto-tag">Internal prototype</span></span>
-    <span class="bal">Balance: <b id="bal">0</b> pts</span>
+    <span class="bal">Balance: <b id="bal">0</b> pts <span id="rankChip" class="rankchip">—</span></span>
   </div>
   <h1>Bet the round. Beat the clock.</h1>
   <p class="sub">A live market on who wins a debate the AI will judge. Points only, no real money. Bets lock at the middle speeches, so nobody trades on the ending.</p>
@@ -201,6 +206,25 @@
     </div>
   </div>
 
+  <!-- YOUR RECORD -->
+  <div class="card">
+    <div class="lbl"><span>Your record</span><span id="rkSeason" class="hist"></span></div>
+    <div class="market">
+      <div class="stat"><div class="n" id="rkRating">1000</div><div class="k" id="rkTier">Spectator</div></div>
+      <div class="stat"><div class="n" id="rkAcc">0%</div><div class="k">Accuracy</div></div>
+      <div class="stat"><div class="n" id="rkWL">0&ndash;0</div><div class="k">Record</div></div>
+    </div>
+    <div class="you"><b id="rkRoi">+0%</b> return on stake &middot; current streak <b id="rkStreak">0</b></div>
+    <p class="note">Rating rewards beating the odds: call an underdog right and you climb fast; blow a favorite and you drop hard. Volume alone won't carry you.</p>
+  </div>
+
+  <!-- SKILL LADDER -->
+  <div class="card">
+    <div class="lbl"><span>Skill ladder</span><span id="boardRank" class="hist"></span></div>
+    <div class="hist" id="board"></div>
+    <p class="note">Demo field for now. real cross-player standings land with accounts (v3).</p>
+  </div>
+
   <!-- HISTORY -->
   <div class="card">
     <div class="lbl">Your last bets</div>
@@ -224,6 +248,67 @@
       var net=h.net, cls=net>=0?'pos':'neg', sign=net>=0?'+':'';
       return '<div class="row"><span>'+h.pick.toUpperCase()+' · '+h.stake+' pts · '+h.motion+'</span>'+
              '<span class="'+cls+'">'+sign+net+'</span></div>';
+    }).join('');
+  }
+
+  // ── Skill rating, rank tiers, seasons, leaderboard ────────────────
+  var STATS_KEY='predict-stats', SEASON_MS=14*24*3600*1000;
+  var TIERS=[{min:1500,name:'Oracle'},{min:1300,name:'Forecaster'},{min:1150,name:'Pundit'},{min:1000,name:'Spectator'},{min:0,name:'Rookie'}];
+  function tierFor(r){ for(var i=0;i<TIERS.length;i++){ if(r>=TIERS[i].min) return TIERS[i].name; } return 'Rookie'; }
+  function defStats(){ return {rating:1000,best:1000,bets:0,wins:0,staked:0,returned:0,streak:0,bestStreak:0,seasonNo:1,seasonStart:Date.now(),seasonBets:0,seasonNet:0,lastSeason:null}; }
+  function rollSeason(s){
+    if(Date.now() > s.seasonStart + SEASON_MS){
+      s.lastSeason={no:s.seasonNo,net:s.seasonNet,bets:s.seasonBets,rating:s.rating};
+      s.seasonNo+=1; s.seasonStart=Date.now(); s.seasonBets=0; s.seasonNet=0;
+    }
+    return s;
+  }
+  function getStats(){ var s; try{ s=Object.assign(defStats(),JSON.parse(localStorage.getItem(STATS_KEY)||'{}')); }catch(e){ s=defStats(); } return rollSeason(s); }
+  function saveStats(s){ localStorage.setItem(STATS_KEY,JSON.stringify(s)); }
+  // Calibration-aware: backing an underdog (low implied prob) and winning
+  // pays a big rating gain; blowing a favorite costs a big drop. Volume
+  // alone is flat EV on rating.
+  function recordBet(pick,stake,won,payout,impliedProb){
+    var s=getStats();
+    s.bets++; s.seasonBets++; s.staked+=stake;
+    var net = won ? (payout-stake) : -stake;
+    if(won){ s.wins++; s.returned+=payout; s.streak++; if(s.streak>s.bestStreak) s.bestStreak=s.streak; }
+    else { s.streak=0; }
+    s.seasonNet+=net;
+    var delta = won ? Math.round(6+30*(1-impliedProb)) : -Math.round(6+30*impliedProb);
+    s.rating=Math.max(100,s.rating+delta); if(s.rating>s.best) s.best=s.rating;
+    saveStats(s);
+    return {net:net,delta:delta};
+  }
+  var FIELD=[
+    {name:'flowqueen',rating:1612},{name:'tabroom_tony',rating:1548},{name:'pointsplease',rating:1487},
+    {name:'whip_smart',rating:1431},{name:'caseneg',rating:1372},{name:'oraclette',rating:1318},
+    {name:'spreadsheet_sam',rating:1256},{name:'pmr_andy',rating:1191},{name:'lay_judge_lou',rating:1118},
+    {name:'novice_nia',rating:1043}
+  ];
+  function renderRecord(){
+    var s=getStats(); saveStats(s);
+    var acc=s.bets?Math.round(100*s.wins/s.bets):0;
+    var roi=s.staked?Math.round(100*(s.returned-s.staked)/s.staked):0;
+    var dleft=Math.max(0,Math.ceil((s.seasonStart+SEASON_MS-Date.now())/86400000));
+    $('rkRating').textContent=s.rating;
+    $('rkTier').textContent=tierFor(s.rating);
+    $('rkAcc').textContent=acc+'%';
+    $('rkWL').textContent=s.wins+'–'+(s.bets-s.wins);
+    $('rkRoi').textContent=(roi>=0?'+':'')+roi+'%';
+    $('rkRoi').style.color = roi>=0?'var(--green)':'var(--red)';
+    $('rkStreak').textContent=s.streak+(s.bestStreak?(' (best '+s.bestStreak+')'):'');
+    $('rkSeason').textContent='Season '+s.seasonNo+' · '+dleft+'d left · '+(s.seasonNet>=0?'+':'')+s.seasonNet+' pts';
+    $('rankChip').textContent=tierFor(s.rating)+' · '+s.rating;
+  }
+  function renderBoard(){
+    var s=getStats();
+    var rows=FIELD.concat([{name:'you',rating:s.rating,you:true}]).sort(function(a,b){return b.rating-a.rating;});
+    var rank=0; rows.forEach(function(r,i){ if(r.you) rank=i+1; });
+    $('boardRank').textContent='#'+rank+' of '+rows.length;
+    $('board').innerHTML=rows.slice(0,11).map(function(r,i){
+      return '<div class="row'+(r.you?' me':'')+'"><span>'+(i+1)+'. '+(r.you?'<b>you</b>':r.name)+
+             '<span class="tier">'+tierFor(r.rating)+'</span></span><span class="rt">'+r.rating+'</span></div>';
     }).join('');
   }
 
@@ -371,18 +456,21 @@
     var winPool=winner==='pro'?state.poolPro:state.poolCon;
     var wlabel=winner==='pro'?'Pro / Government':'Con / Opposition';
 
-    var net=0, payout=0, won=false;
+    var net=0, payout=0, won=false, rec=null;
     if(state.bet){
       won = state.bet.pick===winner;
       if(won){ payout=Math.floor(state.bet.stake*total/winPool); setBal(getBal()+payout); net=payout-state.bet.stake; }
       else { net=-state.bet.stake; }
+      rec = recordBet(state.bet.pick, state.bet.stake, won, won?payout:0, prob(state.bet.pick));
     }
 
     $('betCard').classList.add('hidden');
     $('resultCard').classList.remove('hidden');
+    var rdelta = rec ? ' <span class="hist" style="color:'+(rec.delta>=0?'var(--green)':'var(--red)')+'">rating '+(rec.delta>=0?'+':'')+rec.delta+'</span>' : '';
     var chip = !state.bet ? ''
-      : (won?'<span class="chip win">You won +'+net+'</span>':'<span class="chip lose">You lost '+state.bet.stake+'</span>');
+      : (won?'<span class="chip win">You won +'+net+'</span>':'<span class="chip lose">You lost '+state.bet.stake+'</span>')+rdelta;
     $('result').innerHTML='Verdict: <b>'+wlabel+'</b>'+chip;
+    renderRecord(); renderBoard();
     $('rfd').innerHTML='<b>AI ballot.</b> '+rfd(winner);
 
     // provably-fair reveal
@@ -446,7 +534,7 @@
     q.onclick=function(){ var v=q.dataset.q; $('stake').value = v==='max'?getBal():v; if(!state.bet&&!state.locked) renderMarket(); };
   });
 
-  setBal(getBal()); renderHist(); newRound();
+  setBal(getBal()); renderHist(); renderRecord(); renderBoard(); newRound();
 })();
 </script>
 </body>
