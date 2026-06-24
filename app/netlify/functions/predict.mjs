@@ -230,7 +230,10 @@ export default async (request) => {
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }
   const action = body && body.action;
   const db = getDb();
-  if (!uid && action !== 'list') return errorResponse('Sign in to do that', 401, request);
+  // 'list'/'resolve'/'seed' are public market upkeep (no economy mutation, self-
+  // limiting): they keep the board fresh whether or not anyone is signed in.
+  const PUBLIC_ACTIONS = { list: 1, resolve: 1, seed: 1 };
+  if (!uid && !PUBLIC_ACTIONS[action]) return errorResponse('Sign in to do that', 401, request);
 
   // ── state: my balance + (optional) a market + my bet + top leaderboard ──
   if (action === 'state') {
