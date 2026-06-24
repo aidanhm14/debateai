@@ -120,6 +120,22 @@
   .chip:hover{border-color:rgba(255,255,255,.28)}
 
   /* heatmap toggle row */
+  .search{position:relative;margin:14px 0 2px}
+  .search input{width:100%;font-family:var(--serif);font-size:.98rem;color:var(--ink);
+    background:rgba(255,255,255,.05);border:1px solid var(--panel-line);border-radius:11px;padding:10px 13px;outline:none}
+  .search input::placeholder{color:var(--ink-ghost)}
+  .search input:focus{border-color:var(--accent)}
+  .search-res{display:none;position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:30;
+    background:rgba(17,15,22,.98);border:1px solid var(--panel-line);border-radius:11px;
+    box-shadow:0 14px 36px rgba(0,0,0,.55);max-height:280px;overflow-y:auto}
+  .search-res.show{display:block}
+  .search-res .sr{padding:9px 13px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}
+  .search-res .sr:last-child{border-bottom:none}
+  .search-res .sr:hover{background:rgba(239,68,68,.14)}
+  .search-res .sr-n{display:block;font-size:.95rem;color:var(--ink)}
+  .search-res .sr-c{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-ghost);margin-top:2px}
+  .tpin{transform:rotate(45deg);border:1.5px solid rgba(11,10,16,.9);box-shadow:0 0 8px 1px currentColor}
+  .card .badge.tour{border-color:#cbd5e1;color:#e8edf3}
   .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;
     background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;padding:11px 13px}
   .toggle-row .lab{font-size:1rem;color:var(--ink)}
@@ -263,6 +279,11 @@
   <h1>The Debate Atlas</h1>
   <div class="sub">Every serious debate program in the world, on one map. Filter by format and level; watch the network grow.</div>
 
+  <div class="search">
+    <input id="search-in" type="text" placeholder="Find a school or city" autocomplete="off" spellcheck="false">
+    <div class="search-res" id="search-res"></div>
+  </div>
+
   <div class="counters">
     <div class="ctr"><div class="n" id="c-prog">0</div><div class="l">Programs</div></div>
     <div class="ctr"><div class="n" id="c-cty">0</div><div class="l">Countries</div></div>
@@ -295,6 +316,12 @@
   <div class="toggle-row">
     <div class="lab">Show concentration<small>Where debate clusters</small></div>
     <div class="sw" id="sw-heat" role="switch" aria-checked="false" tabindex="0"></div>
+  </div>
+
+  <div class="blocklabel">Tournaments</div>
+  <div class="toggle-row">
+    <div class="lab">Show tournaments<small>Major circuit events</small></div>
+    <div class="sw" id="sw-tour" role="switch" aria-checked="false" tabindex="0"></div>
   </div>
 
   <div class="blocklabel" id="lab-legend">Pipeline stage</div>
@@ -357,11 +384,13 @@
   <div class="nm" id="card-nm"></div>
   <div class="loc" id="card-loc"></div>
   <div class="badges" id="card-badges"></div>
-  <div class="stagelab">Outreach stage</div>
-  <div class="stage-pills" id="card-stage">
-    <button data-s="prospect">Prospect</button>
-    <button data-s="contacted">In conversation</button>
-    <button data-s="partnered">Partnered</button>
+  <div id="card-stage-wrap">
+    <div class="stagelab">Outreach stage</div>
+    <div class="stage-pills" id="card-stage">
+      <button data-s="prospect">Prospect</button>
+      <button data-s="contacted">In conversation</button>
+      <button data-s="partnered">Partnered</button>
+    </div>
   </div>
 </aside>
 
@@ -937,10 +966,10 @@ function rebuild(){
 /* ---- counters ---- */
 function animateValue(el,to){
   var from=parseInt(el.textContent.replace(/\D/g,''))||0;
-  if(from===to){ el.textContent=to; return; }
+  if(from===to){ el.textContent=to.toLocaleString('en-US'); return; }
   var t0=null,dur=620;
   function step(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur);
-    var e=1-Math.pow(1-p,3); el.textContent=Math.round(from+(to-from)*e); if(p<1)requestAnimationFrame(step); }
+    var e=1-Math.pow(1-p,3); el.textContent=Math.round(from+(to-from)*e).toLocaleString('en-US'); if(p<1)requestAnimationFrame(step); }
   requestAnimationFrame(step);
 }
 function updateCounters(vis){
@@ -982,13 +1011,16 @@ function updateLegend(vis){
 var cardEl=document.getElementById('card'), current=null;
 function openCard(d){
   current=d;
+  var isTour=(d.kind==='tournament');
   document.getElementById('card-nm').textContent=d.n;
   document.getElementById('card-loc').textContent=d.city+' · '+d.country;
   var bd=[];
-  bd.push('<span class="badge lvl">'+(d.lvl==='hs'?'High school':'College')+'</span>');
-  d.fmt.forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
+  if(isTour){ bd.push('<span class="badge tour">Tournament</span>'); }
+  else { bd.push('<span class="badge lvl">'+(d.lvl==='hs'?'High school':'College')+'</span>'); }
+  (d.fmt||[]).forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
   document.getElementById('card-badges').innerHTML=bd.join('');
-  paintStage();
+  document.getElementById('card-stage-wrap').hidden=isTour;
+  if(!isTour) paintStage();
   cardEl.classList.add('show');
   map.panTo([d.lat,d.lng],{animate:true});
 }
@@ -1000,7 +1032,7 @@ function paintStage(){
 }
 document.querySelectorAll('#card-stage button').forEach(function(b){
   b.addEventListener('click',function(){
-    if(!current) return;
+    if(!current||current.kind==='tournament') return;
     var s=b.getAttribute('data-s');
     if(fbReady && !isEditor()){ promptSignIn(); return; }   // viewer: ask to sign in
     statusMap[current.n]=s;
@@ -1039,6 +1071,76 @@ function toggleHeat(){ heatOn=!heatOn; sw.classList.toggle('on',heatOn);
   sw.setAttribute('aria-checked',heatOn); rebuild(); }
 sw.addEventListener('click',toggleHeat);
 sw.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleHeat(); } });
+
+/* ---- search (find a school or city) ---- */
+var searchIn=document.getElementById('search-in'), searchRes=document.getElementById('search-res');
+function runSearch(){
+  var q=searchIn.value.trim().toLowerCase();
+  if(q.length<2){ searchRes.classList.remove('show'); searchRes.innerHTML=''; return; }
+  var hits=[];
+  for(var i=0;i<SCHOOLS.length && hits.length<8;i++){ var d=SCHOOLS[i];
+    if(d.lat && (d.n+' '+d.city+' '+d.country).toLowerCase().indexOf(q)>=0) hits.push(d); }
+  if(!hits.length){ searchRes.classList.remove('show'); searchRes.innerHTML=''; return; }
+  searchRes.innerHTML=hits.map(function(d){ return '<div class="sr" data-i="'+SCHOOLS.indexOf(d)+
+    '"><span class="sr-n">'+d.n+'</span><span class="sr-c">'+d.city+' · '+d.country+'</span></div>'; }).join('');
+  searchRes.classList.add('show');
+  searchRes.querySelectorAll('.sr').forEach(function(el){ el.addEventListener('click',function(){
+    var d=SCHOOLS[+el.getAttribute('data-i')]; if(!d) return;
+    map.flyTo([d.lat,d.lng],9,{duration:1.1}); openCard(d);
+    searchRes.classList.remove('show'); searchIn.value=d.n;
+  }); });
+}
+searchIn.addEventListener('input',runSearch);
+searchIn.addEventListener('focus',runSearch);
+document.addEventListener('click',function(e){ if(!e.target.closest('.search')) searchRes.classList.remove('show'); });
+
+/* ---- tournaments layer (major fixed-venue circuit events) ---- */
+var TOURNAMENTS=[
+  {n:'Yale IV',city:'New Haven, CT',country:'United States',lat:41.3163,lng:-72.9223,fmt:['APDA']},
+  {n:'Harvard Round Robin',city:'Cambridge, MA',country:'United States',lat:42.3736,lng:-71.1097,fmt:['APDA']},
+  {n:'Princeton IV',city:'Princeton, NJ',country:'United States',lat:40.3431,lng:-74.6551,fmt:['APDA']},
+  {n:'Brown IV',city:'Providence, RI',country:'United States',lat:41.8268,lng:-71.4025,fmt:['APDA']},
+  {n:'Columbia IV',city:'New York, NY',country:'United States',lat:40.8075,lng:-73.9626,fmt:['APDA']},
+  {n:'Stanford IV',city:'Stanford, CA',country:'United States',lat:37.4275,lng:-122.1697,fmt:['Parli','APDA']},
+  {n:'Cal Berkeley IV',city:'Berkeley, CA',country:'United States',lat:37.8719,lng:-122.2585,fmt:['Parli']},
+  {n:'Tournament of Champions',city:'Lexington, KY',country:'United States',lat:38.0336,lng:-84.5043,fmt:['LD','PF','Policy']},
+  {n:'Glenbrooks',city:'Northbrook, IL',country:'United States',lat:42.1275,lng:-87.8290,fmt:['PF','LD','Policy']},
+  {n:'Harvard HS Invitational',city:'Cambridge, MA',country:'United States',lat:42.3790,lng:-71.1180,fmt:['PF','LD']},
+  {n:'Emory Barkley Forum',city:'Atlanta, GA',country:'United States',lat:33.7925,lng:-84.3240,fmt:['Policy','PF']},
+  {n:'Greenhill Fall Classic',city:'Addison, TX',country:'United States',lat:32.9618,lng:-96.8292,fmt:['LD','Policy']},
+  {n:'Blake',city:'Minneapolis, MN',country:'United States',lat:44.9706,lng:-93.3260,fmt:['LD']},
+  {n:'Wake Forest Earlybird',city:'Winston-Salem, NC',country:'United States',lat:36.1330,lng:-80.2770,fmt:['Policy','LD']},
+  {n:'Apple Valley MinneApple',city:'Apple Valley, MN',country:'United States',lat:44.7319,lng:-93.2177,fmt:['LD']},
+  {n:'Oxford IV',city:'Oxford',country:'United Kingdom',lat:51.7548,lng:-1.2544,fmt:['BP']},
+  {n:'Cambridge IV',city:'Cambridge',country:'United Kingdom',lat:52.2043,lng:0.1149,fmt:['BP']},
+  {n:'LSE Open',city:'London',country:'United Kingdom',lat:51.5145,lng:-0.1167,fmt:['BP']},
+  {n:'Durham IV',city:'Durham',country:'United Kingdom',lat:54.7679,lng:-1.5752,fmt:['BP']},
+  {n:'WUDC Worlds 2026',city:'Sofia',country:'Bulgaria',lat:42.6977,lng:23.3219,fmt:['BP','Worlds']},
+  {n:'Hart House IV',city:'Toronto',country:'Canada',lat:43.6629,lng:-79.3957,fmt:['BP','APDA']},
+  {n:'McGill Winter Carnival',city:'Montreal',country:'Canada',lat:45.5048,lng:-73.5772,fmt:['APDA']},
+  {n:'NLS Debate',city:'Bengaluru',country:'India',lat:12.9352,lng:77.5100,fmt:['Asian Parli','BP']},
+  {n:'SRCC Gambit',city:'New Delhi',country:'India',lat:28.6386,lng:77.1709,fmt:['Asian Parli']},
+  {n:'IIT Bombay IV',city:'Mumbai',country:'India',lat:19.1334,lng:72.9133,fmt:['BP']},
+  {n:'NALSAR IV',city:'Hyderabad',country:'India',lat:17.5560,lng:78.5180,fmt:['Asian Parli']},
+  {n:'NUS / NTU Open',city:'Singapore',country:'Singapore',lat:1.2966,lng:103.7764,fmt:['BP','Asian Parli']},
+  {n:'Tel Aviv Open',city:'Tel Aviv',country:'Israel',lat:32.1133,lng:34.8044,fmt:['BP']},
+  {n:'UCT IV',city:'Cape Town',country:'South Africa',lat:-33.9577,lng:18.4612,fmt:['BP']},
+  {n:'Sydney Mini',city:'Sydney',country:'Australia',lat:-33.8888,lng:151.1873,fmt:['Worlds','Asian Parli']}
+];
+var tourLayer=L.layerGroup();
+TOURNAMENTS.forEach(function(t){
+  t.kind='tournament';
+  var ic=L.divIcon({className:'',iconSize:[13,13],iconAnchor:[6.5,6.5],
+    html:'<div class="tpin" style="width:11px;height:11px;background:#e8edf3;color:#cbd5e1"></div>'});
+  var m=L.marker([t.lat,t.lng],{icon:ic,zIndexOffset:1000});
+  m.on('click',function(){ openCard(t); });
+  tourLayer.addLayer(m);
+});
+var tourOn=false, swTour=document.getElementById('sw-tour');
+function toggleTour(){ tourOn=!tourOn; swTour.classList.toggle('on',tourOn); swTour.setAttribute('aria-checked',tourOn);
+  if(tourOn) tourLayer.addTo(map); else map.removeLayer(tourLayer); }
+swTour.addEventListener('click',toggleTour);
+swTour.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleTour(); } });
 
 /* region + format chips */
 function buildChips(id,keys,colorMap,active){
