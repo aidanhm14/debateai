@@ -96,7 +96,19 @@
   .panel h1{font-size:1.5rem;font-weight:700;line-height:1.08;letter-spacing:-.015em}
   .panel .sub{font-size:.96rem;color:var(--ink-dim);margin-top:5px;line-height:1.35}
 
-  .counters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:16px 0 4px}
+  .counters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0 4px}
+  .topc{display:flex;flex-direction:column;gap:6px}
+  .topc .tc{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--ink-dim)}
+  .topc .tc-n{flex:0 0 90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topc .tc-bar{flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden}
+  .topc .tc-bar span{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .topc .tc-v{flex:0 0 auto;font-family:var(--mono);font-weight:700;color:var(--ink);font-size:.78rem}
+  .hint{position:fixed;left:50%;top:66px;transform:translateX(-50%);z-index:1400;display:none;
+    align-items:center;gap:12px;background:rgba(17,15,22,.97);border:1px solid var(--panel-line);border-radius:999px;
+    padding:9px 11px 9px 18px;box-shadow:0 14px 40px rgba(0,0,0,.55);font-size:.9rem;color:var(--ink-dim);max-width:min(92vw,560px)}
+  .hint.show{display:flex}
+  .hint-x{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+    background:var(--accent);color:#fff;border:none;border-radius:999px;padding:6px 12px;font-weight:700;white-space:nowrap}
   .ctr{background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;
     padding:11px 8px 9px;text-align:center}
   .ctr .n{font-family:var(--mono);font-weight:700;font-size:1.42rem;color:var(--ink);line-height:1;
@@ -300,6 +312,7 @@
 
   <div class="counters">
     <div class="ctr"><div class="n" id="c-prog">0</div><div class="l">Programs</div></div>
+    <div class="ctr"><div class="n" id="c-deb">0</div><div class="l">Debaters (est.)</div></div>
     <div class="ctr"><div class="n" id="c-cty">0</div><div class="l">Countries</div></div>
     <div class="ctr"><div class="n" id="c-fmt">0</div><div class="l">Formats</div></div>
   </div>
@@ -346,6 +359,9 @@
 
   <div class="blocklabel">Formats</div>
   <div class="chips" id="chips-format"></div>
+
+  <div class="blocklabel">Top countries</div>
+  <div class="topc" id="topc"></div>
 
   <div class="note" id="note">
     Flagship and powerhouse programs, curated. Pins sit at city level. Pipeline stages are yours to set:
@@ -410,6 +426,7 @@
 
 <button class="panel-toggle" id="panel-toggle">Filters &amp; stats</button>
 <button class="tam-toggle" id="tam-toggle">Revenue</button>
+<div class="hint" id="hint"><span>Tip: click a region to zoom in. Open Revenue to model the market.</span><button class="hint-x" id="hint-x">Got it</button></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
@@ -978,6 +995,8 @@ function rebuild(){
   }
   updateCounters(vis);
   updateLegend(vis);
+  updateTopCountries(vis);
+  if(typeof tourOn!=='undefined' && tourOn) rebuildTour();
 }
 
 /* ---- counters ---- */
@@ -990,11 +1009,21 @@ function animateValue(el,to){
   requestAnimationFrame(step);
 }
 function updateCounters(vis){
-  var cties={},fmts={};
-  vis.forEach(function(d){ cties[d.country]=1; d.fmt.forEach(function(f){ fmts[f]=1; }); });
+  var cties={},fmts={},deb=0;
+  vis.forEach(function(d){ cties[d.country]=1; d.fmt.forEach(function(f){ fmts[f]=1; });
+    deb += d.tier===1?60:d.tier===2?35:18; });
   animateValue(document.getElementById('c-prog'),vis.length);
+  animateValue(document.getElementById('c-deb'),deb);
   animateValue(document.getElementById('c-cty'),Object.keys(cties).length);
   animateValue(document.getElementById('c-fmt'),Object.keys(fmts).length);
+}
+function updateTopCountries(vis){
+  var box=document.getElementById('topc'); if(!box) return;
+  var counts={}; vis.forEach(function(d){ counts[d.country]=(counts[d.country]||0)+1; });
+  var arr=Object.keys(counts).map(function(k){ return [k,counts[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0,6);
+  var max=arr.length?arr[0][1]:1;
+  box.innerHTML=arr.map(function(r){ return '<div class="tc"><span class="tc-n">'+r[0]+
+    '</span><span class="tc-bar"><span style="width:'+(r[1]/max*100)+'%"></span></span><span class="tc-v">'+r[1]+'</span></div>'; }).join('');
 }
 
 /* ---- legend (changes with color mode) ---- */
@@ -1144,19 +1173,24 @@ var TOURNAMENTS=[
   {n:'UCT IV',city:'Cape Town',country:'South Africa',lat:-33.9577,lng:18.4612,fmt:['BP']},
   {n:'Sydney Mini',city:'Sydney',country:'Australia',lat:-33.8888,lng:151.1873,fmt:['Worlds','Asian Parli']}
 ];
+TOURNAMENTS.forEach(function(t){ t.kind='tournament'; });
 var tourLayer=L.layerGroup();
-TOURNAMENTS.forEach(function(t){
-  t.kind='tournament';
-  var ic=L.divIcon({className:'',iconSize:[13,13],iconAnchor:[6.5,6.5],
-    html:'<div class="tpin" style="width:11px;height:11px;background:#e8edf3;color:#cbd5e1"></div>'});
-  var m=L.marker([t.lat,t.lng],{icon:ic,zIndexOffset:1000});
-  m.on('click',function(){ openCard(t); });
-  m.bindTooltip(t.n,{direction:'top',offset:[0,-3],className:'atlas-tt atlas-tt-tour',opacity:1});
-  tourLayer.addLayer(m);
-});
+function tourPasses(t){ for(var i=0;i<t.fmt.length;i++){ if(activeFormats[t.fmt[i]]) return true; } return false; }
+function rebuildTour(){
+  tourLayer.clearLayers();
+  TOURNAMENTS.forEach(function(t){
+    if(!tourPasses(t)) return;
+    var ic=L.divIcon({className:'',iconSize:[13,13],iconAnchor:[6.5,6.5],
+      html:'<div class="tpin" style="width:11px;height:11px;background:#e8edf3;color:#cbd5e1"></div>'});
+    var m=L.marker([t.lat,t.lng],{icon:ic,zIndexOffset:1000});
+    m.on('click',function(){ openCard(t); });
+    m.bindTooltip(t.n,{direction:'top',offset:[0,-3],className:'atlas-tt atlas-tt-tour',opacity:1});
+    tourLayer.addLayer(m);
+  });
+}
 var tourOn=false, swTour=document.getElementById('sw-tour');
 function toggleTour(){ tourOn=!tourOn; swTour.classList.toggle('on',tourOn); swTour.setAttribute('aria-checked',tourOn);
-  if(tourOn) tourLayer.addTo(map); else map.removeLayer(tourLayer); }
+  if(tourOn){ rebuildTour(); tourLayer.addTo(map); } else map.removeLayer(tourLayer); }
 swTour.addEventListener('click',toggleTour);
 swTour.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleTour(); } });
 
@@ -1335,6 +1369,17 @@ if(fbReady){
   syncPipeline();
 }
 updateAuthUI();
+
+/* first-load hint */
+(function(){
+  var hint=document.getElementById('hint'), seen=null;
+  try{ seen=localStorage.getItem('debateit-atlas-hint'); }catch(e){}
+  if(seen||!hint) return;
+  setTimeout(function(){ hint.classList.add('show'); },900);
+  var dismiss=function(){ hint.classList.remove('show'); try{ localStorage.setItem('debateit-atlas-hint','1'); }catch(e){} };
+  var hx=document.getElementById('hint-x'); if(hx) hx.addEventListener('click',dismiss);
+  setTimeout(function(){ if(hint.classList.contains('show')) dismiss(); },12000);
+})();
 
 /* go */
 rebuild();
