@@ -14543,6 +14543,9 @@ window.addEventListener('load', function(){
 
   function open(){
     modal.classList.add('is-open');
+    // Tell the bottom sign-in nudges to stand down while a modal is up, so
+    // mobile never stacks modal + signup-nudge + go-live card at once.
+    document.body.classList.add('signin-modal-open');
     modal.removeAttribute('hidden');
     modal.setAttribute('aria-hidden','false');
     track('live_popup_view');
@@ -14553,6 +14556,7 @@ window.addEventListener('load', function(){
 
   function close(reason){
     modal.classList.remove('is-open');
+    document.body.classList.remove('signin-modal-open');
     modal.setAttribute('hidden','');
     modal.setAttribute('aria-hidden','true');
     suppress();
@@ -14580,7 +14584,7 @@ window.addEventListener('load', function(){
   if (obGoogle) obGoogle.addEventListener('click', function(){
     track('live_popup_route', { route: 'google' });
     suppress();
-    modal.classList.remove('is-open'); modal.setAttribute('hidden',''); modal.setAttribute('aria-hidden','true');
+    modal.classList.remove('is-open'); document.body.classList.remove('signin-modal-open'); modal.setAttribute('hidden',''); modal.setAttribute('aria-hidden','true');
     if (window.openAuthModal) { window.openAuthModal(); return; }
     var b = document.getElementById('googleSignupBtn'); if (b) b.click();
   });

@@ -125,6 +125,9 @@
       '[data-theme="light"] .signup-nudge .su-cta:hover{background:#b91c1c}' +
       '[data-theme="light"] .signup-nudge .su-close{color:rgba(0,0,0,.45)}' +
       '[data-theme="light"] .signup-nudge .su-close:hover{color:#1a1a1f}' +
+      // A sign-in modal owns the screen while open; never stack the nudge
+      // under it (the mobile overwhelm was modal + nudge + go-live card).
+      'body.signin-modal-open .signup-nudge{display:none!important}' +
       // 2026-05-20: this nudge pins to right:18/bottom:18 — the same spot as
       // the floating Feedback pill (.fb-floating), so they'd stack and hide
       // each other. The lift is now done in JS (syncFeedbackPill) off the
@@ -199,6 +202,12 @@
     if (bar) return;
     var cfg = getConfig();
     if (cfg.skip) return; // page owns its own sign-in CTA (e.g. /spar, /live)
+    // A sign-in modal (onboarding / intro) is up — defer; the body class is
+    // cleared on dismiss, then the nudge appears on its own.
+    if (document.body.classList.contains('signin-modal-open') || document.querySelector('.ob-modal.is-open')){ setTimeout(mount, 1500); return; }
+    // One bottom sheet at a time on mobile: if the go-live card is already
+    // showing, it owns the bottom. yield to it.
+    if (document.querySelector('.da-golive')){ return; }
     // Don't stack on top of the first-visit intro modal (it's the same
     // ask, and the two collided at the bottom of the screen). Defer until
     // that modal is dismissed; the bar then appears on its own.

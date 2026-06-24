@@ -285,6 +285,9 @@
       '.da-match-btn--decline:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
       '.da-golive{position:fixed;left:18px;bottom:18px;z-index:99990;width:330px;max-width:calc(100vw - 36px);background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#0a0a0c);border:1px solid rgba(34,197,94,.4);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:16px 16px 14px;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s}' +
       '.da-golive.in{opacity:1;transform:none}' +
+      // Stand down while a sign-in modal is open so mobile never stacks
+      // modal + go-live card + signup-nudge at the same time.
+      'body.signin-modal-open .da-golive{display:none!important}' +
       '.da-golive__h{display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:800;color:var(--text,#fff);margin-bottom:5px}' +
       '.da-golive__dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:daSparPulse 1.7s ease-out infinite}' +
       '.da-golive__p{font-size:.8rem;line-height:1.45;color:var(--text-dim,#9aa);margin:0 0 12px}' +
@@ -1208,6 +1211,9 @@
       function show() {
         try { if (localStorage.getItem(LSKEY) === '1') return; } catch (e) {} // toggled on meanwhile
         if (overlay || document.querySelector('.da-golive')) return;          // match card up / already shown
+        // One bottom sheet at a time, and never under an open sign-in modal:
+        // if the signup-nudge already owns the bottom, or a modal is up, skip.
+        if (document.querySelector('.signup-nudge') || document.body.classList.contains('signin-modal-open') || document.querySelector('.ob-modal.is-open')) return;
         var el = document.createElement('div');
         el.className = 'da-golive';
         el.setAttribute('role', 'dialog');
