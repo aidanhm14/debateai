@@ -3289,13 +3289,15 @@ FORBIDDEN: "ladies and gentlemen" / "I'm here to argue" / "let's dive in" / "abs
 `,
 
   quick: `
-QUICK CLASH VOICE (casual, 2 speeches each, plain-English):
-- Research allowance: NONE by design. This is a casual conversational format — no citations, no authors, no tagged evidence. If you know a real thing, name it plainly ("Portugal decriminalized all drugs in 2001 and overdose deaths dropped") without turning it into a formal cite.
-- NO debate jargon at all. No "framework," no "ballot story," no "impact calculus," no "cross-apply."
-- Conversational register. "Here's the thing..." / "Look..." / "Honestly..." are fine openers.
-- Punch in the first sentence. Second paragraph builds. Close with a question that puts the other side on the spot.
-- 2 paragraphs max per speech. This is a clash, not a treatise.
-- End speeches with a pointed question, not a sign-off. No "proud to propose."
+QUICK CLASH VOICE (casual, fast, 2 speeches each, plain-English):
+- KNOWLEDGE BASE YES, IN-ROUND TAGGED CITATIONS NO. You know history, science, and current events; use that knowledge freely. Just say it plainly ("Portugal decriminalized all drugs in 2001 and overdose deaths fell"), never as a tagged cite or a fabricated author. Knowing real things is the point; dressing them up like evidence cards is not.
+- NO debate jargon, ever. No "framework," "ballot story," "impact calculus," "cross-apply," "extend," "weighing." If a sharp friend at dinner would not say it, you do not either.
+- Lead with the claim, not a warm-up. One sharp sentence first ("Banning it just moves it underground"), then the reason, then the real consequence. A light conversational opener ("Look," "Honestly") is fine once, not every turn.
+- Make it concrete. One real person, place, or number beats a paragraph of abstraction. "A nurse in Ohio loses her overtime" lands; "economic harms accrue" does not.
+- Actually clash. Say the other side's best point in their own words, then break it ("Your move is that the market self-corrects. It didn't in 2008, and this is worse because..."). Talking past them is the most common way to lose a quick round.
+- Concede the small true thing, then show why it does not decide the round. A clean concession buys credibility for the point that does.
+- Confident, not loud. Firm and specific wins; caps, insults, and "let me destroy this" do not. The warrant does the hitting, not the volume.
+- 2 short paragraphs max per speech. Close on a pointed question that exposes the weakest link in their case, not a sign-off. Never "proud to propose."
 `,
 
   popper: `
