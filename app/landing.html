@@ -14367,7 +14367,15 @@ window.addEventListener('load', function(){
     if (!window.firebase || !firebase.auth){ cb(null); return; }
     var u = firebase.auth().currentUser;
     if (u){ cb(u); return; }
-    firebase.auth().signInAnonymously().then(function(r){ cb(r.user); }).catch(function(){ cb(null); });
+    // Google-first: the room sees who's asking to join, and the visitor
+    // gets a real account instead of a throwaway anonymous one. Anonymous
+    // stays only as the fallback when the Google popup is blocked (in-app
+    // browsers / strict ITP), so the join never hard-dead-ends.
+    function anonFallback(){ firebase.auth().signInAnonymously().then(function(r){ cb(r.user); }).catch(function(){ cb(null); }); }
+    try {
+      var provider = new firebase.auth.GoogleAuthProvider();
+      firebase.auth().signInWithPopup(provider).then(function(r){ cb(r.user); }).catch(anonFallback);
+    } catch (e) { anonFallback(); }
   }
 
   function onJoinClick(){
