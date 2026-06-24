@@ -272,6 +272,11 @@
     color:var(--ink-dim);background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:8px;
     padding:7px 4px;cursor:pointer;transition:background .16s,color .16s}
   .opp-tab.on{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
+  .gphase{background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;padding:11px 13px;margin-bottom:9px}
+  .gph-h{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:700}
+  .gph-n{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;background:var(--accent);color:#fff;font-size:.66rem;flex:0 0 auto}
+  .gph-b{font-size:.9rem;line-height:1.42;color:var(--ink-dim);margin-top:7px}
+  .gph-b b{color:var(--ink);font-weight:700}
   .opp-tab:not(.on):hover{color:var(--ink)}
   #seg-scope{margin-bottom:12px}
   .calc-readout{margin:4px 0 2px}
@@ -479,6 +484,7 @@
   <div class="opp-tabs">
     <button class="opp-tab" data-t="market">Market</button>
     <button class="opp-tab on" data-t="revenue">Revenue</button>
+    <button class="opp-tab" data-t="growth">Growth</button>
   </div>
 
   <div class="opp-pane" id="pane-market" hidden>
@@ -508,6 +514,24 @@
     <div class="calc-presets"></div>
     <p class="calc-gap" id="calc-gap"></p>
     <p class="src">Illustrative B2B model: schools at a flat monthly fee, separate from consumer pricing. School counts: NCES (US), UDISE (India), gov stats (UK/CA/AU/PH/ZA/SG).</p>
+  </div>
+
+  <div class="opp-pane" id="pane-growth" hidden>
+    <h2>The growth plan</h2>
+    <p>Beachhead first, then scale by circuit. Every tool on this map maps to a step.</p>
+    <div class="gphase">
+      <div class="gph-h"><span class="gph-n">1</span> Beachhead &middot; now</div>
+      <div class="gph-b">Win the US circuit, where the founder is a national champion. Convert the mapped programs through the pipeline. <b>Target: 50 partnered, proof of pull.</b></div>
+    </div>
+    <div class="gphase">
+      <div class="gph-h"><span class="gph-n">2</span> India &middot; 6&ndash;12 mo</div>
+      <div class="gph-b">~123,000 secondary schools and a deep debate culture. Local pricing plus a 13&ndash;15:00 UTC host slot that fits India, the US, and the UK at once. <b>Target: 500 schools, ~$180k ARR.</b></div>
+    </div>
+    <div class="gphase">
+      <div class="gph-h"><span class="gph-n">3</span> Global circuits &middot; 12&ndash;24 mo</div>
+      <div class="gph-b">UK, SE Asia, Australia, South Africa. Circuit ambassadors seed the map as members. <b>Target: 2,000 schools, ~$720k ARR.</b></div>
+    </div>
+    <p class="src">Pins are the market. The pipeline tracks conversions. Revenue sizes each phase. Time zones pick when to run the tournaments that pull each region in.</p>
   </div>
 </aside>
 
@@ -1098,20 +1122,24 @@ swChoro.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' ')
 
 /* ── Time zones: find a host slot that works across regions ─────────── */
 map.createPane('tz'); map.getPane('tz').style.zIndex=240; map.getPane('tz').style.pointerEvents='none';
-var tzLayer=L.layerGroup(), tzOn=false, hostUTC=18;
+var tzOn=false, hostUTC=18, tzGeo=null, tzGeoLayer=null;
 var TZ_HUBS=[['US West',-8],['US East',-5],['Brazil',-3],['UK',0],['C. Europe',1],['South Africa',2],['India',5.5],['SE Asia',8],['Japan / Korea',9],['Australia E',10],['NZ',12]];
-var TZ_FILL={good:'#22c55e',ok:'#f59e0b',bad:'#ef4444'}, TZ_OP={good:0.20,ok:0.17,bad:0.17};
+var TZ_FILL={good:'#22c55e',ok:'#f59e0b',bad:'#ef4444'}, TZ_OP={good:0.22,ok:0.18,bad:0.18};
 function hourBucket(h){ h=((h%24)+24)%24; return (h>=8&&h<22)?'good':((h>=6&&h<8)||(h>=22))?'ok':'bad'; }
 function fmtH(h){ h=((h%24)+24)%24; var hh=Math.floor(h); return (hh<10?'0':'')+hh+':'+((h-hh)>=0.5?'30':'00'); }
+/* Real time-zone polygons (Natural Earth, simplified), colored by whether
+   the chosen host time is a sensible local hour in each zone. */
+function tzStyle(f){ var b=hourBucket(hostUTC+(f.properties.z||0));
+  return {stroke:true,color:'rgba(255,255,255,.06)',weight:0.5,fillColor:TZ_FILL[b],fillOpacity:TZ_OP[b]}; }
 function buildTZ(){
-  tzLayer.clearLayers();
-  for(var off=-12; off<=11; off++){
-    var w=off*15, b=hourBucket(hostUTC+off);
-    tzLayer.addLayer(L.rectangle([[-85,w],[85,w+15]],{pane:'tz',interactive:false,color:'rgba(255,255,255,.06)',weight:1,fillColor:TZ_FILL[b],fillOpacity:TZ_OP[b]}));
-    tzLayer.addLayer(L.marker([80,w+7.5],{pane:'tz',interactive:false,keyboard:false,
-      icon:L.divIcon({className:'',iconSize:[36,14],html:'<div class="tzlbl">'+(off>=0?'+':'')+off+'</div>'})}));
-  }
+  if(!tzGeo) return;
+  if(tzGeoLayer){ map.removeLayer(tzGeoLayer); }
+  tzGeoLayer=L.geoJSON(tzGeo,{pane:'tz',interactive:false,style:tzStyle}); tzGeoLayer.addTo(map);
 }
+function restyleTZ(){ if(tzGeoLayer) tzGeoLayer.setStyle(tzStyle); }
+function ensureTZ(cb){ if(tzGeo){ cb(); return; }
+  fetch('/js/atlas-tz.json').then(function(r){ return r.json(); }).then(function(j){ tzGeo=j; cb(); })
+    .catch(function(e){ console.warn('[atlas] tz load',e); }); }
 function tzReadout(){
   var hdr=document.getElementById('tz-hdr'), box=document.getElementById('tz-read'); if(!box) return;
   var good=0;
@@ -1123,11 +1151,12 @@ function tzReadout(){
 var swTZ=document.getElementById('sw-tz');
 function toggleTZ(){ tzOn=!tzOn; swTZ.classList.toggle('on',tzOn); swTZ.setAttribute('aria-checked',tzOn);
   var ctl=document.getElementById('tz-ctl'); if(ctl) ctl.classList.toggle('show',tzOn);
-  if(tzOn){ buildTZ(); tzLayer.addTo(map); tzReadout(); } else map.removeLayer(tzLayer); }
+  if(tzOn){ tzReadout(); ensureTZ(function(){ if(tzOn) buildTZ(); }); }
+  else if(tzGeoLayer){ map.removeLayer(tzGeoLayer); } }
 swTZ.addEventListener('click',toggleTZ);
 swTZ.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleTZ(); } });
 var tzSlider=document.getElementById('tz-slider');
-if(tzSlider) tzSlider.addEventListener('input',function(){ hostUTC=+tzSlider.value; if(tzOn) buildTZ(); tzReadout(); });
+if(tzSlider) tzSlider.addEventListener('input',function(){ hostUTC=+tzSlider.value; restyleTZ(); tzReadout(); });
 
 /* Real tiled basemaps (Esri ArcGIS, free, no API key, enterprise-grade CDN).
    Default dark to match the brand; switch to satellite / streets from the
@@ -1507,6 +1536,7 @@ document.querySelectorAll('.opp-tab').forEach(function(b){
     b.classList.add('on'); var t=b.getAttribute('data-t');
     document.getElementById('pane-market').hidden = (t!=='market');
     document.getElementById('pane-revenue').hidden = (t!=='revenue');
+    var pg=document.getElementById('pane-growth'); if(pg) pg.hidden = (t!=='growth');
   });
 });
 function fmtMoney(n){ n=Math.round(n);
