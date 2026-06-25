@@ -1200,19 +1200,18 @@ function colorFor(d){
   if(colorMode==='level') return LVL_COLOR[d.lvl];
   return FMT_COLOR[d.fmt[0]] || '#ef4444';
 }
-function pinIcon(d){
-  var size = d.tier===1?16:d.tier===2?12:9;
-  var col = colorFor(d);
-  return L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
-    html:'<div class="pin" style="width:'+size+'px;height:'+size+'px;background:'+col+';color:'+col+'"></div>'});
-}
+map.createPane('pins'); map.getPane('pins').style.zIndex=450;
+var pinRenderer=L.canvas({padding:0.5,pane:'pins'});
+function pinRadius(d){ return d.tier===1?7:d.tier===2?5.5:4.5; }
+function pinStyle(d){ return {renderer:pinRenderer,radius:pinRadius(d),fillColor:colorFor(d),fillOpacity:.95,color:'rgba(11,10,16,.85)',weight:1.5}; }
+function restyle(m,d){ if(m&&m.setStyle) m.setStyle({radius:pinRadius(d),fillColor:colorFor(d)}); }
 
 var markers = {};
 SCHOOLS.forEach(function(d){
   if(!d.lat) return;
-  var m=L.marker([d.lat,d.lng],{icon:pinIcon(d)});
+  var m=L.circleMarker([d.lat,d.lng],pinStyle(d));
   m.on('click',function(){ openCard(d); });
-  m.bindTooltip(d.n,{direction:'top',offset:[0,-3],className:'atlas-tt',opacity:1});
+  m.bindTooltip(d.n,{direction:'top',offset:[0,-8],className:'atlas-tt',opacity:1});
   m._data=d;
   markers[d.n]=m;
 });
@@ -1221,6 +1220,9 @@ var cluster = L.markerClusterGroup({
   maxClusterRadius:46,
   spiderfyOnMaxZoom:true,
   showCoverageOnHover:false,
+  chunkedLoading:true,
+  removeOutsideVisibleBounds:true,
+  animateAddingMarkers:false,
   iconCreateFunction:function(c){
     var n=c.getChildCount();
     var s = n<10?34:n<30?42:n<60?50:60;
@@ -1247,7 +1249,8 @@ function rebuild(){
   /* markers */
   cluster.clearLayers();
   if(!heatOn){
-    var layers=vis.map(function(d){ var m=markers[d.n]; m.setIcon(pinIcon(d)); return m; });
+    if(rebuild._lastCM!==colorMode){ rebuild._lastCM=colorMode; for(var mk in markers){ if(markers[mk]&&markers[mk]._data) restyle(markers[mk],markers[mk]._data); } }
+    var layers=vis.map(function(d){ return markers[d.n]; });
     cluster.addLayers(layers);
   }
   /* heat */
@@ -1387,7 +1390,7 @@ function openCard(d){
       if(typeof isEditor==='function'&&isEditor()){ try{ setStatusRemote(current,'contacted'); }catch(e){} }
       else { try{ localStorage.setItem(STORE_KEY,JSON.stringify(statusMap)); }catch(e){} }
       if(typeof paintStage==='function') paintStage();
-      if(markers[current.n]) markers[current.n].setIcon(pinIcon(current));
+      if(markers[current.n]) restyle(markers[current.n],current);
     });
   })();
   document.getElementById('card-stage-wrap').hidden=(isTour||isComm||isMem||!isAdminUser);
@@ -1426,7 +1429,7 @@ document.querySelectorAll('#card-stage button').forEach(function(b){
     if(isEditor()){ setStatusRemote(current,s); }            // shared write
     else { try{ localStorage.setItem(STORE_KEY,JSON.stringify(statusMap)); }catch(e){} } // offline fallback
     paintStage();
-    if(markers[current.n]) markers[current.n].setIcon(pinIcon(current));
+    if(markers[current.n]) restyle(markers[current.n],current);
     rebuild();
   });
 });
