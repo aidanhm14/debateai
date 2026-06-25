@@ -162,7 +162,7 @@
   // down — so the live connection (and any PiP window opened from it)
   // survive "crossing pages." This is how the round keeps running on the
   // landing page on a multi-page site without a full SPA rewrite.
-  var shellFrame = null;
+  var shellFrame = null, shellBar = null, shellPrevTitle = '', shellPrevUrl = '';
 
   function ensureShellCss() {
     if (document.getElementById('lpip-shell-css')) return;
@@ -170,27 +170,61 @@
     s.id = 'lpip-shell-css';
     s.textContent =
       'html.lpip-shell-on,html.lpip-shell-on body{overflow:hidden!important}' +
-      '#lpip-shell{position:fixed;inset:0;width:100vw;height:100vh;border:0;margin:0;' +
-      'z-index:2147482000;background:var(--bg,#0a0a0c)}';
+      '#lpip-shell{position:fixed;inset:0;width:100vw;height:100vh;border:0;margin:0;z-index:2147482000;background:var(--bg,#0a0a0c)}' +
+      '@keyframes lpipShellPulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.55)}70%{box-shadow:0 0 0 6px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}' +
+      '@keyframes lpipShellBarIn{from{transform:translate(-50%,-12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}' +
+      '#lpip-shellbar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147482500;display:flex;align-items:center;gap:11px;padding:7px 9px 7px 15px;border-radius:999px;background:rgba(10,10,12,.86);color:#f0f0f0;border:1px solid rgba(255,255,255,.16);box-shadow:0 12px 40px rgba(0,0,0,.5);font:600 13px/1 system-ui,-apple-system,sans-serif;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);max-width:calc(100vw - 28px);animation:lpipShellBarIn .25s cubic-bezier(.2,.8,.2,1)}' +
+      '#lpip-shellbar .lpsb-live{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#ff6a6a}' +
+      '#lpip-shellbar .lpsb-live i{width:7px;height:7px;border-radius:50%;background:#ff3b3b;animation:lpipShellPulse 1.6s infinite}' +
+      '#lpip-shellbar .lpsb-where{color:#9aa0a6;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}' +
+      '#lpip-shellbar .lpsb-return{font:inherit;font-weight:700;font-size:12px;padding:7px 14px;border-radius:999px;border:0;cursor:pointer;background:#ef4444;color:#fff;white-space:nowrap;transition:background .15s}' +
+      '#lpip-shellbar .lpsb-return:hover{background:#dc2626}' +
+      '@media(max-width:560px){#lpip-shellbar .lpsb-where{display:none}}';
     document.head.appendChild(s);
+  }
+
+  // Reflect where the user is (in the shell) on the return bar, the tab
+  // title and the address bar. Path/title come from the same-origin iframe;
+  // cross-origin reads/replaceState are wrapped so an external link can't
+  // throw. Originals are restored in closeShell.
+  function syncShellChrome(path, title) {
+    var whereEl = shellBar && shellBar.querySelector('.lpsb-where');
+    if (whereEl) whereEl.textContent = title ? title : 'Browsing the site';
+    try { if (title) document.title = title + ' · round live'; } catch (e) {}
+    if (path) { try { history.replaceState(null, '', path); } catch (e) {} }
   }
 
   function openShell(opts) {
     opts = opts || {};
     if (shellFrame) return shellFrame;
     ensureShellCss();
+    shellPrevTitle = document.title;
+    try { shellPrevUrl = location.pathname + location.search + location.hash; } catch (e) { shellPrevUrl = ''; }
+
+    // A slim "return to the round" bar so the user never has to hunt for the
+    // corner float to get back, and a live "where am I" label.
+    shellBar = document.createElement('div');
+    shellBar.id = 'lpip-shellbar';
+    shellBar.innerHTML =
+      '<span class="lpsb-live"><i></i>Round live</span>' +
+      '<span class="lpsb-where"></span>' +
+      '<button type="button" class="lpsb-return">Return to the round &rarr;</button>';
+    shellBar.querySelector('.lpsb-return').addEventListener('click', function () {
+      if (typeof opts.onReturn === 'function') { try { opts.onReturn(); } catch (e) {} }
+    });
+    document.body.appendChild(shellBar);
+
     var f = document.createElement('iframe');
     f.id = 'lpip-shell';
     f.title = 'DebateIt';
     f.allow = 'camera; microphone; autoplay; clipboard-write; fullscreen';
-    if (typeof opts.onNavigate === 'function') {
-      f.addEventListener('load', function () {
-        try {
-          var loc = f.contentWindow.location;
-          opts.onNavigate(loc.pathname + loc.search);
-        } catch (e) {}
-      });
-    }
+    f.addEventListener('load', function () {
+      var path = '', title = '';
+      try { var loc = f.contentWindow.location; path = loc.pathname + loc.search; } catch (e) {}
+      try { title = (f.contentDocument && f.contentDocument.title) || ''; } catch (e) {}
+      syncShellChrome(path, title);
+      if (typeof opts.onNavigate === 'function') { try { opts.onNavigate(path); } catch (e) {} }
+    });
     f.src = opts.url || '/';
     document.body.appendChild(f);
     document.documentElement.classList.add('lpip-shell-on');
@@ -200,7 +234,10 @@
 
   function closeShell() {
     if (shellFrame) { try { shellFrame.remove(); } catch (e) {} shellFrame = null; }
+    if (shellBar) { try { shellBar.remove(); } catch (e) {} shellBar = null; }
     document.documentElement.classList.remove('lpip-shell-on');
+    try { if (shellPrevTitle) document.title = shellPrevTitle; } catch (e) {}
+    if (shellPrevUrl) { try { history.replaceState(null, '', shellPrevUrl); } catch (e) {} }
   }
 
   function shellActive() { return !!shellFrame; }

@@ -6696,11 +6696,17 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   useEffect(function () {
     if (!window.LivePiP || !window.LivePiP.openShell) return;
     if (viewMode === 'shell' || viewMode === 'pip') {
-      if (!window.LivePiP.shellActive()) window.LivePiP.openShell({ url: '/' });
+      if (!window.LivePiP.shellActive()) window.LivePiP.openShell({ url: '/', onReturn: function () {setViewMode('full');} });
     } else if (window.LivePiP.shellActive()) {
       window.LivePiP.closeShell();
     }
   }, [viewMode]);
+
+  // Returning to the full round (e.g. via the shell's "Return" bar, which
+  // only flips viewMode to avoid a stale closure) also closes any PiP window.
+  useEffect(function () {
+    if (viewMode === 'full' && pipWin) {try {pipWin.close();} catch (e) {}setPipWin(null);}
+  }, [viewMode, pipWin]);
 
   // The in-page mini is draggable by its title bar.
   useEffect(function () {
