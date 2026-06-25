@@ -2978,6 +2978,11 @@ try {
 .mp-btn--primary{background:var(--accent,#ef4444);border-color:var(--accent,#ef4444);color:#fff}
 .mp-btn--primary:hover{filter:brightness(1.08)}
 @media(max-width:560px){.live-mini{right:10px;bottom:10px;width:calc(100vw - 20px);max-width:320px}}
+/* Judge badge — a small symbol above the minimized video. */
+.live-mini__judge{display:flex;align-items:center;gap:7px;padding:6px 11px;background:rgba(217,201,138,.10);border-bottom:1px solid var(--border,rgba(255,255,255,.10));font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#d9c98a}
+.live-mini__judge .lmj{font-size:.9rem;line-height:1}
+.live-mini__judge .lmj-dot{width:6px;height:6px;border-radius:50%;background:#d9c98a;box-shadow:0 0 8px rgba(217,201,138,.8);margin-left:auto;animation:lpipPulse 2.2s infinite}
+.live-mini--pip .live-mini__judge{justify-content:center;font-size:.66rem;padding:10px}
 </style>
 
 <script data-precompile="es5">
@@ -6649,39 +6654,57 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   }, [status, rfd, rfdLoading, generateRFD]);
 
   /* ── Floating / picture-in-picture player ───────── */
+  // viewMode: 'full' (normal arena) | 'shell' (docked corner widget while
+  // the rest of the site loads in a background iframe so you can browse it)
+  // | 'pip' (popped into a real always-on-top Document PiP window). In both
+  // 'shell' and 'pip' the round stays fully connected — the host document
+  // never navigates, the site browsing happens inside the shell iframe.
 
   var pipSupported = !!(window.LivePiP && window.LivePiP.supported && window.LivePiP.supported());
 
   function restoreRound() {
     if (pipWin) {try {pipWin.close();} catch (e) {}}
+    if (window.LivePiP && window.LivePiP.closeShell) window.LivePiP.closeShell();
     setPipWin(null);
     setViewMode('full');
   }
 
   function popOut() {
-    if (!pipSupported) {setViewMode('mini');return;}
+    if (!pipSupported) {setViewMode('shell');return;}
     Promise.resolve(window.LivePiP.openWindow({
-      width: 384, height: 360, title: 'DebateIt — live round',
+      width: 384, height: 392, title: 'DebateIt — live round',
       onClose: function () {setPipWin(null);setViewMode('full');}
     })).then(function (w) {
-      if (!w) {setViewMode('mini');return;}
+      if (!w) {setViewMode('shell');return;}
       setPipWin(w);
       setViewMode('pip');
-    }).catch(function () {setViewMode('mini');});
+    }).catch(function () {setViewMode('shell');});
   }
 
-  // The floating window must die with the round.
+  // The floating window + site shell must die with the round.
   useEffect(function () {
-    if (status !== 'live' && pipWin) {
-      try {pipWin.close();} catch (e) {}
-      setPipWin(null);
+    if (status !== 'live') {
+      if (pipWin) {try {pipWin.close();} catch (e) {}setPipWin(null);}
+      if (window.LivePiP && window.LivePiP.shellActive && window.LivePiP.shellActive()) window.LivePiP.closeShell();
+      if (viewMode !== 'full') setViewMode('full');
     }
-    if (status !== 'live' && viewMode !== 'full') setViewMode('full');
   }, [status, pipWin, viewMode]);
+
+  // Shell = browse the rest of the site (in a same-origin iframe) while the
+  // round stays loaded and floats on top. Open it whenever minimized or
+  // popped out; tear it down on the way back to the full round.
+  useEffect(function () {
+    if (!window.LivePiP || !window.LivePiP.openShell) return;
+    if (viewMode === 'shell' || viewMode === 'pip') {
+      if (!window.LivePiP.shellActive()) window.LivePiP.openShell({ url: '/' });
+    } else if (window.LivePiP.shellActive()) {
+      window.LivePiP.closeShell();
+    }
+  }, [viewMode]);
 
   // The in-page mini is draggable by its title bar.
   useEffect(function () {
-    if (viewMode === 'mini' && window.LivePiP) {
+    if (viewMode === 'shell' && window.LivePiP) {
       var node = document.querySelector('.live-mini');
       if (node) window.LivePiP.makeDraggable(node, node.querySelector('.live-mini__bar'));
     }
@@ -6704,10 +6727,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     return function () {bound.forEach(function (b) {try {b[0].removeEventListener('click', b[1]);} catch (e) {}});};
   }, [viewMode, pipWin]);
 
-  // The compact player + the in-page "round is minimized" notice. The mini
-  // is rendered either in-page (docked corner) or portaled into the PiP
-  // window; the orb is a lightweight CSS pulse so the real canvas can stay
-  // stowed in the full arena untouched.
+  // The compact player, with a judge badge above the video. Rendered into a
+  // body-level portal (so it stacks above the site-shell iframe) when docked
+  // in-page, or into the PiP window when popped out. The orb is a lightweight
+  // CSS pulse so the real arena canvas can stay stowed + untouched.
   function renderMinimized() {
     var miniSp = mode === 'apda' ? APDA_SEQUENCE[speechIdx] || null : null;
     var miniTimer;
@@ -6722,6 +6745,11 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     'Listening';
     var buildMini = function (inPip) {
       return el('div', { className: 'live-mini' + (inPip ? ' live-mini--pip' : '') },
+      el('div', { className: 'live-mini__judge', title: 'An AI judge is tracking the round and writes the ballot at the end.' },
+      el('span', { className: 'lmj' }, '⚖'),
+      el('span', null, 'Judge tracking'),
+      el('span', { className: 'lmj-dot' })
+      ),
       el('div', { className: 'live-mini__bar' },
       el('span', { className: 'live-mini__live' }, el('i'), 'LIVE'),
       el('span', { className: 'live-mini__name' }, mode === 'apda' && miniSp ? miniSp.name : 'Voice round'),
@@ -6743,21 +6771,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       )
       );
     };
-    var placeholder = el('div', { className: 'mini-placeholder' },
-    el('div', { className: 'mini-placeholder__badge' }, el('span', { className: 'mp-dot' }), 'Live round running'),
-    el('h2', { className: 'mini-placeholder__title' }, viewMode === 'pip' ? 'Popped out into a floating window' : 'Minimized to the corner'),
-    el('p', { className: 'mini-placeholder__sub' }, viewMode === 'pip' ?
-    'The round is in its own always-on-top window. Switch tabs or apps and it stays visible. Close that window to bring the round back here.' :
-    'The round is docked bottom-right and still live. Drag it anywhere; switch tabs and it keeps running.' + (pipSupported ? ' Pop it out to float over other tabs too.' : '')),
-    el('div', { className: 'mini-placeholder__row' },
-    el('button', { type: 'button', className: 'mp-btn mp-btn--primary', onClick: function () {restoreRound();} }, 'Back to full view'),
-    viewMode !== 'pip' && pipSupported && el('button', { type: 'button', className: 'mp-btn', onClick: popOut }, '⧉ Pop out')
-    )
-    );
     if (viewMode === 'pip' && pipWin) {
-      return el(React.Fragment, null, placeholder, ReactDOM.createPortal(buildMini(true), pipWin.document.body));
+      return ReactDOM.createPortal(buildMini(true), pipWin.document.body);
     }
-    return el(React.Fragment, null, placeholder, buildMini(false));
+    return ReactDOM.createPortal(buildMini(false), document.body);
   }
 
   /* ── Derived ──────────────────────────────────── */
@@ -7789,7 +7806,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // real always-on-top window (Document PiP, Chrome/Edge) so it stays
   // visible while the user works in other tabs.
   el('div', { className: 'lpip-triggers' },
-  el('button', { type: 'button', className: 'lpip-trigbtn', onClick: function () {setViewMode('mini');}, title: 'Shrink the round to a floating corner so you can use the rest of the page' }, '⤓ Minimize'),
+  el('button', { type: 'button', className: 'lpip-trigbtn', onClick: function () {setViewMode('shell');}, title: 'Dock the round to a corner and browse the rest of the site while it keeps running' }, '⤓ Minimize'),
   pipSupported && el('button', { type: 'button', className: 'lpip-trigbtn', onClick: popOut, title: 'Pop the round into a floating window that stays on top while you switch tabs' }, '⧉ Pop out')
   )
   ),

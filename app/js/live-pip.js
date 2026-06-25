@@ -154,11 +154,65 @@
     handle.addEventListener('pointercancel', end);
   }
 
+  // ── Site shell ──────────────────────────────────────────────────────
+  // A full-viewport, same-origin iframe that lets the user browse the rest
+  // of the site WHILE the host page (and its live connection) stays loaded.
+  // The floating mini player renders on top of this iframe. Because real
+  // navigation happens INSIDE the iframe, the host document is never torn
+  // down — so the live connection (and any PiP window opened from it)
+  // survive "crossing pages." This is how the round keeps running on the
+  // landing page on a multi-page site without a full SPA rewrite.
+  var shellFrame = null;
+
+  function ensureShellCss() {
+    if (document.getElementById('lpip-shell-css')) return;
+    var s = document.createElement('style');
+    s.id = 'lpip-shell-css';
+    s.textContent =
+      'html.lpip-shell-on,html.lpip-shell-on body{overflow:hidden!important}' +
+      '#lpip-shell{position:fixed;inset:0;width:100vw;height:100vh;border:0;margin:0;' +
+      'z-index:2147482000;background:var(--bg,#0a0a0c)}';
+    document.head.appendChild(s);
+  }
+
+  function openShell(opts) {
+    opts = opts || {};
+    if (shellFrame) return shellFrame;
+    ensureShellCss();
+    var f = document.createElement('iframe');
+    f.id = 'lpip-shell';
+    f.title = 'DebateIt';
+    f.allow = 'camera; microphone; autoplay; clipboard-write; fullscreen';
+    if (typeof opts.onNavigate === 'function') {
+      f.addEventListener('load', function () {
+        try {
+          var loc = f.contentWindow.location;
+          opts.onNavigate(loc.pathname + loc.search);
+        } catch (e) {}
+      });
+    }
+    f.src = opts.url || '/';
+    document.body.appendChild(f);
+    document.documentElement.classList.add('lpip-shell-on');
+    shellFrame = f;
+    return f;
+  }
+
+  function closeShell() {
+    if (shellFrame) { try { shellFrame.remove(); } catch (e) {} shellFrame = null; }
+    document.documentElement.classList.remove('lpip-shell-on');
+  }
+
+  function shellActive() { return !!shellFrame; }
+
   window.LivePiP = {
     supported: supported,
     openWindow: openWindow,
     close: close,
     current: current,
-    makeDraggable: makeDraggable
+    makeDraggable: makeDraggable,
+    openShell: openShell,
+    closeShell: closeShell,
+    shellActive: shellActive
   };
 })();

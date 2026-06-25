@@ -274,6 +274,7 @@ body.lr-mini #jitsiPane .call-card{display:none}
   cursor:grab;user-select:none;touch-action:none;
 }
 body.lr-mini .lr-minibar{display:flex}
+.lr-minibar .lrm-judge{font-size:.95rem;line-height:1;color:#d9c98a;filter:drop-shadow(0 0 4px rgba(217,201,138,.55))}
 .lr-minibar .lrm-live{display:inline-flex;align-items:center;gap:5px;font-size:.58rem;font-weight:800;letter-spacing:.12em;color:#ff6a6a}
 .lr-minibar .lrm-live i{width:7px;height:7px;border-radius:50%;background:#ff3b3b;animation:lrMiniPulse 1.6s infinite}
 @keyframes lrMiniPulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.55)}70%{box-shadow:0 0 0 7px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}
@@ -1035,6 +1036,7 @@ body.lr-pip .lr-pip-notice{display:block}
     <!-- Drag + control bar shown only when the video is docked (in-page
          mini). Overlays the iframe; pointer-drag moves the whole pane. -->
     <div class="lr-minibar" id="lrMinibar">
+      <span class="lrm-judge" title="An AI judge is scoring this round">⚖</span>
       <span class="lrm-live"><i></i>LIVE</span>
       <span class="lrm-sp" id="lrmSpeech">Live round</span>
       <button type="button" id="lrmPop" title="Pop out into a floating window">⧉</button>
@@ -5350,44 +5352,63 @@ body.lr-pip .lr-pip-notice{display:block}
       lbl.textContent = t.trim() || 'Live round';
     }
 
-    function restoreFromPip() {
-      if (!document.body.classList.contains('lr-pip') && !pipWin) return;
-      // Put the video pane back as the first column, before the resizer.
-      try {
-        if (resizer && resizer.parentNode === splitEl) splitEl.insertBefore(jitsiPane, resizer);
-        else splitEl.insertBefore(jitsiPane, splitEl.firstChild);
-      } catch (e) {}
-      jitsiPane.classList.remove('lr-pip-pane');
-      document.body.classList.remove('lr-pip');
-      if (pipWin) { try { pipWin.close(); } catch (e) {} pipWin = null; }
+    function openSiteShell() {
+      if (window.LivePiP && window.LivePiP.openShell && !window.LivePiP.shellActive()) window.LivePiP.openShell({ url: '/' });
+    }
+    function closeSiteShell() {
+      if (window.LivePiP && window.LivePiP.closeShell) window.LivePiP.closeShell();
     }
 
+    // Bring the video back into the page and drop mini + shell + pip.
+    function exitAll() {
+      if (document.body.classList.contains('lr-pip') || pipWin) {
+        // Move the pane back into the grid (works during the PiP window's
+        // pagehide too, before its document is torn down).
+        try {
+          if (resizer && resizer.parentNode === splitEl) splitEl.insertBefore(jitsiPane, resizer);
+          else splitEl.insertBefore(jitsiPane, splitEl.firstChild);
+        } catch (e) {}
+        jitsiPane.classList.remove('lr-pip-pane');
+        document.body.classList.remove('lr-pip');
+        if (pipWin) { try { pipWin.close(); } catch (e) {} pipWin = null; }
+      }
+      document.body.classList.remove('lr-mini');
+      closeSiteShell();
+    }
+
+    // Minimize: dock the video to the corner AND load the rest of the site
+    // in a background iframe, so the user can browse it (landing, topics,
+    // etc.) while the round + its video connection keep running. The host
+    // page never navigates, so nothing reconnects.
     function enterMini() {
-      restoreFromPip();
+      if (document.body.classList.contains('lr-pip') || pipWin) exitAll();
       document.body.classList.add('lr-mini');
+      openSiteShell();
       syncMiniLabel();
       if (window.LivePiP && minibar) window.LivePiP.makeDraggable(jitsiPane, minibar);
     }
-    function exitMini() { document.body.classList.remove('lr-mini'); }
 
+    // Pop out: move the video into a real always-on-top Document PiP window
+    // and open the site shell so the tab shows the browsable site behind it.
     function enterPip() {
       if (!pipOk) { enterMini(); return; }
-      exitMini();
+      document.body.classList.remove('lr-mini');
       Promise.resolve(window.LivePiP.openWindow({
-        width: 360, height: 250, title: 'DebateIt — live round video',
-        onClose: function () { restoreFromPip(); }
+        width: 360, height: 264, title: 'DebateIt — live round video',
+        onClose: function () { exitAll(); }
       })).then(function (w) {
         if (!w) { enterMini(); return; }
         pipWin = w;
         jitsiPane.classList.add('lr-pip-pane');
         document.body.classList.add('lr-pip');
-        try { w.document.body.appendChild(jitsiPane); } catch (e) { restoreFromPip(); }
+        openSiteShell();
+        try { w.document.body.appendChild(jitsiPane); } catch (e) { exitAll(); }
       }).catch(function () { enterMini(); });
     }
 
     if (minBtn) minBtn.addEventListener('click', enterMini);
     if (popBtn) popBtn.addEventListener('click', enterPip);
-    if (miniRestore) miniRestore.addEventListener('click', exitMini);
+    if (miniRestore) miniRestore.addEventListener('click', exitAll);
     if (miniPop) miniPop.addEventListener('click', enterPip);
 
     // Keep the docked label fresh as speeches advance.
