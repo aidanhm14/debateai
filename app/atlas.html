@@ -416,6 +416,7 @@
     <button data-m="status" class="on">Pipeline</button>
     <button data-m="format">Format</button>
     <button data-m="level">Level</button>
+    <button data-m="contacts" id="seg-contacts" hidden>Contacts</button>
   </div>
 
   <div class="blocklabel">Map style</div>
@@ -1192,8 +1193,10 @@ window.addEventListener('resize',function(){ map.invalidateSize(false); });
 setTimeout(function(){ map.invalidateSize(false); },300);
 setTimeout(function(){ map.invalidateSize(false); },1200);
 
+function hasContact(d){ var c=window.ATLAS_CONTACTS&&window.ATLAS_CONTACTS[(d.n||'').toLowerCase().replace(/[^a-z0-9]/g,'')]; return !!(c&&c.e); }
 function colorFor(d){
   if(colorMode==='status') return STATUS_COLOR[statusOf(d)];
+  if(colorMode==='contacts') return hasContact(d)?'#22c55e':'#6b7280';
   if(colorMode==='level') return LVL_COLOR[d.lvl];
   return FMT_COLOR[d.fmt[0]] || '#ef4444';
 }
@@ -1305,6 +1308,11 @@ function updateLegend(vis){
     var lc={college:0,hs:0}; vis.forEach(function(d){ lc[d.lvl]++; });
     rows.push({c:LVL_COLOR.college,nm:'College / university',ct:lc.college});
     rows.push({c:LVL_COLOR.hs,nm:'High school',ct:lc.hs});
+  } else if(colorMode==='contacts'){
+    lab.textContent='Contacts';
+    var ccc={y:0,n:0}; vis.forEach(function(d){ hasContact(d)?ccc.y++:ccc.n++; });
+    rows.push({c:'#22c55e',nm:'Email on file',ct:ccc.y});
+    rows.push({c:'#6b7280',nm:'No email yet',ct:ccc.n});
   } else {
     lab.textContent='Format';
     var fc={}; vis.forEach(function(d){ fc[d.fmt[0]]=(fc[d.fmt[0]]||0)+1; });
@@ -1645,10 +1653,11 @@ if(calcSchools){
 /* ── Community: "Add your program" pins ───────────────────────────── */
 var subLayer=L.layerGroup(), SUBS=[], memberLayer=L.layerGroup(), MEMBERS=[], isAdminUser=false, placeMode=null, placeLatLng=null;
 subLayer.addTo(map); memberLayer.addTo(map);
+function segContactsToggle(){ var sc=document.getElementById('seg-contacts'); if(sc) sc.hidden=!isAdminUser; }
 function checkAdmin(){ isAdminUser=false; if(!fbUser) return;
-  if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ isAdminUser=true; return; }
+  if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ isAdminUser=true; segContactsToggle(); return; }
   if(!fbDb) return;
-  fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){ isAdminUser=!!(s.exists&&s.data()&&s.data().isAdmin); }).catch(function(){ isAdminUser=false; }); }
+  fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){ isAdminUser=!!(s.exists&&s.data()&&s.data().isAdmin); segContactsToggle(); }).catch(function(){ isAdminUser=false; }); }
 function renderSubs(){
   subLayer.clearLayers();
   SUBS.forEach(function(s){
