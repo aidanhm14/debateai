@@ -88,7 +88,10 @@
   @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--accentGlow)}50%{box-shadow:0 0 0 5px transparent}}
 
   .vs{display:flex;align-items:center;gap:10px}
-  .deb{flex:1;min-width:0}
+  .deb{flex:1;min-width:0;display:flex;align-items:center;gap:9px}
+  .deb--r{flex-direction:row-reverse;text-align:right}
+  .av{width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border2);flex:none;background:var(--card2)}
+  .dtext{min-width:0}
   .deb .nm{font-weight:800;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .deb .meta{font-size:.7rem;color:var(--ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .vsx{font-family:var(--serif);font-weight:800;color:var(--ghost);font-size:.8rem;padding:0 2px}
@@ -233,6 +236,39 @@
   .tut-grp{display:flex;gap:8px}
   .tut-back{appearance:none;border:1px solid var(--border);background:var(--card2);color:var(--dim);font-weight:700;font-size:.82rem;padding:9px 15px;border-radius:9px}
   .tut-next{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:.88rem;padding:10px 22px;border-radius:9px}
+
+  /* ---- smooth entrances ---- */
+  .mkt--in{animation:mktIn .45s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes mktIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes pageIn{from{opacity:0}to{opacity:1}}
+  .hero,.tabs,.wrap{animation:pageIn .55s ease both}
+  @media (prefers-reduced-motion:reduce){ .mkt--in,.hero,.tabs,.wrap{animation:none} }
+
+  /* ---- get-to-know-you intro ---- */
+  .gtky-overlay{position:fixed;inset:0;z-index:85;display:none;align-items:center;justify-content:center;padding:24px;background:radial-gradient(820px 520px at 50% 0%, var(--accentGlow), transparent 60%), rgba(8,8,10,.93);backdrop-filter:blur(7px)}
+  [data-theme="light"] .gtky-overlay{background:radial-gradient(820px 520px at 50% 0%, var(--accentGlow), transparent 60%), rgba(250,250,247,.95)}
+  .gtky-overlay.on{display:flex}
+  .gtky{max-width:540px;width:100%;text-align:center}
+  .gtky-step{animation:gtkyIn .42s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes gtkyIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .gtky-prog{display:flex;gap:6px;justify-content:center;margin-bottom:26px}
+  .gtky-prog i{width:30px;height:4px;border-radius:3px;background:var(--border2);transition:.3s}
+  .gtky-prog i.on{background:var(--accent)}
+  .gtky-kick{font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .gtky-q{font-family:var(--serif);font-weight:800;font-size:clamp(1.6rem,4vw,2.3rem);line-height:1.08;letter-spacing:-.01em;color:var(--text);margin:0 0 22px}
+  .gtky-opts{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .gtky-opt{appearance:none;cursor:pointer;font:inherit;font-size:.92rem;font-weight:700;padding:12px 20px;border-radius:12px;border:1px solid var(--border2);background:var(--card);color:var(--text);transition:transform .14s,border-color .14s,background .14s}
+  .gtky-opt:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--card2)}
+  .gtky-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .gtky-skip{margin-top:26px;background:none;border:0;color:var(--ghost);font-weight:700;font-size:.82rem;cursor:pointer}
+  .gtky-rev-emoji{font-size:2.6rem;line-height:1}
+  .gtky-rev-title{font-family:var(--serif);font-weight:800;font-size:clamp(2rem,5vw,2.8rem);color:var(--text);margin:14px 0 6px}
+  .gtky-rev-title .accent{color:var(--accent)}
+  .gtky-rev-sub{font-size:1rem;color:var(--dim);line-height:1.5;max-width:42ch;margin:0 auto 26px}
+  .gtky-go{appearance:none;cursor:pointer;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:1rem;padding:13px 30px;border-radius:12px;box-shadow:0 14px 34px -12px var(--accentGlow)}
+  .gtky-go:hover{transform:translateY(-2px)}
+  .gtky-profile-chip{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:var(--dim);padding:7px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card);margin-bottom:14px}
+  .gtky-profile-chip b{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -294,6 +330,10 @@
   <b>The Floor · Phase 0.</b> Play-money prototype. Markets run on accelerated windows so you can see the full loop in under two minutes. The ledger is transaction-based and settlement is idempotent, so this design ports to a server-authoritative model unchanged. Real-money is a separate, age-gated, counsel-approved phase that is not built here.
 </div>
 
+<div class="gtky-overlay" id="gtkyOverlay" role="dialog" aria-modal="true" aria-label="Get to know your predictor profile">
+  <div class="gtky" id="gtkyInner"></div>
+</div>
+
 <div class="tut-overlay" id="tutOverlay" role="dialog" aria-modal="true" aria-label="How The Floor works">
   <div class="tut">
     <div class="tut-ico" id="tutIco">🎯</div>
@@ -337,24 +377,25 @@
   // ---------------------------------------------------------------
   // DATA
   // ---------------------------------------------------------------
+  var FACE = function(n){ return '/img/round/faces/face' + n + '.jpg'; };
   var PERSONAS = [
-    { nm:'The Firebrand', style:'aggressive principle', r:88 },
-    { nm:'The Surgeon',   style:'clean line-by-line',   r:91 },
-    { nm:'The Closer',    style:'crystallizes late',    r:86 },
-    { nm:'The Veteran',   style:'unflappable weighing',  r:89 },
-    { nm:'The Upstart',   style:'high-variance reframes',r:80 },
-    { nm:'The Diplomat',  style:'comparative framing',   r:84 },
-    { nm:'The Prosecutor',style:'burden pressure',       r:87 },
-    { nm:'The Tactician', style:'strategic collapse',    r:85 },
-    { nm:'The Statesman', style:'big-picture impact',    r:83 },
-    { nm:'The Heckler',   style:'relentless POIs',       r:79 }
+    { nm:'The Firebrand', style:'aggressive principle', r:88, face:FACE('01') },
+    { nm:'The Surgeon',   style:'clean line-by-line',   r:91, face:FACE('02') },
+    { nm:'The Closer',    style:'crystallizes late',    r:86, face:FACE('03') },
+    { nm:'The Veteran',   style:'unflappable weighing',  r:89, face:FACE('04') },
+    { nm:'The Upstart',   style:'high-variance reframes',r:80, face:FACE('06') },
+    { nm:'The Diplomat',  style:'comparative framing',   r:84, face:FACE('07') },
+    { nm:'The Prosecutor',style:'burden pressure',       r:87, face:FACE('08') },
+    { nm:'The Tactician', style:'strategic collapse',    r:85, face:FACE('09') },
+    { nm:'The Statesman', style:'big-picture impact',    r:83, face:FACE('10') },
+    { nm:'The Heckler',   style:'relentless POIs',       r:79, face:FACE('11') }
   ];
   var HUMANS = [
-    { nm:'Priya S.', style:'PF · 2x TOC bid', r:90 },
-    { nm:'Dev K.',   style:'BP · ABP finalist', r:88 },
-    { nm:'Sofia L.', style:'Worlds · ESL break', r:86 },
-    { nm:'Arjun N.', style:'APDA · top-10 speaker', r:89 },
-    { nm:'Chloe T.', style:'LD · circuit', r:85 }
+    { nm:'Priya S.', style:'PF · 2x TOC bid', r:90, face:FACE('12') },
+    { nm:'Dev K.',   style:'BP · ABP finalist', r:88, face:FACE('13') },
+    { nm:'Sofia L.', style:'Worlds · ESL break', r:86, face:FACE('15') },
+    { nm:'Arjun N.', style:'APDA · top-10 speaker', r:89, face:FACE('16') },
+    { nm:'Chloe T.', style:'LD · circuit', r:85, face:FACE('17') }
   ];
   var FORMATS = ['BP','APDA','Worlds','PF','LD','Policy','Asian Parli','Quick Clash'];
 
@@ -619,6 +660,7 @@
   // RENDER
   // ---------------------------------------------------------------
   var selectedStake = CFG.DEFAULT_STAKE;
+  var revealed = {}; // market ids whose entrance animation has played (once)
   var $ = function(id){ return document.getElementById(id); };
 
   function render(){
@@ -662,9 +704,10 @@
       return rank(a)-rank(b);
     });
     board.innerHTML = order.map(cardHTML).join('');
-    // wire buttons
-    order.forEach(function(m){
+    // wire buttons + one-time entrance animation for newly-appeared markets
+    order.forEach(function(m, i){
       var el = document.querySelector('[data-mkt="'+m.id+'"]'); if(!el) return;
+      if(!revealed[m.id]){ el.classList.add('mkt--in'); el.style.animationDelay = Math.min(i*0.05, 0.45)+'s'; revealed[m.id] = true; }
       el.querySelectorAll('.pill[data-stake]').forEach(function(p){
         p.addEventListener('click', function(){ selectedStake = parseInt(p.getAttribute('data-stake'),10); renderBoard(); });
       });
@@ -672,6 +715,8 @@
       var bb = el.querySelector('[data-back="B"]'); if(bb) bb.addEventListener('click', function(){ placeBet(m,'B'); });
     });
   }
+
+  function avHTML(d){ return d && d.face ? '<img class="av" src="'+esc(d.face)+'" loading="lazy" decoding="async" alt="" />' : ''; }
 
   function cardHTML(m){
     var w = windowOf(m);
@@ -708,9 +753,9 @@
       '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+
         '<span class="status '+st.cls+'"><span class="pip"></span>'+st.label+'</span></div>'+
       '<div class="vs">'+
-        '<div class="deb"><div class="nm">'+esc(m.A.nm)+'</div><div class="meta">'+esc(m.A.style)+'</div></div>'+
+        '<div class="deb">'+avHTML(m.A)+'<div class="dtext"><div class="nm">'+esc(m.A.nm)+'</div><div class="meta">'+esc(m.A.style)+'</div></div></div>'+
         '<span class="vsx">vs</span>'+
-        '<div class="deb" style="text-align:right"><div class="nm">'+esc(m.B.nm)+'</div><div class="meta">'+esc(m.B.style)+'</div></div>'+
+        '<div class="deb deb--r">'+avHTML(m.B)+'<div class="dtext"><div class="nm">'+esc(m.B.nm)+'</div><div class="meta">'+esc(m.B.style)+'</div></div></div>'+
       '</div>'+
       motionHTML+
       '<div class="poolbar"><div class="a" style="width:'+pctA+'%"></div><div class="b" style="width:'+(100-pctA)+'%"></div></div>'+
@@ -744,7 +789,7 @@
     '<div class="mkt resolved" data-mkt="'+m.id+'">'+
       '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+
         '<span class="status resolved"><span class="pip"></span>Resolved</span></div>'+
-      '<div class="vs"><div class="deb"><div class="nm">'+esc(m.A.nm)+'</div></div><span class="vsx">vs</span><div class="deb" style="text-align:right"><div class="nm">'+esc(m.B.nm)+'</div></div></div>'+
+      '<div class="vs"><div class="deb">'+avHTML(m.A)+'<div class="dtext"><div class="nm">'+esc(m.A.nm)+'</div></div></div><span class="vsx">vs</span><div class="deb deb--r">'+avHTML(m.B)+'<div class="dtext"><div class="nm">'+esc(m.B.nm)+'</div></div></div></div>'+
       '<div class="result">'+
         '<div class="verdicts">'+
           '<div class="vbox win"><div class="h">AI Judge</div><div class="w">'+esc(jName)+'</div></div>'+
@@ -794,7 +839,7 @@
       '<span>Heat <b>'+s.heat+'</b></span>'+
       '<span>Reliability <b>'+Math.round(s.reliability*100)+'%</b></span>';
 
-    var meRow = { id:'me', nm:P.handle, title:titleFor(s), tag:'', score:s.score, acc:s.acc, edge:s.roi, me:true };
+    var meRow = { id:'me', nm:P.handle, title:(P.predictorProfile||titleFor(s)), tag:'', score:s.score, acc:s.acc, edge:s.roi, me:true };
     var rows = BOTS.concat([meRow]).sort(function(a,b){ return b.score-a.score; });
     $('sharpLb').innerHTML = rows.map(function(r, i){
       var title = r.title ? '<span class="title-tag '+(r.tag||'')+'">'+esc(r.title)+'</span>' : '';
@@ -852,7 +897,68 @@
   });
 
   // ---------------------------------------------------------------
-  // TUTORIAL (first-visit walkthrough + reopen via "How it works")
+  // GET-TO-KNOW-YOU (first visit): 3 questions, one at a time, builds a
+  // predictor profile with a smooth reveal, then drops into the board.
+  // ---------------------------------------------------------------
+  var GTKY_KEY='floor-gtky';
+  var GTKY_Q=[
+    { k:'fmt', kick:'Question 1 of 3', q:'What do you debate?',
+      opts:['APDA','British Parli','Public Forum','Lincoln-Douglas','Policy','World Schools','Asian Parli','Just here to watch'] },
+    { k:'read', kick:'Question 2 of 3', q:'How do you call a round?',
+      opts:['On the flow','On delivery','On the clash','Gut read'] },
+    { k:'instinct', kick:'Question 3 of 3', q:'Your predictor instinct?',
+      opts:['Back the favorite','Fade the crowd','Hunt the upset','Call it blind'] }
+  ];
+  var PROFILES={
+    'Back the favorite':{ t:'The Chalk', emoji:'♟', sub:'You trust form. You back the stronger debater and let the pool come to you.' },
+    'Fade the crowd':{ t:'The Contrarian', emoji:'🪨', sub:'You read the room, then bet against it. The bigger the favorite, the more you smell value.' },
+    'Hunt the upset':{ t:'The Bounty Hunter', emoji:'🎯', sub:'You live for the underdog the room is sleeping on. High variance, high reward.' },
+    'Call it blind':{ t:'The Oracle', emoji:'🔮', sub:'You back debaters before the motion even drops. A pure read on the player, and the biggest Sharp boost.' }
+  };
+  var gtkyAns={}, gtkyI=0;
+  function gtkyRender(){
+    var inner=$('gtkyInner');
+    if(gtkyI < GTKY_Q.length){
+      var s=GTKY_Q[gtkyI];
+      inner.innerHTML =
+        '<div class="gtky-step">'+
+          '<div class="gtky-prog">'+GTKY_Q.map(function(_,i){return '<i class="'+(i<=gtkyI?'on':'')+'"></i>';}).join('')+'</div>'+
+          '<div class="gtky-kick">'+s.kick+'</div>'+
+          '<h2 class="gtky-q">'+esc(s.q)+'</h2>'+
+          '<div class="gtky-opts">'+s.opts.map(function(o){return '<button class="gtky-opt" data-val="'+esc(o)+'">'+esc(o)+'</button>';}).join('')+'</div>'+
+          '<button class="gtky-skip" id="gtkySkip">Skip, just show me the board</button>'+
+        '</div>';
+      inner.querySelectorAll('.gtky-opt').forEach(function(b){
+        b.addEventListener('click', function(){ gtkyAns[s.k]=b.getAttribute('data-val'); gtkyI++; gtkyRender(); });
+      });
+      $('gtkySkip').addEventListener('click', function(){ gtkyFinish(null); });
+    } else {
+      var prof = PROFILES[gtkyAns.instinct] || PROFILES['Back the favorite'];
+      var fmtLine = (gtkyAns.fmt && gtkyAns.fmt!=='Just here to watch') ? gtkyAns.fmt+' is your home format. ' : '';
+      inner.innerHTML =
+        '<div class="gtky-step">'+
+          '<div class="gtky-profile-chip"><b>Your predictor profile</b></div>'+
+          '<div class="gtky-rev-emoji">'+prof.emoji+'</div>'+
+          '<h2 class="gtky-rev-title">You are <span class="accent">'+esc(prof.t)+'</span>.</h2>'+
+          '<p class="gtky-rev-sub">'+esc(fmtLine+prof.sub)+'</p>'+
+          '<button class="gtky-go" id="gtkyGo">Enter The Floor</button>'+
+        '</div>';
+      $('gtkyGo').addEventListener('click', function(){ gtkyFinish(prof); });
+    }
+  }
+  function gtkyFinish(prof){
+    $('gtkyOverlay').classList.remove('on');
+    try{ localStorage.setItem(GTKY_KEY, JSON.stringify({ ans:gtkyAns, profile: prof&&prof.t ? prof.t : null })); }catch(e){}
+    if(prof&&prof.t){ P.predictorProfile = prof.t; P.seenWelcome = true; save(); }
+    revealed = {}; // let the board animate in as the intro closes
+    render();
+    if(prof&&prof.t){ setTimeout(function(){ toast('Welcome, <b>'+esc(prof.t)+'</b>. You have '+fmtN(P.credits)+' credits. Back a side before the motion drops for the biggest Sharp boost.',''); }, 500); }
+  }
+  function gtkyOpen(){ gtkyAns={}; gtkyI=0; gtkyRender(); $('gtkyOverlay').classList.add('on'); }
+  (function(){ var done=false; try{ done=!!localStorage.getItem(GTKY_KEY); }catch(e){} if(!done) setTimeout(gtkyOpen, 350); })();
+
+  // ---------------------------------------------------------------
+  // TUTORIAL (reopen via "How it works")
   // ---------------------------------------------------------------
   var TUT_KEY='floor-tutorial-seen';
   var TUT_STEPS=[
@@ -877,7 +983,8 @@
   $('tutBack').addEventListener('click', function(){ if(tutI>0){ tutI--; renderTut(); } });
   $('tutNext').addEventListener('click', function(){ if(tutI<TUT_STEPS.length-1){ tutI++; renderTut(); } else closeTut(); });
   $('tutOverlay').addEventListener('click', function(e){ if(e.target===$('tutOverlay')) closeTut(); });
-  (function(){ var seen=false; try{ seen=!!localStorage.getItem(TUT_KEY); }catch(e){} if(!seen) setTimeout(openTut, 450); })();
+  // Tutorial no longer auto-opens on first visit — the get-to-know-you
+  // intro owns that slot. "How it works" reopens the mechanics anytime.
 
   // ---------------------------------------------------------------
   // TABS
