@@ -194,6 +194,8 @@
   .call-top .status{margin-left:auto}
   .call-who{font-size:.9rem;color:var(--dim)} .call-who b{font-weight:800;color:var(--text)}
   .call-sub{font-size:.7rem;color:var(--ghost);font-weight:700}
+  .rc-tag{margin-left:auto;font-size:.62rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .rc-tag.split{color:var(--gold)} .rc-tag.agree{color:var(--win)}
   .empty-rail{text-align:center;padding:22px 16px}
   .empty-rail .er-emoji{font-size:1.7rem;line-height:1}
   .empty-rail .er-t{font-weight:800;font-size:.98rem;margin-top:8px;color:var(--text)}
@@ -374,9 +376,9 @@
 
 <nav class="tabs" role="tablist">
   <button class="tab" role="tab" aria-selected="true" data-panel="board">Live now<span class="n" id="liveCount"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="results">Results</button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="lb">Leaderboard</button>
   <button class="tab" role="tab" aria-selected="false" data-panel="you">Your calls</button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="sharp">Sharpest Predictors</button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="draws">Biggest Draws</button>
   <button class="tab" role="tab" aria-selected="false" data-panel="judging">How rounds settle</button>
 </nav>
 
@@ -396,15 +398,20 @@
     <div class="hist" id="hist"></div>
   </section>
 
-  <section class="panel" id="panel-sharp">
-    <h2 class="section-h">Sharpest Predictors</h2>
+  <section class="panel" id="panel-results">
+    <h2 class="section-h">Recent verdicts</h2>
+    <p class="section-sub">Called rounds: the AI judge's winner, the crowd's favorite, and whether they agreed. When they split, that gap is the show. Each card carries the reason for decision.</p>
+    <div class="board" id="results"></div>
+  </section>
+
+  <section class="panel" id="panel-lb">
+    <h2 class="section-h">Leaderboard</h2>
+    <p class="section-sub">Two boards: the sharpest predictors of the judge, and the debaters the room shows up for.</p>
+    <h3 class="section-h" style="font-size:1.18rem;margin-top:8px">Sharpest predictors</h3>
     <p class="section-sub">Not just who wins most. A blended score: how often you call winners, whether your picks beat the crowd, how early you commit, and how hot you are right now. New accounts are shrunk toward the mean, so a 3-0 streak does not outrank a proven read.</p>
     <div class="statline" id="sharpMine"></div>
     <div class="lb" id="sharpLb"></div>
-  </section>
-
-  <section class="panel" id="panel-draws">
-    <h2 class="section-h">Biggest Draws</h2>
+    <h3 class="section-h" style="font-size:1.18rem;margin-top:28px">Biggest draws</h3>
     <p class="section-sub">Who the room shows up for. Draw Score blends unique backers, watch time, repeat spectators, and how often a debater splits the judge and the crowd. Controversy counts: a debater who keeps winning the flow but losing the room is a walking comment section.</p>
     <div class="lb" id="drawsLb"></div>
   </section>
@@ -670,6 +677,13 @@
   // MARKET ENGINE
   // ---------------------------------------------------------------
   var MARKETS = [];
+  var RESULTS = [];   // recently-called rounds, newest first (for the Results feed)
+  function addResult(m){
+    if(!m || !m.result) return;
+    if(RESULTS.some(function(r){ return r.id===m.id; })) return;
+    RESULTS.unshift(m);
+    if(RESULTS.length > 14) RESULTS.length = 14;
+  }
 
   function makeMarket(kind){
     var fmt = pick(FORMATS);
@@ -763,6 +777,8 @@
     var L = judge==='A' ? 'B' : 'A';
     var rfd = pick(RFD[m.fmt]||RFD['Quick Clash']).replace(/\{W\}/g, m[judge].nm).replace(/\{L\}/g, m[L].nm);
     m.result = { judge:judge, crowd:crowd, diverged: judge!==crowd, rfd:rfd };
+    m.calledAt = now();
+    addResult(m);
 
     // settle the user's position against the AI-judge market (pari-mutuel)
     if(m.myBet){
@@ -903,9 +919,19 @@
     renderHeader();
     renderBoard();
     renderRail();
+    renderResults();
     renderYou();
     renderSharp();
     renderDraws();
+  }
+
+  function renderResults(){
+    var el = $('results'); if(!el) return;
+    if(!RESULTS.length){
+      el.innerHTML = '<div class="empty">No called rounds yet. The moment the AI judge settles one, it lands here with the crowd vote and the reason for decision.</div>';
+      return;
+    }
+    el.innerHTML = RESULTS.map(resolvedCardHTML).join('');
   }
 
   // Compact "Your calls" rail beside the board: balance, sharp rank, streak,
@@ -945,6 +971,16 @@
         '<button class="er-btn" id="railToBoard">View live rounds</button>'+
       '</div>';
     }
+    if(RESULTS.length){
+      var rc = RESULTS[0];
+      html += '<div class="rail-title">Last verdict</div>'+
+        '<div class="rail-card call">'+
+          '<div class="call-top"><span class="chip fmt">'+esc(rc.fmt)+'</span>'+
+            (rc.result.diverged ? '<span class="rc-tag split">⚡ Split</span>' : '<span class="rc-tag agree">✓ Agreed</span>')+'</div>'+
+          '<div class="call-who"><b>'+esc(rc[rc.result.judge].nm)+'</b> took it</div>'+
+          '<div class="call-sub">'+(rc.result.diverged ? 'Crowd had '+esc(rc[rc.result.crowd].nm) : 'Judge and crowd agreed')+'</div>'+
+        '</div>';
+    }
     rail.innerHTML = html;
     var b = $('railToBoard'); if(b) b.addEventListener('click', function(){ window.scrollTo({ top:0, behavior:'smooth' }); });
   }
@@ -983,13 +1019,15 @@
   function renderBoard(){
     var board = $('board');
     var feat = $('featured');
-    // order: featured first, then live, then upcoming, then resolved
-    var order = MARKETS.slice().sort(function(a,b){
-      var rank = function(m){ var w=windowOf(m); if(m.kind==='featured'&&!m.settled) return 0; if(w==='w3') return 1; if(w==='w2') return 2; if(w==='w1') return 3; if(w==='locked') return 4; return 5; };
+    // capture any settled markets into the Results feed (covers server-resolved too)
+    MARKETS.forEach(function(m){ if(m.settled && m.result) addResult(m); });
+    // the live board is live + upcoming only; called rounds move to the Results feed
+    var order = MARKETS.filter(function(m){ return !m.settled; }).sort(function(a,b){
+      var rank = function(m){ var w=windowOf(m); if(m.kind==='featured') return 0; if(w==='w3') return 1; if(w==='w2') return 2; if(w==='w1') return 3; return 4; };
       return rank(a)-rank(b);
     });
     // promote the top open round to the featured hero card; the rest fill the grid
-    var featured = order.find(function(m){ return !m.settled; }) || order[0] || null;
+    var featured = order[0] || null;
     var rest = order.filter(function(m){ return m !== featured; });
     if(feat) feat.innerHTML = featured ? featuredHTML(featured) : '';
     board.innerHTML = rest.map(cardHTML).join('');
