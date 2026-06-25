@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The Debate Atlas · DebateIt</title>
 <meta name="description" content="Every serious debate program in the world, on one map. The competitive debate landscape across the US and the globe, and where DebateIt grows next.">
-<link rel="canonical" href="https://debateai.com/atlas">
+<link rel="canonical" href="https://debateit.com/atlas">
 <meta property="og:title" content="The Debate Atlas · DebateIt">
 <meta property="og:description" content="The competitive debate world, mapped. Programs across the US and the globe, filterable by format and level, with the DebateIt growth pipeline on top.">
-<meta property="og:url" content="https://debateai.com/atlas">
+<meta property="og:url" content="https://debateit.com/atlas">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
+<meta property="og:image" content="https://debateit.com/og-image.png?v=cards6">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/icons/icon-192.png">
 
@@ -1329,14 +1329,27 @@ function openCard(d){
   else if(isMem){ bd.push('<span class="badge mem">Member</span>'); if(d.role) bd.push('<span class="badge">'+d.role+'</span>'); }
   else { if(isComm) bd.push('<span class="badge comm">Community</span>');
     bd.push('<span class="badge lvl">'+(d.lvl==='hs'?'High school':'College')+'</span>'); }
-  if(!isMem) (d.fmt||[]).forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
+  if(!isMem){
+    if(d.formatNote) bd.push('<span class="badge">'+d.formatNote+'</span>');
+    else (d.fmt||[]).forEach(function(f){ bd.push('<span class="badge">'+f+'</span>'); });
+  }
   document.getElementById('card-badges').innerHTML=bd.join('');
   var ex=document.getElementById('card-extra');
   if(isTour||isMem){ ex.style.display='none'; }
   else if(isComm){ ex.style.display=''; ex.textContent='Community-added pin'; }
   else { ex.style.display='';
-    var strength=d.tier===1?'Flagship program':d.tier===2?'Strong competitor':'Notable program';
-    var n=countryTotal(d.country); ex.textContent=strength+' · '+n+' program'+(n===1?'':'s')+' in '+(d.country||'region'); }
+    if(d.source){
+      var bits=[d.source];
+      if(d.students) bits.push(d.students+' debaters seen');
+      else if(d.district) bits.push(d.district+' district');
+      if(d.tournaments) bits.push(d.tournaments+' tournament'+(d.tournaments===1?'':'s'));
+      if(d.lastSeen) bits.push('last seen '+d.lastSeen);
+      if(d.formatNote) bits.push(d.formatNote);
+      ex.textContent=bits.join(' · ');
+    } else {
+      var strength=d.tier===1?'Flagship program':d.tier===2?'Strong competitor':'Notable program';
+      var n=countryTotal(d.country); ex.textContent=strength+' · '+n+' program'+(n===1?'':'s')+' in '+(d.country||'region');
+    } }
   (function(){
     var cw=document.getElementById('card-contact');
     var info=(!isTour&&!isComm&&!isMem&&isAdminUser&&window.ATLAS_CONTACTS)?window.ATLAS_CONTACTS[(d.n||'').toLowerCase().replace(/[^a-z0-9]/g,'')]:null;
@@ -1346,8 +1359,8 @@ function openCard(d){
     if(info.c) bits.push('coach '+info.c);
     var html=bits.length?'<div class="cc-meta">'+bits.join(' \u00b7 ')+'</div>':'';
     if(info.e){
-      var su=encodeURIComponent("A free practice tool for "+d.n+"'s debaters");
-      var bo=encodeURIComponent("Hi,\n\nI run DebateIt (debateai.com), a voice-first practice tool for competitive debaters. Your debaters pick a motion, take a side, run a full timed round out loud, then get a judge ballot. Free during beta. Would it be useful for "+d.n+"'s team to drill on between tournaments?\n\nAidan");
+      var su=encodeURIComponent("A practice tool for "+d.n+"'s debaters");
+      var bo=encodeURIComponent("Hi,\n\nI run DebateIt (debateit.com), a voice-first practice tool for competitive debaters. Your debaters pick a motion, take a side, run a full timed round out loud, then get a judge ballot. It is open to teams while beta is running. Would it be useful for "+d.n+"'s team to drill on between tournaments?\n\nAidan");
       html+='<a class="cc-compose" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(info.e)+'&su='+su+'&body='+bo+'">Compose to '+info.e+' \u2192</a>';
     }
     cw.innerHTML=html; cw.hidden=false;
