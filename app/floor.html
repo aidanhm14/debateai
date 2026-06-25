@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Floor · DebateIt</title>
+<meta name="description" content="Watch the round. Call the winner. Climb the board. The Floor is DebateIt's prediction arena: back a side across three windows, the AI judge settles, the crowd argues. Play credits only." />
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/icons/icon-192.png" />
+<style>
+  /* ============================================================
+     THE FLOOR — Phase 0 (play-money prediction arena)
+     Self-contained vanilla JS. No cash, no redemption. The ledger
+     is transaction-based and settlement is idempotent so this ports
+     cleanly to a server-authoritative model later. Markets are
+     in-memory per session; the profile (credits, stats, streak)
+     persists to localStorage so the leaderboard climb survives.
+     ============================================================ */
+  :root{
+    --bg:#0c0c0e; --bg2:#121215; --card:#16161a; --card2:#1c1c22;
+    --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.16);
+    --text:#f5f5f7; --dim:rgba(245,245,247,.72); --ghost:rgba(245,245,247,.46);
+    --accent:#ef4444; --accent2:#dc2626; --accentGlow:rgba(239,68,68,.18);
+    --win:#34d399; --winBg:rgba(52,211,153,.12);
+    --gold:#fbbf24;
+    --serif:'Crimson Pro','Fraunces',Georgia,'Times New Roman',serif;
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;background:radial-gradient(1100px 600px at 80% -8%, rgba(239,68,68,.08), transparent 60%), var(--bg)}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer}
+  em,i{font-style:normal}
+  ::selection{background:var(--accentGlow)}
+
+  /* ---- header ---- */
+  .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 20px;background:rgba(12,12,14,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:baseline;gap:9px;text-decoration:none;font-family:var(--serif);font-weight:800;font-size:1.18rem;letter-spacing:-.01em}
+  .brand b{color:var(--text)} .brand .it{color:var(--accent)}
+  .brand .sep{width:1px;height:18px;background:var(--border2);align-self:center}
+  .brand .floor{font-family:var(--sans);font-weight:800;font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ghost)}
+  .top .spacer{flex:1}
+  .streak{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:700;color:var(--dim);padding:6px 11px;border:1px solid var(--border);border-radius:999px;background:var(--card)}
+  .streak b{color:var(--gold)}
+  .bal{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:.9rem;padding:7px 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accentGlow);color:var(--text)}
+  .bal .c{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+  .bal .delta{font-size:.76rem;font-weight:800;color:var(--win);opacity:0;transition:opacity .2s}
+  .bal .delta.show{opacity:1}
+
+  /* ---- hero ---- */
+  .hero{max-width:1180px;margin:0 auto;padding:30px 20px 6px}
+  .hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(1.9rem,4vw,3rem);line-height:1.04;letter-spacing:-.015em;margin:0 0 8px}
+  .hero h1 .accent{color:var(--accent)}
+  .hero p{margin:0;font-size:1rem;color:var(--dim);max-width:60ch;line-height:1.55}
+  .hero .pmark{display:inline-flex;align-items:center;gap:7px;margin-top:12px;font-size:.72rem;font-weight:700;color:var(--ghost);letter-spacing:.02em}
+  .hero .pmark .dot{width:7px;height:7px;border-radius:50%;background:var(--win);box-shadow:0 0 0 4px var(--winBg)}
+
+  /* ---- nav tabs ---- */
+  .tabs{position:sticky;top:57px;z-index:30;display:flex;gap:6px;max-width:1180px;margin:18px auto 0;padding:10px 20px;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);flex-wrap:wrap}
+  .tab{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--dim);font-weight:700;font-size:.82rem;padding:8px 15px;border-radius:999px;transition:.14s}
+  .tab:hover{color:var(--text);border-color:var(--border2)}
+  .tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tab .n{font-size:.68rem;opacity:.7;margin-left:5px}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:8px 20px 90px}
+  .panel{display:none} .panel.on{display:block;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+  /* ---- market grid ---- */
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;margin-top:6px}
+  .mkt{border:1px solid var(--border);border-radius:16px;background:var(--card);padding:16px 16px 14px;display:flex;flex-direction:column;gap:11px;position:relative;overflow:hidden}
+  .mkt.featured{border-color:var(--accent);background:linear-gradient(180deg,var(--accentGlow),transparent 40%),var(--card)}
+  .mkt.resolved{opacity:.96}
+  .mkt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{font-size:.64rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:7px;border:1px solid var(--border2);color:var(--dim)}
+  .chip.fmt{color:var(--text)}
+  .chip.kind-ai{color:#a78bfa;border-color:rgba(167,139,250,.4)}
+  .chip.kind-featured{color:var(--accent);border-color:var(--accent)}
+  .chip.kind-human{color:#60a5fa;border-color:rgba(96,165,250,.4)}
+  .status{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ghost)}
+  .status .pip{width:7px;height:7px;border-radius:50%;background:var(--ghost)}
+  .status.w1 .pip{background:var(--gold)} .status.w1{color:var(--gold)}
+  .status.w2 .pip{background:#60a5fa} .status.w2{color:#60a5fa}
+  .status.live .pip{background:var(--accent);animation:pulse 1.3s infinite} .status.live{color:var(--accent)}
+  .status.locked .pip{background:var(--ghost)}
+  .status.resolved .pip{background:var(--win)} .status.resolved{color:var(--win)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--accentGlow)}50%{box-shadow:0 0 0 5px transparent}}
+
+  .vs{display:flex;align-items:center;gap:10px}
+  .deb{flex:1;min-width:0}
+  .deb .nm{font-weight:800;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .deb .meta{font-size:.7rem;color:var(--ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vsx{font-family:var(--serif);font-weight:800;color:var(--ghost);font-size:.8rem;padding:0 2px}
+
+  .motion{font-size:.86rem;line-height:1.4;color:var(--dim);min-height:38px;border-left:2px solid var(--border2);padding:2px 0 2px 10px}
+  .motion.hidden{color:var(--ghost);font-style:normal}
+  .motion b{color:var(--text);font-weight:600}
+
+  .poolbar{display:flex;height:7px;border-radius:6px;overflow:hidden;background:var(--card2)}
+  .poolbar .a{background:var(--accent)} .poolbar .b{background:#60a5fa}
+  .poolrow{display:flex;justify-content:space-between;font-size:.68rem;color:var(--ghost);font-weight:700}
+
+  .stake-sel{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+  .stake-sel .lab{font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ghost);margin-right:2px}
+  .pill{appearance:none;border:1px solid var(--border);background:var(--card2);color:var(--dim);font-weight:700;font-size:.74rem;padding:4px 9px;border-radius:7px;transition:.12s}
+  .pill[aria-pressed="true"]{background:var(--text);border-color:var(--text);color:var(--bg)}
+  .pill:hover{color:var(--text)}
+
+  .sides{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .back{appearance:none;border:1px solid var(--border2);background:var(--card2);border-radius:11px;padding:9px 10px;text-align:left;transition:.13s;display:flex;flex-direction:column;gap:2px}
+  .back:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .back:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .back .who{font-weight:800;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .back .mult{font-size:.7rem;color:var(--win);font-weight:800}
+  .back.myA{box-shadow:inset 0 0 0 1px var(--accent)} .back.myB{box-shadow:inset 0 0 0 1px #60a5fa}
+  .mybet{font-size:.68rem;color:var(--ghost);font-weight:700}
+  .mybet b{color:var(--text)}
+
+  .countdown{font-variant-numeric:tabular-nums}
+
+  /* resolved view */
+  .result{display:flex;flex-direction:column;gap:8px}
+  .verdicts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .vbox{border:1px solid var(--border);border-radius:11px;padding:9px 10px;background:var(--card2)}
+  .vbox .h{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost)}
+  .vbox .w{font-weight:800;font-size:.92rem;margin-top:2px}
+  .vbox.win .w{color:var(--win)}
+  .divergence{font-size:.72rem;font-weight:800;color:var(--gold);display:flex;align-items:center;gap:6px}
+  .rfd{font-size:.78rem;line-height:1.45;color:var(--dim);background:var(--card2);border-radius:10px;padding:9px 11px}
+  .rfd .by{font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ghost);display:block;margin-bottom:3px}
+  .pnl{font-weight:800;font-size:.84rem}
+  .pnl.up{color:var(--win)} .pnl.down{color:var(--accent)} .pnl.flat{color:var(--ghost)}
+
+  /* ---- leaderboards / tables ---- */
+  .lb{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card)}
+  .lb-row{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .lb-row:last-child{border-bottom:0}
+  .lb-row.me{background:var(--accentGlow)}
+  .lb-rank{font-family:var(--serif);font-weight:800;font-size:1.1rem;color:var(--ghost);text-align:center}
+  .lb-row.me .lb-rank{color:var(--accent)}
+  .lb-name{font-weight:800;font-size:.92rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .title-tag{font-size:.58rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:6px;border:1px solid var(--border2);color:var(--dim)}
+  .title-tag.gold{color:var(--gold);border-color:rgba(251,191,36,.4)}
+  .lb-sub{font-size:.68rem;color:var(--ghost);font-weight:600}
+  .lb-score{font-family:var(--serif);font-weight:800;font-size:1.35rem;text-align:right}
+  .lb-score .u{font-size:.6rem;color:var(--ghost);letter-spacing:.1em;text-transform:uppercase;display:block;font-family:var(--sans)}
+  .draw-bars{display:flex;gap:3px;margin-top:5px}
+  .draw-bars span{height:4px;border-radius:2px;background:var(--accent);opacity:.85}
+
+  .statline{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 16px;font-size:.76rem;color:var(--dim)}
+  .statline b{color:var(--text);font-weight:800}
+  .section-h{font-family:var(--serif);font-weight:800;font-size:1.4rem;margin:6px 0 4px}
+  .section-sub{font-size:.86rem;color:var(--dim);margin:0 0 16px;max-width:64ch;line-height:1.5}
+
+  /* you / slip */
+  .you-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .stat-card{border:1px solid var(--border);border-radius:12px;background:var(--card);padding:14px}
+  .stat-card .k{font-size:.64rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost)}
+  .stat-card .v{font-family:var(--serif);font-weight:800;font-size:1.7rem;margin-top:4px}
+  .stat-card .x{font-size:.7rem;color:var(--ghost);font-weight:600}
+  .hist{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .hist-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.8rem;align-items:center}
+  .hist-row:last-child{border-bottom:0}
+  .hist-row .amt{font-weight:800;font-variant-numeric:tabular-nums}
+  .hist-row .amt.up{color:var(--win)} .hist-row .amt.down{color:var(--accent)}
+  .hist-row .t{color:var(--ghost);font-size:.68rem}
+  .empty{color:var(--ghost);font-size:.86rem;padding:20px;text-align:center}
+
+  /* toast */
+  .toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:340px}
+  .toast{border:1px solid var(--border2);background:var(--card2);border-radius:12px;padding:11px 14px;font-size:.84rem;box-shadow:0 12px 40px -12px rgba(0,0,0,.6);animation:slidein .25s ease}
+  .toast.win{border-color:var(--win)} .toast.win b{color:var(--win)}
+  .toast.live{border-color:var(--accent)}
+  @keyframes slidein{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+
+  .foot{max-width:1180px;margin:0 auto;padding:8px 20px 40px;font-size:.72rem;color:var(--ghost);line-height:1.6}
+  .foot b{color:var(--dim)}
+
+  @media (max-width:560px){
+    .hero h1{font-size:1.9rem}
+    .board{grid-template-columns:1fr}
+    .tabs{top:55px}
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/landing.html"><b>Debate</b><span class="it">It</span><span class="sep"></span><span class="floor">The Floor</span></a>
+  <div class="spacer"></div>
+  <span class="streak" title="Predict once a day to keep your streak">🔥 <b id="streakN">0</b> day sharp</span>
+  <span class="bal"><span class="c">Credits</span><span id="balN">0</span><span class="delta" id="balDelta"></span></span>
+</header>
+
+<div class="hero">
+  <h1>Watch the round. <span class="accent">Call the winner.</span> Climb the board.</h1>
+  <p>The Floor turns every debate into a market. Read the debaters, back a side across three windows, and the AI judge settles when the round ends. The crowd votes too, and when they disagree, that is the whole show.</p>
+  <span class="pmark"><span class="dot"></span>Play credits only. No cash, no buy-ins. Status is the prize.</span>
+</div>
+
+<nav class="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-panel="board">Live board<span class="n" id="liveCount"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="you">Your slip</button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="sharp">Sharpest Predictors</button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="draws">Biggest Draws</button>
+</nav>
+
+<div class="wrap">
+  <section class="panel on" id="panel-board">
+    <div class="board" id="board"></div>
+  </section>
+
+  <section class="panel" id="panel-you">
+    <h2 class="section-h">Your slip</h2>
+    <p class="section-sub">Everything you have riding, and how you are scoring as a predictor. Conviction rewards calling it early: a Window 1 read (motion hidden) is worth more than a live read.</p>
+    <div class="you-grid" id="youStats"></div>
+    <h3 class="section-h" style="font-size:1.1rem">Recent activity</h3>
+    <div class="hist" id="hist"></div>
+  </section>
+
+  <section class="panel" id="panel-sharp">
+    <h2 class="section-h">Sharpest Predictors</h2>
+    <p class="section-sub">Not just who wins most. A blended score: how often you call winners, whether your picks beat the crowd, how early you commit, and how hot you are right now. New accounts are shrunk toward the mean, so a 3-0 streak does not outrank a proven read.</p>
+    <div class="statline" id="sharpMine"></div>
+    <div class="lb" id="sharpLb"></div>
+  </section>
+
+  <section class="panel" id="panel-draws">
+    <h2 class="section-h">Biggest Draws</h2>
+    <p class="section-sub">Who the room shows up for. Draw Score blends unique backers, watch time, repeat spectators, and how often a debater splits the judge and the crowd. Controversy counts: a debater who keeps winning the flow but losing the room is a walking comment section.</p>
+    <div class="lb" id="drawsLb"></div>
+  </section>
+</div>
+
+<div class="foot">
+  <b>The Floor · Phase 0.</b> Play-money prototype. Markets run on accelerated windows so you can see the full loop in under two minutes. The ledger is transaction-based and settlement is idempotent, so this design ports to a server-authoritative model unchanged. Real-money is a separate, age-gated, counsel-approved phase that is not built here.
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---------------------------------------------------------------
+  // CONFIG
+  // ---------------------------------------------------------------
+  var CFG = {
+    START_CREDITS: 1000,
+    SEED_LIQUIDITY: 40,          // opening pari-mutuel liquidity per side (no empty books)
+    STAKES: [10, 25, 50, 100],
+    DEFAULT_STAKE: 25,
+    AI_MARKETS: 4,               // always-on AI-vs-AI inventory kept alive
+    // accelerated demo timeline (ms) — real product would be minutes
+    W1_MS: 22000,   // blind: motion hidden
+    W2_MS: 20000,   // motion revealed
+    LIVE_MS: 30000, // round running, bet until midpoint
+    LOCK_MS: 14000, // back half, no betting
+    // Sharp Score window multipliers (earlier = harder = worth more)
+    MULT: { w1: 1.5, w2: 1.0, w3: 0.7 }
+  };
+
+  // ---------------------------------------------------------------
+  // DATA
+  // ---------------------------------------------------------------
+  var PERSONAS = [
+    { nm:'The Firebrand', style:'aggressive principle', r:88 },
+    { nm:'The Surgeon',   style:'clean line-by-line',   r:91 },
+    { nm:'The Closer',    style:'crystallizes late',    r:86 },
+    { nm:'The Veteran',   style:'unflappable weighing',  r:89 },
+    { nm:'The Upstart',   style:'high-variance reframes',r:80 },
+    { nm:'The Diplomat',  style:'comparative framing',   r:84 },
+    { nm:'The Prosecutor',style:'burden pressure',       r:87 },
+    { nm:'The Tactician', style:'strategic collapse',    r:85 },
+    { nm:'The Statesman', style:'big-picture impact',    r:83 },
+    { nm:'The Heckler',   style:'relentless POIs',       r:79 }
+  ];
+  var HUMANS = [
+    { nm:'Maya R.',  style:'PF · 2x TOC bid', r:90 },
+    { nm:'Dev K.',   style:'BP · ABP finalist', r:88 },
+    { nm:'Sofia L.', style:'Worlds · ESL break', r:86 },
+    { nm:'Arjun N.', style:'APDA · top-10 speaker', r:89 },
+    { nm:'Chloe T.', style:'LD · circuit', r:85 }
+  ];
+  var FORMATS = ['BP','APDA','Worlds','PF','LD','Policy','Asian Parli','Quick Clash'];
+
+  var MOTIONS = {
+    'BP': ['TH would abolish private schooling','THW prioritise economic growth over reducing inequality','THBT the feminist movement should oppose the institution of marriage'],
+    'APDA': ['TH regrets the cult of the founder in tech','THW let cities go bankrupt','TH prefers a world without intellectual property'],
+    'Worlds': ['THW abolish the UN Security Council veto','THBT developing nations should reject IMF conditionality','THR the rise of the gig economy'],
+    'PF': ['Resolved: The US should adopt a wealth tax','Resolved: AI does more harm than good to journalism','Resolved: NATO should admit Ukraine'],
+    'LD': ['Resolved: A just government ought to prioritise rehabilitation over retribution','Resolved: Predictive policing is unjust','Resolved: States ought to ban lethal autonomous weapons'],
+    'Policy': ['The USFG should substantially increase its Arctic infrastructure','The USFG should guarantee a federal jobs program','The USFG should phase out nuclear weapons'],
+    'Asian Parli': ['THW ban political advertising on social media','THBT the Global South should form a debt cartel','THW make voting compulsory'],
+    'Quick Clash': ['Pineapple belongs on pizza','Remote work beats the office','Tipping culture should end']
+  };
+
+  // short RFD flavor per format (ties to the real adjudication paradigm)
+  var RFD = {
+    'BP': ['Closing {W} extended new terrain on enforcement; opening was left to recap and got outweighed.','{W} won the comparative: their whip wrote the ballot by issue while {L} narrated their partner.','POI engagement and a clean model carried {W}; {L} ducked the framing clash.'],
+    'APDA': ['{W} negotiated the burden cleanly; {L} leaned on a tight read that did not hold.','No fabricated cites, sharper general-knowledge mechanism — {W} on the substance.','{L} went defensive in the MG and conceded the weighing to {W}.'],
+    'Worlds': ['{W} grounded the impacts internationally and ran both the principled and practical layer; {L} stayed narrow.','Reach and probability went to {W}; {L} asserted magnitude without the link chain.','{W} on the canonical principled-vs-practical split.'],
+    'PF': ['{W}\'s summary kept the weighing clean; {L} extended an argument the crowd dropped in the back half.','Named weighing mechanism, clean frontline — {W}. {L} power-tagged the evidence.','{W} won the second rebuttal exchange; {L} never collapsed.'],
+    'LD': ['Framework resolved to {W} before contention; {L} name-dropped without the warrant.','{W} collapsed to two clean voters; {L} tried to extend everything and watered it down.','The criterion debate went {W}; offense flowed cleanly under it.'],
+    'Policy': ['{W} collapsed the 2NR to one position with a clear ballot story; {L} went for everything.','Tag accuracy and an extended impact — {W}. {L} left a dropped sub nobody pulled through.','{W} won the flow on the line-by-line; {L} undercovered.'],
+    'Asian Parli': ['{W} won the key exchanges on Method; {L} drifted the whip into summary.','Regional grounding and dense analysis from {W}; {L} reframed too late.','Matter and manner both edged to {W}.'],
+    'Quick Clash': ['{W} punched first with named specifics; {L} opened with throat-clearing.','Direct clash from {W}; {L} stayed generic.','{W} just engaged harder. Close, but clean.']
+  };
+
+  // seeded competitors for the Sharpest Predictor board
+  var BOTS = [
+    { id:'b1', nm:'oracle_ek',   title:'The Oracle',   tag:'gold', score:1840, acc:.71, edge:.12 },
+    { id:'b2', nm:'flowgod',     title:'The Shark',    tag:'',     score:1790, acc:.64, edge:.19 },
+    { id:'b3', nm:'blindcaller', title:'The Scout',    tag:'',     score:1710, acc:.61, edge:.09 },
+    { id:'b4', nm:'late_money',  title:'The Livewire', tag:'',     score:1655, acc:.66, edge:.05 },
+    { id:'b5', nm:'fade_the_fav',title:'The Hater',    tag:'',     score:1590, acc:.58, edge:.14 },
+    { id:'b6', nm:'mira_backs',  title:'The Loyalist', tag:'',     score:1520, acc:.62, edge:.04 },
+    { id:'b7', nm:'tab_room',    title:'',             tag:'',     score:1410, acc:.55, edge:.02 },
+    { id:'b8', nm:'pointofinfo', title:'',             tag:'',     score:1280, acc:.53, edge:.01 },
+    { id:'b9', nm:'casual_call', title:'',             tag:'',     score:1090, acc:.50, edge:-.02 }
+  ];
+
+  // seeded Draw Score (fame) — debaters people show up for
+  var DRAWS = [
+    { nm:'The Firebrand', fmt:'BP',    draw:94, split:.38 },
+    { nm:'Maya R.',       fmt:'PF',    draw:91, split:.21 },
+    { nm:'The Surgeon',   fmt:'Policy', draw:88, split:.12 },
+    { nm:'Arjun N.',      fmt:'APDA',  draw:85, split:.27 },
+    { nm:'The Heckler',   fmt:'Worlds', draw:82, split:.41 },
+    { nm:'Dev K.',        fmt:'BP',    draw:79, split:.18 },
+    { nm:'The Closer',    fmt:'LD',    draw:74, split:.15 },
+    { nm:'Sofia L.',      fmt:'Worlds', draw:69, split:.22 }
+  ];
+
+  // ---------------------------------------------------------------
+  // UTIL
+  // ---------------------------------------------------------------
+  var now = function(){ return Date.now(); };
+  var rnd = function(a,b){ return a + Math.random()*(b-a); };
+  var pick = function(arr){ return arr[Math.floor(Math.random()*arr.length)]; };
+  var uid = function(){ return 'm'+Math.floor(rnd(1e8,9e8)).toString(36); };
+  var clamp = function(x,a,b){ return Math.max(a,Math.min(b,x)); };
+  var fmtN = function(n){ return Math.round(n).toLocaleString(); };
+  function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function timeStr(ms){ if(ms<0) ms=0; var s=Math.ceil(ms/1000); var m=Math.floor(s/60); s=s%60; return m+':' + (s<10?'0':'') + s; }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  // ---------------------------------------------------------------
+  // STORE (profile persists; markets are session-only)
+  // ---------------------------------------------------------------
+  var KEY = 'floor-profile-v1';
+  var P = loadProfile();
+  function loadProfile(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var p = JSON.parse(raw); dailyDrip(p); return p; }
+    }catch(e){}
+    return freshProfile();
+  }
+  function freshProfile(){
+    return {
+      handle: 'you',
+      credits: CFG.START_CREDITS,
+      bets:0, wins:0, staked:0, returned:0,
+      streak:0, lastPlayDay:null,
+      convSum:0,                 // sum of window multipliers (for conviction avg)
+      txns:[],                   // {type, amount, balAfter, note, ts}
+      seenWelcome:false
+    };
+  }
+  function dailyDrip(p){
+    var d = new Date(); var day = d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
+    if(p.lastPlayDay && p.lastPlayDay!==day){
+      // a new day: top up the float a little so nobody is stuck at 0
+      if(p.credits < 200){ p.credits += 250; tx(p,'grant',250,'Daily credit drip'); }
+    }
+    return day;
+  }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(P)); }catch(e){} }
+  function tx(p, type, amount, note){
+    p.credits = Math.round((p.credits + amount)*100)/100;
+    p.txns.unshift({ type:type, amount:amount, balAfter:p.credits, note:note, ts:now() });
+    if(p.txns.length>60) p.txns.length = 60;
+  }
+
+  // ---------------------------------------------------------------
+  // MARKET ENGINE
+  // ---------------------------------------------------------------
+  var MARKETS = [];
+
+  function makeMarket(kind){
+    var fmt = pick(FORMATS);
+    var a, b;
+    if(kind==='featured' || kind==='human'){
+      var hs = shuffle(HUMANS); a = clone(hs[0]); b = clone(hs[1]);
+    } else {
+      var ps = shuffle(PERSONAS); a = clone(ps[0]); b = clone(ps[1]);
+    }
+    var t = now();
+    var m = {
+      id: uid(), kind: kind, fmt: fmt,
+      motion: pick(MOTIONS[fmt] || MOTIONS['Quick Clash']),
+      A: a, B: b,
+      createdAt: t,
+      motionRevealAt: t + CFG.W1_MS,
+      roundStartAt:   t + CFG.W1_MS + CFG.W2_MS,
+      midpointAt:     t + CFG.W1_MS + CFG.W2_MS + CFG.LIVE_MS,
+      resolveAt:      t + CFG.W1_MS + CFG.W2_MS + CFG.LIVE_MS + CFG.LOCK_MS,
+      pool: { A: CFG.SEED_LIQUIDITY + rnd(0,80), B: CFG.SEED_LIQUIDITY + rnd(0,80) },
+      backers: { A: Math.floor(rnd(2,9)), B: Math.floor(rnd(2,9)) },
+      myBet: null,         // {side, stake, window, mult}
+      result: null,
+      settled: false
+    };
+    return m;
+  }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+  function windowOf(m){
+    var t = now();
+    if(m.settled) return 'resolved';
+    if(t < m.motionRevealAt) return 'w1';
+    if(t < m.roundStartAt)   return 'w2';
+    if(t < m.midpointAt)     return 'w3';
+    if(t < m.resolveAt)      return 'locked';
+    return 'resolve';
+  }
+  function bettable(w){ return w==='w1'||w==='w2'||w==='w3'; }
+
+  // ambient crowd money flows in over time, keeping pools alive
+  function driftPool(m, w){
+    if(m.settled) return;
+    if(Math.random() < 0.5){
+      var side = Math.random() < skillProb(m) ? 'A' : 'B';
+      var amt = rnd(3, 22) * (w==='w3' ? 1.6 : 1);
+      m.pool[side] += amt;
+      if(Math.random()<0.25) m.backers[side]++;
+    }
+  }
+
+  // probability A wins, from ratings (logistic on rating gap) + small noise
+  function skillProb(m){
+    var gap = (m.A.r - m.B.r) / 14;
+    return clamp(1/(1+Math.exp(-gap)), 0.18, 0.82);
+  }
+
+  function mult(m, side){
+    var tot = m.pool.A + m.pool.B;
+    var s = m.pool[side];
+    return s>0 ? tot/s : 1;
+  }
+
+  function placeBet(m, side){
+    var w = windowOf(m);
+    if(!bettable(w)) return toast('That window just closed.', '');
+    var stake = selectedStake;
+    if(stake > P.credits) return toast('Not enough credits for that.', '');
+    if(m.myBet) return toast('You already have a position on this round.', '');
+    var mlt = CFG.MULT[w];
+    m.pool[side] += stake;
+    m.backers[side] += 1;
+    m.myBet = { side:side, stake:stake, window:w, mult:mlt, oddsAtBet: mult(m, side) };
+    tx(P, 'stake', -stake, 'Backed ' + m[side].nm + ' · ' + m.fmt);
+    P.staked += stake;
+    save();
+    var wlabel = w==='w1'?'blind (1.5x)': w==='w2'?'motion (1.0x)':'live (0.7x)';
+    toast('Backed <b>'+esc(m[side].nm)+'</b> for '+stake+' · '+wlabel+' read', '');
+    render();
+  }
+
+  function resolve(m){
+    if(m.settled) return;
+    m.settled = true;
+    var pA = skillProb(m);
+    var judge = Math.random() < pA ? 'A' : 'B';
+    // crowd leans toward whoever has more backers + style flair, diverges ~25%
+    var crowdLeanA = (m.backers.A/(m.backers.A+m.backers.B));
+    var crowd = Math.random() < (crowdLeanA*0.6 + (judge==='A'?0.4:0)) ? 'A' : 'B';
+    var L = judge==='A' ? 'B' : 'A';
+    var rfd = pick(RFD[m.fmt]||RFD['Quick Clash']).replace(/\{W\}/g, m[judge].nm).replace(/\{L\}/g, m[L].nm);
+    m.result = { judge:judge, crowd:crowd, diverged: judge!==crowd, rfd:rfd };
+
+    // settle the user's position against the AI-judge market (pari-mutuel)
+    if(m.myBet){
+      var side = m.myBet.side, stake = m.myBet.stake;
+      P.bets += 1;
+      P.convSum += m.myBet.mult;
+      if(side === judge){
+        var payout = stake * (m.pool.A + m.pool.B) / m.pool[side];
+        payout = Math.round(payout*100)/100;
+        tx(P, 'settle_win', payout, 'Hit on ' + m[side].nm + ' · ' + m.fmt);
+        P.returned += payout;
+        P.wins += 1;
+        bumpStreak();
+        toast('<b>+'+fmtN(payout)+'</b> · your '+stake+' on '+esc(m[side].nm)+' hit', 'win');
+        flashDelta(payout - stake);
+      } else {
+        tx(P, 'settle_loss', 0, 'Missed on ' + m[side].nm + ' · ' + m.fmt);
+        P.streak = 0;
+        toast(esc(m[judge].nm)+' took it. Your '+stake+' on '+esc(m[side].nm)+' missed.', '');
+      }
+      save();
+    }
+    // nudge the seeded board so it feels alive
+    BOTS.forEach(function(b){ b.score += Math.round(rnd(-14,16)); });
+  }
+
+  function bumpStreak(){
+    var d = new Date(); var day = d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
+    if(P.lastPlayDay !== day){ P.streak += 1; P.lastPlayDay = day; }
+  }
+
+  // keep AI inventory full + one featured human event alive
+  function maintain(){
+    var ai = MARKETS.filter(function(m){ return m.kind==='ai' && !m.settled; }).length;
+    while(ai < CFG.AI_MARKETS){ MARKETS.push(makeMarket('ai')); ai++; }
+    var feat = MARKETS.filter(function(m){ return m.kind==='featured' && !m.settled; }).length;
+    if(feat < 1) MARKETS.push(makeMarket('featured'));
+    // retire markets resolved a while ago to keep the board fresh
+    MARKETS = MARKETS.filter(function(m){ return !m.settled || (now()-m.resolveAt) < 16000; });
+  }
+
+  // ---------------------------------------------------------------
+  // SHARP SCORE (blended, Bayesian-shrunk) — comparable to BOTS
+  // ---------------------------------------------------------------
+  function sharp(){
+    var bets = P.bets;
+    var accShrunk = (P.wins + 2) / (bets + 4);                 // shrink toward .5
+    var roi = P.staked>0 ? (P.returned - P.staked)/P.staked : 0;
+    var roiNorm = 1/(1+Math.exp(-roi*2));                       // sigmoid
+    var conviction = bets>0 ? (P.convSum/bets) : 1.0;           // avg window mult (0.7..1.5)
+    var convNorm = clamp((conviction-0.7)/(1.5-0.7), 0, 1);
+    var reliability = bets/(bets+10);                           // volume trust
+    var heat = P.streak;
+    var base = 0.40*accShrunk + 0.30*roiNorm + 0.20*convNorm + 0.10*reliability;
+    var score = Math.round( 1000 * base * (1 + 0.04*heat) ) + 600;
+    return {
+      score: score,
+      acc: accShrunk, roi: roi, conviction: conviction,
+      reliability: reliability, heat: heat
+    };
+  }
+
+  // ---------------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------------
+  var selectedStake = CFG.DEFAULT_STAKE;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function render(){
+    renderHeader();
+    renderBoard();
+    renderYou();
+    renderSharp();
+    renderDraws();
+  }
+
+  function renderHeader(){
+    $('balN').textContent = fmtN(P.credits);
+    $('streakN').textContent = P.streak;
+    var live = MARKETS.filter(function(m){ return bettable(windowOf(m)); }).length;
+    $('liveCount').textContent = live;
+  }
+  var deltaTimer=null;
+  function flashDelta(net){
+    var d = $('balDelta');
+    d.textContent = (net>=0?'+':'') + fmtN(net);
+    d.style.color = net>=0 ? 'var(--win)' : 'var(--accent)';
+    d.classList.add('show');
+    clearTimeout(deltaTimer);
+    deltaTimer = setTimeout(function(){ d.classList.remove('show'); }, 2600);
+  }
+
+  function statusMeta(w, m){
+    var t = now();
+    if(w==='w1') return { cls:'w1', label:'Window 1 · blind', sub:'Motion in ' + timeStr(m.motionRevealAt-t) };
+    if(w==='w2') return { cls:'w2', label:'Window 2 · motion', sub:'Starts in ' + timeStr(m.roundStartAt-t) };
+    if(w==='w3') return { cls:'live', label:'Live · open', sub:'Locks in ' + timeStr(m.midpointAt-t) };
+    if(w==='locked') return { cls:'locked', label:'Locked · 2nd half', sub:'Verdict in ' + timeStr(m.resolveAt-t) };
+    return { cls:'resolved', label:'Resolved', sub:'' };
+  }
+
+  function renderBoard(){
+    var board = $('board');
+    // order: featured first, then live, then upcoming, then resolved
+    var order = MARKETS.slice().sort(function(a,b){
+      var rank = function(m){ var w=windowOf(m); if(m.kind==='featured'&&!m.settled) return 0; if(w==='w3') return 1; if(w==='w2') return 2; if(w==='w1') return 3; if(w==='locked') return 4; return 5; };
+      return rank(a)-rank(b);
+    });
+    board.innerHTML = order.map(cardHTML).join('');
+    // wire buttons
+    order.forEach(function(m){
+      var el = document.querySelector('[data-mkt="'+m.id+'"]'); if(!el) return;
+      el.querySelectorAll('.pill[data-stake]').forEach(function(p){
+        p.addEventListener('click', function(){ selectedStake = parseInt(p.getAttribute('data-stake'),10); renderBoard(); });
+      });
+      var ba = el.querySelector('[data-back="A"]'); if(ba) ba.addEventListener('click', function(){ placeBet(m,'A'); });
+      var bb = el.querySelector('[data-back="B"]'); if(bb) bb.addEventListener('click', function(){ placeBet(m,'B'); });
+    });
+  }
+
+  function cardHTML(m){
+    var w = windowOf(m);
+    var st = statusMeta(w, m);
+    var kindChip = m.kind==='featured'
+      ? '<span class="chip kind-featured">★ Main event</span>'
+      : (m.kind==='human' ? '<span class="chip kind-human">Live human</span>' : '<span class="chip kind-ai">AI vs AI</span>');
+    var tot = m.pool.A + m.pool.B;
+    var pctA = clamp(m.pool.A/tot*100, 4, 96);
+
+    var motionHTML = (w==='w1')
+      ? '<div class="motion hidden">Motion hidden. You are reading the debaters, not the topic. <b>Reveals in '+timeStr(m.motionRevealAt-now())+'.</b></div>'
+      : '<div class="motion"><b>'+esc(m.motion)+'</b></div>';
+
+    if(m.settled && m.result){
+      return resolvedCardHTML(m);
+    }
+
+    var mA = mult(m,'A').toFixed(2), mB = mult(m,'B').toFixed(2);
+    var disabled = !bettable(w) ? 'disabled' : '';
+    var myA = m.myBet && m.myBet.side==='A' ? 'myA' : '';
+    var myB = m.myBet && m.myBet.side==='B' ? 'myB' : '';
+    var myBetLine = m.myBet
+      ? '<div class="mybet">Your read: <b>'+esc(m[m.myBet.side].nm)+'</b> · '+m.myBet.stake+' cr · '+(m.myBet.window.toUpperCase())+' ('+m.myBet.mult+'x)</div>'
+      : '';
+
+    var stakeSel = m.myBet || !bettable(w) ? '' :
+      '<div class="stake-sel"><span class="lab">Stake</span>' +
+      CFG.STAKES.map(function(s){ return '<button class="pill" data-stake="'+s+'" aria-pressed="'+(s===selectedStake)+'">'+s+'</button>'; }).join('') +
+      '</div>';
+
+    return ''+
+    '<div class="mkt '+(m.kind==='featured'?'featured':'')+'" data-mkt="'+m.id+'">'+
+      '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+
+        '<span class="status '+st.cls+'"><span class="pip"></span>'+st.label+'</span></div>'+
+      '<div class="vs">'+
+        '<div class="deb"><div class="nm">'+esc(m.A.nm)+'</div><div class="meta">'+esc(m.A.style)+'</div></div>'+
+        '<span class="vsx">vs</span>'+
+        '<div class="deb" style="text-align:right"><div class="nm">'+esc(m.B.nm)+'</div><div class="meta">'+esc(m.B.style)+'</div></div>'+
+      '</div>'+
+      motionHTML+
+      '<div class="poolbar"><div class="a" style="width:'+pctA+'%"></div><div class="b" style="width:'+(100-pctA)+'%"></div></div>'+
+      '<div class="poolrow"><span>'+fmtN(tot)+' cr in the pool</span><span>'+st.sub+'</span></div>'+
+      stakeSel+
+      '<div class="sides">'+
+        '<button class="back '+myA+'" data-back="A" '+disabled+'><span class="who">'+esc(m.A.nm)+'</span><span class="mult">pays ~'+mA+'x</span></button>'+
+        '<button class="back '+myB+'" data-back="B" '+disabled+'><span class="who">'+esc(m.B.nm)+'</span><span class="mult">pays ~'+mB+'x</span></button>'+
+      '</div>'+
+      myBetLine+
+    '</div>';
+  }
+
+  function resolvedCardHTML(m){
+    var r = m.result;
+    var jName = m[r.judge].nm, cName = m[r.crowd].nm;
+    var pnl='';
+    if(m.myBet){
+      if(m.myBet.side===r.judge){
+        var payout = m.myBet.stake * (m.pool.A+m.pool.B)/m.pool[m.myBet.side];
+        var net = payout - m.myBet.stake;
+        pnl = '<div class="pnl up">Your '+m.myBet.stake+' on '+esc(m[m.myBet.side].nm)+' hit · +'+fmtN(payout)+' cr</div>';
+      } else {
+        pnl = '<div class="pnl down">Your '+m.myBet.stake+' on '+esc(m[m.myBet.side].nm)+' missed</div>';
+      }
+    } else {
+      pnl = '<div class="pnl flat">No position on this one</div>';
+    }
+    var kindChip = m.kind==='featured' ? '<span class="chip kind-featured">★ Main event</span>' : (m.kind==='human'?'<span class="chip kind-human">Live human</span>':'<span class="chip kind-ai">AI vs AI</span>');
+    return ''+
+    '<div class="mkt resolved" data-mkt="'+m.id+'">'+
+      '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+
+        '<span class="status resolved"><span class="pip"></span>Resolved</span></div>'+
+      '<div class="vs"><div class="deb"><div class="nm">'+esc(m.A.nm)+'</div></div><span class="vsx">vs</span><div class="deb" style="text-align:right"><div class="nm">'+esc(m.B.nm)+'</div></div></div>'+
+      '<div class="result">'+
+        '<div class="verdicts">'+
+          '<div class="vbox win"><div class="h">AI Judge</div><div class="w">'+esc(jName)+'</div></div>'+
+          '<div class="vbox '+(r.diverged?'':'win')+'"><div class="h">The Crowd</div><div class="w">'+esc(cName)+'</div></div>'+
+        '</div>'+
+        (r.diverged ? '<div class="divergence">⚡ Split verdict · the judge and the room disagreed</div>' : '') +
+        '<div class="rfd"><span class="by">Reason for decision · '+m.fmt+'</span>'+esc(r.rfd)+'</div>'+
+        pnl+
+      '</div>'+
+    '</div>';
+  }
+
+  function renderYou(){
+    var s = sharp();
+    var net = P.returned - P.staked;
+    var roiPct = (s.roi*100);
+    var cards = [
+      ['Sharp Score', fmtN(s.score), 'blended predictor rating'],
+      ['Record', P.wins+'-'+(P.bets-P.wins), P.bets+' calls settled'],
+      ['Net P&L', (net>=0?'+':'')+fmtN(net), 'credits'],
+      ['Accuracy', Math.round(s.acc*100)+'%', 'shrunk toward the mean'],
+      ['Conviction', s.conviction.toFixed(2)+'x', 'avg window you commit'],
+      ['Heat', '🔥 '+s.heat, 'current win streak']
+    ];
+    $('youStats').innerHTML = cards.map(function(c){
+      return '<div class="stat-card"><div class="k">'+c[0]+'</div><div class="v">'+c[1]+'</div><div class="x">'+c[2]+'</div></div>';
+    }).join('');
+
+    var h = $('hist');
+    if(!P.txns.length){ h.innerHTML = '<div class="empty">No activity yet. Back a side on the Live board to get on the board.</div>'; return; }
+    h.innerHTML = P.txns.slice(0,18).map(function(t){
+      var up = t.amount>0, isStake = t.type==='stake';
+      var cls = isStake ? '' : (up?'up':'down');
+      var sign = t.amount>0?'+':'';
+      return '<div class="hist-row"><div><div>'+esc(t.note)+'</div><div class="t">'+rel(t.ts)+'</div></div>'+
+             '<div class="amt '+cls+'">'+sign+fmtN(t.amount)+'</div></div>';
+    }).join('');
+  }
+  function rel(ts){ var s=Math.floor((now()-ts)/1000); if(s<60) return s+'s ago'; var m=Math.floor(s/60); if(m<60) return m+'m ago'; return Math.floor(m/60)+'h ago'; }
+
+  function renderSharp(){
+    var s = sharp();
+    $('sharpMine').innerHTML =
+      '<span>Accuracy <b>'+Math.round(s.acc*100)+'%</b></span>'+
+      '<span>Edge vs crowd <b>'+(s.roi>=0?'+':'')+Math.round(s.roi*100)+'%</b></span>'+
+      '<span>Conviction <b>'+s.conviction.toFixed(2)+'x</b></span>'+
+      '<span>Heat <b>'+s.heat+'</b></span>'+
+      '<span>Reliability <b>'+Math.round(s.reliability*100)+'%</b></span>';
+
+    var meRow = { id:'me', nm:P.handle, title:titleFor(s), tag:'', score:s.score, acc:s.acc, edge:s.roi, me:true };
+    var rows = BOTS.concat([meRow]).sort(function(a,b){ return b.score-a.score; });
+    $('sharpLb').innerHTML = rows.map(function(r, i){
+      var title = r.title ? '<span class="title-tag '+(r.tag||'')+'">'+esc(r.title)+'</span>' : '';
+      return '<div class="lb-row '+(r.me?'me':'')+'">'+
+        '<div class="lb-rank">'+(i+1)+'</div>'+
+        '<div><div class="lb-name">'+esc(r.me?'You':r.nm)+title+'</div>'+
+          '<div class="lb-sub">'+Math.round(r.acc*100)+'% accuracy · '+(r.edge>=0?'+':'')+Math.round(r.edge*100)+'% edge</div></div>'+
+        '<div class="lb-score">'+fmtN(r.score)+'<span class="u">sharp</span></div></div>';
+    }).join('');
+  }
+  function titleFor(s){
+    if(s.heat>=3) return 'The Livewire';
+    if(s.roi>0.2) return 'The Shark';
+    if(s.conviction>1.25) return 'The Scout';
+    if(s.bets>10 && s.acc>0.65) return 'The Oracle';
+    return '';
+  }
+
+  function renderDraws(){
+    var rows = DRAWS.slice().sort(function(a,b){ return b.draw-a.draw; });
+    $('drawsLb').innerHTML = rows.map(function(r,i){
+      var bars = '<div class="draw-bars">'+[1,2,3,4,5].map(function(k){ var w = clamp((r.draw-(k-1)*8)/40*30,3,30); return '<span style="width:'+w+'px;opacity:'+(0.4+r.draw/200)+'"></span>'; }).join('')+'</div>';
+      return '<div class="lb-row">'+
+        '<div class="lb-rank">'+(i+1)+'</div>'+
+        '<div><div class="lb-name">'+esc(r.nm)+'<span class="title-tag">'+r.fmt+'</span>'+(r.split>0.3?'<span class="title-tag gold">Split machine</span>':'')+'</div>'+
+          '<div class="lb-sub">judge/crowd split '+Math.round(r.split*100)+'% of rounds</div>'+bars+'</div>'+
+        '<div class="lb-score">'+r.draw+'<span class="u">draw</span></div></div>';
+    }).join('');
+  }
+
+  // ---------------------------------------------------------------
+  // TOASTS
+  // ---------------------------------------------------------------
+  function toast(html, cls){
+    var t = document.createElement('div');
+    t.className = 'toast ' + (cls||'');
+    t.innerHTML = html;
+    $('toasts').appendChild(t);
+    setTimeout(function(){ t.style.transition='opacity .3s,transform .3s'; t.style.opacity='0'; t.style.transform='translateX(20px)'; setTimeout(function(){ t.remove(); }, 320); }, 3600);
+  }
+
+  // ---------------------------------------------------------------
+  // TABS
+  // ---------------------------------------------------------------
+  document.querySelectorAll('.tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(function(t){ t.setAttribute('aria-selected','false'); });
+      tab.setAttribute('aria-selected','true');
+      document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('on'); });
+      $('panel-'+tab.getAttribute('data-panel')).classList.add('on');
+    });
+  });
+
+  // ---------------------------------------------------------------
+  // LOOP
+  // ---------------------------------------------------------------
+  function tick(){
+    maintain();
+    MARKETS.forEach(function(m){
+      var w = windowOf(m);
+      if(w==='resolve' && !m.settled) resolve(m);
+      else if(bettable(w)) driftPool(m, w);
+    });
+    render();
+  }
+
+  // seed an initial staggered board so it's alive on load
+  (function seed(){
+    MARKETS.push(makeMarket('featured'));
+    for(var i=0;i<CFG.AI_MARKETS;i++){
+      var m = makeMarket('ai');
+      // stagger the AI markets across the timeline so several stages show at once
+      var shift = i * (CFG.W1_MS*0.55);
+      m.createdAt -= shift; m.motionRevealAt -= shift; m.roundStartAt -= shift;
+      m.midpointAt -= shift; m.resolveAt -= shift;
+      m.pool.A += rnd(20,140); m.pool.B += rnd(20,140);
+      MARKETS.push(m);
+    }
+    if(!P.seenWelcome){ P.seenWelcome=true; save(); setTimeout(function(){ toast('Welcome to The Floor. You have <b>'+fmtN(P.credits)+' credits</b>. Back a side before the motion drops for the biggest Sharp boost.',''); }, 700); }
+  })();
+
+  render();
+  setInterval(tick, 1000);
+
+})();
+</script>
+</body>
+</html>
