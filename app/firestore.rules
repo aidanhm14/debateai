@@ -798,6 +798,31 @@ service cloud.firestore {
       allow write: if false;         // server-authoritative
     }
 
+    // ── The Floor — play-money prediction arena (Phase 0) ────────────
+    // All money state is server-authoritative: written ONLY by the
+    // floor-* Netlify functions via the Admin SDK (which bypasses these
+    // rules). Clients read the public board + their own balance/position
+    // through /api/floor/state; they can never write. Play credits only.
+    match /floor_users/{uid} {
+      allow read:  if isOwner(uid);  // your own balance/stats; the leaderboard is served by the function
+      allow write: if false;         // server-only (floor-bet / floor-resolve)
+    }
+    match /floor_markets/{marketId} {
+      allow read:  if true;          // public board: matchup, pools, status, verdict
+      allow write: if false;         // opened / settled only by the server
+      match /positions/{posUid} {
+        allow read:  if isOwner(posUid); // you can see your own position
+        allow write: if false;           // placed only via floor-bet
+      }
+    }
+    match /floor_ledger/{uid} {
+      allow read, write: if false;
+      match /txns/{txnId} {
+        allow read:  if isOwner(uid);  // your own append-only transaction log
+        allow write: if false;         // server-side only
+      }
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }
