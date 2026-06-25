@@ -236,6 +236,34 @@
   .fh-watch:hover{color:var(--text);border-color:var(--border2)}
   @media (max-width:760px){ .fh-body{grid-template-columns:1fr} }
 
+  /* ---- make-your-call drawer / bottom-sheet ---- */
+  .call-drawer{position:fixed;inset:0;z-index:88;display:none;align-items:flex-end;justify-content:center;background:rgba(18,20,24,.62);backdrop-filter:blur(3px)}
+  .call-drawer.on{display:flex;animation:fade .2s ease}
+  .cd-sheet{width:100%;max-width:520px;background:var(--card);border:1px solid var(--border2);border-radius:18px 18px 0 0;padding:20px 20px 22px;box-shadow:0 -22px 64px -20px rgba(0,0,0,.6);animation:cdUp .26s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes cdUp{from{transform:translateY(46px);opacity:0}to{transform:none;opacity:1}}
+  @media (min-width:560px){ .call-drawer{align-items:center} .cd-sheet{border-radius:18px} }
+  @media (prefers-reduced-motion:reduce){ .cd-sheet{animation:none} }
+  .cd-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .cd-head .status{margin-left:0}
+  .cd-x{margin-left:auto;appearance:none;background:none;border:0;color:var(--ghost);font-size:1.5rem;line-height:1;cursor:pointer;padding:0 4px}
+  .cd-x:hover{color:var(--text)}
+  .cd-title{font-family:var(--serif);font-weight:800;font-size:1.32rem;margin:0 0 13px}
+  .cd-sides{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px}
+  .cd-side{appearance:none;cursor:pointer;border:1px solid var(--border2);background:var(--card2);border-radius:13px;padding:13px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:.13s}
+  .cd-side:hover{border-color:var(--accent)}
+  .cd-side.sel{border-color:var(--accent);background:var(--accentGlow);box-shadow:inset 0 0 0 1px var(--accent)}
+  .cd-side img,.cd-side .noav{width:46px;height:46px;border-radius:50%;object-fit:cover;border:1px solid var(--border2);background:var(--card)}
+  .cd-side .nm{font-weight:800;font-size:.92rem;text-align:center;line-height:1.15}
+  .cd-side .pay{font-size:.72rem;color:var(--win);font-weight:800}
+  .cd-meta{display:flex;justify-content:space-between;gap:10px;font-size:.74rem;color:var(--ghost);font-weight:700;margin-bottom:11px}
+  .cd-stakes{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:11px}
+  .cd-stakes .lab{font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ghost);margin-right:2px}
+  .cd-conf{font-size:.79rem;color:var(--dim);line-height:1.45;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:13px}
+  .cd-conf b{color:var(--text)}
+  .cd-go{appearance:none;width:100%;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:.95rem;padding:13px;border-radius:11px;cursor:pointer;transition:.13s}
+  .cd-go:hover{background:var(--accent2)}
+  .cd-go:disabled{opacity:.5;cursor:not-allowed}
+
   /* toast */
   .toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:340px}
   .toast{border:1px solid var(--border2);background:var(--card2);border-radius:12px;padding:11px 14px;font-size:.84rem;box-shadow:0 12px 40px -12px rgba(0,0,0,.6);animation:slidein .25s ease}
@@ -523,6 +551,10 @@
       </div>
     </div>
   </div>
+</div>
+
+<div class="call-drawer" id="callDrawer" role="dialog" aria-modal="true" aria-label="Make your call">
+  <div class="cd-sheet" id="cdSheet"></div>
 </div>
 
 <div class="toasts" id="toasts"></div>
@@ -1016,6 +1048,63 @@
     return { cls:'resolved', label:'Called', sub:'' };
   }
 
+  // ---------------------------------------------------------------
+  // MAKE-YOUR-CALL DRAWER — a confirm step before the bet is placed
+  // ---------------------------------------------------------------
+  var cdState = { id:null, side:null, stake:CFG.DEFAULT_STAKE };
+  function openCallDrawer(m, side){
+    if(!m) return;
+    var w = windowOf(m);
+    if(!bettable(w)) return toast('That window just closed.','');
+    if(m.myBet) return toast('You already have a call on this round.','');
+    cdState = { id:m.id, side:side, stake:selectedStake||CFG.DEFAULT_STAKE };
+    renderCallDrawer();
+    var d = $('callDrawer'); if(d) d.classList.add('on');
+  }
+  function closeCallDrawer(){ var d = $('callDrawer'); if(d) d.classList.remove('on'); }
+  function renderCallDrawer(){
+    var sheet = $('cdSheet'); if(!sheet) return;
+    var m = MARKETS.find(function(x){ return x.id===cdState.id; });
+    if(!m){ closeCallDrawer(); return; }
+    var w = windowOf(m), st = statusMeta(w, m);
+    var tot = m.pool.A + m.pool.B, pctA = Math.round(clamp(m.pool.A/tot*100, 4, 96));
+    var u = (SERVER.on && SERVER.me) ? SERVER.me : P;
+    var avail = u.credits || 0;
+    function sideBtn(s){
+      var sel = cdState.side===s ? 'sel' : '';
+      var av = m[s].face ? '<img src="'+esc(m[s].face)+'" alt=""/>' : '<span class="noav"></span>';
+      return '<button class="cd-side '+sel+'" data-cdside="'+s+'">'+av+'<span class="nm">'+esc(m[s].nm)+'</span><span class="pay">pays ~'+mult(m,s).toFixed(2)+'x</span></button>';
+    }
+    var canAfford = cdState.stake <= avail;
+    sheet.innerHTML =
+      '<div class="cd-head"><span class="chip fmt">'+esc(m.fmt)+'</span>'+lensChip(m.fmt)+
+        '<span class="status '+st.cls+'"><span class="pip"></span>'+st.label+'</span>'+
+        '<button class="cd-x" id="cdX" aria-label="Close">×</button></div>'+
+      '<h3 class="cd-title">Make your call</h3>'+
+      '<div class="cd-sides">'+sideBtn('A')+sideBtn('B')+'</div>'+
+      '<div class="cd-meta"><span>Crowd lean '+pctA+'% / '+(100-pctA)+'%</span><span>'+esc(st.sub||'')+'</span></div>'+
+      '<div class="cd-stakes"><span class="lab">Stake</span>'+
+        CFG.STAKES.map(function(s){ return '<button class="pill" data-cdstake="'+s+'" aria-pressed="'+(s===cdState.stake)+'">'+s+'</button>'; }).join('')+
+      '</div>'+
+      '<div class="cd-meta"><span>You have '+fmtN(avail)+' credits</span><span>Earlier calls pay more Sharp</span></div>'+
+      '<div class="cd-conf">You are predicting the <b>AI judge\'s</b> winner for this round. The crowd vote is shown for comparison and does not settle the market.</div>'+
+      '<button class="cd-go" id="cdGo"'+(canAfford?'':' disabled')+'>'+(canAfford ? ('Call '+esc(m[cdState.side].nm)+' for '+cdState.stake+' cr') : 'Not enough credits')+'</button>';
+    var x = $('cdX'); if(x) x.addEventListener('click', closeCallDrawer);
+    sheet.querySelectorAll('[data-cdside]').forEach(function(b){ b.addEventListener('click', function(){ cdState.side=b.getAttribute('data-cdside'); renderCallDrawer(); }); });
+    sheet.querySelectorAll('[data-cdstake]').forEach(function(b){ b.addEventListener('click', function(){ cdState.stake=parseInt(b.getAttribute('data-cdstake'),10); renderCallDrawer(); }); });
+    var go = $('cdGo'); if(go) go.addEventListener('click', function(){
+      selectedStake = cdState.stake;
+      var mm = MARKETS.find(function(x){ return x.id===cdState.id; });
+      closeCallDrawer();
+      if(mm) placeBet(mm, cdState.side);
+    });
+  }
+  (function(){
+    var d = $('callDrawer');
+    if(d) d.addEventListener('click', function(e){ if(e.target===d) closeCallDrawer(); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeCallDrawer(); });
+  })();
+
   function renderBoard(){
     var board = $('board');
     var feat = $('featured');
@@ -1035,11 +1124,8 @@
     order.forEach(function(m, i){
       var el = document.querySelector('[data-mkt="'+m.id+'"]'); if(!el) return;
       if(!revealed[m.id]){ el.classList.add('mkt--in'); el.style.animationDelay = Math.min(i*0.05, 0.45)+'s'; revealed[m.id] = true; }
-      el.querySelectorAll('.pill[data-stake]').forEach(function(p){
-        p.addEventListener('click', function(){ selectedStake = parseInt(p.getAttribute('data-stake'),10); renderBoard(); });
-      });
-      var ba = el.querySelector('[data-back="A"]'); if(ba) ba.addEventListener('click', function(){ placeBet(m,'A'); });
-      var bb = el.querySelector('[data-back="B"]'); if(bb) bb.addEventListener('click', function(){ placeBet(m,'B'); });
+      var ba = el.querySelector('[data-back="A"]'); if(ba) ba.addEventListener('click', function(){ openCallDrawer(m,'A'); });
+      var bb = el.querySelector('[data-back="B"]'); if(bb) bb.addEventListener('click', function(){ openCallDrawer(m,'B'); });
     });
   }
 
@@ -1059,14 +1145,12 @@
     var mA = mult(m,'A').toFixed(2), mB = mult(m,'B').toFixed(2);
     var disabled = !bettable(w) ? 'disabled' : '';
     var myA = m.myBet && m.myBet.side==='A' ? 'myA' : '', myB = m.myBet && m.myBet.side==='B' ? 'myB' : '';
-    var stakeSel = '<div class="stake-sel"><span class="lab">Stake</span>' +
-      CFG.STAKES.map(function(s){ return '<button class="pill" data-stake="'+s+'" aria-pressed="'+(s===selectedStake)+'">'+s+'</button>'; }).join('') + '</div>';
     var callInner;
     if(m.myBet){
       callInner = '<div class="cl">Your call is in</div>'+
         '<div class="mybet">Called <b>'+esc(m[m.myBet.side].nm)+'</b> · '+m.myBet.stake+' cr · '+String(m.myBet.window||'').toUpperCase()+' read ('+m.myBet.mult+'x)</div>';
     } else if(bettable(w)){
-      callInner = '<div class="cl">Make your call</div>'+stakeSel+
+      callInner = '<div class="cl">Make your call · tap a side</div>'+
         '<div class="fh-sides">'+
           '<button class="back '+myA+'" data-back="A" '+disabled+'><span class="who">'+esc(m.A.nm)+'</span><span class="mult">pays ~'+mA+'x</span></button>'+
           '<button class="back '+myB+'" data-back="B" '+disabled+'><span class="who">'+esc(m.B.nm)+'</span><span class="mult">pays ~'+mB+'x</span></button>'+
@@ -1132,11 +1216,6 @@
       ? '<div class="mybet">Your read: <b>'+esc(m[m.myBet.side].nm)+'</b> · '+m.myBet.stake+' cr · '+(m.myBet.window.toUpperCase())+' ('+m.myBet.mult+'x)</div>'
       : '';
 
-    var stakeSel = m.myBet || !bettable(w) ? '' :
-      '<div class="stake-sel"><span class="lab">Stake</span>' +
-      CFG.STAKES.map(function(s){ return '<button class="pill" data-stake="'+s+'" aria-pressed="'+(s===selectedStake)+'">'+s+'</button>'; }).join('') +
-      '</div>';
-
     return ''+
     '<div class="mkt '+(m.kind==='featured'?'featured':'')+'" data-mkt="'+m.id+'">'+
       '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+lensChip(m.fmt)+
@@ -1149,7 +1228,6 @@
       motionHTML+
       '<div class="poolbar"><div class="a" style="width:'+pctA+'%"></div><div class="b" style="width:'+(100-pctA)+'%"></div></div>'+
       '<div class="poolrow"><span>'+fmtN(tot)+' credits in play</span><span>'+st.sub+'</span></div>'+
-      stakeSel+
       '<div class="sides">'+
         '<button class="back '+myA+'" data-back="A" '+disabled+'><span class="who">'+esc(m.A.nm)+'</span><span class="mult">pays ~'+mA+'x</span></button>'+
         '<button class="back '+myB+'" data-back="B" '+disabled+'><span class="who">'+esc(m.B.nm)+'</span><span class="mult">pays ~'+mB+'x</span></button>'+
