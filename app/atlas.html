@@ -551,7 +551,7 @@
     <div class="stagelab">Outreach stage</div>
     <div class="stage-pills" id="card-stage">
       <button data-s="prospect">Prospect</button>
-      <button data-s="contacted">In conversation</button>
+      <button data-s="contacted">Reached out</button>
       <button data-s="partnered">Partnered</button>
     </div>
   </div>
@@ -1351,6 +1351,15 @@ function openCard(d){
       html+='<a class="cc-compose" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(info.e)+'&su='+su+'&body='+bo+'">Compose to '+info.e+' \u2192</a>';
     }
     cw.innerHTML=html; cw.hidden=false;
+    var cb=cw.querySelector('.cc-compose');  /* data-track-wired */
+    if(cb) cb.addEventListener('click',function(){
+      if(!current) return;
+      statusMap[current.n]='contacted';
+      if(typeof isEditor==='function'&&isEditor()){ try{ setStatusRemote(current,'contacted'); }catch(e){} }
+      else { try{ localStorage.setItem(STORE_KEY,JSON.stringify(statusMap)); }catch(e){} }
+      if(typeof paintStage==='function') paintStage();
+      if(markers[current.n]) markers[current.n].setIcon(pinIcon(current));
+    });
   })();
   document.getElementById('card-stage-wrap').hidden=(isTour||isComm||isMem);
   var cc=document.getElementById('card-comm'); cc.hidden=!(isComm||isMem);
