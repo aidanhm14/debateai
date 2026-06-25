@@ -264,6 +264,18 @@
   .cd-go:hover{background:var(--accent2)}
   .cd-go:disabled{opacity:.5;cursor:not-allowed}
 
+  /* ---- mobile sticky "Your calls" bar ---- */
+  .mobile-calls{display:none}
+  @media (max-width:920px){
+    .mobile-calls{display:flex;position:fixed;left:12px;right:12px;bottom:12px;z-index:70;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border:1px solid var(--accent);border-radius:14px;background:var(--card);box-shadow:0 12px 34px -12px rgba(0,0,0,.55);font:inherit;color:var(--text);cursor:pointer}
+    .mobile-calls .mc-l{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+    .mobile-calls .mc-k{font-size:.56rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ghost)}
+    .mobile-calls .mc-v{font-weight:800;font-size:.92rem}
+    .mobile-calls .mc-cta{font-size:.8rem;font-weight:800;color:var(--accent)}
+    .wrap{padding-bottom:82px}
+    .toasts{bottom:78px}
+  }
+
   /* toast */
   .toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:340px}
   .toast{border:1px solid var(--border2);background:var(--card2);border-radius:12px;padding:11px 14px;font-size:.84rem;box-shadow:0 12px 40px -12px rgba(0,0,0,.6);animation:slidein .25s ease}
@@ -556,6 +568,8 @@
 <div class="call-drawer" id="callDrawer" role="dialog" aria-modal="true" aria-label="Make your call">
   <div class="cd-sheet" id="cdSheet"></div>
 </div>
+
+<button class="mobile-calls" id="mobileCalls" aria-label="Your calls"></button>
 
 <div class="toasts" id="toasts"></div>
 
@@ -1015,6 +1029,12 @@
     }
     rail.innerHTML = html;
     var b = $('railToBoard'); if(b) b.addEventListener('click', function(){ window.scrollTo({ top:0, behavior:'smooth' }); });
+    var mc = $('mobileCalls');
+    if(mc){
+      mc.innerHTML = '<span class="mc-l"><span class="mc-k">Your calls</span><span class="mc-v">'+
+        (active.length ? (active.length+' live · '+fmtN(u.credits||0)+' cr') : (fmtN(u.credits||0)+' credits'))+
+        '</span></span><span class="mc-cta">'+(active.length ? 'View →' : 'Make a call →')+'</span>';
+    }
   }
 
   function renderHeader(){
@@ -1103,6 +1123,8 @@
     var d = $('callDrawer');
     if(d) d.addEventListener('click', function(e){ if(e.target===d) closeCallDrawer(); });
     document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeCallDrawer(); });
+    var mc = $('mobileCalls');
+    if(mc) mc.addEventListener('click', function(){ var rail = $('rail'); if(rail) rail.scrollIntoView({ behavior:'smooth', block:'start' }); });
   })();
 
   function renderBoard(){
