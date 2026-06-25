@@ -13,6 +13,8 @@
      the html.gtky-first CSS rule + a synchronous gtkyOpen() below. */
   try{ if(!localStorage.getItem('floor-gtky')) document.documentElement.classList.add('gtky-first'); }catch(e){}
 </script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <style>
   /* ============================================================
      THE FLOOR — Phase 0 (play-money prediction arena)
@@ -299,6 +301,7 @@
   <button class="icon-btn help-btn" id="helpBtn" title="How The Floor works" aria-label="How The Floor works">? How it works</button>
   <span class="streak" title="Predict once a day to keep your streak"><span aria-hidden="true">🔥</span> <b id="streakN">0</b><span class="streak-label"> day sharp</span></span>
   <span class="bal" aria-label="Prediction credits"><span class="c">Credits</span><span id="balN">0</span><span class="delta" id="balDelta"></span></span>
+  <button class="icon-btn" id="signBtn" title="Sign in to play" style="display:none;width:auto;padding:0 12px;font-size:.76rem;font-weight:800">Sign in</button>
   <button class="icon-btn" id="themeBtn" title="Toggle light or dark" aria-label="Toggle theme">☀</button>
 </header>
 
@@ -640,6 +643,7 @@
   }
 
   function placeBet(m, side){
+    if(SERVER.on) return serverBet(m, side);
     var w = windowOf(m);
     if(!bettable(w)) return toast('That window just closed.', '');
     var stake = selectedStake;
@@ -713,14 +717,15 @@
   // SHARP SCORE (blended, Bayesian-shrunk) — comparable to BOTS
   // ---------------------------------------------------------------
   function sharp(){
-    var bets = P.bets;
-    var accShrunk = (P.wins + 2) / (bets + 4);                 // shrink toward .5
-    var roi = P.staked>0 ? (P.returned - P.staked)/P.staked : 0;
+    var u = (SERVER.on && SERVER.me) ? SERVER.me : P;
+    var bets = u.bets||0;
+    var accShrunk = ((u.wins||0) + 2) / (bets + 4);            // shrink toward .5
+    var roi = (u.staked||0)>0 ? ((u.returned||0) - (u.staked||0))/(u.staked||0) : 0;
     var roiNorm = 1/(1+Math.exp(-roi*2));                       // sigmoid
-    var conviction = bets>0 ? (P.convSum/bets) : 1.0;           // avg window mult (0.7..1.5)
+    var conviction = bets>0 ? ((u.convSum||0)/bets) : 1.0;      // avg window mult (0.7..1.5)
     var convNorm = clamp((conviction-0.7)/(1.5-0.7), 0, 1);
     var reliability = bets/(bets+10);                           // volume trust
-    var heat = P.streak;
+    var heat = u.streak||0;
     var base = 0.40*accShrunk + 0.30*roiNorm + 0.20*convNorm + 0.10*reliability;
     var score = Math.round( 1000 * base * (1 + 0.04*heat) ) + 600;
     return {
@@ -735,6 +740,72 @@
   // ---------------------------------------------------------------
   var selectedStake = CFG.DEFAULT_STAKE;
   var revealed = {}; // market ids whose entrance animation has played (once)
+
+  // ---------------------------------------------------------------
+  // SERVER WIRING — when /api/floor/state is reachable, the board,
+  // balance and bets use the shared server ledger (sign-in to bet).
+  // If the server is unreachable, the local demo engine below runs
+  // unchanged (hard fallback, so the page never breaks).
+  // ---------------------------------------------------------------
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
+  };
+  var SERVER = { on:false, me:null, leaderboard:null };
+  var fbAuth = null, fbUser = null;
+
+  function initFirebase(){
+    try{
+      if(!window.firebase || !firebase.auth) return;
+      if(!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+      fbAuth = firebase.auth();
+      fbAuth.onAuthStateChanged(function(u){ fbUser = u; renderHeader(); refreshServer(); });
+    }catch(e){}
+  }
+  function authToken(){
+    try{ return (fbUser && fbUser.getIdToken) ? fbUser.getIdToken() : Promise.resolve(null); }
+    catch(e){ return Promise.resolve(null); }
+  }
+  function signIn(){
+    try{ var p = new firebase.auth.GoogleAuthProvider();
+      fbAuth.signInWithPopup(p).catch(function(){ try{ fbAuth.signInWithRedirect(p); }catch(e){} });
+    }catch(e){ toast('Sign-in is unavailable right now.',''); }
+  }
+  function refreshServer(){
+    authToken().then(function(tok){
+      return fetch('/api/floor/state', { headers: tok ? { Authorization:'Bearer '+tok } : {}, cache:'no-store' });
+    }).then(function(r){ if(!r.ok) throw r.status; return r.json(); })
+    .then(function(d){
+      if(!d || !Array.isArray(d.markets) || !d.markets.length) throw 'empty';
+      SERVER.on = true; SERVER.me = d.me || null; SERVER.leaderboard = d.leaderboard || [];
+      var mp = d.myPositions || {};
+      MARKETS = d.markets.map(function(m){
+        var pos = mp[m.id];
+        if(pos){ m.myBet = { side:pos.side, stake:pos.stake, window:pos.window, mult:pos.mult, settled:!!pos.settled, won:pos.won, payout:pos.payout||0 }; }
+        return m;
+      });
+      render();
+    }).catch(function(){ /* stay in current mode; the local demo engine covers if the server never came on */ });
+  }
+  function serverBet(m, side){
+    if(!fbUser){ toast('Sign in to back a side.',''); signIn(); return; }
+    if(m.myBet) return toast('You already have a position on this round.','');
+    var w = windowOf(m); if(!bettable(w)) return toast('That window just closed.','');
+    var stake = selectedStake;
+    authToken().then(function(tok){
+      return fetch('/api/floor/bet', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+tok }, body: JSON.stringify({ marketId:m.id, side:side, stake:stake }) });
+    }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); })
+    .then(function(res){
+      if(!res.ok){ return toast((res.j && res.j.error) ? res.j.error : 'Could not place that bet.',''); }
+      var wl = w==='w1'?'blind (1.5x)': w==='w2'?'motion (1.0x)':'live (0.7x)';
+      toast('Backed <b>'+esc(m[side].nm)+'</b> for '+stake+' · '+wl+' read','');
+      refreshServer();
+    }).catch(function(){ toast('Network error placing bet.',''); });
+  }
   var $ = function(id){ return document.getElementById(id); };
 
   function render(){
@@ -746,10 +817,16 @@
   }
 
   function renderHeader(){
-    $('balN').textContent = fmtN(P.credits);
-    $('streakN').textContent = P.streak;
+    var srv = SERVER.on && SERVER.me;
+    $('balN').textContent = fmtN(srv ? SERVER.me.credits : P.credits);
+    $('streakN').textContent = srv ? (SERVER.me.streak||0) : P.streak;
     var live = MARKETS.filter(function(m){ return bettable(windowOf(m)); }).length;
     $('liveCount').textContent = live;
+    var sb = $('signBtn');
+    if(sb){
+      if(SERVER.on){ sb.style.display=''; sb.textContent = fbUser ? ('\u2713 '+((fbUser.displayName||'').split(' ')[0] || 'You')) : 'Sign in'; }
+      else { sb.style.display='none'; }
+    }
   }
   var deltaTimer=null;
   function flashDelta(net){
@@ -878,11 +955,12 @@
 
   function renderYou(){
     var s = sharp();
-    var net = P.returned - P.staked;
+    var u = (SERVER.on && SERVER.me) ? SERVER.me : P;
+    var net = (u.returned||0) - (u.staked||0);
     var roiPct = (s.roi*100);
     var cards = [
       ['Sharp Score', fmtN(s.score), 'blended predictor rating'],
-      ['Record', P.wins+'-'+(P.bets-P.wins), P.bets+' calls settled'],
+      ['Record', (u.wins||0)+'-'+((u.bets||0)-(u.wins||0)), (u.bets||0)+' calls settled'],
       ['Net P&L', (net>=0?'+':'')+fmtN(net), 'credits'],
       ['Accuracy', Math.round(s.acc*100)+'%', 'shrunk toward the mean'],
       ['Conviction', s.conviction.toFixed(2)+'x', 'avg window you commit'],
@@ -1077,6 +1155,7 @@
   // LOOP
   // ---------------------------------------------------------------
   function tick(){
+    if(SERVER.on){ render(); return; }   // server drives the markets; just refresh countdowns
     maintain();
     MARKETS.forEach(function(m){
       var w = windowOf(m);
@@ -1103,6 +1182,15 @@
 
   render();
   setInterval(tick, 1000);
+
+  // connect to the live server ledger (falls back to the local demo if unreachable)
+  (function(){
+    var sb = $('signBtn');
+    if(sb) sb.addEventListener('click', function(){ if(fbUser){ try{ fbAuth.signOut(); }catch(e){} } else signIn(); });
+  })();
+  initFirebase();
+  refreshServer();
+  setInterval(refreshServer, 10000);
 
 })();
 </script>
