@@ -2374,3 +2374,3135 @@ window.ATLAS_EXTRA = (window.ATLAS_EXTRA||[]).concat([
   "coaches": "Laura Mayberry"
  }
 ]);
+
+/* geocoded HS additions from the Tabroom pull — 200 schools */
+window.ATLAS_EXTRA = (window.ATLAS_EXTRA||[]).concat([
+ {
+  "n": "The Dalton School",
+  "lat": 40.7815,
+  "lng": -73.9551,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Annika Maduraperuma"
+ },
+ {
+  "n": "Strake Jesuit College Preparatory",
+  "lat": 29.7072,
+  "lng": -95.5402,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Joshua Segraves"
+ },
+ {
+  "n": "Nova 42 Academy",
+  "lat": 41.4431,
+  "lng": -74.4164,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Mike Kyle"
+ },
+ {
+  "n": "Grand Oaks High School",
+  "lat": 30.1241,
+  "lng": -95.3632,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Audra Langston"
+ },
+ {
+  "n": "Newton South High School",
+  "lat": 42.3123,
+  "lng": -71.189,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Joshua Cohen"
+ },
+ {
+  "n": "Stuyvesant High School",
+  "lat": 40.718,
+  "lng": -74.0138,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Julie Sheinman"
+ },
+ {
+  "n": "The Potomac School",
+  "lat": 38.9356,
+  "lng": -77.1541,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Ryan Levesque"
+ },
+ {
+  "n": "BASIS Peoria",
+  "lat": 33.7189,
+  "lng": -112.2729,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Leslee Briggs"
+ },
+ {
+  "n": "Academy of Higher Learning",
+  "lat": 38.6014,
+  "lng": -90.2074,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Tiya Basilio"
+ },
+ {
+  "n": "Liberal Arts and Science Academy",
+  "lat": 30.2588,
+  "lng": -97.6811,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Yao Yao Chen"
+ },
+ {
+  "n": "Academy of Information Technology and Engineering",
+  "lat": 41.0846,
+  "lng": -73.5462,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Claude Morest"
+ },
+ {
+  "n": "Winston Churchill HS",
+  "lat": 39.0434,
+  "lng": -77.1737,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Daniel Moore"
+ },
+ {
+  "n": "West Windsor Plainsboro South",
+  "lat": 40.3058,
+  "lng": -74.6185,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "South Debater"
+ },
+ {
+  "n": "Los Osos High School",
+  "lat": 34.145,
+  "lng": -117.5554,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Erik Pielstick"
+ },
+ {
+  "n": "Mamaroneck High School",
+  "lat": 40.9412,
+  "lng": -73.7439,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Jake Lee"
+ },
+ {
+  "n": "Montville",
+  "lat": 41.4488,
+  "lng": -72.1295,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Michael Miller"
+ },
+ {
+  "n": "Lindale High School",
+  "lat": 32.5143,
+  "lng": -95.3964,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Rory McKenzie"
+ },
+ {
+  "n": "Seven Lakes High School",
+  "lat": 29.7065,
+  "lng": -95.8076,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Tuyen Le"
+ },
+ {
+  "n": "Phoenix Country Day School",
+  "lat": 33.5151,
+  "lng": -111.9975,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Brittany Stanchik"
+ },
+ {
+  "n": "Robinson High School",
+  "lat": 27.8745,
+  "lng": -82.5157,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Hunter Sexton"
+ },
+ {
+  "n": "Math and Science Academy",
+  "lat": 43.2303,
+  "lng": -70.8033,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Tiffany Foster"
+ },
+ {
+  "n": "Jersey Village High School",
+  "lat": 29.8822,
+  "lng": -95.5546,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Ian Etheridge"
+ },
+ {
+  "n": "Barringer High School",
+  "lat": 40.7556,
+  "lng": -74.1796,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Michael Sowell"
+ },
+ {
+  "n": "SA Midtown West",
+  "lat": 30.6874,
+  "lng": -88.1222,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Abram de Bruyn"
+ },
+ {
+  "n": "Bridgewater Raritan",
+  "lat": 40.5934,
+  "lng": -74.6344,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Alben Fischer"
+ },
+ {
+  "n": "Mira Loma High School",
+  "lat": 38.6311,
+  "lng": -121.3703,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Joshua Stinson"
+ },
+ {
+  "n": "Harriton High School",
+  "lat": 40.0423,
+  "lng": -75.3165,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Bonnie Perry"
+ },
+ {
+  "n": "Westminster",
+  "lat": 33.7579,
+  "lng": -117.9859,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ed Williams"
+ },
+ {
+  "n": "The Village High School",
+  "lat": 36.1523,
+  "lng": -115.232,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Robert Gale"
+ },
+ {
+  "n": "Iowa City West",
+  "lat": 41.6085,
+  "lng": -91.544,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Sophia Gustafson"
+ },
+ {
+  "n": "Westridge School",
+  "lat": 38.1983,
+  "lng": -84.9078,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Maggie Woodward"
+ },
+ {
+  "n": "CR North High School",
+  "lat": 39.8265,
+  "lng": -86.2704,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "James Briski"
+ },
+ {
+  "n": "St. Luke's School",
+  "lat": 41.1923,
+  "lng": -73.4965,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Bryce Piotrowski"
+ },
+ {
+  "n": "Southlake Carroll",
+  "lat": 32.9267,
+  "lng": -97.1279,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Anthony Brown"
+ },
+ {
+  "n": "Georgetown Day School",
+  "lat": 38.9522,
+  "lng": -77.0835,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Dawn Pierce"
+ },
+ {
+  "n": "Livermore High School",
+  "lat": 37.6823,
+  "lng": -121.7589,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Mark Cabasino"
+ },
+ {
+  "n": "Windemere Ranch Middle School",
+  "lat": 37.7519,
+  "lng": -121.9068,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Courtney Fradelis"
+ },
+ {
+  "n": "Ocean Grove",
+  "lat": 41.7293,
+  "lng": -71.2092,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Brier Buchalter"
+ },
+ {
+  "n": "San Leandro High School",
+  "lat": 37.7186,
+  "lng": -122.1413,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "AnnMarie Baines"
+ },
+ {
+  "n": "Winston Churchill",
+  "lat": 38.6268,
+  "lng": -121.3513,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "LaDonna Ray"
+ },
+ {
+  "n": "Farmington High School",
+  "lat": 36.0543,
+  "lng": -115.1149,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Rachel Baumann"
+ },
+ {
+  "n": "Unionville",
+  "lat": 40.8183,
+  "lng": -92.696,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Michael Kobeski"
+ },
+ {
+  "n": "Folsom High School",
+  "lat": 38.6472,
+  "lng": -121.1582,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Madeline canty"
+ },
+ {
+  "n": "Piedmont Middle School",
+  "lat": 37.8222,
+  "lng": -122.2345,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Holden Carrillo"
+ },
+ {
+  "n": "Oak Park High School",
+  "lat": 34.1792,
+  "lng": -118.765,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Edna Davoudi"
+ },
+ {
+  "n": "Clovis North High School",
+  "lat": 36.8896,
+  "lng": -119.7329,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Chad Hayden"
+ },
+ {
+  "n": "American Canyon High School",
+  "lat": 38.1669,
+  "lng": -122.2378,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "AnnMarie Baines"
+ },
+ {
+  "n": "Cypress Ranch High School",
+  "lat": 36.2553,
+  "lng": -115.1481,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Ryan Hennessey"
+ },
+ {
+  "n": "Alief Elsik High School",
+  "lat": 29.7091,
+  "lng": -95.6025,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Heath Martin"
+ },
+ {
+  "n": "Walt Whitman",
+  "lat": 36.2082,
+  "lng": -95.9823,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "dilbagh chahal"
+ },
+ {
+  "n": "Homestead HS",
+  "lat": 37.3357,
+  "lng": -122.0483,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Chris McGraw"
+ },
+ {
+  "n": "Fairview HS",
+  "lat": 38.4798,
+  "lng": -82.6735,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kristina Getty"
+ },
+ {
+  "n": "Fort Collins High School",
+  "lat": 40.5414,
+  "lng": -105.0356,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jason Clarke"
+ },
+ {
+  "n": "Northern Valley",
+  "lat": 35.6305,
+  "lng": -117.6694,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Aaron Choi"
+ },
+ {
+  "n": "St. Thomas HS",
+  "lat": 30.5291,
+  "lng": -90.4891,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Daphne O\u2019Sullivan"
+ },
+ {
+  "n": "Apple Valley High School",
+  "lat": 44.7422,
+  "lng": -93.2303,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Chris Theis"
+ },
+ {
+  "n": "Edgewood High School",
+  "lat": 36.1704,
+  "lng": -115.2247,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Emily Benavides"
+ },
+ {
+  "n": "Johns Creek High School",
+  "lat": 34.0226,
+  "lng": -84.193,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Ben Schultz"
+ },
+ {
+  "n": "Canyon",
+  "lat": 43.6436,
+  "lng": -116.7017,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Clark Smith"
+ },
+ {
+  "n": "Thousand Oaks High School",
+  "lat": 34.2111,
+  "lng": -118.8705,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jonathan Bieley"
+ },
+ {
+  "n": "The Overlake School",
+  "lat": 47.6939,
+  "lng": -122.0711,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Robin Monteith"
+ },
+ {
+  "n": "Prosper High School",
+  "lat": 33.2592,
+  "lng": -96.7971,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Hannah Rodriguez"
+ },
+ {
+  "n": "Collierville High School",
+  "lat": 35.0179,
+  "lng": -89.6747,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Jeffrey Robbins"
+ },
+ {
+  "n": "University of Kansas",
+  "lat": 38.9535,
+  "lng": -95.2631,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Chris Palmer"
+ },
+ {
+  "n": "Diamond Bar High School",
+  "lat": 33.9814,
+  "lng": -117.839,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "MiLin Zhu"
+ },
+ {
+  "n": "Willmar",
+  "lat": 45.1219,
+  "lng": -95.0435,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Andrew Tupa"
+ },
+ {
+  "n": "SA Ozone Park",
+  "lat": 40.6768,
+  "lng": -73.8437,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Abram de Bruyn"
+ },
+ {
+  "n": "GE-Elite",
+  "lat": 32.3983,
+  "lng": -106.7473,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Edward Gao"
+ },
+ {
+  "n": "Castro Valley High School",
+  "lat": 37.7051,
+  "lng": -122.0763,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Austin Chan"
+ },
+ {
+  "n": "Capital High School",
+  "lat": 36.0341,
+  "lng": -115.0417,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Brendan Stanton"
+ },
+ {
+  "n": "Highland Park High School",
+  "lat": 32.8494,
+  "lng": -96.8076,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Shawn Tanner"
+ },
+ {
+  "n": "The Awty International School",
+  "lat": 29.7868,
+  "lng": -95.4559,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Cindy Webber"
+ },
+ {
+  "n": "Wayzata",
+  "lat": 44.9708,
+  "lng": -93.5119,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Cody Dorumsgaard"
+ },
+ {
+  "n": "New Trier High School",
+  "lat": 42.0945,
+  "lng": -87.7198,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Aaron Vinson"
+ },
+ {
+  "n": "Davis Senior High School",
+  "lat": 38.5584,
+  "lng": -121.7502,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Benjamin Morris"
+ },
+ {
+  "n": "The Woodlands College Park",
+  "lat": 30.2164,
+  "lng": -95.4492,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Andrew Gibson"
+ },
+ {
+  "n": "Emory University",
+  "lat": 29.721,
+  "lng": -95.4451,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Chris Palmer"
+ },
+ {
+  "n": "Analy High School",
+  "lat": 38.4074,
+  "lng": -122.8247,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Claire V. Ernst"
+ },
+ {
+  "n": "Santiago High School",
+  "lat": 33.7653,
+  "lng": -117.9149,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Lee Graves"
+ },
+ {
+  "n": "San Francisco Day School",
+  "lat": 37.778,
+  "lng": -122.4465,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Jenny Cook"
+ },
+ {
+  "n": "School Without Walls High School",
+  "lat": 38.898,
+  "lng": -77.048,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Avalon Ayres"
+ },
+ {
+  "n": "Chattahoochee High School",
+  "lat": 34.0498,
+  "lng": -84.2085,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Michael Sinco"
+ },
+ {
+  "n": "The Hill School",
+  "lat": 42.2921,
+  "lng": -71.3455,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Nick Malinak"
+ },
+ {
+  "n": "Hendersonville High School",
+  "lat": 36.3029,
+  "lng": -86.6063,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "James Bingaman"
+ },
+ {
+  "n": "INSPIRA",
+  "lat": 26.1077,
+  "lng": -81.7046,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "CHIANLIM WON"
+ },
+ {
+  "n": "Montgomery Blair",
+  "lat": 40.1801,
+  "lng": -75.1213,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Nicholas Losekamp"
+ },
+ {
+  "n": "Carrollwood Day School",
+  "lat": 28.091,
+  "lng": -82.4743,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Allison Flemister"
+ },
+ {
+  "n": "Newsome High School",
+  "lat": 27.8595,
+  "lng": -82.2077,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Natalie Hutchings"
+ },
+ {
+  "n": "West Covina High School",
+  "lat": 34.0628,
+  "lng": -117.9138,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Emily Benavides"
+ },
+ {
+  "n": "Mount Vernon High School",
+  "lat": 36.181,
+  "lng": -115.138,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kelley Kirkpatrick"
+ },
+ {
+  "n": "Mounds Park Academy",
+  "lat": 44.9942,
+  "lng": -93.0138,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Tanner Sunderman"
+ },
+ {
+  "n": "Cherokee Trail High School",
+  "lat": 39.592,
+  "lng": -104.6857,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Jason Wu"
+ },
+ {
+  "n": "Stockdale High School",
+  "lat": 35.3268,
+  "lng": -119.1244,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Crystal Huddleston"
+ },
+ {
+  "n": "Laurel School",
+  "lat": 34.0882,
+  "lng": -118.3633,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Rachel Rothschild"
+ },
+ {
+  "n": "Lincoln-Sudbury Regional HS",
+  "lat": 42.3991,
+  "lng": -71.4002,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "kaylan young"
+ },
+ {
+  "n": "Fort Walton Beach High School",
+  "lat": 30.4105,
+  "lng": -86.6394,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Heidi Ward"
+ },
+ {
+  "n": "Sage Hill School",
+  "lat": 33.6187,
+  "lng": -117.8229,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Rosalyn Foster"
+ },
+ {
+  "n": "Blach Intermediate School",
+  "lat": 37.3639,
+  "lng": -122.0817,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Julie Herman"
+ },
+ {
+  "n": "Oak Ridge",
+  "lat": 37.2004,
+  "lng": -122.055,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hugh Corkery"
+ },
+ {
+  "n": "Rowland Hall",
+  "lat": 33.6445,
+  "lng": -117.8441,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Mike Shackelford"
+ },
+ {
+  "n": "Rise Academy",
+  "lat": 37.5142,
+  "lng": -121.952,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Sughra Zaidi"
+ },
+ {
+  "n": "Foothill High School",
+  "lat": 37.6719,
+  "lng": -121.9172,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Foothill Speech and Debate"
+ },
+ {
+  "n": "North Hollywood High School",
+  "lat": 34.1667,
+  "lng": -118.3898,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jack Stern"
+ },
+ {
+  "n": "Theodore Roosevelt High School",
+  "lat": 40.8595,
+  "lng": -73.8887,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Parker Klyn"
+ },
+ {
+  "n": "University of Michigan",
+  "lat": 38.9378,
+  "lng": -76.9913,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Chris Palmer"
+ },
+ {
+  "n": "Cypress Falls High School",
+  "lat": 36.2555,
+  "lng": -115.1273,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Nancy Alunni"
+ },
+ {
+  "n": "Dripping Springs High School",
+  "lat": 30.1992,
+  "lng": -98.0999,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Davy Holmes"
+ },
+ {
+  "n": "McClintock High School",
+  "lat": 33.3982,
+  "lng": -111.9066,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Timothy Cornwell"
+ },
+ {
+  "n": "Stoneman Douglas High School",
+  "lat": 26.3045,
+  "lng": -80.2695,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Jacob Abraham"
+ },
+ {
+  "n": "Nightingale Bamford",
+  "lat": 40.7848,
+  "lng": -73.9567,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "LE Hartmann"
+ },
+ {
+  "n": "Colleyville Heritage High School",
+  "lat": 32.8878,
+  "lng": -97.1026,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "William Mathison"
+ },
+ {
+  "n": "Baltimore City College",
+  "lat": 39.326,
+  "lng": -76.5968,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Patrick Daniels"
+ },
+ {
+  "n": "West Boca Raton HS",
+  "lat": 43.6239,
+  "lng": -116.2704,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Justin Weaver"
+ },
+ {
+  "n": "Nysmith School",
+  "lat": 38.9248,
+  "lng": -77.4208,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Maria-Theresa Dragg"
+ },
+ {
+  "n": "McDonogh",
+  "lat": 39.3992,
+  "lng": -76.7594,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Daryl Burch"
+ },
+ {
+  "n": "Bishop Amat Memorial High School",
+  "lat": 34.0545,
+  "lng": -117.964,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Cris Vega"
+ },
+ {
+  "n": "Santa Rosa High School",
+  "lat": 38.4519,
+  "lng": -122.72,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Casey Elsa"
+ },
+ {
+  "n": "Alice Deal",
+  "lat": 38.9541,
+  "lng": -77.0754,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Tim Stroud"
+ },
+ {
+  "n": "Adlai E. Stevenson High School",
+  "lat": 42.2017,
+  "lng": -87.9454,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Kaitlyn Remian"
+ },
+ {
+  "n": "Cypress Springs High School",
+  "lat": 29.8924,
+  "lng": -95.7214,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Rebekah Wyche"
+ },
+ {
+  "n": "Bixby High School",
+  "lat": 35.9379,
+  "lng": -95.8819,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Wyatt Freeman"
+ },
+ {
+  "n": "Jenks High School",
+  "lat": 41.8761,
+  "lng": -71.3707,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Betty Stanton"
+ },
+ {
+  "n": "Concord Carlisle High School",
+  "lat": 42.4486,
+  "lng": -71.3475,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Agnes Han"
+ },
+ {
+  "n": "Olentangy High School",
+  "lat": 40.2039,
+  "lng": -83.0202,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Morgan Korinek"
+ },
+ {
+  "n": "La Canada High School",
+  "lat": 34.1923,
+  "lng": -118.1798,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Matthew Sullivan"
+ },
+ {
+  "n": "Brentwood School",
+  "lat": 33.5157,
+  "lng": -117.162,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Katie Raphaelson"
+ },
+ {
+  "n": "Pacific Collegiate School",
+  "lat": 36.9604,
+  "lng": -122.0596,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Nirshan Perera"
+ },
+ {
+  "n": "William Fremd High School",
+  "lat": 42.0941,
+  "lng": -88.0656,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ronak Roy"
+ },
+ {
+  "n": "Collegiate School",
+  "lat": 37.3699,
+  "lng": -121.8595,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Teja Vepa"
+ },
+ {
+  "n": "Russellville High School",
+  "lat": 34.5251,
+  "lng": -87.7395,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": ""
+ },
+ {
+  "n": "Caddo Magnet High School",
+  "lat": 32.4969,
+  "lng": -93.7194,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Kasi McCartney"
+ },
+ {
+  "n": "UT Tyler",
+  "lat": 32.3112,
+  "lng": -95.2401,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Joe Provencher"
+ },
+ {
+  "n": "New Roads School",
+  "lat": 34.0315,
+  "lng": -118.4621,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Sumeer Benawra"
+ },
+ {
+  "n": "Vanguard Independent",
+  "lat": 40.6838,
+  "lng": -73.9438,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Vanguard Institute"
+ },
+ {
+  "n": "Khan Lab School",
+  "lat": 37.3965,
+  "lng": -122.084,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ansh Thakkar"
+ },
+ {
+  "n": "Pinole Valley High School",
+  "lat": 37.991,
+  "lng": -122.2866,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Michele Lamons-Raiford"
+ },
+ {
+  "n": "Wheatley",
+  "lat": 44.9877,
+  "lng": -93.2958,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Ayan Mahajan"
+ },
+ {
+  "n": "Elkins High School",
+  "lat": 40.072,
+  "lng": -75.1254,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Bonnie Bonnette"
+ },
+ {
+  "n": "Palo Verde High School",
+  "lat": 33.6209,
+  "lng": -114.6073,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Shiela Berselli"
+ },
+ {
+  "n": "City Honors",
+  "lat": 33.9637,
+  "lng": -118.3563,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jacob Brace"
+ },
+ {
+  "n": "Park Vista",
+  "lat": 33.6863,
+  "lng": -117.7975,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Carter Nelson"
+ },
+ {
+  "n": "Cherry Hill High School East",
+  "lat": 39.8765,
+  "lng": -74.964,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Heather Vaughn"
+ },
+ {
+  "n": "Franklin Academy",
+  "lat": 41.4402,
+  "lng": -72.4331,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Cindy Ding"
+ },
+ {
+  "n": "St Mary's",
+  "lat": 39.1391,
+  "lng": -123.21,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Molly Bruins"
+ },
+ {
+  "n": "Rock Hill HS",
+  "lat": 31.4471,
+  "lng": -92.571,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Hunter Parrish"
+ },
+ {
+  "n": "University of the Pacific",
+  "lat": 37.9804,
+  "lng": -121.3128,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Steven Farias"
+ },
+ {
+  "n": "Rice University",
+  "lat": 29.7168,
+  "lng": -95.4048,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "David Worth"
+ },
+ {
+  "n": "Dartmouth College",
+  "lat": 43.7034,
+  "lng": -72.2886,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Chris Palmer"
+ },
+ {
+  "n": "Hackley School",
+  "lat": 41.0704,
+  "lng": -73.8426,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Stephen Fitzpatrick"
+ },
+ {
+  "n": "Melissa High School",
+  "lat": 36.1854,
+  "lng": -115.1082,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Brenden Dimmig"
+ },
+ {
+  "n": "Chaminade College Prep",
+  "lat": 38.6494,
+  "lng": -90.4075,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Andrew Phillips"
+ },
+ {
+  "n": "Dassel Cokato High School",
+  "lat": 45.0831,
+  "lng": -94.2342,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Beth Steinleitner"
+ },
+ {
+  "n": "John I Leonard High School",
+  "lat": 26.6315,
+  "lng": -80.118,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Quentin Scruggs"
+ },
+ {
+  "n": "Cardinal Gibbons",
+  "lat": 38.9314,
+  "lng": -77.0362,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Luiz Bravim"
+ },
+ {
+  "n": "Columbia Heights",
+  "lat": 45.046,
+  "lng": -93.2518,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Nicholas Hollermann"
+ },
+ {
+  "n": "Fort Lauderdale High School",
+  "lat": 26.1493,
+  "lng": -80.1391,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Arthur Kulawik"
+ },
+ {
+  "n": "Southern Lehigh",
+  "lat": 40.5345,
+  "lng": -75.3989,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "David Long"
+ },
+ {
+  "n": "Convent of the Sacred Heart, NYC",
+  "lat": 40.7848,
+  "lng": -73.9577,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Tali Balas"
+ },
+ {
+  "n": "Northwood High School",
+  "lat": 33.7324,
+  "lng": -117.7511,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Sarah Riggan"
+ },
+ {
+  "n": "California High School",
+  "lat": 37.7478,
+  "lng": -121.9457,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ayush Talapatra"
+ },
+ {
+  "n": "Viewpoint",
+  "lat": 37.6493,
+  "lng": -118.9813,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jordyn Kuehn"
+ },
+ {
+  "n": "Whitman College",
+  "lat": 46.0706,
+  "lng": -118.3303,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Lauran Schaefer"
+ },
+ {
+  "n": "Crescenta Valley High School",
+  "lat": 34.2226,
+  "lng": -118.2431,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Lauren Lee"
+ },
+ {
+  "n": "Granada High School",
+  "lat": 37.6751,
+  "lng": -121.788,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Susan Jorgensen"
+ },
+ {
+  "n": "Hendrickson High School",
+  "lat": 30.4549,
+  "lng": -97.5486,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Vada Janak"
+ },
+ {
+  "n": "Freehold Township",
+  "lat": 40.2161,
+  "lng": -74.2839,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Anthony Verdoni"
+ },
+ {
+  "n": "Henry County High School",
+  "lat": 36.2965,
+  "lng": -88.2948,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "David Weatherly"
+ },
+ {
+  "n": "Townsend Harris High School",
+  "lat": 40.735,
+  "lng": -73.8213,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Chaminda Medage"
+ },
+ {
+  "n": "SA Bronx",
+  "lat": 32.7975,
+  "lng": -117.1278,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Christopher Bartee"
+ },
+ {
+  "n": "Westborough High School",
+  "lat": 42.2616,
+  "lng": -71.6159,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Karun Chinthapatla"
+ },
+ {
+  "n": "Lake Mary High School",
+  "lat": 28.7364,
+  "lng": -81.3362,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Shawn Crisp"
+ },
+ {
+  "n": "Nova Institute",
+  "lat": 40.3353,
+  "lng": -74.6654,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Mora Jiang"
+ },
+ {
+  "n": "Strath Haven",
+  "lat": 39.8953,
+  "lng": -75.3719,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Jeffrey Kahn"
+ },
+ {
+  "n": "Catholic Memorial School",
+  "lat": 42.2781,
+  "lng": -71.1657,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Anthony Cavet"
+ },
+ {
+  "n": "Madison Central HS",
+  "lat": 37.7559,
+  "lng": -84.2897,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Rachel Clapper-Davis"
+ },
+ {
+  "n": "The Altamont School",
+  "lat": 33.5127,
+  "lng": -86.758,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jim Sydnor"
+ },
+ {
+  "n": "Pine Creek High School",
+  "lat": 36.2921,
+  "lng": -115.294,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Daniel Jeppson"
+ },
+ {
+  "n": "Dublin High School",
+  "lat": 37.7208,
+  "lng": -121.9239,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Nathaniel Grim"
+ },
+ {
+  "n": "Greene",
+  "lat": 37.44,
+  "lng": -122.1329,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kyle Hietala"
+ },
+ {
+  "n": "McKendree",
+  "lat": 37.8879,
+  "lng": -81.0634,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Brent Nicholson"
+ },
+ {
+  "n": "Mercer University",
+  "lat": 32.8289,
+  "lng": -83.6507,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Vasile Stanescu"
+ },
+ {
+  "n": "Michigan State University",
+  "lat": 42.7024,
+  "lng": -84.4804,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Chris Palmer"
+ },
+ {
+  "n": "El Roble Intermediate",
+  "lat": 34.0997,
+  "lng": -117.7306,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Dave Chamberlain"
+ },
+ {
+  "n": "The Avery Coonley School",
+  "lat": 41.7881,
+  "lng": -88.0199,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Eric Youngquist"
+ },
+ {
+  "n": "New Horizons",
+  "lat": 33.3581,
+  "lng": -111.8499,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Arturo Feliz-Camilo"
+ },
+ {
+  "n": "Packer Collegiate Institute",
+  "lat": 40.6924,
+  "lng": -73.9926,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Varun Kota"
+ },
+ {
+  "n": "Brother Rice High School",
+  "lat": 41.7116,
+  "lng": -87.7189,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Paul Belanger"
+ },
+ {
+  "n": "LAMP HS",
+  "lat": 41.9345,
+  "lng": -70.7266,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Jordan Berry"
+ },
+ {
+  "n": "Pennsbury High School",
+  "lat": 40.1736,
+  "lng": -74.8364,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Leslie Ferrari"
+ },
+ {
+  "n": "Robbinsdale Area Schools",
+  "lat": 45.0311,
+  "lng": -93.3792,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "DJ Brynteson"
+ },
+ {
+  "n": "New York State Independent",
+  "lat": 42.6477,
+  "lng": -73.7085,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Avi Sawhney"
+ },
+ {
+  "n": "Tulsa Washington",
+  "lat": 36.0551,
+  "lng": -94.2046,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Micah Cash"
+ },
+ {
+  "n": "The King's Academy",
+  "lat": 37.3866,
+  "lng": -122.0113,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Edwin Lin"
+ },
+ {
+  "n": "Riverside Independent",
+  "lat": 33.7813,
+  "lng": -116.4305,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kurt Huang"
+ },
+ {
+  "n": "Egan Junior High School",
+  "lat": 37.3957,
+  "lng": -122.1164,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Julie Herman"
+ },
+ {
+  "n": "Texas",
+  "lat": 33.3021,
+  "lng": -96.2625,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Courtney Coffman"
+ },
+ {
+  "n": "Silver Creek High School",
+  "lat": 37.3043,
+  "lng": -121.8056,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Mariam Ahmed"
+ },
+ {
+  "n": "David Thibodaux STEM Magnet Academy",
+  "lat": 30.2483,
+  "lng": -91.9911,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Jacob Leger"
+ },
+ {
+  "n": "Oxford HS",
+  "lat": 33.611,
+  "lng": -85.831,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Chelsea Walters"
+ },
+ {
+  "n": "Elko High School",
+  "lat": 36.0527,
+  "lng": -115.1031,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Meggan Voth"
+ }
+]);
