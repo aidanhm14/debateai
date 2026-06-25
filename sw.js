@@ -2,7 +2,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v1255';
+const CACHE_NAME = 'debateos-v1256';
 
 
 
