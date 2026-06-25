@@ -5597,46 +5597,62 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      so it doesn't steal real estate on mobile. -->
 <style>
   html{scroll-behavior:smooth}
-  /* Calm, text-only table of contents (2026-06-15 rev3). No card, no
-     spine, no highlight pills, and no active-state emphasis either — just
-     a quiet column of Title-Case links, every one identical at rest, that
-     recedes (~.5 opacity) and comes gently forward only on hover/focus.
-     The current section is NOT singled out (Aidan: no highlights). The
-     !important here, plus the neutralized per-theme overrides further up,
-     keep it airy on every theme (the light theme used to win with a white
-     card). The scroll handler below slides it away as you read down. */
+  /* Calm table of contents with a clear active marker (2026-06-24 rev4).
+     Still no card, no spine, no pills, no background — it stays an airy
+     text rail that recedes at rest and comes forward on hover. What changed:
+     it now SINGLES OUT the section you're reading. Non-active links sit
+     quiet (ghost ink); the active link gets full ink + weight + a small
+     accent dot in the left gutter, so the rail reads as a real table of
+     contents that tracks you down the page. The left gutter is reserved on
+     every link so the labels don't shift when the dot appears. */
   .landing-jumpnav{
-    position:fixed;left:28px;top:50%;transform:translateY(-50%);z-index:20;
-    display:flex;flex-direction:column;gap:2px;
+    position:fixed;left:26px;top:50%;transform:translateY(-50%);z-index:20;
+    display:flex;flex-direction:column;gap:1px;
     padding:2px 0;
     background:none !important;border:none !important;box-shadow:none !important;
-    opacity:.5;transition:opacity .45s ease, transform .45s ease;
+    opacity:.62;transition:opacity .45s ease, transform .45s ease;
   }
   .landing-jumpnav::before{display:none !important;content:none !important;}
   .landing-jumpnav:hover,.landing-jumpnav:focus-within{opacity:1}
   .landing-jumpnav a{
-    display:block;padding:4px 2px;
-    font-size:.78rem;font-weight:400;letter-spacing:.015em;text-transform:none;
-    line-height:1.35;
-    color:var(--text-dim);text-decoration:none;
+    position:relative;display:block;
+    padding:3px 2px 3px 16px;   /* 16px left gutter holds the active dot */
+    font-size:.76rem;font-weight:450;letter-spacing:.01em;text-transform:none;
+    line-height:1.32;
+    color:var(--text-ghost);text-decoration:none;
     background:none !important;border-radius:0;
-    transition:color .25s ease, opacity .25s ease, letter-spacing .25s ease;
+    transition:color .22s ease, letter-spacing .22s ease;
     white-space:nowrap;
   }
-  .landing-jumpnav a:hover{color:var(--text) !important;background:none !important;letter-spacing:.03em}
-  /* Active section gets no special treatment — same muted ink + weight as
-     every other link. The scroll-spy still tags it; it just looks identical. */
-  .landing-jumpnav a.is-active{color:var(--text-dim) !important;font-weight:400;background:none !important}
-  .landing-jumpnav a.donate{color:var(--text-dim) !important;background:none !important}
+  /* Active-section dot. Lives in the reserved left gutter; scaled to 0 at
+     rest so only the current link shows it. */
+  .landing-jumpnav a::before{
+    content:'';position:absolute;left:2px;top:50%;
+    width:5px;height:5px;border-radius:50%;
+    background:var(--accent);
+    transform:translateY(-50%) scale(0);
+    transition:transform .22s ease;
+  }
+  .landing-jumpnav a:hover{color:var(--text) !important;letter-spacing:.025em}
+  /* Active section: full ink, heavier weight, accent dot visible. */
+  .landing-jumpnav a.is-active{color:var(--text) !important;font-weight:650;background:none !important}
+  .landing-jumpnav a.is-active::before{transform:translateY(-50%) scale(1)}
+  /* Donate stays the quietest item even when not active. */
+  .landing-jumpnav a.donate{color:var(--text-ghost) !important;background:none !important}
+  .landing-jumpnav a.donate:hover{color:var(--text-dim) !important}
   /* Hidden state: fade + slide left + ignore pointer events so it doesn't
      intercept clicks on the content underneath when invisible. */
   .landing-jumpnav.is-hidden{opacity:0;transform:translate(-24px,-50%);pointer-events:none}
+  @media (prefers-reduced-motion:reduce){
+    .landing-jumpnav,.landing-jumpnav a,.landing-jumpnav a::before{transition:none}
+  }
   /* Hide breakpoint bumped 1100 -> 1300 (2026-06-15): the content column
      caps at 1320px and centers, so below ~1300px viewport there's no real
      gutter for the rail to live in -- even calm text labels can encroach
      on the leftmost hero content. Above 1300, the gutter has ~40px+ to
-     spare. The shared topbar carries full nav below this width, so
-     nothing's lost by hiding the rail there. */
+     spare. The shared topbar carries full nav below this width, so the rail
+     is a pure desktop reading aid and nothing's lost by hiding it (well
+     above the ~900px the task floor asks for). */
   @media(max-width:1300px){.landing-jumpnav{display:none}}
 </style>
 <script>
@@ -5681,7 +5697,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         var id = a.getAttribute('href').slice(1);
         if (!id) return;
         var sec = document.getElementById(id);
-        if (sec){ links.push(a); targets.push(sec); }
+        // Skip deprecated/hidden sections (landing keeps retired hero arms
+        // behind display:none — e.g. #debate-ai). A display:none element has
+        // offsetParent===null and collapses to the y-position of whatever
+        // follows it, which used to tie with #faq and steal the active state
+        // ("Voice AI" stuck on as you scrolled). Only spy on real, laid-out
+        // sections so the active marker tracks the section you can actually see.
+        if (sec && sec.offsetParent !== null && sec.getClientRects().length){
+          links.push(a); targets.push(sec);
+        }
       });
       return links.length > 0;
     }
@@ -5698,10 +5722,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       }
       sticking = false;
     }
+    // Update the active link directly on scroll (spy() is a handful of
+    // getBoundingClientRect reads, only flips a class when the section
+    // changes). The trailing rAF still coalesces bursts where available,
+    // but the direct call means the active marker keeps tracking even when
+    // requestAnimationFrame is throttled to zero (backgrounded tabs, some
+    // in-app WebViews) — which used to freeze the indicator on one section.
     window.addEventListener('scroll', function(){
+      spy();
       if (!sticking){ requestAnimationFrame(spy); sticking = true; }
     }, { passive: true });
     window.addEventListener('load', spy);
+    window.addEventListener('resize', spy, { passive: true });
   })();
 </script>
 <nav class="landing-jumpnav" aria-label="Jump to section">
@@ -8571,11 +8603,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   function goTo(i){
     i=Math.max(0,Math.min(cards.length-1,i));
     var c=cards[i];
-    var left=Math.max(0,c.offsetLeft-(stack.clientWidth-c.clientWidth)/2);
+    // Start-aligned settle: land the card's left edge at the carousel's
+    // scroll-padding-left line so the JS swipe matches the CSS
+    // scroll-snap-align:start + the next card peeks on the right. (Was
+    // center-aligned; the first card couldn't center, so its peek was tiny.)
+    var pad=parseFloat(getComputedStyle(stack).scrollPaddingLeft)||0;
+    var left=Math.max(0,c.offsetLeft-pad);
     animateScrollLeft(left);
   }
+  // Dot sync on scroll. sync() is O(cards) + only touches the DOM when the
+  // active index actually changes (setActive early-returns otherwise), so
+  // running it directly on every scroll event is cheap AND robust: it no
+  // longer depends on requestAnimationFrame firing, which is throttled to
+  // zero in backgrounded tabs and some in-app WebViews (where the old
+  // rAF-gated path left the dots frozen on card 1 even as the user swiped).
+  // A trailing rAF still coalesces bursts where rAF is available.
   var raf;
   stack.addEventListener('scroll',function(){
+    sync();
     if(raf) return;
     raf=requestAnimationFrame(function(){raf=0;sync();});
   },{passive:true});
@@ -9158,29 +9203,40 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .card-4{grid-area:2 / 3}
   }
 
-  /* Mobile: horizontal swipe carousel */
+  /* Mobile: one-card-per-view horizontal carousel.
+     2026-06-24: cards narrowed to 82vw so the NEXT card peeks ~10% at the
+     right edge — the universal "swipe for more" tell that was missing when
+     each card filled ~88vw and the neighbour sat fully off-screen.
+     scroll-padding-left insets each start-aligned card so it snaps a touch in
+     from the edge and the next card peeks on the right. */
   @media (max-width:767px){
-    .review{padding:48px 18px 64px}
+    .review{padding:48px 14px 60px}
     .testimonial-stack{
       display:flex;gap:14px;
       overflow-x:auto;
       overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
-      padding:4px 4px 14px;scrollbar-width:thin;
-      /* 2026-06-23: JS owns the horizontal swipe again. The 2026-06-16
-         "native scroll-snap" attempt (touch-action:auto) didn't hold up on
-         real phones / in-app browsers — the recurring "reviews won't swipe"
-         bug. touch-action:pan-y hands VERTICAL gestures to the page (native)
-         and HORIZONTAL gestures to the JS touch handler below, which drives
-         scrollLeft directly and settles on the nearest card on release.
-         scroll-snap-type:none so native snap never fights the JS drag. */
-      scroll-snap-type:none;
+      /* left padding 16px so every start-aligned card snaps a touch in from
+         the edge; right padding 18vw so the LAST card still has room to snap
+         to start (track end clears the gutter). */
+      padding:4px 18vw 16px 16px;scrollbar-width:thin;
+      scroll-padding-left:16px;
+      /* 2026-06-24: native CSS scroll-snap re-enabled as PROXIMITY (not
+         mandatory). Proximity gives a clean settle on phones that honour it
+         without aggressively yanking the carousel mid-drag, so it coexists
+         with the JS touch handler below (which drives scrollLeft directly
+         and calls goTo() on release for the in-app-browser / WebView path
+         where native snap silently no-ops). Belt and suspenders: whichever
+         path the device supports, the carousel lands on a card.
+         touch-action:pan-y still hands VERTICAL gestures to the page so the
+         page scrolls normally and only horizontal drags move the carousel. */
+      scroll-snap-type:x proximity;
       touch-action:pan-y;cursor:grab;
     }
     .testimonial-stack::-webkit-scrollbar{height:5px}
     .testimonial-stack::-webkit-scrollbar-thumb{background:rgba(127,127,127,.22);border-radius:99px}
-    .testimonial-card{flex:0 0 88vw;scroll-snap-align:center}
+    .testimonial-card{flex:0 0 82vw;scroll-snap-align:start;scroll-snap-stop:always}
     .review-chip{white-space:normal}
-    .review-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px}
+    .review-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px}
   }
 
   .review-swipe-hint{
@@ -13588,6 +13644,76 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      duplicate that also added ~250 lines of CSS for cards that
      stopped earning the screen space they took. -->
 
+
+<!-- 2026-06-24: compact reviews echo. The full testimonial carousel lives
+     high up (#reviews "Four circuits. Same verdict."); this is a lighter
+     second touchpoint right before the footer so a reader who scrolled the
+     whole page meets social proof again on the way out. Sentences are
+     verbatim slices of the same three quotes (mirrored in the Review JSON-LD
+     in <head>) — selected, not reworded. Uses .sec/.wrap + theme tokens so
+     it inherits the page palette on every theme. -->
+<section class="sec review-echo" aria-label="More from competitive debaters">
+  <div class="wrap">
+    <p class="sec-label">Still here? So are they.</p>
+    <div class="review-echo-grid">
+      <figure class="review-echo-card">
+        <blockquote>The real gap between circuits isn't talent, it's access to quality practice.</blockquote>
+        <figcaption>
+          <span class="re-name">Mukudzeiishe Madzivire</span>
+          <span class="re-role">Captain, Zimbabwe World Schools Team</span>
+        </figcaption>
+      </figure>
+      <figure class="review-echo-card">
+        <blockquote>DebateIt represents the future of enlightened debate.</blockquote>
+        <figcaption>
+          <span class="re-name">2025 Public Forum National Champion</span>
+          <span class="re-role">NSDA Nationals</span>
+        </figcaption>
+      </figure>
+      <figure class="review-echo-card">
+        <blockquote>In a world where we can outsource our thinking to AI, we need more tools to keep us sharp.</blockquote>
+        <figcaption>
+          <span class="re-name">Pratyush Sharma</span>
+          <span class="re-role">Debater, University of Chicago</span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+<style>
+  /* Compact reviews echo — lighter than the main diagonal stack. A tight
+     row of three short verbatim pulls; collapses to one column on phones. */
+  .review-echo{padding:56px 0 44px}
+  .review-echo .sec-label{text-align:center}
+  .review-echo-grid{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;
+    margin-top:22px;
+  }
+  .review-echo-card{
+    margin:0;padding:20px 22px;
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .review-echo-card blockquote{
+    margin:0;
+    font-family:'Crimson Pro','Fraunces',Georgia,serif;
+    font-size:1.02rem;line-height:1.4;font-weight:600;
+    color:var(--text);letter-spacing:-.01em;
+  }
+  .review-echo-card blockquote::before{content:"\201C";color:var(--accent);margin-right:1px}
+  .review-echo-card blockquote::after{content:"\201D";color:var(--accent);margin-left:1px}
+  .review-echo-card figcaption{display:flex;flex-direction:column;gap:3px;margin-top:auto}
+  .review-echo-card .re-name{font-size:.82rem;font-weight:700;color:var(--text)}
+  .review-echo-card .re-role{font-size:.72rem;color:var(--text-dim);letter-spacing:.01em}
+  @media (max-width:760px){
+    .review-echo{padding:40px 0 32px}
+    .review-echo-grid{grid-template-columns:1fr;gap:12px;margin-top:18px}
+    .review-echo-card{padding:18px 20px}
+    .review-echo-card blockquote{font-size:.98rem}
+  }
+</style>
 
 <!-- Footer -->
 <footer class="footer">
