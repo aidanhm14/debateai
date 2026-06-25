@@ -351,6 +351,10 @@
   .loader-txt{font-family:var(--mono);font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim)}
 
   /* leaflet popup -> we use our own card, suppress default popups */
+  .card-contact{margin:6px 0 2px}
+  .card-contact .cc-meta{font-size:12.5px;opacity:.85}
+  .cc-compose{display:inline-block;margin-top:8px;padding:7px 14px;background:#15794a;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:12px}
+  .cc-compose:hover{background:#0f5c38}
   .leaflet-popup{display:none}
 
   /* ── Mobile ─────────────────────────────────────────────── */
@@ -541,6 +545,7 @@
   <div class="nm" id="card-nm"></div>
   <div class="loc" id="card-loc"></div>
   <div class="card-extra" id="card-extra"></div>
+  <div class="card-contact" id="card-contact" hidden></div>
   <div class="badges" id="card-badges"></div>
   <div id="card-stage-wrap">
     <div class="stagelab">Outreach stage</div>
@@ -595,6 +600,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/js/atlas-world.js"></script>
 <script src="/js/atlas-data.js"></script>
+<script src="/js/atlas-contacts.js"></script>
 <script>
 /* ============================================================
    THE DEBATE ATLAS — data + map
@@ -1331,6 +1337,21 @@ function openCard(d){
   else { ex.style.display='';
     var strength=d.tier===1?'Flagship program':d.tier===2?'Strong competitor':'Notable program';
     var n=countryTotal(d.country); ex.textContent=strength+' · '+n+' program'+(n===1?'':'s')+' in '+(d.country||'region'); }
+  (function(){
+    var cw=document.getElementById('card-contact');
+    var info=(!isTour&&!isComm&&!isMem&&window.ATLAS_CONTACTS)?window.ATLAS_CONTACTS[(d.n||'').toLowerCase().replace(/[^a-z0-9]/g,'')]:null;
+    if(!info){ cw.hidden=true; cw.innerHTML=''; return; }
+    var bits=[];
+    if(info.d) bits.push('<b>'+info.d+'</b> debaters');
+    if(info.c) bits.push('coach '+info.c);
+    var html=bits.length?'<div class="cc-meta">'+bits.join(' \u00b7 ')+'</div>':'';
+    if(info.e){
+      var su=encodeURIComponent("A free practice tool for "+d.n+"'s debaters");
+      var bo=encodeURIComponent("Hi,\n\nI run DebateIt (debateit.com), a voice-first practice tool for competitive debaters. Your debaters pick a motion, take a side, run a full timed round out loud, then get a judge ballot. Free during beta. Would it be useful for "+d.n+"'s team to drill on between tournaments?\n\nAidan");
+      html+='<a class="cc-compose" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(info.e)+'&su='+su+'&body='+bo+'">Compose to '+info.e+' \u2192</a>';
+    }
+    cw.innerHTML=html; cw.hidden=false;
+  })();
   document.getElementById('card-stage-wrap').hidden=(isTour||isComm||isMem);
   var cc=document.getElementById('card-comm'); cc.hidden=!(isComm||isMem);
   if(isComm||isMem){
