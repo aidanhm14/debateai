@@ -182,17 +182,75 @@
     .board{grid-template-columns:1fr}
     .tabs{top:55px}
   }
+
+  /* ---- light theme ---- */
+  [data-theme="light"]{
+    --bg:#fafaf7; --bg2:#f0efe9; --card:#ffffff; --card2:#f6f5ef;
+    --border:rgba(0,0,0,.10); --border2:rgba(0,0,0,.17);
+    --text:#1a1a1f; --dim:rgba(0,0,0,.66); --ghost:rgba(0,0,0,.44);
+    --accent:#dc2626; --accent2:#b91c1c; --accentGlow:rgba(220,38,38,.10);
+    --win:#15803d; --winBg:rgba(22,163,74,.13);
+    --gold:#c2410c;
+  }
+  [data-theme="light"] body{background:radial-gradient(1100px 600px at 80% -8%, rgba(220,38,38,.06), transparent 60%), var(--bg)}
+  [data-theme="light"] .top{background:rgba(250,250,247,.85)}
+  [data-theme="light"] .toast{box-shadow:0 12px 40px -14px rgba(0,0,0,.2)}
+  [data-theme="light"] .float-card{box-shadow:0 10px 30px -14px rgba(0,0,0,.22)}
+
+  /* ---- header icon buttons ---- */
+  .icon-btn{appearance:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--dim);font-size:1rem;line-height:1;transition:.14s}
+  .icon-btn:hover{color:var(--text);border-color:var(--border2)}
+  .help-btn{width:auto;padding:0 13px;gap:6px;font-size:.76rem;font-weight:800}
+  @media (max-width:560px){ .help-btn{display:none} }
+
+  /* ---- hero floating round motifs ---- */
+  .hero{position:relative;overflow:hidden}
+  @media (min-width:900px){ .hero{min-height:236px} }
+  .hero-deco{position:absolute;inset:0;pointer-events:none;z-index:0}
+  .hero > *{position:relative;z-index:1}
+  .hero h1{max-width:760px}
+  .float-card{position:absolute;border:1px solid var(--border2);background:var(--card);border-radius:12px;padding:9px 12px;opacity:.5;box-shadow:0 10px 34px -14px rgba(0,0,0,.5);animation:floaty 9s ease-in-out infinite;will-change:transform}
+  .float-card .fc-fmt{font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  .float-card .fc-vs{font-size:.74rem;font-weight:700;color:var(--text);margin-top:3px;white-space:nowrap}
+  .float-card .fc-tag{font-size:.6rem;font-weight:700;color:var(--win);margin-top:4px}
+  .float-card .fc-tag.split{color:var(--gold)}
+  @keyframes floaty{0%,100%{transform:translateY(0) rotate(var(--rot,0deg))}50%{transform:translateY(-13px) rotate(var(--rot,0deg))}}
+  @media (max-width:1080px){ .hero-deco{display:none} }
+  @media (prefers-reduced-motion:reduce){ .float-card{animation:none} }
+
+  /* ---- tutorial overlay ---- */
+  .tut-overlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.66);backdrop-filter:blur(4px)}
+  .tut-overlay.on{display:flex;animation:fade .2s ease}
+  .tut{max-width:440px;width:100%;border:1px solid var(--border2);background:var(--card);border-radius:18px;padding:24px 24px 20px;box-shadow:0 30px 90px -20px rgba(0,0,0,.6)}
+  .tut-ico{font-size:1.8rem;line-height:1}
+  .tut h3{font-family:var(--serif);font-weight:800;font-size:1.45rem;margin:12px 0 7px;color:var(--text)}
+  .tut p{font-size:.94rem;line-height:1.56;color:var(--dim);margin:0}
+  .tut-dots{display:flex;gap:6px;margin:18px 0 4px}
+  .tut-dots i{width:7px;height:7px;border-radius:50%;background:var(--border2);transition:.2s}
+  .tut-dots i.on{background:var(--accent);width:18px;border-radius:4px}
+  .tut-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}
+  .tut-skip{appearance:none;background:none;border:0;color:var(--ghost);font-weight:700;font-size:.82rem;cursor:pointer}
+  .tut-grp{display:flex;gap:8px}
+  .tut-back{appearance:none;border:1px solid var(--border);background:var(--card2);color:var(--dim);font-weight:700;font-size:.82rem;padding:9px 15px;border-radius:9px}
+  .tut-next{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:.88rem;padding:10px 22px;border-radius:9px}
 </style>
 </head>
 <body>
 <header class="top">
   <a class="brand" href="/landing.html"><b>Debate</b><span class="it">It</span><span class="sep"></span><span class="floor">The Floor</span></a>
   <div class="spacer"></div>
+  <button class="icon-btn help-btn" id="helpBtn" title="How The Floor works">? How it works</button>
   <span class="streak" title="Predict once a day to keep your streak">🔥 <b id="streakN">0</b> day sharp</span>
   <span class="bal"><span class="c">Credits</span><span id="balN">0</span><span class="delta" id="balDelta"></span></span>
+  <button class="icon-btn" id="themeBtn" title="Toggle light or dark" aria-label="Toggle theme">☀</button>
 </header>
 
 <div class="hero">
+  <div class="hero-deco" aria-hidden="true">
+    <div class="float-card" style="top:10px;right:8px;--rot:4deg;animation-delay:0s"><div class="fc-fmt">BP · resolved</div><div class="fc-vs">The Surgeon def. The Closer</div><div class="fc-tag">⚖ judge + crowd agreed</div></div>
+    <div class="float-card" style="top:106px;right:138px;--rot:-5deg;animation-delay:1.1s"><div class="fc-fmt">PF · live</div><div class="fc-vs">Priya S. vs Dev K.</div><div class="fc-tag" style="color:var(--accent)">● 240 cr in the pool</div></div>
+    <div class="float-card" style="top:194px;right:20px;--rot:3deg;animation-delay:2.3s"><div class="fc-fmt">APDA · resolved</div><div class="fc-vs">The Veteran vs The Upstart</div><div class="fc-tag split">⚡ split verdict</div></div>
+  </div>
   <h1>Watch the round. <span class="accent">Call the winner.</span> Climb the board.</h1>
   <p>The Floor turns every debate into a market. Read the debaters, back a side across three windows, and the AI judge settles when the round ends. The crowd votes too, and when they disagree, that is the whole show.</p>
   <span class="pmark"><span class="dot"></span>Play credits only. No cash, no buy-ins. Status is the prize.</span>
@@ -234,6 +292,22 @@
 
 <div class="foot">
   <b>The Floor · Phase 0.</b> Play-money prototype. Markets run on accelerated windows so you can see the full loop in under two minutes. The ledger is transaction-based and settlement is idempotent, so this design ports to a server-authoritative model unchanged. Real-money is a separate, age-gated, counsel-approved phase that is not built here.
+</div>
+
+<div class="tut-overlay" id="tutOverlay" role="dialog" aria-modal="true" aria-label="How The Floor works">
+  <div class="tut">
+    <div class="tut-ico" id="tutIco">🎯</div>
+    <h3 id="tutTitle"></h3>
+    <p id="tutBody"></p>
+    <div class="tut-dots" id="tutDots"></div>
+    <div class="tut-row">
+      <button class="tut-skip" id="tutSkip">Skip</button>
+      <div class="tut-grp">
+        <button class="tut-back" id="tutBack">Back</button>
+        <button class="tut-next" id="tutNext">Next</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="toasts" id="toasts"></div>
@@ -761,6 +835,49 @@
     $('toasts').appendChild(t);
     setTimeout(function(){ t.style.transition='opacity .3s,transform .3s'; t.style.opacity='0'; t.style.transform='translateX(20px)'; setTimeout(function(){ t.remove(); }, 320); }, 3600);
   }
+
+  // ---------------------------------------------------------------
+  // THEME (light / dark)
+  // ---------------------------------------------------------------
+  var THEME_KEY='floor-theme';
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+    var b=$('themeBtn'); if(b) b.textContent = (t==='light') ? '☾' : '☀';
+  }
+  (function(){ var t='dark'; try{ t=localStorage.getItem(THEME_KEY)||'dark'; }catch(e){} applyTheme(t); })();
+  $('themeBtn').addEventListener('click', function(){
+    var cur=document.documentElement.getAttribute('data-theme');
+    applyTheme(cur==='light' ? 'dark' : 'light');
+  });
+
+  // ---------------------------------------------------------------
+  // TUTORIAL (first-visit walkthrough + reopen via "How it works")
+  // ---------------------------------------------------------------
+  var TUT_KEY='floor-tutorial-seen';
+  var TUT_STEPS=[
+    {ico:'🎯', t:'Predict who wins', b:'The Floor turns every debate into a market. Back the debater you think wins and climb the board. Play credits only, no cash. The status is the prize.'},
+    {ico:'⏱', t:'Three windows to call it', b:'Back a side before the motion even drops (blind, biggest reward), after you see the topic, or live until the round hits halftime. The earlier you commit, the more your Sharp Score grows.'},
+    {ico:'⚖', t:'Two verdicts settle it', b:'When the round ends the AI judge calls the winner and pays the pool pro-rata. The crowd votes too, and when the judge and the room disagree, that split is the whole show.'},
+    {ico:'📈', t:'Odds move with the money', b:'Pools are pari-mutuel: the more the crowd piles onto one debater, the smaller that side pays. The edge is spotting the underdog the room is sleeping on.'},
+    {ico:'🏆', t:'Climb two boards', b:'Sharpest Predictors ranks your read on the game. Biggest Draws ranks the debaters people show up for. Be the sharpest, or become someone worth betting on.'}
+  ];
+  var tutI=0;
+  function renderTut(){
+    var s=TUT_STEPS[tutI];
+    $('tutIco').textContent=s.ico; $('tutTitle').textContent=s.t; $('tutBody').textContent=s.b;
+    $('tutDots').innerHTML=TUT_STEPS.map(function(_,i){ return '<i class="'+(i===tutI?'on':'')+'"></i>'; }).join('');
+    $('tutBack').style.visibility = tutI===0 ? 'hidden' : 'visible';
+    $('tutNext').textContent = (tutI===TUT_STEPS.length-1) ? 'Got it' : 'Next';
+  }
+  function openTut(){ tutI=0; renderTut(); $('tutOverlay').classList.add('on'); }
+  function closeTut(){ $('tutOverlay').classList.remove('on'); try{ localStorage.setItem(TUT_KEY,'1'); }catch(e){} }
+  $('helpBtn').addEventListener('click', openTut);
+  $('tutSkip').addEventListener('click', closeTut);
+  $('tutBack').addEventListener('click', function(){ if(tutI>0){ tutI--; renderTut(); } });
+  $('tutNext').addEventListener('click', function(){ if(tutI<TUT_STEPS.length-1){ tutI++; renderTut(); } else closeTut(); });
+  $('tutOverlay').addEventListener('click', function(e){ if(e.target===$('tutOverlay')) closeTut(); });
+  (function(){ var seen=false; try{ seen=!!localStorage.getItem(TUT_KEY); }catch(e){} if(!seen) setTimeout(openTut, 450); })();
 
   // ---------------------------------------------------------------
   // TABS
