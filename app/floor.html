@@ -179,6 +179,29 @@
   .hist-row .t{color:var(--ghost);font-size:.68rem}
   .empty{color:var(--ghost);font-size:.86rem;padding:20px;text-align:center}
 
+  /* ---- arena: board + Your Calls rail ---- */
+  .arena{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start;margin-top:6px}
+  .arena-main{min-width:0}
+  .rail{position:sticky;top:118px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 134px);overflow:auto}
+  .rail-title{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin:2px 2px -2px}
+  .rail-card{border:1px solid var(--border);border-radius:14px;background:var(--card);padding:14px}
+  .rail-head .rail-h{font-family:var(--serif);font-weight:800;font-size:1.15rem;margin-bottom:11px}
+  .rail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .rail-stats .rk{font-size:.56rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ghost)}
+  .rail-stats .rv{font-family:var(--serif);font-weight:800;font-size:1.3rem;margin-top:2px}
+  .rail-card.call{padding:12px 13px;display:flex;flex-direction:column;gap:5px}
+  .call-top{display:flex;align-items:center;gap:8px}
+  .call-top .status{margin-left:auto}
+  .call-who{font-size:.9rem;color:var(--dim)} .call-who b{font-weight:800;color:var(--text)}
+  .call-sub{font-size:.7rem;color:var(--ghost);font-weight:700}
+  .empty-rail{text-align:center;padding:22px 16px}
+  .empty-rail .er-emoji{font-size:1.7rem;line-height:1}
+  .empty-rail .er-t{font-weight:800;font-size:.98rem;margin-top:8px;color:var(--text)}
+  .empty-rail .er-p{font-size:.8rem;color:var(--dim);line-height:1.45;margin:5px auto 12px;max-width:30ch}
+  .empty-rail .er-btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:.82rem;padding:9px 16px;border-radius:9px;cursor:pointer}
+  .empty-rail .er-btn:hover{background:var(--accent2)}
+  @media (max-width:920px){ .arena{grid-template-columns:1fr} .rail{position:static;max-height:none} }
+
   /* toast */
   .toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:340px}
   .toast{border:1px solid var(--border2);background:var(--card2);border-radius:12px;padding:11px 14px;font-size:.84rem;box-shadow:0 12px 40px -12px rgba(0,0,0,.6);animation:slidein .25s ease}
@@ -327,7 +350,10 @@
 
 <div class="wrap">
   <section class="panel on" id="panel-board">
-    <div class="board" id="board"></div>
+    <div class="arena">
+      <div class="arena-main"><div class="board" id="board"></div></div>
+      <aside class="rail" id="rail" aria-label="Your calls"></aside>
+    </div>
   </section>
 
   <section class="panel" id="panel-you">
@@ -844,9 +870,51 @@
   function render(){
     renderHeader();
     renderBoard();
+    renderRail();
     renderYou();
     renderSharp();
     renderDraws();
+  }
+
+  // Compact "Your calls" rail beside the board: balance, sharp rank, streak,
+  // active calls, and a strong empty state. The full breakdown is the
+  // "Your calls" tab; this is the always-visible glance.
+  function renderRail(){
+    var rail = $('rail'); if(!rail) return;
+    var u = (SERVER.on && SERVER.me) ? SERVER.me : P;
+    var s = sharp();
+    var rows = BOTS.concat([{ id:'me', score:s.score, me:true }]).sort(function(a,b){ return b.score-a.score; });
+    var rank = rows.findIndex(function(r){ return r.me; }) + 1;
+    var active = MARKETS.filter(function(m){ return m.myBet && !m.settled; });
+    var html = '';
+    html += '<div class="rail-card rail-head">'+
+      '<div class="rail-h">Your calls</div>'+
+      '<div class="rail-stats">'+
+        '<div><div class="rk">Credits</div><div class="rv">'+fmtN(u.credits||0)+'</div></div>'+
+        '<div><div class="rk">Sharp rank</div><div class="rv">#'+rank+'</div></div>'+
+        '<div><div class="rk">Streak</div><div class="rv">'+(u.streak||0)+'</div></div>'+
+      '</div></div>';
+    if(active.length){
+      html += '<div class="rail-title">Live calls · '+active.length+'</div>';
+      html += active.map(function(m){
+        var side = m.myBet.side, w = windowOf(m), st = statusMeta(w, m);
+        return '<div class="rail-card call">'+
+          '<div class="call-top"><span class="chip fmt">'+esc(m.fmt)+'</span>'+
+            '<span class="status '+st.cls+'"><span class="pip"></span>'+st.label+'</span></div>'+
+          '<div class="call-who">Called <b>'+esc(m[side].nm)+'</b></div>'+
+          '<div class="call-sub">'+m.myBet.stake+' cr · '+String(m.myBet.window||'').toUpperCase()+' read'+(st.sub?' · '+st.sub:'')+'</div>'+
+        '</div>';
+      }).join('');
+    } else {
+      html += '<div class="rail-card empty-rail">'+
+        '<div class="er-emoji">🎯</div>'+
+        '<div class="er-t">No calls yet</div>'+
+        '<div class="er-p">Pick a live round and call the winner before the verdict posts.</div>'+
+        '<button class="er-btn" id="railToBoard">View live rounds</button>'+
+      '</div>';
+    }
+    rail.innerHTML = html;
+    var b = $('railToBoard'); if(b) b.addEventListener('click', function(){ window.scrollTo({ top:0, behavior:'smooth' }); });
   }
 
   function renderHeader(){
