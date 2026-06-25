@@ -140,13 +140,45 @@ cd app && npm install && npm run dev
 # Functions locally
 cd app && npx netlify dev
 
-# Ship to prod
-git push origin HEAD:main      # Netlify auto-builds in ~30s
+# Ship to prod — do NOT blind-push the local tree; see "Deploy topology" below.
 ```
 
-**Auto-deploy norm:** small commits push straight to `main`. Don't ask
-permission to deploy on this repo. Verify locally first; ship in batches
-of ~10 minutes of work, not big PRs.
+**Auto-deploy norm:** small commits ship straight to `main` (via the
+worktree flow below). Don't ask permission to deploy on this repo. Verify
+locally first; ship in batches of ~10 minutes of work, not big PRs.
+
+## Deploy topology & safe-ship (READ THIS BEFORE YOU PUSH)
+
+The one thing that bites every agent handed this repo. Get it right.
+
+- **Git root is `/Users/aidanhm`** (not `app/`). The site lives at `app/*`.
+- **Netlify deploys `origin/main`** (publish dir `app/`). What is on
+  `origin/main` is what is live; pushing to `main` auto-builds in ~30s.
+- **The local checkout is almost always STALE / diverged from
+  `origin/main`** — it carries unpushed experiments and uncommitted edits
+  (e.g. on 2026-06-25 local `main` was ~69 commits behind `origin/main`).
+  So `git push origin HEAD:main` from the local tree **fails
+  (non-fast-forward) or ships a stale tree.** Never `pull` / `reset` /
+  `checkout` over the local `app/` either — it holds uncommitted work.
+- **Safe ship = apply your change onto `origin/main` in a throwaway
+  worktree, then push:**
+
+```bash
+cd /Users/aidanhm && git fetch origin
+git worktree add -b ship/<slug> /tmp/ship-<slug> origin/main
+# Re-apply your edit IN the worktree (its line numbers differ from local).
+# For a NEW file, cp it in: cp app/<f> /tmp/ship-<slug>/app/<f>
+cd /tmp/ship-<slug> && git add <files> && git commit -m "..."   # hook bumps SW cache
+git fetch origin && git rev-list --left-right --count origin/main...HEAD   # expect "0	1"
+git push origin HEAD:main          # clean fast-forward → Netlify builds
+cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
+```
+
+- Editing + previewing in the local checkout is fine; it is only unsafe
+  to *push from*. Preview by serving `app/` (a static server) and loading
+  the page.
+- **Never `--no-verify`** — the pre-commit hook bumps `CACHE_NAME` in both
+  `sw.js` files and runs the inline-Babel precompile.
 
 ## Hard rules (see soul.md §4 for the full list)
 
@@ -254,16 +286,29 @@ These pairs duplicate intentionally; if you edit one, edit the other:
   (see "First-time setup" above) auto-bumps so this is only a footgun
   when the hook isn't installed on the current machine.
 
-## Codex-specific
+## Codex-specific (handoff: Codex edits this site too)
 
-- Install: `npm install -g @openai/codex`
-- This file is auto-discovered by Codex from the repo root.
-- The user prefers small surgical patches over sprawling refactors.
-  Match that tempo.
-- Auto-deploy is on. Verify before committing — changes ship to prod
-  within a build cycle.
-- For long-running TTS / multi-file changes, prefer running in the
-  Codex sandbox (`codex --workdir /tmp/...`) before applying.
+- **Install:** `npm install -g @openai/codex`. Config + auth already live
+  at `~/.codex/` (set up previously); if `codex` is not on PATH, reinstall
+  or fix PATH, then run `codex` from `/Users/aidanhm`.
+- This file is auto-discovered by Codex from the repo root. **Read the
+  "Deploy topology & safe-ship" section above first — it is the one thing
+  that will break a handoff if you skip it (the local tree is stale; ship
+  via a worktree off `origin/main`, never `git push origin HEAD:main` from
+  local).**
+- The user prefers small surgical patches over sprawling refactors. Match
+  that tempo. Don't ask permission to deploy; just use the worktree flow.
+- For long-running TTS / multi-file changes, prefer running in the Codex
+  sandbox (`codex --workdir /tmp/...`) before applying.
+- **Current in-flight work (2026-06-25):** "The Floor" play-money
+  prediction market at `/floor.html` (surfaced on the landing + topbar,
+  `noindex`). Server ledger = `app/firestore.rules` (`floor_*` collections)
+  + Netlify fns `floor-bet` / `floor-state` / `floor-resolve` /
+  `floor-seed`; the `/floor` PAGE is still a localStorage demo NOT yet
+  wired to those endpoints (open task). Money model: free-to-play
+  sweepstakes now, real-money downstream; one ledger, two-tier Play/Prize
+  credits, minors never touch redeemable cash. Concept doc:
+  `DEBATEIT_PREDICTION_MARKET.md`.
 
 ## Claude Code-specific
 
