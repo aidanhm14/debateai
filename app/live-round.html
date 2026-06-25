@@ -30,6 +30,8 @@
      word-list, min length, URL-spam ratio. Cheap pre-check before the
      Firestore write so junk never lands on the public board. -->
 <script defer src="/js/disclosure-guard.js"></script>
+<!-- Floating / picture-in-picture mini player (Minimize + Pop out). -->
+<script defer src="/js/live-pip.js"></script>
 
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -244,6 +246,66 @@ button{font-family:inherit}
   /* Tightest phones: theme picker disappears so the bar fits cleanly.
      Theme persists via localStorage from any larger surface. */
   .theme-dots{display:none}
+}
+
+/* ── Minimize / pop-out the live round ───────────────────────────────
+   In-page mini: dock the video to a floating corner and hand the speech
+   panel the full width. The iframe never changes documents here, so the
+   call does NOT reconnect. Pop-out: the video pane moves into a real
+   Document Picture-in-Picture window (Chrome/Edge), staying on top across
+   tabs; the iframe briefly reconnects on the way out and back since
+   iframes reload when adopted into another document. */
+body.lr-mini .split,body.lr-pip .split{grid-template-columns:1fr;grid-template-rows:auto}
+body.lr-mini #splitResizer,body.lr-pip #splitResizer{display:none}
+body.lr-mini #jitsiPane{
+  position:fixed;right:18px;bottom:18px;z-index:2147483000;
+  width:320px;height:208px;min-height:0;max-height:none;padding:0;
+  border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  box-shadow:0 18px 50px rgba(0,0,0,.55);
+  animation:lrMiniIn .22s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes lrMiniIn{from{transform:translateY(14px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+body.lr-mini #jitsiPane .call-card{display:none}
+/* Drag + control bar overlaid on the docked video (in-page mini only). */
+.lr-minibar{
+  display:none;position:absolute;top:0;left:0;right:0;z-index:3;
+  align-items:center;gap:8px;padding:7px 9px;
+  background:linear-gradient(180deg,rgba(0,0,0,.66),rgba(0,0,0,0));
+  cursor:grab;user-select:none;touch-action:none;
+}
+body.lr-mini .lr-minibar{display:flex}
+.lr-minibar .lrm-live{display:inline-flex;align-items:center;gap:5px;font-size:.58rem;font-weight:800;letter-spacing:.12em;color:#ff6a6a}
+.lr-minibar .lrm-live i{width:7px;height:7px;border-radius:50%;background:#ff3b3b;animation:lrMiniPulse 1.6s infinite}
+@keyframes lrMiniPulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.55)}70%{box-shadow:0 0 0 7px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}
+.lr-minibar .lrm-sp{flex:1;min-width:0;font-size:.66rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.lr-minibar button{
+  width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(0,0,0,.4);color:#fff;cursor:pointer;font-size:.8rem;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;transition:background .15s;
+}
+.lr-minibar button:hover{background:rgba(0,0,0,.72)}
+/* Trigger buttons in the round motion bar. */
+.lr-pip-controls{display:inline-flex;gap:7px;align-items:center}
+.lr-pip-btn{
+  font:inherit;font-size:.68rem;font-weight:700;letter-spacing:.02em;white-space:nowrap;
+  padding:7px 11px;border-radius:999px;cursor:pointer;color:var(--text-dim);
+  background:transparent;border:1px solid var(--border);transition:color .15s,border-color .15s,background .15s;
+}
+.lr-pip-btn:hover{color:var(--text);border-color:var(--border-strong);background:rgba(127,127,127,.08)}
+/* When popped out: hide the in-page pane (it now lives in the PiP window),
+   and show a notice where the video used to be. */
+body.lr-pip #jitsiPane:not(.lr-pip-pane){display:none}
+.lr-pip-pane{position:static !important;width:100%;height:100vh;padding:0 !important;border:none !important;border-radius:0 !important}
+.lr-pip-notice{
+  display:none;margin:14px;padding:18px;border:1px dashed var(--border);border-radius:14px;
+  text-align:center;color:var(--text-dim);font-size:.85rem;line-height:1.5;
+}
+body.lr-pip .lr-pip-notice{display:block}
+@media(max-width:1000px){
+  body.lr-mini #jitsiPane{width:240px;height:150px}
+}
+@media(max-width:560px){
+  body.lr-mini #jitsiPane{right:10px;bottom:10px;width:180px;height:120px}
 }
 
 /* Call control pane (replaces the iframe). Holds the open-call CTA,
@@ -970,6 +1032,14 @@ button{font-family:inherit}
        if Daily isn't configured (DAILY_API_KEY/DAILY_DOMAIN env
        vars missing). -->
   <div class="jitsi-pane" id="jitsiPane">
+    <!-- Drag + control bar shown only when the video is docked (in-page
+         mini). Overlays the iframe; pointer-drag moves the whole pane. -->
+    <div class="lr-minibar" id="lrMinibar">
+      <span class="lrm-live"><i></i>LIVE</span>
+      <span class="lrm-sp" id="lrmSpeech">Live round</span>
+      <button type="button" id="lrmPop" title="Pop out into a floating window">⧉</button>
+      <button type="button" id="lrmRestore" title="Back to full view">⤢</button>
+    </div>
     <div class="call-card" id="callCard">
       <div class="call-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
       <div>
@@ -996,6 +1066,10 @@ button{font-family:inherit}
 
   <!-- RIGHT: Round panel. swaps between setup, round, and ballot views. -->
   <div class="panel" id="panel">
+
+    <!-- Shown only while the video is popped out into a floating window. -->
+    <div class="lr-pip-notice" id="lrPipNotice">The video is floating in its own window, on top while you switch tabs. Close that window to bring it back here.</div>
+
 
     <!-- ── SETUP ── -->
     <div id="setupView">
@@ -1081,6 +1155,10 @@ button{font-family:inherit}
             <span id="rmbRecLabel">Record</span>
           </button>
           <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden>0:00</span>
+        </div>
+        <div class="lr-pip-controls" id="lrPipControls">
+          <button type="button" class="lr-pip-btn" id="lrMinBtn" title="Shrink the video to a floating corner and use the full page">⤓ Minimize</button>
+          <button type="button" class="lr-pip-btn" id="lrPopBtn" title="Pop the video into a floating window that stays on top across tabs">⧉ Pop out</button>
         </div>
       </div>
       <div class="round-edit-bar" id="roundEditBar" hidden>
@@ -5237,5 +5315,90 @@ button{font-family:inherit}
     </div>
   </div>
 </div>
+<!-- Minimize / pop-out wiring for the live video. Self-contained: pure
+     DOM + window.LivePiP, no dependency on the round state machine. The
+     in-page mini just docks the video via a body class (no reconnect);
+     pop-out moves the pane into a Document PiP window (Chrome/Edge). -->
+<script>
+(function () {
+  function init() {
+    var jitsiPane = document.getElementById('jitsiPane');
+    var splitEl = document.querySelector('.split');
+    var resizer = document.getElementById('splitResizer');
+    if (!jitsiPane || !splitEl) return;
+
+    var minBtn = document.getElementById('lrMinBtn');
+    var popBtn = document.getElementById('lrPopBtn');
+    var miniRestore = document.getElementById('lrmRestore');
+    var miniPop = document.getElementById('lrmPop');
+    var minibar = document.getElementById('lrMinibar');
+    var pipWin = null;
+
+    var pipOk = !!(window.LivePiP && window.LivePiP.supported());
+    if (!pipOk) {
+      if (popBtn) popBtn.style.display = 'none';
+      if (miniPop) miniPop.style.display = 'none';
+    }
+
+    function syncMiniLabel() {
+      var lbl = document.getElementById('lrmSpeech');
+      if (!lbl) return;
+      var code = document.getElementById('speechCode');
+      var name = document.getElementById('speechName');
+      var t = (code && code.textContent ? code.textContent.trim() + ' · ' : '') +
+              (name && name.textContent ? name.textContent.trim() : '');
+      lbl.textContent = t.trim() || 'Live round';
+    }
+
+    function restoreFromPip() {
+      if (!document.body.classList.contains('lr-pip') && !pipWin) return;
+      // Put the video pane back as the first column, before the resizer.
+      try {
+        if (resizer && resizer.parentNode === splitEl) splitEl.insertBefore(jitsiPane, resizer);
+        else splitEl.insertBefore(jitsiPane, splitEl.firstChild);
+      } catch (e) {}
+      jitsiPane.classList.remove('lr-pip-pane');
+      document.body.classList.remove('lr-pip');
+      if (pipWin) { try { pipWin.close(); } catch (e) {} pipWin = null; }
+    }
+
+    function enterMini() {
+      restoreFromPip();
+      document.body.classList.add('lr-mini');
+      syncMiniLabel();
+      if (window.LivePiP && minibar) window.LivePiP.makeDraggable(jitsiPane, minibar);
+    }
+    function exitMini() { document.body.classList.remove('lr-mini'); }
+
+    function enterPip() {
+      if (!pipOk) { enterMini(); return; }
+      exitMini();
+      Promise.resolve(window.LivePiP.openWindow({
+        width: 360, height: 250, title: 'DebateIt — live round video',
+        onClose: function () { restoreFromPip(); }
+      })).then(function (w) {
+        if (!w) { enterMini(); return; }
+        pipWin = w;
+        jitsiPane.classList.add('lr-pip-pane');
+        document.body.classList.add('lr-pip');
+        try { w.document.body.appendChild(jitsiPane); } catch (e) { restoreFromPip(); }
+      }).catch(function () { enterMini(); });
+    }
+
+    if (minBtn) minBtn.addEventListener('click', enterMini);
+    if (popBtn) popBtn.addEventListener('click', enterPip);
+    if (miniRestore) miniRestore.addEventListener('click', exitMini);
+    if (miniPop) miniPop.addEventListener('click', enterPip);
+
+    // Keep the docked label fresh as speeches advance.
+    var sh = document.querySelector('.speech-header');
+    if (sh && window.MutationObserver) {
+      new MutationObserver(syncMiniLabel).observe(sh, { subtree: true, childList: true, characterData: true });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
 </body>
 </html>
