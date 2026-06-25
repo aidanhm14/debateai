@@ -188,6 +188,11 @@
     // nav button, routes to /leaderboard. (/community still exists; it's
     // just not its own top-nav slot.)
     { href: '/leaderboard',   label: 'Leaderboard'  },
+    // 2026-06-24: The Floor surfaced into the bar per Aidan ("advertise
+    // it more ... have it in a tab"). /floor is the play-money debate
+    // prediction market (back who wins across three windows, AI judge
+    // settles, leaderboard). noindex page; this is the on-site entry.
+    { href: '/floor',         label: 'The Floor'    },
     { href: '/#faq',          label: 'FAQ'          },
   ];
 
