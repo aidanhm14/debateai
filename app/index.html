@@ -3557,6 +3557,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -3564,8 +3565,7 @@ function PolyBackground() {
     el('div', { className: 'geo-debater' + (genActive ? ' gen-active' : '') }, el('svg', { viewBox: '0 0 120 180', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' }, // Podium. geometric trapezoid
         el('polygon', { points: '25,130 95,130 105,175 15,175', stroke: '#da7756', strokeWidth: 1.5, fill: 'none', opacity: .6 }), el('line', { x1: 30, y1: 140, x2: 90, y2: 140, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 28, y1: 150, x2: 92, y2: 150, stroke: '#da7756', strokeWidth: 1, opacity: .2 }), // Body. angular torso
         el('polygon', { points: '60,55 42,95 50,130 70,130 78,95', stroke: '#ffffff', strokeWidth: 1.2, fill: 'none', opacity: .5 }), // Shoulders
-        el('line', { x1: 42, y1: 68, x2: 28, y2: 78, stroke: '#ffffff', strokeWidth: 1.2, opacity: .4 }), el('line', { x1: 78, y1: 68, x2: 92, y2: 58, stroke: '#ffffff', strokeWidth: 1.2, opacity: .4 }),
-        // Raised arm (gesturing). right
+        el('line', { x1: 42, y1: 68, x2: 28, y2: 78, stroke: '#ffffff', strokeWidth: 1.2, opacity: .4 }), el('line', { x1: 78, y1: 68, x2: 92, y2: 58, stroke: '#ffffff', strokeWidth: 1.2, opacity: .4 }), // Raised arm (gesturing). right
         el('polyline', { points: '92,58 98,42 108,35', stroke: '#ffffff', strokeWidth: 1.2, fill: 'none', opacity: .45 }),
         // Left arm down
         el('polyline', { points: '28,78 22,98 26,115', stroke: '#ffffff', strokeWidth: 1.2, fill: 'none', opacity: .35 }),
@@ -5228,6 +5228,7 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
 
 
 
+
       // If check fails, proceed anyway
     }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
@@ -5235,8 +5236,7 @@ Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, wr
     if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {gtag('event', 'case_generate', { mode: genMode, side, motion_length: motion.length, feature: 'case' });} // Auto-version: if regenerating same motion, save previous output as a version
     var motionKey = motion.trim().toLowerCase() + '|' + side;var isRegeneration = output && lastGeneratedMotion.current === motionKey;if (isRegeneration) {setCaseVersions((prev) => [...prev, { text: output, savedAt: new Date().toISOString(), label: 'v' + (prev.length + 1) }]); // Prior case was judged insufficient. that's a negative training signal.
       logGenerationSignal('regenerate', null, { previousLength: output.length });} else if (lastGeneratedMotion.current !== motionKey) {// New motion. clear version history
-      setCaseVersions([]);}
-    lastGeneratedMotion.current = motionKey;
+      setCaseVersions([]);}lastGeneratedMotion.current = motionKey;
     setMode(genMode);
     setContextHint(null);
     setError(null);
@@ -6850,6 +6850,11 @@ function MindMapView({ caseResult, motion }) {
     }
 
     function draw() {
+      // Park the loop while the tab is backgrounded — the pulsing
+      // links + flow particles redraw every frame otherwise. onVisible
+      // re-arms it. (rAF is throttled to ~1Hz hidden, but each tick
+      // still does a full canvas repaint + d3 tick.)
+      if (document.hidden) {animId = null;return;}
       frame++;
       ctx.clearRect(0, 0, W, H);
 
@@ -7045,7 +7050,11 @@ function MindMapView({ caseResult, motion }) {
     });
 
     draw();
-    return function () {cancelAnimationFrame(animId);sim.stop();};
+    // Resume the loop when the tab comes back to the foreground (draw()
+    // self-parks animId to null while hidden).
+    function onVisible() {if (!document.hidden && animId == null) {animId = requestAnimationFrame(draw);}}
+    document.addEventListener('visibilitychange', onVisible);
+    return function () {cancelAnimationFrame(animId);sim.stop();document.removeEventListener('visibilitychange', onVisible);};
   }, [caseResult, motion, dimensions, d3Ready]);
 
   var legendItems = [

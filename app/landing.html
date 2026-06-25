@@ -7004,15 +7004,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           }
 
           // (3) Only tick while the hero is on screen.
+          var onScreen = true;
+          function maybeRun(){
+            if (onScreen && !document.hidden) start(); else stop();
+          }
           if ('IntersectionObserver' in window) {
             new IntersectionObserver(function(entries){
-              entries.forEach(function(e){
-                if (e.isIntersecting) start(); else stop();
-              });
+              entries.forEach(function(e){ onScreen = e.isIntersecting; });
+              maybeRun();
             }, { threshold: 0, rootMargin: '120px 0px' }).observe(scene);
           } else {
             start();
           }
+          // Also park the 1s clock + round swaps when the tab is hidden;
+          // the hero can be "on screen" (page top) while the tab is in the
+          // background, and these intervals mutate the DOM every tick.
+          document.addEventListener('visibilitychange', maybeRun);
         })();
       </script>
 
@@ -7808,6 +7815,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           }
 
           function refreshCount(){
+            // Don't poll the count in a backgrounded tab; the
+            // visibilitychange handler below re-fetches on return.
+            if (document.visibilityState === 'hidden') return;
             fetch('/api/online-count', { credentials: 'omit' })
               .then(function(r){ return r.ok ? r.json() : null; })
               .then(function(j){
@@ -10830,10 +10840,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       ctx.fill();
     }
 
+    // Loop lifecycle. paused = scrolled offscreen (IntersectionObserver);
+    // hidden = tab backgrounded (visibilitychange). When either is true we
+    // fully CANCEL the rAF chain so the globe does zero draw work — a full
+    // sphere repaint (gradients + ~310 land dots + 25 marker glows) per
+    // frame is real CPU/GPU even on a backgrounded tab (rAF throttles to
+    // ~1Hz hidden, but offscreen-but-visible-tab is not throttled at all).
+    var hidden = false;
+    function start(){
+      if (!rafId && !paused && !hidden && !reduced){
+        lastT = 0; // avoid a dt jump after a pause
+        rafId = requestAnimationFrame(tick);
+      }
+    }
+    function pause(){
+      if (rafId){ cancelAnimationFrame(rafId); rafId = 0; }
+    }
     function tick(now){
+      if (paused || hidden){ rafId = 0; return; }
       var dt = lastT ? Math.min(64, now - lastT) : 16;
       lastT = now;
-      if (pointerInteracting === null && !paused && !reduced){
+      if (pointerInteracting === null && !reduced){
         phi += 0.00010 * dt;
       }
       displayPhi = phi + pointerInteractionMovement / 200;
@@ -10857,13 +10884,28 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     });
     canvas.style.cursor = 'grab';
 
-    // Pause when offscreen — saves battery on the long scroll.
+    // Pause when offscreen — saves battery on the long scroll. Now fully
+    // cancels the rAF chain (was only flagging `paused`, which left the
+    // loop drawing every frame). Re-arms when the globe scrolls back.
     try {
       var io = new IntersectionObserver(function(entries){
-        entries.forEach(function(en){ paused = !en.isIntersecting; });
+        entries.forEach(function(en){
+          paused = !en.isIntersecting;
+          if (paused) pause();
+          else start();
+        });
       }, { rootMargin: '100px' });
       io.observe(canvas);
     } catch(e){}
+
+    // Pause when the tab is backgrounded. rAF is browser-throttled to ~1Hz
+    // when hidden, but each tick still does a full sphere repaint; parking
+    // the loop drops that to zero.
+    document.addEventListener('visibilitychange', function(){
+      hidden = document.hidden;
+      if (hidden) pause();
+      else start();
+    });
 
     // Theme picker on /debate-it writes data-theme/data-lighting on
     // <html>. Re-paint with the new palette on next tick (no reload).
@@ -10879,7 +10921,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     });
 
     resize();
-    rafId = requestAnimationFrame(tick);
+    if (reduced){
+      // Reduced-motion: paint one static globe, never spin.
+      displayPhi = phi;
+      draw();
+    } else {
+      start();
+    }
 
     // Fallback: rAF doesn't fire while a tab is hidden / backgrounded
     // (Chrome, Firefox, Safari). setTimeout still does. Force one paint
@@ -13904,6 +13952,7 @@ try{
   if(!topics.length)return;
   var i=0;
   setInterval(function(){
+    if(document.hidden)return; // no DOM churn in a backgrounded tab
     topics[i].classList.remove('active');
     i=(i+1)%topics.length;
     topics[i].classList.add('active');
@@ -13937,6 +13986,7 @@ try{
   if(!el)return;
   var total=7*60+11;
   function tick(){
+    if(document.hidden)return; // pure theatre; no need to tick a hidden tab
     var m=Math.floor(total/60),s=total%60;
     el.textContent=m+':'+(s<10?'0':'')+s;
     total--;
