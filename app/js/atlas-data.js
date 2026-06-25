@@ -9968,3 +9968,863 @@ window.ATLAS_EXTRA = (window.ATLAS_EXTRA||[]).concat([
   "coaches": "Tracy McFarland"
  }
 ]);
+
+/* geocoded HS additions from the Tabroom pull — 57 schools */
+window.ATLAS_EXTRA = (window.ATLAS_EXTRA||[]).concat([
+ {
+  "n": "Brooklyn Technical High School Parliamentary Debate Team",
+  "lat": 40.6889,
+  "lng": -73.9764,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Ariel Segura"
+ },
+ {
+  "n": "Heritage High Speech and Debate Club",
+  "lat": 26.4591,
+  "lng": -80.137,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Joshua Cauley"
+ },
+ {
+  "n": "Horace Mann Parliamentary Debate",
+  "lat": 42.3579,
+  "lng": -71.0638,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ian Allard-Neptune"
+ },
+ {
+  "n": "Potomac Debate Academy",
+  "lat": 39.3431,
+  "lng": -78.7523,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Dylan Beach"
+ },
+ {
+  "n": "Brooks Debate Institute",
+  "lat": 42.3765,
+  "lng": -71.1131,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Stephan Brooks"
+ },
+ {
+  "n": "Manhattan Independent",
+  "lat": 40.758,
+  "lng": -73.9855,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Annabel Gottlieb"
+ },
+ {
+  "n": "Speech and Debate India",
+  "lat": 40.3765,
+  "lng": -79.1195,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Rajiv Kacholia"
+ },
+ {
+  "n": "NAVI Debate",
+  "lat": 40.479,
+  "lng": -86.8994,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kay Choi"
+ },
+ {
+  "n": "Mustang Speech and Debate",
+  "lat": 35.3842,
+  "lng": -97.7245,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Michael Harris"
+ },
+ {
+  "n": "Blind Brook Debate Team",
+  "lat": 41.0123,
+  "lng": -73.6937,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Timothy Lewis"
+ },
+ {
+  "n": "Bellevue Youth Debate",
+  "lat": 47.6219,
+  "lng": -122.117,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Evan Yi"
+ },
+ {
+  "n": "National Debate Club (NDC)",
+  "lat": 33.5006,
+  "lng": -82.0226,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Dalila Ramirez"
+ },
+ {
+  "n": "Nest Independent",
+  "lat": 42.5556,
+  "lng": -92.4552,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Ava Alexander"
+ },
+ {
+  "n": "Gunn High School Independent",
+  "lat": 37.4024,
+  "lng": -122.134,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Cordelia Hayes"
+ },
+ {
+  "n": "Foothill Independent",
+  "lat": 38.2625,
+  "lng": -122.0684,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Foothill Independent"
+ },
+ {
+  "n": "Omega Speech and Debate",
+  "lat": 31.341,
+  "lng": -83.5935,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Omega Speech and Debate"
+ },
+ {
+  "n": "Glen Ridge Debate Club",
+  "lat": 27.4106,
+  "lng": -82.4041,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Grady Pomerantz"
+ },
+ {
+  "n": "Westlake (CA) High School",
+  "lat": 30.2766,
+  "lng": -97.8144,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Madeline Maddox Walker"
+ },
+ {
+  "n": "Amador Valley Independent",
+  "lat": 37.668,
+  "lng": -121.8754,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Amador Valley"
+ },
+ {
+  "n": "Mahesh Independent",
+  "lat": 29.5965,
+  "lng": -95.6214,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Nikhil Mahesh"
+ },
+ {
+  "n": "Sharks Independent",
+  "lat": 40.5746,
+  "lng": -73.9747,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Kylin Wu"
+ },
+ {
+  "n": "BOW Debate",
+  "lat": 43.1331,
+  "lng": -71.5491,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Luke Lamour"
+ },
+ {
+  "n": "Arizona Chandler Independent",
+  "lat": 33.2568,
+  "lng": -111.8196,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Jeannine Covington"
+ },
+ {
+  "n": "Capitol Debate",
+  "lat": 37.284,
+  "lng": -121.8418,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": ""
+ },
+ {
+  "n": "BASIS Peoria Independent",
+  "lat": 33.7189,
+  "lng": -112.2729,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Aditya Jain"
+ },
+ {
+  "n": "Hopkins Independent",
+  "lat": 33.1368,
+  "lng": -95.5657,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Marguerite Pennington"
+ },
+ {
+  "n": "DHS Independent",
+  "lat": 25.9247,
+  "lng": -80.1673,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Eknoor Sandhu"
+ },
+ {
+  "n": "Parliamentary Debate at Berkeley",
+  "lat": 37.8743,
+  "lng": -122.2387,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Baden Dense"
+ },
+ {
+  "n": "UCVTS Independent",
+  "lat": 40.6191,
+  "lng": -74.3564,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": ""
+ },
+ {
+  "n": "Palm Beach Independent",
+  "lat": 26.628,
+  "lng": -80.4494,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Ashwin Kishor"
+ },
+ {
+  "n": "Artemis Debate",
+  "lat": 34.6632,
+  "lng": -86.6408,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Alex de Jager"
+ },
+ {
+  "n": "Windsor High School Debate Team",
+  "lat": 41.8436,
+  "lng": -72.6557,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Windsor Debate"
+ },
+ {
+  "n": "Chino Hills Independent",
+  "lat": 33.9927,
+  "lng": -117.7601,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Avery Chang"
+ },
+ {
+  "n": "Dublin High Independent",
+  "lat": 40.1082,
+  "lng": -83.1296,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Srinivas Krishnan"
+ },
+ {
+  "n": "GO DEBATE ACADEMY",
+  "lat": 42.6935,
+  "lng": -71.436,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "stephen rusgo"
+ },
+ {
+  "n": "Woodlands Independent",
+  "lat": 39.8067,
+  "lng": -80.817,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Michelle Lee"
+ },
+ {
+  "n": "Berkeley Independent",
+  "lat": 37.8708,
+  "lng": -122.2729,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "David Gussmann"
+ },
+ {
+  "n": "Palos Verdes High School Speech and Debate Team",
+  "lat": 33.7795,
+  "lng": -118.4196,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Allyson Klabe"
+ },
+ {
+  "n": "Avenues Independent",
+  "lat": 40.7495,
+  "lng": -74.0033,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Sophie Rukin"
+ },
+ {
+  "n": "Rock Hill Independent",
+  "lat": 34.9249,
+  "lng": -81.0251,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Tanvir Moneem"
+ },
+ {
+  "n": "Nexus Independent",
+  "lat": 47.6172,
+  "lng": -122.3306,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": ""
+ },
+ {
+  "n": "Peninsula Academy Debate",
+  "lat": 37.4342,
+  "lng": -122.1292,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Jack Erikson"
+ },
+ {
+  "n": "Monte Vista HS Independent",
+  "lat": 37.8427,
+  "lng": -121.9823,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Zara Lake"
+ },
+ {
+  "n": "BASIS Independent Fremont(HS)",
+  "lat": 37.5478,
+  "lng": -121.9752,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Alexander Luu"
+ },
+ {
+  "n": "American Debate League",
+  "lat": 41.4447,
+  "lng": -72.1541,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Randolph Mitchell"
+ },
+ {
+  "n": "Independent Hamilton High School",
+  "lat": 33.2512,
+  "lng": -111.8436,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Hamilton Independent"
+ },
+ {
+  "n": "Long Island Independent",
+  "lat": 40.8515,
+  "lng": -73.0994,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Long Island Independent"
+ },
+ {
+  "n": "Pioneer Speech and Debate",
+  "lat": 42.654,
+  "lng": -94.3915,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Shrini Deshpande"
+ },
+ {
+  "n": "SLC Independent",
+  "lat": 40.7901,
+  "lng": -111.9799,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Seiji Aoki"
+ },
+ {
+  "n": "Brooklyn Technical High School Independent",
+  "lat": 40.6889,
+  "lng": -73.9764,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Policy",
+   "LD",
+   "PF",
+   "Congress"
+  ],
+  "tier": 3,
+  "coaches": "Christi Llewellyn"
+ },
+ {
+  "n": "Global Speech and Debate Academy",
+  "lat": 45.0583,
+  "lng": -93.2259,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Dallis Pike"
+ },
+ {
+  "n": "Suffolk University Debate",
+  "lat": 42.3567,
+  "lng": -71.0611,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": ""
+ },
+ {
+  "n": "Illini Forensics",
+  "lat": 38.9458,
+  "lng": -90.2309,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Anthony Gavrilchenko"
+ },
+ {
+  "n": "Tulane University Debate Team",
+  "lat": 29.9412,
+  "lng": -90.1201,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Alex Berry"
+ },
+ {
+  "n": "Independent Quakers",
+  "lat": 40.6901,
+  "lng": -73.9895,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli"
+  ],
+  "tier": 3,
+  "coaches": "Helen Harrison"
+ },
+ {
+  "n": "Highland Independent",
+  "lat": 39.1803,
+  "lng": -83.6304,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "Parli",
+   "Policy",
+   "LD",
+   "PF"
+  ],
+  "tier": 3,
+  "coaches": "Emma Browne"
+ },
+ {
+  "n": "Stuyvesant Independent",
+  "lat": 42.3904,
+  "lng": -73.7815,
+  "country": "United States",
+  "region": "North America",
+  "lvl": "hs",
+  "fmt": [
+   "HS"
+  ],
+  "tier": 3,
+  "coaches": "Lucas Miller"
+ }
+]);
