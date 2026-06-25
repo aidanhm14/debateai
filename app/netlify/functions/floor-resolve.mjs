@@ -119,5 +119,5 @@ async function settlePositions(db, marketRef, market, verdict, stats) {
 }
 
 export const config = {
-  schedule: '*/2 * * * *', // every 2 minutes
+  schedule: '*/5 * * * *', // every 2 minutes
 };

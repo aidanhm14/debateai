@@ -48,5 +48,5 @@ export default async () => {
 };
 
 export const config = {
-  schedule: '*/2 * * * *', // every 2 minutes
+  schedule: '*/5 * * * *', // every 2 minutes
 };
