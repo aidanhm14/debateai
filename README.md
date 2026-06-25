@@ -2,7 +2,7 @@
 
 A voice-first adversarial-argument trainer. You give a real speech against a clock, get pushback, take POIs, and get a judge ballot at the end. The AI is format-accurate across APDA, BP, Worlds, Asian Parli, Policy, LD, PF, Congress, and MUN.
 
-Live at **[debateit.com](https://debateit.com)**.
+Live at **[debateai.com](https://debateai.com)**.
 
 ---
 
@@ -57,7 +57,7 @@ The product north star and operating manual live in two files. Read them in orde
 
 ## Status
 
-In beta. Every tier is $0 today. Future pricing (Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year) is published for reference at [/pricing](https://debateit.com/pricing).
+In beta. Every tier is $0 today. Future pricing (Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year) is published for reference at [/pricing](https://debateai.com/pricing).
 
 ## Credits
 

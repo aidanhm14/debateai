@@ -27,7 +27,7 @@
 //   ANTHROPIC_API_KEY       — required
 //   GOOGLE_SERVICE_ACCOUNT  — for admin Firestore
 //   RESEND_API_KEY          — optional; missing = skip first-fingerprint emails
-//   FINGERPRINT_FROM        — email "from" header (default Aidan <hello@debateit.com>)
+//   FINGERPRINT_FROM        — email "from" header (default Aidan <hello@debateai.com>)
 //   FINGERPRINT_MAX_USERS   — cap per nightly run (default 60)
 //   FINGERPRINT_MIN_ROUNDS  — min generations to fingerprint (default 3)
 //   FINGERPRINT_FRESH_DAYS  — re-run if fingerprint older than this (default 7)
@@ -74,7 +74,7 @@ function safeText(s) {
   return (s || '').replace(/\s+/g, ' ').trim().slice(0, MAX_SAMPLE_CHARS);
 }
 
-const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <hello@debateit.com>';
+const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <hello@debateai.com>';
 const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
 
@@ -109,7 +109,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
     You are getting this because the AI just produced its first read of your style. We send this exactly once per signup, never again. Reply if you want to talk debate, the AI, or anything else.
   </p>
   <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
-    DebateIt · debateit.com · Built by a UChicago parliamentary debater.
+    DebateIt · debateai.com · Built by a UChicago parliamentary debater.
   </p>
 </div>
 </body></html>`;

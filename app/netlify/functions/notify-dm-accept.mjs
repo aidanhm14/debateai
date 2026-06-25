@@ -64,7 +64,7 @@ function template({ senderName, preview, threadUrl }) {
       <p style="margin:18px 0 0;font-size:12px;line-height:1.55;color:#6b7280">You'll only get this email the first time someone DMs you on a waitlist post. Future messages on the same thread are silent.</p>
     </td></tr>
     <tr><td style="padding:14px 28px 22px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:#52525b">
-      You're receiving this because you posted to the /spar waitlist on debateit.com. Bail from the live board if something came up.
+      You're receiving this because you posted to the /spar waitlist on debateai.com. Bail from the live board if something came up.
     </td></tr>
   </table>
 </body></html>`;

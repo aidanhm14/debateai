@@ -33,7 +33,7 @@ export default async (request) => {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   // Prefer the actual request's origin so the Stripe return-button sends users
   // back to whichever domain they came from. Fall back to env var, then
-  // debateit.com.
+  // debateai.com.
   let siteUrl;
   try {
     const origin = request.headers.get('origin') || request.headers.get('referer');

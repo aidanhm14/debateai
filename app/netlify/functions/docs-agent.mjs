@@ -62,8 +62,6 @@ const PRODUCTION_ORIGINS = [
   'https://debateos.com',
   'https://www.debateos.com',
   'https://debateai.com',
-  'https://www.debateit.com',
-  'https://debateit.com',
   'https://www.debateai.com',
 ];
 const DEV_ORIGINS = [
@@ -80,7 +78,7 @@ function corsFor(request) {
   // The Counter chrome extension origin is chrome-extension://<id> which is
   // not in ALLOWED_ORIGINS by design — extension fetches don't go through
   // the page's CORS, so they aren't subject to this check. We only echo
-  // back debateit.com etc. for browser-side calls.
+  // back debateai.com etc. for browser-side calls.
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allowed,

@@ -13,8 +13,6 @@ const PRODUCTION_ORIGINS = [
   'https://debateos.com',
   'https://www.debateos.com',
   'https://debateai.com',
-  'https://www.debateit.com',
-  'https://debateit.com',
   'https://www.debateai.com',
 ];
 const DEV_ORIGINS = [

@@ -11,7 +11,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 // with sent:false so the client doesn't error out — local-dev /
 // preview environments shouldn't break the round-completion flow.
 
-const FROM_EMAIL = process.env.FIRST_ROUND_FROM || 'Aidan <hello@debateit.com>';
+const FROM_EMAIL = process.env.FIRST_ROUND_FROM || 'Aidan <hello@debateai.com>';
 const REPLY_TO   = process.env.FIRST_ROUND_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
 
@@ -63,7 +63,7 @@ function buildHtml({ firstName, motion, side, format, rfdSnippet, nextMotion }) 
     You're getting this because you completed your first round on DebateIt. We send one of these per signup, never repeat. Reply if you want to talk debate, the AI, or anything else.
   </p>
   <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
-    DebateIt · debateit.com · Built by a UChicago parliamentary debater.
+    DebateIt · debateai.com · Built by a UChicago parliamentary debater.
   </p>
 </div>
 </body></html>`;

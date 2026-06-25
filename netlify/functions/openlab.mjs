@@ -24,8 +24,6 @@ const PRODUCTION_ORIGINS = [
   'https://www.debateos.com',
   'https://debateai.com',
   'https://www.debateai.com',
-  'https://debateit.com',
-  'https://www.debateit.com',
 ];
 const DEV_ORIGINS = [
   'http://localhost:8888',

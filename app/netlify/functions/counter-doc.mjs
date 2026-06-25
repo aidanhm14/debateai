@@ -155,8 +155,6 @@ const PROPOSE_COUNTER_TOOL = {
 
 const PRODUCTION_ORIGINS = [
   'https://debateai.com',
-  'https://www.debateit.com',
-  'https://debateit.com',
   'https://www.debateai.com',
 ];
 const DEV_ORIGINS = [

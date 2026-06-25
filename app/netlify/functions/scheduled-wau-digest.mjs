@@ -30,7 +30,7 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || 'Aidan @ DebateIt <hello@debateit.com>';
+const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || 'Aidan @ DebateIt <hello@debateai.com>';
 const REPLY_TO       = process.env.WAU_DIGEST_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const SITE_URL       = process.env.SITE_URL || 'https://debateai.com';
 const MAX_EMAILS     = parseInt(process.env.WAU_DIGEST_MAX || '200', 10);
@@ -96,7 +96,7 @@ function buildHtml({ firstName, roundsThisWeek, roundsLastWeek, avgScore, topCas
   </a>
   <p style="margin-top:28px;font-size:.76rem;color:#9b9ba8;line-height:1.5">
     You're getting this because you've been active on
-    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none">debateit.com</a>.
+    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none">debateai.com</a>.
     Reply to opt out.
   </p>
 </div>

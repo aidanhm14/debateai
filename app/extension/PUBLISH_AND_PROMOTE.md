@@ -71,9 +71,9 @@ each lives in the numbered sections below; this is the spine.
      level, commit. From this point on, the extension ID is stable.
 
 3. **Confirm the privacy policy is live.**
-   - Open https://debateit.com/privacy-extension in a fresh tab. It
+   - Open https://debateai.com/privacy-extension in a fresh tab. It
      should render the dark-themed privacy page. If 404, redeploy
-     debateit.com first — the listing will reject without a working
+     debateai.com first — the listing will reject without a working
      privacy URL.
 
 ### Build the artifact
@@ -132,7 +132,7 @@ that is the whole point of the extension. Ship with OAuth.
      (the user's Google name appears on the leaderboard) and "User
      activity" (drill history). LEAVE UNCHECKED: sells data, uses for
      credit/lending, uses for unrelated purposes.
-   - **Privacy policy URL** → `https://debateit.com/privacy-extension`
+   - **Privacy policy URL** → `https://debateai.com/privacy-extension`
 6. **Distribution tab**:
    - **Visibility** → **Public**.
    - **Regions** → All regions. (India is 80% of traffic; don't
@@ -162,7 +162,7 @@ Files that reference the placeholder today (verify with `git grep`):
 `app/counter.html`, `app/landing.html` (if Counter card is there),
 `app/extension/STORE_LISTING.md` references.
 
-Commit + push. Topbar pill on debateit.com now points to a real
+Commit + push. Topbar pill on debateai.com now points to a real
 install page.
 
 ---
@@ -232,7 +232,7 @@ shadow. Place at bottom-center, not bottom-edge.
 
 From the same source recording, export:
 
-- **Full 30s** — YouTube, counter.html embed, debateit.com landing.
+- **Full 30s** — YouTube, counter.html embed, debateai.com landing.
 - **15s** (0:00-0:09 + 0:25-0:30) — YouTube Shorts, X, Reels.
 - **Five 1280×800 stills** for Chrome Web Store screenshots:
   1. Wikipedia + the Quiz me chip visible
@@ -253,9 +253,9 @@ Order matters. Each step assumes the previous shipped.
 - [ ] Post the install URL in pinned tweet on @DebateIt X account.
 - [ ] Post once in your own circle (LinkedIn / Instagram story) — soft launch, not the public push.
 
-### Day 1-2: debateit.com integration
+### Day 1-2: debateai.com integration
 
-- [ ] Add a Counter install banner to the debateit.com topbar (right
+- [ ] Add a Counter install banner to the debateai.com topbar (right
   side, dismissible, fires `gtag('event', 'counter_install_click')`).
 - [ ] On `/voice-debate.html` end-of-session screen, add a small "Drill
   from any page → install Counter" link.
@@ -327,7 +327,7 @@ gtag('event', 'counter_install_click', {
 
 // In background.js, on first install (chrome.runtime.onInstalled)
 if (details.reason === 'install') {
-  fetch('https://debateit.com/api/log-counter-install', {
+  fetch('https://debateai.com/api/log-counter-install', {
     method: 'POST',
     body: JSON.stringify({
       version: chrome.runtime.getManifest().version,
@@ -339,7 +339,7 @@ if (details.reason === 'install') {
 // On first 'drill-started' in background.js
 // (already tracked for streak — also fire a one-time activation event)
 if (totalDrills === 0) {
-  fetch('https://debateit.com/api/log-counter-activation', {...});
+  fetch('https://debateai.com/api/log-counter-activation', {...});
 }
 ```
 

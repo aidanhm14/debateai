@@ -103,10 +103,10 @@ re-sign offline `.crx` builds with the same identity.
    - **App name**: `Counter`
    - **User support email**: your email
    - **App logo**: optional, skip for now
-   - **Application home page**: `https://debateit.com`
-   - **Application privacy policy link**: `https://debateit.com/privacy-extension`
+   - **Application home page**: `https://debateai.com`
+   - **Application privacy policy link**: `https://debateai.com/privacy-extension`
    - **Application terms of service**: optional, skip
-   - **Authorized domains**: add `debateit.com`
+   - **Authorized domains**: add `debateai.com`
    - **Developer contact**: your email
 4. **Save and Continue**
 5. **Scopes** screen → **Add or Remove Scopes** → search for and
