@@ -1654,11 +1654,21 @@ if(calcSchools){
 /* ── Community: "Add your program" pins ───────────────────────────── */
 var subLayer=L.layerGroup(), SUBS=[], memberLayer=L.layerGroup(), MEMBERS=[], isAdminUser=false, placeMode=null, placeLatLng=null;
 subLayer.addTo(map); memberLayer.addTo(map);
+function fetchAtlasEmails(){
+  if(!isAdminUser||!fbDb) return;
+  fbDb.collection('atlas_contacts').doc('emails').get().then(function(s){
+    if(!s.exists) return;
+    var m=s.data()||{}; window.ATLAS_CONTACTS=window.ATLAS_CONTACTS||{};
+    Object.keys(m).forEach(function(k){ window.ATLAS_CONTACTS[k]=window.ATLAS_CONTACTS[k]||{}; window.ATLAS_CONTACTS[k].e=m[k]; });
+    if(current&&typeof openCard==='function') openCard(current);
+    if(typeof rebuild==='function') rebuild();
+  }).catch(function(){});
+}
 function segContactsToggle(){ var sc=document.getElementById('seg-contacts'); if(sc) sc.hidden=!isAdminUser; }
 function checkAdmin(){ isAdminUser=false; if(!fbUser) return;
-  if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ isAdminUser=true; segContactsToggle(); return; }
+  if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ isAdminUser=true; segContactsToggle(); fetchAtlasEmails(); return; }
   if(!fbDb) return;
-  fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){ isAdminUser=!!(s.exists&&s.data()&&s.data().isAdmin); segContactsToggle(); }).catch(function(){ isAdminUser=false; }); }
+  fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){ isAdminUser=!!(s.exists&&s.data()&&s.data().isAdmin); segContactsToggle(); fetchAtlasEmails(); }).catch(function(){ isAdminUser=false; }); }
 function renderSubs(){
   subLayer.clearLayers();
   SUBS.forEach(function(s){
