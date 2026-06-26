@@ -8439,6 +8439,133 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 })();
 </script>
 
+<!-- ── Landing accordion ToC (2026-06-26) ───────────────────────────────
+     Everything below the hero/screenshot collapses into a clean Table of
+     Contents to cut scroll fatigue. Keeper sections are RELOCATED into
+     these panels by JS at load (nodes moved, not retyped); dropped ones
+     are hidden. Small diff, all content stays in the DOM (SEO intact),
+     nothing is re-authored. Panels clip with a grid-rows 0fr->1fr
+     animation; on expand we force the reveal class + fire resize (globe)
+     + play videos so the moved interactive bits don't stay blank. -->
+<style>
+  /* Anti-flash: hide the soon-to-be-relocated sources until JS moves them
+     (adds .lp-moved -> :not stops matching -> their own display returns). */
+  #tools:not(.lp-moved),#the-floor:not(.lp-moved),.circuit-band:not(.lp-moved),#live-proof:not(.lp-moved),#trained:not(.lp-moved),#founder-video:not(.lp-moved),#global:not(.lp-moved),#how-it-judges:not(.lp-moved),#judge-lenses:not(.lp-moved),.topics-edu-pair:not(.lp-moved),#guides:not(.lp-moved),.landing-compare-block:not(.lp-moved),#debate-ai:not(.lp-moved),#overview:not(.lp-moved),#philosophy:not(.lp-moved),#proPanel:not(.lp-moved),#credential:not(.lp-moved),#grow:not(.lp-moved),.review:not(.lp-moved),#faq:not(.lp-moved){display:none}
+  .review-echo,.price-compare{display:none}
+
+  .lp-toc{padding:clamp(34px,5vw,60px) 0}
+  .lp-toc-wrap{max-width:940px;margin:0 auto;padding:0 24px}
+  .lp-toc-eyebrow{font-family:'Inter',system-ui,sans-serif;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim);text-align:center;margin-bottom:24px}
+  .lp-acc{border-top:1px solid var(--border)}
+  .lp-item{border-bottom:1px solid var(--border)}
+  .lp-head{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;background:none;border:0;cursor:pointer;text-align:left;padding:clamp(17px,2.3vw,25px) 4px;font:inherit;color:var(--text)}
+  .lp-head-txt{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .lp-eyebrow{font-family:'Inter',system-ui,sans-serif;font-size:.58rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim)}
+  .lp-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:800;font-size:clamp(1.25rem,2.5vw,1.85rem);line-height:1.1;letter-spacing:-.01em;color:var(--text);transition:color .15s}
+  .lp-head:hover .lp-title{color:var(--accent)}
+  .lp-chev{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:.9rem;line-height:1;transition:transform .32s cubic-bezier(.2,.7,.2,1),background .15s,color .15s,border-color .15s}
+  .lp-head:hover .lp-chev{border-color:var(--accent);color:var(--accent)}
+  .lp-head[aria-expanded="true"] .lp-chev{transform:rotate(180deg);background:var(--accent);color:#fff;border-color:var(--accent)}
+  .lp-panel{overflow:hidden;max-height:0;transition:max-height .42s cubic-bezier(.2,.7,.2,1)}
+  .lp-panel-inner{min-height:0}
+  .lp-panel-inner>section{padding-top:6px!important;padding-bottom:30px!important;border-top:0!important;border-bottom:0!important}
+  @media (prefers-reduced-motion: reduce){ .lp-panel,.lp-panel-inner{transition:none} }
+</style>
+
+<section class="lp-toc" id="lp-toc" aria-label="Explore DebateIt">
+  <div class="lp-toc-wrap">
+    <div class="lp-toc-eyebrow">Explore DebateIt</div>
+    <div class="lp-acc">
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-tools"><span class="lp-head-txt"><span class="lp-eyebrow">Become smarter, quicker</span><span class="lp-title">Six tools. One loop.</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-tools"><div class="lp-panel-inner" data-slot="tools"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-floor"><span class="lp-head-txt"><span class="lp-eyebrow">New &middot; The Floor</span><span class="lp-title">Predict the round before the ballot drops.</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-floor"><div class="lp-panel-inner" data-slot="floor"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-circuit"><span class="lp-head-txt"><span class="lp-eyebrow">From the circuit</span><span class="lp-title">Real rounds, real ballots.</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-circuit"><div class="lp-panel-inner" data-slot="circuit"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-founder"><span class="lp-head-txt"><span class="lp-eyebrow">From the builder</span><span class="lp-title">A letter from the founder</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-founder"><div class="lp-panel-inner" data-slot="founder"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-global"><span class="lp-head-txt"><span class="lp-eyebrow">Global community</span><span class="lp-title">Where debate is growing</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-global"><div class="lp-panel-inner" data-slot="global"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-judge"><span class="lp-head-txt"><span class="lp-eyebrow">The judge lens</span><span class="lp-title">How it judges, format by format</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-judge"><div class="lp-panel-inner" data-slot="judge"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-deeper"><span class="lp-head-txt"><span class="lp-eyebrow">Go deeper</span><span class="lp-title">Formats, topics &amp; guides</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-deeper"><div class="lp-panel-inner" data-slot="deeper"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-cert"><span class="lp-head-txt"><span class="lp-eyebrow">Credential</span><span class="lp-title">Turn a round into a certificate</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-cert"><div class="lp-panel-inner" data-slot="cert"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-proof"><span class="lp-head-txt"><span class="lp-eyebrow">Proof</span><span class="lp-title">What debaters say</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-proof"><div class="lp-panel-inner" data-slot="proof"></div></div></div>
+      <div class="lp-item"><button type="button" class="lp-head" aria-expanded="false" aria-controls="lp-p-faq"><span class="lp-head-txt"><span class="lp-eyebrow">FAQ</span><span class="lp-title">Common questions</span></span><span class="lp-chev" aria-hidden="true">&#8964;</span></button><div class="lp-panel" id="lp-p-faq"><div class="lp-panel-inner" data-slot="faq"></div></div></div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    var TABS=[
+      {slot:'tools',src:['#tools']},
+      {slot:'floor',src:['#the-floor']},
+      {slot:'circuit',src:['.circuit-band','#live-proof','#trained']},
+      {slot:'founder',src:['#founder-video']},
+      {slot:'global',src:['#global']},
+      {slot:'judge',src:['#how-it-judges','#judge-lenses']},
+      {slot:'deeper',src:['.topics-edu-pair','#guides','.landing-compare-block','#debate-ai','#overview','#philosophy','#proPanel']},
+      {slot:'cert',src:['#credential','#grow']},
+      {slot:'proof',src:['.review']},
+      {slot:'faq',src:['#faq']}
+    ];
+    var DROP=['.review-echo','.price-compare'];
+    function forceVisible(root){
+      if(!root) return;
+      var els=root.querySelectorAll?root.querySelectorAll('*'):[];
+      for(var i=0;i<els.length;i++){
+        var el=els[i];
+        // don't touch the accordion's own chrome (lp-*), only the moved content
+        if(el.className && typeof el.className==='string' && el.className.indexOf('lp-')===0) continue;
+        el.classList.add('is-visible');
+        try{ if(parseFloat(getComputedStyle(el).opacity)<1) el.style.opacity='1'; }catch(e){}
+      }
+    }
+    function tabHeadFor(node){ var p=node.closest&&node.closest('.lp-panel'); return p?p.previousElementSibling:null; }
+    function init(){
+      TABS.forEach(function(tab){
+        var panel=document.querySelector('.lp-panel-inner[data-slot="'+tab.slot+'"]');
+        if(!panel) return;
+        tab.src.forEach(function(sel){
+          var node=document.querySelector(sel);
+          if(node && !node.classList.contains('lp-moved')){ node.classList.add('lp-moved'); forceVisible(node); panel.appendChild(node); }
+        });
+      });
+      DROP.forEach(function(sel){ var n=document.querySelector(sel); if(n) n.style.display='none'; });
+      document.querySelectorAll('#lp-toc .lp-head').forEach(function(head){
+        var panel=head.nextElementSibling;
+        head.addEventListener('click', function(){
+          var open=head.getAttribute('aria-expanded')==='true';
+          if(open){
+            panel.style.maxHeight=panel.scrollHeight+'px';
+            requestAnimationFrame(function(){ panel.style.maxHeight='0px'; });
+            head.setAttribute('aria-expanded','false');
+          }else{
+            head.setAttribute('aria-expanded','true');
+            forceVisible(panel);
+            panel.style.maxHeight=panel.scrollHeight+'px';
+            try{ window.dispatchEvent(new Event('resize')); }catch(e){}
+            panel.querySelectorAll('video').forEach(function(v){ try{ v.play(); }catch(e){} });
+            // after the open animation, release the cap so tall/late content (globe, video) can grow
+            setTimeout(function(){ if(head.getAttribute('aria-expanded')==='true'){ panel.style.maxHeight='none'; try{ window.dispatchEvent(new Event('resize')); }catch(e){} } },470);
+          }
+        });
+      });
+      // Jump-nav / hash links that point into a collapsed tab should open it.
+      function openByHash(){
+        var h=(location.hash||'').slice(1); if(!h) return;
+        var node=document.getElementById(h); if(!node) return;
+        var head=tabHeadFor(node);
+        if(head && head.getAttribute('aria-expanded')!=='true'){ head.click(); setTimeout(function(){ try{node.scrollIntoView({block:'start'});}catch(e){} },120); }
+      }
+      document.addEventListener('click', function(e){
+        var a=e.target.closest&&e.target.closest('a[href^="#"]'); if(!a) return;
+        var id=a.getAttribute('href').slice(1); if(!id) return;
+        var node=document.getElementById(id); if(!node) return;
+        var head=tabHeadFor(node);
+        if(head && head.getAttribute('aria-expanded')!=='true') head.click();
+      });
+      window.addEventListener('hashchange', openByHash);
+      setTimeout(openByHash, 300);
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+  })();
+  </script>
+</section>
+
 <section id="tools" class="tools-section tools-bento-wrap" aria-label="What's inside">
   <div class="tools-wrap">
     <div class="tools-list-head">
