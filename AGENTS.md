@@ -310,6 +310,42 @@ These pairs duplicate intentionally; if you edit one, edit the other:
   sweepstakes now, real-money downstream; one ledger, two-tier Play/Prize
   credits, minors never touch redeemable cash. Concept doc:
   `DEBATEIT_PREDICTION_MARKET.md`.
+- **Current state (2026-06-26) — read before editing the landing.** Two
+  structural things changed that will bite an agent who doesn't know them:
+  - **`app/landing.html` now collapses everything below the hero +
+    live-room screenshot into an accordion Table-of-Contents (`#lp-toc`).**
+    Keeper sections are RELOCATED into the accordion panels by a small JS
+    block at load — nodes are MOVED (`appendChild`), not retyped — and a
+    few redundant sections are hidden. So every section still lives in the
+    file at its ORIGINAL authored spot; edit it there and it will still
+    land in its tab. The relocation map + the dropped list are in that JS
+    block (search `data-slot`). The two judging sections were merged into
+    one "judge lens" tab.
+  - **A shared floating / picture-in-picture live player lives in
+    `app/js/live-pip.js`**, wired into `voice-debate.html` (React portal)
+    and `live-round.html` (DOM reparent). It adds Minimize (in-page mini),
+    Pop out (Document PiP, Chrome/Edge only — falls back to mini), and a
+    same-origin "site shell" iframe that keeps a live round running while
+    the user browses. On expand it force-reveals content, fires `resize`
+    (globe), and plays videos.
+  - Same-day polish: light-theme treatments for the hardcoded-dark "slab"
+    bands (live-proof, circuit-band, The Floor) so they don't read as
+    black boxes on the light page (dark theme untouched); real debater
+    names on the Floor matchup cards (persona archetypes only stay where
+    the AI characters themselves are named); a real-round video in the
+    `#trained` band; The Floor copy leaned money-forward (stake/odds/
+    payout) with "Play credits only. No cash value." kept.
+- **LANDING VERIFICATION GOTCHA (this will save you hours).** The landing
+  runs a heavy animation system (60+ keyframes, many IntersectionObservers)
+  plus a custom body scroller. In a headless/preview browser this means:
+  (1) **screenshots of anything below the hero come back BLANK** — the
+  capture grabs stale frames; verify with `eval` (computed styles) +
+  `document.elementFromPoint(...)` hit-testing instead, not screenshots;
+  (2) the **`grid-template-rows:0fr → 1fr` accordion-open trick resolves to
+  0** here — use a JS-driven `max-height` animation instead; (3) collapsed
+  content stays `opacity:0` (the observers never fire on it) unless you
+  force the reveal class + fire `resize` on expand. None of these are real
+  bugs in a normal browser — they're preview/headless artifacts.
 
 ## Claude Code-specific
 
