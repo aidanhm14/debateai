@@ -60,10 +60,36 @@ function isRateLimited(uid) {
   return entry.count > RATE_LIMIT;
 }
 
+// Server-side minors gate: never license data from an account that hasn't
+// attested 18+ in profile settings. The client only sets contributable=true
+// after the attestation, but a forged request must not bypass it. Cached per
+// uid for an hour so this costs at most one profile read/user/hour, and only
+// for users who actually have the corpus toggle on.
+const ageAttestCache = new Map();
+const AGE_TTL_MS = 60 * 60 * 1000;
+
+async function isAgeAttested(db, uid) {
+  const c = ageAttestCache.get(uid);
+  if (c && Date.now() - c.at < AGE_TTL_MS) return c.attested;
+  let attested = false;
+  try {
+    const p = await db.collection('user_profiles').doc(uid).get();
+    attested = p.exists && p.data().corpusAgeAttested === true;
+  } catch (e) {
+    console.warn('[log-generation] age-attest check failed:', e.message);
+    attested = false; // fail closed — no attestation means not licensable
+  }
+  ageAttestCache.set(uid, { attested, at: Date.now() });
+  return attested;
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const [uid, entry] of rateLimits) {
     if (now - entry.windowStart > RATE_WINDOW_MS * 2) rateLimits.delete(uid);
+  }
+  for (const [uid, entry] of ageAttestCache) {
+    if (now - entry.at > AGE_TTL_MS) ageAttestCache.delete(uid);
   }
 }, 5 * 60 * 1000);
 
@@ -143,7 +169,12 @@ export default async (request) => {
       // a previously contributable round, and an opt-in does not reach back
       // to pre-consent rounds. This is the only legally clean posture for
       // any downstream licensing of the generations corpus.
-      const contributable = body.contributable === true;
+      let contributable = body.contributable === true;
+      // Minors gate (defense in depth): never stamp contributable on an
+      // account that hasn't attested 18+, even if the client sends true.
+      if (contributable && !(await isAgeAttested(db, uid))) {
+        contributable = false;
+      }
 
       const doc = {
         uid,

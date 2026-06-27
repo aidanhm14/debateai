@@ -416,6 +416,20 @@
     </div>
   </div>
 
+  <!-- Retention: lapsed-user win-back email cohort. Read-only view of
+       config/winback_state (written by scheduled-winback.mjs in dry-run).
+       Shows what it WOULD email; flipping it live is an env change, not a
+       button here. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Retention · win-back email</span>
+        <span class="meta" id="wb-meta">Loading…</span>
+      </div>
+      <div id="wb-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Brand-name poll readout. Engaged-user vote on the rename direction:
        debateit / debatenow / debatable / debateai. Backed by /api/poll
        (public GET). Drives the DNS-flip decision soul.md §10 parked. -->
@@ -899,6 +913,7 @@ async function loadAll(force){
     loadFunnel(funnelDays).catch(()=>{});
     loadFounderVideo(fvDays).catch(()=>{});
     loadDistillations().catch(()=>{});
+    loadWinback().catch(()=>{});
     loadBrandPoll().catch(()=>{});
 
     if (autoRefresh) startAuto();
@@ -1585,6 +1600,36 @@ async function loadFounderVideo(days){
 // the cron actually ran was to dig through function logs. Now:
 // per-format age, example count, and a 200-char preview, sorted
 // stale-first so a missed run jumps to the top.
+async function loadWinback(){
+  const meta = $('wb-meta');
+  const body = $('wb-body');
+  if(!meta || !body) return;
+  meta.textContent = 'Loading…';
+  body.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/winback');
+    if (!d.exists){
+      meta.textContent = '';
+      body.innerHTML = '<div class="meta">Cron has not run yet (Wed 16:00 UTC).</div>';
+      return;
+    }
+    const mode = d.dryRun ? 'DRY-RUN · no emails sent' : 'LIVE · sending';
+    meta.textContent = mode + (d.lastRunAt ? ' · ' + new Date(d.lastRunAt).toLocaleString() : '');
+    const headline = d.dryRun ? ('Would email ' + d.eligible) : ('Sent ' + d.sent);
+    let html = '<div style="font-size:15px;font-weight:600;margin-bottom:4px">' + headline + ' lapsed user' + (d.eligible === 1 ? '' : 's') + '</div>';
+    html += '<div class="meta">candidates ' + d.candidates + ' · eligible ' + d.eligible + ' · skipped ' + d.skipped + ' · errors ' + d.errors + '</div>';
+    if (d.dryRun){
+      html += '<div class="meta" style="margin-top:6px">Read-only. To go live: set <code>WINBACK_ENABLED=1</code> in Netlify (RESEND_API_KEY already set). Unset to stop.</div>';
+    }
+    if (d.sampleWould && d.sampleWould.length){
+      html += '<div class="meta" style="margin-top:6px">Sample: ' + d.sampleWould.map(s => esc(s.format || 'unknown') + (s.hasName ? ' (named)' : '')).join(' · ') + '</div>';
+    }
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Win-back load failed: ' + esc(e.message || e) + '</div>';
+    meta.textContent = '';
+  }
+}
 async function loadDistillations(){
   const meta = $('dist-meta');
   const body = $('dist-body');
