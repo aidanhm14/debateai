@@ -14,7 +14,14 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, errorResponse } from './lib/response.mjs';
-import { FieldValue } from '@google-cloud/firestore';
+import { scrubText } from './lib/pii-scrub.mjs';
+
+// Free-text fields that can carry PII spoken/typed *inside* the content
+// (a real name in a voice transcript, an email in a typed argument). The
+// field-level allowlist below drops identifying COLUMNS (uid, IP); this set
+// is run through pii-scrub so identifiers leaking INSIDE the text are redacted
+// too. Without this, fullTranscript / userPrompt / output ship raw.
+const SCRUB_FIELDS = new Set(['motion', 'userPrompt', 'output', 'userNotes']);
 
 // Output schema: explicit allowlist of top-level fields. Anything not
 // listed here is dropped. New fields added to the generations doc
@@ -74,10 +81,15 @@ const MAX_LIMIT = 2000;
 function anonymize(doc) {
   const data = doc.data();
   const out = {};
+  let scrubHits = 0;
   for (const k of Object.keys(data)) {
     if (!ALLOWED_TOP.has(k)) continue;
     if (k === 'createdAt' && data[k] && typeof data[k].toDate === 'function') {
       out[k] = data[k].toDate().toISOString();
+    } else if (SCRUB_FIELDS.has(k) && typeof data[k] === 'string') {
+      const r = scrubText(data[k]);
+      out[k] = r.text;
+      scrubHits += r.hits;
     } else {
       out[k] = data[k];
     }
@@ -86,10 +98,29 @@ function anonymize(doc) {
   if (ctx && typeof ctx === 'object' && !Array.isArray(ctx)) {
     const safeCtx = {};
     for (const k of Object.keys(ctx)) {
-      if (ALLOWED_CONTEXT.has(k)) safeCtx[k] = ctx[k];
+      if (!ALLOWED_CONTEXT.has(k)) continue;
+      // fullTranscript is the highest-risk field — a voice round can contain
+      // a real name. Scrub it like the other free text.
+      if (k === 'fullTranscript' && typeof ctx[k] === 'string') {
+        const r = scrubText(ctx[k]);
+        safeCtx[k] = r.text;
+        scrubHits += r.hits;
+      } else {
+        safeCtx[k] = ctx[k];
+      }
     }
     out.context = safeCtx;
   }
+  // Provenance: which half is human-authored (cleanly licensable) vs model
+  // output (resale gated by the upstream provider's ToS). Typed rounds put the
+  // human's words in userPrompt and the AI's in output; voice rounds split
+  // inside fullTranscript. Labeling it lets a buyer filter without guessing.
+  out.provenance = {
+    humanAuthored: data.kind === 'voice_round' ? 'transcript:User turns' : 'userPrompt',
+    aiAuthored: 'output',
+    aiModel: data.model || '',
+  };
+  out.piiScrubHits = scrubHits;
   // Synthetic stable row id so a lab can reference a specific row in
   // a withdrawal request without seeing the underlying Firestore id.
   // SHA-ish hash of the doc id; not reversible from outside.
