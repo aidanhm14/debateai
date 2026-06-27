@@ -159,6 +159,9 @@
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
     { href: '/voice-debate',  label: 'Voice'        },
+    // 2026-06-27: /float — the "debate in the background" sub-tab (floating
+    // round over your other apps via Document PiP). Sits next to Voice.
+    { href: '/float',         label: 'Float'        },
     // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
     // profile + nightly fingerprint. Sits next to Voice since both are
