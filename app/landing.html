@@ -8486,7 +8486,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </a>
 
       <!-- 03 Philosophy Engine — bottom left. -->
-      <a class="tb-tile tb-tile--sm" style="grid-area:phil;--seq:2" href="/app#phil">
+      <a class="tb-tile tb-tile--sm" style="grid-area:phil;--seq:1" href="/app#phil">
         <div class="tb-head"><span class="tb-num">03</span><span class="tb-kicker">Framework</span></div>
         <h3 class="tb-name">Philosophy Engine</h3>
         <p class="tb-blurb">Ask which philosopher backs your argument and get the framework in lines you can actually say. 50+ thinkers at debate depth.</p>
@@ -8498,7 +8498,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       <!-- 04 Judge Feedback — middle right. (DOM in numeric order; reveal
            sequence is set per-tile via --seq to follow the loop.) -->
-      <a class="tb-tile tb-tile--sm" style="grid-area:bal;--seq:4" href="/app#feedback">
+      <a class="tb-tile tb-tile--sm" style="grid-area:bal;--seq:3" href="/app#feedback">
         <div class="tb-head"><span class="tb-num">04</span><span class="tb-kicker">Ballot</span></div>
         <h3 class="tb-name">Judge Feedback</h3>
         <p class="tb-blurb">Paste a speech. Line-by-line notes on your reasoning, your timing, the arguments you left unanswered, and the verdict.</p>
@@ -8529,7 +8529,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       <!-- 06 Voice Debate — hero anchor, top-right, spans two columns. Closes
            the loop back to 01. -->
-      <a class="tb-tile tb-tile--hero tb-tile--live" style="grid-area:live;--seq:5" href="/voice-debate">
+      <a class="tb-tile tb-tile--hero tb-tile--live" style="grid-area:live;--seq:2" href="/voice-debate">
         <div class="tb-head">
           <span class="tb-num">06</span>
           <span class="tb-kicker tb-kicker--live"><span class="tbk-dot" aria-hidden="true"></span>Live round</span>
@@ -8676,10 +8676,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   /* ── Scroll-reveal stagger (added by JS; falls back to visible) ──── */
   .tools-bento.tb-anim .tb-tile{
-    opacity:0;transform:translateY(14px) scale(.985);
-    transition:opacity .6s cubic-bezier(.16,1,.3,1),
+    opacity:0;transform:translateX(-28px);
+    transition:opacity .5s ease,
                transform .6s cubic-bezier(.16,1,.3,1);
-    transition-delay:calc(var(--seq,0) * 80ms + .36s);
+    transition-delay:calc(var(--seq,0) * 115ms + .1s);
     will-change:opacity,transform;
   }
   .tools-bento.tb-anim.is-in .tb-tile{opacity:1;transform:none}
@@ -8969,12 +8969,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   if(reduce){bento.classList.add('is-in');return;}
 
   // Reveal the loop + stagger the tiles once the section scrolls in.
+  // Robust on purpose: the old threshold:.2 observer could leave the
+  // tiles stuck at opacity:0 (faint/blank) on tall viewports or a janky
+  // scroll. Fire via the observer (threshold 0), a scroll fallback, and a
+  // timeout backstop so the tiles can never stay hidden.
+  var revealed=false;
+  function revealBento(){ if(revealed) return; revealed=true; bento.classList.add('is-in'); }
   if('IntersectionObserver' in window){
     var io=new IntersectionObserver(function(es){
-      es.forEach(function(e){ if(e.isIntersecting){ bento.classList.add('is-in'); io.disconnect(); } });
-    },{threshold:.2});
+      es.forEach(function(e){ if(e.isIntersecting){ revealBento(); io.disconnect(); } });
+    },{threshold:0});
     io.observe(bento);
-  } else { bento.classList.add('is-in'); }
+    var kick=function(){
+      var r=bento.getBoundingClientRect();
+      if(r.top < (window.innerHeight||800)*0.92 && r.bottom > 0){ revealBento(); window.removeEventListener('scroll',kick); }
+    };
+    window.addEventListener('scroll',kick,{passive:true});
+    kick();
+    setTimeout(kick,1400);
+  } else { revealBento(); }
 
   // 02 Round Simulator — clock ticks 7:00 -> 6:54 on hover, resets on leave.
   var clock=bento.querySelector('.tbm-clock');
