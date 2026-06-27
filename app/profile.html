@@ -1295,6 +1295,7 @@ function renderSettings(user, profileData){
   // Firestore value down to localStorage so the captureTurn write path on
   // every page can check consent without a Firestore round-trip per turn.
   const corpusOn = d.contributeToCorpus === true;
+  const ageAttested = d.corpusAgeAttested === true;
   try { localStorage.setItem('debateos-corpus-contribute', corpusOn ? '1' : '0'); } catch(_){}
   let muted = false;
   try { muted = localStorage.getItem('da-sfx-muted') === '1'; } catch(_){}
@@ -1329,6 +1330,10 @@ function renderSettings(user, profileData){
           <div>
             <label class="set-toggle"><input id="setCorpus" type="checkbox" ${corpusOn?'checked':''}/><span class="set-track"></span></label>
             <div class="hint">Off by default. When on, future rounds (typed and voice) can be included in an anonymized research corpus that may be licensed to AI labs studying argumentative dialogue. Anonymized means no name, no email, no uid attached. Only applies to rounds AFTER you turn this on — past rounds are never retroactively included. Toggle off any time. <a href="/privacy#corpus" style="color:var(--accent);text-decoration:underline">Details in the privacy policy.</a></div>
+            <label class="set-check" style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:13px;line-height:1.4;cursor:pointer">
+              <input id="setCorpusAge" type="checkbox" ${ageAttested?'checked':''} style="margin-top:2px;flex:0 0 auto"/>
+              <span>I confirm I am 18 or older. Required to contribute to the corpus. Under-18 rounds are never licensed, regardless of this toggle.</span>
+            </label>
           </div>
         </div>
         <div class="set-row">
@@ -1366,15 +1371,29 @@ function wireSettings(user, rows){
         const lbOn = document.getElementById('setLb')?.checked;
         const sfxOn = document.getElementById('setSfx')?.checked;
         const corpusOn = document.getElementById('setCorpus')?.checked;
+        const age18 = document.getElementById('setCorpusAge')?.checked;
+        // Minors gate: licensing data from under-18 users is the single
+        // biggest legal exposure (COPPA/GDPR-K). We don't collect DOB, so the
+        // consent point requires an explicit 18+ attestation. Turning the
+        // corpus on without it is refused, and the effective flag can never be
+        // true without the attestation — so a stray localStorage edit alone
+        // can't opt a minor in.
+        if (corpusOn && !age18) {
+          setStatus('To contribute to the research corpus, confirm you are 18 or older.', 'err');
+          saveBtn.disabled = false;
+          return;
+        }
+        const effectiveCorpus = !!corpusOn && !!age18;
         try { localStorage.setItem('da-sfx-muted', sfxOn ? '0' : '1'); } catch(_){}
         // Mirror corpus consent to localStorage so the captureTurn write
         // path on /app and /voice-debate reads sync without a Firestore hit
         // per turn. Firestore is still the source of truth across devices.
-        try { localStorage.setItem('debateos-corpus-contribute', corpusOn ? '1' : '0'); } catch(_){}
+        try { localStorage.setItem('debateos-corpus-contribute', effectiveCorpus ? '1' : '0'); } catch(_){}
         await db.collection('user_profiles').doc(user.uid).set({
           displayNameOverride: name || null,
           leaderboardOptOut: !lbOn,
-          contributeToCorpus: !!corpusOn,
+          contributeToCorpus: effectiveCorpus,
+          corpusAgeAttested: !!age18,
           contributeToCorpusUpdatedAt: new Date(),
           settingsUpdatedAt: new Date(),
         }, { merge: true });

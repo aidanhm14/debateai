@@ -141,8 +141,56 @@ export default async (request) => {
   const after = url.searchParams.get('after'); // ISO date string, optional
   const formatFilter = url.searchParams.get('format'); // optional format slug
   const kindFilter = url.searchParams.get('kind'); // optional kind
+  const mode = url.searchParams.get('mode'); // 'preference' | default row-per-doc
 
   try {
+    // ── mode=preference: (chosen, rejected) pairs from ratings ───────
+    // The differentiated product. For each format+kind bucket, pair a
+    // highly-rated AI output (chosen) against a poorly-rated one (rejected)
+    // — natively-labeled reward / DPO data, which the judge RFD + rating
+    // loop produces for free. These are MODEL outputs, so the pair is tagged
+    // as resale-gated by the upstream provider's ToS (label, don't launder).
+    // Filters applied in memory so a single equality query needs no index.
+    if (mode === 'preference') {
+      const snapP = await db.collection('generations')
+        .where('contributable', '==', true).limit(MAX_LIMIT).get();
+      let rowsP = snapP.docs.map(anonymize);
+      if (formatFilter) rowsP = rowsP.filter((r) => r.format === formatFilter);
+      if (kindFilter) rowsP = rowsP.filter((r) => r.kind === kindFilter);
+      const rated = rowsP.filter((r) => typeof r.rating === 'number' && r.output);
+
+      const buckets = {};
+      for (const r of rated) {
+        const key = (r.format || '_') + '::' + (r.kind || '_');
+        (buckets[key] ||= []).push(r);
+      }
+      const pairs = [];
+      for (const [key, arr] of Object.entries(buckets)) {
+        const hi = arr.filter((r) => r.rating >= 4).sort((a, b) => b.rating - a.rating);
+        const lo = arr.filter((r) => r.rating <= 2).sort((a, b) => a.rating - b.rating);
+        const n = Math.min(hi.length, lo.length);
+        const [fmt, knd] = key.split('::');
+        for (let i = 0; i < n; i++) {
+          pairs.push({
+            format: fmt, kind: knd,
+            prompt: hi[i].motion,
+            chosen: hi[i].output, chosenRating: hi[i].rating, chosenModel: hi[i].model,
+            rejected: lo[i].output, rejectedRating: lo[i].rating, rejectedModel: lo[i].model,
+            provenance: 'model-output preference pair — resale gated by provider ToS',
+          });
+        }
+      }
+      const bodyP = pairs.map((p) => JSON.stringify(p)).join('\n') + (pairs.length ? '\n' : '');
+      return new Response(bodyP, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/x-jsonlines; charset=utf-8',
+          'X-Pair-Count': String(pairs.length),
+          'X-Scanned': String(snapP.size),
+        },
+      });
+    }
+
     let q = db.collection('generations').where('contributable', '==', true);
     if (formatFilter) q = q.where('format', '==', formatFilter);
     if (kindFilter) q = q.where('kind', '==', kindFilter);
