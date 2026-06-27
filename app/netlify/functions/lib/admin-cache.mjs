@@ -113,11 +113,37 @@ export async function setCachedShared(key, value, ttlMs) {
   }
 }
 
+// Last-known-good read that IGNORES expiry. Used by the dashboard
+// endpoints to serve the previous payload when a fresh recompute throws
+// (e.g. Firestore RESOURCE_EXHAUSTED during a daily-quota blowout) so the
+// panel degrades to slightly-stale data instead of a hard 500. Returns
+// { value, ageMs } or null; never throws. The in-memory layer is checked
+// first (free, can survive even when fresh Firestore reads are quota-
+// blocked on a warm instance); the shared doc is a best-effort fallback.
+export async function getStaleShared(key) {
+  const local = store.get(key);
+  if (local && local.value !== undefined) {
+    return { value: local.value, ageMs: Math.max(0, Date.now() - (local.expires - TTL_HEAVY)) };
+  }
+  try {
+    const snap = await getDb().collection(SHARED_COLL).doc(sharedDocId(key)).get();
+    if (!snap.exists) return null;
+    const d = snap.data() || {};
+    if (typeof d.json !== 'string') return null;
+    const value = JSON.parse(d.json);
+    const ageMs = typeof d.expiresAt === 'number' ? Math.max(0, Date.now() - (d.expiresAt - TTL_HEAVY)) : 0;
+    return { value, ageMs };
+  } catch {
+    return null;
+  }
+}
+
 // Common TTLs for the dashboard surfaces. Imported by each admin
 // endpoint so the cadence is consistent and adjusted in one place.
-// TTL_HEAVY widened 5 → 10 min (2026-06-15): with the shared layer a
-// longer window means an actively-watched dashboard recomputes at most
-// once per 10 min globally instead of per cold start. Still plenty
-// fresh for analytics panels.
-export const TTL_HEAVY = 10 * 60 * 1000;   // analytics, cohorts, heatmap, power-users
-export const TTL_TAIL  = 30 * 1000;        // realtime tail (still fresh-feeling)
+// 2026-06-27: TTL_HEAVY 10 → 20 min and TTL_TAIL 30 → 90s after another
+// read-quota blowout — fewer cold recomputes of the multi-thousand-doc
+// event scans. An analytics panel that is minutes stale is fine; the
+// realtime tail at 90s still reads "live" while cutting the recompute
+// rate ~3x versus 30s.
+export const TTL_HEAVY = 20 * 60 * 1000;   // analytics, cohorts, heatmap, power-users
+export const TTL_TAIL  = 90 * 1000;        // realtime tail (still fresh-feeling)

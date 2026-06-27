@@ -12,11 +12,14 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_TAIL } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_TAIL } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 const MAX_TAIL = 80;
-const MAX_DOCS = 1200;
+// 2026-06-27: 1200 → 600 to shrink the worst-case last-hour event scan.
+// On this traffic level the hour rarely holds 600 events, so this is a
+// safety ceiling, not a data cut.
+const MAX_DOCS = 600;
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -147,6 +150,12 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-realtime error:', err);
+    // Serve the last-known-good payload (slightly stale) rather than a
+    // hard 500 when a fresh recompute fails — e.g. Firestore quota blown.
+    const stale = await getStaleShared(cacheKey).catch(() => null);
+    if (stale && stale.value) {
+      return jsonResponse({ ...stale.value, _stale: true, _staleAgeMs: stale.ageMs, _quota: /RESOURCE_EXHAUSTED|quota/i.test(err.message || '') }, 200, request);
+    }
     return errorResponse('Failed to load realtime: ' + (err.message || 'unknown'), 500, request);
   }
 };

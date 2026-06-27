@@ -21,14 +21,17 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 16;
-// 2026-05-19: 50K → 10K. Cohort retention is robust to sampling at
-// 10K events across an 8-week window because uniqueness is per-uid-per-week,
-// not per-event. Paired with the cache below.
-const MAX_EVENT_DOCS = 10_000;
+// 2026-06-27: 10K → 4K. Cohorts was the single biggest quota drain on
+// /admin — up to 20K user_profiles + 10K events = ~30K reads (60% of the
+// Spark daily budget) in ONE call, which is what blew the quota for the
+// other panels. Retention uniqueness is per-uid-per-week, so a 4K event
+// sample over the window still ranks the cohorts correctly; the profiles
+// cap below is cut to match.
+const MAX_EVENT_DOCS = 4_000;
 
 // Sunday 00:00 in UTC at the start of the week containing `ms`.
 function weekStartUTC(ms) {
@@ -73,7 +76,7 @@ export default async (request) => {
 
     const profilesSnap = await db.collection('user_profiles')
       .where('createdAt', '>=', cohortStart)
-      .limit(20_000)
+      .limit(6_000)  // 2026-06-27: 20K → 6K to cap the per-call read cost (see MAX_EVENT_DOCS note)
       .get()
       .catch(err => {
         console.warn('cohort profiles query failed:', err.message);
@@ -198,6 +201,10 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-cohorts error:', err);
+    const stale = await getStaleShared(cacheKey).catch(() => null);
+    if (stale && stale.value) {
+      return jsonResponse({ ...stale.value, _stale: true, _staleAgeMs: stale.ageMs, _quota: /RESOURCE_EXHAUSTED|quota/i.test(err.message || '') }, 200, request);
+    }
     return errorResponse('Failed to load cohorts: ' + (err.message || 'unknown'), 500, request);
   }
 };

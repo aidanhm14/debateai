@@ -21,14 +21,14 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { parseUA, normalizePath } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 // 2026-05-19: MAX_DOCS cut 30K → 5K. The heatmap is a sample-based
 // visualization; 5K page_view events across 30 days still gives a
 // statistically meaningful 7×24 grid. Combined with the cache below,
 // this is what makes /admin survive on a tight Firestore budget.
-const MAX_DOCS = 2500;  // 2026-06-15: halved; shared cache (admin-cache.mjs) recomputes a cold open once per TTL
+const MAX_DOCS = 1500;  // 2026-06-27: 2500 → 1500. Sample-based grid; the shared cache recomputes a cold open at most once per TTL
 const DEFAULT_DAYS = 30;
 const MAX_DAYS = 90;
 
@@ -146,6 +146,10 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-heatmap error:', err);
+    const stale = await getStaleShared(cacheKey).catch(() => null);
+    if (stale && stale.value) {
+      return jsonResponse({ ...stale.value, _stale: true, _staleAgeMs: stale.ageMs, _quota: /RESOURCE_EXHAUSTED|quota/i.test(err.message || '') }, 200, request);
+    }
     return errorResponse('Failed to load heatmap: ' + (err.message || 'unknown'), 500, request);
   }
 };

@@ -1,7 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
 
 // Hardcoded admin UID — the app owner's Firebase UID
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
@@ -158,7 +158,7 @@ export default async (request) => {
     try {
       const recentEvents = await db.collection('events')
         .where('createdAt', '>=', thirtyDaysAgo)
-        .limit(5000)
+        .limit(2500)  // 2026-06-27: 5000 → 2500 to cut per-call read cost; the breakdown is a sampled mix
         .get();
       recentEvents.docs.forEach(doc => {
         const ev = doc.data().event || 'unknown';
@@ -260,7 +260,13 @@ export default async (request) => {
     return jsonResponse(result, 200, request);
   } catch (err) {
     console.error('admin-analytics error:', err);
-    return errorResponse('Something went wrong. Please try again.', 500, request);
+    const stale = await getStaleShared(CACHE_KEY).catch(() => null);
+    if (stale && stale.value) {
+      return jsonResponse({ ...stale.value, _stale: true, _staleAgeMs: stale.ageMs, _quota: /RESOURCE_EXHAUSTED|quota/i.test(err.message || '') }, 200, request);
+    }
+    // Surface the real cause (was a generic "Something went wrong") so a
+    // quota blowout is diagnosable from the dashboard like the others.
+    return errorResponse('Failed to load analytics: ' + (err.message || 'unknown'), 500, request);
   }
 };
 

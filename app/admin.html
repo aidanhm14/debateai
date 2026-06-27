@@ -846,11 +846,13 @@ function startAuto(){
   stopAuto();
   // 2026-05-19: cadence reduced after the Firestore quota was
   // RESOURCE_EXHAUSTED by an idle /admin tab. Endpoints now have
-  // server-side caching (5 min on heavy, 30s on realtime); the client
+  // server-side caching (20 min on heavy, 90s on realtime); the client
   // poll is paced to be the floor on freshness, not the request driver.
-  // Analytics: every 5 min (was 30s). Realtime tail: every 60s (was 8s).
-  autoTimer = setInterval(() => loadAnalytics().catch(()=>{}), 5 * 60_000);
-  tailTimer = setInterval(() => loadRealtime().catch(()=>{}), 60_000);
+  // 2026-06-27: analytics 5 → 10 min, realtime 60 → 90s to sit at/above
+  // the server TTLs so an open tab mostly hits cache (1 read) instead of
+  // forcing recomputes.
+  autoTimer = setInterval(() => loadAnalytics().catch(()=>{}), 10 * 60_000);
+  tailTimer = setInterval(() => loadRealtime().catch(()=>{}), 90_000);
 }
 function stopAuto(){
   if (autoTimer) clearInterval(autoTimer);
@@ -909,17 +911,37 @@ async function loadAll(force){
     // so empty panels above used to be indistinguishable from "no data yet"
     // vs "endpoint 500'd." Show a banner naming which endpoints failed and
     // their error text so a regression in any one of them is debuggable.
+    // 2026-06-27: a Firestore daily-read-quota blowout makes every panel
+    // 500 with RESOURCE_EXHAUSTED — that's a capacity state, not a bug, so
+    // it gets a calm amber notice instead of a red "endpoints failed" wall.
+    // Endpoints now also degrade to last-cached data (HTTP 200 + _stale),
+    // surfaced as a quiet "cached numbers" line.
     const labels = ['analytics', 'realtime', 'cohorts', 'heatmap', 'power-users'];
+    const isQuotaMsg = m => /RESOURCE_EXHAUSTED|quota|429/i.test(m || '');
     const failures = results
       .map((r, i) => r.status === 'rejected' ? { label: labels[i], msg: (r.reason && r.reason.message) || String(r.reason) } : null)
       .filter(Boolean);
-    if (failures.length) {
-      errBox.innerHTML = '<div class="err-box">' +
-        '<strong>' + failures.length + ' endpoint' + (failures.length > 1 ? 's' : '') + ' failed</strong><br>' +
-        failures.map(f => '<code>' + f.label + '</code>: ' + esc(f.msg)).join('<br>') +
+    const staleVals = results.filter(r => r.status === 'fulfilled' && r.value && r.value._stale).map(r => r.value);
+    const quotaHit = failures.some(f => isQuotaMsg(f.msg)) || staleVals.some(v => v._quota);
+    const realFailures = failures.filter(f => !isQuotaMsg(f.msg));
+    let banner = '';
+    if (quotaHit) {
+      banner += '<div class="err-box" style="background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.45);color:var(--fg)">' +
+        '<strong>Firestore read quota reached.</strong> The free-tier daily read budget is spent, so panels show the last cached numbers (or stay empty until the daily reset, around midnight Pacific). Per-open read volume was cut to make this rarer.' +
         '</div>';
-      failures.forEach(f => console.error('[admin]', f.label, f.msg));
+    } else if (staleVals.length) {
+      banner += '<div class="err-box" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.35);color:var(--fg)">' +
+        'Showing cached numbers for ' + staleVals.length + ' panel' + (staleVals.length > 1 ? 's' : '') + ' — a fresh pull failed and will retry on the next load.' +
+        '</div>';
     }
+    if (realFailures.length) {
+      banner += '<div class="err-box">' +
+        '<strong>' + realFailures.length + ' endpoint' + (realFailures.length > 1 ? 's' : '') + ' failed</strong><br>' +
+        realFailures.map(f => '<code>' + f.label + '</code>: ' + esc(f.msg)).join('<br>') +
+        '</div>';
+    }
+    errBox.innerHTML = banner;
+    failures.forEach(f => console.error('[admin]', f.label, f.msg));
 
     loading.hidden = true;
     appEl.hidden = false;
