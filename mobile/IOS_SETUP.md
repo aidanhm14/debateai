@@ -160,6 +160,58 @@ This is what makes Sign In with Apple, App Check tokens, and FCM push all work.
 
 ---
 
+## Step 8 — Push notifications (FCM) — the "go live" alerts
+
+The web app already delivers push via VAPID Web Push. WKWebView has no Web Push,
+so the native app uses **FCM** instead. **All the code is already done** — the
+live site (`app/js/notifications.js`) detects the native shell, registers an FCM
+token via `@capacitor-firebase/messaging`, and posts it to
+`/.netlify/functions/push-subscribe`. The server (`lib/fcm.mjs` +
+`lib/native-push.mjs`) delivers DM + go-live pushes to those tokens
+automatically. You only do the native + console wiring below.
+
+**8a. Install the plugin** (already in `package.json`):
+```bash
+cd mobile/ && npm install
+npx cap sync ios
+```
+
+**8b. Create an APNs Auth Key and give it to Firebase** (one-time):
+1. [developer.apple.com](https://developer.apple.com) → Certificates, Identifiers
+   & Profiles → **Keys** → ➕ → enable **Apple Push Notifications service (APNs)**
+   → download the `.p8`. Note the **Key ID** and your **Team ID**.
+2. Firebase Console (`debateos-78ac5`) → Project Settings → **Cloud Messaging**
+   → Apple app config → **APNs Authentication Key** → upload the `.p8` + Key ID +
+   Team ID. (This is what lets FCM talk to Apple's push servers.)
+3. Make sure `GoogleService-Info.plist` is in `ios/App/App/` (Step 7).
+
+**8c. Xcode capabilities** — open `ios/App/App.xcworkspace`, select the App
+target → **Signing & Capabilities** → ➕ Capability:
+- **Push Notifications**
+- **Background Modes** → check **Remote notifications**
+
+**8d. Server side** (one-time, no redeploy of code needed):
+- In Google Cloud Console for `debateos-78ac5`, ensure the **Firebase Cloud
+  Messaging API (v1)** is **enabled**.
+- The Netlify functions already authenticate to FCM using the **same service
+  account** that powers Firestore — no new secret. Just confirm that service
+  account has the **Firebase Cloud Messaging API** permission (the default
+  Firebase Admin / Editor role covers it).
+
+**8e. Verify on a real device** (APNs tokens don't mint on the simulator
+reliably — use a physical iPhone):
+1. Build + run on your device, sign in with Google.
+2. Accept the notification permission prompt.
+3. In Firestore, confirm a doc appears at
+   `push_subscriptions/{yourUid}/native/{hash}` with your FCM `token`.
+4. From a second account (web is fine), hit **Available** / join `/spar`. Your
+   phone should get a notification **even with the app backgrounded**, and
+   tapping it opens `/spar`.
+
+No changes to `app/` are needed for this — the bridge ships with the site.
+
+---
+
 ## What still needs to happen (mapped to the plan)
 
 | Phase | Item | File this lives in |
@@ -169,7 +221,7 @@ This is what makes Sign In with Apple, App Check tokens, and FCM push all work.
 | 1 | First simulator run | requires Step 1-4 above |
 | 2 | Native mic via Capacitor plugin | `app/debate-ai.html` (detect native, swap recorder) |
 | 2 | Sign In with Apple | `app/landing.html` (auth UI), Firebase console |
-| 2 | Push notifications | `mobile/capacitor.config.ts` (already configured) + FCM cert |
+| 2 | Push notifications (FCM) | **Code done** (`app/js/notifications.js`, `lib/fcm.mjs`, `lib/native-push.mjs`); native wiring in Step 8 |
 | 2 | Share extension | `mobile/ios/App/ShareExtension/` (created in Xcode) |
 | 3 | RevenueCat IAP | `mobile/` deps + `app/pricing.html` (gate UI on platform) |
 | 4 | Screenshots, ASC listing | App Store Connect web |

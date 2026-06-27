@@ -47,6 +47,7 @@
   // a passive request). Safe to call repeatedly; no-ops once decided.
   function daAskNotify(){
     try {
+      if (daIsNative()) { daRegisterNativePush(); return; } // native handles its own permission prompt
       if (!window.Notification) return;
       if (Notification.permission === 'granted') { daRegisterPush(); return; }
       if (Notification.permission === 'default') {
@@ -60,9 +61,49 @@
   // push isn't configured server-side yet, this no-ops. Runs once per page.
   function daB64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4); var s = (b + p).replace(/-/g, '+').replace(/_/g, '/'); var raw = atob(s); var arr = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i); return arr; }
   function daCurrentUser(){ try { return window.firebase && window.firebase.auth && window.firebase.auth().currentUser; } catch (_) { return null; } }
+  // True inside the Capacitor native app (iOS/Android shell), false on web.
+  function daIsNative(){ try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); } catch (_) { return false; } }
+  // Native push: WKWebView has no Web Push, so the iOS/Android app registers an
+  // FCM token via @capacitor-firebase/messaging and we deliver through FCM
+  // (lib/fcm.mjs). Same push_subscribe endpoint, native branch. Tap routing
+  // navigates the WebView to the notification's url.
+  var _daNativeRegistered = false;
+  function daRegisterNativePush(){
+    try {
+      if (_daNativeRegistered) return;
+      var FM = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseMessaging;
+      if (!FM) return;
+      var user = daCurrentUser();
+      if (!user || user.isAnonymous) return;
+      _daNativeRegistered = true;
+      function postToken(token){
+        if (!token) return;
+        var u = daCurrentUser(); if (!u) return;
+        u.getIdToken().then(function (tok) {
+          return fetch('/.netlify/functions/push-subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ nativeToken: token, platform: (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || 'ios' }),
+          });
+        }).catch(function () {});
+      }
+      FM.requestPermissions().then(function (res) {
+        if (!res || res.receive !== 'granted') { _daNativeRegistered = false; return; }
+        FM.getToken().then(function (r) { postToken(r && r.token); }).catch(function () {});
+      }).catch(function () { _daNativeRegistered = false; });
+      // Token can rotate; re-register when it does.
+      try { FM.addListener('tokenReceived', function (e) { postToken(e && e.token); }); } catch (_) {}
+      // Tap on a notification → open the deep-linked screen in the WebView.
+      try { FM.addListener('notificationActionPerformed', function (e) {
+        var url = e && e.notification && e.notification.data && e.notification.data.url;
+        if (url) { try { location.href = url; } catch (_) {} }
+      }); } catch (_) {}
+    } catch (_) { _daNativeRegistered = false; }
+  }
   var _daPushRegistered = false;
   function daRegisterPush(){
     try {
+      if (daIsNative()) { daRegisterNativePush(); return; }
       if (_daPushRegistered) return;
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
       if (!window.Notification || Notification.permission !== 'granted') return;

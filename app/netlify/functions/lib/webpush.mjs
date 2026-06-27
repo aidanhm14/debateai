@@ -14,6 +14,7 @@
 import webpush from 'web-push';
 import { createHash } from 'crypto';
 import { getDb, FieldValue } from './firestore.mjs';
+import { sendToUserNative } from './native-push.mjs';
 
 // The public key is safe to ship (it's the application server key the browser
 // subscribes against). The matching private key lives only in the env.
@@ -72,12 +73,23 @@ export async function sendToManyUsers(uids, payload, concurrency = 8) {
   return { recipients, sent, configured: true };
 }
 
-// Send a notification to every device the user has subscribed. Prunes dead
-// endpoints (404/410). Never throws — push is best-effort, it must never
-// fail the caller (e.g. the matchmaker).
+// Send a notification to every device the user has subscribed — Web Push
+// (browser/PWA) AND native FCM (the iOS/Android app) in parallel. Prunes dead
+// endpoints/tokens. Never throws — push is best-effort, it must never fail the
+// caller (e.g. the matchmaker).
 export async function sendToUser(uid, payload) {
+  if (!uid) return { sent: 0 };
+  const [web, native] = await Promise.all([sendWebPush(uid, payload), sendUserNativeSafe(uid, payload)]);
+  return { sent: (web.sent || 0) + (native.sent || 0), web, native };
+}
+
+async function sendUserNativeSafe(uid, payload) {
+  try { return await sendToUserNative(uid, payload); } catch (e) { return { sent: 0, error: true }; }
+}
+
+async function sendWebPush(uid, payload) {
   try {
-    if (!uid || !pushConfigured()) return { sent: 0, configured: pushConfigured() };
+    if (!pushConfigured()) return { sent: 0, configured: false };
     ensureVapid();
     const snap = await subsCol(uid).get();
     if (snap.empty) return { sent: 0, subs: 0 };

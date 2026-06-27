@@ -1,9 +1,12 @@
-// Store / remove a browser's Web Push subscription for the signed-in user.
-// GET returns the VAPID public key + whether push is configured server-side,
-// so the client knows whether to subscribe at all.
+// Store / remove a device's push registration for the signed-in user.
+// Handles BOTH a browser Web Push subscription (body.subscription) and a native
+// app FCM token (body.nativeToken + platform). GET returns the VAPID public key
+// + whether push is configured server-side, so the client knows whether to
+// subscribe at all.
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { saveSubscription, deleteSubscription, VAPID_PUBLIC_KEY, pushConfigured } from './lib/webpush.mjs';
+import { saveNativeToken, deleteNativeToken } from './lib/native-push.mjs';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -26,7 +29,14 @@ export default async (request) => {
 
   if (request.method === 'DELETE') {
     if (body && body.endpoint) await deleteSubscription(uid, body.endpoint);
+    if (body && body.nativeToken) await deleteNativeToken(uid, body.nativeToken);
     return jsonResponse({ ok: true }, 200, request);
+  }
+
+  // Native app (Capacitor) registers an FCM token instead of a Web Push sub.
+  if (body && body.nativeToken) {
+    await saveNativeToken(uid, body.nativeToken, body.platform);
+    return jsonResponse({ ok: true, native: true }, 200, request);
   }
 
   const sub = body && body.subscription;
