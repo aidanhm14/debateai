@@ -258,6 +258,7 @@
       <span id="last-updated" class="ts"></span>
       <a class="pill-btn" href="/admin-rate">★ Rate outputs</a>
       <button id="corpus-export" class="pill-btn" title="Download an anonymized JSONL sample of contributable rounds — paste into a cold email to a lab">↓ Corpus sample</button>
+      <button id="pref-export" class="pill-btn" title="Download (chosen, rejected) preference pairs built from rated rounds — the labeled reward/DPO sample for a data-vendor pitch or the deck">↓ Preference pack</button>
       <button id="signout" class="pill-btn">Sign out</button>
       <a class="pill-btn" href="/">← home</a>
     </div>
@@ -760,6 +761,45 @@ $('corpus-export').addEventListener('click', async () => {
     setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 4000);
   } catch (e) {
     console.warn('[corpus-export]', e.message);
+    btn.textContent = '✗ ' + (e.message || 'failed').slice(0, 32);
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 5000);
+  }
+});
+// Preference pack: (chosen, rejected) pairs from rated rounds. The labeled
+// reward/DPO sample — the pitch artifact for a data vendor or the deck.
+$('pref-export').addEventListener('click', async () => {
+  const btn = $('pref-export');
+  const original = btn.textContent;
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Building…';
+    if (!auth.currentUser) throw new Error('Not signed in');
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch('/api/admin/corpus-export?mode=preference', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error('Export failed (' + res.status + '): ' + errBody.slice(0, 200));
+    }
+    const pairCount = res.headers.get('X-Pair-Count') || '?';
+    const scanned = res.headers.get('X-Scanned') || '?';
+    const body = await res.text();
+    const blob = new Blob([body], { type: 'application/x-jsonlines' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'debateit-preference-pack-' + new Date().toISOString().slice(0,10) + '.jsonl';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    btn.textContent = pairCount === '0'
+      ? '0 pairs (need rated rounds)'
+      : '✓ ' + pairCount + ' pairs / ' + scanned + ' scanned';
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 5000);
+  } catch (e) {
+    console.warn('[pref-export]', e.message);
     btn.textContent = '✗ ' + (e.message || 'failed').slice(0, 32);
     setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 5000);
   }
