@@ -490,6 +490,10 @@
     // landing-page presence pipeline (admin SDK reads presence/{uid|pid}
     // docs with lastPing ≥ now-5min, 30s server cache).
     var onlineCount = null;
+    // "Live now" — debaters actually waiting for a round (matchmaking_queue),
+    // from /api/live-now. The actionable presence signal vs the generic
+    // online count. { count, debaters:[{uid,name,format}] }.
+    var liveNow = null;
 
     // DM state
     var myUid = null, dmRows = [], dmUnread = 0, signedInReal = false;
@@ -540,9 +544,20 @@
     // even at one-tab-per-minute usage, well within Netlify free tier.
     loadActivity();
     loadOnlineCount();
+    loadLiveNow();
     var activityIv = setInterval(function () {
-      if (!document.hidden) { loadActivity(); loadOnlineCount(); }
+      if (!document.hidden) { loadActivity(); loadOnlineCount(); loadLiveNow(); }
     }, 90 * 1000);
+    function loadLiveNow() {
+      fetch('/api/live-now', { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || typeof j.count !== 'number') return;
+          liveNow = j;
+          if (panel) paintPanel();
+        })
+        .catch(function () { /* function down — live row stays hidden */ });
+    }
     function loadActivity() {
       fetch('/api/recent-activity', { cache: 'no-cache' })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -815,6 +830,25 @@
       // honest number from /api/online-count (Firestore presence
       // docs with lastPing within the last 5 min).
       html += '<div class="ui-bell-head ui-bell-head--mid">Site activity</div>';
+      // "Live now" — people actually waiting for a round. The strongest
+      // call to action: tap to spar one of them this second.
+      if (liveNow && liveNow.count > 0) {
+        var others = (liveNow.debaters || []).filter(function (d) { return d.uid !== myUid; });
+        var names = others.slice(0, 3).map(function (d) { return escHtml((d.name || '').split(/\s+/)[0]); }).filter(Boolean);
+        var sub = names.length ? names.join(', ') + (liveNow.count > names.length ? ' and more' : '') : 'Tap to find your match';
+        html += '<div class="ui-bell-list">' +
+          '<a class="ui-bell-row" href="/spar?from=bell-live" style="background:linear-gradient(90deg,rgba(34,197,94,.10),transparent 75%)">' +
+            '<span class="ui-bell-av ui-bell-av--blank" style="position:relative;color:#22c55e">' +
+              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 21 11l-2.5-2.5L12 15"/><path d="M9.5 6.5 3 13l2.5 2.5L12 9"/><path d="m21 3-5 1-1 5M3 21l5-1 1-5"/></svg>' +
+            '</span>' +
+            '<span class="ui-bell-row__main">' +
+              '<span class="ui-bell-row__name">' + liveNow.count + (liveNow.count === 1 ? ' debater looking to spar' : ' debaters looking to spar') + '</span>' +
+              '<span class="ui-bell-row__preview">' + sub + '</span>' +
+            '</span>' +
+            '<span class="ui-bell-row__time" style="color:#22c55e">spar →</span>' +
+          '</a>' +
+        '</div>';
+      }
       if (onlineCount !== null && onlineCount > 0) {
         html += '<div class="ui-bell-list">' +
           '<a class="ui-bell-row" href="/live">' +

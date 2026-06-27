@@ -1496,6 +1496,17 @@ h1 em{color:var(--accent);font-style:normal}
         '<span class="ql-sep">·</span>' +
         '<a class="link-btn" href="/debate-it">Skip to AI now</a>' +
       '</div>' +
+      // Round alerts: the highest-intent moment to opt into Web Push. If the
+      // queue is quiet, leaving with alerts on means you get pinged the
+      // moment a debater goes live, even from another app. Hidden unless
+      // signed in (alerts route by uid) and not already opted in; wired below.
+      '<div class="alerts-cta" id="alertsCta" hidden style="margin-top:14px;padding:11px 13px;border:1px solid rgba(34,197,94,.32);background:rgba(34,197,94,.06);border-radius:12px;text-align:left">' +
+        '<div style="display:flex;align-items:center;gap:11px">' +
+          '<span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:rgba(34,197,94,.14);color:#22c55e"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>' +
+          '<span style="flex:1;min-width:0;font-size:.76rem;color:var(--text-dim);line-height:1.45"><strong style="color:var(--text);font-weight:700;display:block;font-size:.82rem;margin-bottom:1px">Get pinged when a debater goes live</strong>Leave this page and we will notify you the moment someone is looking for a round, even in another app.</span>' +
+          '<button type="button" class="btn" id="alertsEnableBtn" style="flex-shrink:0;background:#22c55e;color:#06210f;border:none;border-radius:9px;padding:8px 14px;font-weight:800;font-size:.78rem;cursor:pointer">Turn on</button>' +
+        '</div>' +
+      '</div>' +
       // Round setup — pick the style you queue under, and optionally
       // tell the judge how to evaluate. Switching style requeues under
       // the new format (fresh doc, fresh clock); the judge note rides
@@ -1564,6 +1575,30 @@ h1 em{color:var(--accent);font-style:normal}
         try { if (window.gtag) gtag('event', 'spar_bg_on', { from: 'spar_searching' }); } catch(e){}
         location.href = '/debate-it';
       });
+    })();
+    (function(){
+      // Round-alerts opt-in. Shows for signed-in (non-guest) users who haven't
+      // already enabled live alerts; uses the helpers exposed by
+      // js/notifications.js (daSetLiveAlerts requests push permission + saves
+      // the notify_prefs flag). Anonymous users can't be routed a push (no
+      // stable uid), so it stays hidden for them.
+      var cta = document.getElementById('alertsCta');
+      var btn = document.getElementById('alertsEnableBtn');
+      if (!cta || !btn) return;
+      function refresh(){
+        var ok = state.user && !state.user.isAnonymous && typeof window.daSetLiveAlerts === 'function';
+        var alreadyOn = typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts();
+        cta.hidden = !(ok && !alreadyOn);
+      }
+      btn.addEventListener('click', function(){
+        if (window.daSetLiveAlerts) window.daSetLiveAlerts(true, function(){});
+        cta.hidden = true;
+        try { if (window.gtag) gtag('event', 'live_alerts_on', { from: 'spar_searching' }); } catch(e){}
+      });
+      // notifications.js loads deferred; retry briefly so the CTA appears once
+      // the helpers are ready.
+      refresh();
+      var tries = 0, iv = setInterval(function(){ tries++; refresh(); if (!cta.hidden || tries > 20) clearInterval(iv); }, 300);
     })();
     startCountdown();
     startStatusCycle();
