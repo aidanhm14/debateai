@@ -2358,6 +2358,10 @@ h1 em{color:var(--accent);font-style:normal}
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).then(function(){
       try { gtag('event', 'spar_queue_join', { format: formatParam }); } catch(e){}
+      // Going live: ping debaters who opted into live-round alerts (Web Push,
+      // even while they're in another app). Named accounts only; server
+      // enforces a per-debater cooldown. Helper lives in js/notifications.js.
+      try { if (!state.user.isAnonymous && window.daBroadcastGoLive) window.daBroadcastGoLive(formatParam, 'spar'); } catch(e){}
       subscribeMyDoc();
       startMatchPolling();
       startQueueHeartbeat();

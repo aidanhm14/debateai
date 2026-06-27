@@ -91,6 +91,47 @@
       }).catch(function () { _daPushRegistered = false; });
     } catch (_) { _daPushRegistered = false; }
   }
+  // ── live-round alerts (go-live broadcast) ────────────────────────
+  // Receive side: an opt-in, separate from being available yourself, so a
+  // user can ask to be pinged when ANY debater goes live (even while on
+  // another app). Cached in localStorage for instant UI; the server copy in
+  // notify_prefs is what go-live.mjs fans out against.
+  var DA_LIVE_ALERTS_KEY = 'da-live-alerts';
+  function daGetLiveAlerts() { try { return localStorage.getItem(DA_LIVE_ALERTS_KEY) === '1'; } catch (_) { return false; } }
+  function daSetLiveAlerts(on, cb) {
+    on = !!on;
+    try { localStorage.setItem(DA_LIVE_ALERTS_KEY, on ? '1' : '0'); } catch (_) {}
+    // Turning alerts ON must also secure a push subscription for this device,
+    // or there's nothing to deliver to.
+    if (on) daAskNotify();
+    var user = daCurrentUser();
+    if (!user) { if (cb) cb(on); return; }
+    user.getIdToken().then(function (tok) {
+      return fetch('/.netlify/functions/notify-prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify({ liveAlerts: on }),
+      });
+    }).then(function () { if (cb) cb(on); }).catch(function () { if (cb) cb(on); });
+  }
+  // Broadcast side: tell the pool a debater just went live. Server enforces a
+  // per-debater cooldown, so calling this on every "Available" flip is safe.
+  function daBroadcastGoLive(format, mode) {
+    try {
+      var user = daCurrentUser();
+      if (!user || user.isAnonymous) return; // named accounts only broadcast
+      user.getIdToken().then(function (tok) {
+        return fetch('/.netlify/functions/go-live', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify({ format: format || 'apda', mode: mode || 'spar' }),
+        });
+      }).catch(function () {});
+    } catch (_) {}
+  }
+  // Exposed so the /spar foreground matchmaker (which suppresses the
+  // background matcher) can still fire the go-live broadcast on queue join.
+  try { window.daBroadcastGoLive = daBroadcastGoLive; window.daSetLiveAlerts = daSetLiveAlerts; window.daGetLiveAlerts = daGetLiveAlerts; } catch (_) {}
   // Cross-platform attention signal: blink the tab title until the user
   // returns. Works where new Notification() doesn't — notably iOS Safari,
   // which can't fire OS notifications without an installed-PWA push build.
@@ -523,7 +564,18 @@
           return;
         }
         myUid = u.uid;
-        if (!u.isAnonymous) daRegisterPush(); // Web Push: subscribe a signed-in device on load (no-op if permission/VAPID absent)
+        if (!u.isAnonymous) {
+          daRegisterPush(); // Web Push: subscribe a signed-in device on load (no-op if permission/VAPID absent)
+          // Reconcile the live-alert toggle with the server copy so it reads
+          // right across devices (localStorage is only this device's cache).
+          u.getIdToken().then(function (tok) {
+            return fetch('/.netlify/functions/notify-prefs', { headers: { 'Authorization': 'Bearer ' + tok } });
+          }).then(function (r) { return r.json(); }).then(function (p) {
+            if (!p) return;
+            try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
+            if (panel) paintPanel();
+          }).catch(function () {});
+        }
         renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
       });
@@ -675,9 +727,41 @@
       '</a>';
     }
 
+    // Opt-in row: "Alert me when rounds are forming". Pings this user (Web
+    // Push, even on another app) whenever any debater goes live. Distinct
+    // from the "Available" pill, which makes YOU matchable.
+    function liveAlertRowHtml() {
+      var on = daGetLiveAlerts();
+      return '<button type="button" id="daLiveAlertToggle" class="ui-bell-la" aria-pressed="' + (on ? 'true' : 'false') + '" ' +
+        'style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--border,rgba(255,255,255,.06));background:transparent;color:inherit;cursor:pointer;text-align:left;font-family:inherit">' +
+        '<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:' + (on ? 'rgba(34,197,94,.14)' : 'var(--bg-elev,#101014)') + ';color:' + (on ? '#22c55e' : 'var(--text-dim,#9aa)') + '">' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+        '</span>' +
+        '<span style="flex:1;min-width:0">' +
+          '<span style="display:block;font-size:.82rem;font-weight:700;color:var(--text,#fff)">Alert me when rounds are forming</span>' +
+          '<span style="display:block;font-size:.7rem;color:var(--text-dim,#9aa)">Get pinged when a debater goes live, even in another app</span>' +
+        '</span>' +
+        '<span aria-hidden="true" style="position:relative;flex-shrink:0;width:36px;height:21px;border-radius:999px;transition:background .15s;background:' + (on ? '#22c55e' : 'var(--border,rgba(255,255,255,.18))') + '">' +
+          '<span style="position:absolute;top:2px;left:' + (on ? '17px' : '2px') + ';width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s"></span>' +
+        '</span>' +
+      '</button>';
+    }
+    function bindLiveAlertToggle() {
+      var btn = document.getElementById('daLiveAlertToggle');
+      if (!btn) return;
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var next = !daGetLiveAlerts();
+        daSetLiveAlerts(next, function () { paintPanel(); });
+        paintPanel(); // optimistic repaint
+      });
+    }
+
     function paintPanel() {
       if (!panel) return;
-      var html = '<div class="ui-bell-head">What’s new</div>';
+      var html = '';
+      if (myUid) html += liveAlertRowHtml();
+      html += '<div class="ui-bell-head">What’s new</div>';
       if (!updates.length) {
         html += '<div class="ui-bell-empty">No updates yet.</div>';
       } else {
@@ -722,6 +806,7 @@
         html += '<a class="ui-bell-foot" href="/spar">Open all messages</a>';
       }
       panel.innerHTML = html;
+      if (myUid) bindLiveAlertToggle();
     }
 
     function announce(disp, preview) {
@@ -899,7 +984,12 @@
       // A manual opt-in is an explicit "match me now", so it clears any
       // lingering post-decline quiet window.
       if (on) { declineUntil = 0; if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; } }
-      if (available && myUid && !ON_ROUND && !ON_SPAR) goAvailable();
+      if (available && myUid && !ON_ROUND && !ON_SPAR) {
+        goAvailable();
+        // Going live = ping the pool of opted-in debaters (server enforces a
+        // per-debater cooldown so this can't spam on repeated toggles).
+        daBroadcastGoLive(fmt(), 'spar');
+      }
       else goOffline();
     }
     function goAvailable() {

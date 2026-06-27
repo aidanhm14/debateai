@@ -49,6 +49,29 @@ export async function deleteSubscription(uid, endpoint) {
   await subsCol(uid).doc(subDocId(endpoint)).delete().catch(() => {});
 }
 
+// Fan a single notification out to many users (a "go live" broadcast).
+// Reuses sendToUser per recipient with a small concurrency cap so a pool
+// of opted-in debaters can all be pinged without a burst of parallel
+// connections. Best-effort and never throws — returns a tally.
+export async function sendToManyUsers(uids, payload, concurrency = 8) {
+  if (!Array.isArray(uids) || !uids.length || !pushConfigured()) {
+    return { recipients: 0, sent: 0, configured: pushConfigured() };
+  }
+  const queue = uids.slice();
+  let sent = 0, recipients = 0;
+  async function worker() {
+    while (queue.length) {
+      const uid = queue.shift();
+      const r = await sendToUser(uid, payload);
+      if (r && r.sent) sent += r.sent;
+      recipients++;
+    }
+  }
+  const n = Math.max(1, Math.min(concurrency, queue.length));
+  await Promise.all(Array.from({ length: n }, worker));
+  return { recipients, sent, configured: true };
+}
+
 // Send a notification to every device the user has subscribed. Prunes dead
 // endpoints (404/410). Never throws — push is best-effort, it must never
 // fail the caller (e.g. the matchmaker).
