@@ -166,6 +166,12 @@
     { href: '/coach',         label: 'Coach'        },
     { href: '/spar',          label: 'LIVE', pulse: true },
     { href: '/app#case',      label: 'Prep'         },
+    // 2026-06-27: /scale surfaced near the front of the bar per Aidan
+    // ("have it closer to the top"). /scale is the mission page — the
+    // scale ladder from small online tournaments today up to mass-viewed
+    // rounds with markets on who wins. Distinct from /future, which is
+    // the "why the skill matters" philosophy essay (footer-linked only).
+    { href: '/scale',         label: 'Scale'        },
     { href: '/learn',         label: 'Learn'        },
     // 2026-05-26: /credentials surfaced into the topbar per user ask.
     // It's a recently-shipped feature ("earn a verifiable DebateIt
