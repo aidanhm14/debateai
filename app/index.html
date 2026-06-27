@@ -4317,14 +4317,14 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
       if (isCrossProvider) {
         throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or pick a plan to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 6 brains.');
       }
-      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($5/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
+      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($10/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
     }
   } else if (__currentTeam) {
     var teamUsed = __currentTeam.usageThisPeriod || 0;
     var teamLimit = __currentTeam.usageLimit || 5;
     if (teamUsed >= teamLimit) {
       if (isCrossProvider && __currentTeam.plan === 'byok') {
-        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($5/year) for all 6 brains.');
+        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($10/year) for all 6 brains.');
       }
       throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
     }
@@ -4457,7 +4457,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
         try {window.open('https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', '_blank', 'noopener');markFeedbackGiven();} catch (e) {}
         throw new Error('You\'ve used your free rounds. We just opened our quick feedback form. Fill it out and you\'ll unlock more (refresh after).');
       }
-      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($5/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
+      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($10/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
     }
     // Don't increment here. increment after successful response below
   } else if (__currentTeam) {
@@ -5664,7 +5664,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
       key: key,
       onClick: function () {
         if (isLocked) {
-          setError('Upgrade to unlock ' + brain.name + '. $5/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
+          setError('Upgrade to unlock ' + brain.name + '. $10/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
           return;
         }
         setCaseBrain(key);
@@ -9396,7 +9396,7 @@ function JudgeAnalyzer({ team, user, onNavigateTab }) {
   el('div', { style: { color: '#94a3b8', fontSize: '.88rem', lineHeight: 1.6, marginBottom: 20 } }, 'Paste ballots, RFDs, or a Tabroom paradigm and get a strategic profile of any judge, likes, dislikes, speaker-point drivers, and how to win their ballot. Available on Individual and Lifetime plans.'),
   el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
   el('button', { className: 'btn btn-primary', onClick: goUpgrade, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to Unlock'),
-  el('div', { style: { color: '#64748b', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $5/year')
+  el('div', { style: { color: '#64748b', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $10/year')
   )
   )
   ),
@@ -11300,7 +11300,7 @@ var CHECKOUT_BETA_NO_CHARGE = true;
 function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   var el = React.createElement;
   var planNames = { byok: 'BYOK', individual: 'Individual', lifetime: 'Lifetime', team: 'Team' };
-  var planPrices = { byok: '$1/mo', individual: '$5/year', lifetime: '$14.99 once', team: '$20/year' };
+  var planPrices = { byok: '$1/mo', individual: '$10/year', lifetime: '$14.99 once', team: '$50/year' };
   var name = planNames[plan] || plan;
   var price = planPrices[plan] || '';
   var showTeamCta = (needsTeam || plan === 'team') && typeof onCreateTeam === 'function';
@@ -13116,9 +13116,9 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   ...[
   { name: 'Free', price: '$0', requests: '5/mo', members: '10 members', highlight: false, desc: 'Get started' },
   { name: 'BYOK', price: '$1/mo', requests: 'Unlimited*', members: '1 member', highlight: false, desc: 'Bring your own API keys', badge: 'Cheapest', badgeColor: '#f59e0b' },
-  { name: 'Individual', price: '$5/yr', requests: '250/mo', members: '10 members', highlight: true, desc: '$5 for the whole year' },
+  { name: 'Individual', price: '$10/yr', requests: '250/mo', members: '10 members', highlight: true, desc: '$10 for the whole year' },
   { name: 'Lifetime', price: '$14.99', requests: '250/mo', members: '10 members', highlight: false, desc: 'Pay once, use forever', badge: 'Best Value', badgeColor: '#22c55e' },
-  { name: 'Team', price: '$20/yr', requests: '1,500/mo', members: '50 members', highlight: false, desc: 'For clubs and programs' }].
+  { name: 'Team', price: '$50/yr', requests: '1,500/mo', members: '50 members', highlight: false, desc: 'For clubs and programs' }].
   map((p) => el('div', { key: p.name, style: { padding: 24, background: 'var(--card-bg,#303038)', border: '1.5px solid ' + (p.highlight ? '#3b82f660' : p.badgeColor ? p.badgeColor + '40' : '#ffffff15'), borderRadius: 14, textAlign: 'center', position: 'relative', transition: 'border-color .2s' } },
   p.badge && el('div', { style: { position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', padding: '3px 12px', background: p.badgeColor || '#22c55e', color: '#fff', fontSize: '.65rem', fontWeight: 700, borderRadius: 10, letterSpacing: '.5px', whiteSpace: 'nowrap' } }, p.badge.toUpperCase()),
   p.highlight && el('div', { style: { fontSize: '.7rem', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 } }, 'Most Popular'),
@@ -13145,9 +13145,9 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   el('div', { style: { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5,1fr)', gap: isMobile ? 10 : 16, marginTop: 24 } },
   ...[
   { name: 'Free', price: '$0', requests: '5/mo', members: '10 members', highlight: false },
-  { name: 'Individual', price: '$5/yr', requests: '250/mo', members: '10 members', highlight: true },
+  { name: 'Individual', price: '$10/yr', requests: '250/mo', members: '10 members', highlight: true },
   { name: 'Lifetime', price: '$14.99', requests: '250/mo', members: '10 members', highlight: false, badgeColor: '#22c55e', badge: 'Best Value' },
-  { name: 'Team', price: '$20/yr', requests: '1,500/mo', members: '50 members', highlight: false }].
+  { name: 'Team', price: '$50/yr', requests: '1,500/mo', members: '50 members', highlight: false }].
   map((p) => el('div', { key: p.name, style: { padding: 24, background: 'var(--card-bg,#303038)', border: '1.5px solid ' + (p.highlight ? '#3b82f660' : p.badgeColor ? p.badgeColor + '40' : '#ffffff15'), borderRadius: 14, textAlign: 'center', position: 'relative', transition: 'border-color .2s' } },
   p.badge && el('div', { style: { position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', padding: '3px 12px', background: p.badgeColor || '#22c55e', color: '#fff', fontSize: '.65rem', fontWeight: 700, borderRadius: 10, letterSpacing: '.5px', whiteSpace: 'nowrap' } }, p.badge.toUpperCase()),
   p.highlight && el('div', { style: { fontSize: '.7rem', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 } }, 'Most Popular'),
@@ -13276,7 +13276,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   el('div', { style: { color: '#fbbf24', fontSize: '.78rem', fontWeight: 700, marginBottom: 4 } }, 'BYOK is one-provider only'),
   el('div', { style: { color: '#94a3b8', fontSize: '.74rem', lineHeight: 1.55 } },
   'Your key unlocks ', el('strong', { style: { color: '#fbbf24' } }, 'unlimited Claude'), ' requests. ',
-  el('strong', null, 'GPT, Gemini, Grok, DeepSeek, and Open Lab still count against your plan\u2019s request cap'), '. once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($5/year) for all 6 brains.'
+  el('strong', null, 'GPT, Gemini, Grok, DeepSeek, and Open Lab still count against your plan\u2019s request cap'), '. once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($10/year) for all 6 brains.'
   )
   )
   ),
@@ -13291,8 +13291,8 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   function () {
     var tiers = [
     { plan: 'byok', price: '$1/mo', sub: 'BYOK \u2022 your Claude key', tag: 'Cheapest' },
-    { plan: 'individual', price: '$5/yr', sub: 'Individual \u2022 250/mo', tag: '' },
-    { plan: 'team', price: '$20/yr', sub: 'Team \u2022 1,500/mo', tag: 'Popular' },
+    { plan: 'individual', price: '$10/yr', sub: 'Individual \u2022 250/mo', tag: '' },
+    { plan: 'team', price: '$50/yr', sub: 'Team \u2022 1,500/mo', tag: 'Popular' },
     { plan: 'lifetime', price: '$14.99', sub: 'Lifetime \u2022 250/mo', tag: 'Best value' }];
 
     return el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
@@ -15171,7 +15171,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
   el('div', { style: { color: 'var(--text-muted,#94a3b8)', fontSize: '.9rem', lineHeight: 1.6, marginBottom: 20 } }, 'Schedule debates, join video calls, and compete live with debaters around the world. Available on Individual and Team plans.'),
   el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
   el('button', { className: 'btn btn-primary', onClick: () => {if (onNavigateTab) onNavigateTab('team');}, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to Unlock'),
-  el('div', { style: { color: 'var(--text-muted,#64748b)', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $5/year')
+  el('div', { style: { color: 'var(--text-muted,#64748b)', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $10/year')
   )
   )
   ),

@@ -62,9 +62,9 @@ export function isIndia(request) {
 // other (canonical USD lives in soul.md §7).
 export const RAZORPAY_INR_PRICES = {
   byok:       { amountPaise:   8500, label: '₹85',    cadence: 'month',  recurring: true  }, // $1/mo
-  individual: { amountPaise:  41900, label: '₹419',   cadence: 'year',   recurring: true  }, // $5/year (2026-05-14)
+  individual: { amountPaise:  83800, label: '₹838',   cadence: 'year',   recurring: true  }, // $10/year (2026-06-27)
   lifetime:   { amountPaise: 124900, label: '₹1,249', cadence: 'once',   recurring: false }, // $14.99 once
-  team:       { amountPaise: 167500, label: '₹1,675', cadence: 'year',   recurring: true  }, // $20/year (2026-05-14)
+  team:       { amountPaise: 419000, label: '₹4,190', cadence: 'year',   recurring: true  }, // $50/year (2026-06-27)
 };
 
 export function razorpayPlanAmount(plan) {

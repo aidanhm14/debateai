@@ -4111,12 +4111,14 @@ function App() {
   // reached the server. The client now forces the upgrade gate on the
   // server's 402 regardless, so there's no stuck loop, but "N of 8 left"
   // overcounts until that server const is aligned to 8 (a cost decision).
-  // 2026-05-14: bumped from 1 / 3 → 3 / 8. Re-framed Voice from a
-  // "Pro feature" to a "New feature" — same engine, same OpenAI
-  // Realtime cost basis, but the previous cap was too stingy for
-  // users meeting Voice for the first time.
-  var ANON_VOICE_LIMIT = 3;
-  var FREE_VOICE_LIMIT = 8;
+  // 2026-05-14: bumped from 1 / 3 → 3 / 8 (Voice reframed "New").
+  // 2026-06-27: cut back to 1 / 2. Voice runs on OpenAI Realtime and is
+  // ~80% of per-user variable cost; the free tier is a taste, not a
+  // habit. Voice is now the strongest paid hook, not a giveaway. Server
+  // const (realtime-session.mjs FREE_VOICE_LIFETIME_LIMIT) moved to 2 to
+  // match — both must change together or the counter lies.
+  var ANON_VOICE_LIMIT = 1;
+  var FREE_VOICE_LIMIT = 2;
   var ANON_USAGE_KEY = 'da-voice-anon-used';
   // Owner allowlist — bypasses the voice cap on the client so the gate
   // never shows the upgrade card to these accounts. Server enforces the
@@ -7470,7 +7472,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   el('div', { className: 'vg-eyebrow' }, 'Free voice rounds used'),
   el('div', { className: 'vg-h' }, 'Keep going with a plan'),
   el('p', { className: 'vg-body' },
-  'You\'ve used your 8 free voice rounds. Voice is new and runs on OpenAI\'s Realtime API (charged per audio minute), so the free tier is capped. Typed mode stays unmetered for your account.'
+  'You\'ve used your 2 free voice rounds. Voice runs on OpenAI\'s Realtime API (charged per audio minute), so the free tier is a taste. Typed mode stays unmetered for your account.'
   ),
   el('a', {
     href: '/pricing', className: 'cta vg-cta'
@@ -7506,7 +7508,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   voiceGate.limit - voiceGate.used + ' of ' + voiceGate.limit + ' free rounds left.' :
   voiceGate.used > 0 ?
   'Sample round available. Sign in after and the AI starts learning your voice.' :
-  '3 sample rounds before sign-in. After that, your voice rounds feed your style profile.'
+  'One sample round before sign-in. After that, your voice rounds feed your style profile.'
   )
   )
   )

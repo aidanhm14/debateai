@@ -25,10 +25,12 @@ import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 // and owner-allowlisted emails (see lib/auth.mjs) bypass. Anon users
 // are gated client-side (3 lifetime via localStorage) + by the existing
 // 6/hour/IP rate limit at the bottom of this function.
-// Aligned to 8 on 2026-06-09 to match the client's FREE_VOICE_LIMIT (the
-// 2026-05-14 anon 1→3 / signed-in 3→8 bump had only landed client-side,
-// so signed-in users were told "8 left" but 402'd at 3).
-const FREE_VOICE_LIFETIME_LIMIT = 8;
+// 2026-06-27: cut 8 → 2. Voice (OpenAI Realtime) is ~80% of per-user
+// variable cost; the free tier is a taste, not a habit, and Voice is now
+// the strongest paid hook. Must match the client const in
+// voice-debate.html (ANON_VOICE_LIMIT 1 / FREE_VOICE_LIMIT 2) or the
+// counter lies. This is the real enforcement; the client gate is UX-only.
+const FREE_VOICE_LIFETIME_LIMIT = 2;
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 
 /* ── AI COUNCIL ──────────────────────────────────────────────────
