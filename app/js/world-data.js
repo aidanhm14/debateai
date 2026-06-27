@@ -18,43 +18,35 @@
 (function(global){
   'use strict';
 
-  // 36 columns × 18 rows (10° resolution) ASCII land mask. "#" = land,
-  // "." = ocean. Hand-drawn; rough is fine — the city pins carry the
-  // real geographic load and edge fade hides the lo-res quality.
-  var LAND_MASK = [
-    '....................................', // 90N
-    '....##.######.................######', // 80N
-    '...####.#####################.######', // 70N
-    '..######.######################.####', // 60N
-    '..#######.######################.###', // 50N
-    '...####.....##################...##.', // 40N
-    '....##........############.##.......', // 30N
-    '.....###....#################.......', // 20N
-    '......##....##############..........', // 10N
-    '.......##.....#######.####..........', // 0
-    '........###.....#####.####..........', // 10S
-    '.........###.....####.....##........', // 20S
-    '..........##.....###......##........', // 30S
-    '..........#.......#.......#.........', // 40S
-    '....................................', // 50S
-    '....................................', // 60S
-    '########.#####################.#####', // 70S
-    '####################################'  // 80S
-  ];
+  // ── Land mask ──────────────────────────────────────────────────
+  // 180 columns × 90 rows (2° resolution) coastline raster, derived
+  // from Natural Earth 1:50m land polygons (public domain) by
+  // point-in-polygon sampling at each cell center. Recognizable
+  // continent outlines — North/South America, Europe, Africa, Asia,
+  // Australia, Antarctica — not the old hand-drawn 10° blobs.
+  //
+  // Storage: each row is a base64-packed bitstring (1 = land, MSB
+  // first, 8 cells/byte, last byte zero-padded). Rows joined by '|'.
+  // Decoded once at load into {lng,lat} cell centers. ~5,400 land
+  // cells; the globe renderer fades the back hemisphere so only the
+  // ~half facing the viewer is ever drawn.
+  var LAND_COLS = 180;
+  var LAND_STEP = 2;  // degrees per cell
+  var LAND_ROWS_B64 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAHwAf/AAAAAAAAAAAAAAAAAA=|AAAAAAAx37///+AAAAAEoABAAAAAAAA=|AAAAAAIe8P///wAA8AAAAAA8AAAAAAA=|AAAAAwAjw////4AAIAAAAAAHAAAAAAA=|AAAAAKgvwAf//wAAAAADAAP/wAHIAAA=|AAAADoj38AP/+gAAAAAEAH///MAAAAA=|gBgAAfw3/gD/+gAAAAAEHe///+/9gBA=|AP/6/nbcrwD/+AAAH/Ah7H////////A=|4H//////g8H/gAAAf/6//f////////A=|Mf/////9H4D4AeAA+ev///////////A=|AP/////4A0B4AAAD5/////////////A=|Af3////gHgA4AAAD5///////////LwA=|AHgH///gHkAAAACG4/////////+AIAA=|ABAC///4D+AAAAGAx/////////4A4AA=|AAABf///n/gAAAOCB/////////4A4AA=|AAAAf///3/wAAAbH//////////9AgAA=|AAAAP/////wAAAD///////////9AAAA=|AAAAB////8YAAAB///////////8AAAA=|AAAAD////8EAAAB///vv//////5AAAA=|AAAAD////2AAAAB/f5fP//////wAAAA=|AAAAD////gAAAAfxnwPP//////jAAAA=|AAAAD///+AAAAAPCb3/n/////+AAAAA=|AAAAD///8AAAAAfAJf/H////+ECAAAA=|AAAAB///8AAAAAGDRf/n/////mMAAAA=|AAAAA///8AAAAAH+Ai///////E8AAAA=|AAAAAf//wAAAAAP/AA///////BgAAAA=|AAAAAP//gAAAAAf/73///////gAAAAA=|AAAAAD/AQAAAAAf//9/f/////gAAAAA=|AAAAAF+AQAAAAB///+/n/////AAAAAA=|AAAAAC+AAAAAAB///+fwH///+AAAAAA=|AAAAAAeAwAAAAD////f/D///8gAAAAA=|AAAAAAeGEAAAAD////v+B/j/AAAAAAA=|AAAAAAPMAwAAAD////n+A/B+gAAAAAA=|AAAAAAD8AAAAAD////34AeBfAgAAAAA=|AAAAAAAPAAAAAH////3gAcAfAgAAAAA=|AAAAAAADAAAAAD////6AAcAfggAAAAA=|AAAAAAABBwAAAD////8wAMATAIAAAAA=|AAAAAAAAr/AAAB/////gAIASAAAAAAA=|AAAAAAAAH/gAAA/////gACAAAIAAAAA=|AAAAAAAAH/8AAAYH///AAAAsGAAAAAA=|AAAAAAAAH/+AAAAB//+AAAAUOAAAAAA=|AAAAAAAAP/+AAAAB//8AAAAc+gAAAAA=|AAAAAAAAP//gAAAD//4AAAAMeBgAAAA=|AAAAAAAAP//8AAAB//wAAAAGdCuAAAA=|AAAAAAAAf///AAAA//wAAAACAAHgAAA=|AAAAAAAAP///gAAA//wAAAAB4AHwgAA=|AAAAAAAAH///AAAA//wAAAAACIDQIAA=|AAAAAAAAH//+AAAAf/wAAAAAAAAAAAA=|AAAAAAAAD//+AAAA//wgAAAAABxAAAA=|AAAAAAAAD//8AAAA//wgAAAAAHxgBAA=|AAAAAAAAA//8AAAA//jgAAAAAf/gAAA=|AAAAAAAAAf/8AAAA//DgAAAAAf/gAAA=|AAAAAAAAAf/8AAAAf/DAAAAAD//4CAA=|AAAAAAAAAf/wAAAAf/DAAAAAH//4AAA=|AAAAAAAAAf/AAAAAf+DAAAAAH//8AAA=|AAAAAAAAAf/AAAAAP8AAAAAAH//+AAA=|AAAAAAAAA/+AAAAAP8AAAAAAH//+AAA=|AAAAAAAAA/8AAAAAH4AAAAAAD//+AAA=|AAAAAAAAA/8AAAAAHwAAAAAADwf8AAA=|AAAAAAAAA/gAAAAAAAAAAAAACAP4AAA=|AAAAAAAAB/wAAAAAAAAAAAAAAAD4AEA=|AAAAAAAAB+AAAAAAAAAAAAAAAAAAAGA=|AAAAAAAAB6AAAAAAAAAAAAAAAAAwAMA=|AAAAAAAAA8AAAAAAAAAAAAAAAAAQAYA=|AAAAAAAAB4AAAAAAAAAAAAAAAAAAAwA=|AAAAAAAAB4AAAAAAAAAAAAAAAAAAAAA=|AAAAAAAADwAAAAAAAAAACAAAAAAAAAA=|AAAAAAAABgAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAwAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAACAAAAAAAAAAAAAAAAAAAAA=|AAAAAAAAAMAAAAAAAAA8AAf/8d/AAAA=|AAAAAAAAAsAAAAAAACP/+H//////AAA=|AAAAAAAAC+AAAAIf////8////////AA=|AAAAAAcMCPAAAB//////7////////gA=|AAAD/8D//8AAAH//////////////4AA=|AAH/////8AAAP///////////////4AA=|AIf/////gwBwf///////////////4AA=|AAP//////wAC////////////////wAA=|GI///////+f//////////////////AA=|/8////////////////////////////A=|//////////////////////////////A=|//////////////////////////////A=';
 
   function buildLandPoints() {
-    var rows = LAND_MASK.length;
-    var cols = LAND_MASK[0].length;
-    var cellLng = 360 / cols;
-    var cellLat = 180 / rows;
+    var rowsB64 = LAND_ROWS_B64.split('|');
+    var cols = LAND_COLS, step = LAND_STEP;
     var pts = [];
-    for (var r = 0; r < rows; r++) {
-      var line = LAND_MASK[r];
+    for (var r = 0; r < rowsB64.length; r++) {
+      var bin = atob(rowsB64[r]);
+      var lat = 90 - (r + 0.5) * step;
       for (var c = 0; c < cols; c++) {
-        if (line.charAt(c) !== '#') continue;
+        var byte = bin.charCodeAt(c >> 3);
+        if (!((byte >> (7 - (c & 7))) & 1)) continue;
         pts.push({
-          lng: -180 + (c + 0.5) * cellLng,
-          lat:  90  - (r + 0.5) * cellLat,
+          lng: -180 + (c + 0.5) * step,
+          lat: lat,
         });
       }
     }

@@ -412,16 +412,18 @@
       // In transparent mode we tint with the brand color at low alpha so
       // dots stay visible on both light and dark page backgrounds (white
       // land dots vanish on a light theme).
-      // 2026-05-26 (rev16): land dot radius bumped R*0.0050 -> R*0.0095
-      // (almost 2x) + alpha scale .32->.46 per Aidan "higher quality
-      // globe." Original tiny dots read as pointillist with visible
-      // gaps between cells; the bigger overlapping dots fill in to
-      // read as continuous landmass at the 10° mask resolution.
-      var landR = Math.max(1.4, R * 0.0095);
+      // 2026-06-27: land mask upgraded from a hand-drawn 10° blob grid
+      // to a 2° Natural-Earth coastline raster (~5,400 cells, 5x denser
+      // linearly). Dots shrink to R*0.0058 so the fine grid reads as a
+      // crisp dot-matrix coastline instead of merging into one mass.
+      // landR ≈ half the inter-cell spacing (2R/90), so continents stay
+      // recognizable with clean dot separation. Alpha bumped slightly
+      // to keep the denser-but-smaller dots reading at a glance.
+      var landR = Math.max(1.0, R * 0.0058);
       var landFill = transparent
-        ? 'rgba(' + palette.pin + ',0.55)'
+        ? 'rgba(' + palette.pin + ',0.70)'
         : 'rgba(' + palette.land + ',0.55)';
-      var landAlphaScale = transparent ? 0.55 : 0.46;
+      var landAlphaScale = transparent ? 0.62 : 0.50;
       for (var i = 0; i < data.land.length; i++) {
         var lp = data.land[i];
         var pp = project(lp.lng, lp.lat, lngOffset);
