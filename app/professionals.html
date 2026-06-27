@@ -14,146 +14,174 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/icons/icon-192.png">
 
-<!-- Early-paint theme: read the saved preference so the page doesn't
-     flash the wrong palette before topbar.js reconciles. Same bootstrap
-     as /landing and /future; full token coverage lives in /css/ui.css. -->
+<!-- Lock to the pure-black chrome (crimson theme = #000), like /scale,
+     /future, and /schools. The page sets its own ink + chartreuse spark. -->
 <script>
-  document.documentElement.setAttribute('data-theme','light');
-  document.documentElement.setAttribute('data-force-theme','light');
+  document.documentElement.setAttribute('data-theme','crimson');
+  document.documentElement.setAttribute('data-force-theme','crimson');
 </script>
 
-<!-- Brand faces: Fraunces for headings, Inter for body. Async-loaded so
-     they don't block first paint, matching /landing and /future. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800;900&display=swap"></noscript>
-
-<!-- Shared UI primitives + topbar styles. -->
 <link rel="stylesheet" href="/css/ui.css">
-
 <script defer src="/js/track.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    background:var(--bg);color:var(--text);
-    font-family:'Inter','Crimson Pro',system-ui,sans-serif;
-    line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+  :root{
+    --serif:'Crimson Pro',Georgia,"Times New Roman",serif;
+    --sans:'Inter',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    --bg:#070708;--ink:#e8e3d6;--ink-bright:#f7f3ea;
+    --ink-dim:rgba(232,227,214,.56);--ink-faint:rgba(232,227,214,.30);
+    --line:rgba(232,227,214,.13);--spark:#cdda3e;--spark-deep:#b3bf32;
   }
-  a{color:var(--accent);text-decoration:none}
-  a:hover{text-decoration:underline}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);font-family:var(--serif);
+    line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:var(--spark);text-decoration:none}
+  ::selection{background:var(--spark);color:#0a0a06}
+  em,i{font-style:normal}
+  .theme-dots{display:none !important}
 
-  /* Single-column reading measure. Top padding clears the fixed shared
-     topbar injected by topbar.js. No hero band, no glow, no cards. */
-  .pro{max-width:760px;margin:0 auto;padding:clamp(104px,13vh,160px) 24px 96px}
+  /* printed-plate texture */
+  body::before{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.5;
+    background-image:radial-gradient(rgba(232,227,214,.05) .5px,transparent .6px);background-size:3px 3px;mix-blend-mode:overlay}
+  body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.05;mix-blend-mode:screen;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .8 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
 
-  .pro-eyebrow{
-    font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
-    color:var(--accent);margin-bottom:14px;
-  }
-  .pro h1{
-    font-family:'Fraunces',Georgia,'Times New Roman',serif;
-    font-size:clamp(2.2rem,5vw,3.2rem);font-weight:900;line-height:1.05;
-    letter-spacing:-.02em;margin-bottom:20px;
-  }
-  .pro-intro{font-size:1.08rem;line-height:1.55;color:var(--text);max-width:660px}
+  /* ── HERO ── */
+  .hero{position:relative;min-height:78vh;display:flex;align-items:center;overflow:hidden;
+    padding:clamp(110px,16vh,168px) 0 clamp(48px,8vh,84px)}
+  .hero-art{position:absolute;inset:0;z-index:0;background:url('/assets/engravings/rhetoric-standing.png') no-repeat;
+    background-position:right -4% center;background-size:auto 122%;mix-blend-mode:screen;opacity:.8}
+  .hero-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(95deg,var(--bg) 4%,rgba(7,7,8,.92) 34%,rgba(7,7,8,.45) 62%,rgba(7,7,8,.08) 100%),linear-gradient(0deg,var(--bg) 2%,transparent 22%)}
+  .hero-inner{position:relative;z-index:2;width:100%;max-width:1200px;margin:0 auto;padding:0 clamp(22px,5vw,68px)}
+  .eyebrow{font-family:var(--mono);font-size:.68rem;letter-spacing:.24em;text-transform:uppercase;color:var(--spark);display:inline-block;margin-bottom:24px}
+  .eyebrow::before{content:"✳ "}
+  .hero h1{font-family:var(--serif);font-weight:330;font-size:clamp(2.3rem,5vw,4.2rem);line-height:1.05;
+    letter-spacing:-.02em;color:var(--ink-bright);max-width:18ch}
+  .hero h1 em{color:var(--spark)}
+  .intro{margin-top:26px;font-family:var(--serif);font-size:1.24rem;line-height:1.58;color:var(--ink-dim);max-width:60ch}
+  .intro b{color:var(--ink);font-weight:600}
 
-  /* Each profession is a plain text block, separated by a 1px rule. The
-     id anchors are the footer link targets; scroll-margin clears the
-     fixed topbar so the heading isn't hidden under it on a deep link. */
-  .pro-sec{padding-top:42px;margin-top:42px;border-top:1px solid var(--border);scroll-margin-top:96px}
-  .pro-sec h2{
-    font-family:'Fraunces',Georgia,'Times New Roman',serif;
-    font-size:clamp(1.45rem,2.8vw,1.9rem);font-weight:800;line-height:1.1;
-    letter-spacing:-.015em;margin-bottom:16px;
-  }
-  .pro-sec p{margin-bottom:14px;color:var(--text);font-size:1rem;line-height:1.5}
+  /* ── Reading column of professions ── */
+  .reader{max-width:880px;margin:0 auto;padding:0 clamp(22px,5vw,40px) clamp(60px,10vh,110px)}
+  .pro-sec{padding-top:clamp(40px,6vh,64px);margin-top:clamp(40px,6vh,64px);border-top:1px solid var(--line);scroll-margin-top:96px}
+  .pro-sec:first-of-type{border-top:0}
+  .pro-sec .pn{font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--spark);margin-bottom:14px}
+  .pro-sec h2{font-family:var(--serif);font-weight:340;font-size:clamp(1.7rem,3.4vw,2.5rem);line-height:1.08;
+    letter-spacing:-.018em;color:var(--ink-bright);margin-bottom:18px}
+  .pro-sec p{margin-bottom:14px;color:var(--ink);font-family:var(--serif);font-size:1.16rem;line-height:1.62;max-width:64ch}
+  .pro-sec p b{color:var(--ink-bright);font-weight:600}
   .pro-sec p:last-of-type{margin-bottom:0}
+  .pro-cta{display:inline-flex;align-items:center;gap:9px;margin-top:22px;font-family:var(--sans);font-weight:700;
+    font-size:.78rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);
+    border:1px solid var(--line);padding:13px 22px;border-radius:2px;transition:border-color .2s,color .2s,transform .2s}
+  .pro-cta:hover{border-color:var(--spark);color:var(--spark);transform:translateY(-1px)}
+  .pro-cta .arr{transition:transform .2s}.pro-cta:hover .arr{transform:translateX(3px)}
 
-  /* CTA is a bordered text link, not a shadowed card. */
-  .pro-cta{
-    display:inline-block;margin-top:20px;
-    font-weight:700;font-size:.95rem;color:var(--accent);
-    border:1px solid var(--accent-border,rgba(239,68,68,.4));
-    padding:9px 16px;border-radius:6px;
-  }
-  .pro-cta:hover{text-decoration:none;border-color:var(--accent);background:var(--accent-soft,rgba(239,68,68,.08))}
-  .pro-cta .arr{margin-left:6px}
+  .divast{display:flex;justify-content:center;padding:clamp(28px,5vh,52px) 0}
+  .divast span{color:var(--spark);font-size:1.1rem;opacity:.8}
 
-  .pro-foot{margin-top:56px;padding-top:28px;border-top:1px solid var(--border);font-size:.98rem;color:var(--text-dim)}
-  .pro-foot a{font-weight:600}
+  .pro-foot{max-width:880px;margin:0 auto;padding:36px clamp(22px,5vw,40px) 72px;border-top:1px solid var(--line);
+    font-family:var(--serif);font-size:1.08rem;line-height:1.6;color:var(--ink-dim)}
+  .pro-foot a{color:var(--spark);font-weight:600}
+
+  /* ── Tighten the shared topbar to this page's palette (see /scale). ── */
+  html[data-theme="crimson"]{--accent:#cdda3e;--accent-hover:#dbe85a;--accent-glow:rgba(205,218,62,.28);--accent-border:rgba(205,218,62,.42);--accent-soft:rgba(205,218,62,.10)}
+  .ui-topbar-logo span{color:var(--ink-bright)}
+  #daTopbar .ui-btn-primary{background:transparent;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+  #daTopbar .ui-btn-primary:hover{background:transparent;color:var(--spark);border-color:var(--spark);box-shadow:none}
+  .ui-topbar-spar-dot{background:var(--spark)!important}
+
+  @media (max-width:760px){.hero-art{background-position:right -36% top 8%;opacity:.38}}
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
 </head>
 <body>
 <div id="daTopbar"></div>
 
-<main class="pro">
-  <p class="pro-eyebrow">DebateIt</p>
-  <h1>Professionals and use cases</h1>
-  <p class="pro-intro">DebateIt is an adversarial argument trainer: a live opponent, a clock, and a judge's ballot. The same engine that drills competitive debaters retools for any job where you defend a position out loud and have to hold it while someone smart attacks it.</p>
+<!-- ════════════ HERO ════════════ -->
+<section class="hero">
+  <div class="hero-art" aria-hidden="true"></div>
+  <div class="hero-scrim" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <span class="eyebrow">For professionals</span>
+    <h1>The same skill, in a <em>higher-stakes room.</em></h1>
+    <p class="intro">DebateIt is an adversarial argument trainer: a live opponent, a clock, and a judge's ballot. <b>The engine that drills competitive debaters retools for any job where you defend a position out loud</b> and have to hold it while someone sharp questions it.</p>
+  </div>
+</section>
 
+<main class="reader">
   <section class="pro-sec" id="pre-law">
+    <div class="pn">01 · Pre-law</div>
     <h2>Pre-law</h2>
-    <p>Moot court prep. Structure an oral argument and deliver it against an AI examiner that interrupts to cross-examine your reasoning in real time. You practice the Socratic method before the con law cold call, not during it.</p>
-    <p>Issue-spotting under fire. The model goes after the weakest joint the way a moot panel does: the rule you stated loosely, the analogy that doesn't hold, the precedent that cuts both ways. You find those soft spots in rehearsal instead of in front of a judge.</p>
-    <p>Admissions and 1L interviews. Rehearse "why law" and "argue the side you disagree with" prompts against an interviewer that asks the follow-up instead of nodding along. The skill being tested is composure under questioning, which is exactly what a live round drills.</p>
+    <p><b>Moot court prep.</b> Structure an oral argument and deliver it against an AI examiner that interrupts to cross-examine your reasoning in real time. You practice the Socratic method before the con law cold call, not during it.</p>
+    <p><b>Issue-spotting under pressure.</b> The model probes the weakest joint the way a moot panel does: the rule you stated loosely, the analogy that doesn't hold, the precedent that cuts both ways. You find those soft spots in rehearsal instead of in front of a judge.</p>
+    <p><b>Admissions and 1L interviews.</b> Rehearse "why law" and "argue the side you disagree with" prompts against an interviewer that asks the follow-up instead of nodding along. The skill being tested is composure under questioning, which is exactly what a live round drills.</p>
     <a class="pro-cta" href="/voice-debate">Run a cross-examination <span class="arr" aria-hidden="true">&rarr;</span></a>
   </section>
 
   <section class="pro-sec" id="consulting">
+    <div class="pn">02 · Consulting</div>
     <h2>Consulting</h2>
-    <p>Case interview reps. Walk a market-sizing or profitability case out loud while the AI plays the interviewer, pushing on your structure, your assumptions, and the number you pulled from nowhere.</p>
-    <p>Defending the recommendation. The hard part of a McKinsey, BCG, or Bain final round isn't the framework; it's holding your "so what" when a partner leans on it. Practice stating a recommendation and standing behind it under pressure, instead of retreating into more analysis every time you're challenged.</p>
-    <p>Structure that survives interruption. Because the model cuts in, you learn to keep a MECE answer legible mid-pressure, not just on a clean whiteboard with all the time in the world.</p>
+    <p><b>Case interview reps.</b> Walk a market-sizing or profitability case out loud while the AI plays the interviewer, pushing on your structure, your assumptions, and the number you pulled from nowhere.</p>
+    <p><b>Defending the recommendation.</b> The hard part of a McKinsey, BCG, or Bain final round isn't the framework; it's holding your "so what" when a partner leans on it. Practice stating a recommendation and standing behind it under pressure, instead of retreating into more analysis every time you are challenged.</p>
+    <p><b>Structure that survives interruption.</b> Because the model cuts in, you learn to keep a MECE answer legible mid-pressure, not just on a clean whiteboard with all the time in the world.</p>
     <a class="pro-cta" href="/voice-debate">Defend a case live <span class="arr" aria-hidden="true">&rarr;</span></a>
   </section>
 
   <section class="pro-sec" id="politics-policy">
+    <div class="pn">03 · Politics &amp; policy</div>
     <h2>Politics &amp; policy</h2>
-    <p>Town hall and press Q&amp;A. Field hostile questions from an AI that won't accept a dodge; it reframes and asks again, the way a constituent or a moderator will when you try to pivot to your talking point.</p>
-    <p>Framework discipline. Argue a position in magnitude, probability, and timeframe instead of adjectives, then hear it weighed back the way a judge weighs it. Vague harms get exposed fast, so you learn to quantify the stake before someone else does it for you.</p>
-    <p>On camera and on the page. Tighten a position to its load-bearing claims before it becomes a clip or an op-ed, where every loose sentence turns into the quote that's used against you.</p>
+    <p><b>Town hall and press Q&amp;A.</b> Field hostile questions from an AI that will not accept a dodge; it reframes and asks again, the way a constituent or a moderator will when you try to pivot to your talking point.</p>
+    <p><b>Framework discipline.</b> Argue a position in magnitude, probability, and timeframe instead of adjectives, then hear it weighed back the way a judge weighs it. Vague harms get exposed fast, so you learn to quantify the stake before someone else does it for you.</p>
+    <p><b>On camera and on the page.</b> Tighten a position to its load-bearing claims before it becomes a clip or an op-ed, where every loose sentence turns into the quote that is used against you.</p>
     <a class="pro-cta" href="/voice-debate">Field hostile questions <span class="arr" aria-hidden="true">&rarr;</span></a>
   </section>
 
   <section class="pro-sec" id="banking-pe">
+    <div class="pn">04 · Banking &amp; PE</div>
     <h2>Banking &amp; PE</h2>
-    <p>Investment thesis defense. State a thesis and defend it against an AI that attacks the assumptions under the model: the growth rate, the multiple, the exit you're hand-waving past.</p>
-    <p>IC and deal committee rehearsal. Present the recommendation and hold it while the committee cross-examines the valuation, the comps, and the downside case you'd rather skip. The first time you say the numbers out loud should not be in the actual meeting.</p>
-    <p>Diligence pressure. The model asks the question you hoped nobody would, so the first time you hear it isn't across the table from the people writing the check.</p>
+    <p><b>Investment thesis defense.</b> State a thesis and defend it against an AI that questions the assumptions under the model: the growth rate, the multiple, the exit you are hand-waving past.</p>
+    <p><b>IC and deal committee rehearsal.</b> Present the recommendation and hold it while the committee cross-examines the valuation, the comps, and the downside case you would rather skip. The first time you say the numbers out loud should not be in the actual meeting.</p>
+    <p><b>Diligence pressure.</b> The model asks the question you hoped nobody would, so the first time you hear it is not across the table from the people writing the check.</p>
     <a class="pro-cta" href="/voice-debate">Defend a valuation <span class="arr" aria-hidden="true">&rarr;</span></a>
   </section>
 
   <section class="pro-sec" id="tech-founders">
+    <div class="pn">05 · Tech founders</div>
     <h2>Tech founders</h2>
-    <p>Pitch defense, not pitch delivery. Rehearsing the deck is easy. The part that loses rounds is the VC Q&amp;A after slide ten. Spar it against an AI that drills unit economics, moat, and "why now," and doesn't let a confident tone substitute for an answer.</p>
-    <p>Board and investor updates. Defend a product decision or a missed number to a skeptical board before you defend it to the real one. You hear the sharpest version of the pushback while it's still cheap to be wrong.</p>
-    <p>Narrative under scrutiny. The model separates the parts of your story that are claims from the parts that are evidence, so you stop treating the two as the same thing.</p>
+    <p><b>Pitch defense, not pitch delivery.</b> Rehearsing the deck is easy. The part that loses rounds is the VC Q&amp;A after slide ten. Spar it against an AI that drills unit economics, moat, and "why now," and does not let a confident tone substitute for an answer.</p>
+    <p><b>Board and investor updates.</b> Defend a product decision or a missed number to a skeptical board before you defend it to the real one. You hear the sharpest version of the pushback while it is still cheap to be wrong.</p>
+    <p><b>Narrative under scrutiny.</b> The model separates the parts of your story that are claims from the parts that are evidence, so you stop treating the two as the same thing.</p>
     <a class="pro-cta" href="/voice-debate">Spar a VC Q&amp;A <span class="arr" aria-hidden="true">&rarr;</span></a>
   </section>
 
   <section class="pro-sec" id="journalism-academia">
+    <div class="pn">06 · Journalism &amp; academia</div>
     <h2>Journalism &amp; academia</h2>
-    <p>Viva and thesis defense. Defend your argument and your methods against an examiner that asks the uncomfortable follow-up instead of accepting the first answer.</p>
-    <p>Interview technique, both chairs. Rehearse holding your editorial line under a hostile interview, or practice the questions that don't let a source off the hook. The same clash skill works whether you're being asked or doing the asking.</p>
-    <p>Positions that survive scrutiny. Argue a contested take with real structure and concede only what's earned, so the published version holds up against the correction desk and the comment section.</p>
+    <p><b>Viva and thesis defense.</b> Defend your argument and your methods against an examiner that asks the uncomfortable follow-up instead of accepting the first answer.</p>
+    <p><b>Interview technique, both chairs.</b> Rehearse holding your editorial line under a hostile interview, or practice the questions that do not let a source off the hook. The same clash skill works whether you are being asked or doing the asking.</p>
+    <p><b>Positions that survive scrutiny.</b> Argue a contested take with real structure and concede only what is earned, so the published version holds up against the correction desk and the comment section.</p>
     <a class="pro-cta" href="/voice-debate">Sit a mock viva <span class="arr" aria-hidden="true">&rarr;</span></a>
   </section>
 
   <section class="pro-sec" id="oral-exam-prep">
+    <div class="pn">07 · Oral exam prep</div>
     <h2>Oral exam prep</h2>
-    <p>University and qualifying orals. Answer aloud against an examiner that probes the gap behind a memorized answer and asks the question that reveals whether you actually understand the material or just covered it.</p>
-    <p>Dissertation defense. Walk your contribution, your method, and your limitations under questioning before the committee does it for real, so the live defense is a rerun rather than a first attempt.</p>
-    <p>Medical, dental, and board orals. Reason through a case out loud under time pressure, where the thing being graded is defending a judgment, not reciting a fact.</p>
+    <p><b>University and qualifying orals.</b> Answer aloud against an examiner that probes the gap behind a memorized answer and asks the question that reveals whether you actually understand the material or just covered it.</p>
+    <p><b>Dissertation defense.</b> Walk your contribution, your method, and your limitations under questioning before the committee does it for real, so the live defense is a rerun rather than a first attempt.</p>
+    <p><b>Medical, dental, and board orals.</b> Reason through a case out loud under time pressure, where the thing being graded is defending a judgment, not reciting a fact.</p>
     <a class="pro-cta" href="/voice-debate">Start an oral exam <span class="arr" aria-hidden="true">&rarr;</span></a>
   </section>
-
-  <p class="pro-foot">Same engine as the debate app. If you want the competitive version, start a <a href="/debate-it">round</a> or read <a href="/future">why it argues back</a>.</p>
 </main>
 
-<!-- Shared topbar: real site nav + theme toggle + Voice AI CTA, injected
-     post-parse so the page reads as part of the site. -->
+<div class="divast"><span>✳</span></div>
+
+<p class="pro-foot">Same engine as the debate app. For the competitive version, start a <a href="/debate-it">round</a>, or read <a href="/future">why it argues back</a>.</p>
+
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/notifications.js"></script>
-  <script src="/js/home-magnet.js" defer></script>
+<script defer src="/js/home-magnet.js"></script>
 </body>
 </html>
