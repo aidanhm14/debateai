@@ -2903,6 +2903,13 @@ try {
   transition:background .15s,border-color .15s,color .15s;
 }
 .lpip-trigbtn:hover{background:rgba(127,127,127,.18);border-color:var(--accent,#ef4444);color:#fff}
+.lpip-trigbtn.is-on{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);color:#ff8a8a}
+.lpip-hint{display:inline-flex;align-items:center;gap:8px;font-size:.7rem;font-weight:600;line-height:1.3;color:#fecaca;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.32);padding:6px 10px;border-radius:12px;max-width:330px;animation:lpipIn .22s cubic-bezier(.2,.8,.2,1)}
+.lpip-hint__x{font:inherit;font-size:1.05rem;line-height:1;color:#fecaca;opacity:.7;padding:0 2px;flex:none}
+.lpip-hint__x:hover{opacity:1}
+.live-mini__caption{padding:0 14px 10px;font-size:.74rem;line-height:1.42;color:var(--text-dim,#b8bcc4);max-height:4em;overflow:hidden}
+.live-mini__caption b{color:var(--text,#fff);font-weight:700}
+.live-mini--pip .live-mini__caption{padding:0 18px 12px;text-align:center;font-size:.82rem;max-height:6em}
 
 /* Compact corner player */
 .live-mini{
@@ -4234,6 +4241,10 @@ function App() {
   // (in-page), 'pip' = popped out into a Document Picture-in-Picture window.
   var [viewMode, setViewMode] = useState('full');
   var [pipWin, setPipWin] = useState(null);
+  // Discoverability hint for the float controls (one-time) + the
+  // auto-float-on-tab-away preference (persisted, default on).
+  var [floatHint, setFloatHint] = useState(false);
+  var [autoFloat, setAutoFloat] = useState(function () {try {return localStorage.getItem('da-autofloat') !== '0';} catch (e) {return true;}});
 
   // ── Round funnel telemetry ───────────────────────────────────────
   // The round-complete rate sits at ~12% but the drop-off was totally
@@ -6683,6 +6694,53 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     }).catch(function () {setViewMode('shell');});
   }
 
+  // One-tap POI from the floating window: cancel the AI's current turn so
+  // the floor opens, then unmute so the user can speak their point.
+  function bargeIn() {
+    try {
+      var dc = dcRef.current;
+      if (dc && dc.readyState === 'open') dc.send(JSON.stringify({ type: 'response.cancel' }));
+    } catch (e) {}
+    setMuted(false);
+  }
+
+  function dismissFloatHint() {
+    setFloatHint(false);
+    try {localStorage.setItem('da-float-hint', '1');} catch (e) {}
+  }
+
+  // One-time discoverability hint pointing at the float controls the first
+  // time a round goes live on a PiP-capable browser.
+  useEffect(function () {
+    if (status !== 'live' || !pipSupported) return;
+    var seen = false;
+    try {seen = localStorage.getItem('da-float-hint') === '1';} catch (e) {}
+    if (!seen) setFloatHint(true);
+  }, [status, pipSupported]);
+
+  // Best-effort auto-float: when the user switches away from the tab
+  // mid-round, pop the round into an always-on-top window so the controls
+  // follow them. Document PiP needs transient user activation, so the
+  // browser can block this (no gesture on visibilitychange) — then we
+  // no-op and the audio simply keeps playing in the background tab. No
+  // shell fallback here: shell floats over the site only, useless once the
+  // user is in another app.
+  useEffect(function () {
+    if (!autoFloat) return;
+    function onHide() {
+      if (document.visibilityState !== 'hidden') return;
+      if (status !== 'live' || viewMode !== 'full' || !pipSupported || pipWin) return;
+      try {
+        Promise.resolve(window.LivePiP.openWindow({
+          width: 384, height: 392, title: 'DebateIt — live round',
+          onClose: function () {setPipWin(null);setViewMode('full');}
+        })).then(function (w) {if (w) {setPipWin(w);setViewMode('pip');}}).catch(function () {});
+      } catch (e) {}
+    }
+    document.addEventListener('visibilitychange', onHide);
+    return function () {document.removeEventListener('visibilitychange', onHide);};
+  }, [autoFloat, status, viewMode, pipWin, pipSupported]);
+
   // The floating window + site shell must die with the round.
   useEffect(function () {
     if (status !== 'live') {
@@ -6730,6 +6788,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       if (n) {n.addEventListener('click', fn);bound.push([n, fn]);}
     };
     bind('[data-lpip-act="mute"]', function () {setMuted(function (m) {return !m;});});
+    bind('[data-lpip-act="poi"]', function () {try {bargeIn();} catch (e) {}});
     bind('[data-lpip-act="end"]', function () {try {stop('Round ended from the floating player.');} catch (e) {}});
     bind('[data-lpip-act="restore"]', function () {restoreRound();});
     return function () {bound.forEach(function (b) {try {b[0].removeEventListener('click', b[1]);} catch (e) {}});};
@@ -6751,6 +6810,11 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     var whoLabel = speaking === 'user' ? (userFirstName || 'You') + ' speaking' :
     speaking === 'ai' ? persona.name.split(' ')[0] + ' speaking' :
     'Listening';
+    // Latest spoken line, for a live transcript caption in the float.
+    var lastTurn = null;
+    for (var _t = turns.length - 1; _t >= 0; _t--) {if (turns[_t] && turns[_t].who !== 'system' && turns[_t].text) {lastTurn = turns[_t];break;}}
+    var lastWho = lastTurn ? (lastTurn.who === 'ai' ? persona.name.split(' ')[0] : userFirstName || 'You') : '';
+    var lastText = lastTurn ? String(lastTurn.text).slice(0, 240) : '';
     var buildMini = function (inPip) {
       return el('div', { className: 'live-mini' + (inPip ? ' live-mini--pip' : '') },
       el('div', { className: 'live-mini__judge', title: 'An AI judge is tracking the round and writes the ballot at the end.' },
@@ -6773,8 +6837,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       el('div', { className: 'live-mini__timer' }, miniTimer)
       )
       ),
+      lastText && el('div', { className: 'live-mini__caption' }, lastWho && el('b', null, lastWho + ': '), lastText),
       el('div', { className: 'live-mini__ctrl' },
       el('button', { type: 'button', className: 'live-mini__btn' + (muted ? ' is-on' : ''), 'data-lpip-act': 'mute', onClick: function () {setMuted(function (m) {return !m;});} }, muted ? 'Unmute' : 'Mute'),
+      el('button', { type: 'button', className: 'live-mini__btn', 'data-lpip-act': 'poi', onClick: function () {try {bargeIn();} catch (e) {}}, title: 'Cut in to make a point: pauses the AI and unmutes you' }, '✋ POI'),
       el('button', { type: 'button', className: 'live-mini__btn live-mini__btn--end', 'data-lpip-act': 'end', onClick: function () {try {stop('Round ended from the floating player.');} catch (e) {}} }, 'End round')
       )
       );
@@ -7814,8 +7880,13 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // real always-on-top window (Document PiP, Chrome/Edge) so it stays
   // visible while the user works in other tabs.
   el('div', { className: 'lpip-triggers' },
+  floatHint && pipSupported && el('div', { className: 'lpip-hint' },
+  el('span', null, 'Keep debating while you work. Float this round over your other apps →'),
+  el('button', { type: 'button', className: 'lpip-hint__x', onClick: dismissFloatHint, 'aria-label': 'Dismiss' }, '×')
+  ),
+  pipSupported && el('button', { type: 'button', className: 'lpip-trigbtn' + (autoFloat ? ' is-on' : ''), onClick: function () {setAutoFloat(function (v) {var nv = !v;try {localStorage.setItem('da-autofloat', nv ? '1' : '0');} catch (e) {}return nv;});}, title: 'When on, the round automatically floats into an always-on-top window the moment you switch away from this tab' }, autoFloat ? '⚡ Auto-float: on' : '⚡ Auto-float: off'),
   el('button', { type: 'button', className: 'lpip-trigbtn', onClick: function () {setViewMode('shell');}, title: 'Dock the round to a corner and browse the rest of the site while it keeps running' }, '⤓ Minimize'),
-  pipSupported && el('button', { type: 'button', className: 'lpip-trigbtn', onClick: popOut, title: 'Pop the round into a floating window that stays on top while you switch tabs' }, '⧉ Pop out')
+  pipSupported && el('button', { type: 'button', className: 'lpip-trigbtn', onClick: function () {dismissFloatHint();popOut();}, title: 'Pop the round into an always-on-top window that stays visible while you switch tabs and use other apps' }, '⧉ Float over apps')
   )
   ),
   // Type-to-interject row. Sends the user's text as a real user
