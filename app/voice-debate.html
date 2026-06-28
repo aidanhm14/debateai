@@ -5038,6 +5038,12 @@ function App() {
               } catch (e) {/* dc closed mid-flight */}
             }, 220);
           }
+          // It's the user's turn now (AI finished, not monologue/intro/wrap).
+          // If they've tabbed away, ping them to come back to the round.
+          if (!mutedRef.current && !introActiveRef.current && phaseRef.current !== 'done'
+              && window.RoundNotify && document.hidden) {
+            try { window.RoundNotify.alert('Your turn', 'The AI finished its speech. Jump back in.'); } catch (e) {}
+          }
           break;
         }
 
@@ -7018,6 +7024,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
     style: { fontSize: '1.04rem', padding: '13px 32px', fontWeight: 700 },
     onClick: () => {
       try {if (window.gtag) gtag('event', 'voice_quickstart', { had_motion: !!String(motion || '').trim() });} catch (e) {}
+      // Ask for OS-notification permission on this gesture so we can ping
+      // the user when it's their turn if they tab away mid-round.
+      try { window.RoundNotify && window.RoundNotify.requestPermission(); } catch (e) {}
       if (!String(motion || '').trim() && typeof SAMPLE_MOTIONS !== 'undefined' && SAMPLE_MOTIONS.length) {
         try {setMotion(SAMPLE_MOTIONS[Math.floor(Math.random() * SAMPLE_MOTIONS.length)].text);} catch (e) {}
       }
@@ -7033,6 +7042,12 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   'Mic access is blocked. Enable it in your browser to start a voice round.' :
   "One tap. We pick a motion and a side; grant your mic and the AI opens. Or set it up below.")
   ),
+  // Background-tab reassurance (replaces the old "float over apps" promo):
+  // the round keeps running in another tab and round-notify.js pings the
+  // user when it's their turn.
+  el('div', {
+    style: { fontSize: '.74rem', color: 'var(--text-dim, #9b9bab)', opacity: .68, textAlign: 'center', maxWidth: 380, lineHeight: 1.45, marginTop: 2 }
+  }, 'Once you’re in, you can switch to other tabs. The round keeps running in the background and we’ll notify you when it’s your turn.'),
 
   // Group A — the setup steps (motion, side, drill). Wrapper div
   // owns the gap between steps; .setup-grid's own gap doesn't reach
@@ -8504,6 +8519,7 @@ root.render(el(App));</script>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
   Feedback
 </a>
+<script defer src="/js/round-notify.js"></script>
 <script defer src="/js/notifications.js"></script>
 </body>
 </html>
