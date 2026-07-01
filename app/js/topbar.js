@@ -194,6 +194,13 @@
     // nav button, routes to /leaderboard. (/community still exists; it's
     // just not its own top-nav slot.)
     { href: '/leaderboard',   label: 'Leaderboard'  },
+    // 2026-07-01: /coaches surfaced into the bar — the community coach
+    // directory (browse + contact directly, signed-in users can add).
+    // Label "Coaches" (plural) = the people directory; singular "Coach"
+    // up front stays the AI drill partner. Sits in the community block
+    // next to Leaderboard rather than beside Coach, so the two don't
+    // read as variants of the same product.
+    { href: '/coaches',       label: 'Coaches'      },
     // 2026-06-24: The Floor surfaced into the bar per Aidan ("advertise
     // it more ... have it in a tab"). /floor is the play-money debate
     // prediction market (back who wins across three windows, AI judge
