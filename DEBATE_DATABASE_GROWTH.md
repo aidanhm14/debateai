@@ -63,7 +63,10 @@ Work highest-leverage first so early wins seed social proof:
 Every outreach email carries five beats, in this order:
 
 1. **Who + credibility** — Aidan, national APDA champion at UChicago,
-   founder. One line. Real person, real credential.
+   co-founder. Plus one plain line on the team: built with a co-founder who
+   is a software engineer at Meta and two fellow debaters. Real people, real
+   credentials; name Meta/Stanford/SPC at most once, and the SPC tie is the
+   co-founder's, not the company's.
 2. **How a round works** — motion → side → timed speeches out loud →
    AI opponent that takes POIs and interrupts → a full judge ballot
    (winner, why, speaker points), format-accurate to their circuit.
