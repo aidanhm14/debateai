@@ -7434,18 +7434,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            sits below in a quieter treatment. Reads as a hierarchy, not
            a menu. -->
       <p class="hero-building-note">still building. updating website every day.</p>
-      <!-- Real-time "people online" count. Backed by /api/online-count
-           which reads the `presence` Firestore collection and returns
-           the number of distinct keys with a heartbeat in the last 5
-           minutes. Updated every 30s by the IIFE further down. Renders
-           1 if only this visitor is here — no floor inflation. -->
-      <p class="hero-online-note" aria-live="polite">
-        <span class="hero-online-dot" aria-hidden="true"></span>
-        <strong id="heroOnlineCount">1</strong> online in the last 5 minutes
-      </p>
-      <p class="hero-bookmark-note">
-        <span class="hero-bookmark-count" id="heroBookmarkCount">78</span> debaters signed in with Google so far. <span id="heroSparWeekNote" hidden></span> Goal is many thousands. Bookmark this page (<kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>) and come back as the room fills in.
-      </p>
+      <!-- 2026-07-01: removed the hero live-usage counters — heroOnlineCount
+           ("N online in the last 5 minutes") and heroBookmarkCount ("N signed
+           in with Google so far ... goal is many thousands"). A live-debate
+           product whose hero advertises tiny real-time counts reads as a
+           cold-start signal to the exact people we most want to convince.
+           The presence-heartbeat IIFE that fed them is disabled below. -->
+
       <!-- Founding-cohort CTA. Reveals to signed-out visitors only;
            body.signed-in hides it via CSS. Click delegates to the
            hidden #googleSignupBtn (the existing Firebase IIFE wires
@@ -7732,7 +7727,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <canvas class="hero-orb-canvas" id="heroOrbCanvas" aria-hidden="true"></canvas>
           <div class="hero-orb-standby">
             <span class="hero-orb-standby-dot" aria-hidden="true"></span>
-            <span>AI · Standing by</span>
+            <span>AI · Ready</span>
           </div>
           <!-- 2026-05-26 (rev12): "Ready when you are..." sub + inner
                "Start a voice round" pill both removed. The
@@ -7845,13 +7840,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               .catch(function(){ /* keep last value */ });
           }
 
-          // First heartbeat fires immediately so this visitor shows up
-          // in their own count. Then ping every 60s while the tab is
-          // visible. Count refreshes every 30s (matches the server cache).
-          ping();
-          setTimeout(refreshCount, 350); // small delay so our ping lands first
-          setInterval(ping, 60 * 1000);
-          setInterval(refreshCount, 30 * 1000);
+          // 2026-07-01: the hero live-usage counters this heartbeat fed
+          // were removed, so it no longer runs. Leaving it active would keep
+          // spending /api/presence-ping + /api/online-count invocations every
+          // 30-60s per visitor for UI that no longer exists.
+          return;
           // Re-ping + refresh when the tab returns from background, so
           // a returning visitor immediately re-shows as online.
           document.addEventListener('visibilitychange', function(){
@@ -7888,13 +7881,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            around the visual. IDs hesActive + hesRooms preserved so
            the heartbeat script in the orb-card block continues to
            update them. Single line, light dot dividers, no chips. -->
-      <div class="hero-status-row" role="status" aria-live="polite">
+      <!-- 2026-07-01: swapped the live "N online now / N signed in" counts
+           (cold-start tells) for durable proof that doesn't expose room size. -->
+      <div class="hero-status-row" role="status">
         <span class="hsr-dot hsr-dot-live" aria-hidden="true"></span>
         <span class="hsr-item">Live beta</span>
         <span class="hsr-sep" aria-hidden="true">·</span>
-        <span class="hsr-item"><strong id="hesActive">1</strong> online now</span>
+        <span class="hsr-item">15 formats</span>
         <span class="hsr-sep" aria-hidden="true">·</span>
-        <span class="hsr-item"><strong id="hesRooms">1</strong> signed in</span>
+        <span class="hsr-item">AI ballot on every round</span>
       </div>
 
       <!-- Legacy #editorialSignInLink kept off-canvas as a screenreader +
@@ -8281,7 +8276,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        3-wide grid beside it; whole stage stacks under 860px. */
     .livenow-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,3.5vw,48px);max-width:1120px;margin:0 auto 28px;flex-wrap:wrap}
     .livenow-stage{overflow:visible}
-    .livenow-stage .livenow-globe{flex:0 0 auto;width:auto;gap:8px;margin-right:-40px;margin-left:-30px;margin-bottom:-24px;align-self:flex-end}
+    .livenow-stage .livenow-globe{flex:0 0 auto;width:auto;gap:8px;margin:0 auto;align-self:center}
     .livenow-stage .livenow-globe .hero-globe-canvas-wrap{width:480px;max-width:480px}
     .livenow-stage .livenow-globe .story-globe-caption{font-size:.72rem;max-width:240px}
     .livenow-stage .livenow-wall{margin:0;flex:1 1 460px;min-width:300px;max-width:600px;grid-template-columns:repeat(3,1fr)}
@@ -8347,17 +8342,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </div>
         <div class="story-globe-caption">Where users argue from. Open the Atlas &rarr;</div>
       </div>
-      <div class="livenow-wall" id="livenowWall">
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face02.jpg" alt="" decoding="async" /></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face03.jpg" alt="" decoding="async" /></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" decoding="async" /></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face10.jpg" alt="" decoding="async" /></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face04.jpg" alt="" decoding="async" /></span>
-      </div>
+      <!-- 2026-07-01: removed the 6-tile "live debater" face wall. The
+           portraits were AI-generated and carried a disclaimer saying so,
+           which on a page about real human debate reads as "we have no real
+           users." The globe (real geo reach, links to the Atlas) + the match
+           CTA carry the section honestly without staged faces. The hero
+           debate-room mockup above keeps its illustrative UI portraits. -->
     </div>
     <a class="livenow-cta" href="/spar">Match with a debater &rarr;</a>
-    <p class="livenow-attribution">Portraits above are AI-generated to depict the look of a session. Many real debates have been held; they just weren't photographed.</p>
   </div>
 </section>
 <script>
