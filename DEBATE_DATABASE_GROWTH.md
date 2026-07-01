@@ -60,7 +60,7 @@ Work highest-leverage first so early wins seed social proof:
 
 ## The email design (and why)
 
-Every outreach email carries four beats, in this order:
+Every outreach email carries five beats, in this order:
 
 1. **Who + credibility** — Aidan, national APDA champion at UChicago,
    founder. One line. Real person, real credential.
@@ -70,15 +70,22 @@ Every outreach email carries four beats, in this order:
 3. **The idea** — practice needs an opponent, a clock, and a judge, and
    most teams can't get all three on demand. DebateIt gives every squad
    all three. Free while in beta.
-4. **Data purpose + transparency** — *why they're getting this*: we're
+4. **The community / why now** — this is the network beat. We're building
+   a community, not just a solo tool. The more teams that join, the better
+   the live human-vs-human rounds and the global leaderboard get: real
+   opponents on demand and a genuine cross-circuit ranking. Joining early
+   helps seed that for their region, which is the honest "why now." No
+   traction numbers, ever.
+5. **Data purpose + transparency** — *why they're getting this*: we're
    mapping every program into a free public Atlas so debaters find teams
    and coaches find each other; their school is already a pin; the
    address is only used for this note, never sold or shared, and one
    "stop" reply opts them out.
 
-Beat 4 is the piece this plan adds to the templates. It does three jobs:
-sets context (not spam), states the mission (the reason to care), and
-handles consent/compliance up front.
+Beats 4 and 5 are what this plan adds to the templates. The community beat
+gives a reason to join *now* (the network gets better as it grows); the
+data beat sets context (not spam), states the mission, and handles
+consent/compliance up front.
 
 House rules: no em-dashes, no hype words, value-first not feature-dump,
 one clear ask. Subject leads with the benefit: *"Free timed-round
