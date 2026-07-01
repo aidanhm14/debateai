@@ -38,7 +38,7 @@
     --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
     /* pipeline */
     --st-prospect:#ef4444;
-    --st-contacted:#f59e0b;
+    --st-contacted:#3b82f6;
     --st-partnered:#22c55e;
   }
   html,body{height:100%}
@@ -1047,8 +1047,8 @@ var FMT_COLOR = {
   'Asian Parli':'#06b6d4','Karl Popper':'#d946ef','MUN':'#84cc16'
 };
 var LVL_COLOR = {college:'#ef4444',hs:'#3b82f6'};
-var STATUS_COLOR = {prospect:'#ef4444',contacted:'#f59e0b',partnered:'#22c55e'};
-var STATUS_LABEL = {prospect:'Prospect',contacted:'In conversation',partnered:'Partnered'};
+var STATUS_COLOR = {prospect:'#ef4444',contacted:'#3b82f6',partnered:'#22c55e'};
+var STATUS_LABEL = {prospect:'Prospect',contacted:'Reached out',partnered:'Partnered'};
 
 /* ---- state ---- */
 var STORE_KEY='debateit-atlas-status';
@@ -1204,7 +1204,7 @@ function hasDebate(d){ return !(d && d.noProgram); }
 function colorFor(d){
   if(colorMode==='program') return hasDebate(d) ? '#22c55e' : '#f59e0b';
   if(colorMode==='status') return STATUS_COLOR[statusOf(d)];
-  if(colorMode==='contacts') return hasContact(d)?'#22c55e':'#6b7280';
+  if(colorMode==='contacts') return statusOf(d)==='contacted'?'#3b82f6':(hasContact(d)?'#22c55e':'#6b7280');
   if(colorMode==='level') return LVL_COLOR[d.lvl];
   return FMT_COLOR[d.fmt[0]] || '#ef4444';
 }
@@ -1330,7 +1330,8 @@ function updateLegend(vis){
     rows.push({c:LVL_COLOR.hs,nm:'High school',ct:lc.hs});
   } else if(colorMode==='contacts'){
     lab.textContent='Contacts';
-    var ccc={y:0,n:0}; vis.forEach(function(d){ hasContact(d)?ccc.y++:ccc.n++; });
+    var ccc={r:0,y:0,n:0}; vis.forEach(function(d){ if(statusOf(d)==='contacted')ccc.r++; else if(hasContact(d))ccc.y++; else ccc.n++; });
+    rows.push({c:'#3b82f6',nm:'Reached out',ct:ccc.r});
     rows.push({c:'#22c55e',nm:'Email on file',ct:ccc.y});
     rows.push({c:'#6b7280',nm:'No email yet',ct:ccc.n});
   } else {
@@ -1390,13 +1391,24 @@ function openCard(d){
     if(info&&info.s) bits.push(info.s);
     var html=bits.length?'<div class="cc-meta">'+bits.join(' \u00b7 ')+'</div>':'';
     if(info.e){
-      var su=encodeURIComponent("A practice tool for "+d.n+"'s debaters");
-      var bo=encodeURIComponent("Hi,\n\nI run DebateIt (debateai.com), a voice-first practice tool for competitive debaters. Your debaters pick a motion, take a side, run a full timed round out loud, then get a judge ballot. It is open to teams while beta is running. Would it be useful for "+d.n+"'s team to drill on between tournaments?\n\nAidan");
+      var su=encodeURIComponent("Free timed-round practice for "+d.n+"'s debaters");
+      var bo=encodeURIComponent(
+        "Hi,\n\n"+
+        "I'm Aidan, a national APDA champion at UChicago and the founder of DebateIt (debateai.com). I built it so any team can get real reps between tournaments, not just the ones with a deep coaching bench.\n\n"+
+        "How a round works: a debater picks a motion, takes a side, and gives real timed speeches out loud. The AI opponent argues back, takes POIs mid-speech, and interrupts, then a judge writes a full ballot at the end: who won, why, and what to fix next round. It is format-accurate across PF, LD, Policy, BP, Worlds, APDA, Asian Parli, and Congress, so the register matches your circuit instead of sounding like generic debate.\n\n"+
+        "The idea: practice is the one thing a team cannot manufacture on its own. It needs an opponent, a clock, and a judge. DebateIt gives every squad all three on demand, so drilling does not depend on who else shows up that afternoon. It is free for teams while we are in beta.\n\n"+
+        "Would it be useful for "+d.n+"'s team to drill on between tournaments? Happy to get your squad set up.\n\n"+
+        "Aidan\ndebateai.com");
       html+='<a class="cc-compose" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(info.e)+'&su='+su+'&body='+bo+'">Compose to '+info.e+' \u2192</a>';
     }
     if(!info||!info.e){
-      var su2=encodeURIComponent("A practice tool for "+d.n+"'s debaters");
-      var bo2=encodeURIComponent("Hello,\n\nI run DebateIt (debateai.com), a free voice-first practice tool for competitive debaters. Could you pass this along to whoever runs the debate or speech program at "+d.n+"? Their team can run full timed rounds out loud and get a judge ballot, free while the beta is running.\n\nThank you,\nAidan");
+      var su2=encodeURIComponent("Free timed-round practice for "+d.n+"'s debaters");
+      var bo2=encodeURIComponent(
+        "Hello,\n\n"+
+        "Could you pass this to whoever runs the debate or speech program at "+d.n+"?\n\n"+
+        "I'm Aidan, a national APDA champion at UChicago and the founder of DebateIt (debateai.com). Their debaters pick a motion, take a side, and give real timed speeches out loud. The AI opponent argues back, takes POIs mid-speech, and interrupts, then a judge writes a full ballot: who won, why, and what to fix. It is format-accurate across PF, LD, Policy, BP, Worlds, APDA, and more, so the register matches your circuit.\n\n"+
+        "The idea is simple: practice needs an opponent, a clock, and a judge, and most teams cannot get all three on demand. DebateIt provides them, so a squad can drill any time, not just when enough people show up. It is free for teams while we are in beta.\n\n"+
+        "Thank you,\nAidan\ndebateai.com");
       html+='<a class="cc-compose" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&su='+su2+'&body='+bo2+'">Compose (add school email) \u2192</a>';
       html+='<a class="cc-find" target="_blank" rel="noopener" href="https://www.google.com/search?q='+encodeURIComponent(d.n+" "+(d.city||"")+" contact email office")+'">find email \u2197</a>';
     }
