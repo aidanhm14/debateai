@@ -112,6 +112,42 @@ practice for [school]'s debaters."*
   conversion, and net new pins per week. The `/admin` and the atlas
   legend already surface the pipeline counts.
 
+## Multi-model consult (Gemini, Grok, GPT-5.5) — 2026-07-01
+
+Ran the plan past three models. Where they converged, it's folded in above
+or listed here as next moves:
+
+- **Tiered, low-friction ask.** Don't open with "opt your whole squad in."
+  Offer the small pilot instead: "could two or three debaters try one round
+  this week and tell me what breaks?" (Now the CTA in both templates.) A
+  second, even-lower-friction ask is Atlas listing verification, which grows
+  the database even on a no.
+- **Personalize with one sourced detail** — format, a recent tournament
+  (Tabroom), league, or novice program. One concrete line lifts replies
+  more than anything else. No fabricated familiarity.
+- **Segment by format + season** — a PF coach, an APDA captain, and a new
+  program sponsor should not get the same pitch.
+- **Short follow-up sequence, not a hard stop.** One value-add follow-up
+  (a motion pack, a peer coach who joined) around day 7-10, then stop unless
+  they reply. Two touches total.
+- **Pilot → testimonial → light social proof.** Recruit 3-5 pilot programs,
+  ask for a quote at onboarding, then (only once real) add "programs on the
+  [circuit] are already using it." Never invent numbers.
+- **Deliverability + compliance before volume**: SPF, DKIM, DMARC, bounce
+  handling, a suppression list, a daily send cap, a physical mailing address
+  in the footer, and honoring opt-outs within 10 business days
+  (FTC CAN-SPAM guide).
+
+**Open tension (founder decides).** All three models advised *shortening*
+the email and moving the community / leaderboard / live-human-rounds pitch
+*out of the first touch* — a cold coach may read "global leaderboard for my
+minors" as a moderation/safety/distraction flag before they trust the tool.
+That conflicts with the current direction (community beat kept in every
+email). It stays in for now; revisit if reply rates lag. GPT also flagged
+"your school is already a pin" as faintly surveillance-y, so the data line
+was softened to "I found a public listing for [school] while building a
+free Atlas."
+
 ## What "done" looks like
 
 A coach opens the email, understands in ten seconds what DebateIt is and
