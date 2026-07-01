@@ -78,60 +78,87 @@ export default async (request) => {
   const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(MAX_DAYS, daysRaw)) : DEFAULT_DAYS;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  const cacheKey = 'founder-video:' + days;
+  // 2026-07-01: one 30d scan serves every standard window (see
+  // admin-heatmap.mjs note) — all four windows aggregate in-process and
+  // share one cache entry, so the /admin global time window stops costing
+  // a fresh events scan per flip.
+  const WINDOWS = [1, 3, 7, 30];
+  const multi = WINDOWS.includes(days);
+  const cacheKey = multi ? 'founder-video:multi' : 'founder-video:' + days;
   const cached = await getCachedShared(cacheKey);
-  if (cached) return jsonResponse(cached, 200, request);
+  if (cached) {
+    const hit = multi ? cached[days] : cached;
+    if (hit) return jsonResponse(hit, 200, request);
+  }
 
   try {
     // app_event-only query keeps the scan tight — funnel doesn't need
     // the rest of the events collection's volume.
+    const scanSince = multi ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : since;
     const snap = await db.collection('events')
       .where('event', '==', 'app_event')
-      .where('createdAt', '>=', since)
+      .where('createdAt', '>=', scanSince)
       .orderBy('createdAt', 'desc')
       .limit(MAX_DOCS)
       .get();
 
     const docs = snap.docs;
-    const sampled = docs.length >= MAX_DOCS;
+    const oldestMs = docs.length ? (docs[docs.length - 1].data().createdAt?.toMillis?.() || 0) : 0;
 
-    const counts = { play: 0, '25': 0, '50': 0, '75': 0, complete: 0 };
-    // Distinct-uid counts give "people," event counts give "fires."
-    // For sessionStorage-gated events they should match closely, but
-    // the gap surfaces bots / replays from privacy-mode sessions where
-    // sessionStorage isn't persisting between page loads.
-    const uidsByBucket = {
-      play: new Set(), '25': new Set(), '50': new Set(), '75': new Set(), complete: new Set(),
+    const buildWindow = (wDays) => {
+      const wSince = new Date(Date.now() - wDays * 24 * 60 * 60 * 1000);
+      const wSinceMs = wSince.getTime();
+      let windowSize = 0;
+
+      const counts = { play: 0, '25': 0, '50': 0, '75': 0, complete: 0 };
+      // Distinct-uid counts give "people," event counts give "fires."
+      // For sessionStorage-gated events they should match closely, but
+      // the gap surfaces bots / replays from privacy-mode sessions where
+      // sessionStorage isn't persisting between page loads.
+      const uidsByBucket = {
+        play: new Set(), '25': new Set(), '50': new Set(), '75': new Set(), complete: new Set(),
+      };
+
+      for (const doc of docs) {
+        const d = doc.data();
+        const t = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0;
+        if (!t || t < wSinceMs) continue;
+        windowSize++;
+        const name = (d.metadata && d.metadata.name) || '';
+        if (!name.startsWith('founder_video_')) continue;
+        const bucket = name.slice('founder_video_'.length);
+        if (!(bucket in counts)) continue;
+        counts[bucket]++;
+        if (d.uid) uidsByBucket[bucket].add(d.uid);
+      }
+
+      // Drop-off rates: each bucket as a % of plays. Tells you what
+      // fraction of starters made it past each quartile.
+      const plays = counts.play;
+      const retention = {};
+      for (const b of BUCKETS) {
+        retention[b] = plays > 0 ? +(counts[b] / plays * 100).toFixed(1) : null;
+      }
+
+      return {
+        windowDays: wDays,
+        sinceISO: wSince.toISOString(),
+        sampled: docs.length >= MAX_DOCS && oldestMs > wSinceMs,
+        sampleSize: windowSize,
+        counts,
+        uniqueUids: Object.fromEntries(BUCKETS.map(b => [b, uidsByBucket[b].size])),
+        retentionPct: retention,
+        timestamp: new Date().toISOString(),
+      };
     };
 
-    for (const doc of docs) {
-      const d = doc.data();
-      const name = (d.metadata && d.metadata.name) || '';
-      if (!name.startsWith('founder_video_')) continue;
-      const bucket = name.slice('founder_video_'.length);
-      if (!(bucket in counts)) continue;
-      counts[bucket]++;
-      if (d.uid) uidsByBucket[bucket].add(d.uid);
+    if (multi) {
+      const all = {};
+      for (const w of WINDOWS) all[w] = buildWindow(w);
+      await setCachedShared(cacheKey, all, TTL_HEAVY);
+      return jsonResponse(all[days], 200, request);
     }
-
-    // Drop-off rates: each bucket as a % of plays. Tells you what
-    // fraction of starters made it past each quartile.
-    const plays = counts.play;
-    const retention = {};
-    for (const b of BUCKETS) {
-      retention[b] = plays > 0 ? +(counts[b] / plays * 100).toFixed(1) : null;
-    }
-
-    const result = {
-      windowDays: days,
-      sinceISO: since.toISOString(),
-      sampled,
-      sampleSize: docs.length,
-      counts,
-      uniqueUids: Object.fromEntries(BUCKETS.map(b => [b, uidsByBucket[b].size])),
-      retentionPct: retention,
-      timestamp: new Date().toISOString(),
-    };
+    const result = buildWindow(days);
     await setCachedShared(cacheKey, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {
