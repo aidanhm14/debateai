@@ -169,6 +169,8 @@
     cursor:pointer;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:11px;padding:11px;font-weight:700;transition:background .2s}
   .addprog:hover{background:var(--accent-hover)}
   .cpin{border-radius:50%;border:2.5px solid #34d399;background:rgba(52,211,153,.18);box-shadow:0 0 9px 1px rgba(52,211,153,.65);transition:transform .15s}
+  /* Community pin for a school with NO debate program yet (an opportunity). */
+  .cpin--gap{border-color:#f59e0b;background:rgba(245,158,11,.18);box-shadow:0 0 9px 1px rgba(245,158,11,.6)}
   .leaflet-marker-icon:hover .cpin{transform:scale(1.4)}
   .card .badge.comm{border-color:#34d399;color:#6ee7b7}
   .card-comm-by{font-size:.92rem;color:var(--ink-dim);margin-bottom:8px}
@@ -413,6 +415,7 @@
 
   <div class="blocklabel">Color pins by</div>
   <div class="seg" id="seg-color">
+    <button data-m="program">Debate program</button>
     <button data-m="status" class="on">Pipeline</button>
     <button data-m="format">Format</button>
     <button data-m="level">Level</button>
@@ -576,6 +579,7 @@
   <input id="sub-city" type="text" placeholder="City" maxlength="80" autocomplete="off">
   <input id="sub-country" type="text" placeholder="Country" maxlength="60" autocomplete="off">
   <div class="sub-seg" id="sub-lvl"><button data-l="college" class="on">College</button><button data-l="hs">High school</button></div>
+  <div class="sub-seg" id="sub-prog"><button data-p="yes" class="on">Has a debate program</button><button data-p="no">No program yet</button></div>
   <div class="sub-fmt" id="sub-fmt"></div>
   <button class="sub-go" id="sub-go">Add to the map</button>
 </div></div>
@@ -1194,7 +1198,11 @@ setTimeout(function(){ map.invalidateSize(false); },300);
 setTimeout(function(){ map.invalidateSize(false); },1200);
 
 function hasContact(d){ var c=window.ATLAS_CONTACTS&&window.ATLAS_CONTACTS[(d.n||'').toLowerCase().replace(/[^a-z0-9]/g,'')]; return !!(c&&c.e); }
+// A school "has debate" unless it was community-submitted as "no program
+// yet". The curated dataset is all established programs.
+function hasDebate(d){ return !(d && d.noProgram); }
 function colorFor(d){
+  if(colorMode==='program') return hasDebate(d) ? '#22c55e' : '#f59e0b';
   if(colorMode==='status') return STATUS_COLOR[statusOf(d)];
   if(colorMode==='contacts') return hasContact(d)?'#22c55e':'#6b7280';
   if(colorMode==='level') return LVL_COLOR[d.lvl];
@@ -1299,7 +1307,16 @@ function updateTopCountries(vis){
 function updateLegend(vis){
   var lab=document.getElementById('lab-legend'), box=document.getElementById('legend');
   var rows=[];
-  if(colorMode==='status'){
+  if(colorMode==='program'){
+    lab.textContent='Debate program';
+    // Curated pins are all established programs; community pins can be
+    // "no program yet". Count both so the legend reflects the whole map.
+    var withN=0, noN=0;
+    vis.forEach(function(d){ hasDebate(d)?withN++:noN++; });
+    (typeof SUBS!=='undefined'?SUBS:[]).forEach(function(s){ s.noProgram?noN++:withN++; });
+    rows.push({c:'#22c55e',nm:'Has a debate program',ct:withN});
+    rows.push({c:'#f59e0b',nm:'No program yet',ct:noN});
+  } else if(colorMode==='status'){
     lab.textContent='Pipeline stage';
     var counts={prospect:0,contacted:0,partnered:0};
     vis.forEach(function(d){ counts[statusOf(d)]++; });
@@ -1340,6 +1357,7 @@ function openCard(d){
   if(isTour){ bd.push('<span class="badge tour">Tournament</span>'); }
   else if(isMem){ bd.push('<span class="badge mem">Member</span>'); if(d.role) bd.push('<span class="badge">'+d.role+'</span>'); }
   else { if(isComm) bd.push('<span class="badge comm">Community</span>');
+    if(d.noProgram) bd.push('<span class="badge" style="color:#f59e0b;border-color:rgba(245,158,11,.5)">No program yet</span>');
     bd.push('<span class="badge lvl">'+(d.lvl==='hs'?'High school':'College')+'</span>'); }
   if(!isMem){
     if(d.formatNote) bd.push('<span class="badge">'+d.formatNote+'</span>');
@@ -1675,10 +1693,11 @@ function checkAdmin(){ isAdminUser=false; if(!fbUser) return;
 function renderSubs(){
   subLayer.clearLayers();
   SUBS.forEach(function(s){
-    var ic=L.divIcon({className:'',iconSize:[15,15],iconAnchor:[7.5,7.5],html:'<div class="cpin" style="width:13px;height:13px"></div>'});
+    var pinCls='cpin'+(s.noProgram?' cpin--gap':'');
+    var ic=L.divIcon({className:'',iconSize:[15,15],iconAnchor:[7.5,7.5],html:'<div class="'+pinCls+'" style="width:13px;height:13px"></div>'});
     var m=L.marker([s.lat,s.lng],{icon:ic,zIndexOffset:900});
     m.on('click',function(){ openCard(s); });
-    m.bindTooltip((s.n||'Program')+' · community',{direction:'top',offset:[0,-3],className:'atlas-tt atlas-tt-comm',opacity:1});
+    m.bindTooltip((s.n||'Program')+' · '+(s.noProgram?'no program yet':'community'),{direction:'top',offset:[0,-3],className:'atlas-tt atlas-tt-comm',opacity:1});
     subLayer.addLayer(m);
   });
 }
@@ -1755,6 +1774,7 @@ function openSubModal(){
   });
   var sx=document.getElementById('sub-x'); if(sx) sx.addEventListener('click',function(){ document.getElementById('submodal').classList.remove('show'); });
   document.querySelectorAll('#sub-lvl button').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('#sub-lvl button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }); });
+  document.querySelectorAll('#sub-prog button').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('#sub-prog button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }); });
   var sg=document.getElementById('sub-go');
   if(sg) sg.addEventListener('click',function(){
     if(!fbDb||!fbUser){ promptSignIn(); return; }
@@ -1764,10 +1784,11 @@ function openSubModal(){
     var lb=document.querySelector('#sub-lvl button.on'); var lvl=lb?lb.getAttribute('data-l'):'college';
     var fmt=Array.prototype.slice.call(document.querySelectorAll('#sub-fmt input:checked')).map(function(c){ return c.value; });
     if(!fmt.length) fmt=['BP'];
+    var pgb=document.querySelector('#sub-prog button.on'); var noProgram=!!(pgb&&pgb.getAttribute('data-p')==='no');
     sg.disabled=true; sg.textContent='Adding…';
     fbDb.collection('atlas_submissions').add({
       name:name, city:(document.getElementById('sub-city').value||'').trim(), country:(document.getElementById('sub-country').value||'').trim(),
-      lat:placeLatLng.lat, lng:placeLatLng.lng, lvl:lvl, fmt:fmt,
+      lat:placeLatLng.lat, lng:placeLatLng.lng, lvl:lvl, fmt:fmt, noProgram:noProgram,
       by:fbUser.uid, byName:(fbUser.displayName||fbUser.email||'member'),
       at:firebase.firestore.FieldValue.serverTimestamp()
     }).then(function(){
