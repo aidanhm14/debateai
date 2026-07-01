@@ -1219,7 +1219,14 @@ SCHOOLS.forEach(function(d){
   if(!d.lat) return;
   var m=L.circleMarker([d.lat,d.lng],pinStyle(d));
   m.on('click',function(){ openCard(d); });
-  m.bindTooltip(d.n,{direction:'top',offset:[0,-8],className:'atlas-tt',opacity:1});
+  // Tabroom activity signals ride ATLAS_EXTRA records (act/judges/debaters/
+  // seen, from the outreach pull). Only render what the record carries.
+  var _tt=d.n,_bits=[];
+  if(d.debaters)_bits.push(d.debaters+' debaters');
+  if(d.judges)_bits.push(d.judges+'-judge corps');
+  if(d.seen)_bits.push('last seen '+d.seen);
+  if(_bits.length)_tt+=' · '+_bits.join(' · ');
+  m.bindTooltip(_tt,{direction:'top',offset:[0,-8],className:'atlas-tt',opacity:1});
   m._data=d;
   markers[d.n]=m;
 });
