@@ -461,6 +461,8 @@ h1 em{color:var(--accent);font-style:normal}
 .style-chip.on{
   background:rgba(239,68,68,.12);border-color:var(--accent);color:var(--accent);
 }
+.judge-presets{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.judge-preset-chip{font-size:.72rem;padding:5px 10px}
 .paradigm-row label{
   display:block;font-size:.74rem;font-weight:700;color:var(--text-dim);margin-bottom:6px;
 }
@@ -1221,6 +1223,26 @@ h1 em{color:var(--accent);font-style:normal}
   var storedParadigm = '';
   try { storedParadigm = cleanParadigm(localStorage.getItem('debateos-spar-paradigm')); } catch(e){}
 
+  // Judge presets for the setup card. Each fills the judge-instructions note
+  // with a canonical archetype in the register real Tabroom paradigms use
+  // (lay/flay/flow is the spectrum pools actually describe judges with).
+  // Presets are plain note text, capped at PARADIGM_MAX, so the opponent
+  // consent card and the ballot guard treat them like any hand-typed note.
+  var JUDGE_PRESETS = [
+    { key: 'lay', label: 'Lay judge',
+      text: 'Judge as a lay judge: plain English only, no debate jargon. Reward the clearer story and explained evidence, not speed or drops.' },
+    { key: 'flay', label: 'Flay judge',
+      text: 'Judge as a flay judge: flow the round but cap speed at conversational. Drops only count when their importance is explained plainly. Weigh scope and severity simply.' },
+    { key: 'flow', label: 'Flow judge',
+      text: 'Judge strictly on the flow, tech over truth. Drops are conceded. Reward explicit comparative weighing and clean extensions; punish offense that skips a speech.' },
+    { key: 'policymaker', label: 'Policymaker',
+      text: 'Judge as a policymaker: does the plan actually work? Weigh solvency mechanics, cost-benefit, and real-world precedent over abstract theory.' },
+    { key: 'truth', label: 'Truth > tech',
+      text: 'Truth over tech: a technically won but factually wrong argument still loses. Overclaimed evidence gets discounted even when dropped. Reward honest, defensible claims.' },
+    { key: 'k', label: 'K-friendly',
+      text: 'Open to kritiks and framework-level argument. Method and representations matter; reward links drawn from what the opponent actually said.' }
+  ];
+
   // ── State ────────────────────────────────────────────
   var state = {
     user: null,
@@ -1521,6 +1543,17 @@ h1 em{color:var(--accent);font-style:normal}
         '</div>' +
         '<div class="paradigm-row">' +
           '<label for="paradigmInput">Judge instructions <span class="opt">optional · your opponent must accept them</span></label>' +
+          // Judge presets: one tap fills the note with a real-pool archetype
+          // (lay/flay/flow etc., language mirrored from debate-it.html's
+          // JUDGE_PARADIGMS, distilled from live Tabroom paradigms). The
+          // preset is just TEXT in the same note field, so the consent
+          // handshake and the live-round ballot guard apply unchanged and
+          // the opponent reads the exact lens they are agreeing to.
+          '<div class="judge-presets" id="judgePresets">' +
+          JUDGE_PRESETS.map(function(p){
+            return '<button type="button" class="style-chip judge-preset-chip" data-preset="' + p.key + '">' + escHtml(p.label) + '</button>';
+          }).join('') +
+          '</div>' +
           '<textarea id="paradigmInput" maxlength="' + PARADIGM_MAX + '" rows="2" placeholder="How should the judge evaluate? e.g. Weigh probability before magnitude. Punish drops hard. Truth over tech on factual claims."></textarea>' +
           '<div class="paradigm-meta"><span id="paradigmSaved"></span><span id="paradigmCount">0/' + PARADIGM_MAX + '</span></div>' +
         '</div>' +
@@ -1712,6 +1745,32 @@ h1 em{color:var(--accent);font-style:normal}
     var count = document.getElementById('paradigmCount');
     var saved = document.getElementById('paradigmSaved');
     if (count) count.textContent = ta.value.length + '/' + PARADIGM_MAX;
+    // Preset chips light up when the note matches their text exactly; any
+    // hand edit dims them (the note is the truth, chips are shortcuts).
+    var presetWrap = document.getElementById('judgePresets');
+    function syncPresetChips(){
+      if (!presetWrap) return;
+      var cur = cleanParadigm(ta.value);
+      Array.prototype.forEach.call(presetWrap.querySelectorAll('[data-preset]'), function(b){
+        var p = null;
+        for (var i = 0; i < JUDGE_PRESETS.length; i++) if (JUDGE_PRESETS[i].key === b.getAttribute('data-preset')) p = JUDGE_PRESETS[i];
+        b.classList.toggle('on', !!p && cur === p.text);
+      });
+    }
+    syncPresetChips();
+    if (presetWrap){
+      presetWrap.addEventListener('click', function(ev){
+        var b = ev.target && ev.target.closest ? ev.target.closest('[data-preset]') : null;
+        if (!b) return;
+        var p = null;
+        for (var i = 0; i < JUDGE_PRESETS.length; i++) if (JUDGE_PRESETS[i].key === b.getAttribute('data-preset')) p = JUDGE_PRESETS[i];
+        if (!p) return;
+        // Tap again to clear; tap a different chip to swap.
+        ta.value = (cleanParadigm(ta.value) === p.text) ? '' : p.text;
+        try { gtag('event', 'spar_judge_preset', { preset: p.key, format: formatParam }); } catch(e){}
+        ta.dispatchEvent(new Event('input'));
+      });
+    }
     var deb = null;
     function save(){
       var v = cleanParadigm(ta.value);
@@ -1730,6 +1789,7 @@ h1 em{color:var(--accent);font-style:normal}
     ta.addEventListener('input', function(){
       if (count) count.textContent = ta.value.length + '/' + PARADIGM_MAX;
       if (saved) saved.textContent = '';
+      syncPresetChips();
       if (deb) clearTimeout(deb);
       deb = setTimeout(save, 600);
     });
