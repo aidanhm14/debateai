@@ -164,6 +164,20 @@ textarea.ctl{resize:vertical;min-height:200px;line-height:1.55}
 .form-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:4px}
 .form-note{font-size:.78rem;color:var(--text-ghost)}
 .form-error{color:#fca5a5;font-size:.86rem;font-weight:600;margin-top:12px;display:none}
+/* Transcript file upload */
+.file-row{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap}
+.file-btn{font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;color:var(--text-dim);
+  background:transparent;border:1px solid var(--border,rgba(0,0,0,.16));border-radius:999px;padding:7px 14px;transition:border-color .15s,color .15s}
+.file-btn:hover{border-color:var(--accent);color:var(--accent)}
+.file-hint{font-size:.74rem;color:var(--text-ghost)}
+textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68,.14)}
+/* Compact how-it-works strip under the lede */
+.hiw-strip{list-style:none;display:flex;gap:10px;flex-wrap:wrap;margin:0 0 26px;padding:0;max-width:760px}
+.hiw-strip li{flex:1 1 180px;display:flex;align-items:flex-start;gap:9px;font-size:.86rem;line-height:1.4;color:var(--text-dim);
+  background:rgba(0,0,0,.02);border:1px solid var(--border,rgba(0,0,0,.08));border-radius:12px;padding:11px 13px}
+.hiw-strip li span{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;
+  font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+@media(max-width:640px){.hiw-strip{flex-direction:column}}
 
 /* ── Loading + ballot ──────────────────────────────────── */
 .loading{display:none;text-align:center;padding:46px 20px}
@@ -263,7 +277,13 @@ footer.foot a{color:var(--text-dim)}
 
   <span class="eyebrow"><span class="pip"></span> AI Judge · Free in beta</span>
   <h1>Get a real ballot <em>on any round.</em></h1>
-  <p class="lede">Most rounds are scored by lay judges who don't flow. Paste yours and get an objective ballot: who won, why, and speaker points per side. The AI reads the whole flow, names the key clashes, and writes the reason-for-decision the way a circuit judge would.</p>
+  <p class="lede">Put in a round, get it judged. Most rounds are scored by lay judges who don't flow. Paste or upload yours and get an objective ballot: who won, why, and speaker points per side. The AI reads the whole flow, names the key clashes, and writes the reason-for-decision the way a circuit judge would.</p>
+
+  <ol class="hiw-strip" aria-label="How the judge works">
+    <li><span>1</span> Paste or upload your round, both sides' speeches.</li>
+    <li><span>2</span> Make your own call: who won it.</li>
+    <li><span>3</span> Reveal the AI judge: winner, reasoning, speaker points.</li>
+  </ol>
 
   <!-- ── The judge form ──────────────────────────────────── -->
   <section class="judge-form" aria-label="Judge a debate round">
@@ -302,8 +322,15 @@ footer.foot a{color:var(--text-dim)}
     </div>
 
     <div class="field">
-      <label for="transcript">Round transcript <span class="hint">paste the full round, both sides' speeches</span></label>
-      <textarea id="transcript" class="ctl" placeholder="Paste both sides' speeches here. Label them by speech if you can (Pro Constructive, Con Rebuttal, and so on). More detail produces a sharper ballot."></textarea>
+      <label for="transcript">Round transcript <span class="hint">paste, upload, or drag in the full round, both sides' speeches</span></label>
+      <textarea id="transcript" class="ctl" placeholder="Paste both sides' speeches here. Label them by speech if you can (Pro Constructive, Con Rebuttal, and so on). More detail produces a sharper ballot.
+
+Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
+      <div class="file-row">
+        <button type="button" class="file-btn" id="fileBtn">&#8593; Upload a file</button>
+        <input type="file" id="fileInput" accept=".txt,.text,.md,.markdown,.rtf,.csv,.docx,text/plain" hidden>
+        <span class="file-hint" id="fileHint">.txt, .md, or .docx &middot; or drag a file onto the box</span>
+      </div>
     </div>
 
     <div class="field verdict-field">
@@ -851,6 +878,55 @@ footer.foot a{color:var(--text-dim)}
   $('vPro').addEventListener('click', function(){ pickVerdict('pro'); });
   $('vCon').addEventListener('click', function(){ pickVerdict('con'); });
   $('judgeBtn').addEventListener('click', judge);
+
+  // ── Transcript file upload / drag-drop ──────────────────────
+  // Read a pasted-in round from a file instead of copy-paste. Plain text
+  // (.txt/.md/etc) reads directly; .docx is extracted with mammoth loaded
+  // lazily from a CDN only when someone actually drops one in.
+  (function(){
+    var ta=$('transcript'), fi=$('fileInput'), fb=$('fileBtn'), fh=$('fileHint');
+    if(!ta||!fi) return;
+    function hint(msg, err){ if(fh){ fh.textContent=msg; fh.style.color=err?'#dc2626':''; } }
+    function load(text, name){
+      ta.value=String(text||'').trim();
+      hint('Loaded ' + name + ' (' + ta.value.length.toLocaleString() + ' characters)');
+      try { ta.dispatchEvent(new Event('input',{bubbles:true})); } catch(e){}
+    }
+    function readDocx(file){
+      hint('Reading ' + file.name + '…');
+      function run(){
+        file.arrayBuffer().then(function(buf){
+          window.mammoth.extractRawText({arrayBuffer:buf})
+            .then(function(r){ load(r.value, file.name); })
+            .catch(function(){ hint('Could not read that .docx. Paste the text instead.', true); });
+        }).catch(function(){ hint('Could not read that file. Paste the text instead.', true); });
+      }
+      if(window.mammoth) return run();
+      var s=document.createElement('script');
+      s.src='https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js';
+      s.onload=run;
+      s.onerror=function(){ hint('Could not load the .docx reader. Paste the text instead.', true); };
+      document.head.appendChild(s);
+    }
+    function handle(file){
+      if(!file) return;
+      var name=(file.name||'').toLowerCase();
+      if(/\.docx$/.test(name)) return readDocx(file);
+      if(/\.(txt|text|md|markdown|rtf|csv)$/.test(name) || (file.type||'').indexOf('text')===0){
+        var rd=new FileReader();
+        rd.onload=function(){ load(rd.result, file.name); };
+        rd.onerror=function(){ hint('Could not read that file. Paste the text instead.', true); };
+        rd.readAsText(file);
+        return;
+      }
+      hint('Unsupported file type. Use .txt, .md, or .docx, or paste the text.', true);
+    }
+    if(fb) fb.addEventListener('click', function(){ fi.click(); });
+    fi.addEventListener('change', function(){ if(fi.files && fi.files[0]) handle(fi.files[0]); });
+    ['dragenter','dragover'].forEach(function(ev){ ta.addEventListener(ev, function(e){ e.preventDefault(); ta.classList.add('drag'); }); });
+    ['dragleave','dragend'].forEach(function(ev){ ta.addEventListener(ev, function(){ ta.classList.remove('drag'); }); });
+    ta.addEventListener('drop', function(e){ e.preventDefault(); ta.classList.remove('drag'); var f=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if(f) handle(f); });
+  })();
 })();
 </script>
 
