@@ -691,8 +691,34 @@ body.has-beta-strip .ui-topbar-sheet{top:88px}
   #barUser > button{display:none !important}
 }
 
+/* ── Site-wide motion polish (2026-07-01) ─────────────────────
+   Loaded via ui.css on ~48 pages, so it's the one place to make the
+   whole site feel smoother without touching each page.
+
+   1) Cross-page fade. The View Transitions API crossfades one page into
+      the next on same-origin navigation. Pure progressive enhancement:
+      browsers without it (or reduced-motion users, via the block below)
+      just hard-cut. Matches the existing @view-transition convention on
+      index.html / debate-it.html, spread site-wide.
+   2) Smooth interactive states for buttons/links. Deliberately LOW
+      specificity and paint-only properties (color/background/border/
+      shadow, never transform/layout), so any component's own transition
+      wins and nothing janks. Buttons that had instant hovers now ease. */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: no-preference){
+  ::view-transition-old(root),
+  ::view-transition-new(root){ animation-duration:260ms; animation-timing-function:cubic-bezier(.22,.9,.32,1); }
+  ::view-transition-old(root){ animation-name:ui-vt-out }
+  ::view-transition-new(root){ animation-name:ui-vt-in }
+  @keyframes ui-vt-out{ to{ opacity:0; transform:translateY(-6px) } }
+  @keyframes ui-vt-in { from{ opacity:0; transform:translateY(8px) } }
+  a, button{ transition:color .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease; }
+}
+
 /* ── Reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;transition-duration:.01ms!important}
   .ui-nav-btn:hover,.ui-btn:hover{transform:none}
+  /* Kill the cross-page crossfade too. */
+  ::view-transition-group(*),::view-transition-old(root),::view-transition-new(root){animation:none!important}
 }
