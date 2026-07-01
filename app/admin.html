@@ -222,6 +222,17 @@
   details summary{cursor:pointer;color:var(--muted);font-size:12px;padding:8px 0}
   details summary:hover{color:var(--fg)}
 
+  /* Coach directory rows */
+  .coach-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line-soft)}
+  .coach-row .cr-body{flex:1;min-width:0}
+  .coach-row .cr-name{font-weight:700;color:var(--fg);font-size:13px}
+  .coach-row .cr-meta{color:var(--dim);font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+  .coach-row .cr-note{color:var(--muted);font-size:11.5px;margin-top:3px;line-height:1.4}
+  .coach-row .cr-contact{font-size:12px;font-weight:600;color:#ef4444;border:1px solid rgba(239,68,68,.32);border-radius:8px;padding:5px 11px;white-space:nowrap;transition:all .15s}
+  .coach-row .cr-contact:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.5)}
+  .coach-row .cr-del{color:var(--dim);background:transparent;border:none;cursor:pointer;font-size:15px;line-height:1;padding:4px 6px;border-radius:6px;transition:all .15s}
+  .coach-row .cr-del:hover{color:var(--accent);background:var(--card-2)}
+
   /* Global time-window bar. Sticks to the top so the control stays reachable
      while scrolling the long dashboard. */
   .range-bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
@@ -588,6 +599,47 @@
         <tbody></tbody>
       </table>
       <div id="prospects-empty" class="empty" style="display:none">No prospects yet.</div>
+    </div>
+  </div>
+
+  <!-- Coach directory: a growable, hand-curated contact list of debate
+       coaches + programs, each reachable directly (mailto / tel / link).
+       Add-button gated to admin for now; paired with the coach Outreach
+       Desk. Backed by /api/admin/coaches (coach_directory collection). -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Coaches <span id="coaches-count" class="meta" style="margin-left:6px"></span></span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <a id="coaches-outreach" class="pill-btn" href="https://debateit-outreach-desk.netlify.app" target="_blank" rel="noopener">Outreach Desk ↗</a>
+          <button id="coaches-add-btn" class="pill-btn primary">+ Add coach</button>
+        </div>
+      </div>
+      <div style="color:var(--muted);font-size:11px;margin:-4px 0 12px;line-height:1.5">A growing list of debate coaches and programs to reach out to. Add one and it stays, with a direct contact link. Research and draft outreach in the <a href="https://debateit-outreach-desk.netlify.app" target="_blank" rel="noopener" style="color:#ef4444;font-weight:600">Outreach Desk</a>.</div>
+
+      <!-- Add form. Hidden until "+ Add coach". -->
+      <form id="coaches-form" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card-2)">
+        <input id="cf-name" type="text" placeholder="Coach or program name *" style="flex:1 1 200px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+        <input id="cf-program" type="text" placeholder="School / club" style="flex:1 1 150px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+        <input id="cf-location" type="text" placeholder="Location" style="flex:1 1 120px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+        <input id="cf-role" type="text" placeholder="Role (e.g. Head coach)" style="flex:1 1 140px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+        <select id="cf-kind" style="padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+          <option value="email">Email</option>
+          <option value="phone">Phone</option>
+          <option value="link">Link</option>
+        </select>
+        <input id="cf-contact" type="text" placeholder="email / phone / link *" style="flex:1 1 200px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+        <input id="cf-note" type="text" placeholder="Note (optional)" style="flex:1 1 100%;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+        <div style="display:flex;gap:8px;align-items:center;flex:1 1 100%">
+          <button type="submit" class="pill-btn primary">Save coach</button>
+          <button type="button" id="cf-cancel" class="pill-btn">Cancel</button>
+          <span id="cf-err" style="color:var(--accent);font-size:11px"></span>
+        </div>
+      </form>
+
+      <div id="coaches-status" class="empty" style="display:none">Loading…</div>
+      <div id="coaches-list"></div>
+      <div id="coaches-empty" class="empty" style="display:none">No coaches yet. Add the first one.</div>
     </div>
   </div>
 
@@ -1083,6 +1135,7 @@ async function loadAll(force){
     // Fire-and-forget pulls for legacy panels.
     loadSubscribers().catch(()=>{});
     loadProspects().catch(()=>{});
+    loadCoaches().catch(()=>{});
     loadFunnel().catch(()=>{});
     loadFounderVideo().catch(()=>{});
     loadDistillations().catch(()=>{});
@@ -2038,6 +2091,109 @@ $('prospects-export').addEventListener('click', () => {
   a.download = 'prospects_' + new Date().toISOString().slice(0, 10) + '.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+});
+
+// ── Coach directory ───────────────────────────────────────────────
+// A growable contact list of debate coaches. GET/POST/DELETE against
+// /api/admin/coaches (coach_directory). Each row is directly reachable
+// via mailto / tel / link; the panel header deep-links the Outreach Desk.
+let allCoaches = [];
+async function loadCoaches(){
+  const statusEl = $('coaches-status');
+  const emptyEl = $('coaches-empty');
+  statusEl.style.display = 'block'; statusEl.textContent = 'Loading…';
+  emptyEl.style.display = 'none';
+  try {
+    const data = await fetchJson('/api/admin/coaches');
+    allCoaches = data.coaches || [];
+    $('coaches-count').textContent = allCoaches.length ? '· ' + allCoaches.length : '· 0';
+    statusEl.style.display = 'none';
+    renderCoaches(allCoaches);
+  } catch (e) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Failed to load coaches: ' + (e.message || e);
+  }
+}
+function coachContactLabel(k){ return k === 'phone' ? 'Call' : k === 'link' ? 'Open' : 'Email'; }
+function renderCoaches(list){
+  const listEl = $('coaches-list');
+  const emptyEl = $('coaches-empty');
+  if (!list.length){ listEl.innerHTML = ''; emptyEl.style.display = 'block'; return; }
+  emptyEl.style.display = 'none';
+  listEl.innerHTML = list.map(c => {
+    const meta = [c.program, c.role, c.location].filter(Boolean).map(esc).join(' · ');
+    const contact = c.contactHref
+      ? '<a class="cr-contact" href="' + esc(c.contactHref) + '"' + (c.contactKind === 'link' ? ' target="_blank" rel="noopener"' : '') + '>' + coachContactLabel(c.contactKind) + '</a>'
+      : '<span class="cr-contact" style="opacity:.5">' + esc(c.contact) + '</span>';
+    return '<div class="coach-row" data-id="' + esc(c.id) + '">' +
+        '<div class="cr-body">' +
+          '<div class="cr-name">' + esc(c.name) + '</div>' +
+          (meta ? '<div class="cr-meta">' + meta + '</div>' : '') +
+          (c.note ? '<div class="cr-note">' + esc(c.note) + '</div>' : '') +
+        '</div>' +
+        contact +
+        '<button class="cr-del" title="Remove" data-del="' + esc(c.id) + '">✕</button>' +
+      '</div>';
+  }).join('');
+}
+$('coaches-add-btn').addEventListener('click', () => {
+  const f = $('coaches-form');
+  const showing = f.style.display !== 'none';
+  f.style.display = showing ? 'none' : 'flex';
+  if (!showing) $('cf-name').focus();
+});
+$('cf-cancel').addEventListener('click', () => { $('coaches-form').style.display = 'none'; $('cf-err').textContent = ''; });
+$('coaches-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = $('cf-err');
+  const name = $('cf-name').value.trim();
+  const contact = $('cf-contact').value.trim();
+  if (!name || !contact){ errEl.style.color = 'var(--accent)'; errEl.textContent = 'Name and a contact are required.'; return; }
+  errEl.style.color = 'var(--muted)'; errEl.textContent = 'Saving…';
+  try {
+    const token = await getToken();
+    const r = await fetch('/api/admin/coaches', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name, contact,
+        contactKind: $('cf-kind').value,
+        program: $('cf-program').value.trim(),
+        location: $('cf-location').value.trim(),
+        role: $('cf-role').value.trim(),
+        note: $('cf-note').value.trim(),
+      }),
+    });
+    if (!r.ok){ const j = await r.json().catch(()=>({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+    const j = await r.json();
+    allCoaches.unshift(j.coach);
+    $('coaches-count').textContent = '· ' + allCoaches.length;
+    renderCoaches(allCoaches);
+    ['cf-name','cf-program','cf-location','cf-role','cf-contact','cf-note'].forEach(id => { $(id).value = ''; });
+    errEl.textContent = '';
+    $('coaches-form').style.display = 'none';
+  } catch (err) {
+    errEl.style.color = 'var(--accent)'; errEl.textContent = 'Failed: ' + (err.message || err);
+  }
+});
+$('coaches-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-del]');
+  if (!btn) return;
+  const id = btn.getAttribute('data-del');
+  const row = allCoaches.find(c => c.id === id);
+  if (!confirm('Remove ' + (row ? row.name : 'this coach') + ' from the list?')) return;
+  try {
+    const token = await getToken();
+    const r = await fetch('/api/admin/coaches?id=' + encodeURIComponent(id), {
+      method: 'DELETE', headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!r.ok){ const j = await r.json().catch(()=>({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+    allCoaches = allCoaches.filter(c => c.id !== id);
+    $('coaches-count').textContent = allCoaches.length ? '· ' + allCoaches.length : '· 0';
+    renderCoaches(allCoaches);
+  } catch (err) {
+    alert('Failed to remove: ' + (err.message || err));
+  }
 });
 
 // ── Admin tools (grant lifetime / exemplar / backfill / scrub) ────
