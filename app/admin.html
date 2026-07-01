@@ -221,6 +221,48 @@
   .nowrap{white-space:nowrap}
   details summary{cursor:pointer;color:var(--muted);font-size:12px;padding:8px 0}
   details summary:hover{color:var(--fg)}
+
+  /* Global time-window bar. Sticks to the top so the control stays reachable
+     while scrolling the long dashboard. */
+  .range-bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    margin:0 0 22px;padding:11px 16px;border:1px solid var(--line);border-radius:14px;
+    background:rgba(13,17,29,.86);backdrop-filter:blur(14px);box-shadow:0 6px 24px -14px rgba(0,0,0,.6)}
+  .range-bar-label{display:flex;flex-direction:column;gap:1px;margin-right:auto;min-width:0}
+  .range-bar-title{font:700 11px system-ui;text-transform:uppercase;letter-spacing:.12em;color:var(--fg)}
+  #range-bar-sub{font-size:11px}
+  #global-range{padding:4px}
+  #global-range .tab{padding:6px 15px;font-size:12px}
+  #help-btn{white-space:nowrap}
+
+  /* In-app "how to read this" guide */
+  .help-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:flex-start;justify-content:center;
+    padding:40px 16px;overflow-y:auto;background:rgba(3,5,10,.72);backdrop-filter:blur(6px);animation:fadein .18s ease-out}
+  .help-modal{width:100%;max-width:640px;background:var(--bg-soft);border:1px solid var(--line-strong);border-radius:18px;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.7);overflow:hidden;animation:helprise .22s cubic-bezier(.2,.7,.3,1)}
+  @keyframes helprise{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
+  .help-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:22px 24px 16px;border-bottom:1px solid var(--line)}
+  .help-head h2{margin:0;font:600 18px/1.2 system-ui;color:var(--fg)}
+  .help-head .sub{margin-top:4px}
+  .help-head .pill-btn{padding:6px 11px}
+  .help-body{padding:8px 24px 4px;max-height:min(64vh,640px);overflow-y:auto}
+  .help-sec{padding:16px 0;border-bottom:1px solid var(--line-soft)}
+  .help-sec:last-child{border-bottom:none}
+  .help-sec h3{margin:0 0 8px;font:600 13px/1.3 system-ui;color:var(--fg);display:flex;align-items:center;gap:9px;letter-spacing:.01em}
+  .help-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;
+    background:var(--accent);color:#fff;font:700 11px/1 system-ui;flex:none}
+  .help-sec p{margin:0 0 8px;color:var(--muted);font-size:13px;line-height:1.55}
+  .help-sec p:last-child{margin-bottom:0}
+  .help-note{color:var(--dim) !important;font-size:12px !important}
+  .help-list{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.55}
+  .help-list li{margin-bottom:6px}
+  .help-list strong{color:var(--fg);font-weight:600}
+  .help-list em{color:var(--fg);font-style:normal;font-weight:600}
+  .help-chips{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+  .help-chips li{font-size:11.5px;font-weight:600;color:var(--fg);background:var(--card-2);border:1px solid var(--line);
+    border-radius:7px;padding:5px 10px}
+  .help-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:16px 24px;border-top:1px solid var(--line);background:var(--card)}
 </style>
 
 <!-- Firebase compat SDKs (same as index.html) -->
@@ -266,6 +308,24 @@
       <a class="pill-btn" href="/">← home</a>
     </div>
   </header>
+
+  <!-- Global time window. One control drives every day-windowed panel on
+       the page at once (heatmap + its mix/devices/browsers/top-pages,
+       power users, round funnel, founder video). The "?" opens the
+       in-app guide on what does / does not move with it. -->
+  <div class="range-bar">
+    <div class="range-bar-label">
+      <span class="range-bar-title">Time window</span>
+      <span class="meta" id="range-bar-sub">last 7d</span>
+    </div>
+    <div class="tabs" id="global-range" role="group" aria-label="Global time window">
+      <button class="tab" data-gr="1"  aria-pressed="false">24h</button>
+      <button class="tab" data-gr="3"  aria-pressed="false">3d</button>
+      <button class="tab" data-gr="7"  aria-pressed="true">7d</button>
+      <button class="tab" data-gr="30" aria-pressed="false">30d</button>
+    </div>
+    <button id="help-btn" class="pill-btn" aria-haspopup="dialog" title="How to read this dashboard">? How to read this</button>
+  </div>
 
   <div id="err"></div>
 
@@ -360,10 +420,7 @@
     <div class="card">
       <div class="title">
         <span>Power users</span>
-        <div class="tabs subtle" id="pu-tabs">
-          <button class="tab" data-pu-days="7" aria-pressed="true">7d</button>
-          <button class="tab" data-pu-days="30" aria-pressed="false">30d</button>
-        </div>
+        <span class="meta" id="pu-meta">7d</span>
       </div>
       <div id="pu-body"><div class="ts">Loading…</div></div>
     </div>
@@ -387,7 +444,7 @@
       <div id="browsers-body" class="ring-wrap"><div class="ts">Loading…</div></div>
     </div>
     <div class="card">
-      <div class="title"><span>Top pages</span><span class="meta">30d</span></div>
+      <div class="title"><span>Top pages</span><span class="meta" id="pages-meta">7d</span></div>
       <table id="pages-table"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table>
     </div>
   </div>
@@ -397,10 +454,7 @@
     <div class="card">
       <div class="title">
         <span>Round-complete funnel</span>
-        <div class="tabs subtle" id="funnel-tabs">
-          <button class="tab" data-funnel-days="7" aria-pressed="true">7d</button>
-          <button class="tab" data-funnel-days="30" aria-pressed="false">30d</button>
-        </div>
+        <span class="meta">follows the time window</span>
       </div>
       <div id="funnel-body" class="ts" style="padding:6px 2px">Loading…</div>
     </div>
@@ -411,10 +465,7 @@
     <div class="card">
       <div class="title">
         <span>Founder video</span>
-        <div class="tabs subtle" id="fv-tabs">
-          <button class="tab" data-fv-days="7" aria-pressed="true">7d</button>
-          <button class="tab" data-fv-days="30" aria-pressed="false">30d</button>
-        </div>
+        <span class="meta">follows the time window</span>
       </div>
       <div id="fv-body" class="ts" style="padding:6px 2px">Loading…</div>
     </div>
@@ -689,6 +740,75 @@
   </div>
 </div>
 
+<!-- In-app guide. Auto-opens once per browser, reopenable via "? How to
+     read this" in the time-window bar. Explains the global window and,
+     importantly, which panels do NOT move with it. -->
+<div id="help-overlay" class="help-overlay" hidden>
+  <div class="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="help-head">
+      <div>
+        <h2 id="help-title">How to read Mission Control</h2>
+        <div class="sub">Everything you need to drive the dashboard in one screen.</div>
+      </div>
+      <button id="help-close" class="pill-btn" aria-label="Close guide">✕</button>
+    </div>
+    <div class="help-body">
+
+      <section class="help-sec">
+        <h3><span class="help-num">1</span> The time window</h3>
+        <p>The bar at the top has four spans: <strong>24h</strong>, <strong>3d</strong>, <strong>7d</strong>, <strong>30d</strong>. Pick one and every time-windowed panel re-pulls for exactly that span. Your choice is remembered on this browser, so a reload keeps it.</p>
+      </section>
+
+      <section class="help-sec">
+        <h3><span class="help-num">2</span> What moves with the window</h3>
+        <p>These panels all read the window you pick:</p>
+        <ul class="help-chips">
+          <li>Hour · day heatmap</li>
+          <li>Format · brain mix</li>
+          <li>Devices</li>
+          <li>Browsers</li>
+          <li>Top pages</li>
+          <li>Power users</li>
+          <li>Round-complete funnel</li>
+          <li>Founder video</li>
+        </ul>
+        <p class="help-note">The heatmap, mix, devices, browsers and top pages all come from one query, so they always agree on the span.</p>
+      </section>
+
+      <section class="help-sec">
+        <h3><span class="help-num">3</span> What stays put</h3>
+        <p>A few panels sit on a different axis and ignore the window on purpose:</p>
+        <ul class="help-list">
+          <li><strong>KPI strip</strong> (top row) is lifetime totals. "+N last 7d" on Total users is a fixed 7-day delta.</li>
+          <li><strong>Activity chart</strong> switches grain with its own <em>daily / weekly / monthly</em> tabs, not the window.</li>
+          <li><strong>Live activity</strong> always shows the latest 60 events, streaming.</li>
+          <li><strong>Weekly cohorts</strong> are measured in weeks. use its <em>8w / 12w</em> tabs.</li>
+        </ul>
+      </section>
+
+      <section class="help-sec">
+        <h3><span class="help-num">4</span> Reading the key panels</h3>
+        <ul class="help-list">
+          <li><strong>Round-complete funnel</strong>: starts vs completes, plus the same rate weighted by unique users so a few power users can't inflate it.</li>
+          <li><strong>Founder video</strong>: play → 25 → 50 → 75 → complete drop-off. retention% is each bucket over plays.</li>
+          <li><strong>Heatmap</strong>: darker red = a busier UTC hour. good for spotting when your users actually show up.</li>
+          <li><strong>Power users</strong>: ranked by engagement score in the window. click a row for that user's full session inspector.</li>
+        </ul>
+      </section>
+
+      <section class="help-sec">
+        <h3><span class="help-num">5</span> Freshness</h3>
+        <p>The dashboard is a snapshot, not a live stream. Auto-refresh is off by default to save Firestore reads. hit <strong>↻ Refresh</strong> for a fresh pull, or flip <strong>Auto-refresh</strong> on to poll every 5 minutes. The live activity tail updates on its own.</p>
+      </section>
+
+    </div>
+    <div class="help-foot">
+      <span class="meta">Reopen anytime with "? How to read this".</span>
+      <button id="help-got" class="pill-btn primary">Got it</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─────────────────────────────────────────────────────────────────
 // Firebase init (same config as index.html)
@@ -719,10 +839,21 @@ let cachedCohorts = null;
 let cachedHeatmap = null;
 let cachedPower = null;
 let currentRange = 'daily';
-let funnelDays = 7;
-let fvDays = 7;
 let cohortWeeks = 8;
-let puDays = 7;
+// One global time window (in days) drives every day-windowed panel at
+// once: the hour/day heatmap and everything the heatmap endpoint also
+// carries (format/brain mix, devices, browsers, top pages), plus power
+// users, the round-complete funnel, and founder-video drop-off. Pick is
+// persisted per-browser. KPIs (lifetime totals), the activity chart
+// (its own grain tabs) and weekly cohorts sit on a different axis and do
+// NOT move with it — the in-app "How to read this" guide spells this out.
+const GLOBAL_RANGES = [1, 3, 7, 30];
+let globalDays = (function(){
+  var v = parseInt((function(){ try { return localStorage.getItem('admin-global-days'); } catch { return null; } })() || '', 10);
+  return GLOBAL_RANGES.indexOf(v) !== -1 ? v : 7;
+})();
+function windowLabel(d){ return d === 1 ? 'last 24h' : 'last ' + d + 'd'; }
+function windowShort(d){ return d === 1 ? '24h' : d + 'd'; }
 // 2026-05-20: default OFF. An idle/forgotten /admin tab polling on a
 // timer is exactly what exhausted the Firestore read quota (see
 // lib/admin-cache.mjs header). Off-by-default means an unattended tab
@@ -882,14 +1013,17 @@ async function loadAll(force){
   loading.hidden = false;
   appEl.hidden = true;
   errBox.innerHTML = '';
+  // Reflect the persisted window on the control (pressed state + labels)
+  // before the fetches fire, without kicking off a second round of pulls.
+  syncGlobalRange();
   try {
     // Initial parallel pull of all 5 read endpoints.
     const results = await Promise.allSettled([
       fetchJson('/api/admin/analytics'),
       fetchJson('/api/admin/realtime?limit=60'),
       fetchJson('/api/admin/cohorts?weeks=' + cohortWeeks),
-      fetchJson('/api/admin/heatmap?days=30'),
-      fetchJson('/api/admin/power-users?days=' + puDays + '&limit=15'),
+      fetchJson('/api/admin/heatmap?days=' + globalDays),
+      fetchJson('/api/admin/power-users?days=' + globalDays + '&limit=15'),
     ]);
     const [a, rt, ch, hm, pu] = results;
     if (a.status === 'rejected' && /forbidden/i.test(a.reason.message || '')){
@@ -949,8 +1083,8 @@ async function loadAll(force){
     // Fire-and-forget pulls for legacy panels.
     loadSubscribers().catch(()=>{});
     loadProspects().catch(()=>{});
-    loadFunnel(funnelDays).catch(()=>{});
-    loadFounderVideo(fvDays).catch(()=>{});
+    loadFunnel().catch(()=>{});
+    loadFounderVideo().catch(()=>{});
     loadDistillations().catch(()=>{});
     loadWinback().catch(()=>{});
     loadBrandPoll().catch(()=>{});
@@ -979,12 +1113,12 @@ async function loadCohorts(){
   renderCohorts(c);
 }
 async function loadHeatmap(){
-  const h = await fetchJson('/api/admin/heatmap?days=30');
+  const h = await fetchJson('/api/admin/heatmap?days=' + globalDays);
   cachedHeatmap = h;
   renderHeatmap(h);
 }
 async function loadPower(){
-  const p = await fetchJson('/api/admin/power-users?days=' + puDays + '&limit=15');
+  const p = await fetchJson('/api/admin/power-users?days=' + globalDays + '&limit=15');
   cachedPower = p;
   renderPower(p);
 }
@@ -1532,20 +1666,6 @@ document.querySelectorAll('#range-tabs .tab').forEach(t => {
   });
 });
 
-document.querySelectorAll('#funnel-tabs .tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('#funnel-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
-    loadFunnel(parseInt(t.dataset.funnelDays, 10) || 7);
-  });
-});
-
-document.querySelectorAll('#fv-tabs .tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('#fv-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
-    loadFounderVideo(parseInt(t.dataset.fvDays, 10) || 7);
-  });
-});
-
 document.querySelectorAll('#cohort-tabs .tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('#cohort-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
@@ -1554,21 +1674,61 @@ document.querySelectorAll('#cohort-tabs .tab').forEach(t => {
   });
 });
 
-document.querySelectorAll('#pu-tabs .tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('#pu-tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === t ? 'true' : 'false'));
-    puDays = parseInt(t.dataset.puDays, 10) || 7;
-    loadPower().catch(()=>{});
-  });
+// ── Global time window ─────────────────────────────────────────────
+// One control (24h / 3d / 7d / 30d) up top. Every day-windowed panel
+// reads globalDays, so flipping it re-pulls them together. Reflect the
+// pick on the button row + each card's window label, and persist it.
+function syncGlobalRange(){
+  document.querySelectorAll('#global-range .tab').forEach(b =>
+    b.setAttribute('aria-pressed', parseInt(b.dataset.gr, 10) === globalDays ? 'true' : 'false'));
+  const setTxt = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+  setTxt('range-bar-sub', windowLabel(globalDays));
+  setTxt('mix-meta', windowLabel(globalDays));
+  setTxt('pu-meta', windowShort(globalDays));
+  setTxt('pages-meta', windowShort(globalDays));
+}
+function setGlobalDays(days){
+  if (GLOBAL_RANGES.indexOf(days) === -1) days = 7;
+  if (days === globalDays) return;
+  globalDays = days;
+  try { localStorage.setItem('admin-global-days', String(days)); } catch {}
+  syncGlobalRange();
+  // Re-pull every windowed panel for the new span. Heatmap also carries
+  // the format/brain mix, devices, browsers and top-pages panels.
+  loadHeatmap().catch(()=>{});
+  loadPower().catch(()=>{});
+  loadFunnel().catch(()=>{});
+  loadFounderVideo().catch(()=>{});
+}
+document.querySelectorAll('#global-range .tab').forEach(t => {
+  t.addEventListener('click', () => setGlobalDays(parseInt(t.dataset.gr, 10) || 7));
 });
 
+// ── How-to-read guide ──────────────────────────────────────────────
+function openHelp(){ const o = $('help-overlay'); if (o){ o.hidden = false; document.body.style.overflow = 'hidden'; } }
+function closeHelp(){
+  const o = $('help-overlay'); if (o) o.hidden = true;
+  document.body.style.overflow = '';
+  try { localStorage.setItem('admin-help-seen', '1'); } catch {}
+}
+(function wireHelp(){
+  const openBtn = $('help-btn'), closeBtn = $('help-close'), gotBtn = $('help-got'), overlay = $('help-overlay');
+  if (openBtn) openBtn.addEventListener('click', openHelp);
+  if (closeBtn) closeBtn.addEventListener('click', closeHelp);
+  if (gotBtn) gotBtn.addEventListener('click', closeHelp);
+  if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeHelp(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay && !overlay.hidden) closeHelp(); });
+  // Auto-open once, the first time an admin lands on the dashboard.
+  let seen = null; try { seen = localStorage.getItem('admin-help-seen'); } catch {}
+  if (!seen) setTimeout(openHelp, 900);
+})();
+
 // ── Funnel ─────────────────────────────────────────────────────────
-async function loadFunnel(days){
-  funnelDays = days || funnelDays;
+async function loadFunnel(){
   const body = $('funnel-body');
   body.textContent = 'Loading…';
   try {
-    const d = await fetchJson('/api/admin/funnel?days=' + funnelDays);
+    const d = await fetchJson('/api/admin/funnel?days=' + globalDays);
     const fmt3 = d.fix3StuckSpeech || {};
     const fmtRows = (obj) => {
       const entries = Object.entries(obj || {}).sort((a,b)=>b[1]-a[1]);
@@ -1594,12 +1754,11 @@ async function loadFunnel(days){
 }
 
 // ── Founder video drop-off ────────────────────────────────────────
-async function loadFounderVideo(days){
-  fvDays = days || fvDays;
+async function loadFounderVideo(){
   const body = $('fv-body');
   body.textContent = 'Loading…';
   try {
-    const d = await fetchJson('/api/admin/founder-video?days=' + fvDays);
+    const d = await fetchJson('/api/admin/founder-video?days=' + globalDays);
     const c = d.counts || {};
     const u = d.uniqueUids || {};
     const r = d.retentionPct || {};
@@ -1627,7 +1786,7 @@ async function loadFounderVideo(days){
       '</div>' +
       '<div class="meta">retention% = bucket / plays · ' +
         (d.sampled ? '⚠ sampled (capped at ' + fmt(d.sampleSize) + ' app_event docs in the window; ratio real, counts floored) · ' : '') +
-        'last ' + fvDays + 'd, since ' + esc((d.sinceISO || '').slice(0, 10)) +
+        windowLabel(globalDays) + ', since ' + esc((d.sinceISO || '').slice(0, 10)) +
       '</div>';
   } catch (e) {
     body.innerHTML = '<div class="err-box">Founder-video load failed: ' + esc(e.message || e) + '</div>';
