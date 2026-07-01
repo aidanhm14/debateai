@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Coaches · Debate coach directory · DebateIt</title>
+<meta name="description" content="A community directory of debate coaches and programs across the circuit. Browse and reach out directly, or add a coach you know. Building outreach at scale? Research and draft in the Outreach Desk." />
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/coaches">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/coaches">
+<meta property="og:title" content="Coaches · Debate coach directory · DebateIt">
+<meta property="og:description" content="A community directory of debate coaches and programs. Browse, reach out directly, or add a coach.">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
+<meta name="twitter:card" content="summary_large_image">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+
+<script defer src="/js/track.js"></script>
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){ document.documentElement.setAttribute('data-theme','crimson'); }
+})();
+</script>
+
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root,[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.18);--border-strong:rgba(255,255,255,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.65);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);--bar-bg:rgba(10,10,12,.92);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.22);--border-strong:rgba(239,68,68,.42);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.55);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.65);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.6);--bar-bg:rgba(0,0,0,.95);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.22);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.22);
+  --green:#16a34a;--amber:#d97706;--blue:#2563eb;
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.7);--text-ghost:rgba(0,0,0,.46);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.10);--bar-bg:rgba(250,250,247,.85);
+}
+body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+.cd-wrap{max-width:1100px;margin:0 auto;padding:40px 22px 90px}
+
+.cd-head{max-width:720px;margin-bottom:30px}
+.cd-eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:.6rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.cd-eyebrow .pip{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.cd-head h1{font-size:clamp(2rem,5vw,3rem);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin-bottom:12px}
+.cd-head h1 em{color:var(--accent);font-style:normal}
+.cd-sub{font-size:1.02rem;line-height:1.55;color:var(--text-dim);max-width:600px}
+.cd-sub a{color:var(--accent);font-weight:600;border-bottom:1px solid var(--accent-glow)}
+.cd-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.cd-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:11px;border:1px solid var(--border-strong);font-size:.9rem;font-weight:600;color:var(--text);transition:all .15s;background:var(--bg-card)}
+.cd-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cd-btn--primary{background:var(--accent);border-color:transparent;color:#fff}
+.cd-btn--primary:hover{filter:brightness(1.08);color:#fff}
+
+.cd-toolbar{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+#cd-search{flex:1;min-width:220px;padding:11px 15px;border-radius:11px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:.95rem;font-family:inherit;outline:none;transition:border-color .15s}
+#cd-search:focus{border-color:var(--accent)}
+.cd-count{font-size:.82rem;color:var(--text-ghost);white-space:nowrap}
+
+.cd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.cd-card{display:flex;flex-direction:column;gap:8px;padding:20px;border:1px solid var(--border);border-radius:16px;background:var(--bg-card);transition:border-color .15s,transform .15s}
+.cd-card:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.cd-card-name{font-size:1.15rem;font-weight:700;line-height:1.2}
+.cd-card-meta{font-size:.82rem;color:var(--text-ghost);line-height:1.4}
+.cd-card-note{font-size:.92rem;color:var(--text-dim);line-height:1.5;flex:1}
+.cd-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.cd-contact{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:9px;background:var(--accent);color:#fff;font-size:.85rem;font-weight:600;transition:filter .15s}
+.cd-contact:hover{filter:brightness(1.1);color:#fff}
+.cd-card-by{font-size:.72rem;color:var(--text-ghost)}
+.cd-empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-ghost);font-size:1rem}
+
+/* modal */
+.cd-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:44px 16px;overflow-y:auto;background:rgba(0,0,0,.66);backdrop-filter:blur(5px)}
+.cd-modal[hidden]{display:none}
+.cd-modal-card{width:100%;max-width:520px;background:var(--bg-elev);border:1px solid var(--border-strong);border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden}
+.cd-modal-head{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--border)}
+.cd-modal-head h2{font-size:1.3rem;font-weight:700}
+#cd-modal-close{font-size:1.2rem;color:var(--text-ghost);padding:4px 8px;border-radius:8px}
+#cd-modal-close:hover{color:var(--text);background:var(--bg-card)}
+#cd-form{padding:20px 22px;display:flex;flex-direction:column;gap:12px}
+.cd-field label{display:block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:5px}
+.cd-field input,.cd-field select,.cd-field textarea{width:100%;padding:10px 13px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:.95rem;font-family:inherit;outline:none;transition:border-color .15s}
+.cd-field input:focus,.cd-field select:focus,.cd-field textarea:focus{border-color:var(--accent)}
+.cd-field textarea{resize:vertical;min-height:56px}
+.cd-row{display:flex;gap:12px}.cd-row .cd-field{flex:1}
+.cd-form-err{font-size:.85rem;color:var(--accent);min-height:1.1em}
+.cd-form-actions{display:flex;gap:10px;align-items:center;margin-top:4px}
+.cd-signin-note{padding:0 22px 20px;font-size:.9rem;color:var(--text-dim)}
+.cd-signin-note b{color:var(--text)}
+@media(max-width:560px){.cd-row{flex-direction:column;gap:12px}}
+</style>
+</head>
+<body>
+<div id="daTopbar"></div>
+
+<main class="cd-wrap">
+  <header class="cd-head">
+    <div class="cd-eyebrow"><span class="pip"></span> Community directory</div>
+    <h1>Debate <em>coaches</em>, in one place.</h1>
+    <p class="cd-sub">Coaches and programs across the circuit, added by the community. Reach out directly. Running outreach at scale? Research programs and draft in the <a href="https://debateit-outreach-desk.netlify.app" target="_blank" rel="noopener">Outreach Desk</a>.</p>
+    <div class="cd-actions">
+      <button id="cd-add-btn" class="cd-btn cd-btn--primary">+ Add a coach</button>
+      <a class="cd-btn" href="https://debateit-outreach-desk.netlify.app" target="_blank" rel="noopener">Outreach Desk ↗</a>
+    </div>
+  </header>
+
+  <div class="cd-toolbar">
+    <input id="cd-search" type="search" placeholder="Search name, program, location…" autocomplete="off">
+    <span id="cd-count" class="cd-count"></span>
+  </div>
+
+  <div id="cd-grid" class="cd-grid"><div class="cd-empty">Loading the directory…</div></div>
+</main>
+
+<!-- Add-a-coach modal -->
+<div id="cd-modal" class="cd-modal" hidden>
+  <div class="cd-modal-card" role="dialog" aria-modal="true" aria-labelledby="cd-modal-title">
+    <div class="cd-modal-head">
+      <h2 id="cd-modal-title">Add a coach</h2>
+      <button id="cd-modal-close" aria-label="Close">✕</button>
+    </div>
+    <form id="cd-form">
+      <div class="cd-field"><label for="f-name">Coach or program name *</label><input id="f-name" type="text" maxlength="120" required></div>
+      <div class="cd-row">
+        <div class="cd-field"><label for="f-program">School / club</label><input id="f-program" type="text" maxlength="160"></div>
+        <div class="cd-field"><label for="f-location">Location</label><input id="f-location" type="text" maxlength="120"></div>
+      </div>
+      <div class="cd-row">
+        <div class="cd-field"><label for="f-role">Role</label><input id="f-role" type="text" maxlength="120" placeholder="e.g. Head coach"></div>
+        <div class="cd-field" style="max-width:140px"><label for="f-kind">Contact type</label><select id="f-kind"><option value="email">Email</option><option value="phone">Phone</option><option value="link">Link</option></select></div>
+      </div>
+      <div class="cd-field"><label for="f-contact">Contact *</label><input id="f-contact" type="text" maxlength="200" placeholder="email / phone / link" required></div>
+      <div class="cd-field"><label for="f-note">Note</label><textarea id="f-note" maxlength="400" placeholder="Formats, circuit, how to reach them…"></textarea></div>
+      <div class="cd-form-err" id="cd-form-err"></div>
+      <div class="cd-form-actions">
+        <button type="submit" class="cd-btn cd-btn--primary">Add to directory</button>
+        <button type="button" id="cd-cancel" class="cd-btn">Cancel</button>
+      </div>
+    </form>
+    <p class="cd-signin-note" id="cd-signin-note" hidden><b>Sign in to add a coach.</b> Anyone can browse, but adding needs a quick Google sign-in so the directory stays clean.</p>
+  </div>
+</div>
+
+<script>
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  try {
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+  } catch (e) { console.error('firebase init', e); }
+</script>
+<script defer src="/js/topbar.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var all = [];
+
+  function contactLabel(k){ return k === 'phone' ? 'Call' : k === 'link' ? 'Open' : 'Email'; }
+
+  function render(list){
+    var grid = $('cd-grid');
+    if (!list.length){
+      grid.innerHTML = '<div class="cd-empty">' + (all.length ? 'No matches. Try a different search.' : 'No coaches yet. Be the first to add one.') + '</div>';
+      return;
+    }
+    grid.innerHTML = list.map(function(c){
+      var meta = [c.program, c.role, c.location].filter(Boolean).map(esc).join(' · ');
+      var contact = c.contactHref
+        ? '<a class="cd-contact" href="' + esc(c.contactHref) + '"' + (c.contactKind === 'link' ? ' target="_blank" rel="noopener"' : '') + '>' + contactLabel(c.contactKind) + '</a>'
+        : '<span class="cd-card-by">' + esc(c.contact) + '</span>';
+      return '<div class="cd-card">' +
+          '<div class="cd-card-name">' + esc(c.name) + '</div>' +
+          (meta ? '<div class="cd-card-meta">' + meta + '</div>' : '') +
+          (c.note ? '<div class="cd-card-note">' + esc(c.note) + '</div>' : '<div class="cd-card-note"></div>') +
+          '<div class="cd-card-foot">' + contact +
+            (c.addedByName ? '<span class="cd-card-by">added by ' + esc(c.addedByName) + '</span>' : '<span></span>') +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function applyFilter(){
+    var q = ($('cd-search').value || '').trim().toLowerCase();
+    var list = !q ? all : all.filter(function(c){
+      return [c.name, c.program, c.location, c.role, c.note].join(' ').toLowerCase().indexOf(q) !== -1;
+    });
+    $('cd-count').textContent = list.length + (list.length === 1 ? ' coach' : ' coaches');
+    render(list);
+  }
+
+  function load(){
+    fetch('/api/coaches').then(function(r){ return r.json(); }).then(function(d){
+      all = d.coaches || [];
+      applyFilter();
+    }).catch(function(e){
+      $('cd-grid').innerHTML = '<div class="cd-empty">Could not load the directory. Please refresh.</div>';
+    });
+  }
+
+  // ── Add flow ────────────────────────────────────────────────────
+  function openModal(){ $('cd-modal').hidden = false; document.body.style.overflow = 'hidden'; }
+  function closeModal(){ $('cd-modal').hidden = true; document.body.style.overflow = ''; $('cd-form-err').textContent = ''; }
+
+  function refreshSignInState(){
+    var user = (window.firebase && firebase.auth && firebase.auth().currentUser) || null;
+    var note = $('cd-signin-note'), form = $('cd-form');
+    if (user){ note.hidden = true; form.style.display = 'flex'; }
+    else { note.hidden = false; form.style.display = 'none'; }
+  }
+
+  $('cd-add-btn').addEventListener('click', function(){
+    openModal();
+    refreshSignInState();
+    var user = (window.firebase && firebase.auth && firebase.auth().currentUser) || null;
+    if (!user){
+      // kick off Google sign-in; when it resolves, the auth listener re-renders the form
+      try {
+        var provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider).catch(function(){});
+      } catch (e) {}
+    }
+    try { gtag('event','coach_add_open'); } catch(e){}
+  });
+  $('cd-modal-close').addEventListener('click', closeModal);
+  $('cd-cancel').addEventListener('click', closeModal);
+  $('cd-modal').addEventListener('click', function(e){ if (e.target === $('cd-modal')) closeModal(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('cd-modal').hidden) closeModal(); });
+
+  // React to auth changes (topbar sign-in or our popup)
+  function wireAuth(){
+    if (!(window.firebase && firebase.auth)) { setTimeout(wireAuth, 200); return; }
+    firebase.auth().onAuthStateChanged(function(){ if (!$('cd-modal').hidden) refreshSignInState(); });
+  }
+  wireAuth();
+
+  $('cd-search').addEventListener('input', applyFilter);
+
+  $('cd-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    var errEl = $('cd-form-err');
+    var name = $('f-name').value.trim();
+    var contact = $('f-contact').value.trim();
+    if (!name || !contact){ errEl.textContent = 'Name and a contact are required.'; return; }
+    var user = (window.firebase && firebase.auth && firebase.auth().currentUser) || null;
+    if (!user){ refreshSignInState(); return; }
+    errEl.style.color = 'var(--text-ghost)'; errEl.textContent = 'Adding…';
+    user.getIdToken().then(function(token){
+      return fetch('/api/coaches', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name, contact: contact,
+          contactKind: $('f-kind').value,
+          program: $('f-program').value.trim(),
+          location: $('f-location').value.trim(),
+          role: $('f-role').value.trim(),
+          note: $('f-note').value.trim(),
+        }),
+      });
+    }).then(function(r){
+      return r.json().then(function(j){ if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; });
+    }).then(function(j){
+      all.unshift(j.coach);
+      ['f-name','f-program','f-location','f-role','f-contact','f-note'].forEach(function(id){ $(id).value = ''; });
+      errEl.style.color = 'var(--accent)'; errEl.textContent = '';
+      closeModal();
+      applyFilter();
+      try { gtag('event','coach_added'); } catch(e){}
+    }).catch(function(err){
+      errEl.style.color = 'var(--accent)'; errEl.textContent = (err.message || 'Something went wrong') + '';
+    });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
