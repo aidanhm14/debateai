@@ -14,6 +14,8 @@
 //   3. FOUNDER_EMAILS env (defaults to the owner's email) resolved to
 //      uid(s) via a user_profiles email lookup. Belt-and-suspenders so
 //      this works even if ADMIN_UID env isn't set on the deploy.
+//   4. ANALYTICS_EXCLUDE_TEAM_NAMES env (defaults to "contact team")
+//      and ANALYTICS_EXCLUDE_TEAM_IDS env resolved through team_members.
 //
 // Anonymous (signed-out) founder sessions can't be attributed to an
 // identity, so they can't be excluded — that's an accepted limitation.
@@ -23,6 +25,7 @@
 // of every admin poll.
 
 const DEFAULT_FOUNDER_EMAILS = 'aidandavidhollinger@gmail.com';
+const DEFAULT_EXCLUDE_TEAM_NAMES = 'contact team';
 const TTL_MS = 60 * 60 * 1000; // 1 hour
 
 let _cache = null; // { at: number, set: Set<string> }
@@ -41,6 +44,28 @@ function founderEmails() {
     .split(',')
     .map(s => s.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function configuredTeamIds() {
+  return (process.env.ANALYTICS_EXCLUDE_TEAM_IDS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function configuredTeamNames() {
+  return (process.env.ANALYTICS_EXCLUDE_TEAM_NAMES || DEFAULT_EXCLUDE_TEAM_NAMES)
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function teamNameVariants(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return [];
+  const lower = raw.toLowerCase();
+  const title = lower.replace(/\b\w/g, c => c.toUpperCase());
+  return [...new Set([raw, lower, title])];
 }
 
 // Returns a Set<string> of UIDs to drop from analytics aggregations.
@@ -65,6 +90,36 @@ export async function getExcludedUids(db) {
         // A missing composite index or transient read error shouldn't
         // break the dashboard — just fall back to the env-derived uids.
         console.warn('[founder-exclude] email lookup failed for', email, err.message);
+      }
+    }));
+
+    const teamIds = new Set(configuredTeamIds());
+    await Promise.all(configuredTeamNames().flatMap((teamName) =>
+      teamNameVariants(teamName).map(async (variant) => {
+        try {
+          const snap = await db.collection('teams')
+            .where('name', '==', variant)
+            .limit(10)
+            .get();
+          snap.docs.forEach(d => teamIds.add(d.id));
+        } catch (err) {
+          console.warn('[founder-exclude] team lookup failed for', variant, err.message);
+        }
+      })
+    ));
+
+    await Promise.all([...teamIds].map(async (teamId) => {
+      try {
+        const snap = await db.collection('team_members')
+          .where('teamId', '==', teamId)
+          .limit(100)
+          .get();
+        snap.docs.forEach((d) => {
+          const uid = d.data().uid;
+          if (uid) set.add(uid);
+        });
+      } catch (err) {
+        console.warn('[founder-exclude] team member lookup failed for', teamId, err.message);
       }
     }));
   }

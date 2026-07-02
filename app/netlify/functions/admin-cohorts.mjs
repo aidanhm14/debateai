@@ -22,6 +22,7 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 16;
@@ -57,11 +58,12 @@ export default async (request) => {
   const url = new URL(request.url);
   const weeks = Math.max(2, Math.min(MAX_WEEKS, parseInt(url.searchParams.get('weeks') || String(DEFAULT_WEEKS), 10)));
 
-  const cacheKey = 'cohorts:' + weeks;
+  const cacheKey = 'cohorts:v2:' + weeks;
   const cached = await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
+    const excludeUids = await getExcludedUids(db);
     const now = Date.now();
     const cohortStartMs = weekStartUTC(now) - (weeks - 1) * 7 * 24 * 60 * 60 * 1000;
     const cohortStart = new Date(cohortStartMs);
@@ -84,6 +86,7 @@ export default async (request) => {
       });
 
     profilesSnap.docs.forEach(d => {
+      if (excludeUids.has(d.id)) return;
       const data = d.data();
       const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
       if (!t) return;
@@ -116,6 +119,7 @@ export default async (request) => {
       const uid = data.uid;
       const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
       if (!uid || !t) return;
+      if (excludeUids.has(uid)) return;
       const ws = weekStartUTC(t);
       if (!userWeeks.has(uid)) userWeeks.set(uid, new Set());
       userWeeks.get(uid).add(ws);
