@@ -106,7 +106,7 @@ How it differs from "AI assistant" extensions
 Pricing
 • Free: 1 local preview, then 10 signed-in requests
 • Individual at $10/year: 250 drills/month, six AI brains (Claude / GPT / Gemini / Grok / DeepSeek / Open Lab), premium voice
-• Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
+• Lifetime at $30 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited
 • Team at $50/year for school clubs and prep groups (1,500 drills/month, 50 seats)
 

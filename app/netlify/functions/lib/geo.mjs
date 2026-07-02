@@ -63,7 +63,7 @@ export function isIndia(request) {
 export const RAZORPAY_INR_PRICES = {
   byok:       { amountPaise:   8500, label: '₹85',    cadence: 'month',  recurring: true  }, // $1/mo
   individual: { amountPaise:  83800, label: '₹838',   cadence: 'year',   recurring: true  }, // $10/year (2026-06-27)
-  lifetime:   { amountPaise: 124900, label: '₹1,249', cadence: 'once',   recurring: false }, // $14.99 once
+  lifetime:   { amountPaise: 251400, label: '₹2,514', cadence: 'once',   recurring: false }, // $30 once
   team:       { amountPaise: 419000, label: '₹4,190', cadence: 'year',   recurring: true  }, // $50/year (2026-06-27)
 };
 

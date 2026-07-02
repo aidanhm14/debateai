@@ -57,7 +57,7 @@ The product north star and operating manual live in two files. Read them in orde
 
 ## Status
 
-In beta. Every tier is $0 today. Future pricing (Free, BYOK $1/mo, Individual $5/year, Lifetime $14.99 once, Team $20/year) is published for reference at [/pricing](https://debateai.com/pricing).
+In beta. Every tier is $0 today. Future pricing (Free, BYOK $1/mo, Individual $10/year, Lifetime $30 once, Team $50/year) is published for reference at [/pricing](https://debateai.com/pricing).
 
 ## Credits
 
