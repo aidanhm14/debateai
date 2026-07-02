@@ -86,7 +86,7 @@ function esc(s) {
 // ── Email template ───────────────────────────────────────────────────────────
 // Calm, founder-voice, no em-dashes, no streak/gamify nudge. The hook is
 // "your format is still here and your past rounds are saved," not guilt.
-function buildHtml({ firstName, label, motion, daysAway }) {
+function buildHtml({ firstName, label, motion, lastMotion, daysAway }) {
   const runHref = `${SITE_URL}/debate-it?motion=${encodeURIComponent(motion)}`;
   const profileHref = `${SITE_URL}/profile`;
   const greeting = firstName ? `Hey ${esc(firstName)},` : 'Hey,';
@@ -99,9 +99,10 @@ function buildHtml({ firstName, label, motion, daysAway }) {
     ${greeting} a fresh ${esc(label)} round when you want it.
   </h1>
   <p style="font-size:.95rem;line-height:1.6;color:#3a3a44;margin:0 0 16px">
-    It has been a little while. Your past rounds, ballots, and the read on how you argue are all still saved on your
-    <a href="${profileHref}" style="color:#dc2626;text-decoration:none">profile</a>.
-    When you have ten minutes, here is one worth taking a side on:
+    ${lastMotion
+      ? `Last time you argued <b style="color:#1a1a1f">${esc(lastMotion)}</b>. The ballot for it, and the read on how you argue, are saved on your <a href="${profileHref}" style="color:#dc2626;text-decoration:none">profile</a>.`
+      : `It has been a little while. Your past rounds, ballots, and the read on how you argue are all still saved on your <a href="${profileHref}" style="color:#dc2626;text-decoration:none">profile</a>.`}
+    When you have ten minutes, here is a fresh one worth taking a side on:
   </p>
   <p style="font-size:1rem;line-height:1.5;color:#1a1a1f;margin:0 0 22px;padding:14px 16px;background:#f0f0e8;border-radius:8px;font-weight:600">
     ${esc(motion)}
@@ -180,7 +181,7 @@ export default async () => {
     candSnap = await db.collection('generations')
       .where('createdAt', '>=', lapseStart)
       .where('createdAt', '<', lapseEnd)
-      .select('uid', 'createdAt', 'format')
+      .select('uid', 'createdAt', 'format', 'motion')
       .limit(3000)
       .get();
   } catch (e) {
@@ -195,7 +196,7 @@ export default async () => {
     if (!d.uid) continue;
     const ms = d.createdAt?.toMillis?.() || 0;
     const prev = cand.get(d.uid);
-    if (!prev || ms > prev.lastMs) cand.set(d.uid, { lastMs: ms, format: d.format || 'apda' });
+    if (!prev || ms > prev.lastMs) cand.set(d.uid, { lastMs: ms, format: d.format || 'apda', lastMotion: (typeof d.motion === 'string' ? d.motion.trim().slice(0, 200) : '') });
   }
 
   // Lapsed = ran a round 7-28d ago, nothing in the last 7d.
@@ -224,14 +225,15 @@ export default async () => {
 
       eligible++;
       const { label, motion } = fmtFor(cand.get(uid).format);
+      const lastMotion = cand.get(uid).lastMotion || '';
       const firstName = (prof.displayName || '').trim().split(/\s+/)[0] || '';
 
       if (dryRun) {
-        if (sampleWould.length < 10) sampleWould.push({ uid, format: cand.get(uid).format, hasName: !!firstName });
+        if (sampleWould.length < 10) sampleWould.push({ uid, format: cand.get(uid).format, hasName: !!firstName, hasMotion: !!lastMotion });
         continue;
       }
 
-      const html = buildHtml({ firstName, label, motion });
+      const html = buildHtml({ firstName, label, motion, lastMotion });
       const subject = firstName
         ? `${firstName}, your next ${label} round is ready when you are`
         : `Your next ${label} round is ready when you are`;
