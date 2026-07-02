@@ -621,7 +621,7 @@ export const GUIDE_BANK = {
 
   'ld-value-criterion': {
     slug: 'ld-value-criterion',
-    question: 'LD value and criterion: 6 classic pairings',
+    question: 'Value and criterion examples: 6 classic LD pairings',
     hook: 'Six LD value-criterion pairs with full warrants: Justice/Veil of Ignorance, Morality/Categorical Imperative, Wellbeing/Util, Liberty/Harm Principle, and more. Plus a link test for picking the pair your contentions actually hit.',
     format: 'ld',
     formatName: 'Lincoln-Douglas',
@@ -650,6 +650,19 @@ export const GUIDE_BANK = {
           "Value: Liberty / Criterion: Mill’s Harm Principle. Use when state intervention or restriction of action is at stake. The harm principle says government may only restrict action to prevent harm to others. Strong for autonomy, drug policy, free expression.",
           "Value: Justice / Criterion: Lockean / Social Contract. Use when government legitimacy is in question. Locke argues legitimate government depends on consent and protection of natural rights. Pairs with cases about civil disobedience, revolution, governmental overreach.",
           "Value: Equality / Criterion: Rawls' Difference Principle. Use when inequality of outcome is the issue. The DP allows inequality only when it benefits the worst-off. Strong for redistribution, affirmative action, progressive taxation.",
+        ],
+      },
+      {
+        heading: 'The reference list: 30 more value-criterion pairs by resolution type',
+        body: [
+          "Criminal justice resolutions (sentencing, policing, punishment): Justice / Retributivism; Justice / Proportionality; Justice / Due Process; Human Dignity / Rehabilitation over retribution; Societal Welfare / Deterrence.",
+          "State power and civil liberties (surveillance, speech, protest): Liberty / Harm Principle; Liberty / Negative rights protection; Autonomy / Informed consent; Democracy / Free flow of information; Privacy / Reasonable expectation test.",
+          "War, security, and foreign policy: National Security / Just War Theory; Morality / Doctrine of Double Effect; Human Rights / Universal Declaration compliance; Peace / Diplomatic primacy; Justice / International law.",
+          "Economic and welfare resolutions (taxation, redistribution, labor): Equality / Difference Principle; Justice / Equal opportunity; Societal Welfare / Cost-benefit analysis; Human Dignity / Basic needs floor; Equity / Capabilities approach (Sen and Nussbaum).",
+          "Bioethics and public health (pandemic policy, medical autonomy): Wellbeing / Utilitarianism; Autonomy / Bodily integrity; Life / Sanctity of life; Public Health / Least restrictive means; Morality / Care ethics (Gilligan and Noddings).",
+          "Education and youth resolutions: Equality / Equal access; Human Development / Capabilities approach; Autonomy / Paternalism threshold; Societal Welfare / Long-run social returns; Justice / Fair start doctrine.",
+          "Environment and future generations: Justice / Intergenerational equity; Wellbeing / Long-term utility; Human Survival / Precautionary principle; Stewardship / Sustainable yield; Rights / Standing for future persons.",
+          "Every pair above passes the same two tests from the previous section: the criterion is defensible in cross-ex, and standard contentions on that resolution type link to it cleanly. Treat this list as a menu, not homework. Pick the pair whose criterion your best two contentions already hit.",
         ],
       },
       {
@@ -692,7 +705,10 @@ export const GUIDE_BANK = {
     ],
     related: ['apda-opp-case', 'pf-crossfire-questions', 'policy-speed-reading'],
     keywords: [
+      'value and criterion examples',
+      'value criterion',
       'ld value criterion examples',
+      'lincoln douglas debate values',
       'lincoln douglas value criterion',
       'ld framework examples',
       'how to pick ld framework',
@@ -711,6 +727,10 @@ export const GUIDE_BANK = {
       {
         q: 'How do I pick a value and criterion for Lincoln-Douglas?',
         a: 'Read the resolution and ask: what is this resolution actually about? Apply two tests. Reach test: can you defend this criterion if attacked? Link test: do your contentions actually hit the criterion? A simpler framework your contentions warrant beats a fancy framework that does not link.',
+      },
+      {
+        q: 'What is a value criterion?',
+        a: 'A value criterion (also called the standard) is the measuring stick for the value premise in Lincoln-Douglas debate. The value names what the round is about; the criterion says how the judge should test it. Example: value Justice, criterion the Veil of Ignorance. An argument wins framework weight when it satisfies the criterion, not just when it sounds like the value.',
       },
       {
         q: 'What is the most common value in LD debate?',
