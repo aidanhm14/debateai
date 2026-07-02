@@ -112,6 +112,14 @@
       for (var i = 0; i < land.length; i++) {
         var pt = land[i];
         if (pt.lat > LAT_TOP || pt.lat < LAT_BOTTOM) continue;
+        // 2026-07-02: checkerboard thinning — draw every other cell of
+        // the 2°/cell raster (world-data.js LAND_STEP) so the backdrop
+        // reads as texture, not a busy dot field. Parity comes from the
+        // grid coords, not the array index, so the skip is spatially
+        // even (a proper halftone) instead of row-striped.
+        var col = Math.round((pt.lng + 180) / 2 - 0.5);
+        var row = Math.round((90 - pt.lat) / 2 - 0.5);
+        if ((col + row) & 1) continue;
         var p = project(pt.lng, pt.lat, rect);
         ctx.beginPath();
         ctx.arc(p.x, p.y, dotR, 0, 6.2832);
