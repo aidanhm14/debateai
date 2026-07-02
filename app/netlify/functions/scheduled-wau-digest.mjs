@@ -76,7 +76,7 @@ function buildHtml({ firstName, roundsThisWeek, roundsLastWeek, avgScore, topCas
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:540px;margin:0 auto;padding:32px 24px">
   <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
-    <span style="color:#dc2626">Debate</span> AI
+    <span style="color:#dc2626">Debate</span>It
   </div>
   <h1 style="font-size:1.35rem;font-weight:800;letter-spacing:-.015em;line-height:1.25;color:#1a1a1f;margin:0 0 14px">
     ${firstName ? `This week, ${firstName}` : 'This week'}: ${roundsThisWeek} round${roundsThisWeek === 1 ? '' : 's'}.
@@ -235,7 +235,7 @@ export default async () => {
         format: topFormat,
       });
 
-      const subject = `${stats.count7d} round${stats.count7d === 1 ? '' : 's'} this week — keep the streak going`;
+      const subject = `${stats.count7d} round${stats.count7d === 1 ? '' : 's'} this week. Your next motion is inside.`;
       const result = await sendEmail({ to: prof.email, html, subject });
 
       if (result.ok) {

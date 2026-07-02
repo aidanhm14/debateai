@@ -39,7 +39,7 @@ function buildHtml({ firstName, motion, side, format, rfdSnippet, nextMotion }) 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:560px;margin:0 auto;padding:32px 24px">
   <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
-    <span style="color:#dc2626">Debate</span> AI
+    <span style="color:#dc2626">Debate</span>It
   </div>
   <h1 style="font-size:1.5rem;font-weight:800;letter-spacing:-.015em;line-height:1.2;color:#1a1a1f;margin:0 0 14px">
     First round in. Here's where I'd work next${firstName ? ', ' + firstName : ''}.

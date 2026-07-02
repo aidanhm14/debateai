@@ -90,7 +90,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:560px;margin:0 auto;padding:32px 24px">
   <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
-    <span style="color:#dc2626">Debate</span> AI
+    <span style="color:#dc2626">Debate</span>It
   </div>
   <h1 style="font-size:1.45rem;font-weight:800;letter-spacing:-.015em;line-height:1.2;color:#1a1a1f;margin:0 0 14px">
     The AI just learned how you argue${firstName ? ', ' + firstName : ''}.
@@ -100,7 +100,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
   </p>
   <div style="margin:0 0 22px;padding:18px 20px;border-left:3px solid #dc2626;background:rgba(220,38,38,.05);border-radius:0 10px 10px 0;font-size:.92rem;line-height:1.7;color:#1a1a1f;white-space:pre-line">${esc(lines.join('\n'))}</div>
   <p style="font-size:.95rem;line-height:1.55;color:#3a3a44;margin:0 0 22px">
-    Your next round, the AI will push hardest on the weaknesses above and refuse to reward the moves it has already seen from you. The judge will call out the pattern by name if it shows up again. This is the part ChatGPT cannot do.
+    Your next round, the AI will push hardest on the weaknesses above and refuse to reward the moves it has already seen from you. The judge will call out the pattern by name if it shows up again. The AI you face next is tuned to you, not a blank slate.
   </p>
   <a href="${tryHref}" style="display:inline-block;padding:13px 22px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em">
     Run a round against the sharper version →
