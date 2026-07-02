@@ -602,6 +602,10 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- 2° Natural-Earth land raster for the "Debaters live now" globe in
+     the Live Debates section (coastline-defined continents + live pins
+     from /api/presence-live). -->
+<script defer src="/js/world-data.js?v=1"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
@@ -8357,9 +8361,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            the geo-spread sits next to the live debater faces. -->
       <div class="story-globe livenow-globe" id="storyGlobeBlock" aria-hidden="false" role="link" tabindex="0" data-cta="globe-atlas" style="cursor:pointer" onclick="location.href='/atlas'">
         <div class="hero-globe-canvas-wrap">
-          <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with markers on top user countries"></canvas>
+          <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with pins where debaters have been live in the last 30 minutes"></canvas>
         </div>
-        <div class="story-globe-caption">Where users argue from. Open the Atlas &rarr;</div>
+        <div class="story-globe-caption" id="globeLiveCaption">Where users argue from. Open the Atlas &rarr;</div>
       </div>
       <!-- 2026-07-01 (restored): 6-tile "live debater" face wall sits right
            of the globe. Portraits are AI-generated (see attribution below);
@@ -11062,40 +11066,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext('2d');
     if (!ctx) return;
-    // Reach markers across the circuits the product is used on. [lat, lng, size];
-    // cobe pin radius is 0..0.2. These are sized for visual BREADTH, not
-    // literal user share: the old "size ∝ share" weighting made India a
-    // single dominant blob, but that share figure was an ad-era anonymous
-    // spike (see soul.md §8), not a durable base — so it's the wrong thing
-    // to enshrine in the marketing visual. The story here is "global", many
-    // hubs, no single elephant. A few anchors run slightly larger.
-    var MARKERS = [
-      { location: [20.5937, 78.9629],   size: 0.060 }, // India
-      { location: [37.0902, -95.7129],  size: 0.060 }, // US
-      { location: [55.3781, -3.4360],   size: 0.050 }, // UK
-      { location: [12.8797, 121.7740],  size: 0.045 }, // Philippines
-      { location: [-14.2350, -51.9253], size: 0.045 }, // Brazil
-      { location: [30.3753, 69.3451],   size: 0.040 }, // Pakistan
-      { location: [1.3521, 103.8198],   size: 0.040 }, // Singapore
-      { location: [23.6345, -102.5528], size: 0.035 }, // Mexico
-      { location: [38.9637, 35.2433],   size: 0.035 }, // Turkey
-      { location: [56.1304, -106.3468], size: 0.035 }, // Canada
-      { location: [26.8206, 30.8025],   size: 0.030 }, // Egypt
-      { location: [-38.4161, -63.6167], size: 0.030 }, // Argentina
-      { location: [47.1625, 19.5033],   size: 0.018 }, // Hungary
-      { location: [52.1326, 5.2913],    size: 0.018 }, // Netherlands
-      { location: [51.9194, 19.1451],   size: 0.018 }, // Poland
-      { location: [-25.2744, 133.7751], size: 0.016 }, // Australia
-      { location: [25.2048, 55.2708],   size: 0.016 }, // UAE
-      { location: [40.7128, -74.0060],  size: 0.016 }, // NYC
-      { location: [34.0522, -118.2437], size: 0.016 }, // LA
-      { location: [13.7563, 100.5018],  size: 0.012 }, // Bangkok
-      { location: [-1.2921, 36.8219],   size: 0.012 }, // Nairobi
-      { location: [9.0820, 8.6753],     size: 0.012 }, // Nigeria
-      { location: [-33.8688, 151.2093], size: 0.012 }, // Sydney
-      { location: [35.6762, 139.6503],  size: 0.012 }, // Tokyo
-      { location: [37.5665, 126.9780],  size: 0.012 }, // Seoul
-    ];
+    // 2026-07-02: the static country markers (decorative "visual breadth"
+    // pins) were replaced with REAL live presence: everyone seen on
+    // DebateIt in the last 30 minutes, city-level, from /api/presence-live
+    // (the anonymous track.js beat; coords server-rounded to ~11 km).
+    // Honest by construction: a pin only exists if a real visitor produced
+    // it. Zero visitors = a quiet globe with just the coastlines, no fake
+    // liveness. The caption under the globe shows the real count.
+    var LIVE = [];
+    var liveCaption = document.getElementById('globeLiveCaption');
+    function setLiveCaption(count){
+      if (!liveCaption || !(count > 0)) return;
+      liveCaption.innerHTML = '<b style="color:var(--accent,#ef4444)">' + count +
+        ' live now</b> · on DebateIt in the last 30 minutes. Open the Atlas &rarr;';
+    }
+    function fetchLive(){
+      fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+        if (!d) return;
+        LIVE = Array.isArray(d.pins) ? d.pins.filter(function(p){
+          return typeof p.lat === 'number' && typeof p.lng === 'number';
+        }) : [];
+        setLiveCaption(typeof d.online30 === 'number' ? d.online30 : LIVE.length);
+        // Repaint paused/static globes (reduced motion, offscreen) so
+        // fresh pins land without waiting on the rAF loop.
+        if (!rafId) draw();
+      }).catch(function(){});
+    }
 
     // Theme palette. Light mode kept lighter; default crimson is what
     // most users see on the landing.
@@ -11253,6 +11249,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       [-37,174],[-39,175],[-41,174],[-44,170],[-46,168]
     ];
 
+    // 2026-07-02: border-defined continents. When /js/world-data.js lands
+    // (deferred), upgrade the ~310 hand-traced dots above to its 2°
+    // Natural-Earth raster (~5,400 cells) and classify each cell as
+    // COAST (any missing 4-neighbor, seam-wrapped at ±180°) or interior.
+    // Coast cells draw bigger + brighter, interior fainter, so continent
+    // borders read crisply instead of as a uniform dot fog. The traced
+    // array stays as the fallback if the data file fails to load.
+    var landPts = null; // [{lat, lng, coast}]
+    function buildLandRaster(){
+      var wd = window.DebateWorldData;
+      if (!wd || !wd.land || !wd.land.length) return;
+      var cells = {};
+      var i, p, col, row;
+      for (i = 0; i < wd.land.length; i++){
+        p = wd.land[i];
+        col = Math.round((p.lng + 180) / 2 - 0.5);
+        row = Math.round((90 - p.lat) / 2 - 0.5);
+        cells[row + ',' + col] = true;
+      }
+      function has(r2, c2){ return !!cells[r2 + ',' + (((c2 % 180) + 180) % 180)]; }
+      var out = [];
+      for (i = 0; i < wd.land.length; i++){
+        p = wd.land[i];
+        col = Math.round((p.lng + 180) / 2 - 0.5);
+        row = Math.round((90 - p.lat) / 2 - 0.5);
+        out.push({
+          lat: p.lat, lng: p.lng,
+          coast: !(has(row-1,col) && has(row+1,col) && has(row,col-1) && has(row,col+1))
+        });
+      }
+      landPts = out;
+      if (!rafId) draw();
+    }
+    if (window.DebateWorldData) buildLandRaster();
+    else window.addEventListener('world-data:ready', buildLandRaster, { once: true });
+
     var phi = 0;                // base auto-spin angle in radians
     var displayPhi = 0;         // phi + drag offset, recomputed each tick
     var pointerInteracting = null;
@@ -11346,77 +11378,91 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         ctx.stroke();
       }
 
-      // Land-hint dots — same smooth depth fade as markers so
+      // Land — Natural-Earth raster with coastline emphasis once
+      // world-data.js is in (borders bright, interior faint), else the
+      // hand-traced fallback dots. Same smooth depth fade as pins so
       // continents recede over the limb in 3D instead of popping out.
-      for (var i = 0; i < LAND.length; i++){
-        var L = project(LAND[i][0], LAND[i][1]);
-        var fL = L[2] / 0.18;
-        if (fL <= 0) continue;
-        if (fL > 1) fL = 1;
-        var lFade = fL * fL * (3 - 2 * fL);
-        var lx = cx + L[0] * r;
-        var ly = cy - L[1] * r;
-        var depthL = L[2];
-        ctx.fillStyle = c.land + ((0.20 + depthL * 0.55) * lFade) + ')';
-        ctx.beginPath();
-        ctx.arc(lx, ly, (1.2 + depthL * 0.6) * (0.5 + lFade * 0.5), 0, Math.PI * 2);
-        ctx.fill();
+      if (landPts){
+        var dotBase = Math.max(0.7, r * 0.0062);
+        for (var li = 0; li < landPts.length; li++){
+          var LP = landPts[li];
+          var Lr = project(LP.lat, LP.lng);
+          var fR = Lr[2] / 0.18;
+          if (fR <= 0) continue;
+          if (fR > 1) fR = 1;
+          var rFade = fR * fR * (3 - 2 * fR);
+          var aR = LP.coast ? (0.32 + Lr[2] * 0.60) : (0.11 + Lr[2] * 0.24);
+          ctx.fillStyle = c.land + (aR * rFade) + ')';
+          ctx.beginPath();
+          ctx.arc(cx + Lr[0] * r, cy - Lr[1] * r, dotBase * (LP.coast ? 1.3 : 0.85), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        for (var i = 0; i < LAND.length; i++){
+          var L = project(LAND[i][0], LAND[i][1]);
+          var fL = L[2] / 0.18;
+          if (fL <= 0) continue;
+          if (fL > 1) fL = 1;
+          var lFade = fL * fL * (3 - 2 * fL);
+          var lx = cx + L[0] * r;
+          var ly = cy - L[1] * r;
+          var depthL = L[2];
+          ctx.fillStyle = c.land + ((0.20 + depthL * 0.55) * lFade) + ')';
+          ctx.beginPath();
+          ctx.arc(lx, ly, (1.2 + depthL * 0.6) * (0.5 + lFade * 0.5), 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
-      // Markers — back-to-front, with smooth depth fade so they
+      // Live pins — back-to-front, with smooth depth fade so they
       // disappear in 3D as they rotate over the limb instead of
-      // glitching off all at once. The previous "if (z <= -0.05)
-      // continue" combined with a hard radial mask on the canvas
-      // caused pins to pop in/out at the sphere edge. Now: pins fade
-      // continuously from full at z≥0.18 to invisible at z≤-0.02.
+      // glitching off all at once (fade continuously from full at
+      // z≥0.18 to invisible at z≤-0.02). A gentle breathing pulse,
+      // phase-offset per pin, sells "live" without fake motion.
       var rendered = [];
-      for (var j = 0; j < MARKERS.length; j++){
-        var M = MARKERS[j];
-        var P = project(M.location[0], M.location[1]);
+      for (var j = 0; j < LIVE.length; j++){
+        var P = project(LIVE[j].lat, LIVE[j].lng);
         // smoothstep-ish fade band straddling the limb
         var f = (P[2] + 0.02) / 0.20;
         if (f <= 0) continue; // fully behind the sphere
         if (f > 1) f = 1;
-        // ease-in-out for a more natural fall-off
-        var fade = f * f * (3 - 2 * f);
         rendered.push({
           x: cx + P[0] * r,
           y: cy - P[1] * r,
           z: P[2],
-          size: M.size,
-          fade: fade
+          i: j,
+          fade: f * f * (3 - 2 * f)
         });
       }
       rendered.sort(function(a, b){ return a.z - b.z; });
 
+      var nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
       for (var k = 0; k < rendered.length; k++){
         var m = rendered[k];
         var depth = Math.max(0, m.z);
         var fade = m.fade;
-        // Pin radius scales with M.size (per-country share) and the
-        // globe radius, plus a small depth boost so front pins look
-        // physically larger. fade also shrinks the pin as it
-        // approaches the limb — small + dim = a real 3D recede.
-        var pinR = m.size * r * 1.15 * (0.75 + depth * 0.35) * (0.5 + fade * 0.5);
-        // Clamp halo so it never extends past the canvas edge. Without
-        // this, the big India marker (size 0.20) rotating to the visible
-        // limb gets its halo clipped square at the canvas border.
+        var pulse = reduced ? 1 : 0.84 + 0.16 * Math.sin(nowMs / 850 + m.i * 1.7);
+        // Fixed per-person pin size (every live visitor is one person),
+        // depth-boosted so front pins look physically larger; fade also
+        // shrinks the pin near the limb — small + dim = a real 3D recede.
+        var pinR = r * 0.020 * (0.75 + depth * 0.35) * (0.5 + fade * 0.5) * pulse;
+        // Clamp halo so it never extends past the canvas edge.
         var distEdge = Math.min(m.x, m.y, W - m.x, H - m.y) - 1;
-        var glowR = Math.min(pinR * 2.8, Math.max(pinR * 1.2, distEdge));
+        var glowR = Math.min(pinR * 3.4, Math.max(pinR * 1.2, distEdge));
         var glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, glowR);
-        glow.addColorStop(0,   'rgba(' + c.markerCore + ',' + (0.55 * depth * fade) + ')');
-        glow.addColorStop(0.4, 'rgba(' + c.markerCore + ',' + (0.22 * depth * fade) + ')');
+        glow.addColorStop(0,   'rgba(' + c.markerCore + ',' + (0.60 * depth * fade) + ')');
+        glow.addColorStop(0.4, 'rgba(' + c.markerCore + ',' + (0.24 * depth * fade) + ')');
         glow.addColorStop(1,   'rgba(' + c.markerCore + ',0)');
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(m.x, m.y, glowR, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = 'rgba(' + c.markerCore + ',' + ((0.45 + depth * 0.35) * fade) + ')';
+        ctx.fillStyle = 'rgba(' + c.markerCore + ',' + ((0.55 + depth * 0.35) * fade) + ')';
         ctx.beginPath();
         ctx.arc(m.x, m.y, pinR, 0, Math.PI * 2);
         ctx.fill();
         if (pinR > 2){
-          ctx.fillStyle = 'rgba(' + c.markerHi + ',' + (0.55 * depth * fade) + ')';
+          ctx.fillStyle = 'rgba(' + c.markerHi + ',' + (0.60 * depth * fade) + ')';
           ctx.beginPath();
           ctx.arc(m.x - pinR * 0.3, m.y - pinR * 0.3, pinR * 0.4, 0, Math.PI * 2);
           ctx.fill();
@@ -11523,6 +11569,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     } else {
       start();
     }
+
+    // Live presence: fetch now, repoll every 2 min (skipped while the
+    // tab is hidden; the endpoint rides a shared server cache so this
+    // costs ~nothing).
+    fetchLive();
+    setInterval(function(){ if (!document.hidden) fetchLive(); }, 120000);
 
     // Fallback: rAF doesn't fire while a tab is hidden / backgrounded
     // (Chrome, Firefox, Safari). setTimeout still does. Force one paint
