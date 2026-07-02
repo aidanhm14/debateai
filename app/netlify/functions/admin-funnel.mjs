@@ -28,7 +28,7 @@
 //
 // Auth gate: same as admin-analytics / admin-signin-errors.
 
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
@@ -62,7 +62,7 @@ export default async (request) => {
   const uid = decoded.sub;
   const db = getDb();
 
-  let isAdmin = uid === ADMIN_UID;
+  let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
       const profileDoc = await db.collection('user_profiles').doc(uid).get();

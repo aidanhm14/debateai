@@ -16,7 +16,7 @@
 // Returns: {
 //   scanned, eligible, copied, stripped, alreadyClean, errors, dryRun
 // }
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -46,7 +46,7 @@ export default async (request) => {
   const db = getDb();
 
   // Same admin gate as admin-backfill-leaderboard / seed-round.
-  let isAdmin = uid === ADMIN_UID;
+  let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin){
     try {
       const profileDoc = await db.collection('user_profiles').doc(uid).get();

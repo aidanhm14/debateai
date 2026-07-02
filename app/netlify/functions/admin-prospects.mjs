@@ -11,7 +11,7 @@
 // separate `email_signups` collection). The two stay distinct on purpose:
 // email_signups = explicit "notify me" signups; prospects = soft leads
 // captured at a sign-in/paywall wall, carrying source + page attribution.
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
@@ -38,7 +38,7 @@ export default async (request) => {
   const db = getDb();
 
   // Admin gate: ADMIN_UID env var OR isAdmin profile flag.
-  let isAdmin = uid === ADMIN_UID;
+  let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
       const profileDoc = await db.collection('user_profiles').doc(uid).get();

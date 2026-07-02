@@ -13,7 +13,7 @@
 // Gate pattern mirrors admin-prospects.mjs. Writes use the admin SDK, so
 // no Firestore rules change is needed — the `coach_directory` collection
 // is only ever touched through this admin-gated function.
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -55,7 +55,7 @@ export default async (request) => {
   const db = getDb();
 
   // Admin gate: ADMIN_UID env var OR isAdmin profile flag.
-  let isAdmin = uid === ADMIN_UID;
+  let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
       const profileDoc = await db.collection('user_profiles').doc(uid).get();

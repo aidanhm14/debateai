@@ -10,7 +10,7 @@
 //
 // Auth: ADMIN_UID env var OR user_profiles.{uid}.isAdmin === true.
 
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -34,7 +34,7 @@ export default async (request) => {
   const adminUid = decoded.sub;
   const db = getDb();
 
-  let isAdmin = adminUid === ADMIN_UID;
+  let isAdmin = adminUid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
       const profileDoc = await db.collection('user_profiles').doc(adminUid).get();

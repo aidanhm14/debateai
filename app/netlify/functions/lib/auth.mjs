@@ -122,6 +122,19 @@ export function isOwnerEmail(email) {
 }
 
 /**
+ * Admin-account allowlist. These verified Firebase emails can open the
+ * internal admin dashboard and Atlas operator layer without requiring a
+ * pre-existing user_profiles.isAdmin flag.
+ */
+export const ADMIN_EMAILS = new Set([
+  'andreacasagrandecaron@gmail.com',
+]);
+
+export function isAdminEmail(email) {
+  return ADMIN_EMAILS.has(String(email || '').toLowerCase());
+}
+
+/**
  * Enforce that the caller is signed in AND on a paid plan.
  * Returns { ok: true, uid, plan } on success, or { ok: false, status, error }
  * on failure — call sites should return the error response as-is.

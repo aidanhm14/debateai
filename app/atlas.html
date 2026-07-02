@@ -1447,8 +1447,8 @@ function openCard(d){
       btn.textContent = mine ? (isMem?'Remove me from the map':'Withdraw this pin') : 'Remove (admin)';
       btn.addEventListener('click',function(){ if(!confirm('Remove this pin from the map?')) return;
         var coll=isMem?'atlas_members':'atlas_submissions', docId=isMem?d.uid:d.id;
-        fbDb.collection(coll).doc(docId).delete().then(function(){ cardEl.classList.remove('show'); current=null; })
-          .catch(function(e){ alert('Could not remove: '+((e&&e.code)||'error')); }); });
+        deleteAtlasPin(coll,docId,mine).then(function(){ cardEl.classList.remove('show'); current=null; })
+          .catch(function(e){ alert('Could not remove: '+((e&&e.message)||(e&&e.code)||'error')); }); });
       act.appendChild(btn);
     }
   }
@@ -1698,22 +1698,59 @@ if(calcSchools){
 
 /* ── Community: "Add your program" pins ───────────────────────────── */
 var subLayer=L.layerGroup(), SUBS=[], memberLayer=L.layerGroup(), MEMBERS=[], isAdminUser=false, placeMode=null, placeLatLng=null;
+var ATLAS_ADMIN_EMAILS={'andreacasagrandecaron@gmail.com':true};
 subLayer.addTo(map); memberLayer.addTo(map);
-function fetchAtlasEmails(){
-  if(!isAdminUser||!fbDb) return;
+function isAtlasAdminEmail(email){ return !!ATLAS_ADMIN_EMAILS[String(email||'').toLowerCase()]; }
+function mergeAtlasEmails(m){
+  window.ATLAS_CONTACTS=window.ATLAS_CONTACTS||{};
+  Object.keys(m||{}).forEach(function(k){ window.ATLAS_CONTACTS[k]=window.ATLAS_CONTACTS[k]||{}; window.ATLAS_CONTACTS[k].e=m[k]; });
+  if(current&&typeof openCard==='function') openCard(current);
+  if(typeof rebuild==='function') rebuild();
+}
+function fetchAtlasEmailsFromFirestore(){
+  if(!fbDb) return;
   fbDb.collection('atlas_contacts').doc('emails').get().then(function(s){
     if(!s.exists) return;
-    var m=s.data()||{}; window.ATLAS_CONTACTS=window.ATLAS_CONTACTS||{};
-    Object.keys(m).forEach(function(k){ window.ATLAS_CONTACTS[k]=window.ATLAS_CONTACTS[k]||{}; window.ATLAS_CONTACTS[k].e=m[k]; });
-    if(current&&typeof openCard==='function') openCard(current);
-    if(typeof rebuild==='function') rebuild();
+    mergeAtlasEmails(s.data()||{});
   }).catch(function(){});
 }
+function fetchAtlasEmails(){
+  if(!isAdminUser) return;
+  if(fbUser&&typeof fbUser.getIdToken==='function'){
+    fbUser.getIdToken().then(function(token){
+      return fetch('/api/admin/atlas-contacts',{headers:{Authorization:'Bearer '+token}});
+    }).then(function(r){
+      if(!r.ok) throw new Error('Atlas contacts '+r.status);
+      return r.json();
+    }).then(function(j){
+      mergeAtlasEmails((j&&j.emails)||{});
+    }).catch(function(){ fetchAtlasEmailsFromFirestore(); });
+    return;
+  }
+  fetchAtlasEmailsFromFirestore();
+}
 function segContactsToggle(){ var sc=document.getElementById('seg-contacts'); if(sc) sc.hidden=!isAdminUser; }
-function checkAdmin(){ isAdminUser=false; if(!fbUser) return;
+function checkAdmin(){ isAdminUser=false; segContactsToggle(); if(!fbUser) return;
   if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ isAdminUser=true; segContactsToggle(); fetchAtlasEmails(); return; }
+  if(isAtlasAdminEmail(fbUser.email)){ isAdminUser=true; segContactsToggle(); fetchAtlasEmails(); return; }
   if(!fbDb) return;
   fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){ isAdminUser=!!(s.exists&&s.data()&&s.data().isAdmin); segContactsToggle(); fetchAtlasEmails(); }).catch(function(){ isAdminUser=false; }); }
+function deleteAtlasPin(coll,docId,mine){
+  if(mine){
+    if(!fbDb) return Promise.reject(new Error('Firebase unavailable'));
+    return fbDb.collection(coll).doc(docId).delete();
+  }
+  if(!fbUser||typeof fbUser.getIdToken!=='function') return Promise.reject(new Error('Sign in required'));
+  return fbUser.getIdToken().then(function(token){
+    return fetch('/api/admin/atlas-pin?collection='+encodeURIComponent(coll)+'&id='+encodeURIComponent(docId),{
+      method:'DELETE',
+      headers:{Authorization:'Bearer '+token}
+    });
+  }).then(function(r){
+    if(r.ok) return r.json();
+    return r.text().then(function(t){ throw new Error(t||('Delete failed '+r.status)); });
+  });
+}
 function renderSubs(){
   subLayer.clearLayers();
   SUBS.forEach(function(s){

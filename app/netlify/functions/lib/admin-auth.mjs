@@ -3,7 +3,7 @@
 // === true" dance. This consolidates it so a single auth gate is the
 // source of truth and the route handlers can focus on the data shape.
 
-import { verifyIdToken, extractBearerToken } from './auth.mjs';
+import { verifyIdToken, extractBearerToken, isAdminEmail } from './auth.mjs';
 import { getDb } from './firestore.mjs';
 import { errorResponse } from './response.mjs';
 
@@ -31,7 +31,7 @@ export async function requireAdmin(request) {
     return { uid, db };
   }
 
-  let isAdmin = uid === ADMIN_UID;
+  let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
       const profileDoc = await db.collection('user_profiles').doc(uid).get();
