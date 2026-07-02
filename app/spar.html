@@ -1476,6 +1476,11 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="globe-wrap"><div class="globe-frame">' +
           '<div id="globalDebateMap" role="img" aria-label="Globe with debate rooms opening between cities"></div>' +
         '</div></div>' +
+      // Real-presence caption. Hidden until /api/presence-live returns
+      // at least one live visitor; then the dots on the globe above are
+      // real city-level locations and this line says so. Never shows a
+      // number the server didn't count.
+      '<div id="globeLiveNote" hidden style="margin:-2px auto 10px;font-size:.72rem;max-width:340px;text-align:center;color:var(--text-dim);font-weight:500"></div>' +
       // Live ops strip. Wired to real Firestore via startMetaLive():
       // queue cell = peers waiting in this format's matchmaking_queue
       // (self excluded so the user doesn't see "1 waiting" when only
@@ -2124,6 +2129,40 @@ h1 em{color:var(--accent);font-style:normal}
   // dots spawn, arcs draw, room-forming pills float in. Keeps a
   // handle so we can stop the rAF loop on re-render.
   var globalMapHandle = null;
+
+  // ── Real presence pins (/api/presence-live) ─────────────────────
+  // People seen on the site in the last 30 minutes, city-level, fed
+  // by the anonymous track.js beat. When we have real pins, the globe
+  // shows ONLY them (every glowing dot is a real location) and the
+  // arcs + "Room forming" pills are disabled so nothing fabricated
+  // rides on real data. When the fetch fails or comes back empty, the
+  // globe falls back to the ambient decorative city pool, unlabeled,
+  // exactly as before. Server response is shared-cached 60s, so the
+  // 2-min repoll costs ~1 cache read.
+  var presenceLive = null;
+  var presencePollTimer = null;
+  function fetchPresenceLive(){
+    fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      var had = !!(presenceLive && presenceLive.pins && presenceLive.pins.length);
+      presenceLive = (d && Array.isArray(d.pins)) ? d : null;
+      var has = !!(presenceLive && presenceLive.pins.length);
+      renderLiveNote();
+      // Remount only on a state change (ambient ↔ real pins) so the
+      // globe doesn't visibly restart every poll.
+      if (has !== had && document.getElementById('globalDebateMap')) mountGlobalMap('globalDebateMap');
+    }).catch(function(){});
+  }
+  function renderLiveNote(){
+    var note = document.getElementById('globeLiveNote');
+    if (!note) return;
+    var n = presenceLive && presenceLive.online30;
+    if (n > 0) {
+      note.textContent = 'Each red dot: someone on DebateIt in the last 30 minutes (' + n + ' total).';
+      note.hidden = false;
+    } else {
+      note.hidden = true; // honest empty state: no claim, ambient art only
+    }
+  }
   function mountGlobalMap(containerId){
     if (globalMapHandle && globalMapHandle.stop) { try { globalMapHandle.stop(); } catch(e){} }
     globalMapHandle = null;
@@ -2134,17 +2173,33 @@ h1 em{color:var(--accent);font-style:normal}
       }
       var c = document.getElementById(containerId);
       if (!c) return;
-      globalMapHandle = window.GlobalDebateMap.mount(c, {
+      var opts = {
         maxActiveDots: 7,
         maxActiveArcs: 2,
         spawnEveryMs:  1700,
         roomEveryMs:   4200,
         rotateSec:     240,
         palette:       'auto',
-      });
+      };
+      var pins = presenceLive && presenceLive.pins;
+      if (pins && pins.length) {
+        opts.cities = pins.map(function(p){
+          return { name: p.city || 'Somewhere on Earth', lat: p.lat, lng: p.lng };
+        });
+        opts.maxActiveArcs  = 0;    // no fabricated "Room forming" on real pins
+        opts.persistentDots = true; // real people don't blink out
+      }
+      globalMapHandle = window.GlobalDebateMap.mount(c, opts);
+      renderLiveNote();
     }
     tryMount(40);
   }
+  fetchPresenceLive();
+  if (!presencePollTimer) presencePollTimer = setInterval(function(){
+    if (document.hidden) return;
+    if (!document.getElementById('globalDebateMap')) return;
+    fetchPresenceLive();
+  }, 120000);
 
   // Legacy world-globe mount, kept for the SIGN-IN GATE only. That
   // surface is pre-auth social proof — showing the geographic spread

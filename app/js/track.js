@@ -65,6 +65,38 @@
   let endFired = false;
   let pageViewFired = false;
 
+  // ── Anonymous presence beat (/api/presence-live) ──────────────────
+  // Feeds the real "live in the last 30 minutes" pins on the /spar
+  // globe. Separate from the auth-gated /api/log-event pipeline by
+  // design: presence is anonymous-friendly (the GA realtime map counts
+  // everyone, so should ours), carries ONLY the random per-tab session
+  // id (server stamps city-level edge geo; nothing else), and never
+  // touches Firebase. 5-min cadence + a 2-min sessionStorage floor so
+  // cross-page nav doesn't spam the endpoint.
+  const PRESENCE_MS = 5 * 60 * 1000;
+  const PRESENCE_MIN_GAP_MS = 2 * 60 * 1000;
+  function presenceBeat() {
+    try {
+      if (document.hidden) return;
+      const last = Number(sessionStorage.getItem('_da_plast') || 0);
+      if (Date.now() - last < PRESENCE_MIN_GAP_MS) return;
+      sessionStorage.setItem('_da_plast', String(Date.now()));
+      fetch('/api/presence-live', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sid: sessionId }),
+        keepalive: true,
+      }).catch(function () {});
+    } catch (e) {
+      // Presence must never break the page.
+    }
+  }
+  presenceBeat();
+  setInterval(presenceBeat, PRESENCE_MS);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) presenceBeat();
+  });
+
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
       const existing = document.querySelector('script[src="' + src + '"]');

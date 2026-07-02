@@ -249,11 +249,19 @@
     }
     opts = opts || {};
     var maxActiveDots = Math.max(2, Math.min(12, opts.maxActiveDots || 7));
-    var maxActiveArcs = Math.max(1, Math.min(4,  opts.maxActiveArcs || 2));
+    // Explicit 0 is honored (spar passes it when the dots are REAL
+    // presence pins, so no fabricated "Room forming" arc ever rides on
+    // real data). Omitted → the ambient default of 2.
+    var maxActiveArcs = Math.max(0, Math.min(4, opts.maxActiveArcs == null ? 2 : opts.maxActiveArcs));
     var spawnEveryMs  = Math.max(400, opts.spawnEveryMs || 1700);
     var roomEveryMs   = Math.max(1500, opts.roomEveryMs || 4200);
     var rotateSec     = opts.rotateSec || 240;
     var cities        = (opts.cities || DEFAULT_CITIES).slice();
+    // persistentDots: every city stays lit permanently instead of the
+    // ambient pulse-in/pulse-out. Used when the cities array is REAL
+    // presence data (each dot = a real visitor), where a dot blinking
+    // out would read as someone leaving.
+    var persistentDots = !!opts.persistentDots;
     var paletteName   = resolvePalette(opts.palette || 'auto');
     var pal           = paletteName === 'dark' ? DARK : LIGHT;
     var onCityClick   = typeof opts.onCityClick === 'function' ? opts.onCityClick : null;
@@ -640,8 +648,9 @@
       if (s.active) return;
       s.active = true;
       s.spawnedAt = performance.now();
-      // Active dot lifetime: 9-13s. Then it dims back to idle.
-      s.activeUntil = s.spawnedAt + (8000 + Math.random() * 4500);
+      // Active dot lifetime: 9-13s, then it dims back to idle — unless
+      // dots are persistent (real presence pins never blink out).
+      s.activeUntil = persistentDots ? Infinity : s.spawnedAt + (8000 + Math.random() * 4500);
 
       // Halo (large soft red glow).
       var glow = svg('circle', { cx: 0, cy: 0, r: 6.5, fill: 'url(#' + glowGradId + ')', opacity: '0' });
@@ -991,7 +1000,9 @@
     if (reduceMotion) {
       // Static state — light up four geographically-spread dots and
       // one arc, no animation, no spawning.
-      var staticIdx = [0, 5, 9, 11].filter(function (i) { return i < cityState.length; });
+      var staticIdx = persistentDots
+        ? cityState.map(function (s, i) { return i; })
+        : [0, 5, 9, 11].filter(function (i) { return i < cityState.length; });
       staticIdx.forEach(function (i) { activate(i); });
       // Make the static activations permanent (don't auto-retire).
       staticIdx.forEach(function (i) {
@@ -1024,10 +1035,17 @@
       buildContinents();
       buildDots();
       // Seed 3-4 dots at the start so the disc isn't empty for the
-      // first 1.5 seconds.
-      var seedCount = Math.min(4, maxActiveDots - 1);
-      for (var i = 0; i < seedCount; i++) {
-        setTimeout(spawnDot, i * 350);
+      // first 1.5 seconds. Persistent mode lights EVERY city up front
+      // (staggered so they cascade in) and never retires them.
+      if (persistentDots) {
+        cityState.forEach(function (s, i) {
+          setTimeout(function () { activate(i); }, i * 180);
+        });
+      } else {
+        var seedCount = Math.min(4, maxActiveDots - 1);
+        for (var i = 0; i < seedCount; i++) {
+          setTimeout(spawnDot, i * 350);
+        }
       }
       rafId = requestAnimationFrame(frame);
       // Watchdog: the pause/resume chain trusts the interleaving of
