@@ -4224,20 +4224,14 @@ function maybeShowSupportNudge() {
     setTimeout(() => {if (n.parentNode) n.remove();}, 15000);
   } catch (e) {}
 }
-var ANON_BASE_LIMIT = 3;
-// Giving feedback unlocks UNLIMITED. matches the "unlock unlimited" copy in the beta strip
+var ANON_BASE_LIMIT = 1;
+// Legacy feedback helpers kept for old localStorage migrations. Feedback no longer unlocks usage.
 function hasGivenFeedback() {try {return localStorage.getItem('debateos-feedback-given') === '1';} catch {return false;}}
 function markFeedbackGiven() {try {localStorage.setItem('debateos-feedback-given', '1');} catch {}}
-// FREE TIER: 5 anonymous requests + 5 more on sign-in (10 total; the
-// signed-in cap lives in debate-it.html SIGNED_IN_LIMIT — this client only
-// enforces the 5-anon ceiling, the server enforces the signed-in cap once a
-// Google account is present). Anon stays at 5 deliberately: bot abuse on the
-// no-auth lever drove the 2026-05-18 revert of the 15-anon experiment, and
-// only Google-gating bounds the drain. This localStorage counter is
-// bypassable by a motivated user; the server-side per-account cap in
-// `canUseProFeature` is the hard limit. The counter exists to show an
-// honest "X left" pill and trigger the paywall at the expected boundary.
-function getAnonLimit() {return 3;} // 2026-06-14: 5->3 to disincentivize guest mode + push the easy 3-method sign-in (Google / email link / phone)
+// FREE TIER: one anonymous preview, then sign-in. The counter is intentionally
+// localStorage-only: it is a product nudge, not a security boundary. Server-side
+// per-account limits take over once a real Google account is present.
+function getAnonLimit() {return 1;}
 // Back-compat alias. existing code references ANON_LIMIT.
 // Must be `configurable: true` because Babel re-evaluates this script and
 // would otherwise throw "Cannot redefine property" on the second pass,
@@ -4311,13 +4305,12 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     var used = getAnonUsage();
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
-        try {window.open('https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', '_blank', 'noopener');markFeedbackGiven();} catch (e) {}
-        throw new Error('You\'ve used your free rounds. We just opened our quick feedback form. Fill it out and you\'ll unlock more (refresh after).');
+        throw new Error('Guest mode is one local preview. Sign in with Google to keep going and save your rounds.');
       }
       if (isCrossProvider) {
-        throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude for unlimited, or pick a plan to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 6 brains.');
+        throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude, or sign in to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 6 brains.');
       }
-      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($10/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
+      throw new Error('Guest mode is one local preview. Sign in with Google to keep going, save cases and ballots, and build your style profile.');
     }
   } else if (__currentTeam) {
     var teamUsed = __currentTeam.usageThisPeriod || 0;
@@ -4454,10 +4447,9 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
     var used = getAnonUsage();
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
-        try {window.open('https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', '_blank', 'noopener');markFeedbackGiven();} catch (e) {}
-        throw new Error('You\'ve used your free rounds. We just opened our quick feedback form. Fill it out and you\'ll unlock more (refresh after).');
+        throw new Error('Guest mode is one local preview. Sign in with Google to keep going and save your rounds.');
       }
-      throw new Error('You\'ve used your free rounds. Pick a plan to keep going ($10/year Individual for 250 rounds/mo, or $1/mo BYOK for unlimited Claude with your own key).');
+      throw new Error('Guest mode is one local preview. Sign in with Google to keep going, save cases and ballots, and build your style profile.');
     }
     // Don't increment here. increment after successful response below
   } else if (__currentTeam) {
@@ -11289,10 +11281,9 @@ function AuthModal({ onSignIn, onClose }) {
    Receiving end of the /pricing → /app buy-intent handoff while the
    product is in beta. pricing.html's startCheckout stores the picked
    plan and lands here with ?upgrade=<plan>; while CHECKOUT_BETA_NO_CHARGE
-   is on nobody can be charged, so the resume shows the same beta
-   feedback framing as every other pricing surface. Flip the flag
-   below together with pricing.html's BETA_NO_CHARGE and the resume
-   flow in App goes straight back into Stripe checkout instead.
+   is on nobody can be charged, so the resume keeps them in the app.
+   Flip the flag below together with pricing.html's BETA_NO_CHARGE and
+   the resume flow in App goes straight back into Stripe checkout instead.
    ═══════════════════════════════════════════════════ */
 
 var CHECKOUT_BETA_NO_CHARGE = true;
@@ -11304,19 +11295,18 @@ function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   var name = planNames[plan] || plan;
   var price = planPrices[plan] || '';
   var showTeamCta = (needsTeam || plan === 'team') && typeof onCreateTeam === 'function';
-  var openFeedback = () => {
-    try {window.open('https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', '_blank', 'noopener');} catch (e) {}
-    try {if (window.gtag) gtag('event', 'checkout_resume_feedback', { plan: plan });} catch (e) {}
+  var keepPracticing = () => {
+    try {if (window.gtag) gtag('event', 'checkout_resume_continue', { plan: plan });} catch (e) {}
     onClose();
   };
   return el('div', { className: 'auth-overlay', onClick: (e) => {if (e.target === e.currentTarget) onClose();} },
   el('div', { style: { background: 'var(--modal-bg,#303038)', border: '1px solid var(--modal-border,#ffffff22)', borderRadius: 16, padding: '32px 36px', maxWidth: 440, width: '90%', textAlign: 'center' }, role: 'dialog', 'aria-modal': true },
   el('h2', { style: { fontSize: '1.3rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary,#f1f5f9)' } }, 'You picked ' + name + '.'),
   el('p', { style: { color: 'var(--text-secondary,#94a3b8)', fontSize: '.95rem', lineHeight: 1.6, marginBottom: 20 } },
-  name + ' will be ' + price + ' once beta ends. Beta is free, so you cannot be charged today. Tell us what pricing works and we’ll save your spot.'
+  name + ' will be ' + price + ' once beta ends. Beta is free, so you cannot be charged today. Keep practicing from this signed-in workspace.'
   ),
   el('div', { style: { display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' } },
-  el('button', { className: 'btn btn-primary', onClick: openFeedback, style: { flex: 1, minWidth: 150 } }, 'Share pricing feedback'),
+  el('button', { className: 'btn btn-primary', onClick: keepPracticing, style: { flex: 1, minWidth: 150 } }, 'Keep practicing'),
   showTeamCta && el('button', { className: 'btn', onClick: onCreateTeam, style: { flex: 1, minWidth: 130 } }, 'Set up your team')
   ),
   el('button', { onClick: onClose, style: { background: 'none', border: 'none', color: '#64748b', fontSize: '.8rem', cursor: 'pointer', marginTop: 12, fontFamily: 'inherit' } }, 'Maybe later')
@@ -11326,7 +11316,7 @@ function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
 
 /* ═══════════════════════════════════════════════════
    SIGN-UP NUDGE MODAL
-   Fires once per 24h for anonymous users after they've generated 2+ things.
+   Fires once per 24h for anonymous users after their first generated thing.
    Pitches Google sign-up around the style-memory perk, not around payments.
    ═══════════════════════════════════════════════════ */
 
@@ -11350,58 +11340,29 @@ function SignInGate({ label, onSignIn }) {
 
 function SignUpNudgeModal({ onSignIn, onDismiss }) {
   var el = React.createElement;
-  var captureRef = useRef(null);
-  // 2026-05-27 — lightweight email/phone capture as a soft alternative to
-  // the Google round-trip. Lets us track leads who refuse sign-in so they
-  // don't drop into the anonymous void. Mounts once; module is loaded
-  // via /js/prospect-capture.js at the top of the page.
-  useEffect(() => {
-    if (!captureRef.current) return;
-    if (!window.ProspectCapture) return;
-    if (captureRef.current.dataset.mounted) return;
-    window.ProspectCapture.mount(captureRef.current, {
-      source: 'app-nudge-modal',
-      onSuccess: () => {setTimeout(() => {try {onDismiss && onDismiss();} catch (_) {}}, 1800);}
-    });
-    captureRef.current.dataset.mounted = '1';
-  }, []);
   var bullet = (txt) => el('li', { style: { display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10, fontSize: '.9rem', lineHeight: 1.5, color: 'var(--text,#e4e8f0)' } },
   el('span', { style: { color: '#ef4444', fontWeight: 800, flexShrink: 0 } }, '→'),
   el('span', null, txt)
   );
-  var neverAgain = () => {
-    try {localStorage.setItem('debateos-signup-nudge-dismissed', '1');} catch (e) {}
-    onDismiss && onDismiss();
-  };
   return el('div', { className: 'auth-overlay' },
   el('div', { className: 'auth-modal', role: 'dialog', 'aria-modal': true, style: { maxWidth: 480 } },
-  el('div', { style: { fontSize: '.68rem', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent,#ef4444)', marginBottom: 8 } }, 'A note from the founder'),
-  el('h2', { style: { marginBottom: 6 } }, "You've run a few rounds. From here on, the AI starts learning you."),
+  el('div', { style: { fontSize: '.68rem', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent,#ef4444)', marginBottom: 8 } }, 'Save your progress'),
+  el('h2', { style: { marginBottom: 6 } }, "That first preview is local. Sign in before the next one."),
   el('p', { style: { color: 'var(--text-dim,#94a3b8)', fontSize: '.88rem', lineHeight: 1.55, marginBottom: 16 } },
-  "Anonymous, every session starts from zero. Signed in, the AI builds a style profile from your real rounds and reuses it. Concretely:"
+  "Guest mode is a quick taste. Signed in, DebateIt keeps the work you are building and the AI stops treating you like a stranger."
   ),
   el('ul', { style: { listStyle: 'none', padding: 0, margin: '0 0 18px' } },
-  bullet('It learns your voice, jargon level, and weighing preferences. The next round matches them.'),
-  bullet('Saved cases, ballots, and rounds follow you across devices.'),
-  bullet('Your rank on the leaderboard becomes real.'),
-  bullet('I read every signed-in round. It is how I know what to fix.')
+  bullet('Your cases, ballots, and rounds follow you across devices.'),
+  bullet('Your style profile learns your voice, jargon level, and weighing preferences.'),
+  bullet('Leaderboard scores count under your name, not a disposable browser.'),
+  bullet('Future rounds start from your actual level instead of a blank slate.')
   ),
   el('button', { className: 'auth-google-btn', onClick: onSignIn, style: { marginBottom: 10 } },
   el('img', { src: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg', width: 20, height: 20 }),
   'Continue with Google'
   ),
   el('p', { style: { fontSize: '.7rem', color: 'var(--text-dim,#94a3b8)', textAlign: 'center', marginBottom: 10, lineHeight: 1.5 } }, "Privacy: Google shares only your name, email, and photo. I never sell it, never post for you, never spam you. Sign out anytime."),
-  // Soft alt: email capture so the lead doesn't vanish on dismiss.
-  el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 10px', fontSize: '.6rem', fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text-dim,#94a3b8)', opacity: .65 } },
-  el('div', { style: { flex: 1, height: 1, background: 'var(--border,rgba(255,255,255,.12))' } }),
-  el('span', null, 'or'),
-  el('div', { style: { flex: 1, height: 1, background: 'var(--border,rgba(255,255,255,.12))' } })
-  ),
-  el('div', { ref: captureRef, style: { marginBottom: 14 } }),
-  el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center' } },
-  el('button', { className: 'auth-skip', onClick: onDismiss, style: { flex: 1, opacity: .55, fontSize: '.72rem' } }, 'Maybe later'),
-  el('button', { className: 'auth-skip', onClick: neverAgain, style: { flex: 1, opacity: .4, fontSize: '.68rem' } }, "Don't ask again")
-  )
+  el('button', { className: 'auth-skip', onClick: onDismiss, style: { opacity: .48, fontSize: '.72rem', width: '100%' } }, 'Keep previewing locally')
   )
   );
 }
@@ -16225,8 +16186,6 @@ function App() {
     try {
       var last = parseInt(localStorage.getItem('debateos-signup-nudge-at') || '0', 10);
       if (Date.now() - last < 24 * 60 * 60 * 1000) return; // 24h cooldown
-      var dismissed = localStorage.getItem('debateos-signup-nudge-dismissed') === '1';
-      if (dismissed) return;
       setShowSignUpNudge(true);
       localStorage.setItem('debateos-signup-nudge-at', String(Date.now()));
     } catch (e) {}
@@ -16336,15 +16295,15 @@ function App() {
   React.createElement(React.Fragment, null,
   React.createElement(PolyBackground),
   // Auth is ADVISED, not required (reversed 2026-04-20). The app is usable
-  // anonymously with a 5-request cap; signed-in users get the persistent
+  // anonymously with a one-request preview; signed-in users get the persistent
   // profile, 250-request Individual tier, and learning loop. Persistent
   // nudges live in: the topbar "Sign in. free" button, the SignUpNudgeModal
-  // after 2+ generations, and feature-specific paywalls on hit-limit.
+  // after the first generation, and feature-specific paywalls on hit-limit.
   // The prior full-screen pricing gate was removed 2026-04-20. it was
   // blocking anon use entirely, which made Firebase failures in Safari /
   // in-app browsers lock people out. Copy stays in git history if we ever
   // want to restore it.
-  React.createElement('a', { className: 'feedback-trigger', href: 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', target: '_blank', rel: 'noopener noreferrer', title: 'Send feedback', 'aria-label': 'Send feedback' },
+  React.createElement('a', { className: 'feedback-trigger', href: 'mailto:feedback@debateai.com?subject=DebateIt%20feedback', title: 'Send feedback', 'aria-label': 'Send feedback' },
   React.createElement('span', { dangerouslySetInnerHTML: { __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' } }),
   'Feedback'
   ),
@@ -16427,15 +16386,15 @@ function App() {
   // error throw in callAnyAI/callClaude; this is just the display.
   !user && anonUsed >= 0 && React.createElement('span', {
     className: 'topbar-pill',
-    title: 'Free requests used',
+    title: 'Guest preview. Sign in to save rounds.',
     style: { background: anonUsed >= getAnonLimit() ? 'rgba(239,68,68,.18)' : 'rgba(255,255,255,.04)', borderColor: anonUsed >= getAnonLimit() ? 'rgba(239,68,68,.4)' : 'rgba(255,255,255,.1)', color: anonUsed >= getAnonLimit() ? '#fca5a5' : 'rgba(255,255,255,.6)', fontWeight: 600, padding: '4px 10px' },
     onClick: () => setShowAuth(true)
     // Display clamp: localStorage may hold a usage count from BEFORE we
-    // lowered the free cap to 5 (users who racked up 20+ under the old
+    // lowered the free cap to 1 (users who racked up 20+ under the old
     // Infinity cap). Clamp the displayed numerator so the pill never
-    // reads "20/5". that looks broken. Actual gating still fires via
+    // reads "20/1". that looks broken. Actual gating still fires via
     // the >= getAnonLimit() check in callAnyAI/callClaude.
-  }, Math.min(anonUsed, getAnonLimit()) + '/' + getAnonLimit() + ' free'),
+  }, 'Guest ' + Math.min(anonUsed, getAnonLimit()) + '/' + getAnonLimit()),
   React.createElement('button', {
     className: 'topbar-pill',
     onClick: () => setSidebarOpen(true),

@@ -25,7 +25,7 @@
         "highPrice": "20",
         "offerCount": 5,
         "offers": [
-          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "3 anonymous requests, more once you sign in.", "url": "https://debateai.com/pricing" },
+          { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "1 local preview, then 10 signed-in requests.", "url": "https://debateai.com/pricing" },
           { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key.", "url": "https://debateai.com/pricing" },
           { "@type": "Offer", "name": "Individual", "price": "10", "priceCurrency": "USD", "description": "$10/year for 250 requests per month, six LLM brains, HD voice.", "url": "https://debateai.com/pricing" },
           { "@type": "Offer", "name": "Lifetime", "price": "14.99", "priceCurrency": "USD", "description": "250 requests per month forever, one-time charge.", "url": "https://debateai.com/pricing" },
@@ -350,8 +350,8 @@ document.documentElement.setAttribute('data-force-theme','light');
 <section class="hero">
   <span class="eyebrow" id="heroEyebrow">In beta · Updating daily · Everything's free right now</span>
   <h1 id="heroH1">Free in beta. <span class="accent">Future pricing</span> below.</h1>
-  <p class="lede" id="heroLede">debateai.com is in beta and every tier on this page is free to use today. You cannot be charged right now. The numbers below are what the paid plans <em>will</em> look like once we exit beta, posted here so nothing about pricing is hidden.</p>
-  <p class="reassure"><strong>Got opinions on what these prices should actually be?</strong> <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">Go to feedback for better pricing proposals →</a></p>
+  <p class="lede" id="heroLede">DebateIt is in beta and every tier on this page is free to use today. You cannot be charged right now. The numbers below are what the paid plans <em>will</em> look like once we exit beta, posted here so nothing about pricing is hidden.</p>
+  <p class="reassure"><strong>Running a school, club, or team?</strong> <a href="mailto:schools@debateai.com?subject=DebateIt%20team%20access" style="color:var(--accent);font-weight:700">Email us for access</a>.</p>
 </section>
 <script>
 // A/B test: pricing_hero_v1
@@ -370,7 +370,7 @@ document.documentElement.setAttribute('data-force-theme','light');
         var lede = document.getElementById('heroLede');
         if (eb) eb.textContent = 'In beta · Updating daily · Everything’s free right now';
         if (h1) h1.innerHTML = 'Free in beta. <span class="accent">Future pricing</span> below.';
-        if (lede) lede.textContent = 'Every tier on this page is free to use today. The numbers are what the paid plans will look like once we exit beta. Share thoughts via the feedback form below.';
+        if (lede) lede.textContent = 'Every tier on this page is free to use today. The numbers are what the paid plans will look like once we exit beta. Sign in to keep your workspace ready.';
       },
     });
   }
@@ -383,7 +383,7 @@ document.documentElement.setAttribute('data-force-theme','light');
     <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);display:inline-block"></span>
     Beta. Updating daily. Currently free
   </span>
-  <span style="font-size:.88rem;color:var(--text-dim);line-height:1.5">Everything is free during beta. The prices below are planned post-beta pricing. You cannot be charged today. Join the waitlist below or <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">send feedback</a> before pricing locks.</span>
+  <span style="font-size:.88rem;color:var(--text-dim);line-height:1.5">Every tier is free right now. The prices below are planned post-beta pricing. You cannot be charged today. Sign in to keep your workspace ready, or email <a href="mailto:schools@debateai.com?subject=DebateIt%20team%20access" style="color:var(--accent);font-weight:700">schools@debateai.com</a> for a team.</span>
 </div>
 
 <div class="grid" id="plans">
@@ -499,7 +499,7 @@ document.documentElement.setAttribute('data-force-theme','light');
 
   <details>
     <summary>What happens if I cancel?</summary>
-    <p>You keep full paid access until the end of your current billing period, no lockout mid-tournament. After that, you drop back to the free plan (3 anonymous requests, more once you sign in., 10 total). One-click from the app's Team tab.</p>
+    <p>You keep full paid access until the end of your current billing period, no lockout mid-tournament. After that, you drop back to the free plan: 1 local preview, then 10 signed-in requests. One-click from the app's Team tab.</p>
   </details>
 
   <details>
@@ -696,8 +696,9 @@ document.documentElement.setAttribute('data-force-theme','light');
     // alike. Flip BETA_NO_CHARGE to false to resume Stripe / Razorpay billing.
     var BETA_NO_CHARGE = true;
     if (BETA_NO_CHARGE) {
-      showStatus("Beta is free. You cannot be charged today. Tell us what pricing works and we'll save your spot.", false);
-      window.open('https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', '_blank', 'noopener');
+      showStatus("Beta is free. You cannot be charged today. Opening the app so your plan intent stays tied to your account.", false);
+      try { sessionStorage.setItem('intended_plan', plan); } catch (e) {}
+      location.href = '/app?upgrade=' + encodeURIComponent(plan);
       return;
     }
     initAuth();
@@ -868,7 +869,7 @@ document.documentElement.setAttribute('data-force-theme','light');
   }
   @media print{ .fb-floating{display:none} }
 </style>
-<a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform" target="_blank" rel="noopener noreferrer" class="fb-floating" aria-label="Send feedback">
+<a href="mailto:feedback@debateai.com?subject=DebateIt%20pricing%20feedback" class="fb-floating" aria-label="Send feedback">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
   Feedback
 </a>

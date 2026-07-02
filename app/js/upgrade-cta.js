@@ -21,7 +21,7 @@
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
   };
   const SDK_VERSION = '10.7.1';
-  const PRICING_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform';
+  const PRICING_URL = '/app#team';
   const REFRESH_MS = 120_000; // Re-check team plan every 2 min.
   const DISMISS_HOURS = 24;   // Respect a dismiss for a day.
 
@@ -122,21 +122,19 @@
     body.style.cssText = 'flex:1;min-width:0';
     const title = document.createElement('div');
     title.style.cssText = 'font-weight:800;font-size:.88rem;letter-spacing:.01em;margin-bottom:2px';
-    title.textContent = state === 'capped' ? "You've hit the beta cap" : 'Help shape future pricing';
+    title.textContent = state === 'capped' ? "You've hit the beta cap" : 'Save your workspace';
     const sub = document.createElement('div');
     sub.style.cssText = 'font-size:.72rem;opacity:.85;font-weight:500';
     sub.textContent = state === 'capped'
-      ? 'In beta. Share what fair pricing looks like.'
-      : 'Beta is free. Pricing proposals welcome.';
+      ? 'Open your team settings when you need more.'
+      : 'Keep rounds, ballots, and team access tied to your account.';
     body.appendChild(title);
     body.appendChild(sub);
     card.appendChild(body);
 
     const cta = document.createElement('a');
     cta.href = PRICING_URL;
-    cta.target = '_blank';
-    cta.rel = 'noopener';
-    cta.textContent = 'Feedback';
+    cta.textContent = 'Open app';
     cta.style.cssText = [
       'background:#fff',
       'color:#dc2626',
@@ -209,19 +207,17 @@
     if (path === '/pricing' || path.endsWith('/pricing.html')) return;
     if (path === '/admin' || path.endsWith('/admin.html')) return;
     // 2026-05-20: skip pages that already ship an inline floating Feedback
-    // button (.fb-floating / [data-open-feedback]). Post the 2026-05-14
-    // rename this pill's CTA is just "Feedback" → the Google form, i.e. a
-    // literal duplicate of that button, stacked in the same bottom-right
-    // corner. On debate-ai/high-school/landing/learn the inline button is
-    // the canonical one (it opens the in-page modal), so the pill is pure
+    // button (.fb-floating / [data-open-feedback]). On
+    // debate-ai/high-school/landing/learn the inline button is the
+    // canonical one (it opens the in-page feedback surface), so the pill is pure
     // redundancy there. Pages without an inline Feedback button (changelog,
     // /app index) still get this as their sole cap/feedback surface.
     if (document.querySelector('.fb-floating, [data-open-feedback]')) return;
 
     await ensureFirebase();
     firebase.auth().onAuthStateChanged((user) => {
-      currentUser = user || null;
-      if (!user) { render('hidden'); if (pollTimer) clearInterval(pollTimer); return; }
+      currentUser = user && !user.isAnonymous ? user : null;
+      if (!currentUser) { render('hidden'); if (pollTimer) clearInterval(pollTimer); return; }
       checkPlan();
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(checkPlan, REFRESH_MS);

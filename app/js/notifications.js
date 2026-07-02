@@ -146,7 +146,7 @@
     // or there's nothing to deliver to.
     if (on) daAskNotify();
     var user = daCurrentUser();
-    if (!user) { if (cb) cb(on); return; }
+    if (!user || user.isAnonymous) { if (cb) cb(on); return; }
     user.getIdToken().then(function (tok) {
       return fetch('/.netlify/functions/notify-prefs', {
         method: 'POST',
@@ -614,28 +614,25 @@
     whenFirebaseReady(function () {
       window.firebase.auth().onAuthStateChanged(function (u) {
         // Only a real (non-anonymous) account counts as "signed in" for the
-        // badge — /spar signs visitors in anonymously, and that shouldn't
-        // light up an unread count.
+        // badge. Anonymous auth has no durable inbox or reachable profile.
         signedInReal = !!(u && !u.isAnonymous);
-        if (!u) {
+        if (!u || u.isAnonymous) {
           if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
           myUid = null; dmRows = []; dmUnread = 0; prevUnread = {}; firstSnap = true;
           renderBadge(); if (panel) paintPanel();
           return;
         }
         myUid = u.uid;
-        if (!u.isAnonymous) {
-          daRegisterPush(); // Web Push: subscribe a signed-in device on load (no-op if permission/VAPID absent)
-          // Reconcile the live-alert toggle with the server copy so it reads
-          // right across devices (localStorage is only this device's cache).
-          u.getIdToken().then(function (tok) {
-            return fetch('/.netlify/functions/notify-prefs', { headers: { 'Authorization': 'Bearer ' + tok } });
-          }).then(function (r) { return r.json(); }).then(function (p) {
-            if (!p) return;
-            try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
-            if (panel) paintPanel();
-          }).catch(function () {});
-        }
+        daRegisterPush(); // Web Push: subscribe a signed-in device on load (no-op if permission/VAPID absent)
+        // Reconcile the live-alert toggle with the server copy so it reads
+        // right across devices (localStorage is only this device's cache).
+        u.getIdToken().then(function (tok) {
+          return fetch('/.netlify/functions/notify-prefs', { headers: { 'Authorization': 'Bearer ' + tok } });
+        }).then(function (r) { return r.json(); }).then(function (p) {
+          if (!p) return;
+          try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
+          if (panel) paintPanel();
+        }).catch(function () {});
         renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
       });
@@ -1000,11 +997,11 @@
       try { f = (localStorage.getItem(FMT_KEY) || 'apda').toLowerCase(); } catch (e) {}
       return VALID.indexOf(f) >= 0 ? f : 'apda';
     }
+    function isRealUser(u) {
+      return !!(u && !u.isAnonymous);
+    }
     function shortNm(u) {
       if (!u) return 'You';
-      // Guests (anonymous auth) get a readable label so opponents see
-      // a name on match cards instead of 'You'.
-      if (u.isAnonymous) return 'Guest ' + String(u.uid || '').slice(-4).toUpperCase();
       var full = (u.displayName || '').trim();
       var p = full.split(/\s+/).filter(Boolean);
       return p.length >= 2 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.'
@@ -1052,6 +1049,17 @@
 
     // ── availability ──
     function setAvailable(on) {
+      if (on && !myUid) {
+        available = false;
+        try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
+        paintPill();
+        try { if (window.gtag) gtag('event', 'spar_bg_signin_required'); } catch (e) {}
+        try {
+          if (window.openAuthModal) window.openAuthModal();
+          else location.href = '/spar';
+        } catch (e) {}
+        return;
+      }
       available = !!on;
       // Going available = the moment the user most wants to be pinged when a
       // match lands while they browse elsewhere. Ask for OS-notification
@@ -1338,24 +1346,25 @@
 
     // ── go-live opt-in prompt ("be live for live debates while you scroll?") ──
     // Low-friction, scroll-triggered invitation to become matchable.
-    // Anonymous (not-signed-in) visitors are signed in anonymously on
-    // accept so they can queue too — the matcher already labels them
-    // "Guest XXXX" and the queue rules allow any authed user (incl.
-    // anon) to write their OWN doc. Strictly opt-in; a "Not now"
-    // dismissal is remembered for 7 days so it never nags.
+    // Real accounts only: anonymous auth was creating throwaway Firebase
+    // users without a durable way to notify or identify them.
     function goLiveNow() {
-      try { localStorage.setItem(LSKEY, '1'); } catch (e) {}
-      available = true; paintPill();
       try { if (window.gtag) gtag('event', 'spar_golive_accept'); } catch (e) {}
       whenFirebaseReady(function () {
         var u = null;
         try { u = window.firebase.auth().currentUser; } catch (e) {}
-        if (u) { setAvailable(true); }   // already authed → queue immediately
-        else {
-          // Anonymous visitor: sign them in so they get a uid + queue doc.
-          // boot's onAuthStateChanged then sets myUid and, since available
-          // is already true, calls goAvailable() to put them in the queue.
-          try { window.firebase.auth().signInAnonymously().catch(function () {}); } catch (e) {}
+        if (isRealUser(u)) {
+          setAvailable(true);
+          sparNote('You are live. We will ping you when a rival is ready.');
+        } else {
+          available = false;
+          try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
+          paintPill();
+          sparNote('Sign in to go live. We will ping you when a rival is ready.');
+          try {
+            if (window.openAuthModal) window.openAuthModal();
+            else location.href = '/spar';
+          } catch (e) {}
         }
       });
     }
@@ -1389,7 +1398,7 @@
         el.setAttribute('aria-label', 'Be live for live debates');
         el.innerHTML =
           '<div class="da-golive__h"><span class="da-golive__dot" aria-hidden="true"></span>Be live for live debates?</div>' +
-          '<p class="da-golive__p">Stay matchable while you browse. We’ll ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
+          '<p class="da-golive__p">Sign in to stay matchable while you browse. We will ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
           '<div class="da-golive__camcap">What a live round looks like</div>' +
           '<div class="da-golive__cams" aria-hidden="true">' +
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face02.jpg)"></div>' +
@@ -1398,14 +1407,13 @@
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face17.jpg)"></div>' +
           '</div>' +
           '<div class="da-golive__btns">' +
-            '<button type="button" class="da-golive__go">Go live</button>' +
+            '<button type="button" class="da-golive__go">Sign in and go live</button>' +
             '<button type="button" class="da-golive__no">Not now</button>' +
           '</div>';
         document.body.appendChild(el);
         requestAnimationFrame(function () { el.classList.add('in'); });
         el.querySelector('.da-golive__go').addEventListener('click', function () {
           goLiveNow();
-          sparNote('You’re live. We’ll ping you when a rival’s ready.');
           close(el, false);
         });
         el.querySelector('.da-golive__no').addEventListener('click', function () {
@@ -1427,10 +1435,15 @@
     goLivePrompt();
     whenFirebaseReady(function () {
       window.firebase.auth().onAuthStateChanged(function (u) {
-        myUid = u ? u.uid : null;
-        myUser = u || null;
+        var realUser = isRealUser(u) ? u : null;
+        if (!realUser && available) {
+          available = false;
+          try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
+        }
+        myUid = realUser ? realUser.uid : null;
+        myUser = realUser;
         paintPill();
-        if (u && available && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) goAvailable();
+        if (realUser && available && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) goAvailable();
         else {
           stopTimers();
           if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
@@ -1439,9 +1452,9 @@
           // peer could match it and accept into an empty room (ghost match).
           // Keep the flag so availability resumes on the next eligible page.
           // On /spar we leave the doc to the page's own foreground flow.
-          if (u && available && (ON_ROUND || ON_PUBLIC)) {
+          if (realUser && available && (ON_ROUND || ON_PUBLIC)) {
             ensureFirestore(function () {
-              try { window.firebase.firestore().collection('matchmaking_queue').doc(u.uid).delete().catch(function () {}); } catch (e) {}
+              try { window.firebase.firestore().collection('matchmaking_queue').doc(realUser.uid).delete().catch(function () {}); } catch (e) {}
             });
           }
         }

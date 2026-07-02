@@ -268,8 +268,8 @@
 
     await ensureFirebase();
     firebase.auth().onAuthStateChanged((user) => {
-      currentUser = user || null;
-      if (!user) {
+      currentUser = user && !user.isAnonymous ? user : null;
+      if (!currentUser) {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         if (rootEl) rootEl.innerHTML = '';
         return;

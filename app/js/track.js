@@ -303,7 +303,7 @@
   async function init() {
     await ensureFirebase();
     firebase.auth().onAuthStateChanged(function (user) {
-      currentUser = user || null;
+      currentUser = user && !user.isAnonymous ? user : null;
       // Signed-in lifecycle: session_start + page_view + heartbeat.
       // Anon users get NEITHER lifecycle nor heartbeat — only the
       // gtag-bridged app_event path is open to them (the post() gate
@@ -318,7 +318,7 @@
       // session_start / page_view are nice-to-have, not load-bearing.
       // Today's (2026-05-18) credit-burn audit explicitly tightened
       // this envelope — keeping anon to gtag-only is the cheap path.
-      if (!user) return;
+      if (!currentUser) return;
       fireSessionStart();
       firePageView();
       if (heartbeatTimer) clearInterval(heartbeatTimer);

@@ -104,7 +104,7 @@ How it differs from "AI assistant" extensions
 • No debate jargon in oral mode. "Warrant" and "magnitude / probability / timeframe" stay silent in the examiner's head; the student gets plain academic English.
 
 Pricing
-• Free: 5 anonymous + 5 more on sign-in (10 drills per month total)
+• Free: 1 local preview, then 10 signed-in requests
 • Individual at $10/year: 250 drills/month, six AI brains (Claude / GPT / Gemini / Grok / DeepSeek / Open Lab), premium voice
 • Lifetime at $14.99 once: 250 drills/month forever, no recurring charge
 • Bring-your-own-key (Anthropic Claude only) at $1/month for unlimited

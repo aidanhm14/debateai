@@ -467,7 +467,7 @@
     sheetSignIn.style.cssText = 'background:none;border:none;width:100%;text-align:left;font:inherit;cursor:pointer;color:inherit';
     sheetSignIn.addEventListener('click', function(){
       closeSheet();
-      if (fbCurrentUser()){ try { window.firebase.auth().signOut(); } catch(e){} }
+      if (fbRealUser()){ try { window.firebase.auth().signOut(); } catch(e){} }
       else { startGoogleSignIn(); }
     });
     sheet.appendChild(sheetSignIn);
@@ -694,6 +694,7 @@
   }
   function fbAuthReady(){ return !!(window.firebase && window.firebase.auth && window.firebase.apps && window.firebase.apps.length); }
   function fbCurrentUser(){ try { return window.firebase && firebase.auth && firebase.auth().currentUser; } catch(e){ return null; } }
+  function fbRealUser(){ var u = fbCurrentUser(); return u && !u.isAnonymous ? u : null; }
   function fbBootstrap(cb){
     if (fbAuthReady()){ cb(); return; }
     fbLoadOnce('da-fb-app', FB_APP_SDK, function(){
@@ -730,7 +731,7 @@
       startGoogleSignIn();
       // If they close the Google popup without finishing, restore it.
       setTimeout(function(){
-        if (document.getElementById('barSignIn') === btn && !fbCurrentUser()){ btn.disabled = false; btn.textContent = 'Sign in'; }
+        if (document.getElementById('barSignIn') === btn && !fbRealUser()){ btn.disabled = false; btn.textContent = 'Sign in'; }
       }, 4000);
     });
     slot.appendChild(btn);
@@ -811,7 +812,14 @@
     var cachedSignedIn = false;
     try {
       for (var i = 0; i < localStorage.length; i++){
-        if (/^firebase:authUser:/.test(localStorage.key(i))){ cachedSignedIn = true; break; }
+        var key = localStorage.key(i);
+        if (/^firebase:authUser:/.test(key)){
+          try {
+            var raw = localStorage.getItem(key);
+            var parsed = raw ? JSON.parse(raw) : null;
+            if (parsed && !parsed.isAnonymous){ cachedSignedIn = true; break; }
+          } catch(_){}
+        }
       }
     } catch(e){}
 
@@ -822,11 +830,12 @@
       try {
         window.firebase.auth().onAuthStateChanged(function(u){
           var wasFirst = !seenAuth; seenAuth = true;
-          if (u && !wasFirst){ try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){ } }
+          var realUser = u && !u.isAnonymous ? u : null;
+          if (realUser && !wasFirst){ try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){ } }
           var ss = document.getElementById('sheetSignIn');
-          if (ss) ss.textContent = u ? 'Sign out' : 'Sign in · free';
-          if (!u){ renderSignedOut(slot); return; }
-          renderSignedIn(slot, u);
+          if (ss) ss.textContent = realUser ? 'Sign out' : 'Sign in · free';
+          if (!realUser){ renderSignedOut(slot); return; }
+          renderSignedIn(slot, realUser);
         });
       } catch(e){}
     }

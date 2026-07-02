@@ -34,7 +34,7 @@
         "16 TTS personas across ElevenLabs, Inworld, Cartesia, OpenAI"
       ],
       "offers": [
-        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "5 anonymous requests plus 5 more on sign-in." },
+        { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "1 local preview, then 10 signed-in requests." },
         { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key." },
         { "@type": "Offer", "name": "Individual", "price": "10", "priceCurrency": "USD", "description": "$10/year for 250 requests per month, six brains, HD voice." },
         { "@type": "Offer", "name": "Lifetime", "price": "14.99", "priceCurrency": "USD", "description": "250 requests per month forever, one-time charge." },
@@ -3061,18 +3061,17 @@ function stripPlainMd(s) {
    API
    ═══════════════════════════════════════════════════ */
 
-// Generation gate. Anonymous users get 5 free requests lifetime; signing
-// in with Google bumps the cap to 50 (5 base + 45 bonus). Pro tier bypasses
-// this entirely. The counter lives in localStorage so it survives reloads;
-// signing in doesn't reset usage, just raises the ceiling.
+// Generation gate. Anonymous users get one local preview; signing in with
+// Google bumps the cap to 10. Pro tier bypasses this entirely. The counter
+// lives in localStorage so it survives reloads; signing in doesn't reset usage,
+// just raises the ceiling.
 //
 // 2026-05-26 (rev15): SIGNED_IN_LIMIT reverted 50 -> 10 per Aidan
 // "10 free rounds not 50 correct that." The 10->50 bump (rev9) was
 // shipped to make sign-in feel rewarding; reverted same-day before
-// real credit drain materialized. Anon stays at 5 anonymous + 5
-// bonus on sign-in = 10 total, matching the long-standing soul.md
-// §4 hard rule.
-var ANON_LIMIT = 5;
+// 2026-07-02: anonymous preview tightened 5 -> 1 so real practice happens
+// on accounts with saved rounds, leaderboards, and style learning.
+var ANON_LIMIT = 1;
 var SIGNED_IN_LIMIT = 10;
 function getUsage() {try {return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10);} catch {return 0;}}
 function incUsage() {try {localStorage.setItem('debateos-anon-usage', String(getUsage() + 1));} catch {}}
@@ -3180,7 +3179,7 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   // the upgrade CTA instead of a generic failure. Pro tier (Infinity limit)
   // and BYOK (bring your own Anthropic key) both bypass this.
   if (!isPro() && !getStoredKey() && getUsage() >= getEffectiveLimit()) {
-    var err = new Error(isSignedIn() ? 'Free quota used. Upgrade to keep going.' : 'Free quota used. Sign in for 5 more.');
+    var err = new Error(isSignedIn() ? 'Free quota used. Upgrade to keep going.' : 'Guest preview used. Sign in to keep your rounds and style profile.');
     err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
     if (typeof window !== 'undefined') {
       try {window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: err.code } }));} catch (e) {}
@@ -5739,52 +5738,7 @@ function App() {
     return () => window.removeEventListener('debateos-quota-hit', handler);
   }, []);
 
-  // Brand-name poll (debateit / debatenow / debatable / debateai).
-  // Soul.md §10 (2026-05-25) committed to "DebateIt" and parked the DNS
-  // migration; this poll lets engaged signed-in users weigh in before
-  // pulling the DNS trigger. Fires once per user, six seconds after
-  // sign-in (so it doesn't slap them on load). localStorage gate
-  // prevents repeat surfacing across sessions.
-  var [brandPollOpen, setBrandPollOpen] = useState(false);
-  var [brandPollChoice, setBrandPollChoice] = useState(null); // local "you voted X" state
-  var [brandPollTally, setBrandPollTally] = useState(null);
-  var [brandPollSubmitting, setBrandPollSubmitting] = useState(false);
-  useEffect(() => {
-    if (!user) return; // signed-in only
-    try {
-      if (localStorage.getItem('debateos-brand-poll-v1') === 'done') return;
-    } catch {}
-    var id = setTimeout(() => setBrandPollOpen(true), 6000);
-    return () => clearTimeout(id);
-  }, [user]);
-  function dismissBrandPoll() {
-    setBrandPollOpen(false);
-    try {localStorage.setItem('debateos-brand-poll-v1', 'done');} catch {}
-  }
-  async function submitBrandPollVote(choice) {
-    if (!user || brandPollSubmitting) return;
-    setBrandPollSubmitting(true);
-    try {
-      var token = await user.getIdToken();
-      var res = await fetch('/api/poll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ choice: choice })
-      });
-      if (!res.ok) throw new Error('vote failed');
-      var data = await res.json();
-      setBrandPollChoice(data.yourChoice || choice);
-      setBrandPollTally(data.tally || null);
-      try {localStorage.setItem('debateos-brand-poll-v1', 'done');} catch {}
-      try {
-        if (typeof gtag === 'function') gtag('event', 'brand_poll_vote', { choice: choice });
-      } catch {}
-    } catch (e) {
-      console.warn('brand poll vote failed', e);
-    } finally {
-      setBrandPollSubmitting(false);
-    }
-  }
+	  // Retired naming prompt removed 2026-07-02. Brand is DebateIt.
   // Force-rerender when usage changes so "X left" badges stay fresh.
   var [, forceUsageTick] = useState(0);
   useEffect(() => {
@@ -7759,12 +7713,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { style: { fontSize: '.86rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 20 } },
   quotaCTA === 'signin' ?
   "Anonymous, every session starts the AI from zero. Signed in, it builds a style profile from your real rounds and reuses it. Used only to log you in. I never email you." :
-  "debateai.com is in beta. Every tier is free right now. The future pricing tiers are on /pricing if you want to see what plans will look like later. Got opinions on price? Send them via feedback."
+	  "DebateIt is in beta. Every tier is free right now. The future pricing tiers are on /pricing if you want to see what plans will look like later."
   ),
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
   quotaCTA === 'signin' ?
   el('button', { onClick: () => {setQuotaCTA(null);try {signIn();} catch (e) {}}, style: { padding: '12px 24px', background: '#fff', color: '#1f1f1f', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(0,0,0,.35)' } }, 'Continue with Google →') :
-  el('a', { href: 'https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform', target: '_blank', rel: 'noopener', style: { padding: '12px 24px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block', boxShadow: '0 4px 16px rgba(239,68,68,.35)' } }, 'Send pricing feedback →')
+	  el('a', { href: '/app#team', style: { padding: '12px 24px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block', boxShadow: '0 4px 16px rgba(239,68,68,.35)' } }, 'Open workspace')
   ),
   // 2026-05-27 — soft alt: email capture so anon users hitting the cap
   // leave a trace even when they refuse the Google round-trip. Only on
@@ -7788,89 +7742,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   })
   ),
   el('div', { style: { display: 'flex', justifyContent: 'center', marginTop: 14 } },
-  el('button', { onClick: () => setQuotaCTA(null), style: { padding: '8px 18px', background: 'transparent', color: 'var(--c-muted)', border: 'none', fontSize: '.72rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3, opacity: .55 } }, 'no thanks, just browsing')
+	  el('button', { onClick: () => setQuotaCTA(null), style: { padding: '8px 18px', background: 'transparent', color: 'var(--c-muted)', border: 'none', fontSize: '.72rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3, opacity: .45 } }, 'keep previewing locally')
   )
   )
   );
 
-  // Brand-name poll overlay. Renders only when brandPollOpen is true.
-  // Two states: vote (radio-style choices + submit) and results (bar
-  // chart of current tally with "you picked X" highlight). Same visual
-  // language as the quota modal so it feels native.
-  var brandPollLabels = {
-    debateit: 'debateit',
-    debatenow: 'debatenow',
-    debatable: 'debatable',
-    debateai: 'debateai'
-  };
-  var brandPollVoted = !!brandPollChoice;
-  var brandPollKeys = ['debateit', 'debatenow', 'debatable', 'debateai'];
-  var brandPollTallyTotal = brandPollTally && brandPollTally.total || 0;
-  var brandPollOverlay = brandPollOpen && el('div', {
-    onClick: dismissBrandPoll,
-    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-    role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Brand-name poll'
-  },
-  el('div', {
-    onClick: (e) => e.stopPropagation(),
-    style: { maxWidth: 480, width: '100%', padding: '28px 28px 24px', background: 'var(--c-surface)', border: '1px solid rgba(239,68,68,.35)', borderRadius: 18, boxShadow: '0 20px 80px rgba(0,0,0,.6)' }
-  },
-  el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: '#fca5a5', marginBottom: 10, textAlign: 'center' } }, 'One quick ask'),
-  el('div', { style: { fontSize: '1.25rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.25, marginBottom: 8, textAlign: 'center' } },
-  brandPollVoted ? "Thanks. Here's where the vote stands." : 'Which name reads best?'
-  ),
-  el('div', { style: { fontSize: '.84rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 18, textAlign: 'center' } },
-  brandPollVoted ?
-  'You picked ' + brandPollLabels[brandPollChoice] + '. Live tally below.' :
-  "I'm picking the name this product ships under. You're an actual user. Vote once."
-  ),
-  // Choices: vote buttons (pre-vote) or results bars (post-vote).
-  brandPollVoted ?
-  el('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 } },
-  brandPollKeys.map((k) => {
-    var n = brandPollTally && brandPollTally[k] || 0;
-    var pct = brandPollTallyTotal ? Math.round(n / brandPollTallyTotal * 100) : 0;
-    var picked = brandPollChoice === k;
-    return el('div', { key: k, style: { display: 'grid', gridTemplateColumns: '110px 1fr 64px', gap: 10, alignItems: 'center', fontSize: '.82rem' } },
-    el('div', { style: { fontWeight: picked ? 800 : 600, color: picked ? '#ef4444' : 'var(--c-text)' } }, brandPollLabels[k]),
-    el('div', { style: { height: 12, background: 'rgba(255,255,255,.08)', borderRadius: 8, overflow: 'hidden' } },
-    el('div', { style: { height: '100%', width: Math.max(2, pct) + '%', background: picked ? '#ef4444' : 'rgba(239,68,68,.45)', transition: 'width .3s' } })
-    ),
-    el('div', { style: { textAlign: 'right', color: 'var(--c-muted)', fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '.74rem' } }, n + ' · ' + pct + '%')
-    );
-  })
-  ) :
-  el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 } },
-  brandPollKeys.map((k) => {
-    return el('button', {
-      key: k,
-      disabled: brandPollSubmitting,
-      onClick: () => submitBrandPollVote(k),
-      style: {
-        padding: '14px 12px',
-        background: 'rgba(239,68,68,.10)',
-        color: 'var(--c-bright)',
-        border: '1px solid rgba(239,68,68,.45)',
-        borderRadius: 12,
-        fontSize: '.95rem',
-        fontWeight: 800,
-        fontFamily: 'inherit',
-        cursor: brandPollSubmitting ? 'wait' : 'pointer',
-        transition: 'background .15s'
-      },
-      onMouseOver: (e) => {if (!brandPollSubmitting) e.currentTarget.style.background = 'rgba(239,68,68,.22)';},
-      onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(239,68,68,.10)';}
-    }, brandPollLabels[k]);
-  })
-  ),
-  el('div', { style: { display: 'flex', justifyContent: 'center', gap: 10 } },
-  el('button', {
-    onClick: dismissBrandPoll,
-    style: { padding: '10px 22px', background: 'transparent', color: 'var(--c-muted)', border: '1px solid var(--c-border2)', borderRadius: 999, fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
-  }, brandPollVoted ? 'Close' : "Don't ask again")
-  )
-  )
-  );
+	  var brandPollOverlay = null;
 
   // Keyboard shortcuts overlay, position:fixed so rendering it inside
   // any phase's tree lands it at the viewport root. Defined once here
@@ -10771,7 +10648,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     'Sign in once to put ' + b.speakerPoints.user + ' on the leaderboard and sync your record across devices.' :
     'Sign in to save this round, sync across devices, and let the AI learn your style for next time.'
     ),
-    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'Optional. Your round is already saved locally. Sign in only if you want it on the public board.')
+    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'Local saves disappear across devices. Google keeps ballots, leaderboard scores, and your style profile together.')
     ),
     el('button', {
       onClick: signIn,
@@ -11533,7 +11410,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   }
   @media print{ .fb-floating{display:none} }
 </style>
-<a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform" target="_blank" rel="noopener noreferrer" class="fb-floating" aria-label="Send feedback">
+<a href="mailto:feedback@debateai.com?subject=DebateIt%20feedback" class="fb-floating" aria-label="Send feedback">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
   Feedback
 </a>

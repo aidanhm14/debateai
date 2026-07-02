@@ -246,7 +246,7 @@
           "name": "Is DebateIt free?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Free in beta, with a daily usage cap so we don't burn through API credits: 3 rounds without an account, more once you sign in with Google. No card asked. Hit the cap and you wait for the reset; nothing is for sale yet. The post-beta plans live at debateai.com/pricing: Free stays $0 with 10 rounds (3 anonymous, more on sign-in), BYOK is $1/mo for unlimited Claude via your own Anthropic key, Individual is $10/year for 250 requests/mo, Lifetime is $14.99 once, Team is $50/year for 50 seats."
+            "text": "Free in beta, with a usage cap so we don't burn through API credits: 1 local preview without an account, then sign in with Google to save rounds and get 10 signed-in requests. No card asked. Hit the cap and you wait for the reset; nothing is for sale yet. The post-beta plans live at debateai.com/pricing: Free stays $0, BYOK is $1/mo for unlimited Claude via your own Anthropic key, Individual is $10/year for 250 requests/mo, Lifetime is $14.99 once, Team is $50/year for 50 seats."
           }
         },
         {
@@ -6280,7 +6280,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     function reallyOpen(){
       // Re-check auth in case they signed in during the wait.
       try {
-        if (window.firebase && firebase.auth && firebase.auth().currentUser) {
+        var current = window.firebase && firebase.auth && firebase.auth().currentUser;
+        if (current && !current.isAnonymous) {
           try { localStorage.setItem(KEY,'1'); } catch(e){}
           return;
         }
@@ -6291,7 +6292,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       try {
         if (window.firebase && firebase.auth) {
           firebase.auth().onAuthStateChanged(function(user){
-            decide(!!user);
+            decide(!!(user && !user.isAnonymous));
           });
           // Hard cap — if onAuthStateChanged never fires (rare), show anyway.
           setTimeout(function(){ decide(false); }, AUTH_WAIT_MAX);
@@ -6397,21 +6398,47 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      default and only the top of the Google Form was visible — looked
      like a white cutoff right after the "Sign in / Say Anything"
      question header. */
-  .fb-iframe-wrap iframe{
-    position:absolute;inset:0;
-    width:100%;height:100%;
-    border:0;display:block;
+  .fb-direct{
+    padding:22px;
+    min-height:260px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:18px;
+    background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));
   }
-  /* Fallback shown below the iframe so users who hit an embed
-     failure (translated form, slow load, blocked third-party
-     cookies) always have a path to leave feedback. */
-  .fb-fallback{
-    padding:10px 18px;border-top:1px solid var(--border);
-    font-size:.74rem;color:var(--text-dim);text-align:center;
+  .fb-direct p{
+    margin:0;
+    color:var(--text-dim);
+    font-size:.95rem;
+    line-height:1.6;
+    max-width:560px;
   }
-  .fb-fallback a{color:var(--accent);font-weight:600;text-decoration:none}
-  .fb-fallback a:hover{text-decoration:underline;text-underline-offset:3px}
-  [data-theme="light"] .fb-fallback{color:rgba(0,0,0,.6)}
+  .fb-direct-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .fb-direct-actions a{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:40px;
+    padding:0 15px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    color:var(--text);
+    background:var(--bg-card);
+    text-decoration:none;
+    font-weight:800;
+    font-size:.82rem;
+  }
+  .fb-direct-actions a:first-child{
+    border-color:transparent;
+    background:var(--accent);
+    color:#fff;
+  }
+  [data-theme="light"] .fb-direct p{color:rgba(0,0,0,.68)}
   .fb-foot{
     display:flex;justify-content:space-between;align-items:center;
     gap:14px;
@@ -6427,7 +6454,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       width:100%;height:100%;max-height:none;
       border-radius:0;border:none;
     }
-    .fb-iframe-wrap{min-height:0}
+    .fb-direct{min-height:0;padding:18px}
   }
   /* Floating Feedback pill. Always visible on landing. Bottom-right of
      the viewport, above the page TOC fade region. Opens the same modal
@@ -6465,24 +6492,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <span class="fb-title" id="fbTitle">Help shape what gets built next</span>
       <button type="button" class="fb-close" id="fbClose" aria-label="Close feedback">×</button>
     </div>
-    <div class="fb-iframe-wrap">
-      <!-- src is set on first open so we don't make a Google Forms
-           round-trip on every page load. hl=en forces the form's
-           Google chrome (the "sign in to save your progress"
-           notice, etc.) to render in English regardless of the
-           visitor's browser locale — without it, users with a
-           non-English Accept-Language header (~80% of our India
-           traffic in en-IN is fine, but es-* / pt-* / hi-IN
-           visitors got a Spanish/Portuguese/Hindi sign-in nag
-           that looked broken). -->
-      <iframe id="fbIframe" data-src="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform?embedded=true&hl=en&v=20260518b" title="DebateIt feedback form" loading="lazy"></iframe>
-    </div>
-    <div class="fb-fallback">
-      Form not loading? Email <a href="mailto:feedback@debateai.com?subject=Debate%20AI%20feedback">feedback@debateai.com</a> directly, or <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform?hl=en" target="_blank" rel="noopener">open the form in a new tab</a>.
+    <div class="fb-direct">
+      <p>Send what broke, what felt fake, or what you needed next. Real inbox, usually a reply within a day.</p>
+      <div class="fb-direct-actions">
+        <a href="mailto:feedback@debateai.com?subject=DebateIt%20feedback">Email feedback</a>
+        <a href="https://discord.gg/WMHZW9BKvJ" target="_blank" rel="noopener">Join Discord</a>
+      </div>
     </div>
     <div class="fb-foot">
       <span>Beta build. Every reply gets read.</span>
-      <a href="https://discord.gg/WMHZW9BKvJ" target="_blank" rel="noopener">Or join the Discord →</a>
+      <a href="https://discord.gg/WMHZW9BKvJ" target="_blank" rel="noopener">Or join the Discord -></a>
     </div>
   </div>
 </div>
@@ -6490,16 +6509,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   (function(){
     var modal = document.getElementById('feedbackModal');
     if (!modal) return;
-    var iframe = document.getElementById('fbIframe');
     var close = document.getElementById('fbClose');
     var backdrop = document.getElementById('fbBackdrop');
-    var loaded = false;
 
     function open(){
-      if (!loaded) {
-        iframe.src = iframe.getAttribute('data-src');
-        loaded = true;
-      }
       modal.hidden = false;
       modal.setAttribute('aria-hidden','false');
       requestAnimationFrame(function(){ modal.classList.add('is-open'); });
@@ -13131,8 +13144,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Is it actually free?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
         <div class="faq-stack-a">
-          <p>Free in beta. 3 rounds without an account, 10 signed in with Google. No card asked. Hit the cap, wait for the reset. Nothing's for sale yet.</p>
-          <p>The numbers on <a href="/pricing">/pricing</a> are the post-beta plan, sitting there in public so you know what's coming. Got a take on what they should actually be? <a href="https://docs.google.com/forms/d/e/1FAIpQLSc8qDUursCzl5SuEJMRL4brVPa-C_55UKb-7rIKSxgaJ9xxvw/viewform" target="_blank" rel="noopener">Tell us in the feedback form.</a> We read everything.</p>
+          <p>Free in beta. 1 local preview without an account, 10 signed in with Google. No card asked. Hit the cap, wait for the reset. Nothing's for sale yet.</p>
+          <p>The numbers on <a href="/pricing">/pricing</a> are the post-beta plan, sitting there in public so you know what's coming. For school or team access, email <a href="mailto:schools@debateai.com?subject=DebateIt%20team%20access">schools@debateai.com</a>.</p>
         </div>
       </details>
 
@@ -13174,7 +13187,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Do I need to sign up?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
         <div class="faq-stack-a">
-          <p>No, not for the first few rounds. Hit the anonymous cap, then sign in with Google to double it and switch on the style-learning loop. The AI starts remembering how you actually argue and biases the next opponent against your habits.</p>
+          <p>No, not for one local preview. After that, sign in with Google to save rounds, keep your ballots across devices, and switch on the style-learning loop. The AI starts remembering how you actually argue and biases the next opponent against your habits.</p>
           <p>Google only. No passwords, no magic links, no marketing list.</p>
         </div>
       </details>
@@ -13385,7 +13398,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
     <!-- After the FAQ, the natural next move for a still-curious visitor
          is "but I have my own question / thought." Send them straight to
-         the feedback form rather than emailing or hoping they find Discord. -->
+         the feedback button rather than emailing or hoping they find Discord. -->
     <div class="faq-feedback-tail">
       <span class="ffft-line">Have a question the FAQ didn't answer?</span>
       <a href="#" data-open-feedback="1" class="ffft-link">Send it in feedback <span aria-hidden="true">→</span></a>
@@ -13967,18 +13980,19 @@ window.addEventListener('load', function(){
   // hero ~1s after auth resolved (the "hero renders for a second then
   // vanishes" bug). Fixed 2026-06.
   auth.onAuthStateChanged(function(user){
-    renderUserChip(user);
+    var realUser = user && !user.isAnonymous ? user : null;
+    renderUserChip(realUser);
     // Same rule for the hero "Sign in with Google" button: signed-in
     // visitors don't need a sign-in CTA in the hero (it'd just loop them
     // back to /app#chat), so hide it and let the topbar user chip stand.
     var heroSignin = document.getElementById('heroGoogleSignup');
-    if (heroSignin) heroSignin.style.display = user ? 'none' : '';
+    if (heroSignin) heroSignin.style.display = realUser ? 'none' : '';
     // Body class drives the signed-in-tighten CSS block: pulls the
     // hero pill rail + "still building" / "76 debaters" notes closer
     // to the headline once the Google sign-up CTA disappears. Without
     // this the creed + (now-hidden) sign-in row + ctas leave a ~170px
     // empty band between the H1 and the pill rail.
-    try { document.body.classList.toggle('signed-in', !!user); } catch(e){}
+    try { document.body.classList.toggle('signed-in', !!realUser); } catch(e){}
   });
 
   // Shared sign-in action. reused by the main button AND the hero timer animation.
@@ -13993,7 +14007,7 @@ window.addEventListener('load', function(){
     // If already signed in, silently refresh auth and jump to the app. This
     // replaces the old "redirect to /" behavior that landed signed-in users on
     // what they perceived as the "College" page without any Google prompt.
-    if (auth.currentUser) {
+    if (auth.currentUser && !auth.currentUser.isAnonymous) {
       try { window.dosTrack && window.dosTrack('sign_in_already',{source:source||'landing_hero'}) } catch(e){}
       window.location.href = '/app#chat';
       return;
@@ -14090,47 +14104,31 @@ window.addEventListener('load', function(){
     });
     // If the user is already signed in, swap the hover caption to "Continue".
     auth.onAuthStateChanged(function(user){
-      if (user) {
+      if (user && !user.isAnonymous) {
         heroTimer.setAttribute('aria-label', 'Continue as ' + (user.displayName || user.email));
         heroTimer.style.setProperty('--timer-caption', '"Tap to continue \\2192"');
       }
     });
   }
 
-  // Sign-up nudge on /landing is now A/B-gated (2026-06-01). It was
-  // unconditionally cut 2026-05-20, but we're testing whether a
-  // community-framed nudge converts first-time visitors who'd otherwise
-  // bounce anonymous. The coin-flip + conditional module load lives in
-  // its own script block below (search "landing_nudge"); only the 'on'
-  // arm loads /js/signup-nudge.js. This IIFE no longer decides mounting.
+  // Sign-up nudge on /landing is always on. Anonymous sessions were
+  // crowding Firebase without leaving durable users, so the landing now
+  // consistently asks visitors to attach a real account.
 })();
 });
 </script>
 
-<!-- ── A/B: community sign-in nudge on /landing (2026-06-01) ──
-     Landing was nudge-free since 2026-05-20. Testing whether a community-
-     framed sign-in nudge converts first-time visitors who'd otherwise leave
-     anonymous (the "95% never sign in" problem) or whether it scares them
-     off. Sticky per-visitor coin-flip in localStorage; BOTH arms fire a
-     GA4 experiment_impression so the sign_up_start rate is comparable.
-     Only the 'on' arm loads the shared module, which picks up the
-     landing config entry (8s, community copy). -->
+<!-- Community sign-in nudge on /landing. -->
 <script>
 (function(){
   var KEY = 'debateos-exp-landing-nudge';
-  var arm = null;
-  try { arm = localStorage.getItem(KEY); } catch(e){}
-  if (arm !== 'on' && arm !== 'off') {
-    arm = (Math.random() < 0.5) ? 'on' : 'off';
-    try { localStorage.setItem(KEY, arm); } catch(e){}
-  }
+  var arm = 'on';
+  try { localStorage.setItem(KEY, arm); } catch(e){}
   try { if (window.gtag) gtag('event', 'experiment_impression', { exp: 'landing_nudge', arm: arm }); } catch(e){}
-  if (arm === 'on') {
-    var s = document.createElement('script');
-    s.defer = true;
-    s.src = '/js/signup-nudge.js';
-    document.head.appendChild(s);
-  }
+  var s = document.createElement('script');
+  s.defer = true;
+  s.src = '/js/signup-nudge.js';
+  document.head.appendChild(s);
 })();
 </script>
 
@@ -14662,27 +14660,46 @@ window.addEventListener('load', function(){
     });
   }
 
+  function isRealUser(u){
+    return !!(u && !u.isAnonymous);
+  }
+
   function authThen(cb){
-    if (!window.firebase || !firebase.auth){ cb(null); return; }
-    var u = firebase.auth().currentUser;
-    if (u){ cb(u); return; }
-    // Google-first: the room sees who's asking to join, and the visitor
-    // gets a real account instead of a throwaway anonymous one. Anonymous
-    // stays only as the fallback when the Google popup is blocked (in-app
-    // browsers / strict ITP), so the join never hard-dead-ends.
-    function anonFallback(){ firebase.auth().signInAnonymously().then(function(r){ cb(r.user); }).catch(function(){ cb(null); }); }
-    try {
-      var provider = new firebase.auth.GoogleAuthProvider();
-      firebase.auth().signInWithPopup(provider).then(function(r){ cb(r.user); }).catch(anonFallback);
-    } catch (e) { anonFallback(); }
+    if (!window.firebase || !firebase.auth){
+      card('<div class="lj-h">Sign-in did not load</div><div class="lj-p">Open the app, sign in with Google, then try the live room again.</div><button class="lj-btn lj-btn-ghost" id="ljX">Close</button>');
+      document.getElementById('ljX').addEventListener('click', closeModal);
+      return;
+    }
+    var auth = firebase.auth();
+    var u = auth.currentUser;
+    if (isRealUser(u)){ cb(u); return; }
+    card('<div class="lj-h">Sign in to join live</div><div class="lj-p">Live rooms need a real name and profile photo so the debater knows who is asking to enter.</div><button class="lj-btn lj-btn-go" id="ljGoogle">Continue with Google</button><button class="lj-btn lj-btn-ghost" id="ljX">Close</button>');
+    document.getElementById('ljX').addEventListener('click', closeModal);
+    document.getElementById('ljGoogle').addEventListener('click', function(){
+      var btn = document.getElementById('ljGoogle');
+      if (btn) { btn.disabled = true; btn.textContent = 'Opening Google...'; }
+      try {
+        var provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).then(function(r){
+          var signed = r && r.user ? r.user : auth.currentUser;
+          if (isRealUser(signed)) cb(signed);
+          else throw new Error('Google sign-in did not finish.');
+        }).catch(function(){
+          card('<div class="lj-h">Google did not finish</div><div class="lj-p">Try again from the app topbar. Anonymous guests cannot request live-room entry.</div><button class="lj-btn lj-btn-ghost" id="ljX">Close</button>');
+          document.getElementById('ljX').addEventListener('click', closeModal);
+        });
+      } catch (e) {
+        card('<div class="lj-h">Google did not open</div><div class="lj-p">Try again from the app topbar. Anonymous guests cannot request live-room entry.</div><button class="lj-btn lj-btn-ghost" id="ljX">Close</button>');
+        document.getElementById('ljX').addEventListener('click', closeModal);
+      }
+    });
   }
 
   function onJoinClick(){
     if (!liveRooms.length || !db) return;
     var room = liveRooms[0];
-    card('<div class="lj-h">Join a live debate</div><div class="lj-p">Asking a debater in the room to let you in. They have 20 seconds.</div><div class="lj-count" id="ljCountdown">20</div>' + (room.motion ? '<div class="lj-p" style="margin:0;font-size:.82rem">Motion: ' + esc(room.motion.slice(0,120)) + '</div>' : ''));
     authThen(function(u){
-      if (!u){ card('<div class="lj-h">Could not start a session</div><div class="lj-p">Try again in a moment.</div><button class="lj-btn lj-btn-ghost" id="ljX">Close</button>'); document.getElementById('ljX').addEventListener('click', closeModal); return; }
+      card('<div class="lj-h">Join a live debate</div><div class="lj-p">Asking a debater in the room to let you in. They have 20 seconds.</div><div class="lj-count" id="ljCountdown">20</div>' + (room.motion ? '<div class="lj-p" style="margin:0;font-size:.82rem">Motion: ' + esc(room.motion.slice(0,120)) + '</div>' : ''));
       sendRequest(room, u, null);
     });
   }

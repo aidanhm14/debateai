@@ -1275,9 +1275,6 @@ h1 em{color:var(--accent);font-style:normal}
     consentPending: 0,             // spar-pair said 'consent' but my doc snapshot hasn't landed yet
     lastConsentDoc: null,          // latest consent snapshot — POST-failure card recovery
     noticeUntil: 0,                // hold a queue-stats notice against tryMatch repaints
-    anonTried: false,              // one-shot guard on the guest anonymous sign-in
-    guestUpgradeTimer: null,       // deferred anon sign-in (only mint an account after a real dwell)
-    guestUpgrading: false,         // true while a guest is being upgraded — preserves the countdown
     watchPollInterval: null,       // "watch a live round" panel refresh
     roundNavPending: false,        // fallback guard once spar-pair succeeds
   };
@@ -1633,7 +1630,7 @@ h1 em{color:var(--accent);font-style:normal}
       var btn = document.getElementById('alertsEnableBtn');
       if (!cta || !btn) return;
       function refresh(){
-        var ok = state.user && !state.user.isAnonymous && typeof window.daSetLiveAlerts === 'function';
+        var ok = state.user && typeof window.daSetLiveAlerts === 'function';
         var alreadyOn = typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts();
         cta.hidden = !(ok && !alreadyOn);
       }
@@ -1738,11 +1735,8 @@ h1 em{color:var(--accent);font-style:normal}
     } catch(e){}
     try { gtag('event', 'spar_style_pick', { format: key }); } catch(e){}
     teardownQueue();
-    // Anon visitors (and any no-firebase load) run the queue-less
-    // searching UI — joinQueue() would early-return and leave a dead
-    // screen with no countdown. Route them back through the anon join.
     if (state.user && firebaseDb) joinQueue();
-    else joinQueueAnon();
+    else renderGate();
   }
 
   function wireSetupCard(){
@@ -2492,10 +2486,7 @@ h1 em{color:var(--accent);font-style:normal}
   function joinQueue(){
     if (!state.user || !firebaseDb) return;
     state.cancelled = false;
-    // A guest who dwelled and just got upgraded keeps their original
-    // search start so the countdown doesn't jump back to 0:00.
-    if (state.guestUpgrading && state.joinedAtMs){ state.guestUpgrading = false; }
-    else { state.joinedAtMs = Date.now(); }
+    state.joinedAtMs = Date.now();
     // Remember the chosen format for the background matcher —
     // js/notifications.js fmt() reads 'debateos-spar-format' and falls
     // back to 'apda' when it was never written.
@@ -2513,12 +2504,7 @@ h1 em{color:var(--accent);font-style:normal}
     var parts = fullName.split(/\s+/).filter(Boolean);
     var shortName = parts.length >= 2
       ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-      : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Anonymous'));
-    // Guests (anonymous auth) get a readable label instead of 'Anonymous'
-    // so their opponent sees a name on the consent card and in the round.
-    if (state.user.isAnonymous){
-      shortName = 'Guest ' + state.user.uid.slice(-4).toUpperCase();
-    }
+      : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Debater'));
     ref.set({
       uid: state.user.uid,
       displayName: shortName,
@@ -2532,7 +2518,7 @@ h1 em{color:var(--accent);font-style:normal}
       // Going live: ping debaters who opted into live-round alerts (Web Push,
       // even while they're in another app). Named accounts only; server
       // enforces a per-debater cooldown. Helper lives in js/notifications.js.
-      try { if (!state.user.isAnonymous && window.daBroadcastGoLive) window.daBroadcastGoLive(formatParam, 'spar'); } catch(e){}
+      try { if (window.daBroadcastGoLive) window.daBroadcastGoLive(formatParam, 'spar'); } catch(e){}
       subscribeMyDoc();
       startMatchPolling();
       startQueueHeartbeat();
@@ -3200,8 +3186,6 @@ h1 em{color:var(--accent);font-style:normal}
 
   function cancelQueue(){
     state.cancelled = true;
-    // Don't mint a guest account for someone who's leaving the queue.
-    if (state.guestUpgradeTimer){ clearTimeout(state.guestUpgradeTimer); state.guestUpgradeTimer = null; }
     // Cancel means OFF everywhere: clear the sitewide availability
     // flag joinQueue set, so the background matcher doesn't resurrect
     // the queue doc on the next page.
@@ -4347,10 +4331,10 @@ h1 em{color:var(--accent);font-style:normal}
 
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
-      state.user = user || null;
+      state.user = user && !user.isAnonymous ? user : null;
       renderWaitlistContent();
-      if (firebaseDb && user) startWaitlistFeed();
-      if (user){
+      if (firebaseDb && state.user) startWaitlistFeed();
+      if (state.user){
         startInboxFeed();
         // Deep link from a DM notification (topbar bell / toast / OS
         // notification → /spar?dm=<peerUid>). Open that thread instead
@@ -4361,7 +4345,7 @@ h1 em{color:var(--accent);font-style:normal}
         if (dmThread){
           renderInboxLanding();
           openGroupThread(dmThread);
-        } else if (dmPeer && dmPeer !== user.uid){
+        } else if (dmPeer && dmPeer !== state.user.uid){
           renderInboxLanding();
           openDmFromUid(dmPeer);
         } else {
@@ -4374,58 +4358,11 @@ h1 em{color:var(--accent);font-style:normal}
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // 2026-06-12: guests can REALLY play — an anonymous Firebase
-        // account gives them a uid + token so the queue / spar-pair /
-        // consent handshake all work. 2026-06-16: but minting that
-        // account on bare page load piled up throwaway accounts from
-        // drive-by visits (and local testing). So DON'T sign in on
-        // load. Show the queue-less searching UI immediately, and only
-        // mint the anonymous account (and join the REAL queue) once the
-        // guest has dwelled long enough to actually want a round. A
-        // returning guest whose anon account is still in IndexedDB skips
-        // all this — onAuthStateChanged fires with that user and goes
-        // straight to joinQueue, reusing the existing account.
-        joinQueueAnon();
-        scheduleGuestUpgrade();
+        renderGate();
       }
     });
   } else {
-    joinQueueAnon();
-  }
-
-  // Mint the guest's anonymous account only after they've stuck around
-  // on the searching screen this long — a real "I want a round" signal.
-  // Drive-by visits (and quick test loads) leave before this fires and
-  // never create an account. Tradeoff: first match for a brand-new guest
-  // is delayed by up to this much (they're not in the real queue yet).
-  var GUEST_UPGRADE_MS = 5000;
-  function scheduleGuestUpgrade(){
-    if (state.anonTried || state.guestUpgradeTimer || !firebaseAuth) return;
-    state.guestUpgradeTimer = setTimeout(function(){
-      state.guestUpgradeTimer = null;
-      // Bail if they cancelled, navigated to a DM, or already have a user.
-      if (state.cancelled || state.user || state.anonTried) return;
-      state.anonTried = true;
-      state.guestUpgrading = true; // joinQueue keeps the existing countdown
-      firebaseAuth.signInAnonymously().catch(function(err){
-        state.guestUpgrading = false;
-        // Stay in the queue-less searching UI we're already showing.
-        console.warn('[spar] anonymous sign-in failed, staying queue-less', err);
-      });
-      // On success, onAuthStateChanged re-fires with the anon user and
-      // the if(user) branch runs joinQueue() — now we're in the real queue.
-    }, GUEST_UPGRADE_MS);
-  }
-
-  function joinQueueAnon(){
-    state.cancelled = false;
-    state.joinedAtMs = Date.now();
-    // state.queueDocRef stays null — all the Firestore-write paths
-    // (cancelQueue / triggerAIFallback / startMatchPolling's tryMatch)
-    // already guard with `if (state.queueDocRef)`, so they no-op
-    // gracefully without state.user.
-    renderSearching();
-    try { gtag('event', 'spar_anon_join', { format: formatParam }); } catch(e){}
+    renderGate();
   }
 })();
 </script>
