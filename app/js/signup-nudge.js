@@ -20,9 +20,17 @@
         the host page already defines one; otherwise runs its
         own signInWithPopup against firebase.auth().
 
-   Dismissal is sticky for 14 days, not forever, so the next
-   round of returning visitors gets the prompt once. After they
-   sign up the nudge auto-unmounts via onAuthStateChanged.
+   Dismissal is "not now", not "never" (2026-07-02 re-nudge policy):
+   while the visitor keeps actively using the page, the nudge returns
+   after ~60s of real interaction with benefit-first copy explaining
+   why the email link matters (saved rounds + streaks, the AI learns
+   your style, 5 extra free rounds, DMs reach you). Caps: 3 shows per
+   session, 24h cooloff across visits, 14 days after three separate
+   dismissals. Signing in still auto-unmounts everything via
+   onAuthStateChanged, and pages that own their sign-in CTA stay
+   skipped. Other surfaces can route their own "Maybe later" into
+   this cadence via  window.dispatchEvent(new CustomEvent(
+   'debateit:maybe-later')).
    ────────────────────────────────────────────────────────────── */
 (function(){
   if (window.__debateaiSignupNudge) return;
@@ -30,9 +38,29 @@
 
   var DISMISS_KEY = 'debateos-signup-reminder-dismissed';
   var DISMISS_TS_KEY = 'debateos-signup-reminder-dismissed-at';
-  // 14 days. Long enough not to nag, short enough that the prompt
-  // comes back for users who haven't signed up after two weeks.
-  var DISMISS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+  var DISMISS_COUNT_KEY = 'debateos-signup-reminder-dismiss-count';
+  var SESSION_ATTEMPTS_KEY = 'debateos-nudge-session-attempts';
+  // Re-nudge policy (2026-07-02): a dismissal is "not now", not "never".
+  // While the visitor KEEPS ACTIVELY USING a tool page (real interactions,
+  // not idle time), the nudge comes back after ~60s of continued use with
+  // copy that explains WHY linking a Google email matters. Caps keep it
+  // firm instead of obnoxious: max 3 appearances per session; across
+  // visits the cooloff is 24h, stretching to 14 days once someone has
+  // dismissed it three separate times (they've heard us).
+  var DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
+  var DISMISS_TTL_LONG_MS = 14 * 24 * 60 * 60 * 1000;
+  var REMIND_ACTIVE_SECONDS = 60;   // active-use seconds before a re-nudge
+  var MAX_ATTEMPTS_PER_SESSION = 3; // initial + two reminders
+
+  // Benefit-first copy for reminders. The first pass is contextual per
+  // page (pageConfig); reminders answer the visitor's actual question,
+  // "why does signing in matter," with concrete things tied to their
+  // email: work that persists, an AI that learns them, rounds on the
+  // house, DMs that reach them. Honest, no invented urgency.
+  var REMIND_MSGS = [
+    '<strong>Why sign in?</strong> Your rounds, ballots, and streaks save to your Google email and follow you on any device. The AI learns how you argue from what you save, and sign-in adds 5 free rounds.',
+    '<strong>Still one tap.</strong> Without an email link your work vanishes when this tab closes. With it: saved history, a style profile the AI trains on, DMs from sparring partners, a real leaderboard rank.'
+  ];
 
   // Per-path config. First match wins. Generic fallback at the end.
   // Delay is biased longer on tool pages because the user is mid-
@@ -86,12 +114,29 @@
     return pageConfig[pageConfig.length - 1];
   }
 
+  function dismissCount(){
+    try { return parseInt(localStorage.getItem(DISMISS_COUNT_KEY), 10) || 0; } catch (e) { return 0; }
+  }
+
+  function sessionAttempts(){
+    try { return parseInt(sessionStorage.getItem(SESSION_ATTEMPTS_KEY), 10) || 0; } catch (e) { return 0; }
+  }
+
+  function bumpSessionAttempts(){
+    try { sessionStorage.setItem(SESSION_ATTEMPTS_KEY, String(sessionAttempts() + 1)); } catch (e) {}
+  }
+
   function recentlyDismissed(){
     try {
       if (localStorage.getItem(DISMISS_KEY) !== '1') return false;
       var ts = parseInt(localStorage.getItem(DISMISS_TS_KEY), 10) || 0;
       if (!ts) return true; // legacy dismissal — respect it
-      return (Date.now() - ts) < DISMISS_TTL_MS;
+      // Same-session dismissals don't suppress the page-load arm: the
+      // activity-based reminder is the whole point. Cross-visit, honor
+      // a 24h cooloff (14d once they've said no three separate times).
+      if (sessionAttempts() > 0 && sessionAttempts() < MAX_ATTEMPTS_PER_SESSION) return false;
+      var ttl = dismissCount() >= 3 ? DISMISS_TTL_LONG_MS : DISMISS_TTL_MS;
+      return (Date.now() - ts) < ttl;
     } catch (e) { return false; }
   }
 
@@ -99,6 +144,7 @@
     try {
       localStorage.setItem(DISMISS_KEY, '1');
       localStorage.setItem(DISMISS_TS_KEY, String(Date.now()));
+      localStorage.setItem(DISMISS_COUNT_KEY, String(dismissCount() + 1));
     } catch (e) {}
   }
 
@@ -198,20 +244,21 @@
     catch (e) { return false; }
   }
 
-  function mount(){
+  function mount(attempt){
     if (bar) return;
+    attempt = attempt || 0;
     var cfg = getConfig();
     if (cfg.skip) return; // page owns its own sign-in CTA (e.g. /spar, /live)
     // A sign-in modal (onboarding / intro) is up — defer; the body class is
     // cleared on dismiss, then the nudge appears on its own.
-    if (document.body.classList.contains('signin-modal-open') || document.querySelector('.ob-modal.is-open')){ setTimeout(mount, 1500); return; }
+    if (document.body.classList.contains('signin-modal-open') || document.querySelector('.ob-modal.is-open')){ setTimeout(function(){ mount(attempt); }, 1500); return; }
     // One bottom sheet at a time on mobile: if the go-live card is already
     // showing, it owns the bottom. yield to it.
     if (document.querySelector('.da-golive')){ return; }
     // Don't stack on top of the first-visit intro modal (it's the same
     // ask, and the two collided at the bottom of the screen). Defer until
     // that modal is dismissed; the bar then appears on its own.
-    if (document.querySelector('.intro-modal.is-open')){ setTimeout(mount, 1500); return; }
+    if (document.querySelector('.intro-modal.is-open')){ setTimeout(function(){ mount(attempt); }, 1500); return; }
     // If a first-visit intro modal lives on this page but hasn't been
     // resolved yet, it's the SAME sign-in ask and is about to open after
     // the visitor scrolls. Skip the nudge entirely for this page-load so
@@ -219,15 +266,19 @@
     // (intro already seen) the nudge takes over as the recurring prompt.
     if (document.getElementById('introModal') && !introSeen()){ return; }
     injectStyle();
+    // Reminders swap the page-contextual line for the benefits pitch:
+    // the visitor already saw the ask, so answer "why bother" instead.
+    var msg = attempt > 0 ? REMIND_MSGS[Math.min(attempt - 1, REMIND_MSGS.length - 1)] : cfg.msg;
     bar = document.createElement('div');
     bar.className = 'signup-nudge';
     bar.setAttribute('role', 'dialog');
     bar.setAttribute('aria-label', 'Sign up to save your work');
     bar.innerHTML =
-      '<span class="su-line">' + cfg.msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
+      '<span class="su-line">' + msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
       '<button type="button" class="su-cta">' + googleSvg() + 'Continue with Google</button>' +
       '<button type="button" class="su-close" aria-label="Dismiss">×</button>';
     document.body.appendChild(bar);
+    bumpSessionAttempts();
     requestAnimationFrame(function(){
       bar.classList.add('is-in');
       // Measure after is-in is applied so the pill lift matches real height.
@@ -237,9 +288,13 @@
     bar.querySelector('.su-close').addEventListener('click', function(){
       markDismissed();
       unmount();
+      try {
+        if (window.gtag) gtag('event', 'signup_nudge_dismissed', { path: location.pathname, attempt: attempt });
+      } catch (e) {}
+      armReminder(attempt + 1);
     });
     try {
-      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: cfg.variant || 'standard', delay: cfg.delay });
+      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: attempt > 0 ? 'reminder' : (cfg.variant || 'standard'), delay: cfg.delay, attempt: attempt });
     } catch (e) {}
   }
 
@@ -251,6 +306,44 @@
     bar = null;
     syncFeedbackPill(); // restore the Feedback pill to its resting position
   }
+
+  // ── Active-use tracking for reminders ─────────────────────────────
+  // "Active" = real interactions (pointer, keys, scroll), sampled in 5s
+  // buckets, only while the tab is visible. Idle time in an open tab
+  // never triggers a reminder; a minute of genuine tool use does.
+  var _lastInteraction = 0;
+  var _activityBound = false;
+  function bindActivity(){
+    if (_activityBound) return;
+    _activityBound = true;
+    var poke = function(){ _lastInteraction = Date.now(); };
+    window.addEventListener('pointerdown', poke, { passive: true });
+    window.addEventListener('keydown', poke, { passive: true });
+    window.addEventListener('scroll', poke, { passive: true });
+  }
+
+  function armReminder(attempt){
+    if (sessionAttempts() >= MAX_ATTEMPTS_PER_SESSION) return;
+    bindActivity();
+    var activeSeconds = 0;
+    var timer = setInterval(function(){
+      try { if (firebase.auth().currentUser) { clearInterval(timer); return; } } catch (e) {}
+      if (document.hidden) return;
+      if (Date.now() - _lastInteraction < 5000) activeSeconds += 5;
+      if (activeSeconds >= REMIND_ACTIVE_SECONDS){
+        clearInterval(timer);
+        if (!bar) mount(attempt);
+      }
+    }, 5000);
+  }
+
+  // Any page surface with its own "Maybe later" button can hand its
+  // dismissal to the same reminder cadence:
+  //   window.dispatchEvent(new CustomEvent('debateit:maybe-later'))
+  window.addEventListener('debateit:maybe-later', function(){
+    markDismissed();
+    armReminder(Math.max(1, sessionAttempts()));
+  });
 
   function start(){
     if (recentlyDismissed()) return;
@@ -274,13 +367,21 @@
       }
     });
 
+    // Dismissed earlier this session (possibly on another page)?
+    // Skip the fresh intro delay and go straight to the active-use
+    // reminder cadence with benefits copy.
+    if (sessionAttempts() > 0){
+      armReminder(sessionAttempts());
+      return;
+    }
+
     setTimeout(function(){
       // Re-check just before mounting in case auth resolved during
       // the delay.
       try {
         if (firebase.auth().currentUser) return;
       } catch (e) { return; }
-      mount();
+      mount(0);
     }, delayMs);
   }
 
