@@ -11330,6 +11330,24 @@ function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
    Pitches Google sign-up around the style-memory perk, not around payments.
    ═══════════════════════════════════════════════════ */
 
+// Sign-in gate shown in place of secondary/pro tabs (Team, Analytics,
+// Saved Cases) when the visitor is anonymous. Non-blocking for the core
+// debate flow; opens the normal auth modal, which degrades gracefully if
+// Firebase can't load (Safari ITP / in-app browsers) rather than dead-ending.
+function SignInGate({ label, onSignIn }) {
+  return React.createElement('div', {
+    style: { maxWidth: 460, margin: '48px auto', padding: '34px 30px', textAlign: 'center', border: '1px solid var(--c-border, #e5e0d4)', borderRadius: 16, background: 'var(--c-surface, #fff)' }
+  },
+    React.createElement('svg', { width: 30, height: 30, viewBox: '0 0 24 24', fill: 'none', stroke: '#ef4444', strokeWidth: 2, style: { marginBottom: 12 } },
+      React.createElement('rect', { x: 5, y: 11, width: 14, height: 9, rx: 2 }),
+      React.createElement('path', { d: 'M8 11V7a4 4 0 0 1 8 0v4' })
+    ),
+    React.createElement('h3', { style: { margin: '0 0 8px', fontSize: '1.2rem', fontWeight: 700 } }, 'Sign in to use ' + label),
+    React.createElement('p', { style: { margin: '0 0 22px', color: 'var(--c-dim, #6b7280)', fontSize: '.92rem', lineHeight: 1.55 } }, label + ' keeps your rounds, ballots, and progress on your account. Free, and it takes five seconds with Google.'),
+    React.createElement('button', { onClick: onSignIn, style: { background: '#ef4444', color: '#fff', border: 'none', padding: '11px 22px', borderRadius: 999, fontWeight: 700, fontSize: '.9rem', cursor: 'pointer' } }, 'Sign in with Google')
+  );
+}
+
 function SignUpNudgeModal({ onSignIn, onDismiss }) {
   var el = React.createElement;
   var captureRef = useRef(null);
@@ -16203,7 +16221,7 @@ function App() {
   useEffect(() => {
     if (user) return; // already signed in. no nudge
     if (authLoading) return;
-    if (anonUsed < 2) return; // let them try first
+    if (anonUsed < 1) return; // nudge sign-in right after the first round
     try {
       var last = parseInt(localStorage.getItem('debateos-signup-nudge-at') || '0', 10);
       if (Date.now() - last < 24 * 60 * 60 * 1000) return; // 24h cooldown
@@ -16307,6 +16325,12 @@ function App() {
     className: 'tab-pane active ' + (tab === id ? tabTransition : ''),
     style: { width: '100%', display: tab === id ? 'block' : 'none' }
   }, component);
+
+  // Secondary/pro tabs require a real (non-anonymous) sign-in. Graceful:
+  // the gate just opens the auth modal (handles Firebase-not-loaded).
+  var gate = function (label, elm) {
+    return (user && !user.isAnonymous) ? elm : React.createElement(SignInGate, { label: label, onSignIn: function () { setShowAuth(true); } });
+  };
 
   return React.createElement(I18nContext.Provider, { value: { t, locale, setLocale } },
   React.createElement(React.Fragment, null,
@@ -16600,14 +16624,14 @@ function App() {
   tabPane('judge', React.createElement(Judge, { user: user, team: team, onNavigateTab: navigateTab })),
   tabPane('terms', React.createElement(VocabQuiz)),
   tabPane('newbies', React.createElement(Newbies)),
-  tabPane('shared', React.createElement(SharedCases, { user: user, team: team })),
-  tabPane('team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: (t) => {
+  tabPane('shared', gate('Saved Cases', React.createElement(SharedCases, { user: user, team: team }))),
+  tabPane('team', gate('Team', React.createElement(TeamDashboard, { user: user, team: team, teamLoading: teamLoading, onTeamCreated: (t) => {
       setTeam(t);
       // Post-team checkout resume: a NEEDS_TEAM bounce parked the plan in
       // postTeamPlan; the team now exists, so finish the purchase.
       if (postTeamPlan) {var p = postTeamPlan;setPostTeamPlan(null);resumeCheckout(p);}
-    }, userApiKey: userApiKey, setUserApiKey: setUserApiKey })),
-  tabPane('analytics', React.createElement(Analytics, { user: user, team: team })),
+    }, userApiKey: userApiKey, setUserApiKey: setUserApiKey }))),
+  tabPane('analytics', gate('Analytics', React.createElement(Analytics, { user: user, team: team }))),
   // 2026-05-18: tabPane('live', LiveDebates) removed. The in-app
   // Live Debates tab was dropped from TABS_OTHER on 2026-05-18 as
   // underused; this pane registration is the residual that the
