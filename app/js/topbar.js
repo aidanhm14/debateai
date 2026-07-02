@@ -174,15 +174,14 @@
     // The mission page is still reachable directly at /scale + footer.
     { href: '/learn',         label: 'Learn'        },
     // 2026-07-02: Certificate + Schedule restored per Aidan ("add more
-    // back ... not too much"). Held Coaches/Messages/Leaderboard off so
-    // the bar does not overflow VOICE AI again at laptop widths.
+    // back ... not too much") — high-intent product pillars: proof you
+    // can earn, and the organized-round board when random live matching
+    // is quiet. Held Coaches/Messages/Leaderboard off so the bar does
+    // not overflow VOICE AI again at laptop widths. (Two parallel
+    // sessions both restored the pair, so the entries were briefly
+    // duplicated on the live bar — deduped same day.)
     { href: '/credentials',   label: 'Certificate' },
     { href: '/live',          label: 'Schedule'    },
-    // 2026-07-02: Certificate + Schedule restored after the declutter pass.
-    // They are high-intent product pillars: proof you can earn, and the
-    // organized-round board when random live matching is quiet.
-    { href: '/credentials',   label: 'Certificate'  },
-    { href: '/live',          label: 'Schedule'     },
     // FAQ stays off the bar; the landing carries it in-page.
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
