@@ -115,7 +115,8 @@ export async function getExcludedUids(db) {
           .limit(100)
           .get();
         snap.docs.forEach((d) => {
-          const uid = d.data().uid;
+          const data = d.data();
+          const uid = data.uid || data.userId;
           if (uid) set.add(uid);
         });
       } catch (err) {
