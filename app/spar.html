@@ -184,6 +184,11 @@ h1 em{color:var(--accent);font-style:normal}
 .globe-frame > .gdmap-host-inner,
 .globe-frame > div{width:100%;height:100%}
 .globe-frame svg.gdmap-svg{display:block;width:100%;height:100%}
+/* 2026-07-02 fix: the globe canvas had NO css size, so world-globe.js's
+   resize() (buffer = rect × dpr) fed the buffer size back into layout.
+   On dpr>1 screens that loop grew the canvas exponentially — the gate
+   rendered a screen-tall blank gap on every iPhone. Pin it to the frame. */
+.globe-frame canvas{display:block;width:100%;height:100%}
 
 /* Floating "Room forming · CityA ↔ CityB" pill — sits at the midpoint
    of each animated arc. Soft ivory body, thin warm border, gentle shadow.
@@ -589,7 +594,8 @@ h1 em{color:var(--accent);font-style:normal}
 .gate-google{
   display:inline-flex;align-items:center;justify-content:center;gap:10px;
   width:100%;padding:13px 22px;background:#fff;color:#1a1a1a;border-radius:12px;
-  font-weight:700;font-size:.9rem;cursor:pointer;border:none;font-family:inherit;
+  font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit;
+  border:1px solid rgba(0,0,0,.14);box-shadow:0 2px 10px rgba(0,0,0,.06);
   transition:transform .15s;margin-bottom:10px;
 }
 .gate-google:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.3)}
@@ -603,13 +609,18 @@ h1 em{color:var(--accent);font-style:normal}
   opacity:.6;transition:opacity .15s,color .15s;
 }
 .gate .ai-alt:hover{color:var(--text-dim);opacity:.85;background:transparent}
-/* 2026-05-27 — divider above the prospect-capture slot in the gate */
-.gate-divider{
-  display:flex;align-items:center;gap:8px;margin:14px 0 10px;
-  font-size:.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--text-dim);opacity:.65;
+/* 2026-07-02 — the "what you're missing" wall: session-style portraits
+   right above the Google CTA (the email prospect-capture form + its
+   'or' divider were removed the same day; Google is the only entry). */
+.gate-faces{display:flex;justify-content:center;gap:8px;margin:2px 0 6px}
+.gate-faces img{
+  width:74px;height:74px;object-fit:cover;border-radius:12px;
+  border:2px solid rgba(255,255,255,.85);
+  box-shadow:0 6px 18px rgba(0,0,0,.28);
 }
-.gate-divider::before,.gate-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.gate-faces img:nth-child(odd){transform:rotate(-2deg)}
+.gate-faces img:nth-child(even){transform:rotate(2deg)}
+.gate-faces-note{font-size:.62rem;color:var(--text-ghost);opacity:.75;margin:0 0 14px}
 
 .error{
   padding:12px 16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);
@@ -1415,37 +1426,26 @@ h1 em{color:var(--accent);font-style:normal}
         '</div></div>' +
         '<h2>Sign in to spar with another debater.</h2>' +
         '<p>You get matched with another debater for a live timed round, and an AI judge writes the verdict at the end. Sign-in keeps the queue free of bots and gives you a profile your opponent can see.</p>' +
+        '<div class="gate-faces" aria-hidden="true">' +
+          '<img src="/img/round/faces/face02.jpg" alt="" decoding="async" />' +
+          '<img src="/img/round/faces/face06.jpg" alt="" decoding="async" />' +
+          '<img src="/img/round/faces/face10.jpg" alt="" decoding="async" />' +
+          '<img src="/img/round/faces/face19.jpg" alt="" decoding="async" />' +
+        '</div>' +
+        '<div class="gate-faces-note">Portraits AI-generated to depict a live session.</div>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
           'Continue with Google' +
         '</button>' +
-        '<div class="gate-divider">or</div>' +
-        '<div id="sparCapture"></div>' +
-        '<div class="gate-disclaimer">We use your Google name + photo to label you to your opponent. Sign out anytime.</div>' +
+        '<div class="gate-disclaimer">Google account required. We use your Google name + photo to label you to your opponent. Sign out anytime.</div>' +
         '<a class="ai-alt" href="/debate-it">no thanks, just spar with the AI →</a>' +
         '<div id="gateError"></div>' +
       '</div>';
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     mountGlobe('sparGlobe');
-    // 2026-05-27 — mount prospect-capture once the JS module is loaded.
-    // Defer-loaded script may not be ready on first call; retry until
-    // window.load to cover the slowest path.
-    var captureSlot = document.getElementById('sparCapture');
-    function mountCapture(){
-      if (!captureSlot || captureSlot.dataset.mounted) return;
-      if (!window.ProspectCapture) return false;
-      window.ProspectCapture.mount(captureSlot, { source: 'spar-gate' });
-      captureSlot.dataset.mounted = '1';
-      return true;
-    }
-    if (!mountCapture()) {
-      setTimeout(mountCapture, 0);
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', mountCapture, { once: true });
-      } else {
-        window.addEventListener('load', mountCapture, { once: true });
-      }
-    }
+    // 2026-07-02 — the email/phone prospect-capture form was removed
+    // from the gate per Aidan: Google sign-in is the ONLY entry to
+    // human sparring. (prospect-capture.js still ships for other pages.)
     try { gtag('event', 'spar_gate_view', {}); } catch(e){}
   }
 
