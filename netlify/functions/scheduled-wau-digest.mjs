@@ -30,7 +30,7 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || 'Aidan @ DebateIt <hello@debateai.com>';
+const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>';
 const REPLY_TO       = process.env.WAU_DIGEST_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const SITE_URL       = process.env.SITE_URL || 'https://debateai.com';
 const MAX_EMAILS     = parseInt(process.env.WAU_DIGEST_MAX || '200', 10);

@@ -155,7 +155,7 @@ function renderIndex() {
 <h2 class="sec-h">Browse by state</h2>
 <div class="state-grid">${stateCards}</div>
 <div class="note">
-  <b>About this data.</b> Compiled from public Tabroom.com tournament records (program names, formats, and activity), geocoded and refreshed ${UPDATED}. It is a sample of the active circuit, not a full census; the real footprint is larger. School names and locations only; no personal contact information is published. Missing or misplaced program? <a href="mailto:contact@devilsadvocateteam.com">Tell us</a> and we will fix it.
+  <b>About this data.</b> Compiled from public Tabroom.com tournament records (program names, formats, and activity), geocoded and refreshed ${UPDATED}. It is a sample of the active circuit, not a full census; the real footprint is larger. School names and locations only; no personal contact information is published. Missing or misplaced program? <a href="mailto:aidandavidhollinger@gmail.com">Tell us</a> and we will fix it.
 </div>`;
 
   return shell({
@@ -205,7 +205,7 @@ function renderState(st) {
 <h2 class="sec-h">The programs</h2>
 <div class="plist">${rows}</div>
 <div class="note">
-  <b>About this list.</b> Public Tabroom.com tournament records, refreshed ${UPDATED}. A sample of the active circuit in ${esc(name)}, not a census. School and program names only; no personal information. Your program missing or misplaced? <a href="mailto:contact@devilsadvocateteam.com">Tell us</a>. Coaching in ${esc(name)}? Add yourself to the <a href="/coaches">coach directory</a>.
+  <b>About this list.</b> Public Tabroom.com tournament records, refreshed ${UPDATED}. A sample of the active circuit in ${esc(name)}, not a census. School and program names only; no personal information. Your program missing or misplaced? <a href="mailto:aidandavidhollinger@gmail.com">Tell us</a>. Coaching in ${esc(name)}? Add yourself to the <a href="/coaches">coach directory</a>.
 </div>`;
 
   return shell({

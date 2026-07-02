@@ -11,7 +11,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 // with sent:false so the client doesn't error out — local-dev /
 // preview environments shouldn't break the round-completion flow.
 
-const FROM_EMAIL = process.env.FIRST_ROUND_FROM || 'Aidan <hello@debateai.com>';
+const FROM_EMAIL = process.env.FIRST_ROUND_FROM || 'Aidan <aidandavidhollinger@gmail.com>';
 const REPLY_TO   = process.env.FIRST_ROUND_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
 

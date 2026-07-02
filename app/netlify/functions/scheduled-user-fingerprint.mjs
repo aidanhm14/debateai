@@ -27,7 +27,7 @@
 //   ANTHROPIC_API_KEY       — required
 //   GOOGLE_SERVICE_ACCOUNT  — for admin Firestore
 //   RESEND_API_KEY          — optional; missing = skip first-fingerprint emails
-//   FINGERPRINT_FROM        — email "from" header (default Aidan <hello@debateai.com>)
+//   FINGERPRINT_FROM        — email "from" header (default Aidan <aidandavidhollinger@gmail.com>)
 //   FINGERPRINT_MAX_USERS   — cap per nightly run (default 60)
 //   FINGERPRINT_MIN_ROUNDS  — min generations to fingerprint (default 3)
 //   FINGERPRINT_FRESH_DAYS  — re-run if fingerprint older than this (default 7)
@@ -74,7 +74,7 @@ function safeText(s) {
   return (s || '').replace(/\s+/g, ' ').trim().slice(0, MAX_SAMPLE_CHARS);
 }
 
-const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <hello@debateai.com>';
+const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <aidandavidhollinger@gmail.com>';
 const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
 

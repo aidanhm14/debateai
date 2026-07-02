@@ -21,7 +21,7 @@ import { sendToUserNative } from './native-push.mjs';
 export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ||
   'BAdwbZkEl8RmNE1BT01QtVdlCJCF9b6B4uiQTr4Jr_txO170WqePABtMaFbJztyI-VqAnMo8GHx-l_FUpy6M1NA';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:contact@devilsadvocateteam.com';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:aidandavidhollinger@gmail.com';
 
 export function pushConfigured() { return !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY); }
 

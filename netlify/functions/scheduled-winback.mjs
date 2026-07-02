@@ -27,7 +27,7 @@
  * Env:
  *   WINBACK_ENABLED   '1' to actually send; anything else => dry-run
  *   RESEND_API_KEY    required to send (absent => forced dry-run)
- *   WINBACK_FROM      sender (default 'Aidan @ DebateIt <hello@debateai.com>')
+ *   WINBACK_FROM      sender (default 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>')
  *   WINBACK_REPLY_TO  reply-to (default aidandavidhollinger@gmail.com)
  *   WINBACK_MAX       per-run cap (default 80)
  *   WINBACK_LAPSE_MIN_DAYS / _MAX_DAYS  window edges (default 7 / 28)
@@ -46,7 +46,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SEND_ENABLED   = process.env.WINBACK_ENABLED === '1';
-const FROM_EMAIL     = process.env.WINBACK_FROM || 'Aidan @ DebateIt <hello@debateai.com>';
+const FROM_EMAIL     = process.env.WINBACK_FROM || 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>';
 const REPLY_TO       = process.env.WINBACK_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const SITE_URL       = process.env.SITE_URL || 'https://debateai.com';
 const MAX_EMAILS     = parseInt(process.env.WINBACK_MAX || '80', 10);

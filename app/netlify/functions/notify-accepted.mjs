@@ -10,7 +10,7 @@
 //
 // Env vars (set in Netlify):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
-//   RESEND_FROM     — verified sender, e.g. "DebateIt <noreply@debateai.com>"
+//   RESEND_FROM     — verified sender, e.g. "DebateIt <aidandavidhollinger@gmail.com>"
 //                     (defaults to "DebateIt <onboarding@resend.dev>" for dev)
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
