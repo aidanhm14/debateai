@@ -29,6 +29,9 @@
     --line:#e4e7ec;
     --line-soft:#eef0f3;
     --line-strong:#d2d7df;
+    --chart-grid:rgba(17,21,28,.15);
+    --chart-grid-strong:rgba(17,21,28,.24);
+    --chart-track:#d9dee7;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
@@ -96,7 +99,7 @@
 
   /* chart */
   canvas{display:block;width:100%}
-  .chart-area{position:relative;height:170px}
+  .chart-area{position:relative;height:170px;border-radius:10px;background:linear-gradient(180deg,rgba(248,250,252,.72),rgba(255,255,255,0))}
   .chart-area canvas{position:absolute;inset:0;width:100%;height:100%}
 
   /* tables */
@@ -1209,6 +1212,9 @@ function fmtRel(ms){
   return Math.round(d/86_400_000) + 'd ago';
 }
 function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cssVar(name, fallback){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
 function initials(name){
   const parts = String(name||'').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '·';
@@ -1352,7 +1358,7 @@ function renderRealtime(rt){
   });
 
   // Hour spark — 60 1-min buckets
-  drawSpark($('chart-hour-spark'), rt.spark, '#22c55e', { fill: true });
+  drawSpark($('chart-hour-spark'), rt.spark, '#15803d', { fill: true });
   $('hour-spark-meta').textContent = rt.spark.reduce((a,b)=>a+b,0) + ' events in the last hour · ' + (cachedCohorts ? 'DAU ' + cachedCohorts.dau + ' · MAU ' + cachedCohorts.mau : '');
 }
 
@@ -1402,7 +1408,7 @@ function renderCohorts(c){
   $('cohort-body').innerHTML = `<div class="cohort">${html}</div>`;
 
   // Engagement engine card
-  drawSpark($('chart-dau'), (c.dauSpark || []).map(d => d.dau), '#14b8a6', { fill: true, area: true });
+  drawSpark($('chart-dau'), (c.dauSpark || []).map(d => d.dau), '#0f766e', { fill: true, area: true });
   const ratio = c.stickinessPct;
   $('dau-mau-meta').textContent = ratio != null ? (ratio + '% stickiness · daily ÷ monthly actives') : 'stickiness · daily ÷ monthly actives';
   $('engagement-metrics').innerHTML = `
@@ -1444,10 +1450,10 @@ function renderHeatmap(h){
   const fmTotal = fm.reduce((a,b)=>a+b.count,0);
   const bmTotal = bm.reduce((a,b)=>a+b.count,0);
   const fmHtml = fm.length
-    ? renderRing(fm, fmTotal, ['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899'])
+    ? renderRing(fm, fmTotal, ['#dc2626','#ea580c','#b45309','#15803d','#0f766e','#2563eb','#7c3aed','#db2777'])
     : '<div class="empty" style="margin:0">No round_start events yet.</div>';
   const bmHtml = bm.length
-    ? renderRing(bm, bmTotal, ['#8b5cf6','#ef4444','#3b82f6','#f97316','#14b8a6','#ec4899'])
+    ? renderRing(bm, bmTotal, ['#7c3aed','#dc2626','#2563eb','#ea580c','#0f766e','#db2777'])
     : '<div class="empty" style="margin:0">No brain telemetry yet.</div>';
 
   $('mix-body').innerHTML = `
@@ -1467,7 +1473,7 @@ function renderHeatmap(h){
   const devTotal = devList.reduce((a,b)=>a+b[1],0);
   const devRows = devList.map(([k,v]) => ({ key: k, count: v }));
   $('devices-body').innerHTML = devRows.length
-    ? renderRing(devRows, devTotal, ['#3b82f6','#8b5cf6','#22c55e'])
+    ? renderRing(devRows, devTotal, ['#2563eb','#7c3aed','#15803d'])
     : '<div class="empty">No session telemetry yet.</div>';
   $('devices-meta').textContent = fmt(devTotal) + ' sessions';
 
@@ -1476,7 +1482,7 @@ function renderHeatmap(h){
   const brTotal = brList.reduce((a,b)=>a+b[1],0);
   const brRows = brList.map(([k,v]) => ({ key: k, count: v }));
   $('browsers-body').innerHTML = brRows.length
-    ? renderRing(brRows, brTotal, ['#22c55e','#3b82f6','#f97316','#8b5cf6','#14b8a6','#ec4899','#94a3b8'])
+    ? renderRing(brRows, brTotal, ['#15803d','#2563eb','#ea580c','#7c3aed','#0f766e','#db2777','#64748b'])
     : '<div class="empty">No session telemetry yet.</div>';
   $('browsers-meta').textContent = fmt(brTotal) + ' sessions';
 
@@ -1490,12 +1496,13 @@ function renderHeatmap(h){
 function renderRing(items, total, palette){
   if (!total) return '<div class="empty" style="margin:0">No data.</div>';
   const svgSize = 140, r = 56, c = 2 * Math.PI * r;
+  const track = cssVar('--chart-track', '#d9dee7');
   let offset = 0;
   const segs = items.map((it, i) => {
     const frac = it.count / total;
     const dash = frac * c;
     const color = palette[i % palette.length];
-    const el = `<circle r="${r}" cx="${svgSize/2}" cy="${svgSize/2}" fill="none" stroke="${color}" stroke-width="20" stroke-dasharray="${dash} ${c}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${svgSize/2} ${svgSize/2})"></circle>`;
+    const el = `<circle r="${r}" cx="${svgSize/2}" cy="${svgSize/2}" fill="none" stroke="${color}" stroke-width="22" stroke-linecap="butt" stroke-dasharray="${dash} ${c}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${svgSize/2} ${svgSize/2})"></circle>`;
     offset += dash;
     return el;
   }).join('');
@@ -1509,10 +1516,10 @@ function renderRing(items, total, palette){
   return `
     <div class="ring">
       <svg viewBox="0 0 ${svgSize} ${svgSize}" style="width:100%;height:100%">
-        <circle r="${r}" cx="${svgSize/2}" cy="${svgSize/2}" fill="none" stroke="rgba(17,21,28,.08)" stroke-width="20"</circle>
+        <circle r="${r}" cx="${svgSize/2}" cy="${svgSize/2}" fill="none" stroke="${track}" stroke-width="22"></circle>
         ${segs}
-        <text x="${svgSize/2}" y="${svgSize/2 - 4}" text-anchor="middle" fill="#11151c" style="font:700 18px 'SF Pro Display',system-ui">${fmt(total)}</text>
-        <text x="${svgSize/2}" y="${svgSize/2 + 14}" text-anchor="middle" fill="#64748b" style="font:500 10px system-ui;letter-spacing:.08em;text-transform:uppercase">total</text>
+        <text x="${svgSize/2}" y="${svgSize/2 - 4}" text-anchor="middle" fill="#0f172a" style="font:700 18px 'SF Pro Display',system-ui">${fmt(total)}</text>
+        <text x="${svgSize/2}" y="${svgSize/2 + 14}" text-anchor="middle" fill="#475569" style="font:600 10px system-ui;letter-spacing:.08em;text-transform:uppercase">total</text>
       </svg>
     </div>
     <div class="ring-list">${list}</div>
@@ -2398,7 +2405,7 @@ function drawActivityChart(range){
   const labels = series.map(p => p.date || p.week || p.month || '');
   const total = values.reduce((a,b)=>a+b,0);
   $('chart-events-meta').textContent = fmt(total) + ' events across ' + series.length + ' ' + (range === 'daily' ? 'days' : range === 'weekly' ? 'weeks' : 'months');
-  drawLine($('chart-events'), values, labels, '#ef4444', { fill: true, area: true });
+  drawLine($('chart-events'), values, labels, '#dc2626', { fill: true, area: true });
 }
 function drawUsersChart(){
   if (!cachedAnalytics) return;
@@ -2406,7 +2413,7 @@ function drawUsersChart(){
   const values = series.map(p => p.newUsers || 0);
   const total = values.reduce((a,b)=>a+b,0);
   $('users-meta').textContent = total + ' new in 30d';
-  drawLine($('chart-users'), values, series.map(p => p.date), '#22c55e', { fill: true, area: true });
+  drawLine($('chart-users'), values, series.map(p => p.date), '#15803d', { fill: true, area: true });
 
   // User metrics strip (DAU/WAU/MAU from cohorts if present)
   const eg = cachedCohorts;
@@ -2450,7 +2457,7 @@ function drawSpark(canvas, values, color, opts){
     ctx.lineTo(0, h);
     ctx.closePath();
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, color + '55');
+    grad.addColorStop(0, color + '44');
     grad.addColorStop(1, color + '00');
     ctx.fillStyle = grad;
     ctx.fill();
@@ -2463,7 +2470,7 @@ function drawSpark(canvas, values, color, opts){
     else ctx.lineTo(x, y);
   });
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.8;
+  ctx.lineWidth = 2.4;
   ctx.stroke();
 }
 
@@ -2482,7 +2489,7 @@ function drawLine(canvas, values, labels, color, opts){
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, w, h);
   if (!values.length){
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#334155';
     ctx.font = '12px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText('no data', w/2, h/2);
@@ -2493,12 +2500,14 @@ function drawLine(canvas, values, labels, color, opts){
   const stepX = (w - padX * 2) / Math.max(1, values.length - 1);
 
   // grid
-  ctx.strokeStyle = 'rgba(17,21,28,.07)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = cssVar('--chart-grid', 'rgba(17,21,28,.15)');
+  ctx.lineWidth = 1.15;
   for (let g = 0; g < 4; g++){
     const y = padY + ((h - padY * 2) / 3) * g;
     ctx.beginPath(); ctx.moveTo(padX, y); ctx.lineTo(w - padX, y); ctx.stroke();
   }
+  ctx.strokeStyle = cssVar('--chart-grid-strong', 'rgba(17,21,28,.24)');
+  ctx.beginPath(); ctx.moveTo(padX, h - padY); ctx.lineTo(w - padX, h - padY); ctx.stroke();
 
   // area fill
   if (opts.fill || opts.area){
@@ -2512,7 +2521,7 @@ function drawLine(canvas, values, labels, color, opts){
     ctx.lineTo(padX, h - padY);
     ctx.closePath();
     const grad = ctx.createLinearGradient(0, padY, 0, h - padY);
-    grad.addColorStop(0, color + '55');
+    grad.addColorStop(0, color + '44');
     grad.addColorStop(1, color + '00');
     ctx.fillStyle = grad;
     ctx.fill();
@@ -2526,8 +2535,11 @@ function drawLine(canvas, values, labels, color, opts){
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = color + '33';
+  ctx.shadowBlur = 4;
   ctx.stroke();
+  ctx.shadowBlur = 0;
 
   // peak dot
   const peakIdx = values.indexOf(max);
@@ -2539,8 +2551,8 @@ function drawLine(canvas, values, labels, color, opts){
     ctx.fillStyle = color;
     ctx.fill();
     if (i === peakIdx){
-      ctx.fillStyle = '#11151c';
-      ctx.font = '10px system-ui';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '600 10px system-ui';
       ctx.textAlign = 'right';
       ctx.fillText(fmt(values[i]), w - 4, padY + 10);
     }
@@ -2553,8 +2565,8 @@ window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     if (cachedAnalytics){ drawActivityChart(currentRange); drawUsersChart(); }
-    if (cachedRealtime) drawSpark($('chart-hour-spark'), cachedRealtime.spark, '#22c55e', { fill: true });
-    if (cachedCohorts) drawSpark($('chart-dau'), (cachedCohorts.dauSpark || []).map(d=>d.dau), '#14b8a6', { fill: true, area: true });
+    if (cachedRealtime) drawSpark($('chart-hour-spark'), cachedRealtime.spark, '#15803d', { fill: true });
+    if (cachedCohorts) drawSpark($('chart-dau'), (cachedCohorts.dauSpark || []).map(d=>d.dau), '#0f766e', { fill: true, area: true });
   }, 150);
 });
 </script>
