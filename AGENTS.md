@@ -301,12 +301,17 @@ These pairs duplicate intentionally; if you edit one, edit the other:
   that tempo. Don't ask permission to deploy; just use the worktree flow.
 - For long-running TTS / multi-file changes, prefer running in the Codex
   sandbox (`codex --workdir /tmp/...`) before applying.
-- **Current in-flight work (2026-06-25):** "The Floor" play-money
-  prediction market at `/floor.html` (surfaced on the landing + topbar,
-  `noindex`). Server ledger = `app/firestore.rules` (`floor_*` collections)
-  + Netlify fns `floor-bet` / `floor-state` / `floor-resolve` /
-  `floor-seed`; the `/floor` PAGE is still a localStorage demo NOT yet
-  wired to those endpoints (open task). Money model: free-to-play
+- **The Floor (updated 2026-07-01):** play-money prediction market at
+  `/floor.html` (surfaced on the landing + topbar, `noindex`). Server
+  ledger = `app/firestore.rules` (`floor_*` collections) + Netlify fns
+  `floor-bet` / `floor-state` / `floor-resolve` / `floor-seed`. The page
+  IS wired to those endpoints (SERVER block in floor.html): board, balance
+  and bets ride `/api/floor/state` + `/api/floor/bet` when reachable, with
+  the localStorage demo engine as hard fallback. 2026-07-01 completed the
+  last gap: the Leaderboard tab renders the shared `floor_users` ledger
+  (names stamped at bet time by floor-bet), floor-state shared-caches the
+  anonymous payload (~15s TTL, poll = 1 read not ~33), and the client
+  polls every 30s skipping hidden tabs. Money model: free-to-play
   sweepstakes now, real-money downstream; one ledger, two-tier Play/Prize
   credits, minors never touch redeemable cash. Concept doc:
   `DEBATEIT_PREDICTION_MARKET.md`.

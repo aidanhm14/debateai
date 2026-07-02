@@ -20,9 +20,15 @@ export default async (request) => {
   if (!token) return errorResponse('Sign in to play The Floor.', 401, request);
 
   let uid;
+  let displayName = '';
+  let photo = '';
   try {
     const decoded = await verifyIdToken(token);
     uid = decoded.sub;
+    // Stamp identity onto the floor_users doc so the public leaderboard
+    // can show a name instead of a bare uid (floor-state reads it back).
+    displayName = String(decoded.name || (decoded.email ? decoded.email.split('@')[0] : '') || '').slice(0, 60);
+    photo = typeof decoded.picture === 'string' ? decoded.picture.slice(0, 300) : '';
   } catch (err) {
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
@@ -72,7 +78,7 @@ export default async (request) => {
       const newCredits = (u.credits || 0) - stake;
       const oddsAtBet = poolMult(market.pool, side);
 
-      tx.set(userRef, { ...u, uid, credits: newCredits, staked: (u.staked || 0) + stake, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      tx.set(userRef, { ...u, uid, name: displayName || u.name || '', photo: photo || u.photo || '', credits: newCredits, staked: (u.staked || 0) + stake, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
       tx.set(posRef, {
         uid,

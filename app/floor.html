@@ -1422,6 +1422,25 @@
       '<span>Heat <b>'+s.heat+'</b></span>'+
       '<span>Reliability <b>'+Math.round(s.reliability*100)+'%</b></span>';
 
+    // Server mode: the REAL cross-browser leaderboard from the shared
+    // ledger (floor_users, name/photo stamped at bet time by floor-bet).
+    // The bots exist for the offline demo only — they never outrank a
+    // real person on the live board.
+    if (SERVER.on && SERVER.leaderboard && SERVER.leaderboard.length){
+      var myUid = fbUser ? fbUser.uid : null;
+      $('sharpLb').innerHTML = SERVER.leaderboard.map(function(r, i){
+        var isMe = myUid && r.uid === myUid;
+        var nm = isMe ? 'You' : (r.name || ('Predictor ' + String(r.uid||'').slice(0, 4)));
+        var streak = (r.streak||0) >= 3 ? '<span class="title-tag gold">'+r.streak+' streak</span>' : '';
+        return '<div class="lb-row '+(isMe?'me':'')+'">'+
+          '<div class="lb-rank">'+(i+1)+'</div>'+
+          '<div><div class="lb-name">'+esc(nm)+streak+'</div>'+
+            '<div class="lb-sub">'+(r.wins||0)+' wins · '+(r.bets||0)+' calls</div></div>'+
+          '<div class="lb-score">'+fmtN(r.sharpScore||600)+'<span class="u">sharp</span></div></div>';
+      }).join('');
+      return;
+    }
+
     var meRow = { id:'me', nm:P.handle, title:(P.predictorProfile||titleFor(s)), tag:'', score:s.score, acc:s.acc, edge:s.roi, me:true };
     var rows = BOTS.concat([meRow]).sort(function(a,b){ return b.score-a.score; });
     $('sharpLb').innerHTML = rows.map(function(r, i){
@@ -1623,7 +1642,12 @@
   })();
   initFirebase();
   refreshServer();
-  setInterval(refreshServer, 10000);
+  // 2026-07-01: poll 10s → 30s and skip hidden tabs. Countdowns tick
+  // locally off absolute timestamps, so slower polls don't visibly lag;
+  // an abandoned tab was burning Firestore reads for nothing. Returning
+  // to the tab refreshes immediately.
+  setInterval(function(){ if(!document.hidden) refreshServer(); }, 30000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshServer(); });
 
 })();
 </script>
