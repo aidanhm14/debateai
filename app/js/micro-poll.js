@@ -50,16 +50,18 @@
   // answer expands the "tell us more" one-liner. Keep questions to ONE
   // per page; the goal is a single honest data point, not a survey.
   var POLLS = {
-    // Marketing / landing: acquisition intent. Tells us WHO is showing up.
+    // Marketing / landing: WHO is showing up. Identity beats occasion here —
+    // it reveals audience composition (competitors = the moat, coaches = the
+    // growth unit) instead of a low-signal "just browsing" catch-all.
     intent: {
-      q: 'Quick one. What brought you to DebateIt today?',
+      q: 'Which one sounds most like you?',
       options: [
-        { label: 'Prep for a tournament', value: 'tournament' },
-        { label: 'Just exploring', value: 'exploring' },
-        { label: 'Practice on my own', value: 'solo' }
+        { label: 'Competitive debater', value: 'competitor' },
+        { label: 'Coach or teacher', value: 'coach' },
+        { label: 'New to debate', value: 'newcomer' }
       ],
       other: 'Something else',
-      otherPrompt: 'What are you here for?'
+      otherPrompt: 'Then who are you?'
     },
     // Clarity check: does the page land? Cheap message-market read.
     clarity: {
