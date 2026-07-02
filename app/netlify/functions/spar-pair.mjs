@@ -110,6 +110,12 @@ setInterval(() => {
 // is the broader sweep cutoff (more permissive — those docs are
 // definitely abandoned).
 const STALE_PEER_MS = 3 * 60 * 1000;   // 3 min: well past the 60s AI fallback
+// Passed-proposal skips EXPIRE. A skip exists so a declined pair isn't
+// re-proposed in a loop, not to permanently blind two debaters to each
+// other; at ~10 DAU a permanent mutual skip deadlocks the whole queue
+// ("1 in queue" forever, no spawn). 5 min is long enough to not nag
+// within a sitting, short enough to self-heal.
+const SKIP_TTL_MS = 5 * 60 * 1000;
 const REAPER_MS     = 6 * 60 * 1000;   // 6 min: anything older is obviously dead
 const REAPER_THROTTLE_MS = 60 * 1000;  // run the sweep at most once a minute
 let lastReaperAt = 0;
@@ -130,6 +136,15 @@ function tsMs(t) {
   if (t.seconds != null) return t.seconds * 1000;
   return Date.now();
 }
+function skipActive(data, uid) {
+  const skips = Array.isArray(data?.skipUids) ? data.skipUids : [];
+  if (!skips.includes(uid)) return false;
+  const at = data?.skipAt && data.skipAt[uid];
+  const t = tsMs(at);
+  if (!t) return false;              // no stamp (legacy doc) = expired
+  return (Date.now() - t) <= SKIP_TTL_MS;
+}
+
 function joinedAtMs(data) {
   return data ? tsMs(data.joinedAt) : Date.now();
 }
@@ -294,7 +309,7 @@ export default async (request) => {
         // doc; pagehide fires for live navigations too). Free MYSELF
         // unilaterally — there is no proposal left to act on.
         if (!theirs || theirs.status !== 'consent' || theirs.matchedWith !== myUid) {
-          tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid) });
+          tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['skipAt.' + peerUid]: FieldValue.serverTimestamp() });
           return { ok: true, freed: true };
         }
         if (!accept) {
@@ -310,7 +325,7 @@ export default async (request) => {
           const proposalAge = Date.now() - tsMs(mine.proposedAt);
           const peerNeverActed = !(mine.consents && mine.consents[peerUid]);
           if (auto && peerNeverActed && proposalAge > GHOST_CONSENT_MS) {
-            tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid) });
+            tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['skipAt.' + peerUid]: FieldValue.serverTimestamp() });
             tx.update(peerRef, {
               status: 'cancelled',
               cancelledAt: FieldValue.serverTimestamp(),
@@ -321,10 +336,20 @@ export default async (request) => {
           // Mutual skip so polling doesn't re-propose the same pair in
           // a loop. lastPassBy on the PEER doc tells their client who
           // walked, for the "still searching" note.
-          tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid) });
+          // A timer-fired decline is nobody's decision. Reverting with a
+          // mutual skip used to deadlock the two real humans most likely
+          // to match ("1 in queue", green dot, no spawn, forever). Only a
+          // HUMAN pass earns a skip, and even that expires (SKIP_TTL_MS).
+          if (auto) {
+            tx.update(myRef, revert);
+            tx.update(peerRef, revert);
+            return { ok: true, declined: true, autoReverted: true };
+          }
+          tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['skipAt.' + peerUid]: FieldValue.serverTimestamp() });
           tx.update(peerRef, {
             ...revert,
             skipUids: FieldValue.arrayUnion(myUid),
+            ['skipAt.' + myUid]: FieldValue.serverTimestamp(),
             lastPassBy: shortName(mine),
             lastPassAt: FieldValue.serverTimestamp(),
           });
@@ -412,9 +437,7 @@ export default async (request) => {
       }
       // Mutual-skip defense: a passed proposal earlier in this queue
       // session means these two don't get re-proposed to each other.
-      const mySkips = Array.isArray(mine.skipUids) ? mine.skipUids : [];
-      const theirSkips = Array.isArray(theirs.skipUids) ? theirs.skipUids : [];
-      if (mySkips.includes(peerUid) || theirSkips.includes(myUid)) {
+      if (skipActive(mine, peerUid) || skipActive(theirs, myUid)) {
         return { ok: false, reason: 'skipped_peer' };
       }
 

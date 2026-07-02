@@ -1320,6 +1320,28 @@ h1 em{color:var(--accent);font-style:normal}
     });
   }
 
+  // Mirror of spar-pair.mjs skipActive(): a passed-proposal skip only
+  // counts while its skipAt stamp is fresh (5 min). Legacy docs with
+  // bare skipUids arrays and no stamp read as expired, so old ghosts
+  // can't deadlock the queue.
+  var SKIP_TTL_MS = 5 * 60 * 1000;
+  function docSkips(data, uid){
+    if (!data || !uid) return false;
+    var arr = Array.isArray(data.skipUids) ? data.skipUids : [];
+    if (arr.indexOf(uid) < 0) return false;
+    var at = data.skipAt && data.skipAt[uid];
+    var t = (at && typeof at.toMillis === 'function') ? at.toMillis()
+          : (at && at.seconds != null) ? at.seconds * 1000 : 0;
+    if (!t) return false;
+    return (Date.now() - t) <= SKIP_TTL_MS;
+  }
+  // My own runtime skip list (uid -> stampMs), replacing the
+  // unbounded state.skipUids array so local skips expire too.
+  function localSkipActive(uid){
+    var t = state.skipAtLocal && state.skipAtLocal[uid];
+    return !!t && (Date.now() - t) <= SKIP_TTL_MS;
+  }
+
   function escHtml(s){
     return String(s||'').replace(/[&<>"']/g, function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -2050,6 +2072,12 @@ h1 em{color:var(--accent);font-style:normal}
           snap.forEach(function(d){
             if (selfUid && d.id === selfUid) return;
             var v = d.data() || {};
+            // Skip-filter BOTH directions, same as tryMatch: a peer this
+            // client will never attempt (passed proposal, unexpired) must
+            // not show as spawnable. Counting them produced "1 in queue"
+            // with a live dot while nothing could ever spawn.
+            if (selfUid && localSkipActive(d.id)) return;
+            if (selfUid && docSkips(v, selfUid)) return;
             var j = v.joinedAt;
             var t = (j && typeof j.toMillis === 'function') ? j.toMillis()
                   : (j && j.seconds != null) ? j.seconds * 1000
@@ -2554,7 +2582,18 @@ h1 em{color:var(--accent);font-style:normal}
       var d = doc.data();
       // Mirror my mutual-skip list (declined consent proposals) so
       // tryMatch stops POSTing at peers the server will refuse anyway.
+      // Stamps ride along so local checks expire in step with the
+      // server's SKIP_TTL_MS; a bare legacy array reads as expired.
       state.skipUids = Array.isArray(d.skipUids) ? d.skipUids : [];
+      state.skipAtLocal = {};
+      if (d.skipAt){
+        Object.keys(d.skipAt).forEach(function(u){
+          var at = d.skipAt[u];
+          var t = (at && typeof at.toMillis === 'function') ? at.toMillis()
+                : (at && at.seconds != null) ? at.seconds * 1000 : 0;
+          if (t) state.skipAtLocal[u] = t;
+        });
+      }
       if (d.status === 'matched' && d.room && d.matchedWith){
         pingMatchFound(d.matchedWithName || '');
         teardownQueue();
@@ -2971,10 +3010,11 @@ h1 em{color:var(--accent);font-style:normal}
           if (seen[d.id]) return;
           // Mutual-skip filter (declined consent proposals): the server
           // would refuse the pair anyway; don't waste the POST or stall
-          // the poll loop on it.
-          if (state.skipUids && state.skipUids.indexOf(d.id) >= 0) return;
+          // the poll loop on it. Skips EXPIRE (SKIP_TTL_MS) so one passed
+          // proposal can't permanently blind two live debaters.
+          if (localSkipActive(d.id)) return;
           var dd = d.data();
-          if (Array.isArray(dd.skipUids) && dd.skipUids.indexOf(state.user.uid) >= 0) return;
+          if (docSkips(dd, state.user.uid)) return;
           seen[d.id] = true;
           others.push(d);
         });
