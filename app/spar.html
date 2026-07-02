@@ -664,6 +664,14 @@ h1 em{color:var(--accent);font-style:normal}
   background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.22);
   border-radius:14px;color:var(--text-dim);font-size:.8rem;line-height:1.45;text-align:left;
 }
+/* Held back ~4s after searching starts (see delayed insert in
+   renderSearching): guests see the round genuinely working before the
+   sign-up ask arrives. The base .guest-nudge is fully visible; the fade
+   is opt-in via --in and only applied when the tab is visible, so a
+   backgrounded tab (which pauses the animation) can never leave it stuck
+   invisible. */
+.guest-nudge--in{animation:guestNudgeIn .42s ease}
+@keyframes guestNudgeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 .guest-nudge strong{color:var(--text);font-weight:800}
 .guest-nudge button{
   flex:0 0 auto;border:1px solid rgba(239,68,68,.34);background:rgba(239,68,68,.12);
@@ -1475,6 +1483,30 @@ h1 em{color:var(--accent);font-style:normal}
     if (btn) btn.addEventListener('click', doGoogleSignIn);
   }
 
+  // Hold the guest sign-up ask back ~4s after the searching screen mounts.
+  // Requested 2026-07-02: lead with the round working (matchmaking runs on
+  // anonymous auth, no account needed), then invite sign-up. Cleared and
+  // re-armed on each renderSearching so a re-render never double-mounts.
+  var GUEST_NUDGE_DELAY_MS = 4000;
+  var guestNudgeTimer = null;
+  function delayedGuestNudge(){
+    if (guestNudgeTimer){ clearTimeout(guestNudgeTimer); guestNudgeTimer = null; }
+    var html = guestSignupNudgeHtml();
+    if (!html) return; // named user, or no user yet — nothing to show
+    guestNudgeTimer = setTimeout(function(){
+      guestNudgeTimer = null;
+      if (state.cancelled) return;
+      var slot = document.getElementById('guestNudgeSlot');
+      if (!slot || slot.firstChild) return; // gone or already filled
+      slot.innerHTML = guestSignupNudgeHtml();
+      // Fade in only when the tab is actually visible — a paused animation
+      // on a hidden tab must not leave the base (visible) nudge stuck.
+      var nudge = slot.firstElementChild;
+      if (nudge && !document.hidden) nudge.classList.add('guest-nudge--in');
+      bindGuestSignupNudge();
+    }, GUEST_NUDGE_DELAY_MS);
+  }
+
   // Render the live waitlist tile shown under the globe. `others` is an
   // array of Firestore docs for queued peers (excluding self). Format is
   // shown as a proposal, not a separate queue.
@@ -1655,7 +1687,12 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
       '<h1>Finding someone to <em>argue with.</em></h1>' +
       '<p class="lede">Matching you with another debater. Your format and judge notes are proposed round terms, not filters.</p>' +
-      guestSignupNudgeHtml() +
+      // Guest sign-up ask lands here, but ~4s after the searching screen
+      // mounts (delayedGuestNudge below) so a non-signed-in visitor first
+      // sees the round actually running — matchmaking works without an
+      // account (anonymous auth), and the delay makes that obvious instead
+      // of leading with "sign up."
+      '<div id="guestNudgeSlot"></div>' +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
       // across time zones," not "tracking targets." Self-contained
@@ -1834,7 +1871,7 @@ h1 em{color:var(--accent);font-style:normal}
     fetchMissedMatchCount();
     logSparAttempt();
     mountGlobalMap('globalDebateMap');
-    bindGuestSignupNudge();
+    delayedGuestNudge();
     wireSetupCard();
     mountWaitRail();
     mountWatchPanel();
