@@ -173,6 +173,11 @@
     // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
     // The mission page is still reachable directly at /scale + footer.
     { href: '/learn',         label: 'Learn'        },
+    // 2026-07-02: Certificate + Schedule restored per Aidan ("add more
+    // back ... not too much"). Held Coaches/Messages/Leaderboard off so
+    // the bar does not overflow VOICE AI again at laptop widths.
+    { href: '/credentials',   label: 'Certificate' },
+    { href: '/live',          label: 'Schedule'    },
     // 2026-07-02: Certificate + Schedule restored after the declutter pass.
     // They are high-intent product pillars: proof you can earn, and the
     // organized-round board when random live matching is quiet.
