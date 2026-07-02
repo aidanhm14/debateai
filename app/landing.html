@@ -14979,21 +14979,30 @@ window.addEventListener('load', function(){
 
 <script>
 (function(){
-  // Live-debates prompt. Self-contained, no deps. Pops once, 10s into
-  // the visit (suppression key persists in localStorage). Re-openable via
+  // Live-debates prompt. Self-contained, no deps. Re-openable via
   // window.daOpenLivePopup().
-  // New key (2026-06-16): the modal is now the live-debates prompt, not
-  // the new-to-debate chooser, so it pops once per browser on its own key
-  // even for visitors who dismissed the old onboarding.
+  // 2026-07-02 (sign-in push): was once-per-browser-ever; now it re-asks
+  // SIGNED-OUT visitors on every return visit with a 6h cooloff, and
+  // fires 5s in (was 10s). Signed-in visitors never see it. The KEY now
+  // stores a dismissal timestamp; the legacy '1' value from the
+  // once-ever era intentionally re-arms.
   var KEY = 'da-live-popup-shown';
+  var COOLOFF_MS = 6 * 60 * 60 * 1000;
   var modal = document.getElementById('obModal');
   if (!modal) return;
 
+  function isSignedIn(){
+    try { return document.body.classList.contains('signed-in'); } catch (e) { return false; }
+  }
+
   // Whether the auto-pop should fire on this page load.
-  // Suppressed if it has popped before, OR if the visitor deep-linked to
-  // a #section (came for something specific — don't interrupt).
+  // Suppressed inside the cooloff window, OR if the visitor deep-linked
+  // to a #section (came for something specific — don't interrupt).
   var autoOpenAllowed = true;
-  try { if (localStorage.getItem(KEY) === '1') autoOpenAllowed = false; } catch (e) {}
+  try {
+    var dismissedAt = parseInt(localStorage.getItem(KEY), 10);
+    if (!isNaN(dismissedAt) && (Date.now() - dismissedAt) < COOLOFF_MS) autoOpenAllowed = false;
+  } catch (e) {}
   if (location.hash && location.hash !== '#') autoOpenAllowed = false;
 
   function track(event, params){
@@ -15001,7 +15010,7 @@ window.addEventListener('load', function(){
   }
 
   function suppress(){
-    try { localStorage.setItem(KEY, '1'); } catch (e) {}
+    try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
   }
 
   function open(){
@@ -15063,10 +15072,12 @@ window.addEventListener('load', function(){
     try { if (window.gtag) gtag('event', 'live_popup_reopen', { source: source || 'unknown' }); } catch (e) {}
   };
 
-  // Pop the live-debates prompt 10 seconds into the visit. Once per
-  // browser (suppression key above); skipped on deep-links.
+  // Pop the live-debates prompt 5 seconds into the visit for signed-out
+  // visitors (auth state has settled by then, so the isSignedIn check at
+  // fire time is reliable). Re-asks every visit past the 6h cooloff;
+  // skipped on deep-links; never shown to signed-in users.
   if (autoOpenAllowed) {
-    setTimeout(function(){ if (!modal.classList.contains('is-open')) open(); }, 10000);
+    setTimeout(function(){ if (!isSignedIn() && !modal.classList.contains('is-open')) open(); }, 5000);
   }
 })();
 </script>
