@@ -369,14 +369,14 @@
       '.da-match-btn--accept:hover{filter:brightness(1.08)}' +
       '.da-match-btn--decline{background:transparent;border-color:var(--border,rgba(255,255,255,.16));color:var(--text-dim,#9aa)}' +
       '.da-match-btn--decline:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
-      '.da-golive{position:fixed;left:18px;bottom:18px;z-index:99990;width:330px;max-width:calc(100vw - 36px);background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#0a0a0c);border:1px solid rgba(34,197,94,.4);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:16px 16px 14px;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s}' +
+      '.da-golive{position:fixed;right:clamp(18px,3.6vw,72px);bottom:86px;z-index:99990;width:292px;max-width:calc(100vw - 36px);background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#0a0a0c);border:1px solid rgba(34,197,94,.36);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.36);padding:13px 13px 12px;opacity:0;transform:translateY(10px);transition:opacity .3s,transform .3s}' +
       '.da-golive.in{opacity:1;transform:none}' +
       // Stand down while a sign-in modal is open so mobile never stacks
       // modal + go-live card + signup-nudge at the same time.
       'body.signin-modal-open .da-golive{display:none!important}' +
-      '.da-golive__h{display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:800;color:var(--text,#fff);margin-bottom:5px}' +
-      '.da-golive__dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:daSparPulse 1.7s ease-out infinite}' +
-      '.da-golive__p{font-size:.8rem;line-height:1.45;color:var(--text-dim,#9aa);margin:0 0 12px}' +
+      '.da-golive__h{display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:800;color:var(--text,#fff);margin-bottom:5px}' +
+      '.da-golive__dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:daSparPulse 1.7s ease-out infinite}' +
+      '.da-golive__p{font-size:.74rem;line-height:1.38;color:var(--text-dim,#9aa);margin:0 0 10px}' +
       // Webcam preview strip — shows a cold visitor what a live round
       // actually looks like before they opt in. Real face-library shots
       // (face02 + face12) so the preview reads as two real debaters,
@@ -385,16 +385,16 @@
       // white-walled bedroom) on purpose — seat-you / seat-opp share a
       // shoot and read as AI-clone (see landing.html's SKIP/same-shoot
       // note for the same fix on the hero).
-      '.da-golive__camcap{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost,#888);margin:0 0 6px}' +
-      '.da-golive__cams{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 13px}' +
-      '.da-golive__cam{position:relative;aspect-ratio:1/1;border-radius:7px;overflow:hidden;background-color:#0f1117;background-size:cover;background-position:50% 30%}' +
+      '.da-golive__camcap{font-size:.54rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost,#888);margin:0 0 5px}' +
+      '.da-golive__cams{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:0 0 10px}' +
+      '.da-golive__cam{position:relative;aspect-ratio:4/3;border-radius:6px;overflow:hidden;background-color:#0f1117;background-size:cover;background-position:50% 30%}' +
       '.da-golive__cam::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.20),transparent 38%)}' +
-      '.da-golive__btns{display:flex;gap:8px}' +
-      '.da-golive__go{flex:1;height:38px;border-radius:10px;border:none;background:#22c55e;color:#06210f;font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer;transition:filter .15s}' +
+      '.da-golive__btns{display:flex;gap:7px}' +
+      '.da-golive__go{flex:1;height:34px;border-radius:9px;border:none;background:#22c55e;color:#06210f;font-family:inherit;font-size:.78rem;font-weight:800;cursor:pointer;transition:filter .15s}' +
       '.da-golive__go:hover{filter:brightness(1.08)}' +
-      '.da-golive__no{height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.16));background:transparent;color:var(--text-dim,#9aa);font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;transition:color .15s,border-color .15s}' +
+      '.da-golive__no{height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--border,rgba(255,255,255,.16));background:transparent;color:var(--text-dim,#9aa);font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;transition:color .15s,border-color .15s}' +
       '.da-golive__no:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
-      '@media(max-width:480px){.da-golive{left:12px;right:12px;bottom:12px;width:auto}}' +
+      '@media(max-width:760px){.da-golive{left:12px;right:12px;bottom:12px;width:auto;max-width:none}}' +
       '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-match-overlay,.da-match-card,.da-spar-pill.is-on .da-spar-pill__dot,.da-golive,.da-golive__dot{animation:none;transition:none}}';
     var style = document.createElement('style');
     style.id = 'da-bell-styles';
@@ -1417,7 +1417,7 @@
         el.setAttribute('aria-label', 'Be live for live debates');
         el.innerHTML =
           '<div class="da-golive__h"><span class="da-golive__dot" aria-hidden="true"></span>Be live for live debates?</div>' +
-          '<p class="da-golive__p">Stay matchable as a guest while you browse. We will ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
+          '<p class="da-golive__p">Stay matchable while you browse. We will ping you when a real opponent is ready.</p>' +
           '<div class="da-golive__camcap">What a live round looks like</div>' +
           '<div class="da-golive__cams" aria-hidden="true">' +
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face02.jpg)"></div>' +
