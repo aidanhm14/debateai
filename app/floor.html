@@ -259,6 +259,12 @@
   .fh-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
   .fh-watch{display:block;text-align:center;text-decoration:none;font-size:.78rem;font-weight:800;color:var(--dim);border:1px solid var(--border);border-radius:9px;padding:8px;transition:.13s;margin-top:auto}
   .fh-watch:hover{color:var(--text);border-color:var(--border2)}
+  .fh-aside{margin-top:12px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+  .fh-aside-t{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:8px}
+  .fh-aside-r{display:flex;justify-content:space-between;align-items:baseline;font-size:.82rem;margin-bottom:5px}
+  .fh-aside-r span{color:var(--dim)}
+  .fh-aside-r b{color:var(--text);font-variant-numeric:tabular-nums}
+  .fh-aside-n{font-size:.68rem;color:var(--ghost);line-height:1.4;margin-top:6px}
   @media (max-width:760px){ .fh-body{grid-template-columns:1fr} }
 
   /* ---- make-your-call drawer / bottom-sheet ---- */
@@ -1270,6 +1276,19 @@
   function fhAv(d){ if(d && d.face) return '<img class="fh-av" src="'+esc(d.face)+'" loading="lazy" decoding="async" alt="" />'; var ini=((d&&d.nm)||'?').replace(/^The\s+/i,'').charAt(0).toUpperCase(); return '<span class="fh-av fh-av--mono">'+esc(ini)+'</span>'; }
 
   // Featured live card — the main event, full width above the grid.
+  function fhAside(m,w){
+    if(!bettable(w) && !m.myBet){
+      return '<div class="fh-aside fh-aside--wait"><div class="fh-aside-t">Verdict incoming</div><div class="fh-aside-n">The AI judge is scoring the round on the format ballot. The crowd read is shown for comparison only.</div></div>';
+    }
+    if(m.myBet){
+      var mw = Math.round(m.myBet.stake * (m.myBet.mult||1));
+      return '<div class="fh-aside"><div class="fh-aside-t">If the judge agrees</div><div class="fh-aside-r"><span>'+esc(m[m.myBet.side].nm)+'</span><b>'+m.myBet.stake+' &rarr; '+mw+'</b></div><div class="fh-aside-n">Settles on the AI judge ballot. Play credits only.</div></div>';
+    }
+    return '<div class="fh-aside"><div class="fh-aside-t">If the AI judge agrees</div>'+
+      '<div class="fh-aside-r"><span>'+esc(m.A.nm)+'</span><b>100 &rarr; '+Math.round(100*mult(m,'A'))+'</b></div>'+
+      '<div class="fh-aside-r"><span>'+esc(m.B.nm)+'</span><b>100 &rarr; '+Math.round(100*mult(m,'B'))+'</b></div>'+
+      '<div class="fh-aside-n">Play credits. The forecast shifts as the crowd predicts.</div></div>';
+  }
   function featuredHTML(m){
     if(m.settled && m.result) return resolvedCardHTML(m);
     var w = windowOf(m), st = statusMeta(w, m);
@@ -1315,7 +1334,7 @@
             '<div class="fh-meta"><span>Crowd lean · '+fmtN(tot)+' credits in play</span><span class="countdown">'+esc(st.sub||'')+'</span></div>'+
           '</div>'+
         '</div>'+
-        '<div class="fh-call">'+callInner+
+        '<div class="fh-call">'+callInner+fhAside(m,w)+
           '<a class="fh-watch" href="/live.html">Watch live rounds →</a>'+
         '</div>'+
       '</div>'+
