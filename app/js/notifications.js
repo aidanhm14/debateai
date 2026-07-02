@@ -1000,14 +1000,42 @@
     function isRealUser(u) {
       return !!(u && !u.isAnonymous);
     }
+    function isQueueUser(u) {
+      return !!u;
+    }
     function shortNm(u) {
       if (!u) return 'You';
+      if (u.isAnonymous) return 'Guest ' + String(u.uid || '').slice(-4).toUpperCase();
       var full = (u.displayName || '').trim();
       var p = full.split(/\s+/).filter(Boolean);
       return p.length >= 2 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.'
            : (p[0] || (u.email ? u.email.split('@')[0] : 'You'));
     }
     function ts() { return window.firebase.firestore.FieldValue.serverTimestamp(); }
+    function ensureQueueUser(cb) {
+      whenFirebaseReady(function () {
+        var auth;
+        try { auth = window.firebase.auth(); } catch (e) {}
+        if (!auth) { if (window.openAuthModal) window.openAuthModal(); return; }
+        function use(u) {
+          if (u) {
+            myUid = u.uid;
+            myUser = u;
+            paintPill();
+          }
+          cb(u);
+        }
+        var u = auth.currentUser;
+        if (u) { use(u); return; }
+        if (!auth.signInAnonymously) { if (window.openAuthModal) window.openAuthModal(); return; }
+        auth.signInAnonymously()
+          .then(function (res) { use((res && res.user) || auth.currentUser); })
+          .catch(function () {
+            if (window.openAuthModal) window.openAuthModal();
+            else try { location.href = '/spar'; } catch (e) {}
+          });
+      });
+    }
 
     // ── pill ──
     function makePill() {
@@ -1052,12 +1080,7 @@
       if (on && !myUid) {
         available = false;
         try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
-        paintPill();
-        try { if (window.gtag) gtag('event', 'spar_bg_signin_required'); } catch (e) {}
-        try {
-          if (window.openAuthModal) window.openAuthModal();
-          else location.href = '/spar';
-        } catch (e) {}
+        ensureQueueUser(function () { setAvailable(true); });
         return;
       }
       available = !!on;
@@ -1346,25 +1369,21 @@
 
     // ── go-live opt-in prompt ("be live for live debates while you scroll?") ──
     // Low-friction, scroll-triggered invitation to become matchable.
-    // Real accounts only: anonymous auth was creating throwaway Firebase
-    // users without a durable way to notify or identify them.
+    // Guests use Firebase anonymous auth as a temporary queue identity;
+    // the topbar still nudges them toward a named Google account.
     function goLiveNow() {
       try { if (window.gtag) gtag('event', 'spar_golive_accept'); } catch (e) {}
       whenFirebaseReady(function () {
         var u = null;
         try { u = window.firebase.auth().currentUser; } catch (e) {}
-        if (isRealUser(u)) {
+        if (isQueueUser(u)) {
           setAvailable(true);
-          sparNote('You are live. We will ping you when a rival is ready.');
+          sparNote(u.isAnonymous ? 'You are live as a guest. Sign up later to keep a named profile.' : 'You are live. We will ping you when a rival is ready.');
         } else {
-          available = false;
-          try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
-          paintPill();
-          sparNote('Sign in to go live. We will ping you when a rival is ready.');
-          try {
-            if (window.openAuthModal) window.openAuthModal();
-            else location.href = '/spar';
-          } catch (e) {}
+          ensureQueueUser(function (guest) {
+            setAvailable(true);
+            sparNote(guest && guest.isAnonymous ? 'You are live as a guest. Sign up later to keep a named profile.' : 'You are live. We will ping you when a rival is ready.');
+          });
         }
       });
     }
@@ -1398,7 +1417,7 @@
         el.setAttribute('aria-label', 'Be live for live debates');
         el.innerHTML =
           '<div class="da-golive__h"><span class="da-golive__dot" aria-hidden="true"></span>Be live for live debates?</div>' +
-          '<p class="da-golive__p">Sign in to stay matchable while you browse. We will ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
+          '<p class="da-golive__p">Stay matchable as a guest while you browse. We will ping you the moment a real opponent is ready, with a 20 second heads-up to accept.</p>' +
           '<div class="da-golive__camcap">What a live round looks like</div>' +
           '<div class="da-golive__cams" aria-hidden="true">' +
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face02.jpg)"></div>' +
@@ -1407,7 +1426,7 @@
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face17.jpg)"></div>' +
           '</div>' +
           '<div class="da-golive__btns">' +
-            '<button type="button" class="da-golive__go">Sign in and go live</button>' +
+            '<button type="button" class="da-golive__go">Go live as guest</button>' +
             '<button type="button" class="da-golive__no">Not now</button>' +
           '</div>';
         document.body.appendChild(el);
@@ -1435,15 +1454,11 @@
     goLivePrompt();
     whenFirebaseReady(function () {
       window.firebase.auth().onAuthStateChanged(function (u) {
-        var realUser = isRealUser(u) ? u : null;
-        if (!realUser && available) {
-          available = false;
-          try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
-        }
-        myUid = realUser ? realUser.uid : null;
-        myUser = realUser;
+        var queueUser = isQueueUser(u) ? u : null;
+        myUid = queueUser ? queueUser.uid : null;
+        myUser = queueUser;
         paintPill();
-        if (realUser && available && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) goAvailable();
+        if (queueUser && available && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) goAvailable();
         else {
           stopTimers();
           if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
@@ -1452,9 +1467,9 @@
           // peer could match it and accept into an empty room (ghost match).
           // Keep the flag so availability resumes on the next eligible page.
           // On /spar we leave the doc to the page's own foreground flow.
-          if (realUser && available && (ON_ROUND || ON_PUBLIC)) {
+          if (queueUser && available && (ON_ROUND || ON_PUBLIC)) {
             ensureFirestore(function () {
-              try { window.firebase.firestore().collection('matchmaking_queue').doc(realUser.uid).delete().catch(function () {}); } catch (e) {}
+              try { window.firebase.firestore().collection('matchmaking_queue').doc(queueUser.uid).delete().catch(function () {}); } catch (e) {}
             });
           }
         }

@@ -582,15 +582,22 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .waitlist-empty strong{color:var(--text);font-weight:700}
 
-/* Sign-in gate. We REQUIRE auth for human-vs-human (anti-abuse) but
-   gate softly: explain why, offer Google sign-in, AND offer the AI
-   fallback as an alternative for users who don't want to sign in. */
+/* Guest recovery gate. Normal visitors are placed into anonymous Firebase
+   auth automatically; this only appears if that bootstrap fails or the user
+   explicitly chooses Google. */
 .gate{
   background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
   padding:32px 28px;max-width:440px;width:100%;text-align:center;
 }
 .gate h2{font-size:1.4rem;font-weight:900;letter-spacing:-.015em;margin-bottom:10px;color:var(--text)}
 .gate p{font-size:.92rem;color:var(--text-dim);line-height:1.55;margin-bottom:18px}
+.gate-guest{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:13px 22px;background:var(--accent);color:white;border-radius:12px;
+  font-weight:800;font-size:.9rem;cursor:pointer;border:none;font-family:inherit;
+  transition:transform .15s, background .15s, box-shadow .15s;margin-bottom:10px;
+}
+.gate-guest:hover{transform:translateY(-1px);background:#dc2626;box-shadow:0 10px 24px rgba(239,68,68,.22)}
 .gate-google{
   display:inline-flex;align-items:center;justify-content:center;gap:10px;
   width:100%;padding:13px 22px;background:#fff;color:#1a1a1a;border-radius:12px;
@@ -609,9 +616,23 @@ h1 em{color:var(--accent);font-style:normal}
   opacity:.6;transition:opacity .15s,color .15s;
 }
 .gate .ai-alt:hover{color:var(--text-dim);opacity:.85;background:transparent}
-/* 2026-07-02 — the "what you're missing" wall: session-style portraits
-   right above the Google CTA (the email prospect-capture form + its
-   'or' divider were removed the same day; Google is the only entry). */
+.guest-nudge{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  margin:18px auto 0;padding:12px 14px;max-width:520px;
+  background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.22);
+  border-radius:14px;color:var(--text-dim);font-size:.8rem;line-height:1.45;text-align:left;
+}
+.guest-nudge strong{color:var(--text);font-weight:800}
+.guest-nudge button{
+  flex:0 0 auto;border:1px solid rgba(239,68,68,.34);background:rgba(239,68,68,.12);
+  color:var(--accent);border-radius:999px;padding:8px 12px;
+  font-family:inherit;font-size:.74rem;font-weight:800;cursor:pointer;
+}
+.guest-nudge button:hover{background:rgba(239,68,68,.18)}
+@media(max-width:640px){
+  .guest-nudge{align-items:flex-start;flex-direction:column}
+}
+/* 2026-07-02 — session-style portraits near the signup CTA. */
 .gate-faces{display:flex;justify-content:center;gap:8px;margin:2px 0 6px}
 .gate-faces img{
   width:74px;height:74px;object-fit:cover;border-radius:12px;
@@ -1359,6 +1380,28 @@ h1 em{color:var(--accent);font-style:normal}
     });
   }
 
+  function isNamedUser(u){
+    return !!(u && !u.isAnonymous);
+  }
+
+  function guestName(u){
+    var tail = u && u.uid ? String(u.uid).slice(-4).toUpperCase() : '';
+    return 'Guest' + (tail ? ' ' + tail : '');
+  }
+
+  function guestSignupNudgeHtml(){
+    if (!state.user || !state.user.isAnonymous) return '';
+    return '<div class="guest-nudge">' +
+      '<div><strong>Guest mode.</strong> You can take the live round now. Sign up to keep a named profile, saved messages, and future invites.</div>' +
+      '<button type="button" id="guestSignUpBtn">Sign up</button>' +
+    '</div>';
+  }
+
+  function bindGuestSignupNudge(){
+    var btn = document.getElementById('guestSignUpBtn');
+    if (btn) btn.addEventListener('click', doGoogleSignIn);
+  }
+
   // Render the live waitlist tile shown under the globe. `others` is an
   // array of Firestore docs for queued peers (excluding self), `format`
   // is the current format string. Empty state has its own friendly
@@ -1410,13 +1453,10 @@ h1 em{color:var(--accent);font-style:normal}
       '</div>';
   }
 
-  // ── Render: signed-out gate ──────────────────────────
-  // Anti-abuse posture: human-vs-human REQUIRES sign-in. The AI side
-  // doesn't, and that's the alternative we surface explicitly so the
-  // user can choose AI without bouncing off a hard wall. The globe
-  // sits above the sign-in CTA so visitors immediately see the live
-  // network they're being asked to join (bigger pull than a static
-  // form). Same canvas + mountGlobe used in renderSearching().
+  // ── Render: guest-auth recovery gate ─────────────────
+  // Normal visitors are signed into Firebase anonymously and enter the
+  // live queue. This recovery surface only appears if anonymous auth
+  // fails to bootstrap, or when someone chooses Google explicitly.
   function renderGate(){
     shell.innerHTML =
       '<div class="gate">' +
@@ -1424,8 +1464,8 @@ h1 em{color:var(--accent);font-style:normal}
         '<div class="globe-wrap"><div class="globe-frame">' +
           '<canvas id="sparGlobe" aria-label="Live network of debaters"></canvas>' +
         '</div></div>' +
-        '<h2>Sign in to spar with another debater.</h2>' +
-        '<p>You get matched with another debater for a live timed round, and an AI judge writes the verdict at the end. Sign-in keeps the queue free of bots and gives you a profile your opponent can see.</p>' +
+        '<h2>Join the live queue.</h2>' +
+        '<p>You can start as a guest. Sign up when you want a named profile, saved messages, and invites that follow you.</p>' +
         '<div class="gate-faces" aria-hidden="true">' +
           '<img src="/img/round/faces/face02.jpg" alt="" decoding="async" />' +
           '<img src="/img/round/faces/face06.jpg" alt="" decoding="async" />' +
@@ -1433,29 +1473,53 @@ h1 em{color:var(--accent);font-style:normal}
           '<img src="/img/round/faces/face19.jpg" alt="" decoding="async" />' +
         '</div>' +
         '<div class="gate-faces-note">Portraits AI-generated to depict a live session.</div>' +
+        '<button class="gate-guest" id="guestStartBtn" type="button">Start as guest</button>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
-          'Continue with Google' +
+          'Sign up with Google' +
         '</button>' +
-        '<div class="gate-disclaimer">Google account required. We use your Google name + photo to label you to your opponent. Sign out anytime.</div>' +
-        '<a class="ai-alt" href="/debate-it">no thanks, just spar with the AI →</a>' +
+        '<div class="gate-disclaimer">Guest mode uses a temporary DebateIt ID. Google adds your name and photo for opponents and messages.</div>' +
+        '<a class="ai-alt" href="/debate-it">Spar with the AI instead →</a>' +
         '<div id="gateError"></div>' +
       '</div>';
+    document.getElementById('guestStartBtn').addEventListener('click', function(){
+      ensureGuestAuth().catch(function(){});
+    });
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     mountGlobe('sparGlobe');
-    // 2026-07-02 — the email/phone prospect-capture form was removed
-    // from the gate per Aidan: Google sign-in is the ONLY entry to
-    // human sparring. (prospect-capture.js still ships for other pages.)
     try { gtag('event', 'spar_gate_view', {}); } catch(e){}
   }
 
   function doGoogleSignIn(){
     if (!firebaseAuth){
-      document.getElementById('gateError').innerHTML = '<div class="error">Sign-in didn\'t load. Refresh the page or skip to the AI fallback.</div>';
+      var gateError = document.getElementById('gateError');
+      if (gateError) gateError.innerHTML = '<div class="error">Sign-in didn\'t load. Refresh the page or skip to the AI fallback.</div>';
       return;
     }
     var provider = new firebase.auth.GoogleAuthProvider();
-    firebaseAuth.signInWithPopup(provider).catch(function(err){
+    var current = firebaseAuth.currentUser;
+    var signInPromise;
+    if (current && current.isAnonymous && current.linkWithPopup){
+      signInPromise = current.linkWithPopup(provider).catch(function(err){
+        var code = err && err.code || '';
+        if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use'){
+          try {
+            if (state.queueDocRef) {
+              state.queueDocRef.update({
+                status: 'cancelled',
+                cancelReason: 'guest_upgrade',
+                cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
+              }).catch(function(){});
+            }
+          } catch(e){}
+          return firebaseAuth.signInWithPopup(provider);
+        }
+        throw err;
+      });
+    } else {
+      signInPromise = firebaseAuth.signInWithPopup(provider);
+    }
+    signInPromise.catch(function(err){
       try { if (window.gtag) gtag('event', 'sign_in_error', { code: (err && err.code) || 'unknown', message: ((err && err.message) || '').slice(0, 200), surface: 'spar', method: 'popup' }); } catch(_){}
       // Some in-app browsers (Instagram, TikTok) block popup OAuth.
       // Fall back to redirect, which most embedded browsers tolerate.
@@ -1466,6 +1530,29 @@ h1 em{color:var(--accent);font-style:normal}
         if (ge) ge.innerHTML = '<div class="error">Sign-in failed: ' + escHtml(err && err.message || 'unknown') + '</div>';
       }
     });
+  }
+
+  var guestAuthPromise = null;
+  function ensureGuestAuth(){
+    if (!firebaseAuth){
+      renderGate();
+      return Promise.reject(new Error('firebase-auth-unavailable'));
+    }
+    if (firebaseAuth.currentUser) return Promise.resolve(firebaseAuth.currentUser);
+    if (guestAuthPromise) return guestAuthPromise;
+    guestAuthPromise = firebaseAuth.signInAnonymously().then(function(cred){
+      guestAuthPromise = null;
+      try { if (window.gtag) gtag('event', 'spar_guest_start', { format: formatParam }); } catch(e){}
+      return (cred && cred.user) || firebaseAuth.currentUser;
+    }).catch(function(err){
+      guestAuthPromise = null;
+      console.warn('[spar] anonymous auth failed', err && err.message);
+      renderGate();
+      var ge = document.getElementById('gateError');
+      if (ge) ge.innerHTML = '<div class="error">Guest mode did not start. Try again, sign up with Google, or skip to AI.</div>';
+      throw err;
+    });
+    return guestAuthPromise;
   }
 
   // Phased status messages, tied to elapsed wait time. Replaces the
@@ -1496,6 +1583,7 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
       '<h1>Finding someone to <em>argue with.</em></h1>' +
       '<p class="lede">Matching you with another debater in your format. If the queue is quiet, prep with AI while you stay available.</p>' +
+      guestSignupNudgeHtml() +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
       // across time zones," not "tracking targets." Self-contained
@@ -1646,13 +1734,13 @@ h1 em{color:var(--accent);font-style:normal}
       // Round-alerts opt-in. Shows for signed-in (non-guest) users who haven't
       // already enabled live alerts; uses the helpers exposed by
       // js/notifications.js (daSetLiveAlerts requests push permission + saves
-      // the notify_prefs flag). Anonymous users can't be routed a push (no
-      // stable uid), so it stays hidden for them.
+      // the notify_prefs flag). Web Push stays a named-account feature, so
+      // this stays hidden for guest users.
       var cta = document.getElementById('alertsCta');
       var btn = document.getElementById('alertsEnableBtn');
       if (!cta || !btn) return;
       function refresh(){
-        var ok = state.user && typeof window.daSetLiveAlerts === 'function';
+        var ok = isNamedUser(state.user) && typeof window.daSetLiveAlerts === 'function';
         var alreadyOn = typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts();
         cta.hidden = !(ok && !alreadyOn);
       }
@@ -1673,6 +1761,7 @@ h1 em{color:var(--accent);font-style:normal}
     fetchMissedMatchCount();
     logSparAttempt();
     mountGlobalMap('globalDebateMap');
+    bindGuestSignupNudge();
     wireSetupCard();
     mountWaitRail();
     mountWatchPanel();
@@ -1758,7 +1847,7 @@ h1 em{color:var(--accent);font-style:normal}
     try { gtag('event', 'spar_style_pick', { format: key }); } catch(e){}
     teardownQueue();
     if (state.user && firebaseDb) joinQueue();
-    else renderGate();
+    else ensureGuestAuth().catch(function(){ renderGate(); });
   }
 
   function wireSetupCard(){
@@ -2528,15 +2617,12 @@ h1 em{color:var(--accent);font-style:normal}
     try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
     var ref = firebaseDb.collection('matchmaking_queue').doc(state.user.uid);
     state.queueDocRef = ref;
-    var fullName = (state.user.displayName || '').trim();
-    var parts = fullName.split(/\s+/).filter(Boolean);
-    var shortName = parts.length >= 2
-      ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-      : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Debater'));
+    var shortName = shortNameOf(state.user);
     ref.set({
       uid: state.user.uid,
       displayName: shortName,
       photoURL: state.user.photoURL || '',
+      anonymous: !!state.user.isAnonymous,
       format: formatParam,
       paradigm: state.paradigm || '',
       status: 'waiting',
@@ -2653,6 +2739,7 @@ h1 em{color:var(--accent);font-style:normal}
   }
   function shortNameOf(u){
     if (!u) return 'You';
+    if (u.isAnonymous) return guestName(u);
     var fullName = (u.displayName || '').trim();
     var parts = fullName.split(/\s+/).filter(Boolean);
     return parts.length >= 2
@@ -3414,8 +3501,9 @@ h1 em{color:var(--accent);font-style:normal}
     return null;
   }
 
-  // Renders just the action slot at the top of the rail. Three states:
-  //   signed-out  → sign-in nudge
+  // Renders just the action slot at the top of the rail. Four states:
+  //   signed-out  → guest bootstrap nudge
+  //   guest       → sign-up nudge for public posting
   //   on waitlist → "You're on the waitlist" + Leave
   //   available   → "Join the waitlist" button
   // Called both on auth change AND whenever the posts feed updates, so
@@ -3427,15 +3515,25 @@ h1 em{color:var(--accent);font-style:normal}
     if (!state.user){
       slot.innerHTML =
         '<div class="waitlist-rail__signin-overlay">' +
-          'Sign in to join the waitlist or DM other debaters.' +
-          '<br><button type="button" id="wlSignInLink">Sign in with Google →</button>' +
+          'Starting guest mode for live matchmaking.' +
+          '<br><button type="button" id="wlGuestLink">Try again →</button>' +
         '</div>';
-      var link = document.getElementById('wlSignInLink');
-      if (link) link.addEventListener('click', doGoogleSignIn);
+      var guestLink = document.getElementById('wlGuestLink');
+      if (guestLink) guestLink.addEventListener('click', function(){ ensureGuestAuth().catch(function(){}); });
       if (inboxBtn) inboxBtn.hidden = true;
       return;
     }
     if (inboxBtn) inboxBtn.hidden = false;
+    if (!isNamedUser(state.user)){
+      slot.innerHTML =
+        '<div class="waitlist-rail__signin-overlay">' +
+          'You can match live as a guest. Sign up to post an open invite with your name.' +
+          '<br><button type="button" id="wlSignInLink">Sign up with Google →</button>' +
+        '</div>';
+      var link = document.getElementById('wlSignInLink');
+      if (link) link.addEventListener('click', doGoogleSignIn);
+      return;
+    }
     var mine = myWaitlistPost();
     if (mine){
       slot.innerHTML =
@@ -3511,7 +3609,9 @@ h1 em{color:var(--accent);font-style:normal}
   // week" line reads sadder than silence).
   var wlWeekLooked = 0;
   function waitlistEmptyHtml(){
-    var join = state.user ? ' Be the first; join above.' : ' Sign in to join.';
+    var join = state.user
+      ? (isNamedUser(state.user) ? ' Be the first; join above.' : ' Sign up to post an invite, or keep searching as a guest.')
+      : ' Guest mode is starting.';
     var activity = (wlWeekLooked >= 3)
       ? '<div class="wl-rail-activity"><strong>' + wlWeekLooked + '</strong> debaters looked for a live round this week. Join the waitlist so the next one finds you.</div>'
       : '';
@@ -3591,7 +3691,7 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   function openPostComposer(){
-    if (!state.user){ doGoogleSignIn(); return; }
+    if (!isNamedUser(state.user)){ doGoogleSignIn(); return; }
     var preselect = formatParam;
     var optionsHtml = WL_FORMATS.map(function(f){
       return '<option value="' + escHtml(f.v) + '"' + (f.v === preselect ? ' selected' : '') + '>' + escHtml(f.label) + '</option>';
@@ -3620,7 +3720,7 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   function submitPost(){
-    if (!state.user || !firebaseDb) return;
+    if (!isNamedUser(state.user) || !firebaseDb) return;
     var noteEl = document.getElementById('wlComposerNote');
     var fmtEl = document.getElementById('wlComposerFormat');
     var errEl = document.getElementById('wlComposerError');
@@ -4371,7 +4471,11 @@ h1 em{color:var(--accent);font-style:normal}
 
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
-      state.user = user && !user.isAnonymous ? user : null;
+      if (!user){
+        ensureGuestAuth().catch(function(){});
+        return;
+      }
+      state.user = user;
       renderWaitlistContent();
       if (firebaseDb && state.user) startWaitlistFeed();
       if (state.user){
