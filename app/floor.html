@@ -29,8 +29,9 @@
     --border:rgba(255,255,255,.09); --border2:rgba(255,255,255,.15);
     --text:#f3f4f6; --dim:rgba(243,244,246,.66); --ghost:rgba(243,244,246,.42);
     --accent:#9ca3af; --accent2:#6b7280; --accentGlow:rgba(156,163,175,.14);
-    --up:#34d399; --upBg:rgba(52,211,153,.13); --down:#f87171; --downBg:rgba(248,113,113,.13);
+    --up:#2dd4bf; --upBg:rgba(45,212,191,.18); --down:#fb7185; --downBg:rgba(251,113,133,.16);
     --win:#34d399; --winBg:rgba(52,211,153,.12);
+    --chartGrid:rgba(243,244,246,.16);
     --gold:#a8a29e;
     --serif:'Crimson Pro','Fraunces',Georgia,'Times New Roman',serif;
     --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
@@ -111,8 +112,8 @@
   .motion.hidden{color:var(--ghost);font-style:normal}
   .motion b{color:var(--text);font-weight:600}
 
-  .poolbar{display:flex;height:6px;border-radius:6px;overflow:hidden;background:var(--card2);gap:2px}
-  .poolbar .a{background:var(--dim)} .poolbar .b{background:var(--border2)}
+  .poolbar{display:flex;height:7px;border-radius:7px;overflow:hidden;background:rgba(255,255,255,.08);gap:2px}
+  .poolbar .a{background:rgba(243,244,246,.82)} .poolbar .b{background:rgba(243,244,246,.28)}
   .poolrow{display:flex;justify-content:space-between;font-size:.68rem;color:var(--ghost);font-weight:700}
 
   /* ---- probability header + sparkline (Polymarket-style) ---- */
@@ -122,15 +123,19 @@
   .prob-who{font-size:.8rem;font-weight:800;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .prob-move{margin-left:auto;font-size:.74rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
   .prob-move.up{color:var(--up)} .prob-move.down{color:var(--down)} .prob-move.flat{color:var(--ghost)}
-  .spark{display:block;width:100%;height:48px;margin-top:3px;overflow:visible}
-  .spark-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+  .spark{display:block;width:100%;height:52px;margin-top:6px;overflow:visible;border-radius:9px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0))}
+  .spark-grid{fill:none;stroke:var(--chartGrid);stroke-width:1;vector-effect:non-scaling-stroke}
+  .spark-line{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
   .spark-line.up{stroke:var(--up)} .spark-line.down{stroke:var(--down)} .spark-line.flat{stroke:var(--accent)}
   .spark-area.up{fill:var(--up)} .spark-area.down{fill:var(--down)} .spark-area.flat{fill:var(--accent)}
   .spark-dot.up{fill:var(--up)} .spark-dot.down{fill:var(--down)} .spark-dot.flat{fill:var(--accent)}
+  .spark-line.up,.spark-dot.up{filter:drop-shadow(0 0 6px rgba(45,212,191,.34))}
+  .spark-line.down,.spark-dot.down{filter:drop-shadow(0 0 6px rgba(251,113,133,.28))}
+  .spark-dot{stroke:var(--card);stroke-width:2}
   .prob-cap{display:flex;justify-content:space-between;font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ghost)}
   /* featured-hero probability scale-up */
   .featured-hero .prob-pct{font-size:2.5rem}
-  .featured-hero .spark{height:62px}
+  .featured-hero .spark{height:68px}
 
   .stake-sel{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
   .stake-sel .lab{font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ghost);margin-right:2px}
@@ -245,8 +250,8 @@
   .fh-split .splitrow{display:flex;justify-content:space-between;font-size:.76rem;font-weight:800;margin-bottom:5px;gap:10px}
   .fh-split .splitrow span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .fh-split .splitrow .pa{color:var(--text)} .fh-split .splitrow .pb{color:var(--dim);text-align:right}
-  .fh-poolbar{display:flex;height:8px;border-radius:7px;overflow:hidden;background:var(--card2);gap:2px}
-  .fh-poolbar .a{background:var(--dim)} .fh-poolbar .b{background:var(--border2)}
+  .fh-poolbar{display:flex;height:9px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.08);gap:2px}
+  .fh-poolbar .a{background:rgba(243,244,246,.86)} .fh-poolbar .b{background:rgba(243,244,246,.30)}
   .fh-meta{display:flex;justify-content:space-between;gap:10px;font-size:.72rem;color:var(--ghost);font-weight:700;margin-top:7px}
   .fh-call{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:14px;display:flex;flex-direction:column}
   .fh-call .cl{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:10px}
@@ -1340,10 +1345,12 @@
     var dir = Math.abs(delta) < 0.005 ? 'flat' : (delta > 0 ? 'up' : 'down');
     var line = 'M' + pts.join(' L');
     var area = line + ' L'+X(n-1)+','+H+' L'+X(0)+','+H+' Z';
+    var grid = 'M'+pad+','+(H*.34).toFixed(1)+' H'+(W-pad)+' M'+pad+','+(H*.67).toFixed(1)+' H'+(W-pad);
     return '<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true">'+
-      '<path class="spark-area '+dir+'" d="'+area+'" opacity="0.12"/>'+
+      '<path class="spark-grid" d="'+grid+'"/>'+
+      '<path class="spark-area '+dir+'" d="'+area+'" opacity="0.22"/>'+
       '<path class="spark-line '+dir+'" d="'+line+'" vector-effect="non-scaling-stroke"/>'+
-      '<circle class="spark-dot '+dir+'" cx="'+X(n-1)+'" cy="'+Y(series[n-1])+'" r="3" vector-effect="non-scaling-stroke"/>'+
+      '<circle class="spark-dot '+dir+'" cx="'+X(n-1)+'" cy="'+Y(series[n-1])+'" r="4" vector-effect="non-scaling-stroke"/>'+
     '</svg>';
   }
   // probability header (hero %) + sparkline for the favored side
