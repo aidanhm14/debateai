@@ -14,6 +14,7 @@ export function getDb() {
   if (BAKED_PROJECT_ID && BAKED_CLIENT_EMAIL && BAKED_PRIVATE_KEY_B64) {
     const privateKey = Buffer.from(BAKED_PRIVATE_KEY_B64, 'base64').toString('utf-8');
     db = new Firestore({
+    preferRest: true, // REST transport: no gRPC channel setup, cuts Lambda cold-start by seconds
       projectId: BAKED_PROJECT_ID,
       credentials: { client_email: BAKED_CLIENT_EMAIL, private_key: privateKey },
     });
@@ -31,6 +32,7 @@ export function getDb() {
     // Netlify dashboard turns literal newlines into `\n` on save — normalize.
     const privateKey = rawKey.replace(/\\n/g, '\n');
     db = new Firestore({
+    preferRest: true, // REST transport: no gRPC channel setup, cuts Lambda cold-start by seconds
       projectId,
       credentials: { client_email: clientEmail, private_key: privateKey },
     });
@@ -56,6 +58,7 @@ export function getDb() {
   }
 
   db = new Firestore({
+    preferRest: true, // REST transport: no gRPC channel setup, cuts Lambda cold-start by seconds
     projectId: creds.project_id,
     credentials: {
       client_email: creds.client_email,
