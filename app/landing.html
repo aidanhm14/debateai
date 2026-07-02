@@ -602,6 +602,11 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- Flat 2D presence map behind the hero: REAL people seen on the site
+     in the last 30 min (city-level pins from /api/presence-live via the
+     anonymous track.js beat). Empty state = faint land dots only. -->
+<script defer src="/js/world-data.js?v=1"></script>
+<script defer src="/js/presence-map.js?v=1"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
@@ -6685,6 +6690,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <section class="hero">
   <div class="hero-bg"></div>
   <div class="hero-grain"></div>
+  <!-- Real live-presence layer: faint 2D world map, red pins = people
+       on DebateIt in the last 30 minutes (city-level). Sits between the
+       hero wash (z0) and the content (z2). Mounted by the inline script
+       after the hero; module lives in /js/presence-map.js. -->
+  <div class="hero-presence-map" id="heroPresenceMap" aria-hidden="true" style="position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.38"></div>
 
   <div class="hero-content">
 
@@ -7934,6 +7944,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 </button>
 </div>
 </section>
+
+<script>
+// Mount the live-presence map behind the hero. Retries until the
+// deferred /js/presence-map.js module lands; module handles fetch,
+// polling, resize, and the honest empty state on its own.
+(function mountHeroPresence(retries){
+  if (!window.PresenceMap) {
+    if (retries > 0) return setTimeout(function(){ mountHeroPresence(retries - 1); }, 100);
+    return;
+  }
+  var host = document.getElementById('heroPresenceMap');
+  if (host) window.PresenceMap.mount(host, { palette: 'auto' });
+})(60);
+</script>
 
 <!-- 2026-05-24: #proPanel ("Where pros use it") moved out of this
      slot (right after the hero) and down to just before the FAQ.

@@ -1166,8 +1166,16 @@ h1 em{color:var(--accent);font-style:normal}
      disc, faint grid + continents, red dots spawning at city points,
      curved arcs and "Room forming · A ↔ B" pills at arc midpoints. -->
 <script defer src="/js/global-debate-map.js?v=2"></script>
+<!-- Flat 2D presence map — REAL people seen on the site in the last
+     30 min (city-level, from /api/presence-live), drawn as a faint
+     full-page background band behind the matchmaking UI. Empty state
+     is quiet land dots only; a pin exists only if a real visitor
+     produced it. -->
+<script defer src="/js/presence-map.js?v=1"></script>
 
-<div class="wrap" style="padding-top:90px">
+<div id="presenceMapBg" aria-hidden="true" style="position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.42"></div>
+
+<div class="wrap" style="padding-top:90px;position:relative;z-index:1">
   <div class="shell" id="shell">
     <!-- Inserted by JS based on auth + queue state. -->
     <div class="eyebrow"><span class="pip"></span>Loading…</div>
@@ -2200,6 +2208,18 @@ h1 em{color:var(--accent);font-style:normal}
     if (!document.getElementById('globalDebateMap')) return;
     fetchPresenceLive();
   }, 120000);
+
+  // Flat 2D presence background (#presenceMapBg, fixed behind the UI).
+  // The module fetches, polls, resizes, and pulses on its own; empty
+  // state is just faint land dots, so there is nothing to fake.
+  (function mountPresenceBg(retries){
+    if (!window.PresenceMap) {
+      if (retries > 0) return setTimeout(function(){ mountPresenceBg(retries - 1); }, 80);
+      return;
+    }
+    var host = document.getElementById('presenceMapBg');
+    if (host) window.PresenceMap.mount(host, { palette: 'auto' });
+  })(50);
 
   // Legacy world-globe mount, kept for the SIGN-IN GATE only. That
   // surface is pre-auth social proof — showing the geographic spread
