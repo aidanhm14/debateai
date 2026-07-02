@@ -7,7 +7,8 @@
 // Runs every 5 minutes. Play credits only.
 // ─────────────────────────────────────────────────────────────
 import { getDb, FieldValue } from './lib/firestore.mjs';
-import { computeVerdict, sharpScore, defaultUser } from './lib/floor.mjs';
+import { deleteCachedShared } from './lib/admin-cache.mjs';
+import { FLOOR_ANON_CACHE_KEY, computeVerdict, sharpScore, defaultUser } from './lib/floor.mjs';
 
 const MAX_MARKETS_PER_RUN = 80;
 
@@ -55,6 +56,10 @@ export default async () => {
         await doc.ref.set({ positionsSettled: true, positionsSettledAt: FieldValue.serverTimestamp() }, { merge: true });
         stats.settledMarkets++;
       }
+    }
+
+    if (stats.claimed || stats.settledMarkets || stats.settledPositions) {
+      await deleteCachedShared(FLOOR_ANON_CACHE_KEY);
     }
 
     console.log('[floor-resolve]', JSON.stringify(stats));

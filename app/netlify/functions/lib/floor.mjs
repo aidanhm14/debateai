@@ -21,6 +21,8 @@ export const FLOOR = {
   MULT: { w1: 1.5, w2: 1.0, w3: 0.7 },
 };
 
+export const FLOOR_ANON_CACHE_KEY = 'floor:anon';
+
 export const PERSONAS = [
   { nm: 'The Firebrand', style: 'aggressive principle', r: 88 },
   { nm: 'The Surgeon', style: 'clean line-by-line', r: 91 },

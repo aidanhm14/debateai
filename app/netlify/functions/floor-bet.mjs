@@ -10,7 +10,8 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { FLOOR, windowOf, bettable, poolMult, defaultUser } from './lib/floor.mjs';
+import { deleteCachedShared } from './lib/admin-cache.mjs';
+import { FLOOR, FLOOR_ANON_CACHE_KEY, windowOf, bettable, poolMult, defaultUser } from './lib/floor.mjs';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -108,6 +109,7 @@ export default async (request) => {
       return { credits: newCredits, window: w, mult, side, stake, oddsAtBet };
     });
 
+    await deleteCachedShared(FLOOR_ANON_CACHE_KEY);
     return jsonResponse({ ok: true, ...result }, 200, request);
   } catch (err) {
     // expected validation errors are user-facing; unexpected ones are 500

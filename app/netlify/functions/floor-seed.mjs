@@ -5,7 +5,8 @@
 // with a server-anchored timeline. Play credits only.
 // ─────────────────────────────────────────────────────────────
 import { getDb } from './lib/firestore.mjs';
-import { FLOOR, makeMarketData } from './lib/floor.mjs';
+import { deleteCachedShared } from './lib/admin-cache.mjs';
+import { FLOOR, FLOOR_ANON_CACHE_KEY, makeMarketData } from './lib/floor.mjs';
 
 export default async () => {
   const stats = { aiActive: 0, featuredActive: 0, created: 0 };
@@ -38,6 +39,7 @@ export default async () => {
 
     if (toCreate > 0) await batch.commit();
     stats.created = toCreate;
+    if (stats.created) await deleteCachedShared(FLOOR_ANON_CACHE_KEY);
 
     console.log('[floor-seed]', JSON.stringify(stats));
     return new Response(JSON.stringify(stats), { status: 200, headers: { 'Content-Type': 'application/json' } });

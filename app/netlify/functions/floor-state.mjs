@@ -11,7 +11,7 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
-import { defaultUser } from './lib/floor.mjs';
+import { FLOOR_ANON_CACHE_KEY, defaultUser } from './lib/floor.mjs';
 
 const BOARD_LIMIT = 18;
 const LB_LIMIT = 15;
@@ -22,7 +22,6 @@ const RECENT_RESOLVED_MS = 60000; // also show markets resolved in the last minu
 // cache — a poll costs 1 cache read instead of ~33 collection reads.
 // Short TTL: pools/backers move on bets, so keep it near-live.
 const ANON_TTL_MS = 15_000;
-const ANON_CACHE_KEY = 'floor:anon';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -45,7 +44,7 @@ export default async (request) => {
 
   try {
     // Anonymous half (board + leaderboard): shared-cache first.
-    let anon = await getCachedShared(ANON_CACHE_KEY).catch(() => null);
+    let anon = await getCachedShared(FLOOR_ANON_CACHE_KEY).catch(() => null);
     if (!anon) {
       // board: active + very-recently-resolved (single-field inequality → auto-indexed)
       const boardSnap = await db
@@ -64,7 +63,7 @@ export default async (request) => {
       });
 
       anon = { markets, leaderboard };
-      await setCachedShared(ANON_CACHE_KEY, anon, ANON_TTL_MS).catch(() => {});
+      await setCachedShared(FLOOR_ANON_CACHE_KEY, anon, ANON_TTL_MS).catch(() => {});
     }
 
     let me = null;

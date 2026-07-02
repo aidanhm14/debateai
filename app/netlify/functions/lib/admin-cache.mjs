@@ -113,6 +113,19 @@ export async function setCachedShared(key, value, ttlMs) {
   }
 }
 
+// Explicit invalidation for endpoints with a cheap read cache but
+// user-visible write freshness requirements. Best effort: callers should
+// never fail a product action because deleting a cache doc failed.
+export async function deleteCachedShared(key) {
+  store.delete(key);
+  try {
+    await getDb().collection(SHARED_COLL).doc(sharedDocId(key)).delete();
+  } catch {
+    // Cache delete failed (quota / creds). The cached doc still expires on
+    // its normal TTL, so the caller can safely continue.
+  }
+}
+
 // Last-known-good read that IGNORES expiry. Used by the dashboard
 // endpoints to serve the previous payload when a fresh recompute throws
 // (e.g. Firestore RESOURCE_EXHAUSTED during a daily-quota blowout) so the
