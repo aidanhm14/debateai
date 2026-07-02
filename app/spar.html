@@ -155,8 +155,22 @@ h1 em{color:var(--accent);font-style:normal}
   position:relative;width:266px;max-width:82vw;margin:10px auto 22px;
   aspect-ratio:1 / 1;
 }
+/* Ambient light behind the disc. Without it the ivory globe reads as a
+   sticker pasted on black; a soft warm-white core fading through a faint
+   brand-red mid to transparent sits it in a lit room. Low-opacity per the
+   muted aesthetic; the .globe-frame (z-index:1) + any floating room cards
+   paint above it. */
+.globe-wrap::before{
+  content:'';position:absolute;inset:-16%;
+  border-radius:50%;z-index:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 45%,
+    rgba(255,248,236,0.16) 0%,
+    rgba(239,68,68,0.07) 42%,
+    transparent 70%);
+  filter:blur(16px);
+}
 .globe-frame{
-  position:relative;width:100%;height:100%;border-radius:50%;
+  position:relative;z-index:1;width:100%;height:100%;border-radius:50%;
   background:transparent;
   overflow:visible;
   /* A real, calm floor shadow under the ivory disc — sits the globe on
@@ -180,6 +194,12 @@ h1 em{color:var(--accent);font-style:normal}
 }
 [data-theme="light"] .globe-frame{
   filter:drop-shadow(0 18px 28px rgba(40, 25, 10, 0.18));
+}
+/* On the cream light theme the ambient halo muddies the paper; drop it
+   to a barely-there warm lift instead. */
+[data-theme="light"] .globe-wrap::before{
+  background:radial-gradient(circle at 50% 45%,rgba(40,25,10,0.05) 0%,transparent 68%);
+  filter:blur(10px);
 }
 .globe-frame > .gdmap-host-inner,
 .globe-frame > div{width:100%;height:100%}
@@ -707,8 +727,12 @@ h1 em{color:var(--accent);font-style:normal}
   display:flex; align-items:center; justify-content:space-between;
   gap:8px;
 }
+/* Matches the right rail's "WHILE YOU WAIT" head so the two panels read
+   as a set. The page's label language is uppercase-tracked throughout
+   (eyebrow, meta-strip, warm-up label); title-case "Open invites" was the
+   lone outlier. */
 .waitlist-rail__title{
-  font-size:.82rem; font-weight:800; letter-spacing:.01em;
+  font-size:.78rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
   color:var(--text);
   display:flex; align-items:center; gap:8px;
 }
@@ -979,9 +1003,19 @@ h1 em{color:var(--accent);font-style:normal}
   border-color:rgba(88,101,242,.58);
   background:rgba(88,101,242,.12);
 }
+/* One reassurance, said quietly five times. The green note at the top of
+   the rail already promises the queue spot follows you; these per-row tags
+   only reinforce it, so they must not shout. Demoted from five bright-green
+   uppercase stamps to a muted label led by a small green "live" pip —
+   same semantic, a fraction of the visual weight. */
 .wait-rail__link .spot-tag{
-  font-size:.58rem; font-weight:700; letter-spacing:.06em;
-  text-transform:uppercase; color:#4ade80; white-space:nowrap;
+  font-size:.55rem; font-weight:600; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--text-ghost); white-space:nowrap;
+  display:inline-flex; align-items:center; gap:5px;
+}
+.wait-rail__link .spot-tag::before{
+  content:'';flex:none;width:5px;height:5px;border-radius:50%;
+  background:var(--green); box-shadow:0 0 5px rgba(34,197,94,.5);
 }
 
 /* Mobile: rail slides off-screen, FAB toggles it. */
