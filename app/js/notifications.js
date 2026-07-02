@@ -257,11 +257,14 @@
         name: (data && data.groupName) || 'Group',
         photo: '',
         count: ((data && data.participants) || []).length,
-        href: '/spar?thread=' + encodeURIComponent(threadId),
+        // 2026-07-01: bell rows land on /messages (the dedicated inbox)
+        // instead of bouncing through /spar. Same dm_threads docs; the
+        // thread/dm params are understood by both surfaces.
+        href: '/messages?thread=' + encodeURIComponent(threadId),
       };
     }
     var p = peerInfo(data, myUid);
-    return { isGroup: false, name: p.name, photo: p.photo, count: 2, href: '/spar?dm=' + encodeURIComponent(p.uid) };
+    return { isGroup: false, name: p.name, photo: p.photo, count: 2, href: '/messages?dm=' + encodeURIComponent(p.uid) + '&name=' + encodeURIComponent(p.name || '') };
   }
   function groupAvatarSvg() {
     return '<span class="ui-bell-av ui-bell-av--blank">' +

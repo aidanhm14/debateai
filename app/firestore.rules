@@ -745,6 +745,40 @@ service cloud.firestore {
       allow delete: if isNamedAccount();
     }
 
+    // ── atlas_contacts (admin-only email store for the outreach CRM) ─
+    // Coach / program / national-org emails live here, readable ONLY by
+    // atlas admins, so they never sit in the public client bundle.
+    // Written server-side via an admin token, never by clients.
+    // (Ported back into the repo 2026-07-01: this block was live in the
+    // deployed ruleset since 2026-06-25 but never committed, so the repo
+    // file was BEHIND deployed. Keep repo == deployed.)
+    match /atlas_contacts/{doc} {
+      allow read: if isAtlasAdmin();
+      allow write: if false;
+    }
+
+    // ── public_profiles (debater-facing public profile cards) ────────
+    // The profile a debater chooses to show other debaters: display name,
+    // school/program, circuit, formats, short bio. Public read (powers
+    // /messages thread headers + profile cards); owner-only write with
+    // hard field caps. NO contact fields by design: DMs are the contact
+    // channel, so emails/phones never sit in a public collection. Named
+    // accounts only (a guest has no durable identity worth a profile).
+    match /public_profiles/{uid} {
+      allow read: if true;
+      allow create, update: if isNamedAccount()
+        && request.auth.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60
+        && (!('school' in request.resource.data) || (request.resource.data.school is string && request.resource.data.school.size() <= 80))
+        && (!('circuit' in request.resource.data) || (request.resource.data.circuit is string && request.resource.data.circuit.size() <= 60))
+        && (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 280))
+        && (!('formats' in request.resource.data) || (request.resource.data.formats is list && request.resource.data.formats.size() <= 8))
+        && (!('photo' in request.resource.data) || (request.resource.data.photo is string && request.resource.data.photo.size() <= 400));
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
     // ── atlas_submissions (community "add your program" pins) ────────
     // Signed-in named accounts add a pin (self-attributed, validated, in
     // range). Authors can edit/withdraw their own; atlas admins can

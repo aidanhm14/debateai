@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Messages · DebateIt</title>
+<meta name="description" content="Your direct messages with other debaters. Organize rounds, trade prep, and build your public debater profile." />
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/messages">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/messages">
+<meta property="og:title" content="Messages · DebateIt">
+<meta property="og:description" content="Direct messages between debaters. Organize rounds, trade prep, build your profile.">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
+<meta name="twitter:card" content="summary_large_image">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<script defer src="/js/track.js"></script>
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){ document.documentElement.setAttribute('data-theme','crimson'); }
+})();
+</script>
+
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root,[data-theme="grey"]{
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.18);--border-strong:rgba(255,255,255,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.65);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.22);--border-strong:rgba(239,68,68,.42);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.55);
+  --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.65);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.6);
+}
+[data-theme="light"]{
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.22);
+  --accent:#dc2626;--accent-glow:rgba(220,38,38,.25);
+  --green:#16a34a;--amber:#d97706;--blue:#2563eb;
+  --text:#111;--text-dim:rgba(0,0,0,.78);--text-ghost:rgba(0,0,0,.55);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.12);
+}
+html,body{background:var(--bg);color:var(--text);font-family:'Crimson Pro',Georgia,serif;min-height:100%}
+em,i{font-style:normal}
+a{color:inherit}
+[hidden]{display:none!important}
+
+.msg-wrap{max-width:1180px;margin:0 auto;padding:96px 20px 60px}
+.msg-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.msg-head h1{font-size:2rem;font-weight:800;letter-spacing:-.01em}
+.msg-head .sub{font-size:.9rem;color:var(--text-ghost)}
+
+.msg-banner{display:none;margin:0 0 14px;padding:11px 14px;border:1px solid var(--border-strong);border-radius:12px;background:var(--bg-card);font-size:.88rem;color:var(--text-dim);line-height:1.5}
+.msg-banner.on{display:block}
+.msg-banner b{color:var(--text)}
+
+.msg-shell{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start}
+.msg-rail,.msg-pane,.msg-profile{background:var(--bg-card);border:1px solid var(--border);border-radius:16px}
+.msg-rail{overflow:hidden}
+.msg-rail-head{padding:13px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:.92rem;display:flex;justify-content:space-between;align-items:center}
+.msg-rail-head .n{color:var(--text-ghost);font-weight:500;font-size:.78rem}
+.msg-threads{max-height:560px;overflow-y:auto}
+.msg-titem{display:flex;gap:11px;align-items:center;width:100%;text-align:left;padding:12px 16px;background:none;border:0;border-bottom:1px solid var(--border);cursor:pointer;font-family:inherit;color:var(--text)}
+.msg-titem:hover{background:rgba(127,127,127,.06)}
+.msg-titem.on{background:rgba(239,68,68,.07)}
+.msg-titem:last-child{border-bottom:0}
+.msg-av{width:38px;height:38px;border-radius:999px;background:var(--bg-elev);border:1px solid var(--border);flex-shrink:0;object-fit:cover;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;color:var(--text-ghost)}
+img.msg-av{display:block}
+.msg-tmeta{flex:1;min-width:0}
+.msg-tname{display:block;font-weight:700;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-tprev{display:block;font-size:.8rem;color:var(--text-ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.msg-tright{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.msg-ttime{font-size:.7rem;color:var(--text-ghost)}
+.msg-tunread{min-width:19px;height:19px;border-radius:999px;background:var(--accent);color:#fff;font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.msg-empty{padding:26px 18px;font-size:.88rem;color:var(--text-ghost);line-height:1.6}
+.msg-empty a{color:var(--accent);font-weight:700}
+
+.msg-pane{display:flex;flex-direction:column;min-height:560px}
+.msg-pane-head{display:flex;align-items:center;gap:11px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.msg-pane-head .back{display:none;background:none;border:1px solid var(--border);border-radius:9px;color:var(--text-dim);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:.8rem}
+.msg-peer{display:flex;align-items:center;gap:10px;min-width:0;background:none;border:0;color:var(--text);cursor:pointer;font-family:inherit;text-align:left}
+.msg-peer .nm{font-weight:800;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-peer .hint{font-size:.72rem;color:var(--text-ghost)}
+.msg-feed{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:9px}
+.msg-note{align-self:center;font-size:.82rem;color:var(--text-ghost);text-align:center;padding:26px 10px;line-height:1.6;max-width:420px}
+.msg-b{max-width:76%;padding:9px 13px;border-radius:14px;font-size:.93rem;line-height:1.45;word-wrap:break-word;white-space:pre-wrap}
+.msg-b.them{align-self:flex-start;background:var(--bg-elev);border:1px solid var(--border);border-bottom-left-radius:5px}
+.msg-b.mine{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:5px}
+.msg-b .t{display:block;font-size:.64rem;opacity:.65;margin-top:3px}
+.msg-compose{display:flex;gap:9px;padding:12px 14px;border-top:1px solid var(--border)}
+.msg-compose input{flex:1;background:var(--bg-elev);border:1.5px solid var(--border-strong);border-radius:999px;color:var(--text);font-family:inherit;font-size:.95rem;padding:10px 16px;outline:none}
+.msg-compose input:focus{border-color:var(--accent)}
+.msg-compose button{background:var(--accent);color:#fff;border:0;border-radius:999px;padding:10px 22px;font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer}
+.msg-compose button:disabled{opacity:.5;cursor:default}
+.msg-senderr{display:none;padding:7px 16px 12px;font-size:.8rem;color:var(--amber)}
+.msg-senderr.on{display:block}
+
+.msg-profile{grid-column:1 / -1;padding:18px}
+.msg-profile h2{font-size:1.05rem;font-weight:800;margin-bottom:4px}
+.msg-profile .sub{font-size:.82rem;color:var(--text-ghost);margin-bottom:13px;line-height:1.5}
+.msg-pform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.msg-pform .full{grid-column:1 / -1}
+.msg-pform label{display:block;font-size:.72rem;font-weight:700;color:var(--text-ghost);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.msg-pform input,.msg-pform textarea{width:100%;background:var(--bg-elev);border:1px solid var(--border-strong);border-radius:10px;color:var(--text);font-family:inherit;font-size:.92rem;padding:9px 12px;outline:none;resize:vertical}
+.msg-pform input:focus,.msg-pform textarea:focus{border-color:var(--accent)}
+.msg-fmtchips{display:flex;flex-wrap:wrap;gap:6px}
+.msg-fmtchip{background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-dim);padding:5px 12px;font-family:inherit;font-size:.78rem;font-weight:600;cursor:pointer}
+.msg-fmtchip.on{background:rgba(239,68,68,.12);border-color:var(--accent);color:var(--accent)}
+.msg-psave{display:flex;align-items:center;gap:12px;margin-top:4px}
+.msg-psave button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:9px 20px;font-family:inherit;font-weight:800;font-size:.88rem;cursor:pointer}
+.msg-psave .st{font-size:.8rem;color:var(--text-ghost)}
+
+.msg-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:70;padding:20px}
+.msg-modal.on{display:flex}
+.msg-card{background:var(--bg-card);border:1px solid var(--border-strong);border-radius:18px;box-shadow:var(--shadow-lg);max-width:400px;width:100%;padding:22px}
+.msg-card .row{display:flex;gap:13px;align-items:center;margin-bottom:12px}
+.msg-card .row .msg-av{width:52px;height:52px;font-size:1.2rem}
+.msg-card h3{font-size:1.15rem;font-weight:800}
+.msg-card .meta{font-size:.82rem;color:var(--text-ghost)}
+.msg-card .bio{font-size:.9rem;color:var(--text-dim);line-height:1.55;margin:9px 0}
+.msg-card .chips{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0}
+.msg-card .chips span{border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-size:.75rem;font-weight:600;color:var(--text-dim)}
+.msg-card .close{margin-top:10px;background:none;border:1px solid var(--border-strong);border-radius:10px;color:var(--text-dim);padding:8px 16px;font-family:inherit;font-size:.85rem;cursor:pointer}
+
+.msg-signin{max-width:560px;margin:40px auto;text-align:center;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:40px 26px}
+.msg-signin h2{font-size:1.4rem;font-weight:800;margin-bottom:8px}
+.msg-signin p{font-size:.92rem;color:var(--text-ghost);line-height:1.6;margin-bottom:18px}
+.msg-signin button{background:var(--accent);color:#fff;border:0;border-radius:12px;padding:11px 26px;font-family:inherit;font-weight:800;font-size:.95rem;cursor:pointer}
+
+@media (max-width: 860px){
+  .msg-shell{grid-template-columns:1fr}
+  .msg-shell.threadopen .msg-rail{display:none}
+  .msg-shell:not(.threadopen) .msg-pane{display:none}
+  .msg-pane-head .back{display:inline-block}
+  .msg-pform{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="daTopbar"></div>
+
+<div class="msg-wrap">
+  <div class="msg-head">
+    <h1>Messages</h1>
+    <span class="sub">Private messages between debaters. Set up rounds, trade prep, talk shop.</span>
+  </div>
+
+  <div class="msg-banner" id="msgBanner"></div>
+
+  <div class="msg-signin" id="msgSignin" hidden>
+    <h2>Sign in to see your messages</h2>
+    <p>Messages are tied to your account. Sign in with Google and your conversations from Spar and the waitlist show up here.</p>
+    <button id="msgSigninBtn" type="button">Sign in with Google</button>
+  </div>
+
+  <div class="msg-shell" id="msgShell" hidden>
+    <div class="msg-rail">
+      <div class="msg-rail-head">Conversations <span class="n" id="msgCount"></span></div>
+      <div class="msg-threads" id="msgThreads">
+        <div class="msg-empty" id="msgEmpty" hidden>
+          No conversations yet. Find a debater on the <a href="/spar">Spar waitlist</a> and say hi, or DM someone straight from a round.
+        </div>
+      </div>
+    </div>
+
+    <div class="msg-pane" id="msgPane">
+      <div class="msg-pane-head">
+        <button class="back" id="msgBack" type="button">&larr; All</button>
+        <button class="msg-peer" id="msgPeerBtn" type="button" title="View profile">
+          <span class="msg-av" id="msgPeerAv"></span>
+          <span style="display:flex;flex-direction:column;min-width:0">
+            <span class="nm" id="msgPeerName">Pick a conversation</span>
+            <span class="hint" id="msgPeerHint"></span>
+          </span>
+        </button>
+      </div>
+      <div class="msg-feed" id="msgFeed">
+        <div class="msg-note">Pick a conversation on the left, or start one from the <a href="/spar" style="color:var(--accent);font-weight:700">Spar waitlist</a>.</div>
+      </div>
+      <div class="msg-senderr" id="msgSendErr"></div>
+      <div class="msg-compose">
+        <input id="msgInput" placeholder="Message&hellip;" maxlength="1000" autocomplete="off">
+        <button id="msgSend" type="button">Send</button>
+      </div>
+    </div>
+
+    <div class="msg-profile" id="msgProfileCard">
+      <h2>Your public profile</h2>
+      <p class="sub">What other debaters see when they tap your name in a thread or meet you on the waitlist. No contact info lives here; messages are the contact channel.</p>
+      <div class="msg-pform">
+        <div><label for="pfName">Display name</label><input id="pfName" maxlength="60" placeholder="e.g. Aidan H."></div>
+        <div><label for="pfSchool">School / program</label><input id="pfSchool" maxlength="80" placeholder="e.g. UChicago"></div>
+        <div><label for="pfCircuit">Circuit</label><input id="pfCircuit" maxlength="60" placeholder="e.g. APDA, Bay Area parli"></div>
+        <div>
+          <label>Formats</label>
+          <div class="msg-fmtchips" id="pfFormats"></div>
+        </div>
+        <div class="full"><label for="pfBio">Bio</label><textarea id="pfBio" rows="2" maxlength="280" placeholder="One or two lines. What you debate, what you want more reps in, what you nerd out about."></textarea></div>
+        <div class="full msg-psave">
+          <button id="pfSave" type="button">Save profile</button>
+          <span class="st" id="pfStatus"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="msg-modal" id="pcModal">
+  <div class="msg-card">
+    <div class="row">
+      <span class="msg-av" id="pcAv"></span>
+      <div style="min-width:0">
+        <h3 id="pcName">Debater</h3>
+        <div class="meta" id="pcMeta"></div>
+      </div>
+    </div>
+    <div class="bio" id="pcBio"></div>
+    <div class="chips" id="pcChips"></div>
+    <button class="close" id="pcClose" type="button">Close</button>
+  </div>
+</div>
+
+<script>
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  try {
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+  } catch (e) { console.error('firebase init', e); }
+</script>
+<script defer src="/js/topbar.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var db = null, me = null;
+  var threads = [];            // [{id, data}]
+  var activeId = '';
+  var activeThread = null;     // {id, participants, participantInfo}
+  var msgsUnsub = null, threadsUnsub = null;
+  var MSG_MAX = 1000;
+  var FORMATS = ['APDA','BP','Policy','LD','PF','Worlds','Asian Parli','Congress'];
+  var myFormats = [];
+
+  // ── error surfacing: never fake-empty on a failed read ──────────
+  // The recurring failure mode is the Firestore free-tier daily read
+  // cap: every read 429s until midnight Pacific while WRITES still
+  // work. Saying "no messages" when the truth is "can't read right
+  // now" is what made DMs feel broken; name the state instead.
+  function showBanner(err, what){
+    var b = $('msgBanner');
+    var code = (err && err.code) || '';
+    if (code.indexOf('resource-exhausted') >= 0){
+      b.innerHTML = '<b>Messages are rate-limited right now.</b> The free daily data budget is used up, so ' + esc(what) + ' cannot load. Sending still works, and everything comes back after midnight Pacific.';
+    } else if (code.indexOf('permission-denied') >= 0){
+      b.innerHTML = '<b>Could not load ' + esc(what) + '.</b> Try signing out and back in.';
+    } else {
+      b.innerHTML = '<b>Could not load ' + esc(what) + '.</b> ' + esc((err && err.message) || 'Unknown error.');
+    }
+    b.classList.add('on');
+  }
+
+  function fmtTime(ts){
+    try {
+      var d = ts && ts.toDate ? ts.toDate() : null;
+      if (!d) return '';
+      var now = new Date(), diff = (now - d) / 1000;
+      if (diff < 90) return 'now';
+      if (diff < 3600) return Math.floor(diff/60) + 'm';
+      if (diff < 86400) return Math.floor(diff/3600) + 'h';
+      if (diff < 604800) return Math.floor(diff/86400) + 'd';
+      return (d.getMonth()+1) + '/' + d.getDate();
+    } catch(e){ return ''; }
+  }
+
+  function peerOf(t){
+    var uid = (t.participants || []).filter(function(u){ return u !== me.uid; })[0] || '';
+    var info = (t.participantInfo || {})[uid] || {};
+    return { uid: uid, name: info.name || 'Debater', photo: info.photo || '' };
+  }
+
+  function avatarHtml(name, photo){
+    if (photo) return '<img class="msg-av" src="' + esc(photo) + '" alt="" referrerpolicy="no-referrer">';
+    var init = (name || 'D').trim().charAt(0).toUpperCase();
+    return '<span class="msg-av">' + esc(init) + '</span>';
+  }
+
+  // ── threads rail ─────────────────────────────────────────────────
+  function paintThreads(){
+    var box = $('msgThreads'), empty = $('msgEmpty');
+    box.querySelectorAll('.msg-titem').forEach(function(n){ n.remove(); });
+    empty.hidden = threads.length > 0;
+    $('msgCount').textContent = threads.length ? String(threads.length) : '';
+    threads.forEach(function(t){
+      var d = t.data, p = peerOf(d);
+      var unread = (d.unread || {})[me.uid] || 0;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'msg-titem' + (t.id === activeId ? ' on' : '');
+      btn.innerHTML =
+        avatarHtml(p.name, p.photo) +
+        '<span class="msg-tmeta">' +
+          '<span class="msg-tname">' + esc(d.isGroup ? (d.groupName || 'Group') : p.name) + '</span>' +
+          '<span class="msg-tprev">' + esc(d.lastMessage || 'Say hi.') + '</span>' +
+        '</span>' +
+        '<span class="msg-tright">' +
+          '<span class="msg-ttime">' + fmtTime(d.lastMessageAt) + '</span>' +
+          (unread ? '<span class="msg-tunread">' + (unread > 9 ? '9+' : unread) + '</span>' : '') +
+        '</span>';
+      btn.addEventListener('click', function(){ openThread(t.id, d); });
+      box.appendChild(btn);
+    });
+  }
+
+  function startThreads(){
+    if (threadsUnsub) threadsUnsub();
+    threadsUnsub = db.collection('dm_threads')
+      .where('participants', 'array-contains', me.uid)
+      .orderBy('lastMessageAt', 'desc')
+      .limit(50)
+      .onSnapshot(function(snap){
+        threads = [];
+        snap.forEach(function(doc){ threads.push({ id: doc.id, data: doc.data() || {} }); });
+        paintThreads();
+        // deep link resolution once threads are known
+        resolveDeepLink();
+      }, function(err){
+        console.warn('[messages] threads listen failed', err && err.code);
+        showBanner(err, 'your conversations');
+        $('msgEmpty').hidden = true;
+      });
+  }
+
+  // ── one thread ───────────────────────────────────────────────────
+  function openThread(threadId, data){
+    activeId = threadId;
+    activeThread = {
+      id: threadId,
+      participants: (data && data.participants) || activeThread && activeThread.participants || [],
+      participantInfo: (data && data.participantInfo) || (activeThread && activeThread.participantInfo) || {},
+      lastMessage: data && data.lastMessage,
+      isGroup: !!(data && data.isGroup),
+      groupName: (data && data.groupName) || '',
+    };
+    $('msgShell').classList.add('threadopen');
+    var p = peerOf(activeThread);
+    $('msgPeerName').textContent = activeThread.isGroup ? (activeThread.groupName || 'Group') : p.name;
+    $('msgPeerHint').textContent = activeThread.isGroup ? (activeThread.participants.length + ' members') : 'Tap for profile';
+    $('msgPeerAv').outerHTML = avatarHtml(p.name, p.photo).replace('class="msg-av"', 'class="msg-av" id="msgPeerAv"');
+    paintThreads();
+    listenMessages();
+    zeroUnread();
+    try { history.replaceState(null, '', '/messages?thread=' + encodeURIComponent(threadId)); } catch(e){}
+  }
+
+  function listenMessages(){
+    if (msgsUnsub) msgsUnsub();
+    var feed = $('msgFeed');
+    feed.innerHTML = '<div class="msg-note">Loading&hellip;</div>';
+    msgsUnsub = db.collection('dm_threads').doc(activeId).collection('messages')
+      .orderBy('createdAt', 'asc')
+      .limitToLast(200)
+      .onSnapshot(function(snap){
+        feed.innerHTML = '';
+        if (snap.empty){
+          feed.innerHTML = '<div class="msg-note">No messages yet. Send one to start the thread.</div>';
+          return;
+        }
+        snap.forEach(function(doc){
+          var m = doc.data() || {};
+          var mine = m.fromUid === me.uid;
+          var div = document.createElement('div');
+          div.className = 'msg-b ' + (mine ? 'mine' : 'them');
+          div.innerHTML = esc(m.text || '') + '<span class="t">' + esc((activeThread.isGroup && !mine ? (m.fromName || '') + ' · ' : '')) + fmtTime(m.createdAt) + '</span>';
+          feed.appendChild(div);
+        });
+        feed.scrollTop = feed.scrollHeight;
+        zeroUnread();
+      }, function(err){
+        console.warn('[messages] messages listen failed', err && err.code);
+        // A brand-new thread has no doc yet; rules can't resolve the
+        // participant get() so the listen denies. That's expected for
+        // a first conversation: show the composer, not an error.
+        if ((err && err.code) === 'permission-denied' && !(activeThread && activeThread.lastMessage)){
+          feed.innerHTML = '<div class="msg-note">No messages yet. Send one to start the thread.</div>';
+          return;
+        }
+        showBanner(err, 'this conversation');
+        feed.innerHTML = '<div class="msg-note">Could not load messages right now.</div>';
+      });
+  }
+
+  function zeroUnread(){
+    if (!activeId || !activeThread || !activeThread.lastMessage) return;
+    var upd = {};
+    upd['unread.' + me.uid] = 0;
+    db.collection('dm_threads').doc(activeId).update(upd).catch(function(){});
+  }
+
+  // ── send (same doc shapes as /spar so both surfaces interop) ─────
+  function send(){
+    var input = $('msgInput'), btn = $('msgSend'), errBox = $('msgSendErr');
+    if (!activeThread || !me) return;
+    var text = (input.value || '').trim();
+    if (!text) return;
+    if (text.length > MSG_MAX) text = text.slice(0, MSG_MAX);
+    btn.disabled = true;
+    errBox.classList.remove('on');
+    var threadRef = db.collection('dm_threads').doc(activeThread.id);
+    var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
+    var pInfo = Object.assign({}, activeThread.participantInfo);
+    pInfo[me.uid] = { name: (me.displayName || 'Debater').split(' ')[0], photo: me.photoURL || '' };
+    var unread = {};
+    (activeThread.participants || []).forEach(function(uid){
+      unread[uid] = (uid === me.uid) ? 0 : firebase.firestore.FieldValue.increment(1);
+    });
+    var threadDoc = {
+      participants: activeThread.participants,
+      participantInfo: pInfo,
+      lastMessage: preview,
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageFrom: me.uid,
+      unread: unread,
+    };
+    if (activeThread.isGroup){ threadDoc.isGroup = true; threadDoc.groupName = activeThread.groupName || 'Group'; }
+    threadRef.set(threadDoc, { merge: true }).then(function(){
+      return threadRef.collection('messages').add({
+        fromUid: me.uid,
+        fromName: (me.displayName || 'Debater').split(' ')[0],
+        text: text,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }).then(function(){
+      input.value = '';
+      btn.disabled = false;
+      activeThread.lastMessage = preview;
+      input.focus();
+      try { gtag('event', 'dm_send', { surface: 'messages' }); } catch(e){}
+    }).catch(function(e){
+      btn.disabled = false;
+      console.warn('[messages] send failed', e && e.code, e && e.message);
+      errBox.textContent = 'Message did not send' + ((e && e.code) ? ' (' + e.code + ')' : '') + '. Try again.';
+      errBox.classList.add('on');
+    });
+  }
+
+  // ── deep links: ?thread=<id> or ?dm=<peerUid>&name=<display> ────
+  var deepLinkDone = false;
+  function resolveDeepLink(){
+    if (deepLinkDone) return;
+    var qs = new URLSearchParams(location.search);
+    var tid = qs.get('thread');
+    var dm = qs.get('dm');
+    if (tid){
+      deepLinkDone = true;
+      var known = threads.filter(function(t){ return t.id === tid; })[0];
+      if (known){ openThread(known.id, known.data); return; }
+      db.collection('dm_threads').doc(tid).get().then(function(doc){
+        if (doc.exists) openThread(tid, doc.data());
+      }).catch(function(){});
+    } else if (dm && dm !== me.uid){
+      deepLinkDone = true;
+      var id = [me.uid, dm].sort().join('_');
+      var pInfo = {};
+      pInfo[me.uid] = { name: (me.displayName || 'Debater').split(' ')[0], photo: me.photoURL || '' };
+      pInfo[dm] = { name: qs.get('name') || 'Debater', photo: '' };
+      openThread(id, { participants: [me.uid, dm], participantInfo: pInfo });
+    } else {
+      deepLinkDone = true;
+    }
+  }
+
+  // ── public profile: view peer ────────────────────────────────────
+  function showPeerProfile(){
+    if (!activeThread || activeThread.isGroup) return;
+    var p = peerOf(activeThread);
+    if (!p.uid) return;
+    $('pcName').textContent = p.name;
+    $('pcMeta').textContent = '';
+    $('pcBio').textContent = '';
+    $('pcChips').innerHTML = '';
+    $('pcAv').outerHTML = avatarHtml(p.name, p.photo).replace('class="msg-av"', 'class="msg-av" id="pcAv"');
+    $('pcModal').classList.add('on');
+    db.collection('public_profiles').doc(p.uid).get().then(function(doc){
+      if (!doc.exists){
+        $('pcBio').textContent = 'No public profile yet.';
+        return;
+      }
+      var d = doc.data() || {};
+      $('pcName').textContent = d.name || p.name;
+      $('pcMeta').textContent = [d.school, d.circuit].filter(Boolean).join(' · ');
+      $('pcBio').textContent = d.bio || '';
+      $('pcChips').innerHTML = (d.formats || []).slice(0, 8).map(function(f){ return '<span>' + esc(f) + '</span>'; }).join('');
+    }).catch(function(err){
+      $('pcBio').textContent = 'Profile could not load right now.';
+      console.warn('[messages] profile load failed', err && err.code);
+    });
+  }
+
+  // ── public profile: own editor ───────────────────────────────────
+  function paintFormatChips(){
+    var box = $('pfFormats');
+    box.innerHTML = '';
+    FORMATS.forEach(function(f){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'msg-fmtchip' + (myFormats.indexOf(f) >= 0 ? ' on' : '');
+      b.textContent = f;
+      b.addEventListener('click', function(){
+        var i = myFormats.indexOf(f);
+        if (i >= 0) myFormats.splice(i, 1);
+        else if (myFormats.length < 8) myFormats.push(f);
+        paintFormatChips();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function loadOwnProfile(){
+    if (me.isAnonymous){
+      $('msgProfileCard').innerHTML = '<h2>Your public profile</h2><p class="sub">You are browsing as a guest. Sign in with Google from the topbar to build a profile other debaters can see.</p>';
+      return;
+    }
+    paintFormatChips();
+    $('pfName').value = (me.displayName || '').slice(0, 60);
+    db.collection('public_profiles').doc(me.uid).get().then(function(doc){
+      if (!doc.exists) return;
+      var d = doc.data() || {};
+      $('pfName').value = d.name || $('pfName').value;
+      $('pfSchool').value = d.school || '';
+      $('pfCircuit').value = d.circuit || '';
+      $('pfBio').value = d.bio || '';
+      myFormats = Array.isArray(d.formats) ? d.formats.slice(0, 8) : [];
+      paintFormatChips();
+    }).catch(function(err){
+      console.warn('[messages] own profile load failed', err && err.code);
+    });
+    $('pfSave').addEventListener('click', function(){
+      var name = ($('pfName').value || '').trim().slice(0, 60);
+      if (!name){ $('pfStatus').textContent = 'Add a display name first.'; return; }
+      var doc = {
+        name: name,
+        school: ($('pfSchool').value || '').trim().slice(0, 80),
+        circuit: ($('pfCircuit').value || '').trim().slice(0, 60),
+        bio: ($('pfBio').value || '').trim().slice(0, 280),
+        formats: myFormats.slice(0, 8),
+        photo: (me.photoURL || '').slice(0, 400),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      $('pfStatus').textContent = 'Saving…';
+      db.collection('public_profiles').doc(me.uid).set(doc, { merge: true }).then(function(){
+        $('pfStatus').textContent = 'Saved. This is what other debaters see.';
+        try { gtag('event', 'public_profile_save'); } catch(e){}
+      }).catch(function(e){
+        $('pfStatus').textContent = 'Could not save' + ((e && e.code) ? ' (' + e.code + ')' : '') + '.';
+      });
+    });
+  }
+
+  // ── boot ─────────────────────────────────────────────────────────
+  $('msgSend').addEventListener('click', send);
+  $('msgInput').addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); send(); } });
+  $('msgBack').addEventListener('click', function(){
+    $('msgShell').classList.remove('threadopen');
+    try { history.replaceState(null, '', '/messages'); } catch(e){}
+  });
+  $('msgPeerBtn').addEventListener('click', showPeerProfile);
+  $('pcClose').addEventListener('click', function(){ $('pcModal').classList.remove('on'); });
+  $('pcModal').addEventListener('click', function(e){ if (e.target === $('pcModal')) $('pcModal').classList.remove('on'); });
+  $('msgSigninBtn').addEventListener('click', function(){
+    try {
+      var provider = new firebase.auth.GoogleAuthProvider();
+      firebase.auth().signInWithPopup(provider).catch(function(){});
+    } catch(e){}
+  });
+
+  firebase.auth().onAuthStateChanged(function(user){
+    if (!user){
+      $('msgSignin').hidden = false;
+      $('msgShell').hidden = true;
+      return;
+    }
+    me = user;
+    db = firebase.firestore();
+    $('msgSignin').hidden = true;
+    $('msgShell').hidden = false;
+    startThreads();
+    loadOwnProfile();
+    try { gtag('event', 'messages_open', { guest: !!user.isAnonymous }); } catch(e){}
+  });
+})();
+</script>
+</body>
+</html>

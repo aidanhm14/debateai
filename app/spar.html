@@ -3663,7 +3663,20 @@ h1 em{color:var(--accent);font-style:normal}
       }, function(err){
         console.warn('[dm] thread snapshot error', err);
         var t = document.getElementById('wlThread');
-        if (t) t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Send one to start the thread.</div>';
+        if (!t) return;
+        var code = (err && err.code) || '';
+        // A brand-new thread has no doc yet, so the participant get() in
+        // the messages read rule can't resolve and the listen denies.
+        // That's the normal first-conversation state, not a failure.
+        // Anything else must NOT masquerade as an empty thread — the
+        // fake-empty on quota exhaustion is what made DMs feel broken.
+        if (code === 'permission-denied' && !(at && at.lastMessage)){
+          t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Send one to start the thread.</div>';
+        } else if (code === 'resource-exhausted'){
+          t.innerHTML = '<div class="wl-msg__empty">Messages are rate-limited right now (daily data budget).<br>Sending still works; reading returns after midnight Pacific.</div>';
+        } else {
+          t.innerHTML = '<div class="wl-msg__empty">Could not load messages right now.<br>Try again in a minute.</div>';
+        }
       });
     markThreadRead(at.id).catch(function(){});
     setTimeout(function(){
@@ -3850,6 +3863,8 @@ h1 em{color:var(--accent);font-style:normal}
     if (!text) return;
     if (text.length > WL_MSG_MAX) text = text.slice(0, WL_MSG_MAX);
     if (sendBtn) sendBtn.disabled = true;
+    var prevErr = document.getElementById('wlSendErr');
+    if (prevErr) prevErr.textContent = '';
     var me = state.user.uid;
     var threadRef = firebaseDb.collection('dm_threads').doc(at.id);
     var msgsRef = threadRef.collection('messages');
@@ -3913,6 +3928,22 @@ h1 em{color:var(--accent);font-style:normal}
     }).catch(function(e){
       if (sendBtn) sendBtn.disabled = false;
       console.warn('[dm] send failed', e);
+      // Surface it. The silent version left users retrying into a void
+      // (2026-07-01) — name the failure, especially the daily-quota one.
+      try {
+        var code = (e && e.code) || '';
+        var msg = code === 'resource-exhausted'
+          ? 'Did not send: the daily data budget is used up. Try after midnight Pacific.'
+          : 'Message did not send' + (code ? ' (' + code + ')' : '') + '. Try again.';
+        var errEl = document.getElementById('wlSendErr');
+        if (!errEl && input && input.parentElement){
+          errEl = document.createElement('div');
+          errEl.id = 'wlSendErr';
+          errEl.style.cssText = 'flex-basis:100%;padding:5px 4px 0;font-size:.75rem;color:#f59e0b';
+          input.parentElement.appendChild(errEl);
+        }
+        if (errEl) errEl.textContent = msg;
+      } catch(_e){}
     });
   }
 
