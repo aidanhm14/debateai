@@ -411,23 +411,36 @@ button{font-family:inherit}
      overlaps the eyebrow + clips the headline. The beta-strip case needs
      no special value: that strip pushes the body down via body padding and
      the bar travels with it, so this single offset holds in both states. */
-  max-width:1120px;margin:0 auto;padding:62px 24px 16px;text-align:center;
+  position:relative;overflow:hidden;
+  max-width:1120px;margin:0 auto;padding:112px 24px 52px;text-align:center;
 }
-/* Flat live-presence world map. Replaces the old tiny globe so the hero
-   reads as a dotted global activity map, not another orb. */
-.hero-map{position:relative;width:min(460px,76vw);margin:0 auto 12px;aspect-ratio:2.05/1}
-.map-frame{position:relative;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 14px 22px rgba(40,25,10,.14))}
+/* Full-bleed live-presence world map — sits BEHIND the hero content as an
+   ambient global-activity backdrop (2026-07-02, per Aidan: "make it bigger,
+   taking up the whole space, not a small section"). Breaks out to viewport
+   width; html/body already clip overflow-x so there's no horizontal scroll. */
+.hero-map{
+  position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
+  width:100vw;max-width:1600px;margin:0;z-index:0;pointer-events:none;opacity:.9;
+}
+.map-frame{position:absolute;inset:0;overflow:hidden;filter:none}
+/* Ambient brand glow, low and centered — reads as atmosphere, not a spotlight. */
 .map-frame::before{
-  content:"";position:absolute;inset:-22% -8% -28%;
-  background:radial-gradient(ellipse at 50% 50%, rgba(239,68,68,.10), rgba(239,68,68,.04) 44%, transparent 72%);
-  filter:blur(10px);pointer-events:none;
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 44%, rgba(239,68,68,.06), rgba(239,68,68,.025) 46%, transparent 72%);
 }
-[data-theme="light"] .map-frame{filter:drop-shadow(0 12px 20px rgba(40,25,10,.10))}
 [data-theme="light"] .map-frame::before{
-  background:radial-gradient(ellipse at 50% 50%, rgba(80,60,40,.12), rgba(239,68,68,.045) 44%, transparent 72%);
+  background:radial-gradient(ellipse at 50% 44%, rgba(80,60,40,.07), rgba(239,68,68,.03) 46%, transparent 72%);
 }
-.live-hero-map{position:relative;z-index:1;display:block;width:100%;height:100%}
-@media(max-width:560px){ .hero-map{width:min(340px,88vw);margin-bottom:8px} }
+/* Page-bg fade over the center so the headline + CTAs stay legible while
+   the map stays strongest toward the edges. */
+.map-frame::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:radial-gradient(ellipse 52% 56% at 50% 46%, var(--bg) 8%, rgba(0,0,0,0) 66%);
+}
+.live-hero-map{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%}
+/* Hero content rides above the map backdrop. */
+.hero-eyebrow,.hero h1,.hero-sub,.hero-cta-row,.hero-proof,.hero-missed{position:relative;z-index:3}
+@media(max-width:560px){ .hero{padding:92px 20px 40px} }
 /* Quiet text eyebrow. The loud red pill made the page read busy
    before the user had a chance to read the headline. */
 .hero-eyebrow{
