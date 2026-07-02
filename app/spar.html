@@ -1404,18 +1404,11 @@ h1 em{color:var(--accent);font-style:normal}
     roundNavPending: false,        // fallback guard once spar-pair succeeds
   };
 
-  // Timer until AI fallback. After this, we mark the user's
-  // queue doc as 'matched_ai' and bounce them to /debate-it with the
-  // motion preserved. This is the load-bearing decision: a debate
-  // engine where AI is the FALLBACK, not the headline.
-  // 2026-06-12: 60s → 4 min per Aidan — give humans a real window
-  // before AI takes the round. Two things make the longer window
-  // safe: (1) the queue doc now heartbeats every 90s (see
-  // startQueueHeartbeat) so spar-pair's 3-min STALE_PEER_MS skip
-  // can't cull a live waiter mid-countdown, and (2) searching now
-  // doubles as sitewide background availability, so the user isn't
-  // trapped staring at this page for 4 minutes.
-  var AI_FALLBACK_SEC = 240;
+  // No forced AI fallback (product decision): the user stays in the
+  // human queue indefinitely and prepping/browsing keeps their spot
+  // live sitewide. AI is always one tap away via "Skip to AI now", but
+  // we never bulldoze a waiting human into an AI round. triggerAIFallback
+  // remains for the manual/dead-peer paths; nothing auto-invokes it.
   // Re-stamp cadence for the searching queue doc. Mirrors
   // HEARTBEAT_MS in js/notifications.js sparLive().
   var QUEUE_HEARTBEAT_MS = 90 * 1000;
@@ -1681,7 +1674,7 @@ h1 em{color:var(--accent);font-style:normal}
     { until:  60, text: 'Finding your clash',         sub: 'Warm queues pair inside a minute. Hold.' },
     { until: 110, text: 'Still hunting',              sub: 'No need to wait here. Prep, learn, or browse; your spot in the queue follows you.' },
     { until: 170, text: 'Casting a wider net',        sub: 'Checking every available debater. If formats differ, both sides get a proposal card.' },
-    { until: 240, text: 'Last stretch before AI',     sub: 'If nobody pairs by zero, the AI sparring partner takes the round.' },
+    { until: 240, text: 'Still holding your spot',     sub: 'The queue is quiet right now. Prep, learn, or browse; your spot stays live and a match card pops the moment a human is ready. Or spar the AI anytime.' },
   ];
 
   // RECENT_PAIRINGS removed (2026-05-25). The 8 handles + pair-second
@@ -2269,17 +2262,20 @@ h1 em{color:var(--accent);font-style:normal}
         .where('status', '==', 'waiting')
         .onSnapshot(function(snap){
           var selfUid = state.user && state.user.uid;
-          // Count only PAIRABLE peers. The pair function (spar-pair.mjs)
-          // skips any peer whose joinedAt is older than 3 min as a ghost
-          // (STALE_PEER_MS) — iOS Safari often doesn't fire `pagehide` so
-          // backgrounded sessions leave `status: 'waiting'` docs that
-          // will never match. Counting them made the strip read "7 in
-          // queue" with a green "live" dot while the matcher found
-          // nothing pairable. Mirror the 3-min cutoff here so the number
-          // is honest. Docs with an unresolved/missing joinedAt
+          // Count only TRULY-LIVE peers. A searching session re-stamps
+          // joinedAt every QUEUE_HEARTBEAT_MS (90s), so a live doc is
+          // never older than ~92s; a backgrounded/closed tab stops
+          // heartbeating and goes stale. The server's 3-min STALE_PEER_MS
+          // is a generous pairing cutoff, but for the headline "N debaters
+          // available now" it over-counts: a session that went dark still
+          // showed as available for up to 3 min, promising humans who were
+          // gone. Tie the "available" window to one heartbeat + grace
+          // (120s) so the number means "heartbeated within the last two
+          // minutes = actually here," and a ghost drops off a minute
+          // sooner. Docs with an unresolved/missing joinedAt
           // (serverTimestamp lands a beat after the local write) count as
           // fresh — same default as joinedAtMs() server-side.
-          var STALE_MS = 3 * 60 * 1000;
+          var STALE_MS = 120 * 1000;
           var now = Date.now();
           var n = 0;
           snap.forEach(function(d){
