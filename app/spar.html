@@ -2735,7 +2735,13 @@ h1 em{color:var(--accent);font-style:normal}
       // unknown.
       var raw = (err && (err.message || err.code)) || 'unknown';
       var msg;
-      if (/permission|denied|insufficient/i.test(raw)) {
+      if (/resource-exhausted|resource_exhausted|quota|429/i.test(raw)) {
+        // Firestore is refusing ops — the live matching backend is at
+        // capacity (e.g. a daily quota was hit). Don't leave the user on
+        // an endless "searching"; tell them plainly and point at the AI
+        // round, which doesn't touch the queue.
+        msg = "Live matching is temporarily at capacity, so we can't reach the queue right now. Take an AI round instead, or check back in a bit.";
+      } else if (/permission|denied|insufficient/i.test(raw)) {
         msg = "Couldn't join the queue (permissions). The Firestore rule for matchmaking_queue likely needs updating to allow signed-in users to write their own doc. Skip to AI for now.";
       } else if (/network|offline|unavailable|failed-precondition/i.test(raw)) {
         msg = "Network problem reaching the queue. Check your connection and try again.";
@@ -3198,6 +3204,18 @@ h1 em{color:var(--accent);font-style:normal}
       attemptMatch(others[0].id, others[0].data());
     }).catch(function(err){
       console.warn('[spar] queue query failed', err);
+      // A read-only failure (the query 429s but the join write went
+      // through) would otherwise leave the user on an endless "searching"
+      // with no signal. If the backend is at capacity (quota exhausted),
+      // surface it once — not every 2s poll — and point at the AI round.
+      var raw = (err && (err.message || err.code)) || '';
+      if (/resource-exhausted|resource_exhausted|quota|429/i.test(raw) && !state.capacityNoticeShown){
+        state.capacityNoticeShown = true;
+        var host = document.getElementById('queueStats') || shell;
+        if (host){
+          host.innerHTML = '<div class="error">Live matching is temporarily at capacity, so we can\'t reach the queue right now. Take an AI round instead, or check back in a bit. <a href="/debate-it" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
+        }
+      }
     });
   }
 
