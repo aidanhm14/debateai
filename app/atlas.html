@@ -606,6 +606,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/js/atlas-world.js"></script>
 <script src="/js/atlas-data.js"></script>
+<script src="/js/atlas-tabroom.js"></script>
 <script src="/js/atlas-contacts.js"></script>
 <script>
 /* ============================================================
@@ -1077,15 +1078,40 @@ SCHOOLS.forEach(function(d){
 });
 
 /* Merge in the research-compiled dataset (window.ATLAS_EXTRA from
-   /js/atlas-data.js). Each record already carries lat/lng/country/region;
-   we apply the same jitter so same-city pins fan out. */
+   /js/atlas-data.js) plus the Tabroom additions (/js/atlas-tabroom.js). Each
+   record already carries lat/lng/country/region; we apply the same jitter so
+   same-city pins fan out.
+   Dedup guard: drop any record that repeats a school already on the map —
+   same normalized name AND same level AND within 25 km — so variant spellings
+   across sources ("Palo Alto HS" vs "Palo Alto High School") don't double-pin.
+   Level + proximity keep genuinely distinct same-name schools (a college team
+   and a high school in one town; two "Lincoln High"s in different states). */
+var _DKDROP={the:1,of:1,and:1,a:1,debate:1,debating:1,debaters:1,union:1,society:1,team:1,
+  forensics:1,speech:1,program:1,parliamentary:1,memorial:1,county:1,regional:1,senior:1,
+  club:1,league:1,independent:1,panel:1,council:1,association:1,high:1,hs:1};
+function _dkey(n){ return String(n||'').toLowerCase().replace(/\([^)]*\)/g,' ')
+  .replace(/[^a-z0-9\s]/g,' ').replace(/\bhigh school\b/g,' ').split(/\s+/)
+  .filter(function(t){return t&&!_DKDROP[t];}).sort().join(' '); }
+function _dkm(a,b,c,d){ var RD=Math.PI/180,r=6371,x=Math.sin((c-a)*RD/2),y=Math.sin((d-b)*RD/2);
+  return 2*r*Math.asin(Math.sqrt(x*x+Math.cos(a*RD)*Math.cos(c*RD)*y*y)); }
+var _seen={};
+function _seenAdd(n,lvl,lat,lng){ var k=_dkey(n)+'|'+(lvl||'?'); (_seen[k]=_seen[k]||[]).push([lat,lng]); }
+function _isDup(n,lvl,lat,lng){ var a=_seen[_dkey(n)+'|'+(lvl||'?')]; if(!a) return false;
+  for(var i=0;i<a.length;i++){ if(_dkm(a[i][0],a[i][1],lat,lng)<25) return true; } return false; }
+// index on true (pre-jitter) coords so the ±3km jitter can't push a genuine
+// same-school pair past the proximity threshold. Core coords come from CITY.
+SCHOOLS.forEach(function(d){ var c=CITY[d.city]; if(c) _seenAdd(d.n,d.lvl,c.ll[0],c.ll[1]); });
+var _dupCount=0;
 (window.ATLAS_EXTRA||[]).forEach(function(d){
   if(typeof d.lat!=='number'||typeof d.lng!=='number'||!d.region) return;
+  if(_isDup(d.n,d.lvl,d.lat,d.lng)){ _dupCount++; return; }
+  _seenAdd(d.n,d.lvl,d.lat,d.lng);          // index before jitter
   var o=hashOff(d.n); d.lat+=o[0]; d.lng+=o[1];
   if(!d.tier) d.tier=3;
   if(!d.fmt||!d.fmt.length) d.fmt=['BP'];
   SCHOOLS.push(d);
 });
+if(window.console&&_dupCount) console.log('[atlas] deduped '+_dupCount+' double-pins');
 
 /* ---- map ---- */
 var map = L.map('map',{worldCopyJump:false,minZoom:2,maxZoom:18,zoomControl:true,zoomSnap:0.25,
