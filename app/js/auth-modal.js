@@ -1,17 +1,15 @@
 // ──────────────────────────────────────────────────────────────────
-// auth-modal.js — shared sign-in modal for DebateIt.
+// auth-modal.js — shared sign-in helper for DebateIt.
 //
-// Offers three real, identified sign-up methods so we can move people
-// off anonymous guest usage:
-//   1. Continue with Google  (popup -> redirect fallback)
-//   2. Email me a sign-in link  (passwordless email-link)
-//   3. Text me a code  (phone / SMS, invisible reCAPTCHA)
+// Google is the only normal sign-in provider. This file keeps the older
+// window.openAuthModal() entry point alive for site-wide callers, but that
+// entry point now starts Google directly instead of showing a second chooser.
 //
 // Open it from anywhere with window.openAuthModal(). Self-bootstraps
 // firebase (shared script ids with notifications.js so nothing double-
 // loads) and completes the email-link flow automatically on page load.
 //
-// Firebase providers (enabled 2026-06-14): Google, Email-link, Phone.
+// Firebase provider: Google.
 // ──────────────────────────────────────────────────────────────────
 (function () {
   'use strict';
@@ -269,16 +267,7 @@
   }
 
   function openAuthModal() {
-    injectStyles();
-    if (!modal) {
-      modal = el('<div id="ditAuth"><div class="da-card" id="ditAuthCard"></div></div>');
-      document.body.appendChild(modal);
-      modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
-    }
-    renderChooser();
-    modal.classList.add('on');
-    bootstrap(function () {}); // warm firebase while the modal is open
+    doGoogle();
   }
   window.openAuthModal = openAuthModal;
 
