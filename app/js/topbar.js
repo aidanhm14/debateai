@@ -173,21 +173,10 @@
     // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
     // The mission page is still reachable directly at /scale + footer.
     { href: '/learn',         label: 'Learn'        },
-    // 2026-05-26: /credentials surfaced into the topbar per user ask.
-    // It's a recently-shipped feature ("earn a verifiable DebateIt
-    // credential"), still acquiring distribution. Sits after Learn
-    // because cert is the outcome of a learning loop — natural pairing
-    // on the bar. 2026-06-12: label "Cert" → "Certificate" per Aidan.
-    { href: '/credentials',   label: 'Certificate' },
-    // 2026-05-18: /rounds standalone listing retired — the published-
-    // rounds tab now lives inside /community. The topbar already links
-    // to Community below, so a separate Rounds entry would just point
-    // to the same surface twice.
-    // 2026-06-12: label "Live" → "Schedule" per Aidan (the /live hub's
-    // job on the bar is scheduling rounds). 2026-06-14: dropped the
-    // red live-dot here. it doubled the Spar dot and read as confusing;
-    // the live signal belongs to Spar only.
-    { href: '/live',          label: 'Schedule' },
+    // 2026-07-02: bar decluttered per Aidan ("too dense") — Certificate,
+    // Schedule, and FAQ dropped. Pages stay live (/credentials via Learn
+    // + landing, /live via Spar + landing, FAQ on the landing); they just
+    // lose their nav slots. Same precedent as /scale and /champions.
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
     // 2026-07-02: Leaderboard removed from the top bar per Aidan — it's
@@ -213,7 +202,6 @@
     // prediction market (back who wins across three windows, AI judge
     // settles, leaderboard). noindex page; this is the on-site entry.
     { href: '/floor',         label: 'The Floor'    },
-    { href: '/#faq',          label: 'FAQ'          },
   ];
 
   function el(tag, attrs, children){
