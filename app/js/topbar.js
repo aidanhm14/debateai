@@ -107,10 +107,10 @@
   // auto-injector that used to mount the orb on every topbar page is gone.
 
   // Shared multi-method sign-in modal (Google / email link / phone).
-  // Loaded site-wide so window.openAuthModal exists for the Sign in
-  // button AND so its email-link completion handler runs when a user
-  // returns via a magic link. It only pulls firebase when actually
-  // arriving from a link, so it's cheap on normal loads.
+  // Loaded site-wide so legacy auth CTAs can call window.openAuthModal
+  // and so its email-link completion handler runs when a user returns
+  // via a magic link. It only pulls firebase when actually arriving
+  // from a link, so it's cheap on normal loads.
   (function ensureAuthModalLoaded(){
     if (document.querySelector('script[src*="/js/auth-modal.js"]')) return;
     var s = document.createElement('script');
@@ -472,7 +472,11 @@
     sheetSignIn.addEventListener('click', function(){
       closeSheet();
       if (fbRealUser()){ try { window.firebase.auth().signOut(); } catch(e){} }
-      else { startGoogleSignIn(); }
+      else {
+        startGoogleSignIn().catch(function(err){
+          console.warn('[topbar] google sign-in failed', (err && err.code) || err);
+        });
+      }
     });
     sheet.appendChild(sheetSignIn);
 
@@ -705,16 +709,51 @@
       fbLoadOnce('da-fb-auth', FB_AUTH_SDK, function(){ fbEnsureApp(); cb(); });
     });
   }
+  function trackAuth(ev, meta){
+    try { if (window.gtag) window.gtag('event', ev, meta || {}); } catch(e){}
+  }
   function startGoogleSignIn(){
-    // Opens the shared multi-method sign-in modal (Google / email link /
-    // phone) so guests get pushed toward a real, identified account.
-    // Lazy-loads /js/auth-modal.js the first time.
-    if (window.openAuthModal){ window.openAuthModal(); return; }
-    var ex = document.querySelector('script[src*="/js/auth-modal.js"]');
-    if (ex){ ex.addEventListener('load', function(){ if (window.openAuthModal) window.openAuthModal(); }, { once: true }); return; }
-    var s = document.createElement('script'); s.src = '/js/auth-modal.js';
-    s.addEventListener('load', function(){ if (window.openAuthModal) window.openAuthModal(); }, { once: true });
-    document.head.appendChild(s);
+    return new Promise(function(resolve, reject){
+      fbBootstrap(function(){
+        try {
+          var auth = window.firebase.auth();
+          var provider = new window.firebase.auth.GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          var openedAt = Date.now();
+          var current = auth.currentUser;
+          var attempt = (current && current.isAnonymous && current.linkWithPopup)
+            ? current.linkWithPopup(provider).catch(function(err){
+                var code = (err && err.code) || '';
+                if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use'){
+                  return auth.signInWithPopup(provider);
+                }
+                throw err;
+              })
+            : auth.signInWithPopup(provider);
+
+          trackAuth('sign_in_start', { method: 'google', surface: 'topbar' });
+          attempt.then(function(){
+            try { localStorage.setItem('debateos-feedback-given', '1'); } catch(e){}
+            trackAuth('sign_in_complete', { method: 'google', surface: 'topbar' });
+            resolve();
+          }).catch(function(err){
+            var code = (err && err.code) || 'unknown';
+            if (code === 'auth/popup-closed-by-user' && (Date.now() - openedAt) > 1200){
+              reject(err);
+              return;
+            }
+            if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment' || code === 'auth/popup-closed-by-user'){
+              var redirect = current && current.isAnonymous && current.linkWithRedirect
+                ? current.linkWithRedirect(provider)
+                : auth.signInWithRedirect(provider);
+              Promise.resolve(redirect).then(resolve).catch(reject);
+              return;
+            }
+            reject(err);
+          });
+        } catch(e){ reject(e); }
+      });
+    });
   }
 
   // Signed-OUT state: a ghost "Sign in" button. Click bootstraps
@@ -732,11 +771,14 @@
     btn.addEventListener('click', function(){
       btn.disabled = true;
       btn.textContent = 'Opening…';
-      startGoogleSignIn();
-      // If they close the Google popup without finishing, restore it.
-      setTimeout(function(){
-        if (document.getElementById('barSignIn') === btn && !fbRealUser()){ btn.disabled = false; btn.textContent = 'Sign in'; }
-      }, 4000);
+      startGoogleSignIn().catch(function(err){
+        console.warn('[topbar] google sign-in failed', (err && err.code) || err);
+      }).finally(function(){
+        if (document.getElementById('barSignIn') === btn && !fbRealUser()){
+          btn.disabled = false;
+          btn.textContent = 'Sign in';
+        }
+      });
     });
     slot.appendChild(btn);
   }
