@@ -602,9 +602,9 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
-<!-- 2° Natural-Earth land raster for the "Debaters live now" map in
-     the Live Debates section (dotted continents + live pins from
-     /api/presence-live). -->
+<!-- 2° Natural-Earth land raster for the "Debaters live now" globe in
+     the Live Debates section (coastline-defined continents + live pins
+     from /api/presence-live). -->
 <script defer src="/js/world-data.js?v=1"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/usage-banner.js"></script>
@@ -8344,54 +8344,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     @media(max-width:520px){.livenow-wall{grid-template-columns:repeat(2,1fr)}}
     .ln-tile{position:relative;aspect-ratio:4/3;border-radius:11px;overflow:hidden;background:#0a0a0c;border:none}
     .ln-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.96);transition:opacity .5s ease}
-    /* 2026-07-02: flat live map ("Where debaters are online") sits left
-       of the faces, replacing the old rotating globe in this band. Faces
-       stay in a 3-wide grid beside it; whole stage stacks under 860px. */
-    .livenow-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,3.5vw,48px);max-width:1240px;margin:0 auto 28px;flex-wrap:wrap}
+    /* 2026-06-15: globe ("Where users argue from") sits left of the faces
+       so the geo-spread reads next to the live debaters. Faces drop to a
+       3-wide grid beside it; whole stage stacks under 860px. */
+    .livenow-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,3.5vw,48px);max-width:1120px;margin:0 auto 28px;flex-wrap:wrap}
     .livenow-stage{overflow:visible}
-    .livenow-stage .livenow-globe{flex:0 1 540px;width:auto;gap:8px;margin-right:-18px;margin-left:-18px;margin-bottom:-4px;align-self:center}
-    .livenow-stage .livenow-globe .live-map-wrap{
-      position:relative;
-      width:540px;
-      max-width:min(540px,92vw);
-      aspect-ratio:2.05/1;
-      min-width:280px;
-      min-height:170px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      margin:0 auto;
-      overflow:visible;
-    }
-    .livenow-stage .livenow-globe .live-map-wrap::before{
-      content:"";
-      position:absolute;
-      inset:-18% -7% -20%;
-      background:radial-gradient(ellipse at 50% 50%, rgba(239,68,68,.12), rgba(239,68,68,.04) 42%, transparent 72%);
-      filter:blur(10px);
-      pointer-events:none;
-    }
-    [data-theme="light"] .livenow-stage .livenow-globe .live-map-wrap::before{
-      background:radial-gradient(ellipse at 50% 50%, rgba(80,60,40,.13), rgba(239,68,68,.045) 45%, transparent 72%);
-    }
-    .livenow-stage .livenow-globe .live-world-map{
-      position:relative;
-      z-index:1;
-      width:100%;
-      height:100%;
-      display:block;
-    }
-    .livenow-stage .livenow-globe .story-globe-caption{font-size:.72rem;max-width:360px}
+    .livenow-stage .livenow-globe{flex:0 0 auto;width:auto;gap:8px;margin-right:-40px;margin-left:-30px;margin-bottom:-24px;align-self:flex-end}
+    .livenow-stage .livenow-globe .hero-globe-canvas-wrap{width:480px;max-width:480px}
+    .livenow-stage .livenow-globe .story-globe-caption{font-size:.72rem;max-width:240px}
     .livenow-stage .livenow-wall{margin:0;flex:1 1 460px;min-width:300px;max-width:600px;grid-template-columns:repeat(3,1fr)}
     @media(max-width:860px){
       .livenow-stage{flex-direction:column;gap:18px}
-      .livenow-stage .livenow-globe{flex:0 1 auto;width:100%;margin:0 auto;align-self:center}
-      .livenow-stage .livenow-globe .live-map-wrap{width:420px;max-width:92vw;min-height:150px}
+      .livenow-stage .livenow-globe{margin:0 auto;align-self:center}
+      .livenow-stage .livenow-globe .hero-globe-canvas-wrap{width:240px;max-width:240px}
       .livenow-stage .livenow-wall{flex:none;width:100%;max-width:560px;grid-template-columns:repeat(3,1fr)}
     }
     @media(max-width:520px){
       .livenow-stage .livenow-wall{grid-template-columns:repeat(2,1fr)}
-      .livenow-stage .livenow-globe .story-globe-caption{max-width:260px;line-height:1.55}
     }
     .livenow-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-weight:800;font-size:1rem;text-decoration:none;transition:transform .15s,background .15s;box-shadow:0 8px 28px rgba(239,68,68,.28)}
     .livenow-cta:hover{background:#dc2626;transform:translateY(-1px)}
@@ -8438,11 +8407,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
     </div>
     <div class="livenow-stage">
-      <!-- "Where users argue from" live map, moved up from the founder story so
+      <!-- "Where users argue from" globe, moved up from the founder story so
            the geo-spread sits next to the live debater faces. -->
       <div class="story-globe livenow-globe" id="storyGlobeBlock" aria-hidden="false" role="link" tabindex="0" data-cta="globe-atlas" style="cursor:pointer" onclick="location.href='/atlas'">
-        <div class="live-map-wrap">
-          <canvas id="heroWorldMapCanvas" class="live-world-map" aria-label="Flat world map with live debater pins from the last 30 minutes"></canvas>
+        <div class="hero-globe-canvas-wrap">
+          <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with pins where debaters have been live in the last 30 minutes"></canvas>
         </div>
         <div class="story-globe-caption" id="globeLiveCaption">Debaters around the world. See the map &rarr;</div>
       </div>
@@ -8463,197 +8432,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 <script>
-/* Flat live map for the Live Debates band. Uses the same real
-   /api/presence-live pins as /spar: city-level, anonymous, no fake
-   online dots. */
-(function(){
-  var canvas = document.getElementById('heroWorldMapCanvas');
-  if (!canvas || !canvas.getContext) return;
-  var ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  var caption = document.getElementById('globeLiveCaption');
-  var livePins = [];
-  var landPts = [];
-  var W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-  function theme(){
-    var light = (document.documentElement.getAttribute('data-theme') === 'light') ||
-      (document.documentElement.getAttribute('data-lighting') === 'light');
-    return light ? {
-      grid:'rgba(70,54,38,.14)',
-      gridStrong:'rgba(70,54,38,.22)',
-      land:'rgba(87,70,48,.22)',
-      coast:'rgba(87,70,48,.34)',
-      pin:'239,68,68',
-      pinHi:'255,205,205'
-    } : {
-      grid:'rgba(255,230,205,.11)',
-      gridStrong:'rgba(255,230,205,.18)',
-      land:'rgba(255,230,205,.15)',
-      coast:'rgba(255,230,205,.24)',
-      pin:'255,96,96',
-      pinHi:'255,225,225'
-    };
-  }
-
-  function resize(){
-    var rect = canvas.getBoundingClientRect();
-    W = Math.max(280, Math.round(rect.width || 540));
-    H = Math.max(150, Math.round(rect.height || W / 2.05));
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    draw();
-  }
-
-  function mapBox(){
-    var padX = W * 0.045;
-    var padY = H * 0.08;
-    var mw = W - padX * 2;
-    var mh = Math.min(H - padY * 2, mw * 0.50);
-    var x = (W - mw) / 2;
-    var y = (H - mh) / 2;
-    return { x:x, y:y, w:mw, h:mh };
-  }
-
-  function project(lat, lng, box){
-    return {
-      x: box.x + ((lng + 180) / 360) * box.w,
-      y: box.y + ((90 - lat) / 180) * box.h
-    };
-  }
-
-  function drawGrid(c, box){
-    ctx.save();
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 5]);
-    ctx.strokeStyle = c.grid;
-    for (var lng = -120; lng <= 120; lng += 60){
-      var a = project(-72, lng, box), b = project(76, lng, box);
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    }
-    for (var lat = -60; lat <= 60; lat += 30){
-      var l = project(lat, -174, box), r = project(lat, 174, box);
-      ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(r.x, r.y); ctx.stroke();
-    }
-    ctx.setLineDash([]);
-    ctx.strokeStyle = c.gridStrong;
-    var eqL = project(0, -174, box), eqR = project(0, 174, box);
-    ctx.beginPath(); ctx.moveTo(eqL.x, eqL.y); ctx.lineTo(eqR.x, eqR.y); ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawLand(c, box){
-    var pts = landPts.length ? landPts : [
-      {lat:40,lng:-100,coast:true},{lat:45,lng:-75,coast:true},{lat:35,lng:-120,coast:true},
-      {lat:-12,lng:-60,coast:true},{lat:-24,lng:-48,coast:true},{lat:-34,lng:-70,coast:true},
-      {lat:50,lng:8,coast:true},{lat:35,lng:20,coast:true},{lat:5,lng:20,coast:false},
-      {lat:25,lng:78,coast:true},{lat:35,lng:105,coast:false},{lat:5,lng:105,coast:true},
-      {lat:-25,lng:135,coast:true},{lat:60,lng:90,coast:false}
-    ];
-    var r = Math.max(0.55, Math.min(1.45, box.w / 560));
-    for (var i = 0; i < pts.length; i++){
-      var p = pts[i];
-      if (Math.abs(p.lat) > 78) continue;
-      var xy = project(p.lat, p.lng, box);
-      ctx.fillStyle = p.coast ? c.coast : c.land;
-      ctx.beginPath();
-      ctx.arc(xy.x, xy.y, r * (p.coast ? 1.05 : 0.72), 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  function drawPins(c, box){
-    for (var i = 0; i < livePins.length; i++){
-      var p = livePins[i];
-      var xy = project(p.lat, p.lng, box);
-      var n = Math.max(1, Number(p.n || 1));
-      var r = 3.2 + Math.min(5, Math.sqrt(n) * 1.2);
-      var glowR = r * 4.2;
-      var g = ctx.createRadialGradient(xy.x, xy.y, 0, xy.x, xy.y, glowR);
-      g.addColorStop(0, 'rgba(' + c.pin + ',.45)');
-      g.addColorStop(.42, 'rgba(' + c.pin + ',.18)');
-      g.addColorStop(1, 'rgba(' + c.pin + ',0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(xy.x, xy.y, glowR, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(' + c.pin + ',.92)';
-      ctx.beginPath(); ctx.arc(xy.x, xy.y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(' + c.pinHi + ',.72)';
-      ctx.beginPath(); ctx.arc(xy.x - r * .28, xy.y - r * .32, Math.max(1.2, r * .34), 0, Math.PI * 2); ctx.fill();
-    }
-  }
-
-  function draw(){
-    var c = theme();
-    var box = mapBox();
-    ctx.clearRect(0, 0, W, H);
-    drawGrid(c, box);
-    drawLand(c, box);
-    drawPins(c, box);
-  }
-
-  function setCaption(count){
-    if (!caption) return;
-    if (count > 0){
-      caption.innerHTML = '<b style="color:var(--accent,#ef4444)">' + count +
-        ' debater' + (count === 1 ? '' : 's') + '</b> active in the last 30 minutes. See the map &rarr;';
-    } else {
-      caption.innerHTML = 'Debaters around the world. See the map &rarr;';
-    }
-  }
-
-  function fetchLive(){
-    fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
-      if (!d) return;
-      livePins = Array.isArray(d.pins) ? d.pins.filter(function(p){
-        return typeof p.lat === 'number' && typeof p.lng === 'number';
-      }) : [];
-      setCaption(typeof d.online30 === 'number' ? d.online30 : livePins.length);
-      draw();
-    }).catch(function(){});
-  }
-
-  function buildLand(){
-    var wd = window.DebateWorldData;
-    if (!wd || !wd.land || !wd.land.length) return;
-    var cells = {};
-    var i, p, col, row;
-    for (i = 0; i < wd.land.length; i++){
-      p = wd.land[i];
-      col = Math.round((p.lng + 180) / 2 - 0.5);
-      row = Math.round((90 - p.lat) / 2 - 0.5);
-      cells[row + ',' + col] = true;
-    }
-    function has(r2, c2){ return !!cells[r2 + ',' + (((c2 % 180) + 180) % 180)]; }
-    var out = [];
-    for (i = 0; i < wd.land.length; i++){
-      p = wd.land[i];
-      if (Math.abs(p.lat) > 78) continue;
-      col = Math.round((p.lng + 180) / 2 - 0.5);
-      row = Math.round((90 - p.lat) / 2 - 0.5);
-      var absLat = Math.abs(p.lat);
-      if (absLat > 62 && col % 2) continue;
-      out.push({
-        lat:p.lat,
-        lng:p.lng,
-        coast:!(has(row - 1, col) && has(row + 1, col) && has(row, col - 1) && has(row, col + 1))
-      });
-    }
-    landPts = out;
-    draw();
-  }
-
-  if (window.DebateWorldData) buildLand();
-  else window.addEventListener('world-data:ready', buildLand, { once:true });
-  resize();
-  fetchLive();
-  window.addEventListener('resize', function(){ resize(); });
-  try {
-    new MutationObserver(draw).observe(document.documentElement, { attributes:true });
-  } catch(e){}
-  setInterval(function(){ if (!document.hidden) fetchLive(); }, 120000);
-})();
-
 /* Circulating webcam faces (2026-06-14): every ~8s each .rot-cam swaps
    to another face from the pool with a crossfade, so the hero seats and
    the live-debates wall read as a live, rotating room. Staggered so the
