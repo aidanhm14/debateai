@@ -137,9 +137,12 @@
       draw();
     }
     function box(){
-      var padX = W * .045, padY = H * .08;
+      // Near full-bleed: trim the internal padding so the world reaches
+      // close to the hero edges, and let it run a touch taller than a
+      // strict 2:1 so it fills more of the tall hero backdrop.
+      var padX = W * .02, padY = H * .035;
       var mw = W - padX * 2;
-      var mh = Math.min(H - padY * 2, mw * .50);
+      var mh = Math.min(H - padY * 2, mw * .52);
       return { x:(W - mw) / 2, y:(H - mh) / 2, w:mw, h:mh };
     }
     function project(lat, lng, b){
@@ -239,6 +242,29 @@
     resize();
     fetchPins();
     window.addEventListener('resize', resize);
+    // The hero grows AFTER mount — the web font (Inter) swaps in, and
+    // topbar.js + the cohort banner inject and push the layout taller.
+    // resize() otherwise only fires on window-resize, so the map keeps its
+    // small mount-time box and renders as a short band instead of filling
+    // the hero. Re-measure on every event that reflows the hero:
+    window.addEventListener('load', resize);
+    if(document.fonts && document.fonts.ready){ document.fonts.ready.then(resize).catch(function(){}); }
+    // Belt-and-suspenders for late script injection (topbar/banner) that
+    // fires no event we can hook — cheap re-measures over the first ~3s.
+    [150, 450, 1000, 2000, 3200].forEach(function(ms){ setTimeout(resize, ms); });
+    // Primary in real browsers (this preview's headless renderer doesn't
+    // deliver RO callbacks, but production Chrome/Safari do). Recomputes on
+    // any box change. Setting canvas.width/height doesn't change the CSS
+    // box, so there's no observer loop.
+    try{
+      var lastW = 0, lastH = 0;
+      new ResizeObserver(function(){
+        var r = canvas.getBoundingClientRect();
+        var w = Math.round(r.width), h = Math.round(r.height);
+        if(Math.abs(w - lastW) < 2 && Math.abs(h - lastH) < 2) return;
+        lastW = w; lastH = h; resize();
+      }).observe(canvas);
+    }catch(e){}
     try{ new MutationObserver(draw).observe(document.documentElement, { attributes:true }); }catch(e){}
     setInterval(function(){ if(!document.hidden) fetchPins(); }, 120000);
   }
@@ -420,7 +446,7 @@ button{font-family:inherit}
    width; html/body already clip overflow-x so there's no horizontal scroll. */
 .hero-map{
   position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
-  width:100vw;max-width:1600px;margin:0;z-index:0;pointer-events:none;opacity:.9;
+  width:100vw;max-width:1760px;margin:0;z-index:0;pointer-events:none;opacity:.9;
 }
 .map-frame{position:absolute;inset:0;overflow:hidden;filter:none}
 /* Ambient brand glow, low and centered — reads as atmosphere, not a spotlight. */
