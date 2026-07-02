@@ -58,8 +58,8 @@
   // email: work that persists, an AI that learns them, saved practice,
   // DMs that reach them. Honest, no invented urgency.
   var REMIND_MSGS = [
-    '<strong>Why sign in?</strong> Your rounds, ballots, and streaks save to your Google email and follow you on any device. The AI learns how you argue from what you save, and signed-in practice gets the real request pool.',
-    '<strong>Still one tap.</strong> Without an email link your work vanishes when this tab closes. With it: saved history, a style profile the AI trains on, DMs from sparring partners, a real leaderboard rank.'
+    '<strong>Why sign in?</strong> Your rounds, ballots, and streaks save to your Google email and follow you on any device. You are not training GPT or Claude. You are training DebateIt.',
+    '<strong>Still one tap.</strong> Without an email link your work vanishes when this tab closes. With it: saved history, a style profile DebateIt learns from, DMs from sparring partners, a real leaderboard rank.'
   ];
 
   // Per-path config. First match wins. Generic fallback at the end.
@@ -103,7 +103,7 @@
       msg: "Beta is free for everyone. Sign in to keep your rounds when pricing turns on." },
     { match: /.*/,
       delay: 25,
-      msg: 'Sign in and the AI starts learning how you argue. Rounds, ballots, style profile follow you.' },
+      msg: 'Sign in and your rounds train DebateIt, not GPT or Claude. Rounds, ballots, style profile follow you.' },
   ];
 
   function getConfig(){
