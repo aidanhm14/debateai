@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Spar · Debate it live with another debater · DebateIt</title>
-<meta name="description" content="Match into a live debate with another human in 30 seconds, or post to the waitlist and DM another debater in the global DebateIt community to organize a round. If nobody pairs in 4 minutes, an AI opponent steps in. An AI judge writes the verdict at the end." />
+<meta name="description" content="Match into a live debate with another human, or post an open invite and DM another debater in the global DebateIt community to organize a round. If the queue is quiet, prep with AI while you stay available. An AI judge writes the verdict at the end." />
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -15,11 +15,11 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://debateai.com/spar">
 <meta property="og:title" content="Spar · Debate it live with another debater · DebateIt">
-<meta property="og:description" content="Post on the waitlist, DM another debater, or matchmake into a live voice round in 30 seconds. The global DebateIt community of debaters. AI judges at the end.">
+<meta property="og:description" content="Post an open invite, DM another debater, or match into a live voice round. The global DebateIt community of debaters. AI judges at the end.">
 <meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Spar · Debate it live with another debater · DebateIt">
-<meta name="twitter:description" content="The global DebateIt community. Post, DM, or matchmake into a live voice round. AI judges at the end.">
+<meta name="twitter:description" content="The global DebateIt community. Post an open invite, DM, or match into a live voice round. AI judges at the end.">
 <meta name="twitter:image" content="https://debateai.com/og-image.png?v=cards6">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -1279,6 +1279,7 @@ h1 em{color:var(--accent);font-style:normal}
     guestUpgradeTimer: null,       // deferred anon sign-in (only mint an account after a real dwell)
     guestUpgrading: false,         // true while a guest is being upgraded — preserves the countdown
     watchPollInterval: null,       // "watch a live round" panel refresh
+    roundNavPending: false,        // fallback guard once spar-pair succeeds
   };
 
   // Timer until AI fallback. After this, we mark the user's
@@ -1475,7 +1476,7 @@ h1 em{color:var(--accent);font-style:normal}
     shell.innerHTML =
       '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
       '<h1>Finding someone to <em>argue with.</em></h1>' +
-      '<p class="lede">Matching you with another debater in your format. If nobody pairs in 4 minutes, the AI takes the round.</p>' +
+      '<p class="lede">Matching you with another debater in your format. If the queue is quiet, prep with AI while you stay available.</p>' +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
       // across time zones," not "tracking targets." Self-contained
@@ -1492,13 +1493,13 @@ h1 em{color:var(--accent);font-style:normal}
       // Live ops strip. Wired to real Firestore via startMetaLive():
       // queue cell = peers waiting in this format's matchmaking_queue
       // (self excluded so the user doesn't see "1 waiting" when only
-      // they're in line). waitlist cell = open async posts in the last
-      // 24h on /waitlist_posts. Dot dims when both are 0 — the empty
-      // state is honest, not faked into looking active.
+      // they're in line). waitlist cell = open async DM invites in the
+      // last 24h on /waitlist_posts. The dot turns live ONLY for
+      // spawnable queue peers, never for DM-only invites.
       '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> in ' + escHtml(formatLabel) + ' queue</span>' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> spawnable in ' + escHtml(formatLabel) + '</span>' +
         '<span class="meta-sep">·</span>' +
-        '<span class="meta-cell"><strong id="metaWaitlist">0</strong> on the open waitlist</span>' +
+        '<span class="meta-cell"><strong id="metaWaitlist">0</strong> open DM invites</span>' +
         // "Missed this week" — appears only when the public counter
         // reads >=3 (avoids "1 missed this week" looking sadder than
         // not showing it). Pulled from /api/log-missed-match on mount
@@ -2017,7 +2018,7 @@ h1 em{color:var(--accent);font-style:normal}
     qEl.textContent = String(metaLiveCounts.queue);
     wEl.textContent = String(metaLiveCounts.waitlist);
     var dot = document.querySelector('#metaStrip .meta-dot');
-    var anyLive = metaLiveCounts.queue > 0 || metaLiveCounts.waitlist > 0;
+    var anyLive = metaLiveCounts.queue > 0;
     if (dot){
       dot.style.background = anyLive ? '#22c55e' : '#6b7280';
       dot.style.boxShadow = anyLive ? '0 0 6px rgba(34,197,94,.6)' : 'none';
@@ -2358,7 +2359,7 @@ h1 em{color:var(--accent);font-style:normal}
     removeWaitRail();
     shell.innerHTML =
       '<div class="eyebrow" style="background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.4);color:#fbbf24"><span class="pip" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span>AI Fallback</div>' +
-      '<h1>No human in 4 minutes. <em>Spinning up the AI</em>.</h1>' +
+      '<h1>No human yet. <em>Spinning up the AI</em>.</h1>' +
       '<p class="lede">The queue is thin right now. Handing you to the AI sparring partner so you don\'t lose your prep time. You stay available in the background; if a human shows up, a match card pops wherever you are.</p>' +
       '<div class="orb-wrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
       '<div class="status">Loading AI round…</div>';
@@ -2577,21 +2578,7 @@ h1 em{color:var(--accent);font-style:normal}
         // strand a successfully-paired user on the search screen.
         try { renderMatched(d.room, d.matchedWithName || 'a debater'); }
         catch (e) { console.warn('[spar] renderMatched failed, navigating anyway', e); }
-        // Build the live-round URL — we don't know which side we got;
-        // the round-room infra will reconcile via posterUid/accepterUid
-        // semantics. Pass both UIDs and the format.
-        var params = new URLSearchParams({
-          motion: '',
-          format: d.pairedFormat || formatParam,
-          pro: d.proName || shortNameOf(state.user),
-          con: d.conName || (d.matchedWithName || 'Opponent'),
-          proUid: d.proUid || state.user.uid,
-          conUid: d.conUid || d.matchedWith,
-          room: d.room,
-          paradigm: d.pairedParadigm || '',
-          source: 'spar',
-        });
-        setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, 900);
+        navigateToRound(d, 900);
       } else if (d.status === 'consent' && d.matchedWith){
         pingMatchFound(d.matchedWithName || '');
         // Two-phase match: someone's judge-paradigm note needs eyes
@@ -2646,6 +2633,25 @@ h1 em{color:var(--accent);font-style:normal}
     return parts.length >= 2
       ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
       : (parts[0] || 'You');
+  }
+
+  function navigateToRound(d, delay){
+    if (!d || !d.room || state.roundNavPending || state.cancelled) return;
+    state.roundNavPending = true;
+    // Build the live-round URL. We do not need to know which side this
+    // browser got; the round-room infra reconciles from proUid/conUid.
+    var params = new URLSearchParams({
+      motion: d.pairedMotion || '',
+      format: d.pairedFormat || formatParam,
+      pro: d.proName || shortNameOf(state.user),
+      con: d.conName || (d.matchedWithName || 'Opponent'),
+      proUid: d.proUid || (state.user && state.user.uid) || '',
+      conUid: d.conUid || d.matchedWith || '',
+      room: d.room,
+      paradigm: d.pairedParadigm || '',
+      source: 'spar',
+    });
+    setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, delay || 0);
   }
 
   // ── Consent gate ─────────────────────────────────────
@@ -2963,11 +2969,11 @@ h1 em{color:var(--accent);font-style:normal}
     // The exact-format query wins ties so users who haven't broadened
     // still get same-format matches preferentially.
     var queries = [
-      queue.where('format', '==', formatParam).where('status', '==', 'waiting').limit(8).get(),
+      queue.where('format', '==', formatParam).where('status', '==', 'waiting').orderBy('joinedAt').limit(8).get(),
     ];
     if (state.broaden){
       queries.push(
-        queue.where('broaden', '==', true).where('status', '==', 'waiting').limit(8).get()
+        queue.where('broaden', '==', true).where('status', '==', 'waiting').orderBy('joinedAt').limit(8).get()
       );
     }
     Promise.all(queries).then(function(snaps){
@@ -3023,7 +3029,7 @@ h1 em{color:var(--accent);font-style:normal}
   // Anything else (auth/5xx/network) is a hard fail; we surface it so
   // the user knows pairing is having trouble rather than burning the
   // full fallback clock in silence.
-  var PAIR_REQUEST_TIMEOUT_MS = 8000;
+  var PAIR_REQUEST_TIMEOUT_MS = 15000;
   function attemptMatch(peerUid /* peerData unused now */){
     if (state.cancelled || !state.user || !firebaseAuth) return;
     // Guard against re-firing while a pair attempt is in flight —
@@ -3094,8 +3100,14 @@ h1 em{color:var(--accent);font-style:normal}
       }
       updateDiag({ last: 'matched' });
       try { gtag('event', 'spar_match_made', { format: formatParam }); } catch(e){}
-      // The snapshot listener on my own doc will fire (the function
-      // updated it) and navigate via subscribeMyDoc → /live-round.
+      // The snapshot listener on my own doc should fire and navigate.
+      // Fallback: if that stream stalls, use the function response so a
+      // successful pair never sits on the search screen forever.
+      setTimeout(function(){
+        if (!state.roundNavPending && !state.cancelled && !state.inConsent){
+          navigateToRound(r.body, 0);
+        }
+      }, 1300);
     }).catch(function(err){
       clearTimeout(timeoutId);
       state.pairInFlight = false;
@@ -3345,7 +3357,7 @@ h1 em{color:var(--accent);font-style:normal}
           '<button class="waitlist-rail__close" id="wlCloseBtn" type="button" aria-label="Close">×</button>' +
         '</div>' +
       '</div>' +
-      '<div class="waitlist-rail__sub">Debaters available to debate online right now. Join the waitlist to show up here, or DM anyone directly to organize a round.</div>' +
+      '<div class="waitlist-rail__sub">Open invites for live debates. Join to show up here, and keep the matchmaker running above for instant rounds.</div>' +
       '<div class="waitlist-rail__post-slot" id="wlPostSlot"></div>' +
       '<div class="waitlist-rail__list" id="wlList">' +
         '<div class="waitlist-rail__empty">Loading…</div>' +
@@ -3405,7 +3417,7 @@ h1 em{color:var(--accent);font-style:normal}
       slot.innerHTML =
         '<div class="waitlist-rail__joined">' +
           '<div class="waitlist-rail__joined-txt"><span class="dot"></span>You\'re on the waitlist</div>' +
-          '<div class="waitlist-rail__joined-sub">Debaters can DM you to organize a round. Check your inbox.</div>' +
+          '<div class="waitlist-rail__joined-sub">Debaters can DM you to organize a round. You stay matchable while the queue is open.</div>' +
           '<div class="waitlist-rail__joined-actions">' +
             '<button class="waitlist-rail__leave" id="wlLeaveBtn" type="button">Leave waitlist</button>' +
           '</div>' +
@@ -3606,11 +3618,25 @@ h1 em{color:var(--accent);font-style:normal}
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).then(function(){
       try { gtag('event', 'waitlist_join', { format: fmtEl.value }); } catch(e){}
+      markWaitlistMatchable(fmtEl.value);
       closeModal();
     }).catch(function(e){
       if (btn) btn.disabled = false;
       if (errEl) errEl.textContent = 'Couldn\'t join: ' + (e.message || e.code || 'unknown');
     });
+  }
+
+  function markWaitlistMatchable(fmt){
+    try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
+    try { localStorage.setItem('debateos-spar-format', fmt || formatParam); } catch(e){}
+    // If this page is actively searching, joining the waitlist should
+    // also make the live queue easier to match. Cross-format rounds still
+    // run through the consent card before they start.
+    if (state.queueDocRef && !state.inConsent){
+      state.broaden = true;
+      state.queueDocRef.update({ broaden: true }).catch(function(){});
+      tryMatch();
+    }
   }
 
   function dmThreadId(uidA, uidB){

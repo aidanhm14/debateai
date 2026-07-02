@@ -173,10 +173,12 @@
     // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
     // The mission page is still reachable directly at /scale + footer.
     { href: '/learn',         label: 'Learn'        },
-    // 2026-07-02: bar decluttered per Aidan ("too dense") — Certificate,
-    // Schedule, and FAQ dropped. Pages stay live (/credentials via Learn
-    // + landing, /live via Spar + landing, FAQ on the landing); they just
-    // lose their nav slots. Same precedent as /scale and /champions.
+    // 2026-07-02: Certificate + Schedule restored after the declutter pass.
+    // They are high-intent product pillars: proof you can earn, and the
+    // organized-round board when random live matching is quiet.
+    { href: '/credentials',   label: 'Certificate'  },
+    { href: '/live',          label: 'Schedule'     },
+    // FAQ stays off the bar; the landing carries it in-page.
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
     // 2026-07-02: Leaderboard removed from the top bar per Aidan — it's
@@ -193,7 +195,7 @@
     // it more ... have it in a tab"). /floor is the play-money debate
     // prediction market (back who wins across three windows, AI judge
     // settles, leaderboard). noindex page; this is the on-site entry.
-    { href: '/floor',         label: 'The Floor'    },
+    { href: '/floor',         label: 'Floor', mobileKeep: true },
   ];
 
   function el(tag, attrs, children){
@@ -280,7 +282,7 @@
       // Icon-only controls (SFX/theme/bell/CTA) keep their titles.
       var attrs = {
         href: L.href,
-        class: 'ui-topbar-link' + (active ? ' is-active' : ''),
+        class: 'ui-topbar-link' + (active ? ' is-active' : '') + (L.mobileKeep ? ' ui-topbar-link--mobile-keep' : ''),
       };
       // External links (YouTube demo, etc.) open in a new tab so the
       // user doesn't lose the page; rel=noopener prevents the popup

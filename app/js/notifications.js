@@ -348,6 +348,7 @@
       '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--text-ghost,#888);transition:background .2s}' +
       '.da-spar-pill.is-on{color:#22c55e;border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
       '.da-spar-pill.is-on .da-spar-pill__dot{background:#22c55e;animation:daSparPulse 1.7s ease-out infinite}' +
+      '@media(max-width:560px){.ui-topbar .da-spar-pill{display:none!important}}' +
       '@keyframes daSparPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
       '.da-match-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);animation:daMatchFade .2s ease-out}' +
       '@keyframes daMatchFade{from{opacity:0}to{opacity:1}}' +
