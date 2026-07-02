@@ -80,31 +80,42 @@
     var sub = dark ? 'rgba(245,241,234,.62)' : 'rgba(20,16,12,.6)';
     var line = dark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)';
     var field = dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.025)';
+    var veil = dark ? 'rgba(5,4,3,.72)' : 'rgba(17,14,10,.48)';
+    var hover = dark ? 'rgba(255,255,255,.24)' : 'rgba(0,0,0,.22)';
+    var focus = dark ? 'rgba(248,113,113,.42)' : 'rgba(239,68,68,.34)';
     var s = document.createElement('style');
     s.id = 'ditAuthCss';
     s.textContent =
-      '#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;background:rgba(8,6,4,.55);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
+      '#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:16px;background:' + veil + ';backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}' +
+      '#ditAuth *{box-sizing:border-box}' +
       '#ditAuth.on{display:flex}' +
-      '#ditAuth .da-card{background:' + card + ';color:' + ink + ';width:min(400px,calc(100vw - 32px));border-radius:18px;padding:26px 24px 22px;box-shadow:0 24px 70px rgba(0,0,0,.4);position:relative}' +
-      '#ditAuth .da-x{position:absolute;top:12px;right:14px;width:30px;height:30px;border:0;background:transparent;color:' + sub + ';font-size:22px;line-height:1;cursor:pointer;border-radius:8px}' +
-      '#ditAuth h2{font-size:1.25rem;font-weight:800;margin:0 0 5px;letter-spacing:-.01em}' +
-      '#ditAuth .da-sub{font-size:.88rem;color:' + sub + ';margin:0 0 18px;line-height:1.45}' +
-      '#ditAuth .da-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;box-sizing:border-box;padding:12px;border-radius:11px;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid ' + line + ';background:' + field + ';color:' + ink + ';font-family:inherit;margin-top:9px}' +
-      '#ditAuth .da-btn:hover{border-color:' + (dark ? 'rgba(255,255,255,.3)' : 'rgba(0,0,0,.3)') + '}' +
+      '#ditAuth .da-card{background:' + card + ';color:' + ink + ';width:min(408px,100%);max-height:calc(100vh - 32px);max-height:min(720px,calc(100dvh - 32px));overflow:auto;border:1px solid ' + line + ';border-radius:22px;padding:30px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.38);position:relative}' +
+      '#ditAuth .da-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:#ef4444}' +
+      '#ditAuth .da-x{position:absolute;top:12px;right:12px;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:0;background:transparent;color:' + sub + ';font-size:22px;line-height:1;cursor:pointer;border-radius:10px;transition:background .16s ease,color .16s ease}' +
+      '#ditAuth .da-x:hover{background:' + field + ';color:' + ink + '}' +
+      '#ditAuth h2{font-size:26px;line-height:1.08;font-weight:800;margin:0 34px 8px 0;letter-spacing:0}' +
+      '#ditAuth .da-sub{font-size:15px;color:' + sub + ';margin:0 0 20px;line-height:1.5;max-width:32ch}' +
+      '#ditAuth .da-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:13px;font-weight:700;font-size:15px;cursor:pointer;border:1px solid ' + line + ';background:' + field + ';color:' + ink + ';font-family:inherit;margin-top:10px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}' +
+      '#ditAuth .da-btn:hover{border-color:' + hover + ';box-shadow:0 8px 22px rgba(0,0,0,.08);transform:translateY(-1px)}' +
+      '#ditAuth .da-btn:disabled{opacity:.62;cursor:wait;transform:none;box-shadow:none}' +
       '#ditAuth .da-btn--google{background:#fff;color:#16130f;border-color:rgba(0,0,0,.14)}' +
       '#ditAuth .da-btn--primary{background:#ef4444;color:#fff;border-color:#ef4444}' +
       '#ditAuth .da-btn--primary:hover{background:#dc2626;border-color:#dc2626}' +
-      '#ditAuth .da-or{display:flex;align-items:center;gap:10px;margin:16px 0 6px;color:' + sub + ';font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}' +
-      '#ditAuth .da-or::before,#ditAuth .da-or::after{content:"";flex:1;height:1px;background:' + line + '}' +
-      '#ditAuth .da-input{width:100%;box-sizing:border-box;padding:11px 13px;border-radius:10px;border:1px solid ' + line + ';background:' + field + ';color:' + ink + ';font:inherit;font-size:.95rem;margin-top:9px}' +
-      '#ditAuth .da-input:focus{outline:none;border-color:#ef4444}' +
-      '#ditAuth .da-note{font-size:.78rem;color:' + sub + ';margin:10px 0 0;line-height:1.45;text-align:center}' +
-      '#ditAuth .da-err{font-size:.8rem;color:#ef4444;margin:8px 0 0;text-align:center}' +
-      '#ditAuth .da-btn--hero{padding:14px;font-size:1rem;box-shadow:0 2px 12px rgba(0,0,0,.07)}' +
-      '#ditAuth .da-more-toggle{display:block;width:100%;margin:14px 0 0;padding:6px;background:none;border:0;color:' + sub + ';font-size:.82rem;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:3px}' +
-      '#ditAuth .da-more-toggle:hover{color:' + ink + '}' +
+      '#ditAuth .da-btn--hero{min-height:54px;padding:14px 16px;font-size:17px;font-weight:800;box-shadow:0 10px 28px rgba(0,0,0,.08)}' +
+      '#ditAuth .da-more-toggle{display:flex;align-items:center;justify-content:center;width:100%;min-height:38px;margin:14px 0 0;padding:8px 12px;background:' + field + ';border:1px solid ' + line + ';border-radius:999px;color:' + ink + ';font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:border-color .16s ease,background .16s ease,color .16s ease}' +
+      '#ditAuth .da-more-toggle:hover{border-color:' + hover + ';background:' + (dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.04)') + '}' +
       '#ditAuth .da-more[hidden]{display:none}' +
-      '#ditAuth svg{width:18px;height:18px;flex:none}';
+      '#ditAuth .da-more{padding-top:2px}' +
+      '#ditAuth .da-or{display:flex;align-items:center;gap:10px;margin:14px 0 6px;color:' + sub + ';font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}' +
+      '#ditAuth .da-or::before,#ditAuth .da-or::after{content:"";flex:1;height:1px;background:' + line + '}' +
+      '#ditAuth .da-input{width:100%;min-height:48px;padding:12px 14px;border-radius:13px;border:1px solid ' + line + ';background:' + field + ';color:' + ink + ';font:inherit;font-size:16px;margin-top:10px}' +
+      '#ditAuth .da-input::placeholder{color:' + sub + '}' +
+      '#ditAuth .da-input:focus{outline:none;border-color:#ef4444;box-shadow:0 0 0 4px ' + focus + '}' +
+      '#ditAuth .da-note{font-size:13px;color:' + sub + ';margin:14px 4px 0;line-height:1.45;text-align:center}' +
+      '#ditAuth .da-err{font-size:13px;font-weight:700;color:#ef4444;margin:10px 4px 0;text-align:center;line-height:1.35}' +
+      '#ditAuth .da-err:empty{display:none}' +
+      '#ditAuth svg{width:20px;height:20px;flex:none}' +
+      '@media (max-width:380px){#ditAuth{padding:10px}#ditAuth .da-card{padding:26px 20px 20px;border-radius:18px}#ditAuth h2{font-size:24px}#ditAuth .da-btn--hero{font-size:16px}}';
     document.head.appendChild(s);
   }
 
@@ -119,12 +130,15 @@
 
   function renderChooser() {
     var c = home(); if (!c) return;
+    try { if (recaptcha && recaptcha.clear) recaptcha.clear(); } catch (e) {}
+    recaptcha = null;
+    confirmationResult = null;
     c.innerHTML =
       '<button class="da-x" aria-label="Close">×</button>' +
       '<h2>Save your progress</h2>' +
-      '<p class="da-sub">One tap, and your rounds, ballots, and style profile follow you. Signing in unlocks the full app.</p>' +
+      '<p class="da-sub">Your rounds, ballots, and style profile follow you across devices.</p>' +
       '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
-      '<button type="button" class="da-more-toggle" id="daMoreToggle">Prefer email or phone?</button>' +
+      '<button type="button" class="da-more-toggle" id="daMoreToggle" aria-expanded="false" aria-controls="daMore">Use email or phone instead</button>' +
       '<div class="da-more" id="daMore" hidden>' +
         '<div class="da-or">or</div>' +
       '<input class="da-input" id="daEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
@@ -140,7 +154,7 @@
     c.querySelector('#daPhoneBtn').addEventListener('click', doPhone);
     c.querySelector('#daMoreToggle').addEventListener('click', function(){
       var m = c.querySelector('#daMore'), t = c.querySelector('#daMoreToggle');
-      if (m) m.hidden = false; if (t) t.style.display = 'none';
+      if (m) m.hidden = false; if (t) { t.setAttribute('aria-expanded', 'true'); t.style.display = 'none'; }
     });
   }
 
@@ -209,7 +223,9 @@
         auth = firebase.auth();
         if (!recaptcha) {
           // invisible reCAPTCHA attached to the phone button (required for web phone auth)
-          recaptcha = new firebase.auth.RecaptchaVerifier(btn, { size: 'invisible' }, auth);
+          btn.disabled = false;
+          recaptcha = new firebase.auth.RecaptchaVerifier('daPhoneBtn', { size: 'invisible' });
+          btn.disabled = true;
         }
         track('sign_in_start', { method: 'phone' });
         auth.signInWithPhoneNumber(phone, recaptcha).then(function (res) {
@@ -220,7 +236,11 @@
           try { if (recaptcha && recaptcha.clear) recaptcha.clear(); recaptcha = null; } catch (e) {}
           setErr('Could not text a code: ' + ((err && err.code) || 'error'));
         });
-      } catch (e) { btn.disabled = false; btn.textContent = 'Text me a code'; setErr('Phone sign-in unavailable.'); }
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Text me a code';
+        try { if (recaptcha && recaptcha.clear) recaptcha.clear(); recaptcha = null; } catch (err) {}
+        setErr('Phone sign-in is not available here. Try Google or email.');
+      }
     });
   }
   function renderCode(phone) {
