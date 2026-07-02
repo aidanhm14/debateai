@@ -455,6 +455,13 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       #judgeLensX .jlx-panel p{margin:0;font-size:.92rem;line-height:1.55;color:#4b4b52}
       #judgeLensX .jlx-foot{font-size:.82rem;line-height:1.5;color:#4b4b52;margin:14px 0 0}
       #judgeLensX .jlx-foot b{color:#1b1b21}
+      /* Panel content fades/slides in on paradigm switch instead of
+         snapping. Class is retriggered from show(); reduced-motion
+         users get the instant swap. */
+      @media (prefers-reduced-motion: no-preference){
+        #judgeLensX .jlx-panel.is-swap{animation:jlxSwap .28s cubic-bezier(.22,.9,.32,1)}
+        @keyframes jlxSwap{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+      }
     </style>
     <div class="jlx-eyebrow">The judge lens</div>
     <h2 style="margin:0 0 6px">The lens, not just the format</h2>
@@ -491,10 +498,13 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       };
       var chips = Array.prototype.slice.call(sec.querySelectorAll('.jlx-chip'));
       var tag = sec.querySelector('#jlxTag'), name = sec.querySelector('#jlxName'), desc = sec.querySelector('#jlxDesc');
+      var panel = sec.querySelector('.jlx-panel');
       function show(key){
         var d = data[key]; if(!d) return;
         tag.textContent = d[0]; name.textContent = d[1]; desc.textContent = d[2];
         chips.forEach(function(c){ c.setAttribute('aria-pressed', c.getAttribute('data-jl')===key ? 'true':'false'); });
+        // Retrigger the swap animation so the new paradigm fades in.
+        if(panel){ panel.classList.remove('is-swap'); void panel.offsetWidth; panel.classList.add('is-swap'); }
       }
       chips.forEach(function(chip, idx){
         chip.addEventListener('click', function(){ show(chip.getAttribute('data-jl')); });
