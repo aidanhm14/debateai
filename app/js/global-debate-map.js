@@ -930,6 +930,7 @@
     // cheap; running it for an offscreen disc burns CPU for no payoff.
     var offscreenPaused = false;
     var rafId = 0;
+    var watchdogId = 0;
     if ('IntersectionObserver' in global) {
       try {
         var io = new IntersectionObserver(function (entries) {
@@ -1011,6 +1012,17 @@
       }
       updateArcs(performance.now());
     } else {
+      // Draw ONE frame synchronously at mount. The rAF loop below only
+      // ever runs while the document is visible; when the page mounts
+      // in a hidden tab or an occluded window (macOS occlusion counts
+      // as hidden), no frame fires and every continent/grid path used
+      // to sit at d="" — a blank ivory egg — until the pause/resume
+      // chain happened to restart it. One synchronous build means the
+      // sphere is ALWAYS geographically correct from the first paint,
+      // animated or not. (2026-07-02, "bring back the globe" bug.)
+      buildGrid();
+      buildContinents();
+      buildDots();
       // Seed 3-4 dots at the start so the disc isn't empty for the
       // first 1.5 seconds.
       var seedCount = Math.min(4, maxActiveDots - 1);
@@ -1018,12 +1030,31 @@
         setTimeout(spawnDot, i * 350);
       }
       rafId = requestAnimationFrame(frame);
+      // Watchdog: the pause/resume chain trusts the interleaving of
+      // visibilitychange + IntersectionObserver callbacks plus a rafId
+      // handle that can go stale (mount-while-hidden, occluded-window
+      // wake, view-transition timing). Rather than enumerate every
+      // interleaving, self-heal: if the loop is dead while we are
+      // visible and on-screen, restart it. setInterval still ticks
+      // (throttled) in hidden tabs, so this also covers wakes the
+      // listeners miss. ~0 cost when healthy (rafId truthy, early out).
+      watchdogId = setInterval(function () {
+        if (stopped || rafId || global.document.hidden) return;
+        var rect = container.getBoundingClientRect();
+        var onScreen = rect.width > 0 &&
+          rect.bottom > -120 && rect.top < (global.innerHeight || 0) + 120;
+        if (!onScreen) return;
+        offscreenPaused = false;
+        lastFrame = performance.now();
+        rafId = requestAnimationFrame(frame);
+      }, 1500);
     }
 
     return {
       stop: function () {
         stopped = true;
         if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+        if (watchdogId) { clearInterval(watchdogId); watchdogId = 0; }
         arcs.forEach(function (a) {
           if (a.el && a.el.parentNode) a.el.parentNode.removeChild(a.el);
           if (a.card && a.card.parentNode) a.card.parentNode.removeChild(a.card);
