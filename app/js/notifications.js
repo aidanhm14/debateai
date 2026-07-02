@@ -1071,7 +1071,7 @@
       var show = myUid && !ON_ROUND && !ON_SPAR && (available || !ON_PUBLIC);
       pill.style.display = show ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
-      if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. We'll ping you when a rival is found, anywhere on the site."; }
+      if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found."; }
       else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; }
     }
 
@@ -1099,6 +1099,10 @@
         // Going live = ping the pool of opted-in debaters (server enforces a
         // per-debater cooldown so this can't spam on repeated toggles).
         daBroadcastGoLive(fmt(), 'spar');
+        // Tell them why the tab matters: a hidden tab pauses our own scan, but
+        // the queue doc stays live so an active peer can still pair you and the
+        // OS ping fires. Close the tab and the doc is reaped = unmatchable.
+        sparNote('Matchable. Keep this tab open and we will ping you when a human opponent is ready.');
       }
       else goOffline();
     }
@@ -1417,7 +1421,7 @@
         el.setAttribute('aria-label', 'Be live for live debates');
         el.innerHTML =
           '<div class="da-golive__h"><span class="da-golive__dot" aria-hidden="true"></span>Be live for live debates?</div>' +
-          '<p class="da-golive__p">Stay matchable while you browse. We will ping you when a real opponent is ready.</p>' +
+          '<p class="da-golive__p">Stay matchable while you browse. Keep this tab open in the background and we will ping you the moment a real opponent is ready.</p>' +
           '<div class="da-golive__camcap">What a live round looks like</div>' +
           '<div class="da-golive__cams" aria-hidden="true">' +
             '<div class="da-golive__cam" style="background-image:url(/img/round/faces/face02.jpg)"></div>' +
