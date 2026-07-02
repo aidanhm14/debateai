@@ -184,19 +184,11 @@
     // of holding a top-nav slot. Page stays live + crawlable at
     // /leaderboard. (Community was folded into Leaderboard on 2026-06-14;
     // both are now off the bar.)
-    // 2026-07-01: /coaches surfaced into the bar — the community coach
-    // directory (browse + contact directly, signed-in users can add).
-    // Label "Coaches" (plural) = the people directory; singular "Coach"
-    // up front stays the AI drill partner. Sits in the community block
-    // next to Leaderboard rather than beside Coach, so the two don't
-    // read as variants of the same product.
-    { href: '/coaches',       label: 'Coaches'      },
-    // 2026-07-01: /messages — the dedicated DM inbox (threads that
-    // started on /spar or the waitlist live here too; same dm_threads
-    // docs, so both surfaces interop). Community block placement: it's
-    // people-to-people, like Coaches/Leaderboard. The notifications
-    // bell deep-links here as well.
-    { href: '/messages',      label: 'Messages'     },
+    // 2026-07-02: Coaches + Messages removed from the bar per Aidan
+    // (declutter — the bar overflowed at laptop widths and the VOICE AI
+    // button was getting cut off). Both pages stay live: /messages is
+    // still reachable via the notifications bell, /coaches from
+    // community surfaces. They can return when they fit.
     // 2026-06-24: The Floor surfaced into the bar per Aidan ("advertise
     // it more ... have it in a tab"). /floor is the play-money debate
     // prediction market (back who wins across three windows, AI judge
