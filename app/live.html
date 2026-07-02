@@ -96,17 +96,154 @@
      is exposed for ad-hoc page events (challenge_post, challenge_accept,
      etc — added inline in this page's script block). -->
 <script defer src="/js/track.js"></script>
-<script defer src="/js/global-debate-map.js?v=2"></script>
+<script defer src="/js/world-data.js?v=1"></script>
 <script>
-// Mount the global-activity globe in the hero once the module is ready.
+// Mount the flat live-presence map in the hero once the DOM is ready.
 (function(){
-  function tryMount(n){
-    if(!window.GlobalDebateMap){ if(n>0) return setTimeout(function(){tryMount(n-1);},80); return; }
-    var c=document.getElementById('globalDebateMap'); if(!c) return;
-    try{ window.GlobalDebateMap.mount(c,{maxActiveDots:7,maxActiveArcs:2,spawnEveryMs:1700,roomEveryMs:4200,rotateSec:240,palette:'auto'}); }catch(e){}
+  function mountLiveHeroMap(){
+    var canvas = document.getElementById('liveHeroMap');
+    if(!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext('2d');
+    if(!ctx) return;
+    var pins = [];
+    var landPts = [];
+    var W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    function palette(){
+      var light = document.documentElement.getAttribute('data-theme') === 'light';
+      return light ? {
+        grid:'rgba(84,68,48,.15)',
+        gridStrong:'rgba(84,68,48,.24)',
+        land:'rgba(92,74,52,.23)',
+        coast:'rgba(92,74,52,.36)',
+        pin:'239,68,68',
+        hi:'255,215,215'
+      } : {
+        grid:'rgba(255,230,205,.12)',
+        gridStrong:'rgba(255,230,205,.20)',
+        land:'rgba(255,230,205,.16)',
+        coast:'rgba(255,230,205,.27)',
+        pin:'255,96,96',
+        hi:'255,225,225'
+      };
+    }
+    function resize(){
+      var rect = canvas.getBoundingClientRect();
+      W = Math.max(260, Math.round(rect.width || 360));
+      H = Math.max(130, Math.round(rect.height || W / 2.05));
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+    function box(){
+      var padX = W * .045, padY = H * .08;
+      var mw = W - padX * 2;
+      var mh = Math.min(H - padY * 2, mw * .50);
+      return { x:(W - mw) / 2, y:(H - mh) / 2, w:mw, h:mh };
+    }
+    function project(lat, lng, b){
+      return { x:b.x + ((lng + 180) / 360) * b.w, y:b.y + ((90 - lat) / 180) * b.h };
+    }
+    function drawGrid(c, b){
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 5]);
+      ctx.strokeStyle = c.grid;
+      for(var lng=-120; lng<=120; lng+=60){
+        var a = project(-72, lng, b), z = project(76, lng, b);
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(z.x,z.y); ctx.stroke();
+      }
+      for(var lat=-60; lat<=60; lat+=30){
+        var l = project(lat, -174, b), r = project(lat, 174, b);
+        ctx.beginPath(); ctx.moveTo(l.x,l.y); ctx.lineTo(r.x,r.y); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.strokeStyle = c.gridStrong;
+      var eqL = project(0, -174, b), eqR = project(0, 174, b);
+      ctx.beginPath(); ctx.moveTo(eqL.x,eqL.y); ctx.lineTo(eqR.x,eqR.y); ctx.stroke();
+      ctx.restore();
+    }
+    function drawLand(c, b){
+      var pts = landPts.length ? landPts : [
+        {lat:40,lng:-100,coast:true},{lat:45,lng:-75,coast:true},{lat:35,lng:-120,coast:true},
+        {lat:-12,lng:-60,coast:true},{lat:-24,lng:-48,coast:true},{lat:-34,lng:-70,coast:true},
+        {lat:50,lng:8,coast:true},{lat:35,lng:20,coast:true},{lat:5,lng:20,coast:false},
+        {lat:25,lng:78,coast:true},{lat:35,lng:105,coast:false},{lat:5,lng:105,coast:true},
+        {lat:-25,lng:135,coast:true},{lat:60,lng:90,coast:false}
+      ];
+      var rr = Math.max(.55, Math.min(1.25, b.w / 520));
+      for(var i=0;i<pts.length;i++){
+        var p = pts[i];
+        if(Math.abs(p.lat) > 78) continue;
+        var xy = project(p.lat, p.lng, b);
+        ctx.fillStyle = p.coast ? c.coast : c.land;
+        ctx.beginPath(); ctx.arc(xy.x, xy.y, rr * (p.coast ? 1.05 : .72), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    function drawPins(c, b){
+      for(var i=0;i<pins.length;i++){
+        var p = pins[i];
+        var xy = project(p.lat, p.lng, b);
+        var n = Math.max(1, Number(p.n || 1));
+        var r = 2.8 + Math.min(4.8, Math.sqrt(n) * 1.15);
+        var glowR = r * 4.3;
+        var g = ctx.createRadialGradient(xy.x, xy.y, 0, xy.x, xy.y, glowR);
+        g.addColorStop(0, 'rgba(' + c.pin + ',.48)');
+        g.addColorStop(.42, 'rgba(' + c.pin + ',.19)');
+        g.addColorStop(1, 'rgba(' + c.pin + ',0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(xy.x, xy.y, glowR, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(' + c.pin + ',.95)';
+        ctx.beginPath(); ctx.arc(xy.x, xy.y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(' + c.hi + ',.75)';
+        ctx.beginPath(); ctx.arc(xy.x - r * .28, xy.y - r * .32, Math.max(1.1, r * .34), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    function draw(){
+      var c = palette(), b = box();
+      ctx.clearRect(0, 0, W, H);
+      drawGrid(c, b);
+      drawLand(c, b);
+      drawPins(c, b);
+    }
+    function buildLand(){
+      var wd = window.DebateWorldData;
+      if(!wd || !wd.land || !wd.land.length) return;
+      var cells = {}, out = [], i, p, col, row;
+      for(i=0;i<wd.land.length;i++){
+        p = wd.land[i]; col = Math.round((p.lng + 180) / 2 - .5); row = Math.round((90 - p.lat) / 2 - .5);
+        cells[row + ',' + col] = true;
+      }
+      function has(r2,c2){ return !!cells[r2 + ',' + (((c2 % 180) + 180) % 180)]; }
+      for(i=0;i<wd.land.length;i++){
+        p = wd.land[i];
+        if(Math.abs(p.lat) > 78) continue;
+        col = Math.round((p.lng + 180) / 2 - .5); row = Math.round((90 - p.lat) / 2 - .5);
+        if(Math.abs(p.lat) > 62 && col % 2) continue;
+        out.push({ lat:p.lat, lng:p.lng, coast:!(has(row-1,col) && has(row+1,col) && has(row,col-1) && has(row,col+1)) });
+      }
+      landPts = out;
+      draw();
+    }
+    function fetchPins(){
+      fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+        pins = d && Array.isArray(d.pins) ? d.pins.filter(function(p){
+          return typeof p.lat === 'number' && typeof p.lng === 'number';
+        }) : [];
+        draw();
+      }).catch(function(){});
+    }
+    if(window.DebateWorldData) buildLand();
+    else window.addEventListener('world-data:ready', buildLand, { once:true });
+    resize();
+    fetchPins();
+    window.addEventListener('resize', resize);
+    try{ new MutationObserver(draw).observe(document.documentElement, { attributes:true }); }catch(e){}
+    setInterval(function(){ if(!document.hidden) fetchPins(); }, 120000);
   }
-  if(document.readyState!=='loading') tryMount(40);
-  else document.addEventListener('DOMContentLoaded',function(){tryMount(40);});
+  if(document.readyState !== 'loading') mountLiveHeroMap();
+  else document.addEventListener('DOMContentLoaded', mountLiveHeroMap);
 })();
 </script>
 <script defer src="/js/voice-input.js"></script>
@@ -276,21 +413,21 @@ button{font-family:inherit}
      the bar travels with it, so this single offset holds in both states. */
   max-width:1120px;margin:0 auto;padding:62px 24px 16px;text-align:center;
 }
-/* Global-activity globe (shared with /spar). The module fills the round
-   frame via its viewBox; we just size + center it above the eyebrow. */
-.hero-globe{position:relative;width:168px;max-width:40vw;margin:0 auto 12px;aspect-ratio:1/1}
-.globe-frame{position:relative;width:100%;height:100%;border-radius:50%;background:transparent;overflow:visible;
-  filter:drop-shadow(0 14px 22px rgba(40,25,10,.20));}
-[data-theme="light"] .globe-frame{filter:drop-shadow(0 14px 22px rgba(40,25,10,.16));}
-.globe-frame > .gdmap-host-inner,.globe-frame > div{width:100%;height:100%}
-.globe-frame svg.gdmap-svg{display:block;width:100%;height:100%}
-/* The shared module spawns floating "CityA ↔ CityB · format room forming"
-   labels + hover tooltips. On /spar those are styled pills; here the globe
-   is a tiny 168px decorative hero element with no room for them, so they
-   render as oversized text colliding over the sphere. Suppress the text and
-   keep just the rotating globe + the arcs between cities. */
-.globe-frame .gdmap-card,.globe-frame .gdmap-tooltip{display:none !important}
-@media(max-width:560px){ .hero-globe{width:120px;margin-bottom:8px} }
+/* Flat live-presence world map. Replaces the old tiny globe so the hero
+   reads as a dotted global activity map, not another orb. */
+.hero-map{position:relative;width:min(460px,76vw);margin:0 auto 12px;aspect-ratio:2.05/1}
+.map-frame{position:relative;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 14px 22px rgba(40,25,10,.14))}
+.map-frame::before{
+  content:"";position:absolute;inset:-22% -8% -28%;
+  background:radial-gradient(ellipse at 50% 50%, rgba(239,68,68,.10), rgba(239,68,68,.04) 44%, transparent 72%);
+  filter:blur(10px);pointer-events:none;
+}
+[data-theme="light"] .map-frame{filter:drop-shadow(0 12px 20px rgba(40,25,10,.10))}
+[data-theme="light"] .map-frame::before{
+  background:radial-gradient(ellipse at 50% 50%, rgba(80,60,40,.12), rgba(239,68,68,.045) 44%, transparent 72%);
+}
+.live-hero-map{position:relative;z-index:1;display:block;width:100%;height:100%}
+@media(max-width:560px){ .hero-map{width:min(340px,88vw);margin-bottom:8px} }
 /* Quiet text eyebrow. The loud red pill made the page read busy
    before the user had a chance to read the headline. */
 .hero-eyebrow{
@@ -1728,9 +1865,7 @@ button{font-family:inherit}
 <div id="dayofBanner" class="dayof-banner" hidden role="status" aria-live="polite"></div>
 
 <section class="hero">
-  <!-- Same "where debaters are right now" globe used on /spar — quiet
-       global-activity visual mounted by /js/global-debate-map.js. -->
-  <div class="hero-globe"><div class="globe-frame"><div id="globalDebateMap" role="img" aria-label="Globe showing debate rooms opening between cities worldwide"></div></div></div>
+  <div class="hero-map"><div class="map-frame"><canvas id="liveHeroMap" class="live-hero-map" role="img" aria-label="Flat world map with live DebateIt visitors by city"></canvas></div></div>
   <div class="hero-eyebrow"><span class="live-dot"></span>Live debates, AI-judged</div>
   <h1>Debate another human live. <em>AI judges.</em></h1>
   <p class="hero-sub">Schedule a round for later or spar right now. DebateIt gives you the video room, format timer, calendar link, and judge ballot.</p>
