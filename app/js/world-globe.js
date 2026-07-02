@@ -421,9 +421,9 @@
       // to keep the denser-but-smaller dots reading at a glance.
       var landR = Math.max(1.0, R * 0.0058);
       var landFill = transparent
-        ? 'rgba(' + palette.pin + ',0.70)'
+        ? 'rgba(' + palette.pin + ',0.52)'
         : 'rgba(' + palette.land + ',0.55)';
-      var landAlphaScale = transparent ? 0.62 : 0.50;
+      var landAlphaScale = transparent ? 0.50 : 0.50;
       for (var i = 0; i < data.land.length; i++) {
         var lp = data.land[i];
         var pp = project(lp.lng, lp.lat, lngOffset);
