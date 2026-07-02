@@ -21,6 +21,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-check-compat.js"></script>
+<script defer src="/js/app-check.js"></script>
 <!-- Firebase init. This page needs auth for the rating widget AND the
      post-round save-hook below. Public web config (same as every other
      page); idempotent guard so a re-init is a no-op. 2026-06-08: this
@@ -453,10 +455,11 @@ body{
 .foot a:hover{color:var(--text)}
 
 /* Rate-this-round widget. Only renders if the payload carries a
-   generationId (signed-in users whose voice-debate log-generation flush
-   succeeded). The 'rate' signal fired here is the strongest supervised
-   label the nightly distill (scheduled-distill.mjs) can use — the rest
-   of the loop is wired but starves without these stars getting clicked. */
+   generationId. Named users rate with Firebase auth; anonymous users
+   rate with the browser-session id that logged the round. The 'rate'
+   signal fired here is the strongest supervised label the nightly
+   distill (scheduled-distill.mjs) can use — the rest of the loop is
+   wired but starves without these stars getting clicked. */
 .rate-card{
   margin-top:28px;padding:22px 24px;border-radius:14px;
   background:rgba(255,255,255,.025);border:1px solid var(--border);
@@ -576,6 +579,22 @@ body{
       } catch(e){ console.warn('[rfd] round fetch threw', e); }
     }
     cb(sync);
+  }
+
+  function getAnonSessionId(){
+    try {
+      var sid = sessionStorage.getItem('_da_sid');
+      if (!sid) {
+        sid = window.crypto && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem('_da_sid', sid);
+        sessionStorage.setItem('_da_sst', String(Date.now()));
+      }
+      return sid;
+    } catch(e) {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
   }
 
   function demoPayload(){
@@ -851,12 +870,13 @@ body{
         + '</section>';
     }
 
-    // Rating widget shell. Hidden by default; the auth-check IIFE below
-    // (after innerHTML lands) shows it only when payload.generationId is
-    // set AND Firebase has a signed-in user. Stars / boring / notes all
-    // route to the same /api/log-generation 'rate' signal that the
-    // nightly distill in scheduled-distill.mjs reads to pick which
-    // rounds become PATTERNS-THAT-WORK reference material.
+    // Rating widget shell. Hidden by default; the wiring below shows it
+    // when payload.generationId is set. Signed-in users rate with their
+    // Firebase token; anonymous users rate with the same browser-session
+    // id that created the generation row. Stars / boring / notes all route
+    // to the same /api/log-generation 'rate' signal that the nightly
+    // distill in scheduled-distill.mjs reads to pick which rounds become
+    // PATTERNS-THAT-WORK reference material.
     if (payload.generationId){
       html +=
         '<section class="rate-card" id="rateCard" style="display:none">'
@@ -873,16 +893,16 @@ body{
 
     // Anon save-hook (2026-06-08). The ~95% who never sign in finish a
     // round at peak satisfaction with zero reason or mechanism to come
-    // back — the round is ephemeral. This converts that moment: sign in
+    // back — the profile record is ephemeral. This converts that moment: sign in
     // (free, one tap) so future rounds save and the style-learning loop
-    // turns on. Honest — it does NOT claim to save THIS anon round (anon
-    // rounds aren't logged server-side); the value is forward-looking.
+    // turns on. Honest: it does NOT claim to save THIS anon round to the
+    // user's profile; the value is forward-looking.
     // Hidden by default; the wiring below reveals it only when auth
     // settles to no-user, so a signed-in visitor never sees a flash.
     // Quiet neutral register so it doesn't fight the red primaries below.
     html +=
       '<section class="save-hook" id="saveCard" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--border-strong,rgba(255,255,255,.18));background:var(--surface,rgba(255,255,255,.03));flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;display:none">'
-        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Keep your record.</strong> This round was anonymous, so it stops here. Sign in (free, one tap) and your next rounds save to your record, and the AI starts learning your style and adapting to how you argue.<span style="display:block;margin-top:7px;font-size:.78rem;opacity:.72">Privacy: Google shares only your name, email, and photo. We never sell your data or post for you. Sign out anytime.</span></div>'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Keep your record.</strong> This round will not save to your profile. Sign in (free, one tap) and your next rounds save to your record, and the AI starts learning your style and adapting to how you argue.<span style="display:block;margin-top:7px;font-size:.78rem;opacity:.72">Privacy: Google shares only your name, email, and photo. We never sell your data or post for you. Sign out anytime.</span></div>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
           + '<button class="cta-btn primary" id="saveSignIn" type="button" style="white-space:nowrap">Continue with Google</button>'
           + '<button class="cta-btn ghost" id="saveDismiss" type="button">Maybe later</button>'
@@ -1004,10 +1024,9 @@ body{
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
     });
 
-    // Rating widget wiring. Only fires when we have BOTH a generationId
-    // on the payload AND a signed-in Firebase user (the rate endpoint
-    // requires a Firebase ID token). Firebase loads async, so we wait
-    // up to ~2.5s for onAuthStateChanged to settle before giving up.
+    // Rating widget wiring. Fires when we have a generationId on the
+    // payload. Named users rate with their Firebase token; anonymous
+    // users rate with the browser-session id that created the row.
     if (payload.generationId) wireRatingWidget(payload);
 
     // Post-round save-hook wiring. Reveal the card only for anon (no
@@ -1024,11 +1043,16 @@ body{
           var settled = false;
           var unsub = firebase.auth().onAuthStateChanged(function(user){
             settled = true;
-            card.style.display = user ? 'none' : 'flex';
+            card.style.display = user && !user.isAnonymous ? 'none' : 'flex';
             try { unsub && unsub(); } catch(e){}
           });
           setTimeout(function(){
-            if (!settled) { try { card.style.display = firebase.auth().currentUser ? 'none' : 'flex'; } catch(e){} }
+            if (!settled) {
+              try {
+                var cur = firebase.auth().currentUser;
+                card.style.display = cur && !cur.isAnonymous ? 'none' : 'flex';
+              } catch(e){}
+            }
             try { unsub && unsub(); } catch(e){}
           }, 2500);
         }
@@ -1063,43 +1087,54 @@ body{
     var notesEl = document.getElementById('rateNotes');
     var state = { rating: 0, boring: false, notes: '', notesTimer: null };
 
-    function showIfAuthed(){
+    function showIfRateable(){
+      if (!payload.generationId) return;
+      if (payload.anonymous === true) {
+        card.style.display = '';
+        return;
+      }
       try {
         if (typeof firebase === 'undefined' || !firebase.auth) return;
-        // If a user is already attached (e.g. cached session), reveal
-        // immediately. Otherwise subscribe for one auth event.
         var u = firebase.auth().currentUser;
-        if (u) { card.style.display = ''; return; }
+        if (u && !u.isAnonymous) { card.style.display = ''; return; }
         var unsub = firebase.auth().onAuthStateChanged(function(user){
-          if (user) card.style.display = '';
+          if (user && !user.isAnonymous) card.style.display = '';
           try { unsub && unsub(); } catch(e){}
         });
-        // Hard timeout — anon visitors never get this widget. Keep the
-        // page from holding the listener forever.
         setTimeout(function(){ try { unsub && unsub(); } catch(e){} }, 2500);
-      } catch(e){ /* firebase load failed; just leave it hidden */ }
+      } catch(e){}
     }
-    showIfAuthed();
+    showIfRateable();
 
     function postRate(){
       try {
-        var u = firebase.auth().currentUser;
-        if (!u) return;
-        u.getIdToken().then(function(tok){
-          if (!tok) return;
+        var u = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+        var anonymousRound = payload.anonymous === true;
+        var namedUser = !anonymousRound && u && !u.isAnonymous;
+        var body = {
+          action: 'signal',
+          generationId: payload.generationId,
+          signal: 'rate',
+          value: state.rating,
+          meta: { boring: !!state.boring, notes: (state.notes || '').slice(0, 600) },
+        };
+        var send = function(headers){
           fetch('/api/log-generation', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-            body: JSON.stringify({
-              action: 'signal',
-              generationId: payload.generationId,
-              signal: 'rate',
-              value: state.rating,
-              meta: { boring: !!state.boring, notes: (state.notes || '').slice(0, 600) },
-            }),
+            headers: headers,
+            body: JSON.stringify(body),
           }).catch(function(){});
           try { gtag('event', 'voice_rfd_rate', { value: state.rating, boring: !!state.boring, format: payload.format || '' }); } catch(e){}
-        }).catch(function(){});
+        };
+        if (namedUser) {
+          u.getIdToken().then(function(tok){
+            if (!tok) return;
+            send({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok });
+          }).catch(function(){});
+        } else if (anonymousRound) {
+          body.sessionId = getAnonSessionId();
+          send({ 'Content-Type': 'application/json' });
+        }
       } catch(e){ /* swallow — rating is best-effort */ }
     }
 

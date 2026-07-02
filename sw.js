@@ -1,19 +1,27 @@
-// Bumped to v10 — see app/sw.js for detail.
+// Bumped to v10 to invalidate the cached React bundle that predates the
+// Competitive-tab reshuffle (Case Feedback + Vocab Quiz added, Feedback
+// removed from Other; the 4-tier pricing gate; BYOK "Claude only" error).
+// Without this bump, users on v9 kept seeing the old dropdown with only
+// 8 items and the old 3-card pricing panel.
 
 
 
-const CACHE_NAME = 'debateos-v1362';
+const CACHE_NAME = 'debateos-v1363';
 
 
 
 // NOTE: '/' was previously precached here. That's why routing changes to the
 // root URL never appeared for existing users — the SW kept serving the old
 // cached HTML of '/'. Removed; the app shell now caches only explicit paths.
-// /splash is the new root entry (2026-05-10).
+// /splash is the new root entry (2026-05-10) so we precache it for fast
+// first paint on repeat visits; /landing stays in the shell for the click-through.
 // 2026-05-27 perf pass: removed babel-standalone (~600KB cached for
-// nothing) — runtime babel was retired in favor of the commit-time
-// scripts/precompile-inline-babel.mjs precompiler. Mirror of the
-// app/sw.js change per AGENTS.md mirrors rule.
+// nothing). Inline React-via-CDN blocks across the six big pages used
+// to be runtime-transpiled by babel-standalone; that cost ~1GB heap
+// per tab and was retired ~2026-05-19 in favor of the
+// scripts/precompile-inline-babel.mjs commit-time precompiler. The
+// browser no longer loads or executes babel at all, but the SW kept
+// dragging the file down on every first visit. Removed.
 const APP_SHELL = [
   '/splash',
   '/landing',
@@ -110,9 +118,9 @@ self.addEventListener('fetch', (event) => {
   // on 'Cache': Request scheme '...' is unsupported" because Cache
   // only accepts http(s). Each failure surfaces as an unhandled
   // promise rejection; with a chatty extension installed the console
-  // fills with 100+ errors per page load. Fix: don't touch anything
-  // that isn't http(s). Returning without calling event.respondWith()
-  // lets the browser handle natively.
+  // fills with 100+ errors per page load. Same applies to data:,
+  // blob:, file:. Returning without calling event.respondWith() lets
+  // the browser handle natively.
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return;
   }

@@ -116,6 +116,9 @@ export default async (request) => {
         if (onlyUnrated && typeof data.rating === 'number') continue;
         if (onlyBoring && data.boring !== true) continue;
         const outputStr = safeStr(data.output);
+        const ctx = data.context && typeof data.context === 'object' && !Array.isArray(data.context)
+          ? data.context
+          : {};
         docs.push({
           id: d.id,
           uid: safeStr(data.uid),
@@ -128,6 +131,7 @@ export default async (request) => {
           outputLength: typeof data.outputLength === 'number' ? data.outputLength : outputStr.length,
           systemPrompt: safeStr(data.systemPrompt).slice(0, 2000),
           userPrompt: safeStr(data.userPrompt).slice(0, 2000),
+          fullTranscript: safeStr(ctx.fullTranscript).slice(0, 12000),
           rating: typeof data.rating === 'number' ? data.rating : null,
           boring: data.boring === true,
           // userNotes lands here when a low-rated round (or any boring-

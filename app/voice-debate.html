@@ -4553,6 +4553,7 @@ function App() {
   var aiSpeakingMsRef = useRef(0);
   var userSpeakingMsRef = useRef(0);
   var lastVoiceRoundIdRef = useRef(null);
+  var lastVoiceRoundAnonymousRef = useRef(false);
   // Resolves to the logged generation id (or null). stop() flushes the
   // round to /api/log-generation asynchronously; generateRFD awaits this
   // so the /voice-rfd handoff carries the real id instead of racing the
@@ -5067,6 +5068,22 @@ function App() {
 
   /* ── stop / start ─────────────────────────────── */
 
+  function getAnonSessionId() {
+    try {
+      var sid = sessionStorage.getItem('_da_sid');
+      if (!sid) {
+        sid = window.crypto && crypto.randomUUID ?
+        crypto.randomUUID() :
+        Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem('_da_sid', sid);
+        sessionStorage.setItem('_da_sst', String(Date.now()));
+      }
+      return sid;
+    } catch (e) {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
+  }
+
   function stop(systemMsg) {
     try {window.SFX && SFX.end && SFX.end();} catch (sfxErr) {console.warn('[stop] SFX skipped:', sfxErr);}
     // Kill any lingering thinking ambience so it doesn't drone after
@@ -5100,52 +5117,73 @@ function App() {
     // index.html log every typed AI turn; this is the symmetric flush
     // for the Realtime voice path (which never touches our server during
     // the round). Same /api/log-generation endpoint, kind:'voice_round'.
-    // Fire-and-forget; anon users skip silently because the server
-    // requires a Firebase ID token.
+    // Signed-in users write under their Firebase uid. Anonymous / guest
+    // users write under a hashed browser-session id, always
+    // contributable:false so they feed the internal learning loop but
+    // never the opt-in licensed corpus export.
     if (realUserTurns >= 1) {
       try {
         var t = (turnsRef.current || []).filter((x) => x && x.who !== 'system' && (x.text || '').trim());
-        if (t.length >= 2 && typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        if (t.length >= 2) {
           var transcript = t.map((x) => (x.who === 'you' ? 'USER' : 'AI') + ': ' + (x.text || '').trim()).join('\n\n');
           var userTurnsText = t.filter((x) => x.who === 'you').map((x) => (x.text || '').trim()).join('\n\n');
           var aiTurnsText = t.filter((x) => x.who === 'ai').map((x) => (x.text || '').trim()).join('\n\n');
-          voiceLogPromiseRef.current = firebase.auth().currentUser.getIdToken().then((tok) => {
-            if (!tok) return null;
-            return fetch('/api/log-generation', {
+          var uLog = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+          var namedUser = uLog && !uLog.isAnonymous;
+          lastVoiceRoundAnonymousRef.current = !namedUser;
+          var logPayload = {
+            action: 'generation',
+            kind: 'voice_round',
+            motion: (motion || '').slice(0, 2000),
+            side: side || '',
+            format: mode || '',
+            depth: '',
+            model: 'gpt-realtime',
+            promptId: 'voice-' + (personaKey || 'unknown'),
+            systemPrompt: '', // resolved server-side in realtime-session.mjs
+            userPrompt: userTurnsText.slice(0, 7800),
+            output: aiTurnsText.slice(0, 39000),
+            context: {
+              persona: personaKey || '',
+              turnCount: t.length,
+              userTurnCount: realUserTurns,
+              source: namedUser ? 'voice_signed_in' : 'anonymous_voice_round',
+              fullTranscript: transcript.slice(0, 39000)
+            },
+            // Research-corpus opt-in (off by default). Profile toggle in
+            // profile.html flips localStorage['debateos-corpus-contribute'].
+            contributable: namedUser && (function () {try {return localStorage.getItem('debateos-corpus-contribute') === '1';} catch (e) {return false;}}())
+          };
+
+          var handleVoiceLogResponse = (r) => r.ok ? r.json() : null;
+          var handleVoiceLogData = (d) => {
+            // Stash the generation id so the rating widget below AND
+            // generateRFD's handoff payload can attach a 'rate' signal
+            // to it. Resolve the promise to the id so generateRFD can
+            // await this flush instead of racing the 600ms auto-RFD.
+            var gid = d && d.id ? d.id : null;
+            if (gid) {setLastVoiceRoundId(gid);lastVoiceRoundIdRef.current = gid;}
+            return gid;
+          };
+
+          if (namedUser) {
+            voiceLogPromiseRef.current = uLog.getIdToken().then((tok) => {
+              if (!tok) return null;
+              return fetch('/api/log-generation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+                body: JSON.stringify(logPayload)
+              }).then(handleVoiceLogResponse).then(handleVoiceLogData);
+            }).catch(() => null);
+          } else {
+            logPayload.sessionId = getAnonSessionId();
+            logPayload.contributable = false;
+            voiceLogPromiseRef.current = fetch('/api/log-generation', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-              body: JSON.stringify({
-                action: 'generation',
-                kind: 'voice_round',
-                motion: (motion || '').slice(0, 2000),
-                side: side || '',
-                format: mode || '',
-                depth: '',
-                model: 'gpt-realtime',
-                promptId: 'voice-' + (personaKey || 'unknown'),
-                systemPrompt: '', // resolved server-side in realtime-session.mjs
-                userPrompt: userTurnsText.slice(0, 7800),
-                output: aiTurnsText.slice(0, 39000),
-                context: {
-                  persona: personaKey || '',
-                  turnCount: t.length,
-                  userTurnCount: realUserTurns,
-                  fullTranscript: transcript.slice(0, 39000)
-                },
-                // Research-corpus opt-in (off by default). Profile toggle in
-                // profile.html flips localStorage['debateos-corpus-contribute'].
-                contributable: function () {try {return localStorage.getItem('debateos-corpus-contribute') === '1';} catch (e) {return false;}}()
-              })
-            }).then((r) => r.ok ? r.json() : null).then((d) => {
-              // Stash the generation id so the rating widget below AND
-              // generateRFD's handoff payload can attach a 'rate' signal
-              // to it. Resolve the promise to the id so generateRFD can
-              // await this flush instead of racing the 600ms auto-RFD.
-              var gid = d && d.id ? d.id : null;
-              if (gid) {setLastVoiceRoundId(gid);lastVoiceRoundIdRef.current = gid;}
-              return gid;
-            });
-          }).catch(() => null);
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(logPayload)
+            }).then(handleVoiceLogResponse).then(handleVoiceLogData).catch(() => null);
+          }
         }
       } catch (e) {console.warn('[voice-log]', e.message);}
 
@@ -5176,6 +5214,7 @@ function App() {
     // Reset rating state — last round's id/score doesn't apply to a new session.
     setLastVoiceRoundId(null);
     lastVoiceRoundIdRef.current = null;
+    lastVoiceRoundAnonymousRef.current = false;
     voiceLogPromiseRef.current = null;
     setVoiceRoundRating(0);
     setVoiceRoundBoring(false);
@@ -6481,9 +6520,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             won: roundWon,
             // Generation id from the log-generation flush at stop(). The
             // /voice-rfd page reads this to attach a 'rate' signal to the
-            // right Firestore doc; null for anon users or when logging
-            // failed (rating widget hides itself in that case).
+            // right Firestore doc; null only when logging failed (rating
+            // widget hides itself in that case).
             generationId: genId || null,
+            anonymous: !!lastVoiceRoundAnonymousRef.current,
             format: mode || '',
             ts: Date.now()
           };
@@ -8175,10 +8215,11 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
 
   // Rate-this-round widget. Renders ONLY after the RFD has landed (so
   // the user has seen the judge's verdict before rating the round) and
-  // only for signed-in users whose round got logged (lastVoiceRoundId
-  // set; anon users skip silently because the server endpoint requires
-  // a Firebase ID token). The resulting 'rate' signal — plus the
-  // boring flag + optional notes that ride alongside in meta — is the
+  // only for rounds that got logged (lastVoiceRoundId set). Named users
+  // rate with their Firebase token; anonymous users rate with the same
+  // browser-session id that logged the round. The resulting 'rate'
+  // signal — plus the boring flag + optional notes that ride alongside
+  // in meta — is the
   // strongest supervised label the nightly distill
   // (scheduled-distill.mjs) can use. "User marked this round 5/5"
   // beats "user happened to save it"; "user flagged it boring/generic
@@ -8190,23 +8231,34 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   rfd && lastVoiceRoundId && (() => {
     var postRate = (rating, boring, notes) => {
       try {
-        if (typeof firebase === 'undefined' || !firebase.auth || !firebase.auth().currentUser) return;
-        firebase.auth().currentUser.getIdToken().then((tok) => {
-          if (!tok) return;
+        var uRate = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+        var anonymousRound = !!lastVoiceRoundAnonymousRef.current;
+        var namedUser = !anonymousRound && uRate && !uRate.isAnonymous;
+        var body = {
+          action: 'signal',
+          generationId: lastVoiceRoundId,
+          signal: 'rate',
+          value: rating,
+          meta: { boring: !!boring, notes: (notes || '').slice(0, 600) }
+        };
+        var send = (headers) => {
           fetch('/api/log-generation', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-            body: JSON.stringify({
-              action: 'signal',
-              generationId: lastVoiceRoundId,
-              signal: 'rate',
-              value: rating,
-              meta: { boring: !!boring, notes: (notes || '').slice(0, 600) }
-            })
+            headers: headers,
+            body: JSON.stringify(body)
           }).then(() => {
             try {if (typeof window.bumpRatedCount === 'function') window.bumpRatedCount();} catch (e) {}
           }).catch(() => {});
-        }).catch(() => {});
+        };
+        if (namedUser) {
+          uRate.getIdToken().then((tok) => {
+            if (!tok) return;
+            send({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok });
+          }).catch(() => {});
+        } else if (anonymousRound) {
+          body.sessionId = getAnonSessionId();
+          send({ 'Content-Type': 'application/json' });
+        }
       } catch (e) {console.warn('[voice-rate]', e.message);}
     };
     var showNotes = voiceRoundRating > 0 && voiceRoundRating <= 2 || voiceRoundBoring;
