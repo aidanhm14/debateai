@@ -15,6 +15,7 @@ import { defaultUser } from './lib/floor.mjs';
 
 const BOARD_LIMIT = 18;
 const LB_LIMIT = 15;
+const TXN_LIMIT = 18;
 const RECENT_RESOLVED_MS = 60000; // also show markets resolved in the last minute
 // 2026-07-01: the anonymous half of the payload (board + leaderboard) is
 // identical for every caller, so it rides the Firestore-backed shared
@@ -68,6 +69,7 @@ export default async (request) => {
 
     let me = null;
     let myPositions = {};
+    let recentTxns = [];
     if (uid) {
       const userSnap = await db.collection('floor_users').doc(uid).get();
       const u = userSnap.exists ? userSnap.data() : defaultUser(uid);
@@ -94,9 +96,29 @@ export default async (request) => {
           }
         });
       }
+
+      const txnSnap = await db
+        .collection('floor_ledger')
+        .doc(uid)
+        .collection('txns')
+        .orderBy('ts', 'desc')
+        .limit(TXN_LIMIT)
+        .get();
+      recentTxns = txnSnap.docs.map((doc) => {
+        const t = doc.data() || {};
+        return {
+          id: doc.id,
+          type: t.type || '',
+          amount: Number(t.amount || 0),
+          balAfter: Number(t.balAfter || 0),
+          marketId: t.marketId || '',
+          note: t.note || '',
+          ts: t.ts && typeof t.ts.toMillis === 'function' ? t.ts.toMillis() : null,
+        };
+      });
     }
 
-    return jsonResponse({ now, markets: anon.markets, leaderboard: anon.leaderboard, me, myPositions }, 200, request);
+    return jsonResponse({ now, markets: anon.markets, leaderboard: anon.leaderboard, me, myPositions, recentTxns }, 200, request);
   } catch (err) {
     console.error('[floor-state] error', err);
     return errorResponse('Could not load the board.', 500, request);

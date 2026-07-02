@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Scheduled: keep the AI-vs-AI market inventory full so the board is
 // never empty (the cold-start backbone), and keep one featured "main
-// event" running. Runs every 2 minutes. Creates floor_markets docs
+// event" running. Runs every 5 minutes. Creates floor_markets docs
 // with a server-anchored timeline. Play credits only.
 // ─────────────────────────────────────────────────────────────
 import { getDb } from './lib/firestore.mjs';
@@ -48,5 +48,5 @@ export default async () => {
 };
 
 export const config = {
-  schedule: '*/5 * * * *', // every 2 minutes
+  schedule: '*/5 * * * *', // every 5 minutes
 };

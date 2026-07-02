@@ -700,7 +700,7 @@
   // ---------------------------------------------------------------
   // UTIL
   // ---------------------------------------------------------------
-  var now = function(){ return Date.now(); };
+  var now = function(){ return Date.now() + ((SERVER && SERVER.on) ? (SERVER.clockSkew || 0) : 0); };
   var rnd = function(a,b){ return a + Math.random()*(b-a); };
   var pick = function(arr){ return arr[Math.floor(Math.random()*arr.length)]; };
   var uid = function(){ return 'm'+Math.floor(rnd(1e8,9e8)).toString(36); };
@@ -755,7 +755,9 @@
   var RESULTS = [];   // recently-called rounds, newest first (for the Results feed)
   function addResult(m){
     if(!m || !m.result) return;
-    if(RESULTS.some(function(r){ return r.id===m.id; })) return;
+    for(var i=0;i<RESULTS.length;i++){
+      if(RESULTS[i].id===m.id){ RESULTS[i] = m; return; }
+    }
     RESULTS.unshift(m);
     if(RESULTS.length > 14) RESULTS.length = 14;
   }
@@ -955,7 +957,7 @@
     messagingSenderId: "860359449192",
     appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
   };
-  var SERVER = { on:false, me:null, leaderboard:null };
+  var SERVER = { on:false, me:null, leaderboard:null, txns:[], clockSkew:0, loading:false, pollTimer:null, pollMs:30000, failures:0, seenSettled:{} };
   var fbAuth = null, fbUser = null;
 
   function initFirebase(){
@@ -963,7 +965,7 @@
       if(!window.firebase || !firebase.auth) return;
       if(!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
       fbAuth = firebase.auth();
-      fbAuth.onAuthStateChanged(function(u){ fbUser = u; renderHeader(); refreshServer(); });
+      fbAuth.onAuthStateChanged(function(u){ fbUser = u; renderHeader(); refreshServer({ force:true }); });
     }catch(e){}
   }
   function authToken(){
@@ -975,21 +977,79 @@
       fbAuth.signInWithPopup(p).catch(function(){ try{ fbAuth.signInWithRedirect(p); }catch(e){} });
     }catch(e){ toast('Sign-in is unavailable right now.',''); }
   }
-  function refreshServer(){
-    authToken().then(function(tok){
+  function serverPayout(m){
+    if(!m || !m.myBet) return 0;
+    var p = Number(m.myBet.payout);
+    if(Number.isFinite(p) && (m.myBet.settled || p > 0)) return p;
+    var side = m.myBet.side;
+    return side && m.pool && m.pool[side] ? (m.myBet.stake * (m.pool.A + m.pool.B) / m.pool[side]) : 0;
+  }
+  function mergeServerMarket(m, pos, prev){
+    if(pos){ m.myBet = { side:pos.side, stake:pos.stake, window:pos.window, mult:pos.mult, settled:!!pos.settled, won:pos.won, payout:pos.payout||0 }; }
+    var nextP = impliedA(m);
+    if(prev && prev.probHist && prev.probHist.length){
+      m.probHist = prev.probHist.slice();
+      var lastP = m.probHist[m.probHist.length-1];
+      var poolMoved = prev.pool && m.pool && (prev.pool.A !== m.pool.A || prev.pool.B !== m.pool.B);
+      if(poolMoved || Math.abs(nextP-lastP) > 0.001){
+        m.probHist.push(nextP);
+        if(m.probHist.length > 48) m.probHist.shift();
+      }
+    } else {
+      m.probHist = seedHist(m);
+    }
+    return m;
+  }
+  function announceServerSettlements(markets, prevById){
+    markets.forEach(function(m){
+      if(!m.settled || !m.result || !m.myBet || SERVER.seenSettled[m.id]) return;
+      var prev = prevById[m.id];
+      if(!prev || prev.settled) return;
+      SERVER.seenSettled[m.id] = true;
+      if(m.myBet.side === m.result.judge || m.myBet.won){
+        var payout = serverPayout(m);
+        toast('<b>+'+fmtN(payout)+'</b> · your '+esc(m[m.myBet.side].nm)+' call hit', 'win');
+        flashDelta(payout - (m.myBet.stake || 0));
+      } else {
+        toast(esc(m[m.result.judge].nm)+' took it. Your call for '+esc(m[m.myBet.side].nm)+' missed.', '');
+      }
+    });
+  }
+  function refreshServer(opts){
+    opts = opts || {};
+    if(SERVER.loading && !opts.force) return Promise.resolve(false);
+    SERVER.loading = true;
+    return authToken().then(function(tok){
       return fetch('/api/floor/state', { headers: tok ? { Authorization:'Bearer '+tok } : {}, cache:'no-store' });
     }).then(function(r){ if(!r.ok) throw r.status; return r.json(); })
     .then(function(d){
       if(!d || !Array.isArray(d.markets) || !d.markets.length) throw 'empty';
-      SERVER.on = true; SERVER.me = d.me || null; SERVER.leaderboard = d.leaderboard || [];
+      var prevById = {};
+      MARKETS.forEach(function(x){ prevById[x.id] = x; });
+      SERVER.on = true;
+      SERVER.clockSkew = Number(d.now || 0) ? (Number(d.now) - Date.now()) : 0;
+      SERVER.me = d.me || null;
+      SERVER.leaderboard = d.leaderboard || [];
+      SERVER.txns = Array.isArray(d.recentTxns) ? d.recentTxns : [];
+      SERVER.failures = 0;
       var mp = d.myPositions || {};
       MARKETS = d.markets.map(function(m){
-        var pos = mp[m.id];
-        if(pos){ m.myBet = { side:pos.side, stake:pos.stake, window:pos.window, mult:pos.mult, settled:!!pos.settled, won:pos.won, payout:pos.payout||0 }; }
-        return m;
+        return mergeServerMarket(m, mp[m.id], prevById[m.id]);
       });
+      announceServerSettlements(MARKETS, prevById);
       render();
-    }).catch(function(){ /* stay in current mode; the local demo engine covers if the server never came on */ });
+      SERVER.loading = false;
+      return true;
+    }).catch(function(){
+      SERVER.failures += 1;
+      SERVER.loading = false;
+      return false;
+    });
+  }
+  function startServerPolling(){
+    if(SERVER.pollTimer) return;
+    SERVER.pollTimer = setInterval(function(){ if(!document.hidden) refreshServer(); }, SERVER.pollMs);
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshServer({ force:true }); });
   }
   function serverBet(m, side){
     if(!fbUser){ toast('Sign in to predict.',''); signIn(); return; }
@@ -997,13 +1057,14 @@
     var w = windowOf(m); if(!bettable(w)) return toast('That window just closed.','');
     var stake = selectedStake;
     authToken().then(function(tok){
+      if(!tok) throw new Error('auth');
       return fetch('/api/floor/bet', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+tok }, body: JSON.stringify({ marketId:m.id, side:side, stake:stake }) });
     }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); })
     .then(function(res){
       if(!res.ok){ return toast((res.j && res.j.error) ? res.j.error : 'Could not save that prediction.',''); }
       var wl = w==='w1'?'blind (1.5x)': w==='w2'?'motion (1.0x)':'live (0.7x)';
       toast('Predicting <b>'+esc(m[side].nm)+'</b> · '+stake+' cr · '+wl+' read','');
-      refreshServer();
+      refreshServer({ force:true });
     }).catch(function(){ toast('Network error saving your prediction.',''); });
   }
   var $ = function(id){ return document.getElementById(id); };
@@ -1359,8 +1420,7 @@
     var pnl='';
     if(m.myBet){
       if(m.myBet.side===r.judge){
-        var payout = m.myBet.stake * (m.pool.A+m.pool.B)/m.pool[m.myBet.side];
-        var net = payout - m.myBet.stake;
+        var payout = serverPayout(m);
         pnl = '<div class="pnl up">Your call for '+esc(m[m.myBet.side].nm)+' hit · +'+fmtN(payout)+' cr</div>';
       } else {
         pnl = '<div class="pnl down">Your call for '+esc(m[m.myBet.side].nm)+' missed</div>';
@@ -1404,12 +1464,16 @@
     }).join('');
 
     var h = $('hist');
-    if(!P.txns.length){ h.innerHTML = '<div class="empty">No activity yet. Make a prediction on the board to get on it.</div>'; return; }
-    h.innerHTML = P.txns.slice(0,18).map(function(t){
+    var txns = (SERVER.on && fbUser) ? (SERVER.txns || []) : P.txns;
+    if(!txns.length){
+      h.innerHTML = '<div class="empty">'+(SERVER.on && !fbUser ? 'Sign in to load your live ledger.' : 'No activity yet. Make a prediction on the board to get on it.')+'</div>';
+      return;
+    }
+    h.innerHTML = txns.slice(0,18).map(function(t){
       var up = t.amount>0, isStake = t.type==='stake';
       var cls = isStake ? '' : (up?'up':'down');
       var sign = t.amount>0?'+':'';
-      return '<div class="hist-row"><div><div>'+esc(t.note)+'</div><div class="t">'+rel(t.ts)+'</div></div>'+
+      return '<div class="hist-row"><div><div>'+esc(t.note || 'Ledger update')+'</div><div class="t">'+rel(t.ts || now())+'</div></div>'+
              '<div class="amt '+cls+'">'+sign+fmtN(t.amount)+'</div></div>';
     }).join('');
   }
@@ -1643,13 +1707,8 @@
     if(sb) sb.addEventListener('click', function(){ if(fbUser){ try{ fbAuth.signOut(); }catch(e){} } else signIn(); });
   })();
   initFirebase();
-  refreshServer();
-  // 2026-07-01: poll 10s → 30s and skip hidden tabs. Countdowns tick
-  // locally off absolute timestamps, so slower polls don't visibly lag;
-  // an abandoned tab was burning Firestore reads for nothing. Returning
-  // to the tab refreshes immediately.
-  setInterval(function(){ if(!document.hidden) refreshServer(); }, 30000);
-  document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshServer(); });
+  refreshServer({ force:true });
+  startServerPolling();
 
 })();
 </script>

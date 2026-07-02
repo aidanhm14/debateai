@@ -92,6 +92,7 @@ export function makeMarketData(kind, nowMs) {
     backers: { A: Math.floor(rnd(2, 9)), B: Math.floor(rnd(2, 9)) },
     status: 'open',
     settled: false,
+    positionsSettled: false,
     result: null,
   };
 }
