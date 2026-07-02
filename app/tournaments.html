@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Tournaments · DebateIt</title>
+<meta name="description" content="DebateIt tournaments: enter a real bracket, get seeded by AI prelims, advance through human elimination rounds, and take an AI-judged final. Format-accurate across Asian Parliamentary, WSDC, British Parliamentary, APDA, PF, LD, and Policy." />
+<!-- Unadvertised surface: noindex + intentionally NOT linked from the topbar
+     nav or footer. Reachable only by direct URL (/tournaments) so the page
+     can be built, previewed and QA'd live before it is announced. Flip it on
+     later by (1) removing this robots tag and (2) adding a { href:'/tournaments',
+     label:'Tournaments' } entry to LINKS in /app/js/topbar.js. -->
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<style>
+  /* ============================================================
+     TOURNAMENTS — pre-launch build (unadvertised, noindex).
+     Self-contained vanilla JS. The tournament data lives in the
+     TOURNAMENTS array below and registrations persist to
+     localStorage, so the whole surface works with zero backend.
+     There is a single SERVER WIRING seam (see initServer / register)
+     that swaps the local store for the shared server ledger the day
+     /api/tournaments/* is reachable, exactly like /floor did.
+     ============================================================ */
+  :root{
+    --bg:#17181c; --bg2:#1e2026; --card:#24262e; --card2:#2c2f38;
+    --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.17);
+    --text:#f5f5f7; --dim:rgba(245,245,247,.72); --ghost:rgba(245,245,247,.46);
+    --faint:rgba(245,245,247,.30);
+    --accent:#ef4444; --accent2:#dc2626; --accentGlow:rgba(239,68,68,.16);
+    --win:#34d399; --winBg:rgba(52,211,153,.12);
+    --live:#f87171; --gold:#fbbf24; --blue:#60a5fa; --blueBg:rgba(96,165,250,.12);
+    --serif:'Crimson Pro','Fraunces',Georgia,'Times New Roman',serif;
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;background:radial-gradient(1100px 620px at 82% -10%, rgba(239,68,68,.09), transparent 60%), var(--bg)}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  em,i{font-style:normal}
+  h1,h2,h3,h4{margin:0}
+  ::selection{background:var(--accentGlow)}
+
+  /* ---- header ---- */
+  .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 20px;background:rgba(23,24,28,.84);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:baseline;gap:9px;font-family:var(--serif);font-weight:800;font-size:1.18rem;letter-spacing:-.01em}
+  .brand b{color:var(--text)} .brand .it{color:var(--accent)}
+  .brand .sep{width:1px;height:18px;background:var(--border2);align-self:center}
+  .brand .sub{font-family:var(--sans);font-weight:800;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ghost)}
+  .top .spacer{flex:1}
+  .who{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--dim)}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:.82rem;padding:8px 15px;border-radius:999px;border:1px solid var(--border2);background:var(--card);color:var(--text);transition:border-color .15s,background .15s}
+  .btn:hover{border-color:var(--border2);background:var(--card2)}
+  .btn.primary{border-color:var(--accent);background:var(--accent);color:#fff}
+  .btn.primary:hover{background:var(--accent2)}
+  .btn.ghost{background:transparent}
+
+  /* ---- hero ---- */
+  .hero{max-width:1120px;margin:0 auto;padding:44px 20px 10px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accentGlow)}
+  .hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(2rem,5.2vw,3.4rem);line-height:1.04;letter-spacing:-.02em;max-width:16ch}
+  .hero h1 .accent{color:var(--accent)}
+  .hero p.lede{margin:18px 0 0;font-size:1.06rem;line-height:1.55;color:var(--dim);max-width:60ch}
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+  .chip{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--dim);padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card)}
+  .chip b{color:var(--text);font-weight:800}
+  .chip .ic{color:var(--accent)}
+
+  /* ---- tabs ---- */
+  .tabs{position:sticky;top:58px;z-index:30;max-width:1120px;margin:26px auto 0;padding:0 20px;display:flex;gap:6px;flex-wrap:wrap}
+  .tab{display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:700;color:var(--dim);padding:10px 15px;border-radius:11px 11px 0 0;border:1px solid transparent;border-bottom:none;background:transparent}
+  .tab:hover{color:var(--text)}
+  .tab[aria-selected="true"]{color:var(--text);background:var(--card);border-color:var(--border)}
+  .tab .n{font-size:.68rem;font-weight:800;color:var(--ghost);background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:1px 7px}
+  .tab[aria-selected="true"] .n{color:var(--accent)}
+
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px 90px}
+  .panel{display:none;padding-top:24px}
+  .panel.on{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .section-sub{margin:0 0 20px;color:var(--dim);font-size:.95rem;line-height:1.5;max-width:66ch}
+
+  /* ---- tournament cards ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+  .tcard{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px 16px;transition:border-color .15s,transform .15s;cursor:pointer;overflow:hidden}
+  .tcard:hover{border-color:var(--border2);transform:translateY(-2px)}
+  .tcard .toprow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .status{display:inline-flex;align-items:center;gap:6px;font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
+  .status.open{color:var(--win);background:var(--winBg);border:1px solid rgba(52,211,153,.3)}
+  .status.live{color:#fff;background:var(--accent);border:1px solid var(--accent)}
+  .status.soon{color:var(--blue);background:var(--blueBg);border:1px solid rgba(96,165,250,.3)}
+  .status.done{color:var(--ghost);background:var(--bg2);border:1px solid var(--border)}
+  .status .live-dot{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.6s ease-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}50%{box-shadow:0 0 0 5px rgba(255,255,255,0)}}
+  .fmt{font-size:.72rem;font-weight:700;color:var(--ghost);letter-spacing:.04em}
+  .tcard h3{font-family:var(--serif);font-weight:800;font-size:1.32rem;line-height:1.12;letter-spacing:-.01em}
+  .tcard .motion{margin-top:8px;font-size:.9rem;color:var(--dim);line-height:1.45;min-height:2.6em}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+  .meta .m{display:flex;flex-direction:column;gap:2px}
+  .meta .m .k{font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+  .meta .m .v{font-size:.86rem;font-weight:700;color:var(--text)}
+  .fillbar{margin-top:14px;height:6px;border-radius:999px;background:var(--bg2);overflow:hidden}
+  .fillbar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px}
+  .cardfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+  .cardfoot .cap{font-size:.76rem;color:var(--dim);font-weight:600}
+  .reg-pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;color:var(--win);background:var(--winBg);border:1px solid rgba(52,211,153,.3);border-radius:999px;padding:4px 10px}
+
+  .empty{border:1px dashed var(--border2);border-radius:16px;padding:40px 24px;text-align:center;color:var(--ghost)}
+  .empty b{color:var(--text);font-family:var(--serif);font-size:1.1rem}
+
+  /* ---- how it works ---- */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:6px}
+  .step{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px}
+  .step .num{font-family:var(--serif);font-weight:800;font-size:1rem;color:var(--accent);width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--accent);border-radius:50%;margin-bottom:12px}
+  .step h4{font-family:var(--serif);font-weight:800;font-size:1.16rem;margin-bottom:7px}
+  .step p{margin:0;color:var(--dim);font-size:.9rem;line-height:1.5}
+  .faq{margin-top:30px;display:grid;gap:10px}
+  .faq details{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:2px 16px}
+  .faq summary{cursor:pointer;font-weight:700;padding:14px 0;list-style:none;font-size:.96rem}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";float:right;color:var(--accent);font-weight:800}
+  .faq details[open] summary::after{content:"–"}
+  .faq p{margin:0 0 15px;color:var(--dim);font-size:.9rem;line-height:1.55}
+
+  /* ---- detail overlay ---- */
+  .overlay{position:fixed;inset:0;z-index:80;background:rgba(10,11,13,.72);backdrop-filter:blur(6px);display:none;overflow-y:auto}
+  .overlay.on{display:block}
+  .sheet{max-width:960px;margin:38px auto;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;overflow:hidden}
+  .sheet-head{padding:24px 26px 20px;border-bottom:1px solid var(--border);background:radial-gradient(700px 200px at 100% 0,rgba(239,68,68,.10),transparent 70%)}
+  .sheet-head .row1{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .sheet-head h2{font-family:var(--serif);font-weight:800;font-size:1.9rem;line-height:1.08;margin-top:12px;letter-spacing:-.01em}
+  .sheet-head .motion{margin-top:10px;color:var(--dim);font-size:1rem;line-height:1.5;max-width:62ch}
+  .close-x{width:34px;height:34px;border-radius:50%;border:1px solid var(--border2);background:var(--card);font-size:1.1rem;line-height:1;display:grid;place-items:center;color:var(--dim)}
+  .close-x:hover{color:var(--text);border-color:var(--border2)}
+  .sheet-body{padding:22px 26px 26px}
+  .infogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:8px}
+  .info{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .info .k{font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .info .v{font-size:.98rem;font-weight:700}
+  .subhead{font-family:var(--serif);font-weight:800;font-size:1.2rem;margin:26px 0 12px}
+
+  /* bracket */
+  .bracket{display:flex;gap:26px;overflow-x:auto;padding:6px 2px 14px}
+  .round{display:flex;flex-direction:column;justify-content:space-around;gap:14px;min-width:186px}
+  .round-lab{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:2px;text-align:center}
+  .match{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .seat{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:var(--dim)}
+  .seat + .seat{border-top:1px solid var(--border)}
+  .seat.win{color:var(--text);font-weight:800;background:rgba(52,211,153,.07)}
+  .seat.win .sc{color:var(--win)}
+  .seat .sd{width:16px;color:var(--faint);font-size:.72rem;font-weight:800}
+  .seat .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .seat .sc{font-size:.78rem;font-weight:800;color:var(--ghost)}
+  .seat.tbd{color:var(--faint)}
+
+  .reg-cta{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:24px;padding:18px 20px;border-radius:14px;border:1px solid var(--accent);background:var(--accentGlow)}
+  .reg-cta .t{font-weight:800;font-family:var(--serif);font-size:1.2rem}
+  .reg-cta .s{color:var(--dim);font-size:.86rem;margin-top:3px}
+  .reg-done{border-color:rgba(52,211,153,.4);background:var(--winBg)}
+  .reg-done .t{color:var(--win)}
+
+  /* ---- register modal ---- */
+  .modal{position:fixed;inset:0;z-index:90;background:rgba(10,11,13,.74);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal.on{display:flex}
+  .mbox{width:100%;max-width:440px;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:24px}
+  .mbox h3{font-family:var(--serif);font-weight:800;font-size:1.5rem;margin-bottom:6px}
+  .mbox .msub{color:var(--dim);font-size:.9rem;line-height:1.5;margin-bottom:18px}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ghost);margin-bottom:7px}
+  .field input,.field select{width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:.94rem;font-family:inherit}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+  .modal-actions{display:flex;gap:10px;margin-top:6px}
+  .modal-actions .btn{flex:1;justify-content:center;padding:12px}
+  .mnote{font-size:.76rem;color:var(--ghost);margin-top:14px;line-height:1.45;text-align:center}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);z-index:120;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;font-size:.88rem;font-weight:600;box-shadow:0 12px 40px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;max-width:88vw}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.good{border-color:rgba(52,211,153,.4)}
+
+  .backlink{max-width:1120px;margin:0 auto;padding:8px 20px 40px;color:var(--ghost);font-size:.82rem}
+  .backlink a{color:var(--dim);font-weight:700}
+  .backlink a:hover{color:var(--text)}
+
+  @media (max-width:560px){
+    .hero{padding-top:30px}
+    .tabs{top:56px;overflow-x:auto;flex-wrap:nowrap}
+    .tab{white-space:nowrap}
+    .sheet{margin:0;border-radius:0;min-height:100vh}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="/landing.html"><b>Debate</b><span class="it">It</span><span class="sep"></span><span class="sub">Tournaments</span></a>
+  <div class="spacer"></div>
+  <span class="who" id="whoSlot"></span>
+  <button class="btn ghost" id="signBtn" style="display:none">Sign in</button>
+</header>
+
+<section class="hero">
+  <div class="eyebrow"><span class="dot"></span>DebateIt Tournaments</div>
+  <h1>Enter a real bracket. <span class="accent">Get judged like it counts.</span></h1>
+  <p class="lede">AI prelims seed the field so nobody waits on a bye. You climb through human elimination rounds on video, and the AI judge writes a full ballot for every round you debate. Format-accurate across Asian Parliamentary, WSDC, British Parliamentary, APDA, PF, LD, and Policy.</p>
+  <div class="chips">
+    <span class="chip"><span class="ic">◆</span> <b>7</b> formats supported</span>
+    <span class="chip"><span class="ic">◆</span> AI prelims, <b>human elims</b></span>
+    <span class="chip"><span class="ic">◆</span> Written RFD every round</span>
+    <span class="chip"><span class="ic">◆</span> Free to enter during beta</span>
+  </div>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true"  data-panel="open">Open<span class="n" id="nOpen"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="live">Live<span class="n" id="nLive"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="champs">Champions</button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="how">How it works</button>
+</nav>
+
+<div class="wrap">
+  <section class="panel on" id="panel-open">
+    <p class="section-sub">Registration is open. Grab a slot, pick the side you want to be tested on, and you are on the field. You can hold spots in more than one at a time.</p>
+    <div class="grid" id="openGrid"></div>
+  </section>
+
+  <section class="panel" id="panel-live">
+    <p class="section-sub">Rounds in progress. Open a bracket to follow the field advance in real time. Your own matchups sit at the top of the sheet.</p>
+    <div class="grid" id="liveGrid"></div>
+  </section>
+
+  <section class="panel" id="panel-champs">
+    <p class="section-sub">Finished tournaments and the debaters who took them. Every final was settled by the AI judge on the flow, with the reasons published on the ballot.</p>
+    <div class="grid" id="champGrid"></div>
+  </section>
+
+  <section class="panel" id="panel-how">
+    <p class="section-sub">One bracket, three stages. The engine handles seeding and judging so a small field still runs like a real invitational.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <h4>AI prelims</h4>
+        <p>Every entrant debates two or three rounds against a format-tuned AI. Speaker points and win record seed you into the bracket, so nobody sits out waiting for a partner.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h4>Human elims</h4>
+        <p>The top seeds advance to live video rounds against other debaters on your motion and format. Timer, POIs, and speech order run exactly as the format expects.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h4>AI-judged final</h4>
+        <p>The judge adopts the paradigm the format calls for, honors any agreed instructions, and writes the reason for decision. The ballot is public, so the result is arguable.</p>
+      </div>
+    </div>
+    <div class="faq">
+      <details><summary>What does it cost to enter?</summary><p>Nothing during beta. The prize is a spot on the board, a verifiable DebateIt credential for a deep run, and a bracket you can point to. No buy-ins, no cash.</p></details>
+      <details><summary>Do I need a partner or a team?</summary><p>No. The prelim rounds run against the AI, and the elimination bracket matches you to other entrants. Team formats pair you inside the tournament.</p></details>
+      <details><summary>Which formats can run a bracket?</summary><p>Asian Parliamentary, WSDC, British Parliamentary, APDA, PF, LD, and Policy. Each keeps its own speech order, timing, and evidence rules the whole way through.</p></details>
+      <details><summary>What if I lose a prelim to the AI?</summary><p>Prelims seed you; they do not cut you. A rough prelim just means a lower seed, and a lower seed can still run the table. The elimination rounds are where it counts.</p></details>
+    </div>
+  </section>
+</div>
+
+<div class="backlink">Not seeing a bracket for your format? <a href="/spar">Spar a human now</a> or <a href="/voice-debate">run a voice round</a> while the next tournament fills.</div>
+
+<!-- detail overlay -->
+<div class="overlay" id="overlay" aria-hidden="true">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<!-- register modal -->
+<div class="modal" id="regModal" aria-hidden="true">
+  <div class="mbox">
+    <h3 id="regTitle">Register</h3>
+    <p class="msub" id="regSub"></p>
+    <div class="field">
+      <label for="regName">Display name</label>
+      <input id="regName" type="text" maxlength="40" placeholder="How you show on the bracket" autocomplete="name" />
+    </div>
+    <div class="field">
+      <label for="regSide">Side preference</label>
+      <select id="regSide">
+        <option value="either">Either side (seed me anywhere)</option>
+        <option value="prop">Proposition / Government</option>
+        <option value="opp">Opposition</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="regCancel">Cancel</button>
+      <button class="btn primary" id="regConfirm">Lock my slot</button>
+    </div>
+    <div class="mnote" id="regNote">Held on this device for now. Sign in to sync your bracket across devices.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     DATA — the seed field. Swap this for a /api/tournaments feed
+     when the server ledger is live (see initServer below). Dates
+     are relative-day offsets from "now" so the seed never goes
+     stale on the shelf: negative = past, 0 = today, positive =
+     upcoming. rendered through fmtWhen().
+     ============================================================ */
+  var TOURNAMENTS = [
+    {
+      id:'apda-summer-open', name:'The Summer Online Open', format:'APDA', status:'open',
+      motion:'Rolling motions, released at the top of each round. Impromptu, no prepared cases.',
+      opensIn:-3, startsIn:6, prelims:3, cap:64, filled:41, region:'Global · online', judged:'AI ballot every round'
+    },
+    {
+      id:'ap-clash-cup', name:'Asian Parli Clash Cup', format:'Asian Parliamentary', status:'open',
+      motion:'THW abolish legacy admissions at elite universities.',
+      opensIn:-1, startsIn:9, prelims:3, cap:48, filled:22, region:'Asia circuit · online', judged:'AI ballot every round'
+    },
+    {
+      id:'bp-novice-invitational', name:'BP Novice Invitational', format:'British Parliamentary', status:'open',
+      motion:'THBT developing nations should prioritise economic growth over environmental protection.',
+      opensIn:0, startsIn:14, prelims:2, cap:56, filled:9, region:'Open to first-year debaters', judged:'AI ballot every round'
+    },
+    {
+      id:'pf-monthly-ladder', name:'PF Monthly Ladder', format:'Public Forum', status:'soon',
+      motion:'Resolution drops with the NSDA topic release. Bracket seeds the week after.',
+      opensIn:5, startsIn:19, prelims:3, cap:32, filled:0, region:'US circuit · online', judged:'AI ballot every round'
+    },
+    {
+      id:'ld-value-classic', name:'LD Value Classic', format:'Lincoln-Douglas', status:'soon',
+      motion:'Value / criterion debate on the standing circuit resolution.',
+      opensIn:8, startsIn:24, prelims:3, cap:32, filled:0, region:'US circuit · online', judged:'AI ballot every round'
+    },
+    {
+      id:'wsdc-worlds-warmup', name:'WSDC Worlds Warm-up', format:'WSDC', status:'live',
+      motion:'THW require social media platforms to verify the age of all users.',
+      opensIn:-12, startsIn:-2, prelims:3, cap:32, filled:32, region:'Global · online', judged:'AI ballot every round',
+      bracket:{
+        rounds:[
+          {label:'Quarterfinals', matches:[
+            {a:'Meridian A', b:'Concord B', sa:271, sb:265, w:'a'},
+            {a:'Vantage', b:'Northbridge', sa:268, sb:274, w:'b'},
+            {a:'Ashford', b:'Lakeside Red', sa:277, sb:270, w:'a'},
+            {a:'Fairmont', b:'Sierra', sa:266, sb:272, w:'b'}
+          ]},
+          {label:'Semifinals', matches:[
+            {a:'Meridian A', b:'Northbridge', sa:279, sb:281, w:'b'},
+            {a:'Ashford', b:'Sierra', sa:274, sb:269, w:'a'}
+          ]},
+          {label:'Final', matches:[
+            {a:'Northbridge', b:'Ashford', sa:null, sb:null, w:null, liveNow:true}
+          ]}
+        ]
+      }
+    },
+    {
+      id:'policy-arctic-showcase', name:'Policy Arctic Showcase', format:'Policy', status:'live',
+      motion:'The USFG should substantially increase its security cooperation in the Arctic.',
+      opensIn:-16, startsIn:-4, prelims:2, cap:24, filled:24, region:'US circuit · online', judged:'AI ballot every round',
+      bracket:{
+        rounds:[
+          {label:'Octofinals', matches:[
+            {a:'Emory GS', b:'Kentucky KS', sa:0, sb:0, w:'a'},
+            {a:'Michigan MM', b:'Wake QT', sa:0, sb:0, w:'b'}
+          ]},
+          {label:'Semifinals', matches:[
+            {a:'Emory GS', b:'Wake QT', sa:null, sb:null, w:null, liveNow:true},
+            {a:'Northwestern LP', b:'Texas GS', sa:null, sb:null, w:null}
+          ]},
+          {label:'Final', matches:[
+            {a:'TBD', b:'TBD', sa:null, sb:null, w:null}
+          ]}
+        ]
+      }
+    },
+    {
+      id:'apda-spring-champs', name:'APDA Spring Championship', format:'APDA', status:'done',
+      motion:'A season of rolling motions. Impromptu throughout.',
+      opensIn:-58, startsIn:-42, prelims:3, cap:64, filled:64, region:'Global · online', judged:'AI ballot every round',
+      champion:'Rukin & Alvarez', runnerUp:'The Meridian pair', field:64,
+      bracket:{
+        rounds:[
+          {label:'Semifinals', matches:[
+            {a:'Rukin & Alvarez', b:'Hollis & Tan', sa:278, sb:272, w:'a'},
+            {a:'The Meridian pair', b:'Osei & Park', sa:275, sb:270, w:'a'}
+          ]},
+          {label:'Final', matches:[
+            {a:'Rukin & Alvarez', b:'The Meridian pair', sa:283, sb:279, w:'a'}
+          ]}
+        ]
+      }
+    },
+    {
+      id:'bp-winter-open', name:'BP Winter Open', format:'British Parliamentary', status:'done',
+      motion:'THW ban targeted political advertising.',
+      opensIn:-74, startsIn:-60, prelims:4, cap:80, filled:80, region:'Global · online', judged:'AI ballot every round',
+      champion:'Sato (CG)', runnerUp:'Okonkwo (OO)', field:80,
+      bracket:{
+        rounds:[
+          {label:'Semifinal', matches:[
+            {a:'Sato (CG)', b:'Lindqvist (OG)', sa:0, sb:0, w:'a'},
+            {a:'Okonkwo (OO)', b:'Bauer (CO)', sa:0, sb:0, w:'a'}
+          ]},
+          {label:'Final', matches:[
+            {a:'Sato (CG)', b:'Okonkwo (OO)', sa:0, sb:0, w:'a'}
+          ]}
+        ]
+      }
+    }
+  ];
+
+  /* ---- local registration store (ports to server later) ---- */
+  var REG_KEY = 'dit-tournament-regs';
+  function loadRegs(){ try{ return JSON.parse(localStorage.getItem(REG_KEY)||'{}')||{}; }catch(e){ return {}; } }
+  function saveRegs(r){ try{ localStorage.setItem(REG_KEY, JSON.stringify(r)); }catch(e){} }
+  var regs = loadRegs();
+
+  /* ---- optional firebase auth (advise, not require) ---- */
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
+  };
+  var fbAuth = null, fbUser = null;
+  function initFirebase(){
+    try{
+      if(!window.firebase || !firebase.auth) return;
+      if(!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+      fbAuth = firebase.auth();
+      fbAuth.onAuthStateChanged(function(u){ fbUser = u; renderWho(); });
+    }catch(e){}
+  }
+  function signIn(){
+    try{
+      if(!fbAuth){ toast('Sign-in is unavailable right now.'); return; }
+      var p = new firebase.auth.GoogleAuthProvider();
+      fbAuth.signInWithPopup(p).catch(function(){ try{ fbAuth.signInWithRedirect(p); }catch(e){} });
+    }catch(e){ toast('Sign-in is unavailable right now.'); }
+  }
+  function renderWho(){
+    var slot = document.getElementById('whoSlot');
+    var btn = document.getElementById('signBtn');
+    if(fbUser){
+      slot.textContent = (fbUser.displayName || 'Signed in');
+      btn.style.display = 'none';
+    } else {
+      slot.textContent = '';
+      btn.style.display = '';
+    }
+  }
+
+  /* ============================================================
+     SERVER WIRING SEAM — the day /api/tournaments/state answers,
+     replace TOURNAMENTS + regs with the server payload here and
+     the whole UI below renders unchanged. Left as a no-op so the
+     page runs fully on the local seed until then.
+     ============================================================ */
+  function initServer(){ /* fetch('/api/tournaments/state')... -> TOURNAMENTS/regs, then renderAll() */ }
+
+  /* ---- helpers ---- */
+  function el(tag, cls, txt){ var n=document.createElement(tag); if(cls) n.className=cls; if(txt!=null) n.textContent=txt; return n; }
+  function dayMs(){ return 86400000; }
+  function fmtWhen(offset){
+    if(offset===0) return 'Today';
+    if(offset===1) return 'Tomorrow';
+    if(offset===-1) return 'Yesterday';
+    if(offset<0)   return Math.abs(offset)+' days ago';
+    if(offset<=13) return 'in '+offset+' days';
+    var wk = Math.round(offset/7);
+    return 'in '+wk+' week'+(wk>1?'s':'');
+  }
+  var STATUS_LABEL = { open:'Registration open', live:'Live now', soon:'Opens soon', done:'Complete' };
+
+  var toastT;
+  function toast(msg, good){
+    var t=document.getElementById('toast'); t.textContent=msg;
+    t.className='toast on'+(good?' good':''); clearTimeout(toastT);
+    toastT=setTimeout(function(){ t.className='toast'+(good?' good':''); }, 2600);
+  }
+
+  function byId(id){ for(var i=0;i<TOURNAMENTS.length;i++){ if(TOURNAMENTS[i].id===id) return TOURNAMENTS[i]; } return null; }
+
+  /* ---- card render ---- */
+  function card(t){
+    var c = el('div','tcard'); c.setAttribute('data-id', t.id);
+    var mine = !!regs[t.id];
+
+    var top = el('div','toprow');
+    var st = el('span','status '+t.status);
+    if(t.status==='live') st.appendChild(el('span','live-dot'));
+    st.appendChild(document.createTextNode(STATUS_LABEL[t.status]||t.status));
+    top.appendChild(st);
+    top.appendChild(el('span','fmt', t.format));
+    c.appendChild(top);
+
+    c.appendChild(el('h3', null, t.name));
+    c.appendChild(el('div','motion', t.motion));
+
+    var meta = el('div','meta');
+    function m(k,v){ var w=el('div','m'); w.appendChild(el('span','k',k)); w.appendChild(el('span','v',v)); meta.appendChild(w); }
+    if(t.status==='done'){
+      m('Champion', t.champion || '—');
+      m('Field', (t.field||t.cap)+' entered');
+      m('Ran', fmtWhen(t.startsIn));
+    } else {
+      m(t.status==='live'?'Started':'Starts', fmtWhen(t.startsIn));
+      m('Prelims', t.prelims+' rounds');
+      m('Field', t.region);
+    }
+    c.appendChild(meta);
+
+    if(t.status==='open' || t.status==='live'){
+      var pct = Math.min(100, Math.round((t.filled/t.cap)*100));
+      var fb = el('div','fillbar'); var i=el('i'); i.style.width=pct+'%'; fb.appendChild(i); c.appendChild(fb);
+    }
+
+    var foot = el('div','cardfoot');
+    if(t.status==='open'){
+      foot.appendChild(el('span','cap', t.filled+' / '+t.cap+' slots filled'));
+      if(mine){ foot.appendChild(el('span','reg-pill','✓ You are in')); }
+      else{ var b=el('button','btn primary','Register'); b.style.padding='7px 15px'; foot.appendChild(b); }
+    } else if(t.status==='live'){
+      foot.appendChild(el('span','cap', 'Bracket in progress'));
+      foot.appendChild(el('button','btn','View bracket'));
+    } else if(t.status==='soon'){
+      foot.appendChild(el('span','cap', 'Registration '+fmtWhen(t.opensIn)));
+      foot.appendChild(el('button','btn ghost','Details'));
+    } else {
+      foot.appendChild(el('span','cap', 'Won by '+(t.champion||'—')));
+      foot.appendChild(el('button','btn ghost','Results'));
+    }
+    c.appendChild(foot);
+
+    c.addEventListener('click', function(ev){
+      // a bare Register button jumps straight to the modal; anything
+      // else on the card opens the detail sheet.
+      if(ev.target.tagName==='BUTTON' && ev.target.textContent==='Register'){ ev.stopPropagation(); openReg(t.id); return; }
+      openSheet(t.id);
+    });
+    return c;
+  }
+
+  function renderGrid(id, list, emptyMsg){
+    var g = document.getElementById(id); g.innerHTML='';
+    if(!list.length){ var e=el('div','empty'); e.innerHTML='<b>Nothing here yet.</b><br>'+emptyMsg; g.appendChild(e); return; }
+    list.forEach(function(t){ g.appendChild(card(t)); });
+  }
+
+  function renderAll(){
+    var open = TOURNAMENTS.filter(function(t){ return t.status==='open'||t.status==='soon'; });
+    var live = TOURNAMENTS.filter(function(t){ return t.status==='live'; });
+    var champ= TOURNAMENTS.filter(function(t){ return t.status==='done'; });
+    renderGrid('openGrid', open, 'New brackets open every week. Check back soon.');
+    renderGrid('liveGrid', live, 'No rounds are live right now. Register for an open bracket.');
+    renderGrid('champGrid', champ, 'The first champions will show up here.');
+    document.getElementById('nOpen').textContent = open.length;
+    document.getElementById('nLive').textContent = live.length;
+    renderWho();
+  }
+
+  /* ---- detail sheet + bracket ---- */
+  function seat(name, score, isWin, live){
+    var s = el('div','seat'+(isWin?' win':'')+((!name||name==='TBD')?' tbd':''));
+    s.appendChild(el('span','sd', isWin?'▶':''));
+    s.appendChild(el('span','nm', name||'TBD'));
+    if(live){ s.appendChild(el('span','sc','live')); }
+    else if(score!=null && score>0){ s.appendChild(el('span','sc', String(score))); }
+    return s;
+  }
+  function renderBracket(b){
+    var wrap = el('div','bracket');
+    b.rounds.forEach(function(r){
+      var col = el('div','round');
+      var inner = el('div');
+      inner.appendChild(el('div','round-lab', r.label));
+      r.matches.forEach(function(m){
+        var mm = el('div','match');
+        mm.appendChild(seat(m.a, m.sa, m.w==='a', m.liveNow));
+        mm.appendChild(seat(m.b, m.sb, m.w==='b', m.liveNow));
+        inner.appendChild(mm);
+      });
+      col.appendChild(inner);
+      wrap.appendChild(col);
+    });
+    return wrap;
+  }
+
+  function openSheet(id){
+    var t = byId(id); if(!t) return;
+    var sheet = document.getElementById('sheet'); sheet.innerHTML='';
+    var mine = !!regs[t.id];
+
+    var head = el('div','sheet-head');
+    var row1 = el('div','row1');
+    var st = el('span','status '+t.status);
+    if(t.status==='live') st.appendChild(el('span','live-dot'));
+    st.appendChild(document.createTextNode((STATUS_LABEL[t.status]||t.status)+' · '+t.format));
+    row1.appendChild(st);
+    var x = el('button','close-x','×'); x.addEventListener('click', closeSheet); row1.appendChild(x);
+    head.appendChild(row1);
+    head.appendChild(el('h2', null, t.name));
+    head.appendChild(el('div','motion', t.motion));
+    sheet.appendChild(head);
+
+    var body = el('div','sheet-body');
+    var ig = el('div','infogrid');
+    function info(k,v){ var w=el('div','info'); w.appendChild(el('div','k',k)); w.appendChild(el('div','v',v)); ig.appendChild(w); }
+    if(t.status==='done'){
+      info('Champion', t.champion||'—');
+      info('Runner-up', t.runnerUp||'—');
+      info('Field', (t.field||t.cap)+' entrants');
+      info('Ran', fmtWhen(t.startsIn));
+    } else {
+      info(t.status==='live'?'Started':'Starts', fmtWhen(t.startsIn));
+      info('Prelims', t.prelims+' AI rounds');
+      info('Field', (t.filled||0)+' / '+t.cap);
+      info('Judging', 'AI ballot, every round');
+    }
+    body.appendChild(ig);
+
+    if(t.bracket){
+      body.appendChild(el('div','subhead', t.status==='done'?'Final bracket':'Live bracket'));
+      body.appendChild(renderBracket(t.bracket));
+    }
+
+    if(t.status==='open'){
+      var cta = el('div','reg-cta'+(mine?' reg-done':''));
+      var left = el('div');
+      if(mine){
+        left.appendChild(el('div','t','You are on the field'));
+        left.appendChild(el('div','s','Registered as '+(regs[t.id].name||'you')+'. We will surface your prelim pairings here when seeding opens.'));
+      } else {
+        left.appendChild(el('div','t','Grab a slot'));
+        left.appendChild(el('div','s',(t.cap-t.filled)+' of '+t.cap+' spots left. Free to enter during beta.'));
+      }
+      cta.appendChild(left);
+      if(mine){
+        var drop = el('button','btn ghost','Withdraw');
+        drop.addEventListener('click', function(){ withdraw(t.id); });
+        cta.appendChild(drop);
+      } else {
+        var reg = el('button','btn primary','Register');
+        reg.addEventListener('click', function(){ openReg(t.id); });
+        cta.appendChild(reg);
+      }
+      body.appendChild(cta);
+    } else if(t.status==='soon'){
+      var cta2 = el('div','reg-cta');
+      var l2 = el('div');
+      l2.appendChild(el('div','t','Registration '+fmtWhen(t.opensIn)));
+      l2.appendChild(el('div','s','This bracket is not open yet. Run a voice round or spar a human to stay sharp until it fills.'));
+      cta2.appendChild(l2);
+      var go = el('a','btn primary','Warm up'); go.href='/voice-debate'; cta2.appendChild(go);
+      body.appendChild(cta2);
+    }
+
+    sheet.appendChild(body);
+    var ov = document.getElementById('overlay'); ov.classList.add('on'); ov.setAttribute('aria-hidden','false');
+    ov.scrollTop = 0;
+  }
+  function closeSheet(){ var ov=document.getElementById('overlay'); ov.classList.remove('on'); ov.setAttribute('aria-hidden','true'); }
+  document.getElementById('overlay').addEventListener('click', function(e){ if(e.target.id==='overlay') closeSheet(); });
+
+  /* ---- register modal ---- */
+  var pendingId = null;
+  function openReg(id){
+    var t = byId(id); if(!t) return;
+    pendingId = id;
+    document.getElementById('regTitle').textContent = 'Register · '+t.name;
+    document.getElementById('regSub').textContent = t.format+'. '+(t.cap-t.filled)+' slots left. Free to enter during beta.';
+    var nm = document.getElementById('regName');
+    nm.value = (fbUser && fbUser.displayName) || (regs[id] && regs[id].name) || '';
+    document.getElementById('regNote').textContent = fbUser ? 'Locked to your account.' : 'Held on this device for now. Sign in to sync your bracket across devices.';
+    var m = document.getElementById('regModal'); m.classList.add('on'); m.setAttribute('aria-hidden','false');
+    setTimeout(function(){ nm.focus(); }, 30);
+  }
+  function closeReg(){ var m=document.getElementById('regModal'); m.classList.remove('on'); m.setAttribute('aria-hidden','true'); pendingId=null; }
+  function confirmReg(){
+    if(!pendingId) return;
+    var t = byId(pendingId); if(!t) return;
+    var name = (document.getElementById('regName').value||'').trim() || (fbUser && fbUser.displayName) || 'Anonymous debater';
+    var side = document.getElementById('regSide').value;
+    if(!regs[t.id]){ t.filled = Math.min(t.cap, (t.filled||0)+1); }
+    regs[t.id] = { name:name, side:side, at:Date.now() };
+    saveRegs(regs);
+    // initServer() would POST /api/tournaments/register here.
+    closeReg();
+    toast('You are in. Slot locked for '+t.name+'.', true);
+    renderAll();
+    if(document.getElementById('overlay').classList.contains('on')) openSheet(t.id);
+  }
+  function withdraw(id){
+    var t = byId(id); if(!t||!regs[id]) return;
+    delete regs[id]; saveRegs(regs);
+    t.filled = Math.max(0, (t.filled||1)-1);
+    toast('Withdrawn from '+t.name+'.');
+    renderAll();
+    if(document.getElementById('overlay').classList.contains('on')) openSheet(id);
+  }
+  document.getElementById('regCancel').addEventListener('click', closeReg);
+  document.getElementById('regConfirm').addEventListener('click', confirmReg);
+  document.getElementById('regModal').addEventListener('click', function(e){ if(e.target.id==='regModal') closeReg(); });
+  document.getElementById('regName').addEventListener('keydown', function(e){ if(e.key==='Enter') confirmReg(); });
+
+  /* ---- tabs ---- */
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){ t.setAttribute('aria-selected','false'); });
+      tab.setAttribute('aria-selected','true');
+      document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('on'); });
+      document.getElementById('panel-'+tab.getAttribute('data-panel')).classList.add('on');
+    });
+  });
+
+  /* ---- keyboard ---- */
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape'){
+      if(document.getElementById('regModal').classList.contains('on')) closeReg();
+      else if(document.getElementById('overlay').classList.contains('on')) closeSheet();
+    }
+  });
+
+  document.getElementById('signBtn').addEventListener('click', signIn);
+
+  /* ---- boot ---- */
+  // Reconcile seed counts with this device's own registrations so a
+  // "You are in" card also reflects your slot in the filled tally after
+  // a reload (the seed resets each load; the server will own this later).
+  Object.keys(regs).forEach(function(id){ var t=byId(id); if(t){ t.filled = Math.min(t.cap, (t.filled||0)+1); } });
+  initFirebase();
+  initServer();
+  renderAll();
+})();
+</script>
+</body>
+</html>
