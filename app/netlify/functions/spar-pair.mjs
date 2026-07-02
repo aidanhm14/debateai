@@ -240,8 +240,6 @@ export default async (request) => {
   const action = String(body?.action || 'pair');
   const peerUid = String(body?.peerUid || '').trim();
   const format = String(body?.format || '').trim().toLowerCase();
-  const broaden = !!body?.broaden;
-
   // Separate throttle lanes — see the isThrottled comment. A consent
   // click must never 429 because the queue poller POSTed recently.
   if (action === 'consent') {
@@ -429,12 +427,10 @@ export default async (request) => {
         });
         return { ok: false, reason: 'stale_peer' };
       }
-      // Format-mismatch defense: same format OR both broadened.
+      // Format preferences are proposals, not matching filters. If the
+      // two queued formats differ, route the pair through the consent
+      // handshake so the proposed format is accepted before the round.
       const formatMatches = mine.format === theirs.format;
-      const bothBroad = !!mine.broaden && !!theirs.broaden;
-      if (!formatMatches && !bothBroad) {
-        return { ok: false, reason: 'format_mismatch' };
-      }
       // Mutual-skip defense: a passed proposal earlier in this queue
       // session means these two don't get re-proposed to each other.
       if (skipActive(mine, peerUid) || skipActive(theirs, myUid)) {
@@ -458,19 +454,18 @@ export default async (request) => {
       // motion at all (/spar). Capped to 280 chars to match the
       // client-side write cap.
       const pairedMotion = String(theirs.motion || mine.motion || '').slice(0, 280);
-      // Older joiner's format wins for cross-format broaden pairs (same
+      // Older joiner's format wins for cross-format proposal pairs (same
       // rule as pairedMotion) so both clients spawn /live-round with the
       // SAME speech structure + judge rules instead of each side using
       // its own local format preference.
       const theirFormat = String(theirs.format || '').toLowerCase();
       const myFormat = String(mine.format || '').toLowerCase();
       const pairedFormat = VALID_FORMATS.has(theirFormat) ? theirFormat : format;
-      // Cross-format pair: the two debaters queued for different styles
-      // and both broadened. We don't silently force the older joiner's
-      // format on the newer one — people can usually talk out a style,
-      // but they should agree to it first. crossFormat routes the pair
-      // through the same consent handshake as judge-paradigm notes, with
-      // a "they prefer X — OK?" card on both sides.
+      // Cross-format pair: the two debaters proposed different styles.
+      // We don't silently force the older joiner's format on the newer
+      // one. crossFormat routes the pair through the same consent
+      // handshake as judge-paradigm notes, with a "they prefer X, OK?"
+      // card on both sides.
       const crossFormat = !formatMatches;
       const common = {
         room,
@@ -509,7 +504,7 @@ export default async (request) => {
           joinedAt: FieldValue.serverTimestamp(),
           paradigms: { [myUid]: myParadigm, [peerUid]: theirParadigm },
           // You consent to the OTHER side's note AND to the proposed
-          // format when it isn't the one you queued for. Nothing to
+          // format when it isn't the one you proposed. Nothing to
           // review on either axis means your half is auto-yes.
           consents: {
             [myUid]: !theirParadigm && (!crossFormat || pairedFormat === myFormat),

@@ -440,9 +440,9 @@ h1 em{color:var(--accent);font-style:normal}
 .watch-meta{font-size:.68rem;color:var(--text-ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .watch-go{flex:none;font-size:.74rem;font-weight:700;color:var(--accent)}
 
-/* Round setup — style chips + judge-instructions note under the
-   search controls. The opponent approves both via the consent card
-   before the round starts. */
+/* Round setup — style + judge-instructions proposal under the search
+   controls. These are not matching filters; they become proposed round
+   terms the opponent can accept/pass before the round starts. */
 .setup-card{
   max-width:560px;margin:18px auto 0;padding:16px 18px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
@@ -499,7 +499,7 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.64rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
   color:var(--text-ghost);margin-bottom:5px;
 }
-/* Cross-format proposal block — "you queued X, they queued Y, play Z?" */
+/* Cross-format proposal block — "your proposal X, their proposal Y, play Z?" */
 .consent-format{
   max-width:480px;margin:14px auto 0;padding:13px 16px;text-align:left;
   background:rgba(239,68,68,.07);border:1px solid var(--accent-glow);border-radius:12px;
@@ -513,9 +513,9 @@ h1 em{color:var(--accent);font-style:normal}
 .consent-format-row.play strong{color:var(--accent)}
 .consent-format-who{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost)}
 
-/* Live waitlist tile — shows other debaters currently queued in the
-   same format, with avatars, short names, and how long they've been
-   waiting. Replaces the older single-line "X in your queue" text. */
+/* Live waitlist tile — shows other available debaters, with avatars,
+   short names, proposed formats, and how long they've been waiting.
+   Replaces the older single-line "X in your queue" text. */
 .waitlist{
   max-width:420px;margin:0 auto;
   padding:14px 16px 12px;
@@ -1341,8 +1341,6 @@ h1 em{color:var(--accent);font-style:normal}
     matchPollInterval: null,
     waitingPeers: 0,
     cancelled: false,
-    broaden: false,
-    broadenOffered: false,
     paradigm: storedParadigm,      // my judge-paradigm note (queue doc `paradigm`)
     skipUids: [],                  // mirror of my doc's mutual-skip list (declined proposals)
     inConsent: false,              // a 'consent' proposal is on screen
@@ -1370,12 +1368,9 @@ h1 em{color:var(--accent);font-style:normal}
   // Re-stamp cadence for the searching queue doc. Mirrors
   // HEARTBEAT_MS in js/notifications.js sparLive().
   var QUEUE_HEARTBEAT_MS = 90 * 1000;
-  // After 45s with no match, surface a 'broaden formats' toggle so
-  // users in thin-pair queues (Worlds, Asian Parli) can match across
-  // formats instead of timing out into AI. Click → flip my queue
-  // doc to broaden:true and the polling expands to any-format peers
-  // who also have broaden:true (or my exact format).
-  var BROADEN_OFFER_SEC = 45;
+  // Format chips are proposals, not filters. The matchmaker considers
+  // every waiting debater, then asks both sides to accept/pass when
+  // their proposed formats differ.
 
   var shell = document.getElementById('shell');
   // Delegated DM action for the live queue list. Bound once on the stable
@@ -1447,14 +1442,12 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   // Render the live waitlist tile shown under the globe. `others` is an
-  // array of Firestore docs for queued peers (excluding self), `format`
-  // is the current format string. Empty state has its own friendly
-  // framing — "You're first in line" — instead of a dead "0 in queue".
-  function renderWaitlist(others, format){
-    var fmt = escHtml(String(format||'').toUpperCase());
+  // array of Firestore docs for queued peers (excluding self). Format is
+  // shown as a proposal, not a separate queue.
+  function renderWaitlist(others){
     if (!others || others.length === 0){
       return '<div class="waitlist-empty">' +
-        "<strong>You're first in line.</strong> Waiting on the next debater to join the " + fmt + ' queue.' +
+        "<strong>You're first in line.</strong> Waiting on the next available debater. Your round setup will be proposed before the debate starts." +
         '</div>';
     }
     var now = Math.floor(Date.now() / 1000);
@@ -1469,6 +1462,7 @@ h1 em{color:var(--accent);font-style:normal}
       var sec = (data.joinedAt && data.joinedAt.seconds)
         ? Math.max(0, now - data.joinedAt.seconds)
         : 0;
+      var pref = FORMAT_LABELS[data.format] || String(data.format || 'Open').toUpperCase();
       // "Message them" — DM a peer who's searching right now so you can
       // organise a round directly. Only when we have a uid to reach and
       // it isn't us. Click handled by the delegated listener on `shell`.
@@ -1480,17 +1474,17 @@ h1 em{color:var(--accent);font-style:normal}
       return '<li class="wl-row">' +
         '<span class="wl-avi">' + avi + '</span>' +
         '<span class="wl-name">' + name + '</span>' +
-        '<span class="wl-time">' + sec + 's</span>' +
+        '<span class="wl-time">' + sec + 's · ' + escHtml(pref) + '</span>' +
         msgBtn +
         '</li>';
     }).join('');
     var more = others.length > 6
-      ? '<div class="wl-more">+' + (others.length - 6) + ' more queued</div>'
+      ? '<div class="wl-more">+' + (others.length - 6) + ' more available</div>'
       : '';
     return '<div class="waitlist">' +
       '<div class="waitlist-head">' +
-        '<span><strong>' + others.length + '</strong> in queue</span>' +
-        '<span class="wl-fmt">' + fmt + '</span>' +
+        '<span><strong>' + others.length + '</strong> available now</span>' +
+        '<span class="wl-fmt">Round terms proposed</span>' +
       '</div>' +
       '<ul class="wl-list">' + rows + '</ul>' +
       more +
@@ -1611,7 +1605,7 @@ h1 em{color:var(--accent);font-style:normal}
     { until:  35, text: 'Searching active circuits',  sub: 'Checking who is online across the wider competitive scene.' },
     { until:  60, text: 'Finding your clash',         sub: 'Warm queues pair inside a minute. Hold.' },
     { until: 110, text: 'Still hunting',              sub: 'No need to wait here. Prep, learn, or browse; your spot in the queue follows you.' },
-    { until: 170, text: 'Casting a wider net',        sub: 'Broaden formats below to pair with any available debater.' },
+    { until: 170, text: 'Casting a wider net',        sub: 'Checking every available debater. If formats differ, both sides get a proposal card.' },
     { until: 240, text: 'Last stretch before AI',     sub: 'If nobody pairs by zero, the AI sparring partner takes the round.' },
   ];
 
@@ -1623,11 +1617,10 @@ h1 em{color:var(--accent);font-style:normal}
 
   // ── Render: searching state ──────────────────────────
   function renderSearching(){
-    var formatLabel = formatParam.toUpperCase();
     shell.innerHTML =
       '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
       '<h1>Finding someone to <em>argue with.</em></h1>' +
-      '<p class="lede">Matching you with another debater in your format. If the queue is quiet, prep with AI while you stay available.</p>' +
+      '<p class="lede">Matching you with another debater. Your format and judge notes are proposed round terms, not filters.</p>' +
       guestSignupNudgeHtml() +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
@@ -1643,13 +1636,13 @@ h1 em{color:var(--accent);font-style:normal}
       // number the server didn't count.
       '<div id="globeLiveNote" hidden style="margin:-2px auto 10px;font-size:.72rem;max-width:340px;text-align:center;color:var(--text-dim);font-weight:500"></div>' +
       // Live ops strip. Wired to real Firestore via startMetaLive():
-      // queue cell = peers waiting in this format's matchmaking_queue
+      // queue cell = spawnable peers waiting in matchmaking_queue
       // (self excluded so the user doesn't see "1 waiting" when only
       // they're in line). waitlist cell = open async DM invites in the
       // last 24h on /waitlist_posts. The dot turns live ONLY for
       // spawnable queue peers, never for DM-only invites.
       '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> spawnable in ' + escHtml(formatLabel) + '</span>' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> debaters available now</span>' +
         '<span class="meta-sep">·</span>' +
         '<span class="meta-cell"><strong id="metaWaitlist">0</strong> open DM invites</span>' +
         // "Missed this week" — appears only when the public counter
@@ -1696,20 +1689,19 @@ h1 em{color:var(--accent);font-style:normal}
           '<button type="button" class="btn" id="alertsEnableBtn" style="flex-shrink:0;background:#22c55e;color:#06210f;border:none;border-radius:9px;padding:8px 14px;font-weight:800;font-size:.78rem;cursor:pointer">Turn on</button>' +
         '</div>' +
       '</div>' +
-      // Round setup — pick the style you queue under, and optionally
-      // tell the judge how to evaluate. Switching style requeues under
-      // the new format (fresh doc, fresh clock); the judge note rides
-      // the queue doc and only reaches the round after the opponent
-      // reads + accepts it on the consent card.
+      // Round setup — pick the style you propose, and optionally tell
+      // the judge how to evaluate. These ride on the queue doc and only
+      // become round terms after the opponent reads + accepts them on
+      // the consent card.
       '<div class="setup-card" id="setupCard">' +
-        '<div class="setup-head">Round setup<span>Your opponent sees and approves this before the round starts.</span></div>' +
+        '<div class="setup-head">Round setup<span>Propose a format. Your opponent can accept or pass before the round starts.</span></div>' +
         '<div class="style-chips" id="styleChips">' +
           FORMATS.map(function(k){
             return '<button type="button" class="style-chip' + (k === formatParam ? ' on' : '') + '" data-fmt="' + k + '">' + escHtml(FORMAT_LABELS[k] || k.toUpperCase()) + '</button>';
           }).join('') +
         '</div>' +
         '<div class="paradigm-row">' +
-          '<label for="paradigmInput">Judge instructions <span class="opt">optional · your opponent must accept them</span></label>' +
+          '<label for="paradigmInput">Judge proposal <span class="opt">optional · shown to your opponent</span></label>' +
           // Judge presets: one tap fills the note with a real-pool archetype
           // (lay/flay/flow etc., language mirrored from debate-it.html's
           // JUDGE_PARADIGMS, distilled from live Tabroom paradigms). The
@@ -1721,7 +1713,7 @@ h1 em{color:var(--accent);font-style:normal}
             return '<button type="button" class="style-chip judge-preset-chip" data-preset="' + p.key + '">' + escHtml(p.label) + '</button>';
           }).join('') +
           '</div>' +
-          '<textarea id="paradigmInput" maxlength="' + PARADIGM_MAX + '" rows="2" placeholder="How should the judge evaluate? e.g. Weigh probability before magnitude. Punish drops hard. Truth over tech on factual claims."></textarea>' +
+          '<textarea id="paradigmInput" maxlength="' + PARADIGM_MAX + '" rows="2" placeholder="Propose a judging lens. e.g. Weigh probability before magnitude. Punish drops hard. Truth over tech on factual claims."></textarea>' +
           '<div class="paradigm-meta"><span id="paradigmSaved"></span><span id="paradigmCount">0/' + PARADIGM_MAX + '</span></div>' +
         '</div>' +
       '</div>' +
@@ -1751,7 +1743,6 @@ h1 em{color:var(--accent);font-style:normal}
       // one round to watch so it never shows an empty shell.
       '<div class="watch-panel" id="watchPanel" hidden></div>' +
       // Live diagnostic line. Always visible during the search (unlike
-      // queueStats, which gets replaced by the broaden CTA at 45s).
       // Shows: peer count from the last query, my uid tail (so two
       // test windows confirm they're on different accounts), and the
       // last spar-pair attempt outcome (success/soft-fail reason).
@@ -1880,9 +1871,8 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   // ── Round setup wiring ───────────────────────────────
-  // Style switch = clean requeue. The snapshot watcher, meta strip,
-  // and AI-fallback clock are all format-bound; rejoining under the
-  // new format beats surgically repointing each listener.
+  // Style switch updates the proposed format on the current queue doc.
+  // It does not requeue or narrow matchmaking.
   function switchFormat(key){
     if (key === formatParam || FORMATS.indexOf(key) < 0) return;
     formatParam = key;
@@ -1893,9 +1883,15 @@ h1 em{color:var(--accent);font-style:normal}
       history.replaceState(null, '', u.toString());
     } catch(e){}
     try { gtag('event', 'spar_style_pick', { format: key }); } catch(e){}
-    teardownQueue();
-    if (state.user && firebaseDb) joinQueue();
-    else ensureGuestAuth().catch(function(){ renderGate(); });
+    var chips = document.querySelectorAll('#styleChips [data-fmt]');
+    chips.forEach(function(chip){
+      chip.classList.toggle('on', chip.getAttribute('data-fmt') === key);
+    });
+    if (state.queueDocRef){
+      state.queueDocRef.update({ format: key }).catch(function(){});
+    } else if (!state.user || !firebaseDb) {
+      ensureGuestAuth().catch(function(){ renderGate(); });
+    }
   }
 
   function wireSetupCard(){
@@ -2186,11 +2182,10 @@ h1 em{color:var(--accent);font-style:normal}
     metaLiveCounts = { queue: 0, waitlist: 0 };
     renderMetaLive();
     if (!firebaseDb) return;
-    // (a) Matchmaking queue for this format. Excludes self so the
+    // (a) Matchmaking queue. Excludes self so the
     // strip never reads "1 waiting" off the user's own presence.
     try {
       metaLiveUnsub.queue = firebaseDb.collection('matchmaking_queue')
-        .where('format', '==', formatParam)
         .where('status', '==', 'waiting')
         .onSnapshot(function(snap){
           var selfUid = state.user && state.user.uid;
@@ -2498,7 +2493,7 @@ h1 em{color:var(--accent);font-style:normal}
   // is the honest "how many people looked for a live round this week"
   // signal — a superset of misses (every miss had an attempt, but plenty
   // of attempts never reach the >=15s "miss" bar). Deduped per format per
-  // tab session so broaden re-queues don't inflate it.
+  // tab session so repeat searches don't inflate it.
   function logSparAttempt(){
     try {
       var k = 'da-spar-attempt-' + formatParam;
@@ -2549,11 +2544,6 @@ h1 em{color:var(--accent);font-style:normal}
         state.pingAsked = true;
         requestPingPermission();
       }
-      // Broaden-formats offer at 45s.
-      if (elapsed >= BROADEN_OFFER_SEC && !state.broadenOffered && !state.broaden){
-        state.broadenOffered = true;
-        offerBroaden();
-      }
     }, 250);
   }
 
@@ -2578,28 +2568,6 @@ h1 em{color:var(--accent);font-style:normal}
         n.onclick = function(){ try { window.focus(); } catch(e){} try { n.close(); } catch(e){} };
       }
     } catch(e){}
-  }
-
-  function offerBroaden(){
-    var stats = document.getElementById('queueStats');
-    if (!stats) return;
-    stats.innerHTML =
-      '<div style="margin-top:14px;padding:14px 16px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.32);border-radius:12px;text-align:left;color:var(--text)">' +
-        '<div style="font-size:.82rem;font-weight:700;margin-bottom:6px;color:#bfdbfe">Thin queue on ' + escHtml(formatParam.toUpperCase()) + '?</div>' +
-        '<div style="font-size:.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px">Match across formats instead. We\'ll pair you with any debater who\'s also broadened, then ask you both to OK the format before the round starts.</div>' +
-        '<button class="btn primary" id="broadenBtn" style="font-size:.78rem;padding:8px 16px">Broaden formats</button>' +
-      '</div>';
-    var bb = document.getElementById('broadenBtn');
-    if (bb) bb.addEventListener('click', function(){
-      state.broaden = true;
-      if (state.queueDocRef){
-        state.queueDocRef.update({ broaden: true }).catch(function(){});
-      }
-      try { gtag('event', 'spar_broaden_formats', { from: formatParam }); } catch(e){}
-      stats.innerHTML = '<div style="margin-top:14px;padding:10px 14px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.28);border-radius:10px;color:#4ade80;font-size:.78rem;font-weight:600">✓ Broadened. Pairing across formats now.</div>';
-      // Force an immediate match attempt with the new criteria.
-      tryMatch();
-    });
   }
 
   // ── Queue logic ──────────────────────────────────────
@@ -2639,14 +2607,10 @@ h1 em{color:var(--accent);font-style:normal}
   // 2. Composite index for the polling query (Firebase Console →
   //    Firestore → Indexes):
   //      collection: matchmaking_queue
-  //      fields:     format ASC, status ASC, joinedAt ASC
-  //
-  // 3. (Optional, for the broaden path) second composite index:
-  //      collection: matchmaking_queue
-  //      fields:     broaden ASC, status ASC, joinedAt ASC
+  //      fields:     status ASC, joinedAt ASC
   //
   // Without (1) clients can't write/read the queue at all. Without
-  // (2) the polling + snapshot queries return empty silently and
+  // (2) the polling query can fail and
   // every spar request falls through to the AI fallback at 4 min.
   // ──────────────────────────────────────────────────────────
   function joinQueue(){
@@ -2926,17 +2890,18 @@ h1 em{color:var(--accent);font-style:normal}
     var fmtLabel = escHtml(FORMAT_LABELS[d.pairedFormat] || String(d.pairedFormat || 'this').toUpperCase());
     var theirNote = cleanParadigm(paradigms[peerUid]);
     var myNote = cleanParadigm(paradigms[me]);
-    // Cross-format proposal: the two queued for different styles. Build a
-    // "you queued X · they queued Y · play Z" block so nobody is dropped
-    // into a format they didn't pick without saying yes first.
+    // Cross-format proposal: the two sides proposed different styles.
+    // Build a "your proposal X · their proposal Y · play Z" block so
+    // nobody is dropped into a format they didn't pick without saying
+    // yes first.
     var crossFmt = !!d.crossFormat;
     var labelFor = function(f){ return escHtml(FORMAT_LABELS[f] || String(f || '').toUpperCase()); };
     var formatBlock = '';
     if (crossFmt){
       formatBlock =
         '<div class="consent-format">' +
-          '<div class="consent-format-row"><span class="consent-format-who">You queued</span><strong>' + labelFor(d.myFormatPref) + '</strong></div>' +
-          '<div class="consent-format-row"><span class="consent-format-who">' + peerName + ' queued</span><strong>' + labelFor(d.peerFormat) + '</strong></div>' +
+          '<div class="consent-format-row"><span class="consent-format-who">Your proposal</span><strong>' + labelFor(d.myFormatPref) + '</strong></div>' +
+          '<div class="consent-format-row"><span class="consent-format-who">' + peerName + ' proposes</span><strong>' + labelFor(d.peerFormat) + '</strong></div>' +
           '<div class="consent-format-row play"><span class="consent-format-who">Proposed round</span><strong>' + fmtLabel + '</strong></div>' +
         '</div>';
     }
@@ -2977,9 +2942,9 @@ h1 em{color:var(--accent);font-style:normal}
     // whole round; the note rides on top of the standard ballot method.
     var lede;
     if (crossFmt && (theirNote || myNote)){
-      lede = 'You two prefer different formats. Run the <strong>' + fmtLabel + '</strong> round, with the judge instructions below applied on top. Accept to start, pass to keep searching.';
+      lede = 'You proposed different formats. Run the <strong>' + fmtLabel + '</strong> round, with the judge instructions below applied on top. Accept to start, pass to keep searching.';
     } else if (crossFmt){
-      lede = 'You two prefer different formats. Most debaters can run a new style with a quick heads-up. Accept to debate this round in <strong>' + fmtLabel + '</strong>, or pass to keep searching for your format.';
+      lede = 'You proposed different formats. Accept to debate this round in <strong>' + fmtLabel + '</strong>, or pass to keep searching.';
     } else {
       lede = 'The judge applies the instructions below on top of the standard ballot method. Accept to start, pass to keep searching.';
     }
@@ -3102,7 +3067,6 @@ h1 em{color:var(--accent);font-style:normal}
 
     if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} }
     state.queueWatchUnsub = firebaseDb.collection('matchmaking_queue')
-      .where('format', '==', formatParam)
       .where('status', '==', 'waiting')
       .limit(8)
       .onSnapshot(function(){
@@ -3113,30 +3077,18 @@ h1 em{color:var(--accent);font-style:normal}
           tryMatch();
         }, 150);
       }, function(err){
-        // Common cause of the snapshot stream erroring: composite
-        // index for (format, status) isn't built yet. The polling
-        // path uses the same query and will surface the same error
-        // through tryMatch's catch — log here for diagnostic clarity.
-        console.warn('[spar] queue snapshot stream error (likely missing composite index on format+status+joinedAt):', err);
+        console.warn('[spar] queue snapshot stream error:', err);
       });
   }
 
   function tryMatch(){
     if (state.cancelled || !state.user || !firebaseDb) return;
     var queue = firebaseDb.collection('matchmaking_queue');
-    // Two-query strategy. Always query my exact format. If I've
-    // broadened, ALSO query for any waiting peer with broaden:true
-    // (regardless of format). Merge results; pair with the oldest.
-    // The exact-format query wins ties so users who haven't broadened
-    // still get same-format matches preferentially.
+    // Match against every waiting debater. Format and judge notes are
+    // proposed terms; spar-pair routes disagreements through consent.
     var queries = [
-      queue.where('format', '==', formatParam).where('status', '==', 'waiting').orderBy('joinedAt').limit(8).get(),
+      queue.where('status', '==', 'waiting').orderBy('joinedAt').limit(12).get(),
     ];
-    if (state.broaden){
-      queries.push(
-        queue.where('broaden', '==', true).where('status', '==', 'waiting').orderBy('joinedAt').limit(8).get()
-      );
-    }
     Promise.all(queries).then(function(snaps){
       var seen = {};
       var others = [];
@@ -3157,8 +3109,8 @@ h1 em{color:var(--accent);font-style:normal}
       });
       state.waitingPeers = others.length;
       var stats = document.getElementById('queueStats');
-      if (stats && !state.broadenOffered && Date.now() > (state.noticeUntil || 0)){
-        stats.innerHTML = renderWaitlist(others, formatParam);
+      if (stats && Date.now() > (state.noticeUntil || 0)){
+        stats.innerHTML = renderWaitlist(others);
       }
       updateDiag({ peers: others.length });
       if (others.length === 0) return;
@@ -3183,7 +3135,6 @@ h1 em{color:var(--accent);font-style:normal}
   //
   // Soft-fail reason codes from spar-pair (keep polling silently):
   //   lost_race        — another transaction beat us to one of the docs
-  //   format_mismatch  — peer was on a different format
   //   queue_doc_missing— peer doc got deleted between query and txn
   //   stale_peer       — peer's joinedAt is >3min old (ghost session);
   //                      spar-pair just marked it cancelled, polling
@@ -3222,7 +3173,6 @@ h1 em{color:var(--accent);font-style:normal}
         body: JSON.stringify({
           peerUid: peerUid,
           format: formatParam,
-          broaden: !!state.broaden,
         }),
       });
     }).then(function(res){
@@ -3232,7 +3182,7 @@ h1 em{color:var(--accent);font-style:normal}
       state.pairInFlight = false;
       if (!r.ok || !r.body || !r.body.ok) {
         var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
-        var soft = (reason === 'lost_race' || reason === 'format_mismatch'
+        var soft = (reason === 'lost_race'
                  || reason === 'queue_doc_missing' || reason === 'stale_peer'
                  || reason === 'skipped_peer');
         // Soft fails are recoverable — keep polling. Surface them in
@@ -3281,7 +3231,7 @@ h1 em{color:var(--accent);font-style:normal}
 
   // Diag line state — mutates the small uppercase status under the
   // queue card so the user can see what the matchmaker is doing even
-  // when the bigger UI elements get replaced (broaden CTA at 45s).
+  // when the bigger UI elements get replaced.
   // Holds: peer count from the last query, last spar-pair outcome,
   // and the tail of my own uid (debug-only — helps confirm two test
   // windows are on different accounts).
@@ -3295,7 +3245,8 @@ h1 em{color:var(--accent);font-style:normal}
     if (!el) return;
     var uidTail = (state.user && state.user.uid) ? state.user.uid.slice(-6) : '----';
     var parts = [];
-    parts.push('Queue: ' + (diagState.peers == null ? '…' : diagState.peers) + ' on ' + formatParam.toUpperCase());
+    parts.push('Queue: ' + (diagState.peers == null ? '…' : diagState.peers) + ' available');
+    parts.push('proposal ' + formatParam.toUpperCase());
     parts.push('me ' + uidTail);
     if (diagState.last) parts.push('last ' + diagState.last);
     el.textContent = parts.join(' · ');
@@ -3804,11 +3755,9 @@ h1 em{color:var(--accent);font-style:normal}
     try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
     try { localStorage.setItem('debateos-spar-format', fmt || formatParam); } catch(e){}
     // If this page is actively searching, joining the waitlist should
-    // also make the live queue easier to match. Cross-format rounds still
-    // run through the consent card before they start.
+    // kick the live matcher immediately. Format preferences are already
+    // proposals, so there is no broaden toggle anymore.
     if (state.queueDocRef && !state.inConsent){
-      state.broaden = true;
-      state.queueDocRef.update({ broaden: true }).catch(function(){});
       tryMatch();
     }
   }
