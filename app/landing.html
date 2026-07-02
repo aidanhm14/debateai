@@ -11868,9 +11868,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   .trained-band .tdb-lead b{ color:var(--text); font-weight:700; }
   /* Real-round clip (muted, looping) as proof for "trained on real debate". */
-  .trained-band .tdb-media{ max-width:660px; margin:0 0 40px; }
+  .trained-band .tdb-media{ position:relative; max-width:660px; margin:0 0 40px; }
   .trained-band .tdb-video{ display:block; width:100%; height:auto; border-radius:16px;
     border:1px solid var(--border); background:#0c0d11; box-shadow:0 18px 50px rgba(0,0,0,.30); }
+  .trained-band .tdb-play{
+    position:absolute; left:16px; bottom:42px; z-index:2;
+    display:inline-flex; align-items:center; gap:8px;
+    padding:9px 14px; border-radius:999px; border:1px solid rgba(255,255,255,.55);
+    background:rgba(12,13,17,.72); color:#fff; font:inherit; font-size:.76rem; font-weight:800;
+    letter-spacing:.03em; cursor:pointer; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transition:opacity .18s ease, transform .18s ease, background .18s ease;
+  }
+  .trained-band .tdb-play::before{
+    content:''; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent;
+    border-left:8px solid currentColor; margin-left:2px;
+  }
+  .trained-band .tdb-play:hover{ background:rgba(239,68,68,.86); transform:translateY(-1px); }
+  .trained-band .tdb-media.is-playing .tdb-play{ opacity:0; pointer-events:none; transform:translateY(2px); }
+  .trained-band .tdb-media.is-error .tdb-play{ display:none; }
   .trained-band .tdb-media-cap{ margin-top:10px; font-size:.8rem; line-height:1.4; color:var(--text-dim); }
 
   .trained-band .tdb-grid{
@@ -11998,9 +12013,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <p class="tdb-lead">This AI did not learn debate from scraping the internet. It learned from the real thing: <b>hundreds of cases, real adjudication files, and feedback from debaters who actually compete.</b> That is the difference you hear in every round.</p>
 
     <figure class="tdb-media">
-      <video class="tdb-video" autoplay muted loop playsinline preload="metadata" poster="/img/round/trained-room.jpg" aria-label="A live debate round in progress">
+      <video class="tdb-video" autoplay muted loop playsinline preload="auto" poster="/img/round/trained-room.jpg" aria-label="A live debate round in progress">
         <source src="/img/round/trained-room.mp4" type="video/mp4">
       </video>
+      <button type="button" class="tdb-play" aria-label="Play the real-round clip">Play clip</button>
       <figcaption class="tdb-media-cap">A real round, mid-flow. The kind of debate this AI learned from.</figcaption>
     </figure>
 
@@ -12033,6 +12049,51 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </div>
   </div>
 </section>
+
+<script>
+  (function(){
+    var video = document.querySelector('.trained-band .tdb-video');
+    if (!video) return;
+    var media = video.closest('.tdb-media');
+    var playBtn = media ? media.querySelector('.tdb-play') : null;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    if (!video.getAttribute('src') && video.querySelector('source')) video.load();
+    function setPlaying(){
+      if (media) media.classList.toggle('is-playing', !video.paused && !video.ended);
+    }
+    function tryPlay(){
+      if (!video.play) return;
+      var attempt;
+      try { attempt = video.play(); }
+      catch (e) { setPlaying(); return; }
+      if (attempt && attempt.catch) attempt.then(setPlaying).catch(setPlaying);
+      else setPlaying();
+    }
+    if (playBtn) playBtn.addEventListener('click', tryPlay);
+    video.addEventListener('loadeddata', tryPlay, { once:true });
+    video.addEventListener('canplay', tryPlay, { once:true });
+    video.addEventListener('playing', setPlaying);
+    video.addEventListener('pause', setPlaying);
+    video.addEventListener('error', function(){
+      if (media) media.classList.add('is-error');
+    });
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if (entry.isIntersecting) tryPlay();
+        });
+      }, { threshold:0.35 });
+      observer.observe(video);
+    } else {
+      tryPlay();
+    }
+    window.addEventListener('pageshow', tryPlay);
+    setTimeout(tryPlay, 900);
+  }());
+</script>
 
 <section class="global-band" id="global" aria-label="Where debate is growing globally">
   <div class="gb-wrap">
