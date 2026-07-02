@@ -100,6 +100,10 @@
       '#ditAuth .da-input:focus{outline:none;border-color:#ef4444}' +
       '#ditAuth .da-note{font-size:.78rem;color:' + sub + ';margin:10px 0 0;line-height:1.45;text-align:center}' +
       '#ditAuth .da-err{font-size:.8rem;color:#ef4444;margin:8px 0 0;text-align:center}' +
+      '#ditAuth .da-btn--hero{padding:14px;font-size:1rem;box-shadow:0 2px 12px rgba(0,0,0,.07)}' +
+      '#ditAuth .da-more-toggle{display:block;width:100%;margin:14px 0 0;padding:6px;background:none;border:0;color:' + sub + ';font-size:.82rem;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:3px}' +
+      '#ditAuth .da-more-toggle:hover{color:' + ink + '}' +
+      '#ditAuth .da-more[hidden]{display:none}' +
       '#ditAuth svg{width:18px;height:18px;flex:none}';
     document.head.appendChild(s);
   }
@@ -118,18 +122,26 @@
     c.innerHTML =
       '<button class="da-x" aria-label="Close">×</button>' +
       '<h2>Save your progress</h2>' +
-      '<p class="da-sub">Make a free account so your rounds, ballots, and the style the AI learns are saved to you.</p>' +
-      '<button type="button" class="da-btn da-btn--google" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
-      '<div class="da-or">or</div>' +
+      '<p class="da-sub">One tap, and your rounds, ballots, and style profile follow you. Signing in unlocks the full app.</p>' +
+      '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
+      '<button type="button" class="da-more-toggle" id="daMoreToggle">Prefer email or phone?</button>' +
+      '<div class="da-more" id="daMore" hidden>' +
+        '<div class="da-or">or</div>' +
       '<input class="da-input" id="daEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
       '<button type="button" class="da-btn" id="daEmailBtn">Email me a sign-in link</button>' +
       '<input class="da-input" id="daPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 555 123 4567" />' +
       '<button type="button" class="da-btn" id="daPhoneBtn">Text me a code</button>' +
-      '<div class="da-err"></div>';
+      '</div>' +
+      '<div class="da-err"></div>' +
+      '<p class="da-note">Private. I never sell your data or post for you. Sign out anytime.</p>';
     c.querySelector('.da-x').addEventListener('click', close);
     c.querySelector('#daG').addEventListener('click', doGoogle);
     c.querySelector('#daEmailBtn').addEventListener('click', doEmail);
     c.querySelector('#daPhoneBtn').addEventListener('click', doPhone);
+    c.querySelector('#daMoreToggle').addEventListener('click', function(){
+      var m = c.querySelector('#daMore'), t = c.querySelector('#daMoreToggle');
+      if (m) m.hidden = false; if (t) t.style.display = 'none';
+    });
   }
 
   function doGoogle() {
