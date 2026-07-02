@@ -190,10 +190,11 @@
     { href: '/live',          label: 'Schedule' },
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
-    // 2026-06-14: Community folded into Leaderboard per user ask — one
-    // nav button, routes to /leaderboard. (/community still exists; it's
-    // just not its own top-nav slot.)
-    { href: '/leaderboard',   label: 'Leaderboard'  },
+    // 2026-07-02: Leaderboard removed from the top bar per Aidan — it's
+    // promoted contextually near the landing "who's here" section instead
+    // of holding a top-nav slot. Page stays live + crawlable at
+    // /leaderboard. (Community was folded into Leaderboard on 2026-06-14;
+    // both are now off the bar.)
     // 2026-07-01: /coaches surfaced into the bar — the community coach
     // directory (browse + contact directly, signed-in users can add).
     // Label "Coaches" (plural) = the people directory; singular "Coach"
