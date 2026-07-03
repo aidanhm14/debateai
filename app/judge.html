@@ -840,7 +840,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 8000,
-        stream: false,
+        // stream so a full-transcript ballot keeps the connection alive.
+        // A buffered (stream:false) 8000-token judge call on a whole round
+        // takes 30s+ and hit the gateway inactivity timeout. The response
+        // handler below already assembles the text/event-stream chunks.
+        stream: true,
         system: p.system,
         messages: [{ role:'user', content: p.user }],
         // _feature:'live-round' is what makes claude.mjs inject the
