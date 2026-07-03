@@ -39,6 +39,22 @@ STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
 [ -z "$STAGED" ] && exit 0
 
 # ──────────────────────────────────────────────────────────────────
+# Canonical-price guard. Blocks a commit that stages an off-canonical
+# price string in a user-facing surface — catches pricing drift and
+# agents "correcting" prices backwards to superseded values. Canonical
+# tiers + rationale + exclusions live in scripts/check-prices.mjs.
+# Hard-fails (blocks) on a real violation; soft-skips when node or the
+# script are unavailable so it never wedges a non-DebateAI repo.
+# ──────────────────────────────────────────────────────────────────
+PRICE_GUARD="$REPO_ROOT/scripts/check-prices.mjs"
+if [ -f "$PRICE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/check-prices.mjs); then
+    echo "[price-guard] commit blocked — fix the price(s) above. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Precompile inline <script data-precompile="es5"> blocks before
 # anything else. Why first: the precompile may mutate staged HTML,
 # which downstream steps (sw.js cache bump) need to see.

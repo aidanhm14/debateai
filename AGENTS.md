@@ -98,6 +98,17 @@ intentionally (e.g., docs-only commit that somehow touched a client
 file), stage `app/sw.js` or `sw.js` yourself in the same commit — the
 hook trusts manual SW edits and won't double-bump.
 
+The hook also runs `scripts/check-prices.mjs`, a **canonical-price
+guard** that HARD-BLOCKS a commit staging an off-canonical price string
+in a user-facing `.html` (superseded tiers like `$5/mo` / `$20/year` /
+`$14.99`, or any `$N once` — the Lifetime tier was removed 2026-07-03).
+Canonical is Free $0 / BYOK $1/mo / Individual $10/year / Team $50/year.
+It exists because pricing drifts constantly here and outside agents have
+tried to "correct" prices *backwards* to stale values. If it blocks you,
+fix the price — don't `--no-verify`. Intentional *historical* price
+prose belongs in `report.html` or a `.md` file (both excluded from the
+scan).
+
 ## Inline React scripts: `<script data-precompile="es5">`
 
 Six pages (`index.html`, `debate-ai.html`, `voice-debate.html`,
