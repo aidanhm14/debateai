@@ -515,12 +515,12 @@
     </div>
   </div>
 
-  <!-- Retired brand-name poll readout. Brand is DebateIt. -->
+  <!-- Micro-poll A/B results (poll_responses, tallied by qvariant). -->
   <div class="section">
     <div class="card">
       <div class="title">
-        <span>Brand poll · retired</span>
-        <span class="meta" id="poll-meta">DebateIt</span>
+        <span>Micro-poll · A/B results</span>
+        <span class="meta" id="poll-meta">Loading…</span>
       </div>
       <div id="poll-body" style="padding:6px 2px">Loading…</div>
     </div>
@@ -1146,7 +1146,7 @@ async function loadAll(force){
     loadFounderVideo().catch(()=>{});
     loadDistillations().catch(()=>{});
     loadWinback().catch(()=>{});
-    loadBrandPoll().catch(()=>{});
+    loadPollResults().catch(()=>{});
 
     if (autoRefresh) startAuto();
   } catch (e) {
@@ -1948,14 +1948,46 @@ async function loadDistillations(){
   }
 }
 
-// ── Retired brand poll readout ─────────────────────────────────────
-// Canonical brand is DebateIt; live domain remains debateai.com.
-async function loadBrandPoll(){
+// ── Micro-poll A/B results ─────────────────────────────────────────
+// Tallies poll_responses by poll + qvariant. Answer counts + choice mix;
+// show->answer rate lives in GA4 (micro_poll_shown vs _answer by qvariant).
+async function loadPollResults(){
   const meta = $('poll-meta');
   const body = $('poll-body');
   if (!body || !meta) return;
-  meta.textContent = 'Retired';
-  body.innerHTML = '<div class="meta">Naming poll retired 2026-07-02. Canonical brand: <strong>DebateIt</strong>. Live domain: <strong>debateai.com</strong>.</div>';
+  body.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/poll-results');
+    const polls = d.polls || [];
+    meta.textContent = (d.total || 0) + ' answers';
+    if (!polls.length){ body.innerHTML = '<div class="meta">No poll answers yet.</div>'; return; }
+    body.innerHTML = polls.map(p => {
+      const rows = p.variants.map(v => {
+        const share = p.total ? Math.round(100 * v.answers / p.total) : 0;
+        const top = (v.choices || []).slice(0, 4)
+          .map(c => esc(c.choice) + ' <span class="meta">' + c.count + '</span>').join(' · ');
+        return '<tr style="border-top:1px solid var(--line)">' +
+          '<td style="padding:6px 8px;font-weight:600">' + esc(v.variant) + '</td>' +
+          '<td class="num" style="padding:6px 8px">' + v.answers + ' <span class="meta">' + share + '%</span></td>' +
+          '<td style="padding:6px 8px;color:var(--muted);font-size:12px">' + (top || '—') + '</td>' +
+          '</tr>';
+      }).join('');
+      return '<div style="margin-bottom:14px">' +
+        '<div style="font-weight:700;margin-bottom:4px">' + esc(p.poll) +
+          ' <span class="meta">' + p.total + ' answers</span></div>' +
+        '<table style="width:100%;font-size:13px"><thead><tr>' +
+          '<th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:600">Variant</th>' +
+          '<th style="text-align:right;padding:4px 8px;color:var(--muted);font-weight:600">Answers</th>' +
+          '<th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:600">Top choices</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }).join('') +
+    '<div class="meta" style="margin-top:8px">Answer counts + mix from <code>poll_responses</code>. ' +
+      'Show&rarr;answer rate is in GA4 (<code>micro_poll_shown</code> vs <code>micro_poll_answer</code> by <code>qvariant</code>). ' +
+      'Sampled ' + (d.sampled || 0) + ' of last ' + (d.cap || 0) + '.</div>';
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Poll results load failed: ' + esc(e.message || e) + '</div>';
+    meta.textContent = '';
+  }
 }
 
 // ── Email subscribers ─────────────────────────────────────────────

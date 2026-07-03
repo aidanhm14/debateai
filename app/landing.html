@@ -602,6 +602,8 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- Reusable A/B primitive (sticky bucket + GA4 tagging). -->
+<script defer src="/js/ab.js"></script>
 <!-- Non-blocking on-scroll micro-poll (bottom-left, once per session). -->
 <script defer src="/js/micro-poll.js"></script>
 <!-- 2° Natural-Earth land raster for the "Debaters live now" globe in
@@ -11779,6 +11781,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <span class="jn-fine">One tap. Unlocks everything. Private and free.</span>
   </div>
 </section>
+<script>
+  // A/B the sign-in card framing: a = founder/community pitch (control),
+  // b = benefit-first. Sticky per visitor via ab.js; ab_exposure fires on
+  // load, and the sign-in click is tagged with the variant so conversion is
+  // segmentable in GA4 (event `signin_click`, test `signin_pitch`).
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.AB) return;
+    if (document.body.classList.contains('signed-in')) return; // card is hidden for them
+    var v = AB.variant('signin_pitch', ['a', 'b']);
+    var card = document.querySelector('.jn-sec .jn-card');
+    if (v === 'b' && card) {
+      var eb = card.querySelector('.jn-eyebrow');
+      if (eb) eb.textContent = 'Why sign in';
+      var tt = card.querySelector('.jn-title');
+      if (tt) tt.textContent = 'Save your rounds. Unlock every format. Free.';
+    }
+    var btn = document.getElementById('jnSignin');
+    if (btn) btn.addEventListener('click', function () { AB.track('signin_click', 'signin_pitch'); });
+  });
+</script>
 <style>
   .join-trained-row{--text:#1a1a1f;--text-dim:rgba(0,0,0,.66);--text-ghost:rgba(0,0,0,.48);--bg-card:#ffffff;--border:rgba(0,0,0,.10);--accent:#dc2626;--accent-glow2:rgba(220,38,38,.12);display:grid;grid-template-columns:minmax(330px,430px) minmax(0,1fr);align-items:start;gap:clamp(34px,4vw,64px);max-width:1720px;margin:0 auto;padding:32px clamp(22px,3vw,44px) 72px;background:var(--paper,#f5f3ec)}
   .jn-sec{padding:6px 22px 62px;background:var(--paper,#f5f3ec)}
