@@ -37,7 +37,6 @@
         { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "1 local preview, then 10 signed-in requests." },
         { "@type": "Offer", "name": "BYOK", "price": "1", "priceCurrency": "USD", "description": "Unlimited Claude with your own Anthropic key." },
         { "@type": "Offer", "name": "Individual", "price": "10", "priceCurrency": "USD", "description": "$10/year for 250 requests per month, six brains, HD voice." },
-        { "@type": "Offer", "name": "Lifetime", "price": "30", "priceCurrency": "USD", "description": "$30 once for 250 requests per month forever." },
         { "@type": "Offer", "name": "Team", "price": "50", "priceCurrency": "USD", "description": "$50/year for 1,500 requests/mo across 50 seats." }
       ]
     },
@@ -7932,7 +7931,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('button', { disabled: !isPro(), onClick: () => testTtsProvider(ttsProvider), style: { padding: '7px 14px', background: 'transparent', border: '1px solid var(--c-border2)', borderRadius: 8, color: 'var(--c-text)', cursor: isPro() ? 'pointer' : 'not-allowed', fontFamily: 'inherit', fontSize: '.74rem' } }, '▶ Test current voice'),
   providerTestStatus && el('span', { style: { fontSize: '.7rem', color: 'var(--c-muted)' } }, providerTestStatus)
   ),
-  !isPro() && el('p', { style: { marginTop: 8, fontSize: '.7rem', color: 'var(--c-subtle)' } }, 'Upgrade to Individual / Lifetime / Team to unlock premium voice providers.')
+  !isPro() && el('p', { style: { marginTop: 8, fontSize: '.7rem', color: 'var(--c-subtle)' } }, 'Upgrade to Individual or Team to unlock premium voice providers.')
   ),
   // Manage subscription
   user && team && team.plan && team.plan !== 'free' && el('button', {
@@ -10732,45 +10731,6 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       }
     }, publishStatus === 'publishing' ? 'Publishing…' : 'Publish to /r/')
     )
-    ),
-    // Lifetime upgrade CTA — fires only for signed-in users on the
-    // free tier (or BYOK), gated behind a numeric score so the value
-    // prop ("lock in this score forever") makes sense. Hidden for
-    // signed-out users (the contextual sign-in card above is the
-    // first ask) and for already-paid users (lifetime/individual/team).
-    // Routes to /pricing#lifetime so the existing data-checkout flow
-    // takes over — keeps payment paths consolidated.
-    user && team && (team.plan === 'trial' || team.plan === 'byok') &&
-    b.speakerPoints && typeof b.speakerPoints.user === 'number' &&
-    el('a', {
-      href: '/pricing#lifetime',
-      style: {
-        display: 'flex', alignItems: 'center', gap: 14,
-        padding: '14px 18px', marginBottom: 20, borderRadius: 14,
-        background: 'linear-gradient(135deg,rgba(251,191,36,.10),rgba(239,68,68,.06))',
-        border: '1px solid rgba(251,191,36,.32)',
-        textDecoration: 'none', color: 'inherit',
-        flexWrap: 'wrap',
-        transition: 'background .15s,border-color .15s'
-      },
-      onMouseOver: (e) => {e.currentTarget.style.background = 'linear-gradient(135deg,rgba(251,191,36,.18),rgba(239,68,68,.10))';e.currentTarget.style.borderColor = 'rgba(251,191,36,.5)';},
-      onMouseOut: (e) => {e.currentTarget.style.background = 'linear-gradient(135deg,rgba(251,191,36,.10),rgba(239,68,68,.06))';e.currentTarget.style.borderColor = 'rgba(251,191,36,.32)';}
-    },
-    el('div', { style: { flex: 1, minWidth: 200 } },
-    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#fbbf24', marginBottom: 4 } }, 'Lock it in'),
-    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, `Claim ${b.speakerPoints.user} forever. Lifetime is $30 once.`),
-    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, '250 requests/month forever, no recurring charge.')
-    ),
-    el('span', {
-      style: {
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '9px 18px', borderRadius: 999,
-        background: '#fbbf24', color: '#1f1f1f',
-        fontSize: '.78rem', fontWeight: 800, letterSpacing: '.04em',
-        whiteSpace: 'nowrap', flexShrink: 0,
-        boxShadow: '0 4px 14px rgba(251,191,36,.25)'
-      }
-    }, 'Buy lifetime →')
     ),
     // How points work, collapsed by default so the page stays
     // scannable; the user can pop it open to see what the rubric
