@@ -111,6 +111,47 @@
     }
   };
 
+  // ── A/B: question framing ─────────────────────────────────────────
+  // The landing poll runs a head-to-head between two framings — identity
+  // ("who are you", the default in POLLS.intent) and occasion ("what for").
+  // Assignment is a sticky 50/50 per visitor; the chosen variant name rides
+  // every event (shown / answer / dismiss + the /api/poll-submit payload as
+  // `qvariant`), so you can compare show->answer rate AND the answer mix.
+  // Add an entry here to A/B any other poll the same way.
+  var POLL_AB = {
+    intent: {
+      a: 'identity',                 // variant 'a' = POLLS.intent (unchanged)
+      b: 'occasion',
+      bCfg: {
+        q: 'What are you hoping DebateIt does for you?',
+        options: [
+          { label: 'Prep me for tournaments', value: 'tournament' },
+          { label: 'Give me reps solo', value: 'solo' },
+          { label: "Tell me if I'm any good", value: 'judging' }
+        ],
+        other: 'Something else',
+        otherPrompt: 'What are you here for?'
+      }
+    }
+  };
+  var AB_KEY = 'debateos-poll-ab:'; // + pollId -> 'a' | 'b' (sticky per browser)
+
+  function abPick(pollId) {
+    var ab = POLL_AB[pollId];
+    if (!ab) return { variant: '', cfg: POLLS[pollId] };
+    var bucket;
+    try {
+      bucket = localStorage.getItem(AB_KEY + pollId);
+      if (bucket !== 'a' && bucket !== 'b') {
+        bucket = Math.random() < 0.5 ? 'a' : 'b';
+        localStorage.setItem(AB_KEY + pollId, bucket);
+      }
+    } catch (e) { bucket = Math.random() < 0.5 ? 'a' : 'b'; }
+    return bucket === 'b'
+      ? { variant: ab.b, cfg: ab.bCfg }
+      : { variant: ab.a, cfg: POLLS[pollId] };
+  }
+
   // Which poll auto-fires on which path. First match wins; a `skip` entry
   // means no auto-poll on that path (it can still be triggered manually).
   var pathPolls = [
@@ -248,16 +289,17 @@
     try { if (window.gtag) gtag('event', ev, params || {}); } catch (e) {}
   }
 
-  function submit(pollId, choice, text) {
+  function submit(pollId, choice, text, qvariant) {
     var payload = {
       poll: pollId,
       choice: choice || '',
       text: (text || '').slice(0, 600),
       page: location.pathname || '/',
       variant: (document.documentElement.getAttribute('data-goals-ab') || ''),
+      qvariant: qvariant || '',
       sessionId: sessionId()
     };
-    ga('micro_poll_answer', { poll: pollId, choice: payload.choice, has_text: payload.text ? 1 : 0, page: payload.page });
+    ga('micro_poll_answer', { poll: pollId, choice: payload.choice, qvariant: qvariant || '', has_text: payload.text ? 1 : 0, page: payload.page });
     try {
       fetch('/api/poll-submit', {
         method: 'POST',
@@ -284,7 +326,9 @@
   }
 
   function render(pollId) {
-    var cfg = POLLS[pollId];
+    var pick = abPick(pollId);        // resolves the A/B framing (if any)
+    var cfg = pick.cfg;
+    var qvariant = pick.variant;
     if (!cfg) return false;
     injectStyle();
 
@@ -324,7 +368,7 @@
     function sendOnce(choice, text) {
       if (sent) return;
       sent = true;
-      submit(pollId, choice, text);
+      submit(pollId, choice, text, qvariant);
     }
 
     var opts = card.querySelectorAll('.mp-opt');
@@ -353,11 +397,11 @@
     card.querySelector('.mp-close').addEventListener('click', function () {
       // Flush a real negative choice picked but not yet sent; otherwise plain dismiss.
       if (!sent && pendingChoice) sendOnce(pendingChoice, '');
-      ga('micro_poll_dismiss', { poll: pollId, page: location.pathname });
+      ga('micro_poll_dismiss', { poll: pollId, qvariant: qvariant, page: location.pathname });
       unmount();
     });
 
-    ga('micro_poll_shown', { poll: pollId, page: location.pathname });
+    ga('micro_poll_shown', { poll: pollId, qvariant: qvariant, page: location.pathname });
     return true;
   }
 

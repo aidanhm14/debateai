@@ -79,6 +79,7 @@ export default async (request) => {
   const text = clip(body.text, MAX_TEXT);
   const page = clip(body.page, MAX_FIELD);
   const variant = clip(body.variant, MAX_FIELD);
+  const qvariant = clip(body.qvariant, MAX_FIELD);   // A/B question-framing bucket
   const sessionId = clip(body.sessionId, MAX_FIELD);
 
   if (!poll) return errorResponse('Missing poll id', 400, request);
@@ -96,6 +97,7 @@ export default async (request) => {
       text,
       page,
       variant,
+      qvariant,
       sessionId,
       ipHash,
       ua: clip(request.headers.get('user-agent'), 240),
