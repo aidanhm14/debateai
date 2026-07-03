@@ -446,8 +446,8 @@ button{font-family:inherit}
    taking up the whole space, not a small section"). Breaks out to viewport
    width; html/body already clip overflow-x so there's no horizontal scroll. */
 .hero-map{
-  position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
-  width:100vw;margin:0;z-index:0;pointer-events:none;opacity:1;
+  position:fixed;inset:0;width:100vw;height:100vh;
+  margin:0;z-index:-1;pointer-events:none;opacity:.7;
 }
 .map-frame{position:absolute;inset:0;overflow:hidden;filter:none}
 /* Ambient brand glow, low and centered — reads as atmosphere, not a spotlight. */
@@ -462,7 +462,7 @@ button{font-family:inherit}
    the map stays strongest toward the edges. */
 .map-frame::after{
   content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
-  background:radial-gradient(ellipse 52% 56% at 50% 46%, var(--bg) 8%, rgba(0,0,0,0) 66%);
+  background:radial-gradient(ellipse 62% 64% at 50% 38%, var(--bg) 4%, rgba(0,0,0,0) 72%);
 }
 .live-hero-map{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%}
 /* Hero content rides above the map backdrop. */
@@ -522,60 +522,6 @@ button{font-family:inherit}
   font-size:.7rem;font-style:normal;font-weight:600;line-height:1.35;color:var(--text-dim);
 }
 [data-theme="light"] .hero-proof span{background:rgba(255,255,255,.58);box-shadow:0 1px 2px rgba(0,0,0,.03)}
-.sched-trained{
-  max-width:1120px;margin:0 auto 20px;padding:0 24px;
-}
-.sched-trained-card{
-  display:grid;grid-template-columns:1fr;
-  gap:22px;align-items:center;
-  padding:22px 24px;border:1px solid var(--border);
-  border-radius:18px;background:var(--bg-card);box-shadow:var(--shadow-card,none);
-}
-.sched-trained-head{
-  display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);
-  gap:30px;align-items:end;
-}
-.sched-trained-kicker{
-  display:inline-flex;align-items:center;gap:8px;
-  font-size:.68rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--accent);margin-bottom:8px;
-}
-.sched-trained-kicker .dot{
-  width:7px;height:7px;border-radius:50%;background:var(--accent);
-  box-shadow:0 0 0 4px var(--accent-glow);
-}
-.sched-trained h2{
-  font-family:'Crimson Pro','Fraunces','Inter',serif;
-  font-size:clamp(1.72rem,3vw,2.35rem);
-  line-height:1.04;letter-spacing:-.02em;margin:0 0 8px;color:var(--text);
-}
-.sched-trained h2 em{font-style:normal;color:var(--accent)}
-.sched-trained-copy{
-  max-width:640px;margin:0;
-  font-size:clamp(1rem,1.35vw,1.16rem);line-height:1.45;color:var(--text-dim);
-}
-.sched-trained-copy strong{color:var(--text);font-weight:800}
-.sched-trained-points{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;
-}
-.sched-trained-points span{
-  padding:10px 11px;border:1px solid var(--border);border-radius:12px;
-  background:rgba(255,255,255,.025);
-}
-.sched-trained-points strong{
-  display:block;font-size:clamp(1rem,1.5vw,1.28rem);font-weight:900;line-height:1.05;color:var(--text);
-}
-.sched-trained-points em{
-  display:block;margin-top:4px;font-size:.78rem;font-style:normal;font-weight:700;line-height:1.35;color:var(--text-dim);
-}
-[data-theme="light"] .sched-trained-points span{background:rgba(255,255,255,.58)}
-@media(max-width:780px){
-  .sched-trained-card{grid-template-columns:1fr}
-  .sched-trained-head{grid-template-columns:1fr;gap:12px;align-items:start}
-}
-@media(max-width:640px){
-  .sched-trained-points{grid-template-columns:1fr}
-}
 @media(max-width:720px){
   .hero{padding-top:42px}
   .hero-proof{grid-template-columns:repeat(2,minmax(0,1fr));max-width:440px}
@@ -1957,8 +1903,11 @@ button{font-family:inherit}
      localStorage so the user doesn't get re-prompted. -->
 <div id="dayofBanner" class="dayof-banner" hidden role="status" aria-live="polite"></div>
 
+<!-- Ambient live-presence world map: fixed full-page backdrop behind ALL
+     content (2026-07-02, per Aidan: fill the whole page, not a hero block). -->
+<div class="hero-map"><div class="map-frame"><canvas id="liveHeroMap" class="live-hero-map" role="img" aria-label="Flat world map with live DebateIt visitors by city"></canvas></div></div>
+
 <section class="hero">
-  <div class="hero-map"><div class="map-frame"><canvas id="liveHeroMap" class="live-hero-map" role="img" aria-label="Flat world map with live DebateIt visitors by city"></canvas></div></div>
   <div class="hero-eyebrow"><span class="live-dot"></span>Live debates, AI-judged</div>
   <h1>Debate another human live. <em>AI judges.</em></h1>
   <p class="hero-sub">Schedule a round for later or spar right now. DebateIt gives you the video room, format timer, calendar link, and judge ballot.</p>
@@ -1979,23 +1928,6 @@ button{font-family:inherit}
        fix for the timing-roulette problem the random matchmaker has. -->
   <div class="hero-missed" id="heroMissed" hidden>
     <strong id="heroMissedNum">0</strong> debaters missed a partner this week. <a href="#postForm">Schedule a debate →</a>
-  </div>
-</section>
-
-<section class="sched-trained" aria-label="How the AI judge is trained">
-  <div class="sched-trained-card">
-    <div class="sched-trained-head">
-      <div>
-        <div class="sched-trained-kicker"><span class="dot" aria-hidden="true"></span>How the judge is trained</div>
-        <h2>Real debate in. <em>Real ballots out.</em></h2>
-      </div>
-      <p class="sched-trained-copy">The AI judge learns from <strong>real cases, real adjudication files, and feedback from competitive debaters.</strong> Not generic web text.</p>
-    </div>
-    <div class="sched-trained-points" aria-label="Training sources">
-      <span><strong>Cases</strong><em>Format-specific speeches and rebuttals.</em></span>
-      <span><strong>Ballots</strong><em>RFDs and circuit judging standards.</em></span>
-      <span><strong>Nightly</strong><em>Rated rounds tune the next pass.</em></span>
-    </div>
   </div>
 </section>
 
