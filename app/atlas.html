@@ -2159,6 +2159,15 @@ function syncURL(){
   if(typeof heatOn!=='undefined' && heatOn) p.push('h=1');
   if(typeof tourOn!=='undefined' && tourOn) p.push('t=1');
   if(typeof calcScope!=='undefined' && calcScope==='global') p.push('scope=global');
+  if(typeof calcScen!=='undefined' && calcScen!=='base') p.push('rsc='+calcScen);
+  if(typeof calcYear!=='undefined' && calcYear && +calcYear.value!==3) p.push('ry='+calcYear.value);
+  if(typeof calcPen!=='undefined' && calcPen && typeof SCEN!=='undefined'){
+    var _sd=SCEN[calcScen]||SCEN.base, _dp=(calcScope==='global'?_sd.penGL:_sd.penUS);
+    if(+calcPen.value!==_dp) p.push('rp='+calcPen.value);
+    if(+calcPrice.value!==_sd.fee) p.push('rf='+calcPrice.value);
+  }
+  if(typeof calcLayers!=='undefined' && !(calcLayers.school&&calcLayers.consumer))
+    p.push('rl='+((calcLayers.school?'s':'')+(calcLayers.consumer?'c':'')));
   try{ history.replaceState(null,'', p.length?('?'+p.join('&')):location.pathname); }catch(e){}
 }
 (function applyURLState(){
@@ -2168,7 +2177,21 @@ function syncURL(){
   if(p.get('b') && typeof setBasemap==='function'){ var bm=p.get('b'); setBasemap(bm); setSegOn('seg-base','data-b',bm); }
   if(p.get('h')==='1' && typeof toggleHeat==='function'){ toggleHeat(); }
   if(p.get('t')==='1' && typeof toggleTour==='function'){ toggleTour(); }
+  if(p.get('rsc')){ var _sb=document.querySelector('#seg-scenario button[data-sc="'+p.get('rsc')+'"]'); if(_sb) _sb.click(); }
   if(p.get('scope')==='global'){ var gb=document.querySelector('#seg-scope button[data-s="global"]'); if(gb) gb.click(); }
+  if(typeof calcPen!=='undefined' && calcPen && (p.get('rp')||p.get('rf')||p.get('ry')||p.get('rl'))){
+    var _rp=p.get('rp'), _rf=p.get('rf'), _ry=p.get('ry'), _rl=p.get('rl');
+    if(_rp && !isNaN(_rp)) calcPen.value=_rp;
+    if(_rf && !isNaN(_rf)) calcPrice.value=_rf;
+    if(_ry && !isNaN(_ry)) calcYear.value=_ry;
+    if(_rl!=null){
+      var _wS=_rl.indexOf('s')>=0, _wC=_rl.indexOf('c')>=0; if(!_wS&&!_wC){ _wS=true; _wC=true; }
+      calcLayers.school=_wS; calcLayers.consumer=_wC;
+      var _bS=document.querySelector('#calc-layers button[data-l="school"]'); if(_bS) _bS.classList.toggle('on',_wS);
+      var _bC=document.querySelector('#calc-layers button[data-l="consumer"]'); if(_bC) _bC.classList.toggle('on',_wC);
+    }
+    if(typeof calcUpdate==='function') calcUpdate();
+  }
   var rg=p.get('r');
   if(rg && REGIONS.indexOf(rg)>=0){ focusRegion=rg; REGIONS.forEach(function(x){ activeRegions[x]=(x===rg); });
     if(typeof buildRegionChips==='function') buildRegionChips();
