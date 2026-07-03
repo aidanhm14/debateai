@@ -486,6 +486,12 @@
     <button data-l="hs">High school</button>
   </div>
 
+  <div class="blocklabel">The whitespace</div>
+  <div class="toggle-row">
+    <div class="lab">Schools with no program<small>~24,000 US high schools · the market</small></div>
+    <div class="sw on" id="sw-ws" role="switch" aria-checked="true" tabindex="0"></div>
+  </div>
+
   <div class="blocklabel">Density heatmap</div>
   <div class="toggle-row">
     <div class="lab">Show concentration<small>Where debate clusters</small></div>
@@ -553,7 +559,7 @@
       <div class="frow"><span class="flab"><b>~3,000</b> run a debate program</span><span class="ftrack"><span class="fbar f-with" style="width:11%"></span></span></div>
       <div class="frow"><span class="flab"><b>~200</b> on the mapped circuit</span><span class="ftrack"><span class="fbar f-map" style="width:3%"></span></span></div>
     </div>
-    <p><b>~24,000</b> US schools have no program, and under <b>1%</b> of students ever debate. The schools without it are the market.</p>
+    <p>Each grey dot is one of <b>~24,000</b> US high schools with no debate program. Under <b>1%</b> of students ever debate. The grey is the market.</p>
     <p class="src">Sources: NCES school counts; NSDA chapters + members.</p>
   </div>
 
@@ -680,6 +686,7 @@
 <script src="/js/atlas-data.js"></script>
 <script src="/js/atlas-tabroom.js"></script>
 <script src="/js/atlas-contacts.js"></script>
+<script src="/js/atlas-schools.js"></script>
 <script>
 /* ============================================================
    THE DEBATE ATLAS — data + map
@@ -1311,6 +1318,31 @@ var pinRenderer=L.canvas({padding:0.5,pane:'pins'});
 function pinRadius(d){ return d.tier===1?7:d.tier===2?5.5:4.5; }
 function pinStyle(d){ return {renderer:pinRenderer,radius:pinRadius(d),fillColor:colorFor(d),fillOpacity:.95,color:'rgba(11,10,16,.85)',weight:1.5}; }
 function restyle(m,d){ if(m&&m.setStyle) m.setStyle({radius:pinRadius(d),fillColor:colorFor(d)}); }
+
+/* ── Whitespace: every US high school with no known debate program ─────────
+   NCES 2021 public high schools (window.ATLAS_SCHOOLS), plotted grey in a pane
+   UNDER the program pins so the red/grey contrast reads at a glance. The pins
+   are where debate lives; the grey is the market. Non-interactive and
+   chunk-built so 23k dots never block the first paint. */
+map.createPane('ws'); map.getPane('ws').style.zIndex=300; map.getPane('ws').style.pointerEvents='none';
+var wsRenderer=L.canvas({padding:0.5,pane:'ws'});
+var wsLayer=L.layerGroup(), wsBuilt=false, wsOn=true;
+function buildWhitespace(){
+  if(wsBuilt) return; var A=window.ATLAS_SCHOOLS; if(!A||!A.length) return; wsBuilt=true;
+  var i=0;
+  (function chunk(){
+    var end=Math.min(i+3500,A.length);
+    for(;i<end;i++){ L.circleMarker([A[i][0],A[i][1]],{renderer:wsRenderer,radius:1.5,stroke:false,fillColor:'#9aa0ac',fillOpacity:.5,interactive:false}).addTo(wsLayer); }
+    if(i<A.length){ setTimeout(chunk,0); }
+  })();
+}
+var swWS=document.getElementById('sw-ws');
+function toggleWS(){ wsOn=!wsOn; if(swWS){ swWS.classList.toggle('on',wsOn); swWS.setAttribute('aria-checked',wsOn); }
+  if(wsOn){ buildWhitespace(); wsLayer.addTo(map); } else { map.removeLayer(wsLayer); } }
+if(swWS){ swWS.addEventListener('click',toggleWS);
+  swWS.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleWS(); } }); }
+/* default ON, built just after first paint so the map appears instantly */
+setTimeout(function(){ if(wsOn){ buildWhitespace(); wsLayer.addTo(map); } },400);
 
 var markers = {};
 SCHOOLS.forEach(function(d){
