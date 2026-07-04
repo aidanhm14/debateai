@@ -1,7 +1,8 @@
 # Adjudication eval
 
-Replays real BP out-rounds through the AI judge and scores its 1-2-3-4
-ordering against the chair's actual call. It imports the **same**
+Replays real out-rounds through the AI judge and scores them against the
+chair's actual call. BP rounds are scored as 1-2-3-4 team orderings. WSDC and
+other two-sided rounds are scored as side winners. It imports the **same**
 `lib/adjudication.mjs` core that ships in prod, so it measures the real engine.
 
 ## Run
@@ -16,6 +17,10 @@ ANTHROPIC_API_KEY=sk-ant-... node scripts/eval/run-adjudication-eval.mjs
 # one round / first N:
 node scripts/eval/run-adjudication-eval.mjs --only=vienna24-r2
 node scripts/eval/run-adjudication-eval.mjs --limit=5
+
+# one format:
+node scripts/eval/run-adjudication-eval.mjs --format=bp
+node scripts/eval/run-adjudication-eval.mjs --format=wsdc
 ```
 
 Env / flags: `ADJ_FIXTURES` (transcript dir, defaults to the path baked into
@@ -23,19 +28,21 @@ Env / flags: `ADJ_FIXTURES` (transcript dir, defaults to the path baked into
 
 ## What's committed vs not
 
-- **Committed:** `adjudication-gold.json` — the gold labels (team orderings +
-  motions + which fixture files). These are non-sensitive.
+- **Committed:** `adjudication-gold.json` — the gold labels (team orderings or
+  two-sided winners + motions + which fixture files). These are non-sensitive.
 - **Not committed:** the round transcripts themselves. They are private flow
   notes that name real debaters. Point `ADJ_FIXTURES` at a local copy.
 
 ## Metrics
 
-- **top-1 (winner) accuracy** — did the AI put the same team 1st (random ≈ 25%).
-- **exact 1-2-3-4 accuracy** — whole ordering matches (random ≈ 4%, brutal).
-- **pairwise agreement** — fraction of the 6 team-pairs the AI orders the same
+- **BP top-1 accuracy** — did the AI put the same team 1st (random ≈ 25%).
+- **BP exact 1-2-3-4 accuracy** — whole ordering matches (random ≈ 4%, brutal).
+- **BP pairwise agreement** — fraction of the 6 team-pairs the AI orders the same
   way as the chair (random ≈ 50%, perfect = 100%). **This is the headline
   metric:** it gives partial credit and is robust to the close/split rounds
   where even human panels disagreed (see `confidence` in the gold file).
+- **WSDC / two-sided winner accuracy** — did the AI pick the same side winner
+  (random ≈ 50%).
 
 ## The big caveat
 

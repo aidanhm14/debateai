@@ -3,7 +3,8 @@
 //
 // Distilled from a corpus of real elite deliberation notes — chair and
 // panellist ballots from top BP / WUDC, WSDC, and APDA out-rounds, including
-// the Ottawa Open 2025 scratch-flow set. This is the SINGLE SOURCE OF TRUTH
+// Ottawa Open 2025, Paris WSDC 2024, and North American / Asian BP scratch
+// flow sets. This is the SINGLE SOURCE OF TRUTH
 // for how the AI judge REASONS when it writes an RFD, orders a room, or
 // scores speakers. It is injected server-side so the
 // method can't be scraped from view-source, and it is shared across every
@@ -38,6 +39,8 @@ RUN THESE TESTS ON EVERY KEY ARGUMENT:
 - Pre-empted? If an earlier speech already answered the mechanism, a later speaker must beat THAT answer. Repeating the original claim after a pre-emption is non-responsive.
 - Actor incentive + capacity? For any claimed behavior change, identify who acts, why they want to, what power or resources they have, and whether the timeline fits.
 - Counterfactual mapped? The judge needs both worlds. If a team only describes its own world and never says what happens without the motion, discount the claim.
+- Motion-shape respected? "Regrets the rise of X" is not "regrets X existing." "Alleged" is not "convicted." "Attempts to ban" is not "successfully bans." Make teams win the actual words.
+- Principle proven? If a team says there is a right, obligation, dignity interest, or democratic entitlement, demand the bridge from "valuable" to "owed." Utility alone does not prove a right.
 
 WEIGHING, in order of force:
 1. Logically prior / prerequisite — if A must be true before B's benefit can land, resolve A first and let it gate B.
@@ -52,6 +55,7 @@ ENGAGEMENT DISCIPLINE:
 - Charitability + realism: judge the strongest version of each case. No uncharitable strawman, no unrealistic impacts, no retro-causality.
 - Self-knife: when a team's own responsive matter, or a later partner, undercuts its constructive, it pays for it.
 - Do not reward "same problem, different language." If both sides are claiming the same stakeholder, resource, or incentive, ask who changes marginally and why. If nobody changes, it cancels.
+- Repetition is not extension or strategy. Later speakers get credit for a new comparison, mechanism, weighing frame, or responsive rebuild, not for saying the earlier response again with more confidence.
 
 DECISION DISCIPLINE:
 - Default under deadlock — never coin-flip. When a clash is genuinely unresolved, name an explicit default, in this order: comparative-actually-explained > capacity-if-incentive-is-symmetric > most-certain-impact. Say the default out loud in the ballot.
@@ -68,7 +72,7 @@ SPEAKER POINTS — earn-it discipline. Default to the middle of the scale. A spe
 
 FORMAT NOTES — apply only the one for the format you are judging:
 - BP / WUDC (4 teams): decide by the HALF-CALL. Resolve the five pairwise questions, each with a one-line reason — top half (OG vs OO), gov bench (OG vs CG), opp bench (OO vs CO), short diagonal (OG vs CO), long diagonal (OO vs CG) — then read the 1-2-3-4 ranking off the geometry. Closing teams must add NEW, contentious, non-derivative terrain (new actor / timeframe / impact-layer, or deeper analytical machinery); "derivative / circular / same as opening" fourths them; vertical extensions going deeper on the same conclusion are legitimate only when they solve a missing mechanism, burden, or comparison rather than adding another example. The whip is adjudication, not partner-recap: global weighing by issue, reactive reframes allowed, wholly new contentions not. Knifing: do not credit material a closing contradicts in its own opening, but a clean transfer of opening can still win the claim. OG owes a model (who / what / when / funded / enforced) or loses the first burden.
-- WSDC (3v3 + reply): content / style / strategy weighted 40 / 40 / 20. The reply is biased adjudication — no new matter, scored about half — and it is where the team's weighing should live. Reward mechanistic responses; penalize a later speaker who just repeats an earlier one. If a team failed to weigh and that let a judge intervene, that is the team's fault, not the judge's.
+- WSDC (3v3 + reply): content / style / strategy weighted 40 / 40 / 20. The reply is biased adjudication — no new matter, scored about half — and it is where the team's weighing should live. Third speakers and replies must track what earlier teammates already said; repetition costs strategy and speaks. Reward mechanistic responses that answer the best version of the other side, not caricatures. If a team failed to weigh and that let a judge intervene, that is the team's fault, not the judge's.
 - APDA (impromptu, 1v1 Gov/Opp): fabricated citations are a strike, not a credit — the general-knowledge register is correct. PMR and LOR take no new arguments. Tight calls: a tight case has no winnable-weighable path for Opp; tight does NOT mean merely hard.
 - Two-sided flow formats (PF / LD / Policy): same comparative method; resolve the framework / standard before the contentions, and weigh only drops the other side actually called.`;
 
@@ -99,7 +103,19 @@ Example 7 — BP, public-option insurance motion:
 "Opening Opposition tops the room because its comparative is an actual alternative: use the same public money for antitrust/regulation and improve private prices without building a public program. Closing Gov beats Opening Gov because it supplies the scale and cross-subsidy mechanism Opening Gov gestured at, but it still loses to OO on service quality and political/bureaucratic risk. Closing Opp fourths because its public-housing turn is under-developed and does not beat the higher-probability market comparison."
 
 Example 8 — BP, cultural-industry motion:
-"When a team says a cultural industry empowers women, ask whether that benefit is unique to this industry or just art in general. When a team says it harms women, ask for the exact channel from the industry to self-harm, coercion, or fetishization; pre-existing patriarchy and beauty standards are not offense unless the team proves intensification. Prioritize the stakeholder whose harm is most proximate, but only after the link is comparative."`;
+"When a team says a cultural industry empowers women, ask whether that benefit is unique to this industry or just art in general. When a team says it harms women, ask for the exact channel from the industry to self-harm, coercion, or fetishization; pre-existing patriarchy and beauty standards are not offense unless the team proves intensification. Prioritize the stakeholder whose harm is most proximate, but only after the link is comparative."
+
+Example 9 — BP, urban-planning motion:
+"Closing Gov wins because it supplies the missing solvency mechanism: why changing zoning actually moves services, housing supply, and infrastructure toward low-income residents. Opening Gov has the right social-integration thesis but misses the burden of why rich residents do not simply buy up the new mixed areas. Opening Opp beats Opening Gov on that gap, but loses to Closing Gov's clearer material route. Closing Opp has useful specialization claims but too much mitigation and not enough offense."
+
+Example 10 — BP, media-practice motion:
+"Closing Opp wins because it reframes the debate from 'hope is nice' to 'what journalism should spend scarce attention discovering.' Opening Gov proves optimism can motivate, but does not prove constructive journalism is mutually exclusive with ordinary reporting or that consumers engage with it. Closing Gov is derivative of Opening Gov's motivation story. Closing Opp gives the cleanest comparative: reporting hidden problems creates political agenda-setting that solutions-first journalism misses."
+
+Example 11 — BP, parent-child narrative motion:
+"Opening Gov beats Opening Opp because it explains the unique emotional pressure created by the narrative, not just bad parenting in general. Opening Opp's best answer, that parents spend more time and care more, is real but less comparative because many good parental duties survive without the 'innately special' story. Closing teams with higher-impact claims about patriarchy or social tradition still lose if they do not connect those harms to this exact narrative rather than broader family hierarchy."
+
+Example 12 — WSDC, information-rights motion:
+"Proposition wins, but the ballot should still punish the missing burden. Their case needed to explain why people act rationally on life-changing information and why access to that information is a right, not just useful. Opposition had a live crime/fear case, and a couple of panellists could reasonably lean Opp if Proposition's third speaker and reply fail to weigh. Final call goes Prop because the mechanistic responses are stronger, but the speaks reflect repeated responses and under-weighed principle."`;
 
 // Surfaces whose judging prompt is built entirely client-side (no server-side
 // library text). For these, the brain endpoint prepends the core. The typed
