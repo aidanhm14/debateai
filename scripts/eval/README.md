@@ -47,6 +47,40 @@ For disagreement training, keep the panel's actual call in `humanOrder` or
 `expectedOrder` or `expectedWinner`. The runner scores against the expected
 label, not the preserved human call.
 
+## Fine-tuning
+
+Build private OpenAI supervised fine-tuning files from the local fixtures:
+
+```bash
+node scripts/eval/build-adjudication-finetune.mjs
+```
+
+By default this writes to `/tmp/debateit-adjudication-finetune`:
+
+- `adjudication-train.jsonl`
+- `adjudication-valid.jsonl`
+- `manifest.json`
+
+The JSONL files contain private flow notes and real debater names. Do not commit
+them. To write under the repo for local experiments, use an ignored directory:
+
+```bash
+node scripts/eval/build-adjudication-finetune.mjs --out=scripts/eval/out/adjudication-ft
+```
+
+Submit the generated files to OpenAI when an API key is present:
+
+```bash
+OPENAI_API_KEY=sk-... node scripts/eval/submit-openai-finetune.mjs \
+  --train=/tmp/debateit-adjudication-finetune/adjudication-train.jsonl \
+  --valid=/tmp/debateit-adjudication-finetune/adjudication-valid.jsonl \
+  --model=gpt-4.1-nano-2025-04-14
+```
+
+Use `--dry-run` first to validate the request without uploading. OpenAI's
+fine-tuning access is account/model dependent; the script will preserve the
+dataset and fail cleanly if the org cannot create fine-tuning jobs.
+
 ## Metrics
 
 - **BP top-1 accuracy** — did the AI put the same team 1st (random ≈ 25%).
