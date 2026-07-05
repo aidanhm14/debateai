@@ -158,7 +158,10 @@
   // Voice so the two real-time-entry actions sit adjacent at the front
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
-    { href: '/voice-debate',  label: 'Voice'        },
+    // 2026-07-04: Voice routes to /newvoice (rebuilt one-screen live
+    // clash). Classic trainer stays reachable at /voice-debate via the
+    // cross-links on /newvoice.
+    { href: '/newvoice',      label: 'Voice'        },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // Aidan (still reachable at /float and /exhibition directly).
@@ -399,10 +402,12 @@
     // against ChatGPT (real-time, sub-200ms, full interruption) and
     // the user-flagged most-important surface. Brand red keeps the
     // topbar visually calm; the prior gold-amber gradient read as
-    // braggy. Falls back to the "Debate it" CTA verb when already
-    // on /voice-debate so the bar still has a working CTA on every
-    // page (and the verb stays consistent across surfaces).
-    var onVoiceDebate = /\/voice-debate(\b|\/)/.test(here);
+    // braggy. Voice AI now routes to /newvoice, the rebuilt
+    // one-screen live clash (2026-07-04); the classic trainer stays
+    // at /voice-debate, cross-linked from both /newvoice footers.
+    // Falls back to the "Debate it" CTA verb when already on a voice
+    // surface so the bar still has a working CTA on every page.
+    var onVoiceDebate = /\/(voice-debate|newvoice)(\b|\/)/.test(here);
     var cta;
     if (onVoiceDebate) {
       cta = el('a', {
@@ -412,9 +417,9 @@
       }, 'Debate it');
     } else {
       cta = el('a', {
-        href: '/voice-debate',
+        href: '/newvoice',
         class: 'ui-btn ui-btn-primary ui-btn-sm',
-        title: 'Talk out loud. The AI cuts in.',
+        title: 'Talk out loud. The AI argues back.',
         style: { padding: '8px 18px' },
       }, 'Voice AI');
     }
@@ -454,7 +459,7 @@
       sheet.appendChild(sheetLink);
     });
     var sheetCta = el('a', {
-      href: onVoiceDebate ? '/debate-it' : '/voice-debate',
+      href: onVoiceDebate ? '/debate-it' : '/newvoice',
       class: 'ui-topbar-sheet-cta',
       role: 'menuitem',
     }, onVoiceDebate ? 'Debate it →' : 'Voice AI →');
