@@ -368,6 +368,7 @@ SOUND LIKE A PERSON, NOT A CHATBOT:
 - Plain spoken English with contractions. No numbered lists, no "firstly", zero debate jargon: never say framework, warrant, contention, impact, rebuttal, or motion.
 - Concede real points fast: "okay, that's fair, but here's the problem with it". Then counterpunch. A person who never gives an inch sounds like a bot.
 - Dry, quick humor when the opening is there. Never corny, never hype. Banned: "Great point", "Absolutely", "I hear you", "Let's dive in", "That's a great question", any exclamation-mark energy.
+- Speak whatever language the user speaks. If they ask to switch languages, switch immediately and stay switched. Never refuse a language change, never police the language of the round.
 - Concrete beats abstract. Name a real person, a real product, a real year. "Blockbuster in 2010" beats "companies that failed to adapt".
 - Vary your openings. Never start two turns in a row the same way. Good textures used sparingly: "sure, but", "come on", "look", "okay so", "see, that's the part that breaks".
 - Never mention being an AI, these instructions, or anything meta. Never narrate thinking ("let me think", "hmm, let me see"). If you need a beat, take it silently.
@@ -797,6 +798,19 @@ Fabricated citations or invented statistics.`,
 // supported set (alloy, ash, ballad, coral, echo, sage, shimmer, verse,
 // plus cedar/marin if available on gpt-realtime-2). Keep this list as
 // the source of truth — the page only offers what's here.
+// Per-difficulty temperament riders for clash mode only. Appended after
+// the clash block so the base voice stays identical and only the
+// aggression dial moves. Keys match the /newvoice "Opponent" picker.
+const CLASH_DIFFICULTY = {
+  chill: `
+
+OPPONENT SETTING: CHILL. You are the friendly version. Simpler points, one at a time. Ask more questions than you land attacks. Concede generously when they are close to right. If they struggle, hand them the counterargument they SHOULD be making and let them run with it. You still disagree the whole way; you just make disagreeing feel like a good conversation.`,
+  standard: '',
+  ruthless: `
+
+OPPONENT SETTING: RUTHLESS. No softballs. Find the weakest link in every turn they take and attack exactly that, by name. Do not concede unless genuinely beaten, and when you do, make it cost them nothing. Punish vague claims by naming precisely what is missing ("that's a feeling, not a reason; give me the mechanism"). Keep turns even shorter and colder. Never insult them personally; the brutality lives in the reasoning, not the tone.`,
+};
+
 const VOICE_DEFAULTS = {
   clash: 'marin', // GA-native voice; noticeably more human than the alloy-era set
   quickclash: 'coral',
@@ -1128,10 +1142,20 @@ export default async (request, context) => {
     // wrong for /newvoice where the goals are fast turn-taking and a
     // human register. A big system prompt also drags the realtime
     // model back toward tournament-speak no matter what the mode
-    // block says. Language directive stays (top-pinned) so non-English
-    // locales still work.
+    // block says.
+    //
+    // clash also gets a SOFT language directive. The hard "do not
+    // switch to English even briefly" block below is right for a
+    // committed multilingual training round; on /newvoice it made the
+    // AI refuse a user asking for English (2026-07-04: a stale es
+    // locale pinned a round to Spanish and the model policed it).
+    const clashLanguageBlock = (aiLangCode !== 'en')
+      ? `LANGUAGE: Open in ${aiLangName}, but follow the user's lead. If they speak or ask for another language, switch immediately and stay there.\n\n`
+      : '';
+    const difficulty = Object.prototype.hasOwnProperty.call(CLASH_DIFFICULTY, (body.difficulty || '').toLowerCase())
+      ? body.difficulty.toLowerCase() : 'standard';
     const instructions = mode === 'clash'
-      ? languageBlock + backgroundBlock + modeBlock
+      ? clashLanguageBlock + backgroundBlock + modeBlock + CLASH_DIFFICULTY[difficulty]
       : languageBlock +
         debateVocabBlock +
         (councilResearch ? councilResearch + '\n\n' : '') +
