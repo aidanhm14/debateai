@@ -538,6 +538,18 @@ body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webki
 .hamburger-item:hover{background:#1e2d44;border-color:#ffffff18;color:#e4e8f0}
 .hamburger-item.active{background:#ef444415;border-color:#ef444435;color:#ef4444}
 @media(max-width:640px){.hamburger-wrap{display:flex}.nav{display:none}}
+/* 2026-07-05 reframe: on desktop the generator drops the fixed left
+   dashboard rail for a centered, editorial composition like the
+   landing. The existing hamburger menu (it already mirrors the full
+   tab list and drives navigateTab) becomes the desktop tool switcher,
+   pinned top-left of the centered content column. */
+@media(min-width:641px){
+  .nav{display:none !important}
+  .app{padding-left:0 !important}
+  .hamburger-wrap{display:flex !important;justify-content:flex-start;width:100%;max-width:1100px;margin:6px auto -6px;padding:0 24px}
+  .hamburger-btn{padding:8px 15px;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px}
+}
+.panel.panel-expanded{margin-left:auto;margin-right:auto}
 .light-theme .hamburger-btn{color:#64748b;border-color:#e2e8f0;background:#ffffff80}
 .light-theme .hamburger-btn:hover{color:#1a1a2e;background:#f1f5f9}
 .light-theme .hamburger-panel{background:#fff;border-color:#e2e8f0;box-shadow:0 24px 80px rgba(0,0,0,.15)}
@@ -15742,7 +15754,7 @@ function App() {
   // Sign-in is required. anonymous-trial mechanism has been fully removed
   // (was a localStorage flag users could flip to bypass the gate). All prior
   // anonTrial prop-drilling and unreachable code paths were deleted with it.
-  var [theme, setTheme] = useState(() => {try {var t = localStorage.getItem('debateos-theme');return t === 'light' ? 'light' : 'grey';} catch (e) {return 'grey';}});
+  var [theme, setTheme] = useState(() => {try {var t = localStorage.getItem('debateos-theme');if (t === 'light' || t === 'grey') return t;/* 2026-07-05 reframe: default /app to warm-paper light so it matches the landing (whose light theme this palette mirrors). Inherit the landing's own choice (da-theme, ~70% light) for cross-surface consistency; only a crimson/grey landing pick keeps /app dark. */var lt = localStorage.getItem('da-theme');if (lt === 'crimson' || lt === 'grey') return 'grey';return 'light';} catch (e) {return 'light';}});
   var [devPro, setDevProState] = useState(isDevPro);
   var toggleDevPro = () => {var next = !devPro;setDevPro(next);setDevProState(next);};
   var [locale, setLocale] = useState(() => {try {return localStorage.getItem('debateos-locale') || 'en';} catch (e) {return 'en';}});
