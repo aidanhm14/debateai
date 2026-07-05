@@ -86,55 +86,21 @@ document.documentElement.setAttribute('data-force-theme','light');
 <link rel="stylesheet" href="/css/ui.css">
 
 <style>
-  /* Three canonical themes — grey (default), crimson, light — mirrored
-     from landing.html + /live so the same `da-theme` localStorage key
-     persists across pages. Pricing's existing token vocabulary (--fg,
-     --muted, --dim, --line) is preserved so the rest of this file
-     doesn't need a rewrite — only the values flip per theme. */
-  :root,[data-theme="grey"]{
-    --bg:#07080d;
-    --bg-2:#0f1018;
-    --fg:#eef1f8;
-    --muted:#94a3b8;
-    --dim:#556273;
-    --accent:#ef4444;
-    --gold:#f59e0b;
-    --green:#22c55e;
-    --blue:#3b82f6;
-    --purple:#8b5cf6;
-    --line:rgba(255,255,255,.08);
-    --line-hot:rgba(239,68,68,.4);
-    --orb-opacity:.35;
+  /* Pricing — a calm editorial page, consistent with landing.html.
+     The page forces data-theme=light (see head), so it is light in
+     practice; the dark token fallbacks are kept minimal in case the
+     force is ever lifted. Token names (--fg/--muted/--dim/--line/
+     --accent) match what the India-pricing + checkout JS already
+     query, so the scripts below need no changes. */
+  :root,[data-theme="light"]{
+    --bg:#fafaf7; --card:#fff;
+    --fg:#1a1a1f; --muted:rgba(0,0,0,.58); --dim:rgba(0,0,0,.4);
+    --line:rgba(0,0,0,.09); --accent:#dc2626; --green:#16a34a; --blue:#2563eb;
   }
-  [data-theme="crimson"]{
-    --bg:#000;
-    --bg-2:#0c0306;
-    --fg:#fff;
-    --muted:rgba(255,255,255,.55);
-    --dim:rgba(255,255,255,.32);
-    --accent:#ef4444;
-    --gold:#f59e0b;
-    --green:#22c55e;
-    --blue:#3b82f6;
-    --purple:#8b5cf6;
-    --line:rgba(239,68,68,.12);
-    --line-hot:rgba(239,68,68,.5);
-    --orb-opacity:.45;
-  }
-  [data-theme="light"]{
-    --bg:#fafaf7;
-    --bg-2:#fff;
-    --fg:#1a1a1f;
-    --muted:rgba(0,0,0,.55);
-    --dim:rgba(0,0,0,.35);
-    --accent:#dc2626;
-    --gold:#d97706;
-    --green:#16a34a;
-    --blue:#2563eb;
-    --purple:#7c3aed;
-    --line:rgba(0,0,0,.08);
-    --line-hot:rgba(220,38,38,.4);
-    --orb-opacity:.18;
+  [data-theme="grey"],[data-theme="crimson"]{
+    --bg:#0f1117; --card:rgba(255,255,255,.03);
+    --fg:#eef1f8; --muted:rgba(255,255,255,.62); --dim:rgba(255,255,255,.42);
+    --line:rgba(255,255,255,.1); --accent:#ef4444; --green:#22c55e; --blue:#3b82f6;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:var(--bg);color:var(--fg);font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
@@ -142,583 +108,200 @@ document.documentElement.setAttribute('data-force-theme','light');
   a{color:inherit;text-decoration:none}
   button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
 
-  /* Background, subtle animated orbs, no Vanta clutter */
-  .bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-  .orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:var(--orb-opacity);animation:drift 28s ease-in-out infinite}
-  .orb-1{width:520px;height:520px;background:#ef4444;top:-10%;left:-10%;animation-delay:0s}
-  .orb-2{width:420px;height:420px;background:#8b5cf6;bottom:-15%;right:-10%;animation-delay:-9s}
-  .orb-3{width:360px;height:360px;background:#f59e0b;top:40%;left:50%;animation-delay:-18s}
-  @keyframes drift {
-    0%,100%{transform:translate(0,0) scale(1)}
-    33%{transform:translate(40px,-30px) scale(1.08)}
-    66%{transform:translate(-30px,20px) scale(.95)}
-  }
-
-  /* Layout */
-  .shell{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:24px 24px 64px}
-
-  /* Top nav */
-  nav{display:flex;justify-content:space-between;align-items:center;padding:6px 0 32px}
-  .logo{font-weight:900;font-size:1.1rem;letter-spacing:-.02em;display:inline-flex;align-items:center;gap:8px}
-  .logo-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent)}
-  nav a.back{color:var(--muted);font-size:.88rem;padding:8px 16px;border-radius:999px;border:1px solid var(--line);transition:.2s}
-  nav a.back:hover{color:var(--fg);border-color:var(--line-hot)}
-
-  /* Theme picker — same red/grey/white set as landing + /live, same
-     localStorage key (da-theme) so flipping here flips everywhere. */
-  .theme-dots{display:inline-flex;gap:6px;align-items:center}
-  .theme-dot{
-    width:14px;height:14px;border-radius:50%;
-    border:1.5px solid var(--line);background:#444;
-    cursor:pointer;padding:0;transition:transform .15s,border-color .2s;
-  }
-  .theme-dot:hover{transform:scale(1.2)}
-  .theme-dot.active{border-color:var(--fg)}
-  .theme-dot[data-t="grey"]{background:#444}
-  .theme-dot[data-t="crimson"]{background:#ef4444}
-  .theme-dot[data-t="light"]{background:#fafaf7;border-color:rgba(0,0,0,.18)}
-  [data-theme="light"] .theme-dot{border-color:rgba(0,0,0,.18)}
-  [data-theme="light"] .theme-dot.active{border-color:#1a1a1f}
-  @media(max-width:600px){.theme-dots{padding:0 2px;gap:4px}.theme-dot{width:12px;height:12px;border-width:1px}}
-  @media(max-width:380px){.theme-dots{display:none}}
+  .shell{max-width:1080px;margin:0 auto;padding:24px 24px 72px}
 
   /* Hero */
-  .hero{text-align:center;padding:20px 0 36px;max-width:880px;margin:0 auto}
-  .eyebrow{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);padding:6px 14px;border-radius:999px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);margin-bottom:16px}
-  h1{font-family:'Fraunces',Georgia,'Times New Roman',serif;font-weight:700;font-size:clamp(2.4rem,6vw,4.2rem);line-height:1.02;letter-spacing:-.03em;margin-bottom:20px}
-  h1 .accent{color:var(--accent);font-style:normal;font-weight:900}
-  .lede{font-size:clamp(1rem,1.6vw,1.15rem);color:var(--muted);max-width:640px;margin:0 auto 12px;line-height:1.55}
-  .reassure{font-size:.85rem;color:var(--dim);margin-top:8px}
-  .reassure strong{color:var(--green);font-weight:700}
+  .hero{text-align:center;max-width:720px;margin:0 auto;padding:12px 0 4px}
+  .kicker{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+  h1{font-family:'Fraunces',Georgia,'Times New Roman',serif;font-weight:600;font-size:clamp(2.2rem,5.5vw,3.6rem);line-height:1.04;letter-spacing:-.025em;margin-bottom:16px}
+  .lede{font-size:1.05rem;color:var(--muted);max-width:560px;margin:0 auto;line-height:1.55}
 
-  /* Pricing grid */
-  /* 4-tier layout: Free, BYOK, Individual, Team across one row on
-     desktop, 2-up on tablet, 1-up on mobile. */
-  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:28px 0 16px}
-  @media (max-width:960px){
-    .grid{grid-template-columns:repeat(2,1fr)}
-  }
-  @media (max-width:560px){
-    .grid{grid-template-columns:1fr}
-  }
+  /* Beta line */
+  .beta{max-width:600px;margin:20px auto 0;text-align:center;font-size:.9rem;color:var(--muted);line-height:1.55}
+  .beta strong{color:var(--fg);font-weight:700}
+  .beta a{color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 
-  .card{
-    position:relative;
-    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
-    border:1px solid var(--line);
-    border-radius:18px;
-    padding:28px 22px 26px;
-    display:flex;
-    flex-direction:column;
-    transition:transform .2s ease, border-color .2s, box-shadow .2s;
-  }
-  .card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.18)}
-  .card.featured{
-    border-color:rgba(239,68,68,.5);
-    background:linear-gradient(180deg,rgba(239,68,68,.08),rgba(239,68,68,.02));
-    box-shadow:0 0 0 1px rgba(239,68,68,.15), 0 20px 60px -20px rgba(239,68,68,.35);
-  }
-  .card.featured:hover{border-color:rgba(239,68,68,.7);box-shadow:0 0 0 1px rgba(239,68,68,.25), 0 24px 70px -20px rgba(239,68,68,.5)}
+  /* Cards */
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:40px 0 16px}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px 22px;display:flex;flex-direction:column;transition:border-color .2s}
+  .card:hover{border-color:rgba(0,0,0,.2)}
+  .card.featured{border-color:var(--accent)}
+  .badge{position:absolute;top:-10px;left:22px;padding:4px 12px;font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;border-radius:999px;background:var(--accent);color:#fff}
+  .tier{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .card.featured .tier{color:var(--accent)}
+  .price-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+  .price{font-family:'Fraunces',Georgia,'Times New Roman',serif;font-size:2.4rem;font-weight:600;letter-spacing:-.03em;line-height:1}
+  .cadence{font-size:.85rem;color:var(--muted)}
+  .sub{font-size:.85rem;color:var(--dim);margin:6px 0 18px;min-height:18px}
+  .feats{list-style:none;margin:0 0 20px;flex:1}
+  .feats li{font-size:.86rem;color:var(--fg);padding:8px 0;border-top:1px solid var(--line);display:flex;gap:9px;line-height:1.4}
+  .feats li:first-child{border-top:none}
+  .feats li::before{content:'';flex:0 0 6px;height:6px;border-radius:50%;background:var(--accent);margin-top:7px}
+  .feats li.off{color:var(--dim)}
+  .feats li.off::before{background:var(--line)}
+  .cta{display:block;text-align:center;padding:12px 16px;border-radius:10px;font-weight:700;font-size:.9rem;transition:.15s}
+  .cta.primary{background:var(--accent);color:#fff}
+  .cta.primary:hover{background:#b91c1c}
+  .cta.ghost{border:1px solid var(--line);color:var(--fg)}
+  .cta.ghost:hover{border-color:var(--fg)}
+  .note{font-size:.72rem;color:var(--dim);text-align:center;margin-top:8px}
 
-  .badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:5px 14px;font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;border-radius:999px;white-space:nowrap}
-  .badge.popular{background:var(--accent);color:#fff;box-shadow:0 6px 20px rgba(239,68,68,.45)}
-  .badge.value{background:var(--green);color:#0a120a}
-  .badge.cheap{background:var(--gold);color:#1a1208}
-  .badge.team{background:#3b82f6;color:#fff;box-shadow:0 6px 20px rgba(59,130,246,.35)}
-
-  .tier-name{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-  .card.featured .tier-name{color:var(--accent)}
-  .price-row{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;flex-wrap:wrap}
-  .price{font-size:2.4rem;font-weight:900;letter-spacing:-.04em;line-height:1}
-  .cadence{font-size:.85rem;color:var(--muted);font-weight:500}
-  .subtitle{font-size:.82rem;color:var(--dim);margin-bottom:24px;min-height:20px}
-
-  .features{list-style:none;margin:0 0 24px;padding:0;flex:1}
-  .features li{font-size:.85rem;color:var(--fg);padding:8px 0;border-bottom:1px dashed var(--line);display:flex;align-items:flex-start;gap:8px;line-height:1.45}
-  .features li:last-child{border-bottom:none}
-  .features li::before{content:'';display:inline-block;flex-shrink:0;width:16px;height:16px;border-radius:50%;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);margin-top:2px;position:relative}
-  .features li::after{content:'';position:absolute;width:5px;height:8px;border:solid #22c55e;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-4px,-6px);margin-left:-11px;margin-top:5px}
-  .features li.muted{color:var(--muted)}
-  .features li.muted::before{background:rgba(100,116,139,.12);border-color:rgba(100,116,139,.3)}
-  .features li.muted::after{border-color:#64748b}
-
-  .cta{
-    display:block;width:100%;padding:14px 18px;border-radius:12px;
-    font-weight:800;font-size:.92rem;letter-spacing:.02em;
-    transition:.2s;text-align:center;
-  }
-  .cta.primary{background:var(--accent);color:#fff;box-shadow:0 10px 30px -8px rgba(239,68,68,.5)}
-  .cta.primary:hover{background:#dc2626;transform:translateY(-1px);box-shadow:0 14px 34px -8px rgba(239,68,68,.7)}
-  .cta.ghost{background:rgba(255,255,255,.04);color:var(--fg);border:1px solid var(--line)}
-  .cta.ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}
-  .cta:disabled{opacity:.5;cursor:not-allowed;transform:none}
-
-  .small{font-size:.72rem;color:var(--dim);text-align:center;margin-top:8px}
-
-  /* Buyer guide */
-  .beta-strip{
-    max-width:940px;margin:0 auto 30px;padding:14px 22px;
-    background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);
-    border-radius:14px;display:flex;align-items:center;gap:14px;
-    flex-wrap:wrap;justify-content:center;text-align:center;
-  }
-  .beta-strip-title{
-    display:inline-flex;align-items:center;gap:8px;
-    font-size:.7rem;font-weight:800;letter-spacing:.16em;
-    text-transform:uppercase;color:var(--accent);
-  }
-  .beta-strip-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);display:inline-block}
-  .beta-strip-copy{font-size:.88rem;color:var(--muted);line-height:1.5}
-  .beta-strip-copy a{color:var(--accent);font-weight:800;text-decoration:underline;text-underline-offset:3px}
-  .section-block{margin:52px auto 0}
-  .section-head{max-width:760px;margin:0 auto 24px;text-align:center}
-  .section-kicker{
-    display:inline-block;margin-bottom:9px;font-size:.68rem;font-weight:900;
-    letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
-  }
-  .section-head h2{
-    font-family:'Fraunces',Georgia,'Times New Roman',serif;
-    font-size:clamp(1.85rem,4vw,2.8rem);line-height:1.08;
-    letter-spacing:-.035em;font-weight:700;margin-bottom:10px;
-  }
-  .section-lede{color:var(--muted);font-size:1rem;line-height:1.6}
-  .lens-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-  .lens-card{
-    min-height:188px;background:#fff;border:1px solid var(--line);
-    border-radius:16px;padding:20px 18px;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -28px rgba(20,20,30,.20);
-  }
-  .lens-label{font-size:.68rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-  .lens-price{font-family:'Fraunces',Georgia,'Times New Roman',serif;font-size:1.8rem;font-weight:750;letter-spacing:-.035em;line-height:1.05;margin-bottom:8px}
-  .lens-meta{font-size:.86rem;color:var(--muted);line-height:1.5}
-  .lens-card strong{color:var(--fg)}
-  .buyer-table{display:grid;gap:10px;max-width:1080px;margin:0 auto}
-  .buyer-row{
-    display:grid;grid-template-columns:1.05fr .95fr 2fr;gap:18px;align-items:start;
-    padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:#fff;
-    box-shadow:0 1px 2px rgba(20,20,30,.035);
-  }
-  .buyer-name{font-size:.96rem;font-weight:900;letter-spacing:-.01em}
-  .buyer-plan{font-size:.85rem;font-weight:850;color:var(--accent)}
-  .buyer-copy{font-size:.88rem;color:var(--muted);line-height:1.55}
-  .institution-band{
-    margin:58px calc(50% - 50vw) 0;padding:44px max(24px,calc((100vw - 1200px)/2 + 24px));
-    background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-  }
-  .institution-inner{max-width:1200px;margin:0 auto}
-  .institution-title{
-    font-family:'Fraunces',Georgia,'Times New Roman',serif;
-    font-size:clamp(1.85rem,4vw,2.7rem);line-height:1.08;
-    letter-spacing:-.035em;font-weight:700;margin-bottom:12px;
-  }
-  .institution-grid{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:18px;margin-top:24px}
-  .institution-copy{color:var(--muted);font-size:.95rem;line-height:1.65;max-width:620px}
-  .institution-card{border:1px solid var(--line);border-radius:16px;padding:20px;background:#fafaf7}
-  .institution-card h3{font-size:1rem;font-weight:900;margin-bottom:8px;letter-spacing:-.01em}
-  .institution-card p{font-size:.88rem;color:var(--muted);line-height:1.55}
-  .institution-card a{display:inline-flex;margin-top:14px;color:var(--accent);font-weight:850;text-decoration:underline;text-underline-offset:3px}
-  .referral-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:1080px;margin:0 auto}
-  .referral-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(20,20,30,.035)}
-  .referral-card h3{font-size:1rem;font-weight:900;margin-bottom:8px;letter-spacing:-.01em}
-  .referral-card p{font-size:.88rem;color:var(--muted);line-height:1.55}
-  .referral-card a{display:inline-flex;margin-top:14px;color:var(--accent);font-weight:850;text-decoration:underline;text-underline-offset:3px}
-  @media(max-width:960px){
-    .lens-grid{grid-template-columns:repeat(2,1fr)}
-    .buyer-row{grid-template-columns:1fr}
-    .institution-grid{grid-template-columns:1fr}
-    .referral-grid{grid-template-columns:1fr}
-  }
-  @media(max-width:560px){
-    .lens-grid{grid-template-columns:1fr}
-    .section-block{margin-top:42px}
-    .buyer-row{padding:16px}
-  }
-
-  /* Proof row */
-  .proof{max-width:880px;margin:36px auto 0;padding:24px 24px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));text-align:center}
-  .proof-quote{font-family:'Crimson Pro','Inter',system-ui,sans-serif;font-style:normal;font-size:1.15rem;line-height:1.5;color:#dde5f0;max-width:640px;margin:0 auto 14px}
-  .proof-who{font-size:.82rem;color:var(--muted);font-weight:600}
+  /* Bigger rollouts — replaces the old buyer-table + institution band */
+  .rollout{max-width:720px;margin:44px auto 0;text-align:center;padding:24px 26px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+  .rollout .kicker{margin-bottom:10px}
+  .rollout h2{font-family:'Fraunces',Georgia,'Times New Roman',serif;font-weight:600;font-size:clamp(1.3rem,3vw,1.6rem);letter-spacing:-.02em;margin-bottom:10px}
+  .rollout p{font-size:.92rem;color:var(--muted);line-height:1.6;max-width:580px;margin:0 auto 14px}
+  .rollout a{color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 
   /* FAQ */
-  .faq{max-width:720px;margin:72px auto 0}
-  .faq h2{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin-bottom:20px;text-align:center}
-  .faq-toolbar{margin:0 auto 18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-  .faq-toolbar input[type=search]{
-    flex:1 1 260px;max-width:440px;
-    padding:11px 14px;font:inherit;font-size:.9rem;
-    background:rgba(255,255,255,.03);color:var(--fg);
-    border:1px solid var(--line);border-radius:10px;
-    transition:border-color .2s,box-shadow .2s;
-    -webkit-appearance:none;appearance:none;
-  }
-  .faq-toolbar input[type=search]::placeholder{color:var(--muted)}
-  .faq-toolbar input[type=search]:focus{
-    outline:none;border-color:rgba(239,68,68,.45);
-    box-shadow:0 0 0 3px rgba(239,68,68,.10);
-  }
-  .faq-toolbar-hint{color:var(--muted);font-size:.85rem}
-  .faq details[hidden]{display:none}
-  details{border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:10px;transition:.2s;background:rgba(255,255,255,.02)}
-  details[open]{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.03)}
-  summary{font-weight:700;font-size:.95rem;cursor:pointer;outline:none;list-style:none;display:flex;justify-content:space-between;align-items:center}
-  summary::after{content:'+';font-size:1.4rem;color:var(--muted);transition:.2s}
-  details[open] summary::after{transform:rotate(45deg);color:var(--accent)}
-  details p{color:var(--muted);font-size:.88rem;margin-top:10px;line-height:1.6}
+  .faq{max-width:680px;margin:56px auto 0}
+  .faq h2{font-family:'Fraunces',Georgia,'Times New Roman',serif;font-weight:600;font-size:clamp(1.5rem,3.5vw,1.9rem);letter-spacing:-.02em;text-align:center;margin-bottom:20px}
+  details{border-top:1px solid var(--line);padding:15px 2px}
+  details:last-of-type{border-bottom:1px solid var(--line)}
+  summary{font-weight:700;font-size:.95rem;cursor:pointer;outline:none;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:'+';color:var(--muted);font-size:1.3rem;line-height:1;flex-shrink:0}
+  details[open] summary::after{content:'\2013';color:var(--accent)}
+  details p{color:var(--muted);font-size:.9rem;margin-top:10px;line-height:1.6}
 
-  /* Footer */
-  footer{max-width:1200px;margin:44px auto 0;padding:22px 24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:.78rem;color:var(--dim)}
+  footer{max-width:1080px;margin:56px auto 0;padding:22px 24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;font-size:.78rem;color:var(--dim)}
   footer a{color:var(--muted)}
   footer a:hover{color:var(--fg)}
 
-  /* Status banner */
-  .status{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a24;border:1px solid var(--line);color:var(--fg);padding:12px 20px;border-radius:12px;font-size:.85rem;z-index:1000;display:none;box-shadow:0 10px 40px rgba(0,0,0,.5)}
-  .status.err{border-color:var(--accent);color:#fca5a5}
+  /* Status banner + spinner (checkout feedback) */
+  .status{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:var(--fg);padding:12px 20px;border-radius:12px;font-size:.85rem;z-index:1000;display:none;box-shadow:0 10px 40px rgba(20,20,30,.15)}
+  .status.err{border-color:var(--accent);color:#b91c1c}
   .status.show{display:block}
-
-  /* Loader */
-  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.2);border-top-color:var(--fg);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
 
-  /* ── Light-theme hardcoded overrides ─────────────────── */
+  /* Theme dots stay hidden — pricing is a single light surface. */
   .theme-dots{display:none !important}
-  .faq h2{font-family:'Fraunces',Georgia,'Times New Roman',serif;font-weight:600}
-  .card{background:#fff;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -26px rgba(20,20,30,.20)}
-  .card:hover{border-color:rgba(20,20,30,.18)}
-  .card.featured{background:linear-gradient(180deg,rgba(220,38,38,.06),rgba(220,38,38,.015));border-color:rgba(220,38,38,.4);box-shadow:0 0 0 1px rgba(220,38,38,.12),0 20px 60px -20px rgba(220,38,38,.18)}
-  .card.featured:hover{border-color:rgba(220,38,38,.55);box-shadow:0 0 0 1px rgba(220,38,38,.2),0 24px 70px -20px rgba(220,38,38,.28)}
-  .cta.ghost{background:rgba(20,20,30,.03);border-color:rgba(20,20,30,.12)}
-  .cta.ghost:hover{background:rgba(20,20,30,.06);border-color:rgba(20,20,30,.22)}
-  .proof{background:#fff;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -26px rgba(20,20,30,.20)}
-  .proof-quote{color:var(--fg)}
-  details{background:rgba(20,20,30,.02)}
-  details[open]{background:rgba(220,38,38,.03)}
-  .faq-toolbar input[type=search]{background:rgba(20,20,30,.03)}
-  .status{background:#fff;box-shadow:0 10px 40px rgba(20,20,30,.15)}
-  .spinner{border-color:rgba(20,20,30,.2);border-top-color:var(--fg)}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
 <body>
 
-<div class="bg" aria-hidden="true">
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
-  <div class="orb orb-3"></div>
-</div>
-
-<!-- Shared topbar — replaces the prior nav that only linked to
-     Leaderboard + Back-to-app. Now matches landing / learn / debate-ai
-     so users can reach Voice / Live / Community / High School / etc.
-     The shared topbar.js handles its own theme dots + auth slot. -->
+<!-- Shared topbar — matches landing / learn / debate-ai. topbar.js
+     handles its own theme dots + auth slot. -->
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
 <!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
-     top of <body>, above the shared .ui-topbar. The fixed .ui-topbar
-     (css/ui.css) already reads --cohort-banner-h and translates down by
-     the banner height, so no per-page offset wiring is needed here. -->
+     top of <body>, above the shared .ui-topbar. -->
 <script src="/js/cohort-banner.js" defer></script>
 
 <div class="shell" style="padding-top:90px">
 
 <section class="hero">
-  <span class="eyebrow" id="heroEyebrow">Beta access is free today</span>
-  <h1 id="heroH1">Pricing for debaters, coaches, schools, and teams.</h1>
-  <p class="lede" id="heroLede">DebateIt is free to use while we are in beta. The numbers below are the post-beta charging model, posted so students know the ceiling and coaches can budget before the season starts.</p>
-  <p class="reassure"><strong>Running a school, club, or team?</strong> <a href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20team%20access" style="color:var(--accent);font-weight:700">Email us for access</a>.</p>
-</section>
-<script>
-// A/B test: pricing_hero_v1
-//   control  → existing 'Think it through before a judge does.' copy
-//   punchy   → tournament-grade angle + explicit $10 anchor
-// ab.apply runs the variant handler on assignment; if A/B framework
-// hasn't loaded (cache miss / blocked), the page renders control.
-(function(){
-  function go(){
-    if (!window.ab) { setTimeout(go, 60); return; }
-    window.ab.apply('pricing_hero_v1', ['control', 'punchy'], {
-      control: function(){ /* DOM already matches control. */ },
-      punchy: function(){
-        var eb = document.getElementById('heroEyebrow');
-        var h1 = document.getElementById('heroH1');
-        var lede = document.getElementById('heroLede');
-        if (eb) eb.textContent = 'Beta access is free today';
-        if (h1) h1.textContent = 'Pricing for debaters, coaches, schools, and teams.';
-        if (lede) lede.textContent = 'DebateIt is free to use while we are in beta. The numbers below are the post-beta charging model, posted so students know the ceiling and coaches can budget before the season starts.';
-      },
-    });
-  }
-  go();
-})();
-</script>
-
-<div class="beta-strip">
-  <span class="beta-strip-title">
-    <span class="beta-strip-dot"></span>
-    Free in beta
-  </span>
-  <span class="beta-strip-copy">No card is collected today. These are planned post-beta prices. Sign in to keep your workspace ready, or <a href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20team%20access">email us for a team rollout</a>.</span>
-</div>
-
-<section class="section-block" aria-labelledby="pricingModelTitle">
-  <div class="section-head">
-    <span class="section-kicker">Charging model</span>
-    <h2 id="pricingModelTitle">One engine, five ways to pay.</h2>
-    <p class="section-lede">Individuals buy the full debate engine. Teams buy shared capacity. Schools, districts, and businesses start from Team while we learn what admin, privacy, roster, and invoicing work they actually need.</p>
-  </div>
-  <div class="lens-grid" aria-label="Pricing model summary">
-    <article class="lens-card">
-      <div class="lens-label">Try it</div>
-      <div class="lens-price">$0</div>
-      <p class="lens-meta"><strong>Free</strong> keeps the first run honest. Enough to test the product, not enough to make the free tier the whole product.</p>
-    </article>
-    <article class="lens-card">
-      <div class="lens-label">Power user</div>
-      <div class="lens-price">$1/mo</div>
-      <p class="lens-meta"><strong>BYOK</strong> is for Anthropic-key users who want DebateIt's interface and prompts while paying model usage directly.</p>
-    </article>
-    <article class="lens-card">
-      <div class="lens-label">Core buyer</div>
-      <div class="lens-price">$10/yr</div>
-      <p class="lens-meta"><strong>Individual</strong> is the target plan for serious debaters. Annual, low-friction, and easy to say yes to before a tournament.</p>
-    </article>
-    <article class="lens-card">
-      <div class="lens-label">Programs</div>
-      <div class="lens-price">$50/yr</div>
-      <p class="lens-meta"><strong>Team</strong> is the workspace for coaches, clubs, schools, and business practice groups with shared seats and usage.</p>
-    </article>
-  </div>
+  <span class="kicker" id="heroEyebrow">Free while in beta</span>
+  <h1 id="heroH1">Simple pricing. Built for a season, not a subscription.</h1>
+  <p class="lede" id="heroLede">Everything is free while we are in beta. The prices below are what plans will cost once beta ends, posted early so you can budget.</p>
+  <p class="beta"><strong>No card today.</strong> Sign in to keep your workspace ready, or <a href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20team%20access">email us for a team rollout</a>.</p>
 </section>
 
 <div class="grid" id="plans">
   <!-- Free -->
   <article class="card" data-plan="free">
-    <div class="tier-name">Free</div>
+    <div class="tier">Free</div>
     <div class="price-row"><span class="price">$0</span></div>
-    <p class="subtitle">Try a real round before you buy anything.</p>
-    <ul class="features">
-      <li>1 local preview before sign-in</li>
-      <li>10 signed-in requests to test the workspace</li>
-      <li>Claude Haiku only</li>
-      <li>Standard / quick depth</li>
-      <li class="muted">Competition depth (full tournament-length cases)</li>
-      <li class="muted">Gemini, GPT, Grok</li>
-      <li class="muted">Generate Opposition + Sneaky + Opp Attack</li>
-      <li class="muted">Custom case tones + Writing Style Profile</li>
-      <li class="muted">Philosophy Venn + Live Debates</li>
-      <li class="muted">Judge Analyzer + custom paradigms</li>
-      <li class="muted">Memory: the AI remembers your rounds and adapts</li>
+    <p class="sub">Try a real round first.</p>
+    <ul class="feats">
+      <li>10 signed-in requests</li>
+      <li>Claude Haiku, standard depth</li>
+      <li class="off">Six brains + competition depth</li>
+      <li class="off">Memory that learns your style</li>
     </ul>
     <a class="cta ghost" href="/app">Start free</a>
   </article>
 
   <!-- BYOK -->
   <article class="card" data-plan="byok">
-    <div class="badge cheap">Cheapest</div>
-    <div class="tier-name">BYOK</div>
+    <div class="tier">BYOK</div>
     <div class="price-row"><span class="price">$1</span><span class="cadence">/ month</span></div>
-    <p class="subtitle">Your Anthropic key, our engine.</p>
-    <ul class="features">
-      <li>Unlimited* Claude Sonnet</li>
+    <p class="sub">Your Anthropic key, our engine.</p>
+    <ul class="feats">
+      <li>Unlimited Claude Sonnet</li>
       <li>Everything in Individual</li>
-      <li>1 seat</li>
-      <li>You pay Anthropic directly for API</li>
+      <li>You pay Anthropic for API</li>
     </ul>
-    <a class="cta ghost" href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20BYOK%20waitlist">Join BYOK waitlist</a>
-    <p class="small">* You pay Anthropic for API usage.</p>
+    <a class="cta ghost" href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20BYOK%20waitlist">Join waitlist</a>
   </article>
 
   <!-- Individual -->
   <article class="card featured" data-plan="individual">
-    <div class="badge popular">Most Popular</div>
-    <div class="tier-name">Individual</div>
+    <div class="badge">Most popular</div>
+    <div class="tier">Individual</div>
     <div class="price-row"><span class="price">$10</span><span class="cadence">/ year</span></div>
-    <p class="subtitle">For one serious debater or a small prep pod.</p>
-    <ul class="features">
+    <p class="sub">For one serious debater.</p>
+    <ul class="feats">
       <li>250 requests / month</li>
-      <li>All 6 brains: Claude, Gemini, GPT, Grok, DeepSeek, Open Lab</li>
-      <li>Pro model tiers (Sonnet / GPT-4 / Gemini Pro)</li>
-      <li>Competition depth (full tournament-length cases) + Generate Opposition</li>
-      <li>Sneaky Strategies + Opp Attack</li>
-      <li>Custom case tones + Writing Style Profile</li>
-      <li>Judge Analyzer + custom Tabroom paradigms + judge pool</li>
-      <li>Philosophy Venn + Live Debates</li>
-      <li>Memory: the AI remembers your rounds, your style, and your recurring leaks, and adapts every session</li>
+      <li>All 6 brains, HD voice, pro model tiers</li>
+      <li>Competition depth + full case tooling</li>
+      <li>Memory that adapts every session</li>
       <li>10 seats for a small prep pod</li>
     </ul>
-    <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual">Reserve Individual price</a>
-    <p class="small">Charged once a year, not every month. Cancel anytime; you keep access until the year ends.</p>
+    <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual">Reserve this price</a>
+    <p class="note">Charged once a year. Cancel anytime.</p>
   </article>
 
-  <!-- Team, pooled requests + admin tools for clubs/schools.
-       Stripe price ID lives in STRIPE_PRICE_TEAM env var; backend
-       routing for plan="team" already exists in create-checkout.mjs. -->
+  <!-- Team -->
   <article class="card" data-plan="team">
-    <div class="badge team">For clubs</div>
-    <div class="tier-name">Team</div>
+    <div class="tier">Team</div>
     <div class="price-row"><span class="price">$50</span><span class="cadence">/ year</span></div>
-    <p class="subtitle">Whole program. Shared bank.</p>
-    <ul class="features">
+    <p class="sub">A whole program, one bank.</p>
+    <ul class="feats">
       <li>1,500 requests / month, pooled</li>
       <li>50 seats</li>
-      <li>All 6 brains + Pro tiers</li>
       <li>Everything in Individual</li>
-      <li>Admin dashboard: usage by member, per-round logs</li>
-      <li>Bulk add via email or CSV</li>
-      <li>Coach and judge paradigm bank shared across the team</li>
+      <li>Admin dashboard + shared paradigm bank</li>
     </ul>
     <a class="cta primary" href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20team%20beta%20access">Request team beta</a>
-    <p class="small">Charged once a year, not monthly. Right call when a whole program needs pooled access and admin tooling.</p>
+    <p class="note">Charged once a year.</p>
   </article>
 </div>
 
-<section class="section-block" aria-labelledby="buyerGuideTitle">
-  <div class="section-head">
-    <span class="section-kicker">Buyer guide</span>
-    <h2 id="buyerGuideTitle">Which plan should each buyer start with?</h2>
-    <p class="section-lede">This is the pricing map for conversations with students, coaches, school administrators, district leaders, and professional teams.</p>
-  </div>
-  <div class="buyer-table">
-    <div class="buyer-row">
-      <div class="buyer-name">Students and solo debaters</div>
-      <div class="buyer-plan">Individual</div>
-      <div class="buyer-copy">$10/year for 250 requests a month, all six brains, and HD voice. The default for anyone prepping on their own.</div>
-    </div>
-    <div class="buyer-row">
-      <div class="buyer-name">Independent coaches</div>
-      <div class="buyer-plan">Individual first, Team when rostered</div>
-      <div class="buyer-copy">Use Individual for your own prep and demos. Move to Team when students need their own seats, shared judge paradigms, and usage visibility.</div>
-    </div>
-    <div class="buyer-row">
-      <div class="buyer-name">Debate clubs and school teams</div>
-      <div class="buyer-plan">Team</div>
-      <div class="buyer-copy">$50/year covers a 50-seat workspace with pooled monthly usage. It is the clean default for a coach-led team or student-run club.</div>
-    </div>
-    <div class="buyer-row">
-      <div class="buyer-name">Schools</div>
-      <div class="buyer-plan">Team beta, then scope</div>
-      <div class="buyer-copy">Start with the Team workspace. If the school needs procurement, roster setup, privacy paperwork, or a district invoice, email us before billing turns on.</div>
-    </div>
-    <div class="buyer-row">
-      <div class="buyer-name">Districts and leagues</div>
-      <div class="buyer-plan">Email us for rollout</div>
-      <div class="buyer-copy">The first question is not price. It is seat count, number of programs, admin owner, usage ceiling, data requirements, and whether each school needs its own workspace.</div>
-    </div>
-    <div class="buyer-row">
-      <div class="buyer-name">Businesses and professional teams</div>
-      <div class="buyer-plan">Team beta</div>
-      <div class="buyer-copy">Use the same Team workspace for pitch defense, negotiation, courtroom, sales objections, red-team meetings, and stakeholder rehearsals.</div>
-    </div>
-  </div>
-</section>
-
-<section class="institution-band" aria-labelledby="institutionTitle">
-  <div class="institution-inner">
-    <span class="section-kicker">Larger rollouts</span>
-    <h2 id="institutionTitle" class="institution-title">Schools, districts, and businesses need a conversation before a new price.</h2>
-    <p class="institution-copy">The public price stays simple while the product is in beta. For larger buyers, we start from the Team plan and scope what is actually needed before inventing a new offer. That keeps the page honest and keeps procurement from driving the product too early.</p>
-    <div class="institution-grid">
-      <article class="institution-card">
-        <h3>What we need to know</h3>
-        <p>Roster size, expected monthly rounds, number of coaches or admins, whether seats reset each season, and which formats matter most.</p>
-      </article>
-      <article class="institution-card">
-        <h3>What they may need</h3>
-        <p>Invoice billing, school email allowlists, CSV rostering, privacy paperwork, district-level reporting, and a clear point of contact.</p>
-      </article>
-      <article class="institution-card">
-        <h3>What to do now</h3>
-        <p>Start free in beta. For 50+ seats, multi-school rollouts, or business training, send the rough buyer size and use case.</p>
-        <a href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20institutional%20pricing">Email about institutional pricing</a>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section class="section-block" id="referrals" aria-labelledby="referralTitle">
-  <div class="section-head">
-    <span class="section-kicker">Referral codes</span>
-    <h2 id="referralTitle">Build referral codes as attribution first, rewards second.</h2>
-    <p class="section-lede">Codes should help us see which coaches, clubs, ambassadors, and friends actually bring in retained users before we promise discounts we have not tested.</p>
-  </div>
-  <div class="referral-grid">
-    <article class="referral-card">
-      <h3>Beta behavior</h3>
-      <p>Accept URLs like <strong>/pricing?ref=coach-smith</strong> or <strong>/app?ref=apda-fall</strong>, store the code through Google sign-in, and show the source in admin. No money promised while billing is off.</p>
-    </article>
-    <article class="referral-card">
-      <h3>Post-beta reward test</h3>
-      <p>Start small: give the new user a visible credit on Individual or Team, then credit the referrer only after the referred user becomes paid.</p>
-    </article>
-    <article class="referral-card">
-      <h3>Who gets codes</h3>
-      <p>Coaches, team captains, tournament organizers, school ambassadors, and business champions. Each code needs an owner, channel, expiry, signup count, and paid-conversion count.</p>
-      <a href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20referral%20code">Request a referral code</a>
-    </article>
-  </div>
+<section class="rollout" aria-labelledby="rolloutTitle">
+  <span class="kicker">Schools, districts, and businesses</span>
+  <h2 id="rolloutTitle">Bigger rollouts start with a conversation.</h2>
+  <p>Schools usually start on Team. For 50+ seats, multiple programs, or invoicing and privacy paperwork, tell us roster size and use case and we will scope it before billing turns on.</p>
+  <a href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20institutional%20pricing">Email about institutional access</a>
 </section>
 
 <!-- FAQ -->
 <section class="faq">
   <h2>Pricing FAQ</h2>
-
-  <div class="faq-toolbar">
-    <input type="search" id="faqSearch" placeholder="Search the FAQ..." aria-label="Search the FAQ" aria-controls="faqList" autocomplete="off" />
-    <span class="faq-toolbar-hint" id="faqEmpty" hidden>No matches. Try a different word.</span>
-  </div>
   <div id="faqList">
 
   <details>
-    <summary>What happens if I cancel?</summary>
-    <p>You keep full paid access until the end of your current billing period, no lockout mid-tournament. After that, you drop back to the free plan: 1 local preview, then 10 signed-in requests. One-click from the app's Team tab.</p>
+    <summary>What does it cost right now?</summary>
+    <p>Nothing. Every tier is free while we are in beta and no card is collected. The prices above are what plans will cost afterward, posted so you can plan.</p>
   </details>
 
   <details>
-    <summary>Why is this so cheap compared to other AI tools?</summary>
-    <p>Because the first paid buyers are students, coaches, and clubs. The public plans are annual on purpose: they should feel closer to a tournament fee than a monthly software bill. Larger school, district, and business rollouts get scoped separately before we invent a fixed price.</p>
-  </details>
-
-  <details>
-    <summary>Can one subscription serve my whole team?</summary>
-    <p>Individual covers 10 seats. Team covers 50. Invite via email from your Team tab; everyone on your team shares your request pool.</p>
+    <summary>Why is it so cheap?</summary>
+    <p>The first paid buyers are students, coaches, and clubs. The plans are annual on purpose, so they feel closer to a tournament fee than a monthly software bill.</p>
   </details>
 
   <details>
     <summary>I coach a team. What should I budget?</summary>
-    <p>For one coach and a few students, Individual can be enough. For a real roster, budget around the Team plan: $50/year for 50 seats and 1,500 pooled monthly requests after beta. If you need more than that, email us with roster size and expected usage.</p>
+    <p>For one coach and a few students, Individual can be enough. For a real roster, budget around Team: $50/year for 50 seats and 1,500 pooled monthly requests after beta.</p>
   </details>
 
   <details>
-    <summary>Do schools or districts get a different plan?</summary>
-    <p>Not a fixed public tier yet. Schools usually start from Team. Districts and leagues need a quick scope first: number of schools, seat count, admin owner, privacy paperwork, and whether each program needs its own workspace.</p>
+    <summary>What happens if I cancel?</summary>
+    <p>You keep full access until the end of your billing period, no mid-tournament lockout. After that you drop to the free plan. One click from the app's Team tab.</p>
   </details>
 
   <details>
-    <summary>Can businesses use DebateIt?</summary>
-    <p>Yes. The same engine supports pitch defense, negotiation, courtroom, sales objections, and team red-teaming. Start with Team beta; if the buyer needs invoicing, admin reporting, or a custom rollout, email us before billing turns on.</p>
-  </details>
-
-  <details>
-    <summary>Can we pay by invoice or purchase order?</summary>
-    <p>For public plans, checkout will be self-serve once billing turns on. For schools, districts, and business teams, email us. We can handle the conversation before deciding whether invoice billing belongs in the first paid release.</p>
-  </details>
-
-  <details>
-    <summary>What if I don't use all 250 requests?</summary>
-    <p>They don't roll over, it resets monthly. At $10/year, Individual is priced to be a no-brainer even for occasional users.</p>
-  </details>
-
-  <details>
-    <summary>How will referral codes work?</summary>
-    <p>First, as attribution. A referral URL should carry the code through sign-in so we can see who is bringing real users. After billing turns on, we can test credits for the new user and rewards for the referrer once a referred user becomes paid.</p>
-  </details>
-
-  <details>
-    <summary>Does it actually make me better at debate?</summary>
-    <p>It's a debate engine, not a general-purpose chat. The AI is tuned per format (APDA / WSDC / PF / LD / Policy / Congress / BP), so whatever you compete in, it speaks your rules. Depth levels match how long real speeches run, Judge Analyzer reads real round logs, and every round you run feeds back into the AI's next round. The output is a case your opponent has to actually work to beat.</p>
+    <summary>Does it actually make me better?</summary>
+    <p>It is a debate engine, not a general chat. It is tuned per format (APDA / WSDC / PF / LD / Policy / Congress / BP), depth levels match real speech lengths, and every round you run feeds the AI's next one.</p>
   </details>
 
   <details>
     <summary>Is my data used to train models?</summary>
-    <p>Your cases are not sent to GPT, Claude, or any third-party foundation model for training. Signed-in, rated or saved work can feed DebateIt's internal learning loop, which sharpens our debate model for future rounds. You can delete your data anytime from the Team tab.</p>
+    <p>Your cases are never sent to GPT, Claude, or any third-party model for training. Signed-in, rated work can feed DebateIt's own learning loop. Delete your data anytime from the Team tab.</p>
   </details>
 
   </div>
@@ -953,111 +536,26 @@ document.documentElement.setAttribute('data-force-theme','light');
   });
 </script>
 
-<!-- Theme picker. Same red/grey/white set + same `da-theme` localStorage
-     key as the rest of the site, so flipping here flips everywhere. -->
-<script>
-(function(){
-  function syncDots(t){
-    document.querySelectorAll('.theme-dot').forEach(function(d){
-      d.classList.toggle('active', d.getAttribute('data-t')===t);
-    });
-  }
-  try{ syncDots(document.documentElement.getAttribute('data-theme')||'crimson'); }catch(e){}
-  document.querySelectorAll('.theme-dot').forEach(function(dot){
-    dot.addEventListener('click', function(){
-      var t=dot.getAttribute('data-t');
-      document.documentElement.setAttribute('data-theme', t);
-      syncDots(t);
-      try{ localStorage.setItem('da-theme', t); }catch(e){}
-    });
-  });
-})();
-</script>
-
-<aside style="max-width:780px;margin:48px auto 0;padding:32px 24px 64px;border-top:1px solid rgba(255,255,255,0.08);font:14px/1.6 system-ui,sans-serif;color:#94a3b8">
-  <div style="font-size:13px;display:flex;flex-wrap:wrap;gap:0 16px">
-    <a href="/" style="color:#94a3b8;text-decoration:none">DebateIt</a>
-    <span aria-hidden="true">·</span>
-    <a href="/debate-it" style="color:#94a3b8;text-decoration:none">Debate a round</a>
-    <span aria-hidden="true">·</span>
-    <a href="/voice-debate" style="color:#94a3b8;text-decoration:none">Voice round</a>
-    <span aria-hidden="true">·</span>
-    <a href="/topics" style="color:#94a3b8;text-decoration:none">Format guides</a>
-    <span aria-hidden="true">·</span>
-    <a href="/learn" style="color:#94a3b8;text-decoration:none">Learn</a>
-    <span aria-hidden="true">·</span>
-    <a href="/leaderboard" style="color:#94a3b8;text-decoration:none">Leaderboard</a>
-    <span aria-hidden="true">·</span>
-    <a href="/india" style="color:#94a3b8;text-decoration:none">For India</a>
-    <span aria-hidden="true">·</span>
-    <a href="/us" style="color:#94a3b8;text-decoration:none">For US</a>
-    <span aria-hidden="true">·</span>
-    <a href="/schools" style="color:#94a3b8;text-decoration:none">For schools</a>
-    <span aria-hidden="true">·</span>
-    <a href="/changelog" style="color:#94a3b8;text-decoration:none">Changelog</a>
-  </div>
-</aside>
-
-<script>
-// FAQ search/filter. <details> handles open/close natively; we only own
-// the filter. Hide non-matching items via [hidden], auto-open matches
-// so the answer is in view, show the empty-state hint when nothing
-// matches. Escape clears.
-(function(){
-  var input = document.getElementById('faqSearch');
-  if (!input) return;
-  var list = document.getElementById('faqList');
-  if (!list) return;
-  var items = Array.from(list.querySelectorAll('details'));
-  var empty = document.getElementById('faqEmpty');
-  function filter(){
-    var q = input.value.trim().toLowerCase();
-    if (!q){
-      items.forEach(function(el){ el.hidden = false; });
-      if (empty) empty.hidden = true;
-      return;
-    }
-    var any = false;
-    items.forEach(function(el){
-      var t = (el.textContent || '').toLowerCase();
-      var m = t.indexOf(q) !== -1;
-      el.hidden = !m;
-      if (m){
-        any = true;
-        if (q.length >= 2) el.open = true;
-      }
-    });
-    if (empty) empty.hidden = any;
-  }
-  input.addEventListener('input', filter);
-  input.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && input.value){ input.value = ''; filter(); }
-  });
-})();
-</script>
-
 <script defer src="/js/signup-nudge.js"></script>
 <!-- Non-blocking on-scroll micro-poll (bottom-left, once per session). -->
 <script defer src="/js/micro-poll.js"></script>
 
-<!-- Floating Feedback pill. Surface parity with landing.html (which uses
-     the same .fb-floating chrome). On this page the link opens the
-     Google Form in a new tab rather than embedding a modal, since
-     pricing.html doesn't host the #feedbackModal iframe. -->
+<!-- Floating Feedback pill. Surface parity with landing.html. On this
+     page the link opens an email rather than a modal. -->
 <style>
   .fb-floating{
     position:fixed;right:18px;bottom:18px;z-index:9999;
     display:inline-flex;align-items:center;gap:8px;
     padding:11px 18px;border-radius:999px;
-    background:linear-gradient(135deg,#dc2626,#b91c1c);
+    background:var(--accent);
     color:#fff;font-size:.82rem;font-weight:700;letter-spacing:.01em;
     text-decoration:none;cursor:pointer;border:none;font-family:inherit;
-    box-shadow:0 6px 18px rgba(220,38,38,.32),0 2px 4px rgba(0,0,0,.18);
+    box-shadow:0 6px 18px rgba(220,38,38,.28),0 2px 4px rgba(0,0,0,.14);
     transition:transform .18s ease, box-shadow .18s ease;
   }
   .fb-floating:hover{
     transform:translateY(-2px);
-    box-shadow:0 10px 24px rgba(220,38,38,.42),0 3px 6px rgba(0,0,0,.22);
+    box-shadow:0 10px 24px rgba(220,38,38,.36),0 3px 6px rgba(0,0,0,.18);
   }
   .fb-floating svg{width:14px;height:14px}
   @media (max-width:560px){
@@ -1070,6 +568,6 @@ document.documentElement.setAttribute('data-force-theme','light');
   Feedback
 </a>
 <script defer src="/js/notifications.js"></script>
-  <script src="/js/home-magnet.js" defer></script>
+<script src="/js/home-magnet.js" defer></script>
 </body>
 </html>
