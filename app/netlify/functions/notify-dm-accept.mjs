@@ -18,13 +18,17 @@
 //
 // Env vars (same as notify-accepted):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
-//   RESEND_FROM     — verified sender; defaults to onboarding@resend.dev
+//   RESEND_FROM     — verified sender; when unset: EMAIL_FROM env, then the
+//                     always-deliverable dev sender 'DebateIt <onboarding@resend.dev>'
+//
+// Sends ride through lib/email.mjs on the 'transactional' stream: shared
+// esc, automatic text/plain part, no List-Unsubscribe headers. The footer
+// stays this file's own lighter explanation sentence by design.
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getAuthUserByUid } from './lib/auth-admin.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
-
-const RESEND_API = 'https://api.resend.com/emails';
+import { esc, sendEmail, isOptedOut } from './lib/email.mjs';
 
 function jsonResponse(status, body) {
   return new Response(JSON.stringify(body), {
@@ -33,17 +37,11 @@ function jsonResponse(status, body) {
   });
 }
 
-function escHtml(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
-  );
-}
-
 // Plain HTML email. Inline styles only (most clients strip <style>).
 // Same chrome family as notify-accepted so the two emails read as one
 // product.
 function template({ senderName, preview, threadUrl }) {
-  const safe = (s) => escHtml(s);
+  const safe = (s) => esc(s);
   const previewBlock = preview
     ? `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px 16px;margin-top:14px">
          <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b7280">First message</p>
@@ -70,24 +68,14 @@ function template({ senderName, preview, threadUrl }) {
 </body></html>`;
 }
 
-async function sendEmail(apiKey, from, to, subject, html) {
-  const res = await fetch(RESEND_API, {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-  if (!res.ok) {
-    let detail = ''; try { detail = await res.text(); } catch {}
-    throw new Error('Resend ' + res.status + ': ' + detail.slice(0, 300));
-  }
-  return await res.json();
-}
-
 export default async (req) => {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'POST only' });
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'DebateIt <onboarding@resend.dev>';
+  // RESEND_FROM > EMAIL_FROM > the resend.dev dev sender (this file's
+  // historical zero-env fallback; works on any Resend account with no
+  // domain verification, unlike the lib's gmail default).
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'DebateIt <onboarding@resend.dev>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',
@@ -149,6 +137,19 @@ export default async (req) => {
     return jsonResponse(400, { error: 'No recipient (thread missing second participant)' });
   }
 
+  // Honor the recipient's global "unsubscribe from all DebateIt email"
+  // switch (emailOptOut, the promise the email-unsub page makes). A
+  // missing profile doc doesn't block (plenty of users have none), and a
+  // flaky read fails open: this is a one-time transactional notice.
+  try {
+    const profSnap = await db.doc(`user_profiles/${recipientUid}`).get();
+    if (profSnap.exists && isOptedOut(profSnap.data() || {}, 'transactional')) {
+      return jsonResponse(200, { sent: 0, reason: 'recipient opted out of all email' });
+    }
+  } catch (e) {
+    console.warn('[notify-dm-accept] opt-out check failed:', e.message);
+  }
+
   // Resolve recipient's email via Identity Toolkit. Not in Firestore;
   // Firebase Auth is the source of truth for email.
   let recipientAuth;
@@ -173,10 +174,10 @@ export default async (req) => {
   const html = template({ senderName, preview, threadUrl });
   const subject = senderName + ' wants to spar with you';
 
-  try {
-    await sendEmail(apiKey, from, [recipientAuth.email], subject, html);
-  } catch (e) {
-    return jsonResponse(502, { error: 'Resend send failed: ' + (e.message || 'unknown') });
+  // The lib's sendEmail never throws: failures come back as { ok:false, ... }.
+  const result = await sendEmail({ to: recipientAuth.email, subject, html, uid: recipientUid, stream: 'transactional', from });
+  if (!result.ok) {
+    return jsonResponse(502, { error: 'Resend send failed: ' + (result.reason || (result.status ? 'status ' + result.status : 'unknown')) });
   }
 
   // Idempotency stamp. Best-effort — if this write fails the email

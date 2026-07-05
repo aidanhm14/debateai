@@ -13,12 +13,14 @@
  *     most-used format
  *   - CTA back into the app
  *
- * Env: RESEND_API_KEY (required for sending; omitting returns 200 with
- *   sent:0 so this is safe in preview / local-dev environments)
+ * Env: RESEND_API_KEY (required for sending; a missing key makes every
+ *   send a safe no-op via lib/email.mjs, so this is preview / local-dev
+ *   safe). WAU_DIGEST_FROM / WAU_DIGEST_REPLY_TO override the lib-wide
+ *   sender defaults when set; leave them unset to use the lib defaults.
  *
  * Firestore reads:
  *   generations — last 14 days, indexed on uid + createdAt
- *   user_profiles/{uid} — displayName, email, wauDigestOptOut
+ *   user_profiles/{uid} — displayName, email, emailOptOut, wauDigestOptOut
  *   disclosures — last 7 days, ordered by votes desc, limit 1
  *   config/wau_digest_state — lastRunAt, so we never double-send
  *
@@ -28,36 +30,63 @@
  */
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
+import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL } from './lib/email.mjs';
+import { dailyMotionFor } from './lib/daily-motion-bank.mjs';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>';
-const REPLY_TO       = process.env.WAU_DIGEST_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL       = process.env.SITE_URL || 'https://debateai.com';
+const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || undefined;     // undefined -> lib default
+const REPLY_TO       = process.env.WAU_DIGEST_REPLY_TO || undefined; // undefined -> lib default
 const MAX_EMAILS     = parseInt(process.env.WAU_DIGEST_MAX || '200', 10);
 const MIN_GAP_MS     = 6 * 24 * 60 * 60 * 1000; // 6 days — prevents double-send
 
-// One motion per format to use as the "try this next" hook.
+// One motion per format to use as the "try this next" hook. Keys match
+// the REAL format slugs stored in `generations` (log-generation.mjs
+// stores whatever the client sends, unnormalized): the canonical
+// lowercase vocabulary from debate-it / room-judge ('quick', 'worlds',
+// 'asian', ...), the voice-debate mode keys ('quickclash', 'apda', ...),
+// and index.html's UPPERCASE ids ('APDA', 'BP', 'WSDC', 'AP', ...) which
+// the lowercased lookup below folds in. Anything unmapped (viva,
+// courtroom, negotiation, pitch, ...) falls to the weekly-rotating
+// fallback picked from lib/daily-motion-bank.mjs at run time.
 const MOTD_BY_FORMAT = {
   apda:     'That privacy is overrated.',
   bp:       'This House would ban social media for under-18s.',
-  wsdc:     'This House believes that developed nations owe climate reparations.',
+  worlds:   'This House believes that developed nations owe climate reparations.',
   pf:       'Resolved: The European Union should forgive Greek national debt.',
   ld:       'Resolved: Civil disobedience is justified in a democratic society.',
   policy:   'Resolved: The federal government should expand collective bargaining rights.',
   asian:    'This House would require corporations to disclose executive pay ratios.',
   congress: 'A bill to establish a universal basic income pilot program.',
   mun:      'UNSC Resolution: Responsibility to Protect in humanitarian crises.',
+  popper:   'This House believes that economic sanctions do more harm than good.',
   quickclash: 'Technology does more harm than good.',
 };
-const DEFAULT_MOTD = 'That the free press does more harm than good.';
 
-function motdForFormat(fmt) {
-  return MOTD_BY_FORMAT[fmt] || DEFAULT_MOTD;
+// Stored slug -> canonical MOTD key. Lookup lowercases first, so this
+// only needs the already-lowercase synonyms.
+const FORMAT_ALIASES = {
+  quick:      'quickclash', // debate-it / room-judge slug
+  clash:      'quickclash', // newvoice
+  '1v1':      'quickclash', // index.html one-on-one id
+  crossex:    'quickclash', // voice-debate drill modes: format-agnostic clash
+  rebuttal:   'quickclash',
+  layjudge:   'quickclash',
+  aggressive: 'quickclash',
+  steelman:   'quickclash',
+  wsdc:       'worlds',     // index.html 'WSDC' lowercased
+  ap:         'asian',      // index.html Asian Parli id
+  cp:         'apda',       // index.html Canadian Parli id, closest impromptu kin
+  kp:         'popper',     // index.html Karl Popper id
+  philosophy: 'ld',         // philosopher mode, LD is the framework format
+};
+
+function motdForFormat(fmt, fallback) {
+  const key = String(fmt || '').toLowerCase();
+  return MOTD_BY_FORMAT[key] || MOTD_BY_FORMAT[FORMAT_ALIASES[key]] || fallback;
 }
 
 // ── Email template ───────────────────────────────────────────────────────────
 
-function buildHtml({ firstName, roundsThisWeek, roundsLastWeek, avgScore, topCase, nextMotion, format }) {
+function buildHtml({ uid, firstName, roundsThisWeek, roundsLastWeek, avgScore, topCase, nextMotion }) {
   const delta = roundsThisWeek - roundsLastWeek;
   const deltaStr = delta === 0 ? 'Same as last week.' : delta > 0
     ? `Up ${delta} from last week.`
@@ -75,11 +104,9 @@ function buildHtml({ firstName, roundsThisWeek, roundsLastWeek, avgScore, topCas
 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:540px;margin:0 auto;padding:32px 24px">
-  <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
-    <span style="color:#dc2626">Debate</span>It
-  </div>
+  ${brandHeader()}
   <h1 style="font-size:1.35rem;font-weight:800;letter-spacing:-.015em;line-height:1.25;color:#1a1a1f;margin:0 0 14px">
-    ${firstName ? `This week, ${firstName}` : 'This week'}: ${roundsThisWeek} round${roundsThisWeek === 1 ? '' : 's'}.
+    ${firstName ? `This week, ${esc(firstName)}` : 'This week'}: ${roundsThisWeek} round${roundsThisWeek === 1 ? '' : 's'}.
   </h1>
   <p style="font-size:.95rem;line-height:1.55;color:#3a3a44;margin:0 0 6px">
     ${deltaStr} ${scoreStr}
@@ -94,30 +121,9 @@ function buildHtml({ firstName, roundsThisWeek, roundsLastWeek, avgScore, topCas
   <a href="${nextHref}" style="display:inline-block;padding:13px 22px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em">
     Run this round →
   </a>
-  <p style="margin-top:28px;font-size:.76rem;color:#9b9ba8;line-height:1.5">
-    You're getting this because you've been active on
-    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none">debateai.com</a>.
-    Reply to opt out.
-  </p>
+  ${renderFooter({ uid, stream: 'digest' })}
 </div>
 </body></html>`;
-}
-
-function esc(s) {
-  if (!s) return '';
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-// ── Send via Resend ─────────────────────────────────────────────────────────
-
-async function sendEmail({ to, firstName, subject, html }) {
-  if (!RESEND_API_KEY) return { ok: false, reason: 'no-key' };
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
-    body: JSON.stringify({ from: FROM_EMAIL, reply_to: REPLY_TO, to: [to], subject, html }),
-  });
-  return { ok: res.ok, status: res.status };
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -130,6 +136,15 @@ export default async () => {
   const now = Date.now();
   const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
   const fourteenDaysAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
+
+  // Weekly-rotating fallback motion for users whose top format has no
+  // dedicated entry above. Deterministic per run date (Sunday cron), so
+  // every week's fallback differs but a re-run the same day matches.
+  let fallbackMotd = 'That the free press does more harm than good.';
+  try {
+    const pick = dailyMotionFor(new Date(now).toISOString().slice(0, 10));
+    if (pick && typeof pick.motion === 'string' && pick.motion) fallbackMotd = pick.motion;
+  } catch { /* keep the static fallback */ }
 
   // Dedup guard: check last run.
   const stateRef = db.doc('config/wau_digest_state');
@@ -214,8 +229,8 @@ export default async () => {
       if (!profileSnap.exists) { skipped++; continue; }
       const prof = profileSnap.data();
 
-      // Opt-out / no email.
-      if (prof.wauDigestOptOut || !prof.email) { skipped++; continue; }
+      // Opt-out (global emailOptOut kill switch + wauDigestOptOut) / no email.
+      if (isOptedOut(prof, 'digest') || !prof.email) { skipped++; continue; }
 
       // Dedup: don't send twice in a week.
       const lastSent = prof.wauDigestSentAt?.toMillis?.() || 0;
@@ -226,17 +241,25 @@ export default async () => {
       const topFormat = [...stats.formats.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 'apda';
 
       const html = buildHtml({
+        uid,
         firstName: (prof.displayName || '').trim().split(/\s+/)[0] || '',
         roundsThisWeek: stats.count7d,
         roundsLastWeek: prevUidCounts.get(uid) || 0,
         avgScore,
         topCase,
-        nextMotion: motdForFormat(topFormat),
-        format: topFormat,
+        nextMotion: motdForFormat(topFormat, fallbackMotd),
       });
 
       const subject = `${stats.count7d} round${stats.count7d === 1 ? '' : 's'} this week. Your next motion is inside.`;
-      const result = await sendEmail({ to: prof.email, html, subject });
+      const result = await sendEmail({
+        to: prof.email,
+        subject,
+        html,
+        uid,
+        stream: 'digest',
+        from: FROM_EMAIL,
+        replyTo: REPLY_TO,
+      });
 
       if (result.ok) {
         sent++;

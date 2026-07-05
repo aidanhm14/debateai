@@ -10,7 +10,8 @@
  * Cohort (the "winnable lapse"):
  *   - completed >= 1 round 7-28 days ago (recent enough to remember us)
  *   - NO round in the last 7 days (genuinely lapsed, not just quiet)
- *   - not opted out (wauDigestOptOut — the shared email opt-out)
+ *   - not opted out (isOptedOut(prof, 'winback'): the global emailOptOut
+ *     kill switch, the shared wauDigestOptOut, or winbackOptOut)
  *   - not win-back-emailed in the last 21 days (don't pester the gone)
  *
  * Content: first name, a warm one-liner, a fresh motion in the format
@@ -27,15 +28,16 @@
  * Env:
  *   WINBACK_ENABLED   '1' to actually send; anything else => dry-run
  *   RESEND_API_KEY    required to send (absent => forced dry-run)
- *   WINBACK_FROM      sender (default 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>')
- *   WINBACK_REPLY_TO  reply-to (default aidandavidhollinger@gmail.com)
+ *   WINBACK_FROM      sender override (unset => lib/email.mjs default)
+ *   WINBACK_REPLY_TO  reply-to override (unset => lib/email.mjs default)
  *   WINBACK_MAX       per-run cap (default 80)
  *   WINBACK_LAPSE_MIN_DAYS / _MAX_DAYS  window edges (default 7 / 28)
  *   SITE_URL          default https://debateai.com
  *
  * Firestore:
  *   generations         — last 28 days, indexed on uid + createdAt
- *   user_profiles/{uid} — displayName, email, wauDigestOptOut, winbackSentAt
+ *   user_profiles/{uid} — displayName, email, emailOptOut, wauDigestOptOut,
+ *                         winbackOptOut, winbackSentAt
  *   config/winback_state — lastRunAt + last-run stats (visible signal)
  *
  * Schedule: Wednesday 16:00 UTC — offset from the Sunday wau-digest so a
@@ -43,12 +45,12 @@
  */
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
+import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL } from './lib/email.mjs';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SEND_ENABLED   = process.env.WINBACK_ENABLED === '1';
-const FROM_EMAIL     = process.env.WINBACK_FROM || 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>';
-const REPLY_TO       = process.env.WINBACK_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL       = process.env.SITE_URL || 'https://debateai.com';
+const FROM_EMAIL     = process.env.WINBACK_FROM || undefined;     // undefined -> lib default
+const REPLY_TO       = process.env.WINBACK_REPLY_TO || undefined; // undefined -> lib default
 const MAX_EMAILS     = parseInt(process.env.WINBACK_MAX || '80', 10);
 const LAPSE_MIN_DAYS = parseInt(process.env.WINBACK_LAPSE_MIN_DAYS || '7', 10);
 const LAPSE_MAX_DAYS = parseInt(process.env.WINBACK_LAPSE_MAX_DAYS || '28', 10);
@@ -59,11 +61,15 @@ const MIN_GAP_USER_MS = 21 * DAY_MS; // per-user: at most one win-back / 21d
 
 // Fresh motion + readable label per format. Kept distinct from the
 // wau-digest's "motion of the week" set so a user who saw that doesn't
-// get a repeat here.
+// get a repeat here. Keys match the REAL slugs stored in `generations`
+// (log-generation.mjs stores whatever the client sends, unnormalized):
+// debate-it / room-judge use 'quick', 'worlds', 'asian', ...; voice-debate
+// uses 'quickclash', 'apda', ...; index.html uses UPPERCASE ids that the
+// lowercased lookup folds in. Same alias approach as the wau-digest.
 const FORMAT = {
   apda:       { label: 'APDA',        motion: 'This House would abolish the right to inherit wealth.' },
   bp:         { label: 'BP',          motion: 'This House believes that the news should not report on suicides.' },
-  wsdc:       { label: 'WSDC',        motion: 'This House would let citizens vote directly on the national budget.' },
+  worlds:     { label: 'Worlds',      motion: 'This House would let citizens vote directly on the national budget.' },
   pf:         { label: 'Public Forum', motion: 'Resolved: The benefits of nuclear energy outweigh the risks.' },
   ld:         { label: 'LD',          motion: 'Resolved: A just society ought to prioritize equality over liberty.' },
   policy:     { label: 'Policy',      motion: 'Resolved: The US federal government should substantially increase its public health infrastructure.' },
@@ -72,29 +78,39 @@ const FORMAT = {
   mun:        { label: 'MUN',         motion: 'UNSC: the use of autonomous weapons in armed conflict.' },
   quickclash: { label: 'Quick Clash', motion: 'Social media has done more harm than good.' },
 };
+
+// Stored slug -> canonical FORMAT key. Lookup lowercases first, so this
+// only needs the already-lowercase synonyms.
+const FORMAT_ALIASES = {
+  quick:      'quickclash', // debate-it / room-judge slug (the most common)
+  clash:      'quickclash', // newvoice
+  '1v1':      'quickclash', // index.html one-on-one id
+  crossex:    'quickclash', // voice-debate drill modes: format-agnostic clash
+  rebuttal:   'quickclash',
+  layjudge:   'quickclash',
+  aggressive: 'quickclash',
+  steelman:   'quickclash',
+  wsdc:       'worlds',     // index.html 'WSDC' lowercased
+  ap:         'asian',      // index.html Asian Parli id
+  cp:         'apda',       // index.html Canadian Parli id, closest impromptu kin
+};
 const DEFAULT_FMT = { label: 'debate', motion: 'This House would make voting compulsory.' };
 
 function fmtFor(format) {
-  return FORMAT[format] || (format && FORMAT[format.toLowerCase()]) || DEFAULT_FMT;
-}
-
-function esc(s) {
-  if (!s) return '';
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const key = String(format || '').toLowerCase();
+  return FORMAT[key] || FORMAT[FORMAT_ALIASES[key]] || DEFAULT_FMT;
 }
 
 // ── Email template ───────────────────────────────────────────────────────────
 // Calm, founder-voice, no em-dashes, no streak/gamify nudge. The hook is
 // "your format is still here and your past rounds are saved," not guilt.
-function buildHtml({ firstName, label, motion, lastMotion, daysAway }) {
+function buildHtml({ uid, firstName, label, motion, lastMotion }) {
   const runHref = `${SITE_URL}/debate-it?motion=${encodeURIComponent(motion)}`;
   const profileHref = `${SITE_URL}/profile`;
   const greeting = firstName ? `Hey ${esc(firstName)},` : 'Hey,';
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:540px;margin:0 auto;padding:32px 24px">
-  <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
-    <span style="color:#dc2626">Debate</span>It
-  </div>
+  ${brandHeader()}
   <h1 style="font-size:1.35rem;font-weight:800;letter-spacing:-.015em;line-height:1.3;color:#1a1a1f;margin:0 0 14px">
     ${greeting} a fresh ${esc(label)} round when you want it.
   </h1>
@@ -114,24 +130,9 @@ function buildHtml({ firstName, label, motion, lastMotion, daysAway }) {
     Or pick your own motion, or find a human to spar with on
     <a href="${SITE_URL}/spar" style="color:#dc2626;text-decoration:none">/spar</a>.
   </p>
-  <p style="margin-top:26px;font-size:.76rem;color:#9b9ba8;line-height:1.5">
-    You are getting this because you ran a round on
-    <a href="${SITE_URL}" style="color:#9b9ba8;text-decoration:underline">debateai.com</a>.
-    Reply with "stop" and I will not email you again.
-  </p>
+  ${renderFooter({ uid, stream: 'winback' })}
 </div>
 </body></html>`;
-}
-
-// ── Send via Resend ──────────────────────────────────────────────────────────
-async function sendEmail({ to, subject, html }) {
-  if (!RESEND_API_KEY) return { ok: false, reason: 'no-key' };
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
-    body: JSON.stringify({ from: FROM_EMAIL, reply_to: REPLY_TO, to: [to], subject, html }),
-  });
-  return { ok: res.ok, status: res.status };
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -216,8 +217,9 @@ export default async () => {
       if (!profileSnap.exists) { skipped++; continue; }
       const prof = profileSnap.data();
 
-      // Honor the shared email opt-out + a win-back-specific one + no email.
-      if (prof.wauDigestOptOut || prof.winbackOptOut || !prof.email) { skipped++; continue; }
+      // Honor the global emailOptOut kill switch, the shared digest opt-out,
+      // and the win-back-specific one; skip anyone with no email on file.
+      if (isOptedOut(prof, 'winback') || !prof.email) { skipped++; continue; }
 
       // Per-user dedup: at most one win-back per 21 days.
       const lastSent = prof.winbackSentAt?.toMillis?.() || 0;
@@ -233,11 +235,19 @@ export default async () => {
         continue;
       }
 
-      const html = buildHtml({ firstName, label, motion, lastMotion });
+      const html = buildHtml({ uid, firstName, label, motion, lastMotion });
       const subject = firstName
         ? `${firstName}, your next ${label} round is ready when you are`
         : `Your next ${label} round is ready when you are`;
-      const result = await sendEmail({ to: prof.email, subject, html });
+      const result = await sendEmail({
+        to: prof.email,
+        subject,
+        html,
+        uid,
+        stream: 'winback',
+        from: FROM_EMAIL,
+        replyTo: REPLY_TO,
+      });
 
       if (result.ok) {
         sent++;

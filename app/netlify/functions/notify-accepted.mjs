@@ -11,22 +11,22 @@
 // Env vars (set in Netlify):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
 //   RESEND_FROM     — verified sender, e.g. "DebateIt <aidandavidhollinger@gmail.com>"
-//                     (defaults to "DebateIt <onboarding@resend.dev>" for dev)
+//                     (when unset: EMAIL_FROM env, then the always-deliverable
+//                      dev sender 'DebateIt <onboarding@resend.dev>', which
+//                      Resend accepts on any account with no domain setup)
+//
+// Sends ride through lib/email.mjs on the 'transactional' stream: shared
+// esc, automatic text/plain part, no List-Unsubscribe headers (these are
+// event receipts, not a mailing list). The footer stays this file's own
+// lighter explanation sentence by design.
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-
-const RESEND_API = 'https://api.resend.com/emails';
+import { esc, sendEmail } from './lib/email.mjs';
 
 function jsonResponse(status, body){
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
-}
-
-function escHtml(s){
-  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 }
 
@@ -42,7 +42,7 @@ function fmtSchedule(scheduledAt){
 function template({ subject, headline, sub, motion, format, kickoff, roomUrl, opponent, opponentContact, calendarUrl }){
   // Plain HTML email. Inline styles only (most clients strip <style>).
   // Dark cards on dark background reads cleanly in Gmail dark mode + light.
-  const safe = (s) => escHtml(s);
+  const safe = (s) => esc(s);
   const calBlock = calendarUrl
     ? `<a href="${safe(calendarUrl)}" style="display:inline-block;margin-top:14px;padding:8px 18px;background:#27272a;color:#fff;text-decoration:none;border-radius:999px;font-size:13px;font-weight:600">Add to Google Calendar</a>`
     : '';
@@ -79,24 +79,15 @@ function template({ subject, headline, sub, motion, format, kickoff, roomUrl, op
 </body></html>`;
 }
 
-async function sendEmail(apiKey, from, to, subject, html){
-  const res = await fetch(RESEND_API, {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-  if (!res.ok){
-    let detail = ''; try { detail = await res.text(); } catch {}
-    throw new Error('Resend ' + res.status + ': ' + detail.slice(0, 300));
-  }
-  return await res.json();
-}
-
 export default async (req) => {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'POST only' });
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'DebateIt <onboarding@resend.dev>';
+  // RESEND_FROM > EMAIL_FROM > the resend.dev dev sender. The last hop is
+  // this file's historical zero-env fallback and works on any Resend
+  // account without domain verification; don't let it fall through to the
+  // lib's gmail default, which needs a verified sender identity.
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'DebateIt <onboarding@resend.dev>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',
@@ -143,24 +134,25 @@ export default async (req) => {
     opponentContact: accepter.contact || accepter.email || '',
   });
   const accepterHtml = template({
-    headline: "You're in — round confirmed",
+    headline: "You're in. Round confirmed",
     sub: `You accepted ${poster.name || 'the poster'}'s challenge. Save the kickoff time and you're set.`,
     motion, format, kickoff, roomUrl, calendarUrl,
     opponent: poster.name || 'Anonymous',
     opponentContact: poster.contact || poster.email || '',
   });
 
-  // Fire both in parallel; report partial success cleanly.
-  const results = await Promise.allSettled([
-    sendEmail(apiKey, from, [poster.email], 'Your debate was accepted: ' + motion.slice(0, 60), posterHtml),
-    sendEmail(apiKey, from, [accepter.email], 'You accepted: ' + motion.slice(0, 60), accepterHtml),
+  // Fire both in parallel; report partial success cleanly. The lib's
+  // sendEmail never throws: failures come back as { ok:false, ... }.
+  const results = await Promise.all([
+    sendEmail({ to: poster.email, subject: 'Your debate was accepted: ' + motion.slice(0, 60), html: posterHtml, stream: 'transactional', from }),
+    sendEmail({ to: accepter.email, subject: 'You accepted: ' + motion.slice(0, 60), html: accepterHtml, stream: 'transactional', from }),
   ]);
-  const errors = results.filter(r => r.status === 'rejected').map(r => String(r.reason && r.reason.message || r.reason));
+  const errors = results.filter(r => !r.ok).map(r => 'Resend ' + (r.status || 'send') + ' failed: ' + String(r.reason || 'unknown').slice(0, 300));
   if (errors.length === 2) {
     return jsonResponse(502, { error: 'Both sends failed', detail: errors });
   }
   return jsonResponse(200, {
-    sent: results.filter(r => r.status === 'fulfilled').length,
+    sent: results.filter(r => r.ok).length,
     errors,
   });
 };
