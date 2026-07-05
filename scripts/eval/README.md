@@ -1,9 +1,12 @@
 # Adjudication eval
 
 Replays real out-rounds through the AI judge and scores them against the
-chair's actual call. BP rounds are scored as 1-2-3-4 team orderings. WSDC and
-other two-sided rounds are scored as side winners. It imports the **same**
-`lib/adjudication.mjs` core that ships in prod, so it measures the real engine.
+configured expected call. BP rounds are scored as 1-2-3-4 team orderings. WSDC
+and other two-sided rounds are scored as side winners. The gold file can also
+mark a fixture as a disagreement case, where the human call is preserved but
+the expected label is the corrected call the model should reach from the flow.
+It imports the **same** `lib/adjudication.mjs` core that ships in prod, so it
+measures the real engine.
 
 ## Run
 
@@ -21,10 +24,16 @@ node scripts/eval/run-adjudication-eval.mjs --limit=5
 # one format:
 node scripts/eval/run-adjudication-eval.mjs --format=bp
 node scripts/eval/run-adjudication-eval.mjs --format=wsdc
+node scripts/eval/run-adjudication-eval.mjs --format=public-forum
+node scripts/eval/run-adjudication-eval.mjs --format=policy
 ```
 
 Env / flags: `ADJ_FIXTURES` (transcript dir, defaults to the path baked into
 `adjudication-gold.json`), `ADJ_MODEL` (defaults to `claude-sonnet-4-6`).
+
+Format aliases are normalized by the runner: `bp`, `wudc`, `worlds`, `wsdc`,
+`asian`, `apda`, `npda`, `pf`, `public-forum`, `ld`, `lincoln-douglas`,
+`policy`, `cx`, `congress`, `karl-popper`, and `mun`.
 
 ## What's committed vs not
 
@@ -33,16 +42,23 @@ Env / flags: `ADJ_FIXTURES` (transcript dir, defaults to the path baked into
 - **Not committed:** the round transcripts themselves. They are private flow
   notes that name real debaters. Point `ADJ_FIXTURES` at a local copy.
 
+For disagreement training, keep the panel's actual call in `humanOrder` or
+`humanWinner`, set `verdictMode` to `challenge`, and put the corrected target in
+`expectedOrder` or `expectedWinner`. The runner scores against the expected
+label, not the preserved human call.
+
 ## Metrics
 
 - **BP top-1 accuracy** — did the AI put the same team 1st (random ≈ 25%).
 - **BP exact 1-2-3-4 accuracy** — whole ordering matches (random ≈ 4%, brutal).
 - **BP pairwise agreement** — fraction of the 6 team-pairs the AI orders the same
-  way as the chair (random ≈ 50%, perfect = 100%). **This is the headline
+  way as the expected label (random ≈ 50%, perfect = 100%). **This is the headline
   metric:** it gives partial credit and is robust to the close/split rounds
   where even human panels disagreed (see `confidence` in the gold file).
-- **WSDC / two-sided winner accuracy** — did the AI pick the same side winner
-  (random ≈ 50%).
+- **WSDC / two-sided winner accuracy** — did the AI pick the configured side
+  winner (random ≈ 50%).
+- **Challenge count** — how many scored cases asked the model to reject a human
+  note or call rather than imitate it.
 
 ## The big caveat
 

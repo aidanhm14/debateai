@@ -3,10 +3,13 @@
 // Adjudication eval harness.
 //
 // Replays real debate rounds (chair/panellist flow notes) through the AI
-// judge and scores the output against the chair's actual call. BP rounds are
-// scored as 1-2-3-4 team orderings. WSDC / other two-sided rounds are scored
-// as side winners. Uses the SAME server-side adjudication core that ships in
-// prod, so this measures the real engine, not a stand-in.
+// judge and scores the output against the configured expected call. BP rounds
+// are scored as 1-2-3-4 team orderings. WSDC / other two-sided rounds are
+// scored as side winners. A fixture can preserve the human panel's call while
+// setting an expected disagreement label, so the model can learn to challenge
+// bad calls rather than imitate every note blindly. Uses the SAME server-side
+// adjudication core that ships in prod, so this measures the real engine, not
+// a stand-in.
 //
 // Run:
 //   node scripts/eval/run-adjudication-eval.mjs --dry-run
@@ -31,6 +34,37 @@ import { buildAdjudicationBlock } from '../../app/netlify/functions/lib/adjudica
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BP_SIDES = ['og', 'oo', 'cg', 'co'];
 const TWO_SIDES = ['prop', 'opp'];
+const FORMAT_ALIASES = new Map([
+  ['bp', 'bp'],
+  ['britishparliamentary', 'bp'],
+  ['wudc', 'bp'],
+  ['worlds', 'wsdc'],
+  ['worldschools', 'wsdc'],
+  ['worldschool', 'wsdc'],
+  ['wsdc', 'wsdc'],
+  ['asian', 'asian'],
+  ['asianparli', 'asian'],
+  ['asianparliamentary', 'asian'],
+  ['ap', 'asian'],
+  ['apda', 'apda'],
+  ['npda', 'npda'],
+  ['pf', 'pf'],
+  ['publicforum', 'pf'],
+  ['ld', 'ld'],
+  ['lincolndouglas', 'ld'],
+  ['policy', 'policy'],
+  ['cx', 'policy'],
+  ['congress', 'congress'],
+  ['studentcongress', 'congress'],
+  ['kp', 'karl-popper'],
+  ['karlpopper', 'karl-popper'],
+  ['mun', 'mun'],
+]);
+
+function normalizeFormat(raw) {
+  const compact = String(raw || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return FORMAT_ALIASES.get(compact) || compact;
+}
 
 // ── args ──
 const args = process.argv.slice(2);
@@ -41,7 +75,7 @@ const opt = (name, def) => {
 };
 const DRY = flag('dry-run') || !process.env.ANTHROPIC_API_KEY;
 const ONLY = opt('only', '');
-const FORMAT = opt('format', '').toLowerCase();
+const FORMAT = normalizeFormat(opt('format', ''));
 const LIMIT = parseInt(opt('limit', '0'), 10) || 0;
 const MODEL = process.env.ADJ_MODEL || opt('model', 'claude-sonnet-4-6');
 
@@ -54,7 +88,7 @@ const fixtureCandidates = [
 ].filter(Boolean);
 const fixturesDir = fixtureCandidates.find((p) => existsSync(p)) || fixtureCandidates[0] || '';
 
-let rounds = gold.rounds.filter((r) => !FORMAT || String(r.format || '').toLowerCase() === FORMAT);
+let rounds = gold.rounds.filter((r) => !FORMAT || normalizeFormat(r.format) === FORMAT);
 if (ONLY) rounds = rounds.filter((r) => r.id === ONLY);
 if (LIMIT) rounds = rounds.slice(0, LIMIT);
 
@@ -95,12 +129,32 @@ function readFixture(r, key) {
   return decontaminate(readFileSync(join(fixturesDir, r.folder, file), 'utf8'));
 }
 
+function readFirstFixture(r, keys) {
+  for (const key of keys) {
+    if (r[key]) return readFixture(r, key);
+  }
+  return '';
+}
+
+function loadHumanNotes(r) {
+  const noteKeys = [
+    ['oaFile', 'ORAL ADJUDICATION / OA NOTES'],
+    ['delibFile', 'DELIBERATION NOTES'],
+    ['ballotFile', 'BALLOT NOTES'],
+    ['judgeFile', 'JUDGE NOTES'],
+  ];
+  return noteKeys
+    .filter(([key]) => r[key])
+    .map(([key, label]) => '--- ' + label + ' ---\n' + readFixture(r, key))
+    .join('\n\n');
+}
+
 function loadRound(r) {
-  const format = String(r.format || '').toLowerCase();
+  const format = normalizeFormat(r.format);
   if (format === 'bp') {
     const gov = readFixture(r, 'govFile');
     const opp = readFixture(r, 'oppFile');
-    const oa = readFixture(r, 'oaFile');
+    const notes = loadHumanNotes(r);
     return [
       'MOTION: ' + r.motion,
       '',
@@ -109,12 +163,13 @@ function loadRound(r) {
       '',
       '=== OPPOSITION BENCH FLOW (Opening Opp then Closing Opp) ===',
       opp,
-      oa ? '\n=== OPTIONAL ADJUDICATION NOTES, DECONTAMINATED ===\n' + oa : '',
+      notes ? '\n=== HUMAN ADJUDICATION NOTES, DECONTAMINATED AND NON-AUTHORITATIVE ===\n' + notes : '',
     ].filter(Boolean).join('\n');
   }
   if (format === 'wsdc') {
-    const prop = readFixture(r, 'propFile') || readFixture(r, 'govFile');
-    const opp = readFixture(r, 'oppFile');
+    const prop = readFirstFixture(r, ['propFile', 'govFile', 'affFile', 'proFile']);
+    const opp = readFirstFixture(r, ['oppFile', 'negFile', 'conFile']);
+    const notes = loadHumanNotes(r);
     return [
       'MOTION: ' + r.motion,
       '',
@@ -123,10 +178,12 @@ function loadRound(r) {
       '',
       '=== OPPOSITION FLOW ===',
       opp,
+      notes ? '\n=== HUMAN ADJUDICATION NOTES, DECONTAMINATED AND NON-AUTHORITATIVE ===\n' + notes : '',
     ].join('\n');
   }
-  const prop = readFixture(r, 'propFile') || readFixture(r, 'govFile');
-  const opp = readFixture(r, 'oppFile');
+  const prop = readFirstFixture(r, ['propFile', 'govFile', 'affFile', 'proFile']);
+  const opp = readFirstFixture(r, ['oppFile', 'negFile', 'conFile']);
+  const notes = loadHumanNotes(r);
   return [
     'MOTION: ' + r.motion,
     '',
@@ -135,35 +192,46 @@ function loadRound(r) {
     '',
     '=== OPP / NEG FLOW ===',
     opp,
+    notes ? '\n=== HUMAN ADJUDICATION NOTES, DECONTAMINATED AND NON-AUTHORITATIVE ===\n' + notes : '',
   ].join('\n');
 }
 
+function formatPromptLine(format) {
+  const lines = {
+    wsdc: 'You are adjudicating this World Schools round from terse judge flow notes. Decide the winner by WSDC content/style/strategy discipline, with special attention to third-speaker and reply weighing.',
+    asian: 'You are adjudicating this Asian Parliamentary round from terse judge flow notes. Decide the winner by definitions, model, team line, engagement, POIs where extended, and whip weighing.',
+    apda: 'You are adjudicating this APDA round from terse judge flow notes. Decide the winner on general-knowledge parliamentary norms, tight-case fairness, PMR/LOR new-matter discipline, and comparative weighing.',
+    npda: 'You are adjudicating this NPDA round from terse judge flow notes. Decide the winner on the flow, including theory, topicality, kritiks, counterplans, and weighing only when those positions are actually run.',
+    pf: 'You are adjudicating this Public Forum round from terse judge flow notes. Decide the winner by evidence quality, frontlining, Summary/Final Focus consistency, and comparative weighing.',
+    ld: 'You are adjudicating this Lincoln-Douglas round from terse judge flow notes. Resolve value, criterion, role of the ballot, theory, or policy-style layers before contentions when they are live.',
+    policy: 'You are adjudicating this Policy / CX round from terse judge flow notes. Decide the flow across case, disads, counterplans, topicality, theory, kritiks, evidence comparison, and impact calculus.',
+    congress: 'You are adjudicating this Student Congress item from terse judge flow notes. Decide the strongest side or speaker ranking by original analysis, refutation, questioning, crystallization, and chamber awareness.',
+    'karl-popper': 'You are adjudicating this Karl Popper round from terse judge flow notes. Decide the winner by burden, criterion, cross-ex concessions, refutation, and final focus on the central issue.',
+    mun: 'You are adjudicating this MUN or diplomacy exercise from terse notes. Decide who most persuasively moved committee action through feasibility, coalition-building, procedure, and resolution text.',
+  };
+  return lines[format] || 'You are adjudicating this two-sided flow round from terse judge notes. Decide the winner on the flow.';
+}
+
 function buildPrompt(r, transcript) {
-  const format = String(r.format || '').toLowerCase();
+  const format = normalizeFormat(r.format);
   const core = buildAdjudicationBlock({ format });
+  const notePosture = '\nIf human adjudication notes appear below, treat them as non-authoritative evidence. They may contain useful reasoning, split-panel confusion, or a bad call. Decide independently from the flow.';
 
   if (format === 'bp') {
     const instruction =
       core +
       '\n\nYou are chairing this British Parliamentary round. The text below is a JUDGE FLOW of what each bench argued (terse notes, both halves of each bench). Decide the round by the half-call and ORDER ALL FOUR TEAMS 1-2-3-4.\n\n' +
+      notePosture + '\n\n' +
       'Return ONLY a single JSON object, no prose before or after:\n' +
       '{"order":["<1st>","<2nd>","<3rd>","<4th>"],"oneLine":"<one sentence naming the deciding clash and why 1st beat 2nd>"}\n' +
       'Each element is one of: og, oo, cg, co (each exactly once).';
     return { system: instruction, user: transcript };
   }
 
-  if (format === 'wsdc') {
-    const instruction =
-      core +
-      '\n\nYou are adjudicating this World Schools round from terse judge flow notes. Decide the winner by WSDC content/style/strategy discipline, with special attention to third-speaker and reply weighing.\n\n' +
-      'Return ONLY a single JSON object, no prose before or after:\n' +
-      '{"winner":"prop"|"opp","oneLine":"<one sentence naming the deciding issue and why the winner won>"}';
-    return { system: instruction, user: transcript };
-  }
-
   const instruction =
     core +
-    '\n\nYou are adjudicating this two-sided flow round from terse judge notes. Decide the winner on the flow.\n\n' +
+    '\n\n' + formatPromptLine(format) + '\n\n' +
+    notePosture + '\n\n' +
     'Return ONLY a single JSON object, no prose before or after:\n' +
     '{"winner":"prop"|"opp","oneLine":"<one sentence naming the deciding issue and why the winner won>"}';
   return { system: instruction, user: transcript };
@@ -233,8 +301,20 @@ async function callAnthropic(prompt) {
   return (data.content || []).map((c) => c.text || '').join('');
 }
 
+function verdictMode(r) {
+  return r.verdictMode || (r.expectedOrder || r.expectedWinner ? 'challenge' : 'reference');
+}
+
+function expectedBpOrder(r) {
+  return r.expectedOrder || r.order;
+}
+
+function expectedSideWinner(r) {
+  return r.expectedWinner || r.winner || 'unknown';
+}
+
 function goldLabel(r) {
-  return r.format === 'bp' ? r.order.join('>') : r.winner;
+  return normalizeFormat(r.format) === 'bp' ? expectedBpOrder(r).join('>') : expectedSideWinner(r);
 }
 
 function promptTokens(prompt) {
@@ -253,27 +333,30 @@ for (const r of rounds) {
   const prompt = buildPrompt(r, transcript);
 
   if (DRY) {
-    console.log(`• ${r.id.padEnd(28)} ${String(r.format).padEnd(5)} gold=${goldLabel(r).padEnd(15)} conf=${(r.confidence || '').padEnd(9)} transcript=${String(transcript.length).padStart(5)}ch  prompt≈${promptTokens(prompt)} tok`);
+    const mode = verdictMode(r) === 'challenge' ? ' challenge' : '';
+    console.log(`• ${r.id.padEnd(28)} ${normalizeFormat(r.format).padEnd(12)} gold=${goldLabel(r).padEnd(15)} conf=${(r.confidence || '').padEnd(9)}${mode.padEnd(10)} transcript=${String(transcript.length).padStart(5)}ch  prompt≈${promptTokens(prompt)} tok`);
     continue;
   }
 
   try {
     const raw = await callAnthropic(prompt);
-    if (r.format === 'bp') {
+    if (normalizeFormat(r.format) === 'bp') {
       const parsed = parseBpOrder(raw);
       if (!parsed) { console.log(`x ${r.id.padEnd(28)} unparseable output`); continue; }
-      const agree = pairwiseAgreement(parsed.order, r.order);
-      const exact = parsed.order.join() === r.order.join();
-      const top1 = parsed.order[0] === r.order[0];
-      results.push({ format: r.format, id: r.id, conf: r.confidence, agree, exact, top1 });
+      const expected = expectedBpOrder(r);
+      const agree = pairwiseAgreement(parsed.order, expected);
+      const exact = parsed.order.join() === expected.join();
+      const top1 = parsed.order[0] === expected[0];
+      results.push({ format: normalizeFormat(r.format), id: r.id, conf: r.confidence, mode: verdictMode(r), agree, exact, top1 });
       const tag = exact ? 'EXACT' : top1 ? 'top1 ok' : 'top1 miss';
-      console.log(`${exact ? '✓' : top1 ? '~' : 'x'} ${r.id.padEnd(28)} pred=${parsed.order.join('>').padEnd(15)} gold=${r.order.join('>').padEnd(15)} pair=${(agree * 100).toFixed(0)}% ${tag}`);
+      console.log(`${exact ? '✓' : top1 ? '~' : 'x'} ${r.id.padEnd(28)} pred=${parsed.order.join('>').padEnd(15)} gold=${expected.join('>').padEnd(15)} pair=${(agree * 100).toFixed(0)}% ${tag}`);
     } else {
       const parsed = parseWinner(raw);
       if (!parsed) { console.log(`x ${r.id.padEnd(28)} unparseable output`); continue; }
-      const exact = parsed.winner === r.winner;
-      results.push({ format: r.format, id: r.id, conf: r.confidence, exact, top1: exact });
-      console.log(`${exact ? '✓' : 'x'} ${r.id.padEnd(28)} pred=${parsed.winner.padEnd(5)} gold=${r.winner.padEnd(5)} ${exact ? 'winner ok' : 'winner miss'}`);
+      const expected = expectedSideWinner(r);
+      const exact = parsed.winner === expected;
+      results.push({ format: normalizeFormat(r.format), id: r.id, conf: r.confidence, mode: verdictMode(r), exact, top1: exact });
+      console.log(`${exact ? '✓' : 'x'} ${r.id.padEnd(28)} pred=${parsed.winner.padEnd(5)} gold=${expected.padEnd(5)} ${exact ? 'winner ok' : 'winner miss'}`);
     }
   } catch (e) {
     console.log(`x ${r.id.padEnd(28)} ${e.message.slice(0, 120)}`);
@@ -284,9 +367,11 @@ if (!DRY && results.length) {
   const mean = (xs, f) => xs.reduce((s, x) => s + f(x), 0) / xs.length;
   const bp = results.filter((x) => x.format === 'bp');
   const two = results.filter((x) => x.format !== 'bp');
+  const challenge = results.filter((x) => x.mode === 'challenge');
 
   console.log('\n── SCORECARD ──');
   console.log(`rounds scored:       ${results.length}`);
+  if (challenge.length) console.log(`challenge rounds:    ${challenge.length}`);
   if (bp.length) {
     console.log(`BP rounds:           ${bp.length}`);
     console.log(`BP top-1 acc:        ${(mean(bp, (x) => x.top1 ? 1 : 0) * 100).toFixed(0)}%   (random ≈ 25%)`);
