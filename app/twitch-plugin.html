@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Twitch Room Judge · DebateIt</title>
+<meta name="description" content="Set up DebateIt's AI room judge for Twitch streams. Use the extension iframe, read public chat as audience signal, and write a ballot after the debate." />
+<meta name="robots" content="noindex,follow" />
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/plugins/twitch">
+<script defer src="/js/topbar.js"></script>
+<script defer src="/js/notifications.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
+<script>document.documentElement.setAttribute('data-theme','light');document.documentElement.setAttribute('data-force-theme','light');</script>
+<style>
+*,*::before,*::after{box-sizing:border-box}body{margin:0;background:#f7f7f3;color:#17171b;font-family:'Crimson Pro',Georgia,serif;-webkit-font-smoothing:antialiased}a{text-decoration:none;color:inherit}.wrap{max-width:980px;margin:0 auto;padding:86px 22px 80px}.crumb{font-size:.78rem;color:rgba(0,0,0,.48);font-weight:700;margin-bottom:22px}.crumb a{color:#dc2626;font-weight:900}.eyebrow{display:inline-flex;gap:8px;align-items:center;color:#dc2626;font-size:.64rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;margin-bottom:12px}.pip{width:7px;height:7px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,.12)}h1{margin:0;font-size:clamp(2rem,5vw,3.15rem);line-height:1;letter-spacing:-.03em;font-weight:900}h1 em{font-style:normal;color:#dc2626}.lede{max-width:720px;color:rgba(0,0,0,.62);font-size:1.05rem;line-height:1.55;margin:14px 0 24px}.cta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px}.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:11px;padding:12px 18px;font-weight:900;border:1px solid rgba(0,0,0,.12);background:#fff;color:rgba(0,0,0,.75)}.btn.primary{background:#dc2626;border-color:#dc2626;color:#fff}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card{min-width:0;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:18px;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -28px rgba(20,20,30,.2)}.card h2{font-size:1.02rem;margin:0 0 9px}.card p,.card li{color:rgba(0,0,0,.62);font-size:.92rem;line-height:1.5}.card p{margin:0}.card ul{margin:0;padding-left:18px}.code{display:block;margin-top:10px;background:#17171b;color:#fff;border-radius:10px;padding:12px;font-size:.82rem;line-height:1.45;overflow:auto;white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.channel{display:flex;gap:8px;margin:0 0 22px;max-width:520px}.channel input{flex:1;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:11px 12px;background:#fff;font:inherit}.channel button{border:0;border-radius:10px;background:#17171b;color:#fff;font-weight:900;padding:0 15px}.note{margin-top:18px;border:1px solid rgba(37,99,235,.18);background:#eff6ff;color:#1e3a8a;border-radius:12px;padding:14px;font-weight:700;line-height:1.45}@media(max-width:760px){.wrap{padding:78px 16px 60px}.grid{grid-template-columns:1fr}.channel{display:grid}}
+</style>
+</head>
+<body>
+<div id="daTopbar"></div>
+<main class="wrap">
+  <nav class="crumb"><a href="/">DebateIt</a> / <a href="/room-judge">Room Judge</a> / Twitch</nav>
+  <div class="eyebrow"><span class="pip"></span>Twitch extension</div>
+  <h1>Put the AI judge <em>on stream.</em></h1>
+  <p class="lede">Use the compact room judge as a Twitch panel, overlay, or broadcaster dashboard view. Public chat can be read as audience signal, while spoken arguments still decide the ballot.</p>
+
+  <div class="channel">
+    <input id="channel" type="text" placeholder="Twitch channel name">
+    <button id="open" type="button">Open</button>
+  </div>
+
+  <div class="cta">
+    <a id="judgeLink" class="btn primary" href="/room-judge?platform=twitch&source=screen">Open Twitch judge</a>
+    <a id="embedLink" class="btn" href="/room-judge?embed=1&platform=twitch&source=screen">Compact extension view</a>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Extension view</h2>
+      <p>Use this as the Twitch Extension panel or overlay URL. Add a channel query when you know the broadcaster.</p>
+      <code id="urlCode" class="code">https://debateai.com/room-judge?embed=1&amp;platform=twitch&amp;source=screen</code>
+    </article>
+    <article class="card">
+      <h2>What it reads</h2>
+      <ul>
+        <li>Stream or room audio through browser capture.</li>
+        <li>Public Twitch chat, when a channel is provided.</li>
+        <li>Host notes such as format, motion, and judge paradigm.</li>
+      </ul>
+    </article>
+    <article class="card">
+      <h2>Chat is not a ballot</h2>
+      <p>Chat tells the judge where the audience is confused or persuaded. It never decides who won. The ballot comes from the flow.</p>
+    </article>
+    <article class="card">
+      <h2>Broadcaster mode</h2>
+      <p>Run the judge from a dashboard tab and capture stream audio. Keep voice guidance muted unless you deliberately route it into broadcast audio.</p>
+    </article>
+  </section>
+  <div class="note">Current status: iframe surface and public chat listener are live. A full Twitch Extension package can point directly at the compact URL.</div>
+</main>
+<script>
+(function(){
+  var input = document.getElementById('channel');
+  var open = document.getElementById('open');
+  var judge = document.getElementById('judgeLink');
+  var embed = document.getElementById('embedLink');
+  var code = document.getElementById('urlCode');
+  function clean(v){ return String(v || '').replace(/^@/,'').replace(/[^A-Za-z0-9_]/g,'').slice(0,80); }
+  function paint(){
+    var ch = clean(input.value);
+    var suffix = ch ? '&channel=' + encodeURIComponent(ch) : '';
+    judge.href = '/room-judge?platform=twitch&source=screen' + suffix;
+    embed.href = '/room-judge?embed=1&platform=twitch&source=screen' + suffix;
+    code.textContent = 'https://debateai.com' + embed.href;
+  }
+  input.addEventListener('input', paint);
+  input.addEventListener('keydown', function(e){ if(e.key === 'Enter') { e.preventDefault(); open.click(); } });
+  open.addEventListener('click', function(){ paint(); location.href = judge.href; });
+  paint();
+})();
+</script>
+</body>
+</html>

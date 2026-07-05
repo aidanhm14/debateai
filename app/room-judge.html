@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Room Judge · Zoom and Twitch AI Judge · DebateIt</title>
+<meta name="description" content="Add DebateIt's AI judge to a Zoom, Twitch, or live practice room. The judge listens through your browser, gives live notes, and writes a ballot when the round ends." />
+<meta name="robots" content="noindex,follow" />
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://debateai.com/room-judge">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/room-judge">
+<meta property="og:title" content="Room Judge · Zoom and Twitch AI Judge · DebateIt">
+<meta property="og:description" content="Bring an AI judge into a live room. It listens, guides, and writes the ballot.">
+<meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+<script defer src="/js/app-check.js"></script>
+<script defer src="/js/track.js"></script>
+<script defer src="/js/topbar.js"></script>
+<script defer src="/js/notifications.js"></script>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
+
+<script>
+(function(){
+  try {
+    if (new URLSearchParams(location.search).get('embed') === '1') {
+      document.documentElement.classList.add('embed');
+    }
+  } catch (e) {}
+  document.documentElement.setAttribute('data-theme', 'light');
+  document.documentElement.setAttribute('data-force-theme', 'light');
+})();
+</script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#f7f7f3;color:#17171b;font-family:'Crimson Pro',Georgia,serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+#daTopbar{position:relative;z-index:10}
+.shell{max-width:1180px;margin:0 auto;padding:76px 22px 80px}
+.embed #daTopbar{display:none}
+.embed .shell{padding:16px;max-width:100%}
+.topline{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.crumb{font-size:.78rem;color:rgba(0,0,0,.48);font-weight:600}
+.crumb a{color:#dc2626;font-weight:800}
+.status-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(0,0,0,.1);background:#fff;border-radius:999px;padding:7px 12px;color:rgba(0,0,0,.6);font-size:.78rem;font-weight:800;box-shadow:0 1px 2px rgba(20,20,30,.04)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#9ca3af}
+.status-pill.live .status-dot{background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:end;margin-bottom:18px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;color:#dc2626;font-size:.64rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;margin-bottom:12px}
+.eyebrow .pip{width:7px;height:7px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,.12)}
+h1{margin:0;font-size:clamp(2rem,5vw,3.25rem);line-height:.98;letter-spacing:-.03em;font-weight:900}
+h1 em{font-style:normal;color:#dc2626}
+.lede{max-width:720px;margin:14px 0 0;color:rgba(0,0,0,.62);font-size:1.05rem;line-height:1.55}
+.route-card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:16px;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -28px rgba(20,20,30,.2)}
+.route-card h2{font-size:.95rem;margin:0 0 8px;font-weight:900}
+.route-card p{margin:0;color:rgba(0,0,0,.58);font-size:.86rem;line-height:1.45}
+.route-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.mini-btn{border:1px solid rgba(0,0,0,.12);background:#fff;border-radius:999px;padding:8px 12px;font-size:.78rem;font-weight:800;color:rgba(0,0,0,.7)}
+.mini-btn:hover{border-color:#dc2626;color:#dc2626}
+.mini-btn.primary{background:#dc2626;color:#fff;border-color:#dc2626}
+.grid{display:grid;grid-template-columns:370px minmax(0,1fr);gap:18px;align-items:start}
+.panel{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:18px;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -28px rgba(20,20,30,.2)}
+.panel h2{font-size:1rem;letter-spacing:-.01em;margin:0 0 14px;font-weight:900}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+label{display:block;font-size:.68rem;letter-spacing:.11em;text-transform:uppercase;font-weight:900;color:rgba(0,0,0,.44);margin-bottom:7px}
+.ctl{width:100%;border:1px solid rgba(0,0,0,.12);background:#fbfaf7;border-radius:10px;padding:11px 12px;color:#17171b;font-size:.92rem;line-height:1.35}
+.ctl:focus{outline:none;border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.12)}
+textarea.ctl{min-height:76px;resize:vertical}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.seg.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.seg button{border:1px solid rgba(0,0,0,.1);background:#fff;border-radius:10px;padding:10px 8px;font-size:.82rem;font-weight:900;color:rgba(0,0,0,.62)}
+.seg button.on{background:#17171b;color:#fff;border-color:#17171b}
+.seg button span{display:block;font-size:.68rem;font-weight:700;opacity:.7;margin-top:2px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.start{width:100%;border:0;background:#dc2626;color:#fff;border-radius:11px;padding:14px 18px;font-size:.98rem;font-weight:900;box-shadow:0 14px 28px -16px rgba(220,38,38,.7)}
+.start:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.ghost-btn{width:100%;border:1px solid rgba(0,0,0,.12);background:#fff;color:rgba(0,0,0,.72);border-radius:11px;padding:12px 16px;font-size:.9rem;font-weight:900}
+.hint{font-size:.78rem;line-height:1.42;color:rgba(0,0,0,.5);margin-top:9px}
+.auth-box{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff7f7;border:1px solid rgba(220,38,38,.2);border-radius:11px;padding:12px 13px;margin-bottom:14px;color:#7f1d1d;font-size:.86rem;font-weight:700}
+.auth-box.signed{background:#f0fdf4;border-color:rgba(22,163,74,.22);color:#14532d}
+.auth-box button{border:1px solid rgba(220,38,38,.34);background:#fff;border-radius:999px;padding:7px 12px;color:#dc2626;font-size:.78rem;font-weight:900;white-space:nowrap}
+.live-stack{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.stage{min-height:190px;display:grid;grid-template-columns:170px 1fr;gap:16px;align-items:center}
+.orb-wrap{display:flex;align-items:center;justify-content:center}
+.orb{--level:0;width:122px;height:122px;border-radius:50%;background:radial-gradient(circle at 36% 28%,rgba(255,255,255,.72),transparent 32%),radial-gradient(circle at 50% 52%,#ef4444,#991b1b 72%);box-shadow:0 0 calc(18px + var(--level) * 46px) rgba(220,38,38,calc(.22 + var(--level) * .42)),inset 0 -10px 22px rgba(0,0,0,.32);transform:scale(calc(1 + var(--level) * .12));transition:transform .08s linear,box-shadow .08s linear}
+.stage-copy h2{font-size:1.25rem;margin:0 0 6px}
+.stage-copy p{margin:0;color:rgba(0,0,0,.58);line-height:1.45}
+.meters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
+.meter{border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:9px 10px;background:#fbfaf7}
+.meter b{display:block;font-size:1.05rem;line-height:1;color:#17171b}
+.meter span{display:block;margin-top:3px;font-size:.67rem;text-transform:uppercase;letter-spacing:.09em;font-weight:900;color:rgba(0,0,0,.42)}
+.transcript{height:340px;overflow:auto;background:#fbfaf7;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:14px}
+.empty{display:flex;min-height:100%;align-items:center;justify-content:center;text-align:center;color:rgba(0,0,0,.42);font-size:.9rem}
+.row{border-bottom:1px solid rgba(0,0,0,.06);padding:10px 0}
+.row:last-child{border-bottom:0}
+.who{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:900;color:rgba(0,0,0,.42);margin-bottom:3px}
+.row.room .who{color:#16a34a}
+.row.judge .who{color:#dc2626}
+.row.chat .who{color:#2563eb}
+.txt{font-size:.94rem;line-height:1.48;color:rgba(0,0,0,.78);white-space:pre-wrap}
+.controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.controls button{border:1px solid rgba(0,0,0,.12);background:#fff;border-radius:10px;padding:11px 10px;font-size:.86rem;font-weight:900;color:rgba(0,0,0,.68)}
+.controls button.danger{border-color:rgba(220,38,38,.28);color:#dc2626}
+.ask-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
+.ask-row button{border:0;background:#17171b;color:#fff;border-radius:10px;padding:0 14px;font-size:.84rem;font-weight:900}
+.ballot{display:none}
+.ballot.on{display:block}
+.ballot-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.winner{font-size:1.45rem;font-weight:900;color:#16a34a}
+.scores{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.score{border:1px solid rgba(0,0,0,.08);background:#fbfaf7;border-radius:11px;padding:12px}
+.score span{display:block;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;font-weight:900;color:rgba(0,0,0,.44)}
+.score b{display:block;margin-top:4px;font-size:1.8rem;color:#dc2626}
+.rfd{color:rgba(0,0,0,.72);line-height:1.6;white-space:pre-wrap}
+.error{display:none;border:1px solid rgba(220,38,38,.25);background:#fff5f5;color:#991b1b;border-radius:10px;padding:11px 13px;font-size:.86rem;font-weight:700;margin-bottom:12px}
+.error.on{display:block}
+.embed .hero{display:none}
+.embed .grid{grid-template-columns:1fr}
+.embed .shell{font-size:.96rem}
+@media(max-width:900px){
+  .hero,.grid{grid-template-columns:1fr}
+  .route-card{max-width:none}
+}
+@media(max-width:620px){
+  .shell{padding:70px 15px 56px}
+  .two-col,.stage,.meters,.controls{grid-template-columns:1fr}
+  .seg{grid-template-columns:1fr}
+  .transcript{height:300px}
+}
+</style>
+</head>
+<body>
+<div id="daTopbar"></div>
+
+<main class="shell">
+  <div class="topline">
+    <nav class="crumb" aria-label="Breadcrumb"><a href="/">DebateIt</a> / <a href="/judge">AI Judge</a> / Room Judge</nav>
+    <div id="statusPill" class="status-pill"><span class="status-dot"></span><span id="statusText">Signed out</span></div>
+  </div>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow"><span class="pip"></span>AI judge for live rooms</div>
+      <h1>Add the judge to <em>Zoom or Twitch.</em></h1>
+      <p class="lede">Open this beside the room, share mic or window audio, and DebateIt flows the round in real time. It can whisper live notes, read Twitch chat as audience signal, and write the ballot when the round ends.</p>
+    </div>
+    <aside class="route-card">
+      <h2>Plugin launch URLs</h2>
+      <p>Use the compact URL for Zoom Apps or Twitch Extensions. The same judge console adapts to the platform.</p>
+      <div class="route-row">
+        <a class="mini-btn primary" href="/plugins/zoom">Zoom setup</a>
+        <a class="mini-btn" href="/plugins/twitch">Twitch setup</a>
+      </div>
+    </aside>
+  </section>
+
+  <div id="errorBox" class="error" role="alert"></div>
+
+  <section class="grid" aria-label="Room judge console">
+    <aside class="panel">
+      <div id="authBox" class="auth-box">
+        <span id="authText">Sign in to start the room judge.</span>
+        <button id="signinBtn" type="button">Sign in</button>
+      </div>
+
+      <h2>Room setup</h2>
+      <div class="field">
+        <label>Platform</label>
+        <div id="platformSeg" class="seg" role="radiogroup" aria-label="Platform">
+          <button type="button" data-platform="zoom">Zoom<span>Meeting</span></button>
+          <button type="button" data-platform="twitch">Twitch<span>Stream</span></button>
+          <button type="button" data-platform="room">Room<span>In person</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Audio source</label>
+        <div id="sourceSeg" class="seg two" role="radiogroup" aria-label="Audio source">
+          <button type="button" data-source="mic">Mic<span>Room speaker</span></button>
+          <button type="button" data-source="screen">Window audio<span>Zoom tab, stream, app</span></button>
+        </div>
+        <div class="hint" id="sourceHint">Mic works for an in-person room or laptop speakers. Window audio is sharper when your browser can capture it.</div>
+      </div>
+
+      <div class="field">
+        <label for="format">Format</label>
+        <select id="format" class="ctl">
+          <option value="pf">Public Forum</option>
+          <option value="ld">Lincoln-Douglas</option>
+          <option value="policy">Policy</option>
+          <option value="congress">Congress</option>
+          <option value="apda">APDA</option>
+          <option value="bp">British Parliamentary</option>
+          <option value="worlds">Worlds</option>
+          <option value="asian">Asian Parliamentary</option>
+          <option value="quick">Quick Clash</option>
+          <option value="courtroom">Courtroom</option>
+          <option value="pitch">Pitch Defense</option>
+          <option value="negotiation">Negotiation</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="motion">Motion</label>
+        <input id="motion" class="ctl" type="text" maxlength="220" placeholder="THBT social media platforms should be liable for algorithmic amplification">
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label for="sideA">Side 1</label>
+          <input id="sideA" class="ctl" type="text" maxlength="60" placeholder="Pro / Gov / Aff">
+        </div>
+        <div class="field">
+          <label for="sideB">Side 2</label>
+          <input id="sideB" class="ctl" type="text" maxlength="60" placeholder="Con / Opp / Neg">
+        </div>
+      </div>
+
+      <div class="field" id="twitchField" hidden>
+        <label for="twitchChannel">Twitch channel</label>
+        <input id="twitchChannel" class="ctl" type="text" maxlength="80" placeholder="channel name, no @">
+        <div class="hint">Chat is read as audience signal. Speech still decides the ballot.</div>
+      </div>
+
+      <div class="field">
+        <label for="paradigm">Judge paradigm</label>
+        <input id="paradigm" class="ctl" type="text" maxlength="260" placeholder="Flow judge. Punish drops. Weigh probability before magnitude.">
+      </div>
+
+      <div class="field">
+        <label for="guidance">Host notes</label>
+        <textarea id="guidance" class="ctl" maxlength="360" placeholder="Optional. Tell the judge what room context matters."></textarea>
+      </div>
+
+      <div class="field">
+        <label>Voice guide</label>
+        <div id="voiceSeg" class="seg two" role="radiogroup" aria-label="Voice guide">
+          <button type="button" data-voice="female">Female<span>Muted by default</span></button>
+          <button type="button" data-voice="male">Male<span>Muted by default</span></button>
+        </div>
+      </div>
+
+      <button id="startBtn" class="start" type="button" disabled>Start listening</button>
+      <p class="hint">Tell everyone the AI judge is present before you start. Some platforms require explicit consent for recording or transcription.</p>
+    </aside>
+
+    <section class="live-stack">
+      <div class="panel stage">
+        <div class="orb-wrap"><div id="orb" class="orb" aria-hidden="true"></div></div>
+        <div class="stage-copy">
+          <h2 id="stageTitle">Judge idle.</h2>
+          <p id="stageMeta">Sign in, pick a source, then start listening.</p>
+          <div class="meters">
+            <div class="meter"><b id="timer">00:00</b><span>Time</span></div>
+            <div class="meter"><b id="roomTurns">0</b><span>Room turns</span></div>
+            <div class="meter"><b id="judgeTurns">0</b><span>Judge notes</span></div>
+            <div class="meter"><b id="chatTurns">0</b><span>Chat</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Flow transcript</h2>
+        <div id="transcript" class="transcript"><div class="empty">The room transcript, judge notes, and Twitch chat will appear here.</div></div>
+        <div class="ask-row">
+          <input id="askInput" class="ctl" type="text" maxlength="220" placeholder="Ask the judge for a live read">
+          <button id="askBtn" type="button">Ask</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="voiceBtn" type="button">Voice muted</button>
+        <button id="copyBtn" type="button">Copy plugin URL</button>
+        <button id="endBtn" class="danger" type="button">End and write ballot</button>
+      </div>
+
+      <div id="ballot" class="panel ballot" aria-live="polite">
+        <div class="ballot-head">
+          <h2>Room ballot</h2>
+          <div id="winner" class="winner"></div>
+        </div>
+        <div class="scores">
+          <div class="score"><span id="sideALabel">Side 1</span><b id="sideAPoints">--</b></div>
+          <div class="score"><span id="sideBLabel">Side 2</span><b id="sideBPoints">--</b></div>
+        </div>
+        <div id="rfd" class="rfd"></div>
+      </div>
+    </section>
+  </section>
+</main>
+
+<audio id="judgeAudio" autoplay playsinline muted></audio>
+
+<script>
+(function(){
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
+  };
+  try {
+    if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+  } catch (e) { console.warn('[room-judge] firebase init skipped:', e.message); }
+
+  var FORMATS = {
+    pf:{name:'Public Forum', sides:['Pro','Con']},
+    ld:{name:'Lincoln-Douglas', sides:['Affirmative','Negative']},
+    policy:{name:'Policy', sides:['Affirmative','Negative']},
+    congress:{name:'Congress', sides:['Proponent','Opponent']},
+    apda:{name:'APDA', sides:['Government','Opposition']},
+    bp:{name:'British Parliamentary', sides:['Government','Opposition']},
+    worlds:{name:'Worlds', sides:['Government','Opposition']},
+    asian:{name:'Asian Parliamentary', sides:['Government','Opposition']},
+    quick:{name:'Quick Clash', sides:['Pro','Con']},
+    courtroom:{name:'Courtroom', sides:['Plaintiff','Defense']},
+    pitch:{name:'Pitch Defense', sides:['Founder','Investor pushback']},
+    negotiation:{name:'Negotiation', sides:['Side A','Side B']}
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var els = {
+    statusPill:$('statusPill'), statusText:$('statusText'), error:$('errorBox'),
+    authBox:$('authBox'), authText:$('authText'), signinBtn:$('signinBtn'),
+    platformSeg:$('platformSeg'), sourceSeg:$('sourceSeg'), voiceSeg:$('voiceSeg'),
+    format:$('format'), motion:$('motion'), sideA:$('sideA'), sideB:$('sideB'),
+    twitchField:$('twitchField'), twitchChannel:$('twitchChannel'), paradigm:$('paradigm'), guidance:$('guidance'),
+    startBtn:$('startBtn'), stageTitle:$('stageTitle'), stageMeta:$('stageMeta'),
+    timer:$('timer'), roomTurns:$('roomTurns'), judgeTurns:$('judgeTurns'), chatTurns:$('chatTurns'),
+    transcript:$('transcript'), askInput:$('askInput'), askBtn:$('askBtn'), voiceBtn:$('voiceBtn'), copyBtn:$('copyBtn'), endBtn:$('endBtn'),
+    ballot:$('ballot'), winner:$('winner'), sideALabel:$('sideALabel'), sideBLabel:$('sideBLabel'), sideAPoints:$('sideAPoints'), sideBPoints:$('sideBPoints'), rfd:$('rfd'),
+    audio:$('judgeAudio'), orb:$('orb')
+  };
+
+  var state = {
+    user:null, pc:null, dc:null, captureStream:null, audioCtx:null, analyser:null, raf:0,
+    startedAt:0, timerId:0, starting:false, live:false, voiceOn:false,
+    rows:[], partialRoom:'', partialJudge:'', twitchWs:null, chatBuffer:[], chatFlushId:0, transcriptId:null
+  };
+
+  function cleanChannel(v){ return String(v || '').replace(/^@/,'').replace(/[^A-Za-z0-9_]/g,'').slice(0,80); }
+  function getPlatform(){ return current('platform') || 'zoom'; }
+  function getSource(){ return current('source') || (getPlatform() === 'room' ? 'mic' : 'screen'); }
+  function getVoice(){ return current('voice') || 'female'; }
+  function current(kind){
+    var seg = kind === 'platform' ? els.platformSeg : kind === 'source' ? els.sourceSeg : els.voiceSeg;
+    var on = seg.querySelector('button.on');
+    return on ? on.getAttribute('data-' + kind) : '';
+  }
+  function setSeg(seg, attr, value){
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
+      b.classList.toggle('on', b.getAttribute(attr) === value);
+    });
+  }
+  function esc(s){ var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
+
+  function initFromQuery(){
+    var p = params.get('platform') || 'zoom';
+    if (!/^(zoom|twitch|room)$/.test(p)) p = 'zoom';
+    var source = params.get('source') || (p === 'room' ? 'mic' : 'screen');
+    if (!/^(mic|screen)$/.test(source)) source = 'screen';
+    var voice = params.get('voice') || 'female';
+    if (!/^(female|male)$/.test(voice)) voice = 'female';
+    setSeg(els.platformSeg, 'data-platform', p);
+    setSeg(els.sourceSeg, 'data-source', source);
+    setSeg(els.voiceSeg, 'data-voice', voice);
+    els.format.value = params.get('format') || 'pf';
+    els.motion.value = params.get('motion') || '';
+    els.twitchChannel.value = cleanChannel(params.get('channel') || '');
+    updatePlatformUi();
+    updateSidePlaceholders();
+  }
+
+  function updatePlatformUi(){
+    var p = getPlatform();
+    els.twitchField.hidden = p !== 'twitch';
+    if (p === 'room' && !current('source')) setSeg(els.sourceSeg, 'data-source', 'mic');
+    if (p === 'twitch' && !els.twitchChannel.value) els.twitchChannel.value = cleanChannel(params.get('channel') || '');
+  }
+  function updateSidePlaceholders(){
+    var f = FORMATS[els.format.value] || FORMATS.pf;
+    els.sideA.placeholder = f.sides[0];
+    els.sideB.placeholder = f.sides[1];
+  }
+  initFromQuery();
+
+  function wireSeg(seg, attr, cb){
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
+      b.addEventListener('click', function(){
+        setSeg(seg, attr, b.getAttribute(attr));
+        if (cb) cb();
+      });
+    });
+  }
+  wireSeg(els.platformSeg, 'data-platform', updatePlatformUi);
+  wireSeg(els.sourceSeg, 'data-source');
+  wireSeg(els.voiceSeg, 'data-voice');
+  els.format.addEventListener('change', updateSidePlaceholders);
+
+  function setStatus(text, live){
+    els.statusText.textContent = text;
+    els.statusPill.classList.toggle('live', !!live);
+  }
+  function showError(msg){
+    els.error.textContent = msg;
+    els.error.classList.add('on');
+    setTimeout(function(){ els.error.classList.remove('on'); }, 9000);
+  }
+
+  function updateAuth(user){
+    state.user = user || null;
+    if (user) {
+      els.authBox.classList.add('signed');
+      els.authText.textContent = 'Signed in as ' + (user.displayName || user.email || 'you') + '.';
+      els.signinBtn.hidden = true;
+      els.startBtn.disabled = false;
+      setStatus('Ready', false);
+    } else {
+      els.authBox.classList.remove('signed');
+      els.authText.textContent = 'Sign in to start the room judge.';
+      els.signinBtn.hidden = false;
+      els.startBtn.disabled = true;
+      setStatus('Signed out', false);
+    }
+  }
+  updateAuth(null);
+  try {
+    if (firebase.auth) firebase.auth().onAuthStateChanged(updateAuth);
+  } catch (e) {}
+  els.signinBtn.addEventListener('click', function(){
+    if (!firebase.auth) return;
+    var provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).catch(function(err){
+      try { firebase.auth().signInWithRedirect(provider); }
+      catch(e){ showError('Sign-in failed: ' + (err && err.message || 'unknown')); }
+    });
+  });
+
+  function addRow(kind, text, meta){
+    text = String(text || '').trim();
+    if (!text) return;
+    state.rows.push({ kind:kind, text:text, meta:meta || '', at:Date.now() });
+    if (state.rows.length > 260) state.rows = state.rows.slice(-260);
+    renderRows();
+    paintMeters();
+  }
+  function renderRows(){
+    var rows = state.rows.slice();
+    if (state.partialRoom) rows.push({ kind:'room', text:state.partialRoom, meta:'live' });
+    if (state.partialJudge) rows.push({ kind:'judge', text:state.partialJudge, meta:'live' });
+    if (!rows.length) {
+      els.transcript.innerHTML = '<div class="empty">The room transcript, judge notes, and Twitch chat will appear here.</div>';
+      return;
+    }
+    els.transcript.innerHTML = rows.map(function(r){
+      var who = r.kind === 'room' ? 'Room audio' : r.kind === 'judge' ? 'AI judge' : 'Twitch chat';
+      if (r.meta) who += ' · ' + r.meta;
+      return '<div class="row ' + esc(r.kind) + '"><div class="who">' + esc(who) + '</div><div class="txt">' + esc(r.text) + '</div></div>';
+    }).join('');
+    els.transcript.scrollTop = els.transcript.scrollHeight;
+  }
+  function paintMeters(){
+    els.roomTurns.textContent = state.rows.filter(function(r){ return r.kind === 'room'; }).length;
+    els.judgeTurns.textContent = state.rows.filter(function(r){ return r.kind === 'judge'; }).length;
+    els.chatTurns.textContent = state.rows.filter(function(r){ return r.kind === 'chat'; }).length;
+  }
+
+  function startTimer(){
+    state.startedAt = Date.now();
+    function paint(){
+      var s = Math.floor((Date.now() - state.startedAt) / 1000);
+      var m = Math.floor(s / 60);
+      els.timer.textContent = (m < 10 ? '0' : '') + m + ':' + ((s % 60) < 10 ? '0' : '') + (s % 60);
+    }
+    paint();
+    state.timerId = setInterval(paint, 1000);
+  }
+  function stopTimer(){ if (state.timerId) clearInterval(state.timerId); state.timerId = 0; }
+
+  async function captureAudio(source){
+    if (source === 'screen') {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        throw new Error('Window audio capture is not available in this browser. Switch to mic.');
+      }
+      var display = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:true });
+      var tracks = display.getAudioTracks();
+      if (!tracks.length) {
+        display.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+        throw new Error('No window audio track was shared. Pick a Chrome tab or enable Share audio.');
+      }
+      state.captureStream = display;
+      return new MediaStream([tracks[0]]);
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Microphone capture is not available in this browser.');
+    }
+    var mic = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+    state.captureStream = mic;
+    return mic;
+  }
+
+  function startVisualizer(stream){
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      state.audioCtx = new Ctx();
+      var src = state.audioCtx.createMediaStreamSource(stream);
+      var analyser = state.audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = .78;
+      src.connect(analyser);
+      state.analyser = analyser;
+      var data = new Uint8Array(analyser.frequencyBinCount);
+      function tick(){
+        analyser.getByteFrequencyData(data);
+        var sum = 0;
+        for (var i = 0; i < data.length; i++) sum += data[i];
+        var level = Math.min(1, (sum / data.length) / 92);
+        els.orb.style.setProperty('--level', level.toFixed(3));
+        state.raf = requestAnimationFrame(tick);
+      }
+      tick();
+    } catch(e) {}
+  }
+  function stopVisualizer(){
+    if (state.raf) cancelAnimationFrame(state.raf);
+    state.raf = 0;
+    try { if (state.audioCtx) state.audioCtx.close(); } catch(e){}
+    state.audioCtx = null;
+    els.orb.style.setProperty('--level', '0');
+  }
+
+  els.startBtn.addEventListener('click', function(){
+    if (state.starting || state.live) return;
+    startSession().catch(function(err){
+      console.error('[room-judge] start failed', err);
+      showError(err.message || 'Could not start the room judge.');
+      teardown();
+    });
+  });
+
+  async function startSession(){
+    if (!state.user) throw new Error('Sign in first.');
+    state.starting = true;
+    els.startBtn.disabled = true;
+    els.startBtn.textContent = 'Starting...';
+    els.ballot.classList.remove('on');
+    state.rows = [];
+    state.partialRoom = '';
+    state.partialJudge = '';
+    renderRows();
+    paintMeters();
+
+    var token = await state.user.getIdToken();
+    var source = getSource();
+    var mintRes = await fetch('/api/room-judge-session', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
+      body:JSON.stringify({
+        platform:getPlatform(),
+        source:source,
+        format:els.format.value,
+        motion:els.motion.value,
+        roomTitle:document.title,
+        paradigm:els.paradigm.value,
+        guidance:els.guidance.value,
+        voice:getVoice(),
+        speed:1
+      })
+    });
+    var raw = await mintRes.text();
+    var mint = {};
+    try { mint = JSON.parse(raw); } catch(e) {}
+    if (!mintRes.ok) throw new Error(mint.openai || mint.error || raw.slice(0, 200) || ('HTTP ' + mintRes.status));
+    var ephemeralKey = mint.client_secret && mint.client_secret.value;
+    if (!ephemeralKey) throw new Error('Mint response missing client secret.');
+
+    els.stageTitle.textContent = 'Requesting audio...';
+    els.stageMeta.textContent = source === 'screen' ? 'Share a tab or window with audio enabled.' : 'Allow microphone access.';
+    var audioStream = await captureAudio(source);
+    startVisualizer(audioStream);
+
+    var pc = new RTCPeerConnection();
+    state.pc = pc;
+    pc.addTrack(audioStream.getAudioTracks()[0], audioStream);
+    pc.ontrack = function(ev){
+      if (ev.streams && ev.streams[0]) {
+        els.audio.srcObject = ev.streams[0];
+        els.audio.muted = !state.voiceOn;
+      }
+    };
+
+    var dc = pc.createDataChannel('oai-events');
+    state.dc = dc;
+    dc.onmessage = handleRealtimeEvent;
+    dc.onopen = function(){
+      try {
+        dc.send(JSON.stringify({
+          type:'session.update',
+          session:{
+            type:'realtime',
+            output_modalities:['audio'],
+            audio:{
+              input:{
+                transcription:{ model:'gpt-4o-mini-transcribe' },
+                turn_detection:{
+                  type:'server_vad',
+                  threshold: source === 'screen' ? .68 : .76,
+                  prefix_padding_ms:300,
+                  silence_duration_ms: source === 'screen' ? 1350 : 1100,
+                  create_response:true,
+                  interrupt_response:true
+                }
+              },
+              output:{ voice: mint.voice || (getVoice() === 'male' ? 'echo' : 'shimmer'), speed:1 }
+            }
+          }
+        }));
+        dc.send(JSON.stringify({ type:'response.create' }));
+      } catch(e) { console.warn('[room-judge] session update failed', e); }
+    };
+
+    var offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    var sdpRes = await fetch(mint.sdpUrl || 'https://api.openai.com/v1/realtime/calls', {
+      method:'POST',
+      body:offer.sdp,
+      headers:{ 'Authorization':'Bearer ' + ephemeralKey, 'Content-Type':'application/sdp' }
+    });
+    if (!sdpRes.ok) throw new Error('OpenAI handshake failed (' + sdpRes.status + ').');
+    var answer = await sdpRes.text();
+    await pc.setRemoteDescription({ type:'answer', sdp:answer });
+
+    state.live = true;
+    state.starting = false;
+    els.startBtn.textContent = 'Listening';
+    els.stageTitle.textContent = 'Judge is flowing.';
+    els.stageMeta.textContent = (mint.model || 'gpt-realtime') + (mint.isPro ? '' : ' · ' + mint.used + ' of ' + mint.limit + ' free live sessions');
+    setStatus('Live', true);
+    startTimer();
+    if (getPlatform() === 'twitch') connectTwitch();
+    try { window.gtag && gtag('event', 'room_judge_start', { platform:getPlatform(), source:source, format:els.format.value }); } catch(e){}
+  }
+
+  function handleRealtimeEvent(ev){
+    var msg;
+    try { msg = JSON.parse(ev.data); } catch(e) { return; }
+    switch (msg.type) {
+      case 'conversation.item.input_audio_transcription.delta':
+        if (typeof msg.delta === 'string') { state.partialRoom += msg.delta; renderRows(); }
+        break;
+      case 'conversation.item.input_audio_transcription.completed':
+        if (typeof msg.transcript === 'string') addRow('room', msg.transcript);
+        state.partialRoom = '';
+        renderRows();
+        break;
+      case 'response.output_audio_transcript.delta':
+      case 'response.audio_transcript.delta':
+        if (typeof msg.delta === 'string') { state.partialJudge += msg.delta; renderRows(); }
+        break;
+      case 'response.output_audio_transcript.done':
+      case 'response.audio_transcript.done':
+        if (typeof msg.transcript === 'string') addRow('judge', msg.transcript);
+        state.partialJudge = '';
+        renderRows();
+        break;
+      case 'error':
+        showError((msg.error && msg.error.message) || 'Realtime error.');
+        break;
+    }
+  }
+
+  function connectTwitch(){
+    var channel = cleanChannel(els.twitchChannel.value);
+    if (!channel || state.twitchWs) return;
+    try {
+      var ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+      state.twitchWs = ws;
+      ws.onopen = function(){
+        var nick = 'justinfan' + Math.floor(Math.random() * 900000 + 100000);
+        ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+        ws.send('NICK ' + nick);
+        ws.send('JOIN #' + channel.toLowerCase());
+        addRow('chat', 'Connected to #' + channel + ' chat.', 'system');
+      };
+      ws.onmessage = function(ev){
+        String(ev.data || '').split(/\r?\n/).forEach(function(line){
+          if (!line) return;
+          if (line.indexOf('PING') === 0) { try { ws.send('PONG :tmi.twitch.tv'); } catch(e){} return; }
+          var m = line.match(/:([^!]+)![^ ]+\s+PRIVMSG\s+#[^\s]+\s+:(.*)$/);
+          if (!m) return;
+          var msg = m[1] + ': ' + m[2];
+          addRow('chat', msg);
+          state.chatBuffer.push(msg);
+          if (state.chatBuffer.length > 12) state.chatBuffer.shift();
+          scheduleChatFlush();
+        });
+      };
+      ws.onerror = function(){ addRow('chat', 'Chat connection failed. Audio judging continues.', 'system'); };
+      ws.onclose = function(){ state.twitchWs = null; };
+    } catch(e) {
+      addRow('chat', 'Chat connection unavailable in this browser.', 'system');
+    }
+  }
+  function scheduleChatFlush(){
+    if (state.chatFlushId) return;
+    state.chatFlushId = setTimeout(function(){
+      state.chatFlushId = 0;
+      if (!state.chatBuffer.length || !state.dc || state.dc.readyState !== 'open') return;
+      var batch = state.chatBuffer.splice(0, state.chatBuffer.length).join('\n').slice(0, 1200);
+      sendContext('TWITCH CHAT AUDIENCE SIGNAL. Do not let chat decide the ballot.\n' + batch, false);
+    }, 6500);
+  }
+
+  function sendContext(text, askForResponse){
+    if (!state.dc || state.dc.readyState !== 'open') return false;
+    try {
+      state.dc.send(JSON.stringify({
+        type:'conversation.item.create',
+        item:{ type:'message', role:'user', content:[{ type:'input_text', text:String(text || '').slice(0, 1200) }] }
+      }));
+      if (askForResponse) state.dc.send(JSON.stringify({ type:'response.create' }));
+      return true;
+    } catch(e) { return false; }
+  }
+
+  els.askBtn.addEventListener('click', function(){
+    var q = (els.askInput.value || '').trim();
+    if (!q) return;
+    addRow('room', 'Host asks judge: ' + q, 'typed');
+    if (!sendContext('HOST ASKS FOR LIVE JUDGE READ: ' + q, true)) showError('Judge is not connected yet.');
+    els.askInput.value = '';
+  });
+  els.askInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); els.askBtn.click(); } });
+
+  els.voiceBtn.addEventListener('click', function(){
+    state.voiceOn = !state.voiceOn;
+    els.audio.muted = !state.voiceOn;
+    els.voiceBtn.textContent = state.voiceOn ? 'Voice on' : 'Voice muted';
+  });
+
+  els.copyBtn.addEventListener('click', function(){
+    var url = location.origin + '/room-judge?embed=1&platform=' + encodeURIComponent(getPlatform());
+    if (getPlatform() === 'twitch' && cleanChannel(els.twitchChannel.value)) url += '&channel=' + encodeURIComponent(cleanChannel(els.twitchChannel.value));
+    navigator.clipboard && navigator.clipboard.writeText(url).then(function(){
+      els.copyBtn.textContent = 'Copied';
+      setTimeout(function(){ els.copyBtn.textContent = 'Copy plugin URL'; }, 1600);
+    }).catch(function(){ showError(url); });
+  });
+
+  els.endBtn.addEventListener('click', function(){
+    endAndBallot().catch(function(err){
+      console.error('[room-judge] ballot failed', err);
+      showError(err.message || 'Could not write the ballot.');
+    });
+  });
+
+  function teardown(){
+    state.starting = false;
+    state.live = false;
+    stopTimer();
+    stopVisualizer();
+    try { if (state.dc) state.dc.close(); } catch(e){}
+    try { if (state.pc) state.pc.close(); } catch(e){}
+    try { if (state.captureStream) state.captureStream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} }); } catch(e){}
+    try { if (state.twitchWs) state.twitchWs.close(); } catch(e){}
+    try { els.audio.srcObject = null; } catch(e){}
+    state.pc = null; state.dc = null; state.captureStream = null; state.twitchWs = null;
+    els.startBtn.disabled = !state.user;
+    els.startBtn.textContent = 'Start listening';
+    setStatus(state.user ? 'Ready' : 'Signed out', false);
+    els.stageTitle.textContent = 'Judge idle.';
+    els.stageMeta.textContent = 'Sign in, pick a source, then start listening.';
+  }
+
+  function transcriptText(kind){
+    return state.rows.filter(function(r){ return !kind || r.kind === kind; }).map(function(r){
+      var who = r.kind === 'room' ? 'ROOM AUDIO' : r.kind === 'judge' ? 'AI LIVE NOTE' : 'TWITCH CHAT';
+      return who + ': ' + r.text;
+    }).join('\n\n');
+  }
+
+  function buildBallotPrompt(){
+    var f = FORMATS[els.format.value] || FORMATS.pf;
+    var sideA = (els.sideA.value || f.sides[0]).trim();
+    var sideB = (els.sideB.value || f.sides[1]).trim();
+    var spoken = transcriptText('room').slice(0, 18000);
+    var notes = transcriptText('judge').slice(0, 5000);
+    var chat = transcriptText('chat').slice(0, 4000);
+    var system = [
+      'You are an experienced ' + f.name + ' debate judge writing a ballot from a live room transcript.',
+      'Return ONLY valid JSON. No markdown. No prose outside the object.',
+      'If speaker labels are unclear, make the best provisional call and say the limitation in the RFD.',
+      'Do not let Twitch chat decide the winner. Use chat only as audience signal.',
+      'Judge the actual arguments: claims, warrants, examples, drops, concessions, and weighing.',
+      'Use the full speaker point range. Do not inflate scores to be nice.',
+      'No em dashes.',
+      '',
+      'Schema:',
+      '{',
+      '  "winner": "sideA" | "sideB",',
+      '  "sideAName": "' + sideA.replace(/"/g, '\\"') + '",',
+      '  "sideBName": "' + sideB.replace(/"/g, '\\"') + '",',
+      '  "sideAPoints": 24.0,',
+      '  "sideBPoints": 24.0,',
+      '  "rfd": "4 to 7 sentences. Open with the deciding clash. Name the winning argument. Explain the comparison. Flag limitations if audio was unclear.",',
+      '  "sideAFix": "one concrete fix",',
+      '  "sideBFix": "one concrete fix"',
+      '}'
+    ].join('\n');
+    var user = [
+      'Platform: ' + getPlatform(),
+      'Format: ' + f.name,
+      'Motion: ' + (els.motion.value || '(not specified)'),
+      'Side A: ' + sideA,
+      'Side B: ' + sideB,
+      'Judge paradigm: ' + (els.paradigm.value || '(default circuit judge)'),
+      'Host notes: ' + (els.guidance.value || '(none)'),
+      '',
+      'SPOKEN ROOM TRANSCRIPT:',
+      spoken || '(No usable room transcript captured.)',
+      '',
+      'LIVE AI JUDGE NOTES:',
+      notes || '(none)',
+      '',
+      'TWITCH CHAT AUDIENCE SIGNAL:',
+      chat || '(none)',
+      '',
+      'Write the JSON ballot now.'
+    ].join('\n');
+    return { system:system, user:user, sideA:sideA, sideB:sideB };
+  }
+
+  async function endAndBallot(){
+    var hadRows = state.rows.length;
+    teardown();
+    if (!hadRows) throw new Error('No transcript captured yet.');
+    els.ballot.classList.add('on');
+    els.winner.textContent = 'Writing...';
+    els.sideALabel.textContent = els.sideA.value || (FORMATS[els.format.value] || FORMATS.pf).sides[0];
+    els.sideBLabel.textContent = els.sideB.value || (FORMATS[els.format.value] || FORMATS.pf).sides[1];
+    els.sideAPoints.textContent = '--';
+    els.sideBPoints.textContent = '--';
+    els.rfd.textContent = 'Reading the flow and weighing the round.';
+    var p = buildBallotPrompt();
+    var headers = { 'Content-Type':'application/json' };
+    try {
+      var tok = state.user && await state.user.getIdToken();
+      if (tok) headers.Authorization = 'Bearer ' + tok;
+    } catch(e) {}
+    var res = await fetch('/api/claude', {
+      method:'POST',
+      headers:headers,
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:5000,
+        stream:false,
+        system:p.system,
+        messages:[{ role:'user', content:p.user }],
+        _feature:'live-round'
+      })
+    });
+    if (!res.ok) throw new Error('Ballot service returned ' + res.status + '.');
+    var data = await res.json();
+    var text = '';
+    try { text = data.content[0].text || ''; } catch(e) {}
+    var ballot = parseBallot(text || JSON.stringify(data));
+    if (!ballot) throw new Error('The judge returned an unreadable ballot.');
+    renderBallot(ballot, p);
+    logGeneration(ballot, p).catch(function(){});
+    try { window.gtag && gtag('event', 'room_judge_ballot', { platform:getPlatform(), format:els.format.value, winner:ballot.winner }); } catch(e){}
+  }
+
+  function parseBallot(raw){
+    var s = String(raw || '').replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    var first = s.indexOf('{'), last = s.lastIndexOf('}');
+    if (first < 0 || last <= first) return null;
+    try {
+      var obj = JSON.parse(s.slice(first, last + 1));
+      if (obj.winner !== 'sideA' && obj.winner !== 'sideB') return null;
+      return obj;
+    } catch(e) { return null; }
+  }
+  function renderBallot(b, p){
+    var winName = b.winner === 'sideA' ? (b.sideAName || p.sideA) : (b.sideBName || p.sideB);
+    els.winner.textContent = winName + ' wins';
+    els.sideALabel.textContent = b.sideAName || p.sideA;
+    els.sideBLabel.textContent = b.sideBName || p.sideB;
+    els.sideAPoints.textContent = Number(b.sideAPoints || 0).toFixed(1);
+    els.sideBPoints.textContent = Number(b.sideBPoints || 0).toFixed(1);
+    els.rfd.textContent = (b.rfd || '').trim()
+      + '\n\n' + (b.sideAFix ? (els.sideALabel.textContent + ' fix: ' + b.sideAFix) : '')
+      + '\n' + (b.sideBFix ? (els.sideBLabel.textContent + ' fix: ' + b.sideBFix) : '');
+  }
+  async function logGeneration(ballot, prompt){
+    if (!state.user) return;
+    var tok = await state.user.getIdToken();
+    await fetch('/api/log-generation', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + tok },
+      body:JSON.stringify({
+        action:'generation',
+        kind:'voice_round',
+        motion:els.motion.value || '',
+        side:'',
+        format:els.format.value,
+        model:'claude-sonnet-4-6',
+        promptId:'room-judge-ballot',
+        systemPrompt:prompt.system.slice(0, 7800),
+        userPrompt:prompt.user.slice(0, 7800),
+        output:JSON.stringify(ballot).slice(0, 39000),
+        context:{ source:'room_judge', platform:getPlatform(), fullTranscript:transcriptText().slice(0, 39000) }
+      })
+    });
+  }
+
+  window.addEventListener('beforeunload', teardown);
+})();
+</script>
+</body>
+</html>

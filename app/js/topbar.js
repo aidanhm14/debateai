@@ -163,6 +163,9 @@
     // deep-link-only. /float and /exhibition were removed from the bar per
     // Aidan (still reachable at /float and /exhibition directly).
     { href: '/judge',         label: 'Judge'        },
+    // 2026-07-04: Room judge is the live Zoom / Twitch sidecar. Keep the
+    // label short so the bar still fits at laptop widths.
+    { href: '/room-judge',    label: 'Room'         },
     // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
     // profile + nightly fingerprint. Sits next to Voice since both are
