@@ -548,7 +548,7 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
   <div class="stage-bottom">
     <div class="judge-strip" id="judgeStrip" hidden>
       <span class="js-tag">Judge</span>
-      <span class="js-text" id="judgeStripText">Watching the round.</span>
+      <span class="js-text" id="judgeStripText">Sitting in. Notes come with the ballot.</span>
     </div>
     <div class="captions">
       <div class="cap cap-you" id="capYou">
@@ -994,7 +994,7 @@ async function start(){
   lastActiveAt = Date.now(); lastAiDoneAt = 0;
   turnsJudged = 0; lastJudgeAt = 0; judgeBusy = false;
   $('judgeStrip').hidden = !liveJudge;
-  $('judgeStripText').textContent = 'Watching the round.';
+  $('judgeStripText').textContent = 'Sitting in. Notes come with the ballot.';
   $('tsPanel').hidden = true;
   renderTs();
   statusPill.classList.remove('connecting');
@@ -1209,7 +1209,9 @@ function renderTs(){
   const body = $('tsBody');
   if (!body) return;
   body.innerHTML = '';
-  const list = turns.filter((t) => t && (t.text || '').trim());
+  // Judge notes stay invisible while the round runs (the judge sits
+  // in); they join the record on the recap.
+  const list = turns.filter((t) => t && (t.text || '').trim() && (status !== 'live' || t.who !== 'judge'));
   if (!list.length) {
     const d = document.createElement('div');
     d.className = 'ts-empty';
@@ -1234,13 +1236,20 @@ function renderTs(){
 
 /* ── live judge: a quiet running read of the round ───────────────
    Fires after an AI turn completes, at most every 25 seconds and only
-   when at least two new turns landed since the last read. One short
-   sentence: who is ahead and why. */
+   when at least two new turns landed since the last read. The judge
+   SITS IN silently (2026-07-05, per Aidan: no live feedback — an early
+   read scolded a user for "only saying Hello"). Reads are collected in
+   the background and surface on the recap only, as a record of how the
+   judge saw the round unfold. It also stays quiet until the user has
+   actually argued something (two turns, ~25 words). */
 let turnsJudged = 0, lastJudgeAt = 0, judgeBusy = false;
 function maybeLiveJudge(){
   if (!liveJudge || judgeBusy || status !== 'live') return;
   const spoken = turns.filter((t) => t && t.who !== 'judge' && (t.text || '').trim());
   if (spoken.length < 2 || spoken.length - turnsJudged < 2) return;
+  const userTurns = spoken.filter((t) => t.who === 'you');
+  const userWords = userTurns.reduce((n, t) => n + t.text.split(/\s+/).length, 0);
+  if (userTurns.length < 2 || userWords < 25) return;
   if (Date.now() - lastJudgeAt < 25000) return;
   judgeBusy = true;
   turnsJudged = spoken.length;
@@ -1268,9 +1277,9 @@ function maybeLiveJudge(){
     judgeBusy = false;
     text = (text || '').trim();
     if (!text || status !== 'live') return;
-    $('judgeStripText').textContent = text;
+    // Silent note-taking: no strip update, no live transcript entry.
+    // These surface on the recap transcript as "Judge (mid-round)".
     turns.push({ who: 'judge', text });
-    renderTs();
   }).catch(() => { judgeBusy = false; });
 }
 
