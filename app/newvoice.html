@@ -3,11 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>DebateIt Live · Argue out loud with the machine</title>
-<meta name="description" content="Say your take out loud. The machine argues the other side in real time.">
-<!-- Test surface for the rebuilt voice experience. Not in the sitemap on purpose. -->
-<meta name="robots" content="noindex, nofollow">
+<title>Debate an AI Out Loud · Live Voice AI Debate Practice | DebateIt</title>
+<meta name="description" content="Debate an AI out loud, in real time. Pick any claim, take a side, and argue against a voice AI that listens, pushes back in full paragraphs, and hands you a judged verdict at the end. Runs in your browser.">
+<link rel="canonical" href="https://debateai.com/newvoice">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://debateai.com/newvoice">
+<meta property="og:site_name" content="DebateIt">
+<meta property="og:title" content="Debate an AI Out Loud · Live Voice AI Debate | DebateIt">
+<meta property="og:description" content="Say your take. The AI argues the other side in real time, then a judge calls the round.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Debate an AI Out Loud · Live Voice AI Debate | DebateIt">
+<meta name="twitter:description" content="Say your take. The AI argues the other side in real time, then a judge calls the round.">
 <meta name="theme-color" content="#08080c">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Debate an AI Out Loud · Live Voice AI Debate",
+  "url": "https://debateai.com/newvoice",
+  "description": "Live voice debate against an AI. Pick a claim, take a side, argue out loud in real time, and get a judged verdict with a transcript at the end.",
+  "isPartOf": { "@type": "WebSite", "name": "DebateIt", "url": "https://debateai.com" }
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -176,7 +193,7 @@ body{
 .side-seg[data-side="against"] .side-btn.against{color:var(--ink)}
 .tune-row{
   margin-top:18px;width:100%;
-  display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
 }
 .tune{display:flex;flex-direction:column;align-items:center;gap:8px}
 .tune-label{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
@@ -308,6 +325,54 @@ html[data-theme="light"] .theme-btn .icon-moon{display:block}
 .setup-alt{margin-top:8px;font-size:12.5px;color:var(--ink-faint);text-decoration:none;border-bottom:1px solid var(--card-line);padding-bottom:1px;transition:color .2s}
 .setup-alt:hover{color:var(--ink-dim)}
 
+/* ── live judge strip ────────────────────────────────────────── */
+/* display:flex on these would beat the UA's [hidden]{display:none};
+   restate it or the strip/panel render while "hidden". */
+.judge-strip[hidden],.ts-panel[hidden]{display:none !important}
+.judge-strip{
+  width:min(720px,100%);
+  display:flex;align-items:baseline;gap:10px;
+  background:var(--panel);backdrop-filter:blur(10px);
+  border:1px solid rgba(239,68,68,.35);border-radius:12px;
+  padding:9px 14px;
+}
+.js-tag{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#fca5a5;flex:none}
+html[data-theme="light"] .js-tag{color:#b91c1c}
+.js-text{font-size:13px;line-height:1.45;color:var(--ink)}
+
+/* ── live transcript drawer ──────────────────────────────────── */
+.ts-panel{
+  position:fixed;top:calc(70px + env(safe-area-inset-top));right:14px;
+  bottom:calc(14px + env(safe-area-inset-bottom));width:min(400px,calc(100vw - 28px));
+  z-index:5;display:flex;flex-direction:column;
+  background:var(--panel);backdrop-filter:blur(14px);
+  border:1px solid var(--card-line);border-radius:16px;
+  animation:tsIn .3s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes tsIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.ts-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--card-line);
+  font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-dim);
+}
+.ts-close{
+  background:none;border:none;cursor:pointer;color:var(--ink-dim);
+  font-size:20px;line-height:1;padding:2px 6px;
+}
+.ts-close:hover{color:var(--ink)}
+.ts-body{flex:1;overflow-y:auto;padding:16px 18px}
+.ts-body .tr-turn.judge .tr-who{color:#fca5a5}
+html[data-theme="light"] .ts-body .tr-turn.judge .tr-who{color:#b91c1c}
+.ts-body .tr-turn.judge .tr-text{color:var(--ink-dim)}
+.ts-empty{font-size:13px;color:var(--ink-faint);line-height:1.5}
+@media (max-width:720px){
+  .ts-panel{
+    top:auto;left:10px;right:10px;width:auto;
+    height:52vh;bottom:calc(10px + env(safe-area-inset-bottom));
+  }
+  @keyframes tsIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+}
+
 /* ── RECAP ────────────────────────────────────────────────────── */
 #recap{justify-content:center;padding:24px;overflow-y:auto}
 .recap-card{
@@ -357,6 +422,9 @@ html[data-theme="light"] .ballot-pill.win-ai{color:#b91c1c;border-color:rgba(185
 .tr-who{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin-bottom:3px}
 .tr-turn.you .tr-who{color:rgba(245,245,240,.7)}
 .tr-turn.ai .tr-who{color:#fca5a5}
+.tr-turn.judge .tr-who{color:#fca5a5}
+.tr-turn.judge .tr-text{color:var(--ink-dim)}
+html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
 .tr-text{font-size:14.5px;line-height:1.55;color:var(--ink)}
 .recap-actions{margin-top:26px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .recap-actions .ctl-end{animation:beacon 2.6s ease-out infinite}
@@ -436,6 +504,13 @@ html[data-theme="light"] .ballot-pill.win-ai{color:#b91c1c;border-color:rgba(185
           <button type="button" data-pace="quick">Quick</button>
         </div>
       </div>
+      <div class="tune">
+        <div class="tune-label">Live judge</div>
+        <div class="tune-seg" id="judgeSeg">
+          <button type="button" data-judge="off" class="active">Off</button>
+          <button type="button" data-judge="on">On</button>
+        </div>
+      </div>
     </div>
 
     <button id="startBtn" class="rise rise-6" type="button">
@@ -457,6 +532,10 @@ html[data-theme="light"] .ballot-pill.win-ai{color:#b91c1c;border-color:rgba(185
   </div>
   <div class="stage-mid"></div>
   <div class="stage-bottom">
+    <div class="judge-strip" id="judgeStrip" hidden>
+      <span class="js-tag">Judge</span>
+      <span class="js-text" id="judgeStripText">Watching the round.</span>
+    </div>
     <div class="captions">
       <div class="cap cap-you" id="capYou">
         <div class="cap-tag">You <span class="eq" id="eqYou"><b></b><b></b><b></b><b></b></span></div>
@@ -470,9 +549,17 @@ html[data-theme="light"] .ballot-pill.win-ai{color:#b91c1c;border-color:rgba(185
     <div class="controls">
       <button class="ctl ctl-mute" id="muteBtn" type="button">Mute</button>
       <button class="ctl" id="paceBtn" type="button">Pace: Natural</button>
+      <button class="ctl" id="tsBtn" type="button">Transcript</button>
       <button class="ctl ctl-end" id="endBtn" type="button">End round</button>
     </div>
   </div>
+  <aside class="ts-panel" id="tsPanel" hidden aria-label="Live transcript">
+    <div class="ts-head">
+      <span>Transcript</span>
+      <button class="ts-close" id="tsClose" type="button" aria-label="Close transcript">×</button>
+    </div>
+    <div class="ts-body" id="tsBody"></div>
+  </aside>
   <div class="watermark">debateai.com</div>
 </section>
 
@@ -524,32 +611,36 @@ try {
 (() => {
 'use strict';
 
-/* ── claims bank: accessible, spicy, argue-at-dinner tier ────── */
+/* ── claims bank ─────────────────────────────────────────────────
+   Every motion here has to pass the double-sided test: a smart person
+   should be able to win either side without contorting. Accessible
+   topics, real stakes, no gotchas and no claims where one side is
+   just obviously right. */
 const CLAIMS = [
-  'Social media has made friendship worse',
-  'Tipping should be abolished',
-  'College is no longer worth it',
-  'AI art is real art',
-  'Remote work beats the office',
-  'Cars should be banned from city centers',
-  'The four-day work week should be standard',
-  'Zoos should be shut down',
-  'Space exploration is a waste of money',
+  'Social media does more harm than good',
+  'College is still worth the cost',
+  'Remote work is better for workers than the office',
+  'Cities should ban cars from their centers',
+  'The four-day work week should replace the five-day week',
+  'Zoos do more good than harm',
+  'Space exploration is worth the money',
   'Kids under 16 should be banned from social media',
   'Voting should be mandatory',
-  'Fast fashion should be taxed like cigarettes',
-  'Streaming killed good movies',
-  'Homework should be abolished',
-  'Self-checkout is a scam',
-  'Dating apps have ruined dating',
-  'Public universities should be free',
-  'We should colonize Mars before fixing Earth',
-  'The drinking age should be 18',
-  'Influencer is a real job',
-  'Museums should return looted artifacts',
-  'Every city should have car-free Sundays',
+  'AI-generated art counts as real art',
+  'Streaming has been good for movies',
+  'Homework does more good than harm',
+  'Dating apps have made finding love easier',
+  'Public college should be free',
+  'Humans should colonize Mars this century',
+  'The drinking age should be lowered to 18',
+  'Museums should return artifacts taken from other countries',
+  'Billionaires should not exist',
+  'Tipping should be replaced by higher wages',
   'Grades do more harm than good',
-  'Cash should never disappear',
+  'Nuclear power is the best path to clean energy',
+  'Professional athletes deserve their salaries',
+  'Cancel culture does more good than harm',
+  'Everyone should have to work a service job once',
 ];
 
 /* ── dom ─────────────────────────────────────────────────────── */
@@ -576,6 +667,14 @@ let currentMotion = '';
 let roundLang = 'en';
 let aiTalking = false;             // between response.created and response.done
 let bargeIv = null, bargeMs = 0;   // sustained-speech interrupt gate
+/* Turn engine state. The AI never auto-fills a gap: it speaks when the
+   user hands the floor over ("your turn" and friends) or after a real
+   stretch of silence. */
+let pendingTurn = false;           // the user has said something the AI hasn't answered
+let awaitingResponse = false;      // response.create sent, response.created not yet seen
+let lastActiveAt = 0;              // last moment the mic carried speech-level audio
+let lastAiDoneAt = 0;              // when the AI last finished a response
+let nudgeFired = false;            // one re-engage nudge per lull
 let turns = [];                    // {who:'you'|'ai', text}
 let aiLive = '';                   // streaming AI caption
 let connectAbort = null, connectWatchdog = null;
@@ -656,6 +755,20 @@ $('paceSeg').addEventListener('click', (e) => {
   if (!v) return;
   setPace(v);
 });
+/* Live judge opt-in. Off by default: each read is a real Claude call,
+   so the user chooses to spend it. */
+let liveJudge = false;
+try { liveJudge = localStorage.getItem('debateos-newvoice-judge-live') === 'on'; } catch (e) {}
+paintSeg($('judgeSeg'), 'judge', liveJudge ? 'on' : 'off');
+$('judgeSeg').addEventListener('click', (e) => {
+  const v = e.target && e.target.dataset && e.target.dataset.judge;
+  if (!v) return;
+  liveJudge = v === 'on';
+  paintSeg($('judgeSeg'), 'judge', v);
+  try { localStorage.setItem('debateos-newvoice-judge-live', v); } catch (err) {}
+  if (status === 'live') $('judgeStrip').hidden = !liveJudge;
+});
+
 function paceLabel(k){ return k.charAt(0).toUpperCase() + k.slice(1); }
 function setPace(k){
   if (!PACE[k]) return;
@@ -816,8 +929,8 @@ async function start(){
             '(1) State the claim naturally in one line: "' + motion.replace(/"/g, "'") + '". ' +
             '(2) One short clause on sides: they are ' + userWord + ' it, you are ' + aiWord + ' it. ' +
             '(3) Deliver a compact opening case for your side: three or four sentences building your single strongest argument, with the reasoning walked through and one concrete real-world example. A real case, not a quip, not a list. ' +
-            '(4) Hand them the floor with a short line like "make your case." or "the floor is yours." ' +
-            'Serious, calm, confident. No jokes, no welcome speech, no rules explanation, no "Absolutely", no enthusiasm words.' },
+            '(4) Hand them the floor and teach the handoff in one short clause, like: "the floor is yours. say your turn when you want me back in, or just pause." ' +
+            'Serious, calm, confident. No jokes, no welcome speech, no other rules explanation, no "Absolutely", no enthusiasm words.' },
         }));
       } catch (e) {}
     };
@@ -861,8 +974,15 @@ async function start(){
   startedAt = Date.now();
   turns = []; aiLive = '';
   $('stageMotion').textContent = motion;
-  capYouText.textContent = 'Mic is live. Say your case.'; capYouText.classList.add('idle');
+  capYouText.textContent = 'Mic is live. Make your case. Say "your turn" or pause to hand it back.'; capYouText.classList.add('idle');
   capAiText.textContent = 'Waking up.'; capAiText.classList.add('idle');
+  pendingTurn = false; awaitingResponse = false; nudgeFired = false;
+  lastActiveAt = Date.now(); lastAiDoneAt = 0;
+  turnsJudged = 0; lastJudgeAt = 0; judgeBusy = false;
+  $('judgeStrip').hidden = !liveJudge;
+  $('judgeStripText').textContent = 'Watching the round.';
+  $('tsPanel').hidden = true;
+  renderTs();
   statusPill.classList.remove('connecting');
   statusText.textContent = 'LIVE · 0:00';
   show('stage');
@@ -886,22 +1006,67 @@ async function start(){
    a second and the AI yields mid-sentence like a person would. */
 const BARGE_LEVEL = 0.12;      // mic RMS floor that counts as speech
 const BARGE_SUSTAIN_MS = 750;  // continuous speech needed to take the floor
+const TURN_SILENCE_MS = 3000;  // genuine quiet before the AI takes an unhanded floor
+const NUDGE_AFTER_MS = 16000;  // dead air before one gentle re-engage
 function bargeTick(){
-  if (!aiTalking || muted || !dc || dc.readyState !== 'open') { bargeMs = 0; return; }
-  const lvl = level(userAnalyser, userBuf);
-  if (lvl > BARGE_LEVEL) bargeMs += 50;
-  else bargeMs = Math.max(0, bargeMs - 100);
-  if (bargeMs >= BARGE_SUSTAIN_MS) {
-    bargeMs = 0;
-    aiTalking = false;
-    try {
-      // Stop generating, then flush the audio the server has already
-      // buffered so playback halts now instead of finishing the clause.
-      dc.send(JSON.stringify({ type: 'response.cancel' }));
-      dc.send(JSON.stringify({ type: 'output_audio_buffer.clear' }));
-    } catch (e) {}
-    setSpeaking('ai', false);
+  if (!dc || dc.readyState !== 'open') { bargeMs = 0; return; }
+  const now = Date.now();
+  const lvl = muted ? 0 : level(userAnalyser, userBuf);
+  if (lvl > BARGE_LEVEL) { lastActiveAt = now; nudgeFired = false; }
+
+  // Interrupt gate: sustained speech while the AI talks takes the floor.
+  if (aiTalking && !muted) {
+    if (lvl > BARGE_LEVEL) bargeMs += 50;
+    else bargeMs = Math.max(0, bargeMs - 100);
+    if (bargeMs >= BARGE_SUSTAIN_MS) {
+      bargeMs = 0;
+      aiTalking = false;
+      try {
+        // Stop generating, then flush the audio the server has already
+        // buffered so playback halts now instead of finishing the clause.
+        dc.send(JSON.stringify({ type: 'response.cancel' }));
+        dc.send(JSON.stringify({ type: 'output_audio_buffer.clear' }));
+      } catch (e) {}
+      setSpeaking('ai', false);
+    }
+    return;
   }
+  bargeMs = 0;
+
+  // Turn engine: the floor is the user's until they hand it over. A
+  // handoff phrase answers immediately (handled in handleEvent); this
+  // path covers "they finished and went quiet": three seconds of real
+  // mic silence after their last audio reads as "not mid-thought".
+  if (pendingTurn && !awaitingResponse && now - lastActiveAt >= TURN_SILENCE_MS) {
+    requestAiTurn('');
+    return;
+  }
+
+  // Long dead air with nothing pending: one calm re-engage per lull,
+  // never a loop of them.
+  if (!pendingTurn && !awaitingResponse && !nudgeFired &&
+      lastAiDoneAt && now - Math.max(lastActiveAt, lastAiDoneAt) > NUDGE_AFTER_MS) {
+    nudgeFired = true;
+    requestAiTurn(
+      'They have gone quiet. In one or two sentences, pull them back in: ' +
+      'restate your strongest standing point and ask them one direct question about it. ' +
+      'Do not deliver a new full argument.'
+    );
+  }
+}
+
+/* Ask the model to speak. Empty instructions = a normal debate turn
+   per the session prompt; non-empty = a one-off directive (the nudge). */
+function requestAiTurn(instructions){
+  if (!dc || dc.readyState !== 'open' || aiTalking || awaitingResponse) return;
+  pendingTurn = false;
+  awaitingResponse = true;
+  try {
+    dc.send(JSON.stringify({
+      type: 'response.create',
+      ...(instructions ? { response: { instructions } } : {}),
+    }));
+  } catch (e) { awaitingResponse = false; }
 }
 
 /* Session config. semantic_vad reads the words to judge whether the
@@ -913,12 +1078,19 @@ function bargeTick(){
    interrupt_response is OFF on purpose: with it on, the server cancels
    the AI's speech on the FIRST detected syllable, so a cough or an
    "mm" kills a paragraph mid-argument. The barge gate below replaces
-   it: the AI only yields after sustained speech (several words). */
+   it: the AI only yields after sustained speech (several words).
+
+   create_response is ALSO off. The server would otherwise answer the
+   moment VAD scores a turn-end, which reads as jumping down the user's
+   throat. The turn engine in turnTick() replaces it: the AI responds
+   when the user hands the floor over out loud ("your turn", "go
+   ahead", ...) or after ~3 seconds of genuine mic silence. VAD still
+   runs for commits + transcription; it just stops driving replies. */
 function sendSessionConfig(kind){
   if (!dc || dc.readyState !== 'open') return;
   const turnDetection = kind === 'semantic'
-    ? { type: 'semantic_vad', eagerness: 'auto', create_response: true, interrupt_response: false }
-    : { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 900, create_response: true, interrupt_response: false };
+    ? { type: 'semantic_vad', eagerness: 'auto', create_response: false, interrupt_response: false }
+    : { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 900, create_response: false, interrupt_response: false };
   try {
     dc.send(JSON.stringify({
       type: 'session.update',
@@ -937,14 +1109,23 @@ function sendSessionConfig(kind){
   } catch (e) {}
 }
 
+/* Spoken floor-handoff phrases. When a completed user transcription
+   ENDS on one of these, the AI answers immediately instead of waiting
+   out the 3-second silence window. */
+const HANDOFF_RE = /(your (turn|move|go|response)|over to you|go ahead|you go|respond to that|rebut that|what do you (say|think)|thoughts\?*)[.!?\s]*$/i;
+
 let vadFallbackSent = false;
 function handleEvent(e){
   switch (e.type) {
     case 'input_audio_buffer.speech_started':
       setSpeaking('you', true);
+      lastActiveAt = Date.now();
+      nudgeFired = false;
       break;
     case 'input_audio_buffer.speech_stopped':
       setSpeaking('you', false);
+      lastActiveAt = Date.now();
+      if (!aiTalking && !awaitingResponse) pendingTurn = true;
       break;
     case 'conversation.item.input_audio_transcription.completed': {
       const text = (e.transcript || '').trim();
@@ -952,12 +1133,18 @@ function handleEvent(e){
         turns.push({ who: 'you', text });
         capYouText.textContent = text;
         capYouText.classList.remove('idle');
+        renderTs();
+        if (!aiTalking && !awaitingResponse) {
+          pendingTurn = true;
+          if (HANDOFF_RE.test(text)) requestAiTurn('');
+        }
       }
       break;
     }
     case 'response.created':
       aiLive = '';
       aiTalking = true;
+      awaitingResponse = false;
       setSpeaking('ai', true);
       break;
     case 'response.audio_transcript.delta':
@@ -971,13 +1158,16 @@ function handleEvent(e){
     case 'response.audio_transcript.done':
     case 'response.output_audio_transcript.done': {
       const text = ((e.transcript || aiLive) || '').trim();
-      if (text) { turns.push({ who: 'ai', text }); capAiText.textContent = text; }
+      if (text) { turns.push({ who: 'ai', text }); capAiText.textContent = text; renderTs(); }
       break;
     }
     case 'response.done':
       aiTalking = false;
+      awaitingResponse = false;
       bargeMs = 0;
+      lastAiDoneAt = Date.now();
       setSpeaking('ai', false);
+      maybeLiveJudge();
       break;
     case 'error': {
       const msg = JSON.stringify(e.error || e).toLowerCase();
@@ -992,6 +1182,82 @@ function handleEvent(e){
 
 function setSpeaking(who, on){
   (who === 'you' ? capYou : capAi).classList.toggle('speaking', on);
+}
+
+/* ── live transcript drawer ──────────────────────────────────── */
+$('tsBtn').addEventListener('click', () => {
+  const p = $('tsPanel');
+  p.hidden = !p.hidden;
+  if (!p.hidden) renderTs();
+});
+$('tsClose').addEventListener('click', () => { $('tsPanel').hidden = true; });
+function renderTs(){
+  const body = $('tsBody');
+  if (!body) return;
+  body.innerHTML = '';
+  const list = turns.filter((t) => t && (t.text || '').trim());
+  if (!list.length) {
+    const d = document.createElement('div');
+    d.className = 'ts-empty';
+    d.textContent = 'Nothing on the record yet. It fills in as you argue.';
+    body.appendChild(d);
+    return;
+  }
+  list.forEach((t) => {
+    const d = document.createElement('div');
+    d.className = 'tr-turn ' + t.who;
+    const who = document.createElement('div');
+    who.className = 'tr-who';
+    who.textContent = t.who === 'you' ? 'You' : (t.who === 'judge' ? 'Judge' : 'The machine');
+    const tx = document.createElement('div');
+    tx.className = 'tr-text';
+    tx.textContent = t.text;
+    d.appendChild(who); d.appendChild(tx);
+    body.appendChild(d);
+  });
+  body.scrollTop = body.scrollHeight;
+}
+
+/* ── live judge: a quiet running read of the round ───────────────
+   Fires after an AI turn completes, at most every 25 seconds and only
+   when at least two new turns landed since the last read. One short
+   sentence: who is ahead and why. */
+let turnsJudged = 0, lastJudgeAt = 0, judgeBusy = false;
+function maybeLiveJudge(){
+  if (!liveJudge || judgeBusy || status !== 'live') return;
+  const spoken = turns.filter((t) => t && t.who !== 'judge' && (t.text || '').trim());
+  if (spoken.length < 2 || spoken.length - turnsJudged < 2) return;
+  if (Date.now() - lastJudgeAt < 25000) return;
+  judgeBusy = true;
+  turnsJudged = spoken.length;
+  lastJudgeAt = Date.now();
+  const transcript = spoken.slice(-12).map((x) => (x.who === 'you' ? 'USER' : 'MACHINE') + ': ' + x.text).join('\n');
+  fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 120,
+      stream: false,
+      system:
+        'You are silently scoring a live spoken argument between USER and MACHINE, mid-round. ' +
+        'Reply with ONE sentence under 22 words, plain English, present tense, addressed to USER as "you": ' +
+        'who is ahead right now and the single biggest reason. Call the other side "the machine". ' +
+        'No hedging, no preamble, no final-verdict language; the round is still going.',
+      messages: [{ role: 'user', content: 'Claim: "' + (currentMotion || '') + '". USER argues ' + (side === 'for' ? 'FOR' : 'AGAINST') + ' it.\n\n' + transcript }],
+      _feature: 'newvoice-livejudge',
+    }),
+  }).then((r) => {
+    if (!r.ok) throw new Error('judge ' + r.status);
+    return r.json().then((j) => (j && j.content && j.content[0] && j.content[0].text) || '');
+  }).then((text) => {
+    judgeBusy = false;
+    text = (text || '').trim();
+    if (!text || status !== 'live') return;
+    $('judgeStripText').textContent = text;
+    turns.push({ who: 'judge', text });
+    renderTs();
+  }).catch(() => { judgeBusy = false; });
 }
 
 /* ── mute / end ──────────────────────────────────────────────── */
@@ -1013,6 +1279,7 @@ function cleanup(){
   timerIv = null;
   try { if (bargeIv) clearInterval(bargeIv); } catch (e) {}
   bargeIv = null; bargeMs = 0; aiTalking = false;
+  pendingTurn = false; awaitingResponse = false; nudgeFired = false;
   stopArena();
   try { if (dc) dc.close(); } catch (e) {}
   try { if (pc) { pc.onconnectionstatechange = null; pc.close(); } } catch (e) {}
@@ -1032,7 +1299,7 @@ function endRound(){
   cleanup();
   // recap
   $('statTime').textContent = fmtTime(elapsed);
-  $('statTurns').textContent = String(turns.length);
+  $('statTurns').textContent = String(turns.filter((t) => t && t.who !== 'judge').length);
   $('recapClaim').textContent = currentMotion || '';
   $('recapSides').textContent = currentMotion
     ? 'You argued ' + side + ' · The machine argued ' + (side === 'for' ? 'against' : 'for')
@@ -1046,7 +1313,8 @@ function endRound(){
     turns.forEach((t) => {
       const d = document.createElement('div');
       d.className = 'tr-turn ' + t.who;
-      const who = document.createElement('div'); who.className = 'tr-who'; who.textContent = t.who === 'you' ? 'You' : 'The machine';
+      const who = document.createElement('div'); who.className = 'tr-who';
+      who.textContent = t.who === 'you' ? 'You' : (t.who === 'judge' ? 'Judge (mid-round)' : 'The machine');
       const tx = document.createElement('div'); tx.className = 'tr-text'; tx.textContent = t.text;
       d.appendChild(who); d.appendChild(tx);
       box.appendChild(d);
@@ -1064,7 +1332,7 @@ function endRound(){
    on any failure — the transcript is still the product. */
 function judgeRound(){
   const card = $('ballotCard'), body = $('ballotBody'), pill = $('ballotPill');
-  const t = turns.filter((x) => x && (x.text || '').trim());
+  const t = turns.filter((x) => x && x.who !== 'judge' && (x.text || '').trim());
   const youSpoke = t.filter((x) => x.who === 'you').length;
   if (t.length < 3 || youSpoke < 1) { card.hidden = true; return; }
   card.hidden = false;
@@ -1131,7 +1399,7 @@ function judgeRound(){
    uid; anonymous rounds ride a hashed session id, never contributable. */
 function logRound(){
   try {
-    const t = turns.filter((x) => x && (x.text || '').trim());
+    const t = turns.filter((x) => x && x.who !== 'judge' && (x.text || '').trim());
     if (t.length < 2) return;
     const payload = {
       action: 'generation',

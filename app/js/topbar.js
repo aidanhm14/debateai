@@ -158,10 +158,6 @@
   // Voice so the two real-time-entry actions sit adjacent at the front
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
-    // 2026-07-04: Voice routes to /newvoice (rebuilt one-screen live
-    // clash). Classic trainer stays reachable at /voice-debate via the
-    // cross-links on /newvoice.
-    { href: '/newvoice',      label: 'Voice'        },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // Aidan (still reachable at /float and /exhibition directly).
@@ -206,6 +202,12 @@
     // prediction market (back who wins across three windows, AI judge
     // settles, leaderboard). noindex page; this is the on-site entry.
     { href: '/floor',         label: 'Floor', mobileKeep: true },
+    // 2026-07-05: Voice AI moved to the LAST slot per Aidan ("highlight
+    // voice ai by putting it on the right side of the tabs") — the
+    // rightmost tab, red + dotted via `hot`, sitting next to the primary
+    // CTA. Routes to /newvoice (the rebuilt live clash); the classic
+    // trainer stays reachable at /voice-debate via /newvoice crosslinks.
+    { href: '/newvoice',      label: 'Voice AI', hot: true, mobileKeep: true },
   ];
 
   function el(tag, attrs, children){
@@ -326,6 +328,27 @@
         }
         a.appendChild(el('span', { class: 'ui-topbar-spar-dot', 'aria-hidden': 'true' }));
       }
+      // `hot` = the highlighted product tab (Voice AI). Red label in a
+      // faint red pill so it reads as THE headline feature without
+      // shouting over the primary CTA next to it.
+      if (L.hot){
+        a.style.display = 'inline-flex';
+        a.style.alignItems = 'center';
+        a.style.gap = '6px';
+        a.style.fontWeight = '800';
+        a.style.color = '#f87171';
+        a.style.background = 'rgba(239,68,68,.10)';
+        a.style.border = '1px solid rgba(239,68,68,.35)';
+        a.style.borderRadius = '999px';
+        a.style.padding = '5px 12px';
+        if (!document.getElementById('daSparPulseStyle')){
+          var hs = document.createElement('style');
+          hs.id = 'daSparPulseStyle';
+          hs.textContent = '@keyframes daSparPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}.ui-topbar-spar-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;animation:daSparPulse 1.8s ease-out infinite}@media (prefers-reduced-motion:reduce){.ui-topbar-spar-dot{animation:none}}';
+          document.head.appendChild(hs);
+        }
+        a.appendChild(el('span', { class: 'ui-topbar-spar-dot', 'aria-hidden': 'true' }));
+      }
       a.appendChild(document.createTextNode(L.label));
       right.appendChild(a);
     });
@@ -416,12 +439,15 @@
         style: { padding: '8px 18px' },
       }, 'Debate it');
     } else {
+      // Label is the action, not the product name — the highlighted
+      // "Voice AI" tab sits right next to this button, and two identical
+      // labels side by side read as a bug.
       cta = el('a', {
         href: '/newvoice',
         class: 'ui-btn ui-btn-primary ui-btn-sm',
         title: 'Talk out loud. The AI argues back.',
         style: { padding: '8px 18px' },
-      }, 'Voice AI');
+      }, 'Start a round');
     }
     // Sign-in / account slot, just left of the primary CTA. Always
     // rendered: shows a "Sign in" button when signed out (not only the
@@ -462,7 +488,7 @@
       href: onVoiceDebate ? '/debate-it' : '/newvoice',
       class: 'ui-topbar-sheet-cta',
       role: 'menuitem',
-    }, onVoiceDebate ? 'Debate it →' : 'Voice AI →');
+    }, onVoiceDebate ? 'Debate it →' : 'Start a round →');
     sheet.appendChild(sheetCta);
 
     // Auth row in the mobile sheet. On desktop the Sign in pill lives in
