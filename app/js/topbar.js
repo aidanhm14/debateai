@@ -918,3 +918,72 @@
   // changes if it needs to (rare).
   window.daTopbar = { render: render };
 })();
+
+/* ── Mailto chooser ─────────────────────────────────────────────
+   Clicking any mailto: link used to dump visitors into whatever
+   desktop mail app the OS picked (often Outlook, often unconfigured).
+   Now: a small chooser offers Gmail, Outlook, or the default mail app,
+   and shows the address with a copy button. Applies on every page that
+   loads topbar.js; pages without it keep the plain mailto fallback. */
+(function(){
+  function parseMailto(href){
+    var rest = (href || '').replace(/^mailto:/i, '').split('?');
+    var out = { to: decodeURIComponent(rest[0] || ''), subject: '', body: '' };
+    (rest[1] || '').split('&').forEach(function(kv){
+      var p = kv.split('=');
+      var k = (p[0] || '').toLowerCase();
+      var v = decodeURIComponent((p[1] || '').replace(/\+/g, ' '));
+      if (k === 'subject') out.subject = v;
+      if (k === 'body') out.body = v;
+    });
+    return out;
+  }
+  function esc(s){ return encodeURIComponent(s || ''); }
+  function show(info, rawHref){
+    var old = document.getElementById('ditMailChooser');
+    if (old) old.remove();
+    var scrim = document.createElement('div');
+    scrim.id = 'ditMailChooser';
+    scrim.style.cssText = 'position:fixed;inset:0;background:rgba(20,16,12,.5);z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px';
+    var card = document.createElement('div');
+    card.style.cssText = "background:#faf9f4;color:#1d1915;border-radius:14px;padding:20px 20px 16px;max-width:340px;width:100%;font-family:'Crimson Pro',Georgia,serif;box-shadow:0 18px 50px rgba(0,0,0,.3)";
+    var gmail = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + esc(info.to) + (info.subject ? '&su=' + esc(info.subject) : '') + (info.body ? '&body=' + esc(info.body) : '');
+    var outlook = 'https://outlook.live.com/mail/0/deeplink/compose?to=' + esc(info.to) + (info.subject ? '&subject=' + esc(info.subject) : '') + (info.body ? '&body=' + esc(info.body) : '');
+    var row = 'display:block;width:100%;text-align:left;padding:11px 14px;margin:8px 0 0;border:1px solid rgba(29,25,21,.15);border-radius:10px;background:#fff;color:#1d1915;font:inherit;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;box-sizing:border-box';
+    card.innerHTML =
+      '<div style="font-weight:800;font-size:17px">Send an email</div>' +
+      '<div style="font-size:13.5px;color:rgba(29,25,21,.6);margin-top:2px;word-break:break-all">' + info.to.replace(/</g, '&lt;') + '</div>' +
+      '<a data-x="gmail" style="' + row + '" href="' + gmail + '" target="_blank" rel="noopener">Open in Gmail</a>' +
+      '<a data-x="outlook" style="' + row + '" href="' + outlook + '" target="_blank" rel="noopener">Open in Outlook</a>' +
+      '<a data-x="mailapp" style="' + row + '" href="' + rawHref + '">Use my mail app</a>' +
+      '<button data-x="copy" style="' + row + ';border-style:dashed;font-weight:600">Copy address</button>' +
+      '<button data-x="close" style="display:block;margin:10px auto 0;border:0;background:none;color:rgba(29,25,21,.55);font:inherit;font-size:13px;cursor:pointer">Cancel</button>';
+    scrim.appendChild(card);
+    document.body.appendChild(scrim);
+    function close(){ scrim.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e){ if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    scrim.addEventListener('click', function(e){ if (e.target === scrim) close(); });
+    card.addEventListener('click', function(e){
+      var el = e.target && e.target.closest ? e.target.closest('[data-x]') : null;
+      if (!el) return;
+      var x = el.getAttribute('data-x');
+      if (x === 'copy'){
+        e.preventDefault();
+        try { navigator.clipboard.writeText(info.to); el.textContent = 'Copied'; } catch(err){ el.textContent = info.to; }
+        return;
+      }
+      if (x === 'close'){ e.preventDefault(); close(); return; }
+      setTimeout(close, 150);
+    });
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target && e.target.closest ? e.target.closest('a[href^="mailto:"]') : null;
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    var info = parseMailto(href);
+    if (!info.to) return;
+    e.preventDefault();
+    show(info, href);
+  }, true);
+})();
