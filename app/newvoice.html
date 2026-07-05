@@ -574,6 +574,8 @@ let userBuf = null, aiBuf = null;
 let startedAt = 0, timerIv = null;
 let currentMotion = '';
 let roundLang = 'en';
+let aiTalking = false;             // between response.created and response.done
+let bargeIv = null, bargeMs = 0;   // sustained-speech interrupt gate
 let turns = [];                    // {who:'you'|'ai', text}
 let aiLive = '';                   // streaming AI caption
 let connectAbort = null, connectWatchdog = null;
@@ -870,18 +872,53 @@ async function start(){
     statusText.textContent = 'LIVE · ' + fmtTime(el);
     if (el > HARD_CAP_MS) endRound('cap');
   }, 500);
+  bargeMs = 0;
+  bargeIv = setInterval(bargeTick, 50);
+}
+
+/* ── barge-in gate ────────────────────────────────────────────────
+   The AI is not cancelled on the first syllable (interrupt_response
+   is off in sendSessionConfig). Instead this watches the mic while
+   the AI talks and only cuts it off after SUSTAINED speech, roughly
+   a few words, so coughs, "mm", and one-word backchannels don't kill
+   a paragraph. Brief sound decays fast (drain at 2x fill rate); a
+   real interjection crosses the threshold in about three-quarters of
+   a second and the AI yields mid-sentence like a person would. */
+const BARGE_LEVEL = 0.12;      // mic RMS floor that counts as speech
+const BARGE_SUSTAIN_MS = 750;  // continuous speech needed to take the floor
+function bargeTick(){
+  if (!aiTalking || muted || !dc || dc.readyState !== 'open') { bargeMs = 0; return; }
+  const lvl = level(userAnalyser, userBuf);
+  if (lvl > BARGE_LEVEL) bargeMs += 50;
+  else bargeMs = Math.max(0, bargeMs - 100);
+  if (bargeMs >= BARGE_SUSTAIN_MS) {
+    bargeMs = 0;
+    aiTalking = false;
+    try {
+      // Stop generating, then flush the audio the server has already
+      // buffered so playback halts now instead of finishing the clause.
+      dc.send(JSON.stringify({ type: 'response.cancel' }));
+      dc.send(JSON.stringify({ type: 'output_audio_buffer.clear' }));
+    } catch (e) {}
+    setSpeaking('ai', false);
+  }
 }
 
 /* Session config. semantic_vad reads the words to judge whether the
    thought actually closed — fast on a finished question, patient on a
    mid-sentence pause. If OpenAI rejects it (older account), the error
    handler re-sends with a plain server_vad floor so turn-taking never
-   silently dies. */
+   silently dies.
+
+   interrupt_response is OFF on purpose: with it on, the server cancels
+   the AI's speech on the FIRST detected syllable, so a cough or an
+   "mm" kills a paragraph mid-argument. The barge gate below replaces
+   it: the AI only yields after sustained speech (several words). */
 function sendSessionConfig(kind){
   if (!dc || dc.readyState !== 'open') return;
   const turnDetection = kind === 'semantic'
-    ? { type: 'semantic_vad', eagerness: 'auto', create_response: true, interrupt_response: true }
-    : { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 900, create_response: true, interrupt_response: true };
+    ? { type: 'semantic_vad', eagerness: 'auto', create_response: true, interrupt_response: false }
+    : { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 900, create_response: true, interrupt_response: false };
   try {
     dc.send(JSON.stringify({
       type: 'session.update',
@@ -920,6 +957,7 @@ function handleEvent(e){
     }
     case 'response.created':
       aiLive = '';
+      aiTalking = true;
       setSpeaking('ai', true);
       break;
     case 'response.audio_transcript.delta':
@@ -937,6 +975,8 @@ function handleEvent(e){
       break;
     }
     case 'response.done':
+      aiTalking = false;
+      bargeMs = 0;
       setSpeaking('ai', false);
       break;
     case 'error': {
@@ -971,6 +1011,8 @@ $('paceBtn').addEventListener('click', () => {
 function cleanup(){
   try { if (timerIv) clearInterval(timerIv); } catch (e) {}
   timerIv = null;
+  try { if (bargeIv) clearInterval(bargeIv); } catch (e) {}
+  bargeIv = null; bargeMs = 0; aiTalking = false;
   stopArena();
   try { if (dc) dc.close(); } catch (e) {}
   try { if (pc) { pc.onconnectionstatechange = null; pc.close(); } } catch (e) {}
