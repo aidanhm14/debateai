@@ -202,10 +202,13 @@
     // prediction market (back who wins across three windows, AI judge
     // settles, leaderboard). noindex page; this is the on-site entry.
     { href: '/floor',         label: 'Floor', mobileKeep: true },
-    // 2026-07-05: Free vs Paid surfaced per Aidan ("have a tab for
-    // 'free vs paid'"). Routes to /pricing, which frames beta-free
-    // today vs the future paid tiers (incl. Memory as a paid feature).
-    { href: '/pricing',       label: 'Free vs Paid' },
+    // 2026-07-05 (later same day): Free vs Paid removed from the bar per
+    // Aidan ("advertise this somehow else - remove it from top tab").
+    // Promoted contextually instead: the free-tier usage banner CTA
+    // (js/usage-banner.js) reads "Free vs Paid" -> /pricing at the
+    // moment metering matters, and the landing hero secondary pill rail
+    // carries a "Free vs Paid" pill (data-cta="hero-free-vs-paid").
+    // /pricing stays live + crawlable; just not a top-nav slot.
     // 2026-07-05: Voice AI moved to the LAST slot per Aidan ("highlight
     // voice ai by putting it on the right side of the tabs") — the
     // rightmost tab, red + dotted via `hot`, sitting next to the primary

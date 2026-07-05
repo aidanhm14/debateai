@@ -145,7 +145,13 @@
     // Default palette when we decided to show without a hit-the-floor trigger.
     const palette = sev || { bg: '#3b82f618', border: '#3b82f644', text: '#60a5fa', label: 'used' };
     const remaining = Math.max(0, limit - used);
-    const ctaText = isPaid ? 'Manage' : 'Upgrade';
+    // 2026-07-05: free-user CTA relabeled "Upgrade" -> "Free vs Paid",
+    // routed to /pricing. Two reasons: (a) during beta every tier is $0,
+    // so "Upgrade" oversells; (b) the Free vs Paid topbar tab came off
+    // the bar the same day and this banner IS its contextual promotion,
+    // shown at the exact moment metering matters (75%+ used). Paid users
+    // keep "Manage" -> the team surface.
+    const ctaText = isPaid ? 'Manage' : 'Free vs Paid';
 
     root.innerHTML = '';
     const pill = document.createElement('div');
@@ -178,7 +184,7 @@
     pill.appendChild(msg);
 
     const cta = document.createElement('a');
-    cta.href = MANAGE_URL;
+    cta.href = isPaid ? MANAGE_URL : 'https://debateai.com/pricing';
     cta.textContent = ctaText;
     cta.style.cssText = [
       'padding:3px 10px',
