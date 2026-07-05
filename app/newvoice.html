@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>DebateIt Live · Argue out loud with the machine</title>
+<meta name="description" content="Say your take out loud. The machine argues the other side in real time.">
+<!-- Test surface for the rebuilt voice experience. Not in the sitemap on purpose. -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#08080c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+<script defer src="/js/app-check.js"></script>
+<script defer src="/js/track.js"></script>
+
+<style>
+:root{
+  --bg:#08080c;
+  --ink:rgba(255,255,255,.94);
+  --ink-dim:rgba(255,255,255,.55);
+  --ink-faint:rgba(255,255,255,.32);
+  --red:#ef4444;
+  --red-deep:#dc2626;
+  --user:#f5f5f0;
+  --card:rgba(255,255,255,.045);
+  --card-line:rgba(255,255,255,.09);
+  --serif:'Crimson Pro',Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+em,i{font-style:normal}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── ambient background (both views) ─────────────────────────── */
+.ember{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(900px 600px at 85% 8%, rgba(239,68,68,.10), transparent 60%),
+    radial-gradient(700px 500px at 10% 95%, rgba(245,245,240,.05), transparent 60%);
+  animation:emberDrift 16s ease-in-out infinite alternate;
+}
+@keyframes emberDrift{
+  from{opacity:.7;transform:translate3d(0,0,0) scale(1)}
+  to{opacity:1;transform:translate3d(-18px,10px,0) scale(1.04)}
+}
+.grain{
+  position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.025 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── view switching ──────────────────────────────────────────── */
+.view{position:fixed;inset:0;z-index:2;display:none}
+.view.on{display:flex}
+
+/* ── SETUP ────────────────────────────────────────────────────── */
+#setup{align-items:center;justify-content:center;padding:24px}
+.setup-card{
+  width:min(640px,100%);
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+}
+.rise{opacity:0;transform:translateY(18px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+.rise-1{animation-delay:.05s}.rise-2{animation-delay:.15s}.rise-3{animation-delay:.25s}
+.rise-4{animation-delay:.35s}.rise-5{animation-delay:.45s}.rise-6{animation-delay:.55s}
+@keyframes rise{to{opacity:1;transform:translateY(0)}}
+.brand{
+  display:flex;align-items:center;gap:10px;margin-bottom:34px;
+  font-size:13px;letter-spacing:.16em;color:var(--ink-dim);text-transform:uppercase;
+}
+.brand a{color:var(--ink);text-decoration:none;font-weight:700;letter-spacing:.02em;text-transform:none;font-size:15px}
+.brand a span{color:var(--red)}
+.brand .live-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid rgba(239,68,68,.4);border-radius:999px;padding:3px 10px;
+  color:#fca5a5;font-size:10.5px;font-weight:700;
+}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+.setup-h1{
+  font-family:var(--serif);font-weight:600;
+  font-size:clamp(44px,8vw,72px);line-height:1.02;letter-spacing:-.01em;
+}
+.setup-sub{
+  margin-top:14px;max-width:44ch;color:var(--ink-dim);
+  font-size:16px;line-height:1.55;
+}
+.claim-wrap{width:100%;margin-top:38px;position:relative}
+.claim-label{
+  font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-faint);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;
+}
+#shuffleBtn{
+  background:none;border:none;cursor:pointer;color:var(--ink-dim);
+  font-family:var(--sans);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:6px;padding:4px 2px;
+  transition:color .2s;
+}
+#shuffleBtn:hover{color:var(--ink)}
+#shuffleBtn svg{transition:transform .45s cubic-bezier(.3,1.4,.4,1)}
+#shuffleBtn.spun svg{transform:rotate(180deg)}
+#claimInput{
+  width:100%;background:var(--card);border:1px solid var(--card-line);
+  border-radius:16px;padding:20px 22px;color:var(--ink);
+  font-family:var(--serif);font-size:clamp(20px,3.4vw,26px);font-weight:500;line-height:1.3;
+  resize:none;outline:none;min-height:96px;
+  transition:border-color .25s, box-shadow .25s, opacity .2s;
+}
+#claimInput:focus{border-color:rgba(239,68,68,.55);box-shadow:0 0 0 4px rgba(239,68,68,.10)}
+#claimInput.swap{opacity:0;transform:translateY(4px)}
+.side-row{margin-top:22px;width:100%;display:flex;justify-content:center}
+.side-seg{
+  position:relative;display:grid;grid-template-columns:1fr 1fr;
+  background:var(--card);border:1px solid var(--card-line);border-radius:999px;
+  padding:4px;width:min(380px,100%);
+}
+.side-pill{
+  position:absolute;top:4px;bottom:4px;width:calc(50% - 4px);left:4px;
+  background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);border-radius:999px;
+  transition:transform .3s cubic-bezier(.3,1,.3,1);
+}
+.side-seg[data-side="against"] .side-pill{transform:translateX(100%)}
+.side-btn{
+  position:relative;z-index:1;background:none;border:none;cursor:pointer;
+  color:var(--ink-dim);font-family:var(--sans);font-size:14px;font-weight:600;
+  padding:11px 8px;border-radius:999px;transition:color .2s;
+}
+.side-seg[data-side="for"] .side-btn.for,
+.side-seg[data-side="against"] .side-btn.against{color:var(--ink)}
+#startBtn{
+  margin-top:34px;
+  display:inline-flex;align-items:center;gap:12px;
+  background:var(--red);color:#fff;border:none;cursor:pointer;
+  font-family:var(--sans);font-size:17px;font-weight:700;letter-spacing:.01em;
+  padding:18px 44px;border-radius:999px;
+  box-shadow:0 0 0 0 rgba(239,68,68,.45);
+  /* #startBtn also carries .rise; an ID-level `animation` would override
+     the entrance and leave the button stuck at opacity:0. Run both. */
+  animation:rise .7s cubic-bezier(.2,.7,.2,1) .55s forwards, beacon 2.6s ease-out 1.3s infinite;
+  transition:background .2s, transform .15s;
+}
+#startBtn:hover{background:var(--red-deep);transform:translateY(-1px)}
+#startBtn:active{transform:translateY(0)}
+#startBtn:disabled{opacity:.55;cursor:default;animation:none}
+@keyframes beacon{
+  0%{box-shadow:0 0 0 0 rgba(239,68,68,.40)}
+  70%{box-shadow:0 0 0 22px rgba(239,68,68,0)}
+  100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}
+}
+.mic-glyph{width:18px;height:18px;flex:none}
+.setup-note{margin-top:20px;font-size:12.5px;color:var(--ink-faint)}
+.setup-err{
+  margin-top:18px;font-size:14px;color:#fca5a5;max-width:52ch;line-height:1.5;display:none;
+}
+.setup-err.on{display:block}
+.setup-err a{color:#fecaca}
+
+/* ── STAGE ────────────────────────────────────────────────────── */
+#stage{flex-direction:column}
+#arena{position:fixed;inset:0;z-index:0}
+.stage-top{
+  position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;
+  padding:calc(20px + env(safe-area-inset-top)) 20px 0;
+}
+#stage.on .stage-top{animation:stageIn .7s cubic-bezier(.2,.7,.2,1) both}
+#stage.on .stage-bottom{animation:stageInUp .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:.12s}
+@keyframes stageIn{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes stageInUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.status-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(8,8,12,.55);backdrop-filter:blur(8px);
+  border:1px solid var(--card-line);border-radius:999px;
+  padding:6px 14px;font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--ink-dim);
+}
+.status-pill .live-dot{background:var(--red)}
+.status-pill.connecting .live-dot{background:#facc15;animation-duration:.9s}
+.stage-motion{
+  margin-top:14px;max-width:26ch;text-align:center;
+  font-family:var(--serif);font-weight:600;
+  font-size:clamp(22px,3.6vw,34px);line-height:1.15;
+  text-wrap:balance;
+}
+.stage-mid{flex:1;position:relative;z-index:1}
+.stage-bottom{
+  position:relative;z-index:2;
+  padding:0 20px calc(22px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+}
+.captions{
+  width:min(1060px,100%);
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  align-items:end;
+}
+.cap{
+  border-radius:16px;padding:14px 18px;
+  background:rgba(8,8,12,.55);backdrop-filter:blur(10px);
+  border:1px solid var(--card-line);
+  min-height:78px;
+  opacity:.45;transition:opacity .35s ease,border-color .35s ease,box-shadow .35s ease;
+}
+.cap.speaking{opacity:1}
+.cap-you.speaking{border-color:rgba(245,245,240,.45);box-shadow:0 0 30px rgba(245,245,240,.07)}
+.cap-ai.speaking{border-color:rgba(239,68,68,.55);box-shadow:0 0 30px rgba(239,68,68,.12)}
+.cap-tag{
+  font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
+  margin-bottom:6px;display:flex;align-items:center;gap:7px;
+}
+.cap-you .cap-tag{color:rgba(245,245,240,.75)}
+.cap-ai .cap-tag{color:#fca5a5}
+.cap-text{
+  font-size:14.5px;line-height:1.5;color:var(--ink);
+  max-height:3.1em;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.cap-text.idle{color:var(--ink-faint)}
+.eq{display:inline-flex;align-items:flex-end;gap:2px;height:10px}
+.eq b{width:2.5px;border-radius:2px;background:currentColor;height:3px;transition:height .12s}
+.controls{display:flex;align-items:center;gap:12px}
+.ctl{
+  border-radius:999px;cursor:pointer;font-family:var(--sans);font-weight:700;font-size:14px;
+  padding:13px 26px;border:1px solid var(--card-line);
+  background:rgba(8,8,12,.55);backdrop-filter:blur(8px);color:var(--ink);
+  transition:background .2s,border-color .2s,transform .15s;
+}
+.ctl:hover{background:rgba(255,255,255,.08)}
+.ctl-end{background:var(--red);border-color:var(--red);color:#fff}
+.ctl-end:hover{background:var(--red-deep)}
+.ctl-mute.muted{border-color:rgba(250,204,21,.5);color:#fde68a}
+.watermark{
+  position:fixed;right:16px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:2;
+  font-size:11px;letter-spacing:.08em;color:rgba(255,255,255,.22);pointer-events:none;
+}
+
+/* ── RECAP ────────────────────────────────────────────────────── */
+#recap{align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+.recap-card{
+  width:min(680px,100%);max-height:100%;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:24px 0;
+}
+.recap-h{font-family:var(--serif);font-weight:600;font-size:clamp(36px,6vw,54px);line-height:1.05}
+.recap-stats{
+  margin-top:14px;display:flex;gap:22px;color:var(--ink-dim);font-size:13.5px;letter-spacing:.06em;
+}
+.recap-stats b{color:var(--ink)}
+.transcript{
+  margin-top:28px;width:100%;max-height:38vh;overflow-y:auto;
+  border:1px solid var(--card-line);border-radius:16px;background:var(--card);
+  padding:18px 20px;text-align:left;
+}
+.tr-turn{margin-bottom:14px}
+.tr-turn:last-child{margin-bottom:0}
+.tr-who{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin-bottom:3px}
+.tr-turn.you .tr-who{color:rgba(245,245,240,.7)}
+.tr-turn.ai .tr-who{color:#fca5a5}
+.tr-text{font-size:14.5px;line-height:1.55;color:var(--ink)}
+.recap-actions{margin-top:26px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.recap-actions .ctl-end{animation:beacon 2.6s ease-out infinite}
+.recap-foot{margin-top:22px;font-size:13px;color:var(--ink-faint)}
+.recap-foot a{color:var(--ink-dim)}
+
+@media (max-width:720px){
+  .captions{grid-template-columns:1fr}
+  .cap{min-height:0}
+  .cap-text{-webkit-line-clamp:2}
+  .stage-motion{font-size:19px;max-width:100%}
+  #startBtn{width:100%;justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){
+  .ember,.live-dot,#startBtn{animation:none}
+  .rise{animation-duration:.01s}
+}
+</style>
+</head>
+<body>
+
+<div class="ember"></div>
+<div class="grain"></div>
+
+<!-- ── SETUP ─────────────────────────────────────────────────── -->
+<section id="setup" class="view on">
+  <div class="setup-card">
+    <div class="brand rise rise-1">
+      <a href="/">Debate<span>It</span></a>
+      <span class="live-tag"><span class="live-dot"></span>LIVE</span>
+    </div>
+    <h1 class="setup-h1 rise rise-2">Pick a fight.</h1>
+    <p class="setup-sub rise rise-3">Say your take out loud. The machine argues the other side, in real time, until one of you folds.</p>
+
+    <div class="claim-wrap rise rise-4">
+      <div class="claim-label">
+        <span>The claim</span>
+        <button id="shuffleBtn" type="button" aria-label="Shuffle claim">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+          Surprise me
+        </button>
+      </div>
+      <textarea id="claimInput" rows="2" maxlength="220" spellcheck="false"></textarea>
+    </div>
+
+    <div class="side-row rise rise-5">
+      <div class="side-seg" id="sideSeg" data-side="for">
+        <div class="side-pill"></div>
+        <button class="side-btn for" type="button" data-pick="for">I'm for it</button>
+        <button class="side-btn against" type="button" data-pick="against">I'm against it</button>
+      </div>
+    </div>
+
+    <button id="startBtn" class="rise rise-6" type="button">
+      <svg class="mic-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+      <span id="startLabel">Start arguing</span>
+    </button>
+    <div class="setup-err" id="setupErr"></div>
+    <p class="setup-note rise rise-6">Headphones help. Ask "who won?" when you're done.</p>
+  </div>
+</section>
+
+<!-- ── STAGE ─────────────────────────────────────────────────── -->
+<section id="stage" class="view">
+  <canvas id="arena"></canvas>
+  <div class="stage-top">
+    <div class="status-pill" id="statusPill"><span class="live-dot"></span><span id="statusText">CONNECTING</span></div>
+    <div class="stage-motion" id="stageMotion"></div>
+  </div>
+  <div class="stage-mid"></div>
+  <div class="stage-bottom">
+    <div class="captions">
+      <div class="cap cap-you" id="capYou">
+        <div class="cap-tag">You <span class="eq" id="eqYou"><b></b><b></b><b></b><b></b></span></div>
+        <div class="cap-text idle" id="capYouText">Mic is live. Say your case.</div>
+      </div>
+      <div class="cap cap-ai" id="capAi">
+        <div class="cap-tag">The machine <span class="eq" id="eqAi"><b></b><b></b><b></b><b></b></span></div>
+        <div class="cap-text idle" id="capAiText">Waking up.</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="ctl ctl-mute" id="muteBtn" type="button">Mute</button>
+      <button class="ctl ctl-end" id="endBtn" type="button">End round</button>
+    </div>
+  </div>
+  <div class="watermark">debateai.com</div>
+</section>
+
+<!-- ── RECAP ─────────────────────────────────────────────────── -->
+<section id="recap" class="view">
+  <div class="recap-card">
+    <div class="brand"><a href="/">Debate<span>It</span></a></div>
+    <h2 class="recap-h">That's the round.</h2>
+    <div class="recap-stats">
+      <span><b id="statTime">0:00</b> on the clock</span>
+      <span><b id="statTurns">0</b> exchanges</span>
+    </div>
+    <div class="transcript" id="transcriptBox"></div>
+    <div class="recap-actions">
+      <button class="ctl ctl-end" id="rematchBtn" type="button">Run it back</button>
+      <button class="ctl" id="switchBtn" type="button">Switch sides</button>
+      <button class="ctl" id="newClaimBtn" type="button">New claim</button>
+    </div>
+    <p class="recap-foot">Want full formats, judges, and ballots? <a href="/voice-debate">The full voice trainer is here</a>.</p>
+  </div>
+</section>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try {
+  if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+  }
+} catch (e) { console.warn('[newvoice] firebase init skipped:', e.message); }
+</script>
+
+<script>
+(() => {
+'use strict';
+
+/* ── claims bank: accessible, spicy, argue-at-dinner tier ────── */
+const CLAIMS = [
+  'Social media has made friendship worse',
+  'Tipping should be abolished',
+  'College is no longer worth it',
+  'AI art is real art',
+  'Remote work beats the office',
+  'Cars should be banned from city centers',
+  'The four-day work week should be standard',
+  'Zoos should be shut down',
+  'Space exploration is a waste of money',
+  'Kids under 16 should be banned from social media',
+  'Voting should be mandatory',
+  'Fast fashion should be taxed like cigarettes',
+  'Streaming killed good movies',
+  'Homework should be abolished',
+  'Self-checkout is a scam',
+  'Dating apps have ruined dating',
+  'Public universities should be free',
+  'We should colonize Mars before fixing Earth',
+  'The drinking age should be 18',
+  'Influencer is a real job',
+  'Museums should return looted artifacts',
+  'Every city should have car-free Sundays',
+  'Grades do more harm than good',
+  'Cash should never disappear',
+];
+
+/* ── dom ─────────────────────────────────────────────────────── */
+const $ = (id) => document.getElementById(id);
+const views = { setup: $('setup'), stage: $('stage'), recap: $('recap') };
+const claimInput = $('claimInput');
+const sideSeg = $('sideSeg');
+const setupErr = $('setupErr');
+const startBtn = $('startBtn');
+const startLabel = $('startLabel');
+const statusText = $('statusText');
+const statusPill = $('statusPill');
+const capYou = $('capYou'), capAi = $('capAi');
+const capYouText = $('capYouText'), capAiText = $('capAiText');
+
+/* ── state ───────────────────────────────────────────────────── */
+let side = 'for';                  // user's side
+let status = 'idle';               // idle | connecting | live | ended
+let pc = null, dc = null, micStream = null, audioEl = null;
+let audioCtx = null, userAnalyser = null, aiAnalyser = null;
+let userBuf = null, aiBuf = null;
+let startedAt = 0, timerIv = null;
+let currentMotion = '';
+let turns = [];                    // {who:'you'|'ai', text}
+let aiLive = '';                   // streaming AI caption
+let connectAbort = null, connectWatchdog = null;
+let muted = false;
+const HARD_CAP_MS = 8 * 60_000;    // realtime audio is billed by the minute
+
+function show(name){
+  Object.values(views).forEach(v => v.classList.remove('on'));
+  views[name].classList.add('on');
+}
+
+/* ── setup interactions ──────────────────────────────────────── */
+function randomClaim(){ return CLAIMS[Math.floor(Math.random() * CLAIMS.length)]; }
+claimInput.value = randomClaim();
+
+$('shuffleBtn').addEventListener('click', () => {
+  const btn = $('shuffleBtn');
+  btn.classList.toggle('spun');
+  claimInput.classList.add('swap');
+  setTimeout(() => {
+    let next = randomClaim();
+    while (next === claimInput.value) next = randomClaim();
+    claimInput.value = next;
+    claimInput.classList.remove('swap');
+  }, 160);
+});
+
+sideSeg.addEventListener('click', (e) => {
+  const pick = e.target && e.target.dataset && e.target.dataset.pick;
+  if (!pick) return;
+  side = pick;
+  sideSeg.dataset.side = pick;
+});
+
+function fail(msg, html){
+  setupErr.innerHTML = html || '';
+  if (!html) setupErr.textContent = msg;
+  setupErr.classList.add('on');
+  startBtn.disabled = false;
+  startLabel.textContent = 'Start arguing';
+  status = 'idle';
+  show('setup');
+  cleanup();
+}
+
+/* ── audio plumbing ──────────────────────────────────────────── */
+function getCtx(){
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
+  return audioCtx;
+}
+function tap(stream){
+  const ctx = getCtx();
+  if (!ctx) return null;
+  try {
+    const src = ctx.createMediaStreamSource(stream);
+    const an = ctx.createAnalyser();
+    an.fftSize = 512;
+    an.smoothingTimeConstant = 0.72;
+    src.connect(an);
+    return an;
+  } catch (e) { return null; }
+}
+function level(analyser, buf){
+  if (!analyser || !buf) return 0;
+  analyser.getByteTimeDomainData(buf);
+  let sum = 0;
+  for (let i = 0; i < buf.length; i += 2) { const d = (buf[i] - 128) / 128; sum += d * d; }
+  const rms = Math.sqrt(sum / (buf.length / 2));
+  return Math.min(1, rms * 5.2);
+}
+
+/* ── the connect flow (mirrors voice-debate.html, trimmed) ───── */
+async function start(){
+  if (status !== 'idle') return;
+  const motion = (claimInput.value || '').trim() || randomClaim();
+  currentMotion = motion;
+  setupErr.classList.remove('on');
+  startBtn.disabled = true;
+  startLabel.textContent = 'Connecting…';
+  status = 'connecting';
+  connectAbort = new AbortController();
+  connectWatchdog = setTimeout(() => { try { connectAbort.abort(); } catch (e) {} }, 20000);
+  getCtx(); // resume inside the user gesture for iOS
+
+  try {
+    // 1. Mic first — permission prompt belongs to the button tap.
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    userAnalyser = tap(micStream);
+    if (userAnalyser) userBuf = new Uint8Array(userAnalyser.frequencyBinCount);
+
+    // 2. Mint the ephemeral session.
+    let authHeader = {};
+    try {
+      const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+      if (u) { const tok = await u.getIdToken(); if (tok) authHeader = { Authorization: 'Bearer ' + tok }; }
+    } catch (e) {}
+    let aiLanguage = 'en';
+    try { aiLanguage = localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en'; } catch (e) {}
+
+    const mintRes = await fetch('/api/realtime-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      body: JSON.stringify({
+        mode: 'clash',
+        motion,
+        side: side === 'for' ? 'gov' : 'opp',
+        format: 'Clash',
+        voice: 'marin',
+        speed: 1.05,
+        aiLanguage,
+      }),
+      signal: connectAbort.signal,
+    });
+    if (!mintRes.ok) {
+      const raw = await mintRes.text().catch(() => '');
+      let body = {}; try { body = JSON.parse(raw); } catch (e) {}
+      if (mintRes.status === 429) throw new Error('Too many rounds from this network right now. Give it a few minutes.');
+      if (mintRes.status === 402 && body.upgrade) {
+        const err = new Error('cap');
+        err.html = 'You\'ve used your free voice rounds. <a href="/pricing">Plans are here</a>, and typed sparring is always open at <a href="/debate-it">/debate-it</a>.';
+        throw err;
+      }
+      const upstream = body.openai || raw;
+      if (/exceeded your current quota|insufficient_quota|billing/i.test(upstream || '')) {
+        throw new Error('Voice is at capacity right now. Typed sparring still works at /debate-it.');
+      }
+      throw new Error('Could not start: ' + (body.openai || body.error || ('HTTP ' + mintRes.status)));
+    }
+    const session = await mintRes.json();
+    const ephemeralKey = session && session.client_secret && session.client_secret.value;
+    if (!ephemeralKey) throw new Error('Session came back without a key. Try again.');
+
+    // 3. Peer connection. STUN so NAT'd networks can reach OpenAI.
+    const stun = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
+    const iceServers = Array.isArray(session.iceServers) && session.iceServers.length ? session.iceServers.concat(stun) : stun;
+    pc = new RTCPeerConnection({ iceServers });
+    pc.onconnectionstatechange = () => {
+      if (status !== 'live') return;
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') endRound('dropped');
+    };
+
+    audioEl = document.createElement('audio');
+    audioEl.autoplay = true;
+    audioEl.playsInline = true;
+    document.body.appendChild(audioEl);
+    pc.ontrack = (evt) => {
+      if (evt.streams && evt.streams[0]) {
+        audioEl.srcObject = evt.streams[0];
+        aiAnalyser = tap(evt.streams[0]);
+        if (aiAnalyser) aiBuf = new Uint8Array(aiAnalyser.frequencyBinCount);
+      }
+    };
+    micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
+
+    // 4. Data channel: config + opening jab.
+    dc = pc.createDataChannel('oai-events');
+    dc.onmessage = (e) => { try { handleEvent(JSON.parse(e.data)); } catch (err) {} };
+    dc.onopen = () => {
+      sendSessionConfig('semantic');
+      const userWord = side === 'for' ? 'for' : 'against';
+      const aiWord = side === 'for' ? 'against' : 'for';
+      try {
+        dc.send(JSON.stringify({
+          type: 'response.create',
+          response: { instructions:
+            'Open the argument in under twelve seconds, in this exact shape: ' +
+            '(1) Say the claim naturally in one short line: "' + motion.replace(/"/g, "'") + '". ' +
+            '(2) One short clause on sides: they are ' + userWord + ' it, you are ' + aiWord + ' it. ' +
+            '(3) Throw ONE provocative jab for your side. A single sentence, your sharpest claim, built to make them want to argue back. ' +
+            '(4) Hand them the floor in three words or fewer, like "your move." or "talk me out of it." or "go." ' +
+            'No welcome speech, no rules explanation, no "Absolutely", no enthusiasm words. Dry, confident, quick.' },
+        }));
+      } catch (e) {}
+    };
+
+    // 5. SDP exchange. Single POST, so wait for ICE gathering (max 3s).
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await new Promise((resolve) => {
+      if (pc.iceGatheringState === 'complete') return resolve();
+      let done = false;
+      const finish = () => { if (done) return; done = true; pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
+      const onChange = () => { if (pc.iceGatheringState === 'complete') finish(); };
+      pc.addEventListener('icegatheringstatechange', onChange);
+      setTimeout(finish, 3000);
+    });
+    const sdpRes = await fetch(session.sdpUrl || 'https://api.openai.com/v1/realtime/calls', {
+      method: 'POST',
+      body: (pc.localDescription && pc.localDescription.sdp) || offer.sdp,
+      headers: { Authorization: 'Bearer ' + ephemeralKey, 'Content-Type': 'application/sdp', ...(session.sdpHeaders || {}) },
+      signal: connectAbort.signal,
+    });
+    if (!sdpRes.ok) {
+      const detail = await sdpRes.text().catch(() => '');
+      if (sdpRes.status === 429 || /exceeded your current quota|insufficient_quota|billing/i.test(detail)) {
+        throw new Error('Voice is at capacity right now. Typed sparring still works at /debate-it.');
+      }
+      throw new Error('Handshake failed (' + sdpRes.status + '). Try again.');
+    }
+    await pc.setRemoteDescription({ type: 'answer', sdp: await sdpRes.text() });
+    clearTimeout(connectWatchdog); connectWatchdog = null;
+  } catch (e) {
+    clearTimeout(connectWatchdog); connectWatchdog = null;
+    if (e && e.name === 'AbortError') return fail('Connection timed out. Check your network and go again.');
+    if (e && e.name === 'NotAllowedError') return fail('Mic permission was blocked. Allow the microphone and go again.');
+    if (e && e.html) return fail('', e.html);
+    return fail((e && e.message) || String(e));
+  }
+
+  // Live.
+  status = 'live';
+  startedAt = Date.now();
+  turns = []; aiLive = '';
+  $('stageMotion').textContent = motion;
+  capYouText.textContent = 'Mic is live. Say your case.'; capYouText.classList.add('idle');
+  capAiText.textContent = 'Waking up.'; capAiText.classList.add('idle');
+  statusPill.classList.remove('connecting');
+  statusText.textContent = 'LIVE · 0:00';
+  show('stage');
+  startArena();
+  timerIv = setInterval(() => {
+    const el = Date.now() - startedAt;
+    statusText.textContent = 'LIVE · ' + fmtTime(el);
+    if (el > HARD_CAP_MS) endRound('cap');
+  }, 500);
+}
+
+/* Session config. semantic_vad reads the words to judge whether the
+   thought actually closed — fast on a finished question, patient on a
+   mid-sentence pause. If OpenAI rejects it (older account), the error
+   handler re-sends with a plain server_vad floor so turn-taking never
+   silently dies. */
+function sendSessionConfig(kind){
+  if (!dc || dc.readyState !== 'open') return;
+  const turnDetection = kind === 'semantic'
+    ? { type: 'semantic_vad', eagerness: 'auto', create_response: true, interrupt_response: true }
+    : { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 900, create_response: true, interrupt_response: true };
+  try {
+    dc.send(JSON.stringify({
+      type: 'session.update',
+      session: {
+        type: 'realtime',
+        output_modalities: ['audio'],
+        audio: {
+          input: {
+            transcription: { model: 'gpt-4o-transcribe', language: 'en' },
+            turn_detection: turnDetection,
+          },
+          output: { voice: 'marin', speed: 1.05 },
+        },
+      },
+    }));
+  } catch (e) {}
+}
+
+let vadFallbackSent = false;
+function handleEvent(e){
+  switch (e.type) {
+    case 'input_audio_buffer.speech_started':
+      setSpeaking('you', true);
+      break;
+    case 'input_audio_buffer.speech_stopped':
+      setSpeaking('you', false);
+      break;
+    case 'conversation.item.input_audio_transcription.completed': {
+      const text = (e.transcript || '').trim();
+      if (text) {
+        turns.push({ who: 'you', text });
+        capYouText.textContent = text;
+        capYouText.classList.remove('idle');
+      }
+      break;
+    }
+    case 'response.created':
+      aiLive = '';
+      setSpeaking('ai', true);
+      break;
+    case 'response.audio_transcript.delta':
+    case 'response.output_audio_transcript.delta':
+      aiLive += e.delta || '';
+      if (aiLive.trim()) {
+        capAiText.textContent = aiLive.trim();
+        capAiText.classList.remove('idle');
+      }
+      break;
+    case 'response.audio_transcript.done':
+    case 'response.output_audio_transcript.done': {
+      const text = ((e.transcript || aiLive) || '').trim();
+      if (text) { turns.push({ who: 'ai', text }); capAiText.textContent = text; }
+      break;
+    }
+    case 'response.done':
+      setSpeaking('ai', false);
+      break;
+    case 'error': {
+      const msg = JSON.stringify(e.error || e).toLowerCase();
+      if (!vadFallbackSent && /semantic|turn_detection|eagerness/.test(msg)) {
+        vadFallbackSent = true;
+        sendSessionConfig('server');
+      }
+      break;
+    }
+  }
+}
+
+function setSpeaking(who, on){
+  (who === 'you' ? capYou : capAi).classList.toggle('speaking', on);
+}
+
+/* ── mute / end ──────────────────────────────────────────────── */
+$('muteBtn').addEventListener('click', () => {
+  muted = !muted;
+  if (micStream) micStream.getAudioTracks().forEach((t) => { t.enabled = !muted; });
+  const b = $('muteBtn');
+  b.textContent = muted ? 'Unmute' : 'Mute';
+  b.classList.toggle('muted', muted);
+});
+$('endBtn').addEventListener('click', () => endRound('user'));
+
+function cleanup(){
+  try { if (timerIv) clearInterval(timerIv); } catch (e) {}
+  timerIv = null;
+  stopArena();
+  try { if (dc) dc.close(); } catch (e) {}
+  try { if (pc) { pc.onconnectionstatechange = null; pc.close(); } } catch (e) {}
+  try { if (micStream) micStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+  try { if (audioEl) { audioEl.srcObject = null; audioEl.remove(); } } catch (e) {}
+  dc = null; pc = null; micStream = null; audioEl = null;
+  userAnalyser = null; aiAnalyser = null;
+  muted = false;
+  const b = $('muteBtn'); b.textContent = 'Mute'; b.classList.remove('muted');
+}
+
+function endRound(){
+  if (status !== 'live') return;
+  status = 'ended';
+  const elapsed = Date.now() - startedAt;
+  logRound();
+  cleanup();
+  // recap
+  $('statTime').textContent = fmtTime(elapsed);
+  $('statTurns').textContent = String(turns.length);
+  const box = $('transcriptBox');
+  box.innerHTML = '';
+  if (!turns.length) {
+    box.innerHTML = '<div class="tr-turn ai"><div class="tr-text">Nothing on the record. Next time, let it get heated.</div></div>';
+  } else {
+    turns.forEach((t) => {
+      const d = document.createElement('div');
+      d.className = 'tr-turn ' + t.who;
+      const who = document.createElement('div'); who.className = 'tr-who'; who.textContent = t.who === 'you' ? 'You' : 'The machine';
+      const tx = document.createElement('div'); tx.className = 'tr-text'; tx.textContent = t.text;
+      d.appendChild(who); d.appendChild(tx);
+      box.appendChild(d);
+    });
+  }
+  show('recap');
+  status = 'idle';
+  startBtn.disabled = false;
+  startLabel.textContent = 'Start arguing';
+}
+
+/* Feed the learning loop, best-effort. Signed-in rounds land under the
+   uid; anonymous rounds ride a hashed session id, never contributable. */
+function logRound(){
+  try {
+    const t = turns.filter((x) => x && (x.text || '').trim());
+    if (t.length < 2) return;
+    const payload = {
+      action: 'generation',
+      kind: 'voice_round',
+      motion: (currentMotion || '').slice(0, 2000),
+      side: side === 'for' ? 'gov' : 'opp',
+      format: 'clash',
+      depth: '',
+      model: 'gpt-realtime',
+      promptId: 'voice-clash',
+      systemPrompt: '',
+      userPrompt: t.filter((x) => x.who === 'you').map((x) => x.text).join('\n\n').slice(0, 7800),
+      output: t.filter((x) => x.who === 'ai').map((x) => x.text).join('\n\n').slice(0, 39000),
+      context: {
+        persona: 'clash',
+        turnCount: t.length,
+        source: 'newvoice',
+        fullTranscript: t.map((x) => (x.who === 'you' ? 'USER' : 'AI') + ': ' + x.text).join('\n\n').slice(0, 39000),
+      },
+      contributable: false,
+    };
+    const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (u && !u.isAnonymous) {
+      u.getIdToken().then((tok) => {
+        if (!tok) return;
+        fetch('/api/log-generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      }).catch(() => {});
+    } else {
+      let sid = '';
+      try {
+        sid = localStorage.getItem('debateos-anon-session') || '';
+        if (!sid) { sid = 'nv_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('debateos-anon-session', sid); }
+      } catch (e) { sid = 'nv_ephemeral'; }
+      payload.sessionId = sid;
+      fetch('/api/log-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+/* ── recap actions ───────────────────────────────────────────── */
+$('rematchBtn').addEventListener('click', () => { show('setup'); start(); });
+$('switchBtn').addEventListener('click', () => {
+  side = side === 'for' ? 'against' : 'for';
+  sideSeg.dataset.side = side;
+  show('setup'); start();
+});
+$('newClaimBtn').addEventListener('click', () => {
+  let next = randomClaim();
+  while (next === claimInput.value) next = randomClaim();
+  claimInput.value = next;
+  show('setup');
+});
+
+startBtn.addEventListener('click', start);
+claimInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); start(); }
+});
+
+function fmtTime(ms){
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+/* ── the arena: a clash line that bends toward whoever has the
+      floor. User energy blooms white from the left, machine energy
+      blooms red from the right, sparks fly where they meet. ─────── */
+const canvas = $('arena');
+const cx = canvas.getContext('2d');
+let raf = null, t0 = 0;
+let smoothYou = 0, smoothAi = 0, balance = 0;
+let sparks = [];
+const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function sizeCanvas(){
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.floor(innerWidth * dpr);
+  canvas.height = Math.floor(innerHeight * dpr);
+  canvas.style.width = innerWidth + 'px';
+  canvas.style.height = innerHeight + 'px';
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', sizeCanvas);
+
+function startArena(){
+  sizeCanvas();
+  t0 = performance.now();
+  smoothYou = 0; smoothAi = 0; balance = 0; sparks = [];
+  if (!raf) raf = requestAnimationFrame(drawArena);
+}
+function stopArena(){
+  if (raf) cancelAnimationFrame(raf);
+  raf = null;
+}
+
+const eqYouBars = Array.from($('eqYou').children);
+const eqAiBars = Array.from($('eqAi').children);
+function driveEq(bars, e, t){
+  for (let i = 0; i < bars.length; i++) {
+    const h = 3 + e * (5 + 5 * Math.abs(Math.sin(t * 0.011 + i * 1.7)));
+    bars[i].style.height = h.toFixed(1) + 'px';
+  }
+}
+
+function drawArena(now){
+  raf = requestAnimationFrame(drawArena);
+  const t = (now - t0) / 1000;
+  const w = innerWidth, h = innerHeight;
+  const mid = h * 0.52;
+
+  // live energies, smoothed so the line glides instead of jitters
+  const rawYou = simMode ? simLevel(0) : (muted ? 0 : level(userAnalyser, userBuf));
+  const rawAi = simMode ? simLevel(1) : level(aiAnalyser, aiBuf);
+  smoothYou += (rawYou - smoothYou) * 0.16;
+  smoothAi += (rawAi - smoothAi) * 0.16;
+
+  // the front line: drifts toward the quieter side (pressure metaphor)
+  const target = (smoothAi - smoothYou) * 1.4;
+  balance += (Math.max(-1, Math.min(1, target)) - balance) * 0.03;
+  const clashX = w / 2 - balance * w * 0.16;
+
+  cx.clearRect(0, 0, w, h);
+
+  // side blooms
+  const bloomY = cx.createRadialGradient(w * 0.12, h * 0.8, 0, w * 0.12, h * 0.8, w * 0.5);
+  bloomY.addColorStop(0, 'rgba(245,245,240,' + (0.02 + smoothYou * 0.10).toFixed(3) + ')');
+  bloomY.addColorStop(1, 'rgba(245,245,240,0)');
+  cx.fillStyle = bloomY; cx.fillRect(0, 0, w, h);
+  const bloomA = cx.createRadialGradient(w * 0.88, h * 0.25, 0, w * 0.88, h * 0.25, w * 0.5);
+  bloomA.addColorStop(0, 'rgba(239,68,68,' + (0.03 + smoothAi * 0.14).toFixed(3) + ')');
+  bloomA.addColorStop(1, 'rgba(239,68,68,0)');
+  cx.fillStyle = bloomA; cx.fillRect(0, 0, w, h);
+
+  // clash line (three passes: wide glow, mid, core)
+  const motionScale = reducedMotion ? 0.35 : 1;
+  const grad = cx.createLinearGradient(0, 0, w, 0);
+  grad.addColorStop(0, 'rgba(245,245,240,.85)');
+  grad.addColorStop(Math.max(0.05, Math.min(0.95, clashX / w)), 'rgba(255,255,255,.95)');
+  grad.addColorStop(1, 'rgba(239,68,68,.9)');
+
+  const yAt = (x) => {
+    const idle = Math.sin(x * 0.008 + t * 0.9) * 3.2;
+    const envY = Math.exp(-Math.max(0, x - clashX) / 150);
+    const envA = Math.exp(-Math.max(0, clashX - x) / 150);
+    const waveY = Math.sin(x * 0.021 + t * 3.1) * 16 * smoothYou * envY;
+    const waveA = Math.sin(x * 0.017 - t * 3.7) * 18 * smoothAi * envA;
+    return mid + (idle + waveY + waveA) * motionScale;
+  };
+
+  const passes = [
+    { width: 7, alpha: 0.10 },
+    { width: 3, alpha: 0.35 },
+    { width: 1.4, alpha: 0.95 },
+  ];
+  for (const p of passes) {
+    cx.beginPath();
+    for (let x = 0; x <= w; x += 6) {
+      const y = yAt(x);
+      if (x === 0) cx.moveTo(x, y); else cx.lineTo(x, y);
+    }
+    cx.strokeStyle = grad;
+    cx.globalAlpha = p.alpha;
+    cx.lineWidth = p.width;
+    cx.stroke();
+  }
+  cx.globalAlpha = 1;
+
+  // the clash node
+  const energy = smoothYou + smoothAi;
+  const nodeR = 4 + energy * 10 + Math.sin(t * 2.2) * 1.2;
+  const nodeY = yAt(clashX);
+  const nodeGlow = cx.createRadialGradient(clashX, nodeY, 0, clashX, nodeY, nodeR * 6);
+  nodeGlow.addColorStop(0, 'rgba(255,255,255,' + (0.25 + energy * 0.4).toFixed(3) + ')');
+  nodeGlow.addColorStop(0.4, 'rgba(239,68,68,' + (0.12 + energy * 0.25).toFixed(3) + ')');
+  nodeGlow.addColorStop(1, 'rgba(239,68,68,0)');
+  cx.fillStyle = nodeGlow;
+  cx.beginPath(); cx.arc(clashX, nodeY, nodeR * 6, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = 'rgba(255,255,255,.95)';
+  cx.beginPath(); cx.arc(clashX, nodeY, Math.max(2.5, nodeR * 0.45), 0, Math.PI * 2); cx.fill();
+
+  // sparks off the node when the exchange is hot
+  if (!reducedMotion && energy > 0.22 && sparks.length < 90 && Math.random() < energy * 0.9) {
+    const up = Math.random() < 0.5 ? -1 : 1;
+    sparks.push({
+      x: clashX, y: nodeY,
+      vx: (Math.random() - 0.5) * 2.4,
+      vy: up * (0.6 + Math.random() * 1.8),
+      life: 1,
+      red: Math.random() < smoothAi / Math.max(0.001, energy),
+    });
+  }
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    s.x += s.vx; s.y += s.vy; s.vy *= 0.985; s.life -= 0.016;
+    if (s.life <= 0) { sparks.splice(i, 1); continue; }
+    cx.fillStyle = s.red
+      ? 'rgba(239,68,68,' + (s.life * 0.8).toFixed(3) + ')'
+      : 'rgba(245,245,240,' + (s.life * 0.7).toFixed(3) + ')';
+    cx.beginPath(); cx.arc(s.x, s.y, 1.4 * s.life + 0.4, 0, Math.PI * 2); cx.fill();
+  }
+
+  driveEq(eqYouBars, smoothYou, now);
+  driveEq(eqAiBars, smoothAi, now);
+}
+
+/* ── ?preview=stage: silent b-roll mode ──────────────────────────
+   Renders the live stage with simulated speech energy and no OpenAI
+   session. For layout checks and demo-video background footage. */
+let simMode = false;
+function simLevel(who){
+  const t = performance.now() / 1000;
+  const phase = Math.floor(t / 4) % 2; // 0 = you talking, 1 = the machine
+  const talking = (who === 0) === (phase === 0);
+  if (!talking) return 0.015 + Math.random() * 0.02;
+  return 0.28 + 0.3 * Math.abs(Math.sin(t * 2.3)) + Math.random() * 0.14;
+}
+(function maybeSim(){
+  let q = null;
+  try { q = new URLSearchParams(location.search); } catch (e) { return; }
+  if (!q || q.get('preview') !== 'stage') return;
+  simMode = true;
+  status = 'live';
+  startedAt = Date.now();
+  currentMotion = (claimInput.value || '').trim() || randomClaim();
+  $('stageMotion').textContent = currentMotion;
+  statusText.textContent = 'LIVE · 0:00';
+  capYouText.textContent = 'Nobody actually wants to commute, we just romanticize the office after we leave it.';
+  capYouText.classList.remove('idle');
+  capAiText.textContent = 'Sure, but the people who trained you at your first job were in the room. Who trains the next you?';
+  capAiText.classList.remove('idle');
+  show('stage');
+  startArena();
+  timerIv = setInterval(() => { statusText.textContent = 'LIVE · ' + fmtTime(Date.now() - startedAt); }, 500);
+  setInterval(() => {
+    const phase = Math.floor(performance.now() / 4000) % 2;
+    setSpeaking('you', phase === 0);
+    setSpeaking('ai', phase === 1);
+  }, 300);
+})();
+
+})();
+</script>
+</body>
+</html>

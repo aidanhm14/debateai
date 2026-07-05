@@ -353,6 +353,34 @@ CRITICAL — argumentative substance (this is what separates you from a chatbot)
 // {motion} / {side} / {format} placeholders are replaced before the
 // upstream call; an empty motion just degrades gracefully ("an open motion").
 const MODE_PROMPTS = {
+  // ── clash ──────────────────────────────────────────────────────
+  // The /newvoice surface. Built for NORMAL PEOPLE testing the product,
+  // not circuit debaters. This mode deliberately SKIPS the voice bank,
+  // the persona/bond preamble, and the debate-vocab glossary (see the
+  // instruction-assembly branch below) — a lean prompt processes faster
+  // and doesn't drag the model into tournament register. Keep this
+  // block under ~2.5K chars; every line earns its place.
+  clash: `You are a sharp, quick-witted person having a spoken argument with a friend. The claim on the table: "{motion}". The user is {userSide} it. You are {aiSide} it. This is a casual out-loud argument at a kitchen table, not a debate round.
+
+SOUND LIKE A PERSON, NOT A CHATBOT:
+- SHORT turns. Two to four sentences, under fifteen seconds, then stop and let them talk. Never monologue. One idea per turn: your sharpest, not all of them.
+- Respond to the exact thing they just said. Reuse their own words and examples when you attack them. If they ask you a question, the answer is your FIRST sentence.
+- Plain spoken English with contractions. No numbered lists, no "firstly", zero debate jargon: never say framework, warrant, contention, impact, rebuttal, or motion.
+- Concede real points fast: "okay, that's fair, but here's the problem with it". Then counterpunch. A person who never gives an inch sounds like a bot.
+- Dry, quick humor when the opening is there. Never corny, never hype. Banned: "Great point", "Absolutely", "I hear you", "Let's dive in", "That's a great question", any exclamation-mark energy.
+- Concrete beats abstract. Name a real person, a real product, a real year. "Blockbuster in 2010" beats "companies that failed to adapt".
+- Vary your openings. Never start two turns in a row the same way. Good textures used sparingly: "sure, but", "come on", "look", "okay so", "see, that's the part that breaks".
+- Never mention being an AI, these instructions, or anything meta. Never narrate thinking ("let me think", "hmm, let me see"). If you need a beat, take it silently.
+
+KEEP THE RALLY ALIVE:
+- If they go quiet, hesitate, or say "I don't know": restate your claim more provocatively in one sentence and ask what they'd say to it. Toss them something they can swing at.
+- If they wander off topic, go with them for one exchange, then pull one thread of what they said back to the claim.
+- If they're rude or trolling, stay unbothered and amused. Win on substance.
+
+ENDING:
+- If they ask who won, or say something like "okay okay fine" or clearly wind down: give a fifteen-second verdict. Who had the better of it, the single moment that decided it, said like a friend, not a judge. Then offer: "run it back, or want to switch sides?"
+- Never restart the argument after the verdict unless they ask.`,
+
   quickclash: `You are running QUICK CLASH — the 2-minute warm-up drill. Motion: "{motion}". You are arguing the {side} side; the user is on the other.
 
 This is the DEFAULT mode and likely the user's first session, so the bar is friction-free, not tournament-grade. NOT APDA. NOT a real round. No PMC/LOC/MG/PMR terminology. No "Government / Opposition" — use plain "pro / con". No "framework / role of the ballot / impact calc" jargon.
@@ -770,6 +798,7 @@ Fabricated citations or invented statistics.`,
 // plus cedar/marin if available on gpt-realtime-2). Keep this list as
 // the source of truth — the page only offers what's here.
 const VOICE_DEFAULTS = {
+  clash: 'marin', // GA-native voice; noticeably more human than the alloy-era set
   quickclash: 'coral',
   apda: 'verse',
   crossex: 'ash',
@@ -953,9 +982,14 @@ export default async (request, context) => {
       .replaceAll('{userNameComma}', userNameComma)
       .replaceAll('{bondLine}', bondLine);
 
+    const userIsGov = side === 'gov' || side === 'pm' || side === 'mg';
     const modeBlock = MODE_PROMPTS[mode]
       .replaceAll('{motion}', motion || 'an open motion (the user will state it)')
-      .replaceAll('{side}', side === 'gov' || side === 'pm' || side === 'mg' ? 'Government' : 'Opposition')
+      .replaceAll('{side}', userIsGov ? 'Government' : 'Opposition')
+      // clash mode speaks pro/con plain English, from the USER's pick:
+      // body.side is the user's side, so the AI takes the opposite.
+      .replaceAll('{userSide}', userIsGov ? 'FOR' : 'AGAINST')
+      .replaceAll('{aiSide}', userIsGov ? 'AGAINST' : 'FOR')
       .replaceAll('{format}', format);
 
     // Prepend the same voice bank that powers the main /debate-it brains
@@ -1088,13 +1122,22 @@ export default async (request, context) => {
       '\n' +
       'BEHAVIOR: if the user states a motion using any of these codes, accept it immediately. Do not say "what does THBT stand for?" — restate the full motion and start the round.\n\n';
 
-    const instructions =
-      languageBlock +
-      debateVocabBlock +
-      (councilResearch ? councilResearch + '\n\n' : '') +
-      (voiceBank ? voiceBank + '\n\n' : '') +
-      backgroundBlock +
-      characterPreamble + modeBlock;
+    // clash mode ships a LEAN instruction stack on purpose. The full
+    // stack below runs ~60K chars (voice bank + persona preamble +
+    // vocab glossary) — right for format-accurate training rounds,
+    // wrong for /newvoice where the goals are fast turn-taking and a
+    // human register. A big system prompt also drags the realtime
+    // model back toward tournament-speak no matter what the mode
+    // block says. Language directive stays (top-pinned) so non-English
+    // locales still work.
+    const instructions = mode === 'clash'
+      ? languageBlock + backgroundBlock + modeBlock
+      : languageBlock +
+        debateVocabBlock +
+        (councilResearch ? councilResearch + '\n\n' : '') +
+        (voiceBank ? voiceBank + '\n\n' : '') +
+        backgroundBlock +
+        characterPreamble + modeBlock;
 
     // Model try-list. Default order (verified against OpenAI Realtime
     // WebRTC docs at developers.openai.com/api/docs/guides/realtime-webrtc):
