@@ -244,7 +244,7 @@
           </div>
           <div class="actions">
             <button class="btn" type="submit">Submit application</button>
-            <span class="alt">Prefer email? <a href="mailto:contact@devilsadvocateteam.com?subject=Ambassador%20application">contact@devilsadvocateteam.com</a></span>
+            <span class="alt">Prefer email? <a href="mailto:aidandavidhollinger@gmail.com?subject=Ambassador%20application">aidandavidhollinger@gmail.com</a></span>
           </div>
         </form>
       </section>
@@ -277,7 +277,7 @@
 
   <footer class="foot">
     <span>DebateIt · debateai.com</span>
-    <span><a href="/">Home</a> · <a href="/schools">Schools</a> · <a href="/learn">Learn</a> · <a href="mailto:contact@devilsadvocateteam.com">Contact</a></span>
+    <span><a href="/">Home</a> · <a href="/schools">Schools</a> · <a href="/learn">Learn</a> · <a href="mailto:aidandavidhollinger@gmail.com">Contact</a></span>
   </footer>
 </div>
 
@@ -291,13 +291,17 @@
       var el = document.getElementById('apply');
       if (el) el.scrollIntoView();
     }
-    // graceful fallback if form processing is not enabled yet
+    // submits to our own function (Netlify Forms detection is off on this site)
     var form = document.getElementById('ambForm');
     if (form) form.addEventListener('submit', function(e){
       e.preventDefault();
       var data = new FormData(form);
-      fetch('/', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'},
-        body: new URLSearchParams(data).toString() })
+      var body = {};
+      data.forEach(function(v, k){ body[k] = v; });
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+      fetch('/api/ambassador-apply', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(body) })
         .then(function(r){
           if (r.ok) {
             form.reset();
@@ -308,8 +312,11 @@
         })
         .catch(function(){
           banner.className = 'banner err';
-          banner.innerHTML = 'Could not submit just now. Email your answers to <a href="mailto:contact@devilsadvocateteam.com?subject=Ambassador%20application">contact@devilsadvocateteam.com</a> and we will take it from there.';
+          banner.innerHTML = 'Could not submit just now. Email your answers to <a href="mailto:aidandavidhollinger@gmail.com?subject=Ambassador%20application">aidandavidhollinger@gmail.com</a> and we will take it from there.';
           banner.scrollIntoView({behavior:'smooth', block:'center'});
+        })
+        .then(function(){
+          if (btn) { btn.disabled = false; btn.textContent = 'Submit application'; }
         });
     });
   })();
