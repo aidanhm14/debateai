@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Twitch Room Judge · DebateIt</title>
+<title>Twitch AI Judge · Room Judge · DebateIt</title>
 <meta name="description" content="Set up DebateIt's AI room judge for Twitch streams. Use the extension iframe, read public chat as audience signal, and write a ballot after the debate." />
 <meta name="robots" content="noindex,follow" />
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -37,6 +37,15 @@
   </div>
 
   <section class="grid">
+    <article class="card" style="grid-column:1 / -1">
+      <h2>How to use it, start to ballot</h2>
+      <ul>
+        <li><b>1.</b> Type the channel name above and press Open. The judge console opens in a new view.</li>
+        <li><b>2.</b> Press Start listening in the console. Your browser asks what to share: pick the tab or window playing the stream and tick "Also share tab audio."</li>
+        <li><b>3.</b> Watch the flow fill in as people speak. Chat from the channel streams in as audience signal.</li>
+        <li><b>4.</b> Ask the judge for a live read any time, and press End and write ballot when the round is over.</li>
+      </ul>
+    </article>
     <article class="card">
       <h2>Extension view</h2>
       <p>Use this as the Twitch Extension panel or overlay URL. Add a channel query when you know the broadcaster.</p>
@@ -74,7 +83,10 @@
     var suffix = ch ? '&channel=' + encodeURIComponent(ch) : '';
     judge.href = '/room-judge?platform=twitch&source=screen' + suffix;
     embed.href = '/room-judge?embed=1&platform=twitch&source=screen' + suffix;
-    code.textContent = 'https://debateai.com' + embed.href;
+    // getAttribute keeps the relative path; .href resolves to an
+    // absolute URL and prepending the origin doubled it
+    // ("https://debateai.comhttps://debateai.com/...").
+    code.textContent = 'https://debateai.com' + embed.getAttribute('href');
   }
   input.addEventListener('input', paint);
   input.addEventListener('keydown', function(e){ if(e.key === 'Enter') { e.preventDefault(); open.click(); } });

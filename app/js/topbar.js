@@ -202,6 +202,10 @@
     // prediction market (back who wins across three windows, AI judge
     // settles, leaderboard). noindex page; this is the on-site entry.
     { href: '/floor',         label: 'Floor', mobileKeep: true },
+    // 2026-07-05: Free vs Paid surfaced per Aidan ("have a tab for
+    // 'free vs paid'"). Routes to /pricing, which frames beta-free
+    // today vs the future paid tiers (incl. Memory as a paid feature).
+    { href: '/pricing',       label: 'Free vs Paid' },
     // 2026-07-05: Voice AI moved to the LAST slot per Aidan ("highlight
     // voice ai by putting it on the right side of the tabs") — the
     // rightmost tab, red + dotted via `hot`, sitting next to the primary
