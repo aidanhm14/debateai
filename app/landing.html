@@ -538,6 +538,49 @@
   })();
 </script>
 
+<!-- Hero DOORS A/B (2026-07-07). Tests the STRUCTURE of the three
+     entry cards, not the copy elsewhere. 'unified' is the rebuilt
+     one-skeleton selector (equal visual band, parallel With people /
+     With the AI / With us labels, full-width CTAs on a shared
+     baseline, "Pick how you start" kicker). 'classic' is the exact
+     pre-2026-07-07 triptych (center-aligned AI orb card, mixed card
+     shapes, no kicker). 50/50 sticky in localStorage; ?doors=unified|
+     classic forces an arm for QA. Fires doors_variant_view so
+     converting sessions stay segmentable by arm; the per-door CTA
+     clicks (data-cta hero-triptych-*) are shared across arms and read
+     against the doors_ab user property. Fail-open: if this never runs,
+     no attribute is set, the classic block stays display:none, and the
+     unified selector (winner candidate) shows. CSS lives in the hero
+     style block; the classic markup is namespaced hio-* so it can't
+     collide with the unified hi-* rules. -->
+<script>
+  (function(){
+    var v='';
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]doors=unified(?:&|$)/.test(qp)) v='unified';
+      else if(/[?&]doors=classic(?:&|$)/.test(qp)) v='classic';
+    }catch(e){}
+    var assigned=false;
+    if(v!=='unified'&&v!=='classic'){
+      try{ v=localStorage.getItem('da-doors-ab')||''; }catch(e){}
+      if(v!=='unified'&&v!=='classic'){
+        v=(Math.random()<0.50)?'unified':'classic';
+        assigned=true;
+        try{ localStorage.setItem('da-doors-ab',v); }catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-doors-ab',v);
+    window.__doorsAb=v;
+    try{
+      if(window.gtag){
+        gtag('set','user_properties',{doors_ab:v});
+        gtag('event','doors_variant_view',{variant:v,assigned:assigned});
+      }
+    }catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -6925,7 +6968,87 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         @media(max-width:980px){.hero-illustrated .hi-triptych{grid-template-columns:minmax(0,1fr);max-width:520px}.hero-illustrated .hi-path-card{height:auto;min-height:0}.hero-illustrated .hi-path-visual{height:168px}}
         @media(max-width:560px){html,body{overflow-x:hidden}:root[data-hero-ab="illustrated"] section.hero{padding-left:0 !important;padding-right:0 !important}:root[data-hero-ab="illustrated"] .hero-content{width:100vw !important;max-width:100vw !important;margin:0 !important;text-align:center !important}:root[data-hero-ab="illustrated"] .hero-illustrated{width:100vw;max-width:100vw;padding-left:20px;padding-right:20px;box-sizing:border-box}.hero-illustrated .hi-head{width:100%;max-width:calc(100vw - 40px)}section.hero .hero-illustrated h1.hi-headline{white-space:normal !important;font-size:clamp(2rem,10vw,2.55rem) !important;max-width:calc(100vw - 40px);margin-left:auto !important;margin-right:auto !important}.hero-illustrated .hi-headline-lead,.hero-illustrated .hi-headline-accent{display:block}.hero-illustrated .hi-subhead{max-width:calc(100vw - 48px);font-size:.9rem}.hero-illustrated .hi-subhead strong,.hero-illustrated .hi-sub-tail{display:block}.hero-illustrated .hi-triptych{width:100%;max-width:calc(100vw - 40px);gap:12px;margin-top:18px}.hero-illustrated .hi-path-card{min-height:auto;padding:18px}.hero-illustrated .hi-ai-core{width:118px}.hero-illustrated .hi-path-visual{height:150px}}
         @media(prefers-reduced-motion:reduce){.hero-illustrated .hi-ai-ring,.hero-illustrated .hi-ai-disc::after,.hero-illustrated .hi-ai-bars i,.hero-illustrated .hi-ai-node{animation:none}}
+
+        /* ===== DOORS A/B (2026-07-07) =====
+           One arm shows at a time. Fail-open to the unified selector when
+           the attribute is absent/unrecognized: classic is display:none by
+           default and only revealed under html[data-doors-ab="classic"]. */
+        .hero-illustrated .hi-doors--classic{display:none}
+        html[data-doors-ab="classic"] .hero-illustrated .hi-doors--unified{display:none}
+        html[data-doors-ab="classic"] .hero-illustrated .hi-doors--classic{display:block}
+
+        /* Classic (control) arm: the exact pre-2026-07-07 triptych, every
+           layout class namespaced hio-* so it never collides with the
+           unified hi-* rules above. The orb INTERNALS (hi-ai-ring / disc /
+           bars / node / label) and keyframes are shared and reused as-is;
+           only the orb container (hio-ai-core) is namespaced for its size. */
+        .hero-illustrated .hio-triptych{display:grid;grid-template-columns:minmax(350px,1fr) minmax(380px,1.05fr) minmax(350px,1fr);gap:20px;width:100%;max-width:1420px;margin:22px auto 0;align-items:start}
+        .hero-illustrated .hio-path-card--live{order:1}
+        .hero-illustrated .hio-path-card--ambassadors{order:2}
+        .hero-illustrated .hio-path-card--ai{order:3}
+        .hero-illustrated .hio-path-card{position:relative;display:flex;width:100%;min-width:0;box-sizing:border-box;height:430px;min-height:0;flex-direction:column;justify-content:flex-start;gap:14px;padding:18px;border-radius:18px;text-decoration:none;color:var(--hi-chip-ink);background:rgba(255,253,247,.9);border:1px solid rgba(29,25,21,.12);box-shadow:0 18px 48px rgba(29,25,21,.10);overflow:hidden;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+        .hero-illustrated .hio-triptych .hio-path-card{--hi-ink:#1a1a1f;--hi-ink-soft:#5f5650;--hi-chip-ink:#1a1a1f}
+        .hero-illustrated .hio-path-card:hover{transform:translateY(-3px);border-color:rgba(200,50,50,.55);box-shadow:0 24px 70px rgba(29,25,21,.16)}
+        .hero-illustrated .hio-path-card:focus-visible{outline:3px solid rgba(200,50,50,.6);outline-offset:3px}
+        .hero-illustrated .hio-path-eyebrow{font-size:.66rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--hi-red)}
+        .hero-illustrated .hio-path-card h2{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.36rem,1.7vw,1.72rem);line-height:1.04;letter-spacing:-.018em;color:var(--hi-ink);margin:0;text-transform:none}
+        .hero-illustrated .hio-path-copy{font-size:.86rem;line-height:1.4;color:var(--hi-ink-soft);margin:0;max-width:34ch}
+        .hero-illustrated .hio-path-cta{display:inline-flex;align-items:center;gap:8px;width:max-content;margin-top:auto;padding:10px 14px;border-radius:999px;background:var(--hi-red);color:#fff;font-size:.78rem;font-weight:800;letter-spacing:.01em;box-shadow:0 9px 24px rgba(200,50,50,.24)}
+        .hero-illustrated .hio-path-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+        .hero-illustrated .hio-path-meta span{font-size:.63rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--hi-ink-soft);border:1px solid rgba(29,25,21,.12);background:rgba(255,255,255,.45);border-radius:999px;padding:4px 7px}
+        .hero-illustrated .hio-live-tiles{display:grid;width:100%;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:8px;height:142px;min-height:0;overflow:hidden}
+        .hero-illustrated .hio-live-tiles img{display:block;width:100%;min-width:0;height:100%;min-height:0;object-fit:cover;border-radius:10px;filter:saturate(.95);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+        .hero-illustrated .hio-live-tiles img:first-child{grid-row:span 2}
+        .hero-illustrated .hio-live-pill{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.34);color:#15803d;font-size:.62rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+        .hero-illustrated .hio-live-pill i{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px rgba(34,197,94,.8)}
+        .hero-illustrated .hio-path-card--ai{align-items:center;text-align:center;padding:18px;background:linear-gradient(180deg,rgba(255,253,247,.98),rgba(255,248,238,.9));border-color:rgba(200,50,50,.28)}
+        .hero-illustrated .hio-path-card--ai::before{content:"";position:absolute;inset:12px;border-radius:15px;background:radial-gradient(circle at 50% 26%,rgba(239,68,68,.10),transparent 37%),linear-gradient(135deg,rgba(255,255,255,.48),transparent 42%,rgba(239,68,68,.045));pointer-events:none}
+        .hero-illustrated .hio-path-card--ai > *{position:relative;z-index:1}
+        .hero-illustrated .hio-path-card--ai .hio-path-copy{margin:0 auto;max-width:34ch}
+        .hero-illustrated .hio-path-card--ai .hio-path-cta{margin-left:auto;margin-right:auto}
+        .hero-illustrated .hio-ai-core{position:relative;width:min(184px,54vw);aspect-ratio:1;margin:0 auto -2px;display:grid;place-items:center;isolation:isolate}
+        .hero-illustrated .hio-ai-core::before{content:"";position:absolute;inset:-18%;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.20),transparent 58%);filter:blur(16px);opacity:.78}
+        .hero-illustrated .hio-amb-photo{position:relative;width:100%;min-width:0;height:142px;min-height:0;border-radius:12px;overflow:hidden;background:#221a14;border:1px solid rgba(255,255,255,.16)}
+        .hero-illustrated .hio-amb-photo img{width:100%;height:100%;min-height:0;object-fit:cover;display:block;filter:saturate(.92) contrast(.96)}
+        .hero-illustrated .hio-amb-photo::after{content:"30 founding seats";position:absolute;left:10px;bottom:10px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.94);color:#a4201d;font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+        [data-theme="dark"] .hero-illustrated .hio-path-card,
+        [data-theme="crimson"] .hero-illustrated .hio-path-card,
+        [data-theme="grey"] .hero-illustrated .hio-path-card,
+        [data-theme="stone"] .hero-illustrated .hio-path-card{
+          --hi-ink:#f5efe7;
+          --hi-ink-soft:rgba(245,239,231,.70);
+          --hi-chip-ink:#f5efe7;
+          background:linear-gradient(180deg,rgba(42,31,28,.88),rgba(30,24,23,.80));
+          border-color:rgba(245,239,231,.13);
+          box-shadow:0 18px 54px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.05);
+        }
+        [data-theme="dark"] .hero-illustrated .hio-path-card--ai,
+        [data-theme="crimson"] .hero-illustrated .hio-path-card--ai,
+        [data-theme="grey"] .hero-illustrated .hio-path-card--ai,
+        [data-theme="stone"] .hero-illustrated .hio-path-card--ai{
+          background:radial-gradient(circle at 50% 18%,rgba(239,68,68,.16),transparent 44%),linear-gradient(180deg,rgba(48,32,29,.90),rgba(29,24,23,.82));
+          border-color:rgba(239,68,68,.26);
+        }
+        [data-theme="dark"] .hero-illustrated .hio-path-meta span,
+        [data-theme="crimson"] .hero-illustrated .hio-path-meta span,
+        [data-theme="grey"] .hero-illustrated .hio-path-meta span,
+        [data-theme="stone"] .hero-illustrated .hio-path-meta span{
+          color:rgba(245,239,231,.66);
+          border-color:rgba(245,239,231,.13);
+          background:rgba(255,255,255,.04);
+        }
+        [data-theme="dark"] .hero-illustrated .hio-live-pill,
+        [data-theme="crimson"] .hero-illustrated .hio-live-pill,
+        [data-theme="grey"] .hero-illustrated .hio-live-pill,
+        [data-theme="stone"] .hero-illustrated .hio-live-pill{
+          color:#bbf7d0;
+          background:rgba(34,197,94,.10);
+          border-color:rgba(34,197,94,.28);
+        }
+        @media(max-width:980px){.hero-illustrated .hio-triptych{grid-template-columns:minmax(0,1fr);max-width:560px}.hero-illustrated .hio-path-card{height:auto;min-height:300px}.hero-illustrated .hio-live-tiles{height:150px}}
+        @media(max-width:560px){.hero-illustrated .hio-triptych{width:100%;max-width:calc(100vw - 40px);gap:12px;margin-top:18px}.hero-illustrated .hio-path-card{min-height:auto;padding:18px}.hero-illustrated .hio-ai-core{width:min(198px,70vw)}.hero-illustrated .hio-live-tiles,.hero-illustrated .hio-amb-photo{height:120px}}
       </style>
+      <div class="hi-doors hi-doors--unified">
       <p class="hi-choose">Pick how you start</p>
       <div class="hi-triptych" aria-label="Choose how to start">
         <a href="/spar" class="hi-path-card hi-path-card--live" data-cta="hero-triptych-live">
@@ -6978,6 +7101,57 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </div>
         </a>
       </div>
+      </div><!-- /.hi-doors--unified -->
+
+      <!-- Classic (control) arm. Exact pre-2026-07-07 triptych. Namespaced
+           hio-* layout classes; orb internals reuse the shared hi-ai-* set.
+           Hidden unless html[data-doors-ab="classic"]. -->
+      <div class="hi-doors hi-doors--classic">
+      <div class="hio-triptych" aria-label="Choose how to start">
+        <a href="/spar" class="hio-path-card hio-path-card--live" data-cta="hero-triptych-live">
+          <span class="hio-live-pill"><i aria-hidden="true"></i>Live</span>
+          <div class="hio-live-tiles" aria-hidden="true">
+            <img src="/img/round/faces/face02.jpg" alt="" decoding="async" />
+            <img src="/img/round/faces/face07.jpg" alt="" decoding="async" />
+            <img src="/img/round/faces/face10.jpg" alt="" decoding="async" />
+          </div>
+          <div>
+            <span class="hio-path-eyebrow">Live debates</span>
+            <h2>Debate real people.</h2>
+            <p class="hio-path-copy">Post a motion, accept a challenge, and get an AI judge ballot when the round ends.</p>
+          </div>
+          <div class="hio-path-meta"><span>PF</span><span>BP</span><span>APDA</span><span>WSDC</span></div>
+          <span class="hio-path-cta">Open live debates <span aria-hidden="true">&rarr;</span></span>
+        </a>
+        <a href="/voice-debate" class="hio-path-card hio-path-card--ai" data-cta="hero-triptych-ai">
+          <div class="hio-ai-core" aria-hidden="true">
+            <span class="hi-ai-ring hi-ai-ring--outer"></span>
+            <span class="hi-ai-ring hi-ai-ring--mid"></span>
+            <span class="hi-ai-node hi-ai-node--one"></span>
+            <span class="hi-ai-node hi-ai-node--two"></span>
+            <span class="hi-ai-node hi-ai-node--three"></span>
+            <span class="hi-ai-disc"><span class="hi-ai-bars"><i></i><i></i><i></i><i></i><i></i></span></span>
+            <span class="hi-ai-label"><i></i>AI ready</span>
+          </div>
+          <div>
+            <span class="hio-path-eyebrow">Debate the AI</span>
+            <h2>Tap the orb. Take a side.</h2>
+            <p class="hio-path-copy">Speak against an AI opponent in a timed voice round. It pushes back, tracks clash, and writes the ballot.</p>
+          </div>
+          <span class="hio-path-cta">Start AI debate <span aria-hidden="true">&rarr;</span></span>
+        </a>
+        <a href="/ambassadors" class="hio-path-card hio-path-card--ambassadors" data-cta="hero-triptych-ambassadors">
+          <div class="hio-amb-photo" aria-hidden="true"><img src="/img/ambassadors/round.jpg" alt="" decoding="async" /></div>
+          <div>
+            <span class="hio-path-eyebrow">Ambassadorships</span>
+            <h2>Bring DebateIt to your community.</h2>
+            <p class="hio-path-copy">Founding student ambassadors run rounds, onboard schools, and help the next program start. Paid, part-time, 30 seats.</p>
+          </div>
+          <div class="hio-path-meta"><span>2026-27</span><span>Remote</span><span>Paid</span></div>
+          <span class="hio-path-cta">Apply for the founding class <span aria-hidden="true">&rarr;</span></span>
+        </a>
+      </div>
+      </div><!-- /.hi-doors--classic -->
       <div class="hi-free-strip" aria-label="Current access">
         <span><i aria-hidden="true"></i>Free right now</span>
         <span>No card collected</span>
