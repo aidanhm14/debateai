@@ -1,6 +1,6 @@
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { commProfileForScore } from './lib/cert-tiers.mjs';
+import { commProfileForScore, commScoreForSpeaks } from './lib/cert-tiers.mjs';
 
 // Public read of a certificate by id. No auth. Powers the /verify/{id}
 // landing page that anyone can open from a resume link.
@@ -48,6 +48,23 @@ export default async (request) => {
     // the new framing with no data migration.
     const comm = typeof data.score === 'number' ? commProfileForScore(data.score) : null;
 
+    // Five-axis sub-scores, stored by create-cert on the 25-30
+    // speaker-points scale. Converted to the 0-100 comm scale at read
+    // time like the composite; absent on certs minted before the
+    // ballot's DIMENSIONS block existed.
+    const DIM_KEYS = ['clarity', 'reasoning', 'responsiveness', 'listening', 'persuasion'];
+    let dimensions = null;
+    if (data.dimensions && typeof data.dimensions === 'object') {
+      const dims = {};
+      for (const k of DIM_KEYS) {
+        const n = Number(data.dimensions[k]);
+        if (Number.isFinite(n)) {
+          dims[k] = { score: Math.round(n * 10) / 10, commScore: commScoreForSpeaks(n) };
+        }
+      }
+      if (Object.keys(dims).length) dimensions = dims;
+    }
+
     const cert = {
       certId: data.certId || id,
       displayName: data.displayName || 'Anonymous',
@@ -68,6 +85,7 @@ export default async (request) => {
       won: data.won === true,
       rfdExcerpt: (data.rfdExcerpt || '').slice(0, 600),
       issuedAtMs,
+      dimensions,
     };
 
     return jsonResponse({ ok: true, cert }, 200, request);

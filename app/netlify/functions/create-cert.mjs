@@ -68,6 +68,44 @@ function sanitizeDisplayName(name) {
   return trimmed || 'Anonymous';
 }
 
+// ── Dimension sub-scores ────────────────────────────────────────────
+//
+// The judge ballot carries a DIMENSIONS block: five named sub-scores
+// (clarity / reasoning / responsiveness / listening / persuasion) on
+// the same 25-30 speaker-points scale as the composite. We parse them
+// server-side from the submitted ballot text rather than trusting a
+// separate client field, so the stored sub-scores always match the
+// ballot the verify page shows. All-or-nothing: a partial set would
+// render a misleading five-axis profile, so anything less than all
+// five mints a composite-only cert (the pre-DIMENSIONS shape).
+// /communication-profile reads `dimensions` off the cert doc and falls
+// back to its derived view for legacy certs without it.
+
+const DIMENSION_KEYS = ['clarity', 'reasoning', 'responsiveness', 'listening', 'persuasion'];
+
+function parseDimensions(rfdText) {
+  if (typeof rfdText !== 'string' || !rfdText) return null;
+  const out = {};
+  for (const key of DIMENSION_KEYS) {
+    const m = rfdText.match(new RegExp('^\\s*' + key + '\\s*[:\\-]\\s*([0-9]{2}(?:\\.[0-9])?)\\s*$', 'im'));
+    if (!m) return null;
+    const v = parseFloat(m[1]);
+    if (!Number.isFinite(v) || v < MIN_CERT_SCORE - 2 || v > MAX_CERT_SCORE) return null;
+    out[key] = Math.round(v * 10) / 10;
+  }
+  return out;
+}
+
+function stripDimensionsBlock(rfdText) {
+  // The sub-scores live structured on the doc; the stored ballot
+  // excerpt reads better without a score table at the top of it.
+  return rfdText
+    .replace(/^\s*DIMENSIONS\s*$/im, '')
+    .replace(new RegExp('^\\s*(?:' + DIMENSION_KEYS.join('|') + ')\\s*[:\\-]\\s*[0-9]{2}(?:\\.[0-9])?\\s*$', 'gim'), '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // ── Credential v1 verification ──────────────────────────────────────
 //
 // Phase A: client (LipSyncCapture) sends raw audio-envelope + mouth-
@@ -222,6 +260,7 @@ export default async (request) => {
     const issuedAtMs = Date.now();
 
     const verificationBlock = validateVerification(verification);
+    const dimensions = parseDimensions(rfdText);
 
     const certDoc = {
       certId,
@@ -240,9 +279,13 @@ export default async (request) => {
       aiLanguage: clamp(aiLanguage, 8) || 'en',
       roundId: clamp(roundId, 80),
       won: won === true,
-      rfdExcerpt: clamp(rfdText, 4000),
+      rfdExcerpt: clamp(dimensions ? stripDimensionsBlock(rfdText) : rfdText, 4000),
       issuedAt: FieldValue.serverTimestamp(),
       issuedAtMs,
+      // Five-axis sub-scores parsed from the ballot's DIMENSIONS block.
+      // Absent on ballots that predate the block (or where the judge
+      // model skipped it) — /communication-profile falls back cleanly.
+      ...(dimensions ? { dimensions } : {}),
       // Phase A: present + audio-only if the client opted into v1 capture,
       // absent otherwise. Verify page reads this to render the verification
       // block; absence triggers the "issued under v0 protocol" banner.
