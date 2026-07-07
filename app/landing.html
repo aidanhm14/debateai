@@ -544,8 +544,12 @@
      With the AI / With us labels, full-width CTAs on a shared
      baseline, "Pick how you start" kicker). 'classic' is the exact
      pre-2026-07-07 triptych (center-aligned AI orb card, mixed card
-     shapes, no kicker). 50/50 sticky in localStorage; ?doors=unified|
-     classic forces an arm for QA. Fires doors_variant_view so
+     shapes, no kicker). 80/20 weighted to unified (small classic
+     holdback keeps a control signal); sticky in localStorage under
+     da-doors-ab2 — the key was bumped from da-doors-ab when the split
+     was re-weighted from 50/50, so pre-reweight buckets are re-drawn
+     under the new odds instead of stranding early visitors on classic.
+     ?doors=unified|classic forces an arm for QA. Fires doors_variant_view so
      converting sessions stay segmentable by arm; the per-door CTA
      clicks (data-cta hero-triptych-*) are shared across arms and read
      against the doors_ab user property. Fail-open: if this never runs,
@@ -563,11 +567,11 @@
     }catch(e){}
     var assigned=false;
     if(v!=='unified'&&v!=='classic'){
-      try{ v=localStorage.getItem('da-doors-ab')||''; }catch(e){}
+      try{ v=localStorage.getItem('da-doors-ab2')||''; }catch(e){}
       if(v!=='unified'&&v!=='classic'){
-        v=(Math.random()<0.50)?'unified':'classic';
+        v=(Math.random()<0.80)?'unified':'classic';
         assigned=true;
-        try{ localStorage.setItem('da-doors-ab',v); }catch(e){}
+        try{ localStorage.setItem('da-doors-ab2',v); }catch(e){}
       }
     }
     document.documentElement.setAttribute('data-doors-ab',v);
