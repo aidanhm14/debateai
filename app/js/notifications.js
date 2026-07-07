@@ -1455,7 +1455,7 @@
     // ── boot ──
     pill = makePill();
     placePill(pill);
-    goLivePrompt();
+    if (!window.DA_DISABLE_GOLIVE_PROMPT) goLivePrompt();
     whenFirebaseReady(function () {
       window.firebase.auth().onAuthStateChanged(function (u) {
         var queueUser = isQueueUser(u) ? u : null;
