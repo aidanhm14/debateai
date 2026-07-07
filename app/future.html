@@ -3,21 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Thinking, while someone disagrees · DebateIt</title>
-<meta name="description" content="Writing teaches you to think alone. Debate teaches you to think while someone is questioning you. As machines get better at producing arguments, the rarer skill is holding one. Why that skill matters, why access to it is uneven, and what we are doing about it.">
+<title>Debate (skill) · DebateIt</title>
+<meta name="description" content="Debate is the skill of defending a position under live questioning. As machines make arguments cheap to produce, the scarcer skill is holding one under pressure. A reference article on why it matters, why access to practice has been uneven, and how it is trained.">
 <link rel="canonical" href="https://debateai.com/future">
-<meta property="og:title" content="Thinking, while someone disagrees · DebateIt">
-<meta property="og:description" content="A machine can write the argument. It cannot hold the position for you. The case for training the oldest skill there is: thinking clearly under question.">
+<meta property="og:title" content="Debate (skill) · DebateIt">
+<meta property="og:description" content="A machine can write the argument. It cannot hold the position for you. A reference article on the skill of thinking clearly under question.">
 <meta property="og:url" content="https://debateai.com/future">
 <meta property="og:type" content="article">
 <meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/icons/icon-192.png">
 
-<!-- Lock to the pure-black chrome (crimson theme = #000), like /scale. -->
+<!-- Light editorial chrome. This page reads as a reference article, not a
+     manifesto, so it drops the /scale-style pure-black system for a warm
+     paper surface with a light topbar. -->
 <script>
-  document.documentElement.setAttribute('data-theme','crimson');
-  document.documentElement.setAttribute('data-force-theme','crimson');
+  document.documentElement.setAttribute('data-theme','light');
+  document.documentElement.setAttribute('data-force-theme','light');
 </script>
 
 <link rel="stylesheet" href="/css/ui.css">
@@ -26,387 +28,259 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   :root{
-    --serif:'Crimson Pro',Georgia,"Times New Roman",serif;
-    --sans:'Inter',system-ui,sans-serif;
+    --serif:'Crimson Pro',Georgia,'Times New Roman',serif;
+    --sans:'Inter',-apple-system,system-ui,sans-serif;
     --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
-    --bg:#070708;
-    --ink:#e8e3d6;
-    --ink-bright:#f7f3ea;
-    --ink-dim:rgba(232,227,214,.56);
-    --ink-faint:rgba(232,227,214,.30);
-    --line:rgba(232,227,214,.13);
-    --spark:#ef4444;
-    --spark-deep:#dc2626;
+    --paper:#f5f2ea;
+    --panel:#fffdf8;
+    --ink:#1c1a17;
+    --ink-dim:#574f46;
+    --ink-faint:#8c8375;
+    --line:#e4dfd2;
+    --line-strong:#cfc7b6;
+    --link:#2a5db0;
+    --link-visited:#6a4ba0;
+    --spark:#c8322e;
+    --box:#efeadd;
+    --box-head:#e6dfcd;
   }
   html{scroll-behavior:smooth}
-  body{background:var(--bg);color:var(--ink);font-family:var(--serif);
-    line-height:1.62;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-  a{color:var(--spark);text-decoration:none}
-  ::selection{background:var(--spark);color:#ffffff}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+    font-size:15.5px;line-height:1.62;-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-top:52px}
+  a{color:var(--link);text-decoration:none}
+  a:hover{text-decoration:underline}
+  a:visited{color:var(--link-visited)}
+  ::selection{background:#d7e2f4}
   .theme-dots{display:none !important}
 
-  body::before{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.5;
-    background-image:radial-gradient(rgba(232,227,214,.05) .5px,transparent .6px);
-    background-size:3px 3px;mix-blend-mode:overlay}
-  body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.05;mix-blend-mode:screen;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .8 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+  /* article shell */
+  .wiki{max-width:1000px;margin:0 auto;padding:30px clamp(16px,4vw,44px) 0}
+  .wiki::after{content:"";display:block;clear:both}
 
-  .progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:10001;
-    background:var(--spark);box-shadow:0 0 12px rgba(239,68,68,.6);transition:width .12s linear}
+  .wiki-title{font-family:var(--serif);font-weight:500;font-size:clamp(2.1rem,5vw,3.05rem);
+    line-height:1.06;letter-spacing:-.012em;color:var(--ink)}
+  .wiki-title small{display:block;font-family:var(--sans);font-weight:600;font-size:.7rem;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--spark);margin-bottom:9px}
+  .wiki-rule{height:1px;background:var(--line-strong);margin:9px 0 6px}
+  .hatnote{font-family:var(--serif);font-size:1.02rem;color:var(--ink-dim);
+    margin:14px 0 20px;padding-left:1.6em}
+  .hatnote a{font-style:normal}
 
-  .secnav{position:fixed;right:clamp(14px,2vw,30px);top:50%;transform:translateY(-50%);
-    z-index:9000;display:flex;flex-direction:column;gap:13px;align-items:flex-end}
-  .secnav a{display:flex;align-items:center;gap:9px;text-decoration:none}
-  .secnav .lbl{opacity:0;transform:translateX(6px);transition:opacity .2s,transform .2s,color .2s;
-    white-space:nowrap;text-transform:uppercase;letter-spacing:.14em;font:600 .58rem/1 var(--mono);color:var(--ink-dim)}
-  .secnav .dt{width:7px;height:7px;border-radius:50%;background:var(--ink-faint);flex:0 0 auto;
-    transition:background .2s,transform .2s,box-shadow .2s}
-  .secnav a:hover .lbl{opacity:.85;transform:none}
-  .secnav a.is-active .dt{background:var(--spark);transform:scale(1.5);box-shadow:0 0 10px var(--spark)}
-  .secnav a.is-active .lbl{opacity:1;transform:none;color:var(--ink)}
-  @media (max-width:980px){.secnav{display:none}}
-  @media (prefers-reduced-motion:reduce){.secnav .dt,.secnav .lbl{transition:none}}
+  /* lead + body prose */
+  .prose{font-family:var(--serif);font-size:1.12rem;line-height:1.68;color:var(--ink);max-width:none}
+  .prose p{margin:0 0 15px}
+  .prose p b,.prose b{font-weight:700;color:var(--ink)}
+  .prose .term{font-weight:700}
+  .prose ul{margin:2px 0 16px 0;list-style:none}
+  .prose ul li{position:relative;padding:5px 0 5px 22px;border-bottom:1px solid var(--line)}
+  .prose ul li:last-child{border-bottom:0}
+  .prose ul li::before{content:"";position:absolute;left:3px;top:15px;width:6px;height:6px;
+    border-radius:50%;background:var(--line-strong)}
+  .prose ul li b{color:var(--ink)}
 
-  .rv{opacity:0;transform:translateY(24px);transition:opacity 1s cubic-bezier(.16,1,.3,1),transform 1s cubic-bezier(.16,1,.3,1)}
-  .rv.in{opacity:1;transform:none}
-  .rv.d1{transition-delay:.08s}.rv.d2{transition-delay:.16s}.rv.d3{transition-delay:.24s}
-  .rv.d4{transition-delay:.32s}.rv.d5{transition-delay:.40s}
-  @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}}
+  h2.wiki-h{font-family:var(--serif);font-weight:500;font-size:1.62rem;line-height:1.2;color:var(--ink);
+    margin:36px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line-strong);scroll-margin-top:90px}
+  h2.wiki-h .num{color:var(--ink-faint);font-family:var(--mono);font-size:1rem;margin-right:10px;font-weight:400}
+  h3.wiki-h{font-family:var(--serif);font-weight:600;font-size:1.24rem;margin:22px 0 7px;color:var(--ink);scroll-margin-top:90px}
 
-  .wrap{max-width:1320px;margin:0 auto;padding:0 clamp(22px,5vw,72px)}
-  .narrow{max-width:840px}
-  .ast{color:var(--spark);font-style:normal}
-  .kicker{font-family:var(--mono);font-size:.66rem;letter-spacing:.28em;text-transform:uppercase;
-    color:var(--spark);display:inline-flex;align-items:center;gap:11px}
-  .kicker::before{content:"✳";font-size:.8rem;line-height:1}
+  /* table of contents */
+  .toc{display:inline-block;min-width:min(340px,100%);background:var(--box);
+    border:1px solid var(--line-strong);padding:12px 20px 15px;margin:8px 0 8px}
+  .toc .toc-h{font-family:var(--sans);font-weight:700;font-size:.82rem;text-align:center;
+    margin-bottom:9px;color:var(--ink)}
+  .toc ol{list-style:none;counter-reset:toc}
+  .toc li{counter-increment:toc;padding:3px 0;font-family:var(--serif);font-size:1.04rem}
+  .toc li::before{content:counter(toc)"\00a0\00a0";color:var(--ink-faint);font-family:var(--mono);font-size:.82rem}
 
-  .plate img{display:block;width:100%;height:auto;mix-blend-mode:screen;opacity:.92;
-    -webkit-mask-image:radial-gradient(125% 110% at 50% 46%,#000 52%,transparent 90%);
-            mask-image:radial-gradient(125% 110% at 50% 46%,#000 52%,transparent 90%)}
+  /* infobox */
+  .infobox{float:right;width:298px;margin:4px 0 22px 28px;border:1px solid var(--line-strong);
+    background:var(--box);font-family:var(--sans);font-size:.82rem;line-height:1.45}
+  .infobox .ib-title{background:var(--box-head);text-align:center;font-family:var(--serif);
+    font-weight:600;font-size:1.12rem;padding:10px 12px;border-bottom:1px solid var(--line-strong);color:var(--ink)}
+  .infobox .ib-fig{padding:16px 12px 6px;text-align:center}
+  .infobox .ib-fig svg{width:150px;height:auto;color:var(--ink-dim)}
+  .infobox .ib-cap{font-size:.74rem;color:var(--ink-dim);padding:0 14px 12px;text-align:center;line-height:1.35}
+  .infobox .ib-head{background:var(--box-head);text-align:center;font-weight:700;font-size:.66rem;
+    letter-spacing:.09em;text-transform:uppercase;padding:6px;color:var(--ink-dim);border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong)}
+  .infobox table{width:100%;border-collapse:collapse}
+  .infobox th{text-align:left;vertical-align:top;font-weight:700;color:var(--ink);width:40%;
+    padding:8px 11px;border-bottom:1px solid var(--line)}
+  .infobox td{vertical-align:top;padding:8px 11px;border-bottom:1px solid var(--line);color:var(--ink-dim)}
+  .infobox tr:last-child th,.infobox tr:last-child td{border-bottom:0}
 
-  .sec{padding:clamp(56px,9vh,124px) 0;position:relative}
-  .rule{height:1px;background:var(--line);max-width:1320px;margin:0 auto}
-  .divast{display:flex;justify-content:center;padding:clamp(30px,5vh,56px) 0}
-  .divast span{color:var(--spark);font-size:1.1rem;opacity:.8}
+  /* wikitable */
+  .wikitable{border-collapse:collapse;margin:6px 0 18px;font-family:var(--serif);font-size:1.02rem;
+    width:100%;max-width:660px;background:var(--panel)}
+  .wikitable caption{caption-side:top;text-align:left;font-family:var(--sans);font-size:.78rem;
+    letter-spacing:.02em;color:var(--ink-dim);padding:0 2px 7px}
+  .wikitable th,.wikitable td{border:1px solid var(--line-strong);padding:9px 13px;vertical-align:top;text-align:left}
+  .wikitable thead th{background:var(--box-head);font-family:var(--sans);font-weight:700;font-size:.86rem;color:var(--ink)}
+  .wikitable tbody td:first-child{color:var(--ink-dim)}
+  .wikitable tbody td:last-child{color:var(--ink);font-weight:500}
 
-  .head h2{font-family:var(--serif);font-weight:340;
-    font-size:clamp(2rem,4.4vw,3.5rem);line-height:1.04;letter-spacing:-.018em;color:var(--ink-bright);max-width:22ch}
-  .head h2 em{color:var(--spark);font-style:normal}
-  .dek{margin-top:20px;font-family:var(--serif);font-size:1.18rem;line-height:1.55;color:var(--ink-dim);max-width:60ch}
-  .body p{font-family:var(--serif);font-size:1.2rem;line-height:1.66;color:var(--ink);margin-top:20px;max-width:62ch}
-  .body p b{color:var(--ink-bright);font-weight:600}
-  .body p .hi{color:var(--spark);font-style:normal}
+  /* footnote references */
+  sup.ref{font-size:.7em;line-height:0;white-space:nowrap;font-family:var(--sans)}
+  sup.ref a{padding:0 1px}
+  .references{font-family:var(--serif)}
+  .references ol{margin:6px 0 0 24px}
+  .references li{margin:5px 0;font-size:.98rem;color:var(--ink-dim);line-height:1.5}
+  .references li:target{background:#fbf3c9}
 
-  /* HERO */
-  .hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden;
-    padding:clamp(90px,14vh,150px) 0 clamp(40px,7vh,80px)}
-  .hero-art{position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:0;
-    width:min(58%,860px);height:auto;opacity:.96;pointer-events:none;
-    -webkit-mask-image:linear-gradient(90deg,transparent,#000 20%);mask-image:linear-gradient(90deg,transparent,#000 20%)}
-  .hero-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
-    background:linear-gradient(95deg,var(--bg) 4%,rgba(7,7,8,.92) 34%,rgba(7,7,8,.45) 60%,rgba(7,7,8,.1) 100%),
-      linear-gradient(0deg,var(--bg) 2%,transparent 22%)}
-  .hero .wrap{position:relative;z-index:2;width:100%}
-  .hero .pre{font-family:var(--mono);font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;
-    color:var(--spark);margin-bottom:26px;display:inline-flex;align-items:center;gap:10px}
-  .hero .pre .dot{width:6px;height:6px;border-radius:50%;background:var(--spark);box-shadow:0 0 9px var(--spark);animation:pulse 2.6s ease-out infinite}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 7px rgba(239,68,68,0)}}
-  @media (prefers-reduced-motion:reduce){.hero .pre .dot{animation:none}}
-  .hero h1{font-family:var(--serif);font-weight:330;
-    font-size:clamp(2.3rem,5vw,4.4rem);line-height:1.06;letter-spacing:-.02em;color:var(--ink-bright);max-width:21ch}
-  .hero h1 em{color:var(--spark);font-style:normal}
-  .hero .lede{margin-top:28px;font-family:var(--serif);font-size:1.26rem;line-height:1.58;color:var(--ink-dim);max-width:58ch}
-  .hero .lede b{color:var(--ink);font-weight:600}
-  .hero .scrolltip{margin-top:36px;font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--ink-dim);display:inline-flex;align-items:center;gap:9px}
-  .hero .scrolltip .arr{animation:nudge 1.9s ease-in-out infinite}
-  @keyframes nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
-  @media (max-width:760px){.hero-art{opacity:.13;width:104%;right:-8%}}
+  /* restrained end matter */
+  .practice-note{margin:10px 0 4px;padding:16px 20px;background:var(--box);border:1px solid var(--line-strong);
+    display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;justify-content:space-between}
+  .practice-note p{font-family:var(--serif);font-size:1.04rem;color:var(--ink-dim);margin:0;max-width:46ch}
+  .practice-note .pn-cta{display:inline-flex;align-items:center;gap:8px;background:var(--spark);color:#fff;
+    font-family:var(--sans);font-weight:700;font-size:.82rem;padding:11px 20px;border-radius:4px;white-space:nowrap}
+  .practice-note .pn-cta:hover{background:#b12a26;text-decoration:none}
 
-  /* TRIAD */
-  .triad{margin-top:8px;border-top:1px solid var(--line)}
-  .triad .tr{padding:26px 0;border-bottom:1px solid var(--line);font-family:var(--serif);
-    font-size:clamp(1.4rem,2.8vw,2.1rem);line-height:1.3;color:var(--ink-dim)}
-  .triad .tr:last-child{color:var(--ink-bright)}
-  .triad .tr b{color:var(--ink-bright);font-weight:500}
-  .triad .tr em{color:var(--spark);font-style:normal}
+  .wiki-foot{max-width:1000px;margin:44px auto 0;padding:16px clamp(16px,4vw,44px) 70px;
+    border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    font-family:var(--sans);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+  .wiki-foot a{color:var(--ink-dim)}
+  .wiki-foot .sep{opacity:.5;padding:0 6px}
 
-  /* two-column scene with engraving */
-  .duo{display:block}
+  @media (max-width:720px){
+    .infobox{float:none;width:auto;margin:0 0 20px}
+    .toc{display:block}
+    .prose{font-size:1.06rem}
+    .wikitable{font-size:.94rem}
+    h2.wiki-h{font-size:1.42rem}
+  }
 
-  /* can / cannot list */
-  .fork{display:grid;grid-template-columns:1fr 1fr;margin-top:48px;border-top:1px solid var(--line)}
-  .fork-col{padding:28px 30px}
-  .fork-col+.fork-col{border-left:1px solid var(--line)}
-  .fork-col .ft{font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;margin-bottom:18px}
-  .can .ft{color:var(--ink-faint)}.cant .ft{color:var(--spark)}
-  .fork-col ul{list-style:none}
-  .fork-col li{font-family:var(--serif);font-size:1.14rem;line-height:1.45;padding:11px 0;color:var(--ink);
-    border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:baseline}
-  .can li{color:var(--ink-dim)}
-  .can li::before{content:"easy";font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--ink-faint);border:1px solid var(--line);padding:1px 5px;border-radius:3px;flex:none;position:relative;top:-2px}
-  .cant li::before{content:"cannot";font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--spark);border:1px solid var(--spark-deep);padding:1px 5px;border-radius:3px;flex:none;position:relative;top:-2px}
-  @media (max-width:680px){.fork{grid-template-columns:1fr}.fork-col+.fork-col{border-left:none;border-top:1px solid var(--line)}}
-
-  /* access list */
-  .accesslist{margin-top:40px;list-style:none}
-  .accesslist li{font-family:var(--serif);font-size:clamp(1.2rem,2.3vw,1.6rem);line-height:1.32;
-    padding:18px 0;border-bottom:1px solid var(--line);color:var(--ink)}
-  .accesslist li b{color:var(--spark);font-weight:500}
-  .accesslist li .cd{display:block;font-size:.66em;color:var(--ink-dim);margin-top:5px}
-
-  /* product steps */
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:48px;background:var(--line);border:1px solid var(--line)}
-  .step{background:var(--bg);padding:30px 26px 34px}
-  .step .sn{font-family:var(--mono);font-size:.62rem;letter-spacing:.18em;color:var(--spark);margin-bottom:14px}
-  .step h3{font-family:var(--serif);font-weight:400;font-size:1.42rem;line-height:1.12;color:var(--ink-bright);margin-bottom:10px}
-  .step p{font-family:var(--serif);font-size:1.02rem;line-height:1.5;color:var(--ink-dim)}
-  @media (max-width:760px){.steps{grid-template-columns:1fr}}
-
-  /* close + cta */
-  .notlist{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
-  .notlist span{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--ink-dim);border:1px solid var(--line);padding:7px 13px;border-radius:999px}
-  .closeline{font-family:var(--serif);font-weight:330;font-size:clamp(1.9rem,4.6vw,3.4rem);line-height:1.08;
-    letter-spacing:-.018em;margin-top:50px;max-width:24ch;color:var(--ink-bright)}
-  .closeline em{color:var(--spark);font-style:normal}
-  .cta-bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:44px}
-  .go{display:inline-flex;align-items:center;gap:10px;background:var(--spark);color:#ffffff;
-    font-family:var(--sans);font-weight:700;font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;
-    padding:16px 28px;border-radius:2px;transition:transform .2s,background .2s,box-shadow .2s}
-  .go:hover{transform:translateY(-2px);background:#f87171;color:#ffffff;box-shadow:0 14px 34px rgba(239,68,68,.22)}
-  .go .arr{transition:transform .2s}.go:hover .arr{transform:translateX(4px)}
-  .ghost{display:inline-flex;align-items:center;gap:9px;background:transparent;color:var(--ink);
-    border:1px solid var(--line);font-family:var(--sans);font-weight:600;font-size:.78rem;letter-spacing:.05em;
-    text-transform:uppercase;padding:15px 26px;border-radius:2px;transition:border-color .2s,color .2s,transform .2s}
-  .ghost:hover{border-color:var(--spark);color:var(--spark);transform:translateY(-1px)}
-
-  .colophon{padding:40px 0 64px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
-    font-family:var(--mono);font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
-  .colophon .sep{opacity:.5;padding:0 6px}
-  .colophon a{color:var(--ink-dim)}
-  .sib{margin-top:38px;display:inline-flex;align-items:center;gap:10px;font-family:var(--serif);font-size:1.02rem;color:var(--ink-dim)}
-  .sib a{color:var(--spark);font-weight:600}
-  .prov{font-family:var(--mono);font-size:.54rem;letter-spacing:.1em;color:var(--ink-faint);margin-top:18px}
-
-  /* ── Tighten the shared topbar to this page's palette (see /scale). ── */
-  html[data-theme="crimson"]{--accent:#ef4444;--accent-hover:#f87171;--accent-glow:rgba(239,68,68,.28);--accent-border:rgba(239,68,68,.42);--accent-soft:rgba(239,68,68,.10)}
-  .ui-topbar-logo span{color:var(--ink-bright)}
-  #daTopbar .ui-btn-primary{background:transparent;color:var(--ink);border:1px solid var(--line);box-shadow:none}
-  #daTopbar .ui-btn-primary:hover{background:transparent;color:var(--spark);border-color:var(--spark);box-shadow:none}
-  .ui-topbar-spar-dot{background:var(--spark)!important}
+  /* keep the shared topbar quiet and light on this article */
+  #daTopbar .ui-btn-primary{box-shadow:none}
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
 </head>
 <body>
 
-<div class="progress" id="progress"></div>
 <div id="daTopbar"></div>
 
-<nav class="secnav" aria-label="Jump to a section">
-  <a href="#hero"><span class="lbl">The idea</span><span class="dt"></span></a>
-  <a href="#shift"><span class="lbl">The shift</span><span class="dt"></span></a>
-  <a href="#three"><span class="lbl">Three ways</span><span class="dt"></span></a>
-  <a href="#access"><span class="lbl">Access</span><span class="dt"></span></a>
-  <a href="#room"><span class="lbl">The room</span><span class="dt"></span></a>
-  <a href="#join"><span class="lbl">The point</span><span class="dt"></span></a>
-</nav>
+<main class="wiki">
 
-<!-- ════════════ HERO ════════════ -->
-<section class="hero" id="hero">
-  <img class="hero-art" src="/assets/classroom-debate.svg" alt="" aria-hidden="true">
-  <div class="hero-scrim" aria-hidden="true"></div>
-  <div class="wrap">
-    <div class="pre rv"><span class="dot" aria-hidden="true"></span>The case for the skill</div>
-    <h1 class="rv d1">Writing teaches you to think alone. Debate teaches you to think while someone <em>disagrees.</em></h1>
-    <p class="lede rv d2">It is the same skill an oral exam asks for, and an interview, and the hard conversation you cannot script. You take an objection you did not see coming and answer it clearly, on the spot, or you do not. <b>That moment is the whole thing.</b></p>
-    <p class="lede rv d3">As machines get better at producing arguments, the rarer skill is holding one under question. This page is the case for training it.</p>
-    <div class="scrolltip rv d4">Read on <span class="arr" aria-hidden="true">↓</span></div>
-  </div>
-</section>
+  <h1 class="wiki-title"><small>DebateIt · reference article</small>Debate <span style="color:var(--ink-faint);font-weight:400">(skill)</span></h1>
+  <div class="wiki-rule"></div>
+  <p class="hatnote">This article is about the reasoning skill. For the competitive activity and its formats, see <a href="/learn">Learn</a>. For the plan to widen access to it, see <a href="/scale">Scale</a>.</p>
 
-<div class="rule"></div>
+  <div class="prose">
 
-<!-- ════════════ THE SHIFT ════════════ -->
-<section class="sec" id="shift">
-  <div class="wrap">
-    <div class="duo">
-      <div>
-        <span class="kicker rv">The shift</span>
-        <div class="head rv d1" style="margin-top:18px">
-          <h2>A machine can write the argument. It cannot <em>hold it</em> for you.</h2>
-        </div>
-        <div class="body">
-          <p class="rv d2">Producing a clean paragraph of reasoning used to be proof you understood something. It is not anymore. The argument arrives in seconds, from anyone, on any side. What that makes scarce is the part a model cannot do for you: <span class="hi">standing behind a claim while it is tested.</span></p>
-          <p class="rv d3">Schools feel this already. The essay drifts toward the take-home, and the real check moves back to the oral: defend it out loud, answer the follow-up, show that the understanding is yours. That is debate, under another name.</p>
-        </div>
+    <!-- INFOBOX -->
+    <aside class="infobox" aria-label="Quick facts">
+      <div class="ib-title">Debate (skill)</div>
+      <div class="ib-fig" aria-hidden="true">
+        <svg viewBox="0 0 150 96" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="34" cy="24" r="11"/><path d="M34 35v22M20 44h28M24 74h20l4-17H20z"/><path d="M48 30l14-6"/>
+          <circle cx="116" cy="24" r="11"/><path d="M116 35v22M102 44h28M106 74h20l-4-17h-16z"/><path d="M102 30l-14-6"/>
+          <path d="M67 52h16M75 52v10" stroke-dasharray="0.1 6"/>
+        </svg>
       </div>
+      <div class="ib-cap">Two speakers argue opposite sides of a set motion under time.</div>
+      <table>
+        <tr><th>Also known as</th><td>Forensics; argumentation; oral advocacy</td></tr>
+        <tr><th>Type</th><td>Cognitive and rhetorical skill</td></tr>
+        <tr><th>Core demand</th><td>Reasoning under live questioning</td></tr>
+        <tr><th>Trains</th><td>On-the-spot response, warrant defence, persuasion, composure</td></tr>
+        <tr><th>Common formats</th><td>APDA, British Parliamentary, World Schools, Lincoln&ndash;Douglas, Public Forum, Policy</td></tr>
+        <tr><th>Related</th><td><a href="/learn">Oral examination</a>, cross-examination, rhetoric, critical thinking</td></tr>
+        <tr><th>Practised at</th><td><a href="/voice-debate">DebateIt</a> &mdash; voice rounds, live sparring, AI judging</td></tr>
+      </table>
+    </aside>
+
+    <!-- LEAD -->
+    <p><span class="term">Debate</span> is the practice of stating a claim and defending it while another person questions it, in real time and against a clock.<sup class="ref" id="cite-ref-1"><a href="#note-1">[1]</a></sup> It draws on the same underlying ability as an oral examination, a job interview, and a courtroom cross-examination: taking an objection you did not expect and answering it clearly, on the spot.</p>
+
+    <p>The skill is distinct from writing, which is done alone, and from ordinary conversation, which is cooperative. In a debate the person opposite is trying, in good faith, to take the reasoning apart. As machine models make the <em>production</em> of arguments fast and abundant, the scarcer ability is holding one under pressure.<sup class="ref" id="cite-ref-2"><a href="#note-2">[2]</a></sup> This article summarises why the skill is valued, why access to structured practice has been uneven, and how it is trained today.</p>
+
+    <!-- TOC -->
+    <nav class="toc" aria-label="Contents">
+      <div class="toc-h">Contents</div>
+      <ol>
+        <li><a href="#shift">The shift</a></li>
+        <li><a href="#three">Three modes of thinking</a></li>
+        <li><a href="#durable">What automation does not replace</a></li>
+        <li><a href="#access">Access</a></li>
+        <li><a href="#practice">How it is practised</a></li>
+        <li><a href="#seealso">See also</a></li>
+        <li><a href="#refs">Notes and references</a></li>
+      </ol>
+    </nav>
+
+    <h2 class="wiki-h" id="shift"><span class="num">1</span>The shift</h2>
+    <p>Producing a clean paragraph of reasoning was once treated as evidence that a person understood a topic. That inference has weakened: a competent argument on most questions, from any side, can now be generated in seconds.<sup class="ref"><a href="#note-2">[2]</a></sup> What remains difficult to hand off is standing behind a claim while it is tested.</p>
+    <p>Educational assessment reflects the change. As written work becomes easy to produce off-site, institutions lean more on oral checks: defending a thesis aloud, answering the follow-up, showing that the understanding belongs to the student.<sup class="ref" id="cite-ref-3"><a href="#note-3">[3]</a></sup> That is debate under another name.</p>
+
+    <h2 class="wiki-h" id="three"><span class="num">2</span>Three modes of thinking</h2>
+    <p>Writing, conversation, and debate each train a different capacity, and they are not in competition:</p>
+    <ul>
+      <li>Writing develops thinking done <b>alone</b> &mdash; at length, without interruption.</li>
+      <li>Conversation develops thinking done <b>together</b> &mdash; cooperatively, toward shared understanding.</li>
+      <li>Debate develops thinking done <b>while a prepared opponent tries to dismantle it</b>, against a clock.</li>
+    </ul>
+    <p>The third is the least comfortable, and the least practised. A speaker cannot lean on a warrant they have not thought through when an opponent is standing ready to pull it, which is precisely why the format teaches so efficiently.</p>
+
+    <h2 class="wiki-h" id="durable"><span class="num">3</span>What automation does not replace</h2>
+    <p>A useful way to see the skill is to separate the parts of an argument that a model can now perform from the parts that stay with the person.</p>
+    <table class="wikitable">
+      <caption>Table 1. Tasks that automate, and tasks that do not.</caption>
+      <thead><tr><th>A model can do this</th><th>The person still does this</th></tr></thead>
+      <tbody>
+        <tr><td>Draft the case</td><td>Field a question no one saw coming</td></tr>
+        <tr><td>Find the citation</td><td>Decide which point actually matters</td></tr>
+        <tr><td>Summarise the opposing side</td><td>Hold nerve and reasoning at once</td></tr>
+        <tr><td>Polish the wording</td><td>Convince a real listener, live</td></tr>
+      </tbody>
+    </table>
+    <p>The left column has grown steadily cheaper. The right column is the skill, and it has become <em>more</em> valuable as the surrounding tasks were automated.</p>
+
+    <h2 class="wiki-h" id="access"><span class="num">4</span>Access</h2>
+    <p>Historically, structured practice in arguing well required resources: a coach, a competitive circuit, a travel budget, and a judge with a free afternoon.<sup class="ref" id="cite-ref-4"><a href="#note-4">[4]</a></sup> The reasoning is universal; the repetitions were not. They concentrated in well-funded schools and a handful of universities. Practice that removes those requirements changes who can build the skill:</p>
+    <ul>
+      <li>A student with no team nearby can complete a full round &mdash; against an opponent that questions back, with a written decision at the end.</li>
+      <li>A competitor between tournaments can keep repetitions up without a partner, travel, or a scheduled meet.</li>
+      <li>Anyone unsure whether they can hold a position can test it privately, before it counts for anything.</li>
+    </ul>
+
+    <h2 class="wiki-h" id="practice"><span class="num">5</span>How it is practised</h2>
+    <p>A practice round has three parts, mirroring a competitive one:</p>
+    <ul>
+      <li><b>Take a side.</b> A motion is drawn and a side assigned, including positions the speaker does not personally hold &mdash; where most of the thinking happens.</li>
+      <li><b>Be questioned.</b> An opponent presses the argument, takes points, and finds the weak link, out loud and against the clock, in the register the format uses.</li>
+      <li><b>Read the ballot.</b> A decision is recorded and a reason for it written, so the speaker knows what to correct before the next round.</li>
+    </ul>
+    <p>On DebateIt the opponent and the judge are AI, and the same round can be run against another person. See <a href="/voice-debate">voice rounds</a> and <a href="/spar">live sparring</a>.</p>
+
+    <div class="practice-note">
+      <p>The rest of this reference is best read by doing: a three-minute round out loud.</p>
+      <a class="pn-cta" href="/voice-debate" data-cta="future-cta-voice">Try a round &rarr;</a>
     </div>
+
+    <h2 class="wiki-h" id="seealso"><span class="num">6</span>See also</h2>
+    <ul>
+      <li><a href="/scale">Scale</a> &mdash; the plan to widen access to structured practice.</li>
+      <li><a href="/voice-debate">Voice rounds</a> &mdash; practise a round out loud against an AI opponent.</li>
+      <li><a href="/spar">Live sparring</a> &mdash; argue a real person and get an AI ballot.</li>
+      <li><a href="/learn">Learn</a> &mdash; the formats, structures, and vocabulary of competitive debate.</li>
+    </ul>
+
+    <h2 class="wiki-h" id="refs"><span class="num">7</span>Notes and references</h2>
+    <div class="references">
+      <ol>
+        <li id="note-1">&#8593;&nbsp;<span>&quot;Live questioning&quot; covers cross-examination in Policy and Lincoln&ndash;Douglas, points of information in parliamentary formats, and the follow-up questions of an oral examination.</span></li>
+        <li id="note-2">&#8593;&nbsp;<span>The observation motivates the project: as the generation of arguments is automated, the value shifts to defending them. DebateIt is built to train the defence.</span></li>
+        <li id="note-3">&#8593;&nbsp;<span>The oral defence, or <em>viva voce</em>, is the traditional check that a body of work is genuinely the candidate&rsquo;s own understanding rather than a produced artefact.</span></li>
+        <li id="note-4">&#8593;&nbsp;<span>A &quot;circuit&quot; is the set of tournaments a team travels to across a season; access to one has historically depended on school funding and geography.</span></li>
+      </ol>
+    </div>
+
   </div>
-</section>
+</main>
 
-<div class="divast"><span>✳</span></div>
+<footer class="wiki-foot">
+  <span><a href="/">debateai.com</a><span class="sep">&middot;</span>Reference article<span class="sep">&middot;</span>Thinking under question</span>
+  <span>Set in Crimson Pro</span>
+</footer>
 
-<!-- ════════════ THREE WAYS TO THINK ════════════ -->
-<section class="sec" id="three">
-  <div class="wrap narrow">
-    <span class="kicker rv">Three ways to think</span>
-    <div class="head rv d1" style="margin-top:18px">
-      <h2>Each one trains a different muscle.</h2>
-    </div>
-    <p class="dek rv d2">They are not in competition. But only one of them happens with the clock running and a person on the other side, and that is the one almost no one practices.</p>
-    <div class="triad rv d2">
-      <div class="tr">Writing helps you think <b>alone.</b></div>
-      <div class="tr">Conversation helps you think <b>together.</b></div>
-      <div class="tr"><em>Debate</em> makes you think while a careful opponent tries to take your reasoning apart.</div>
-    </div>
-    <div class="body"><p class="rv d3">It is the most uncomfortable of the three, which is exactly why it teaches the most. You cannot bluff a warrant you have not thought through when someone is standing there ready to pull it.</p></div>
-  </div>
-</section>
-
-<div class="rule"></div>
-
-<!-- ════════════ WHAT IT CAN / CANNOT REPLACE ════════════ -->
-<section class="sec" id="durable">
-  <div class="wrap">
-    <span class="kicker rv">What stays yours</span>
-    <div class="head rv d1" style="margin-top:18px;max-width:26ch">
-      <h2>Some of the work hands off. Some of it never <em>will.</em></h2>
-    </div>
-    <div class="fork rv d2">
-      <div class="fork-col can">
-        <div class="ft">A model can do this</div>
-        <ul>
-          <li>Draft the case</li>
-          <li>Find the citation</li>
-          <li>Summarize the other side</li>
-          <li>Polish the wording</li>
-        </ul>
-      </div>
-      <div class="fork-col cant">
-        <div class="ft">You still have to do this</div>
-        <ul>
-          <li>Take the question you did not expect</li>
-          <li>Decide which point actually matters</li>
-          <li>Hold your nerve and your reasoning at once</li>
-          <li>Be convincing to a real person, live</li>
-        </ul>
-      </div>
-    </div>
-    <div class="body"><p class="rv d3">The left column is getting cheaper by the month. The right column is the skill, and it has only gotten more valuable as the rest got automated.</p></div>
-  </div>
-</section>
-
-<div class="divast"><span>✳</span></div>
-
-<!-- ════════════ ACCESS ════════════ -->
-<section class="sec" id="access">
-  <div class="wrap">
-    <div class="duo flip">
-      <div>
-        <span class="kicker rv">The uneven part</span>
-        <div class="head rv d1" style="margin-top:18px">
-          <h2>For most of its history, this skill came with a <em>gate.</em></h2>
-        </div>
-        <div class="body">
-          <p class="rv d2">Learning to argue well has meant having a coach, a circuit, a travel budget, and a judge with a free Saturday. The reasoning is universal. The reps were not. They belonged to schools, to universities, to a few well-funded teams.</p>
-        </div>
-        <ul class="accesslist">
-          <li class="rv d2">A student with no team in their town <b>can run a real round tonight.</b><span class="cd">Against an opponent that questions back, with a written ballot at the end.</span></li>
-          <li class="rv d3">A debater between tournaments <b>can keep their reps up.</b><span class="cd">No partner, no travel, no waiting for the next meet.</span></li>
-          <li class="rv d4">Anyone curious whether they can hold a position <b>can find out.</b><span class="cd">Quietly, at their own pace, before it counts for anything.</span></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="rule"></div>
-
-<!-- ════════════ THE ROOM ════════════ -->
-<section class="sec" id="room">
-  <div class="wrap">
-    <span class="kicker rv">What you can do here</span>
-    <div class="head rv d1" style="margin-top:18px;max-width:24ch">
-      <h2>A sparring partner, a clock, and an honest <em>judge.</em></h2>
-    </div>
-    <p class="dek rv d2">A round that genuinely pushes, with the format's real rules, and a ballot that tells you the truth about how it went.</p>
-    <div class="steps">
-      <div class="step rv d2">
-        <div class="sn">01 · Take a side</div>
-        <h3>Pick a motion, draw a side</h3>
-        <p>Argue the position you were dealt, including the one you do not personally hold. That is where the thinking actually happens.</p>
-      </div>
-      <div class="step rv d3">
-        <div class="sn">02 · Get questioned</div>
-        <h3>Hear it pushed back</h3>
-        <p>An opponent that presses, takes points, and finds the weak link, out loud and against the clock, in the register your format uses.</p>
-      </div>
-      <div class="step rv d4">
-        <div class="sn">03 · Read the ballot</div>
-        <h3>Find out where it broke</h3>
-        <p>An AI judge scores the round the same way each time and writes a reason for decision, so you know what to fix before the next one.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divast"><span>✳</span></div>
-
-<!-- ════════════ CLOSE ════════════ -->
-<section class="sec" id="join">
-  <div class="wrap narrow">
-    <span class="kicker rv">The point</span>
-    <p class="body rv d1" style="margin-top:24px;font-size:1.34rem">For a long time, learning to think under question belonged to institutions.</p>
-    <div class="notlist rv d2">
-      <span>Schools</span><span>Universities</span><span>National teams</span><span>Closed circuits</span>
-    </div>
-    <div class="closeline rv d3">Not because everyone should compete. Because everyone should know how to think when <em>someone disagrees.</em></div>
-    <div class="cta-bar rv d4">
-      <a class="go" href="/voice-debate" data-cta="future-cta-voice">Try a round out loud <span class="arr" aria-hidden="true">→</span></a>
-      <a class="ghost" href="/spar" data-cta="future-cta-spar">Argue a real person</a>
-      <a class="ghost" href="/scale" data-cta="future-cta-scale">Where this is going</a>
-    </div>
-    <div class="sib rv d5">For coaches and programs, the plan to scale this lives here: <a href="/scale">Where it goes →</a></div>
-  </div>
-</section>
-
-<div class="wrap">
-  <div class="colophon">
-    <span><a href="/">debateai.com</a><span class="sep">·</span>Thinking under question<span class="sep">·</span>Built in public</span>
-    <span>Set in Crimson Pro</span>
-  </div>
-</div>
-
-<script>
-  (function(){
-    var bar=document.getElementById('progress');
-    function onScroll(){var h=document.documentElement;var max=h.scrollHeight-h.clientHeight;
-      var p=max>0?(h.scrollTop||document.body.scrollTop)/max:0;bar.style.width=(p*100)+'%';}
-    document.addEventListener('scroll',onScroll,{passive:true});onScroll();
-
-    var rvs=[].slice.call(document.querySelectorAll('.rv'));
-    if(!('IntersectionObserver' in window)){rvs.forEach(function(el){el.classList.add('in');});}
-    else{var io=new IntersectionObserver(function(es){es.forEach(function(e){
-      if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},
-      {threshold:.12,rootMargin:'0px 0px -8% 0px'});rvs.forEach(function(el){io.observe(el);});}
-
-    (function(){
-      var links=[].slice.call(document.querySelectorAll('.secnav a'));
-      if(!links.length||!('IntersectionObserver' in window))return;
-      var map={},ratio={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
-      var secs=links.map(function(a){return document.getElementById(a.getAttribute('href').slice(1));}).filter(Boolean);
-      var sio=new IntersectionObserver(function(es){
-        es.forEach(function(e){ratio[e.target.id]=e.isIntersecting?e.intersectionRatio:0;});
-        var bestId=null,best=-1;Object.keys(ratio).forEach(function(id){if(ratio[id]>best){best=ratio[id];bestId=id;}});
-        if(bestId&&best>0){links.forEach(function(a){a.classList.toggle('is-active',a===map[bestId]);});}
-      },{threshold:[0,.25,.5,.75,1],rootMargin:'-30% 0px -30% 0px'});
-      secs.forEach(function(s){sio.observe(s);});
-    })();
-  })();
-</script>
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/notifications.js"></script>
 <script defer src="/js/home-magnet.js"></script>
