@@ -559,19 +559,28 @@
      collide with the unified hi-* rules. -->
 <script>
   (function(){
+    // 2026-07-08: live-first is the new DEFAULT arm (live room as hero,
+    // applications second, AI orb demoted to a fallback strip). It is not a
+    // coin-flip: every visitor gets live-first unless a rollback flag forces
+    // an older arm. ?doors=unified restores the exact equal triptych that was
+    // live before this change; ?doors=classic is the pre-2026-07-07 control.
+    // Sticky key bumped to da-doors-ab3 so visitors pinned to unified/classic
+    // under the old split are redrawn onto the new default. doors_variant_view
+    // keeps firing so converting sessions stay segmentable by arm.
     var v='';
     try{
       var qp=(location.search||'').toLowerCase();
-      if(/[?&]doors=unified(?:&|$)/.test(qp)) v='unified';
+      if(/[?&]doors=livefirst(?:&|$)/.test(qp)) v='livefirst';
+      else if(/[?&]doors=unified(?:&|$)/.test(qp)) v='unified';
       else if(/[?&]doors=classic(?:&|$)/.test(qp)) v='classic';
     }catch(e){}
     var assigned=false;
-    if(v!=='unified'&&v!=='classic'){
-      try{ v=localStorage.getItem('da-doors-ab2')||''; }catch(e){}
-      if(v!=='unified'&&v!=='classic'){
-        v=(Math.random()<0.80)?'unified':'classic';
+    if(v!=='livefirst'&&v!=='unified'&&v!=='classic'){
+      try{ v=localStorage.getItem('da-doors-ab3')||''; }catch(e){}
+      if(v!=='livefirst'&&v!=='unified'&&v!=='classic'){
+        v='livefirst';
         assigned=true;
-        try{ localStorage.setItem('da-doors-ab2',v); }catch(e){}
+        try{ localStorage.setItem('da-doors-ab3',v); }catch(e){}
       }
     }
     document.documentElement.setAttribute('data-doors-ab',v);
@@ -7055,7 +7064,167 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         }
         @media(max-width:980px){.hero-illustrated .hio-triptych{grid-template-columns:minmax(0,1fr);max-width:560px}.hero-illustrated .hio-path-card{height:auto;min-height:300px}.hero-illustrated .hio-live-tiles{height:150px}}
         @media(max-width:560px){.hero-illustrated .hio-triptych{width:100%;max-width:calc(100vw - 40px);gap:12px;margin-top:18px}.hero-illustrated .hio-path-card{min-height:auto;padding:18px}.hero-illustrated .hio-ai-core{width:min(198px,70vw)}.hero-illustrated .hio-live-tiles,.hero-illustrated .hio-amb-photo{height:120px}}
+
+        /* ═══════════════════════════════════════════════════════════════
+           LIVE-FIRST hero (2026-07-08) — NEW DEFAULT door layout.
+           Fix: the three equal cards gave the AI orb too much visual
+           gravity (brightest, most symmetric object). Now the live room
+           is the hero (left, ~62%), founding-class applications are the
+           second door (right, ~38%), and the AI orb is demoted to a slim
+           always-available fallback strip below. Reuses .hi-path-card for
+           card chrome + full dark/light theming, and the shared hi-ai-*
+           orb internals at a smaller size. Rollback to the equal triptych
+           with ?doors=unified (or the classic arm with ?doors=classic). */
+        .hero-illustrated .hi-doors--livefirst{display:block}
+        .hero-illustrated .hi-doors--unified{display:none}
+        html[data-doors-ab="unified"] .hero-illustrated .hi-doors--livefirst{display:none}
+        html[data-doors-ab="unified"] .hero-illustrated .hi-doors--unified{display:block}
+        html[data-doors-ab="classic"] .hero-illustrated .hi-doors--livefirst{display:none}
+
+        .hero-illustrated .hi-doors--livefirst{width:100%;max-width:1180px;margin:22px auto 0}
+        @media(min-width:981px){.hero-illustrated .hi-doors--livefirst{width:min(1180px,calc(100vw - 72px));max-width:none}}
+        /* Ink is left to the theme system: light-theme root gives dark ink
+           (readable on the light card), the [data-theme=dark] .hi-path-card
+           override gives light ink. Do NOT re-pin --hi-ink here — an override
+           at equal specificity lands after the dark rule and wins, which
+           turns the headline/motion/judge text near-black on the dark card. */
+        .hero-illustrated .hi-lf-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px;align-items:stretch}
+        .hero-illustrated .hi-lf-live,.hero-illustrated .hi-lf-amb{height:auto}
+        /* shared eyebrow + CTA */
+        .hero-illustrated .hi-lf-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--hi-red)}
+        .hero-illustrated .hi-lf-eyebrow i{width:7px;height:7px;border-radius:50%;background:currentColor}
+        .hero-illustrated .hi-lf-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:12px;font-size:.85rem;font-weight:800;letter-spacing:.01em;text-decoration:none;transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease,color .15s ease}
+        .hero-illustrated .hi-lf-cta--primary{background:var(--hi-red);color:#fff;box-shadow:0 11px 26px rgba(200,50,50,.26)}
+        .hero-illustrated .hi-lf-cta--primary:hover{transform:translateY(-1px);box-shadow:0 15px 34px rgba(200,50,50,.36)}
+        .hero-illustrated .hi-lf-cta--ghost{background:transparent;color:var(--hi-ink);border:1px solid var(--hi-card-line,rgba(29,25,21,.22))}
+        .hero-illustrated .hi-lf-cta--ghost:hover{border-color:var(--hi-red);color:var(--hi-red)}
+        .hero-illustrated .hi-lf-cta--full{width:100%;box-sizing:border-box}
+        /* LEFT — live room (mini product interface) */
+        .hero-illustrated .hi-lf-live{padding:0;overflow:hidden;display:flex;flex-direction:column;gap:0}
+        .hero-illustrated .hi-lf-roombar{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--hi-card-line,rgba(29,25,21,.12));font-size:.63rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--hi-ink-soft)}
+        .hero-illustrated .hi-lf-roombar-spacer{flex:1}
+        .hero-illustrated .hi-lf-liveflag{display:inline-flex;align-items:center;gap:6px;color:#dc2626}
+        .hero-illustrated .hi-lf-liveflag i{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 9px rgba(239,68,68,.85);animation:hiAiBeat 2s ease-in-out infinite}
+        .hero-illustrated .hi-lf-judged b{color:var(--hi-red);font-weight:900}
+        .hero-illustrated .hi-lf-stage{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:14px 16px 0}
+        .hero-illustrated .hi-lf-tile{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:16/10;background:#1c1512;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+        .hero-illustrated .hi-lf-tile img{width:100%;height:100%;object-fit:cover;display:block}
+        .hero-illustrated .hi-lf-tile--speaking{box-shadow:inset 0 0 0 2px #ef4444}
+        .hero-illustrated .hi-lf-timer{position:absolute;top:8px;right:8px;padding:3px 7px;border-radius:7px;background:rgba(18,13,11,.78);color:#fff;font-size:.64rem;font-weight:900;font-variant-numeric:tabular-nums}
+        .hero-illustrated .hi-lf-name{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:rgba(18,13,11,.74);color:#fff;font-size:.58rem;font-weight:800}
+        .hero-illustrated .hi-lf-name em{font-style:normal;color:#ef4444;font-size:.7em}
+        .hero-illustrated .hi-lf-motion{margin:12px 16px 0;padding:10px 13px;border-radius:11px;background:rgba(200,50,50,.06);border:1px solid var(--hi-card-line,rgba(29,25,21,.12));font-size:.95rem;font-weight:600;line-height:1.35;color:var(--hi-ink);font-family:'Crimson Pro',Georgia,serif}
+        .hero-illustrated .hi-lf-motion-k{display:block;font-family:inherit;font-size:.6rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--hi-red);margin-bottom:2px}
+        .hero-illustrated .hi-lf-judge{display:flex;align-items:center;gap:9px;margin:11px 16px 0;font-size:.74rem;color:var(--hi-ink-soft)}
+        .hero-illustrated .hi-lf-judge-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 10px rgba(239,68,68,.7);flex:0 0 auto;animation:hiAiBeat 2.4s ease-in-out infinite}
+        .hero-illustrated .hi-lf-judge-t{flex:1;min-width:0}
+        .hero-illustrated .hi-lf-judge-t b{color:var(--hi-ink);font-weight:800}
+        .hero-illustrated .hi-lf-judge-chip{font-size:.57rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--hi-ink-soft);border:1px solid var(--hi-card-line,rgba(29,25,21,.12));border-radius:999px;padding:4px 8px;white-space:nowrap}
+        .hero-illustrated .hi-lf-live-foot{margin-top:auto;padding:15px 16px 16px;display:flex;flex-direction:column;gap:11px}
+        .hero-illustrated .hi-lf-cta-row{display:flex;gap:10px;flex-wrap:wrap}
+        .hero-illustrated .hi-lf-cta-row .hi-lf-cta--primary{flex:1;min-width:160px}
+        /* RIGHT — founding class */
+        .hero-illustrated .hi-lf-amb{display:flex;flex-direction:column;gap:12px;padding:16px;text-decoration:none}
+        .hero-illustrated .hi-lf-amb-photo{position:relative;border-radius:13px;overflow:hidden;aspect-ratio:16/9;background:#221a14;border:1px solid rgba(255,255,255,.14)}
+        .hero-illustrated .hi-lf-amb-photo img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.94) contrast(.97)}
+        .hero-illustrated .hi-lf-amb-badge{position:absolute;left:10px;bottom:10px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.95);color:#a4201d;font-size:.62rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+        .hero-illustrated .hi-lf-amb h2{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.5rem,1.9vw,1.95rem);line-height:1.02;letter-spacing:-.02em;color:var(--hi-ink);margin:0}
+        .hero-illustrated .hi-lf-amb-copy{font-size:.9rem;line-height:1.45;color:var(--hi-ink-soft);margin:0}
+        .hero-illustrated .hi-lf-amb-foot{margin-top:auto;display:flex;flex-direction:column;gap:12px;padding-top:6px}
+        /* BELOW — AI orb demoted to a slim fallback strip */
+        .hero-illustrated .hi-lf-aistrip{display:flex;align-items:center;gap:15px;margin:16px auto 0;padding:11px 16px 11px 12px;border-radius:16px;text-decoration:none;background:rgba(200,50,50,.045);border:1px dashed var(--hi-card-line,rgba(29,25,21,.2));transition:border-color .15s ease,background .15s ease}
+        .hero-illustrated .hi-lf-aistrip:hover{border-color:rgba(200,50,50,.42);background:rgba(200,50,50,.08)}
+        .hero-illustrated .hi-lf-orb{flex:0 0 auto}
+        .hero-illustrated .hi-lf-orb-core{position:relative;width:60px;aspect-ratio:1;display:grid;place-items:center;isolation:isolate}
+        .hero-illustrated .hi-lf-orb-core::before{content:"";position:absolute;inset:-8%;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.13),transparent 62%);filter:blur(8px);opacity:.55}
+        .hero-illustrated .hi-lf-aistrip-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+        .hero-illustrated .hi-lf-aistrip-txt b{font-size:.94rem;font-weight:800;color:var(--hi-ink);font-family:'Crimson Pro',Georgia,serif}
+        .hero-illustrated .hi-lf-aistrip-txt span{font-size:.78rem;color:var(--hi-ink-soft)}
+        .hero-illustrated .hi-lf-aistrip-cta{flex:0 0 auto}
+        /* stacking: tablet + mobile */
+        @media(max-width:900px){.hero-illustrated .hi-lf-grid{grid-template-columns:minmax(0,1fr);max-width:560px;margin:0 auto}.hero-illustrated .hi-lf-live{min-height:0}}
+        @media(max-width:560px){.hero-illustrated .hi-doors--livefirst{width:100%;max-width:calc(100vw - 40px)}.hero-illustrated .hi-lf-aistrip{flex-wrap:wrap;gap:10px}.hero-illustrated .hi-lf-aistrip-cta{width:100%}}
       </style>
+      <!-- ═══ LIVE-FIRST doors (2026-07-08 · new default) ═══
+           Live room = hero (left). Founding class = second door (right).
+           The AI orb is demoted to the slim fallback strip below. Rollback
+           to the equal triptych via ?doors=unified. -->
+      <div class="hi-doors hi-doors--livefirst">
+        <div class="hi-lf-grid">
+
+          <!-- LEFT: live room, sized as the hero -->
+          <div class="hi-lf-live hi-path-card">
+            <div class="hi-lf-roombar">
+              <span class="hi-lf-liveflag"><i aria-hidden="true"></i>Live now</span>
+              <span aria-hidden="true">&middot;</span>
+              <span>Public Forum</span>
+              <span aria-hidden="true">&middot;</span>
+              <span>3 min speeches</span>
+              <span class="hi-lf-roombar-spacer"></span>
+              <span class="hi-lf-judged"><b>AI judged</b></span>
+            </div>
+            <div class="hi-lf-stage" aria-hidden="true">
+              <div class="hi-lf-tile hi-lf-tile--speaking">
+                <img src="/img/round/faces/face02.jpg" alt="" decoding="async" />
+                <span class="hi-lf-timer">01:42</span>
+                <span class="hi-lf-name"><em>&#9679;</em>Aidan &middot; speaking</span>
+              </div>
+              <div class="hi-lf-tile">
+                <img src="/img/round/faces/face07.jpg" alt="" decoding="async" />
+                <span class="hi-lf-name">Opponent &middot; preparing</span>
+              </div>
+            </div>
+            <div class="hi-lf-motion" aria-hidden="true">
+              <span class="hi-lf-motion-k">Motion</span>
+              Schools should ban phones during class.
+            </div>
+            <div class="hi-lf-judge" aria-hidden="true">
+              <span class="hi-lf-judge-dot"></span>
+              <span class="hi-lf-judge-t"><b>AI judge</b> flowing the round &middot; clash: privacy vs distraction</span>
+              <span class="hi-lf-judge-chip">Ballot at the end</span>
+            </div>
+            <div class="hi-lf-live-foot">
+              <span class="hi-lf-eyebrow"><i aria-hidden="true"></i>Debate real people</span>
+              <div class="hi-lf-cta-row">
+                <a href="/spar" class="hi-lf-cta hi-lf-cta--primary" data-cta="hero-livefirst-open">Open live debates <span aria-hidden="true">&rarr;</span></a>
+                <a href="/live" class="hi-lf-cta hi-lf-cta--ghost" data-cta="hero-livefirst-watch">Watch live</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: founding-class applications, the second door -->
+          <a href="/ambassadors" class="hi-lf-amb hi-path-card" data-cta="hero-livefirst-ambassadors">
+            <div class="hi-lf-amb-photo">
+              <img src="/img/ambassadors/round.jpg" alt="" decoding="async" />
+              <span class="hi-lf-amb-badge">30 founding seats</span>
+            </div>
+            <span class="hi-lf-eyebrow"><i aria-hidden="true"></i>Founding class</span>
+            <h2>Help build the circuit.</h2>
+            <p class="hi-lf-amb-copy">Founding ambassadors run live rounds, onboard schools, and build the first online debate circuit. Paid, remote.</p>
+            <div class="hi-lf-amb-foot">
+              <div class="hi-path-meta"><span>Paid</span><span>Remote</span><span>2026-27</span></div>
+              <span class="hi-lf-cta hi-lf-cta--primary hi-lf-cta--full">Apply for the founding class <span aria-hidden="true">&rarr;</span></span>
+            </div>
+          </a>
+        </div>
+
+        <!-- BELOW: the AI orb, demoted to a slim always-available fallback -->
+        <a href="/voice-debate" class="hi-lf-aistrip" data-cta="hero-livefirst-ai">
+          <span class="hi-lf-orb" aria-hidden="true">
+            <span class="hi-lf-orb-core">
+              <span class="hi-ai-ring hi-ai-ring--outer"></span>
+              <span class="hi-ai-ring hi-ai-ring--mid"></span>
+              <span class="hi-ai-disc"><span class="hi-ai-bars"><i></i><i></i><i></i><i></i><i></i></span></span>
+            </span>
+          </span>
+          <span class="hi-lf-aistrip-txt">
+            <b>No one online? Debate the AI.</b>
+            <span>Speak against an AI opponent and get a judged ballot after the round.</span>
+          </span>
+          <span class="hi-lf-cta hi-lf-cta--ghost hi-lf-aistrip-cta">Start AI round <span aria-hidden="true">&rarr;</span></span>
+        </a>
+      </div><!-- /.hi-doors--livefirst -->
+
       <div class="hi-doors hi-doors--unified">
       <p class="hi-choose">Pick how you start</p>
       <div class="hi-triptych" aria-label="Choose how to start">
@@ -7162,7 +7331,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div><!-- /.hi-doors--classic -->
       <div class="hi-free-strip" aria-label="Current access">
         <span><i aria-hidden="true"></i>Free right now</span>
-        <span>No card collected</span>
+        <span>Every tier free in beta</span>
         <span>Google sign-in saves your rounds</span>
       </div>
 
