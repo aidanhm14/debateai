@@ -102,6 +102,13 @@ doesn't. Put all of this in `app/css/native-app.css`:
 Keep it tasteful and on-brand (Crimson Pro, red accent, no em-dashes, no
 banned phrases — same rules as the site; see `soul.md`).
 
+**Open finding (2026-07-09 simulator walk):** on `/app` (index.html) at
+phone width, the page's own internal top bar crowds 7 controls (wordmark,
+Dark, EN, voice orb, Available, Manage, Sign Out) and the wordmark
+overlaps a neighboring label. Likely a mobile-web bug too, not app-only.
+Fix belongs in index.html's own bar layout (active Codex lane), not in
+native-app.css.
+
 ---
 
 ## 4. Build & run (the exact working recipe)
