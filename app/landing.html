@@ -5491,12 +5491,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <body>
 
 <!-- ═════════════════════════════════════════════════════════════════════
-     WELCOME INTRO (2026-07-09, voiced + questions pass same day) —
+     WELCOME INTRO (2026-07-09, silent + questions pass same day) —
      first-visit cinematic opener. A full-screen overlay cycles three
      rotating hero headlines (slow beats, 3 → 2 → 1, film-leader ring
-     pulsing and sweeping behind) while a human ElevenLabs voice line
-     (/audio/welcome-ready.mp3, "Are you ready to debate?") plays; then
-     three quick onboarding questions take over the pulsing ring area
+     pulsing and sweeping behind), then three quick onboarding questions
+     take over the pulsing ring area
      (Are you a debater? / What brings you in? / How do you want to
      start?) with the surface flowing white → red → white → red between
      them; then the overlay lifts and the two dominant hero cards (live
@@ -5504,9 +5503,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      (localStorage da-welcome-intro), skipped entirely under
      prefers-reduced-motion. The Skip button ends it any time. A 9s
      failsafe in the gate script tears everything down if the sequence
-     script never boots, so the hero can never be left hidden.
-     Autoplay-with-sound is usually blocked pre-gesture: we try at start
-     and retry on the first pointer press inside the overlay.
+     script never boots, so the hero can never be left hidden. The intro
+     is intentionally silent.
      Answers: da-is-debater / da-welcome-goal / da-welcome-start (+ GA4
      user properties is_debater / welcome_goal / welcome_start).
      GA4 events: welcome_intro_show / welcome_q_answer {q, answer} /
@@ -5642,7 +5640,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
   <div class="wi-brand">Debate<b>It</b></div>
   <button type="button" class="wi-skip">Skip</button>
-  <audio id="wiAudio" src="/audio/welcome-ready.mp3" preload="auto"></audio>
 </div>
 <script>
   (function(){
@@ -5663,7 +5660,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var qSub   = ov.querySelector('.wi-q-sub');
       var qRow   = ov.querySelector('.wi-q-row');
       var skip   = ov.querySelector('.wi-skip');
-      var au     = document.getElementById('wiAudio');
 
       var PHRASES = [
         ['Everything is', 'debatable.'],
@@ -5687,20 +5683,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       ];
       var BEAT = 1900, i = 0, qi = 0, done = false, timers = [];
       ga('welcome_intro_show');
-
-      /* Human voice line. Browsers block audible autoplay before a
-         gesture on a fresh origin; try now, retry on the first pointer
-         press anywhere in the overlay (a Skip click or an answer). */
-      function tryAudio(){
-        if (!au) return;
-        var p;
-        try { au.volume = 0.9; p = au.play(); } catch(e){}
-        if (p && p.catch) p.catch(function(){
-          ov.addEventListener('pointerdown', function(){
-            try { au.currentTime = 0; au.play().catch(function(){}); } catch(e){}
-          }, { once:true });
-        });
-      }
 
       function finish(skipped){
         if (done) return; done = true;
@@ -5778,7 +5760,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       }
 
       skip.addEventListener('click', function(){ finish(true); });
-      tryAudio();
       beat();
     }
 
