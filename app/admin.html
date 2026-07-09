@@ -363,6 +363,33 @@
   <!-- KPIs with sparklines -->
   <div class="kpis" id="kpis"></div>
 
+  <!-- Experiments · A/B — live poll-variant results from poll_responses.
+       Surfaces the landing micro-poll's multi-variant framing test and any
+       other A/B poll: response volume + answer mix per framing. -->
+  <style>
+    .exp-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+    .exp-poll{border:1px solid var(--line,rgba(0,0,0,.1));border-radius:12px;padding:14px 16px;background:var(--card,rgba(127,127,127,.03))}
+    .exp-poll-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px;font-size:.9rem}
+    .exp-poll-head .meta{font-size:.72rem;color:var(--muted)}
+    .exp-var{margin:11px 0 0;padding-top:11px;border-top:1px solid var(--line-soft,rgba(127,127,127,.14))}
+    .exp-var:first-of-type{border-top:none;padding-top:2px}
+    .exp-var-top{display:flex;justify-content:space-between;gap:10px;font-size:.8rem;margin-bottom:6px}
+    .exp-var-name{font-weight:600;font-family:ui-monospace,Menlo,monospace}
+    .exp-var-n{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .exp-bar{height:6px;border-radius:99px;background:var(--line-soft,rgba(127,127,127,.14));overflow:hidden;margin-bottom:8px}
+    .exp-bar span{display:block;height:100%;background:linear-gradient(90deg,#ef4444,#dc2626);border-radius:99px}
+    .exp-choices{display:flex;flex-wrap:wrap;gap:5px}
+    .exp-chip{font-size:.68rem;padding:2px 8px;border-radius:99px;background:var(--line-soft,rgba(127,127,127,.1));color:var(--muted);white-space:nowrap}
+    .exp-chip b{color:var(--fg);font-weight:700}
+    .exp-texts{margin-top:8px;display:flex;flex-direction:column;gap:3px}
+    .exp-text{font-size:.7rem;color:var(--muted)}
+  </style>
+  <div class="section" id="exp-section">
+    <h2>Experiments · A/B <span class="badge" id="exp-meta">—</span></h2>
+    <div class="ts" style="margin:-4px 0 14px">Answer volume and answer mix per question-framing variant. Note: this counts answers, not impressions, so it is not a show-to-answer rate (that lives in GA4 as <code>micro_poll_shown</code>).</div>
+    <div id="experiments-body" class="exp-body"><div class="ts">Loading…</div></div>
+  </div>
+
   <!-- Hero row: activity chart + new users + DAU -->
   <div class="grid-2-3 section">
     <div class="card">
@@ -1082,8 +1109,9 @@ async function loadAll(force){
       fetchJson('/api/admin/cohorts?weeks=' + cohortWeeks),
       fetchJson('/api/admin/heatmap?days=' + globalDays),
       fetchJson('/api/admin/power-users?days=' + globalDays + '&limit=15'),
+      fetchJson('/api/admin/experiments?days=' + Math.max(globalDays, 30)),
     ]);
-    const [a, rt, ch, hm, pu] = results;
+    const [a, rt, ch, hm, pu, ex] = results;
     if (a.status === 'rejected' && /forbidden/i.test(a.reason.message || '')){
       loading.hidden = true;
       gate.hidden = false;
@@ -1098,6 +1126,7 @@ async function loadAll(force){
     if (ch.status === 'fulfilled') { cachedCohorts = ch.value; renderCohorts(ch.value); }
     if (hm.status === 'fulfilled') { cachedHeatmap = hm.value; renderHeatmap(hm.value); }
     if (pu.status === 'fulfilled') { cachedPower = pu.value; renderPower(pu.value); }
+    if (ex.status === 'fulfilled') { renderExperiments(ex.value); }
 
     // Per-endpoint rejection surfacing. Promise.allSettled hides failures
     // so empty panels above used to be indistinguishable from "no data yet"
@@ -1108,7 +1137,7 @@ async function loadAll(force){
     // it gets a calm amber notice instead of a red "endpoints failed" wall.
     // Endpoints now also degrade to last-cached data (HTTP 200 + _stale),
     // surfaced as a quiet "cached numbers" line.
-    const labels = ['analytics', 'realtime', 'cohorts', 'heatmap', 'power-users'];
+    const labels = ['analytics', 'realtime', 'cohorts', 'heatmap', 'power-users', 'experiments'];
     const isQuotaMsg = m => /RESOURCE_EXHAUSTED|quota|429/i.test(m || '');
     const failures = results
       .map((r, i) => r.status === 'rejected' ? { label: labels[i], msg: (r.reason && r.reason.message) || String(r.reason) } : null)
@@ -1247,6 +1276,36 @@ function animateNum(el, target, formatter){
 }
 
 // ── KPI strip ──────────────────────────────────────────────────────
+function renderExperiments(d){
+  const body = $('experiments-body'); if(!body) return;
+  const meta = $('exp-meta');
+  if(!d || !d.polls || !d.polls.length){
+    if(meta) meta.textContent = '0 responses';
+    body.innerHTML = '<div class="ts">No poll responses in this window yet. As the landing micro-poll collects answers, each framing variant shows up here with its response volume and answer mix.</div>';
+    return;
+  }
+  if(meta) meta.textContent = d.totalResponses + ' responses · ' + d.windowDays + 'd' + (d._stale ? ' · cached' : '') + (d.sampled ? ' · sampled' : '');
+  let html = '';
+  d.polls.forEach(function(P){
+    const maxN = P.variants.reduce(function(m,v){ return Math.max(m, v.responses); }, 1);
+    html += '<div class="exp-poll">';
+    html += '<div class="exp-poll-head"><b>' + esc(P.poll) + '</b><span class="meta">' + P.responses + ' responses · ' + P.variantCount + ' variant' + (P.variantCount>1?'s':'') + '</span></div>';
+    P.variants.forEach(function(V){
+      const w = Math.round(V.responses / maxN * 100);
+      html += '<div class="exp-var">';
+      html += '<div class="exp-var-top"><span class="exp-var-name">' + esc(V.variant) + '</span><span class="exp-var-n">' + V.responses + ' · ' + V.share + '%</span></div>';
+      html += '<div class="exp-bar"><span style="width:' + w + '%"></span></div>';
+      html += '<div class="exp-choices">' + V.choices.map(function(c){ return '<span class="exp-chip">' + esc(c.label) + ' <b>' + c.pct + '%</b></span>'; }).join('') + '</div>';
+      if(V.texts && V.texts.length){
+        html += '<div class="exp-texts">' + V.texts.map(function(t){ return '<span class="exp-text">“' + esc(t) + '”</span>'; }).join('') + '</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  body.innerHTML = html;
+}
+
 function renderAnalytics(d){
   $('last-updated').textContent = 'updated ' + new Date(d.timestamp).toLocaleTimeString();
 

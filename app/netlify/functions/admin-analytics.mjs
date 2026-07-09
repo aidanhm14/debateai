@@ -47,6 +47,11 @@ export default async (request) => {
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
+    // Deadline race (see below) converts a slow / quota-pressured pull into
+    // a clean stale-serve instead of a Netlify platform 502: the ~218 count
+    // queries can hang without throwing, so without this the function blows
+    // past the ~10s limit before the catch can serve the last-cached value.
+    const compute = async () => {
     // Run all collection counts in parallel
     const [
       usersSnap,
@@ -225,7 +230,7 @@ export default async (request) => {
       }
     }
 
-    const result = {
+    return {
       // Totals
       totalUsers,
       totalCases,
@@ -256,6 +261,13 @@ export default async (request) => {
 
       timestamp: new Date().toISOString(),
     };
+    }; // end compute()
+
+    const DEADLINE_MS = 8500; // under Netlify's ~10s synchronous-function limit
+    const result = await Promise.race([
+      compute(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DEADLINE_EXCEEDED_' + DEADLINE_MS + 'ms')), DEADLINE_MS)),
+    ]);
     await setCachedShared(CACHE_KEY, result, TTL_HEAVY);
     return jsonResponse(result, 200, request);
   } catch (err) {

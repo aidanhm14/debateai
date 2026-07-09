@@ -57,11 +57,18 @@ export default async (request) => {
 
   try {
     const scanSince = multi ? new Date(Date.now() - 30 * 86_400_000) : since;
-    const snap = await db.collection('events')
-      .where('createdAt', '>=', scanSince)
-      .orderBy('createdAt', 'desc')
-      .limit(MAX_DOCS)
-      .get();
+    // Race the events scan against a deadline under Netlify's ~10s limit. A
+    // slow / quota-pressured scan can hang without throwing; without this the
+    // platform 502s before the catch below can serve the last-cached value.
+    const SCAN_DEADLINE_MS = 8000;
+    const snap = await Promise.race([
+      db.collection('events')
+        .where('createdAt', '>=', scanSince)
+        .orderBy('createdAt', 'desc')
+        .limit(MAX_DOCS)
+        .get(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('SCAN_DEADLINE_EXCEEDED_' + SCAN_DEADLINE_MS + 'ms')), SCAN_DEADLINE_MS)),
+    ]);
 
     // Drop the founder's own usage so the leaderboard is real users.
     const excludeUids = await getExcludedUids(db);
