@@ -111,45 +111,72 @@
     }
   };
 
-  // ── A/B: question framing ─────────────────────────────────────────
-  // The landing poll runs a head-to-head between two framings — identity
-  // ("who are you", the default in POLLS.intent) and occasion ("what for").
-  // Assignment is a sticky 50/50 per visitor; the chosen variant name rides
-  // every event (shown / answer / dismiss + the /api/poll-submit payload as
-  // `qvariant`), so you can compare show->answer rate AND the answer mix.
-  // Add an entry here to A/B any other poll the same way.
+  // ── A/B/C/D: question framing ─────────────────────────────────────
+  // The landing poll runs a multi-variant test across several framings.
+  // Assignment is a sticky, uniform split per visitor; the chosen variant
+  // name rides every event (shown / answer / dismiss, and the
+  // /api/poll-submit payload as `qvariant`), so you can compare
+  // show->answer rate AND the answer mix per framing. Widen or narrow the
+  // test by editing the variants array. Plain, direct copy only — no
+  // try-hard "reps solo / am I any good" phrasing.
   var POLL_AB = {
-    intent: {
-      a: 'identity',                 // variant 'a' = POLLS.intent (unchanged)
-      b: 'occasion',
-      bCfg: {
-        q: 'What are you hoping DebateIt does for you?',
+    intent: [
+      { name: 'identity', cfg: POLLS.intent },   // "Which one sounds most like you?"
+      { name: 'goal', cfg: {
+        q: 'What do you want out of DebateIt?',
         options: [
-          { label: 'Prep me for tournaments', value: 'tournament' },
-          { label: 'Give me reps solo', value: 'solo' },
-          { label: "Tell me if I'm any good", value: 'judging' }
+          { label: 'Practice for tournaments', value: 'tournament' },
+          { label: 'Reps on my own schedule', value: 'solo' },
+          { label: 'Honest feedback on my speaking', value: 'judging' }
         ],
-        other: 'Something else',
-        otherPrompt: 'What are you here for?'
-      }
-    }
+        other: 'Something else', otherPrompt: 'What are you here for?'
+      } },
+      { name: 'brought_you', cfg: {
+        q: 'What brought you here today?',
+        options: [
+          { label: 'Prep for a real round', value: 'prep' },
+          { label: 'Work on a specific skill', value: 'skill' },
+          { label: 'See how it works', value: 'curious' }
+        ],
+        other: 'Something else', otherPrompt: 'What are you looking for?'
+      } },
+      { name: 'level', cfg: {
+        q: 'Where are you with debate right now?',
+        options: [
+          { label: 'Competing', value: 'competitor' },
+          { label: 'Learning', value: 'newcomer' },
+          { label: 'Coaching', value: 'coach' }
+        ],
+        other: 'Something else', otherPrompt: 'Then where do you fit?'
+      } },
+      { name: 'worth_it', cfg: {
+        q: 'What would make DebateIt worth coming back to?',
+        options: [
+          { label: 'A tougher opponent', value: 'opponent' },
+          { label: 'Sharper judge feedback', value: 'judging' },
+          { label: 'Real people to debate', value: 'humans' }
+        ],
+        other: 'Something else', otherPrompt: 'What would bring you back?'
+      } }
+    ]
   };
-  var AB_KEY = 'debateos-poll-ab:'; // + pollId -> 'a' | 'b' (sticky per browser)
+  var AB_KEY = 'debateos-poll-ab:'; // + pollId -> variant name (sticky per browser)
 
   function abPick(pollId) {
-    var ab = POLL_AB[pollId];
-    if (!ab) return { variant: '', cfg: POLLS[pollId] };
-    var bucket;
+    var variants = POLL_AB[pollId];
+    if (!variants || !variants.length) return { variant: '', cfg: POLLS[pollId] };
+    var names = [];
+    for (var i = 0; i < variants.length; i++) names.push(variants[i].name);
+    var chosen;
     try {
-      bucket = localStorage.getItem(AB_KEY + pollId);
-      if (bucket !== 'a' && bucket !== 'b') {
-        bucket = Math.random() < 0.5 ? 'a' : 'b';
-        localStorage.setItem(AB_KEY + pollId, bucket);
+      chosen = localStorage.getItem(AB_KEY + pollId);
+      if (names.indexOf(chosen) === -1) {           // unset, or a retired variant ('a'/'b')
+        chosen = names[Math.floor(Math.random() * names.length)];
+        localStorage.setItem(AB_KEY + pollId, chosen);
       }
-    } catch (e) { bucket = Math.random() < 0.5 ? 'a' : 'b'; }
-    return bucket === 'b'
-      ? { variant: ab.b, cfg: ab.bCfg }
-      : { variant: ab.a, cfg: POLLS[pollId] };
+    } catch (e) { chosen = names[Math.floor(Math.random() * names.length)]; }
+    var v = variants[names.indexOf(chosen)] || variants[0];
+    return { variant: v.name, cfg: v.cfg };
   }
 
   // Which poll auto-fires on which path. First match wins; a `skip` entry
@@ -321,7 +348,7 @@
 
   function showThanks() {
     if (!card) return;
-    card.innerHTML = '<div class="mp-thanks">Thanks, that helps. 🙏</div>';
+    card.innerHTML = '<div class="mp-thanks">Thanks, that helps.</div>';
     setTimeout(unmount, 1400);
   }
 
