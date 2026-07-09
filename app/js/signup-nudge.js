@@ -263,6 +263,10 @@
     // ask, and the two collided at the bottom of the screen). Defer until
     // that modal is dismissed; the bar then appears on its own.
     if (document.querySelector('.intro-modal.is-open')){ setTimeout(function(){ mount(attempt); }, 1500); return; }
+    // Same rule for the landing welcome flow (2026-07-09): the countdown
+    // intro overlay and the "Are you a debater?" card own the screen while
+    // up. Defer until both are gone so two dialogs never stack.
+    if (document.documentElement.getAttribute('data-intro') === '1' || document.querySelector('#debaterAsk.is-open')){ setTimeout(function(){ mount(attempt); }, 1500); return; }
     // If a first-visit intro modal lives on this page but hasn't been
     // resolved yet, it's the SAME sign-in ask and is about to open after
     // the visitor scrolls. Skip the nudge entirely for this page-load so

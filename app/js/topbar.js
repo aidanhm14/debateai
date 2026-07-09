@@ -15,6 +15,16 @@
    markup should remove it before mounting this. The CSS lives in
    /css/ui.css under .ui-topbar* — every page already loads ui.css. */
 (function(){
+  /* DARK MODE DISABLED (2026-07-09): the site runs one light surface.
+     The whole theme system (sun/moon toggle, saved-pref read, 70/30
+     light/crimson bucketing) is KEPT below and dormant; flip this flag
+     back to true to restore it. Saved da-theme values are untouched so
+     preferences survive a revival. Pair with the same flag in
+     landing.html (early-paint script + lighting-nudge toast). Pages
+     with data-force-theme (hardcoded dark palettes like /us, /india)
+     are unaffected; that's a page palette, not user dark mode. */
+  var DARK_MODE_ENABLED = false;
+
   var here = (location.pathname || '/').replace(/\/$/,'') || '/';
 
   // Record that this visitor has reached the main page. home-magnet.js (on
@@ -420,7 +430,7 @@
       '<svg class="ti-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
         '<path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/>' +
       '</svg>';
-    right.appendChild(themeBtn);
+    if (DARK_MODE_ENABLED) right.appendChild(themeBtn);
 
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
@@ -634,6 +644,27 @@
       document.documentElement.setAttribute('data-lighting', forced === 'light' ? 'light' : 'dark');
       var ft = document.querySelector('.ui-topbar .theme-toggle');
       if (ft) ft.style.display = 'none';
+      return;
+    }
+    /* DARK MODE DISABLED (2026-07-09): pin every non-forced page to the
+       light token set and stop. Everything below (migration, bucketing,
+       click wiring) stays intact for revival via DARK_MODE_ENABLED at
+       the top of this file. A saved dark pref is PARKED once under
+       da-theme-saved-pref (not deleted) and da-theme is set to light so
+       the ~21 pages with their own early-paint theme scripts stop
+       flashing dark before this runs. On revival, restore da-theme from
+       da-theme-saved-pref. */
+    if (!DARK_MODE_ENABLED) {
+      try {
+        var cur = localStorage.getItem('da-theme');
+        if (cur && cur !== 'light') {
+          localStorage.setItem('da-theme-saved-pref', cur);
+          localStorage.setItem('da-theme', 'light');
+        }
+        localStorage.setItem('debateos-lighting', 'light');
+      } catch(e){}
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.setAttribute('data-lighting', 'light');
       return;
     }
     // Migration v2026-05: dark is the brand default. One-time sweep
