@@ -210,6 +210,7 @@ mobile/
 ├── splash/                       splash images
 ├── CODEX_APP_HANDOVER.md         this file
 ├── APP_STORE_LISTING.md          store copy + privacy + submit steps
+├── BACKGROUND_VOICE_PLAN.md      background voice (FaceTime mode): findings + options
 └── IOS_SETUP.md                  first-time toolchain setup
 
 app/js/native-bridge.js           native detection + app-css inject + payment gating
