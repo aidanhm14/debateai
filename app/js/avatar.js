@@ -250,19 +250,22 @@
   // photoreal video head can implement the same shape and drop in later.
 
   function talkingMouth(open, emotion) {
-    var lip = '#c26b5e', cav = '#7a2f2a', cy = 56;
+    var lip = '#b65b4f', cav = '#5f241f', tongue = '#d88478', cy = 56;
     var corner = emotion === 'encouraging' ? -1.7 : (emotion === 'pushing' ? 1.5 : 0);
     open = open < 0 ? 0 : open > 1 ? 1 : open;
     if (open < 0.06) {
-      return '<path d="M44.3 ' + (cy - corner * 0.15).toFixed(2) + ' Q50 ' + (cy + corner).toFixed(2) + ' 55.7 ' + (cy - corner * 0.15).toFixed(2) + '" stroke="' + lip + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
+      return '<path d="M43.6 ' + (cy - corner * 0.15).toFixed(2) + ' C47.2 ' + (cy + corner).toFixed(2) + ' 52.8 ' + (cy + corner).toFixed(2) + ' 56.4 ' + (cy - corner * 0.15).toFixed(2) + '" stroke="' + lip + '" stroke-width="2.15" fill="none" stroke-linecap="round"/>';
     }
-    var rx = 4.3 + open * 1.7, ry = 0.9 + open * 5.1;
+    var rx = 4.8 + open * 4.2, ry = 1.1 + open * 6.4;
     var teeth = open > 0.34
-      ? '<path d="M' + (50 - rx + 1).toFixed(2) + ' ' + (cy - ry + 1.2).toFixed(2) + ' Q50 ' + (cy - ry + 0.2).toFixed(2) + ' ' + (50 + rx - 1).toFixed(2) + ' ' + (cy - ry + 1.2).toFixed(2) + '" stroke="#fff" stroke-width="1.3" fill="none" opacity=".9"/>'
+      ? '<path d="M' + (50 - rx + 1).toFixed(2) + ' ' + (cy - ry + 1.1).toFixed(2) + ' Q50 ' + (cy - ry - 0.2).toFixed(2) + ' ' + (50 + rx - 1).toFixed(2) + ' ' + (cy - ry + 1.1).toFixed(2) + '" stroke="#fff" stroke-width="1.6" fill="none" opacity=".92"/>'
       : '';
-    return '<ellipse cx="50" cy="' + cy + '" rx="' + rx.toFixed(2) + '" ry="' + ry.toFixed(2) + '" fill="' + cav + '"/>' + teeth +
+    var tonguePath = open > 0.58
+      ? '<path d="M' + (50 - rx * 0.46).toFixed(2) + ' ' + (cy + ry * 0.2).toFixed(2) + ' Q50 ' + (cy + ry * 0.95).toFixed(2) + ' ' + (50 + rx * 0.46).toFixed(2) + ' ' + (cy + ry * 0.2).toFixed(2) + '" fill="' + tongue + '" opacity=".82"/>'
+      : '';
+    return '<ellipse cx="50" cy="' + cy + '" rx="' + rx.toFixed(2) + '" ry="' + ry.toFixed(2) + '" fill="' + cav + '"/>' + tonguePath + teeth +
       '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy - ry - 1.4 + corner).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
-      '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy + ry + 1.7).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
+      '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy + ry + 1.8).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="2.05" fill="none" stroke-linecap="round"/>';
   }
 
   function talkingEyes(openFrac, gx, gy) {
@@ -304,21 +307,28 @@
     return '' +
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="talking avatar" style="display:block">' +
       '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>' +
-      '<radialGradient id="' + id + 'g" cx="32%" cy="24%" r="82%"><stop offset="0%" stop-color="' + shade(bgCol, 0.24) + '"/><stop offset="100%" stop-color="' + shade(bgCol, -0.06) + '"/></radialGradient></defs>' +
+      '<radialGradient id="' + id + 'g" cx="32%" cy="24%" r="82%"><stop offset="0%" stop-color="' + shade(bgCol, 0.28) + '"/><stop offset="62%" stop-color="' + bgCol + '"/><stop offset="100%" stop-color="' + shade(bgCol, -0.10) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'skin" cx="34%" cy="22%" r="78%"><stop offset="0%" stop-color="' + shade(skinCol, 0.26) + '"/><stop offset="58%" stop-color="' + skinCol + '"/><stop offset="100%" stop-color="' + shade(skinCol, -0.16) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'gloss" cx="30%" cy="18%" r="54%"><stop offset="0%" stop-color="#fff" stop-opacity=".58"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
       '<g clip-path="url(#' + id + ')">' +
       '<rect width="100" height="100" fill="url(#' + id + 'g)"/>' +
+      '<path d="M9 69 C24 31 58 9 91 28" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="10" stroke-linecap="round"/>' +
+      '<path d="M12 76 C34 52 57 45 90 58" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2" stroke-linecap="round"/>' +
       hair.back +
-      '<path d="M15 100 C15 79 30 71 50 71 C70 71 85 79 85 100 Z" fill="' + outCol + '"/>' +
-      '<path d="M38 72 Q50 80 62 72 L63 76 Q50 84 37 76 Z" fill="' + shade(outCol, -0.16) + '"/>' +
+      '<ellipse cx="50" cy="76" rx="31" ry="8" fill="#1a1412" opacity=".14"/>' +
+      '<path d="M13 104 C13 78 30 69 50 69 C70 69 87 78 87 104 Z" fill="' + outCol + '"/>' +
+      '<path d="M37 70 Q50 81 63 70 L64 75 Q50 85 36 75 Z" fill="' + shade(outCol, -0.16) + '"/>' +
       '<path d="M47 77 L46 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
       '<path d="M53 77 L54 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
       '<circle cx="46" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/><circle cx="54" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/>' +
       '<g class="ta-face">' +
       '<path d="M43 60 h14 v9 q-7 5 -14 0 Z" fill="' + skinShade + '"/>' +
-      '<ellipse cx="50" cy="45" rx="21.5" ry="22.5" fill="' + skinCol + '"/>' +
+      '<ellipse cx="50" cy="45" rx="21.5" ry="22.5" fill="url(#' + id + 'skin)"/>' +
+      '<ellipse cx="42" cy="37" rx="12" ry="15" fill="url(#' + id + 'gloss)" opacity=".62"/>' +
       '<circle cx="28.5" cy="47" r="3.9" fill="' + skinCol + '"/><circle cx="71.5" cy="47" r="3.9" fill="' + skinCol + '"/>' +
       earring +
       facialPath(c.facial, hairCol) +
+      '<ellipse cx="38.5" cy="52.2" rx="4.2" ry="2.1" fill="#fff" opacity=".10"/><ellipse cx="61.5" cy="52.2" rx="4.2" ry="2.1" fill="#fff" opacity=".10"/>' +
       '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
       '<g class="ta-brows">' + talkingBrows(0, 0) + '</g>' +
       '<g class="ta-eyes">' + talkingEyes(1, 0, 0) + '</g>' +
@@ -346,6 +356,7 @@
     if (!faceEl) return null;
 
     var state = 'idle', emoOverride = null;
+    var faceScale = opts.faceScale || 1.22;
     var manualAmp = null, amp = 0, smoothAmp = 0;
     var analyser = null, audioCtx = null, srcNode = null, freqBuf = null, ownCtx = false;
     var running = true, raf = 0;
@@ -388,9 +399,9 @@
       var goal = (state === 'talking') ? smoothAmp : 0;
       amp += (goal - amp) * 0.4;
 
-      var mo = (state === 'talking') ? amp : 0;
+      var mo = (state === 'talking') ? Math.max(0, Math.min(1, Math.pow(amp, 0.72) * 1.16 + (amp > 0.06 ? Math.sin(t * 16) * 0.045 : 0))) : 0;
       var emo = effEmotion();
-      var mk = Math.round(mo * 20) + emo;
+      var mk = Math.round(mo * 34) + emo;
       if (mk !== lastMouth) { mouthEl.innerHTML = talkingMouth(mo, emo); lastMouth = mk; }
 
       var eyeOpen = 1;
@@ -409,10 +420,10 @@
       if (bk !== lastBrows) { browsEl.innerHTML = talkingBrows(bp.raise, bp.angle); lastBrows = bk; }
 
       var breathe = reduce ? 0 : Math.sin(t * 1.15) * 0.5;
-      var bob = (reduce || state !== 'talking') ? 0 : -amp * 1.3;
-      var tx = reduce ? 0 : (state === 'listening' ? 0.6 : (state === 'thinking' ? -0.6 : 0));
-      var rot = reduce ? 0 : (state === 'thinking' ? -2.4 : (state === 'listening' ? 1.4 : 0));
-      faceEl.setAttribute('transform', 'translate(' + tx.toFixed(2) + ' ' + (breathe + bob).toFixed(2) + ') rotate(' + rot.toFixed(2) + ' 50 60)');
+      var bob = reduce ? 0 : (state === 'talking' ? -amp * 2.25 : Math.sin(t * 1.7) * 0.24);
+      var tx = reduce ? 0 : (state === 'listening' ? 0.6 + Math.sin(t * 1.3) * 0.18 : (state === 'thinking' ? -0.6 : Math.sin(t * 1.1) * 0.14));
+      var rot = reduce ? 0 : (state === 'thinking' ? -2.4 : (state === 'listening' ? 1.4 : (state === 'talking' ? Math.sin(t * 5.4) * 1.05 : Math.sin(t * 1.2) * 0.45)));
+      faceEl.setAttribute('transform', 'translate(' + tx.toFixed(2) + ' ' + (breathe + bob).toFixed(2) + ') rotate(' + rot.toFixed(2) + ' 50 60) translate(50 60) scale(' + faceScale.toFixed(2) + ') translate(-50 -60)');
 
       raf = requestAnimationFrame(frame);
     }

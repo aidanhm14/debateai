@@ -149,6 +149,25 @@ body{
   margin-top:14px;max-width:44ch;color:var(--ink-dim);
   font-size:16px;line-height:1.55;
 }
+.guide-panel{
+  width:100%;margin-top:28px;padding:14px;border:1px solid var(--card-line);border-radius:22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));
+  box-shadow:0 18px 48px rgba(0,0,0,.16);
+}
+.guide-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;text-align:left}
+.guide-k{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--red)}
+.guide-head p{font-size:13px;line-height:1.35;color:var(--ink-dim);margin:0}
+.guide-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.guide-intent{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.guide-chip{
+  appearance:none;border:1px solid var(--card-line);background:var(--panel);color:var(--ink);
+  min-height:58px;border-radius:14px;padding:10px 9px;cursor:pointer;font-family:var(--sans);
+  display:flex;flex-direction:column;align-items:flex-start;text-align:left;justify-content:center;gap:3px;
+  transition:transform .16s,border-color .16s,background .16s;
+}
+.guide-chip b{font-size:13px}
+.guide-chip span{font-size:11px;color:var(--ink-dim);line-height:1.2}
+.guide-chip:hover,.guide-chip.on{transform:translateY(-2px);border-color:rgba(239,68,68,.46);background:rgba(239,68,68,.09)}
 .claim-wrap{width:100%;margin-top:38px;position:relative}
 .claim-label{
   font-size:11px;letter-spacing:.18em;text-transform:uppercase;
@@ -443,6 +462,14 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
 .recap-foot a{color:var(--ink-dim)}
 
 @media (max-width:720px){
+  body{overflow:auto}
+  #setup{align-items:flex-start;justify-content:flex-start;min-height:100svh;padding:calc(76px + env(safe-area-inset-top)) 18px calc(138px + env(safe-area-inset-bottom))}
+  .setup-card{margin:0 auto}
+  .setup-h1{font-size:clamp(42px,13vw,58px)}
+  .setup-sub{font-size:15px}
+  .home-btn,.theme-btn{top:calc(22px + env(safe-area-inset-top))}
+  .guide-grid{grid-template-columns:1fr 1fr}
+  .guide-intent{grid-template-columns:1fr}
   .captions{grid-template-columns:1fr}
   .cap{min-height:0}
   .cap-text{-webkit-line-clamp:2}
@@ -482,7 +509,25 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
     <h1 class="setup-h1 rise rise-2">Debate it, out loud.</h1>
     <p class="setup-sub rise rise-3">Say your take. The machine takes the other side and argues back in real time. You pick how tough it plays.</p>
 
-    <div class="claim-wrap rise rise-4">
+    <div class="guide-panel rise rise-4" aria-label="Guided voice AI setup">
+      <div class="guide-head">
+        <div class="guide-k">Guide the round</div>
+        <p>Pick a lane, then change anything below.</p>
+      </div>
+      <div class="guide-grid" id="topicGuide">
+        <button class="guide-chip" type="button" data-claim="Schools should ban phones during class."><b>School life</b><span>Clear, familiar, fast.</span></button>
+        <button class="guide-chip" type="button" data-claim="AI art should be eligible for copyright."><b>AI and media</b><span>Creative rights and tech.</span></button>
+        <button class="guide-chip" type="button" data-claim="Rich countries should pay climate reparations."><b>World affairs</b><span>Justice, money, power.</span></button>
+        <button class="guide-chip" type="button" data-claim="Cities should make public transit free."><b>Public policy</b><span>Costs, access, tradeoffs.</span></button>
+      </div>
+      <div class="guide-intent" id="intentGuide">
+        <button class="guide-chip" type="button" data-intent="warmup"><b>Warmup</b><span>Standard opponent, natural pace.</span></button>
+        <button class="guide-chip" type="button" data-intent="circuit"><b>Circuit push</b><span>Ruthless opponent, quick pace.</span></button>
+        <button class="guide-chip" type="button" data-intent="coached"><b>Explain as I go</b><span>Live judge on, calmer pace.</span></button>
+      </div>
+    </div>
+
+    <div class="claim-wrap rise rise-5">
       <div class="claim-label">
         <span>The claim</span>
         <button id="shuffleBtn" type="button" aria-label="Shuffle claim">
@@ -788,6 +833,49 @@ $('judgeSeg').addEventListener('click', (e) => {
   paintSeg($('judgeSeg'), 'judge', v);
   try { localStorage.setItem('debateos-newvoice-judge-live', v); } catch (err) {}
   if (status === 'live') $('judgeStrip').hidden = !liveJudge;
+});
+
+function markGuide(group, btn){
+  if (!group || !btn) return;
+  Array.from(group.querySelectorAll('.guide-chip')).forEach((b) => b.classList.toggle('on', b === btn));
+}
+const topicGuide = $('topicGuide');
+if (topicGuide) topicGuide.addEventListener('click', (e) => {
+  const btn = e.target && e.target.closest && e.target.closest('.guide-chip');
+  if (!btn || !btn.dataset.claim) return;
+  markGuide(topicGuide, btn);
+  claimInput.classList.add('swap');
+  setTimeout(() => {
+    claimInput.value = btn.dataset.claim;
+    claimInput.classList.remove('swap');
+    claimInput.focus({ preventScroll: true });
+  }, 120);
+});
+const intentGuide = $('intentGuide');
+if (intentGuide) intentGuide.addEventListener('click', (e) => {
+  const btn = e.target && e.target.closest && e.target.closest('.guide-chip');
+  if (!btn || !btn.dataset.intent) return;
+  markGuide(intentGuide, btn);
+  const intent = btn.dataset.intent;
+  if (intent === 'circuit') {
+    difficulty = 'ruthless';
+    setPace('quick');
+    liveJudge = false;
+  } else if (intent === 'coached') {
+    difficulty = 'standard';
+    setPace('calm');
+    liveJudge = true;
+  } else {
+    difficulty = 'standard';
+    setPace('natural');
+    liveJudge = false;
+  }
+  paintSeg($('diffSeg'), 'diff', difficulty);
+  paintSeg($('judgeSeg'), 'judge', liveJudge ? 'on' : 'off');
+  try {
+    localStorage.setItem('debateos-newvoice-diff', difficulty);
+    localStorage.setItem('debateos-newvoice-judge-live', liveJudge ? 'on' : 'off');
+  } catch (err) {}
 });
 
 function paceLabel(k){ return k.charAt(0).toUpperCase() + k.slice(1); }

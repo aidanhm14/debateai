@@ -4768,7 +4768,7 @@ section.ui-section .ui-lede{
   background:
     radial-gradient(ellipse 1100px 720px at 50% 36%, var(--hero-grad, #fafaf7) 0%, transparent 60%),
     radial-gradient(ellipse 1240px 880px at 50% 33%, #f6f1e6 0%, transparent 72%);
-  padding-top:clamp(64px, 7vh, 88px) !important;
+  padding-top:clamp(56px, 6.2vh, 78px) !important;
   padding-bottom:clamp(28px, 4vh, 56px) !important;
   min-height:auto !important;
 }
@@ -5602,6 +5602,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   #welcomeIntro.wi-red .wi-q-btn--a{background:#fff;color:#a4201d;box-shadow:0 14px 30px rgba(0,0,0,.28)}
   #welcomeIntro.wi-red .wi-q-btn--b{color:#fff;border-color:rgba(255,255,255,.44)}
   #welcomeIntro.wi-red .wi-q-btn--b:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,.08)}
+  .wi-other-wrap{display:flex;gap:10px;align-items:center;justify-content:center;width:min(680px,100%);margin:0 auto;animation:wiQIn .25s ease both}
+  .wi-other-input{flex:1;min-width:220px;border:1px solid rgba(29,25,21,.22);border-radius:14px;background:#fff;padding:16px 18px;font:700 1rem Inter,system-ui,sans-serif;color:#1a1a1f;outline:none}
+  .wi-other-input:focus{border-color:#c83232;box-shadow:0 0 0 4px rgba(200,50,50,.10)}
+  #welcomeIntro.wi-red .wi-other-input{border-color:rgba(255,255,255,.34);background:rgba(255,255,255,.94);color:#1a1a1f}
   @media(max-width:560px){.wi-q-row{flex-direction:column;align-items:stretch}.wi-q-btn{width:100%}}
   /* While the intro holds the screen, the hero's dominant pieces wait
      offstage; when it lifts they flow up in a stagger. The reveal
@@ -5687,19 +5691,35 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          onboarding personalization; keep them stable. */
       var QUESTIONS = [
         { key:'da-is-debater',    prop:'is_debater',
-          step:'Question 1 of 3', q:'Are you a debater?',
-          sub:"If not, that's ok! This is just so we can guide you a bit better.",
+          step:'Question 1 of 3', q:'Have you debated before?',
+          sub:"We use this to decide how much structure to show first.",
           primaryFirst:true,
-          opts:[['yes','Yes, I debate'],['no','Not yet']] },
+          opts:[['yes','Yes, I compete'],['no','New to debate']] },
         { key:'da-welcome-goal',  prop:'welcome_goal',
-          step:'Question 2 of 3', q:'What brings you in?', sub:'',
-          opts:[['compete','Compete sharper'],['learn','Get better at arguing'],['curious','Just exploring']] },
+          step:'Question 2 of 3', q:'What should DebateIt help with first?', sub:'',
+          allowOther:true,
+          opts:[['rounds','Find real practice'],['feedback','Get sharper feedback'],['team','Start or grow a team'],['other','Something else']] },
         { key:'da-welcome-start', prop:'welcome_start',
-          step:'Question 3 of 3', q:'How do you want to start?', sub:'',
-          opts:[['people','Debate real people'],['ai','Practice with the AI'],['watch','Watch a round first']] }
+          step:'Question 3 of 3', q:'Where should we send you first?', sub:'',
+          opts:[['people','Debate a person'],['ai','Practice with AI'],['watch','Spectate first'],['learn','Learn the formats']] }
       ];
       var BEAT = 1900, i = 0, qi = 0, done = false, timers = [];
       ga('welcome_intro_show');
+      var sfxLoading = false;
+      function welcomeSfx(name){
+        try {
+          if (localStorage.getItem('da-sfx-muted') === '1') return;
+          if (window.SFX && typeof window.SFX[name] === 'function') { window.SFX[name](); return; }
+          if (sfxLoading || document.querySelector('script[src*="/js/sfx.js"]')) return;
+          sfxLoading = true;
+          var s = document.createElement('script');
+          s.src = '/js/sfx.js';
+          s.defer = true;
+          s.onload = function(){ sfxLoading = false; try { window.SFX && typeof window.SFX[name] === 'function' && window.SFX[name](); } catch(e){} };
+          s.onerror = function(){ sfxLoading = false; };
+          document.head.appendChild(s);
+        } catch(e){}
+      }
 
       function finish(skipped){
         if (done) return; done = true;
@@ -5708,6 +5728,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         ov.classList.add('is-leaving');
         root.removeAttribute('data-intro');
         root.setAttribute('data-intro-reveal', '1');
+        welcomeSfx('success');
         setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 950);
         /* release the reveal attr after the entrances land so animation
            fill stops pinning the cards' hover transforms */
@@ -5729,7 +5750,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           b.type = 'button';
           b.className = 'wi-q-btn ' + ((Q.primaryFirst && idx === 0) ? 'wi-q-btn--a' : 'wi-q-btn--b');
           b.textContent = o[1];
-          b.addEventListener('click', function(){ answer(Q, o[0]); });
+          b.addEventListener('click', function(){
+            if (Q.allowOther && o[0] === 'other') showOther(Q);
+            else answer(Q, o[0]);
+          });
           qRow.appendChild(b);
         });
         q.classList.remove('is-out');
@@ -5737,6 +5761,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         q.classList.remove('is-in');
         void q.offsetWidth; /* restart the keyframe */
         q.classList.add('is-in');
+        welcomeSfx('receive');
+      }
+
+      function showOther(Q){
+        qRow.innerHTML = '';
+        var wrap = document.createElement('div');
+        wrap.className = 'wi-other-wrap';
+        var input = document.createElement('input');
+        input.className = 'wi-other-input';
+        input.placeholder = 'Tell us what you are trying to do';
+        input.setAttribute('aria-label', 'What should DebateIt help with first?');
+        var submit = document.createElement('button');
+        submit.type = 'button';
+        submit.className = 'wi-q-btn wi-q-btn--a';
+        submit.textContent = 'Save';
+        function commit(){
+          var val = input.value.trim();
+          answer(Q, val ? 'other:' + val.slice(0, 120) : 'other');
+        }
+        input.addEventListener('keydown', function(e){ if (e.key === 'Enter') commit(); });
+        submit.addEventListener('click', commit);
+        wrap.appendChild(input);
+        wrap.appendChild(submit);
+        qRow.appendChild(wrap);
+        setTimeout(function(){ input.focus(); }, 60);
       }
 
       function answer(Q, val){
@@ -5744,6 +5793,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         try { localStorage.setItem(Q.key, val); } catch(e){}
         try { if (window.gtag){ var up = {}; up[Q.prop] = val; gtag('set', 'user_properties', up); } } catch(e){}
         ga('welcome_q_answer', { q: Q.key, answer: val });
+        welcomeSfx('confirm');
         qi++;
         q.classList.remove('is-in');
         q.classList.add('is-out');
@@ -5760,6 +5810,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            question block centers alone over the ring */
         phrase.style.display = 'none';
         ov.classList.add('wi-red');
+        welcomeSfx('confirm');
         timers.push(setTimeout(showQuestion, 750));
       }
 
@@ -6900,6 +6951,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="fb-direct">
       <p>Send what broke, what felt fake, or what you needed next. Real inbox, usually a reply within a day.</p>
       <div class="fb-direct-actions">
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform" target="_blank" rel="noopener">Google form</a>
         <a href="mailto:aidandavidhollinger@gmail.com?subject=DebateIt%20feedback">Email feedback</a>
         <a href="https://discord.gg/WMHZW9BKvJ" target="_blank" rel="noopener">Join Discord</a>
       </div>
@@ -7275,7 +7327,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         .hero-illustrated .hi-free-strip .hi-free-google{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:7px 11px;border-radius:999px;border:1px solid rgba(200,50,50,.18);background:rgba(255,253,247,.76);color:rgba(29,25,21,.68);font-family:'Crimson Pro','Inter',system-ui,sans-serif;font-size:.68rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;line-height:1;white-space:nowrap;box-sizing:border-box}
         .hero-illustrated .hi-free-strip span:first-child{color:#b91c1c;background:rgba(239,68,68,.08)}
         .hero-illustrated .hi-free-strip i{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px rgba(34,197,94,.7)}
-        .hero-illustrated .hi-free-strip .hi-free-google{appearance:none;cursor:pointer;background:rgba(255,255,255,.88);box-shadow:0 7px 18px rgba(29,25,21,.08);transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
+        .hero-illustrated .hi-free-strip .hi-free-google{appearance:none;cursor:pointer;min-width:230px;padding-left:18px;padding-right:18px;justify-content:center;background:rgba(255,255,255,.98);border-color:rgba(200,50,50,.46);box-shadow:0 14px 32px rgba(29,25,21,.16),0 0 0 3px rgba(239,68,68,.04);color:#1f1f24;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
         .hero-illustrated .hi-free-strip .hi-free-google:hover{transform:translateY(-1px);border-color:rgba(200,50,50,.32);background:#fff;box-shadow:0 10px 24px rgba(29,25,21,.12)}
         .hero-illustrated .hi-free-strip .hi-free-google svg{width:14px;height:14px;flex:0 0 auto}
         body.signed-in .hero-illustrated .hi-free-strip .hi-free-google{display:none !important}
@@ -7452,7 +7504,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            override gives light ink. Do NOT re-pin --hi-ink here — an override
            at equal specificity lands after the dark rule and wins, which
            turns the headline/motion/judge text near-black on the dark card. */
-        .hero-illustrated .hi-lf-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(430px,1fr);gap:clamp(32px,2.4vw,42px);align-items:stretch}
+        .hero-illustrated .hi-lf-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(430px,1fr);gap:clamp(36px,2.8vw,50px);align-items:start}
         .hero-illustrated .hi-lf-live,.hero-illustrated .hi-lf-amb{height:auto}
         /* shared eyebrow + CTA */
         .hero-illustrated .hi-lf-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--hi-red)}
@@ -7472,22 +7524,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         .hero-illustrated .hi-lf-liveflag{display:inline-flex;align-items:center;gap:6px;color:#dc2626}
         .hero-illustrated .hi-lf-liveflag i{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 9px rgba(239,68,68,.85);animation:hiAiBeat 2s ease-in-out infinite}
         .hero-illustrated .hi-lf-judged b{color:var(--hi-red);font-weight:900}
-        .hero-illustrated .hi-lf-stage{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:14px 16px 0}
-        .hero-illustrated .hi-lf-tile{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:16/10;background:#1c1512;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+        .hero-illustrated .hi-lf-stage{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px 16px 0}
+        .hero-illustrated .hi-lf-tile{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:16/8.15;background:#1c1512;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
         .hero-illustrated .hi-lf-tile img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .24s ease,transform .24s ease}
         .hero-illustrated .hi-lf-tile img.is-swapping{opacity:0;transform:scale(1.018)}
         .hero-illustrated .hi-lf-tile--speaking{box-shadow:inset 0 0 0 2px #ef4444}
         .hero-illustrated .hi-lf-timer{position:absolute;top:8px;right:8px;padding:3px 7px;border-radius:7px;background:rgba(18,13,11,.78);color:#fff;font-size:.64rem;font-weight:900;font-variant-numeric:tabular-nums}
         .hero-illustrated .hi-lf-name{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:rgba(18,13,11,.74);color:#fff;font-size:.58rem;font-weight:800}
         .hero-illustrated .hi-lf-name em{font-style:normal;color:#ef4444;font-size:.7em}
-        .hero-illustrated .hi-lf-motion{margin:12px 16px 0;padding:10px 13px;border-radius:11px;background:rgba(200,50,50,.06);border:1px solid var(--hi-card-line,rgba(29,25,21,.12));font-size:.95rem;font-weight:600;line-height:1.35;color:var(--hi-ink);font-family:'Crimson Pro',Georgia,serif}
+        .hero-illustrated .hi-lf-motion{margin:8px 16px 0;padding:7px 12px;border-radius:11px;background:rgba(200,50,50,.06);border:1px solid var(--hi-card-line,rgba(29,25,21,.12));font-size:.9rem;font-weight:600;line-height:1.22;color:var(--hi-ink);font-family:'Crimson Pro',Georgia,serif}
         .hero-illustrated .hi-lf-motion-k{display:block;font-family:inherit;font-size:.6rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--hi-red);margin-bottom:2px}
-        .hero-illustrated .hi-lf-judge{display:flex;align-items:center;gap:9px;margin:11px 16px 0;font-size:.74rem;color:var(--hi-ink-soft)}
+        .hero-illustrated .hi-lf-judge{display:flex;align-items:center;gap:9px;margin:8px 16px 0;font-size:.72rem;color:var(--hi-ink-soft)}
         .hero-illustrated .hi-lf-judge-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 10px rgba(239,68,68,.7);flex:0 0 auto;animation:hiAiBeat 2.4s ease-in-out infinite}
         .hero-illustrated .hi-lf-judge-t{flex:1;min-width:0}
         .hero-illustrated .hi-lf-judge-t b{color:var(--hi-ink);font-weight:800}
         .hero-illustrated .hi-lf-judge-chip{font-size:.57rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--hi-ink-soft);border:1px solid var(--hi-card-line,rgba(29,25,21,.12));border-radius:999px;padding:4px 8px;white-space:nowrap}
-        .hero-illustrated .hi-lf-live-foot{margin-top:auto;padding:15px 16px 16px;display:flex;flex-direction:column;gap:11px}
+        .hero-illustrated .hi-lf-live-foot{margin-top:0;padding:10px 16px 12px;display:flex;flex-direction:column;gap:8px}
         .hero-illustrated .hi-lf-cta-row{position:relative;z-index:3;display:flex;gap:10px;flex-wrap:wrap}
         .hero-illustrated .hi-lf-cta-row .hi-lf-cta--primary{flex:1;min-width:160px}
         .hero-illustrated .hi-lf-demo-note{position:relative;z-index:3;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--hi-ink-soft)}
@@ -7498,18 +7550,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         .hero-illustrated .hi-lf-amb-badge{position:absolute;left:10px;bottom:10px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.95);color:#a4201d;font-size:.62rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
         .hero-illustrated .hi-lf-amb-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
         .hero-illustrated .hi-lf-amb-top .hi-lf-eyebrow{min-width:0}
-        .hero-illustrated .hi-lf-founder-mini{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 10px;border-radius:999px;text-decoration:none;white-space:nowrap;border:1px solid var(--hi-card-line,rgba(29,25,21,.18));background:rgba(255,255,255,.62);color:var(--hi-red);font-size:.58rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
-        .hero-illustrated .hi-lf-founder-mini:hover{transform:translateY(-1px);border-color:rgba(200,50,50,.36);background:rgba(200,50,50,.06);box-shadow:0 10px 24px rgba(200,50,50,.10)}
+        .hero-illustrated .hi-lf-founder-mini{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 12px;border-radius:999px;text-decoration:none;white-space:nowrap;border:1px solid rgba(200,50,50,.92);background:#ef4444;color:#fff;font-size:.58rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 10px 22px rgba(239,68,68,.22);transition:transform .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
+        .hero-illustrated .hi-lf-founder-mini:hover{transform:translateY(-1px);border-color:#dc2626;background:#dc2626;box-shadow:0 14px 28px rgba(239,68,68,.30)}
         .hero-illustrated .hi-lf-amb h2{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.5rem,1.9vw,1.95rem);line-height:1.02;letter-spacing:-.02em;color:var(--hi-ink);margin:0}
         .hero-illustrated .hi-lf-amb-copy{font-size:.9rem;line-height:1.45;color:var(--hi-ink-soft);margin:0}
         .hero-illustrated .hi-lf-amb-foot{margin-top:auto;display:flex;flex-direction:column;gap:12px;padding-top:6px}
         .hero-illustrated .hi-lf-amb .hi-lf-cta{white-space:nowrap}
         #book-founders{scroll-margin-top:84px}
         /* BELOW — AI orb demoted to a slim fallback strip */
-        .hero-illustrated .hi-lf-aistrip{display:flex;align-items:center;gap:15px;margin:16px auto 0;padding:11px 16px 11px 12px;border-radius:16px;text-decoration:none;background:rgba(200,50,50,.045);border:1px dashed var(--hi-card-line,rgba(29,25,21,.2));transition:border-color .15s ease,background .15s ease}
+        .hero-illustrated .hi-lf-aistrip{display:flex;align-items:center;justify-content:center;gap:15px;width:100%;min-height:58px;margin:16px auto 0;padding:7px 14px 7px 11px;border-radius:16px;text-decoration:none;background:rgba(200,50,50,.045);border:1px dashed var(--hi-card-line,rgba(29,25,21,.2));box-sizing:border-box;transition:border-color .15s ease,background .15s ease}
         .hero-illustrated .hi-lf-aistrip:hover{border-color:rgba(200,50,50,.42);background:rgba(200,50,50,.08)}
         .hero-illustrated .hi-lf-orb{flex:0 0 auto}
-        .hero-illustrated .hi-lf-orb-core{position:relative;width:60px;aspect-ratio:1;display:grid;place-items:center;isolation:isolate}
+        .hero-illustrated .hi-lf-orb-core{position:relative;width:50px;aspect-ratio:1;display:grid;place-items:center;isolation:isolate}
         .hero-illustrated .hi-lf-orb-core::before{content:"";position:absolute;inset:-8%;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.13),transparent 62%);filter:blur(8px);opacity:.55}
         .hero-illustrated .hi-lf-aistrip-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
         .hero-illustrated .hi-lf-aistrip-txt b{font-size:.94rem;font-weight:800;color:var(--hi-ink);font-family:'Crimson Pro',Georgia,serif}
@@ -7564,7 +7616,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <span class="hi-lf-eyebrow"><i aria-hidden="true"></i>Debate real people</span>
               <div class="hi-lf-cta-row">
                 <a href="/spar" class="hi-lf-cta hi-lf-cta--primary" data-cta="hero-livefirst-open">Open live debates <span aria-hidden="true">&rarr;</span></a>
-                <a href="/live" class="hi-lf-cta hi-lf-cta--ghost" data-cta="hero-livefirst-watch">Watch live</a>
+                <a href="/spectate" class="hi-lf-cta hi-lf-cta--ghost" data-cta="hero-livefirst-spectate">Spectate live</a>
               </div>
               <span class="hi-lf-demo-note">Demo videos coming soon.</span>
             </div>
@@ -7782,7 +7834,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span>Google sign-in saves your rounds</span>
         <button type="button" id="heroIllusGoogle" class="hi-google-cta hi-free-google" data-cta="hero-illustrated-google" aria-label="Continue with Google">
           <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-          Google
+          Google sign-in
         </button>
       </div>
 
@@ -10489,18 +10541,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .credential-proof{
       position:relative;z-index:1;
       display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
-      margin-top:auto;
+      gap:9px;
+      margin-top:2px;
     }
     .credential-proof span{
+      min-height:34px;
+      display:flex;align-items:center;justify-content:center;
       border:1px solid rgba(29,25,21,.10);
-      border-radius:12px;
+      border-radius:999px;
       background:#fff;
-      padding:10px;
-      font-size:.72rem;
+      padding:8px 12px;
+      font-size:.7rem;
       font-weight:850;
+      line-height:1;
       color:rgba(29,25,21,.62);
       text-align:center;
+      white-space:nowrap;
     }
     .credential-cover-thumb{
       position:relative;z-index:1;
@@ -10701,7 +10757,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="credential-proof" aria-hidden="true">
           <span>Live round</span>
           <span>AI ballot</span>
-          <span>Public verify URL</span>
+          <span>Verify URL</span>
         </div>
         <div class="credential-actions">
           <span class="credential-btn">Earn a credential <span aria-hidden="true">&rarr;</span></span>
@@ -10714,8 +10770,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </a>
     <article class="credential-card credential-card--future">
       <span class="credential-eyebrow">Future outlook</span>
-      <h2>Speech becomes the proof.</h2>
-      <p>As written work gets easier to manufacture, live argument gets more valuable: defend the claim, take the question, and be understood across language and background.</p>
+      <h2>Live argument is becoming the credential.</h2>
+      <p>AI will make essays easier to polish. That does not make thinking cheaper. The hard skill is answering a real person under time, in language they understand. Debate trains that directly, and DebateIt is built to make that practice available across schools, countries, and languages.</p>
       <div class="credential-growth" aria-hidden="true">
         <svg viewBox="0 0 340 96">
           <path class="cg-axis" d="M16 82H326M16 20V82"/>
@@ -12839,16 +12895,18 @@ window.addEventListener('load', function(){
   .lc-coach{position:fixed;right:22px;top:76px;z-index:8990;width:min(360px,calc(100vw - 32px));pointer-events:none;opacity:0;transform:translateY(-132%) rotate(-2deg);transition:opacity .28s ease,transform .52s cubic-bezier(.2,.9,.2,1)}
   .lc-coach.is-in{opacity:1;transform:translateY(0) rotate(0)}
   .lc-coach-line{position:absolute;right:62px;top:-52px;width:2px;height:60px;background:linear-gradient(180deg,rgba(239,68,68,.12),rgba(239,68,68,.38));box-shadow:0 0 20px rgba(239,68,68,.16)}
-  .lc-coach-card{pointer-events:auto;position:relative;display:grid;grid-template-columns:82px minmax(0,1fr);gap:14px;align-items:center;padding:15px 16px;border-radius:18px;background:rgba(255,253,247,.96);border:1px solid rgba(239,68,68,.24);box-shadow:0 24px 58px rgba(29,25,21,.16),0 8px 30px rgba(239,68,68,.10);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .lc-coach-card{pointer-events:auto;position:relative;display:grid;grid-template-columns:106px minmax(0,1fr);gap:16px;align-items:center;padding:17px 18px;border-radius:20px;background:rgba(255,253,247,.96);border:1px solid rgba(239,68,68,.24);box-shadow:0 24px 58px rgba(29,25,21,.16),0 8px 30px rgba(239,68,68,.10);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
   .lc-coach-card::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(239,68,68,.10),transparent 48%);pointer-events:none}
   .lc-coach-x{position:absolute;top:8px;right:9px;z-index:2;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:rgba(29,25,21,.45);font-size:1.35rem;line-height:1;cursor:pointer}
   .lc-coach-x:hover{background:rgba(29,25,21,.06);color:rgba(29,25,21,.78)}
-  .lc-coach-avatar{position:relative;width:78px;height:78px;border-radius:24px;background:radial-gradient(circle at 34% 26%,rgba(255,255,255,.92),rgba(255,255,255,.24) 32%,rgba(239,68,68,.10) 72%);display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(239,68,68,.15)}
-  .lc-head{position:relative;width:48px;height:54px;border-radius:22px 22px 18px 18px;background:#d8a076;box-shadow:0 12px 24px rgba(29,25,21,.18);display:block}
-  .lc-hair{position:absolute;left:5px;right:5px;top:-4px;height:14px;border-radius:18px 18px 8px 8px;background:#251d1b}
-  .lc-eye{position:absolute;top:24px;width:6px;height:6px;border-radius:50%;background:#1a1a1f;animation:lcBlink 5s infinite}
-  .lc-eye-l{left:14px}.lc-eye-r{right:14px}
-  .lc-mouth{position:absolute;left:18px;bottom:12px;width:13px;height:4px;border-radius:999px;background:#7c2d12;transform-origin:center;transition:height .12s ease}
+  .lc-coach-avatar{position:relative;width:98px;height:98px;border-radius:30px;background:radial-gradient(circle at 32% 22%,rgba(255,255,255,.96),rgba(255,255,255,.34) 31%,rgba(239,68,68,.11) 74%);display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(239,68,68,.18),0 18px 36px rgba(29,25,21,.12);overflow:hidden}
+  .lc-coach-avatar::before{content:"";position:absolute;inset:12px;border-radius:50%;border:1px solid rgba(239,68,68,.16);box-shadow:0 0 30px rgba(239,68,68,.10);transform:rotate(-12deg)}
+  .lc-head{position:relative;width:66px;height:72px;border-radius:28px 28px 22px 22px;background:radial-gradient(circle at 34% 25%,#efbd98 0,#dba172 48%,#bd7c4c 100%);box-shadow:0 14px 28px rgba(29,25,21,.20);display:block}
+  .lc-head::after{content:"";position:absolute;left:10px;top:9px;width:22px;height:16px;border-radius:50%;background:rgba(255,255,255,.16);filter:blur(1px)}
+  .lc-hair{position:absolute;left:7px;right:7px;top:-5px;height:17px;border-radius:18px 18px 8px 8px;background:linear-gradient(180deg,#33201e,#1f1716)}
+  .lc-eye{position:absolute;top:31px;width:8px;height:8px;border-radius:50%;background:#14161b;animation:lcBlink 5s infinite}
+  .lc-eye-l{left:19px}.lc-eye-r{right:19px}
+  .lc-mouth{position:absolute;left:26px;bottom:17px;width:17px;height:6px;border-radius:999px;background:#7c2d12;transform-origin:center;transition:height .12s ease}
   .lc-coach.speaking .lc-mouth{animation:lcTalk .34s steps(2,end) infinite}
   .lc-wave{position:absolute;border-radius:999px;border:1px solid rgba(239,68,68,.34);opacity:.72;inset:9px;animation:lcWave 2.6s ease-out infinite}
   .lc-wave-b{animation-delay:1.2s}
@@ -12868,7 +12926,7 @@ window.addEventListener('load', function(){
   @keyframes lcWave{0%{transform:scale(.78);opacity:.5}100%{transform:scale(1.25);opacity:0}}
   @keyframes lcBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.16)}}
   @keyframes lcTalk{0%{height:4px;transform:translateY(0) scaleX(1)}50%{height:9px;transform:translateY(2px) scaleX(.82)}100%{height:5px;transform:translateY(1px) scaleX(1.1)}}
-  @media(max-width:720px){.lc-coach{top:84px;right:12px;width:min(340px,calc(100vw - 24px))}.lc-coach-card{grid-template-columns:68px minmax(0,1fr);gap:11px;padding:13px}.lc-coach-avatar{width:64px;height:64px;border-radius:20px}.lc-head{transform:scale(.82)}.lc-coach-h{font-size:1.02rem}.lc-coach-copy p{font-size:.74rem}.lc-coach-go,.lc-coach-explain{font-size:.68rem}}
+  @media(max-width:720px){.lc-coach{top:84px;right:12px;width:min(340px,calc(100vw - 24px))}.lc-coach-card{grid-template-columns:82px minmax(0,1fr);gap:12px;padding:14px}.lc-coach-avatar{width:76px;height:76px;border-radius:24px}.lc-head{transform:scale(.76)}.lc-coach-h{font-size:1.02rem}.lc-coach-copy p{font-size:.74rem}.lc-coach-go,.lc-coach-explain{font-size:.68rem}}
   @media(prefers-reduced-motion:reduce){.lc-coach,.lc-wave,.lc-eye,.lc-coach.speaking .lc-mouth{animation:none;transition:none}}
 </style>
 <script>
@@ -12878,7 +12936,7 @@ window.addEventListener('load', function(){
   var DISMISS_KEY = 'da-landing-coach-dismissed';
   var SHOWN_KEY = 'da-landing-coach-shown-session';
   var hadGesture = false;
-  var speech = null;
+  var speechAudio = null;
   function markGesture(){ hadGesture = true; }
   ['pointerdown','keydown','touchstart'].forEach(function(ev){ window.addEventListener(ev, markGesture, { once:true, passive:true }); });
   function signedIn(){ try { return document.body.classList.contains('signed-in'); } catch(e){ return false; } }
@@ -12890,6 +12948,47 @@ window.addEventListener('load', function(){
     var chip = document.querySelector('.bar-user-name,.ui-auth-name');
     if (chip && chip.textContent) return chip.textContent.trim().split(/\s+/)[0].slice(0,18);
     return '';
+  }
+  function pref(key){
+    try { return localStorage.getItem(key) || ''; } catch(e){ return ''; }
+  }
+  function coachContext(name){
+    var isDebater = pref('da-is-debater') === 'yes';
+    var goal = pref('da-welcome-goal');
+    var start = pref('da-welcome-start');
+    var ctx = {
+      title: name ? ('Hey ' + name + ', want to practice together?') : 'Want to practice together?',
+      body: 'Run a quick drill, or ask me to explain how the site works.',
+      href: '/coach',
+      label: 'Practice with coach',
+      script: 'DebateIt has three main doors. Live debates match you with real people and give you an AI ballot. Voice AI is faster and more casual when you want to debate now. Coach runs drills with you, remembers your style, and helps you sharpen one skill at a time.'
+    };
+    if (start === 'watch') {
+      ctx.title = name ? ('Hey ' + name + ', want to watch a round together?') : 'Want to watch a round together?';
+      ctx.body = 'Spectate live, build your debate brain, and I will explain what is happening while you wait.';
+      ctx.href = '/spectate';
+      ctx.label = 'Open spectator room';
+      ctx.script = 'Spectate live is the calm waiting room. You can build your avatar, add files, and tell DebateIt what kinds of rounds you care about. When a live round opens, you watch with more context instead of landing cold.';
+    } else if (start === 'ai') {
+      ctx.title = name ? ('Hey ' + name + ', want a fast AI round?') : 'Want a fast AI round?';
+      ctx.body = 'Voice AI is the quick, casual way to argue now. Coach can help you prep before you start.';
+      ctx.href = '/voice-debate';
+      ctx.label = 'Start voice AI';
+      ctx.script = 'Voice AI is the faster practice lane. Pick a claim, choose the side, and the AI argues back in real time. It is casual, quick, and useful when no person is online.';
+    } else if (goal === 'team') {
+      ctx.title = name ? ('Hey ' + name + ', building a team?') : 'Building a team?';
+      ctx.body = 'We can help you set up rooms, run practice, and turn your school into a repeatable program.';
+      ctx.href = '/ambassadors';
+      ctx.label = 'See ambassador path';
+      ctx.script = 'The ambassador path is for students who want to expand debate. DebateIt trains you to run rooms, onboard teams, use Tabroom and other programs, and host online practice that keeps happening.';
+    } else if (isDebater || goal === 'feedback') {
+      ctx.title = name ? ('Hey ' + name + ', want a sharper drill?') : 'Want a sharper drill?';
+      ctx.body = 'Pick one skill, then I push you under time and keep the feedback specific.';
+      ctx.href = '/coach';
+      ctx.label = 'Run a drill';
+      ctx.script = 'Coach is the training lane. It can run rebuttal, weighing, cross-examination, or open sparring, then remember what you are working on and keep the next drill focused.';
+    }
+    return ctx;
   }
   function blocked(){
     return document.body.classList.contains('signin-modal-open') ||
@@ -12930,8 +13029,14 @@ window.addEventListener('load', function(){
     if (box.classList.contains('is-in') || blocked() || recentlyDismissed()) return false;
     try { sessionStorage.setItem(SHOWN_KEY, '1'); } catch(e){}
     var name = userName();
+    var ctx = coachContext(name);
     var title = box.querySelector('[data-lc-title]');
-    if (title) title.textContent = name ? ('Hey ' + name + ', want to practice together?') : 'Want to practice together?';
+    var body = box.querySelector('.lc-coach-copy p');
+    var go = box.querySelector('.lc-coach-go');
+    if (title) title.textContent = ctx.title;
+    if (body) body.textContent = ctx.body;
+    if (go) { go.href = ctx.href; go.innerHTML = ctx.label + ' <span aria-hidden="true">&rarr;</span>'; }
+    box.setAttribute('data-lc-script', ctx.script);
     box.hidden = false;
     requestAnimationFrame(function(){ box.classList.add('is-in'); ping(); });
     try { if (window.gtag) gtag('event', 'landing_coach_cameo_view', { signed_in: signedIn() }); } catch(e){}
@@ -12940,7 +13045,7 @@ window.addEventListener('load', function(){
   function hide(reason){
     box.classList.remove('is-in');
     try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch(e){}
-    if (speech && window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch(e){} }
+    if (speechAudio) { try { speechAudio.pause(); speechAudio.currentTime = 0; } catch(e){} speechAudio = null; }
     box.classList.remove('speaking');
     setTimeout(function(){ box.hidden = true; }, 260);
     try { if (window.gtag) gtag('event', 'landing_coach_cameo_dismiss', { reason: reason || 'x' }); } catch(e){}
@@ -12953,7 +13058,7 @@ window.addEventListener('load', function(){
       tries++;
       if (!show() && tries < 12) setTimeout(attempt, 3500);
     }
-    setTimeout(attempt, 14000);
+    setTimeout(attempt, 180000);
   }
   var x = box.querySelector('.lc-coach-x');
   if (x) x.addEventListener('click', function(){ hide('x'); });
@@ -12963,17 +13068,26 @@ window.addEventListener('load', function(){
   });
   var explain = box.querySelector('.lc-coach-explain');
   if (explain) explain.addEventListener('click', function(){
-    var script = 'DebateIt has three main doors. Live debates match you with real people and give you an AI ballot. Voice AI is faster and more casual when you want to debate now. Coach runs drills with you, remembers your style, and helps you sharpen one skill at a time.';
+    var script = box.getAttribute('data-lc-script') || 'DebateIt has three main doors. Live debates match you with real people and give you an AI ballot. Voice AI is faster and more casual when you want to debate now. Coach runs drills with you, remembers your style, and helps you sharpen one skill at a time.';
     try {
-      if (!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) throw new Error('no speech');
-      window.speechSynthesis.cancel();
-      speech = new SpeechSynthesisUtterance(script);
-      speech.rate = 1.02; speech.pitch = 1.02; speech.volume = 0.88;
-      speech.onstart = function(){ box.classList.add('speaking'); };
-      speech.onend = speech.onerror = function(){ box.classList.remove('speaking'); };
-      window.speechSynthesis.speak(speech);
-      try { if (window.gtag) gtag('event', 'landing_coach_cameo_explain'); } catch(e){}
+      if (speechAudio) { try { speechAudio.pause(); } catch(e){} speechAudio = null; }
+      box.classList.add('speaking');
+      fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: script, voice: 'Professor', premium: true, provider: 'elevenlabs', intensity: 0.35, voiceFeature: 'coach' })
+      }).then(function(r){
+        if (!r.ok) throw new Error('tts');
+        return r.blob();
+      }).then(function(blob){
+        var url = URL.createObjectURL(blob);
+        speechAudio = new Audio(url);
+        speechAudio.onended = speechAudio.onerror = function(){ box.classList.remove('speaking'); try { URL.revokeObjectURL(url); } catch(e){} };
+        return speechAudio.play();
+      }).catch(function(){ box.classList.remove('speaking'); location.href = '/coach?guide=site'; });
+      try { if (window.gtag) gtag('event', 'landing_coach_cameo_explain', { provider:'elevenlabs' }); } catch(e){}
     } catch(e) {
+      box.classList.remove('speaking');
       location.href = '/coach?guide=site';
     }
   });

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spectate Live | DebateIt</title>
+  <meta name="robots" content="noindex,follow">
+  <meta name="description" content="Wait for a live DebateIt round to watch while building your debate brain.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/ui.css">
+  <style>
+    :root{
+      --ink:#1d1d22;
+      --muted:#68625f;
+      --faint:#9b9692;
+      --red:#ef4444;
+      --red-dark:#d32929;
+      --paper:#fffdf8;
+      --line:#e8e2dc;
+      --soft:#fff4f2;
+      --green:#22c55e;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:"Crimson Pro", Georgia, serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 22% 18%, rgba(239,68,68,.08), transparent 28%),
+        radial-gradient(circle at 80% 8%, rgba(34,197,94,.06), transparent 22%),
+        linear-gradient(180deg,#fffefa 0%,#fbfaf6 100%);
+      min-height:100vh;
+    }
+    a{color:inherit}
+    .wrap{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:76px 0 72px;position:relative}
+    .hero{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:34px;align-items:center;position:relative;z-index:1}
+    .eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--red-dark);font-weight:900;letter-spacing:.18em;text-transform:uppercase;font-size:.78rem}
+    .eyebrow:before{content:"";width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 0 8px rgba(239,68,68,.10)}
+    h1{font-size:clamp(3.2rem,8vw,7rem);line-height:.88;margin:18px 0 18px;letter-spacing:0;font-weight:900}
+    .lead{font-size:clamp(1.24rem,2vw,1.62rem);line-height:1.32;color:var(--muted);max-width:760px;margin:0}
+    .lead strong{color:var(--ink)}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+    .btn{
+      appearance:none;border:1px solid var(--line);background:#fff;border-radius:999px;
+      padding:14px 22px;font:800 1rem "Crimson Pro", Georgia, serif;cursor:pointer;text-decoration:none;
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;transition:transform .18s, box-shadow .18s, border-color .18s, background .18s;
+    }
+    .btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(32,28,24,.10)}
+    .btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 20px 44px rgba(239,68,68,.18)}
+    .btn.primary:hover{background:var(--red-dark)}
+    .btn.ghost{color:var(--ink)}
+    .waiting-card{
+      background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,250,246,.92));border:1px solid var(--line);border-radius:18px;
+      box-shadow:0 28px 70px rgba(31,26,23,.10);padding:20px;position:relative;overflow:hidden;
+    }
+    .waiting-card:before{
+      content:"";position:absolute;inset:0;background:
+        radial-gradient(circle at 18% 18%,rgba(239,68,68,.10),transparent 32%),
+        radial-gradient(circle at 84% 20%,rgba(34,197,94,.08),transparent 30%);
+      pointer-events:none;
+    }
+    .waiting-card>*{position:relative;z-index:1}
+    .wait-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+    .status{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid rgba(34,197,94,.26);border-radius:999px;color:#16834b;background:#f3fff8;font-weight:900;font-size:.8rem}
+    .status span{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 8px rgba(34,197,94,.12)}
+    .timer{font-weight:900;color:var(--faint);letter-spacing:.06em}
+    .network{height:300px;border-radius:16px;background:linear-gradient(180deg,#fffaf6,#fff);border:1px solid #eee7df;position:relative;overflow:hidden}
+    .network:after{content:"";position:absolute;inset:16px;border:1px dashed rgba(239,68,68,.16);border-radius:18px;pointer-events:none}
+    .network svg{position:absolute;inset:0;width:100%;height:100%;opacity:.78}
+    .node{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid rgba(239,68,68,.45);box-shadow:0 0 28px rgba(239,68,68,.18);animation:float 8s ease-in-out infinite}
+    .node.n1{left:18%;top:30%;animation-delay:-1s}
+    .node.n2{left:42%;top:20%;animation-delay:-4s;border-color:rgba(34,197,94,.50)}
+    .node.n3{right:18%;top:38%;animation-delay:-2s}
+    .node.n4{left:30%;bottom:20%;animation-delay:-5s}
+    .node.n5{right:30%;bottom:22%;animation-delay:-7s;border-color:rgba(34,197,94,.50)}
+    @keyframes float{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(10px,-16px,0) scale(1.08)}}
+    .network-copy{position:absolute;inset:auto 20px 18px 20px;display:flex;justify-content:space-between;align-items:end;gap:14px;background:rgba(255,255,255,.74);backdrop-filter:blur(10px);border:1px solid rgba(232,226,220,.72);border-radius:16px;padding:14px 16px}
+    .network-copy h2{margin:0;font-size:1.55rem;line-height:1.05}
+    .network-copy p{margin:6px 0 0;color:var(--muted);font-size:1rem;line-height:1.3}
+    .pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-weight:900;color:var(--muted);white-space:nowrap}
+    .panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}
+    .panel{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 18px 50px rgba(31,26,23,.07)}
+    .panel h2{margin:0 0 8px;font-size:1.8rem;line-height:1}
+    .panel p{color:var(--muted);font-size:1.05rem;line-height:1.4;margin:0 0 18px}
+    .step{display:none;animation:rise .22s ease}
+    .step.on{display:block}
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .choice{
+      appearance:none;border:1px solid var(--line);border-radius:13px;background:#fff;padding:13px 14px;text-align:left;
+      font:800 1rem "Crimson Pro", Georgia, serif;color:var(--ink);cursor:pointer;transition:transform .16s,border-color .16s,background .16s;
+    }
+    .choice small{display:block;color:var(--muted);font-weight:600;font-size:.78rem;margin-top:4px;line-height:1.25}
+    .choice:hover,.choice.on{transform:translateY(-2px);border-color:rgba(239,68,68,.45);background:var(--soft)}
+    .field{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 16px;font:700 1rem "Crimson Pro", Georgia, serif;color:var(--ink);outline:none}
+    .field:focus{border-color:rgba(239,68,68,.5);box-shadow:0 0 0 4px rgba(239,68,68,.08)}
+    .step-actions{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
+    .progress{height:8px;background:#f0ece6;border-radius:999px;overflow:hidden;margin:0 0 18px}
+    .progress span{display:block;height:100%;width:25%;background:linear-gradient(90deg,var(--red),#f87171);border-radius:999px;transition:width .2s ease}
+    .brain-list{display:grid;gap:10px;margin-top:16px}
+    .brain-row{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff}
+    .brain-num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--red-dark);font-weight:900}
+    .brain-row b{display:block;font-size:1.05rem}
+    .brain-row span{display:block;color:var(--muted);font-size:.92rem;line-height:1.3;margin-top:2px}
+    .brain-viz{position:relative;height:184px;border:1px solid var(--line);border-radius:18px;background:radial-gradient(circle at 50% 44%,rgba(239,68,68,.13),transparent 38%),linear-gradient(180deg,#fff,rgba(255,246,237,.74));overflow:hidden;margin-top:16px}
+    .brain-viz svg{position:absolute;inset:0;width:100%;height:100%;opacity:.62}
+    .brain-viz path{stroke:#eaded6;stroke-width:2;fill:none}
+    .brain-viz path.hot{stroke:#ef4444;stroke-opacity:.36;stroke-dasharray:7 8;animation:dash 5s linear infinite}
+    @keyframes dash{to{stroke-dashoffset:-60}}
+    .brain-core{position:absolute;left:50%;top:48%;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:32px;background:radial-gradient(circle at 34% 24%,#fff,rgba(239,68,68,.22) 44%,rgba(239,68,68,.06));border:1px solid rgba(239,68,68,.25);box-shadow:0 20px 42px rgba(239,68,68,.16), inset 0 1px 0 rgba(255,255,255,.8)}
+    .brain-core::after{content:"";position:absolute;inset:23px;border-radius:50%;background:#ef4444;box-shadow:0 0 22px rgba(239,68,68,.38);opacity:.38}
+    .brain-node{position:absolute;display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.88);padding:7px 10px;font-size:.72rem;font-weight:900;color:rgba(29,25,21,.54);box-shadow:0 10px 20px rgba(29,25,21,.06);transition:transform .18s ease,border-color .18s ease,color .18s ease,background .18s ease}
+    .brain-node::before{content:"";width:8px;height:8px;border-radius:50%;background:#d7d0c9}
+    .brain-node.on{transform:translateY(-2px) scale(1.03);border-color:rgba(239,68,68,.44);color:#1a1a1f;background:#fff}
+    .brain-node.on::before{background:#ef4444;box-shadow:0 0 14px rgba(239,68,68,.55)}
+    .brain-node[data-brain-node="avatar"]{left:18px;top:22px}
+    .brain-node[data-brain-node="style"]{right:18px;top:28px}
+    .brain-node[data-brain-node="topics"]{left:26px;bottom:24px}
+    .brain-node[data-brain-node="files"]{right:26px;bottom:22px}
+    .files{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .file-pill{border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:#fff;font-weight:800;color:var(--muted);font-size:.85rem}
+    .mini{font-size:.82rem;color:var(--faint);line-height:1.35;margin-top:12px}
+    @media (max-width:900px){
+      .wrap{padding-top:46px}
+      .hero,.panel-grid{grid-template-columns:1fr}
+      .waiting-card{order:-1}
+      .network{height:260px}
+    }
+    @media (max-width:560px){
+      .wrap{width:min(100% - 22px,1180px);padding-top:34px}
+      h1{font-size:3.55rem}
+      .lead{font-size:1.16rem}
+      .choices{grid-template-columns:1fr}
+      .network-copy{display:block}
+      .pill{margin-top:10px}
+      .btn{width:100%}
+      .brain-viz{height:212px}
+      .brain-node{font-size:.68rem}
+    }
+  </style>
+</head>
+<body>
+  <div id="daTopbar"></div>
+  <main class="wrap">
+    <section class="hero" aria-labelledby="spectateTitle">
+      <div>
+        <div class="eyebrow">Spectate live</div>
+        <h1 id="spectateTitle">Watch a real round. Build your debate brain while you wait.</h1>
+        <p class="lead"><strong>When a live debate opens, this room becomes the lobby.</strong> Until then, DebateIt learns your style, your topics, your files, and the kind of rounds you want to watch.</p>
+        <div class="actions">
+          <a class="btn primary" href="/live">Browse scheduled rounds -></a>
+          <button class="btn ghost" type="button" id="focusProfile">Build my spectator profile</button>
+        </div>
+      </div>
+      <aside class="waiting-card" aria-label="Live debate waiting room">
+        <div class="wait-top">
+          <div class="status"><span></span>Waiting for a live debate</div>
+          <div class="timer" id="waitTimer">00:00</div>
+        </div>
+        <div class="network" aria-hidden="true">
+          <svg viewBox="0 0 600 360" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sLine" x1="0" x2="1">
+                <stop offset="0" stop-color="#ef4444" stop-opacity=".16"/>
+                <stop offset=".55" stop-color="#22c55e" stop-opacity=".12"/>
+                <stop offset="1" stop-color="#ef4444" stop-opacity=".20"/>
+              </linearGradient>
+            </defs>
+            <path d="M110 118 C210 58 284 64 396 126 S514 230 408 278 S206 292 174 210 S240 132 492 98" fill="none" stroke="url(#sLine)" stroke-width="2"/>
+            <path d="M110 118 L252 74 L494 136 L420 276 L184 278 Z" fill="none" stroke="#e8ded8" stroke-width="1"/>
+            <path d="M184 278 L494 136 M252 74 L420 276 M110 118 L420 276" fill="none" stroke="#efe8e2" stroke-width="1"/>
+          </svg>
+          <i class="node n1"></i><i class="node n2"></i><i class="node n3"></i><i class="node n4"></i><i class="node n5"></i>
+          <div class="network-copy">
+            <div>
+              <h2>Smart lobby</h2>
+              <p>Build context now. The room switches when a live round opens.</p>
+            </div>
+            <span class="pill" id="profilePct">0% ready</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel-grid" id="profileBuilder">
+      <div class="panel">
+        <h2>Your spectator profile</h2>
+        <p>Three quick answers tell the room what to show you first and how to explain the round.</p>
+        <div class="progress"><span id="progressBar"></span></div>
+        <div class="step on" data-step="0">
+          <div class="choices" data-key="level">
+            <button class="choice" data-value="competed">I have competed<small>Show formats, flow, and judge logic quickly.</small></button>
+            <button class="choice" data-value="learning">I am learning<small>Explain the round without talking down.</small></button>
+            <button class="choice" data-value="coach">I coach or teach<small>Surface drills, team setup, and teachable moments.</small></button>
+            <button class="choice" data-value="curious">I am curious<small>Keep it simple and point out what matters.</small></button>
+          </div>
+        </div>
+        <div class="step" data-step="1">
+          <div class="choices" data-key="topic">
+            <button class="choice" data-value="policy">Public policy<small>Law, schools, government, institutions.</small></button>
+            <button class="choice" data-value="tech">Technology and AI<small>Platforms, privacy, automation, media.</small></button>
+            <button class="choice" data-value="global">World affairs<small>Diplomacy, trade, conflict, development.</small></button>
+            <button class="choice" data-value="ethics">Ethics and philosophy<small>Values, rights, duties, fairness.</small></button>
+          </div>
+        </div>
+        <div class="step" data-step="2">
+          <input class="field" id="otherContext" placeholder="Any format, circuit, school, language, or topic you want DebateIt to remember?">
+          <p class="mini">Example: PF circuit, APDA, WSDC, Hindi and English, climate motions, cross-ex practice.</p>
+        </div>
+        <div class="step-actions">
+          <button class="btn ghost" type="button" id="backStep">Back</button>
+          <button class="btn primary" type="button" id="nextStep">Next</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Debate brain</h2>
+        <p>Use the waiting room to start the personal layer: avatar, files, flows, and the record of how you think.</p>
+        <div class="brain-viz" aria-hidden="true">
+          <svg viewBox="0 0 520 184" preserveAspectRatio="none">
+            <path d="M72 48 C150 20 198 48 260 92 C314 130 382 136 448 52"/>
+            <path d="M74 142 C142 98 214 104 260 92 C326 76 374 86 446 142"/>
+            <path class="hot" d="M110 44 C184 58 204 118 260 92 C318 66 330 124 414 142"/>
+          </svg>
+          <span class="brain-core"></span>
+          <span class="brain-node" data-brain-node="avatar">Avatar</span>
+          <span class="brain-node" data-brain-node="style">Style</span>
+          <span class="brain-node" data-brain-node="topics">Topics</span>
+          <span class="brain-node" data-brain-node="files">Files</span>
+        </div>
+        <div class="brain-list">
+          <div class="brain-row"><span class="brain-num">1</span><div><b>Avatar</b><span>Pick a look now. Coach voice and animated avatar can use it later.</span></div></div>
+          <div class="brain-row"><span class="brain-num">2</span><div><b>Case vault</b><span>Add flows, cases, ballots, or notes. They become your DebateIt database.</span></div></div>
+          <div class="brain-row"><span class="brain-num">3</span><div><b>Thinking map</b><span>DebateIt turns rounds and files into a visual map of strengths, habits, lessons, and experience.</span></div></div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" id="avatarBtn">Build avatar</button>
+          <button class="btn ghost" type="button" id="uploadBtn">Add files</button>
+        </div>
+        <input id="fileInput" type="file" multiple hidden>
+        <div class="files" id="fileList"></div>
+        <p class="mini">Uploads are staged in this browser for now. The Google Drive sync and permanent vault live in the DebateIt database roadmap.</p>
+      </div>
+    </section>
+  </main>
+  <script defer src="/js/topbar.js"></script>
+  <script defer src="/js/avatar.js"></script>
+  <script>
+    (function(){
+      var started = Date.now();
+      var timer = document.getElementById('waitTimer');
+      var step = 0;
+      var total = 3;
+      var answers = {};
+      var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
+      var progress = document.getElementById('progressBar');
+      var pct = document.getElementById('profilePct');
+      var next = document.getElementById('nextStep');
+      var back = document.getElementById('backStep');
+      var ctx = document.getElementById('otherContext');
+      var profileBuilder = document.getElementById('profileBuilder');
+      var fileInput = document.getElementById('fileInput');
+      var fileList = document.getElementById('fileList');
+      var brainNodes = Array.prototype.slice.call(document.querySelectorAll('[data-brain-node]'));
+      function mmss(ms){
+        var s = Math.max(0, Math.floor(ms / 1000));
+        return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+      }
+      setInterval(function(){ if (timer) timer.textContent = mmss(Date.now() - started); }, 500);
+      function save(){
+        try {
+          if (ctx && ctx.value.trim()) answers.context = ctx.value.trim();
+          localStorage.setItem('dit-spectate-profile', JSON.stringify(answers));
+        } catch(e){}
+      }
+      function uploadedFiles(){
+        try { return JSON.parse(localStorage.getItem('dit-spectate-files') || '[]') || []; }
+        catch(e){ return []; }
+      }
+      function updateBrainViz(){
+        var files = uploadedFiles();
+        brainNodes.forEach(function(n){
+          var key = n.getAttribute('data-brain-node');
+          var on = key === 'avatar' ? !!answers.level :
+            key === 'style' ? !!answers.context :
+            key === 'topics' ? !!answers.topic :
+            key === 'files' ? files.length > 0 : false;
+          n.classList.toggle('on', on);
+        });
+      }
+      function render(){
+        steps.forEach(function(s,i){ s.classList.toggle('on', i === step); });
+        var done = Object.keys(answers).filter(function(k){ return answers[k]; }).length;
+        var width = Math.max(1, Math.min(3, done)) / 3 * 100;
+        if (step === 2 && ctx && ctx.value.trim()) width = 100;
+        progress.style.width = width + '%';
+        pct.textContent = Math.round(width) + '% ready';
+        back.style.display = step ? 'inline-flex' : 'none';
+        next.textContent = step === total - 1 ? 'Save waiting profile' : 'Next';
+        updateBrainViz();
+      }
+      document.querySelectorAll('.choices').forEach(function(group){
+        group.addEventListener('click', function(e){
+          var btn = e.target.closest('.choice');
+          if (!btn) return;
+          var key = group.getAttribute('data-key');
+          answers[key] = btn.getAttribute('data-value');
+          group.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
+          btn.classList.add('on');
+          save();
+          if (step < total - 1) { step += 1; render(); }
+        });
+      });
+      if (ctx) ctx.addEventListener('input', save);
+      if (ctx) ctx.addEventListener('input', updateBrainViz);
+      next.addEventListener('click', function(){
+        save();
+        if (step < total - 1) step += 1;
+        render();
+      });
+      back.addEventListener('click', function(){ if (step > 0) step -= 1; render(); });
+      document.getElementById('focusProfile').addEventListener('click', function(){ profileBuilder.scrollIntoView({ behavior:'smooth', block:'start' }); });
+      document.getElementById('avatarBtn').addEventListener('click', function(){
+        if (window.DBAvatar && DBAvatar.openBuilder) DBAvatar.openBuilder();
+        else location.href = '/coach';
+      });
+      document.getElementById('uploadBtn').addEventListener('click', function(){ fileInput.click(); });
+      fileInput.addEventListener('change', function(){
+        var names = Array.prototype.slice.call(fileInput.files || []).map(function(f){ return f.name; }).slice(0, 8);
+        try { localStorage.setItem('dit-spectate-files', JSON.stringify(names)); } catch(e){}
+        fileList.innerHTML = names.map(function(n){ return '<span class="file-pill">' + n.replace(/[<>&]/g,'') + '</span>'; }).join('');
+        updateBrainViz();
+      });
+      try {
+        var saved = JSON.parse(localStorage.getItem('dit-spectate-profile') || '{}');
+        answers = saved || {};
+        Object.keys(answers).forEach(function(k){
+          var v = answers[k];
+          var btn = document.querySelector('.choices[data-key="' + k + '"] .choice[data-value="' + v + '"]');
+          if (btn) btn.classList.add('on');
+        });
+        if (answers.context && ctx) ctx.value = answers.context;
+        var files = uploadedFiles();
+        fileList.innerHTML = files.map(function(n){ return '<span class="file-pill">' + n.replace(/[<>&]/g,'') + '</span>'; }).join('');
+      } catch(e){}
+      render();
+    })();
+  </script>
+</body>
+</html>

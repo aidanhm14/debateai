@@ -42,8 +42,8 @@
 
   var QUIET_MS = 21 * 24 * 60 * 60 * 1000; // 21-day cooloff after any show
   var SCROLL_DEPTH = 0.55;                 // fire once 55% of the page is read
-  var MIN_DWELL_MS = 7000;                 // never on first paint; let them land
-  var TIME_FALLBACK_MS = 55000;            // or after ~55s if they don't scroll far
+  var MIN_DWELL_MS = 180000;               // wait 3 minutes; never during onboarding
+  var TIME_FALLBACK_MS = 180000;           // or after ~3m if they don't scroll far
 
   // ── Poll bank ─────────────────────────────────────────────────────
   // Each poll: id, question, up-to-4 options, and whether a low/soft
@@ -121,33 +121,41 @@
   // try-hard "reps solo / am I any good" phrasing.
   var POLL_AB = {
     intent: [
-      { name: 'identity', cfg: POLLS.intent },   // "Which one sounds most like you?"
-      { name: 'goal', cfg: {
-        q: 'What do you want out of DebateIt?',
+      { name: 'identity', cfg: {
+        q: 'What would make DebateIt useful this week?',
         options: [
-          { label: 'Practice for tournaments', value: 'tournament' },
-          { label: 'Reps on my own schedule', value: 'solo' },
-          { label: 'Honest feedback on my speaking', value: 'judging' }
+          { label: 'Find stronger practice rounds', value: 'practice_rounds' },
+          { label: 'Get sharper judge feedback', value: 'judge_feedback' },
+          { label: 'Start or grow a team', value: 'team_growth' }
         ],
-        other: 'Something else', otherPrompt: 'What are you here for?'
+        other: 'Something else', otherPrompt: 'What would actually help?'
+      } },
+      { name: 'goal', cfg: {
+        q: 'What should DebateIt help you do next?',
+        options: [
+          { label: 'Prepare for a real tournament', value: 'tournament' },
+          { label: 'Fix one debate habit', value: 'skill' },
+          { label: 'Bring debate to my school', value: 'school' }
+        ],
+        other: 'Something else', otherPrompt: 'What do you want next?'
       } },
       { name: 'brought_you', cfg: {
-        q: 'What brought you here today?',
+        q: 'Where would you use DebateIt first?',
         options: [
-          { label: 'Prep for a real round', value: 'prep' },
-          { label: 'Work on a specific skill', value: 'skill' },
-          { label: 'See how it works', value: 'curious' }
+          { label: 'Solo reps before a round', value: 'solo' },
+          { label: 'Team practice', value: 'team' },
+          { label: 'Coaching or teaching', value: 'coach' }
         ],
-        other: 'Something else', otherPrompt: 'What are you looking for?'
+        other: 'Something else', otherPrompt: 'Where would it fit?'
       } },
       { name: 'level', cfg: {
-        q: 'Where are you with debate right now?',
+        q: 'What is the bottleneck right now?',
         options: [
-          { label: 'Competing', value: 'competitor' },
-          { label: 'Learning', value: 'newcomer' },
-          { label: 'Coaching', value: 'coach' }
+          { label: 'No one to practice with', value: 'no_partner' },
+          { label: 'Not enough feedback', value: 'feedback' },
+          { label: 'Hard to run a team', value: 'team_ops' }
         ],
-        other: 'Something else', otherPrompt: 'Then where do you fit?'
+        other: 'Something else', otherPrompt: 'What is blocking you?'
       } },
       { name: 'worth_it', cfg: {
         q: 'What would make DebateIt worth coming back to?',
@@ -244,6 +252,8 @@
       if (document.body.classList.contains('signin-modal-open')) return true;
       if (document.querySelector('.ob-modal.is-open')) return true;
       if (document.querySelector('.intro-modal.is-open')) return true;
+      if (document.documentElement.getAttribute('data-intro') === '1') return true;
+      if (document.documentElement.getAttribute('data-intro-reveal') === '1') return true;
       if (document.querySelector('.da-golive')) return true;
       // The sign-in nudge is a different ask; never show both at once.
       if (document.querySelector('.signup-nudge.is-in')) return true;

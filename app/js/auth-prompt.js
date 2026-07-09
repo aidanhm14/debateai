@@ -25,7 +25,7 @@
   if (window.__ditAuthPrompt) return;
   window.__ditAuthPrompt = true;
 
-  var DELAY_MS = 30000;            // ~30s after landing
+  var DELAY_MS = 180000;           // wait 3 minutes after landing settles
   var QUIET_DAYS = 4;              // cooloff after a dismissal
   var HOLDBACK_PCT = 15;           // % of visitors who never see it (control). 0 = show everyone.
   var DEST = '/app#chat';
@@ -72,6 +72,8 @@
       if (document.querySelector('.dit-authprompt-back')) return true;
       if (document.querySelector('.ob-modal.is-open')) return true;
       if (document.querySelector('.intro-modal.is-open')) return true;
+      if (document.documentElement.getAttribute('data-intro') === '1') return true;
+      if (document.documentElement.getAttribute('data-intro-reveal') === '1') return true;
       if (document.querySelector('.da-golive')) return true;
       if (document.querySelector('.micro-poll.is-in')) return true;
       if (document.querySelector('.signup-nudge.is-in')) return true;
@@ -207,12 +209,13 @@
   function arm() {
     if (shownThisSession() || inQuiet()) return;
     if (bucket() !== 'on') { track('auth_prompt_holdback', { bucket: 'holdback' }); return; }
-    setTimeout(function () {
+    function tryShow() {
       if (shownThisSession() || inQuiet() || signedIn()) return;
-      // If a surface is open at 30s, wait a bit and try once more.
-      if (anotherSurfaceOpen()) { setTimeout(function () { if (!signedIn()) show(); }, 8000); return; }
+      // If another surface is still open at 3 minutes, keep yielding.
+      if (anotherSurfaceOpen()) { setTimeout(tryShow, 15000); return; }
       show();
-    }, DELAY_MS);
+    }
+    setTimeout(tryShow, DELAY_MS);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm);

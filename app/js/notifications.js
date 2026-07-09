@@ -986,6 +986,7 @@
     var ownUnsub = null, hbTimer = null, scanTimer = null;
     var pill = null, overlay = null, handledRoom = null, navigating = false;
     var declinedPeer = null, declinedAt = 0, scanning = false, pairing = false;
+    var suppressAvailableNoteOnce = false;
     // After a decline (or a timed-out invite) we step out of the queue and stay
     // quiet until declineUntil, so an available user is never re-pinged in a
     // tight loop. A manual "go available" toggle clears it (see setAvailable).
@@ -1102,7 +1103,8 @@
         // Tell them why the tab matters: a hidden tab pauses our own scan, but
         // the queue doc stays live so an active peer can still pair you and the
         // OS ping fires. Close the tab and the doc is reaped = unmatchable.
-        sparNote('Matchable. Keep this tab open and we will ping you when a human opponent is ready.');
+        if (suppressAvailableNoteOnce) suppressAvailableNoteOnce = false;
+        else sparNote('Matchable. Keep this tab open and we will ping you when a human opponent is ready.');
       }
       else goOffline();
     }
@@ -1381,12 +1383,14 @@
         var u = null;
         try { u = window.firebase.auth().currentUser; } catch (e) {}
         if (isQueueUser(u)) {
+          suppressAvailableNoteOnce = true;
           setAvailable(true);
-          sparNote(u.isAnonymous ? 'You are live as a guest. Sign up later to keep a named profile.' : 'You are live. We will ping you when a rival is ready.');
+          sparNote(u.isAnonymous ? 'You are live as a guest. Keep this tab open and we will ping you when a human opponent is ready.' : 'You are live. Keep this tab open and we will ping you when a rival is ready.');
         } else {
           ensureQueueUser(function (guest) {
+            suppressAvailableNoteOnce = true;
             setAvailable(true);
-            sparNote(guest && guest.isAnonymous ? 'You are live as a guest. Sign up later to keep a named profile.' : 'You are live. We will ping you when a rival is ready.');
+            sparNote(guest && guest.isAnonymous ? 'You are live as a guest. Keep this tab open and we will ping you when a human opponent is ready.' : 'You are live. Keep this tab open and we will ping you when a rival is ready.');
           });
         }
       });

@@ -5716,6 +5716,7 @@ function App() {
     } catch (e) {return 'simple';}
   });
   var [showCustomize, setShowCustomize] = useState(false);
+  var [showCompetitiveNudge, setShowCompetitiveNudge] = useState(false);
   var [simpleModal, setSimpleModal] = useState(null); // 'format' | 'judge' | 'language'
   var [simpleBgOpen, setSimpleBgOpen] = useState(false);
   var [simpleLangQuery, setSimpleLangQuery] = useState(''); // language-modal search filter
@@ -5732,13 +5733,27 @@ function App() {
       startDebate();
     }
   }, [simpleStartPending, motion]);
+  useEffect(() => {
+    if (phase !== 'setup' || setupMode !== 'simple') return;
+    var shouldNudge = false;
+    try {
+      shouldNudge = localStorage.getItem('da-is-debater') === 'yes' &&
+        localStorage.getItem('da-setup-mode') !== 'advanced' &&
+        localStorage.getItem('da-advanced-nudge-dismissed') !== '1';
+    } catch (e) {}
+    if (!shouldNudge) return;
+    var id = setTimeout(() => setShowCompetitiveNudge(true), 38000);
+    return () => clearTimeout(id);
+  }, [phase, setupMode]);
   var goAdvanced = () => {
+    setShowCompetitiveNudge(false);
     setSetupMode('advanced');
     try {localStorage.setItem('da-setup-mode', 'advanced');} catch (e) {}
     try {window.gtag && gtag('event', 'setup_mode_switch', { to: 'advanced' });} catch (e) {}
     try {if (typeof window.track === 'function') window.track('setup_mode_switch', { to: 'advanced' });} catch (e) {}
   };
   var goSimple = () => {
+    setShowCompetitiveNudge(false);
     setSetupMode('simple');
     try {localStorage.setItem('da-setup-mode', 'simple');} catch (e) {}
     try {window.gtag && gtag('event', 'setup_mode_switch', { to: 'simple' });} catch (e) {}
@@ -8313,7 +8328,21 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ' Hundreds of real cases, real judge ballots, and feedback from debaters who compete. It sharpens every night.'
   ),
   el('div', { style: { textAlign: 'center', marginTop: 16 } },
-  el('button', { onClick: goAdvanced, style: { background: 'none', border: 'none', color: 'var(--c-subtle)', fontFamily: 'inherit', fontSize: '.74rem', cursor: 'pointer', textDecoration: 'underline', letterSpacing: '.02em' } }, 'Competitive debaters: advanced options →')
+  el('button', { onClick: goAdvanced, style: { background: 'rgba(255,255,255,.72)', border: '1px solid var(--c-border2)', borderRadius: 999, color: 'var(--c-bright)', fontFamily: 'inherit', fontSize: '.78rem', fontWeight: 800, cursor: 'pointer', padding: '8px 15px', letterSpacing: '.02em', boxShadow: '0 10px 28px rgba(0,0,0,.06)' } }, 'Competitive debater? Use advanced setup →')
+  ),
+  showCompetitiveNudge && el('div', { style: { margin: '16px auto 0', maxWidth: 560, textAlign: 'left', padding: '14px 16px', borderRadius: 16, border: '1px solid rgba(239,68,68,.32)', background: 'rgba(239,68,68,.06)', boxShadow: '0 16px 36px rgba(239,68,68,.08)' } },
+  el('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' } },
+  el('div', null,
+  el('div', { style: { fontSize: '.58rem', fontWeight: 900, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 5 } }, 'For circuit debaters'),
+  el('div', { style: { fontSize: '.95rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.25 } }, 'Need PF, LD, BP, APDA, speed, POIs, or a specific judge paradigm?'),
+  el('div', { style: { fontSize: '.76rem', color: 'var(--c-dim)', lineHeight: 1.42, marginTop: 5 } }, 'Advanced setup opens the full format controls without changing the quick path for beginners.')
+  ),
+  el('button', { onClick: function(){ setShowCompetitiveNudge(false); try {localStorage.setItem('da-advanced-nudge-dismissed','1');} catch(e){} }, style: { border: 0, background: 'transparent', color: 'var(--c-subtle)', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: 2 }, 'aria-label': 'Dismiss advanced setup suggestion' }, '×')
+  ),
+  el('div', { style: { display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' } },
+  el('button', { onClick: goAdvanced, style: { border: '1px solid #ef4444', background: '#ef4444', color: '#fff', borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 900, cursor: 'pointer' } }, 'Open advanced setup →'),
+  el('button', { onClick: function(){ setShowCompetitiveNudge(false); setShowCustomize(true); }, style: { border: '1px solid var(--c-border2)', background: 'var(--c-surface)', color: 'var(--c-text)', borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 800, cursor: 'pointer' } }, 'Stay guided')
+  )
   ),
   showCustomize && el('div', { style: { marginTop: 26, textAlign: 'left', animation: 'fadeIn .25s ease' } },
   el('div', { style: { marginBottom: 26 } },

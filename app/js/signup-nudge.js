@@ -75,7 +75,7 @@
     // two don't stack into a doubled sign-in nag. 2026-06-14.
     { match: /^\/(spar|live)(?:\.html)?(?:[/?#]|$)/, skip: true },
     { match: /^\/(landing|index)?(\.html)?($|\?)/,
-      delay: 20,
+      delay: 180,
       variant: 'community',
       msg: '<strong>You\'re early.</strong> Sign in to save your rounds and ballots, and help shape where this goes.' },
     { match: /^\/debate-it/,
