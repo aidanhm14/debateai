@@ -12795,5 +12795,180 @@ window.addEventListener('load', function(){
   }
 })();
 </script>
+
+<!-- Landing coach cameo. A quiet top-right helper that appears after the
+     live/sign-in prompts have had room, then offers a practice handoff or a
+     short spoken site tour. -->
+<div id="landingCoachCameo" class="lc-coach" hidden aria-live="polite">
+  <div class="lc-coach-line" aria-hidden="true"></div>
+  <div class="lc-coach-card">
+    <button type="button" class="lc-coach-x" aria-label="Dismiss coach">×</button>
+    <div class="lc-coach-avatar" aria-hidden="true">
+      <span class="lc-head">
+        <span class="lc-hair"></span>
+        <span class="lc-eye lc-eye-l"></span>
+        <span class="lc-eye lc-eye-r"></span>
+        <span class="lc-mouth"></span>
+      </span>
+      <span class="lc-wave lc-wave-a"></span>
+      <span class="lc-wave lc-wave-b"></span>
+    </div>
+    <div class="lc-coach-copy">
+      <div class="lc-coach-k">Coach is here</div>
+      <div class="lc-coach-h" data-lc-title>Want to practice together?</div>
+      <p>Run a quick drill, or ask me to explain how the site works.</p>
+      <div class="lc-coach-actions">
+        <a href="/coach" class="lc-coach-go">Practice with coach <span aria-hidden="true">→</span></a>
+        <button type="button" class="lc-coach-explain">Explain the site</button>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+  .lc-coach{position:fixed;right:22px;top:76px;z-index:8990;width:min(360px,calc(100vw - 32px));pointer-events:none;opacity:0;transform:translateY(-132%) rotate(-2deg);transition:opacity .28s ease,transform .52s cubic-bezier(.2,.9,.2,1)}
+  .lc-coach.is-in{opacity:1;transform:translateY(0) rotate(0)}
+  .lc-coach-line{position:absolute;right:62px;top:-52px;width:2px;height:60px;background:linear-gradient(180deg,rgba(239,68,68,.12),rgba(239,68,68,.38));box-shadow:0 0 20px rgba(239,68,68,.16)}
+  .lc-coach-card{pointer-events:auto;position:relative;display:grid;grid-template-columns:82px minmax(0,1fr);gap:14px;align-items:center;padding:15px 16px;border-radius:18px;background:rgba(255,253,247,.96);border:1px solid rgba(239,68,68,.24);box-shadow:0 24px 58px rgba(29,25,21,.16),0 8px 30px rgba(239,68,68,.10);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .lc-coach-card::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(239,68,68,.10),transparent 48%);pointer-events:none}
+  .lc-coach-x{position:absolute;top:8px;right:9px;z-index:2;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:rgba(29,25,21,.45);font-size:1.35rem;line-height:1;cursor:pointer}
+  .lc-coach-x:hover{background:rgba(29,25,21,.06);color:rgba(29,25,21,.78)}
+  .lc-coach-avatar{position:relative;width:78px;height:78px;border-radius:24px;background:radial-gradient(circle at 34% 26%,rgba(255,255,255,.92),rgba(255,255,255,.24) 32%,rgba(239,68,68,.10) 72%);display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(239,68,68,.15)}
+  .lc-head{position:relative;width:48px;height:54px;border-radius:22px 22px 18px 18px;background:#d8a076;box-shadow:0 12px 24px rgba(29,25,21,.18);display:block}
+  .lc-hair{position:absolute;left:5px;right:5px;top:-4px;height:14px;border-radius:18px 18px 8px 8px;background:#251d1b}
+  .lc-eye{position:absolute;top:24px;width:6px;height:6px;border-radius:50%;background:#1a1a1f;animation:lcBlink 5s infinite}
+  .lc-eye-l{left:14px}.lc-eye-r{right:14px}
+  .lc-mouth{position:absolute;left:18px;bottom:12px;width:13px;height:4px;border-radius:999px;background:#7c2d12;transform-origin:center;transition:height .12s ease}
+  .lc-coach.speaking .lc-mouth{animation:lcTalk .34s steps(2,end) infinite}
+  .lc-wave{position:absolute;border-radius:999px;border:1px solid rgba(239,68,68,.34);opacity:.72;inset:9px;animation:lcWave 2.6s ease-out infinite}
+  .lc-wave-b{animation-delay:1.2s}
+  .lc-coach-k{font-size:.62rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#dc2626;margin-bottom:3px}
+  .lc-coach-h{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.16rem;font-weight:800;line-height:1.05;color:#1a1a1f;padding-right:22px}
+  .lc-coach-copy p{font-size:.78rem;line-height:1.35;color:rgba(29,25,21,.62);margin:5px 0 10px}
+  .lc-coach-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .lc-coach-go,.lc-coach-explain{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:8px 11px;border-radius:10px;font-family:inherit;font-size:.72rem;font-weight:900;text-decoration:none;cursor:pointer}
+  .lc-coach-go{background:#ef4444;color:#fff;border:1px solid #ef4444;box-shadow:0 10px 22px rgba(239,68,68,.24)}
+  .lc-coach-go:hover{background:#dc2626}
+  .lc-coach-explain{background:rgba(255,255,255,.62);color:#1a1a1f;border:1px solid rgba(29,25,21,.14)}
+  .lc-coach-explain:hover{border-color:rgba(239,68,68,.36);color:#dc2626}
+  [data-theme="grey"] .lc-coach-card,[data-theme="crimson"] .lc-coach-card,[data-theme="stone"] .lc-coach-card{background:rgba(24,18,18,.94);color:#fff;border-color:rgba(239,68,68,.30)}
+  [data-theme="grey"] .lc-coach-h,[data-theme="crimson"] .lc-coach-h,[data-theme="stone"] .lc-coach-h{color:#fff}
+  [data-theme="grey"] .lc-coach-copy p,[data-theme="crimson"] .lc-coach-copy p,[data-theme="stone"] .lc-coach-copy p{color:rgba(255,255,255,.66)}
+  [data-theme="grey"] .lc-coach-explain,[data-theme="crimson"] .lc-coach-explain,[data-theme="stone"] .lc-coach-explain{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.14)}
+  @keyframes lcWave{0%{transform:scale(.78);opacity:.5}100%{transform:scale(1.25);opacity:0}}
+  @keyframes lcBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.16)}}
+  @keyframes lcTalk{0%{height:4px;transform:translateY(0) scaleX(1)}50%{height:9px;transform:translateY(2px) scaleX(.82)}100%{height:5px;transform:translateY(1px) scaleX(1.1)}}
+  @media(max-width:720px){.lc-coach{top:84px;right:12px;width:min(340px,calc(100vw - 24px))}.lc-coach-card{grid-template-columns:68px minmax(0,1fr);gap:11px;padding:13px}.lc-coach-avatar{width:64px;height:64px;border-radius:20px}.lc-head{transform:scale(.82)}.lc-coach-h{font-size:1.02rem}.lc-coach-copy p{font-size:.74rem}.lc-coach-go,.lc-coach-explain{font-size:.68rem}}
+  @media(prefers-reduced-motion:reduce){.lc-coach,.lc-wave,.lc-eye,.lc-coach.speaking .lc-mouth{animation:none;transition:none}}
+</style>
+<script>
+(function(){
+  var box = document.getElementById('landingCoachCameo');
+  if (!box) return;
+  var DISMISS_KEY = 'da-landing-coach-dismissed';
+  var SHOWN_KEY = 'da-landing-coach-shown-session';
+  var hadGesture = false;
+  var speech = null;
+  function markGesture(){ hadGesture = true; }
+  ['pointerdown','keydown','touchstart'].forEach(function(ev){ window.addEventListener(ev, markGesture, { once:true, passive:true }); });
+  function signedIn(){ try { return document.body.classList.contains('signed-in'); } catch(e){ return false; } }
+  function userName(){
+    try {
+      var u = window.firebase && firebase.auth && firebase.auth().currentUser;
+      if (u && !u.isAnonymous && u.displayName) return String(u.displayName).split(/\s+/)[0].slice(0,18);
+    } catch(e){}
+    var chip = document.querySelector('.bar-user-name,.ui-auth-name');
+    if (chip && chip.textContent) return chip.textContent.trim().split(/\s+/)[0].slice(0,18);
+    return '';
+  }
+  function blocked(){
+    return document.body.classList.contains('signin-modal-open') ||
+      !!document.querySelector('.ob-modal.is-open,#ljModal.on,.da-golive,.da-auth-modal.is-open,.auth-modal.is-open,.firebaseui-container');
+  }
+  function recentlyDismissed(){
+    try {
+      var t = parseInt(localStorage.getItem(DISMISS_KEY), 10);
+      return !isNaN(t) && Date.now() - t < 12 * 60 * 60 * 1000;
+    } catch(e){ return false; }
+  }
+  function ping(){
+    if (!hadGesture) return;
+    try {
+      if (window.SFX && !(typeof SFX.isMuted === 'function' && SFX.isMuted())) {
+        if (SFX.notify) { SFX.notify(); return; }
+        if (SFX.confirm) { SFX.confirm(); return; }
+      }
+    } catch(e){}
+    try {
+      if (localStorage.getItem('da-sfx-muted') === '1') return;
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(660, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(990, ctx.currentTime + .12);
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.035, ctx.currentTime + .02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + .18);
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + .2);
+      setTimeout(function(){ try { ctx.close(); } catch(e){} }, 320);
+    } catch(e){}
+  }
+  function show(){
+    if (box.classList.contains('is-in') || blocked() || recentlyDismissed()) return false;
+    try { sessionStorage.setItem(SHOWN_KEY, '1'); } catch(e){}
+    var name = userName();
+    var title = box.querySelector('[data-lc-title]');
+    if (title) title.textContent = name ? ('Hey ' + name + ', want to practice together?') : 'Want to practice together?';
+    box.hidden = false;
+    requestAnimationFrame(function(){ box.classList.add('is-in'); ping(); });
+    try { if (window.gtag) gtag('event', 'landing_coach_cameo_view', { signed_in: signedIn() }); } catch(e){}
+    return true;
+  }
+  function hide(reason){
+    box.classList.remove('is-in');
+    try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch(e){}
+    if (speech && window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch(e){} }
+    box.classList.remove('speaking');
+    setTimeout(function(){ box.hidden = true; }, 260);
+    try { if (window.gtag) gtag('event', 'landing_coach_cameo_dismiss', { reason: reason || 'x' }); } catch(e){}
+  }
+  function schedule(){
+    try { if (sessionStorage.getItem(SHOWN_KEY) === '1') return; } catch(e){}
+    if (recentlyDismissed()) return;
+    var tries = 0;
+    function attempt(){
+      tries++;
+      if (!show() && tries < 12) setTimeout(attempt, 3500);
+    }
+    setTimeout(attempt, 14000);
+  }
+  var x = box.querySelector('.lc-coach-x');
+  if (x) x.addEventListener('click', function(){ hide('x'); });
+  var go = box.querySelector('.lc-coach-go');
+  if (go) go.addEventListener('click', function(){
+    try { if (window.gtag) gtag('event', 'landing_coach_cameo_route', { route:'coach' }); } catch(e){}
+  });
+  var explain = box.querySelector('.lc-coach-explain');
+  if (explain) explain.addEventListener('click', function(){
+    var script = 'DebateIt has three main doors. Live debates match you with real people and give you an AI ballot. Voice AI is faster and more casual when you want to debate now. Coach runs drills with you, remembers your style, and helps you sharpen one skill at a time.';
+    try {
+      if (!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) throw new Error('no speech');
+      window.speechSynthesis.cancel();
+      speech = new SpeechSynthesisUtterance(script);
+      speech.rate = 1.02; speech.pitch = 1.02; speech.volume = 0.88;
+      speech.onstart = function(){ box.classList.add('speaking'); };
+      speech.onend = speech.onerror = function(){ box.classList.remove('speaking'); };
+      window.speechSynthesis.speak(speech);
+      try { if (window.gtag) gtag('event', 'landing_coach_cameo_explain'); } catch(e){}
+    } catch(e) {
+      location.href = '/coach?guide=site';
+    }
+  });
+  if (document.readyState === 'complete') schedule();
+  else window.addEventListener('load', schedule, { once:true });
+})();
+</script>
 </body>
 </html>
