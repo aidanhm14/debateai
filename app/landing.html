@@ -6849,6 +6849,33 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       #book-founders{scroll-margin-top:84px}
       @media(max-width:520px){.founder-pill{font-size:.72rem;padding:7px 13px;white-space:normal;text-align:left}}
     </style>
+    <script>
+      // The founder pill jumps to the #book-founders Calendly section at the
+      // bottom. Sections between here and there use content-visibility:auto
+      // (see the rule near the footer), so a plain anchor jump computes the
+      // target from their collapsed 800px placeholders and lands short, inside
+      // the FAQ. Force those sections to render first so heights are real,
+      // then smooth-scroll to the booking block.
+      (function(){
+        var pill = document.querySelector('.founder-pill');
+        if (!pill) return;
+        pill.addEventListener('click', function(e){
+          var t = document.getElementById('book-founders');
+          if (!t) return;
+          e.preventDefault();
+          var sels = ['.price-compare','#founder-video','#overview','#live-proof','#debate-ai','.topics-edu-pair','.landing-guides-block','.landing-compare-block','#philosophy','#faq'];
+          sels.forEach(function(sel){
+            document.querySelectorAll(sel).forEach(function(el){ el.style.contentVisibility = 'visible'; });
+          });
+          try { history.replaceState(null, '', '#book-founders'); } catch(err){}
+          requestAnimationFrame(function(){ requestAnimationFrame(function(){
+            t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Re-correct once more after any late reflow so we land on the widget.
+            setTimeout(function(){ t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 420);
+          }); });
+        });
+      })();
+    </script>
 
     <!-- ════════════════════════════════════════════════════════════════
          HERO A/B VARIANT — illustrated "global debate" scene (2026-05-26)
