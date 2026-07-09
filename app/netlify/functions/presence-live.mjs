@@ -126,8 +126,9 @@ export default async (request, context) => {
         if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
         if (now - p.lastSeen <= FIVE_MIN) online5 += 1;
         const key = p.lat + ',' + p.lng;
-        const cell = byCell.get(key) || { lat: p.lat, lng: p.lng, city: p.city || '', country: p.country || '', n: 0 };
+        const cell = byCell.get(key) || { lat: p.lat, lng: p.lng, city: p.city || '', country: p.country || '', n: 0, lastSeen: 0 };
         cell.n += 1;
+        cell.lastSeen = Math.max(cell.lastSeen || 0, Number(p.lastSeen) || 0);
         if (!cell.city && p.city) cell.city = p.city;
         byCell.set(key, cell);
       });

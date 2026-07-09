@@ -105,9 +105,13 @@
     if(!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext('2d');
     if(!ctx) return;
+    var arrowSvg = document.getElementById('liveMapArrowSvg');
+    var arrowPath = document.getElementById('liveMapArrowPath');
+    var callout = document.getElementById('liveMapCallout');
     var pins = [];
     var landPts = [];
     var W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var fallbackPin = { lat:34.05, lng:-118.24, city:'Southern California', country:'US', n:1, fallback:true };
 
     function palette(){
       var light = document.documentElement.getAttribute('data-theme') === 'light';
@@ -135,6 +139,7 @@
       canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       draw();
+      placeAnnotation();
     }
     function box(){
       // Full-bleed backdrop: reach right to the hero edges and let the
@@ -148,6 +153,153 @@
     }
     function project(lat, lng, b){
       return { x:b.x + ((lng + 180) / 360) * b.w, y:b.y + ((90 - lat) / 180) * b.h };
+    }
+    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+    function rectFromCenter(x, y, w, h){
+      return { left:x - w / 2, top:y - h / 2, right:x + w / 2, bottom:y + h / 2, width:w, height:h };
+    }
+    function overlaps(a, b, pad){
+      return !(a.right < b.left - pad || a.left > b.right + pad || a.bottom < b.top - pad || a.top > b.bottom + pad);
+    }
+    function forbiddenRects(){
+      var frameRect = canvas.getBoundingClientRect();
+      function measuredRect(el){
+        if(el.matches('.hero-eyebrow,.hero h1,.hero-sub')){
+          try{
+            var range = document.createRange();
+            range.selectNodeContents(el);
+            var rr = range.getBoundingClientRect();
+            range.detach();
+            if(rr.width && rr.height) return rr;
+          }catch(e){}
+        }
+        return el.getBoundingClientRect();
+      }
+      return Array.prototype.slice.call(document.querySelectorAll(
+        '#daTopbar,.ui-topbar,.hero-eyebrow,.hero h1,.hero-sub,.hero-cta-row,.hero-proof,.hero-missed'
+      )).map(function(el){
+        if(el.hidden) return null;
+        var r = measuredRect(el);
+        if(!r.width || !r.height) return null;
+        return {
+          left:r.left - frameRect.left,
+          top:r.top - frameRect.top,
+          right:r.right - frameRect.left,
+          bottom:r.bottom - frameRect.top,
+          width:r.width,
+          height:r.height
+        };
+      }).filter(Boolean);
+    }
+    function rectHits(rect, forbidden, pad){
+      return forbidden.some(function(f){ return overlaps(rect, f, pad); });
+    }
+    function isInsideForbidden(pt, forbidden){
+      return forbidden.some(function(f){
+        return pt.x >= f.left - 18 && pt.x <= f.right + 18 && pt.y >= f.top - 18 && pt.y <= f.bottom + 18;
+      });
+    }
+    function pinSpread(projected){
+      if(projected.length < 3) return false;
+      var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      projected.forEach(function(p){
+        minX = Math.min(minX, p.xy.x); maxX = Math.max(maxX, p.xy.x);
+        minY = Math.min(minY, p.xy.y); maxY = Math.max(maxY, p.xy.y);
+      });
+      return (maxX - minX) > W * .48 || (maxY - minY) > H * .32;
+    }
+    function targetForAnnotation(b, forbidden, forceFallback){
+      if(forceFallback) return { pin:fallbackPin, xy:project(fallbackPin.lat, fallbackPin.lng, b) };
+      var projected = pins.map(function(pin){
+        return { pin:pin, xy:project(pin.lat, pin.lng, b) };
+      }).filter(function(item){
+        return isFinite(item.xy.x) && isFinite(item.xy.y);
+      });
+      if(!projected.length) return { pin:fallbackPin, xy:project(fallbackPin.lat, fallbackPin.lng, b) };
+      if(pinSpread(projected)) return { pin:fallbackPin, xy:project(fallbackPin.lat, fallbackPin.lng, b) };
+      projected.sort(function(a, b2){
+        var ar = Number(a.pin.lastSeen || 0), br = Number(b2.pin.lastSeen || 0);
+        if(br !== ar) return br - ar;
+        return Number(b2.pin.n || 1) - Number(a.pin.n || 1);
+      });
+      for(var i=0;i<projected.length;i++){
+        if(!isInsideForbidden(projected[i].xy, forbidden)) return projected[i];
+      }
+      return projected[0];
+    }
+    function calloutCandidates(target, labelW, labelH){
+      var rightSide = target.x < W * .48;
+      var dx = rightSide ? 150 : -150;
+      var x1 = clamp(target.x + dx, labelW / 2 + 26, W - labelW / 2 - 26);
+      var x2 = clamp(target.x - dx, labelW / 2 + 26, W - labelW / 2 - 26);
+      return [
+        { x:x1, y:clamp(target.y - 76, labelH / 2 + 78, H - labelH / 2 - 40) },
+        { x:x1, y:clamp(target.y + 74, labelH / 2 + 78, H - labelH / 2 - 40) },
+        { x:x2, y:clamp(target.y - 66, labelH / 2 + 78, H - labelH / 2 - 40) },
+        { x:x2, y:clamp(target.y + 66, labelH / 2 + 78, H - labelH / 2 - 40) },
+        { x:clamp(W * .18, labelW / 2 + 26, W - labelW / 2 - 26), y:clamp(H * .31, labelH / 2 + 78, H - labelH / 2 - 40) },
+        { x:clamp(W * .16, labelW / 2 + 26, W - labelW / 2 - 26), y:clamp(H * .52, labelH / 2 + 78, H - labelH / 2 - 40) },
+        { x:clamp(W * .82, labelW / 2 + 26, W - labelW / 2 - 26), y:clamp(H * .31, labelH / 2 + 78, H - labelH / 2 - 40) }
+      ];
+    }
+    function drawAnnotationPath(startX, startY, endX, endY){
+      if(!arrowPath) return;
+      var cx = (startX + endX) / 2;
+      var cy = Math.min(startY, endY) - 32;
+      if(Math.abs(startY - endY) > 100) cy = (startY + endY) / 2;
+      arrowPath.setAttribute('d', 'M' + startX.toFixed(1) + ',' + startY.toFixed(1) + ' Q' + cx.toFixed(1) + ',' + cy.toFixed(1) + ' ' + endX.toFixed(1) + ',' + endY.toFixed(1));
+    }
+    function placeAnnotation(forceFallback){
+      if(!callout || !arrowSvg || !arrowPath || W < 720) {
+        if(callout) callout.classList.remove('is-visible');
+        if(arrowSvg) arrowSvg.classList.remove('is-visible');
+        return;
+      }
+      var hero = document.querySelector('.hero');
+      var heroRect = hero && hero.getBoundingClientRect();
+      if(heroRect && (heroRect.bottom < 80 || heroRect.top > H - 80)){
+        callout.classList.remove('is-visible');
+        arrowSvg.classList.remove('is-visible');
+        return;
+      }
+      var b = box();
+      var forbidden = forbiddenRects();
+      var target = targetForAnnotation(b, forbidden, !!forceFallback);
+      var targetRect = rectFromCenter(target.xy.x, target.xy.y, 34, 34);
+      if(rectHits(targetRect, forbidden, 8) && !forceFallback) target = targetForAnnotation(b, forbidden, true);
+      callout.style.visibility = 'hidden';
+      callout.classList.add('is-visible');
+      var labelW = Math.max(148, callout.offsetWidth || 168);
+      var labelH = Math.max(34, callout.offsetHeight || 36);
+      var candidates = calloutCandidates(target.xy, labelW, labelH);
+      var pinRect = rectFromCenter(target.xy.x, target.xy.y, 34, 34);
+      var chosen = null;
+      for(var i=0;i<candidates.length;i++){
+        var c = candidates[i];
+        var rect = rectFromCenter(c.x, c.y, labelW, labelH);
+        var startX = c.x + (target.xy.x < c.x ? -labelW / 2 + 12 : labelW / 2 - 12);
+        var startY = c.y;
+        var lineRect = {
+          left:Math.min(startX, target.xy.x) - 14,
+          right:Math.max(startX, target.xy.x) + 14,
+          top:Math.min(startY, target.xy.y) - 12,
+          bottom:Math.max(startY, target.xy.y) + 12
+        };
+        if(overlaps(rect, pinRect, 10) || rectHits(rect, forbidden, 14) || rectHits(lineRect, forbidden, 6)) continue;
+        chosen = { c:c, startX:startX, startY:startY };
+        break;
+      }
+      if(!chosen && !forceFallback) return placeAnnotation(true);
+      if(!chosen){
+        callout.classList.remove('is-visible');
+        arrowSvg.classList.remove('is-visible');
+        return;
+      }
+      callout.style.left = chosen.c.x.toFixed(1) + 'px';
+      callout.style.top = chosen.c.y.toFixed(1) + 'px';
+      callout.style.visibility = 'visible';
+      arrowSvg.classList.add('is-visible');
+      drawAnnotationPath(chosen.startX, chosen.startY, target.xy.x, target.xy.y);
     }
     function drawGrid(c, b){
       ctx.save();
@@ -229,6 +381,7 @@
       }
       landPts = out;
       draw();
+      placeAnnotation();
     }
     function fetchPins(){
       fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
@@ -236,6 +389,7 @@
           return typeof p.lat === 'number' && typeof p.lng === 'number';
         }) : [];
         draw();
+        placeAnnotation();
       }).catch(function(){});
     }
     if(window.DebateWorldData) buildLand();
@@ -266,7 +420,8 @@
         lastW = w; lastH = h; resize();
       }).observe(canvas);
     }catch(e){}
-    try{ new MutationObserver(draw).observe(document.documentElement, { attributes:true }); }catch(e){}
+    try{ new MutationObserver(function(){ draw(); placeAnnotation(); }).observe(document.documentElement, { attributes:true }); }catch(e){}
+    window.addEventListener('scroll', function(){ requestAnimationFrame(function(){ placeAnnotation(); }); }, { passive:true });
     setInterval(function(){ if(!document.hidden) fetchPins(); }, 120000);
   }
   if(document.readyState !== 'loading') mountLiveHeroMap();
@@ -470,6 +625,40 @@ button{font-family:inherit}
   background:radial-gradient(ellipse 62% 64% at 50% 38%, var(--bg) 4%, rgba(0,0,0,0) 72%);
 }
 .live-hero-map{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%}
+.live-map-arrow-layer{
+  position:absolute;inset:0;z-index:4;display:block;width:100%;height:100%;
+  pointer-events:none;opacity:0;transition:opacity .24s ease;
+}
+.live-map-arrow-layer.is-visible{opacity:1}
+.live-map-arrow-path{
+  fill:none;stroke:rgba(220,38,38,.76);stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:5 7;
+  filter:drop-shadow(0 2px 3px rgba(80,20,20,.14));
+}
+.live-map-callout{
+  position:absolute;z-index:5;display:inline-flex;align-items:center;gap:8px;
+  max-width:190px;padding:8px 11px;border-radius:999px;
+  background:rgba(255,253,248,.92);border:1px solid rgba(220,38,38,.30);
+  box-shadow:0 10px 24px rgba(30,20,12,.08),0 1px 0 rgba(255,255,255,.72) inset;
+  color:var(--text);font-size:.66rem;font-weight:800;letter-spacing:.08em;
+  line-height:1;text-transform:uppercase;white-space:nowrap;pointer-events:none;
+  transform:translate(-50%,-50%);opacity:0;transition:opacity .24s ease;
+}
+.live-map-callout.is-visible{opacity:1}
+.live-map-callout .map-callout-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 9px rgba(220,38,38,.45);flex:none;
+}
+[data-theme="grey"] .live-map-callout,
+[data-theme="crimson"] .live-map-callout{
+  background:rgba(20,9,9,.78);border-color:rgba(248,113,113,.38);
+  color:rgba(255,245,240,.94);box-shadow:0 12px 28px rgba(0,0,0,.28);
+}
+[data-theme="grey"] .live-map-arrow-path,
+[data-theme="crimson"] .live-map-arrow-path{stroke:rgba(248,113,113,.72)}
+@media(max-width:720px){
+  .live-map-arrow-layer,.live-map-callout{display:none}
+}
 /* Hero content rides above the map backdrop. */
 .hero-eyebrow,.hero h1,.hero-sub,.hero-cta-row,.hero-proof,.hero-missed{position:relative;z-index:3}
 @media(max-width:560px){ .hero{padding:92px 20px 40px} }
@@ -1910,7 +2099,20 @@ button{font-family:inherit}
 
 <!-- Ambient live-presence world map: fixed full-page backdrop behind ALL
      content (2026-07-02, per Aidan: fill the whole page, not a hero block). -->
-<div class="hero-map"><div class="map-frame"><canvas id="liveHeroMap" class="live-hero-map" role="img" aria-label="Flat world map with live DebateIt visitors by city"></canvas></div></div>
+<div class="hero-map">
+  <div class="map-frame">
+    <canvas id="liveHeroMap" class="live-hero-map" role="img" aria-label="Flat world map with live DebateIt visitors by city"></canvas>
+    <svg id="liveMapArrowSvg" class="live-map-arrow-layer" aria-hidden="true" focusable="false">
+      <defs>
+        <marker id="liveMapArrowHead" markerWidth="8" markerHeight="8" refX="6.6" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,4 L0,8 Z" fill="rgba(220,38,38,.78)"></path>
+        </marker>
+      </defs>
+      <path id="liveMapArrowPath" class="live-map-arrow-path" marker-end="url(#liveMapArrowHead)"></path>
+    </svg>
+    <div id="liveMapCallout" class="live-map-callout" aria-hidden="true"><span class="map-callout-dot"></span><span>Live users on the map</span></div>
+  </div>
+</div>
 
 <section class="hero">
   <div class="hero-eyebrow"><span class="live-dot"></span>Live debates, AI-judged</div>
