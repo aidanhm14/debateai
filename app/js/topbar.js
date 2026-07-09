@@ -183,7 +183,7 @@
     { href: '/spar',          label: 'LIVE', pulse: true },
     { href: '/app#case',      label: 'Prep'         },
     // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
-    // The mission page is still reachable directly at /scale + footer.
+    // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
     // 2026-07-02: Certificate + Schedule restored per Aidan ("add more
     // back ... not too much") — high-intent product pillars: proof you
