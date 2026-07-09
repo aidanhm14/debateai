@@ -77,9 +77,21 @@ const ALLOWED_DRILLS = new Set(Object.keys(DRILLS));
 
 const MODEL_FALLBACKS = [
   process.env.OPENAI_REALTIME_MODEL,
+  'gpt-realtime-2.1',   // GA 2026-07-06: ~25% lower latency, steadier
+                        // interruption, configurable reasoning effort.
   'gpt-realtime-2',
   'gpt-realtime',
 ].filter(Boolean);
+
+// Reasoning effort — gpt-realtime-2.1 family only (older models 400 on the
+// field, so gaBody() only attaches it when supportsReasoning(m)). Default
+// 'low' matches OpenAI's default and keeps the coach snappy; override with
+// OPENAI_REALTIME_REASONING_EFFORT (minimal|low|medium|high|xhigh).
+const REASONING_EFFORTS = new Set(['minimal', 'low', 'medium', 'high', 'xhigh']);
+const REALTIME_REASONING_EFFORT = REASONING_EFFORTS.has(String(process.env.OPENAI_REALTIME_REASONING_EFFORT || '').toLowerCase())
+  ? String(process.env.OPENAI_REALTIME_REASONING_EFFORT).toLowerCase()
+  : 'low';
+const supportsReasoning = (m) => /^gpt-realtime-2\.1/.test(m || '');
 
 // Same per-IP rate limit pattern as realtime-session: 6 mint attempts
 // per hour, 30 per day. Coach sessions are minute-scale, so this is
@@ -323,14 +335,16 @@ export default async (request) => {
   });
 
   // ── Mint try-matrix: GA /client_secrets first, then legacy /sessions
-  const gaBody = (m) => JSON.stringify({
-    session: {
+  const gaBody = (m) => {
+    const s = {
       type: 'realtime',
       model: m,
       audio: { output: { voice, speed } },
       instructions,
-    },
-  });
+    };
+    if (supportsReasoning(m)) s.reasoning = { effort: REALTIME_REASONING_EFFORT };
+    return JSON.stringify({ session: s });
+  };
   const legacyBody = (m) => JSON.stringify({
     model: m, voice, instructions, modalities: ['audio', 'text'],
     input_audio_transcription: { model: 'gpt-4o-mini-transcribe' },

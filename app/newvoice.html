@@ -679,6 +679,13 @@ let userBuf = null, aiBuf = null;
 let startedAt = 0, timerIv = null;
 let currentMotion = '';
 let roundLang = 'en';
+// Negotiated at mint by /api/realtime-session. negotiatedReasoningEffort is
+// a string on the gpt-realtime-2.1 family (which added configurable
+// reasoning, GA 2026-07-06), else null — sendSessionConfig() only echoes it
+// into session.update when set, so a fallback model never gets a field it
+// would 400 on. negotiatedModel is used for the training-log label.
+let negotiatedModel = '';
+let negotiatedReasoningEffort = null;
 let aiTalking = false;             // between response.created and response.done
 let bargeIv = null, bargeMs = 0;   // sustained-speech interrupt gate
 /* Turn engine state. The AI never auto-fills a gap: it speaks when the
@@ -905,6 +912,8 @@ async function start(){
     const session = await mintRes.json();
     const ephemeralKey = session && session.client_secret && session.client_secret.value;
     if (!ephemeralKey) throw new Error('Session came back without a key. Try again.');
+    negotiatedModel = session.model || '';
+    negotiatedReasoningEffort = session.reasoningEffort || null;
 
     // 3. Peer connection. STUN so NAT'd networks can reach OpenAI.
     const stun = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
@@ -1105,21 +1114,22 @@ function sendSessionConfig(kind){
   const turnDetection = kind === 'semantic'
     ? { type: 'semantic_vad', eagerness: 'auto', create_response: false, interrupt_response: false }
     : { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 900, create_response: false, interrupt_response: false };
-  try {
-    dc.send(JSON.stringify({
-      type: 'session.update',
-      session: {
-        type: 'realtime',
-        output_modalities: ['audio'],
-        audio: {
-          input: {
-            transcription: { model: 'gpt-4o-transcribe', language: roundLang },
-            turn_detection: turnDetection,
-          },
-          output: { voice: 'marin', speed: PACE[paceKey] || 1.05 },
-        },
+  const sess = {
+    type: 'realtime',
+    output_modalities: ['audio'],
+    audio: {
+      input: {
+        transcription: { model: 'gpt-4o-transcribe', language: roundLang },
+        turn_detection: turnDetection,
       },
-    }));
+      output: { voice: 'marin', speed: PACE[paceKey] || 1.05 },
+    },
+  };
+  // gpt-realtime-2.1 reasoning effort — merged in only when the server
+  // confirmed the negotiated model supports it (session.update is a merge).
+  if (negotiatedReasoningEffort) sess.reasoning = { effort: negotiatedReasoningEffort };
+  try {
+    dc.send(JSON.stringify({ type: 'session.update', session: sess }));
   } catch (e) {}
 }
 
@@ -1431,7 +1441,7 @@ function logRound(){
       side: side === 'for' ? 'gov' : 'opp',
       format: 'clash',
       depth: '',
-      model: 'gpt-realtime',
+      model: negotiatedModel || 'gpt-realtime-2.1',
       promptId: 'voice-clash',
       systemPrompt: '',
       userPrompt: t.filter((x) => x.who === 'you').map((x) => x.text).join('\n\n').slice(0, 7800),

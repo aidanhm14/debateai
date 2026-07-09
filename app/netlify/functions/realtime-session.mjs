@@ -9,11 +9,23 @@
 // The mint endpoint is App-Check-gated and rate-limited so it can't be
 // hammered to mint sessions for somebody else's app.
 //
-// Models (per the May 2026 release):
-//   gpt-realtime-2          — main live opponent / judge / drill partner
-//   gpt-realtime-whisper    — transcription only (used inline for the
-//                              user's audio so we can render the transcript)
-//   gpt-realtime-translate  — multilingual mode (future; not wired yet)
+// Models:
+//   gpt-realtime-2.1        — DEFAULT live opponent / judge / drill partner.
+//                              GA, released 2026-07-06: ~25% lower p95 voice
+//                              latency, steadier interruption handling, and
+//                              configurable reasoning effort (see below).
+//   gpt-realtime-2.1-mini   — cheaper/faster 2.1 variant ($10/$20 audio vs
+//                              $32/$64). Also supports reasoning effort.
+//                              Select at deploy via OPENAI_REALTIME_MODEL to
+//                              trade some depth for cost/latency.
+//   gpt-realtime            — prior GA model, kept as a fallback.
+//   gpt-4o-realtime-preview — legacy preview fallback.
+//
+// Reasoning effort (2.1 family only): the model spends a configurable
+// amount of reasoning before it responds. Accepts minimal|low|medium|
+// high|xhigh; default 'low' keeps first-token latency snappy. Override
+// with OPENAI_REALTIME_REASONING_EFFORT; we also nudge it up a notch for
+// the top smartness tiers.
 //
 // Override the realtime model at deploy time with OPENAI_REALTIME_MODEL.
 
@@ -1171,18 +1183,36 @@ export default async (request, context) => {
 
     // Model try-list. Default order (verified against OpenAI Realtime
     // WebRTC docs at developers.openai.com/api/docs/guides/realtime-webrtc):
-    //   1. OPENAI_REALTIME_MODEL env override (if set).
-    //   2. gpt-realtime          — name shown in the GA docs example.
-    //   3. gpt-realtime-2        — newer model name some accounts have.
-    //   4. gpt-4o-realtime-preview — legacy fallback, proven on every
+    //   1. OPENAI_REALTIME_MODEL env override (if set) — e.g. set this to
+    //      'gpt-realtime-2.1-mini' to run the cheaper 2.1 variant.
+    //   2. gpt-realtime-2.1      — current GA model (2026-07-06). Faster,
+    //                              steadier interruption, reasoning effort.
+    //   3. gpt-realtime          — prior GA model; fallback if the account
+    //                              doesn't have 2.1 access yet.
+    //   4. gpt-realtime-2        — interim name some accounts had.
+    //   5. gpt-4o-realtime-preview — legacy preview, proven on every
     //                                Realtime-enabled account.
     const envModel = process.env.OPENAI_REALTIME_MODEL;
     const modelCandidates = [
       envModel,
+      'gpt-realtime-2.1',
       'gpt-realtime',
       'gpt-realtime-2',
       'gpt-4o-realtime-preview',
     ].filter(Boolean);
+
+    // Reasoning effort — gpt-realtime-2.1 family only (older models 400 on
+    // the field, so gaBody() only attaches it when supportsReasoning(m)).
+    // Default 'low' matches OpenAI's own default and keeps the realtime
+    // path snappy; the top smartness tiers (World Champ / Council) buy a
+    // notch more deliberation at a small latency cost. Env override for
+    // zero-redeploy tuning, mirroring OPENAI_REALTIME_MODEL.
+    const REASONING_EFFORTS = new Set(['minimal', 'low', 'medium', 'high', 'xhigh']);
+    const envEffort = String(process.env.OPENAI_REALTIME_REASONING_EFFORT || '').toLowerCase();
+    const reasoningEffort = REASONING_EFFORTS.has(envEffort)
+      ? envEffort
+      : (smartness >= 4 ? 'medium' : 'low');
+    const supportsReasoning = (m) => /^gpt-realtime-2\.1/.test(m || '');
     // gpt-4o-mini-transcribe lands ~30% lower WER than whisper-1 on
     // jargon-heavy speech (format names, citations, philosophy terms).
     // Same streaming latency. Override via env if an account doesn't
@@ -1232,14 +1262,19 @@ export default async (request, context) => {
     // turn_detection + transcription inline; the GA mint endpoint takes
     // a smaller surface and you push the rest as a session.update event
     // over the data channel after the WebRTC connection opens.
-    const gaBody = (m) => ({
-      session: {
+    const gaBody = (m) => {
+      const s = {
         type: 'realtime',
         model: m,
         audio: { output: { voice, speed } },
         instructions,
-      },
-    });
+      };
+      // reasoning.effort only exists on the 2.1 family; attaching it to an
+      // older fallback model would 400 the mint and drop us to the legacy
+      // path for no reason. Gate it so the fallback chain stays clean.
+      if (supportsReasoning(m)) s.reasoning = { effort: reasoningEffort };
+      return { session: s };
+    };
     // Legacy fallback for accounts still on the beta API. Keeps the
     // older preview model usable.
     const legacyBody = (m) => ({
@@ -1354,6 +1389,10 @@ export default async (request, context) => {
       model,
       voice,
       mode,
+      // Null unless the negotiated model actually supports reasoning
+      // effort — the client only echoes it into session.update when set,
+      // so a fallback model never gets a field it would 400 on.
+      reasoningEffort: supportsReasoning(model) ? reasoningEffort : null,
       endpoint: lastLabel,
       sdpUrl,
       sdpHeaders,

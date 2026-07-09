@@ -23,9 +23,22 @@ const ALLOWED_FORMATS = new Set(['pf', 'ld', 'policy', 'congress', 'apda', 'bp',
 
 const MODEL_FALLBACKS = [
   process.env.OPENAI_REALTIME_MODEL,
+  'gpt-realtime-2.1',   // GA 2026-07-06: ~25% lower latency, steadier
+                        // interruption, configurable reasoning effort.
   'gpt-realtime-2',
   'gpt-realtime',
 ].filter(Boolean);
+
+// Reasoning effort — gpt-realtime-2.1 family only (older models 400 on the
+// field, so gaBody() only attaches it when supportsReasoning(m)). Default
+// 'low'; override with OPENAI_REALTIME_REASONING_EFFORT. A judge weighing a
+// ballot can genuinely benefit from more deliberation — bump this to
+// 'medium'/'high' via env if RFD quality matters more than latency here.
+const REASONING_EFFORTS = new Set(['minimal', 'low', 'medium', 'high', 'xhigh']);
+const REALTIME_REASONING_EFFORT = REASONING_EFFORTS.has(String(process.env.OPENAI_REALTIME_REASONING_EFFORT || '').toLowerCase())
+  ? String(process.env.OPENAI_REALTIME_REASONING_EFFORT).toLowerCase()
+  : 'low';
+const supportsReasoning = (m) => /^gpt-realtime-2\.1/.test(m || '');
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -259,14 +272,16 @@ export default async (request) => {
     source,
   });
 
-  const gaBody = (m) => JSON.stringify({
-    session: {
+  const gaBody = (m) => {
+    const s = {
       type: 'realtime',
       model: m,
       audio: { output: { voice, speed } },
       instructions,
-    },
-  });
+    };
+    if (supportsReasoning(m)) s.reasoning = { effort: REALTIME_REASONING_EFFORT };
+    return JSON.stringify({ session: s });
+  };
   const legacyBody = (m) => JSON.stringify({
     model: m,
     voice,

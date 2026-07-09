@@ -54,14 +54,17 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       │     + Cartesia (Pro opt-in), or OpenAI gpt-4o-mini-tts with
 │   │       │     per-persona `instructions` (free + fallback).
 │   │       ├── realtime-session.mjs
-│   │       │     OpenAI Realtime (gpt-realtime / gpt-realtime-2)
-│   │       │     ephemeral-token minter for /voice-debate.html.
+│   │       │     OpenAI Realtime (gpt-realtime-2.1 default, falls back to
+│   │       │     gpt-realtime) ephemeral-token minter for /voice-debate,
+│   │       │     /newvoice (the landing's primary voice CTA), and the
+│   │       │     coach/room-judge minters share the same model try-list.
 │   │       │     App-Check gated, rate-limited (6/hour/IP). Browser
 │   │       │     does direct WebRTC to OpenAI; server is never in the
 │   │       │     audio path. See "OpenAI Realtime API reference"
 │   │       │     section below for the canonical endpoint shapes.
-│   │       │     Models overridable via env:
-│   │       │     OPENAI_REALTIME_MODEL, OPENAI_REALTIME_TRANSCRIBE_MODEL.
+│   │       │     Models/effort overridable via env: OPENAI_REALTIME_MODEL
+│   │       │     (e.g. gpt-realtime-2.1-mini for cost), OPENAI_REALTIME_
+│   │       │     TRANSCRIBE_MODEL, OPENAI_REALTIME_REASONING_EFFORT.
 │   │       ├── lib/
 │   │       │   ├── voice-guidelines.mjs   THE voice bank. Server-side so
 │   │       │   │                            view-source can't scrape it.
@@ -373,13 +376,27 @@ These pairs duplicate intentionally; if you edit one, edit the other:
   is the live project dashboard for forward-looking work — read it for
   current KPIs, priorities, and in-flight threads when planning.
 
-## OpenAI Realtime API reference (verified May 2026)
+## OpenAI Realtime API reference (verified May 2026; models refreshed 2026-07-09)
 
 Confirmed against
 https://developers.openai.com/api/docs/guides/realtime-webrtc — DON'T
 re-guess this from training-set memory. The beta/preview API used
 different endpoints and body shapes; the GA shape below is what works
-today on `gpt-realtime` / `gpt-realtime-2`.
+today on `gpt-realtime-2.1` / `gpt-realtime-2.1-mini` (GA 2026-07-06:
+~25% lower p95 latency, steadier interruption) and the older
+`gpt-realtime` / `gpt-realtime-2`. Endpoints and body shape are
+UNCHANGED across these models — 2.1 is a drop-in on the same mint +
+SDP calls.
+
+**Reasoning effort (gpt-realtime-2.1 family only).** 2.1 added a
+configurable `reasoning: { effort }` on the session object — accepts
+`minimal | low | medium | high | xhigh`, default `low`. Put it in the
+mint body's `session` (sibling of `instructions` / `audio`) and/or push
+it in a `session.update` after connect. Older models 400 on the field,
+so only attach it when the negotiated model matches `^gpt-realtime-2\.1`.
+Our minters gate it exactly this way and expose
+`OPENAI_REALTIME_REASONING_EFFORT` for zero-redeploy tuning; the main
+opponent nudges effort to `medium` on the top smartness tiers.
 
 **Step 1 — server mints ephemeral token:**
 
@@ -391,12 +408,15 @@ Content-Type: application/json
 {
   "session": {
     "type": "realtime",
-    "model": "gpt-realtime",
+    "model": "gpt-realtime-2.1",
     "audio": { "output": { "voice": "marin" } },
-    "instructions": "..."
+    "instructions": "...",
+    "reasoning": { "effort": "low" }
   }
 }
 ```
+
+(`reasoning` is optional and 2.1-only; drop it when minting an older model.)
 
 Response: `{ "value": "EPHEMERAL_KEY", "expires_at": ..., "session": {...} }`.
 

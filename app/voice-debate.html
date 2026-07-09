@@ -5169,7 +5169,7 @@ function App() {
             side: side || '',
             format: mode || '',
             depth: '',
-            model: 'gpt-realtime',
+            model: negotiatedModel || 'gpt-realtime-2.1',
             promptId: 'voice-' + (personaKey || 'unknown'),
             systemPrompt: '', // resolved server-side in realtime-session.mjs
             userPrompt: userTurnsText.slice(0, 7800),
@@ -5685,7 +5685,14 @@ function App() {
           // Without this, OpenAI 400s with "Unknown parameter:
           // 'session.turn_detection'" and the user's speech stops
           // interrupting the AI mid-sentence (the killer feature).
-          dc.send(JSON.stringify({
+          // Built as an object (not sent inline) so we can conditionally
+          // attach reasoning.effort. gpt-realtime-2.1 (GA 2026-07-06) added
+          // configurable reasoning; the server negotiates the model and
+          // hands back session.reasoningEffort (a string on 2.1, else null).
+          // Sending the field to a model that lacks it would 400 the whole
+          // session.update and drop turn_detection — so it stays strictly
+          // opt-in on a truthy server value.
+          var sessionUpdate = {
             type: 'session.update',
             session: {
               type: 'realtime',
@@ -5769,7 +5776,16 @@ function App() {
                 }
               }
             }
-          }));
+          };
+          // Attach reasoning.effort only when the server confirmed the
+          // negotiated model supports it (2.1 family). session.update is a
+          // merge, so on older models we simply leave the field off.
+          try {
+            if (session && session.reasoningEffort) {
+              sessionUpdate.session.reasoning = { effort: session.reasoningEffort };
+            }
+          } catch (e) { /* non-fatal — send without reasoning */ }
+          dc.send(JSON.stringify(sessionUpdate));
         } catch (e) {console.warn('[dc] session.update send failed:', e);}
 
         try {
