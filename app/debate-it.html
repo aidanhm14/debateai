@@ -1006,6 +1006,10 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
 </script>
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
+<!-- Avatar engine: your own build-your-own avatar + the AI debaters'
+     matched-set faces. Loaded before topbar.js so daTopbarUserSlot can
+     use it. -->
+<script defer src="/js/avatar.js"></script>
 <!-- Shared topbar — same nav across /landing, /debate-it, /learn,
      /high-school. The user-slot hook below lets
      /debate-it inject its app-specific Account modal trigger. -->
@@ -1016,7 +1020,17 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
     slot.innerHTML = '';
     slot.style.fontSize = '.72rem';
     slot.style.color = 'var(--fg)';
-    if (u.photoURL){
+    // Your own avatar wins over the Google photo; click it to customize.
+    var myAv = (window.DBAvatar && window.DBAvatar.getUser) ? window.DBAvatar.getUser() : null;
+    if (myAv && window.DBAvatar){
+      var wrap = document.createElement('button');
+      wrap.type = 'button';
+      wrap.title = 'Customize your avatar';
+      wrap.style.cssText = 'width:26px;height:26px;border-radius:50%;overflow:hidden;border:1px solid var(--c-border4);cursor:pointer;padding:0;background:none;flex-shrink:0';
+      wrap.innerHTML = window.DBAvatar.svg(myAv, '100%');
+      wrap.addEventListener('click', function(){ window.DBAvatar.openBuilder(); });
+      slot.appendChild(wrap);
+    } else if (u.photoURL){
       var img = document.createElement('img');
       img.src = u.photoURL;
       img.alt = '';
@@ -1044,6 +1058,13 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
       try { window.firebase.auth().signOut(); } catch(e){}
     });
     slot.appendChild(out);
+    // Repaint the chip when the avatar is saved/changed elsewhere.
+    if (!window.__dbavTopbarBound){
+      window.__dbavTopbarBound = true;
+      window.addEventListener('debateit-avatar-change', function(){
+        try { window.daTopbarUserSlot(slot, u); } catch(e){}
+      });
+    }
   };
 </script>
 <div id="daTopbar"></div>
@@ -6254,12 +6275,12 @@ function App() {
 
 
 
+
       // Only auto-advance if timer actually ran (not on initial mount)
     }}, [prepTimer.left]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
     var s = SPEECHES[i];var userTurn = s.side === side;setLiveRate(1.0); // reset live speed each speech
-    if (userTurn) {
-      // User turn. start timer + mic immediately
+    if (userTurn) {// User turn. start timer + mic immediately
       timer.go(s.time);
       orb.setMode('mic');await orb.startMic();rec.start();
       // POI: AI may offer POIs during user speech (only in POI-enabled formats)
@@ -8033,6 +8054,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('h1', { className: 't-hero' }, 'Saved'),
   el('p', { className: 't-sub' }, 'Cases, past rounds, and how you think as a debater.'),
   setupTabBar,
+
+  // Welcome-home moment. Your own avatar greets you when you come home;
+  // no avatar yet nudges you to build one. Self-mounts via DBAvatar so it
+  // stays live across saves without threading React state.
+  el('div', { key: 'dbav-welcome', ref: function (n) {if (n && window.DBAvatar) window.DBAvatar.mountWelcome(n, user || {});} }),
 
   // Win-loss record card. Only renders once at least one adjudicated
   // round exists (userWon !== null). Pulls from the same historyRounds
