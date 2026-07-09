@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script src="/js/native-bridge.js"></script>
+<script src="/js/auth-modal.js"></script>
 <title>Your dashboard · DebateIt</title>
 <meta name="description" content="Your DebateIt dashboard. Level, streak, format mastery, achievements, and recent rounds, judged on the same AI ballot the leaderboard uses." />
 <meta name="robots" content="noindex,follow">
@@ -1345,6 +1347,7 @@ function renderSettings(user, profileData){
           <a class="set-btn" href="/pricing">Plan &amp; billing</a>
           <button class="set-btn" id="exportRounds" type="button">Export my rounds</button>
           <button class="set-btn danger" id="signOutBtn" type="button">Sign out</button>
+          <button class="set-btn danger" id="deleteAccountBtn" type="button">Delete account</button>
         </div>
         <div class="set-status" id="setStatus"></div>
       </div>
@@ -1442,6 +1445,35 @@ function wireSettings(user, rows){
       try { if(auth) auth.signOut(); } catch(_){}
     });
   }
+
+  const deleteBtn = document.getElementById('deleteAccountBtn');
+  if(deleteBtn){
+    deleteBtn.addEventListener('click', async () => {
+      if(!confirm('Delete your DebateIt account, saved rounds, profile, and leaderboard history? This cannot be undone.')) return;
+      deleteBtn.disabled = true;
+      setStatus('Deleting your account…');
+      try{
+        const token = await user.getIdToken(true);
+        const response = await fetch('/api/delete-account-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ confirm: true }),
+        });
+        if(!response.ok) throw new Error('Could not remove account data.');
+        await user.delete();
+        try {
+          Object.keys(localStorage).forEach(key => {
+            if (/^(dit-|da-|debateos-)/.test(key)) localStorage.removeItem(key);
+          });
+        } catch(_){}
+        location.href = window.__DB_NATIVE ? '/native' : '/';
+      } catch(e){
+        const recent = e && (e.code === 'auth/requires-recent-login' || /recent login/i.test(e.message || ''));
+        setStatus(recent ? 'Sign out, sign in again, then return here to delete the account.' : (e.message || 'Could not delete the account.'), 'err');
+        deleteBtn.disabled = false;
+      }
+    });
+  }
 }
 
 // Avatar: prefer the Google profile photo, fall back to the user's
@@ -1461,12 +1493,13 @@ function renderSignedOut(){
   mount.innerHTML = `
     <div class="state">
       <h3>Sign in to see your dashboard</h3>
-      <p>Level, streak, format mastery, achievements. All behind a free Google sign-in. Same account runs the leaderboard.</p>
-      <button class="cta" id="signinBtn" type="button">Sign in with Google</button>
+      <p>Level, streak, format mastery, achievements. Your account keeps it together across devices.</p>
+      <button class="cta" id="signinBtn" type="button">Sign in</button>
     </div>
   `;
   const btn = document.getElementById('signinBtn');
   if(btn) btn.addEventListener('click', () => {
+    if(window.__DB_NATIVE && window.openAuthModal){ window.openAuthModal(); return; }
     if(!auth || !firebase.auth.GoogleAuthProvider){
       mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/debate-it">Open the app</a></div>`;
       return;

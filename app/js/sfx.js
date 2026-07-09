@@ -1,10 +1,8 @@
 /* sfx.js
  *
- * Global SFX module. Hybrid: prefers pre-rendered ElevenLabs
- * sound-effects MP3s at /audio/sfx/<name>.mp3, falls back to Web Audio
- * synth chimes if the file is missing, still loading, or the browser
- * doesn't support decodeAudioData. The synth path keeps every page
- * audible on first interaction even before the MP3s land.
+ * Global SFX module. The current palette uses tiny Web Audio cues with
+ * gentle attacks and a low ceiling. Generated MP3 effects were removed
+ * from playback because their texture varied too much across transitions.
  *
  * Generate the MP3 bank with:
  *   ELEVENLABS_API_KEY=sk_... node scripts/generate-sfx.mjs
@@ -42,9 +40,10 @@
   'use strict';
 
   var STORAGE_KEY = 'da-sfx-muted';
-  var MASTER_GAIN = 0.6;        // global ceiling so nothing is jarring
+  var MASTER_GAIN = 0.24;       // intentionally quieter than speech
   var ctx = null;               // lazy AudioContext
   var SFX_BASE = '/audio/sfx/'; // where the pre-rendered MP3 bank lives
+  var USE_RENDERED_SFX = false;
 
   // MP3 cache. Three states per cue:
   //   undefined      → never touched, fall back to synth + kick fetch
@@ -131,6 +130,9 @@
   //     call to this cue is likely to land in the AudioBuffer state)
   //   - MP3 404 / decode error (marked 'missing', permanent synth)
   function playMP3(name){
+    // Keep the old cache code available for a future curated sound bank,
+    // but do not play the inconsistent generated files in the product.
+    if (!USE_RENDERED_SFX) return false;
     if (isMuted()) return false;
     var c = getCtx();
     if (!c) return false;
@@ -176,27 +178,7 @@
   // if the AudioContext can't be created or the user is muted.
   var preloaded = false;
   function preload(){
-    if (preloaded) return;
     preloaded = true;
-    ['click','send','receive','success','confirm','error'].forEach(function(name){
-      if (mp3[name] === undefined){
-        // Same code path as playMP3's first-touch branch, but without
-        // attempting to play. Kicks the fetch + decode pipeline so the
-        // buffer is warm by the time the user actually triggers the cue.
-        var c = getCtx();
-        if (!c) return;
-        mp3[name] = 'loading';
-        fetch(SFX_BASE + name + '.mp3', { credentials: 'omit', cache: 'force-cache' })
-          .then(function(r){ if (!r.ok) throw 0; return r.arrayBuffer(); })
-          .then(function(ab){
-            return new Promise(function(resolve, reject){
-              c.decodeAudioData(ab, resolve, reject);
-            });
-          })
-          .then(function(buf){ mp3[name] = buf; })
-          .catch(function(){ mp3[name] = 'missing'; });
-      }
-    });
   }
 
   // ── Sound palette ──────────────────────────────────────────────────
@@ -209,32 +191,30 @@
     preload();
     if (playMP3('click')) return;
     // Generic tap. 800Hz → 700Hz quick down-tick. Reads as a soft button click.
-    tone({ freq: 820, freqEnd: 720, dur: 0.06, peak: 0.10, type: 'sine' });
+    tone({ freq: 520, freqEnd: 470, dur: 0.055, peak: 0.075, type: 'sine' });
   }
 
   function send(){
     preload();
     if (playMP3('send')) return;
     // User commits a message / submit. Upward 600 → 920 sweep, brief.
-    tone({ freq: 600, freqEnd: 920, dur: 0.13, peak: 0.16, type: 'sine' });
+    tone({ freq: 440, freqEnd: 620, dur: 0.12, peak: 0.11, type: 'sine' });
   }
 
   function receive(){
     preload();
     if (playMP3('receive')) return;
     // Other party / AI reply lands. Downward 760 → 540 + small tail.
-    tone({ freq: 760, freqEnd: 540, dur: 0.18, peak: 0.18, type: 'sine' });
-    tone({ freq: 360, dur: 0.22, peak: 0.07, type: 'sine', delayMs: 60 });
+    tone({ freq: 560, freqEnd: 430, dur: 0.16, peak: 0.10, type: 'sine' });
   }
 
   function success(){
     preload();
     if (playMP3('success')) return;
     // Milestone — round complete, ballot ready, accept confirmed.
-    // C-E-G major arpeggio at ~120ms intervals.
-    tone({ freq: 523.25, dur: 0.18, peak: 0.16, type: 'sine', delayMs: 0 });   // C5
-    tone({ freq: 659.25, dur: 0.18, peak: 0.16, type: 'sine', delayMs: 90 });  // E5
-    tone({ freq: 783.99, dur: 0.30, peak: 0.18, type: 'sine', delayMs: 180 }); // G5
+    // Two close notes, short enough to read as completion rather than music.
+    tone({ freq: 440, dur: 0.14, peak: 0.10, type: 'sine', delayMs: 0 });
+    tone({ freq: 587.33, dur: 0.22, peak: 0.11, type: 'sine', delayMs: 82 });
   }
 
   function error(){
@@ -242,7 +222,7 @@
     if (playMP3('error')) return;
     // Failure cue. Low triangle sweep 280 → 180. Triangle gives it a
     // bit more grit than sine without going full square-wave abrasive.
-    tone({ freq: 280, freqEnd: 180, dur: 0.22, peak: 0.18, type: 'triangle' });
+    tone({ freq: 240, freqEnd: 190, dur: 0.18, peak: 0.12, type: 'sine' });
   }
 
   function confirm(){
@@ -250,7 +230,7 @@
     if (playMP3('confirm')) return;
     // User-committed action (splash tap, accept-pressed-yes). Warm
     // 700Hz pure sine, slightly longer than click(), no sweep.
-    tone({ freq: 700, dur: 0.16, peak: 0.16, type: 'sine' });
+    tone({ freq: 480, dur: 0.13, peak: 0.10, type: 'sine' });
   }
 
   function notify(){
@@ -260,8 +240,8 @@
     // (E6 → A6, perfect fourth) — lighter and quicker than success()'s
     // three-note arpeggio so a chat ping never reads as a milestone.
     // Low peaks so a notification mid-task isn't startling.
-    tone({ freq: 1318.51, dur: 0.14, peak: 0.12, type: 'sine', delayMs: 0 });   // E6
-    tone({ freq: 1760.00, dur: 0.22, peak: 0.13, type: 'sine', delayMs: 110 }); // A6
+    tone({ freq: 660, dur: 0.12, peak: 0.08, type: 'sine', delayMs: 0 });
+    tone({ freq: 880, dur: 0.18, peak: 0.08, type: 'sine', delayMs: 90 });
   }
 
   // ── Round-clock sounds ─────────────────────────────────────────────

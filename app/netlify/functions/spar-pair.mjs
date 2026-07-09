@@ -145,6 +145,11 @@ function skipActive(data, uid) {
   return (Date.now() - t) <= SKIP_TTL_MS;
 }
 
+function blocked(data, uid) {
+  const list = Array.isArray(data?.blockedUids) ? data.blockedUids : [];
+  return list.includes(uid);
+}
+
 function joinedAtMs(data) {
   return data ? tsMs(data.joinedAt) : Date.now();
 }
@@ -435,6 +440,9 @@ export default async (request) => {
       // session means these two don't get re-proposed to each other.
       if (skipActive(mine, peerUid) || skipActive(theirs, myUid)) {
         return { ok: false, reason: 'skipped_peer' };
+      }
+      if (blocked(mine, peerUid) || blocked(theirs, myUid)) {
+        return { ok: false, reason: 'blocked_peer' };
       }
 
       const myShort = shortName(mine);

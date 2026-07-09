@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script src="/js/native-bridge.js"></script>
 <title>Live Round · DebateIt</title>
 <meta name="description" content="Two humans, AI judge. In-platform video room + per-speech timer + transcript capture + tournament-grade ballot." />
 <meta name="robots" content="noindex" />
@@ -1343,6 +1344,7 @@ body.lr-pip .lr-pip-notice{display:block}
           </div>
           <span class="rc-side" id="rosterOppSide">—</span>
           <button type="button" class="rc-dm" id="rosterOppDm" hidden title="Message your opponent">✉ Message</button>
+          <button type="button" class="rc-safety" id="rosterOppReport" hidden title="Report or block your opponent">Report</button>
         </div>
       </div>
       <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
@@ -2273,6 +2275,8 @@ body.lr-pip .lr-pip-notice{display:block}
       state.oppDm = { uid: _oppUid || '', name: _oppNm };
       var _dmBtn = $('rosterOppDm');
       if (_dmBtn){ var _me = state.user && state.user.uid; _dmBtn.hidden = !(_me && _oppUid && _oppUid !== _me && !spectator); }
+      var _reportBtn = $('rosterOppReport');
+      if (_reportBtn){ var _reportMe = state.user && state.user.uid; _reportBtn.hidden = !(_reportMe && _oppUid && _oppUid !== _reportMe && !spectator); }
     }
     $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
     $('speechText').value = '';
@@ -5528,6 +5532,8 @@ body.lr-pip .lr-pip-notice{display:block}
 <style>
 .rc-dm{margin-left:8px;padding:4px 11px;border-radius:999px;border:1px solid var(--accent,#ef4444);background:rgba(239,68,68,.1);color:var(--accent,#ef4444);font:inherit;font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .15s,transform .12s}
 .rc-dm:hover{background:rgba(239,68,68,.2);transform:translateY(-1px)}
+.rc-safety{padding:4px 9px;border:0;background:transparent;color:var(--text-dim,rgba(255,255,255,.58));font:inherit;font-size:.63rem;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.rc-safety:hover{color:var(--text,#fff)}
 .rmb-brief{margin-top:8px;padding:9px 12px;background:var(--bg-card,rgba(255,255,255,.03));border:1px solid var(--border,rgba(255,255,255,.12));border-radius:9px;font-size:.78rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.72))}
 .dm-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;padding:18px}
 .dm-modal.is-open{display:flex}
@@ -5545,6 +5551,9 @@ body.lr-pip .lr-pip-notice{display:block}
 .dm-send:hover{background:#dc2626}
 .dm-send:disabled{opacity:.6;cursor:default}
 .dm-status{font-size:.76rem;color:var(--text-dim,rgba(255,255,255,.72))}
+.safety-select{width:100%;min-height:46px;margin:3px 0 10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));background:var(--bg,#101014);color:var(--text,#fff);font:inherit;font-size:.86rem}
+.safety-check{display:flex;align-items:flex-start;gap:9px;margin-top:11px;color:var(--text-dim,rgba(255,255,255,.72));font-size:.78rem;line-height:1.4}
+.safety-check input{width:18px;height:18px;margin:0;accent-color:var(--accent,#ef4444)}
 </style>
 <div id="dmModal" class="dm-modal" hidden role="dialog" aria-modal="true" aria-label="Message opponent">
   <div class="dm-backdrop" data-dm-close></div>
@@ -5560,6 +5569,88 @@ body.lr-pip .lr-pip-notice{display:block}
     </div>
   </div>
 </div>
+<div id="safetyModal" class="dm-modal" hidden role="dialog" aria-modal="true" aria-label="Report opponent">
+  <div class="dm-backdrop" data-safety-close></div>
+  <div class="dm-card">
+    <button type="button" class="dm-x" data-safety-close aria-label="Close">&times;</button>
+    <div class="dm-eyebrow">Round safety</div>
+    <h3 class="dm-title">Report <span id="safetyOppName">your opponent</span></h3>
+    <p class="dm-hint">Reports are reviewed by DebateIt. Leave the round whenever you feel unsafe.</p>
+    <select id="safetyReason" class="safety-select" aria-label="Reason for report">
+      <option value="">Choose a reason</option>
+      <option value="harassment">Harassment or bullying</option>
+      <option value="hate_or_threats">Hate speech or threats</option>
+      <option value="sexual_content">Sexual content</option>
+      <option value="spam">Spam or impersonation</option>
+      <option value="other">Something else</option>
+    </select>
+    <textarea id="safetyDetails" class="dm-text" maxlength="1000" placeholder="Add a short note for the reviewer. Optional."></textarea>
+    <label class="safety-check"><input id="safetyBlock" type="checkbox" checked /><span>Block this person from future matches on this device.</span></label>
+    <div class="dm-row">
+      <button type="button" class="dm-send" id="safetySend">Send report</button>
+      <span class="dm-status" id="safetyStatus"></span>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  function byId(id){ return document.getElementById(id); }
+  function openSafety(){
+    if (!state || !state.oppDm || !state.oppDm.uid) return;
+    byId('safetyOppName').textContent = state.oppDm.name || 'your opponent';
+    byId('safetyStatus').textContent = '';
+    var modal = byId('safetyModal');
+    modal.hidden = false;
+    modal.classList.add('is-open');
+  }
+  function closeSafety(){ var modal = byId('safetyModal'); modal.hidden = true; modal.classList.remove('is-open'); }
+  function rememberBlock(uid){
+    try {
+      var list = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]');
+      if (!Array.isArray(list)) list = [];
+      if (list.indexOf(uid) < 0) list.push(uid);
+      localStorage.setItem('dit-blocked-users', JSON.stringify(list.slice(-100)));
+    } catch(e){}
+  }
+  function sendSafety(){
+    var reason = byId('safetyReason').value;
+    var status = byId('safetyStatus');
+    var button = byId('safetySend');
+    if (!reason){ status.textContent = 'Choose a reason.'; return; }
+    if (!state.user || !state.oppDm || !state.oppDm.uid){ status.textContent = 'Sign in to report.'; return; }
+    button.disabled = true;
+    status.textContent = 'Sending…';
+    state.user.getIdToken().then(function(token){
+      return fetch('/api/report-user', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token},
+        body:JSON.stringify({
+          reportedUid:state.oppDm.uid,
+          reportedName:state.oppDm.name || '',
+          reason:reason,
+          details:byId('safetyDetails').value || '',
+          roomId:state.room || '',
+          block:byId('safetyBlock').checked,
+          source:'live_round',
+          platform:window.__DB_NATIVE ? 'ios' : 'web'
+        })
+      });
+    }).then(function(response){ if (!response.ok) throw new Error('report-failed'); return response.json(); })
+      .then(function(result){
+        if (result.blocked) rememberBlock(state.oppDm.uid);
+        status.textContent = result.blocked ? 'Reported and blocked.' : 'Report sent.';
+        setTimeout(function(){ closeSafety(); if (result.blocked) location.href = '/spar'; }, 900);
+      }).catch(function(){ status.textContent = 'Could not send. Try again.'; })
+      .finally(function(){ button.disabled = false; });
+  }
+  function wire(){
+    var open = byId('rosterOppReport'); if (open) open.addEventListener('click', openSafety);
+    var send = byId('safetySend'); if (send) send.addEventListener('click', sendSafety);
+    document.querySelectorAll('[data-safety-close]').forEach(function(node){ node.addEventListener('click', closeSafety); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
+})();
+</script>
 <!-- Minimize / pop-out wiring for the live video. Self-contained: pure
      DOM + window.LivePiP, no dependency on the round state machine. The
      in-page mini just docks the video via a body class (no reconnect);

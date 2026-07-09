@@ -43,6 +43,17 @@
 
   document.documentElement.classList.add('dbnative');
 
+  var currentPath = (location.pathname || '/').replace(/\/$/, '') || '/';
+  var immersive = /^\/(newvoice|voice-debate|live-round|room-judge)(?:\.html)?$/.test(currentPath);
+  if (immersive) document.documentElement.classList.add('dbnative-immersive');
+  if (/^\/native(?:\.html)?$/.test(currentPath)) document.documentElement.classList.add('dbnative-home');
+
+  try {
+    if (!immersive && !/^\/(native|pricing)(?:\.html)?$/.test(currentPath)) {
+      localStorage.setItem('dit-native-last-path', currentPath + location.search + location.hash);
+    }
+  } catch (e) {}
+
   // Load the APP DESIGN LAYER (app/css/native-app.css). This stylesheet is
   // the one place app-specific design lives; it loads ONLY in the app, so
   // it never affects the website. Injected as early as possible so app
@@ -81,12 +92,110 @@
   if (document.head) injectHideCss();
   else document.addEventListener('DOMContentLoaded', injectHideCss);
 
+  function icon(paths) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
+  }
+
+  function mountNativeTabs() {
+    if (immersive || document.querySelector('.db-native-tabs')) return;
+    var items = [
+      { href: '/native', label: 'Home', match: /^\/native(?:\.html)?$/, icon: '<path d="m3 11 9-9 9 9"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>' },
+      { href: '/newvoice', label: 'Debate', match: /^\/(newvoice|voice-debate|debate-it)(?:\.html)?$/, icon: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>' },
+      { href: '/coach', label: 'Coach', match: /^\/coach(?:\.html)?$/, icon: '<path d="m12 3-1.9 4.1L6 9l4.1 1.9L12 15l1.9-4.1L18 9l-4.1-1.9L12 3Z"/><path d="m5 16-.9 1.9L2 19l2.1 1.1L5 22l.9-1.9L8 19l-2.1-1.1L5 16Z"/><path d="m19 14-1.2 2.8L15 18l2.8 1.2L19 22l1.2-2.8L23 18l-2.8-1.2L19 14Z"/>' },
+      { href: '/spar', label: 'Live', match: /^\/(spar|live|spectate)(?:\.html)?$/, icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
+      { href: '/profile', label: 'Me', match: /^\/profile(?:\.html)?$/, icon: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
+    ];
+    var nav = document.createElement('nav');
+    nav.className = 'db-native-tabs';
+    nav.setAttribute('aria-label', 'App navigation');
+    items.forEach(function (item) {
+      var a = document.createElement('a');
+      var active = item.match.test(currentPath);
+      a.href = item.href;
+      a.className = 'db-native-tab' + (active ? ' is-active' : '');
+      if (active) a.setAttribute('aria-current', 'page');
+      a.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>';
+      nav.appendChild(a);
+    });
+    document.body.appendChild(nav);
+  }
+
+  function mountOfflineNotice() {
+    if (document.getElementById('dbNativeOffline')) return;
+    var notice = document.createElement('div');
+    notice.id = 'dbNativeOffline';
+    notice.className = 'db-native-offline';
+    notice.setAttribute('role', 'status');
+    notice.textContent = 'You are offline. Reconnect to start a round.';
+    document.body.appendChild(notice);
+    function update(connected) { notice.classList.toggle('is-visible', !connected); }
+    update(navigator.onLine !== false);
+    window.addEventListener('online', function () { update(true); });
+    window.addEventListener('offline', function () { update(false); });
+    try {
+      var network = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Network;
+      if (network && network.getStatus) network.getStatus().then(function (s) { update(s.connected); });
+      if (network && network.addListener) network.addListener('networkStatusChange', function (s) { update(s.connected); });
+    } catch (e) {}
+  }
+
+  window.DBShareApp = function () {
+    try {
+      var share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+      if (share && share.share) return share.share({
+        title: 'DebateIt',
+        text: 'Practice a real debate out loud.',
+        url: 'https://debateai.com'
+      });
+    } catch (e) {}
+    if (navigator.share) return navigator.share({ title: 'DebateIt', text: 'Practice a real debate out loud.', url: 'https://debateai.com' });
+    return Promise.resolve();
+  };
+
+  window.DBEnableAlerts = function () {
+    try {
+      var messaging = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseMessaging;
+      if (messaging && messaging.requestPermissions) {
+        return messaging.requestPermissions().then(function (result) {
+          document.dispatchEvent(new CustomEvent('db-native-alerts', { detail: result }));
+          return result;
+        });
+      }
+      var push = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+      if (push && push.requestPermissions) return push.requestPermissions();
+    } catch (e) {}
+    return Promise.reject(new Error('Notifications are unavailable.'));
+  };
+
+  function wireNativeDeepLinks() {
+    try {
+      var app = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+      if (!app || !app.addListener) return;
+      app.addListener('appUrlOpen', function (data) {
+        try {
+          var url = new URL(data.url);
+          if (url.hostname === 'debateai.com' || url.hostname.endsWith('.debateai.com')) {
+            location.href = url.pathname + url.search + url.hash;
+          }
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  function mountNativeChrome() {
+    mountNativeTabs();
+    mountOfflineNotice();
+    wireNativeDeepLinks();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountNativeChrome);
+  else mountNativeChrome();
+
   // If the app deep-navigates to the pricing route, bounce it — a hard
   // guarantee the reviewer never sees a purchase surface even if a stray
   // link slips the CSS net.
   try {
     if (/^\/pricing(?:\.html)?$/.test(location.pathname)) {
-      location.replace('/coach');
+      location.replace('/native');
     }
   } catch (e) {}
 

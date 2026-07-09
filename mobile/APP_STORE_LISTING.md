@@ -11,7 +11,9 @@ em-dashes, no banned phrases (see soul.md). Edit freely before submitting.
 - **Bundle ID:** com.debateai.debateit
 - **Primary category:** Education
 - **Secondary category:** Productivity
-- **Age rating:** 4+ (no objectionable content)
+- **Age rating:** Complete the App Store Connect questionnaire honestly. The
+  app includes live user interaction and direct messages, so do not submit it
+  as a passive 4+ utility.
 
 ## Promotional text (170 char, updatable anytime)
 Argue out loud against an AI that pushes back, takes POIs, and grades you like
@@ -63,6 +65,7 @@ Data the app collects (be truthful; the site already discloses these in
 | Name | Yes | Yes | App Functionality | display name from sign-in |
 | User ID | Yes | Yes | App Functionality, Analytics | Firebase uid |
 | Audio data | Yes | No | App Functionality | voice rounds; processed via OpenAI Realtime, not stored as raw audio for ads |
+| Other user content | Yes | Yes | App Functionality, Safety | live-round messages, reports, and debate files users choose to add |
 | Product interaction | Yes | Yes | Analytics, Product Personalization | rounds, features used |
 | Crash data | Yes | No | App Functionality | |
 | Performance data | Yes | No | Analytics | |
@@ -86,3 +89,19 @@ Encryption: `ITSAppUsesNonExemptEncryption = NO` is set in Info.plist
 5. Xcode → Product > Archive (Release, device target) → Distribute > App Store Connect.
 6. In ASC, attach the build, answer export compliance (No), submit for review.
 7. Sign in with Apple must be live before review (Apple 4.8) — see handover §5.
+8. Use a review account with at least one saved round, and put its credentials
+   in App Review Information. Keep the voice backend and Firebase project live.
+
+## Notes for Review (paste and personalize)
+
+DebateIt is a voice-first debate training app. Reviewers can start a voice
+round without creating an account. The app uses the microphone only after the
+reviewer taps Start, then provides a timed debate and an AI judge ballot.
+
+Native iOS features include Sign in with Apple, push alerts for live opponents,
+native sharing, app deep links, a persistent app tab bar, and microphone and
+camera permission handling. The app is free during beta. It contains no web
+checkout, pricing link, or external purchase call to action.
+
+Live human rounds include visible report and block controls. Account deletion
+is available in Me > Account & settings > Delete account.

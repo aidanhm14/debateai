@@ -36,11 +36,12 @@ html.dbnative {
 html.dbnative body {
   /* iOS momentum scroll + kill the rubber-band white flash at the top */
   -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(82px + var(--safe-bottom)) !important;
+  overscroll-behavior-y: contain;
 }
-/* Shared top bar clears the status bar / island. */
+/* The browser topbar becomes a native bottom tab bar in the app. */
 html.dbnative .ui-topbar {
-  padding-top: var(--safe-top);
-  height: calc(52px + var(--safe-top));
+  display: none !important;
 }
 /* Anything pinned to the bottom clears the home indicator. */
 html.dbnative .ui-beta-strip,
@@ -167,3 +168,102 @@ html.dbnative .brand-bar {  /* /judge: "DebateIt.com / AI Judge" domain breadcru
    html.dbnative .coach-eyebrow { ... }
    html.dbnative #readLine { ... }
 */
+
+html.dbnative .feedback-fab,
+html.dbnative #feedbackFab,
+html.dbnative .founder-cameo,
+html.dbnative .micro-poll,
+html.dbnative [data-feedback-fab] { display: none !important; }
+
+/* ── Native tab bar ───────────────────────────────────────────────── */
+html.dbnative .db-native-tabs {
+  position: fixed;
+  z-index: 2147482000;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: calc(62px + var(--safe-bottom));
+  padding: 7px max(10px, var(--safe-right)) var(--safe-bottom) max(10px, var(--safe-left));
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: start;
+  background: rgba(255,255,255,.94);
+  border-top: 1px solid rgba(25,22,20,.11);
+  box-shadow: 0 -10px 34px rgba(24,18,15,.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  backdrop-filter: blur(22px) saturate(1.35);
+}
+html.dbnative .db-native-tab {
+  min-width: 0;
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: rgba(31,27,25,.56);
+  text-decoration: none;
+  font: 700 10px/1.05 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+html.dbnative .db-native-tab svg {
+  width: 22px;
+  height: 22px;
+  transition: transform .18s ease, color .18s ease;
+}
+html.dbnative .db-native-tab:active svg { transform: scale(.9); }
+html.dbnative .db-native-tab.is-active { color: #d92f32; }
+html.dbnative .db-native-tab.is-active svg { transform: translateY(-1px); }
+html.dbnative .db-native-tab.is-active::before {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 3px;
+  margin-top: -52px;
+  border-radius: 999px;
+  background: #d92f32;
+}
+
+html.dbnative.dbnative-immersive body {
+  padding-bottom: var(--safe-bottom) !important;
+}
+html.dbnative.dbnative-immersive .db-native-tabs { display: none !important; }
+
+html.dbnative .db-native-offline {
+  position: fixed;
+  z-index: 2147483000;
+  top: calc(var(--safe-top) + 10px);
+  left: 50%;
+  width: min(88vw, 390px);
+  padding: 11px 14px;
+  transform: translate(-50%, -140%);
+  opacity: 0;
+  border-radius: 12px;
+  background: #211f1d;
+  color: #fff;
+  text-align: center;
+  font: 700 13px/1.25 -apple-system, BlinkMacSystemFont, sans-serif;
+  box-shadow: 0 12px 36px rgba(0,0,0,.24);
+  transition: transform .28s ease, opacity .28s ease;
+}
+html.dbnative .db-native-offline.is-visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+html.dbnative button,
+html.dbnative a,
+html.dbnative [role="button"] { touch-action: manipulation; }
+
+@media (prefers-reduced-motion: reduce) {
+  html.dbnative *, html.dbnative *::before, html.dbnative *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Coach is a core tab, so remove web-page framing when opened in app. */
+html.dbnative .coach-crumb { display: none !important; }
+html.dbnative .coach-shell,
+html.dbnative .coach-wrap { padding-top: max(14px, var(--safe-top)) !important; }

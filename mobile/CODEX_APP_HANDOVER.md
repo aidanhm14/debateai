@@ -11,7 +11,7 @@
 ## 1. What the app is (one paragraph)
 
 DebateIt is on iOS as a **Capacitor 6 wrapper** that loads the LIVE website
-(`https://debateai.com/coach`) inside a native WKWebView. It is not a
+(`https://debateai.com/native`) inside a native WKWebView. It is not a
 separate frontend. The native shell adds: splash, status bar, keyboard,
 share, push, camera/mic permission, and Firebase (Auth + Messaging)
 plugins. The web content is the product; the shell is the frame.
@@ -19,7 +19,7 @@ plugins. The web content is the product; the shell is the frame.
 - **Bundle ID:** `com.debateai.debateit` (the obvious ones `com.debateai.app`
   and `com.debateit.app` were already taken on Apple's global registry).
 - **App name (under the icon):** `DebateIt` (`CFBundleDisplayName`).
-- **Opens to:** `/coach` (set via `server.url` in `capacitor.config.ts`).
+- **Opens to:** `/native`, the app-only home with a persistent bottom tab bar.
 - **Firebase iOS app:** registered under project `debateos-78ac5`,
   bundle `com.debateai.debateit`, config at
   `mobile/ios/App/App/GoogleService-Info.plist`.
@@ -52,7 +52,7 @@ still letting it diverge.
 - sets `window.__DB_NATIVE = true` and `<html class="dbnative">`,
 - injects the app design layer `app/css/native-app.css`,
 - hides all pricing/upgrade/checkout surfaces (Apple rule, see §5),
-- redirects `/pricing` → `/coach`.
+- redirects `/pricing` → `/native`.
 
 On the plain web it is inert (no `dbnative`, no changes).
 
@@ -96,8 +96,8 @@ doesn't. Put all of this in `app/css/native-app.css`:
   paid surface to the website, tag it so it stays hidden in the app.
 - **Touch targets ≥ 44×44pt**, no hover-only affordances (there's no hover
   on touch), and momentum scroll.
-- **The app opens to `/coach`.** Iterate app-only coach tweaks in the
-  `native-app.css` "App home" section.
+- **The app opens to `/native`.** The app home is in `app/native.html`; shared
+  native chrome and safe-area behavior live in `app/css/native-app.css`.
 
 Keep it tasteful and on-brand (Crimson Pro, red accent, no em-dashes, no
 banned phrases — same rules as the site; see `soul.md`).
@@ -182,9 +182,10 @@ xcrun devicectl device install app --device 00008150-001679E40AA0C01C \
   `app/js/auth-modal.js`. To go live it needs the Firebase Apple provider
   enabled (Services ID + key from the Apple Developer portal) and the
   `@capacitor-firebase/authentication` native flow surfaced in the app.
-- **4.2 — not "just a website."** Carried by the native plugins + Apple
-  sign-in. If a reviewer pushes back, the fallback is bundling a local build
-  (set `webDir`, drop `server.url`) — a bigger change; avoid unless forced.
+- **4.2 — minimum functionality.** The release now has an app-only home,
+  persistent native navigation, Apple and Google native auth, push alerts,
+  native sharing, deep links, report/block, and account deletion. Keep those
+  paths working in every submitted build.
 - **Permissions** (Info.plist): mic + camera + photo-add usage strings are
   set. Keep them honest; Apple reads them.
 
@@ -207,7 +208,7 @@ xcrun devicectl device install app --device 00008150-001679E40AA0C01C \
 
 ```
 mobile/
-├── capacitor.config.ts          appId, appName, server.url (/coach), plugins
+├── capacitor.config.ts          appId, appName, server.url (/native), plugins
 ├── ios/App/                      the native Xcode project (committed)
 │   ├── App.xcworkspace           ← open this in Xcode, not the .xcodeproj
 │   ├── App/Info.plist            name + permission strings

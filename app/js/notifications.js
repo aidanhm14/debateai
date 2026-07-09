@@ -1114,6 +1114,8 @@
         if (!available) return; // toggled off while the SDK was still loading
         try { db = window.firebase.firestore(); } catch (e) { return; }
         myRef = db.collection('matchmaking_queue').doc(myUid);
+        var blockedUids = [];
+        try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
         myRef.set({
           uid: myUid,
           displayName: shortNm(myUser),
@@ -1122,6 +1124,7 @@
           status: 'waiting',
           broaden: true,
           background: true,
+          blockedUids: blockedUids.slice(-100),
           joinedAt: ts()
         }).then(function () {
           if (!available) { myRef.delete().catch(function () {}); return; } // toggled off mid-write
@@ -1137,9 +1140,12 @@
       if (!myUid || !myRef || !available || ON_ROUND || ON_SPAR || ON_PUBLIC || overlay || navigating) return;
       if (Date.now() < declineUntil) return; // honour the post-decline quiet window
       docGone = false;
+      var blockedUids = [];
+      try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
       myRef.set({
         uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
-        format: fmt(), status: 'waiting', broaden: true, background: true, joinedAt: ts()
+        format: fmt(), status: 'waiting', broaden: true, background: true,
+        blockedUids: blockedUids.slice(-100), joinedAt: ts()
       }).then(function () { startTimers(); scan(); }).catch(function () {});
     }
     function goOffline() {

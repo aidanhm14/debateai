@@ -418,9 +418,9 @@
   .orb-wrap .coach-avatar {
     --level: 0;
     position: relative;
-    width: min(268px, 64vw); aspect-ratio: 1; border-radius: 38%; overflow: hidden;
+    width: min(292px, 68vw); aspect-ratio: 1; border-radius: 36% 46% 39% 48%; overflow: hidden;
     background: radial-gradient(circle at 36% 22%, rgba(255,255,255,.95), rgba(255,255,255,.26) 32%, rgba(239,68,68,.10) 78%);
-    box-shadow: 0 18px 50px rgba(0,0,0,.28),
+    box-shadow: 0 24px 64px rgba(0,0,0,.25),
                 inset 0 0 0 1px rgba(255,255,255,.42),
                 0 0 calc(14px + var(--level) * 48px) rgba(239,68,68, calc(.20 + var(--level) * .42));
     transform: scale(calc(1 + var(--level) * .07));
@@ -429,7 +429,7 @@
   .orb-wrap .coach-avatar::before{
     content:"";position:absolute;inset:10px;border-radius:42% 58% 48% 52%;
     border:1px solid rgba(239,68,68,.18);box-shadow:0 0 34px rgba(239,68,68,.10);
-    pointer-events:none;z-index:1;transform:rotate(-9deg);
+    pointer-events:none;z-index:1;transform:rotate(-7deg);
   }
   .orb-wrap .coach-avatar svg { width: 100%; height: 100%; display: block; transform:scale(1.18) translateY(2px); transform-origin:50% 44%; }
 
@@ -1248,6 +1248,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
       analyser.fftSize = 256; analyser.smoothingTimeConstant = 0.78;
       src.connect(analyser); // read-only tap; <audio> element still plays the sound
       state.analyser = analyser;
+      if (coachAvatarCtrl) coachAvatarCtrl.attachAnalyser(analyser);
       var data = new Uint8Array(analyser.frequencyBinCount);
       els.orb.classList.remove('idle');
       function tick() {
@@ -1256,7 +1257,6 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
         var level = Math.min(1, Math.max(0, ((sum / data.length) - 4) / 62));
         els.orb.style.setProperty('--level', level.toFixed(3));
         if (els.coachAvatar) els.coachAvatar.style.setProperty('--level', level.toFixed(3));
-        if (coachAvatarCtrl) coachAvatarCtrl.setAmplitude(level);
         state.raf = requestAnimationFrame(tick);
       }
       tick();
@@ -1265,6 +1265,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   function stopVisualizer() {
     if (state.raf) cancelAnimationFrame(state.raf);
     state.raf = 0;
+    if (coachAvatarCtrl) coachAvatarCtrl.attachAnalyser(null).setAmplitude(0);
     try { if (state.audioCtx) state.audioCtx.close(); } catch (e) {}
     state.audioCtx = null; state.analyser = null;
     els.orb.style.setProperty('--level', '0');

@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script src="/js/native-bridge.js"></script>
 <title>Spar · Debate it live with another debater · DebateIt</title>
 <meta name="description" content="Match into a live debate with another human, or post an open invite and DM another debater in the global DebateIt community to organize a round. If the queue is quiet, prep with AI while you stay available. An AI judge writes the verdict at the end." />
 <meta name="robots" content="noindex">
@@ -2707,6 +2708,11 @@ h1 em{color:var(--accent);font-style:normal}
     var ref = firebaseDb.collection('matchmaking_queue').doc(state.user.uid);
     state.queueDocRef = ref;
     var shortName = shortNameOf(state.user);
+    var blockedUids = [];
+    try {
+      blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]');
+      if (!Array.isArray(blockedUids)) blockedUids = [];
+    } catch(e){ blockedUids = []; }
     ref.set({
       uid: state.user.uid,
       displayName: shortName,
@@ -2714,6 +2720,7 @@ h1 em{color:var(--accent);font-style:normal}
       anonymous: !!state.user.isAnonymous,
       format: formatParam,
       paradigm: state.paradigm || '',
+      blockedUids: blockedUids.slice(-100),
       status: 'waiting',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).then(function(){
@@ -3291,7 +3298,7 @@ h1 em{color:var(--accent);font-style:normal}
         var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
         var soft = (reason === 'lost_race'
                  || reason === 'queue_doc_missing' || reason === 'stale_peer'
-                 || reason === 'skipped_peer');
+                 || reason === 'skipped_peer' || reason === 'blocked_peer');
         // Soft fails are recoverable — keep polling. Surface them in
         // the diag line so the user can see retries happening instead
         // of staring at a silent countdown. Hard fails still get the

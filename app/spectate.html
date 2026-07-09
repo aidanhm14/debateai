@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script src="/js/native-bridge.js"></script>
   <title>Spectate Live | DebateIt</title>
   <meta name="robots" content="noindex,follow">
   <meta name="description" content="Wait for a live DebateIt round to watch while building your debate brain.">
@@ -28,18 +29,19 @@
       font-family:"Crimson Pro", Georgia, serif;
       color:var(--ink);
       background:
-        radial-gradient(circle at 22% 18%, rgba(239,68,68,.08), transparent 28%),
-        radial-gradient(circle at 80% 8%, rgba(34,197,94,.06), transparent 22%),
-        linear-gradient(180deg,#fffefa 0%,#fbfaf6 100%);
+        linear-gradient(rgba(29,29,34,.018) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(29,29,34,.018) 1px,transparent 1px),
+        linear-gradient(180deg,#fffefa 0%,#f8f7f3 100%);
+      background-size:42px 42px,42px 42px,auto;
       min-height:100vh;
     }
     a{color:inherit}
-    .wrap{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:76px 0 72px;position:relative}
-    .hero{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:34px;align-items:center;position:relative;z-index:1}
+    .wrap{width:min(1160px,calc(100% - 32px));margin:0 auto;padding:58px 0 72px;position:relative}
+    .hero{display:grid;grid-template-columns:minmax(0,.84fr) minmax(480px,1.16fr);gap:52px;align-items:center;position:relative;z-index:1}
     .eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--red-dark);font-weight:900;letter-spacing:.18em;text-transform:uppercase;font-size:.78rem}
     .eyebrow:before{content:"";width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 0 8px rgba(239,68,68,.10)}
-    h1{font-size:clamp(3.2rem,8vw,7rem);line-height:.88;margin:18px 0 18px;letter-spacing:0;font-weight:900}
-    .lead{font-size:clamp(1.24rem,2vw,1.62rem);line-height:1.32;color:var(--muted);max-width:760px;margin:0}
+    h1{font-size:clamp(3.15rem,5.8vw,5.65rem);line-height:.94;margin:18px 0 18px;letter-spacing:0;font-weight:900}
+    .lead{font-size:clamp(1.15rem,1.55vw,1.4rem);line-height:1.4;color:var(--muted);max-width:640px;margin:0}
     .lead strong{color:var(--ink)}
     .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
     .btn{
@@ -48,40 +50,35 @@
       display:inline-flex;align-items:center;justify-content:center;gap:10px;transition:transform .18s, box-shadow .18s, border-color .18s, background .18s;
     }
     .btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(32,28,24,.10)}
-    .btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 20px 44px rgba(239,68,68,.18)}
-    .btn.primary:hover{background:var(--red-dark)}
+    .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff;box-shadow:0 14px 32px rgba(29,29,34,.12)}
+    .btn.primary:hover{background:#08080b}
     .btn.ghost{color:var(--ink)}
     .waiting-card{
-      background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,250,246,.92));border:1px solid var(--line);border-radius:18px;
-      box-shadow:0 28px 70px rgba(31,26,23,.10);padding:20px;position:relative;overflow:hidden;
-    }
-    .waiting-card:before{
-      content:"";position:absolute;inset:0;background:
-        radial-gradient(circle at 18% 18%,rgba(239,68,68,.10),transparent 32%),
-        radial-gradient(circle at 84% 20%,rgba(34,197,94,.08),transparent 30%);
-      pointer-events:none;
+      background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:16px;
+      box-shadow:0 20px 54px rgba(31,26,23,.07);padding:18px;position:relative;overflow:hidden;
     }
     .waiting-card>*{position:relative;z-index:1}
     .wait-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
-    .status{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid rgba(34,197,94,.26);border-radius:999px;color:#16834b;background:#f3fff8;font-weight:900;font-size:.8rem}
-    .status span{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 8px rgba(34,197,94,.12)}
+    .status{display:inline-flex;align-items:center;gap:8px;color:#4d4844;font-weight:800;font-size:.78rem}
+    .status span{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(34,197,94,.10)}
     .timer{font-weight:900;color:var(--faint);letter-spacing:.06em}
-    .network{height:300px;border-radius:16px;background:linear-gradient(180deg,#fffaf6,#fff);border:1px solid #eee7df;position:relative;overflow:hidden}
-    .network:after{content:"";position:absolute;inset:16px;border:1px dashed rgba(239,68,68,.16);border-radius:18px;pointer-events:none}
-    .network svg{position:absolute;inset:0;width:100%;height:100%;opacity:.78}
-    .node{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid rgba(239,68,68,.45);box-shadow:0 0 28px rgba(239,68,68,.18);animation:float 8s ease-in-out infinite}
-    .node.n1{left:18%;top:30%;animation-delay:-1s}
-    .node.n2{left:42%;top:20%;animation-delay:-4s;border-color:rgba(34,197,94,.50)}
-    .node.n3{right:18%;top:38%;animation-delay:-2s}
-    .node.n4{left:30%;bottom:20%;animation-delay:-5s}
-    .node.n5{right:30%;bottom:22%;animation-delay:-7s;border-color:rgba(34,197,94,.50)}
-    @keyframes float{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(10px,-16px,0) scale(1.08)}}
-    .network-copy{position:absolute;inset:auto 20px 18px 20px;display:flex;justify-content:space-between;align-items:end;gap:14px;background:rgba(255,255,255,.74);backdrop-filter:blur(10px);border:1px solid rgba(232,226,220,.72);border-radius:16px;padding:14px 16px}
-    .network-copy h2{margin:0;font-size:1.55rem;line-height:1.05}
-    .network-copy p{margin:6px 0 0;color:var(--muted);font-size:1rem;line-height:1.3}
+    .network{height:380px;border-radius:14px;background:linear-gradient(180deg,#fbfaf7,#f6f4ef);border:1px solid #ece7e1;position:relative;overflow:hidden}
+    .brain-map{position:absolute;inset:8px 10px 58px;width:calc(100% - 20px);height:calc(100% - 66px)}
+    .brain-outline{fill:rgba(255,255,255,.62);stroke:#cfc9c2;stroke-width:1.4}
+    .brain-fold{fill:none;stroke:#dcd6cf;stroke-width:1.2;stroke-linecap:round}
+    .brain-active{clip-path:inset(100% 0 0 0);transition:clip-path .75s cubic-bezier(.2,.8,.2,1)}
+    .brain-active .brain-outline{fill:rgba(239,68,68,.055);stroke:#d95b58}
+    .brain-active .brain-fold{stroke:#dc7771}
+    .brain-pulse{fill:#fff;stroke:#cf5753;stroke-width:2;filter:drop-shadow(0 0 6px rgba(239,68,68,.26));animation:brainPulse 3.2s ease-in-out infinite}
+    .brain-pulse:nth-of-type(2){animation-delay:-1.1s}.brain-pulse:nth-of-type(3){animation-delay:-2.2s}
+    @keyframes brainPulse{0%,100%{r:4;opacity:.48}50%{r:6;opacity:1}}
+    .network-copy{position:absolute;inset:auto 16px 14px 16px;display:flex;justify-content:space-between;align-items:center;gap:14px;border-top:1px solid rgba(29,29,34,.08);padding:12px 2px 0}
+    .network-copy h2{margin:0;font-size:1.15rem;line-height:1.05}
+    .network-copy p{margin:4px 0 0;color:var(--muted);font-size:.84rem;line-height:1.3}
     .pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-weight:900;color:var(--muted);white-space:nowrap}
     .panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}
-    .panel{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 18px 50px rgba(31,26,23,.07)}
+    .panel{background:rgba(255,255,255,.84);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 12px 34px rgba(31,26,23,.045)}
+    .panel.brain-panel{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(420px,1.15fr);gap:30px;align-items:center}
     .panel h2{margin:0 0 8px;font-size:1.8rem;line-height:1}
     .panel p{color:var(--muted);font-size:1.05rem;line-height:1.4;margin:0 0 18px}
     .step{display:none;animation:rise .22s ease}
@@ -93,7 +90,7 @@
       font:800 1rem "Crimson Pro", Georgia, serif;color:var(--ink);cursor:pointer;transition:transform .16s,border-color .16s,background .16s;
     }
     .choice small{display:block;color:var(--muted);font-weight:600;font-size:.78rem;margin-top:4px;line-height:1.25}
-    .choice:hover,.choice.on{transform:translateY(-2px);border-color:rgba(239,68,68,.45);background:var(--soft)}
+    .choice:hover,.choice.on{border-color:rgba(239,68,68,.38);background:var(--soft)}
     .field{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 16px;font:700 1rem "Crimson Pro", Georgia, serif;color:var(--ink);outline:none}
     .field:focus{border-color:rgba(239,68,68,.5);box-shadow:0 0 0 4px rgba(239,68,68,.08)}
     .step-actions{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
@@ -124,13 +121,14 @@
     .mini{font-size:.82rem;color:var(--faint);line-height:1.35;margin-top:12px}
     @media (max-width:900px){
       .wrap{padding-top:46px}
-      .hero,.panel-grid{grid-template-columns:1fr}
+      .hero,.panel-grid,.panel.brain-panel{grid-template-columns:1fr}
+      .panel.brain-panel{grid-column:auto}
       .waiting-card{order:-1}
       .network{height:260px}
     }
     @media (max-width:560px){
       .wrap{width:min(100% - 22px,1180px);padding-top:34px}
-      h1{font-size:3.55rem}
+      h1{font-size:3.15rem}
       .lead{font-size:1.16rem}
       .choices{grid-template-columns:1fr}
       .network-copy{display:block}
@@ -146,12 +144,12 @@
   <main class="wrap">
     <section class="hero" aria-labelledby="spectateTitle">
       <div>
-        <div class="eyebrow">Spectate live</div>
-        <h1 id="spectateTitle">Watch a real round. Build your debate brain while you wait.</h1>
-        <p class="lead"><strong>When a live debate opens, this room becomes the lobby.</strong> Until then, DebateIt learns your style, your topics, your files, and the kind of rounds you want to watch.</p>
+        <div class="eyebrow">The waiting room</div>
+        <h1 id="spectateTitle">A quiet place to build your debate brain.</h1>
+        <p class="lead">Add one useful piece while you wait: a topic, a past flow, an avatar, or the way you like to argue. When a live round opens, this page becomes the room.</p>
         <div class="actions">
-          <a class="btn primary" href="/live">Browse scheduled rounds -></a>
-          <button class="btn ghost" type="button" id="focusProfile">Build my spectator profile</button>
+          <button class="btn primary" type="button" id="focusProfile">Build one part</button>
+          <a class="btn ghost" href="/live">Browse upcoming rounds</a>
         </div>
       </div>
       <aside class="waiting-card" aria-label="Live debate waiting room">
@@ -160,25 +158,25 @@
           <div class="timer" id="waitTimer">00:00</div>
         </div>
         <div class="network" aria-hidden="true">
-          <svg viewBox="0 0 600 360" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="sLine" x1="0" x2="1">
-                <stop offset="0" stop-color="#ef4444" stop-opacity=".16"/>
-                <stop offset=".55" stop-color="#22c55e" stop-opacity=".12"/>
-                <stop offset="1" stop-color="#ef4444" stop-opacity=".20"/>
-              </linearGradient>
-            </defs>
-            <path d="M110 118 C210 58 284 64 396 126 S514 230 408 278 S206 292 174 210 S240 132 492 98" fill="none" stroke="url(#sLine)" stroke-width="2"/>
-            <path d="M110 118 L252 74 L494 136 L420 276 L184 278 Z" fill="none" stroke="#e8ded8" stroke-width="1"/>
-            <path d="M184 278 L494 136 M252 74 L420 276 M110 118 L420 276" fill="none" stroke="#efe8e2" stroke-width="1"/>
+          <svg class="brain-map" viewBox="0 0 600 360" preserveAspectRatio="xMidYMid meet">
+            <g>
+              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
+              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
+              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
+            </g>
+            <g class="brain-active" id="brainFill">
+              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
+              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
+              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
+              <circle class="brain-pulse" cx="205" cy="194" r="4"/><circle class="brain-pulse" cx="300" cy="153" r="4"/><circle class="brain-pulse" cx="395" cy="194" r="4"/>
+            </g>
           </svg>
-          <i class="node n1"></i><i class="node n2"></i><i class="node n3"></i><i class="node n4"></i><i class="node n5"></i>
           <div class="network-copy">
             <div>
-              <h2>Smart lobby</h2>
-              <p>Build context now. The room switches when a live round opens.</p>
+              <h2>Your brain is taking shape</h2>
+              <p>Each answer, file, and round fills another connection.</p>
             </div>
-            <span class="pill" id="profilePct">0% ready</span>
+            <span class="pill" id="profilePct">0% built</span>
           </div>
         </div>
       </aside>
@@ -214,9 +212,22 @@
           <button class="btn primary" type="button" id="nextStep">Next</button>
         </div>
       </div>
-      <div class="panel">
-        <h2>Debate brain</h2>
-        <p>Use the waiting room to start the personal layer: avatar, files, flows, and the record of how you think.</p>
+      <div class="panel brain-panel" id="brain">
+        <div>
+        <h2>Your debate brain</h2>
+        <p>A living map of what you know, how you argue, what judges notice, and what you should practice next.</p>
+        <div class="brain-list">
+          <div class="brain-row"><span class="brain-num">1</span><div><b>Identity</b><span>Your avatar, formats, languages, goals, and the circuits you know.</span></div></div>
+          <div class="brain-row"><span class="brain-num">2</span><div><b>Case vault</b><span>Flows, cases, ballots, and notes become a searchable debate database.</span></div></div>
+          <div class="brain-row"><span class="brain-num">3</span><div><b>Thinking map</b><span>Rounds reveal strengths, habits, blind spots, lessons, and experience over time.</span></div></div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" id="avatarBtn">Build avatar</button>
+          <button class="btn ghost" type="button" id="uploadBtn">Add files</button>
+          <a class="btn ghost" href="/why-debateit">Why this beats a normal chatbot</a>
+        </div>
+        </div>
+        <div>
         <div class="brain-viz" aria-hidden="true">
           <svg viewBox="0 0 520 184" preserveAspectRatio="none">
             <path d="M72 48 C150 20 198 48 260 92 C314 130 382 136 448 52"/>
@@ -229,18 +240,10 @@
           <span class="brain-node" data-brain-node="topics">Topics</span>
           <span class="brain-node" data-brain-node="files">Files</span>
         </div>
-        <div class="brain-list">
-          <div class="brain-row"><span class="brain-num">1</span><div><b>Avatar</b><span>Pick a look now. Coach voice and animated avatar can use it later.</span></div></div>
-          <div class="brain-row"><span class="brain-num">2</span><div><b>Case vault</b><span>Add flows, cases, ballots, or notes. They become your DebateIt database.</span></div></div>
-          <div class="brain-row"><span class="brain-num">3</span><div><b>Thinking map</b><span>DebateIt turns rounds and files into a visual map of strengths, habits, lessons, and experience.</span></div></div>
-        </div>
-        <div class="actions">
-          <button class="btn ghost" type="button" id="avatarBtn">Build avatar</button>
-          <button class="btn ghost" type="button" id="uploadBtn">Add files</button>
-        </div>
         <input id="fileInput" type="file" multiple hidden>
         <div class="files" id="fileList"></div>
         <p class="mini">Uploads are staged in this browser for now. The Google Drive sync and permanent vault live in the DebateIt database roadmap.</p>
+        </div>
       </div>
     </section>
   </main>
@@ -256,6 +259,7 @@
       var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
       var progress = document.getElementById('progressBar');
       var pct = document.getElementById('profilePct');
+      var brainFill = document.getElementById('brainFill');
       var next = document.getElementById('nextStep');
       var back = document.getElementById('backStep');
       var ctx = document.getElementById('otherContext');
@@ -295,7 +299,8 @@
         var width = Math.max(1, Math.min(3, done)) / 3 * 100;
         if (step === 2 && ctx && ctx.value.trim()) width = 100;
         progress.style.width = width + '%';
-        pct.textContent = Math.round(width) + '% ready';
+        pct.textContent = Math.round(width) + '% built';
+        if (brainFill) brainFill.style.clipPath = 'inset(' + (100 - width) + '% 0 0 0)';
         back.style.display = step ? 'inline-flex' : 'none';
         next.textContent = step === total - 1 ? 'Save waiting profile' : 'Next';
         updateBrainViz();

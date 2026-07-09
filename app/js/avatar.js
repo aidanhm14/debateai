@@ -1,12 +1,11 @@
-/* DebateIt avatars — a tiny procedural flat-vector avatar engine.
+/* DebateIt avatars. A procedural portrait engine shared by user avatars,
    One module powers both surfaces: the user builds their own avatar,
    and the AI debaters get matched-set faces from the same generator.
 
-   Art direction: young, modern, a little cool. Big expressive eyes,
-   rounded heads, contemporary hair (fades, curls, top-knots, buns,
-   vibrant colors), hoodies over blazers, and optional gear like
-   over-ear headphones or a beanie. Built for HS-through-college
-   debaters, not a boardroom.
+   Art direction: young, dimensional, and composed. Faces fill the frame;
+   restrained light, depth, and orbital lines make them feel native to the
+   DebateIt brain system. Built for HS-through-college debaters, not a
+   boardroom or a sticker pack.
 
    Public API (window.DBAvatar):
      svg(config, size)      -> SVG markup string for a config
@@ -212,12 +211,21 @@
     return '' +
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="avatar" style="display:block">' +
       '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>' +
-      '<radialGradient id="' + id + 'g" cx="32%" cy="24%" r="82%"><stop offset="0%" stop-color="' + shade(bgCol, 0.24) + '"/><stop offset="100%" stop-color="' + shade(bgCol, -0.06) + '"/></radialGradient></defs>' +
+      '<radialGradient id="' + id + 'g" cx="28%" cy="18%" r="92%"><stop offset="0%" stop-color="' + shade(bgCol, 0.34) + '"/><stop offset="48%" stop-color="' + bgCol + '"/><stop offset="100%" stop-color="' + shade(bgCol, -0.24) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'skin" cx="31%" cy="19%" r="82%"><stop offset="0%" stop-color="' + shade(skinCol, 0.30) + '"/><stop offset="52%" stop-color="' + skinCol + '"/><stop offset="100%" stop-color="' + shade(skinCol, -0.18) + '"/></radialGradient>' +
+      '<linearGradient id="' + id + 'rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".72"/><stop offset="42%" stop-color="#fff" stop-opacity="0"/><stop offset="100%" stop-color="#111827" stop-opacity=".20"/></linearGradient>' +
+      '<filter id="' + id + 'shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="#201713" flood-opacity=".28"/></filter></defs>' +
       '<g clip-path="url(#' + id + ')">' +
       '<rect width="100" height="100" fill="url(#' + id + 'g)"/>' +
+      '<path d="M-8 74 C18 28 59 8 111 30" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="12" stroke-linecap="round"/>' +
+      '<path d="M-2 82 C23 57 62 49 108 65" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1.2"/>' +
+      '<circle cx="82" cy="22" r="2" fill="#fff" opacity=".55"/><circle cx="16" cy="66" r="1.2" fill="#fff" opacity=".35"/>' +
+      '<g transform="translate(50 50) scale(1.10) translate(-50 -50)">' +
       hair.back +
       // hoodie
-      '<path d="M15 100 C15 79 30 71 50 71 C70 71 85 79 85 100 Z" fill="' + outCol + '"/>' +
+      '<ellipse cx="50" cy="80" rx="29" ry="7" fill="#211713" opacity=".18"/>' +
+      '<path d="M12 102 C13 77 30 69 50 69 C70 69 87 77 88 102 Z" fill="' + outCol + '"/>' +
+      '<path d="M18 96 C25 79 35 74 50 74 C65 74 75 79 82 96" fill="none" stroke="' + shade(outCol, 0.16) + '" stroke-width="1.2" opacity=".52"/>' +
       '<path d="M38 72 Q50 80 62 72 L63 76 Q50 84 37 76 Z" fill="' + shade(outCol, -0.16) + '"/>' +
       '<path d="M47 77 L46 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
       '<path d="M53 77 L54 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
@@ -225,11 +233,13 @@
       // neck
       '<path d="M43 60 h14 v9 q-7 5 -14 0 Z" fill="' + skinShade + '"/>' +
       // head
-      '<ellipse cx="50" cy="45" rx="21.5" ry="22.5" fill="' + skinCol + '"/>' +
+      '<g filter="url(#' + id + 'shadow)"><ellipse cx="50" cy="44" rx="23.5" ry="25" fill="url(#' + id + 'skin)"/>' +
+      '<ellipse cx="50" cy="44" rx="22.9" ry="24.4" fill="url(#' + id + 'rim)" opacity=".42"/></g>' +
       // ears
-      '<circle cx="28.5" cy="47" r="3.9" fill="' + skinCol + '"/><circle cx="71.5" cy="47" r="3.9" fill="' + skinCol + '"/>' +
+      '<circle cx="27" cy="47" r="4.1" fill="' + skinCol + '"/><circle cx="73" cy="47" r="4.1" fill="' + skinCol + '"/>' +
       earring +
       facialPath(c.facial, hairCol) +
+      '<ellipse cx="38" cy="51.5" rx="5" ry="2.5" fill="#fff" opacity=".10"/><ellipse cx="62" cy="51.5" rx="5" ry="2.5" fill="#fff" opacity=".10"/>' +
       // nose
       '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
       browsPath(c.brows) +
@@ -238,6 +248,8 @@
       hair.front +
       glassesPath(c.glasses) +
       accessoryOver(c.accessory, outCol) +
+      '</g>' +
+      '<circle cx="50" cy="50" r="48.8" fill="none" stroke="#fff" stroke-opacity=".26" stroke-width=".8"/>' +
       '</g></svg>';
   }
 
@@ -249,14 +261,17 @@
   // (setState / setEmotion / setAmplitude / attachAudio / destroy), so a
   // photoreal video head can implement the same shape and drop in later.
 
-  function talkingMouth(open, emotion) {
+  function talkingMouth(open, emotion, shape) {
     var lip = '#b65b4f', cav = '#5f241f', tongue = '#d88478', cy = 56;
     var corner = emotion === 'encouraging' ? -1.7 : (emotion === 'pushing' ? 1.5 : 0);
     open = open < 0 ? 0 : open > 1 ? 1 : open;
+    shape = shape == null ? 0.5 : (shape < 0 ? 0 : shape > 1 ? 1 : shape);
     if (open < 0.06) {
       return '<path d="M43.6 ' + (cy - corner * 0.15).toFixed(2) + ' C47.2 ' + (cy + corner).toFixed(2) + ' 52.8 ' + (cy + corner).toFixed(2) + ' 56.4 ' + (cy - corner * 0.15).toFixed(2) + '" stroke="' + lip + '" stroke-width="2.15" fill="none" stroke-linecap="round"/>';
     }
-    var rx = 4.8 + open * 4.2, ry = 1.1 + open * 6.4;
+    // Shape follows spectral character: rounded vowels stay narrow, brighter
+    // consonants pull the corners wider. Open follows actual waveform energy.
+    var rx = 4.5 + shape * 3.1 + open * 1.8, ry = 1.0 + open * 6.1;
     var teeth = open > 0.34
       ? '<path d="M' + (50 - rx + 1).toFixed(2) + ' ' + (cy - ry + 1.1).toFixed(2) + ' Q50 ' + (cy - ry - 0.2).toFixed(2) + ' ' + (50 + rx - 1).toFixed(2) + ' ' + (cy - ry + 1.1).toFixed(2) + '" stroke="#fff" stroke-width="1.6" fill="none" opacity=".92"/>'
       : '';
@@ -332,7 +347,7 @@
       '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
       '<g class="ta-brows">' + talkingBrows(0, 0) + '</g>' +
       '<g class="ta-eyes">' + talkingEyes(1, 0, 0) + '</g>' +
-      '<g class="ta-mouth">' + talkingMouth(0, 'neutral') + '</g>' +
+      '<g class="ta-mouth">' + talkingMouth(0, 'neutral', 0.5) + '</g>' +
       hair.front +
       glassesPath(c.glasses) +
       accessoryOver(c.accessory, outCol) +
@@ -356,9 +371,9 @@
     if (!faceEl) return null;
 
     var state = 'idle', emoOverride = null;
-    var faceScale = opts.faceScale || 1.22;
-    var manualAmp = null, amp = 0, smoothAmp = 0;
-    var analyser = null, audioCtx = null, srcNode = null, freqBuf = null, ownCtx = false;
+    var faceScale = opts.faceScale || 1.34;
+    var manualAmp = null, manualShape = null, amp = 0, smoothAmp = 0, mouthShape = 0.5;
+    var analyser = null, audioCtx = null, srcNode = null, freqBuf = null, timeBuf = null, ownCtx = false;
     var running = true, raf = 0;
     // Respect reduced-motion: keep the functional lip-sync + blink, drop the
     // decorative idle breathing / head bob / tilt.
@@ -389,20 +404,32 @@
     function frame() {
       if (!running) return;
       var now = tnow(), t = (now - t0) / 1000;
-      var raw = 0;
+      var raw = 0, shapeNow = manualShape == null ? 0.5 : manualShape;
       if (analyser) {
+        analyser.getByteTimeDomainData(timeBuf);
         analyser.getByteFrequencyData(freqBuf);
-        var sum = 0; for (var i = 0; i < freqBuf.length; i++) sum += freqBuf[i];
-        raw = Math.min(1, (sum / freqBuf.length) / 78);
+        var sq = 0;
+        for (var i = 0; i < timeBuf.length; i++) { var sample = (timeBuf[i] - 128) / 128; sq += sample * sample; }
+        var rms = Math.sqrt(sq / Math.max(1, timeBuf.length));
+        raw = Math.max(0, Math.min(1, (rms - 0.012) / 0.15));
+        var low = 0, mid = 0, high = 0, lc = 0, mc = 0, hc = 0;
+        for (var j = 2; j < freqBuf.length; j++) {
+          if (j < 14) { low += freqBuf[j]; lc++; }
+          else if (j < 42) { mid += freqBuf[j]; mc++; }
+          else { high += freqBuf[j]; hc++; }
+        }
+        low /= Math.max(1, lc); mid /= Math.max(1, mc); high /= Math.max(1, hc);
+        shapeNow = Math.max(0.08, Math.min(0.96, (mid * 0.58 + high * 1.2) / Math.max(18, low + mid + high)));
       } else if (manualAmp != null) { raw = manualAmp; }
-      smoothAmp += (raw - smoothAmp) * 0.5;
+      smoothAmp += (raw - smoothAmp) * (raw > smoothAmp ? 0.62 : 0.28);
+      mouthShape += (shapeNow - mouthShape) * 0.34;
       var goal = (state === 'talking') ? smoothAmp : 0;
-      amp += (goal - amp) * 0.4;
+      amp += (goal - amp) * (goal > amp ? 0.58 : 0.30);
 
-      var mo = (state === 'talking') ? Math.max(0, Math.min(1, Math.pow(amp, 0.72) * 1.16 + (amp > 0.06 ? Math.sin(t * 16) * 0.045 : 0))) : 0;
+      var mo = (state === 'talking') ? Math.max(0, Math.min(1, Math.pow(amp, 0.68) * 1.12)) : 0;
       var emo = effEmotion();
-      var mk = Math.round(mo * 34) + emo;
-      if (mk !== lastMouth) { mouthEl.innerHTML = talkingMouth(mo, emo); lastMouth = mk; }
+      var mk = Math.round(mo * 48) + '|' + Math.round(mouthShape * 18) + '|' + emo;
+      if (mk !== lastMouth) { mouthEl.innerHTML = talkingMouth(mo, emo, mouthShape); lastMouth = mk; }
 
       var eyeOpen = 1;
       if (blinkStart < 0 && now >= nextBlink) blinkStart = now;
@@ -434,7 +461,7 @@
       setState: function (s) { state = s; return this; },
       getState: function () { return state; },
       setEmotion: function (e) { emoOverride = e || null; return this; },
-      setAmplitude: function (v) { manualAmp = (v == null ? null : (v < 0 ? 0 : v > 1 ? 1 : v)); return this; },
+      setAmplitude: function (v, shape) { manualAmp = (v == null ? null : (v < 0 ? 0 : v > 1 ? 1 : v)); manualShape = shape == null ? null : (shape < 0 ? 0 : shape > 1 ? 1 : shape); return this; },
       setConfig: function (cfg) {
         container.innerHTML = talkingSvg(cfg, opts.size || '100%');
         svgEl = container.querySelector('svg'); faceEl = container.querySelector('.ta-face');
@@ -442,7 +469,7 @@
         lastMouth = lastEyes = lastBrows = '';
         return this;
       },
-      attachAnalyser: function (a) { analyser = a || null; if (a) freqBuf = new Uint8Array(a.frequencyBinCount); return this; },
+      attachAnalyser: function (a) { analyser = a || null; if (a) { freqBuf = new Uint8Array(a.frequencyBinCount); timeBuf = new Uint8Array(a.fftSize); } return this; },
       attachAudio: function (src) {
         try {
           var AC = global.AudioContext || global.webkitAudioContext; if (!AC) return false;
@@ -556,36 +583,37 @@
     back.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,6,10,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)';
 
     var box = document.createElement('div');
-    box.style.cssText = 'width:min(560px,96vw);max-height:92vh;overflow:auto;background:' + surf + ';color:' + txt + ';border:1px solid ' + bd + ';border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.5);font-family:inherit';
+    box.style.cssText = 'width:min(720px,96vw);max-height:92vh;overflow:auto;background:' + surf + ';color:' + txt + ';border:1px solid ' + bd + ';border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.42);font-family:inherit';
     back.appendChild(box);
 
     // header with live preview
     var head = document.createElement('div');
-    head.style.cssText = 'display:flex;align-items:center;gap:16px;padding:20px 22px 14px;position:sticky;top:0;background:' + surf + ';z-index:2;border-bottom:1px solid ' + bd;
+    head.style.cssText = 'display:flex;align-items:center;gap:20px;padding:20px 26px;position:sticky;top:0;background:' + surf + ';z-index:2;border-bottom:1px solid ' + bd;
     var prev = document.createElement('div');
-    prev.style.cssText = 'width:76px;height:76px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+    prev.style.cssText = 'width:112px;height:112px;border-radius:34px 48px 38px 44px;overflow:hidden;flex-shrink:0;box-shadow:0 18px 42px rgba(0,0,0,.24);transform:rotate(-2deg)';
     var htxt = document.createElement('div');
     htxt.style.cssText = 'flex:1;min-width:0';
-    htxt.innerHTML = '<div style="font-size:1.05rem;font-weight:800;letter-spacing:-.01em">Build your avatar</div>' +
-      '<div style="font-size:.78rem;color:' + dim + ';margin-top:2px">It follows you across DebateIt and greets you when you come home.</div>';
+    htxt.innerHTML = '<div style="font-size:.66rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#dc2626;margin-bottom:5px">Live identity</div>' +
+      '<div style="font-size:1.28rem;font-weight:800;letter-spacing:-.01em">Build your avatar</div>' +
+      '<div style="font-size:.86rem;color:' + dim + ';margin-top:4px;line-height:1.35">The same face appears in your debate brain, coach sessions, and live rooms.</div>';
     head.appendChild(prev); head.appendChild(htxt);
     box.appendChild(head);
 
     var body = document.createElement('div');
-    body.style.cssText = 'padding:8px 22px 4px';
+    body.style.cssText = 'padding:8px 26px 4px';
     box.appendChild(body);
 
     function renderPreview() { prev.innerHTML = svg(cfg, '100%'); }
 
     function rowWrap(label) {
       var w = document.createElement('div');
-      w.style.cssText = 'padding:12px 0;border-bottom:1px solid ' + bd;
+      w.style.cssText = 'padding:14px 0;border-bottom:1px solid ' + bd;
       var l = document.createElement('div');
       l.textContent = label;
       l.style.cssText = 'font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:' + dim + ';margin-bottom:9px';
       w.appendChild(l);
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+      row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
       w.appendChild(row);
       body.appendChild(w);
       return row;
@@ -614,7 +642,7 @@
         var b = document.createElement('button');
         b.type = 'button';
         b.title = f.label + ' ' + (i + 1);
-        b.style.cssText = 'width:30px;height:30px;border-radius:50%;border:1px solid ' + bd + ';cursor:pointer;padding:0;background:' + col;
+        b.style.cssText = 'width:34px;height:34px;border-radius:50%;border:1px solid ' + bd + ';cursor:pointer;padding:0;background:' + col + ';box-shadow:inset 0 1px 0 rgba(255,255,255,.38)';
         b.addEventListener('click', function () { cfg[f.key] = i; refreshSelected(); refreshShapeThumbs(); });
         row.appendChild(b);
         swatchEls.push({ key: f.key, i: i, node: b });
@@ -630,7 +658,9 @@
           var b = document.createElement('button');
           b.type = 'button';
           b.setAttribute('data-shape', f.key + i);
-          b.style.cssText = 'width:46px;height:46px;border-radius:12px;border:1.5px solid ' + bd + ';cursor:pointer;padding:3px;overflow:hidden;transition:border-color .12s,background .12s';
+          b.style.cssText = 'width:58px;height:58px;border-radius:16px;border:1.5px solid ' + bd + ';cursor:pointer;padding:4px;overflow:hidden;transition:transform .14s,border-color .12s,background .12s;box-shadow:0 5px 14px rgba(0,0,0,.06)';
+          b.addEventListener('mouseenter', function () { b.style.transform = 'translateY(-2px) scale(1.04)'; });
+          b.addEventListener('mouseleave', function () { b.style.transform = ''; });
           b.innerHTML = svg(variant, '100%');
           b.addEventListener('click', function () { cfg[f.key] = i; refreshSelected(); refreshShapeThumbs(); });
           row.appendChild(b);
@@ -649,7 +679,7 @@
 
     // footer
     var foot = document.createElement('div');
-    foot.style.cssText = 'display:flex;gap:10px;align-items:center;padding:16px 22px 20px;position:sticky;bottom:0;background:' + surf + ';border-top:1px solid ' + bd;
+    foot.style.cssText = 'display:flex;gap:10px;align-items:center;padding:16px 26px 20px;position:sticky;bottom:0;background:' + surf + ';border-top:1px solid ' + bd;
     var rand = document.createElement('button');
     rand.type = 'button';
     rand.textContent = 'Surprise me';

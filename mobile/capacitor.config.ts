@@ -1,17 +1,15 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// Phase 1 strategy: load the live debateai.com inside the iOS shell.
-// This keeps us moving without a bundling pipeline. Pre-submission we
-// switch to a bundled local build (set webDir + remove server.url) so
-// the app works offline — required for App Store reviewer testing.
+// The app shell loads the live product so fixes and debate content stay in
+// sync with debateai.com. /native is an app-specific home and navigation
+// surface, not the public landing page.
 const config: CapacitorConfig = {
   appId: 'com.debateai.debateit',
   appName: 'DebateIt',
-  webDir: 'www', // placeholder — replaced when we bundle a local build
+  webDir: 'www',
 
   server: {
-    url: 'https://debateai.com/coach',
-    // Only allow our own host. Tighten further before submission.
+    url: 'https://debateai.com/native',
     allowNavigation: [
       'debateai.com',
       '*.debateai.com',
@@ -30,27 +28,25 @@ const config: CapacitorConfig = {
   },
 
   ios: {
-    contentInset: 'always',
-    // Keeps the WKWebView background matching the brand on first paint
-    // so the splash transition feels seamless.
-    backgroundColor: '#0A0A0A',
-    // Force inline media playback so debate audio can autoplay after gesture.
+    contentInset: 'never',
+    backgroundColor: '#F7F6F2',
     allowsLinkPreview: false,
+    appendUserAgent: ' DebateItApp/1.0',
   },
 
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1200,
-      backgroundColor: '#0A0A0A',
+      launchShowDuration: 750,
+      backgroundColor: '#F7F6F2',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
       iosSpinnerStyle: 'small',
     },
     StatusBar: {
-      style: 'DARK', // bright icons over dark UI
-      backgroundColor: '#0A0A0A',
-      overlaysWebView: false,
+      style: 'DARK',
+      backgroundColor: '#F7F6F2',
+      overlaysWebView: true,
     },
     Keyboard: {
       resize: 'native',
@@ -58,6 +54,10 @@ const config: CapacitorConfig = {
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    FirebaseAuthentication: {
+      skipNativeAuth: true,
+      providers: ['apple.com', 'google.com'],
     },
   },
 };
