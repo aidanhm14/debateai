@@ -411,7 +411,9 @@
      orb element in the DOM only so the visualizer can keep writing --level.
      The avatar carries its own audio-reactive glow + subtle scale pulse. */
   .orb-wrap { position: relative; align-items: center; min-height: 200px; }
-  .orb { display: none; }
+  /* Orb stays as the fallback until the talking avatar actually mounts, so a
+     failed avatar.js load never leaves the stage empty. */
+  .orb-wrap.has-avatar .orb { display: none; }
   .coach-avatar {
     --level: 0;
     width: min(188px, 56vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden;
@@ -1219,7 +1221,11 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     if (!window.DBAvatar || !els.coachAvatar) return;
     if (coachAvatarCtrl) { try { coachAvatarCtrl.destroy(); } catch (e) {} coachAvatarCtrl = null; }
     coachAvatarCtrl = DBAvatar.mountTalking(els.coachAvatar, COACH_FACES[loadGender()] || COACH_FACES.female, { size: '100%' });
-    if (coachAvatarCtrl) coachAvatarCtrl.setState('idle');
+    if (coachAvatarCtrl) {
+      coachAvatarCtrl.setState('idle');
+      // Hide the orb only now that the avatar actually mounted (fallback safety).
+      if (els.coachAvatar.parentNode) els.coachAvatar.parentNode.classList.add('has-avatar');
+    }
   }
   function coachState(s) { if (coachAvatarCtrl) coachAvatarCtrl.setState(s); }
 
@@ -1490,6 +1496,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
 
   function resetToSetup() {
     if (coachAvatarCtrl) { try { coachAvatarCtrl.destroy(); } catch (e) {} coachAvatarCtrl = null; }
+    if (els.coachAvatar && els.coachAvatar.parentNode) els.coachAvatar.parentNode.classList.remove('has-avatar');
     els.live.classList.remove('on');
     els.timer.hidden = true;
     if (els.stage) els.stage.style.display = '';

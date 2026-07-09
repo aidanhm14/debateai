@@ -349,6 +349,9 @@
     var manualAmp = null, amp = 0, smoothAmp = 0;
     var analyser = null, audioCtx = null, srcNode = null, freqBuf = null, ownCtx = false;
     var running = true, raf = 0;
+    // Respect reduced-motion: keep the functional lip-sync + blink, drop the
+    // decorative idle breathing / head bob / tilt.
+    var reduce = !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
     var t0 = tnow();
     var nextBlink = t0 + 1500 + Math.random() * 2500, blinkStart = -1;
     var lastMouth = '', lastEyes = '', lastBrows = '';
@@ -405,10 +408,10 @@
       var bk = bp.raise + '|' + bp.angle;
       if (bk !== lastBrows) { browsEl.innerHTML = talkingBrows(bp.raise, bp.angle); lastBrows = bk; }
 
-      var breathe = Math.sin(t * 1.15) * 0.5;
-      var bob = state === 'talking' ? -amp * 1.3 : 0;
-      var tx = state === 'listening' ? 0.6 : (state === 'thinking' ? -0.6 : 0);
-      var rot = state === 'thinking' ? -2.4 : (state === 'listening' ? 1.4 : 0);
+      var breathe = reduce ? 0 : Math.sin(t * 1.15) * 0.5;
+      var bob = (reduce || state !== 'talking') ? 0 : -amp * 1.3;
+      var tx = reduce ? 0 : (state === 'listening' ? 0.6 : (state === 'thinking' ? -0.6 : 0));
+      var rot = reduce ? 0 : (state === 'thinking' ? -2.4 : (state === 'listening' ? 1.4 : 0));
       faceEl.setAttribute('transform', 'translate(' + tx.toFixed(2) + ' ' + (breathe + bob).toFixed(2) + ') rotate(' + rot.toFixed(2) + ' 50 60)');
 
       raf = requestAnimationFrame(frame);
