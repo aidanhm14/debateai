@@ -114,8 +114,8 @@
     accent: {
       sphereInner: 'rgba(36, 32, 42, 1)',
       sphereOuter: 'rgba(8, 6, 12, 1)',
-      sphereRim:   'rgba(239, 68, 68, 0.09)',
-      sphereRimBlur: 'rgba(239, 68, 68, 0.18)',
+      sphereRim:   'rgba(239, 68, 68, 0.04)',
+      sphereRimBlur: 'rgba(239, 68, 68, 0.09)',
       land:        '255,255,255',
       arc:         '239,68,68',
       arcMajor:    '252,165,165',
@@ -393,9 +393,9 @@
       ctx.fill();
       // Crisp rim line with glow shadow (the inner atmosphere edge)
       ctx.shadowColor = palette.sphereRimBlur;
-      ctx.shadowBlur  = 34;
+      ctx.shadowBlur  = 18;
       ctx.strokeStyle = palette.sphereRim;
-      ctx.lineWidth = 1.0;
+      ctx.lineWidth = 0.65;
       ctx.beginPath();
       ctx.arc(cx, cy, R + 1, 0, Math.PI * 2);
       ctx.stroke();

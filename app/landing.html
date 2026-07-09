@@ -2079,11 +2079,25 @@ button{font-family:inherit;cursor:pointer}
   .nav-contact{padding:6px 9px;font-size:.62rem;letter-spacing:.02em}
   .pricing-grid{grid-template-columns:1fr}
   /* Footer tweaks for narrow phones */
-  .footer{padding:24px 16px;gap:10px}
-  .footer a{border-bottom-color:transparent}           /* drop underlines on narrow widths, busy when rows wrap */
+  .footer{padding:22px 16px;gap:8px}
+  .footer-row{gap:8px!important}
+  .footer-links{
+    width:100%;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px 8px;
+    justify-items:center;
+  }
+  .footer a{
+    min-height:28px;
+    padding:3px 4px;
+    justify-content:center;
+    white-space:normal;
+    text-align:center;
+    border-bottom-color:transparent;
+  }           /* drop underlines on narrow widths, busy when rows wrap */
   .footer a:hover,.footer a:active{border-bottom-color:var(--accent)}
   .footer-legal{font-size:.66rem!important;line-height:1.55!important;padding-top:12px!important;margin-top:12px!important}
-  .footer-links{gap:14px;justify-content:center}
   /* Section breathing room tightened so narrow phones don't feel
      padded-to-death */
   .sec{padding:56px 18px}  /* Jumpnav wraps so items don't hide off-right on pocket devices */
@@ -7499,6 +7513,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         .hero-illustrated .hi-lf-live-foot{margin-top:auto;padding:15px 16px 16px;display:flex;flex-direction:column;gap:11px}
         .hero-illustrated .hi-lf-cta-row{position:relative;z-index:3;display:flex;gap:10px;flex-wrap:wrap}
         .hero-illustrated .hi-lf-cta-row .hi-lf-cta--primary{flex:1;min-width:160px}
+        .hero-illustrated .hi-lf-demo-note{position:relative;z-index:3;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--hi-ink-soft)}
         /* RIGHT — founding class */
         .hero-illustrated .hi-lf-amb{display:flex;flex-direction:column;gap:12px;padding:16px;text-decoration:none}
         .hero-illustrated .hi-lf-amb-photo{position:relative;border-radius:13px;overflow:hidden;aspect-ratio:16/9;background:#221a14;border:1px solid rgba(255,255,255,.14)}
@@ -7553,7 +7568,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             </div>
             <div class="hi-lf-motion" aria-hidden="true">
               <span class="hi-lf-motion-k">Motion</span>
-              Schools should ban phones during class.
+              <span data-live-motion-text>Schools should ban phones during class.</span>
             </div>
             <div class="hi-lf-judge" aria-hidden="true">
               <span class="hi-lf-judge-dot"></span>
@@ -7566,6 +7581,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 <a href="/spar" class="hi-lf-cta hi-lf-cta--primary" data-cta="hero-livefirst-open">Open live debates <span aria-hidden="true">&rarr;</span></a>
                 <a href="/live" class="hi-lf-cta hi-lf-cta--ghost" data-cta="hero-livefirst-watch">Watch live</a>
               </div>
+              <span class="hi-lf-demo-note">Demo videos coming soon.</span>
             </div>
           </div>
 
@@ -7576,8 +7592,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <span class="hi-lf-amb-badge">30 founding seats</span>
             </div>
             <span class="hi-lf-eyebrow"><i aria-hidden="true"></i>Founding class</span>
-            <h2>Help build the circuit.</h2>
-            <p class="hi-lf-amb-copy">Founding ambassadors run live rounds, onboard schools, and build the first online debate circuit. Paid, remote.</p>
+            <h2>Help expand debate.</h2>
+            <p class="hi-lf-amb-copy">Founding ambassadors start teams, run live rounds, onboard schools, and build a real resume as coaches and program founders. Paid, remote.</p>
             <div class="hi-lf-amb-foot">
               <div class="hi-path-meta"><span>Paid</span><span>Remote</span><span>2026-27</span></div>
               <span class="hi-lf-cta hi-lf-cta--primary hi-lf-cta--full">Apply for the founding class <span aria-hidden="true">&rarr;</span></span>
@@ -7607,6 +7623,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           var speaker = document.querySelector('.hi-lf-stage img[data-live-face-slot="speaker"]');
           var opponent = document.querySelector('.hi-lf-stage img[data-live-face-slot="opponent"]');
           if (!speaker || !opponent) return;
+          var motion = document.querySelector('[data-live-motion-text]');
+          var judge = document.querySelector('.hi-lf-judge-t');
+          var motionTests = [
+            { motion: 'Schools should ban phones during class.', clash: 'privacy vs distraction' },
+            { motion: 'Cities should make public transit free.', clash: 'access vs cost' },
+            { motion: 'AI art should be eligible for copyright.', clash: 'authorship vs innovation' },
+            { motion: 'College admissions should end legacy preference.', clash: 'fairness vs alumni funding' },
+            { motion: 'Social media platforms should verify all users.', clash: 'safety vs anonymity' },
+            { motion: 'National service should be required after high school.', clash: 'civic duty vs freedom' },
+            { motion: 'Schools should replace homework with supervised practice.', clash: 'equity vs independence' }
+          ];
+          try {
+            var motionIdx = parseInt(localStorage.getItem('dit-live-motion-idx') || '-1', 10);
+            motionIdx = (isNaN(motionIdx) ? -1 : motionIdx) + 1;
+            motionIdx = motionIdx % motionTests.length;
+            localStorage.setItem('dit-live-motion-idx', String(motionIdx));
+            if (motion) motion.textContent = motionTests[motionIdx].motion;
+            if (judge) judge.innerHTML = '<b>AI judge</b> flowing the round &middot; clash: ' + motionTests[motionIdx].clash;
+          } catch(e){}
           var pairs = [
             ['/img/round/faces/face02.jpg','/img/round/faces/face07.jpg'],
             ['/img/round/faces/face10.jpg','/img/round/faces/face11.jpg'],
@@ -9682,8 +9717,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           sphereCore:'rgba(220,200,195,0.46)',
           sphereOuter:'rgba(190,160,160,0.28)',
           grid:'rgba(200,60,60,0.24)',
-          rim:'rgba(190,55,55,0.22)',
-          rimGlow:'rgba(239,68,68,0.06)',
+          rim:'rgba(190,55,55,0.10)',
+          rimGlow:'rgba(239,68,68,0.035)',
           land:'rgba(180,40,40,',
           markerCore:'255,80,80',
           markerHi:'255,180,180',
@@ -9696,8 +9731,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         sphereCore:'rgba(150,30,30,0.42)',
         sphereOuter:'rgba(40,8,8,0.38)',
         grid:'rgba(239,68,68,0.20)',
-        rim:'rgba(248,113,113,0.22)',
-        rimGlow:'rgba(239,68,68,0.08)',
+        rim:'rgba(248,113,113,0.10)',
+        rimGlow:'rgba(239,68,68,0.04)',
         land:'rgba(220,60,60,',
         markerCore:'255,110,110',
         markerHi:'255,210,210',
@@ -9935,12 +9970,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       // come from land borders, not from turning the globe into a badge.
       ctx.save();
       ctx.strokeStyle = c.rimGlow;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(cx, cy, r + 0.5, 0, Math.PI * 2);
       ctx.stroke();
       ctx.strokeStyle = c.rim || c.grid;
-      ctx.lineWidth = 1.0;
+      ctx.lineWidth = 0.65;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
@@ -10558,6 +10593,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       color:rgba(29,25,21,.52);
       background:rgba(255,255,255,.55);
     }
+    .credential-growth{
+      position:relative;z-index:1;
+      margin-top:2px;
+      padding:16px 14px 13px;
+      border:1px solid rgba(29,25,21,.10);
+      border-radius:15px;
+      background:linear-gradient(180deg,rgba(255,255,255,.64),rgba(255,255,255,.30));
+      overflow:hidden;
+    }
+    .credential-growth::before{
+      content:"";position:absolute;left:16px;right:16px;top:22px;bottom:34px;
+      background:linear-gradient(180deg,rgba(29,25,21,.08) 1px,transparent 1px);
+      background-size:100% 22px;
+      opacity:.6;pointer-events:none;
+    }
+    .credential-growth svg{position:relative;z-index:1;display:block;width:100%;height:92px;overflow:visible}
+    .credential-growth .cg-axis{stroke:rgba(29,25,21,.16);stroke-width:1}
+    .credential-growth .cg-curve{fill:none;stroke:#ef4444;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 10px 16px rgba(239,68,68,.22))}
+    .credential-growth .cg-dot{fill:#fff;stroke:#ef4444;stroke-width:4}
+    .credential-growth-labels{position:relative;z-index:1;display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgba(29,25,21,.50)}
+    .credential-btn--wide{
+      width:100%;
+      justify-content:space-between;
+      padding-left:18px;
+      padding-right:18px;
+    }
     [data-theme="dark"] .credential-card,
     [data-theme="crimson"] .credential-card,
     [data-theme="grey"] .credential-card,
@@ -10598,6 +10659,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       border-color:rgba(245,239,231,.13);
       background:rgba(255,255,255,.04);
     }
+    [data-theme="dark"] .credential-growth,
+    [data-theme="crimson"] .credential-growth,
+    [data-theme="grey"] .credential-growth,
+    [data-theme="stone"] .credential-growth{
+      border-color:rgba(245,239,231,.13);
+      background:rgba(255,255,255,.04);
+    }
+    [data-theme="dark"] .credential-growth .cg-axis,
+    [data-theme="crimson"] .credential-growth .cg-axis,
+    [data-theme="grey"] .credential-growth .cg-axis,
+    [data-theme="stone"] .credential-growth .cg-axis{stroke:rgba(245,239,231,.16)}
+    [data-theme="dark"] .credential-growth-labels,
+    [data-theme="crimson"] .credential-growth-labels,
+    [data-theme="grey"] .credential-growth-labels,
+    [data-theme="stone"] .credential-growth-labels{color:rgba(245,239,231,.58)}
     [data-theme="dark"] .credential-cover-thumb,
     [data-theme="crimson"] .credential-cover-thumb,
     [data-theme="grey"] .credential-cover-thumb,
@@ -10651,17 +10727,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
     </a>
     <article class="credential-card credential-card--future">
-      <span class="credential-eyebrow">Company philosophy</span>
-      <h2>Why speech is the wedge.</h2>
-      <p>The old essay as proof is dying. The future signal is live: explain a position, take the question, and hold the line under pressure.</p>
+      <span class="credential-eyebrow">Future outlook</span>
+      <h2>Speech becomes the proof.</h2>
+      <p>As written work gets easier to manufacture, live argument gets more valuable: defend the claim, take the question, and be understood across language and background.</p>
+      <div class="credential-growth" aria-hidden="true">
+        <svg viewBox="0 0 340 96">
+          <path class="cg-axis" d="M16 82H326M16 20V82"/>
+          <path class="cg-curve" d="M22 78C78 76 106 67 136 58C174 46 204 42 226 27C250 10 286 12 318 16"/>
+          <circle class="cg-dot" cx="136" cy="58" r="6"/>
+          <circle class="cg-dot" cx="226" cy="27" r="6"/>
+          <circle class="cg-dot" cx="318" cy="16" r="6"/>
+        </svg>
+        <div class="credential-growth-labels">
+          <span>Essays</span>
+          <span>Speech</span>
+          <span>Credentials</span>
+          <span>Global rounds</span>
+        </div>
+      </div>
       <div class="credential-mini-links" aria-hidden="true">
         <span>Essays</span>
         <span>Speech</span>
         <span>Credentials</span>
-        <span>Access</span>
+        <span>Languages</span>
       </div>
       <div class="credential-actions">
-        <a class="credential-btn" href="/future" data-cta="landing-company-philosophy">Read the philosophy <span aria-hidden="true">&rarr;</span></a>
+        <a class="credential-btn credential-btn--wide" href="/future" data-cta="landing-company-philosophy">Future outlook and company philosophy <span aria-hidden="true">&rarr;</span></a>
       </div>
     </article>
   </div>

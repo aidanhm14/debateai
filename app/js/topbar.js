@@ -168,23 +168,17 @@
   // Voice so the two real-time-entry actions sit adjacent at the front
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
+    // 2026-07-09: order follows the product path. Start live, learn the
+    // rules, prep the case, judge a round, then schedule and credential.
+    { href: '/spar',          label: 'LIVE', pulse: true },
+    // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
+    // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
+    { href: '/learn',         label: 'Learn'        },
+    { href: '/app#case',      label: 'Prep'         },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // Aidan (still reachable at /float and /exhibition directly).
     { href: '/judge',         label: 'Judge'        },
-    // 2026-07-04: Room judge is the live Zoom / Twitch sidecar. Keep the
-    // label short so the bar still fits at laptop widths.
-    { href: '/room-judge',    label: 'Room'         },
-    // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
-    // personal voice drill partner (GPT Realtime) that loads your
-    // profile + nightly fingerprint. Sits next to Voice since both are
-    // real-time voice entries — Voice = round, Coach = drills + feedback.
-    { href: '/coach',         label: 'Coach'        },
-    { href: '/spar',          label: 'LIVE', pulse: true },
-    { href: '/app#case',      label: 'Prep'         },
-    // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
-    // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
-    { href: '/learn',         label: 'Learn'        },
     // 2026-07-02: Certificate + Schedule restored per Aidan ("add more
     // back ... not too much") — high-intent product pillars: proof you
     // can earn, and the organized-round board when random live matching
@@ -192,8 +186,15 @@
     // not overflow VOICE AI again at laptop widths. (Two parallel
     // sessions both restored the pair, so the entries were briefly
     // duplicated on the live bar — deduped same day.)
-    { href: '/credentials',   label: 'Certificate' },
     { href: '/live',          label: 'Schedule'    },
+    { href: '/credentials',   label: 'Certificate' },
+    // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
+    // personal voice drill partner (GPT Realtime) that loads your
+    // profile + nightly fingerprint.
+    { href: '/coach',         label: 'Coach'        },
+    // 2026-07-04: Room judge is the live Zoom / Twitch sidecar. Keep the
+    // label short so the bar still fits at laptop widths.
+    { href: '/room-judge',    label: 'Room'         },
     // FAQ stays off the bar; the landing carries it in-page.
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
@@ -211,7 +212,7 @@
     // it more ... have it in a tab"). /floor is the play-money debate
     // prediction market (back who wins across three windows, AI judge
     // settles, leaderboard). noindex page; this is the on-site entry.
-    { href: '/floor',         label: 'Floor', mobileKeep: true },
+    { href: '/floor',         label: 'Floor'        },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
