@@ -89,4 +89,46 @@
       location.replace('/coach');
     }
   } catch (e) {}
+
+  // ── Purchase-CTA sweeper (Apple 3.1.1) ─────────────────────────────
+  // The app pages build upgrade buttons in JS with no shared class
+  // ("Upgrade to Unlock", "Upgrade to Pro", ...), so the CSS net can't
+  // catch them. Hide by EXACT label match — a closed list, so a normal
+  // button whose copy merely mentions a plan can't be swallowed. Runs on
+  // a MutationObserver so React re-renders stay covered.
+  var CTA_LABELS = [
+    'upgrade to unlock',
+    'upgrade to pro',
+    'upgrade to customize',
+    'keep going with a plan',
+    'see pricing',
+    'view plans',
+    'pro, upgrade to unlock'
+  ];
+  function sweepPurchaseCtas(root) {
+    var els;
+    try { els = (root || document).querySelectorAll('button, a, [role="button"]'); } catch (e) { return; }
+    for (var i = 0; i < els.length; i++) {
+      var el2 = els[i];
+      if (el2.__dbSwept) continue;
+      var t = (el2.textContent || '').trim().toLowerCase();
+      if (t && CTA_LABELS.indexOf(t) !== -1) {
+        el2.style.setProperty('display', 'none', 'important');
+        el2.__dbSwept = true;
+      }
+    }
+  }
+  function armSweeper() {
+    sweepPurchaseCtas(document);
+    try {
+      var pending = false;
+      new MutationObserver(function () {
+        if (pending) return;
+        pending = true;
+        setTimeout(function () { pending = false; sweepPurchaseCtas(document); }, 120);
+      }).observe(document.body, { childList: true, subtree: true });
+    } catch (e) {}
+  }
+  if (document.body) armSweeper();
+  else document.addEventListener('DOMContentLoaded', armSweeper);
 })();
