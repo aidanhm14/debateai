@@ -5491,19 +5491,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <body>
 
 <!-- ═════════════════════════════════════════════════════════════════════
-     WELCOME INTRO (2026-07-09) — first-visit film-countdown opener.
-     A full-screen light overlay cycles three rotating hero headlines
-     (one per beat, 3 → 2 → 1, film-leader ring sweeping behind), then
-     lifts and the two dominant hero cards (live room + founding class)
-     flow up into place. After they land, a small card asks "Are you a
-     debater?" so we can guide the visitor better. Runs ONCE per browser
+     WELCOME INTRO (2026-07-09, voiced + questions pass same day) —
+     first-visit cinematic opener. A full-screen overlay cycles three
+     rotating hero headlines (slow beats, 3 → 2 → 1, film-leader ring
+     pulsing and sweeping behind) while a human ElevenLabs voice line
+     (/audio/welcome-ready.mp3, "Are you ready to debate?") plays; then
+     three quick onboarding questions take over the pulsing ring area
+     (Are you a debater? / What brings you in? / How do you want to
+     start?) with the surface flowing white → red → white → red between
+     them; then the overlay lifts and the two dominant hero cards (live
+     room + founding class) flow up into place. Runs ONCE per browser
      (localStorage da-welcome-intro), skipped entirely under
-     prefers-reduced-motion. Click anywhere skips. A 9s failsafe in the
-     gate script tears everything down if the sequence script ever dies,
-     so the hero can never be left hidden.
-     GA4: welcome_intro_show / welcome_intro_done {skipped} /
-     debater_ask_show / debater_ask_answer {answer} + is_debater user
-     property for segmenting. -->
+     prefers-reduced-motion. The Skip button ends it any time. A 9s
+     failsafe in the gate script tears everything down if the sequence
+     script never boots, so the hero can never be left hidden.
+     Autoplay-with-sound is usually blocked pre-gesture: we try at start
+     and retry on the first pointer press inside the overlay.
+     Answers: da-is-debater / da-welcome-goal / da-welcome-start (+ GA4
+     user properties is_debater / welcome_goal / welcome_start).
+     GA4 events: welcome_intro_show / welcome_q_answer {q, answer} /
+     welcome_intro_done {skipped, answered}. -->
 <style>
   html[data-intro="1"]{overflow:hidden !important}
   html[data-intro="1"] body{overflow:hidden !important}
@@ -5511,34 +5518,76 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   html[data-intro="1"] #welcomeIntro{display:flex}
   #welcomeIntro{
     position:fixed;inset:0;z-index:12000;background:#faf8f3;
-    align-items:center;justify-content:center;cursor:pointer;
-    transition:opacity .62s ease,transform .62s ease;
+    align-items:center;justify-content:center;
+    transition:opacity .85s ease,transform .85s ease;
   }
-  #welcomeIntro.is-leaving{opacity:0;transform:scale(1.045);pointer-events:none}
+  #welcomeIntro.is-leaving{opacity:0;transform:scale(1.05);pointer-events:none}
+  /* Red wash layer: gradients can't transition, so the white-to-red flow
+     is an opacity crossfade on this full-bleed layer. .wi-red on the
+     overlay fades it in; every ink element carries its own .9s color
+     transition so the whole scene flows between the two surfaces. */
+  .wi-redwash{position:absolute;inset:0;background:radial-gradient(circle at 50% 42%,#b3261e 0%,#8f1a15 58%,#6e120e 100%);opacity:0;transition:opacity 1s ease;pointer-events:none}
+  #welcomeIntro.wi-red .wi-redwash{opacity:1}
   .wi-vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 42%,rgba(29,25,21,.07) 100%);pointer-events:none}
-  /* Film-leader ring: hairline circle + crosshairs + a red sweep hand
-     completing one rotation per beat. Pure decoration behind the words. */
-  .wi-ring{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(64vmin,540px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(29,25,21,.13);overflow:hidden}
-  .wi-ring::before,.wi-ring::after{content:"";position:absolute;background:rgba(29,25,21,.09)}
+  /* Film-leader ring: hairline circle + crosshairs + a sweep hand.
+     Breathes on a slow pulse the whole time; the questions live inside
+     this pulsing area. */
+  .wi-ring{position:absolute;top:50%;left:50%;width:min(64vmin,540px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(29,25,21,.13);overflow:hidden;transition:border-color .9s ease;animation:wiPulse 3.4s ease-in-out infinite}
+  @keyframes wiPulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.035)}}
+  #welcomeIntro.wi-red .wi-ring{border-color:rgba(255,255,255,.3)}
+  .wi-ring::before,.wi-ring::after{content:"";position:absolute;background:rgba(29,25,21,.09);transition:background .9s ease}
+  #welcomeIntro.wi-red .wi-ring::before,#welcomeIntro.wi-red .wi-ring::after{background:rgba(255,255,255,.16)}
   .wi-ring::before{left:50%;top:0;bottom:0;width:1px}
   .wi-ring::after{top:50%;left:0;right:0;height:1px}
-  .wi-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(200,50,50,.14),rgba(200,50,50,.02) 26%,transparent 26%);animation:wiSweep 1.15s linear infinite;transform-origin:50% 50%}
+  .wi-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(200,50,50,.14),rgba(200,50,50,.02) 26%,transparent 26%);animation:wiSweep 1.9s linear infinite;transform-origin:50% 50%}
+  #welcomeIntro.wi-red .wi-sweep{background:conic-gradient(from 0deg,rgba(255,255,255,.2),rgba(255,255,255,.02) 26%,transparent 26%)}
   @keyframes wiSweep{to{transform:rotate(360deg)}}
-  .wi-ring-inner{position:absolute;inset:12%;border-radius:50%;border:1px solid rgba(29,25,21,.08)}
+  .wi-ring-inner{position:absolute;inset:12%;border-radius:50%;border:1px solid rgba(29,25,21,.08);transition:border-color .9s ease}
+  #welcomeIntro.wi-red .wi-ring-inner{border-color:rgba(255,255,255,.12)}
   /* Giant faint countdown numeral behind the phrase */
-  .wi-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);font:900 clamp(11rem,40vmin,20rem)/1 'Crimson Pro',Georgia,serif;color:rgba(29,25,21,.055);pointer-events:none;user-select:none}
-  .wi-brand{position:absolute;top:38px;left:0;right:0;text-align:center;font:900 .74rem/1 Inter,system-ui,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:rgba(29,25,21,.5)}
-  .wi-brand b{color:#c83232}
-  .wi-skip{position:absolute;bottom:34px;left:0;right:0;text-align:center;font:600 .74rem/1 Inter,system-ui,sans-serif;letter-spacing:.06em;color:rgba(29,25,21,.38)}
+  .wi-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);font:900 clamp(11rem,40vmin,20rem)/1 'Crimson Pro',Georgia,serif;color:rgba(29,25,21,.055);pointer-events:none;user-select:none;transition:color .9s ease,opacity .5s ease}
+  #welcomeIntro.wi-red .wi-num{color:rgba(255,255,255,.07)}
+  .wi-brand{position:absolute;top:38px;left:0;right:0;text-align:center;font:900 .74rem/1 Inter,system-ui,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:rgba(29,25,21,.5);transition:color .9s ease}
+  .wi-brand b{color:#c83232;transition:color .9s ease}
+  #welcomeIntro.wi-red .wi-brand{color:rgba(255,255,255,.62)}
+  #welcomeIntro.wi-red .wi-brand b{color:#fff}
+  .wi-skip{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);border:0;background:transparent;cursor:pointer;padding:10px 18px;font:600 .74rem/1 Inter,system-ui,sans-serif;letter-spacing:.06em;color:rgba(29,25,21,.38);transition:color .3s ease}
+  .wi-skip:hover{color:rgba(29,25,21,.7)}
+  #welcomeIntro.wi-red .wi-skip{color:rgba(255,255,255,.55)}
+  #welcomeIntro.wi-red .wi-skip:hover{color:#fff}
   .wi-phrase{position:relative;z-index:2;max-width:92vw;padding:0 22px;text-align:center;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:800;font-size:clamp(2.4rem,7.2vw,4.8rem);line-height:1.02;letter-spacing:-.02em;color:#1a1a1f;opacity:0}
   .wi-phrase b{color:#c83232;font-weight:800}
-  .wi-phrase.is-in{animation:wiPhrase 1.15s cubic-bezier(.2,.8,.2,1) both}
+  .wi-phrase.is-in{animation:wiPhrase 1.9s cubic-bezier(.2,.8,.2,1) both}
   @keyframes wiPhrase{
-    0%{opacity:0;transform:translateY(16px) scale(.97)}
-    14%{opacity:1;transform:none}
-    82%{opacity:1;transform:none}
-    100%{opacity:0;transform:translateY(-10px) scale(1.01)}
+    0%{opacity:0;transform:translateY(18px) scale(.97)}
+    12%{opacity:1;transform:none}
+    84%{opacity:1;transform:none}
+    100%{opacity:0;transform:translateY(-12px) scale(1.01)}
   }
+  /* Question stage — lives inside the pulsing ring area, swaps between
+     the white and red surfaces. */
+  .wi-q{position:relative;z-index:2;max-width:min(92vw,760px);padding:0 22px;text-align:center;display:none;opacity:0}
+  .wi-q.is-on{display:block}
+  .wi-q.is-in{animation:wiQIn .75s cubic-bezier(.2,.8,.2,1) both}
+  .wi-q.is-out{animation:wiQOut .45s ease both}
+  @keyframes wiQIn{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes wiQOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-16px)}}
+  .wi-q-step{font:800 .66rem/1 Inter,system-ui,sans-serif;letter-spacing:.24em;text-transform:uppercase;color:#c83232;margin:0 0 16px;transition:color .9s ease}
+  #welcomeIntro.wi-red .wi-q-step{color:rgba(255,255,255,.66)}
+  .wi-q-text{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:800;font-size:clamp(2rem,6vw,3.6rem);line-height:1.04;letter-spacing:-.02em;color:#1a1a1f;margin:0 0 12px;transition:color .9s ease}
+  #welcomeIntro.wi-red .wi-q-text{color:#fff}
+  .wi-q-sub{font:400 .95rem/1.5 Inter,system-ui,sans-serif;color:rgba(29,25,21,.6);margin:0 0 26px;transition:color .9s ease}
+  #welcomeIntro.wi-red .wi-q-sub{color:rgba(255,255,255,.74)}
+  .wi-q-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .wi-q-btn{cursor:pointer;border-radius:14px;padding:15px 26px;font:800 .95rem Inter,system-ui,sans-serif;border:1px solid transparent;transition:transform .15s ease,box-shadow .15s ease,background .5s ease,color .5s ease,border-color .5s ease}
+  .wi-q-btn:hover{transform:translateY(-2px)}
+  .wi-q-btn--a{background:#c83232;color:#fff;box-shadow:0 12px 28px rgba(200,50,50,.26)}
+  .wi-q-btn--b{background:transparent;color:#1a1a1f;border-color:rgba(29,25,21,.24)}
+  .wi-q-btn--b:hover{border-color:#c83232;color:#c83232}
+  #welcomeIntro.wi-red .wi-q-btn--a{background:#fff;color:#a4201d;box-shadow:0 14px 30px rgba(0,0,0,.28)}
+  #welcomeIntro.wi-red .wi-q-btn--b{color:#fff;border-color:rgba(255,255,255,.44)}
+  #welcomeIntro.wi-red .wi-q-btn--b:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,.08)}
+  @media(max-width:560px){.wi-q-row{flex-direction:column;align-items:stretch}.wi-q-btn{width:100%}}
   /* While the intro holds the screen, the hero's dominant pieces wait
      offstage; when it lifts they flow up in a stagger. The reveal
      attribute is removed once the entrances finish so the cards' hover
@@ -5547,29 +5596,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   html[data-intro="1"] .hero-illustrated .hi-lf-live,
   html[data-intro="1"] .hero-illustrated .hi-lf-amb,
   html[data-intro="1"] .hero-illustrated .hi-lf-aistrip{opacity:0}
-  html[data-intro-reveal="1"] .hero-illustrated .hi-head{animation:wiRise .6s cubic-bezier(.2,.8,.2,1) .05s both}
-  html[data-intro-reveal="1"] .hero-illustrated .hi-lf-live{animation:wiRise .75s cubic-bezier(.2,.8,.2,1) .22s both}
-  html[data-intro-reveal="1"] .hero-illustrated .hi-lf-amb{animation:wiRise .75s cubic-bezier(.2,.8,.2,1) .42s both}
-  html[data-intro-reveal="1"] .hero-illustrated .hi-lf-aistrip{animation:wiRise .6s cubic-bezier(.2,.8,.2,1) .62s both}
+  html[data-intro-reveal="1"] .hero-illustrated .hi-head{animation:wiRise .7s cubic-bezier(.2,.8,.2,1) .05s both}
+  html[data-intro-reveal="1"] .hero-illustrated .hi-lf-live{animation:wiRise .85s cubic-bezier(.2,.8,.2,1) .25s both}
+  html[data-intro-reveal="1"] .hero-illustrated .hi-lf-amb{animation:wiRise .85s cubic-bezier(.2,.8,.2,1) .45s both}
+  html[data-intro-reveal="1"] .hero-illustrated .hi-lf-aistrip{animation:wiRise .7s cubic-bezier(.2,.8,.2,1) .65s both}
   @keyframes wiRise{from{opacity:0;transform:translateY(30px) scale(.985)}to{opacity:1;transform:none}}
-  /* ── "Are you a debater?" ask ── */
-  #debaterAsk{position:fixed;inset:0;z-index:11000;display:none;align-items:center;justify-content:center;padding:20px}
-  #debaterAsk.is-open{display:flex}
-  .dba-backdrop{position:absolute;inset:0;background:rgba(29,25,21,.34);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;transition:opacity .3s ease}
-  #debaterAsk.is-in .dba-backdrop{opacity:1}
-  .dba-card{position:relative;width:min(400px,calc(100vw - 40px));background:#fffdf8;border:1px solid rgba(29,25,21,.12);border-radius:20px;padding:26px 24px 22px;box-shadow:0 30px 80px rgba(29,25,21,.28);text-align:center;opacity:0;transform:translateY(14px) scale(.97);transition:opacity .32s ease,transform .32s cubic-bezier(.2,.8,.2,1)}
-  #debaterAsk.is-in .dba-card{opacity:1;transform:none}
-  .dba-eyebrow{font:900 .64rem/1 Inter,system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#c83232;margin:0 0 10px}
-  .dba-q{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:800;font-size:1.9rem;line-height:1.05;letter-spacing:-.02em;color:#1a1a1f;margin:0 0 10px}
-  .dba-sub{font:400 .88rem/1.5 Inter,system-ui,sans-serif;color:rgba(29,25,21,.62);margin:0 0 18px}
-  .dba-row{display:flex;gap:10px}
-  .dba-btn{flex:1;cursor:pointer;border-radius:12px;padding:12px 14px;font:800 .86rem Inter,system-ui,sans-serif;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease,color .14s ease}
-  .dba-btn--yes{border:0;background:#c83232;color:#fff;box-shadow:0 10px 24px rgba(200,50,50,.26)}
-  .dba-btn--yes:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(200,50,50,.36)}
-  .dba-btn--no{background:transparent;color:#1a1a1f;border:1px solid rgba(29,25,21,.2)}
-  .dba-btn--no:hover{border-color:#c83232;color:#c83232}
-  .dba-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border:0;border-radius:50%;background:transparent;color:rgba(29,25,21,.42);font-size:1rem;line-height:1;cursor:pointer}
-  .dba-x:hover{color:#1a1a1f;background:rgba(29,25,21,.06)}
 </style>
 <script>
   /* Gate: decide BEFORE the hero paints whether the intro runs, so the
@@ -5581,9 +5612,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       localStorage.setItem('da-welcome-intro', '1');
       document.documentElement.setAttribute('data-intro', '1');
-      /* Failsafe: if the sequence script ever fails, never leave the
-         page hidden behind a stuck overlay. */
+      /* Failsafe: if the sequence script never boots (it sets
+         __wiBooted), never leave the page hidden behind a stuck overlay.
+         Once booted, the questions legitimately hold the screen until
+         answered or skipped, so no hard timeout applies. */
       setTimeout(function(){
+        if (window.__wiBooted) return;
         var r = document.documentElement;
         if (r.getAttribute('data-intro') === '1') {
           r.removeAttribute('data-intro');
@@ -5594,96 +5628,145 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     } catch(e){}
   })();
 </script>
-<div id="welcomeIntro" aria-hidden="true">
+<div id="welcomeIntro" role="dialog" aria-label="Welcome to DebateIt">
+  <div class="wi-redwash"></div>
   <div class="wi-vignette"></div>
   <div class="wi-ring"><div class="wi-sweep"></div><div class="wi-ring-inner"></div></div>
   <div class="wi-num">3</div>
   <div class="wi-phrase"><span class="wi-lead"></span><b class="wi-accent"></b></div>
-  <div class="wi-brand">Debate<b>It</b></div>
-  <div class="wi-skip">Click anywhere to skip</div>
-</div>
-<div id="debaterAsk" role="dialog" aria-modal="true" aria-labelledby="dbaQ">
-  <div class="dba-backdrop"></div>
-  <div class="dba-card">
-    <button type="button" class="dba-x" aria-label="Close">&#10005;</button>
-    <p class="dba-eyebrow">Quick question</p>
-    <h2 class="dba-q" id="dbaQ">Are you a debater?</h2>
-    <p class="dba-sub">If not, that's ok! This is just so we can guide you a bit better.</p>
-    <div class="dba-row">
-      <button type="button" class="dba-btn dba-btn--yes" data-answer="yes">Yes, I debate</button>
-      <button type="button" class="dba-btn dba-btn--no" data-answer="no">Not yet</button>
-    </div>
+  <div class="wi-q">
+    <p class="wi-q-step"></p>
+    <h2 class="wi-q-text"></h2>
+    <p class="wi-q-sub"></p>
+    <div class="wi-q-row"></div>
   </div>
+  <div class="wi-brand">Debate<b>It</b></div>
+  <button type="button" class="wi-skip">Skip</button>
+  <audio id="wiAudio" src="/audio/welcome-ready.mp3" preload="auto"></audio>
 </div>
 <script>
   (function(){
     var root = document.documentElement;
     function ga(n, p){ try { if (window.gtag) gtag('event', n, p || {}); } catch(e){} }
 
-    /* ── Debater ask ── shown once, after the intro lifts (or shortly
-       after load for visitors the intro skipped, e.g. reduced motion).
-       The answer lands in localStorage + a GA user property so copy and
-       onboarding can be steered by it later. */
-    function askDebater(delay){
-      try { if (localStorage.getItem('da-debater-asked') === '1') return; } catch(e){}
-      var wrap = document.getElementById('debaterAsk');
-      if (!wrap) return;
-      setTimeout(function(){
-        try { localStorage.setItem('da-debater-asked', '1'); } catch(e){}
-        wrap.classList.add('is-open');
-        requestAnimationFrame(function(){ wrap.classList.add('is-in'); });
-        ga('debater_ask_show');
-        function close(answer){
-          if (answer === 'yes' || answer === 'no') {
-            try { localStorage.setItem('da-is-debater', answer); } catch(e){}
-            try { if (window.gtag) gtag('set', 'user_properties', { is_debater: answer }); } catch(e){}
-          }
-          ga('debater_ask_answer', { answer: answer });
-          wrap.classList.remove('is-in');
-          setTimeout(function(){ wrap.classList.remove('is-open'); }, 340);
-          document.removeEventListener('keydown', onKey);
-        }
-        function onKey(e){ if (e.key === 'Escape') close('dismiss'); }
-        wrap.querySelectorAll('.dba-btn').forEach(function(b){
-          b.addEventListener('click', function(){ close(b.getAttribute('data-answer')); });
-        });
-        wrap.querySelector('.dba-x').addEventListener('click', function(){ close('dismiss'); });
-        wrap.querySelector('.dba-backdrop').addEventListener('click', function(){ close('dismiss'); });
-        document.addEventListener('keydown', onKey);
-      }, delay);
-    }
-
-    /* ── Intro sequence ── */
     function runIntro(){
+      window.__wiBooted = true;
       var ov = document.getElementById('welcomeIntro');
-      if (!ov){ root.removeAttribute('data-intro'); askDebater(1400); return; }
+      if (!ov){ root.removeAttribute('data-intro'); return; }
       var lead   = ov.querySelector('.wi-lead');
       var accent = ov.querySelector('.wi-accent');
       var num    = ov.querySelector('.wi-num');
       var phrase = ov.querySelector('.wi-phrase');
+      var q      = ov.querySelector('.wi-q');
+      var qStep  = ov.querySelector('.wi-q-step');
+      var qText  = ov.querySelector('.wi-q-text');
+      var qSub   = ov.querySelector('.wi-q-sub');
+      var qRow   = ov.querySelector('.wi-q-row');
+      var skip   = ov.querySelector('.wi-skip');
+      var au     = document.getElementById('wiAudio');
+
       var PHRASES = [
         ['Everything is', 'debatable.'],
         ['Practice under', 'pressure.'],
         ['Defend a',       'position.']
       ];
-      var BEAT = 1150, i = 0, done = false, timers = [];
+      /* Three quick guidance questions. Keys are read later by
+         onboarding personalization; keep them stable. */
+      var QUESTIONS = [
+        { key:'da-is-debater',    prop:'is_debater',
+          step:'Question 1 of 3', q:'Are you a debater?',
+          sub:"If not, that's ok! This is just so we can guide you a bit better.",
+          primaryFirst:true,
+          opts:[['yes','Yes, I debate'],['no','Not yet']] },
+        { key:'da-welcome-goal',  prop:'welcome_goal',
+          step:'Question 2 of 3', q:'What brings you in?', sub:'',
+          opts:[['compete','Compete sharper'],['learn','Get better at arguing'],['curious','Just exploring']] },
+        { key:'da-welcome-start', prop:'welcome_start',
+          step:'Question 3 of 3', q:'How do you want to start?', sub:'',
+          opts:[['people','Debate real people'],['ai','Practice with the AI'],['watch','Watch a round first']] }
+      ];
+      var BEAT = 1900, i = 0, qi = 0, done = false, timers = [];
       ga('welcome_intro_show');
+
+      /* Human voice line. Browsers block audible autoplay before a
+         gesture on a fresh origin; try now, retry on the first pointer
+         press anywhere in the overlay (a Skip click or an answer). */
+      function tryAudio(){
+        if (!au) return;
+        var p;
+        try { au.volume = 0.9; p = au.play(); } catch(e){}
+        if (p && p.catch) p.catch(function(){
+          ov.addEventListener('pointerdown', function(){
+            try { au.currentTime = 0; au.play().catch(function(){}); } catch(e){}
+          }, { once:true });
+        });
+      }
+
       function finish(skipped){
         if (done) return; done = true;
         timers.forEach(clearTimeout);
+        ov.classList.remove('wi-red');
         ov.classList.add('is-leaving');
         root.removeAttribute('data-intro');
         root.setAttribute('data-intro-reveal', '1');
-        setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 700);
+        setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 950);
         /* release the reveal attr after the entrances land so animation
            fill stops pinning the cards' hover transforms */
-        setTimeout(function(){ root.removeAttribute('data-intro-reveal'); }, 1700);
-        ga('welcome_intro_done', { skipped: !!skipped });
-        askDebater(1500);
+        setTimeout(function(){ root.removeAttribute('data-intro-reveal'); }, 2100);
+        ga('welcome_intro_done', { skipped: !!skipped, answered: qi });
       }
+
+      function showQuestion(){
+        if (done) return;
+        if (qi >= QUESTIONS.length){ finish(false); return; }
+        var Q = QUESTIONS[qi];
+        qStep.textContent = Q.step;
+        qText.textContent = Q.q;
+        qSub.textContent  = Q.sub || '';
+        qSub.style.display = Q.sub ? '' : 'none';
+        qRow.innerHTML = '';
+        Q.opts.forEach(function(o, idx){
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'wi-q-btn ' + ((Q.primaryFirst && idx === 0) ? 'wi-q-btn--a' : 'wi-q-btn--b');
+          b.textContent = o[1];
+          b.addEventListener('click', function(){ answer(Q, o[0]); });
+          qRow.appendChild(b);
+        });
+        q.classList.remove('is-out');
+        q.classList.add('is-on');
+        q.classList.remove('is-in');
+        void q.offsetWidth; /* restart the keyframe */
+        q.classList.add('is-in');
+      }
+
+      function answer(Q, val){
+        if (done) return;
+        try { localStorage.setItem(Q.key, val); } catch(e){}
+        try { if (window.gtag){ var up = {}; up[Q.prop] = val; gtag('set', 'user_properties', up); } } catch(e){}
+        ga('welcome_q_answer', { q: Q.key, answer: val });
+        qi++;
+        q.classList.remove('is-in');
+        q.classList.add('is-out');
+        /* Surface alternates per question: Q1 red, Q2 white, Q3 red,
+           and back to white for the reveal. */
+        ov.classList.toggle('wi-red', qi < QUESTIONS.length && qi % 2 === 0);
+        timers.push(setTimeout(showQuestion, 700));
+      }
+
+      function startQuestions(){
+        if (done) return;
+        num.style.opacity = '0';
+        /* the phrase is a sibling flex child; drop it from flow so the
+           question block centers alone over the ring */
+        phrase.style.display = 'none';
+        ov.classList.add('wi-red');
+        timers.push(setTimeout(showQuestion, 750));
+      }
+
       function beat(){
         if (done) return;
-        if (i >= PHRASES.length){ finish(false); return; }
+        if (i >= PHRASES.length){ startQuestions(); return; }
         lead.textContent   = PHRASES[i][0] + ' ';
         accent.textContent = PHRASES[i][1];
         num.textContent    = String(PHRASES.length - i);
@@ -5693,13 +5776,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         i++;
         timers.push(setTimeout(beat, BEAT));
       }
-      ov.addEventListener('click', function(){ finish(true); });
+
+      skip.addEventListener('click', function(){ finish(true); });
+      tryAudio();
       beat();
     }
 
     function boot(){
       if (root.getAttribute('data-intro') === '1') runIntro();
-      else askDebater(1600);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
