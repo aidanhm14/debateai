@@ -3,9 +3,54 @@
 This directory holds the **Capacitor** wrapper that turns
 [debateai.com](https://debateai.com) into a native iOS app.
 
-The plan and milestones live in the conversation that produced this scaffold.
 Below is everything you need to get from "nothing installed" to "running on
-the iOS Simulator." Follow top-to-bottom.
+the iOS Simulator," then to the App Store. Follow top-to-bottom.
+
+---
+
+## App Store readiness — status + your checklist
+
+**Done in code (2026-07-09), safe + inert on the plain web:**
+- **Native payment gating** — `app/js/native-bridge.js` flags native mode
+  (`window.__DB_NATIVE`, `<html class="dbnative">`) and hides every
+  pricing / upgrade / checkout surface; the `/pricing` route redirects to
+  `/coach` in the app. `app/js/upgrade-cta.js` no-ops in native. This
+  satisfies Apple **3.1.1 / 3.1.3** (no steering to web payment) while the
+  product is free in beta. Loaded on index / debate-it / landing / pricing /
+  coach / voice-debate.
+- **Sign in with Apple helper** — `window.dbAppleSignIn()` in
+  `app/js/auth-modal.js` (Firebase `OAuthProvider('apple.com')`). Ready to
+  call; becomes functional once the Firebase Apple provider is configured
+  (below). Required by Apple **4.8** because we offer Google sign-in.
+
+**Only YOU can do these (needs your Mac / Apple ID / money):**
+1. **Install full Xcode** (~7 GB, App Store) + `sudo xcode-select -s
+   /Applications/Xcode.app/Contents/Developer` — see Step 1.
+2. **Enroll in the Apple Developer Program** — $99/yr, your Apple ID (Step 6).
+   Approval can take a day.
+3. **Enable Sign in with Apple in Firebase** — Firebase console → Auth →
+   Sign-in method → Apple. Needs an Apple **Services ID** + a **Sign in with
+   Apple key** (both created in the Apple Developer portal, so this waits on
+   step 2). For reliable sign-in inside the WKWebView, also add the
+   `@capacitor-firebase/authentication` plugin (already in package.json) and
+   call its native Apple flow from `window.dbAppleSignIn`'s call site.
+4. **Generate + build the native project** — `cap add ios`, add the
+   Info.plist camera/mic strings (Step 5), run in the simulator (Step 4),
+   then archive → TestFlight → submit.
+
+**Pre-submission audit (do once the app runs):** walk every screen in the
+simulator and confirm NO purchase/upgrade/Stripe UI is reachable — the
+paywall/limit-hit modals in `debate-it.html` / `index.html` still need their
+purchase CTA hidden or replaced when `window.__DB_NATIVE` is true (the CSS
+net catches links, not JS-built buttons). Guideline **4.2** (don't be "just a
+website"): the native plugins (push, share, splash, camera) + Apple sign-in
+carry this, but consider bundling a local build (drop `server.url`) if a
+reviewer pushes back.
+
+**IAP (later, not now):** when you exit beta and charge, digital
+subscriptions MUST go through Apple IAP (30%). Path: RevenueCat + unhide a
+native purchase flow (replace the `native-bridge` hide). Keep the web Stripe
+flow for the website.
 
 ---
 

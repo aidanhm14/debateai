@@ -12,6 +12,10 @@
 (function () {
   'use strict';
 
+  // Native app (App Store build): no upgrade/purchase surfaces. Apple 3.1.1
+  // forbids steering to web payment; beta is free, so the pill just no-ops.
+  if (window.__DB_NATIVE || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
+
   const FIREBASE_CONFIG = {
     apiKey: ['AIzaSyDDx', 'TYlyWLOJnFP99', 'e7XsLPb3FwIEijNNM'].join(''),
     authDomain: 'debateos-78ac5.firebaseapp.com',

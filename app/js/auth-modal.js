@@ -178,6 +178,37 @@
     });
   }
 
+  // Sign in with Apple. REQUIRED in the iOS App Store build: Apple Guideline
+  // 4.8 mandates offering Sign in with Apple whenever you offer other social
+  // logins (we offer Google). This web-SDK path works once the Apple provider
+  // is enabled in the Firebase console (needs an Apple Developer Services ID +
+  // key). Inside the Capacitor shell the reliable path is the native
+  // @capacitor-firebase/authentication plugin — see mobile/IOS_SETUP.md.
+  // Exposed as window.dbAppleSignIn so the native sign-in UI can call it.
+  function doAppleSignIn() {
+    setErr('');
+    bootstrap(function () {
+      try {
+        var provider = new firebase.auth.OAuthProvider('apple.com');
+        provider.addScope('email');
+        provider.addScope('name');
+        track('sign_in_start', { method: 'apple' });
+        var t0 = Date.now();
+        auth = firebase.auth();
+        auth.signInWithPopup(provider).then(function () {
+          try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
+          track('sign_in_complete', { method: 'apple' });
+          window.location.href = DEST;
+        }).catch(function (err) {
+          var code = (err && err.code) || 'unknown';
+          if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
+          try { auth.signInWithRedirect(provider); } catch (e) { setErr('Apple sign-in failed: ' + code); }
+        });
+      } catch (e) { setErr('Apple sign-in unavailable, try again.'); }
+    });
+  }
+  window.dbAppleSignIn = doAppleSignIn;
+
   function doEmail() {
     setErr('');
     var input = home().querySelector('#daEmail');
