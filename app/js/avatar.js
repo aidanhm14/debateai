@@ -241,6 +241,214 @@
       '</g></svg>';
   }
 
+  // ---- Talking avatar (live lip-sync + expressions) --------------------
+  // Same face as svg(), but eyes / brows / mouth live in addressable
+  // groups (.ta-eyes / .ta-brows / .ta-mouth) inside a .ta-face group so a
+  // controller can animate them from live audio + coach state.
+  // "SVG now, video later": the controller interface is backend-agnostic
+  // (setState / setEmotion / setAmplitude / attachAudio / destroy), so a
+  // photoreal video head can implement the same shape and drop in later.
+
+  function talkingMouth(open, emotion) {
+    var lip = '#c26b5e', cav = '#7a2f2a', cy = 56;
+    var corner = emotion === 'encouraging' ? -1.7 : (emotion === 'pushing' ? 1.5 : 0);
+    open = open < 0 ? 0 : open > 1 ? 1 : open;
+    if (open < 0.06) {
+      return '<path d="M44.3 ' + (cy - corner * 0.15).toFixed(2) + ' Q50 ' + (cy + corner).toFixed(2) + ' 55.7 ' + (cy - corner * 0.15).toFixed(2) + '" stroke="' + lip + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
+    }
+    var rx = 4.3 + open * 1.7, ry = 0.9 + open * 5.1;
+    var teeth = open > 0.34
+      ? '<path d="M' + (50 - rx + 1).toFixed(2) + ' ' + (cy - ry + 1.2).toFixed(2) + ' Q50 ' + (cy - ry + 0.2).toFixed(2) + ' ' + (50 + rx - 1).toFixed(2) + ' ' + (cy - ry + 1.2).toFixed(2) + '" stroke="#fff" stroke-width="1.3" fill="none" opacity=".9"/>'
+      : '';
+    return '<ellipse cx="50" cy="' + cy + '" rx="' + rx.toFixed(2) + '" ry="' + ry.toFixed(2) + '" fill="' + cav + '"/>' + teeth +
+      '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy - ry - 1.4 + corner).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+      '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy + ry + 1.7).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
+  }
+
+  function talkingEyes(openFrac, gx, gy) {
+    var L = 40, R = 60, y = 45, ink = '#2a2320';
+    gx = gx || 0; gy = gy || 0;
+    if (openFrac < 0.12) {
+      return '<path d="M36.6 ' + y + ' Q40 ' + (y + 0.7) + ' 43.4 ' + y + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+             '<path d="M56.6 ' + y + ' Q60 ' + (y + 0.7) + ' 63.4 ' + y + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+    }
+    var ry = (3.9 * openFrac + 0.3).toFixed(2);
+    return '<ellipse cx="' + L + '" cy="' + y + '" rx="3.3" ry="' + ry + '" fill="#fff"/>' +
+           '<ellipse cx="' + R + '" cy="' + y + '" rx="3.3" ry="' + ry + '" fill="#fff"/>' +
+           '<circle cx="' + (L + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2" fill="' + ink + '"/>' +
+           '<circle cx="' + (R + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2" fill="' + ink + '"/>' +
+           '<circle cx="' + (L + gx + 1).toFixed(2) + '" cy="' + (y - 1 + gy).toFixed(2) + '" r=".8" fill="#fff"/>' +
+           '<circle cx="' + (R + gx + 1).toFixed(2) + '" cy="' + (y - 1 + gy).toFixed(2) + '" r=".8" fill="#fff"/>';
+  }
+
+  function talkingBrows(raise, angle) {
+    var ink = '#3a2c22', base = 38.6 - raise;
+    var innerL = base + angle, innerR = base + angle;
+    var outerL = base - raise * 0.25, outerR = base - raise * 0.25;
+    return '<path d="M35.5 ' + outerL.toFixed(2) + ' Q40 ' + (base - 1.7).toFixed(2) + ' 44.5 ' + innerL.toFixed(2) + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+           '<path d="M64.5 ' + outerR.toFixed(2) + ' Q60 ' + (base - 1.7).toFixed(2) + ' 55.5 ' + innerR.toFixed(2) + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+  }
+
+  // A near-copy of svg() with the animatable parts in named groups and the
+  // head-and-up wrapped in .ta-face (so head bob / tilt transforms apply).
+  function talkingSvg(config, size) {
+    var c = norm(config);
+    var skinCol = SKIN[c.skin], hairCol = HAIR[c.hair], bgCol = BG[c.bg], outCol = OUTFIT[c.outfit];
+    var skinShade = shade(skinCol, -0.13);
+    var id = 'tav' + (++uid);
+    var hair = hairPaths(c.top, hairCol);
+    var sz = (size === '100%') ? '100%' : (size || 200);
+    var earring = (c.accessory === 3)
+      ? '<circle cx="29" cy="52.5" r="2.3" fill="none" stroke="#f0c14b" stroke-width="1.5"/><circle cx="71" cy="52.5" r="2.3" fill="none" stroke="#f0c14b" stroke-width="1.5"/>'
+      : '';
+    return '' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="talking avatar" style="display:block">' +
+      '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>' +
+      '<radialGradient id="' + id + 'g" cx="32%" cy="24%" r="82%"><stop offset="0%" stop-color="' + shade(bgCol, 0.24) + '"/><stop offset="100%" stop-color="' + shade(bgCol, -0.06) + '"/></radialGradient></defs>' +
+      '<g clip-path="url(#' + id + ')">' +
+      '<rect width="100" height="100" fill="url(#' + id + 'g)"/>' +
+      hair.back +
+      '<path d="M15 100 C15 79 30 71 50 71 C70 71 85 79 85 100 Z" fill="' + outCol + '"/>' +
+      '<path d="M38 72 Q50 80 62 72 L63 76 Q50 84 37 76 Z" fill="' + shade(outCol, -0.16) + '"/>' +
+      '<path d="M47 77 L46 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<path d="M53 77 L54 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<circle cx="46" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/><circle cx="54" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/>' +
+      '<g class="ta-face">' +
+      '<path d="M43 60 h14 v9 q-7 5 -14 0 Z" fill="' + skinShade + '"/>' +
+      '<ellipse cx="50" cy="45" rx="21.5" ry="22.5" fill="' + skinCol + '"/>' +
+      '<circle cx="28.5" cy="47" r="3.9" fill="' + skinCol + '"/><circle cx="71.5" cy="47" r="3.9" fill="' + skinCol + '"/>' +
+      earring +
+      facialPath(c.facial, hairCol) +
+      '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+      '<g class="ta-brows">' + talkingBrows(0, 0) + '</g>' +
+      '<g class="ta-eyes">' + talkingEyes(1, 0, 0) + '</g>' +
+      '<g class="ta-mouth">' + talkingMouth(0, 'neutral') + '</g>' +
+      hair.front +
+      glassesPath(c.glasses) +
+      accessoryOver(c.accessory, outCol) +
+      '</g>' +
+      '</g></svg>';
+  }
+
+  function tnow() { return (global.performance && performance.now) ? performance.now() : Date.now(); }
+
+  // mountTalking(container, config, opts) -> controller
+  function mountTalking(container, config, opts) {
+    opts = opts || {};
+    if (typeof container === 'string') container = document.querySelector(container);
+    if (!container) return null;
+    container.innerHTML = talkingSvg(config, opts.size || '100%');
+    var svgEl = container.querySelector('svg');
+    var faceEl = container.querySelector('.ta-face');
+    var browsEl = container.querySelector('.ta-brows');
+    var eyesEl = container.querySelector('.ta-eyes');
+    var mouthEl = container.querySelector('.ta-mouth');
+    if (!faceEl) return null;
+
+    var state = 'idle', emoOverride = null;
+    var manualAmp = null, amp = 0, smoothAmp = 0;
+    var analyser = null, audioCtx = null, srcNode = null, freqBuf = null, ownCtx = false;
+    var running = true, raf = 0;
+    var t0 = tnow();
+    var nextBlink = t0 + 1500 + Math.random() * 2500, blinkStart = -1;
+    var lastMouth = '', lastEyes = '', lastBrows = '';
+
+    function effEmotion() {
+      if (emoOverride) return emoOverride;
+      if (state === 'talking') return smoothAmp > 0.5 ? 'pushing' : 'neutral';
+      if (state === 'listening') return 'encouraging';
+      return 'neutral';
+    }
+    function gaze() {
+      if (state === 'thinking') return { x: 1.3, y: -1.7 };
+      if (state === 'listening') return { x: 0, y: 0.4 };
+      return { x: 0, y: 0 };
+    }
+    function browParams() {
+      var e = effEmotion();
+      if (e === 'encouraging') return { raise: 1.3, angle: 0 };
+      if (e === 'pushing') return { raise: 0, angle: 1.7 };
+      if (state === 'thinking') return { raise: 0.3, angle: 0.9 };
+      return { raise: 0, angle: 0 };
+    }
+
+    function frame() {
+      if (!running) return;
+      var now = tnow(), t = (now - t0) / 1000;
+      var raw = 0;
+      if (analyser) {
+        analyser.getByteFrequencyData(freqBuf);
+        var sum = 0; for (var i = 0; i < freqBuf.length; i++) sum += freqBuf[i];
+        raw = Math.min(1, (sum / freqBuf.length) / 78);
+      } else if (manualAmp != null) { raw = manualAmp; }
+      smoothAmp += (raw - smoothAmp) * 0.5;
+      var goal = (state === 'talking') ? smoothAmp : 0;
+      amp += (goal - amp) * 0.4;
+
+      var mo = (state === 'talking') ? amp : 0;
+      var emo = effEmotion();
+      var mk = Math.round(mo * 20) + emo;
+      if (mk !== lastMouth) { mouthEl.innerHTML = talkingMouth(mo, emo); lastMouth = mk; }
+
+      var eyeOpen = 1;
+      if (blinkStart < 0 && now >= nextBlink) blinkStart = now;
+      if (blinkStart >= 0) {
+        var bt = (now - blinkStart) / 120;
+        if (bt >= 1) { blinkStart = -1; nextBlink = now + 2200 + Math.random() * 3800; eyeOpen = 1; }
+        else eyeOpen = bt < 0.5 ? 1 - bt * 2 : (bt - 0.5) * 2;
+      }
+      var g = gaze();
+      var ek = Math.round(eyeOpen * 10) + '|' + g.x + '|' + g.y;
+      if (ek !== lastEyes) { eyesEl.innerHTML = talkingEyes(eyeOpen, g.x, g.y); lastEyes = ek; }
+
+      var bp = browParams();
+      var bk = bp.raise + '|' + bp.angle;
+      if (bk !== lastBrows) { browsEl.innerHTML = talkingBrows(bp.raise, bp.angle); lastBrows = bk; }
+
+      var breathe = Math.sin(t * 1.15) * 0.5;
+      var bob = state === 'talking' ? -amp * 1.3 : 0;
+      var tx = state === 'listening' ? 0.6 : (state === 'thinking' ? -0.6 : 0);
+      var rot = state === 'thinking' ? -2.4 : (state === 'listening' ? 1.4 : 0);
+      faceEl.setAttribute('transform', 'translate(' + tx.toFixed(2) + ' ' + (breathe + bob).toFixed(2) + ') rotate(' + rot.toFixed(2) + ' 50 60)');
+
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+
+    var ctrl = {
+      el: svgEl,
+      setState: function (s) { state = s; return this; },
+      getState: function () { return state; },
+      setEmotion: function (e) { emoOverride = e || null; return this; },
+      setAmplitude: function (v) { manualAmp = (v == null ? null : (v < 0 ? 0 : v > 1 ? 1 : v)); return this; },
+      setConfig: function (cfg) {
+        container.innerHTML = talkingSvg(cfg, opts.size || '100%');
+        svgEl = container.querySelector('svg'); faceEl = container.querySelector('.ta-face');
+        browsEl = container.querySelector('.ta-brows'); eyesEl = container.querySelector('.ta-eyes'); mouthEl = container.querySelector('.ta-mouth');
+        lastMouth = lastEyes = lastBrows = '';
+        return this;
+      },
+      attachAnalyser: function (a) { analyser = a || null; if (a) freqBuf = new Uint8Array(a.frequencyBinCount); return this; },
+      attachAudio: function (src) {
+        try {
+          var AC = global.AudioContext || global.webkitAudioContext; if (!AC) return false;
+          audioCtx = new AC(); ownCtx = true;
+          var stream = (src instanceof MediaStream) ? src : (src && src.srcObject instanceof MediaStream ? src.srcObject : null);
+          if (stream) srcNode = audioCtx.createMediaStreamSource(stream);
+          else if (src && src.tagName) { srcNode = audioCtx.createMediaElementSource(src); srcNode.connect(audioCtx.destination); }
+          else return false;
+          var a = audioCtx.createAnalyser(); a.fftSize = 256; a.smoothingTimeConstant = 0.75;
+          srcNode.connect(a); this.attachAnalyser(a);
+          if (audioCtx.state === 'suspended') audioCtx.resume().catch(function () {});
+          return true;
+        } catch (e) { return false; }
+      },
+      detachAudio: function () { analyser = null; if (ownCtx && audioCtx) { try { audioCtx.close(); } catch (e) {} } audioCtx = null; srcNode = null; ownCtx = false; return this; },
+      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); this.detachAudio(); if (container) container.innerHTML = ''; }
+    };
+    return ctrl;
+  }
+
   // ---- AI persona presets ----------------------------------------------
   // Faces tuned to each debater's identity, kept young. bg matches the
   // persona's existing accent so the visual bond carries over.
@@ -505,6 +713,7 @@
     svg: svg, persona: persona, PRESETS: PRESETS,
     getUser: getUser, setUser: setUser, clearUser: clearUser,
     randomConfig: randomConfig, openBuilder: openBuilder, mountWelcome: mountWelcome,
+    talkingSvg: talkingSvg, mountTalking: mountTalking,
     SKIN: SKIN, HAIR: HAIR, BG: BG, OUTFIT: OUTFIT, EVENT: EVT
   };
 })(window);

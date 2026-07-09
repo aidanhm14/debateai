@@ -86,6 +86,8 @@
 <!-- Shared topbar (deferred so it doesn't block first paint). -->
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/notifications.js"></script>
+<!-- Avatar engine — the talking coach face lives here (DBAvatar.mountTalking). -->
+<script defer src="/js/avatar.js"></script>
 
 <style>
   :root {
@@ -404,6 +406,21 @@
   @keyframes ring { 0% { transform: scale(.85); opacity: .5 } 100% { transform: scale(1.5); opacity: 0 } }
   .orb.idle { animation: breathe 2.4s ease-in-out infinite; }
   @keyframes breathe { 0%,100% { transform: scale(.97) } 50% { transform: scale(1.02) } }
+
+  /* Talking coach avatar — the centerpiece. Replaces the red orb; keeps the
+     orb element in the DOM only so the visualizer can keep writing --level.
+     The avatar carries its own audio-reactive glow + subtle scale pulse. */
+  .orb-wrap { position: relative; align-items: center; min-height: 200px; }
+  .orb { display: none; }
+  .coach-avatar {
+    --level: 0;
+    width: min(188px, 56vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,.42),
+                0 0 calc(14px + var(--level) * 48px) rgba(239,68,68, calc(.20 + var(--level) * .42));
+    transform: scale(calc(1 + var(--level) * .045));
+    transition: box-shadow .09s linear, transform .09s linear;
+  }
+  .coach-avatar svg { width: 100%; height: 100%; display: block; }
 
   .live-line { text-align: center; font-size: 1.04rem; font-weight: 700; margin-bottom: 3px; }
   .live-meta { text-align: center; font-size: .8rem; color: var(--text-dim); }
@@ -746,7 +763,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
         <span class="drill-chip" id="drillChip" hidden>Drill: <b id="drillChipName"></b></span>
         <span class="timer" id="timer" hidden>00:00</span>
       </div>
-      <div class="orb-wrap"><div class="orb idle" id="orb" aria-hidden="true"></div></div>
+      <div class="orb-wrap"><div class="orb idle" id="orb" aria-hidden="true"></div><div class="coach-avatar" id="coachAvatar" aria-hidden="true"></div></div>
       <div id="liveLine" class="live-line">Connecting…</div>
       <div id="liveMeta" class="live-meta"></div>
     </div>
@@ -882,6 +899,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     drillChipName: document.getElementById('drillChipName'),
     timer:       document.getElementById('timer'),
     orb:         document.getElementById('orb'),
+    coachAvatar: document.getElementById('coachAvatar'),
     stage:       null, // set below (querySelector)
     liveControls: document.getElementById('liveControls'),
     debrief:     document.getElementById('debrief'),
@@ -1188,6 +1206,23 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   }
 
   // ── Audio-reactive orb (analyser on the coach's stream) ─────
+  // ── Talking coach avatar ────────────────────────────────────
+  // The face follows the picked coach voice. Mouth is driven live from
+  // the coach's audio (same analyser level that pulses the glow); states
+  // come from the realtime transcript events in handleEvent().
+  var coachAvatarCtrl = null;
+  var COACH_FACES = {
+    female: { skin: 1, hair: 1, top: 5, eyes: 1, brows: 0, mouth: 2, facial: 0, glasses: 1, accessory: 0, bg: 4, outfit: 4 }, // calm, measured
+    male:   { skin: 2, hair: 2, top: 2, eyes: 1, brows: 0, mouth: 2, facial: 1, glasses: 0, accessory: 0, bg: 0, outfit: 0 }  // warm, varsity
+  };
+  function mountCoachAvatar() {
+    if (!window.DBAvatar || !els.coachAvatar) return;
+    if (coachAvatarCtrl) { try { coachAvatarCtrl.destroy(); } catch (e) {} coachAvatarCtrl = null; }
+    coachAvatarCtrl = DBAvatar.mountTalking(els.coachAvatar, COACH_FACES[loadGender()] || COACH_FACES.female, { size: '100%' });
+    if (coachAvatarCtrl) coachAvatarCtrl.setState('idle');
+  }
+  function coachState(s) { if (coachAvatarCtrl) coachAvatarCtrl.setState(s); }
+
   function startVisualizer(stream) {
     try {
       var Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1205,6 +1240,8 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
         var sum = 0; for (var i = 0; i < data.length; i++) sum += data[i];
         var level = Math.min(1, (sum / data.length) / 90);
         els.orb.style.setProperty('--level', level.toFixed(3));
+        if (els.coachAvatar) els.coachAvatar.style.setProperty('--level', level.toFixed(3));
+        if (coachAvatarCtrl) coachAvatarCtrl.setAmplitude(level);
         state.raf = requestAnimationFrame(tick);
       }
       tick();
@@ -1373,6 +1410,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     await pc.setRemoteDescription({ type: 'answer', sdp: answer });
 
     els.liveLine.textContent = 'Live. The coach is listening.';
+    coachState('listening');
     els.liveMeta.textContent = 'Voice: ' + (mint.gender || gender)
       + ' · ' + (mint.model || 'gpt-realtime')
       + (mint.isPro ? '' : ' · ' + mint.used + ' of ' + mint.limit + ' free sessions');
@@ -1387,19 +1425,23 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     switch (msg.type) {
       case 'conversation.item.input_audio_transcription.delta':
         if (typeof msg.delta === 'string') { state.partialUser += msg.delta; appendOrUpdateRow('you', state.partialUser, true); }
+        coachState('listening');   // you're talking; the coach listens
         break;
       case 'conversation.item.input_audio_transcription.completed':
         if (typeof msg.transcript === 'string') appendOrUpdateRow('you', msg.transcript, true);
         state.partialUser = '';
+        coachState('thinking');    // you stopped; the coach considers before it answers
         break;
       case 'response.output_audio_transcript.delta':
       case 'response.audio_transcript.delta':
         if (typeof msg.delta === 'string') { state.partialAgent += msg.delta; appendOrUpdateRow('coach', state.partialAgent, true); }
+        coachState('talking');     // the coach is speaking; mouth follows the audio
         break;
       case 'response.output_audio_transcript.done':
       case 'response.audio_transcript.done':
         if (typeof msg.transcript === 'string') appendOrUpdateRow('coach', msg.transcript, true);
         state.partialAgent = '';
+        coachState('listening');   // coach done; back to listening for you
         break;
       case 'error':
         showError((msg.error && msg.error.message) || 'Realtime error');
@@ -1417,6 +1459,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
       els.drillChip.hidden = true;
     }
     els.live.classList.add('on');
+    mountCoachAvatar();
   }
 
   // ── Mute toggle ─────────────────────────────────────────────
@@ -1442,9 +1485,11 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     state.muted = false;
     els.muteBtn.classList.remove('muted'); els.muteBtn.textContent = 'Mute mic';
     try { els.audio.srcObject = null; } catch (e) {}
+    coachState('idle'); // connection closed — stop the mouth (breathing continues)
   }
 
   function resetToSetup() {
+    if (coachAvatarCtrl) { try { coachAvatarCtrl.destroy(); } catch (e) {} coachAvatarCtrl = null; }
     els.live.classList.remove('on');
     els.timer.hidden = true;
     if (els.stage) els.stage.style.display = '';
