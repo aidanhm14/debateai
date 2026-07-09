@@ -44,6 +44,8 @@ import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 // counter lies. This is the real enforcement; the client gate is UX-only.
 const FREE_VOICE_LIFETIME_LIMIT = 2;
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
+import { getExemplarBlock } from './lib/exemplars.mjs';
+import { getDistillationBlock } from './lib/distillations.mjs';
 
 /* ── AI COUNCIL ──────────────────────────────────────────────────
    When smartness > 1, the function calls Claude / Gemini / Grok /
@@ -1037,18 +1039,41 @@ export default async (request, context) => {
       if (fmtBlock) voiceBank = voiceBank + '\n\n' + fmtBlock;
     } catch(e) { /* voice bank optional — function still works without it */ }
 
-    // AI Council — when smartness > 1, parallel-consult Claude /
-    // Gemini / Grok / GPT-5 for prep notes, then prepend the synthesis
-    // to the system instructions. The realtime AI uses these as the
-    // spine of its first speech.
+    // AI Council + learning loop, gathered in parallel so session start
+    // pays max(one slow brain, two cached Firestore reads), not the sum.
+    //
+    // Council (smartness > 1): parallel-consult Claude / Gemini / Grok /
+    // GPT-5 for prep notes; the realtime AI uses them as the spine of its
+    // first speech.
+    //
+    // Learning loop: the typed brains (claude.mjs et al.) pull admin-
+    // weighted past rounds (REFERENCE ROUNDS, exemplars.mjs) + the nightly
+    // per-format distillation (LEARNED PATTERNS, distillations.mjs) into
+    // their system prompt so the AI compounds from rated rounds over time.
+    // The live voice opponent used to be the one brain that CAPTURED rounds
+    // (via log-generation) but never READ them back — so it never
+    // compounded. Wire it in here. feature 'opponent' is the closest match
+    // in both helpers' allowlists (the voice AI is a live opponent);
+    // loopFormat is the mode the round is captured under, so read ↔ capture
+    // stay symmetric and getX returns '' gracefully until a doc exists.
+    //
+    // Exemplars are FULL reference rounds — right for the format-accurate
+    // training stack, wrong for the lean clash stack (they bloat the prompt
+    // and pull the model toward tournament-speak, which clash deliberately
+    // avoids), so clash gets distillations only. Distillations are a compact
+    // pattern block — safe and valuable on both stacks.
     const smartness = Math.max(1, Math.min(5, parseInt(body.smartness, 10) || 1));
-    let councilResearch = '';
-    if (smartness > 1) {
-      const sideLabel = (side === 'gov' || side === 'pm' || side === 'mg') ? 'Government' : 'Opposition';
-      try {
-        councilResearch = await gatherCouncil(motion, sideLabel, smartness, mode);
-      } catch(e) { console.error('Council assembly failed:', e); }
-    }
+    const sideLabel = (side === 'gov' || side === 'pm' || side === 'mg') ? 'Government' : 'Opposition';
+    const loopFormat = String(mode || format || 'clash').toLowerCase().slice(0, 40);
+    const [councilResearch, exemplarBlock, distillBlock] = await Promise.all([
+      smartness > 1
+        ? gatherCouncil(motion, sideLabel, smartness, mode).catch((e) => { console.error('Council assembly failed:', e); return ''; })
+        : Promise.resolve(''),
+      mode === 'clash'
+        ? Promise.resolve('')
+        : getExemplarBlock({ feature: 'opponent', motion, format: loopFormat, side }).catch(() => ''),
+      getDistillationBlock(loopFormat, 'opponent').catch(() => ''),
+    ]);
 
     // Optional user-provided factual background for the motion. The
     // client generates this via Claude Haiku and the user can edit it
@@ -1173,11 +1198,15 @@ export default async (request, context) => {
     const difficulty = Object.prototype.hasOwnProperty.call(CLASH_DIFFICULTY, (body.difficulty || '').toLowerCase())
       ? body.difficulty.toLowerCase() : 'standard';
     const instructions = mode === 'clash'
-      ? clashLanguageBlock + backgroundBlock + modeBlock + CLASH_DIFFICULTY[difficulty]
+      ? clashLanguageBlock + backgroundBlock + modeBlock +
+        (distillBlock ? '\n' + distillBlock + '\n' : '') +
+        CLASH_DIFFICULTY[difficulty]
       : languageBlock +
         debateVocabBlock +
         (councilResearch ? councilResearch + '\n\n' : '') +
+        (exemplarBlock ? exemplarBlock + '\n\n' : '') +
         (voiceBank ? voiceBank + '\n\n' : '') +
+        (distillBlock ? distillBlock + '\n\n' : '') +
         backgroundBlock +
         characterPreamble + modeBlock;
 

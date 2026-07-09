@@ -1027,15 +1027,25 @@ async function start(){
    a paragraph. Brief sound decays fast (drain at 2x fill rate); a
    real interjection crosses the threshold in about three-quarters of
    a second and the AI yields mid-sentence like a person would. */
-const BARGE_LEVEL = 0.12;      // mic RMS floor that counts as speech
-const BARGE_SUSTAIN_MS = 750;  // continuous speech needed to take the floor
-const TURN_SILENCE_MS = 3000;  // genuine quiet before the AI takes an unhanded floor
+// SPEECH_LEVEL: any mic sound above this counts as "the user is talking" —
+// it keeps their turn alive and holds the AI off. BARGE_LEVEL is
+// deliberately HIGHER: only clearly-louder, sustained speech cuts the AI
+// off mid-answer, so a cough / "mm" / room noise no longer steals the
+// floor. (2026-07-09, per "require louder speech to interrupt".)
+const SPEECH_LEVEL = 0.12;     // mic RMS floor that counts as the user talking
+const BARGE_LEVEL = 0.22;      // higher floor: how loud to interrupt the AI
+const BARGE_SUSTAIN_MS = 750;  // continuous loud speech needed to take the floor
+// Genuine quiet before the AI answers an un-handed floor. Was 3000ms, which
+// read as a long lag after the user stopped; 1500 stays clear of a mid-
+// thought breath while feeling responsive. Handoff phrases ("your turn")
+// still answer instantly. (2026-07-09, per "delayed response takes a while".)
+const TURN_SILENCE_MS = 1500;
 const NUDGE_AFTER_MS = 16000;  // dead air before one gentle re-engage
 function bargeTick(){
   if (!dc || dc.readyState !== 'open') { bargeMs = 0; return; }
   const now = Date.now();
   const lvl = muted ? 0 : level(userAnalyser, userBuf);
-  if (lvl > BARGE_LEVEL) { lastActiveAt = now; nudgeFired = false; }
+  if (lvl > SPEECH_LEVEL) { lastActiveAt = now; nudgeFired = false; }
 
   // Interrupt gate: sustained speech while the AI talks takes the floor.
   if (aiTalking && !muted) {
