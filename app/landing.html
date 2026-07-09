@@ -9668,7 +9668,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         return {
           sphereCore:'rgba(220,200,195,0.65)',
           sphereOuter:'rgba(190,160,160,0.45)',
-          grid:'rgba(200,60,60,0.18)',
+          grid:'rgba(200,60,60,0.24)',
+          rim:'rgba(190,55,55,0.36)',
+          rimGlow:'rgba(239,68,68,0.12)',
           land:'rgba(180,40,40,',
           markerCore:'255,80,80',
           markerHi:'255,180,180',
@@ -9680,7 +9682,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       return {
         sphereCore:'rgba(150,30,30,0.55)',
         sphereOuter:'rgba(40,8,8,0.55)',
-        grid:'rgba(239,68,68,0.14)',
+        grid:'rgba(239,68,68,0.20)',
+        rim:'rgba(248,113,113,0.34)',
+        rimGlow:'rgba(239,68,68,0.16)',
         land:'rgba(220,60,60,',
         markerCore:'255,110,110',
         markerHi:'255,210,210',
@@ -9914,16 +9918,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fill();
 
-      // Outline
-      ctx.strokeStyle = c.grid;
-      ctx.lineWidth = 1;
+      // Rim. A slightly firmer limb keeps the pale globe reading as a
+      // sphere on light backgrounds without turning it into a hard badge.
+      ctx.save();
+      ctx.strokeStyle = c.rimGlow;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = c.rim || c.grid;
+      ctx.lineWidth = 1.35;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.restore();
 
       // Latitude / longitude grid (front hemisphere only, so the sphere
       // reads as 3D). 30° spacing keeps it sparse and unobtrusive.
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = c.grid;
+      ctx.lineWidth = 0.95;
       for (var lat = -60; lat <= 60; lat += 30){
         ctx.beginPath();
         var first = true;
