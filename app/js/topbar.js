@@ -139,9 +139,8 @@
   }
 
   // Canonical link order. Keep tight — this is the bar, not a sitemap.
-  // The primary CTA on the right (Voice AI pill, set further down) is
-  // always present; it doubles as a back-to-app for visitors who landed
-  // on a marketing page mid-flow.
+  // The Voice AI tab itself is the right-side action. The old separate
+  // "Start a round" topbar button was removed so the bar stays lighter.
   //
   // 2026-05-13: trimmed from 9 → 5 links. College Prep, High School,
   // Learn to Argue, and India were carrying second-tier audience
@@ -406,13 +405,9 @@
     // wireThemeToggle() below and reloads the page so the token
     // cascade settles from a clean slate.
     //
-    // Positioning: this button is appended to ui-topbar-right BEFORE
-    // the bell and lang-picker mount (those run async on
-    // DOMContentLoaded and both insertBefore(..., CTA)). The
-    // lang-picker IIFE in landing.html does a final reorder so the
-    // visual sequence reads as: bell | theme-toggle | lang-picker |
-    // Voice AI CTA. On pages without a lang-picker the toggle just
-    // sits between the bell and the CTA.
+    // Positioning: when enabled, this button is appended before the
+    // async bell and language picker mount. Dark mode is currently off,
+    // so this stays dormant along with the rest of the theme controls.
     var themeBtn = el('button', {
       type: 'button',
       class: 'theme-toggle',
@@ -436,44 +431,14 @@
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
     // this topbar). It inserts itself into .ui-topbar-right before the
-    // primary CTA. Kept out of here so there's a single source of truth
+    // user slot. Kept out of here so there's a single source of truth
     // for notifications and no risk of a duplicate bell.
-
-    // Primary CTA is Voice AI everywhere — voice is the moat
-    // against ChatGPT (real-time, sub-200ms, full interruption) and
-    // the user-flagged most-important surface. Brand red keeps the
-    // topbar visually calm; the prior gold-amber gradient read as
-    // braggy. Voice AI now routes to /newvoice, the rebuilt
-    // one-screen live clash (2026-07-04); the classic trainer stays
-    // at /voice-debate, cross-linked from both /newvoice footers.
-    // Falls back to the "Debate it" CTA verb when already on a voice
-    // surface so the bar still has a working CTA on every page.
-    var onVoiceDebate = /\/(voice-debate|newvoice)(\b|\/)/.test(here);
-    var cta;
-    if (onVoiceDebate) {
-      cta = el('a', {
-        href: '/debate-it',
-        class: 'ui-btn ui-btn-primary ui-btn-sm',
-        style: { padding: '8px 18px' },
-      }, 'Debate it');
-    } else {
-      // Label is the action, not the product name — the highlighted
-      // "Voice AI" tab sits right next to this button, and two identical
-      // labels side by side read as a bug.
-      cta = el('a', {
-        href: '/newvoice',
-        class: 'ui-btn ui-btn-primary ui-btn-sm',
-        title: 'Talk out loud. The AI argues back.',
-        style: { padding: '8px 18px' },
-      }, 'Start a round');
-    }
-    // Sign-in / account slot, just left of the primary CTA. Always
+    // Sign-in / account slot at the right edge. Always
     // rendered: shows a "Sign in" button when signed out (not only the
     // signed-in pill), so every page surfaces a path to the free
     // account. hydrateUser() below paints + wires it.
     var userSlot = el('span', { id: 'barUser' });
     right.appendChild(userSlot);
-    right.appendChild(cta);
 
     nav.appendChild(left);
     nav.appendChild(right);
@@ -502,13 +467,6 @@
       sheetLink.appendChild(document.createTextNode(L.label));
       sheet.appendChild(sheetLink);
     });
-    var sheetCta = el('a', {
-      href: onVoiceDebate ? '/debate-it' : '/newvoice',
-      class: 'ui-topbar-sheet-cta',
-      role: 'menuitem',
-    }, onVoiceDebate ? 'Debate it →' : 'Start a round →');
-    sheet.appendChild(sheetCta);
-
     // Auth row in the mobile sheet. On desktop the Sign in pill lives in
     // the topbar; on mobile the right-side slot is hidden, so the sheet
     // carries it. Label flips to "Sign out" once signed in (hydrateUser
