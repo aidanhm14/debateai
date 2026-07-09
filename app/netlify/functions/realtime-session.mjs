@@ -1348,7 +1348,18 @@ export default async (request, context) => {
           body: ep.body(candidate),
         });
         lastLabel = ep.label + ' / ' + candidate;
-        if (r.ok) { upstream = r; break outer; }
+        if (r.ok) {
+          upstream = r;
+          // Surface the model that actually minted so 2.1 vs a fallback is
+          // unambiguous in the Netlify function logs. The warn fires loudly
+          // if we dropped off 2.1 (env override or the account lacks 2.1
+          // access) so it can't silently degrade.
+          console.log(`[realtime] session minted with model=${candidate} (${ep.label})`);
+          if (!/^gpt-realtime-2\.1/.test(candidate)) {
+            console.warn(`[realtime] NOT on gpt-realtime-2.1 — using ${candidate}. Check OPENAI_REALTIME_MODEL env + account access to 2.1.`);
+          }
+          break outer;
+        }
         lastErrText = await r.text().catch(() => '');
         console.error(`Realtime mint failed [${lastLabel}]:`, r.status, lastErrText.slice(0, 300));
         if (r.status === 401 || r.status === 403) { upstream = r; break outer; }
