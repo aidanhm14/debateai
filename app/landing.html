@@ -7621,20 +7621,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             });
           });
           var idx = 0;
-          function swap(){
+          var fadeMs = 230;
+          var staggerMs = 5000;
+          var cycleMs = 12000;
+          function swapFace(img, src){
+            if (!img || !src || img.getAttribute('src') === src) return;
+            img.classList.add('is-swapping');
+            setTimeout(function(){
+              img.src = src;
+              img.classList.remove('is-swapping');
+            }, fadeMs);
+          }
+          function swapRound(){
             if (document.hidden) return;
             idx = (idx + 1) % pairs.length;
             var next = pairs[idx];
-            speaker.classList.add('is-swapping');
-            opponent.classList.add('is-swapping');
+            swapFace(speaker, next[0]);
             setTimeout(function(){
-              speaker.src = next[0];
-              opponent.src = next[1];
-              speaker.classList.remove('is-swapping');
-              opponent.classList.remove('is-swapping');
-            }, 230);
+              if (document.hidden) return;
+              swapFace(opponent, next[1]);
+            }, staggerMs);
           }
-          setInterval(swap, 4200);
+          setTimeout(function(){
+            swapRound();
+            setInterval(swapRound, cycleMs);
+          }, 4200);
         })();
       </script>
 
