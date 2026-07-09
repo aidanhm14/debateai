@@ -43,6 +43,19 @@
 
   document.documentElement.classList.add('dbnative');
 
+  // Load the APP DESIGN LAYER (app/css/native-app.css). This stylesheet is
+  // the one place app-specific design lives; it loads ONLY in the app, so
+  // it never affects the website. Injected as early as possible so app
+  // styling is present before first paint.
+  (function loadAppCss() {
+    if (document.getElementById('db-native-app-css')) return;
+    var l = document.createElement('link');
+    l.id = 'db-native-app-css';
+    l.rel = 'stylesheet';
+    l.href = '/css/native-app.css';
+    (document.head || document.documentElement).appendChild(l);
+  })();
+
   // Hide payment / upgrade / checkout surfaces. Two layers:
   //   - explicit opt-in: anything tagged [data-native-hide]
   //   - defensive selectors: links to pricing / checkout / stripe / upgrade,

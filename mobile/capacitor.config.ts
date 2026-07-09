@@ -5,12 +5,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // switch to a bundled local build (set webDir + remove server.url) so
 // the app works offline — required for App Store reviewer testing.
 const config: CapacitorConfig = {
-  appId: 'com.debateai.app',
-  appName: 'DebateAI',
+  appId: 'com.debateai.debateit',
+  appName: 'DebateIt',
   webDir: 'www', // placeholder — replaced when we bundle a local build
 
   server: {
-    url: 'https://debateai.com',
+    url: 'https://debateai.com/coach',
     // Only allow our own host. Tighten further before submission.
     allowNavigation: [
       'debateai.com',

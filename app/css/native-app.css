@@ -1,0 +1,94 @@
+/* ──────────────────────────────────────────────────────────────────
+   native-app.css — THE APP DESIGN LAYER.
+
+   This stylesheet is loaded ONLY inside the native iOS/Android app
+   (native-bridge.js injects it when window.Capacitor is present). It is
+   NOT loaded on the plain website. Everything here is scoped under
+   `html.dbnative` as belt-and-suspenders.
+
+   >>> This is where ALL app-specific design goes. <<<
+   Editing this file changes the APP only — it never touches the website.
+   Editing the website's normal CSS still flows to the app automatically
+   (that's the "auto-synced" half), UNLESS you override it here for the
+   app. So: app-only look = edit here; web-only look = edit the normal
+   site CSS; shared look = edit the normal site CSS and leave it alone.
+
+   Design hooks you can use in any page's HTML:
+     data-app-only   → element shows ONLY in the app (hidden on web)
+     data-web-only   → element shows ONLY on the web (hidden in the app)
+   (data-native-hide / [data-native-only] from native-bridge.js also work.)
+
+   Keep Apple's rules in mind (see mobile/CODEX_APP_HANDOVER.md):
+   no purchase / upgrade / Stripe UI in the app (native-bridge already
+   hides it), and Sign in with Apple must sit next to Google.
+   ────────────────────────────────────────────────────────────────── */
+
+/* ── Safe areas ─────────────────────────────────────────────────────
+   The webview runs full-bleed under the notch / Dynamic Island and the
+   home indicator. Pad the fixed chrome so nothing hides behind them. */
+html.dbnative {
+  /* expose the insets as vars any element can use */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+html.dbnative body {
+  /* iOS momentum scroll + kill the rubber-band white flash at the top */
+  -webkit-overflow-scrolling: touch;
+}
+/* Shared top bar clears the status bar / island. */
+html.dbnative .ui-topbar {
+  padding-top: var(--safe-top);
+  height: calc(52px + var(--safe-top));
+}
+/* Anything pinned to the bottom clears the home indicator. */
+html.dbnative .ui-beta-strip,
+html.dbnative [data-app-safe-bottom] {
+  padding-bottom: calc(12px + var(--safe-bottom));
+}
+
+/* ── Native feel ────────────────────────────────────────────────────
+   Small touches that stop it reading like a website in a browser. */
+html.dbnative,
+html.dbnative body {
+  /* no blue tap-flash on buttons/links */
+  -webkit-tap-highlight-color: transparent;
+  /* no iOS long-press "copy/share" callout on chrome */
+  -webkit-touch-callout: none;
+  /* the page shouldn't be text-selectable like a document... */
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* ...but DO allow selection where the user types or reads real content. */
+html.dbnative input,
+html.dbnative textarea,
+html.dbnative [contenteditable],
+html.dbnative .selectable,
+html.dbnative .transcript,
+html.dbnative .t-text {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ── Web-only vs app-only ───────────────────────────────────────────
+   Content the app should never show (marketing-for-web, "download our
+   app" promos, etc.). Tag it in the HTML with data-web-only. */
+html.dbnative [data-web-only] { display: none !important; }
+/* app-only content shows here; hidden on the web via native-bridge's
+   [data-native-only] rule. Prefer data-native-only for that direction. */
+
+/* Common "get the app" / smart-app-banner surfaces would be redundant
+   (and can read as steering) inside the app — hide known ones. */
+html.dbnative .app-download-banner,
+html.dbnative .smart-app-banner,
+html.dbnative .get-the-app,
+html.dbnative [data-app-promo] { display: none !important; }
+
+/* ── App home (currently the app opens to /coach) ───────────────────
+   Put coach-page app-only tweaks here as you iterate. Example scaffold
+   (commented; enable + adjust once verified on device):
+
+   html.dbnative .coach-eyebrow { ... }
+   html.dbnative #readLine { ... }
+*/
