@@ -40,7 +40,7 @@ const DRILLS = {
   open: {
     label: 'Open spar',
     focus: 'Free back and forth. Let them set the motion and pick a side, then take the other side and be a sharp opponent and second.',
-    open: 'ask what motion they want to run and which side they are taking, then take the opposite side and go.',
+    open: 'ask ONE compact question: "What motion, and which side are you on?" Nothing else. You already know their format from the profile; never ask for it. The moment they answer, take the opposite side and go.',
   },
   poi: {
     label: 'POI gauntlet',
@@ -181,6 +181,7 @@ ${motionLine}
 
 HOW YOU RUN A DRILL:
 - You drive. State the drill in one line, then start it. Don't ask permission to begin.
+- SETUP COSTS SECONDS: at most ONE question before the drill starts, and never two questions in the same turn. Anything you can default (format, level, pace), default from the profile silently.
 - One thought at a time. Don't lecture. Don't recap. Don't restate them.
 - Push on the exact weak spot. Ask "and?" or "why?" instead of paragraphs.
 - When they hedge or go vague, name the hedge and make them commit. Never pair their name with a correction.
@@ -322,6 +323,9 @@ export default async (request) => {
   const format = clean(body.format, 30) || clean(profile.preferredFormat, 30);
   const drill = ALLOWED_DRILLS.has((body.drill || '').toLowerCase()) ? body.drill.toLowerCase() : 'open';
   const motion = clean(body.motion, 180);
+  // Transcription language pin (2-letter code, default English). Without a
+  // pin the transcriber auto-detects and mishears become other languages.
+  const aiLang = /^[a-z]{2}$/.test(String(body.aiLanguage || '').toLowerCase()) ? String(body.aiLanguage).toLowerCase() : 'en';
 
   const instructions = buildCoachInstructions({
     displayName: profile.displayName || profile.name || email.split('@')[0],
@@ -347,7 +351,7 @@ export default async (request) => {
   };
   const legacyBody = (m) => JSON.stringify({
     model: m, voice, instructions, modalities: ['audio', 'text'],
-    input_audio_transcription: { model: 'gpt-4o-mini-transcribe' },
+    input_audio_transcription: { model: 'gpt-4o-mini-transcribe', language: aiLang },
     turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 500, create_response: true },
   });
 

@@ -1375,7 +1375,10 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
             output_modalities: ['audio'],
             audio: {
               input: {
-                transcription: { model: 'gpt-4o-mini-transcribe' },
+                // Pin the transcription language — without it the model
+                // auto-detects and a mumble can come back as Korean/etc.,
+                // derailing the round. Honors the site locale when set.
+                transcription: { model: 'gpt-4o-mini-transcribe', language: (function(){ try { var l = (localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en').slice(0,2); return /^[a-z]{2}$/.test(l) ? l : 'en'; } catch(e){ return 'en'; } })() },
                 turn_detection: {
                   type: 'server_vad',
                   // 0.5 -> 0.7 (2026-06-15): coach was getting interrupted
@@ -1392,7 +1395,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
                   // Middle ground for a back-and-forth drill: responsive
                   // without chopping a normal mid-thought pause. Lower for
                   // snappier, raise toward 1700 to be more patient.
-                  silence_duration_ms: 900,
+                  silence_duration_ms: 750,  // 900 -> 750: snappier turn-end for Q&A-style drills (speeches on /voice-debate keep their patient 1700)
                   create_response: true,
                   interrupt_response: true,
                 },
