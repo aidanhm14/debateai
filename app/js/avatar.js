@@ -948,31 +948,29 @@
   // The 12. name · face variant · skin · hair color · bg duo · garment ·
   // accessory · hair silhouette index (CAM_HAIR).
   var CAMEOS = [
-    { name: 'Nova',  face: 1, skin: '#8d5c38', hair: '#15100c', bg: ['#3b2a20', '#241811'], garb: ['turtleneck', '#16161a'], acc: 'hoop',       hs: 0  },
-    { name: 'Rhea',  face: 2, skin: '#f0d4bb', hair: '#6b4423', bg: ['#1d2b45', '#101a2e'], garb: ['crew', '#c8a878'],       acc: 'none',       hs: 1  },
-    { name: 'Kai',   face: 0, skin: '#e2b48c', hair: '#241a12', bg: ['#39424e', '#232a34'], garb: ['crew', '#30343c'],       acc: 'glasses',    hs: 2  },
-    { name: 'Zadie', face: 2, skin: '#6d4527', hair: '#100c09', bg: ['#4a1f24', '#2e1215'], garb: ['turtleneck', '#e8e0d2'], acc: 'none',       hs: 3  },
-    { name: 'Emre',  face: 1, skin: '#c99a6b', hair: '#1c1611', bg: ['#25382c', '#16241b'], garb: ['zip', '#191c22'],        acc: 'none',       hs: 4  },
-    { name: 'Ines',  face: 2, skin: '#d9a97e', hair: '#2a1c12', bg: ['#3a2440', '#241329'], garb: ['blazer', '#23242b', '#f2ede4'], acc: 'hoop', hs: 5 },
-    { name: 'Jun',   face: 0, skin: '#edc9a4', hair: '#17120e', bg: ['#173a3a', '#0d2424'], garb: ['turtleneck', '#3c4650'], acc: 'stud',       hs: 6  },
-    { name: 'Amara', face: 0, skin: '#a06a40', hair: '#000000', bg: ['#41432e', '#28291c'], garb: ['crew', '#5c4a5e'],       acc: 'none',       hs: 7, hideEar: true },
-    { name: 'Theo',  face: 1, skin: '#7a4e2e', hair: '#14100c', bg: ['#45222c', '#2b141b'], garb: ['crew', '#28303a'],       acc: 'headphones', hs: 8  },
-    { name: 'Mars',  face: 2, skin: '#f3ddc8', hair: '#c2c8d4', bg: ['#2b2b31', '#1a1a1f'], garb: ['turtleneck', '#101014'], acc: 'earcuff',    hs: 9  },
-    { name: 'Suri',  face: 0, skin: '#c78d5d', hair: '#221510', bg: ['#1f3050', '#122036'], garb: ['zip', '#872731'],        acc: 'stud',       hs: 10 },
-    { name: 'Dre',   face: 1, skin: '#5d3a22', hair: '#0e0b08', bg: ['#4a443c', '#2d2924'], garb: ['hoodie', '#a83232'],     acc: 'none',       hs: 11 }
+    { name: 'Sam',   face: 1, skin: '#e8c19e', hair: '#3a2a1c', bg: ['#2e3644', '#1d232e'], garb: ['crew', '#39404c'],       acc: 'none',    hs: 0  },
+    { name: 'Claire',face: 2, skin: '#f0d4bb', hair: '#6b4423', bg: ['#1d2b45', '#101a2e'], garb: ['crew', '#c8a878'],       acc: 'none',    hs: 1  },
+    { name: 'Alex',  face: 0, skin: '#e2b48c', hair: '#241a12', bg: ['#39424e', '#232a34'], garb: ['crew', '#30343c'],       acc: 'glasses', hs: 2  },
+    { name: 'Maya',  face: 2, skin: '#c78d5d', hair: '#17110c', bg: ['#4a2a2e', '#2e1a1d'], garb: ['turtleneck', '#e8e0d2'], acc: 'stud',    hs: 3  },
+    { name: 'Tom',   face: 1, skin: '#f3dcc4', hair: '#8a6842', bg: ['#25382c', '#16241b'], garb: ['zip', '#31363f'],        acc: 'none',    hs: 4  },
+    { name: 'Elena', face: 2, skin: '#d9a97e', hair: '#2a1c12', bg: ['#3a2440', '#241329'], garb: ['blazer', '#23242b', '#f2ede4'], acc: 'hoop', hs: 5 },
+    { name: 'Jun',   face: 0, skin: '#edc9a4', hair: '#17120e', bg: ['#173a3a', '#0d2424'], garb: ['turtleneck', '#3c4650'], acc: 'none',    hs: 6  },
+    { name: 'Amara', face: 0, skin: '#b97f52', hair: '#000000', bg: ['#41432e', '#28291c'], garb: ['crew', '#5c4a5e'],       acc: 'none',    hs: 7, hideEar: true },
+    { name: 'Marcus',face: 1, skin: '#7a4e2e', hair: '#14100c', bg: ['#432832', '#2a1820'], garb: ['crew', '#28303a'],       acc: 'none',    hs: 8  },
+    { name: 'Nina',  face: 2, skin: '#f3ddc8', hair: '#a5713f', bg: ['#2b2b31', '#1a1a1f'], garb: ['turtleneck', '#4a4e58'], acc: 'glasses', hs: 9  },
+    { name: 'Priya', face: 0, skin: '#c99a6b', hair: '#221510', bg: ['#1f3050', '#122036'], garb: ['crew', '#7a3d46'],       acc: 'stud',    hs: 10 },
+    { name: 'David', face: 1, skin: '#9c6b40', hair: '#0e0b08', bg: ['#4a443c', '#2d2924'], garb: ['hoodie', '#3d4450'],     acc: 'none',    hs: 11 }
   ];
-
   // Hair silhouettes (frontal). back = behind the head, front = over it.
   // Head envelope: x34–66, crown y17.5, temples y26, ears y34–45.
   var CAM_HAIR = [
-    function (h) { // 0 Nova — sculpted high-top fade
-      var hl = shade(h, 0.28);
+    function (h) { // 0 — classic short crop
+      var hl = shade(h, 0.24);
       return { back: '', front:
-        '<path d="M37.6 10.5 L62.4 10.5 C63.4 14.5 64 19.5 63.8 23.5 C63.4 26 61.5 27.4 59 26.6 C53.4 24.4 46.6 24.4 41 26.6 C38.5 27.4 36.6 26 36.2 23.5 C36 19.5 36.6 14.5 37.6 10.5 Z" fill="' + h + '"/>' +
-        '<path d="M39.4 12.4 L60.6 12.4" stroke="' + hl + '" stroke-width="1.1" opacity=".6"/>' +
-        '<path d="M35.8 27.5 C35 31.5 34.8 35.5 35.4 39 M64.2 27.5 C65 31.5 65.2 35.5 64.6 39" stroke="' + h + '" stroke-width="1.6" stroke-linecap="round" opacity=".4"/>' };
+        '<path d="M34.4 31 C33.4 20 40.4 13.8 50 13.8 C59.6 13.8 66.6 20 65.6 31 C63.6 24 58.2 20.6 50 20.6 C41.8 20.6 36.4 24 34.4 31 Z" fill="' + h + '"/>' +
+        '<path d="M40.4 17.6 C43.4 15.6 46.6 14.8 49.6 14.8" fill="none" stroke="' + hl + '" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>' };
     },
-    function (h) { // 1 Rhea — long soft waves, side part
+    function (h) { // 1 — long soft waves
       var d = shade(h, -0.22), hl = shade(h, 0.25);
       return {
         back: '<path d="M31.5 30 C27.5 42 27 60 30.5 76 L38.5 76 C35.5 62 35.5 46 37.5 36 Z" fill="' + d + '"/>' +
@@ -981,29 +979,30 @@
         front: '<path d="M34 34.5 C32.6 22 40 14.4 50 14.4 C60 14.4 67.4 22 66 34.5 C64.8 27.6 61.4 23.6 56.6 22.4 C58 24.8 58.2 27.2 57.2 29.2 C55.2 25.2 52.8 23.4 50 23.4 C47.2 23.4 44.8 25.2 42.8 29.2 C41.8 27.2 42 24.8 43.4 22.4 C38.6 23.6 35.2 27.6 34 34.5 Z" fill="' + h + '"/>' +
                '<path d="M40 18.6 C45 15.9 53 15.6 58.2 18.2" fill="none" stroke="' + hl + '" stroke-width="1.4" stroke-linecap="round" opacity=".9"/>' };
     },
-    function (h) { // 2 Kai — messy quiff crop
+    function (h) { // 2 — tidy quiff crop
       var hl = shade(h, 0.3);
       return { back: '', front:
         '<path d="M34.6 30 C33.2 20.4 39.6 13.2 50 13.2 C60 13.2 66.6 19.8 65.4 29.4 C64.2 25 61.8 22.2 58.6 21 C59.8 23.8 59.8 26.4 58.8 28.4 C55.8 23.6 50.4 21.8 45.2 23.4 C40.8 24.8 37.4 27.4 36 31.4 Z" fill="' + h + '"/>' +
         '<path d="M42.5 16.8 C46 14.9 51.5 14.6 55.5 16.4 M38.6 20.4 C41 18 44 16.6 46.6 16.2" fill="none" stroke="' + hl + '" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>' };
     },
-    function (h) { // 3 Zadie — box braids, beads
+    function (h) { // 3 — neat braids
       var d = shade(h, 0.26);
       return {
         back: '<path d="M33 30 C29.5 40 29 54 31.5 66 L37.5 65 C35.5 54 36 42 38.5 34 Z" fill="' + h + '"/>' +
               '<path d="M67 30 C70.5 40 71 54 68.5 66 L62.5 65 C64.5 54 64 42 61.5 34 Z" fill="' + h + '"/>' +
               '<ellipse cx="33.6" cy="50" rx="2.1" ry="3.4" fill="' + d + '"/><ellipse cx="33.2" cy="57.5" rx="2" ry="3.2" fill="' + h + '"/><ellipse cx="33.6" cy="64.5" rx="1.9" ry="3" fill="' + d + '"/>' +
               '<ellipse cx="66.4" cy="50" rx="2.1" ry="3.4" fill="' + d + '"/><ellipse cx="66.8" cy="57.5" rx="2" ry="3.2" fill="' + h + '"/><ellipse cx="66.4" cy="64.5" rx="1.9" ry="3" fill="' + d + '"/>' +
-              '<circle cx="33.5" cy="69" r="1.4" fill="#e7b54c"/><circle cx="66.5" cy="69" r="1.4" fill="#e7b54c"/>',
+              '',
         front: '<path d="M34 33 C33 21.4 40 14 50 14 C60 14 67 21.4 66 33 C64.8 27 61.6 23.2 57.4 21.8 C54.8 21 52.4 20.8 50 20.8 C47.6 20.8 45.2 21 42.6 21.8 C38.4 23.2 35.2 27 34 33 Z" fill="' + h + '"/>' +
                '<path d="M39 22.6 L36.6 30.4 M44.4 20.8 L43 28.6 M50 20.4 L50 28 M55.6 20.8 L57 28.6 M61 22.6 L63.4 30.4" stroke="' + d + '" stroke-width="1.25" stroke-linecap="round" opacity=".8"/>' };
     },
-    function (h) { // 4 Emre — tight buzz + trimmed beard
+    function (h) { // 4 — short side part
+      var hl = shade(h, 0.26);
       return { back: '', front:
-        '<path d="M34.6 31 C33.6 21 40.4 14.4 50 14.4 C59.6 14.4 66.4 21 65.4 31 C63.6 24.6 58 21 50 21 C42 21 36.4 24.6 34.6 31 Z" fill="' + h + '" opacity=".93"/>' +
-        '<path d="M38.6 51.2 C41.2 55.4 45.2 58 50 58 C54.8 58 58.8 55.4 61.4 51.2 C61 55.4 60 58.4 57.8 60.4 C55.6 62.3 52.9 63.2 50 63.2 C47.1 63.2 44.4 62.3 42.2 60.4 C40 58.4 39 55.4 38.6 51.2 Z" fill="' + h + '" opacity=".55"/>' };
+        '<path d="M34.2 32 C33 20.6 40.2 14 50 14 C59.8 14 67 20.6 65.8 32 C64.6 25.4 61 22 55.8 21.4 C51 20.9 45 21.4 41.4 23.6 C37.6 25.8 35.2 28.4 34.2 32 Z" fill="' + h + '"/>' +
+        '<path d="M42.4 22.8 C46.4 20.9 52 20.5 56.4 21.6" fill="none" stroke="' + hl + '" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>' };
     },
-    function (h) { // 5 Ines — sleek center part (low bun behind)
+    function (h) { // 5 — sleek center part, low bun
       var hl = shade(h, 0.3);
       return {
         back: '<path d="M33 34 C31.8 44 32.6 52 35 57 L39 54 C37 49 36.6 42 37.4 36 Z" fill="' + shade(h, -0.12) + '"/>' +
@@ -1012,7 +1011,7 @@
                '<path d="M50 21.6 L50 15.6" stroke="' + shade(h, -0.25) + '" stroke-width="1.1" opacity=".7"/>' +
                '<path d="M41 18.8 C43.6 16.9 46.6 15.9 49.4 15.8" fill="none" stroke="' + hl + '" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>' };
     },
-    function (h) { // 6 Jun — blunt bangs + chin bob
+    function (h) { // 6 — bangs + chin bob
       var d = shade(h, -0.2);
       return {
         back: '<path d="M32.6 30 C30 40 30.2 51 33.4 59.5 L39.4 57.5 C37 50 36.8 40 38.6 33 Z" fill="' + d + '"/>' +
@@ -1020,7 +1019,7 @@
         front: '<path d="M33.8 33.6 C32.4 21 40 13.6 50 13.6 C60 13.6 67.6 21 66.2 33.6 L63.6 33.2 C63.2 30 62.4 27.4 61.2 25.4 C58 24 54 23.4 50 23.4 C46 23.4 42 24 38.8 25.4 C37.6 27.4 36.8 30 36.4 33.2 Z" fill="' + h + '"/>' +
                '<path d="M42 16.6 C46.6 14.8 53.4 14.8 58 16.6" fill="none" stroke="' + shade(h, 0.22) + '" stroke-width="1.2" stroke-linecap="round" opacity=".8"/>' };
     },
-    function (h) { // 7 Amara — hijab (drape frames the face, ears covered)
+    function (h) { // 7 — hijab (ears covered)
       var c = '#b98499', d = shade(c, -0.22), hl = shade(c, 0.14);
       return {
         back: '<path d="M30 44 C29 58 32 70 38 77 L47 79 C39 71 35.6 58 36.6 46 Z" fill="' + d + '"/>' +
@@ -1029,36 +1028,33 @@
                '<path d="M39 58.4 C42 63.2 45.8 66 50 66 C54.2 66 58 63.2 61 58.4 L62.8 60.8 C59.6 66.2 55 69.2 50 69.2 C45 69.2 40.4 66.2 37.2 60.8 Z" fill="' + hl + '"/>' +
                '<path d="M40 16.4 C43 14.1 46.4 13 50 13 C53.6 13 57 14.1 60 16.4" fill="none" stroke="' + hl + '" stroke-width="1.3" stroke-linecap="round" opacity=".9"/>' };
     },
-    function (h) { // 8 Theo — short coils
+    function (h) { // 8 — short coils
       var d = shade(h, 0.24);
       return { back: '', front:
         '<path d="M34.4 30 C33.6 20 40.6 13.4 50 13.4 C59.4 13.4 66.4 20 65.6 30 C63.6 23.8 58 20.4 50 20.4 C42 20.4 36.4 23.8 34.4 30 Z" fill="' + h + '"/>' +
         '<circle cx="38.6" cy="19.4" r="2.1" fill="' + d + '" opacity=".7"/><circle cx="44.4" cy="16" r="2.2" fill="' + d + '" opacity=".6"/><circle cx="50.6" cy="15.2" r="2.2" fill="' + d + '" opacity=".7"/><circle cx="56.6" cy="16.4" r="2.1" fill="' + d + '" opacity=".6"/><circle cx="61.8" cy="19.8" r="2" fill="' + d + '" opacity=".7"/>' };
     },
-    function (h) { // 9 Mars — platinum micro-buzz, sharp line-up
-      var d = shade(h, -0.3);
+    function (h) { // 9 — straight shoulder-length, side part
+      var d = shade(h, -0.2), hl = shade(h, 0.24);
+      return {
+        back: '<path d="M32.6 30 C29.6 42 30 56 33.4 66 L39.4 64.5 C36.6 55 36.6 43 38.6 34 Z" fill="' + d + '"/>' +
+              '<path d="M67.4 30 C70.4 42 70 56 66.6 66 L60.6 64.5 C63.4 55 63.4 43 61.4 34 Z" fill="' + d + '"/>',
+        front: '<path d="M34 34 C32.8 21.6 40 14.4 50 14.4 C60 14.4 67.2 21.6 66 34 C64.8 27.2 61.2 23.2 56 22.2 C50.4 21.2 44.4 22.2 40.8 25.2 C37.4 28 35 30.8 34 34 Z" fill="' + h + '"/>' +
+               '<path d="M43 23.4 C47.6 21.4 53.4 21.2 57.8 22.8" fill="none" stroke="' + hl + '" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>' };
+    },
+    function (h) { // 10 — low ponytail
+      var d = shade(h, -0.18), hl = shade(h, 0.26);
+      return {
+        back: '<path d="M60 46 C64 52 65 60 63.5 68 L58.5 67 C60 60 59.5 53 57 48 Z" fill="' + d + '"/>' +
+              '<path d="M61.8 51 C63 56 63.2 61.5 62.2 66" fill="none" stroke="' + hl + '" stroke-width="1.1" stroke-linecap="round" opacity=".75"/>',
+        front: '<path d="M34.2 32.6 C33 21.2 40.2 14.2 50 14.2 C59.8 14.2 67 21.2 65.8 32.6 C64.4 26 60.4 22.4 54.8 21.7 L50 21.5 L45.2 21.7 C39.6 22.4 35.6 26 34.2 32.6 Z" fill="' + h + '"/>' +
+               '<path d="M41 18.6 C44 16.4 47.2 15.4 50.2 15.4" fill="none" stroke="' + hl + '" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>' };
+    },
+    function (h) { // 11 — short natural waves
+      var d = shade(h, 0.2);
       return { back: '', front:
-        '<path d="M35 29 C34.4 20 41 14 50 14 C59 14 65.6 20 65 29 C63 23.4 57.6 20.6 50 20.6 C42.4 20.6 37 23.4 35 29 Z" fill="' + h + '" opacity=".95"/>' +
-        '<path d="M37.4 26.4 C40.4 23 45 21.2 50 21.2 C55 21.2 59.6 23 62.6 26.4" fill="none" stroke="' + d + '" stroke-width=".9" opacity=".8"/>' };
-    },
-    function (h) { // 10 Suri — high ponytail, whipped
-      var d = shade(h, -0.18), hl = shade(h, 0.28);
-      return {
-        back: '<path d="M57 13 C68 6.5 80 9 84.5 18 C88 25.5 86 34.5 80 40 L75.6 35.8 C80 31.4 81.2 25 78.4 20.2 C75 14.4 67.2 13.4 60.4 17 Z" fill="' + d + '"/>' +
-              '<path d="M79.8 19.6 C82.4 24.4 82 30.6 78.8 35.2" fill="none" stroke="' + hl + '" stroke-width="1.3" stroke-linecap="round" opacity=".8"/>',
-        front: '<path d="M34.2 32 C33 21 40.2 14.2 50 14.2 C59.8 14.2 67 21 65.8 32 C64.2 25.6 60.2 22 54.6 21.4 L50 21.2 L45.4 21.4 C39.8 22 35.8 25.6 34.2 32 Z" fill="' + h + '"/>' +
-               '<path d="M54 15.4 C52.6 12.4 56.4 10.2 59.4 11.2 L61.4 15.4 L57.6 17.4 Z" fill="' + d + '"/>' +
-               '<path d="M40.6 18.4 C43.4 16.2 46.6 15.2 49.6 15.2" fill="none" stroke="' + hl + '" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>' };
-    },
-    function (h) { // 11 Dre — locs, tied half-up
-      var d = shade(h, 0.22);
-      return {
-        back: '<path d="M32.4 32 C30 42 30.4 54 33.4 64 L38.8 62.5 C36.4 53 36.4 42 38.8 34.5 Z" fill="' + h + '"/>' +
-              '<path d="M67.6 32 C70 42 69.6 54 66.6 64 L61.2 62.5 C63.6 53 63.6 42 61.2 34.5 Z" fill="' + h + '"/>' +
-              '<path d="M34.4 42 L33 56 M66 42 L67.4 56" stroke="' + d + '" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>',
-        front: '<path d="M34 32.4 C33 21 40.4 13.8 50 13.8 C59.6 13.8 67 21 66 32.4 C64.4 26 60.4 22.4 54.8 21.6 L50 21.4 L45.2 21.6 C39.6 22.4 35.6 26 34 32.4 Z" fill="' + h + '"/>' +
-               '<path d="M44.8 13.6 C43.6 10 48 7.4 51.6 8.4 C55.2 9.4 55.6 13.4 52.8 14.8 L48.4 15.6 Z" fill="' + d + '"/>' +
-               '<path d="M40 22.4 L37.6 30.4 M45.2 21 L44 28.6 M50.8 20.8 L51 28.2 M56.4 21.4 L58 29 M61.4 23.4 L63.6 30.6" stroke="' + d + '" stroke-width="1.3" stroke-linecap="round" opacity=".7"/>' };
+        '<path d="M34.4 30.6 C33.4 20 40.4 13.6 50 13.6 C59.6 13.6 66.6 20 65.6 30.6 C63.6 23.8 58.2 20.4 50 20.4 C41.8 20.4 36.4 23.8 34.4 30.6 Z" fill="' + h + '"/>' +
+        '<path d="M38.6 23.2 Q41.6 20.4 45 19.6 M47.8 18.8 Q51.4 18.2 54.8 19.2 M57.6 20.2 Q60.6 21.8 62.4 24.2" fill="none" stroke="' + d + '" stroke-width="1.3" stroke-linecap="round" opacity=".7"/>' };
     }
   ];
 
