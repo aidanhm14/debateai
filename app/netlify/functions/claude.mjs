@@ -114,6 +114,8 @@ const ANON_LAYERS = [
   { window: 86_400_000,max: 30,  label: 'day'    },
 ];
 const anonHistory = new Map(); // ip → array of request timestamps
+const SIGNED_IN_BETA_DAILY_MAX = Number(process.env.SIGNED_IN_BETA_DAILY_MAX || 20);
+const signedInBetaHistory = new Map(); // uid -> array of request timestamps
 
 async function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
   if (HAS_UPSTASH) {
@@ -179,6 +181,27 @@ async function checkAnonLayers(ip) {
   return { ok: true };
 }
 
+async function checkSignedInBetaLimit(userId) {
+  if (!userId) return { ok: false, count: 0 };
+
+  if (HAS_UPSTASH) {
+    const count = await upstashIncr(`rl:beta-user:day:${userId}`, 86_400);
+    if (count !== null) return { ok: count <= SIGNED_IN_BETA_DAILY_MAX, count };
+  }
+
+  const now = Date.now();
+  const windowMs = 86_400_000;
+  const history = (signedInBetaHistory.get(userId) || []).filter(t => now - t < windowMs);
+  history.push(now);
+  signedInBetaHistory.set(userId, history);
+  if (signedInBetaHistory.size > 5000) {
+    const entries = Array.from(signedInBetaHistory.entries());
+    signedInBetaHistory.clear();
+    entries.slice(-2500).forEach(([k, v]) => signedInBetaHistory.set(k, v));
+  }
+  return { ok: history.length <= SIGNED_IN_BETA_DAILY_MAX, count: history.length };
+}
+
 export default async (request, context) => {
   const CORS = getCorsHeaders(request);
 
@@ -228,44 +251,54 @@ export default async (request, context) => {
 
       const result = await getUserTeam(userId);
       if (!result) {
-        return new Response(
-          JSON.stringify({ error: 'No team found. Create or join a team first.' }),
-          { status: 403, headers: { 'Content-Type': 'application/json', ...CORS } }
-        );
-      }
+        const betaLimit = isOwnerEmail(decoded.email)
+          ? { ok: true, count: 0 }
+          : await checkSignedInBetaLimit(userId);
+        if (!betaLimit.ok) {
+          return new Response(
+            JSON.stringify({
+              error: 'Daily beta limit reached. Try again tomorrow or create a team for higher limits.',
+              code: 'SIGNED_IN_BETA_LIMIT',
+              usage: betaLimit.count,
+              limit: SIGNED_IN_BETA_DAILY_MAX,
+            }),
+            { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
+          );
+        }
+      } else {
+        const { team } = result;
+        teamId = team.id;
 
-      const { team } = result;
-      teamId = team.id;
+        // Subscription gate. Lifetime is paid-once-active-forever; trial is
+        // the free tier. Both bypass the status check entirely and rely on
+        // the usage cap for upsell. For paid subscriptions we only block on
+        // EXPLICIT Stripe-bad statuses: 'past_due' is a grace state Stripe
+        // retries through, and null/'inactive' from legacy/race-conditioned
+        // writes shouldn't lock out users who actually paid. The previous
+        // logic requiring 'active' | 'trialing' was a fake paywall hitting
+        // paying customers.
+        const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+        const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
+        if (SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) {
+          return new Response(
+            JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
+            { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }
+          );
+        }
 
-      // Subscription gate. Lifetime is paid-once-active-forever; trial is
-      // the free tier. Both bypass the status check entirely and rely on
-      // the usage cap for upsell. For paid subscriptions we only block on
-      // EXPLICIT Stripe-bad statuses — 'past_due' is a grace state Stripe
-      // retries through, and null/'inactive' from legacy/race-conditioned
-      // writes shouldn't lock out users who actually paid. The previous
-      // logic (allowlist requiring 'active' | 'trialing') was a fake paywall
-      // hitting paying customers.
-      const SUB_PLANS = new Set(['byok', 'individual', 'team']);
-      const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
-      if (SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) {
-        return new Response(
-          JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
-          { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }
-        );
-      }
-
-      // Check usage limits — owner allowlist bypasses.
-      const planLimits = PLANS[team.plan] || PLANS.trial;
-      if (!isOwnerEmail(decoded.email) && team.usageThisPeriod >= planLimits.requests) {
-        return new Response(
-          JSON.stringify({
-            error: 'Monthly usage limit reached. Upgrade your plan for more requests.',
-            code: 'USAGE_LIMIT_REACHED',
-            usage: team.usageThisPeriod,
-            limit: planLimits.requests,
-          }),
-          { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
-        );
+        // Check usage limits. Owner allowlist bypasses.
+        const planLimits = PLANS[team.plan] || PLANS.trial;
+        if (!isOwnerEmail(decoded.email) && team.usageThisPeriod >= planLimits.requests) {
+          return new Response(
+            JSON.stringify({
+              error: 'Monthly usage limit reached. Upgrade your plan for more requests.',
+              code: 'USAGE_LIMIT_REACHED',
+              usage: team.usageThisPeriod,
+              limit: planLimits.requests,
+            }),
+            { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
+          );
+        }
       }
     } catch (err) {
       return new Response(

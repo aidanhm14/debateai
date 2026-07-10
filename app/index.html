@@ -5493,77 +5493,18 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
     setContextHint(null);
     setError(null);
 
-    // Fast path: if bgNeed already evaluated as essential/recommended and no background provided
     var bgEmpty = !(background || '').trim() || ['n/a', 'na', 'none'].includes((background || '').trim().toLowerCase());
     if (bgNeed && bgEmpty && (bgNeed.level === 'essential' || bgNeed.level === 'recommended')) {
-      setContextHint(bgNeed.reason + (bgNeed.level === 'essential' ? ' Adding background will significantly improve the case.' : ' Consider adding context for a stronger case.'));
-      setMode(genMode);
-      return;
+      setContextHint(bgNeed.reason + ' The case will state its assumptions so you can revise them.');
     }
 
-    setCheckingContext(true);
+    setMode(genMode);
+    setCheckingContext(false);
+    generateCase(genMode);
+  };
 
-    var checkSys = `You are an APDA debate case evaluator. Your job is to decide if a motion and optional background provide enough specificity to generate a unique, competitive debate case. Respond ONLY with valid JSON. no markdown, no fences, no extra text.`;
-    var bgCheck = (background || '').trim().toLowerCase();
-    var bgDisplay = bgCheck === 'n/a' || bgCheck === 'na' || bgCheck === 'none' || !bgCheck ? '(none provided)' : background.trim();
-    var checkUser = `Motion: ${motion.trim()}
-Background: ${bgDisplay}
-Side: ${side}
-Format: ${format}
-
-Evaluate whether this is specific enough to write a unique, competitive APDA case. Consider:
-1. Is the motion clear enough that both sides know what they are debating?
-2. Is there enough context to write specific warrants with real examples?
-3. Would the case benefit from a more detailed background (character details, constraints, scenario specifics)?
-
-Respond with JSON: {"sufficient": true/false, "suggestion": "If insufficient, write a 1-2 sentence suggestion for what background details the user should add to make this case unique and debatable. If sufficient, leave empty string."}`;
-
-    try {
-      var result = '';
-      await callClaude(checkSys, checkUser, (text) => {result = text;}, { thinkBudget: 4000, maxTokens: 2000 });
-      // Parse JSON response
-      var cleaned = result.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-      var parsed = JSON.parse(cleaned);
-      if (!parsed.sufficient && parsed.suggestion) {
-        setContextHint(parsed.suggestion);
-        setCheckingContext(false);
-        return; // Don't generate. show hint instead
-      }
-    } catch (e) {
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      // If check fails, proceed anyway
-    }setCheckingContext(false);generateCase(genMode);};var generateCase = async (genMode) => {if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
+  var generateCase = async (genMode) => {
+    if (!motion.trim()) return; // Generate Opposition (tightblock) is a Pro-only feature. Free users see
     // a blurred button + upgrade prompt; this guard catches any code path
     // (DevTools, stale contextHint) that would bypass the UI gate.
     if (genMode === 'tightblock' && !isPro(team, user)) {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}return;}if (typeof gtag === 'function') {gtag('event', 'case_generate', { mode: genMode, side, motion_length: motion.length, feature: 'case' });} // Auto-version: if regenerating same motion, save previous output as a version
