@@ -1084,40 +1084,61 @@
     return '' +
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="' + A.name + '" style="display:block">' +
       '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>' +
-      '<radialGradient id="' + id + 'bg" cx="68%" cy="20%" r="95%"><stop offset="0%" stop-color="' + A.bg[0] + '"/><stop offset="100%" stop-color="' + A.bg[1] + '"/></radialGradient>' +
-      '<radialGradient id="' + id + 'sk" cx="42%" cy="30%" r="80%"><stop offset="0%" stop-color="' + shade(skin, 0.10) + '"/><stop offset="60%" stop-color="' + skin + '"/><stop offset="100%" stop-color="' + skinD + '"/></radialGradient>' +
-      '<linearGradient id="' + id + 'gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + shade(garbC, 0.08) + '"/><stop offset="100%" stop-color="' + shade(garbC, -0.14) + '"/></linearGradient></defs>' +
+      // soft-3D light rig: blur filters for volume passes
+      '<filter id="' + id + 'b1" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.3"/></filter>' +
+      '<filter id="' + id + 'b2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6"/></filter>' +
+      '<filter id="' + id + 'b3" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="4.5"/></filter>' +
+      '<radialGradient id="' + id + 'bg" cx="66%" cy="18%" r="100%"><stop offset="0%" stop-color="' + shade(A.bg[0], 0.10) + '"/><stop offset="52%" stop-color="' + A.bg[0] + '"/><stop offset="100%" stop-color="' + shade(A.bg[1], -0.06) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'sk" cx="44%" cy="24%" r="86%"><stop offset="0%" stop-color="' + shade(skin, 0.24) + '"/><stop offset="40%" stop-color="' + shade(skin, 0.06) + '"/><stop offset="66%" stop-color="' + skin + '"/><stop offset="88%" stop-color="' + skinD + '"/><stop offset="100%" stop-color="' + shade(skin, -0.24) + '"/></radialGradient>' +
+      '<linearGradient id="' + id + 'gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + shade(garbC, 0.14) + '"/><stop offset="55%" stop-color="' + garbC + '"/><stop offset="100%" stop-color="' + shade(garbC, -0.20) + '"/></linearGradient></defs>' +
       '<g clip-path="url(#' + id + ')">' +
       '<rect width="100" height="100" fill="url(#' + id + 'bg)"/>' +
+      // studio depth: soft glow behind the bust + grounded vignette
+      '<ellipse cx="56" cy="36" rx="26" ry="24" fill="#fff" opacity=".07" filter="url(#' + id + 'b3)"/>' +
+      '<rect x="0" y="52" width="100" height="48" fill="#000" opacity=".16" filter="url(#' + id + 'b3)"/>' +
       hair.back +
-      // shoulders
+      // shoulders + fabric light
       '<path d="M26 100 C27 81 36.5 71.5 50 70 C63.5 71.5 73 81 74 100 Z" fill="url(#' + id + 'gb)"/>' +
+      '<path d="M33 82 C37 75.5 43 71.6 50 71 C57 71.6 63 75.5 67 82" fill="none" stroke="' + shade(garbC, 0.26) + '" stroke-width="2.4" stroke-linecap="round" opacity=".5" filter="url(#' + id + 'b2)"/>' +
       garb +
-      // neck + jaw shadow on it
+      // neck with the head's cast shadow (the big 3D tell)
       '<path d="M44.6 52 L55.4 52 L55.8 69 L44.2 69 Z" fill="' + skinD + '"/>' +
-      '<path d="M44.6 52 L55.4 52 L55.2 58.4 C51.8 60.2 48.2 60.2 44.8 58.4 Z" fill="' + skinDD + '" opacity=".3"/>' +
-      // ears (peek out from behind the head)
+      '<ellipse cx="50" cy="56.5" rx="6.4" ry="4" fill="' + shade(skin, -0.42) + '" opacity=".5" filter="url(#' + id + 'b2)"/>' +
+      // chest occlusion under the jawline
+      '<ellipse cx="50" cy="70.5" rx="10" ry="2.6" fill="#000" opacity=".18" filter="url(#' + id + 'b2)"/>' +
+      // ears
       (A.hideEar ? '' :
-        '<ellipse cx="33.9" cy="39.4" rx="2.5" ry="4" fill="' + skin + '"/>' +
+        '<ellipse cx="33.9" cy="39.4" rx="2.5" ry="4" fill="' + skinD + '"/>' +
         '<ellipse cx="66.1" cy="39.4" rx="2.5" ry="4" fill="' + skin + '"/>' +
         '<path d="M33.5 37.6 C34.6 37.9 34.9 39.4 34.1 40.8 M66.5 37.6 C65.4 37.9 65.1 39.4 65.9 40.8" fill="none" stroke="' + skinDD + '" stroke-width=".8" stroke-linecap="round" opacity=".6"/>') +
       // head
       '<path d="' + CAM_FACE[A.face] + '" fill="url(#' + id + 'sk)"/>' +
-      // brows + eyes
+      // volumetric passes: under-hair occlusion, socket shading, core shadow
+      '<ellipse cx="50" cy="24.5" rx="13.5" ry="3.6" fill="' + shade(skin, -0.36) + '" opacity=".3" filter="url(#' + id + 'b2)"/>' +
+      '<ellipse cx="44" cy="37.4" rx="4.4" ry="2.4" fill="' + skinDD + '" opacity=".16" filter="url(#' + id + 'b1)"/>' +
+      '<ellipse cx="56" cy="37.4" rx="4.4" ry="2.4" fill="' + skinDD + '" opacity=".16" filter="url(#' + id + 'b1)"/>' +
+      '<ellipse cx="38.6" cy="43" rx="4" ry="9.5" fill="' + shade(skin, -0.34) + '" opacity=".26" filter="url(#' + id + 'b2)"/>' +
+      // key-light highlights: forehead, lit cheek, nose tip, chin
+      '<ellipse cx="53.5" cy="27.5" rx="8" ry="4.2" fill="#fff" opacity=".20" filter="url(#' + id + 'b2)"/>' +
+      '<ellipse cx="59.5" cy="42.5" rx="4" ry="3" fill="#fff" opacity=".15" filter="url(#' + id + 'b2)"/>' +
+      '<circle cx="50.8" cy="45.4" r="1.5" fill="#fff" opacity=".2" filter="url(#' + id + 'b1)"/>' +
+      '<ellipse cx="50.5" cy="55.6" rx="2.8" ry="1.4" fill="#fff" opacity=".13" filter="url(#' + id + 'b1)"/>' +
+      // features (crisp on top of the volume)
       brow(44, A.face) + brow(56, A.face) +
       eye(44) + eye(56) +
-      // nose: bridge shadow + nostrils, no outline
       '<path d="M48.9 40 C48.5 43 48.3 45.2 47.9 46.6" fill="none" stroke="' + skinDD + '" stroke-width="1" stroke-linecap="round" opacity=".28"/>' +
       '<path d="M47.6 47.9 Q50 49.4 52.4 47.9" fill="none" stroke="' + skinDD + '" stroke-width="1.1" stroke-linecap="round" opacity=".5"/>' +
       '<circle cx="47.5" cy="47.4" r=".62" fill="' + skinDD + '" opacity=".55"/><circle cx="52.5" cy="47.4" r=".62" fill="' + skinDD + '" opacity=".55"/>' +
-      // lips — natural, calm
       '<path d="M45.6 51.8 Q47.8 50.6 50 51.5 Q52.2 50.6 54.4 51.8 Q52.2 53.2 50 53.1 Q47.8 53.2 45.6 51.8 Z" fill="' + lip + '"/>' +
       '<path d="M46.3 52.9 Q50 55.4 53.7 52.9 Q52 54.7 50 54.7 Q48 54.7 46.3 52.9 Z" fill="' + shade(lip, 0.16) + '"/>' +
-      // cheek + jaw modelling, very quiet
-      '<path d="M38.6 44 C39.6 46.8 41.2 49 43.2 50.4 M61.4 44 C60.4 46.8 58.8 49 56.8 50.4" fill="none" stroke="' + skinDD + '" stroke-width="1" stroke-linecap="round" opacity=".14"/>' +
-      // rim light, top-right
-      '<path d="' + CAM_RIM + '" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".3"/>' +
+      '<ellipse cx="50" cy="54.1" rx="1.6" ry=".7" fill="#fff" opacity=".18" filter="url(#' + id + 'b1)"/>' +
+      // rim light: crisp line + soft bloom
+      '<path d="' + CAM_RIM + '" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".32"/>' +
+      '<path d="' + CAM_RIM + '" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".14" filter="url(#' + id + 'b1)"/>' +
       hair.front +
+      // hair gets its own specular sweep + root shadow
+      '<ellipse cx="55" cy="18.5" rx="9" ry="3" fill="#fff" opacity=".16" filter="url(#' + id + 'b2)" transform="rotate(8 55 18.5)"/>' +
+      '<ellipse cx="42" cy="17.5" rx="5" ry="2" fill="#fff" opacity=".10" filter="url(#' + id + 'b2)"/>' +
       CAM_ACC[A.acc]() +
       '</g></svg>';
   }
