@@ -34,9 +34,11 @@
   var BG   = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22d3ee', '#a855f7', '#fb7185', '#64748b', '#0ea5e9', '#10b981'];
   // hoodie colors — brighter than a blazer set
   var OUTFIT = ['#1f2937', '#ef4444', '#2563eb', '#7c3aed', '#0d9488', '#db2777', '#f59e0b', '#334155'];
+  // eye color — naturals first (randomizer favors the first two)
+  var IRIS = ['#5b4130', '#2a2320', '#4f7046', '#3e6a8e', '#7a6a44', '#5c6672'];
 
   // number of shape options per field (used by builder + randomizer)
-  var N_TOP = 8, N_EYES = 4, N_BROWS = 3, N_MOUTH = 5, N_FACIAL = 4, N_GLASSES = 3, N_ACC = 5;
+  var N_TOP = 12, N_EYES = 4, N_BROWS = 3, N_MOUTH = 5, N_FACIAL = 4, N_GLASSES = 3, N_ACC = 5, N_DETAIL = 3;
 
   function clamp(i, n) { i = i | 0; return i < 0 ? 0 : i >= n ? n - 1 : i; }
   function shade(hex, amt) {
@@ -49,7 +51,7 @@
   }
 
   function defaults() {
-    return { skin: 1, hair: 1, top: 1, eyes: 1, brows: 0, mouth: 2, facial: 0, glasses: 0, accessory: 0, bg: 0, outfit: 0 };
+    return { skin: 1, hair: 1, top: 1, eyes: 1, brows: 0, mouth: 2, facial: 0, glasses: 0, accessory: 0, bg: 0, outfit: 0, iris: 0, detail: 0 };
   }
   function norm(c) {
     c = c || {};
@@ -58,6 +60,7 @@
       top: clamp(c.top, N_TOP), eyes: clamp(c.eyes, N_EYES), brows: clamp(c.brows, N_BROWS),
       mouth: clamp(c.mouth, N_MOUTH), facial: clamp(c.facial, N_FACIAL),
       glasses: clamp(c.glasses, N_GLASSES), accessory: clamp(c.accessory, N_ACC),
+      iris: clamp(c.iris, IRIS.length), detail: clamp(c.detail, N_DETAIL),
       bg: clamp(c.bg, BG.length), outfit: clamp(c.outfit, OUTFIT.length)
     };
   }
@@ -66,63 +69,131 @@
   // Head: ellipse cx50 cy45 rx21.5 ry22.5. Eyes y45 at x40/x60.
   // Brows y38. Mouth y56. Ears cy47.
   function hairPaths(top, hairCol) {
-    // returns { back:'', front:'' }
-    var d = shade(hairCol, -0.14), hl = shade(hairCol, 0.16);
+    // returns { back:'', front:'' }. Geometry envelope (matches the large
+    // dimensional head, crown apex ~y19): outer arc M26.5 43 C30 9.5 70 9.5
+    // 73.5 43 (apex ~y18), hairline scoop through (50, ~28.5). Every style:
+    // dark under-layer, main mass, top-left highlight (the scene light).
+    var d = shade(hairCol, -0.22), d2 = shade(hairCol, -0.12);
+    var hl = shade(hairCol, 0.22), hl2 = shade(hairCol, 0.12);
+    var CAP = 'M26.5 43 C30 9.5 70 9.5 73.5 43 C70 31 61 28.5 50 28.5 C39 28.5 30 31 26.5 43 Z';
+    var CAP_UNDER = 'M26.5 44.4 C30 11 70 11 73.5 44.4 C70 32.4 61 29.9 50 29.9 C39 29.9 30 32.4 26.5 44.4 Z';
+    function cap() {
+      return '<path d="' + CAP_UNDER + '" fill="' + d + '"/>' +
+             '<path d="' + CAP + '" fill="' + hairCol + '"/>';
+    }
+    var HLARC = '<path d="M33 24.5 Q40.5 16 51 15.6" stroke="' + hl + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
+                '<path d="M55 15.9 Q63 17.2 67.6 22.5" stroke="' + hl2 + '" stroke-width="1.1" fill="none" stroke-linecap="round" opacity=".8"/>';
     switch (top) {
-      case 0: return { back: '', front: '' }; // shaved / none
+      case 0: // shaved — a deliberate buzz shadow, not a missing asset
+        return { back: '', front: '<path d="' + CAP + '" fill="' + hairCol + '" opacity=".18"/>' };
       case 1: // textured crop
-        return { back: '', front: '<path d="M28 41 C28 22 72 22 72 42 C69 33 63 30 58 31 C55 28 45 28 42 31 C37 30 31 33 28 41 Z" fill="' + hairCol + '"/><path d="M40 27 l2 5 M50 25 l0 6 M60 27 l-2 5" stroke="' + hl + '" stroke-width="1.4" stroke-linecap="round"/>' };
-      case 2: // fade (fuller top, tight sides, part line)
-        return { back: '', front: '<path d="M29 42 C30 24 70 24 71 42 C68 31 60 27 50 27 C40 27 32 31 29 42 Z" fill="' + hairCol + '"/><path d="M45 29 Q52 27 60 30" stroke="' + hl + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>' };
-      case 3: // curly top / afro
-        return { back: '', front: '<path d="M27 41 a7.5 7.5 0 1 1 5 -13 a8 8 0 0 1 13 -5 a8 8 0 0 1 13 5 a7.5 7.5 0 0 1 5 13 a6 6 0 0 1 -3 5 C71 34 62 29 50 29 C38 29 29 34 30 46 a6 6 0 0 1 -3 -5 Z" fill="' + hairCol + '"/>' };
+        return { back: '', front: cap() + HLARC +
+          '<path d="M39 20.5 l2.4 5 M48 18.6 l.8 5.4 M57 19.2 l-1 5.2 M64 22.4 l-2.4 4.6" stroke="' + hl2 + '" stroke-width="1.5" stroke-linecap="round" opacity=".9"/>' };
+      case 2: // fade — crisp part, clean sides
+        return { back: '', front: cap() + HLARC +
+          '<path d="M42 28.9 Q54 27.2 64 30.5" stroke="' + d + '" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".65"/>' };
+      case 3: // curls / afro — big soft cloud over the crown
+        return { back: '', front:
+          '<path d="M27 42 a8.5 8.5 0 1 1 4.4 -15.2 a9 9 0 0 1 8 -9.4 a9.5 9.5 0 0 1 21.2 0 a9 9 0 0 1 8 9.4 a8.5 8.5 0 0 1 4.4 15.2 a7 7 0 0 1 -3.4 5.4 C71 33.5 62 28.5 50 28.5 C38 28.5 29 33.5 30.4 47.4 a7 7 0 0 1 -3.4 -5.4 Z" fill="' + hairCol + '"/>' +
+          '<circle cx="33.5" cy="27.5" r="3.8" fill="' + d + '" opacity=".5"/><circle cx="44" cy="19.5" r="4" fill="' + d + '" opacity=".42"/><circle cx="57" cy="20" r="3.8" fill="' + d + '" opacity=".5"/><circle cx="66.5" cy="27.5" r="3.4" fill="' + d + '" opacity=".45"/>' +
+          '<circle cx="38.5" cy="21.6" r="1.6" fill="' + hl + '" opacity=".9"/><circle cx="50" cy="17" r="1.5" fill="' + hl + '" opacity=".85"/><circle cx="61.5" cy="21" r="1.4" fill="' + hl2 + '" opacity=".85"/>' };
       case 4: // long straight
         return {
-          back: '<path d="M26 42 C22 66 26 84 31 88 L36 86 C32 72 33 56 34 46 Z M74 42 C78 66 74 84 69 88 L64 86 C68 72 67 56 66 46 Z" fill="' + d + '"/>',
-          front: '<path d="M27 44 C25 22 75 22 73 44 C70 31 61 27 50 27 C39 27 30 31 27 44 Z" fill="' + hairCol + '"/>'
-        };
-      case 5: // top-knot / man-bun (undercut sides)
+          back: '<path d="M25.5 40 C20.5 66 24.5 86 30 90 L36 88 C31.5 73 32.5 56 33.5 45 Z M74.5 40 C79.5 66 75.5 86 70 90 L64 88 C68.5 73 67.5 56 66.5 45 Z" fill="' + d + '"/>' +
+                '<path d="M29.5 54 Q28.5 70 31 84 M70.5 54 Q71.5 70 69 84" stroke="' + d2 + '" stroke-width="1.2" fill="none" opacity=".7"/>',
+          front: cap() + HLARC };
+      case 5: // top-knot / bun
         return {
-          back: '<circle cx="50" cy="18" r="7.5" fill="' + d + '"/>',
-          front: '<path d="M30 42 C30 27 70 27 70 42 C67 33 59 29 50 29 C41 29 33 33 30 42 Z" fill="' + hairCol + '"/><path d="M43 28 Q50 22 57 28" stroke="' + hl + '" stroke-width="1.3" fill="none"/>'
-        };
+          back: '<circle cx="50" cy="12.5" r="7.8" fill="' + d2 + '"/>' +
+                '<path d="M44.4 9.8 A7.8 7.8 0 0 1 55 9.4" stroke="' + hl + '" stroke-width="1.6" fill="none" stroke-linecap="round"/>' +
+                '<circle cx="50" cy="12.5" r="7.8" fill="none" stroke="' + d + '" stroke-width=".8" opacity=".5"/>',
+          front: cap() +
+                 '<path d="M42.5 20 Q50 14.5 57.5 20" stroke="' + d + '" stroke-width="1.4" fill="none" opacity=".7"/>' +
+                 '<path d="M34 26 Q42 18.6 50 18.2" stroke="' + hl2 + '" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".85"/>' };
       case 6: // double buns
         return {
-          back: '<circle cx="34" cy="24" r="6.5" fill="' + d + '"/><circle cx="66" cy="24" r="6.5" fill="' + d + '"/>',
-          front: '<path d="M30 42 C30 28 70 28 70 42 C67 33 59 30 50 30 C41 30 33 33 30 42 Z" fill="' + hairCol + '"/>'
-        };
-      case 7: // side-swept / undercut
+          back: '<circle cx="31.5" cy="17.5" r="7" fill="' + d2 + '"/><circle cx="68.5" cy="17.5" r="7" fill="' + d2 + '"/>' +
+                '<path d="M26.8 14.6 A7 7 0 0 1 34.8 11.4" stroke="' + hl + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+                '<path d="M63.8 14.6 A7 7 0 0 1 71.8 11.6" stroke="' + hl2 + '" stroke-width="1.2" fill="none" stroke-linecap="round"/>',
+          front: cap() +
+                 '<path d="M50 28.7 L50 18.4" stroke="' + d + '" stroke-width="1.1" opacity=".6"/>' + HLARC };
+      case 7: // side-swept — deep asymmetric sweep across the brow
         return {
           back: '',
-          front: '<path d="M28 43 C27 24 72 22 73 41 C71 32 61 28 47 29 C41 29 35 31 34 40 C38 34 44 32 49 33 C43 36 34 39 28 43 Z" fill="' + hairCol + '"/>'
-        };
+          front: '<path d="M26.5 43 C30 9.5 70 9.5 73.5 43 C71.5 30 64 26.5 54 27.5 C60 30.5 64 33.5 65.5 38.5 C58 32.5 47 30.5 39.5 32.5 C33.5 34.2 29.5 38 26.5 43 Z" fill="' + hairCol + '"/>' +
+                 '<path d="M39.5 32.5 C47 30.5 58 32.5 65.5 38.5" fill="none" stroke="' + d + '" stroke-width="1.1" opacity=".55"/>' +
+                 HLARC };
+      case 8: // box braids
+        return {
+          back: '<path d="M27.5 42 C25 54 25.6 64 27 70 L32.6 69 C31.2 60.5 31.6 51 32.8 44 Z" fill="' + d2 + '"/>' +
+                '<path d="M72.5 42 C75 54 74.4 64 73 70 L67.4 69 C68.8 60.5 68.4 51 67.2 44 Z" fill="' + d2 + '"/>' +
+                '<ellipse cx="30.4" cy="48" rx="2.8" ry="3.6" fill="' + hairCol + '"/><ellipse cx="30" cy="55" rx="2.7" ry="3.5" fill="' + d + '"/><ellipse cx="29.8" cy="61.8" rx="2.6" ry="3.3" fill="' + hairCol + '"/><ellipse cx="30" cy="68" rx="2.4" ry="3" fill="' + d + '"/>' +
+                '<ellipse cx="69.6" cy="48" rx="2.8" ry="3.6" fill="' + hairCol + '"/><ellipse cx="70" cy="55" rx="2.7" ry="3.5" fill="' + d + '"/><ellipse cx="70.2" cy="61.8" rx="2.6" ry="3.3" fill="' + hairCol + '"/><ellipse cx="70" cy="68" rx="2.4" ry="3" fill="' + d + '"/>' +
+                '<circle cx="30" cy="72" r="1.4" fill="#f0c14b"/><circle cx="70" cy="72" r="1.4" fill="#f0c14b"/>',
+          front: cap() +
+                 '<path d="M50 28.6 L50 17.6 M42 29.4 L39.6 19 M58 29.4 L60.4 19 M34.5 32 L31 24 M65.5 32 L69 24" stroke="' + d + '" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>' +
+                 '<path d="M35 22.8 Q42 17.4 50 16.8" stroke="' + hl + '" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".9"/>' };
+      case 9: // ponytail — slicked crown, tail attached at the crown edge
+        return {
+          back: '<path d="M66 21 C76 24 81 33 80.5 44 C80 53 76 60 71.5 63.5 L67.5 60 C72 55.5 75 49 75 42.5 C75 34 70.5 27 63.5 24.5 Z" fill="' + d2 + '"/>' +
+                '<path d="M70.5 27.5 C75.5 32.5 77.5 39.5 76 47" fill="none" stroke="' + hl2 + '" stroke-width="1.4" stroke-linecap="round" opacity=".85"/>' +
+                '<path d="M64.5 21.5 C67 22.4 69.2 23.8 71 25.6" stroke="' + shade(hairCol, -0.34) + '" stroke-width="3.6" stroke-linecap="round" fill="none"/>',
+          front: cap() + HLARC +
+                 '<path d="M40 28.9 Q52 27 63 30.6" stroke="' + d + '" stroke-width="1.1" fill="none" stroke-linecap="round" opacity=".55"/>' };
+      case 10: // curtain waves — middle part, real face-framing curtains
+        return {
+          back: '<path d="M26.5 40 C22.5 58 24 73 27.5 79 L33.5 77 C30.5 67 31 54 32.2 45 Z" fill="' + d + '"/>' +
+                '<path d="M73.5 40 C77.5 58 76 73 72.5 79 L66.5 77 C69.5 67 69 54 67.8 45 Z" fill="' + d + '"/>',
+          front: '<path d="M26.5 45 C25 10.5 75 10.5 73.5 45 C72 31 64.5 27.6 56.5 28.4 C53 28.8 51 30.2 50 32 C49 30.2 47 28.8 43.5 28.4 C35.5 27.6 28 31 26.5 45 Z" fill="' + hairCol + '"/>' +
+                 '<path d="M28.8 42 C27.6 50 28.2 57 30.4 62 C33 57.6 33 49 32.2 43.2 Z" fill="' + hairCol + '"/>' +
+                 '<path d="M71.2 42 C72.4 50 71.8 57 69.6 62 C67 57.6 67 49 67.8 43.2 Z" fill="' + hairCol + '"/>' +
+                 '<path d="M50 31.8 L50 16.4" stroke="' + d + '" stroke-width="1.2" opacity=".7"/>' +
+                 '<path d="M33.5 22.5 Q41 16.6 48 17.2" stroke="' + hl + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+                 '<path d="M30.6 45 Q30 53 31.4 59 M69.4 45 Q70 53 68.6 59" stroke="' + hl2 + '" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".7"/>' };
+      case 11: // short coils — cover the whole crown
+        return { back: '', front:
+          '<path d="' + CAP + '" fill="' + d2 + '"/>' +
+          '<circle cx="31" cy="31" r="4" fill="' + hairCol + '"/><circle cx="36" cy="24" r="4.2" fill="' + d + '"/><circle cx="43" cy="19.5" r="4.4" fill="' + hairCol + '"/><circle cx="50.5" cy="18" r="4.5" fill="' + d + '"/><circle cx="58" cy="19.8" r="4.3" fill="' + hairCol + '"/><circle cx="64.5" cy="24.5" r="4.1" fill="' + d + '"/><circle cx="69.5" cy="31" r="3.8" fill="' + hairCol + '"/>' +
+          '<circle cx="33.5" cy="27.4" r="3.4" fill="' + d + '"/><circle cx="39.5" cy="22" r="3.5" fill="' + hairCol + '"/><circle cx="46.6" cy="18.6" r="3.6" fill="' + d2 + '"/><circle cx="54.4" cy="18.8" r="3.5" fill="' + hairCol + '"/><circle cx="61.4" cy="21.8" r="3.4" fill="' + d2 + '"/><circle cx="67" cy="27" r="3.2" fill="' + hairCol + '"/>' +
+          '<circle cx="37.5" cy="22.6" r="1.3" fill="' + hl + '" opacity=".9"/><circle cx="46" cy="17.6" r="1.3" fill="' + hl + '" opacity=".85"/><circle cx="55.5" cy="17.8" r="1.2" fill="' + hl2 + '" opacity=".85"/><circle cx="63.5" cy="22" r="1.1" fill="' + hl2 + '" opacity=".8"/>' };
     }
     return { back: '', front: '' };
   }
 
-  function eyesPath(kind) {
+  function eyesPath(kind, irisCol) {
     var L = 40, R = 60, y = 45, ink = '#2a2320';
+    irisCol = irisCol || IRIS[0];
+    var irisDark = shade(irisCol, -0.25);
+    function orb(cx, rIris, rPupil) {
+      return '<circle cx="' + cx + '" cy="' + (y + 0.4) + '" r="' + rIris + '" fill="' + irisCol + '"/>' +
+             '<circle cx="' + cx + '" cy="' + (y + 0.4) + '" r="' + rIris + '" fill="none" stroke="' + irisDark + '" stroke-width=".55"/>' +
+             '<circle cx="' + cx + '" cy="' + (y + 0.5) + '" r="' + rPupil + '" fill="' + ink + '"/>' +
+             '<circle cx="' + (cx - 0.9) + '" cy="' + (y - 0.9) + '" r=".8" fill="#fff"/>' +
+             '<circle cx="' + (cx + 1.1) + '" cy="' + (y + 1.3) + '" r=".4" fill="#fff" opacity=".7"/>';
+    }
     switch (kind) {
-      case 0: // chill dots
-        return '<circle cx="' + L + '" cy="' + y + '" r="2.6" fill="' + ink + '"/><circle cx="' + R + '" cy="' + y + '" r="2.6" fill="' + ink + '"/>';
+      case 0: // chill — small, but still colored
+        return '<circle cx="' + L + '" cy="' + y + '" r="2.6" fill="' + irisDark + '"/><circle cx="' + R + '" cy="' + y + '" r="2.6" fill="' + irisDark + '"/>' +
+               '<circle cx="' + (L - 0.8) + '" cy="' + (y - 0.8) + '" r=".6" fill="#fff" opacity=".9"/><circle cx="' + (R - 0.8) + '" cy="' + (y - 0.8) + '" r=".6" fill="#fff" opacity=".9"/>';
       case 1: // big and bright (young default)
-        return '<ellipse cx="' + L + '" cy="' + y + '" rx="3.3" ry="3.9" fill="#fff"/><ellipse cx="' + R + '" cy="' + y + '" rx="3.3" ry="3.9" fill="#fff"/>' +
-               '<circle cx="' + L + '" cy="' + (y + 0.4) + '" r="2.1" fill="' + ink + '"/><circle cx="' + R + '" cy="' + (y + 0.4) + '" r="2.1" fill="' + ink + '"/>' +
-               '<circle cx="' + (L + 1.1) + '" cy="' + (y - 1.1) + '" r=".85" fill="#fff"/><circle cx="' + (R + 1.1) + '" cy="' + (y - 1.1) + '" r=".85" fill="#fff"/>';
+        return '<ellipse cx="' + L + '" cy="' + y + '" rx="3.4" ry="4" fill="#fff"/><ellipse cx="' + R + '" cy="' + y + '" rx="3.4" ry="4" fill="#fff"/>' +
+               orb(L, 2.3, 1.25) + orb(R, 2.3, 1.25) +
+               '<path d="M36.6 42.2 Q40 40.6 43.4 42.2" stroke="' + ink + '" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"/>' +
+               '<path d="M56.6 42.2 Q60 40.6 63.4 42.2" stroke="' + ink + '" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"/>';
       case 2: // relaxed half-lids
         return '<path d="M36.5 45 Q40 47.8 43.5 45" stroke="' + ink + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>' +
                '<path d="M56.5 45 Q60 47.8 63.5 45" stroke="' + ink + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
       case 3: // sharp / locked-in
         return '<circle cx="' + L + '" cy="' + y + '" r="3.2" fill="#fff"/><circle cx="' + R + '" cy="' + y + '" r="3.2" fill="#fff"/>' +
-               '<circle cx="' + L + '" cy="' + y + '" r="1.9" fill="' + ink + '"/><circle cx="' + R + '" cy="' + y + '" r="1.9" fill="' + ink + '"/>' +
+               orb(L, 2.05, 1.15) + orb(R, 2.05, 1.15) +
                '<path d="M36.4 43 L43.6 44.4" stroke="' + ink + '" stroke-width="2" stroke-linecap="round"/>' +
                '<path d="M63.6 43 L56.4 44.4" stroke="' + ink + '" stroke-width="2" stroke-linecap="round"/>';
     }
     return '';
   }
 
-  function browsPath(kind) {
-    var ink = '#3a2c22';
+  function browsPath(kind, browCol) {
+    var ink = browCol || '#3a2c22';
     switch (kind) {
       case 0: // soft
         return '<path d="M35.5 38.6 Q40 36.8 44.5 38.6" stroke="' + ink + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
@@ -133,6 +204,22 @@
       case 2: // sharp
         return '<path d="M35.5 37.6 L44.5 39.4" stroke="' + ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
                '<path d="M64.5 37.6 L55.5 39.4" stroke="' + ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>';
+    }
+    return '';
+  }
+
+  // Skin details — cheap charm. 0 none / 1 blush / 2 freckles.
+  function detailPath(kind, skinCol) {
+    if (kind === 1) {
+      return '<ellipse cx="37" cy="52.4" rx="4.6" ry="2.3" fill="#e2574c" opacity=".17"/>' +
+             '<ellipse cx="63" cy="52.4" rx="4.6" ry="2.3" fill="#e2574c" opacity=".17"/>';
+    }
+    if (kind === 2) {
+      var f = shade(skinCol, -0.32);
+      return '<g fill="' + f + '" opacity=".55">' +
+             '<circle cx="36.6" cy="51" r=".65"/><circle cx="39.6" cy="52.6" r=".6"/><circle cx="42.4" cy="50.6" r=".55"/>' +
+             '<circle cx="57.6" cy="50.6" r=".55"/><circle cx="60.4" cy="52.6" r=".6"/><circle cx="63.4" cy="51" r=".65"/>' +
+             '<circle cx="48.4" cy="53.6" r=".5"/><circle cx="51.6" cy="53.6" r=".5"/></g>';
     }
     return '';
   }
@@ -201,6 +288,8 @@
     size = size || 96;
     var skinCol = SKIN[c.skin], hairCol = HAIR[c.hair], bgCol = BG[c.bg], outCol = OUTFIT[c.outfit];
     var skinShade = shade(skinCol, -0.13);
+    var irisCol = IRIS[c.iris];
+    var browCol = shade(hairCol, c.hair >= 4 ? -0.38 : -0.2); // light/dyed hair still needs readable brows
     var id = 'dbav' + (++uid);
     var hair = hairPaths(c.top, hairCol);
     var sz = (size === '100%') ? '100%' : size;
@@ -242,8 +331,9 @@
       '<ellipse cx="38" cy="51.5" rx="5" ry="2.5" fill="#fff" opacity=".10"/><ellipse cx="62" cy="51.5" rx="5" ry="2.5" fill="#fff" opacity=".10"/>' +
       // nose
       '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
-      browsPath(c.brows) +
-      eyesPath(c.eyes) +
+      detailPath(c.detail, skinCol) +
+      browsPath(c.brows, browCol) +
+      eyesPath(c.eyes, irisCol) +
       mouthPath(c.mouth) +
       hair.front +
       glassesPath(c.glasses) +
@@ -283,24 +373,29 @@
       '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy + ry + 1.8).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="2.05" fill="none" stroke-linecap="round"/>';
   }
 
-  function talkingEyes(openFrac, gx, gy) {
+  function talkingEyes(openFrac, gx, gy, irisCol) {
     var L = 40, R = 60, y = 45, ink = '#2a2320';
     gx = gx || 0; gy = gy || 0;
+    irisCol = irisCol || IRIS[0];
+    var irisDark = shade(irisCol, -0.25);
     if (openFrac < 0.12) {
       return '<path d="M36.6 ' + y + ' Q40 ' + (y + 0.7) + ' 43.4 ' + y + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
              '<path d="M56.6 ' + y + ' Q60 ' + (y + 0.7) + ' 63.4 ' + y + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
     }
     var ry = (3.9 * openFrac + 0.3).toFixed(2);
-    return '<ellipse cx="' + L + '" cy="' + y + '" rx="3.3" ry="' + ry + '" fill="#fff"/>' +
-           '<ellipse cx="' + R + '" cy="' + y + '" rx="3.3" ry="' + ry + '" fill="#fff"/>' +
-           '<circle cx="' + (L + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2" fill="' + ink + '"/>' +
-           '<circle cx="' + (R + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2" fill="' + ink + '"/>' +
-           '<circle cx="' + (L + gx + 1).toFixed(2) + '" cy="' + (y - 1 + gy).toFixed(2) + '" r=".8" fill="#fff"/>' +
-           '<circle cx="' + (R + gx + 1).toFixed(2) + '" cy="' + (y - 1 + gy).toFixed(2) + '" r=".8" fill="#fff"/>';
+    function orb(cx) {
+      return '<circle cx="' + (cx + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2.15" fill="' + irisCol + '"/>' +
+             '<circle cx="' + (cx + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2.15" fill="none" stroke="' + irisDark + '" stroke-width=".5"/>' +
+             '<circle cx="' + (cx + gx).toFixed(2) + '" cy="' + (y + 0.5 + gy).toFixed(2) + '" r="1.2" fill="' + ink + '"/>' +
+             '<circle cx="' + (cx + gx - 0.85).toFixed(2) + '" cy="' + (y - 0.9 + gy).toFixed(2) + '" r=".75" fill="#fff"/>';
+    }
+    return '<ellipse cx="' + L + '" cy="' + y + '" rx="3.35" ry="' + ry + '" fill="#fff"/>' +
+           '<ellipse cx="' + R + '" cy="' + y + '" rx="3.35" ry="' + ry + '" fill="#fff"/>' +
+           orb(L) + orb(R);
   }
 
-  function talkingBrows(raise, angle) {
-    var ink = '#3a2c22', base = 38.6 - raise;
+  function talkingBrows(raise, angle, browCol) {
+    var ink = browCol || '#3a2c22', base = 38.6 - raise;
     var innerL = base + angle, innerR = base + angle;
     var outerL = base - raise * 0.25, outerR = base - raise * 0.25;
     return '<path d="M35.5 ' + outerL.toFixed(2) + ' Q40 ' + (base - 1.7).toFixed(2) + ' 44.5 ' + innerL.toFixed(2) + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
@@ -313,6 +408,8 @@
     var c = norm(config);
     var skinCol = SKIN[c.skin], hairCol = HAIR[c.hair], bgCol = BG[c.bg], outCol = OUTFIT[c.outfit];
     var skinShade = shade(skinCol, -0.13);
+    var irisCol = IRIS[c.iris];
+    var browCol = shade(hairCol, c.hair >= 4 ? -0.38 : -0.2); // light/dyed hair still needs readable brows
     var id = 'tav' + (++uid);
     var hair = hairPaths(c.top, hairCol);
     var sz = (size === '100%') ? '100%' : (size || 200);
@@ -344,9 +441,10 @@
       earring +
       facialPath(c.facial, hairCol) +
       '<ellipse cx="38.5" cy="52.2" rx="4.2" ry="2.1" fill="#fff" opacity=".10"/><ellipse cx="61.5" cy="52.2" rx="4.2" ry="2.1" fill="#fff" opacity=".10"/>' +
+      detailPath(c.detail, skinCol) +
       '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
-      '<g class="ta-brows">' + talkingBrows(0, 0) + '</g>' +
-      '<g class="ta-eyes">' + talkingEyes(1, 0, 0) + '</g>' +
+      '<g class="ta-brows">' + talkingBrows(0, 0, browCol) + '</g>' +
+      '<g class="ta-eyes">' + talkingEyes(1, 0, 0, irisCol) + '</g>' +
       '<g class="ta-mouth">' + talkingMouth(0, 'neutral', 0.5) + '</g>' +
       hair.front +
       glassesPath(c.glasses) +
@@ -362,6 +460,9 @@
     opts = opts || {};
     if (typeof container === 'string') container = document.querySelector(container);
     if (!container) return null;
+    var mcfg = norm(config);
+    var mIris = IRIS[mcfg.iris];
+    var mBrow = shade(HAIR[mcfg.hair], mcfg.hair >= 4 ? -0.38 : -0.2);
     container.innerHTML = talkingSvg(config, opts.size || '100%');
     var svgEl = container.querySelector('svg');
     var faceEl = container.querySelector('.ta-face');
@@ -440,11 +541,11 @@
       }
       var g = gaze();
       var ek = Math.round(eyeOpen * 10) + '|' + g.x + '|' + g.y;
-      if (ek !== lastEyes) { eyesEl.innerHTML = talkingEyes(eyeOpen, g.x, g.y); lastEyes = ek; }
+      if (ek !== lastEyes) { eyesEl.innerHTML = talkingEyes(eyeOpen, g.x, g.y, mIris); lastEyes = ek; }
 
       var bp = browParams();
       var bk = bp.raise + '|' + bp.angle;
-      if (bk !== lastBrows) { browsEl.innerHTML = talkingBrows(bp.raise, bp.angle); lastBrows = bk; }
+      if (bk !== lastBrows) { browsEl.innerHTML = talkingBrows(bp.raise, bp.angle, mBrow); lastBrows = bk; }
 
       var breathe = reduce ? 0 : Math.sin(t * 1.15) * 0.5;
       var bob = reduce ? 0 : (state === 'talking' ? -amp * 2.25 : Math.sin(t * 1.7) * 0.24);
@@ -463,6 +564,9 @@
       setEmotion: function (e) { emoOverride = e || null; return this; },
       setAmplitude: function (v, shape) { manualAmp = (v == null ? null : (v < 0 ? 0 : v > 1 ? 1 : v)); manualShape = shape == null ? null : (shape < 0 ? 0 : shape > 1 ? 1 : shape); return this; },
       setConfig: function (cfg) {
+        mcfg = norm(cfg);
+        mIris = IRIS[mcfg.iris];
+        mBrow = shade(HAIR[mcfg.hair], mcfg.hair >= 4 ? -0.38 : -0.2);
         container.innerHTML = talkingSvg(cfg, opts.size || '100%');
         svgEl = container.querySelector('svg'); faceEl = container.querySelector('.ta-face');
         browsEl = container.querySelector('.ta-brows'); eyesEl = container.querySelector('.ta-eyes'); mouthEl = container.querySelector('.ta-mouth');
@@ -494,15 +598,15 @@
   // Faces tuned to each debater's identity, kept young. bg matches the
   // persona's existing accent so the visual bond carries over.
   var PRESETS = {
-    verse:    { skin: 1, hair: 2, top: 1, eyes: 1, brows: 0, mouth: 2, facial: 0, glasses: 0, accessory: 0, bg: 0, outfit: 1 }, // All-Rounder
-    ash:      { skin: 2, hair: 0, top: 2, eyes: 3, brows: 2, mouth: 3, facial: 1, glasses: 2, accessory: 0, bg: 0, outfit: 0 }, // Prosecutor
-    coral:    { skin: 2, hair: 0, top: 4, eyes: 1, brows: 1, mouth: 1, facial: 0, glasses: 0, accessory: 3, bg: 6, outfit: 5 }, // Quick Wit
-    sage:     { skin: 1, hair: 1, top: 3, eyes: 2, brows: 0, mouth: 0, facial: 1, glasses: 1, accessory: 0, bg: 5, outfit: 3 }, // Philosopher
-    ballad:   { skin: 3, hair: 2, top: 7, eyes: 1, brows: 0, mouth: 1, facial: 0, glasses: 0, accessory: 0, bg: 2, outfit: 6 }, // Storyteller
-    shimmer:  { skin: 3, hair: 0, top: 2, eyes: 1, brows: 1, mouth: 2, facial: 0, glasses: 0, accessory: 3, bg: 4, outfit: 4 }, // Diplomat
-    echo:     { skin: 1, hair: 0, top: 5, eyes: 3, brows: 2, mouth: 2, facial: 0, glasses: 0, accessory: 0, bg: 3, outfit: 0 }, // Closer
-    alloy:    { skin: 2, hair: 2, top: 1, eyes: 0, brows: 0, mouth: 0, facial: 0, glasses: 2, accessory: 1, bg: 7, outfit: 2 }, // Strategist (headphones)
-    examiner: { skin: 3, hair: 1, top: 2, eyes: 2, brows: 2, mouth: 0, facial: 3, glasses: 2, accessory: 0, bg: 5, outfit: 7 }  // Examiner
+    verse:    { skin: 1, hair: 2, top: 1,  eyes: 1, brows: 0, mouth: 2, facial: 0, glasses: 0, accessory: 0, bg: 0, outfit: 1, iris: 0, detail: 1 }, // All-Rounder
+    ash:      { skin: 2, hair: 0, top: 2,  eyes: 3, brows: 2, mouth: 3, facial: 1, glasses: 2, accessory: 0, bg: 0, outfit: 0, iris: 1, detail: 0 }, // Prosecutor
+    coral:    { skin: 2, hair: 0, top: 8,  eyes: 1, brows: 1, mouth: 1, facial: 0, glasses: 0, accessory: 3, bg: 6, outfit: 5, iris: 4, detail: 2 }, // Quick Wit (braids, freckles)
+    sage:     { skin: 1, hair: 1, top: 3,  eyes: 2, brows: 0, mouth: 0, facial: 1, glasses: 1, accessory: 0, bg: 5, outfit: 3, iris: 2, detail: 0 }, // Philosopher
+    ballad:   { skin: 3, hair: 2, top: 10, eyes: 1, brows: 0, mouth: 1, facial: 0, glasses: 0, accessory: 0, bg: 2, outfit: 6, iris: 0, detail: 1 }, // Storyteller (waves)
+    shimmer:  { skin: 3, hair: 0, top: 9,  eyes: 1, brows: 1, mouth: 2, facial: 0, glasses: 0, accessory: 3, bg: 4, outfit: 4, iris: 0, detail: 0 }, // Diplomat (ponytail)
+    echo:     { skin: 1, hair: 0, top: 5,  eyes: 3, brows: 2, mouth: 2, facial: 0, glasses: 0, accessory: 0, bg: 3, outfit: 0, iris: 5, detail: 0 }, // Closer
+    alloy:    { skin: 2, hair: 2, top: 11, eyes: 0, brows: 0, mouth: 0, facial: 0, glasses: 2, accessory: 1, bg: 7, outfit: 2, iris: 3, detail: 0 }, // Strategist (coils + headphones)
+    examiner: { skin: 3, hair: 1, top: 2,  eyes: 2, brows: 2, mouth: 0, facial: 3, glasses: 2, accessory: 0, bg: 5, outfit: 7, iris: 1, detail: 0 }  // Examiner
   };
   function persona(key, size) {
     return svg(PRESETS[key] || PRESETS.verse, size || 42);
@@ -539,6 +643,8 @@
       facial: (rnd() < 0.6 ? 0 : p(N_FACIAL)),          // young: mostly clean
       glasses: (rnd() < 0.55 ? 0 : p(N_GLASSES)),
       accessory: (rnd() < 0.62 ? 0 : p(N_ACC)),          // gear is a highlight, not the norm
+      iris: (rnd() < 0.6 ? p(2) : p(IRIS.length)),        // naturals dominate
+      detail: (rnd() < 0.72 ? 0 : 1 + p(N_DETAIL - 1)),   // details are a garnish
       bg: p(BG.length), outfit: p(OUTFIT.length)
     });
   }
@@ -552,6 +658,7 @@
   // ---- builder modal ----------------------------------------------------
   var SHAPE_FIELDS = [
     { key: 'top', label: 'Hair', n: N_TOP },
+    { key: 'detail', label: 'Details', n: N_DETAIL },
     { key: 'eyes', label: 'Eyes', n: N_EYES },
     { key: 'brows', label: 'Brows', n: N_BROWS },
     { key: 'mouth', label: 'Mouth', n: N_MOUTH },
@@ -562,6 +669,7 @@
   var COLOR_FIELDS = [
     { key: 'skin', label: 'Skin', pal: SKIN },
     { key: 'hair', label: 'Hair color', pal: HAIR },
+    { key: 'iris', label: 'Eye color', pal: IRIS },
     { key: 'bg', label: 'Background', pal: BG },
     { key: 'outfit', label: 'Hoodie', pal: OUTFIT }
   ];
