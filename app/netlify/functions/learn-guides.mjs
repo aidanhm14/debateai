@@ -309,24 +309,26 @@ function renderGuidePage(guide) {
   const description = guide.hook;
   const canonical = `${SITE_ORIGIN}/learn/guides/${guide.slug}`;
 
+  // Article schema (HowTo rich results were retired by Google in 2023, so an
+  // educational guide is better modeled as an Article). datePublished/dateModified
+  // give a freshness signal; per-guide overrides via `published`/`updated`.
   const ldArticle = {
     '@context': 'https://schema.org',
-    '@type': 'HowTo',
-    name: guide.question,
+    '@type': 'Article',
+    headline: guide.question,
     description: guide.hook,
-    totalTime: `PT${(guide.readTime || '5 min').replace(/\D/g, '')}M`,
-    step: guide.sections.map((s, i) => ({
-      '@type': 'HowToStep',
-      position: i + 1,
-      name: s.heading,
-      text: s.body.join(' '),
-    })),
+    datePublished: guide.published || '2026-01-15',
+    dateModified: guide.updated || '2026-07-14',
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+    articleSection: guide.formatName,
     keywords: guide.keywords.join(', '),
     inLanguage: 'en',
+    author: { '@type': 'Organization', name: 'DebateIt', url: SITE_ORIGIN },
     publisher: {
       '@type': 'Organization',
       name: 'DebateIt',
       url: SITE_ORIGIN,
+      logo: { '@type': 'ImageObject', url: OG_IMAGE },
     },
   };
 

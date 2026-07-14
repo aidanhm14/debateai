@@ -625,7 +625,9 @@ export const GUIDE_BANK = {
     hook: 'Six LD value-criterion pairs with full warrants: Justice/Veil of Ignorance, Morality/Categorical Imperative, Wellbeing/Util, Liberty/Harm Principle, and more. Plus a link test for picking the pair your contentions actually hit.',
     format: 'ld',
     formatName: 'Lincoln-Douglas',
-    readTime: '5 min',
+    readTime: '6 min',
+    published: '2026-01-20',
+    updated: '2026-07-14',
     takeaways: [
       "Value = the abstract concept the round is about (Justice, Morality, Liberty).",
       "Criterion = the standard for measuring achievement of the value (Util, Cat. Imperative, Veil of Ignorance).",
@@ -633,6 +635,19 @@ export const GUIDE_BANK = {
       "Defending the framework is half the round. Have warrants for both the value and the criterion.",
     ],
     sections: [
+      {
+        heading: 'Quick reference: the 8 most common LD values and the criterion that fits each',
+        body: [
+          'Justice paired with the Veil of Ignorance, the Social Contract, or Retributivism. The default value for resolutions about fairness, rights, and state action.',
+          'Morality paired with the Categorical Imperative (Kant) or Care Ethics. Use when a resolution asks whether an act is inherently permissible, not whether it pays off.',
+          'Wellbeing (or Societal Welfare) paired with Utilitarianism. The workhorse for policy-flavored, consequence-heavy resolutions.',
+          'Liberty paired with Mill\'s Harm Principle. Dominant on autonomy, speech, and state-restriction topics.',
+          'Equality paired with Rawls\' Difference Principle. For resolutions about inequality of outcome, redistribution, and access.',
+          'Human Dignity paired with a basic-needs floor or Kantian ends-not-means. Strong for humanitarian and bioethics rounds.',
+          'Autonomy paired with informed consent or bodily integrity. For medical, privacy, and paternalism resolutions.',
+          'Security paired with Just War Theory or a least-restrictive-means test. For foreign policy, surveillance, and public-safety topics. Full warrants and worked framework blocks for each pair are below.',
+        ],
+      },
       {
         heading: 'Value vs criterion: what they each do',
         body: [
