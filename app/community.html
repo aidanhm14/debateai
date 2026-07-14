@@ -53,6 +53,10 @@
      (real presence, spar queue, latest chat line) and owns the Live
      tab's green dot. Real data only; rows hide when nothing is live. -->
 <script defer src="/js/community-pulse.js"></script>
+<!-- community-schedule.js renders the scheduled-rounds panel (real
+     Firestore entries via /api/schedule-round: propose + RSVP + a
+     "join now" deep-link into /spar when a round starts). -->
+<script defer src="/js/community-schedule.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so
@@ -337,6 +341,52 @@ body::before{
 }
 .pulse-chat-handle{color:var(--accent);font-weight:700}
 .pulse-go{color:var(--accent);font-weight:700;letter-spacing:.02em}
+
+/* ── SCHEDULED ROUNDS ─────────────────────────────────────── */
+/* Real entries only (community-schedule.js). Cards are a ruled list,
+   not a grid — a schedule should read like a schedule. */
+.sched-panel{
+  margin:0 0 22px;padding:18px 20px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+}
+.sched-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:4px}
+.sched-title{font-weight:800;font-size:1.02rem;letter-spacing:-.01em}
+.sched-sub{font-size:.8rem;color:var(--text-dim);line-height:1.45;margin-top:3px;max-width:56ch}
+.sched-card{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:12px 2px;border-top:1px solid var(--border);margin-top:12px;
+}
+.sched-when{
+  flex:none;min-width:118px;font-size:.78rem;font-weight:700;color:var(--text);
+  display:inline-flex;align-items:center;gap:7px;
+}
+.sched-soon .sched-when{color:#22c55e}
+.sched-live-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;flex:none;
+  background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 1.6s ease-in-out infinite;
+}
+.sched-main{flex:1;min-width:220px}
+.sched-motion{font-size:.9rem;font-weight:600;line-height:1.35}
+.sched-tbd{color:var(--text-dim);font-weight:500;font-style:normal}
+.sched-meta{font-size:.75rem;color:var(--text-dim);margin-top:2px}
+.sched-actions{flex:none;display:inline-flex;align-items:center;gap:10px}
+.sched-rsvp.on{border-color:#22c55e;color:#22c55e}
+.sched-cal{font-size:.74rem;color:var(--text-dim);text-decoration:underline;white-space:nowrap}
+.sched-empty{
+  padding:14px 2px 6px;border-top:1px solid var(--border);margin-top:12px;
+  font-size:.84rem;color:var(--text-dim);
+}
+.sched-form{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding-top:14px;border-top:1px solid var(--border);margin-top:14px;
+}
+.sched-input{
+  padding:9px 12px;border:1px solid var(--border);border-radius:9px;
+  background:var(--bg);color:var(--text);font-family:inherit;font-size:.82rem;
+}
+.sched-input-wide{flex:1;min-width:200px}
+.sched-as{font-size:.75rem;color:var(--text-dim)}
+.sched-as b{color:var(--text)}
 
 /* ── LIVE CHAT ─────────────────────────────────────────────── */
 .chat-shell{
@@ -743,16 +793,14 @@ body::before{
     <span style="font-weight:800;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:#5865F2;white-space:nowrap;padding:9px 14px;border:1px solid rgba(88,101,242,.5);border-radius:10px">Join &rarr;</span>
   </a>
 
-  <!-- Schedule. Emptied 2026-05-21: the 7-day strip used to render a
-       hand-written SEED of fake rounds with invented hosts (@oxfordU,
-       @harvardapda, ...). That is exactly the fake-crowd dishonesty the
-       page argues against, and nobody is actually organizing rounds here
-       yet. Replaced with a single honest empty-state card + a real CTA to
-       schedule one on /live. When round-scheduling lands as a Firestore
-       source, render real entries here. -->
-  <!-- Empty schedule card removed 2026-05-21: it was a whole panel just to
-       say "no rounds yet," which is dead space. /live is still reachable
-       from the topbar and the Discord CTA above. -->
+  <!-- Schedule. Emptied 2026-05-21 (the old strip rendered a hand-written
+       SEED of fake rounds with invented hosts — the fake-crowd dishonesty
+       this page argues against). 2026-07-14: the real Firestore source
+       landed. community-schedule.js renders `scheduled_rounds` via
+       /api/schedule-round: anyone proposes a round at a time, anyone
+       RSVPs, rounds starting soon deep-link into the /spar queue. All
+       entries are real user posts; the empty state says so honestly. -->
+  <div id="communitySchedule" class="sched-panel" aria-label="Scheduled rounds"></div>
 
   <!-- Tab switcher: Cases (disclosures) · Discussion (threaded
        forum) · Rounds (published debate rounds, /r/{id} corpus) ·
