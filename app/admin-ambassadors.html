@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Ambassador Applications · Admin · DebateIt</title>
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root {
+    --bg:#070912;
+    --bg-soft:#0d111d;
+    --fg:#e8eef7;
+    --muted:#94a3b8;
+    --dim:#64748b;
+    --accent:#ef4444;
+    --accent-2:#dc2626;
+    --good:#22c55e;
+    --warn:#f59e0b;
+    --card:rgba(255,255,255,.03);
+    --card-2:rgba(255,255,255,.05);
+    --line:rgba(255,255,255,.08);
+    --line-strong:rgba(255,255,255,.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;background:radial-gradient(1100px 700px at 14% -10%, rgba(239,68,68,.10), transparent 60%),radial-gradient(900px 600px at 95% 5%, rgba(139,92,246,.06), transparent 55%);pointer-events:none;z-index:0}
+  body>*{position:relative;z-index:1}
+  a{color:var(--fg);text-decoration:none}
+  button{font:inherit;background:none;border:none;color:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+  input:focus,select:focus{border-color:var(--accent)}
+
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 22px 120px}
+  header.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-mark{width:36px;height:36px;border-radius:11px;background:#ef4444;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;letter-spacing:-0.02em;color:#fff;box-shadow:0 8px 24px -8px rgba(239,68,68,.5)}
+  h1{font:700 22px/1.1 "SF Pro Display",system-ui,sans-serif;margin:0;letter-spacing:-0.02em}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .pill-btn{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+  .pill-btn:hover{border-color:var(--line-strong);color:var(--fg);background:var(--card-2)}
+  .pill-btn.primary{background:#ef4444;border-color:transparent;color:#fff}
+  .pill-btn.primary:hover{filter:brightness(1.1)}
+
+  /* gate */
+  .gate{max-width:420px;margin:120px auto;text-align:center;padding:36px;border:1px solid var(--line);border-radius:18px;background:var(--card);backdrop-filter:blur(12px)}
+  .gate h2{margin:0 0 8px;font:600 22px/1.2 "SF Pro Display",system-ui,sans-serif}
+  .gate p{color:var(--muted);margin:0 0 20px;font-size:13px;line-height:1.5}
+  .gate button{width:100%;padding:11px 16px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+  .gate .err{color:var(--accent);margin-top:12px;font-size:12px;line-height:1.4}
+  .gate .signed{color:var(--muted);margin-top:14px;font-size:11px;word-break:break-all}
+
+  /* loading */
+  .loading{text-align:center;padding:80px 20px;color:var(--muted);font-size:14px}
+
+  /* toolbar */
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  .toolbar input.search{flex:1;min-width:200px}
+  .toolbar .count{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* application card */
+  .app{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:14px}
+  .app .head-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .app .name{font:600 18px/1.3 "SF Pro Display",system-ui,sans-serif;color:var(--fg);letter-spacing:-0.01em}
+  .app .when{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .app .chips{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 4px}
+  .app .chip{padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card-2);color:var(--fg);font-size:12px;font-weight:600}
+  .app .chip.school{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.28);color:#c4b5fd}
+  .app .chip.circuit{background:#ef4444;border-color:transparent;color:#fff}
+  .app .room{margin-top:14px;padding:14px 16px;background:rgba(0,0,0,.20);border:1px solid var(--line);border-radius:10px;color:var(--fg);font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  .app .room .room-label{display:block;color:var(--dim);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .app .foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .app .foot a.reply{padding:7px 14px;border-radius:8px;background:#ef4444;color:#fff;font-weight:600;font-size:13px}
+  .app .foot a.reply:hover{filter:brightness(1.1)}
+  .app .foot a.ext{padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600}
+  .app .foot a.ext:hover{border-color:var(--line-strong);color:var(--fg)}
+  .app .foot .email{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;word-break:break-all}
+  .app .foot .ip{color:var(--dim);font-size:11px;margin-left:auto;font-variant-numeric:tabular-nums}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty h3{color:var(--fg);font-weight:600;margin:0 0 8px}
+  .err{color:var(--accent);margin:14px 0;font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- Firebase SDK (compat — matches /admin) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+<!-- Auth gate -->
+<div id="gate" class="gate" hidden>
+  <h2>Admin · Ambassador applications</h2>
+  <p>Sign in to view everyone who applied through the /ambassadors page. Admin access only.</p>
+  <button id="signin-btn">Sign in with Google</button>
+  <div id="gate-err" class="err"></div>
+  <div id="gate-signed" class="signed"></div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading" hidden>Loading…</div>
+
+<!-- App -->
+<div id="app" class="wrap" hidden>
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">D</div>
+      <div>
+        <h1>Ambassador applications</h1>
+        <div class="sub">Everyone who applied via /ambassadors, newest first.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a href="/admin" class="pill-btn">← Admin</a>
+      <button id="signout" class="pill-btn">Sign out</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <input type="search" id="search" class="search" placeholder="Search name, school, circuit, email…">
+    <button id="refresh" class="pill-btn primary">↻ Refresh</button>
+    <button id="csv" class="pill-btn">↓ CSV</button>
+    <div style="flex:1"></div>
+    <div class="count" id="count">—</div>
+  </div>
+
+  <div id="err" class="err" hidden></div>
+  <div id="list"></div>
+</div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
+  authDomain: 'debateos-78ac5.firebaseapp.com',
+  projectId: 'debateos-78ac5',
+  storageBucket: 'debateos-78ac5.firebasestorage.app',
+  messagingSenderId: '860359449192',
+  appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
+  measurementId: 'G-0V4R5MY3BT',
+};
+const app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+
+const $ = id => document.getElementById(id);
+const gate = $('gate');
+const loading = $('loading');
+const appEl = $('app');
+
+let rows = [];
+
+// ── Auth ───────────────────────────────────────────────────────────
+loading.hidden = false;
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    loading.hidden = true;
+    gate.hidden = false;
+    appEl.hidden = true;
+    return;
+  }
+  gate.hidden = true;
+  $('gate-signed').textContent = 'Signed in: ' + user.email;
+  appEl.hidden = false;
+  loading.hidden = true;
+  load();
+});
+
+$('signin-btn').addEventListener('click', async () => {
+  $('gate-err').textContent = '';
+  try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+  catch (e) { $('gate-err').textContent = e.message || 'Sign-in failed'; }
+});
+$('signout').addEventListener('click', () => auth.signOut());
+
+async function getToken(){ return auth.currentUser.getIdToken(); }
+
+// ── Fetch ──────────────────────────────────────────────────────────
+async function load(){
+  const errEl = $('err');
+  errEl.hidden = true;
+  $('count').textContent = 'loading…';
+  try {
+    const token = await getToken();
+    const r = await fetch('/api/admin/ambassadors', { headers: { Authorization: 'Bearer ' + token } });
+    if (!r.ok) {
+      const t = await r.text();
+      throw new Error('HTTP ' + r.status + (t ? ': ' + t.slice(0,140) : ''));
+    }
+    const data = await r.json();
+    rows = data.rows || [];
+    render();
+  } catch (e) {
+    errEl.hidden = false;
+    errEl.textContent = 'Could not load applications. ' + (e.message || e);
+    $('count').textContent = '—';
+  }
+}
+$('refresh').addEventListener('click', load);
+$('search').addEventListener('input', render);
+$('csv').addEventListener('click', downloadCsv);
+
+// ── Render ─────────────────────────────────────────────────────────
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function fmtDate(iso){
+  if (!iso) return 'no date';
+  try {
+    return new Date(iso).toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+  } catch(e){ return iso; }
+}
+
+function filtered(){
+  const q = $('search').value.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(a =>
+    (a.name + ' ' + a.school + ' ' + a.circuit + ' ' + a.email).toLowerCase().includes(q)
+  );
+}
+
+function render(){
+  const list = $('list');
+  const items = filtered();
+  $('count').textContent = items.length === rows.length
+    ? rows.length + ' application' + (rows.length === 1 ? '' : 's')
+    : items.length + ' of ' + rows.length;
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty"><h3>' +
+      (rows.length ? 'No matches' : 'No applications yet') + '</h3><p>' +
+      (rows.length ? 'Try a different search.' : 'They will show up here the moment someone applies at /ambassadors.') +
+      '</p></div>';
+    return;
+  }
+
+  list.innerHTML = items.map(a => {
+    const subject = encodeURIComponent('Your DebateIt ambassador application');
+    const chips = [];
+    if (a.circuit) chips.push('<span class="chip circuit">' + esc(a.circuit) + '</span>');
+    if (a.school)  chips.push('<span class="chip school">' + esc(a.school) + '</span>');
+    if (a.gradYear) chips.push('<span class="chip">Grad ' + esc(a.gradYear) + '</span>');
+    const ext = a.link
+      ? '<a class="ext" href="' + esc(/^https?:\/\//i.test(a.link) ? a.link : 'https://' + a.link) + '" target="_blank" rel="noopener">Tabroom / link ↗</a>'
+      : '';
+    const room = a.firstRoom
+      ? '<div class="room"><span class="room-label">Where they would start</span>' + esc(a.firstRoom) + '</div>'
+      : '';
+    return '' +
+      '<div class="app">' +
+        '<div class="head-row">' +
+          '<span class="name">' + (esc(a.name) || '(no name)') + '</span>' +
+          '<span class="when">' + esc(fmtDate(a.createdAt)) + '</span>' +
+        '</div>' +
+        (chips.length ? '<div class="chips">' + chips.join('') + '</div>' : '') +
+        room +
+        '<div class="foot">' +
+          (a.email ? '<a class="reply" href="mailto:' + esc(a.email) + '?subject=' + subject + '">Reply</a>' : '') +
+          (a.email ? '<span class="email">' + esc(a.email) + '</span>' : '') +
+          ext +
+          (a.ip ? '<span class="ip">' + esc(a.ip) + '</span>' : '') +
+        '</div>' +
+      '</div>';
+  }).join('');
+}
+
+// ── CSV export ─────────────────────────────────────────────────────
+function downloadCsv(){
+  const cols = ['createdAt','name','email','school','circuit','gradYear','link','firstRoom','ip'];
+  const q = c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"';
+  const lines = [cols.join(',')].concat(
+    filtered().map(a => cols.map(c => q(a[c])).join(','))
+  );
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ambassador-applications.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
