@@ -9241,6 +9241,142 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 })();
 </script>
 
+<!-- ── Community band (2026-07-14). Sits right under the live-people
+     band: after "debate real people live," show where the crowd lives.
+     Three doors into /community (scheduled rounds, live room, the
+     corpus) plus a live strip fed by the same real-data endpoints the
+     /community pulse bar uses (online-count, schedule-round, chat-feed).
+     One fetch each, fired once when the band scrolls into view; every
+     live line hides silently when there is nothing real to show. -->
+<section id="community-band" class="community-band" aria-label="The DebateIt community">
+  <style>
+    .community-band{padding:clamp(44px,6vh,84px) 20px;display:flex;justify-content:center}
+    .cb-wrap{width:100%;max-width:1120px;text-align:center}
+    .cb-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.6));margin-bottom:12px}
+    .cb-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.9rem,3.2vw,2.7rem);font-weight:700;letter-spacing:-.02em;line-height:1.08;margin:0 0 14px;color:var(--text,#f4f4f2)}
+    [data-theme="light"] .cb-title{color:#1a1a1f}
+    .cb-title em{font-style:normal;color:#ef4444}
+    .cb-sub{font-size:clamp(.98rem,1.25vw,1.08rem);line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));max-width:760px;margin:0 auto 14px}
+    [data-theme="light"] .cb-sub{color:rgba(0,0,0,.66)}
+    /* Live strip: real signals only, whole strip hidden until one lands. */
+    .cb-live{display:none;justify-content:center;flex-wrap:wrap;gap:10px;margin:0 0 30px}
+    .cb-pill{display:none;align-items:center;gap:8px;max-width:100%;padding:7px 14px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.04);font-size:.78rem;color:var(--text-dim,rgba(255,255,255,.7));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    [data-theme="light"] .cb-pill{border-color:rgba(0,0,0,.12);background:rgba(0,0,0,.04);color:rgba(0,0,0,.6)}
+    .cb-pill b{color:var(--text,#f4f4f2);font-weight:800}
+    [data-theme="light"] .cb-pill b{color:#1a1a1f}
+    .cb-pill .dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:lnDot 1.8s ease-in-out infinite;flex:none}
+    .cb-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0 0 26px;text-align:left}
+    @media(max-width:760px){.cb-cards{grid-template-columns:1fr;max-width:480px;margin-left:auto;margin-right:auto}}
+    .cb-card{display:block;padding:22px 22px 20px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);text-decoration:none;transition:transform .15s,border-color .15s}
+    .cb-card:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.55)}
+    [data-theme="light"] .cb-card{border-color:rgba(0,0,0,.12);background:rgba(0,0,0,.028)}
+    .cb-card-kicker{font-size:.62rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#ef4444;margin:0 0 8px}
+    .cb-card-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.22rem;font-weight:700;letter-spacing:-.01em;color:var(--text,#f4f4f2);margin:0 0 6px}
+    [data-theme="light"] .cb-card-title{color:#1a1a1f}
+    .cb-card-body{font-size:.87rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.66));margin:0}
+    [data-theme="light"] .cb-card-body{color:rgba(0,0,0,.6)}
+    .cb-card-go{display:inline-block;margin-top:12px;font-size:.8rem;font-weight:800;color:#ef4444}
+    .cb-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-weight:800;font-size:1rem;text-decoration:none;transition:transform .15s,background .15s;box-shadow:0 8px 28px rgba(239,68,68,.28)}
+    .cb-cta:hover{background:#dc2626;transform:translateY(-1px)}
+  </style>
+  <div class="cb-wrap">
+    <div class="cb-eyebrow">The community</div>
+    <h2 class="cb-title">Rounds get scheduled. <em>The room argues back.</em></h2>
+    <p class="cb-sub">Debaters propose rounds at set times, RSVP, and meet in the queue. Between rounds the room reads each other's cases, argues in threads, and talks in a live chat. No sign-in needed to look around.</p>
+    <div class="cb-live" id="cbLive" aria-label="Live community activity">
+      <span class="cb-pill" id="cbOnline"></span>
+      <span class="cb-pill" id="cbNext"></span>
+      <span class="cb-pill" id="cbChat"></span>
+    </div>
+    <div class="cb-cards">
+      <a class="cb-card" href="/community" data-cb="schedule">
+        <p class="cb-card-kicker">Scheduled rounds</p>
+        <p class="cb-card-title">Propose a time. Show up.</p>
+        <p class="cb-card-body">Pick a format and a time, and anyone can tap I'm in. When it starts, everyone queues and gets paired for a real judged round.</p>
+        <span class="cb-card-go">See the schedule →</span>
+      </a>
+      <a class="cb-card" href="/community" data-cb="live">
+        <p class="cb-card-kicker">The live room</p>
+        <p class="cb-card-title">Say what you actually think.</p>
+        <p class="cb-card-body">A live chat behind anonymous handles, plus a queue of debaters waiting to spar. The green dot only glows when someone is really there.</p>
+        <span class="cb-card-go">Step into the room →</span>
+      </a>
+      <a class="cb-card" href="/community" data-cb="cases">
+        <p class="cb-card-kicker">Cases and threads</p>
+        <p class="cb-card-title">Read real arguments. Argue back.</p>
+        <p class="cb-card-body">Published cases and round transcripts from real users, with votes and threads. Import a case, then debate the same motion yourself.</p>
+        <span class="cb-card-go">Browse the corpus →</span>
+      </a>
+    </div>
+    <a class="cb-cta" href="/community" data-cb="cta">Join the community</a>
+  </div>
+</section>
+<script>
+/* Community band live strip: one fetch per endpoint, fired once when
+   the band first scrolls into view (keeps function invocations off
+   visitors who never reach it). Real data only; a pill with nothing
+   real stays hidden, and the strip only appears once a pill lands. */
+(function(){
+  var band = document.getElementById('community-band');
+  if (!band) return;
+  var strip = document.getElementById('cbLive');
+  function pill(id, html){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = html;
+    el.style.display = 'inline-flex';
+    strip.style.display = 'flex';
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
+    });
+  }
+  var fired = false;
+  function loadOnce(){
+    if (fired) return; fired = true;
+    fetch('/api/online-count', { cache: 'no-cache' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (j && typeof j.online === 'number' && j.online >= 2){
+          pill('cbOnline', '<span class="dot"></span><b>' + (j.online|0) + '</b>&nbsp;on the site right now');
+        }
+      }).catch(function(){});
+    fetch('/api/schedule-round', { cache: 'no-cache' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var next = j && Array.isArray(j.rounds) && j.rounds.length ? j.rounds[0] : null;
+        if (next && next.startAt > Date.now()){
+          var d = new Date(next.startAt);
+          var day = d.toDateString() === new Date().toDateString() ? 'today'
+            : d.toLocaleDateString(undefined, { weekday: 'short' });
+          var t = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+          pill('cbNext', 'next scheduled round:&nbsp;<b>' + esc(day + ' ' + t) + '</b>');
+        }
+      }).catch(function(){});
+    fetch('/api/chat-feed')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var rows = j && Array.isArray(j.rows) ? j.rows.filter(function(r){ return r.kind === 'message'; }) : [];
+        var last = rows.length ? rows[rows.length - 1] : null;
+        if (last && last.text){
+          pill('cbChat', '<b>' + esc(last.handle || 'anon') + ':</b>&nbsp;' + esc(String(last.text).slice(0, 60)));
+        }
+      }).catch(function(){});
+  }
+  if ('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      if (entries.some(function(e){ return e.isIntersecting; })){ loadOnce(); io.disconnect(); }
+    }, { rootMargin: '300px' });
+    io.observe(band);
+  } else { loadOnce(); }
+  band.addEventListener('click', function(e){
+    var a = e.target && e.target.closest ? e.target.closest('[data-cb]') : null;
+    if (a){ try { gtag('event', 'community_band_click', { door: a.getAttribute('data-cb') }); } catch(err){} }
+  });
+})();
+</script>
+
 <!-- 2026-07-07: "Six tools. One loop." bento (#tools: Case Generator /
      Round Simulator / Philosophy Engine / Judge Feedback / Strategic Mapper /
      Voice Debate, plus the Powered-by brand row) removed at Aidan's request,
