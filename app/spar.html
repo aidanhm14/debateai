@@ -763,6 +763,34 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.72rem; color:var(--text-ghost); font-weight:500;
   padding:10px 16px 0; line-height:1.5;
 }
+/* Scheduled rounds block (2026-07-14): native scheduling from
+   /api/schedule-round rendered above the Discord card. Hidden until
+   at least one upcoming round exists — no empty chrome. */
+.waitlist-rail__sched{margin:10px 16px 0}
+.wl-sched-head{
+  font-size:.62rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--text-ghost);margin:0 0 6px;display:flex;align-items:center;justify-content:space-between;
+}
+.wl-sched-head a{color:var(--text-dim);font-weight:700;text-decoration:none;text-transform:none;letter-spacing:0;font-size:.66rem}
+.wl-sched-head a:hover{color:var(--text)}
+.wl-sched-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;border:1px solid var(--border);border-radius:11px;
+  background:rgba(255,255,255,.025);margin-bottom:6px;
+}
+.wl-sched-row.soon{border-color:rgba(34,197,94,.45)}
+.wl-sched-when{flex:none;font-size:.66rem;font-weight:800;color:var(--text);min-width:74px;line-height:1.25}
+.wl-sched-row.soon .wl-sched-when{color:#22c55e}
+.wl-sched-what{flex:1;min-width:0;font-size:.68rem;color:var(--text-dim);line-height:1.35;overflow:hidden;text-overflow:ellipsis}
+.wl-sched-what b{color:var(--text);font-weight:700}
+.wl-sched-btn{
+  flex:none;padding:5px 10px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-size:.64rem;font-weight:800;
+  cursor:pointer;font-family:inherit;transition:color .15s,border-color .15s;text-decoration:none;
+}
+.wl-sched-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.wl-sched-btn.on{border-color:rgba(34,197,94,.55);color:#22c55e}
+.wl-sched-btn.go{border-color:rgba(239,68,68,.55);color:var(--accent)}
 .waitlist-rail__discord{
   display:block;margin:10px 16px 0;padding:10px 12px;
   border-radius:12px;border:1px solid rgba(88,101,242,.34);
@@ -3583,7 +3611,8 @@ h1 em{color:var(--accent);font-style:normal}
         '</div>' +
       '</div>' +
       '<div class="waitlist-rail__sub">Open invites for live debates. Join to show up here, and keep the matchmaker running above for instant rounds.</div>' +
-      '<a class="waitlist-rail__discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><strong>Set a time in Discord</strong><span>Use channels and forum threads for scheduled rounds, judges, and reminders.</span></a>' +
+      '<div class="waitlist-rail__sched" id="wlSched" hidden></div>' +
+      '<a class="waitlist-rail__discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><strong>Talk it out in Discord</strong><span>Channels and forum threads for judges, reminders, and longer planning.</span></a>' +
       '<div class="waitlist-rail__post-slot" id="wlPostSlot"></div>' +
       '<div class="waitlist-rail__list" id="wlList">' +
         '<div class="waitlist-rail__empty">Loading…</div>' +
@@ -4570,12 +4599,90 @@ h1 em{color:var(--accent);font-style:normal}
     if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} wl.activeThreadUnsub = null; }
   }
 
+  // ── Scheduled rounds in the rail (2026-07-14) ────────
+  // The dead-queue rescue: when matchmaking is quiet, the rail shows
+  // upcoming community-scheduled rounds (/api/schedule-round) so a
+  // failed match converts into an RSVP for a future one. Same device
+  // id + anonymous posture as /community; hidden when nothing is
+  // scheduled; refreshes every 2 min while the tab is visible.
+  var SCHED_FMT_LABELS = { quick:'Quick Clash', apda:'APDA', bp:'BP', worlds:'Worlds', asian:'Asian Parli', ld:'LD', pf:'Public Forum', policy:'Policy' };
+  function schedDeviceId(){
+    var id = '';
+    try { id = localStorage.getItem('da-device-id') || ''; } catch(e){}
+    if (!id){
+      id = 'd' + Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
+      try { localStorage.setItem('da-device-id', id); } catch(e){}
+    }
+    return id;
+  }
+  function schedHandle(){
+    var h = '';
+    if (state.user && state.user.displayName) h = state.user.displayName.split(/\s+/)[0];
+    if (!h){ try { h = localStorage.getItem('da-chat-handle') || ''; } catch(e){} }
+    return (h || 'anon').slice(0, 32);
+  }
+  function schedEsc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
+    });
+  }
+  function loadSchedRounds(){
+    var slot = document.getElementById('wlSched');
+    if (!slot) return;
+    fetch('/api/schedule-round?d=' + encodeURIComponent(schedDeviceId()), { cache: 'no-cache' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var rounds = (j && Array.isArray(j.rounds)) ? j.rounds : [];
+        if (!rounds.length){ slot.hidden = true; slot.innerHTML = ''; return; }
+        var now = Date.now();
+        var rows = rounds.slice(0, 3).map(function(r){
+          var soon = r.startAt - now < 20 * 60 * 1000 && r.startAt + 2 * 60 * 60 * 1000 > now;
+          var d = new Date(r.startAt);
+          var when = soon ? 'starting<br>soon'
+            : (d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' })) +
+              '<br>' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+          var what = '<b>' + schedEsc(SCHED_FMT_LABELS[r.format] || 'Quick Clash') + '</b>' +
+            (r.motion ? ' · ' + schedEsc(String(r.motion).slice(0, 60)) : '') +
+            ' · ' + r.rsvpCount + ' in';
+          var action = soon
+            ? '<a class="wl-sched-btn go" href="/spar?format=' + schedEsc(r.format) + '">Queue →</a>'
+            : '<button type="button" class="wl-sched-btn' + (r.mine ? ' on' : '') + '" data-sched-id="' + schedEsc(r.id) + '">' + (r.mine ? 'In ✓' : "I'm in") + '</button>';
+          return '<div class="wl-sched-row' + (soon ? ' soon' : '') + '">' +
+            '<div class="wl-sched-when">' + when + '</div>' +
+            '<div class="wl-sched-what">' + what + '</div>' + action + '</div>';
+        }).join('');
+        slot.innerHTML =
+          '<div class="wl-sched-head">Scheduled rounds<a href="/community">propose one →</a></div>' + rows;
+        slot.hidden = false;
+        slot.querySelectorAll('[data-sched-id]').forEach(function(b){
+          b.addEventListener('click', function(){
+            b.disabled = true;
+            fetch('/api/schedule-round', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'rsvp', id: b.getAttribute('data-sched-id'), handle: schedHandle(), deviceId: schedDeviceId() }),
+            }).then(function(r){ return r.json().catch(function(){ return null; }); })
+              .then(function(res){
+                if (res && res.ok){
+                  try { gtag('event', 'spar_sched_rsvp', { going: res.mine }); } catch(e){}
+                  loadSchedRounds();
+                } else { b.disabled = false; }
+              })
+              .catch(function(){ b.disabled = false; });
+          });
+        });
+      })
+      .catch(function(){ /* endpoint down — block stays hidden */ });
+  }
+  setInterval(function(){ if (!document.hidden) loadSchedRounds(); }, 120 * 1000);
+
   // ── Boot ─────────────────────────────────────────────
   // Sidebar mounts immediately. Posts feed is public-read so we can
   // populate it before auth resolves; renderWaitlistContent swaps the
   // post-button / sign-in-overlay slot when the auth state lands.
   buildWaitlistRail();
   renderWaitlistContent();
+  loadSchedRounds();
   // waitlist_posts requires isSignedIn() — start the feed only after
   // auth resolves (named user OR anonymous) so the first snapshot
   // doesn't fail with Missing or insufficient permissions and leave

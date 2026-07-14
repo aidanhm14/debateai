@@ -498,6 +498,10 @@
     // from /api/live-now. The actionable presence signal vs the generic
     // online count. { count, debaters:[{uid,name,format}] }.
     var liveNow = null;
+    // Next scheduled round from /api/schedule-round (community scheduling,
+    // 2026-07-14). Soonest upcoming round or null; rendered as a bell row
+    // so scheduled rounds advertise themselves on every page.
+    var nextRound = null;
 
     // DM state
     var myUid = null, dmRows = [], dmUnread = 0, signedInReal = false;
@@ -549,9 +553,24 @@
     loadActivity();
     loadOnlineCount();
     loadLiveNow();
+    loadNextRound();
     var activityIv = setInterval(function () {
-      if (!document.hidden) { loadActivity(); loadOnlineCount(); loadLiveNow(); }
+      if (!document.hidden) { loadActivity(); loadOnlineCount(); loadLiveNow(); loadNextRound(); }
     }, 90 * 1000);
+    function loadNextRound() {
+      fetch('/api/schedule-round', { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var rows = (j && Array.isArray(j.rounds)) ? j.rounds : [];
+          var next = null;
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i].startAt > Date.now()) { next = rows[i]; break; }
+          }
+          nextRound = next;
+          if (panel) paintPanel();
+        })
+        .catch(function () { /* function down — row stays hidden */ });
+    }
     function loadLiveNow() {
       fetch('/api/live-now', { cache: 'no-cache' })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -861,6 +880,29 @@
               '<span class="ui-bell-row__preview">Active in the last 5 minutes</span>' +
             '</span>' +
             '<span class="ui-bell-row__time">live</span>' +
+          '</a>' +
+        '</div>';
+      }
+      // Next scheduled round (community scheduling). A future-dated
+      // reason to come back, right under the right-now signals.
+      if (nextRound && nextRound.startAt > Date.now()) {
+        var nd = new Date(nextRound.startAt);
+        var sameDay = nd.toDateString() === new Date().toDateString();
+        var whenTxt = (sameDay ? 'Today' : nd.toLocaleDateString(undefined, { weekday: 'short' })) +
+          ' ' + nd.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        var fmtNames = { quick: 'Quick Clash', apda: 'APDA', bp: 'BP', worlds: 'Worlds', asian: 'Asian Parli', ld: 'LD', pf: 'Public Forum', policy: 'Policy' };
+        var schedSub = escHtml(whenTxt) + ' · ' + (fmtNames[nextRound.format] || 'Quick Clash') +
+          (nextRound.rsvpCount > 0 ? ' · ' + nextRound.rsvpCount + ' in' : '');
+        html += '<div class="ui-bell-list">' +
+          '<a class="ui-bell-row" href="/community?from=bell-sched">' +
+            '<span class="ui-bell-av ui-bell-av--blank" style="position:relative">' +
+              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
+            '</span>' +
+            '<span class="ui-bell-row__main">' +
+              '<span class="ui-bell-row__name">Next scheduled round</span>' +
+              '<span class="ui-bell-row__preview">' + schedSub + '</span>' +
+            '</span>' +
+            '<span class="ui-bell-row__time">RSVP →</span>' +
           '</a>' +
         '</div>';
       }
