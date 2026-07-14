@@ -218,12 +218,45 @@
     background-size: 36px 36px;
     mask-image: radial-gradient(circle at 22% 32%, #000 0 38%, transparent 72%);
   }
-  .coach-guide-top { position: relative; z-index: 1; display: grid; grid-template-columns: 132px minmax(0,1fr); gap: 18px; align-items: center; }
-  .coach-avatar-wrap { position: relative; min-height: 136px; display: flex; align-items: center; justify-content: center; }
+  .coach-guide-top { position: relative; z-index: 1; display: grid; grid-template-columns: 216px minmax(0,1fr); gap: 18px; align-items: center; }
+  .coach-avatar-col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .coach-avatar-wrap { position: relative; min-height: 214px; display: flex; align-items: center; justify-content: center; }
   .coach-avatar-wrap::after {
     content: ""; position: absolute; width: 116px; height: 22px; left: 50%; bottom: 5px; transform: translateX(-50%);
     border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0,0,0,.28), rgba(0,0,0,0) 70%); filter: blur(5px); opacity: .48;
   }
+  /* Large floating coach — DBAvatar mount. The small CSS figure below stays
+     as the fallback until the engine mounts, so a failed avatar.js load
+     never leaves the card faceless. */
+  .coach-avatar-wrap.has-avatar .coach-avatar { display: none; }
+  .coach-avatar-wrap.has-avatar::after {
+    width: 136px; bottom: 0; animation: coachShadow 5.4s ease-in-out infinite;
+  }
+  .coach-hero {
+    display: none; position: relative; z-index: 1; width: 188px; height: 188px;
+    border-radius: 38% 46% 40% 48%; overflow: hidden; cursor: pointer;
+    box-shadow: 0 24px 54px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.28);
+    animation: coachFloat 5.4s ease-in-out infinite;
+    transition: box-shadow .2s;
+  }
+  .coach-avatar-wrap.has-avatar .coach-hero { display: block; }
+  .coach-hero:hover { box-shadow: 0 30px 62px rgba(0,0,0,.34), 0 0 0 3px rgba(239,68,68,.30); }
+  .coach-hero:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+  .coach-hero svg { width: 100%; height: 100%; display: block; }
+  .coach-hero.pop { animation: coachPop .5s ease, coachFloat 5.4s ease-in-out .5s infinite; }
+  @keyframes coachFloat { 0%,100% { transform: translateY(0) rotate(-1.2deg); } 50% { transform: translateY(-10px) rotate(1.2deg); } }
+  @keyframes coachShadow { 0%,100% { transform: translateX(-50%) scaleX(1); opacity: .48; } 50% { transform: translateX(-50%) scaleX(.8); opacity: .3; } }
+  @keyframes coachPop { 0% { transform: scale(.86) rotate(-3deg); } 55% { transform: scale(1.08) rotate(2deg); } 100% { transform: scale(1) rotate(0); } }
+  .coach-face-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .coach-face-chips button {
+    font-family: inherit; font-size: .68rem; font-weight: 700; letter-spacing: 0;
+    color: var(--text-dim); background: rgba(255,255,255,.05);
+    border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; cursor: pointer;
+    transition: color .14s, border-color .14s, background .14s;
+  }
+  .coach-face-chips button:hover { color: var(--text); border-color: var(--border-2); background: rgba(255,255,255,.09); }
+  .coach-face-chips .chip-shuffle { color: #fff; background: var(--red); border-color: var(--red); }
+  .coach-face-chips .chip-shuffle:hover { background: var(--red-2); border-color: var(--red-2); color: #fff; }
   .coach-avatar {
     position: relative; width: 104px; height: 118px; z-index: 1;
     animation: coachNod 4.8s ease-in-out infinite;
@@ -349,6 +382,8 @@
   .start-btn:hover:not(:disabled) { background: var(--red-2); }
   .start-btn:disabled { background: rgba(239,68,68,.32); box-shadow: none; cursor: wait; }
   .free-meter { font-size: .77rem; color: var(--text-faint); margin-top: 12px; text-align: center; }
+  .free-meter a { color: var(--text-dim); text-decoration: underline; text-underline-offset: 3px; }
+  .free-meter a:hover { color: var(--text); }
 
   .signin-state {
     background: rgba(255,255,255,.035); border: 1px solid var(--border);
@@ -487,6 +522,8 @@
     .coach-shell { padding: 64px 16px 64px; }
     .coach-guide-top { grid-template-columns: 1fr; gap: 10px; text-align: center; }
     .coach-avatar-wrap { min-height: 118px; }
+    .coach-avatar-wrap.has-avatar { min-height: 196px; }
+    .coach-hero { width: 168px; height: 168px; }
     .coach-bubble::before { display: none; }
     .coach-steps { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .drill-grid { grid-template-columns: 1fr; }
@@ -495,6 +532,8 @@
   @media (prefers-reduced-motion: reduce) {
     .coach-avatar,
     .coach-avatar-eye,
+    .coach-hero,
+    .coach-avatar-wrap.has-avatar::after,
     .coach-wave span { animation: none !important; }
   }
 
@@ -554,6 +593,13 @@
     background: #ffffff;
     border-color: rgba(0,0,0,.10);
   }
+  [data-theme="light"] .coach-face-chips button {
+    background: #fff;
+    border-color: rgba(0,0,0,.12);
+  }
+  [data-theme="light"] .coach-face-chips button:hover { background: #fbfaf5; }
+  [data-theme="light"] .coach-face-chips .chip-shuffle { background: var(--red); border-color: var(--red); color: #fff; }
+  [data-theme="light"] .coach-face-chips .chip-shuffle:hover { background: var(--red-2); border-color: var(--red-2); }
   [data-theme="light"] .coach-step.on {
     background: rgba(220,38,38,.05);
     border-color: rgba(220,38,38,.34);
@@ -703,15 +749,25 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
       <div class="ws-right">
         <div class="card coach-guide" aria-label="Coach guidance">
           <div class="coach-guide-top">
-            <div class="coach-avatar-wrap" aria-hidden="true">
-              <div class="coach-avatar">
-                <div class="coach-avatar-body"></div>
-                <div class="coach-avatar-head">
-                  <span class="coach-avatar-eye left"></span>
-                  <span class="coach-avatar-eye right"></span>
-                  <span class="coach-avatar-mouth"></span>
+            <div class="coach-avatar-col">
+              <div class="coach-avatar-wrap">
+                <div class="coach-avatar" aria-hidden="true">
+                  <div class="coach-avatar-body"></div>
+                  <div class="coach-avatar-head">
+                    <span class="coach-avatar-eye left"></span>
+                    <span class="coach-avatar-eye right"></span>
+                    <span class="coach-avatar-mouth"></span>
+                  </div>
+                  <div class="coach-wave"><span></span><span></span><span></span></div>
                 </div>
-                <div class="coach-wave"><span></span><span></span><span></span></div>
+                <div class="coach-hero" id="setupAvatar" role="button" tabindex="0" title="Give the coach a new look" aria-label="Give the coach a new look"></div>
+              </div>
+              <div class="coach-face-chips" id="faceChips" hidden aria-label="Customize the coach">
+                <button type="button" class="chip-shuffle" data-face="shuffle">New look</button>
+                <button type="button" data-face="skin">Skin</button>
+                <button type="button" data-face="top">Hair</button>
+                <button type="button" data-face="outfit">Outfit</button>
+                <button type="button" data-face="glasses">Glasses</button>
               </div>
             </div>
             <div class="coach-bubble">
@@ -760,7 +816,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
           </div>
 
           <button id="startBtn" class="start-btn" disabled>Loading…</button>
-          <div id="freeMeter" class="free-meter"></div>
+          <div id="freeMeter" class="free-meter">Free in beta · <a href="/pricing">see the pricing model</a></div>
         </div>
       </div>
 
@@ -824,7 +880,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   <p class="faq-a">A human coach is limited by their schedule. The AI debate coach is available any hour, runs unlimited reps, and tracks every round you have done. Use it for volume reps between sessions, not instead of a human.</p>
 
   <div class="faq-q">Is the AI debate coach free?</div>
-  <p class="faq-a">Yes. DebateIt is free in beta, the coach included. Sign in with Google to save your rounds and let the coach learn your style over time.</p>
+  <p class="faq-a">Yes. DebateIt is free in beta, the coach included. Sign in with Google to save your rounds and let the coach learn your style over time. The <a href="/pricing">pricing page</a> shows what plans will look like after beta.</p>
 
   <div class="faq-q">Which debate formats does the coach support?</div>
   <p class="faq-a">Public Forum, Lincoln-Douglas, Policy, British Parliamentary, APDA, Asian Parliamentary, World Schools, Congress, and MUN, plus career formats like mock trial, negotiation, and pitch defense. New to the formats? Start with the <a href="/learn">debate fundamentals guide</a>.</p>
@@ -855,6 +911,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   var GENDER_KEY = 'debateai-coach-gender';
   var SPEED_KEY  = 'debateai-coach-speed';
   var DRILL_KEY  = 'debateai-coach-drill';
+  var FACE_KEY   = 'debateai-coach-face';
 
   // Drill catalog. Keys MUST match the DRILLS map in coach-session.mjs.
   // Each carries plain-language framing (sub) + metadata so the page reads
@@ -1039,7 +1096,10 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
       });
     });
   }
-  wireSeg(els.voiceSeg, 'data-gender', GENDER_KEY);
+  wireSeg(els.voiceSeg, 'data-gender', GENDER_KEY, function(){
+    // No custom face saved -> follow the picked voice's default look.
+    if (!loadFace()) { state.face = null; if (setupAvatarCtrl) setupAvatarCtrl.setConfig(currentFace()); }
+  });
   wireSeg(els.paceSeg, 'data-speed', SPEED_KEY);
   (function(){
     var g = loadGender();
@@ -1229,7 +1289,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   function mountCoachAvatar() {
     if (!window.DBAvatar || !els.coachAvatar) return;
     if (coachAvatarCtrl) { try { coachAvatarCtrl.destroy(); } catch (e) {} coachAvatarCtrl = null; }
-    coachAvatarCtrl = DBAvatar.mountTalking(els.coachAvatar, COACH_FACES[loadGender()] || COACH_FACES.female, { size: '100%' });
+    coachAvatarCtrl = DBAvatar.mountTalking(els.coachAvatar, currentFace(), { size: '100%' });
     if (coachAvatarCtrl) {
       coachAvatarCtrl.setState('idle');
       // Hide the orb only now that the avatar actually mounted (fallback safety).
@@ -1237,6 +1297,63 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     }
   }
   function coachState(s) { if (coachAvatarCtrl) coachAvatarCtrl.setState(s); }
+
+  // ── Setup-page coach avatar: large, floating, customizable ──
+  // The face persists in localStorage and is the SAME face that talks in
+  // the live session, so customizing it isn't cosmetic-only. Falls back
+  // to the gender-preset face until the user plays with it.
+  var setupAvatarCtrl = null;
+  function loadFace(){ try { var raw = localStorage.getItem(FACE_KEY); return raw ? JSON.parse(raw) : null; } catch(e){ return null; } }
+  function saveFace(c){ try { localStorage.setItem(FACE_KEY, JSON.stringify(c)); } catch(e){} }
+  function currentFace(){
+    if (!state.face) state.face = Object.assign({}, loadFace() || COACH_FACES[loadGender()] || COACH_FACES.female);
+    return state.face;
+  }
+  function setFace(cfg){
+    state.face = cfg; saveFace(cfg);
+    if (setupAvatarCtrl) setupAvatarCtrl.setConfig(cfg);
+    var host = document.getElementById('setupAvatar');
+    if (host) { host.classList.remove('pop'); void host.offsetWidth; host.classList.add('pop'); }
+  }
+  function mountSetupAvatar(){
+    var host = document.getElementById('setupAvatar');
+    if (!window.DBAvatar || !host) return false;
+    if (setupAvatarCtrl) { try { setupAvatarCtrl.destroy(); } catch(e){} setupAvatarCtrl = null; }
+    setupAvatarCtrl = DBAvatar.mountTalking(host, currentFace(), { size: '100%' });
+    if (!setupAvatarCtrl) return false;
+    setupAvatarCtrl.setState('idle');
+    if (host.parentNode) host.parentNode.classList.add('has-avatar');
+    var chips = document.getElementById('faceChips');
+    if (chips) chips.hidden = false;
+    return true;
+  }
+  // avatar.js loads deferred, so it may land after this inline script runs.
+  (function waitForAvatarEngine(tries){
+    if (mountSetupAvatar()) return;
+    if (tries > 0) setTimeout(function(){ waitForAvatarEngine(tries - 1); }, 250);
+  })(24);
+  (function wireFacePlay(){
+    // Cycle lengths mirror avatar.js palettes: SKIN 6, N_TOP 12, OUTFIT 8, N_GLASSES 3.
+    var FACE_CYCLES = { skin: 6, top: 12, outfit: 8, glasses: 3 };
+    var chips = document.getElementById('faceChips');
+    var host = document.getElementById('setupAvatar');
+    if (chips) chips.addEventListener('click', function(ev){
+      var b = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+      if (!b || !window.DBAvatar) return;
+      var kind = b.getAttribute('data-face');
+      if (kind === 'shuffle') { setFace(DBAvatar.randomConfig()); return; }
+      var cfg = Object.assign({}, currentFace());
+      cfg[kind] = ((cfg[kind] | 0) + 1) % (FACE_CYCLES[kind] || 1);
+      setFace(cfg);
+    });
+    function shuffleFace(){ if (window.DBAvatar) setFace(DBAvatar.randomConfig()); }
+    if (host) {
+      host.addEventListener('click', shuffleFace);
+      host.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); shuffleFace(); } });
+      host.addEventListener('mouseenter', function(){ if (setupAvatarCtrl) setupAvatarCtrl.setState('listening'); });
+      host.addEventListener('mouseleave', function(){ if (setupAvatarCtrl) setupAvatarCtrl.setState('idle'); });
+    }
+  })();
 
   function startVisualizer(stream) {
     try {
@@ -1551,6 +1668,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     for (var i = 0; i < rows.length; i++) if (rows[i].who === 'YOU') userTurns++;
     // A real drill happened → count it toward this week's plan.
     if (userTurns >= 1) markPlanDone(loadDrill());
+    flushCoachRound(rows, userTurns);
     if (!state.user || rows.length < 2 || userTurns < 1) { resetToSetup(); return; }
 
     if (els.stage) els.stage.style.display = 'none';
@@ -1566,6 +1684,52 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
       console.warn('[coach] debrief failed:', err);
       renderDebrief('Could not generate a debrief this time. Your transcript is above.');
     });
+  }
+
+  // Training-data capture for coach drills. Symmetric with the voice_round
+  // flush in voice-debate.html: the Realtime session never touches our
+  // server during the drill, so without this the coach surface is a blind
+  // spot in the learning loop. Signed-in only (the coach requires sign-in).
+  function flushCoachRound(rows, userTurns) {
+    if (!state.user || userTurns < 1 || rows.length < 2) return;
+    try {
+      var drill = loadDrill();
+      var motion = (els.motionInput.value || '').trim().slice(0, 2000);
+      var userTxt = rows.filter(function(r){ return r.who === 'YOU'; }).map(function(r){ return r.text; }).join('\n\n');
+      var aiTxt = rows.filter(function(r){ return r.who === 'COACH'; }).map(function(r){ return r.text; }).join('\n\n');
+      var transcript = rows.map(function(r){ return (r.who === 'YOU' ? 'USER' : 'AI') + ': ' + r.text; }).join('\n\n');
+      var contrib = false;
+      try { contrib = localStorage.getItem('debateos-corpus-contribute') === '1'; } catch (e) {}
+      var payload = {
+        action: 'generation',
+        kind: 'coach_drill',
+        motion: motion,
+        side: '',
+        format: 'coach',
+        depth: '',
+        model: 'gpt-realtime',
+        promptId: 'coach-' + drill,
+        systemPrompt: '', // resolved server-side in coach-session.mjs
+        userPrompt: userTxt.slice(0, 7800),
+        output: aiTxt.slice(0, 39000),
+        context: {
+          drill: drill,
+          turnCount: rows.length,
+          userTurnCount: userTurns,
+          source: 'coach_drill',
+          fullTranscript: transcript.slice(0, 39000)
+        },
+        contributable: contrib
+      };
+      state.user.getIdToken().then(function(tok){
+        if (!tok) return;
+        return fetch('/api/log-generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify(payload)
+        });
+      }).catch(function(){});
+    } catch (e) { /* capture must never break the debrief path */ }
   }
 
   function renderDebrief(text) {

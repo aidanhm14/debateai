@@ -34,6 +34,7 @@ const VALID_KINDS = new Set([
   'vision',
   'resolution',
   'voice_round',
+  'coach_drill',
   'other',
 ]);
 
