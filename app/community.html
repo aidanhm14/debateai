@@ -49,6 +49,10 @@
      localStorage, polled message feed via /api/chat-feed, "X just
      joined!" lines tied to the same visitor-tick first-device event. -->
 <script src="/js/community-chat.js"></script>
+<!-- community-pulse.js renders the live-activity strip above the tabs
+     (real presence, spar queue, latest chat line) and owns the Live
+     tab's green dot. Real data only; rows hide when nothing is live. -->
+<script defer src="/js/community-pulse.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so
@@ -299,10 +303,40 @@ body::before{
 .tab:hover{color:var(--text)}
 .tab.on{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(239,68,68,.28)}
 .tab .tab-dot{
-  display:inline-block;width:6px;height:6px;border-radius:50%;
+  /* Hidden by default; community-pulse.js turns it on only when the
+     chat actually spoke in the last 15 min or someone is in the spar
+     queue. A dot that always pulses is the fake-liveness this page
+     promises not to do. */
+  display:none;width:6px;height:6px;border-radius:50%;
   background:#22c55e;margin-left:6px;vertical-align:middle;
   box-shadow:0 0 8px #22c55e;animation:pulse 1.6s ease-in-out infinite;
 }
+
+/* ── LIVE PULSE BAR ────────────────────────────────────────── */
+/* The "is anything happening right now" strip above the tabs.
+   Rows are individually hidden until community-pulse.js confirms
+   real activity; the whole bar stays display:none when nothing is
+   live, so the page never wears an empty chrome strip. */
+#communityPulse{
+  display:none;flex-wrap:wrap;gap:10px;align-items:center;
+  margin:0 0 14px;
+}
+.pulse-pill{
+  display:none;align-items:center;gap:8px;max-width:100%;
+  padding:8px 14px;border:1px solid var(--border);border-radius:999px;
+  background:var(--bg-card);font-size:.8rem;color:var(--text-dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pulse-pill b{color:var(--text);font-weight:800}
+.pulse-pill.clickable{cursor:pointer;transition:border-color .15s,color .15s}
+.pulse-pill.clickable:hover{border-color:var(--accent);color:var(--text)}
+.pulse-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;flex:none;
+  background:#22c55e;box-shadow:0 0 8px #22c55e;
+  animation:pulse 1.6s ease-in-out infinite;
+}
+.pulse-chat-handle{color:var(--accent);font-weight:700}
+.pulse-go{color:var(--accent);font-weight:700;letter-spacing:.02em}
 
 /* ── LIVE CHAT ─────────────────────────────────────────────── */
 .chat-shell{
@@ -728,6 +762,15 @@ body::before{
        don't have to bounce between a separate URL to browse published
        transcripts — they land here next to disclosures + discussion
        and the cross-tab nav is one click. -->
+  <!-- Live pulse: real presence + spar queue + latest chat line.
+       Rendered by community-pulse.js; whole strip hidden until at
+       least one signal has real data (no fake-crowd chrome). -->
+  <div id="communityPulse" aria-label="Live activity right now">
+    <span class="pulse-pill" id="pulseOnline"></span>
+    <span class="pulse-pill clickable" id="pulseSpar" role="link" title="Jump into the spar queue"></span>
+    <span class="pulse-pill clickable" id="pulseChat" role="button" title="Open the live chat"></span>
+  </div>
+
   <div class="tabs">
     <button class="tab on" data-tab="cases">Cases</button>
     <button class="tab" data-tab="discussion">Discussions</button>
@@ -1206,6 +1249,7 @@ body::before{
             '<button class="btn" id="modalShareBtn" title="Copy link">Share</button>' +
             '<button class="btn" id="modalShareXBtn" title="Share on X">Share on X</button>' +
             '<button class="btn" id="modalImportBtn">Import to my cases</button>' +
+            '<button class="btn" id="modalSparBtn" title="Queue for a live human round in this format">Spar a human on this →</button>' +
             '<button class="btn primary" data-href="/debate-it" id="modalDebateBtn">Debate this motion →</button>' +
           '</div>' +
         '</div>' +
@@ -1224,6 +1268,14 @@ body::before{
       try { gtag('event','disclosure_debate_motion'); } catch(e){}
       var url = '/debate-it?motion=' + encodeURIComponent(c.motion || '');
       location.href = url;
+    });
+    // "Spar a human" — the live-discourse path. Routes to the /spar
+    // queue in this case's format (normalizeFormat returns exactly
+    // spar's format keys); no format → spar's own default (quick).
+    $('modalSparBtn').addEventListener('click', function(){
+      try { gtag('event','disclosure_spar_human', { format: normalizeFormat(c.format) }); } catch(e){}
+      var fmt = normalizeFormat(c.format);
+      location.href = '/spar' + (fmt ? '?format=' + encodeURIComponent(fmt) : '');
     });
     // Build the canonical shareable URL once + reuse for both share
     // buttons. Uses location.origin so it works on debateai.com,
