@@ -544,16 +544,86 @@ function App() {
     });
   }, [format]);
 
+  // Flush the finished round to /api/log-generation so exhibition rounds
+  // land in the generations corpus (kind:'exhibition_round') instead of
+  // evaporating in localStorage. Ratable at /admin/rate like any other
+  // generation; the nightly distill mines the ones rated >=4. Signed-in
+  // users log under their uid; anonymous viewers log under a hashed
+  // session id, always contributable:false. Best-effort — a logging
+  // failure never touches the UI.
+  var loggedRoundRef = useRef(false);
+  var getAnonSessionId = function () {
+    try {
+      var sid = sessionStorage.getItem('_da_sid');
+      if (!sid) {
+        sid = window.crypto && crypto.randomUUID ?
+          crypto.randomUUID() :
+          Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem('_da_sid', sid);
+        sessionStorage.setItem('_da_sst', String(Date.now()));
+      }
+      return sid;
+    } catch (e) {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
+  };
+  var logExhibitionRound = function (transcript, matchup, ballotText) {
+    if (loggedRoundRef.current) return;
+    loggedRoundRef.current = true;
+    try {
+      var output = transcript + (ballotText ? '\n\n[BALLOT · AI judge]:\n' + ballotText : '');
+      var payload = {
+        action: 'generation',
+        kind: 'exhibition_round',
+        motion: (motion || '').slice(0, 2000),
+        side: '',
+        format: format || '',
+        depth: '',
+        model: matchup.slice(0, 200),
+        promptId: 'exhibition',
+        systemPrompt: '',
+        userPrompt: '',
+        output: output.slice(0, 39000),
+        context: {
+          source: 'exhibition',
+          matchup: matchup,
+          hasBallot: !!ballotText,
+          speechCount: (transcript.match(/^\[/gm) || []).length,
+          fullTranscript: transcript.slice(0, 39000)
+        },
+        contributable: false
+      };
+      var u = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+      if (u && !u.isAnonymous) {
+        u.getIdToken().then(function (tok) {
+          if (!tok) return;
+          return fetch('/api/log-generation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+            body: JSON.stringify(payload)
+          });
+        }).catch(function () {});
+      } else {
+        payload.sessionId = getAnonSessionId();
+        fetch('/api/log-generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  };
+
   // The AI judge. Runs once the speeches are in, with the full transcript.
   // Sends _promptId:'exhibitionBallot' so the adjudication core + ballot
   // instructions are injected server-side; Claude Haiku writes plain text.
   var generateBallot = async function (transcript) {
     setBallotLoading(true); setBallotError(''); setBallot(null);
+    var matchup = fourTeam ?
+      fmt.sides.map(function (s) { return (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' as ' + fmt.sideLabels[s]; }).join(', ') :
+      BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find(function (x) { return x !== sideA; })] + ')';
     try {
       var judge = BRAINS.claude;
-      var matchup = fourTeam ?
-        fmt.sides.map(function (s) { return (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' as ' + fmt.sideLabels[s]; }).join(', ') :
-        BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find(function (x) { return x !== sideA; })] + ')';
       var rankingInstruction = fourTeam ?
         'Rank ALL FOUR teams 1-2-3-4 by the half-call, and put the full ranking in the WINNER line.' :
         'Pick the winning side.';
@@ -574,8 +644,10 @@ function App() {
       var text = extractText(await res.json());
       if (!text) throw new Error('empty ballot');
       setBallot({ judge: judge.name, text: text });
+      logExhibitionRound(transcript, matchup, text);
     } catch (e) {
       setBallotError(e.message || 'ballot failed');
+      logExhibitionRound(transcript, matchup, '');
     }
     setBallotLoading(false);
   };
@@ -589,7 +661,7 @@ function App() {
 
       // Same brain on both sides isn't useful for the disagreement signal,
       // but allow it — user might be testing self-consistency.
-    }setStage('running');abortRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur,
+    }setStage('running');abortRef.current = false;loggedRoundRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur,
         // 4-team: dispatch by the team's brain. 2-side: the side that
         // matches sideA gets brainA, the other gets brainB.
         brainKey: fourTeam ? (teamBrains[s.side] || brainA) : (s.side === sideA ? brainA : brainB),
