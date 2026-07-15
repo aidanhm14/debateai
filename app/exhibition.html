@@ -507,13 +507,17 @@ function App() {
   var [motion, setMotion] = useState('This house would ban targeted political advertising.');
   var [format, setFormat] = useState('apda');
   var [brainA, setBrainA] = useState(DEEP_LINK_BRAINS.prop || 'claude');
-  var [brainB, setBrainB] = useState(DEEP_LINK_BRAINS.opp || 'grok');
+  // Default matchup is claude vs claude: every other brain proxy is
+  // paid-plan gated, so a claude-vs-grok default 401s half the round
+  // for the signed-out visitors the FAQ promises anonymous rounds to.
+  // Signed-in users can flip the picker freely.
+  var [brainB, setBrainB] = useState(DEEP_LINK_BRAINS.opp || 'claude');
   var [sideA, setSideA] = useState('gov');
   // 4-team formats (BP) assign one brain per team (og/oo/cg/co). The
   // 2-side path keeps brainA/brainB; this object only matters when
-  // isFourTeam(fmt) is true. Defaults spread the four big brains so a
-  // first run is interesting out of the box.
-  var [teamBrains, setTeamBrains] = useState({ og: 'claude', oo: 'grok', cg: 'gpt', co: 'deepseek' });
+  // isFourTeam(fmt) is true. All-claude default for the same paid-gating
+  // reason as brainB above; signed-in users can spread the brains.
+  var [teamBrains, setTeamBrains] = useState({ og: 'claude', oo: 'claude', cg: 'claude', co: 'claude' });
   var [speeches, setSpeeches] = useState([]); // [{code, side, brainKey, text, status, error}]
   var [currentIdx, setCurrentIdx] = useState(-1);
   // Exhibition ballot — the AI judge writes the RFD after the round (the
