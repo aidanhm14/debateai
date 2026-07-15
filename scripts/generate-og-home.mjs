@@ -12,7 +12,7 @@ const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const TMP = '/tmp/og-build';
 const APP = '/Users/aidanhm/app';
 const YOU = `file://${APP}/img/round/faces/face02.jpg`;
-const OPP = `file://${APP}/img/round/faces/face04.jpg`;
+const OPP = `file://${APP}/img/round/faces/face07.jpg`;
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
