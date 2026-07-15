@@ -264,6 +264,27 @@ body{
   transition:border-color .25s, box-shadow .25s;
 }
 .speech-card.active{border-color:rgba(168,85,247,.5);box-shadow:0 8px 28px rgba(168,85,247,.08)}
+.speech-model{font-size:.62rem;font-weight:700;color:rgba(255,255,255,.38);margin-left:6px;letter-spacing:.04em}
+.speech-play{margin-left:auto;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);color:#c084fc;border-radius:7px;font-size:.66rem;padding:2px 9px;cursor:pointer}
+.speech-play:hover{background:rgba(168,85,247,.25)}
+.exh-voice-row{display:flex;align-items:center;gap:10px;margin:2px 0 16px}
+.voice-toggle{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.75);border-radius:8px;font-size:.74rem;font-weight:700;padding:6px 13px;cursor:pointer}
+.voice-toggle.on{background:rgba(168,85,247,.16);border-color:rgba(168,85,247,.5);color:#d8b4fe}
+.voice-toggle.tap{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);color:#fca5a5}
+.voice-now{font-size:.7rem;color:rgba(255,255,255,.45);letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+.vote-card{background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.3);border-radius:14px;padding:20px 22px;margin:18px 0 14px}
+.vote-title{font-size:1.02rem;font-weight:800;color:#fff;margin-bottom:4px}
+.vote-sub{font-size:.76rem;color:rgba(255,255,255,.5);margin-bottom:14px}
+.vote-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.vote-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:10px;font-size:.82rem;font-weight:700;padding:10px 16px;cursor:pointer}
+.vote-btn:hover{border-color:rgba(168,85,247,.7);background:rgba(168,85,247,.14)}
+.vote-skip{background:none;border:none;color:rgba(255,255,255,.45);font-size:.76rem;cursor:pointer;text-decoration:underline}
+.vote-result{margin-top:10px;padding:10px 14px;border-radius:9px;font-size:.82rem;font-weight:700;background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.28);color:#fca5a5}
+.vote-result.agree{background:rgba(34,197,94,.09);border-color:rgba(34,197,94,.3);color:#86efac}
+[data-stream] #topbar-host{display:none}
+[data-stream] .exh-wrap{max-width:920px;padding-top:26px}
+[data-stream] .speech-body{font-size:1.04rem;line-height:1.78}
+[data-stream] .exh-title{font-size:1.9rem}
 .speech-head{
   display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;
 }
@@ -334,12 +355,49 @@ var el = React.createElement;
    localStorage save. v0.2: streaming, transcript export,
    per-brain voice playback. */
 
+// Flagship pins, billed on screen. The matchup IS the show for the
+// spectate use case, so each brain runs the strongest model its proxy
+// allow-list carries and the UI names that exact model. Never bill a
+// model the round did not actually run. Anonymous visitors can only
+// run Claude, and claude.mjs's anon token cap + per-IP layers bound
+// the cost of the sonnet upgrade.
 var BRAINS = {
-  claude: { name: 'Claude', endpoint: '/api/claude', model: 'claude-haiku-4-5-20251001', color: '#D97757' },
-  gpt: { name: 'GPT', endpoint: '/api/openai-chat', model: 'gpt-4o-mini', color: '#10a37f' },
-  grok: { name: 'Grok', endpoint: '/api/grok', model: 'grok-3-mini', color: '#cbd5e1' },
-  deepseek: { name: 'DeepSeek', endpoint: '/api/deepseek', model: 'deepseek-chat', color: '#4D6BFE' }
+  claude: { name: 'Claude', endpoint: '/api/claude', model: 'claude-sonnet-4-6', modelLabel: 'Sonnet 4.6', color: '#D97757' },
+  gpt: { name: 'GPT', endpoint: '/api/openai-chat', model: 'gpt-4o', modelLabel: 'GPT-4o', color: '#10a37f' },
+  grok: { name: 'Grok', endpoint: '/api/grok', model: 'grok-3', modelLabel: 'Grok 3', color: '#cbd5e1' },
+  deepseek: { name: 'DeepSeek', endpoint: '/api/deepseek', model: 'deepseek-chat', modelLabel: 'DeepSeek Chat', color: '#4D6BFE' }
 };
+
+// ── SPECTATE MODE ────────────────────────────────────────────
+// ?stream=1 turns the page into an OBS-friendly stage: site chrome
+// hidden, bigger speech type, voice playback on by default. The voice
+// toggle also works outside stream mode.
+var STREAM_MODE = false;
+try { STREAM_MODE = new URLSearchParams(location.search).get('stream') === '1'; } catch (e) {}
+if (STREAM_MODE) { try { document.documentElement.setAttribute('data-stream', '1'); } catch (e) {} }
+
+// Persona voice per side so the two benches are audibly distinct.
+// BP closing halves get their own voices (four teams, four registers).
+var EXH_SIDE_VOICES = { og: 'statesman', oo: 'firebrand', cg: 'professor', co: 'prosecutor', _a: 'statesman', _b: 'firebrand' };
+
+// Sentence-boundary chunking under the TTS payload cap.
+function exhChunkText(text) {
+  var clean = String(text || '').replace(/\s+/g, ' ').trim();
+  var out = []; var cur = '';
+  var parts = clean.match(/[^.!?]+[.!?]+(\s|$)/g) || [clean];
+  for (var i = 0; i < parts.length; i++) {
+    if ((cur + parts[i]).length > 3600 && cur) { out.push(cur.trim()); cur = ''; }
+    cur += parts[i];
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+function exhFetchTTSBlob(text, voice, intensity) {
+  return fetch('/api/tts', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text, voice: voice, speed: 1.06, premium: false, intensity: intensity })
+  }).then(function (r) { if (!r.ok) throw new Error('TTS ' + r.status); return r.blob(); });
+}
 
 // Minimal format objects. Each speech: code, side, title, durationMin
 // (used only in summary text — no live timer in v0.1).
@@ -527,6 +585,88 @@ function App() {
   var [ballot, setBallot] = useState(null); // { judge, text }
   var [ballotLoading, setBallotLoading] = useState(false);
   var [ballotError, setBallotError] = useState('');
+  // Spectate: voice playback + audience vote. voiceOn mirrors into a
+  // ref because the orchestrator and player loops are long-lived
+  // closures that must read the live value, not a stale render's.
+  var [voiceOn, setVoiceOn] = useState(STREAM_MODE || (function () { try { return localStorage.getItem('exh-voice') === '1'; } catch (e) { return false; } })());
+  var [speakingIdx, setSpeakingIdx] = useState(-1);
+  var [voiceNeedsTap, setVoiceNeedsTap] = useState(false);
+  var [vote, setVote] = useState(null); // 'a' | 'b' | 'skip'
+  var voiceOnRef = useRef(voiceOn); voiceOnRef.current = voiceOn;
+  var speechQueueRef = useRef([]);
+  var speechesRef = useRef([]);
+  var playerBusyRef = useRef(false);
+  var audioRef = useRef(null);
+  var stopResolveRef = useRef(null);
+  var stopGenRef = useRef(0);
+
+  var stopVoice = function () {
+    stopGenRef.current++;
+    speechQueueRef.current = [];
+    if (audioRef.current) { try { audioRef.current.pause(); } catch (e) {} }
+    if (stopResolveRef.current) { try { stopResolveRef.current(true); } catch (e) {} stopResolveRef.current = null; }
+    audioRef.current = null;
+    playerBusyRef.current = false;
+    setSpeakingIdx(-1);
+  };
+  var voiceForSpeech = function (sp) {
+    if (EXH_SIDE_VOICES[sp.side]) return EXH_SIDE_VOICES[sp.side];
+    return sp.side === sideA ? EXH_SIDE_VOICES._a : EXH_SIDE_VOICES._b;
+  };
+  var brainBill = function (k) { return BRAINS[k].name + ' \u00b7 ' + BRAINS[k].modelLabel; };
+  // Drains the pending-speech queue through /api/tts sequentially,
+  // prefetching the next chunk while the current one plays. Rebuttal
+  // and reply speeches (short slots) get a hotter delivery.
+  var playQueueTick = async function () {
+    if (playerBusyRef.current) return;
+    playerBusyRef.current = true;
+    var gen = stopGenRef.current;
+    while (speechQueueRef.current.length) {
+      if (gen !== stopGenRef.current) return;
+      var idx = speechQueueRef.current.shift();
+      var sp = speechesRef.current[idx];
+      if (!sp || !sp.text) continue;
+      setSpeakingIdx(idx);
+      var intensity = sp.dur && sp.dur <= 5 ? 0.7 : 0.45;
+      var chunks = exhChunkText(sp.text);
+      var nextBlobP = exhFetchTTSBlob(chunks[0], voiceForSpeech(sp), intensity);
+      for (var c = 0; c < chunks.length; c++) {
+        if (!voiceOnRef.current || gen !== stopGenRef.current) break;
+        var blob;
+        try { blob = await nextBlobP; } catch (e) { break; }
+        if (c + 1 < chunks.length) nextBlobP = exhFetchTTSBlob(chunks[c + 1], voiceForSpeech(sp), intensity);
+        if (!voiceOnRef.current || gen !== stopGenRef.current) break;
+        var url = URL.createObjectURL(blob);
+        var played = await new Promise(function (resolve) {
+          var a = new Audio(url);
+          audioRef.current = a;
+          stopResolveRef.current = resolve;
+          a.onended = function () { URL.revokeObjectURL(url); resolve(true); };
+          a.onerror = function () { URL.revokeObjectURL(url); resolve(true); };
+          a.play().catch(function () { URL.revokeObjectURL(url); resolve(false); });
+        });
+        stopResolveRef.current = null;
+        if (played === false) {
+          // Autoplay blocked: requeue this speech and surface the tap
+          // button. The tap click is the user gesture that unblocks.
+          setVoiceNeedsTap(true);
+          speechQueueRef.current.unshift(idx);
+          playerBusyRef.current = false;
+          setSpeakingIdx(-1);
+          return;
+        }
+      }
+    }
+    playerBusyRef.current = false;
+    setSpeakingIdx(-1);
+  };
+  var recordVote = function (v) {
+    setVote(v);
+    try {
+      var list = JSON.parse(localStorage.getItem('debateai-exhibition-rounds') || '[]');
+      if (list[0]) { list[0].audienceVote = v; localStorage.setItem('debateai-exhibition-rounds', JSON.stringify(list)); }
+    } catch (e) {}
+  };
   var abortRef = useRef(false);
 
   var fmt = FORMATS[format];
@@ -672,6 +812,7 @@ function App() {
         text: '', status: 'queued', error: null
       }));
     setSpeeches(queue);
+    speechesRef.current = queue;
     var transcript = '';var _loop = async function (i)
     {
       if (abortRef.current) return 1; // break
@@ -685,6 +826,7 @@ function App() {
         queue[i].status = 'done';
         transcript += (transcript ? '\n\n' : '') + '[' + sp.code + ' · ' + (fmt.sideLabels[sp.side] || sp.side) + ' · ' + BRAINS[sp.brainKey].name + ']:\n' + text;
         setSpeeches([...queue]);
+        if (voiceOnRef.current) { speechQueueRef.current.push(i); playQueueTick(); }
       } catch (e) {
         queue[i].status = 'error';
         queue[i].error = e.message || 'request failed';
@@ -710,7 +852,7 @@ function App() {
     if (transcript.trim()) generateBallot(transcript);
   };
 
-  var reset = () => {abortRef.current = true;setStage('setup');setSpeeches([]);setCurrentIdx(-1);setBallot(null);setBallotLoading(false);setBallotError('');};
+  var reset = () => {abortRef.current = true;stopVoice();setVote(null);setVoiceNeedsTap(false);setStage('setup');setSpeeches([]);setCurrentIdx(-1);setBallot(null);setBallotLoading(false);setBallotError('');};
 
   if (stage === 'setup') {
     return el('div', { className: 'exh-wrap' },
@@ -783,11 +925,11 @@ function App() {
     ],
     el('div', { className: 'go-row' },
     el('button', { className: 'go-btn', onClick: start, disabled: !motion.trim() }, 'Run exhibition →'),
-    el('span', { className: 'go-meta' }, fmt.speeches.length + ' speeches · ' + (fourTeam ? fmt.sides.map((s) => BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?').join(' · ') : BRAINS[brainA].name + ' vs ' + BRAINS[brainB].name))
+    el('span', { className: 'go-meta' }, fmt.speeches.length + ' speeches · ' + (fourTeam ? fmt.sides.map((s) => BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?').join(' · ') : brainBill(brainA) + ' vs ' + brainBill(brainB)))
     )
     ),
     el('div', { style: { fontSize: '.72rem', color: 'rgba(255,255,255,.42)', marginTop: 18, lineHeight: 1.55, maxWidth: 580 } },
-    'v0.1: each speech generates fully before the next starts (non-streamed). One failed speech does not kill the round; the next one still fires with whatever transcript exists. Costs scale with format length: APDA = 6 calls, WSDC = 8, BP = 8.'
+    'Each speech generates fully before the next starts. One failed speech does not kill the round. Toggle Voice during the round to hear the speeches out loud, and add ?stream=1 to the URL for a clean full-screen stage built for streaming or projection.'
     )
     );
   }
@@ -797,20 +939,27 @@ function App() {
   el('div', { className: 'exh-eyebrow' }, stage === 'done' ? 'Round complete' : 'Round in progress'),
   el('h1', { className: 'exh-title', style: { fontSize: '1.6rem', marginBottom: 8 } }, motion),
   el('p', { className: 'exh-sub' }, fourTeam ?
-    fmt.name + ' · ' + fmt.sides.map((s) => (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' ' + fmt.sideLabels[s]).join(' · ') :
-    fmt.name + ' · ' + BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + ')'),
+    fmt.name + ' · ' + fmt.sides.map((s) => (BRAINS[teamBrains[s]] ? brainBill(teamBrains[s]) : '?') + ' ' + fmt.sideLabels[s]).join(' · ') :
+    fmt.name + ' · ' + brainBill(brainA) + ' (' + fmt.sideLabels[sideA] + ') vs ' + brainBill(brainB) + ' (' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + ')'),
+  el('div', { className: 'exh-voice-row' },
+  el('button', { className: 'voice-toggle' + (voiceOn ? ' on' : ''), onClick: () => {var next = !voiceOn;voiceOnRef.current = next;setVoiceOn(next);try {localStorage.setItem('exh-voice', next ? '1' : '0');} catch (e) {}if (!next) stopVoice();} }, voiceOn ? '\uD83D\uDD0A Voice on' : '\uD83D\uDD07 Voice off'),
+  voiceOn && voiceNeedsTap && el('button', { className: 'voice-toggle tap', onClick: () => {setVoiceNeedsTap(false);playQueueTick();} }, '\u25B6 Tap to hear'),
+  speakingIdx >= 0 && speechesRef.current[speakingIdx] && el('span', { className: 'voice-now' }, 'Speaking: ' + speechesRef.current[speakingIdx].code)
+  ),
   speeches.map((sp, i) => el('div', { key: i, className: 'speech-card' + (i === currentIdx ? ' active' : '') },
   el('div', { className: 'speech-head' },
   el('span', { className: 'speech-code' }, sp.code),
   el('span', { className: 'speech-side', style: { color: (BRAINS[sp.brainKey] ? BRAINS[sp.brainKey].color : undefined) } }, fmt.sideLabels[sp.side]),
   el('span', { className: 'speech-brain' },
   el('span', { className: 'dot', style: { background: BRAINS[sp.brainKey].color } }),
-  BRAINS[sp.brainKey].name
+  BRAINS[sp.brainKey].name,
+  el('span', { className: 'speech-model' }, BRAINS[sp.brainKey].modelLabel)
   ),
   sp.status === 'running' && el('span', { className: 'speech-status', style: { color: '#c084fc' } }, 'speaking…'),
   sp.status === 'queued' && el('span', { className: 'speech-status' }, 'queued'),
   sp.status === 'error' && el('span', { className: 'speech-status', style: { color: '#fca5a5' } }, 'failed'),
-  sp.status === 'done' && el('span', { className: 'speech-status', style: { color: '#86efac' } }, 'done')
+  sp.status === 'done' && el('span', { className: 'speech-status', style: { color: '#86efac' } }, 'done'),
+  sp.status === 'done' && !!sp.text && el('button', { className: 'speech-play', title: 'Hear this speech', onClick: () => {if (!voiceOn) {voiceOnRef.current = true;setVoiceOn(true);try {localStorage.setItem('exh-voice', '1');} catch (e) {}}speechQueueRef.current.push(i);playQueueTick();} }, '\u25B6')
   ),
   sp.error && el('div', { className: 'speech-error' }, sp.error),
   !sp.error && sp.text && el('div', { className: 'speech-body' }, sp.text),
@@ -818,10 +967,32 @@ function App() {
   !sp.error && !sp.text && sp.status === 'running' && el('div', { className: 'empty-speech' }, BRAINS[sp.brainKey].name + ' is writing…')
   )),
   stage === 'done' && el('div', null,
-  el('div', { className: 'exh-ballot-wrap' },
+  // The persuasion moment. Two-side rounds hide the ballot behind a
+  // blur until the viewer calls the round themselves; the reveal is
+  // the payoff (did you and the judge agree). BP skips the vote card
+  // (four teams do not reduce to a two-button call).
+  !fourTeam && !vote && el('div', { className: 'vote-card' },
+  el('div', { className: 'vote-title' }, 'Before the ballot: who persuaded you?'),
+  el('div', { className: 'vote-sub' }, 'The judge already ruled. Call it yourself first.'),
+  el('div', { className: 'vote-row' },
+  el('button', { className: 'vote-btn', onClick: () => recordVote('a') }, brainBill(brainA) + ' \u00b7 ' + fmt.sideLabels[sideA]),
+  el('button', { className: 'vote-btn', onClick: () => recordVote('b') }, brainBill(brainB) + ' \u00b7 ' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)]),
+  el('button', { className: 'vote-skip', onClick: () => recordVote('skip') }, 'Show the ballot')
+  )
+  ),
+  el('div', { className: 'exh-ballot-wrap', style: !fourTeam && !vote ? { filter: 'blur(9px)', pointerEvents: 'none', userSelect: 'none' } : null },
   el('div', { className: 'exh-ballot-head' }, el('span', { className: 'exh-ballot-dot' }), ballotLoading ? 'The judge is deliberating…' : ballot ? ('Ballot · judged by ' + ballot.judge) : ballotError ? 'Ballot unavailable' : 'Ballot'),
   ballotLoading && el('div', { className: 'exh-ballot-body exh-ballot-loading' }, 'Reading all ' + speeches.length + ' speeches, weighing the round, writing the RFD.'),
   ballot && el('div', { className: 'exh-ballot-body' }, ballot.text),
+  ballot && vote && vote !== 'skip' && function () {
+    var jm = ballot.text.match(/winner[^A-Za-z0-9]{0,6}(government|opposition|proposition|gov|opp|prop)/i);
+    if (!jm) return null;
+    var judgeSide = jm[1].slice(0, 3).toLowerCase();
+    var yourKey = vote === 'a' ? sideA : fmt.sides.find((x) => x !== sideA);
+    var agree = yourKey.slice(0, 3).toLowerCase() === judgeSide;
+    return el('div', { className: 'vote-result' + (agree ? ' agree' : '') },
+    'You called it for ' + (fmt.sideLabels[yourKey] || yourKey) + '. ' + (agree ? 'The judge agrees with you.' : 'The judge went the other way. Read the RFD and see who is right.'));
+  }(),
   ballotError && el('div', { className: 'exh-ballot-body exh-ballot-err' }, ballotError + '. The round still ran; the verdict just failed to generate.')
   ),
   el('div', { className: 'done-banner' }, 'All ' + speeches.length + ' speeches complete. Flow this round in your notebook, then run another with different brains to see how the matchup shifts.'),
