@@ -100,7 +100,7 @@ reviewer taps Start, then provides a timed debate and an AI judge ballot.
 
 Native iOS features include Sign in with Apple, push alerts for live opponents,
 native sharing, app deep links, a persistent app tab bar, and microphone and
-camera permission handling. The app is free during beta. It contains no web
+camera permission handling. The app is free in beta. It contains no web
 checkout, pricing link, or external purchase call to action.
 
 Live human rounds include visible report and block controls. Account deletion

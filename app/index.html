@@ -3948,6 +3948,9 @@ function PolyBackground() {
 
 
 
+
+
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -3961,10 +3964,7 @@ function PolyBackground() {
         el('circle', { cx: 60, cy: 38, r: 16, stroke: '#ffffff', strokeWidth: 1.3, fill: 'none', opacity: .5 }), // Hair line
         el('path', { d: 'M46 32 Q52 22 60 24 Q68 22 74 32', stroke: '#ffffff', strokeWidth: 1, fill: 'none', opacity: .3 }), // Inner detail. tie/collar
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
-        el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 })
-      )
-    )
-  );
+        el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));
 }
 
 /* ═══════════════════════════════════════════════════
@@ -4667,6 +4667,58 @@ function brainTaskReason(task) {
   return (BRAIN_TASKS[task] || BRAIN_TASKS.default).why;
 }
 
+function isLocalFunctionlessPreview() {
+  try {
+    var host = location.hostname;
+    var port = location.port || '';
+    return (host === '127.0.0.1' || host === 'localhost') && port !== '8888';
+  } catch (e) {return false;}
+}
+function cleanAIErrorText(raw, fallback) {
+  var text = String(raw || '').trim();
+  if (!text) return fallback;
+  try {
+    var data = JSON.parse(text);
+    text = data.error && (data.error.message || data.error) || data.message || data.detail || text;
+  } catch (e) {}
+  text = String(text || '').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, 220) : fallback;
+}
+function extractAITextFromJson(p) {
+  if (!p || typeof p !== 'object') return '';
+  var out = '';
+  if (p.choices && p.choices[0]) {
+    var choice = p.choices[0];
+    out += choice.delta && choice.delta.content || '';
+    out += choice.message && choice.message.content || '';
+    out += choice.text || '';
+  }
+  if (p.candidates && p.candidates[0] && p.candidates[0].content && p.candidates[0].content.parts) {
+    p.candidates[0].content.parts.forEach(function (part) {if (part && part.text) out += part.text;});
+  }
+  if (p.type === 'content_block_delta' && p.delta) out += p.delta.text || '';
+  if (Array.isArray(p.content)) {
+    p.content.forEach(function (part) {if (typeof part === 'string') out += part;else if (part && part.text) out += part.text;});
+  }
+  if (typeof p.output_text === 'string') out += p.output_text;
+  if (typeof p.text === 'string') out += p.text;
+  return out;
+}
+function extractAITextFromRaw(raw) {
+  var text = String(raw || '').trim();
+  if (!text) return '';
+  try {return extractAITextFromJson(JSON.parse(text));} catch (e) {}
+  var combined = '';
+  text.split(/\n+/).forEach(function (line) {
+    var l = line.trim();
+    if (!l) return;
+    if (l.indexOf('data:') === 0) l = l.slice(5).trim();
+    if (!l || l === '[DONE]') return;
+    try {combined += extractAITextFromJson(JSON.parse(l));} catch (e) {}
+  });
+  return combined;
+}
+
 /* Call any AI engine. for non-Claude engines, uses simple SSE streaming */
 async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {}) {
   // Claude has its own advanced function with thinking + continuation
@@ -4755,44 +4807,41 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   // Detect broken proxy: real 4xx/5xx OR Netlify 404 page served with 200 (force=true redirect)
   var ct = response.headers.get('content-type') || '';
   var isHtmlBody = ct.includes('text/html');
-  var isBroken = !response.ok || isHtmlBody;
-  if (isBroken && brainKey !== 'claude') {
-    console.warn('[AI] ' + brain.endpoint + ' broken (status=' + response.status + ', ct=' + ct + '), falling back to Claude');
-    return callClaude(systemPrompt, userPrompt, onChunk, opts);
-  }
-  // Claude itself returned HTML/error. backend is offline, show clean BYOK prompt instead of dumping HTML
-  if (isBroken && brainKey === 'claude') {
-    throw new Error('AI backend is temporarily offline. Quick fix: paste your Anthropic API key in Settings for instant unlimited access. Get a free key at console.anthropic.com.');
-  }
-  if (!response.ok) {
+  if (isHtmlBody || !response.ok) {
     var err = await response.text().catch(() => '');
-    var clean = (err || '').replace(/<[^>]*>/g, '').slice(0, 120).trim();
+    if (brainKey !== 'claude') {
+      console.warn('[AI] ' + brain.endpoint + ' failed (status=' + response.status + ', ct=' + ct + '), falling back to Claude:', cleanAIErrorText(err, 'no details'));
+      return callClaude(systemPrompt, userPrompt, onChunk, opts);
+    }
+    if (isHtmlBody && isLocalFunctionlessPreview()) {
+      throw new Error('This local preview is not connected to the AI functions. Run Netlify dev, or test on debateai.com.');
+    }
+    if (isHtmlBody) throw new Error('AI backend is temporarily offline. Paste your Anthropic API key in Settings for an immediate fallback, or try again in a moment.');
     if (response.status === 429) throw new Error('Rate limited. Wait a moment and try again.');
-    throw new Error(brain.name + ' error (' + response.status + '): ' + (clean || 'Try again in a moment.'));
+    throw new Error(brain.name + ' error (' + response.status + '): ' + cleanAIErrorText(err, 'Try again in a moment.'));
   }
 
   var reader = response.body.getReader(),dec = new TextDecoder();
-  var fullText = '',buf = '';
+  var fullText = '',buf = '',rawText = '';
   var expectedWords = opts.expectedWords || 1200;
 
   while (true) {
     var { done, value } = await reader.read();
     if (done) break;
-    buf += dec.decode(value, { stream: true });
+    var chunk = dec.decode(value, { stream: true });
+    rawText += chunk;
+    buf += chunk;
     var lines = buf.split('\n');buf = lines.pop() || '';
     for (var l of lines) {
-      if (l.startsWith('data: ')) {
-        var d = l.slice(6);if (d === '[DONE]') break;
-        try {
-          var p = JSON.parse(d);
-          // OpenAI / xAI format
-          if (p.choices && p.choices[0]?.delta?.content) {fullText += p.choices[0].delta.content;if (onChunk) onChunk(fullText);}
-          // Gemini format
-          if (p.candidates && p.candidates[0]?.content?.parts) {for (var part of p.candidates[0].content.parts) {if (part.text) {fullText += part.text;if (onChunk) onChunk(fullText);}}}
-          // Claude format (in case fallback routes here)
-          if (p.type === 'content_block_delta' && p.delta?.text) {fullText += p.delta.text;if (onChunk) onChunk(fullText);}
-        } catch {}
-      }
+      var d = l.trim();
+      if (!d) continue;
+      if (d.indexOf('data:') === 0) d = d.slice(5).trim();
+      if (d === '[DONE]') break;
+      try {
+        var p = JSON.parse(d);
+        var delta = extractAITextFromJson(p);
+        if (delta) {fullText += delta;if (onChunk) onChunk(fullText);}
+      } catch {}
     }
     if (opts.onProgress) {
       var wordCount = fullText.split(/\s+/).length;
@@ -4800,6 +4849,18 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
       opts.onProgress({ phase: 'writing', percent: pct });
     }
   }
+  if (!fullText.trim()) {
+    var parsedText = extractAITextFromRaw(rawText);
+    if (parsedText) {
+      fullText = parsedText;
+      if (onChunk) onChunk(fullText);
+    }
+  }
+  if (!fullText.trim() && brainKey !== 'claude') {
+    console.warn('[AI] ' + brain.endpoint + ' returned an empty body, falling back to Claude');
+    return callClaude(systemPrompt, userPrompt, onChunk, opts);
+  }
+  if (!fullText.trim()) throw new Error('The AI service returned an empty response. Try again in a moment.');
 
   if (opts.onProgress) opts.onProgress({ phase: 'done', percent: 100 });
   // Count usage
@@ -4942,7 +5003,10 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
   // Detect Netlify 404 HTML page served as 200 (force=true redirect with missing function)
   var claudeCt = response.headers.get('content-type') || '';
   if (claudeCt.includes('text/html')) {
-    throw new Error('AI backend is temporarily offline. Quick fix: paste your Anthropic API key in Settings for instant unlimited access. Get a free key at console.anthropic.com.');
+    if (isLocalFunctionlessPreview()) {
+      throw new Error('This local preview is not connected to the AI functions. Run Netlify dev, or test on debateai.com.');
+    }
+    throw new Error('AI backend is temporarily offline. Paste your Anthropic API key in Settings for an immediate fallback, or try again in a moment.');
   }
   if (!response.ok) {
     var err = await response.text();
@@ -4952,7 +5016,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
       throw new Error('Rate limited. Too many requests. Wait a moment and try again.');
     }
     if (response.status === 401 || response.status === 403) throw new Error('Authentication error. The API key may be invalid or expired. Contact the site admin.');
-    if (response.status === 404) throw new Error('AI backend is temporarily offline. Quick fix: paste your Anthropic API key in Settings for instant unlimited access.');
+    if (response.status === 404) throw new Error('AI backend is temporarily offline. Paste your Anthropic API key in Settings for an immediate fallback.');
     if (response.status >= 500) throw new Error('The AI service is temporarily down. Try again in a minute.');
     throw new Error(`AI request failed (${response.status}). ${clean || 'Please try again.'}`);
   }
@@ -5106,6 +5170,7 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
     }
   }
 
+  if (!fullText.trim()) throw new Error('The AI service returned an empty response. Try again in a moment.');
   if (onProgress) onProgress({ phase: 'done', percent: 100 });
   // Count usage on success
   if (_isAnon) {
