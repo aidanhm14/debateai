@@ -118,6 +118,8 @@ const URLS = [
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
   { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },
+  { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-14' },
+  { path: '/why-debateit',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-14' },
   { path: '/learn',           changefreq: 'monthly', priority: '0.85' },
   { path: '/topics',          changefreq: 'weekly',  priority: '0.85' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
@@ -215,7 +217,7 @@ function todayUtc() {
 function buildXml() {
   const today = todayUtc();
   const urls = URLS.map(u => {
-    const lastmod = DYNAMIC.has(u.path) ? today : STABLE_DATE;
+    const lastmod = u.lastmod || (DYNAMIC.has(u.path) ? today : STABLE_DATE);
     return `  <url>
     <loc>${SITE_ORIGIN}${u.path}</loc>
     <lastmod>${lastmod}</lastmod>
