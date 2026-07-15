@@ -1214,6 +1214,644 @@ export const GUIDE_BANK = {
     ctaHref: '/debate-it?format=pf&motion=Resolved%3A%20The%20benefits%20of%20regulating%20social%20media%20outweigh%20the%20harms.',
   },
 
+
+  // ── 2026-07-14 top-funnel pack: question queries new debaters type ──
+
+  'how-to-practice-debate-online': {
+    slug: 'how-to-practice-debate-online',
+    question: 'How to Practice Debate Online',
+    hook: 'Watching rounds is not practice. Practice needs a clock, your voice, and a ballot: timed solo drills, live online rounds, and AI sparring that ends in a judged RFD.',
+    format: 'general',
+    formatName: 'All formats',
+    readTime: '7 min',
+    takeaways: [
+      'Every online session needs a running clock and a feedback loop. If either is missing, you are consuming content, not practicing.',
+      'Record every drill speech on your webcam and watch it back within ten minutes. The recording is your judge when nobody else is around.',
+      'One live round against a stranger per week beats five scrims against a teammate who already knows your habits.',
+      'End every practice round with a written ballot, from a judge, a peer, or an AI. Unjudged reps groove your errors as fast as your skills.',
+    ],
+    sections: [
+      {
+        heading: 'Why most online practice does nothing',
+        body: [
+          'The default version of "practicing online" is watching a WUDC final at 1.5x, reading a rebuttal guide, and scrolling a debate subreddit. That is study, and study has a place, but none of it is practice. Debate is a motor skill. The gap between knowing what a good rebuttal looks like and producing one at minute six of a speech closes only when your mouth does the work.',
+          'Every online session that counts has three parts: a running clock, your voice out loud, and a feedback loop that tells you what to fix. A drill with no timer becomes a leisurely think. A speech given in your head transfers nothing. A round nobody judges grooves your errors exactly as fast as it grooves your skills. Build all three into every session and the internet becomes the best practice room you have ever had.',
+        ],
+      },
+      {
+        heading: 'Solo drills, adapted for a laptop',
+        body: [
+          'The redo drill is the highest-value 20 minutes available to a debater practicing online. Pick a motion, take 90 seconds of prep, and deliver a 4-minute constructive into your webcam. Watch the recording once, flowing yourself like a judge would. Then deliver the same speech again. The second take is always sharper, and the specific edits you make between takes, cutting the dead opening, moving the weighing up, killing the filler phrase you said eleven times, are the actual lesson.',
+          'Two rules keep the recording honest. Stand up, because you will stand at tournaments and your breath support changes when you do. And speak at tournament volume, not consideration-for-roommates volume. A speech mumbled at a screen from a desk chair rehearses a delivery you will never use in competition.',
+          'For rebuttal work without an opponent, cue up any recorded round on YouTube, flow the first constructive, pause the video, and give a timed 4-minute response before watching what the real opponent said. Recorded finals are a bottomless pool of sparring partners, most of them better than anyone at your club.',
+        ],
+      },
+      {
+        heading: 'Getting live rounds against real humans',
+        body: [
+          'Solo reps build mechanics. Live rounds test them against a person who does not care about your plan. The usual sources, in rough order of accessibility: your own club moved onto a video call with full speech times, the Discord practice servers where most competitive circuits organize offseason scrims, and matchmaking built for exactly this. DebateIt runs live matchmaking at /spar that pairs you with another debater for a judged round, with an AI opponent as the fallback when the queue is thin.',
+          'Whatever the source, one habit decides whether the round is worth anything: treat it like a tournament round. Full speech times, POIs live, no restarts, cameras on. And favor strangers. A teammate who has heard your extension six times rebuts it from memory; a stranger rebuts what you actually said. One stranger round a week is worth more than five inside your own club.',
+          'When no judge is present, trade ballots. After the round, each debater writes a three-line RFD for the other: who won, on which argument, and the one thing to fix before the next round. Two minutes of writing each, and both of you leave with the thing practice rounds usually fail to produce: a written record of what actually happened.',
+        ],
+      },
+      {
+        heading: 'AI sparring, and why the ballot is the point',
+        body: [
+          'At 11pm before a tournament, no human is queuing for a round. This is the slot AI sparring fills: an opponent that argues back in your format, takes POIs, and never cancels. Run these rounds switch-side, and run them on the motions you would dread drawing, because an opponent with no ego is the cheapest place to be bad at something.',
+          'The round itself is half the value. The other half is the ballot. A judged round ends with an RFD, and the RFD is where practice turns into improvement: read it, find the recurring note, and carry one concrete fix into your next rep. If the ballot says you lost the weighing, your next redo drill is a weighing drill. Rounds without that extraction step are just cardio.',
+          'One caution. Do not let AI rounds become all of your rounds. They are for volume, odd hours, and deliberate work on weaknesses. Humans still supply the unpredictability, the nerves, and the judge whose face you have to read mid-speech.',
+        ],
+      },
+      {
+        heading: 'Making it transfer to in-person tournaments',
+        body: [
+          'Online practice builds real skills with a few systematic distortions. You learn to speak to a camera 40 centimeters away instead of a judge eight meters away. You learn to pause for latency. You get used to a flow sitting on a second monitor and a mute button that erases your hesitation sounds. None of those habits exist in a school gym on tournament morning.',
+          'The countermeasures cost nothing. Project to the far wall of your room, not into the mic. Stand for every speech. Once a week, deliver a speech from paper notes instead of a screen. And once a week, add friction on purpose: no headphones, someone talking in the next room, a speech given straight after climbing a flight of stairs. Tournaments are noisy, hostile environments; sterile practice under-prepares you for them.',
+          'The flow deserves its own transfer work. If you type your flow during online rounds, hand-write it at least once a week. Most tournaments still put you at a desk with paper and a pen, and a flowing habit that lives in a keyboard will desert you there.',
+        ],
+      },
+      {
+        heading: 'A week that compounds',
+        body: [
+          'Monday, 25 minutes: redo drill on a fresh motion, both takes recorded and reviewed. Wednesday, 60 minutes: one full live round, human if the queue gives you one, AI if not, then ten minutes with the ballot. Friday, 25 minutes: rebuttal reps against a recorded speech, two cycles of pause-and-respond. Weekend, 45 minutes: one switch-side round in your weakest format, plus a review of the week\'s flows.',
+          'That is roughly three hours, and it beats a single unbroken three-hour session because every block has its own clock and its own feedback loop. Track one number a month: a ballot criticism that keeps repeating, filler words per minute, seconds of prep you actually use. Whatever your recordings say is the weakest axis, next month\'s drills point at it. Improvement in debate is measurable the moment you bother to measure it.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Redo drill, second take, after watching the first recording.',
+        line: '"Their entire case rests on one link: that the ban actually cuts consumption. Three reasons that link is broken."',
+        why: 'The first take opened with 20 seconds of case summary. The redo opens on the collapse point. That edit is what the recording exists to expose.',
+      },
+      {
+        context: 'First 15 seconds of a live online round with a stranger.',
+        line: '"Seven-minute speeches, POIs live after the first minute, no restarts, ballot at the end. Ready?"',
+        why: 'Ten seconds of agreed rules separates a real round from a chat with speeches in it. Set tournament conditions, then start the clock.',
+      },
+      {
+        context: 'Extracting the fix from an AI judge\'s RFD.',
+        line: '"Ballot says I lost the weighing, not the argument. Next session: magnitude versus probability comparison goes inside the constructive, not the last 30 seconds."',
+        why: 'One diagnosis, one fix, carried into the next rep. This extraction step is the difference between playing rounds and training.',
+      },
+    ],
+    related: ['how-to-practice-debate-alone', 'how-to-get-better-at-debating', 'how-to-prepare-for-a-debate-tournament', 'how-to-improve-your-rebuttals'],
+    keywords: [
+      'how to practice debate online',
+      'online debate practice',
+      'practice debate online free',
+      'debate practice websites',
+      'how to practice debating at home',
+    ],
+    ctaLabel: 'Run a judged practice round',
+    ctaHref: '/debate-it',
+    faqs: [
+      {
+        q: 'Can you get good at debate by practicing online?',
+        a: 'Yes, if the practice involves speaking rather than watching. Timed speeches on camera, live rounds over video call, and judged sparring build the same core skills as in-person practice: argument generation, structure under a clock, and direct clash. What online practice trains less well is room presence and projection, so pair it with deliberate transfer habits like standing, projecting, and speaking from paper notes.',
+      },
+      {
+        q: 'How many hours a week should I practice debate online?',
+        a: 'Three focused hours beats ten passive ones. A workable floor is four sessions a week: one redo drill, one live judged round, one rebuttal-rep session against a recorded speech, and one switch-side round. Each block runs 25 to 60 minutes. Consistency across weeks matters more than volume inside any single week.',
+      },
+      {
+        q: 'Is AI debate practice as good as a human partner?',
+        a: 'They do different jobs. A human gives you unpredictability, nerves, and a judge whose reactions you have to read. An AI opponent gives you volume, odd-hour availability, switch-side reps without ego, and a written ballot after every round. Strong online practice uses both: humans for realism, AI for rep count and feedback density.',
+      },
+    ],
+    published: '2026-07-14',
+    updated: '2026-07-14',
+  },
+
+  'how-to-practice-debate-alone': {
+    slug: 'how-to-practice-debate-alone',
+    question: 'How to Practice Debate Alone (No Partner Needed)',
+    hook: 'A partner is a scheduling problem, not a prerequisite. Switch-side timer drills, rebuttal reps against recorded finals, self-judge rubrics, impromptu ladders. All on a clock.',
+    format: 'general',
+    formatName: 'All formats',
+    readTime: '6 min',
+    takeaways: [
+      'Solo practice yields more speeches per hour than team practice. You are always the one holding the floor.',
+      'Switch sides on every motion. Arguing the side you hate is where argument generation actually gets built.',
+      'Record everything and score it against the same five-axis rubric every time. Your memory of a speech flatters you; the file does not.',
+      'Recorded finals are an endless supply of opponents. Flow a constructive, pause the video, rebut it on a timer.',
+    ],
+    sections: [
+      {
+        heading: 'The rep math favors you',
+        body: [
+          'A two-hour team practice yields maybe two speeches per debater and twenty minutes of waiting around each one. Two hours alone can yield eight. Nobody is scheduling around you, nobody else needs the floor, and every timed slot belongs to your mouth. Debaters who train alone between practices out-rep debaters who only speak at practice, and rep count is the single most reliable predictor of delivery improvement.',
+          'What solo practice lacks is also real: an opponent who surprises you, and a judge who tells you the truth. Every drill below is built to patch one of those two holes, unpredictability or feedback, without requiring a second person in the room.',
+        ],
+      },
+      {
+        heading: 'Switch-side timer drills',
+        body: [
+          'Take a motion. 90 seconds of prep, then a 4-minute Gov constructive, out loud, standing, recorded. The moment you finish, take 90 more seconds and deliver a 4-minute Opp speech against the case you just built. No break between the two; the discomfort of turning on your own material is the drill.',
+          'Arguing against yourself does two things nothing else does. It forces you to locate the real weakness in your own case, because you know exactly where you hid the weak link. And it doubles argument generation on every motion, since you have now built both benches. Three full cycles runs about 35 minutes and contains six timed speeches. One integrity rule: if your Opp take never names your Gov speech\'s best argument, you dodged, and the rep does not count. Redo it.',
+          'The drill scales to prepared formats. On a PF or Policy topic you will live with for a month, run the same cycle with 3 minutes of prep per side and keep the takes you liked as case skeletons. In parli formats, draw a fresh motion every cycle; the point there is range, not depth.',
+        ],
+      },
+      {
+        heading: 'Rebuttal reps against recorded speeches',
+        body: [
+          'Recorded rounds are an infinite supply of opponents, most of them better than anyone you know personally. Pull up a WUDC final, an NSDA nationals round, or any circuit round on YouTube. Flow the first constructive in full, pause the video, take one minute of prep, and deliver a timed 4-minute rebuttal to what you flowed.',
+          'Then unpause and watch what the actual opponent said. The comparison is the feedback: which of your responses matched theirs, which of theirs you missed entirely, and which answers you found that they did not. Catching a press that a world-class speaker missed is a confidence rep; missing one they found is the most instructive 30 seconds available to a debater working alone.',
+          'The escalation is to rebut the side that won. Winners leave fewer soft targets, so the drill forces you past the easy presses and into structural attacks on links and weighing.',
+        ],
+      },
+      {
+        heading: 'Self-judging with a fixed rubric',
+        body: [
+          'Your memory of your own speech is unreliable in the specific direction of flattery. The recording is not. Watch every drill speech within ten minutes of giving it, and score it 1 to 5 on the same five axes every time: signposting, warrant depth, weighing, pace, and directness of clash. Fixed axes are what make week-to-week scores comparable; if you grade a different vibe each session, the numbers mean nothing.',
+          'Then write a two-sentence RFD against yourself, timestamped. "Weighing arrived at 3:50 of 4:00" is a note you can drill against on the next rep. "Sound more confident" is not. Keep the scores and RFDs in one running note. A month of entries names your weakest axis with no ambiguity, and that axis picks next month\'s drills.',
+          'Once a week, judge someone else\'s round the same way. Watch a recorded round in full, write your RFD before the adjudicator on the video announces theirs, then compare. Calibrating your judging against real panels sharpens the same instinct you turn on yourself, and it teaches you what a dropped argument actually costs on a ballot.',
+        ],
+      },
+      {
+        heading: 'Impromptu ladders',
+        body: [
+          'The ladder compresses prep time in stages. Draw a random motion and give a 1-minute speech after 30 seconds of prep. New motion: a 2-minute speech after 60 seconds. New motion: 3 minutes after 90 seconds. Finish with a 5-minute speech after 2 minutes of prep. The full ladder runs about 20 minutes, and every rung uses a fresh motion so you never coast on recycled material.',
+          'The early rungs teach you to reach structure instantly: model first, then two arguments, no wind-up. By the top rung, 2 minutes of prep feels roomy, and the 15 or more minutes most parli formats actually give you starts to feel long. Run the ladder twice a week; it is the highest-density argument-generation work a solo debater can do.',
+          'Motion supply is a solved problem. Major tournaments publish their motions, and the archives from WUDC, EUDC, and national championships hold hundreds of tested, balanced motions sorted by theme. Save a list of 50, draw blind, and no rung of the ladder ever gets comfortable.',
+        ],
+      },
+      {
+        heading: 'Where AI sparring fits',
+        body: [
+          'The one thing no solo drill fakes is an opponent who answers the argument you actually made and presses exactly where you flinched. When no partner exists, an AI round fills that slot: pick a format, argue out loud, take the POIs, and read the judged RFD when it ends. On DebateIt that is one click and zero scheduling, which matters most at the hours nobody else is practicing.',
+          'Keep the ratio honest. Drills build the mechanics; sparring tests whether they hold under interruption. A workable split for a partnerless week is four drill sessions to two judged rounds, with the ballots from those rounds deciding which drills the next week gets.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Switch-side drill, Opp take against your own Gov case.',
+        line: '"The best thing Gov said was deterrence. Deterrence fails on its own logic: the people this policy targets do not price in consequences before acting."',
+        why: 'The Opp rep names and attacks the Gov speech\'s strongest argument. If your second take dodges your first take\'s best material, the rep taught you nothing.',
+      },
+      {
+        context: 'Two-sentence self-RFD, written five minutes after a recorded drill speech.',
+        line: '"Dropped the economy turn at 2:40 and never recovered it. Weighing arrived at 3:50 of 4:00; it moves to the top of the final minute next rep."',
+        why: 'Timestamped and specific, so the next rep has a target. A self-RFD that says "be more confident" cannot be drilled against.',
+      },
+      {
+        context: 'Top rung of an impromptu ladder, motion drawn two minutes ago.',
+        line: '"Model first: a national statutory ban, enforced at point of sale. Two arguments: substitution into black markets, and enforcement that lands hardest on the poorest users."',
+        why: 'Structure arrives in the first sentence because the early rungs made it automatic. Model, two arguments, no wind-up.',
+      },
+    ],
+    related: ['how-to-practice-debate-online', 'how-to-improve-your-rebuttals', 'how-to-get-better-at-debating', 'how-to-win-a-debate'],
+    keywords: [
+      'how to practice debate alone',
+      'practice debate by yourself',
+      'solo debate drills',
+      'debate practice without a partner',
+      'how to practice debate at home alone',
+    ],
+    ctaLabel: 'Start a solo round with an AI judge',
+    ctaHref: '/debate-it',
+    faqs: [
+      {
+        q: 'Can you really practice debate without a partner?',
+        a: 'Yes. Most core debate skills, argument generation, prep speed, structure, delivery, and rebuttal mechanics, are individual skills that improve fastest through solo reps on a timer. What a partner adds is unpredictability and feedback, and both have solo substitutes: recorded speeches to rebut, a fixed self-judging rubric, and AI rounds that end in a judged ballot.',
+      },
+      {
+        q: 'What is the best solo debate drill for beginners?',
+        a: 'The redo drill. Give a 4-minute speech on a timer, watch the recording once, then give the same speech again. It needs no materials, takes 20 minutes, and the edits you make between takes teach structure and economy faster than any lecture. Add switch-side drills and impromptu ladders once the redo drill feels comfortable.',
+      },
+      {
+        q: 'How long should a solo debate practice session be?',
+        a: 'Twenty to forty minutes, four or five days a week. Solo work is dense: a 35-minute switch-side block contains six timed speeches, more than most debaters give in a two-hour team practice. Stop while your delivery is still sharp; a tired final rep grooves the exact habits you are trying to remove.',
+      },
+    ],
+    published: '2026-07-14',
+    updated: '2026-07-14',
+  },
+
+  'how-to-get-better-at-debating': {
+    slug: 'how-to-get-better-at-debating',
+    question: 'How to Get Better at Debating',
+    hook: 'Debating is four trainable skills: argument construction, refutation, weighing, delivery. Diagnose the weakest one, drill it on a clock, and close the feedback loop on every speech. A 30-day plan inside.',
+    format: 'general',
+    formatName: 'All formats',
+    readTime: '7 min',
+    takeaways: [
+      'Debate is four separate skills: argument construction, refutation, weighing, delivery. Train the weakest one, not the favorite.',
+      'Rounds are tests, not training. Drills with reps and a clock are where the skill actually builds.',
+      'Flow everything, including rounds you only watch. The flow is the skill under every other skill.',
+      'Close the feedback loop: mine ballots for repeat comments, record your speeches, rewatch outrounds with predictions.',
+    ],
+    sections: [
+      {
+        heading: 'The skill stack: four things, not one',
+        body: [
+          'Debating is four separate skills wearing one name. Argument construction: building a claim, warrant, and impact that survive contact. Refutation: finding the load-bearing link in an opposing argument and cutting it. Weighing: telling the judge why your argument matters more on magnitude, probability, and timeframe. Delivery: speaking so a judge can flow you and wants to keep listening.',
+          'Most debaters plateau because they only train the skill they already enjoy. The researcher builds beautiful cases and folds in rebuttal. The natural speaker sounds like a champion while saying nothing the judge can vote on. Getting better starts with an honest diagnosis: pull your last five ballots, list every criticism, and circle the comment that appears more than once. That comment names your training priority for the next month.',
+          'No ballots yet? Run this test instead. Record a 4-minute speech on any motion, wait a day, then flow your own recording. If you cannot reconstruct the case from your own flow, the problem is structure. If the arguments flow cleanly but feel thin, the problem is warranting. If everything is there and nothing compares, the problem is weighing.',
+        ],
+      },
+      {
+        heading: 'Deliberate practice beats round volume',
+        body: [
+          'Playing full rounds every week feels like training. Mostly it is testing. A round exercises everything at once, which means it improves nothing in particular; under pressure you fall back on the moves you already have. Improvement comes from isolating one skill and repping it under a clock.',
+          'Three drills that work. Rebuttal reps: take any published case, give yourself 60 seconds of prep, deliver a 2-minute refutation. Ten reps, twice a week. Weighing sprints: take two finished arguments on opposite sides and give a 1-minute speech that only compares them, no new material, comparison only. Redelivery: give the same 5-minute speech three times, cutting to 4 minutes, then 3, keeping every argument. The third version is what an efficient speech feels like.',
+          'Keep the ratio near three drill sessions per practice round. Rounds tell you what to drill next; drills produce the change. A weekly rhythm that holds up: two 20-minute drill blocks, one full practice round, one review pass on the recording.',
+        ],
+      },
+      {
+        heading: 'Flowing is the skill under every other skill',
+        body: [
+          'The flow is the written map of the round: every argument, every response, every drop, tracked in columns by speech. Debaters who flow badly refute the speech they remember instead of the speech that happened, miss drops they could have called out, and weigh against arguments the other side never made.',
+          'Train it directly. Flow one recorded round per week that you are not debating in. Pause after each speech and check: could you deliver the next speech off your flow alone? Then build shorthand: 20 to 30 personal abbreviations (mag for magnitude, b/c for because, arrows for causation) and force yourself to use them until they are automatic. Flowing speed comes from shorthand, not from writing faster.',
+          'Use the flow to pick fights, not just to record them. Before you stand, star the two arguments on the page that decide the round and cross out anything you plan to concede. A speech delivered off a marked-up flow follows the round\'s actual geography. A speech delivered from memory follows whatever happened to be memorable, and those are rarely the same round.',
+        ],
+      },
+      {
+        heading: 'Watch outrounds like a scout, not a fan',
+        body: [
+          'Watching elite rounds passively is entertainment. Watching them actively is training. The method: before each speech starts, pause and write the three responses you would make. Play the speech. Compare your three against what the speaker actually did. The gap between your list and theirs is the most precise map of your blind spots you will ever get.',
+          'Steal structure, not lines. When a closing speech makes a messy round feel simple, ask what the speaker chose to drop, what order they took the issues in, and where the weighing landed. Those choices transfer to every motion you will ever debate. The specific zinger does not.',
+        ],
+      },
+      {
+        heading: 'Close the feedback loop',
+        body: [
+          'A speech without feedback is a rep with no weight on the bar. Two loops cost nothing. Ballots: keep a running document of every judge comment; one ballot is noise, five ballots are a diagnosis. When the format allows questions after the round, ask one specific one, not "how did I do" but "what would have made the second speech a clear win." Specific questions get answers you can drill. Recordings: record every practice speech on your phone and listen back the same day for filler words, dead pace, and missing signposts. Count the filler words, write the number down, beat it next session.',
+          'The third loop is an opponent who pushes back. A teammate works. So does an AI sparring partner; a practice round on DebateIt ends with a judge ballot, which turns a solo session into a scored rep instead of a monologue. Whatever the source, the rule is the same: no speech disappears unexamined. If you spoke and nothing graded it, you rehearsed your habits, good and bad alike.',
+        ],
+      },
+      {
+        heading: 'The 30-day plan',
+        body: [
+          'Days 1 to 7: diagnose. Collect ballots or run the self-flow test, pick your weakest skill, and set a baseline: one recorded 4-minute speech you will compare against on day 30. Days 8 to 14: drill that weakness 20 minutes a day. Structure problem: outline drills, claim, warrant, impact for every argument before you speak. Refutation problem: rebuttal reps. Weighing problem: weighing sprints, and end every speech with one even-if comparison.',
+          'Days 15 to 21: reintegrate. Three full practice rounds this week, flowing every one, with a review pass the same day. Days 22 to 30: pressure. Harder motions, shorter prep, at least one round on the side you find harder to defend. On day 30, record the same speech from day 1 and play both back to back. The difference you can hear is the difference a judge scores.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Signposted refutation, any format.',
+        line: '"Three responses to their second contention. One: the link runs backwards. Two: the harm already exists in the status quo. Three: even if it all stands, we outweigh on timeframe."',
+        why: 'The numbers are the structure. A judge can flow all three responses in real time, and the even-if cap means losing two of the three still leaves a path to the ballot.',
+      },
+      {
+        context: 'Weighing sentence that ends a practice speech.',
+        line: '"Even if you grant their whole economy argument, a recession recovers and a surveillance state does not. Reversibility decides this round."',
+        why: 'One sentence, one comparison, one named metric. Ending every drill speech with a line like this is how weighing becomes a reflex instead of an afterthought.',
+      },
+      {
+        context: 'Refutation aimed at the warrant, not the claim.',
+        line: '"Their entire impact assumes firms pass the tax on to consumers. In a competitive market firms eat the margin instead, and the argument dies at its first link."',
+        why: 'Cutting the warrant collapses everything built on top of it. Attacking the claim head-on just produces a they-said-we-said the judge has to coin-flip.',
+      },
+    ],
+    related: ['how-to-practice-debate-online', 'how-to-practice-debate-alone', 'how-to-improve-your-rebuttals', 'how-to-prepare-for-a-debate-tournament'],
+    keywords: [
+      'how to get better at debating',
+      'how to improve debate skills',
+      'debate practice drills',
+      'how to become a better debater',
+      'debate improvement plan',
+    ],
+    ctaLabel: 'Run a practice round',
+    ctaHref: '/debate-it?motion=This%20house%20would%20ban%20targeted%20political%20advertising.',
+    faqs: [
+      {
+        q: 'How can I get better at debating fast?',
+        a: 'Isolate one skill and drill it daily instead of only playing full rounds. Twenty minutes of rebuttal reps or weighing sprints, five days a week, moves a specific weakness faster than three unfocused practice rounds. Record every speech, count your filler words, and end each speech with one even-if comparison so weighing becomes automatic.',
+      },
+      {
+        q: 'Can I improve at debate without a club or partner?',
+        a: 'Yes. Flow recorded outrounds and predict each speech before playing it, run redelivery drills against your phone, and rebut published cases on a 60-second prep clock. For live pushback, an AI opponent works: DebateIt runs a timed round and writes a judge ballot, so solo practice still ends with feedback.',
+      },
+      {
+        q: 'Is watching debate videos good practice?',
+        a: 'Only if you watch actively. Pause before each speech, write the three responses you would give, then compare your list against what the speaker delivered. Flow the round as if you were judging it. Passive watching entertains; prediction plus comparison converts elite rounds into a map of your own blind spots.',
+      },
+    ],
+    published: '2026-07-14',
+    updated: '2026-07-14',
+  },
+
+  'how-to-win-a-debate': {
+    slug: 'how-to-win-a-debate',
+    question: 'How to Win a Debate',
+    hook: 'Rounds are won on comparison, not argument count. Frame the question early, collapse to your best ground late, answer the strongest version of the other side, and hand the judge the ballot in your last speech.',
+    format: 'general',
+    formatName: 'All formats',
+    readTime: '7 min',
+    takeaways: [
+      'Judges vote on comparison. Winning more arguments matters less than winning the arguments the round turns on.',
+      'Set the framing early: name the question the round answers and the standard for judging the answers.',
+      'Collapse in the back half. Two issues developed and weighed beat six issues touched.',
+      'Answer the best version of their case, adapt to the judge in front of you, and end with the sentence you want on the ballot.',
+    ],
+    sections: [
+      {
+        heading: 'Rounds are won on comparison, not count',
+        body: [
+          'A judge deciding a debate is not tallying arguments. They are answering one question: given everything said, which side won the issues that mattered most? You can win six clashes and lose the round because the other side won the one clash that decided it. Winning a debate means controlling which issues count as decisive, then winning those.',
+          'Run this test before every speech: if both sides are fully right about their own arguments, who wins? If the honest answer is unclear, the round is missing comparison, and the first speaker to supply it usually takes the ballot. That comparison work is called weighing, and it is the highest-leverage minute in any speech you will ever give.',
+        ],
+      },
+      {
+        heading: 'Frame the question before you argue the answer',
+        body: [
+          'Framing means naming what the round is actually about and what standard the judge should use to decide it. Do it early, in the first speech if the format lets you. A motion like "schools should ban phones" can be a round about learning outcomes, about student autonomy, or about enforceability. Whoever names the question first makes the other side argue on foreign ground.',
+          'Then hand the judge a measuring stick. Weighing runs on a few comparative metrics: magnitude, how many people and how badly; probability, how likely the harm or benefit actually is; timeframe, how soon it lands; reversibility, whether the damage can be undone. Say which metric should dominate and why. "Prefer probability over magnitude here, because their harm is speculative and ours is already documented" is a sentence a judge writes down and reuses while deciding.',
+        ],
+      },
+      {
+        heading: 'Collapse: go for less, better',
+        body: [
+          'The most common way strong debaters lose: trying to win everything in the final speeches. Coverage feels safe, and judges quietly hate it, because 40 seconds per issue is enough to mention arguments and never enough to win them. The back half of a round is for collapsing: pick the one or two issues you are winning that also matter most, and spend real time there.',
+          'Choose with two filters. First: am I actually ahead on this issue on the flow, not just in my head? Second: does this issue matter under the weighing the round has settled on? An argument you are winning that does not matter is a trap. An argument that matters that you are losing is a bigger one. The intersection of winning and mattering is your collapse target.',
+          'Kick the rest out loud. "We do not need our second contention to win, so we will not extend it" costs nothing when said explicitly. Silence costs more: the other side keeps attacking a ghost, looks dominant doing it, and the judge reads your quiet retreat as a drop instead of a choice.',
+        ],
+      },
+      {
+        heading: 'Answer the best version of their case',
+        body: [
+          'Strawmanning feels efficient and loses rounds. Any decent opponent rebuilds the argument stronger than you attacked it, and the judge scores you as having answered nothing. Answer the version their best teammate would give. If they said it badly, repair it before you refute it: "the strongest form of this argument says X, and even that fails for two reasons."',
+          'Layer your answers with even-if. First line: the argument is wrong, and here is the broken link. Second line: even if it stands, it is smaller, slower, or less likely than ours. Layered responses mean losing the first exchange does not lose the issue. A single-line response is an all-or-nothing bet you never needed to make.',
+        ],
+      },
+      {
+        heading: 'Adapt to the judge you actually have',
+        body: [
+          'The same speech wins in front of one judge and loses in front of another. A flow judge tracks every argument and rewards line-by-line coverage plus explicit weighing. A lay judge, which includes nearly every teacher and classmate in a classroom debate, rewards clarity, structure, and evident fairness, and is actively put off by speed and jargon.',
+          'In front of lay judges: cut the jargon, slow down, signpost in plain language ("my second point," not "extend the link turn"), and stay visibly reasonable toward the other side; conceding one small point often buys the credibility that decides a close round. In front of trained judges: use the flow, number your responses, weigh explicitly. When you can ask how a judge likes to evaluate rounds, ask. When you cannot, watch the pen: if they stop writing, they stopped flowing, and it is time to slow down and simplify.',
+          'Class debates reward the same skills in different packaging. The winning move in third period is the winning move in an elimination round: name the question, compare the answers, stay composed. The student who calmly says "even if my opponent is right about the costs, the benefits I have shown are larger and arrive sooner" reads as the winner to everyone in the room, including the teacher deciding the grade.',
+        ],
+      },
+      {
+        heading: 'The last-speech checklist',
+        body: [
+          'The final speech is not a summary; it is the ballot, written out loud. Five items, in order. One: name the voting issues, two of them, three at most. Two: for each, state what you said, the best thing they said back, and why your side still wins it. Three: weigh, comparing your strongest impact against theirs on magnitude, probability, and timeframe. Four: fire one even-if line at their best remaining argument. Five: end with the single sentence you want to appear on the ballot.',
+          'No new arguments. In most formats they get struck, and in a classroom they read as unfair. New comparisons of old material are always legal, and they are exactly what the last speech is for. Then drill it: after any practice round, take 60 seconds of prep and deliver a 3-minute final speech off this checklist. Rounds go to whoever makes the judge\'s decision easiest to write, and that is rehearsable on any motion, in a tournament round, a classroom, or a practice round on DebateIt.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Collapsing in a final speech.',
+        line: '"We ran three arguments tonight. We need one. This round is the safety issue, and we win it three ways."',
+        why: 'Explicit collapse. The judge hears a choice, not a drop, and the speaker buys three minutes of depth on the single issue that decides the ballot.',
+      },
+      {
+        context: 'An even-if answer that survives losing the clash.',
+        line: '"Even if their deterrence argument stands, it protects hypothetical future victims at some unknown rate. Our harm is certain and it is happening now. Probability and timeframe both break our way."',
+        why: 'The response works without winning the underlying argument. Naming the metrics turns a rebuttal into weighing the judge can quote in the decision.',
+      },
+      {
+        context: 'Framing a classroom debate on social media.',
+        line: '"The question is not whether social media has benefits. Of course it does. The question is whether those benefits justify the documented costs to teenagers, and on that comparison we win."',
+        why: 'Concedes the obvious to claim the comparison. The teacher now judges the round on the speaker\'s question, which is the version their side wins.',
+      },
+    ],
+    related: ['how-to-improve-your-rebuttals', 'pf-summary-speech', 'apda-pmr', 'bp-closing-extension'],
+    keywords: [
+      'how to win a debate',
+      'how to win a class debate',
+      'debate winning strategies',
+      'weighing in debate',
+      'how to win an argument in a debate',
+    ],
+    ctaLabel: 'Debate it now',
+    ctaHref: '/debate-it?motion=This%20house%20would%20ban%20phones%20in%20schools.',
+    faqs: [
+      {
+        q: 'How do you win a debate against someone more experienced?',
+        a: 'Narrow the round. Experienced debaters win wide rounds because they cover more, faster. Frame one clear question early, collapse to your strongest issue, and force depth over breadth. Answer their best argument with an even-if so one lost exchange does not lose the round, and weigh explicitly; experience matters less once the comparison is stated for the judge.',
+      },
+      {
+        q: 'What is weighing in debate?',
+        a: 'Weighing is comparing impacts across sides instead of just asserting your own. The standard metrics: magnitude (how many people, how badly), probability (how likely it actually is), timeframe (how soon it lands), and reversibility (whether it can be undone). A weighing sentence names the metric and does the comparison: "our harm is certain and immediate; theirs is speculative and a decade out."',
+      },
+      {
+        q: 'How do you win a class debate?',
+        a: 'Treat the teacher and classmates as lay judges. Speak plainly, signpost every point, and stay visibly fair to the other side; credibility decides most classroom rounds. Pick two arguments and develop them instead of listing six. In your last turn, name the main clash, explain why you won it, and end on one clean sentence.',
+      },
+    ],
+    published: '2026-07-14',
+    updated: '2026-07-14',
+  },
+
+  'how-to-prepare-for-a-debate-tournament': {
+    slug: 'how-to-prepare-for-a-debate-tournament',
+    question: 'How to Prepare for a Debate Tournament',
+    hook: 'A 14-day plan that survives contact with the tournament: case file, blocks file, judged dress rehearsals, and the round-day habits that keep you sharp through round 5.',
+    format: 'general',
+    formatName: 'All formats',
+    readTime: '7 min',
+    takeaways: [
+      'Start 14 days out: research days 1 to 4, case and blocks days 5 to 9, judged practice rounds days 10 to 13, rest day 14.',
+      'Write a blocks file: the ten most likely attacks on your case, each with a prewritten 30-second answer.',
+      'Run at least two full-length judged rounds before you travel. Unjudged reps hide your weaknesses.',
+      'On the day: flow every speech, eat between every round, and read the judge before you adapt to them.',
+    ],
+    sections: [
+      {
+        heading: 'Start two weeks out, not two nights',
+        body: [
+          'Prep that starts the night before produces a case you half remember and blocks you never wrote. The fix is not more hours, it is earlier hours. Two weeks out is the point where research, casework, and practice rounds all fit without one of them getting cut.',
+          'The split that works: days 1 to 4 for research and brainstorming, days 5 to 9 for writing the case and the blocks file, days 10 to 13 for practice rounds and repairs, day 14 for rest and logistics. Write the schedule down and put it somewhere you will see it. A plan that lives only in your head quietly becomes "I will do it this weekend."',
+          'Impromptu formats change the middle of the plan, not its shape. If you compete in APDA or BP, there is no case to write in advance, so days 5 to 9 become prep-time drills instead: two 15-minute case sprints a day on random motions, one on Gov and one on Opp. The muscle you are training is the one the tournament actually tests, building a case under a clock.',
+        ],
+      },
+      {
+        heading: 'The case file and the blocks file',
+        body: [
+          'Two documents, and the second one matters more. The case file holds your constructive material. For prepared-motion formats that means the full case: contentions, warrants, evidence, and the weighing you plan to run. For impromptu formats it is an example bank sorted by theme, economics, rights, international relations, tech, with two or three examples per theme that you know cold.',
+          'The blocks file is the document most debaters never make. List the ten arguments you are most likely to hear against your case. For each one, write a 30-second answer: what they say, your counter, the warrant behind your counter, and the comparison that tells the judge why your side of the exchange matters more. Ten blocks is one evening of work, and every block you wrote in advance is 30 seconds of in-round prep time freed up for the argument you did not predict.',
+          'Keep both files short enough to reread in the ten minutes before round 1. A 20-page case file is a research archive, not a tournament document. One page of case skeleton and two pages of blocks means you can hold the whole thing in your head while you flow.',
+        ],
+      },
+      {
+        heading: 'Partner prep and solo prep do different jobs',
+        body: [
+          'Research alone, argue together. Reading and writing parallelize badly; two people staring at the same document is one person working. Save partner time for the thing you cannot do alone, which is testing the case against someone trying to break it.',
+          'A partner session that earns its 45 minutes: 10 minutes, one of you delivers the case at full speed. 15 minutes, the other attacks it as the best version of your likely opponent, no politeness. 15 minutes, patch the holes together and update the blocks file with whatever landed. 5 minutes, agree on the split: who extends what, and who covers which likely response.',
+          'If you are prepping alone, the missing ingredient is opposition. Argue the other side of your own case out loud for five minutes and write down the answer that scared you most; it goes straight into the blocks file. A sparring round on DebateIt does the same job faster, since an opponent that pushes back finds holes a reread never will.',
+        ],
+      },
+      {
+        heading: 'Judged practice rounds are the dress rehearsal',
+        body: [
+          'Unjudged practice rounds feel productive and hide everything. You speak, your partner nods, and nobody tells you the second contention has no warrant. In days 10 to 13, run at least two full-length rounds in front of someone who gives a decision and a reason for it: a coach, a teammate who did not help write the case, an older debater on a video call.',
+          'Simulate the real conditions or the rehearsal lies to you. Full speech times, real prep time, standing up, a visible timer, phones away. Then treat the reason for decision as data: write down what the judge said, especially the parts you disagree with, because a judge you disagree with at practice is a judge you will meet in round 3. The point of the rehearsal is to lose in private, cheaply, instead of losing the same way on Saturday.',
+        ],
+      },
+      {
+        heading: 'Tournament day runs on logistics',
+        body: [
+          'Flow every speech, including your own side\'s. Adrenaline deletes short-term memory, and the flow is the only reliable record of what was actually said. One pad, one column per speech, their claims on the left, your responses on the right. If you keep dropping arguments in rebuttals, the fix is almost never listening harder. It is flowing better.',
+          'Breaks between rounds are for three things: food, water, and the blocks file. Eat something real between every round instead of a vending-machine sprint at 2pm when your energy is already gone; five rounds of speaking burns more than you expect. And do not relitigate the last round in the hallway. It is over, and round 4 does not care.',
+          'Read the judge before you adapt to them. Check paradigms where they are published, listen to disclosure, or ask a polite question before the round where the circuit allows it. A lay judge gets slower delivery, no jargon, and one big clear frame. A flow judge gets signposting and the line-by-line. Delivering the same speech to both is choosing to lose one of them.',
+        ],
+      },
+      {
+        heading: 'The ballot is the syllabus for the next tournament',
+        body: [
+          'Read every ballot within a week, wins included. Wins hide mistakes; judges often vote for you and still write down the thing that nearly cost you the round. The loss ballots sting more and teach faster, which is exactly why most debaters never reread them.',
+          'Convert comments into drills, one for one. "Too fast in the final minute" becomes a redelivery drill at conversational pace. "Never answered the turn" becomes a flowing drill. "Weighing came too late" becomes a rule that the impact comparison starts in the constructive. A ballot line that never becomes a drill is feedback you paid an entry fee for and threw away.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'A prewritten block, deployed against the most common attack on a school-vouchers case.',
+        line: '"They say vouchers drain public schools. Two answers. One: funding already follows enrollment, so the drain exists in the status quo. Two: their own logic concedes families are fleeing schools that fail them, which is the problem we solve."',
+        why: 'Written five days before the tournament, delivered in twelve seconds. Every block you write in advance frees in-round prep time for the argument you did not see coming.',
+      },
+      {
+        context: 'Round 3 judge adaptation, after learning the judge is a parent volunteer, not a coach.',
+        line: '"Keep two numbers in mind this round: 40 percent of the district\'s students, and six years before results show. Everything both teams say today fits under those two numbers."',
+        why: 'Lay-judge adaptation. No jargon, one clear frame the judge can carry into the decision. The same material delivered line-by-line at speed would have lost this ballot.',
+      },
+      {
+        context: 'Post-round review on the bus home, reading a loss ballot with a partner.',
+        line: '"The judge wrote: never heard a response to the mentor-matching turn. We flowed it. We just never said the answer out loud. New rule: answers get spoken, not just written down."',
+        why: 'One ballot line converted into one concrete fix. That habit, repeated across a season, is the difference between attending tournaments and improving at them.',
+      },
+    ],
+    related: ['how-to-practice-debate-online', 'how-to-practice-debate-alone', 'how-to-get-better-at-debating', 'how-to-win-a-debate'],
+    keywords: [
+      'how to prepare for a debate tournament',
+      'debate tournament prep checklist',
+      'debate tournament tips',
+      'what to do before a debate tournament',
+      'debate case file and blocks',
+    ],
+    ctaLabel: 'Run a judged practice round',
+    ctaHref: '/debate-it?format=quick&motion=This%20house%20would%20make%20voting%20compulsory.',
+    faqs: [
+      {
+        q: 'How early should I start preparing for a debate tournament?',
+        a: 'Two weeks for prepared-motion formats. Days 1 to 4 for research, days 5 to 9 for the case and blocks file, days 10 to 13 for judged practice rounds, day 14 for rest and logistics. For impromptu formats like APDA or BP, replace the casework days with timed prep drills on random motions.',
+      },
+      {
+        q: 'What should I bring to a debate tournament?',
+        a: 'Your case file and blocks file, printed or saved offline, a legal pad and two pens for flowing, a timer, water, and food that survives a backpack: nuts, fruit, sandwiches. Add the tournament schedule and any published judge paradigms. Phones die and wifi drops, so anything you need in round should work without either.',
+      },
+      {
+        q: 'How many practice rounds should I do before a tournament?',
+        a: 'At least two full-length judged rounds in the final four days, with someone who gives a real decision and a reason for it. Unjudged rounds hide your weaknesses. If no judge is available, run the round under full time constraints anyway, then have your partner attack the case as the best version of your likely opponent.',
+      },
+    ],
+    published: '2026-07-14',
+    updated: '2026-07-14',
+  },
+
+  'how-to-improve-your-rebuttals': {
+    slug: 'how-to-improve-your-rebuttals',
+    question: 'How to Improve Your Rebuttals',
+    hook: 'Four steps per answer, warrant-level refutation, turns over takeouts, and a 15-minute daily rep drill. Rebuttal is a trainable skill, not a talent.',
+    format: 'general',
+    formatName: 'All formats',
+    readTime: '7 min',
+    takeaways: [
+      'Every answer runs four steps: they say, but, because, therefore. Reference, counter, warrant, impact.',
+      'Attack the warrant, not the claim. A claim with a dead warrant is an assertion, and assertions lose to arguments.',
+      'Prefer turns over takeouts. A takeout neutralizes; a turn converts their offense into yours.',
+      'Answer fewer arguments at full depth. Two 60-second answers beat six 10-second ones on the same flow.',
+    ],
+    sections: [
+      {
+        heading: 'The four-step skeleton: they say, but, because, therefore',
+        body: [
+          'Every rebuttal answer runs the same skeleton. They say: reference the argument you are answering, in their words, so the judge can find it on the flow. But: state your counter in one sentence. Because: warrant the counter with a reason, a mechanism, or an example. Therefore: tell the judge what winning this exchange does to the round.',
+          'Most bad rebuttals die at step one or step four. Skip the reference and the judge hears three smart sentences floating loose, attached to nothing on the flow. Skip the therefore and you win an exchange without cashing it in; the judge agrees with you and still votes the other way, because nobody told them the exchange mattered.',
+          'Budget 20 to 40 seconds per answer, and say the signposts out loud while you learn the structure: "they said, but, because, so." It feels mechanical for about two weeks. Then it becomes the shape your thinking takes under pressure, which is the entire point.',
+        ],
+      },
+      {
+        heading: 'Answer the warrant, not the claim',
+        body: [
+          'Every argument has three parts: claim, warrant, impact. Novices attack the claim, which produces a stalemate; your counterclaim against their claim is a coin flip the judge resolves on instinct. Varsity debaters attack the warrant, because a claim whose warrant is dead is just an assertion, and assertions lose to arguments by default.',
+          'Their argument: raising the minimum wage increases unemployment, because employers protect margins by cutting hours. The claim-level answer is "studies show it does not," which is the coin flip. The warrant-level answer: "their mechanism assumes labor cost is the first thing employers cut. In low-wage service work, turnover is the dominant cost, and higher wages cut turnover. The mechanism runs backwards." Now they rebuild from zero or the argument stays dead.',
+          'The practical habit: when you flow their speech, hunt for the word because. Whatever follows it is your target. If nothing follows it, say so on the mic: they asserted, they did not argue, and the judge should weigh your warranted material against their unwarranted material.',
+        ],
+      },
+      {
+        heading: 'Turns beat takeouts',
+        body: [
+          'A takeout says their argument is false. Done well, it neutralizes; the flow goes quiet on that line and nobody scores. A turn says their argument is true and helps you. Link turn: the mechanism actually runs in your direction. Impact turn: the outcome they describe actually favors your side. Turns are worth more because they generate offense on ground your opponent chose.',
+          'After a clean takeout, your opponent can rebuild the argument in the next speech. After a clean turn, rebuilding hurts them; every minute they spend proving the argument makes your version of it stronger. You have converted their offense into yours, and they are now cross-examining their own case.',
+          'One warning that saves rounds: never run a link turn and an impact turn on the same argument. If their mechanism runs your way and their outcome is also good, you have argued their side for them. Pick the stronger turn, run it alone, and keep a plain takeout as the backup.',
+        ],
+      },
+      {
+        heading: 'Collapse discipline: answer less, win more',
+        body: [
+          'You cannot answer everything, and trying to answers nothing. Six 10-second answers lose to two 60-second answers on the same flow, because none of the six carries a full warrant and the judge protects whatever went unanswered at depth. The skill is choosing which arguments sit on the path to the ballot and letting the rest go.',
+          'Priority rules, in order. Answer the argument that is winning, not the one that annoyed you. Answer offense before defense; a dropped harm can cost you the round, a dropped definitional quibble cannot. Answer what the judge flowed longest, since that is what they think the round is about. Group everything else and dispatch it in one sentence.',
+          'Say the collapse out loud. "This round comes down to two questions" tells the judge where to look, and it reframes your selectivity as control of the round rather than gaps in it. A silent collapse looks like dropping arguments. A named collapse looks like judgment.',
+        ],
+      },
+      {
+        heading: 'Rebuttal reps: the 15-minute daily drill',
+        body: [
+          'Rebuttal is a rep skill, closer to a jump shot than to essay writing. The base drill: take a motion, write one argument for it or have a partner state one, start a 60-second timer, and deliver a four-step answer out loud. Ten reps takes about 15 minutes. Out loud is non-negotiable; the rebuttals you compose in your head are always better than the ones that leave your mouth.',
+          'Progress the drill weekly. Week one, no cap on think time before the timer starts. Week two, 15 seconds of think time, then speak. Week three, every answer must be a turn, not a takeout. Record every fifth rep and check it against the skeleton: was the reference clear, did a warrant follow the counter, did you land a therefore.',
+          'Once the structure is automatic, solo reps plateau, because a wall never rebuilds the argument. That is when you need an opponent who answers back. A DebateIt round gives you one on demand, and the rebuild is where warrant-level answering actually gets tested.',
+        ],
+      },
+      {
+        heading: 'Prewritten blocks and live thinking are both jobs',
+        body: [
+          'On a prepared topic, roughly seven of the ten answers you will need are predictable. Write those as blocks: the four-step answer, on paper, before the tournament. Delivering beats composing under time pressure, and a block you wrote on Tuesday is calmer and tighter than anything you improvise on Saturday.',
+          'Blocks fail when they become scripts. If you read a block against an argument your opponent did not quite make, the judge hears the mismatch and discounts the answer. Keep the warrant from the block and rebuild the reference line live: their words first, your prepared material second.',
+          'The honest self-test: if your rebuttal sounds identical every round, you are reading. If it never sounds prepared, you are wasting your prep. The target is rebuttal that sounds live and lands prepared, and the four-step skeleton is what holds that together when the round gets fast.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'Motion: This house would ban targeted political advertising. Answering the "targeted ads inform voters" argument.',
+        line: '"They say targeting informs voters. But it does the opposite, because the mechanism is showing each voter only what tests well on them, which narrows what they see instead of adding to it. So their best impact flips to us: voters finish the campaign knowing less."',
+        why: 'All four steps in one breath: reference, counter, warrant, cash-out. The judge can flow it as a complete answer instead of a stray objection.',
+      },
+      {
+        context: 'Turning an economic growth argument instead of taking it out.',
+        line: '"Take their growth argument at full strength. Growth concentrated in the top decile is exactly what erodes the political stability their whole case depends on. The stronger their economy gets, the stronger our instability impact gets."',
+        why: 'A takeout would leave the flow neutral. The turn converts their offense into yours; every minute they spend rebuilding growth feeds your impact.',
+      },
+      {
+        context: 'Final rebuttal, collapsing from six arguments on the flow down to two.',
+        line: '"This round comes down to two questions: does the policy actually reach rural clinics, and who carries the transition cost. Everything else on the flow is noise. Here is why we win both."',
+        why: 'A named collapse reads as control of the round. The judge now evaluates the two exchanges you are deepest on instead of the six you would have skimmed.',
+      },
+    ],
+    related: ['how-to-win-a-debate', 'how-to-get-better-at-debating', 'asian-parli-whip', 'pf-crossfire-questions'],
+    keywords: [
+      'how to improve rebuttals in debate',
+      'debate rebuttal structure',
+      'four step refutation debate',
+      'rebuttal examples for debate',
+      'how to rebut an argument',
+    ],
+    ctaLabel: 'Drill rebuttals against the AI',
+    ctaHref: '/debate-it?format=quick&motion=This%20house%20would%20ban%20targeted%20political%20advertising.',
+    faqs: [
+      {
+        q: 'What is the four-step rebuttal structure?',
+        a: 'They say, but, because, therefore. Reference the argument you are answering, state your counter, warrant the counter with a reason or mechanism, then tell the judge what winning the exchange means for the round. The structure keeps every answer flowable and forces you past assertion into actual clash. Budget 20 to 40 seconds per answer.',
+      },
+      {
+        q: 'What is the difference between a turn and a takeout in debate?',
+        a: 'A takeout argues the point is false and neutralizes it; the flow goes quiet. A turn accepts the argument and flips it: the mechanism actually runs your way, or the outcome actually favors your side. Turns generate offense, which makes them worth more. Never combine a link turn and an impact turn on the same argument.',
+      },
+      {
+        q: 'Should I write rebuttal blocks in advance?',
+        a: 'Yes, for the predictable arguments. On a prepared topic, write the ten answers you know you will need, then deliver them from memory rather than off the page, adapting the reference line to what your opponent actually said. Anything unpredicted gets answered live with the four-step structure. Blocks buy time; they do not replace listening.',
+      },
+    ],
+    published: '2026-07-14',
+    updated: '2026-07-14',
+  },
+
 };
 
 export function getGuide(slug) {

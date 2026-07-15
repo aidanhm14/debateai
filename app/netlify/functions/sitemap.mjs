@@ -102,6 +102,15 @@ const URLS = [
   { path: '/learn/guides/apda-pmr',                 changefreq: 'monthly', priority: '0.82' },
   { path: '/learn/guides/wsdc-first-prop',          changefreq: 'monthly', priority: '0.82' },
   { path: '/learn/guides/pf-summary-speech',        changefreq: 'monthly', priority: '0.82' },
+  // 2026-07-14 top-funnel guides pack: the question-style queries a new
+  // debater types before they know any format ("how to practice debate
+  // online"). Highest-intent organic surface; priorities reflect that.
+  { path: '/learn/guides/how-to-practice-debate-online',        changefreq: 'monthly', priority: '0.84' },
+  { path: '/learn/guides/how-to-practice-debate-alone',         changefreq: 'monthly', priority: '0.84' },
+  { path: '/learn/guides/how-to-get-better-at-debating',        changefreq: 'monthly', priority: '0.84' },
+  { path: '/learn/guides/how-to-win-a-debate',                  changefreq: 'monthly', priority: '0.84' },
+  { path: '/learn/guides/how-to-prepare-for-a-debate-tournament', changefreq: 'monthly', priority: '0.82' },
+  { path: '/learn/guides/how-to-improve-your-rebuttals',        changefreq: 'monthly', priority: '0.82' },
   // Debate fundamentals deep-content surface. Each is the canonical
   // ranking target for a foundational concept query.
   { path: '/learn/fundamentals',                       changefreq: 'weekly',  priority: '0.88' },
