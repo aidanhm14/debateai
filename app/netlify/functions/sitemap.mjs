@@ -191,6 +191,18 @@ const URLS = [
   { path: '/debate/should-genetic-engineering-be-allowed',    changefreq: 'monthly', priority: '0.78' },
   { path: '/debate/should-junk-food-be-taxed',                changefreq: 'monthly', priority: '0.76' },
   { path: '/debate/should-the-government-provide-universal-healthcare', changefreq: 'monthly', priority: '0.80' },
+  // 2026-07-14 SEO Pack 3 — 10 evergreen high-volume motions: 4 school-cluster
+  // (phones, start times, athletes, books) + 6 civic/culture/science staples.
+  { path: '/debate/should-cell-phones-be-allowed-in-school',  changefreq: 'monthly', priority: '0.80' },
+  { path: '/debate/should-the-school-day-start-later',        changefreq: 'monthly', priority: '0.78' },
+  { path: '/debate/should-college-athletes-be-paid',          changefreq: 'monthly', priority: '0.80' },
+  { path: '/debate/should-sports-betting-be-legal',           changefreq: 'monthly', priority: '0.78' },
+  { path: '/debate/do-violent-video-games-cause-violence',    changefreq: 'monthly', priority: '0.78' },
+  { path: '/debate/is-cancel-culture-good-for-society',       changefreq: 'monthly', priority: '0.78' },
+  { path: '/debate/should-voting-be-mandatory',               changefreq: 'monthly', priority: '0.78' },
+  { path: '/debate/should-books-be-banned-in-schools',        changefreq: 'monthly', priority: '0.80' },
+  { path: '/debate/is-space-exploration-worth-the-cost',      changefreq: 'monthly', priority: '0.76' },
+  { path: '/debate/is-veganism-better-for-the-environment',   changefreq: 'monthly', priority: '0.76' },
   { path: '/india',           changefreq: 'monthly', priority: '0.90' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60' },
