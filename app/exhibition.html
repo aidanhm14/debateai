@@ -519,15 +519,19 @@ function extractText(json) {
   return '';
 }
 
-async function callBrain(brainKey, sys, user) {
+async function callBrain(brainKey, sys, user, onDelta) {
   var brain = BRAINS[brainKey];
   if (!brain) throw new Error('Unknown brain: ' + brainKey);
+  // Streamed. The non-streamed path 504'd on flagship models: a full
+  // constructive from sonnet-4-6 takes longer than the buffered
+  // function window, while SSE flushes tokens as they generate. It is
+  // also the better spectator experience (speeches type out live).
   var body = {
     system: sys,
     messages: [{ role: 'user', content: user }],
     model: brain.model,
     max_tokens: 2200,
-    stream: false,
+    stream: true,
     _feature: 'exhibition'
   };
   var headers = { 'Content-Type': 'application/json' };
@@ -539,10 +543,48 @@ async function callBrain(brainKey, sys, user) {
     try {var j = await res.json();if (j && j.error) msg = j.error;} catch {}
     throw new Error(msg);
   }
-  var json = await res.json();
-  var text = extractText(json);
-  if (!text) throw new Error('empty response');
-  return text;
+  var ct = res.headers.get('Content-Type') || '';
+  if (ct.indexOf('event-stream') === -1) {
+    // Proxy ignored stream:true and buffered; parse the JSON shape.
+    var json = await res.json();
+    var text = extractText(json);
+    if (!text) throw new Error('empty response');
+    return text;
+  }
+  // Dual-dialect SSE reader (same shapes debate-it parses): Anthropic
+  // content_block_delta, OpenAI/xAI/DeepSeek choices[].delta, Gemini
+  // candidates[].content.parts.
+  var reader = res.body.getReader();
+  var dec = new TextDecoder();
+  var full = '';
+  var buf = '';
+  while (true) {
+    var chunk;
+    try { chunk = await reader.read(); } catch (e) { break; }
+    if (chunk.done) break;
+    buf += dec.decode(chunk.value, { stream: true });
+    var lines = buf.split('\n');
+    buf = lines.pop() || '';
+    for (var li = 0; li < lines.length; li++) {
+      var l = lines[li];
+      if (l.indexOf('data: ') !== 0) continue;
+      var d = l.slice(6);
+      if (d === '[DONE]') continue;
+      try {
+        var p = JSON.parse(d);
+        if (p.type === 'content_block_delta' && p.delta && p.delta.text) full += p.delta.text;else
+        if (p.choices && p.choices[0] && p.choices[0].delta && p.choices[0].delta.content) full += p.choices[0].delta.content;else
+        if (p.candidates && p.candidates[0] && p.candidates[0].content && p.candidates[0].content.parts) {
+          for (var pi = 0; pi < p.candidates[0].content.parts.length; pi++) {
+            if (p.candidates[0].content.parts[pi].text) full += p.candidates[0].content.parts[pi].text;
+          }
+        }
+        if (onDelta && full) onDelta(full);
+      } catch (e2) {}
+    }
+  }
+  if (!full.trim()) throw new Error('empty response');
+  return full;
 }
 
 // Deep links from /ai-vs-ai-debate (?prop=claude&opp=gpt) preselect the
@@ -821,7 +863,16 @@ function App() {
       var sp = queue[i];
       var { sys, userPrompt } = buildSpeechPrompt(sp, fmt, motion, transcript);
       try {
-        var text = await callBrain(sp.brainKey, sys, userPrompt);
+        // Live-paint the card as tokens stream in, throttled so React
+        // isn't re-rendering on every delta.
+        var lastPaint = 0;
+        var text = await callBrain(sp.brainKey, sys, userPrompt, function (partial) {
+          var now = Date.now();
+          if (now - lastPaint < 200) return;
+          lastPaint = now;
+          queue[i].text = partial;
+          setSpeeches([...queue]);
+        });
         queue[i].text = text;
         queue[i].status = 'done';
         transcript += (transcript ? '\n\n' : '') + '[' + sp.code + ' · ' + (fmt.sideLabels[sp.side] || sp.side) + ' · ' + BRAINS[sp.brainKey].name + ']:\n' + text;
