@@ -18,6 +18,19 @@ the iOS Simulator," then to the App Store. Follow top-to-bottom.
   satisfies Apple **3.1.1 / 3.1.3** (no steering to web payment) while the
   product is free in beta. Loaded on index / debate-it / landing / pricing /
   coach / voice-debate.
+- **JS-built paywall surfaces gated at source (2026-07-15)** — the
+  paywall / limit-hit modals and upgrade CTAs that React builds in JS
+  (which the CSS net can't catch) now branch on `window.__DB_NATIVE`:
+  index.html (UpgradeModal price cards + button, CheckoutResumeModal price
+  copy, TeamDashboard plan grids + Upgrade Plan / Manage Billing button +
+  trial pricing card, Judge Analyzer and Live Debates pro gates, brain-lock
+  and cap error strings, upgrade promo banners, checkout-resume deep link),
+  debate-it.html (quota modal copy, account-modal Stripe button + upsell
+  line, brain-row upgrade link, cap copy), voice-debate / newvoice / coach
+  402 copy, learn.html (native-bridge added + cap alert). The
+  native-bridge CTA sweeper also matches Upgrade / Go Pro / Upgrade Plan /
+  Manage Billing labels. Web behavior is unchanged when the flag is off.
+  Still needs the physical-device sweep below before submitting.
 - **Native auth UI** — Apple and Google sit together in the app sign-in sheet.
   The Capacitor Firebase plugin returns provider credentials to the web Firebase
   session so the same account works across app and web.

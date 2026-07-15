@@ -989,7 +989,10 @@ async function start(){
       if (mintRes.status === 429) throw new Error('Too many rounds from this network right now. Give it a few minutes.');
       if (mintRes.status === 402 && body.upgrade) {
         const err = new Error('cap');
-        err.html = 'You\'ve used your free voice rounds. <a href="/pricing">Plans are here</a>, and typed sparring is always open at <a href="/debate-it">/debate-it</a>.';
+        // Apple 3.1.1: no pricing link inside the native app.
+        err.html = window.__DB_NATIVE ?
+          'You\'ve used your free voice rounds for now. Typed sparring is always open at <a href="/debate-it">/debate-it</a>.' :
+          'You\'ve used your free voice rounds. <a href="/pricing">Plans are here</a>, and typed sparring is always open at <a href="/debate-it">/debate-it</a>.';
         throw err;
       }
       const upstream = body.openai || raw;

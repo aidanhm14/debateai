@@ -4752,9 +4752,9 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     var teamLimit = __currentTeam.usageLimit || 5;
     if (teamUsed >= teamLimit) {
       if (isCrossProvider && __currentTeam.plan === 'byok') {
-        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. Switch to Claude, or upgrade to Individual ($10/year) for all 6 brains.');
+        throw new Error('Your BYOK plan covers Claude only (unlimited with your key). ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' runs through our server and you\u2019ve hit the ' + teamLimit + '-request cap. ' + (window.__DB_NATIVE ? 'Switch to Claude.' : 'Switch to Claude, or upgrade to Individual ($10/year) for all 6 brains.'));
       }
-      throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month). Upgrade your plan for more.');
+      throw new Error('You\'ve hit your plan limit (' + teamLimit + ' requests/month).' + (window.__DB_NATIVE ? '' : ' Upgrade your plan for more.'));
     }
   }
   logBetaEvent('generate', { feature: opts.feature || 'case', brain: brainKey });
@@ -5747,7 +5747,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
     // Paywall: Opp Attack is a pro feature. Free users get 1 trial taste.
     var oaCheck = canUseProFeature(team, user, 'opp_attack');
     if (!oaCheck.allowed) {
-      setOppAttack('Error: Opp Attack is a paid feature. upgrade at /pricing to keep using it. You\u2019ve used your free trial.');
+      setOppAttack(window.__DB_NATIVE ? 'Error: You\u2019ve used your free trial of Opp Attack for now.' : 'Error: Opp Attack is a paid feature. upgrade at /pricing to keep using it. You\u2019ve used your free trial.');
       return;
     }
     if (!isPro(team, user)) useProTrial('opp_attack');
@@ -6072,7 +6072,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
       key: key,
       onClick: function () {
         if (isLocked) {
-          setError('Upgrade to unlock ' + brain.name + '. $10/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
+          setError(window.__DB_NATIVE ? brain.name + ' is not available in the app yet. Claude is the free brain.' : 'Upgrade to unlock ' + brain.name + '. $10/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
           return;
         }
         setCaseBrain(key);
@@ -6157,7 +6157,9 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
     React.createElement('span', null, React.createElement('span', { className: 'spinner' }), t('caseGen.generatingOpposition', 'Generating via ' + (CASE_BRAINS[caseBrain]?.name || 'Claude') + '...')) :
     t('caseGen.generateOpposition', 'Generate Opposition')
     ),
-    !userIsPro && React.createElement('button', {
+    // Apple 3.1.1: no upgrade CTA inside the native app; the blurred
+    // disabled button underneath is the whole locked state there.
+    !userIsPro && !window.__DB_NATIVE && React.createElement('button', {
       type: 'button',
       onClick: () => {try {if (window.__navigateTab) window.__navigateTab('team');else window.location.href = '/pricing';} catch (e) {window.location.href = '/pricing';}},
       style: {
@@ -9875,8 +9877,9 @@ function JudgeAnalyzer({ team, user, onNavigateTab }) {
   el('div', { style: { textAlign: 'center', padding: '40px 30px', maxWidth: 420 } },
   el('div', { style: { fontSize: '2rem', marginBottom: 12 } }, '\uD83D\uDD12'),
   el('div', { style: { fontWeight: 800, fontSize: '1.25rem', color: '#f1f5f9', marginBottom: 8 } }, 'Judge Analyzer'),
-  el('div', { style: { color: '#94a3b8', fontSize: '.88rem', lineHeight: 1.6, marginBottom: 20 } }, 'Paste ballots, RFDs, or a Tabroom paradigm and get a strategic profile of any judge, likes, dislikes, speaker-point drivers, and how to win their ballot. Available on Individual and Team plans.'),
-  el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
+  el('div', { style: { color: '#94a3b8', fontSize: '.88rem', lineHeight: 1.6, marginBottom: 20 } }, 'Paste ballots, RFDs, or a Tabroom paradigm and get a strategic profile of any judge, likes, dislikes, speaker-point drivers, and how to win their ballot. ' + (window.__DB_NATIVE ? 'Not available in the app yet.' : 'Available on Individual and Team plans.')),
+  // Apple 3.1.1: no upgrade CTA or price copy inside the native app.
+  !window.__DB_NATIVE && el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
   el('button', { className: 'btn btn-primary', onClick: goUpgrade, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to Unlock'),
   el('div', { style: { color: '#64748b', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $10/year')
   )
@@ -11698,6 +11701,10 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
   };
   var fname = featureNames[feature] || feature;
   var exhausted = remaining <= 0;
+  // Apple 3.1.1: inside the native app (window.__DB_NATIVE via
+  // native-bridge.js) no purchase UI may render. Hide the price cards
+  // and the upgrade CTA; the copy drops any steering to plans.
+  var native = !!window.__DB_NATIVE;
   return el('div', { className: 'auth-overlay', onClick: (e) => {if (e.target === e.currentTarget) onClose();} },
   el('div', { style: { background: 'var(--modal-bg,#303038)', border: '1px solid var(--modal-border,#ffffff22)', borderRadius: 16, padding: '32px 36px', maxWidth: 440, width: '90%', textAlign: 'center' }, role: 'dialog', 'aria-modal': true },
   el('div', { style: { marginBottom: 12 }, dangerouslySetInnerHTML: { __html: exhausted ? '<svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="22" width="28" height="20" rx="4" stroke="#ef4444" stroke-width="1.5" fill="#ef444408"/><path d="M16 22V16a8 8 0 0116 0v6" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none"/><circle cx="24" cy="32" r="3" fill="#ef444440"/></svg>' : '<svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M24 6l4 8 9 1.3-6.5 6.3 1.5 9L24 26l-8 4.6 1.5-9L11 15.3l9-1.3z" stroke="#ef4444" stroke-width="1.5" fill="#ef444410" stroke-linejoin="round"/></svg>' } }),
@@ -11706,14 +11713,14 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
   ),
   exhausted ?
   el('p', { style: { color: 'var(--text-secondary,#94a3b8)', fontSize: '.95rem', lineHeight: 1.6, marginBottom: 20 } },
-  "You've used your free tries of ", el('strong', null, fname), ". Plans below if you want to keep going."
+  "You've used your free tries of ", el('strong', null, fname), native ? ' for now.' : ". Plans below if you want to keep going."
   ) :
   el('p', { style: { color: 'var(--text-secondary,#94a3b8)', fontSize: '.95rem', lineHeight: 1.6, marginBottom: 20 } },
   el('strong', null, fname), '. ',
   el('span', { style: { color: '#f59e0b', fontWeight: 700 } }, remaining + ' free ' + (remaining === 1 ? 'try' : 'tries')),
   ' left on the house.'
   ),
-  el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16, flexWrap: 'wrap' } },
+  !native && el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16, flexWrap: 'wrap' } },
   function () {
     var ind = localizedPrice(10),team = localizedPrice(50);
     return el(React.Fragment, null,
@@ -11738,7 +11745,7 @@ function UpgradeModal({ feature, remaining, onClose, onUpgrade }) {
   !exhausted && el('button', { className: 'btn', onClick: onClose, style: { flex: 1 } },
   'Use Free Try (' + remaining + ' left)'
   ),
-  el('button', { className: 'btn btn-primary', onClick: onUpgrade, style: { flex: 1 } }, 'Upgrade to Pro')
+  !native && el('button', { className: 'btn btn-primary', onClick: onUpgrade, style: { flex: 1 } }, 'Upgrade to Pro')
   ),
   el('button', { onClick: onClose, style: { background: 'none', border: 'none', color: '#64748b', fontSize: '.8rem', cursor: 'pointer', marginTop: 12, fontFamily: 'inherit' } }, 'Maybe later')
   )
@@ -11778,6 +11785,10 @@ function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   var name = planNames[plan] || plan;
   var price = planPrices[plan] || '';
   var showTeamCta = (needsTeam || plan === 'team') && typeof onCreateTeam === 'function';
+  // Apple 3.1.1: no price copy inside the native app.
+  var resumeBody = window.__DB_NATIVE ?
+  'Beta is free, so you cannot be charged today. Keep practicing from this signed-in workspace.' :
+  name + ' will be ' + price + ' once beta ends. Beta is free, so you cannot be charged today. Keep practicing from this signed-in workspace.';
   var keepPracticing = () => {
     try {if (window.gtag) gtag('event', 'checkout_resume_continue', { plan: plan });} catch (e) {}
     onClose();
@@ -11786,7 +11797,7 @@ function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   el('div', { style: { background: 'var(--modal-bg,#303038)', border: '1px solid var(--modal-border,#ffffff22)', borderRadius: 16, padding: '32px 36px', maxWidth: 440, width: '90%', textAlign: 'center' }, role: 'dialog', 'aria-modal': true },
   el('h2', { style: { fontSize: '1.3rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary,#f1f5f9)' } }, 'You picked ' + name + '.'),
   el('p', { style: { color: 'var(--text-secondary,#94a3b8)', fontSize: '.95rem', lineHeight: 1.6, marginBottom: 20 } },
-  name + ' will be ' + price + ' once beta ends. Beta is free, so you cannot be charged today. Keep practicing from this signed-in workspace.'
+  resumeBody
   ),
   el('div', { style: { display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' } },
   el('button', { className: 'btn btn-primary', onClick: keepPracticing, style: { flex: 1, minWidth: 150 } }, 'Keep practicing'),
@@ -13665,8 +13676,9 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   // branch was unreachable. deleted to keep TeamDashboard readable.
 
   if (!user) return el('div', { className: 'panel' },
-  el('h2', { style: { fontSize: '1.6rem', fontWeight: 800, color: '#e4e8f0', marginBottom: 4, textAlign: 'center' } }, 'Choose Your Plan'),
-  el('div', { style: { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr)', gap: isMobile ? 10 : 16, marginBottom: 24 } },
+  el('h2', { style: { fontSize: '1.6rem', fontWeight: 800, color: '#e4e8f0', marginBottom: 4, textAlign: 'center' } }, window.__DB_NATIVE ? 'Your Team' : 'Choose Your Plan'),
+  // Apple 3.1.1: the plan/price grid never renders inside the native app.
+  !window.__DB_NATIVE && el('div', { style: { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr)', gap: isMobile ? 10 : 16, marginBottom: 24 } },
   ...[
   { name: 'Free', price: '$0', requests: '5/mo', members: '10 members', highlight: false, desc: 'Get started' },
   { name: 'BYOK', price: '$1/mo', requests: 'Unlimited*', members: '1 member', highlight: false, desc: 'Bring your own API keys', badge: 'Cheapest', badgeColor: '#f59e0b' },
@@ -13695,7 +13707,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   el('input', { value: teamName, onChange: (e) => setTeamName(e.target.value), placeholder: t('team.teamNamePlaceholder', 'Team name (e.g. Springfield Debate)'), style: { flex: 1, padding: '10px 14px', background: '#38383e', border: '1px solid #ffffff15', borderRadius: 8, color: '#e2e8f0', fontSize: '.9rem', outline: 'none' } }),
   el('button', { onClick: createTeam, disabled: actionLoading || !teamName.trim(), style: { padding: '10px 20px', background: '#ef4444', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 600, cursor: 'pointer', opacity: actionLoading ? .5 : 1 } }, actionLoading ? t('team.creating', 'Creating...') : t('team.createTeam', 'Create Team'))
   ),
-  el('div', { style: { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: isMobile ? 10 : 16, marginTop: 24 } },
+  window.__DB_NATIVE ? null : el('div', { style: { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: isMobile ? 10 : 16, marginTop: 24 } },
   ...[
   { name: 'Free', price: '$0', requests: '5/mo', members: '10 members', highlight: false },
   { name: 'Individual', price: '$10/yr', requests: '250/mo', members: '10 members', highlight: true },
@@ -13773,7 +13785,8 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   )
   ),
   isOwner && el('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
-  el('button', { onClick: team.stripeSubscriptionId ? openPortal : () => openCheckout('team'), style: { padding: '8px 16px', background: '#ffffff08', border: '1px solid #ffffff15', borderRadius: 8, color: '#e2e8f0', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' } }, team.stripeSubscriptionId ? t('team.manageBilling', 'Manage Billing') : t('team.upgradePlan', 'Upgrade Plan')),
+  // Apple 3.1.1: no billing/upgrade CTA inside the native app.
+  !window.__DB_NATIVE && el('button', { onClick: team.stripeSubscriptionId ? openPortal : () => openCheckout('team'), style: { padding: '8px 16px', background: '#ffffff08', border: '1px solid #ffffff15', borderRadius: 8, color: '#e2e8f0', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' } }, team.stripeSubscriptionId ? t('team.manageBilling', 'Manage Billing') : t('team.upgradePlan', 'Upgrade Plan')),
   // Cancel button. only shows for owners with an active subscription
   // that hasn't already been scheduled to cancel. Uses the in-app
   // /api/billing/cancel endpoint so users don't have to bounce to the
@@ -13828,11 +13841,13 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   el('div', { style: { color: '#fbbf24', fontSize: '.78rem', fontWeight: 700, marginBottom: 4 } }, 'BYOK is one-provider only'),
   el('div', { style: { color: '#94a3b8', fontSize: '.74rem', lineHeight: 1.55 } },
   'Your key unlocks ', el('strong', { style: { color: '#fbbf24' } }, 'unlimited Claude'), ' requests. ',
-  el('strong', null, 'GPT, Gemini, Grok, DeepSeek, and Open Lab still count against your plan\u2019s request cap'), '. once you cross to another brain you\u2019ll see "you ran out of requests." Stay on Claude as your main engine, or upgrade to Individual ($10/year) for all 6 brains.'
+  el('strong', null, 'GPT, Gemini, Grok, DeepSeek, and Open Lab still count against your plan\u2019s request cap'), '. once you cross to another brain you\u2019ll see "you ran out of requests." ' + (window.__DB_NATIVE ? 'Stay on Claude as your main engine.' : 'Stay on Claude as your main engine, or upgrade to Individual ($10/year) for all 6 brains.')
   )
   )
   ),
-  team.plan === 'trial' && el('div', { style: { padding: 22, background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.18)', borderRadius: 14, marginBottom: 24, position: 'relative', overflow: 'hidden' } },
+  // Apple 3.1.1: the whole future-pricing card (tier grid + checkout
+  // buttons) stays web-only. The native app shows no plan surface.
+  team.plan === 'trial' && !window.__DB_NATIVE && el('div', { style: { padding: 22, background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.18)', borderRadius: 14, marginBottom: 24, position: 'relative', overflow: 'hidden' } },
   el('div', { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#ef4444,rgba(239,68,68,.2))' } }),
   el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 } },
   el('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,.16)' } }),
@@ -13896,7 +13911,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   !isPro(team, user) && el('div', { style: { position: 'absolute', inset: 0, background: '#2b2b30cc', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, backdropFilter: 'blur(3px)', borderRadius: 12 } },
   el('div', { style: { textAlign: 'center', padding: 20 } },
   el('div', { style: { fontSize: '1.5rem', marginBottom: 8 } }, '\uD83D\uDD12'),
-  el('div', { style: { color: '#f59e0b', fontWeight: 700, fontSize: '.9rem', marginBottom: 4 } }, 'Upgrade to Customize'),
+  el('div', { style: { color: '#f59e0b', fontWeight: 700, fontSize: '.9rem', marginBottom: 4 } }, window.__DB_NATIVE ? 'Not available in the app yet' : 'Upgrade to Customize'),
   el('div', { style: { color: '#94a3b8', fontSize: '.8rem' } }, 'Personalize how the AI writes for you.')
   )
   ),
@@ -14860,6 +14875,9 @@ function AdBanner({ team, user, onNavigate }) {
   { text: 'HD voice + 6 AI brains. the only debate tool built on multiple models', cta: 'Go Pro', color: '#8b5cf6', action: 'upgrade' },
   { text: 'Join debaters using DebateIt to win rounds', cta: 'Share', color: '#f59e0b', action: 'share' }];
 
+  // Apple 3.1.1: drop the upgrade promos inside the native app.
+  if (window.__DB_NATIVE) ads = ads.filter(function (a) {return a.action !== 'upgrade';});
+
   var ad = ads[Math.floor(Date.now() / 60000) % ads.length];
 
   return el('div', { style: {
@@ -15723,8 +15741,9 @@ function LiveDebates({ user, team, onNavigateTab }) {
   el('div', { style: { textAlign: 'center', padding: '40px 30px', maxWidth: 400 } },
   el('div', { style: { marginBottom: 12 }, dangerouslySetInnerHTML: { __html: '<svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="30" stroke="#ffffff12" stroke-width="1.5"/><rect x="26" y="14" width="12" height="24" rx="6" stroke="#ef4444" stroke-width="1.5" fill="#ef444410"/><line x1="32" y1="38" x2="32" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M22 30c0 5.5 4.5 10 10 10s10-4.5 10-10" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".5"/><line x1="26" y1="46" x2="38" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg>' } }),
   el('div', { style: { fontWeight: 800, fontSize: '1.3rem', color: 'var(--text-primary,#f1f5f9)', marginBottom: 8 } }, 'Live Debates'),
-  el('div', { style: { color: 'var(--text-muted,#94a3b8)', fontSize: '.9rem', lineHeight: 1.6, marginBottom: 20 } }, 'Schedule debates, join video calls, and compete live with debaters around the world. Available on Individual and Team plans.'),
-  el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
+  el('div', { style: { color: 'var(--text-muted,#94a3b8)', fontSize: '.9rem', lineHeight: 1.6, marginBottom: 20 } }, 'Schedule debates, join video calls, and compete live with debaters around the world. ' + (window.__DB_NATIVE ? 'Not available in the app yet.' : 'Available on Individual and Team plans.')),
+  // Apple 3.1.1: no upgrade CTA or price copy inside the native app.
+  !window.__DB_NATIVE && el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
   el('button', { className: 'btn btn-primary', onClick: () => {if (onNavigateTab) onNavigateTab('team');}, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to Unlock'),
   el('div', { style: { color: 'var(--text-muted,#64748b)', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $10/year')
   )
@@ -16635,6 +16654,9 @@ function App() {
   // straight back into Stripe checkout.
   var [checkoutResume, setCheckoutResume] = useState(() => {
     try {
+      // Apple 3.1.1: never resume a purchase intent inside the native app,
+      // even if a deep link carries ?upgrade= or sessionStorage held one.
+      if (window.__DB_NATIVE) return null;
       var p = new URLSearchParams(window.location.search);
       var plan = (p.get('upgrade') || sessionStorage.getItem('intended_plan') || '').toLowerCase();
       if (!/^(byok|individual|lifetime|team)$/.test(plan)) return null;

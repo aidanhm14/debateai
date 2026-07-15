@@ -212,7 +212,16 @@
     'keep going with a plan',
     'see pricing',
     'view plans',
-    'pro, upgrade to unlock'
+    'pro, upgrade to unlock',
+    'upgrade',
+    'go pro',
+    'upgrade plan',
+    'manage billing',
+    'manage subscription on stripe →',
+    'see plans',
+    'see plans →',
+    'view plans & subscribe',
+    'subscribe to continue.'
   ];
   function sweepPurchaseCtas(root) {
     var els;

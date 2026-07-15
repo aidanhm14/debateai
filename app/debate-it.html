@@ -3301,7 +3301,7 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   // the upgrade CTA instead of a generic failure. Pro tier (Infinity limit)
   // and BYOK (bring your own Anthropic key) both bypass this.
   if (!isPro() && !getStoredKey() && getUsage() >= getEffectiveLimit()) {
-    var err = new Error(isSignedIn() ? 'Free quota used. Upgrade to keep going.' : 'Guest preview used. Sign in to keep your rounds and style profile.');
+    var err = new Error(isSignedIn() ? window.__DB_NATIVE ? 'Free quota used for now.' : 'Free quota used. Upgrade to keep going.' : 'Guest preview used. Sign in to keep your rounds and style profile.');
     err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
     if (typeof window !== 'undefined') {
       try {window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: err.code } }));} catch (e) {}
@@ -5608,7 +5608,7 @@ function App() {
         var msg = 'Triage failed.';
         try {var j = JSON.parse(txt);msg = j && (j.error || j.message) || msg;} catch {}
         if (r.status === 401) msg = 'Sign in to use motion triage.';
-        if (r.status === 429) msg = 'Hit your usage cap. Upgrade to keep going.';
+        if (r.status === 429) msg = window.__DB_NATIVE ? 'Hit your usage cap. Give it a few minutes.' : 'Hit your usage cap. Upgrade to keep going.';
         setTriageError(msg);
         return;
       }
@@ -6672,7 +6672,7 @@ function App() {
         // at a dead orb wondering whether to refresh, retry, or wait.
         var raw = e && e.message || 'unknown error';
         var hint = /401|sign in/i.test(raw) ? ' Sign in (top right) and retry.' :
-        /429|rate limit|quota|cap/i.test(raw) ? ' You hit your usage cap. /pricing has BYOK $1/mo for unlimited Claude.' :
+        /429|rate limit|quota|cap/i.test(raw) ? window.__DB_NATIVE ? ' You hit your usage cap. Give it a few minutes and retry.' : ' You hit your usage cap. /pricing has BYOK $1/mo for unlimited Claude.' :
         /Failed to fetch|network|offline/i.test(raw) ? ' Network is flaky. Check your connection and tap retry.' :
         /500|server|backend/i.test(raw) ? ' AI backend hiccupped. Wait 10 seconds and retry, or paste a Claude API key in Settings for instant unlimited.' :
         ' Tap the orb to retry, or refresh if it sticks.';
@@ -7837,7 +7837,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   var quotaCtaOverlay = quotaCTA && el('div', {
     onClick: () => setQuotaCTA(null),
     style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-    role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Upgrade to keep going'
+    role: 'dialog', 'aria-modal': 'true', 'aria-label': window.__DB_NATIVE ? 'Beta cap reached' : 'Upgrade to keep going'
   },
   el('div', {
     onClick: (e) => e.stopPropagation(),
@@ -7850,6 +7850,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { style: { fontSize: '.86rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 20 } },
   quotaCTA === 'signin' ?
   "Anonymous, every session starts the AI from zero. Signed in, your rounds train DebateIt's debate model, not GPT or Claude. Used only to log you in. I never email you." :
+  // Apple 3.1.1: inside the native app the cap copy carries no pointer
+  // to the web pricing page.
+  window.__DB_NATIVE ?
+  "DebateIt is in beta. Every tier is free right now, and you hit the beta cap." :
   "DebateIt is in beta. Every tier is free right now. The future pricing tiers are on /pricing if you want to see what plans will look like later."
   ),
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
@@ -8072,10 +8076,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('button', { disabled: !isPro(), onClick: () => testTtsProvider(ttsProvider), style: { padding: '7px 14px', background: 'transparent', border: '1px solid var(--c-border2)', borderRadius: 8, color: 'var(--c-text)', cursor: isPro() ? 'pointer' : 'not-allowed', fontFamily: 'inherit', fontSize: '.74rem' } }, '▶ Test current voice'),
   providerTestStatus && el('span', { style: { fontSize: '.7rem', color: 'var(--c-muted)' } }, providerTestStatus)
   ),
-  !isPro() && el('p', { style: { marginTop: 8, fontSize: '.7rem', color: 'var(--c-subtle)' } }, 'Upgrade to Individual or Team to unlock premium voice providers.')
+  !isPro() && el('p', { style: { marginTop: 8, fontSize: '.7rem', color: 'var(--c-subtle)' } }, window.__DB_NATIVE ? 'Premium voice providers are not available in the app yet.' : 'Upgrade to Individual or Team to unlock premium voice providers.')
   ),
-  // Manage subscription
-  user && team && team.plan && team.plan !== 'free' && el('button', {
+  // Manage subscription (web only — Apple 3.1.1 forbids linking to an
+  // external billing portal from the native app)
+  !window.__DB_NATIVE && user && team && team.plan && team.plan !== 'free' && el('button', {
     onClick: openBillingPortal,
     style: { width: '100%', padding: '10px 14px', background: 'transparent', border: '1px solid var(--c-border2)', borderRadius: 10, color: 'var(--c-text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '.78rem', fontWeight: 600 }
   }, 'Manage subscription on Stripe →'),
@@ -9581,7 +9586,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   )
   ),
   isPro() && el('div', { style: { fontSize: '.72rem', color: 'rgba(239,68,68,.6)', fontWeight: 600, marginTop: 4 } }, 'Pro. using faster, smarter models'),
-  !isPro() && el('div', { style: { fontSize: '.72rem', color: 'var(--c-dim)', marginTop: 4 } }, 'Free tier: Claude only · ', el('a', { href: '/#pricing', style: { color: 'rgba(239,68,68,.5)', textDecoration: 'underline' } }, 'Upgrade for all 6 brains')),
+  // The /#pricing href dodges the dbnative a[href*="/pricing"] CSS net,
+  // so the upgrade link is gated here instead (Apple 3.1.1).
+  !isPro() && el('div', { style: { fontSize: '.72rem', color: 'var(--c-dim)', marginTop: 4 } }, 'Free tier: Claude only', !window.__DB_NATIVE && el(React.Fragment, null, ' · ', el('a', { href: '/#pricing', style: { color: 'rgba(239,68,68,.5)', textDecoration: 'underline' } }, 'Upgrade for all 6 brains'))),
 
   // Judge brain picker. Independent of the opponent brain so users
   // can have one model argue and a different one judge — same
@@ -9875,7 +9882,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // (which only fires AT zero). Three states cover the funnel cleanly.
     if (oneLeft) {
       var softMsg = isSignedIn() ?
-      'Last round on the house. Beta is free. Tell us what fair pricing looks like.' :
+      window.__DB_NATIVE ? 'Last round on the house. Beta is free.' : 'Last round on the house. Beta is free. Tell us what fair pricing looks like.' :
       'Last sample round. The AI has started recognizing your patterns. Sign in to keep them.';
       var softCta = isSignedIn() ?
       el('a', { href: '/pricing', style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '8px 18px', background: '#ef4444', color: '#fff', borderRadius: 999, fontSize: '.78rem', fontWeight: 800, textDecoration: 'none', letterSpacing: '.04em' } }, 'See plans →') :

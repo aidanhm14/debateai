@@ -5414,7 +5414,7 @@ function App() {
           // be higher than the server's), so the user never loops on a
           // Start button that always 402s with no path forward.
           setVoiceGate((g) => ({ ...g, state: 'upgrade', loading: false }));
-          var e = new Error(body.error || 'Free voice rounds exhausted. Keep going with a plan.');
+          var e = new Error(window.__DB_NATIVE ? 'Free voice rounds exhausted for now.' : body.error || 'Free voice rounds exhausted. Keep going with a plan.');
           e.kind = 'upgrade';
           throw e;
         }
@@ -7699,7 +7699,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   ) :
   voiceGate.state === 'upgrade' ? el('div', { className: 'voice-gate' },
   el('div', { className: 'vg-eyebrow' }, 'Free voice rounds used'),
-  el('div', { className: 'vg-h' }, 'Keep going with a plan'),
+  // Apple 3.1.1: no plan pitch inside the native app (the See plans
+  // link below is already hidden by the dbnative CSS net).
+  el('div', { className: 'vg-h' }, window.__DB_NATIVE ? 'That was the free voice cap' : 'Keep going with a plan'),
   el('p', { className: 'vg-body' },
   'You\'ve used your 2 free voice rounds. Voice runs on OpenAI\'s Realtime API (charged per audio minute), so the free tier is a taste. Typed mode stays unmetered for your account.'
   ),
