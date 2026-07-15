@@ -225,6 +225,11 @@ export default async () => {
       const lastSent = prof.winbackSentAt?.toMillis?.() || 0;
       if (now - lastSent < MIN_GAP_USER_MS) { skipped++; continue; }
 
+      // Same-day rule: scheduled-spar-night (Wed 13:00 UTC) stamps
+      // sparNightSentAt; never stack a second email on the same day.
+      const sparNightAt = prof.sparNightSentAt?.toMillis?.() || 0;
+      if (now - sparNightAt < DAY_MS) { skipped++; continue; }
+
       eligible++;
       const { label, motion } = fmtFor(cand.get(uid).format);
       const lastMotion = cand.get(uid).lastMotion || '';

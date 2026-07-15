@@ -78,6 +78,7 @@ export function isOptedOut(profile, stream) {
   if (profile.emailOptOut) return true;
   if (stream === 'digest') return !!profile.wauDigestOptOut;
   if (stream === 'winback') return !!(profile.wauDigestOptOut || profile.winbackOptOut);
+  if (stream === 'sparnight') return !!(profile.wauDigestOptOut || profile.sparNightOptOut);
   // 'onboarding', 'transactional', and anything unknown: global switch only.
   return false;
 }

@@ -31,11 +31,12 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { esc, brandHeader, unsubUrl, verifyUnsubToken, isOptedOut, SITE_URL } from './lib/email.mjs';
 
-const STREAMS = ['digest', 'winback', 'onboarding', 'all'];
+const STREAMS = ['digest', 'winback', 'sparnight', 'onboarding', 'all'];
 
 const FLAG_BY_STREAM = {
   digest: 'wauDigestOptOut',
   winback: 'winbackOptOut',
+  sparnight: 'sparNightOptOut',
   onboarding: 'emailOptOut',
   all: 'emailOptOut',
 };
@@ -47,6 +48,7 @@ const FLAG_BY_STREAM = {
 const STOP_SENTENCE = {
   digest: 'The weekly digest and the occasional check-in emails stop here.',
   winback: 'The occasional check-in emails stop here. Nothing else changes.',
+  sparnight: 'The Spar Night reminders stop here. Nothing else changes.',
   onboarding: 'All DebateIt email stops here, except confirmations for rounds you schedule yourself.',
   all: 'All DebateIt email stops here, except confirmations for rounds you schedule yourself.',
 };
@@ -54,6 +56,7 @@ const STOP_SENTENCE = {
 const CONFIRM_SENTENCE = {
   digest: 'This stops the weekly digest and the occasional check-in emails.',
   winback: 'This stops the occasional check-in emails. Nothing else changes.',
+  sparnight: 'This stops the weekly Spar Night reminders. Nothing else changes.',
   onboarding: 'This stops all DebateIt email, except confirmations for rounds you schedule yourself.',
   all: 'This stops all DebateIt email, except confirmations for rounds you schedule yourself.',
 };
@@ -61,6 +64,7 @@ const CONFIRM_SENTENCE = {
 const RESUME_SENTENCE = {
   digest: 'The weekly digest will show up again.',
   winback: 'The occasional check-in emails are back on.',
+  sparnight: 'The Spar Night reminders are back on.',
   onboarding: 'DebateIt email is back on.',
   all: 'DebateIt email is back on.',
 };
@@ -209,7 +213,7 @@ export default async (req) => {
       ? (stream === 'onboarding' || stream === 'all'
           // "Back on" for the global switch clears the per-stream flags
           // too; otherwise the promise on the page would be empty.
-          ? { emailOptOut: false, wauDigestOptOut: false, winbackOptOut: false }
+          ? { emailOptOut: false, wauDigestOptOut: false, winbackOptOut: false, sparNightOptOut: false }
           : { [FLAG_BY_STREAM[stream]]: false })
       : { [FLAG_BY_STREAM[stream]]: true };
     await db.doc(`user_profiles/${uid}`).set({
