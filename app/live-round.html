@@ -33,6 +33,13 @@
 <script defer src="/js/disclosure-guard.js"></script>
 <!-- Floating / picture-in-picture mini player (Minimize + Pop out). -->
 <script defer src="/js/live-pip.js"></script>
+<!-- daily-js wrapper + the camera converter (Camera / Avatar / Off).
+     daily-js lets us publish a custom video track (the avatar canvas)
+     via setInputDevicesAsync, so the raw camera never reaches the room
+     in Avatar mode. If either script fails to load, mountDaily falls
+     back to the plain iframe and the mode buttons simply don't render. -->
+<script defer src="https://unpkg.com/@daily-co/daily-js"></script>
+<script defer src="/js/cam-avatar.js"></script>
 
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -182,6 +189,13 @@ button{font-family:inherit}
 
 /* Daily.co iframe, fills the call well under the custom broadcast stage. */
 .daily-frame{width:100%;height:100%;border:none;background:#000;display:block}
+/* Camera converter pill (seated debaters only): Camera / Avatar / Off.
+   Floats over the Daily iframe, same overlay pattern as the mini timer. */
+.cam-modes{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;display:flex;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.16);background:rgba(10,10,14,.85);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.45)}
+.cam-modes button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.72);font:600 .72rem/1 Inter,system-ui,sans-serif;letter-spacing:.06em;padding:9px 13px;cursor:pointer}
+.cam-modes button + button{border-left:1px solid rgba(255,255,255,.1)}
+.cam-modes button.on{background:var(--accent,#ef4444);color:#fff}
+.cam-modes button:not(.on):hover{color:#fff}
 .room-stage{
   flex:0 0 auto;position:relative;overflow:hidden;border-radius:18px;
   padding:16px;background:
@@ -2940,6 +2954,84 @@ body.lr-pip .lr-pip-notice{display:block}
     });
   });
 
+  // ── Camera converter: Camera / Avatar / Off for seated debaters.
+  // Rides the daily-js wrapper (state.dailyFrame). Avatar publishes the
+  // canvas track from /js/cam-avatar.js, so in that mode the raw camera
+  // never reaches the room; the avatar's mouth follows a best-effort
+  // local mic tap (avatar still works if the mic tap is denied).
+  var camConv = { cam:null, savedVideoId:null, mode:'camera', bar:null };
+  function seatLabel(){
+    var s = (state.mySideHint || '').toUpperCase().slice(0,3);
+    return s || 'ANON';
+  }
+  function buildCamModes(shell){
+    if (camConv.bar) return;
+    var bar = document.createElement('div');
+    bar.className = 'cam-modes';
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'Your camera mode');
+    bar.innerHTML =
+      '<button type="button" data-m="camera" class="on">Camera</button>' +
+      '<button type="button" data-m="avatar">Avatar</button>' +
+      '<button type="button" data-m="off">Off</button>';
+    bar.addEventListener('click', function(ev){
+      var b = ev.target.closest('button');
+      if (b) setCamMode(b.getAttribute('data-m'));
+    });
+    shell.appendChild(bar);
+    camConv.bar = bar;
+  }
+  function markCamMode(m){
+    camConv.mode = m;
+    if (!camConv.bar) return;
+    Array.prototype.forEach.call(camConv.bar.querySelectorAll('button'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-m') === m);
+    });
+  }
+  function ensureAvatarCam(){
+    if (camConv.cam) return Promise.resolve(camConv.cam);
+    return navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .catch(function(){ return new MediaStream(); })
+      .then(function(ms){ return window.DebateCam.start(ms, { mode: 'avatar', label: seatLabel() }); })
+      .then(function(c){ camConv.cam = c; return c; });
+  }
+  function setCamMode(m){
+    var frame = state.dailyFrame;
+    if (!frame || m === camConv.mode) return;
+    if (m === 'avatar'){
+      if (!window.DebateCam){ toast('Avatar mode is still loading, try again in a second'); return; }
+      frame.getInputDevices().then(function(d){
+        if (d && d.camera && d.camera.deviceId) camConv.savedVideoId = d.camera.deviceId;
+      }).catch(function(){});
+      ensureAvatarCam().then(function(c){
+        return frame.setInputDevicesAsync({ videoSource: c.videoTrack });
+      }).then(function(){
+        frame.setLocalVideo(true);
+        markCamMode('avatar');
+        toast('Avatar on. Your camera is hidden from the room.');
+        try { gtag('event', 'live_round_avatar_on'); } catch(e){}
+      }).catch(function(e){
+        console.warn('[avatar]', e);
+        toast('Avatar mode did not take in this browser');
+      });
+    } else if (m === 'camera'){
+      var restore = camConv.savedVideoId
+        ? frame.setInputDevicesAsync({ videoDeviceId: camConv.savedVideoId })
+        : frame.cycleCamera();
+      Promise.resolve(restore).then(function(){
+        frame.setLocalVideo(true);
+        markCamMode('camera');
+      }).catch(function(e){
+        console.warn('[camera restore]', e);
+        toast('Use the in-call camera picker to re-enable your camera');
+      });
+    } else {
+      frame.setLocalVideo(false);
+      markCamMode('off');
+      toast('Camera off. Your mic is unaffected.');
+    }
+  }
+
   function mountDaily(){
     if (state.dailyMounted) return;
     updateRoomStage();
@@ -2966,13 +3058,36 @@ body.lr-pip .lr-pip-notice{display:block}
         // Spectators land with cam + mic off via Daily query params so
         // their feeds don't appear in the room. The iframe also withholds
         // camera/microphone permissions from audience mode.
-        var iframe = document.createElement('iframe');
-        iframe.className = 'daily-frame';
         var url = state.dailyUrl;
         if (isSpectator()){
           var sep = url.indexOf('?') >= 0 ? '&' : '?';
           url += sep + 'startVideoOff=true&startAudioOff=true&videoSource=false&audioSource=false';
         }
+        // Seated debaters get the daily-js wrapper (same prebuilt UI in
+        // the same slot) so the Camera / Avatar / Off converter can
+        // publish a custom track. Spectators and any wrapper failure
+        // fall through to the plain iframe below, which behaves exactly
+        // as before.
+        if (!isSpectator() && window.DailyIframe){
+          try {
+            var frame = window.DailyIframe.createFrame(shell, {
+              showLeaveButton: true,
+              iframeStyle: { width:'100%', height:'100%', border:'0', background:'#000', position:'absolute', top:'0', left:'0' }
+            });
+            state.dailyFrame = frame;
+            window.__lrDailyWrapper = true; // pop-out must not adopt this iframe (see enterPip)
+            frame.join({ url: url });
+            buildCamModes(shell);
+            state.dailyMounted = true;
+            updateRoomStage();
+            try { gtag('event', 'live_round_daily_mount', { wrapper: 1 }); } catch(e){}
+            return;
+          } catch(e){
+            console.warn('[Daily] createFrame failed, falling back to plain iframe', e);
+          }
+        }
+        var iframe = document.createElement('iframe');
+        iframe.className = 'daily-frame';
         iframe.src = url;
         // Spectators don't get camera/microphone permission so the
         // browser doesn't even prompt for them; they're audience-only.
@@ -5811,7 +5926,11 @@ body.lr-pip .lr-pip-notice{display:block}
     // Pop out: move the video into a real always-on-top Document PiP window
     // and open the site shell so the tab shows the browsable site behind it.
     function enterPip() {
-      if (!pipOk) { enterMini(); return; }
+      // The daily-js wrapper's iframe cannot survive adoption into the
+      // PiP window's document (the reload orphans the call object and
+      // kills the published avatar track). Degrade to the in-page mini,
+      // which never changes documents.
+      if (!pipOk || window.__lrDailyWrapper) { enterMini(); return; }
       teardownConsole();
       Promise.resolve(window.LivePiP.openWindow({
         width: 360, height: 264, title: 'DebateIt — live round video',
