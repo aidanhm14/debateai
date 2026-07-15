@@ -215,8 +215,8 @@ export default async (request) => {
       if (!kind || typeof kind !== 'string' || !VALID_KINDS.has(kind)) {
         return errorResponse('Invalid or missing kind', 400, request);
       }
-      if (isAnon && kind !== 'voice_round') {
-        return errorResponse('Anonymous generation logging is only enabled for voice rounds', 401, request);
+      if (isAnon && kind !== 'voice_round' && kind !== 'exhibition_round') {
+        return errorResponse('Anonymous generation logging is only enabled for voice and exhibition rounds', 401, request);
       }
       if (!output || typeof output !== 'string') {
         return errorResponse('Missing output', 400, request);
