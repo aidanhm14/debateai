@@ -531,6 +531,12 @@ ${rail(m)}
         <ul class="drills">
           ${(m.drills || []).map(d => `<a class="drill-item" href="${esc(trainerHref({ title: d.motion }))}"><span class="dl">${esc(d.label)}</span><span class="dx">→</span></a>`).join('')}
         </ul>
+        <div class="sec-eye" style="margin-top:22px">Train for this round</div>
+        <ul class="rel-list">
+          <li><a href="/learn/guides/how-to-win-a-debate"><span class="rt">How to win a debate</span><span class="rarr">→</span></a></li>
+          <li><a href="/learn/guides/how-to-improve-your-rebuttals"><span class="rt">How to improve your rebuttals</span><span class="rarr">→</span></a></li>
+          <li><a href="/learn/guides/how-to-practice-debate-alone"><span class="rt">How to practice debate alone</span><span class="rarr">→</span></a></li>
+        </ul>
       </div>
     </div>
   </section>
