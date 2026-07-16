@@ -174,8 +174,21 @@ export async function requirePaidPlan(request, featureName) {
 
   // Lazy-import firestore to avoid a circular dep + cold-start cost for
   // callers that happen to be checking auth without needing paid gating.
-  const { getUserTeam } = await import('./firestore.mjs');
-  const result = await getUserTeam(decoded.sub);
+  const { getUserTeam, withDeadline } = await import('./firestore.mjs');
+  let result = null;
+  try {
+    result = await withDeadline(getUserTeam(decoded.sub), 2500);
+  } catch (err) {
+    // Firestore down / over quota: don't stall 10s and don't surface a
+    // misleading auth error. Fail closed for paid gating (owner already
+    // bypassed above) with an honest retryable message.
+    return {
+      ok: false,
+      status: 503,
+      error: 'Could not verify your plan just now. Try again in a moment.',
+      code: 'PLAN_CHECK_UNAVAILABLE',
+    };
+  }
   const plan = result?.team?.plan;
   const status = result?.team?.status;
   const isPaid =

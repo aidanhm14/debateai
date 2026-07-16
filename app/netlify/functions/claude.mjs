@@ -1,6 +1,6 @@
 // Claude API proxy — strips _feature before forwarding to Anthropic
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
-import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
+import { getUserTeam, logUsage, PLANS, withDeadline } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { buildVoiceSegments, pickSpice } from './lib/voice-guidelines.mjs';
@@ -249,7 +249,21 @@ export default async (request, context) => {
         );
       }
 
-      const result = await getUserTeam(userId);
+      // Owner bypass BEFORE the Firestore lookup, and a deadline + fail-open
+      // for everyone else: with the read quota blown, getUserTeam stalls
+      // ~10s then throws, and the catch below converted that into a 401 the
+      // client renders as "API key invalid" — signed-in users got a worse
+      // experience than anon. On lookup failure we degrade to the no-team
+      // beta path (in-memory daily cap), never a hard auth error.
+      let result = null;
+      if (!isOwnerEmail(decoded.email)) {
+        try {
+          result = await withDeadline(getUserTeam(userId), 2500);
+        } catch (teamErr) {
+          console.warn('[claude] team lookup failed, failing open to beta path:', teamErr && teamErr.message);
+          result = null;
+        }
+      }
       if (!result) {
         const betaLimit = isOwnerEmail(decoded.email)
           ? { ok: true, count: 0 }
