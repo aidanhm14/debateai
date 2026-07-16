@@ -41,12 +41,19 @@ const EXEMPLAR_FEATURES = new Set([
   'case', 'tightblock', 'opp_attack', 'opponent', 'rebuttal', 'sneaky',
 ]);
 
+// Fast-fail: with Firestore quota blown/down, the SDK retries ~10s before
+// throwing. Prompt enrichment is optional; never let it stall a request.
+const withDeadline = (p, ms) => Promise.race([
+  p,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('firestore-deadline')), ms)),
+]);
+
 async function getAdminUids(db) {
   if (adminCache.uids && Date.now() - adminCache.at < ADMIN_CACHE_MS) return adminCache;
-  const snap = await db.collection('user_profiles')
+  const snap = await withDeadline(db.collection('user_profiles')
     .where('exemplarWeight', '>=', 1)
     .limit(20)
-    .get();
+    .get(), 2000);
   const uids = [];
   const weights = {};
   snap.forEach(doc => {
@@ -124,22 +131,22 @@ export async function getExemplars({ motion, format, side }) {
       // Firestore `in` cap is 10. Admin list is small, but guard anyway.
       const batch = uids.slice(0, 10);
       queries.push(
-        db.collection('debate_rounds')
+        withDeadline(db.collection('debate_rounds')
           .where('userId', 'in', batch)
           .where('format', '==', f)
           .limit(40)
-          .get()
+          .get(), 2500)
           .then(snap => ({ source: 'rounds', snap }))
           .catch(err => { console.warn('[exemplars] rounds query failed:', err.message); return { source: 'rounds', snap: null }; })
       );
     }
     queries.push(
-      db.collection('generations')
+      withDeadline(db.collection('generations')
         .where('format', '==', f)
         .where('rating', '>=', 4)
         .orderBy('rating', 'desc')
         .limit(20)
-        .get()
+        .get(), 2500)
         .then(snap => ({ source: 'generations', snap }))
         .catch(err => { console.warn('[exemplars] rated-gen query failed:', err.message); return { source: 'generations', snap: null }; })
     );
@@ -219,6 +226,9 @@ export async function getExemplars({ motion, format, side }) {
     return out;
   } catch (err) {
     console.warn('[exemplars] query failed:', err.message);
+    // Negative-cache the failure so repeat requests on this instance
+    // don't re-pay the failed read while Firestore is down/over quota.
+    exemplarCache.set(cacheKey, { data: [], at: Date.now() });
     return [];
   }
 }

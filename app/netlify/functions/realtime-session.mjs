@@ -905,9 +905,16 @@ export default async (request, context) => {
     if (token){
       const decoded = await verifyIdToken(token);
       signedInUid = decoded.sub;
+      if (isOwnerEmail(decoded.email)){
+        // Owner bypass BEFORE the Firestore reads: with quota blown those
+        // reads stall ~10s each before failing, which delays the mint.
+        isPro = true;
+      } else {
       const db = getDb();
-      const profileSnap = await db.collection('user_profiles').doc(signedInUid).get();
-      if (profileSnap.exists){
+      const profileSnap = await withTimeout(
+        db.collection('user_profiles').doc(signedInUid).get(), 1500, 'voice-cap read'
+      ).catch(err => { console.warn('[realtime-session] cap read soft-failed:', err.message); return null; });
+      if (profileSnap && profileSnap.exists){
         const p = profileSnap.data() || {};
         voiceUsedBefore = Math.max(0, parseInt(p.voiceSessionsUsed, 10) || 0);
       }
@@ -918,7 +925,7 @@ export default async (request, context) => {
       // subscriptions only lose access on EXPLICIT Stripe-bad statuses.
       // Lookup failure degrades to free (the cap still applies).
       try {
-        const teamResult = await getUserTeam(signedInUid);
+        const teamResult = await withTimeout(getUserTeam(signedInUid), 1500, 'plan read');
         const team = teamResult && teamResult.team;
         if (team){
           const SUB_PLANS = new Set(['byok', 'individual', 'team']);
@@ -929,9 +936,7 @@ export default async (request, context) => {
       } catch(planErr){
         console.warn('[realtime-session] plan lookup failed:', planErr && planErr.message);
       }
-      if (isOwnerEmail(decoded.email)){
-        isPro = true;
-      }
+      } // end non-owner cap reads
       if (!isPro && voiceUsedBefore >= FREE_VOICE_LIFETIME_LIMIT){
         return new Response(JSON.stringify({
           error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice sessions. Upgrade to Pro for unlimited voice.',

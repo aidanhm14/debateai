@@ -16,6 +16,14 @@ import { getDb } from './firestore.mjs';
 const cache = new Map();
 const CACHE_MS = 60 * 60 * 1000;
 
+// Fast-fail: with Firestore quota blown/down, the SDK retries ~10s before
+// throwing. A prompt-enrichment read is never worth stalling the request;
+// on deadline the catch below caches null so the instance stays fast.
+const withDeadline = (p, ms) => Promise.race([
+  p,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('firestore-deadline')), ms)),
+]);
+
 // Same feature set as exemplars — only debate-generation features get
 // "PATTERNS THAT WORK" injected. Judge/philosophy/casual don't.
 const DISTILL_FEATURES = new Set([
@@ -29,7 +37,7 @@ async function getDistillation(format) {
 
   try {
     const db = getDb();
-    const doc = await db.collection('learning_distillations').doc(format).get();
+    const doc = await withDeadline(db.collection('learning_distillations').doc(format).get(), 2000);
     if (!doc.exists) {
       cache.set(format, { data: null, at: Date.now() });
       return null;
