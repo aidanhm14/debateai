@@ -129,3 +129,13 @@ export async function logUsage(teamId, userId, feature, inputTokens = 0, outputT
 }
 
 export { FieldValue };
+
+// Fast-fail wrapper for OPTIONAL Firestore reads (caches, pollers,
+// prompt enrichment). With the read quota blown the admin SDK retries
+// ~10s before throwing; degradable callers should never pay that stall.
+export function withDeadline(promise, ms = 1500) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('firestore-deadline')), ms)),
+  ]);
+}

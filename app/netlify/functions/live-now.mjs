@@ -9,9 +9,9 @@
 // Firestore. Anonymous + signed-in both count (a guest in queue is a real
 // opponent). Self-filtering (don't count yourself) is left to the client,
 // which knows its own uid.
-import { getDb } from './lib/firestore.mjs';
+import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 
 const CACHE_KEY = 'live-now';
 const CACHE_TTL_MS = 15 * 1000;        // 15s
@@ -39,10 +39,10 @@ export default async (request) => {
   try {
     // Single-field equality → auto-indexed, no composite needed. Recency is
     // filtered in memory so we never require a new console index.
-    const snap = await db.collection('matchmaking_queue')
+    const snap = await withDeadline(db.collection('matchmaking_queue')
       .where('status', '==', 'waiting')
       .limit(HARD_LIMIT)
-      .get();
+      .get(), 2000);
 
     const cutoff = Date.now() - WINDOW_MS;
     const debaters = [];
@@ -62,7 +62,10 @@ export default async (request) => {
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.warn('[live-now] query failed', err && err.message);
-    return jsonResponse(emptyPayload(err && err.message), 200, request);
+    const payload = emptyPayload(err && err.message);
+    // Negative-cache 30s so pollers don't re-pay the failed read.
+    setCached(CACHE_KEY, payload, 30_000);
+    return jsonResponse(payload, 200, request);
   }
 };
 

@@ -25,9 +25,9 @@
 //     at: <ms epoch>
 //   }
 
-import { getDb } from './lib/firestore.mjs';
+import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 
 const CACHE_KEY = 'online-count';
 const CACHE_TTL_MS = 5 * 60 * 1000;        // 5 min: near-static count, keep quota burn low
@@ -65,10 +65,10 @@ export default async (request) => {
     // only): single-field index on presence.lastPing is auto-indexed
     // by default since it's a top-level field. No composite needed.
     const cutoff = new Date(Date.now() - WINDOW_MS);
-    const snap = await db.collection('presence')
+    const snap = await withDeadline(db.collection('presence')
       .where('lastPing', '>=', cutoff)
       .limit(HARD_LIMIT)
-      .get();
+      .get(), 2000);
 
     let online = 0;
     let signedIn = 0;
@@ -88,7 +88,10 @@ export default async (request) => {
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.warn('[online-count] query failed', err && err.message);
-    return jsonResponse(emptyPayload(err && err.message), 200, request);
+    const payload = emptyPayload(err && err.message);
+    // Negative-cache 30s so pollers don't re-pay the failed read.
+    setCached(CACHE_KEY, payload, 30_000);
+    return jsonResponse(payload, 200, request);
   }
 };
 

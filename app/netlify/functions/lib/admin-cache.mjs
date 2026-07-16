@@ -29,9 +29,15 @@
 // hit a warm instance — but cold starts defeated it, which is what this
 // shared layer fixes.
 
-import { getDb, FieldValue } from './firestore.mjs';
+import { getDb, FieldValue, withDeadline } from './firestore.mjs';
 
 const store = new Map();
+
+// Circuit breaker: after a failed/slow shared-cache op, skip Firestore
+// for 60s on this instance (serve in-memory only). Keeps pollers fast
+// during a quota outage instead of re-paying the deadline every call.
+let sharedDownUntil = 0;
+const SHARED_BREAKER_MS = 60_000;
 
 // ── Layer 1: in-memory (per-instance) ──────────────────────────────
 export function getCached(key) {
@@ -72,8 +78,9 @@ const MAX_SHARED_BYTES = 900_000;
 export async function getCachedShared(key) {
   const local = getCached(key);
   if (local !== null) return local;
+  if (Date.now() < sharedDownUntil) return null;
   try {
-    const snap = await getDb().collection(SHARED_COLL).doc(sharedDocId(key)).get();
+    const snap = await withDeadline(getDb().collection(SHARED_COLL).doc(sharedDocId(key)).get());
     if (!snap.exists) return null;
     const d = snap.data() || {};
     if (typeof d.expiresAt !== 'number' || Date.now() > d.expiresAt) return null;
@@ -84,6 +91,7 @@ export async function getCachedShared(key) {
     store.set(key, { value, expires: d.expiresAt });
     return value;
   } catch {
+    sharedDownUntil = Date.now() + SHARED_BREAKER_MS;
     return null; // degrade to a miss; the dashboard recomputes
   }
 }
@@ -101,13 +109,15 @@ export async function setCachedShared(key, value, ttlMs) {
     return; // non-serializable; in-memory layer still holds it
   }
   if (json.length > MAX_SHARED_BYTES) return;
+  if (Date.now() < sharedDownUntil) return;
   try {
-    await getDb().collection(SHARED_COLL).doc(sharedDocId(key)).set({
+    await withDeadline(getDb().collection(SHARED_COLL).doc(sharedDocId(key)).set({
       json,
       expiresAt: Date.now() + ttlMs,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }));
   } catch {
+    sharedDownUntil = Date.now() + SHARED_BREAKER_MS;
     // Cache write failed (quota / creds). The value is still in the
     // in-memory layer for this instance; just no cross-instance share.
   }

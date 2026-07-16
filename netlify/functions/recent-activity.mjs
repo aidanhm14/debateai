@@ -33,7 +33,7 @@
 // Cached 30 seconds — fresh enough to feel live, narrow enough to
 // keep Firestore reads bounded on a busy day.
 
-import { getDb } from './lib/firestore.mjs';
+import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
@@ -119,10 +119,10 @@ export default async (request) => {
   //   { motion, side, format, handle, posterUid, posterName,
   //     posterPhoto, scheduledAt?, createdAt }
   try {
-    const snap = await db.collection('live_challenges')
+    const snap = await withDeadline(db.collection('live_challenges')
       .orderBy('createdAt', 'desc')
       .limit(PER_SOURCE_LIMIT)
-      .get();
+      .get(), 2000);
     snap.forEach(d => {
       const data = d.data() || {};
       const when = tsToMs(data.createdAt);
@@ -147,10 +147,10 @@ export default async (request) => {
   // Doc shape from /spar.html post composer:
   //   { uid, displayName, photoURL, format, note, createdAt }
   try {
-    const snap = await db.collection('waitlist_posts')
+    const snap = await withDeadline(db.collection('waitlist_posts')
       .orderBy('createdAt', 'desc')
       .limit(PER_SOURCE_LIMIT)
-      .get();
+      .get(), 2000);
     snap.forEach(d => {
       const data = d.data() || {};
       const when = tsToMs(data.createdAt);

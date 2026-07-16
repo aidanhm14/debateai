@@ -8,9 +8,9 @@
 // polls to keep Firestore reads low.
 // ─────────────────────────────────────────────────────────────
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-import { getDb } from './lib/firestore.mjs';
+import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getCached } from './lib/admin-cache.mjs';
 import { FLOOR_ANON_CACHE_KEY, defaultUser } from './lib/floor.mjs';
 
 const BOARD_LIMIT = 18;
@@ -47,16 +47,16 @@ export default async (request) => {
     let anon = await getCachedShared(FLOOR_ANON_CACHE_KEY).catch(() => null);
     if (!anon) {
       // board: active + very-recently-resolved (single-field inequality → auto-indexed)
-      const boardSnap = await db
+      const boardSnap = await withDeadline(db
         .collection('floor_markets')
         .where('resolveAt', '>', now - RECENT_RESOLVED_MS)
         .orderBy('resolveAt')
         .limit(BOARD_LIMIT)
-        .get();
+        .get(), 2500);
       const markets = boardSnap.docs.map((d) => ({ id: d.id, ...stripMarket(d.data()) }));
 
       // leaderboard — name/photo stamped onto floor_users by floor-bet.
-      const lbSnap = await db.collection('floor_users').orderBy('sharpScore', 'desc').limit(LB_LIMIT).get();
+      const lbSnap = await withDeadline(db.collection('floor_users').orderBy('sharpScore', 'desc').limit(LB_LIMIT).get(), 2500);
       const leaderboard = lbSnap.docs.map((d) => {
         const u = d.data();
         return { uid: d.id, name: u.name || '', photo: u.photo || '', sharpScore: u.sharpScore || 600, wins: u.wins || 0, bets: u.bets || 0, streak: u.streak || 0 };
@@ -70,7 +70,7 @@ export default async (request) => {
     let myPositions = {};
     let recentTxns = [];
     if (uid) {
-      const userSnap = await db.collection('floor_users').doc(uid).get();
+      const userSnap = await withDeadline(db.collection('floor_users').doc(uid).get(), 2000);
       const u = userSnap.exists ? userSnap.data() : defaultUser(uid);
       me = {
         uid,
@@ -87,7 +87,7 @@ export default async (request) => {
       // my position on each visible market, in one batched read (no index needed)
       if (anon.markets.length) {
         const posRefs = anon.markets.map((m) => db.collection('floor_markets').doc(m.id).collection('positions').doc(uid));
-        const posSnaps = await db.getAll(...posRefs);
+        const posSnaps = await withDeadline(db.getAll(...posRefs), 2000);
         posSnaps.forEach((ps, i) => {
           if (ps.exists) {
             const p = ps.data();
@@ -96,13 +96,13 @@ export default async (request) => {
         });
       }
 
-      const txnSnap = await db
+      const txnSnap = await withDeadline(db
         .collection('floor_ledger')
         .doc(uid)
         .collection('txns')
         .orderBy('ts', 'desc')
         .limit(TXN_LIMIT)
-        .get();
+        .get(), 2000);
       recentTxns = txnSnap.docs.map((doc) => {
         const t = doc.data() || {};
         return {
@@ -120,6 +120,13 @@ export default async (request) => {
     return jsonResponse({ now, markets: anon.markets, leaderboard: anon.leaderboard, me, myPositions, recentTxns }, 200, request);
   } catch (err) {
     console.error('[floor-state] error', err);
+    // Serve the last-known-good anonymous board (in-memory) before
+    // failing — the /floor client retries on error, and with Firestore
+    // over quota a fast degraded board beats a hammer loop of 500s.
+    const lkg = getCached(FLOOR_ANON_CACHE_KEY);
+    if (lkg && lkg.markets) {
+      return jsonResponse({ now, markets: lkg.markets, leaderboard: lkg.leaderboard || [], me: null, myPositions: {}, recentTxns: [], degraded: true }, 200, request);
+    }
     return errorResponse('Could not load the board.', 500, request);
   }
 };
