@@ -24,7 +24,7 @@ DebateIt is a voice-first debate trainer. Pick a motion, take a side, and
 argue out loud against an opponent that actually fights back, takes your
 points, interrupts, and writes the judge ballot when the round ends.
 
-Built by a national debate champion, and format-accurate where it counts:
+Built by an APDA Pro-Ams champion, and format-accurate where it counts:
 Asian Parliamentary, WSDC, BP, APDA, Policy, LD, PF, Congress, MUN, Karl
 Popper, and Quick Clash, plus courtroom, negotiation, and pitch-defense
 drills for professionals.
