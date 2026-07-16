@@ -357,7 +357,7 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
 
   // Serve from memory cache if fresh AND still the same UTC day.
-  if (cache.data && cache.day === dayNumber() && Date.now() - cache.ts < CACHE_TTL) {
+  if (cache.data && cache.day === dayNumber() && Date.now() - cache.ts < (cache.ttl || CACHE_TTL)) {
     return jsonResponse(cache.data, 200, request, { 'Cache-Control': 'public, max-age=3600' });
   }
 
@@ -369,7 +369,13 @@ export default async (request) => {
   }
 
   try {
-    const snap = await db.doc(DOC_PATH).get();
+    // Fast-fail: with Firestore quota blown the SDK retries ~10s before
+    // throwing, which stalls the landing request. 1.5s is generous for a
+    // healthy single-doc read.
+    const snap = await Promise.race([
+      db.doc(DOC_PATH).get(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('firestore-timeout')), 1500)),
+    ]);
     const payload = snap.exists
       ? { ...snap.data(), source: 'firestore', setAt: snap.data().setAt?.toMillis?.() || null }
       : { ...DAILY_BANK[dayNumber() % DAILY_BANK.length], source: 'fallback' };
@@ -378,8 +384,11 @@ export default async (request) => {
     return jsonResponse(payload, 200, request, { 'Cache-Control': 'public, max-age=3600' });
   } catch (err) {
     console.error('[debate-of-week] Firestore read failed:', err.message);
-    const fallback = DAILY_BANK[dayNumber() % DAILY_BANK.length];
-    return jsonResponse({ ...fallback, source: 'fallback-error' }, 200, request, { 'Cache-Control': 'public, max-age=3600' });
+    const fallback = { ...DAILY_BANK[dayNumber() % DAILY_BANK.length], source: 'fallback-error' };
+    // Hold the fallback 10 min so a down/quota-blown Firestore doesn't
+    // re-stall every request, while an admin pin still lands same-day.
+    cache = { data: fallback, ts: Date.now(), day: dayNumber(), ttl: 10 * 60 * 1000 };
+    return jsonResponse(fallback, 200, request, { 'Cache-Control': 'public, max-age=3600' });
   }
 };
 

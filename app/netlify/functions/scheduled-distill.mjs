@@ -189,6 +189,10 @@ async function distillFormat(db, format) {
 }
 
 export default async () => {
+  if (process.env.NIGHTLY_PAUSED === '1') {
+    console.log('[distill] NIGHTLY_PAUSED=1, skipping run');
+    return new Response(JSON.stringify({ ok: true, skipped: 'nightly_paused' }), { status: 200 });
+  }
   if (!ANTHROPIC_API_KEY) {
     console.error('[distill] ANTHROPIC_API_KEY missing');
     return new Response(JSON.stringify({ ok: false, error: 'missing_api_key' }), { status: 500 });

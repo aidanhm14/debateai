@@ -30,7 +30,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
 const CACHE_KEY = 'online-count';
-const CACHE_TTL_MS = 30 * 1000;        // 30s
+const CACHE_TTL_MS = 5 * 60 * 1000;        // 5 min: near-static count, keep quota burn low
 const WINDOW_MS = 5 * 60 * 1000;       // 5 minutes
 const HARD_LIMIT = 5000;               // safety: never iterate beyond this many docs
 

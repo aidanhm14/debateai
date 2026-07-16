@@ -29,6 +29,10 @@ const REPORTED_FORMATS = [
 const VOICE_SECS_PER_TURN = 18;
 
 export default async () => {
+  if (process.env.NIGHTLY_PAUSED === '1') {
+    console.log('[corpus-stats] NIGHTLY_PAUSED=1, skipping run');
+    return new Response(JSON.stringify({ ok: true, skipped: 'nightly_paused' }), { status: 200 });
+  }
   try {
     const db = getDb();
     const now = new Date();

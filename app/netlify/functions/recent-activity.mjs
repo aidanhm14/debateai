@@ -38,7 +38,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
 const CACHE_KEY = 'recent-activity';
-const CACHE_TTL = 30 * 1000;        // 30s
+const CACHE_TTL = 5 * 60 * 1000;        // 5 min: near-static feed, keep quota burn low
 
 // Cap each source at a generous N then merge + truncate to 12. Pulling
 // more than we render makes the merge stable when one source is bursty.
