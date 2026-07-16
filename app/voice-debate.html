@@ -4437,6 +4437,40 @@ function App() {
     return userIsGov ? sp.side === 'gov' : sp.side === 'opp';
   };
 
+  // Floor control (2026-07-16, user: "the AI interrupting is annoying").
+  // The VAD-patience ladder is exhausted (800ms → semantic_vad:low →
+  // 1700ms → 2800/3500ms) and the AI still took the floor on long
+  // thinking pauses, because server_vad's create_response:true auto-
+  // fires a model response at EVERY detected turn-end. The [Speech
+  // start] "just listen" note is an instruction, and instructions lose
+  // races against the mechanism. So: while the USER holds the floor in
+  // a timed speech, disarm the auto-response mechanism entirely; re-arm
+  // the moment the speech ends. The AI physically cannot interrupt a
+  // user speech now. Trade, accepted: no unprompted AI POIs mid-speech
+  // in Full Round (conversational drills keep create_response on, POIs
+  // live there). Note: session.update merges per-field, but a nested
+  // turn_detection object is replaced WHOLESALE — always send the
+  // complete object, only create_response varies.
+  var setAutoResponse = (enabled) => {
+    try {
+      if (!dcRef.current || dcRef.current.readyState !== 'open') return;
+      dcRef.current.send(JSON.stringify({
+        type: 'session.update',
+        session: {
+          type: 'realtime',
+          audio: { input: { turn_detection: {
+            type: 'server_vad',
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: vadSilenceMs(modeRef.current),
+            create_response: !!enabled,
+            interrupt_response: true
+          } } }
+        }
+      }));
+    } catch (e) {/* dc closed — the manual response.create path still works */}
+  };
+
   // Transition: prep → speaking. Called by the Start Speech button OR
   // by the tick when the grace window auto-elapses. Tells the AI a
   // new speech timer just started so it can listen / drive POIs.
@@ -4447,6 +4481,9 @@ function App() {
     prepNudgedRef.current = false;
     setPhase('speaking');
     setPhaseElapsed(0);
+    // User's speech → AI's mic-response mechanism OFF. AI's speech →
+    // keep it armed (the user interjecting a POI should get an answer).
+    setAutoResponse(!isUserSpeech(sp));
     try {
       if (dcRef.current && dcRef.current.readyState === 'open') {
         var whose = isUserSpeech(sp) ? 'The user is' : 'You are';
@@ -4483,6 +4520,7 @@ function App() {
       setPhase('done');
       phaseStartedAtRef.current = Date.now();
       setPhaseElapsed(0);
+      setAutoResponse(true); // floor is open again for the RFD back-and-forth
       try {
         if (dcRef.current && dcRef.current.readyState === 'open') {
           dcRef.current.send(JSON.stringify({
@@ -4506,6 +4544,7 @@ function App() {
     phaseStartedAtRef.current = Date.now();
     prepNudgedRef.current = false;
     setPhaseElapsed(0);
+    setAutoResponse(true); // prep is conversational; re-arm before the announcement
     try {
       if (dcRef.current && dcRef.current.readyState === 'open') {
         var whose = isUserSpeech(sp) ? 'the user' : 'you';
