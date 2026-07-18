@@ -111,6 +111,8 @@ img.msg-av{display:block}
 .msg-b.them{align-self:flex-start;background:var(--bg-elev);border:1px solid var(--border);border-bottom-left-radius:5px}
 .msg-b.mine{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:5px}
 .msg-b .t{display:block;font-size:.64rem;opacity:.65;margin-top:3px}
+.msg-link{color:inherit;text-decoration:underline;text-underline-offset:2px;word-break:break-all}
+.msg-link:hover{opacity:.85}
 .msg-compose{display:flex;gap:9px;padding:12px 14px;border-top:1px solid var(--border)}
 .msg-compose input{flex:1;background:var(--bg-elev);border:1.5px solid var(--border-strong);border-radius:999px;color:var(--text);font-family:inherit;font-size:.95rem;padding:10px 16px;outline:none}
 .msg-compose input:focus{border-color:var(--accent)}
@@ -303,6 +305,28 @@ img.msg-av{display:block}
     } catch(e){ return ''; }
   }
 
+  // Escape + linkify message text — URLs render as clickable anchors
+  // (the /spar schedule-proposal flow sends a Google Calendar URL in
+  // the body; escaped-plain it was a dead string). Mirrors spar.html's
+  // linkifyMsg.
+  function linkifyMsg(s){
+    s = String(s || '');
+    var rx = /(https?:\/\/[^\s<>"']+)/g;
+    var out = '', last = 0, m;
+    while ((m = rx.exec(s))){
+      out += esc(s.slice(last, m.index));
+      var url = m[1];
+      var clean = url.replace(/[).,;:!?]+$/, '');
+      var rest = url.slice(clean.length);
+      var label = clean.replace(/^https?:\/\//, '');
+      if (label.length > 46) label = label.slice(0, 43) + '…';
+      out += '<a class="msg-link" href="' + esc(clean) + '" target="_blank" rel="noopener noreferrer">' + esc(label) + '</a>' + esc(rest);
+      last = m.index + url.length;
+    }
+    out += esc(s.slice(last));
+    return out;
+  }
+
   function peerOf(t){
     var uid = (t.participants || []).filter(function(u){ return u !== me.uid; })[0] || '';
     var info = (t.participantInfo || {})[uid] || {};
@@ -401,7 +425,7 @@ img.msg-av{display:block}
           var mine = m.fromUid === me.uid;
           var div = document.createElement('div');
           div.className = 'msg-b ' + (mine ? 'mine' : 'them');
-          div.innerHTML = esc(m.text || '') + '<span class="t">' + esc((activeThread.isGroup && !mine ? (m.fromName || '') + ' · ' : '')) + fmtTime(m.createdAt) + '</span>';
+          div.innerHTML = linkifyMsg(m.text || '') + '<span class="t">' + esc((activeThread.isGroup && !mine ? (m.fromName || '') + ' · ' : '')) + fmtTime(m.createdAt) + '</span>';
           feed.appendChild(div);
         });
         feed.scrollTop = feed.scrollHeight;

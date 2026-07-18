@@ -1268,6 +1268,15 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .wl-msg.mine .wl-msg__time{text-align:right}
 .wl-msg.theirs .wl-msg__time{text-align:left; color:var(--text-ghost); opacity:1}
+/* Linkified URLs inside message bubbles: inherit the bubble color so
+   mine (white-on-red) and theirs (text-on-elev) both stay readable. */
+.wl-msg__link{color:inherit; text-decoration:underline; text-underline-offset:2px; word-break:break-all}
+.wl-msg__link:hover{opacity:.85}
+/* "Read" receipt under my latest message in a 1:1 thread. */
+.wl-msg__read{
+  align-self:flex-end; font-size:.62rem; font-weight:600;
+  color:var(--text-ghost); margin:-2px 6px 0;
+}
 .wl-msg__empty{
   text-align:center; color:var(--text-ghost);
   font-size:.82rem; padding:30px 16px; line-height:1.6;
@@ -3580,6 +3589,10 @@ h1 em{color:var(--accent);font-style:normal}
     threadsUnsub: null,
     unreadThreads: 0,
     activeThreadUnsub: null,
+    // Thread-doc listener for the open 1:1 thread (read receipt) +
+    // whether the peer has read my latest message.
+    activeThreadDocUnsub: null,
+    peerRead: false,
     // The thread currently open in the modal. Holds enough to send +
     // render without re-reading the doc: { id, participants:[uids],
     // participantInfo:{uid:{name,photo}}, isGroup, groupName }.
@@ -3595,6 +3608,30 @@ h1 em{color:var(--accent);font-style:normal}
     if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
     if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
     return Math.floor(diff/86400000) + 'd ago';
+  }
+
+  // Escape + linkify DM text. URLs become clickable anchors (the
+  // schedule-proposal flow sends a Google Calendar URL in the body —
+  // rendered as plain escaped text it was a dead string). Non-URL
+  // spans go through escHtml exactly as before. Long URLs display as
+  // a shortened host+path label so bubbles stay readable.
+  function linkifyMsg(s){
+    s = String(s || '');
+    var rx = /(https?:\/\/[^\s<>"']+)/g;
+    var out = '', last = 0, m;
+    while ((m = rx.exec(s))){
+      out += escHtml(s.slice(last, m.index));
+      var url = m[1];
+      // Trailing punctuation is sentence-structure, not URL.
+      var clean = url.replace(/[).,;:!?]+$/, '');
+      var rest = url.slice(clean.length);
+      var label = clean.replace(/^https?:\/\//, '');
+      if (label.length > 46) label = label.slice(0, 43) + '…';
+      out += '<a class="wl-msg__link" href="' + escHtml(clean) + '" target="_blank" rel="noopener noreferrer">' + escHtml(label) + '</a>' + escHtml(rest);
+      last = m.index + url.length;
+    }
+    out += escHtml(s.slice(last));
+    return out;
   }
 
   function buildWaitlistRail(){
@@ -3928,6 +3965,16 @@ h1 em{color:var(--accent);font-style:normal}
       isGroup: false,
       groupName: '',
     };
+    // Hydrate lastMessage from the existing doc (if any). isFirstMessage
+    // in sendThreadMessage keys off at.lastMessage; without this, the
+    // first send of EVERY session on an existing thread re-hit the
+    // /api/notify-dm-accept email endpoint (only server idempotency
+    // stopped duplicate emails).
+    firebaseDb.collection('dm_threads').doc(wl.activeThread.id).get().then(function(doc){
+      if (doc.exists && wl.activeThread && wl.activeThread.id === doc.id){
+        wl.activeThread.lastMessage = (doc.data() || {}).lastMessage || '';
+      }
+    }).catch(function(){});
     renderThreadModal();
   }
 
@@ -3946,6 +3993,7 @@ h1 em{color:var(--accent);font-style:normal}
         participantInfo: d.participantInfo || {},
         isGroup: !!d.isGroup || (d.participants || []).length > 2,
         groupName: d.groupName || '',
+        lastMessage: d.lastMessage || '',
       };
       renderThreadModal();
     }).catch(function(e){ console.warn('[dm] open group thread failed', e && e.message); });
@@ -4047,6 +4095,21 @@ h1 em{color:var(--accent);font-style:normal}
           t.innerHTML = '<div class="wl-msg__empty">Could not load messages right now.<br>Try again in a minute.</div>';
         }
       });
+    // Read-receipt listener (1:1 only): watch the thread doc for the
+    // peer's unread hitting zero after my latest send.
+    if (wl.activeThreadDocUnsub){ try { wl.activeThreadDocUnsub(); } catch(e){} wl.activeThreadDocUnsub = null; }
+    wl.peerRead = false;
+    if (!at.isGroup){
+      wl.activeThreadDocUnsub = firebaseDb.collection('dm_threads').doc(at.id)
+        .onSnapshot(function(doc){
+          if (!doc.exists) return;
+          var d = doc.data() || {};
+          var peerUid = (at.participants || []).filter(function(u){ return u !== state.user.uid; })[0];
+          var un = d.unread || {};
+          wl.peerRead = d.lastMessageFrom === state.user.uid && !(un[peerUid] > 0);
+          updateReadReceipt();
+        }, function(){ /* receipt is decoration; stay silent on error */ });
+    }
     markThreadRead(at.id).catch(function(){});
     setTimeout(function(){
       var input = document.getElementById('wlSendInput');
@@ -4079,6 +4142,9 @@ h1 em{color:var(--accent);font-style:normal}
       var m = d.data();
       var mine = (m.fromUid === myUid);
       var when = m.createdAt && m.createdAt.toMillis ? relTime(m.createdAt.toMillis()) : '';
+      var whenAbs = m.createdAt && m.createdAt.toMillis
+        ? new Date(m.createdAt.toMillis()).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
+        : '';
       var div = document.createElement('div');
       div.className = 'wl-msg ' + (mine ? 'mine' : 'theirs');
       // In groups, label each incoming message with the sender's name
@@ -4090,10 +4156,32 @@ h1 em{color:var(--accent);font-style:normal}
         senderLabel = '<div class="wl-msg__sender">' + escHtml(nm) + '</div>';
       }
       lastSender = m.fromUid;
-      div.innerHTML = senderLabel + escHtml(m.text || '') + (when ? '<div class="wl-msg__time">' + escHtml(when) + '</div>' : '');
+      div.innerHTML = senderLabel + linkifyMsg(m.text || '') + (when ? '<div class="wl-msg__time" title="' + escHtml(whenAbs) + '">' + escHtml(when) + '</div>' : '');
       t.appendChild(div);
     });
+    updateReadReceipt();
     t.scrollTop = t.scrollHeight;
+  }
+
+  // "Read" marker under my latest message in a 1:1 thread. Driven by
+  // the thread-doc snapshot in renderThreadModal: when the peer's
+  // unread hits 0 and the last message is mine, they've seen it. The
+  // data was always there (unread map); this just surfaces it.
+  function updateReadReceipt(){
+    var t = document.getElementById('wlThread');
+    if (!t) return;
+    var old = document.getElementById('wlReadReceipt');
+    if (old) old.remove();
+    if (!wl.peerRead) return;
+    var msgs = t.querySelectorAll('.wl-msg');
+    if (!msgs.length) return;
+    var lastEl = msgs[msgs.length - 1];
+    if (!lastEl.classList.contains('mine')) return;
+    var d = document.createElement('div');
+    d.id = 'wlReadReceipt';
+    d.className = 'wl-msg__read';
+    d.textContent = 'Read';
+    t.appendChild(d);
   }
 
   // Generalized send: works for 1:1 and group threads. Reads
@@ -4599,6 +4687,7 @@ h1 em{color:var(--accent);font-style:normal}
     if (b) b.remove();
     document.removeEventListener('keydown', wlEscClose);
     if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} wl.activeThreadUnsub = null; }
+    if (wl.activeThreadDocUnsub){ try { wl.activeThreadDocUnsub(); } catch(e){} wl.activeThreadDocUnsub = null; }
   }
 
   // ── Scheduled rounds in the rail (2026-07-14) ────────
