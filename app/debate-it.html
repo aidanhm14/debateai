@@ -274,6 +274,35 @@ body{
 .pill:hover{border-color:rgba(255,255,255,.5);color:#fff;background:rgba(255,255,255,.08)}
 .pill.on{border-color:#ef4444;color:#fff;background:rgba(239,68,68,.22);box-shadow:0 0 0 1px rgba(239,68,68,.4)}
 
+/* ── Format finder (guided narrowing wizard) ───────
+   One question per screen, /floor get-to-know-you style. Opt-in from
+   the simple hero, the customize flow, the format modal, and the
+   advanced format grid. */
+.fmtq-overlay{position:fixed;inset:0;z-index:4200;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;background:radial-gradient(820px 520px at 50% 0%, rgba(239,68,68,.14), transparent 60%), rgba(10,10,12,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+[data-lighting="light"] .fmtq-overlay{background:radial-gradient(820px 520px at 50% 0%, rgba(239,68,68,.09), transparent 60%), rgba(250,250,247,.95)}
+.fmtq{max-width:600px;width:100%;text-align:center;margin:auto}
+.fmtq-step{animation:fmtqIn .38s cubic-bezier(.2,.7,.3,1) both}
+@keyframes fmtqIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.fmtq-prog{display:flex;gap:6px;justify-content:center;margin-bottom:26px}
+.fmtq-prog i{width:30px;height:4px;border-radius:3px;background:var(--c-border2);transition:.3s}
+.fmtq-prog i.on{background:#ef4444}
+.fmtq-kick{font-size:.64rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
+.fmtq-q{font-weight:800;font-size:clamp(1.45rem,4vw,2.1rem);line-height:1.12;letter-spacing:-.02em;color:var(--c-bright);margin:0 0 24px}
+.fmtq-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;text-align:left}
+.fmtq-opt{appearance:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--c-border2);background:var(--c-surface);color:var(--c-text);transition:transform .14s,border-color .14s,background .14s;text-align:left}
+.fmtq-opt:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.06)}
+.fmtq-opt:focus-visible{outline:2px solid #ef4444;outline-offset:2px}
+.fmtq-opt .ic{font-size:1.3rem;line-height:1;flex-shrink:0}
+.fmtq-opt .t{display:block;font-size:.92rem;font-weight:700;color:var(--c-bright);line-height:1.25}
+.fmtq-opt .s{display:block;font-size:.72rem;color:var(--c-dim);line-height:1.35;margin-top:2px}
+.fmtq-foot{margin-top:24px;display:flex;gap:20px;justify-content:center;align-items:center}
+.fmtq-link{background:none;border:0;color:var(--c-dim);font-weight:700;font-size:.8rem;cursor:pointer;font-family:inherit}
+.fmtq-link:hover{color:var(--c-text)}
+.fmtq-rev-emoji{font-size:2.5rem;line-height:1}
+.fmtq-rev-name{font-weight:800;font-size:clamp(1.8rem,5vw,2.5rem);letter-spacing:-.02em;color:var(--c-bright);margin:10px 0 8px}
+.fmtq-rev-desc{font-size:.95rem;color:var(--c-text);line-height:1.5;max-width:44ch;margin:0 auto 8px}
+.fmtq-rev-meta{font-size:.72rem;color:var(--c-dim);letter-spacing:.05em;text-transform:uppercase;font-weight:700;margin-bottom:24px}
+
 /* ── WPM Slider ────────────────────── */
 .wpm{display:flex;align-items:center;gap:16px;margin:20px auto;max-width:320px;width:100%}
 .wpm input[type=range]{flex:1;accent-color:#ef4444;height:2px;opacity:.6}
@@ -5802,6 +5831,7 @@ function App() {
   var [simpleBgOpen, setSimpleBgOpen] = useState(false);
   var [simpleLangQuery, setSimpleLangQuery] = useState(''); // language-modal search filter
   var [simpleFmtMore, setSimpleFmtMore] = useState(false); // format modal: reveal the rarer formats
+  var [fmtQuiz, setFmtQuiz] = useState(null); // format finder wizard: null | {step, trail} | {step:'reveal', fmt, trail}
   // Simple-mode Start: if the user never typed a motion, fall back to
   // the Debate of the Week (or a random motion) before firing. Setting
   // motion then calling startDebate in the same tick won't see the new
@@ -8354,6 +8384,157 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     border: '1px solid ' + (on ? 'rgba(239,68,68,.5)' : 'var(--c-border3)'),
     color: on ? '#ef4444' : 'var(--c-text)'
   });
+  // ── Format finder wizard ──────────────────────────────────────
+  // The gamified answer to the 15-format wall. One question per
+  // screen (mirrors the /floor get-to-know-you intro): progress bar,
+  // big question, tappable option cards, then a reveal card that
+  // names the format and sells it in one line. Data-driven: an opt
+  // either deepens (next: step key) or resolves (fmt: FORMATS key).
+  // Longest path is 3 questions (goal → circuit → event).
+  var FMT_QUIZ_STEPS = {
+    goal: {
+      q: 'What are you here to practice?',
+      opts: [
+      { icon: '🏆', label: 'Competitive debate', sub: 'Tournament formats with real rules', next: 'circuit' },
+      { icon: '🎓', label: 'School or class', sub: 'Oral exams, class debates, clubs', next: 'school' },
+      { icon: '💼', label: 'Work and career', sub: 'Courtroom, negotiation, investor pitch', next: 'career' },
+      { icon: '⚡', label: 'I just want to argue', sub: 'Pro vs. Con, no jargon, start in seconds', fmt: 'quick' }]
+    },
+    circuit: {
+      q: 'Which circuit do you debate on?',
+      opts: [
+      { icon: '🌏', label: 'School circuit worldwide', sub: 'Asian Parli, World Schools, BP', next: 'intl' },
+      { icon: '🎩', label: 'University worlds circuit', sub: 'British Parliamentary, WUDC', fmt: 'bp' },
+      { icon: '🎓', label: 'US college parli', sub: 'APDA, impromptu motions', fmt: 'apda' },
+      { icon: '🏫', label: 'US high school', sub: 'PF, LD, Policy, Congress', next: 'hs' },
+      { icon: '🧭', label: 'Karl Popper circuit', sub: '3v3, prepared resolutions', fmt: 'popper' },
+      { icon: '🕊', label: 'Model UN', sub: 'Committee debate on resolutions', fmt: 'mun' }]
+    },
+    intl: {
+      q: 'Which format does your circuit run?',
+      opts: [
+      { icon: '🏛', label: 'Asian Parliamentary', sub: '3v3 with reply speeches', fmt: 'asian' },
+      { icon: '🌐', label: 'World Schools', sub: 'WSDC style, 3v3, POIs', fmt: 'worlds' },
+      { icon: '🎩', label: 'British Parliamentary', sub: '4 teams, 8 speeches', fmt: 'bp' },
+      { icon: '🤷', label: 'Not sure yet', sub: 'Asian Parli is the safest start', fmt: 'asian' }]
+    },
+    hs: {
+      q: 'Which event do you compete in?',
+      opts: [
+      { icon: '🗞', label: 'Public Forum', sub: '2v2 on current events', fmt: 'pf' },
+      { icon: '⚖️', label: 'Lincoln-Douglas', sub: '1v1, values and framework', fmt: 'ld' },
+      { icon: '📚', label: 'Policy (CX)', sub: '2v2, evidence heavy, fast', fmt: 'policy' },
+      { icon: '🏛', label: 'Congress', sub: 'Chamber speeches on legislation', fmt: 'congress' }]
+    },
+    school: {
+      q: 'What are you preparing for?',
+      opts: [
+      { icon: '🎤', label: 'Oral exam or thesis defense', sub: 'An examiner probes your claims', fmt: 'viva' },
+      { icon: '🏫', label: 'A class debate', sub: 'Simple Pro vs. Con round', fmt: 'quick' },
+      { icon: '🗣', label: 'Debate club practice', sub: 'Parliamentary formats', next: 'intl' },
+      { icon: '🕊', label: 'Model UN', sub: 'Committee debate on resolutions', fmt: 'mun' }]
+    },
+    career: {
+      q: 'Which room are you walking into?',
+      opts: [
+      { icon: '⚖️', label: 'Courtroom', sub: 'Openings, cross-ex, closings', fmt: 'courtroom' },
+      { icon: '🤝', label: 'Negotiation', sub: 'Anchors, concessions, the walk-away', fmt: 'negotiation' },
+      { icon: '📈', label: 'Investor pitch', sub: 'Pitch it, then defend it under fire', fmt: 'pitch' }]
+    }
+  };
+  var FMT_QUIZ_EMOJI = { quick: '⚡', asian: '🏛', worlds: '🌐', bp: '🎩', apda: '🎓', ld: '⚖️', pf: '🗞', policy: '📚', congress: '🏛', popper: '🧭', viva: '🎤', mun: '🕊', courtroom: '⚖️', negotiation: '🤝', pitch: '📈' };
+  var fmtQuizEvent = (name, params) => {
+    try {window.gtag && gtag('event', name, params || {});} catch (e) {}
+    try {if (typeof window.track === 'function') window.track(name, params || {});} catch (e) {}
+  };
+  var openFmtQuiz = (from) => {
+    setFmtQuiz({ step: 'goal', trail: [] });
+    fmtQuizEvent('fmt_quiz_open', { from: from || setupMode });
+  };
+  var fmtQuizPick = (opt) => {
+    var cur = fmtQuiz || { step: 'goal', trail: [] };
+    var trail = (cur.trail || []).concat(cur.step);
+    fmtQuizEvent('fmt_quiz_answer', { step: cur.step, pick: opt.label });
+    if (opt.fmt) {
+      setFmtQuiz({ step: 'reveal', fmt: opt.fmt, trail });
+      fmtQuizEvent('fmt_quiz_done', { format: opt.fmt });
+    } else {
+      setFmtQuiz({ step: opt.next, trail });
+    }
+  };
+  var fmtQuizBack = () => {
+    var t = fmtQuiz && fmtQuiz.trail || [];
+    if (!t.length) {setFmtQuiz(null);return;}
+    setFmtQuiz({ step: t[t.length - 1], trail: t.slice(0, -1) });
+  };
+  var fmtQuizUse = () => {
+    var k = fmtQuiz && fmtQuiz.fmt;
+    if (!k || !FORMATS[k]) {setFmtQuiz(null);return;}
+    chooseFormat(k);
+    setFmtQuiz(null);
+    // In simple mode, drop the user into the customize flow so the
+    // pick is visibly applied and the next step (topic) is on screen.
+    if (setupMode === 'simple' && !isCounterExt) setShowCustomize(true);
+    fmtQuizEvent('fmt_quiz_use', { format: k });
+  };
+  var fmtQuizBrowse = () => {
+    setFmtQuiz(null);
+    if (setupMode === 'simple' && !isCounterExt) {setSimpleFmtMore(true);setSimpleModal('format');}
+  };
+  // Portaled to <body>: .center.visible keeps an identity transform
+  // (entrance animation end state), which makes it the containing
+  // block for position:fixed descendants — an in-tree overlay would
+  // render relative to the stage div, not the viewport, and land
+  // below the fold whenever the page is scrolled.
+  var fmtQuizOverlay = fmtQuiz && ReactDOM.createPortal(el('div', { className: 'fmtq-overlay', onClick: () => setFmtQuiz(null) },
+  el('div', { className: 'fmtq', onClick: (e) => e.stopPropagation() },
+  function () {
+    var isReveal = fmtQuiz.step === 'reveal';
+    var depth = (fmtQuiz.trail || []).length;
+    var prog = el('div', { className: 'fmtq-prog', 'aria-hidden': true },
+    [0, 1, 2].map((i) => el('i', { key: i, className: isReveal || i <= depth ? 'on' : '' }))
+    );
+    if (isReveal) {
+      var k = fmtQuiz.fmt;
+      var f = FORMATS[k] || FORMATS.quick;
+      var estSec = (f.speeches || []).reduce((s, x) => s + (x.time || 0), 0) + (f.prep || 0);
+      return el('div', { className: 'fmtq-step', key: 'reveal' },
+      prog,
+      el('div', { className: 'fmtq-rev-emoji', 'aria-hidden': true }, FMT_QUIZ_EMOJI[k] || '🎯'),
+      el('div', { className: 'fmtq-kick' }, 'Your format'),
+      el('div', { className: 'fmtq-rev-name' }, f.name),
+      el('p', { className: 'fmtq-rev-desc' }, f.desc),
+      el('div', { className: 'fmtq-rev-meta' }, (f.speeches || []).length + ' speeches · ~' + Math.max(1, Math.round(estSec / 60)) + ' min round'),
+      el('button', { className: 'cta', style: { marginTop: 0 }, onClick: fmtQuizUse }, 'Practice ' + f.name + ' →'),
+      el('div', { className: 'fmtq-foot' },
+      el('button', { className: 'fmtq-link', onClick: () => setFmtQuiz({ step: 'goal', trail: [] }) }, '↺ Start over'),
+      el('button', { className: 'fmtq-link', onClick: fmtQuizBrowse }, 'See all formats')
+      )
+      );
+    }
+    var stepDef = FMT_QUIZ_STEPS[fmtQuiz.step] || FMT_QUIZ_STEPS.goal;
+    return el('div', { className: 'fmtq-step', key: fmtQuiz.step },
+    prog,
+    el('div', { className: 'fmtq-kick' }, 'Find your format'),
+    el('h3', { className: 'fmtq-q' }, stepDef.q),
+    el('div', { className: 'fmtq-opts' },
+    stepDef.opts.map((o, i) => el('button', { key: i, className: 'fmtq-opt', onClick: () => fmtQuizPick(o) },
+    el('span', { className: 'ic', 'aria-hidden': true }, o.icon),
+    el('span', null,
+    el('span', { className: 't' }, o.label),
+    el('span', { className: 's' }, o.sub)
+    )
+    ))
+    ),
+    el('div', { className: 'fmtq-foot' },
+    depth > 0 && el('button', { className: 'fmtq-link', onClick: fmtQuizBack }, '← Back'),
+    el('button', { className: 'fmtq-link', onClick: fmtQuizBrowse }, 'Skip, show every format')
+    )
+    );
+  }()
+  )
+  ), document.body);
+
   var simplePracticeCards = [
   { icon: '⚡', title: 'Quick Clash', desc: 'Pro vs. Con. Two short speeches each. No jargon.', on: format === 'quick', go: () => chooseFormat('quick') },
   { icon: '🏛', title: 'Parliamentary Debate', desc: 'Asian Parli, WSDC, BP, APDA. Gov vs. Opp.', on: SIMPLE_PARLI_KEYS.indexOf(format) !== -1, go: () => chooseFormat('asian') },
@@ -8400,6 +8581,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('button', { className: 'cta', style: { marginTop: 0, padding: '13px 30px', fontSize: '.92rem', display: 'inline-flex', alignItems: 'center', gap: 8 }, onClick: quickStart },
   el('span', { 'aria-hidden': true }, '⚡'), 'Quick Clash'
   ),
+  el('button', { className: 'cta-ghost', style: { marginTop: 0, padding: '13px 24px', fontSize: '.86rem', display: 'inline-flex', alignItems: 'center', gap: 7 }, onClick: () => openFmtQuiz('simple_hero') },
+  el('span', { 'aria-hidden': true }, '🎯'), 'Find my format'
+  ),
   el('button', { className: 'cta-ghost', style: { marginTop: 0, padding: '13px 24px', fontSize: '.86rem' }, onClick: () => setShowCustomize(!showCustomize) },
   showCustomize ? 'Hide setup' : 'Customize round'
   )
@@ -8442,7 +8626,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ),
   el('div', { style: { marginTop: 10, fontSize: '.76rem', color: 'var(--c-text)' } },
   'Format: ', el('strong', { style: { color: 'var(--c-bright)' } }, simpleFmtLabel), '   ',
-  el('button', { onClick: () => {setSimpleFmtMore(false);setSimpleModal('format');}, style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Change format')
+  el('button', { onClick: () => {setSimpleFmtMore(false);setSimpleModal('format');}, style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Change format'),
+  el('span', { style: { color: 'var(--c-muted)', margin: '0 6px' } }, '·'),
+  el('button', { onClick: () => openFmtQuiz('simple_step1'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'Help me choose')
   )
   ),
   el('div', { style: { marginBottom: 26 } },
@@ -8543,6 +8729,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   var simpleSetupModals = el(React.Fragment, null,
   simpleModal === 'format' && simpleModalShell('Choose a format',
   el('div', null,
+  el('button', { onClick: () => {setSimpleModal(null);openFmtQuiz('format_modal');}, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '11px 14px', marginBottom: 14, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: '.84rem', fontWeight: 700, background: 'rgba(239,68,68,.07)', border: '1px dashed rgba(239,68,68,.4)', color: '#ef4444' } },
+  el('span', { 'aria-hidden': true }, '🎯'), 'Not sure? Find your format'
+  ),
   el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
   ['quick', 'asian', 'bp', 'pf', 'ld', 'policy'].filter((k) => FORMATS[k]).map((k) => {
     var v = FORMATS[k];var on = format === k;
@@ -8692,6 +8881,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // fires instead and the proven dense UI renders.
   !isCounterExt && setupMode === 'simple' && typeof simpleSetupTree !== 'undefined' && simpleSetupTree && simpleSetupTree,
   !isCounterExt && setupMode === 'simple' && typeof simpleSetupModals !== 'undefined' && simpleSetupModals && simpleSetupModals,
+  // Format finder wizard overlay. Rendered in BOTH setup modes (its
+  // launchers live on the simple hero, the customize flow, the format
+  // modal, and the advanced format grid). Counter mode locks viva, so
+  // no finder there.
+  !isCounterExt && typeof fmtQuizOverlay !== 'undefined' && fmtQuizOverlay && fmtQuizOverlay,
   // ── Advanced control panel (the original dense page) ──────────
   // Preserved verbatim behind the advanced gate. Counter/viva mode
   // always uses this tree (it has its own specialized onboarding and
@@ -9008,20 +9202,36 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // chrome here — showing 11 debate formats would dilute the
   // single-purpose viva framing the Counter brand promises.
   !isCounterExt && el('div', { className: 't-label', style: { marginTop: 8 } }, 'Format'),
-  // Display order for the format picker. India is ~80% of traffic
-  // (soul.md §8) and the dominant school/college circuits there run
-  // Asian Parli, WSDC (Worlds), and BP — so those lead. Quick Clash
-  // stays at the head as the universal easy-mode entry. US-circuit
-  // formats (APDA, LD, PF, Policy, Congress) follow, then Karl Popper
-  // (IDEA circuit) and the Viva / MUN tail. The Career trio
-  // (Courtroom / Negotiation / Pitch Defense) closes the rail — same
-  // engine pointed at professional argument, badged so debaters don't
-  // mistake them for tournament formats. The FORMATS dict itself stays
-  // in its original semantic order; this array decouples display from
-  // data so future reorders don't have to touch the dict.
-  !isCounterExt && el('div', { className: 'pills' },
-  ['quick', 'asian', 'worlds', 'bp', 'apda', 'ld', 'pf', 'policy', 'congress', 'popper', 'viva', 'mun', 'courtroom', 'negotiation', 'pitch'].
-  filter((k) => FORMATS[k]).
+  // Format finder launcher. The 15-chip wall below assumes the user
+  // already knows debate taxonomy; anyone who doesn't gets a guided
+  // 3-question narrowing instead of a wall.
+  !isCounterExt && el('div', { style: { marginBottom: 6 } },
+  el('button', {
+    onClick: () => openFmtQuiz('advanced'),
+    style: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 999, background: 'rgba(239,68,68,.08)', border: '1px dashed rgba(239,68,68,.4)', color: '#ef4444', fontSize: '.74rem', fontWeight: 800, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit' }
+  },
+  el('span', { 'aria-hidden': true }, '🎯'), 'Not sure? Find your format'
+  )
+  ),
+  // Grouped format picker (2026-07-18: was one undifferentiated
+  // 15-chip wall). Groups follow how the formats actually split:
+  // Quick Clash as the universal easy entry, the global parliamentary
+  // circuits (Asian Parli / WSDC / BP lead per soul.md §2, then APDA
+  // and Karl Popper), the US HS circuit, classroom surfaces, and the
+  // Career trio (badged so debaters don't mistake them for tournament
+  // formats). The FORMATS dict stays in its original semantic order;
+  // these arrays decouple display from data.
+  !isCounterExt && el('div', { style: { display: 'flex', flexDirection: 'column', gap: 0, maxWidth: 780, margin: '0 auto' } },
+  [
+  { cap: 'Fast', keys: ['quick'] },
+  { cap: 'Parliamentary', keys: ['asian', 'worlds', 'bp', 'apda', 'popper'] },
+  { cap: 'US circuit', keys: ['ld', 'pf', 'policy', 'congress'] },
+  { cap: 'Classroom', keys: ['viva', 'mun'] },
+  { cap: 'Career', keys: ['courtroom', 'negotiation', 'pitch'] }].
+  map((g) => el('div', { key: g.cap, style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'center' } },
+  el('span', { style: { fontSize: '.56rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--c-muted)', minWidth: 100, textAlign: 'right', paddingRight: 8, flexShrink: 0 } }, g.cap),
+  el('div', { className: 'pills', style: { margin: '5px 0', justifyContent: 'flex-start', flex: 1, minWidth: 240 } },
+  g.keys.filter((k) => FORMATS[k]).
   map((k) => {var v = FORMATS[k];return el('button', { key: k, className: 'pill' + (format === k ? ' on' : ''), onClick: () => chooseFormat(k), title: v.desc,
       style: v.entry === 'easy' || v.entry === 'oral' || v.entry === 'career' ? { position: 'relative' } : undefined },
     v.name,
@@ -9029,6 +9239,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     v.entry === 'oral' && el('span', { style: { marginLeft: 8, fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999, background: 'rgba(168,85,247,.14)', color: '#c4b5fd', border: '1px solid rgba(168,85,247,.3)', verticalAlign: 'middle' } }, 'Oral'),
     v.entry === 'career' && el('span', { style: { marginLeft: 8, fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999, background: 'rgba(96,165,250,.14)', color: '#93c5fd', border: '1px solid rgba(96,165,250,.3)', verticalAlign: 'middle' } }, 'Career')
     );})
+  )
+  ))
   ),
   // AI speaking language. Distinct from the UI language at the top
   // of the page, this drives both the LLM (it writes the speech in
