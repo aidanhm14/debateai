@@ -36,8 +36,11 @@
 <!-- daily-js wrapper + the camera converter (Camera / Avatar / Off).
      daily-js lets us publish a custom video track (the avatar canvas)
      via setInputDevicesAsync, so the raw camera never reaches the room
-     in Avatar mode. If either script fails to load, mountDaily falls
-     back to the plain iframe and the mode buttons simply don't render. -->
+     in Avatar mode. The avatar mimics the debater's real face (head,
+     blinks, brows, mouth) via an on-device tracker inside cam-avatar.js;
+     camera pixels and landmarks never leave the device. If either script
+     fails to load, mountDaily falls back to the plain iframe and the
+     mode buttons simply don't render. -->
 <script defer src="https://unpkg.com/@daily-co/daily-js"></script>
 <script defer src="/js/cam-avatar.js"></script>
 
@@ -2957,8 +2960,10 @@ body.lr-pip .lr-pip-notice{display:block}
   // ── Camera converter: Camera / Avatar / Off for seated debaters.
   // Rides the daily-js wrapper (state.dailyFrame). Avatar publishes the
   // canvas track from /js/cam-avatar.js, so in that mode the raw camera
-  // never reaches the room; the avatar's mouth follows a best-effort
-  // local mic tap (avatar still works if the mic tap is denied).
+  // never reaches the room; an on-device face tracker mirrors the
+  // debater's real head motion, blinks, brows, and mouth onto the mask,
+  // and the avatar degrades to a mic-driven mouth plus idle sway if the
+  // camera or tracker is unavailable.
   var camConv = { cam:null, savedVideoId:null, mode:'camera', bar:null };
   function seatLabel(){
     var s = (state.mySideHint || '').toUpperCase().slice(0,3);
@@ -2990,7 +2995,11 @@ body.lr-pip .lr-pip-notice{display:block}
   }
   function ensureAvatarCam(){
     if (camConv.cam) return Promise.resolve(camConv.cam);
-    return navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    // Camera is used ONLY by the on-device face tracker (the room never
+    // sees its pixels). Degrade to audio-only, then to an empty stream;
+    // the avatar animates from mic level alone if it has to.
+    return navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, facingMode: 'user' } })
+      .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio: true, video: false }); })
       .catch(function(){ return new MediaStream(); })
       .then(function(ms){ return window.DebateCam.start(ms, { mode: 'avatar', label: seatLabel() }); })
       .then(function(c){ camConv.cam = c; return c; });
@@ -3008,7 +3017,7 @@ body.lr-pip .lr-pip-notice{display:block}
       }).then(function(){
         frame.setLocalVideo(true);
         markCamMode('avatar');
-        toast('Avatar on. Your camera is hidden from the room.');
+        toast('Avatar on. The room sees only the animated mask, never your camera.');
         try { gtag('event', 'live_round_avatar_on'); } catch(e){}
       }).catch(function(e){
         console.warn('[avatar]', e);
