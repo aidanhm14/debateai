@@ -52,6 +52,10 @@ const URLS = [
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90' },
+  // "debate strangers" / "omegle for debate" query cluster. Sister to
+  // /debate-online, focused on the random-human /spar path (which is
+  // noindex itself, so this page is the indexable doorway).
+  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90' },
   // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
   // debate" — the exact-match phrase the /exhibition product page
   // can't claim with its single-word slug. Static HTML, rich JSON-LD
