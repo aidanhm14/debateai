@@ -594,10 +594,22 @@ service cloud.firestore {
     // check the EXISTING doc. update is intentionally open to either
     // participant so the sender can bump lastMessage + increment the
     // recipient's unread counter, and the recipient can zero their own
-    // unread on read — both are participant-scoped writes.
+    // unread on read — both are participant-scoped writes, so the unread
+    // map must stay writable by BOTH sides (no own-key-only restriction).
     match /dm_threads/{threadId} {
-      allow read, update: if isSignedIn()
+      allow read: if isSignedIn()
                     && request.auth.uid in resource.data.participants;
+      // Membership is frozen on update: neither side can eject the other,
+      // swap them out, or inject a third uid (2026-07-18 hardening; before
+      // this, either participant could rewrite the whole doc including the
+      // participants array). Set-compare rather than list ==, because the
+      // stored array ORDER legitimately varies: spar's openDMThread and
+      // live-round's sendDm write [self, peer] while the doc may hold the
+      // sorted pair, so strict equality would deny real sends.
+      allow update: if isSignedIn()
+                    && request.auth.uid in resource.data.participants
+                    && request.resource.data.participants.toSet()
+                       == resource.data.participants.toSet();
       // Create is open to any signed-in user (named OR guest, since
       // 2026-06-16) as long as they put THEMSELVES in the participants
       // array — you can't fabricate a thread you're not in. The
