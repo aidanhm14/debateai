@@ -1,4 +1,4 @@
-# DebateIt — App Store Listing (draft, ready to paste)
+# Debatable — App Store Listing (draft, ready to paste)
 
 Copy for App Store Connect. Brand voice: punchy, debater-register, no
 em-dashes, no banned phrases (see soul.md). Edit freely before submitting.
@@ -6,7 +6,7 @@ em-dashes, no banned phrases (see soul.md). Edit freely before submitting.
 ---
 
 ## Identity
-- **App name:** DebateIt
+- **App name:** Debatable
 - **Subtitle (30 char max):** Voice debate coach + rounds
 - **Bundle ID:** com.debateai.debateit
 - **Primary category:** Education
@@ -20,7 +20,7 @@ Argue out loud against an AI that pushes back, takes POIs, and grades you like
 a real judge. Fifteen formats, six brains, a live coach in your pocket.
 
 ## Description
-DebateIt is a voice-first debate trainer. Pick a motion, take a side, and
+Debatable is a voice-first debate trainer. Pick a motion, take a side, and
 argue out loud against an opponent that actually fights back, takes your
 points, interrupts, and writes the judge ballot when the round ends.
 
@@ -38,7 +38,7 @@ What you get:
 - A style profile that learns how you argue and sharpens every round.
 
 Whether you compete, coach, or just want to think faster on your feet,
-DebateIt gives you reps you cannot get anywhere else.
+Debatable gives you reps you cannot get anywhere else.
 
 ## Keywords (100 char, comma-separated, no spaces)
 debate,speech,coach,APDA,parliamentary,argument,forensics,public speaking,LD,PF,MUN,rebuttal
@@ -82,7 +82,7 @@ Encryption: `ITSAppUsesNonExemptEncryption = NO` is set in Info.plist
 
 ## Submit checklist (does the Xcode/ASC dance in order)
 1. Paid Developer Program team selected in Xcode signing (Personal Team can't submit).
-2. App Store Connect → New App → bundle `com.debateai.debateit`, name DebateIt.
+2. App Store Connect → New App → bundle `com.debateai.debateit`, name Debatable.
 3. Paste the copy above; add screenshots (6.9" iPhone; generate from the
    simulator with `xcrun simctl io booted screenshot`, then polish/frame).
 4. Fill App Privacy with the table above.
@@ -94,7 +94,7 @@ Encryption: `ITSAppUsesNonExemptEncryption = NO` is set in Info.plist
 
 ## Notes for Review (paste and personalize)
 
-DebateIt is a voice-first debate training app. Reviewers can start a voice
+Debatable is a voice-first debate training app. Reviewers can start a voice
 round without creating an account. The app uses the microphone only after the
 reviewer taps Start, then provides a timed debate and an AI judge ballot.
 

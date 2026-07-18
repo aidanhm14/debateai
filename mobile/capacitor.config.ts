@@ -5,7 +5,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // surface, not the public landing page.
 const config: CapacitorConfig = {
   appId: 'com.debateai.debateit',
-  appName: 'DebateIt',
+  appName: 'Debatable',
   webDir: 'www',
 
   server: {
