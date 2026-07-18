@@ -35,6 +35,26 @@ Format aliases are normalized by the runner: `bp`, `wudc`, `worlds`, `wsdc`,
 `asian`, `apda`, `npda`, `pf`, `public-forum`, `ld`, `lincoln-douglas`,
 `policy`, `cx`, `congress`, `karl-popper`, and `mun`.
 
+## The public judge benchmark (lab leaderboard)
+
+`run-judge-benchmark.mjs` runs the same BP gold rounds across every AI lab
+reachable with prod keys, one flagship model per lab, identical prompts, and
+writes the aggregate to `benchmark-results.json` (committed; it contains no
+transcript content). It feeds the leaderboard on `/benchmark`.
+
+```bash
+# needs ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY / XAI_API_KEY /
+# DEEPSEEK_API_KEY in env; labs with no key are skipped
+node scripts/eval/run-judge-benchmark.mjs
+node scripts/eval/run-judge-benchmark.mjs --models=anthropic,openai --limit=5
+```
+
+Two deliberate differences from the base harness: it is multi-provider, and it
+feeds models the flows ONLY — human adjudication notes (`oaFile` / `delibFile`
+/ `ballotFile` / `judgeFile`) are never included, so no model sees even a
+decontaminated echo of the human call. After a run, update the static table in
+`app/benchmark.html` from the JSON and note the run date there.
+
 ## What's committed vs not
 
 - **Committed:** `adjudication-gold.json` — the gold labels (team orderings or
