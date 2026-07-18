@@ -507,6 +507,14 @@
     var myUid = null, dmRows = [], dmUnread = 0, signedInReal = false;
     var threadsUnsub = null, prevUnread = {}, firstSnap = true;
 
+    // Forum-reply state — replies landing on YOUR /community discussion
+    // threads. Before this layer they surfaced nowhere off /community.
+    var replyRows = [], repliesUnsub = null, replyFirstSnap = true;
+    var replySeen = 0, replySeenSnapshot = 0;
+    try { replySeen = parseInt(localStorage.getItem('da-forum-reply-seen') || '0', 10) || 0; } catch (_) {}
+    var hadReplyBaseline = false;
+    try { hadReplyBaseline = localStorage.getItem('da-forum-reply-seen') != null; } catch (_) {}
+
     bell.style.display = 'inline-flex'; // visible to everyone for updates, not just signed-in users
 
     bell.addEventListener('click', function (e) {
@@ -624,7 +632,7 @@
       // (or anonymous) visitor has no DMs and nothing they've "missed", so
       // the old phantom "9+" was noise. They still get the bell + the
       // panel (activity / what's-new) on click; just no nagging number.
-      var n = signedInReal ? (dmUnread + updatesUnreadCount() + activityUnreadCount()) : 0;
+      var n = signedInReal ? (dmUnread + updatesUnreadCount() + activityUnreadCount() + replyUnreadCount()) : 0;
       if (n > 0) { badge.hidden = false; badge.textContent = n > 9 ? '9+' : String(n); bell.classList.add('has-unread'); }
       else { badge.hidden = true; bell.classList.remove('has-unread'); }
     }
@@ -637,7 +645,9 @@
         signedInReal = !!(u && !u.isAnonymous);
         if (!u || u.isAnonymous) {
           if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
+          if (repliesUnsub) { try { repliesUnsub(); } catch (e) {} repliesUnsub = null; }
           myUid = null; dmRows = []; dmUnread = 0; prevUnread = {}; firstSnap = true;
+          replyRows = []; replyFirstSnap = true;
           renderBadge(); if (panel) paintPanel();
           return;
         }
@@ -670,6 +680,99 @@
         .onSnapshot(onThreads, function (err) {
           console.warn('[notifications] inbox listen failed', err && err.message);
         });
+      subscribeForumReplies(db);
+    }
+
+    // ── forum-reply layer ────────────────────────────────────────────
+    // Watch replies on your 10 newest /community threads and surface
+    // them in the bell (badge + panel row + toast/OS notification),
+    // deep-linking to /community#thread=<id>. Cost-guarded for the
+    // free Firestore tier: one get() for your thread ids + a single
+    // listener capped at 12 reply docs. Every failure path is silent —
+    // this layer is decoration on the bell, never load-bearing.
+    function subscribeForumReplies(db) {
+      if (repliesUnsub) { try { repliesUnsub(); } catch (e) {} repliesUnsub = null; }
+      replyFirstSnap = true;
+      db.collection('forum_posts')
+        .where('authorUid', '==', myUid)
+        .where('parentId', '==', null)
+        .limit(30)
+        .get()
+        .then(function (snap) {
+          var mine = snap.docs.map(function (d) {
+            var data = d.data() || {};
+            return { id: d.id, title: data.title || '', at: (data.createdAt && data.createdAt.seconds) || 0 };
+          });
+          if (!mine.length) return;
+          mine.sort(function (a, b) { return b.at - a.at; });
+          var ids = mine.slice(0, 10).map(function (t) { return t.id; });
+          var titles = {};
+          mine.forEach(function (t) { titles[t.id] = t.title; });
+          function attach(q, sortClient) {
+            return q.onSnapshot(function (s) { onReplySnap(s, titles); }, function (err) {
+              // in+orderBy needs the (rootId, createdAt) composite; if
+              // this environment lacks it, retry without orderBy and
+              // sort client-side (onReplySnap sorts anyway).
+              if (sortClient) return;
+              if (err && /FAILED_PRECONDITION|index/i.test(err.message || '')) {
+                repliesUnsub = attach(db.collection('forum_posts').where('rootId', 'in', ids).limit(40), true);
+              }
+            });
+          }
+          repliesUnsub = attach(
+            db.collection('forum_posts').where('rootId', 'in', ids).orderBy('createdAt', 'desc').limit(12),
+            false
+          );
+        })
+        .catch(function () { /* silent */ });
+    }
+
+    function onReplySnap(snap, titles) {
+      var rows = [];
+      snap.forEach(function (d) {
+        var data = d.data() || {};
+        if (data.authorUid === myUid) return; // my own replies aren't news
+        rows.push({
+          id: d.id,
+          threadId: data.rootId || '',
+          threadTitle: titles[data.rootId] || '',
+          name: data.authorName || 'A debater',
+          content: (data.content || '').replace(/\s+/g, ' '),
+          when: ((data.createdAt && data.createdAt.seconds) || 0) * 1000,
+        });
+      });
+      rows.sort(function (a, b) { return b.when - a.when; });
+      rows = rows.slice(0, 8);
+      var newest = rows.length ? rows[0] : null;
+      var isFresh = !replyFirstSnap && newest && newest.when > replySeen &&
+        !replyRows.some(function (r) { return r.id === newest.id; });
+      replyRows = rows;
+      // First-ever visit: everything that already exists counts as seen,
+      // same baseline rule as the updates/activity feeds.
+      if (!hadReplyBaseline) { markRepliesSeen(); hadReplyBaseline = true; }
+      renderBadge();
+      if (panel) paintPanel();
+      if (isFresh) {
+        announce(
+          { name: newest.name + ' replied to your thread', href: '/community#thread=' + encodeURIComponent(newest.threadId), isGroup: true, photo: '' },
+          newest.content.slice(0, 90)
+        );
+      }
+      replyFirstSnap = false;
+    }
+
+    function replyUnreadCount() {
+      var n = 0;
+      for (var i = 0; i < replyRows.length; i++) if ((replyRows[i].when || 0) > replySeen) n++;
+      return n;
+    }
+    function markRepliesSeen() {
+      var max = replySeen;
+      for (var i = 0; i < replyRows.length; i++) max = Math.max(max, replyRows[i].when || 0);
+      if (max > replySeen) {
+        replySeen = max;
+        try { localStorage.setItem('da-forum-reply-seen', String(max)); } catch (_) {}
+      }
     }
 
     function onThreads(snap) {
@@ -699,6 +802,7 @@
     function openPanel() {
       seenSnapshot = updatesSeen;   // snapshot before marking, so the new ones still get a dot
       activitySeenSnapshot = activitySeen;  // same trick for activity rows
+      replySeenSnapshot = replySeen;        // and for forum-reply rows
       loadActivity();               // refresh the activity feed when user opens the bell
       loadOnlineCount();            // refresh the live-presence row too
       panel = document.createElement('div');
@@ -731,6 +835,7 @@
       bell.setAttribute('aria-expanded', 'true');
       markUpdatesSeen();            // opening the panel clears the updates side of the badge
       markActivitySeen();           // and the activity side
+      markRepliesSeen();            // and the forum-reply side
       renderBadge();
       paintPanel();
     }
@@ -778,6 +883,23 @@
         '<span class="ui-bell-row__main">' +
           '<span class="ui-bell-row__name">' + escHtml(a.name || 'A debater') + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
           '<span class="ui-bell-row__preview">' + preview + '</span>' +
+        '</span>' +
+        '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
+      '</a>';
+    }
+
+    // Forum-reply row — someone replied on one of your /community
+    // threads. Deep-links straight into the thread modal.
+    function replyRowHtml(r) {
+      var isNew = (r.when || 0) > replySeenSnapshot;
+      var when = r.when ? relTime(r.when) : '';
+      return '<a class="ui-bell-row' + (isNew ? ' is-unread' : '') + '" href="/community#thread=' + encodeURIComponent(r.threadId) + '">' +
+        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--accent,#ef4444)">' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+        '</span>' +
+        '<span class="ui-bell-row__main">' +
+          '<span class="ui-bell-row__name">' + escHtml(r.name) + ' replied' + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
+          '<span class="ui-bell-row__preview">' + escHtml(r.content.slice(0, 90)) + (r.threadTitle ? ' <span style="color:var(--text-ghost,#888)">· re: ' + escHtml(r.threadTitle.slice(0, 60)) + '</span>' : '') + '</span>' +
         '</span>' +
         '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
       '</a>';
@@ -913,6 +1035,10 @@
       } else {
         html += '<div class="ui-bell-list">' + activity.slice(0, 8).map(activityRowHtml).join('') + '</div>';
         html += '<a class="ui-bell-foot" href="/live">See the live board</a>';
+      }
+      if (myUid && replyRows.length) {
+        html += '<div class="ui-bell-head ui-bell-head--mid">Replies to your threads</div>';
+        html += '<div class="ui-bell-list">' + replyRows.map(replyRowHtml).join('') + '</div>';
       }
       if (myUid) {
         html += '<div class="ui-bell-head ui-bell-head--mid">Messages</div>';
