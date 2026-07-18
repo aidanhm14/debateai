@@ -525,6 +525,14 @@ body::before{
   background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);
   color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;
 }
+/* Author-only delete affordances (threads list + replies in the modal).
+   Quiet by default; red on hover. Rules already allow author delete. */
+.thread-del,.reply-del{
+  padding:1px 8px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-ghost);font-size:.62rem;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .15s,border-color .15s;
+}
+.thread-del:hover,.reply-del:hover{color:var(--accent);border-color:rgba(239,68,68,.45)}
 .thread-stats{
   display:flex;flex-direction:column;align-items:flex-end;gap:4px;
   font-size:.7rem;color:var(--text-ghost);font-weight:600;white-space:nowrap;
@@ -870,6 +878,7 @@ body::before{
   <!-- ── DISCUSSION TAB ──────────────────────────────────────── -->
   <div id="discussionPane" style="display:none">
     <div class="filters" style="justify-content:space-between">
+      <input id="threadSearchInput" class="search" type="text" placeholder="Search threads…" autocomplete="off" style="flex:1 1 170px;min-width:150px" />
       <div class="group" id="threadCategoryFilters">
         <button class="filter-chip on" data-thread-cat="">All</button>
         <button class="filter-chip" data-thread-cat="general">General</button>
@@ -881,6 +890,11 @@ body::before{
         <button class="filter-chip" data-thread-cat="pf">PF</button>
         <button class="filter-chip" data-thread-cat="policy">Policy</button>
         <button class="filter-chip" data-thread-cat="meta">Meta</button>
+      </div>
+      <div class="group" id="threadSortFilters">
+        <button class="filter-chip on" data-thread-sort="recent">Newest</button>
+        <button class="filter-chip" data-thread-sort="top">Top</button>
+        <button class="filter-chip" data-thread-sort="active">Active</button>
       </div>
       <button id="newThreadBtn" class="btn primary" style="padding:9px 16px;font-size:.78rem">+ New thread</button>
     </div>
@@ -1017,6 +1031,20 @@ body::before{
     setTimeout(function(){ t.remove(); }, 2800);
   }
 
+  // Relative timestamp for forum surfaces ("just now" / "4m ago" /
+  // "3h ago" / "2d ago", falling back to a short date past a week).
+  // Takes Firestore-timestamp seconds; returns '' when absent so
+  // callers can keep their existing "date ? ' · ' + date : ''" shape.
+  function timeAgo(seconds){
+    if (!seconds) return '';
+    var diff = Math.floor(Date.now() / 1000) - seconds;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 7 * 86400) return Math.floor(diff / 86400) + 'd ago';
+    return new Date(seconds * 1000).toLocaleDateString(undefined, {month:'short',day:'numeric'});
+  }
+
   // Side normalization across formats. Different formats use 'gov/opp',
   // 'pro/con', 'aff/neg'. Normalize so a single side filter slots them
   // all into 2 buckets without having to remember the format-specific
@@ -1057,6 +1085,8 @@ body::before{
   // broke the Cases ↔ Discussion tab switch silently.
   var allThreads = [];
   var threadFilter = '';
+  var threadSearch = '';
+  var threadSort = 'recent'; // 'recent' | 'top' | 'active'
   var myThreadVotes = {};
   var openThreadUnsub = null;
   var currentUserVerified = false; // set from /users/{uid} Firestore doc on sign-in
@@ -1800,8 +1830,21 @@ body::before{
   // up. The seed cases are synchronous so #case=<seedId> works
   // immediately; real cases just need a beat for Firestore to land.
   else {
+    var threadMatch = (location.hash || '').match(/^#thread=([^&]+)/);
     var caseMatch = (location.hash || '').match(/^#case=([^&]+)/);
-    if (caseMatch) {
+    if (threadMatch) {
+      // Deep-link to a thread: switch to the Discussions tab and poll
+      // for the thread to land. Seed threads resolve on the first tick;
+      // real threads need auth + the first snapshot, so wait up to 6s.
+      tabSwitch('discussion');
+      var wantThread = decodeURIComponent(threadMatch[1]);
+      var threadTries = 0;
+      (function pollThread(){
+        var found = (allThreads || []).some(function(x){ return x.id === wantThread; });
+        if (found) { openThread(wantThread); return; }
+        if (++threadTries < 30) setTimeout(pollThread, 200);
+      })();
+    } else if (caseMatch) {
       var caseId = decodeURIComponent(caseMatch[1]);
       var caseTries = 0;
       (function pollCase(){
@@ -1915,9 +1958,30 @@ body::before{
   function renderThreads(){
     var host = $('threads');
     var empty = $('threadsEmpty');
+    var q = threadSearch.toLowerCase().trim();
     var matched = allThreads.filter(function(t){
       if (threadFilter && (t.category || 'general') !== threadFilter) return false;
+      if (q){
+        var hay = ((t.title || '') + ' ' + (t.content || '')).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
       return true;
+    });
+    // Sort. Same real-above-seed invariant as the Cases tab: human
+    // threads outrank AI seeds in every mode, then the mode's own key.
+    var aiRank = function(t){ return isAiAccount(t) ? 1 : 0; };
+    var createdSec = function(t){ return (t.createdAt && t.createdAt.seconds) || 0; };
+    matched.sort(function(a, b){
+      var ai = aiRank(a) - aiRank(b);
+      if (ai !== 0) return ai;
+      if (threadSort === 'top'){
+        var v = (b.voteScore || 0) - (a.voteScore || 0);
+        if (v !== 0) return v;
+      } else if (threadSort === 'active'){
+        var r = (b.replyCount || 0) - (a.replyCount || 0);
+        if (r !== 0) return r;
+      }
+      return createdSec(b) - createdSec(a);
     });
     if (matched.length === 0){
       host.innerHTML = '';
@@ -1929,12 +1993,11 @@ body::before{
       var score = t.voteScore || 0;
       var scoreClass = score > 0 ? 'pos' : score < 0 ? 'neg' : '';
       var myVote = myThreadVotes[t.id] || 0;
-      var date = t.createdAt && t.createdAt.seconds
-        ? new Date(t.createdAt.seconds * 1000).toLocaleDateString(undefined, {month:'short',day:'numeric'})
-        : '';
+      var date = timeAgo(t.createdAt && t.createdAt.seconds);
       var preview = (t.content || '').replace(/\s+/g,' ').slice(0, 220);
       var cat = t.category || 'general';
       var replies = t.replyCount || 0;
+      var mine = !!(currentUser && !t.seed && t.authorUid === currentUser.uid);
       return '' +
         '<div class="thread-card" data-thread="' + escHtml(t.id) + '">' +
           '<div class="thread-vote">' +
@@ -1948,6 +2011,7 @@ body::before{
             '<div class="thread-meta">' +
               '<span class="cat-tag">' + escHtml(cat) + '</span>' +
               '<span>' + authorLink(t.authorName || 'Anonymous', t) + identityBadges(t) + (date ? ' · ' + date : '') + '</span>' +
+              (mine ? '<button class="thread-del" data-thread-del="' + escHtml(t.id) + '" title="Delete your thread">Delete</button>' : '') +
             '</div>' +
           '</div>' +
           '<div class="thread-stats">' +
@@ -2056,6 +2120,37 @@ body::before{
     });
   }
 
+  // ── Delete own thread / reply ─────────────────────────────
+  // Rules already permit author delete (forum_posts: allow delete if
+  // isAuthor). The thread-list snapshot removes the row on success, so
+  // no manual re-render is needed on the happy path. Replies of a
+  // deleted thread stay in Firestore but are unreachable (only queried
+  // by rootId), which is acceptable orphaning for a client-only delete.
+  function deleteThread(threadId, onDone){
+    if (!firebaseDb || !currentUser) return;
+    if (!window.confirm('Delete this thread? This cannot be undone.')) return;
+    firebaseDb.collection('forum_posts').doc(threadId).delete().then(function(){
+      toast('Thread deleted.');
+      try { gtag('event','community_thread_delete'); } catch(e){}
+      if (typeof onDone === 'function') onDone();
+    }).catch(function(err){
+      toast('Delete failed: ' + (err.message || 'unknown'));
+    });
+  }
+  function deleteReply(replyId, threadId){
+    if (!firebaseDb || !currentUser) return;
+    if (!window.confirm('Delete this reply?')) return;
+    firebaseDb.collection('forum_posts').doc(replyId).delete().then(function(){
+      firebaseDb.collection('forum_posts').doc(threadId).update({
+        replyCount: firebase.firestore.FieldValue.increment(-1),
+      }).catch(function(){});
+      toast('Reply deleted.');
+      try { gtag('event','community_reply_delete'); } catch(e){}
+    }).catch(function(err){
+      toast('Delete failed: ' + (err.message || 'unknown'));
+    });
+  }
+
   // ── New-thread modal ──────────────────────────────────────
   function openNewThread(){
     if (!currentUser){ toast('Sign in to post a thread.'); return; }
@@ -2138,6 +2233,10 @@ body::before{
   function openThread(threadId){
     var t = allThreads.find(function(x){ return x.id === threadId; });
     if (!t) return;
+    // Sharable deep-link (/community#thread=<id>) — same replaceState
+    // pattern as openCase so back-button behavior stays sane.
+    try { history.replaceState(null, '', '#thread=' + encodeURIComponent(t.id)); } catch(e){}
+    var isMyThread = !!(currentUser && !t.seed && t.authorUid === currentUser.uid);
     var host = $('modalHost');
     host.innerHTML =
       '<div class="modal" id="modalRoot">' +
@@ -2158,8 +2257,15 @@ body::before{
           '</div>' +
           '<div class="reply-form">' +
             '<textarea id="replyBody" maxlength="51200" placeholder="Reply… (plain text only)"></textarea>' +
-            '<div style="display:flex;justify-content:flex-end">' +
-              '<button class="btn primary" id="postReplyBtn">Post reply</button>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<button class="btn" id="threadShareBtn" title="Copy link to this thread">Share</button>' +
+                (isMyThread ? '<button class="btn" id="threadDeleteBtn" title="Delete your thread">Delete thread</button>' : '') +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:10px">' +
+                '<span style="font-size:.68rem;color:var(--text-ghost);font-weight:600">Ctrl+Enter to post</span>' +
+                '<button class="btn primary" id="postReplyBtn">Post reply</button>' +
+              '</div>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -2168,9 +2274,49 @@ body::before{
     var close = function(){
       if (openThreadUnsub){ try{ openThreadUnsub(); } catch(e){} openThreadUnsub = null; }
       host.innerHTML = '';
+      // Strip the #thread=... fragment so reload + share-from-here lands
+      // on the discussion list, not a stale modal.
+      try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
     };
     root.addEventListener('click', function(e){ if (e.target === root) close(); });
     $('modalClose').addEventListener('click', close);
+
+    // Share button — copy the #thread deep-link (native share sheet on
+    // mobile, clipboard elsewhere; same pattern as the case modal).
+    var threadShareUrl = location.origin + '/community#thread=' + encodeURIComponent(t.id);
+    $('threadShareBtn').addEventListener('click', function(){
+      try { gtag('event','community_thread_share'); } catch(e){}
+      var btn = $('threadShareBtn');
+      var orig = btn.textContent;
+      function flashCopied(){
+        btn.textContent = 'Link copied';
+        setTimeout(function(){ btn.textContent = orig; }, 1600);
+      }
+      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){
+        navigator.share({ title: t.title || 'DebateIt thread', url: threadShareUrl }).catch(function(){});
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(threadShareUrl).then(flashCopied, function(){
+          window.prompt('Copy this link:', threadShareUrl);
+        });
+      } else {
+        window.prompt('Copy this link:', threadShareUrl);
+      }
+    });
+    var tdBtn = $('threadDeleteBtn');
+    if (tdBtn){
+      tdBtn.addEventListener('click', function(){
+        deleteThread(t.id, close);
+      });
+    }
+    // Delete own replies — delegated on the container (it survives the
+    // innerHTML re-renders inside renderReplies).
+    $('threadReplies').addEventListener('click', function(e){
+      var el = e.target;
+      var rid = el.getAttribute && el.getAttribute('data-reply-del');
+      if (rid) deleteReply(rid, t.id);
+    });
 
     // Pull seed replies for this thread (empty array if not a seed).
     // We always merge them with whatever the live snapshot returns,
@@ -2195,11 +2341,17 @@ body::before{
         return;
       }
       rh.innerHTML = combined.map(function(r){
-        var date = r.createdAt && r.createdAt.seconds
-          ? new Date(r.createdAt.seconds * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
+        var secs = r.createdAt && r.createdAt.seconds;
+        var rel = timeAgo(secs);
+        var abs = secs
+          ? new Date(secs * 1000).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
           : '';
+        var myReply = !!(currentUser && !r.seed && r.id && r.authorUid === currentUser.uid);
         return '<div class="reply">' +
-          '<div class="reply-meta">' + authorLink(r.authorName || 'Anonymous', r) + identityBadges(r) + (date ? ' · ' + date : '') + '</div>' +
+          '<div class="reply-meta">' + authorLink(r.authorName || 'Anonymous', r) + identityBadges(r) +
+            (rel ? ' · <span title="' + escHtml(abs) + '">' + escHtml(rel) + '</span>' : '') +
+            (myReply ? ' <button class="reply-del" data-reply-del="' + escHtml(r.id) + '" title="Delete your reply">Delete</button>' : '') +
+          '</div>' +
           '<div class="reply-body">' + escHtml(r.content || '') + '</div>' +
         '</div>';
       }).join('');
@@ -2224,7 +2376,7 @@ body::before{
       .orderBy('createdAt', 'asc')
       .limit(200)
       .onSnapshot(function(snap){
-        renderReplies(snap.docs.map(function(d){ return d.data(); }));
+        renderReplies(snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); }));
       }, function(err){
         // Index-fallback: query by parentId without orderBy and sort
         // client-side. Same shape as the threads-list fallback. Real
@@ -2235,7 +2387,7 @@ body::before{
             .limit(200)
             .get()
             .then(function(snap){
-              renderReplies(snap.docs.map(function(d){ return d.data(); }));
+              renderReplies(snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); }));
             });
           return;
         }
@@ -2249,6 +2401,12 @@ body::before{
       });
     } // end if(firebaseDb)
 
+    $('replyBody').addEventListener('keydown', function(e){
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter'){
+        e.preventDefault();
+        $('postReplyBtn').click();
+      }
+    });
     $('postReplyBtn').addEventListener('click', function(){
       if (!currentUser){ toast('Sign in to reply.'); return; }
       var body = ($('replyBody').value || '').trim();
@@ -2299,8 +2457,25 @@ body::before{
       renderThreads();
     });
   });
+  document.querySelectorAll('#threadSortFilters .filter-chip').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#threadSortFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      threadSort = b.getAttribute('data-thread-sort') || 'recent';
+      renderThreads();
+    });
+  });
+  $('threadSearchInput').addEventListener('input', function(){
+    threadSearch = this.value;
+    renderThreads();
+  });
   $('threads').addEventListener('click', function(e){
     var t = e.target;
+    var delId = t.getAttribute && t.getAttribute('data-thread-del');
+    if (delId){
+      deleteThread(delId);
+      return;
+    }
     var voteId = t.getAttribute && t.getAttribute('data-thread-vote');
     if (voteId){
       castThreadVote(t.getAttribute('data-thread'), voteId);
