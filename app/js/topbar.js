@@ -255,22 +255,50 @@
 
     var nav = el('nav', { class: 'ui-topbar', 'aria-label': 'Site navigation' });
 
-    // ── Wordmark: fixed to "Debatable" (2026-06-15) ────────────────────
-    // The rotating Debate AI / Debate it. / Debatable experiment is retired
-    // per Aidan ("Debatable is best"). One canonical wordmark everywhere:
-    // "Debate" in the default text color + "It" in accent red, matching
-    // the OG card and the rest of the brand. The sr-only line still teaches
-    // crawlers + AT the also-known-as names regardless of this render.
+    // ── Wordmark: "Debatable" color A/B (2026-07-19) ───────────────────
+    // Per Aidan: test the wordmark fully in accent red vs fully in ink
+    // black (the 2026-07-18 two-tone Debat+able render is retired for the
+    // duration of the test). Assignment is sticky per visitor and uses the
+    // same localStorage key convention as /js/ab.js ('debateos-ab:' +
+    // testId) so results read exactly like every other test in GA4 — but
+    // it's inlined here because topbar.js renders on pages that don't load
+    // ab.js, and the wordmark must not flip between pages mid-session.
+    // Red arm wraps the whole word in the existing accent span
+    // (.ui-topbar-logo span = var(--accent)); black arm renders plain and
+    // inherits the logo ink (light ink on dark themes, which is the honest
+    // "black" equivalent there). The sr-only line still teaches crawlers +
+    // AT the also-known-as names regardless of this render.
+    var wmVariant = (function () {
+      try {
+        var v = localStorage.getItem('debateos-ab:wordmark_color');
+        if (v !== 'red' && v !== 'black') {
+          v = Math.random() < 0.5 ? 'red' : 'black';
+          localStorage.setItem('debateos-ab:wordmark_color', v);
+        }
+        return v;
+      } catch (e) { return 'black'; }
+    })();
+    try {
+      if (sessionStorage.getItem('debateos-ab-seen:wordmark_color') !== '1') {
+        sessionStorage.setItem('debateos-ab-seen:wordmark_color', '1');
+        var wmFire = function () {
+          if (window.gtag) {
+            gtag('event', 'ab_exposure', { test: 'wordmark_color', variant: wmVariant, page: location.pathname });
+            return true;
+          }
+          return false;
+        };
+        // gtag loads late on some pages; one deferred retry covers it.
+        if (!wmFire()) setTimeout(wmFire, 2500);
+      }
+    } catch (e) {}
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',
-        class: 'ui-topbar-logo',
+        class: 'ui-topbar-logo wm-' + wmVariant,
         'aria-label': 'Debatable, home',
         title: 'Back to home',
-        // "able" carries the accent red (.ui-topbar-logo span = var(--accent));
-        // "Debat" stays default-color. One word, same two-tone DNA as the
-        // old Debate+It mark. (2026-07-18 brand: Debatable.)
-        html: 'Debat<span>able</span>'
+        html: (wmVariant === 'red' ? '<span>Debatable</span>' : 'Debatable')
             + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
             + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
             + ' Debatable · also known as DebateIt · also known as Debate AI.'
