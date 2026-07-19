@@ -465,6 +465,14 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
 .recap-actions .ctl-end{animation:beacon 2.6s ease-out infinite}
 .recap-foot{margin-top:22px;font-size:13px;color:var(--ink-faint)}
 .recap-foot a{color:var(--ink-dim)}
+/* Post-round next-step row: quieter than .recap-actions, outlined pills.
+   .rn-live leads with the red outline + live dot (real-person path). */
+.recap-next{margin-top:24px;padding-top:18px;border-top:1px solid var(--card-line);display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.rn-link{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:999px;border:1px solid var(--card-line);background:transparent;color:var(--ink-dim);text-decoration:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.rn-link:hover{color:var(--ink);border-color:var(--ink-faint);background:var(--panel-hover)}
+.rn-live{border-color:rgba(239,68,68,.5);color:var(--red)}
+.rn-live:hover{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.07)}
+.rn-dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red)}
 
 @media (max-width:720px){
   #setup{padding:calc(76px + env(safe-area-inset-top)) 18px calc(138px + env(safe-area-inset-bottom))}
@@ -652,7 +660,17 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
       <button class="ctl" id="switchBtn" type="button">Switch sides</button>
       <button class="ctl" id="newClaimBtn" type="button">New claim</button>
     </div>
-    <p class="recap-foot">Want full formats and real speech clocks? <a href="/voice-debate">Voice AI, the full trainer</a>.</p>
+    <!-- Post-round next steps. The highest-intent moment on the site is
+         the one right after a finished round; without this row the recap
+         dead-ended into rematch-only. Real-person path leads (humans
+         first); sign-in link renders only for signed-out visitors (their
+         rounds aren't saved otherwise). Clicks tracked as recap_next. -->
+    <div class="recap-next" id="recapNext">
+      <a class="rn-link rn-live" href="/spar" data-next="spar"><span class="rn-dot" aria-hidden="true"></span>Debate a real person</a>
+      <a class="rn-link" href="/voice-debate" data-next="trainer">Full formats + real clocks</a>
+      <a class="rn-link" href="/judge" data-next="judge">Judge a round</a>
+      <button class="rn-link" id="recapSignIn" type="button" hidden>Sign in to save your rounds</button>
+    </div>
   </div>
 </section>
 
@@ -1602,6 +1620,38 @@ $('newClaimBtn').addEventListener('click', () => {
   claimInput.value = next;
   show('setup');
 });
+
+/* Recap next-step row: track exits, and surface the sign-in pill only
+   for signed-out visitors (server-side round logging needs a Firebase
+   token, so anonymous rounds vanish when the tab closes). Signed-in is
+   detected from the cached firebase:authUser: localStorage key — no
+   SDK needed at render time; the click lazy-loads the auth modal. */
+(function wireRecapNext(){
+  const row = document.getElementById('recapNext');
+  if (!row) return;
+  row.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-next]');
+    if (a) { try { window.track && window.track('recap_next_click', { to: a.dataset.next }); } catch (_) {} }
+  });
+  let signedIn = false;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (/^firebase:authUser:/.test(k) && (localStorage.getItem(k) || '').indexOf('"isAnonymous":true') < 0) { signedIn = true; break; }
+    }
+  } catch (_) {}
+  const signBtn = document.getElementById('recapSignIn');
+  if (!signBtn || signedIn) return;
+  signBtn.hidden = false;
+  signBtn.addEventListener('click', () => {
+    try { window.track && window.track('recap_next_click', { to: 'signin' }); } catch (_) {}
+    if (window.openAuthModal) { window.openAuthModal(); return; }
+    const s = document.createElement('script');
+    s.src = '/js/auth-modal.js';
+    s.addEventListener('load', () => { if (window.openAuthModal) window.openAuthModal(); }, { once: true });
+    document.head.appendChild(s);
+  });
+})();
 
 startBtn.addEventListener('click', start);
 claimInput.addEventListener('keydown', (e) => {

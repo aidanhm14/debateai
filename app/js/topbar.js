@@ -228,6 +228,40 @@
     { href: '/newvoice',      label: 'Voice AI', hot: true, mobileKeep: true },
   ];
 
+  // 2026-07-19: "More" menu. The bar holds the pillars; everything Aidan
+  // pulled off it over June-July ("advertise this somehow else", "they can
+  // return when they fit") had NO discovery surface left — app pages carry
+  // no footer, so off-bar pages were reachable only by URL. One quiet
+  // dropdown at the end of the rail (desktop) + a More group in the mobile
+  // sheet fixes discovery without re-crowding the bar. Curated, grouped,
+  // not a sitemap dump. Clicks land in GA4 as nav_more_open /
+  // nav_more_click so usage is measurable per link.
+  var MORE_GROUPS = [
+    { head: 'Watch & compete', links: [
+      { href: '/spectate',    label: 'Spectate live rounds' },
+      { href: '/leaderboard', label: 'Leaderboard' },
+      { href: '/community',   label: 'Community' },
+    ]},
+    { head: 'Train', links: [
+      { href: '/voice-debate', label: 'Classic voice trainer' },
+      { href: '/coaches',      label: 'Coaches' },
+    ]},
+    { head: 'Site', links: [
+      { href: '/pricing', label: 'Free vs Paid' },
+      { href: '/schools', label: 'For schools' },
+      { href: '/atlas',   label: 'Debate atlas' },
+      { href: '/story',   label: 'Story' },
+      { href: '/future',  label: 'Vision' },
+    ]},
+  ];
+
+  function navTrack(event, meta){
+    try {
+      if (typeof window.gtag === 'function') window.gtag('event', event, meta || {});
+      else if (typeof window.track === 'function') window.track(event, meta || {});
+    } catch(e){}
+  }
+
   function el(tag, attrs, children){
     var n = document.createElement(tag);
     if (attrs) for (var k in attrs){
@@ -333,7 +367,59 @@
         '<line x1="4" y1="17" x2="20" y2="17"/>' +
       '</svg>';
     right.appendChild(burger);
+
+    // "More" dropdown — mounted just BEFORE the hot Voice AI tab so the
+    // rail reads: ...pillars · More · [VOICE AI] [CTA]. Voice AI stays the
+    // rightmost tab per Aidan 2026-07-05. Desktop-only (≤560px hides it;
+    // the mobile sheet carries the same links as a More group below).
+    function buildMore(){
+      var wrap = el('span', { class: 'ui-topbar-more' });
+      var btn = el('button', {
+        type: 'button',
+        class: 'ui-topbar-link ui-topbar-more-btn',
+        'aria-haspopup': 'true',
+        'aria-expanded': 'false',
+      });
+      btn.innerHTML = 'More<svg viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>';
+      var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'More pages' });
+      MORE_GROUPS.forEach(function(G){
+        var col = el('div', { class: 'ui-topbar-more-col' });
+        col.appendChild(el('div', { class: 'ui-topbar-more-head' }, G.head));
+        G.links.forEach(function(L){
+          var a = el('a', {
+            href: L.href,
+            role: 'menuitem',
+            class: pathMatches(L.href) ? 'is-active' : null,
+          }, L.label);
+          a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href }); });
+          col.appendChild(a);
+        });
+        panel.appendChild(col);
+      });
+      function closeMore(){
+        btn.setAttribute('aria-expanded', 'false');
+        panel.classList.remove('is-open');
+      }
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var open = panel.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) navTrack('nav_more_open', {});
+      });
+      document.addEventListener('click', function(e){
+        if (panel.classList.contains('is-open') && !wrap.contains(e.target)) closeMore();
+      });
+      document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape' && panel.classList.contains('is-open')) closeMore();
+      });
+      wrap.appendChild(btn);
+      wrap.appendChild(panel);
+      return wrap;
+    }
+    var moreMounted = false;
+
     LINKS.forEach(function(L){
+      if (L.hot && !moreMounted){ right.appendChild(buildMore()); moreMounted = true; }
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
       // native tooltip just renders a dark box that floats over page
@@ -399,6 +485,8 @@
       a.appendChild(document.createTextNode(L.label));
       right.appendChild(a);
     });
+    // No hot link in LINKS (future edit)? Mount More at the rail's end.
+    if (!moreMounted){ right.appendChild(buildMore()); moreMounted = true; }
 
     // SFX mute toggle. Sits between the page links and the auth slot
     // so it's consistent across pages. Inline SVG speaker icon —
@@ -497,6 +585,22 @@
       sheetLink.appendChild(document.createTextNode(L.label));
       sheet.appendChild(sheetLink);
     });
+    // More group: same curated off-bar links the desktop dropdown carries,
+    // compacted into a two-column grid so the sheet stays one screen tall.
+    sheet.appendChild(el('div', { class: 'ui-topbar-sheet-more-head' }, 'More'));
+    var sheetMore = el('div', { class: 'ui-topbar-sheet-more' });
+    MORE_GROUPS.forEach(function(G){
+      G.links.forEach(function(L){
+        var a = el('a', {
+          href: L.href,
+          role: 'menuitem',
+          class: pathMatches(L.href) ? 'is-active' : null,
+        }, L.label);
+        a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href, surface: 'sheet' }); });
+        sheetMore.appendChild(a);
+      });
+    });
+    sheet.appendChild(sheetMore);
     // Auth row in the mobile sheet. On desktop the Sign in pill lives in
     // the topbar; on mobile the right-side slot is hidden, so the sheet
     // carries it. Label flips to "Sign out" once signed in (hydrateUser
