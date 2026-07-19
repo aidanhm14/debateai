@@ -381,7 +381,9 @@
         'aria-expanded': 'false',
       });
       btn.innerHTML = 'More<svg viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>';
-      var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'More pages' });
+      // hidden attr guards the closed state even when a stale-cached
+      // ui.css predates the panel rules (SW skew showed it unstyled).
+      var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'More pages', hidden: 'hidden' });
       MORE_GROUPS.forEach(function(G){
         var col = el('div', { class: 'ui-topbar-more-col' });
         col.appendChild(el('div', { class: 'ui-topbar-more-head' }, G.head));
@@ -399,10 +401,12 @@
       function closeMore(){
         btn.setAttribute('aria-expanded', 'false');
         panel.classList.remove('is-open');
+        panel.hidden = true;
       }
       btn.addEventListener('click', function(e){
         e.stopPropagation();
         var open = panel.classList.toggle('is-open');
+        panel.hidden = !open;
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) navTrack('nav_more_open', {});
       });
