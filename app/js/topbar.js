@@ -211,7 +211,8 @@
     // it more ... have it in a tab"). /floor is the play-money debate
     // prediction market (back who wins across three windows, AI judge
     // settles, leaderboard). noindex page; this is the on-site entry.
-    { href: '/floor',         label: 'Floor'        },
+    // 2026-07-19: label Floor -> Bet per Aidan; route stays /floor.
+    { href: '/floor',         label: 'Bet'          },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
