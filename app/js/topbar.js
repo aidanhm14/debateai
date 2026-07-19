@@ -303,15 +303,21 @@
     // inherits the logo ink (light ink on dark themes, which is the honest
     // "black" equivalent there). The sr-only line still teaches crawlers +
     // AT the also-known-as names regardless of this render.
+    // 2026-07-19 later same day, per Aidan: weight red to 90% ("90% it on
+    // red tbh"). The :v marker re-rolls anyone assigned under the earlier
+    // 50/50 exactly once, then assignment is sticky again — otherwise the
+    // installed base would sit at 50/50 forever. Read results by variant
+    // share, not raw counts, since the split is intentionally uneven.
     var wmVariant = (function () {
       try {
         var v = localStorage.getItem('debateos-ab:wordmark_color');
-        if (v !== 'red' && v !== 'black') {
-          v = Math.random() < 0.5 ? 'red' : 'black';
+        if (localStorage.getItem('debateos-ab:wordmark_color:v') !== '2' || (v !== 'red' && v !== 'black')) {
+          v = Math.random() < 0.9 ? 'red' : 'black';
           localStorage.setItem('debateos-ab:wordmark_color', v);
+          localStorage.setItem('debateos-ab:wordmark_color:v', '2');
         }
         return v;
-      } catch (e) { return 'black'; }
+      } catch (e) { return 'red'; }
     })();
     try {
       if (sessionStorage.getItem('debateos-ab-seen:wordmark_color') !== '1') {
