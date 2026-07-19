@@ -65,11 +65,13 @@ document.documentElement.setAttribute('data-force-theme','light');
   .shell{
     position:relative;z-index:1;
     max-width:1180px;margin:0 auto;
-    padding:96px 28px 80px;
+    padding:clamp(56px,7vw,96px) clamp(18px,3vw,28px) clamp(56px,6vw,80px);
   }
 
   /* ── Hero ──────────────────────────────────────────────── */
-  .hero{margin-bottom:var(--s-4)}
+  /* Scales with the h1 above it so the gap reads the same at every width
+     instead of crowding the grid on desktop and yawning on mobile. */
+  .hero{margin-bottom:clamp(32px,4.4vw,54px)}
   .eyebrow{
     font-size:12px;color:var(--accent);
     letter-spacing:.18em;text-transform:uppercase;font-weight:800;
@@ -89,13 +91,17 @@ document.documentElement.setAttribute('data-force-theme','light');
   }
 
   /* ── Bento team grid ───────────────────────────────────── */
+  /* Three columns, and every row fills exactly: the founder card and the
+     ambassadors tile both run full width, leaving the three remaining
+     members one column each. No orphan gaps at any breakpoint. */
   .bento{
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:18px;
+    gap:20px;
+    align-items:stretch;
   }
-  @media (max-width:900px){.bento{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media (max-width:560px){.bento{grid-template-columns:1fr}}
+  @media (max-width:900px){.bento{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
+  @media (max-width:560px){.bento{grid-template-columns:1fr;gap:14px}}
 
   .tcard{
     background:#fff;
@@ -144,24 +150,38 @@ document.documentElement.setAttribute('data-force-theme','light');
     color:rgba(20,20,30,.78);margin:0;
   }
 
-  /* Featured founder card — spans 2 columns, photo beside text. */
-  .tcard--feature{grid-column:span 2;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:center}
+  /* Featured founder card — full-bleed row, photo beside text. The photo
+     column is capped rather than fluid: at full width a fr-based split
+     blew the headshot up to ~460px and left dead air beside the bio. */
+  .tcard--feature{
+    grid-column:1 / -1;
+    display:grid;grid-template-columns:minmax(0,264px) minmax(0,1fr);
+    gap:26px;align-items:center;
+    padding:22px;
+  }
   .tcard--feature .tcard-media{margin-bottom:0}
-  .tcard--feature .tcard-name{font-size:1.6rem}
-  .tcard--feature .tcard-bio{font-size:.9rem}
+  .tcard--feature .tcard-name{font-size:1.6rem;margin-bottom:5px}
+  .tcard--feature .tcard-bio{font-size:.9rem;max-width:62ch}
+  @media (max-width:760px){
+    .tcard--feature{grid-template-columns:minmax(0,200px) minmax(0,1fr);gap:20px}
+    .tcard--feature .tcard-name{font-size:1.42rem}
+  }
   @media (max-width:560px){
-    .tcard--feature{grid-column:auto;grid-template-columns:1fr}
+    .tcard--feature{grid-template-columns:1fr;gap:14px;padding:18px 18px 20px}
     .tcard--feature .tcard-media{margin-bottom:0}
   }
 
-  /* Wide closing tile — the ambassadors ask. */
+  /* Wide closing tile — the ambassadors ask. Full width so the last row
+     closes the grid instead of trailing an empty third column. */
   .tcard--wide{
-    grid-column:span 2;
+    grid-column:1 / -1;
     display:flex;flex-direction:column;justify-content:center;gap:12px;
+    padding:24px 22px;
+    margin-top:4px;
     background:rgba(239,68,68,.045);
     border:1px solid rgba(239,68,68,.28);
   }
-  @media (max-width:560px){.tcard--wide{grid-column:auto}}
+  @media (max-width:560px){.tcard--wide{padding:20px 18px}}
   .tcard--wide h2{
     font-family:Crimson Pro,Georgia,serif;
     font-size:1.35rem;font-weight:700;letter-spacing:-.012em;
@@ -188,7 +208,7 @@ document.documentElement.setAttribute('data-force-theme','light');
 
   .closing{
     display:flex;gap:14px;flex-wrap:wrap;align-items:center;
-    margin-top:var(--s-5);
+    margin-top:clamp(40px,5vw,64px);
     padding-top:var(--s-3);border-top:1px solid var(--line);
   }
 </style>
