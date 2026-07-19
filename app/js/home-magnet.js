@@ -166,8 +166,8 @@
       '#ditHomePop .ditHP-kick{display:inline-flex;align-items:center;gap:7px;font-size:.7rem;font-weight:800;' +
         'letter-spacing:.13em;text-transform:uppercase;color:#ef4444;margin-bottom:11px}' +
       '#ditHomePop .ditHP-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e}' +
-      '#ditHomePop .ditHP-h{font-size:1.32rem;font-weight:800;letter-spacing:-.02em;line-height:1.15;margin:0 0 9px}' +
-      '#ditHomePop .ditHP-p{font-size:.95rem;line-height:1.5;color:' + sub + ';margin:0 0 18px}' +
+      '#ditHomePop .ditHP-h{font-size:1.32rem;font-weight:800;letter-spacing:-.02em;line-height:1.15;margin:0 0 9px;color:' + ink + '!important}' +
+      '#ditHomePop .ditHP-p{font-size:.95rem;line-height:1.5;color:' + sub + '!important;margin:0 0 18px}' +
       '#ditHomePop .ditHP-row{display:flex;flex-direction:column;gap:9px}' +
       '#ditHomePop .ditHP-go{display:block;text-align:center;padding:13px 18px;border-radius:11px;background:#ef4444;color:#fff;' +
         'font-weight:800;font-size:1rem;text-decoration:none;transition:background .15s,transform .15s;box-shadow:0 8px 24px rgba(239,68,68,.3)}' +
