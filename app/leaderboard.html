@@ -191,11 +191,21 @@ button{font-family:inherit}
 }
 .hero h1{
   font-family:'Crimson Pro','Fraunces','Inter',serif;
-  font-size:clamp(1.9rem,3.4vw,2.4rem);font-weight:500;
+  font-size:clamp(2.1rem,4vw,2.9rem);font-weight:600;
   letter-spacing:-.022em;line-height:1.02;margin-bottom:4px;
   font-style:normal;
 }
-.hero h1 .hero-acc{color:var(--accent);font-style:normal;font-weight:500}
+.hero h1 .hero-acc{
+  font-style:normal;font-weight:700;color:var(--accent);
+  background:linear-gradient(100deg,#fca5a5 0%,var(--accent) 45%,#b91c1c 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+[data-theme="light"] .hero h1 .hero-acc{
+  background:linear-gradient(100deg,#ef4444 0%,#b91c1c 60%,#7f1d1d 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
 .hero-sub{
   font-size:.92rem;color:var(--text-dim);line-height:1.5;margin-top:6px;
   max-width:640px;
@@ -271,25 +281,42 @@ button{font-family:inherit}
 [data-theme="light"] .fmt-pill.active{background:#1a1208;color:#faf8f4;border-color:#1a1208}
 [data-theme="light"] .fmt-pill.active .c{background:rgba(255,255,255,.15);color:rgba(255,255,255,.85)}
 
-/* ─── Live ticker (single line, optional) ─── */
+/* ─── Results ticker: broadcast-style marquee of the latest scores ── */
 .ticker{
   display:flex;align-items:center;gap:14px;
-  padding:10px 14px;margin:10px 0 0;
+  padding:9px 14px;margin:2px 0 0;
   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);
   overflow:hidden;
 }
+.ticker[hidden]{display:none}
 .ticker-eyebrow{
   display:inline-flex;align-items:center;gap:8px;flex-shrink:0;
   font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
   color:var(--accent);
 }
-.ticker-items{
-  display:flex;gap:18px;overflow-x:auto;font-size:.78rem;color:var(--text-dim);
-  scrollbar-width:none;
+.ticker-eyebrow .tick-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 0 3px rgba(239,68,68,.16);
+  animation:tick-blink 1.6s ease-in-out infinite;
 }
-.ticker-items::-webkit-scrollbar{display:none}
-.ticker-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0}
+@keyframes tick-blink{0%,100%{opacity:1}50%{opacity:.35}}
+.ticker-viewport{
+  flex:1;min-width:0;overflow:hidden;
+  mask-image:linear-gradient(to right,transparent,#000 24px,#000 calc(100% - 24px),transparent);
+  -webkit-mask-image:linear-gradient(to right,transparent,#000 24px,#000 calc(100% - 24px),transparent);
+}
+/* Track holds the item list twice; -50% translate loops seamlessly. */
+.ticker-track{
+  display:inline-flex;white-space:nowrap;will-change:transform;
+  animation:tick-scroll var(--tick-dur,36s) linear infinite;
+  font-size:.78rem;color:var(--text-dim);
+}
+.ticker:hover .ticker-track{animation-play-state:paused}
+@keyframes tick-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.ticker-item{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;flex-shrink:0;margin-right:36px}
 .ticker-item strong{color:var(--text);font-weight:700}
+.ticker-item .t-score{color:var(--accent);font-weight:800;font-variant-numeric:tabular-nums}
+.ticker-item .t-sep{opacity:.45}
 
 /* ─── Main grid ─── */
 .main-grid{
@@ -364,64 +391,101 @@ button{font-family:inherit}
 }
 
 /* ─── Podium ─── */
-/* Three equal flat cards. No gradient on #1, no glow, no shadow, no
-   hover lift. A single 2px top rule per card carries the rank color. */
+/* Championship podium: staggered 2-1-3 silhouette, metallic medal
+   discs, gold halo + light sweep on #1, cards rise in on load.
+   Gold/silver/bronze is rank semantics here, not decoration. */
 .podium{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;
-  margin-bottom:18px;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;
+  margin-bottom:20px;align-items:end;
 }
 .pod{
   position:relative;overflow:hidden;
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--radius-md);padding:18px 18px 16px;
-  transition:border-color .2s;
+  transition:border-color .2s,transform .2s,box-shadow .2s;
+  animation:pod-rise .6s cubic-bezier(.2,.7,.2,1) backwards;
 }
-.pod:hover{border-color:var(--border-strong)}
+@keyframes pod-rise{from{opacity:0;transform:translateY(22px)}}
+.pod--2{animation-delay:.06s}
+.pod--3{animation-delay:.14s}
+.pod--1{animation-delay:.24s}
+.pod:hover{transform:translateY(-3px);border-color:var(--border-strong)}
 .pod::before{
-  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  content:"";position:absolute;top:0;left:0;right:0;height:3px;
   background:var(--text-ghost);
 }
-.pod--1::before{background:var(--amber)}
-.pod--2::before{background:var(--silver)}
-.pod--3::before{background:var(--bronze)}
-.pod--1::after{display:none}
+.pod--1::before{background:linear-gradient(90deg,rgba(251,191,36,.25),var(--amber) 50%,rgba(251,191,36,.25))}
+.pod--2::before{background:linear-gradient(90deg,rgba(203,213,225,.18),var(--silver) 50%,rgba(203,213,225,.18))}
+.pod--3::before{background:linear-gradient(90deg,rgba(217,119,6,.18),var(--bronze) 50%,rgba(217,119,6,.18))}
+.pod--1{
+  border-color:rgba(251,191,36,.36);
+  background:radial-gradient(130% 80% at 50% 0%,rgba(251,191,36,.12),transparent 58%),var(--bg-card);
+  box-shadow:0 12px 44px rgba(251,191,36,.10),var(--shadow-card);
+  padding:22px 20px 18px;
+}
+.pod--1:hover{border-color:rgba(251,191,36,.6)}
+.pod--2{border-color:rgba(203,213,225,.2)}
+.pod--3{border-color:rgba(217,119,6,.24)}
+[data-theme="light"] .pod--1{
+  border-color:rgba(180,83,9,.4);
+  box-shadow:0 12px 40px rgba(180,83,9,.08),var(--shadow-card);
+}
+/* Slow light sweep along the gold rule on #1 */
+.pod--1::after{
+  content:"";position:absolute;top:0;left:-45%;width:45%;height:3px;
+  background:linear-gradient(90deg,transparent,rgba(255,244,214,.9),transparent);
+  animation:pod-sweep 5.5s ease-in-out infinite;
+}
+@keyframes pod-sweep{0%,55%{left:-45%}80%,100%{left:110%}}
+/* Desktop stagger: middle card tall, flanks step down */
+@media(min-width:681px){
+  .pod--2{margin-top:26px}
+  .pod--3{margin-top:40px}
+}
 
 .pod-rank{
-  display:flex;align-items:center;gap:6px;
-  font-family:'Crimson Pro','Fraunces',serif;font-weight:900;font-size:.84rem;
-  letter-spacing:.04em;text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+  font-weight:800;font-size:.66rem;
+  letter-spacing:.15em;text-transform:uppercase;
 }
-.pod-rank .rk-num{
-  font-size:1.05rem;color:var(--text-dim);
+.medal{
+  width:26px;height:26px;flex-shrink:0;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:.74rem;font-weight:900;color:rgba(20,10,0,.78);
+  font-variant-numeric:tabular-nums;letter-spacing:0;
+  box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.55);
 }
+.pod--1 .medal{background:radial-gradient(circle at 32% 28%,#fde68a,#f59e0b 60%,#92400e)}
+.pod--2 .medal{background:radial-gradient(circle at 32% 28%,#f8fafc,#94a3b8 60%,#475569);color:rgba(10,10,14,.7)}
+.pod--3 .medal{background:radial-gradient(circle at 32% 28%,#fcd34d,#d97706 60%,#78350f)}
 .pod--1 .pod-rank{color:var(--amber)}
 .pod--2 .pod-rank{color:var(--silver)}
 .pod--3 .pod-rank{color:var(--bronze)}
-.pod--1 .pod-rank .rk-num,.pod--2 .pod-rank .rk-num,.pod--3 .pod-rank .rk-num{color:inherit}
 
 .pod-laurel{
-  width:14px;height:14px;opacity:.9;
+  width:15px;height:15px;opacity:.9;
 }
 .pod-body{
-  display:flex;align-items:center;gap:12px;margin-top:12px;
+  display:flex;align-items:center;gap:12px;margin-top:14px;
 }
 .pod-avatar{
-  width:46px;height:46px;flex-shrink:0;border-radius:50%;
+  width:50px;height:50px;flex-shrink:0;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
   background:var(--bg-card-2);
-  border:1px solid var(--border-strong);
+  border:2px solid var(--border-strong);
 }
 .pod-avatar svg,.deb-av svg{width:100%;height:100%;display:block}
-/* Avatars: flat tint, no radial. */
-.pod--1 .pod-avatar{background:rgba(251,191,36,.10);border-color:rgba(251,191,36,.36);color:var(--amber)}
-.pod--2 .pod-avatar{background:rgba(203,213,225,.08);border-color:rgba(203,213,225,.30);color:var(--silver)}
-.pod--3 .pod-avatar{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.36);color:var(--bronze)}
+/* Medal-ringed avatars; #1 gets the bigger frame + gold bloom */
+.pod--1 .pod-avatar{width:58px;height:58px;border-color:rgba(251,191,36,.6);box-shadow:0 0 0 3px rgba(251,191,36,.14),0 0 26px rgba(251,191,36,.2)}
+.pod--2 .pod-avatar{border-color:rgba(203,213,225,.45);box-shadow:0 0 0 3px rgba(203,213,225,.08)}
+.pod--3 .pod-avatar{border-color:rgba(217,119,6,.5);box-shadow:0 0 0 3px rgba(217,119,6,.1)}
 .pod-id{min-width:0;flex:1}
 .pod-name{
-  font-weight:800;font-size:1rem;letter-spacing:-.01em;
+  font-weight:800;font-size:1.02rem;letter-spacing:-.01em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+.pod--1 .pod-name{font-size:1.16rem}
 .pod-meta{
   font-size:.7rem;color:var(--text-dim);margin-top:3px;
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -439,7 +503,10 @@ button{font-family:inherit}
   stroke:var(--accent);stroke-width:1.4;fill:none;
   stroke-linecap:round;stroke-linejoin:round;
   opacity:.7;
+  stroke-dasharray:100;stroke-dashoffset:100;
+  animation:wave-draw 1.1s .45s cubic-bezier(.2,.7,.2,1) forwards;
 }
+@keyframes wave-draw{to{stroke-dashoffset:0}}
 .pod--1 .pod-wave path{stroke:var(--amber);opacity:.85}
 .pod-score-row{
   display:flex;align-items:baseline;justify-content:space-between;gap:10px;
@@ -447,10 +514,11 @@ button{font-family:inherit}
 }
 .pod-score{
   font-family:'Crimson Pro','Fraunces',serif;font-weight:700;
-  font-size:1.7rem;letter-spacing:-.025em;line-height:1;
+  font-size:1.9rem;letter-spacing:-.025em;line-height:1;
   font-variant-numeric:tabular-nums;color:var(--text);
 }
-.pod--1 .pod-score{color:var(--text)}
+.pod--1 .pod-score{font-size:2.3rem;color:var(--amber);text-shadow:0 0 24px rgba(251,191,36,.3)}
+[data-theme="light"] .pod--1 .pod-score{text-shadow:none}
 .pod-score-l{
   font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
   color:var(--text-ghost);
@@ -466,9 +534,11 @@ button{font-family:inherit}
 .pod-wl .s{color:var(--amber)}
 @media(max-width:680px){
   .podium{grid-template-columns:1fr;gap:10px}
+  .pod--1{order:-1}
   .pod{padding:14px 16px 14px}
-  .pod-avatar{width:42px;height:42px;font-size:1rem}
+  .pod-avatar,.pod--1 .pod-avatar{width:44px;height:44px}
   .pod-score{font-size:1.7rem}
+  .pod--1 .pod-score{font-size:1.9rem}
 }
 
 /* ─── Table ─── */
@@ -493,6 +563,12 @@ button{font-family:inherit}
   background:var(--bg-card-2);
 }
 .board-row:last-child{border-bottom:none}
+/* Rows cascade in on load; backwards fill so hover transforms survive */
+.board-row:not(.head){
+  animation:row-in .45s cubic-bezier(.2,.7,.2,1) backwards;
+  animation-delay:var(--d,0s);
+}
+@keyframes row-in{from{opacity:0;transform:translateY(8px)}}
 .board-row.self{
   background:linear-gradient(90deg,rgba(251,191,36,.06),transparent 60%);
   box-shadow:inset 2px 0 0 var(--amber);
@@ -572,10 +648,23 @@ button{font-family:inherit}
 }
 .cell-when.fresh{color:var(--green-dim);font-weight:700}
 .cell-score{
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px;
   font-family:'Crimson Pro','Fraunces',serif;font-weight:900;font-size:1.05rem;
   font-variant-numeric:tabular-nums;
   color:var(--accent);letter-spacing:-.02em;
   text-align:right;
+}
+/* Thin bar under the score: length = where this score sits relative
+   to the board leader, floored just under the lowest visible score. */
+.score-bar{
+  width:58px;height:3px;border-radius:999px;background:var(--bg-elev);
+  overflow:hidden;
+}
+.score-bar i{
+  display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,rgba(239,68,68,.5),var(--accent));
+  transform-origin:left;
+  animation:hot-grow .8s cubic-bezier(.2,.7,.2,1) both;
 }
 [data-theme="light"] .deb-av{color:var(--text)}
 [data-theme="light"] .deb-sub .fmt-chip{background:#f5f1ea}
@@ -595,10 +684,17 @@ button{font-family:inherit}
     grid-template-columns:38px 1fr 64px;
     gap:8px;padding:11px 12px;
   }
+  /* streak-col wraps the streak span; the head's W/L + Streak cells
+     are classless divs, so hide them by position (children 3 and 4). */
   .board-row .cell-wl,
   .board-row .cell-streak,
+  .board-row .streak-col,
   .board-row.head .cell-wl,
-  .board-row.head .cell-streak{display:none}
+  .board-row.head .cell-streak,
+  .board-row.head div:nth-child(3),
+  .board-row.head div:nth-child(4){display:none}
+  /* 38px rank track: the number alone; movement badges overflow here */
+  .board-row .move{display:none}
   .deb-name{font-size:.85rem}
   .cell-score{font-size:.95rem}
   .deb-av{width:26px;height:26px;font-size:.66rem}
@@ -752,6 +848,33 @@ button{font-family:inherit}
   display:block;margin:0 auto 18px;width:120px;height:60px;
   opacity:.5;
 }
+/* Ghost podium: three unclaimed seats. Sells the ranking idea while
+   the board is empty without faking a single name. */
+.ghost-podium{
+  display:flex;align-items:flex-end;justify-content:center;gap:10px;
+  max-width:340px;margin:0 auto 22px;
+}
+.ghost-slot{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  gap:6px;padding-top:12px;
+  border:1.5px dashed var(--border-strong);border-bottom:none;
+  border-radius:10px 10px 0 0;
+  color:var(--text-ghost);
+  animation:pod-rise .6s cubic-bezier(.2,.7,.2,1) backwards;
+}
+.ghost-slot.g1{height:100px;animation-delay:.15s}
+.ghost-slot.g2{height:72px;animation-delay:.05s}
+.ghost-slot.g3{height:56px;animation-delay:.25s}
+.ghost-slot .g-med{
+  width:24px;height:24px;border-radius:50%;
+  border:1.5px dashed var(--border-strong);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.ghost-slot.g1 .g-med{border-color:rgba(251,191,36,.5);color:var(--amber)}
+.ghost-slot.g2 .g-med{border-color:rgba(203,213,225,.4);color:var(--silver)}
+.ghost-slot.g3 .g-med{border-color:rgba(217,119,6,.45);color:var(--bronze)}
+.ghost-slot .g-lab{font-size:.56rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
 .spinner{
   display:inline-block;width:24px;height:24px;
   border:2.5px solid var(--border);border-top-color:var(--accent);
@@ -795,7 +918,8 @@ button{font-family:inherit}
 :root{ --mono:'JetBrains Mono',ui-monospace,Menlo,monospace; }
 html:not([data-theme="light"]) body{ background:#0b0a10; }
 .kicker,.hero-stat .l,.hero-stat .n,.board-row.head,.fmt-pill,.tab,.rank-n,
-.seed-note-tag,.state-cta-or{ font-family:var(--mono)!important; }
+.seed-note-tag,.state-cta-or,.ticker-eyebrow,.pod-rank,.pod-score-l,.medal,
+.ghost-slot .g-lab,.ghost-slot .g-med{ font-family:var(--mono)!important; }
 .hero-stat .n,.rank-n{ font-variant-numeric:tabular-nums;letter-spacing:-.01em!important;font-weight:700!important; }
 .kicker,.hero-stat .l,.board-row.head{ letter-spacing:.2em!important; }
 html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -862,6 +986,11 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
       </button>
     </div>
     <div id="fmtPills" class="fmt-pills" hidden></div>
+  </div>
+
+  <div id="ticker" class="ticker" hidden>
+    <span class="ticker-eyebrow"><span class="tick-dot" aria-hidden="true"></span>Latest scores</span>
+    <div class="ticker-viewport"><div class="ticker-track" id="tickerTrack"></div></div>
   </div>
 
   <main class="main-grid">
@@ -1186,7 +1315,7 @@ function podHTML(row, place){
     : '';
   return `
     <article class="pod pod--${place}">
-      <div class="pod-rank">${laurel}<span class="rk-num">#${place}</span><span>${place===1?'Top of board':place===2?'Runner up':'Bronze'}</span></div>
+      <div class="pod-rank"><span class="medal" aria-hidden="true">${place}</span><span>${place===1?'Top of board':place===2?'Runner up':'Bronze'}</span>${laurel}</div>
       <div class="pod-body">
         <div class="pod-avatar" aria-hidden="true">${av}</div>
         <div class="pod-id">
@@ -1199,10 +1328,10 @@ function podHTML(row, place){
         </div>
       </div>
       <svg class="pod-wave" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
-        <path d="${wave}"/>
+        <path d="${wave}" pathLength="100"/>
       </svg>
       <div class="pod-score-row">
-        <div class="pod-score">${score}</div>
+        <div class="pod-score"${typeof row.score==='number'?` data-count="${row.score}"`:''}>${score}</div>
         <div class="pod-score-l">Speaker pts</div>
       </div>
       <div class="pod-wl">
@@ -1223,6 +1352,27 @@ function renderPodium(rows){
   podium.hidden=false;
   // Visual order: 2nd, 1st, 3rd → classic podium left-tall-right
   podium.innerHTML = podHTML(top[1],2) + podHTML(top[0],1) + podHTML(top[2],3);
+  animatePodScores();
+}
+
+// Count the podium scores up from zero on render. Skipped under
+// prefers-reduced-motion; final text is always the exact score.
+function animatePodScores(){
+  try{
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    podium.querySelectorAll('.pod-score[data-count]').forEach(el=>{
+      const target=parseFloat(el.getAttribute('data-count'));
+      if(!isFinite(target)) return;
+      const dur=950, t0=performance.now();
+      function tick(t){
+        const p=Math.min(1,(t-t0)/dur);
+        const eased=1-Math.pow(1-p,3);
+        el.textContent=(target*eased).toFixed(1);
+        if(p<1) requestAnimationFrame(tick); else el.textContent=target.toFixed(1);
+      }
+      requestAnimationFrame(tick);
+    });
+  }catch(_){}
 }
 
 // ── render: table rows 4..N ────────────────────────────────────────
@@ -1258,12 +1408,11 @@ function renderTable(rows){
     // can still be tracked for the launch.
     board.innerHTML=`
       <div class="state state-empty-real">
-        <svg class="state-silhouette" viewBox="0 0 120 60" fill="none" aria-hidden="true">
-          <circle cx="38" cy="20" r="8" stroke="currentColor" stroke-width="1.4"/>
-          <circle cx="82" cy="20" r="8" stroke="currentColor" stroke-width="1.4"/>
-          <path d="M22 50c4-8 10-12 16-12s12 4 16 12M66 50c4-8 10-12 16-12s12 4 16 12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-          <path d="M60 12v36" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3"/>
-        </svg>
+        <div class="ghost-podium" aria-hidden="true">
+          <div class="ghost-slot g2"><span class="g-med">2</span><span class="g-lab">Open</span></div>
+          <div class="ghost-slot g1"><span class="g-med">1</span><span class="g-lab">Open</span></div>
+          <div class="ghost-slot g3"><span class="g-med">3</span><span class="g-lab">Open</span></div>
+        </div>
         <h3>No ${tabNoun} on the board yet${filterClause}.</h3>
         <p class="state-honest">
           The product is in beta with about ten people playing on a given day. The leaderboard fills
@@ -1337,16 +1486,27 @@ function renderTable(rows){
       <div style="text-align:right">Score</div>
     </div>`;
   const selfUid = state.user && state.user.uid;
+  // Score bars: normalize against the visible spread, not a fixed
+  // scale floor. Formats score on different scales (30-pt PF, 50-100
+  // Worlds), so the floor sits a bit below the lowest visible score
+  // and the leader reads 100%.
+  const scored = rows.filter(r=>typeof r.score==='number' && isFinite(r.score));
+  const maxS = scored.length ? Math.max.apply(null, scored.map(r=>r.score)) : null;
+  const minS = scored.length ? Math.min.apply(null, scored.map(r=>r.score)) : null;
+  const barFloor = (maxS!==null && maxS>minS) ? (minS - Math.max((maxS-minS)*0.35, 0.5)) : null;
   const body = tail.map((r,i)=>{
     const idx=i+3;
     const uid=r.uid||r.displayName||'';
     const isSelf = selfUid && uid===selfUid;
     const fresh = isFresh(r.completedAt, 30);
+    const pct = (barFloor!==null && typeof r.score==='number' && isFinite(r.score))
+      ? Math.max(6, Math.min(100, Math.round(((r.score-barFloor)/(maxS-barFloor))*100)))
+      : null;
     const liveMark = r.kind==='live' && fresh
       ? `<span class="live-mark"><span style="width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px rgba(239,68,68,.18)"></span>live</span>`
       : '';
     return `
-      <div class="board-row${isSelf?' self':''}" role="row">
+      <div class="board-row${isSelf?' self':''}" role="row" style="--d:${Math.min(i,14)*40}ms">
         <div class="rank-cell">
           <span class="rank-n">${idx+1}</span>
           ${moveBadge(uid, idx)}
@@ -1362,13 +1522,44 @@ function renderTable(rows){
           </div>
         </div>
         <div class="cell-wl"><span class="w">${r._wins||0}</span><span style="opacity:.4"> / </span><span class="l">${r._losses||0}</span></div>
-        <div>${streakCell(r._streak||0)}</div>
+        <div class="streak-col">${streakCell(r._streak||0)}</div>
         <div class="cell-rounds">${r._rounds||0}</div>
         <div class="cell-when${fresh?' fresh':''}">${escapeHtml(fmtAgo(r.completedAt))}</div>
-        <div class="cell-score">${fmtScore(r.score)}</div>
+        <div class="cell-score"><span>${fmtScore(r.score)}</span>${pct!==null?`<span class="score-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>`:''}</div>
       </div>`;
   }).join('');
   board.innerHTML = head + body;
+}
+
+// ── results ticker: latest scores across the active view ──────────
+const tickerHost=document.getElementById('ticker');
+const tickerTrack=document.getElementById('tickerTrack');
+function rowMillis(ts){
+  if(!ts) return 0;
+  try{ const d=ts.toDate?ts.toDate():new Date(ts); return d.getTime()||0; }catch(_){ return 0; }
+}
+function renderTicker(rows){
+  if(!tickerHost||!tickerTrack) return;
+  const items=(rows||[])
+    .filter(r=>r.completedAt && typeof r.score==='number')
+    .slice()
+    .sort((a,b)=>rowMillis(b.completedAt)-rowMillis(a.completedAt))
+    .slice(0,8);
+  if(items.length<3){
+    tickerHost.hidden=true;
+    tickerTrack.innerHTML='';
+    return;
+  }
+  const html=items.map(r=>
+    `<span class="ticker-item"><strong>${escapeHtml(r.displayName||'Anonymous')}</strong>`+
+    `<span class="t-sep">·</span>${escapeHtml(r.formatName||r.format||'round')}`+
+    `<span class="t-sep">·</span><span class="t-score">${fmtScore(r.score)}</span>`+
+    `<span class="t-sep">·</span>${escapeHtml(fmtAgo(r.completedAt))}</span>`
+  ).join('');
+  // List rendered twice; the -50% translate loop needs the doubling.
+  tickerTrack.innerHTML=html+html;
+  tickerTrack.style.setProperty('--tick-dur', Math.max(24, items.length*6)+'s');
+  tickerHost.hidden=false;
 }
 
 function renderBoard(allRowsRaw){
@@ -1377,6 +1568,7 @@ function renderBoard(allRowsRaw){
   state.rankMovement = computeMovement(rows);
   renderPodium(rows);
   renderTable(rows);
+  renderTicker(rows);
   // Save the snapshot for the next visit. Done after render so the
   // first paint of a session is stable.
   saveSnapshot(rows);
