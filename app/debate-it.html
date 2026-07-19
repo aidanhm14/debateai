@@ -126,11 +126,15 @@ document.documentElement.setAttribute('data-lighting','light');
 html{min-height:100%;overflow-x:hidden}body{min-height:100vh;overflow-x:hidden}
 :root{
   --bg:#1a1a1e;--fg:#f5f5f7;
-  --c-faint:rgba(255,255,255,.15);--c-dim:rgba(255,255,255,.2);
-  --c-subtle:rgba(255,255,255,.25);--c-muted:rgba(255,255,255,.3);
-  --c-mid:rgba(255,255,255,.35);--c-text:rgba(255,255,255,.4);
-  --c-text2:rgba(255,255,255,.45);--c-text3:rgba(255,255,255,.5);
-  --c-text4:rgba(255,255,255,.6);--c-bright:rgba(255,255,255,.7);
+  /* Dark-theme contrast pass (2026-07-19), mirroring the light theme's
+     2026-05-20 rebuild below. The old ladder bottomed out at .2 alpha
+     (about 1.9:1 on this bg, illegible) and even --c-text was 3.6:1.
+     Same hierarchy, higher floor: --c-dim now ~4.2:1, --c-text ~6:1. */
+  --c-faint:rgba(255,255,255,.25);--c-dim:rgba(255,255,255,.42);
+  --c-subtle:rgba(255,255,255,.48);--c-muted:rgba(255,255,255,.52);
+  --c-mid:rgba(255,255,255,.58);--c-text:rgba(255,255,255,.64);
+  --c-text2:rgba(255,255,255,.68);--c-text3:rgba(255,255,255,.72);
+  --c-text4:rgba(255,255,255,.78);--c-bright:rgba(255,255,255,.88);
   --c-surface:rgba(255,255,255,.03);--c-surface2:rgba(255,255,255,.04);
   --c-surface3:rgba(255,255,255,.06);--c-surface4:rgba(255,255,255,.08);
   --c-border:rgba(255,255,255,.06);--c-border2:rgba(255,255,255,.08);
@@ -166,6 +170,13 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 #root{min-height:100vh}
+
+/* Advanced-setup nudge pill. Was an inline white-on-white style that
+   only worked on light; theme-scoped here so dark gets readable ink. */
+.adv-setup-btn{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.24);border-radius:999px;color:rgba(255,255,255,.92);font-family:inherit;font-size:.78rem;font-weight:800;cursor:pointer;padding:8px 15px;letter-spacing:.02em;transition:background .15s,border-color .15s}
+.adv-setup-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.4)}
+[data-lighting="light"] .adv-setup-btn{background:rgba(255,255,255,.72);border-color:var(--c-border2);color:var(--c-bright);box-shadow:0 10px 28px rgba(0,0,0,.06)}
+[data-lighting="light"] .adv-setup-btn:hover{background:#fff;border-color:var(--c-border3)}
 
 /* ── Ambient ───────────────────────── */
 .ambient{
@@ -8610,7 +8621,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ' Hundreds of real cases, real judge ballots, and feedback from debaters who compete. It sharpens every night.'
   ),
   el('div', { style: { textAlign: 'center', marginTop: 16 } },
-  el('button', { onClick: goAdvanced, style: { background: 'rgba(255,255,255,.72)', border: '1px solid var(--c-border2)', borderRadius: 999, color: 'var(--c-bright)', fontFamily: 'inherit', fontSize: '.78rem', fontWeight: 800, cursor: 'pointer', padding: '8px 15px', letterSpacing: '.02em', boxShadow: '0 10px 28px rgba(0,0,0,.06)' } }, 'Competitive debater? Use advanced setup →')
+  el('button', { onClick: goAdvanced, className: 'adv-setup-btn' }, 'Competitive debater? Use advanced setup →')
   ),
   showCompetitiveNudge && el('div', { style: { margin: '16px auto 0', maxWidth: 560, textAlign: 'left', padding: '14px 16px', borderRadius: 16, border: '1px solid rgba(239,68,68,.32)', background: 'rgba(239,68,68,.06)', boxShadow: '0 16px 36px rgba(239,68,68,.08)' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' } },
