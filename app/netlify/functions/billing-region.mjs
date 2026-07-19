@@ -19,8 +19,23 @@ export default async (request) => {
   const razorpayConfigured = !!process.env.RAZORPAY_KEY_ID;
   const useRazorpay = isIndia(request) && razorpayConfigured;
 
+  // Single source of truth for the beta no-charge state. This MUST read
+  // the same env var, with the same default, as create-checkout.mjs and
+  // razorpay-order.mjs — those two are the enforcement points; this is
+  // only how the client learns which UI to show.
+  //
+  // Before this existed the state was duplicated in three places: the
+  // env var here, `CHECKOUT_BETA_NO_CHARGE` in index.html, and
+  // `BETA_NO_CHARGE` in pricing.html, with comments telling whoever
+  // flipped one to remember the other two. Flipping the clients first
+  // meant every upgrade button 403'd against a server still in beta.
+  // Now there is one switch: set BETA_NO_CHARGE=false in Netlify and
+  // both the server and the UI turn on together, no deploy needed.
+  const betaNoCharge = !['false', '0'].includes(String(process.env.BETA_NO_CHARGE ?? 'true').toLowerCase());
+
   return jsonResponse({
     country,
+    betaNoCharge,
     currency: useRazorpay ? 'INR' : 'USD',
     provider: useRazorpay ? 'razorpay' : 'stripe',
     prices: useRazorpay

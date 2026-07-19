@@ -11790,7 +11790,28 @@ function AuthModal({ onSignIn, onClose }) {
    the resume flow in App goes straight back into Stripe checkout instead.
    ═══════════════════════════════════════════════════ */
 
+/* Beta no-charge state, single-sourced from the server.
+   Starts TRUE and is relaxed only when /api/billing/region reports
+   betaNoCharge:false, i.e. when BETA_NO_CHARGE=false is set in the
+   Netlify env — the same var create-checkout.mjs enforces on. One
+   switch flips the server and every client together; there is no
+   longer a hardcoded copy here to drift out of sync and send users
+   into a 403.
+
+   The true-by-default direction is deliberate. If the fetch fails or
+   hasn't landed when someone clicks, we fall back to the beta bounce
+   rather than attempting a charge against an unknown billing state. */
 var CHECKOUT_BETA_NO_CHARGE = true;
+(function () {
+  try {
+    fetch('/api/billing/region', { method: 'GET' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.betaNoCharge === false) CHECKOUT_BETA_NO_CHARGE = false;
+      })
+      .catch(function () { /* stay in beta mode */ });
+  } catch (e) { /* stay in beta mode */ }
+})();
 
 function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   var el = React.createElement;

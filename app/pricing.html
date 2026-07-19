@@ -471,8 +471,19 @@ document.documentElement.setAttribute('data-force-theme','light');
     // Beta: no card is collected and nobody can be charged. Every billing
     // path funnels through startCheckout, so gating at the top blocks the
     // click handler, ?upgrade= deep links, and the post-sign-in auto-resume
-    // alike. Flip BETA_NO_CHARGE to false to resume Stripe / Razorpay billing.
-    var BETA_NO_CHARGE = true;
+    // alike.
+    //
+    // This is now READ FROM THE SERVER (/api/billing/region → betaNoCharge),
+    // not hardcoded, so it can never disagree with create-checkout.mjs.
+    // Set BETA_NO_CHARGE=false in the Netlify env to go live; no deploy.
+    //
+    // Defaults to TRUE when the region fetch hasn't landed or failed. That
+    // direction is deliberate: an unknown billing state must never charge
+    // someone. Worst case on a failed fetch is a beta-style bounce into the
+    // app, which is the behaviour we already ship today.
+    var BETA_NO_CHARGE = (regionInfo && typeof regionInfo.betaNoCharge === 'boolean')
+      ? regionInfo.betaNoCharge
+      : true;
     if (BETA_NO_CHARGE) {
       showStatus("Beta is free. You cannot be charged today. Opening the app so your plan intent stays tied to your account.", false);
       try { sessionStorage.setItem('intended_plan', plan); } catch (e) {}
