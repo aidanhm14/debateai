@@ -35,6 +35,12 @@ em, i { font-style: normal; }
   --bg:#111;
   --bg-card:rgba(255,255,255,.03);
   --bg-elev:rgba(20,20,24,.55);
+  /* Opaque elevation for dropdowns/sheets that float over page content.
+     --bg-elev is translucent by design (topbar frosted glass), but a
+     descendant of the blurred topbar can't backdrop-blur the page behind
+     it (ancestor backdrop root), so menus using --bg-elev let text bleed
+     through. Menus use this solid token instead. (2026-07-19) */
+  --bg-elev-solid:#17171b;
   --border:rgba(255,255,255,.08);
   --border-strong:rgba(255,255,255,.18);
   --text:#fff;
@@ -69,6 +75,7 @@ body.light-theme{
   --bg:#fafaf7;
   --bg-card:rgba(0,0,0,.03);
   --bg-elev:rgba(255,255,255,.8);
+  --bg-elev-solid:#ffffff;
   --border:rgba(0,0,0,.08);
   --border-strong:rgba(0,0,0,.18);
   --text:#1a1a1f;
@@ -86,6 +93,7 @@ body.crimson-theme{
   --bg:#000;
   --bg-card:rgba(255,40,40,.03);
   --bg-elev:rgba(30,10,10,.55);
+  --bg-elev-solid:#1a0a0a;
   --border:rgba(239,68,68,.12);
   --border-strong:rgba(239,68,68,.28);
   --text:#fff;
@@ -623,10 +631,9 @@ body.light-theme .ui-btn-voice{
   position:fixed;left:0;right:0;top:60px;z-index:999;
   display:flex;flex-direction:column;gap:4px;
   padding:14px 16px 22px;
-  background:var(--bg-elev, rgba(20,20,24,.96));
+  background:var(--bg-elev-solid, #17171b);
   border-bottom:1px solid var(--border, rgba(255,255,255,.08));
   box-shadow:0 18px 40px rgba(0,0,0,.4);
-  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   transform:translateY(-12px);opacity:0;
   /* CRITICAL: the closed sheet must NOT catch taps. The class rule
      `display:flex` above outranks the UA `[hidden]{display:none}` rule
@@ -752,10 +759,12 @@ body.has-beta-strip .ui-topbar-sheet{top:88px}
   position:absolute;top:calc(100% + 17px);right:-10px;z-index:1001;
   display:none;grid-template-columns:auto auto auto;gap:16px 26px;
   padding:18px 22px 20px;border-radius:14px;
-  background:var(--bg-elev, rgba(20,20,24,.96));
+  /* Solid, not --bg-elev: inside the blurred topbar, backdrop-filter
+     can't reach the page behind, so a translucent bg lets the hero
+     text bleed through the open menu. */
+  background:var(--bg-elev-solid, #17171b);
   border:1px solid var(--border, rgba(255,255,255,.1));
   box-shadow:0 24px 60px -20px rgba(0,0,0,.5);
-  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
 }
 .ui-topbar-more-panel.is-open{display:grid}
 .ui-topbar-more-head{
