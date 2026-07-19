@@ -1,4 +1,4 @@
-/* face-mask.js — anonymous camera pipeline for DebateIt video rooms.
+/* face-mask.js — anonymous camera pipeline for Debatable video rooms.
  *
  * Takes a camera MediaStream, returns a processed MediaStream whose video
  * track has the speaker's face covered by a drawn mask, suitable for

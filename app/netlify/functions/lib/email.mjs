@@ -136,7 +136,7 @@ export function renderFooter({ uid, stream, reason } = {}) {
 }
 
 // ── Send via Resend ──────────────────────────────────────────────────────────
-// from:    explicit arg > EMAIL_FROM env > 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>'
+// from:    explicit arg > EMAIL_FROM env > 'Aidan @ Debatable <aidandavidhollinger@gmail.com>'
 //          (the pre-lib prod default for the scheduled senders; do NOT swap
 //          in an @debateai.com address here unless it is a verified Resend
 //          sender, or every unset-env send starts 403ing)
@@ -151,7 +151,7 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   if (!key) return { ok: false, reason: 'no-key' };
   if (!to) return { ok: false, reason: 'no-recipient' };
 
-  const resolvedFrom = from || process.env.EMAIL_FROM || 'Aidan @ DebateIt <aidandavidhollinger@gmail.com>';
+  const resolvedFrom = from || process.env.EMAIL_FROM || 'Aidan @ Debatable <aidandavidhollinger@gmail.com>';
   const resolvedReplyTo = replyTo || process.env.EMAIL_REPLY_TO || 'aidandavidhollinger@gmail.com';
   const resolvedText = text || toText(html);
 

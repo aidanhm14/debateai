@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────────
-// auth-modal.js — shared sign-in helper for DebateIt.
+// auth-modal.js — shared sign-in helper for Debatable.
 //
 // Web keeps the low-friction Google path. The native app shows an app-native
 // chooser with Apple and Google, then exchanges the provider credential into

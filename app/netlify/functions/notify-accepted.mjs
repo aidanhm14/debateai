@@ -10,9 +10,9 @@
 //
 // Env vars (set in Netlify):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
-//   RESEND_FROM     — verified sender, e.g. "DebateIt <aidandavidhollinger@gmail.com>"
+//   RESEND_FROM     — verified sender, e.g. "Debatable <aidandavidhollinger@gmail.com>"
 //                     (when unset: EMAIL_FROM env, then the always-deliverable
-//                      dev sender 'DebateIt <onboarding@resend.dev>', which
+//                      dev sender 'Debatable <onboarding@resend.dev>', which
 //                      Resend accepts on any account with no domain setup)
 //
 // Sends ride through lib/email.mjs on the 'transactional' stream: shared
@@ -53,7 +53,7 @@ function template({ subject, headline, sub, motion, format, kickoff, roomUrl, op
 <html><body style="margin:0;padding:24px;background:#0a0a0c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e5e7eb">
   <table role="presentation" style="max-width:560px;margin:0 auto;background:#15151a;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden">
     <tr><td style="padding:24px 28px 16px">
-      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">DebateIt · Live</div>
+      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">Debatable · Live</div>
       <h1 style="margin:8px 0 6px;font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em">${safe(headline)}</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:#9ca3af">${safe(sub)}</p>
     </td></tr>
@@ -87,7 +87,7 @@ export default async (req) => {
   // this file's historical zero-env fallback and works on any Resend
   // account without domain verification; don't let it fall through to the
   // lib's gmail default, which needs a verified sender identity.
-  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'DebateIt <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <onboarding@resend.dev>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',

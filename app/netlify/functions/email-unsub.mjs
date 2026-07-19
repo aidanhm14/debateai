@@ -49,24 +49,24 @@ const STOP_SENTENCE = {
   digest: 'The weekly digest and the occasional check-in emails stop here.',
   winback: 'The occasional check-in emails stop here. Nothing else changes.',
   sparnight: 'The Spar Night reminders stop here. Nothing else changes.',
-  onboarding: 'All DebateIt email stops here, except confirmations for rounds you schedule yourself.',
-  all: 'All DebateIt email stops here, except confirmations for rounds you schedule yourself.',
+  onboarding: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
+  all: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
 };
 
 const CONFIRM_SENTENCE = {
   digest: 'This stops the weekly digest and the occasional check-in emails.',
   winback: 'This stops the occasional check-in emails. Nothing else changes.',
   sparnight: 'This stops the weekly Spar Night reminders. Nothing else changes.',
-  onboarding: 'This stops all DebateIt email, except confirmations for rounds you schedule yourself.',
-  all: 'This stops all DebateIt email, except confirmations for rounds you schedule yourself.',
+  onboarding: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
+  all: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
 };
 
 const RESUME_SENTENCE = {
   digest: 'The weekly digest will show up again.',
   winback: 'The occasional check-in emails are back on.',
   sparnight: 'The Spar Night reminders are back on.',
-  onboarding: 'DebateIt email is back on.',
-  all: 'DebateIt email is back on.',
+  onboarding: 'Debatable email is back on.',
+  all: 'Debatable email is back on.',
 };
 
 // ── Tiny branded page shell, styled to match the email template ──────────────
@@ -101,7 +101,7 @@ function invalidPage() {
     This link is invalid or expired.
   </h1>
   <p style="font-size:.95rem;line-height:1.55;color:#3a3a44;margin:0 0 22px">
-    Open the latest email from DebateIt and use its unsubscribe link, or reply to the email to opt out.
+    Open the latest email from Debatable and use its unsubscribe link, or reply to the email to opt out.
   </p>
   <a href="${SITE_URL}" style="display:inline-block;padding:13px 22px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em">
     Back to debateai.com
@@ -148,7 +148,7 @@ function confirmPage({ uid, stream }) {
     <a href="${esc(undoHref)}" style="color:#dc2626;text-decoration:none;font-weight:600">Undo</a>.
   </p>
   ${allHref ? `<p style="margin-top:14px;font-size:.76rem;line-height:1.5;color:#9b9ba8">
-    <a href="${esc(allHref)}" style="color:#9b9ba8;text-decoration:underline">Unsubscribe from all DebateIt email</a>
+    <a href="${esc(allHref)}" style="color:#9b9ba8;text-decoration:underline">Unsubscribe from all Debatable email</a>
   </p>` : ''}`));
 }
 
@@ -158,7 +158,7 @@ function confirmPage({ uid, stream }) {
 function resubPage({ uid, stream, stillBlocked }) {
   const body = stillBlocked
     ? `Saved. One catch: an earlier unsubscribe still switches these emails off.
-    <a href="${esc(`${unsubUrl(uid, 'all')}&resub=1`)}" style="color:#dc2626;text-decoration:none;font-weight:600">Turn all DebateIt email back on</a>.`
+    <a href="${esc(`${unsubUrl(uid, 'all')}&resub=1`)}" style="color:#dc2626;text-decoration:none;font-weight:600">Turn all Debatable email back on</a>.`
     : RESUME_SENTENCE[stream];
   return htmlResponse(200, page("You're back on the list", `
   <h1 style="font-size:1.35rem;font-weight:800;letter-spacing:-.015em;line-height:1.25;color:#1a1a1f;margin:0 0 14px">
@@ -242,7 +242,7 @@ export default async (req) => {
   if (fromForm) {
     return confirmPage({ uid, stream });
   }
-  return textResponse(200, 'Unsubscribed. DebateIt will stop sending these emails.');
+  return textResponse(200, 'Unsubscribed. Debatable will stop sending these emails.');
 };
 
 export const config = { path: '/api/email-unsub' };

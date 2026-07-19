@@ -1,10 +1,10 @@
-/* DebateIt avatars. A procedural portrait engine shared by user avatars,
+/* Debatable avatars. A procedural portrait engine shared by user avatars,
    One module powers both surfaces: the user builds their own avatar,
    and the AI debaters get matched-set faces from the same generator.
 
    Art direction: young, dimensional, and composed. Faces fill the frame;
    restrained light, depth, and orbital lines make them feel native to the
-   DebateIt brain system. Built for HS-through-college debaters, not a
+   Debatable brain system. Built for HS-through-college debaters, not a
    boardroom or a sticker pack.
 
    Public API (window.DBAvatar):

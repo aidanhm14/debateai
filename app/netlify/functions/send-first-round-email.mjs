@@ -63,7 +63,7 @@ function buildHtml({ uid, firstName, motion, side, format, rfdSnippet, nextMotio
     Run this round →
   </a>
   <p style="font-size:.7rem;color:#8a8a94;margin:32px 0 0;border-top:1px solid #e8e8e0;padding-top:16px">
-    DebateIt · debateai.com · Built by a UChicago parliamentary debater.
+    Debatable · debateai.com · Built by a UChicago parliamentary debater.
   </p>
   ${renderFooter({ uid, stream: 'onboarding', reason: 'You finished your first round on debateai.com. One of these per signup, never a repeat. Reply if you want to talk debate, the AI, or anything else.' })}
 </div>

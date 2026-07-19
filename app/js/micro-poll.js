@@ -65,7 +65,7 @@
     },
     // Clarity check: does the page land? Cheap message-market read.
     clarity: {
-      q: 'Was it clear what DebateIt actually does?',
+      q: 'Was it clear what Debatable actually does?',
       options: [
         { label: 'Yes, totally', value: 'clear' },
         { label: 'Sort of', value: 'partial' },
@@ -77,7 +77,7 @@
     },
     // Pricing: what unlocks a paid decision (framed for the beta reality).
     pricing: {
-      q: 'What would make DebateIt worth paying for?',
+      q: 'What would make Debatable worth paying for?',
       options: [
         { label: 'More realistic AI', value: 'ai_quality' },
         { label: 'Live human rounds', value: 'humans' },
@@ -100,7 +100,7 @@
     },
     // Generic catch-all for any page without a specific poll.
     generic: {
-      q: 'One thing that would make DebateIt more useful?',
+      q: 'One thing that would make Debatable more useful?',
       options: [
         { label: 'More formats / drills', value: 'content' },
         { label: 'Smarter opponent', value: 'opponent' },
@@ -122,7 +122,7 @@
   var POLL_AB = {
     intent: [
       { name: 'identity', cfg: {
-        q: 'What would make DebateIt useful this week?',
+        q: 'What would make Debatable useful this week?',
         options: [
           { label: 'Find stronger practice rounds', value: 'practice_rounds' },
           { label: 'Get sharper judge feedback', value: 'judge_feedback' },
@@ -131,7 +131,7 @@
         other: 'Something else', otherPrompt: 'What would actually help?'
       } },
       { name: 'goal', cfg: {
-        q: 'What should DebateIt help you do next?',
+        q: 'What should Debatable help you do next?',
         options: [
           { label: 'Prepare for a real tournament', value: 'tournament' },
           { label: 'Fix one debate habit', value: 'skill' },
@@ -140,7 +140,7 @@
         other: 'Something else', otherPrompt: 'What do you want next?'
       } },
       { name: 'brought_you', cfg: {
-        q: 'Where would you use DebateIt first?',
+        q: 'Where would you use Debatable first?',
         options: [
           { label: 'Solo reps before a round', value: 'solo' },
           { label: 'Team practice', value: 'team' },
@@ -158,7 +158,7 @@
         other: 'Something else', otherPrompt: 'What is blocking you?'
       } },
       { name: 'worth_it', cfg: {
-        q: 'What would make DebateIt worth coming back to?',
+        q: 'What would make Debatable worth coming back to?',
         options: [
           { label: 'A tougher opponent', value: 'opponent' },
           { label: 'Sharper judge feedback', value: 'judging' },

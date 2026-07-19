@@ -1,11 +1,11 @@
-# DebateIt — Floating Round (Chrome/Edge extension)
+# Debatable — Floating Round (Chrome/Edge extension)
 
-A one-click launcher for a DebateIt voice round you can keep on top of your
+A one-click launcher for a Debatable voice round you can keep on top of your
 other apps while you work.
 
 ## What it does
 
-The toolbar button opens (or focuses) a DebateIt voice round at
+The toolbar button opens (or focuses) a Debatable voice round at
 `debateai.com/voice-debate`. Inside the round, the **⧉ Float over apps**
 button pops it into an always-on-top window (Document Picture-in-Picture)
 that stays visible over Slack, docs, your editor, anything — with a live
@@ -32,7 +32,7 @@ not over other desktop apps.
 1. Go to `chrome://extensions` (or `edge://extensions`).
 2. Turn on **Developer mode** (top-right).
 3. Click **Load unpacked** and select this `float-extension` folder.
-4. Pin the DebateIt icon to your toolbar. Click it to start a floating round.
+4. Pin the Debatable icon to your toolbar. Click it to start a floating round.
 
 ## Files
 

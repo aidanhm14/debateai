@@ -1,4 +1,4 @@
-/* live-pip.js — shared floating / picture-in-picture helper for DebateIt
+/* live-pip.js — shared floating / picture-in-picture helper for Debatable
    live debate surfaces (voice-debate.html, live-round.html).
 
    Public API (window.LivePiP):
@@ -216,7 +216,7 @@
 
     var f = document.createElement('iframe');
     f.id = 'lpip-shell';
-    f.title = 'DebateIt';
+    f.title = 'Debatable';
     f.allow = 'camera; microphone; autoplay; clipboard-write; fullscreen';
     f.addEventListener('load', function () {
       var path = '', title = '';

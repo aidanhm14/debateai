@@ -1249,7 +1249,7 @@ export const GUIDE_BANK = {
       {
         heading: 'Getting live rounds against real humans',
         body: [
-          'Solo reps build mechanics. Live rounds test them against a person who does not care about your plan. The usual sources, in rough order of accessibility: your own club moved onto a video call with full speech times, the Discord practice servers where most competitive circuits organize offseason scrims, and matchmaking built for exactly this. DebateIt runs live matchmaking at /spar that pairs you with another debater for a judged round, with an AI opponent as the fallback when the queue is thin.',
+          'Solo reps build mechanics. Live rounds test them against a person who does not care about your plan. The usual sources, in rough order of accessibility: your own club moved onto a video call with full speech times, the Discord practice servers where most competitive circuits organize offseason scrims, and matchmaking built for exactly this. Debatable runs live matchmaking at /spar that pairs you with another debater for a judged round, with an AI opponent as the fallback when the queue is thin.',
           'Whatever the source, one habit decides whether the round is worth anything: treat it like a tournament round. Full speech times, POIs live, no restarts, cameras on. And favor strangers. A teammate who has heard your extension six times rebuts it from memory; a stranger rebuts what you actually said. One stranger round a week is worth more than five inside your own club.',
           'When no judge is present, trade ballots. After the round, each debater writes a three-line RFD for the other: who won, on which argument, and the one thing to fix before the next round. Two minutes of writing each, and both of you leave with the thing practice rounds usually fail to produce: a written record of what actually happened.',
         ],
@@ -1379,7 +1379,7 @@ export const GUIDE_BANK = {
       {
         heading: 'Where AI sparring fits',
         body: [
-          'The one thing no solo drill fakes is an opponent who answers the argument you actually made and presses exactly where you flinched. When no partner exists, an AI round fills that slot: pick a format, argue out loud, take the POIs, and read the judged RFD when it ends. On DebateIt that is one click and zero scheduling, which matters most at the hours nobody else is practicing.',
+          'The one thing no solo drill fakes is an opponent who answers the argument you actually made and presses exactly where you flinched. When no partner exists, an AI round fills that slot: pick a format, argue out loud, take the POIs, and read the judged RFD when it ends. On Debatable that is one click and zero scheduling, which matters most at the hours nobody else is practicing.',
           'Keep the ratio honest. Drills build the mechanics; sparring tests whether they hold under interruption. A workable split for a partnerless week is four drill sessions to two judged rounds, with the ballots from those rounds deciding which drills the next week gets.',
         ],
       },
@@ -1478,7 +1478,7 @@ export const GUIDE_BANK = {
         heading: 'Close the feedback loop',
         body: [
           'A speech without feedback is a rep with no weight on the bar. Two loops cost nothing. Ballots: keep a running document of every judge comment; one ballot is noise, five ballots are a diagnosis. When the format allows questions after the round, ask one specific one, not "how did I do" but "what would have made the second speech a clear win." Specific questions get answers you can drill. Recordings: record every practice speech on your phone and listen back the same day for filler words, dead pace, and missing signposts. Count the filler words, write the number down, beat it next session.',
-          'The third loop is an opponent who pushes back. A teammate works. So does an AI sparring partner; a practice round on DebateIt ends with a judge ballot, which turns a solo session into a scored rep instead of a monologue. Whatever the source, the rule is the same: no speech disappears unexamined. If you spoke and nothing graded it, you rehearsed your habits, good and bad alike.',
+          'The third loop is an opponent who pushes back. A teammate works. So does an AI sparring partner; a practice round on Debatable ends with a judge ballot, which turns a solo session into a scored rep instead of a monologue. Whatever the source, the rule is the same: no speech disappears unexamined. If you spoke and nothing graded it, you rehearsed your habits, good and bad alike.',
         ],
       },
       {
@@ -1523,7 +1523,7 @@ export const GUIDE_BANK = {
       },
       {
         q: 'Can I improve at debate without a club or partner?',
-        a: 'Yes. Flow recorded outrounds and predict each speech before playing it, run redelivery drills against your phone, and rebut published cases on a 60-second prep clock. For live pushback, an AI opponent works: DebateIt runs a timed round and writes a judge ballot, so solo practice still ends with feedback.',
+        a: 'Yes. Flow recorded outrounds and predict each speech before playing it, run redelivery drills against your phone, and rebut published cases on a 60-second prep clock. For live pushback, an AI opponent works: Debatable runs a timed round and writes a judge ballot, so solo practice still ends with feedback.',
       },
       {
         q: 'Is watching debate videos good practice?',
@@ -1589,7 +1589,7 @@ export const GUIDE_BANK = {
         heading: 'The last-speech checklist',
         body: [
           'The final speech is not a summary; it is the ballot, written out loud. Five items, in order. One: name the voting issues, two of them, three at most. Two: for each, state what you said, the best thing they said back, and why your side still wins it. Three: weigh, comparing your strongest impact against theirs on magnitude, probability, and timeframe. Four: fire one even-if line at their best remaining argument. Five: end with the single sentence you want to appear on the ballot.',
-          'No new arguments. In most formats they get struck, and in a classroom they read as unfair. New comparisons of old material are always legal, and they are exactly what the last speech is for. Then drill it: after any practice round, take 60 seconds of prep and deliver a 3-minute final speech off this checklist. Rounds go to whoever makes the judge\'s decision easiest to write, and that is rehearsable on any motion, in a tournament round, a classroom, or a practice round on DebateIt.',
+          'No new arguments. In most formats they get struck, and in a classroom they read as unfair. New comparisons of old material are always legal, and they are exactly what the last speech is for. Then drill it: after any practice round, take 60 seconds of prep and deliver a 3-minute final speech off this checklist. Rounds go to whoever makes the judge\'s decision easiest to write, and that is rehearsable on any motion, in a tournament round, a classroom, or a practice round on Debatable.',
         ],
       },
     ],
@@ -1673,7 +1673,7 @@ export const GUIDE_BANK = {
         body: [
           'Research alone, argue together. Reading and writing parallelize badly; two people staring at the same document is one person working. Save partner time for the thing you cannot do alone, which is testing the case against someone trying to break it.',
           'A partner session that earns its 45 minutes: 10 minutes, one of you delivers the case at full speed. 15 minutes, the other attacks it as the best version of your likely opponent, no politeness. 15 minutes, patch the holes together and update the blocks file with whatever landed. 5 minutes, agree on the split: who extends what, and who covers which likely response.',
-          'If you are prepping alone, the missing ingredient is opposition. Argue the other side of your own case out loud for five minutes and write down the answer that scared you most; it goes straight into the blocks file. A sparring round on DebateIt does the same job faster, since an opponent that pushes back finds holes a reread never will.',
+          'If you are prepping alone, the missing ingredient is opposition. Argue the other side of your own case out loud for five minutes and write down the answer that scared you most; it goes straight into the blocks file. A sparring round on Debatable does the same job faster, since an opponent that pushes back finds holes a reread never will.',
         ],
       },
       {
@@ -1795,7 +1795,7 @@ export const GUIDE_BANK = {
         body: [
           'Rebuttal is a rep skill, closer to a jump shot than to essay writing. The base drill: take a motion, write one argument for it or have a partner state one, start a 60-second timer, and deliver a four-step answer out loud. Ten reps takes about 15 minutes. Out loud is non-negotiable; the rebuttals you compose in your head are always better than the ones that leave your mouth.',
           'Progress the drill weekly. Week one, no cap on think time before the timer starts. Week two, 15 seconds of think time, then speak. Week three, every answer must be a turn, not a takeout. Record every fifth rep and check it against the skeleton: was the reference clear, did a warrant follow the counter, did you land a therefore.',
-          'Once the structure is automatic, solo reps plateau, because a wall never rebuilds the argument. That is when you need an opponent who answers back. A DebateIt round gives you one on demand, and the rebuild is where warrant-level answering actually gets tested.',
+          'Once the structure is automatic, solo reps plateau, because a wall never rebuilds the argument. That is when you need an opponent who answers back. A Debatable round gives you one on demand, and the rebuild is where warrant-level answering actually gets tested.',
         ],
       },
       {

@@ -61,7 +61,7 @@
   function gcalLink(r){
     var start = new Date(r.startAt), end = new Date(r.startAt + 45 * 60000);
     function z(d){ return d.toISOString().replace(/[-:]|\.\d{3}/g, ''); }
-    var title = 'DebateIt round · ' + (FORMAT_LABELS[r.format] || r.format);
+    var title = 'Debatable round · ' + (FORMAT_LABELS[r.format] || r.format);
     var details = (r.motion ? 'Motion: ' + r.motion + '\n' : '') +
       'Queue at https://debateai.com/spar?format=' + r.format + ' when it starts.';
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE' +

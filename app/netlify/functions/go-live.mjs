@@ -85,7 +85,7 @@ export default async (request) => {
   if (!targets.length) return jsonResponse({ ok: true, broadcast: true, recipients: 0, sent: 0 }, 200, request);
 
   const payload = {
-    title: name + ' is live on DebateIt',
+    title: name + ' is live on Debatable',
     body: 'Looking for a ' + (FORMAT_LABEL[format] || format) + ' round. Tap to jump in.',
     url: '/spar?from=live-alert',
     tag: 'da-live-' + uid,

@@ -117,7 +117,7 @@ footer a{color:var(--ghost)} footer a:hover{color:var(--red)}
 <main class="wrap">
 ${body}
 <footer>
-  <span>DebateIt · debateai.com</span>
+  <span>Debatable · debateai.com</span>
   <span><a href="/programs">All states</a> · <a href="/schools">For schools</a> · <a href="/learn">Learn the formats</a></span>
 </footer>
 </main>
@@ -140,7 +140,7 @@ function renderIndex() {
     name: 'US High School Debate Programs by State',
     url: canonical,
     description: `A directory of ${TOTAL} active competitive debate programs across ${STATES_SORTED.length} US states, compiled from public tournament records.`,
-    isPartOf: { '@type': 'WebSite', name: 'DebateIt', url: SITE_ORIGIN },
+    isPartOf: { '@type': 'WebSite', name: 'Debatable', url: SITE_ORIGIN },
   };
 
   const body = `
@@ -159,7 +159,7 @@ function renderIndex() {
 </div>`;
 
   return shell({
-    title: `US Debate Programs by State · ${TOTAL} Active Teams Mapped · DebateIt`,
+    title: `US Debate Programs by State · ${TOTAL} Active Teams Mapped · Debatable`,
     desc: `A directory of ${TOTAL} active high school and college debate programs across ${STATES_SORTED.length} US states, compiled from public tournament records. Find debate teams near you.`,
     canonical,
     jsonLd,
@@ -200,7 +200,7 @@ function renderState(st) {
 <div class="cta-row">
   <a class="btn btn--primary" href="/spar">Debate someone live →</a>
   <a class="btn" href="/judge">Free AI ballot on any round</a>
-  <a class="btn" href="/schools">Bring DebateIt to your school</a>
+  <a class="btn" href="/schools">Bring Debatable to your school</a>
 </div>
 <h2 class="sec-h">The programs</h2>
 <div class="plist">${rows}</div>
@@ -209,7 +209,7 @@ function renderState(st) {
 </div>`;
 
   return shell({
-    title: `Debate Teams in ${name} · ${list.length} Programs on the Circuit · DebateIt`,
+    title: `Debate Teams in ${name} · ${list.length} Programs on the Circuit · Debatable`,
     desc: `${list.length} active competitive debate programs in ${name}, from public tournament records${fmts.length ? `. Most common formats: ${fmts.join(', ')}` : ''}. Find debate teams near you.`,
     canonical,
     jsonLd,
@@ -234,7 +234,7 @@ export default async (request) => {
   if (st) return new Response(renderState(st), { status: 200, headers });
 
   return new Response(shell({
-    title: 'State not found · DebateIt',
+    title: 'State not found · Debatable',
     desc: 'That state page does not exist.',
     canonical: `${SITE_ORIGIN}/programs`,
     jsonLd: null,

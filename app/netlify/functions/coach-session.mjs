@@ -167,7 +167,7 @@ function buildCoachInstructions({ displayName, debaterProfile, styleProfile, fin
     ? 'You are a calm, mid-register male voice. Think tenured varsity coach, not hype man.'
     : 'You are a calm, mid-register female voice. Think Samantha from Her if Samantha was a tenured varsity coach.';
 
-  return `You are ${namePart}'s personal debate coach and sparring partner, powered by DebateIt's debate brain.
+  return `You are ${namePart}'s personal debate coach and sparring partner, powered by Debatable's debate brain.
 
 ${personaLine}
 

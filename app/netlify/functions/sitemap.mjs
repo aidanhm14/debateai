@@ -22,7 +22,7 @@ const SITE_ORIGIN = 'https://debateai.com';
 // a stable last-edit date. Don't lie about static pages being "updated
 // today" — Google's lastmod heuristics catch that and discount the
 // whole sitemap's trustworthiness.
-const STABLE_DATE = '2026-06-08'; // bumped when meaningful content changes (2026-06-08: sitewide DebateIt rebrand changed every page's brand, title, canonical)
+const STABLE_DATE = '2026-06-08'; // bumped when meaningful content changes (2026-06-08: sitewide Debatable rebrand changed every page's brand, title, canonical)
 const DYNAMIC = new Set([
   '/', '/today', '/community', '/live',
   '/champions', '/leaderboard', '/exhibition',
@@ -47,7 +47,7 @@ const URLS = [
   // /debate-an-ai and /debate-online are direct phrase-match doorways
   // from Google for the "debate an ai" / "debate online" intents the
   // existing /debate-it app surface can't claim because its slug is
-  // taken by the typed-mode product page. /compare positions DebateIt
+  // taken by the typed-mode product page. /compare positions Debatable
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },

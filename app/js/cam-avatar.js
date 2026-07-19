@@ -1,4 +1,4 @@
-/* cam-avatar.js — the camera converter for DebateIt video rooms.
+/* cam-avatar.js — the camera converter for Debatable video rooms.
  *
  * Wraps the user's media stream and publishes ONE stable processed video
  * track with three live-switchable modes:

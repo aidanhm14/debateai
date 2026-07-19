@@ -168,7 +168,7 @@ function styles() {
 
 function topNav() {
   return `<nav class="top-nav">
-    <a href="/">← DebateIt</a>
+    <a href="/">← Debatable</a>
     <a href="/learn">Learn</a>
     <a href="/debate-it">Practice →</a>
   </nav>`;
@@ -206,7 +206,7 @@ function renderTermItem(item) {
 function renderPage() {
   const terms = listTerms();
   const grouped = groupedByCategory();
-  const title = 'Debate glossary · 65 essential terms · DebateIt';
+  const title = 'Debate glossary · 65 essential terms · Debatable';
   const description = 'Definitions of every key debate term across APDA, BP, Worlds, Asian Parli, Policy, LD, Public Forum, and procedural theory. Claim, warrant, impact, weighing, POI, kritik, topicality, framework, and more.';
   const canonical = `${SITE_ORIGIN}/learn/glossary`;
 
@@ -234,7 +234,7 @@ function renderPage() {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'DebateIt', item: SITE_ORIGIN + '/' },
+      { '@type': 'ListItem', position: 1, name: 'Debatable', item: SITE_ORIGIN + '/' },
       { '@type': 'ListItem', position: 2, name: 'Learn', item: SITE_ORIGIN + '/learn' },
       { '@type': 'ListItem', position: 3, name: 'Glossary', item: canonical },
     ],
@@ -272,7 +272,7 @@ function renderPage() {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="DebateIt">
+<meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -288,7 +288,7 @@ function renderPage() {
 <main class="shell">
   ${topNav()}
 
-  <div class="crumb"><a href="/">DebateIt</a> · <a href="/learn">Learn</a> · Glossary</div>
+  <div class="crumb"><a href="/">Debatable</a> · <a href="/learn">Learn</a> · Glossary</div>
 
   <h1>Glossary.</h1>
 
@@ -304,7 +304,7 @@ function renderPage() {
   ${sections}
 
   <footer class="gloss-footer">
-    <span>© 2026 DebateIt</span>
+    <span>© 2026 Debatable</span>
     <span>
       <a href="/learn">Learn</a> ·
       <a href="/learn/fundamentals">Fundamentals</a> ·

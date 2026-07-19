@@ -255,9 +255,9 @@
 
     var nav = el('nav', { class: 'ui-topbar', 'aria-label': 'Site navigation' });
 
-    // ── Wordmark: fixed to "DebateIt" (2026-06-15) ────────────────────
-    // The rotating Debate AI / Debate it. / DebateIt experiment is retired
-    // per Aidan ("DebateIt is best"). One canonical wordmark everywhere:
+    // ── Wordmark: fixed to "Debatable" (2026-06-15) ────────────────────
+    // The rotating Debate AI / Debate it. / Debatable experiment is retired
+    // per Aidan ("Debatable is best"). One canonical wordmark everywhere:
     // "Debate" in the default text color + "It" in accent red, matching
     // the OG card and the rest of the brand. The sr-only line still teaches
     // crawlers + AT the also-known-as names regardless of this render.
@@ -265,14 +265,15 @@
       el('a', {
         href: '/',
         class: 'ui-topbar-logo',
-        'aria-label': 'DebateIt, home',
+        'aria-label': 'Debatable, home',
         title: 'Back to home',
-        // "It" carries the accent red (.ui-topbar-logo span = var(--accent));
-        // "Debate" stays default-color. One word, matching the OG card.
-        html: 'Debate<span>It</span>'
+        // "able" carries the accent red (.ui-topbar-logo span = var(--accent));
+        // "Debat" stays default-color. One word, same two-tone DNA as the
+        // old Debate+It mark. (2026-07-18 brand: Debatable.)
+        html: 'Debat<span>able</span>'
             + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
             + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
-            + ' DebateIt · also known as Debate AI · also known as Debate it.'
+            + ' Debatable · also known as DebateIt · also known as Debate AI.'
             + '</span>',
       }),
       // 2026-05-18: the "Beta · Updating daily" chip used to sit next to

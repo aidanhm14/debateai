@@ -116,7 +116,7 @@ function buildRoomJudgeInstructions({ displayName, platform, format, motion, roo
     ? 'Audio source is shared window or tab audio. If it goes silent, tell the host to check the browser share-audio box.'
     : 'Audio source is a microphone near the room or computer speaker. If audio is muddy, ask the host to move closer or switch to window audio.';
 
-  return `You are DebateIt's AI room judge listening inside a ${platformName}.
+  return `You are Debatable's AI room judge listening inside a ${platformName}.
 
 Host: ${name}.
 Format: ${fmt}.

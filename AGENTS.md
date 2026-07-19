@@ -7,15 +7,17 @@
 
 ## What this is
 
-DebateIt (renamed from Debate AI in user-facing copy on 2026-06-08) is
-a voice-first adversarial-argument trainer at **debateai.com**. The
-brand name in user-facing copy is DebateIt, but the owned production
-domain, canonical URLs, email defaults, and deployed host remain
-debateai.com. The user confirmed on 2026-06-25 that they do not own
-debateit.com, so do not point code, docs, CORS allowlists, structured
-data, or copy at that domain. The earlier 2026-05-25 "Debatable" rename
-was reversed within 24h because the user never actually owned
-debatable.com; see soul.md decision log. ~7K monthly active users as of
+Debatable (renamed from DebateIt on 2026-07-18, itself renamed from
+Debate AI on 2026-06-08) is a voice-first adversarial-argument trainer
+at **debateai.com**. The brand name in user-facing copy is Debatable,
+but the owned production domain, canonical URLs, email defaults, and
+deployed host remain debateai.com. We own NEITHER debatable.com (1999
+registrant, all transfer locks on) NOR debateit.com, so do not point
+code, docs, CORS allowlists, structured data, or copy at either domain.
+Brand name without a matching domain is the established, intentional
+pattern here. The 2026-05-25 "Debatable" rename was reversed only
+because it also claimed the domain; the 2026-07-18 rename makes no
+domain claim; see soul.md decision log. ~7K monthly active users as of
 May 2026. Solo-built. Ships to production many times per day.
 
 The full product/voice/decisions doc is [soul.md](soul.md). Read it.

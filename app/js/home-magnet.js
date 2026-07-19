@@ -1,12 +1,12 @@
 // ──────────────────────────────────────────────────────────────────
-// home-magnet.js — sitewide "find your way home" helper for DebateIt.
+// home-magnet.js — sitewide "find your way home" helper for Debatable.
 //
 // Drop <script src="/js/home-magnet.js" defer></script> on any page
 // that is NOT the marketing home (/). It does two things:
 //
 //   1. GUARANTEES a top-of-page home link. If the page has no link to
 //      "/" near the top (header / nav / topbar), it injects a slim
-//      red "← DebateIt home" bar so a visitor who landed deep in the
+//      red "← Debatable home" bar so a visitor who landed deep in the
 //      site from a search result is always one tap from the main page.
 //
 //   2. FIRST-TIME POPUP. For a cold visitor (first time on the site,
@@ -78,7 +78,7 @@
     var bar = document.createElement('div');
     bar.id = 'ditHomeBar';
     bar.setAttribute('role', 'navigation');
-    bar.setAttribute('aria-label', 'DebateIt');
+    bar.setAttribute('aria-label', 'Debatable');
     bar.style.cssText = [
       'position:sticky', 'top:0', 'z-index:2147482000',
       'display:flex', 'align-items:center', 'gap:8px',
@@ -90,11 +90,11 @@
 
     var home = document.createElement('a');
     home.href = HOME;
-    home.setAttribute('aria-label', 'Go to the DebateIt home page');
+    home.setAttribute('aria-label', 'Go to the Debatable home page');
     home.style.cssText = 'display:inline-flex;align-items:center;gap:7px;color:#fff;text-decoration:none;padding:2px 2px;border-radius:7px';
     home.innerHTML =
       '<span aria-hidden="true" style="font-size:15px;line-height:1;transform:translateY(-1px)">←</span>' +
-      '<strong style="font-weight:800;letter-spacing:-.01em">DebateIt</strong>' +
+      '<strong style="font-weight:800;letter-spacing:-.01em">Debatable</strong>' +
       '<span style="opacity:.78;font-weight:600">home</span>';
 
     var live = document.createElement('a');
@@ -191,7 +191,7 @@
     wrap.id = 'ditHomePop';
     wrap.setAttribute('role', 'dialog');
     wrap.setAttribute('aria-modal', 'true');
-    wrap.setAttribute('aria-label', 'Welcome to DebateIt');
+    wrap.setAttribute('aria-label', 'Welcome to Debatable');
     wrap.innerHTML =
       '<div class="ditHP-back"></div>' +
       '<div class="ditHP-card" role="document">' +

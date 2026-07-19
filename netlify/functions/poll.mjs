@@ -7,7 +7,7 @@ export default async (request) => {
     return jsonResponse({
       ok: true,
       retired: true,
-      message: 'Brand poll retired. Canonical brand is DebateIt; live domain is debateai.com.',
+      message: 'Brand poll retired. Canonical brand is Debatable; live domain is debateai.com.',
     }, 200, request);
   }
 

@@ -65,7 +65,7 @@ export async function sendToFcmTokens(tokens, payload) {
     await Promise.all(tokens.map(async (token) => {
       const message = {
         token,
-        notification: { title: p.title || 'DebateIt', body: p.body || '' },
+        notification: { title: p.title || 'Debatable', body: p.body || '' },
         data: { url: String(p.url || '/'), tag: String(p.tag || 'da-push') },
         apns: {
           payload: { aps: { sound: 'default', badge: 1 } },

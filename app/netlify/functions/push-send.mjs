@@ -44,7 +44,7 @@ export default async (request) => {
   const callerName = String(info.name || (decoded.name || '').split(/\s+/)[0] || 'A debater').slice(0, 40);
   const payload = {
     title: 'New message from ' + callerName,
-    body: 'Tap to reply on DebateIt.',
+    body: 'Tap to reply on Debatable.',
     url: '/spar?thread=' + encodeURIComponent(threadId),
     tag: 'da-dm-' + threadId,
   };

@@ -14,7 +14,7 @@
  *   3. Thin engraved latitude/longitude lines on a tilted ortho sphere.
  *   4. Hand-drawn continent silhouettes at low opacity.
  *   5. Inactive city dots — muted charcoal, the ambient population.
- *   6. Active city dots — DebateIt red, single pulse on spawn.
+ *   6. Active city dots — Debatable red, single pulse on spawn.
  *   7. Curved red arcs (quadratic bezier) drawing in between paired
  *      dots, fading out a few seconds later.
  *   8. A floating "Room forming · CityA ↔ CityB" pill at each arc

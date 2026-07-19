@@ -89,8 +89,8 @@ function nextEventStart(nowMs) {
 function renderEmail({ firstName, uid }) {
   const cta = `${SITE_URL}/spar?utm_source=email&utm_medium=email&utm_campaign=spar_night`;
   const gcal = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-    + '&text=' + encodeURIComponent('Open Spar Night · DebateIt')
-    + '&details=' + encodeURIComponent('Weekly live hour on DebateIt. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at debateai.com/spar')
+    + '&text=' + encodeURIComponent('Open Spar Night · Debatable')
+    + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at debateai.com/spar')
     + '&location=' + encodeURIComponent('https://debateai.com/spar')
     + '&dates=20260722T200000/20260722T213000'
     + '&ctz=' + encodeURIComponent(TZ)
@@ -116,7 +116,7 @@ function renderEmail({ firstName, uid }) {
     Can't make it tonight? It runs every Wednesday.
     <a href="${gcal}" style="color:#dc2626;text-decoration:underline">Add it to your calendar</a> once and you're set.
   </p>
-  ${renderFooter({ uid, stream: 'sparnight', reason: 'You\'re getting this because you have a DebateIt account.' })}
+  ${renderFooter({ uid, stream: 'sparnight', reason: 'You\'re getting this because you have a Debatable account.' })}
 </div>`;
   return html;
 }

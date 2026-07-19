@@ -66,8 +66,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; }
-  catch (e) { data = { title: 'DebateIt', body: (event.data && event.data.text && event.data.text()) || '' }; }
-  const title = data.title || 'DebateIt';
+  catch (e) { data = { title: 'Debatable', body: (event.data && event.data.text && event.data.text()) || '' }; }
+  const title = data.title || 'Debatable';
   const options = {
     body: data.body || '',
     icon: data.icon || '/favicon.svg',

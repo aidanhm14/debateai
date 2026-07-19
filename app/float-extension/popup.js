@@ -1,4 +1,4 @@
-// Focus an existing DebateIt voice-round tab if one is open; otherwise
+// Focus an existing Debatable voice-round tab if one is open; otherwise
 // open a fresh one. The round's own "Float over apps" button (Document
 // Picture-in-Picture) does the actual floating — this is just a launcher.
 var ROUND_URL = 'https://debateai.com/voice-debate?float=1';

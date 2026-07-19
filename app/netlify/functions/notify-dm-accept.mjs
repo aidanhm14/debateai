@@ -19,7 +19,7 @@
 // Env vars (same as notify-accepted):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
 //   RESEND_FROM     — verified sender; when unset: EMAIL_FROM env, then the
-//                     always-deliverable dev sender 'DebateIt <onboarding@resend.dev>'
+//                     always-deliverable dev sender 'Debatable <onboarding@resend.dev>'
 //
 // Sends ride through lib/email.mjs on the 'transactional' stream: shared
 // esc, automatic text/plain part, no List-Unsubscribe headers. The footer
@@ -52,7 +52,7 @@ function template({ senderName, preview, threadUrl }) {
 <html><body style="margin:0;padding:24px;background:#0a0a0c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e5e7eb">
   <table role="presentation" style="max-width:560px;margin:0 auto;background:#15151a;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden">
     <tr><td style="padding:24px 28px 12px">
-      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">DebateIt &middot; Spar</div>
+      <div style="font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ef4444">Debatable &middot; Spar</div>
       <h1 style="margin:8px 0 6px;font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em">Someone wants to spar with you</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:#9ca3af"><strong style="color:#e5e7eb">${safe(senderName)}</strong> reached out about a round. Reply to coordinate, or jump straight into a live voice debate when you're both ready.</p>
       ${previewBlock}
@@ -75,7 +75,7 @@ export default async (req) => {
   // RESEND_FROM > EMAIL_FROM > the resend.dev dev sender (this file's
   // historical zero-env fallback; works on any Resend account with no
   // domain verification, unlike the lib's gmail default).
-  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'DebateIt <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <onboarding@resend.dev>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',
@@ -137,7 +137,7 @@ export default async (req) => {
     return jsonResponse(400, { error: 'No recipient (thread missing second participant)' });
   }
 
-  // Honor the recipient's global "unsubscribe from all DebateIt email"
+  // Honor the recipient's global "unsubscribe from all Debatable email"
   // switch (emailOptOut, the promise the email-unsub page makes). A
   // missing profile doc doesn't block (plenty of users have none), and a
   // flaky read fails open: this is a one-time transactional notice.

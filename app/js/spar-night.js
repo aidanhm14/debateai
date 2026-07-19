@@ -104,8 +104,8 @@
 
   // Recurring Google Calendar template (weekly, Wednesdays, ET).
   var GCAL_URL = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-    + '&text=' + encodeURIComponent('Open Spar Night · DebateIt')
-    + '&details=' + encodeURIComponent('Weekly live hour on DebateIt. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join the queue at debateai.com/spar')
+    + '&text=' + encodeURIComponent('Open Spar Night · Debatable')
+    + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join the queue at debateai.com/spar')
     + '&location=' + encodeURIComponent('https://debateai.com/spar')
     + '&dates=20260722T200000/20260722T213000'
     + '&ctz=' + encodeURIComponent(TZ)

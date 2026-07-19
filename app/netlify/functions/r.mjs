@@ -28,7 +28,7 @@ function notFoundResponse(request) {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Round not found · DebateIt</title>
+<title>Round not found · Debatable</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="/css/ui.css">
 <style>body{background:#000;color:#fff;font-family:Inter,system-ui,sans-serif;margin:0;padding:80px 24px;text-align:center}h1{font-size:2rem;margin-bottom:8px}p{color:rgba(255,255,255,.6);margin:0 0 20px}a{color:#ef4444;text-decoration:none;font-weight:700}</style>
@@ -82,7 +82,7 @@ function renderSpeechBlock(s, i) {
 function renderPage(id, doc) {
   const motion = doc.motion || '';
   const titleCore = motion.length > 60 ? motion.slice(0, 57) + '…' : motion;
-  const title = `${titleCore} · DebateIt`;
+  const title = `${titleCore} · Debatable`;
   const description = describeDoc(doc);
   const canonical = `${SITE_ORIGIN}/r/${id}`;
   const byline = doc.displayName || 'Anonymous debater';
@@ -103,7 +103,7 @@ function renderPage(id, doc) {
     },
     publisher: {
       '@type': 'Organization',
-      name: 'DebateIt',
+      name: 'Debatable',
       url: SITE_ORIGIN,
       logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-192.png` },
     },
@@ -136,14 +136,14 @@ function renderPage(id, doc) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${canonical}">
-<meta property="og:title" content="${esc(titleCore)} · DebateIt">
+<meta property="og:title" content="${esc(titleCore)} · Debatable">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
 <meta property="og:image" content="${OG_IMAGE}">
-<meta property="og:site_name" content="DebateIt">
+<meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${esc(titleCore)} · DebateIt">
+<meta name="twitter:title" content="${esc(titleCore)} · Debatable">
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="twitter:image" content="${OG_IMAGE}">
 <link rel="icon" href="/icons/icon-192.png">
@@ -220,7 +220,7 @@ function renderPage(id, doc) {
   </div>
 
   <footer>
-    <span>© 2026 DebateIt</span>
+    <span>© 2026 Debatable</span>
     <span><a href="/">Home</a> · <a href="/debate-it">New round</a> · <a href="/champions">Champions</a> · <a href="/community#rounds">Browse rounds</a></span>
   </footer>
 </main>

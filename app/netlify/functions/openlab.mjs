@@ -190,7 +190,7 @@ export default async (request, context) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://debateai.com',
-        'X-Title': 'DebateIt · Open Lab',
+        'X-Title': 'Debatable · Open Lab',
       },
       body: JSON.stringify({
         model,

@@ -143,12 +143,12 @@
     try {
       var share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
       if (share && share.share) return share.share({
-        title: 'DebateIt',
+        title: 'Debatable',
         text: 'Practice a real debate out loud.',
         url: 'https://debateai.com'
       });
     } catch (e) {}
-    if (navigator.share) return navigator.share({ title: 'DebateIt', text: 'Practice a real debate out loud.', url: 'https://debateai.com' });
+    if (navigator.share) return navigator.share({ title: 'Debatable', text: 'Practice a real debate out loud.', url: 'https://debateai.com' });
     return Promise.resolve();
   };
 
