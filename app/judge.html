@@ -385,6 +385,21 @@ footer.foot{padding:24px 22px;border-top:1px solid var(--border);text-align:cent
 footer.foot a{color:var(--text-dim)}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+<script>
+/* First-visit funnel (2026-07-19, per Aidan): someone landing from a
+   search engine who has never seen the site gets the landing intro
+   first, then returns here. Referrer-gated so crawlers and direct
+   visits never bounce; session-gated so it can only happen once. */
+(function(){try{
+  if (localStorage.getItem('da-welcome-intro') === '1') return;
+  if (sessionStorage.getItem('da-wi-bounced') === '1') return;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var r = document.referrer || '';
+  if (!/^https?:\/\/([^\/]*\.)?(google|bing|duckduckgo|yahoo|ecosia|brave|yandex)\./i.test(r)) return;
+  sessionStorage.setItem('da-wi-bounced', '1');
+  location.replace('/?to=' + encodeURIComponent(location.pathname + location.search));
+}catch(e){}})();
+</script>
 </head>
 <body>
 

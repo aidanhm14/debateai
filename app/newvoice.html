@@ -537,6 +537,21 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
   .rise{animation-duration:.01s}
 }
 </style>
+<script>
+/* First-visit funnel (2026-07-19, per Aidan): someone landing from a
+   search engine who has never seen the site gets the landing intro
+   first, then returns here. Referrer-gated so crawlers and direct
+   visits never bounce; session-gated so it can only happen once. */
+(function(){try{
+  if (localStorage.getItem('da-welcome-intro') === '1') return;
+  if (sessionStorage.getItem('da-wi-bounced') === '1') return;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var r = document.referrer || '';
+  if (!/^https?:\/\/([^\/]*\.)?(google|bing|duckduckgo|yahoo|ecosia|brave|yandex)\./i.test(r)) return;
+  sessionStorage.setItem('da-wi-bounced', '1');
+  location.replace('/?to=' + encodeURIComponent(location.pathname + location.search));
+}catch(e){}})();
+</script>
 </head>
 <body>
 
