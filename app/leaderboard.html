@@ -1135,7 +1135,12 @@ function escapeHtml(s){
 // as a wall of gray initials. No static assets; seeded off the same
 // hashStr used for the rest of the synthetic texture. Same seed → same
 // avatar forever, so a debater's face is stable across sessions.
-const AV_PALETTE=['#ef4444','#f59e0b','#fbbf24','#dc2626','#fb7185','#d97706','#b45309','#f43f5e','#a855f7','#6366f1','#0ea5e9','#14b8a6'];
+// Muted, warm-leaning palette with real hue separation. The old list was
+// 8/12 red-amber, so nearly every generated avatar landed in the same
+// orange family and the board read as one colour repeated down the page.
+// A full-spectrum rainbow was tried first and rejected: it fought the
+// red-on-warm-paper system (2026-07-19).
+const AV_PALETTE=['#c0392b','#a8553a','#c9822e','#9c7a2e','#7d8c3f','#3f7d6a','#3d6b8c','#5a5f8c','#7a4a6b','#8c4a4a','#6b7f8c','#8a5a3a'];
 function avDigit(n,p){return Math.floor((n/Math.pow(10,p))%10);}
 function avUnit(n,range,idx){
   let v=n%range;
@@ -1143,10 +1148,23 @@ function avUnit(n,range,idx){
   return v;
 }
 function avHash(seed){return hashStr(String(seed||'anon'));}
-function marbleAvatar(seed){
+// Initials over the marble so a row reads as a person rather than an
+// abstract smudge. Real profile photos would be better still, but the
+// leaderboard docs carry no photoURL, and pasting stock faces onto named
+// debaters would attach a stranger's face to a real account.
+function avInitials(label){
+  const t=String(label||'').trim();
+  if(!t) return '';
+  const parts=t.split(/[\s._-]+/).filter(Boolean);
+  const a=(parts[0]||'')[0]||'';
+  const b=parts.length>1 ? (parts[parts.length-1]||'')[0] : '';
+  return (a+b).toUpperCase().slice(0,2);
+}
+function marbleAvatar(seed,label){
   const num=avHash(seed);
   const size=80;
   const uid=(num>>>0).toString(36);
+  const ini=avInitials(label!=null?label:seed);
   const props=[0,1,2].map(function(i){
     const k=num*(i+1);
     return {
@@ -1167,6 +1185,7 @@ function marbleAvatar(seed){
     +'<path filter="url(#f'+uid+')" style="mix-blend-mode:overlay" d="M22.216 24L0 46.75l14.108 38.129L78 86l-3.081-59.276-22.378 4.005 12.972 20.186-23.35 27.395L22.215 24z" fill="'+props[2].color+'" transform="'+tf(props[2])+'"/>'
     +'</g>'
     +'<defs><filter id="f'+uid+'" x="-10" y="-10" width="100" height="100"><feGaussianBlur stdDeviation="7"/></filter></defs>'
+    +(ini ? '<text x="40" y="40" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Inter,system-ui,sans-serif" font-size="30" font-weight="800" letter-spacing="0.5" style="paint-order:stroke" stroke="rgba(0,0,0,.28)" stroke-width="1.2">'+ini+'</text>' : '')
     +'</svg>';
 }
 
@@ -1305,7 +1324,7 @@ function podHTML(row, place){
   const score=fmtScore(row.score);
   const fmt=escapeHtml(row.formatName||row.format||'—');
   const name=escapeHtml(row.displayName||'Anonymous');
-  const av=marbleAvatar(row.uid||row.displayName);
+  const av=marbleAvatar(row.uid||row.displayName, row.displayName);
   const wins=row._wins||(row.won?1:0);
   const losses=row._losses||(row.won?0:1);
   const streak=row._streak||0;
@@ -1512,7 +1531,7 @@ function renderTable(rows){
           ${moveBadge(uid, idx)}
         </div>
         <div class="deb">
-          <div class="deb-av" aria-hidden="true">${marbleAvatar(uid||r.displayName)}</div>
+          <div class="deb-av" aria-hidden="true">${marbleAvatar(uid||r.displayName, r.displayName)}</div>
           <div class="deb-id">
             <div class="deb-name">${escapeHtml(r.displayName||'Anonymous')}</div>
             <div class="deb-sub">
