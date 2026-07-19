@@ -11228,6 +11228,36 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     /* Full-bleed photo header inside a card (bleeds over the 22px padding) */
     .rb-card-media{margin:-22px -22px 16px;aspect-ratio:21/9;overflow:hidden;border-radius:13px 13px 0 0;flex:none}
     .rb-card-media img{width:100%;height:100%;object-fit:cover;object-position:50% 38%;display:block}
+    /* ── side-card visuals: break the uniform-rectangle rhythm ──
+       Spectate: abstract on-air tiles (no fabricated motions or viewer
+       counts; the REAL data rides the rbPills below). Updates: a tilted
+       calendar leaf that leans out of the card edge. */
+    .rb-onair{position:relative;margin:14px 0 4px;padding:12px;border-radius:12px;background:rgba(24,17,15,.92);border:1px solid rgba(255,255,255,.1)}
+    .rb-onair-chip{position:absolute;top:-9px;left:12px;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:#dc2626;color:#fff;font:800 .56rem/1 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+    .rb-onair-chip i{width:5px;height:5px;border-radius:50%;background:#fff;animation:rbLiveDot 1.6s ease-in-out infinite}
+    @keyframes rbLiveDot{50%{opacity:.35}}
+    .rb-onair-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .rb-onair-tile{position:relative;aspect-ratio:16/9;border-radius:8px;background:linear-gradient(160deg,#3a2d27,#211915);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+    .rb-onair-tile b{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:26%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 38% 32%,#8a6f5e,#4a382e)}
+    .rb-onair-tile--talk{box-shadow:inset 0 0 0 2px #ef4444}
+    .rb-onair-tile--talk em{position:absolute;bottom:9px;width:3px;border-radius:2px;background:#ef4444;animation:rbTalk 1s ease-in-out infinite}
+    .rb-onair-tile--talk em:nth-child(2){left:12px;height:8px}
+    .rb-onair-tile--talk em:nth-child(3){left:18px;height:13px;animation-delay:.18s}
+    .rb-onair-tile--talk em:nth-child(4){left:24px;height:6px;animation-delay:.32s}
+    @keyframes rbTalk{50%{transform:scaleY(.45)}}
+    .rb-cal{margin:16px -34px 4px auto;width:min(210px,80%);padding:12px 14px 14px;border-radius:12px;background:#fff;border:1px solid rgba(0,0,0,.14);box-shadow:0 10px 26px rgba(20,15,10,.16);transform:rotate(2.4deg)}
+    [data-theme="grey"] .rb-cal,[data-theme="crimson"] .rb-cal{background:#1d1713;border-color:rgba(255,255,255,.14)}
+    .rb-cal-head{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+    .rb-cal-head span{width:8px;height:8px;border-radius:2px;background:#dc2626}
+    .rb-cal-head b{font:700 .62rem/1 Inter,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(0,0,0,.55)}
+    [data-theme="grey"] .rb-cal-head b,[data-theme="crimson"] .rb-cal-head b{color:rgba(255,255,255,.6)}
+    .rb-cal-bell{margin-left:auto;width:10px;height:10px;border-radius:50% 50% 2px 2px;border:1.5px solid #dc2626;border-bottom-width:3px}
+    .rb-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .rb-cal-grid u{display:block;aspect-ratio:1;border-radius:4px;background:rgba(0,0,0,.07)}
+    [data-theme="grey"] .rb-cal-grid u,[data-theme="crimson"] .rb-cal-grid u{background:rgba(255,255,255,.1)}
+    .rb-cal-grid u.on{background:rgba(220,38,38,.3)}
+    .rb-cal-grid u.hot{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);animation:rbLiveDot 2s ease-in-out infinite}
+    @media(max-width:1023px){.rb-cal{margin-right:-10px}}
   </style>
   <div class="rb-wrap">
     <div class="rb-eyebrow">Scheduled &middot; Livestreamed &middot; Ranked</div>
@@ -11246,6 +11276,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <p class="rb-kicker">Watch rounds</p>
           <p class="rb-card-title">Spectate the next one live.</p>
           <p class="rb-card-body">Scheduled debates run in open rooms. Join as a viewer while it happens, or open the round after.</p>
+          <div class="rb-onair" aria-hidden="true">
+            <span class="rb-onair-chip"><i></i>Live</span>
+            <div class="rb-onair-tiles"><span class="rb-onair-tile"><b></b></span><span class="rb-onair-tile rb-onair-tile--talk"><b></b><em></em><em></em><em></em></span></div>
+          </div>
           <div class="rb-pills" id="rbPills">
             <span class="rb-pill" id="rbLivePill"></span>
             <span class="rb-pill" id="rbNextPill"></span>
@@ -11256,7 +11290,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <p class="rb-kicker">Round updates</p>
           <p class="rb-card-title">Know when the next one starts.</p>
           <p class="rb-card-body">Register once and you get an email when rounds are scheduled and when they go live.</p>
-          <a class="rb-go" href="#waitlist" data-rb="register">Register for round updates &rarr;</a>
+          <div class="rb-cal" aria-hidden="true">
+            <div class="rb-cal-head"><span></span><b>Round nights</b><i class="rb-cal-bell"></i></div>
+            <div class="rb-cal-grid">
+              <u></u><u></u><u></u><u class="on"></u><u></u><u></u><u></u>
+              <u></u><u class="on"></u><u></u><u></u><u></u><u></u><u></u>
+              <u></u><u></u><u></u><u></u><u class="hot"></u><u></u><u></u>
+              <u></u><u></u><u class="on"></u><u></u><u></u><u></u><u></u>
+            </div>
+          </div>
+          <a class="rb-go" href="#waitlist" data-rb="register">Keep me updated &rarr;</a>
         </div>
       </div>
     </div>
