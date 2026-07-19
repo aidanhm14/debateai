@@ -301,6 +301,61 @@ footer.foot a{color:var(--text-dim)}
 /* ── Theme picker hidden (forced light) ──────────────── */
 .theme-dots{display:none !important}
 
+/* ── Mock paired round (hero illustration) ─────────────────
+   Two video tiles + motion bar, faces drawn from the shared
+   /img/round/faces bank (same bank as landing + /spar). Decorative:
+   whole card is aria-hidden, faces randomized per load. ─────── */
+.stranger-stage{
+  max-width:640px;margin:36px 0 14px;padding:14px;
+  background:#fff;border:1px solid rgba(20,20,30,.10);border-radius:18px;
+  box-shadow:0 1px 2px rgba(20,20,30,.04),0 22px 48px -30px rgba(20,20,30,.28);
+}
+.ss-roombar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:0 2px 12px;font-size:.66rem;font-weight:800;
+  letter-spacing:.13em;text-transform:uppercase;color:rgba(20,20,30,.55);
+}
+.ss-liveflag{display:inline-flex;align-items:center;gap:6px;color:var(--accent)}
+.ss-liveflag i{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+.ss-roombar .sp{flex:1}
+.ss-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ss-tile{
+  position:relative;aspect-ratio:16/10.5;border-radius:12px;overflow:hidden;
+  background:rgba(20,20,30,.06);border:1px solid rgba(20,20,30,.10);
+}
+.ss-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.ss-tile--speaking{border-color:rgba(220,38,38,.55);box-shadow:0 0 0 2px rgba(220,38,38,.18)}
+.ss-tag{
+  position:absolute;left:8px;bottom:8px;padding:3px 9px;border-radius:999px;
+  font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(10,10,12,.62);color:#fff;backdrop-filter:blur(4px);
+}
+.ss-timer{
+  position:absolute;right:8px;top:8px;padding:3px 8px;border-radius:7px;
+  font-size:.68rem;font-weight:800;font-variant-numeric:tabular-nums;
+  background:rgba(10,10,12,.62);color:#fff;backdrop-filter:blur(4px);
+}
+.ss-motion{
+  display:flex;align-items:baseline;gap:9px;margin:12px 2px 0;
+  padding:9px 12px;border-radius:10px;
+  background:rgba(20,20,30,.035);border:1px solid rgba(20,20,30,.08);
+  font-size:.92rem;color:rgba(20,20,30,.78);
+}
+.ss-motion b{
+  font-size:.62rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--accent);flex:none;
+}
+.ss-judge{
+  display:flex;align-items:center;gap:7px;margin:10px 4px 2px;
+  font-size:.82rem;color:rgba(20,20,30,.55);
+}
+.ss-judge i{width:5px;height:5px;border-radius:50%;background:var(--green);flex:none}
+@media (max-width:560px){
+  .stranger-stage{padding:11px}
+  .ss-tiles{gap:8px}
+  .ss-motion{font-size:.86rem}
+}
+
 /* ── Forced-light overrides for hardcoded dark surfaces ── */
 .step{background:#fff;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -26px rgba(20,20,30,.20)}
 .faq details{background:#fff;box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -26px rgba(20,20,30,.20)}
@@ -339,6 +394,29 @@ footer.foot a{color:var(--text-dim)}
     <a class="btn-secondary" href="/debate-online" data-cta="debate-strangers-secondary">
       See all three ways to debate online
     </a>
+  </div>
+
+  <div class="stranger-stage" aria-hidden="true">
+    <div class="ss-roombar">
+      <span class="ss-liveflag"><i></i>Live now</span>
+      <span>&middot;</span>
+      <span>Quick Clash</span>
+      <span class="sp"></span>
+      <span>AI judged</span>
+    </div>
+    <div class="ss-tiles">
+      <div class="ss-tile ss-tile--speaking">
+        <img src="/img/round/faces/face03.jpg" alt="" decoding="async" data-ss-face>
+        <span class="ss-timer">01:42</span>
+        <span class="ss-tag">You</span>
+      </div>
+      <div class="ss-tile">
+        <img src="/img/round/faces/face12.jpg" alt="" decoding="async" data-ss-face>
+        <span class="ss-tag">A stranger</span>
+      </div>
+    </div>
+    <div class="ss-motion"><b>Motion</b><span>Social media does more good than harm.</span></div>
+    <div class="ss-judge"><i></i><span>AI judge flowing the round &middot; ballot at the end</span></div>
   </div>
 
   <h2>The Omegle of debate, minus the chaos</h2>
@@ -406,5 +484,21 @@ footer.foot a{color:var(--text-dim)}
 </footer>
 
   <script src="/js/home-magnet.js" defer></script>
+  <script>
+  /* Randomize the mock-round faces per load from the shared bank
+     (subset avoids the exact pairs landing.html rotates through). */
+  (function(){
+    try{
+      var pool=[3,8,12,17,21,29,33,41];
+      var imgs=document.querySelectorAll('[data-ss-face]');
+      if(imgs.length<2)return;
+      var a=pool[Math.floor(Math.random()*pool.length)],b=a;
+      while(b===a)b=pool[Math.floor(Math.random()*pool.length)];
+      var pad=function(n){return (n<10?'0':'')+n};
+      imgs[0].src='/img/round/faces/face'+pad(a)+'.jpg';
+      imgs[1].src='/img/round/faces/face'+pad(b)+'.jpg';
+    }catch(e){}
+  })();
+  </script>
 </body>
 </html>
