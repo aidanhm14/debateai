@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Coaches · Debate coach directory · Debatable</title>
-<meta name="description" content="A community directory of debate coaches and programs across the circuit. Browse and reach out directly, or add a coach you know. Building outreach at scale? Research and draft in the Outreach Desk." />
+<meta name="description" content="A community directory of debate coaches and programs across the circuit. Browse and reach out directly, or add a coach you know. Free to list, free to browse." />
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -118,6 +118,22 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .cd-signin-note{padding:0 22px 20px;font-size:.9rem;color:var(--text-dim)}
 .cd-signin-note b{color:var(--text)}
 @media(max-width:560px){.cd-row{flex-direction:column;gap:12px}}
+
+/* Value props under the hero actions */
+.cd-props{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:18px;font-size:.85rem;color:rgba(0,0,0,.55)}
+.cd-props b{color:#1a1a1f;font-weight:700}
+
+/* Invite state (empty or unreachable directory) */
+.cd-invite{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:28px;align-items:center;background:#fff;border:1px solid rgba(0,0,0,.09);border-radius:16px;padding:clamp(24px,4vw,44px);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.cd-invite-copy h2{font-family:'Fraunces','Crimson Pro',Georgia,serif;font-size:1.6rem;font-weight:600;margin:0 0 10px;letter-spacing:-.01em}
+.cd-invite-copy p{margin:0 0 16px;color:rgba(0,0,0,.6);font-size:.98rem;line-height:1.55;max-width:460px}
+.cd-invite-note{font-size:.78rem !important;color:rgba(0,0,0,.45) !important;margin-top:12px !important}
+.cd-ghosts{display:flex;flex-direction:column;gap:12px}
+.cd-ghost{border:1.5px dashed rgba(0,0,0,.18);border-radius:12px;padding:16px 18px}
+.cd-ghost b{display:block;font-size:.95rem;color:rgba(0,0,0,.5);margin-bottom:3px}
+.cd-ghost span{display:block;font-size:.78rem;color:rgba(0,0,0,.4);margin-bottom:10px}
+.cd-ghost i{display:block;height:4px;border-radius:2px;background:rgba(0,0,0,.08);margin:6px 0}
+@media(max-width:760px){.cd-invite{grid-template-columns:1fr}.cd-ghosts{flex-direction:row}.cd-ghost{flex:1}}
 </style>
 </head>
 <body>
@@ -127,10 +143,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   <header class="cd-head">
     <div class="cd-eyebrow"><span class="pip"></span> Community directory</div>
     <h1>Debate <em>coaches</em>, in one place.</h1>
-    <p class="cd-sub">Coaches and programs across the circuit, added by the community. Reach out directly, or research and draft at scale in the <a href="https://debateit-outreach-desk.netlify.app" target="_blank" rel="noopener">Outreach Desk</a>.</p>
+    <p class="cd-sub">Coaches and programs across the circuit, added by the community. Find one and reach out directly, or list yourself so debaters can find you.</p>
     <div class="cd-actions">
       <button id="cd-add-btn" class="cd-btn cd-btn--primary">+ Add a coach</button>
-      <a class="cd-btn" href="https://debateit-outreach-desk.netlify.app" target="_blank" rel="noopener">Outreach Desk ↗</a>
+      <a class="cd-btn" href="/atlas">Browse the program atlas</a>
+    </div>
+    <div class="cd-props" aria-label="Why list here">
+      <span><b>Free listing</b> · one minute to add</span>
+      <span><b>Direct contact</b> · no middleman, debaters reach you</span>
+      <span><b>Every circuit</b> · school, college, and independent coaches</span>
     </div>
   </header>
 
@@ -140,6 +161,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   </div>
 
   <div id="cd-grid" class="cd-grid"><div class="cd-empty">Loading the directory…</div></div>
+  <p class="cd-foot-note" style="margin-top:34px;font-size:.78rem;color:rgba(0,0,0,.4)">Team tooling: program-level outreach runs in the <a href="https://debateit-outreach-desk.netlify.app" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Outreach Desk</a> (staff access).</p>
 </main>
 
 <!-- Add-a-coach modal -->
@@ -193,10 +215,30 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
   function contactLabel(k){ return k === 'phone' ? 'Call' : k === 'link' ? 'Open' : 'Email'; }
 
+  // Invite state: shown when the directory is empty OR unreachable.
+  // Ghost cards are dashed placeholders (never fake coaches) that show
+  // the shape of a listing; the copy sells the free listing.
+  function inviteState(offline){
+    return '<div class="cd-invite">'
+      + '<div class="cd-invite-copy">'
+      +   '<h2>The directory is just opening.</h2>'
+      +   '<p>Coaches listed here get found by debaters looking for a program or private coaching. Listing is free and takes a minute. Know a great coach? Add them.</p>'
+      +   '<button class="cd-btn cd-btn--primary" onclick="document.getElementById(\'cd-add-btn\').click()">+ Add the first coach</button>'
+      +   (offline ? '<p class="cd-invite-note">The live list is unreachable right now; entries will appear once it reconnects.</p>' : '')
+      + '</div>'
+      + '<div class="cd-ghosts" aria-hidden="true">'
+      +   '<div class="cd-ghost"><b>Your name here</b><span>Head coach · Policy &amp; LD</span><i></i><i style="width:70%"></i></div>'
+      +   '<div class="cd-ghost"><b>Your program here</b><span>Club team · BP &amp; Worlds</span><i></i><i style="width:55%"></i></div>'
+      + '</div>'
+      + '</div>';
+  }
+
   function render(list){
     var grid = $('cd-grid');
     if (!list.length){
-      grid.innerHTML = '<div class="cd-empty">' + (all.length ? 'No matches. Try a different search.' : 'No coaches yet. Be the first to add one.') + '</div>';
+      grid.innerHTML = all.length
+        ? '<div class="cd-empty">No matches. Try a different search.</div>'
+        : inviteState(false);
       return;
     }
     grid.innerHTML = list.map(function(c){
@@ -225,11 +267,17 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   }
 
   function load(){
-    fetch('/api/coaches').then(function(r){ return r.json(); }).then(function(d){
+    // 6s deadline: a hung backend must never leave the page on
+    // "Loading the directory…" forever — fall to the invite state.
+    var ctl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = setTimeout(function(){ if (ctl) ctl.abort(); }, 6000);
+    fetch('/api/coaches', ctl ? { signal: ctl.signal } : {}).then(function(r){ return r.json(); }).then(function(d){
+      clearTimeout(timer);
       all = d.coaches || [];
       applyFilter();
     }).catch(function(e){
-      $('cd-grid').innerHTML = '<div class="cd-empty">Could not load the directory. Please refresh.</div>';
+      clearTimeout(timer);
+      $('cd-grid').innerHTML = inviteState(true);
     });
   }
 
