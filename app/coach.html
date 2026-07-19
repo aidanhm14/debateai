@@ -1136,6 +1136,14 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
 
   // ── Auth state ──────────────────────────────────────────────
   function updateAuthUi(user) {
+    // js/notifications.js signs every visitor in anonymously, so a bare
+    // `if (user)` here treated anon visitors as signed in: the gate opened,
+    // the greeting rendered "Signed in as you.", and loadProfile ran against
+    // an account with no rounds. The coach explicitly needs a profile ("it
+    // needs to know who it's talking to"), so an anonymous session is a
+    // signed-out session. Matches the house check used in index.html,
+    // js/auth-prompt.js, exhibition.html and notifications.js itself.
+    if (user && user.isAnonymous) user = null;
     state.user = user;
     if (user) {
       els.signin.hidden = false;
