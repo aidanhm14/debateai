@@ -352,6 +352,8 @@ body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webki
 .light-theme .app-topbar-right .topbar-pill{border-color:rgba(0,0,0,.1);background:rgba(255,255,255,.65)}
 .topbar-pill.accent{border-color:rgba(239,68,68,.25);color:#f87171;background:rgba(239,68,68,.08)}
 .topbar-pill.accent:hover{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.15)}
+.topbar-tint-pill{border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05)}
+.light-theme .topbar-tint-pill,[data-lighting="light"] .topbar-tint-pill{border-color:rgba(0,0,0,.18);background:rgba(0,0,0,.04)}
 .topbar-style-cta{
   position:relative;overflow:hidden;min-height:36px!important;padding:0 16px!important;
   border-color:#dc2626!important;background:#dc2626!important;color:#fff!important;
@@ -549,7 +551,19 @@ body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webki
   .app-topbar-right .ui-bell{display:none!important}
   .app-topbar-right .topbar-style-cta{display:inline-flex!important;width:34px;min-width:34px;max-width:34px;height:34px!important;padding:0!important}
   .app-topbar-right .topbar-style-cta span:not(.style-cta-mark){display:none}
-  .app{padding-top:70px;padding-left:0;padding-bottom:92px}
+  .app{padding-top:70px;padding-left:0;padding-bottom:48px}
+  /* Signed-in account controls: MANAGE covers account actions; the
+     standalone Sign Out link overflowed the bar and wrapped pills
+     onto the wordmark. */
+  .topbar-signout{display:none!important}
+  .app-topbar-right{flex-wrap:nowrap;min-width:0}
+  .app-topbar-right .topbar-style-cta{box-shadow:0 4px 12px rgba(220,38,38,.28)}
+  /* Motions view: uniform full-width mode tabs + CTAs instead of the
+     ragged centered pile. */
+  .gen-modes{flex-direction:column;align-items:stretch;gap:8px!important}
+  .gen-modes .chip{width:100%;text-align:center}
+  .motion-ctas{flex-direction:column;align-items:stretch}
+  .motion-ctas .btn{width:100%}
 }
 /* Narrower still. under 420px, even Donate folds to make room for the
    account controls. */
@@ -7042,7 +7056,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
 
   return el('div', { className: 'panel' + (motionOutput ? ' panel-expanded' : '') },
   // Mode tabs at top
-  el('div', { style: { display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' } },
+  el('div', { className: 'gen-modes', style: { display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' } },
   modeTab(null, t('motions.generateMotion', 'Generate Motion')),
   modeTab('agent', t('motions.generateWithBg', 'Generate with Background')),
   modeTab('current', t('motions.currentEvents', 'Current Events'))
@@ -7064,19 +7078,19 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
   el('p', { style: { color: '#888', fontSize: '.92rem', marginBottom: 16 } },
   t('motions.rollDesc', 'Roll from the database or generate an original motion with AI. Filter by category above.')
   ),
-  el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' } },
-  el('button', {
-    className: 'btn btn-purple',
-    onClick: roll,
-    disabled: spinning || motionLoading,
-    style: { padding: '16px 36px', fontSize: '1.05rem', borderRadius: 14 }
-  }, spinning ? t('motions.rolling', 'Rolling...') : 'Roll from Database'),
+  el('div', { className: 'motion-ctas', style: { display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' } },
   el('button', {
     className: 'btn btn-orange',
     onClick: generateMotion,
     disabled: spinning || motionLoading,
     style: { padding: '16px 36px', fontSize: '1.05rem', borderRadius: 14 }
-  }, motionLoading ? t('motions.generatingMotion', 'Generating...') : t('motions.generateWithAI', 'Generate with AI'))
+  }, motionLoading ? t('motions.generatingMotion', 'Generating...') : t('motions.generateWithAI', 'Generate with AI')),
+  el('button', {
+    className: 'btn btn-secondary',
+    onClick: roll,
+    disabled: spinning || motionLoading,
+    style: { padding: '16px 36px', fontSize: '1.05rem', borderRadius: 14 }
+  }, spinning ? t('motions.rolling', 'Rolling...') : 'Roll from Database')
   ),
   result && Array.isArray(result) && el('div', { className: 'res-expanded' },
   result.map((m, i) =>
@@ -17023,9 +17037,9 @@ function App() {
   // used on every other page. Donate also still lives in the left rail.
   // Theme toggle
   React.createElement('span', {
-    className: 'topbar-pill app-theme-toggle',
+    className: 'topbar-pill app-theme-toggle topbar-tint-pill',
     onClick: () => setTheme(theme === 'light' ? 'grey' : 'light'),
-    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.05)' }
+    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999 }
   }, theme === 'light' ? 'Dark' : 'Light'),
   // Language picker. Overlays an invisible <select> on top of a
   // visible flag/code pill so the styling matches the other topbar
@@ -17036,8 +17050,8 @@ function App() {
   // on every brain call so the response language matches the UI.
   React.createElement('span', { style: { position: 'relative', display: 'inline-flex', alignItems: 'center' } },
   React.createElement('span', {
-    className: 'topbar-pill',
-    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.05)', display: 'inline-block', pointerEvents: 'none' }
+    className: 'topbar-pill topbar-tint-pill',
+    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999, display: 'inline-block', pointerEvents: 'none' }
   },
   (SUPPORTED_LOCALES.find((l) => l.code === locale) || SUPPORTED_LOCALES[0]).flag + ' ' +
   (SUPPORTED_LOCALES.find((l) => l.code === locale) || SUPPORTED_LOCALES[0]).code.toUpperCase()
