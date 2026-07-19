@@ -140,16 +140,44 @@
       'color:var(--text-dim,rgba(255,255,255,.66));background:transparent}' +
     '.sn-cta--ghost:hover{color:var(--text,#f4f4f2);border-color:var(--border-strong,rgba(255,255,255,.34))}' +
     /* banner variant (landing) */
-    '.sn-card--banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;' +
-      'gap:14px 26px;max-width:760px;margin:0 auto 26px;padding:14px 22px}' +
-    '.sn-card--banner .sn-main{text-align:left;min-width:0}' +
-    '.sn-card--banner .sn-title{font-size:.98rem;margin:3px 0 1px}' +
-    '.sn-card--banner .sn-sub{font-size:.8rem;margin:0}' +
-    '.sn-card--banner .sn-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}' +
-    '.sn-card--banner .sn-count{font-size:1.15rem}' +
-    '.sn-card--banner .sn-local{display:block;font-size:.66rem;margin-top:1px}' +
-    '.sn-card--banner .sn-cta{font-size:.8rem;padding:9px 16px}' +
-    '[data-theme="light"] .sn-card--banner{background:rgba(0,0,0,.02);border-color:rgba(0,0,0,.12)}' +
+    '.sn-card--banner{position:relative;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(350px,.8fr);' +
+      'gap:28px;max-width:1040px;margin:0 auto 24px;padding:24px 28px;overflow:hidden;' +
+      'box-shadow:0 24px 70px -44px rgba(0,0,0,.7)}' +
+    '.sn-card--banner:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent,#ef4444)}' +
+    '.sn-card--banner.sn-live:before{background:#22c55e}' +
+    '.sn-card--banner .sn-main{text-align:left;min-width:0;align-self:center}' +
+    '.sn-card--banner .sn-eyebrow,.sn-card--banner .sn-sub,.sn-card--banner .sn-local,' +
+      '.sn-card--banner .sn-timer-label,.sn-card--banner .sn-cta{' +
+      'font-family:Inter,system-ui,-apple-system,sans-serif}' +
+    '.sn-card--banner .sn-title{font-family:"Crimson Pro","Fraunces",Georgia,serif;' +
+      'font-size:clamp(1.25rem,1.6vw,1.5rem);letter-spacing:-.015em;margin:6px 0 4px}' +
+    '.sn-card--banner .sn-sub{font-size:.82rem;margin:0;max-width:560px}' +
+    '.sn-card--banner .sn-right{display:grid;grid-template-columns:minmax(118px,auto) 1fr;' +
+      'align-items:center;gap:18px;padding-left:26px;border-left:1px solid var(--border,rgba(255,255,255,.14))}' +
+    '.sn-card--banner .sn-timer{display:flex;flex-direction:column;align-items:flex-start;min-width:0}' +
+    '.sn-card--banner .sn-timer-label{font-size:.61rem;font-weight:800;letter-spacing:.13em;' +
+      'text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));margin-bottom:2px}' +
+    '.sn-card--banner .sn-count{font-size:clamp(1.4rem,2vw,1.8rem);line-height:1.05;white-space:nowrap}' +
+    '.sn-card--banner .sn-local{display:block;font-size:.65rem;margin-top:4px}' +
+    '.sn-card--banner .sn-actions{display:grid;grid-template-columns:1fr;gap:8px;min-width:166px}' +
+    '.sn-card--banner .sn-cta{width:100%;min-height:44px;box-sizing:border-box;justify-content:center;' +
+      'font-size:.78rem;padding:10px 15px;white-space:nowrap}' +
+    '[data-theme="light"] .sn-card--banner,[data-theme="stone"] .sn-card--banner{' +
+      'background:linear-gradient(135deg,#fff 0%,#fbfaf6 100%);border-color:rgba(29,25,21,.14);' +
+      'box-shadow:0 26px 70px -42px rgba(80,42,28,.38),0 1px 0 rgba(255,255,255,.9)}' +
+    '[data-theme="light"] .sn-card--banner .sn-right,[data-theme="stone"] .sn-card--banner .sn-right{' +
+      'border-left-color:rgba(29,25,21,.12)}' +
+    '@media(max-width:820px){.sn-card--banner{grid-template-columns:1fr;gap:18px;padding:22px 24px}' +
+      '.sn-card--banner .sn-right{grid-template-columns:1fr auto;padding:18px 0 0;border-left:0;' +
+        'border-top:1px solid var(--border,rgba(255,255,255,.14))}' +
+      '[data-theme="light"] .sn-card--banner .sn-right,[data-theme="stone"] .sn-card--banner .sn-right{' +
+        'border-top-color:rgba(29,25,21,.12)}}' +
+    '@media(max-width:560px){.sn-card--banner{padding:20px 20px 20px 23px;border-radius:16px}' +
+      '.sn-card--banner .sn-right{grid-template-columns:1fr;gap:14px}' +
+      '.sn-card--banner .sn-actions{grid-template-columns:repeat(2,minmax(0,1fr));min-width:0}' +
+      '.sn-card--banner .sn-cta{padding-left:10px;padding-right:10px}}' +
+    '@media(max-width:390px){.sn-card--banner .sn-actions{grid-template-columns:1fr}}' +
+    '@media(prefers-reduced-motion:reduce){.sn-dot{animation:none}.sn-cta{transition:none}}' +
     /* rail variant (/spar sidebar) */
     '.sn-card--rail{display:block;padding:11px 12px;margin:0}' +
     '.sn-card--rail .sn-title{font-size:.78rem;margin:5px 0 2px}' +
@@ -178,10 +206,10 @@
       (live ? 'Open Spar Night · live now' : 'Open Spar Night') + '</div>';
     var title = live
       ? 'Spar Night is on. Rounds matching until 9:30 PM ET.'
-      : 'Wednesdays · 8:00 PM ET';
+      : 'Every Wednesday at 8:00 PM ET';
     var sub = live
       ? 'Real opponents, timed rounds, a judge ballot at the end.'
-      : 'One hour a week when everyone queues at once. Real opponents, instant matches, AI ballots.';
+      : 'Ninety minutes when everyone queues at once. Real opponents, instant matches, AI ballots.';
     var count = live
       ? 'ends in <span class="sn-count" data-sn-count></span>'
       : 'next one in <span class="sn-count" data-sn-count></span>';
@@ -189,7 +217,7 @@
       ? '<a class="sn-cta sn-cta--solid" data-sn-act="join" href="/spar">Join the queue &rarr;</a>'
       : (page === 'spar'
           ? '<a class="sn-cta sn-cta--solid" data-sn-act="calendar" href="' + GCAL_URL + '" target="_blank" rel="noopener">Add to calendar</a>'
-          : '<a class="sn-cta sn-cta--solid" data-sn-act="spar" href="/spar">See the queue &rarr;</a>');
+          : '<a class="sn-cta sn-cta--solid" data-sn-act="spar" href="/spar">View the queue &rarr;</a>');
     var ghost = live ? '' : (page === 'spar' ? ''
       : '<a class="sn-cta sn-cta--ghost" data-sn-act="calendar" href="' + GCAL_URL + '" target="_blank" rel="noopener">Add to calendar</a>');
 
@@ -204,8 +232,11 @@
         '<div class="sn-main">' + eyebrow +
           '<div class="sn-title">' + title + '</div>' +
           '<div class="sn-sub">' + sub + '</div></div>' +
-        '<div class="sn-right"><span class="sn-sub" style="margin:0">' + count +
-        (local ? '<span class="sn-local">' + local + '</span>' : '') + '</span>' + solid + ghost + '</div>';
+        '<div class="sn-right"><div class="sn-timer">' +
+          '<span class="sn-timer-label">' + (live ? 'Ends in' : 'Starts in') + '</span>' +
+          '<span class="sn-count" data-sn-count></span>' +
+          (local ? '<span class="sn-local">' + local + '</span>' : '') + '</div>' +
+          '<div class="sn-actions">' + solid + ghost + '</div></div>';
     }
     el.querySelectorAll('[data-sn-act]').forEach(function (a) {
       a.addEventListener('click', function () {
