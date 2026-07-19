@@ -6234,9 +6234,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      that follows the reader through the page range, and a stronger
      active state where the number itself recolors to the accent. */
   .page-toc{
-    display:none !important;
     position:fixed;
-    left:32px;
+    left:24px;
     top:50%;
     transform:translateY(-50%);
     z-index:40;
@@ -6330,10 +6329,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     color:var(--accent);
     font-weight:700;
   }
-  /* Hidden under 1280px — at narrower viewports the FAQ grid can't
+  /* Hidden under 1440px — at narrower viewports the FAQ grid can't
      sit fully right of the fixed rail without overflow, so the rail
-     itself collapses below that breakpoint. */
-  @media (max-width:1280px){
+     itself collapses below that breakpoint. (2026-07-19: gate relaxed
+     from the old 1800px JS check; the rail now tucks away when the
+     reader idles, so brief overlap while scrolling is acceptable.) */
+  @media (max-width:1439px){
     .page-toc{display:none}
   }
 </style>
@@ -6344,23 +6345,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <span class="page-toc-track-fill"></span>
   </span>
   <p class="page-toc-eyebrow">On this page</p>
-  <!-- TOC mirrors the actual section order on the page, top to bottom:
-       #live-proof → #how-it-judges → #topics + #education
-       (inside the #depth-layer details disclosure) → #guides →
-       #philosophy → #faq. Excludes the retired display:none'd
-       #debate-ai. (2026-07-06: the #story entry left with the founder
-       strip — the story lives at /story now, linked from the jumpnav +
-       footer.) Keep this list in sync with real section y-positions.
-       Section numbers are inline <span class="num"> so they can
-       recolor independently of the label on active state. -->
+  <!-- TOC mirrors the actual section order on the page, top to bottom
+       (2026-07-19 refresh for the current landing structure). Keep this
+       list in sync with real section y-positions. Section numbers are
+       inline <span class="num"> so they can recolor independently of
+       the label on active state. -->
   <ul class="page-toc-list">
-    <li><a href="#live-proof"><span class="num">03</span><span class="lab">Live round</span></a></li>
-    <li><a href="#how-it-judges"><span class="num">04</span><span class="lab">How it judges</span></a></li>
-    <li><a href="/topics"><span class="num">08</span><span class="lab">Motions</span></a></li>
-    <li><a href="/learn"><span class="num">09</span><span class="lab">Education</span></a></li>
-    <li><a href="#guides"><span class="num">10</span><span class="lab">Guides</span></a></li>
-    <li><a href="#philosophy"><span class="num">11</span><span class="lab">Philosophy</span></a></li>
-    <li><a href="#faq"><span class="num">12</span><span class="lab">FAQ</span></a></li>
+    <li><a href="#live-now"><span class="num">01</span><span class="lab">Live rounds</span></a></li>
+    <li><a href="#community-band"><span class="num">02</span><span class="lab">Community</span></a></li>
+    <li><a href="#ranked-band"><span class="num">03</span><span class="lab">Leaderboard</span></a></li>
+    <li><a href="#live-proof"><span class="num">04</span><span class="lab">Judged round</span></a></li>
+    <li><a href="#stream-it"><span class="num">05</span><span class="lab">Stream it</span></a></li>
+    <li><a href="#credential-path"><span class="num">06</span><span class="lab">Certificate</span></a></li>
+    <li><a href="#reviews"><span class="num">07</span><span class="lab">Reviews</span></a></li>
+    <li><a href="#faq"><span class="num">08</span><span class="lab">FAQ</span></a></li>
+    <li><a href="#book-founders"><span class="num">09</span><span class="lab">Founders</span></a></li>
+    <li><a href="#waitlist"><span class="num">10</span><span class="lab">Waitlist</span></a></li>
   </ul>
 </nav>
 <script>
@@ -6373,6 +6373,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       try { return document.querySelector(a.getAttribute('href')); }
       catch(e){ return null; }
     }).filter(Boolean);
+
+    // GA4: tag TOC usage so the rail's value shows up in analytics.
+    links.forEach(function(a){
+      a.addEventListener('click', function(){
+        if (typeof gtag === 'function') {
+          gtag('event', 'toc_click', { toc_target: a.getAttribute('href') });
+        }
+      });
+    });
 
     // Direct-style fade so we don't depend on a cascade-level CSS
     // transition. Earlier testing found the implicit CSSTransition
@@ -6421,11 +6430,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var doc = document.documentElement.scrollHeight;
       var nearTop = y < h * 0.55;
       var nearBottom = (y + h) > (doc - 240);
-      // Width gate: the rail is fixed at left:32px (right edge ~228px).
-      // Below ~1800px the centered content reaches into that band and
-      // the rail overlaps the section text (it was bleeding over the
-      // reviews). Only show it when there's real margin to sit in.
-      var roomForRail = window.innerWidth >= 1800;
+      // Width gate: matches the CSS breakpoint. Relaxed from 1800 to
+      // 1440 (2026-07-19): the rail tucks away when the reader idles,
+      // so brief overlap with wide sections while scrolling is fine,
+      // and at 1800 virtually no laptop ever saw the rail at all.
+      var roomForRail = window.innerWidth >= 1440;
       inRange = !nearTop && !nearBottom && roomForRail;
     }
     function onScroll(){
