@@ -82,6 +82,58 @@
   .exhib-pill{flex:none;margin-top:1px;padding:3px 9px;border-radius:999px;background:var(--gold);color:#fff;font-size:.62rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
   @media (max-width:640px){ .exhib-note{flex-direction:column;gap:9px;margin-left:16px;margin-right:16px} }
 
+  /* ============================================================
+     EXPERIMENTAL PREVIEW LAYER
+     The Floor is a concept surface, not a live product: markets are
+     seeded persona matchups and computeVerdict() settles them from a
+     rating model, not from a real ballot. Until real rounds are bound
+     (the boundResult seam), nothing here may take a user action that
+     looks like a wager. This layer states that, and openCallDrawer()
+     plus placeBet() are hard-gated behind PREVIEW below.
+     Remove this whole block in the same commit that ships real
+     settlement, together with the gate and the ribbon markup.
+     ============================================================ */
+  .exp-ribbon{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;
+    gap:10px;padding:7px 16px;background:var(--gold);color:#17181b;
+    font-family:var(--sans);font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+  .exp-ribbon b{font-weight:800}
+  .exp-ribbon span{font-weight:600;letter-spacing:.03em;text-transform:none;font-size:.78rem;opacity:.82}
+  @media (max-width:640px){ .exp-ribbon{flex-direction:column;gap:2px;padding:6px 12px;text-align:center} }
+
+  /* Diagonal repeating watermark. Fixed, behind nothing clickable. */
+  .exp-watermark{position:fixed;inset:-20%;z-index:45;pointer-events:none;
+    display:flex;flex-wrap:wrap;gap:0;transform:rotate(-24deg);opacity:.032;overflow:hidden}
+  .exp-watermark span{font-family:var(--sans);font-size:2.2rem;font-weight:900;letter-spacing:.24em;
+    color:var(--text);white-space:nowrap;padding:44px 58px;line-height:1;user-select:none}
+  @media (max-width:640px){ .exp-watermark span{font-size:1.4rem;padding:26px 30px} }
+
+  /* The honesty panel that replaces the old exhibition note. */
+  .prev-note{width:calc(100% - 40px);max-width:1140px;margin:0 auto 20px;
+    border:1px solid var(--border2);border-top:3px solid var(--gold);border-radius:12px;background:var(--card);overflow:hidden}
+  .prev-note-head{display:flex;align-items:center;gap:11px;padding:14px 18px 0}
+  .prev-note-head h2{margin:0;font-family:var(--serif);font-size:1.02rem;font-weight:700;color:var(--text)}
+  .prev-note-body{padding:9px 18px 4px}
+  .prev-note-body p{margin:0;font-size:.84rem;line-height:1.6;color:var(--dim);max-width:88ch}
+  .prev-split{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:14px;border-top:1px solid var(--border)}
+  .prev-col{padding:13px 18px 15px}
+  .prev-col+.prev-col{border-left:1px solid var(--border)}
+  .prev-col h3{margin:0 0 8px;font-family:var(--sans);font-size:.63rem;font-weight:800;letter-spacing:.11em;
+    text-transform:uppercase;color:var(--ghost)}
+  .prev-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+  .prev-col li{position:relative;padding-left:17px;font-size:.81rem;line-height:1.5;color:var(--dim)}
+  .prev-col li::before{content:'';position:absolute;left:0;top:.52em;width:6px;height:6px;border-radius:50%}
+  .prev-col.is-real li::before{background:var(--win)}
+  .prev-col.is-todo li::before{background:var(--gold)}
+  @media (max-width:640px){ .prev-split{grid-template-columns:1fr} .prev-col+.prev-col{border-left:0;border-top:1px solid var(--border)} .prev-note{width:calc(100% - 24px)} }
+
+  /* Locked call buttons: still legible as the design, plainly not live. */
+  .back[data-locked]{cursor:not-allowed;opacity:.62;filter:saturate(.55)}
+  .back[data-locked]:hover{transform:none;box-shadow:none}
+  .back[data-locked] .back-action::after{content:' ·  locked';font-weight:700;opacity:.7}
+  .lockbar{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;padding:8px 12px;
+    border:1px dashed var(--border2);border-radius:9px;background:rgba(168,162,158,.06);
+    font-family:var(--sans);font-size:.71rem;font-weight:600;color:var(--ghost);letter-spacing:.02em}
+
   /* ---- nav tabs ---- */
   .tabs{position:sticky;top:57px;z-index:30;display:flex;gap:6px;max-width:1180px;margin:18px auto 0;padding:10px 20px;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);flex-wrap:wrap}
   .tab{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--dim);font-weight:700;font-size:.82rem;padding:8px 15px;border-radius:999px;transition:.14s}
@@ -596,6 +648,23 @@
 </style>
 </head>
 <body>
+<!-- Experimental preview chrome. Ribbon sits above the sticky header so it
+     is never scrolled away; the watermark is a fixed, pointer-events:none
+     overlay so it marks every screenshot without blocking the page. -->
+<div class="exp-ribbon" role="note">
+  <b>Experimental</b>
+  <span>A design preview of The Floor. Not playable, no credits move, no cash value.</span>
+</div>
+<div class="exp-watermark" aria-hidden="true">
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
+</div>
 <header class="top">
   <!-- "Debat" + "able" wrapped as ONE flex item; the container's gap is for
        separating the wordmark from .sep / .floor, not for splitting the word. -->
@@ -615,7 +684,9 @@
   <div class="spacer"></div>
   <button class="icon-btn help-btn" id="helpBtn" title="How The Floor works" aria-label="How The Floor works">? How it works</button>
   <span class="streak" title="Predict once a day to keep your streak"><span aria-hidden="true">🔥</span> <b id="streakN">0</b><span class="streak-label"> day sharp</span></span>
-  <span class="bal" aria-label="Prediction credits"><span class="c">Credits</span><span id="balN">0</span><span class="delta" id="balDelta"></span></span>
+  <!-- PREVIEW: labelled "sample" so the number never reads as a spendable
+       balance. Restore to "Credits" when PREVIEW flips to false. -->
+  <span class="bal" aria-label="Sample credit balance, preview only"><span class="c">Sample</span><span id="balN">0</span><span class="delta" id="balDelta"></span></span>
   <button class="icon-btn" id="signBtn" title="Sign in to play" style="display:none;width:auto;padding:0 12px;font-size:.76rem;font-weight:800">Sign in</button>
 </header>
 
@@ -626,8 +697,8 @@
     <div class="float-card" style="top:150px;right:22px;--rot:1.5deg;animation-delay:2.3s"><div class="fc-fmt">APDA · resolved</div><div class="fc-vs">Omar F. vs Grace L.</div><div class="fc-tag split">⚡ split verdict</div></div>
   </div>
   <h1>Predict the <span class="accent">ballot.</span></h1>
-  <p>Exhibition matchups between AI debater personas. Call the winner, read the room, climb the leaderboard. Play credits, no cash value.</p>
-  <span class="pmark"><span class="dot"></span>Play credits only · No cash value · Picks lock before the verdict · Exhibition rounds, outcomes are modeled</span>
+  <p>What The Floor becomes once rounds settle on a real ballot. Read the matchup, call the winner, climb the board. This page is a design preview, so nothing here takes a call yet.</p>
+  <span class="pmark"><span class="dot"></span>Preview only · Nothing is playable · No credits move · No cash value at any point</span>
 </div>
 
 <!-- Exhibition-mode disclosure. The Floor's markets are generated by
@@ -638,9 +709,32 @@
      because that is the intended end state; until real rounds are bound,
      this banner scopes every one of those mentions. Remove it in the
      same commit that starts writing boundResult from real ballots. -->
-<div class="exhib-note" role="note">
-  <span class="exhib-pill">Exhibition mode</span>
-  <p>These are practice matchups between AI debater personas, not live rounds between real debaters. Outcomes are settled by a rating model, not by a live AI judge scoring a real ballot. Play credits carry no cash value and nothing here pays a prize. Markets on real rounds, settled on the actual ballot, are in build.</p>
+<div class="prev-note" role="note">
+  <div class="prev-note-head">
+    <span class="exhib-pill">Experimental</span>
+    <h2>A preview of The Floor, not a working game.</h2>
+  </div>
+  <div class="prev-note-body">
+    <p>Everything below is the real interface running on seeded data, kept here so the shape of the product is visible. The matchups are AI debater personas, not live rounds between real debaters, and the outcomes come from a rating model rather than a judge reading an actual ballot. Calls are locked off until that changes.</p>
+  </div>
+  <div class="prev-split">
+    <div class="prev-col is-real">
+      <h3>Built and working</h3>
+      <ul>
+        <li>The ledger: atomic balances, idempotent positions, append-only history.</li>
+        <li>Settlement that cannot double pay.</li>
+        <li>The board, the windows, and the read on the crowd.</li>
+      </ul>
+    </div>
+    <div class="prev-col is-todo">
+      <h3>Needed before it opens</h3>
+      <ul>
+        <li>Real rounds bound to the verdict, so a result is earned rather than modeled.</li>
+        <li>Speech transcripts held server side, so settlement can be checked.</li>
+        <li>An age gate and self-exclusion before anything resembling stakes.</li>
+      </ul>
+    </div>
+  </div>
 </div>
 
 <nav class="tabs" role="tablist">
@@ -809,6 +903,18 @@
   // ---------------------------------------------------------------
   // CONFIG
   // ---------------------------------------------------------------
+  /* PREVIEW gate. While true, The Floor renders in full but refuses every
+     action that would place a call. Both entry points (openCallDrawer and
+     placeBet) and the server path (serverBet) return through previewBlock(),
+     so a stray call site cannot leak a wager. Flip to false only in the
+     commit that binds markets to real ballots, and delete the ribbon, the
+     watermark and the .prev-note panel in that same commit. */
+  var PREVIEW = true;
+  function previewBlock(){
+    toast('The Floor is an experimental preview. Calls are switched off until rounds settle on a real ballot.','');
+    return false;
+  }
+
   var CFG = {
     START_CREDITS: 1000,
     SEED_LIQUIDITY: 40,          // opening pari-mutuel liquidity per side (no empty books)
@@ -1042,6 +1148,7 @@
   }
 
   function placeBet(m, side){
+    if(PREVIEW) return previewBlock();
     if(SERVER.on) return serverBet(m, side);
     var w = windowOf(m);
     if(!bettable(w)) return toast('That window just closed.', '');
@@ -1252,6 +1359,7 @@
     document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshServer({ force:true }); });
   }
   function serverBet(m, side){
+    if(PREVIEW) return previewBlock();
     if(!fbUser){ toast('Sign in to predict.',''); signIn(); return; }
     if(m.myBet) return toast('You already have a position on this round.','');
     var w = windowOf(m); if(!bettable(w)) return toast('That window just closed.','');
@@ -1339,9 +1447,17 @@
     var b = $('railToBoard'); if(b) b.addEventListener('click', function(){ window.scrollTo({ top:0, behavior:'smooth' }); });
     var mc = $('mobileCalls');
     if(mc){
-      mc.innerHTML = '<span class="mc-l"><span class="mc-k">Your calls</span><span class="mc-v">'+
-        (active.length ? (active.length+' live · '+fmtN(u.credits||0)+' cr') : (fmtN(u.credits||0)+' credits'))+
-        '</span></span><span class="mc-cta">'+(active.length ? 'View →' : 'Predict →')+'</span>';
+      if(PREVIEW){
+        // No call-to-action in preview: the bar would invite the one thing
+        // the page refuses to do.
+        mc.innerHTML = '<span class="mc-l"><span class="mc-k">Experimental preview</span>'+
+          '<span class="mc-v">Calls are switched off</span></span>'+
+          '<span class="mc-cta" style="opacity:.6">Locked</span>';
+      } else {
+        mc.innerHTML = '<span class="mc-l"><span class="mc-k">Your calls</span><span class="mc-v">'+
+          (active.length ? (active.length+' live · '+fmtN(u.credits||0)+' cr') : (fmtN(u.credits||0)+' credits'))+
+          '</span></span><span class="mc-cta">'+(active.length ? 'View →' : 'Predict →')+'</span>';
+      }
     }
   }
 
@@ -1382,6 +1498,7 @@
   var cdState = { id:null, side:null, stake:CFG.DEFAULT_STAKE };
   function openCallDrawer(m, side){
     if(!m) return;
+    if(PREVIEW) return previewBlock();
     var w = windowOf(m);
     if(!bettable(w)) return toast('That window just closed.','');
     if(m.myBet) return toast('You already have a call on this round.','');
@@ -1489,7 +1606,11 @@
       ? '<div class="fh-motion" style="color:var(--ghost)">Motion hidden. You are reading the debaters, not the topic. <b style="color:var(--text)">Reveals in '+timeStr(m.motionRevealAt-now())+'.</b></div>'
       : '<div class="fh-motion"><b>'+esc(m.motion)+'</b></div>';
     var mA = mult(m,'A').toFixed(2), mB = mult(m,'B').toFixed(2);
+    // Preview: mark locked but do NOT set disabled, so the click still
+    // reaches openCallDrawer() and previewBlock() can say why it refused.
+    // A dead click reads as a broken page.
     var disabled = !bettable(w) ? 'disabled' : '';
+    if(PREVIEW) disabled += ' data-locked aria-disabled="true"';
     var myA = m.myBet && m.myBet.side==='A' ? 'myA' : '', myB = m.myBet && m.myBet.side==='B' ? 'myB' : '';
     var callInner;
     if(m.myBet){
@@ -1601,7 +1722,11 @@
     }
 
     var mA = mult(m,'A').toFixed(2), mB = mult(m,'B').toFixed(2);
+    // Preview: mark locked but do NOT set disabled, so the click still
+    // reaches openCallDrawer() and previewBlock() can say why it refused.
+    // A dead click reads as a broken page.
     var disabled = !bettable(w) ? 'disabled' : '';
+    if(PREVIEW) disabled += ' data-locked aria-disabled="true"';
     var myA = m.myBet && m.myBet.side==='A' ? 'myA' : '';
     var myB = m.myBet && m.myBet.side==='B' ? 'myB' : '';
     var myBetLine = m.myBet
