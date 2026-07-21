@@ -5533,10 +5533,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      rotating hero headlines (slow beats, 3 → 2 → 1, film-leader ring
      pulsing and sweeping behind), then three quick onboarding questions
      take over the pulsing ring area
-     (Are you a debater? / What brings you in? / How do you want to
-     start?) with the surface flowing white → red → white → red between
-     them; then the overlay lifts and the two dominant hero cards (live
-     room + founding class) flow up into place. Runs ONCE per browser
+     Opens straight on question 1 (2026-07-20: the three-phrase 3-2-1
+     countdown was cut, it read as a loading screen and delayed the only
+     part that does anything). Surface alternates red → white between
+     the two questions; then the overlay lifts and the two hero cards
+     (live room + founding class) flow up into place. Runs ONCE per browser
      (localStorage da-welcome-intro), skipped entirely under
      prefers-reduced-motion. The Skip button ends it any time. A 9s
      failsafe in the gate script tears everything down if the sequence
@@ -5683,9 +5684,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <div id="welcomeIntro" role="dialog" aria-label="Welcome to Debatable">
   <div class="wi-redwash"></div>
   <div class="wi-vignette"></div>
-  <div class="wi-ring"><div class="wi-sweep"></div><div class="wi-ring-inner"></div></div>
-  <div class="wi-num">2</div>
-  <div class="wi-phrase"><span class="wi-lead"></span><b class="wi-accent"></b></div>
+  <div class="wi-ring"><div class="wi-ring-inner"></div></div>
   <div class="wi-q">
     <p class="wi-q-step"></p>
     <h2 class="wi-q-text"></h2>
@@ -5714,10 +5713,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       window.__wiBooted = true;
       var ov = document.getElementById('welcomeIntro');
       if (!ov){ root.removeAttribute('data-intro'); return; }
-      var lead   = ov.querySelector('.wi-lead');
-      var accent = ov.querySelector('.wi-accent');
-      var num    = ov.querySelector('.wi-num');
-      var phrase = ov.querySelector('.wi-phrase');
       var q      = ov.querySelector('.wi-q');
       var qStep  = ov.querySelector('.wi-q-step');
       var qText  = ov.querySelector('.wi-q-text');
@@ -5731,12 +5726,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         if (tp && /^\/[A-Za-z0-9_\-\/?=&.]*$/.test(tp) && tp.indexOf('//') !== 0) toParam = tp;
       } catch(e){}
 
-      /* Three beats so .wi-num counts 3, 2, 1 into the questions. */
-      var PHRASES = [
-        ['Take both', 'sides.'],
-        ['Win', 'either one.'],
-        ['Then', 'prove it.']
-      ];
       /* Two questions, all four options on screen at once. Keys stay
          stable for onboarding personalization; da-welcome-start was cut
          2026-07-19 (readers already handle it being unset). */
@@ -5760,7 +5749,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             ['watch','Let me watch','Spectate a live round.']
           ] }
       ];
-      var BEAT = 1650, i = 0, qi = 0, done = false, timers = [];
+      var qi = 0, done = false, timers = [];
       ga('welcome_intro_show');
       var sfxLoading = false;
       function welcomeSfx(name){
@@ -5802,7 +5791,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         ov.classList.add('wi-red');
         waitEl.classList.add('is-on');
         welcomeSfx('confirm');
-        timers.push(setTimeout(function(){ finish(false); }, 1700));
+        timers.push(setTimeout(function(){ finish(false); }, 900));
       }
 
       /* Every option is a real button in the DOM, so tab + enter work
@@ -5850,35 +5839,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         q.classList.add('is-out');
         /* Surface alternates: Q1 red, Q2 white, waiting beat red. */
         ov.classList.toggle('wi-red', qi < QUESTIONS.length && qi % 2 === 0);
-        timers.push(setTimeout(showQuestion, 700));
+        timers.push(setTimeout(showQuestion, 480));
       }
 
       function startQuestions(){
         if (done) return;
-        num.style.opacity = '0';
-        /* the phrase is a sibling flex child; drop it from flow so the
-           question block centers alone over the ring */
-        phrase.style.display = 'none';
         ov.classList.add('wi-red');
-        welcomeSfx('confirm');
-        timers.push(setTimeout(showQuestion, 750));
-      }
-
-      function beat(){
-        if (done) return;
-        if (i >= PHRASES.length){ startQuestions(); return; }
-        lead.textContent   = PHRASES[i][0] + ' ';
-        accent.textContent = PHRASES[i][1];
-        num.textContent    = String(PHRASES.length - i);
-        phrase.classList.remove('is-in');
-        void phrase.offsetWidth; /* restart the keyframe */
-        phrase.classList.add('is-in');
-        i++;
-        timers.push(setTimeout(beat, BEAT));
+        timers.push(setTimeout(showQuestion, 220));
       }
 
       skip.addEventListener('click', function(){ finish(true); });
-      beat();
+      startQuestions();
     }
 
     function boot(){
