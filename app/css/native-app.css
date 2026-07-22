@@ -43,6 +43,16 @@ html.dbnative body {
 html.dbnative .ui-topbar {
   display: none !important;
 }
+/* ...but hiding it removes the only thing holding page content off the
+   top of the screen. In a browser the address bar sits up there; in the
+   full-bleed webview nothing does, so the first card lands under the
+   Dynamic Island (caught on /profile and the other topbar pages during
+   the 2026-07-22 simulator walk). Give that space back.
+   Scoped with :has() so the pages that own their top spacing and never
+   mount the shared topbar (native.html, newvoice) are untouched. */
+html.dbnative body:has(.ui-topbar) {
+  padding-top: calc(var(--safe-top) + 6px) !important;
+}
 /* Anything pinned to the bottom clears the home indicator. */
 html.dbnative .ui-beta-strip,
 html.dbnative [data-app-safe-bottom] {
@@ -266,4 +276,7 @@ html.dbnative [role="button"] { touch-action: manipulation; }
 /* Coach is a core tab, so remove web-page framing when opened in app. */
 html.dbnative .coach-crumb { display: none !important; }
 html.dbnative .coach-shell,
-html.dbnative .coach-wrap { padding-top: max(14px, var(--safe-top)) !important; }
+/* Coach mounts the shared topbar, so the body rule above already clears
+   the status bar. This only adds the gap under it; keeping the old
+   max(14px, safe-top) here would pad for the island twice. */
+html.dbnative .coach-wrap { padding-top: 14px !important; }
