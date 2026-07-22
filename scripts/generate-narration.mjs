@@ -25,6 +25,8 @@
  *   --script-only          re-run Claude but keep existing audio
  *   --voice <id>           override the ElevenLabs voice id
  *   --list                 print the page list and exit
+ *   --check-routes         hit production and report any route that redirects
+ *                          away or 404s (its narration would be unreachable)
  *
  * Cost note: ElevenLabs is billed per character of the SCRIPT, not of the
  * page. Scripts land around 900-1300 characters, so a full 40-page rebuild
@@ -141,23 +143,17 @@ const PAGES = [
     // Renders itself with JS, so the scrape is a shell of transient status
     // lines ("Finding someone to...", "No human yet"). Verified 2026-07-22.
     hint: 'Live matchmaking against another human debater. You pick a format and optionally write a short judge-paradigm note; if the other side wrote one too, both debaters see and consent to each other\'s note before the round starts. You queue, and if nobody matches within about a minute you can practise against the AI while staying in the queue. There is also an open-invite waitlist: post that you are available, browse other debaters who are, and DM them to organise a round on your own time. An AI judge writes the ballot at the end. Signing in is required to post or message.' },
-  { slug: 'debate-chat',                 file: 'app/debate-chat.html',                    route: '/debate-chat' },
   { slug: 'leaderboard',                 file: 'app/leaderboard.html',                    route: '/leaderboard' },
   { slug: 'livedebates',                 file: 'app/livedebates.html',                    route: '/livedebates' },
   { slug: 'float',                       file: 'app/float.html',                          route: '/float' },
   { slug: 'floor',                       file: 'app/floor.html',                          route: '/floor' },
 
   // ── Search-entry pages ──
-  { slug: 'ai-debate-practice',          file: 'app/ai-debate-practice.html',             route: '/ai-debate-practice' },
-  { slug: 'debate-ai-tools',             file: 'app/debate-ai-tools.html',                route: '/debate-ai-tools' },
-  { slug: 'debate-case-generator',       file: 'app/debate-case-generator.html',          route: '/debate-case-generator' },
-  { slug: 'debate-topic-generator',      file: 'app/debate-topic-generator.html',         route: '/debate-topic-generator' },
-  { slug: 'prediction-market-debate',    file: 'app/prediction-market-debate.html',       route: '/prediction-market-debate' },
 ];
 
 // ── args ───────────────────────────────────────────────────────────────
 function parseArgs(){
-  const out = { only: null, dryRun: false, force: false, scriptOnly: false, voice: null, list: false };
+  const out = { only: null, dryRun: false, force: false, scriptOnly: false, voice: null, list: false, checkRoutes: false };
   for (let i = 2; i < argv.length; i++){
     const a = argv[i];
     if (a === '--only') out.only = argv[++i].split(',').map(s => s.trim()).filter(Boolean);
@@ -166,6 +162,7 @@ function parseArgs(){
     else if (a === '--script-only') out.scriptOnly = true;
     else if (a === '--voice') out.voice = argv[++i];
     else if (a === '--list') out.list = true;
+    else if (a === '--check-routes') out.checkRoutes = true;
     else if (a === '-h' || a === '--help'){
       console.log(fs.readFileSync(new URL(import.meta.url).pathname, 'utf8').split('\n').slice(1, 40).join('\n'));
       exit(0);
@@ -397,6 +394,39 @@ function saveManifest(manifest, voiceId){
   fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + '\n');
 }
 
+
+// ── route reachability ─────────────────────────────────────────────────
+// A narration is only worth generating if a visitor can actually land on
+// its route. Six pages in the 2026-07-22 batch turned out to be legacy
+// SEO URLs that now 301 elsewhere (/ai-debate-practice -> /debate-it and
+// friends), so their audio was unreachable the moment it shipped. Run
+// this against production before adding pages.
+async function checkRoutes(targets){
+  const base = process.env.NARRATION_ORIGIN || 'https://debateai.com';
+  let bad = 0;
+  for (const page of targets){
+    const url = base + page.route;
+    let final = url, status = 0;
+    try {
+      const r = await fetch(url, { redirect: 'follow' });
+      final = r.url; status = r.status;
+    } catch (err){
+      console.log(`  ${page.slug.padEnd(28)} FETCH FAILED (${err.message})`);
+      bad++; continue;
+    }
+    // trailing-slash normalization is not a redirect worth flagging;
+    // normalizePath() in read-aloud.js collapses it either way.
+    const norm = u => u.replace(/\/+$/, '');
+    if (norm(final) !== norm(url) || status >= 400){
+      console.log(`  ${page.slug.padEnd(28)} ${status} -> ${final.replace(base, '') || '/'}`);
+      bad++;
+    }
+  }
+  console.log(bad ? `\n${bad} unreachable route(s). Drop them from PAGES.`
+                  : `\nall ${targets.length} routes resolve to themselves.`);
+  return bad;
+}
+
 async function main(){
   if (args.list){
     PAGES.forEach(p => console.log(`${p.slug.padEnd(32)} ${p.route}`));
@@ -412,6 +442,10 @@ async function main(){
   if (!targets.length){
     console.error(`No pages matched --only ${args.only?.join(',')}. Run --list to see slugs.`);
     exit(1);
+  }
+
+  if (args.checkRoutes){
+    exit(await checkRoutes(targets) ? 1 : 0);
   }
 
   fs.mkdirSync(OUT_DIR, { recursive: true });

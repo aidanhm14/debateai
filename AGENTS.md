@@ -290,7 +290,7 @@ app/audio/narration/manifest.json route → {slug, title, script, seconds}
 app/js/read-aloud.js              the sitewide player
 ```
 
-62 pages as of 2026-07-22. The builder strips a page to visible prose,
+56 pages as of 2026-07-22. The builder strips a page to visible prose,
 has Claude write a ~170-word SPOKEN explainer of it, lints that script,
 then sends it to ElevenLabs.
 
@@ -321,15 +321,20 @@ that is handed to the model as authoritative over the scrape. /spar and
 /high-school both have one. If you add a JS-rendered page, expect to
 write a hint, and re-verify it when that page changes.
 
-Two page shapes to just leave out: redirect stubs (/scale is a meta
-refresh, and got narrated once before anyone noticed) and anything whose
-copy turns over faster than someone will re-run this.
+**Check the route resolves before adding a page.** `--check-routes` hits
+production and reports anything that redirects away or 404s. Six legacy
+SEO pages were narrated in the first extension pass before anyone noticed
+they now 301 to /debate-it and friends, so that audio was unreachable the
+moment it shipped. Same class of mistake as /scale, which is a meta
+refresh and got narrated once too. Also leave out anything whose copy
+turns over faster than someone will re-run this.
 
 ```bash
 node scripts/generate-narration.mjs --list                    # page list
 node scripts/generate-narration.mjs --only pricing --dry-run  # script, no audio spend
 node scripts/generate-narration.mjs                           # only changed pages
 node scripts/generate-narration.mjs --force --only a,b        # after changing a lint rule
+node scripts/generate-narration.mjs --check-routes             # before adding pages
 ```
 
 After changing a lint rule or the brand, audit what already shipped —
