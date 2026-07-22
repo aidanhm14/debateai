@@ -138,7 +138,7 @@
 
   // Semi-app surfaces where a "go home" popup would be noise. The home
   // bar still applies to these; only the popup is suppressed.
-  var NO_POPUP = /\/(leaderboard|users|profile|live|live-round|spar|casual-room|debate-chat|exhibition|predict|voice-rfd|admin|admin-rate|admin-runner|linter|verify)(\.html)?$/.test(lower);
+  var NO_POPUP = /\/(leaderboard|users|profile|live|live-round|spar|casual-room|debate-chat|exhibition|predict|voice-rfd|admin|admin-rate|admin-runner|linter|verify|voice-debate|newvoice|messages|room-judge|debate-it|float)(\.html)?$/.test(lower);
 
   function injectStyles() {
     if (document.getElementById('ditHomePopCss')) return;
