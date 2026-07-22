@@ -5639,6 +5639,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     position:fixed;inset:0;z-index:12000;
     background:radial-gradient(circle at 50% 42%,#b3261e 0%,#8f1a15 58%,#6e120e 100%);
     align-items:center;justify-content:center;
+    /* Skip is absolute furniture pinned to the bottom, so the stages are
+       centred in the space above it rather than the whole screen. Without
+       this the guide's actions row sits on top of Skip on a short screen.
+       Absolute children position against the padding box, so Skip itself
+       does not move. */
+    padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));
     transition:opacity .85s ease,transform .85s ease;
   }
   /* Smooth entrance: the root behind is the same red, so the overlay
@@ -5732,7 +5738,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      visit is offered the walkthrough without digging through the More
      menu. Steps stagger in slowly on purpose: the beats before this one
      were tuned for a viewer who already knows what the product does. */
-  .wi-guide{position:relative;z-index:2;width:min(94vw,940px);padding:0 22px;text-align:center;display:none;opacity:0}
+  /* Height cap so a guide taller than the screen scrolls inside its own
+     box instead of growing past the viewport. The parent reserves the Skip
+     band, so 100% here already stops above it. */
+  .wi-guide{position:relative;z-index:2;width:min(94vw,940px);padding:0 22px;
+    max-height:100%;
+    text-align:center;display:none;opacity:0}
   .wi-guide.is-on{display:block}
   .wi-guide.is-in{animation:wiQIn .9s cubic-bezier(.2,.8,.2,1) both}
   .wi-guide-h{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:800;font-size:clamp(1.9rem,4.6vw,2.9rem);line-height:1.05;letter-spacing:-.02em;color:#fff;margin:0 0 10px}
@@ -5764,11 +5775,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   @media (max-width:640px){
     /* Same band treatment the question gets: sit between the wordmark and
        Skip, and scroll inside that band if three steps plus the actions
-       run past a short screen. */
-    .wi-guide.is-on{display:flex;flex-direction:column;justify-content:center;
-      padding-top:calc(84px + env(safe-area-inset-top,0px));
-      padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));
+       run past a short screen. Block flow, not centred flex: an overflowing
+       flex column with justify-content:center spills past its own bottom
+       padding, which put the actions row on top of Skip. Short content is
+       still centred, by the overlay centring this box as a whole. */
+    .wi-guide.is-on{display:block;
+      padding-top:calc(64px + env(safe-area-inset-top,0px));
       overflow-y:auto}
+    /* Tightened so all three steps plus the actions row fit a standard
+       phone without scrolling. Smaller screens still scroll inside the
+       band rather than running under Skip. */
+    .wi-guide-sub{margin-bottom:14px}
+    .wi-guide-steps{margin-bottom:16px}
+    .wi-gs{padding:12px 16px}
   }
   /* waiting-room beat: face row + line, spar's searching-room language */
   .wi-wait{position:relative;z-index:2;text-align:center;display:none}
@@ -12062,7 +12081,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .credential-run-tail{
       width:100%;max-width:var(--mid-w);margin:clamp(22px,2.6vw,34px) auto 0;
       padding:0 var(--mid-gutter);
-      display:flex;flex-direction:row;align-items:center;gap:clamp(22px,3.4vw,48px);
+      display:flex;flex-direction:row;align-items:center;justify-content:center;
+      gap:clamp(22px,3.4vw,48px);
       text-align:left;
     }
     .rt-copy{display:flex;flex-direction:column;align-items:flex-start;gap:14px;min-width:0}
