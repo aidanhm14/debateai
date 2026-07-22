@@ -261,6 +261,7 @@
       { href: '/coaches',      label: 'Coaches' },
     ]},
     { head: 'Site', links: [
+      { href: '/how-it-works', label: 'How it works' },
       { href: '/pricing', label: 'Free vs Paid' },
       { href: '/schools', label: 'For schools' },
       { href: '/atlas',   label: 'Debate atlas' },
