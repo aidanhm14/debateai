@@ -15,7 +15,7 @@
 
 import { EDUCATION_BANK, getEducationTopic, EDUCATION_SLUGS } from './lib/education-bank.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://itsdebatable.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

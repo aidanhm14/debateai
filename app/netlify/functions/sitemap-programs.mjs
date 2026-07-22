@@ -6,7 +6,7 @@
 
 import { PROGRAMS, STATE_NAMES } from './lib/programs-data.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://itsdebatable.com';
 const LASTMOD = '2026-07-02'; // bump when the baked dataset refreshes
 
 function slugify(name) {

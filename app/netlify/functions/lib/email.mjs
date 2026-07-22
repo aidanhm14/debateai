@@ -15,12 +15,12 @@
  *   EMAIL_UNSUB_SECRET  HMAC key for one-click unsubscribe links; absent ->
  *                       tokens/URLs are null and footers fall back to
  *                       "Reply to opt out."
- *   SITE_URL            default https://debateai.com
+ *   SITE_URL            default https://itsdebatable.com
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export const SITE_URL = process.env.SITE_URL || 'https://debateai.com';
+export const SITE_URL = process.env.SITE_URL || 'https://itsdebatable.com';
 
 // ── HTML escaping ────────────────────────────────────────────────────────────
 
@@ -128,7 +128,7 @@ export function renderFooter({ uid, stream, reason } = {}) {
   const why = reason
     ? esc(reason)
     : `You're getting this because you've been active on
-    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none">debateai.com</a>.`;
+    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none">itsdebatable.com</a>.`;
   return `<p style="margin-top:28px;font-size:.76rem;color:#9b9ba8;line-height:1.5">
     ${why}
     ${optOut}
@@ -138,7 +138,7 @@ export function renderFooter({ uid, stream, reason } = {}) {
 // ── Send via Resend ──────────────────────────────────────────────────────────
 // from:    explicit arg > EMAIL_FROM env > 'Aidan @ Debatable <aidandavidhollinger@gmail.com>'
 //          (the pre-lib prod default for the scheduled senders; do NOT swap
-//          in an @debateai.com address here unless it is a verified Resend
+//          in an @itsdebatable.com address here unless it is a verified Resend
 //          sender, or every unset-env send starts 403ing)
 // replyTo: explicit arg > EMAIL_REPLY_TO env > 'aidandavidhollinger@gmail.com'
 // text:    when omitted, derived from html via toText().

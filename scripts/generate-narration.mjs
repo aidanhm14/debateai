@@ -217,7 +217,7 @@ function pageTitle(html){
 // ── Claude writes the spoken script ────────────────────────────────────
 // The voice rules here mirror soul.md: no em-dashes, no prefaces, no
 // consultant-speak, no founder name, plain language over metaphor.
-const SYSTEM = `You write short spoken narrations that explain a single web page to someone who is listening rather than reading. The site is ${BRAND}, a voice-first debate trainer at debateai.com where people argue out loud against an AI opponent and get a judge ballot.
+const SYSTEM = `You write short spoken narrations that explain a single web page to someone who is listening rather than reading. The site is ${BRAND}, a voice-first debate trainer at itsdebatable.com where people argue out loud against an AI opponent and get a judge ballot.
 
 Your output is read aloud by a text-to-speech voice. Write for the ear.
 
@@ -402,7 +402,7 @@ function saveManifest(manifest, voiceId){
 // friends), so their audio was unreachable the moment it shipped. Run
 // this against production before adding pages.
 async function checkRoutes(targets){
-  const base = process.env.NARRATION_ORIGIN || 'https://debateai.com';
+  const base = process.env.NARRATION_ORIGIN || 'https://itsdebatable.com';
   let bad = 0;
   for (const page of targets){
     const url = base + page.route;

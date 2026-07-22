@@ -50,50 +50,141 @@
   external_node_modules = ["@google-cloud/firestore", "stripe"]
   node_bundler = "esbuild"
 
-# itsdebatable.com → debateai.com (2026-07-18). 301 alias only; must
-# stay above the path rewrites (first-match). Mirrors app/netlify.toml.
-[[redirects]]
-  from = "https://itsdebatable.com/*"
-  to = "https://debateai.com/:splat"
-  status = 301
-  force = true
+# Domain canonicalization → itsdebatable.com (2026-07-22). The
+# canonical domain is now itsdebatable.com (brand = Debatable; the
+# domain finally matches the brand — and unlike the 2026-05-25 and
+# 2026-06-08 traps, this one is actually owned). Every legacy domain
+# (debateai.com, debateit.live, debatetable.com, debatethedevil.com)
+# 301s here, plus www→apex + http→https normalization for the
+# canonical host itself. These host-scoped rules MUST stay above the
+# path rewrites below: rules run first-match, and without these a
+# request to a legacy host's /sitemap.xml would hit the force=true
+# sitemap rewrite and serve duplicate content instead of redirecting.
+# Legacy debateai.com /api/* uses 308 (method-preserving) so stale
+# service-worker-cached pages on the old origin can still POST to the
+# API mid-migration. Stripe's webhook endpoint must be updated to
+# itsdebatable.com in Stripe itself (Stripe does not follow
+# redirects). All legacy domains must remain Netlify domain aliases
+# with DNS pointed at Netlify for these to fire.
+
+# ── canonical-host normalization: www + http → https apex ──
 [[redirects]]
   from = "https://www.itsdebatable.com/*"
-  to = "https://debateai.com/:splat"
+  to = "https://itsdebatable.com/:splat"
   status = 301
   force = true
 [[redirects]]
   from = "http://itsdebatable.com/*"
-  to = "https://debateai.com/:splat"
+  to = "https://itsdebatable.com/:splat"
   status = 301
   force = true
 [[redirects]]
   from = "http://www.itsdebatable.com/*"
-  to = "https://debateai.com/:splat"
+  to = "https://itsdebatable.com/:splat"
   status = 301
   force = true
 
-# debatetable.com -> debateai.com (2026-07-19). The May 2026 typo-variant
-# purchase (see soul.md 2026-05-26 entry); same 301-alias-only role as
-# itsdebatable.com above. Already a Netlify domain alias.
+# ── debateai.com (primary legacy domain, live 2024–2026) ──
+# /native serves IN PLACE on the legacy host (no redirect): the iOS
+# binary uploaded to ASC 2026-07-18 hardcodes debateai.com/native with
+# an allowNavigation list that does NOT include itsdebatable.com, so a
+# 301 would bounce the shipped app's WebView to a domain it treats as
+# external. Remove these two rules only after a binary pointing at
+# itsdebatable.com ships (mobile/capacitor.config.ts already does).
+[[redirects]]
+  from = "https://debateai.com/native"
+  to = "/native.html"
+  status = 200
+  force = true
+[[redirects]]
+  from = "https://debateai.com/native/*"
+  to = "/native/:splat"
+  status = 200
+  force = true
+[[redirects]]
+  from = "https://debateai.com/api/*"
+  to = "https://itsdebatable.com/api/:splat"
+  status = 308
+  force = true
+[[redirects]]
+  from = "https://www.debateai.com/api/*"
+  to = "https://itsdebatable.com/api/:splat"
+  status = 308
+  force = true
+[[redirects]]
+  from = "https://debateai.com/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "https://www.debateai.com/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "http://debateai.com/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "http://www.debateai.com/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+
+# ── debateit.live (2026-07 interim primary) ──
+[[redirects]]
+  from = "https://debateit.live/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "https://www.debateit.live/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "http://debateit.live/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "http://www.debateit.live/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+
+# ── debatetable.com (May 2026 typo-variant purchase) ──
 [[redirects]]
   from = "https://debatetable.com/*"
-  to = "https://debateai.com/:splat"
+  to = "https://itsdebatable.com/:splat"
   status = 301
   force = true
 [[redirects]]
   from = "https://www.debatetable.com/*"
-  to = "https://debateai.com/:splat"
+  to = "https://itsdebatable.com/:splat"
   status = 301
   force = true
 [[redirects]]
   from = "http://debatetable.com/*"
-  to = "https://debateai.com/:splat"
+  to = "https://itsdebatable.com/:splat"
   status = 301
   force = true
 [[redirects]]
   from = "http://www.debatetable.com/*"
-  to = "https://debateai.com/:splat"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+
+# ── debatethedevil.com (pre-2026 legacy mirror) ──
+[[redirects]]
+  from = "https://debatethedevil.com/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "http://debatethedevil.com/*"
+  to = "https://itsdebatable.com/:splat"
   status = 301
   force = true
 

@@ -31,7 +31,7 @@
  *   RESEND_API_KEY      required to send (absent => forced dry-run)
  *   SPAR_NIGHT_FROM / SPAR_NIGHT_REPLY_TO  sender overrides
  *   SPAR_NIGHT_MAX      per-run cap (default 500)
- *   SITE_URL            default https://debateai.com
+ *   SITE_URL            default https://itsdebatable.com
  *
  * Schedule: Wednesday 13:00 UTC (9:00 AM ET) — morning of the event,
  * 3h ahead of the winback cron it dedupes against.
@@ -90,8 +90,8 @@ function renderEmail({ firstName, uid }) {
   const cta = `${SITE_URL}/spar?utm_source=email&utm_medium=email&utm_campaign=spar_night`;
   const gcal = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
     + '&text=' + encodeURIComponent('Open Spar Night · Debatable')
-    + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at debateai.com/spar')
-    + '&location=' + encodeURIComponent('https://debateai.com/spar')
+    + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at itsdebatable.com/spar')
+    + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
     + '&dates=20260722T200000/20260722T213000'
     + '&ctz=' + encodeURIComponent(TZ)
     + '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY;BYDAY=WE');

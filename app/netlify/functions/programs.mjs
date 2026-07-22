@@ -16,7 +16,7 @@
 
 import { PROGRAMS, STATE_NAMES } from './lib/programs-data.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://itsdebatable.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
 const UPDATED = 'July 2026';
 
@@ -117,7 +117,7 @@ footer a{color:var(--ghost)} footer a:hover{color:var(--red)}
 <main class="wrap">
 ${body}
 <footer>
-  <span>Debatable · debateai.com</span>
+  <span>Debatable · itsdebatable.com</span>
   <span><a href="/programs">All states</a> · <a href="/schools">For schools</a> · <a href="/learn">Learn the formats</a></span>
 </footer>
 </main>

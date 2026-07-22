@@ -11,7 +11,7 @@
 ## 1. What the app is (one paragraph)
 
 DebateIt is on iOS as a **Capacitor 6 wrapper** that loads the LIVE website
-(`https://debateai.com/native`) inside a native WKWebView. It is not a
+(`https://itsdebatable.com/native`) inside a native WKWebView. It is not a
 separate frontend. The native shell adds: splash, status bar, keyboard,
 share, push, camera/mic permission, and Firebase (Auth + Messaging)
 plugins. The web content is the product; the shell is the frame.

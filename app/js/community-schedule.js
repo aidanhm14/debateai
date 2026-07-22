@@ -63,7 +63,7 @@
     function z(d){ return d.toISOString().replace(/[-:]|\.\d{3}/g, ''); }
     var title = 'Debatable round · ' + (FORMAT_LABELS[r.format] || r.format);
     var details = (r.motion ? 'Motion: ' + r.motion + '\n' : '') +
-      'Queue at https://debateai.com/spar?format=' + r.format + ' when it starts.';
+      'Queue at https://itsdebatable.com/spar?format=' + r.format + ' when it starts.';
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
       '&text=' + encodeURIComponent(title) +
       '&dates=' + z(start) + '/' + z(end) +

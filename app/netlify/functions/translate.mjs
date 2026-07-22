@@ -33,6 +33,8 @@ const LANG_NAMES = {
 };
 
 const PRODUCTION_ORIGINS = [
+  'https://itsdebatable.com',
+  'https://www.itsdebatable.com',
   'https://debateai.com',
   'https://www.debateai.com',
   'https://debateos1.netlify.app',

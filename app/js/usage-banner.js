@@ -20,7 +20,7 @@
   };
   const SDK_VERSION = '10.7.1';
   const POLL_MS = 45_000; // Re-fetch usage every 45s so the banner stays live.
-  const MANAGE_URL = 'https://debateai.com/app#team';
+  const MANAGE_URL = 'https://itsdebatable.com/app#team';
 
   let currentUser = null;
   let lastUsage = null;
@@ -184,7 +184,7 @@
     pill.appendChild(msg);
 
     const cta = document.createElement('a');
-    cta.href = isPaid ? MANAGE_URL : 'https://debateai.com/pricing';
+    cta.href = isPaid ? MANAGE_URL : 'https://itsdebatable.com/pricing';
     cta.textContent = ctaText;
     cta.style.cssText = [
       'padding:3px 10px',

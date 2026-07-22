@@ -24,7 +24,7 @@ import {
 } from './lib/daily-motion-bank.mjs';
 import { getDb } from './lib/firestore.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://itsdebatable.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
 
 // In-memory cache for the "recent public rounds" panel. Same content
@@ -451,7 +451,7 @@ ${isToday ? `<script>
     shareBtn.addEventListener('click',async function(){
       var n=s.streak||0;
       var line=n>0?'Day '+n+'. Today\\'s motion taken.':'Day 1. First motion taken.';
-      var text='Debatable · '+TODAY+'\\n"'+MOTION+'"\\n'+line+'\\nhttps://debateai.com/today';
+      var text='Debatable · '+TODAY+'\\n"'+MOTION+'"\\n'+line+'\\nhttps://itsdebatable.com/today';
       try{
         if(navigator.share){
           await navigator.share({text:text});

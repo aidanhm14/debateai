@@ -44,9 +44,9 @@ Debatable gives you reps you cannot get anywhere else.
 debate,speech,coach,APDA,parliamentary,argument,forensics,public speaking,LD,PF,MUN,rebuttal
 
 ## URLs
-- **Support URL:** https://debateai.com/coach
-- **Marketing URL:** https://debateai.com
-- **Privacy Policy URL:** https://debateai.com/privacy
+- **Support URL:** https://itsdebatable.com/coach
+- **Marketing URL:** https://itsdebatable.com
+- **Privacy Policy URL:** https://itsdebatable.com/privacy
 
 ## What's New (v1.0)
 First release. Your voice debate coach, live rounds, and AI judge, now on

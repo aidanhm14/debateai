@@ -22,6 +22,8 @@ const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
+  'https://itsdebatable.com',
+  'https://www.itsdebatable.com',
   'https://debateai.com',
   'https://www.debateai.com',
 ];
@@ -189,7 +191,7 @@ export default async (request, context) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://debateai.com',
+        'HTTP-Referer': 'https://itsdebatable.com',
         'X-Title': 'Debatable · Open Lab',
       },
       body: JSON.stringify({

@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 // The app shell loads the live product so fixes and debate content stay in
-// sync with debateai.com. /native is an app-specific home and navigation
+// sync with itsdebatable.com. /native is an app-specific home and navigation
 // surface, not the public landing page.
 const config: CapacitorConfig = {
   appId: 'com.debateai.debateit',
@@ -9,10 +9,10 @@ const config: CapacitorConfig = {
   webDir: 'www',
 
   server: {
-    url: 'https://debateai.com/native',
+    url: 'https://itsdebatable.com/native',
     allowNavigation: [
-      'debateai.com',
-      '*.debateai.com',
+      'itsdebatable.com',
+      '*.itsdebatable.com',
       '*.firebaseapp.com',
       '*.googleapis.com',
       '*.gstatic.com',

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <title>Privacy · Counter Chrome Extension · Debatable</title>
 <meta name="description" content="Privacy policy for the Counter chrome extension by Debatable. What data is collected, where it goes, and how to delete it." />
-<link rel="canonical" href="https://debateai.com/privacy-extension" />
+<link rel="canonical" href="https://itsdebatable.com/privacy-extension" />
 <meta name="robots" content="index,follow" />
 <style>
   :root { color-scheme: dark; }
@@ -35,7 +35,7 @@
 
   <div class="eyebrow">Privacy</div>
   <h1>Counter Chrome Extension</h1>
-  <p class="meta">Last updated: 2026-05-10. This page covers the Counter chrome extension specifically. The web app at debateai.com is governed by the platform's general terms.</p>
+  <p class="meta">Last updated: 2026-05-10. This page covers the Counter chrome extension specifically. The web app at itsdebatable.com is governed by the platform's general terms.</p>
 
   <h2>Single purpose</h2>
   <p>Counter is a chrome extension for practicing the oral defense of your own academic work, such as an essay you wrote, a project you built, a paper you drafted, a chapter you studied. You highlight a passage (or paste it in), and an examiner-style AI cross-examines you out loud. The AI plays the panel; you defend the argument. Voice round, oral feedback, no debate format required.</p>
@@ -43,7 +43,7 @@
   <h2>What the extension does with your data</h2>
   <div class="card">
     <h3>Selection text</h3>
-    <p>When you click a Counter context-menu item, press a Counter keyboard shortcut, or click the floating "Quiz me" pill in Google Docs, the text you have selected is read by the extension and posted into the Counter side panel. From the side panel it is sent to <code>debateai.com</code>, which forwards it to large language model providers (Anthropic Claude, OpenAI, Google Gemini, xAI Grok) and text-to-speech providers (OpenAI, ElevenLabs, Inworld, Cartesia) for processing. No selection text is stored long-term by the extension itself.</p>
+    <p>When you click a Counter context-menu item, press a Counter keyboard shortcut, or click the floating "Quiz me" pill in Google Docs, the text you have selected is read by the extension and posted into the Counter side panel. From the side panel it is sent to <code>itsdebatable.com</code>, which forwards it to large language model providers (Anthropic Claude, OpenAI, Google Gemini, xAI Grok) and text-to-speech providers (OpenAI, ElevenLabs, Inworld, Cartesia) for processing. No selection text is stored long-term by the extension itself.</p>
   </div>
 
   <div class="card">
@@ -58,7 +58,7 @@
 
   <div class="card">
     <h3>Authentication, billing, usage history</h3>
-    <p>If you sign in via the side panel, sign-in happens against <code>debateai.com</code> using Google OAuth (Firebase Authentication). The extension does not store, read, or transmit Google credentials directly. Billing is handled at <code>debateai.com</code> via Stripe; the extension never sees payment information. Usage history (rounds you ran, motions you saved) is stored against your Debatable account on Firestore, not in the extension.</p>
+    <p>If you sign in via the side panel, sign-in happens against <code>itsdebatable.com</code> using Google OAuth (Firebase Authentication). The extension does not store, read, or transmit Google credentials directly. Billing is handled at <code>itsdebatable.com</code> via Stripe; the extension never sees payment information. Usage history (rounds you ran, motions you saved) is stored against your Debatable account on Firestore, not in the extension.</p>
   </div>
 
   <div class="card">
@@ -69,7 +69,7 @@
       <li>Google's OAuth consent screen opens. You choose your account and approve the requested scopes (<code>documents</code> for read + write, <code>userinfo.email</code> to display the connected account in the side panel).</li>
       <li>Chrome stores a short-lived access token in its own <code>chrome.identity</code> cache, which the extension reads but never copies, never persists, and never transmits anywhere except to Google's official APIs.</li>
       <li>When you click <strong>Read active doc</strong>, the extension reads the URL of your active tab, extracts the document ID, calls <code>https://docs.googleapis.com/v1/documents/{docId}</code> with your token, and shows the document title + first 600 characters in the side panel.</li>
-      <li>If you ask the agent to sharpen a specific passage, the doc text and your request are sent to <code>https://debateai.com/api/docs-agent</code>, which proxies the call to Anthropic Claude with one tool (<code>propose_edit</code>) and returns the proposed replacement. The agent never writes to your doc on its own.</li>
+      <li>If you ask the agent to sharpen a specific passage, the doc text and your request are sent to <code>https://itsdebatable.com/api/docs-agent</code>, which proxies the call to Anthropic Claude with one tool (<code>propose_edit</code>) and returns the proposed replacement. The agent never writes to your doc on its own.</li>
       <li>The proposal renders inline in the side panel as a diff. If you click <strong>Apply to Doc</strong>, the extension calls <code>documents.batchUpdate</code> with a single <code>replaceAllText</code> request that swaps the exact agent-proposed text with the new text. If you click <strong>Reject</strong>, nothing is written.</li>
       <li>All edits are reversible from inside Google Docs via Cmd/Ctrl+Z and the version history (File → Version history). The extension never deletes content beyond the specific span the agent proposed and you confirmed.</li>
       <li>Clicking <strong>Disconnect</strong> revokes the cached token immediately. You can also revoke access at any time from <a href="https://myaccount.google.com/connections" target="_blank" rel="noopener">your Google account's connected apps page</a>.</li>
@@ -95,13 +95,13 @@
     <li><strong>storage</strong>: queue a single pending action between context-menu click and side-panel load. Nothing else is stored.</li>
     <li><strong>clipboardRead</strong>: support the "Paste from clipboard" fallback button in the side panel, used in environments where the right-click flow is intercepted by the page.</li>
     <li><strong>identity</strong>: enable Google OAuth via <code>chrome.identity.getAuthToken</code> so you can connect your Google account and have Counter read your active Google Doc. Tokens are held only in Chrome's identity cache, never persisted by the extension.</li>
-    <li><strong>host_permissions for debateai.com</strong>: load the side panel's iframe content from that origin.</li>
+    <li><strong>host_permissions for itsdebatable.com</strong>: load the side panel's iframe content from that origin.</li>
     <li><strong>host_permissions for docs.googleapis.com and www.googleapis.com</strong>: call the Google Docs API (read-only) and the Google OAuth userinfo endpoint after you have explicitly connected your Google account.</li>
     <li><strong>Content script on all URLs</strong>: required to detect copy events in Google Docs (which uses canvas rendering, so the standard right-click + selection capture does not work). The content script does not read the page; it only listens for copy events to surface the floating "Quiz me" pill on Docs and Office Online.</li>
   </ul>
 
   <h2>Deleting your data</h2>
-  <p>To delete extension-side data, remove the extension from <code>chrome://extensions</code>. To delete account-side data (rounds, motions, billing), sign in at <a href="https://debateai.com">debateai.com</a> and use the account modal's "Delete account" option, or email the address below.</p>
+  <p>To delete extension-side data, remove the extension from <code>chrome://extensions</code>. To delete account-side data (rounds, motions, billing), sign in at <a href="https://itsdebatable.com">itsdebatable.com</a> and use the account modal's "Delete account" option, or email the address below.</p>
 
   <h2>Children's privacy</h2>
   <p>Counter is not directed at children under 13. Users under 18 should use the extension with the supervision of a parent or guardian.</p>

@@ -104,7 +104,7 @@ function invalidPage() {
     Open the latest email from Debatable and use its unsubscribe link, or reply to the email to opt out.
   </p>
   <a href="${SITE_URL}" style="display:inline-block;padding:13px 22px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em">
-    Back to debateai.com
+    Back to itsdebatable.com
   </a>`));
 }
 
@@ -126,7 +126,7 @@ function intentPage({ uid, stream, token }) {
   </form>
   <p style="margin-top:22px;font-size:.85rem;line-height:1.55;color:#3a3a44">
     Changed your mind? Nothing changes until you confirm.
-    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none;font-weight:600">Back to debateai.com</a>.
+    <a href="${SITE_URL}" style="color:#dc2626;text-decoration:none;font-weight:600">Back to itsdebatable.com</a>.
   </p>`));
 }
 
@@ -141,7 +141,7 @@ function confirmPage({ uid, stream }) {
     ${STOP_SENTENCE[stream]}
   </p>
   <a href="${SITE_URL}" style="display:inline-block;padding:13px 22px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em">
-    Back to debateai.com
+    Back to itsdebatable.com
   </a>
   <p style="margin-top:22px;font-size:.85rem;line-height:1.55;color:#3a3a44">
     Changed your mind?
@@ -168,7 +168,7 @@ function resubPage({ uid, stream, stillBlocked }) {
     ${body}
   </p>
   <a href="${SITE_URL}" style="display:inline-block;padding:13px 22px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;font-size:.92rem;border-radius:100px;letter-spacing:.02em">
-    Back to debateai.com
+    Back to itsdebatable.com
   </a>`));
 }
 

@@ -1,7 +1,7 @@
 # Debate AI — iOS Build Setup
 
 This directory holds the **Capacitor** wrapper that turns
-[debateai.com](https://debateai.com) into a native iOS app.
+[itsdebatable.com](https://itsdebatable.com) into a native iOS app.
 
 Below is everything you need to get from "nothing installed" to "running on
 the iOS Simulator," then to the App Store. Follow top-to-bottom.
@@ -151,7 +151,7 @@ npx cap open ios          # opens Xcode
 In Xcode: select an iPhone 16 Pro simulator from the toolbar, hit ⌘+R.
 
 The simulator should boot, show the orb splash for ~1.2s, then load
-debateai.com inside the WKWebView.
+itsdebatable.com inside the WKWebView.
 
 ---
 
@@ -175,7 +175,7 @@ Open `ios/App/App/Info.plist` and add:
   <key>NSAllowsArbitraryLoads</key><false/>
   <key>NSExceptionDomains</key>
   <dict>
-    <key>debateai.com</key>
+    <key>itsdebatable.com</key>
     <dict>
       <key>NSIncludesSubdomains</key><true/>
       <key>NSExceptionAllowsInsecureHTTPLoads</key><false/>

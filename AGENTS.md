@@ -42,16 +42,18 @@ Called by: Aidan. Remove this block when the test is read.
 
 Debatable (renamed from DebateIt on 2026-07-18, itself renamed from
 Debate AI on 2026-06-08) is a voice-first adversarial-argument trainer
-at **debateai.com**. The brand name in user-facing copy is Debatable,
-but the owned production domain, canonical URLs, email defaults, and
-deployed host remain debateai.com. We own NEITHER debatable.com (1999
-registrant, all transfer locks on) NOR debateit.com, so do not point
-code, docs, CORS allowlists, structured data, or copy at either domain.
-Brand name without a matching domain is the established, intentional
-pattern here. The 2026-05-25 "Debatable" rename was reversed only
-because it also claimed the domain; the 2026-07-18 rename makes no
-domain claim; see soul.md decision log. ~7K monthly active users as of
-May 2026. Solo-built. Ships to production many times per day.
+at **itsdebatable.com** (canonical since 2026-07-22 — an aftermarket
+domain Aidan actually owns, whois-verified, unlike the debatable.com
+and debateit.com traps). Canonical URLs, og:url, sitemap, JSON-LD,
+and function site origins all point at itsdebatable.com. The legacy
+domains debateai.com, debateit.live, debatetable.com, and
+debatethedevil.com stay as Netlify aliases that 301 to it (rules at
+the top of both netlify.toml files); debateai.com also stays in the
+CORS allowlists for the migration window — do not remove it. We still
+own NEITHER debatable.com (1999 registrant, all transfer locks on)
+NOR debateit.com, so never point code, docs, or copy at those two.
+~7K monthly active users as of May 2026. Solo-built. Ships to
+production many times per day.
 
 The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 

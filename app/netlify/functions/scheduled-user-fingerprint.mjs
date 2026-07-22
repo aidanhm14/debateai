@@ -76,7 +76,7 @@ function safeText(s) {
 
 const FROM_EMAIL = process.env.FINGERPRINT_FROM || 'Aidan <aidandavidhollinger@gmail.com>';
 const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'aidandavidhollinger@gmail.com';
-const SITE_URL   = process.env.SITE_URL || 'https://debateai.com';
+const SITE_URL   = process.env.SITE_URL || 'https://itsdebatable.com';
 
 function esc(s) {
   return String(s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
@@ -109,7 +109,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
     You are getting this because the AI just produced its first read of your style. We send this exactly once per signup, never again. Reply if you want to talk debate, the AI, or anything else.
   </p>
   <p style="font-size:.7rem;color:#8a8a94;margin:8px 0 0">
-    Debatable · debateai.com · Built by a UChicago parliamentary debater.
+    Debatable · itsdebatable.com · Built by a UChicago parliamentary debater.
   </p>
 </div>
 </body></html>`;

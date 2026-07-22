@@ -32,7 +32,7 @@
  *   WINBACK_REPLY_TO  reply-to override (unset => lib/email.mjs default)
  *   WINBACK_MAX       per-run cap (default 80)
  *   WINBACK_LAPSE_MIN_DAYS / _MAX_DAYS  window edges (default 7 / 28)
- *   SITE_URL          default https://debateai.com
+ *   SITE_URL          default https://itsdebatable.com
  *
  * Firestore:
  *   generations         — last 28 days, indexed on uid + createdAt

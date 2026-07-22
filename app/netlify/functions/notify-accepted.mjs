@@ -73,7 +73,7 @@ function template({ subject, headline, sub, motion, format, kickoff, roomUrl, op
       <p style="margin:18px 0 0;font-size:12px;line-height:1.55;color:#6b7280">Embedded video, format-aware speech timer, AI ballot at the end. No install on either side.</p>
     </td></tr>
     <tr><td style="padding:14px 28px 22px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:#52525b">
-      You're receiving this because you posted or accepted a live debate on debateai.com. Reply to coordinate, or bail from the live board if something came up.
+      You're receiving this because you posted or accepted a live debate on itsdebatable.com. Reply to coordinate, or bail from the live board if something came up.
     </td></tr>
   </table>
 </body></html>`;

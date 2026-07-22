@@ -159,10 +159,10 @@
       if (share && share.share) return share.share({
         title: 'Debatable',
         text: 'Practice a real debate out loud.',
-        url: 'https://debateai.com'
+        url: 'https://itsdebatable.com'
       });
     } catch (e) {}
-    if (navigator.share) return navigator.share({ title: 'Debatable', text: 'Practice a real debate out loud.', url: 'https://debateai.com' });
+    if (navigator.share) return navigator.share({ title: 'Debatable', text: 'Practice a real debate out loud.', url: 'https://itsdebatable.com' });
     return Promise.resolve();
   };
 
@@ -188,7 +188,7 @@
       app.addListener('appUrlOpen', function (data) {
         try {
           var url = new URL(data.url);
-          if (url.hostname === 'debateai.com' || url.hostname.endsWith('.debateai.com')) {
+          if (url.hostname === 'itsdebatable.com' || url.hostname.endsWith('.itsdebatable.com')) {
             location.href = url.pathname + url.search + url.hash;
           }
         } catch (e) {}

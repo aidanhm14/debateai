@@ -22,7 +22,7 @@
 
 import { getDb } from './lib/firestore.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://itsdebatable.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
 
 // In-memory cache. Champions land at most once a week, so a 10-min

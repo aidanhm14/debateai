@@ -27,6 +27,8 @@ const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
   'https://debateos.com',
   'https://www.debateos.com',
+  'https://itsdebatable.com',
+  'https://www.itsdebatable.com',
   'https://debateai.com',
   'https://www.debateai.com',
 ];

@@ -59,7 +59,7 @@
     if (document.getElementById('daTopbar')) return true;
     var links = document.querySelectorAll(
       'a[href="/"],a[href="/landing"],a[href="/landing.html"],' +
-      'a[href="https://debateai.com/"],a[href="https://debateai.com"]'
+      'a[href="https://itsdebatable.com/"],a[href="https://itsdebatable.com"]'
     );
     for (var i = 0; i < links.length; i++) {
       var a = links[i];

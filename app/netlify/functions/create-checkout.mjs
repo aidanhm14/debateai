@@ -63,9 +63,9 @@ export default async (request) => {
   if (!priceId) return errorResponse('Invalid plan. Choose "byok", "individual", "team", or "lifetime".', 400, request);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  // Default to debateai.com (the production host) instead of the legacy
+  // Default to itsdebatable.com (the production host) instead of the legacy
   // debateos.com which now 404s. SITE_URL env var still wins if set.
-  const siteUrl = process.env.SITE_URL || 'https://debateai.com';
+  const siteUrl = process.env.SITE_URL || 'https://itsdebatable.com';
 
   const isLifetime = planId === 'lifetime';
 

@@ -24,7 +24,7 @@
 import { GUIDE_BANK, getGuide, listGuides } from './lib/guide-bank.mjs';
 import { FORMAT_BANK } from './lib/format-bank.mjs';
 
-const SITE_ORIGIN = 'https://debateai.com';
+const SITE_ORIGIN = 'https://itsdebatable.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
 
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

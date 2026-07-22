@@ -41,7 +41,7 @@ This Discord is where that community lives now.
 
 Voice-first sparring partner. Pick a format (Asian Parli, WSDC, BP, APDA, Policy, LD, PF, Worlds, Congress, MUN, Viva, Quick Clash) and a motion. Speak. The AI takes POIs, pushes back, writes a real judge ballot at the end with speaker points and weighing. Six brains under the hood: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab. Each picks up different things in the round.
 
-Try it: https://debateai.com`;
+Try it: https://itsdebatable.com`;
 
   const part2 = `## What I want this server to be
 
@@ -58,7 +58,7 @@ Long-term goal: every debater in the world has a 24/7 sparring partner that does
 
 ## Find us elsewhere
 
-- Site: https://debateai.com
+- Site: https://itsdebatable.com
 - X / Twitter: https://twitter.com/debateit
 - Instagram: https://www.instagram.com/debateit
 - TikTok: https://www.tiktok.com/@debateit
