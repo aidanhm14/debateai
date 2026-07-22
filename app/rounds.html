@@ -134,12 +134,38 @@
   .r-foot button:hover,.r-foot a:hover{color:var(--ink)}
 
   .skel{color:var(--ink-ghost);text-align:center;padding:50px 0}
+
+  /* ── motion ── */
+  .view-in{animation:viewIn .34s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes viewIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .grid .card{animation:cardIn .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*55ms)}
+  @keyframes cardIn{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+  .btn,.tab,.mode,.go{transition:transform .15s,background .15s,color .15s,border-color .15s}
+  .btn:active,.tab:active,.mode:active{transform:scale(.96)}
+  .turn{animation:cardIn .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
+  .ballot{animation:ballotIn .55s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes ballotIn{from{opacity:0;transform:translateY(14px) scale(.97)}60%{transform:translateY(-2px) scale(1.005)}to{opacity:1;transform:none}}
+  .stage>*{animation:stageIn .3s ease both}
+  @keyframes stageIn{from{opacity:0}to{opacity:1}}
+  .count-veil{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);z-index:3}
+  .count-num{font-family:var(--serif);font-weight:900;font-size:5rem;color:#fff;line-height:1;
+    animation:countPop .9s cubic-bezier(.2,.8,.2,1) both;text-shadow:0 6px 30px rgba(0,0,0,.5)}
+  .count-num.go{color:#4ade80;font-size:3.6rem;letter-spacing:.06em}
+  @keyframes countPop{from{opacity:0;transform:scale(1.7)}30%{opacity:1;transform:scale(1)}80%{opacity:1}to{opacity:0;transform:scale(.9)}}
+  .stage .clock.warn{background:rgba(220,38,38,.85);animation:clockPulse 1s ease-in-out infinite}
+  @keyframes clockPulse{50%{transform:scale(1.07)}}
+  @media(prefers-reduced-motion:reduce){
+    .view-in,.grid .card,.turn,.ballot,.stage>*,.count-num{animation:none !important}
+    .btn,.tab,.mode,.go{transition:none}
+    .stage .clock.warn{animation:none}
+  }
   @media(max-width:640px){ .hero{align-items:flex-start;flex-direction:column} .hero .spacer{display:none} }
 </style>
 </head>
 <body>
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
+<script defer src="/js/sfx.js"></script>
 
 <main class="wrap" id="app"><div class="skel">Loading…</div></main>
 
@@ -181,6 +207,9 @@
   } catch(e){ console.warn('firebase init failed', e); }
 
   function track(ev, meta){ try{ if(window.gtag) gtag('event', ev, meta||{}); }catch(e){} }
+  // Site SFX bank (js/sfx.js). Every call is guarded: the bank no-ops
+  // before the first user gesture and respects the site-wide mute.
+  function sfx(name){ try{ if (window.SFX && SFX[name]) return SFX[name].apply(null, [].slice.call(arguments,1)); }catch(e){} }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function $(id){ return document.getElementById(id); }
@@ -252,10 +281,10 @@
       '<div class="tabs">' +
         '<button class="tab'+(state.view==='feed'?' on':'')+'" data-nav="feed">Open challenges</button>' +
         '<button class="tab'+(state.view==='mine'?' on':'')+'" data-nav="mine">My rounds</button>' +
-      '</div>' + inner;
-    $('startBtn').onclick = function(){ openRecorder({ turn:1 }); };
+      '</div><div class="view-in">' + inner + '</div>';
+    $('startBtn').onclick = function(){ sfx('confirm'); openRecorder({ turn:1 }); };
     Array.prototype.forEach.call(document.querySelectorAll('[data-nav]'), function(b){
-      b.onclick = function(){ nav(b.getAttribute('data-nav')); };
+      b.onclick = function(){ sfx('click'); nav(b.getAttribute('data-nav')); };
     });
   }
 
@@ -271,8 +300,8 @@
     try { state.feed = await api('/api/async/feed'); } catch(e){ state.feed = { open:[], done:[] }; }
     if (state.view !== 'feed') return;
     var f = state.feed, now = Date.now();
-    var openCards = (f.open||[]).map(function(r){
-      return '<div class="card">' +
+    var openCards = (f.open||[]).map(function(r, i){
+      return '<div class="card" style="--i:'+Math.min(i,9)+'">' +
         '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
         '<span class="chip hot">AI answers in '+fmtLeft((r.deadlineAt||0)-now)+'</span></div>' +
         '<div class="motion">'+esc(r.motion)+'</div>' +
@@ -280,9 +309,9 @@
         '<div class="foot"><button class="go" data-answer="'+r.id+'">Answer this &rarr;</button>' +
         '<button class="go" style="color:var(--ink-ghost)" data-open="'+r.id+'">Watch</button></div></div>';
     }).join('');
-    var doneCards = (f.done||[]).map(function(r){
+    var doneCards = (f.done||[]).map(function(r, i){
       var w = r.winner==='prop' ? (r.prop&&r.prop.name) : (r.opp&&r.opp.name);
-      return '<div class="card">' +
+      return '<div class="card" style="--i:'+Math.min(i,9)+'">' +
         '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
         (w ? '<span class="chip win">'+esc(w)+' won</span>' : '') +
         (r.aiOpp ? '<span class="chip">vs AI</span>' : '') + '</div>' +
@@ -305,10 +334,11 @@
 
   function bindCardActions(){
     Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function(b){
-      b.onclick = function(){ nav('round', b.getAttribute('data-open')); };
+      b.onclick = function(){ sfx('click'); nav('round', b.getAttribute('data-open')); };
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-answer]'), function(b){
       b.onclick = function(){
+        sfx('confirm');
         var id = b.getAttribute('data-answer');
         var row = (state.feed && state.feed.open || []).filter(function(r){ return r.id===id; })[0];
         openRecorder({ turn:2, roundId:id, motion: row && row.motion, format: row && row.format });
@@ -326,11 +356,11 @@
     var mine;
     try { mine = await api('/api/async/feed?mine=1', {}, true); } catch(e){ mine = { rounds:[] }; }
     if (state.view !== 'mine') return;
-    var rows = (mine.rounds||[]).map(function(r){
+    var rows = (mine.rounds||[]).map(function(r, i){
       var stateLabel = r.state==='open' ? 'Waiting for an answer' :
         r.state==='awaiting_reply' ? (r.needsAction ? 'Your reply is due' : 'Waiting on the reply') :
         r.state==='judging' ? 'Ballot on the way' : 'Complete';
-      return '<div class="card">' +
+      return '<div class="card" style="--i:'+Math.min(i,9)+'">' +
         '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
         '<span class="chip'+(r.needsAction?' hot':'')+'">'+esc(stateLabel)+'</span></div>' +
         '<div class="motion">'+esc(r.motion)+'</div>' +
@@ -348,7 +378,9 @@
     try { data = await api('/api/async/round?id=' + encodeURIComponent(state.roundId)); }
     catch(e){ shell('<div class="empty">'+esc(e.message)+'</div>'); return; }
     if (state.view !== 'round') return;
+    var prevState = state.round && state.round.id === data.round.id ? state.round.state : null;
     var r = state.round = data.round;
+    if (prevState && prevState !== 'complete' && r.state === 'complete') sfx('rfdReveal');
     var uid = state.user && state.user.uid;
     var isProp = uid && r.prop && r.prop.uid === uid;
     var isOpp  = uid && r.opp  && r.opp.uid  === uid;
@@ -370,12 +402,12 @@
       banner = '<div class="banner info">All speeches in. The ballot lands within about 15 minutes.</div>';
     }
 
-    var turnsHtml = (r.turns||[]).map(function(t){
+    var turnsHtml = (r.turns||[]).map(function(t, ti){
       var spec = TURN_SPEC[t.n] || {};
       var media = t.kind === 'video'
         ? '<video controls playsinline preload="metadata" src="/api/async/media/'+encodeURIComponent(t.mediaId)+'"></video>'
         : '<audio controls preload="metadata" src="/api/async/media/'+encodeURIComponent(t.mediaId)+'"></audio>';
-      return '<div class="turn">' +
+      return '<div class="turn" style="--i:'+ti+'">' +
         '<div class="t-head">'+avatar(t)+'<span><b>'+esc(t.name)+'</b> <i style="font-style:normal;color:var(--ink-ghost);font-size:.78rem">· '+(spec.label||('Turn '+t.n))+'</i></span>' +
         (t.ai ? '<span class="t-ai">AI opponent</span>' : '') +
         '<span style="margin-left:auto" class="t-label">'+(t.durationSec||0)+'s</span></div>' +
@@ -427,8 +459,9 @@
       try { await api('/api/async/round', { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ id:r.id, action:'expedite' }) }, true);
         $('expBtn').replaceWith(Object.assign(document.createElement('span'), { textContent:' The AI answers within about 15 minutes.' }));
+        sfx('send');
         track('async_expedite', { id:r.id });
-      } catch(e){ alert(e.message); }
+      } catch(e){ sfx('error'); alert(e.message); }
     };
     Array.prototype.forEach.call(document.querySelectorAll('[data-vote]'), function(b){
       b.onclick = async function(){
@@ -439,14 +472,15 @@
           state.votedLocal[r.id] = b.getAttribute('data-vote');
           try{ localStorage.setItem('da-async-voted', JSON.stringify(state.votedLocal)); }catch(e){}
           state.round.votes = out.votes;
+          sfx('confirm');
           track('async_vote', { id:r.id, side:b.getAttribute('data-vote') });
           renderRound();
-        } catch(e){ alert(e.message); }
+        } catch(e){ sfx('error'); alert(e.message); }
       };
     });
     $('shareBtn').onclick = function(){
       var url = location.origin + '/rounds?r=' + r.id;
-      try{ navigator.clipboard.writeText(url); $('shareBtn').textContent = 'Link copied'; }catch(e){ prompt('Copy this link', url); }
+      try{ navigator.clipboard.writeText(url); sfx('click'); $('shareBtn').textContent = 'Link copied'; }catch(e){ prompt('Copy this link', url); }
     };
     $('reportBtn').onclick = async function(){
       var reason = prompt('What is wrong with this round? A short line is enough.');
@@ -454,8 +488,9 @@
       try { await ensureAuth();
         await api('/api/async/round', { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ id:r.id, action:'report', reason:reason }) }, true);
+        sfx('send');
         alert('Reported. Two independent reports hide a round pending review.');
-      } catch(e){ alert(e.message); }
+      } catch(e){ sfx('error'); alert(e.message); }
     };
     track('async_view', { view:'round', id:r.id, state:r.state });
 
@@ -532,8 +567,8 @@
         $('motionInput').value = MOTION_BANK[Math.floor(Math.random()*MOTION_BANK.length)];
       };
     }
-    $('modeVideo').onclick = function(){ setMode('video'); };
-    $('modeAudio').onclick = function(){ setMode('audio'); };
+    $('modeVideo').onclick = function(){ sfx('click'); setMode('video'); };
+    $('modeAudio').onclick = function(){ sfx('click'); setMode('audio'); };
     drawRecButtons('idle');
     setMode('video');
     track('async_record_open', { turn: ctx.turn });
@@ -580,9 +615,9 @@
       '<button class="btn btn-red" id="publishRec">Publish</button>' +
       '<button class="btn btn-ghost" id="againRec">Re-record</button>';
     if ($('goRec')) $('goRec').onclick = beginRecording;
-    if ($('stopRec')) $('stopRec').onclick = endRecording;
+    if ($('stopRec')) $('stopRec').onclick = function(){ sfx('click'); endRecording(); };
     if ($('publishRec')) $('publishRec').onclick = publish;
-    if ($('againRec')) $('againRec').onclick = function(){ state.rec.blob=null; drawRecButtons('idle'); startPreview(); };
+    if ($('againRec')) $('againRec').onclick = function(){ sfx('click'); state.rec.blob=null; drawRecButtons('idle'); startPreview(); };
   }
 
   function beginRecording(){
@@ -597,6 +632,36 @@
     }
     rec.mime = pickMime(rec.mode);
     if (!rec.mime){ showErr('This browser cannot record. Try Chrome, or Audio mode.'); return; }
+    // 3·2·1·GO. A breath before the clock starts, and the natural home
+    // for sound. The recorder proper starts on GO.
+    if (rec.counting) return;
+    rec.counting = true;
+    $('recBtns').innerHTML = '';
+    showErr('');
+    var stage = $('stage');
+    var veil = document.createElement('div');
+    veil.className = 'count-veil';
+    stage.appendChild(veil);
+    var beats = ['3','2','1','GO'];
+    var step = 0;
+    (function tick(){
+      if (!state.rec){ return; } // recorder torn down mid-count
+      var b = beats[step];
+      veil.innerHTML = '<span class="count-num'+(b==='GO'?' go':'')+'">'+b+'</span>';
+      sfx(b==='GO' ? 'confirm' : 'click');
+      step++;
+      if (step < beats.length){ setTimeout(tick, 780); }
+      else setTimeout(function(){
+        if (veil.parentNode) veil.parentNode.removeChild(veil);
+        if (state.rec) reallyStartRecording();
+      }, 500);
+    })();
+  }
+
+  function reallyStartRecording(){
+    var rec = state.rec; if (!rec || !rec.stream) return;
+    rec.counting = false;
+    var ctx = rec.ctx;
     rec.chunks = [];
     try {
       rec.mr = new MediaRecorder(rec.stream, rec.mode==='video'
@@ -611,10 +676,17 @@
     rec.secs = 0;
     $('stage').classList.add('live');
     var cap = TURN_SPEC[ctx.turn].capSec;
+    rec.warned = false;
     rec.timer = setInterval(function(){
       rec.secs++;
-      if ($('clock')) $('clock').textContent = fmtClock(rec.secs)+' / '+fmtClock(cap);
-      if (rec.secs >= cap) endRecording();
+      var clock = $('clock');
+      if (clock) clock.textContent = fmtClock(rec.secs)+' / '+fmtClock(cap);
+      if (!rec.warned && cap - rec.secs === 10){
+        rec.warned = true;
+        if (clock) clock.classList.add('warn');
+        sfx('timeWarning', 10);
+      }
+      if (rec.secs >= cap){ sfx('timeUp'); endRecording(); }
     }, 1000);
     rec.mr.start(1000);
     drawRecButtons('live');
@@ -665,11 +737,13 @@
       var out = await api('/api/async/turn', { method:'POST',
         headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) }, true);
       $('progFill').style.width = '100%';
+      sfx('success');
       track('async_publish', { turn: rec.ctx.turn, mode: rec.mode, kind: rec.mode });
       stopRecorder();
       nav('round', out.roundId);
     } catch(e){
       rec.uploading = false;
+      sfx('error');
       if ($('publishRec')) $('publishRec').disabled = false;
       showErr(e.message || 'Upload failed. Check your connection and try again.');
     }
