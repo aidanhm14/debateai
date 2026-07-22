@@ -17,7 +17,7 @@
 import { PROGRAMS, STATE_NAMES } from './lib/programs-data.mjs';
 
 const SITE_ORIGIN = 'https://debateai.com';
-const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=cards6`;
+const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
 const UPDATED = 'July 2026';
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
