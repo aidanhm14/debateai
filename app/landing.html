@@ -11549,18 +11549,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       padding:var(--mid-pad-block) var(--mid-gutter);
       display:flex;justify-content:center;
     }
-    /* 2026-07-22: 5/7 asymmetric grid. The certificate is the concise
-       proof card and the company-vision card carries the argument for
-       why any of this matters, so the vision side gets the extra
-       column. Grid stretch keeps both cards the same height without a
-       JS measure. */
+    /* 2026-07-22 (second pass): 5/7 -> 6/6 per Aidan ("mold / blend
+       together better"). The asymmetric split read as two unrelated
+       cards; equal columns make the pair read as one spread, and the
+       narrower vision column pulls the row height down, which is what
+       kept the certificate cover from ballooning. Grid stretch keeps
+       both cards the same height without a JS measure. */
     .credential-path-wrap{
       width:100%;max-width:var(--mid-w);
       display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
       gap:clamp(14px,1.6vw,20px);
     }
-    .credential-path-wrap > .credential-card--cert{grid-column:span 5}
-    .credential-path-wrap > .credential-card--future{grid-column:span 7}
+    .credential-path-wrap > .credential-card--cert{grid-column:span 6}
+    .credential-path-wrap > .credential-card--future{grid-column:span 6}
     .credential-card{
       position:relative;overflow:hidden;
       border:1px solid rgba(29,25,21,.10);
@@ -11673,6 +11674,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          card sets the row height, and the cover takes the remainder. */
       flex:1 1 0;
       min-height:170px;
+      /* 2026-07-22 (second pass): capped. Uncapped, the taller vision
+         card drove this to ~470px of cropped certificate, which
+         dominated the whole spread. 360px keeps it a document, not a
+         wall; margin-block:auto is inert while the cover is growing
+         (no free space) and splits any slack evenly above and below
+         once the cap is hit, so a shorter cover still sits centered
+         between the pills and the CTA instead of leaving one hole. */
+      max-height:360px;
+      margin-block:auto;
       border-radius:12px;
       padding:8px;
       background:#fff;
@@ -11747,7 +11757,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       background:linear-gradient(180deg,rgba(255,255,255,.64),rgba(255,255,255,.30));
       overflow:hidden;
     }
-    .cred-split-row{padding:14px 16px}
+    .cred-split-row{padding:12px 15px}
     .cred-split-row+.cred-split-row{border-top:1px solid rgba(29,25,21,.10)}
     .cred-split-tag{
       display:block;margin-bottom:9px;
@@ -11798,7 +11808,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       overflow:hidden;
       border:1px solid rgba(29,25,21,.10);
       background:#e7ded2;
-      aspect-ratio:16/6;
+      /* 16/6 -> 16/5.4 (2026-07-22 second pass): a step shorter so the
+         vision card's stack converges on the cert card's height at the
+         new equal-width split. */
+      aspect-ratio:16/5.4;
     }
     .cred-media img{
       display:block;width:100%;height:100%;
@@ -11918,8 +11931,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     @media(max-width:640px){
       /* Stacked cards have no spare height for the cover to grow into,
-         so it goes back to holding a page ratio at a readable size. */
-      .credential-cover-thumb{flex:none;aspect-ratio:8.5/9;min-height:0}
+         so it goes back to holding a page ratio at a readable size.
+         The desktop cap comes off so the ratio owns the height. */
+      .credential-cover-thumb{flex:none;aspect-ratio:8.5/9;min-height:0;max-height:none}
     }
     @media(max-width:560px){
       /* Padding comes from --mid-pad-block / --mid-gutter now. */
