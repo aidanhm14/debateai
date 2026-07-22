@@ -11843,8 +11843,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     [data-theme="light"] .rb-row:hover{background:#fffaf8;box-shadow:0 6px 16px rgba(29,25,21,.07)}
     .rb-rk{width:32px;flex:none;text-align:center;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:700;font-size:1.08rem;color:var(--text-dim,rgba(255,255,255,.45));font-variant-numeric:tabular-nums}
     [data-theme="light"] .rb-rk{color:rgba(0,0,0,.4)}
-    .rb-ava{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);font-size:.66rem;font-weight:800;letter-spacing:.04em;color:var(--text,#f4f4f2)}
+    .rb-ava{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);font-size:.66rem;font-weight:800;letter-spacing:.04em;color:var(--text,#f4f4f2)}
     [data-theme="light"] .rb-ava{border-color:rgba(29,25,21,.10);background:#f7f3ec;color:#1a1a1f}
+    /* Photos (sample board) and generated marble avatars (real rows) both
+       fill the 32px disc; without this the raw <img> rendered at its
+       intrinsic size and blew out the row. */
+    .rb-ava img,.rb-ava svg{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%}
     .rb-who{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
     .rb-nm{font-weight:700;font-size:.92rem;color:var(--text,#f4f4f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     [data-theme="light"] .rb-nm{color:#1a1a1f}
@@ -12006,6 +12010,51 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var s = parts[0].charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '');
     return s.replace(/[^A-Za-z]/g, '').toUpperCase() || '?';
   }
+  /* Generated "marble" avatar, ported from /leaderboard so a debater wears
+     the same face on both surfaces. Deterministic off the name hash, so the
+     avatar is stable across sessions. Deliberately NOT a stock photo: these
+     rows carry real account names, and pasting a stranger's face onto one
+     would be a lie. Initials ride on top so the row still reads as a person.
+     Palette matches leaderboard.html (a rainbow was tried and rejected
+     2026-07-19 for fighting the red-on-warm-paper system). */
+  var AV_PALETTE = ['#c0392b','#a8553a','#c9822e','#9c7a2e','#7d8c3f','#3f7d6a','#3d6b8c','#5a5f8c','#7a4a6b','#8c4a4a','#6b7f8c','#8a5a3a'];
+  function hashStr(s){
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h >>> 0;
+  }
+  function avDigit(n, p){ return Math.floor((n / Math.pow(10, p)) % 10); }
+  function avUnit(n, range, idx){
+    var v = n % range;
+    if (idx && avDigit(n, idx) % 2 === 0) v = -v;
+    return v;
+  }
+  function marbleAvatar(seed, label){
+    var num = hashStr(String(seed || 'anon'));
+    var uid = 'rb' + (num >>> 0).toString(36);
+    var ini = initials(label != null ? label : seed);
+    var props = [0,1,2].map(function(i){
+      var k = num * (i + 1);
+      return {
+        color: AV_PALETTE[(num + i) % AV_PALETTE.length],
+        tx: avUnit(k, 8, 1),
+        ty: avUnit(k, 8, 2),
+        rot: avUnit(k, 360, 1),
+        scale: 1.2 + avUnit(k, 4) / 10
+      };
+    });
+    function tf(p){ return 'translate(' + p.tx + ' ' + p.ty + ') rotate(' + p.rot + ' 40 40) scale(' + p.scale + ')'; }
+    return '<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">'
+      + '<mask id="m' + uid + '" maskUnits="userSpaceOnUse" x="0" y="0" width="80" height="80"><rect width="80" height="80" rx="160" fill="#fff"/></mask>'
+      + '<g mask="url(#m' + uid + ')">'
+      + '<rect width="80" height="80" fill="' + props[0].color + '"/>'
+      + '<path filter="url(#f' + uid + ')" d="M32.414 59.35L50.376 70.5H72.5v-71H33.728L26.5 13.381l19.057 27.08L32.414 59.35z" fill="' + props[1].color + '" transform="' + tf(props[1]) + '"/>'
+      + '<path filter="url(#f' + uid + ')" style="mix-blend-mode:overlay" d="M22.216 24L0 46.75l14.108 38.129L78 86l-3.081-59.276-22.378 4.005 12.972 20.186-23.35 27.395L22.215 24z" fill="' + props[2].color + '" transform="' + tf(props[2]) + '"/>'
+      + '</g>'
+      + '<defs><filter id="f' + uid + '" x="-10" y="-10" width="100" height="100"><feGaussianBlur stdDeviation="7"/></filter></defs>'
+      + (ini ? '<text x="40" y="41" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Inter,system-ui,sans-serif" font-size="30" font-weight="800" style="paint-order:stroke" stroke="rgba(0,0,0,.28)" stroke-width="1.2">' + esc(ini) + '</text>' : '')
+      + '</svg>';
+  }
   function renderBoard(rows){
     var host = document.getElementById('rbBoard');
     if (!host) return;
@@ -12039,7 +12088,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         + '<span class="rb-rk' + medal + '">' + (i + 1) + '</span>'
         + '<span class="rb-ava">' + (r.face
             ? '<img src="/img/round/faces/' + r.face + '.jpg" alt="" loading="lazy" decoding="async">'
-            : esc(initials(r.name))) + '</span>'
+            : marbleAvatar(r.name, r.name)) + '</span>'
         + '<span class="rb-who"><span class="rb-nm">' + esc(r.name) + '</span>'
         + '<span class="rb-chip">' + esc(r.format || (r.kind === 'live' ? 'live' : 'ai round')) + '</span></span>'
         + '<span class="rb-pts"><b>' + fmtScore(r.score) + '</b>'
