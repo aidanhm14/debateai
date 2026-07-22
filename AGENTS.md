@@ -260,6 +260,55 @@ Client passes `voice` (persona key), `intensity` (0-1), `premium`, and
 optionally `provider` to `/api/tts`. `tts.mjs` handles routing and
 provider-fallback.
 
+## Page narration ("listen to this page")
+
+A visitor can have any content page explained to them out loud, and the
+narration keeps playing while they browse the rest of the site.
+
+**This does not use `/api/tts`.** The audio is pre-generated and served
+as static files. That was deliberate: `/api/tts` is capped at 60/min and
+100/day per IP, and a page is far too long for one call, so a live path
+would both cut listeners off mid-browse and bill ElevenLabs for every
+anonymous visitor. Pre-generating costs once per page per rewrite and
+serves free forever.
+
+```
+scripts/generate-narration.mjs    the builder (run by hand, not in CI)
+app/audio/narration/<slug>.mp3    one file per page, 64 kbps
+app/audio/narration/manifest.json route → {slug, title, script, seconds}
+app/js/read-aloud.js              the sitewide player
+```
+
+The builder strips a page to visible prose, has Claude write a ~170-word
+SPOKEN explainer of it, lints that script against the brand rules, then
+sends it to ElevenLabs. The lint is the important part: a bad line here
+ships as audio, which is much harder to notice than a bad line of text.
+It blocks synthesis on em-dashes, banned phrases, invented urgency
+("lock in this rate"), and friction-selling ("no card", "no sign-up").
+Both of those last two have already been caught in real runs, so do not
+remove the gate.
+
+```bash
+node scripts/generate-narration.mjs --list                  # page list
+node scripts/generate-narration.mjs --only pricing --dry-run # script, no audio spend
+node scripts/generate-narration.mjs                          # only changed pages
+```
+
+Re-runs are hash-gated on the page's prose, so a no-op run costs nothing.
+**Editing a narrated page's copy does not regenerate its narration** —
+nothing watches for that. Re-run the builder when copy drifts far enough
+that the spoken version is wrong, and bump `CACHE_NAME` in both `sw.js`
+files afterward, because narration is served cache-first and a same-URL
+replacement is otherwise invisible to returning visitors.
+
+`read-aloud.js` is loaded by `topbar.js`, so it reaches all 63 topbar
+pages from one edit. Continuity across navigation works by writing
+`{slug, time, playing}` to sessionStorage on every tick and resuming on
+the next document. Browsers gate autoplay per document, so that resume
+can be refused; when it is, the pill shows a one-tap Resume rather than
+failing silently. Chrome generally stops refusing once the visitor has
+played media on the origin a few times. Safari tends to keep asking.
+
 ## Editing playbook for the big single-file pages
 
 `debate-ai.html` and `landing.html` are huge single-file React apps.

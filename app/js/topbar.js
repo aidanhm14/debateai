@@ -1176,3 +1176,19 @@
     show(info, href);
   }, true);
 })();
+
+/* ── Page narrator ───────────────────────────────────────────────
+   "Listen to this page" — a pre-generated ElevenLabs narration that
+   explains the page, and keeps playing while the visitor navigates.
+   Loaded from here rather than from a <script> tag on each page so
+   one edit covers every topbar page. read-aloud.js self-guards on
+   window.__ditReadAloud and removes itself on pages that have no
+   narration and nothing to resume, so this is safe everywhere.
+   Built by scripts/generate-narration.mjs. */
+(function(){
+  if (window.__ditReadAloud) return;
+  var s = document.createElement('script');
+  s.src = '/js/read-aloud.js';
+  s.defer = true;
+  (document.body || document.head || document.documentElement).appendChild(s);
+})();

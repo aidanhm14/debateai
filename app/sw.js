@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v1705';
+const CACHE_NAME = 'debateos-v1706';
 
 
 
@@ -165,6 +165,46 @@ self.addEventListener('fetch', (event) => {
           // Genuinely uncertain — surface the real error to the browser
           throw new Error('SW navigation fetch failed and user appears online');
         })
+    );
+    return;
+  }
+
+  // Page narration (read-aloud.js) — cache-first, and never cache a partial.
+  //
+  // These files are the one asset the site replays across navigations, so
+  // serving them from cache is what makes "keep listening while you browse"
+  // resume instantly instead of re-fetching on every page load.
+  //
+  // Range requests are passed straight through. A media element commonly
+  // asks for a byte range and gets a 206, which passes response.ok and
+  // would otherwise be stored and later replayed as if it were the whole
+  // file, producing audio that truncates for no visible reason. Only a
+  // full 200 is ever written to the cache.
+  //
+  // manifest.json is deliberately NOT included: it is the index that
+  // changes every time narration is rebuilt, and serving it cache-first
+  // pins a visitor to an old page list until CACHE_NAME moves. It falls
+  // through to the network-first default below. Only the MP3s, whose
+  // contents are stable for a given CACHE_NAME, are cached here.
+  if (url.origin === self.location.origin &&
+      url.pathname.startsWith('/audio/narration/') &&
+      url.pathname.endsWith('.mp3')) {
+    if (request.headers.get('range')) {
+      event.respondWith(fetch(request));
+      return;
+    }
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response && response.status === 200 && shouldCache(response) && isCacheableRequest(request)) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(()=>{});
+            }
+            return response;
+          })
+      )
     );
     return;
   }
