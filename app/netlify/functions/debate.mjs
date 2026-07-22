@@ -556,7 +556,7 @@ ${rail(m)}
         <span class="otherway-body">Pick two of six brains (Claude, GPT, Grok, Gemini, DeepSeek, Open Lab) and watch the round before you face one yourself.</span>
         <span class="otherway-arr">→</span>
       </a>
-      <a class="otherway-card" href="/spar">
+      <a class="otherway-card" href="/debate-strangers">
         <span class="otherway-eye">Spar · instant human</span>
         <span class="otherway-title">Queue for an instant scrim</span>
         <span class="otherway-body">No scheduling. The matchmaker pairs you with another debater in seconds, AI fallback if none available.</span>

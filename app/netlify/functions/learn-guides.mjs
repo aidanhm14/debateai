@@ -414,6 +414,15 @@ ${guide.faqs && guide.faqs.length ? `<script type="application/ld+json">${jsonLd
     <ul>${relatedItems.map(g => `<li><a href="/learn/guides/${esc(g.slug)}">${esc(g.question)}</a></li>`).join('')}</ul>
   </section>` : ''}
 
+  <section class="related">
+    <div class="related-head">Put it in a round</div>
+    <ul>
+      <li><a href="/debate-strangers">Debate a stranger on video</a></li>
+      <li><a href="/debate-online">Debate online against people or AI</a></li>
+      <li><a href="/topics/">Browse motions by format</a></li>
+    </ul>
+  </section>
+
   <footer class="guide-footer">
     <span>© 2026 Debatable</span>
     <span><a href="/learn">Learn</a> · <a href="/learn/fundamentals">Fundamentals</a> · <a href="/learn/guides">Guides</a> · <a href="/learn/glossary">Glossary</a></span>
