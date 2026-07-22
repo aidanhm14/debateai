@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Async rounds · Record now, they answer later · Debatable</title>
+<meta name="description" content="Record a 90-second opening on any motion. A real debater answers on their own time, you reply, and the AI judge writes the ballot. If no human answers within 24 hours, the AI opponent takes the other side." />
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/ui.css">
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --paper:#faf8f3; --card:#ffffff; --ink:#1a1a1f; --ink-soft:rgba(26,26,31,.64);
+    --ink-ghost:rgba(26,26,31,.42); --line:rgba(29,25,21,.11); --red:#dc2626; --red-deep:#b91c1c;
+    --green:#16a34a; --serif:'Crimson Pro','Fraunces',Georgia,serif;
+  }
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.5}
+  a{color:inherit}
+  /* Top padding clears the fixed 52px .ui-topbar. */
+  .wrap{max-width:1080px;margin:0 auto;padding:78px 20px 90px}
+  button{font-family:inherit}
+
+  /* ── header strip ── */
+  .hero{display:flex;flex-wrap:wrap;align-items:flex-end;gap:18px;margin:18px 0 26px}
+  .hero h1{margin:0;font-size:clamp(1.9rem,4.5vw,2.7rem);font-weight:800;letter-spacing:-.02em;line-height:1.05}
+  .hero p{margin:6px 0 0;color:var(--ink-soft);max-width:52ch}
+  .hero .spacer{flex:1}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;text-decoration:none;
+    border-radius:999px;padding:12px 22px;font-size:.95rem;font-weight:800;transition:transform .15s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-red{background:var(--red);color:#fff;box-shadow:0 10px 26px rgba(220,38,38,.22)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid rgba(26,26,31,.22)}
+  .btn[disabled]{opacity:.5;cursor:default;transform:none}
+  .tabs{display:flex;gap:8px;margin:0 0 20px}
+  .tab{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px;
+    font-size:.86rem;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* ── feed ── */
+  .sec-h{margin:26px 0 12px;font-size:.72rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-ghost)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;
+    box-shadow:0 8px 26px rgba(29,25,21,.05);display:flex;flex-direction:column;gap:10px}
+  .chiprow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);background:rgba(29,25,21,.03)}
+  .chip.hot{color:var(--red-deep);border-color:rgba(220,38,38,.3);background:rgba(220,38,38,.06)}
+  .chip.win{color:#166534;border-color:rgba(22,163,74,.3);background:rgba(22,163,74,.08)}
+  .card .motion{font-size:1.08rem;font-weight:700;line-height:1.25;letter-spacing:-.01em;min-height:2.4em}
+  .who{display:flex;align-items:center;gap:9px}
+  .ava{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#eee;border:1px solid var(--line);
+    display:inline-grid;place-items:center;font-size:.7rem;font-weight:800;color:var(--ink-soft);flex:none;overflow:hidden}
+  .ava img{width:100%;height:100%;object-fit:cover}
+  .who b{font-size:.9rem}
+  .who i{font-style:normal;font-size:.72rem;color:var(--ink-ghost)}
+  .card .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .go{font-size:.85rem;font-weight:800;color:var(--red);text-decoration:none;cursor:pointer;background:none;border:none;padding:0}
+  .empty{background:var(--card);border:1px dashed rgba(29,25,21,.24);border-radius:16px;padding:26px;
+    text-align:center;color:var(--ink-soft)}
+  .empty b{color:var(--ink)}
+
+  /* ── recorder ── */
+  .rec-wrap{max-width:680px;margin:0 auto}
+  .rec-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 14px 40px rgba(29,25,21,.07)}
+  .rec-eyebrow{font-size:.66rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--red-deep);margin:0 0 8px}
+  .rec-title{margin:0 0 4px;font-size:1.4rem;font-weight:800;letter-spacing:-.015em}
+  .rec-sub{margin:0 0 16px;font-size:.9rem;color:var(--ink-soft)}
+  .field{margin:0 0 14px}
+  .field label{display:block;font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-ghost);margin-bottom:6px}
+  .field input[type=text],.field select{width:100%;box-sizing:border-box;font-family:inherit;font-size:1rem;
+    padding:11px 12px;border-radius:10px;border:1px solid rgba(29,25,21,.2);background:#fffdf9;color:var(--ink)}
+  .row2{display:flex;gap:10px}.row2>.field{flex:1}
+  .suggest{background:none;border:none;color:var(--red);font-size:.8rem;font-weight:700;cursor:pointer;padding:2px 0}
+  .modes{display:flex;gap:8px;margin:0 0 12px}
+  .mode{flex:1;border:1px solid var(--line);border-radius:12px;background:#fffdf9;padding:10px;cursor:pointer;
+    font-size:.86rem;font-weight:700;color:var(--ink-soft);text-align:center}
+  .mode.on{border-color:var(--red);color:var(--red-deep);background:rgba(220,38,38,.05)}
+  .stage{position:relative;background:#0d0d10;border-radius:14px;overflow:hidden;aspect-ratio:16/10;
+    display:grid;place-items:center;margin:0 0 12px}
+  .stage video,.stage audio{width:100%;height:100%;object-fit:cover;display:block}
+  .stage .audio-face{color:rgba(255,255,255,.6);font-size:.9rem;text-align:center;padding:20px}
+  .stage .clock{position:absolute;top:10px;right:12px;background:rgba(0,0,0,.55);color:#fff;font-weight:800;
+    font-variant-numeric:tabular-nums;border-radius:8px;padding:4px 10px;font-size:.95rem}
+  .stage .reclight{position:absolute;top:16px;left:14px;width:10px;height:10px;border-radius:50%;background:var(--red);
+    box-shadow:0 0 10px rgba(220,38,38,.8);animation:blink 1.2s ease-in-out infinite;display:none}
+  .stage.live .reclight{display:block}
+  @keyframes blink{50%{opacity:.35}}
+  .rec-btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .safety{margin:12px 0 0;font-size:.76rem;color:var(--ink-ghost);text-align:center;line-height:1.5}
+  .prog{height:8px;border-radius:6px;background:rgba(29,25,21,.08);overflow:hidden;margin:12px 0 0;display:none}
+  .prog i{display:block;height:100%;width:0;background:var(--red);transition:width .25s}
+  .err{margin:12px 0 0;padding:10px 13px;border-radius:10px;border:1px solid rgba(220,38,38,.3);
+    background:rgba(220,38,38,.06);color:var(--red-deep);font-size:.85rem;display:none}
+  .ctx-motion{background:rgba(29,25,21,.035);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px}
+  .ctx-motion .m{font-weight:700}
+  .ctx-motion .s{font-size:.8rem;color:var(--ink-soft);margin-top:3px}
+
+  /* ── round view ── */
+  .r-head{margin:0 0 18px}
+  .r-motion{margin:4px 0 8px;font-size:clamp(1.35rem,3vw,1.9rem);font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  .banner{border-radius:14px;padding:13px 16px;font-size:.92rem;margin:0 0 18px;border:1px solid}
+  .banner.info{background:rgba(29,25,21,.035);border-color:var(--line);color:var(--ink-soft)}
+  .banner.act{background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.28);color:var(--ink)}
+  .banner .btn{margin-left:10px;padding:8px 16px;font-size:.84rem}
+  .turns{display:flex;flex-direction:column;gap:14px;margin:0 0 22px}
+  .turn{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .turn .t-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .t-label{font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-ghost)}
+  .t-ai{font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6d28d9;
+    border:1px solid rgba(109,40,217,.3);background:rgba(109,40,217,.06);border-radius:999px;padding:2px 8px}
+  .turn video{width:100%;max-height:420px;border-radius:12px;background:#000;display:block}
+  .turn audio{width:100%;display:block}
+  .tr-toggle{background:none;border:none;color:var(--ink-ghost);font-size:.78rem;font-weight:700;cursor:pointer;padding:8px 0 0}
+  .tr-text{font-size:.92rem;color:var(--ink-soft);line-height:1.6;padding-top:8px;display:none;white-space:pre-wrap}
+  .ballot{background:linear-gradient(180deg,#fffdf8,#fdf6ef);border:1px solid rgba(29,25,21,.14);border-radius:18px;
+    padding:20px;box-shadow:0 14px 40px rgba(29,25,21,.07);margin:0 0 18px}
+  .ballot .b-eyebrow{font-size:.64rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--red-deep);margin:0 0 8px}
+  .ballot .b-win{font-size:1.5rem;font-weight:800;letter-spacing:-.015em;margin:0 0 4px}
+  .ballot .b-pts{font-size:.9rem;color:var(--ink-soft);margin:0 0 12px}
+  .ballot .b-rfd{font-size:.98rem;line-height:1.65;color:var(--ink)}
+  .voterow{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 18px}
+  .voterow .v-q{font-weight:800;margin:0 0 10px}
+  .votebar{height:12px;border-radius:8px;overflow:hidden;display:flex;background:rgba(29,25,21,.08);margin:12px 0 6px}
+  .votebar i{display:block;height:100%}
+  .votebar .vp{background:var(--red)}
+  .votebar .vo{background:#3d6b8c}
+  .v-legend{display:flex;justify-content:space-between;font-size:.8rem;color:var(--ink-soft)}
+  .r-foot{display:flex;gap:16px;align-items:center;color:var(--ink-ghost);font-size:.8rem}
+  .r-foot button,.r-foot a{background:none;border:none;color:var(--ink-ghost);font-size:.8rem;font-weight:700;
+    cursor:pointer;text-decoration:none;padding:0}
+  .r-foot button:hover,.r-foot a:hover{color:var(--ink)}
+
+  .skel{color:var(--ink-ghost);text-align:center;padding:50px 0}
+  @media(max-width:640px){ .hero{align-items:flex-start;flex-direction:column} .hero .spacer{display:none} }
+</style>
+</head>
+<body>
+<div id="daTopbar"></div>
+<script defer src="/js/topbar.js"></script>
+
+<main class="wrap" id="app"><div class="skel">Loading…</div></main>
+
+<script>
+(function(){
+  'use strict';
+
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
+  };
+
+  var FORMAT_NAMES = { quick:'Quick Clash', apda:'APDA', bp:'British Parli', worlds:'Worlds',
+    asian:'Asian Parli', pf:'Public Forum', ld:'Lincoln-Douglas', policy:'Policy' };
+  var TURN_SPEC = { 1:{capSec:95,label:'Opening',who:'prop'}, 2:{capSec:125,label:'Answer',who:'opp'}, 3:{capSec:65,label:'Reply',who:'prop'} };
+  var MOTION_BANK = [
+    'This House would ban political parties from accepting corporate donations.',
+    'Social media has done more harm than good to democratic debate.',
+    'This House would make voting compulsory for citizens over eighteen.',
+    'Schools should ban phones during class.',
+    'AI art should be eligible for copyright.',
+    'This House would abolish legacy preference in college admissions.',
+    'Cities should make public transit free.',
+    'This House believes exams reward the wrong skills.',
+  ];
+
+  var state = { user:null, view:'feed', roundId:null, feed:null, mine:null, round:null,
+    rec:null, pollTimer:null, votedLocal:{} };
+  try { state.votedLocal = JSON.parse(localStorage.getItem('da-async-voted')||'{}'); } catch(e){}
+
+  var fbAuth = null;
+  try {
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbAuth.onAuthStateChanged(function(u){ state.user = u; render(); });
+  } catch(e){ console.warn('firebase init failed', e); }
+
+  function track(ev, meta){ try{ if(window.gtag) gtag('event', ev, meta||{}); }catch(e){} }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function $(id){ return document.getElementById(id); }
+
+  function fmtLeft(ms){
+    if (ms <= 0) return 'any minute';
+    var h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000);
+    return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+  }
+  function fmtClock(s){ var m=Math.floor(s/60), ss=s%60; return m+':'+(ss<10?'0':'')+ss; }
+  function avatar(p){
+    if (p && p.photo) return '<span class="ava"><img src="'+esc(p.photo)+'" alt="" referrerpolicy="no-referrer"></span>';
+    var init = ((p && p.name) || '?').trim().charAt(0).toUpperCase() || '?';
+    return '<span class="ava">'+esc(init)+'</span>';
+  }
+
+  async function ensureAuth(){
+    if (state.user) return state.user;
+    if (!fbAuth) throw new Error('Sign-in unavailable in this browser.');
+    var res = await fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    state.user = res.user;
+    return state.user;
+  }
+  async function idToken(){
+    if (!state.user) return null;
+    return state.user.getIdToken();
+  }
+  async function api(path, opts, needAuth){
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    if (needAuth){
+      var t = await idToken();
+      if (!t) throw new Error('Sign in first.');
+      opts.headers.Authorization = 'Bearer ' + t;
+    }
+    var r = await fetch(path, opts);
+    var j = null;
+    try { j = await r.json(); } catch(e){}
+    if (!r.ok) throw new Error((j && j.error) || ('Request failed (' + r.status + ')'));
+    return j;
+  }
+
+  /* ── router ── */
+  function nav(view, roundId, push){
+    state.view = view; state.roundId = roundId || null;
+    var url = '/rounds' + (view==='round' && roundId ? '?r='+roundId : view==='mine' ? '?v=mine' : '');
+    if (push !== false) { try{ history.pushState({}, '', url); }catch(e){} }
+    stopRecorder(); stopPolling();
+    render();
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('popstate', function(){ routeFromUrl(false); });
+  function routeFromUrl(push){
+    var q = new URLSearchParams(location.search);
+    if (q.get('r')) nav('round', q.get('r'), push);
+    else if (q.get('v') === 'mine') nav('mine', null, push);
+    else nav('feed', null, push);
+  }
+
+  /* ── views ── */
+  function shell(inner){
+    $('app').innerHTML =
+      '<div class="hero">' +
+        '<div><h1>Async rounds</h1>' +
+        '<p>Record a 90-second opening on any motion. A real debater answers on their own time, you reply, and the AI judge writes the ballot. Nobody waits in a queue.</p></div>' +
+        '<span class="spacer"></span>' +
+        '<button class="btn btn-red" id="startBtn">Start a challenge</button>' +
+      '</div>' +
+      '<div class="tabs">' +
+        '<button class="tab'+(state.view==='feed'?' on':'')+'" data-nav="feed">Open challenges</button>' +
+        '<button class="tab'+(state.view==='mine'?' on':'')+'" data-nav="mine">My rounds</button>' +
+      '</div>' + inner;
+    $('startBtn').onclick = function(){ openRecorder({ turn:1 }); };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-nav]'), function(b){
+      b.onclick = function(){ nav(b.getAttribute('data-nav')); };
+    });
+  }
+
+  function render(){
+    if (state.view === 'feed') return renderFeed();
+    if (state.view === 'mine') return renderMine();
+    if (state.view === 'round') return renderRound();
+    if (state.view === 'record') return; // recorder manages its own DOM
+  }
+
+  async function renderFeed(){
+    shell('<div class="skel">Loading the board…</div>');
+    try { state.feed = await api('/api/async/feed'); } catch(e){ state.feed = { open:[], done:[] }; }
+    if (state.view !== 'feed') return;
+    var f = state.feed, now = Date.now();
+    var openCards = (f.open||[]).map(function(r){
+      return '<div class="card">' +
+        '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
+        '<span class="chip hot">AI answers in '+fmtLeft((r.deadlineAt||0)-now)+'</span></div>' +
+        '<div class="motion">'+esc(r.motion)+'</div>' +
+        '<div class="who">'+avatar(r.prop)+'<span><b>'+esc(r.prop && r.prop.name || 'A debater')+'</b><br><i>opened for Prop</i></span></div>' +
+        '<div class="foot"><button class="go" data-answer="'+r.id+'">Answer this &rarr;</button>' +
+        '<button class="go" style="color:var(--ink-ghost)" data-open="'+r.id+'">Watch</button></div></div>';
+    }).join('');
+    var doneCards = (f.done||[]).map(function(r){
+      var w = r.winner==='prop' ? (r.prop&&r.prop.name) : (r.opp&&r.opp.name);
+      return '<div class="card">' +
+        '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
+        (w ? '<span class="chip win">'+esc(w)+' won</span>' : '') +
+        (r.aiOpp ? '<span class="chip">vs AI</span>' : '') + '</div>' +
+        '<div class="motion">'+esc(r.motion)+'</div>' +
+        '<div class="who">'+avatar(r.prop)+avatar(r.opp)+'<span><b>'+esc(r.prop&&r.prop.name||'')+'</b> vs <b>'+esc(r.opp&&r.opp.name||'')+'</b></span></div>' +
+        '<div class="foot"><button class="go" data-open="'+r.id+'">Watch the round &rarr;</button>' +
+        '<span style="font-size:.78rem;color:var(--ink-ghost)">'+(((r.votes||{}).prop||0)+((r.votes||{}).opp||0))+' votes</span></div></div>';
+    }).join('');
+    shell(
+      '<div class="sec-h">Open challenges</div>' +
+      (openCards ? '<div class="grid">'+openCards+'</div>' :
+        '<div class="empty"><b>No open challenges right now.</b><br>Start one. If no human answers within 24 hours, the AI opponent takes the other side and you still get your ballot.</div>') +
+      '<div class="sec-h">Finished rounds</div>' +
+      (doneCards ? '<div class="grid">'+doneCards+'</div>' :
+        '<div class="empty">Finished rounds land here, with the ballot and a crowd vote.</div>')
+    );
+    track('async_view', { view:'feed', open:(f.open||[]).length, done:(f.done||[]).length });
+    bindCardActions();
+  }
+
+  function bindCardActions(){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function(b){
+      b.onclick = function(){ nav('round', b.getAttribute('data-open')); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-answer]'), function(b){
+      b.onclick = function(){
+        var id = b.getAttribute('data-answer');
+        var row = (state.feed && state.feed.open || []).filter(function(r){ return r.id===id; })[0];
+        openRecorder({ turn:2, roundId:id, motion: row && row.motion, format: row && row.format });
+      };
+    });
+  }
+
+  async function renderMine(){
+    shell('<div class="skel">Loading your rounds…</div>');
+    if (!state.user){
+      shell('<div class="empty"><b>Sign in to see your rounds.</b><br><br><button class="btn btn-red" id="miSign">Continue with Google</button></div>');
+      $('miSign').onclick = async function(){ try{ await ensureAuth(); renderMine(); }catch(e){} };
+      return;
+    }
+    var mine;
+    try { mine = await api('/api/async/feed?mine=1', {}, true); } catch(e){ mine = { rounds:[] }; }
+    if (state.view !== 'mine') return;
+    var rows = (mine.rounds||[]).map(function(r){
+      var stateLabel = r.state==='open' ? 'Waiting for an answer' :
+        r.state==='awaiting_reply' ? (r.needsAction ? 'Your reply is due' : 'Waiting on the reply') :
+        r.state==='judging' ? 'Ballot on the way' : 'Complete';
+      return '<div class="card">' +
+        '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
+        '<span class="chip'+(r.needsAction?' hot':'')+'">'+esc(stateLabel)+'</span></div>' +
+        '<div class="motion">'+esc(r.motion)+'</div>' +
+        '<div class="foot"><button class="go" data-open="'+r.id+'">'+(r.needsAction?'Record your reply &rarr;':'Open &rarr;')+'</button></div></div>';
+    }).join('');
+    shell('<div class="sec-h">My rounds</div>' +
+      (rows ? '<div class="grid">'+rows+'</div>' : '<div class="empty"><b>No rounds yet.</b><br>Start a challenge or answer one from the board.</div>'));
+    bindCardActions();
+  }
+
+  /* ── round view ── */
+  async function renderRound(){
+    shell('<div class="skel">Loading the round…</div>');
+    var data;
+    try { data = await api('/api/async/round?id=' + encodeURIComponent(state.roundId)); }
+    catch(e){ shell('<div class="empty">'+esc(e.message)+'</div>'); return; }
+    if (state.view !== 'round') return;
+    var r = state.round = data.round;
+    var uid = state.user && state.user.uid;
+    var isProp = uid && r.prop && r.prop.uid === uid;
+    var isOpp  = uid && r.opp  && r.opp.uid  === uid;
+    var now = Date.now();
+
+    var banner = '';
+    if (r.state === 'open'){
+      banner = isProp
+        ? '<div class="banner info">Waiting for a human answer. If nobody picks it up in <b>'+fmtLeft(r.deadlineAt-now)+'</b>, The Debater answers for the Opposition. ' +
+          '<button class="btn btn-ghost" id="expBtn">Have the AI answer now</button></div>'
+        : '<div class="banner act"><b>This challenge is open.</b> Record a 2-minute answer for the Opposition. ' +
+          '<button class="btn btn-red" id="ansBtn">Answer this round</button></div>';
+    } else if (r.state === 'awaiting_reply'){
+      banner = isProp
+        ? '<div class="banner act"><b>Your reply is due.</b> 60 seconds, then the ballot comes back. Window closes in '+fmtLeft(r.deadlineAt-now)+'. ' +
+          '<button class="btn btn-red" id="repBtn">Record your reply</button></div>'
+        : '<div class="banner info">Answered. The opener has '+fmtLeft(r.deadlineAt-now)+' to record a reply, then the AI judge writes the ballot.</div>';
+    } else if (r.state === 'judging'){
+      banner = '<div class="banner info">All speeches in. The ballot lands within about 15 minutes.</div>';
+    }
+
+    var turnsHtml = (r.turns||[]).map(function(t){
+      var spec = TURN_SPEC[t.n] || {};
+      var media = t.kind === 'video'
+        ? '<video controls playsinline preload="metadata" src="/api/async/media/'+encodeURIComponent(t.mediaId)+'"></video>'
+        : '<audio controls preload="metadata" src="/api/async/media/'+encodeURIComponent(t.mediaId)+'"></audio>';
+      return '<div class="turn">' +
+        '<div class="t-head">'+avatar(t)+'<span><b>'+esc(t.name)+'</b> <i style="font-style:normal;color:var(--ink-ghost);font-size:.78rem">· '+(spec.label||('Turn '+t.n))+'</i></span>' +
+        (t.ai ? '<span class="t-ai">AI opponent</span>' : '') +
+        '<span style="margin-left:auto" class="t-label">'+(t.durationSec||0)+'s</span></div>' +
+        media +
+        (t.transcript ? '<button class="tr-toggle" data-tr>Transcript</button><div class="tr-text">'+esc(t.transcript)+'</div>' : '') +
+        '</div>';
+    }).join('');
+
+    var ballotHtml = '';
+    if (r.ballot){
+      var winName = r.ballot.winner==='prop' ? (r.prop&&r.prop.name||'Prop') : (r.opp&&r.opp.name||'Opp');
+      ballotHtml = '<div class="ballot"><p class="b-eyebrow">The ballot</p>' +
+        '<p class="b-win">'+esc(winName)+' takes the round.</p>' +
+        '<p class="b-pts">'+esc(r.prop&&r.prop.name||'Prop')+' '+r.ballot.propPoints+' · '+esc(r.opp&&r.opp.name||'Opp')+' '+r.ballot.oppPoints+' speaker points'+(r.replyWaived?' · reply waived':'')+'</p>' +
+        '<div class="b-rfd">'+esc(r.ballot.rfd)+'</div></div>';
+    }
+
+    var voteHtml = '';
+    if (r.state === 'complete'){
+      var vp = (r.votes&&r.votes.prop)||0, vo = (r.votes&&r.votes.opp)||0, tot = vp+vo;
+      var voted = state.votedLocal[r.id] || isProp || isOpp;
+      voteHtml = '<div class="voterow"><p class="v-q">Who convinced you?</p>' +
+        (voted || tot>0 ?
+          '<div class="votebar"><i class="vp" style="width:'+(tot? Math.round(vp/tot*100):50)+'%"></i><i class="vo" style="flex:1"></i></div>' +
+          '<div class="v-legend"><span>'+esc(r.prop&&r.prop.name||'Prop')+' · '+vp+'</span><span>'+esc(r.opp&&r.opp.name||'Opp')+' · '+vo+'</span></div>'
+        : '') +
+        (!voted && !isProp && !isOpp ?
+          '<div style="display:flex;gap:10px;margin-top:8px">' +
+          '<button class="btn btn-ghost" data-vote="prop">'+esc(r.prop&&r.prop.name||'Prop')+'</button>' +
+          '<button class="btn btn-ghost" data-vote="opp">'+esc(r.opp&&r.opp.name||'Opp')+'</button></div>'
+        : (isProp||isOpp ? '<div style="font-size:.8rem;color:var(--ink-ghost);margin-top:6px">Debaters in the round do not vote on it.</div>' : '')) +
+        '</div>';
+    }
+
+    shell('<div class="r-head">' +
+      '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
+      (r.state==='complete' ? '<span class="chip win">Complete</span>' : '<span class="chip">'+esc(r.state.replace('_',' '))+'</span>') +
+      (r.aiOpp ? '<span class="chip">vs AI</span>' : '') + '</div>' +
+      '<h2 class="r-motion">'+esc(r.motion)+'</h2></div>' +
+      banner + '<div class="turns">'+turnsHtml+'</div>' + ballotHtml + voteHtml +
+      '<div class="r-foot"><button id="shareBtn">Copy link</button><span>·</span><button id="reportBtn">Report</button></div>');
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tr]'), function(b){
+      b.onclick = function(){ var t=b.nextElementSibling; t.style.display = t.style.display==='block'?'none':'block'; };
+    });
+    if ($('ansBtn')) $('ansBtn').onclick = function(){ openRecorder({ turn:2, roundId:r.id, motion:r.motion, format:r.format }); };
+    if ($('repBtn')) $('repBtn').onclick = function(){ openRecorder({ turn:3, roundId:r.id, motion:r.motion, format:r.format }); };
+    if ($('expBtn')) $('expBtn').onclick = async function(){
+      try { await api('/api/async/round', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id:r.id, action:'expedite' }) }, true);
+        $('expBtn').replaceWith(Object.assign(document.createElement('span'), { textContent:' The AI answers within about 15 minutes.' }));
+        track('async_expedite', { id:r.id });
+      } catch(e){ alert(e.message); }
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-vote]'), function(b){
+      b.onclick = async function(){
+        try {
+          await ensureAuth();
+          var out = await api('/api/async/round', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ id:r.id, action:'vote', side:b.getAttribute('data-vote') }) }, true);
+          state.votedLocal[r.id] = b.getAttribute('data-vote');
+          try{ localStorage.setItem('da-async-voted', JSON.stringify(state.votedLocal)); }catch(e){}
+          state.round.votes = out.votes;
+          track('async_vote', { id:r.id, side:b.getAttribute('data-vote') });
+          renderRound();
+        } catch(e){ alert(e.message); }
+      };
+    });
+    $('shareBtn').onclick = function(){
+      var url = location.origin + '/rounds?r=' + r.id;
+      try{ navigator.clipboard.writeText(url); $('shareBtn').textContent = 'Link copied'; }catch(e){ prompt('Copy this link', url); }
+    };
+    $('reportBtn').onclick = async function(){
+      var reason = prompt('What is wrong with this round? A short line is enough.');
+      if (reason == null) return;
+      try { await ensureAuth();
+        await api('/api/async/round', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id:r.id, action:'report', reason:reason }) }, true);
+        alert('Reported. Two independent reports hide a round pending review.');
+      } catch(e){ alert(e.message); }
+    };
+    track('async_view', { view:'round', id:r.id, state:r.state });
+
+    // Live-ish: poll active rounds so ballots and answers appear without a reload.
+    if (r.state !== 'complete') startPolling();
+  }
+
+  function startPolling(){
+    stopPolling();
+    state.pollTimer = setInterval(function(){
+      if (document.hidden || state.view !== 'round') return;
+      renderRound();
+    }, 30000);
+  }
+  function stopPolling(){ if (state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer = null; } }
+
+  /* ── recorder ── */
+  function pickMime(mode){
+    var cands = mode === 'video'
+      ? ['video/webm;codecs=vp8,opus','video/webm','video/mp4']
+      : ['audio/webm;codecs=opus','audio/webm','audio/mp4'];
+    for (var i=0;i<cands.length;i++){
+      try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(cands[i])) return cands[i]; } catch(e){}
+    }
+    return '';
+  }
+
+  async function openRecorder(ctx){
+    try { await ensureAuth(); } catch(e){ alert('Sign in with Google to record. ' + (e.message||'')); return; }
+    stopRecorder();
+    state.view = 'record';
+    state.rec = { ctx: ctx, mode: 'video', stream:null, mr:null, chunks:[], blob:null, mime:'', secs:0, timer:null, uploading:false };
+    var spec = TURN_SPEC[ctx.turn];
+    var isNew = ctx.turn === 1;
+
+    $('app').innerHTML = '<div class="rec-wrap"><div class="rec-card">' +
+      '<p class="rec-eyebrow">' + (isNew ? 'New challenge' : (ctx.turn===2 ? 'Answer the round' : 'Your reply')) + '</p>' +
+      '<h2 class="rec-title">' + (isNew ? 'Open for Prop.' : (ctx.turn===2 ? 'Take the Opposition.' : 'Close it out.')) + '</h2>' +
+      '<p class="rec-sub">' + (isNew
+        ? 'Pick a motion, hit record, argue for it. Up to ' + spec.capSec + ' seconds.'
+        : 'Up to ' + spec.capSec + ' seconds. Clash with what they actually said.') + '</p>' +
+      (isNew ?
+        '<div class="field"><label>The motion (you argue FOR it)</label>' +
+        '<input type="text" id="motionInput" maxlength="200" placeholder="This House would…">' +
+        '<button class="suggest" id="suggestBtn">Suggest a motion</button></div>' +
+        '<div class="row2">' +
+        '<div class="field"><label>Format</label><select id="formatSel">' +
+          Object.keys(FORMAT_NAMES).map(function(k){ return '<option value="'+k+'">'+FORMAT_NAMES[k]+'</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="field"><label>Visibility</label><select id="visSel">' +
+          '<option value="public">Public: on the open board</option>' +
+          '<option value="unlisted">Challenge link: only people with the link</option>' +
+        '</select></div></div>'
+        :
+        '<div class="ctx-motion"><div class="m">'+esc(ctx.motion||'')+'</div>' +
+        '<div class="s">'+(FORMAT_NAMES[ctx.format]||'')+(ctx.turn===2?' · you argue AGAINST':' · your last word')+'</div></div>'
+      ) +
+      '<div class="modes">' +
+        '<button class="mode on" id="modeVideo">Video</button>' +
+        '<button class="mode" id="modeAudio">Audio only</button>' +
+      '</div>' +
+      '<div class="stage" id="stage"><div class="audio-face">Camera preview appears here.</div>' +
+        '<span class="reclight"></span><span class="clock" id="clock">0:00 / '+fmtClock(spec.capSec)+'</span></div>' +
+      '<div class="rec-btns" id="recBtns"></div>' +
+      '<div class="prog" id="prog"><i id="progFill"></i></div>' +
+      '<div class="err" id="recErr"></div>' +
+      '<p class="safety">Public by default. Record only what you are comfortable publishing. You must be 13 or older. Every round carries a report link.</p>' +
+      '<p style="text-align:center;margin:14px 0 0"><button class="go" style="color:var(--ink-ghost)" id="recBack">&larr; Back</button></p>' +
+      '</div></div>';
+
+    $('recBack').onclick = function(){ routeFromUrl(); };
+    if (isNew){
+      $('suggestBtn').onclick = function(){
+        $('motionInput').value = MOTION_BANK[Math.floor(Math.random()*MOTION_BANK.length)];
+      };
+    }
+    $('modeVideo').onclick = function(){ setMode('video'); };
+    $('modeAudio').onclick = function(){ setMode('audio'); };
+    drawRecButtons('idle');
+    setMode('video');
+    track('async_record_open', { turn: ctx.turn });
+  }
+
+  function setMode(mode){
+    var rec = state.rec; if (!rec || rec.mr) return;
+    rec.mode = mode;
+    $('modeVideo').classList.toggle('on', mode==='video');
+    $('modeAudio').classList.toggle('on', mode==='audio');
+    startPreview();
+  }
+
+  async function startPreview(){
+    var rec = state.rec; if (!rec) return;
+    stopStream();
+    var stage = $('stage');
+    try {
+      rec.stream = await navigator.mediaDevices.getUserMedia(
+        rec.mode==='video'
+          ? { video:{ width:{ideal:1280}, height:{ideal:720}, facingMode:'user' }, audio:{ echoCancellation:true, noiseSuppression:true } }
+          : { audio:{ echoCancellation:true, noiseSuppression:true } });
+      if (rec.mode==='video'){
+        stage.innerHTML = '<video id="pv" autoplay muted playsinline></video>' +
+          '<span class="reclight"></span><span class="clock" id="clock">0:00 / '+fmtClock(TURN_SPEC[rec.ctx.turn].capSec)+'</span>';
+        $('pv').srcObject = rec.stream;
+      } else {
+        stage.innerHTML = '<div class="audio-face">Mic is live. Audio only: your voice publishes, no camera.</div>' +
+          '<span class="reclight"></span><span class="clock" id="clock">0:00 / '+fmtClock(TURN_SPEC[rec.ctx.turn].capSec)+'</span>';
+      }
+      showErr('');
+    } catch(e){
+      showErr(rec.mode==='video'
+        ? 'Camera blocked. Allow camera and mic in the address bar, or switch to Audio only.'
+        : 'Microphone blocked. Allow mic access in the address bar to record.');
+    }
+  }
+
+  function drawRecButtons(phase){
+    var host = $('recBtns'); if (!host) return;
+    if (phase==='idle') host.innerHTML = '<button class="btn btn-red" id="goRec">Start recording</button>';
+    if (phase==='live') host.innerHTML = '<button class="btn btn-ghost" id="stopRec">Stop</button>';
+    if (phase==='review') host.innerHTML =
+      '<button class="btn btn-red" id="publishRec">Publish</button>' +
+      '<button class="btn btn-ghost" id="againRec">Re-record</button>';
+    if ($('goRec')) $('goRec').onclick = beginRecording;
+    if ($('stopRec')) $('stopRec').onclick = endRecording;
+    if ($('publishRec')) $('publishRec').onclick = publish;
+    if ($('againRec')) $('againRec').onclick = function(){ state.rec.blob=null; drawRecButtons('idle'); startPreview(); };
+  }
+
+  function beginRecording(){
+    var rec = state.rec; if (!rec || !rec.stream) { showErr('No mic or camera stream. Allow access first.'); return; }
+    var ctx = rec.ctx;
+    if (ctx.turn===1){
+      var motion = ($('motionInput').value||'').trim();
+      if (motion.length < 8){ showErr('Write the motion first. A full sentence.'); return; }
+      ctx.motion = motion;
+      ctx.format = $('formatSel').value;
+      ctx.visibility = $('visSel').value;
+    }
+    rec.mime = pickMime(rec.mode);
+    if (!rec.mime){ showErr('This browser cannot record. Try Chrome, or Audio mode.'); return; }
+    rec.chunks = [];
+    try {
+      rec.mr = new MediaRecorder(rec.stream, rec.mode==='video'
+        ? { mimeType: rec.mime, videoBitsPerSecond: 900000, audioBitsPerSecond: 96000 }
+        : { mimeType: rec.mime, audioBitsPerSecond: 80000 });
+    } catch(e){ showErr('Recorder failed to start: '+e.message); return; }
+    rec.mr.ondataavailable = function(ev){ if (ev.data && ev.data.size) rec.chunks.push(ev.data); };
+    rec.mr.onstop = function(){
+      rec.blob = new Blob(rec.chunks, { type: rec.mime });
+      reviewRecording();
+    };
+    rec.secs = 0;
+    $('stage').classList.add('live');
+    var cap = TURN_SPEC[ctx.turn].capSec;
+    rec.timer = setInterval(function(){
+      rec.secs++;
+      if ($('clock')) $('clock').textContent = fmtClock(rec.secs)+' / '+fmtClock(cap);
+      if (rec.secs >= cap) endRecording();
+    }, 1000);
+    rec.mr.start(1000);
+    drawRecButtons('live');
+    track('async_record_start', { turn: ctx.turn, mode: rec.mode });
+  }
+
+  function endRecording(){
+    var rec = state.rec; if (!rec || !rec.mr) return;
+    if (rec.timer){ clearInterval(rec.timer); rec.timer = null; }
+    $('stage').classList.remove('live');
+    try { rec.mr.stop(); } catch(e){}
+    rec.mr = null;
+  }
+
+  function reviewRecording(){
+    var rec = state.rec; if (!rec || !rec.blob) return;
+    stopStream();
+    var url = URL.createObjectURL(rec.blob);
+    $('stage').innerHTML = rec.mode==='video'
+      ? '<video controls playsinline src="'+url+'"></video>'
+      : '<div style="width:100%;padding:30px 18px;box-sizing:border-box"><audio controls style="width:100%" src="'+url+'"></audio></div>';
+    drawRecButtons('review');
+  }
+
+  async function publish(){
+    var rec = state.rec; if (!rec || !rec.blob || rec.uploading) return;
+    rec.uploading = true;
+    $('publishRec').disabled = true;
+    $('prog').style.display = 'block';
+    showErr('');
+    try {
+      var mime = (rec.mime||'').split(';')[0];
+      var init = await api('/api/async/upload', { method:'POST',
+        headers:{ 'Content-Type':'application/json', 'x-async-init':'1' },
+        body: JSON.stringify({ mime: mime, kind: rec.mode, bytes: rec.blob.size }) }, true);
+      var PART = 4 * 1024 * 1024;
+      var parts = Math.max(1, Math.ceil(rec.blob.size / PART));
+      for (var i=0;i<parts;i++){
+        var chunk = rec.blob.slice(i*PART, Math.min(rec.blob.size,(i+1)*PART));
+        await api('/api/async/upload', { method:'POST',
+          headers:{ 'x-upload-id': init.uploadId, 'x-part-index': String(i) }, body: chunk }, true);
+        $('progFill').style.width = Math.round(((i+1)/(parts+1))*100)+'%';
+      }
+      var body = { uploadId: init.uploadId, partCount: parts, bytes: rec.blob.size, mime: mime,
+        kind: rec.mode, durationSec: rec.secs, turn: rec.ctx.turn };
+      if (rec.ctx.turn===1){ body.motion = rec.ctx.motion; body.format = rec.ctx.format; body.visibility = rec.ctx.visibility; }
+      else body.roundId = rec.ctx.roundId;
+      var out = await api('/api/async/turn', { method:'POST',
+        headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) }, true);
+      $('progFill').style.width = '100%';
+      track('async_publish', { turn: rec.ctx.turn, mode: rec.mode, kind: rec.mode });
+      stopRecorder();
+      nav('round', out.roundId);
+    } catch(e){
+      rec.uploading = false;
+      if ($('publishRec')) $('publishRec').disabled = false;
+      showErr(e.message || 'Upload failed. Check your connection and try again.');
+    }
+  }
+
+  function showErr(msg){
+    var el = $('recErr'); if (!el) return;
+    el.style.display = msg ? 'block' : 'none';
+    el.textContent = msg || '';
+  }
+  function stopStream(){
+    var rec = state.rec;
+    if (rec && rec.stream){ try{ rec.stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} rec.stream = null; }
+  }
+  function stopRecorder(){
+    var rec = state.rec;
+    if (!rec) return;
+    if (rec.timer) clearInterval(rec.timer);
+    if (rec.mr){ try{ rec.mr.stop(); }catch(e){} }
+    stopStream();
+    state.rec = null;
+  }
+  window.addEventListener('beforeunload', stopRecorder);
+
+  routeFromUrl(false);
+})();
+</script>
+</body>
+</html>
