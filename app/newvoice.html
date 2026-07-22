@@ -502,6 +502,18 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
 .tr-text{font-size:14.5px;line-height:1.55;color:var(--ink)}
 .recap-actions{margin-top:26px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .recap-actions .ctl-end{animation:beacon 2.6s ease-out infinite}
+/* Saved confirmation borrows the green the rest of the app uses for
+   live/confirmed states. Disabled-but-saved must still read as a win,
+   so it keeps full opacity unlike a normal disabled .ctl. */
+.ctl-saved{border-color:rgba(34,197,94,.5);color:#86efac;background:rgba(34,197,94,.08)}
+.ctl-saved:hover{background:rgba(34,197,94,.08)}
+html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#15803d;background:rgba(34,197,94,.1)}
+#saveRoundBtn:disabled{cursor:default}
+#saveRoundBtn:disabled:not(.ctl-saved){opacity:.55}
+/* One-line status under the action row: where the round went, or why
+   it did not go anywhere. Quiet by default, red only on failure. */
+.recap-saved-note{margin-top:12px;font-size:12.5px;line-height:1.5;color:var(--ink-faint);min-height:0}
+.recap-saved-note.err{color:var(--red)}
 .recap-foot{margin-top:22px;font-size:13px;color:var(--ink-faint)}
 .recap-foot a{color:var(--ink-dim)}
 /* Post-round next-step row: quieter than .recap-actions, outlined pills.
@@ -715,7 +727,9 @@ html[data-theme="light"] .tr-turn.judge .tr-who{color:#b91c1c}
       <button class="ctl ctl-end" id="rematchBtn" type="button">Run it back</button>
       <button class="ctl" id="switchBtn" type="button">Switch sides</button>
       <button class="ctl" id="newClaimBtn" type="button">New claim</button>
+      <button class="ctl" id="saveRoundBtn" type="button">Save round</button>
     </div>
+    <p class="recap-saved-note" id="saveNote" hidden></p>
     <!-- Post-round next steps. The highest-intent moment on the site is
          the one right after a finished round; without this row the recap
          dead-ended into rematch-only. Real-person path leads (humans
@@ -802,6 +816,7 @@ let pc = null, dc = null, micStream = null, audioEl = null;
 let audioCtx = null, userAnalyser = null, aiAnalyser = null;
 let userBuf = null, aiBuf = null;
 let startedAt = 0, timerIv = null;
+let roundElapsedMs = 0;            // frozen at endRound for the saved record
 let currentMotion = '';
 let roundLang = 'en';
 // Negotiated at mint by /api/realtime-session. negotiatedReasoningEffort is
@@ -1562,6 +1577,11 @@ function endRound(){
   if (status !== 'live') return;
   status = 'ended';
   const elapsed = Date.now() - startedAt;
+  roundElapsedMs = elapsed;
+  // One id per finished round: the Save button keys its doc off this,
+  // so re-saving updates in place while a fresh round gets its own row.
+  roundId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  resetSaveBtn();
   logRound();
   cleanup();
   // recap
@@ -1715,6 +1735,202 @@ function logRound(){
     }
   } catch (e) {}
 }
+
+/* ── save round ──────────────────────────────────────────────────
+   Persists a finished round so the user can come back to it.
+
+   Store: the `saved_rounds` Firestore collection that /live-round
+   already writes (firestore.rules governs it: read/write scoped to
+   resource.data.uid). Same doc shape as live-round's savedDoc so one
+   future "your saved rounds" surface can render both without a
+   branch. Doc id is uid + '_' + room, and room here is 'nv_<roundId>'
+   with roundId minted once per finished round, so re-clicking Save
+   rewrites the same doc instead of piling up duplicates.
+
+   The page loads firebase app+auth but deliberately not firestore
+   (~100KB on a voice page that never otherwise touches it), so the
+   SDK lazy-loads on the first save click, mirroring the `da-fs-sdk`
+   loader used on the landing.
+
+   Anonymous is a first-class path, not a gate: the round goes to
+   localStorage flagged pending, and syncs up to the account the next
+   time that browser is signed in. */
+const FS_SDK_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
+const SAVED_KEY = 'debateos-newvoice-saved';
+const SAVED_MAX = 50;   // voice transcripts are fat; keep localStorage bounded
+let roundId = '';       // minted per finished round, stable across re-saves
+
+function loadFirestoreSdk(){
+  return new Promise((resolve, reject) => {
+    if (window.firebase && firebase.firestore) return resolve();
+    const ex = document.getElementById('da-fs-sdk');
+    if (ex){
+      ex.addEventListener('load', () => resolve(), { once: true });
+      ex.addEventListener('error', () => reject(new Error('sdk')), { once: true });
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = 'da-fs-sdk'; s.src = FS_SDK_URL;
+    s.addEventListener('load', () => resolve(), { once: true });
+    s.addEventListener('error', () => reject(new Error('sdk')), { once: true });
+    document.head.appendChild(s);
+  });
+}
+
+function readLocalSaves(){
+  try { const a = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function writeLocalSaves(arr){
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(arr.slice(0, SAVED_MAX))); return true; }
+  catch (e) { return false; }   // quota or private mode
+}
+
+/* Snapshot of the round as it currently reads on screen. The ballot is
+   rendered straight into the DOM rather than held in a var, so it gets
+   read back from there; an unfinished ballot just saves empty. */
+function buildRoundDoc(){
+  const pill = $('ballotPill'), body = $('ballotBody');
+  const card = $('ballotCard');
+  const ballotReady = card && !card.hidden && body && !body.classList.contains('loading');
+  const verdict = (ballotReady && pill && !pill.hidden) ? (pill.textContent || '') : '';
+  return {
+    room: 'nv_' + roundId,
+    roundId,
+    source: 'newvoice',
+    motion: currentMotion || '',
+    format: 'clash',
+    formatName: 'Clash',
+    userSide: side,
+    proName: side === 'for' ? 'You' : 'The machine',
+    conName: side === 'for' ? 'The machine' : 'You',
+    speeches: turns.map((t) => ({ who: t.who, text: (t.text || '').slice(0, 6000) })),
+    ballot: { verdict, text: ballotReady ? (body.textContent || '') : '' },
+    winnerSide: /you took it/i.test(verdict) ? side
+      : (/machine/i.test(verdict) ? (side === 'for' ? 'against' : 'for') : ''),
+    winnerName: verdict,
+    difficulty,
+    pace: paceKey,
+    turnCount: turns.filter((t) => t && t.who !== 'judge').length,
+    durationMs: roundElapsedMs,
+    endedAt: new Date().toISOString(),
+  };
+}
+
+function currentUser(){
+  try {
+    const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    return (u && !u.isAnonymous) ? u : null;
+  } catch (e) { return null; }
+}
+
+/* One Firestore write. Shared by the save button and the pending-sync
+   pass so both produce byte-identical docs. */
+function pushRoundToFirestore(u, doc){
+  return loadFirestoreSdk().then(() => {
+    const db = firebase.firestore();
+    const payload = Object.assign({}, doc, {
+      uid: u.uid,
+      userName: u.displayName || '',
+      userEmail: u.email || '',
+      savedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    delete payload.pending;
+    return db.collection('saved_rounds').doc(u.uid + '_' + doc.room).set(payload);
+  });
+}
+
+function setSaveNote(msg, isErr){
+  const n = $('saveNote');
+  if (!n) return;
+  n.textContent = msg || '';
+  n.classList.toggle('err', !!isErr);
+  n.hidden = !msg;
+}
+
+/* Anything left pending from a signed-out session rides up the next
+   time this browser is signed in. Best-effort and idempotent: the doc
+   id is derived from the round, so a double-run just overwrites. */
+function syncPendingSaves(){
+  const u = currentUser();
+  if (!u) return;
+  const all = readLocalSaves();
+  const pending = all.filter((r) => r && r.pending);
+  if (!pending.length) return;
+  pending.reduce(
+    (chain, r) => chain.then(() => pushRoundToFirestore(u, r).then(() => { r.pending = false; }).catch(() => {})),
+    Promise.resolve()
+  ).then(() => { writeLocalSaves(all); });
+}
+
+const saveBtn = $('saveRoundBtn');
+
+function resetSaveBtn(){
+  if (!saveBtn) return;
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save round';
+  saveBtn.classList.remove('ctl-saved');
+  setSaveNote('');
+}
+
+function markSaved(label, note){
+  if (!saveBtn) return;
+  saveBtn.disabled = true;
+  saveBtn.textContent = label;
+  saveBtn.classList.add('ctl-saved');
+  setSaveNote(note || '');
+}
+
+/* Local save is the floor, never the failure case: if Firestore is
+   unreachable the round still lands in this browser, so the button
+   never dead-ends on a network blip. */
+function saveLocally(doc, pending){
+  const all = readLocalSaves();
+  const rec = Object.assign({}, doc, { pending: !!pending, savedAt: new Date().toISOString() });
+  const next = [rec].concat(all.filter((r) => r && r.roundId !== doc.roundId));
+  return writeLocalSaves(next);
+}
+
+if (saveBtn) saveBtn.addEventListener('click', () => {
+  if (saveBtn.disabled) return;
+  if (!turns.filter((t) => t && t.who !== 'judge' && (t.text || '').trim()).length){
+    setSaveNote('Nothing on the record to save yet.', true);
+    return;
+  }
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+  setSaveNote('');
+  const doc = buildRoundDoc();
+  const u = currentUser();
+
+  if (!u){
+    // Signed out. Keep it in this browser and flag it to ride up later.
+    const ok = saveLocally(doc, true);
+    try { window.track && window.track('recap_save_round', { where: 'local' }); } catch (_) {}
+    if (ok) markSaved('Saved', 'Saved in this browser. Sign in and it moves to your account.');
+    else { resetSaveBtn(); setSaveNote('This browser is blocking local storage, so the round could not be saved. Copy the transcript instead.', true); }
+    return;
+  }
+
+  pushRoundToFirestore(u, doc).then(() => {
+    saveLocally(doc, false);   // local mirror so it reads back offline too
+    try { window.track && window.track('recap_save_round', { where: 'cloud' }); } catch (_) {}
+    markSaved('Saved', 'Saved to your account.');
+  }).catch((e) => {
+    console.warn('[newvoice save]', e);
+    const ok = saveLocally(doc, true);   // retry on the next signed-in visit
+    try { window.track && window.track('recap_save_round', { where: 'local_fallback' }); } catch (_) {}
+    if (ok) markSaved('Saved', 'Saved in this browser. We could not reach your account, so it will sync next visit.');
+    else { resetSaveBtn(); setSaveNote('That did not save. Check your connection and try again.', true); }
+  });
+});
+
+/* Flush anything pending once auth settles. */
+try {
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().onAuthStateChanged(() => { try { syncPendingSaves(); } catch (e) {} });
+  }
+} catch (e) {}
 
 /* ── recap actions ───────────────────────────────────────────── */
 $('rematchBtn').addEventListener('click', () => { show('setup'); start(); });
