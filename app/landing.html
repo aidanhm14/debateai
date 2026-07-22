@@ -6457,12 +6457,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     color:var(--accent);
     font-weight:700;
   }
-  /* Hidden under 1440px — at narrower viewports the FAQ grid can't
-     sit fully right of the fixed rail without overflow, so the rail
-     itself collapses below that breakpoint. (2026-07-19: gate relaxed
-     from the old 1800px JS check; the rail now tucks away when the
-     reader idles, so brief overlap while scrolling is acceptable.) */
-  @media (max-width:1439px){
+  /* The rail is fixed at left:24px and is 206px wide, so it owns the
+     leftmost ~230px of the window. The middle chapters are a 1180px
+     column, centred, so their left edge only clears the rail once the
+     window is 1180 + 2*(24+206+16) = ~1672px.
+
+     The 2026-07-19 gate of 1440px was therefore ~230px short, and
+     between 1440 and 1672 the rail sat directly on top of the content:
+     the mode-select cards rendered with "01 Debate a person" unreadable
+     underneath it. "Tucks away when the reader idles" did not save it,
+     because the collision is worst precisely while scrolling.
+
+     Gate is now the width at which the rail actually fits. Below it the
+     horizontal .chapter-nav strip takes over, which is in normal flow
+     and cannot overlap anything, so narrower laptops still get
+     wayfinding rather than losing it. Keep this in sync with
+     roomForRail in the TOC script and with the .chapter-nav gate. */
+  @media (max-width:1679px){
     .page-toc{display:none}
   }
 </style>
@@ -6615,11 +6626,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var doc = document.documentElement.scrollHeight;
       var nearTop = y < h * 0.55;
       var nearBottom = (y + h) > (doc - 240);
-      // Width gate: matches the CSS breakpoint. Relaxed from 1800 to
-      // 1440 (2026-07-19): the rail tucks away when the reader idles,
-      // so brief overlap with wide sections while scrolling is fine,
-      // and at 1800 virtually no laptop ever saw the rail at all.
-      var roomForRail = window.innerWidth >= 1440;
+      // Width gate: MUST match the CSS breakpoint above (1679px) and
+      // the .chapter-nav gate. 1680 is the width at which a 1180px
+      // centred column clears the fixed 206px rail; below it the rail
+      // overlapped the content instead of sitting beside it.
+      var roomForRail = window.innerWidth >= 1680;
       inRange = !nearTop && !nearBottom && roomForRail;
     }
     function onScroll(){
@@ -10669,7 +10680,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      navigates to, because the scroll-margin below grows to clear both
      bars. */
   .chapter-nav{display:none}
-  @media (max-width:1439px){
+  @media (max-width:1679px){
     .chapter-nav{
       display:block;
       position:sticky;top:52px;z-index:35;
