@@ -5827,6 +5827,120 @@ function App() {
   var [savedCases, setSavedCases] = useState(() => {
     try {return JSON.parse(localStorage.getItem('debateos-saved-cases') || '[]');} catch {return [];}
   });
+
+  /* ── Cross-device library (2026-07-22) ─────────────────────────────
+   * Round history and the saved-case shelf were localStorage-only, so a
+   * signed-in debater on a second device saw an empty record and a 0-0
+   * "Record vs. AI" even though every round had already been written to
+   * debate_rounds since forever. Nothing read that collection back.
+   *
+   * On sign-in we pull both and merge by id, server copy winning on a
+   * conflict (Aidan's call). Rounds and cases that exist only locally,
+   * including ones run signed-out, get adopted into the account so the
+   * first sign-in on a device keeps rather than discards that work.
+   *
+   * Reads are once per uid per page load (libSyncedFor), not per render,
+   * because Firestore reads are the scarce resource here.
+   */
+  var historyRoundsRef = useRef(historyRounds);
+  useEffect(() => {historyRoundsRef.current = historyRounds;}, [historyRounds]);
+  var libSyncedFor = useRef('');
+
+  // Server wins on id collision; newest first; capped.
+  var mergeById = (server, local, cap) => {
+    var byId = {};
+    (local || []).forEach((r) => {if (r && r.id != null) byId[String(r.id)] = r;});
+    (server || []).forEach((r) => {if (r && r.id != null) byId[String(r.id)] = r;});
+    return Object.keys(byId).
+    map((k) => byId[k]).
+    sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).
+    slice(0, cap);
+  };
+
+  // A saved case carries every AI speech twice (speeches[] plus a joined
+  // fullText). One Firestore doc is capped at 1MB, so the synced copy
+  // drops the duplicate and keeps the most recent 25 cases; fullText is
+  // rebuilt from speeches on the way back in.
+  var trimCasesForSync = (cases) => {
+    return (cases || []).slice(0, 25).map((c) => {
+      var out = Object.assign({}, c);
+      delete out.fullText;
+      return out;
+    });
+  };
+  var rehydrateCase = (c) => {
+    if (!c || c.fullText) return c;
+    var out = Object.assign({}, c);
+    out.fullText = (c.speeches || []).map((sp) => sp && sp.text || '').join('\n\n');
+    return out;
+  };
+
+  var syncCasesToServer = (cases) => {
+    if (!user || !firebaseDb) return;
+    try {
+      firebaseDb.collection('user_cases').doc(user.uid).set({
+        debateItCases: trimCasesForSync(cases),
+        debateItUpdatedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    if (!user || !firebaseDb) return;
+    if (libSyncedFor.current === user.uid) return;
+    libSyncedFor.current = user.uid;
+    var cancelled = false;
+    (async () => {
+      // ── Rounds. The debate_rounds read rule is a docId prefix match
+      // ("<uid>_..."), so this has to be a documentId range query; a
+      // where('uid','==',uid) query is denied wholesale by that rule.
+      try {
+        var idPath = firebase.firestore.FieldPath.documentId();
+        var snap = await firebaseDb.collection('debate_rounds').
+        orderBy(idPath, 'desc').
+        startAt(user.uid + '_\uf8ff').
+        endAt(user.uid + '_').
+        limit(40).
+        get();
+        var serverRounds = [];
+        snap.forEach((d) => {var r = d.data();if (r && r.id != null) serverRounds.push(r);});
+        if (cancelled) return;
+        var localRounds = historyRoundsRef.current || [];
+        if (serverRounds.length) {
+          var mergedRounds = mergeById(serverRounds, localRounds, 50);
+          setHistoryRounds(mergedRounds);
+          try {localStorage.setItem('debateos-round-history', JSON.stringify(mergedRounds));} catch {}
+        }
+        // Adopt local-only rounds. Capped at 20 writes so a long local
+        // history does not fire a burst on first sign-in.
+        var known = {};
+        serverRounds.forEach((r) => {known[String(r.id)] = 1;});
+        localRounds.filter((r) => r && r.id != null && !known[String(r.id)]).slice(0, 20).
+        forEach((r) => {
+          try {firebaseDb.collection('debate_rounds').doc(user.uid + '_' + r.id).set(r).catch(() => {});} catch (_) {}
+        });
+      } catch (_) {}
+      // ── Cases. One doc per user, shared with the /app library, which
+      // owns the separate `cases` field on the same doc. merge:true on
+      // both sides keeps the two shelves from clobbering each other.
+      try {
+        var doc = await firebaseDb.collection('user_cases').doc(user.uid).get();
+        if (cancelled) return;
+        var raw = doc.exists && doc.data() || {};
+        var serverCases = Array.isArray(raw.debateItCases) ? raw.debateItCases.map(rehydrateCase) : [];
+        var localCases = JSON.parse(localStorage.getItem('debateos-saved-cases') || '[]');
+        var mergedCases = mergeById(serverCases, localCases, 100);
+        if (mergedCases.length) {
+          setSavedCases(mergedCases);
+          try {localStorage.setItem('debateos-saved-cases', JSON.stringify(mergedCases));} catch {}
+        }
+        // Push the union back only when the local side actually added
+        // something, so a plain read does not cost a write.
+        if (mergedCases.length > serverCases.length) syncCasesToServer(mergedCases);
+      } catch (_) {}
+    })();
+    return () => {cancelled = true;};
+  }, [user]);
   var [showCases, setShowCases] = useState(false);
   var [viewingCase, setViewingCase] = useState(null);
   var [caseSaved, setCaseSaved] = useState(false); // flash "Saved!" in feedback phase
@@ -5974,6 +6088,7 @@ function App() {
     var updated = [c, ...savedCases].slice(0, 100);
     setSavedCases(updated);
     try {localStorage.setItem('debateos-saved-cases', JSON.stringify(updated));} catch {}
+    syncCasesToServer(updated);
     setCaseSaved(true);
     setTimeout(() => setCaseSaved(false), 2000);
     if (typeof gtag === 'function') gtag('event', 'save_case', { format: fmt.name, side: aiSide });
@@ -5983,6 +6098,7 @@ function App() {
     var updated = savedCases.filter((c) => c.id !== id);
     setSavedCases(updated);
     try {localStorage.setItem('debateos-saved-cases', JSON.stringify(updated));} catch {}
+    syncCasesToServer(updated);
     if (viewingCase && viewingCase.id === id) setViewingCase(null);
   };
 
@@ -8278,7 +8394,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { className: 'dash-card', style: { marginTop: 24, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
   el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'Saved cases (' + savedCases.length + ')'),
+  el('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+  el('span', { style: { fontSize: '.62rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--c-dim)' } }, user ? 'Saved to your account' : 'This browser only'),
   savedCases.length > 0 && el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, onClick: () => {setSetupTab('setup');setShowCases(true);} }, 'Open library')
+  )
   ),
   savedCases.length === 0 ?
   el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, 'After a round, hit "Save case" on the AI’s speeches to bank the best ones here.') :
@@ -8336,10 +8455,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { className: 'dash-card', style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
   el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'Round history (' + historyRounds.length + ')'),
+  el('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+  el('span', { style: { fontSize: '.62rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--c-dim)' } }, user ? 'Saved to your account' : 'This browser only'),
   historyRounds.length > 0 && el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, onClick: () => {setSetupTab('setup');setShowHistory(true);} }, 'Open all')
+  )
   ),
   historyRounds.length === 0 ?
-  el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, 'Finished rounds appear here with the judge ballot, score, and full transcript.') :
+  el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, user ? 'Finished rounds appear here with the judge ballot, score, and full transcript, on any device you sign in on.' : 'Finished rounds appear here with the judge ballot, score, and full transcript. Sign in to keep them across devices.') :
   el('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
   historyRounds.slice(0, 5).map((r) => el('button', { key: r.id, className: 'dash-row', onClick: () => {setSetupTab('setup');setShowHistory(true);setViewingRound && setViewingRound(r);}, style: {
       textAlign: 'left', padding: '10px 12px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)',
