@@ -157,8 +157,10 @@
       'color:var(--text-dim,rgba(255,255,255,.55))}' +
     '[data-theme="light"] .sn-cal,[data-theme="stone"] .sn-cal{background:#fff;border-color:rgba(29,25,21,.14);' +
       'box-shadow:0 8px 18px -12px rgba(80,42,28,.5)}' +
+    /* max-width 1120 (was 1040) matches the .lf-rail/.livenow-stage rail so
+       the banner's edges line up with the chips row and face wall around it. */
     '.sn-card--banner{position:relative;display:grid;grid-template-columns:auto minmax(0,1.2fr) minmax(350px,.8fr);' +
-      'gap:28px;max-width:1040px;margin:0 auto 24px;padding:24px 28px;overflow:hidden;' +
+      'gap:28px;max-width:1120px;margin:0 auto 24px;padding:24px 28px;overflow:hidden;' +
       'box-shadow:0 24px 70px -44px rgba(0,0,0,.7)}' +
     '.sn-card--banner:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent,#ef4444)}' +
     '.sn-card--banner.sn-live:before{background:#22c55e}' +
