@@ -67,6 +67,20 @@
     (document.head || document.documentElement).appendChild(l);
   })();
 
+  // Load the shared sign-in modal. Apple Guideline 4.8 requires Sign in with
+  // Apple anywhere we offer another social login, and most pages ship their
+  // own Google-only button. auth-modal.js is the one surface that offers
+  // both, so the app pulls it in everywhere and routes sign-in through it
+  // (see the interceptor below). It self-guards against double-loading and
+  // costs nothing until opened.
+  (function loadAuthModal() {
+    if (window.__ditAuthModal || document.getElementById('db-native-auth-modal')) return;
+    var s = document.createElement('script');
+    s.id = 'db-native-auth-modal';
+    s.src = '/js/auth-modal.js';
+    (document.head || document.documentElement).appendChild(s);
+  })();
+
   // Hide payment / upgrade / checkout surfaces. Two layers:
   //   - explicit opt-in: anything tagged [data-native-hide]
   //   - defensive selectors: links to pricing / checkout / stripe / upgrade,
@@ -243,6 +257,32 @@
       if (!a || !isHomeHref(a)) return;
       ev.preventDefault();
       location.href = '/native';
+    } catch (e) {}
+  }, true);
+
+  // ── Sign-in router (Apple 4.8) ─────────────────────────────────────
+  // Nine in-app surfaces ship their own "Sign in with Google" button and
+  // never load the chooser, which would leave the app offering a social
+  // login with no Sign in with Apple beside it. In the app those buttons
+  // open the shared chooser instead, which offers both. Capture phase and
+  // stopped propagation so the page's own popup handler never runs.
+  function isGoogleSignIn(el) {
+    if (!el || (el.closest && el.closest('#ditAuth'))) return false; // the chooser's own button
+    var t = (el.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!t || t.length > 48) return false;
+    if (t.indexOf('google') === -1) return false;
+    return /sign\s?in|sign\s?up|continue|log\s?in/.test(t);
+  }
+  document.addEventListener('click', function (ev) {
+    try {
+      if (typeof window.openAuthModal !== 'function') return;
+      var el2 = ev.target && ev.target.closest
+        ? ev.target.closest('button, a, [role="button"]') : null;
+      if (!isGoogleSignIn(el2)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      window.openAuthModal();
     } catch (e) {}
   }, true);
 
