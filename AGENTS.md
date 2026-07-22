@@ -11,8 +11,19 @@
 
 A 50/50 first-screen test is collecting: `data-first-screen` =
 `ticker` | `current`, GA4 event `first_screen_view {variant, assigned}`,
-sticky key `da-first-screen`. Force an arm with `?first=ticker` or
+sticky key `da-first-screen2`. Force an arm with `?first=ticker` or
 `?first=current`.
+
+**Re-baselined 2026-07-22.** The control hero changed after the test
+started (money glyphs cut, slogan sized up in `b09b182f`, kicker cut
+here), so the sticky key was bumped `da-first-screen` →
+`da-first-screen2` to redraw every assignment. **Read
+`first_screen_view` from that bump forward only** — earlier data mixes
+two different controls.
+
+If you change either arm again, bump the key again and note it here.
+A changed arm without a key bump silently poisons the result; that is
+what this line exists to prevent.
 
 Frozen surface — the `#first-screen` section, `section.hero` and
 everything inside `.hero-illustrated` (headline, doors, live card,
