@@ -48,11 +48,20 @@ export default async (request) => {
       if (seen.has(uid)) return; // one best entry per debater on the teaser
       if (typeof d.score !== 'number') return;
       seen.add(uid);
+      // 2026-07-22: side + completedAt added so the teaser row can carry
+      // more than a name and a number. Both are already on the entry doc
+      // (see admin-backfill-leaderboard), so this invents nothing — the
+      // client renders each only when it is actually present.
+      const completedAt = typeof d.completedAt === 'number'
+        ? d.completedAt
+        : (d.completedAt && typeof d.completedAt.toMillis === 'function' ? d.completedAt.toMillis() : null);
       rows.push({
         name: String(d.displayName || 'A debater').slice(0, 40),
         format: String(d.formatName || d.format || '').slice(0, 24),
         score: d.score,
         kind: d.kind === 'live' ? 'live' : 'voice',
+        side: String(d.sideLabel || d.side || '').slice(0, 18),
+        completedAt,
       });
     });
 

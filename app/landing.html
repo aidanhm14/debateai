@@ -13426,6 +13426,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     [data-theme="light"] .rb-nm{color:#1a1a1f}
     .rb-chip{display:inline-block;width:max-content;max-width:100%;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.13);font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     [data-theme="light"] .rb-chip{border-color:rgba(29,25,21,.09);background:rgba(29,25,21,.035);color:rgba(29,25,21,.55)}
+    /* 2026-07-22: rows carry format + live/AI + side + recency, so the
+       second line wraps into a tag row instead of a lone chip. */
+    .rb-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+    .rb-kind{display:inline-block;padding:2px 7px;border-radius:999px;font-size:.58rem;font-weight:800;
+      letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;
+      border:1px solid rgba(255,255,255,.13);color:var(--text-dim,rgba(255,255,255,.5))}
+    /* Live is the scarcer, more credible signal, so it gets the accent;
+       AI rounds stay neutral. Red = brand action colour, per the
+       2026-05-19 pass amber is reserved for state. */
+    .rb-kind--live{border-color:rgba(223,52,65,.34);background:rgba(223,52,65,.09);color:#e2564f}
+    [data-theme="light"] .rb-kind{border-color:rgba(29,25,21,.09);background:rgba(29,25,21,.035);color:rgba(29,25,21,.5)}
+    [data-theme="light"] .rb-kind--live{border-color:rgba(192,57,47,.28);background:rgba(192,57,47,.07);color:#c0392f}
+    .rb-meta{font-size:.6rem;font-weight:600;letter-spacing:.03em;white-space:nowrap;
+      color:var(--text-dim,rgba(255,255,255,.4))}
+    [data-theme="light"] .rb-meta{color:rgba(29,25,21,.42)}
+    .rb-total{font-style:normal;margin-left:8px;padding:1px 7px;border-radius:999px;font-size:.58rem;
+      font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+      border:1px solid rgba(255,255,255,.12);color:var(--text-dim,rgba(255,255,255,.5))}
+    [data-theme="light"] .rb-total{border-color:rgba(29,25,21,.09);background:rgba(29,25,21,.03);color:rgba(29,25,21,.5)}
+    .rb-attr{margin:10px 2px 0;font-size:.6rem;line-height:1.45;color:var(--text-dim,rgba(255,255,255,.35))}
+    [data-theme="light"] .rb-attr{color:rgba(29,25,21,.38)}
+    /* The tag row makes rows taller; keep the phone layout from crowding. */
+    @media(max-width:560px){
+      .rb-meta{display:none}
+      .rb-tags{gap:5px}
+    }
     .rb-pts{flex:none;width:104px;text-align:right}
     @media(max-width:480px){.rb-pts{width:72px}}
     .rb-board .rb-row:nth-child(2) .rb-rk,.rb-board .rb-row:nth-child(3) .rb-rk{color:var(--text,#f4f4f2)}
@@ -13627,7 +13653,40 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       + (ini ? '<text x="40" y="41" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Inter,system-ui,sans-serif" font-size="30" font-weight="800" style="paint-order:stroke" stroke="rgba(0,0,0,.28)" stroke-width="1.2">' + esc(ini) + '</text>' : '')
       + '</svg>';
   }
-  function renderBoard(rows){
+  // Every row gets a portrait from the shared 42-face bank, picked by a
+  // stable hash of the name so a given debater keeps the same face across
+  // reloads (a face that reshuffles on refresh reads as broken). These are
+  // the same AI-generated portraits the live-humans wall uses, and the
+  // board carries the same attribution line the wall does — they stand in
+  // for a photo, they are not claimed to BE the debater.
+  var FACE_BANK = 42;
+  function faceName(n){ return 'face' + (n < 10 ? '0' + n : n); }
+  // `used` de-duplicates within a single board: with 42 faces and 5 rows a
+  // straight hash collides often enough to matter (Ananya R. and Dhruv M.
+  // both landed on face01 in testing), and two identical portraits on a
+  // five-row board reads as a bug. Probe forward to the next free slot.
+  function faceFor(seed, used){
+    var s = String(seed == null ? '' : seed), h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    var start = h % FACE_BANK;
+    for (var k = 0; k < FACE_BANK; k++){
+      var n = ((start + k) % FACE_BANK) + 1;
+      if (!used || !used[n]) { if (used) used[n] = 1; return faceName(n); }
+    }
+    return faceName(start + 1);
+  }
+  // completedAt -> "2d" / "4h" / "just now". Only rendered when the row
+  // actually carries a timestamp; no invented recency.
+  function ago(ts){
+    if (!ts || typeof ts !== 'number') return '';
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 0 || !isFinite(s)) return '';
+    if (s < 3600) { var m = Math.floor(s / 60); return m < 2 ? 'just now' : m + 'm ago'; }
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    var d = Math.floor(s / 86400);
+    return d < 30 ? d + 'd ago' : Math.floor(d / 30) + 'mo ago';
+  }
+  function renderBoard(rows, total){
     var host = document.getElementById('rbBoard');
     if (!host) return;
     var sample = false;
@@ -13639,16 +13698,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       // real invitation. Real rows (>=3) replace this wholesale.
       sample = true;
       rows = [
-        { name: 'Priya',  format: 'BP',          score: 28.5, face: 'face09' },
-        { name: 'Tomás', format: 'APDA',    score: 28.0, face: 'face13' },
-        { name: 'Zainab', format: 'Asian Parli', score: 27.5, face: 'face15' },
-        { name: 'Leo',    format: 'PF',          score: 27.0, face: 'face18' },
-        { name: 'Maya',   format: 'LD',          score: 26.5, face: 'face17' }
+        { name: 'Priya',  format: 'BP',          score: 28.5, kind: 'live',  side: 'Opening Gov' },
+        { name: 'Tomás', format: 'APDA',        score: 28.0, kind: 'voice', side: 'Gov' },
+        { name: 'Zainab', format: 'Asian Parli', score: 27.5, kind: 'live',  side: 'Opp' },
+        { name: 'Leo',    format: 'PF',          score: 27.0, kind: 'voice', side: 'Pro' },
+        { name: 'Maya',   format: 'LD',          score: 26.5, kind: 'live',  side: 'Neg' }
       ];
     }
     var n = Math.min(rows.length, 5);
+    var usedFaces = {};
     var html = '<span class="rb-scale">Best speaks &middot; out of 30'
       + (sample ? '<em class="rb-sample-pill">Sample board</em>' : '')
+      + (!sample && total > 5 ? '<em class="rb-total">' + (total | 0) + ' ranked</em>' : '')
       + '</span><div class="rb-board">';
     for (var i = 0; i < n; i++){
       var r = rows[i];
@@ -13656,13 +13717,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       // to that band so half-point gaps stay visible.
       var w = Math.max(10, Math.min(100, Math.round((r.score - 25) / 5 * 100)));
       var medal = i === 1 ? ' rb-rk--silver' : i === 2 ? ' rb-rk--bronze' : '';
+      var fmt = r.format || (r.kind === 'live' ? 'live' : 'ai round');
+      // Meta line: only fields the row actually carries. The card claims
+      // "live rounds and AI rounds both score", so which one this was is
+      // the most load-bearing extra fact; side and recency follow.
+      var meta = [];
+      if (r.side) meta.push(esc(r.side));
+      var when = ago(r.completedAt);
+      if (when) meta.push(when);
       html += '<a class="rb-row' + (i === 0 ? ' rb-row--top' : '') + '" href="/leaderboard" data-rb="leaderboard-row">'
         + '<span class="rb-rk' + medal + '">' + (i + 1) + '</span>'
-        + '<span class="rb-ava">' + (r.face
-            ? '<img src="/img/round/faces/' + r.face + '.jpg" alt="" loading="lazy" decoding="async">'
-            : marbleAvatar(r.name, r.name)) + '</span>'
+        + '<span class="rb-ava"><img src="/img/round/faces/' + (r.face || faceFor(r.name, usedFaces)) + '.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>'
         + '<span class="rb-who"><span class="rb-nm">' + esc(r.name) + '</span>'
-        + '<span class="rb-chip">' + esc(r.format || (r.kind === 'live' ? 'live' : 'ai round')) + '</span></span>'
+        + '<span class="rb-tags"><span class="rb-chip">' + esc(fmt) + '</span>'
+        + '<span class="rb-kind' + (r.kind === 'live' ? ' rb-kind--live' : '') + '">'
+        + (r.kind === 'live' ? 'Live' : 'AI') + '</span>'
+        + (meta.length ? '<span class="rb-meta">' + meta.join(' &middot; ') + '</span>' : '')
+        + '</span></span>'
         + '<span class="rb-pts"><b>' + fmtScore(r.score) + '</b>'
         + '<span class="rb-bar"><i style="width:' + w + '%;animation-delay:' + (i * 90) + 'ms"></i></span></span>'
         + '</a>';
@@ -13672,7 +13743,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       + '<span class="rb-ava">?</span>'
       + '<span class="rb-who"><span class="rb-nm">Your name here.</span></span>'
       + '<span class="rb-ghost-cta">Run a round &rarr;</span>'
-      + '</a></div>';
+      + '</a></div>'
+      // Same attribution the live-humans wall carries. The portraits are
+      // stand-ins, and saying so is what makes using them here honest.
+      + '<p class="rb-attr">Portraits are AI-generated stand-ins, not photos of the debaters.</p>';
     host.innerHTML = html;
   }
   var fired = false;
@@ -13680,7 +13754,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (fired) return; fired = true;
     fetch('/api/leaderboard-top', { cache: 'no-cache' })
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ renderBoard(j && j.rows); })
+      .then(function(j){ renderBoard(j && j.rows, j && j.total); })
       .catch(function(){ renderBoard(null); });
     fetch('/api/live-now', { cache: 'no-cache' })
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -13702,10 +13776,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         }
       }).catch(function(){});
   }
+  // Paint the board immediately instead of leaving #rbBoard an empty hole
+  // until the fetch lands. The board is section 08, so on the old wiring
+  // (empty div + 300px rootMargin) you scrolled into a blank card and
+  // watched rows pop in. Now the card is always populated: the labelled
+  // sample renders on parse, real rows replace it wholesale when the
+  // fetch resolves.
+  renderBoard(null);
   if ('IntersectionObserver' in window){
+    // 1400px of rootMargin is roughly a screen and a half of runway, so
+    // the swap to real rows has usually resolved before the band is on
+    // screen. Still lazy: visitors who never scroll this far cost no
+    // Firestore read, which matters given the 2026-07-22 quota episode.
     var io = new IntersectionObserver(function(entries){
       if (entries.some(function(e){ return e.isIntersecting; })){ loadOnce(); io.disconnect(); }
-    }, { rootMargin: '300px' });
+    }, { rootMargin: '1400px' });
     io.observe(band);
   } else { loadOnce(); }
   band.addEventListener('click', function(e){
