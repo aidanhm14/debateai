@@ -119,6 +119,46 @@
     .files{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
     .file-pill{border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:#fff;font-weight:800;color:var(--muted);font-size:.85rem}
     .mini{font-size:.82rem;color:var(--faint);line-height:1.35;margin-top:12px}
+    /* ── Opinion delta: stance before, taps during, restate after ──── */
+    .od{margin-top:28px;display:none}
+    .od.on{display:block}
+    .od-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:10px}
+    .od-skip{appearance:none;border:none;background:transparent;color:var(--faint);font:700 .85rem "Crimson Pro", Georgia, serif;cursor:pointer;padding:4px 2px}
+    .od-skip:hover{color:var(--muted);text-decoration:underline}
+    .od-motion{margin:0 0 18px;font-size:1.22rem;line-height:1.32;color:var(--ink);font-weight:700;border-left:3px solid var(--red);padding-left:14px}
+    .od-phase{display:none;animation:rise .22s ease}
+    .od-phase.on{display:block}
+    .od-sides{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .od-conf{display:block;margin-top:18px}
+    .od-conf b{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:.95rem;color:var(--muted);font-weight:800}
+    .od-conf b span{color:var(--red-dark);font-weight:900;font-size:1.05rem}
+    .od-range{width:100%;margin:12px 0 0;accent-color:var(--red);height:22px;cursor:pointer}
+    .od-count{font-weight:900;color:var(--red-dark)}
+    .od-log{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+    .od-stamp{border:1px solid var(--line);border-radius:999px;padding:6px 11px;background:#fff;font-weight:800;color:var(--muted);font-size:.82rem}
+    /* Persistent one-tap control. Fixed, compact, dismissible, and it
+       never covers the page content it floats over. */
+    .od-bar{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(10px);z-index:60;
+      display:none;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);
+      border-radius:999px;padding:9px 10px 9px 16px;box-shadow:0 18px 44px rgba(31,26,23,.17);
+      opacity:0;transition:opacity .24s ease, transform .24s ease;max-width:calc(100vw - 24px);
+    }
+    .od-bar.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+    .od-bar-tap{
+      appearance:none;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:999px;
+      padding:10px 18px;font:800 .95rem "Crimson Pro", Georgia, serif;cursor:pointer;white-space:nowrap;
+      transition:transform .16s ease, background .16s ease;
+    }
+    .od-bar-tap:hover{background:#08080b;transform:translateY(-1px)}
+    .od-bar-tap:active{transform:translateY(1px)}
+    .od-bar-tap.hit{animation:odHit .34s ease}
+    @keyframes odHit{0%{transform:scale(1)}42%{transform:scale(.94)}100%{transform:scale(1)}}
+    .od-bar-meta{font-size:.82rem;color:var(--muted);font-weight:800;white-space:nowrap}
+    .od-bar-end{appearance:none;border:none;background:transparent;color:var(--faint);font:800 .82rem "Crimson Pro", Georgia, serif;cursor:pointer;padding:4px 8px;white-space:nowrap}
+    .od-bar-end:hover{color:var(--red-dark)}
+    .od-done{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .od-verdict{font-size:1.1rem;font-weight:800;color:var(--ink);margin:0}
     @media (max-width:900px){
       .wrap{padding-top:46px}
       .hero,.panel-grid,.panel.brain-panel{grid-template-columns:1fr}
@@ -136,6 +176,12 @@
       .btn{width:100%}
       .brain-viz{height:212px}
       .brain-node{font-size:.68rem}
+      .od-sides{grid-template-columns:1fr}
+      .od-bar{left:10px;right:10px;bottom:10px;transform:translateY(10px);justify-content:space-between;padding:9px 8px 9px 14px}
+      .od-bar.on{transform:translateY(0)}
+      /* The tap is the whole point of this control on a phone, so give
+         it a real thumb target rather than the desktop pill height. */
+      .od-bar-tap{padding:13px 20px}
     }
   </style>
 </head>
@@ -180,6 +226,64 @@
           </div>
         </div>
       </aside>
+    </section>
+
+    <section class="panel od" id="opinionDelta" aria-labelledby="odTitle">
+      <div class="od-head">
+        <div class="eyebrow" id="odEyebrow">Before the round</div>
+        <button class="od-skip" type="button" id="odSkip">Skip this</button>
+      </div>
+      <h2 id="odTitle">Where do you stand right now?</h2>
+      <p class="od-motion" id="odMotion"></p>
+
+      <div class="od-phase on" data-od-phase="before">
+        <p>State a position before you hear a word of it. You restate after the ballot, and the gap between the two is the measure of who actually argued well.</p>
+        <div class="choices od-sides" data-od-key="before">
+          <button class="choice" data-value="pro" type="button">For<small>You would vote proposition today.</small></button>
+          <button class="choice" data-value="undecided" type="button">Undecided<small>You could be argued either way.</small></button>
+          <button class="choice" data-value="con" type="button">Against<small>You would vote opposition today.</small></button>
+        </div>
+        <label class="od-conf" for="odConfBefore">
+          <b>How sure are you? <span id="odConfBeforeOut">50</span></b>
+          <input class="od-range" type="range" id="odConfBefore" min="0" max="100" step="5" value="50">
+        </label>
+        <div class="step-actions">
+          <button class="btn primary" type="button" id="odLockIn">Lock in my stance</button>
+        </div>
+        <p class="mini">Nothing here is published and nothing is scored. It is stored to study which arguments move a room.</p>
+      </div>
+
+      <div class="od-phase" data-od-phase="during">
+        <p>You are on the record. Tap the button whenever an argument genuinely moves you, and the timestamps show which moments did the work.</p>
+        <p class="mini" aria-live="polite">Moved so far: <span class="od-count" id="odCount">0</span></p>
+        <div class="od-log" id="odLog"></div>
+        <div class="step-actions">
+          <button class="btn primary" type="button" id="odBallotIn">The ballot is in, restate my stance</button>
+        </div>
+      </div>
+
+      <div class="od-phase" data-od-phase="after">
+        <p>The round is over. Say where you actually landed, including if nothing shifted at all.</p>
+        <div class="choices od-sides" data-od-key="after">
+          <button class="choice" data-value="pro" type="button">For<small>Proposition earned the ballot.</small></button>
+          <button class="choice" data-value="undecided" type="button">Undecided<small>Genuinely split after both sides.</small></button>
+          <button class="choice" data-value="con" type="button">Against<small>Opposition earned the ballot.</small></button>
+        </div>
+        <label class="od-conf" for="odConfAfter">
+          <b>How sure are you now? <span id="odConfAfterOut">50</span></b>
+          <input class="od-range" type="range" id="odConfAfter" min="0" max="100" step="5" value="50">
+        </label>
+        <div class="step-actions">
+          <button class="btn primary" type="button" id="odSubmitAfter">Record where I landed</button>
+        </div>
+      </div>
+
+      <div class="od-phase" data-od-phase="done">
+        <div class="od-done">
+          <p class="od-verdict" id="odVerdict">Recorded.</p>
+        </div>
+        <p class="mini" id="odVerdictSub">Thanks. This is the part most debate tools never measure.</p>
+      </div>
     </section>
 
     <section class="panel-grid" id="profileBuilder">
@@ -247,6 +351,13 @@
       </div>
     </section>
   </main>
+
+  <div class="od-bar" id="odBar" role="region" aria-label="Persuasion tracker">
+    <button class="od-bar-tap" type="button" id="odTap">That moved me</button>
+    <span class="od-bar-meta"><span id="odBarCount">0</span> so far</span>
+    <button class="od-bar-end" type="button" id="odBarEnd">Ballot in</button>
+  </div>
+
   <script defer src="/js/topbar.js"></script>
   <script defer src="/js/avatar.js"></script>
   <script>
@@ -305,7 +416,10 @@
         next.textContent = step === total - 1 ? 'Save waiting profile' : 'Next';
         updateBrainViz();
       }
-      document.querySelectorAll('.choices').forEach(function(group){
+      // Scoped to the profile builder on purpose: other panels on this
+      // page reuse .choices for their own groups, and an unscoped bind
+      // made those clicks advance this wizard and write junk answers.
+      document.querySelectorAll('#profileBuilder .choices').forEach(function(group){
         group.addEventListener('click', function(e){
           var btn = e.target.closest('.choice');
           if (!btn) return;
@@ -350,6 +464,366 @@
         fileList.innerHTML = files.map(function(n){ return '<span class="file-pill">' + n.replace(/[<>&]/g,'') + '</span>'; }).join('');
       } catch(e){}
       render();
+    })();
+  </script>
+  <script>
+    /* ── Opinion delta ────────────────────────────────────────────────
+       Stance before the round, one-tap "that moved me" during it, and a
+       restate after the ballot. The delta plus the tap offsets is the
+       dataset. Every network call is fire-and-forget: the UI advances
+       optimistically so a failed request never blocks the page, and the
+       whole panel stays hidden until a motion actually resolves. */
+    (function(){
+      var API = '/api/log-opinion-delta';
+      var ANON_KEY = 'debateos-anon-sid';    // shared with the micro-poll capture
+      var STATE_KEY = 'dit-opinion-delta';   // local round state, one round at a time
+
+      var panel = document.getElementById('opinionDelta');
+      if (!panel) return;
+
+      var bar = document.getElementById('odBar');
+      var motionEl = document.getElementById('odMotion');
+      var eyebrow = document.getElementById('odEyebrow');
+      var countEl = document.getElementById('odCount');
+      var barCount = document.getElementById('odBarCount');
+      var logEl = document.getElementById('odLog');
+      var tapBtn = document.getElementById('odTap');
+      var titleEl = document.getElementById('odTitle');
+      var verdictEl = document.getElementById('odVerdict');
+      var verdictSub = document.getElementById('odVerdictSub');
+      var phases = Array.prototype.slice.call(panel.querySelectorAll('.od-phase'));
+
+      var round = null;   // { roundId, motion, format }
+      var state = null;   // { id, roundId, startedAt, movedAt, phase, sideBefore }
+      var picked = { before: 'undecided', after: 'undecided' };
+      var flushTimer = null;
+      var createPayload = null;   // replayed if the opening write fails
+      var createPromise = null;   // resolves to the doc id, or null
+      var createRetried = false;
+
+      function readState(){
+        try { return JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); } catch(e){ return null; }
+      }
+      function writeState(){
+        try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(e){}
+      }
+      function anonId(){
+        try {
+          var s = localStorage.getItem(ANON_KEY);
+          if (!s) {
+            s = 's-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem(ANON_KEY, s);
+          }
+          return s;
+        } catch(e){ return 's-anon'; }
+      }
+
+      // topbar.js lazy-loads firebase auth, so a signed-in spectator can
+      // hand up a token and have the row attributed to their uid. Absent
+      // or slow auth just stays anonymous.
+      function authToken(){
+        try {
+          if (!(window.firebase && firebase.auth && firebase.apps && firebase.apps.length)) return Promise.resolve(null);
+          var u = firebase.auth().currentUser;
+          if (!u) return Promise.resolve(null);
+          return u.getIdToken().catch(function(){ return null; });
+        } catch(e){ return Promise.resolve(null); }
+      }
+
+      function post(payload){
+        return authToken().then(function(token){
+          var headers = { 'Content-Type': 'application/json' };
+          if (token) headers.Authorization = 'Bearer ' + token;
+          payload.anonId = anonId();
+          return fetch(API, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload),
+            keepalive: true
+          });
+        }).then(function(r){
+          return r && r.ok ? r.json() : null;
+        }).catch(function(){ return null; });
+      }
+
+      function hash(str){
+        var h = 5381;
+        for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+        return h.toString(36);
+      }
+
+      // Round context: an explicit handoff wins, otherwise the featured
+      // motion of the day gives the waiting room something real to take
+      // a position on.
+      function resolveRound(){
+        var q;
+        try { q = new URLSearchParams(location.search); } catch(e){ q = null; }
+        var urlMotion = q ? (q.get('motion') || '').trim() : '';
+        if (urlMotion) {
+          return Promise.resolve({
+            roundId: (q.get('round') || '').trim() || ('adhoc-' + hash(urlMotion)),
+            motion: urlMotion.slice(0, 2000),
+            format: (q.get('format') || '').trim().slice(0, 40)
+          });
+        }
+        return fetch('/api/debate-of-week')
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(d){
+            if (!d || !d.motion) return null;
+            return {
+              roundId: 'dotw-' + new Date().toISOString().slice(0, 10),
+              motion: String(d.motion).slice(0, 2000),
+              format: String(d.format || '').slice(0, 40)
+            };
+          })
+          .catch(function(){ return null; });
+      }
+
+      function showPhase(name){
+        phases.forEach(function(p){ p.classList.toggle('on', p.getAttribute('data-od-phase') === name); });
+        if (eyebrow) {
+          eyebrow.textContent = name === 'before' ? 'Before the round'
+            : name === 'during' ? 'During the round'
+            : name === 'after' ? 'After the ballot'
+            : 'On the record';
+        }
+        if (titleEl) {
+          titleEl.textContent = name === 'before' ? 'Where do you stand right now?'
+            : name === 'during' ? 'Flag the moments that land.'
+            : name === 'after' ? 'Where did you actually land?'
+            : 'Your opinion delta.';
+        }
+        if (bar) bar.classList.toggle('on', name === 'during');
+        // Nothing left to skip once the row is recorded.
+        var skipBtn = document.getElementById('odSkip');
+        if (skipBtn) skipBtn.style.display = name === 'done' ? 'none' : '';
+      }
+
+      function mmss(ms){
+        var s = Math.max(0, Math.floor(ms / 1000));
+        return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+      }
+
+      function renderMoves(){
+        var moves = (state && state.movedAt) || [];
+        if (countEl) countEl.textContent = String(moves.length);
+        if (barCount) barCount.textContent = String(moves.length);
+        if (logEl) {
+          logEl.innerHTML = moves.slice(-12).map(function(ms){
+            return '<span class="od-stamp">' + mmss(ms) + '</span>';
+          }).join('');
+        }
+      }
+
+      // Taps batch for a beat so a flurry of them is one write, not six.
+      // The client always sends the whole array, so a late or retried
+      // flush is idempotent rather than double-counting.
+      function flushMoves(){
+        if (flushTimer) clearTimeout(flushTimer);
+        flushTimer = setTimeout(function(){
+          if (!state || !state.movedAt.length) return;
+          var moves = state.movedAt.slice();
+          withRow(function(id){ post({ action: 'update', id: id, movedAt: moves }); });
+        }, 1200);
+      }
+
+      function wireChoices(key){
+        var group = panel.querySelector('.choices[data-od-key="' + key + '"]');
+        if (!group) return;
+        group.addEventListener('click', function(e){
+          var btn = e.target.closest('.choice');
+          if (!btn) return;
+          picked[key] = btn.getAttribute('data-value');
+          group.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
+          btn.classList.add('on');
+        });
+      }
+
+      function wireRange(inputId, outId){
+        var input = document.getElementById(inputId);
+        var out = document.getElementById(outId);
+        if (!input || !out) return;
+        input.addEventListener('input', function(){ out.textContent = input.value; });
+      }
+
+      function startDuring(){
+        showPhase('during');
+        renderMoves();
+      }
+
+      function toAfter(){
+        if (!state) return;
+        state.phase = 'after';
+        writeState();
+        showPhase('after');
+        try { panel.scrollIntoView({ behavior:'smooth', block:'center' }); } catch(e){}
+      }
+
+      // Every write after the opening stance needs the doc id the create
+      // returns. Taps and the restate can easily land before that request
+      // resolves (or after it failed outright), so they queue behind this
+      // rather than testing state.id and silently dropping themselves.
+      function sendCreate(){
+        createPromise = post(createPayload).then(function(res){
+          if (res && res.id && state) { state.id = res.id; writeState(); }
+          return (state && state.id) || null;
+        });
+        return createPromise;
+      }
+
+      function withRow(fn){
+        if (state && state.id) return fn(state.id);
+        if (!createPromise) return;
+        createPromise.then(function(id){
+          if (id) return fn(id);
+          // The create failed. Retry it once, otherwise this round's taps
+          // and closing stance are lost for good.
+          if (createRetried || !createPayload) return;
+          createRetried = true;
+          return sendCreate().then(function(retryId){ if (retryId) fn(retryId); });
+        });
+      }
+
+      function lockIn(){
+        if (!round) return;
+        var conf = parseInt((document.getElementById('odConfBefore') || {}).value, 10);
+        if (isNaN(conf)) conf = 50;
+        state = {
+          id: null,
+          roundId: round.roundId,
+          startedAt: Date.now(),
+          movedAt: [],
+          phase: 'during',
+          sideBefore: picked.before
+        };
+        createRetried = false;
+        createPayload = {
+          action: 'create',
+          roundId: round.roundId,
+          motion: round.motion,
+          format: round.format,
+          sideBefore: picked.before,
+          confBefore: conf
+        };
+        writeState();
+        startDuring();
+        sendCreate();
+      }
+
+      function submitAfter(){
+        var conf = parseInt((document.getElementById('odConfAfter') || {}).value, 10);
+        if (isNaN(conf)) conf = 50;
+        var side = picked.after;
+        // Read the opening side off the persisted row, not off `picked`:
+        // a spectator who reloaded mid-round has a fresh `picked.before`
+        // and would otherwise be told they held a position they never
+        // restated.
+        var before = (state && state.sideBefore) || picked.before;
+        showPhase('done');
+        if (verdictEl) {
+          verdictEl.textContent = side === before
+            ? 'You held your position.'
+            : 'You moved.';
+        }
+        if (verdictSub) {
+          var n = (state && state.movedAt ? state.movedAt.length : 0);
+          verdictSub.textContent = n
+            ? 'Recorded, along with the ' + n + ' moment' + (n === 1 ? '' : 's') + ' you flagged.'
+            : 'Recorded. Next round, tap the button when something lands.';
+        }
+        if (state) {
+          // Hold the row object (not null it) so a create still in flight
+          // can still attach this restate when it lands. `phase` moving off
+          // 'during' is what stops further taps.
+          state.phase = 'done';
+          // The closing write carries movedAt, so a pending tap flush
+          // would just be a duplicate.
+          if (flushTimer) clearTimeout(flushTimer);
+          var moves = state.movedAt.slice();
+          withRow(function(id){
+            post({ action: 'update', id: id, movedAt: moves, sideAfter: side, confAfter: conf });
+          });
+        }
+        try { localStorage.removeItem(STATE_KEY); } catch(e){}
+      }
+
+      function tap(){
+        if (!state || state.phase !== 'during') return;
+        if (state.movedAt.length >= 200) return;
+        var at = Date.now() - state.startedAt;
+        // The server dedupes identical offsets, so drop them here too or
+        // the on-screen count disagrees with what actually got stored.
+        if (state.movedAt[state.movedAt.length - 1] === at) return;
+        state.movedAt.push(at);
+        writeState();
+        renderMoves();
+        flushMoves();
+        if (tapBtn) {
+          tapBtn.classList.remove('hit');
+          void tapBtn.offsetWidth;
+          tapBtn.classList.add('hit');
+        }
+      }
+
+      function skip(){
+        panel.classList.remove('on');
+        if (bar) bar.classList.remove('on');
+        try { localStorage.setItem(STATE_KEY + '-skipped', String(Date.now())); } catch(e){}
+      }
+
+      function skippedRecently(){
+        try {
+          var t = parseInt(localStorage.getItem(STATE_KEY + '-skipped'), 10) || 0;
+          return Date.now() - t < 24 * 60 * 60 * 1000;
+        } catch(e){ return false; }
+      }
+
+      wireChoices('before');
+      wireChoices('after');
+      wireRange('odConfBefore', 'odConfBeforeOut');
+      wireRange('odConfAfter', 'odConfAfterOut');
+
+      // Guarded: a missing id must not throw and take the whole panel
+      // (and every listener wired after it) down with it.
+      function on(id, fn){
+        var elm = document.getElementById(id);
+        if (elm) elm.addEventListener('click', fn);
+      }
+      on('odSkip', skip);
+      on('odLockIn', lockIn);
+      on('odBallotIn', toAfter);
+      on('odSubmitAfter', submitAfter);
+      on('odTap', tap);
+      on('odBarEnd', toAfter);
+
+      // Hook for whatever eventually renders the live ballot on this
+      // page: call window.DBOpinionDelta.ballotIn() when it lands and
+      // the restate prompt takes over.
+      window.DBOpinionDelta = {
+        ballotIn: toAfter,
+        tap: tap,
+        state: function(){ return state; }
+      };
+
+      if (skippedRecently()) return;
+
+      resolveRound().then(function(r){
+        if (!r) return;              // no motion, no panel. Never blocks the page.
+        round = r;
+        if (motionEl) motionEl.textContent = r.motion;
+
+        var saved = readState();
+        if (saved && saved.roundId === r.roundId) {
+          state = saved;
+          state.movedAt = state.movedAt || [];
+          panel.classList.add('on');
+          showPhase(state.phase === 'after' ? 'after' : 'during');
+          renderMoves();
+          return;
+        }
+        panel.classList.add('on');
+        showPhase('before');
+      });
     })();
   </script>
 </body>

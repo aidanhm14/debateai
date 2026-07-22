@@ -747,6 +747,23 @@ service cloud.firestore {
                             && request.resource.data.screenshots.size() <= 2));
     }
 
+    // ── opinion_deltas ───────────────────────────────────────────────
+    // Persuasion capture from /spectate: a spectator's stance before the
+    // round, the timestamps of every "that moved me" tap during it, and
+    // the restated stance after the ballot. Written ONLY by the
+    // log-opinion-delta Netlify function via the Admin SDK (which
+    // bypasses these rules), so the client can neither forge a row nor
+    // edit someone else's. Ownership is checked in the function against
+    // the caller's anonId/uid before any update lands.
+    //
+    // Reads are closed too: a spectator holds their own doc id locally
+    // and never needs to read it back, and the aggregate ("what share
+    // of the room flipped") is an admin-side query. Opening reads here
+    // would expose one visitor's stance history to any other client.
+    match /opinion_deltas/{docId} {
+      allow read, write: if false;
+    }
+
     // ── votes (collection group) ─────────────────────────────────────
     // Authorizes the collectionGroup('votes') hydration on /community:
     // path-scoped vote rules above never authorize group queries. The
