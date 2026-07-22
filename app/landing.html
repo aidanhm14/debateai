@@ -10328,84 +10328,164 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      only hides control. -->
 <script>
   (function(){
-    var v='';
+    // 2026-07-22: the 50/50 arm is retired, the door wall ships to everyone.
+    // Stale 'off' assignments were sticky in localStorage and kept hiding the
+    // menu from returning visitors, so clear the key on sight. ?modeMenu=off
+    // still forces it hidden for QA.
+    var v='on';
     try{
-      var qp=(location.search||'').toLowerCase();
-      if(/[?&]modemenu=on(?:&|$)/.test(qp)) v='on';
-      else if(/[?&]modemenu=off(?:&|$)/.test(qp)) v='off';
+      if(/[?&]modemenu=off(?:&|$)/.test((location.search||'').toLowerCase())) v='off';
     }catch(e){}
-    var assigned=false;
-    if(v!=='on'&&v!=='off'){
-      try{ v=localStorage.getItem('da-mode-menu')||''; }catch(e){}
-      if(v!=='on'&&v!=='off'){
-        v=(Math.random()<0.50)?'on':'off';
-        assigned=true;
-        try{ localStorage.setItem('da-mode-menu',v); }catch(e){}
-      }
-    }
+    try{ localStorage.removeItem('da-mode-menu'); }catch(e){}
     document.documentElement.setAttribute('data-mode-menu',v);
     try{
-      if(window.gtag){
-        gtag('set','user_properties',{mode_menu_ab:v});
-        gtag('event','mode_menu_view',{variant:v,assigned:assigned});
-      }
+      if(window.gtag) gtag('event','mode_menu_view',{variant:v});
     }catch(e){}
   })();
 </script>
 <section id="mode-select" class="mode-select" aria-label="Pick your mode">
   <style>
+    /* Wall of doors (2026-07-22). Was a 3x2 tile grid; now six equal
+       vertical doors in one row that expand on hover/focus via flex-grow.
+       `.ms-tile` survives on the anchors purely as the click-tracking
+       hook at the bottom of this section, it carries no styles now. */
     html[data-mode-menu="off"] .mode-select{display:none}
-    .mode-select{padding:clamp(30px,4vh,54px) clamp(18px,5vw,72px) clamp(48px,6vh,76px);display:flex;justify-content:center}
-    .mode-select-wrap{width:100%;max-width:1180px}
+    .mode-select{padding:clamp(30px,4vh,54px) clamp(18px,3.4vw,60px) clamp(48px,6vh,76px);display:flex;justify-content:center}
+    .mode-select-wrap{width:100%;max-width:1320px}
     .ms-title{margin:0 0 22px;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.7rem,3.2vw,2.4rem);font-weight:700;letter-spacing:-.02em;line-height:1.08;color:#1a1a1f}
     .ms-title em{font-style:normal;color:#dc2626}
-    .ms-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-    @media(max-width:960px){.ms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:560px){.ms-grid{grid-template-columns:1fr}}
-    .ms-tile{position:relative;display:flex;flex-direction:column;gap:8px;padding:20px 22px 18px;border:1px solid rgba(29,25,21,.10);border-radius:18px;background:rgba(255,253,247,.92);box-shadow:0 12px 34px rgba(29,25,21,.06);color:#1a1a1f;text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-    .ms-tile:hover{transform:translateY(-3px);border-color:rgba(239,68,68,.34);box-shadow:0 22px 52px rgba(239,68,68,.13)}
-    .ms-tile:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
-    .ms-tag{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:7px;font-size:.62rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#c81e1e;border:1px solid rgba(200,30,30,.16);background:rgba(239,68,68,.06);border-radius:999px;padding:4px 9px}
+
+    .ms-wall{display:flex;align-items:stretch;gap:12px}
+    .ms-door{
+      --ms-a:#c01326;--ms-a-rgb:192,19,38;
+      position:relative;overflow:hidden;flex:1 1 0;min-width:0;
+      display:flex;flex-direction:column;
+      min-height:clamp(296px,24vw,352px);
+      padding:16px 26px 16px 18px;
+      border:1px solid rgba(29,25,21,.10);border-radius:16px;
+      background:linear-gradient(var(--ms-a),var(--ms-a)) 0 0/100% 3px no-repeat,rgba(255,253,247,.94);
+      box-shadow:0 10px 30px rgba(29,25,21,.06);
+      color:#1a1a1f;text-decoration:none;
+      transition:flex-grow .34s cubic-bezier(.22,.68,.24,1),transform .34s cubic-bezier(.22,.68,.24,1),box-shadow .34s ease,border-color .28s ease;
+    }
+    .ms-door>*{position:relative;z-index:1}
+    /* inset door panel */
+    .ms-door::before{content:'';position:absolute;inset:9px;border-radius:9px;border:1px solid rgba(var(--ms-a-rgb),.15);pointer-events:none;transition:border-color .3s ease}
+    /* inner glow, capped low so text keeps AA contrast over it */
+    .ms-door::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(130% 52% at 50% 118%,rgba(var(--ms-a-rgb),.15),rgba(var(--ms-a-rgb),.04) 48%,transparent 74%);opacity:.55;transition:opacity .34s ease}
+    .ms-num{font-family:'Crimson Pro',Georgia,serif;font-size:2.2rem;font-weight:700;line-height:1;letter-spacing:-.02em;color:rgba(var(--ms-a-rgb),.28);transition:color .3s ease}
+    .ms-tag{position:absolute;top:15px;right:14px;z-index:2;display:inline-flex;align-items:center;gap:7px;font-size:.62rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#c81e1e;border:1px solid rgba(200,30,30,.16);background:rgba(239,68,68,.06);border-radius:999px;padding:4px 9px}
     .ms-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:msDot 1.8s ease-in-out infinite}
     @keyframes msDot{0%,100%{opacity:1}50%{opacity:.4}}
-    .ms-tile h3{margin:2px 0 0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.34rem;font-weight:700;letter-spacing:-.01em;color:#1a1a1f}
-    .ms-tile p{margin:0;font-size:.9rem;line-height:1.5;color:rgba(26,26,31,.62)}
-    .ms-go{margin-top:auto;padding-top:8px;font-size:.82rem;font-weight:800;color:rgba(26,26,31,.45);transition:color .18s ease}
-    .ms-tile:hover .ms-go{color:#dc2626}
+    .ms-door h3{margin:14px 0 0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.06rem,1.12vw,1.26rem);font-weight:700;letter-spacing:-.01em;line-height:1.18;color:#1a1a1f}
+    .ms-door p{margin:9px 0 0;font-size:.83rem;line-height:1.5;color:rgba(26,26,31,.78);opacity:.86;transform:translateY(6px);transition:opacity .34s ease,transform .34s cubic-bezier(.22,.68,.24,1)}
+    /* the rail line turns the blank middle into a door panel */
+    .ms-go{margin-top:auto;padding-top:13px;border-top:1px solid rgba(var(--ms-a-rgb),.16);display:block;font-size:.8rem;font-weight:800;color:rgba(26,26,31,.72);opacity:.9;transform:translateY(8px);transition:color .3s ease,border-color .3s ease,opacity .34s ease,transform .34s cubic-bezier(.22,.68,.24,1)}
+    .ms-arrow{display:inline-block;transition:transform .34s cubic-bezier(.22,.68,.24,1)}
+    /* handle */
+    .ms-knob{position:absolute;right:12px;bottom:56px;z-index:2;width:10px;height:10px;border-radius:50%;background:rgba(var(--ms-a-rgb),.5);box-shadow:0 0 0 4px rgba(var(--ms-a-rgb),.09);transition:background-color .3s ease,box-shadow .3s ease}
+
+    .ms-door[data-mode="live"]{--ms-a:#c01326;--ms-a-rgb:192,19,38}
+    .ms-door[data-mode="voice"]{--ms-a:#b4470f;--ms-a-rgb:180,71,15}
+    .ms-door[data-mode="judge"]{--ms-a:#7d2a63;--ms-a-rgb:125,42,99}
+    .ms-door[data-mode="prep"]{--ms-a:#0f6b64;--ms-a-rgb:15,107,100}
+    .ms-door[data-mode="learn"]{--ms-a:#1f4fb5;--ms-a-rgb:31,79,181}
+    .ms-door[data-mode="schedule"]{--ms-a:#6b3ab8;--ms-a-rgb:107,58,184}
+
+    /* open by keyboard. :has() keeps siblings from compressing when the
+       pointer sits in a gap; without :has() the door still expands. */
+    .ms-wall:has(.ms-door:focus-visible) .ms-door:not(:focus-visible){flex-grow:.88}
+    .ms-door:focus-visible{flex-grow:2.2;transform:translateY(-6px);border-color:rgba(var(--ms-a-rgb),.42);box-shadow:0 22px 46px rgba(var(--ms-a-rgb),.16);outline:2px solid var(--ms-a);outline-offset:3px}
+    .ms-door:focus-visible::after{opacity:1}
+    .ms-door:focus-visible::before{border-color:rgba(var(--ms-a-rgb),.3)}
+    .ms-door:focus-visible .ms-num{color:rgba(var(--ms-a-rgb),.5)}
+    .ms-door:focus-visible p{opacity:1;transform:none}
+    .ms-door:focus-visible .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
+    .ms-door:focus-visible .ms-arrow{transform:translateX(5px)}
+    .ms-door:focus-visible .ms-knob{background:var(--ms-a);box-shadow:0 0 0 6px rgba(var(--ms-a-rgb),.14)}
+
+    /* open by pointer */
+    @media (hover:hover) and (pointer:fine){
+      .ms-wall:has(.ms-door:hover) .ms-door:not(:hover){flex-grow:.88}
+      .ms-door:hover{flex-grow:2.2;transform:translateY(-6px);border-color:rgba(var(--ms-a-rgb),.42);box-shadow:0 22px 46px rgba(var(--ms-a-rgb),.16)}
+      .ms-door:hover::after{opacity:1}
+      .ms-door:hover::before{border-color:rgba(var(--ms-a-rgb),.3)}
+      .ms-door:hover .ms-num{color:rgba(var(--ms-a-rgb),.5)}
+      .ms-door:hover p{opacity:1;transform:none}
+      .ms-door:hover .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
+      .ms-door:hover .ms-arrow{transform:translateX(5px)}
+      .ms-door:hover .ms-knob{background:var(--ms-a);box-shadow:0 0 0 6px rgba(var(--ms-a-rgb),.14)}
+    }
+
+    /* under 1100 the wall becomes a scroll-snap rail, same left-to-right
+       order, every door fully open, next one peeking. */
+    @media(max-width:1099px){
+      .ms-wall{overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding:6px 0 12px}
+      .ms-door{flex:0 0 79vw;scroll-snap-align:start;min-height:clamp(272px,46vw,320px);box-shadow:0 6px 18px rgba(29,25,21,.06)}
+      .ms-door::after{opacity:1}
+      .ms-door p{opacity:1;transform:none}
+      .ms-door .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
+      .ms-num{color:rgba(var(--ms-a-rgb),.4)}
+      .ms-knob{bottom:50px}
+    }
+    /* phones keep the full 79vw door; past ~700px that width stretches a
+       door into a squat banner, so cap it and show more of the wall. */
+    @media(min-width:700px) and (max-width:1099px){
+      .ms-door{max-width:452px}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .ms-door,.ms-door::before,.ms-door::after,.ms-door p,.ms-go,.ms-arrow,.ms-num,.ms-knob{transition:none!important}
+      .ms-door{flex-grow:1!important}
+      .ms-door,.ms-door p,.ms-door .ms-go,.ms-arrow{transform:none!important}
+      .ms-door p,.ms-door .ms-go{opacity:1}
+    }
   </style>
   <div class="mode-select-wrap">
     <h2 class="ms-title">What are you here to <em>do</em>?</h2>
-    <div class="ms-grid">
-      <a class="ms-tile" href="/spar" data-mode="live">
+    <div class="ms-wall">
+      <a class="ms-tile ms-door" href="/spar" data-mode="live">
+        <span class="ms-num">01</span>
         <span class="ms-tag"><span class="ms-dot" aria-hidden="true"></span>Live</span>
         <h3>Debate a person</h3>
         <p>Match with a real opponent on a real clock. The AI judge writes the ballot.</p>
-        <span class="ms-go" aria-hidden="true">Find an opponent →</span>
+        <span class="ms-go" aria-hidden="true">Find an opponent <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
       </a>
-      <a class="ms-tile" href="/newvoice" data-mode="voice">
+      <a class="ms-tile ms-door" href="/newvoice" data-mode="voice">
+        <span class="ms-num">02</span>
         <h3>Debate the AI</h3>
         <p>Argue out loud against an opponent that interrupts, takes POIs, and hits back.</p>
-        <span class="ms-go" aria-hidden="true">Start talking →</span>
+        <span class="ms-go" aria-hidden="true">Start talking <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
       </a>
-      <a class="ms-tile" href="/judge" data-mode="judge">
+      <a class="ms-tile ms-door" href="/judge" data-mode="judge">
+        <span class="ms-num">03</span>
         <h3>Get judged</h3>
         <p>Drop in a speech or case. Winner, speaker points, and a written RFD.</p>
-        <span class="ms-go" aria-hidden="true">Get a ballot →</span>
+        <span class="ms-go" aria-hidden="true">Get a ballot <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
       </a>
-      <a class="ms-tile" href="/app#case" data-mode="prep">
+      <a class="ms-tile ms-door" href="/app#case" data-mode="prep">
+        <span class="ms-num">04</span>
         <h3>Prep a case</h3>
         <p>Build cases and rebuttals for any motion, in your format's structure.</p>
-        <span class="ms-go" aria-hidden="true">Open the prep room →</span>
+        <span class="ms-go" aria-hidden="true">Open the prep room <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
       </a>
-      <a class="ms-tile" href="/learn" data-mode="learn">
+      <a class="ms-tile ms-door" href="/learn" data-mode="learn">
+        <span class="ms-num">05</span>
         <h3>Learn the craft</h3>
         <p>Formats, drills, and vocabulary, from first round to circuit level.</p>
-        <span class="ms-go" aria-hidden="true">Start a drill →</span>
+        <span class="ms-go" aria-hidden="true">Start a drill <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
       </a>
-      <a class="ms-tile" href="/live" data-mode="schedule">
+      <a class="ms-tile ms-door" href="/live" data-mode="schedule">
+        <span class="ms-num">06</span>
         <h3>Schedule or spectate</h3>
         <p>Book a round for later, or watch one that is already running.</p>
-        <span class="ms-go" aria-hidden="true">See the schedule →</span>
+        <span class="ms-go" aria-hidden="true">See the schedule <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
       </a>
     </div>
   </div>
