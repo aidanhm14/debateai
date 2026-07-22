@@ -4821,7 +4821,39 @@ section.ui-section .ui-lede{
 }
 
 /* Headline + subhead */
-.hero-illustrated .hi-head{text-align:center;max-width:760px;margin:0 auto}
+.hero-illustrated .hi-head{position:relative;text-align:center;max-width:760px;margin:0 auto}
+/* Money field around the slogan (2026-07-22). Mirrors .fb-money on the
+   Floor band so the two "Bet on your words" moments share one motif.
+   The layer bleeds past the 760px head into the empty flanks, but the
+   bleed is clamped in vw and the layer clips its own children, so it
+   can never push a horizontal scrollbar at any width. Sits at z-index 0
+   with the slogan and subhead lifted above it. */
+/* Anchored to a fixed centred band, NOT to the head's own edges: the
+   head shrink-wraps to its text (~390px here, well under its 760 cap),
+   so a bleed measured from its edges put glyphs right on top of the
+   words. Width is capped against the viewport so it never scrolls. */
+.hero-illustrated .hi-money{
+  position:absolute;top:-14px;bottom:-10px;
+  left:50%;transform:translateX(-50%);
+  width:min(1180px, calc(100vw - 36px));
+  overflow:hidden;pointer-events:none;z-index:0;
+}
+.hero-illustrated .hi-money span{
+  position:absolute;left:var(--x);top:var(--y);
+  font-family:'Crimson Pro',Georgia,serif;font-weight:700;line-height:1;
+  font-size:calc(var(--s,1) * 34px);color:var(--hi-red,#b91c1c);opacity:.11;
+  animation:hiMoneyFloat 12s ease-in-out var(--d,0s) infinite;
+}
+@keyframes hiMoneyFloat{
+  0%,100%{transform:rotate(var(--r,0deg)) translateY(0)}
+  50%    {transform:rotate(var(--r,0deg)) translateY(-11px)}
+}
+.hero-illustrated .hi-slogan,
+.hero-illustrated .hi-subhead{position:relative;z-index:1}
+/* Below 900px the head text spreads into the flanks the glyphs occupy,
+   so they would sit behind the words rather than around them. */
+@media(max-width:900px){ .hero-illustrated .hi-money{display:none} }
+@media(prefers-reduced-motion:reduce){ .hero-illustrated .hi-money span{animation:none} }
 .hero-illustrated .hi-headline,
 .hero section.hero .hero-illustrated .hi-headline,
 section.hero .hero-illustrated h1.hi-headline{
@@ -7271,6 +7303,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          still pinned to it. -->
     <div class="hero-illustrated" data-hero-variant="illustrated">
       <div class="hi-head">
+        <!-- Money field around the slogan (2026-07-22). Same device as
+             the Floor band's .fb-money, which sits under the same
+             "Bet on your words" line further down the page, so the two
+             read as one motif. Currency marks from the circuits the site
+             serves. Positions hug the left and right flanks and stay out
+             of the middle where the text sits; the head is capped at
+             760px so the flanks are empty space at desktop widths.
+             Decorative, aria-hidden, and hidden outright below 900px
+             where the text spreads into that space. -->
+        <div class="hi-money" aria-hidden="true">
+          <span style="--x:1%;--y:6%;--s:1.5;--r:-12deg;--d:0s">$</span>
+          <span style="--x:8%;--y:52%;--s:1;--r:9deg;--d:2.1s">&euro;</span>
+          <span style="--x:14%;--y:84%;--s:1.2;--r:-7deg;--d:3.6s">&pound;</span>
+          <span style="--x:4%;--y:30%;--s:.85;--r:14deg;--d:1.3s">&#8377;</span>
+          <span style="--x:19%;--y:14%;--s:.9;--r:-16deg;--d:4.4s">&yen;</span>
+          <span style="--x:95%;--y:8%;--s:1.4;--r:11deg;--d:.7s">$</span>
+          <span style="--x:88%;--y:56%;--s:1.05;--r:-9deg;--d:2.8s">&pound;</span>
+          <span style="--x:82%;--y:86%;--s:.9;--r:13deg;--d:1.7s">&euro;</span>
+          <span style="--x:93%;--y:34%;--s:.85;--r:-14deg;--d:3.9s">&yen;</span>
+          <span style="--x:77%;--y:12%;--s:1.15;--r:6deg;--d:5s">$</span>
+        </div>
         <!-- 2026-07-18: site slogan per Aidan.
              2026-07-22: "Take a side. / Speak live. Get judged." cut per
              Aidan. The slogan carries the <h1> so the page keeps exactly
