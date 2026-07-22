@@ -3592,12 +3592,15 @@ body.lr-pip .lr-pip-notice{display:block}
   function pmRenderPanel(){
     if (pmPanel) return;
     var el=document.createElement('div'); el.id='pmPanel';
-    el.style.cssText='position:fixed;left:16px;bottom:16px;z-index:6000;width:280px;max-width:calc(100vw - 32px);background:#16161c;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5);padding:14px;font-family:inherit;font-size:.82rem;color:#fff';
+    // Positioning now comes from #specDock, the shared bottom-left column
+    // that also holds the swing-vote panel. Both used to be fixed at the
+    // same coordinates and would have sat on top of each other.
+    el.style.cssText='background:#16161c;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5);padding:14px;font-family:inherit;font-size:.82rem;color:#fff';
     el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">Live market · call the verdict</div>'+
       '<div id="pmSides" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>'+
       '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" type="number" value="50" min="1" step="10" style="width:78px;background:#1d1d25;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#fff;padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Place bet</button></div>'+
       '<div id="pmStatus" style="font-size:.72rem;color:rgba(255,255,255,.55);line-height:1.45"></div>';
-    document.body.appendChild(el); pmPanel=el;
+    svDock().appendChild(el); pmPanel=el;
     el.querySelector('#pmBet').addEventListener('click', pmPlaceBet);
   }
   function pmPoll(){
@@ -3645,6 +3648,277 @@ body.lr-pip .lr-pip-notice{display:block}
     } else {
       st.innerHTML='Pool '+total+' pts. balance <b>'+(d.balance!=null?d.balance:'—')+'</b>. bets lock at the middle speech.';
     }
+  }
+
+  /* ── SWING VOTE (persuasion capture) ──────────────────────────────
+     A different question from the market above it. The market asks
+     "which side will the judge vote for" — a forecast, settled by the
+     ballot, with a right answer. This asks "did the round change YOUR
+     mind" — no right answer, nothing at stake.
+
+     That difference sets the visibility rule. A prediction market
+     SHOULD show its price: publishing it is how a market aggregates
+     information, and a wrong call costs the caller. A persuasion vote
+     must NOT show a running tally, because there is no cost to being
+     wrong and nothing to aggregate — a visible tally just tells people
+     what to think and you end up measuring conformity. So the room's
+     split stays hidden until the ballot lands. Each viewer sees only
+     their own taps. (firestore.rules closes reads on opinion_deltas
+     outright, so the aggregate is admin-side only by construction.)
+
+     Three phases: stance before, one-tap "that moved me" during (each
+     tap stamped against state.roundStartedAt, the SAME origin as each
+     speech's atMs, so a tap resolves to what was being said), restate
+     after the ballot. Server derives the signed shift.
+
+     Every write is fire-and-forget; the UI advances optimistically so a
+     dropped request never blocks a spectator watching a round. */
+  var svAPI = '/api/log-opinion-delta';
+  var svPanel = null;
+  var svRow = null;          // { id, movedAt[], phase }
+  var svCreatePromise = null;
+  var svCreatePayload = null;
+  var svCreateRetried = false;
+  var svFlushTimer = null;
+  var svPick = 'undecided';
+  var svPickAfter = 'undecided';
+
+  function svAnonId(){
+    try {
+      var s = localStorage.getItem('debateos-anon-sid');
+      if (!s){
+        s = 's-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem('debateos-anon-sid', s);
+      }
+      return s;
+    } catch(e){ return 's-anon'; }
+  }
+
+  function svPost(payload){
+    payload.anonId = svAnonId();
+    var headers = { 'Content-Type': 'application/json' };
+    var p = (state.user && state.user.getIdToken)
+      ? state.user.getIdToken().catch(function(){ return null; })
+      : Promise.resolve(null);
+    return p.then(function(tok){
+      if (tok) headers.Authorization = 'Bearer ' + tok;
+      return fetch(svAPI, { method:'POST', headers:headers, body:JSON.stringify(payload), keepalive:true });
+    }).then(function(r){ return r && r.ok ? r.json() : null; })
+      .catch(function(){ return null; });
+  }
+
+  // Taps and the closing stance both need the id the create returns, and
+  // either can fire before that request resolves. They queue behind it
+  // instead of testing svRow.id and silently dropping themselves.
+  function svSendCreate(){
+    svCreatePromise = svPost(svCreatePayload).then(function(res){
+      if (res && res.id && svRow){ svRow.id = res.id; }
+      return (svRow && svRow.id) || null;
+    });
+    return svCreatePromise;
+  }
+  function svWithRow(fn){
+    if (svRow && svRow.id) return fn(svRow.id);
+    if (!svCreatePromise) return;
+    svCreatePromise.then(function(id){
+      if (id) return fn(id);
+      if (svCreateRetried || !svCreatePayload) return;
+      svCreateRetried = true;
+      return svSendCreate().then(function(retryId){ if (retryId) fn(retryId); });
+    });
+  }
+
+  function svDock(){
+    var d = document.getElementById('specDock');
+    if (d) return d;
+    d = document.createElement('div');
+    d.id = 'specDock';
+    d.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:6000;display:flex;flex-direction:column;gap:10px;width:280px;max-width:calc(100vw - 32px)';
+    document.body.appendChild(d);
+    return d;
+  }
+
+  function svInitSpectator(){
+    try {
+      if (!isSpectator() || !state.room || svPanel) return;
+      svRenderPanel();
+      svShowPhase('before');
+    } catch(e){}
+  }
+
+  function svRenderPanel(){
+    if (svPanel) return;
+    var el = document.createElement('div');
+    el.id = 'svPanel';
+    el.style.cssText = 'background:#16161c;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5);padding:14px;font-family:inherit;font-size:.82rem;color:#fff';
+    el.innerHTML =
+      '<div id="svEyebrow" style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#ef4444;margin-bottom:8px">Your call &middot; before the round</div>' +
+      '<div id="svTitle" style="font-weight:700;font-size:.9rem;line-height:1.3;margin-bottom:10px">Where do you stand on the motion?</div>' +
+      '<div data-sv-phase="before">' +
+        '<div id="svSides" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"></div>' +
+        '<label style="display:block;font-size:.7rem;color:rgba(255,255,255,.55);margin-bottom:4px">How sure? <span id="svConfOut" style="color:#fff;font-weight:700">50</span></label>' +
+        '<input id="svConf" type="range" min="0" max="100" value="50" step="5" style="width:100%;margin-bottom:10px">' +
+        '<button id="svLockIn" style="width:100%;background:#ef4444;color:#fff;border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Lock it in</button>' +
+        '<div style="font-size:.66rem;color:rgba(255,255,255,.4);margin-top:7px;line-height:1.4">Private until the ballot. Nobody sees the room\'s split, so nobody follows the crowd.</div>' +
+      '</div>' +
+      '<div data-sv-phase="during" style="display:none">' +
+        '<button id="svTap" style="width:100%;background:#ef4444;color:#fff;border:none;border-radius:12px;padding:14px;font:inherit;font-weight:800;font-size:.9rem;cursor:pointer">That moved me</button>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:.7rem;color:rgba(255,255,255,.55)">' +
+          '<span>Your flags: <b id="svCount" style="color:#fff">0</b></span><span id="svLast" style="font-family:ui-monospace,monospace"></span>' +
+        '</div>' +
+      '</div>' +
+      '<div data-sv-phase="after" style="display:none">' +
+        '<div id="svSidesAfter" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"></div>' +
+        '<label style="display:block;font-size:.7rem;color:rgba(255,255,255,.55);margin-bottom:4px">How sure now? <span id="svConfOutAfter" style="color:#fff;font-weight:700">50</span></label>' +
+        '<input id="svConfAfter" type="range" min="0" max="100" value="50" step="5" style="width:100%;margin-bottom:10px">' +
+        '<button id="svRestate" style="width:100%;background:#ef4444;color:#fff;border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Submit</button>' +
+      '</div>' +
+      '<div data-sv-phase="done" style="display:none">' +
+        '<div id="svDone" style="font-size:.76rem;color:rgba(255,255,255,.62);line-height:1.5"></div>' +
+      '</div>';
+    svDock().appendChild(el);
+    svPanel = el;
+
+    svRenderSides('svSides');
+    svRenderSides('svSidesAfter');
+
+    var conf = el.querySelector('#svConf'), out = el.querySelector('#svConfOut');
+    if (conf && out) conf.addEventListener('input', function(){ out.textContent = conf.value; });
+    var confA = el.querySelector('#svConfAfter'), outA = el.querySelector('#svConfOutAfter');
+    if (confA && outA) confA.addEventListener('input', function(){ outA.textContent = confA.value; });
+
+    el.querySelector('#svLockIn').addEventListener('click', svLockIn);
+    el.querySelector('#svTap').addEventListener('click', svTap);
+    el.querySelector('#svRestate').addEventListener('click', svRestate);
+  }
+
+  // Rebuilds the three side buttons and ALWAYS re-attaches handlers.
+  // innerHTML wipes the old listeners, so an earlier version that only
+  // bound them on first render left the buttons dead after one click.
+  function svRenderSides(hostId){
+    var host = svPanel && svPanel.querySelector('#' + hostId);
+    if (!host) return;
+    var isBefore = hostId === 'svSides';
+    var cur = isBefore ? svPick : svPickAfter;
+    var opts = [['pro', state.proName || 'Pro'], ['con', state.conName || 'Con'], ['undecided', 'Neither']];
+    host.innerHTML = opts.map(function(o){
+      var on = o[0] === cur;
+      return '<button data-svside="' + o[0] + '" style="background:' + (on ? 'rgba(239,68,68,.18)' : '#1d1d25') +
+        ';border:1px solid ' + (on ? '#ef4444' : 'rgba(255,255,255,.14)') +
+        ';border-radius:10px;padding:8px 4px;color:#fff;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;overflow:hidden;text-overflow:ellipsis">' +
+        escHtml(o[1]) + '</button>';
+    }).join('');
+    [].forEach.call(host.querySelectorAll('[data-svside]'), function(b){
+      b.addEventListener('click', function(){
+        if (isBefore) svPick = b.getAttribute('data-svside');
+        else svPickAfter = b.getAttribute('data-svside');
+        svRenderSides(hostId);
+      });
+    });
+  }
+
+  function svShowPhase(name){
+    if (!svPanel) return;
+    [].forEach.call(svPanel.querySelectorAll('[data-sv-phase]'), function(p){
+      p.style.display = p.getAttribute('data-sv-phase') === name ? '' : 'none';
+    });
+    var eb = svPanel.querySelector('#svEyebrow'), ti = svPanel.querySelector('#svTitle');
+    if (eb) eb.textContent = name === 'before' ? 'Your call · before the round'
+      : name === 'during' ? 'Your call · during the round'
+      : name === 'after' ? 'Your call · after the ballot'
+      : 'Your call · on the record';
+    if (ti) ti.textContent = name === 'before' ? 'Where do you stand on the motion?'
+      : name === 'during' ? 'Flag the moments that land.'
+      : name === 'after' ? 'Where did you actually land?'
+      : 'Thanks. That is the data.';
+  }
+
+  function svLockIn(){
+    if (svRow) return;
+    var confEl = svPanel && svPanel.querySelector('#svConf');
+    var conf = confEl ? parseInt(confEl.value, 10) : 50;
+    if (isNaN(conf)) conf = 50;
+    svRow = { id:null, movedAt:[], phase:'during' };
+    svCreateRetried = false;
+    svCreatePayload = {
+      action: 'create',
+      roundId: state.room,
+      motion: (state.motion || '').slice(0, 2000),
+      format: state.formatKey || '',
+      sideBefore: svPick,
+      confBefore: conf
+    };
+    svSendCreate();
+    svShowPhase('during');
+    try { gtag('event', 'swing_vote_lock_in', { format: state.formatKey, side: svPick }); } catch(e){}
+  }
+
+  function svTap(){
+    if (!svRow) return;
+    // Offset against the shared round origin, not against lock-in time,
+    // so this lines up with each speech's atMs.
+    var origin = state.roundStartedAt || 0;
+    if (!origin) return;
+    var ms = Math.max(0, Date.now() - origin);
+    svRow.movedAt.push(ms);
+    var c = svPanel && svPanel.querySelector('#svCount');
+    if (c) c.textContent = String(svRow.movedAt.length);
+    var l = svPanel && svPanel.querySelector('#svLast');
+    if (l){
+      var s = Math.floor(ms / 1000);
+      l.textContent = String(Math.floor(s / 60)) + ':' + String(s % 60).padStart(2, '0');
+    }
+    svFlushMoves();
+  }
+
+  // Batched so a flurry of taps is one write. The client always sends
+  // the WHOLE array, so a retried or out-of-order flush is idempotent
+  // rather than double-counting (the endpoint dedupes and sorts too).
+  function svFlushMoves(){
+    if (svFlushTimer) clearTimeout(svFlushTimer);
+    svFlushTimer = setTimeout(function(){
+      if (!svRow || !svRow.movedAt.length) return;
+      var moves = svRow.movedAt.slice();
+      svWithRow(function(id){ svPost({ action:'update', id:id, movedAt:moves }); });
+    }, 1200);
+  }
+
+  function svRestate(){
+    if (!svRow) return;
+    var confEl = svPanel && svPanel.querySelector('#svConfAfter');
+    var conf = confEl ? parseInt(confEl.value, 10) : 50;
+    if (isNaN(conf)) conf = 50;
+    var after = svPickAfter;
+    svWithRow(function(id){ svPost({ action:'update', id:id, sideAfter:after, confAfter:conf }); });
+    var moved = svRow.movedAt.length;
+    svShowPhase('done');
+    var d = svPanel && svPanel.querySelector('#svDone');
+    if (d){
+      var changed = after !== svCreatePayload.sideBefore;
+      d.innerHTML = (changed ? '<b>You moved.</b> ' : '<b>You held.</b> ') +
+        'Started ' + escHtml(svLabel(svCreatePayload.sideBefore)) + ', ended ' + escHtml(svLabel(after)) + '. ' +
+        moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
+    }
+    try { gtag('event', 'swing_vote_restate', { format: state.formatKey, flipped: after !== svCreatePayload.sideBefore }); } catch(e){}
+  }
+
+  function svLabel(side){
+    if (side === 'pro') return state.proName || 'Pro';
+    if (side === 'con') return state.conName || 'Con';
+    return 'neither';
+  }
+
+  // Called when the ballot lands on a spectator's screen. Anyone who
+  // never locked in has nothing to restate, so the panel just retires.
+  function svOnBallot(){
+    try {
+      if (!svPanel) return;
+      if (!svRow){ svPanel.style.display = 'none'; return; }
+      if (svRow.phase === 'closed') return;
+      svRow.phase = 'closed';
+      svRenderSides('svSidesAfter');
+      svShowPhase('after');
+    } catch(e){}
   }
 
   function generateBallot(){
@@ -5350,8 +5624,12 @@ body.lr-pip .lr-pip-notice{display:block}
       if (Array.isArray(d.speeches)) state.log = d.speeches.slice();
       if (typeof d.prepMin === 'number' && !state.prepMin) state.prepMin = d.prepMin;
       if (d.createdAt && d.createdAt.toMillis) state.roundCreatedAtMs = d.createdAt.toMillis();
+      // Adopt the speaker's clock origin so tap offsets share an axis
+      // with the per-speech atMs values.
+      if (typeof d.roundStartedAt === 'number' && !state.roundStartedAt) state.roundStartedAt = d.roundStartedAt;
       renderRound();
       try { pmOpen(); pmInitSpectator(); pmLockCheck(); } catch(e){}
+      try { svInitSpectator(); } catch(e){}
       startPrepBanner();
     }
 
@@ -5436,6 +5714,9 @@ body.lr-pip .lr-pip-notice{display:block}
       $('ballotView').classList.remove('hidden');
       $('ballotLoading').classList.add('hidden');
       renderBallot(d.ballot);
+      // Ballot is in, so the crowd split is no longer a herding risk and
+      // spectators can restate where they actually landed.
+      try { svOnBallot(); } catch(e){}
     }
 
     // Leaderboard dual-consent reconciliation. Once both proUid and
@@ -5469,6 +5750,13 @@ body.lr-pip .lr-pip-notice{display:block}
       posterUid: state.user.uid,
       posterName: state.user.displayName || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      // Client epoch ms of the round opening. Published so spectators
+      // measure their swing-vote taps against the SAME origin the
+      // speaker's per-speech `atMs` uses. Without a shared origin a tap
+      // at t=214s can't be resolved to the speech that was running.
+      // serverTimestamp is unusable here: it resolves after the write,
+      // so it can't anchor a clock the client is already running.
+      roundStartedAt: state.roundStartedAt || Date.now(),
       status: 'round',
       speechIdx: 0,
       prepMin: state.prepMin || 0,
