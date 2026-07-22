@@ -179,6 +179,130 @@ html.dbnative .brand-bar {  /* /judge: "DebateIt.com / AI Judge" domain breadcru
   display: none !important;
 }
 
+/* ── /live-round: the only page with no status-bar clearance ────────
+   live-round is the one immersive page that mounts NEITHER the shared
+   .ui-topbar (so the body:has() rule above never fires) NOR any
+   env(safe-area-inset-top) of its own. Its whole nav sat at y≈10-17,
+   i.e. under the Dynamic Island, and because the page is immersive the
+   "← Back to board" link in that nav is the ONLY way out of the round.
+   Measured at 375pt with the bridge forced on, 2026-07-22.
+   Scoped to `nav.bar` (unique to live-round) and to the immersive class
+   on purpose: eight other app pages use `.bar` for progress/score bars,
+   and padding those would wreck them. */
+html.dbnative.dbnative-immersive nav.bar {
+  padding-top: calc(12px + var(--safe-top)) !important;
+}
+/* Same page, other end: every bottom-pinned overlay in live-round is raw
+   px, so the home indicator crossed the mini video, the dock, and the
+   join-request card. Immersive means no tab bar, so safe-bottom alone is
+   the clearance needed here. */
+html.dbnative.dbnative-immersive body.lr-mini #jitsiPane,
+html.dbnative.dbnative-immersive #lrDock,
+html.dbnative.dbnative-immersive .join-req-card {
+  bottom: calc(18px + var(--safe-bottom)) !important;
+}
+
+/* ── Bottom-pinned overlays, the general rule ───────────────────────
+   A toast pinned at bottom:20px is fine in a browser. In the app it
+   lands either under the home indicator (immersive pages) or behind the
+   tab bar entirely (everywhere else, since the bar is 62px + safe-bottom
+   at z-index 2147482000). Give each case the clearance it actually
+   needs. Toasts live on live-round, live, and community. */
+html.dbnative .toast {
+  bottom: calc(70px + var(--safe-bottom)) !important;
+}
+html.dbnative.dbnative-immersive .toast {
+  bottom: calc(20px + var(--safe-bottom)) !important;
+}
+
+/* ── /spar: the waitlist FAB was buried under the tab bar ───────────
+   .waitlist-fab is fixed at bottom:14px / z-index 25; the native tab bar
+   is 62px + safe-bottom tall at z-index 2147482000. elementFromPoint at
+   the FAB's centre returned .db-native-tab, so it was unreachable — and
+   on a phone that FAB is the only opener for the invites drawer, which
+   made the whole waitlist + DM marketplace dead on the Live tab.
+   Lift it clear of the bar and give it a real 44pt target. It has to
+   clear the read-aloud bar too: .ra-card is a FULL-width visible bar
+   (x 10-353, 48px tall) already parked at bottom 70px + safe-bottom, so
+   the obvious "lift it like .ra-host" landed the FAB straight underneath
+   it. Stack above that band instead. */
+html.dbnative .waitlist-fab {
+  bottom: calc(126px + var(--safe-bottom)) !important;
+  min-height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+}
+/* The drawer itself is fixed too; its last rows ran under the tab bar. */
+html.dbnative .waitlist-rail {
+  bottom: calc(70px + var(--safe-bottom)) !important;
+}
+/* Spar ends up with three layers of fixed bottom chrome in the app: tab
+   bar (0), read-aloud bar (70), invites FAB (126). The body's stock 82px
+   only clears the first, so in-flow content ran under the other two —
+   the FAB covered the SEARCHING pill and "Prep while you wait" collided
+   with the Listen bar (that second one predates the FAB move). Clear the
+   whole stack: FAB top sits 170px + safe-bottom up, plus a 16px gap.
+   :has(.waitlist-fab) keeps this on spar and off every other page. */
+html.dbnative body:has(.waitlist-fab) {
+  padding-bottom: calc(186px + var(--safe-bottom)) !important;
+}
+
+/* ── Other bottom-pinned controls swallowed by the tab bar ──────────
+   Same failure as the spar FAB: fixed low, z-index far below the bar's
+   2147482000, so the bar paints over them and eats the tap.
+   /spectate: .od-bar is the page's primary control ("That moved me" /
+   "Ballot in") and /spectate is linked straight off the app home.
+   /app (index.html): .guide-trigger is a 44pt circle at bottom:24px,
+   wholly inside the bar's band; .feedback-trigger sits just above it. */
+html.dbnative .od-bar {
+  bottom: calc(70px + var(--safe-bottom)) !important;
+}
+html.dbnative .guide-trigger {
+  bottom: calc(70px + var(--safe-bottom)) !important;
+}
+html.dbnative .feedback-trigger {
+  bottom: calc(126px + var(--safe-bottom)) !important;
+}
+
+/* ── /privacy and /terms: no topbar, no inset, no clearance ─────────
+   Both skip topbar.js, so `body:has(.ui-topbar)` never fires, and
+   neither declares env(safe-area-inset-top) — their nav row started
+   40pt down against a 59pt inset, i.e. under the Dynamic Island. These
+   are the two pages App Review opens, so they should not look broken.
+   Scoped via .wrap on a topbar-less body: among app-reachable pages
+   that is privacy + terms only (native.html owns its own top padding
+   and does not use .wrap, so it is not double-padded).
+   max() so a non-notch phone keeps the page's original padding rather
+   than dropping to a smaller inset-derived value. */
+html.dbnative body:not(:has(.ui-topbar)) .wrap {
+  padding-top: max(40px, calc(var(--safe-top) + 16px));
+}
+
+/* ── App home: two bottom paddings stacked ──────────────────────────
+   .app-home carries padding-bottom: calc(96px + safe-bottom) from when
+   it owned its own tab-bar clearance, and `html.dbnative body` above
+   now adds another 82px + safe-bottom. Scrolled to the end of the home
+   screen that left 116pt of blank space above the tab bar (150pt on a
+   Dynamic Island phone, where safe-bottom is counted twice). The body
+   rule is the one that tracks the bar, so let it do the work. */
+html.dbnative .app-home {
+  padding-bottom: 18px !important;
+}
+
+/* ── Coach persona chips were 23pt tall ─────────────────────────────
+   New look / Skin / Hair / Outfit / Glasses are real controls on a core
+   tab and measured 23pt against Apple's 44pt minimum. Height only:
+   leaving the horizontal padding alone keeps all five on one row at
+   375pt. Kept as a light restyle since coach.html is actively edited. */
+html.dbnative .coach-face-chips button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ── App home (currently the app opens to /coach) ───────────────────
    Put coach-page app-only tweaks here as you iterate. Codex actively
    edits coach.html, so keep these as light RESTYLES (never rely on a
