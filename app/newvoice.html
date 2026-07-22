@@ -1204,8 +1204,43 @@ async function start(){
 // off mid-answer, so a cough / "mm" / room noise no longer steals the
 // floor. (2026-07-09, per "require louder speech to interrupt".)
 const SPEECH_LEVEL = 0.12;     // mic RMS floor that counts as the user talking
-const BARGE_LEVEL = 0.22;      // higher floor: how loud to interrupt the AI
+const BARGE_LEVEL = 0.22;      // absolute floor: how loud to interrupt the AI
 const BARGE_SUSTAIN_MS = 750;  // continuous loud speech needed to take the floor
+// ECHO GUARD (2026-07-22, per "the AI stops mid-sentence when nobody is
+// talking"). BARGE_LEVEL alone was a FIXED floor, so the gate could not tell
+// the user's voice apart from the AI's own voice coming back through the mic.
+// getUserMedia asks for echoCancellation, but browser AEC is imperfect on
+// laptop speakers at volume, so a loud AI turn pushed mic RMS past 0.22 for
+// well over 750ms and the round cancelled itself. It got worse the longer and
+// louder the AI spoke, which is exactly what was reported.
+//
+// Fix: while the AI talks, the bar is no longer fixed. It rides on the AI's
+// OWN current output level (aiAnalyser, already tapped off the remote track
+// for the arena visualiser), so mic energy that merely tracks playback can
+// never clear it. Echo arrives attenuated by the speaker-to-mic path plus
+// whatever AEC does manage to strip, realistically well under half of the
+// output level, so requiring the mic to sit at BARGE_ECHO_RATIO of the AI's
+// level PLUS a margin puts genuine speech through and leaves echo underneath.
+// BARGE_LEVEL stays as the floor for when the AI is quiet, and if the AI tap
+// ever fails aiHold stays 0 and the gate collapses to exactly the old
+// behaviour rather than to something permissive.
+const BARGE_ECHO_RATIO = 0.55;  // fraction of the AI's own level assumed reachable by echo
+const BARGE_ECHO_MARGIN = 0.10; // how far above that estimate real speech must sit
+const BARGE_HOLD_DECAY = 0.08;  // per 50ms tick: peak-hold fall on the AI level
+// Echo lags playback (room reverb, jitter buffer), so the guard uses a short
+// peak-hold on the AI level instead of the instantaneous value. Without it the
+// gate would collapse to the floor in the gaps between the AI's own words and
+// the reverb tail of those words could trip it. Decay is deliberately quick
+// (full scale in ~625ms) so it cannot add meaningful latency to a real barge.
+let aiHold = 0;
+// Grace at the top of an AI turn. Two things overlap here: echo is loudest
+// once playback ramps, and the user's own trailing syllables are still ringing
+// in the mic from the turn they just finished. Either could bank barge credit
+// against a turn the user has no intention of interrupting, so the first
+// stretch never accumulates. A genuine interruption inside 400ms of the AI
+// opening its mouth is not a real thing.
+const BARGE_GRACE_MS = 400;
+let aiTurnAt = 0;              // response.created timestamp for the grace window
 // Genuine quiet before the AI answers an un-handed floor. Was 3000ms, which
 // read as a long lag after the user stopped; 1500 stays clear of a mid-
 // thought breath while feeling responsive. Handoff phrases ("your turn")
@@ -1220,11 +1255,22 @@ function bargeTick(){
 
   // Interrupt gate: sustained speech while the AI talks takes the floor.
   if (aiTalking && !muted) {
-    if (lvl > BARGE_LEVEL) bargeMs += 50;
+    // Track the AI's own output with a short peak-hold, then require the mic
+    // to clear it by a margin. This is what stops the AI cancelling itself on
+    // its own echo; see the ECHO GUARD note above.
+    const aiLvl = level(aiAnalyser, aiBuf);
+    aiHold = Math.max(aiLvl, aiHold - BARGE_HOLD_DECAY);
+    // Keep the hold warm through the grace window so the gate is already at
+    // full height the moment barge credit can start accumulating.
+    if (aiTurnAt && now - aiTurnAt < BARGE_GRACE_MS) { bargeMs = 0; return; }
+    const gate = Math.max(BARGE_LEVEL, aiHold * BARGE_ECHO_RATIO + BARGE_ECHO_MARGIN);
+    if (lvl > gate) bargeMs += 50;
     else bargeMs = Math.max(0, bargeMs - 100);
     if (bargeMs >= BARGE_SUSTAIN_MS) {
       bargeMs = 0;
       aiTalking = false;
+      aiHold = 0;
+      aiTurnAt = 0;
       try {
         // Stop generating, then flush the audio the server has already
         // buffered so playback halts now instead of finishing the clause.
@@ -1350,6 +1396,11 @@ function handleEvent(e){
       aiLive = '';
       aiTalking = true;
       awaitingResponse = false;
+      // Open the echo guard clean: no banked barge credit, no stale hold from
+      // the previous turn, and start the grace window (see ECHO GUARD above).
+      bargeMs = 0;
+      aiHold = 0;
+      aiTurnAt = Date.now();
       setSpeaking('ai', true);
       break;
     case 'response.audio_transcript.delta':
@@ -1370,6 +1421,8 @@ function handleEvent(e){
       aiTalking = false;
       awaitingResponse = false;
       bargeMs = 0;
+      aiHold = 0;
+      aiTurnAt = 0;
       lastAiDoneAt = Date.now();
       setSpeaking('ai', false);
       maybeLiveJudge();
@@ -1492,7 +1545,7 @@ function cleanup(){
   try { if (timerIv) clearInterval(timerIv); } catch (e) {}
   timerIv = null;
   try { if (bargeIv) clearInterval(bargeIv); } catch (e) {}
-  bargeIv = null; bargeMs = 0; aiTalking = false;
+  bargeIv = null; bargeMs = 0; aiTalking = false; aiHold = 0; aiTurnAt = 0;
   pendingTurn = false; awaitingResponse = false; nudgeFired = false;
   stopArena();
   try { if (dc) dc.close(); } catch (e) {}
