@@ -7840,8 +7840,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         /* Her still fills the panel. --her only applies once the image
            actually loads; the onerror handler drops the class so the orb
            and gradient come back rather than leaving an empty frame. */
-        .hero-illustrated .hi-lf-amb-photo--her{position:relative;overflow:hidden;background:#1a0d0a}
-        .hero-illustrated .hi-lf-her-still{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+        /* Taller than the 16/6.5 the other ambient panels use, and the
+           crop biased up: the source is 3:2 with Theodore's head near the
+           top, so the shared letterbox ratio cut his face off. 16/8.6
+           keeps ~80% of the frame height and 12% pulls the window up to
+           clear his hair while holding the desk in shot. */
+        .hero-illustrated .hi-lf-amb-photo--her{position:relative;overflow:hidden;background:#1a0d0a;aspect-ratio:16/8.6}
+        .hero-illustrated .hi-lf-her-still{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 12%;display:block}
         .hero-illustrated .hi-lf-amb-photo--her .va-stage{display:none}
         .hero-illustrated .hi-lf-her-credit{position:absolute;right:9px;bottom:8px;z-index:2;
           font-size:.55rem;font-weight:600;letter-spacing:.02em;color:rgba(255,255,255,.82);
@@ -10365,42 +10370,49 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       border-color:rgba(29,25,21,.26);
       box-shadow:0 14px 28px rgba(29,25,21,.08);
     }
-    .credential-mini-links{
-      position:relative;z-index:1;
-      display:flex;flex-wrap:wrap;gap:8px;
-      margin-top:2px;
-    }
-    .credential-mini-links span{
-      border:1px solid rgba(29,25,21,.10);
-      border-radius:999px;
-      padding:6px 9px;
-      font-size:.68rem;
-      font-weight:850;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-      color:rgba(29,25,21,.52);
-      background:rgba(255,255,255,.55);
-    }
-    .credential-growth{
+    /* 2026-07-22: replaced a fake S-curve. It had an axis, plot dots and
+       four category labels that corresponded to no data, so it read as a
+       chart while carrying none. The card's argument is a split, not a
+       trend: one column of work AI absorbs, one line of work it can't.
+       Drawing the split directly says the same thing honestly, and it
+       absorbs the duplicate pill row that used to sit under the chart. */
+    .cred-split{
       position:relative;z-index:1;
       margin-top:2px;
-      padding:16px 14px 13px;
       border:1px solid rgba(29,25,21,.10);
       border-radius:15px;
       background:linear-gradient(180deg,rgba(255,255,255,.64),rgba(255,255,255,.30));
       overflow:hidden;
     }
-    .credential-growth::before{
-      content:"";position:absolute;left:16px;right:16px;top:22px;bottom:34px;
-      background:linear-gradient(180deg,rgba(29,25,21,.08) 1px,transparent 1px);
-      background-size:100% 22px;
-      opacity:.6;pointer-events:none;
+    .cred-split-row{padding:14px 16px}
+    .cred-split-row+.cred-split-row{border-top:1px solid rgba(29,25,21,.10)}
+    .cred-split-tag{
+      display:block;margin-bottom:9px;
+      font-size:.64rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+      color:rgba(29,25,21,.42);
     }
-    .credential-growth svg{position:relative;z-index:1;display:block;width:100%;height:92px;overflow:visible}
-    .credential-growth .cg-axis{stroke:rgba(29,25,21,.16);stroke-width:1}
-    .credential-growth .cg-curve{fill:none;stroke:#ef4444;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 10px 16px rgba(239,68,68,.22))}
-    .credential-growth .cg-dot{fill:#fff;stroke:#ef4444;stroke-width:4}
-    .credential-growth-labels{position:relative;z-index:1;display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgba(29,25,21,.50)}
+    .cred-split-items{display:flex;flex-wrap:wrap;gap:7px}
+    .cred-split-items span{
+      border:1px solid rgba(29,25,21,.10);
+      border-radius:999px;padding:5px 11px;
+      font-size:.76rem;font-weight:700;
+      color:rgba(29,25,21,.44);
+      background:rgba(255,255,255,.5);
+    }
+    /* The one line that matters gets the weight: brand red, serif, and a
+       full type step above the pills it is being contrasted with. */
+    .cred-split-row--you{background:linear-gradient(180deg,rgba(239,68,68,.07),rgba(239,68,68,.03))}
+    .cred-split-row--you .cred-split-tag{color:#b91c1c}
+    .cred-split-line{
+      display:flex;align-items:flex-start;gap:9px;
+      font-family:'Crimson Pro','Fraunces',Georgia,serif;
+      font-size:clamp(1.05rem,1.5vw,1.28rem);font-weight:700;line-height:1.24;
+      letter-spacing:-.01em;color:#1a1a1f;
+    }
+    .cred-split-line i{
+      flex:none;width:8px;height:8px;margin-top:.45em;border-radius:50%;
+      background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.14);
+    }
     .credential-btn--wide{
       width:100%;
       justify-content:space-between;
@@ -10439,29 +10451,37 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     [data-theme="crimson"] .credential-proof span,
     [data-theme="grey"] .credential-proof span,
     [data-theme="stone"] .credential-proof span,
-    [data-theme="dark"] .credential-mini-links span,
-    [data-theme="crimson"] .credential-mini-links span,
-    [data-theme="grey"] .credential-mini-links span,
-    [data-theme="stone"] .credential-mini-links span{
-      color:rgba(245,239,231,.66);
+    [data-theme="dark"] .cred-split-items span,
+    [data-theme="crimson"] .cred-split-items span,
+    [data-theme="grey"] .cred-split-items span,
+    [data-theme="stone"] .cred-split-items span{
+      color:rgba(245,239,231,.55);
       border-color:rgba(245,239,231,.13);
       background:rgba(255,255,255,.04);
     }
-    [data-theme="dark"] .credential-growth,
-    [data-theme="crimson"] .credential-growth,
-    [data-theme="grey"] .credential-growth,
-    [data-theme="stone"] .credential-growth{
+    [data-theme="dark"] .cred-split,
+    [data-theme="crimson"] .cred-split,
+    [data-theme="grey"] .cred-split,
+    [data-theme="stone"] .cred-split{
       border-color:rgba(245,239,231,.13);
       background:rgba(255,255,255,.04);
     }
-    [data-theme="dark"] .credential-growth .cg-axis,
-    [data-theme="crimson"] .credential-growth .cg-axis,
-    [data-theme="grey"] .credential-growth .cg-axis,
-    [data-theme="stone"] .credential-growth .cg-axis{stroke:rgba(245,239,231,.16)}
-    [data-theme="dark"] .credential-growth-labels,
-    [data-theme="crimson"] .credential-growth-labels,
-    [data-theme="grey"] .credential-growth-labels,
-    [data-theme="stone"] .credential-growth-labels{color:rgba(245,239,231,.58)}
+    [data-theme="dark"] .cred-split-row+.cred-split-row,
+    [data-theme="crimson"] .cred-split-row+.cred-split-row,
+    [data-theme="grey"] .cred-split-row+.cred-split-row,
+    [data-theme="stone"] .cred-split-row+.cred-split-row{border-top-color:rgba(245,239,231,.13)}
+    [data-theme="dark"] .cred-split-tag,
+    [data-theme="crimson"] .cred-split-tag,
+    [data-theme="grey"] .cred-split-tag,
+    [data-theme="stone"] .cred-split-tag{color:rgba(245,239,231,.5)}
+    [data-theme="dark"] .cred-split-row--you .cred-split-tag,
+    [data-theme="crimson"] .cred-split-row--you .cred-split-tag,
+    [data-theme="grey"] .cred-split-row--you .cred-split-tag,
+    [data-theme="stone"] .cred-split-row--you .cred-split-tag{color:#fca5a5}
+    [data-theme="dark"] .cred-split-line,
+    [data-theme="crimson"] .cred-split-line,
+    [data-theme="grey"] .cred-split-line,
+    [data-theme="stone"] .cred-split-line{color:#f5efe7}
     [data-theme="dark"] .credential-cover-thumb,
     [data-theme="crimson"] .credential-cover-thumb,
     [data-theme="grey"] .credential-cover-thumb,
@@ -10518,26 +10538,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <span class="credential-eyebrow">Company vision</span>
       <h2>Verbal reasoning matters more every year.</h2>
       <p>AI can polish an essay for anyone. It cannot show whether you understood it. The hard skill is answering a real person under time, in language they understand. Debate trains that directly.</p>
-      <div class="credential-growth" aria-hidden="true">
-        <svg viewBox="0 0 340 96">
-          <path class="cg-axis" d="M16 82H326M16 20V82"/>
-          <path class="cg-curve" d="M22 78C78 76 106 67 136 58C174 46 204 42 226 27C250 10 286 12 318 16"/>
-          <circle class="cg-dot" cx="136" cy="58" r="6"/>
-          <circle class="cg-dot" cx="226" cy="27" r="6"/>
-          <circle class="cg-dot" cx="318" cy="16" r="6"/>
-        </svg>
-        <div class="credential-growth-labels">
-          <span>Essays</span>
-          <span>Speech</span>
-          <span>Credentials</span>
-          <span>Global rounds</span>
+      <div class="cred-split">
+        <div class="cred-split-row">
+          <span class="cred-split-tag">AI already does this for you</span>
+          <div class="cred-split-items">
+            <span>Essays</span>
+            <span>Applications</span>
+            <span>Cover letters</span>
+            <span>Research memos</span>
+          </div>
         </div>
-      </div>
-      <div class="credential-mini-links" aria-hidden="true">
-        <span>Essays</span>
-        <span>Speech</span>
-        <span>Credentials</span>
-        <span>Languages</span>
+        <div class="cred-split-row cred-split-row--you">
+          <span class="cred-split-tag">It cannot do this for you</span>
+          <p class="cred-split-line"><i aria-hidden="true"></i>Hold your case out loud, against someone pushing back, on the clock.</p>
+        </div>
       </div>
       <div class="credential-actions">
         <a class="credential-btn credential-btn--wide" href="/future" data-cta="landing-company-philosophy">Company vision and philosophy <span aria-hidden="true">&rarr;</span></a>
@@ -10586,6 +10600,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .cb-doc i{display:block;height:3px;border-radius:2px;background:rgba(0,0,0,.14);margin:4px 0}
     .cb-doc i.hl{background:rgba(239,68,68,.35)}
     @media(max-width:760px){.cb-doc-stack{max-width:300px}}
+    /* Scheduled-rounds calendar mockup. Third visual in the set, so all
+       three cards start with an image instead of one trailing empty
+       space. Google Calendar identity lives only on the mark (same rule
+       the doc stack follows with Docs blue / Word navy); the event rows
+       stay on brand red. No RSVP counts here on purpose. */
+    .cb-cal{margin:0 0 16px;background:#fff;border:1px solid rgba(0,0,0,.13);border-radius:8px;
+      padding:9px 10px 10px;box-shadow:0 3px 10px rgba(0,0,0,.12)}
+    .cb-cal-top{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+    .cb-gcal{position:relative;flex:none;width:26px;height:26px;border-radius:6px;background:#fff;
+      border:1.5px solid #4285F4;display:grid;place-items:center}
+    .cb-gcal b{font-size:.66rem;font-weight:800;color:#4285F4;line-height:1;letter-spacing:-.02em}
+    .cb-gcal i{position:absolute;top:-3.5px;left:4px;right:4px;height:3px;border-radius:2px;
+      background:linear-gradient(90deg,#4285F4 0 25%,#EA4335 25% 50%,#FBBC04 50% 75%,#34A853 75%)}
+    .cb-cal-when{font-size:.56rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:rgba(0,0,0,.42)}
+    .cb-cal-ev{display:flex;align-items:baseline;gap:6px;padding:5px 7px;border-radius:5px;
+      border-left:3px solid #ef4444;background:rgba(239,68,68,.07);margin-top:5px}
+    .cb-cal-ev b{font-size:.6rem;font-weight:800;color:#7f1d1d;white-space:nowrap}
+    .cb-cal-ev span{font-size:.6rem;color:rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-cal-ev--ghost{border-left-style:dashed;border-left-color:rgba(0,0,0,.28);background:transparent}
+    .cb-cal-ev--ghost b{color:rgba(0,0,0,.45)}
     /* Live-room chat mockup. Sized to sit in the same slot the doc stack
        occupies on the cases card, so the three cards read as a set. */
     .cb-chat{display:flex;flex-direction:column;gap:6px;margin:0 0 16px}
@@ -10631,6 +10665,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </div>
     <div class="cb-cards">
       <a class="cb-card" href="/community" data-cb="schedule">
+        <div class="cb-cal" aria-hidden="true">
+          <div class="cb-cal-top">
+            <span class="cb-gcal"><i></i><b>31</b></span>
+            <span class="cb-cal-when">This week</span>
+          </div>
+          <div class="cb-cal-ev"><b>Sat 7:00 PM</b><span>British Parli</span></div>
+          <div class="cb-cal-ev"><b>Sun 3:30 PM</b><span>Asian Parli</span></div>
+          <div class="cb-cal-ev cb-cal-ev--ghost"><b>+ Propose</b><span>your own time</span></div>
+        </div>
         <p class="cb-card-kicker">Scheduled rounds</p>
         <p class="cb-card-title">Propose a time. Show up.</p>
         <p class="cb-card-body">Pick a format and a time. Anyone can tap I'm in.</p>
