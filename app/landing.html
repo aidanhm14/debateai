@@ -7530,7 +7530,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="fs-sample">Example rounds</span>
         <span class="fs-pager">
           <button type="button" class="fs-nav" id="fsPrev" aria-label="Previous example round">&lsaquo;</button>
-          <span id="fsCount">1 of 5</span>
+          <span id="fsCount">1 of 8</span>
           <button type="button" class="fs-nav" id="fsNext" aria-label="Next example round">&rsaquo;</button>
         </span>
       </div>
@@ -7619,12 +7619,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   if (!root) return;
   if (document.documentElement.getAttribute('data-first-screen') !== 'ticker') return;
 
-  /* Five example rounds. `drift` is where the room's read on Pro ends up;
+  /* Eight example rounds. `drift` is where the room's read on Pro ends up;
      the price walks toward it on a tick while the round runs, so the bar
      is genuinely moving rather than a static number. `won` is the ballot,
-     which is deliberately not always where the room landed — rounds 3
-     and 5 go against the crowd, and that gap is the interesting part. */
+     which is deliberately not always where the room landed: rounds 4, 5
+     and 8 go against the crowd, and that gap is the interesting part.
+     2026-07-22: was five rounds and ten faces, and it opened on the only
+     same-gender pair in the set, so the first thing a visitor saw was two
+     men. Now eight rounds and sixteen faces, every one distinct, drawing
+     the whole /img/round/faces bank rather than a third of it, and the
+     opener is a mixed pair. Names are matched to the person in the
+     photo; if a face is ever swapped, move its name with it. */
   var ROUNDS = [
+    { fmt:'World Schools', motion:'This House would abolish the use of algorithms in criminal sentencing.',
+      a:{ nm:'Anika', side:'Prop', face:'face37' }, b:{ nm:'Malik', side:'Opp', face:'face09' },
+      open:50, drift:58, won:'a', score:'28 - 27', crowd:186, vol:340,
+      rfd:'Prop wins on the accountability gap: nobody can appeal a number. Opp answers accuracy and never gets to redress.' },
     { fmt:'British Parli', motion:'This House would ban political parties from accepting corporate donations.',
       a:{ nm:'Marcus', side:'Gov', face:'face16' }, b:{ nm:'Dhruv', side:'Opp', face:'face19' },
       open:52, drift:71, won:'a', score:'28 - 26.5', crowd:214, vol:380,
@@ -7633,6 +7643,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Timothee', side:'Gov', face:'face10' }, b:{ nm:'Priya', side:'Opp', face:'face11' },
       open:48, drift:27, won:'b', score:'27 - 28.5', crowd:96, vol:240,
       rfd:'Opp turns the framing early and never gives it back. Gov spends the PMR defending a case nobody attacked.' },
+    { fmt:'Policy', motion:'The United States federal government should substantially increase protection of Arctic waters.',
+      a:{ nm:'Jae', side:'Aff', face:'face40' }, b:{ nm:'Elena', side:'Neg', face:'face32' },
+      open:49, drift:66, won:'b', score:'27.5 - 28', crowd:143, vol:295,
+      rfd:'The room read Aff on the icebreaker gap. Neg wins the flow anyway: the solvency deficit is never answered.' },
     { fmt:'Public Forum', motion:'The United States should abolish legacy preference in college admissions.',
       a:{ nm:'Mei', side:'Pro', face:'face25' }, b:{ nm:'Sofia', side:'Con', face:'face30' },
       open:50, drift:61, won:'b', score:'27 - 27.5', crowd:151, vol:310,
@@ -7641,6 +7655,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Kenji', side:'Gov', face:'face33' }, b:{ nm:'Claire', side:'Opp', face:'face41' },
       open:51, drift:78, won:'a', score:'28.5 - 26', crowd:67, vol:180,
       rfd:'Gov gets a clean turn on legitimacy and extends it. Opp is left arguing a harm they already conceded is small.' },
+    { fmt:'Congress', motion:'A Bill to Establish a Federal Right to Repair.',
+      a:{ nm:'Yuna', side:'Aff', face:'face35' }, b:{ nm:'Rin', side:'Neg', face:'face45' },
+      open:50, drift:39, won:'b', score:'27 - 28', crowd:88, vol:205,
+      rfd:'Neg carries the warranty and safety line with real examples. Aff repeats the principle without ever costing it.' },
     { fmt:'Lincoln-Douglas', motion:'Justice requires abolishing plea bargaining in criminal cases.',
       a:{ nm:'Arjun', side:'Aff', face:'face02' }, b:{ nm:'Zainab', side:'Neg', face:'face07' },
       open:50, drift:44, won:'a', score:'28 - 27', crowd:122, vol:265,
@@ -11554,7 +11572,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          column too narrow for the certificate art and the translation
          stack; the extra width buys back the reading measure. */
       padding:var(--mid-pad-block) clamp(18px,5vw,44px);
-      display:flex;justify-content:center;
+      /* 2026-07-22 (fifth pass): COLUMN, not row. The run-tail was added
+         as a second child of this flex row, so it laid out BESIDE the
+         card grid: the wrap collapsed to ~430px, the three cards to
+         ~133px each and 2890px tall, and the Debate It link floated in
+         the dead space to their right. Stacking puts the three cards
+         back on the full width and drops the tail underneath them. */
+      display:flex;flex-direction:column;align-items:center;
     }
     /* 2026-07-22 (second pass): 5/7 -> 6/6 per Aidan ("mold / blend
        together better"). The asymmetric split read as two unrelated
@@ -11983,17 +12007,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          thing read and the argument follows it. */
       .cred-media{order:-1;aspect-ratio:16/6.5}
     }
+    /* Sits under the three cards as its own centered block: the room the
+       assessment actually runs in, named once the spread has made its
+       case. A real button, not an underlined link, because it is the
+       chapter's exit. */
     .credential-run-tail{
-      max-width:var(--mid-w);margin:18px auto 0;padding:0 var(--mid-gutter);
-      display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
-      text-align:center;font-size:.92rem;line-height:1.55;color:var(--text-dim);
+      width:100%;max-width:var(--mid-w);margin:clamp(22px,2.6vw,34px) auto 0;
+      padding:0 var(--mid-gutter);
+      display:flex;flex-direction:column;align-items:center;gap:14px;
+      text-align:center;
     }
-    .credential-run-tail a{
-      display:inline-flex;align-items:center;gap:6px;
-      font-weight:800;color:var(--accent,#ef4444);text-decoration:underline;
-      text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.42);
+    .credential-run-tail p{
+      margin:0;max-width:60ch;
+      font-size:.95rem;line-height:1.6;color:var(--text-dim);
     }
-    .credential-run-tail a:hover{text-decoration-color:#ef4444}
+    .credential-run-tail b{color:var(--text);font-weight:800}
     @media(max-width:640px){
       /* Stacked cards have no spare height for the cover to grow into,
          so it goes back to holding a page ratio at a readable size.
@@ -12109,10 +12137,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <!-- The certificate card links to the program; this names the room the
        assessment actually runs in, which the card could not do from
        inside its own whole-card anchor. -->
-  <p class="credential-run-tail">
-    <span>Most certificates come out of a round in the Debate It room. Live rounds against people count too.</span>
-    <a href="/debate-it" data-cta="credential-debate-it">Open Debate It <span aria-hidden="true">&rarr;</span></a>
-  </p>
+  <div class="credential-run-tail">
+    <p><b>Debate It is the most advanced room on the site, and the one that rewards patience.</b> Full format, full clock, an opponent that argues back, and a written ballot at the end. Most certificates come out of a round in there. Live rounds against people count too.</p>
+    <a class="credential-btn" href="/debate-it" data-cta="credential-debate-it">Open Debate It <span aria-hidden="true">&rarr;</span></a>
+  </div>
 </section>
 <script>
 /* Rotates the caption pair through language pairs so the card shows the
