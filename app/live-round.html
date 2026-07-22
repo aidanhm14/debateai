@@ -2516,6 +2516,7 @@ body.lr-pip .lr-pip-notice{display:block}
       currentTranscript: {
         speechIdx: state.speechIdx,
         text: text,
+        lang: myLang(),          // so the other side knows whether to translate
         updatedAtMs: Date.now(),
       },
     }, { merge: true }).catch(function(){});
@@ -2666,6 +2667,71 @@ body.lr-pip .lr-pip-notice{display:block}
     }
   }
 
+  // ── Cross-language rounds ─────────────────────────────────────────
+  // Each debater picks a language once (the shared picker writes
+  // debateos-ai-lang / debateos-locale). The speaker's browser
+  // transcribes in THEIR language and publishes the text tagged with the
+  // code; the opponent translates it for their own captions. Nobody has
+  // to agree on a shared language to have a round.
+  var SR_LOCALE = {
+    en:'en-US', es:'es-ES', fr:'fr-FR', de:'de-DE', pt:'pt-BR', it:'it-IT',
+    nl:'nl-NL', hi:'hi-IN', bn:'bn-IN', ta:'ta-IN', ur:'ur-PK', ar:'ar-SA',
+    zh:'zh-CN', ja:'ja-JP', ko:'ko-KR', ru:'ru-RU', tr:'tr-TR', id:'id-ID',
+    vi:'vi-VN', pl:'pl-PL'
+  };
+  function myLang(){
+    var v = '';
+    try { v = localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en'; } catch(e){ v = 'en'; }
+    v = String(v || 'en').toLowerCase().split('-')[0];
+    return SR_LOCALE[v] ? v : 'en';
+  }
+  function myRecogniserLocale(){ return SR_LOCALE[myLang()] || 'en-US'; }
+
+  // Live caption translation. Throttled to one call per 1.6s and skipped
+  // when the text has not grown, because the speaker's transcript
+  // republishes every 750ms and a live speech would otherwise fire
+  // hundreds of calls. Last good translation stays on screen while the
+  // next one resolves, so captions never flicker back to the source.
+  var _xlTimer = null, _xlLastSent = '', _xlInFlight = false, _xlLastGood = '';
+  function requestCaptionTranslation(text, fromLang){
+    if (_xlTimer || _xlInFlight) return;
+    if (text === _xlLastSent) return;
+    _xlTimer = setTimeout(function(){
+      _xlTimer = null;
+      var payload = text;
+      if (payload === _xlLastSent) return;
+      _xlLastSent = payload;
+      _xlInFlight = true;
+      fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: payload, from: fromLang, to: myLang() })
+      })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        _xlInFlight = false;
+        if (!j || !j.text) return;
+        _xlLastGood = j.text;
+        paintTranslatedCaption(j.text, fromLang);
+      })
+      .catch(function(){ _xlInFlight = false; });
+    }, 1600);
+  }
+
+  function paintTranslatedCaption(translated, fromLang){
+    var ta = $('speechText');
+    if (!ta || isMyTurn()) return;
+    ta.value = translated;
+    var hint = $('micHint');
+    if (hint){
+      var NAMES = { en:'English', es:'Spanish', fr:'French', de:'German', pt:'Portuguese',
+        it:'Italian', nl:'Dutch', hi:'Hindi', bn:'Bengali', ta:'Tamil', ur:'Urdu',
+        ar:'Arabic', zh:'Mandarin', ja:'Japanese', ko:'Korean', ru:'Russian',
+        tr:'Turkish', id:'Indonesian', vi:'Vietnamese', pl:'Polish' };
+      hint.textContent = 'Translated live from ' + (NAMES[fromLang] || fromLang) + '.';
+    }
+  }
+
   // ── Mic / SpeechRecognition. Uses the standard Web Speech API. Chrome
   // and Safari (recent) support it; Firefox does not. The transcript is
   // editable so users can correct fly-byes without restarting.
@@ -2711,7 +2777,7 @@ body.lr-pip .lr-pip-notice{display:block}
     var rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = 'en-US';
+    rec.lang = myRecogniserLocale();   // was hard-pinned to en-US
     rec.onresult = function(e){
       var interim = '';
       for (var i = e.resultIndex; i < e.results.length; i++){
@@ -5206,6 +5272,11 @@ body.lr-pip .lr-pip-notice{display:block}
         && d.currentTranscript.speechIdx === state.speechIdx){
       var taMirror = $('speechText');
       var remoteText = d.currentTranscript.text || '';
+      var remoteLang = d.currentTranscript.lang || 'en';
+      // Cross-language round: paint the translation, not the source. The
+      // raw text still arrives first so the captions never sit empty
+      // while the translation is in flight.
+      if (remoteLang !== myLang() && remoteText) requestCaptionTranslation(remoteText, remoteLang);
       if (taMirror && taMirror.value !== remoteText){
         taMirror.value = remoteText;
         // updateWordCount also fires schedulePublishLiveTranscript, but
