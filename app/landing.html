@@ -13046,50 +13046,91 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 
-<!-- ── BOOK A FEEDBACK CALL ── Inline Calendly scheduler placed right after
-     the FAQ, so a reader with a question the FAQ didn't answer can grab 30
-     minutes with the founders. The widget loads Calendly's script only on
-     this page. -->
-<section id="book-founders" class="sec" aria-label="Book a call with the founders">
-  <div class="wrap" style="max-width:960px;text-align:center">
-    <span class="bf-eyebrow">Feedback &middot; 1:1</span>
-    <h2 class="bf-title">Book time with the founders.</h2>
-    <p class="bf-sub">Thirty minutes, on the record. Tell us what is working, what is broken, and what would make you stay.</p>
-    <!-- 2026-07-18: team faces strip — advertises /team. Real headshots
-         from /img/team/, same assets the team page uses.
-         2026-07-22: stacked pill → named cards. A visitor about to book 30
-         minutes should see who is on the other end of the call, so each
-         founder gets their own face, first name, and role. No bios here —
-         those live on /team. -->
-    <div class="bf-team">
-      <a class="bf-person" href="/team" data-cta="book-founders-team">
-        <img src="/img/team/aidan.jpg" alt="Aidan" loading="lazy" decoding="async">
-        <span class="bf-person-name">Aidan</span>
-        <span class="bf-person-role">Founder</span>
+<!-- ── BOOK A CALL + WAITLIST (paired 2026-07-22) ──
+     These were two stacked full-width sections. Both are "leave us a way to
+     reach you" asks, so they now share one row: calendar left, waitlist
+     right. The page was reading like a slide deck, one full-bleed band per
+     idea; pairing the two closing asks is the first cut at that.
+     Both #book-founders and #waitlist stay as ids because the jumpnav
+     (items 09 + 10), the FAQ tail link, the round-board "Keep me updated"
+     link, and the founder-call JS at ~line 7279 all target them.
+     The Calendly embed is the tall side (680px) and the waitlist card is
+     short, so the row is top-aligned and the waitlist simply sits beside
+     the top of the calendar. The embed height is left alone on purpose:
+     it is the primary conversion element and shrinking it risks an
+     internal scrollbar in a third-party iframe we cannot style. -->
+<section id="book-founders" class="sec" aria-label="Book a call and register for updates">
+  <div class="wrap" style="max-width:1240px">
+    <div class="bw-pair">
+
+    <!-- LEFT: book a feedback call. Inline Calendly scheduler placed right
+         after the FAQ, so a reader with a question the FAQ didn't answer can
+         grab 30 minutes with the founders. Loads Calendly's script only on
+         this page. -->
+    <div class="bw-cal-col">
+      <span class="bf-eyebrow">Feedback &middot; 1:1</span>
+      <h2 class="bf-title">Book time with the founders.</h2>
+      <p class="bf-sub">Thirty minutes, on the record. Tell us what is working, what is broken, and what would make you stay.</p>
+      <!-- 2026-07-18: team faces strip — advertises /team. Real headshots
+           from /img/team/, same assets the team page uses. -->
+      <a class="bf-team" href="/team" data-cta="book-founders-team" aria-label="Meet the four people building Debatable">
+        <span class="bf-faces" aria-hidden="true">
+          <img src="/img/team/aidan.jpg" alt="" loading="lazy" decoding="async">
+          <img src="/img/team/adam.jpg" alt="" loading="lazy" decoding="async">
+          <img src="/img/team/muku.jpg" alt="" loading="lazy" decoding="async">
+          <img src="/img/team/max.jpg" alt="" loading="lazy" decoding="async">
+        </span>
+        <span class="bf-team-label">Meet the four of us
+          <svg viewBox="0 0 14 14" aria-hidden="true" width="12" height="12"><path d="M2 7 L11 7 M8 3 L12 7 L8 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
       </a>
-      <a class="bf-person" href="/team" data-cta="book-founders-team">
-        <img src="/img/team/adam.jpg" alt="Adam" loading="lazy" decoding="async">
-        <span class="bf-person-name">Adam</span>
-        <span class="bf-person-role">Engineering</span>
-      </a>
-      <a class="bf-person" href="/team" data-cta="book-founders-team">
-        <img src="/img/team/muku.jpg" alt="Muku" loading="lazy" decoding="async">
-        <span class="bf-person-name">Muku</span>
-        <span class="bf-person-role">Debate</span>
-      </a>
-      <a class="bf-person" href="/team" data-cta="book-founders-team">
-        <img src="/img/team/max.jpg" alt="Max" loading="lazy" decoding="async">
-        <span class="bf-person-name">Max</span>
-        <span class="bf-person-role">Growth</span>
-      </a>
+      <div class="bf-cal">
+        <div class="calendly-inline-widget" data-url="https://calendly.com/aidan-debateit/30min?hide_gdpr_banner=1&background_color=fbfaf5&text_color=1a1a1e&primary_color=ef4444" style="min-width:320px;height:680px"></div>
+      </div>
+      <!-- Always-visible direct path (2026-07-19): if the embed fails for any
+           reason (blocked script, stale cache, iframe error), the section
+           still books calls. -->
+      <a class="bf-cal-direct" href="https://calendly.com/aidan-debateit/30min" target="_blank" rel="noopener" data-cta="book-founders-direct">Calendar not loading? Book directly &rarr;</a>
     </div>
-    <div class="bf-cal">
-      <div class="calendly-inline-widget" data-url="https://calendly.com/aidan-debateit/30min?hide_gdpr_banner=1&background_color=fbfaf5&text_color=1a1a1e&primary_color=ef4444" style="min-width:320px;height:680px"></div>
+
+    <!-- RIGHT: waitlist register (moved here 2026-07-22 from its own
+         section below). Posts to the existing /api/early-signup function
+         (same early_cohort_signups collection, deduped by email hash) with
+         source:'landing-waitlist' so admin exports can tell the surfaces
+         apart. The full-preference sign-up (skill / format / timezone)
+         stays at /early; this band is deliberately just email + button.
+         The card's own inner grid is forced single-column here because the
+         column is roughly half width; it is the same stacked shape the
+         card already used below its 860px breakpoint. -->
+    <div class="bw-wl-col" id="waitlist" role="region" aria-label="Register for the waitlist">
+      <div class="wl-grid">
+        <div class="wl-copy">
+          <span class="wl-eyebrow">Waitlist &middot; One list for everything</span>
+          <h2 class="wl-title">Register once. Stay in the round.</h2>
+          <p class="wl-sub">Get scheduled-round alerts, product updates, team news, applications, and tournament sign-ups from one low-volume list.</p>
+        </div>
+        <div class="wl-action">
+          <div class="wl-chips" aria-hidden="true">
+            <span>Rounds</span><span>Product</span><span>Team</span><span>Applications</span><span>Tournaments</span>
+          </div>
+          <form class="wl-form" id="wlForm" novalidate>
+            <label class="wl-label" for="wlEmail">Your email</label>
+            <div class="wl-row">
+              <input type="email" id="wlEmail" name="email" required autocomplete="email" placeholder="you@school.edu" />
+              <button type="submit" id="wlBtn" class="wl-btn" data-cta="waitlist-register">Register</button>
+            </div>
+            <p class="wl-err" id="wlErr" role="alert"></p>
+            <p class="wl-foot">Low volume. Debatable updates only. <a href="/early">Add format and skill preferences</a> &middot; <a href="/privacy">Privacy</a></p>
+          </form>
+          <div class="wl-success" id="wlSuccess" hidden>
+            <b id="wlSuccessHead">You're on the list.</b>
+            <p id="wlSuccessBody">Watch your inbox for round updates, application openings, and tournament invites.</p>
+          </div>
+        </div>
+      </div>
     </div>
-    <!-- Always-visible direct path (2026-07-19): if the embed fails for any
-         reason (blocked script, stale cache, iframe error), the section
-         still books calls. -->
-    <a class="bf-cal-direct" href="https://calendly.com/aidan-debateit/30min" target="_blank" rel="noopener" data-cta="book-founders-direct">Calendar not loading? Book directly &rarr;</a>
+
+    </div><!-- /.bw-pair -->
   </div>
 </section>
 <script src="https://assets.calendly.com/assets/external/widget.js" async></script>
@@ -13245,47 +13286,56 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
 <!-- ═══════════════════════════════════════════════════════════════════
      WAITLIST REGISTER (2026-07-18) — the one obvious place on the page
-     to leave an email. Posts to the existing /api/early-signup function
-     (same early_cohort_signups collection, deduped by email hash) with
-     source:'landing-waitlist' so admin exports can tell the surfaces
-     apart. The full-preference sign-up (skill / format / timezone)
-     stays at /early; this band is deliberately just email + button. -->
-<section id="waitlist" class="sec" aria-label="Register for the waitlist">
-  <div class="wrap" style="max-width:1040px;text-align:left">
-    <div class="wl-grid">
-      <div class="wl-copy">
-        <span class="wl-eyebrow">Waitlist &middot; One list for everything</span>
-        <h2 class="wl-title">Register once. Stay in the round.</h2>
-        <p class="wl-sub">Get scheduled-round alerts, product updates, team news, applications, and tournament sign-ups from one low-volume list.</p>
-      </div>
-      <div class="wl-action">
-        <div class="wl-chips" aria-hidden="true">
-          <span>Rounds</span><span>Product</span><span>Team</span><span>Applications</span><span>Tournaments</span>
-        </div>
-        <form class="wl-form" id="wlForm" novalidate>
-          <label class="wl-label" for="wlEmail">Your email</label>
-          <div class="wl-row">
-            <input type="email" id="wlEmail" name="email" required autocomplete="email" placeholder="you@school.edu" />
-            <button type="submit" id="wlBtn" class="wl-btn" data-cta="waitlist-register">Register</button>
-          </div>
-          <p class="wl-err" id="wlErr" role="alert"></p>
-          <p class="wl-foot">Low volume. Debatable updates only. <a href="/early">Add format and skill preferences</a> &middot; <a href="/privacy">Privacy</a></p>
-        </form>
-        <div class="wl-success" id="wlSuccess" hidden>
-          <b id="wlSuccessHead">You're on the list.</b>
-          <p id="wlSuccessBody">Watch your inbox for round updates, application openings, and tournament invites.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+     to leave an email. 2026-07-22: the markup MOVED UP into the
+     #book-founders row so the calendar and the register ask share one
+     row instead of stacking as two full-width bands. The styles and the
+     submit handler stay here; they are position-independent and still
+     target #waitlist, which is now the right-hand column div. -->
 <style>
-  /* The Calendly section already supplies a bottom gutter. Collapse the
-     double section gap, then make the final registration ask one compact
-     horizontal band instead of another tall centered stack. */
-  #book-founders{padding-bottom:18px !important}
-  #waitlist{padding-top:22px !important;padding-bottom:38px !important}
+  /* Section gutters for the paired row. This is now the last content
+     band before the footer, so it carries the full bottom gutter that
+     used to belong to the waitlist section. */
+  #book-founders{padding-bottom:46px !important}
+
+  /* Default (and every narrow width): the two stack in their original
+     order, calendar first, then the waitlist. The row is opt-in above
+     1100px only. */
+  #book-founders .bw-pair{
+    display:grid;
+    grid-template-columns:1fr;
+    align-items:start;
+    gap:34px;
+    text-align:left;
+  }
+  /* The calendar column's header stack was centered when it owned the
+     full width. Left-aligned now so it lines up with the card beside it. */
+  #book-founders .bw-cal-col .bf-sub{max-width:none;margin:0 0 18px}
+  #book-founders .bw-cal-col .bf-team{margin:0 0 20px}
+
+  /* The pair, above 1100px: calendar left, waitlist right, top-aligned.
+     Top-aligned rather than centered or stretched because the Calendly
+     embed is 680px and the waitlist card is ~520px; centering would float
+     the card in the middle of a tall column and stretching would blow it
+     up into a mostly-empty box.
+     1100px (a breakpoint the page already uses elsewhere) rather than the
+     waitlist card's own 860px: below ~1100 each column falls under about
+     460px, which is too tight for the Calendly month grid to read well.
+     Between 861 and 1099 the two stay stacked, exactly as they were. */
+  @media (min-width:1101px){
+    #book-founders .bw-pair{grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);gap:44px}
+    /* Paired, the waitlist column is about half the page, so its inner
+       two-column grid collapses to the stacked shape the card already
+       used under 860px. */
+    #book-founders #waitlist .wl-grid{grid-template-columns:1fr;align-items:start;gap:20px}
+    #book-founders #waitlist .wl-action{padding:20px 0 0;border-left:0;border-top:1px solid var(--border)}
+    #book-founders #waitlist .wl-sub{max-width:none}
+  }
+
   #waitlist .wl-grid{display:grid;grid-template-columns:minmax(0,.82fr) minmax(420px,1.18fr);align-items:center;gap:46px;padding:30px 32px;border:1px solid var(--border);border-radius:22px;background:linear-gradient(135deg,var(--bg-card),rgba(239,68,68,.035));box-shadow:0 18px 48px rgba(31,28,24,.08),inset 0 1px 0 rgba(255,255,255,.48)}
+  /* #waitlist is still a jumpnav target (item 10) and the round-board
+     "Keep me updated" link; it needs the same sticky-nav offset the
+     section itself carries. */
+  #book-founders #waitlist{scroll-margin-top:84px}
   #waitlist .wl-copy{min-width:0}
   #waitlist .wl-action{min-width:0;padding-left:30px;border-left:1px solid var(--border)}
   #waitlist .wl-eyebrow{display:inline-block;font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:9px}
@@ -13314,8 +13364,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     #waitlist .wl-action{padding:20px 0 0;border-left:0;border-top:1px solid var(--border)}
   }
   @media (max-width:540px){
-    #book-founders{padding-bottom:10px !important}
-    #waitlist{padding-top:14px !important;padding-bottom:28px !important}
+    /* #waitlist is a column div inside #book-founders now, so the old
+       section paddings on it are gone; the row's own gutters cover it. */
+    #book-founders{padding-bottom:30px !important}
     #waitlist .wl-grid{padding:22px 18px;border-radius:17px}
     #waitlist .wl-row{flex-direction:column}
     #waitlist .wl-btn{width:100%}
