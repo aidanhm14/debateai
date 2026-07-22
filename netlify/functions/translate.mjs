@@ -75,7 +75,9 @@ function throttled(ip) {
 }
 
 export default async (request) => {
-  if (request.method === 'OPTIONS') return new Response('', { status: 204, headers: corsHeaders(request) });
+  // 204 must have a null body. new Response('') throws in undici and the
+  // edge turns that into a 502, which is what OPTIONS was returning.
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, request);
 
   const ip = request.headers.get('x-nf-client-connection-ip')
@@ -131,7 +133,11 @@ export default async (request) => {
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       console.error('translate upstream error', res.status, detail.slice(0, 300));
-      return json({ error: 'Translation failed.' }, 502, request);
+      // Surface the upstream status. Without it a failure here is a black box:
+      // key, quota and model-access problems all look identical from outside.
+      let upstream = '';
+      try { upstream = (JSON.parse(detail).error || {}).message || ''; } catch { upstream = detail.slice(0, 160); }
+      return json({ error: 'Translation failed.', upstreamStatus: res.status, upstream }, 502, request);
     }
 
     const data = await res.json();
