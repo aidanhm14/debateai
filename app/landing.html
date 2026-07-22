@@ -3,6 +3,36 @@
 <head>
 <script src="/js/native-bridge.js"></script>
 <meta charset="UTF-8" />
+<!-- Welcome-intro gate (2026-07-22, moved from body). The decision and
+     the colour now live BEFORE every stylesheet: the html background is
+     red the instant the attribute lands, so no paint in any loading
+     order can show white or cream under the intro. The old body gate
+     raced first paint, which is where the white-red-white flash on cold
+     loads came from. -->
+<script>
+  (function(){
+    try {
+      if (localStorage.getItem('da-welcome-intro') === '1') return;
+      if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      localStorage.setItem('da-welcome-intro', '1');
+      document.documentElement.setAttribute('data-intro', '1');
+      setTimeout(function(){
+        if (window.__wiBooted) return;
+        var r = document.documentElement;
+        if (r.getAttribute('data-intro') === '1') {
+          r.removeAttribute('data-intro');
+          var o = document.getElementById('welcomeIntro');
+          if (o && o.parentNode) o.parentNode.removeChild(o);
+        }
+      }, 9000);
+    } catch(e){}
+  })();
+</script>
+<style>
+  /* Painted at the root so it exists before body, before any sheet. */
+  html[data-intro="1"]{background:radial-gradient(circle at 50% 42%,#b3261e 0%,#8f1a15 58%,#6e120e 100%)}
+  html[data-intro="1"] body{background:transparent}
+</style>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Debatable · Debate Online, Judged Live</title>
 <meta name="description" content="Run timed debate rounds against real people or AI in Asian Parli, WSDC, BP, PF, APDA, LD, Policy, Congress, and MUN. Get a judge ballot at the end: who won, why, what to drill next. Free to start." />
@@ -5544,7 +5574,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
      top of <body>, dismissible per session, skips /early itself. -->
 <script src="/js/cohort-banner.js" defer></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap"></noscript>
 </head>
 <body>
 
@@ -5594,6 +5626,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     align-items:center;justify-content:center;
     transition:opacity .85s ease,transform .85s ease;
   }
+  /* Smooth entrance: the root behind is the same red, so the overlay
+     fades red-on-red (seamless) while its furniture rises gently. */
+  html[data-intro="1"] #welcomeIntro{animation:wiStageIn .5s ease both}
+  @keyframes wiStageIn{from{opacity:0}to{opacity:1}}
+  /* Opacity-only on purpose: ring, numeral and skip are POSITIONED by
+     transforms (translate centering), so an entrance that animates
+     transform would yank them off-centre for its duration. */
+  .wi-ring,.wi-brand,.wi-skip,.wi-num{animation:wiFurniture .7s ease .12s both}
+  @keyframes wiFurniture{from{opacity:0}to{opacity:1}}
+  .wi-ring{animation:wiFurniture .7s ease .12s both,wiPulse 3.4s ease-in-out infinite}
   #welcomeIntro.is-leaving{opacity:0;transform:scale(1.05);pointer-events:none}
   .wi-redwash{position:absolute;inset:0;pointer-events:none}
   .wi-vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 42%,rgba(29,25,21,.07) 100%);pointer-events:none}
@@ -5742,27 +5784,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* Gate: decide BEFORE the hero paints whether the intro runs, so the
      cards pre-hide with zero flash. Marks seen immediately so a mid-intro
      reload never loops it. */
-  (function(){
-    try {
-      if (localStorage.getItem('da-welcome-intro') === '1') return;
-      if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      localStorage.setItem('da-welcome-intro', '1');
-      document.documentElement.setAttribute('data-intro', '1');
-      /* Failsafe: if the sequence script never boots (it sets
-         __wiBooted), never leave the page hidden behind a stuck overlay.
-         Once booted, the questions legitimately hold the screen until
-         answered or skipped, so no hard timeout applies. */
-      setTimeout(function(){
-        if (window.__wiBooted) return;
-        var r = document.documentElement;
-        if (r.getAttribute('data-intro') === '1') {
-          r.removeAttribute('data-intro');
-          var o = document.getElementById('welcomeIntro');
-          if (o && o.parentNode) o.parentNode.removeChild(o);
-        }
-      }, 9000);
-    } catch(e){}
-  })();
+  /* 2026-07-22: the gate moved into <head> (see the charset block) so the
+     red exists before first paint. This slot stays as a pointer only. */
 </script>
 <div id="welcomeIntro" class="wi-red" role="dialog" aria-label="Welcome to Debatable">
   <div class="wi-redwash"></div>

@@ -145,7 +145,13 @@ export default async () => {
           const { system, user } = propOpeningPrompt(pick.motion, pick.format);
           const speech = (await claude(system, user, 700, OPP_MODEL)).trim();
           const turn1 = await makeAiTurn(store, 1, 'audio', speech, now);
-          await db.collection('async_rounds').doc().set({
+          // Deterministic id per motion: Netlify can double-fire a schedule
+          // around deploys, and two concurrent runs both passed the count
+          // check (the board briefly held 3 AI challenges against a cap of
+          // 2 on 2026-07-22). Same-motion seeds now land on one doc, so a
+          // duplicate run overwrites instead of adding.
+          const seedId = 'seed-' + pick.motion.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+          await db.collection('async_rounds').doc(seedId).set({
             state: 'open', visibility: 'public', hidden: false, feedKey: 'open-public',
             motion: pick.motion, format: pick.format,
             prop: { uid: AI_UID, name: AI_NAME, photo: '' }, opp: null, aiOpp: false,
