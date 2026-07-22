@@ -89,6 +89,9 @@ document.documentElement.setAttribute('data-lighting','light');
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- Storage: the signed-in case-file locker (2026-07-22). Deferred like
+     the rest; every call site guards on firebaseStorage being present. -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script defer src="/js/track.js"></script>
 <script defer src="/js/disclosure-guard.js"></script>
 <script defer src="/js/usage-banner.js"></script>
@@ -1325,7 +1328,7 @@ var FIREBASE_CONFIG = {
   messagingSenderId: "860359449192",
   appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
 };
-var firebaseApp, firebaseAuth, firebaseDb;
+var firebaseApp, firebaseAuth, firebaseDb, firebaseStorage;
 // Firebase now loads `defer`, so the SDK is usually not present yet at parse
 // time. initFirebase() is idempotent and re-runnable: called once here (fast
 // path if the SDK already executed) and again from useAuth once the deferred
@@ -1340,6 +1343,7 @@ function initFirebase() {
       firebaseApp = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
       firebaseAuth = firebase.auth();
       firebaseDb = firebase.firestore();
+      try {if (firebase.storage) firebaseStorage = firebase.storage();} catch (_) {}
       return true;
     }
   } catch (e) {console.warn('Firebase init skipped:', e.message);}
@@ -5862,17 +5866,115 @@ function App() {
   // drops the duplicate and keeps the most recent 25 cases; fullText is
   // rebuilt from speeches on the way back in.
   var trimCasesForSync = (cases) => {
-    return (cases || []).slice(0, 25).map((c) => {
-      var out = Object.assign({}, c);
-      delete out.fullText;
-      return out;
+    var out = [];
+    var bytes = 0;
+    // 400KB budget, not the 1MB doc limit: /app owns a `cases` field on
+    // this same doc and the file list rides here too, so this shelf only
+    // gets a share. Newest cases win; older ones stay local.
+    (cases || []).slice(0, 25).forEach((c) => {
+      var lean = Object.assign({}, c);
+      delete lean.fullText;
+      var size = 0;
+      try {size = JSON.stringify(lean).length;} catch (_) {size = 4096;}
+      if (bytes + size > 400000) return;
+      bytes += size;
+      out.push(lean);
     });
+    return out;
   };
   var rehydrateCase = (c) => {
     if (!c || c.fullText) return c;
     var out = Object.assign({}, c);
     out.fullText = (c.speeches || []).map((sp) => sp && sp.text || '').join('\n\n');
     return out;
+  };
+
+  /* ── Case files (2026-07-22) ───────────────────────────────────────
+   * Uploads land in Firebase Storage under users/{uid}/files/, which the
+   * storage rules make private to that uid: 10MB cap, closed content-type
+   * list, no public path at all. Only the metadata rides in Firestore, on
+   * the same user_cases/{uid} doc as the case shelf, so a file survives a
+   * device switch the same way a case does.
+   *
+   * We store the storage PATH, never a download URL. A Firebase download
+   * URL carries its own token and works for anyone who has the string,
+   * which would quietly turn a private prep doc into a shareable link;
+   * resolving the URL on click keeps the rules in the loop every time.
+   */
+  var [caseFiles, setCaseFiles] = useState([]);
+  var [fileBusy, setFileBusy] = useState('');
+  var [fileErr, setFileErr] = useState('');
+  var FILE_MAX_BYTES = 10 * 1024 * 1024;
+  var FILE_TYPES_LABEL = 'PDF, Word, text, or image';
+
+  var syncFilesToServer = (files) => {
+    if (!user || !firebaseDb) return;
+    try {
+      firebaseDb.collection('user_cases').doc(user.uid).set({
+        files: (files || []).slice(0, 50),
+        debateItUpdatedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    } catch (_) {}
+  };
+
+  var uploadCaseFile = async (file) => {
+    setFileErr('');
+    if (!file) return;
+    if (!user) {setFileErr('Sign in to keep files with your account.');return;}
+    if (!firebaseStorage) {setFileErr('File storage is still loading. Try again in a moment.');return;}
+    if (file.size > FILE_MAX_BYTES) {setFileErr('That file is over 10MB.');return;}
+    setFileBusy(file.name);
+    try {
+      // Timestamp prefix keeps same-named uploads from overwriting each
+      // other; the rest of the name is sanitized because it ends up in a
+      // storage path.
+      var safe = (file.name || 'file').replace(/[^\w.\- ]+/g, '_').slice(0, 80);
+      var path = 'users/' + user.uid + '/files/' + Date.now() + '-' + safe;
+      await firebaseStorage.ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
+      var meta = {
+        id: Date.now(),
+        name: file.name || safe,
+        size: file.size || 0,
+        type: file.type || '',
+        path: path,
+        date: new Date().toISOString()
+      };
+      setCaseFiles((prev) => {
+        var next = [meta, ...prev || []].slice(0, 50);
+        syncFilesToServer(next);
+        return next;
+      });
+      if (typeof gtag === 'function') gtag('event', 'case_file_upload', { type: meta.type || 'unknown' });
+    } catch (e) {
+      // The rules reject a wrong content type, which surfaces here as an
+      // unauthorized error; say the useful thing rather than the raw one.
+      var msg = (e && e.code) === 'storage/unauthorized' ?
+      'That file type is not allowed. Use a ' + FILE_TYPES_LABEL + '.' :
+      'Upload failed. Try again.';
+      setFileErr(msg);
+    }
+    setFileBusy('');
+  };
+
+  var openCaseFile = async (f) => {
+    if (!firebaseStorage || !f || !f.path) return;
+    setFileErr('');
+    try {
+      var url = await firebaseStorage.ref(f.path).getDownloadURL();
+      window.open(url, '_blank', 'noopener');
+    } catch (_) {setFileErr('Could not open that file.');}
+  };
+
+  var deleteCaseFile = async (f) => {
+    if (!f) return;
+    // Metadata goes first so the row disappears immediately; a failed
+    // object delete would otherwise strand a row the user cannot retry.
+    setCaseFiles((prev) => {
+      var next = (prev || []).filter((x) => x.id !== f.id);
+      syncFilesToServer(next);
+      return next;
+    });
+    try {if (firebaseStorage && f.path) await firebaseStorage.ref(f.path).delete();} catch (_) {}
   };
 
   var syncCasesToServer = (cases) => {
@@ -5937,6 +6039,9 @@ function App() {
         // Push the union back only when the local side actually added
         // something, so a plain read does not cost a write.
         if (mergedCases.length > serverCases.length) syncCasesToServer(mergedCases);
+        // Files are server-only by nature (the bytes were never local),
+        // so this is a straight read.
+        if (Array.isArray(raw.files)) setCaseFiles(raw.files);
       } catch (_) {}
     })();
     return () => {cancelled = true;};
@@ -8447,6 +8552,52 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   styleSummary.recentMotions.slice(0, 3).map((m, i) => el('span', { key: i, style: { display: 'inline' } },
   (m.motion || '').slice(0, 70),
   i < Math.min(styleSummary.recentMotions.length, 3) - 1 ? '  ·  ' : ''
+  ))
+  )
+  ),
+
+
+  // Case files. Sits under the case shelf because it is the same idea:
+  // the things you bring INTO a round, as opposed to the rounds
+  // themselves. Signed-out visitors see the card explaining what
+  // signing in buys, not a dead upload button.
+  el('div', { className: 'dash-card', style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
+  el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, gap: 10, flexWrap: 'wrap' } },
+  el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'Case files (' + caseFiles.length + ')'),
+  user ?
+  el('label', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem', cursor: fileBusy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 } },
+  fileBusy ? 'Uploading…' : 'Upload a file',
+  el('input', {
+    type: 'file',
+    accept: '.pdf,.doc,.docx,.txt,.md,image/png,image/jpeg,image/webp',
+    style: { display: 'none' },
+    disabled: !!fileBusy,
+    onChange: (e) => {
+      var f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) uploadCaseFile(f);
+    } })
+  ) :
+  el('span', { style: { fontSize: '.62rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--c-dim)' } }, 'Sign in to upload')
+  ),
+  fileErr && el('div', { style: { fontSize: '.72rem', color: '#ef4444', marginBottom: 8 } }, fileErr),
+  caseFiles.length === 0 ?
+  el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } },
+  user ?
+  'Keep the docs you debate off here: cases, evidence, flows. ' + FILE_TYPES_LABEL + ', up to 10MB each, private to your account.' :
+  'Signed in, you can keep cases, evidence, and flows here and open them from any device.') :
+
+  el('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+  caseFiles.slice(0, 8).map((f) => el('div', { key: f.id, className: 'dash-row', style: {
+      textAlign: 'left', padding: '10px 12px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)',
+      borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 } },
+  el('button', { onClick: () => openCaseFile(f), title: 'Open', style: { flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-text)' } },
+  el('div', { style: { fontSize: '.84rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, f.name),
+  el('div', { style: { fontSize: '.66rem', color: 'var(--c-dim)', marginTop: 2 } },
+  (f.size ? Math.max(1, Math.round(f.size / 1024)) + ' KB' : '') +
+  (f.date ? '  ·  ' + new Date(f.date).toLocaleDateString() : ''))
+  ),
+  el('button', { onClick: () => deleteCaseFile(f), title: 'Delete', style: { background: 'none', border: 0, padding: '2px 4px', cursor: 'pointer', color: 'var(--c-dim)', fontFamily: 'inherit', fontSize: '.72rem' } }, 'Remove')
   ))
   )
   ),

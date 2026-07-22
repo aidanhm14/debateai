@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// Firebase Storage rules (2026-07-22, first ones this project has had —
+// Storage was only enabled today to give signed-in debaters a case-file
+// locker).
+//
+// The whole bucket is private. Every object lives under the uploader's
+// own uid and only that uid can read it; there is deliberately NO public
+// path, because the things people upload here are prep documents they
+// have not chosen to disclose. Public sharing already has its own
+// surface (shared_cases / the disclosures board) and that one is text a
+// user opts into, not a file.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /users/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // 10MB and a closed content-type list. Case docs, notes, and the
+      // occasional photo of a flow; not a general file host.
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.resource.size <= 10 * 1024 * 1024
+                            && request.resource.contentType.matches(
+                                 'application/pdf'
+                                 + '|text/plain'
+                                 + '|text/markdown'
+                                 + '|application/msword'
+                                 + '|application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document'
+                                 + '|image/png'
+                                 + '|image/jpeg'
+                                 + '|image/webp'
+                               );
+
+      // Delete carries no request.resource, so it cannot reuse the
+      // conditions above.
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Anything outside a user folder is denied, including reads.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
