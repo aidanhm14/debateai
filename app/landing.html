@@ -609,34 +609,21 @@
 
 <script>
   (function(){
-    // 2026-07-22: first-screen test. The read on the current top is that a
-    // cold visitor sees a debate TRAINING product: an AI opponent, a voice
-    // round, formats. The thing that actually happens here (two strangers
-    // argue, a room votes, someone wins) is below the fold. The 'ticker' arm
-    // puts that first as a cycling round board and demotes the AI cards to
-    // where they were always meant to sit, underneath. 'current' is the
-    // untouched control. True 50/50 so retention is comparable per arm.
-    var v='';
+    // 2026-07-22: first-screen test CALLED same day by Aidan: the control
+    // screen (two product cards + strips) reads too dense; the stranger
+    // board is the first screen for everyone. The 'current' markup stays
+    // behind ?first=current as a debug view; the sticky key is retired so
+    // control-arm visitors flip over on their next load.
+    var v='ticker';
     try{
-      var qp=(location.search||'').toLowerCase();
-      if(/[?&]first=ticker(?:&|$)/.test(qp)) v='ticker';
-      else if(/[?&]first=current(?:&|$)/.test(qp)) v='current';
+      if(/[?&]first=current(?:&|$)/.test((location.search||'').toLowerCase())) v='current';
     }catch(e){}
-    var assigned=false;
-    if(v!=='ticker'&&v!=='current'){
-      try{ v=localStorage.getItem('da-first-screen2')||''; }catch(e){}
-      if(v!=='ticker'&&v!=='current'){
-        v=(Math.random()<0.50)?'ticker':'current';
-        assigned=true;
-        try{ localStorage.setItem('da-first-screen2',v); }catch(e){}
-      }
-    }
     document.documentElement.setAttribute('data-first-screen',v);
     window.__firstScreen=v;
     try{
       if(window.gtag){
         gtag('set','user_properties',{first_screen:v});
-        gtag('event','first_screen_view',{variant:v,assigned:assigned});
+        gtag('event','first_screen_view',{variant:v,assigned:false,called:'ticker'});
       }
     }catch(e){}
   })();

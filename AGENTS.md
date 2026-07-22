@@ -5,38 +5,18 @@
 > for product/voice/decision context. If a change would contradict either
 > file, fix the change or fix the doc — don't leave the contradiction.
 
-## 🔒 FREEZE: the landing hero is running a live A/B (from 2026-07-22)
+## First screen: stranger board for everyone (A/B called 2026-07-22)
 
-**Do not change the top of `app/landing.html` until this is called.**
-
-A 50/50 first-screen test is collecting: `data-first-screen` =
-`ticker` | `current`, GA4 event `first_screen_view {variant, assigned}`,
-sticky key `da-first-screen2`. Force an arm with `?first=ticker` or
-`?first=current`.
-
-**Re-baselined 2026-07-22.** The control hero changed after the test
-started (money glyphs cut, slogan sized up in `b09b182f`, kicker cut
-here), so the sticky key was bumped `da-first-screen` →
-`da-first-screen2` to redraw every assignment. **Read
-`first_screen_view` from that bump forward only** — earlier data mixes
-two different controls.
-
-If you change either arm again, bump the key again and note it here.
-A changed arm without a key bump silently poisons the result; that is
-what this line exists to prevent.
-
-Frozen surface — the `#first-screen` section, `section.hero` and
-everything inside `.hero-illustrated` (headline, doors, live card,
-its prediction-market layer). Editing either arm moves both and the
-read is lost; three separate agents touched this file the day the test
-shipped, which is exactly how a test dies.
-
-Fine to keep shipping: anything below the hero, other pages, functions,
-copy fixes outside the frozen surface. If you genuinely must touch the
-hero (a bug, not a preference), say so in the commit message so the
-result can be segmented by date, and note it here.
-
-Called by: Aidan. Remove this block when the test is read.
+The 2026-07-22 `ticker` vs `current` first-screen A/B was **called by
+Aidan the same day, by fiat not by data**: the control screen (two
+product cards plus the ambassador and sign-in strips) read too dense,
+and the stranger board ("Debate a stranger right now.") is what a cold
+visitor should see first. Everyone now gets `data-first-screen="ticker"`;
+the control markup stays reachable at `?first=current` as a debug view.
+The `da-first-screen2` sticky key is retired (no longer read or written),
+so old control-arm visitors flip over on their next load. GA4 keeps
+firing `first_screen_view` with `called:'ticker'` so the dashboard shows
+the switch date. The hero surface is no longer frozen.
 
 ## What this is
 
