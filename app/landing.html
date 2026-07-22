@@ -5639,9 +5639,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      take over the pulsing ring area
      Opens straight on question 1 (2026-07-20: the three-phrase 3-2-1
      countdown was cut, it read as a loading screen and delayed the only
-     part that does anything). Surface alternates red → white between
-     the two questions; then the overlay lifts and the two hero cards
-     (live room + founding class) flow up into place. Runs ONCE per browser
+     part that does anything). 2026-07-22: down to ONE question — "Who
+     are you here as?" — and the answer now NAVIGATES: each option
+     carries a landing-section anchor and the page scrolls there when
+     the overlay lifts, so the intro streamlines the long page instead
+     of adding steps. Runs ONCE per browser
      (localStorage da-welcome-intro), skipped entirely under
      prefers-reduced-motion. The Skip button ends it any time. A 9s
      failsafe in the gate script tears everything down if the sequence
@@ -5830,29 +5832,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         if (tp && /^\/[A-Za-z0-9_\-\/?=&.]*$/.test(tp) && tp.indexOf('//') !== 0) toParam = tp;
       } catch(e){}
 
-      /* Two questions, all four options on screen at once. Keys stay
-         stable for onboarding personalization; da-welcome-start was cut
-         2026-07-19 (readers already handle it being unset). */
+      /* One question (2026-07-22: the "against who?" second question was
+         cut — feedback read the page as a long powerpoint, so the intro
+         now streamlines instead of adding steps). Each option carries a
+         landing-section anchor: answering scrolls you to the part of the
+         page written for you. Keys stay stable for onboarding
+         personalization; da-welcome-goal readers already handle it
+         being unset. */
       var QUESTIONS = [
         { key:'da-is-debater',    prop:'is_debater',
-          step:'1 of 2', q:'Who are you here as?',
-          sub:'',
+          step:'', q:'Who are you here as?',
+          sub:'One tap. We\'ll take you to the right part of the page.',
           opts:[
-            ['competing','I compete','Tournaments are my thing.'],
-            ['learning','I\'m learning','New to this. Show me how.'],
-            ['coaching','I coach or judge','I run rooms and read ballots.'],
-            ['curious','Just curious','I like a good argument.']
-          ] },
-        { key:'da-welcome-goal',  prop:'welcome_goal',
-          step:'2 of 2', q:'First round: against who?',
-          sub:'You can switch anytime.',
-          opts:[
-            ['rounds','A real person','Matched live, on video.'],
-            ['ai','The AI','Talks back. Judges you after.'],
-            ['prep','Nobody yet','Build a case first.'],
-            ['watch','Let me watch','Spectate a live round.']
+            ['competing','I compete','Tournaments are my thing.','#live-now'],
+            ['learning','I\'m learning','New to this. Show me how.','#mode-select'],
+            ['coaching','I coach or judge','I run rooms and read ballots.','#live-proof'],
+            ['curious','Just curious','I like a good argument.','#why-this-exists']
           ] }
       ];
+      var landTarget = null; /* section anchor picked by the answer */
       var qi = 0, done = false, timers = [];
       ga('welcome_intro_show');
       var sfxLoading = false;
@@ -5873,6 +5871,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       function finish(skipped){
         if (done) return; done = true;
+        /* Tell the live-debates prompt the intro just ran, so its
+           auto-pop gives the landing section a breath first. */
+        try { window.__introJustRan = true; } catch(e){}
         timers.forEach(clearTimeout);
         ov.classList.remove('wi-red');
         ov.classList.add('is-leaving');
@@ -5881,6 +5882,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         welcomeSfx('confirm');
         ga('welcome_intro_done', { skipped: !!skipped, answered: qi });
         if (toParam){ setTimeout(function(){ location.replace(toParam); }, 420); return; }
+        /* Answered (not skipped): glide to the section written for this
+           visitor once the overlay lifts and scrolling is unlocked.
+           NOT scrollIntoView/CSS-smooth — this page's animation load
+           silently cancels native smooth scrolling (verified in
+           preview), so the glide is driven by hand via rAF. */
+        if (!skipped && landTarget){
+          setTimeout(function(){
+            var t = document.querySelector(landTarget);
+            if (!t) return;
+            var se = document.scrollingElement || document.documentElement;
+            var from = se.scrollTop;
+            var dist = t.getBoundingClientRect().top;
+            var dur = 700, t0 = null;
+            var prev = root.style.scrollBehavior;
+            root.style.scrollBehavior = 'auto';
+            function stepScroll(ts){
+              if (t0 === null) t0 = ts;
+              var p = Math.min(1, (ts - t0) / dur);
+              var e = p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2) / 2;
+              se.scrollTop = from + dist * e;
+              if (p < 1) requestAnimationFrame(stepScroll);
+              else root.style.scrollBehavior = prev;
+            }
+            requestAnimationFrame(stepScroll);
+          }, 520);
+        }
         setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 950);
         /* release the reveal attr after the entrances land so animation
            fill stops pinning the cards' hover transforms */
@@ -5914,6 +5941,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         if (qi >= QUESTIONS.length){ showWaiting(); return; }
         var Q = QUESTIONS[qi];
         qStep.textContent = Q.step;
+        qStep.style.display = Q.step ? '' : 'none';
         qText.textContent = Q.q;
         qSub.textContent  = Q.sub || '';
         qSub.style.display = Q.sub ? '' : 'none';
@@ -5934,6 +5962,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       function answer(Q, val){
         if (done) return;
+        for (var oi = 0; oi < Q.opts.length; oi++){
+          if (Q.opts[oi][0] === val && Q.opts[oi][3]) landTarget = Q.opts[oi][3];
+        }
         try { localStorage.setItem(Q.key, val); } catch(e){}
         try { if (window.gtag){ var up = {}; up[Q.prop] = val; gtag('set', 'user_properties', up); } } catch(e){}
         ga('welcome_q_answer', { q: Q.key, answer: val });
@@ -15772,13 +15803,12 @@ window.addEventListener('load', function(){
 })();
 </script>
 
-<!-- ── Live-debates prompt (2026-06-16) ──────────────────────────────
-     Replaced the new-to-debate / competitive onboarding chooser. Pops
-     once, 10 seconds into the visit, nudging the visitor into a live
-     round. Suppressed after one show via localStorage so it never
-     re-pops on a return visit. ESC + click-outside + X + "Maybe later"
-     all dismiss. Skipped if the URL has a hash (visitor came for a
-     specific section). -->
+<!-- ── Live-debates prompt (2026-06-16; always-on 2026-07-22) ────────
+     Pops 5 seconds into EVERY visit (dismissal only holds for the
+     session), waits out the welcome intro, carries a live-room face
+     strip, and adapts to signed-in visitors (no Google push, straight
+     to /spar). ESC + click-outside + X dismiss. Skipped if the URL has
+     a hash (visitor came for a specific section). -->
 <div id="obModal" class="ob-modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="obTitle">
   <div class="ob-backdrop" data-ob-close></div>
   <div class="ob-card" role="document">
@@ -15787,8 +15817,20 @@ window.addEventListener('load', function(){
     <!-- Single live-debates prompt (replaced the new-to-debate / competitive
          onboarding chooser 2026-06-16). Fires once, 10s into the visit. -->
     <div class="ob-view" data-ob-view="live">
+      <!-- Webcam preview strip (restored 2026-07-22 per Aidan: the popup
+           keeps the debater images it used to carry). Real face-library
+           shots from visually distinct rooms so it reads as four real
+           debaters, not AI clones — same same-shoot rule as the hero. -->
+      <div class="ob-cams" aria-hidden="true">
+        <span class="ob-cams-pill"><i></i>Live rooms</span>
+        <span class="ob-cam" style="background-image:url('/img/round/faces/face02.jpg')"></span>
+        <span class="ob-cam" style="background-image:url('/img/round/faces/face07.jpg')"></span>
+        <span class="ob-cam" style="background-image:url('/img/round/faces/face16.jpg')"></span>
+        <span class="ob-cam" style="background-image:url('/img/round/faces/face19.jpg')"></span>
+      </div>
       <h2 class="ob-title" id="obTitle">Debate someone live, right now.</h2>
-      <p class="ob-sub">Sign in to get matched with a real debater on a real clock and keep every ballot you earn. Queue quiet? An AI round is one tap away so you still get a full round.</p>
+      <p class="ob-sub ob-sub--out">Sign in to get matched with a real debater on a real clock and keep every ballot you earn. Queue quiet? An AI round is one tap away so you still get a full round.</p>
+      <p class="ob-sub ob-sub--in">Get matched with a real debater on a real clock. Queue quiet? An AI round is one tap away so you still get a full round.</p>
       <button type="button" class="ob-google" id="obGoogleBtn">
         <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.9 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
         Continue with Google
@@ -15835,6 +15877,18 @@ window.addEventListener('load', function(){
 .ob-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.45rem;font-weight:700;letter-spacing:-.015em;line-height:1.15;margin:0 0 6px}
 .ob-sub{font-size:.92rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));margin:0 0 20px}
 [data-theme="light"] .ob-sub{color:rgba(0,0,0,.62)}
+/* Signed-in state: hide the Google push, show the shorter sub. */
+.ob-sub--in{display:none}
+.ob-modal.ob-signed .ob-sub--out,.ob-modal.ob-signed .ob-google{display:none}
+.ob-modal.ob-signed .ob-sub--in{display:block}
+/* Webcam preview strip: four live-room tiles + a pulsing Live pill. */
+.ob-cams{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 14px}
+.ob-cam{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background-color:#0f1117;background-size:cover;background-position:50% 30%}
+.ob-cam::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.2),transparent 38%)}
+.ob-cams-pill{position:absolute;z-index:2;top:6px;left:6px;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;background:rgba(10,12,10,.72);border:1px solid rgba(34,197,94,.45);color:#4ade80;font-size:.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.ob-cams-pill i{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:obLivePulse 1.7s ease-out infinite}
+@keyframes obLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+@media(prefers-reduced-motion:reduce){.ob-cams-pill i{animation:none}}
 .ob-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
   padding:14px 16px;margin-bottom:12px;border-radius:11px;cursor:pointer;
   background:#fff;color:#1f1f1f;border:1px solid #dadce0;font-family:inherit;
@@ -15881,13 +15935,12 @@ window.addEventListener('load', function(){
 (function(){
   // Live-debates prompt. Self-contained, no deps. Re-openable via
   // window.daOpenLivePopup().
-  // 2026-07-02 (sign-in push): was once-per-browser-ever; now it re-asks
-  // SIGNED-OUT visitors on every return visit with a 6h cooloff, and
-  // fires 5s in (was 10s). Signed-in visitors never see it. The KEY now
-  // stores a dismissal timestamp; the legacy '1' value from the
-  // once-ever era intentionally re-arms.
-  var KEY = 'da-live-popup-shown';
-  var COOLOFF_MS = 6 * 60 * 60 * 1000;
+  // 2026-07-22 (always-on, per Aidan): the auto-pop is back for EVERY
+  // visit — dismissal only holds for the current session
+  // (sessionStorage), so a return visit gets the prompt again. It waits
+  // out the welcome intro instead of stacking on top of it, and still
+  // skips deep-links (visitor came for a specific #section).
+  var KEY = 'da-live-popup-dismissed';
   var modal = document.getElementById('obModal');
   if (!modal) return;
 
@@ -15895,14 +15948,8 @@ window.addEventListener('load', function(){
     try { return document.body.classList.contains('signed-in'); } catch (e) { return false; }
   }
 
-  // Whether the auto-pop should fire on this page load.
-  // Suppressed inside the cooloff window, OR if the visitor deep-linked
-  // to a #section (came for something specific — don't interrupt).
-  var autoOpenAllowed = false;
-  try {
-    var dismissedAt = parseInt(localStorage.getItem(KEY), 10);
-    if (!isNaN(dismissedAt) && (Date.now() - dismissedAt) < COOLOFF_MS) autoOpenAllowed = false;
-  } catch (e) {}
+  var autoOpenAllowed = true;
+  try { if (sessionStorage.getItem(KEY) === '1') autoOpenAllowed = false; } catch (e) {}
   if (location.hash && location.hash !== '#') autoOpenAllowed = false;
 
   function track(event, params){
@@ -15910,11 +15957,14 @@ window.addEventListener('load', function(){
   }
 
   function suppress(){
-    try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
+    try { sessionStorage.setItem(KEY, '1'); } catch (e) {}
   }
 
   function open(){
     showView('live');
+    // Signed-in visitors get the same prompt minus the Google push
+    // (CSS keys off ob-signed; "Find a debater" goes straight to /spar).
+    modal.classList.toggle('ob-signed', isSignedIn());
     modal.classList.add('is-open');
     // Tell the bottom sign-in nudges to stand down while a modal is up, so
     // mobile never stacks modal + signup-nudge + go-live card at once.
@@ -15960,7 +16010,7 @@ window.addEventListener('load', function(){
     routes[r].addEventListener('click', function(e){
       var go = this.getAttribute('data-ob-go');
       track('live_popup_route', { route: go });
-      if (go === 'spar') {
+      if (go === 'spar' && !isSignedIn()) {
         if (e && e.preventDefault) e.preventDefault();
         track('live_popup_reask_view');
         showView('reask');
@@ -15999,13 +16049,36 @@ window.addEventListener('load', function(){
     try { if (window.gtag) gtag('event', 'live_popup_reopen', { source: source || 'unknown' }); } catch (e) {}
   };
 
-  // Pop the live-debates prompt 5 seconds into the visit for signed-out
-  // visitors (auth state has settled by then, so the isSignedIn check at
-  // fire time is reliable). Re-asks every visit past the 6h cooloff;
-  // skipped on deep-links; never shown to signed-in users.
-  if (autoOpenAllowed) {
-    setTimeout(function(){ if (!isSignedIn() && !modal.classList.contains('is-open')) open(); }, 5000);
+  // Pop the live-debates prompt 5 seconds into the visit, every visit
+  // (session-scoped dismissal above). If the welcome intro still holds
+  // the screen at fire time, wait it out and pop shortly after it
+  // lifts — never stack the two overlays.
+  // Another sign-in surface (the 10s auth prompt, Firebase UI) already
+  // has the screen — mirror auth-prompt.js's stand-down so the two
+  // never stack.
+  function surfaceBusy(){
+    try {
+      if (document.querySelector('.da-auth-modal.is-open,.auth-modal.is-open,.firebaseui-container')) return true;
+      if (document.body.classList.contains('signin-modal-open')) return true;
+    } catch (e) {}
+    return false;
   }
+  function autoFire(){
+    if (modal.classList.contains('is-open')) return;
+    // data-intro is set only while the welcome intro holds the screen
+    // (the #welcomeIntro node itself sits hidden in the DOM for
+    // everyone, so test the attribute, not the element).
+    if (document.documentElement.hasAttribute('data-intro')) { deferred = true; setTimeout(autoFire, 2500); return; }
+    // Came out of the intro (either we caught it on screen, or it
+    // finished before this first check — __introJustRan): give the
+    // section they just landed on a breath before the prompt takes
+    // the screen again.
+    if (deferred || window.__introJustRan) { deferred = false; window.__introJustRan = false; setTimeout(autoFire, 8000); return; }
+    if (surfaceBusy()) { setTimeout(autoFire, 6000); return; }
+    open();
+  }
+  var deferred = false;
+  if (autoOpenAllowed) setTimeout(autoFire, 5000);
 })();
 </script>
 
