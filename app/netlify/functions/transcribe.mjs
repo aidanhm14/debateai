@@ -196,10 +196,15 @@ export default async (request) => {
 
     if (!upstream.ok) {
       const errText = await upstream.text().catch(() => '');
-      console.warn('[transcribe] openai non-2xx', upstream.status, errText.slice(0, 200));
-      return new Response(JSON.stringify({ error: 'Could not transcribe that segment.' }), {
-        status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
-      });
+      console.warn('[transcribe] openai non-2xx', upstream.status, MODEL, errText.slice(0, 400));
+      // Surface the upstream status (never the body) so a failure in
+      // production is diagnosable without shipping a debug build. A bare
+      // 502 told us nothing when this first went live.
+      return new Response(JSON.stringify({
+        error: 'Could not transcribe that segment.',
+        upstreamStatus: upstream.status,
+        model: MODEL,
+      }), { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
     const text = (await upstream.text() || '').trim();
