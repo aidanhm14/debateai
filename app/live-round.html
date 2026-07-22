@@ -3200,6 +3200,12 @@ body.lr-pip .lr-pip-notice{display:block}
     var prepEl = $('prepSel'); state.prepMin = prepEl ? (parseInt(prepEl.value, 10) || 0) : 0;
     state.speechIdx = 0;
     state.log = [];
+    // Round clock. Every speech entry stores its start as an offset from
+    // this, so a spectator signal timestamped at t=214s can be resolved to
+    // the speech that was actually running at 214s. Without it the log has
+    // ordering and duration but no timeline, and nothing that happens
+    // during a round can be aligned to what was being said.
+    state.roundStartedAt = Date.now();
     state.phase = 'round';
     try { pmOpen(); pmInitSpectator(); } catch(e){}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
@@ -3344,6 +3350,11 @@ body.lr-pip .lr-pip-notice{display:block}
       speakerName: speakerName,
       text: opts.skipped ? '(skipped)' : ($('speechText').value.trim() || '(no transcript)'),
       durationSec: Math.round(elapsed),
+      // Round-relative start, in ms. Derived from the round clock rather
+      // than summed durations so prep, pauses, and setup gaps don't drift
+      // the timeline. End is atMs + durationSec*1000. Purely additive;
+      // every existing consumer reads named fields, not the whole shape.
+      atMs: state.roundStartedAt ? Math.max(0, (Date.now() - state.roundStartedAt) - Math.round(elapsed * 1000)) : null,
       overran: elapsed > sp.time + 5,
       skipped: !!opts.skipped,
     };
