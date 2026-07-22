@@ -7688,6 +7688,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      remainder shows through on the right, and they meet at the mark. */
   .fs-scale-track{position:relative;flex:1;height:8px;border-radius:999px;overflow:hidden;
     background:rgba(59,130,246,.4)}
+  /* Quarter marks, so the bar reads as a scale rather than a plain fill and
+     speaks the same axis language as the chart underneath it. */
+  .fs-scale-track::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 1px),rgba(255,255,255,.5) calc(25% - 1px) 25%)}
   .fs-scale-fill{position:absolute;left:0;top:0;bottom:0;background:rgba(220,38,38,.75);
     transition:width .5s cubic-bezier(.2,.8,.2,1)}
   .fs-scale-mark{position:absolute;top:50%;width:3px;height:16px;border-radius:2px;background:#1a1a1f;
@@ -7715,8 +7719,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     transform:translate(50%,-50%);box-shadow:0 0 0 3px rgba(220,38,38,.15),0 0 9px rgba(220,38,38,.5);
     transition:top .5s cubic-bezier(.2,.8,.2,1)}
   .fs-rail{position:relative;flex:none;width:34px}
-  .fs-board .fs-ax{position:absolute;right:0;top:0;font-size:.5rem;font-weight:700;
-    font-variant-numeric:tabular-nums;letter-spacing:.03em;color:rgba(26,26,31,.34)}
+  .fs-board .fs-ax{position:absolute;left:0;top:0;font-size:.5rem;font-weight:700;
+    font-variant-numeric:tabular-nums;letter-spacing:.03em;color:rgba(26,26,31,.38);
+    /* sits over the area fill, so give the glyphs a paper halo to stay legible */
+    text-shadow:0 0 3px #fdf3f1,0 0 2px #fdf3f1;pointer-events:none}
   .fs-board .fs-ax--lo{top:67.5%}
   .fs-board .fs-chart-flag{position:absolute;right:0;padding:2px 4px;border-radius:4px;
     background:#dc2626;color:#fff;font-size:.58rem;font-weight:800;letter-spacing:0;
@@ -7842,16 +7848,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <g id="fsVol"></g>
             </svg>
             <span class="fs-chart-dot" id="fsDot" style="top:40%"></span>
+            <span class="fs-ax" id="fsAxHi">70%</span>
+            <span class="fs-ax fs-ax--lo" id="fsAxLo">40%</span>
           </div>
           <div class="fs-rail" aria-hidden="true">
-            <span class="fs-ax" id="fsAxHi">70%</span>
             <span class="fs-chart-flag" id="fsFlag" style="top:40%">50%</span>
-            <span class="fs-ax fs-ax--lo" id="fsAxLo">40%</span>
           </div>
         </div>
         <div class="fs-mkt" aria-hidden="true">
           <span class="fs-mkt-cell"><b id="fsViewers">0</b>watching</span>
-          <span class="fs-mkt-cell"><b id="fsVolume">$0</b>in play</span>
+          <span class="fs-mkt-cell"><b id="fsVolume">0</b>credits in play</span>
           <span class="fs-mkt-cell fs-mkt-cell--chance"><b id="fsChance">50%</b><span id="fsChanceNm">to win</span></span>
         </div>
       </div>
@@ -7923,7 +7929,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   function paintMkt(){
     if (el.fsViewers) el.fsViewers.textContent = viewers;
-    if (el.fsVolume) el.fsVolume.textContent = '$' + vol;
+    if (el.fsVolume) el.fsVolume.textContent = vol;
     var r = ROUNDS[idx], p = Math.round(price);
     var leadNm = p >= 50 ? r.a.nm : r.b.nm, leadP = p >= 50 ? p : 100 - p;
     if (el.fsChance) el.fsChance.textContent = leadP + '%';
