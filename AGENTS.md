@@ -94,7 +94,18 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 bash scripts/install-hooks.sh
 ```
 
-The canonical hook lives at `scripts/hooks/pre-commit` so it travels
+There are two hooks now. `scripts/hooks/pre-commit` bumps the cache;
+`scripts/hooks/pre-push` refuses to push client changes that are still
+sitting on the previous `CACHE_NAME`. That second one exists because
+the bump is reliably lost to rebases: when `origin/main` has already
+bumped to the same version, the rebase sees an identical hunk and drops
+`sw.js` from your commit, so the push ships new HTML under a cache name
+users already hold. It happened nine times on 2026-07-22 alone and was
+caught by hand every time. The pre-push hook also blocks a 0-byte
+`sw.js`, which reached production twice. Both are installed by
+`scripts/install-hooks.sh`; re-run it once to pick up the new hook.
+
+The canonical hooks live at `scripts/hooks/` so they travel
 with the repo. The installer copies it into `.git/hooks/`. The hook
 also runs `scripts/precompile-inline-babel.mjs` against any staged
 HTML files containing `<script data-precompile="es5">` blocks before

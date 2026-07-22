@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Pre-push guard: never ship client changes on a stale service-worker cache.
+#
+# WHY THIS EXISTS
+# The pre-commit hook bumps CACHE_NAME in both sw.js files whenever a
+# client file is staged. That is correct at commit time and useless
+# after a rebase: when origin/main has independently bumped to the same
+# version, the rebase sees an identical hunk and silently drops sw.js
+# from the commit. The push then ships new HTML under a CACHE_NAME users
+# already hold, and they keep the stale bundle until their cache expires.
+#
+# This happened NINE times in a single day (2026-07-22) across six
+# commits, every time caught by hand. Commit-time hooks cannot catch it
+# because the damage happens during the replay, so the check belongs
+# here, at the last point before the bytes leave the machine.
+#
+# Also guards the 0-byte sw.js failure, which shipped to production
+# twice: a read-then-write in the same expression truncates the file
+# before reading it.
+set -euo pipefail
+
+CLIENT_RE='^(app/)?[^/]*\.(html|js|css)$|^app/(js|css)/|^(js|css)/'
+FN_RE='netlify/functions/'
+fail=0
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+
+  base="$remote_sha"
+  if [ "$base" = "0000000000000000000000000000000000000000" ] || \
+     ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+    base="$(git rev-parse origin/main 2>/dev/null || echo '')"
+    [ -z "$base" ] && continue
+  fi
+
+  changed="$(git diff --name-only "$base" "$local_sha" || true)"
+  [ -z "$changed" ] && continue
+
+  client="$(printf '%s\n' "$changed" | grep -E "$CLIENT_RE" | grep -v "$FN_RE" || true)"
+  [ -z "$client" ] && continue
+
+  old="$(git show "$base:app/sw.js" 2>/dev/null | grep -m1 '^const CACHE_NAME' || true)"
+  new="$(git show "$local_sha:app/sw.js" 2>/dev/null | grep -m1 '^const CACHE_NAME' || true)"
+
+  if [ -n "$old" ] && [ "$old" = "$new" ]; then
+    echo "" >&2
+    echo "BLOCKED: client files changed but CACHE_NAME did not." >&2
+    echo "  $new" >&2
+    echo "" >&2
+    echo "  Users would keep the stale bundle. This is the rebase-dedup" >&2
+    echo "  trap: the bump was in your commit until a rebase dropped it." >&2
+    echo "" >&2
+    echo "  Fix, then amend:" >&2
+    echo "    perl -pi -e 's/debateos-v(\\d+)/\"debateos-v\".(\$1+1)/e' app/sw.js sw.js" >&2
+    echo "    git add app/sw.js sw.js && git commit --amend --no-edit" >&2
+    echo "" >&2
+    printf '%s\n' "$client" | sed 's/^/    changed: /' >&2
+    echo "" >&2
+    fail=1
+  fi
+
+  for f in app/sw.js sw.js; do
+    size="$(git cat-file -s "$local_sha:$f" 2>/dev/null || echo 0)"
+    if [ "$size" -lt 200 ]; then
+      echo "BLOCKED: $f is ${size} bytes at the commit being pushed." >&2
+      echo "  A truncated service worker breaks caching for every visitor." >&2
+      fail=1
+    fi
+  done
+done
+
+[ "$fail" -eq 0 ] || { echo "Push aborted. Override only if you are certain: git push --no-verify" >&2; exit 1; }
