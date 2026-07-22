@@ -12056,15 +12056,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        assessment actually runs in, named once the spread has made its
        case. A real button, not an underlined link, because it is the
        chapter's exit. */
+    /* Orb and copy share a row: the orb IS Debate It's face, so it sits
+       beside what it opens rather than floating above it. Stacks back to
+       a centred column under 760px. */
     .credential-run-tail{
       width:100%;max-width:var(--mid-w);margin:clamp(22px,2.6vw,34px) auto 0;
       padding:0 var(--mid-gutter);
-      display:flex;flex-direction:column;align-items:center;gap:14px;
-      text-align:center;
+      display:flex;flex-direction:row;align-items:center;gap:clamp(22px,3.4vw,48px);
+      text-align:left;
     }
+    .rt-copy{display:flex;flex-direction:column;align-items:flex-start;gap:14px;min-width:0}
     .credential-run-tail p{
-      margin:0;max-width:60ch;
+      margin:0;max-width:56ch;
       font-size:.95rem;line-height:1.6;color:var(--text-dim);
+    }
+    @media(max-width:760px){
+      .credential-run-tail{flex-direction:column;align-items:center;text-align:center;gap:16px}
+      .rt-copy{align-items:center}
+      .credential-run-tail p{max-width:60ch}
     }
     .credential-run-tail b{color:var(--text);font-weight:800}
     /* The orb, so the room being named here shows its own face. Same
@@ -12072,10 +12081,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        bloom) built in pure CSS — no canvas, no second script on the
        page. Sits above the copy as the chapter's exit marker. */
     .run-tail-orb{
-      position:relative;width:104px;height:104px;flex:none;
+      position:relative;width:clamp(132px,13vw,164px);aspect-ratio:1;flex:none;
       display:flex;align-items:center;justify-content:center;
-      margin-bottom:2px;
+      text-decoration:none;transition:transform .2s;
     }
+    .run-tail-orb:hover{transform:translateY(-3px)}
     .run-tail-orb i{position:absolute;border-radius:50%;pointer-events:none}
     .run-tail-orb .rto-glow{
       inset:-26%;
@@ -12099,10 +12109,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       box-shadow:0 8px 22px rgba(239,68,68,.3), inset 0 -6px 14px rgba(120,10,10,.45);
       animation:rtoBreathe 4.2s ease-in-out infinite;
     }
+    /* Satellites: the orbiting dots that made this read as a live room
+       rather than a static bullet. Radius is set in em so it tracks the
+       clamped orb size instead of needing a breakpoint per width. */
+    .run-tail-orb .rto-sat{
+      width:7px;height:7px;top:50%;left:50%;margin:-3.5px 0 0 -3.5px;
+      background:#ef4444;box-shadow:0 0 9px rgba(239,68,68,.9);transform-origin:3.5px 3.5px;
+    }
+    .run-tail-orb .rto-sat.s1{animation:rtoSat1 7s linear infinite}
+    .run-tail-orb .rto-sat.s2{animation:rtoSat2 11s linear infinite;background:#fff;box-shadow:0 0 9px rgba(239,68,68,.8)}
     @keyframes rtoBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
     @keyframes rtoPulse{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(1.42);opacity:0}}
+    @keyframes rtoSat1{from{transform:rotate(0) translateX(4.6em) rotate(0)}to{transform:rotate(360deg) translateX(4.6em) rotate(-360deg)}}
+    @keyframes rtoSat2{from{transform:rotate(140deg) translateX(3.7em) rotate(-140deg)}to{transform:rotate(500deg) translateX(3.7em) rotate(-500deg)}}
     @media(prefers-reduced-motion:reduce){
-      .run-tail-orb .rto-glow,.run-tail-orb .rto-core,.run-tail-orb .rto-pulse{animation:none}
+      .run-tail-orb .rto-glow,.run-tail-orb .rto-core,.run-tail-orb .rto-pulse,.run-tail-orb .rto-sat{animation:none}
       .run-tail-orb .rto-pulse{opacity:.3}
     }
     @media(max-width:640px){
@@ -12221,14 +12242,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        assessment actually runs in, which the card could not do from
        inside its own whole-card anchor. -->
   <div class="credential-run-tail">
-    <span class="run-tail-orb" aria-hidden="true">
+    <a class="run-tail-orb" href="/debate-it" data-cta="run-tail-orb" aria-label="Open Debate It">
       <i class="rto-glow"></i>
       <i class="rto-pulse"></i>
       <i class="rto-ring"></i>
       <i class="rto-core"></i>
-    </span>
-    <p><b>Debate It is the most advanced room on the site, and the one that rewards patience.</b> Full format, full clock, an opponent that argues back, and a written ballot at the end. Most certificates come out of a round in there. Live rounds against people count too.</p>
-    <a class="credential-btn" href="/debate-it" data-cta="credential-debate-it">Open Debate It <span aria-hidden="true">&rarr;</span></a>
+      <i class="rto-sat s1"></i>
+      <i class="rto-sat s2"></i>
+    </a>
+    <div class="rt-copy">
+      <p><b>Debate It is the most advanced room on the site, and the one that rewards patience.</b> Full format, full clock, an opponent that argues back, and a written ballot at the end. Most certificates come out of a round in there. Live rounds against people count too.</p>
+      <a class="credential-btn" href="/debate-it" data-cta="credential-debate-it">Open Debate It <span aria-hidden="true">&rarr;</span></a>
+    </div>
   </div>
 </section>
 <script>
@@ -12360,62 +12385,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       .cb-day{flex:1 1 0}
       .cb-day--wed{flex:1 1 100%}
     }
-    /* 2026-07-22: the live orb from /spar, brought onto the landing so the
-       community band advertises the thing itself. Sphere = a room waiting
-       for you: breathing glow, rotating ring with a leading dot, three
-       satellites on their own orbits. Links to /spar. */
-    /* Orb and week card share a row on desktop: the band's centre column
-       left the orb floating in dead space either side. Stacks under
-       880px. The cap chip is absolutely positioned and hangs 13px below
-       the orb box, so the row carries bottom padding to clear it. */
-    .cb-split{display:flex;align-items:center;gap:clamp(22px,4vw,52px);margin:18px 0 14px;padding-bottom:22px}
-    .cb-split .cb-week{flex:1;min-width:0;margin:0}
-    .cb-split .cb-orb{flex:none;margin:0}
-    @media(max-width:880px){
-      .cb-split{flex-direction:column;gap:0;padding-bottom:0;margin:12px 0 14px}
-      .cb-split .cb-orb{margin:0 auto 46px}
-      .cb-split .cb-week{width:100%}
-    }
-    .cb-orb{position:relative;width:min(238px,58vw);aspect-ratio:1;display:block;
-      text-decoration:none;transition:transform .2s}
-    .cb-orb:hover{transform:translateY(-3px)}
-    .cb-orb i{position:absolute;border-radius:50%;display:block}
-    .cb-orb .glow{inset:-18%;background:radial-gradient(circle at 50% 50%,rgba(239,68,68,.42) 0%,transparent 62%);
-      filter:blur(18px);animation:cbOrbBreathe 3.4s ease-in-out infinite}
-    .cb-orb .ring{inset:0;border:1.5px solid rgba(239,68,68,.75);animation:cbOrbSpin 9s linear infinite}
-    .cb-orb .ring::before{content:'';position:absolute;top:-4px;left:50%;width:7px;height:7px;border-radius:50%;
-      background:#fff;box-shadow:0 0 10px #ef4444,0 0 22px #ef4444;transform:translateX(-50%)}
-    .cb-orb .pulse{inset:6%;border:1px solid rgba(239,68,68,.5);animation:cbOrbPulse 3.4s ease-out infinite}
-    .cb-orb .pulse.two{animation-delay:1.7s}
-    .cb-orb .core{inset:19%;
-      background:radial-gradient(circle at 38% 32%,rgba(255,255,255,.55) 0%,rgba(239,68,68,.92) 34%,#8f1414 78%,#4a0a0a 100%);
-      box-shadow:inset -14px -18px 44px rgba(0,0,0,.5),0 18px 44px rgba(239,68,68,.34)}
-    .cb-orb .sat{width:9px;height:9px;top:50%;left:50%;margin:-4.5px 0 0 -4.5px;background:#ef4444;
-      box-shadow:0 0 10px rgba(239,68,68,.9);transform-origin:4.5px 4.5px}
-    .cb-orb .sat.s1{animation:cbSat1 7s linear infinite}
-    .cb-orb .sat.s2{animation:cbSat2 11s linear infinite;background:#fff;box-shadow:0 0 10px rgba(239,68,68,.8)}
-    .cb-orb .sat.s3{animation:cbSat3 15s linear infinite;opacity:.75}
-    .cb-orb .cap{position:absolute;left:50%;bottom:-13px;transform:translateX(-50%);white-space:nowrap;
-      font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#dc2626;
-      background:var(--bg,#0b0b0d);padding:4px 12px;border-radius:999px;border:1px solid rgba(239,68,68,.4)}
-    [data-theme="light"] .cb-orb .cap{background:#fff;box-shadow:0 6px 18px rgba(29,25,21,.08)}
-    @keyframes cbOrbBreathe{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.07);opacity:.95}}
-    @keyframes cbOrbSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-    @keyframes cbOrbPulse{0%{transform:scale(.82);opacity:.75}100%{transform:scale(1.24);opacity:0}}
-    @keyframes cbSat1{from{transform:rotate(0) translateX(104px) rotate(0)}to{transform:rotate(360deg) translateX(104px) rotate(-360deg)}}
-    @keyframes cbSat2{from{transform:rotate(120deg) translateX(84px) rotate(-120deg)}to{transform:rotate(480deg) translateX(84px) rotate(-480deg)}}
-    @keyframes cbSat3{from{transform:rotate(240deg) translateX(118px) rotate(-240deg)}to{transform:rotate(600deg) translateX(118px) rotate(-600deg)}}
-    @media(prefers-reduced-motion:reduce){
-      .cb-orb .glow,.cb-orb .ring,.cb-orb .pulse,.cb-orb .sat{animation:none}
-      .cb-orb .pulse{opacity:.4}
-    }
-    @media(max-width:560px){
-      .cb-orb{width:min(180px,52vw)}
-      .cb-orb .sat.s1{animation-name:cbSat1s}.cb-orb .sat.s2{animation-name:cbSat2s}.cb-orb .sat.s3{animation-name:cbSat3s}
-    }
-    @keyframes cbSat1s{from{transform:rotate(0) translateX(80px) rotate(0)}to{transform:rotate(360deg) translateX(80px) rotate(-360deg)}}
-    @keyframes cbSat2s{from{transform:rotate(120deg) translateX(64px) rotate(-120deg)}to{transform:rotate(480deg) translateX(64px) rotate(-480deg)}}
-    @keyframes cbSat3s{from{transform:rotate(240deg) translateX(91px) rotate(-240deg)}to{transform:rotate(600deg) translateX(91px) rotate(-600deg)}}
 
     /* quiet destination links replacing the old three cards */
     .cb-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin:0 0 20px}
@@ -12446,18 +12415,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <span class="cb-pill" id="cbNext"></span>
       <a class="cb-pill" id="cbChat" href="/community#live" data-cb="chatpill"></a>
     </div>
-    <div class="cb-split">
-    <a class="cb-orb" href="/spar" data-cb="orb" aria-label="Open the matchmaking room and find an opponent">
-      <i class="glow"></i>
-      <i class="pulse"></i>
-      <i class="pulse two"></i>
-      <i class="ring"></i>
-      <i class="core"></i>
-      <i class="sat s1"></i>
-      <i class="sat s2"></i>
-      <i class="sat s3"></i>
-      <span class="cap">Find an opponent</span>
-    </a>
     <div class="cb-week" aria-label="The Debatable week">
       <div class="cb-days" id="cbDays">
         <div class="cb-day" data-day="1"><b>Mon</b></div>
@@ -12478,12 +12435,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span>Async rounds run <b>all week</b> · record now, they answer later →</span>
         <span class="lane" aria-hidden="true"></span>
       </a>
-    </div>
-    </div>
-    <div class="cb-links">
-      <a href="/community" data-cb="schedule">See the schedule →</a>
-      <a href="/community" data-cb="live">Step into the live room →</a>
-      <a href="/community" data-cb="cases">Cases and threads →</a>
     </div>
     <div class="cb-cta-row">
       <a class="cb-cta" href="/community" data-cb="cta">Join the community</a>
@@ -13916,16 +13867,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     [data-theme="light"] .rb-row:hover{background:#fffaf8;box-shadow:0 6px 16px rgba(29,25,21,.07)}
     .rb-rk{width:32px;flex:none;text-align:center;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:700;font-size:1.08rem;color:var(--text-dim,rgba(255,255,255,.45));font-variant-numeric:tabular-nums}
     [data-theme="light"] .rb-rk{color:rgba(0,0,0,.4)}
-    /* 2026-07-22: 32 → 46px. At 32 the faces were unreadable thumbnails
-       next to a 1.05rem name; the board is meant to show real people. */
-    .rb-ava{width:46px;height:46px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);font-size:.8rem;font-weight:800;letter-spacing:.04em;color:var(--text,#f4f4f2)}
+    /* 2026-07-22: 32 → 46 → 72px. Even at 46 the faces read as thumbnails;
+       the board is meant to show real people, so the photo leads the row. */
+    .rb-ava{width:72px;height:72px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);font-size:.8rem;font-weight:800;letter-spacing:.04em;color:var(--text,#f4f4f2)}
     [data-theme="light"] .rb-ava{border-color:rgba(29,25,21,.10);background:#f7f3ec;color:#1a1a1f}
     /* Photos (sample board) and generated marble avatars (real rows) both
        fill the 32px disc; without this the raw <img> rendered at its
        intrinsic size and blew out the row. */
     .rb-ava img,.rb-ava svg{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%}
     .rb-who{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
-    .rb-nm{font-weight:700;font-size:.92rem;color:var(--text,#f4f4f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rb-nm{font-weight:700;font-size:1.04rem;color:var(--text,#f4f4f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     [data-theme="light"] .rb-nm{color:#1a1a1f}
     .rb-chip{display:inline-block;width:max-content;max-width:100%;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.13);font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     [data-theme="light"] .rb-chip{border-color:rgba(29,25,21,.09);background:rgba(29,25,21,.035);color:rgba(29,25,21,.55)}
@@ -13969,7 +13920,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .rb-row--top{padding:13px 12px;border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.06)}
     [data-theme="light"] .rb-row--top{border-color:rgba(239,68,68,.28);background:linear-gradient(180deg,#fff6f4,#fdece9);box-shadow:0 8px 22px rgba(239,68,68,.10)}
     .rb-row--top .rb-rk{width:32px;height:32px;line-height:29px;margin:0 auto;border:1.5px solid #ef4444;border-radius:50%;color:#ef4444;font-size:1.2rem;box-shadow:0 0 0 3px rgba(239,68,68,.14)}
-    .rb-row--top .rb-ava{width:54px;height:54px;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.1);color:#ef4444}
+    .rb-row--top .rb-ava{width:84px;height:84px;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.1);color:#ef4444}
     .rb-row--top .rb-nm{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.12rem}
     .rb-row--top .rb-pts b{font-size:1.18rem;color:#ef4444}
     /* Ghost row: the open seat */
