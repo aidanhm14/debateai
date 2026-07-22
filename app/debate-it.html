@@ -312,33 +312,108 @@ body{
 }
 
 /* ── Format finder (guided narrowing wizard) ───────
-   One question per screen, /floor get-to-know-you style. Opt-in from
-   the simple hero, the customize flow, the format modal, and the
-   advanced format grid. */
-.fmtq-overlay{position:fixed;inset:0;z-index:4200;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;background:radial-gradient(820px 520px at 50% 0%, rgba(239,68,68,.14), transparent 60%), rgba(10,10,12,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-[data-lighting="light"] .fmtq-overlay{background:radial-gradient(820px 520px at 50% 0%, rgba(239,68,68,.09), transparent 60%), rgba(250,250,247,.95)}
-.fmtq{max-width:600px;width:100%;text-align:center;margin:auto}
-.fmtq-step{animation:fmtqIn .38s cubic-bezier(.2,.7,.3,1) both}
-@keyframes fmtqIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-.fmtq-prog{display:flex;gap:6px;justify-content:center;margin-bottom:26px}
-.fmtq-prog i{width:30px;height:4px;border-radius:3px;background:var(--c-border2);transition:.3s}
-.fmtq-prog i.on{background:#ef4444}
+   One question per screen. Rebuilt 2026-07-22 as a game-style select
+   screen: staggered card entrances, a keyboard cursor, a lock-in beat
+   on pick, and a character-card reveal (emblem burst + stat bars).
+   Opt-in from the simple hero, the customize flow, the format modal,
+   and the advanced format grid. All motion honors reduced-motion. */
+.fmtq-overlay{position:fixed;inset:0;z-index:4200;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;background:radial-gradient(820px 520px at 50% 0%, rgba(239,68,68,.16), transparent 60%), rgba(10,10,12,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:fmtqOverlayIn .28s ease both}
+@keyframes fmtqOverlayIn{from{opacity:0}to{opacity:1}}
+[data-lighting="light"] .fmtq-overlay{background:radial-gradient(820px 520px at 50% 0%, rgba(239,68,68,.10), transparent 60%), rgba(250,250,247,.96)}
+/* Arena floor: a faint dot grid fading out from center, plus a very
+   slow spotlight sweep. Depth without noise; both sit under the card. */
+.fmtq-overlay::before{content:'';position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(rgba(239,68,68,.16) 1px, transparent 1.4px);background-size:26px 26px;opacity:.3;-webkit-mask-image:radial-gradient(62% 56% at 50% 44%, #000, transparent 78%);mask-image:radial-gradient(62% 56% at 50% 44%, #000, transparent 78%)}
+[data-lighting="light"] .fmtq-overlay::before{opacity:.5}
+.fmtq-overlay::after{content:'';position:fixed;inset:-22%;pointer-events:none;background:conic-gradient(from 0deg at 50% 50%, transparent 0 82deg, rgba(239,68,68,.055) 96deg, transparent 110deg, transparent 248deg, rgba(239,68,68,.04) 262deg, transparent 276deg);animation:fmtqSweep 30s linear infinite}
+[data-lighting="light"] .fmtq-overlay::after{background:conic-gradient(from 0deg at 50% 50%, transparent 0 82deg, rgba(220,38,38,.045) 96deg, transparent 110deg, transparent 248deg, rgba(220,38,38,.035) 262deg, transparent 276deg)}
+@keyframes fmtqSweep{to{transform:rotate(360deg)}}
+.fmtq{position:relative;z-index:1;max-width:620px;width:100%;text-align:center;margin:auto}
+.fmtq-step{animation:fmtqIn .42s cubic-bezier(.18,.85,.28,1.06) both}
+@keyframes fmtqIn{from{opacity:0;transform:translateX(44px) scale(.985)}to{opacity:1;transform:none}}
+.fmtq-step.back{animation-name:fmtqInBack}
+@keyframes fmtqInBack{from{opacity:0;transform:translateX(-44px) scale(.985)}to{opacity:1;transform:none}}
+/* Progress: connected level nodes instead of dashes. The current node
+   carries a soft pulse so you always know how deep you are. */
+.fmtq-prog{display:flex;justify-content:center;align-items:center;margin-bottom:28px}
+.fmtq-prog i{position:relative;width:11px;height:11px;border-radius:50%;background:var(--c-surface3);border:2px solid var(--c-border2);transition:background .35s,border-color .35s,box-shadow .35s;flex:none}
+.fmtq-prog i + i{margin-left:34px}
+.fmtq-prog i + i::before{content:'';position:absolute;right:100%;margin-right:3px;top:50%;width:29px;height:2px;transform:translateY(-50%);background:var(--c-border2);border-radius:2px;transition:background .35s}
+.fmtq-prog i.on{background:#ef4444;border-color:#ef4444;box-shadow:0 0 12px rgba(239,68,68,.5)}
+.fmtq-prog i.on::before{background:#ef4444}
+.fmtq-prog i.now{animation:fmtqNode 1.7s ease-in-out infinite}
+@keyframes fmtqNode{0%,100%{box-shadow:0 0 5px rgba(239,68,68,.35)}50%{box-shadow:0 0 16px rgba(239,68,68,.85)}}
 .fmtq-kick{font-size:.64rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#ef4444;margin-bottom:10px}
 .fmtq-q{font-weight:800;font-size:clamp(1.45rem,4vw,2.1rem);line-height:1.12;letter-spacing:-.02em;color:var(--c-bright);margin:0 0 24px}
-.fmtq-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;text-align:left}
-.fmtq-opt{appearance:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--c-border2);background:var(--c-surface);color:var(--c-text);transition:transform .14s,border-color .14s,background .14s;text-align:left}
-.fmtq-opt:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.06)}
+/* Option cards: game select tiles. Staggered flight in (delay set
+   inline per card), lift + edge glow + icon pop + sheen sweep on
+   hover, and a shared .kb class for the keyboard cursor. */
+.fmtq-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;text-align:left;perspective:1100px}
+.fmtq-opt{position:relative;appearance:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:14px;padding:16px 44px 16px 18px;border-radius:16px;border:1px solid var(--c-border2);background:var(--c-surface);color:var(--c-text);text-align:left;overflow:hidden;animation:fmtqCardIn .5s cubic-bezier(.16,.9,.26,1.1) both;transition:transform .16s cubic-bezier(.2,.7,.3,1.35),border-color .16s,background .16s,box-shadow .16s}
+@keyframes fmtqCardIn{from{opacity:0;transform:translateY(26px) rotateX(10deg) scale(.94)}60%{opacity:1}to{opacity:1;transform:none}}
+.fmtq-opt::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#ef4444,#dc2626);transform:scaleY(0);transition:transform .18s;border-radius:0 2px 2px 0}
+.fmtq-opt:hover,.fmtq-opt.kb{transform:translateY(-3px) scale(1.015);border-color:rgba(239,68,68,.6);background:rgba(239,68,68,.05);box-shadow:0 14px 34px rgba(0,0,0,.30), 0 0 0 1px rgba(239,68,68,.25), 0 0 26px rgba(239,68,68,.13)}
+[data-lighting="light"] .fmtq-opt:hover,[data-lighting="light"] .fmtq-opt.kb{box-shadow:0 12px 28px rgba(0,0,0,.10), 0 0 0 1px rgba(239,68,68,.28), 0 0 22px rgba(239,68,68,.10)}
+.fmtq-opt:hover::before,.fmtq-opt.kb::before{transform:scaleY(1)}
+.fmtq-opt::after{content:'';position:absolute;top:0;bottom:0;left:-70%;width:52%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.09),transparent);transform:skewX(-18deg);transition:left .5s ease;pointer-events:none}
+[data-lighting="light"] .fmtq-opt::after{background:linear-gradient(105deg,transparent,rgba(255,255,255,.6),transparent)}
+.fmtq-opt:hover::after,.fmtq-opt.kb::after{left:135%}
 .fmtq-opt:focus-visible{outline:2px solid #ef4444;outline-offset:2px}
-.fmtq-opt .ic{font-size:1.3rem;line-height:1;flex-shrink:0}
-.fmtq-opt .t{display:block;font-size:.92rem;font-weight:700;color:var(--c-bright);line-height:1.25}
+.fmtq-opt .ic{width:46px;height:46px;flex:none;display:flex;align-items:center;justify-content:center;font-size:1.4rem;line-height:1;border-radius:13px;background:var(--c-surface3);border:1px solid var(--c-border2);transition:transform .2s cubic-bezier(.2,.7,.3,1.5),background .2s,border-color .2s}
+.fmtq-opt:hover .ic,.fmtq-opt.kb .ic{transform:scale(1.14) rotate(-4deg);background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.4)}
+.fmtq-opt .num{position:absolute;top:9px;right:12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;color:var(--c-dim);opacity:.5;transition:color .2s,opacity .2s}
+.fmtq-opt:hover .num,.fmtq-opt.kb .num{color:#ef4444;opacity:1}
+.fmtq-opt .tx{min-width:0}
+.fmtq-opt .t{display:block;font-size:.94rem;font-weight:700;color:var(--c-bright);line-height:1.25}
 .fmtq-opt .s{display:block;font-size:.72rem;color:var(--c-dim);line-height:1.35;margin-top:2px}
+/* Lock-in beat: the picked card pops and holds, everything else
+   drops back. ~300ms before the next screen slides in. */
+.fmtq-opts.locked .fmtq-opt{animation:none;pointer-events:none}
+.fmtq-opt.picked{animation:fmtqPicked .32s cubic-bezier(.2,.7,.3,1.2) both;border-color:#ef4444;background:rgba(239,68,68,.10);box-shadow:0 0 0 1px rgba(239,68,68,.5), 0 0 34px rgba(239,68,68,.22);z-index:2}
+@keyframes fmtqPicked{0%{transform:scale(1)}45%{transform:scale(1.05)}100%{transform:scale(1.015)}}
+.fmtq-opt.picked::before{transform:scaleY(1)}
+.fmtq-opt.picked .ic{transform:scale(1.18);background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.55)}
+.fmtq-opts.locked .fmtq-opt:not(.picked){opacity:.22;transform:scale(.965);filter:saturate(.35);transition:opacity .26s,transform .26s,filter .26s}
 .fmtq-foot{margin-top:24px;display:flex;gap:20px;justify-content:center;align-items:center}
 .fmtq-link{background:none;border:0;color:var(--c-dim);font-weight:700;font-size:.8rem;cursor:pointer;font-family:inherit}
 .fmtq-link:hover{color:var(--c-text)}
-.fmtq-rev-emoji{font-size:2.5rem;line-height:1}
-.fmtq-rev-name{font-weight:800;font-size:clamp(1.8rem,5vw,2.5rem);letter-spacing:-.02em;color:var(--c-bright);margin:10px 0 8px}
-.fmtq-rev-desc{font-size:.95rem;color:var(--c-text);line-height:1.5;max-width:44ch;margin:0 auto 8px}
-.fmtq-rev-meta{font-size:.72rem;color:var(--c-dim);letter-spacing:.05em;text-transform:uppercase;font-weight:700;margin-bottom:24px}
+/* Keycap hints. Desktop pointer devices only; touch never sees them. */
+.fmtq-kbd{display:none;gap:16px;justify-content:center;margin-top:16px;font-size:.68rem;color:var(--c-dim);letter-spacing:.04em}
+.fmtq-kbd b{font-weight:800;border:1px solid var(--c-border2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:.62rem;background:var(--c-surface3);color:var(--c-text);margin-right:5px}
+@media (hover:hover) and (min-width:760px){.fmtq-kbd{display:flex}}
+/* ── Reveal: the character card ───────
+   Flash wipe, ray fan, double ring burst, emblem drop, name stamp,
+   then chips + stat bars cascade in. Delays are set inline. */
+.fmtq-reveal{position:relative}
+.fmtq-flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(58% 58% at 50% 42%, rgba(239,68,68,.30), transparent 70%);animation:fmtqFlash .6s ease-out both}
+@keyframes fmtqFlash{from{opacity:1}to{opacity:0}}
+.fmtq-emblem{position:relative;width:118px;height:118px;margin:2px auto 8px;display:flex;align-items:center;justify-content:center}
+.fmtq-rays{position:absolute;inset:-48px;border-radius:50%;background:repeating-conic-gradient(from 0deg, rgba(239,68,68,.13) 0 9deg, transparent 9deg 24deg);-webkit-mask-image:radial-gradient(circle, #000 28%, transparent 66%);mask-image:radial-gradient(circle, #000 28%, transparent 66%);animation:fmtqSweep 32s linear infinite;pointer-events:none}
+.fmtq-burst{position:absolute;inset:6px;border-radius:50%;border:2px solid rgba(239,68,68,.55);animation:fmtqBurst .9s cubic-bezier(.2,.7,.3,1) both;pointer-events:none}
+.fmtq-burst.b2{animation-delay:.15s;border-color:rgba(239,68,68,.3)}
+@keyframes fmtqBurst{from{transform:scale(.5);opacity:1}to{transform:scale(2);opacity:0}}
+.fmtq-medal{width:104px;height:104px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.9rem;line-height:1;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.16), transparent 44%), linear-gradient(160deg, rgba(239,68,68,.16), rgba(220,38,38,.04));border:2px solid rgba(239,68,68,.5);box-shadow:0 0 44px rgba(239,68,68,.22), inset 0 0 22px rgba(239,68,68,.10);animation:fmtqMedalIn .6s cubic-bezier(.16,1.05,.3,1.2) both}
+@keyframes fmtqMedalIn{from{transform:scale(.3) rotate(-14deg);opacity:0}55%{opacity:1}to{transform:none;opacity:1}}
+.fmtq-rev-name{font-weight:800;font-size:clamp(1.8rem,5vw,2.5rem);letter-spacing:-.02em;color:var(--c-bright);margin:10px 0 8px;animation:fmtqStamp .5s cubic-bezier(.16,.9,.3,1) .1s both}
+@keyframes fmtqStamp{from{opacity:0;transform:scale(1.45);letter-spacing:.05em;filter:blur(5px)}to{opacity:1;transform:scale(1);letter-spacing:-.02em;filter:blur(0)}}
+.fmtq-rev-desc{font-size:.95rem;color:var(--c-text);line-height:1.5;max-width:44ch;margin:0 auto 12px;animation:fmtqFade .45s ease .28s both}
+@keyframes fmtqFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.fmtq-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 18px}
+.fmtq-chip{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c-text);border:1px solid var(--c-border2);background:var(--c-surface);border-radius:999px;padding:5px 12px;animation:fmtqFade .4s ease both}
+/* Stat rows: five-cell bars, cells light in sequence. */
+.fmtq-stats{max-width:330px;margin:0 auto 20px;display:flex;flex-direction:column;gap:9px;text-align:left}
+.fmtq-stat{display:grid;grid-template-columns:88px 1fr;align-items:center;gap:12px;animation:fmtqFade .4s ease both}
+.fmtq-stat .lb{font-size:.64rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--c-dim)}
+.fmtq-stat .cells{display:flex;gap:5px}
+.fmtq-stat .cells i{height:8px;flex:1;border-radius:3px;background:var(--c-surface3);border:1px solid var(--c-border2)}
+.fmtq-stat .cells i.f{background:linear-gradient(90deg,#ef4444,#dc2626);border-color:rgba(239,68,68,.6);box-shadow:0 0 8px rgba(239,68,68,.3);animation:fmtqCell .32s cubic-bezier(.2,.7,.3,1.25) both}
+@keyframes fmtqCell{from{transform:scaleX(.25);opacity:0}to{transform:none;opacity:1}}
+.fmtq-go{animation:fmtqFade .45s ease .7s both}
+.fmtq-go .cta{animation:fmtqCtaPulse 2.6s ease-in-out 1.5s infinite}
+@keyframes fmtqCtaPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 0 8px rgba(239,68,68,.09), 0 12px 40px rgba(239,68,68,.2)}}
+@media (prefers-reduced-motion:reduce){
+  .fmtq-overlay,.fmtq-overlay::after,.fmtq-step,.fmtq-opt,.fmtq-opt::after,.fmtq-opt.picked,.fmtq-medal,.fmtq-burst,.fmtq-rays,.fmtq-rev-name,.fmtq-rev-desc,.fmtq-chip,.fmtq-stat,.fmtq-stat .cells i.f,.fmtq-go,.fmtq-go .cta,.fmtq-flash,.fmtq-prog i.now{animation:none}
+  .fmtq-opt,.fmtq-opt .ic{transition:none}
+}
 
 /* ── WPM Slider ────────────────────── */
 .wpm{display:flex;align-items:center;gap:16px;margin:20px auto;max-width:320px;width:100%}
@@ -8765,29 +8840,72 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     }
   };
   var FMT_QUIZ_EMOJI = { quick: '⚡', asian: '🏛', worlds: '🌐', bp: '🎩', apda: '🎓', ld: '⚖️', pf: '🗞', policy: '📚', congress: '🏛', popper: '🧭', viva: '🎤', mun: '🕊', courtroom: '⚖️', negotiation: '🤝', pitch: '📈' };
+  // Character-sheet stats for the reveal card, 1-5 per axis. Editorial
+  // reads of each format, not measurements: pace = delivery speed,
+  // structure = how rule-bound the speech order is, evidence = citation
+  // load, difficulty = how much debate literacy the format assumes.
+  var FMT_QUIZ_STATS = {
+    quick: { pace: 2, structure: 1, evidence: 1, difficulty: 1 },
+    asian: { pace: 3, structure: 4, evidence: 2, difficulty: 3 },
+    worlds: { pace: 3, structure: 4, evidence: 3, difficulty: 4 },
+    bp: { pace: 4, structure: 4, evidence: 3, difficulty: 5 },
+    apda: { pace: 3, structure: 3, evidence: 1, difficulty: 4 },
+    ld: { pace: 4, structure: 4, evidence: 4, difficulty: 4 },
+    pf: { pace: 3, structure: 3, evidence: 4, difficulty: 3 },
+    policy: { pace: 5, structure: 5, evidence: 5, difficulty: 5 },
+    congress: { pace: 2, structure: 4, evidence: 3, difficulty: 3 },
+    popper: { pace: 2, structure: 4, evidence: 4, difficulty: 3 },
+    viva: { pace: 2, structure: 2, evidence: 3, difficulty: 2 },
+    mun: { pace: 2, structure: 4, evidence: 3, difficulty: 3 },
+    courtroom: { pace: 3, structure: 4, evidence: 4, difficulty: 4 },
+    negotiation: { pace: 3, structure: 2, evidence: 2, difficulty: 3 },
+    pitch: { pace: 3, structure: 2, evidence: 3, difficulty: 3 }
+  };
   var fmtQuizEvent = (name, params) => {
     try {window.gtag && gtag('event', name, params || {});} catch (e) {}
     try {if (typeof window.track === 'function') window.track(name, params || {});} catch (e) {}
   };
+  // Wizard cues ride the page's inline SFX (user-gesture driven, same
+  // consent shape as the round-start chime). Respects the shared mute
+  // when the shared module has merged in an isMuted.
+  var fmtQuizSfx = (m) => {
+    try {
+      if (!window.SFX || typeof window.SFX[m] !== 'function') return;
+      if (typeof window.SFX.isMuted === 'function' && window.SFX.isMuted()) return;
+      window.SFX[m]();
+    } catch (e) {}
+  };
   var openFmtQuiz = (from) => {
-    setFmtQuiz({ step: 'goal', trail: [] });
+    setFmtQuiz({ step: 'goal', trail: [], dir: 'fwd' });
+    fmtQuizSfx('click');
     fmtQuizEvent('fmt_quiz_open', { from: from || setupMode });
   };
-  var fmtQuizPick = (opt) => {
+  // Pick = a two-beat: the card locks in (picked class, ~300ms pop),
+  // THEN the next screen slides in. The functional setter in the
+  // timeout no-ops if the overlay was closed mid-beat.
+  var fmtQuizPick = (opt, idx) => {
     var cur = fmtQuiz || { step: 'goal', trail: [] };
-    var trail = (cur.trail || []).concat(cur.step);
+    if (cur.picked != null) return;
+    fmtQuizSfx('click');
     fmtQuizEvent('fmt_quiz_answer', { step: cur.step, pick: opt.label });
-    if (opt.fmt) {
-      setFmtQuiz({ step: 'reveal', fmt: opt.fmt, trail });
-      fmtQuizEvent('fmt_quiz_done', { format: opt.fmt });
-    } else {
-      setFmtQuiz({ step: opt.next, trail });
-    }
+    setFmtQuiz(Object.assign({}, cur, { picked: idx }));
+    setTimeout(() => {
+      setFmtQuiz((live) => {
+        if (!live) return live;
+        var trail = (cur.trail || []).concat(cur.step);
+        if (opt.fmt) {
+          fmtQuizEvent('fmt_quiz_done', { format: opt.fmt });
+          fmtQuizSfx('ready');
+          return { step: 'reveal', fmt: opt.fmt, trail, dir: 'fwd' };
+        }
+        return { step: opt.next, trail, dir: 'fwd' };
+      });
+    }, 300);
   };
   var fmtQuizBack = () => {
     var t = fmtQuiz && fmtQuiz.trail || [];
     if (!t.length) {setFmtQuiz(null);return;}
-    setFmtQuiz({ step: t[t.length - 1], trail: t.slice(0, -1) });
+    setFmtQuiz({ step: t[t.length - 1], trail: t.slice(0, -1), dir: 'back' });
   };
   var fmtQuizUse = () => {
     var k = fmtQuiz && fmtQuiz.fmt;
@@ -8803,6 +8921,40 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     setFmtQuiz(null);
     if (setupMode === 'simple' && !isCounterExt) {setSimpleFmtMore(true);setSimpleModal('format');}
   };
+  // Arcade controls while the wizard is open: arrows move the cursor,
+  // number keys quick-pick, Enter confirms, Backspace goes back, Esc
+  // closes. Ignores keystrokes aimed at real inputs.
+  useEffect(() => {
+    if (!fmtQuiz) return;
+    var onKey = (e) => {
+      var tag = (e.target && e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
+      var key = e.key === 'BackSpace' ? 'Backspace' : e.key === 'Esc' ? 'Escape' : e.key;
+      if (key === 'Escape' || e.code === 'Escape') {setFmtQuiz(null);return;}
+      if (key === 'Backspace' || e.code === 'Backspace') {e.preventDefault();fmtQuizBack();return;}
+      if (fmtQuiz.step === 'reveal') {
+        if (key === 'Enter' || e.code === 'Enter') {e.preventDefault();fmtQuizUse();}
+        return;
+      }
+      if (fmtQuiz.picked != null) return;
+      var opts = (FMT_QUIZ_STEPS[fmtQuiz.step] || FMT_QUIZ_STEPS.goal).opts;
+      var kb = typeof fmtQuiz.kb === 'number' ? fmtQuiz.kb : -1;
+      var isDown = key === 'ArrowDown' || key === 'Down' || key === 'ArrowRight' || key === 'Right';
+      var isUp = key === 'ArrowUp' || key === 'Up' || key === 'ArrowLeft' || key === 'Left';
+      if (isDown || isUp) {
+        e.preventDefault();
+        var d = isDown ? 1 : -1;
+        var n = kb < 0 ? (d > 0 ? 0 : opts.length - 1) : (kb + d + opts.length) % opts.length;
+        setFmtQuiz(Object.assign({}, fmtQuiz, { kb: n }));
+        return;
+      }
+      if ((key === 'Enter' || e.code === 'Enter') && kb >= 0 && opts[kb]) {e.preventDefault();fmtQuizPick(opts[kb], kb);return;}
+      var num = parseInt(key, 10);
+      if (num >= 1 && num <= opts.length) {e.preventDefault();fmtQuizPick(opts[num - 1], num - 1);}
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fmtQuiz]);
   // Portaled to <body>: .center.visible keeps an identity transform
   // (entrance animation end state), which makes it the containing
   // block for position:fixed descendants — an in-tree overlay would
@@ -8814,35 +8966,73 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     var isReveal = fmtQuiz.step === 'reveal';
     var depth = (fmtQuiz.trail || []).length;
     var prog = el('div', { className: 'fmtq-prog', 'aria-hidden': true },
-    [0, 1, 2].map((i) => el('i', { key: i, className: isReveal || i <= depth ? 'on' : '' }))
+    [0, 1, 2].map((i) => el('i', { key: i, className: (isReveal || i <= depth ? 'on' : '') + (!isReveal && i === depth ? ' now' : '') }))
     );
     if (isReveal) {
       var k = fmtQuiz.fmt;
       var f = FORMATS[k] || FORMATS.quick;
+      var stat = FMT_QUIZ_STATS[k] || FMT_QUIZ_STATS.quick;
       var estSec = (f.speeches || []).reduce((s, x) => s + (x.time || 0), 0) + (f.prep || 0);
-      return el('div', { className: 'fmtq-step', key: 'reveal' },
+      var chips = [(f.speeches || []).length + ' speeches', '~' + Math.max(1, Math.round(estSec / 60)) + ' min round'];
+      if (f.prep) chips.push(Math.round(f.prep / 60) + ' min prep');
+      return el('div', { className: 'fmtq-step fmtq-reveal', key: 'reveal' },
+      el('div', { className: 'fmtq-flash', 'aria-hidden': true }),
       prog,
-      el('div', { className: 'fmtq-rev-emoji', 'aria-hidden': true }, FMT_QUIZ_EMOJI[k] || '🎯'),
-      el('div', { className: 'fmtq-kick' }, 'Your format'),
+      el('div', { className: 'fmtq-emblem', 'aria-hidden': true },
+      el('i', { className: 'fmtq-rays' }),
+      el('i', { className: 'fmtq-burst' }),
+      el('i', { className: 'fmtq-burst b2' }),
+      el('div', { className: 'fmtq-medal' }, FMT_QUIZ_EMOJI[k] || '🎯')
+      ),
+      el('div', { className: 'fmtq-kick', style: { animation: 'fmtqFade .4s ease .08s both' } }, 'Your format'),
       el('div', { className: 'fmtq-rev-name' }, f.name),
       el('p', { className: 'fmtq-rev-desc' }, f.desc),
-      el('div', { className: 'fmtq-rev-meta' }, (f.speeches || []).length + ' speeches · ~' + Math.max(1, Math.round(estSec / 60)) + ' min round'),
+      el('div', { className: 'fmtq-chips' },
+      chips.map((c, i) => el('span', { className: 'fmtq-chip', key: i, style: { animationDelay: 340 + i * 90 + 'ms' } }, c))
+      ),
+      el('div', { className: 'fmtq-stats' },
+      [['Pace', stat.pace], ['Structure', stat.structure], ['Evidence', stat.evidence], ['Difficulty', stat.difficulty]].map((row, ri) =>
+      el('div', { className: 'fmtq-stat', key: row[0], style: { animationDelay: 420 + ri * 90 + 'ms' } },
+      el('span', { className: 'lb' }, row[0]),
+      el('span', { className: 'cells', role: 'img', 'aria-label': row[0] + ': ' + row[1] + ' of 5' },
+      [1, 2, 3, 4, 5].map((n) => el('i', {
+        key: n,
+        className: n <= row[1] ? 'f' : '',
+        style: n <= row[1] ? { animationDelay: 480 + ri * 90 + n * 50 + 'ms' } : null
+      }))
+      )
+      )
+      )
+      ),
+      el('div', { className: 'fmtq-go' },
       el('button', { className: 'cta', style: { marginTop: 0 }, onClick: fmtQuizUse }, 'Practice ' + f.name + ' →'),
       el('div', { className: 'fmtq-foot' },
-      el('button', { className: 'fmtq-link', onClick: () => setFmtQuiz({ step: 'goal', trail: [] }) }, '↺ Start over'),
+      el('button', { className: 'fmtq-link', onClick: () => setFmtQuiz({ step: 'goal', trail: [], dir: 'back' }) }, '↺ Start over'),
       el('button', { className: 'fmtq-link', onClick: fmtQuizBrowse }, 'See all formats')
+      ),
+      el('div', { className: 'fmtq-kbd', 'aria-hidden': true },
+      el('span', null, el('b', null, 'Enter'), 'start'),
+      el('span', null, el('b', null, 'Backspace'), 'back')
+      )
       )
       );
     }
     var stepDef = FMT_QUIZ_STEPS[fmtQuiz.step] || FMT_QUIZ_STEPS.goal;
-    return el('div', { className: 'fmtq-step', key: fmtQuiz.step },
+    return el('div', { className: 'fmtq-step' + (fmtQuiz.dir === 'back' ? ' back' : ''), key: fmtQuiz.step },
     prog,
     el('div', { className: 'fmtq-kick' }, 'Find your format'),
     el('h3', { className: 'fmtq-q' }, stepDef.q),
-    el('div', { className: 'fmtq-opts' },
-    stepDef.opts.map((o, i) => el('button', { key: i, className: 'fmtq-opt', onClick: () => fmtQuizPick(o) },
+    el('div', { className: 'fmtq-opts' + (fmtQuiz.picked != null ? ' locked' : '') },
+    stepDef.opts.map((o, i) => el('button', {
+      key: i,
+      className: 'fmtq-opt' + (fmtQuiz.picked === i ? ' picked' : '') + (fmtQuiz.kb === i ? ' kb' : ''),
+      style: { animationDelay: 50 + i * 65 + 'ms' },
+      onMouseEnter: () => setFmtQuiz((s) => s && s.picked == null && s.kb !== i ? Object.assign({}, s, { kb: i }) : s),
+      onClick: () => fmtQuizPick(o, i)
+    },
+    el('span', { className: 'num', 'aria-hidden': true }, '0' + (i + 1)),
     el('span', { className: 'ic', 'aria-hidden': true }, o.icon),
-    el('span', null,
+    el('span', { className: 'tx' },
     el('span', { className: 't' }, o.label),
     el('span', { className: 's' }, o.sub)
     )
@@ -8851,6 +9041,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('div', { className: 'fmtq-foot' },
     depth > 0 && el('button', { className: 'fmtq-link', onClick: fmtQuizBack }, '← Back'),
     el('button', { className: 'fmtq-link', onClick: fmtQuizBrowse }, 'Skip, show every format')
+    ),
+    el('div', { className: 'fmtq-kbd', 'aria-hidden': true },
+    el('span', null, el('b', null, '↑↓'), 'move'),
+    el('span', null, el('b', null, '1-' + stepDef.opts.length), 'quick pick'),
+    el('span', null, el('b', null, 'Enter'), 'select')
     )
     );
   }()
