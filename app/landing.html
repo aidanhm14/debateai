@@ -8591,6 +8591,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           .hero-illustrated .hi-lf-grid{width:100%;max-width:100%;gap:14px}
           .hero-illustrated .hi-lf-live,.hero-illustrated .hi-lf-amb,.hero-illustrated .hi-lf-aistrip{max-width:100%;box-sizing:border-box}
           .hero-illustrated .hi-lf-roombar{gap:6px;padding:11px 12px;font-size:.56rem;white-space:nowrap}
+          .hero-illustrated .hi-lf-roombar .hi-lf-speeches{display:none}
           .hero-illustrated .hi-lf-roombar .hi-lf-roombar-spacer,
           .hero-illustrated .hi-lf-roombar .hi-lf-judged{display:none}
           .hero-illustrated .hi-lf-stage{gap:7px;padding:10px 12px 0}
@@ -8636,7 +8637,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <span aria-hidden="true">&middot;</span>
               <span>Public Forum</span>
               <span aria-hidden="true">&middot;</span>
-              <span>3 min speeches</span>
+              <span class="hi-lf-speeches">3 min speeches</span>
+              <span class="hi-lf-speeches" aria-hidden="true">&middot;</span>
+              <span class="hi-lf-watching"><span data-live-watching>214</span> watching</span>
               <span class="hi-lf-roombar-spacer"></span>
               <span class="hi-lf-judged"><b>AI judged</b></span>
             </div>
@@ -8675,7 +8678,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <div class="hi-lf-motion" aria-hidden="true">
               <span class="hi-lf-mkt-head">
                 <span class="hi-lf-motion-k">Motion &middot; live market</span>
-                <span class="hi-lf-mkt-vol"><b data-mkt-vol>$1,284</b> in the pot &middot; <span data-mkt-backers>37</span> backers</span>
+                <span class="hi-lf-mkt-vol"><b data-mkt-vol>$1,284</b> in the pot &middot; <span data-mkt-backers>37</span> audience backers</span>
               </span>
               <span data-live-motion-text>Schools should ban phones during class.</span>
               <!-- Odds over the round, Pro side. preserveAspectRatio="none"
@@ -8708,7 +8711,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             </div>
             <div class="hi-lf-judge" aria-hidden="true">
               <span class="hi-lf-judge-dot"></span>
-              <span class="hi-lf-judge-t"><b>AI judge</b> flowing the round &middot; the verdict settles the pot</span>
+              <span class="hi-lf-judge-t"><b>AI judge</b> flowing the round &middot; the verdict settles the audience pot</span>
             </div>
             <div class="hi-lf-live-foot">
               <div class="hi-lf-cta-row">
@@ -8823,7 +8826,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             motionIdx = motionIdx % motionTests.length;
             localStorage.setItem('dit-live-motion-idx', String(motionIdx));
             if (motion) motion.textContent = motionTests[motionIdx].motion;
-            if (judge) judge.innerHTML = '<b>AI judge</b> flowing the round &middot; clash: ' + motionTests[motionIdx].clash + ' &middot; the verdict settles the pot';
+            if (judge) judge.innerHTML = '<b>AI judge</b> flowing the round &middot; clash: ' + motionTests[motionIdx].clash + ' &middot; the verdict settles the audience pot';
           } catch(e){}
           /* ── Market engine (2026-07-22) ─────────────────────────────
              Drives the featured-market card: a drifting Pro price with
@@ -8851,7 +8854,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             ['Dana','Ines'],
             ['Theo','Zara']
           ];
-          var mktPro = 62, mktVolN = 1284, mktBackersN = 37, mktHist = [];
+          var mktPro = 62, mktVolN = 1284, mktBackersN = 37, mktWatchN = 214, mktHist = [];
+          var mktWatchEl = document.querySelector('[data-live-watching]');
           function mktClamp(v){ return Math.max(12, Math.min(88, v)); }
           function renderMkt(){
             if (!mktLine) return;
@@ -8874,6 +8878,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             if (mktConFill) mktConFill.style.width = c + '%';
             if (mktVol) mktVol.textContent = '$' + mktVolN.toLocaleString('en-US');
             if (mktBackers) mktBackers.textContent = String(mktBackersN);
+            if (mktWatchEl) mktWatchEl.textContent = String(mktWatchN);
           }
           function newMarket(pairIdx){
             if (!mktLine) return;
@@ -8886,6 +8891,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             mktPro = mktHist[mktHist.length - 1];
             mktVolN = 600 + Math.floor(Math.random() * 1800);
             mktBackersN = 18 + Math.floor(Math.random() * 40);
+            mktWatchN = 120 + Math.floor(Math.random() * 260);
             renderMkt();
           }
           function tickMkt(){
@@ -8895,6 +8901,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             if (mktHist.length > 28) mktHist.shift();
             mktVolN += 2 + Math.floor(Math.random() * 13);
             if (Math.random() < .4) mktBackersN += 1;
+            if (Math.random() < .5) mktWatchN += Math.round(Math.random() * 6 - 2.6);
             renderMkt();
           }
           newMarket(0);
