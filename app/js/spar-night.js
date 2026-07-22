@@ -76,6 +76,8 @@
   }
 
   // ── Display helpers ──────────────────────────────────
+  var MON_ABBR = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+                  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   function two(n) { return n < 10 ? '0' + n : '' + n; }
   function countdownLabel(ms) {
     if (ms <= 0) return 'now';
@@ -140,7 +142,22 @@
       'color:var(--text-dim,rgba(255,255,255,.66));background:transparent}' +
     '.sn-cta--ghost:hover{color:var(--text,#f4f4f2);border-color:var(--border-strong,rgba(255,255,255,.34))}' +
     /* banner variant (landing) */
-    '.sn-card--banner{position:relative;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(350px,.8fr);' +
+    // Calendar tile: a torn-off desk-calendar page. Red cap with the
+    // month, big Eastern date, weekday under it. Reads as "a date" at a
+    // glance, which the countdown alone did not.
+    '.sn-cal{align-self:center;flex:none;width:74px;border-radius:12px;overflow:hidden;text-align:center;' +
+      'border:1px solid var(--border,rgba(255,255,255,.16));background:var(--bg-card,rgba(255,255,255,.05));' +
+      'box-shadow:0 8px 20px -10px rgba(0,0,0,.5)}' +
+    '.sn-cal-m{display:block;padding:4px 0 3px;background:var(--accent,#ef4444);color:#fff;' +
+      'font-size:.6rem;font-weight:900;letter-spacing:.12em}' +
+    '.sn-live .sn-cal-m{background:#22c55e}' +
+    '.sn-cal-d{display:block;padding:5px 0 1px;font-size:1.7rem;font-weight:800;line-height:1;' +
+      'font-variant-numeric:tabular-nums;color:var(--text,#f4f4f2)}' +
+    '.sn-cal-w{display:block;padding:0 0 7px;font-size:.58rem;font-weight:800;letter-spacing:.1em;' +
+      'color:var(--text-dim,rgba(255,255,255,.55))}' +
+    '[data-theme="light"] .sn-cal,[data-theme="stone"] .sn-cal{background:#fff;border-color:rgba(29,25,21,.14);' +
+      'box-shadow:0 8px 18px -12px rgba(80,42,28,.5)}' +
+    '.sn-card--banner{position:relative;display:grid;grid-template-columns:auto minmax(0,1.2fr) minmax(350px,.8fr);' +
       'gap:28px;max-width:1040px;margin:0 auto 24px;padding:24px 28px;overflow:hidden;' +
       'box-shadow:0 24px 70px -44px rgba(0,0,0,.7)}' +
     '.sn-card--banner:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent,#ef4444)}' +
@@ -164,12 +181,15 @@
       'box-shadow:0 26px 70px -42px rgba(80,42,28,.38),0 1px 0 rgba(255,255,255,.9)}' +
     '[data-theme="light"] .sn-card--banner .sn-right,[data-theme="stone"] .sn-card--banner .sn-right{' +
       'border-left-color:rgba(29,25,21,.12)}' +
-    '@media(max-width:820px){.sn-card--banner{grid-template-columns:1fr;gap:18px;padding:22px 24px}' +
-      '.sn-card--banner .sn-right{grid-template-columns:1fr auto;padding:18px 0 0;border-left:0;' +
+    // Tile stays beside the copy rather than alone on its own row, so
+    // .sn-right spans both columns underneath them.
+    '@media(max-width:820px){.sn-card--banner{grid-template-columns:auto minmax(0,1fr);gap:18px;padding:22px 24px}' +
+      '.sn-card--banner .sn-right{grid-column:1 / -1;grid-template-columns:1fr auto;padding:18px 0 0;border-left:0;' +
         'border-top:1px solid var(--border,rgba(255,255,255,.14))}' +
       '[data-theme="light"] .sn-card--banner .sn-right,[data-theme="stone"] .sn-card--banner .sn-right{' +
         'border-top-color:rgba(29,25,21,.12)}}' +
     '@media(max-width:560px){.sn-card--banner{padding:20px 20px 20px 23px;border-radius:16px}' +
+      '.sn-cal{width:60px}.sn-cal-d{font-size:1.42rem}' +
       '.sn-card--banner .sn-right{grid-template-columns:1fr;gap:14px}' +
       '.sn-card--banner .sn-actions{grid-template-columns:repeat(2,minmax(0,1fr));min-width:0}' +
       '.sn-card--banner .sn-cta{padding-left:10px;padding-right:10px}}' +
@@ -201,6 +221,19 @@
     var local = localLabel(st.start);
     var eyebrow = '<div class="sn-eyebrow"><span class="sn-dot"></span>' +
       (live ? 'Open Spar Night · live now' : 'Open Spar Night') + '</div>';
+    // Calendar tile (2026-07-22). Built from nyParts so it shows the
+    // event's OWN Eastern date, matching the "8:00 PM ET" headline.
+    // Deliberately not the viewer's local date: east of ET the local
+    // date is already the next day, and the .sn-local line under the
+    // countdown is what carries that. Banner only; the rail variant is
+    // too small to take a tile.
+    var cp = nyParts(st.start);
+    var cal =
+      '<div class="sn-cal" aria-hidden="true">' +
+        '<span class="sn-cal-m">' + (MON_ABBR[+cp.month - 1] || '') + '</span>' +
+        '<span class="sn-cal-d">' + (+cp.day) + '</span>' +
+        '<span class="sn-cal-w">' + (cp.weekday || '').toUpperCase() + '</span>' +
+      '</div>';
     var title = live
       ? 'Spar Night is on. Rounds matching until 9:30 PM ET.'
       : 'Every Wednesday at 8:00 PM ET';
@@ -225,7 +258,7 @@
         '<div class="sn-row"><span class="sn-sub" style="margin:0">' + count +
         (local ? '<span class="sn-local">' + local + '</span>' : '') + '</span>' + solid + '</div>';
     } else {
-      el.innerHTML =
+      el.innerHTML = cal +
         '<div class="sn-main">' + eyebrow +
           '<div class="sn-title">' + title + '</div>' +
           '<div class="sn-sub">' + sub + '</div></div>' +
