@@ -192,10 +192,17 @@
       '@media (prefers-reduced-motion: reduce){',
       '  .ra-host{transition:none;}.ra-eq i{animation:none;height:6px;}',
       '  .ra-btn{transition:none;}}',
+      // 2026-07-22: the phone arm pinned left AND right and set the card
+      // to width:100%, so the RESTING state stretched into a full-width
+      // white bar across the bottom of the screen — it read as a system
+      // banner and covered whatever card the reader was on. Only the
+      // OPEN panel earns the full width; closed, it stays a small pill
+      // cropped into the bottom-left corner.
       '@media (max-width:540px){',
-      '  .ra-host{left:10px;right:10px;bottom:10px;}',
-      '  .ra-host[data-open="1"] .ra-card{width:auto;}',
-      '  .ra-card{width:100%;}}',
+      '  .ra-host{left:10px;right:auto;bottom:10px;',
+      '    max-width:calc(100vw - 20px);}',
+      '  .ra-host[data-open="1"]{right:10px;}',
+      '  .ra-host[data-open="1"] .ra-card{width:auto;}}',
       // never fight the print stylesheet
       '@media print{.ra-host{display:none;}}',
     ].join('\n');

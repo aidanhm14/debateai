@@ -5708,8 +5708,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   #welcomeIntro.wi-red .wi-opt-label{color:#fff}
   #welcomeIntro.wi-red .wi-opt-sub{color:rgba(255,255,255,.72)}
   @media (max-width:640px){
-    .wi-opts{grid-template-columns:1fr;gap:10px}
-    .wi-opt{padding:14px 16px}
     /* Center the question in the band BETWEEN the brand line and Skip,
        not on the full screen: full-screen centering left the headline
        floating mid-air with a hole under the wordmark and a second hole
@@ -5717,16 +5715,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        the JS display toggle working (it sets display, so the flex
        column must win at equal-or-higher specificity). */
     #welcomeIntro{align-items:stretch}
+    /* Own the full width and let the padding be the only gutter. The
+       stage kept its desktop width:min(92vw,900px) here, so its auto
+       margins and its 22px padding stacked into a 37px inset — and the
+       option stack (also 92vw) was then WIDER than the box it sat in,
+       which pushed it off the right edge. One gutter, symmetric. */
     .wi-q.is-on{display:flex;flex-direction:column;justify-content:center;
-      padding-top:calc(84px + env(safe-area-inset-top,0px));
-      padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
-    /* The option stack takes the rest of the band and the cards share it
-       evenly, so the screen reads full instead of four thin rows floating
-       in red. Capped so short-and-wide phones don't balloon the cards. */
-    .wi-opts{flex:1;max-height:520px;grid-auto-rows:1fr;gap:12px}
-    .wi-opt{display:flex;flex-direction:column;justify-content:center}
+      width:100%;max-width:none;padding-inline:20px;
+      padding-top:calc(76px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+    .wi-opts{grid-template-columns:1fr;width:100%;max-width:100%;gap:12px}
+    /* Cards keep their natural height. They used to stretch to fill the
+       band (flex:1 + grid-auto-rows:1fr), which blew two lines of text
+       out to ~115px tall and read as four empty slabs. The leftover
+       space belongs AROUND the stack, not inside the cards. */
+    .wi-opt{padding:17px 17px}
     /* Balance the sub's wrap so it doesn't orphan its last two words. */
     .wi-q-sub{max-width:32ch;margin-inline:auto;text-wrap:balance}
+    /* The ring is decoration; at phone width it sliced straight through
+       the option labels. Pull it in behind the stack and drop it back. */
+    .wi-ring{width:min(76vw,320px)}
+    #welcomeIntro.wi-red .wi-ring{border-color:rgba(255,255,255,.18)}
   }
   /* ── GUIDE BEAT (2026-07-22) ──────────────────────────────────────────
      Between the question and the waiting room: what the site actually is,
@@ -10739,6 +10748,67 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     --mid-radius-sm:14px;
     --mid-shadow:0 18px 52px rgba(29,25,21,.08);
   }
+  /* ── CHAPTERS (2026-07-22) ──────────────────────────────────────────
+     The unification above gave every band one column, one gutter and
+     one gap. That fixed the raggedness it was written for, then went a
+     step too far: sixteen sections ended up weighing exactly the same
+     — same eyebrow, same centred headline, same 33px a side, every one
+     of them on the same flat sheet. Read top to bottom it landed as a
+     slide deck. One slide per scroll, and no way to tell which beats
+     belong to the same argument.
+
+     Chapters put the hierarchy back WITHOUT touching a single
+     section's own rule (id beats class, so the padding below wins on
+     specificity and every existing theme and breakpoint override
+     still lands where it did). Sections that make ONE argument sit
+     tight and share a ground; a NEW argument opens with real air and
+     a change of ground. Structure carried by rhythm and surface is
+     also why the "Where you practise it" caption is gone from the
+     markup below: a chapter you can see does not need announcing. */
+  :root{
+    /* Two gaps instead of one. Inside a chapter the beats are one
+       thought and sit close; between chapters the page takes a breath
+       about three times as long. The contrast IS the hierarchy — one
+       uniform gap is what read as a deck. */
+    --gap-inner:clamp(18px,2.2vw,30px);
+    --gap-chapter:clamp(52px,6.6vw,98px);
+    /* Translucent on purpose: it composites over whatever --bg the
+       active theme sets, instead of pinning a cream that only exists
+       on the light one. */
+    --chapter-tint:rgba(29,25,21,.035);
+  }
+  /* Same literal-not-var() reason as .mid-rule below: the theme tokens
+     are re-declared further down the tree, so the dark family has to
+     be named. */
+  [data-theme="dark"],[data-theme="crimson"],
+  [data-theme="grey"],[data-theme="stone"]{
+    --chapter-tint:rgba(245,239,231,.04);
+  }
+  /* A chapter's ground. The sections sharing one tint butt directly
+     together (every seam in this run measures 0px), so the tint reads
+     as a single continuous sheet rather than as stripes. Three grounds
+     across ~12,000px of scroll: the stakes, the dark room already at
+     #face-wall, and the proof. */
+  #why-this-exists,#floor-band,
+  #reviews,#faq{background-color:var(--chapter-tint)}
+  /* Chapter openings take the long breath. */
+  #why-this-exists,#mode-select,#community-band,
+  #ranked-band,#reviews,#book-founders{padding-top:var(--gap-chapter)}
+  /* Chapter closings pay the other half. */
+  #floor-band,#credential-path,#community-band,
+  #stream-band,#faq{padding-bottom:var(--gap-chapter)}
+  /* Beats continuing an argument stay tight to the one before. */
+  #floor-band,#credential-path,#stream-band,#faq{padding-top:var(--gap-inner)}
+  #why-this-exists,#mode-select,#ranked-band,#reviews{padding-bottom:var(--gap-inner)}
+  /* The tail sections are .sec, and .sec carries `padding:56px 0
+     !important` (plus a 44px mobile arm) from the shared page kit far
+     above. An id loses to !important, so the closing chapter has to
+     restate at the same strength or it keeps the flat 56/56 that the
+     rest of the run just stopped using. Left/right stay with .sec. */
+  #reviews,#book-founders{padding-top:var(--gap-chapter) !important}
+  #faq{padding-top:var(--gap-inner) !important}
+  #reviews{padding-bottom:var(--gap-inner) !important}
+  #faq{padding-bottom:var(--gap-chapter) !important}
   /* Chapter marker: hairline, a label naming the movement, hairline.
      Used where one chapter's argument hands off to the next and the
      seam would otherwise read as "another band started". */
@@ -12338,10 +12408,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
 <!-- Chapter hand-off. The vision card just argued that speaking to a
      room is the skill worth having; the community band shows where
-     people go to do it together. Without a marker the two read as
-     unrelated bands, and the community heading started competing with
-     the cards above it for the same eye. -->
-<div class="mid-rule" aria-hidden="true"><span>Where you practise it</span></div>
+     people go to do it together. This used to be a captioned hairline
+     ("Where you practise it") — a literal slide title between two
+     slides, and the single most deck-like thing on the page. The
+     chapter rhythm in the CHAPTERS block does the same job now: the
+     credential run closes on a long gap and the community band opens
+     on one, so the hand-off is felt instead of narrated. The numbered
+     TOC strip already carries the naming for anyone who wants it. -->
 
 <section id="community-band" class="community-band" aria-label="The Debatable community">
   <style>
