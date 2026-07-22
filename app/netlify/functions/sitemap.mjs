@@ -70,7 +70,7 @@ const URLS = [
   // tournament-grade RFD + speaker points; PF-first, targets the
   // lay-parent-judge gap. Same playbook as /debate-an-ai.
   { path: '/judge',                                   changefreq: 'weekly',  priority: '0.88' },
-  { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
+  { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debateit-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debateit-vs-claude',              changefreq: 'monthly', priority: '0.84' },
   { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
@@ -137,10 +137,17 @@ const URLS = [
   { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-14' },
   { path: '/why-debateit',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-14' },
   { path: '/learn',           changefreq: 'monthly', priority: '0.85' },
-  { path: '/topics',          changefreq: 'weekly',  priority: '0.85' },
+  // 2026-07-22: '/topics' -> '/topics/'. app/topics/ is a directory, so the
+  // slashless form 301s to the trailing-slash one; listing the redirect made
+  // every crawl of this entry a wasted hop. Same for '/compare' below.
+  { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
-  { path: '/spar',            changefreq: 'weekly',  priority: '0.78' },
+  // 2026-07-22: '/spar' removed. app/spar.html carries
+  // <meta name="robots" content="noindex">, so submitting it here asked
+  // Google to crawl a page we tell it not to index — that lands as
+  // "Submitted URL marked noindex" in Search Console. The indexable
+  // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
   { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80' },
