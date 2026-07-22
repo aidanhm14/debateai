@@ -2570,6 +2570,180 @@ body.light-theme .nav .nav-btn:not(.active):not(.active-orange):not(.nav-btn-fea
   50%{box-shadow:0 0 0 10px rgba(255,70,82,0)}
 }
 @media (prefers-reduced-motion:reduce){.dictate-btn.recording{animation:none}}
+
+/* ══ MOTIONS WORKBENCH ═══════════════════════════════════════════
+   Two columns: a control rail (source + topics) and a result stage.
+   The stage is never blank. it shelves real motions from the library
+   so the 750-motion database is visible before anything is clicked. */
+.mo-shell{display:grid;grid-template-columns:264px minmax(0,1fr);gap:28px;align-items:start;text-align:left}
+/* min-width:0 on both tracks. without it the horizontally scrolling
+   source and topic rows stretch their column and the page scrolls sideways. */
+.mo-rail{position:sticky;top:88px;display:flex;flex-direction:column;gap:22px;min-width:0}
+.mo-rail>*{min-width:0}
+.mo-legend{
+  font-size:.66rem;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
+  color:#7a8496;margin:0 0 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+}
+.mo-legend .mo-legend-note{font-size:.62rem;letter-spacing:.4px;font-weight:600;color:#5d6675;text-transform:none}
+
+/* Source: a vertical list of named methods, each with its own sentence.
+   Replaces three same-shaped pills that never said what they did. */
+.mo-src{display:flex;flex-direction:column;gap:6px}
+.mo-src-item{
+  display:flex;gap:11px;align-items:flex-start;width:100%;text-align:left;
+  padding:11px 13px;border-radius:12px;cursor:pointer;font-family:inherit;
+  border:1.5px solid transparent;background:transparent;transition:background .18s ease,border-color .18s ease;
+}
+.mo-src-item:hover{background:#ffffff0a;border-color:#ffffff14}
+.mo-src-item.active{background:#ef44441a;border-color:#ef444455}
+.mo-src-dot{
+  width:9px;height:9px;border-radius:50%;margin-top:5px;flex-shrink:0;
+  border:1.5px solid #6b7280;background:transparent;transition:.18s ease;
+}
+.mo-src-item.active .mo-src-dot{border-color:#ef4444;background:#ef4444;box-shadow:0 0 0 3px #ef444428}
+.mo-src-text{min-width:0}
+.mo-src-name{display:block;font-size:.9rem;font-weight:700;color:#c7cedb;letter-spacing:.2px;line-height:1.3}
+.mo-src-item.active .mo-src-name{color:#fff}
+.mo-src-desc{display:block;font-size:.74rem;line-height:1.45;color:#7a8496;margin-top:3px}
+.mo-src-item.active .mo-src-desc{color:#c9a9a9}
+
+/* Topics: all 19 library categories, with their real motion counts. */
+.mo-topics{display:flex;flex-wrap:wrap;gap:5px}
+.mo-topic{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;
+  font-size:.74rem;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:.1px;
+  border:1px solid #ffffff14;background:#ffffff06;color:#8f99a8;transition:.18s ease;
+}
+.mo-topic:hover{border-color:#ffffff2e;color:#e2e8f0;background:#ffffff12}
+.mo-topic.active{border-color:#ef444455;background:#ef44441a;color:#fca5a5}
+.mo-topic-n{font-size:.63rem;font-weight:700;opacity:.6;font-variant-numeric:tabular-nums}
+.mo-topic-clear{
+  background:none;border:none;padding:0;font-family:inherit;cursor:pointer;
+  font-size:.7rem;font-weight:600;color:#8f99a8;text-decoration:underline;text-underline-offset:3px;
+}
+.mo-topic-clear:hover{color:#ef4444}
+
+.mo-go{width:100%;padding:15px 18px;font-size:.95rem;border-radius:12px}
+.mo-go-sub{margin:8px 0 0;font-size:.72rem;line-height:1.5;color:#7a8496;text-align:center}
+
+/* Stage */
+.mo-stage{min-height:420px;display:flex;flex-direction:column;min-width:0}
+.mo-stage-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding-bottom:11px;margin-bottom:16px;border-bottom:1px solid #ffffff12;flex-wrap:wrap;
+}
+.mo-stage-title{margin:0;font-size:1.06rem;font-weight:700;color:#e6ebf2;letter-spacing:.2px}
+.mo-stage-sub{margin:0;font-size:.78rem;color:#7a8496;letter-spacing:.2px}
+
+/* The shelf: browsable motions, the default state of the stage. */
+.mo-shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:10px}
+.mo-shelf-card{
+  position:relative;text-align:left;font-family:inherit;cursor:pointer;
+  padding:14px 15px 13px;border-radius:12px;border:1px solid #ffffff12;background:#ffffff06;
+  transition:border-color .18s ease,background .18s ease,transform .18s ease;
+}
+.mo-shelf-card:hover{border-color:#ef444455;background:#ef444410;transform:translateY(-2px)}
+.mo-shelf-cat{
+  display:block;font-size:.6rem;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;
+  color:#ef4444;margin-bottom:7px;
+}
+.mo-shelf-text{display:block;font-size:.87rem;line-height:1.5;color:#c7cedb}
+.mo-shelf-card:hover .mo-shelf-text{color:#eef2f8}
+.mo-shelf-take{
+  display:block;margin-top:9px;font-size:.68rem;font-weight:700;letter-spacing:.7px;
+  text-transform:uppercase;color:#ef4444;opacity:0;transition:opacity .18s ease;
+}
+.mo-shelf-card:hover .mo-shelf-take{opacity:1}
+
+/* Selected / rolled motion */
+.mo-picked{
+  padding:20px 22px;border-radius:14px;border:1.5px solid #ef444455;background:#ef44440e;margin-bottom:16px;
+}
+.mo-picked-label{
+  font-size:.62rem;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:#ef4444;margin-bottom:9px;
+}
+.mo-picked-text{font-size:1.12rem;line-height:1.48;color:#f1f5f9;font-weight:600}
+.mo-picked-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
+
+/* What a generative source returns, laid out as its actual sections. */
+.mo-yield{padding:26px 28px;border:1px dashed #ffffff1f;border-radius:14px}
+.mo-yield-t{
+  font-size:.62rem;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;
+  color:#ef4444;margin-bottom:14px;
+}
+.mo-yield-list{
+  list-style:none;margin:0;padding:0;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px 20px;
+}
+.mo-yield-list li{
+  font-size:.85rem;color:#c7cedb;padding-left:16px;position:relative;line-height:1.45;
+}
+.mo-yield-list li::before{
+  content:'';position:absolute;left:0;top:8px;width:5px;height:5px;
+  border-radius:50%;background:#ef4444;opacity:.65;
+}
+.mo-yield-d{margin:16px 0 0;font-size:.79rem;line-height:1.55;color:#7a8496}
+.light-theme .mo-shell .mo-yield{border-color:#ddd7c8!important;background:#fffdf9!important}
+.light-theme .mo-shell .mo-yield-t{color:#c0392f!important}
+.light-theme .mo-shell .mo-yield-list li{color:#3c3a34!important}
+.light-theme .mo-shell .mo-yield-list li::before{background:#c0392f!important}
+.light-theme .mo-shell .mo-yield-d{color:#8a8578!important}
+
+.mo-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:52px 24px;text-align:center;border:1px dashed #ffffff1f;border-radius:14px;color:#7a8496;
+}
+.mo-empty-t{font-size:.94rem;font-weight:700;color:#aab3c2}
+.mo-empty-d{font-size:.8rem;line-height:1.55;max-width:340px}
+
+/* Light theme. specificity beats the blanket `.light-theme .panel *` rule. */
+.light-theme .mo-shell .mo-legend{color:#8a8578}
+.light-theme .mo-shell .mo-legend .mo-legend-note{color:#9a9486}
+.light-theme .mo-shell .mo-src-item{background:transparent!important;border-color:transparent!important}
+.light-theme .mo-shell .mo-src-item:hover{background:rgba(0,0,0,.04)!important;border-color:rgba(0,0,0,.08)!important}
+.light-theme .mo-shell .mo-src-item.active{background:#fdeaea!important;border-color:#e9b4b4!important}
+.light-theme .mo-shell .mo-src-dot{border-color:#a9a396!important}
+.light-theme .mo-shell .mo-src-item.active .mo-src-dot{border-color:#c0392f!important;background:#c0392f!important}
+.light-theme .mo-shell .mo-src-name{color:#3c3a34!important}
+.light-theme .mo-shell .mo-src-item.active .mo-src-name{color:#a5251c!important}
+.light-theme .mo-shell .mo-src-desc{color:#8a8578!important}
+.light-theme .mo-shell .mo-src-item.active .mo-src-desc{color:#9c5b52!important}
+.light-theme .mo-shell .mo-topic{background:#fff!important;border-color:#e3ded1!important;color:#6b6558!important}
+.light-theme .mo-shell .mo-topic:hover{border-color:#c9c2b2!important;color:#3c3a34!important}
+.light-theme .mo-shell .mo-topic.active{background:#c0392f!important;border-color:#c0392f!important;color:#fff!important}
+.light-theme .mo-shell .mo-topic-clear{color:#8a8578!important}
+.light-theme .mo-shell .mo-stage-head{border-bottom-color:#e3ded1!important}
+.light-theme .mo-shell .mo-stage-title{color:#2e2c27!important}
+.light-theme .mo-shell .mo-stage-sub,.light-theme .mo-shell .mo-go-sub{color:#8a8578!important}
+.light-theme .mo-shell .mo-shelf-card{background:#fff!important;border-color:#e3ded1!important;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.light-theme .mo-shell .mo-shelf-card:hover{border-color:#c0392f!important;box-shadow:0 6px 18px rgba(0,0,0,.09)}
+.light-theme .mo-shell .mo-shelf-text{color:#3c3a34!important}
+.light-theme .mo-shell .mo-shelf-cat,.light-theme .mo-shell .mo-shelf-take{color:#c0392f!important}
+.light-theme .mo-shell .mo-picked{background:#fff!important;border-color:#c0392f!important;box-shadow:0 4px 20px rgba(192,57,47,.1)}
+.light-theme .mo-shell .mo-picked-label{color:#c0392f!important}
+.light-theme .mo-shell .mo-picked-text{color:#26241f!important}
+.light-theme .mo-shell .mo-empty{border-color:#ddd7c8!important;color:#8a8578!important}
+.light-theme .mo-shell .mo-empty-t{color:#4a473f!important}
+
+/* Rail folds above the stage on narrow screens. */
+@media (max-width:900px){
+  .mo-shell{grid-template-columns:minmax(0,1fr);gap:22px}
+  .mo-rail{position:static;gap:18px}
+  .mo-src{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .mo-src::-webkit-scrollbar{display:none}
+  .mo-src-item{flex:0 0 auto;max-width:230px;border-color:#ffffff14}
+  .mo-stage{min-height:0}
+  .mo-shelf{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .mo-picked-text{font-size:1rem}
+  .mo-shelf-take{opacity:1}
+  /* One scrolling row instead of six wrapped ones, so the results
+     are not pushed a screen and a half down the page. */
+  .mo-topics{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .mo-topics::-webkit-scrollbar{display:none}
+  .mo-topic{flex:0 0 auto}
+}
 </style>
 <script data-goatcounter="https://aidanhm31.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <script>
@@ -2950,9 +3124,27 @@ function markReferredGeneration() {
    DATA. Resolutions, Formats, Speech Configs
    ═══════════════════════════════════════════════════ */
 
+// Every category the motion library actually holds. Nine of these (Education,
+// Health, Economics, History, Media, Identity, Criminal Justice, Art, Sport)
+// had no way into the UI, hiding ~350 of the 750 motions behind a list that
+// only ever showed ten.
 var CATEGORIES = [
-'Finance', 'Philosophy', 'Politics', 'Technology', 'Ethics',
-'International Relations', 'Science', 'Culture', 'Law', 'Environment'];
+'Philosophy', 'Politics', 'Ethics', 'Economics', 'Finance', 'Law',
+'Criminal Justice', 'International Relations', 'History', 'Technology',
+'Science', 'Health', 'Environment', 'Education', 'Media', 'Culture',
+'Art', 'Sport', 'Identity'];
+
+// Maps a library category onto the prompt-guidance key in categoryGuides.
+// Those guides were written months ago and never fired, because the state
+// they keyed off of was never set. see motionCategory in Resolutions().
+var CATEGORY_GUIDE_KEY = {
+  'Philosophy': 'philosophy', 'Ethics': 'philosophy', 'Politics': 'policy',
+  'History': 'policy', 'Economics': 'economics', 'Finance': 'economics',
+  'Law': 'law', 'Criminal Justice': 'law', 'International Relations': 'international',
+  'Technology': 'technology', 'Science': 'science', 'Health': 'science',
+  'Environment': 'science', 'Education': 'education', 'Media': 'social norms',
+  'Culture': 'social norms', 'Sport': 'social norms', 'Art': 'art',
+  'Identity': 'identity' };
 
 
 var RESOLUTIONS_DB = {
@@ -3965,6 +4157,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -3978,8 +4171,7 @@ function PolyBackground() {
         el('circle', { cx: 60, cy: 38, r: 16, stroke: '#ffffff', strokeWidth: 1.3, fill: 'none', opacity: .5 }), // Hair line
         el('path', { d: 'M46 32 Q52 22 60 24 Q68 22 74 32', stroke: '#ffffff', strokeWidth: 1, fill: 'none', opacity: .3 }), // Inner detail. tie/collar
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
-        el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));
-}
+        el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));}
 
 /* ═══════════════════════════════════════════════════
    ANTHROPIC API HELPER
@@ -6845,7 +7037,7 @@ function Resolutions() {
   var [loadingBg, setLoadingBg] = useState(false);
   // Generate Motion state
   var [genMode, setGenMode] = useState(null); // null = roller, 'motion' = plain, 'agent' = with background, 'current' = current events
-  var [motionCategory, setMotionCategory] = useState('any');
+  var [shelfSeed, setShelfSeed] = useState(0);
   var [motionOutput, setMotionOutput] = useState(null);
   var [motionLoading, setMotionLoading] = useState(false);
   var [mProgress, setMProgress] = useState(null);
@@ -6868,9 +7060,39 @@ function Resolutions() {
     'identity': 'Focus on specific relational dilemmas: chosen family vs. biological obligation, ethics of cutting off family, the "coming out" decision calculus, caretaker burnout, cohabitation vs. marriage as institution, grief and moving on timelines.'
   };
 
+  // Derived from the topic selection rather than held as its own state. the
+  // old motionCategory useState had no setter call anywhere, so every
+  // generation shipped the generic 'any' guide no matter what was picked.
+  var topicLabel = active.length > 0 ? active.join(', ') : '';
+  var guideKey = active.length > 0 ? CATEGORY_GUIDE_KEY[active[0]] || 'any' : 'any';
+
   var toggle = (cat) => {
     setActive((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
   };
+
+  // Motions on the shelf: real rows from the library, filtered by the picked
+  // topics. Gives the stage something to show before anything is clicked.
+  var shelf = React.useMemo(() => {
+    var pool = active.length > 0 ? active.filter((c) => RESOLUTIONS_DB[c]) : CATEGORIES;
+    if (!pool.length) return [];
+    var out = [];
+    var seen = new Set();
+    var guard = 0;
+    while (out.length < 6 && guard < 400) {
+      guard++;
+      var cat = pool[Math.floor(Math.random() * pool.length)];
+      var list = RESOLUTIONS_DB[cat];
+      if (!list || !list.length) continue;
+      var m = list[Math.floor(Math.random() * list.length)];
+      if (seen.has(m)) continue;
+      seen.add(m);
+      out.push({ cat: cat, text: m });
+    }
+    return out;
+  }, [active, shelfSeed]);
+
+  var libraryCount = (active.length > 0 ? active : CATEGORIES).reduce(
+    (n, c) => n + (RESOLUTIONS_DB[c] || []).length, 0);
 
   var roll = () => {
     logBetaEvent('motion', { action: 'roll' });
@@ -6887,10 +7109,15 @@ function Resolutions() {
       if (!seen.has(m)) {seen.add(m);picked.push(m);}
     }
     var count = 0;
-    var interval = setInterval(() => {
+    var spinOne = () => {
       var rCat = pool[Math.floor(Math.random() * pool.length)];
-      var rMot = RESOLUTIONS_DB[rCat][Math.floor(Math.random() * RESOLUTIONS_DB[rCat].length)];
-      setResult([rMot, rMot, rMot]);
+      var list = RESOLUTIONS_DB[rCat] || [];
+      return list[Math.floor(Math.random() * list.length)];
+    };
+    var interval = setInterval(() => {
+      // Three independent reels. filling all three slots with the same
+      // motion made the shortlist read as duplicates mid-spin.
+      setResult([spinOne(), spinOne(), spinOne()]);
       count++;
       if (count > 8) {
         clearInterval(interval);
@@ -6905,8 +7132,8 @@ function Resolutions() {
     setMotionStreaming(true);
     setMotionOutput('');
 
-    var picked = active.length > 0 ? active.join(', ').toLowerCase() : motionCategory === 'any' ? null : motionCategory;
-    var guide = categoryGuides[motionCategory] || categoryGuides['any'];
+    var picked = topicLabel ? topicLabel.toLowerCase() : null;
+    var guide = categoryGuides[guideKey] || categoryGuides['any'];
 
     var sysPrompt, userPrompt;
 
@@ -7015,7 +7242,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
     setMotionOutput('');
     setFetchingNews(true);
 
-    var picked = motionCategory === 'any' ? null : motionCategory;
+    var picked = topicLabel ? topicLabel.toLowerCase() : null;
     var topicQuery = picked ?
     `What are the most controversial and debatable ${picked} news stories and developments from the past week? Focus on stories with genuine ethical, policy, or philosophical tensions.` :
     `What are the most controversial and debatable news stories from the past week across politics, technology, economics, social issues, and international affairs? Focus on stories with genuine ethical, policy, or philosophical tensions.`;
@@ -7046,64 +7273,126 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
   };
 
 
-  // Mode selector tabs
-  var modeTab = (id, label) => el('button', {
-    key: id,
-    className: 'chip' + (genMode === id ? ' active' : ''),
-    onClick: () => {setGenMode(genMode === id ? null : id);setMotionOutput(null);},
-    style: { padding: '10px 20px', fontSize: '.92rem' }
-  }, label);
+  // Four named ways to get a motion. Each states what it does, because
+  // "Generate Motion" vs "Generate with Background" told nobody anything.
+  var SOURCES = [
+  { id: 'library', name: t('motions.srcLibrary', 'From the library'),
+    desc: t('motions.srcLibraryDesc', 'Roll three vetted motions. Instant, no generation.'),
+    cta: t('motions.rollCta', 'Roll three motions'), yields: [] },
+  { id: 'original', name: t('motions.srcOriginal', 'Write me one'),
+    desc: t('motions.srcOriginalDesc', 'A fresh motion with gov and opp angles and a fairness check.'),
+    cta: t('motions.generateWithAI', 'Generate a motion'),
+    yields: ['Background', 'Case statement', 'Gov angle', 'Opp angle', 'Fairness check', 'Difficulty'] },
+  { id: 'agent', name: t('motions.srcAgent', 'Agent case'),
+    desc: t('motions.srcAgentDesc', 'A named character, a real dilemma, a cinematic background.'),
+    cta: t('motions.generateAgentCase', 'Build the scenario'),
+    yields: ['Cinematic background', 'Case statement', 'Gov angle', 'Opp angle', 'Fairness check', 'Difficulty'] },
+  { id: 'current', name: t('motions.srcCurrent', 'From this week'),
+    desc: t('motions.srcCurrentDesc', 'Pull live news and turn the most contested story into a motion.'),
+    cta: t('motions.generateFromEvents', 'Pull the news'),
+    yields: ['This week\'s reporting', 'Background', 'Case statement', 'Gov angle', 'Opp angle', 'Fairness check'] }];
+
+  // genMode stays null for the library source so nothing downstream shifts.
+  var source = genMode === null ? 'library' : genMode;
+  var activeSource = SOURCES.filter((s) => s.id === source)[0] || SOURCES[0];
+  var busy = spinning || motionLoading;
+
+  var pickSource = (id) => {
+    setGenMode(id === 'library' ? null : id);
+    setMotionOutput(null);
+  };
+
+  var runSource = () => {
+    if (source === 'library') return roll();
+    if (source === 'current') return generateFromNews();
+    return generateMotion(source === 'agent');
+  };
+
+  // Taking a motion off the shelf drops it straight into the picked slot.
+  var takeFromShelf = (text) => {
+    var r = [text];
+    r._selected = 0;
+    setResult(r);
+    setBgText(null);
+  };
+
+  var selectedMotion = result && Array.isArray(result) ? result[result._selected || 0] : null;
 
   return el('div', { className: 'panel' + (motionOutput ? ' panel-expanded' : '') },
-  // Mode tabs at top
-  el('div', { className: 'gen-modes', style: { display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' } },
-  modeTab(null, t('motions.generateMotion', 'Generate Motion')),
-  modeTab('agent', t('motions.generateWithBg', 'Generate with Background')),
-  modeTab('current', t('motions.currentEvents', 'Current Events'))
-  ),
-  // Divider between mode tabs and category chips
-  el('div', { style: { height: 2, background: '#ef444425', margin: '8px 40px 14px', borderRadius: 1 } }),
-  // Category chips. visible on all modes
-  el('div', { className: 'chips', style: { justifyContent: 'center', marginBottom: 16, transform: 'scale(0.9)', transformOrigin: 'center' } },
-  CATEGORIES.map((cat) =>
+  el('div', { className: 'mo-shell' },
+
+  // ── Control rail ───────────────────────────────────────────────
+  el('div', { className: 'mo-rail' },
+  el('div', null,
+  el('div', { className: 'mo-legend' }, t('motions.sourceLegend', 'Where it comes from')),
+  el('div', { className: 'mo-src' },
+  SOURCES.map((s) =>
   el('button', {
-    key: cat, className: 'chip' + (active.includes(cat) ? ' active' : ''),
-    onClick: () => toggle(cat)
-  }, cat)
+    key: s.id,
+    className: 'mo-src-item' + (source === s.id ? ' active' : ''),
+    onClick: () => pickSource(s.id)
+  },
+  el('span', { className: 'mo-src-dot' }),
+  el('span', { className: 'mo-src-text' },
+  el('span', { className: 'mo-src-name' }, s.name),
+  el('span', { className: 'mo-src-desc' }, s.desc)
+  )
+  )
+  )
   )
   ),
 
-  // === RANDOM ROLLER MODE ===
-  genMode === null && el('div', { style: { textAlign: 'center' } },
-  el('p', { style: { color: '#888', fontSize: '.92rem', marginBottom: 16 } },
-  t('motions.rollDesc', 'Roll from the database or generate an original motion with AI. Filter by category above.')
-  ),
-  el('div', { className: 'motion-ctas', style: { display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' } },
+  // The action sits with the source it belongs to, not below nineteen
+  // topic chips where it fell off the bottom of the screen.
+  el('div', null,
   el('button', {
-    className: 'btn btn-orange',
-    onClick: generateMotion,
-    disabled: spinning || motionLoading,
-    style: { padding: '16px 36px', fontSize: '1.05rem', borderRadius: 14 }
-  }, motionLoading ? t('motions.generatingMotion', 'Generating...') : t('motions.generateWithAI', 'Generate with AI')),
-  el('button', {
-    className: 'btn btn-secondary',
-    onClick: roll,
-    disabled: spinning || motionLoading,
-    style: { padding: '16px 36px', fontSize: '1.05rem', borderRadius: 14 }
-  }, spinning ? t('motions.rolling', 'Rolling...') : 'Roll from Database')
+    className: 'btn btn-orange mo-go',
+    onClick: runSource,
+    disabled: busy
+  }, busy ?
+  el('span', null, el('span', { className: 'spinner' }), ' ',
+  fetchingNews ? t('motions.scanningNews', 'Scanning this week\'s news...') :
+  spinning ? t('motions.rolling', 'Rolling...') :
+  source === 'agent' ? t('motions.craftingScenario', 'Crafting scenario...') :
+  t('motions.generatingMotion', 'Generating...')) :
+  activeSource.cta),
+  el('p', { className: 'mo-go-sub' },
+  active.length === 0 ? t('motions.allTopics', 'All topics') :
+  active.length <= 3 ? active.join(', ') :
+  active.slice(0, 2).join(', ') + ' +' + (active.length - 2) + ' more')
   ),
-  result && Array.isArray(result) && el('div', { className: 'res-expanded' },
-  result.map((m, i) =>
-  el('div', { key: i, className: 'res-card', style: { marginTop: i === 0 ? 16 : 10, cursor: 'pointer', border: result._selected === i ? '1.5px solid #ef4444' : '1px solid #ffffff14', transition: 'all .2s ease' }, onClick: () => {
-      var r = [...result];r._selected = i;setResult(r);
-    } },
-  el('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-  el('span', { style: { fontSize: '.72rem', fontWeight: 700, color: result._selected === i ? '#ef4444' : '#64748b', background: result._selected === i ? '#ef444418' : '#ffffff08', padding: '2px 8px', borderRadius: 6, flexShrink: 0 } }, 'Option ' + (i + 1)),
-  el('span', null, m)
+
+  el('div', null,
+  el('div', { className: 'mo-legend' },
+  el('span', null, t('motions.topicLegend', 'Topics')),
+  active.length > 0 && el('button', {
+    className: 'mo-topic-clear', onClick: () => setActive([])
+  }, t('motions.clear', 'Clear'))
+  ),
+  el('div', { className: 'mo-topics' },
+  CATEGORIES.map((cat) =>
+  el('button', {
+    key: cat,
+    className: 'mo-topic' + (active.includes(cat) ? ' active' : ''),
+    onClick: () => toggle(cat)
+  },
+  cat,
+  el('span', { className: 'mo-topic-n' }, (RESOLUTIONS_DB[cat] || []).length)
   )
   )
-  ),
-  el('div', { className: 'res-actions' },
+  )
+  )
+  ), // mo-rail
+
+  // ── Stage ──────────────────────────────────────────────────────
+  el('div', { className: 'mo-stage' },
+
+  // Selected / rolled motions
+  result && Array.isArray(result) && el('div', null,
+  el('div', { className: 'mo-picked' },
+  el('div', { className: 'mo-picked-label' }, t('motions.yourMotion', 'Your motion')),
+  el('div', { className: 'mo-picked-text' }, selectedMotion),
+  el('div', { className: 'mo-picked-acts' },
   el('button', {
     className: 'btn btn-secondary btn-sm',
     onClick: generateBackground,
@@ -7114,37 +7403,81 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
   ),
   el('button', {
     className: 'btn btn-secondary btn-sm',
+    onClick: (e) => copyWithFeedback(selectedMotion, e.currentTarget)
+  }, t('common.copy', 'Copy')),
+  el('button', {
+    className: 'btn btn-secondary btn-sm',
     onClick: roll
   }, t('motions.reRoll', 'Re-roll'))
   ),
   bgText && el('div', { className: 'res-bg', style: { marginTop: 14, textAlign: 'left' } }, bgText)
+  ),
+  result.length > 1 && el('div', null,
+  el('div', { className: 'mo-legend', style: { marginTop: 4 } }, t('motions.alsoRolled', 'Also rolled')),
+  el('div', { className: 'mo-shelf' },
+  result.map((m, i) =>
+  (result._selected || 0) === i ? null :
+  el('button', {
+    key: i, className: 'mo-shelf-card',
+    onClick: () => {var r = [...result];r._selected = i;setResult(r);setBgText(null);}
+  },
+  el('span', { className: 'mo-shelf-text' }, m),
+  el('span', { className: 'mo-shelf-take' }, t('motions.use', 'Use this'))
+  )
+  )
+  )
   )
   ),
 
-  // === GENERATE WITH BACKGROUND / CURRENT EVENTS MODE ===
-  genMode !== null && el('div', null,
-  el('p', { style: { color: '#888', fontSize: '.92rem', marginBottom: 16, textAlign: 'center' } },
-  genMode === 'agent' ?
-  t('motions.agentDesc', 'Generate an actor case: a character in a specific situation with a vivid, cinematic background. Use the category chips above to focus the topic.') :
-  t('motions.currentDesc', 'Pull this week\'s news and turn the most debatable story into a motion. Use the category chips above to filter by topic.')
+  // The shelf. default state of the stage, so the library is visible
+  // before anything is clicked instead of a page of empty buttons. It
+  // stays up after a pick, so swapping motions is one click and the
+  // stage never collapses back to empty.
+  !motionOutput && !motionLoading && (source === 'library' || !result) && el('div', null,
+  el('div', { className: 'mo-stage-head' },
+  el('h3', { className: 'mo-stage-title' },
+  source !== 'library' ? activeSource.name :
+  result ? t('motions.moreFromLibrary', 'More from the library') :
+  t('motions.shelfTitle', 'From the library')),
+  el('p', { className: 'mo-stage-sub' },
+  source === 'library' ?
+  libraryCount + ' ' + t('motions.motionsAvailable', 'motions available') :
+  active.length > 0 ?
+  t('motions.scopedTo', 'Scoped to') + ' ' + active.join(', ') :
+  t('motions.anyTopic', 'Any topic'))
   ),
-
-  // Generate button
-  el('div', { style: { textAlign: 'center', marginTop: 8 } },
+  source === 'library' ?
+  el('div', null,
+  shelf.length > 0 ?
+  el('div', { className: 'mo-shelf' },
+  shelf.map((s, i) =>
   el('button', {
-    className: genMode === 'current' ? 'btn btn-green' : 'btn btn-purple',
-    onClick: () => genMode === 'current' ? generateFromNews() : generateMotion(true),
-    disabled: motionLoading,
-    style: { padding: '16px 40px', fontSize: '1rem', borderRadius: 14 }
-  }, motionLoading ?
-  el('span', null, el('span', { className: 'spinner' }),
-  fetchingNews ? ' ' + t('motions.scanningNews', 'Scanning this week\'s news...') :
-  genMode === 'agent' ? ' ' + t('motions.craftingScenario', 'Crafting scenario...') :
-  genMode === 'current' ? ' ' + t('motions.buildingFromNews', 'Building motion from news...') :
-  ' ' + t('motions.generatingMotion', 'Generating motion...')) :
-  genMode === 'agent' ? t('motions.generateAgentCase', 'Generate Agent Case') :
-  genMode === 'current' ? t('motions.generateFromEvents', 'Generate from Current Events') :
-  t('motions.generateMotion', 'Generate Motion')
+    key: i, className: 'mo-shelf-card', onClick: () => takeFromShelf(s.text)
+  },
+  el('span', { className: 'mo-shelf-cat' }, s.cat),
+  el('span', { className: 'mo-shelf-text' }, s.text),
+  el('span', { className: 'mo-shelf-take' }, t('motions.use', 'Use this'))
+  )
+  )
+  ) :
+  el('div', { className: 'mo-empty' },
+  el('div', { className: 'mo-empty-t' }, t('motions.noneTitle', 'Nothing in those topics')),
+  el('div', { className: 'mo-empty-d' }, t('motions.noneDesc', 'Pick a different topic, or clear the filter.'))
+  ),
+  shelf.length > 0 && el('p', { className: 'mo-go-sub', style: { marginTop: 14 } },
+  el('button', {
+    className: 'mo-topic-clear', onClick: () => setShelfSeed(shelfSeed + 1)
+  }, t('motions.showOthers', 'Show me others'))
+  )
+  ) :
+  // Generative sources: show the shape of what comes back, not a
+  // restatement of the label already sitting in the rail.
+  el('div', { className: 'mo-yield' },
+  el('div', { className: 'mo-yield-t' }, t('motions.youGet', 'What you get back')),
+  el('ul', { className: 'mo-yield-list' },
+  activeSource.yields.map((y, i) => el('li', { key: i }, y))
+  ),
+  el('p', { className: 'mo-yield-d' }, activeSource.desc)
   )
   ),
 
@@ -7153,7 +7486,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
 
   // Output. only shown when done
   motionOutput && !motionLoading && !motionStreaming && el('div', { style: { marginTop: 20, animation: 'caseRevealIn .6s ease-out both' } },
-  genMode === 'current' && newsContext && el(ContextualMedia, { topic: motionCategory !== 'any' ? motionCategory : 'current events debate', type: 'context' }),
+  genMode === 'current' && newsContext && el(ContextualMedia, { topic: topicLabel || 'current events debate', type: 'context' }),
   el('div', { className: 'output', style: { textAlign: 'left' }, dangerouslySetInnerHTML: { __html: cleanOutput(motionOutput, true) } })
   ),
 
@@ -7181,11 +7514,12 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
   el(SaveToDocsButton, { text: motionOutput, filename: 'Debatable Motion' }),
   // Quick feedback for recursive learning
   el('div', { style: { display: 'flex', gap: 4, marginLeft: 'auto' } },
-  el('button', { onClick: () => logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: motionCategory, mode: genMode, rating: 'good' }), style: { background: 'none', border: '1px solid #22c55e30', borderRadius: 8, padding: '4px 10px', color: '#4ade80', cursor: 'pointer', fontSize: '.78rem', fontFamily: 'inherit' } }, '\uD83D\uDC4D'),
-  el('button', { onClick: () => logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: motionCategory, mode: genMode, rating: 'bad' }), style: { background: 'none', border: '1px solid #ef444430', borderRadius: 8, padding: '4px 10px', color: '#f87171', cursor: 'pointer', fontSize: '.78rem', fontFamily: 'inherit' } }, '\uD83D\uDC4E')
-  )
-  )
-  )
+  el('button', { onClick: () => logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: topicLabel || 'any', mode: genMode, rating: 'good' }), style: { background: 'none', border: '1px solid #22c55e30', borderRadius: 8, padding: '4px 10px', color: '#4ade80', cursor: 'pointer', fontSize: '.78rem', fontFamily: 'inherit' } }, '\uD83D\uDC4D'),
+  el('button', { onClick: () => logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: topicLabel || 'any', mode: genMode, rating: 'bad' }), style: { background: 'none', border: '1px solid #ef444430', borderRadius: 8, padding: '4px 10px', color: '#f87171', cursor: 'pointer', fontSize: '.78rem', fontFamily: 'inherit' } }, '\uD83D\uDC4E')
+  ) // feedback
+  ) // action bar
+  ) // mo-stage
+  ) // mo-shell
   );
 }
 
@@ -11804,13 +12138,13 @@ function AuthModal({ onSignIn, onClose }) {
 var CHECKOUT_BETA_NO_CHARGE = true;
 (function () {
   try {
-    fetch('/api/billing/region', { method: 'GET' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
-        if (d && d.betaNoCharge === false) CHECKOUT_BETA_NO_CHARGE = false;
-      })
-      .catch(function () { /* stay in beta mode */ });
-  } catch (e) { /* stay in beta mode */ }
+    fetch('/api/billing/region', { method: 'GET' }).
+    then(function (r) {return r.ok ? r.json() : null;}).
+    then(function (d) {
+      if (d && d.betaNoCharge === false) CHECKOUT_BETA_NO_CHARGE = false;
+    }).
+    catch(function () {/* stay in beta mode */});
+  } catch (e) {/* stay in beta mode */}
 })();
 
 function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
