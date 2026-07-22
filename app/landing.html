@@ -7578,12 +7578,41 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     transform:translate(-50%,-50%);box-shadow:0 1px 6px rgba(0,0,0,.3);
     transition:left .5s cubic-bezier(.2,.8,.2,1)}
 
-  .fs-chart{position:relative;height:52px;margin-top:10px}
-  .fs-chart svg{width:100%;height:100%;display:block}
-  .fs-grid{stroke:rgba(26,26,31,.08);stroke-width:1;vector-effect:non-scaling-stroke}
-  .fs-line{fill:none;stroke:#dc2626;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-  .fs-chart-dot{position:absolute;right:-3px;width:7px;height:7px;border-radius:50%;background:#dc2626;
-    transform:translateY(-50%);box-shadow:0 0 9px rgba(220,38,38,.5);transition:top .5s cubic-bezier(.2,.8,.2,1)}
+  /* Price chart, built to read like a real market board: gradient area under
+     the line, a dashed coin-flip line at 50, the visible window labelled on
+     the right rail, a last-price flag pinned to the live end, and a volume
+     histogram along the floor tinted by whichever side gained on that tick.
+     Every part is derived from the same random walk that drives the bar
+     above it, so none of it is decoration faking data the board lacks.
+     Text stays in HTML on the rail because the SVG is preserveAspectRatio
+     ="none" and would stretch any glyph placed inside it. */
+  .fs-chart{position:relative;height:86px;margin-top:10px;display:flex;gap:7px}
+  .fs-plot{position:relative;flex:1;min-width:0}
+  .fs-plot svg{width:100%;height:100%;display:block}
+  .fs-grid{stroke:rgba(26,26,31,.07);stroke-width:1;vector-effect:non-scaling-stroke}
+  .fs-mid{stroke:rgba(26,26,31,.26);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+  .fs-area{fill:url(#fsGrad);stroke:none}
+  .fs-line{fill:none;stroke:#dc2626;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+  .fs-volbar{fill:rgba(220,38,38,.34)}
+  .fs-volbar.is-dn{fill:rgba(37,99,235,.32)}
+  .fs-chart-dot{position:absolute;right:0;width:7px;height:7px;border-radius:50%;background:#dc2626;
+    transform:translate(50%,-50%);box-shadow:0 0 0 3px rgba(220,38,38,.15),0 0 9px rgba(220,38,38,.5);
+    transition:top .5s cubic-bezier(.2,.8,.2,1)}
+  .fs-rail{position:relative;flex:none;width:34px}
+  .fs-board .fs-ax{position:absolute;right:0;top:0;font-size:.5rem;font-weight:700;
+    font-variant-numeric:tabular-nums;letter-spacing:.03em;color:rgba(26,26,31,.34)}
+  .fs-board .fs-ax--lo{top:67.5%}
+  .fs-board .fs-chart-flag{position:absolute;right:0;padding:2px 4px;border-radius:4px;
+    background:#dc2626;color:#fff;font-size:.58rem;font-weight:800;letter-spacing:0;
+    font-variant-numeric:tabular-nums;transform:translateY(-50%);
+    box-shadow:0 2px 8px rgba(220,38,38,.32);transition:top .5s cubic-bezier(.2,.8,.2,1)}
+  .fs-board .fs-chart-flag.is-con{background:#2563eb;box-shadow:0 2px 8px rgba(37,99,235,.32)}
+  /* Move since the round opened. Green when the room drifted toward Pro. */
+  .fs-board .fs-delta{display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;
+    font-size:.55rem;font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums;
+    background:rgba(22,163,74,.12);color:#15803d}
+  .fs-board .fs-delta.is-down{background:rgba(220,38,38,.1);color:#b91c1c}
+  .fs-board .fs-delta.is-flat{background:rgba(26,26,31,.07);color:rgba(26,26,31,.45)}
 
   /* Market stats strip: audience, credits in play, leader's chance.
      Values tick with the price so the board reads as a live market. */
@@ -7671,6 +7700,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="fs-odds">
         <div class="fs-odds-head">
           <span class="fs-odds-k">Who the room backs for the ballot</span>
+          <span class="fs-delta is-flat" id="fsDelta">0.0</span>
           <span class="fs-odds-live" id="fsOddsLive"><i></i>Round running</span>
         </div>
         <div class="fs-scale">
@@ -7679,13 +7709,29 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <span class="fs-scale-end fs-scale-end--con"><b id="fsNameBmini"></b><em id="fsPctB">38%</em></span>
         </div>
         <div class="fs-chart">
-          <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
-            <line class="fs-grid" x1="0" y1="10" x2="100" y2="10"/>
-            <line class="fs-grid" x1="0" y1="20" x2="100" y2="20"/>
-            <line class="fs-grid" x1="0" y1="30" x2="100" y2="30"/>
-            <polyline class="fs-line" id="fsLine" points=""/>
-          </svg>
-          <span class="fs-chart-dot" id="fsDot" style="top:40%"></span>
+          <div class="fs-plot">
+            <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="fsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#dc2626" stop-opacity=".32"/>
+                  <stop offset="1" stop-color="#dc2626" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <line class="fs-grid" x1="0" y1="7" x2="100" y2="7"/>
+              <line class="fs-grid" x1="0" y1="17.5" x2="100" y2="17.5"/>
+              <line class="fs-grid" x1="0" y1="28" x2="100" y2="28"/>
+              <polygon class="fs-area" id="fsArea" points=""/>
+              <line class="fs-mid" id="fsMid" x1="0" y1="15" x2="100" y2="15"/>
+              <polyline class="fs-line" id="fsLine" points=""/>
+              <g id="fsVol"></g>
+            </svg>
+            <span class="fs-chart-dot" id="fsDot" style="top:40%"></span>
+          </div>
+          <div class="fs-rail" aria-hidden="true">
+            <span class="fs-ax" id="fsAxHi">70%</span>
+            <span class="fs-chart-flag" id="fsFlag" style="top:40%">50%</span>
+            <span class="fs-ax fs-ax--lo" id="fsAxLo">40%</span>
+          </div>
         </div>
         <div class="fs-mkt" aria-hidden="true">
           <span class="fs-mkt-cell"><b id="fsViewers">0</b>watching</span>
@@ -7747,14 +7793,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   ['fsFmt','fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
    'fsOddsLive','fsBallot','fsWinner','fsScore','fsRfd','fsPrev','fsNext','fsCal',
-   'fsViewers','fsVolume','fsChance','fsChanceNm']
+   'fsViewers','fsVolume','fsChance','fsChanceNm',
+   'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta']
     .forEach(function(id){ el[id] = document.getElementById(id); });
   var board = document.getElementById('fsBoard');
 
   var reduced = false;
   try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
 
-  var idx = 0, price = 50, hist = [], tick = null, slot = null, elapsed = 0;
+  var idx = 0, price = 50, hist = [], volHist = [], tick = null, slot = null, elapsed = 0;
   var viewers = 0, vol = 0;
   var TICK_MS = 420, RUN_MS = 4600, HOLD_MS = 2600;
 
@@ -7769,6 +7816,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   function clamp(v){ return Math.max(14, Math.min(86, v)); }
 
+  /* Chart geometry inside the 0-40 viewBox: the price line gets the top
+     band, the volume histogram gets the floor. Constants so the rail labels
+     can be positioned off the same numbers. */
+  var L_TOP = 2, L_BOT = 27, V_TOP = 29, V_BOT = 39;
+
   function drawChart(){
     if (!el.fsLine || hist.length < 2) return;
     // Scale to the history's own range so a 45-55 walk still fills the
@@ -7776,17 +7828,70 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var lo = Math.min.apply(null, hist), hi = Math.max.apply(null, hist);
     var pad = Math.max(3, (hi - lo) * .15);
     lo -= pad; hi += pad;
-    var pts = [], n = hist.length;
-    for (var i = 0; i < n; i++){
-      var x = (i * (100 / (n - 1))).toFixed(2);
-      var y = (37 - (hist[i] - lo) / (hi - lo) * 34).toFixed(2);
-      pts.push(x + ',' + y);
+    var span = (hi - lo) || 1;
+    var n = hist.length, pts = [], i, x, y;
+    for (i = 0; i < n; i++){
+      x = i * (100 / (n - 1));
+      y = L_BOT - (hist[i] - lo) / span * (L_BOT - L_TOP);
+      pts.push(x.toFixed(2) + ',' + y.toFixed(2));
     }
-    el.fsLine.setAttribute('points', pts.join(' '));
-    if (el.fsDot){
-      var last = 37 - (hist[n-1] - lo) / (hi - lo) * 34;
-      el.fsDot.style.top = (last / 40 * 100).toFixed(1) + '%';
+    var joined = pts.join(' ');
+    el.fsLine.setAttribute('points', joined);
+    // Area is the same line closed down to the floor of the price band.
+    if (el.fsArea) el.fsArea.setAttribute('points', '0,' + L_BOT + ' ' + joined + ' 100,' + L_BOT);
+
+    // The coin-flip line only earns its place when 50 is actually inside the
+    // window on screen; on an edge it would imply a level that is not there.
+    if (el.fsMid){
+      if (50 > lo && 50 < hi){
+        var my = (L_BOT - (50 - lo) / span * (L_BOT - L_TOP)).toFixed(2);
+        el.fsMid.setAttribute('y1', my);
+        el.fsMid.setAttribute('y2', my);
+        el.fsMid.style.display = '';
+      } else {
+        el.fsMid.style.display = 'none';
+      }
     }
+
+    // Volume histogram, scaled to its own peak and tinted by tick direction.
+    if (el.fsVol && volHist.length){
+      var vmax = Math.max.apply(null, volHist) || 1;
+      var bw = Math.max(.8, (100 / n) * .62), out = '';
+      for (i = 0; i < n; i++){
+        var h = Math.max(1.2, (volHist[i] / vmax) * (V_BOT - V_TOP));
+        var up = i === 0 ? true : hist[i] >= hist[i - 1];
+        // Clamp into the viewBox so the first and last bars are not half-cut.
+        var bx = Math.min(100 - bw, Math.max(0, i * (100 / (n - 1)) - bw / 2));
+        out += '<rect class="fs-volbar' + (up ? '' : ' is-dn') + '" x="' + bx.toFixed(2) +
+               '" y="' + (V_BOT - h).toFixed(2) + '" width="' + bw.toFixed(2) +
+               '" height="' + h.toFixed(2) + '"/>';
+      }
+      el.fsVol.innerHTML = out;
+    }
+
+    // Live end: dot on the plot, price flag on the rail, both on one figure.
+    var lastY = L_BOT - (hist[n-1] - lo) / span * (L_BOT - L_TOP);
+    var topPct = (lastY / 40 * 100).toFixed(1) + '%';
+    if (el.fsDot) el.fsDot.style.top = topPct;
+    if (el.fsFlag){
+      var fp = Math.round(price);
+      el.fsFlag.style.top = topPct;
+      el.fsFlag.textContent = fp + '%';
+      el.fsFlag.classList.toggle('is-con', fp < 50);
+    }
+    if (el.fsAxHi) el.fsAxHi.textContent = Math.round(hi) + '%';
+    if (el.fsAxLo) el.fsAxLo.textContent = Math.round(lo) + '%';
+  }
+
+  /* Move since the round opened, which is the number a market board leads
+     with. Signed against Pro so it agrees with the bar and the flag. */
+  function paintDelta(){
+    if (!el.fsDelta) return;
+    var d = price - ROUNDS[idx].open;
+    var r = Math.abs(d) < .05 ? 0 : d;
+    el.fsDelta.textContent = (r > 0 ? '\u25B2 ' : r < 0 ? '\u25BC ' : '') + Math.abs(r).toFixed(1);
+    el.fsDelta.classList.toggle('is-down', r < 0);
+    el.fsDelta.classList.toggle('is-flat', r === 0);
   }
 
   function paintPrice(){
@@ -7796,6 +7901,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (el.fsFill) el.fsFill.style.width = p + '%';
     if (el.fsMark) el.fsMark.style.left = p + '%';
     drawChart();
+    paintDelta();
   }
 
   function paintRound(i){
@@ -7816,7 +7922,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     price = r.open;
     hist = [];
     var seed = r.open;
-    for (var k = 0; k < 22; k++){ seed = clamp(seed + (Math.random() * 6 - 3)); hist.push(seed); }
+    volHist = [];
+    for (var k = 0; k < 22; k++){
+      seed = clamp(seed + (Math.random() * 6 - 3));
+      hist.push(seed);
+      volHist.push(Math.random() * 9 + 2);
+    }
     price = clamp(seed);
     viewers = r.crowd; vol = r.vol;
     paintPrice();
@@ -7843,11 +7954,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       // Walk toward the drift target with noise on top, so it reads as a
       // market finding a level rather than a straight line.
       var pull = (r.drift - price) * 0.16;
+      var prevPrice = price;
       price = clamp(price + pull + (Math.random() * 5.4 - 2.7));
       hist.push(price);
-      if (hist.length > 30) hist.shift();
+      // Bigger price moves trade heavier, which is what gives the histogram
+      // a shape instead of thirty bars of identical noise.
+      var lot = Math.round(Math.abs(price - prevPrice) * 2.6 + Math.random() * 5 + 2);
+      volHist.push(lot);
+      if (hist.length > 30){ hist.shift(); volHist.shift(); }
       viewers = Math.max(8, viewers + Math.round(Math.random() * 5 - 1.6));
-      vol += Math.round(Math.random() * 9 + 2);
+      vol += lot;
       paintPrice();
       paintMkt();
       if (el.fsClock){
