@@ -32,6 +32,9 @@ const URLS = [
   { path: '/',                changefreq: 'daily',   priority: '1.0' },
   { path: '/debate-it',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
+  // Product-loop explainer (opponent → timed round → AI ballot). Target
+  // of the hero "How it works" link; HowTo + FAQPage schema on-page.
+  { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-07-22' },
   { path: '/today',           changefreq: 'daily',   priority: '0.85' },
   // /rounds retired 2026-05-18 — the published-rounds listing now
   // lives as a tab inside /community (#rounds). Don't list it here;
