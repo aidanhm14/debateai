@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script src="/js/native-bridge.js"></script>
+<title>Chat · The Commons and your DMs · Debatable</title>
+<meta name="description" content="One room for everyone and private threads for the rounds you are setting up. Talk to other debaters, propose a time, send a case, keep the conversation in one place." />
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ef4444" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Debatable" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="canonical" href="https://itsdebatable.com/chat">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://itsdebatable.com/chat">
+<meta property="og:title" content="Chat · The Commons and your DMs · Debatable">
+<meta property="og:description" content="One public room plus private threads with other debaters. Propose a time, trade cases, set up the round.">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Chat · The Commons and your DMs · Debatable">
+<meta name="twitter:description" content="One public room plus private threads with other debaters.">
+<meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<!-- The public room reuses the same client module /community's Live tab
+     uses: anonymous handle pinned to localStorage, adaptive polling
+     against /api/chat-feed. This page owns the DM half; the public feed
+     stays one implementation in one file. -->
+<script src="/js/community-chat.js"></script>
+<script defer src="/js/track.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/ui.css">
+
+<!-- The site runs one light surface (dark mode disabled 2026-07-09), so
+     data-theme is set on <html> rather than painted from localStorage. -->
+
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   /chat — the messaging surface.
+
+   Two kinds of conversation live here and the page is built so they
+   feel like the same product rather than two bolted-together systems:
+
+     · The Commons — one public room, server-mediated through
+       /api/chat-feed. Works signed out with an anonymous handle, which
+       is the whole point: a visitor can say something before they have
+       an account.
+     · Direct messages — private Firestore threads (dm_threads), 1:1 and
+       group, shared with /spar and /live-round. Sign-in required, since
+       a DM needs a durable identity on both ends.
+
+   Layout is the standard messaging three-part frame: conversation list
+   on the left, thread in the middle, composer pinned to the bottom of
+   the thread. Under 900px it collapses to one pane at a time with an
+   explicit back button, because a 320px-wide sidebar next to a 320px
+   thread is two unusable columns instead of one usable one.
+   ══════════════════════════════════════════════════════════════════ */
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+/* [hidden] is a UA rule of display:none, which any class rule setting
+   display (.cx-scroll is display:flex, .cx-composer has padding/border)
+   beats on specificity. Panes are toggled by the attribute, so it has
+   to actually win or the hidden surface shows through the visible one. */
+[hidden]{display:none !important}
+:root{
+  /* .ui-topbar is position:fixed at 52px tall, shifted down by the
+     founding-cohort banner when one is showing (cohort-banner.js
+     publishes --cohort-banner-h). The app has to reserve that space
+     itself, or the thread scrolls under the bar. The reserve lives on
+     body as padding rather than on .chat-app as margin: a top margin
+     on the first in-flow child collapses straight out to body and the
+     app stays pinned at y=0. */
+  --topbar-h:calc(52px + var(--cohort-banner-h, 0px));
+}
+body{
+  font-family:'Crimson Pro',Georgia,serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;
+  padding-top:var(--topbar-h);
+}
+/* House rule: upright only, emphasis via weight and color. */
+em,i{font-style:normal}
+
+/* The whole app owns the viewport below the topbar so the thread
+   scrolls internally and the page itself never does. A chat that
+   scrolls the document leaves the composer somewhere up the page. */
+.chat-app{
+  height:calc(100vh - var(--topbar-h));
+  height:calc(100dvh - var(--topbar-h));
+  display:grid;
+  grid-template-columns:clamp(260px,23vw,340px) minmax(0,1fr);
+  max-width:1560px;margin:0 auto;
+  border-left:1px solid var(--border);
+  border-right:1px solid var(--border);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.cx-side{
+  display:flex;flex-direction:column;min-height:0;
+  border-right:1px solid var(--border);
+  background:var(--bg-card);
+}
+.cx-side-head{
+  padding:16px 18px 12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+}
+.cx-side-title{font-size:1.32rem;font-weight:800;letter-spacing:-.02em;margin:0}
+.cx-side-sub{font-size:.82rem;color:var(--text-dim)}
+.cx-list{flex:1;overflow-y:auto;padding:10px 10px 18px;min-height:0}
+.cx-group{
+  padding:14px 8px 7px;font-size:.68rem;font-weight:800;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--text-ghost);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.cx-group:first-child{padding-top:4px}
+
+.cx-item{
+  width:100%;text-align:left;display:flex;align-items:center;gap:11px;
+  padding:10px 12px;border-radius:var(--radius-sm);
+  border:1px solid transparent;background:transparent;
+  color:var(--text);font-family:inherit;font-size:.95rem;
+  cursor:pointer;transition:background .14s,border-color .14s;
+}
+.cx-item:hover{background:var(--bg-elev);border-color:var(--border)}
+.cx-item.on{background:var(--accent-soft);border-color:var(--accent-border)}
+.cx-item-av{
+  width:34px;height:34px;border-radius:50%;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-elev-solid);border:1px solid var(--border);
+  font-size:.82rem;font-weight:700;color:var(--text-dim);
+  overflow:hidden;
+}
+.cx-item-av img{width:100%;height:100%;object-fit:cover;display:block}
+.cx-item-av.room{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent)}
+.cx-item-body{min-width:0;flex:1}
+/* Both rows are spans (a button may not contain block-level flow
+   content in older parsers), so they need display:block or the name
+   and the preview run together on one line. */
+.cx-item-name{
+  display:block;
+  font-weight:700;font-size:.98rem;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.cx-item-last{
+  display:block;
+  font-size:.83rem;color:var(--text-dim);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;margin-top:1px;
+}
+.cx-item-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+.cx-item-time{font-size:.72rem;color:var(--text-ghost)}
+.cx-badge{
+  min-width:20px;height:20px;padding:0 6px;border-radius:999px;
+  background:var(--accent);color:#fff;font-size:.72rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+.cx-live-dot{
+  width:8px;height:8px;border-radius:50%;background:#22c55e;flex:none;
+  box-shadow:0 0 8px rgba(34,197,94,.7);animation:cxPulse 1.9s ease-in-out infinite;
+}
+@keyframes cxPulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.cx-empty-note{
+  padding:12px 13px;margin:2px 2px 0;font-size:.86rem;line-height:1.5;
+  color:var(--text-dim);border:1px dashed var(--border);
+  border-radius:var(--radius-sm);
+}
+.cx-side-foot{padding:10px 12px;border-top:1px solid var(--border)}
+.cx-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:11px 14px;border-radius:var(--radius-sm);
+  border:1px solid var(--accent-border);background:var(--accent-soft);
+  color:var(--accent);font-family:inherit;font-size:.92rem;font-weight:800;
+  cursor:pointer;text-decoration:none;transition:background .15s,color .15s;
+}
+.cx-btn:hover{background:var(--accent);color:#fff}
+.cx-btn--solid{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cx-btn--solid:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+
+/* ── Thread pane ─────────────────────────────────────────── */
+.cx-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.cx-head{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 20px;border-bottom:1px solid var(--border);
+  background:var(--bg-elev);
+}
+.cx-back{
+  display:none;flex:none;width:34px;height:34px;border-radius:50%;
+  align-items:center;justify-content:center;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text);font-size:1.1rem;cursor:pointer;font-family:inherit;
+}
+.cx-head-body{min-width:0;flex:1}
+.cx-head-name{font-size:1.1rem;font-weight:800;letter-spacing:-.01em}
+.cx-head-sub{font-size:.82rem;color:var(--text-dim);margin-top:1px}
+.cx-head-act{display:flex;align-items:center;gap:8px;flex:none}
+.cx-chip{
+  padding:6px 12px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);
+  font-family:inherit;font-size:.8rem;font-weight:700;
+  cursor:pointer;text-decoration:none;transition:color .15s,border-color .15s;
+}
+.cx-chip:hover{color:var(--accent);border-color:var(--accent-border)}
+
+.cx-scroll{
+  flex:1;overflow-y:auto;min-height:0;
+  padding:20px clamp(16px,3vw,34px) 8px;
+  display:flex;flex-direction:column;gap:2px;
+  scroll-behavior:smooth;
+}
+.cx-daybreak{
+  display:flex;align-items:center;gap:12px;margin:16px 0 10px;
+  font-size:.72rem;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text-ghost);
+}
+.cx-daybreak::before,.cx-daybreak::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+
+/* DM bubbles. Mine right and accent-filled, theirs left on a surface
+   card — the standard read, so nobody has to learn this screen. */
+.cx-msg{
+  max-width:min(74%,620px);padding:9px 14px;border-radius:16px;
+  font-size:1rem;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere;
+  border:1px solid var(--border);background:var(--bg-card);
+  align-self:flex-start;margin-top:6px;
+}
+.cx-msg.mine{
+  align-self:flex-end;background:var(--accent);color:#fff;border-color:var(--accent);
+}
+.cx-msg a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.cx-msg-sender{
+  font-size:.78rem;font-weight:800;color:var(--accent);
+  margin-bottom:3px;
+}
+.cx-msg-time{
+  font-size:.72rem;opacity:.62;margin-top:3px;
+}
+.cx-read{
+  align-self:flex-end;font-size:.72rem;color:var(--text-ghost);
+  margin:2px 4px 0;
+}
+
+/* Public-room rows. Denser than DM bubbles: the Commons is a firehose
+   with join events in it, so it reads as a log, not a conversation. */
+.chat-row{padding:5px 2px}
+.chat-join{font-size:.86rem;color:var(--text-ghost)}
+.chat-join-name{color:#22c55e;font-weight:700}
+.chat-msg-head{display:flex;align-items:baseline;gap:9px}
+.chat-msg-handle{font-weight:800;font-size:.92rem;color:var(--accent)}
+.chat-msg-mine .chat-msg-handle{color:#22c55e}
+.chat-msg-time{font-size:.72rem;color:var(--text-ghost)}
+.chat-msg-text{font-size:1rem;line-height:1.5;margin-top:1px;word-wrap:break-word;overflow-wrap:anywhere}
+.chat-empty,.cx-thread-empty{
+  margin:auto;padding:26px 20px;text-align:center;
+  font-size:.95rem;line-height:1.6;color:var(--text-dim);max-width:44ch;
+}
+
+/* ── Composer ────────────────────────────────────────────── */
+.cx-composer{
+  border-top:1px solid var(--border);background:var(--bg-elev);
+  padding:12px clamp(12px,2.4vw,22px);
+}
+.cx-composer-row{display:flex;align-items:flex-end;gap:10px}
+.cx-input{
+  flex:1;min-width:0;resize:none;
+  font-family:inherit;font-size:1rem;line-height:1.45;
+  padding:11px 14px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--bg);color:var(--text);
+  max-height:140px;
+}
+.cx-input:focus{outline:none;border-color:var(--accent-border);box-shadow:0 0 0 3px var(--accent-soft)}
+.cx-input::placeholder{color:var(--text-ghost)}
+.cx-send{
+  flex:none;padding:11px 22px;border-radius:var(--radius-sm);
+  border:1px solid var(--accent);background:var(--accent);color:#fff;
+  font-family:inherit;font-size:.95rem;font-weight:800;cursor:pointer;
+  transition:background .15s;
+}
+.cx-send:hover:not(:disabled){background:var(--accent-hover)}
+.cx-send:disabled{opacity:.5;cursor:default}
+.cx-send.chat-send-fail{background:#f59e0b;border-color:#f59e0b}
+.cx-composer-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:7px;font-size:.78rem;color:var(--text-ghost);
+}
+.cx-identity{display:flex;align-items:center;gap:7px;min-width:0}
+.cx-identity b{color:var(--text-dim)}
+.cx-reroll{
+  border:none;background:transparent;color:var(--accent);
+  font-family:inherit;font-size:.78rem;font-weight:700;
+  cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;
+}
+.cx-count.over{color:#f59e0b}
+.cx-send-err{color:#f59e0b;font-size:.78rem;margin-top:5px}
+
+/* Floating "new messages" pill for the public room when the reader has
+   scrolled up — never yank someone off what they are reading. */
+.cx-newpill{
+  position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(8px);
+  padding:7px 15px;border-radius:999px;background:var(--accent);color:#fff;
+  font-size:.82rem;font-weight:800;border:none;cursor:pointer;font-family:inherit;
+  opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;
+  box-shadow:var(--shadow);z-index:4;
+}
+.cx-newpill.on{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.cx-main{position:relative}
+
+/* ── Gate + people picker ────────────────────────────────── */
+.cx-gate{
+  margin:auto;max-width:38ch;text-align:center;padding:30px 22px;
+}
+.cx-gate h3{font-size:1.4rem;font-weight:800;margin:0 0 8px;letter-spacing:-.02em}
+.cx-gate p{font-size:.95rem;line-height:1.6;color:var(--text-dim);margin:0 0 18px}
+
+.cx-people{padding:6px 4px}
+.cx-person{
+  display:flex;align-items:center;gap:11px;padding:11px 12px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  margin-bottom:8px;background:var(--bg-card);
+}
+.cx-person-body{flex:1;min-width:0}
+.cx-person-name{font-weight:700;font-size:.98rem}
+.cx-person-note{font-size:.84rem;color:var(--text-dim);margin-top:2px}
+.cx-person .cx-btn{width:auto;padding:8px 15px;font-size:.85rem;flex:none}
+
+/* ── Mobile: one pane at a time ──────────────────────────── */
+@media (max-width:900px){
+  .chat-app{
+    grid-template-columns:1fr;
+    border-left:none;border-right:none;
+  }
+  .cx-side{border-right:none}
+  /* data-pane on the app decides which half is on screen. Both panes
+     stay mounted so the public-room poll and the DM listeners keep
+     running while the other pane is showing. */
+  .chat-app[data-pane="thread"] .cx-side{display:none}
+  .chat-app[data-pane="list"] .cx-main{display:none}
+  .cx-back{display:flex}
+  .cx-msg{max-width:86%}
+  .cx-newpill{bottom:104px}
+}
+</style>
+</head>
+<body>
+
+<div id="daTopbar"></div>
+
+<div class="chat-app" id="chatApp" data-pane="list">
+
+  <!-- ── Conversation list ──────────────────────────────── -->
+  <aside class="cx-side">
+    <div class="cx-side-head">
+      <h1 class="cx-side-title">Chat</h1>
+      <span class="cx-side-sub" id="cxPresence"></span>
+    </div>
+
+    <div class="cx-list">
+      <div class="cx-group">Rooms</div>
+      <button class="cx-item on" id="cxRoomBtn" type="button" data-conv="commons">
+        <span class="cx-item-av room">#</span>
+        <span class="cx-item-body">
+          <span class="cx-item-name">The Commons</span>
+          <span class="cx-item-last">Everyone, one room. No sign-in.</span>
+        </span>
+        <span class="cx-item-meta"><span class="cx-live-dot"></span></span>
+      </button>
+
+      <div class="cx-group">
+        <span>Direct messages</span>
+        <span id="cxDmCount"></span>
+      </div>
+      <div id="cxThreads"></div>
+    </div>
+
+    <div class="cx-side-foot">
+      <button class="cx-btn" id="cxNewDm" type="button">Start a new DM</button>
+    </div>
+  </aside>
+
+  <!-- ── Active conversation ────────────────────────────── -->
+  <main class="cx-main">
+    <header class="cx-head">
+      <button class="cx-back" id="cxBack" type="button" aria-label="Back to conversations">&larr;</button>
+      <div class="cx-head-body">
+        <div class="cx-head-name" id="cxHeadName">The Commons</div>
+        <div class="cx-head-sub" id="cxHeadSub">Everyone who is here right now. Posts are public.</div>
+      </div>
+      <div class="cx-head-act" id="cxHeadAct"></div>
+    </header>
+
+    <!-- Two scrollers, two composers, one frame. They are deliberately
+         NOT shared: community-chat.js owns the room's elements and binds
+         its own send handler, so a single shared input would post a
+         private DM to the public feed on the room module's listener.
+         Separate elements make that class of leak impossible rather
+         than conditional on a state check. Both stay mounted so the
+         room keeps polling and scroll position survives a switch. -->
+    <div class="cx-scroll" id="cxCommonsScroll"></div>
+    <div class="cx-scroll" id="cxThreadScroll" hidden></div>
+    <button class="cx-newpill" id="cxNewPill" type="button"></button>
+
+    <div class="cx-composer" id="cxCommonsComposer">
+      <div class="cx-composer-row">
+        <textarea class="cx-input" id="cxRoomInput" rows="1" placeholder="Say something to the room…"></textarea>
+        <button class="cx-send" id="cxRoomSend" type="button">Send</button>
+      </div>
+      <div class="cx-composer-foot">
+        <span class="cx-identity">
+          posting as <b id="cxHandle">…</b>
+          <button class="cx-reroll" id="cxReroll" type="button">re-roll</button>
+        </span>
+        <span class="cx-count" id="cxCount"></span>
+      </div>
+    </div>
+
+    <div class="cx-composer" id="cxDmComposer" hidden>
+      <div class="cx-composer-row">
+        <textarea class="cx-input" id="cxDmInput" rows="1" placeholder="Message…"></textarea>
+        <button class="cx-send" id="cxDmSend" type="button">Send</button>
+      </div>
+      <div class="cx-send-err" id="cxSendErr"></div>
+    </div>
+  </main>
+</div>
+
+<script defer src="/js/topbar.js"></script>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ── Firebase ──────────────────────────────────────────── */
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var fbAuth = null, fbDb = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      fbAuth = firebase.auth();
+      fbDb = firebase.firestore();
+    }
+  } catch(e){ console.warn('[chat] firebase init', e); }
+
+  var MSG_MAX = 1000;
+  var $ = function(id){ return document.getElementById(id); };
+
+  var state = {
+    user: null,
+    conv: 'commons',      // 'commons' | 'dm'
+    threads: [],
+    threadsUnsub: null,
+    msgsUnsub: null,
+    threadDocUnsub: null,
+    active: null,         // { id, participants, participantInfo, isGroup, groupName }
+    peerRead: false,
+    commonsStarted: false,
+  };
+
+  function escHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  /* Linkify after escaping, so the href can only ever come from text we
+     already made inert. Never trust the raw message. */
+  function linkify(s){
+    return escHtml(s).replace(/(https?:\/\/[^\s<]+)/g, function(u){
+      return '<a href="' + u + '" target="_blank" rel="noopener nofollow">' + u + '</a>';
+    });
+  }
+
+  function relTime(ms){
+    if (!ms) return '';
+    var d = Date.now() - ms;
+    if (d < 60000) return 'just now';
+    if (d < 3600000) return Math.floor(d/60000) + 'm';
+    if (d < 86400000) return Math.floor(d/3600000) + 'h';
+    return Math.floor(d/86400000) + 'd';
+  }
+
+  function shortName(u){
+    if (!u) return 'You';
+    var n = u.displayName || '';
+    if (!n) return 'You';
+    var parts = n.trim().split(/\s+/);
+    return parts.length > 1 ? parts[0] + ' ' + parts[1][0] + '.' : parts[0];
+  }
+
+  function initials(name){
+    var n = (name || '?').trim();
+    if (!n) return '?';
+    var p = n.split(/\s+/);
+    return ((p[0][0] || '') + (p.length > 1 ? p[1][0] : '')).toUpperCase();
+  }
+
+  function avatarHtml(name, photo){
+    if (photo) return '<span class="cx-item-av"><img src="' + escHtml(photo) + '" alt=""></span>';
+    return '<span class="cx-item-av">' + escHtml(initials(name)) + '</span>';
+  }
+
+  /* ── Pane switching (mobile) ───────────────────────────── */
+  function showPane(which){
+    var app = $('chatApp');
+    if (app) app.setAttribute('data-pane', which);
+  }
+  $('cxBack').addEventListener('click', function(){ showPane('list'); });
+
+  /* ══ THE COMMONS ═══════════════════════════════════════════
+     Delegated to community-chat.js. It owns the handle, the poll
+     cadence, and the row markup; this page supplies the elements and
+     the surrounding chrome. */
+  /* Swap which scroller + composer is on screen. Everything stays
+     mounted; only visibility moves. */
+  function showSurface(which){
+    var room = which === 'commons';
+    $('cxCommonsScroll').hidden = !room;
+    $('cxCommonsComposer').hidden = !room;
+    $('cxThreadScroll').hidden = room;
+    // The DM composer only belongs to an open thread, never to the
+    // people picker or the sign-in gate.
+    $('cxDmComposer').hidden = (which !== 'dm');
+    $('cxNewPill').classList.toggle('on', false);
+  }
+
+  function openCommons(){
+    detachDmListeners();
+    state.conv = 'commons';
+    state.active = null;
+    paintSidebarSelection();
+    $('cxHeadName').textContent = 'The Commons';
+    $('cxHeadSub').textContent = 'Everyone who is here right now. Posts are public.';
+    $('cxHeadAct').innerHTML = '<a class="cx-chip" href="/spar">Find a round</a>';
+    showSurface('commons');
+    showPane('thread');
+
+    if (state.commonsStarted) return;
+    if (!window.DEBATEAI_CHAT){
+      $('cxCommonsScroll').innerHTML = '<div class="chat-empty">The room could not load. Refresh and it should come back.</div>';
+      return;
+    }
+    window.DEBATEAI_CHAT.init({
+      scroller:    $('cxCommonsScroll'),
+      handleEl:    $('cxHandle'),
+      inputEl:     $('cxRoomInput'),
+      sendBtn:     $('cxRoomSend'),
+      rerollBtn:   $('cxReroll'),
+      newPill:     $('cxNewPill'),
+      charCountEl: $('cxCount'),
+    });
+    state.commonsStarted = true;
+    try { gtag('event', 'chat_open_commons', {}); } catch(e){}
+  }
+
+  /* ══ DIRECT MESSAGES ═══════════════════════════════════════ */
+
+  function detachDmListeners(){
+    if (state.msgsUnsub){ try { state.msgsUnsub(); } catch(e){} state.msgsUnsub = null; }
+    if (state.threadDocUnsub){ try { state.threadDocUnsub(); } catch(e){} state.threadDocUnsub = null; }
+  }
+
+  function paintSidebarSelection(){
+    $('cxRoomBtn').classList.toggle('on', state.conv === 'commons');
+    var rows = document.querySelectorAll('#cxThreads .cx-item');
+    for (var i = 0; i < rows.length; i++){
+      var id = rows[i].getAttribute('data-thread');
+      rows[i].classList.toggle('on', state.conv === 'dm' && state.active && state.active.id === id);
+    }
+  }
+
+  function renderThreadList(){
+    var host = $('cxThreads');
+    if (!state.user){
+      host.innerHTML = '<div class="cx-empty-note">Sign in to keep private threads with other debaters. The room above works either way.</div>';
+      $('cxDmCount').textContent = '';
+      return;
+    }
+    if (!state.threads.length){
+      host.innerHTML = '<div class="cx-empty-note">No threads yet. Start one from the button below, or from a debater you match with on Spar.</div>';
+      $('cxDmCount').textContent = '';
+      return;
+    }
+    var myUid = state.user.uid;
+    var unreadTotal = 0;
+    host.innerHTML = state.threads.map(function(t){
+      var d = t.data || {};
+      var pInfo = d.participantInfo || {};
+      var name, photo = '';
+      if (d.isGroup){
+        name = d.groupName || 'Group';
+      } else {
+        var peer = (d.participants || []).filter(function(u){ return u !== myUid; })[0];
+        var info = pInfo[peer] || {};
+        name = info.name || 'Debater';
+        photo = info.photo || '';
+      }
+      if (t.unread > 0) unreadTotal += t.unread;
+      var at = d.lastMessageAt && d.lastMessageAt.toMillis ? d.lastMessageAt.toMillis() : 0;
+      return '<button class="cx-item" type="button" data-thread="' + escHtml(t.id) + '">'
+        + avatarHtml(name, photo)
+        + '<span class="cx-item-body">'
+        +   '<span class="cx-item-name">' + escHtml(name) + (d.isGroup ? ' <span style="opacity:.5;font-weight:600">group</span>' : '') + '</span>'
+        +   '<span class="cx-item-last">' + escHtml(d.lastMessage || 'No messages yet') + '</span>'
+        + '</span>'
+        + '<span class="cx-item-meta">'
+        +   (at ? '<span class="cx-item-time">' + escHtml(relTime(at)) + '</span>' : '')
+        +   (t.unread > 0 ? '<span class="cx-badge">' + t.unread + '</span>' : '')
+        + '</span>'
+        + '</button>';
+    }).join('');
+    $('cxDmCount').textContent = unreadTotal > 0 ? unreadTotal + ' unread' : '';
+    paintSidebarSelection();
+  }
+
+  /* Delegated so the list can re-render under the click without
+     rebinding every row. */
+  $('cxThreads').addEventListener('click', function(e){
+    var btn = e.target.closest ? e.target.closest('.cx-item') : null;
+    if (!btn) return;
+    var id = btn.getAttribute('data-thread');
+    var row = state.threads.filter(function(t){ return t.id === id; })[0];
+    if (row) openThread(id, row.data);
+  });
+
+  function startThreadFeed(){
+    if (!fbDb || !state.user) return;
+    if (state.threadsUnsub){ try { state.threadsUnsub(); } catch(e){} }
+    state.threadsUnsub = fbDb.collection('dm_threads')
+      .where('participants', 'array-contains', state.user.uid)
+      .orderBy('lastMessageAt', 'desc')
+      .limit(40)
+      .onSnapshot(function(snap){
+        var rows = [];
+        snap.forEach(function(doc){
+          var data = doc.data() || {};
+          rows.push({ id: doc.id, data: data, unread: (data.unread && data.unread[state.user.uid]) || 0 });
+        });
+        state.threads = rows;
+        renderThreadList();
+        applyDeepLink();
+      }, function(err){
+        console.warn('[chat] inbox listen failed', err);
+        // A missing composite index or a blown read quota must not look
+        // like an empty inbox — that reads as "my messages are gone".
+        var msg = (err && err.code === 'resource-exhausted')
+          ? 'Threads are rate-limited right now (daily data budget). They return after midnight Pacific.'
+          : 'Could not load your threads right now. Try again in a minute.';
+        $('cxThreads').innerHTML = '<div class="cx-empty-note">' + msg + '</div>';
+      });
+  }
+
+  function openThread(threadId, data){
+    if (!state.user || !fbDb) return;
+    detachDmListeners();
+    data = data || {};
+    var myUid = state.user.uid;
+    var pInfo = data.participantInfo || {};
+    var peer = (data.participants || []).filter(function(u){ return u !== myUid; })[0];
+    var peerInfo = pInfo[peer] || {};
+    var title = data.isGroup ? (data.groupName || 'Group') : (peerInfo.name || 'Debater');
+
+    state.conv = 'dm';
+    state.active = {
+      id: threadId,
+      participants: data.participants || [myUid, peer].filter(Boolean),
+      participantInfo: pInfo,
+      isGroup: !!data.isGroup,
+      groupName: data.groupName || '',
+      lastMessage: data.lastMessage || '',
+    };
+    state.peerRead = false;
+
+    $('cxHeadName').textContent = title;
+    $('cxHeadSub').textContent = data.isGroup
+      ? (state.active.participants.length + ' people. Private to the group.')
+      : 'Private thread. Only the two of you can read it.';
+    $('cxHeadAct').innerHTML = '<a class="cx-chip" href="/spar">Set up a round</a>';
+    $('cxSendErr').textContent = '';
+    var input = $('cxDmInput');
+    input.value = '';
+    input.setAttribute('maxlength', String(MSG_MAX));
+    input.placeholder = data.isGroup ? 'Message the group…' : 'Message ' + title + '…';
+    $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">Loading…</div>';
+    showSurface('dm');
+    showPane('thread');
+    paintSidebarSelection();
+
+    state.msgsUnsub = fbDb.collection('dm_threads').doc(threadId).collection('messages')
+      .orderBy('createdAt', 'asc').limitToLast(200)
+      .onSnapshot(paintMessages, function(err){
+        var code = (err && err.code) || '';
+        var text;
+        // A thread with no doc yet can't resolve the participant get() in
+        // the messages rule, so a brand-new conversation denies. That is
+        // the normal first-message state, not a failure.
+        if (code === 'permission-denied' && !state.active.lastMessage){
+          text = 'No messages yet. Send one to start the thread.';
+        } else if (code === 'resource-exhausted'){
+          text = 'Messages are rate-limited right now (daily data budget). Sending still works; reading returns after midnight Pacific.';
+        } else {
+          text = 'Could not load this thread right now. Try again in a minute.';
+        }
+        $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">' + text + '</div>';
+      });
+
+    if (!state.active.isGroup){
+      state.threadDocUnsub = fbDb.collection('dm_threads').doc(threadId)
+        .onSnapshot(function(doc){
+          if (!doc.exists) return;
+          var d = doc.data() || {};
+          var un = d.unread || {};
+          state.peerRead = d.lastMessageFrom === myUid && !(un[peer] > 0);
+          paintReadReceipt();
+        }, function(){ /* receipt is decoration */ });
+    }
+
+    markRead(threadId);
+    setTimeout(function(){ input.focus(); }, 40);
+    try { gtag('event', 'chat_open_dm', {}); } catch(e){}
+  }
+
+  function dayLabel(ms){
+    var d = new Date(ms), now = new Date();
+    var sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return 'Today';
+    var y = new Date(now.getTime() - 86400000);
+    if (d.toDateString() === y.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  }
+
+  function paintMessages(snap){
+    var host = $('cxThreadScroll');
+    if (snap.empty){
+      host.innerHTML = '<div class="cx-thread-empty">'
+        + (state.active && state.active.isGroup
+            ? 'No messages yet. Kick it off: propose a time or a practice motion.'
+            : 'No messages yet. Say hi and set up a round.')
+        + '</div>';
+      return;
+    }
+    var myUid = state.user.uid;
+    var a = state.active || {};
+    var pInfo = a.participantInfo || {};
+    var lastSender = null, lastDay = null;
+    host.innerHTML = '';
+    snap.forEach(function(doc){
+      var m = doc.data() || {};
+      var ms = m.createdAt && m.createdAt.toMillis ? m.createdAt.toMillis() : 0;
+      var mine = m.fromUid === myUid;
+
+      if (ms){
+        var label = dayLabel(ms);
+        if (label !== lastDay){
+          var sep = document.createElement('div');
+          sep.className = 'cx-daybreak';
+          sep.textContent = label;
+          host.appendChild(sep);
+          lastDay = label;
+          lastSender = null;
+        }
+      }
+
+      var div = document.createElement('div');
+      div.className = 'cx-msg' + (mine ? ' mine' : '');
+      var sender = '';
+      // Label incoming group messages, collapsed on a run from the same
+      // person. A 1:1 thread needs no label; the header says who.
+      if (a.isGroup && !mine && m.fromUid !== lastSender){
+        var nm = m.fromName || (pInfo[m.fromUid] && pInfo[m.fromUid].name) || 'Debater';
+        sender = '<div class="cx-msg-sender">' + escHtml(nm) + '</div>';
+      }
+      lastSender = m.fromUid;
+      var abs = ms ? new Date(ms).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+      div.innerHTML = sender + linkify(m.text || '')
+        + (ms ? '<div class="cx-msg-time" title="' + escHtml(abs) + '">' + escHtml(relTime(ms)) + '</div>' : '');
+      host.appendChild(div);
+    });
+    paintReadReceipt();
+    host.scrollTop = host.scrollHeight;
+  }
+
+  function paintReadReceipt(){
+    var host = $('cxThreadScroll');
+    var old = $('cxReadReceipt');
+    if (old) old.remove();
+    if (!state.peerRead) return;
+    var msgs = host.querySelectorAll('.cx-msg');
+    if (!msgs.length) return;
+    if (!msgs[msgs.length - 1].classList.contains('mine')) return;
+    var d = document.createElement('div');
+    d.id = 'cxReadReceipt';
+    d.className = 'cx-read';
+    d.textContent = 'Read';
+    host.appendChild(d);
+  }
+
+  function markRead(threadId){
+    if (!state.user || !fbDb) return;
+    var update = {};
+    update['unread.' + state.user.uid] = 0;
+    fbDb.collection('dm_threads').doc(threadId).update(update).catch(function(){});
+  }
+
+  function sendDm(){
+    var a = state.active, input = $('cxDmInput'), btn = $('cxDmSend');
+    if (!a || !state.user || !fbDb) return;
+    var text = (input.value || '').trim();
+    if (!text) return;
+    if (text.length > MSG_MAX) text = text.slice(0, MSG_MAX);
+    btn.disabled = true;
+    $('cxSendErr').textContent = '';
+
+    var me = state.user.uid;
+    var threadRef = fbDb.collection('dm_threads').doc(a.id);
+    var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
+    var pInfo = Object.assign({}, a.participantInfo);
+    pInfo[me] = { name: shortName(state.user), photo: state.user.photoURL || '' };
+    var unread = {};
+    a.participants.forEach(function(uid){
+      unread[uid] = (uid === me) ? 0 : firebase.firestore.FieldValue.increment(1);
+    });
+    var doc = {
+      participants: a.participants,
+      participantInfo: pInfo,
+      lastMessage: preview,
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastMessageFrom: me,
+      unread: unread,
+    };
+    if (a.isGroup){ doc.isGroup = true; doc.groupName = a.groupName || 'Group'; }
+
+    threadRef.set(doc, { merge: true }).then(function(){
+      return threadRef.collection('messages').add({
+        fromUid: me,
+        fromName: shortName(state.user),
+        text: text,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }).then(function(){
+      input.value = '';
+      autoGrow();
+      a.lastMessage = preview;
+      btn.disabled = false;
+      input.focus();
+      try { gtag('event', a.isGroup ? 'chat_group_send' : 'chat_dm_send', {}); } catch(e){}
+    }).catch(function(err){
+      btn.disabled = false;
+      // Name the failure. A silent one leaves people retrying into a void.
+      var code = (err && err.code) || '';
+      $('cxSendErr').textContent = code === 'resource-exhausted'
+        ? 'Did not send: the daily data budget is used up. Try after midnight Pacific.'
+        : 'Message did not send' + (code ? ' (' + code + ')' : '') + '. Try again.';
+    });
+  }
+
+  /* These bind to the DM composer only. The room's own input and Send
+     belong to community-chat.js, which binds them itself. */
+  $('cxDmSend').addEventListener('click', sendDm);
+  $('cxDmInput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendDm();
+    }
+  });
+
+  function autoGrow(){
+    var el = $('cxDmInput');
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  }
+  $('cxDmInput').addEventListener('input', autoGrow);
+
+  $('cxRoomBtn').addEventListener('click', openCommons);
+
+  /* ══ Starting a new DM ═════════════════════════════════════
+     The honest source of people to message is the /spar waitlist:
+     debaters who posted that they are open to a round. No user
+     directory exists, and inventing one would mean listing people who
+     never asked to be listed. */
+  function openNewDm(){
+    if (!state.user){
+      renderGate('Sign in to send a DM', 'Private threads need an account on both ends so replies can find you. The Commons stays open either way.');
+      showPane('thread');
+      return;
+    }
+    detachDmListeners();
+    state.conv = 'people';
+    state.active = null;
+    paintSidebarSelection();
+    $('cxHeadName').textContent = 'Start a new DM';
+    $('cxHeadSub').textContent = 'Debaters who posted that they are open to a round.';
+    $('cxHeadAct').innerHTML = '<a class="cx-chip" href="/spar">Post your own</a>';
+    showSurface('none');
+    $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">Loading…</div>';
+    showPane('thread');
+
+    fbDb.collection('waitlist_posts')
+      .orderBy('createdAt', 'desc').limit(40).get()
+      .then(function(snap){
+        var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        var rows = [];
+        snap.forEach(function(doc){
+          var d = doc.data() || {};
+          var at = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0;
+          if (d.uid === state.user.uid) return;      // no DMing yourself
+          if (at && at < cutoff) return;             // same 24h TTL /spar uses
+          rows.push(d);
+        });
+        if (!rows.length){
+          $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">'
+            + 'Nobody has posted an open invite in the last day. Post one on Spar and other debaters can message you here.'
+            + '</div>';
+          return;
+        }
+        $('cxThreadScroll').innerHTML = '<div class="cx-people">' + rows.map(function(p){
+          return '<div class="cx-person">'
+            + avatarHtml(p.displayName, p.photoURL)
+            + '<div class="cx-person-body">'
+            +   '<div class="cx-person-name">' + escHtml(p.displayName || 'Debater') + '</div>'
+            +   '<div class="cx-person-note">' + escHtml(p.note || 'Open to a round.') + '</div>'
+            + '</div>'
+            + '<button class="cx-btn" type="button" data-peer="' + escHtml(p.uid) + '" '
+            +   'data-name="' + escHtml(p.displayName || 'Debater') + '" '
+            +   'data-photo="' + escHtml(p.photoURL || '') + '">Message</button>'
+            + '</div>';
+        }).join('') + '</div>';
+      })
+      .catch(function(){
+        $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">Could not load the open invites right now. Try again in a minute.</div>';
+      });
+  }
+
+  $('cxNewDm').addEventListener('click', openNewDm);
+
+  $('cxThreadScroll').addEventListener('click', function(e){
+    var btn = e.target.closest ? e.target.closest('[data-peer]') : null;
+    if (!btn) return;
+    startDmWith(btn.getAttribute('data-peer'), btn.getAttribute('data-name'), btn.getAttribute('data-photo'));
+  });
+
+  /* threadId is the sorted uid pair, so both sides derive the same id
+     without a lookup and a thread can never fork into two. */
+  function startDmWith(peerUid, peerName, peerPhoto){
+    if (!state.user || !peerUid) return;
+    var me = state.user.uid;
+    var id = [me, peerUid].sort().join('_');
+    var existing = state.threads.filter(function(t){ return t.id === id; })[0];
+    if (existing){ openThread(id, existing.data); return; }
+    var pInfo = {};
+    pInfo[me] = { name: shortName(state.user), photo: state.user.photoURL || '' };
+    pInfo[peerUid] = { name: peerName || 'Debater', photo: peerPhoto || '' };
+    openThread(id, { participants: [me, peerUid], participantInfo: pInfo });
+  }
+
+  function renderGate(title, body){
+    state.conv = 'gate';
+    $('cxHeadName').textContent = 'Direct messages';
+    $('cxHeadSub').textContent = 'Private threads with other debaters.';
+    $('cxHeadAct').innerHTML = '';
+    showSurface('none');
+    $('cxThreadScroll').innerHTML = '<div class="cx-gate">'
+      + '<h3>' + escHtml(title) + '</h3>'
+      + '<p>' + escHtml(body) + '</p>'
+      + '<button class="cx-btn cx-btn--solid" id="cxSignIn" type="button">Sign in with Google</button>'
+      + '</div>';
+    var b = $('cxSignIn');
+    if (b) b.addEventListener('click', signIn);
+  }
+
+  function signIn(){
+    if (!fbAuth) return;
+    var provider = new firebase.auth.GoogleAuthProvider();
+    fbAuth.signInWithPopup(provider).catch(function(err){
+      console.warn('[chat] sign-in failed', err);
+      var g = $('cxThreadScroll').querySelector('.cx-gate p');
+      if (g) g.textContent = 'Sign-in did not complete. If a popup was blocked, allow popups for this site and try again.';
+    });
+  }
+
+  /* ── Deep links ────────────────────────────────────────────
+     /chat?to=<uid> opens (or creates) a thread with that person;
+     /chat?thread=<id> opens an existing thread. Both let /spar,
+     /live-round and notifications route straight into a conversation.
+     Runs after the inbox lands so an existing thread is reused rather
+     than re-created from URL params alone. */
+  var deepLinkDone = false;
+  function applyDeepLink(){
+    if (deepLinkDone) return;
+    var qs = new URLSearchParams(location.search);
+    var to = qs.get('to'), thread = qs.get('thread');
+    if (!to && !thread) { deepLinkDone = true; return; }
+    if (!state.user) return;              // wait for auth
+    deepLinkDone = true;
+    if (thread){
+      var row = state.threads.filter(function(t){ return t.id === thread; })[0];
+      if (row) openThread(thread, row.data);
+      return;
+    }
+    var existing = state.threads.filter(function(t){
+      return t.id === [state.user.uid, to].sort().join('_');
+    })[0];
+    if (existing) openThread(existing.id, existing.data);
+    else startDmWith(to, qs.get('name') || 'Debater', '');
+  }
+
+  /* ── Auth ──────────────────────────────────────────────── */
+  if (fbAuth){
+    fbAuth.onAuthStateChanged(function(u){
+      state.user = u || null;
+      renderThreadList();
+      if (u){
+        startThreadFeed();
+      } else {
+        if (state.threadsUnsub){ try { state.threadsUnsub(); } catch(e){} state.threadsUnsub = null; }
+        state.threads = [];
+        // Signing out mid-thread must not leave a private conversation
+        // on screen.
+        if (state.conv === 'dm' || state.conv === 'people') openCommons();
+      }
+    });
+  } else {
+    renderThreadList();
+  }
+
+  /* Live presence count in the sidebar header. Real number or nothing:
+     an invented "N online" is the kind of detail that quietly teaches
+     people not to trust the rest of the page. */
+  fetch('/api/online-count', { credentials: 'omit' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      var n = d && (d.count || d.online);
+      if (n > 0) $('cxPresence').textContent = n + ' here now';
+    })
+    .catch(function(){});
+
+  openCommons();
+  // Desktop shows both panes; the attribute only gates the mobile
+  // breakpoint. Open on the room rather than the list: the links that
+  // point here say "open the group chat", so landing on a menu would
+  // make people tap twice to reach what they asked for. The back
+  // button goes to the list.
+  showPane('thread');
+})();
+</script>
+</body>
+</html>

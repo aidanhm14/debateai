@@ -258,6 +258,9 @@
       { href: '/spectate',    label: 'Spectate live rounds' },
       { href: '/leaderboard', label: 'Leaderboard' },
       { href: '/community',   label: 'Community' },
+      // 2026-07-22: chat moved out of the /community Live tab onto its
+      // own surface, so the public room and DMs share one frame.
+      { href: '/chat',        label: 'Chat and DMs' },
     ]},
     { head: 'Train', links: [
       { href: '/voice-debate', label: 'Classic voice trainer' },
