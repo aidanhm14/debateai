@@ -5,6 +5,28 @@
 > for product/voice/decision context. If a change would contradict either
 > file, fix the change or fix the doc — don't leave the contradiction.
 
+## 🔒 FREEZE: the landing hero is running a live A/B (from 2026-07-22)
+
+**Do not change the top of `app/landing.html` until this is called.**
+
+A 50/50 first-screen test is collecting: `data-first-screen` =
+`ticker` | `current`, GA4 event `first_screen_view {variant, assigned}`,
+sticky key `da-first-screen`. Force an arm with `?first=ticker` or
+`?first=current`.
+
+Frozen surface — the `#first-screen` section, `section.hero` and
+everything inside `.hero-illustrated` (headline, doors, live card,
+its prediction-market layer). Editing either arm moves both and the
+read is lost; three separate agents touched this file the day the test
+shipped, which is exactly how a test dies.
+
+Fine to keep shipping: anything below the hero, other pages, functions,
+copy fixes outside the frozen surface. If you genuinely must touch the
+hero (a bug, not a preference), say so in the commit message so the
+result can be segmented by date, and note it here.
+
+Called by: Aidan. Remove this block when the test is read.
+
 ## What this is
 
 Debatable (renamed from DebateIt on 2026-07-18, itself renamed from
