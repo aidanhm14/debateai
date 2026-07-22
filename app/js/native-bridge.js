@@ -193,11 +193,58 @@
   // If the app deep-navigates to the pricing route, bounce it — a hard
   // guarantee the reviewer never sees a purchase surface even if a stray
   // link slips the CSS net.
+  //
+  // Same treatment for the marketing front door. On the web "/" is the
+  // landing page; in the app the home is /native, so a stray "/" would
+  // drop the user out of the app and onto a sign-up pitch they already
+  // took.
   try {
     if (/^\/pricing(?:\.html)?$/.test(location.pathname)) {
       location.replace('/native');
+    } else if (/^\/(?:landing(?:\.html)?)?$/.test(location.pathname)) {
+      location.replace('/native');
     }
   } catch (e) {}
+
+  // ── Home-link rewriter ─────────────────────────────────────────────
+  // Nearly every page points its wordmark and back arrow at "/", which is
+  // the marketing landing. In the app that is a dead end: the immersive
+  // rounds (newvoice, voice-debate, live-round, room-judge) hide the tab
+  // bar, so the back arrow is the ONLY way out and it was leaving the app
+  // shell entirely. Repoint them at the app home.
+  function isHomeHref(a) {
+    try {
+      var raw = a.getAttribute('href') || '';
+      // A bare in-page jump ("#faq") resolves to the site root, which would
+      // otherwise look like a home link and eject the user mid-page.
+      if (!raw || raw.charAt(0) === '#') return false;
+      var u = new URL(raw, location.href);
+      if (u.origin !== location.origin) return false;
+      if (!/^\/(?:landing(?:\.html)?)?$/.test(u.pathname)) return false;
+      // Same page, just a hash: still a jump, not a trip home.
+      if (u.hash && u.pathname === location.pathname) return false;
+      return true;
+    } catch (e) { return false; }
+  }
+  function rewriteHomeLinks(root) {
+    var as;
+    try { as = (root || document).querySelectorAll('a[href]'); } catch (e) { return; }
+    for (var i = 0; i < as.length; i++) {
+      var a = as[i];
+      if (a.__dbHomed) continue;
+      if (isHomeHref(a)) { a.setAttribute('href', '/native'); a.__dbHomed = true; }
+    }
+  }
+  // Click net, for anchors built after the last sweep or navigations done
+  // in JS off a click handler.
+  document.addEventListener('click', function (ev) {
+    try {
+      var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+      if (!a || !isHomeHref(a)) return;
+      ev.preventDefault();
+      location.href = '/native';
+    } catch (e) {}
+  }, true);
 
   // ── Purchase-CTA sweeper (Apple 3.1.1) ─────────────────────────────
   // The app pages build upgrade buttons in JS with no shared class
@@ -238,12 +285,17 @@
   }
   function armSweeper() {
     sweepPurchaseCtas(document);
+    rewriteHomeLinks(document);
     try {
       var pending = false;
       new MutationObserver(function () {
         if (pending) return;
         pending = true;
-        setTimeout(function () { pending = false; sweepPurchaseCtas(document); }, 120);
+        setTimeout(function () {
+          pending = false;
+          sweepPurchaseCtas(document);
+          rewriteHomeLinks(document);
+        }, 120);
       }).observe(document.body, { childList: true, subtree: true });
     } catch (e) {}
   }
