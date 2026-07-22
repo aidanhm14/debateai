@@ -22,7 +22,7 @@ const SITE_ORIGIN = 'https://itsdebatable.com';
 // a stable last-edit date. Don't lie about static pages being "updated
 // today" — Google's lastmod heuristics catch that and discount the
 // whole sitemap's trustworthiness.
-const STABLE_DATE = '2026-06-08'; // bumped when meaningful content changes (2026-06-08: sitewide Debatable rebrand changed every page's brand, title, canonical)
+const STABLE_DATE = '2026-07-22'; // bumped when meaningful content changes (2026-07-22: domain cutover to itsdebatable.com changed every page's canonical URL; 2026-06-08: sitewide Debatable rebrand changed every page's brand, title, canonical)
 const DYNAMIC = new Set([
   '/', '/today', '/community', '/live',
   '/champions', '/leaderboard', '/exhibition',
@@ -134,8 +134,12 @@ const URLS = [
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
   { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },
-  { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-14' },
-  { path: '/why-debateit',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-14' },
+  // 2026-07-22: these carried explicit 07-14 dates, which now predate the
+  // domain cutover that rewrote their canonical URL. Left as-is they would
+  // signal "older than the rest of the site" on the exact crawl where we
+  // want Google to re-fetch everything under the new origin.
+  { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-22' },
+  { path: '/why-debateit',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-22' },
   { path: '/learn',           changefreq: 'monthly', priority: '0.85' },
   // 2026-07-22: '/topics' -> '/topics/'. app/topics/ is a directory, so the
   // slashless form 301s to the trailing-slash one; listing the redirect made
