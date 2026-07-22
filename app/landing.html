@@ -676,8 +676,6 @@
 <script defer src="/js/spar-night.js"></script>
 <!-- Reusable A/B primitive (sticky bucket + GA4 tagging). -->
 <script defer src="/js/ab.js"></script>
-<!-- Timed, dismissible "sign in with Google" prompt (~30s after landing). -->
-<script defer src="/js/auth-prompt.js"></script>
 <!-- 2° Natural-Earth land raster for the "Debaters live now" globe in
      the Live Debates section (coastline-defined continents + live pins
      from /api/presence-live). -->
@@ -5575,10 +5573,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      Opens straight on question 1 (2026-07-20: the three-phrase 3-2-1
      countdown was cut, it read as a loading screen and delayed the only
      part that does anything). 2026-07-22: down to ONE question — "Who
-     are you here as?" — and the answer now NAVIGATES: each option
-     carries a landing-section anchor and the page scrolls there when
-     the overlay lifts, so the intro streamlines the long page instead
-     of adding steps. Runs ONCE per browser
+     are you here as?" — the stage is RED from the first paint (the
+     cream-to-red cross-fade read as a white flash on load), and the
+     answer no longer scrolls the page: it personalizes only, and the
+     overlay lifts onto the hero. Runs ONCE per browser
      (localStorage da-welcome-intro), skipped entirely under
      prefers-reduced-motion. The Skip button ends it any time. A 9s
      failsafe in the gate script tears everything down if the sequence
@@ -5593,18 +5591,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   html[data-intro="1"] body{overflow:hidden !important}
   #welcomeIntro{display:none}
   html[data-intro="1"] #welcomeIntro{display:flex}
+  /* Red is the intro's surface from the first paint (2026-07-22). The
+     stage used to open on cream and cross-fade to red a beat later,
+     which read as a white flash while the page loaded in. The base
+     background carries the red so it is there even before the sequence
+     script boots. */
   #welcomeIntro{
-    position:fixed;inset:0;z-index:12000;background:#faf8f3;
+    position:fixed;inset:0;z-index:12000;
+    background:radial-gradient(circle at 50% 42%,#b3261e 0%,#8f1a15 58%,#6e120e 100%);
     align-items:center;justify-content:center;
     transition:opacity .85s ease,transform .85s ease;
   }
   #welcomeIntro.is-leaving{opacity:0;transform:scale(1.05);pointer-events:none}
-  /* Red wash layer: gradients can't transition, so the white-to-red flow
-     is an opacity crossfade on this full-bleed layer. .wi-red on the
-     overlay fades it in; every ink element carries its own .9s color
-     transition so the whole scene flows between the two surfaces. */
-  .wi-redwash{position:absolute;inset:0;background:radial-gradient(circle at 50% 42%,#b3261e 0%,#8f1a15 58%,#6e120e 100%);opacity:0;transition:opacity 1s ease;pointer-events:none}
-  #welcomeIntro.wi-red .wi-redwash{opacity:1}
+  .wi-redwash{position:absolute;inset:0;pointer-events:none}
   .wi-vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 42%,rgba(29,25,21,.07) 100%);pointer-events:none}
   /* Film-leader ring: hairline circle + crosshairs + a sweep hand.
      Breathes on a slow pulse the whole time; the questions live inside
@@ -5740,7 +5739,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     } catch(e){}
   })();
 </script>
-<div id="welcomeIntro" role="dialog" aria-label="Welcome to Debatable">
+<div id="welcomeIntro" class="wi-red" role="dialog" aria-label="Welcome to Debatable">
   <div class="wi-redwash"></div>
   <div class="wi-vignette"></div>
   <div class="wi-ring"><div class="wi-ring-inner"></div></div>
@@ -5787,23 +5786,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       /* One question (2026-07-22: the "against who?" second question was
          cut — feedback read the page as a long powerpoint, so the intro
-         now streamlines instead of adding steps). Each option carries a
-         landing-section anchor: answering scrolls you to the part of the
-         page written for you. Keys stay stable for onboarding
-         personalization; da-welcome-goal readers already handle it
-         being unset. */
+         now streamlines instead of adding steps). The answer personalizes
+         (stored key + GA4 user property) but no longer steers where the
+         page opens. Keys stay stable for onboarding personalization;
+         da-welcome-goal readers already handle it being unset. */
       var QUESTIONS = [
         { key:'da-is-debater',    prop:'is_debater',
           step:'', q:'Who are you here as?',
-          sub:'One tap. We\'ll take you to the right part of the page.',
+          sub:'One tap, and the round is yours.',
           opts:[
-            ['competing','I compete','Tournaments are my thing.','#live-now'],
-            ['learning','I\'m learning','New to this. Show me how.','#mode-select'],
-            ['coaching','I coach or judge','I run rooms and read ballots.','#live-proof'],
-            ['curious','Just curious','I like a good argument.','#why-this-exists']
+            ['competing','I compete','Tournaments are my thing.'],
+            ['learning','I\'m learning','New to this. Show me how.'],
+            ['coaching','I coach or judge','I run rooms and read ballots.'],
+            ['curious','Just curious','I like a good argument.']
           ] }
       ];
-      var landTarget = null; /* section anchor picked by the answer */
       var qi = 0, done = false, timers = [];
       ga('welcome_intro_show');
       var sfxLoading = false;
@@ -5828,39 +5825,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            auto-pop gives the landing section a breath first. */
         try { window.__introJustRan = true; } catch(e){}
         timers.forEach(clearTimeout);
-        ov.classList.remove('wi-red');
         ov.classList.add('is-leaving');
         root.removeAttribute('data-intro');
         root.setAttribute('data-intro-reveal', '1');
         welcomeSfx('confirm');
         ga('welcome_intro_done', { skipped: !!skipped, answered: qi });
         if (toParam){ setTimeout(function(){ location.replace(toParam); }, 420); return; }
-        /* Answered (not skipped): glide to the section written for this
-           visitor once the overlay lifts and scrolling is unlocked.
-           NOT scrollIntoView/CSS-smooth — this page's animation load
-           silently cancels native smooth scrolling (verified in
-           preview), so the glide is driven by hand via rAF. */
-        if (!skipped && landTarget){
-          setTimeout(function(){
-            var t = document.querySelector(landTarget);
-            if (!t) return;
-            var se = document.scrollingElement || document.documentElement;
-            var from = se.scrollTop;
-            var dist = t.getBoundingClientRect().top;
-            var dur = 700, t0 = null;
-            var prev = root.style.scrollBehavior;
-            root.style.scrollBehavior = 'auto';
-            function stepScroll(ts){
-              if (t0 === null) t0 = ts;
-              var p = Math.min(1, (ts - t0) / dur);
-              var e = p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2) / 2;
-              se.scrollTop = from + dist * e;
-              if (p < 1) requestAnimationFrame(stepScroll);
-              else root.style.scrollBehavior = prev;
-            }
-            requestAnimationFrame(stepScroll);
-          }, 520);
-        }
+        /* 2026-07-22: answering no longer scrolls you down the page. The
+           answer still personalizes (keys + GA4 user properties), but the
+           overlay lifts onto the hero — landing mid-page skipped the
+           opening the whole first screen is built to deliver. */
         setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, 950);
         /* release the reveal attr after the entrances land so animation
            fill stops pinning the cards' hover transforms */
@@ -5872,7 +5846,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       function showWaiting(){
         if (done) return;
         q.classList.remove('is-on','is-in');
-        ov.classList.add('wi-red');
         waitEl.classList.add('is-on');
         welcomeSfx('confirm');
         timers.push(setTimeout(function(){ finish(false); }, 900));
@@ -5915,9 +5888,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       function answer(Q, val){
         if (done) return;
-        for (var oi = 0; oi < Q.opts.length; oi++){
-          if (Q.opts[oi][0] === val && Q.opts[oi][3]) landTarget = Q.opts[oi][3];
-        }
         try { localStorage.setItem(Q.key, val); } catch(e){}
         try { if (window.gtag){ var up = {}; up[Q.prop] = val; gtag('set', 'user_properties', up); } } catch(e){}
         ga('welcome_q_answer', { q: Q.key, answer: val });
@@ -5925,14 +5895,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         qi++;
         q.classList.remove('is-in');
         q.classList.add('is-out');
-        /* Surface alternates: Q1 red, Q2 white, waiting beat red. */
-        ov.classList.toggle('wi-red', qi < QUESTIONS.length && qi % 2 === 0);
         timers.push(setTimeout(showQuestion, 480));
       }
 
       function startQuestions(){
         if (done) return;
-        ov.classList.add('wi-red');
         timers.push(setTimeout(showQuestion, 220));
       }
 
