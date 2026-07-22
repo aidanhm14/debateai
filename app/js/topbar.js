@@ -1170,3 +1170,18 @@
   s.defer = true;
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
+
+/* ── Preference sync ─────────────────────────────────────────────
+   Settings follow the signed-in account instead of the browser.
+   Loaded from here for the same reason the narrator is: one edit
+   reaches every topbar page. The module self-guards, does nothing
+   at all when the page has no Firebase or nobody is signed in, and
+   never touches secrets or A/B arm assignments. */
+(function(){
+  if (window.__ditPrefsSync) return;
+  window.__ditPrefsSync = 1;
+  var s = document.createElement('script');
+  s.src = '/js/prefs-sync.js';
+  s.defer = true;
+  (document.body || document.head || document.documentElement).appendChild(s);
+})();
