@@ -81,6 +81,8 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- Storage backs the case-file locker in the Cases sidebar (2026-07-22). -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
@@ -4584,6 +4586,90 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
   var [editingNotes, setEditingNotes] = useState(null);
   var [notesInput, setNotesInput] = useState('');
 
+  /* ── Case files (2026-07-22) ───────────────────────────────────────
+   * The same locker /debate-it got: bytes in Firebase Storage under
+   * users/{uid}/files (private to that uid by the storage rules),
+   * metadata on user_cases/{uid}.files, which is the doc this library
+   * already lives on. Loaded when the drawer opens rather than on mount,
+   * so a user who never opens Cases costs no read.
+   *
+   * We keep the storage PATH and resolve a download URL per click. A
+   * stored Firebase download URL carries its own token and works for
+   * anyone holding the string, which would turn a private prep doc into
+   * a shareable link by accident.
+   */
+  var [caseFiles, setCaseFiles] = useState([]);
+  var [fileBusy, setFileBusy] = useState('');
+  var [fileErr, setFileErr] = useState('');
+  var filesLoadedFor = useRef('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    var uid = firebaseAuth && firebaseAuth.currentUser && firebaseAuth.currentUser.uid;
+    if (!uid || !firebaseDb) return;
+    if (filesLoadedFor.current === uid) return;
+    filesLoadedFor.current = uid;
+    firebaseDb.collection('user_cases').doc(uid).get().then((doc) => {
+      var data = doc.exists && doc.data() || {};
+      if (Array.isArray(data.files)) setCaseFiles(data.files);
+    }).catch(() => {});
+  }, [isOpen]);
+
+  var persistFiles = (files) => {
+    var uid = firebaseAuth && firebaseAuth.currentUser && firebaseAuth.currentUser.uid;
+    if (!uid || !firebaseDb) return;
+    try {
+      firebaseDb.collection('user_cases').doc(uid).set({
+        files: (files || []).slice(0, 50)
+      }, { merge: true }).catch(() => {});
+    } catch (_) {}
+  };
+
+  var uploadFile = async (file) => {
+    setFileErr('');
+    if (!file) return;
+    var uid = firebaseAuth && firebaseAuth.currentUser && firebaseAuth.currentUser.uid;
+    if (!uid) {setFileErr('Sign in to keep files with your account.');return;}
+    if (!firebaseStorage) {setFileErr('File storage is still loading. Try again in a moment.');return;}
+    if (file.size > 10 * 1024 * 1024) {setFileErr('That file is over 10MB.');return;}
+    setFileBusy(file.name);
+    try {
+      var safe = (file.name || 'file').replace(/[^\w.\- ]+/g, '_').slice(0, 80);
+      var path = 'users/' + uid + '/files/' + Date.now() + '-' + safe;
+      await firebaseStorage.ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
+      var meta = { id: Date.now(), name: file.name || safe, size: file.size || 0, type: file.type || '', path, date: new Date().toISOString() };
+      setCaseFiles((prev) => {
+        var next = [meta, ...prev || []].slice(0, 50);
+        persistFiles(next);
+        return next;
+      });
+      try {if (typeof gtag === 'function') gtag('event', 'case_file_upload', { surface: 'app' });} catch (_) {}
+    } catch (e) {
+      setFileErr((e && e.code) === 'storage/unauthorized' ?
+      'That file type is not allowed. Use a PDF, Word, text, or image file.' :
+      'Upload failed. Try again.');
+    }
+    setFileBusy('');
+  };
+
+  var openFile = async (f) => {
+    if (!firebaseStorage || !f || !f.path) return;
+    setFileErr('');
+    try {
+      var url = await firebaseStorage.ref(f.path).getDownloadURL();
+      window.open(url, '_blank', 'noopener');
+    } catch (_) {setFileErr('Could not open that file.');}
+  };
+
+  var removeFile = async (f) => {
+    setCaseFiles((prev) => {
+      var next = (prev || []).filter((x) => x.id !== f.id);
+      persistFiles(next);
+      return next;
+    });
+    try {if (firebaseStorage && f.path) await firebaseStorage.ref(f.path).delete();} catch (_) {}
+  };
+
   // Collect all unique tags from cases
   var allTags = useMemo(() => {
     var tagSet = new Set();
@@ -4672,6 +4758,32 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
     onClick: () => {setSearch('');setActiveTag(null);setActiveFormat(null);},
     style: { marginLeft: 8, background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '.66rem', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }
   }, 'clear filters')
+  ),
+  // Case files. Documents you bring INTO a round, as opposed to the
+  // cases you generated in one; same drawer because both are "my prep".
+  el('div', { style: { padding: '0 14px 12px' } },
+  el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 } },
+  el('span', { style: { fontSize: '.58rem', fontWeight: 700, color: '#64748b', letterSpacing: '.1em', textTransform: 'uppercase' } }, 'Files (' + caseFiles.length + ')'),
+  firebaseAuth && firebaseAuth.currentUser ?
+  el('label', { style: { fontSize: '.66rem', fontWeight: 700, color: fileBusy ? '#64748b' : '#f87171', cursor: fileBusy ? 'wait' : 'pointer' } },
+  fileBusy ? 'Uploading…' : '+ Upload',
+  el('input', { type: 'file', accept: '.pdf,.doc,.docx,.txt,.md,image/png,image/jpeg,image/webp', style: { display: 'none' }, disabled: !!fileBusy,
+    onChange: (e) => {var f = e.target.files && e.target.files[0];e.target.value = '';if (f) uploadFile(f);} })
+  ) :
+  el('span', { style: { fontSize: '.62rem', color: '#64748b' } }, 'Sign in to upload')
+  ),
+  fileErr && el('div', { style: { fontSize: '.66rem', color: '#f87171', marginBottom: 6 } }, fileErr),
+  caseFiles.length === 0 ?
+  el('div', { style: { fontSize: '.66rem', color: '#64748b', lineHeight: 1.5 } }, 'Cases, evidence, and flows. PDF, Word, text, or image, up to 10MB, private to your account and available on any device you sign in on.') :
+  el('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+  caseFiles.slice(0, 12).map((f) => el('div', { key: f.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)' } },
+  el('button', { onClick: () => openFile(f), title: 'Open', style: { flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: '#e2e8f0' } },
+  el('div', { style: { fontSize: '.72rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, f.name),
+  el('div', { style: { fontSize: '.6rem', color: '#64748b' } }, (f.size ? Math.max(1, Math.round(f.size / 1024)) + ' KB' : '') + (f.date ? '  ·  ' + new Date(f.date).toLocaleDateString() : ''))
+  ),
+  el('button', { onClick: () => removeFile(f), title: 'Remove', style: { background: 'none', border: 0, padding: '2px 4px', cursor: 'pointer', color: '#64748b', fontFamily: 'inherit', fontSize: '.66rem' } }, '×')
+  ))
+  )
   ),
   el('div', { className: 'cases-list' },
   filtered.length === 0 ?
@@ -11852,7 +11964,7 @@ var FIREBASE_CONFIG = {
   measurementId: "G-0V4R5MY3BT"
 };
 
-var firebaseApp, firebaseAuth, firebaseDb;
+var firebaseApp, firebaseAuth, firebaseDb, firebaseStorage;
 
 // Initialize Firebase. Returns true on success, false if SDK still missing.
 // Extracted so we can re-run it after a dynamic SDK load recovers from a
@@ -11864,6 +11976,7 @@ function initFirebase() {
       firebaseApp = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
       firebaseAuth = firebase.auth();
       firebaseDb = firebase.firestore();
+      try {if (firebase.storage) firebaseStorage = firebase.storage();} catch (_) {}
       window.firebaseAuth = firebaseAuth; // surface for dynamic consumers
       window.firebaseDb = firebaseDb;
       return true;
@@ -11891,7 +12004,7 @@ async function loadFirebaseDynamically() {
     { base: 'https://www.gstatic.com/firebasejs/10.12.0/', suffix: '-compat.js' },
     { base: 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/', suffix: '-compat.js' }];
 
-    var modules = ['firebase-app', 'firebase-auth', 'firebase-firestore'];
+    var modules = ['firebase-app', 'firebase-auth', 'firebase-firestore', 'firebase-storage'];
     var loadOne = (src) => new Promise((resolve, reject) => {
       var s = document.createElement('script');
       s.src = src;s.async = false; // preserve order
