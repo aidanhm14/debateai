@@ -607,6 +607,41 @@
   })();
 </script>
 
+<script>
+  (function(){
+    // 2026-07-22: first-screen test. The read on the current top is that a
+    // cold visitor sees a debate TRAINING product: an AI opponent, a voice
+    // round, formats. The thing that actually happens here (two strangers
+    // argue, a room votes, someone wins) is below the fold. The 'ticker' arm
+    // puts that first as a cycling round board and demotes the AI cards to
+    // where they were always meant to sit, underneath. 'current' is the
+    // untouched control. True 50/50 so retention is comparable per arm.
+    var v='';
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]first=ticker(?:&|$)/.test(qp)) v='ticker';
+      else if(/[?&]first=current(?:&|$)/.test(qp)) v='current';
+    }catch(e){}
+    var assigned=false;
+    if(v!=='ticker'&&v!=='current'){
+      try{ v=localStorage.getItem('da-first-screen')||''; }catch(e){}
+      if(v!=='ticker'&&v!=='current'){
+        v=(Math.random()<0.50)?'ticker':'current';
+        assigned=true;
+        try{ localStorage.setItem('da-first-screen',v); }catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-first-screen',v);
+    window.__firstScreen=v;
+    try{
+      if(window.gtag){
+        gtag('set','user_properties',{first_screen:v});
+        gtag('event','first_screen_view',{variant:v,assigned:assigned});
+      }
+    }catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -7282,6 +7317,316 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        engine in /js (or inline below) guards on null sourceLeft so
        the missing element is a no-op. Variant A never showed it; the
        founderFigureSlot in variant B just stays empty now. -->
+
+<!-- ── FIRST SCREEN · ticker arm (2026-07-22) ────────────────────────
+     Behind data-first-screen="ticker" (50/50, ?first=ticker|current).
+     Brief: a cold visitor currently reads "debate training platform"
+     because the AI opponent and the voice round are the first things
+     on the page. What actually happens here is two strangers argue and
+     one of them wins. This puts that first, in the register of a
+     prediction-market board, and cycles so the page has a pulse.
+     The AI cards keep their graphics and move below, which is where
+     they belong as the complementary service.
+     Honesty: the rounds below are labelled examples. The site has no
+     live round volume to show yet, so nothing here is dressed as live
+     platform activity. The CTA is the live part. -->
+<style>
+  /* Control arm gets nothing; the section is hidden and the hero is
+     untouched. Base-hidden so a no-JS visitor falls through to the
+     existing hero rather than seeing both. */
+  .fscreen{display:none}
+  :root[data-first-screen="ticker"] .fscreen{display:flex}
+  /* On the ticker arm the hero's own headline block stands down so the
+     page has one h1. The doors and cards under it stay exactly as they
+     are, which is the "keep the graphics, move them later" part. */
+  :root[data-first-screen="ticker"] .hero-illustrated .hi-head{display:none}
+  :root[data-first-screen="ticker"] .hero{padding-top:0}
+
+  /* Same floor the hero documents at its own padding-top: the .ui-topbar
+     is FIXED at 52px and this section starts at y=0 underneath it, so
+     anything below ~54px slides the headline behind the nav. */
+  .fscreen{justify-content:center;padding:clamp(64px,8vh,88px) clamp(18px,5vw,72px) clamp(14px,2.4vh,30px)}
+  .fscreen-wrap{width:100%;max-width:1180px;display:grid;grid-template-columns:.86fr 1.14fr;gap:clamp(26px,3.4vw,52px);align-items:center}
+  @media(max-width:940px){.fscreen-wrap{grid-template-columns:1fr;gap:26px}}
+
+  .fs-h1{margin:0 0 14px;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:700;
+    font-size:clamp(2.1rem,4.6vw,3.35rem);line-height:1.04;letter-spacing:-.025em;color:#1a1a1f;text-wrap:balance}
+  .fs-sub{margin:0 0 22px;font-size:clamp(1rem,1.5vw,1.14rem);line-height:1.55;color:rgba(26,26,31,.66);max-width:34ch}
+  .fs-ctas{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .fs-cta{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:13px 24px;
+    font-size:.94rem;font-weight:800;text-decoration:none;transition:transform .15s,box-shadow .15s}
+  .fs-cta--primary{background:#dc2626;color:#fff;box-shadow:0 10px 26px rgba(220,38,38,.24)}
+  .fs-cta--primary:hover{transform:translateY(-2px)}
+  .fs-cta--ghost{color:#1a1a1f;border:1px solid rgba(26,26,31,.2)}
+  .fs-cta--ghost:hover{border-color:rgba(26,26,31,.45)}
+  .fs-cal{margin:0;font-size:.82rem;font-weight:600;color:rgba(26,26,31,.55)}
+  .fs-cal b{color:#1a1a1f}
+
+  /* The board. Near-black on warm paper on purpose: this is the one
+     element that should read as a market screen, not as the page. */
+  .fs-board{background:#0c0d10;border:1px solid rgba(255,255,255,.09);border-radius:18px;
+    padding:clamp(16px,2vw,24px);box-shadow:0 26px 64px rgba(20,15,10,.22);color:#f4f4f2;overflow:hidden}
+  .fs-board-top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .fs-board .fs-chip{padding:5px 11px;border-radius:6px;background:rgba(255,255,255,.08);
+    font-size:.6rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#d8d8d4;white-space:nowrap}
+  .fs-board .fs-sample{font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(244,244,242,.38);white-space:nowrap}
+  @media(max-width:430px){.fs-board .fs-sample{letter-spacing:.06em;font-size:.54rem}}
+  .fs-board .fs-pager{margin-left:auto;display:inline-flex;align-items:center;gap:8px;
+    font-size:.72rem;font-weight:700;color:rgba(244,244,242,.6);white-space:nowrap}
+  .fs-board .fs-nav{width:24px;height:24px;border-radius:50%;border:1px solid rgba(255,255,255,.2);
+    background:transparent;color:rgba(244,244,242,.75);font-size:.85rem;line-height:1;cursor:pointer;
+    display:grid;place-items:center;font-family:inherit;padding:0;transition:border-color .15s,color .15s}
+  .fs-nav:hover{border-color:rgba(255,255,255,.55);color:#fff}
+  .fs-board .fs-motion{margin:0 0 18px;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:700;
+    font-size:clamp(1.18rem,1.9vw,1.6rem);line-height:1.2;letter-spacing:-.015em;color:#fff;min-height:2.4em}
+
+  .fs-body{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,26px);align-items:start}
+  @media(max-width:620px){.fs-body{grid-template-columns:1fr;gap:18px}}
+
+  .fs-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+  .fs-face{width:36px;height:36px;flex:none;border-radius:50%;object-fit:cover;
+    border:1.5px solid rgba(255,255,255,.18);transition:opacity .28s}
+  .fs-who{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
+  .fs-board .fs-who b{font-size:.92rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fs-board .fs-who i{font-style:normal;font-size:.58rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:rgba(244,244,242,.42)}
+  .fs-board .fs-pct{font-size:.98rem;font-weight:800;font-variant-numeric:tabular-nums;color:#f4f4f2}
+  .fs-board .fs-verdict{flex:none;padding:3px 9px;border-radius:999px;font-size:.58rem;font-weight:800;
+    letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+  .fs-board .fs-verdict--won{background:rgba(34,197,94,.16);color:#4ade80}
+  .fs-board .fs-verdict--lost{background:rgba(248,113,113,.13);color:#fca5a5}
+  .fs-board .fs-foot{margin:12px 0 0;font-size:.76rem;line-height:1.5;color:rgba(244,244,242,.5)}
+  .fs-board .fs-foot b{color:rgba(244,244,242,.82);font-weight:700}
+
+  .fs-board .fs-legend{display:flex;gap:16px;margin-bottom:8px;font-size:.72rem;color:rgba(244,244,242,.62)}
+  .fs-board .fs-legend b{font-weight:700;color:rgba(244,244,242,.86)}
+  .fs-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+  .fs-dot--a{background:#4ade80}
+  .fs-dot--b{background:#60a5fa}
+  .fs-chart svg{width:100%;height:132px;display:block;overflow:visible}
+  .fs-grid{stroke:rgba(255,255,255,.07);stroke-width:1}
+  .fs-line{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+    transition:opacity .28s;vector-effect:non-scaling-stroke}
+  .fs-line--a{stroke:#4ade80}
+  .fs-line--b{stroke:#60a5fa}
+  .fs-end--a{fill:#4ade80}
+  .fs-end--b{fill:#60a5fa}
+  .fs-board .fs-axis{display:flex;justify-content:space-between;margin-top:7px;
+    font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(244,244,242,.32)}
+
+  /* Swap fade. Everything that changes carries .is-swapping for one beat. */
+  .fs-fade{transition:opacity .26s ease}
+  .fs-board.is-swapping .fs-fade{opacity:.34}
+  @media(prefers-reduced-motion:reduce){
+    .fs-board.is-swapping .fs-fade{opacity:1}
+    .fs-face,.fs-line{transition:none}
+  }
+</style>
+<section id="first-screen" class="fscreen" aria-label="Debate a stranger">
+  <div class="fscreen-wrap">
+    <div class="fscreen-copy">
+      <h1 class="fs-h1">Debate a stranger right now.</h1>
+      <p class="fs-sub">Get matched, argue for six minutes, and take a full ballot in seconds.</p>
+      <div class="fs-ctas">
+        <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar">Debate a stranger <span aria-hidden="true">&rarr;</span></a>
+        <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate">Watch a round</a>
+      </div>
+      <p class="fs-cal" id="fsCal"></p>
+    </div>
+
+    <div class="fs-board" id="fsBoard">
+      <div class="fs-board-top">
+        <span class="fs-chip" id="fsFmt">British Parli</span>
+        <span class="fs-sample">Example rounds</span>
+        <span class="fs-pager">
+          <button type="button" class="fs-nav" id="fsPrev" aria-label="Previous example round">&lsaquo;</button>
+          <span id="fsCount">1 of 5</span>
+          <button type="button" class="fs-nav" id="fsNext" aria-label="Next example round">&rsaquo;</button>
+        </span>
+      </div>
+
+      <h2 class="fs-motion" id="fsMotion"></h2>
+
+      <div class="fs-body">
+        <div class="fs-side">
+          <div class="fs-row" id="fsRowA">
+            <img class="fs-face" id="fsFaceA" src="/img/round/faces/face02.jpg" alt="" width="44" height="44" decoding="async">
+            <span class="fs-who"><b id="fsNameA"></b><i id="fsSideA">Proposition</i></span>
+            <span class="fs-pct" id="fsPctA"></span>
+            <span class="fs-verdict" id="fsVerA"></span>
+          </div>
+          <div class="fs-row" id="fsRowB">
+            <img class="fs-face" id="fsFaceB" src="/img/round/faces/face07.jpg" alt="" width="44" height="44" decoding="async">
+            <span class="fs-who"><b id="fsNameB"></b><i id="fsSideB">Opposition</i></span>
+            <span class="fs-pct" id="fsPctB"></span>
+            <span class="fs-verdict" id="fsVerB"></span>
+          </div>
+          <p class="fs-foot"><b id="fsVoters"></b> in the room backed a side. The ballot decided it.</p>
+        </div>
+
+        <div class="fs-chart">
+          <div class="fs-legend">
+            <span><i class="fs-dot fs-dot--a"></i><b id="fsLegA"></b></span>
+            <span><i class="fs-dot fs-dot--b"></i><b id="fsLegB"></b></span>
+          </div>
+          <svg viewBox="0 0 320 132" preserveAspectRatio="none" aria-hidden="true">
+            <line class="fs-grid" x1="0" y1="16" x2="320" y2="16"></line>
+            <line class="fs-grid" x1="0" y1="61" x2="320" y2="61"></line>
+            <line class="fs-grid" x1="0" y1="106" x2="320" y2="106"></line>
+            <polyline class="fs-line fs-line--a" id="fsLineA" points=""></polyline>
+            <polyline class="fs-line fs-line--b" id="fsLineB" points=""></polyline>
+            <circle class="fs-end fs-end--a" id="fsEndA" r="4"></circle>
+            <circle class="fs-end fs-end--b" id="fsEndB" r="4"></circle>
+          </svg>
+          <div class="fs-axis"><span>Round starts</span><span>Ballot</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+(function(){
+  var root = document.getElementById('first-screen');
+  if (!root) return;
+  if (document.documentElement.getAttribute('data-first-screen') !== 'ticker') return;
+
+  /* Five example rounds. Series are crowd backing over the round, so the
+     two lines always sum to 100 and the winner is whoever the ballot
+     went to, which is deliberately NOT always where the room leaned:
+     rounds 3 and 5 diverge. That divergence is the interesting part and
+     the reason the board is worth watching. */
+  var ROUNDS = [
+    { fmt:'British Parli', motion:'This House would ban political parties from accepting corporate donations.',
+      a:{ nm:'Priya R.',  side:'Opening Gov', face:'face16' },
+      b:{ nm:'Marcus T.', side:'Opening Opp', face:'face19' },
+      series:[50,53,49,55,61,58,64,69,66,72], won:'a', voters:41 },
+    { fmt:'APDA', motion:'This House believes the internet has done more harm than good to democratic debate.',
+      a:{ nm:'Timothee L.', side:'Government', face:'face10' },
+      b:{ nm:'Aidan H.',    side:'Opposition', face:'face11' },
+      series:[50,47,44,48,42,38,35,31,28,26], won:'b', voters:63 },
+    { fmt:'Public Forum', motion:'The United States should abolish legacy preference in college admissions.',
+      a:{ nm:'Jae W.',   side:'Pro', face:'face25' },
+      b:{ nm:'Sofia L.', side:'Con', face:'face30' },
+      series:[50,55,59,63,60,66,64,61,58,57], won:'b', voters:38 },
+    { fmt:'Asian Parli', motion:'This House would make voting compulsory for citizens over eighteen.',
+      a:{ nm:'Dhruv M.', side:'Government', face:'face33' },
+      b:{ nm:'Amara O.', side:'Opposition', face:'face41' },
+      series:[50,52,56,54,60,65,68,73,76,79], won:'a', voters:57 },
+    { fmt:'Lincoln-Douglas', motion:'Justice requires abolishing plea bargaining in criminal cases.',
+      a:{ nm:'Ethan C.',  side:'Affirmative', face:'face02' },
+      b:{ nm:'Zainab K.', side:'Negative',    face:'face07' },
+      series:[50,48,51,47,50,53,49,52,54,51], won:'a', voters:29 }
+  ];
+
+  var el = {};
+  ['fsFmt','fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
+   'fsPctA','fsPctB','fsVerA','fsVerB','fsVoters','fsLegA','fsLegB','fsLineA','fsLineB',
+   'fsEndA','fsEndB','fsPrev','fsNext','fsCal'].forEach(function(id){ el[id] = document.getElementById(id); });
+  var board = document.getElementById('fsBoard');
+
+  // Everything that changes on a swap fades together.
+  ['fsFmt','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB','fsPctA','fsPctB',
+   'fsVerA','fsVerB','fsVoters','fsLegA','fsLegB','fsLineA','fsLineB','fsEndA','fsEndB']
+    .forEach(function(k){ if (el[k]) el[k].classList.add('fs-fade'); });
+
+  // Chart maps a 0-100 share onto the 132-tall viewBox, 10px of padding
+  // top and bottom so the end dots never clip.
+  function pts(series){
+    var n = series.length, out = [];
+    for (var i = 0; i < n; i++){
+      var x = (i / (n - 1)) * 320;
+      var y = 116 - (series[i] / 100) * 100;
+      out.push(x.toFixed(1) + ',' + y.toFixed(1));
+    }
+    return out.join(' ');
+  }
+  function lastXY(series){
+    var v = series[series.length - 1];
+    return { x: 320, y: 116 - (v / 100) * 100 };
+  }
+
+  var idx = 0;
+  function paint(i){
+    var r = ROUNDS[i];
+    var aPct = r.series[r.series.length - 1];
+    var bPct = 100 - aPct;
+    var bSeries = r.series.map(function(v){ return 100 - v; });
+
+    el.fsFmt.textContent = r.fmt;
+    el.fsCount.textContent = (i + 1) + ' of ' + ROUNDS.length;
+    el.fsMotion.textContent = r.motion;
+
+    el.fsFaceA.src = '/img/round/faces/' + r.a.face + '.jpg';
+    el.fsFaceB.src = '/img/round/faces/' + r.b.face + '.jpg';
+    el.fsNameA.textContent = r.a.nm;  el.fsSideA.textContent = r.a.side;
+    el.fsNameB.textContent = r.b.nm;  el.fsSideB.textContent = r.b.side;
+    el.fsPctA.textContent = aPct + '%';
+    el.fsPctB.textContent = bPct + '%';
+
+    var aWon = r.won === 'a';
+    el.fsVerA.textContent = aWon ? 'Won' : 'Lost';
+    el.fsVerB.textContent = aWon ? 'Lost' : 'Won';
+    el.fsVerA.className = 'fs-verdict fs-fade fs-verdict--' + (aWon ? 'won' : 'lost');
+    el.fsVerB.className = 'fs-verdict fs-fade fs-verdict--' + (aWon ? 'lost' : 'won');
+
+    el.fsVoters.textContent = r.voters;
+    el.fsLegA.textContent = r.a.nm.split(' ')[0] + ' ' + aPct + '%';
+    el.fsLegB.textContent = r.b.nm.split(' ')[0] + ' ' + bPct + '%';
+
+    el.fsLineA.setAttribute('points', pts(r.series));
+    el.fsLineB.setAttribute('points', pts(bSeries));
+    var ea = lastXY(r.series), eb = lastXY(bSeries);
+    el.fsEndA.setAttribute('cx', ea.x); el.fsEndA.setAttribute('cy', ea.y);
+    el.fsEndB.setAttribute('cx', eb.x); el.fsEndB.setAttribute('cy', eb.y);
+  }
+
+  var reduced = false;
+  try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+  function go(i, manual){
+    idx = (i + ROUNDS.length) % ROUNDS.length;
+    if (reduced){ paint(idx); return; }
+    board.classList.add('is-swapping');
+    setTimeout(function(){ paint(idx); board.classList.remove('is-swapping'); }, 260);
+    if (manual){
+      try { if (window.dosTrack) dosTrack('first_screen_nav', { round: idx + 1 }); } catch(e){}
+    }
+  }
+
+  paint(0);
+
+  // Next Wednesday, computed rather than hardcoded so the line cannot
+  // go stale on the page.
+  (function(){
+    if (!el.fsCal) return;
+    var d = new Date(), day = d.getDay(), delta = (3 - day + 7) % 7;
+    var tonight = delta === 0;
+    d.setDate(d.getDate() + delta);
+    var when = d.toLocaleDateString(undefined, { month:'long', day:'numeric' });
+    el.fsCal.innerHTML = (tonight ? 'Open round <b>tonight</b>, ' : 'Next open round <b>') +
+      (tonight ? when : when + '</b>') + '. Every Wednesday.';
+  })();
+
+  if (el.fsPrev) el.fsPrev.addEventListener('click', function(){ stop(); go(idx - 1, true); });
+  if (el.fsNext) el.fsNext.addEventListener('click', function(){ stop(); go(idx + 1, true); });
+
+  var timer = null;
+  function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+  function start(){
+    if (reduced || timer) return;
+    timer = setInterval(function(){
+      if (document.hidden) return;
+      go(idx + 1);
+    }, 5600);
+  }
+
+  // Only tick while the board is actually on screen.
+  if ('IntersectionObserver' in window){
+    new IntersectionObserver(function(es){
+      if (es.some(function(e){ return e.isIntersecting; })) start(); else stop();
+    }, { rootMargin: '120px 0px' }).observe(root);
+  } else { start(); }
+})();
+</script>
 
 <section class="hero">
   <div class="hero-bg"></div>
