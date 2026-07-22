@@ -226,6 +226,13 @@
     // CTA. Routes to /newvoice (the rebuilt live clash); the classic
     // trainer stays reachable at /voice-debate via /newvoice crosslinks.
     { href: '/newvoice',      label: 'Voice AI', hot: true, mobileKeep: true },
+    // 2026-07-20 (Aidan: "put the waitlist button at the very top and
+    // highlight it top right"). Rightmost slot, solid fill so it reads
+    // as the primary action next to the faint Voice AI pill. There is no
+    // /waitlist page, only the landing section, so this is an anchor:
+    // bare '#waitlist' when already on the landing (no reload), '/#waitlist'
+    // from the other 46 pages.
+    { href: '#waitlist',      label: 'Waitlist', cta: true, mobileKeep: true },
   ];
 
   // 2026-07-19: "More" menu. The bar holds the pillars; everything Aidan
@@ -446,6 +453,7 @@
         attrs.target = '_blank';
         attrs.rel = 'noopener noreferrer';
       }
+      if (L.cta && attrs.href === '#waitlist' && !/^\/(landing(\.html)?)?$/.test(here)) attrs.href = '/#waitlist';
       var a = el('a', attrs);
       if (L.live){
         a.style.display = 'inline-flex';
@@ -491,6 +499,20 @@
           document.head.appendChild(hs);
         }
         a.appendChild(el('span', { class: 'ui-topbar-spar-dot', 'aria-hidden': 'true' }));
+      }
+      // `cta` = the one filled pill on the rail. Solid red on white text,
+      // deliberately heavier than `hot` so the rail has a single clear
+      // primary action at its right edge.
+      if (L.cta){
+        a.style.display = 'inline-flex';
+        a.style.alignItems = 'center';
+        a.style.fontWeight = '800';
+        a.style.color = '#fff';
+        a.style.background = '#dc2626';
+        a.style.border = '1px solid #dc2626';
+        a.style.borderRadius = '999px';
+        a.style.padding = '5px 14px';
+        a.style.boxShadow = '0 6px 18px -8px rgba(220,38,38,.7)';
       }
       a.appendChild(document.createTextNode(L.label));
       right.appendChild(a);
