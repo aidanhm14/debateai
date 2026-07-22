@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script src="/js/native-bridge.js"></script>
 <title>AI Debate Judge · Get a real ballot on any round · Debatable</title>
-<meta name="description" content="Paste a full debate round and get a tournament-grade AI ballot: who won, speaker points per side, and a reason-for-decision that names the key clashes. Built for Public Forum and every other format that runs on lay parent judges who don't flow. Free in beta." />
+<meta name="description" content="Put your phone on the table and it listens to the round, then hands you a tournament-grade ballot: who won, speaker points per side, and a reason-for-decision that names the key clashes. Built for Public Forum and every other format that runs on lay parent judges who don't flow. Free in beta." />
 <meta name="keywords" content="AI debate judge, debate ballot, judge a debate round, Public Forum judge, RFD, reason for decision, speaker points, online debate judge, lay judge, ai judge debate, debate adjudication, judge my debate round">
 
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -15,11 +15,11 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://debateai.com/judge">
 <meta property="og:title" content="AI Debate Judge · Get a real ballot on any round · Debatable">
-<meta property="og:description" content="Most rounds are scored by lay judges who don't flow. Paste yours and get an objective ballot: who won, why, and speaker points per side. Free in beta.">
+<meta property="og:description" content="Most rounds are scored by lay judges who don't flow. Set your phone on the table, hit listen, and get an objective ballot: who won, why, and speaker points per side. Free in beta.">
 <meta property="og:image" content="https://debateai.com/og-image.png?v=cards6">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="AI Debate Judge · Get a real ballot on any round">
-<meta name="twitter:description" content="Paste a full round, get a tournament-grade ballot: winner, speaker points, and an RFD that names the clashes. Built for Public Forum and every format.">
+<meta name="twitter:description" content="It listens to your round and writes the ballot: winner, speaker points, and an RFD that names the clashes. Built for Public Forum and every format.">
 <meta name="twitter:image" content="https://debateai.com/og-image.png?v=cards6">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -241,6 +241,26 @@ p{line-height:1.65;color:var(--text-dim);margin:0 0 14px}
   .judge-hero{grid-template-columns:1fr;gap:20px}
   .judge-visual{min-height:380px;max-width:420px;width:100%;margin:0 auto}
 }
+/* Phone is the primary device here: the whole pitch is "set it on the
+   table and hit listen." The decorative illustration and the numbered
+   strip together pushed that button nearly two screens down, so on a
+   phone the hero collapses to the headline, one line, and the button.
+   The illustration is scenery (aria-hidden internals, no information
+   of its own), so losing it on small screens costs nothing. */
+@media (max-width:760px){
+  .judge-hero .judge-visual{display:none}
+  .judge-hero{margin-bottom:16px}
+  .judge-copy .lede{margin-bottom:14px;font-size:1rem}
+  /* Keep the three steps (they are the whole explanation now) but shrink
+     them so they cost ~150px instead of ~300px above the button. */
+  .judge-copy .hiw-strip{gap:6px;margin-bottom:18px}
+  .judge-copy .hiw-strip li{flex-basis:100%;padding:8px 10px;font-size:.82rem;gap:8px}
+  .judge-copy .hiw-strip li span{width:17px;height:17px;font-size:.66rem}
+  /* Stack the drawer label above its hint instead of letting the two
+     fight over a narrow row. */
+  .opt>summary{flex-wrap:wrap;row-gap:2px}
+  .opt-hint{flex-basis:100%;padding-left:18px}
+}
 @media (max-width:520px){
   .judge-visual{min-height:350px;padding:16px}
   .judge-guides{inset:auto 12px 12px;gap:6px}
@@ -294,6 +314,97 @@ textarea.ctl{resize:vertical;min-height:200px;line-height:1.55}
 .file-btn:hover{border-color:var(--accent);color:var(--accent)}
 .file-hint{font-size:.74rem;color:var(--text-ghost)}
 textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68,.14)}
+
+/* ── LISTEN MODE ─────────────────────────────────────────────
+   The primary path. A lay debater should be able to land here, tap
+   one round red button, and never read another word. Everything the
+   old form asked for up front (motion, format, names, your own call)
+   is now optional and lives below the fold of the decision. */
+.listen{display:flex;align-items:center;gap:18px;text-align:left}
+.listen-copy{min-width:0;flex:1}
+.listen-title{font-family:'Fraunces',Georgia,serif;font-size:1.32rem;font-weight:800;line-height:1.15;margin-bottom:5px}
+.listen-sub{font-size:.9rem;line-height:1.45;color:var(--text-ghost)}
+.mic{
+  flex:0 0 auto;width:76px;height:76px;border-radius:50%;
+  background:var(--accent);color:#fff;display:grid;place-items:center;
+  box-shadow:0 14px 32px -10px rgba(239,68,68,.6);
+  transition:transform .18s,box-shadow .18s,background .18s;
+}
+.mic:hover{transform:scale(1.05);box-shadow:0 18px 40px -10px rgba(239,68,68,.7)}
+.mic:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.mic svg{width:32px;height:32px;display:block}
+/* Idle breathing ring, so the button reads as "ready to hear you". */
+.mic::after{
+  content:"";position:absolute;width:76px;height:76px;border-radius:50%;
+  border:2px solid var(--accent);opacity:0;pointer-events:none;
+  animation:micring 2.6s ease-out infinite;
+}
+.mic{position:relative}
+@keyframes micring{0%{opacity:.5;transform:scale(1)}70%,100%{opacity:0;transform:scale(1.45)}}
+@media (prefers-reduced-motion:reduce){.mic::after{animation:none}}
+
+/* Recording panel */
+.live{border:1px solid rgba(239,68,68,.3);border-radius:14px;background:rgba(239,68,68,.04);padding:18px}
+.live-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.rec-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 1.3s ease-in-out infinite;flex:0 0 auto}
+.rec-lbl{font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.rec-time{font-variant-numeric:tabular-nums;font-weight:800;font-size:1.05rem;margin-left:auto}
+.rec-note{font-size:.74rem;color:var(--text-ghost);width:100%}
+/* Level meter. Purely a liveness signal: silence should look like silence
+   so a user knows the mic is actually picking the room up. */
+.bars{display:flex;align-items:flex-end;gap:3px;height:22px;margin-bottom:12px;max-width:190px}
+.bars i{width:5px;background:var(--accent);border-radius:2px;height:8%;opacity:.55;transition:height .09s linear}
+.live-text{
+  max-height:190px;overflow-y:auto;font-size:.92rem;line-height:1.6;
+  color:var(--text-dim);background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:10px;padding:12px 14px;white-space:pre-wrap;
+}
+.live-text:empty::before{content:"Listening. Words will show up here as it hears them.";color:var(--text-ghost)}
+.live-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.live-cancel{font-size:.82rem;font-weight:700;color:var(--text-ghost);border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
+.live-cancel:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Captured / ready-to-judge state */
+.captured{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.34);margin-bottom:18px}
+.captured .tick{width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:.78rem;font-weight:900;flex:0 0 auto}
+.captured .cap-t{font-weight:800;font-size:.95rem}
+.captured .cap-s{font-size:.8rem;color:var(--text-ghost)}
+.captured .cap-redo{margin-left:auto;font-size:.8rem;font-weight:700;color:var(--text-ghost);border-bottom:1px solid transparent}
+.captured .cap-redo:hover{color:var(--accent);border-color:var(--accent)}
+
+/* "or paste instead" — deliberately quiet. It is the fallback, not a
+   co-equal choice, and presenting two big options is what made the old
+   page feel like homework. */
+.or-row{display:flex;align-items:center;gap:12px;margin:20px 0 14px;color:var(--text-ghost);font-size:.74rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.or-row::before,.or-row::after{content:"";flex:1;height:1px;background:var(--border)}
+.link-btn{font-size:.86rem;font-weight:700;color:var(--text-dim);border-bottom:1px solid var(--border-strong);transition:color .15s,border-color .15s}
+.link-btn:hover{color:var(--accent);border-color:var(--accent)}
+.paste-row{text-align:center}
+
+/* Optional details drawer */
+.opt{margin-top:20px;border-top:1px solid var(--border);padding-top:16px}
+.opt>summary{cursor:pointer;list-style:none;font-size:.72rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:var(--text-ghost);display:flex;align-items:center;gap:8px}
+.opt>summary::-webkit-details-marker{display:none}
+.opt>summary::before{content:"+";font-size:1rem;line-height:1;color:var(--accent);font-weight:800}
+.opt[open]>summary::before{content:"\2013"}
+.opt>summary:hover{color:var(--text-dim)}
+.opt-hint{font-weight:500;letter-spacing:0;text-transform:none;font-size:.76rem}
+.opt-body{padding-top:18px}
+
+/* Your-call chips: optional, one tap, never blocks the ballot. */
+.call-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.call-lbl{font-size:.78rem;color:var(--text-ghost);font-weight:600}
+.call-chip{padding:7px 15px;border-radius:999px;border:1px solid var(--border-strong);font-size:.85rem;font-weight:700;transition:border-color .15s,background .15s,color .15s}
+.call-chip:hover{border-color:var(--accent)}
+.call-chip.on{border-color:var(--accent);background:rgba(239,68,68,.10);color:var(--accent)}
+
+@media (max-width:560px){
+  .listen{flex-direction:column;text-align:center;gap:14px}
+  .listen-copy{text-align:center}
+  .mic{width:88px;height:88px}
+  .mic::after{width:88px;height:88px}
+}
 /* Compact how-it-works strip under the lede */
 .hiw-strip{list-style:none;display:flex;gap:10px;flex-wrap:wrap;margin:0 0 26px;padding:0;max-width:760px}
 .hiw-strip li{flex:1 1 180px;display:flex;align-items:flex-start;gap:9px;font-size:.86rem;line-height:1.4;color:var(--text-dim);
@@ -421,13 +532,13 @@ footer.foot a{color:var(--text-dim)}
       </nav>
 
       <span class="eyebrow"><span class="pip"></span> AI Judge · Free in beta</span>
-      <h1>Get a real ballot <em>on any round.</em></h1>
-      <p class="lede">Most rounds are scored by lay judges who don't flow. Paste or upload yours and get an objective ballot: who won, why, and speaker points per side. The AI reads the whole flow, names the key clashes, and writes the reason-for-decision the way a circuit judge would.</p>
+      <h1>It listens. <em>It judges.</em></h1>
+      <p class="lede">Set your phone on the table and hit listen. It hears both sides, tracks the flow, and hands you a real ballot when the round ends: who won, why, and speaker points per side.</p>
 
       <ol class="hiw-strip" aria-label="How the judge works">
-        <li><span>1</span> Paste or upload your round, both sides' speeches.</li>
-        <li><span>2</span> Make your own call: who won it.</li>
-        <li><span>3</span> Reveal the AI judge: winner, reasoning, speaker points.</li>
+        <li><span>1</span> Hit listen. Debate the round.</li>
+        <li><span>2</span> Hit stop when it's over.</li>
+        <li><span>3</span> Read the ballot.</li>
       </ol>
     </div>
     <aside class="judge-visual" aria-label="Animated AI judge visual">
@@ -471,64 +582,133 @@ footer.foot a{color:var(--text-dim)}
 
   <!-- ── The judge form ──────────────────────────────────── -->
   <section class="judge-form" aria-label="Judge a debate round">
-    <div class="field">
-      <label for="motion">Motion <span class="hint">the resolution both sides argued</span></label>
-      <input id="motion" class="ctl" type="text" placeholder="THBT social media platforms should be liable for the content their algorithms amplify" autocomplete="off">
-    </div>
 
-    <div class="two-col">
-      <div class="field">
-        <label for="format">Format</label>
-        <select id="format" class="ctl">
-          <option value="pf" selected>Public Forum</option>
-          <option value="ld">Lincoln-Douglas</option>
-          <option value="policy">Policy (CX)</option>
-          <option value="congress">Student Congress</option>
-          <option value="apda">APDA Parliamentary</option>
-          <option value="bp">British Parliamentary</option>
-          <option value="worlds">Worlds (WUDC)</option>
-          <option value="asian">Asian Parliamentary</option>
-          <option value="quick">Quick Clash</option>
-        </select>
+    <!-- ── STATE 1: idle. One button. ─────────────────────── -->
+    <div id="idleState">
+      <div class="listen">
+        <button id="micBtn" class="mic" type="button" aria-label="Start listening to the round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+            <path d="M5 11a7 7 0 0 0 14 0"></path>
+            <line x1="12" y1="18" x2="12" y2="22"></line>
+          </svg>
+        </button>
+        <div class="listen-copy">
+          <div class="listen-title">Listen to the round</div>
+          <div class="listen-sub" id="listenSub">Put your phone on the table and debate. Nothing to fill in first.</div>
+        </div>
       </div>
-      <div class="field">
-        <label for="proName" id="proLabel">Pro speaker</label>
-        <input id="proName" class="ctl" type="text" placeholder="Side 1 name" autocomplete="off">
+
+      <div class="or-row"><span>or</span></div>
+      <div class="paste-row">
+        <button type="button" class="link-btn" id="pasteToggle">Paste a transcript instead</button>
       </div>
     </div>
 
-    <div class="two-col">
-      <div class="field">
-        <label for="conName" id="conLabel">Con speaker</label>
-        <input id="conName" class="ctl" type="text" placeholder="Side 2 name" autocomplete="off">
+    <!-- ── STATE 2: recording ─────────────────────────────── -->
+    <div id="liveState" hidden>
+      <div class="live">
+        <div class="live-head">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span class="rec-lbl">Listening</span>
+          <span class="rec-time" id="recTime">0:00</span>
+          <span class="rec-note" id="recNote">Keep this tab open. It transcribes as it goes.</span>
+        </div>
+        <div class="bars" id="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="live-text" id="liveText" aria-live="polite" aria-label="Live transcript"></div>
+        <div class="live-actions">
+          <button id="stopBtn" class="btn-judge" type="button">Stop and judge <span aria-hidden="true">&rarr;</span></button>
+          <button id="discardBtn" class="live-cancel" type="button">Discard</button>
+        </div>
       </div>
-      <div class="field" aria-hidden="true"></div>
     </div>
 
-    <div class="field">
-      <label for="transcript">Round transcript <span class="hint">paste, upload, or drag in the full round, both sides' speeches</span></label>
-      <textarea id="transcript" class="ctl" placeholder="Paste both sides' speeches here. Label them by speech if you can (Pro Constructive, Con Rebuttal, and so on). More detail produces a sharper ballot.
+    <!-- ── STATE 3: captured, ready to judge ──────────────── -->
+    <div id="readyState" hidden>
+      <div class="captured">
+        <span class="tick" aria-hidden="true">&#10003;</span>
+        <div>
+          <div class="cap-t" id="capTitle">Round captured</div>
+          <div class="cap-s" id="capSub"></div>
+        </div>
+        <button type="button" class="cap-redo" id="redoBtn">Start over</button>
+      </div>
+
+      <div class="call-row" role="group" aria-label="Your own call, optional">
+        <span class="call-lbl">Your call first?</span>
+        <button type="button" class="call-chip" id="vPro" data-side="pro" aria-pressed="false">Pro won</button>
+        <button type="button" class="call-chip" id="vCon" data-side="con" aria-pressed="false">Con won</button>
+        <span class="call-lbl">Optional. Skip it and the ballot still comes.</span>
+      </div>
+
+      <div class="form-foot">
+        <button id="judgeBtn" class="btn-judge" type="button">Judge the round <span aria-hidden="true">&rarr;</span></button>
+      </div>
+    </div>
+
+    <!-- ── Manual transcript (fallback path) ──────────────── -->
+    <div id="manualState" hidden>
+      <div class="field">
+        <label for="transcript">Round transcript <span class="hint">paste, upload, or drag in the full round</span></label>
+        <textarea id="transcript" class="ctl" placeholder="Paste both sides' speeches here. Label them by speech if you can (Pro Constructive, Con Rebuttal, and so on).
 
 Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
-      <div class="file-row">
-        <button type="button" class="file-btn" id="fileBtn">&#8593; Upload a file</button>
-        <input type="file" id="fileInput" accept=".txt,.text,.md,.markdown,.rtf,.csv,.docx,text/plain" hidden>
-        <span class="file-hint" id="fileHint">.txt, .md, or .docx &middot; or drag a file onto the box</span>
+        <div class="file-row">
+          <button type="button" class="file-btn" id="fileBtn">&#8593; Upload a file</button>
+          <input type="file" id="fileInput" accept=".txt,.text,.md,.markdown,.rtf,.csv,.docx,text/plain" hidden>
+          <span class="file-hint" id="fileHint">.txt, .md, or .docx &middot; or drag a file onto the box</span>
+        </div>
+      </div>
+      <div class="form-foot">
+        <button type="button" class="link-btn" id="pasteBack">&larr; Back to listening</button>
       </div>
     </div>
 
-    <div class="field verdict-field">
-      <label>Make your call first <span class="hint">judge it yourself, then see how a trained AI judge scored it</span></label>
-      <div class="verdict-row" role="radiogroup" aria-label="Who won the round">
-        <button type="button" class="verdict-opt" id="vPro" data-side="pro" role="radio" aria-checked="false">Pro wins</button>
-        <button type="button" class="verdict-opt" id="vCon" data-side="con" role="radio" aria-checked="false">Con wins</button>
+    <!-- ── Optional details. Closed by default: the judge infers the
+         motion, the format, and the sides straight off the round. ── -->
+    <details class="opt" id="optBlock">
+      <summary>Round details <span class="opt-hint">optional. It works these out from the round itself.</span></summary>
+      <div class="opt-body">
+        <div class="field">
+          <label for="motion">Motion <span class="hint">only if you want it quoted exactly</span></label>
+          <input id="motion" class="ctl" type="text" placeholder="THBT social media platforms should be liable for the content their algorithms amplify" autocomplete="off">
+        </div>
+
+        <div class="two-col">
+          <div class="field">
+            <label for="format">Format</label>
+            <select id="format" class="ctl">
+              <option value="auto" selected>Work it out from the round</option>
+              <option value="pf">Public Forum</option>
+              <option value="ld">Lincoln-Douglas</option>
+              <option value="policy">Policy (CX)</option>
+              <option value="congress">Student Congress</option>
+              <option value="apda">APDA Parliamentary</option>
+              <option value="bp">British Parliamentary</option>
+              <option value="worlds">Worlds (WUDC)</option>
+              <option value="asian">Asian Parliamentary</option>
+              <option value="quick">Quick Clash</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="proName" id="proLabel">Pro speaker</label>
+            <input id="proName" class="ctl" type="text" placeholder="Side 1 name" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="field">
+            <label for="conName" id="conLabel">Con speaker</label>
+            <input id="conName" class="ctl" type="text" placeholder="Side 2 name" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="verdictWhy">Why you called it that way</label>
+            <input id="verdictWhy" class="ctl" type="text" placeholder="One line (optional)" autocomplete="off">
+          </div>
+        </div>
       </div>
-      <input id="verdictWhy" class="ctl" type="text" placeholder="In one line, why? (optional)" autocomplete="off" style="margin-top:8px">
-    </div>
-    <div class="form-foot">
-      <button id="judgeBtn" class="btn-judge" type="button">Reveal the AI judge <span aria-hidden="true">&rarr;</span></button>
-      <span class="form-note">More of the round you paste, the better the ballot.</span>
-    </div>
+    </details>
+
     <div id="formError" class="form-error"></div>
   </section>
 
@@ -585,7 +765,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       </div>
     </div>
     <div class="ballot-cta">
-      <button class="primary" type="button" onclick="document.getElementById('transcript').value='';document.getElementById('judgeBtn').scrollIntoView({behavior:'smooth'});">Judge another round</button>
+      <button class="primary" type="button" id="againBtn">Judge another round</button>
       <a class="ghost" href="/spar" onclick="try{gtag('event','judge_next_click',{to:'spar'})}catch(e){}">Debate a real person</a>
       <a class="ghost" href="/voice-debate" onclick="try{gtag('event','judge_next_click',{to:'trainer'})}catch(e){}">Run a live round instead</a>
       <a class="ghost" href="/app#case" onclick="try{gtag('event','judge_next_click',{to:'prep'})}catch(e){}">Prep the rematch</a>
@@ -615,14 +795,15 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   </div>
 
   <h2>How it works</h2>
-  <p><strong>One.</strong> Paste the full round, both sides, every speech you have. Type the motion and pick the format. <strong>Two.</strong> Hit judge. The AI reads the flow and weighs the clashes the way a tournament judge does. <strong>Three.</strong> You get a winner, speaker points per side, a reason-for-decision, and one concrete fix per speaker.</p>
+  <p><strong>One.</strong> Hit listen and set the phone down where it can hear both sides. It transcribes the round as it goes. <strong>Two.</strong> Hit stop when the round ends. It weighs the clashes the way a tournament judge does. <strong>Three.</strong> You get a winner, speaker points per side, a reason-for-decision, and one concrete fix per speaker. You never have to type the motion or pick the format: it works those out from the round. If you would rather not record, you can paste a transcript instead.</p>
 
   <h2>AI debate judge FAQ</h2>
   <div class="faq">
-    <details><summary>Is there an AI that can judge a debate round?</summary><p>Yes. Paste a full round here and the AI returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's adjudication norms, not generic feedback.</p></details>
+    <details><summary>Is there an AI that can judge a debate round?</summary><p>Yes. Hit listen and it hears the round through your device's microphone, then returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's adjudication norms, not generic feedback. You can also paste a transcript if you already have one.</p></details>
     <details><summary>Does this work for Public Forum?</summary><p>Public Forum is the default format and the case this page was built for. PF runs on lay parent judges who don't flow, so an objective ballot that tracks the summary-to-final-focus chain and the first-versus-second-speaker rules is exactly the gap. LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, and a Quick Clash mode are all supported too.</p></details>
     <details><summary>How accurate is the AI ballot?</summary><p>It runs the same adjudication engine as our live rounds: format-pinned judging rules, explicit weighing across magnitude, probability, timeframe, and reversibility, and a speaker-point scale calibrated to use the full range. Treat it as a sharp second opinion, not a replacement for a real tournament panel. It catches drops and weighing gaps that a lay judge misses.</p></details>
-    <details><summary>What should I paste in?</summary><p>The fuller the better. Both sides' speeches, labeled by speech if you can (Pro Constructive, Con Rebuttal, and so on). A clean transcript or a detailed flow both work. The more of the round the AI can see, the more specific the ballot.</p></details>
+    <details><summary>Where should I put the phone?</summary><p>Somewhere it can hear both sides. A table between the two speakers works; so does a laptop at the front of the room. It handles normal debate delivery, including fast speaking, but it cannot judge what it cannot hear, so keep it off the far side of a large room and away from an air vent. It shows you the words as it picks them up, so you can tell within a few seconds whether it is hearing the round.</p></details>
+    <details><summary>Do I have to fill anything in?</summary><p>No. The motion, the format, and who is on which side all get worked out from the round itself. Fill in the optional details only if you want the motion quoted word for word, or want to pin the format rather than let it infer one.</p></details>
     <details><summary>Does it replace a tournament judge?</summary><p>No. It gives you an objective ballot when you don't have a flowing judge in the room, and a second read after a round you think you got robbed in. The point is to fill the lay-judge gap, not to stand in for a real panel.</p></details>
     <details><summary>Is it free?</summary><p>Yes, while Debatable is in beta every tier is $0. Anonymous visitors get a handful of rounds; signing in with Google adds more. The post-beta plans on <a href="/pricing">/pricing</a> are reference only.</p></details>
   </div>
@@ -737,14 +918,14 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       "url":"https://debateai.com/judge",
       "applicationCategory":"EducationalApplication",
       "operatingSystem":"Web",
-      "description":"Paste a full debate round and get a tournament-grade AI ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes. Built for Public Forum and every other competitive format. Free in beta.",
+      "description":"An AI judge that listens to your debate round through your device microphone and returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes. Built for Public Forum and every other competitive format. Free in beta.",
       "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
-      "featureList":["AI judge ballot for any pasted round","Winner and speaker points per side","Reason-for-decision that names the key clashes","Format-aware adjudication across PF, LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, Quick Clash","Explicit weighing of magnitude, probability, timeframe, reversibility","Per-speaker feedback with one concrete fix"]
+      "featureList":["Listens to a live round and transcribes it","AI judge ballot for any round, recorded or pasted","Works out the motion and format from the round itself","Winner and speaker points per side","Reason-for-decision that names the key clashes","Format-aware adjudication across PF, LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, Quick Clash","Explicit weighing of magnitude, probability, timeframe, reversibility","Per-speaker feedback with one concrete fix"]
     },
     {
       "@type":"FAQPage",
       "mainEntity":[
-        {"@type":"Question","name":"Is there an AI that can judge a debate round?","acceptedAnswer":{"@type":"Answer","text":"Yes. Paste a full round and the AI returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's actual adjudication norms, not generic feedback."}},
+        {"@type":"Question","name":"Is there an AI that can judge a debate round?","acceptedAnswer":{"@type":"Answer","text":"Yes. It listens to the round through your device microphone and returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's actual adjudication norms, not generic feedback. You can also paste a transcript."}},
         {"@type":"Question","name":"Does this AI judge work for Public Forum?","acceptedAnswer":{"@type":"Answer","text":"Public Forum is the default format and the case this page was built for. PF runs on lay parent judges who don't flow, so an objective ballot that tracks the summary-to-final-focus chain and the first-versus-second-speaker rules is exactly the gap. LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, and a Quick Clash mode are supported too."}},
         {"@type":"Question","name":"How accurate is the AI ballot?","acceptedAnswer":{"@type":"Answer","text":"It runs the same adjudication engine as our live rounds: format-pinned judging rules, explicit weighing across magnitude, probability, timeframe, and reversibility, and a speaker-point scale calibrated to use the full range. Treat it as a sharp second opinion, not a replacement for a real tournament panel."}},
         {"@type":"Question","name":"Does the AI judge replace a tournament judge?","acceptedAnswer":{"@type":"Answer","text":"No. It gives you an objective ballot when you don't have a flowing judge in the room, and a second read after a round you think you got robbed in. The point is to fill the lay-judge gap, not to stand in for a real panel."}}
@@ -848,16 +1029,20 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   // Keep the speaker-name labels and placeholders in sync with the
   // picked format's side labels.
+  // 'auto' means the judge works the format out from the round itself.
+  // Side labels fall back to the generic Pro/Con pair until it does.
+  function fmtOf(key){ return FORMATS[key] || FORMATS.pf; }
+
   function syncLabels(){
-    var f = FORMATS[$('format').value] || FORMATS.pf;
+    var f = fmtOf($('format').value);
     var s0 = f.sideLabels[f.sides[0]], s1 = f.sideLabels[f.sides[1]];
     $('proLabel').textContent = s0 + ' speaker';
     $('conLabel').textContent = s1 + ' speaker';
     $('proName').placeholder = s0 + ' name';
     $('conName').placeholder = s1 + ' name';
     var vp = document.getElementById('vPro'), vc = document.getElementById('vCon');
-    if (vp) vp.textContent = s0 + ' wins';
-    if (vc) vc.textContent = s1 + ' wins';
+    if (vp) vp.textContent = s0 + ' won';
+    if (vc) vc.textContent = s1 + ' won';
   }
   $('format').addEventListener('change', syncLabels);
   syncLabels();
@@ -871,12 +1056,15 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   // ── Build the 2-side ballot prompt. Mirrors live-round.html
   //    buildBallotPrompt (2-side branch). ─────────────────────────
-  function buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason){
-    var f = FORMATS[formatKey] || FORMATS.pf;
+  function buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, isVoice){
+    var auto = (formatKey === 'auto' || !FORMATS[formatKey]);
+    var f = fmtOf(formatKey);
     var humanSideLabel = humanWinner === 'pro' ? f.sideLabels[f.sides[0]]
                        : humanWinner === 'con' ? f.sideLabels[f.sides[1]] : '';
     var system = [
-      "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round.",
+      auto
+        ? "You are a tournament-grade debate judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round."
+        : "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round.",
       "",
       "JUDGING APPROACH:",
       "- Treat this like a real RFD at a championship round: identify the 2-3 KEY CLASHES by name (not just topics, name the specific arguments).",
@@ -887,8 +1075,15 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       "- Quote-style references are great. Cite specific phrases or claims from the transcript so debaters can find the exact moment.",
       "",
       "FORMAT RULES, judge through this lens:",
-      "- " + f.name + " conventions apply.",
-    ].concat(JUDGE_RULES[formatKey] || []).concat([
+    ].concat(auto ? [
+      // Nobody picked a format. Rather than force a wrong lens onto the
+      // round, have the judge name the format off the speech structure
+      // and apply that circuit's real adjudication norms itself.
+      "- The debaters did NOT state their format. Work it out from the round: speech order, speech names, speech lengths, whether there is cross-examination or crossfire, whether cards are read, whether points of information are taken.",
+      "- Then judge by THAT format's real conventions. Public Forum: summary-to-final-focus chain, first vs second speaker burdens. LD: framework debate, value and criterion. Policy: the flow, offense/defense, cards and their qualifications. Parliamentary (APDA/BP/Worlds/Asian): no tagged citations, POIs, extensions and whip structure. Congress: legislation-specific clash and precedence.",
+      "- If the round genuinely does not match a named format, judge it as a general two-side debate on the flow and say so in one clause of the RFD.",
+      "- Use a 0-30 speaker point scale unless the format you identify uses a different one, in which case use that one.",
+    ] : ["- " + f.name + " conventions apply."].concat(JUDGE_RULES[formatKey] || [])).concat([
       "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
       "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
       "- Speaker points: use the FULL RANGE including the low end. Most AI judges inflate to 28+. Default to the middle of the format's scale. If a speaker dropped a contention, had no real weighing, or never warranted a key claim, score them at or below average. If one debater clearly outclassed the other, separate them by a meaningful margin, not half a point.",
@@ -904,21 +1099,29 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       '  "rfd": "<8-14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2-3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
       '  "proFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[0]] + ' speaker: one specific strategic strength, one technical fix with a concrete example from their speech, one big-picture observation about their approach to this format.>",',
       '  "conFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[1]] + ' speaker: same structure as proFeedback.>",',
-      '  "divergence": "<3-5 sentences written directly TO the person who judged this round before seeing your ballot. They called it for ' + (humanSideLabel || 'one side') + '. If your verdict DISAGREES with theirs, name what a lay judge most often over-weights (delivery, confidence, who spoke last, a vivid example) and the specific argument or piece of weighing they needed to flow to land where you did. If you AGREE with them, name the single clash that should have sealed it and one thing to watch next time. Coaching tone, plain language, gloss any jargon.>"',
+      humanSideLabel
+        ? '  "divergence": "<3-5 sentences written directly TO the person who judged this round before seeing your ballot. They called it for ' + humanSideLabel + '. If your verdict DISAGREES with theirs, name what a lay judge most often over-weights (delivery, confidence, who spoke last, a vivid example) and the specific argument or piece of weighing they needed to flow to land where you did. If you AGREE with them, name the single clash that should have sealed it and one thing to watch next time. Coaching tone, plain language, gloss any jargon.>"'
+        : '  "divergence": "<3-5 sentences on the single moment the round turned, written to both debaters. Name the clash that decided it and the one thing the losing side needed to say. Coaching tone, plain language, gloss any jargon.>"',
       "}",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
-      "Be specific to what was said. Do not be sycophantic. Call out drops, missed weighing, and weak warrants."
+      "Be specific to what was said. Do not be sycophantic. Call out drops, missed weighing, and weak warrants.",
+      // The listen path produces a machine transcript of a live room, so
+      // it is lossy in ways a pasted one is not. The judge has to read
+      // through the noise instead of punishing debaters for it.
+      isVoice
+        ? "\nTHIS TRANSCRIPT CAME FROM A MICROPHONE IN THE ROOM, not from the debaters typing it out. Expect speech-to-text noise: misheard proper nouns, missing punctuation, dropped words, crosstalk, and no speaker labels. Work out who is speaking from the content and the speech order. Judge the ARGUMENTS, never the transcription. Do NOT mark a side down for garbled text, and do not treat a transcription artifact as a dropped argument. If a passage is too garbled to judge, say so plainly in the RFD rather than guessing at what it said."
+        : ""
     ]).join('\n');
 
-    var user = "MOTION: " + motion
-      + "\n\nFORMAT: " + f.name
+    var user = (motion ? "MOTION: " + motion : "MOTION: not stated. Work it out from the round and quote it in the RFD as you understood it.")
+      + "\n\nFORMAT: " + (auto ? "not stated. Identify it from the speech structure." : f.name)
       + "\n\n" + f.sideLabels[f.sides[0]].toUpperCase() + " SPEAKER: " + (proName || '(unnamed)')
       + "\n" + f.sideLabels[f.sides[1]].toUpperCase() + " SPEAKER: " + (conName || '(unnamed)')
-      + "\n\nFULL ROUND TRANSCRIPT:\n\n" + transcript
+      + "\n\nFULL ROUND TRANSCRIPT" + (isVoice ? " (auto-transcribed from room audio)" : "") + ":\n\n" + transcript
       + "\n\nThe human who judged this round BEFORE seeing your ballot called it for: "
         + (humanSideLabel ? humanSideLabel + (humanReason ? ' ("' + humanReason + '")' : '') : 'not stated')
-        + ". Reach your OWN independent verdict first, then fill the 'divergence' field comparing your verdict to theirs and coaching them."
+        + ". Reach your OWN independent verdict first, then fill the 'divergence' field."
       + "\n\nReturn the JSON ballot now.";
 
     return { system: system, user: user };
@@ -1008,12 +1211,21 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     var formatKey = $('format').value;
     var proName = $('proName').value.trim();
     var conName = $('conName').value.trim();
-    var transcript = $('transcript').value.trim();
+    var transcript = ($('transcript').value || '').trim();
 
-    if (!motion){ showError('Add the motion both sides argued.'); return; }
-    if (!transcript){ showError('Paste the round transcript so the AI has something to judge.'); return; }
-    if (transcript.length < 120){ showError('That transcript looks short. Paste more of the round for a real ballot.'); return; }
-    if (!humanWinner){ showError('Make your call first — tap Pro wins or Con wins, then reveal the AI judge.'); return; }
+    // Motion, format, names, and the human's own call are all optional
+    // now. The transcript is the only thing the judge genuinely cannot
+    // work around, so it is the only thing we block on.
+    if (!transcript){
+      showError(heardAnything
+        ? 'It did not pick up enough of the round to judge. Try again with the mic closer to the speakers.'
+        : 'Record the round or paste a transcript first.');
+      return;
+    }
+    if (transcript.length < 120){
+      showError('That is too little of the round to judge fairly. Record more, or paste the full transcript.');
+      return;
+    }
     var humanReason = $('verdictWhy').value.trim();
 
     busy = true;
@@ -1021,9 +1233,9 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('ballot').style.display = 'none';
     $('loading').style.display = 'block';
     $('loading').scrollIntoView({ behavior:'smooth', block:'center' });
-    try { gtag('event', 'judge_round_submit', { format: formatKey }); } catch(e){}
+    try { gtag('event', 'judge_round_submit', { format: formatKey, source: usedVoice ? 'listen' : 'paste' }); } catch(e){}
 
-    var p = buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason);
+    var p = buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, usedVoice);
 
     fetch('/api/claude', {
       method: 'POST',
@@ -1073,17 +1285,296 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   }
 
   // Dual adjudication: capture the human's call before revealing the AI's.
+  // Optional now — it used to hard-block the ballot, which is exactly the
+  // read-the-whole-form friction this page was built to avoid.
   var humanWinner = '';
   function pickVerdict(side){
-    humanWinner = side;
-    $('vPro').classList.toggle('on', side === 'pro');
-    $('vCon').classList.toggle('on', side === 'con');
-    $('vPro').setAttribute('aria-checked', side === 'pro' ? 'true' : 'false');
-    $('vCon').setAttribute('aria-checked', side === 'con' ? 'true' : 'false');
+    humanWinner = (humanWinner === side) ? '' : side; // tap again to clear
+    $('vPro').classList.toggle('on', humanWinner === 'pro');
+    $('vCon').classList.toggle('on', humanWinner === 'con');
+    $('vPro').setAttribute('aria-pressed', humanWinner === 'pro' ? 'true' : 'false');
+    $('vCon').setAttribute('aria-pressed', humanWinner === 'con' ? 'true' : 'false');
   }
   $('vPro').addEventListener('click', function(){ pickVerdict('pro'); });
   $('vCon').addEventListener('click', function(){ pickVerdict('con'); });
   $('judgeBtn').addEventListener('click', judge);
+
+  /* ══════════════════════════════════════════════════════════════
+     LISTEN MODE
+     Record the room, transcribe it in segments, judge the result.
+
+     The tape is cut into ~25s segments rather than streamed. Each
+     segment is a self-contained file, so a dropped request costs 25
+     seconds of audio instead of the round, and a 45-minute round
+     costs cents instead of dollars (see netlify/functions/transcribe.mjs
+     for the cost reasoning against the Realtime API).
+     ══════════════════════════════════════════════════════════════ */
+  var SEGMENT_MS = 25000;
+  var MAX_MS = 120 * 60 * 1000;   // hard stop at two hours
+  var usedVoice = false;          // this transcript came from the mic
+  var heardAnything = false;      // the mic returned at least some words
+
+  var stream = null, rec = null, recMime = '', segTimer = null, tickTimer = null;
+  var recording = false, startedAt = 0, seq = 0, pending = 0, wakeLock = null;
+  // MediaRecorder.stop() fires onstop on a LATER task, so at the moment
+  // finish() stops the tape the closing segment is not yet counted in
+  // `pending`. Without this flag the settle loop sees pending === 0 and
+  // judges the round without its last 25 seconds, which is usually the
+  // final focus. Set when we ask the recorder to stop, cleared by onstop.
+  var awaitingFinal = false;
+  var parts = [];                 // transcript segments, indexed by seq
+
+  function setState(name){
+    $('idleState').hidden   = name !== 'idle';
+    $('liveState').hidden   = name !== 'live';
+    $('readyState').hidden  = !(name === 'ready' || name === 'manual');
+    $('manualState').hidden = name !== 'manual';
+    // The green "round captured" bar belongs to the listen path only.
+    var cap = document.querySelector('.captured');
+    if (cap) cap.hidden = (name !== 'ready');
+  }
+
+  function joinParts(){
+    return parts.filter(function(p){ return p; }).join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function renderLive(){
+    var t = joinParts();
+    heardAnything = t.length > 0;
+    var el = $('liveText');
+    el.textContent = t;
+    el.scrollTop = el.scrollHeight;
+    $('transcript').value = t;
+  }
+
+  function fmtTime(ms){
+    var s = Math.floor(ms / 1000);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function pickMime(){
+    var candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',                 // Safari
+      'audio/ogg;codecs=opus',
+    ];
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+    for (var i = 0; i < candidates.length; i++){
+      if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+    }
+    return '';
+  }
+
+  // Upload one segment. Slot the text back in by sequence number so the
+  // transcript stays in round order no matter what order responses land in.
+  function upload(blob, mySeq, attempt){
+    if (!blob || blob.size < 2048) { pending--; return; }
+    var fd = new FormData();
+    fd.append('audio', blob, 'segment');
+    fd.append('carry', joinParts().slice(-380));
+    fetch('/api/transcribe', { method:'POST', body: fd })
+      .then(function(r){
+        if (!r.ok) throw new Error('transcribe ' + r.status);
+        return r.json();
+      })
+      .then(function(d){
+        parts[mySeq] = (d && d.text) ? String(d.text).trim() : '';
+        renderLive();
+        pending--;
+      })
+      .catch(function(){
+        if ((attempt || 0) < 1){ return upload(blob, mySeq, (attempt || 0) + 1); }
+        // Give up on this segment. A 25-second hole beats stalling the
+        // round, and the judge is told the transcript may have gaps.
+        parts[mySeq] = '';
+        pending--;
+      });
+  }
+
+  function startSegment(){
+    var chunks = [];
+    try {
+      rec = recMime ? new MediaRecorder(stream, { mimeType: recMime }) : new MediaRecorder(stream);
+    } catch(e){
+      stopListening(true);
+      showError('This browser will not let us record. Use Chrome or Safari, or paste the transcript instead.');
+      return;
+    }
+    var mySeq = seq++;
+    rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = function(){
+      // Reopen the mic BEFORE uploading so the gap between segments is a
+      // few milliseconds rather than a network round trip.
+      if (recording) startSegment();
+      pending++;
+      awaitingFinal = false;   // the closing segment is now accounted for
+      upload(new Blob(chunks, { type: recMime || 'audio/webm' }), mySeq, 0);
+    };
+    rec.start();
+    segTimer = setTimeout(function(){
+      if (rec && rec.state === 'recording') rec.stop();
+    }, SEGMENT_MS);
+  }
+
+  // Level meter. Silence has to look like silence, otherwise a user with a
+  // muted mic sits through a whole round before finding out.
+  function meter(){
+    var ac, analyser, data, raf;
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = ac.createAnalyser();
+      analyser.fftSize = 64;
+      ac.createMediaStreamSource(stream).connect(analyser);
+      data = new Uint8Array(analyser.frequencyBinCount);
+    } catch(e){ return function(){}; }
+    var bars = $('bars').querySelectorAll('i');
+    function loop(){
+      analyser.getByteFrequencyData(data);
+      for (var i = 0; i < bars.length; i++){
+        var v = data[Math.floor(i * data.length / bars.length)] / 255;
+        bars[i].style.height = Math.max(8, Math.min(100, v * 140)) + '%';
+        bars[i].style.opacity = 0.4 + v * 0.6;
+      }
+      raf = requestAnimationFrame(loop);
+    }
+    loop();
+    return function(){ try { cancelAnimationFrame(raf); ac.close(); } catch(e){} };
+  }
+  var stopMeter = function(){};
+
+  function startListening(){
+    clearError();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
+      showError('This browser cannot record audio. Paste the transcript instead.');
+      return;
+    }
+    $('micBtn').disabled = true;
+    navigator.mediaDevices.getUserMedia({
+      audio: {
+        // Room capture, not a headset call: no far end to echo, distant
+        // speakers need the gain, and the room needs the noise floor cut.
+        echoCancellation: false,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+      }
+    }).then(function(s){
+      stream = s;
+      recMime = pickMime();
+      recording = true;
+      usedVoice = true;
+      startedAt = Date.now();
+      seq = 0; pending = 0; parts = []; heardAnything = false;
+      $('liveText').textContent = '';
+      $('transcript').value = '';
+      setState('live');
+      $('micBtn').disabled = false;
+      stopMeter = meter();
+      startSegment();
+      tickTimer = setInterval(function(){
+        var el = Date.now() - startedAt;
+        $('recTime').textContent = fmtTime(el);
+        if (el > MAX_MS) finish();
+      }, 500);
+      // Phones lock the screen mid-round and kill the recorder with it.
+      try {
+        if (navigator.wakeLock && navigator.wakeLock.request){
+          navigator.wakeLock.request('screen').then(function(w){ wakeLock = w; }).catch(function(){});
+        }
+      } catch(e){}
+      try { gtag('event', 'judge_listen_start', {}); } catch(e){}
+    }).catch(function(err){
+      $('micBtn').disabled = false;
+      var denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      showError(denied
+        ? 'Microphone access was blocked. Allow the mic in your browser settings, or paste the transcript instead.'
+        : 'Could not reach a microphone. Check that one is connected, or paste the transcript instead.');
+    });
+  }
+
+  function stopListening(silent){
+    recording = false;
+    clearTimeout(segTimer);
+    clearInterval(tickTimer);
+    awaitingFinal = false;
+    try {
+      if (rec && rec.state === 'recording'){
+        awaitingFinal = true;      // cleared by rec.onstop, which lands later
+        rec.stop();
+      }
+    } catch(e){ awaitingFinal = false; }
+    try { stopMeter(); } catch(e){}
+    try { if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+    stream = null;
+    try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch(e){}
+    if (silent) setState('idle');
+  }
+
+  // Stop, let the segments still in flight land, then judge. Waiting
+  // matters: the last 25 seconds of a round is usually the final focus.
+  function finish(){
+    if (!recording) return;
+    var elapsed = Date.now() - startedAt;
+    stopListening(false);
+    $('recTime').textContent = fmtTime(elapsed);
+    $('recNote').textContent = 'Catching the last few seconds…';
+    var waited = 0;
+    (function settle(){
+      if ((awaitingFinal || pending > 0) && waited < 30000){
+        waited += 400;
+        return setTimeout(settle, 400);
+      }
+      awaitingFinal = false;   // timed out waiting; judge what we have
+      renderLive();
+      var words = joinParts().split(/\s+/).filter(Boolean).length;
+      $('capSub').textContent = fmtTime(elapsed) + ' heard · about ' + words.toLocaleString() + ' words';
+      setState('ready');
+      try { gtag('event', 'judge_listen_stop', { seconds: Math.round(elapsed/1000), words: words }); } catch(e){}
+      if (words < 40){
+        showError('It only picked up a few words. Move the mic closer to the speakers and try again, or paste the transcript.');
+        return;
+      }
+      judge();
+    })();
+  }
+
+  function resetToIdle(){
+    stopListening(true);
+    usedVoice = false; heardAnything = false; parts = []; humanWinner = '';
+    $('transcript').value = '';
+    $('liveText').textContent = '';
+    $('recNote').textContent = 'Keep this tab open. It transcribes as it goes.';
+    $('recTime').textContent = '0:00';
+    pickVerdict('');
+    clearError();
+    setState('idle');
+  }
+
+  $('micBtn').addEventListener('click', startListening);
+  $('stopBtn').addEventListener('click', finish);
+  $('discardBtn').addEventListener('click', resetToIdle);
+  $('redoBtn').addEventListener('click', resetToIdle);
+  $('pasteToggle').addEventListener('click', function(){
+    usedVoice = false;
+    setState('manual');
+    $('transcript').focus();
+  });
+  $('pasteBack').addEventListener('click', function(){ resetToIdle(); });
+  $('againBtn').addEventListener('click', function(){
+    $('ballot').style.display = 'none';
+    resetToIdle();
+    document.querySelector('.judge-form').scrollIntoView({ behavior:'smooth', block:'center' });
+  });
+
+  // Losing a round mid-recording to a stray tab close is unforgivable.
+  window.addEventListener('beforeunload', function(e){
+    if (!recording) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  setState('idle');
 
   // ── Transcript file upload / drag-drop ──────────────────────
   // Read a pasted-in round from a file instead of copy-paste. Plain text
