@@ -64,6 +64,30 @@
   function markSeen() { try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) {} }
   function hasSeen() { try { return localStorage.getItem(SEEN_KEY) === '1'; } catch (e) { return false; } }
 
+  // ── routes that must stay quiet ─────────────────────────────────
+  // Narration follows the listener across navigation, which is the whole
+  // point everywhere except here. These pages either run a live round or
+  // play their own audio, so a page narrator carrying over from three
+  // clicks ago would talk straight over a debate, a coach drill, or an
+  // exhibition. Landing on one of these stops the narration and clears
+  // the resume state, so it does not ambush the user again on the way
+  // out either.
+  //
+  // /spar and /debate-chat are deliberately NOT here: they are lobbies,
+  // and they hand off to /live-round, which is.
+  var SILENT_ROUTES = [
+    '/live-round',
+    '/voice-debate',
+    '/newvoice',
+    '/room-judge',
+    '/casual-room',
+    '/voice-rfd',
+    '/coach',
+    '/exhibition',
+    '/spectate',
+    '/debate-it',
+  ];
+
   // ── route → narration slug ──────────────────────────────────────
   // Normalize the way the site's own redirects do: strip a trailing
   // slash, strip .html, and treat /landing as the site root.
@@ -192,6 +216,14 @@
     });
 
     var here = normalizePath(location.pathname);
+
+    // A round is about to start, or the page speaks for itself. Drop the
+    // resume state so nothing carries in, and render no player at all.
+    if (SILENT_ROUTES.indexOf(here) >= 0) {
+      writeState(null);
+      return;
+    }
+
     var pageEntry = byRoute[here] || null;
     var saved = readState();
     var resuming = saved && saved.slug && pages[saved.slug] && saved.playing;

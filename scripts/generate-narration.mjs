@@ -44,6 +44,15 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const OUT_DIR = path.join(ROOT, 'app', 'audio', 'narration');
 const MANIFEST = path.join(OUT_DIR, 'manifest.json');
 
+// ── Brand ──────────────────────────────────────────────────────────────
+// The product name has flip-flopped (Debate AI -> Debatable -> DebateIt ->
+// Debatable). Whatever is on origin/main is the truth; soul.md's decision
+// log has the history. Narration is AUDIO, so a stale brand name is much
+// more annoying to correct than a text diff — it is both prompted for and
+// linted below. Update BOTH values together if the brand moves again.
+const BRAND = 'Debatable';
+const STALE_BRANDS = /\b(DebateIt|DebateAI|Debate AI)\b/;
+
 // ── The narrator ───────────────────────────────────────────────────────
 // 'tactician' in the TTS persona bank = the calm debater voice. The site
 // guide should sound like someone walking you through a room, not like a
@@ -52,9 +61,21 @@ const MANIFEST = path.join(OUT_DIR, 'manifest.json');
 const DEFAULT_VOICE = process.env.NARRATION_VOICE_ID || 'HKsltWQPot5Fsrsvbq1g';
 
 // ── Pages that get narration ───────────────────────────────────────────
-// Content and marketing surfaces only. The live app surfaces (a round in
-// progress, the profile, the leaderboard, messages) are deliberately out:
-// narration there would talk over the product instead of explaining it.
+// Content, marketing, and orientation surfaces.
+//
+// Three kinds of page are deliberately absent, for three different reasons:
+//   1. Pages that make their own sound (/coach, /exhibition, /spectate) or
+//      run a live round (/live-round, /voice-debate, /newvoice, /room-judge,
+//      /debate-it). A narrator there talks over the product. These are also
+//      listed in SILENT_ROUTES in read-aloud.js, which stops a narration
+//      carried in from an earlier page.
+//   2. Pages that are mostly one person's own data (/profile, /messages,
+//      /communication-profile). There is nothing general to explain.
+//   3. Pages whose copy turns over faster than anyone will re-run this
+//      script (/changelog), plus internal tooling (/admin*, /report) and
+//      legal text (/terms, /privacy). Summarizing legal wording as audio
+//      invites a mismatch between what someone heard and what the page
+//      actually says, so those stay text-only on purpose.
 const PAGES = [
   { slug: 'landing',                     file: 'app/landing.html',                        route: '/' },
   { slug: 'why-debateit',                file: 'app/why-debateit.html',                   route: '/why-debateit' },
@@ -72,7 +93,10 @@ const PAGES = [
   { slug: 'us',                          file: 'app/us.html',                             route: '/us' },
   { slug: 'india',                       file: 'app/india.html',                          route: '/india' },
   { slug: 'uwc',                         file: 'app/uwc.html',                            route: '/uwc' },
-  { slug: 'high-school',                 file: 'app/high-school.html',                    route: '/high-school' },
+  { slug: 'high-school',                 file: 'app/high-school.html',                    route: '/high-school',
+    // Inline-React page (see the precompile list in AGENTS.md), so the
+    // scrape misses the body entirely. Verified 2026-07-22.
+    hint: 'AI debate preparation aimed at high school debaters, covering Public Forum, Lincoln-Douglas, Policy, Congress and Parliamentary. You run practice rounds against an AI opponent that argues in the conventions of the format you picked, and you get a judge ballot afterwards.' },
   { slug: 'ambassadors',                 file: 'app/ambassadors.html',                    route: '/ambassadors' },
   { slug: 'tournaments',                 file: 'app/tournaments.html',                    route: '/tournaments' },
   { slug: 'online-debate-camp',          file: 'app/online-debate-camp.html',             route: '/online-debate-camp' },
@@ -97,6 +121,38 @@ const PAGES = [
   { slug: 'topics-congress',             file: 'app/topics/congress.html',                route: '/topics/congress' },
   { slug: 'topics-mun',                  file: 'app/topics/mun.html',                     route: '/topics/mun' },
   { slug: 'topics-big-questions',        file: 'app/topics/big-questions.html',           route: '/topics/big-questions' },
+
+  // ── Product and integration surfaces ──
+  { slug: 'judge',                       file: 'app/judge.html',                          route: '/judge' },
+  { slug: 'team',                        file: 'app/team.html',                           route: '/team' },
+  { slug: 'early',                       file: 'app/early.html',                          route: '/early' },
+  { slug: 'twitch-plugin',               file: 'app/twitch-plugin.html',                  route: '/twitch-plugin' },
+  { slug: 'zoom-plugin',                 file: 'app/zoom-plugin.html',                    route: '/zoom-plugin' },
+  { slug: 'counter',                     file: 'app/counter.html',                        route: '/counter' },
+  { slug: 'oral-exam-prep',              file: 'app/oral-exam-prep.html',                 route: '/oral-exam-prep' },
+  { slug: 'benchmark',                   file: 'app/benchmark.html',                      route: '/benchmark' },
+  { slug: 'atlas',                       file: 'app/atlas.html',                          route: '/atlas' },
+
+  // ── Lobbies and listings. These hand off to a live round rather than
+  //    running one in place, so orienting a newcomer here is useful and
+  //    the handoff target is covered by SILENT_ROUTES. ──
+  { slug: 'live',                        file: 'app/live.html',                           route: '/live' },
+  { slug: 'spar',                        file: 'app/spar.html',                           route: '/spar',
+    // Renders itself with JS, so the scrape is a shell of transient status
+    // lines ("Finding someone to...", "No human yet"). Verified 2026-07-22.
+    hint: 'Live matchmaking against another human debater. You pick a format and optionally write a short judge-paradigm note; if the other side wrote one too, both debaters see and consent to each other\'s note before the round starts. You queue, and if nobody matches within about a minute you can practise against the AI while staying in the queue. There is also an open-invite waitlist: post that you are available, browse other debaters who are, and DM them to organise a round on your own time. An AI judge writes the ballot at the end. Signing in is required to post or message.' },
+  { slug: 'debate-chat',                 file: 'app/debate-chat.html',                    route: '/debate-chat' },
+  { slug: 'leaderboard',                 file: 'app/leaderboard.html',                    route: '/leaderboard' },
+  { slug: 'livedebates',                 file: 'app/livedebates.html',                    route: '/livedebates' },
+  { slug: 'float',                       file: 'app/float.html',                          route: '/float' },
+  { slug: 'floor',                       file: 'app/floor.html',                          route: '/floor' },
+
+  // ── Search-entry pages ──
+  { slug: 'ai-debate-practice',          file: 'app/ai-debate-practice.html',             route: '/ai-debate-practice' },
+  { slug: 'debate-ai-tools',             file: 'app/debate-ai-tools.html',                route: '/debate-ai-tools' },
+  { slug: 'debate-case-generator',       file: 'app/debate-case-generator.html',          route: '/debate-case-generator' },
+  { slug: 'debate-topic-generator',      file: 'app/debate-topic-generator.html',         route: '/debate-topic-generator' },
+  { slug: 'prediction-market-debate',    file: 'app/prediction-market-debate.html',       route: '/prediction-market-debate' },
 ];
 
 // ── args ───────────────────────────────────────────────────────────────
@@ -145,6 +201,16 @@ function extractProse(html){
   return s.trim();
 }
 
+// Below this many characters of extracted prose, there is not enough on the
+// page to write a truthful narration from, and the model fills the gap by
+// inventing. That is not hypothetical: /spar extracts 72 characters (it is
+// rendered by JS, so the static file is a skeleton of transient states) and
+// produced a narration announcing the feature was "still loading, check back
+// soon". /high-school extracts 192 and invented a champion "who coaches high
+// schoolers". Pages under the bar are blocked unless the PAGES entry carries
+// a `hint`, which supplies ground truth a human has verified.
+const MIN_PROSE = 700;
+
 function pageTitle(html){
   const m = html.match(/<title>([\s\S]*?)<\/title>/i);
   if (!m) return '';
@@ -154,7 +220,7 @@ function pageTitle(html){
 // ── Claude writes the spoken script ────────────────────────────────────
 // The voice rules here mirror soul.md: no em-dashes, no prefaces, no
 // consultant-speak, no founder name, plain language over metaphor.
-const SYSTEM = `You write short spoken narrations that explain a single web page to someone who is listening rather than reading. The site is DebateIt, a voice-first debate trainer at debateai.com where people argue out loud against an AI opponent and get a judge ballot.
+const SYSTEM = `You write short spoken narrations that explain a single web page to someone who is listening rather than reading. The site is ${BRAND}, a voice-first debate trainer at debateai.com where people argue out loud against an AI opponent and get a judge ballot.
 
 Your output is read aloud by a text-to-speech voice. Write for the ear.
 
@@ -177,8 +243,12 @@ HARD RULES
 - Never sell on the absence of friction. Do not say "no card", "no credit card", "no sign-up", "no commitment", or any variant, even when the page says it somewhere. If the page states it as a fact you may not repeat it as a benefit.
 - Never invent urgency or scarcity. No "lock in this rate", "before beta ends", "limited spots", "prices go up". If the page does not promise it, it does not exist.
 - Do not invent features, prices, statistics, or guarantees. Every claim must be traceable to the page text you were given. When unsure, leave it out.
-- No markdown, no stage directions, no emoji, no URLs read out character by character.
-- Do not start with the page title verbatim. Start with what it does for the listener.
+- Never state who built the product, who wrote the page, or what anyone's credentials are unless the page text says so. Do not infer it.
+- The product is called ${BRAND}. Never call it anything else.
+- The page text is scraped from a static file, so it may contain a half-rendered shell: loading spinners, empty lists, placeholder rows, "no results yet", or transient status lines that only appear for a moment in a real session. Those describe a page mid-load, NOT the product. Never tell the listener a feature is loading, empty, unavailable, or coming soon. Describe what the page is FOR.
+- Do not spell out URLs, file paths, or menu paths. "Open your browser's extensions page" is speech; reading out a colon and slashes is not.
+- No markdown, no stage directions, no emoji.
+- Do not start with the page title verbatim, and do not open by announcing the page ("This page lets you...", "Here's what this page does"). Start with what it does for the listener.
 
 Return only the narration text. Nothing else.`;
 
@@ -205,13 +275,28 @@ const LINT = [
   [/\bin today'?s world\b/i,                 'banned phrase'],
   [/\b(holistic|robust framework)\b/i,       'consultant-speak'],
   [/\bladies and gentlemen\b/i,              'banned phrase'],
+  [STALE_BRANDS,                             'uses a stale brand name'],
+  // Describing a half-rendered page as if it were the product. This is what
+  // a thin scrape produces, and it reads to a listener as "the feature is
+  // broken" rather than "the scraper caught a skeleton".
+  [/\b(still|currently) loading\b/i,         'describes a loading state'],
+  [/\bcheck back (soon|later)\b/i,           'describes a loading state'],
+  [/\bcoming soon\b/i,                       'describes a loading state'],
+  [/\b(nothing|no results|no rounds|no data)\b.{0,20}\b(yet|so far)\b/i, 'describes an empty state'],
+  // Reading punctuation aloud. Fine on screen, unlistenable as audio.
+  [/\b(colon|slash)\s+(slash|forward)\b/i,   'spells out a URL'],
+  [/https?:\/\//i,                           'contains a raw URL'],
+  // Prefaces. The no-preface rule decays fastest here, because
+  // "here's what this page does" feels natural to write.
+  [/^\s*(here'?s|what you'?ll find)\b/i,     'opens with a preface'],
+  [/\bthis page (lets|shows|covers|is where you can)\b/i, 'announces the page'],
 ];
 
 function lint(script){
   return LINT.filter(([re]) => re.test(script)).map(([, why]) => why);
 }
 
-async function writeScript(title, prose, route, problems){
+async function writeScript(title, prose, route, problems, hint){
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
   const fix = problems && problems.length
@@ -223,7 +308,7 @@ async function writeScript(title, prose, route, problems){
     system: SYSTEM,
     messages: [{
       role: 'user',
-      content: `Page route: ${route}\nPage title: ${title}\n\nVisible page text follows. Write the spoken narration for this page.${fix}\n\n---\n${prose.slice(0, 14000)}`,
+      content: `Page route: ${route}\nPage title: ${title}\n${hint ? `\nVERIFIED DESCRIPTION OF THIS PAGE (a human confirmed this; the scraped text below is an incomplete shell because the page builds itself with JS — trust this over anything the scrape seems to say):\n${hint}\n` : ''}\nScraped page text follows. Write the spoken narration for this page.${fix}\n\n---\n${prose.slice(0, 14000)}`,
     }],
   };
   const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -344,7 +429,16 @@ async function main(){
     const html = fs.readFileSync(abs, 'utf8');
     const prose = extractProse(html);
     const title = pageTitle(html);
-    const hash = crypto.createHash('sha256').update(prose).digest('hex').slice(0, 16);
+    if (prose.length < MIN_PROSE && !page.hint){
+      console.warn(`  ${page.slug}: only ${prose.length} chars of prose, skipping.`);
+      console.warn(`    Too thin to narrate truthfully — the model would invent the rest.`);
+      console.warn(`    Usually means the page renders its content with JS. Add a verified`);
+      console.warn(`    \`hint\` to its PAGES entry, or drop the page from the list.`);
+      failed++;
+      continue;
+    }
+
+    const hash = crypto.createHash('sha256').update(prose + (page.hint || '')).digest('hex').slice(0, 16);
 
     const prev = manifest.pages[page.slug];
     const mp3Path = path.join(OUT_DIR, `${page.slug}.mp3`);
@@ -360,13 +454,13 @@ async function main(){
     process.stdout.write(`  ${page.slug}: writing script… `);
     let script;
     try {
-      script = sanitize(await writeScript(title, prose, page.route));
+      script = sanitize(await writeScript(title, prose, page.route, null, page.hint));
       let problems = lint(script);
       if (problems.length){
         // One corrective pass with the violations named. Cheaper than a
         // human catching it after it is already audio.
         process.stdout.write(`retry (${problems.join('; ')})… `);
-        script = sanitize(await writeScript(title, prose, page.route, problems));
+        script = sanitize(await writeScript(title, prose, page.route, problems, page.hint));
         problems = lint(script);
       }
       if (problems.length){

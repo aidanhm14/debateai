@@ -290,20 +290,51 @@ app/audio/narration/manifest.json route → {slug, title, script, seconds}
 app/js/read-aloud.js              the sitewide player
 ```
 
-The builder strips a page to visible prose, has Claude write a ~170-word
-SPOKEN explainer of it, lints that script against the brand rules, then
-sends it to ElevenLabs. The lint is the important part: a bad line here
-ships as audio, which is much harder to notice than a bad line of text.
-It blocks synthesis on em-dashes, banned phrases, invented urgency
-("lock in this rate"), and friction-selling ("no card", "no sign-up").
-Both of those last two have already been caught in real runs, so do not
-remove the gate.
+62 pages as of 2026-07-22. The builder strips a page to visible prose,
+has Claude write a ~170-word SPOKEN explainer of it, lints that script,
+then sends it to ElevenLabs.
+
+**The lint is the important part.** A bad line here ships as audio, which
+is much harder to notice and correct than a bad line of text, so anything
+it flags blocks synthesis rather than being fixed later. Every rule on it
+is there because a real run produced the thing it catches:
+
+| Caught | Real example |
+|---|---|
+| Friction-selling | "no card is required" on /landing and /pricing |
+| Invented urgency | "lock in these rates before beta ends" — a promise that appears nowhere on /pricing |
+| Loading/empty states | "the feature is still loading, check back soon" on /spar |
+| Stale brand names | "DebateIt" on /research, /benchmark, /high-school |
+| Spelled-out URLs | "chrome colon slash slash extensions" on /counter |
+| Prefaces | "Here's what this page lets you inspect" on /benchmark |
+
+Plus em-dashes, banned phrases, and "unlimited" / "free forever".
+
+**`MIN_PROSE` (700 chars) is the other guard, and it matters more than it
+looks.** A page that renders its body with JS scrapes as a skeleton, and
+the model will cheerfully invent a page out of nothing rather than fail:
+/spar extracted **72 characters** and produced a narration announcing the
+feature was still loading; /high-school extracted 192 and invented a
+champion "who coaches high schoolers". Anything under the bar is skipped
+unless its PAGES entry carries a `hint` — a human-verified description
+that is handed to the model as authoritative over the scrape. /spar and
+/high-school both have one. If you add a JS-rendered page, expect to
+write a hint, and re-verify it when that page changes.
+
+Two page shapes to just leave out: redirect stubs (/scale is a meta
+refresh, and got narrated once before anyone noticed) and anything whose
+copy turns over faster than someone will re-run this.
 
 ```bash
-node scripts/generate-narration.mjs --list                  # page list
-node scripts/generate-narration.mjs --only pricing --dry-run # script, no audio spend
-node scripts/generate-narration.mjs                          # only changed pages
+node scripts/generate-narration.mjs --list                    # page list
+node scripts/generate-narration.mjs --only pricing --dry-run  # script, no audio spend
+node scripts/generate-narration.mjs                           # only changed pages
+node scripts/generate-narration.mjs --force --only a,b        # after changing a lint rule
 ```
+
+After changing a lint rule or the brand, audit what already shipped —
+existing scripts are not re-checked on a normal run, and three live pages
+were carrying a stale brand name before the rule existed.
 
 Re-runs are hash-gated on the page's prose, so a no-op run costs nothing.
 **Editing a narrated page's copy does not regenerate its narration** —
@@ -313,12 +344,28 @@ files afterward, because narration is served cache-first and a same-URL
 replacement is otherwise invisible to returning visitors.
 
 `read-aloud.js` is loaded by `topbar.js`, so it reaches all 63 topbar
-pages from one edit. Continuity across navigation works by writing
-`{slug, time, playing}` to sessionStorage on every tick and resuming on
-the next document. Browsers gate autoplay per document, so that resume
-can be refused; when it is, the pill shows a one-tap Resume rather than
-failing silently. Chrome generally stops refusing once the visitor has
-played media on the origin a few times. Safari tends to keep asking.
+pages from one edit. Pages outside that set (the search-entry pages,
+/counter, /benchmark, /atlas, /floor) carry their own
+`<script defer src="/js/read-aloud.js">` before `</body>`; add one if you
+narrate a page that has no topbar.
+
+Continuity across navigation works by writing `{slug, time, playing}` to
+sessionStorage on every tick and resuming on the next document. Browsers
+gate autoplay per document, so that resume can be refused; when it is,
+the pill shows a one-tap Resume rather than failing silently. Chrome
+generally stops refusing once the visitor has played media on the origin
+a few times. Safari tends to keep asking.
+
+**`SILENT_ROUTES` in `read-aloud.js` is a safety rail, not a preference.**
+Because narration follows the listener, a round that starts three clicks
+after they pressed play would otherwise have a narrator talking over it.
+Landing on any of those routes stops playback and clears the resume
+state. It covers the live-round surfaces (/live-round, /voice-debate,
+/newvoice, /room-judge, /casual-room, /voice-rfd, /debate-it) and the
+pages that make their own sound (/coach, /exhibition, /spectate).
+**Any new page that plays audio or runs a round has to go in that list.**
+Lobbies that hand off to a round (/spar, /debate-chat) are narrated on
+purpose: the handoff target is what's silenced.
 
 ## Editing playbook for the big single-file pages
 
