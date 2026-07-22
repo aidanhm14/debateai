@@ -411,6 +411,11 @@ h1 em{color:var(--accent);font-style:normal}
 /* Quiet escape links under the primary action — Cancel / Skip to AI.
    Demoted from equal-weight buttons so the searching screen reads as
    one clear next step. */
+/* Quiet-queue Spar Night slot. Sits between the prep hint and the escape
+   links, so the reading order is: wait -> here is when it fills -> leave. */
+.sn-quiet{margin-top:16px}
+.sn-quiet-line{margin:0 0 10px;font-size:.8rem;line-height:1.5;color:var(--text-dim);text-align:center}
+.sn-quiet [data-spar-night]{margin:0}
 .quiet-links{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px}
 .quiet-links .link-btn{background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:600;color:var(--text-ghost);text-decoration:none;transition:color .14s}
 .quiet-links .link-btn:hover{color:var(--text-dim)}
@@ -1566,10 +1571,29 @@ h1 em{color:var(--accent);font-style:normal}
   // Render the live waitlist tile shown under the globe. `others` is an
   // array of Firestore docs for queued peers (excluding self). Format is
   // shown as a proposal, not a separate queue.
+  // Reveal the Spar Night card only while the queue is genuinely empty.
+  // Mounts on first reveal: SparNight.scan() skips slots already carrying
+  // data-sn-mounted, so repeat calls are free, and the card is inside
+  // renderSearching's stable markup so its countdown is never torn down.
+  function setQuietQueue(isQuiet){
+    var el = document.getElementById('sparNightQuiet');
+    if (!el) return;
+    if (isQuiet){
+      el.hidden = false;
+      try { if (window.SparNight && SparNight.scan) SparNight.scan(); } catch(e){}
+    } else {
+      el.hidden = true;
+    }
+  }
+
   function renderWaitlist(others){
     if (!others || others.length === 0){
+      // 2026-07-22: was "Waiting on the next available debater", which
+      // implies one is on the way. On an empty queue nobody may arrive
+      // for hours, so this states the position without the false
+      // imminence; the Spar Night card below gives the concrete answer.
       return '<div class="waitlist-empty">' +
-        "<strong>You're first in line.</strong> Waiting on the next available debater. Your round setup will be proposed before the debate starts." +
+        "<strong>You're first in line.</strong> You will be matched the moment another debater starts searching, and pinged if you have left the tab." +
         '</div>';
     }
     var now = Math.floor(Date.now() / 1000);
@@ -1800,6 +1824,20 @@ h1 em{color:var(--accent);font-style:normal}
         '<button class="btn primary" id="bgAvailBtn" title="Keep this itsdebatable.com tab open and switch to other tabs freely. We keep matching you in the background and ping you the moment a human is found.">Prep while you wait &rarr;</button>' +
       '</div>' +
       '<div class="bg-hint" style="margin-top:9px;font-size:.74rem;color:var(--text-dim);text-align:center;line-height:1.5">Keep this itsdebatable.com tab open while you prep. Switch to other tabs freely, we will ping you the second a human opponent is ready.</div>' +
+      // Quiet-queue answer (2026-07-22). An empty queue used to read only
+      // as "You're first in line" over a timer counting up with no limit,
+      // which tells the user to keep waiting without saying what they are
+      // waiting for. Spar Night was already on this page but only inside
+      // the waitlist rail, which is behind a drawer on mobile, so the
+      // person actually staring at the timer never saw it. This slot
+      // carries the same card into the searching screen and only appears
+      // when the queue is genuinely empty. Lives in renderSearching's
+      // stable markup, NOT in #queueStats, which repaints every ~2s and
+      // would remount the card (and restart its countdown) each tick.
+      '<div class="sn-quiet" id="sparNightQuiet" hidden>' +
+        '<p class="sn-quiet-line">Nobody else is searching this minute. The queue reliably fills at one fixed hour a week.</p>' +
+        '<div data-spar-night="rail"></div>' +
+      '</div>' +
       '<div class="quiet-links">' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
         '<span class="ql-sep">·</span>' +
@@ -3263,6 +3301,7 @@ h1 em{color:var(--accent);font-style:normal}
         });
       });
       state.waitingPeers = others.length;
+      setQuietQueue(others.length === 0);
       var stats = document.getElementById('queueStats');
       if (stats && Date.now() > (state.noticeUntil || 0)){
         stats.innerHTML = renderWaitlist(others);
