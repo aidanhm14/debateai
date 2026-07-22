@@ -357,6 +357,94 @@ a.vr-row:hover{background:rgba(239,68,68,.06)}
   .r-row.head .r-side{display:none}
 }
 
+/* ─── Saved rounds ───
+   Rows for the saved_rounds collection (written by /live-round and
+   /newvoice). No route renders a saved_rounds doc, so instead of
+   linking out, each row expands in place to show the RFD and the
+   transcript the doc already carries. <details>/<summary> gives us
+   keyboard access and open/close state for free. */
+.sr-item{border-bottom:1px solid var(--border)}
+.sr-item:last-child{border-bottom:none}
+.sr-item > summary{
+  cursor:pointer;list-style:none;border-bottom:none;
+  transition:background .12s;
+}
+.sr-item > summary::-webkit-details-marker{display:none}
+.sr-item > summary:hover{background:rgba(239,68,68,.06)}
+.sr-item[open] > summary{background:var(--bg-elev)}
+.sr-motion{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.sr-motion .sr-caret{
+  flex:none;color:var(--text-ghost);font-size:.6rem;
+  transition:transform .15s;
+}
+.sr-item[open] .sr-caret{transform:rotate(90deg)}
+.sr-motion .sr-text{
+  /* Small flex-basis, not auto: with wrapping on, an auto basis is the
+     full motion width, which pushes the text onto its own line and
+     strands the caret above it. */
+  flex:1 1 60px;min-width:0;
+  font-weight:600;letter-spacing:-.01em;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+/* Amber here is a state signal, not decoration: the round is sitting in
+   localStorage and has not reached the account yet. */
+.sr-pending{
+  flex:none;padding:1px 6px;
+  font-size:.58rem;font-weight:800;letter-spacing:.06em;white-space:nowrap;
+  color:#b45309;background:rgba(251,191,36,.16);
+  border:1px solid rgba(251,191,36,.42);border-radius:4px;
+}
+.sr-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sr-meta .vr-pill{margin-left:0}
+.sr-fmt{
+  display:inline-block;padding:1px 7px;font-size:.62rem;
+  font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);background:var(--bg-card);
+  border:1px solid var(--border);border-radius:4px;white-space:nowrap;
+}
+.sr-body{padding:2px 18px 18px;background:var(--bg-elev)}
+.sr-block{margin-top:14px}
+.sr-block h4{
+  font-size:.6rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--text-ghost);margin:0 0 6px;
+}
+.sr-rfd{
+  font-size:.82rem;line-height:1.6;color:var(--text-dim);
+  white-space:pre-wrap;margin:0;
+}
+.sr-speech{
+  font-size:.78rem;line-height:1.55;color:var(--text-dim);
+  padding:8px 0;border-top:1px solid var(--border);
+}
+.sr-speech:first-of-type{border-top:none}
+.sr-speech b{color:var(--text);font-weight:700}
+.sr-empty{padding:22px 18px;text-align:center}
+.sr-empty strong{display:block;font-size:.9rem;color:var(--text);margin-bottom:6px}
+.sr-empty p{font-size:.8rem;color:var(--text-dim);line-height:1.55;margin:0 auto 14px;max-width:420px}
+.sr-empty .sr-cta{
+  display:inline-block;padding:9px 16px;border-radius:9px;
+  font-size:.78rem;font-weight:700;text-decoration:none;
+  color:#fff;background:var(--accent);
+}
+.sr-empty .sr-cta.ghost{
+  background:transparent;color:var(--text-dim);border:1px solid var(--border);margin-left:8px;
+}
+@media(max-width:680px){
+  .sr-body{padding:2px 14px 14px}
+  .sr-empty .sr-cta.ghost{margin-left:0;margin-top:8px}
+  /* The shared .r-row mobile grid pins two fixed columns, which starves
+     the motion down to a couple of words once the pills are in play.
+     Sizing the trailing columns to content gives the motion the rest. */
+  .sr-item > summary{grid-template-columns:1fr auto auto;gap:10px}
+  .sr-item > summary .sr-meta{justify-content:flex-end}
+  .sr-item > summary .r-when{white-space:nowrap}
+  /* Full-width basis drops the pending pill onto its own line so the
+     motion keeps the whole first line instead of sharing it. */
+  /* 100% basis forces the line break; max-content clamps the used width
+     back to the label so the pill does not stretch across the row. */
+  .sr-pending{flex-basis:100%;max-width:max-content;margin-left:20px}
+}
+
 /* ─── CTA strip ─── */
 .cta-strip{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:22px;
@@ -1490,12 +1578,22 @@ function renderAvatar(user){
 }
 
 function renderSignedOut(){
+  // A signed-out /newvoice save lives in this browser flagged pending
+  // until the next signed-in visit flushes it. Showing the sign-in card
+  // alone would tell someone who just saved a round that nothing is
+  // saved, so the local copies render underneath it.
+  const localPending = readLocalSavedRounds().filter(r => r && r.pending);
   mount.innerHTML = `
     <div class="state">
       <h3>Sign in to see your dashboard</h3>
       <p>Level, streak, format mastery, achievements. Your account keeps it together across devices.</p>
       <button class="cta" id="signinBtn" type="button">Sign in</button>
     </div>
+    ${localPending.length ? `
+      <div class="section"><h2>Saved on this browser</h2><div class="right">${localPending.length} round${localPending.length === 1 ? '' : 's'}</div></div>
+      <div class="recent">${localPending.map(savedRoundRow).join('')}</div>
+      <p style="font-size:.78rem;color:var(--text-dim);margin:10px 2px 0;line-height:1.55">These are stored in this browser only. Sign in and they move to your account, where they survive a cache clear and follow you to other devices.</p>
+    ` : ''}
   `;
   const btn = document.getElementById('signinBtn');
   if(btn) btn.addEventListener('click', () => {
@@ -1551,9 +1649,17 @@ function renderEmpty(user, profileData){
       <a class="cta" href="/voice-debate">Debate it</a>
     </div>
 
+    <!-- Saved rounds also render here, not just on the full dashboard.
+         Saving a round writes saved_rounds but does not write a
+         leaderboard entry, so a user can hold saved rounds and still
+         land on this empty state. Omitting the section here would hide
+         them from exactly the people most likely to have them. -->
+    ${savedRoundsSectionHtml()}
+
     ${renderSettings(user, profileData)}
   `;
   try { wireSettings(user, []); } catch(e){ console.warn('[profile] wireSettings (empty) failed:', e && e.message); }
+  hydrateSavedRounds(user);
 }
 
 function renderDashboard(user, rows, profileData){
@@ -1733,6 +1839,12 @@ function renderDashboard(user, rows, profileData){
       <div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Loading your saved rounds…</div></div>
     </div>
 
+    <!-- Rounds the user explicitly hit Save on, from /live-round and
+         /newvoice. Distinct from "Your voice rounds" above, which is
+         the voice_rounds collection written automatically on RFD
+         generation. -->
+    ${savedRoundsSectionHtml()}
+
     <div class="cta-strip">
       <a href="/debate-it"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, ballot at the end.</span></a>
       <a href="/voice-debate"><span class="cl">Voice</span><span class="ct">Talk it out</span><span class="cs">Live speech, interruptions, a real timer.</span></a>
@@ -1751,6 +1863,7 @@ function renderDashboard(user, rows, profileData){
   hydrateStyleProfile(user, s);
   hydrateCerts(user);
   hydrateVoiceRounds(user);
+  hydrateSavedRounds(user);
 }
 
 // Saved voice rounds. Reads the user's own voice_rounds docs (written
@@ -1804,6 +1917,190 @@ async function hydrateVoiceRounds(user){
   } catch(e){
     console.warn('[profile] hydrateVoiceRounds failed:', e && e.message);
     slot.innerHTML = `<div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Couldn't load saved rounds.</div></div>`;
+  }
+}
+
+/* ─── Saved rounds (the saved_rounds collection) ───────────────────
+   Two writers, one doc shape:
+     /live-round  → uid, userName, userEmail, room, motion, format,
+                    formatName, proName, conName, speeches[], ballot,
+                    winnerName, winnerSide, savedAt
+     /newvoice    → the same, plus roundId, source:'newvoice',
+                    userSide, difficulty, pace, turnCount, durationMs,
+                    endedAt. Doc id is uid + '_' + room throughout;
+                    newvoice rooms are 'nv_<roundId>'.
+   The two diverge in three places the renderer has to absorb:
+     · ballot is {winner,proPoints,conPoints,rfd} from live-round and
+       {verdict,text} from newvoice.
+     · speeches are {code,name,side,speakerName,text,...} from
+       live-round and {who,text} from newvoice.
+     · the user's own side is explicit (userSide) only on newvoice;
+       live-round is derived by matching userName against proName.
+   Nothing in the app renders a saved_rounds doc, so rows expand in
+   place rather than linking to a destination that does not exist.
+   Reads need no rules change: the query is constrained to
+   where('uid','==',uid), which satisfies the existing
+   resource.data.uid == request.auth.uid read rule. */
+// Key is inlined rather than held in a module-scope const: these
+// helpers are called from renderSignedOut(), which is declared earlier
+// in the file, and a const declared down here would be in its temporal
+// dead zone if that path ever ran before this point.
+function readLocalSavedRounds(){
+  try {
+    const a = JSON.parse(localStorage.getItem('debateos-newvoice-saved') || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch(e){ return []; }
+}
+
+// Firestore Timestamp, ISO string, or nothing. Returns millis.
+function savedRoundMillis(d){
+  const t = d.savedAt || d.endedAt;
+  if (!t) return 0;
+  if (typeof t.toMillis === 'function') return t.toMillis();
+  if (typeof t.toDate === 'function') return t.toDate().getTime();
+  const ms = Date.parse(t);
+  return isNaN(ms) ? 0 : ms;
+}
+
+function savedRoundWhen(d){
+  const ms = savedRoundMillis(d);
+  return ms ? new Date(ms).toLocaleDateString() : '';
+}
+
+// newvoice stores the user's side outright. live-round does not, but it
+// stores userName alongside proName/conName, which is enough to place
+// the user on a bench. Anything ambiguous renders blank rather than
+// guessing.
+function savedRoundSide(d){
+  if (d.userSide) return d.userSide === 'for' ? 'For' : 'Against';
+  const me = (d.userName || '').trim();
+  if (me){
+    if (me === (d.proName || '').trim()) return 'Pro';
+    if (me === (d.conName || '').trim()) return 'Con';
+  }
+  return '';
+}
+
+// Won / lost from the user's point of view. newvoice's winnerSide is
+// 'for'/'against' and lines up with userSide directly. live-round's
+// winnerSide is a format label ("Government"), so the comparison there
+// runs on winnerName vs userName instead. Order matters: newvoice sets
+// winnerName to a verdict sentence, not a name, so userSide is checked
+// first.
+function savedRoundOutcome(d){
+  if (d.userSide && d.winnerSide){
+    if (d.winnerSide === d.userSide) return 'win';
+    return d.winnerSide ? 'loss' : '';
+  }
+  const me = (d.userName || '').trim();
+  const win = (d.winnerName || '').trim();
+  if (me && win) return win === me ? 'win' : 'loss';
+  return '';
+}
+
+function savedRoundRfd(d){
+  const b = d.ballot || {};
+  return (b.rfd || b.text || '').trim();
+}
+
+function savedRoundRow(d, i){
+  const motion = escapeHtml((d.motion || 'Untitled round').slice(0, 160));
+  const fmt = escapeHtml(d.formatName || d.format || '');
+  const side = escapeHtml(savedRoundSide(d));
+  const when = escapeHtml(savedRoundWhen(d));
+  const outcome = savedRoundOutcome(d);
+  const pill = outcome === 'win' ? '<span class="vr-pill vr-win">Won</span>'
+             : (outcome === 'loss' ? '<span class="vr-pill vr-loss">Lost</span>' : '');
+  const pending = d.pending ? '<span class="sr-pending">In this browser</span>' : '';
+  const rfd = savedRoundRfd(d);
+  const speeches = Array.isArray(d.speeches) ? d.speeches : [];
+  const verdict = (d.ballot && d.ballot.verdict) ? escapeHtml(d.ballot.verdict) : '';
+
+  const speechHtml = speeches.filter(s => s && (s.text || '').trim()).map(s => {
+    const who = escapeHtml(s.speakerName || s.name || s.code || s.who || 'Speaker');
+    return `<div class="sr-speech"><b>${who}</b><br>${escapeHtml(s.text)}</div>`;
+  }).join('');
+
+  let body = '';
+  if (verdict) body += `<div class="sr-block"><h4>Verdict</h4><p class="sr-rfd">${verdict}</p></div>`;
+  if (rfd) body += `<div class="sr-block"><h4>Reason for decision</h4><p class="sr-rfd">${escapeHtml(rfd)}</p></div>`;
+  if (speechHtml) body += `<div class="sr-block"><h4>Transcript</h4>${speechHtml}</div>`;
+  if (!body) body = `<div class="sr-block"><p class="sr-rfd">This round was saved before a ballot was written, so there is no decision to show.</p></div>`;
+
+  return `<details class="sr-item"${i === 0 ? ' open' : ''}>`
+    + `<summary class="r-row">`
+      + `<div class="sr-motion"><span class="sr-caret">&#9654;</span><span class="sr-text">${motion}</span>${pending}</div>`
+      + `<div class="r-side">${side}</div>`
+      + `<div class="sr-meta">${fmt ? `<span class="sr-fmt">${fmt}</span>` : ''}${pill}</div>`
+      + `<div class="r-when">${when}</div>`
+    + `</summary>`
+    + `<div class="sr-body">${body}</div>`
+  + `</details>`;
+}
+
+function savedRoundsEmptyHtml(){
+  return `<div class="sr-empty">
+      <strong>You have not saved a round yet.</strong>
+      <p>Finish a round and hit Save. The motion, the ballot, and the full transcript land here so you can read back what you actually said.</p>
+      <a class="sr-cta" href="/newvoice">Start a voice round</a>
+      <a class="sr-cta ghost" href="/live">Debate a human</a>
+    </div>`;
+}
+
+function savedRoundsSectionHtml(){
+  return `<div class="section"><h2>Saved rounds</h2><div class="right">Ballots &amp; transcripts you kept</div></div>
+    <div id="savedRoundsSlot" class="recent">
+      <div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Loading your saved rounds…</div></div>
+    </div>`;
+}
+
+// Merges the account's saved_rounds with anything /newvoice parked in
+// this browser. A signed-out save is flagged pending and only syncs on
+// the next signed-in visit, so until that flush lands the local copy is
+// the only record of the round; dropping it here would show "nothing
+// saved" to someone who just saved something. Deduped on room, cloud
+// copy winning. Non-pending local mirrors are ignored when signed in:
+// they belong to whichever account wrote them, which may not be this one.
+async function hydrateSavedRounds(user){
+  const slot = document.getElementById('savedRoundsSlot');
+  if (!slot) return;
+
+  const local = readLocalSavedRounds();
+  const pendingLocal = local.filter(r => r && r.pending);
+
+  if (!db || !user){
+    const rows = pendingLocal;
+    slot.innerHTML = rows.length ? rows.map(savedRoundRow).join('') : savedRoundsEmptyHtml();
+    return;
+  }
+
+  try {
+    let snap;
+    try {
+      snap = await db.collection('saved_rounds')
+        .where('uid','==',user.uid).orderBy('savedAt','desc').limit(40).get();
+    } catch(e){
+      // (uid ==, savedAt desc) composite index may not exist yet. The
+      // unordered query needs no index; sorting happens below anyway.
+      console.warn('[profile] saved_rounds ordered query failed, falling back:', e && e.message);
+      snap = await db.collection('saved_rounds').where('uid','==',user.uid).limit(40).get();
+    }
+    const cloud = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    const seen = {};
+    cloud.forEach(d => { if (d.room) seen[d.room] = true; });
+    const merged = cloud.concat(pendingLocal.filter(r => !r.room || !seen[r.room]));
+    merged.sort((a,b) => savedRoundMillis(b) - savedRoundMillis(a));
+    slot.innerHTML = merged.length ? merged.map(savedRoundRow).join('') : savedRoundsEmptyHtml();
+  } catch(e){
+    console.warn('[profile] hydrateSavedRounds failed:', e && e.message);
+    // A failed cloud read should not swallow rounds sitting in this
+    // browser, so fall back to those rather than to a bare error.
+    if (pendingLocal.length){
+      slot.innerHTML = pendingLocal.map(savedRoundRow).join('')
+        + `<div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Couldn't reach your account, so only rounds saved in this browser are showing. Refresh to try again.</div></div>`;
+      return;
+    }
+    slot.innerHTML = `<div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Couldn't load your saved rounds. Refresh once and they should come back.</div></div>`;
   }
 }
 
