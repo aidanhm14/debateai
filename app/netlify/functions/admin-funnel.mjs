@@ -31,7 +31,7 @@
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const DEFAULT_DAYS = 7;
@@ -87,7 +87,7 @@ export default async (request) => {
   const WINDOWS = [1, 3, 7, 30];
   const multi = WINDOWS.includes(days);
   const cacheKey = multi ? 'funnel:multi' : 'funnel:' + days;
-  const cached = await getCachedShared(cacheKey);
+  const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) {
     const hit = multi ? cached[days] : cached;
     if (hit) return jsonResponse(hit, 200, request);

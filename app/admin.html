@@ -1079,8 +1079,13 @@ function stopAuto(){
 
 // ── Data fetch ─────────────────────────────────────────────────────
 async function getToken(){ return auth.currentUser.getIdToken(); }
-async function fetchJson(url){
+// `fresh` forces the server past its shared cache. The panels behind
+// these endpoints scan thousands of event docs, so the cached path is
+// the default and recomputing is opt-in — that is what lets the server
+// hold results for hours instead of minutes. Refresh sets it.
+async function fetchJson(url, fresh){
   const token = await getToken();
+  if (fresh) url += (url.indexOf('?') === -1 ? '?' : '&') + 'fresh=1';
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
   if (r.status === 403) throw new Error('forbidden');
   if (!r.ok) {
@@ -1105,12 +1110,12 @@ async function loadAll(force){
   try {
     // Initial parallel pull of all 5 read endpoints.
     const results = await Promise.allSettled([
-      fetchJson('/api/admin/analytics'),
-      fetchJson('/api/admin/realtime?limit=60'),
-      fetchJson('/api/admin/cohorts?weeks=' + cohortWeeks),
-      fetchJson('/api/admin/heatmap?days=' + globalDays),
-      fetchJson('/api/admin/power-users?days=' + globalDays + '&limit=15'),
-      fetchJson('/api/admin/experiments?days=' + Math.max(globalDays, 30)),
+      fetchJson('/api/admin/analytics', force),
+      fetchJson('/api/admin/realtime?limit=60', force),
+      fetchJson('/api/admin/cohorts?weeks=' + cohortWeeks, force),
+      fetchJson('/api/admin/heatmap?days=' + globalDays, force),
+      fetchJson('/api/admin/power-users?days=' + globalDays + '&limit=15', force),
+      fetchJson('/api/admin/experiments?days=' + Math.max(globalDays, 30), force),
     ]);
     const [a, rt, ch, hm, pu, ex] = results;
     if (a.status === 'rejected' && /forbidden/i.test(a.reason.message || '')){

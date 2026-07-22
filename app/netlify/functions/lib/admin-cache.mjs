@@ -161,12 +161,44 @@ export async function getStaleShared(key) {
   }
 }
 
+// Force a recompute past a live cache entry: /api/admin/x?fresh=1.
+//
+// This is what makes a long TTL_HEAVY safe. Without it, raising the TTL
+// would mean the only way to see current numbers is to wait it out. The
+// dashboard's Refresh button sends this, so the default path is cheap
+// and the expensive path is the one you explicitly ask for.
+//
+// Read-only endpoints only. Never wire this into a write path — it is an
+// unauthenticated-shaped query param, and the admin gate is what protects
+// these endpoints, not this flag.
+export function wantsFresh(request) {
+  try {
+    const v = new URL(request.url).searchParams.get('fresh');
+    return v === '1' || v === 'true';
+  } catch {
+    return false;
+  }
+}
+
 // Common TTLs for the dashboard surfaces. Imported by each admin
 // endpoint so the cadence is consistent and adjusted in one place.
 // 2026-06-27: TTL_HEAVY 10 → 20 min and TTL_TAIL 30 → 90s after another
 // read-quota blowout — fewer cold recomputes of the multi-thousand-doc
-// event scans. An analytics panel that is minutes stale is fine; the
-// realtime tail at 90s still reads "live" while cutting the recompute
-// rate ~3x versus 30s.
-export const TTL_HEAVY = 20 * 60 * 1000;   // analytics, cohorts, heatmap, power-users
-export const TTL_TAIL  = 90 * 1000;        // realtime tail (still fresh-feeling)
+// event scans.
+//
+// 2026-07-22: TTL_HEAVY 20 min → 4 h, after measuring where the reads
+// actually go. One cold /admin open fans out to ~7 panels scanning
+// 600-4,000 event docs each = ~12,600 reads per open. At a 20 min TTL
+// every separate sitting paid that again, so four visits in a day was
+// ~50K reads — the entire free-tier daily allowance — while real user
+// traffic ran at 100-500 reads/hour. The dashboard was the dominant
+// cost of running the product, by an order of magnitude.
+//
+// These panels are 60-90 day trend windows; they do not meaningfully
+// move in 20 minutes, so the short TTL bought nothing. Paired with
+// wantsFresh() above, the Refresh button now genuinely recomputes
+// (before this it re-fetched and got handed the same cached payload),
+// so nothing is actually less fresh than it was — you just choose when
+// to pay for it.
+export const TTL_HEAVY = 4 * 60 * 60 * 1000;  // analytics, cohorts, heatmap, power-users
+export const TTL_TAIL  = 90 * 1000;           // realtime tail (still fresh-feeling)

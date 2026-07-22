@@ -17,7 +17,7 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 // 2026-05-19: MAX_DOCS cut 30K → 5K. Power-users is rank-based; the
@@ -49,7 +49,7 @@ export default async (request) => {
   const WINDOWS = [1, 3, 7, 30];
   const multi = WINDOWS.includes(days);
   const cacheKey = multi ? 'power-users:multi:' + k : 'power-users:' + days + ':' + k;
-  const cached = await getCachedShared(cacheKey);
+  const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) {
     const hit = multi ? cached[days] : cached;
     if (hit) return jsonResponse(hit, 200, request);

@@ -1,7 +1,7 @@
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
 
 // Hardcoded admin UID — the app owner's Firebase UID
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
@@ -43,7 +43,7 @@ export default async (request) => {
   // Cache check — this endpoint runs ~210 count queries on a miss.
   // 5-min cache means an auto-refreshing /admin tab gets one real
   // pull per 5-min window, not one per 30s.
-  const cached = await getCachedShared(CACHE_KEY);
+  const cached = wantsFresh(request) ? null : await getCachedShared(CACHE_KEY);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {

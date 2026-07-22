@@ -17,7 +17,7 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
 
 const MAX_DOCS = 4000;
 const DEFAULT_DAYS = 30;
@@ -36,7 +36,7 @@ export default async (request) => {
   const days = Math.max(1, Math.min(MAX_DAYS, parseInt(url.searchParams.get('days') || String(DEFAULT_DAYS), 10)));
   const cacheKey = 'experiments:' + days;
 
-  const cached = await getCachedShared(cacheKey);
+  const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   const since = new Date(Date.now() - days * 86_400_000);

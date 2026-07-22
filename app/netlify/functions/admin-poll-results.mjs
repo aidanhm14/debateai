@@ -14,7 +14,7 @@
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const MAX_DOCS = 5000;
@@ -49,7 +49,7 @@ export default async (request) => {
   if (!isAdmin) return errorResponse('Forbidden: admin access required', 403, request);
 
   const cacheKey = 'poll-results:v1';
-  const cached = await getCachedShared(cacheKey);
+  const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {

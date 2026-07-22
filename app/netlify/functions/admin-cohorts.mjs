@@ -21,7 +21,7 @@
 
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY } from './lib/admin-cache.mjs';
+import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
 import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 const DEFAULT_WEEKS = 8;
@@ -59,7 +59,7 @@ export default async (request) => {
   const weeks = Math.max(2, Math.min(MAX_WEEKS, parseInt(url.searchParams.get('weeks') || String(DEFAULT_WEEKS), 10)));
 
   const cacheKey = 'cohorts:v2:' + weeks;
-  const cached = await getCachedShared(cacheKey);
+  const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
   try {
