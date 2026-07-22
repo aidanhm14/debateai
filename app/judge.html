@@ -1316,6 +1316,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   var stream = null, rec = null, recMime = '', segTimer = null, tickTimer = null;
   var recording = false, startedAt = 0, seq = 0, pending = 0, wakeLock = null;
+  var failStreak = 0;             // consecutive segments that failed to transcribe
   // MediaRecorder.stop() fires onstop on a LATER task, so at the moment
   // finish() stops the tape the closing segment is not yet counted in
   // `pending`. Without this flag the settle loop sees pending === 0 and
@@ -1375,20 +1376,39 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     fd.append('carry', joinParts().slice(-380));
     fetch('/api/transcribe', { method:'POST', body: fd })
       .then(function(r){
-        if (!r.ok) throw new Error('transcribe ' + r.status);
+        if (!r.ok){
+          return r.json().catch(function(){ return {}; }).then(function(j){
+            var e = new Error('transcribe ' + r.status);
+            e.upstream = j && j.upstreamStatus;
+            throw e;
+          });
+        }
         return r.json();
       })
       .then(function(d){
         parts[mySeq] = (d && d.text) ? String(d.text).trim() : '';
+        failStreak = 0;
         renderLive();
         pending--;
       })
-      .catch(function(){
+      .catch(function(err){
         if ((attempt || 0) < 1){ return upload(blob, mySeq, (attempt || 0) + 1); }
         // Give up on this segment. A 25-second hole beats stalling the
         // round, and the judge is told the transcript may have gaps.
         parts[mySeq] = '';
         pending--;
+        failStreak++;
+        // Nobody should record a 40-minute round and only find out at the
+        // end that not one second of it was transcribed. Two dead segments
+        // in a row with nothing heard yet means the service is down, not
+        // that the room is quiet: say so now, while the round can be saved.
+        if (recording && failStreak >= 2 && !heardAnything){
+          var over = err && (err.upstream === 429);
+          stopListening(true);
+          showError(over
+            ? 'Transcription is over its limit right now, so the round is not being recorded. Nothing was lost on your end. Try again later, or paste the transcript.'
+            : 'The transcription service is not responding, so nothing is being captured. Check your connection and try again, or paste the transcript instead.');
+        }
       });
   }
 
@@ -1465,7 +1485,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       recording = true;
       usedVoice = true;
       startedAt = Date.now();
-      seq = 0; pending = 0; parts = []; heardAnything = false;
+      seq = 0; pending = 0; parts = []; heardAnything = false; failStreak = 0;
       $('liveText').textContent = '';
       $('transcript').value = '';
       setState('live');
