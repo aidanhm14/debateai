@@ -203,6 +203,13 @@ export async function listAllAuthUsers({ pageSize = 1000, maxPages = 50 } = {}) 
     for (const u of (data.users || [])) {
       out.push({
         uid: u.localId,
+        // 2026-07-22: email + displayName added. Auth is where sign-in
+        // actually stores these; no signup path writes them into
+        // user_profiles, so a mail cohort built from profiles alone sees
+        // almost nobody (6 of 128 on the day this was added). Additive
+        // only — existing callers that ignore these fields are unaffected.
+        email: u.email || null,
+        displayName: u.displayName || null,
         providerData: (u.providerUserInfo || []).map(p => ({ providerId: p.providerId })),
         metadata: {
           // Identity Toolkit returns createdAt as a string of Unix ms.

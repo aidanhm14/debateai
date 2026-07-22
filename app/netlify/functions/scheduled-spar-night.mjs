@@ -39,6 +39,7 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL } from './lib/email.mjs';
+import { listAllAuthUsers } from './lib/auth-admin.mjs';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SEND_ENABLED   = process.env.SPAR_NIGHT_ENABLED === '1';
@@ -143,36 +144,64 @@ export default async () => {
     return;
   }
 
+  // 2026-07-22: cohort now comes from Firebase Auth, not user_profiles.
+  // Sign-in writes the email to Auth and nothing ever mirrors it into the
+  // profile doc, so the old profiles-only scan saw 6 addresses out of 128
+  // real ones and this cron mailed ~5% of the people it could.
+  // Profiles are still loaded, purely to honor opt-outs and dedup stamps.
   const profilesSnap = await db.collection('user_profiles').limit(1000).get();
-  let eligible = 0, sent = 0, skipped = 0, errors = 0;
-  const sampleWould = [];
+  const profByUid = new Map();
+  profilesSnap.docs.forEach(d => profByUid.set(d.id, d.data() || {}));
 
-  for (const doc of profilesSnap.docs) {
+  const authUsers = await listAllAuthUsers().catch(err => {
+    console.error('[spar-night] listAllAuthUsers failed:', err.message);
+    return null;
+  });
+  if (!authUsers) {
+    await stateRef.set({
+      lastRunAt: FieldValue.serverTimestamp(), status: 'auth-list-failed',
+    }, { merge: true }).catch(() => {});
+    return;
+  }
+
+  let eligible = 0, sent = 0, skipped = 0, errors = 0, noProfile = 0;
+  const sampleWould = [];
+  const errorReasons = {};   // reason -> count, so a failed run says WHY
+
+  for (const user of authUsers) {
     if (sent >= MAX_EMAILS) break;
-    const prof = doc.data() || {};
-    if (!prof.email || isOptedOut(prof, 'sparnight')) { skipped++; continue; }
+    if (!user.email) { skipped++; continue; }
+    const prof = profByUid.get(user.uid);
+    // No profile doc = we hold no preferences for this account. isOptedOut
+    // treats that as opted out, and we keep that posture: never mail an
+    // address whose preferences we cannot read. Counted separately so the
+    // state doc shows how many addresses this rule is holding back.
+    if (!prof) { noProfile++; skipped++; continue; }
+    if (isOptedOut(prof, 'sparnight')) { skipped++; continue; }
     eligible++;
 
-    const firstName = String(prof.displayName || '').trim().split(/\s+/)[0] || 'debater';
+    const firstName = String(prof.displayName || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
     if (dryRun) {
-      if (sampleWould.length < 10) sampleWould.push(prof.email);
+      if (sampleWould.length < 10) sampleWould.push(user.email);
       continue;
     }
 
     const res = await sendEmail({
-      to: prof.email,
+      to: user.email,
       subject: 'Open Spar Night is tonight: 8pm ET',
-      html: renderEmail({ firstName, uid: doc.id }),
-      uid: doc.id,
+      html: renderEmail({ firstName, uid: user.uid }),
+      uid: user.uid,
       stream: 'sparnight',
       from: FROM_EMAIL,
       replyTo: REPLY_TO,
     });
     if (res.ok) {
       sent++;
-      await db.doc(`user_profiles/${doc.id}`).update({ sparNightSentAt: FieldValue.serverTimestamp() }).catch(() => {});
+      await db.doc(`user_profiles/${user.uid}`).update({ sparNightSentAt: FieldValue.serverTimestamp() }).catch(() => {});
     } else {
       errors++;
+      const why = res.reason || `status-${res.status || 'unknown'}`;
+      errorReasons[why] = (errorReasons[why] || 0) + 1;
     }
   }
 
@@ -185,10 +214,19 @@ export default async () => {
     sent,
     skipped,
     errors,
+    // 2026-07-22: the 6/6 failure on the first live run recorded only a
+    // count, so there was no way to tell a bad API key from a rejected
+    // sender domain without tailing logs after the fact. Persist the
+    // reasons; empty object on a clean run.
+    errorReasons,
+    // Addresses held back purely for having no profile doc (no stored
+    // preferences). If this is large, the profile-creation path is the
+    // real bug, not this cron.
+    noProfile,
     sampleWould: dryRun ? sampleWould : FieldValue.delete(),
   }, { merge: true }).catch(() => {});
 
-  console.log(`[spar-night] ${dryRun ? 'DRY-RUN' : 'LIVE'} — eligible:${eligible} sent:${sent} skipped:${skipped} errors:${errors}`);
+  console.log(`[spar-night] ${dryRun ? 'DRY-RUN' : 'LIVE'} — eligible:${eligible} sent:${sent} skipped:${skipped} (noProfile:${noProfile}) errors:${errors} ${JSON.stringify(errorReasons)}`);
 };
 
 export const config = {
