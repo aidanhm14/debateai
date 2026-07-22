@@ -180,7 +180,7 @@
         return el.getBoundingClientRect();
       }
       return Array.prototype.slice.call(document.querySelectorAll(
-        '#daTopbar,.ui-topbar,.hero-eyebrow,.hero h1,.hero-sub,.hero-cta-row,.hero-proof,.hero-missed,.cm-copy,.cm-card,.cm-ticker'
+        '#daTopbar,.ui-topbar,.hero-eyebrow,.hero h1,.hero-sub,.hero-cta-row,.hero-proof,.hero-missed,.cm-copy,.cm-card'
       )).map(function(el){
         if(el.hidden) return null;
         var r = measuredRect(el);
@@ -1114,6 +1114,31 @@ button{font-family:inherit}
 }
 .how-step ul li strong{color:var(--text);font-weight:700}
 .how-step ul li:last-child{margin-bottom:0}
+/* 2026-07-22: six steps with three or four bullets each ran to roughly a
+   thousand pixels of always-open manual, which is what made this page
+   read as heavy. The skeleton a first visitor needs (number, how long,
+   what the step is, one line of what happens) stays visible; the
+   specifics move one click away. Nothing is removed, and a reader who
+   wants the whole procedure still gets it. */
+.how-more{margin-top:8px}
+.how-more > summary{
+  cursor:pointer;list-style:none;
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:.72rem;font-weight:800;letter-spacing:.04em;
+  color:var(--text-dim);
+  /* Padded rather than 3px: at 22px tall this was under the comfortable
+     tap size, and it is the only control standing between a phone reader
+     and the step's detail. */
+  padding:9px 12px 9px 0;
+  min-height:38px;
+}
+.how-more > summary::-webkit-details-marker{display:none}
+.how-more > summary::after{
+  content:'+';font-weight:900;color:var(--accent);font-size:.86rem;line-height:1;
+}
+.how-more[open] > summary::after{content:'\2212'}
+.how-more > summary:hover{color:var(--text)}
+.how-more > summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
 .how-need{
   margin-top:24px;padding:14px 18px;
   background:rgba(59,130,246,.04);border:1px dashed rgba(59,130,246,.22);
@@ -2164,7 +2189,14 @@ button{font-family:inherit}
 <section class="hero">
   <div class="hero-eyebrow"><span class="live-dot"></span>Live debates, AI-judged</div>
   <h1>Debate another human live. <em>AI judges.</em></h1>
-  <p class="hero-sub">Schedule a round for later or spar right now. Debatable gives you the video room, format timer, calendar link, and judge ballot.</p>
+  <!-- 2026-07-22: the trailing clause listed the video room, format timer,
+       calendar link and ballot, which is exactly what the four chips
+       directly beneath it say, and what the "what a live debate becomes"
+       panel says again further down. Three statements of the same four
+       facts inside one page. The chips keep them (they scan faster than
+       prose); the sub-line keeps the one thing only it says, which is
+       that there are two ways in. -->
+  <p class="hero-sub">Schedule a round for later, or spar right now.</p>
   <div class="hero-cta-row">
     <a href="#postForm" id="organizeBtn" class="bar-cta"><svg width="11" height="11" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M1.3.5a.5.5 0 0 0-.8.42v8.16a.5.5 0 0 0 .8.42l6.1-4.08a.5.5 0 0 0 0-.84z"/></svg>Schedule a human debate</a>
     <a href="/spar" class="hero-spar"><span class="hero-spar-dot" aria-hidden="true"></span>Spar live now<em>random partner, no scheduling</em></a>
@@ -2276,166 +2308,6 @@ button{font-family:inherit}
   .cm-chart{height:42px}
 }
 </style>
-<section class="chal-market" aria-labelledby="chalMktTitle">
-  <div class="cm-ticker" aria-hidden="true">
-    <div class="cm-ticker-track">
-      <div class="cm-ticker-group">
-        <span><em>Priya vs Sam</em> <b>57&cent;</b> &middot; $1.4K <i class="up">&#9650;</i></span>
-        <span><em>Arjun vs Leah</em> <b>44&cent;</b> &middot; $920 <i class="dn">&#9660;</i></span>
-        <span><em>Zara vs Dev</em> <b>66&cent;</b> &middot; $2.3K <i class="up">&#9650;</i></span>
-        <span><em>Dana vs Ines</em> <b>51&cent;</b> &middot; $780 <i class="up">&#9650;</i></span>
-        <span><em>Theo vs Marco</em> <b>38&cent;</b> &middot; $1.1K <i class="dn">&#9660;</i></span>
-        <span><em>Leah vs Maya</em> <b>59&cent;</b> &middot; $1.6K <i class="up">&#9650;</i></span>
-      </div>
-      <div class="cm-ticker-group">
-        <span><em>Priya vs Sam</em> <b>57&cent;</b> &middot; $1.4K <i class="up">&#9650;</i></span>
-        <span><em>Arjun vs Leah</em> <b>44&cent;</b> &middot; $920 <i class="dn">&#9660;</i></span>
-        <span><em>Zara vs Dev</em> <b>66&cent;</b> &middot; $2.3K <i class="up">&#9650;</i></span>
-        <span><em>Dana vs Ines</em> <b>51&cent;</b> &middot; $780 <i class="up">&#9650;</i></span>
-        <span><em>Theo vs Marco</em> <b>38&cent;</b> &middot; $1.1K <i class="dn">&#9660;</i></span>
-        <span><em>Leah vs Maya</em> <b>59&cent;</b> &middot; $1.6K <i class="up">&#9650;</i></span>
-      </div>
-    </div>
-  </div>
-  <div class="cm-grid">
-    <div class="cm-copy">
-      <div class="cm-eyebrow"><span class="live-dot"></span>Challenge markets</div>
-      <h2 id="chalMktTitle">Call out a debater. <em>The crowd sets the price.</em></h2>
-      <p>Challenge someone by name and the round opens a market. Spectators buy shares in either debater's win, every vote moves the price, and the AI ballot settles it. Part skill, part likability contest. That's the point.</p>
-      <div class="cm-points">
-        <span><i></i><b>Buy a side at its price.</b>&nbsp;62&cent; today pays $1 if they win.</span>
-        <span><i></i><b>Crowd votes move the odds</b>&nbsp;while the round runs.</span>
-        <span><i></i><b>The ballot pays the pot.</b>&nbsp;The judge's verdict is the settlement.</span>
-      </div>
-      <div class="cm-cta-row">
-        <a href="#postForm" class="bar-cta" data-cta="chal-market-post">Challenge a debater</a>
-        <a href="/spectate" class="cm-ghost">Watch a live market</a>
-      </div>
-    </div>
-    <div class="cm-card" aria-hidden="true">
-      <div class="cm-head">
-        <span class="cm-tag"><i></i>Live challenge &middot; <span data-cm-fmt>Quick Clash</span></span>
-        <span class="cm-preview">Preview</span>
-        <span class="cm-vol"><b data-cm-vol>$1,930</b> in the pot &middot; <span data-cm-backers>54</span> backers</span>
-      </div>
-      <div class="cm-vs">
-        <div class="cm-side cm-side--a">
-          <span class="cm-av" data-cm-av="a">M</span>
-          <span class="cm-who"><b data-cm-name="a">Maya</b><span data-cm-role="a">Pro &middot; challenger</span></span>
-          <span class="cm-price" data-cm-price="a">62&cent;</span>
-        </div>
-        <span class="cm-vs-mark">vs</span>
-        <div class="cm-side cm-side--b">
-          <span class="cm-av" data-cm-av="b">J</span>
-          <span class="cm-who"><b data-cm-name="b">Jake</b><span data-cm-role="b">Con &middot; accepted</span></span>
-          <span class="cm-price" data-cm-price="b">38&cent;</span>
-        </div>
-      </div>
-      <div class="cm-chart">
-        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
-          <line class="cm-grid-ln" vector-effect="non-scaling-stroke" x1="0" y1="10" x2="100" y2="10"/>
-          <line class="cm-grid-ln" vector-effect="non-scaling-stroke" x1="0" y1="20" x2="100" y2="20"/>
-          <line class="cm-grid-ln" vector-effect="non-scaling-stroke" x1="0" y1="30" x2="100" y2="30"/>
-          <path class="cm-area" data-cm-area d="M0,40 L0,26 L3.7,27 L7.41,25 L11.11,28 L14.81,30 L18.52,29 L22.22,26 L25.93,24 L29.63,25 L33.33,22 L37.04,20 L40.74,22 L44.44,19 L48.15,17 L51.85,18 L55.56,15 L59.26,16 L62.96,13 L66.67,15 L70.37,12 L74.07,14 L77.78,11 L81.48,13 L85.19,10 L88.89,12 L92.59,11 L96.3,13 L100,12 L100,40 Z"/>
-          <polyline class="cm-line" vector-effect="non-scaling-stroke" data-cm-line points="0,26 3.7,27 7.41,25 11.11,28 14.81,30 18.52,29 22.22,26 25.93,24 29.63,25 33.33,22 37.04,20 40.74,22 44.44,19 48.15,17 51.85,18 55.56,15 59.26,16 62.96,13 66.67,15 70.37,12 74.07,14 77.78,11 81.48,13 85.19,10 88.89,12 92.59,11 96.3,13 100,12"/>
-        </svg>
-        <span class="cm-dot" data-cm-dot style="top:30%"></span>
-      </div>
-      <div class="cm-votebar"><i data-cm-votefill style="width:62%"></i></div>
-      <div class="cm-voterow"><span><b data-cm-vote="a">62%</b> back <span data-cm-vname="a">Maya</span></span><span><b data-cm-vote="b">38%</b> back <span data-cm-vname="b">Jake</span></span></div>
-      <div class="cm-foot"><b>Democratic by design.</b> Votes move the price while both debaters speak. The AI judge's ballot settles the market.</div>
-    </div>
-  </div>
-</section>
-<script>
-(function(){
-  /* Challenge-market mock engine. Same drift pattern as the landing
-     hero's market: price random-walks, chart y-scale hugs the history
-     so the line always reads like a price chart, pot ticks up, and a
-     new matchup seeds every ~14s. Pure illustration, no endpoint.
-     Reduced-motion keeps the static market baked into the markup. */
-  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var line = document.querySelector('[data-cm-line]');
-  if (!line) return;
-  var area = document.querySelector('[data-cm-area]');
-  var dot = document.querySelector('[data-cm-dot]');
-  var els = {
-    fmt: document.querySelector('[data-cm-fmt]'),
-    vol: document.querySelector('[data-cm-vol]'),
-    backers: document.querySelector('[data-cm-backers]'),
-    priceA: document.querySelector('[data-cm-price="a"]'),
-    priceB: document.querySelector('[data-cm-price="b"]'),
-    nameA: document.querySelector('[data-cm-name="a"]'),
-    nameB: document.querySelector('[data-cm-name="b"]'),
-    avA: document.querySelector('[data-cm-av="a"]'),
-    avB: document.querySelector('[data-cm-av="b"]'),
-    voteFill: document.querySelector('[data-cm-votefill]'),
-    voteA: document.querySelector('[data-cm-vote="a"]'),
-    voteB: document.querySelector('[data-cm-vote="b"]'),
-    vnameA: document.querySelector('[data-cm-vname="a"]'),
-    vnameB: document.querySelector('[data-cm-vname="b"]')
-  };
-  var matchups = [
-    ['Maya','Jake','Quick Clash'],
-    ['Priya','Sam','Asian Parli'],
-    ['Arjun','Leah','BP'],
-    ['Zara','Dev','Public Forum'],
-    ['Theo','Ines','APDA']
-  ];
-  var price = 62, vol = 1930, backers = 54, hist = [], mIdx = 0;
-  function clampP(v){ return Math.max(12, Math.min(88, v)); }
-  function render(){
-    var lo = Math.min.apply(null, hist), hi = Math.max.apply(null, hist);
-    var pad = Math.max(3, (hi - lo) * .15);
-    lo -= pad; hi += pad;
-    function yy(p){ return 37 - (p - lo) / (hi - lo) * 34; }
-    var pts = [], n = hist.length, i;
-    for (i = 0; i < n; i++) pts.push((i * (100 / (n - 1))).toFixed(2) + ',' + yy(hist[i]).toFixed(2));
-    line.setAttribute('points', pts.join(' '));
-    if (area) area.setAttribute('d', 'M0,40 L' + pts.join(' L') + ' L100,40 Z');
-    if (dot) dot.style.top = (yy(price) / 40 * 100).toFixed(1) + '%';
-    var p = Math.round(price), q = 100 - p;
-    if (els.priceA) els.priceA.innerHTML = p + '&cent;';
-    if (els.priceB) els.priceB.innerHTML = q + '&cent;';
-    if (els.voteFill) els.voteFill.style.width = p + '%';
-    if (els.voteA) els.voteA.textContent = p + '%';
-    if (els.voteB) els.voteB.textContent = q + '%';
-    if (els.vol) els.vol.textContent = '$' + vol.toLocaleString('en-US');
-    if (els.backers) els.backers.textContent = String(backers);
-  }
-  function newMatchup(){
-    var m = matchups[mIdx % matchups.length];
-    mIdx++;
-    if (els.nameA) els.nameA.textContent = m[0];
-    if (els.nameB) els.nameB.textContent = m[1];
-    if (els.vnameA) els.vnameA.textContent = m[0];
-    if (els.vnameB) els.vnameB.textContent = m[1];
-    if (els.avA) els.avA.textContent = m[0].charAt(0);
-    if (els.avB) els.avB.textContent = m[1].charAt(0);
-    if (els.fmt) els.fmt.textContent = m[2];
-    hist = [];
-    var v = 42 + Math.random() * 16;
-    for (var i = 0; i < 28; i++) { v = clampP(v + (Math.random() * 11 - 5)); hist.push(v); }
-    price = hist[hist.length - 1];
-    vol = 700 + Math.floor(Math.random() * 2100);
-    backers = 20 + Math.floor(Math.random() * 60);
-    render();
-  }
-  function tick(){
-    if (document.hidden) return;
-    price = clampP(price + (Math.random() * 7 - 3.5));
-    hist.push(price);
-    if (hist.length > 28) hist.shift();
-    vol += 3 + Math.floor(Math.random() * 15);
-    if (Math.random() < .45) backers += 1;
-    render();
-  }
-  newMatchup();
-  setInterval(tick, 1700);
-  setInterval(function(){ if (!document.hidden) newMatchup(); }, 14000);
-})();
-</script>
-
 <div class="page-cols">
 <nav class="side-nav" id="sideNav" aria-label="Debate navigation">
   <span class="snav-label" aria-hidden="true">Browse</span>
@@ -2763,11 +2635,14 @@ button{font-family:inherit}
         </div>
         <h3>Continue with Google</h3>
         <p>Both speakers need a Google account. Once.</p>
-        <ul>
+        <details class="how-more">
+          <summary>Details</summary>
+          <ul>
           <li>Click <strong>Sign in</strong> top-right, or you'll be prompted.</li>
           <li>Your name + photo label your speeches. Your email syncs your record across devices.</li>
           <li>No password. Google handles login. Used only to log you in. I never email you.</li>
         </ul>
+        </details>
       </div>
 
       <div class="how-step">
@@ -2777,11 +2652,14 @@ button{font-family:inherit}
         </div>
         <h3>Schedule or join a debate</h3>
         <p>Two paths in: post your own, or accept someone else's.</p>
-        <ul>
+        <details class="how-more">
+          <summary>Details</summary>
+          <ul>
           <li><strong>Posting:</strong> motion + side + format + when (Now / +30m / scheduled). Choose <strong>reveal</strong>, full motion, topic only, or theme only, to control how much the public board sees before kickoff.</li>
           <li><strong>Accepting:</strong> click any open card, confirmation modal explains what you're committing to, enter contact info + opt-in.</li>
           <li>Already have a friend lined up? Click <strong>Schedule a human debate</strong>, pick a time, and send them the post.</li>
         </ul>
+        </details>
       </div>
 
       <div class="how-step">
@@ -2791,11 +2669,14 @@ button{font-family:inherit}
         </div>
         <h3>Calendar invite + room link</h3>
         <p>Both sides get the same kickoff time and the same in-page video room.</p>
-        <ul>
+        <details class="how-more">
+          <summary>Details</summary>
+          <ul>
           <li>One click adds the round to <strong>Google Calendar</strong> with the room link in the description.</li>
           <li>Or download the <strong>.ics</strong> for Apple Calendar / Outlook.</li>
           <li>The video room is created on first arrival. No install, no separate account.</li>
         </ul>
+        </details>
       </div>
 
       <div class="how-step">
@@ -2805,11 +2686,14 @@ button{font-family:inherit}
         </div>
         <h3>Show up, embedded video</h3>
         <p>Click <strong>Start judged round</strong> on the accepted card. Both sides land on the same page.</p>
-        <ul>
+        <details class="how-more">
+          <summary>Details</summary>
+          <ul>
           <li>Video room embeds in the page: call on the left, speech panel on the right.</li>
           <li>Allow camera + mic when the browser asks. Test by saying hi before the timer starts.</li>
           <li>Decide who's speaking first per the format spec (it's shown at the top of the panel).</li>
         </ul>
+        </details>
       </div>
 
       <div class="how-step">
@@ -2819,12 +2703,15 @@ button{font-family:inherit}
         </div>
         <h3>Run the round, speech by speech</h3>
         <p>Format-aware timer enforces the real speech sequence. Both sides see the same state.</p>
-        <ul>
+        <details class="how-more">
+          <summary>Details</summary>
+          <ul>
           <li>Active speaker hits <strong>▶ Start speech</strong> when ready. The clock doesn't auto-start, so prep time is yours.</li>
           <li>Mic auto-transcribes (Chrome / Safari). <strong>Space</strong> = pause/resume, <strong>M</strong> = mic, <strong>Enter</strong> = end speech.</li>
           <li>Cross-ex / POIs: just keep talking. End the speech when the format clock is done.</li>
           <li>Whoever is speaking does the typing/mic. The other side watches and preps their response.</li>
         </ul>
+        </details>
       </div>
 
       <div class="how-step">
@@ -2834,12 +2721,15 @@ button{font-family:inherit}
         </div>
         <h3>AI ballot, both sides see it</h3>
         <p>After the last speech, the AI judges. Tournament-grade RFD, on both screens.</p>
-        <ul>
+        <details class="how-more">
+          <summary>Details</summary>
+          <ul>
           <li><strong>Winner</strong> + speaker points scaled to the format (28+ in APDA = strong, 27-30 in PF, etc.).</li>
           <li>3-6 sentence <strong>RFD</strong> naming the deciding clash and why one side won it.</li>
           <li>Per-speaker feedback: what worked + one specific thing to fix.</li>
           <li>Saved to both speakers' records. Copy or rematch in one click.</li>
         </ul>
+        </details>
       </div>
 
     </div>
@@ -2973,6 +2863,157 @@ button{font-family:inherit}
 
 </div><!-- /.page-main -->
 </div><!-- /.page-cols -->
+
+<!-- ── Challenge markets (moved 2026-07-22) ───────────────────────
+     Was the second thing on the page, directly under the hero. It
+     introduced shares, prices, a pot and settlement before a first
+     visitor had understood the thing being priced, so the page
+     opened with two products competing for the same attention.
+     Now it follows the core flow: what a live round is, how to get
+     into one, how it runs, and THEN the market you can open on top
+     of it. Content is unchanged. The scrolling price ticker that
+     sat above it is gone; it was decorative and it was the loudest
+     element on a page whose own board was empty. -->
+<section class="chal-market" aria-labelledby="chalMktTitle">
+  <div class="cm-grid">
+    <div class="cm-copy">
+      <div class="cm-eyebrow"><span class="live-dot"></span>Challenge markets</div>
+      <h2 id="chalMktTitle">Call out a debater. <em>The crowd sets the price.</em></h2>
+      <p>Challenge someone by name and the round opens a market. Spectators buy shares in either debater's win, every vote moves the price, and the AI ballot settles it. Part skill, part likability contest. That's the point.</p>
+      <div class="cm-points">
+        <span><i></i><b>Buy a side at its price.</b>&nbsp;62&cent; today pays $1 if they win.</span>
+        <span><i></i><b>Crowd votes move the odds</b>&nbsp;while the round runs.</span>
+        <span><i></i><b>The ballot pays the pot.</b>&nbsp;The judge's verdict is the settlement.</span>
+      </div>
+      <div class="cm-cta-row">
+        <a href="#postForm" class="bar-cta" data-cta="chal-market-post">Challenge a debater</a>
+        <a href="/spectate" class="cm-ghost">Watch a live market</a>
+      </div>
+    </div>
+    <div class="cm-card" aria-hidden="true">
+      <div class="cm-head">
+        <span class="cm-tag"><i></i>Live challenge &middot; <span data-cm-fmt>Quick Clash</span></span>
+        <span class="cm-preview">Preview</span>
+        <span class="cm-vol"><b data-cm-vol>$1,930</b> in the pot &middot; <span data-cm-backers>54</span> backers</span>
+      </div>
+      <div class="cm-vs">
+        <div class="cm-side cm-side--a">
+          <span class="cm-av" data-cm-av="a">M</span>
+          <span class="cm-who"><b data-cm-name="a">Maya</b><span data-cm-role="a">Pro &middot; challenger</span></span>
+          <span class="cm-price" data-cm-price="a">62&cent;</span>
+        </div>
+        <span class="cm-vs-mark">vs</span>
+        <div class="cm-side cm-side--b">
+          <span class="cm-av" data-cm-av="b">J</span>
+          <span class="cm-who"><b data-cm-name="b">Jake</b><span data-cm-role="b">Con &middot; accepted</span></span>
+          <span class="cm-price" data-cm-price="b">38&cent;</span>
+        </div>
+      </div>
+      <div class="cm-chart">
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+          <line class="cm-grid-ln" vector-effect="non-scaling-stroke" x1="0" y1="10" x2="100" y2="10"/>
+          <line class="cm-grid-ln" vector-effect="non-scaling-stroke" x1="0" y1="20" x2="100" y2="20"/>
+          <line class="cm-grid-ln" vector-effect="non-scaling-stroke" x1="0" y1="30" x2="100" y2="30"/>
+          <path class="cm-area" data-cm-area d="M0,40 L0,26 L3.7,27 L7.41,25 L11.11,28 L14.81,30 L18.52,29 L22.22,26 L25.93,24 L29.63,25 L33.33,22 L37.04,20 L40.74,22 L44.44,19 L48.15,17 L51.85,18 L55.56,15 L59.26,16 L62.96,13 L66.67,15 L70.37,12 L74.07,14 L77.78,11 L81.48,13 L85.19,10 L88.89,12 L92.59,11 L96.3,13 L100,12 L100,40 Z"/>
+          <polyline class="cm-line" vector-effect="non-scaling-stroke" data-cm-line points="0,26 3.7,27 7.41,25 11.11,28 14.81,30 18.52,29 22.22,26 25.93,24 29.63,25 33.33,22 37.04,20 40.74,22 44.44,19 48.15,17 51.85,18 55.56,15 59.26,16 62.96,13 66.67,15 70.37,12 74.07,14 77.78,11 81.48,13 85.19,10 88.89,12 92.59,11 96.3,13 100,12"/>
+        </svg>
+        <span class="cm-dot" data-cm-dot style="top:30%"></span>
+      </div>
+      <div class="cm-votebar"><i data-cm-votefill style="width:62%"></i></div>
+      <div class="cm-voterow"><span><b data-cm-vote="a">62%</b> back <span data-cm-vname="a">Maya</span></span><span><b data-cm-vote="b">38%</b> back <span data-cm-vname="b">Jake</span></span></div>
+      <div class="cm-foot"><b>Democratic by design.</b> Votes move the price while both debaters speak. The AI judge's ballot settles the market.</div>
+    </div>
+  </div>
+</section>
+<script>
+(function(){
+  /* Challenge-market mock engine. Same drift pattern as the landing
+     hero's market: price random-walks, chart y-scale hugs the history
+     so the line always reads like a price chart, pot ticks up, and a
+     new matchup seeds every ~14s. Pure illustration, no endpoint.
+     Reduced-motion keeps the static market baked into the markup. */
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var line = document.querySelector('[data-cm-line]');
+  if (!line) return;
+  var area = document.querySelector('[data-cm-area]');
+  var dot = document.querySelector('[data-cm-dot]');
+  var els = {
+    fmt: document.querySelector('[data-cm-fmt]'),
+    vol: document.querySelector('[data-cm-vol]'),
+    backers: document.querySelector('[data-cm-backers]'),
+    priceA: document.querySelector('[data-cm-price="a"]'),
+    priceB: document.querySelector('[data-cm-price="b"]'),
+    nameA: document.querySelector('[data-cm-name="a"]'),
+    nameB: document.querySelector('[data-cm-name="b"]'),
+    avA: document.querySelector('[data-cm-av="a"]'),
+    avB: document.querySelector('[data-cm-av="b"]'),
+    voteFill: document.querySelector('[data-cm-votefill]'),
+    voteA: document.querySelector('[data-cm-vote="a"]'),
+    voteB: document.querySelector('[data-cm-vote="b"]'),
+    vnameA: document.querySelector('[data-cm-vname="a"]'),
+    vnameB: document.querySelector('[data-cm-vname="b"]')
+  };
+  var matchups = [
+    ['Maya','Jake','Quick Clash'],
+    ['Priya','Sam','Asian Parli'],
+    ['Arjun','Leah','BP'],
+    ['Zara','Dev','Public Forum'],
+    ['Theo','Ines','APDA']
+  ];
+  var price = 62, vol = 1930, backers = 54, hist = [], mIdx = 0;
+  function clampP(v){ return Math.max(12, Math.min(88, v)); }
+  function render(){
+    var lo = Math.min.apply(null, hist), hi = Math.max.apply(null, hist);
+    var pad = Math.max(3, (hi - lo) * .15);
+    lo -= pad; hi += pad;
+    function yy(p){ return 37 - (p - lo) / (hi - lo) * 34; }
+    var pts = [], n = hist.length, i;
+    for (i = 0; i < n; i++) pts.push((i * (100 / (n - 1))).toFixed(2) + ',' + yy(hist[i]).toFixed(2));
+    line.setAttribute('points', pts.join(' '));
+    if (area) area.setAttribute('d', 'M0,40 L' + pts.join(' L') + ' L100,40 Z');
+    if (dot) dot.style.top = (yy(price) / 40 * 100).toFixed(1) + '%';
+    var p = Math.round(price), q = 100 - p;
+    if (els.priceA) els.priceA.innerHTML = p + '&cent;';
+    if (els.priceB) els.priceB.innerHTML = q + '&cent;';
+    if (els.voteFill) els.voteFill.style.width = p + '%';
+    if (els.voteA) els.voteA.textContent = p + '%';
+    if (els.voteB) els.voteB.textContent = q + '%';
+    if (els.vol) els.vol.textContent = '$' + vol.toLocaleString('en-US');
+    if (els.backers) els.backers.textContent = String(backers);
+  }
+  function newMatchup(){
+    var m = matchups[mIdx % matchups.length];
+    mIdx++;
+    if (els.nameA) els.nameA.textContent = m[0];
+    if (els.nameB) els.nameB.textContent = m[1];
+    if (els.vnameA) els.vnameA.textContent = m[0];
+    if (els.vnameB) els.vnameB.textContent = m[1];
+    if (els.avA) els.avA.textContent = m[0].charAt(0);
+    if (els.avB) els.avB.textContent = m[1].charAt(0);
+    if (els.fmt) els.fmt.textContent = m[2];
+    hist = [];
+    var v = 42 + Math.random() * 16;
+    for (var i = 0; i < 28; i++) { v = clampP(v + (Math.random() * 11 - 5)); hist.push(v); }
+    price = hist[hist.length - 1];
+    vol = 700 + Math.floor(Math.random() * 2100);
+    backers = 20 + Math.floor(Math.random() * 60);
+    render();
+  }
+  function tick(){
+    if (document.hidden) return;
+    price = clampP(price + (Math.random() * 7 - 3.5));
+    hist.push(price);
+    if (hist.length > 28) hist.shift();
+    vol += 3 + Math.floor(Math.random() * 15);
+    if (Math.random() < .45) backers += 1;
+    render();
+  }
+  newMatchup();
+  setInterval(tick, 1700);
+  setInterval(function(){ if (!document.hidden) newMatchup(); }, 14000);
+})();
+</script>
+
 
 <footer class="footer">
   <div><span style="color:var(--accent)">Debatable</span><sup style="font-size:.55em;opacity:.6;margin-left:2px">&trade;</sup> · <a href="/">Home</a> · <a href="/debate-it">Spar with AI</a> · <a href="/pricing">Pricing</a></div>
