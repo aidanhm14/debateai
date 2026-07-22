@@ -52,9 +52,31 @@ still letting it diverge.
 - sets `window.__DB_NATIVE = true` and `<html class="dbnative">`,
 - injects the app design layer `app/css/native-app.css`,
 - hides all pricing/upgrade/checkout surfaces (Apple rule, see §5),
-- redirects `/pricing` → `/native`.
+- redirects `/pricing` → `/native`,
+- redirects `/` and `/landing` → `/native`, and repoints any link resolving
+  there at the app home. Nearly every page aims its wordmark and back arrow
+  at `/`, which is the marketing landing; in the app that walked the user
+  out of the shell. Bare `#hash` jumps are excluded on purpose.
+- loads `app/js/auth-modal.js` and routes any "Sign in with Google" button
+  into it, because that chooser is the one that also offers Sign in with
+  Apple (guideline 4.8). See §5.
 
-On the plain web it is inert (no `dbnative`, no changes).
+On the plain web it is inert (no `dbnative`, no changes) — every one of the
+behaviors above sits behind an early return.
+
+**Rule: the bridge must be on EVERY page the app can reach.** A page without
+it renders as the full website inside the app, with its pricing links live.
+On 2026-07-22 twelve reachable pages were missing it (community, credentials,
+debate-online, high-school, india, judge, leaderboard, privacy, room-judge,
+schools, terms, us) and ten of those carried a purchase reference. Check with:
+
+```bash
+cd app && for p in $(grep -oh 'href="/[a-z0-9-]*"' native.html coach.html \
+  profile.html spar.html newvoice.html live.html debate-it.html \
+  | sed 's/href="\///;s/"//' | sort -u); do
+  [ -f "$p.html" ] && ! grep -q native-bridge "$p.html" && echo "MISSING $p.html"
+done
+```
 
 ### How to make an APP-ONLY change  ← the important part
 1. Put the CSS in **`app/css/native-app.css`** (already scoped under
@@ -108,6 +130,21 @@ Dark, EN, voice orb, Available, Manage, Sign Out) and the wordmark
 overlaps a neighboring label. Likely a mobile-web bug too, not app-only.
 Fix belongs in index.html's own bar layout (active Codex lane), not in
 native-app.css.
+
+**Audit pass 2026-07-22.** `/native`, `/coach`, `/profile`, `/spar` all come
+back clean at 375pt: no horizontal overflow, no visible purchase CTA, no web
+footer, tab bar mounted. Two known non-issues, so nobody re-reports them:
+spar's `.waitlist-rail` sits at x -328 (the closed mobile drawer), and
+schools' `.hero-art` runs ~30pt past the fold but is clipped by an ancestor,
+so it crops rather than scrolls.
+
+Handy check, with the bridge forced on in a desktop browser at 375px — the
+app itself needs no rebuild for web-side changes, so this is the fast loop:
+
+```js
+window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+fetch('/js/native-bridge.js').then(r => r.text()).then(s => (0, eval)(s));
+```
 
 ---
 
@@ -178,10 +215,21 @@ xcrun devicectl device install app --device 00008150-001679E40AA0C01C \
   in the app. native-bridge enforces it; keep new paid surfaces tagged.
   Real revenue on iOS later = Apple IAP (RevenueCat), not the web flow.
 - **4.8 — Sign in with Apple.** We offer Google, so we MUST offer Sign in
-  with Apple in the app. Helper is wired: `window.dbAppleSignIn()` in
-  `app/js/auth-modal.js`. To go live it needs the Firebase Apple provider
-  enabled (Services ID + key from the Apple Developer portal) and the
-  `@capacitor-firebase/authentication` native flow surfaced in the app.
+  with Apple in the app. The chooser in `app/js/auth-modal.js` does that
+  (`renderChooser` adds "Continue with Apple" when `window.__DB_NATIVE`),
+  and `openAuthModal()` falls back to plain Google on the web.
+
+  The trap: nine surfaces ship their OWN Google-only button and never load
+  the chooser (coach and spar are tab targets; also live, index,
+  voice-debate, debate-it, learn, community, room-judge). The bridge now
+  loads the chooser everywhere in the app and intercepts those buttons
+  (capture phase, propagation stopped so the page's own popup does not also
+  fire). **If you add a new sign-in button, label it with the word "Google"
+  or it will not be routed** — the interceptor matches on the label.
+
+  Still needs Aidan: the Firebase Apple provider (Services ID + key from
+  the Apple Developer portal). The button is present and wired; until the
+  provider is enabled it will error rather than sign anyone in.
 - **4.2 — minimum functionality.** The release now has an app-only home,
   persistent native navigation, Apple and Google native auth, push alerts,
   native sharing, deep links, report/block, and account deletion. Keep those
