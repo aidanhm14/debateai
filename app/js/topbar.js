@@ -252,6 +252,9 @@
   // nav_more_click so usage is measurable per link.
   var MORE_GROUPS = [
     { head: 'Watch & compete', links: [
+      // 2026-07-22: async rounds — record now, they answer later. The
+      // no-simultaneity surface, so it belongs next to the live ones.
+      { href: '/rounds',      label: 'Async rounds' },
       { href: '/spectate',    label: 'Spectate live rounds' },
       { href: '/leaderboard', label: 'Leaderboard' },
       { href: '/community',   label: 'Community' },
