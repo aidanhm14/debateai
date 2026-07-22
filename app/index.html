@@ -2076,6 +2076,13 @@ html{background:#111}html:has(body.light-theme){background:#f5f5f7!important}bod
 .light-theme [style*="ffffff15"]{border-color:#d4c5be!important}
 .light-theme [style*="ffffff08"]{background:#f5f3f1!important}
 .light-theme .panel>div,.light-theme .panel-expanded>div{background:transparent!important}
+/* .output carries a dark panel background for the dark themes, and the
+   rule above only clears it for a DIRECT child of .panel. Every tab
+   renders its output nested deeper than that (Motions, Case, Judge,
+   Feedback), so in light theme. the default since 2026-07-05. the copy
+   was near-black #111 sitting on a charcoal box: invisible. Clear it at
+   any depth so the text is readable wherever the output lands. */
+.light-theme .output{background:transparent!important;backdrop-filter:none!important;border-color:#e3ded1!important}
 .light-theme .panel input,.light-theme .panel textarea,.light-theme .panel select{background:rgba(255,255,255,.6)!important;color:#1e293b!important;border:1px solid rgba(0,0,0,.06)!important;backdrop-filter:blur(16px)!important}
 .light-theme .newbie-table td{color:#475569!important;border-bottom-color:#f1f5f9!important}
 .light-theme .newbie-term .term-word{color:#d97706!important}
@@ -2664,6 +2671,31 @@ body.light-theme .nav .nav-btn:not(.active):not(.active-orange):not(.nav-btn-fea
 }
 .mo-picked-text{font-size:1.12rem;line-height:1.48;color:#f1f5f9;font-weight:600}
 .mo-picked-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
+
+/* Generated output sits on the stage as a card, matching the shelf. */
+.mo-stage .output{border-radius:14px}
+.light-theme .mo-shell .output{
+  background:#fff!important;border-color:#e3ded1!important;
+  box-shadow:0 2px 12px rgba(0,0,0,.06)!important;
+}
+/* Post-generation actions. The amber wash here was decoration, and amber
+   is reserved for state (warn / achievement / tier) per the 2026-05-19
+   colour pass. Neutral surface, red primary. */
+.mo-acts{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  margin-top:16px;padding:14px 18px;border-radius:12px;
+  background:#ffffff06;border:1px solid #ffffff12;
+}
+.mo-acts-fb{display:flex;gap:6px;margin-left:auto}
+.mo-acts-fb button{
+  background:none;border:1px solid #ffffff1a;border-radius:8px;
+  padding:5px 12px;cursor:pointer;font-family:inherit;
+  font-size:.72rem;font-weight:600;letter-spacing:.3px;color:#8f99a8;transition:.18s ease;
+}
+.mo-acts-fb button:hover{border-color:#ef444455;color:#ef4444}
+.light-theme .mo-shell .mo-acts{background:#fff!important;border-color:#e3ded1!important}
+.light-theme .mo-shell .mo-acts-fb button{border-color:#e3ded1!important;color:#8a8578!important}
+.light-theme .mo-shell .mo-acts-fb button:hover{border-color:#c0392f!important;color:#c0392f!important}
 
 /* What a generative source returns, laid out as its actual sections. */
 .mo-yield{padding:26px 28px;border:1px dashed #ffffff1f;border-radius:14px}
@@ -4158,6 +4190,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4172,7 +4205,6 @@ function PolyBackground() {
         el('path', { d: 'M46 32 Q52 22 60 24 Q68 22 74 32', stroke: '#ffffff', strokeWidth: 1, fill: 'none', opacity: .3 }), // Inner detail. tie/collar
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));}
-
 /* ═══════════════════════════════════════════════════
    ANTHROPIC API HELPER
    ═══════════════════════════════════════════════════ */
@@ -7485,37 +7517,41 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
   motionLoading && mProgress && el(LoadingBar, { label: fetchingNews ? 'Scanning news...' : genMode === 'agent' ? 'Crafting scenario...' : 'Generating motion...', percent: mProgress.percent, phase: mProgress.phase }),
 
   // Output. only shown when done
-  motionOutput && !motionLoading && !motionStreaming && el('div', { style: { marginTop: 20, animation: 'caseRevealIn .6s ease-out both' } },
+  motionOutput && !motionLoading && !motionStreaming && el('div', { style: { animation: 'caseRevealIn .6s ease-out both' } },
+  el('div', { className: 'mo-stage-head' },
+  el('h3', { className: 'mo-stage-title' }, activeSource.name),
+  el('p', { className: 'mo-stage-sub' },
+  active.length > 0 ? active.join(', ') : t('motions.anyTopic', 'Any topic'))
+  ),
   genMode === 'current' && newsContext && el(ContextualMedia, { topic: topicLabel || 'current events debate', type: 'context' }),
   el('div', { className: 'output', style: { textAlign: 'left' }, dangerouslySetInnerHTML: { __html: cleanOutput(motionOutput, true) } })
   ),
 
   // Action bar after generation
-  motionOutput && !motionStreaming && !motionLoading && el('div', {
-    style: {
-      display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center',
-      marginTop: 16, padding: '14px 20px',
-      background: '#fbbf2410', border: '1px solid #fbbf2430', borderRadius: 12,
-      flexWrap: 'wrap'
-    }
-  },
+  motionOutput && !motionStreaming && !motionLoading && el('div', { className: 'mo-acts' },
   el('button', {
-    className: genMode === 'current' ? 'btn btn-green' : 'btn btn-purple',
+    className: 'btn btn-orange',
     onClick: () => genMode === 'current' ? generateFromNews() : generateMotion(genMode === 'agent'),
-    style: { minWidth: 160 }
+    style: { minWidth: 150 }
   }, t('motions.newMotion', 'New Motion')),
   el('button', {
     className: 'btn btn-secondary',
     onClick: (e) => {
       copyWithFeedback(motionOutput, e.currentTarget);
     },
-    style: { minWidth: 120 }
+    style: { minWidth: 110 }
   }, t('common.copy', 'Copy')),
   el(SaveToDocsButton, { text: motionOutput, filename: 'Debatable Motion' }),
   // Quick feedback for recursive learning
-  el('div', { style: { display: 'flex', gap: 4, marginLeft: 'auto' } },
-  el('button', { onClick: () => logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: topicLabel || 'any', mode: genMode, rating: 'good' }), style: { background: 'none', border: '1px solid #22c55e30', borderRadius: 8, padding: '4px 10px', color: '#4ade80', cursor: 'pointer', fontSize: '.78rem', fontFamily: 'inherit' } }, '\uD83D\uDC4D'),
-  el('button', { onClick: () => logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: topicLabel || 'any', mode: genMode, rating: 'bad' }), style: { background: 'none', border: '1px solid #ef444430', borderRadius: 8, padding: '4px 10px', color: '#f87171', cursor: 'pointer', fontSize: '.78rem', fontFamily: 'inherit' } }, '\uD83D\uDC4E')
+  el('div', { className: 'mo-acts-fb' },
+  el('button', {
+    title: t('motions.rateGood', 'Good motion'),
+    onClick: (e) => {logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: topicLabel || 'any', mode: genMode, rating: 'good' });e.currentTarget.textContent = t('motions.rated', 'Noted');}
+  }, t('motions.good', 'Good')),
+  el('button', {
+    title: t('motions.rateWeak', 'Weak motion'),
+    onClick: (e) => {logInsight('motion_feedback', { motion: motionOutput.substring(0, 200), category: topicLabel || 'any', mode: genMode, rating: 'bad' });e.currentTarget.textContent = t('motions.rated', 'Noted');}
+  }, t('motions.weak', 'Weak'))
   ) // feedback
   ) // action bar
   ) // mo-stage
