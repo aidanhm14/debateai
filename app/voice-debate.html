@@ -1746,20 +1746,24 @@ input[type=text]:focus,select:focus,textarea:focus{
    orb (280px vs 180px), no card chrome, glow handled by canvas. */
 .setup-orb-hero{
   display:flex;flex-direction:column;align-items:center;text-align:center;
-  padding:8px 0 4px;position:relative;
+  /* 2026-07-22: the tableau doubled in presence (orb 280 -> up to 420,
+     figures up to 240) so the hero claims real vertical room instead
+     of floating in it. */
+  padding:clamp(16px,3vw,42px) 0 10px;position:relative;
 }
 .setup-orb-hero canvas.setup-orb{
-  width:280px;height:280px;display:block;position:relative;z-index:1;
+  width:clamp(300px,30vw,420px);height:auto;aspect-ratio:1/1;
+  display:block;position:relative;z-index:1;
 }
 @media (max-width:600px){
   .setup-orb-hero canvas.setup-orb{width:220px;height:220px}
 }
 .setup-orb-hero .setup-orb-label{
-  margin-top:18px;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;
+  margin-top:20px;font-size:.74rem;letter-spacing:.2em;text-transform:uppercase;
   font-weight:700;color:#fca5a5;
 }
 .setup-orb-hero .setup-orb-sub{
-  margin-top:8px;font-size:.86rem;color:#a3a3b3;line-height:1.5;max-width:400px;
+  margin-top:8px;font-size:.95rem;color:#a3a3b3;line-height:1.5;max-width:460px;
 }
 
 /* Standby waiting figures — reuse the live .stage-debater line-art +
@@ -1776,13 +1780,34 @@ input[type=text]:focus,select:focus,textarea:focus{
    black bg without competing with the orb. */
 .setup-orb-hero .standby-figures{
   position:absolute;left:50%;top:50%;
-  transform:translate(-50%,-44%);
-  width:min(880px,98vw);height:340px;
+  transform:translate(-50%,-46%);
+  /* 2026-07-22 rethink: wider box, taller figures, and a shared floor
+     so orb + debaters read as one staged tableau instead of three
+     things adrift on cream. */
+  width:min(1180px,96vw);height:clamp(360px,38vw,460px);
   pointer-events:none;z-index:-1;
 }
+/* Floor: a soft pool of light under the trio plus a faint warm wash
+   behind the orb, in one layer... */
+.setup-orb-hero .standby-figures::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 46% 52% at 50% 42%, rgba(239,68,68,.10), transparent 68%),
+    radial-gradient(ellipse 54% 10% at 50% 94%, rgba(29,25,21,.11), transparent 70%);
+}
+/* ...and a dashed perspective ellipse marking the stage edge, echoing
+   the dashed halos the figures already wear. */
+.setup-orb-hero .standby-figures::after{
+  content:'';position:absolute;
+  left:6%;right:6%;bottom:4%;height:20%;
+  border:1px dashed rgba(239,68,68,.22);
+  border-radius:50%;
+  -webkit-mask-image:linear-gradient(180deg,transparent 46%,#000 60%);
+          mask-image:linear-gradient(180deg,transparent 46%,#000 60%);
+}
 .standby-figures .stage-debater{
-  position:absolute;bottom:0;top:auto;
-  width:clamp(128px,16vw,178px);height:auto;
+  position:absolute;bottom:6%;top:auto;
+  width:clamp(150px,17vw,238px);height:auto;
   /* 2026-07-08: standby figures flanking the orb read as faint ghosts —
      opacity:.42 + thin muted-ivory hairlines lost against the black
      stage. Lift opacity and brighten the ink (below) so they read as
@@ -1811,7 +1836,7 @@ input[type=text]:focus,select:focus,textarea:focus{
    figures and not faded watermarks. */
 [data-theme="light"] .standby-figures .stage-debater,
 [data-theme="stone"] .standby-figures .stage-debater{
-  opacity:.5;
+  opacity:.62;
 }
 [data-theme="light"] .standby-figures .sf-left,
 [data-theme="stone"] .standby-figures .sf-left,
@@ -1867,6 +1892,13 @@ input[type=text]:focus,select:focus,textarea:focus{
 }
 /* Smaller canvas in viva mode so the board + orb fit without scrolling. */
 .shell--viva .setup-orb-hero canvas.setup-orb{width:200px;height:200px}
+/* Viva keeps its own tuned scale: the 2026-07-22 debate-stage rethink
+   (wider box, taller figures, dashed floor) would crowd the chalkboard
+   scene, so reset it here. */
+.shell--viva .setup-orb-hero .standby-figures{width:min(880px,98vw);height:340px;transform:translate(-50%,-44%)}
+.shell--viva .standby-figures .stage-debater{width:clamp(128px,16vw,178px);bottom:0}
+.shell--viva .setup-orb-hero .standby-figures::before,
+.shell--viva .setup-orb-hero .standby-figures::after{display:none}
 /* Over the dark board the figures' cream/dark line-art vanishes, so in
    viva mode redraw them as chalk-white so they read as chalk figures on
    the board (the colored heads keep the candidate/examiner identity). */
@@ -3722,7 +3754,9 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
     // breath (0.08 ± 0.05) so the orb is always visibly alive even
     // without audio amplitude. Real audio (which exceeds 0.13 the
     // moment anyone speaks) immediately overrides the breath.
-    var idleBreath = 0.08 + 0.05 * Math.sin(performance.now() * 0.0011);
+    // 2026-07-22: floor raised 0.08 -> 0.115 so the resting orb reads
+    // as a full body, not a thin ring (audio >0.13 still overrides).
+    var idleBreath = 0.115 + 0.055 * Math.sin(performance.now() * 0.0011);
     smoothLevel = Math.max(smoothLevel, idleBreath);
 
     ctx.clearRect(0, 0, W, H);
@@ -3765,8 +3799,16 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
       if (i === 0) ctx.moveTo(x, y);else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.lineWidth = 1.6 * dpr;
+    ctx.lineWidth = 2.1 * dpr;
     ctx.strokeStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},${0.55 + smoothLevel * 0.3})`;
+    ctx.stroke();
+    // Static orbit ring: a faint fixed circle just outside the waveform's
+    // resting radius. Gives the idle orb a defined silhouette; live
+    // amplitude crosses it freely and it fades into the aurora.
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.min(R * 1.5, ringMaxR), 0, Math.PI * 2);
+    ctx.lineWidth = 1 * dpr;
+    ctx.strokeStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},0.10)`;
     ctx.stroke();
     ctx.fillStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},${0.04 + smoothLevel * 0.06})`;
     ctx.fill();
