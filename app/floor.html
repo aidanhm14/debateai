@@ -1949,6 +1949,14 @@
       $('gtkyGo').addEventListener('click', function(){ gtkyFinish(prof); });
     }
   }
+  // The welcome toast waits its turn: if the tutorial is about to open,
+  // firing it immediately buries it under the overlay.
+  var pendingWelcome = null;
+  function flushWelcome(delay){
+    if(!pendingWelcome) return;
+    var msg = pendingWelcome; pendingWelcome = null;
+    setTimeout(function(){ toast(msg,''); }, delay||0);
+  }
   function gtkyFinish(prof){
     document.documentElement.classList.remove('gtky-first');
     $('gtkyOverlay').classList.remove('on');
@@ -1956,7 +1964,14 @@
     if(prof&&prof.t){ P.predictorProfile = prof.t; P.seenWelcome = true; save(); }
     revealed = {}; // let the board animate in as the intro closes
     render();
-    if(prof&&prof.t){ setTimeout(function(){ toast('Welcome, <b>'+esc(prof.t)+'</b>. You have '+fmtN(P.credits)+' credits. Predict before the motion drops for the biggest Sharp boost.',''); }, 500); }
+    if(prof&&prof.t){ pendingWelcome = 'Welcome, <b>'+esc(prof.t)+'</b>. You have '+fmtN(P.credits)+' credits. Predict before the motion drops for the biggest Sharp boost.'; }
+    // The quiz owns the first slot, the mechanics own the second. Until
+    // 2026-07-22 the tutorial opened only from the "? How it works"
+    // button, so a first-timer met a live prediction market having been
+    // told nothing about how predicting works. It opens after render()
+    // so the steps land against a board that is already there.
+    if(!tutSeen()) setTimeout(openTut, 420);
+    else flushWelcome(500);
   }
   function gtkyOpen(){ gtkyAns={}; gtkyI=0; gtkyRender(); $('gtkyOverlay').classList.add('on'); }
   (function(){ var done=false; try{ done=!!localStorage.getItem(GTKY_KEY); }catch(e){} if(!done) gtkyOpen(); })(); // synchronous so the overlay is filled before first paint (no board flash)
@@ -1980,15 +1995,23 @@
     $('tutBack').style.visibility = tutI===0 ? 'hidden' : 'visible';
     $('tutNext').textContent = (tutI===TUT_STEPS.length-1) ? 'Got it' : 'Next';
   }
+  function tutSeen(){ try{ return localStorage.getItem(TUT_KEY)==='1'; }catch(e){ return false; } }
   function openTut(){ tutI=0; renderTut(); $('tutOverlay').classList.add('on'); }
-  function closeTut(){ $('tutOverlay').classList.remove('on'); try{ localStorage.setItem(TUT_KEY,'1'); }catch(e){} }
+  function closeTut(){ $('tutOverlay').classList.remove('on'); try{ localStorage.setItem(TUT_KEY,'1'); }catch(e){} flushWelcome(400); }
   $('helpBtn').addEventListener('click', openTut);
   $('tutSkip').addEventListener('click', closeTut);
   $('tutBack').addEventListener('click', function(){ if(tutI>0){ tutI--; renderTut(); } });
   $('tutNext').addEventListener('click', function(){ if(tutI<TUT_STEPS.length-1){ tutI++; renderTut(); } else closeTut(); });
   $('tutOverlay').addEventListener('click', function(e){ if(e.target===$('tutOverlay')) closeTut(); });
-  // Tutorial no longer auto-opens on first visit — the get-to-know-you
-  // intro owns that slot. "How it works" reopens the mechanics anytime.
+  // The tutorial now follows the get-to-know-you intro on a first visit
+  // (see gtkyFinish). "How it works" still reopens it anytime.
+  // Backfill: everyone who took the quiz before the two were chained
+  // together has never seen the mechanics at all. Show them once, on a
+  // short delay so the board paints first.
+  (function(){
+    var gtkyDone=false; try{ gtkyDone=!!localStorage.getItem(GTKY_KEY); }catch(e){}
+    if(gtkyDone && !tutSeen()) setTimeout(openTut, 900);
+  })();
 
   // ---------------------------------------------------------------
   // TABS

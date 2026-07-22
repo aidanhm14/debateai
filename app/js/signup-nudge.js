@@ -243,11 +243,6 @@
     window.addEventListener('resize', syncFeedbackPill, { passive: true });
   }
 
-  function introSeen(){
-    try { return localStorage.getItem('debateai-intro-seen') === '1'; }
-    catch (e) { return false; }
-  }
-
   function mount(attempt){
     if (bar) return;
     attempt = attempt || 0;
@@ -259,20 +254,13 @@
     // One bottom sheet at a time on mobile: if the go-live card is already
     // showing, it owns the bottom. yield to it.
     if (document.querySelector('.da-golive')){ return; }
-    // Don't stack on top of the first-visit intro modal (it's the same
-    // ask, and the two collided at the bottom of the screen). Defer until
-    // that modal is dismissed; the bar then appears on its own.
-    if (document.querySelector('.intro-modal.is-open')){ setTimeout(function(){ mount(attempt); }, 1500); return; }
-    // Same rule for the landing welcome flow (2026-07-09): the voiced
-    // countdown intro (which now carries the onboarding questions) owns
-    // the whole screen while up. Defer until it lifts.
+    // The landing welcome flow (2026-07-09) owns the whole screen while
+    // up. Defer until it lifts. The two older guards here tracked the
+    // first-visit intro modal, deleted 2026-06-23: one matched a class
+    // that no longer renders, the other gated on a localStorage key
+    // nothing has written since. Both were permanent no-ops. Removed
+    // 2026-07-22.
     if (document.documentElement.getAttribute('data-intro') === '1'){ setTimeout(function(){ mount(attempt); }, 1500); return; }
-    // If a first-visit intro modal lives on this page but hasn't been
-    // resolved yet, it's the SAME sign-in ask and is about to open after
-    // the visitor scrolls. Skip the nudge entirely for this page-load so
-    // the two never stack at the bottom of the screen. On the next visit
-    // (intro already seen) the nudge takes over as the recurring prompt.
-    if (document.getElementById('introModal') && !introSeen()){ return; }
     injectStyle();
     // Reminders swap the page-contextual line for the benefits pitch:
     // the visitor already saw the ask, so answer "why bother" instead.

@@ -4917,22 +4917,6 @@ section.hero .hero-illustrated h1.hi-headline{
    week's live-round searches. Numbers carry the hero red; the rest
    stays soft ink so it reads as proof, not a shout. */
 
-/* Persistent re-trigger for the onboarding modal. Quiet ghost pill —
-   small, slightly transparent, with a red arrow to telegraph it's a
-   clickable doorway. Sits between the proof strip and the CTA row;
-   centered so it tracks the hero's vertical spine. */
-.hero-illustrated .hi-first-time{
-  display:inline-flex;align-items:center;gap:6px;
-  margin:0;padding:6px 13px;width:max-content;
-  background:transparent;color:var(--hi-ink-soft);
-  border:1px solid var(--hi-line-soft,rgba(29,25,21,.22));border-radius:999px;
-  font-family:'Crimson Pro','Inter',system-ui,sans-serif;font-size:.78rem;font-weight:600;letter-spacing:.005em;
-  cursor:pointer;transition:color .15s,border-color .15s,background .15s,transform .12s}
-.hero-illustrated .hi-first-time:hover{
-  color:#c83232;border-color:#c83232;background:rgba(200,30,30,.06);transform:translateY(-1px)}
-.hero-illustrated .hi-first-time-arrow{color:#c83232;transition:transform .15s}
-.hero-illustrated .hi-first-time:hover .hi-first-time-arrow{transform:translateX(3px)}
-
 /* ── LIVE DEBATE ROOM STAGE (2026-06-12) ──────────────────────────
    The metaphor era is over: the stage now shows the product itself.
    Layered command center, back to front — world map (the network),
@@ -5619,14 +5603,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .wi-ring{position:absolute;top:50%;left:50%;width:min(64vmin,540px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(29,25,21,.13);overflow:hidden;transition:border-color .9s ease;animation:wiPulse 3.4s ease-in-out infinite}
   @keyframes wiPulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.035)}}
   #welcomeIntro.wi-red .wi-ring{border-color:rgba(255,255,255,.3)}
-  .wi-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(200,50,50,.14),rgba(200,50,50,.02) 26%,transparent 26%);animation:wiSweep 1.9s linear infinite;transform-origin:50% 50%}
-  #welcomeIntro.wi-red .wi-sweep{background:conic-gradient(from 0deg,rgba(255,255,255,.2),rgba(255,255,255,.02) 26%,transparent 26%)}
-  @keyframes wiSweep{to{transform:rotate(360deg)}}
   .wi-ring-inner{position:absolute;inset:12%;border-radius:50%;border:1px solid rgba(29,25,21,.08);transition:border-color .9s ease}
   #welcomeIntro.wi-red .wi-ring-inner{border-color:rgba(255,255,255,.12)}
-  /* Giant faint countdown numeral behind the phrase */
-  .wi-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);font:900 clamp(11rem,40vmin,20rem)/1 'Crimson Pro',Georgia,serif;color:rgba(29,25,21,.055);pointer-events:none;user-select:none;transition:color .9s ease,opacity .5s ease}
-  #welcomeIntro.wi-red .wi-num{color:rgba(255,255,255,.07)}
   /* One-colour wordmark (2026-07-22, per Aidan: "just a red debatable, not
      black and red"): red on the cream stage, white on the red stage. */
   .wi-brand{position:absolute;top:38px;left:0;right:0;text-align:center;font:900 .74rem/1 Inter,system-ui,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:#c83232;transition:color .9s ease}
@@ -5636,15 +5614,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .wi-skip:hover{color:rgba(29,25,21,.7)}
   #welcomeIntro.wi-red .wi-skip{color:rgba(255,255,255,.55)}
   #welcomeIntro.wi-red .wi-skip:hover{color:#fff}
-  .wi-phrase{position:relative;z-index:2;max-width:92vw;padding:0 22px;text-align:center;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:800;font-size:clamp(2.4rem,7.2vw,4.8rem);line-height:1.02;letter-spacing:-.02em;color:#1a1a1f;opacity:0}
-  .wi-phrase b{color:#c83232;font-weight:800}
-  .wi-phrase.is-in{animation:wiPhrase 1.62s cubic-bezier(.2,.8,.2,1) both}
-  @keyframes wiPhrase{
-    0%{opacity:0;transform:translateY(18px) scale(.97)}
-    12%{opacity:1;transform:none}
-    84%{opacity:1;transform:none}
-    100%{opacity:0;transform:translateY(-12px) scale(1.01)}
-  }
   /* Question stage — lives inside the pulsing ring area, swaps between
      the white and red surfaces. */
   .wi-q{position:relative;z-index:2;width:min(92vw,900px);max-width:900px;padding:0 22px;text-align:center;display:none;opacity:0}
@@ -6880,277 +6849,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 })();
 </script>
 
-<!-- ── First-visit intro modal (2026-05-18). Page loads, the orb does
-     a quiet breath animation for ~1.2s, then this overlay fades in
-     with a sign-in-with-Google CTA + a 'continue as guest' bail-out.
-     localStorage flag `debateai-intro-seen` ensures it only appears
-     once per browser. Sign-in click delegates to the existing
-     #heroGoogleSignup button which fires the Firebase Google flow
-     wired further down the page. Guest click sets the flag and just
-     dismisses (no redirect). -->
-<style>
-  .intro-modal{
-    position:fixed;inset:0;z-index:9999;
-    display:flex;align-items:center;justify-content:center;
-    padding:24px;
-    opacity:0;transition:opacity .35s ease;
-    pointer-events:none;
-  }
-  .intro-modal.is-open{opacity:1;pointer-events:auto}
-  .intro-backdrop{
-    position:absolute;inset:0;
-    background:rgba(0,0,0,.6);
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-  }
-  [data-theme="light"] .intro-backdrop{background:rgba(0,0,0,.42)}
-  .intro-card{
-    position:relative;z-index:1;
-    width:min(440px,92vw);
-    background:var(--bg);
-    border:1px solid var(--border);
-    border-radius:18px;
-    padding:36px 32px 28px;
-    text-align:center;
-    box-shadow:0 30px 80px rgba(0,0,0,.5);
-    transform:scale(.96);
-    transition:transform .35s cubic-bezier(.2,.7,.2,1);
-  }
-  [data-theme="light"] .intro-card{
-    background:#fff;
-    box-shadow:0 30px 80px rgba(0,0,0,.18);
-  }
-  .intro-modal.is-open .intro-card{transform:scale(1)}
-  .intro-close{
-    position:absolute;top:10px;right:14px;
-    background:transparent;border:none;cursor:pointer;
-    color:var(--text-dim);font-size:1.4rem;line-height:1;
-    width:32px;height:32px;border-radius:999px;
-    transition:background .15s,color .15s;
-  }
-  .intro-close:hover{background:rgba(255,255,255,.06);color:var(--text)}
-  [data-theme="light"] .intro-close:hover{background:rgba(0,0,0,.05)}
-  .intro-orb{
-    position:relative;
-    width:120px;height:120px;
-    margin:0 auto 20px;
-  }
-  .intro-orb-glow{
-    position:absolute;inset:-30px;
-    background:radial-gradient(circle at center, rgba(239,68,68,.5) 0%, rgba(239,68,68,.18) 30%, transparent 70%);
-    animation:intro-glow 2.6s ease-in-out infinite;
-  }
-  .intro-orb-ring{
-    position:absolute;inset:14px;
-    border:1px solid rgba(239,68,68,.45);
-    border-radius:50%;
-    animation:intro-ring 2.6s ease-in-out infinite;
-  }
-  .intro-orb-core{
-    position:absolute;left:50%;top:50%;
-    width:10px;height:10px;margin:-5px 0 0 -5px;
-    background:#fff;border-radius:50%;
-    box-shadow:0 0 24px 4px rgba(239,68,68,.7);
-    animation:intro-core 2.6s ease-in-out infinite;
-  }
-  @keyframes intro-glow{
-    0%,100%{opacity:.55;transform:scale(1)}
-    50%{opacity:1;transform:scale(1.08)}
-  }
-  @keyframes intro-ring{
-    0%,100%{transform:scale(1);opacity:.5}
-    50%{transform:scale(1.12);opacity:.85}
-  }
-  @keyframes intro-core{
-    0%,100%{box-shadow:0 0 20px 3px rgba(239,68,68,.6)}
-    50%{box-shadow:0 0 34px 7px rgba(239,68,68,.95)}
-  }
-  @media (prefers-reduced-motion:reduce){
-    .intro-orb-glow,.intro-orb-ring,.intro-orb-core{animation:none}
-  }
-  .intro-title{
-    font-family:'Crimson Pro','Fraunces',Georgia,serif;
-    font-size:1.6rem;font-weight:600;line-height:1.15;letter-spacing:-.02em;
-    color:var(--text);margin:0 0 10px;
-    font-variation-settings:"opsz" 144, "SOFT" 60;
-  }
-  .intro-sub{
-    font-size:.9rem;line-height:1.55;color:var(--text-dim);
-    margin:0 0 22px;
-  }
-  .intro-sub strong{color:var(--text);font-weight:700}
-  .intro-ctas{display:flex;flex-direction:column;gap:10px;align-items:stretch}
-  .intro-google{
-    display:inline-flex;align-items:center;justify-content:center;gap:10px;
-    padding:12px 18px;border-radius:999px;
-    background:#fff;color:#1a1a1f;
-    border:1px solid rgba(0,0,0,.10);
-    font-family:inherit;font-weight:700;font-size:.95rem;
-    cursor:pointer;
-    box-shadow:0 6px 20px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.7);
-    transition:transform .15s, box-shadow .15s;
-  }
-  .intro-google:hover{
-    transform:translateY(-1px);
-    box-shadow:0 10px 28px rgba(220,38,38,.25), inset 0 1px 0 rgba(255,255,255,.9);
-  }
-  /* 2026-05-26: muted further. Was .84rem / text-dim with underline,
-     which read as a parallel choice. The new spec names the cost in
-     the label itself so the trade-off is legible, and the styling
-     drops to ghost text + thinner underline so the eye lands on the
-     Google button first. */
-  .intro-guest{
-    background:transparent;border:none;
-    font-family:inherit;
-    font-size:.7rem;color:var(--text-ghost,rgba(0,0,0,.42));
-    text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;
-    cursor:pointer;padding:6px;
-    opacity:.55;
-    transition:opacity .15s, color .15s;
-  }
-  .intro-guest:hover{opacity:.85;color:var(--text-dim)}
-  .intro-guest .ig-cost{font-style:normal;opacity:.85;margin-left:4px}
-  /* 2026-05-27 — email/phone capture path. Lightweight tracking-signal
-     collection for visitors who refuse the Google round-trip. Mounts a
-     `prospect-capture.js` form into #introCapture below. */
-  .intro-divider{
-    display:flex;align-items:center;gap:8px;
-    font-size:.62rem;font-weight:700;letter-spacing:.16em;
-    text-transform:uppercase;color:var(--text-dim);opacity:.65;
-    margin:14px 0 2px;
-  }
-  .intro-divider::before,.intro-divider::after{
-    content:'';flex:1;height:1px;background:var(--border);
-  }
-  .intro-capture{margin-top:2px}
-</style>
-<!-- 2026-06-23: the "Listen. Question. Respond." intro sign-in modal was
-     removed entirely per Aidan (it was an intrusive interstitial). The
-     controlling script below now no-ops on the missing #introModal. Sign-in
-     still surfaces via the topbar, the /spar onboarding, and the
-     post-generation nudge — this just kills the timed full-screen popup. -->
-<script>
-  (function(){
-    var KEY = 'debateai-intro-seen';
-    try { if (localStorage.getItem(KEY)) return; } catch(e){}
-    var modal = document.getElementById('introModal');
-    if (!modal) return;
-    var google = document.getElementById('introGoogle');
-    var guest = document.getElementById('introGuest');
-    var close = document.getElementById('introClose');
-    var backdrop = document.getElementById('introBackdrop');
-
-    function open(){
-      modal.hidden = false;
-      modal.setAttribute('aria-hidden','false');
-      // Kill any signup-nudge corner pill that beat us onto the screen so
-      // the two sign-in asks never stack at the bottom (signup-nudge.js
-      // mounts on an 8s timer; this modal opens later, after scroll).
-      var nudge = document.querySelector('.signup-nudge');
-      if (nudge) {
-        nudge.classList.remove('is-in');
-        setTimeout(function(){ if (nudge && nudge.parentNode) nudge.parentNode.removeChild(nudge); }, 280);
-      }
-      // Next frame so the transition runs
-      requestAnimationFrame(function(){ modal.classList.add('is-open'); });
-      // 2026-06-23: the email-capture form under the "or" was removed per
-      // Aidan ("remove this extra visual google sign up, one is already
-      // there"). The modal is now a single clean Google ask + a demoted
-      // guest out, to push sign-in over anonymous.
-    }
-    function dismiss(){
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden','true');
-      try { localStorage.setItem(KEY,'1'); } catch(e){}
-      setTimeout(function(){ modal.hidden = true; }, 380);
-    }
-
-    google.addEventListener('click', function(){
-      dismiss();
-      // Delegate to the hero Google CTA (already wired to Firebase).
-      var heroBtn = document.getElementById('heroGoogleSignup');
-      if (heroBtn) heroBtn.click();
-      else {
-        var realBtn = document.getElementById('googleSignupBtn');
-        if (realBtn) realBtn.click();
-      }
-    });
-    guest.addEventListener('click', dismiss);
-    close.addEventListener('click', dismiss);
-    backdrop.addEventListener('click', dismiss);
-    document.addEventListener('keydown', function(e){
-      if (e.key === 'Escape' && !modal.hidden) dismiss();
-    });
-
-    // Wait for Firebase + auth state before deciding whether to show.
-    // If user is already signed in, mark intro as seen and skip — they
-    // don't need to be asked to sign in again. If Firebase never loads
-    // (extensions blocking, offline, etc.) fall through to showing the
-    // modal after a 1.6s timeout so we don't silently skip the prompt.
-    var AUTH_WAIT_MAX = 1600;       // give Firebase up to 1.6s to resolve auth
-    var SHOW_AFTER_SCROLL = 10000;  // open 10s after the visitor's first real scroll
-    var decided = false, openArmed = false;
-    function decide(skip){
-      if (decided) return;
-      decided = true;
-      if (skip) { try { localStorage.setItem(KEY,'1'); } catch(e){} return; }
-      // Don't interrupt on load. Wait until the visitor engages by
-      // scrolling, then 10s, before asking them to sign in — more of the
-      // page gets seen (fewer instant bounces) and the prompt lands on
-      // people actually reading. Pages too short to scroll fall back to a
-      // plain 10s timer so the prompt still surfaces.
-      if ((document.documentElement.scrollHeight - window.innerHeight) > 120) {
-        // If they already scrolled while auth was resolving, count it.
-        if ((window.scrollY || window.pageYOffset || 0) > 60) { armShow(); }
-        else { window.addEventListener('scroll', onScrollShow, { passive: true }); }
-      } else {
-        setTimeout(reallyOpen, SHOW_AFTER_SCROLL);
-      }
-    }
-    function onScrollShow(){
-      if ((window.scrollY || window.pageYOffset || 0) > 60) armShow();
-    }
-    function armShow(){
-      if (openArmed) return;
-      openArmed = true;
-      window.removeEventListener('scroll', onScrollShow);
-      setTimeout(reallyOpen, SHOW_AFTER_SCROLL);
-    }
-    function reallyOpen(){
-      // Re-check auth in case they signed in during the wait.
-      try {
-        var current = window.firebase && firebase.auth && firebase.auth().currentUser;
-        if (current && !current.isAnonymous) {
-          try { localStorage.setItem(KEY,'1'); } catch(e){}
-          return;
-        }
-      } catch(e){}
-      open();
-    }
-    function tryAuth(){
-      try {
-        if (window.firebase && firebase.auth) {
-          firebase.auth().onAuthStateChanged(function(user){
-            decide(!!(user && !user.isAnonymous));
-          });
-          // Hard cap — if onAuthStateChanged never fires (rare), show anyway.
-          setTimeout(function(){ decide(false); }, AUTH_WAIT_MAX);
-          return true;
-        }
-      } catch(e){}
-      return false;
-    }
-    if (!tryAuth()) {
-      var pollStart = Date.now();
-      var poll = setInterval(function(){
-        if (tryAuth() || Date.now() - pollStart > AUTH_WAIT_MAX) {
-          clearInterval(poll);
-          if (!decided) decide(false);
-        }
-      }, 150);
-    }
-  })();
-</script>
+<!-- The first-visit intro sign-in modal was removed 2026-06-23 as an
+     intrusive interstitial; its CSS and controlling script shipped dead
+     on every load until 2026-07-22. Sign-in surfaces via the topbar, the
+     welcome intro, /spar onboarding and the post-generation nudge. -->
 
 <!-- ── In-page feedback modal (2026-05-18). Embeds the same Google
      Form the pricing page links to, but inline so users can drop a
