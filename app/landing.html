@@ -13625,14 +13625,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      disappears, so the proof never breaks. -->
 <div class="divider"></div>
 
-<!-- ── Ranked band (2026-07-18, restored per Aidan). Rounds are scheduled
-     and livestreamed, so three surfaces earn the scroll again: the
-     cross-format leaderboard (real rows via the new /api/leaderboard-top,
-     an honest be-among-the-first pitch when the board is thin), a Watch
-     rounds door into /live with live pills from /api/live-now +
-     /api/schedule-round, and a Round updates door into the #waitlist
-     band below. Same real-data-only rules as the community band: every
-     live pill hides when there is nothing real behind it. -->
+<!-- ── Ranked band (2026-07-18, restored per Aidan; narrowed to the
+     leaderboard alone 2026-07-22). The Watch-rounds and Round-updates
+     side cards were cut: /live already has its own band and the waitlist
+     sits directly below, so this band was three doors deep in a section
+     that only needed one. What is left is the cross-format leaderboard,
+     full width, eight rows deep, fed by /api/leaderboard-top. Same
+     real-data rule as before: real rows when there are at least three,
+     otherwise a clearly-labeled sample board. -->
 
 <!-- ── Real-room photo bands (2026-07-18) both removed 2026-07-19: the
      trained-room.jpg band that sat here read as AI-generated (per
@@ -13640,7 +13640,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      commit. round.jpg lives on inside the ranked band's Watch card as
      a media header. -->
 
-<section id="ranked-band" class="ranked-band" aria-label="Leaderboard and livestreamed rounds">
+<section id="ranked-band" class="ranked-band" aria-label="Cross-format leaderboard">
   <style>
     .ranked-band{padding:var(--mid-pad-block) var(--mid-gutter);display:flex;justify-content:center}
     [data-theme="light"] .ranked-band{background:linear-gradient(180deg,#faf7f1,#fdfbf6)}
@@ -13651,9 +13651,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .rb-title em{font-style:normal;color:#ef4444}
     .rb-sub{font-size:clamp(.98rem,1.25vw,1.08rem);line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));max-width:760px;margin:0 auto 30px}
     [data-theme="light"] .rb-sub{color:rgba(0,0,0,.66)}
-    .rb-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;text-align:left}
-    @media(max-width:820px){.rb-grid{grid-template-columns:1fr;max-width:520px;margin:0 auto}}
-    .rb-card{display:flex;flex-direction:column;padding:22px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
+    /* 2026-07-22: the Watch and Round-updates side cards were cut; this
+       band is the leaderboard alone, so the board gets the full column
+       instead of two thirds of it. */
+    .rb-grid{max-width:760px;margin:0 auto;text-align:left}
+    .rb-card{display:flex;flex-direction:column;padding:clamp(22px,3vw,30px);border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
     [data-theme="light"] .rb-card{border-color:rgba(29,25,21,.10);background:#fffefb;box-shadow:0 10px 28px rgba(29,25,21,.055)}
     .rb-kicker{font-size:.62rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#ef4444;margin:0 0 10px}
     .rb-card-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.22rem;font-weight:700;letter-spacing:-.01em;color:var(--text,#f4f4f2);margin:0 0 6px}
@@ -13742,102 +13744,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .rb-rk--bronze{color:#b45309 !important}
     .rb-sample-pill{float:right;font-style:normal;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.2);color:var(--text-dim,rgba(255,255,255,.55))}
     [data-theme="light"] .rb-sample-pill{border-color:rgba(0,0,0,.16);color:rgba(0,0,0,.45)}
-    /* Live pills inside the watch card */
-    .rb-pills{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
-    .rb-pill{display:none;align-items:center;gap:7px;max-width:100%;padding:6px 12px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.04);font-size:.76rem;color:var(--text-dim,rgba(255,255,255,.7));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    [data-theme="light"] .rb-pill{border-color:rgba(29,25,21,.09);background:#fff;box-shadow:0 1px 2px rgba(29,25,21,.04);color:rgba(29,25,21,.62)}
-    .rb-pill b{color:var(--text,#f4f4f2);font-weight:800}
-    [data-theme="light"] .rb-pill b{color:#1a1a1f}
-    .rb-pill .dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:lnDot 1.8s ease-in-out infinite;flex:none}
-    .rb-side{display:flex;flex-direction:column;gap:14px}
-    .rb-side .rb-card{flex:1}
-    /* Full-bleed photo header inside a card (bleeds over the 22px padding) */
-    .rb-card-media{margin:-22px -22px 16px;aspect-ratio:21/9;overflow:hidden;border-radius:13px 13px 0 0;flex:none}
-    .rb-card-media img{width:100%;height:100%;object-fit:cover;object-position:50% 38%;display:block}
-    /* ── side-card visuals: break the uniform-rectangle rhythm ──
-       Spectate: abstract on-air tiles (no fabricated motions or viewer
-       counts; the REAL data rides the rbPills below). Updates: a tilted
-       calendar leaf that leans out of the card edge. */
-    .rb-onair{position:relative;margin:14px 0 4px;padding:12px;border-radius:12px;background:rgba(24,17,15,.92);border:1px solid rgba(255,255,255,.1)}
-    .rb-onair-chip{position:absolute;top:-9px;left:12px;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:#dc2626;color:#fff;font-weight:900;font-size:.6rem;line-height:1;letter-spacing:.12em;text-transform:uppercase}
-    .rb-onair-chip i{width:5px;height:5px;border-radius:50%;background:#fff;animation:rbLiveDot 1.6s ease-in-out infinite}
-    @keyframes rbLiveDot{50%{opacity:.35}}
-    .rb-onair-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .rb-onair-tile{position:relative;aspect-ratio:16/9;border-radius:8px;background:linear-gradient(160deg,#3a2d27,#211915);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
-    .rb-onair-tile b{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:26%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 38% 32%,#8a6f5e,#4a382e)}
-    .rb-onair-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:8px}
-    .rb-onair-tile--talk{box-shadow:inset 0 0 0 2px #ef4444}
-    .rb-onair-tile--talk::after{content:"";position:absolute;inset:0;border-radius:8px;box-shadow:inset 0 0 0 2px #ef4444;pointer-events:none}
-    .rb-onair-tile--talk em{position:absolute;bottom:9px;width:3px;border-radius:2px;background:#ef4444;animation:rbTalk 1s ease-in-out infinite}
-    .rb-onair-tile--talk em:nth-child(2){left:12px;height:8px}
-    .rb-onair-tile--talk em:nth-child(3){left:18px;height:13px;animation-delay:.18s}
-    .rb-onair-tile--talk em:nth-child(4){left:24px;height:6px;animation-delay:.32s}
-    @keyframes rbTalk{50%{transform:scaleY(.45)}}
-    .rb-cal{margin:16px -34px 4px auto;width:min(210px,80%);padding:12px 14px 14px;border-radius:12px;background:#fff;border:1px solid rgba(0,0,0,.14);box-shadow:0 10px 26px rgba(20,15,10,.16);transform:rotate(2.4deg)}
-    [data-theme="grey"] .rb-cal,[data-theme="crimson"] .rb-cal{background:#1d1713;border-color:rgba(255,255,255,.14)}
-    .rb-cal-head{display:flex;align-items:center;gap:7px;margin-bottom:9px}
-    .rb-cal-head span{width:8px;height:8px;border-radius:2px;background:#dc2626}
-    .rb-cal-head b{font-weight:800;font-size:.66rem;line-height:1;letter-spacing:.1em;text-transform:uppercase;color:rgba(0,0,0,.55)}
-    [data-theme="grey"] .rb-cal-head b,[data-theme="crimson"] .rb-cal-head b{color:rgba(255,255,255,.6)}
-    .rb-cal-bell{margin-left:auto;width:10px;height:10px;border-radius:50% 50% 2px 2px;border:1.5px solid #dc2626;border-bottom-width:3px}
-    .rb-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-    .rb-cal-grid u{display:block;aspect-ratio:1;border-radius:4px;background:rgba(0,0,0,.07)}
-    [data-theme="grey"] .rb-cal-grid u,[data-theme="crimson"] .rb-cal-grid u{background:rgba(255,255,255,.1)}
-    .rb-cal-grid u.on{background:rgba(220,38,38,.3)}
-    .rb-cal-grid u.hot{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);animation:rbLiveDot 2s ease-in-out infinite}
-    @media(max-width:1023px){.rb-cal{margin-right:-10px}}
   </style>
   <div class="rb-wrap">
-    <div class="rb-eyebrow">Scheduled &middot; Livestreamed &middot; Ranked</div>
-    <h2 class="rb-title">Every round counts. <em>Anyone can watch.</em></h2>
-    <p class="rb-sub">Rounds get scheduled, livestreamed, and ranked on the cross-format leaderboard when the ballot comes back. Watch the ones you are not in.</p>
+    <div class="rb-eyebrow">One board &middot; Every format</div>
+    <h2 class="rb-title">Every round counts. <em>Toward one board.</em></h2>
+    <p class="rb-sub">Live rounds against people and rounds against the AI both score. When the ballot comes back, your speaks land on the cross-format leaderboard. Best entry per debater, nothing else.</p>
     <div class="rb-grid">
       <div class="rb-card">
         <p class="rb-kicker">The leaderboard</p>
         <p class="rb-card-title">Ranked across every format.</p>
-        <p class="rb-card-body">Live rounds and AI rounds both score. One board, every format, best entry per debater.</p>
+        <p class="rb-card-body">BP sits next to APDA sits next to PF. The ballot is written by the same judge either way, so the scale means the same thing in every row.</p>
         <div id="rbBoard"></div>
         <a class="rb-go" href="/leaderboard" data-rb="leaderboard">See the full leaderboard &rarr;</a>
-      </div>
-      <div class="rb-side">
-        <div class="rb-card">
-          <p class="rb-kicker">Watch rounds</p>
-          <p class="rb-card-title">Spectate the next one live.</p>
-          <p class="rb-card-body">Scheduled debates run in open rooms. Watch live, or open the round after.</p>
-          <div class="rb-onair" aria-hidden="true">
-            <span class="rb-onair-chip"><i></i>Live</span>
-            <div class="rb-onair-tiles"><span class="rb-onair-tile"><b></b><img src="/img/round/faces/face19.jpg" alt="" decoding="async" onerror="this.style.display='none'"></span><span class="rb-onair-tile rb-onair-tile--talk"><b></b><img src="/img/round/faces/face20.jpg" alt="" decoding="async" onerror="this.style.display='none'"><em></em><em></em><em></em></span></div>
-          </div>
-          <div class="rb-pills" id="rbPills">
-            <span class="rb-pill" id="rbLivePill"></span>
-            <span class="rb-pill" id="rbNextPill"></span>
-          </div>
-          <a class="rb-go" href="/live" data-rb="watch">See what's on &rarr;</a>
-        </div>
-        <div class="rb-card">
-          <p class="rb-kicker">Round updates</p>
-          <p class="rb-card-title">Know when the next one starts.</p>
-          <p class="rb-card-body">Register once. We email you when rounds are scheduled and when they go live.</p>
-          <div class="rb-cal" aria-hidden="true">
-            <div class="rb-cal-head"><span></span><b>Round nights</b><i class="rb-cal-bell"></i></div>
-            <div class="rb-cal-grid">
-              <u></u><u></u><u></u><u class="on"></u><u></u><u></u><u></u>
-              <u></u><u class="on"></u><u></u><u></u><u></u><u></u><u></u>
-              <u></u><u></u><u></u><u></u><u class="hot"></u><u></u><u></u>
-              <u></u><u></u><u class="on"></u><u></u><u></u><u></u><u></u>
-            </div>
-          </div>
-          <a class="rb-go" href="#waitlist" data-rb="register">Keep me updated &rarr;</a>
-        </div>
       </div>
     </div>
   </div>
 </section>
 <script>
-/* Ranked band data: one fetch per endpoint, fired once when the band
-   scrolls into view. Real data only. The leaderboard renders real rows
-   or an honest be-among-the-first pitch, never seeded names; the live
-   pills stay hidden until something real lands. */
+/* Ranked band data: one fetch, fired once when the band scrolls into
+   view. The board renders real rows when at least three exist, and a
+   pilled "Sample board" otherwise, so a thin board never passes itself
+   off as real standings. */
 (function(){
   var band = document.getElementById('ranked-band');
   if (!band) return;
@@ -13845,12 +13772,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
       return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
     });
-  }
-  function pill(id, html){
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = html;
-    el.style.display = 'inline-flex';
   }
   function fmtScore(n){
     if (typeof n !== 'number') return '';
@@ -13958,14 +13879,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         { name: 'Tomás', format: 'APDA',        score: 28.0, kind: 'voice', side: 'Gov' },
         { name: 'Zainab', format: 'Asian Parli', score: 27.5, kind: 'live',  side: 'Opp' },
         { name: 'Leo',    format: 'PF',          score: 27.0, kind: 'voice', side: 'Pro' },
-        { name: 'Maya',   format: 'LD',          score: 26.5, kind: 'live',  side: 'Neg' }
+        { name: 'Maya',   format: 'LD',          score: 26.5, kind: 'live',  side: 'Neg' },
+        { name: 'Ifeanyi',format: 'WSDC',        score: 26.5, kind: 'voice', side: 'Prop' },
+        { name: 'Hana',   format: 'Policy',      score: 26.0, kind: 'live',  side: 'Aff' },
+        { name: 'Diego',  format: 'Worlds',      score: 26.0, kind: 'voice', side: 'Closing Opp' }
       ];
     }
-    var n = Math.min(rows.length, 5);
+    // The band is a single full-width card now, so the board carries a
+    // deeper cut of the standings than it did in the old 2-up layout.
+    var n = Math.min(rows.length, 8);
     var usedFaces = {};
     var html = '<span class="rb-scale">Best speaks &middot; out of 30'
       + (sample ? '<em class="rb-sample-pill">Sample board</em>' : '')
-      + (!sample && total > 5 ? '<em class="rb-total">' + (total | 0) + ' ranked</em>' : '')
+      + (!sample && total > n ? '<em class="rb-total">' + (total | 0) + ' ranked</em>' : '')
       + '</span><div class="rb-board">';
     for (var i = 0; i < n; i++){
       var r = rows[i];
@@ -14012,25 +13938,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ renderBoard(j && j.rows, j && j.total); })
       .catch(function(){ renderBoard(null); });
-    fetch('/api/live-now', { cache: 'no-cache' })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
-        if (j && typeof j.count === 'number' && j.count >= 1){
-          pill('rbLivePill', '<span class="dot"></span><b>' + (j.count|0) + '</b>&nbsp;debater' + (j.count === 1 ? '' : 's') + ' live right now');
-        }
-      }).catch(function(){});
-    fetch('/api/schedule-round', { cache: 'no-cache' })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
-        var next = j && Array.isArray(j.rounds) && j.rounds.length ? j.rounds[0] : null;
-        if (next && next.startAt > Date.now()){
-          var d = new Date(next.startAt);
-          var day = d.toDateString() === new Date().toDateString() ? 'today'
-            : d.toLocaleDateString(undefined, { weekday: 'short' });
-          var t = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-          pill('rbNextPill', 'next round:&nbsp;<b>' + esc(day + ' ' + t) + '</b>');
-        }
-      }).catch(function(){});
   }
   // Paint the board immediately instead of leaving #rbBoard an empty hole
   // until the fetch lands. The board is section 08, so on the old wiring
@@ -14640,12 +14547,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   #book-founders .bf-person{
     display:flex;flex-direction:column;align-items:center;gap:7px;
-    text-decoration:none;width:98px;
+    text-decoration:none;width:116px;
     transition:transform .15s ease;
   }
   #book-founders .bf-person:hover{transform:translateY(-2px)}
   #book-founders .bf-person img{
-    width:62px;height:62px;border-radius:50%;object-fit:cover;display:block;
+    width:88px;height:88px;border-radius:50%;object-fit:cover;display:block;
     border:1px solid var(--border);
     box-shadow:0 4px 14px rgba(0,0,0,.10);
     transition:border-color .15s ease;
@@ -14666,7 +14573,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       gap:20px 8px;max-width:280px;
     }
     #book-founders .bf-person{width:auto}
-    #book-founders .bf-person img{width:56px;height:56px}
+    #book-founders .bf-person img{width:76px;height:76px}
   }
   #book-founders .bf-cal{border-radius:18px;overflow:hidden;border:1px solid var(--border);box-shadow:0 12px 44px rgba(0,0,0,.10);background:#fbfaf5}
   #book-founders .bf-cal-direct{display:inline-block;margin-top:14px;font-size:.88rem;font-weight:600;color:var(--text-dim);text-decoration:underline;text-underline-offset:3px;transition:color .15s ease}
