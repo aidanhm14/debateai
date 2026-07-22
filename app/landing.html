@@ -7446,6 +7446,37 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         .hero-illustrated .hi-free-strip .hi-free-google:focus-visible{outline:3px solid rgba(200,50,50,.42);outline-offset:3px}
         .hero-illustrated .hi-free-strip .hi-free-google svg{width:18px;height:18px;flex:0 0 auto}
         body.signed-in .hero-illustrated .hi-free-strip{display:none !important}
+
+        /* ── Ambassador + sign-in on one row (2026-07-22) ─────────────
+           Default is a column so the stacked mobile order and both
+           panels' own margins survive untouched. The row only turns on
+           at >=901px, where there is width for two panels.
+           flex:1 1 0 (not a grid with two fixed tracks) is deliberate:
+           body.signed-in hides .hi-free-strip entirely, and with flex
+           the ambassador band then expands to fill the row instead of
+           leaving a hole where the second column was. */
+        .hero-illustrated .hi-band-row{display:flex;flex-direction:column;align-items:center}
+        @media(min-width:901px){
+          .hero-illustrated .hi-band-row{
+            flex-direction:row;align-items:stretch;gap:14px;
+            width:min(1180px,100%);margin:18px auto 8px;
+          }
+          .hero-illustrated .hi-band-row > .hi-ambassador-banner,
+          .hero-illustrated .hi-band-row > .hi-free-strip{
+            flex:1 1 0;min-width:0;width:auto;max-width:none;margin:0;
+            /* Stack copy over CTA. Side by side, each panel is ~580px
+               and "Apply for the founding class" next to three lines of
+               copy is too tight to read. grid-template-rows 1fr auto
+               pins both CTAs to the bottom so they line up across the
+               two panels regardless of copy length. */
+            grid-template-columns:minmax(0,1fr);grid-template-rows:1fr auto;
+            align-items:start;gap:14px;
+          }
+          .hero-illustrated .hi-band-row .hi-ambassador-cta,
+          .hero-illustrated .hi-band-row .hi-free-strip .hi-free-google{
+            width:100%;box-sizing:border-box;justify-content:center;
+          }
+        }
         /* 2026-07-22: was a near-black slab (linear-gradient #211817 ->
            #35201e) dropped into a warm cream page. It read as a foreign
            object between the door cards and the section below. Restyled
@@ -7883,6 +7914,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </div>
         </div>
       </div><!-- /.hi-doors--livefirst -->
+      <!-- 2026-07-22: ambassador band + sign-in strip share one row on
+           desktop per Aidan. Wrapper only; both panels keep their own
+           markup. Below 901px it collapses back to the stacked order
+           they had before, which is why the wrapper defaults to a
+           column and only becomes a row in the media query. -->
+      <div class="hi-band-row">
       <a href="/ambassadors" class="hi-ambassador-banner" data-cta="hero-ambassador-banner">
         <span class="hi-ambassador-copy">
           <span class="hi-ambassador-kicker">Founding ambassadors</span>
@@ -7902,6 +7939,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           Continue with Google
         </button>
       </div>
+      </div><!-- /.hi-band-row -->
       <script>
         (function(){
           if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
