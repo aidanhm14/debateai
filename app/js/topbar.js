@@ -225,7 +225,14 @@
     // rightmost tab, red + dotted via `hot`, sitting next to the primary
     // CTA. Routes to /newvoice (the rebuilt live clash); the classic
     // trainer stays reachable at /voice-debate via /newvoice crosslinks.
-    { href: '/newvoice',      label: 'Voice AI', hot: true, mobileKeep: true },
+    // 2026-07-22: mobileKeep dropped. With Waitlist added below (2026-07-20)
+    // the bar carried TWO kept pills on phones, and burger + Voice AI +
+    // Waitlist + bell + language measured 398px inside a 375px bar, so the
+    // language picker was sliced off the right edge on an iPhone. The
+    // --mobile-keep rule was written to keep ONE tab. Waitlist is the
+    // primary (solid fill) so it holds the slot; Voice AI stays one tap
+    // away in the hamburger sheet, which already lists it.
+    { href: '/newvoice',      label: 'Voice AI', hot: true },
     // 2026-07-20 (Aidan: "put the waitlist button at the very top and
     // highlight it top right"). Rightmost slot, solid fill so it reads
     // as the primary action next to the faint Voice AI pill. There is no
@@ -297,56 +304,23 @@
 
     var nav = el('nav', { class: 'ui-topbar', 'aria-label': 'Site navigation' });
 
-    // ── Wordmark: "Debatable" color A/B (2026-07-19) ───────────────────
-    // Per Aidan: test the wordmark fully in accent red vs fully in ink
-    // black (the 2026-07-18 two-tone Debat+able render is retired for the
-    // duration of the test). Assignment is sticky per visitor and uses the
-    // same localStorage key convention as /js/ab.js ('debateos-ab:' +
-    // testId) so results read exactly like every other test in GA4 — but
-    // it's inlined here because topbar.js renders on pages that don't load
-    // ab.js, and the wordmark must not flip between pages mid-session.
-    // Red arm wraps the whole word in the existing accent span
-    // (.ui-topbar-logo span = var(--accent)); black arm renders plain and
-    // inherits the logo ink (light ink on dark themes, which is the honest
-    // "black" equivalent there). The sr-only line still teaches crawlers +
-    // AT the also-known-as names regardless of this render.
-    // 2026-07-19 later same day, per Aidan: weight red to 90% ("90% it on
-    // red tbh"). The :v marker re-rolls anyone assigned under the earlier
-    // 50/50 exactly once, then assignment is sticky again — otherwise the
-    // installed base would sit at 50/50 forever. Read results by variant
-    // share, not raw counts, since the split is intentionally uneven.
-    var wmVariant = (function () {
-      try {
-        var v = localStorage.getItem('debateos-ab:wordmark_color');
-        if (localStorage.getItem('debateos-ab:wordmark_color:v') !== '2' || (v !== 'red' && v !== 'black')) {
-          v = Math.random() < 0.9 ? 'red' : 'black';
-          localStorage.setItem('debateos-ab:wordmark_color', v);
-          localStorage.setItem('debateos-ab:wordmark_color:v', '2');
-        }
-        return v;
-      } catch (e) { return 'red'; }
-    })();
-    try {
-      if (sessionStorage.getItem('debateos-ab-seen:wordmark_color') !== '1') {
-        sessionStorage.setItem('debateos-ab-seen:wordmark_color', '1');
-        var wmFire = function () {
-          if (window.gtag) {
-            gtag('event', 'ab_exposure', { test: 'wordmark_color', variant: wmVariant, page: location.pathname });
-            return true;
-          }
-          return false;
-        };
-        // gtag loads late on some pages; one deferred retry covers it.
-        if (!wmFire()) setTimeout(wmFire, 2500);
-      }
-    } catch (e) {}
+    // ── Wordmark: "Debatable" in accent red ────────────────────────────
+    // 2026-07-22, per Aidan: the red-vs-black A/B (2026-07-19, weighted
+    // 90/10 to red) is CLOSED and red is the wordmark, everywhere, for
+    // everyone. The bucketing, the sticky localStorage assignment and the
+    // ab_exposure ping are all gone. Stale 'debateos-ab:wordmark_color'
+    // keys in returning visitors' localStorage are simply never read
+    // again, so nobody keeps a black wordmark from an old assignment.
+    // The word sits in the existing accent span (.ui-topbar-logo span =
+    // var(--accent)); the sr-only line still teaches crawlers and AT the
+    // also-known-as names.
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',
-        class: 'ui-topbar-logo wm-' + wmVariant,
+        class: 'ui-topbar-logo wm-red',
         'aria-label': 'Debatable, home',
         title: 'Back to home',
-        html: (wmVariant === 'red' ? '<span>Debatable</span>' : 'Debatable')
+        html: '<span>Debatable</span>'
             + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
             + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
             + ' Debatable · also known as DebateIt · also known as Debate AI.'

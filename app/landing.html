@@ -5967,7 +5967,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      2026-06-16: taller hit box (min-height 36px) so the collapsed picker
      is a real thumb target, not a 14px chevron sliver. */
   @media(max-width:720px){
-    #langPickerSel{max-width:54px;font-size:0;padding:9px 18px 9px 8px;min-height:36px;box-sizing:border-box}
+    /* 2026-07-22: font-size:0 collapsed the label AND the flag, so the
+       "flag-only" picker rendered as an empty circle on every phone. The
+       flag now comes from the wrapper (data-flag, kept in sync by the
+       change handler below) and the select stays as the transparent hit
+       target on top of it, so the control still opens the native list. */
+    /* min-height stays on the WRAPPER: the select is absolutely
+       positioned now, so its own min-height no longer sizes anything and
+       the 36px thumb target from 2026-06-16 would collapse to ~18px. */
+    .lang-picker.in-nav{position:relative;justify-content:center;align-items:center;min-width:28px;min-height:36px}
+    .lang-picker.in-nav::before{
+      content:attr(data-flag);font-size:1rem;line-height:1;pointer-events:none;
+    }
+    #langPickerSel{
+      position:absolute;inset:0;width:100%;height:100%;
+      max-width:none;font-size:0;padding:0;min-height:36px;box-sizing:border-box;
+      opacity:0;border:none;background:none;
+    }
     #langPickerSel option{font-size:.78rem}
   }
   /* Google Translate strips */
@@ -6017,9 +6033,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   document.addEventListener('DOMContentLoaded',function(){
     var sel=document.getElementById('langPickerSel');
     var saved='en';try{saved=localStorage.getItem(KEY)||'en'}catch(e){}
+    // Mirror the selected flag onto the wrapper so the phone-width
+    // "flag-only" picker has something to render (the select's own text
+    // is zeroed out at <=720px. see the @media block above).
+    function syncFlag(){
+      var w=document.querySelector('.lang-picker');
+      if(!w||!sel)return;
+      var opt=sel.options[sel.selectedIndex];
+      var flag=opt?(opt.textContent.trim().split(/\s+/)[0]||'🌐'):'🌐';
+      w.setAttribute('data-flag',flag);
+    }
     if(sel){
       sel.value=saved;
-      sel.addEventListener('change',function(){window.__setLang(sel.value)});
+      syncFlag();
+      sel.addEventListener('change',function(){syncFlag();window.__setLang(sel.value)});
     }
     // Move the picker into the topbar (between the theme dots and the
     // Debatable CTA) so it doesn't overlap the existing nav buttons.
@@ -8526,7 +8553,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           .hero-illustrated .hi-lf-tile{border-radius:10px;min-width:0}
           .hero-illustrated .hi-lf-motion{margin:8px 12px 0;padding:7px 10px;font-size:.8rem}
           .hero-illustrated .hi-lf-ticker-group{gap:20px;padding-right:20px}
-          .hero-illustrated .hi-lf-mkt-vol{font-size:.58rem}
+          /* 2026-07-22: the head is a baseline flex row, and on a phone
+             there is not room for "Motion · live market" AND the pot line
+             beside it, so the label broke mid-phrase into "MOTION · LIVE /
+             MARKET" and ran under the pot figure. Stack them: each gets
+             its own line and neither wraps. */
+          .hero-illustrated .hi-lf-mkt-head{flex-direction:column;align-items:flex-start;gap:2px}
+          .hero-illustrated .hi-lf-mkt-vol{font-size:.58rem;margin-left:0}
           .hero-illustrated .hi-lf-mkt-chart{height:34px;margin-top:6px}
           .hero-illustrated .hi-lf-mkt-rows{gap:6px;margin-top:6px}
           .hero-illustrated .hi-lf-mkt-side{padding:6px 8px;gap:5px}

@@ -141,6 +141,15 @@
       '.ra-sub{display:block;font-size:11px;line-height:1.3;margin-top:1px;',
       '  color:var(--text-ghost,rgba(0,0,0,.45));white-space:nowrap;overflow:hidden;',
       '  text-overflow:ellipsis;}',
+      // 2026-07-22: the resting pill measured 273x50 and, being fixed to
+      // the bottom-left, it sat on top of the landing hero's primary CTA
+      // ("Open live debates") by 192x39 at a 1280x720 laptop — covering
+      // the button AND intercepting clicks on it, since .ra-host is
+      // z-9500. Resting state is now the play button plus a one-word
+      // label; the duration line and the full title appear once opened.
+      '.ra-host[data-open="0"] .ra-sub{display:none;}',
+      '.ra-host[data-open="0"] .ra-title{font-size:12.5px;}',
+      '.ra-host[data-open="0"] .ra-card{padding:6px 11px 6px 6px;}',
       // small square controls
       '.ra-mini{flex:0 0 auto;height:26px;min-width:26px;padding:0 7px;border-radius:8px;',
       '  border:1px solid var(--border,rgba(0,0,0,.10));background:transparent;cursor:pointer;',
@@ -379,7 +388,11 @@
         subEl.textContent = fmt(audio.currentTime) + ' of ' +
           fmt(isFinite(audio.duration) ? audio.duration : (current.seconds || 0));
       } else {
-        titleEl.textContent = 'Listen to this page';
+        // Short label while resting so the pill stays out of the way of
+        // page CTAs; the full phrasing returns the moment it is opened.
+        titleEl.textContent = (host.getAttribute('data-open') === '1')
+          ? 'Listen to this page'
+          : 'Listen';
         subEl.textContent = 'About ' + fmt(current.seconds || 60) + ', keeps playing as you browse';
       }
 
