@@ -7380,6 +7380,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     border:1px solid rgba(220,38,38,.22);border-radius:18px;
     padding:clamp(15px,1.7vw,21px);box-shadow:0 26px 64px rgba(180,45,35,.16),inset 0 1px 0 rgba(255,255,255,.8);
     color:#1a1a1f;overflow:hidden}
+  /* The board is a link to /livedebates. The pager inside it is not, so the
+     handler ignores clicks on any button and the arrows keep their own
+     cursor rather than inheriting the link's. */
+  .fs-board{cursor:pointer}
+  .fs-board:focus-visible{outline:2px solid #dc2626;outline-offset:3px}
+  .fs-board .fs-pager{cursor:default}
+  .fs-board .fs-nav{cursor:pointer}
   .fs-board-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
   .fs-board .fs-chip{padding:5px 11px;border-radius:6px;background:rgba(220,38,38,.1);
     font-size:.6rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#b91c1c;white-space:nowrap}
@@ -7532,7 +7539,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="fs-cal" id="fsCal"></p>
     </div>
 
-    <div class="fs-board" id="fsBoard">
+    <div class="fs-board" id="fsBoard" role="link" tabindex="0"
+         aria-label="See live debates you can join or watch">
       <div class="fs-board-top">
         <span class="fs-chip" id="fsFmt">British Parli</span>
         <span class="fs-sample">Example rounds</span>
@@ -7884,6 +7892,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     el.fsCal.innerHTML = (tonight ? 'Open round <b>tonight</b>, ' : 'Next open round <b>') +
       (tonight ? when : when + '</b>') + '. Every Wednesday.';
   })();
+
+  // Tapping the board goes to the live-debates page. The round pager lives
+  // inside the board, so anything that is itself a control is excluded first,
+  // otherwise paging through the examples would navigate away.
+  function openLiveDebates(){
+    try { if (window.dosTrack) dosTrack('first_screen_board_click', { round: idx + 1 }); } catch(e){}
+    window.location.href = '/livedebates';
+  }
+  if (board){
+    board.addEventListener('click', function(e){
+      if (e.target.closest('button, a, input, select, textarea')) return;
+      openLiveDebates();
+    });
+    board.addEventListener('keydown', function(e){
+      if (e.key !== 'Enter') return;
+      if (e.target !== board) return;   // let the arrows handle their own keys
+      e.preventDefault();
+      openLiveDebates();
+    });
+  }
 
   if (el.fsPrev) el.fsPrev.addEventListener('click', function(){ go(idx - 1, true); });
   if (el.fsNext) el.fsNext.addEventListener('click', function(){ go(idx + 1, true); });
