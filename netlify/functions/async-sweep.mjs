@@ -16,6 +16,7 @@ import { buildAdjudicationBlock } from './lib/adjudication.mjs';
 import {
   mediaStore, readMediaBuffer, transcribe, claude, speechToMp3, sendEmail,
   newId, feedKeyFor, FEED_CACHE_KEY, FORMAT_NAMES, REPLY_WINDOW_MS,
+  AI_UID, AI_NAME as AI_IDENT, AI_MAX_OPEN, AI_MIN_BOARD, AI_CHALLENGE_TTL_MS, SEED_MOTIONS,
 } from './lib/async-rounds.mjs';
 
 const SITE = process.env.SITE_ORIGIN || 'https://itsdebatable.com';
@@ -24,7 +25,7 @@ const JUDGE_MODEL = process.env.ASYNC_JUDGE_MODEL || 'claude-sonnet-5';
 const TIME_BUDGET_MS = 18_000;   // stop starting new work near the 26s wall
 const MAX_TRANSCRIPT_TRIES = 4;
 
-const AI_NAME = 'The Debater · AI';
+const AI_NAME = AI_IDENT;
 
 function oppSpeechPrompt(motion, format, openingTranscript) {
   const system =
@@ -35,6 +36,39 @@ function oppSpeechPrompt(motion, format, openingTranscript) {
   const user = 'Motion: ' + motion + '\nFormat: ' + (FORMAT_NAMES[format] || format) +
     '\n\nProposition opening (transcript):\n' + (openingTranscript || '[transcript unavailable — answer the motion on its merits]');
   return { system, user };
+}
+
+function propOpeningPrompt(motion, format) {
+  const system =
+    'You are The Debater, the AI sparring partner on Debatable, recording a spoken Proposition opening in an async round. ' +
+    'A human will answer you, so leave real ground: argue hard but take one clear line rather than covering everything. ' +
+    'Register: varsity debater on the circuit, spoken not written. 200 to 240 words. ' +
+    'Structure: one framing line, two developed arguments with mechanisms, one line of impact weighing. ' +
+    'No invented citations or statistics. No preface, no salutation. Do not use em dashes.';
+  const user = 'Motion: ' + motion + '\nFormat: ' + (FORMAT_NAMES[format] || format);
+  return { system, user };
+}
+
+function propReplyPrompt(d) {
+  const t = {};
+  for (const turn of d.turns || []) t[turn.n] = turn.transcript || '';
+  const system =
+    'You are The Debater, the AI sparring partner on Debatable, recording the spoken Proposition reply in an async round you opened. ' +
+    '120 to 150 words. Rebuild your strongest point against what the answer actually said, concede nothing by silence on their best attack, ' +
+    'then weigh the round in one or two lines. No new arguments, no invented citations. Spoken register, no preface. Do not use em dashes.';
+  const user = 'Motion: ' + d.motion + '\nFormat: ' + (FORMAT_NAMES[d.format] || d.format) +
+    '\n\nYour opening:\n' + (t[1] || '') + '\n\nTheir answer:\n' + (t[2] || '');
+  return { system, user };
+}
+
+async function makeAiTurn(store, n, kind, speech, now) {
+  const mp3 = await speechToMp3(speech);
+  const mediaId = 'ai:' + newId();
+  await store.set(`m/${mediaId}/p0`, mp3);
+  await store.setJSON(`m/${mediaId}/meta`, { mime: 'audio/mpeg', bytes: mp3.length, partCount: 1, uid: AI_UID });
+  const words = speech.split(/\s+/).length;
+  return { n, uid: AI_UID, ai: true, kind: 'audio', mediaId,
+    durationSec: Math.round(words / 2.4), transcript: speech, name: AI_NAME, photo: '', createdAt: now };
 }
 
 function ballotPrompt(d) {
@@ -97,6 +131,35 @@ export default async () => {
   const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, errors: 0 };
 
   try {
+    // ── board inventory: keep a couple of AI-opened challenges live so a
+    // first visitor never lands on an empty feed. One per run, capped.
+    try {
+      const openSnap = await db.collection('async_rounds').where('feedKey', '==', 'open-public').limit(8).get();
+      let total = 0, ai = 0;
+      openSnap.forEach((doc) => { total++; if ((doc.data().prop || {}).uid === AI_UID) ai++; });
+      if (total < AI_MIN_BOARD && ai < AI_MAX_OPEN) {
+        const pick = SEED_MOTIONS[Math.floor(Math.random() * SEED_MOTIONS.length)];
+        const dup = openSnap.docs.some((doc) => doc.data().motion === pick.motion);
+        if (!dup) {
+          const now = Date.now();
+          const { system, user } = propOpeningPrompt(pick.motion, pick.format);
+          const speech = (await claude(system, user, 700, OPP_MODEL)).trim();
+          const turn1 = await makeAiTurn(store, 1, 'audio', speech, now);
+          await db.collection('async_rounds').doc().set({
+            state: 'open', visibility: 'public', hidden: false, feedKey: 'open-public',
+            motion: pick.motion, format: pick.format,
+            prop: { uid: AI_UID, name: AI_NAME, photo: '' }, opp: null, aiOpp: false,
+            turns: [turn1], replyWaived: false,
+            createdAt: now, deadlineAt: now + AI_CHALLENGE_TTL_MS, completedAt: 0,
+            sweepAt: now + AI_CHALLENGE_TTL_MS,
+            ballot: null, votes: { prop: 0, opp: 0 }, reports: 0,
+          });
+          stats.seeded = 1;
+          await deleteCachedShared(FEED_CACHE_KEY).catch(() => {});
+        }
+      }
+    } catch (err) { console.warn('[async-sweep] seed pass failed', err && err.message); }
+
     const due = await db.collection('async_rounds').where('sweepAt', '<=', Date.now()).limit(12).get();
     for (const doc of due.docs) {
       if (Date.now() - started > TIME_BUDGET_MS) break;
@@ -110,6 +173,16 @@ export default async () => {
         d = (await ref.get()).data();
 
         if (d.state === 'open') {
+          if ((d.prop || {}).uid === AI_UID) {
+            // Never AI-vs-AI: an unanswered AI challenge retires quietly.
+            if (now >= (d.deadlineAt || 0)) {
+              await ref.update({ feedKey: 'quiet', sweepAt: FieldValue.delete() });
+              await deleteCachedShared(FEED_CACHE_KEY).catch(() => {});
+            } else {
+              await ref.update({ sweepAt: d.deadlineAt || (now + AI_CHALLENGE_TTL_MS) });
+            }
+            continue;
+          }
           if (now >= (d.deadlineAt || 0)) {
             // Human window closed: the AI opponent takes the other side.
             const t1 = (d.turns || []).find((t) => t.n === 1) || {};
@@ -148,7 +221,19 @@ export default async () => {
         }
 
         if (d.state === 'awaiting_reply') {
-          if (now >= (d.deadlineAt || 0)) {
+          if ((d.prop || {}).uid === AI_UID) {
+            // The AI opened this round, so the reply is its job — and it
+            // does not wait out the window. Needs the answer's transcript.
+            if (!transcriptsReady) { await ref.update({ sweepAt: now + 10 * 60_000 }); continue; }
+            const { system, user } = propReplyPrompt(d);
+            const speech = (await claude(system, user, 500, OPP_MODEL)).trim();
+            const turn3 = await makeAiTurn(store, 3, 'audio', speech, now);
+            await ref.update({
+              state: 'judging', feedKey: feedKeyFor('judging', d.visibility, d.hidden),
+              turns: [...(d.turns || []), turn3], sweepAt: now,
+            });
+            d = (await ref.get()).data();
+          } else if (now >= (d.deadlineAt || 0)) {
             await ref.update({ state: 'judging', feedKey: feedKeyFor('judging', d.visibility, d.hidden), replyWaived: true, sweepAt: now });
             stats.waived++;
             d = (await ref.get()).data();

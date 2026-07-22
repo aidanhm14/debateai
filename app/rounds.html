@@ -301,9 +301,11 @@
     if (state.view !== 'feed') return;
     var f = state.feed, now = Date.now();
     var openCards = (f.open||[]).map(function(r, i){
+      var aiProp = r.prop && r.prop.uid === 'ai';
       return '<div class="card" style="--i:'+Math.min(i,9)+'">' +
         '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
-        '<span class="chip hot">AI answers in '+fmtLeft((r.deadlineAt||0)-now)+'</span></div>' +
+        (aiProp ? '<span class="chip hot">AI opened · you take Opp</span>'
+                : '<span class="chip hot">AI answers in '+fmtLeft((r.deadlineAt||0)-now)+'</span>') + '</div>' +
         '<div class="motion">'+esc(r.motion)+'</div>' +
         '<div class="who">'+avatar(r.prop)+'<span><b>'+esc(r.prop && r.prop.name || 'A debater')+'</b><br><i>opened for Prop</i></span></div>' +
         '<div class="foot"><button class="go" data-answer="'+r.id+'">Answer this &rarr;</button>' +
@@ -314,7 +316,7 @@
       return '<div class="card" style="--i:'+Math.min(i,9)+'">' +
         '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
         (w ? '<span class="chip win">'+esc(w)+' won</span>' : '') +
-        (r.aiOpp ? '<span class="chip">vs AI</span>' : '') + '</div>' +
+        ((r.aiOpp || (r.prop && r.prop.uid === 'ai')) ? '<span class="chip">vs AI</span>' : '') + '</div>' +
         '<div class="motion">'+esc(r.motion)+'</div>' +
         '<div class="who">'+avatar(r.prop)+avatar(r.opp)+'<span><b>'+esc(r.prop&&r.prop.name||'')+'</b> vs <b>'+esc(r.opp&&r.opp.name||'')+'</b></span></div>' +
         '<div class="foot"><button class="go" data-open="'+r.id+'">Watch the round &rarr;</button>' +
@@ -387,14 +389,20 @@
     var now = Date.now();
 
     var banner = '';
+    var aiProp = r.prop && r.prop.uid === 'ai';
     if (r.state === 'open'){
-      banner = isProp
+      banner = aiProp
+        ? '<div class="banner act"><b>The Debater opened this round.</b> Take the Opposition: 2 minutes, then it replies and the ballot comes back. ' +
+          '<button class="btn btn-red" id="ansBtn">Answer the AI</button></div>'
+        : isProp
         ? '<div class="banner info">Waiting for a human answer. If nobody picks it up in <b>'+fmtLeft(r.deadlineAt-now)+'</b>, The Debater answers for the Opposition. ' +
           '<button class="btn btn-ghost" id="expBtn">Have the AI answer now</button></div>'
         : '<div class="banner act"><b>This challenge is open.</b> Record a 2-minute answer for the Opposition. ' +
           '<button class="btn btn-red" id="ansBtn">Answer this round</button></div>';
     } else if (r.state === 'awaiting_reply'){
-      banner = isProp
+      banner = aiProp
+        ? '<div class="banner info">Answered. The Debater replies within about 15 minutes, then the ballot.</div>'
+        : isProp
         ? '<div class="banner act"><b>Your reply is due.</b> 60 seconds, then the ballot comes back. Window closes in '+fmtLeft(r.deadlineAt-now)+'. ' +
           '<button class="btn btn-red" id="repBtn">Record your reply</button></div>'
         : '<div class="banner info">Answered. The opener has '+fmtLeft(r.deadlineAt-now)+' to record a reply, then the AI judge writes the ballot.</div>';
@@ -445,7 +453,7 @@
     shell('<div class="r-head">' +
       '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
       (r.state==='complete' ? '<span class="chip win">Complete</span>' : '<span class="chip">'+esc(r.state.replace('_',' '))+'</span>') +
-      (r.aiOpp ? '<span class="chip">vs AI</span>' : '') + '</div>' +
+      ((r.aiOpp || (r.prop && r.prop.uid === 'ai')) ? '<span class="chip">vs AI</span>' : '') + '</div>' +
       '<h2 class="r-motion">'+esc(r.motion)+'</h2></div>' +
       banner + '<div class="turns">'+turnsHtml+'</div>' + ballotHtml + voteHtml +
       '<div class="r-foot"><button id="shareBtn">Copy link</button><span>·</span><button id="reportBtn">Report</button></div>');

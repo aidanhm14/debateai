@@ -47,6 +47,27 @@ export const FORMAT_NAMES = {
 
 export const FEED_CACHE_KEY = 'async-feed-v1';
 
+// ── AI-opened challenges (board cold-start) ────────────────────────
+// The sweep keeps a small inventory of AI-opened challenges on the
+// board so a first visitor sees something to answer, never an empty
+// feed. Same philosophy as floor-seed's market inventory. Hard-badged
+// as AI everywhere; humans take the Opp seat.
+export const AI_UID = 'ai';
+export const AI_NAME = 'The Debater · AI';
+export const AI_MAX_OPEN = 2;        // never more than this many AI challenges at once
+export const AI_MIN_BOARD = 3;       // only seed while open-public count is below this
+export const AI_CHALLENGE_TTL_MS = 72 * 60 * 60 * 1000; // unanswered AI challenges retire
+export const SEED_MOTIONS = [
+  { motion: 'This House would ban political parties from accepting corporate donations.', format: 'bp' },
+  { motion: 'Social media has done more harm than good to democratic debate.', format: 'quick' },
+  { motion: 'This House would make voting compulsory for citizens over eighteen.', format: 'asian' },
+  { motion: 'AI art should be eligible for copyright.', format: 'pf' },
+  { motion: 'This House would abolish legacy preference in college admissions.', format: 'apda' },
+  { motion: 'Cities should make public transit free.', format: 'quick' },
+  { motion: 'This House believes exams reward the wrong skills.', format: 'worlds' },
+  { motion: 'Justice requires abolishing plea bargaining in criminal cases.', format: 'ld' },
+];
+
 export function mediaStore() {
   return getStore('async-media');
 }
