@@ -16489,22 +16489,9 @@ window.addEventListener('load', function(){
            backdrop/ESC) is the only way out; sign-in is the path. -->
     </div>
 
-    <!-- Second view (2026-07-02): pressing "Find a debater" re-offers
-         Google sign-in before entering the queue, so a debater keeps the
-         record they're about to make. "Continue as guest" still lets them
-         through to /spar. -->
-    <div class="ob-view" data-ob-view="reask" hidden>
-      <h2 class="ob-title">First, save your record.</h2>
-      <p class="ob-sub">Signed-in debaters keep every ballot they earn, their saved rounds, and a style profile that makes each match sharper. Guests start fresh every time. One tap, then straight into the queue.</p>
-      <button type="button" class="ob-google" id="obGoogleBtn2">
-        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.9 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
-        Continue with Google
-      </button>
-      <a class="ob-route" href="/spar" data-ob-go="spar-guest">
-        <span class="ob-route-h">Continue as guest</span>
-        <span class="ob-route-p">Into the queue now. Your ballots and record won't be saved.</span>
-      </a>
-    </div>
+    <!-- 2026-07-23: the second "First, save your record." re-ask view was
+         removed per Aidan. "Find a debater" now goes straight to /spar;
+         sign-in is still offered above and on /spar itself. -->
   </div>
 </div>
 
@@ -16521,7 +16508,7 @@ window.addEventListener('load', function(){
    (later in source, no z-index on the button), so the close target sat
    underneath the fourth cam tile and its clicks never landed. The X is
    now a self-contained chip lifted above all card content, legible on
-   both the photo strip and the plain reask view. */
+   top of the photo strip. */
 .ob-x{position:absolute;z-index:6;top:10px;right:10px;display:grid;place-items:center;
   width:32px;height:32px;padding:0;border-radius:999px;
   background:rgba(15,17,23,.55);border:1px solid rgba(255,255,255,.28);color:#fff;
@@ -16645,8 +16632,8 @@ window.addEventListener('load', function(){
   var closers = modal.querySelectorAll('[data-ob-close]');
   for (var c=0;c<closers.length;c++) closers[c].addEventListener('click', function(){ close('close'); });
 
-  // View switching (live prompt → sign-in re-ask). Each .ob-view toggles
-  // via its `hidden` attribute.
+  // View switching. One view remains (the live prompt); kept so open()
+  // always un-hides it regardless of prior state.
   function showView(name){
     var views = modal.querySelectorAll('.ob-view');
     for (var i=0;i<views.length;i++){
@@ -16656,24 +16643,15 @@ window.addEventListener('load', function(){
     }
   }
 
-  // Route clicks. "Find a debater" (spar) no longer drops straight into the
-  // guest queue — it re-offers Google sign-in first so a debater keeps the
-  // record they're about to make. "Continue as guest" (spar-guest) and any
-  // other route navigate normally.
+  // Route clicks. 2026-07-23: "Find a debater" navigates straight to /spar
+  // again. It used to intercept signed-out visitors with a second
+  // "First, save your record." sign-in view, which read as a second popup
+  // stacked on the first. Sign-in is still one tap above, and /spar asks
+  // for itself when a guest tries to keep a record.
   var routes = modal.querySelectorAll('[data-ob-go]');
   for (var r=0;r<routes.length;r++) {
-    routes[r].addEventListener('click', function(e){
-      var go = this.getAttribute('data-ob-go');
-      track('live_popup_route', { route: go });
-      if (go === 'spar' && !isSignedIn()) {
-        if (e && e.preventDefault) e.preventDefault();
-        track('live_popup_reask_view');
-        showView('reask');
-        var g2 = document.getElementById('obGoogleBtn2');
-        if (g2) setTimeout(function(){ g2.focus(); }, 50);
-        return;
-      }
-      // spar-guest (and anything else): let the anchor navigate.
+    routes[r].addEventListener('click', function(){
+      track('live_popup_route', { route: this.getAttribute('data-ob-go') });
       suppress();
     });
   }
@@ -16690,8 +16668,6 @@ window.addEventListener('load', function(){
   }
   var obGoogle = document.getElementById('obGoogleBtn');
   if (obGoogle) obGoogle.addEventListener('click', function(){ goGoogle('google'); });
-  var obGoogle2 = document.getElementById('obGoogleBtn2');
-  if (obGoogle2) obGoogle2.addEventListener('click', function(){ goGoogle('google_reask'); });
 
   // ESC dismisses.
   document.addEventListener('keydown', function(e){
