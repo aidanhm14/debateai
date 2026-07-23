@@ -154,13 +154,17 @@
   }
 
   window.DBShareLandingPayload = function (text) {
-    var variant = Math.random() < 0.5 ? 'bet' : 'opinion';
-    var title = variant === 'opinion'
-      ? 'Debatable - Everyone has an opinion'
-      : 'Debatable - Bet on your words';
+    var variants = ['bet', 'opinion', 'streamers'];
+    var variant = variants[Math.floor(Math.random() * variants.length)];
+    var titles = {
+      bet: 'Debatable - Bet on your words',
+      opinion: 'Debatable - Everyone has an opinion',
+      streamers: 'Debatable - Strangers vs streamers',
+    };
+    var title = titles[variant];
     try {
       if (window.gtag) gtag('event', 'share_title_created', {
-        test: 'share_title_v1',
+        test: 'share_title_v2',
         variant: variant,
       });
     } catch (e) {}

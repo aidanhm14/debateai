@@ -22,24 +22,29 @@ assert.equal(
   'cookie assignment must stay sticky',
 );
 assert.equal(
-  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.49),
+  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.32),
   'bet',
-  'lower half of the random split must receive the bet variant',
+  'first third of the random split must receive the bet variant',
 );
 assert.equal(
-  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.5),
+  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.34),
   'opinion',
-  'upper half of the random split must receive the opinion variant',
+  'middle third of the random split must receive the opinion variant',
+);
+assert.equal(
+  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.67),
+  'streamers',
+  'final third of the random split must receive the streamers variant',
 );
 
-const rendered = renderVariant(fixture, 'opinion');
-assert.match(rendered, /og:title" content="Debatable - Everyone has an opinion"/);
-assert.match(rendered, /twitter:title" content="Debatable - Everyone has an opinion"/);
-assert.match(rendered, /share-title-variant" content="opinion"/);
+const rendered = renderVariant(fixture, 'streamers');
+assert.match(rendered, /og:title" content="Debatable - Strangers vs streamers"/);
+assert.match(rendered, /twitter:title" content="Debatable - Strangers vs streamers"/);
+assert.match(rendered, /share-title-variant" content="streamers"/);
 
 let cookie;
 const response = await handler(
-  new Request('https://itsdebatable.com/?share_title=opinion'),
+  new Request('https://itsdebatable.com/?share_title=streamers'),
   {
     cookies: {
       get: () => '',
@@ -55,10 +60,10 @@ const response = await handler(
   },
 );
 
-assert.equal(cookie.value, 'opinion');
-assert.equal(response.headers.get('x-debatable-share-title'), 'opinion');
+assert.equal(cookie.value, 'streamers');
+assert.equal(response.headers.get('x-debatable-share-title'), 'streamers');
 assert.equal(response.headers.get('content-length'), null);
 assert.equal(response.headers.get('etag'), null);
-assert.match(await response.text(), /Debatable - Everyone has an opinion/);
+assert.match(await response.text(), /Debatable - Strangers vs streamers/);
 
 console.log('share-title edge tests passed');

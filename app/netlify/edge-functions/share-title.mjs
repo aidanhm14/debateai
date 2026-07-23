@@ -1,14 +1,15 @@
-// Share-title v1: social-preview crawlers get a sticky 50/50 Open Graph
+// Share-title v2: social-preview crawlers get a sticky three-way Open Graph
 // title. App-generated links carry ?share_title= so the preview and the
 // recipient's GA4 share_title_view agree. End the test by keeping the
 // winning static title and removing this function plus its tracking.
-const COOKIE_NAME = 'debatable_share_title_v1';
+const COOKIE_NAME = 'debatable_share_title_v2';
 const QUERY_NAME = 'share_title';
 const COOKIE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
 export const TITLES = {
   bet: 'Debatable - Bet on your words',
   opinion: 'Debatable - Everyone has an opinion',
+  streamers: 'Debatable - Strangers vs streamers',
 };
 
 function validVariant(value) {
@@ -16,9 +17,11 @@ function validVariant(value) {
 }
 
 export function selectVariant(url, storedVariant, random = Math.random) {
-  return validVariant(url.searchParams.get(QUERY_NAME))
-    || validVariant(storedVariant)
-    || (random() < 0.5 ? 'bet' : 'opinion');
+  const assigned = validVariant(url.searchParams.get(QUERY_NAME))
+    || validVariant(storedVariant);
+  if (assigned) return assigned;
+  const variants = Object.keys(TITLES);
+  return variants[Math.min(variants.length - 1, Math.floor(random() * variants.length))];
 }
 
 function replaceMetaContent(html, attribute, name, content) {
