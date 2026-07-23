@@ -932,6 +932,20 @@ service cloud.firestore {
     match /challenges/{challengeId} {
       allow read:  if true;
       allow write: if false;
+
+      // Your own side pick and follow state. One doc per user, so the
+      // challenge page can render "you're on Prop" after a reload
+      // without a function call. Other people's picks stay private:
+      // the aggregate is on the parent doc, and exposing who picked
+      // what would turn a prediction surface into a herding surface.
+      match /sides/{sideUid} {
+        allow read:  if isOwner(sideUid);
+        allow write: if false;
+      }
+      match /followers/{followerUid} {
+        allow read:  if isOwner(followerUid);
+        allow write: if false;
+      }
     }
 
     // ── claims — aggregate identity across challenges ────────────────
