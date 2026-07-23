@@ -1003,9 +1003,11 @@
     var nameLink;
     if (onProfile){
       nameLink = document.createElement('span');
+      nameLink.className = 'ui-topbar-userpill';
       nameLink.style.cssText = 'color:var(--text);font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--accent);background:var(--bg-elev)';
     } else {
       nameLink = document.createElement('a');
+      nameLink.className = 'ui-topbar-userpill';
       nameLink.href = '/profile';
       nameLink.title = 'Open your dashboard';
       nameLink.style.cssText = 'color:var(--text);text-decoration:none;font-weight:700;font-size:.78rem;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg-card,transparent);transition:background .15s,border-color .15s';
@@ -1014,15 +1016,26 @@
     }
     if (u.photoURL){
       var img = document.createElement('img');
+      img.className = 'ui-topbar-useravatar';
       img.src = u.photoURL; img.alt = ''; img.referrerPolicy = 'no-referrer';
       img.style.cssText = 'width:18px;height:18px;border-radius:50%;object-fit:cover';
       nameLink.appendChild(img);
     }
+    // 2026-07-23: the name and Sign out both drop off the bar on phones
+    // (see ui.css ≤560px). The avatar already says who is signed in, and
+    // the hamburger sheet already carries a Sign out row, so on a 390px
+    // bar these two were duplicating the sheet and crowding the wordmark.
+    // Classed, not conditionally built, so a resize needs no re-render.
     var nameText = document.createElement('span');
+    nameText.className = 'ui-topbar-username';
     nameText.textContent = first;
     nameLink.appendChild(nameText);
+    // No photo means no avatar, so the pill would collapse to an empty
+    // dot on phones. Keep the name in that case.
+    if (!u.photoURL) nameText.classList.add('ui-topbar-username--only');
     var out = document.createElement('button');
     out.type = 'button';
+    out.className = 'ui-topbar-signout';
     out.textContent = 'Sign out';
     out.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.68rem;padding:0';
     out.addEventListener('click', function(){ try { window.firebase.auth().signOut(); } catch(e){} });
