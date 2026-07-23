@@ -674,6 +674,39 @@
   })();
 </script>
 
+<!-- First-screen STREAMER A/B (2026-07-23). Ten percent of visitors see
+     the creator-sweepstakes promise and route straight to /tournaments;
+     ninety percent keep the live-stranger control. Sticky assignment
+     prevents the headline changing between loads. ?streamerHero=streamer
+     and ?streamerHero=control force an arm for QA. -->
+<script>
+  (function(){
+    var v='';
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]streamerhero=streamer(?:&|$)/.test(qp)) v='streamer';
+      else if(/[?&]streamerhero=control(?:&|$)/.test(qp)) v='control';
+    }catch(e){}
+    var assigned=false;
+    if(v!=='streamer'&&v!=='control'){
+      try{v=localStorage.getItem('da-streamer-hero-ab1')||'';}catch(e){}
+      if(v!=='streamer'&&v!=='control'){
+        v=(Math.random()<0.10)?'streamer':'control';
+        assigned=true;
+        try{localStorage.setItem('da-streamer-hero-ab1',v);}catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-streamer-hero',v);
+    window.__streamerHeroAb=v;
+    try{
+      if(window.gtag){
+        gtag('set','user_properties',{streamer_hero:v});
+        gtag('event','streamer_hero_view',{variant:v,assigned:assigned,split:'10_90'});
+      }
+    }catch(e){}
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -7408,9 +7441,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-h1{margin:0 0 19px;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:700;
     font-size:clamp(2.1rem,4.6vw,3.35rem);line-height:1.04;letter-spacing:-.025em;color:#1a1a1f;text-wrap:balance}
   .fs-sub{margin:0 0 28px;font-size:clamp(1rem,1.5vw,1.14rem);line-height:1.55;color:rgba(26,26,31,.66);max-width:34ch}
+  .fs-streamer-only{display:none}
+  :root[data-streamer-hero="streamer"] .fs-control-only{display:none}
+  :root[data-streamer-hero="streamer"] .fs-streamer-only{display:block}
   .fs-ctas{display:flex;flex-wrap:wrap;gap:10px}
   .fs-cta{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:13px 24px;
     font-size:.94rem;font-weight:800;text-decoration:none;transition:transform .15s,box-shadow .15s}
+  :root[data-streamer-hero="streamer"] .fs-cta.fs-streamer-only{display:inline-flex}
   .fs-cta--primary{background:#dc2626;color:#fff;box-shadow:0 10px 26px rgba(220,38,38,.24)}
   .fs-cta--primary:hover{transform:translateY(-2px)}
   .fs-cta--ghost{color:#1a1a1f;border:1px solid rgba(26,26,31,.2)}
@@ -7577,7 +7614,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .fs-face,.fs-line{transition:none}
   }
 </style>
-<section id="first-screen" class="fscreen" aria-label="Debate a stranger">
+<section id="first-screen" class="fscreen" aria-label="Start a live debate">
   <div class="fscreen-wrap">
     <div class="fscreen-copy">
       <!-- 2026-07-23: was href="#floor-band", which scrolled to the band
@@ -7590,10 +7627,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            accurate destination and the one that can be defended as a
            description of the product. -->
       <p class="fs-slogan">Speak <a href="/predict" class="fs-slogan-a" data-cta="first-screen-money">money</a> into existence.</p>
-      <h1 class="fs-h1">Debate a stranger right now.</h1>
-      <p class="fs-sub">Get matched, argue it out, and an AI judge picks the winner.</p>
+      <h1 class="fs-h1">
+        <span class="fs-control-only">Debate a stranger right now.</span>
+        <span class="fs-streamer-only">Debate a streamer right now.</span>
+      </h1>
+      <p class="fs-sub">
+        <span class="fs-control-only">Get matched, argue it out, and an AI judge picks the winner.</span>
+        <span class="fs-streamer-only">Enter the creator sweepstakes. Clear the prelims, take the live matchup, and let the stream argue over the ballot.</span>
+      </p>
       <div class="fs-ctas">
-        <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar">Debate a stranger <span aria-hidden="true">&rarr;</span></a>
+        <a class="fs-cta fs-cta--primary fs-control-only" href="/spar" data-cta="first-screen-spar">Debate a stranger <span aria-hidden="true">&rarr;</span></a>
+        <a class="fs-cta fs-cta--primary fs-streamer-only" href="/tournaments#creator-sweepstakes" data-cta="first-screen-streamer">Enter the streamer bracket <span aria-hidden="true">&rarr;</span></a>
         <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate">Watch a round</a>
       </div>
     </div>
