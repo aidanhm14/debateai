@@ -153,16 +153,31 @@
     } catch (e) {}
   }
 
-  window.DBShareApp = function () {
+  window.DBShareLandingPayload = function (text) {
+    var variant = Math.random() < 0.5 ? 'bet' : 'opinion';
+    var title = variant === 'opinion'
+      ? 'Debatable - Everyone has an opinion'
+      : 'Debatable - Bet on your words';
     try {
-      var share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
-      if (share && share.share) return share.share({
-        title: 'Debatable',
-        text: 'Practice a real debate out loud.',
-        url: 'https://itsdebatable.com'
+      if (window.gtag) gtag('event', 'share_title_created', {
+        test: 'share_title_v1',
+        variant: variant,
       });
     } catch (e) {}
-    if (navigator.share) return navigator.share({ title: 'Debatable', text: 'Practice a real debate out loud.', url: 'https://itsdebatable.com' });
+    return {
+      title: title,
+      text: text || 'Practice a real debate out loud.',
+      url: 'https://itsdebatable.com/?share_title=' + variant,
+    };
+  };
+
+  window.DBShareApp = function () {
+    var payload = window.DBShareLandingPayload();
+    try {
+      var share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+      if (share && share.share) return share.share(payload);
+    } catch (e) {}
+    if (navigator.share) return navigator.share(payload);
     return Promise.resolve();
   };
 

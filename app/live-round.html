@@ -5169,23 +5169,21 @@ body.lr-pip .lr-pip-notice{display:block}
       var won = mySide() && b.winner === mySide();
       var shareText = (won ? 'Just won a round on itsdebatable.com.' : 'Sparred on itsdebatable.com.') +
         ' Motion: "' + (state.motion || '') + '"';
+      var sharePayload = window.DBShareLandingPayload
+        ? window.DBShareLandingPayload(shareText)
+        : { title: 'Debatable - Bet on your words', text: shareText, url: 'https://itsdebatable.com/?share_title=bet' };
       // Web Share API w/ files works on iOS Safari + Chrome
       // Android. Falls back to URL-only share, then to download.
       try {
         var file = new File([blobRef], fileName, { type: 'image/png' });
         if (navigator.canShare && navigator.canShare({ files: [file] })){
-          navigator.share({
-            files: [file],
-            title: 'Debatable',
-            text: shareText,
-            url: 'https://itsdebatable.com',
-          }).then(function(){
+          navigator.share(Object.assign({ files: [file] }, sharePayload)).then(function(){
             try { gtag('event', 'share_clip_shared', { method: 'webshare_files' }); } catch(e){}
           }).catch(function(){ /* user cancelled */ });
           return;
         }
         if (navigator.share){
-          navigator.share({ title: 'Debatable', text: shareText, url: 'https://itsdebatable.com' })
+          navigator.share(sharePayload)
             .then(function(){ try { gtag('event', 'share_clip_shared', { method: 'webshare_text' }); } catch(e){} })
             .catch(function(){});
           return;
