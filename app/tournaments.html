@@ -1,14 +1,22 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<!-- data-theme flipped with the palette (2026-07-23). Not cosmetic:
+     js/home-magnet.js:145 tests data-theme against /dark|stone|grey/ to
+     pick its own rendering, so leaving "dark" here would have drawn the
+     dark-surface magnet on top of the new light page. -->
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Tournaments · Debatable</title>
 <meta name="description" content="Debatable tournaments: enter a real bracket, get seeded by AI prelims, advance through human elimination rounds, and take an AI-judged final. Format-accurate across Asian Parliamentary, WSDC, British Parliamentary, APDA, PF, LD, and Policy." />
 <!-- Campaign destination: linked from the homepage creator-sweepstakes
-     advertisement and listed in the footer site index, but intentionally
-     absent from the global topbar while tournaments remain event-by-event drops. Keep noindex
-     until the shared tournament backend replaces local registration. -->
+     advertisement and listed in the footer site index. 2026-07-23: it is
+     no longer absent from global nav either. It stays off the main bar
+     (still event-by-event drops, and the bar is full) but it is now in
+     the topbar "More" menu under Watch & compete, because until today
+     this page had NO discovery surface at all and was reachable only by
+     typing the URL. Keep noindex until the shared tournament backend
+     replaces local registration. -->
 <meta name="robots" content="noindex" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,20 +34,35 @@
      that swaps the local store for the shared server ledger the day
      /api/tournaments/* is reachable, exactly like /floor did.
      ============================================================ */
+  /* 2026-07-23: flipped dark -> light per Aidan. Values are lifted from
+     /predict so the two Bet-family surfaces read as one system rather
+     than two products (--bg/--panel/--bd/--tx/--pro/--con/--blue/--amber
+     there map onto --bg/--card/--border/--text/--win/--accent/--blue/
+     --gold here).
+     The light rule that matters, learned the hard way on the Saved-tab
+     dashboard: surfaces must be BRIGHTER than the page, not a dark tint
+     on top of it. Inverting a dark theme by dropping alpha gives you
+     invisible cards. So --card is solid white against warm paper, and
+     depth comes from a real border plus --shadow, not from fill. */
   :root{
-    --bg:#17181c; --bg2:#1e2026; --card:#24262e; --card2:#2c2f38;
-    --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.17);
-    --text:#f5f5f7; --dim:rgba(245,245,247,.72); --ghost:rgba(245,245,247,.46);
-    --faint:rgba(245,245,247,.30);
-    --accent:#ef4444; --accent2:#dc2626; --accentGlow:rgba(239,68,68,.16);
-    --win:#34d399; --winBg:rgba(52,211,153,.12);
-    --live:#f87171; --gold:#fbbf24; --blue:#60a5fa; --blueBg:rgba(96,165,250,.12);
+    --bg:#f6f4ee; --bg2:#f1eee5; --card:#ffffff; --card2:#faf8f3;
+    --border:rgba(20,22,28,.11); --border2:rgba(20,22,28,.24);
+    --text:#17181c; --dim:rgba(23,24,28,.64); --ghost:rgba(23,24,28,.44);
+    --faint:rgba(23,24,28,.32);
+    --accent:#dc2626; --accent2:#b91c1c; --accentGlow:rgba(220,38,38,.10);
+    --win:#15803d; --winBg:rgba(21,128,61,.09);
+    --live:#dc2626; --gold:#b45309; --blue:#2563eb; --blueBg:rgba(37,99,235,.09);
+    --shadow:0 1px 2px rgba(20,22,28,.05),0 4px 14px rgba(20,22,28,.05);
+    --shadow2:0 2px 6px rgba(20,22,28,.06),0 14px 34px rgba(20,22,28,.10);
     --serif:'Crimson Pro','Fraunces',Georgia,'Times New Roman',serif;
     --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased}
-  body{min-height:100vh;background:radial-gradient(1100px 620px at 82% -10%, rgba(239,68,68,.09), transparent 60%), var(--bg)}
+  /* The dark build could carry a .09 red bloom because it sat on near-black.
+     On paper that same alpha reads as a pink stain, so it drops to a warm
+     wash that you register as light falling on the page, not as colour. */
+  body{min-height:100vh;background:radial-gradient(1100px 620px at 82% -10%, rgba(220,38,38,.045), transparent 62%), var(--bg)}
   a{color:inherit;text-decoration:none}
   button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
   em,i{font-style:normal}
@@ -47,7 +70,7 @@
   ::selection{background:var(--accentGlow)}
 
   /* ---- header ---- */
-  .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 20px;background:rgba(23,24,28,.84);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 20px;background:rgba(246,244,238,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
   .brand{display:flex;align-items:baseline;gap:9px;font-family:var(--serif);font-weight:800;font-size:1.18rem;letter-spacing:-.01em}
   .brand b{color:var(--accent)}
   .brand .sep{width:1px;height:18px;background:var(--border2);align-self:center}
@@ -68,7 +91,7 @@
   .hero h1 .accent{color:var(--accent)}
   .hero p.lede{margin:18px 0 0;font-size:1.06rem;line-height:1.55;color:var(--dim);max-width:60ch}
   .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
-  .chip{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--dim);padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card)}
+  .chip{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--dim);padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card);box-shadow:var(--shadow)}
   .chip b{color:var(--text);font-weight:800}
   .chip .ic{color:var(--accent)}
 
@@ -76,13 +99,22 @@
   .creator-callout{max-width:1120px;margin:26px auto 0;padding:0 20px}
   .creator-callout-in{
     position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;
-    gap:22px;align-items:center;padding:22px 24px;border:1px solid rgba(239,68,68,.42);
-    border-radius:16px;background:linear-gradient(125deg,rgba(239,68,68,.14),rgba(239,68,68,.035) 68%)
+    gap:22px;align-items:center;padding:22px 24px;border:1px solid rgba(220,38,38,.26);
+    border-radius:16px;box-shadow:var(--shadow);
+    background:linear-gradient(125deg,rgba(220,38,38,.075),rgba(255,255,255,.85) 62%)
   }
+  /* The watermark was .07 white-on-black. Paper needs MORE alpha, not less,
+     for the same presence, so this goes up rather than down. */
   .creator-callout-in:after{
-    content:"VS";position:absolute;right:170px;top:50%;transform:translateY(-52%) rotate(-7deg);
-    font-family:var(--serif);font-weight:800;font-size:6.6rem;color:rgba(239,68,68,.07);pointer-events:none
+    content:"VS";position:absolute;right:232px;top:50%;transform:translateY(-52%) rotate(-7deg);
+    font-family:var(--serif);font-weight:800;font-size:6.6rem;color:rgba(220,38,38,.085);pointer-events:none
   }
+  /* right:170px used to be fine when the mark was a .07 ghost on black. At
+     light-theme alpha its right edge landed under the CTA and read as a
+     pink smear leaking from behind the button, so it moves into the gap
+     between the copy block and the button instead. Hidden once the grid
+     stacks, where there is no gap left to sit in. */
+  @media(max-width:860px){ .creator-callout-in:after{display:none} }
   .creator-callout .k{
     display:flex;align-items:center;gap:7px;margin-bottom:7px;font-family:var(--sans);
     font-size:.64rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--live)
@@ -110,13 +142,13 @@
 
   /* ---- tournament cards ---- */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
-  .tcard{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px 16px;transition:border-color .15s,transform .15s;cursor:pointer;overflow:hidden}
-  .tcard:hover{border-color:var(--border2);transform:translateY(-2px)}
+  .tcard{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px 16px;box-shadow:var(--shadow);transition:border-color .15s,transform .15s,box-shadow .15s;cursor:pointer;overflow:hidden}
+  .tcard:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:var(--shadow2)}
   .tcard .toprow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
   .status{display:inline-flex;align-items:center;gap:6px;font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
-  .status.open{color:var(--win);background:var(--winBg);border:1px solid rgba(52,211,153,.3)}
+  .status.open{color:var(--win);background:var(--winBg);border:1px solid rgba(21,128,61,.26)}
   .status.live{color:#fff;background:var(--accent);border:1px solid var(--accent)}
-  .status.soon{color:var(--blue);background:var(--blueBg);border:1px solid rgba(96,165,250,.3)}
+  .status.soon{color:var(--blue);background:var(--blueBg);border:1px solid rgba(37,99,235,.26)}
   .status.done{color:var(--ghost);background:var(--bg2);border:1px solid var(--border)}
   .status .live-dot{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.6s ease-out infinite}
   @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}50%{box-shadow:0 0 0 5px rgba(255,255,255,0)}}
@@ -131,19 +163,19 @@
   .fillbar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px}
   .cardfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
   .cardfoot .cap{font-size:.76rem;color:var(--dim);font-weight:600}
-  .reg-pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;color:var(--win);background:var(--winBg);border:1px solid rgba(52,211,153,.3);border-radius:999px;padding:4px 10px}
+  .reg-pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;color:var(--win);background:var(--winBg);border:1px solid rgba(21,128,61,.26);border-radius:999px;padding:4px 10px}
 
   .empty{border:1px dashed var(--border2);border-radius:16px;padding:40px 24px;text-align:center;color:var(--ghost)}
   .empty b{color:var(--text);font-family:var(--serif);font-size:1.1rem}
 
   /* ---- how it works ---- */
   .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:6px}
-  .step{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px}
+  .step{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
   .step .num{font-family:var(--serif);font-weight:800;font-size:1rem;color:var(--accent);width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--accent);border-radius:50%;margin-bottom:12px}
   .step h4{font-family:var(--serif);font-weight:800;font-size:1.16rem;margin-bottom:7px}
   .step p{margin:0;color:var(--dim);font-size:.9rem;line-height:1.5}
   .faq{margin-top:30px;display:grid;gap:10px}
-  .faq details{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:2px 16px}
+  .faq details{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:2px 16px;box-shadow:var(--shadow)}
   .faq summary{cursor:pointer;font-weight:700;padding:14px 0;list-style:none;font-size:.96rem}
   .faq summary::-webkit-details-marker{display:none}
   .faq summary::after{content:"+";float:right;color:var(--accent);font-weight:800}
@@ -153,8 +185,8 @@
   /* ---- detail overlay ---- */
   .overlay{position:fixed;inset:0;z-index:80;background:rgba(10,11,13,.72);backdrop-filter:blur(6px);display:none;overflow-y:auto}
   .overlay.on{display:block}
-  .sheet{max-width:960px;margin:38px auto;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;overflow:hidden}
-  .sheet-head{padding:24px 26px 20px;border-bottom:1px solid var(--border);background:radial-gradient(700px 200px at 100% 0,rgba(239,68,68,.10),transparent 70%)}
+  .sheet{max-width:960px;margin:38px auto;background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow2)}
+  .sheet-head{padding:24px 26px 20px;border-bottom:1px solid var(--border);background:radial-gradient(700px 200px at 100% 0,rgba(220,38,38,.07),transparent 70%)}
   .sheet-head .row1{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .sheet-head h2{font-family:var(--serif);font-weight:800;font-size:1.9rem;line-height:1.08;margin-top:12px;letter-spacing:-.01em}
   .sheet-head .motion{margin-top:10px;color:var(--dim);font-size:1rem;line-height:1.5;max-width:62ch}
@@ -162,7 +194,7 @@
   .close-x:hover{color:var(--text);border-color:var(--border2)}
   .sheet-body{padding:22px 26px 26px}
   .infogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:8px}
-  .info{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .info{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
   .info .k{font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
   .info .v{font-size:.98rem;font-weight:700}
   .subhead{font-family:var(--serif);font-weight:800;font-size:1.2rem;margin:26px 0 12px}
@@ -171,10 +203,10 @@
   .bracket{display:flex;gap:26px;overflow-x:auto;padding:6px 2px 14px}
   .round{display:flex;flex-direction:column;justify-content:space-around;gap:14px;min-width:186px}
   .round-lab{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:2px;text-align:center}
-  .match{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .match{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
   .seat{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:var(--dim)}
   .seat + .seat{border-top:1px solid var(--border)}
-  .seat.win{color:var(--text);font-weight:800;background:rgba(52,211,153,.07)}
+  .seat.win{color:var(--text);font-weight:800;background:var(--winBg)}
   .seat.win .sc{color:var(--win)}
   .seat .sd{width:16px;color:var(--faint);font-size:.72rem;font-weight:800}
   .seat .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -184,27 +216,27 @@
   .reg-cta{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:24px;padding:18px 20px;border-radius:14px;border:1px solid var(--accent);background:var(--accentGlow)}
   .reg-cta .t{font-weight:800;font-family:var(--serif);font-size:1.2rem}
   .reg-cta .s{color:var(--dim);font-size:.86rem;margin-top:3px}
-  .reg-done{border-color:rgba(52,211,153,.4);background:var(--winBg)}
+  .reg-done{border-color:rgba(21,128,61,.34);background:var(--winBg)}
   .reg-done .t{color:var(--win)}
 
   /* ---- register modal ---- */
   .modal{position:fixed;inset:0;z-index:90;background:rgba(10,11,13,.74);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
   .modal.on{display:flex}
-  .mbox{width:100%;max-width:440px;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:24px}
+  .mbox{width:100%;max-width:440px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:var(--shadow2)}
   .mbox h3{font-family:var(--serif);font-weight:800;font-size:1.5rem;margin-bottom:6px}
   .mbox .msub{color:var(--dim);font-size:.9rem;line-height:1.5;margin-bottom:18px}
   .field{margin-bottom:15px}
   .field label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ghost);margin-bottom:7px}
-  .field input,.field select{width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:.94rem;font-family:inherit}
+  .field input,.field select{width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:.94rem;font-family:inherit}
   .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
   .modal-actions{display:flex;gap:10px;margin-top:6px}
   .modal-actions .btn{flex:1;justify-content:center;padding:12px}
   .mnote{font-size:.76rem;color:var(--ghost);margin-top:14px;line-height:1.45;text-align:center}
 
   /* toast */
-  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);z-index:120;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;font-size:.88rem;font-weight:600;box-shadow:0 12px 40px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;max-width:88vw}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);z-index:120;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;font-size:.88rem;font-weight:600;box-shadow:var(--shadow2);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;max-width:88vw}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.good{border-color:rgba(52,211,153,.4)}
+  .toast.good{border-color:rgba(21,128,61,.38);color:var(--win)}
 
   .backlink{max-width:1120px;margin:0 auto;padding:8px 20px 40px;color:var(--ghost);font-size:.82rem}
   .backlink a{color:var(--dim);font-weight:700}

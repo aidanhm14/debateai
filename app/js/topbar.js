@@ -260,6 +260,12 @@
       // no-simultaneity surface, so it belongs next to the live ones.
       { href: '/rounds',      label: 'Async rounds' },
       { href: '/spectate',    label: 'Spectate live rounds' },
+      // 2026-07-23: /tournaments had NO discovery surface. It is off the
+      // main bar by design (event-by-event drops) and app pages carry no
+      // footer, so the only way in was typing the URL or catching the
+      // landing's creator-sweepstakes ad. That is exactly the gap this
+      // menu exists to close. Stays noindex; this is internal discovery.
+      { href: '/tournaments', label: 'Tournaments' },
       { href: '/leaderboard', label: 'Leaderboard' },
       { href: '/community',   label: 'Community' },
       // 2026-07-22: chat moved out of the /community Live tab onto its
