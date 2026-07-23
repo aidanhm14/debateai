@@ -10799,6 +10799,66 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   #faq{padding-top:var(--gap-inner) !important}
   #reviews{padding-bottom:var(--gap-inner) !important}
   #faq{padding-bottom:var(--gap-chapter) !important}
+  /* ── CHAPTERS ON PHONES ───────────────────────────────────────────
+     The rhythm above fixes the desktop read. On a phone the deck feel
+     survives it, because it comes from something else: the page is a
+     vertical stack of thirteen rounded rectangles, each ~90% of the
+     screen wide, each filled near-white, one per scroll.
+
+     A card earns its chrome by separating its contents from what sits
+     BESIDE it. In a single 390px column nothing sits beside anything,
+     so a full-width card is a border drawn around the page — it groups
+     nothing and costs a frame. The three worst are section wrappers
+     600-1236px tall: at 1.5x the viewport you never see rb-card's top
+     and bottom together, so all it renders is two vertical rules down
+     the edges of the screen for a screen and a half.
+
+     Dissolve those wrappers here. Everything genuinely discrete keeps
+     its chrome, because those ARE objects rather than containers: the
+     ballot, the certificate thumb, the week calendar and its day
+     cells, the booking calendar, the Floor's market cards. */
+  @media (max-width:640px){
+    .ms-wall,.credential-card,.rb-card{
+      border:0 !important;border-radius:0 !important;
+      background:none !important;box-shadow:none !important;
+      padding-left:0 !important;padding-right:0 !important;
+    }
+    /* The wrappers' own rules set these at various breakpoints, and the
+       leaderboard card is a flex column whose padding was holding its
+       rows off the edge. Keep the vertical padding, drop the frame. */
+    .rb-card{padding-top:0 !important;padding-bottom:0 !important}
+    /* Centred ragged body copy is the other slide tell, and at this
+       width it costs real legibility: every line starts at a different
+       x, so the eye hunts for the next one instead of returning to a
+       fixed margin. Headlines stay as designed — a centred HEADLINE is
+       a title, a centred multi-line PARAGRAPH is a slide.
+
+       Named individually rather than as `section p`, because the line
+       count is what decides this and CSS cannot ask. Each one below
+       measured 3-6 lines at 390px. .fw-sub is deliberately NOT here:
+       at 69 characters it sets one line, where centring still reads as
+       a caption under its title rather than as a block of body copy. */
+    #community-band .cb-sub,
+    #ranked-band .rb-sub,
+    #mode-select .ms-alts,
+    #credential-path .rt-copy p{text-align:left}
+    /* The scale caption is text-align:right with a float:right pill
+       beside it. There is room for both on a desktop column; at 390px
+       "...out of 30" runs into the pill's left border. Flex separates
+       them and the float goes inert inside a flex container.
+       Needs the id: .rb-scale's own rule is declared ~3,300 lines
+       below this block, so a bare class loses on source order. */
+    #ranked-band .rb-scale{display:flex;align-items:center;
+      justify-content:space-between;gap:10px;text-align:left}
+    /* Same shape of bug one section up: a flex row of
+       [dashed lane][label][dashed lane] where the label is flex:none.
+       At 390px the lanes have already collapsed to 0px, so they add
+       nothing, and the label still overflows its rail by 20px. Drop
+       the spent decoration and let the label wrap in the space. */
+    #community-band .cb-rail{flex-wrap:wrap;justify-content:center}
+    #community-band .cb-rail .lane{display:none}
+    #community-band .cb-rail span{flex:1 1 auto;text-align:center}
+  }
   /* Chapter marker: hairline, a label naming the movement, hairline.
      Used where one chapter's argument hands off to the next and the
      seam would otherwise read as "another band started". */
@@ -12265,7 +12325,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     @media(max-width:560px){
       /* Padding comes from --mid-pad-block / --mid-gutter now. */
       .credential-card{padding:22px;border-radius:var(--mid-radius-sm)}
-      .credential-proof{grid-template-columns:1fr}
+      /* These three are decorative tags naming the proof chain (live
+         round, AI ballot, verify URL), not actions. Stacked 1-per-row
+         they became three full-width empty pills — two words each in a
+         351px bar, which is the "everything is a slab" read the rest of
+         this pass is undoing. They are short enough to sit in a row. */
+      .credential-proof{display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
+      .credential-proof span{padding:7px 13px;min-height:0}
       .credential-actions{flex-direction:column}
       .credential-btn{justify-content:center;width:100%}
       .cred-media{aspect-ratio:3/2}
