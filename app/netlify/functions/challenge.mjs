@@ -73,12 +73,26 @@ export default async (request) => {
       const byDate = feed === 'done-public'
         ? ['updatedAt', 'desc']
         : (feed === 'upcoming-public' ? ['scheduledAt', 'asc'] : ['createdAt', 'desc']);
-      const snap = await withDeadline(
-        db.collection('challenges')
-          .where('feedKey', '==', feed)
-          .orderBy(byDate[0], byDate[1])
-          .limit(limit)
-          .get(), 3000);
+      // A board query can fail for reasons that are not the visitor's
+      // problem: a composite index still building after a deploy, a
+      // cold-start deadline, a transient Firestore blip. The arena is
+      // the homepage, so none of those may surface as a 502. Return an
+      // empty feed with `degraded` set and let the client render its
+      // empty state, which it needs anyway for a genuinely quiet board.
+      let snap;
+      try {
+        snap = await withDeadline(
+          db.collection('challenges')
+            .where('feedKey', '==', feed)
+            .orderBy(byDate[0], byDate[1])
+            .limit(limit)
+            .get(), 3000);
+      } catch (err) {
+        console.error('[challenge] feed query failed', feed, err.message);
+        return jsonResponse({
+          feed, challenges: [], degraded: true, at: Date.now(),
+        }, 200, request);
+      }
       return jsonResponse({
         feed,
         challenges: snap.docs.map((d) => publicChallenge(d.id, d.data())),
@@ -90,7 +104,13 @@ export default async (request) => {
     const id = (url.searchParams.get('id') || '').slice(0, 60);
     if (!slug && !id) return errorResponse('Missing slug or id', 400, request);
 
-    const doc = await loadBySlugOrId(db, { slug, id });
+    let doc;
+    try {
+      doc = await loadBySlugOrId(db, { slug, id });
+    } catch (err) {
+      console.error('[challenge] lookup failed', slug || id, err.message);
+      return errorResponse('Could not load that challenge. Try again.', 503, request);
+    }
     if (!doc) return errorResponse('Challenge not found', 404, request);
     const data = doc.data();
     if (data.moderation && data.moderation.state === 'hidden') {
