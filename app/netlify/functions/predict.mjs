@@ -105,6 +105,11 @@ const MOTION_BANK = [
 function newRoomId(){ return 'ai-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7); }
 const AI_TARGET_OPEN = 7;
 const HOUSE_SEED = 100;        // opening liquidity per side so a fresh market isn't an empty 0-pool book
+// Judge attempts before a market is voided and every stake returned. The judge
+// call is a network round trip to a model, so a transient failure is expected
+// and worth retrying; a market that fails this many times is malformed, not
+// unlucky, and holding stakes hostage waiting for it is worse than refunding.
+const MAX_JUDGE_FAILS = 5;
 // Stagger lock windows so the board churns: some resolve within minutes (so the
 // "recently resolved" feed fills fast and stays alive), some hold open longer.
 function aiLockWindowMs(i){ const floor = 6 + ((i || 0) % 4) * 9; return (floor + Math.floor(Math.random() * 12)) * 60 * 1000; } // ~6-45 min
@@ -156,6 +161,11 @@ async function seedActivity(db, origin, want) {
   for (let i = 0; i < need && i < pool.length; i++) {
     const pick = pool[i];
     const j = await judgeMotion(origin, { motion: pick.m, proCase: pick.pro, conCase: pick.con });
+    // judgeMotion returns null when it cannot get a real verdict. Skip rather
+    // than seed the "recently resolved" feed with a fabricated one: these cards
+    // are the public evidence that the judge works, so a made-up verdict here
+    // would be the most misleading place in the product to put one.
+    if (!j) continue;
     // Plausible opening book: weight the seeded pool toward the eventual loser a
     // little so payouts read realistically; these are house points, not bets.
     const a = HOUSE_SEED + Math.floor(Math.random() * 240), b = HOUSE_SEED + Math.floor(Math.random() * 240);
@@ -195,8 +205,39 @@ async function judgeMotion(origin, m) {
     const w = String(o.winner || '').toUpperCase();
     if (w === 'A' || w === 'B') return { verdict: (w === 'A' ? sideA.tag : sideB.tag), rfd: String(o.reason || '').slice(0, 240) };
   } catch (e) {} }
-  // Fallback: deterministic-ish coin from the motion text so a parse miss still resolves.
-  return { verdict: (m.motion.length % 2 === 0) ? 'pro' : 'con', rfd: '' };
+  // No verdict. Previously this returned (motion.length % 2 === 0 ? 'pro' : 'con')
+  // so that a parse miss still resolved, which meant real balances could pay out
+  // on the parity of a character count. Deterministic is not the same as judged.
+  // Returning null hands the decision back to the caller, which retries and
+  // eventually voids rather than inventing a winner.
+  return null;
+}
+
+// Void a market and refund every stake at face value. Used when the judge
+// cannot produce a verdict after MAX_JUDGE_FAILS attempts. Mirrors the debit
+// taken in `bet` (balance -= stake), so a refund is the exact inverse.
+// Deliberately does NOT touch predict_leaderboard: a round nobody judged is not
+// a prediction anyone got right or wrong, so rating and the win/loss record
+// stay where they were. liveKey moves off 'ai_open'/'ai_settled', which is what
+// the board queries, so a voided market simply leaves the board.
+async function voidMarket(db, mRef, pm, fails) {
+  const bets = await mRef.collection('bets').get();
+  const batch = db.batch();
+  batch.update(mRef, {
+    status: 'void', liveKey: 'ai_void', verdict: null,
+    rfd: 'Voided: no judgment could be produced for this market. All stakes returned.',
+    judgeFails: fails, settledAt: FieldValue.serverTimestamp(),
+  });
+  bets.forEach((b) => {
+    const d = b.data();
+    if (d.stake > 0) {
+      batch.update(db.collection('predict_balances').doc(d.uid), {
+        balance: FieldValue.increment(d.stake), updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  });
+  await batch.commit();
+  return { refunded: bets.size };
 }
 
 // Settle a market to a verdict (parimutuel). Shared by human-round settle + AI resolve.
@@ -236,10 +277,35 @@ async function resolveAiMarket(db, origin, room) {
     return md;
   });
   if (!claimed) return null;
-  const { verdict, rfd } = await judgeMotion(origin, claimed);
+
+  // A throw here (fetch rejects on DNS, timeout, or a 5xx that never parses)
+  // must land in the same place as a null: the market has been claimed into
+  // 'resolving', and an exception escaping this function would leave it there
+  // permanently, since the claim guard refuses to re-enter a resolving market.
+  let judged = null;
+  try { judged = await judgeMotion(origin, claimed); } catch (e) { judged = null; }
+
+  // The judge could not return a verdict. Do not settle: a market with no
+  // judgment behind it has no business paying anyone. Release the claim so the
+  // next sweep retries, and count the attempt. The claim guard rejects
+  // 'resolving', so failing to revert here would strand the market forever.
+  if (!judged) {
+    const fails = (claimed.judgeFails || 0) + 1;
+    if (fails < MAX_JUDGE_FAILS) {
+      await mRef.update({ status: 'open', liveKey: 'ai_open', judgeFails: fails });
+      return null;
+    }
+    // Out of attempts. Void it and return every stake. No verdict means no
+    // winners and no losers, so ratings are untouched and nobody is charged
+    // for our inability to judge.
+    const fresh = await mRef.get();
+    await voidMarket(db, mRef, fresh.data(), fails);
+    return null;
+  }
+
   const fresh = await mRef.get();
-  await settleMarket(db, mRef, fresh.data(), verdict, rfd);
-  return verdict;
+  await settleMarket(db, mRef, fresh.data(), judged.verdict, judged.rfd);
+  return judged.verdict;
 }
 
 export default async (request) => {
