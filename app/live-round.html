@@ -335,8 +335,9 @@ button{font-family:inherit}
 
 /* ── Minimize / pop-out the live round ───────────────────────────────
    In-page mini: dock the video to a floating corner and hand the speech
-   panel the full width. The iframe never changes documents here, so the
-   call does NOT reconnect. Pop-out: the video pane moves into a real
+   panel the full width. The pane is overlaid on the console rather than
+   moved into it, because an iframe reloads whenever it is reparented,
+   even within the same document, which dropped the call. Pop-out: moves into a real
    Document Picture-in-Picture window (Chrome/Edge), staying on top across
    tabs; the iframe briefly reconnects on the way out and back since
    iframes reload when adopted into another document. */
@@ -372,8 +373,8 @@ body.lr-mini .lr-minibar{display:flex}
 .lr-minibar button:hover{background:rgba(0,0,0,.72)}
 /* Docked round console (in-page mini): resolution + timer above, an AI
    judge panel beside the video so it reads as a round, not just a video
-   tab. The video pane is reparented into the console within the SAME
-   document, so the Daily call does not reconnect. */
+   tab. .lrd-vid is an empty slot that reserves the space; the real pane is
+   positioned over it (see .lrd-docked) so the iframe is never moved. */
 #lrDock{
   display:none;position:fixed;right:18px;bottom:18px;z-index:2147483000;
   width:486px;max-width:calc(100vw - 28px);
@@ -399,8 +400,16 @@ body.lr-mini #lrDock{display:block}
 .lrd-judge .lrj-live{margin-top:auto;display:inline-flex;align-items:center;gap:5px;font-size:.52rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#ff6a6a}
 .lrd-judge .lrj-live i{width:6px;height:6px;border-radius:50%;background:#ff3b3b;animation:lrMiniPulse 1.6s infinite}
 .lrd-vid{flex:1;min-width:0;position:relative;height:204px;background:#0a0a0c}
-body.lr-mini #jitsiPane.lrd-mounted{position:absolute;inset:0;width:auto;height:auto;border:0;border-radius:0;box-shadow:none;z-index:1;animation:none}
-#jitsiPane.lrd-mounted .lr-minibar{display:none}
+/* Docked by overlay, not by reparenting. The pane keeps its place in the
+   DOM and is positioned over the .lrd-vid slot from JS; moving it would
+   reload the Daily iframe and drop the call. right/bottom are cleared
+   because the standalone-mini rule above sets them. */
+body.lr-mini #jitsiPane.lrd-docked{
+  position:fixed;right:auto;bottom:auto;
+  width:auto;height:auto;border:0;border-radius:0;box-shadow:none;
+  z-index:2147483001;animation:none;
+}
+#jitsiPane.lrd-docked .lr-minibar{display:none}
 @media(max-width:560px){
   #lrDock{width:calc(100vw - 20px)}
   .lrd-judge{width:104px;padding:9px}
@@ -6357,9 +6366,55 @@ body.lr-pip .lr-pip-notice{display:block}
     function startSync() { stopSync(); syncTimer = setInterval(syncDock, 1000); }
     function stopSync() { if (syncTimer) { clearInterval(syncTimer); syncTimer = null; } }
 
+    /* Glue the pane to the console's video slot. The pane is NOT moved into
+       the slot: reparenting an iframe destroys its browsing context and
+       reloads it, which drops the Daily call and leaves a spinner. So the
+       slot just reserves the space and the pane is drawn over it.
+       rAF rather than resize/scroll listeners because the console is
+       draggable, and its box moves under the pointer between events. Only
+       runs while docked, and only writes when the rect actually changed. */
+    var posRaf = null, lastBox = '';
+    // One read + conditional write. Called synchronously when docking so the
+    // pane lands in place on the first paint, then again each frame.
+    function placePane() {
+      var slot = document.getElementById('lrdVid');
+      if (!slot) return;
+      var r = slot.getBoundingClientRect();
+      var box = r.left + ',' + r.top + ',' + r.width + ',' + r.height;
+      if (box === lastBox) return;
+      lastBox = box;
+      jitsiPane.style.left = r.left + 'px';
+      jitsiPane.style.top = r.top + 'px';
+      jitsiPane.style.width = r.width + 'px';
+      jitsiPane.style.height = r.height + 'px';
+    }
+    function syncPanePos() {
+      if (!jitsiPane.classList.contains('lrd-docked')) { posRaf = null; return; }
+      placePane();
+      posRaf = requestAnimationFrame(syncPanePos);
+    }
+    function startPanePos() {
+      lastBox = '';
+      placePane();
+      // rAF is paused while the tab is hidden, which is fine (nothing is
+      // visible), but resize still needs handling for the moment it returns.
+      if (!posRaf) posRaf = requestAnimationFrame(syncPanePos);
+      window.addEventListener('resize', placePane);
+    }
+    function stopPanePos() {
+      if (posRaf) { cancelAnimationFrame(posRaf); posRaf = null; }
+      window.removeEventListener('resize', placePane);
+      lastBox = '';
+      jitsiPane.style.left = jitsiPane.style.top = jitsiPane.style.width = jitsiPane.style.height = '';
+    }
+
     // Drop the console: move the video pane back into the page grid.
     function teardownConsole() {
       stopSync();
+      stopPanePos();
+      jitsiPane.classList.remove('lrd-docked');
+      // Legacy: earlier builds reparented into the slot. Move it back if a
+      // stale session is still in that state.
       if (jitsiPane.classList.contains('lrd-mounted')) {
         try {
           if (resizer && resizer.parentNode === splitEl) splitEl.insertBefore(jitsiPane, resizer);
@@ -6392,8 +6447,8 @@ body.lr-pip .lr-pip-notice{display:block}
     // Minimize: dock the video into a corner console (resolution + timer +
     // judge) AND load the rest of the site in a background iframe, so the
     // user can browse it while the round + its video keep running. The host
-    // page never navigates and the pane only moves within this document, so
-    // nothing reconnects.
+    // page never navigates and the pane is never reparented, so the call
+    // survives; it is positioned over the console's slot instead.
     function enterMini() {
       if (document.body.classList.contains('lr-pip') || pipWin) {
         try {
@@ -6405,9 +6460,10 @@ body.lr-pip .lr-pip-notice{display:block}
         if (pipWin) { try { pipWin.close(); } catch (e) {} pipWin = null; }
       }
       var dock = buildDock();
-      var slot = document.getElementById('lrdVid');
-      if (slot && jitsiPane.parentNode !== slot) { slot.appendChild(jitsiPane); jitsiPane.classList.add('lrd-mounted'); }
+      // Overlay, never appendChild: moving the pane reloads the Daily iframe.
+      jitsiPane.classList.add('lrd-docked');
       document.body.classList.add('lr-mini');
+      startPanePos();
       openSiteShell();
       syncDock();
       startSync();
