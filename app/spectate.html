@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script src="/js/native-bridge.js"></script>
-  <title>Spectate Live | Debatable</title>
+  <title>Live Debate Waiting Room | Debatable</title>
   <meta name="robots" content="noindex,follow">
-  <meta name="description" content="The waiting room for live Debatable rounds. Build your debate brain while you wait.">
+  <meta name="description" content="Wait for a live Debatable round and build your debate database before you spawn in.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -36,12 +36,27 @@
       min-height:100vh;
     }
     a{color:inherit}
-    .wrap{width:min(1160px,calc(100% - 32px));margin:0 auto;padding:58px 0 72px;position:relative}
-    .hero{display:grid;grid-template-columns:minmax(0,.84fr) minmax(480px,1.16fr);gap:52px;align-items:center;position:relative;z-index:1}
+    .wrap{width:min(1160px,calc(100% - 32px));margin:0 auto;padding:72px 0;position:relative}
+    .wait-banner{
+      display:flex;align-items:center;justify-content:space-between;gap:24px;
+      background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:16px;
+      padding:15px 18px;box-shadow:0 12px 32px rgba(31,26,23,.055);
+    }
+    .wait-state{display:flex;align-items:center;gap:13px;min-width:0}
+    .wait-dot{width:10px;height:10px;flex:0 0 auto;border-radius:50%;background:var(--green);box-shadow:0 0 0 6px rgba(34,197,94,.10)}
+    .wait-state strong{display:block;font-size:1rem;line-height:1.1}
+    .wait-state p{margin:3px 0 0;color:var(--muted);font-size:.9rem;line-height:1.25}
+    .wait-meta{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+    .timer-wrap{text-align:right}
+    .timer-label{display:block;color:var(--faint);font-size:.7rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase}
+    .timer{display:block;font-weight:900;color:var(--ink);font-size:1.1rem;letter-spacing:.06em;line-height:1.1;margin-top:2px}
+    .wait-link{color:var(--muted);font-weight:800;font-size:.9rem;text-underline-offset:3px}
+    .wait-link:hover{color:var(--red-dark)}
+    .hero{display:grid;grid-template-columns:minmax(0,.88fr) minmax(500px,1.12fr);gap:44px;align-items:start;position:relative;z-index:1;margin-top:34px}
     .eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--red-dark);font-weight:900;letter-spacing:.18em;text-transform:uppercase;font-size:.78rem}
     .eyebrow:before{content:"";width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 0 8px rgba(239,68,68,.10)}
-    h1{font-size:clamp(3.15rem,5.8vw,5.65rem);line-height:.94;margin:18px 0 18px;letter-spacing:0;font-weight:900}
-    .lead{font-size:clamp(1.15rem,1.55vw,1.4rem);line-height:1.4;color:var(--muted);max-width:640px;margin:0}
+    h1{font-size:clamp(3.2rem,5.1vw,5rem);line-height:.94;margin:18px 0 18px;letter-spacing:0;font-weight:900}
+    .lead{font-size:clamp(1.12rem,1.4vw,1.3rem);line-height:1.4;color:var(--muted);max-width:570px;margin:0}
     .lead strong{color:var(--ink)}
     .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
     .btn{
@@ -53,15 +68,22 @@
     .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff;box-shadow:0 14px 32px rgba(29,29,34,.12)}
     .btn.primary:hover{background:#08080b}
     .btn.ghost{color:var(--ink)}
+    .database-preview{display:grid;gap:9px;margin-top:30px}
+    .database-preview div{display:grid;grid-template-columns:30px 1fr;gap:11px;align-items:start}
+    .database-preview p{margin:0}
+    .database-preview span{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--soft);color:var(--red-dark);font-weight:900}
+    .database-preview b{display:block;font-size:1rem;line-height:1.1}
+    .database-preview small{display:block;color:var(--muted);font-size:.86rem;line-height:1.25;margin-top:3px}
     .waiting-card{
       background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:16px;
-      box-shadow:0 20px 54px rgba(31,26,23,.07);padding:18px;position:relative;overflow:hidden;
+      box-shadow:0 20px 54px rgba(31,26,23,.07);padding:24px;position:relative;overflow:hidden;
     }
     .waiting-card>*{position:relative;z-index:1}
-    .wait-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
-    .status{display:inline-flex;align-items:center;gap:8px;color:#4d4844;font-weight:800;font-size:.78rem}
-    .status span{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(34,197,94,.10)}
-    .timer{font-weight:900;color:var(--faint);letter-spacing:.06em}
+    .builder-head{display:flex;justify-content:space-between;align-items:start;gap:18px;margin-bottom:18px}
+    .builder-head h2{margin:4px 0 6px;font-size:1.7rem;line-height:1}
+    .builder-head p{margin:0;color:var(--muted);font-size:.96rem;line-height:1.3;max-width:380px}
+    .builder-kicker{color:var(--red-dark);font-size:.72rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase}
+    .builder-saved{min-height:18px;margin:12px 0 0;color:var(--green);font-size:.86rem;font-weight:800}
     .network{height:380px;border-radius:14px;background:linear-gradient(180deg,#fbfaf7,#f6f4ef);border:1px solid #ece7e1;position:relative;overflow:hidden}
     .brain-map{position:absolute;inset:8px 10px 58px;width:calc(100% - 20px);height:calc(100% - 66px)}
     .brain-outline{fill:rgba(255,255,255,.62);stroke:#cfc9c2;stroke-width:1.4}
@@ -76,11 +98,13 @@
     .network-copy h2{margin:0;font-size:1.15rem;line-height:1.05}
     .network-copy p{margin:4px 0 0;color:var(--muted);font-size:.84rem;line-height:1.3}
     .pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-weight:900;color:var(--muted);white-space:nowrap}
-    .panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}
+    .panel-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:28px}
     .panel{background:rgba(255,255,255,.84);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 12px 34px rgba(31,26,23,.045)}
-    .panel.brain-panel{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,.85fr) minmax(420px,1.15fr);gap:30px;align-items:center}
+    .panel.brain-panel{display:grid;grid-template-columns:minmax(0,.9fr) minmax(420px,1.1fr);gap:30px;align-items:center}
     .panel h2{margin:0 0 8px;font-size:1.8rem;line-height:1}
     .panel p{color:var(--muted);font-size:1.05rem;line-height:1.4;margin:0 0 18px}
+    .step h3{margin:0 0 4px;font-size:1.2rem;line-height:1.1}
+    .step>p{margin:0 0 14px;color:var(--muted);font-size:.9rem;line-height:1.3}
     .step{display:none;animation:rise .22s ease}
     .step.on{display:block}
     @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -160,20 +184,25 @@
     .od-done{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
     .od-verdict{font-size:1.1rem;font-weight:800;color:var(--ink);margin:0}
     @media (max-width:900px){
-      .wrap{padding-top:46px}
+      .wrap{padding-top:68px}
       .hero,.panel-grid,.panel.brain-panel{grid-template-columns:1fr}
-      .panel.brain-panel{grid-column:auto}
-      .waiting-card{order:-1}
       .network{height:260px}
     }
     @media (max-width:560px){
-      .wrap{width:min(100% - 22px,1180px);padding-top:34px}
+      .wrap{width:min(100% - 22px,1180px);padding-top:64px}
+      .wait-banner{align-items:flex-start;padding:14px}
+      .wait-state p{font-size:.82rem}
+      .wait-meta{display:block;text-align:right}
+      .wait-link{display:none}
       h1{font-size:3.15rem}
       .lead{font-size:1.16rem}
+      .hero{margin-top:28px}
       .choices{grid-template-columns:1fr}
       .network-copy{display:block}
       .pill{margin-top:10px}
       .btn{width:100%}
+      .builder-head{display:block}
+      .builder-head .pill{display:inline-flex}
       .brain-viz{height:212px}
       .brain-node{font-size:.68rem}
       .od-sides{grid-template-columns:1fr}
@@ -188,43 +217,78 @@
 <body>
   <div id="daTopbar"></div>
   <main class="wrap">
-    <section class="hero" aria-labelledby="spectateTitle">
-      <div>
-        <div class="eyebrow">The waiting room</div>
-        <h1 id="spectateTitle">A quiet place to build your debate brain.</h1>
-        <p class="lead">Add one piece while you wait: a topic, a past flow, an avatar, or the way you like to argue. When a live round opens, this page becomes the room.</p>
-        <div class="actions">
-          <button class="btn primary" type="button" id="focusProfile">Build one part</button>
-          <a class="btn ghost" href="/live">Browse upcoming rounds</a>
+    <section class="wait-banner" aria-label="Live debate waiting status">
+      <div class="wait-state">
+        <span class="wait-dot" aria-hidden="true"></span>
+        <div>
+          <strong>You are in the waiting room</strong>
+          <p>Keep this tab open. You will spawn in here when a live debate opens.</p>
         </div>
       </div>
-      <aside class="waiting-card" aria-label="Live debate waiting room">
-        <div class="wait-top">
-          <div class="status"><span></span>Waiting for a live debate</div>
-          <div class="timer" id="waitTimer">00:00</div>
+      <div class="wait-meta">
+        <div class="timer-wrap">
+          <span class="timer-label">Waiting</span>
+          <span class="timer" id="waitTimer">00:00</span>
         </div>
-        <div class="network" aria-hidden="true">
-          <svg class="brain-map" viewBox="0 0 600 360" preserveAspectRatio="xMidYMid meet">
-            <g>
-              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
-              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
-              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
-            </g>
-            <g class="brain-active" id="brainFill">
-              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
-              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
-              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
-              <circle class="brain-pulse" cx="205" cy="194" r="4"/><circle class="brain-pulse" cx="300" cy="153" r="4"/><circle class="brain-pulse" cx="395" cy="194" r="4"/>
-            </g>
-          </svg>
-          <div class="network-copy">
-            <div>
-              <h2>Your brain is taking shape</h2>
-              <p>Each answer, file, and round fills another connection.</p>
-            </div>
-            <span class="pill" id="profilePct">0% built</span>
+        <a class="wait-link" href="/live">View the room board</a>
+      </div>
+    </section>
+
+    <section class="hero" aria-labelledby="spectateTitle">
+      <div>
+        <div class="eyebrow">While you wait</div>
+        <h1 id="spectateTitle">Build your debate database.</h1>
+        <p class="lead">Save the formats you know, the topics you follow, and the rounds that shaped you. Add a little now. Keep building after you spawn in.</p>
+        <div class="actions">
+          <button class="btn primary" type="button" id="focusProfile">Start my database</button>
+          <a class="btn ghost" href="/live">Browse upcoming rounds</a>
+        </div>
+        <div class="database-preview" aria-label="What goes in your debate database">
+          <div><span>1</span><p><b>Debate identity</b><small>Formats, circuits, languages, goals, and style.</small></p></div>
+          <div><span>2</span><p><b>Case vault</b><small>Flows, ballots, cases, and notes you want close.</small></p></div>
+          <div><span>3</span><p><b>Thinking map</b><small>Strengths, habits, blind spots, and what to drill next.</small></p></div>
+        </div>
+      </div>
+      <aside class="waiting-card" id="profileBuilder" aria-label="Debate database quick setup">
+        <div class="builder-head">
+          <div>
+            <div class="builder-kicker">Quick setup</div>
+            <h2>Add the first layer</h2>
+            <p>Three short answers make this room, your suggestions, and future rounds more useful.</p>
+          </div>
+          <span class="pill" id="profilePct">0% built</span>
+        </div>
+        <div class="progress"><span id="progressBar"></span></div>
+        <div class="step on" data-step="0">
+          <h3>Where are you in debate?</h3>
+          <p>This sets the level of detail you see when a round begins.</p>
+          <div class="choices" data-key="level">
+            <button class="choice" data-value="competed">I have competed<small>Show formats, flow, and judge logic quickly.</small></button>
+            <button class="choice" data-value="learning">I am learning<small>Explain the round without talking down.</small></button>
+            <button class="choice" data-value="coach">I coach or teach<small>Surface drills, team setup, and teachable moments.</small></button>
+            <button class="choice" data-value="curious">I am curious<small>Keep it simple and point out what matters.</small></button>
           </div>
         </div>
+        <div class="step" data-step="1">
+          <h3>What do you follow?</h3>
+          <p>Pick the topic family you want surfaced first.</p>
+          <div class="choices" data-key="topic">
+            <button class="choice" data-value="policy">Public policy<small>Law, schools, government, institutions.</small></button>
+            <button class="choice" data-value="tech">Technology and AI<small>Platforms, privacy, automation, media.</small></button>
+            <button class="choice" data-value="global">World affairs<small>Diplomacy, trade, conflict, development.</small></button>
+            <button class="choice" data-value="ethics">Ethics and philosophy<small>Values, rights, duties, fairness.</small></button>
+          </div>
+        </div>
+        <div class="step" data-step="2">
+          <h3>What else should Debatable remember?</h3>
+          <p>Add a format, circuit, school, language, goal, or recurring topic.</p>
+          <input class="field" id="otherContext" aria-label="More details for your debate database" placeholder="Example: PF circuit, WSDC, Hindi and English, climate motions">
+        </div>
+        <div class="step-actions">
+          <button class="btn ghost" type="button" id="backStep">Back</button>
+          <button class="btn primary" type="button" id="nextStep">Next</button>
+        </div>
+        <p class="builder-saved" id="builderSaved" aria-live="polite"></p>
       </aside>
     </section>
 
@@ -286,40 +350,12 @@
       </div>
     </section>
 
-    <section class="panel-grid" id="profileBuilder">
-      <div class="panel">
-        <h2>Your spectator profile</h2>
-        <p>Three quick answers tell the room what to show you first and how to explain the round.</p>
-        <div class="progress"><span id="progressBar"></span></div>
-        <div class="step on" data-step="0">
-          <div class="choices" data-key="level">
-            <button class="choice" data-value="competed">I have competed<small>Show formats, flow, and judge logic quickly.</small></button>
-            <button class="choice" data-value="learning">I am learning<small>Explain the round without talking down.</small></button>
-            <button class="choice" data-value="coach">I coach or teach<small>Surface drills, team setup, and teachable moments.</small></button>
-            <button class="choice" data-value="curious">I am curious<small>Keep it simple and point out what matters.</small></button>
-          </div>
-        </div>
-        <div class="step" data-step="1">
-          <div class="choices" data-key="topic">
-            <button class="choice" data-value="policy">Public policy<small>Law, schools, government, institutions.</small></button>
-            <button class="choice" data-value="tech">Technology and AI<small>Platforms, privacy, automation, media.</small></button>
-            <button class="choice" data-value="global">World affairs<small>Diplomacy, trade, conflict, development.</small></button>
-            <button class="choice" data-value="ethics">Ethics and philosophy<small>Values, rights, duties, fairness.</small></button>
-          </div>
-        </div>
-        <div class="step" data-step="2">
-          <input class="field" id="otherContext" placeholder="Any format, circuit, school, language, or topic you want Debatable to remember?">
-          <p class="mini">Example: PF circuit, APDA, WSDC, Hindi and English, climate motions, cross-ex practice.</p>
-        </div>
-        <div class="step-actions">
-          <button class="btn ghost" type="button" id="backStep">Back</button>
-          <button class="btn primary" type="button" id="nextStep">Next</button>
-        </div>
-      </div>
+    <section class="panel-grid">
       <div class="panel brain-panel" id="brain">
         <div>
-        <h2>Your debate brain</h2>
-        <p>A living map of what you know, how you argue, what judges notice, and what you should practice next.</p>
+        <div class="eyebrow">Your database</div>
+        <h2>Everything you add has a home.</h2>
+        <p>Your identity, files, and round history become a map of what you know, how you argue, and what you should practice next.</p>
         <div class="brain-list">
           <div class="brain-row"><span class="brain-num">1</span><div><b>Identity</b><span>Your avatar, formats, languages, goals, and the circuits you know.</span></div></div>
           <div class="brain-row"><span class="brain-num">2</span><div><b>Case vault</b><span>Flows, cases, ballots, and notes become a searchable debate database.</span></div></div>
@@ -377,6 +413,7 @@
       var profileBuilder = document.getElementById('profileBuilder');
       var fileInput = document.getElementById('fileInput');
       var fileList = document.getElementById('fileList');
+      var savedNote = document.getElementById('builderSaved');
       var brainNodes = Array.prototype.slice.call(document.querySelectorAll('[data-brain-node]'));
       function mmss(ms){
         var s = Math.max(0, Math.floor(ms / 1000));
@@ -407,13 +444,13 @@
       function render(){
         steps.forEach(function(s,i){ s.classList.toggle('on', i === step); });
         var done = Object.keys(answers).filter(function(k){ return answers[k]; }).length;
-        var width = Math.max(1, Math.min(3, done)) / 3 * 100;
+        var width = Math.min(3, done) / 3 * 100;
         if (step === 2 && ctx && ctx.value.trim()) width = 100;
         progress.style.width = width + '%';
         pct.textContent = Math.round(width) + '% built';
         if (brainFill) brainFill.style.clipPath = 'inset(' + (100 - width) + '% 0 0 0)';
         back.style.display = step ? 'inline-flex' : 'none';
-        next.textContent = step === total - 1 ? 'Save waiting profile' : 'Next';
+        next.textContent = step === total - 1 ? 'Save to my database' : 'Next';
         updateBrainViz();
       }
       // Scoped to the profile builder on purpose: other panels on this
@@ -425,6 +462,7 @@
           if (!btn) return;
           var key = group.getAttribute('data-key');
           answers[key] = btn.getAttribute('data-value');
+          if (savedNote) savedNote.textContent = '';
           group.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
           btn.classList.add('on');
           save();
@@ -433,9 +471,14 @@
       });
       if (ctx) ctx.addEventListener('input', save);
       if (ctx) ctx.addEventListener('input', updateBrainViz);
+      if (ctx) ctx.addEventListener('input', function(){
+        if (savedNote) savedNote.textContent = '';
+        render();
+      });
       next.addEventListener('click', function(){
         save();
         if (step < total - 1) step += 1;
+        else if (savedNote) savedNote.textContent = 'Saved in this browser. Add files or keep relaxing while you wait.';
         render();
       });
       back.addEventListener('click', function(){ if (step > 0) step -= 1; render(); });
