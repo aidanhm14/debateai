@@ -14,6 +14,9 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { deleteCachedShared } from './lib/admin-cache.mjs';
 import { buildAdjudicationBlock } from './lib/adjudication.mjs';
 import { applyRoundRating } from './lib/rating-apply.mjs';
+import { recordJudgment } from './lib/judgment.mjs';
+import { settleMarket } from './lib/settle.mjs';
+import { marketId as mkMarketId } from './lib/credits.mjs';
 import {
   mediaStore, readMediaBuffer, transcribe, claude, speechToMp3, sendEmail,
   newId, feedKeyFor, FEED_CACHE_KEY, FORMAT_NAMES, REPLY_WINDOW_MS,
@@ -129,7 +132,7 @@ export default async () => {
   const started = Date.now();
   const db = getDb();
   const store = mediaStore();
-  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, rated: 0, errors: 0 };
+  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, rated: 0, settled: 0, errors: 0 };
 
   try {
     // ── board inventory: keep a couple of AI-opened challenges live so a
@@ -261,6 +264,21 @@ export default async () => {
           });
           stats.ballots++;
           await deleteCachedShared(FEED_CACHE_KEY).catch(() => {});
+
+          // Record the judgment FIRST. It is the document both the
+          // ladder and the credit market settle from, so nothing
+          // downstream can invent a winner if this step fails.
+          try {
+            await recordJudgment(db, {
+              source: 'async',
+              eventId: ref.id,
+              roundData: { ...d, state: 'complete', ballot, completedAt: Date.now() },
+            });
+            const settled = await settleMarket(db, mkMarketId('async', ref.id));
+            if (settled.settled) stats.settled++;
+          } catch (err) {
+            console.error('[async-sweep] judgment/settle failed', ref.id, err && err.message);
+          }
 
           // Rate the round the moment the ballot lands. applyRoundRating
           // re-checks eligibility itself and is idempotent, so a retry
