@@ -307,7 +307,11 @@ button{font-family:inherit}
      keyboard takes another 40% of the viewport mid-speech). New
      ratio: video tile is a fixed compact pane up top, speech UI
      flows naturally below and gets all the room it needs. */
-  .split{grid-template-columns:1fr;grid-template-rows:auto auto}
+  /* 2026-07-23: block, not grid. A sticky grid item can only travel
+     inside its own grid area, so the pinned video below is a no-op
+     while this is a grid. Single-column grid and block flow lay out
+     identically here, so nothing else moves. */
+  .split{display:block}
   .split-resizer{display:none}
   body{height:auto;overflow:auto}
   html,body{height:auto;overflow:auto}
@@ -500,9 +504,20 @@ body.lr-pip .lr-pip-notice{display:block}
 #jitsiPane.lrd-mounted .call-shell,
 #jitsiPane.lr-pip-pane .call-shell{position:absolute;inset:0;border:0;border-radius:0;min-height:0}
 @media(max-width:1000px){
-  .jitsi-pane{height:40vh;max-height:340px;min-height:220px;padding:12px;gap:10px}
+  /* 2026-07-23: the video was a short letterbox (40vh, capped 340px) with
+     12px of inset. Two participants in a wide, short box makes Daily lay
+     the tiles out side by side, so each face got about a third of the
+     width and read as a thumbnail. Taller box, no inset: Daily stacks the
+     tiles vertically and each one gets close to full width.
+     Sticky keeps the round panel reachable without scrolling the call
+     off-screen, which is what made a tall video unusable in the
+     2026-05-18 attempt. */
+  .jitsi-pane{
+    height:52vh;max-height:620px;min-height:300px;padding:0;gap:0;
+    position:sticky;top:0;z-index:5;border-right:0;
+  }
   .stage-rail{display:none}
-  .call-shell{border-radius:14px}
+  .call-shell{border-radius:0;border-left:0;border-right:0}
   .call-shell .call-card{gap:10px;padding:12px;max-width:none}
   .call-icon{width:48px;height:48px;font-size:1.25rem}
   .call-card h2{font-size:1rem}
@@ -510,8 +525,12 @@ body.lr-pip .lr-pip-notice{display:block}
   .call-share{display:none}
 }
 @media(max-width:560px){
-  .jitsi-pane{height:30vh;max-height:250px;min-height:180px;padding:8px}
-  .call-shell{border-radius:12px}
+  /* Phones get the most of this: edge to edge, and tall enough that two
+     stacked tiles are each roughly a portrait rectangle rather than a
+     letterbox sliver. 56vh leaves the speech controls in the lower
+     third, and the pane is sticky so they stay reachable on scroll. */
+  .jitsi-pane{height:56vh;max-height:none;min-height:320px;padding:0}
+  .call-shell{border-radius:0}
   .call-shell .call-card{gap:8px;padding:10px}
   .call-icon{display:none}
   .call-room{display:none}
