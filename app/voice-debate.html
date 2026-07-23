@@ -204,6 +204,7 @@ a{color:inherit}
    reads as fine-print informational, not a competing CTA. The
    credential itself stays gold; only this pre-banner is quieted. */
 .cred-prebanner{
+  position:relative;
   display:flex;align-items:center;justify-content:center;gap:8px;
   margin:0 auto 18px;max-width:520px;padding:6px 14px;
   background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.10);
@@ -223,6 +224,21 @@ a{color:inherit}
 }
 .cred-prebanner b{color:rgba(255,255,255,.85);font-weight:700}
 .cred-prebanner-arrow{font-size:.82rem;color:inherit;margin-left:2px;opacity:.7}
+/* 2026-07-23: two destinations in one strip. The /credentials link keeps
+   the whole pill clickable by stretching an invisible ::after over it;
+   the inline "Debatable" sub-link sits above that overlay so it wins its
+   own clicks. Nested <a> is invalid HTML, so this is the overlay route. */
+.cred-prebanner-main{color:inherit;text-decoration:none}
+.cred-prebanner-main::after{content:'';position:absolute;inset:0;border-radius:inherit}
+.cred-prebanner-brand{
+  position:relative;z-index:1;color:inherit;
+  text-decoration:underline;text-underline-offset:2px;
+  text-decoration-thickness:1px;text-decoration-color:rgba(255,255,255,.32);
+  transition:color .15s,text-decoration-color .15s;
+}
+.cred-prebanner-brand:hover{color:#ef4444;text-decoration-color:currentColor}
+[data-theme="light"] .cred-prebanner-brand,
+[data-theme="stone"] .cred-prebanner-brand{text-decoration-color:rgba(0,0,0,.32)}
 [data-theme="light"] .cred-prebanner,
 [data-theme="stone"] .cred-prebanner{
   background:rgba(0,0,0,.025);border-color:rgba(0,0,0,.10);
@@ -7188,14 +7204,30 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // (viva) mode because that surface has its own oral-exam framing
   // and credentials are debate-specific. Also hidden once the round
   // is live or connecting (the setup screen as a whole disappears).
-  !isLive && !isConnecting && extMode !== 'counter' && el('a', {
-    className: 'cred-prebanner',
+  // 2026-07-23: the strip carries two destinations now. The row itself is
+  // still one big click target for /credentials (the .cred-prebanner-main
+  // anchor stretches over the whole pill via ::after), and the word
+  // "Debatable" is its own sub-link to the brand page, lifted above that
+  // overlay. Nested anchors are invalid HTML, hence the overlay trick
+  // rather than an <a> inside an <a>.
+  !isLive && !isConnecting && extMode !== 'counter' && el('div', {
+    className: 'cred-prebanner'
+  },
+  el('span', { className: 'cred-prebanner-dot', 'aria-hidden': 'true' }),
+  el('span', null,
+  el('a', {
+    className: 'cred-prebanner-main',
     href: '/credentials',
     'data-cta': 'voice-debate-cred-prebanner',
     'aria-label': 'Learn about Debatable credentials'
-  },
-  el('span', { className: 'cred-prebanner-dot', 'aria-hidden': 'true' }),
-  el('span', null, 'Score ', el('b', null, '27+'), ' and earn a verifiable Debatable credential. Free, public verify URL.'),
+  }, 'Score ', el('b', null, '27+'), ' and earn a verifiable '),
+  el('a', {
+    className: 'cred-prebanner-brand',
+    href: '/debatable',
+    'data-cta': 'voice-debate-cred-brand'
+  }, 'Debatable'),
+  ' credential. Free, public verify URL.'
+  ),
   el('span', { className: 'cred-prebanner-arrow', 'aria-hidden': 'true' }, '→')
   ),
 
