@@ -4,15 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The Debate Atlas · Debatable</title>
-<meta name="description" content="Every serious debate program in the world, on one map. The competitive debate landscape across the US and the globe, and where Debatable grows next.">
+<meta name="description" content="Find debate programs around the world by location, level, and format. Add your school, club, or university to the Debate Atlas.">
 <link rel="canonical" href="https://itsdebatable.com/atlas">
 <meta property="og:title" content="The Debate Atlas · Debatable">
-<meta property="og:description" content="The competitive debate world, mapped. Programs across the US and the globe, filterable by format and level, with the Debatable growth pipeline on top.">
+<meta property="og:description" content="The debate world, mapped. Find programs by location, level, and format, or add your own team to the Atlas.">
 <meta property="og:url" content="https://itsdebatable.com/atlas">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://server.arcgisonline.com">
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
 <!-- Leaflet + clustering + heat. CDN, no API key. Dark CartoDB tiles. -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
@@ -36,7 +39,6 @@
     --panel-line:rgba(255,255,255,.10);
     --serif:'Crimson Pro',Georgia,serif;
     --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
-    /* pipeline */
     --st-prospect:#ef4444;
     --st-contacted:#3b82f6;
     --st-partnered:#22c55e;
@@ -56,6 +58,8 @@
   .leaflet-control-attribution{background:rgba(11,10,16,.7)!important;color:var(--ink-ghost)!important}
   .leaflet-control-attribution a{color:var(--ink-dim)!important}
   .leaflet-bar{border:none!important;box-shadow:0 4px 18px rgba(0,0,0,.5)!important}
+  .leaflet-top.leaflet-left{left:auto;right:12px;top:54px}
+  .leaflet-left .leaflet-control{margin-left:0}
 
   /* ── Top bar ────────────────────────────────────────────── */
   .topbar{position:fixed;top:0;left:0;right:0;z-index:1200;height:54px;
@@ -77,13 +81,6 @@
   .signin:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
   .signin.in{background:transparent;color:var(--ink-dim);border-color:var(--panel-line)}
   .signin.in:hover{color:var(--ink);border-color:var(--ink-dim)}
-  .present-btn{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;
-    color:var(--ink-dim);background:transparent;border:1px solid var(--panel-line);border-radius:999px;padding:7px 14px;transition:all .2s}
-  .present-btn:hover{border-color:var(--accent);color:var(--accent)}
-  body.present .present-btn{background:var(--accent);color:#fff;border-color:transparent}
-  body.present #signin,body.present .search{display:none}
-  body.present .panel .blocklabel,body.present .panel .seg,body.present .panel .toggle-row,
-  body.present .panel .legend,body.present .panel .chips,body.present .panel .note{display:none}
   @media(max-width:680px){.brand .tag{display:none}.topbar .back{display:none}}
 
   /* ── Left control panel ─────────────────────────────────── */
@@ -96,7 +93,7 @@
   .panel h1{font-size:1.5rem;font-weight:700;line-height:1.08;letter-spacing:-.015em}
   .panel .sub{font-size:.96rem;color:var(--ink-dim);margin-top:5px;line-height:1.35}
 
-  .counters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0 4px}
+  .counters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 4px}
   .topc{display:flex;flex-direction:column;gap:6px}
   .topc .tc{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--ink-dim)}
   .topc .tc-n{flex:0 0 90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -142,18 +139,23 @@
   /* heatmap toggle row */
   .search{position:relative;margin:14px 0 2px}
   .search input{width:100%;font-family:var(--serif);font-size:.98rem;color:var(--ink);
-    background:rgba(255,255,255,.05);border:1px solid var(--panel-line);border-radius:11px;padding:10px 13px;outline:none}
+    background:rgba(255,255,255,.05);border:1px solid var(--panel-line);border-radius:11px;padding:11px 40px 11px 13px;outline:none}
   .search input::placeholder{color:var(--ink-ghost)}
   .search input:focus{border-color:var(--accent)}
+  .search-clear{display:none;position:absolute;right:8px;top:7px;width:29px;height:29px;border:0;border-radius:8px;
+    background:transparent;color:var(--ink-ghost);font-size:1.1rem;line-height:1;cursor:pointer}
+  .search-clear.show{display:block}
+  .search-clear:hover,.search-clear:focus-visible{background:rgba(255,255,255,.07);color:var(--ink)}
   .search-res{display:none;position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:30;
     background:rgba(17,15,22,.98);border:1px solid var(--panel-line);border-radius:11px;
     box-shadow:0 14px 36px rgba(0,0,0,.55);max-height:280px;overflow-y:auto}
   .search-res.show{display:block}
   .search-res .sr{padding:9px 13px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}
   .search-res .sr:last-child{border-bottom:none}
-  .search-res .sr:hover{background:rgba(239,68,68,.14)}
+  .search-res .sr:hover,.search-res .sr.active{background:rgba(239,68,68,.14)}
   .search-res .sr-n{display:block;font-size:.95rem;color:var(--ink)}
   .search-res .sr-c{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-ghost);margin-top:2px}
+  .search-res .sr-empty{padding:12px 13px;font-size:.9rem;color:var(--ink-dim)}
   .tpin{transform:rotate(45deg);border:1.5px solid rgba(11,10,16,.9);box-shadow:0 0 8px 1px currentColor}
   .leaflet-tooltip.atlas-tt{background:rgba(13,12,18,.96);border:1px solid var(--panel-line);color:var(--ink);
     font-family:var(--mono);font-size:.62rem;letter-spacing:.02em;padding:4px 8px;border-radius:7px;
@@ -169,7 +171,7 @@
     cursor:pointer;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:11px;padding:11px;font-weight:700;transition:background .2s}
   .addprog:hover{background:var(--accent-hover)}
   .cpin{border-radius:50%;border:2.5px solid #34d399;background:rgba(52,211,153,.18);box-shadow:0 0 9px 1px rgba(52,211,153,.65);transition:transform .15s}
-  /* Community pin for a school with NO debate program yet (an opportunity). */
+  /* Community pin for a school with no program yet. */
   .cpin--gap{border-color:#f59e0b;background:rgba(245,158,11,.18);box-shadow:0 0 9px 1px rgba(245,158,11,.6)}
   .leaflet-marker-icon:hover .cpin{transform:scale(1.4)}
   .card .badge.comm{border-color:#34d399;color:#6ee7b7}
@@ -249,109 +251,14 @@
 
   .note{font-family:var(--mono);font-size:.56rem;line-height:1.5;letter-spacing:.02em;color:var(--ink-ghost);
     margin-top:16px;padding-top:13px;border-top:1px solid var(--panel-line)}
-
-  /* ── Opportunity / TAM panel (bottom-right) ─────────────── */
-  .tam{position:fixed;right:14px;bottom:30px;z-index:1100;width:320px;background:var(--panel);
-    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--panel-line);
-    border-radius:16px;padding:15px 16px;max-height:calc(100vh - 92px);overflow-y:auto;box-shadow:0 18px 50px rgba(0,0,0,.5)}
-  .tam h2{font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
-    color:var(--accent);margin-bottom:10px}
-  .tam p{font-size:.95rem;line-height:1.4;color:var(--ink-dim);margin-bottom:8px}
-  .tam p b{color:var(--ink);font-weight:700}
-  .tam .src{font-family:var(--mono);font-size:.52rem;letter-spacing:.02em;color:var(--ink-ghost);margin-top:4px}
-  .funnel{display:flex;flex-direction:column;gap:9px;margin:11px 0 10px}
-  .frow{display:flex;flex-direction:column;gap:4px}
-  .frow .flab{font-family:var(--mono);font-size:.55rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-dim)}
-  .frow .flab b{color:var(--ink);font-weight:700}
-  .ftrack{height:9px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden}
-  .fbar{display:block;height:100%;border-radius:5px}
-  .fbar.f-all{background:rgba(255,255,255,.24)}
-  .fbar.f-with{background:var(--st-contacted)}
-  .fbar.f-map{background:var(--accent);box-shadow:0 0 8px var(--glow)}
-  /* opportunity tabs + revenue calculator */
-  .opp-tabs{display:flex;gap:5px;margin-bottom:11px}
-  .opp-tab{flex:1;font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--ink-dim);background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:8px;
-    padding:7px 4px;cursor:pointer;transition:background .16s,color .16s}
-  .opp-tab.on{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
-  .gphase{background:rgba(255,255,255,.035);border:1px solid var(--panel-line);border-radius:12px;padding:11px 13px;margin-bottom:9px}
-  .gph-h{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:700}
-  .gph-n{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;background:var(--accent);color:#fff;font-size:.66rem;flex:0 0 auto}
-  .gph-b{font-size:.9rem;line-height:1.42;color:var(--ink-dim);margin-top:7px}
-  .gph-b b{color:var(--ink);font-weight:700}
-  .opp-tab:not(.on):hover{color:var(--ink)}
-  #seg-scope{margin-bottom:12px}
-  .calc-readout{margin:4px 0 2px}
-  .calc-arr{display:block;font-family:var(--mono);font-weight:700;font-size:2.2rem;line-height:1;
-    letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums}
-  .calc-arr-l{display:block;font-family:var(--mono);font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--accent);margin-top:5px}
-  .calc-sub{font-family:var(--mono);font-size:.56rem;letter-spacing:.02em;color:var(--ink-ghost);margin:7px 0 4px}
-  .calc-l{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--ink-dim);margin:13px 0 6px}
-  .calc-l b{color:var(--ink);font-weight:700;float:right}
-  .tam input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:5px;
-    background:rgba(255,255,255,.14);outline:none;margin:0}
-  .tam input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;
-    border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px var(--glow)}
-  .tam input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;
-    background:var(--accent);cursor:pointer;box-shadow:0 0 8px var(--glow)}
-  .calc-presets{display:flex;flex-wrap:wrap;gap:5px;margin:13px 0 4px}
-  .calc-presets button{font-family:var(--mono);font-size:.54rem;letter-spacing:.02em;color:var(--ink-dim);
-    background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:999px;padding:5px 9px;
-    cursor:pointer;transition:border-color .16s,color .16s}
-  .calc-presets button:hover{border-color:var(--accent);color:var(--accent)}
-  .calc-gap{font-size:.86rem;line-height:1.4;color:var(--ink-dim);margin:10px 0 8px}
-  .calc-gap b{color:var(--ink);font-weight:700}
-  #seg-scenario{margin-bottom:8px}
-  .calc-arr2{font-family:var(--mono);font-size:.62rem;letter-spacing:.02em;color:var(--ink-ghost);margin:6px 0 0}
-  .calc-arr2 b{color:var(--ink-dim);font-weight:700}
-  .calc-arr2 .yr{color:var(--accent)}
-  /* year ramp mini chart */
-  .ramp{display:flex;align-items:flex-end;gap:5px;height:44px;margin:11px 0 5px}
-  .ramp .rb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;cursor:pointer}
-  .ramp .rb-bar{width:100%;background:rgba(255,255,255,.13);border-radius:4px 4px 0 0;min-height:3px;transition:height .28s,background .16s}
-  .ramp .rb.on .rb-bar{background:var(--accent);box-shadow:0 0 8px var(--glow)}
-  .ramp .rb:hover .rb-bar{background:rgba(255,255,255,.28)}
-  .ramp .rb.on:hover .rb-bar{background:var(--accent)}
-  .ramp .rb-l{font-family:var(--mono);font-size:.5rem;letter-spacing:.03em;color:var(--ink-ghost)}
-  .ramp .rb.on .rb-l{color:var(--accent);font-weight:700}
-  /* layer toggle chips */
-  .calc-layers{display:flex;flex-wrap:wrap;gap:5px;margin:13px 0 2px}
-  .calc-layers button{font-family:var(--mono);font-size:.54rem;letter-spacing:.03em;color:var(--ink-dim);
-    background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:999px;padding:5px 9px;cursor:pointer;
-    display:flex;align-items:center;gap:6px;transition:border-color .16s,color .16s}
-  .calc-layers button .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-ghost);transition:background .16s}
-  .calc-layers button.on{border-color:var(--accent);color:var(--ink)}
-  .calc-layers button.l-sch.on .dot{background:var(--accent);box-shadow:0 0 6px var(--glow)}
-  .calc-layers button.l-con.on{border-color:var(--st-contacted)}
-  .calc-layers button.l-con.on .dot{background:var(--st-contacted);box-shadow:0 0 6px rgba(59,130,246,.5)}
-  /* composition stacked bar */
-  .calc-legend{display:flex;gap:15px;font-family:var(--mono);font-size:.53rem;letter-spacing:.02em;color:var(--ink-dim);margin:13px 0 5px}
-  .calc-legend b{color:var(--ink);font-weight:700}
-  .calc-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
-  .calc-legend .k-school{background:var(--accent)}
-  .calc-legend .k-con{background:var(--st-contacted)}
-  .calc-comp{display:flex;height:11px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.06)}
-  .calc-comp span{display:block;height:100%;transition:width .3s}
-  .cc-school{background:var(--accent)}
-  .cc-con{background:var(--st-contacted)}
-  /* accrual waterfall */
-  .wfall{margin:13px 0 6px;border:1px solid var(--panel-line);border-radius:10px;overflow:hidden}
-  .wf-row{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;font-family:var(--mono);font-size:.62rem;
-    letter-spacing:.01em;color:var(--ink-dim);border-bottom:1px solid var(--panel-line)}
-  .wf-row:last-child{border-bottom:none}
-  .wf-row .wf-v{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
-  .wf-row.wf-neg{color:var(--ink-ghost)}
-  .wf-row.wf-neg .wf-v{color:var(--ink-dim);font-weight:400}
-  .wf-row.wf-net{background:rgba(239,68,68,.10)}
-  .wf-row.wf-net .wf-k{color:var(--ink);font-weight:700}
-  .wf-row.wf-net .wf-v{color:var(--accent)}
-  /* assumption chips */
-  .calc-assume{display:flex;flex-wrap:wrap;gap:5px;margin:11px 0 2px}
-  .calc-assume span{font-family:var(--mono);font-size:.52rem;letter-spacing:.02em;color:var(--ink-ghost);
-    border:1px solid var(--panel-line);border-radius:999px;padding:4px 8px}
-  .calc-assume span b{color:var(--ink-dim);font-weight:700}
+  .advanced{margin-top:16px;border-top:1px solid var(--panel-line);padding-top:4px}
+  .advanced summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 0 4px;font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-dim);cursor:pointer}
+  .advanced summary::-webkit-details-marker{display:none}
+  .advanced summary::after{content:'+';font-size:.9rem;color:var(--ink-ghost)}
+  .advanced[open] summary::after{content:'−'}
+  .advanced summary:hover{color:var(--ink)}
 
   /* ── School detail card (slides up, bottom-center, clear of side panels) ─ */
   .card{position:fixed;left:50%;bottom:14px;z-index:1150;width:340px;background:var(--panel);
@@ -394,7 +301,7 @@
     font-size:16px;line-height:1;text-decoration:none}
   .leaflet-home:hover{color:var(--accent)!important;background:rgba(40,30,30,.95)!important}
   .loader{position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:18px;background:#0b0a10;transition:opacity .7s ease}
+    gap:18px;background:#0b0a10;transition:opacity .35s ease}
   .loader.hide{opacity:0;pointer-events:none}
   .loader-dot{width:16px;height:16px;border-radius:50%;background:var(--accent);box-shadow:0 0 26px 7px var(--glow);
     animation:loaderpulse 1.15s ease-in-out infinite}
@@ -410,21 +317,22 @@
   .leaflet-popup{display:none}
 
   /* ── Mobile ─────────────────────────────────────────────── */
-  .panel-toggle,.tam-toggle{display:none;position:fixed;bottom:14px;z-index:1300;
+  .panel-toggle{display:none;position:fixed;bottom:14px;z-index:1300;
     font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
     background:var(--accent);color:#fff;border:none;border-radius:999px;padding:12px 18px;font-weight:700;
     box-shadow:0 10px 30px var(--glow)}
-  .panel-toggle{left:14px}
-  .tam-toggle{right:14px}
+  .panel-toggle{right:14px}
   @media (max-width:760px){
     .panel{width:calc(100vw - 28px);max-height:72vh;top:auto;bottom:64px;transform:translateY(120%);
       transition:transform .3s cubic-bezier(.16,1,.3,1)}
     .panel.open{transform:none}
-    .tam{left:14px;right:14px;bottom:64px;width:auto;max-height:74vh;overflow-y:auto;z-index:1250;
-      transform:translateY(135%);transition:transform .32s cubic-bezier(.16,1,.3,1)}
-    .tam.open{transform:none}
     .card{width:calc(100vw - 28px)}
-    .panel-toggle,.tam-toggle{display:block}
+    .panel-toggle{display:block}
+    .topbar{padding:0 14px}
+    .signin{font-size:.58rem;letter-spacing:.1em;padding:7px 10px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   }
 </style>
 </head>
@@ -436,7 +344,6 @@
 <header class="topbar">
   <div class="brand">Debat<span class="it">able</span><span class="tag">The Debate Atlas</span></div>
   <div class="topright">
-    <button class="present-btn" id="present-btn">Present</button>
     <button class="signin" id="signin">Sign in to edit</button>
     <a class="back" href="/">Back to site</a>
   </div>
@@ -445,38 +352,31 @@
 <!-- Left control panel -->
 <aside class="panel" id="panel">
   <h1>The Debate Atlas</h1>
-  <div class="sub">Every serious debate program in the world, on one map. Filter by format and level; watch the network grow.</div>
+  <div class="sub">Find debate programs by place, level, and format. Add your team if it is missing.</div>
 
   <div class="search">
-    <input id="search-in" type="text" placeholder="Find a school or city" autocomplete="off" spellcheck="false">
-    <div class="search-res" id="search-res"></div>
+    <input id="search-in" type="search" placeholder="School, city, country, or format" autocomplete="off" spellcheck="false"
+      role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-res">
+    <button class="search-clear" id="search-clear" aria-label="Clear search">&times;</button>
+    <div class="search-res" id="search-res" role="listbox"></div>
   </div>
 
-  <button class="addprog" id="addprog">+ Add your program</button>
-  <button class="addprog addmember" id="addmember">+ Put yourself on the map</button>
+  <button class="addprog" id="addprog">Add a debate program</button>
+  <button class="addprog addmember" id="addmember">Join the community map</button>
 
   <div class="counters">
     <div class="ctr"><div class="n" id="c-prog">0</div><div class="l">Programs</div></div>
-    <div class="ctr"><div class="n" id="c-deb">0</div><div class="l">Debaters (est.)</div></div>
     <div class="ctr"><div class="n" id="c-cty">0</div><div class="l">Countries</div></div>
     <div class="ctr"><div class="n" id="c-fmt">0</div><div class="l">Formats</div></div>
   </div>
 
   <div class="blocklabel">Color pins by</div>
   <div class="seg" id="seg-color">
-    <button data-m="program">Debate program</button>
-    <button data-m="status" class="on">Pipeline</button>
+    <button data-m="program" class="on">Program</button>
     <button data-m="format">Format</button>
     <button data-m="level">Level</button>
+    <button data-m="status" id="seg-pipeline" hidden>Pipeline</button>
     <button data-m="contacts" id="seg-contacts" hidden>Contacts</button>
-  </div>
-
-  <div class="blocklabel">Map style</div>
-  <div class="seg" id="seg-base">
-    <button data-b="dark" class="on">Dark</button>
-    <button data-b="satellite">Satellite</button>
-    <button data-b="streets">Streets</button>
-    <button data-b="minimal">Minimal</button>
   </div>
 
   <div class="blocklabel">Level</div>
@@ -486,43 +386,7 @@
     <button data-l="hs">High school</button>
   </div>
 
-  <div class="blocklabel">The whitespace</div>
-  <div class="toggle-row">
-    <div class="lab">Schools with no program<small>~24,000 US high schools · the market</small></div>
-    <div class="sw on" id="sw-ws" role="switch" aria-checked="true" tabindex="0"></div>
-  </div>
-
-  <div class="blocklabel">Density heatmap</div>
-  <div class="toggle-row">
-    <div class="lab">Show concentration<small>Where debate clusters</small></div>
-    <div class="sw" id="sw-heat" role="switch" aria-checked="false" tabindex="0"></div>
-  </div>
-
-  <div class="blocklabel">Tournaments</div>
-  <div class="toggle-row">
-    <div class="lab">Show tournaments<small>Major circuit events</small></div>
-    <div class="sw" id="sw-tour" role="switch" aria-checked="false" tabindex="0"></div>
-  </div>
-
-  <div class="blocklabel">Country density</div>
-  <div class="toggle-row">
-    <div class="lab">Shade by program count<small>Choropleth overlay</small></div>
-    <div class="sw" id="sw-choro" role="switch" aria-checked="false" tabindex="0"></div>
-  </div>
-  <div class="choro-legend" id="choro-legend"></div>
-
-  <div class="blocklabel">Time zones</div>
-  <div class="toggle-row">
-    <div class="lab">Find a host slot<small>When can these debate?</small></div>
-    <div class="sw" id="sw-tz" role="switch" aria-checked="false" tabindex="0"></div>
-  </div>
-  <div class="tz-ctl" id="tz-ctl">
-    <div class="tz-hdr" id="tz-hdr"></div>
-    <input type="range" id="tz-slider" min="0" max="23" step="1" value="18">
-    <div class="tz-read" id="tz-read"></div>
-  </div>
-
-  <div class="blocklabel" id="lab-legend">Pipeline stage</div>
+  <div class="blocklabel" id="lab-legend">Programs</div>
   <div class="legend" id="legend"></div>
 
   <div class="blocklabel">Regions</div>
@@ -534,92 +398,52 @@
   <div class="blocklabel">Top countries</div>
   <div class="topc" id="topc"></div>
 
+  <details class="advanced">
+    <summary>Map layers and style</summary>
+    <div class="blocklabel">Map style</div>
+    <div class="seg" id="seg-base">
+      <button data-b="dark" class="on">Dark</button>
+      <button data-b="satellite">Satellite</button>
+      <button data-b="streets">Streets</button>
+      <button data-b="minimal">Minimal</button>
+    </div>
+
+    <div class="blocklabel">Density heatmap</div>
+    <div class="toggle-row">
+      <div class="lab">Show concentration<small>Where debate clusters</small></div>
+      <div class="sw" id="sw-heat" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+
+    <div class="blocklabel">Tournaments</div>
+    <div class="toggle-row">
+      <div class="lab">Show tournaments<small>Major circuit events</small></div>
+      <div class="sw" id="sw-tour" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+
+    <div class="blocklabel">Country density</div>
+    <div class="toggle-row">
+      <div class="lab">Shade by program count<small>Compare countries</small></div>
+      <div class="sw" id="sw-choro" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+    <div class="choro-legend" id="choro-legend"></div>
+
+    <div class="blocklabel">Time zones</div>
+    <div class="toggle-row">
+      <div class="lab">Find a host slot<small>Compare local times</small></div>
+      <div class="sw" id="sw-tz" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+    <div class="tz-ctl" id="tz-ctl">
+      <div class="tz-hdr" id="tz-hdr"></div>
+      <input type="range" id="tz-slider" min="0" max="23" step="1" value="18">
+      <div class="tz-read" id="tz-read"></div>
+    </div>
+  </details>
+
   <div class="note" id="note">
-    Flagship and powerhouse programs, curated. Pins sit at city level. Pipeline stages are yours to set:
-    click any pin, then tap a stage. Choices save in this browser. Set your real partnered and in-conversation
-    schools before screenshotting for a deck.
-    <br><br>Basemap: Natural Earth (public domain). Internal Debatable tool.
+    Program locations are approximate. Listings combine public tournament records with community additions.
+    Missing a team? Add it above.
   </div>
   <button class="copylink" id="copylink">Copy view link</button>
-</aside>
-
-<!-- Opportunity panel -->
-<aside class="tam">
-  <div class="opp-tabs">
-    <button class="opp-tab" data-t="market">Market</button>
-    <button class="opp-tab on" data-t="revenue">Revenue</button>
-    <button class="opp-tab" data-t="growth">Growth</button>
-  </div>
-
-  <div class="opp-pane" id="pane-market" hidden>
-    <h2>The opportunity</h2>
-    <p>The pins are the competitive circuit. They sit on a far bigger base.</p>
-    <div class="funnel">
-      <div class="frow"><span class="flab"><b>~27,000</b> US high schools</span><span class="ftrack"><span class="fbar f-all" style="width:100%"></span></span></div>
-      <div class="frow"><span class="flab"><b>~3,000</b> run a debate program</span><span class="ftrack"><span class="fbar f-with" style="width:11%"></span></span></div>
-      <div class="frow"><span class="flab"><b>~200</b> on the mapped circuit</span><span class="ftrack"><span class="fbar f-map" style="width:3%"></span></span></div>
-    </div>
-    <p>Each grey dot is one of <b>~24,000</b> US high schools with no debate program. Under <b>1%</b> of students ever debate. The grey is the market.</p>
-    <p class="src">Sources: NCES school counts; NSDA chapters + members.</p>
-  </div>
-
-  <div class="opp-pane" id="pane-revenue">
-    <h2>How money is accrued</h2>
-    <div class="seg" id="seg-scenario">
-      <button data-sc="cons">Conservative</button>
-      <button data-sc="base" class="on">Base</button>
-      <button data-sc="bull">Bull</button>
-    </div>
-    <div class="seg" id="seg-scope">
-      <button data-s="us" class="on">United States</button>
-      <button data-s="global">Global</button>
-    </div>
-    <div class="calc-readout"><span class="calc-arr" id="calc-arr">$0</span><span class="calc-arr-l">net ARR &middot; <span id="calc-year-l">year 3</span></span></div>
-    <p class="calc-arr2">Gross bookings <b id="calc-gross">$0</b><span class="yr" id="calc-blend"></span></p>
-    <div class="calc-sub" id="calc-sub"></div>
-
-    <label class="calc-l">Ramp year <b id="calc-year-v">Y3</b></label>
-    <div class="ramp" id="calc-ramp"></div>
-    <input type="range" id="calc-year" min="1" max="5" step="1" value="3">
-
-    <label class="calc-l">Target penetration <b id="calc-pen-v">11%</b></label>
-    <input type="range" id="calc-pen" min="0" max="100" step="1" value="11">
-    <label class="calc-l">Fee / school / month <b id="calc-price-v">$30</b></label>
-    <input type="range" id="calc-price" min="5" max="80" step="5" value="30">
-
-    <div class="calc-layers" id="calc-layers">
-      <button class="l-sch on" data-l="school"><span class="dot"></span>School fees</button>
-      <button class="l-con on" data-l="consumer"><span class="dot"></span>Consumer seats</button>
-    </div>
-    <div class="calc-presets"></div>
-
-    <div class="calc-legend"><span><i class="k-school"></i>Schools <b id="cl-school">0%</b></span><span><i class="k-con"></i>Consumer <b id="cl-con">0%</b></span></div>
-    <div class="calc-comp"><span class="cc-school" id="cc-school"></span><span class="cc-con" id="cc-con"></span></div>
-
-    <div class="wfall" id="calc-wfall"></div>
-
-    <div class="calc-assume" id="calc-assume"></div>
-    <p class="calc-gap" id="calc-gap"></p>
-    <p class="src">School fees plus consumer seats, ramped over five years net of churn, with local pricing applied per market and gross bookings stepped down by payment and delivery cost. Illustrative, separate from today's beta pricing. School counts: NCES (US), UDISE (India), gov stats (UK/CA/AU/PH/ZA/SG).</p>
-  </div>
-
-  <div class="opp-pane" id="pane-growth" hidden>
-    <h2>The growth plan</h2>
-    <p>Beachhead first, then scale by circuit. Every tool on this map serves a step.</p>
-    <div class="gphase">
-      <div class="gph-h"><span class="gph-n">1</span> Beachhead &middot; now</div>
-      <div class="gph-b">Win the US circuit, where the founder is a national champion. Convert the mapped programs through the pipeline. <b>Target: 50 partnered, proof of pull.</b></div>
-    </div>
-    <div class="gphase">
-      <div class="gph-h"><span class="gph-n">2</span> India &middot; 6&ndash;12 mo</div>
-      <div class="gph-b">~123,000 secondary schools and a deep debate culture. Local pricing plus a 13&ndash;15:00 UTC host slot that fits India, the US, and the UK at once. <b>Target: 500 schools, ~$180k ARR.</b></div>
-    </div>
-    <div class="gphase">
-      <div class="gph-h"><span class="gph-n">3</span> Global circuits &middot; 12&ndash;24 mo</div>
-      <div class="gph-b">UK, SE Asia, Australia, South Africa. Circuit ambassadors seed the map as members. <b>Target: 2,000 schools, ~$720k ARR.</b></div>
-    </div>
-    <p class="src">Pins are the market. The pipeline tracks conversions. Revenue sizes each phase. Time zones pick when to run the tournaments that pull each region in.</p>
-  </div>
 </aside>
 
 <!-- School detail card -->
@@ -630,7 +454,7 @@
   <div class="card-extra" id="card-extra"></div>
   <div class="card-contact" id="card-contact" hidden></div>
   <div class="badges" id="card-badges"></div>
-  <div id="card-stage-wrap">
+  <div id="card-stage-wrap" hidden>
     <div class="stagelab">Outreach stage</div>
     <div class="stage-pills" id="card-stage">
       <button data-s="prospect">Prospect</button>
@@ -645,19 +469,18 @@
   </div>
 </aside>
 
-<button class="panel-toggle" id="panel-toggle">Filters &amp; stats</button>
-<button class="tam-toggle" id="tam-toggle">Revenue</button>
-<div class="hint" id="hint"><span>Tip: click a region to zoom in. Open Revenue to model the market.</span><button class="hint-x" id="hint-x">Got it</button></div>
+<button class="panel-toggle" id="panel-toggle" aria-expanded="false" aria-controls="panel">Search &amp; filters</button>
+<div class="hint" id="hint"><span>Search for a program, or click a region to explore.</span><button class="hint-x" id="hint-x">Got it</button></div>
 <div class="placebanner" id="placebanner"><span>Click the map where your program is.</span><button id="place-cancel">Cancel</button></div>
 <div class="submodal" id="submodal"><div class="submodal-card">
   <button class="x" id="sub-x" aria-label="Close">&times;</button>
   <div class="submodal-h">Add your program</div>
   <div class="submodal-sub" id="sub-loc"></div>
-  <input id="sub-name" type="text" placeholder="Program or school name" maxlength="120" autocomplete="off">
-  <input id="sub-city" type="text" placeholder="City" maxlength="80" autocomplete="off">
-  <input id="sub-country" type="text" placeholder="Country" maxlength="60" autocomplete="off">
-  <div class="sub-seg" id="sub-lvl"><button data-l="college" class="on">College</button><button data-l="hs">High school</button></div>
-  <div class="sub-seg" id="sub-prog"><button data-p="yes" class="on">Has a debate program</button><button data-p="no">No program yet</button></div>
+  <input id="sub-name" type="text" placeholder="Program or school name" aria-label="Program or school name" maxlength="120" autocomplete="organization">
+  <input id="sub-city" type="text" placeholder="City" aria-label="City" maxlength="80" autocomplete="address-level2">
+  <input id="sub-country" type="text" placeholder="Country" aria-label="Country" maxlength="60" autocomplete="country-name">
+  <div class="sub-seg" id="sub-lvl"><button data-l="hs" class="on">High school</button><button data-l="college">College</button></div>
+  <div class="sub-seg" id="sub-prog"><button data-p="yes" class="on">Active program</button><button data-p="no">Starting one</button></div>
   <div class="sub-fmt" id="sub-fmt"></div>
   <button class="sub-go" id="sub-go">Add to the map</button>
 </div></div>
@@ -679,14 +502,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/js/atlas-world.js"></script>
 <script src="/js/atlas-data.js"></script>
 <script src="/js/atlas-tabroom.js"></script>
-<script src="/js/atlas-contacts.js"></script>
-<script src="/js/atlas-schools.js"></script>
 <script>
 /* ============================================================
    THE DEBATE ATLAS — data + map
@@ -1133,9 +951,7 @@ var STATUS_LABEL = {prospect:'Prospect',contacted:'Reached out',partnered:'Partn
 /* ---- state ---- */
 var STORE_KEY='debateit-atlas-status';
 var statusMap = {};
-/* localStorage is only the offline fallback; the shared Firestore pipeline
-   (wired at the bottom of this script) is the source of truth when online. */
-var colorMode='status', levelFilter='all', heatOn=false;
+var colorMode='program', levelFilter='all', heatOn=false;
 var activeFormats={}, activeRegions={};
 var FORMATS = Object.keys(FMT_COLOR);
 var REGIONS = ['North America','South America','Europe','Asia','Oceania','Africa','Middle East'];
@@ -1303,8 +1119,8 @@ setTimeout(function(){ map.invalidateSize(false); },300);
 setTimeout(function(){ map.invalidateSize(false); },1200);
 
 function hasContact(d){ var c=window.ATLAS_CONTACTS&&window.ATLAS_CONTACTS[(d.n||'').toLowerCase().replace(/[^a-z0-9]/g,'')]; return !!(c&&c.e); }
-// A school "has debate" unless it was community-submitted as "no program
-// yet". The curated dataset is all established programs.
+// Curated listings are established programs. Community additions can also
+// mark a school that is still looking to start one.
 function hasDebate(d){ return !(d && d.noProgram); }
 function colorFor(d){
   if(colorMode==='program') return hasDebate(d) ? '#22c55e' : '#f59e0b';
@@ -1318,31 +1134,6 @@ var pinRenderer=L.canvas({padding:0.5,pane:'pins'});
 function pinRadius(d){ return d.tier===1?7:d.tier===2?5.5:4.5; }
 function pinStyle(d){ return {renderer:pinRenderer,radius:pinRadius(d),fillColor:colorFor(d),fillOpacity:.95,color:'rgba(11,10,16,.85)',weight:1.5}; }
 function restyle(m,d){ if(m&&m.setStyle) m.setStyle({radius:pinRadius(d),fillColor:colorFor(d)}); }
-
-/* ── Whitespace: every US high school with no known debate program ─────────
-   NCES 2021 public high schools (window.ATLAS_SCHOOLS), plotted grey in a pane
-   UNDER the program pins so the red/grey contrast reads at a glance. The pins
-   are where debate lives; the grey is the market. Non-interactive and
-   chunk-built so 23k dots never block the first paint. */
-map.createPane('ws'); map.getPane('ws').style.zIndex=300; map.getPane('ws').style.pointerEvents='none';
-var wsRenderer=L.canvas({padding:0.5,pane:'ws'});
-var wsLayer=L.layerGroup(), wsBuilt=false, wsOn=true;
-function buildWhitespace(){
-  if(wsBuilt) return; var A=window.ATLAS_SCHOOLS; if(!A||!A.length) return; wsBuilt=true;
-  var i=0;
-  (function chunk(){
-    var end=Math.min(i+3500,A.length);
-    for(;i<end;i++){ L.circleMarker([A[i][0],A[i][1]],{renderer:wsRenderer,radius:1.5,stroke:false,fillColor:'#9aa0ac',fillOpacity:.5,interactive:false}).addTo(wsLayer); }
-    if(i<A.length){ setTimeout(chunk,0); }
-  })();
-}
-var swWS=document.getElementById('sw-ws');
-function toggleWS(){ wsOn=!wsOn; if(swWS){ swWS.classList.toggle('on',wsOn); swWS.setAttribute('aria-checked',wsOn); }
-  if(wsOn){ buildWhitespace(); wsLayer.addTo(map); } else { map.removeLayer(wsLayer); } }
-if(swWS){ swWS.addEventListener('click',toggleWS);
-  swWS.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleWS(); } }); }
-/* default ON, built just after first paint so the map appears instantly */
-setTimeout(function(){ if(wsOn){ buildWhitespace(); wsLayer.addTo(map); } },400);
 
 var markers = {};
 SCHOOLS.forEach(function(d){
@@ -1388,6 +1179,23 @@ function passes(d){
 }
 
 function visibleSet(){ return SCHOOLS.filter(function(d){ return d.lat && passes(d); }); }
+var countryRegionMap=null;
+function regionForCountry(country){
+  if(!countryRegionMap){
+    countryRegionMap={};
+    SCHOOLS.forEach(function(d){ if(d.country&&d.region) countryRegionMap[String(d.country).toLowerCase()]=d.region; });
+  }
+  return countryRegionMap[String(country||'').toLowerCase()]||'';
+}
+function visibleCommunitySet(){
+  return (typeof SUBS!=='undefined'?SUBS:[]).filter(function(d){
+    if(typeof d.lat!=='number'||typeof d.lng!=='number') return false;
+    if(levelFilter!=='all'&&d.lvl!==levelFilter) return false;
+    if(focusRegion&&regionForCountry(d.country)!==focusRegion) return false;
+    for(var i=0;i<(d.fmt||[]).length;i++){ if(activeFormats[d.fmt[i]]) return true; }
+    return false;
+  });
+}
 
 function rebuild(){
   var vis=visibleSet();
@@ -1423,17 +1231,15 @@ function animateValue(el,to){
   requestAnimationFrame(step);
 }
 function updateCounters(vis){
-  var cties={},fmts={},deb=0;
-  vis.forEach(function(d){ cties[d.country]=1; d.fmt.forEach(function(f){ fmts[f]=1; });
-    deb += d.tier===1?60:d.tier===2?35:18; });
-  animateValue(document.getElementById('c-prog'),vis.length);
-  animateValue(document.getElementById('c-deb'),deb);
+  var cties={},fmts={}, all=vis.concat(visibleCommunitySet());
+  all.forEach(function(d){ if(d.country) cties[d.country]=1; (d.fmt||[]).forEach(function(f){ fmts[f]=1; }); });
+  animateValue(document.getElementById('c-prog'),all.length);
   animateValue(document.getElementById('c-cty'),Object.keys(cties).length);
   animateValue(document.getElementById('c-fmt'),Object.keys(fmts).length);
 }
 function updateTopCountries(vis){
   var box=document.getElementById('topc'); if(!box) return;
-  var counts={}; vis.forEach(function(d){ counts[d.country]=(counts[d.country]||0)+1; });
+  var counts={}; vis.concat(visibleCommunitySet()).forEach(function(d){ if(d.country) counts[d.country]=(counts[d.country]||0)+1; });
   var arr=Object.keys(counts).map(function(k){ return [k,counts[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0,6);
   var max=arr.length?arr[0][1]:1;
   box.innerHTML=arr.map(function(r){ return '<div class="tc"><span class="tc-n">'+r[0]+
@@ -1450,7 +1256,7 @@ function updateLegend(vis){
     // "no program yet". Count both so the legend reflects the whole map.
     var withN=0, noN=0;
     vis.forEach(function(d){ hasDebate(d)?withN++:noN++; });
-    (typeof SUBS!=='undefined'?SUBS:[]).forEach(function(s){ s.noProgram?noN++:withN++; });
+    visibleCommunitySet().forEach(function(s){ s.noProgram?noN++:withN++; });
     rows.push({c:'#22c55e',nm:'Has a debate program',ct:withN});
     rows.push({c:'#f59e0b',nm:'No program yet',ct:noN});
   } else if(colorMode==='status'){
@@ -1634,27 +1440,70 @@ function toggleHeat(){ heatOn=!heatOn; sw.classList.toggle('on',heatOn);
 sw.addEventListener('click',toggleHeat);
 sw.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleHeat(); } });
 
-/* ---- search (find a school or city) ---- */
-var searchIn=document.getElementById('search-in'), searchRes=document.getElementById('search-res');
+/* ---- search (programs, community pins, cities, countries, and formats) ---- */
+var searchIn=document.getElementById('search-in'), searchRes=document.getElementById('search-res'),
+    searchClear=document.getElementById('search-clear'), searchHits=[], searchActive=-1;
+function closeSearch(){
+  searchRes.classList.remove('show'); searchRes.innerHTML=''; searchActive=-1;
+  searchIn.setAttribute('aria-expanded','false');
+}
+function searchRows(){
+  return SCHOOLS.concat(typeof SUBS!=='undefined'?SUBS:[],typeof MEMBERS!=='undefined'?MEMBERS:[]);
+}
+function searchText(d){
+  return [d.n,d.city,d.country,d.role,(d.fmt||[]).join(' ')].join(' ').toLowerCase();
+}
+function chooseSearch(d){
+  if(!d||typeof d.lat!=='number'||typeof d.lng!=='number') return;
+  map.flyTo([d.lat,d.lng],9,{duration:1.0}); openCard(d);
+  searchIn.value=d.n||''; searchClear.classList.toggle('show',!!searchIn.value); closeSearch();
+  var panel=document.getElementById('panel'), toggle=document.getElementById('panel-toggle');
+  if(window.matchMedia('(max-width:760px)').matches){ panel.classList.remove('open'); toggle.setAttribute('aria-expanded','false'); }
+}
+function paintSearchActive(){
+  searchRes.querySelectorAll('.sr').forEach(function(el,i){ el.classList.toggle('active',i===searchActive); });
+}
 function runSearch(){
   var q=searchIn.value.trim().toLowerCase();
-  if(q.length<2){ searchRes.classList.remove('show'); searchRes.innerHTML=''; return; }
-  var hits=[];
-  for(var i=0;i<SCHOOLS.length && hits.length<8;i++){ var d=SCHOOLS[i];
-    if(d.lat && (d.n+' '+d.city+' '+d.country).toLowerCase().indexOf(q)>=0) hits.push(d); }
-  if(!hits.length){ searchRes.classList.remove('show'); searchRes.innerHTML=''; return; }
-  searchRes.innerHTML=hits.map(function(d){ return '<div class="sr" data-i="'+SCHOOLS.indexOf(d)+
-    '"><span class="sr-n">'+d.n+'</span><span class="sr-c">'+d.city+' · '+d.country+'</span></div>'; }).join('');
-  searchRes.classList.add('show');
-  searchRes.querySelectorAll('.sr').forEach(function(el){ el.addEventListener('click',function(){
-    var d=SCHOOLS[+el.getAttribute('data-i')]; if(!d) return;
-    map.flyTo([d.lat,d.lng],9,{duration:1.1}); openCard(d);
-    searchRes.classList.remove('show'); searchIn.value=d.n;
-  }); });
+  searchClear.classList.toggle('show',!!searchIn.value);
+  if(q.length<2){ closeSearch(); return; }
+  searchHits=searchRows().filter(function(d){ return d&&typeof d.lat==='number'&&searchText(d).indexOf(q)>=0; })
+    .sort(function(a,b){
+      var an=(a.n||'').toLowerCase(),bn=(b.n||'').toLowerCase();
+      var ar=an.indexOf(q)===0?0:searchText(a).indexOf(q), br=bn.indexOf(q)===0?0:searchText(b).indexOf(q);
+      return ar-br||an.localeCompare(bn);
+    }).slice(0,8);
+  searchRes.innerHTML=''; searchActive=-1;
+  if(!searchHits.length){
+    var empty=document.createElement('div'); empty.className='sr-empty';
+    empty.textContent='No match yet. Add the program if it is missing.';
+    searchRes.appendChild(empty);
+  } else {
+    searchHits.forEach(function(d,i){
+      var row=document.createElement('div'); row.className='sr'; row.setAttribute('role','option');
+      row.setAttribute('id','atlas-search-'+i); row.setAttribute('tabindex','-1');
+      var name=document.createElement('span'); name.className='sr-n'; name.textContent=d.n||'Program';
+      var meta=document.createElement('span'); meta.className='sr-c';
+      meta.textContent=[d.city,d.country,(d.fmt||[]).slice(0,2).join(' / ')].filter(Boolean).join(' · ');
+      row.appendChild(name); row.appendChild(meta); row.addEventListener('click',function(){ chooseSearch(d); });
+      searchRes.appendChild(row);
+    });
+  }
+  searchRes.classList.add('show'); searchIn.setAttribute('aria-expanded','true');
 }
 searchIn.addEventListener('input',runSearch);
 searchIn.addEventListener('focus',runSearch);
-document.addEventListener('click',function(e){ if(!e.target.closest('.search')) searchRes.classList.remove('show'); });
+searchIn.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){ closeSearch(); return; }
+  if(!searchHits.length||!searchRes.classList.contains('show')) return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    searchActive=(searchActive+(e.key==='ArrowDown'?1:-1)+searchHits.length)%searchHits.length;
+    paintSearchActive(); searchIn.setAttribute('aria-activedescendant','atlas-search-'+searchActive);
+  } else if(e.key==='Enter'&&searchActive>=0){ e.preventDefault(); chooseSearch(searchHits[searchActive]); }
+});
+searchClear.addEventListener('click',function(){ searchIn.value=''; searchClear.classList.remove('show'); closeSearch(); searchIn.focus(); });
+document.addEventListener('click',function(e){ if(!e.target.closest('.search')) closeSearch(); });
 
 /* ---- tournaments layer (major fixed-venue circuit events) ---- */
 var TOURNAMENTS=[
@@ -1744,203 +1593,16 @@ function buildRegionChips(){
 buildRegionChips();
 buildChips('chips-format',FORMATS,FMT_COLOR,activeFormats);
 
-/* present mode: hide the editing chrome for a clean investor view */
-var presentBtn=document.getElementById('present-btn');
-if(presentBtn) presentBtn.addEventListener('click',function(){
-  var on=document.body.classList.toggle('present');
-  presentBtn.textContent=on?'Exit':'Present';
-  setTimeout(function(){ try{ map.invalidateSize(false); }catch(e){} },120);
+/* Mobile uses one focused sheet for search, filters, and additions. */
+var panelToggle=document.getElementById('panel-toggle');
+panelToggle.addEventListener('click',function(){
+  var open=document.getElementById('panel').classList.toggle('open');
+  panelToggle.setAttribute('aria-expanded',open?'true':'false');
 });
-
-/* mobile panel + revenue sheet toggles (each closes the other) */
-document.getElementById('panel-toggle').addEventListener('click',function(){
-  document.querySelector('.tam').classList.remove('open');
-  document.getElementById('panel').classList.toggle('open');
-});
-var tamToggle=document.getElementById('tam-toggle');
-if(tamToggle) tamToggle.addEventListener('click',function(){
-  document.getElementById('panel').classList.remove('open');
-  document.querySelector('.tam').classList.toggle('open');
-});
-
-/* ── Opportunity: Market funnel <-> Revenue calculator ──────────────── */
-document.querySelectorAll('.opp-tab').forEach(function(b){
-  b.addEventListener('click',function(){
-    document.querySelectorAll('.opp-tab').forEach(function(x){ x.classList.remove('on'); });
-    b.classList.add('on'); var t=b.getAttribute('data-t');
-    document.getElementById('pane-market').hidden = (t!=='market');
-    document.getElementById('pane-revenue').hidden = (t!=='revenue');
-    var pg=document.getElementById('pane-growth'); if(pg) pg.hidden = (t!=='growth');
-  });
-});
-function fmtMoney(n){ n=Math.round(n);
-  if(n>=1e9) return '$'+(n/1e9).toFixed(2).replace(/\.?0+$/,'')+'B';
-  if(n>=1e6) return '$'+(n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';
-  if(n>=1e3) return '$'+Math.round(n/1e3)+'k';
-  return '$'+n; }
-function fmtNum(n){ return Number(n).toLocaleString('en-US'); }
-
-/* Layered revenue model. Money accrues from two lines (school fees + consumer
-   seats), ramps over 5 years net of churn, is priced per market (PPP), then
-   stepped down to net by payment + delivery cost. All assumptions are explicit
-   and illustrative. */
-var CALC={
-  RAMP:[0.12,0.30,0.55,0.80,1.00],   // share of target penetration reached, by year, net of churn
-  NRR:1.10,                          // net revenue retention on the mature base (stated assumption)
-  CONSUMER_ANNUAL:6,                 // blended $/yr per paying seat (Individual $5, Team $20, BYOK $12)
-  PAYMENT_RATE:0.03,                 // card / processing
-  DELIVERY_RATE:0.14,                // infra + AI inference per paying account
-  // Global market: secondary-school base per country and its PPP fee factor vs the US price.
-  REGIONS:[['US',27000,1.00],['India',123000,0.30],['UK',4000,0.95],['Philippines',12000,0.28],
-           ['Canada',3500,0.92],['Australia',2600,0.90],['South Africa',6500,0.45],['Singapore',200,0.95]]
-};
-(function(){ var b=0,e=0; CALC.REGIONS.forEach(function(r){ b+=r[1]; e+=r[1]*r[2]; }); CALC.GBASE=b; CALC.GEQUIV=e; })();
-var SCOPES={
-  us:    { base:27000,      equiv:27000,      label:'US',
-           presets:[[1,'1% floor'],[11,'Today ~11%'],[100,'Every school']] },
-  global:{ base:CALC.GBASE, equiv:CALC.GEQUIV, label:'Global',
-           presets:[[1,'1% floor'],[5,'Circuit 5%'],[12,'India-led 12%']] }
-};
-// Scenario presets set the whole case: penetration by scope, fee, seats/school.
-var SCEN={
-  cons:{penUS:6,  penGL:2,  fee:20, cps:6,  label:'Conservative'},
-  base:{penUS:11, penGL:5,  fee:30, cps:12, label:'Base'},
-  bull:{penUS:30, penGL:12, fee:45, cps:25, label:'Bull'}
-};
-
-var calcPen=document.getElementById('calc-pen'), calcPrice=document.getElementById('calc-price'),
-    calcYear=document.getElementById('calc-year');
-var calcScope='us', calcScen='base', calcCps=SCEN.base.cps,
-    calcLayers={school:true,consumer:true};
-
-// Core math for a given ramp year (1-5). Returns every line so the UI can show accrual.
-function calcModel(year,penOverride){
-  var sc=SCOPES[calcScope];
-  var target=(penOverride!=null?penOverride:(+calcPen.value))/100, fee=+calcPrice.value;
-  var penEff=target*CALC.RAMP[year-1];
-  var schoolsPaying=Math.round(sc.base*penEff);
-  var blendFee=fee*(sc.equiv/sc.base);                 // US: = fee; Global: PPP-blended
-  var schoolGross=schoolsPaying*blendFee*12;
-  var seats=Math.round(schoolsPaying*calcCps);
-  var conGross=seats*CALC.CONSUMER_ANNUAL;
-  if(!calcLayers.school){ schoolGross=0; }
-  if(!calcLayers.consumer){ conGross=0; seats=0; }
-  var gross=schoolGross+conGross;
-  var payments=gross*CALC.PAYMENT_RATE, delivery=gross*CALC.DELIVERY_RATE;
-  var net=gross-payments-delivery;
-  return {penEff:penEff,schoolsPaying:schoolsPaying,blendFee:blendFee,schoolGross:schoolGross,
-          seats:seats,conGross:conGross,gross:gross,payments:payments,delivery:delivery,net:net};
-}
-function renderPresets(){
-  var box=document.querySelector('.calc-presets'); if(!box) return;
-  box.innerHTML=SCOPES[calcScope].presets.map(function(p){ return '<button data-n="'+p[0]+'">'+p[1]+'</button>'; }).join('');
-  box.querySelectorAll('button').forEach(function(b){
-    b.addEventListener('click',function(){ calcPen.value=b.getAttribute('data-n'); calcUpdate(); });
-  });
-}
-function renderRamp(){
-  var box=document.getElementById('calc-ramp'); if(!box) return;
-  var year=+calcYear.value, nets=[], max=0;
-  for(var y=1;y<=5;y++){ var n=calcModel(y).net; nets.push(n); if(n>max) max=n; }
-  box.innerHTML=nets.map(function(n,i){
-    var h=max>0?Math.max(3,Math.round(n/max*40)):3;
-    return '<div class="rb'+(i+1===year?' on':'')+'" data-y="'+(i+1)+'" title="Year '+(i+1)+': '+fmtMoney(n)+' net ARR">'+
-           '<span class="rb-bar" style="height:'+h+'px"></span><span class="rb-l">Y'+(i+1)+'</span></div>';
-  }).join('');
-  box.querySelectorAll('.rb').forEach(function(b){
-    b.addEventListener('click',function(){ calcYear.value=b.getAttribute('data-y'); calcUpdate(); });
-  });
-}
-function calcUpdate(){
-  if(!calcPen) return;
-  var year=+calcYear.value, m=calcModel(year);
-  document.getElementById('calc-arr').textContent=fmtMoney(m.net);
-  document.getElementById('calc-gross').textContent=fmtMoney(m.gross);
-  document.getElementById('calc-year-l').textContent='year '+year;
-  document.getElementById('calc-year-v').textContent='Y'+year;
-  document.getElementById('calc-pen-v').textContent=(+calcPen.value)+'%';
-  document.getElementById('calc-price-v').textContent='$'+(+calcPrice.value);
-  document.getElementById('calc-blend').textContent = calcScope==='global'
-    ? '  ·  blended $'+Math.round(m.blendFee)+'/mo after local pricing' : '';
-  // breakdown line
-  var parts=[];
-  if(calcLayers.school)   parts.push(fmtNum(m.schoolsPaying)+' schools × $'+Math.round(m.blendFee)+'/mo');
-  if(calcLayers.consumer) parts.push(fmtNum(m.seats)+' seats × $'+CALC.CONSUMER_ANNUAL+'/yr');
-  document.getElementById('calc-sub').textContent = parts.length? parts.join('  +  ') : 'Pick at least one revenue line';
-  // composition
-  var tot=m.schoolGross+m.conGross, sPct=tot>0?Math.round(m.schoolGross/tot*100):0, cPct=tot>0?100-sPct:0;
-  document.getElementById('cc-school').style.width=sPct+'%';
-  document.getElementById('cc-con').style.width=cPct+'%';
-  document.getElementById('cl-school').textContent=sPct+'%';
-  document.getElementById('cl-con').textContent=cPct+'%';
-  // accrual waterfall
-  document.getElementById('calc-wfall').innerHTML=
-    '<div class="wf-row"><span class="wf-k">Gross bookings</span><span class="wf-v">'+fmtMoney(m.gross)+'</span></div>'+
-    '<div class="wf-row wf-neg"><span class="wf-k">− Payment processing (3%)</span><span class="wf-v">−'+fmtMoney(m.payments)+'</span></div>'+
-    '<div class="wf-row wf-neg"><span class="wf-k">− Infra &amp; AI (14%)</span><span class="wf-v">−'+fmtMoney(m.delivery)+'</span></div>'+
-    '<div class="wf-row wf-net"><span class="wf-k">Net ARR · year '+year+'</span><span class="wf-v">'+fmtMoney(m.net)+'</span></div>';
-  // assumptions
-  var marginPct=m.gross>0?Math.round(m.net/m.gross*100):0;
-  document.getElementById('calc-assume').innerHTML=
-    '<span><b>'+marginPct+'%</b> net margin</span>'+
-    '<span>NRR <b>'+Math.round(CALC.NRR*100)+'%</b></span>'+
-    '<span><b>'+calcCps+'</b> seats / school</span>'+
-    (calcScope==='global'?'<span><b>PPP</b> local pricing</span>':'')+
-    '<span>ramp <b>net of churn</b></span>';
-  // honest ceiling
-  var full=SCOPES[calcScope];
-  if(calcScope==='us'){
-    var ceilNet=calcModel(5,100).net;
-    document.getElementById('calc-gap').innerHTML=
-      'Every one of ~27,000 US schools paying is a <b>'+fmtMoney(ceilNet)+'</b> ceiling. This models <b>'+
-      (+calcPen.value)+'%</b> reached by year '+year+' → <b>'+fmtMoney(m.net)+'</b> net. The gap is the runway.';
-  } else {
-    document.getElementById('calc-gap').innerHTML=
-      'Core English-debate markets total <b>~'+fmtNum(Math.round(full.base/1000)*1000)+'</b> secondary schools '+
-      '(US 27k, India 123k, UK 4k, PH 12k, CA 3.5k, AU 2.6k, ZA 6.5k, SG 0.2k). Local pricing makes that '+
-      '<b>'+fmtNum(Math.round(full.equiv))+'</b> US-equivalent seats. At <b>'+(+calcPen.value)+'%</b> in year '+year+
-      ', net is <b>'+fmtMoney(m.net)+'</b>.';
-  }
-  renderRamp();
-}
-function applyScenario(key){
-  calcScen=key; var s=SCEN[key]; calcCps=s.cps;
-  calcPen.value = calcScope==='global'? s.penGL : s.penUS;
-  calcPrice.value = s.fee;
-  document.querySelectorAll('#seg-scenario button').forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-sc')===key); });
-}
-function setScope(key){
-  calcScope=key; renderPresets();
-  applyScenario(calcScen);   // re-seat penetration for the new scope's realistic band
-  calcUpdate();
-}
-if(calcPen){
-  calcPen.addEventListener('input',calcUpdate);
-  calcPrice.addEventListener('input',calcUpdate);
-  calcYear.addEventListener('input',calcUpdate);
-  document.querySelectorAll('#seg-scenario button').forEach(function(b){
-    b.addEventListener('click',function(){ applyScenario(b.getAttribute('data-sc')); calcUpdate(); });
-  });
-  document.querySelectorAll('#seg-scope button').forEach(function(b){
-    b.addEventListener('click',function(){
-      document.querySelectorAll('#seg-scope button').forEach(function(x){ x.classList.remove('on'); });
-      b.classList.add('on'); setScope(b.getAttribute('data-s')); if(typeof syncURL==='function') syncURL();
-    });
-  });
-  document.querySelectorAll('#calc-layers button').forEach(function(b){
-    b.addEventListener('click',function(){
-      var k=b.getAttribute('data-l');
-      if(calcLayers[k] && !( (k==='school'&&calcLayers.consumer)||(k==='consumer'&&calcLayers.school) )) return; // keep one on
-      calcLayers[k]=!calcLayers[k]; b.classList.toggle('on',calcLayers[k]); calcUpdate();
-    });
-  });
-  renderPresets();
-  applyScenario('base');
-  calcUpdate();
-}
 
 /* ── Community: "Add your program" pins ───────────────────────────── */
-var subLayer=L.layerGroup(), SUBS=[], memberLayer=L.layerGroup(), MEMBERS=[], isAdminUser=false, placeMode=null, placeLatLng=null;
+var subLayer=L.layerGroup(), SUBS=[], memberLayer=L.layerGroup(), MEMBERS=[], isAdminUser=false, adminToolsReady=false,
+    placeMode=null, placeLatLng=null;
 var ATLAS_ADMIN_EMAILS={'andreacasagrandecaron@gmail.com':true};
 subLayer.addTo(map); memberLayer.addTo(map);
 function isAtlasAdminEmail(email){ return !!ATLAS_ADMIN_EMAILS[String(email||'').toLowerCase()]; }
@@ -1972,12 +1634,32 @@ function fetchAtlasEmails(){
   }
   fetchAtlasEmailsFromFirestore();
 }
-function segContactsToggle(){ var sc=document.getElementById('seg-contacts'); if(sc) sc.hidden=!isAdminUser; }
-function checkAdmin(){ isAdminUser=false; segContactsToggle(); if(!fbUser) return;
-  if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ isAdminUser=true; segContactsToggle(); fetchAtlasEmails(); return; }
-  if(isAtlasAdminEmail(fbUser.email)){ isAdminUser=true; segContactsToggle(); fetchAtlasEmails(); return; }
+function setAdminUI(){
+  var sc=document.getElementById('seg-contacts'), sp=document.getElementById('seg-pipeline');
+  if(sc) sc.hidden=!isAdminUser;
+  if(sp) sp.hidden=!isAdminUser;
+  if(!isAdminUser&&(colorMode==='status'||colorMode==='contacts')){
+    colorMode='program'; setSegOn('seg-color','data-m','program'); rebuild();
+  }
+}
+function loadAdminContactsBundle(){
+  if(window.ATLAS_CONTACTS){ fetchAtlasEmails(); return; }
+  var s=document.createElement('script'); s.src='/js/atlas-contacts.js'; s.async=true;
+  s.onload=function(){ fetchAtlasEmails(); if(current) openCard(current); };
+  document.head.appendChild(s);
+}
+function enableAdminTools(){
+  isAdminUser=true; setAdminUI();
+  if(!adminToolsReady){ adminToolsReady=true; syncPipeline(); loadAdminContactsBundle(); }
+  else fetchAtlasEmails();
+}
+function checkAdmin(){ isAdminUser=false; setAdminUI(); if(!fbUser) return;
+  if(fbUser.uid==='Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'){ enableAdminTools(); return; }
+  if(isAtlasAdminEmail(fbUser.email)){ enableAdminTools(); return; }
   if(!fbDb) return;
-  fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){ isAdminUser=!!(s.exists&&s.data()&&s.data().isAdmin); segContactsToggle(); fetchAtlasEmails(); }).catch(function(){ isAdminUser=false; }); }
+  fbDb.collection('user_profiles').doc(fbUser.uid).get().then(function(s){
+    if(s.exists&&s.data()&&s.data().isAdmin) enableAdminTools();
+  }).catch(function(){ isAdminUser=false; setAdminUI(); }); }
 function deleteAtlasPin(coll,docId,mine){
   if(mine){
     if(!fbDb) return Promise.reject(new Error('Firebase unavailable'));
@@ -2010,7 +1692,7 @@ function subscribeSubs(){
   fbDb.collection('atlas_submissions').onSnapshot(function(snap){
     SUBS=[]; snap.forEach(function(doc){ var d=doc.data()||{}; d.id=doc.id; d.kind='community'; d.n=d.name||'Program';
       if(typeof d.lat==='number'&&typeof d.lng==='number') SUBS.push(d); });
-    renderSubs();
+    renderSubs(); rebuild();
   },function(e){ console.warn('[atlas] subs',e); });
 }
 function renderMembers(){
@@ -2038,7 +1720,11 @@ function openMemberModal(){
 }
 function exitPlacing(){ placeMode=null; var pb=document.getElementById('placebanner'); if(pb) pb.classList.remove('show'); var mp=document.getElementById('map'); if(mp) mp.style.cursor=''; }
 function startPlacing(mode,label){
-  if(!fbReady){ alert('This needs Firebase, which is unavailable here.'); return; }
+  if(!fbReady){
+    ensureFirebase().then(function(){ startPlacing(mode,label); })
+      .catch(function(){ alert('The community map could not load. Check your connection and try again.'); });
+    return;
+  }
   if(!fbUser){ promptSignIn(); return; }
   placeMode=mode; var pb=document.getElementById('placebanner');
   if(pb){ var t=pb.querySelector('span'); if(t) t.textContent=label; pb.classList.add('show'); }
@@ -2083,15 +1769,22 @@ function openSubModal(){
   if(sg) sg.addEventListener('click',function(){
     if(!fbDb||!fbUser){ promptSignIn(); return; }
     var name=(document.getElementById('sub-name').value||'').trim();
+    var city=(document.getElementById('sub-city').value||'').trim();
+    var country=(document.getElementById('sub-country').value||'').trim();
     if(!name){ alert('Add a program or school name.'); return; }
+    if(!city||!country){ alert('Add the city and country so people can find this program.'); return; }
     if(!placeLatLng){ alert('Pick a spot on the map first.'); return; }
-    var lb=document.querySelector('#sub-lvl button.on'); var lvl=lb?lb.getAttribute('data-l'):'college';
+    var lb=document.querySelector('#sub-lvl button.on'); var lvl=lb?lb.getAttribute('data-l'):'hs';
     var fmt=Array.prototype.slice.call(document.querySelectorAll('#sub-fmt input:checked')).map(function(c){ return c.value; });
-    if(!fmt.length) fmt=['BP'];
+    if(!fmt.length){ alert('Choose at least one debate format.'); return; }
+    var dup=SCHOOLS.concat(SUBS).filter(function(d){
+      return d&&typeof d.lat==='number'&&_dkey(d.n)===_dkey(name)&&_dkm(d.lat,d.lng,placeLatLng.lat,placeLatLng.lng)<50;
+    })[0];
+    if(dup&&!confirm((dup.n||'A similar program')+' is already listed nearby. Add another pin anyway?')) return;
     var pgb=document.querySelector('#sub-prog button.on'); var noProgram=!!(pgb&&pgb.getAttribute('data-p')==='no');
     sg.disabled=true; sg.textContent='Adding…';
     fbDb.collection('atlas_submissions').add({
-      name:name, city:(document.getElementById('sub-city').value||'').trim(), country:(document.getElementById('sub-country').value||'').trim(),
+      name:name, city:city, country:country,
       lat:placeLatLng.lat, lng:placeLatLng.lng, lvl:lvl, fmt:fmt, noProgram:noProgram,
       by:fbUser.uid, byName:(fbUser.displayName||fbUser.email||'member'),
       at:firebase.firestore.FieldValue.serverTimestamp()
@@ -2105,27 +1798,57 @@ function openSubModal(){
   });
 })();
 
-/* ── Shared pipeline sync (Firestore) ──────────────────────────────
-   Statuses live in a shared collection so the whole team sees one map
-   and investors can view it. Read is public; writing needs a Google
-   sign-in. Falls back to localStorage when Firebase is unavailable. */
+/* Internal outreach stages are loaded only after the existing admin check.
+   Public visitors get the program map without pipeline reads or controls. */
 var FB_CONFIG={apiKey:["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
   authDomain:"debateos-78ac5.firebaseapp.com",projectId:"debateos-78ac5",
   storageBucket:"debateos-78ac5.firebasestorage.app",messagingSenderId:"860359449192",
   appId:"1:860359449192:web:f5dc0060dbd50d6c4fb9dd"};
-var fbAuth=null, fbDb=null, fbUser=null, fbReady=false;
+var fbAuth=null, fbDb=null, fbUser=null, fbReady=false, firebaseLoadPromise=null, firebaseSubscriptionsReady=false;
 function pslug(name){ return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 var SLUG2NAME={}; SCHOOLS.forEach(function(d){ SLUG2NAME[pslug(d.n)]=d.n; });
-try{
-  if(typeof firebase!=='undefined'){
+function loadScript(src){
+  return new Promise(function(resolve,reject){
+    var s=document.createElement('script'); s.src=src; s.async=true; s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
+  });
+}
+function initFirebase(){
+  try{
     if(!(firebase.apps&&firebase.apps.length)) firebase.initializeApp(FB_CONFIG);
     fbAuth=firebase.auth(); fbDb=firebase.firestore(); fbReady=true;
+    if(!firebaseSubscriptionsReady){
+      firebaseSubscriptionsReady=true;
+      fbAuth.onAuthStateChanged(function(u){
+        fbUser=u||null; updateAuthUI(); checkAdmin(); if(current) paintStage(); rebuild();
+      });
+      subscribeSubs();
+      subscribeMembers();
+    }
+    updateAuthUI();
+    return true;
+  }catch(e){
+    console.warn('[atlas] firebase init',e); fbReady=false; throw e;
   }
-}catch(e){ console.warn('[atlas] firebase init',e); fbReady=false; }
-if(!fbReady){ try{ statusMap=JSON.parse(localStorage.getItem(STORE_KEY)||'{}'); }catch(e){} }
+}
+function ensureFirebase(){
+  if(fbReady) return Promise.resolve(true);
+  if(firebaseLoadPromise) return firebaseLoadPromise;
+  firebaseLoadPromise=loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
+    .then(function(){ return Promise.all([
+      loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'),
+      loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js')
+    ]); })
+    .then(initFirebase);
+  return firebaseLoadPromise;
+}
+try{ statusMap=JSON.parse(localStorage.getItem(STORE_KEY)||'{}'); }catch(e){}
 function isEditor(){ return !!(fbReady&&fbUser); }
 function promptSignIn(){
-  if(!fbAuth) return;
+  if(!fbAuth){
+    ensureFirebase().then(promptSignIn)
+      .catch(function(){ alert('Sign-in could not load. Check your connection and try again.'); });
+    return;
+  }
   var p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'});
   fbAuth.signInWithPopup(p).catch(function(err){
     if(err&&err.code==='auth/popup-closed-by-user') return;
@@ -2155,18 +1878,14 @@ function syncPipeline(){
 var signinBtn=document.getElementById('signin');
 function updateAuthUI(){
   if(!signinBtn) return;
-  if(!fbReady){ signinBtn.style.display='none'; return; }
   if(fbUser){ signinBtn.textContent=(fbUser.displayName||'Account').split(' ')[0]+' · sign out'; signinBtn.classList.add('in'); }
   else { signinBtn.textContent='Sign in to edit'; signinBtn.classList.remove('in'); }
 }
 if(signinBtn) signinBtn.addEventListener('click',function(){ if(fbUser) fbAuth.signOut(); else promptSignIn(); });
-if(fbReady){
-  fbAuth.onAuthStateChanged(function(u){ fbUser=u||null; updateAuthUI(); checkAdmin(); if(current) paintStage(); rebuild(); });
-  syncPipeline();
-  subscribeSubs();
-  subscribeMembers();
-}
 updateAuthUI();
+var warmFirebase=function(){ ensureFirebase().catch(function(e){ console.warn('[atlas] community load',e); }); };
+if('requestIdleCallback' in window) requestIdleCallback(warmFirebase,{timeout:1800});
+else setTimeout(warmFirebase,700);
 
 /* first-load hint */
 (function(){
@@ -2179,51 +1898,26 @@ updateAuthUI();
   setTimeout(function(){ if(hint.classList.contains('show')) dismiss(); },12000);
 })();
 
-/* ── shareable view links: encode region/color/level/basemap/toggles/scope
-   in the URL so a sent link opens to a specific view. ───────────────── */
+/* Shareable view links keep public map filters and layers in the URL. */
 function setSegOn(id,attr,val){ document.querySelectorAll('#'+id+' button').forEach(function(b){ b.classList.toggle('on', b.getAttribute(attr)===val); }); }
 function syncURL(){
   var p=[];
-  if(colorMode!=='status') p.push('c='+colorMode);
+  if(colorMode!=='program') p.push('c='+colorMode);
   if(levelFilter!=='all') p.push('lvl='+levelFilter);
   if(focusRegion) p.push('r='+encodeURIComponent(focusRegion));
   if(typeof baseMode!=='undefined' && baseMode!=='dark') p.push('b='+baseMode);
   if(typeof heatOn!=='undefined' && heatOn) p.push('h=1');
   if(typeof tourOn!=='undefined' && tourOn) p.push('t=1');
-  if(typeof calcScope!=='undefined' && calcScope==='global') p.push('scope=global');
-  if(typeof calcScen!=='undefined' && calcScen!=='base') p.push('rsc='+calcScen);
-  if(typeof calcYear!=='undefined' && calcYear && +calcYear.value!==3) p.push('ry='+calcYear.value);
-  if(typeof calcPen!=='undefined' && calcPen && typeof SCEN!=='undefined'){
-    var _sd=SCEN[calcScen]||SCEN.base, _dp=(calcScope==='global'?_sd.penGL:_sd.penUS);
-    if(+calcPen.value!==_dp) p.push('rp='+calcPen.value);
-    if(+calcPrice.value!==_sd.fee) p.push('rf='+calcPrice.value);
-  }
-  if(typeof calcLayers!=='undefined' && !(calcLayers.school&&calcLayers.consumer))
-    p.push('rl='+((calcLayers.school?'s':'')+(calcLayers.consumer?'c':'')));
   try{ history.replaceState(null,'', p.length?('?'+p.join('&')):location.pathname); }catch(e){}
 }
 (function applyURLState(){
   var p; try{ p=new URLSearchParams(location.search); }catch(e){ return; }
-  if(p.get('c')){ colorMode=p.get('c'); setSegOn('seg-color','data-m',colorMode); }
+  var cm=p.get('c');
+  if(cm&&['program','format','level'].indexOf(cm)>=0){ colorMode=cm; setSegOn('seg-color','data-m',colorMode); }
   if(p.get('lvl')){ levelFilter=p.get('lvl'); setSegOn('seg-level','data-l',levelFilter); }
   if(p.get('b') && typeof setBasemap==='function'){ var bm=p.get('b'); setBasemap(bm); setSegOn('seg-base','data-b',bm); }
   if(p.get('h')==='1' && typeof toggleHeat==='function'){ toggleHeat(); }
   if(p.get('t')==='1' && typeof toggleTour==='function'){ toggleTour(); }
-  if(p.get('rsc')){ var _sb=document.querySelector('#seg-scenario button[data-sc="'+p.get('rsc')+'"]'); if(_sb) _sb.click(); }
-  if(p.get('scope')==='global'){ var gb=document.querySelector('#seg-scope button[data-s="global"]'); if(gb) gb.click(); }
-  if(typeof calcPen!=='undefined' && calcPen && (p.get('rp')||p.get('rf')||p.get('ry')||p.get('rl'))){
-    var _rp=p.get('rp'), _rf=p.get('rf'), _ry=p.get('ry'), _rl=p.get('rl');
-    if(_rp && !isNaN(_rp)) calcPen.value=_rp;
-    if(_rf && !isNaN(_rf)) calcPrice.value=_rf;
-    if(_ry && !isNaN(_ry)) calcYear.value=_ry;
-    if(_rl!=null){
-      var _wS=_rl.indexOf('s')>=0, _wC=_rl.indexOf('c')>=0; if(!_wS&&!_wC){ _wS=true; _wC=true; }
-      calcLayers.school=_wS; calcLayers.consumer=_wC;
-      var _bS=document.querySelector('#calc-layers button[data-l="school"]'); if(_bS) _bS.classList.toggle('on',_wS);
-      var _bC=document.querySelector('#calc-layers button[data-l="consumer"]'); if(_bC) _bC.classList.toggle('on',_wC);
-    }
-    if(typeof calcUpdate==='function') calcUpdate();
-  }
   var rg=p.get('r');
   if(rg && REGIONS.indexOf(rg)>=0){ focusRegion=rg; REGIONS.forEach(function(x){ activeRegions[x]=(x===rg); });
     if(typeof buildRegionChips==='function') buildRegionChips();
@@ -2254,10 +1948,8 @@ rebuild();
    the user's first pan and snapped the view back to center. */
 (function(){
   var loader=document.getElementById('loader');
-  setTimeout(function(){ if(loader) loader.classList.add('hide'); }, 700);
+  setTimeout(function(){ if(loader) loader.classList.add('hide'); }, 450);
 })();
 </script>
-<script defer src="/js/read-aloud.js"></script>
-<script defer src="/js/home-magnet.js"></script>
 </body>
 </html>
