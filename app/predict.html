@@ -237,7 +237,11 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
     var open=(d.markets||[]).filter(function(m){return m.status==='open'||m.status==='resolving';});
     var res=(d.markets||[]).filter(function(m){return m.status==='settled';});
     $('openCount').textContent=open.length?(open.length+' live'):'';
-    $('openWrap').innerHTML = open.length ? open.map(marketCard).join('') : '<div class="empty">No open markets right now. fresh ones are minted automatically. refresh in a moment.</div>';
+    // Honest empty state. Markets are not minted on a timer: one opens
+    // when a live round opens it, so an empty board means nobody is
+    // debating right now, not that something is loading. Point at the
+    // action that fills it instead of asking the user to keep refreshing.
+    $('openWrap').innerHTML = open.length ? open.map(marketCard).join('') : '<div class="empty">No markets open right now. One opens whenever a live round starts, so this board fills up when people are actually debating. <a href="/spar" style="color:var(--pro);font-weight:700">Start a round</a> and yours will be the first.</div>';
     $('resWrap').innerHTML = res.length ? res.map(resolvedCard).join('') : '<div class="empty" style="padding:14px 0">No resolved markets yet.</div>';
     if(d.leaderboard && d.leaderboard.length){
       $('lb').innerHTML=d.leaderboard.map(function(r,i){ return '<div class="lb-row'+(r.me?' me':'')+'"><span>'+(i+1)+'. '+(r.me?'<b>you</b>':esc(r.name))+'<span class="tier">'+esc(r.tier)+'</span></span><span class="rt">'+r.rating+'</span></div>'; }).join('');

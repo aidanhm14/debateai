@@ -208,11 +208,15 @@
     // still reachable via the notifications bell, /coaches from
     // community surfaces. They can return when they fit.
     // 2026-06-24: The Floor surfaced into the bar per Aidan ("advertise
-    // it more ... have it in a tab"). /floor is the play-money debate
-    // prediction market (back who wins across three windows, AI judge
-    // settles, leaderboard). noindex page; this is the on-site entry.
-    // 2026-07-19: label Floor -> Bet per Aidan; route stays /floor.
-    { href: '/floor',         label: 'Bet'          },
+    // it more ... have it in a tab"). 2026-07-19: label Floor -> Bet.
+    // 2026-07-23: route moved /floor -> /predict. Bet pointed at a page
+    // that cannot take a bet — floor.html sets PREVIEW = true and hard
+    // blocks every call, and its markets settle from a rating model
+    // rather than a real ballot. /predict is the working market: points
+    // only, server-authoritative, settled from the AI ballot of an
+    // actual live round. The Floor stays reachable at /floor as the
+    // interface preview it says it is.
+    { href: '/predict',       label: 'Bet'          },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
