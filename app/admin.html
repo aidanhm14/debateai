@@ -828,7 +828,12 @@
             <button id="mig-rt-dry" class="pill-btn">Ratings: dry run</button>
             <button id="mig-rt-run" class="pill-btn primary">Ratings: run</button>
           </div>
-          <div id="mig-rt-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+          <div id="mig-rt-status" style="font-size:12px;color:var(--muted);min-height:16px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <button id="mig-cr-dry" class="pill-btn">Credits: dry run</button>
+            <button id="mig-cr-run" class="pill-btn primary">Credits: run</button>
+          </div>
+          <div id="mig-cr-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
         </div>
 
         <div class="card">
@@ -2495,8 +2500,10 @@ $('backfill-run-btn').addEventListener('click', () => {
 
 // ── Arena migrations (challenges + ratings) ─────────────────────────
 async function runArenaMigration(kind, dryRun){
-  const statusEl = $(kind === 'ch' ? 'mig-ch-status' : 'mig-rt-status');
-  const path = kind === 'ch' ? '/api/admin/backfill-challenges' : '/api/admin/backfill-ratings';
+  const statusEl = $('mig-' + kind + '-status');
+  const path = kind === 'ch' ? '/api/admin/backfill-challenges'
+    : kind === 'cr' ? '/api/admin/migrate-credits'
+    : '/api/admin/backfill-ratings';
   statusEl.textContent = dryRun ? 'Dry running…' : 'Running…';
   statusEl.style.color = 'var(--muted)';
   try {
@@ -2509,7 +2516,11 @@ async function runArenaMigration(kind, dryRun){
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API ' + r.status);
     const st = data.stats || {};
-    if (kind === 'ch'){
+    if (kind === 'cr'){
+      statusEl.textContent = (dryRun ? '✓ Dry run · ' : '✓ Carried · ')
+        + `${st.migrated} of ${st.scanned} Floor players, ${st.creditsCarried} credits`
+        + (st.alreadyPresent ? `, ${st.alreadyPresent} already carried` : '');
+    } else if (kind === 'ch'){
       statusEl.textContent = (dryRun ? '✓ Dry run · ' : '✓ Written · ')
         + `${st.migrated} of ${st.scanned} legacy challenges`
         + (st.alreadyPresent ? `, ${st.alreadyPresent} already current` : '')
@@ -2531,6 +2542,11 @@ $('mig-ch-dry').addEventListener('click', () => runArenaMigration('ch', true));
 $('mig-ch-run').addEventListener('click', () => {
   if (!confirm('Migrate live_challenges into challenges? Idempotent, safe to re-run.')) return;
   runArenaMigration('ch', false);
+});
+$('mig-cr-dry').addEventListener('click', () => runArenaMigration('cr', true));
+$('mig-cr-run').addEventListener('click', () => {
+  if (!confirm('Carry Floor balances into the credit economy? Idempotent, safe to re-run.')) return;
+  runArenaMigration('cr', false);
 });
 $('mig-rt-dry').addEventListener('click', () => runArenaMigration('rt', true));
 $('mig-rt-run').addEventListener('click', () => {

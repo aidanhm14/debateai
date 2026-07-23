@@ -993,6 +993,58 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── judgments — the canonical record of who won ──────────────────
+    // One doc per event, carrying the model and rubric version that
+    // produced the verdict. Both the rating ladder and the credit
+    // economy settle from this and nothing else. The Floor's bug was
+    // that settlement could reach a winner with no such record and fell
+    // back to Math.random(); a judgment is now structurally required.
+    //
+    // Public read: a ballot people stake credits and reputation on has
+    // to be inspectable. Server-write only, and never updated in place.
+    // Overturning a verdict is a dispute, recorded on the doc, with
+    // compensating entries downstream.
+    match /judgments/{judgmentId} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // ── markets — prediction on a real event ─────────────────────────
+    // Play credits only. Public read so the arena card can show the
+    // crowd split live over onSnapshot rather than polling a function.
+    //
+    // Positions are private per user. Blind books are the point: if you
+    // could read other people's stakes before the lock, the market
+    // measures herding rather than belief.
+    match /markets/{marketId} {
+      allow read:  if true;
+      allow write: if false;
+      match /positions/{posUid} {
+        allow read:  if isOwner(posUid);
+        allow write: if false;
+      }
+    }
+
+    // ── credit_accounts / credit_ledger ──────────────────────────────
+    // Free, non-purchasable, non-transferable, non-redeemable virtual
+    // participation points. Balances are server-authoritative; a client
+    // that could write its own balance owns the economy.
+    //
+    // The ledger is append-only and readable only by its owner. There
+    // is no ledger kind for transfer, withdrawal, or purchase, and
+    // scripts/test-credits.mjs asserts none can be constructed.
+    match /credit_accounts/{uid} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+    match /credit_ledger/{uid} {
+      allow read, write: if false;
+      match /txns/{txnId} {
+        allow read:  if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }
