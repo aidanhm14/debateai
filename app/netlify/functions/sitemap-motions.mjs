@@ -39,7 +39,10 @@ function buildXml() {
   // and walk back ARCHIVE_DAYS days. Every URL here is a stable,
   // permanently-rendered page (the motion is a pure function of date),
   // so Google can cache them indefinitely.
-  for (let offset = 0; offset < ARCHIVE_DAYS; offset++) {
+  // Start at 1, not 0: today is unshifted in below as its own higher-priority
+  // entry. Starting at 0 emitted today twice, and a sitemap that lists the
+  // same <loc> under two different priorities is a self-contradicting signal.
+  for (let offset = 1; offset <= ARCHIVE_DAYS; offset++) {
     const d = new Date(todayMs - offset * DAY_MS);
     const dateStr = formatDailyDate(d);
     // Touch the bank so a bank lookup failure surfaces as an empty entry
