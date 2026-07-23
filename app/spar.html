@@ -3667,6 +3667,10 @@ h1 em{color:var(--accent);font-style:normal}
     // render without re-reading the doc: { id, participants:[uids],
     // participantInfo:{uid:{name,photo}}, isGroup, groupName }.
     activeThread: null,
+    // One-shot: set when the user arrived via the leaderboard's
+    // Challenge action (?dm=<uid>&challenge=1) so the composer opens
+    // with a challenge draft. Consumed on first render.
+    pendingChallenge: false,
   };
 
   var WL_GROUP_NAME_MAX = 60;
@@ -4184,7 +4188,25 @@ h1 em{color:var(--accent);font-style:normal}
     setTimeout(function(){
       var input = document.getElementById('wlSendInput');
       if (input){
+        // One-shot challenge opener from the leaderboard. Seeded as a
+        // DRAFT, never auto-sent: the point of a callout is that the
+        // sender chose the words. Cleared after use so re-opening the
+        // thread later does not keep re-seeding over what they typed,
+        // and skipped if the field already has content.
+        if (wl.pendingChallenge && !input.value){
+          wl.pendingChallenge = false;
+          var them = '';
+          try {
+            var at2 = wl.activeThread, other = at2 && at2.participants
+              ? at2.participants.filter(function(u){ return u !== state.user.uid; })[0] : null;
+            them = (other && at2.participantInfo && at2.participantInfo[other]
+              && at2.participantInfo[other].name) || '';
+          } catch(e){}
+          input.value = (them ? them + ', I' : 'I')
+            + " want to challenge you to a round. Pick a format and a time that suits you.";
+        }
         input.focus();
+        try { input.setSelectionRange(input.value.length, input.value.length); } catch(e){}
         input.addEventListener('keydown', function(e){
           if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendThreadMessage(); }
         });
@@ -4872,6 +4894,11 @@ h1 em{color:var(--accent);font-style:normal}
           openGroupThread(dmThread);
         } else if (dmPeer && dmPeer !== state.user.uid){
           renderInboxLanding();
+          // Arriving from the leaderboard's Challenge action
+          // (/spar?dm=<uid>&challenge=1). Same DM thread as any peer
+          // message, but the composer opens pre-filled with a challenge
+          // opener so the user is one edit + Send from calling the round.
+          if (qs.get('challenge') === '1'){ wl.pendingChallenge = true; }
           openDmFromUid(dmPeer);
         } else if (qs.get('inbox')){
           // Reached from the account/profile "Messages" card

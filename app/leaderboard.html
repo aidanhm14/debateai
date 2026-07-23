@@ -630,6 +630,46 @@ body.has-beta-strip .shell{padding-top:98px}
   color:var(--accent);font-weight:800;font-size:.6rem;
   letter-spacing:.1em;text-transform:uppercase;
 }
+/* Challenge action (2026-07-23). Quiet by default — it rides in the
+   debater's sub-line, so it must not outshout the name above it. When
+   the page is opened in challenge mode (?challenge=1 from /live) the
+   whole board leans into it: the buttons fill in and lift so the
+   answer to "who do I call out" is every row at once. */
+.chal-btn{
+  display:inline-flex;align-items:center;
+  padding:1px 9px;border-radius:999px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text-dim);font-weight:800;font-size:.6rem;
+  letter-spacing:.05em;text-transform:uppercase;text-decoration:none;
+  line-height:1.5;white-space:nowrap;
+  transition:background .15s,color .15s,border-color .15s,transform .12s;
+}
+.chal-btn:hover{
+  background:var(--accent);border-color:var(--accent);color:#fff;
+  transform:translateY(-1px);
+}
+.chal-btn:active{transform:scale(.96)}
+body.challenge-on .chal-btn{
+  background:var(--accent);border-color:var(--accent);color:#fff;
+  box-shadow:0 4px 14px rgba(239,68,68,.24);
+}
+body.challenge-on .chal-btn:hover{filter:brightness(1.06)}
+/* On the podium the button sits under the meta line, a little larger
+   so the top three read as the marquee targets they are. */
+.pod .chal-btn{margin-top:9px;padding:3px 12px;font-size:.64rem}
+/* Challenge-mode banner: a single line telling an arrival from /live
+   what to do, dismissible, matching the seed-note treatment. */
+.chal-banner{
+  display:none;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding:11px 14px;margin:0 0 16px;border-radius:12px;
+  border:1px solid var(--accent);background:rgba(239,68,68,.06);
+}
+body.challenge-on .chal-banner{display:flex}
+.chal-banner b{
+  flex-shrink:0;font-size:.6rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent);
+}
+.chal-banner span{font-size:.8rem;color:var(--text-dim);line-height:1.45}
 .cell-wl{
   font-size:.82rem;font-weight:700;font-variant-numeric:tabular-nums;
   letter-spacing:.01em;color:var(--text-dim);
@@ -1005,6 +1045,14 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
            surface: when the real-only board is empty, the empty-state
            says so and offers a newsletter signup. -->
 
+      <!-- Copy is swapped by syncChallengeBanner() once the board has
+           loaded, because which sentence is true depends on whether any
+           row belongs to a real account. -->
+      <div class="chal-banner" id="chalBanner" role="note">
+        <b>Challenge mode</b>
+        <span id="chalBannerText">Pick who you want to call out. Challenge opens a direct message so you can agree a motion and a time.</span>
+      </div>
+
       <div id="yourRank" class="your-rank" hidden></div>
       <div id="podium" class="podium" hidden></div>
       <div id="board" class="board">
@@ -1102,6 +1150,58 @@ const statLiveN=document.getElementById('statLiveN');
 const statBestN=document.getElementById('statBestN');
 
 const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement:{}};
+
+// ── challenge mode (2026-07-23) ───────────────────────────────────
+// /live's "Challenge a debater" used to jump to #postForm, a generic
+// "schedule a debate" form with no name field — the one thing the
+// section promised (call someone out BY NAME) was the one thing the
+// flow could not do. It now lands here, where the debaters actually
+// are, and every row that belongs to a REAL signed-in user offers a
+// Challenge action that opens a DM with them.
+//
+// Two rows deliberately get no button, because both would dead-end:
+//   · seeded rows (r.seed) are synthetic texture, not accounts
+//   · your own row — you cannot DM yourself, openDMThread no-ops
+// The board is mostly seeded today, so most rows show nothing. That
+// is the honest state: a Challenge button that opens a thread nobody
+// reads is worse than no button.
+const challengeMode = (function(){
+  try { return new URLSearchParams(location.search).get('challenge')==='1'; }
+  catch(_){ return false; }
+})();
+function canChallenge(r){
+  if(!r || r.seed) return false;
+  const uid = r.uid;
+  // Rows fall back to displayName as a key elsewhere; a DM needs a real
+  // Firebase uid, so require the actual field, not the fallback.
+  if(!uid || typeof uid!=='string' || uid.length<8) return false;
+  if(state.user && uid===state.user.uid) return false;
+  return true;
+}
+function challengeBtn(r){
+  if(!canChallenge(r)) return '';
+  const name = r.displayName || 'Debater';
+  return `<a class="chal-btn" href="/spar?dm=${encodeURIComponent(r.uid)}&challenge=1"
+    data-cta="lb-challenge" aria-label="Challenge ${escapeHtml(name)}">Challenge</a>`;
+}
+// The board is seeded texture until real rounds land on it, so on most
+// days there is nobody here to call out. Sending a user from /live into
+// a board of un-challengeable rows is the same dead end the old
+// #postForm link was, one page further along — so when nothing is
+// challengeable, say it and hand off to /spar, where live queueing and
+// the open-invite marketplace put you in front of actual people.
+function syncChallengeBanner(){
+  if(!challengeMode) return;
+  const el = document.getElementById('chalBannerText');
+  if(!el) return;
+  const n = document.querySelectorAll('.chal-btn').length;
+  if(n){
+    el.textContent = 'Pick who you want to call out. Challenge opens a direct message so you can agree a motion and a time.';
+  } else {
+    el.innerHTML = 'Nobody on the board has a public account to message yet, so there is no one to call out here today. '
+      + '<a href="/spar" data-cta="lb-challenge-spar">Queue up or post an open invite</a> and you will be matched with a real debater.';
+  }
+}
 
 // ── small utils ───────────────────────────────────────────────────
 function fmtAgo(ts){
@@ -1349,6 +1449,7 @@ function podHTML(row, place){
             <span class="dot-sep">·</span>
             <span>${escapeHtml(fmtAgo(row.completedAt)||'recent')}</span>
           </div>
+          ${challengeBtn(row)}
         </div>
       </div>
       <svg class="pod-wave" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
@@ -1542,6 +1643,7 @@ function renderTable(rows){
             <div class="deb-sub">
               <span class="fmt-chip">${escapeHtml(r.formatName||r.format||'—')}</span>
               ${liveMark}
+              ${challengeBtn(r)}
             </div>
           </div>
         </div>
@@ -1593,6 +1695,8 @@ function renderBoard(allRowsRaw){
   renderPodium(rows);
   renderTable(rows);
   renderTicker(rows);
+  // After both row renderers, so it can count the buttons they emitted.
+  syncChallengeBanner();
   // Save the snapshot for the next visit. Done after render so the
   // first paint of a session is stable.
   saveSnapshot(rows);
@@ -1969,6 +2073,15 @@ if(auth){
       signinStrip.hidden=!!state.user;
     }
   });
+}
+
+// Challenge mode is set by /live's "Challenge a debater" link
+// (?challenge=1). The body flag lights up the per-row buttons and
+// shows the explainer banner; renderBoard/renderPodium already emit
+// the buttons, this just turns their loud state on. Deep-link into
+// challenge mode also scrolls the board into view past the hero.
+if (challengeMode){
+  document.body.classList.add('challenge-on');
 }
 
 updateSigninStripCta(state.view);
