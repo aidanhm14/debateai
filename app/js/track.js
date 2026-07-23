@@ -2,8 +2,9 @@
 // Shared telemetry for Debatable.
 // Drop <script src="/js/track.js" defer></script> on any page and it
 // auto-fires session_start, page_view, heartbeat (every 60s), and
-// session_end on pagehide. All events auth-required — anonymous
-// visits stay silent.
+// session_end on pagehide. Signed-in visitors get the full session
+// lifecycle; anonymous visitors get the ANON_OK subset below (the
+// arena funnel + the gtag bridge), never the heartbeat.
 //
 // Exposes window.track(event, metadata) for page-specific calls.
 // Feeds the same /api/log-event pipeline the /admin dashboard reads.
@@ -58,6 +59,23 @@
     sessionStorage.setItem('_da_sid', sessionId);
     sessionStorage.setItem('_da_sst', String(sessionStart));
   }
+
+  // Durable anonymous id. sessionId resets per tab; this survives, so
+  // the signed-out half of the funnel (side_selected -> prediction_saved
+  // -> signup_completed) can be joined into one subject. Never sent as
+  // the auth key — the server still buckets anon writes under
+  // 'anon:' + sessionId so admin-funnel's unique-starter dedupe is
+  // unchanged. This rides along in metadata only.
+  let anonId = '';
+  try {
+    anonId = localStorage.getItem('_da_aid') || '';
+    if (!anonId) {
+      anonId =
+        (crypto && crypto.randomUUID && crypto.randomUUID()) ||
+        (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+      localStorage.setItem('_da_aid', anonId);
+    }
+  } catch (e) {}
 
   let currentUser = null;
   let heartbeatTimer = null;
@@ -127,6 +145,16 @@
   // signed in, since the server would reject it with a 401 anyway. We
   // keep the auth gate for the sensitive events (conversion, forum_post,
   // etc.) where an anon write would mean nothing.
+  //
+  // Arena funnel (added 2026-07-23): the whole point of these events is
+  // the signed-out cohort, so gating them on auth measures nothing.
+  // Volume note — the 2026-05-18 credit-burn envelope still holds. These
+  // are user-ACTION events (a tap, a save, a share), not per-pageview
+  // beacons, with two exceptions: arena_view and challenge_view. Anon
+  // page_view is still suppressed in init(), so those two do not stack
+  // on top of an existing anon beacon; they replace one that never
+  // fired. If /api/log-event volume approaches the Netlify tier, cut
+  // arena_view + challenge_view first and keep the action events.
   const ANON_OK = {
     battle_started: 1,
     page_view: 1,
@@ -134,6 +162,24 @@
     session_heartbeat: 1,
     session_end: 1,
     app_event: 1,
+
+    // discovery
+    landing_view: 1,
+    arena_view: 1,
+    challenge_view: 1,
+    creator_arena_viewed: 1,
+    // participation
+    side_selected: 1,
+    prediction_started: 1,
+    prediction_saved: 1,
+    // account
+    signup_prompted: 1,
+    signup_completed: 1,
+    // outcome + distribution
+    verdict_viewed: 1,
+    clip_viewed: 1,
+    clip_shared: 1,
+    sponsor_cta_clicked: 1,
   };
 
   async function post(event, metadata) {
@@ -171,6 +217,7 @@
       session_id: sessionId,
       path: location.pathname,
     };
+    if (anonId) m.anon_id = anonId;
     if (extra) {
       for (const k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) m[k] = extra[k];
     }

@@ -26,6 +26,36 @@ const VALID_EVENTS = new Set([
   // per-user activity feed can still slice on it without forcing
   // every new event to be added to this allowlist by hand.
   'app_event',
+
+  // ── Arena funnel (2026-07-23) ──────────────────────────────────────
+  // The competitive-entertainment loop: discover a challenge, pick a
+  // side, save a prediction, see the verdict, share it. Most of this
+  // cohort is signed out at the moment the event fires, which is why
+  // every name here also appears in VALID_EVENTS_ANON below.
+  'landing_view',
+  'arena_view',
+  'challenge_view',
+  'creator_arena_viewed',
+  'side_selected',
+  'prediction_started',
+  'prediction_saved',
+  'prediction_settled',
+  'signup_prompted',
+  'signup_completed',
+  'challenge_created',
+  'challenge_application_started',
+  'challenge_application_submitted',
+  'challenge_accepted',
+  'debate_scheduled',
+  'debate_joined',
+  'debate_started',
+  'debate_completed',
+  'verdict_viewed',
+  'profile_followed',
+  'clip_viewed',
+  'clip_shared',
+  'rematch_requested',
+  'sponsor_cta_clicked',
 ]);
 
 // Allowlist of events we accept WITHOUT a signed-in user. Funnel-shaped
@@ -47,12 +77,32 @@ const VALID_EVENTS_ANON = new Set([
   'session_heartbeat',
   'session_end',
   'app_event',
+
+  // Arena funnel, signed-out half. These measure the cohort that has
+  // not signed in yet, so auth-gating them would measure nothing.
+  // Deliberately EXCLUDED from this set (auth-only, since you cannot do
+  // them without an account): challenge_created, challenge_accepted,
+  // the application events, debate_joined / _started / _completed,
+  // prediction_settled, profile_followed, rematch_requested.
+  'landing_view',
+  'arena_view',
+  'challenge_view',
+  'creator_arena_viewed',
+  'side_selected',
+  'prediction_started',
+  'prediction_saved',
+  'signup_prompted',
+  'signup_completed',
+  'verdict_viewed',
+  'clip_viewed',
+  'clip_shared',
+  'sponsor_cta_clicked',
 ]);
 
 // In-memory rate limiting: uid (or anon:<sid>:<ip>) -> { count, windowStart }
 const rateLimits = new Map();
 const RATE_LIMIT = 30;
-const RATE_LIMIT_ANON = 10; // anon page_view beacons — tighter
+const RATE_LIMIT_ANON = 24; // anon beacons + arena funnel taps; still keyed by sid+ip
 const RATE_WINDOW_MS = 60 * 1000; // 1 minute
 
 function isRateLimited(uid, max = RATE_LIMIT) {
