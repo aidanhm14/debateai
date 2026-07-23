@@ -38,10 +38,16 @@ const URLS = [
   // of the hero "How it works" link; HowTo + FAQPage schema on-page.
   { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-07-22' },
   { path: '/today',           changefreq: 'daily',   priority: '0.85' },
-  // /rounds retired 2026-05-18 — the published-rounds listing now
-  // lives as a tab inside /community (#rounds). Don't list it here;
-  // /community already carries the priority weight for that surface,
-  // and the individual round corpus is sitemap-rounds.xml.
+  // /rounds was retired 2026-05-18 (the published-rounds listing moved
+  // into /community#rounds) and the note here said not to list it. That
+  // note went stale on 2026-07-22, when the slug was reused for the
+  // async-rounds surface: record a 90s opening, a human answers on their
+  // own time, AI ballot at the end. That is a real indexable page with
+  // inbound links from the landing and /spar, and it sat out of the
+  // sitemap for a day because this comment still described the old
+  // occupant of the URL. Relisted 2026-07-23. The individual round
+  // corpus is still sitemap-rounds.xml; this is the surface page.
+  { path: '/rounds',          changefreq: 'weekly',  priority: '0.80', lastmod: '2026-07-22' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
   // Aidan's brief ("promote exhibition debate via SEO improvements
@@ -156,6 +162,17 @@ const URLS = [
   // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
+  // Indexable, internally linked, never listed here (found 2026-07-23
+  // by diffing the page inventory against this array). None carry
+  // noindex, so Googlebot reaches them by crawl depth alone today —
+  // a weak bet on a site with this little authority to spend.
+  // /early is linked from three landing variants, /communication-profile
+  // from six pages including /credentials and /verify, /registry from
+  // three. Listing them costs nothing and stops discovery depending on
+  // how deep a crawl happens to go.
+  { path: '/early',                 changefreq: 'weekly',  priority: '0.60' },
+  { path: '/communication-profile', changefreq: 'monthly', priority: '0.60' },
+  { path: '/registry',              changefreq: 'weekly',  priority: '0.50' },
   { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80' },
   { path: '/topics/lincoln-douglas',      changefreq: 'monthly', priority: '0.80' },
   { path: '/topics/policy',               changefreq: 'monthly', priority: '0.80' },
@@ -237,6 +254,21 @@ const URLS = [
   { path: '/india',           changefreq: 'monthly', priority: '0.90' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60' },
+  // debateprep.com — STAGED, DELIBERATELY NOT ENABLED (2026-07-23).
+  // app/prep.html and the host rules in netlify.toml shipped in
+  // 3ea56578, but the domain still answers on GoDaddy's parking lander:
+  // its zone carries two parking A records (15.197.148.33, 3.33.130.190)
+  // beside the correct 75.2.60.5, and the host is not a Netlify domain
+  // alias yet, so there is no TLS cert for it. Submitting the URL in
+  // that state earns a soft 404 on the one page that host owns, which is
+  // worse than not submitting it. Cross-host entries are valid here
+  // because both properties are verified under the same Search Console
+  // account. Note this needs an absolute URL — every other entry is a
+  // path joined onto the canonical origin, so enabling it means adding
+  // an `absolute: true` branch in the builder below, not just a path.
+  // ENABLE once `dig +short A debateprep.com` returns only 75.2.60.5
+  // and the alias is on the cert.
+  // { path: 'https://debateprep.com/', absolute: true, changefreq: 'weekly', priority: '0.80' },
   // Motion library hub (/motions). The per-motion URLs are appended
   // below from the bank rather than listed here, so adding a motion to
   // lib/motion-library.mjs is a one-file change and the sitemap cannot
