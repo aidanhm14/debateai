@@ -809,6 +809,30 @@
 
         <div class="card">
           <div class="title">
+            <span>Arena migrations</span>
+            <span class="meta">challenges + ratings</span>
+          </div>
+          <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+            Both idempotent and dry-run by default. <b>Challenges</b> maps
+            <code>live_challenges</code> into <code>challenges</code>.
+            <b>Ratings</b> builds the Glicko-2 ladder from finished rounds,
+            oldest first (order matters, Glicko is path dependent). Ratings
+            only counts human-vs-human rounds where both debaters consented.
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <button id="mig-ch-dry" class="pill-btn">Challenges: dry run</button>
+            <button id="mig-ch-run" class="pill-btn primary">Challenges: run</button>
+          </div>
+          <div id="mig-ch-status" style="font-size:12px;color:var(--muted);min-height:16px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <button id="mig-rt-dry" class="pill-btn">Ratings: dry run</button>
+            <button id="mig-rt-run" class="pill-btn primary">Ratings: run</button>
+          </div>
+          <div id="mig-rt-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+        </div>
+
+        <div class="card">
+          <div class="title">
             <span>Scrub challenge contacts</span>
             <span class="meta">privacy</span>
           </div>
@@ -2468,6 +2492,52 @@ $('backfill-run-btn').addEventListener('click', () => {
   if (!confirm('Run leaderboard backfill? Idempotent, safe to re-run.')) return;
   runBackfill(false);
 });
+
+// ── Arena migrations (challenges + ratings) ─────────────────────────
+async function runArenaMigration(kind, dryRun){
+  const statusEl = $(kind === 'ch' ? 'mig-ch-status' : 'mig-rt-status');
+  const path = kind === 'ch' ? '/api/admin/backfill-challenges' : '/api/admin/backfill-ratings';
+  statusEl.textContent = dryRun ? 'Dry running…' : 'Running…';
+  statusEl.style.color = 'var(--muted)';
+  try {
+    const token = await firebase.auth().currentUser.getIdToken();
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dryRun: !!dryRun }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'API ' + r.status);
+    const st = data.stats || {};
+    if (kind === 'ch'){
+      statusEl.textContent = (dryRun ? '✓ Dry run · ' : '✓ Written · ')
+        + `${st.migrated} of ${st.scanned} legacy challenges`
+        + (st.alreadyPresent ? `, ${st.alreadyPresent} already current` : '')
+        + (st.skippedNoMotion ? `, ${st.skippedNoMotion} had no motion` : '');
+    } else {
+      const skipped = Object.entries(st.skipped || {}).map(([k,v]) => `${k} ${v}`).join(', ');
+      statusEl.textContent = (dryRun ? '✓ Dry run · ' : `✓ Applied ${st.applied} · `)
+        + `${st.eligible} eligible of ${st.scannedAsync + st.scannedLive} rounds`
+        + (data.oldest ? `, ${data.oldest.slice(0,10)} to ${data.newest.slice(0,10)}` : '')
+        + (skipped ? ` · skipped: ${skipped}` : '');
+    }
+    statusEl.style.color = 'var(--good)';
+  } catch (e){
+    statusEl.textContent = 'Failed: ' + (e.message || e);
+    statusEl.style.color = 'var(--accent)';
+  }
+}
+$('mig-ch-dry').addEventListener('click', () => runArenaMigration('ch', true));
+$('mig-ch-run').addEventListener('click', () => {
+  if (!confirm('Migrate live_challenges into challenges? Idempotent, safe to re-run.')) return;
+  runArenaMigration('ch', false);
+});
+$('mig-rt-dry').addEventListener('click', () => runArenaMigration('rt', true));
+$('mig-rt-run').addEventListener('click', () => {
+  if (!confirm('Build the Debate Rating ladder from finished rounds? Idempotent, safe to re-run.')) return;
+  runArenaMigration('rt', false);
+});
+
 
 async function runScrub(dryRun){
   const statusEl = $('scrub-status');
