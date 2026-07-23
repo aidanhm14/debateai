@@ -903,6 +903,46 @@ service cloud.firestore {
       }
     }
 
+    // ── challenges — the atomic unit of the arena ────────────────────
+    // A challenge is a claim someone will defend, plus the sides, the
+    // schedule, the crowd split, and the stakes. It is the object the
+    // whole arena renders: cards, the /c/{slug} page, share images.
+    //
+    // Read is open. The doc carries no PII by construction: the creator
+    // and accepted speakers are uid + display name + photo, the same
+    // three fields already public on live_challenges and
+    // public_profiles. Contact details live in
+    // live_challenge_contacts and never move here. `unlisted` and
+    // `arena` visibility rely on the doc id being unguessable, the same
+    // capability model async_rounds uses ("the id is the capability").
+    // Open read is also the cheap path: the arena board polls a live
+    // percentage, and doing that over onSnapshot costs Firestore reads
+    // instead of Netlify invocations, which is the scarcer budget here.
+    //
+    // Write is server-only, with no exceptions. Status is a state
+    // machine (lib/challenge.mjs), crowd counts feed a prediction
+    // market, and moderation state gates the feed. Every one of those
+    // is an integrity surface: a client that could write status could
+    // mark its own challenge `completed`, and a client that could write
+    // crowd could manufacture the percentage the market prices off.
+    // The live_challenges takeover bug is the precedent — field-level
+    // client writes on a public board are hard to get right, so this
+    // collection does not try. All mutations go through
+    // /api/challenge with the Admin SDK.
+    match /challenges/{challengeId} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // ── claims — aggregate identity across challenges ────────────────
+    // One doc per normalized claim, so "THW ban X" and "This house
+    // would ban X" aggregate to a single subject. Read-only to clients;
+    // counters are server-maintained.
+    match /claims/{claimId} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }
