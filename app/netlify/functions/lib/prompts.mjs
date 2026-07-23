@@ -194,6 +194,8 @@ Practice this: <one specific actionable drill for the user to work on>
 
 (Replace the user/ai votes and numbers with your actual decisions, calibrated against the scale above. Keep the exact labels. The example numbers are NOT a default — they are just an example shape. The actual round you just judged determines the actual scores.)
 
+{{audienceRegister}}
+
 Be BRUTAL but fair. If the user debated poorly, say so specifically AND score it accordingly — a 25 with honest critique is more useful than a 28 with hedged praise. If they debated well, acknowledge it while finding real room for growth. NEVER reference things that didn't happen in the transcript.`,
 
   // Round Vision prep-room strategist. Vars: visionFormat
@@ -446,6 +448,7 @@ GENERAL JUDGING CRITERIA (apply on top of the format-specific block):
 Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation" — say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
 
 For bestLine: quote something the user ACTUALLY said. If their speech was empty or unreadable, return "" for that field.
+
 For shouldHaveSaid: write a single, speech-ready sentence they could have delivered — concrete warrant or turn, not advice-about-advice.
 For criticalDrops: name the dropped argument the way it appeared in the AI's speech (e.g. "the backfire argument on enforcement"). Do not invent arguments the AI did not make.
 
@@ -469,6 +472,8 @@ DEFAULT TO 25-27. If a speech had ANY of these flaws, score 26 or below: missing
 Do NOT cluster all scores in the 27-28 range "to be encouraging." Encouragement comes from accurate critique, not from grade inflation. A real circuit ballot at a national tournament shows scores ranging 24-29 across a single round; mirror that spread. If one debater clearly outclassed the other, separate the scores by 1.5-3 points, not 0.5.
 
 "practiceAdvice" must be a SPECIFIC drill, not generic advice. e.g. "Record yourself giving 60-second crystallizations of this round — force yourself to collapse to two issues before speaking" not "work on rebuttals."
+
+{{audienceRegister}}
 
 Return ONLY valid JSON, no markdown, no code fences.`,
 

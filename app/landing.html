@@ -5983,7 +5983,88 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <script>
   (function(){
     var root = document.documentElement;
+    var audienceTextOriginals = new WeakMap();
+    var audienceTextObserver = null;
+    var audiencePlainActive = false;
     function ga(n, p){ try { if (window.gtag) gtag('event', n, p || {}); } catch(e){} }
+    function isPlainAudience(choice){
+      return choice === 'learning' || choice === 'curious' || choice === 'no';
+    }
+    function plainAudienceText(text){
+      return String(text || '')
+        .replace(/WHO THE ROOM BACKS FOR THE BALLOT/gi, 'WHO THE ROOM THINKS WON')
+        .replace(/BALLOT IN/gi, 'RESULT IN')
+        .replace(/\bKeep every ballot\b/gi, 'Keep every judge review')
+        .replace(/\bGet a ballot\b/gi, 'Get judge feedback')
+        .replace(/\ba full ballot\b/gi, 'a full judge review')
+        .replace(/\ba written ballot\b/gi, 'written judge feedback')
+        .replace(/\bwrites your ballot\b/gi, 'gives you clear feedback')
+        .replace(/\bwrites the ballot\b/gi, 'writes the decision')
+        .replace(/\bposts the ballot\b/gi, 'posts the result')
+        .replace(/\bthe ballot settles\b/gi, 'the result settles')
+        .replace(/\bthe ballot comes back\b/gi, 'the result comes back')
+        .replace(/\bthe ballot tells you\b/gi, 'the feedback tells you')
+        .replace(/\bAI ballots\b/gi, 'AI judge decisions')
+        .replace(/\bAI ballot\b/gi, "AI judge's decision")
+        .replace(/\bspeaker points\b/gi, 'scores')
+        .replace(/\bRFDs?\b/g, 'judge feedback')
+        .replace(/\bballots\b/gi, 'judge decisions')
+        .replace(/\bballot\b/gi, 'decision')
+        .replace(/\bspeaks\b/gi, 'scores')
+        .replace(/\bmotions\b/gi, 'topics')
+        .replace(/\bmotion\b/gi, 'topic')
+        .replace(/\brounds\b/gi, 'debates')
+        .replace(/\bround\b/gi, 'debate')
+        .replace(/\bclash\b/gi, 'main disagreement')
+        .replace(/\bthe flow\b/gi, 'the arguments')
+        .replace(/\bflow\b/gi, 'arguments')
+        .replace(/\bcircuits\b/gi, 'debate communities');
+    }
+    function applyAudienceTextNode(node, plain){
+      if (!node || node.nodeType !== 3) return;
+      var parent = node.parentElement;
+      if (!parent || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(parent.tagName)) return;
+      if (!audienceTextOriginals.has(node)) audienceTextOriginals.set(node, node.nodeValue);
+      var next = plain ? plainAudienceText(node.nodeValue) : audienceTextOriginals.get(node);
+      if (next !== node.nodeValue) node.nodeValue = next;
+    }
+    function applyAudienceTextTree(container, plain){
+      if (!container) return;
+      if (container.nodeType === 3) {
+        applyAudienceTextNode(container, plain);
+        return;
+      }
+      var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      var node;
+      while ((node = walker.nextNode())) applyAudienceTextNode(node, plain);
+    }
+    function applyAudienceText(plain){
+      applyAudienceTextTree(document.body, plain);
+    }
+    function applyAudienceCopy(choice){
+      var plain = isPlainAudience(choice);
+      audiencePlainActive = plain;
+      document.querySelectorAll('[data-audience-plain]').forEach(function(node){
+        var next = node.getAttribute(plain ? 'data-audience-plain' : 'data-audience-competitive');
+        if (next != null) node.textContent = next;
+      });
+      applyAudienceText(plain);
+      if (plain && !audienceTextObserver) {
+        audienceTextObserver = new MutationObserver(function(records){
+          if (!audiencePlainActive) return;
+          records.forEach(function(record){
+            if (record.type === 'characterData') applyAudienceTextNode(record.target, true);
+            record.addedNodes && record.addedNodes.forEach(function(node){
+              applyAudienceTextTree(node, true);
+            });
+          });
+        });
+        audienceTextObserver.observe(document.body, { childList:true, characterData:true, subtree:true });
+      } else if (!plain && audienceTextObserver) {
+        audienceTextObserver.disconnect();
+        audienceTextObserver = null;
+      }
+    }
 
     function runIntro(){
       window.__wiBooted = true;
@@ -6065,15 +6146,43 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          the same ones /how-it-works leads with. */
       var GUIDE_SUB = {
         competing: 'Pick a side, argue it, read the ballot. Fifteen formats, judged on the flow.',
-        learning:  'Nothing to prepare. The format and the clock are handled for you.',
+        learning:  'No experience needed. Pick a topic, make your case, and see what worked.',
         coaching:  'The same ballot your debaters get, with speaker points and fixes.',
-        curious:   'About six minutes, start to ballot.'
+        curious:   'About six minutes from first argument to clear feedback.'
       };
+      function personalizeGuide(picked){
+        var plain = isPlainAudience(picked);
+        var steps = guide.querySelectorAll('.wi-gs');
+        var heading = guide.querySelector('.wi-guide-h');
+        var waitLine = waitEl.querySelector('.wi-wait-line');
+        var waitSub = waitEl.querySelector('.wi-wait-sub');
+        if (heading) heading.textContent = plain ? 'Every debate is three steps.' : 'Every round is three steps.';
+        if (steps.length >= 3) {
+          steps[0].querySelector('.wi-gs-t').textContent = plain ? 'Pick who to argue with' : 'Pick your opponent';
+          steps[0].querySelector('.wi-gs-b').textContent = plain ?
+            'Choose a real person or an AI. You get a topic and pick a side.' :
+            'A real debater on video, or an AI opponent on voice. A motion goes up and you take a side.';
+          steps[1].querySelector('.wi-gs-t').textContent = plain ? 'Make your case' : 'Argue the round';
+          steps[1].querySelector('.wi-gs-b').textContent = plain ?
+            'Take turns under a timer. The other side challenges your ideas, and you answer them.' :
+            'Speeches run on a clock in your format. They push back and take points of information.';
+          steps[2].querySelector('.wi-gs-t').textContent = plain ? 'See what worked' : 'Read the ballot';
+          steps[2].querySelector('.wi-gs-b').textContent = plain ?
+            'An AI judge explains who won, why, and what you can improve next.' :
+            'An AI judge writes the decision, the reasoning, speaker points, and what to fix next.';
+        }
+        if (waitLine) waitLine.textContent = plain ? 'Your debate is waiting.' : 'Your round is waiting.';
+        if (waitSub) waitSub.textContent = plain ?
+          'Real people, AI opponents, and clear feedback after every debate.' :
+          'Real people, live rooms, an AI judge on every ballot.';
+        applyAudienceCopy(picked);
+      }
       function showGuide(){
         if (done) return;
         q.classList.remove('is-on','is-in');
         var picked = null;
         try { picked = localStorage.getItem('da-is-debater'); } catch(e){}
+        personalizeGuide(picked);
         var sub = guide.querySelector('.wi-guide-sub');
         if (sub) sub.textContent = GUIDE_SUB[picked] || 'Pick a side, argue it, read the ballot.';
         guide.classList.add('is-on');
@@ -6160,9 +6269,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       startQuestions();
     }
 
-    function boot(){
-      if (root.getAttribute('data-intro') === '1') runIntro();
-    }
+      function boot(){
+        var savedChoice = '';
+        try { savedChoice = localStorage.getItem('da-is-debater') || ''; } catch(e){}
+        applyAudienceCopy(savedChoice);
+        if (root.getAttribute('data-intro') === '1') runIntro();
+      }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
   })();
@@ -10836,7 +10948,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <div class="lpb-score-lbl">Speaker points</div>
             </div>
           </div>
-          <div class="lpb-rfd-h">Reason for Decision</div>
+          <div class="lpb-rfd-h" data-audience-competitive="Reason for Decision" data-audience-plain="Why the judge decided this way">Reason for Decision</div>
           <!-- 2026-07-06: RFD sample cut from four dense paragraphs to two.
                Demo feedback: too many words, and the punchy fragment style
                read oddly. Plain register, ~80 words. -->
@@ -12034,7 +12146,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <a class="ms-tile ms-door" href="/judge" data-mode="judge">
         <span class="ms-num">03</span>
         <h3>Get judged</h3>
-        <p>Drop in a speech or case. Winner, speaker points, and a written RFD.</p>
+        <p data-audience-competitive="Drop in a speech or case. Winner, speaker points, and a written RFD." data-audience-plain="Share an argument or speech. See who won, why, and what to improve.">Drop in a speech or case. Winner, speaker points, and a written RFD.</p>
         <span class="ms-go" aria-hidden="true">Get a ballot <span class="ms-arrow">→</span></span>
         <span class="ms-knob" aria-hidden="true"></span>
       </a>

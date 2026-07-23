@@ -1401,7 +1401,7 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
   })();
 </script>
 <script data-precompile="es5">
-var { useState, useEffect, useRef, useCallback } = React;
+var { useState, useEffect, useRef, useCallback, useMemo } = React;
 var el = React.createElement;
 
 /* ═══════════════════════════════════════════════════
@@ -5291,6 +5291,14 @@ async function shareScoreCard(data) {
 function App() {
   var auth = useAuth();
   var { user, team, loading: authLoading, signIn, signOut } = auth;
+  var audienceChoice = useMemo(() => {
+    try {return localStorage.getItem('da-is-debater') || '';} catch {return '';}
+  }, []);
+  var plainAudience = audienceChoice === 'learning' || audienceChoice === 'curious' || audienceChoice === 'no';
+  var audienceCopy = (competitiveCopy, plainCopy) => plainAudience ? plainCopy : competitiveCopy;
+  var ballotAudienceRegister = plainAudience ?
+  `FINAL AUDIENCE LANGUAGE: The person reading this is new to debate or simply curious. Keep every user-visible string value in the JSON intelligent but accessible. Never use or mention "RFD," "ballot," "flow," "framework," "warrant," "drop," "cross-apply," "impact calculus," "extension," or "contention." Translate the underlying idea into ordinary English instead. Preserve the exact JSON keys and score fields because the interface needs them.` :
+  `FINAL AUDIENCE LANGUAGE: The person reading this is a competitive debater or coach. Use precise, format-native judging vocabulary in user-visible string values. Preserve the exact JSON structure.`;
 
   // Set global pro status from team data, with owner-email bypass.
   useEffect(() => {
@@ -7586,7 +7594,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           marcusVoice: PANEL_JUDGES.marcus.voice,
           chenParadigm: PANEL_JUDGES.chen.paradigm,
           chenVoice: PANEL_JUDGES.chen.voice,
-          voiceGuidelines: DEBATE_VOICE_GUIDELINES
+          voiceGuidelines: DEBATE_VOICE_GUIDELINES,
+          audienceRegister: ballotAudienceRegister
         }
       });
       if (ts) ts.done();
@@ -7631,7 +7640,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var ts = window.TypeStream && window.TypeStream.create(setSecondOpinionText, { cps: 120 });
       var fb = await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;if (ts) ts.feed(chunk);else setSecondOpinionText(chunk);}, otherBrain, {
         promptId: 'singleJudgeBallot',
-        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side }
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister }
       });
       if (ts) ts.done();
       setSecondOpinionText(fb);
@@ -7697,7 +7706,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         var raw = '';
         await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;}, brainKey, {
           promptId: 'singleJudgeBallot',
-          promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side }
+          promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister }
         });
         return { brain: brainKey, raw, ballot: parseBallot(raw), error: null };
       } catch (e) {
@@ -7735,7 +7744,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var ballotBrain = judgeBrain || brain;
       var fb = await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;if (ts) ts.feed(chunk);else setFeedback(chunk);}, ballotBrain, {
         promptId: 'singleJudgeBallot',
-        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side }
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister }
       });
       if (ts) ts.done();
       setFeedback(fb);
@@ -8725,14 +8734,14 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // Past rounds
   el('div', { className: 'dash-card', style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
-  el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'Round history (' + historyRounds.length + ')'),
+  el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, audienceCopy('Round history (', 'Debate history (') + historyRounds.length + ')'),
   el('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
   el('span', { style: { fontSize: '.62rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--c-dim)' } }, user ? 'Saved to your account' : 'This browser only'),
   historyRounds.length > 0 && el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, onClick: () => {setSetupTab('setup');setShowHistory(true);} }, 'Open all')
   )
   ),
   historyRounds.length === 0 ?
-  el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, user ? 'Finished rounds appear here with the judge ballot, score, and full transcript, on any device you sign in on.' : 'Finished rounds appear here with the judge ballot, score, and full transcript. Sign in to keep them across devices.') :
+  el('div', { style: { fontSize: '.8rem', color: 'var(--c-dim)' } }, user ? audienceCopy('Finished rounds appear here with the judge ballot, score, and full transcript, on any device you sign in on.', 'Finished debates appear here with judge feedback, scores, and full transcripts, on any device you sign in on.') : audienceCopy('Finished rounds appear here with the judge ballot, score, and full transcript. Sign in to keep them across devices.', 'Finished debates appear here with judge feedback, scores, and full transcripts. Sign in to keep them across devices.')) :
   el('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
   historyRounds.slice(0, 5).map((r) => el('button', { key: r.id, className: 'dash-row', onClick: () => {setSetupTab('setup');setShowHistory(true);setViewingRound && setViewingRound(r);}, style: {
       textAlign: 'left', padding: '10px 12px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)',
@@ -9095,8 +9104,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
   var simpleJudgeCards = [
   { key: 'hs_coach', icon: '🧑‍🏫', title: 'Friendly Coach', desc: 'Encouraging. Former debater. Meets you in the middle.' },
-  { key: 'flow', icon: '⚖', title: 'Tough Judge', desc: 'Votes on the flow. Every dropped argument is fatal.' },
-  { key: 'apda_alum', icon: '🎓', title: 'Competitive Debater', desc: 'College parli voice. Rewards creative framing.' }];
+  { key: 'flow', icon: '⚖', title: audienceCopy('Tough Judge', 'Strict Judge'), desc: audienceCopy('Votes on the flow. Every dropped argument is fatal.', 'Focuses on whether each side answered the other side\'s strongest points.') },
+  { key: 'apda_alum', icon: '🎓', title: audienceCopy('Competitive Debater', 'Experienced Judge'), desc: audienceCopy('College parli voice. Rewards creative framing.', 'Rewards creative ideas and clear comparisons between both sides.') }];
 
   // Starting points so the topic step is never a blank box. Tapping a
   // category drops in a random motion from it; the user can edit freely.
@@ -9146,7 +9155,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // carry the action.
   el('div', { style: { textAlign: 'center', margin: '16px auto 0', maxWidth: 500, fontSize: '.78rem', lineHeight: 1.55, color: 'var(--c-text)' } },
   el('strong', { style: { color: 'var(--c-bright)' } }, 'Trained on real debate.'),
-  ' Hundreds of real cases, real judge ballots, and feedback from debaters who compete. It sharpens every night.'
+  audienceCopy(' Hundreds of real cases, real judge ballots, and feedback from debaters who compete. It sharpens every night.', ' Hundreds of real debates and judge reviews help it give specific, useful feedback. It improves every night.')
   ),
   el('div', { style: { textAlign: 'center', margin: '10px auto 0', maxWidth: 500, fontSize: '.74rem', lineHeight: 1.5, color: 'var(--c-dim)' } },
   'Completed DebateIt rounds are the main path to a certificate. Live rounds against people count too.'
@@ -9256,12 +9265,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     reviewRow('Topic', motion.trim() ? motion.trim() : 'Random / Resolution of the Day'),
     reviewRow('Language', (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName),
     reviewRow('Opponent', 'AI'),
-    reviewRow('Judge', customParadigm.trim() ? 'Custom paradigm' : (JUDGE_PARADIGMS[judgeParadigm] || {}).label || 'Balanced'),
+    reviewRow('Judge', customParadigm.trim() ? audienceCopy('Custom paradigm', 'Custom judge preferences') : plainAudience ? (simpleJudgeCards.find((j) => j.key === judgeParadigm) || {}).title || 'Balanced' : (JUDGE_PARADIGMS[judgeParadigm] || {}).label || 'Balanced'),
     reviewRow('Est. time', '~' + estMin + ' min', true)
     )
     );
   }(),
-  el('button', { className: 'cta cta-setup-sticky', style: { width: '100%' }, onClick: simpleStart }, 'Start round'),
+  el('button', { className: 'cta cta-setup-sticky', style: { width: '100%' }, onClick: simpleStart }, audienceCopy('Start round', 'Start debate')),
   !motion.trim() && el('div', { style: { textAlign: 'center', marginTop: 8, fontSize: '.72rem', color: 'var(--c-dim)' } }, 'No topic yet? Start uses the Resolution of the Day or a random motion.')
   )
   );
@@ -10365,7 +10374,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   // picker for consistency.
   !isCounterExt && el('div', { className: 't-label', style: { marginTop: 24 } }, 'Judge brain'),
   !isCounterExt && el('div', { style: { fontSize: '.7rem', color: 'var(--c-dim)', marginBottom: 6, lineHeight: 1.45, maxWidth: 520 } },
-  'Who writes the ballot. Default is DeepSeek for an objective read; pick another if you want a specific voice.'
+  audienceCopy('Who writes the ballot. Default is DeepSeek for an objective read; pick another if you want a specific voice.', 'Choose which AI reviews the debate. DeepSeek gives the default neutral review; another model may explain it differently.')
   ),
   !isCounterExt && el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
   Object.entries(BRAINS).map(function ([k, v]) {
@@ -10599,7 +10608,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     }
   },
   el('div', { style: { fontSize: '.86rem', fontWeight: 800, marginBottom: 2 } }, '1 judge'),
-  el('div', { style: { fontSize: '.7rem', color: 'var(--c-text3)', lineHeight: 1.4 } }, 'Fast. Single ballot from the Tab/flow judge.')
+  el('div', { style: { fontSize: '.7rem', color: 'var(--c-text3)', lineHeight: 1.4 } }, audienceCopy('Fast. Single ballot from the Tab/flow judge.', 'Fast. One judge explains who won and why.'))
   ),
   el('button', {
     type: 'button',
@@ -10612,8 +10621,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       transition: 'background .18s,border-color .18s'
     }
   },
-  el('div', { style: { fontSize: '.86rem', fontWeight: 800, marginBottom: 2 } }, 'Three-judge deliberation'),
-  el('div', { style: { fontSize: '.7rem', color: 'var(--c-text3)', lineHeight: 1.4 } }, 'Maya · Marcus · Dr. Chen deliberate via one brain, then vote 3-0 or 2-1. For a 3-brain ballot comparison, hit "Run a 3-brain panel" after the round.')
+  el('div', { style: { fontSize: '.86rem', fontWeight: 800, marginBottom: 2 } }, audienceCopy('Three-judge deliberation', 'Three-judge review')),
+  el('div', { style: { fontSize: '.7rem', color: 'var(--c-text3)', lineHeight: 1.4 } }, audienceCopy('Maya · Marcus · Dr. Chen deliberate via one brain, then vote 3-0 or 2-1. For a 3-brain ballot comparison, hit "Run a 3-brain panel" after the round.', 'Maya, Marcus, and Dr. Chen compare their views, then vote. After the debate, you can also ask three different AI models for separate opinions.'))
   )
   )
   ),
@@ -10973,11 +10982,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var cur1 = idx + 1;
       var remaining = total - cur1;
       var tail = remaining === 0 ?
-      'last speech · then ballot' :
+      audienceCopy('last speech · then ballot', 'last turn · then judge feedback') :
       remaining === 1 ?
-      'one speech left · then ballot' :
-      remaining + ' speeches left · then ballot';
-      return 'Speech ' + cur1 + ' of ' + total + ' · ' + tail;
+      audienceCopy('one speech left · then ballot', 'one turn left · then judge feedback') :
+      remaining + audienceCopy(' speeches left · then ballot', ' turns left · then judge feedback');
+      return audienceCopy('Speech ', 'Turn ') + cur1 + ' of ' + total + ' · ' + tail;
     }()
     ),
     el('div', { className: 't-dim', style: { marginBottom: 12 } },
@@ -11373,10 +11382,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // full viewport, centered on the page instead of left-shifted.
     el('div', { style: { position: 'sticky', top: 64, zIndex: 40, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', padding: '10px 12px', margin: '0 calc(-50vw + 50%) 24px', background: 'rgba(15,15,18,.92)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid var(--c-border2)', borderBottom: '1px solid var(--c-border2)' } },
     [
-    { id: 'fb-ballot', label: 'Ballot', shown: true },
-    { id: 'fb-flow', label: 'Flow', shown: !!flowSheet },
+    { id: 'fb-ballot', label: audienceCopy('Ballot', 'Feedback'), shown: true },
+    { id: 'fb-flow', label: audienceCopy('Flow', 'Arguments'), shown: !!flowSheet },
     { id: 'fb-patterns', label: 'Patterns', shown: !!patterns },
-    { id: 'fb-drill', label: 'Drill', shown: !!drillPlan && !drillPlan.error },
+    { id: 'fb-drill', label: audienceCopy('Drill', 'Practice'), shown: !!drillPlan && !drillPlan.error },
     { id: 'fb-transcript', label: 'Transcript', shown: true }].
     map((p) => el('a', {
       key: p.id,
@@ -11392,8 +11401,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     }, p.label))
     ),
     el('div', { id: 'fb-ballot' }),
-    el('div', { className: 't-label', style: { textAlign: 'center' } }, 'Round Complete'),
-    el('h2', { className: 't-hero', style: { fontSize: 'clamp(2rem,5vw,3.2rem)', marginBottom: 8, textAlign: 'center' } }, 'Judge Ballot'),
+    el('div', { className: 't-label', style: { textAlign: 'center' } }, audienceCopy('Round Complete', 'Debate Complete')),
+    el('h2', { className: 't-hero', style: { fontSize: 'clamp(2rem,5vw,3.2rem)', marginBottom: 8, textAlign: 'center' } }, audienceCopy('Judge Ballot', 'Judge Feedback')),
     el('p', { className: 't-dim', style: { marginBottom: 24, textAlign: 'center' } }, '"' + motion + '". ' + (fmt.sideLabels[side] || side) + ' vs AI'),
 
     fbLoading && !ballot && el('div', { style: { textAlign: 'center', marginTop: 40 } },
@@ -11415,14 +11424,14 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('p', { style: { fontSize: '.86rem', color: 'var(--c-text4)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' } }, b.decision)
     ),
 
-    // Speaker Points
+    // Speaker points / plain-language scores
     el('div', { style: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' } },
     el('div', { style: { flex: 1, minWidth: 140, padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, textAlign: 'center' } },
-    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 6 } }, 'Your Points'),
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 6 } }, audienceCopy('Your Points', 'Your Score')),
     el('div', { style: { fontSize: '2rem', fontWeight: 900, color: 'var(--fg)' } }, b.speakerPoints?.user || ', ')
     ),
     el('div', { style: { flex: 1, minWidth: 140, padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, textAlign: 'center' } },
-    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 6 } }, 'AI Points'),
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 6 } }, audienceCopy('AI Points', 'AI Score')),
     el('div', { style: { fontSize: '2rem', fontWeight: 900, color: 'var(--c-text)' } }, b.speakerPoints?.ai || ', ')
     ),
     wr.total >= 2 && el('div', { style: { flex: 1, minWidth: 140, padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, textAlign: 'center' } },
@@ -11709,7 +11718,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var delta = series.length >= 2 ? series[series.length - 1] - series[0] : 0;
       return el('div', { style: { padding: '14px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, marginBottom: 20 } },
       el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 } },
-      el('div', { style: { fontSize: '.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--c-muted)' } }, 'Your speaker points · last ' + series.length + ' rounds'),
+      el('div', { style: { fontSize: '.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--c-muted)' } }, audienceCopy('Your speaker points · last ' + series.length + ' rounds', 'Your scores · last ' + series.length + ' debates')),
       el('div', { style: { fontSize: '.74rem', color: 'var(--c-text3)', display: 'flex', gap: 14, flexWrap: 'wrap' } },
       el('span', null, 'avg: ', el('strong', { style: { color: 'var(--c-bright)' } }, avg.toFixed(1))),
       delta !== 0 && el('span', { style: { color: delta > 0 ? '#22c55e' : '#f87171' } }, (delta > 0 ? '↑ +' : '↓ ') + Math.abs(delta).toFixed(1) + ' pts')
@@ -11732,13 +11741,13 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
     // Key clash
     b.keyClash && el('div', { style: { padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, marginBottom: 20 } },
-    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f59e0b', marginBottom: 6 } }, 'Key Clash'),
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f59e0b', marginBottom: 6 } }, audienceCopy('Key Clash', 'Main Disagreement')),
     el('p', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.5 } }, b.keyClash)
     ),
 
     // Per-speech breakdown
     b.speeches && b.speeches.length > 0 && el('div', { style: { marginBottom: 20 } },
-    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 12 } }, 'Speech Breakdown'),
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 12 } }, audienceCopy('Speech Breakdown', 'Turn-by-Turn Feedback')),
     b.speeches.map((sp, i) => el('div', { key: i, style: { padding: '14px 18px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginBottom: 8 } },
     el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
     el('span', { style: { fontWeight: 700, fontSize: '.85rem', color: 'var(--c-bright)' } }, sp.code + '. ' + sp.who),
@@ -11778,9 +11787,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // still saved client-side; the user can re-roll the judge or
     // continue without a structured ballot.
     !b && feedback && !fbLoading && el('div', { style: { maxWidth: 520, margin: '24px auto', padding: '24px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'center' } },
-    el('div', { style: { fontSize: '1.05rem', fontWeight: 800, marginBottom: 6 } }, 'Couldn’t parse the ballot'),
-    el('p', { style: { fontSize: '.85rem', color: 'var(--c-text4)', lineHeight: 1.55, margin: '0 0 16px' } }, 'The judge’s response didn’t come back in a clean format. Your round is saved, re-roll the ballot below.'),
-    el('button', { className: 'cta', style: { margin: 0 }, onClick: () => genFeedback(log) }, 'Re-roll the ballot')
+    el('div', { style: { fontSize: '1.05rem', fontWeight: 800, marginBottom: 6 } }, audienceCopy('Couldn’t parse the ballot', 'Couldn’t read the judge feedback')),
+    el('p', { style: { fontSize: '.85rem', color: 'var(--c-text4)', lineHeight: 1.55, margin: '0 0 16px' } }, audienceCopy('The judge’s response didn’t come back in a clean format. Your round is saved, re-roll the ballot below.', 'The judge’s response did not come back in a clean format. Your debate is saved, so you can try the feedback again.')),
+    el('button', { className: 'cta', style: { margin: 0 }, onClick: () => genFeedback(log) }, audienceCopy('Re-roll the ballot', 'Try the feedback again'))
     ),
 
     // ── 3-Judge Panel Deliberation ──────────────────────────────

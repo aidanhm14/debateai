@@ -1064,6 +1064,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
 - Prefer short sentences, concrete examples, and one fully explained mechanism over several compressed arguments.
 - Keep the analysis rigorous. Plain language changes the vocabulary, not the intelligence or strength of the argument.
 - Do not switch into circuit jargon merely because the user completes another exchange.
+- At the end, ask "want some quick feedback?" Never ask whether they want an RFD or ballot.
 
 `
         : '';
@@ -1240,9 +1241,10 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     const difficulty = Object.prototype.hasOwnProperty.call(CLASH_DIFFICULTY, (body.difficulty || '').toLowerCase())
       ? body.difficulty.toLowerCase() : 'standard';
     const instructions = mode === 'clash'
-      ? clashLanguageBlock + audienceRegisterBlock + backgroundBlock + modeBlock +
+      ? clashLanguageBlock + backgroundBlock + modeBlock +
         (distillBlock ? '\n' + distillBlock + '\n' : '') +
-        CLASH_DIFFICULTY[difficulty]
+        CLASH_DIFFICULTY[difficulty] +
+        audienceRegisterBlock
       : languageBlock +
         debateVocabBlock +
         (councilResearch ? councilResearch + '\n\n' : '') +
@@ -1251,8 +1253,8 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
         (distillBlock ? distillBlock + '\n\n' : '') +
         backgroundBlock +
         characterPreamble +
-        audienceRegisterBlock +
-        modeBlock;
+        modeBlock +
+        audienceRegisterBlock;
 
     // Model try-list. Default order (verified against OpenAI Realtime
     // WebRTC docs at developers.openai.com/api/docs/guides/realtime-webrtc):

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Judge RFD · Debatable</title>
-<meta name="description" content="The judge's verdict on your voice round: speaker points, best moment, costliest moment, two fixes for next round." />
+<title>Judge feedback · Debatable</title>
+<meta name="description" content="The judge's result, what worked, the biggest missed opportunity, and two things to try next." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://itsdebatable.com/voice-rfd">
@@ -17,8 +17,8 @@
 
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/voice-rfd">
-<meta property="og:title" content="Judge RFD · Debatable">
-<meta property="og:description" content="The judge's verdict on your voice round.">
+<meta property="og:title" content="Judge feedback · Debatable">
+<meta property="og:description" content="The judge's result and clear feedback on your debate.">
 <meta name="twitter:card" content="summary_large_image">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -527,15 +527,15 @@ body{
        inline (before .bar-cta). Without it the bell falls back to a fixed
        chip that lands on top of "Run another". -->
   <div class="bar-links">
-    <a href="/voice-debate" class="bar-ghost">← Back to round</a>
-    <a href="/voice-debate" class="bar-cta">Run another</a>
+    <a href="/voice-debate" class="bar-ghost">← Back to debate</a>
+    <a href="/voice-debate" class="bar-cta">Debate again</a>
   </div>
 </header>
 
 <main id="root" class="wrap">
   <div class="loading" id="loadingBlock">
     <div class="intro-orb" aria-hidden="true"></div>
-    <div class="loading-text">Tallying the ballot…</div>
+    <div class="loading-text">Preparing judge feedback…</div>
   </div>
 </main>
 
@@ -548,6 +548,21 @@ body{
     return String(s||'').replace(/[&<>"']/g, function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
+  }
+
+  function audienceChoiceFor(payload){
+    if (payload && payload.audienceChoice) return String(payload.audienceChoice);
+    try { return localStorage.getItem('da-is-debater') || ''; } catch(e){ return ''; }
+  }
+
+  function isPlainAudience(choice){
+    return choice === 'learning' || choice === 'curious' || choice === 'no';
+  }
+
+  var initialChoice = audienceChoiceFor(null);
+  if (isPlainAudience(initialChoice)){
+    var loadingText = loading && loading.querySelector('.loading-text');
+    if (loadingText) loadingText.textContent = 'Reviewing your debate…';
   }
 
   // ── Payload resolution.
@@ -643,7 +658,7 @@ body{
   function parseRfd(raw){
     var text = String(raw || '');
     var sections = { speakerPoints:'', decision:'', best:'', costliest:'', fixes:[] };
-    var spMatch = text.match(/SPEAKER\s*POINTS?\s*[:\-]?\s*([0-9]{2}(?:\.[0-9])?)/i);
+    var spMatch = text.match(/(?:SPEAKER\s*POINTS?|SCORE)\s*[:\-]?\s*([0-9]{2}(?:\.[0-9])?)/i);
     if (spMatch) sections.speakerPoints = spMatch[1];
     function grab(label, nextLabels){
       // Match the header on its own line, then capture body up to the
@@ -657,10 +672,13 @@ body{
       var m = text.match(pattern);
       return m ? m[1].trim() : '';
     }
-    sections.decision  = grab('DECISION',            ['BEST\\s*MOMENT', 'COSTLIEST\\s*MOMENT', 'TWO\\s*FIXES']);
-    sections.best      = grab('BEST\\s*MOMENT',      ['COSTLIEST\\s*MOMENT', 'TWO\\s*FIXES']);
-    sections.costliest = grab('COSTLIEST\\s*MOMENT', ['TWO\\s*FIXES', 'BEST\\s*MOMENT']);
-    var fixesBlock = grab('TWO\\s*FIXES', ['__never__']);
+    var bestLabel = '(?:BEST\\s*MOMENT|WHAT\\s*WORKED\\s*BEST)';
+    var costliestLabel = '(?:COSTLIEST\\s*MOMENT|BIGGEST\\s*MISSED\\s*OPPORTUNITY)';
+    var fixesLabel = '(?:TWO\\s*FIXES|TWO\\s*THINGS\\s*TO\\s*TRY\\s*NEXT)';
+    sections.decision  = grab('(?:DECISION|RESULT)', [bestLabel, costliestLabel, fixesLabel]);
+    sections.best      = grab(bestLabel,             [costliestLabel, fixesLabel]);
+    sections.costliest = grab(costliestLabel,        [fixesLabel, bestLabel]);
+    var fixesBlock = grab(fixesLabel, ['__never__']);
     if (fixesBlock){
       sections.fixes = fixesBlock.split(/\n+/)
         .map(function(l){ return l.replace(/^\s*\d+[\.\)]\s*/, '').trim(); })
@@ -719,18 +737,56 @@ body{
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  function plainFeedbackText(raw){
+    return String(raw || '')
+      .replace(/SPEAKER\s*POINTS?/gi, 'SCORE')
+      .replace(/\bDECISION\b/gi, 'RESULT')
+      .replace(/\bBEST\s*MOMENT\b/gi, 'WHAT WORKED BEST')
+      .replace(/\bCOSTLIEST\s*MOMENT\b/gi, 'BIGGEST MISSED OPPORTUNITY')
+      .replace(/\bTWO\s*FIXES\s*FOR\s*NEXT\s*ROUND\b/gi, 'TWO THINGS TO TRY NEXT')
+      .replace(/\bRFD\b/gi, 'judge feedback')
+      .replace(/\bballot\b/gi, 'judge feedback')
+      .replace(/\bUSER\b/g, 'YOU')
+      .replace(/\bon the flow\b/gi, 'based on the arguments')
+      .replace(/\bflow\b/gi, 'arguments')
+      .replace(/\bframework\b/gi, 'main standard')
+      .replace(/\bre-extended\b/gi, 'repeated')
+      .replace(/\bextended\b/gi, 'kept using')
+      .replace(/\bdropped\b/gi, 'left unanswered')
+      .replace(/\bdrops\b/gi, 'unanswered points')
+      .replace(/\bwarrants?\b/gi, 'reasoning')
+      .replace(/\bweighing\b/gi, 'comparison')
+      .replace(/\bcontentions?\b/gi, 'main claims')
+      .replace(/\boffense\b/gi, 'winning arguments')
+      .replace(/\bclash\b/gi, 'main disagreement')
+      .replace(/\bvoter\b/gi, 'deciding reason')
+      .replace(/\brounds\b/gi, 'debates')
+      .replace(/\bround\b/gi, 'debate');
+  }
+
   function render(payload){
+    var audienceChoice = audienceChoiceFor(payload);
+    var plainAudience = isPlainAudience(audienceChoice);
+    var audienceCopy = function(competitiveCopy, plainCopy){
+      return plainAudience ? plainCopy : competitiveCopy;
+    };
+    document.title = audienceCopy('Judge RFD · Debatable', 'Judge feedback · Debatable');
+    var backLink = document.querySelector('.bar-ghost');
+    var runLink = document.querySelector('.bar-cta');
+    if (backLink) backLink.textContent = audienceCopy('← Back to round', '← Back to debate');
+    if (runLink) runLink.textContent = audienceCopy('Run another', 'Debate again');
     if (!payload || !payload.rfd){
       root.innerHTML =
         '<div class="empty">'
-          + '<h2>No ballot to show yet</h2>'
-          + '<p>Run a voice round at /voice-debate and click <strong>Generate Judge RFD</strong>; the judge\'s verdict will land here.</p>'
-          + '<div style="margin-top:18px"><a href="/voice-debate" class="cta-btn primary">Start a voice round →</a></div>'
+          + '<h2>' + audienceCopy('No ballot to show yet', 'No judge feedback to show yet') + '</h2>'
+          + '<p>' + audienceCopy('Run a voice round at /voice-debate and click <strong>Generate Judge RFD</strong>; the judge\'s verdict will land here.', 'Finish a voice debate and the judge will explain who won, why, and what you can improve.') + '</p>'
+          + '<div style="margin-top:18px"><a href="/voice-debate" class="cta-btn primary">' + audienceCopy('Start a voice round →', 'Start a voice debate →') + '</a></div>'
         + '</div>';
       return;
     }
-    var sections = parseRfd(payload.rfd);
     var isViva = payload.format === 'viva';
+    var displayRfd = plainAudience && !isViva ? plainFeedbackText(payload.rfd) : payload.rfd;
+    var sections = parseRfd(displayRfd);
     var viva = isViva ? parseVivaScorecard(payload.rfd) : null;
     if (isViva && viva){
       if (viva.strongest) sections.best = viva.strongest;
@@ -738,9 +794,9 @@ body{
       if (viva.study && viva.study.length) sections.fixes = viva.study;
     }
     var winner = detectWinner(sections.decision);
-    var winnerLabel = winner === 'user' ? 'You take the round' :
-                      winner === 'ai'   ? 'The AI takes the round' :
-                                          'The judge calls it close';
+    var winnerLabel = winner === 'user' ? audienceCopy('You take the round', 'You won') :
+                      winner === 'ai'   ? audienceCopy('The AI takes the round', 'The AI won') :
+                                          audienceCopy('The judge calls it close', 'The judge calls it too close');
     var winnerClass = winner === 'user' ? 'user' : '';
     var stats = payload.stats || {};
     var talkYou = stats.talkSplit && typeof stats.talkSplit.you === 'number' ? Math.round(stats.talkSplit.you) : null;
@@ -788,16 +844,16 @@ body{
         + '</div></section>';
     } else {
       html =
-      '<div class="eyebrow">Ballot · Reason for decision</div>'
+      '<div class="eyebrow">' + audienceCopy('Ballot · Reason for decision', 'Judge feedback · Why the decision went this way') + '</div>'
       + '<section class="verdict"><div class="verdict-inner">'
         + '<div class="verdict-row">' + rowParts.map(function(p, i){
             return (i > 0 ? '<span class="dot"></span>' : '') + '<span>' + p + '</span>';
           }).join('') + '</div>'
         + '<h1 class="verdict-headline">' + (winner ? '<span class="winner ' + winnerClass + '">' + escHtml(winnerLabel) + '.</span>' : escHtml(winnerLabel) + '.') + '</h1>'
-        + (payload.motion ? '<p class="verdict-sub">On the motion: <em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
+        + (payload.motion ? '<p class="verdict-sub">' + audienceCopy('On the motion: ', 'Topic: ') + '<em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
         + '<div class="verdict-stats">'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">Round time</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">' + audienceCopy('Speaker points', 'Score') + '</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">' + audienceCopy('Round time', 'Debate time') + '</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Your turns</div><div class="verdict-stat-value">' + (stats.yourTurns != null ? stats.yourTurns : '—') + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Talk-time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
         + '</div>'
@@ -849,26 +905,26 @@ body{
 
     if (sections.best) html +=
       '<section class="section section--best">'
-        + '<div class="section-head"><div class="icon">✓</div><h2>' + (isViva ? 'Strongest answer' : 'Best moment') + '</h2><div class="sub">' + (isViva ? 'What you nailed' : 'What landed') + '</div></div>'
+        + '<div class="section-head"><div class="icon">✓</div><h2>' + (isViva ? 'Strongest answer' : audienceCopy('Best moment', 'What worked best')) + '</h2><div class="sub">' + (isViva ? 'What you nailed' : audienceCopy('What landed', 'Your strongest point')) + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.best) + '</div>'
       + '</section>';
 
     if (sections.costliest) html +=
       '<section class="section section--costliest">'
-        + '<div class="section-head"><div class="icon">!</div><h2>' + (isViva ? 'Where it broke' : 'Costliest moment') + '</h2><div class="sub">' + (isViva ? 'Where knowledge gave out' : 'What slipped') + '</div></div>'
+        + '<div class="section-head"><div class="icon">!</div><h2>' + (isViva ? 'Where it broke' : audienceCopy('Costliest moment', 'Biggest missed opportunity')) + '</h2><div class="sub">' + (isViva ? 'Where knowledge gave out' : audienceCopy('What slipped', 'What to improve')) + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.costliest) + '</div>'
       + '</section>';
 
     if (sections.fixes && sections.fixes.length) html +=
       '<section class="section section--fixes">'
-        + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : 'Two fixes for next round') + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : 'Actionable') + '</div></div>'
+        + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : audienceCopy('Two fixes for next round', 'Two things to try next')) + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : audienceCopy('Actionable', 'Practical next steps')) + '</div></div>'
         + '<ol class="fixes-list">' + sections.fixes.map(function(f){ return '<li>' + escHtml(f) + '</li>'; }).join('') + '</ol>'
       + '</section>';
 
     html +=
       '<section class="section section--full">'
-        + '<div class="section-head"><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
-        + '<div class="section-body">' + escHtml(payload.rfd) + '</div>'
+        + '<div class="section-head"><div class="icon">§</div><h2>' + audienceCopy('Full ballot', 'Full feedback') + '</h2><div class="sub">' + audienceCopy('Verbatim', 'Complete review') + '</div></div>'
+        + '<div class="section-body">' + escHtml(displayRfd) + '</div>'
       + '</section>';
 
     if (Array.isArray(payload.transcript) && payload.transcript.length){
@@ -949,9 +1005,9 @@ body{
     var liveHref = '/live' + (payload.motion ? motionQ + '&compose=1' : '');
     html +=
       '<div class="cta-row">'
-        + '<div class="cta-text">Ballot saved. <strong>Run it back</strong> while the read is fresh.</div>'
-        + '<a href="' + runBackHref + '" class="cta-btn primary">' + (payload.motion ? 'Run this motion again →' : 'Run another round →') + '</a>'
-        + '<button class="cta-btn ghost" id="copyBallot" type="button">Copy ballot</button>'
+        + '<div class="cta-text">' + audienceCopy('Ballot saved. <strong>Run it back</strong> while the read is fresh.', 'Feedback saved. <strong>Try it again</strong> while the ideas are fresh.') + '</div>'
+        + '<a href="' + runBackHref + '" class="cta-btn primary">' + (payload.motion ? audienceCopy('Run this motion again →', 'Debate this topic again →') : audienceCopy('Run another round →', 'Start another debate →')) + '</a>'
+        + '<button class="cta-btn ghost" id="copyBallot" type="button">' + audienceCopy('Copy ballot', 'Copy feedback') + '</button>'
         + '<button class="cta-btn ghost" id="shareBallot" type="button">Share link</button>'
       + '</div>'
       // ── Next-step row: surface /live + /spar after the user has just
@@ -973,7 +1029,7 @@ body{
         + '<a href="/plugins/twitch" class="next-step-link"><svg viewBox="0 0 2400 2800" fill-rule="evenodd" style="width:11px;height:13px;fill:#9146FF;vertical-align:-1px;margin-right:5px" aria-hidden="true"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>Stream your next round on Twitch →</a>'
         + '<a href="mailto:aidandavidhollinger@gmail.com?subject=Streaming%20Debatable%20on%20Twitch" class="next-step-link">Partner with us</a>'
       + '</div>'
-      + '<div class="foot">All ballots are written by Claude Haiku per Debatable\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
+      + '<div class="foot">' + audienceCopy('All ballots are written by Claude Haiku per Debatable\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a>', 'Your review was written by an AI judge using the full debate. <a href="/voice-debate">Start another debate</a> · <a href="/live">Debate a person</a> · <a href="/leaderboard">Leaderboard</a>') + '</div>';
 
     root.innerHTML = html;
 
@@ -1010,9 +1066,9 @@ body{
     var copyBtn = document.getElementById('copyBallot');
     if (copyBtn) copyBtn.addEventListener('click', function(){
       try {
-        navigator.clipboard.writeText(payload.rfd || '');
+        navigator.clipboard.writeText(displayRfd || '');
         copyBtn.textContent = '✓ Copied';
-        setTimeout(function(){ copyBtn.textContent = 'Copy ballot'; }, 1800);
+        setTimeout(function(){ copyBtn.textContent = audienceCopy('Copy ballot', 'Copy feedback'); }, 1800);
         try { gtag('event', 'voice_rfd_copy'); } catch(e){}
       } catch(e){ copyBtn.textContent = 'Couldn\'t copy'; }
     });
