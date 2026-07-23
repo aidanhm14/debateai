@@ -980,6 +980,52 @@
     slot.appendChild(a);
   }
 
+  /* ── the topbar face ────────────────────────────────────────────────
+     2026-07-23. The bar used to render u.photoURL and nothing else, so a
+     debater who built an avatar never saw it here, and one whose Google
+     photo 403s (lh3 URLs rotate) or who never had one got an empty
+     circle. DBAvatar.identity() now decides, and its last rung is a
+     portrait seeded off the uid, so there is no faceless case left.
+
+     The engine is 80KB, so we only fetch it when it can change what is
+     on screen: they built an avatar (which outranks the Google photo),
+     or there is no photo, or the photo we tried failed. A Google user
+     with a working photo and no custom avatar pays nothing. */
+  function paintTopbarFace(host, u){
+    var built = false;
+    try { built = !!localStorage.getItem('debateit-avatar'); } catch(e){}
+
+    if (!built && u.photoURL){
+      var img = document.createElement('img');
+      img.alt = ''; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+      var toEngine = function(){ withAvatarEngine(host, u); };
+      img.addEventListener('error', toEngine);
+      img.addEventListener('load', function(){ if (!img.naturalWidth) toEngine(); });
+      img.src = u.photoURL;
+      host.appendChild(img);
+      // Building an avatar mid-session should show up here without a
+      // reload, and this path has no engine listening yet.
+      window.addEventListener('debateit-avatar-change', toEngine, { once: true });
+      return;
+    }
+    withAvatarEngine(host, u);
+  }
+  function withAvatarEngine(host, u){
+    var draw = function(){
+      if (!window.DBAvatar || !window.DBAvatar.mountIdentity) return;
+      window.DBAvatar.mountIdentity(host, {
+        uid: u.uid,
+        name: u.displayName || u.email || '',
+        photo: null,          // resolved above; here we want the portrait
+        size: 18,             // ui.css bumps this to 24 on phones
+        live: true            // repaint when the builder saves
+      });
+    };
+    if (window.DBAvatar && window.DBAvatar.mountIdentity) draw();
+    else fbLoadOnce('da-avatar-engine', '/js/avatar.js', draw);
+  }
+
   // Signed-IN state: name pill (-> /profile) + Sign out. Extension hook:
   // if the page sets window.daTopbarUserSlot(slot, user) BEFORE this
   // script loads, we hand off rendering (e.g. /debate-it adds an Account
@@ -1014,13 +1060,14 @@
       nameLink.addEventListener('mouseenter', function(){ nameLink.style.background = 'var(--bg-elev)'; nameLink.style.borderColor = 'var(--accent)'; });
       nameLink.addEventListener('mouseleave', function(){ nameLink.style.background = 'var(--bg-card,transparent)'; nameLink.style.borderColor = 'var(--border)'; });
     }
-    if (u.photoURL){
-      var img = document.createElement('img');
-      img.className = 'ui-topbar-useravatar';
-      img.src = u.photoURL; img.alt = ''; img.referrerPolicy = 'no-referrer';
-      img.style.cssText = 'width:18px;height:18px;border-radius:50%;object-fit:cover';
-      nameLink.appendChild(img);
-    }
+    // Everyone gets a face now, photo or not, so this host is
+    // unconditional where the old <img> was built only when photoURL
+    // existed. That is also what retires the name-only fallback below.
+    var avaHost = document.createElement('span');
+    avaHost.className = 'ui-topbar-useravatar';
+    avaHost.style.cssText = 'width:18px;height:18px;border-radius:50%;overflow:hidden;flex-shrink:0;display:block;position:relative;background:var(--bg-elev)';
+    nameLink.appendChild(avaHost);
+    paintTopbarFace(avaHost, u);
     // 2026-07-23: the name and Sign out both drop off the bar on phones
     // (see ui.css ≤560px). The avatar already says who is signed in, and
     // the hamburger sheet already carries a Sign out row, so on a 390px
@@ -1030,9 +1077,6 @@
     nameText.className = 'ui-topbar-username';
     nameText.textContent = first;
     nameLink.appendChild(nameText);
-    // No photo means no avatar, so the pill would collapse to an empty
-    // dot on phones. Keep the name in that case.
-    if (!u.photoURL) nameText.classList.add('ui-topbar-username--only');
     var out = document.createElement('button');
     out.type = 'button';
     out.className = 'ui-topbar-signout';

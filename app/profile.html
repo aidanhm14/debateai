@@ -90,6 +90,24 @@ body{
   letter-spacing:-.02em;
   overflow:hidden;
 }
+/* The avatar is a button now (2026-07-23): /profile is where someone
+   goes to change their face, so it opens the DBAvatar builder. Reset the
+   UA button chrome, keep the ring, and say it is pressable on hover. */
+.avatar-edit{
+  padding:0;font-family:inherit;cursor:pointer;position:relative;
+  transition:transform .15s,box-shadow .15s;
+}
+.avatar-edit:hover{transform:scale(1.04);box-shadow:0 0 0 4px rgba(220,38,38,.16)}
+.avatar-edit:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+/* Hover caption. Hidden from AT because the button already has a label. */
+.avatar-edit::after{
+  content:'Edit';position:absolute;left:0;right:0;bottom:0;
+  padding:5px 0 4px;font-size:.62rem;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:#fff;background:rgba(0,0,0,.55);
+  opacity:0;transition:opacity .15s;pointer-events:none;
+}
+.avatar-edit:hover::after,.avatar-edit:focus-visible::after{opacity:1}
+@media(hover:none){.avatar-edit::after{opacity:1}}
 .avatar img{width:100%;height:100%;object-fit:cover}
 .hero-meta .name{
   font-size:1.6rem;font-weight:900;letter-spacing:-.02em;line-height:1.1;
@@ -1604,17 +1622,53 @@ function wireSettings(user, rows){
   }
 }
 
-// Avatar: prefer the Google profile photo, fall back to the user's
-// initial inside an accent circle. Wrapped in a try/catch because
-// some Google photos 403 on direct hotlink under strict referrer
-// policies — the initial fallback always renders.
+// Avatar. 2026-07-23: this used to be the Google photo with a bare
+// letter behind it, which meant the avatar a debater built in the
+// DBAvatar builder was invisible on their own profile. Now the shared
+// resolver decides (built avatar > Google photo > portrait seeded off
+// the uid) and the whole thing is a button, because /profile is where
+// someone looks when they want to change their face. The host is filled
+// by hydrateProfileAvatar() below once the engine is up.
 function renderAvatar(user){
   const name = (user.displayName || user.email || '').trim();
   const initial = (name[0] || '?').toUpperCase();
-  if(user.photoURL){
-    return `<div class="avatar"><img src="${escapeHtml(user.photoURL)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(initial)}'" referrerpolicy="no-referrer"/></div>`;
-  }
-  return `<div class="avatar">${escapeHtml(initial)}</div>`;
+  return `<button type="button" class="avatar avatar-edit" id="profileAvatar"
+    data-uid="${escapeHtml(user.uid || '')}" data-name="${escapeHtml(name)}"
+    data-photo="${escapeHtml(user.photoURL || '')}"
+    title="Change your avatar" aria-label="Change your avatar">${escapeHtml(initial)}</button>`;
+}
+
+// Paint the resolved identity into the profile avatar and wire the
+// builder. Called after every render that can produce #profileAvatar.
+// The engine is loaded on demand so a signed-out visit never pays for
+// it; until it lands the button still shows the initial, so there is no
+// empty circle at any point.
+function hydrateProfileAvatar(){
+  const host = document.getElementById('profileAvatar');
+  if(!host || host.dataset.wired) return;
+  host.dataset.wired = '1';
+  const opts = {
+    uid: host.dataset.uid,
+    name: host.dataset.name,
+    photo: host.dataset.photo || null,
+    size: 96,
+    live: true
+  };
+  const draw = () => {
+    if(!window.DBAvatar || !window.DBAvatar.mountIdentity) return;
+    window.DBAvatar.mountIdentity(host, opts);
+    host.style.borderRadius = '50%';
+  };
+  host.addEventListener('click', () => {
+    if(window.DBAvatar && window.DBAvatar.openBuilder) window.DBAvatar.openBuilder();
+  });
+  if(window.DBAvatar && window.DBAvatar.mountIdentity){ draw(); return; }
+  const existing = document.getElementById('db-avatar-engine');
+  if(existing){ existing.addEventListener('load', draw, { once:true }); return; }
+  const s = document.createElement('script');
+  s.id = 'db-avatar-engine'; s.src = '/js/avatar.js'; s.defer = true;
+  s.addEventListener('load', draw, { once:true });
+  document.head.appendChild(s);
 }
 
 function renderSignedOut(){
@@ -1741,6 +1795,7 @@ function renderEmpty(user, profileData){
   `;
   try { wireSettings(user, []); } catch(e){ console.warn('[profile] wireSettings (empty) failed:', e && e.message); }
   hydrateSavedRounds(user);
+  hydrateProfileAvatar();
 }
 
 function renderDashboard(user, rows, profileData){
@@ -1945,6 +2000,7 @@ function renderDashboard(user, rows, profileData){
   hydrateCerts(user);
   hydrateVoiceRounds(user);
   hydrateSavedRounds(user);
+  hydrateProfileAvatar();
 }
 
 // Saved voice rounds. Reads the user's own voice_rounds docs (written

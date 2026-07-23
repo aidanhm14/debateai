@@ -1157,10 +1157,92 @@
   // If it needs a new gradient direction, particle, or outline style,
   // it doesn't belong in this set.
 
+  // ---- identity: one face per person, everywhere ------------------------
+  // 2026-07-23. The builder has worked for a while, but what it built was
+  // only ever drawn on /debate-it. The topbar, /profile, /spar and the
+  // rest each did their own thing with the Google photoURL and fell back
+  // to a bare letter, or on the topbar to nothing at all. So the avatar a
+  // debater made was not their face anywhere it counted.
+  //
+  // identity() is the single answer to "what do we draw for this person".
+  // Order is deliberate:
+  //   1. the avatar they built    — a deliberate choice outranks anything
+  //                                 inherited from Google
+  //   2. their Google photo       — a real face, better than a generated one
+  //   3. a portrait seeded off uid — randomConfig is deterministic when
+  //                                 seeded, so this is stable forever, not
+  //                                 a new stranger on every page load
+  // The last rung is what makes the whole thing safe to rely on: there is
+  // no case where a signed-in debater has no face.
+  function identity(o) {
+    o = o || {};
+    var custom = o.config || getUser();
+    if (custom) return { kind: 'custom', config: norm(custom), seed: o.uid || o.name || 'anon' };
+    var seed = o.uid || o.name || 'anon';
+    if (o.photo) return { kind: 'photo', photo: o.photo, config: randomConfig(seed), seed: seed };
+    return { kind: 'generated', config: randomConfig(seed), seed: seed };
+  }
+
+  /* Paint an identity into `node`.
+
+     opts: { uid, name, photo, size, config, live, alt }
+
+     The generated portrait is painted first, as the node's own
+     background, and a photo (when there is one) goes on top. That
+     ordering is the point: the face is already there before the network
+     is consulted, so a slow photo never shows a hole and a broken one
+     just uncovers what was underneath. Three ways a Google photo fails,
+     all covered — 403/404 (error), decodes to 0px (load + naturalWidth),
+     and never fires either event (the portrait is already visible).
+
+     With `live`, the node re-paints when the builder saves, so opening
+     the builder from the topbar updates the topbar behind the modal. */
+  function mountIdentity(node, opts) {
+    if (!node) return node;
+    var o = opts || {};
+    var size = o.size || 32;
+
+    function paint() {
+      var id = identity(o);
+      node.innerHTML = '';
+      node.classList.add('db-identity');
+      node.setAttribute('data-avatar-kind', id.kind);
+      node.style.width = size + 'px';
+      node.style.height = size + 'px';
+      node.style.borderRadius = '50%';
+      node.style.overflow = 'hidden';
+      node.style.flexShrink = '0';
+      node.style.display = 'block';
+      node.style.position = 'relative';
+      node.innerHTML = svg(id.config, '100%');
+
+      if (id.kind !== 'photo') return;
+      var img = document.createElement('img');
+      img.alt = o.alt || '';
+      img.referrerPolicy = 'no-referrer';
+      img.decoding = 'async';
+      img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block';
+      var fail = function () { if (img.parentNode) img.parentNode.removeChild(img); };
+      img.addEventListener('error', fail);
+      img.addEventListener('load', function () { if (!img.naturalWidth) fail(); });
+      img.src = id.photo;
+      node.appendChild(img);
+    }
+
+    paint();
+    if (o.live) {
+      if (node.__dbIdentityHandler) global.removeEventListener(EVT, node.__dbIdentityHandler);
+      node.__dbIdentityHandler = function () { paint(); };
+      global.addEventListener(EVT, node.__dbIdentityHandler);
+    }
+    return node;
+  }
+
   global.DBAvatar = {
     svg: svg, persona: persona, PRESETS: PRESETS,
     getUser: getUser, setUser: setUser, clearUser: clearUser,
     randomConfig: randomConfig, openBuilder: openBuilder, mountWelcome: mountWelcome,
+    identity: identity, mountIdentity: mountIdentity,
     talkingSvg: talkingSvg, mountTalking: mountTalking,
     cameo: cameo, cameoSvg: cameoSvg, CAMEOS: CAMEOS, CAMEO_MAP: CAMEO_MAP,
     SKIN: SKIN, HAIR: HAIR, BG: BG, OUTFIT: OUTFIT, EVENT: EVT
