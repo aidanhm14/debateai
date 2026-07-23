@@ -404,8 +404,17 @@ purpose: the handoff target is what's silenced.
 These pairs duplicate intentionally; if you edit one, edit the other:
 - `/sw.js` ↔ `/app/sw.js`
 - `/netlify.toml` ↔ `/app/netlify.toml`
-- `/netlify/functions/` ↔ `/app/netlify/functions/`
 - `/css/` ↔ `/app/css/`
+
+**Netlify functions are NOT mirrored. There is exactly one copy:
+`app/netlify/functions/`.** The Netlify base directory is `app/`, so
+`app/netlify.toml` is the active config and its `functions =
+"netlify/functions"` resolves to `app/netlify/functions`. A second copy
+used to sit at the repo root; it was never deployed, and by the time it
+was deleted (2026-07-23) five of its 34 files had silently drifted from
+their live twins because this list told people to edit both. If you find
+a `netlify/functions/` directory at the repo root again, it is dead
+weight, not a mirror.
 
 ## Things to ask before doing
 
