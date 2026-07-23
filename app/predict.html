@@ -94,6 +94,52 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   .how-foot b{color:var(--tx)}
   .how-foot .k{font-family:var(--mono);font-size:.76rem;color:var(--tx);background:var(--panel2);border:1px solid var(--bd);border-radius:5px;padding:1px 5px}
 
+  /* ── step diagrams ──────────────────────────────────────────────
+     Each step carries a small figure built from the same shapes as the
+     real market card, so the explainer reads as a labelled version of
+     the thing directly below it rather than as separate documentation.
+     Pure CSS: no images, nothing to load, scales with the text. */
+  .viz{margin-top:9px;background:var(--panel2);border:1px solid var(--bd);border-radius:9px;padding:9px}
+  .viz-cap{font-family:var(--mono);font-size:.6rem;letter-spacing:.04em;color:var(--faint);margin-top:6px;text-align:center}
+  /* mini outcome bar, same geometry as .out-btn on the card */
+  .vbar{position:relative;height:22px;border-radius:6px;background:var(--panel);border:1px solid var(--bd);overflow:hidden;margin-bottom:5px}
+  .vbar:last-child{margin-bottom:0}
+  .vbar .vf{position:absolute;inset:0 auto 0 0;border-radius:5px 0 0 5px}
+  .vbar.p .vf{background:rgba(21,128,61,.18)} .vbar.c .vf{background:rgba(220,38,38,.15)}
+  .vbar .vl{position:relative;display:flex;justify-content:space-between;align-items:center;height:100%;padding:0 7px;font-size:.68rem;font-weight:700}
+  .vbar.p .vl{color:var(--pro-d)} .vbar.c .vl{color:var(--con-d)}
+  .vbar .vn{font-family:var(--mono);font-size:.66rem;font-weight:700}
+  .vbar.sel{border-color:var(--pro);box-shadow:0 0 0 2px rgba(21,128,61,.18)}
+  .viz-arrow{text-align:center;font-size:.7rem;color:var(--faint);line-height:1;margin:5px 0}
+  /* blinding diagram */
+  .vchips{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
+  .vchip{font-family:var(--mono);font-size:.65rem;font-weight:700;border-radius:5px;padding:3px 7px;border:1px solid var(--bd);background:var(--panel)}
+  .vchip.p{color:var(--pro-d);border-color:rgba(21,128,61,.35)}
+  .vchip.c{color:var(--con-d);border-color:rgba(220,38,38,.35)}
+  .vchip.blind{color:var(--tx);border-style:dashed;border-color:var(--bd2)}
+  .vchip.strike{text-decoration:line-through;opacity:.45}
+  /* payout maths */
+  .vmath{display:grid;gap:3px}
+  .vrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:.7rem;color:var(--dim)}
+  .vrow b{font-family:var(--mono);font-size:.72rem;color:var(--tx);font-weight:700}
+  .vrow.tot{border-top:1px solid var(--bd);margin-top:3px;padding-top:4px;color:var(--tx);font-weight:700}
+  .vrow.tot b{color:var(--pro-d);font-size:.8rem}
+  /* rating scale */
+  .vscale{position:relative;height:7px;border-radius:4px;margin:16px 0 5px;
+    background:linear-gradient(90deg,rgba(21,128,61,.55),rgba(20,22,28,.14) 52%,rgba(220,38,38,.5))}
+  .vtick{position:absolute;top:-13px;transform:translateX(-50%);font-family:var(--mono);font-size:.62rem;font-weight:700;color:var(--tx);white-space:nowrap}
+  .vtick::after{content:'';position:absolute;left:50%;top:14px;width:1px;height:7px;background:var(--bd2)}
+  .vends{display:flex;justify-content:space-between;font-size:.66rem;color:var(--faint);margin-top:2px}
+  /* legal strip */
+  .how-legal{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
+  .how-legal .lt{font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+  .how-legal ul{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  @media(max-width:700px){.how-legal ul{grid-template-columns:1fr}}
+  .how-legal li{font-size:.78rem;line-height:1.5;color:var(--dim);padding-left:16px;position:relative}
+  .how-legal li::before{content:'';position:absolute;left:0;top:8px;width:9px;height:1px;background:var(--bd2)}
+  .how-legal li b{color:var(--tx)}
+  .how-legal .fine{font-size:.72rem;color:var(--faint);margin-top:9px;line-height:1.5}
+
   .layout{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start;padding:18px 0 90px}
   @media(max-width:820px){.layout{grid-template-columns:1fr}}
 
@@ -178,27 +224,77 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
         <div class="how-step">
           <div class="n">01</div>
           <h3>Pick a side</h3>
-          <p>Every market is one motion with a written Pro case and a written Con case, both shown on the card. You are not voting for what you believe. You are calling which case a judge will score higher.</p>
+          <p>Every market is one motion with a written Pro case and a written Con case, both on the card. You are not voting for what you believe. You are calling which case a judge scores higher.</p>
+          <div class="viz" aria-hidden="true">
+            <div class="vbar p sel"><span class="vf" style="width:50%"></span><span class="vl"><span>Pro</span><span class="vn">50%</span></span></div>
+            <div class="vbar c"><span class="vf" style="width:50%"></span><span class="vl"><span>Con</span><span class="vn">50%</span></span></div>
+            <div class="viz-cap">tap a side, then stake</div>
+          </div>
         </div>
         <div class="how-step">
           <div class="n">02</div>
           <h3>Odds follow the money</h3>
-          <p>The percentage is that side's share of the pool, so it moves every time someone stakes. The multiplier next to it is what one point pays back if that side wins at the current split.</p>
+          <p>The percentage is that side's share of the pool, so it moves every time anyone stakes. Backing the less popular side is what makes the multiplier climb.</p>
+          <div class="viz" aria-hidden="true">
+            <div class="vbar p"><span class="vf" style="width:50%"></span><span class="vl"><span>Pro</span><span class="vn">50% · 2.00x</span></span></div>
+            <div class="viz-arrow">&darr; someone stakes 200 on Con</div>
+            <div class="vbar p"><span class="vf" style="width:33%"></span><span class="vl"><span>Pro</span><span class="vn">33% · 3.00x</span></span></div>
+            <div class="viz-cap">fewer backers, bigger multiplier</div>
+          </div>
         </div>
         <div class="how-step">
           <div class="n">03</div>
           <h3>An AI judge calls it</h3>
-          <p>When the market locks, the two cases go to the judge with the side labels stripped and the order shuffled, so it cannot reward whoever spoke first. It picks a winner and writes one line naming the clash that decided it.</p>
+          <p>At lock, both cases go to the judge with the side labels stripped and the order shuffled, so it cannot reward whoever went first. It picks a winner and writes the clash that decided it.</p>
+          <div class="viz" aria-hidden="true">
+            <div class="vchips">
+              <span class="vchip p strike">Pro</span><span class="vchip c strike">Con</span>
+            </div>
+            <div class="viz-arrow">&darr; labels hidden, order shuffled</div>
+            <div class="vchips">
+              <span class="vchip blind">Side A</span><span class="vchip blind">Side B</span>
+            </div>
+            <div class="viz-cap">judged on the case, not the label</div>
+          </div>
         </div>
         <div class="how-step">
           <div class="n">04</div>
           <h3>The pool splits</h3>
-          <p>Everyone on the winning side divides the entire pool in proportion to what they staked. Back the losing side and your stake goes to the people who called it.</p>
+          <p>Winners divide the whole pool in proportion to what they staked. The shortcut: your stake times the multiplier shown on the button is exactly what you get back.</p>
+          <div class="viz" aria-hidden="true">
+            <div class="vmath">
+              <div class="vrow"><span>Pool on Pro</span><b>200</b></div>
+              <div class="vrow"><span>Pool on Con</span><b>400</b></div>
+              <div class="vrow"><span>You staked on Pro</span><b>50</b></div>
+              <div class="vrow"><span>Pro multiplier</span><b>3.00x</b></div>
+              <div class="vrow tot"><span>Pro wins, you get</span><b>150</b></div>
+            </div>
+            <div class="viz-cap">50 &times; 3.00 = 150</div>
+          </div>
         </div>
       </div>
       <div class="how-foot">
-        <p><b>Why a new market reads 50% with zero bets.</b> Every market opens with <span class="k">100</span> house points on each side so the book is never empty. That is the <span class="k">200 pts pool</span> you see before anyone has touched it. The split moves off even as soon as the first real stake lands.</p>
-        <p><b>Points and rating are different things.</b> Points are the pool you win and lose. Rating is the ladder, and it pays for being right when the crowd is wrong. Call a 20% underdog and you gain <span class="k">30</span>. Blow an 80% favorite and you lose <span class="k">30</span>. Ride the favorite home and it is worth about <span class="k">12</span>. Points are virtual and cannot be cashed out.</p>
+        <p><b>Why a new market reads 50% with zero bets.</b> Every market opens with <span class="k">100</span> house points on each side so the book is never empty. That is the <span class="k">200 pts pool</span> showing before anyone has touched it. The split moves off even as soon as the first real stake lands.</p>
+        <div>
+          <p><b>Points and rating are different things.</b> Points are the pool. Rating is the ladder, and it pays for being right when the crowd is wrong.</p>
+          <div class="vscale" aria-hidden="true">
+            <span class="vtick" style="left:12%">+30</span>
+            <span class="vtick" style="left:50%">+21</span>
+            <span class="vtick" style="left:88%">+12</span>
+          </div>
+          <div class="vends" aria-hidden="true"><span>called a 20% underdog</span><span>rode an 80% favorite</span></div>
+          <p style="margin-top:7px">Blowing an 80% favorite costs <span class="k">30</span>, the same as calling the underdog earned.</p>
+        </div>
+      </div>
+
+      <div class="how-legal">
+        <div class="lt">What these points are</div>
+        <ul>
+          <li><b>Free.</b> Everyone is granted 1,000 to start. There is no way to buy points, and no payment path touches this board.</li>
+          <li><b>Not cashable.</b> Points cannot be withdrawn, redeemed, converted, or sent to another account. The product exposes no operation that does any of those.</li>
+          <li><b>Decided by a judge.</b> The winner comes from an AI judge reading both cases with the labels hidden. No part of the outcome is a random draw.</li>
+        </ul>
+        <p class="fine">Points are a scorekeeping device for reading arguments, with no cash value inside or outside the product. This is not a wagering service and nothing on this page is an offer to gamble. Balances can be reset or adjusted while Predict is in beta.</p>
       </div>
     </div>
   </details>
