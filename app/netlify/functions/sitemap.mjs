@@ -16,6 +16,8 @@
 // most, so even uncached this would be a rounding-error workload —
 // the cache is purely for cost hygiene.
 
+import { listLibraryMotions } from './lib/motion-library.mjs';
+
 const SITE_ORIGIN = 'https://itsdebatable.com';
 
 // Honest split: which entries genuinely move day-to-day vs which sit on
@@ -235,7 +237,24 @@ const URLS = [
   { path: '/india',           changefreq: 'monthly', priority: '0.90' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60' },
+  // Motion library hub (/motions). The per-motion URLs are appended
+  // below from the bank rather than listed here, so adding a motion to
+  // lib/motion-library.mjs is a one-file change and the sitemap cannot
+  // drift out of sync with what actually renders. The /debate entries
+  // above are still hand-listed because that bank predates this and a
+  // conversion is a separate change.
+  { path: '/motions',         changefreq: 'weekly',  priority: '0.86' },
 ];
+
+// Every motion in the library, generated from the bank. These are
+// substantive pages (both cases, clash, mistakes), not thin templated
+// stubs, so unlike the dated /today URLs they earn a sitemap slot.
+// Priority sits just under the hub and level with the /debate dossiers.
+const MOTION_URLS = listLibraryMotions().map(m => ({
+  path: `/motions/${m.slug}`,
+  changefreq: 'monthly',
+  priority: '0.80',
+}));
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -243,7 +262,7 @@ function todayUtc() {
 
 function buildXml() {
   const today = todayUtc();
-  const urls = URLS.map(u => {
+  const urls = URLS.concat(MOTION_URLS).map(u => {
     const lastmod = u.lastmod || (DYNAMIC.has(u.path) ? today : STABLE_DATE);
     return `  <url>
     <loc>${SITE_ORIGIN}${u.path}</loc>

@@ -665,6 +665,7 @@ function renderHubPage() {
   <span class="stamp"><span class="dot"></span> Debate Dossiers</span>
   <h1 class="hub-h1" style="margin-top:20px">Pick a fight.</h1>
   <p class="hub-intro">${esc(description)}</p>
+  <p class="hub-intro">Debating competitively? The tournament motions, in the phrasing your circuit actually uses, live in the <a href="/motions">motion library</a>.</p>
 
   <div class="hub-group-eye">AI &amp; technology</div>
   <div class="hub-grid">${ai.map(card).join('')}</div>

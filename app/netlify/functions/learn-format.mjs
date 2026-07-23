@@ -17,6 +17,7 @@
 
 import { FORMAT_BANK, getFormat } from './lib/format-bank.mjs';
 import { listGuides } from './lib/guide-bank.mjs';
+import { motionsByFormat } from './lib/motion-library.mjs';
 
 const SITE_ORIGIN = 'https://itsdebatable.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
@@ -94,6 +95,27 @@ function renderFormatGuides(formatSlug) {
       <div class="related-name">${esc(g.question)}</div>
     </a>`).join('')}
   </div>`;
+}
+
+function renderLibraryMotions(formatSlug) {
+  // Motions from the library that run in this format. The "Sample
+  // motions" list above is plain text; these are the ones with a full
+  // prep sheet behind them, so they become the format page's outbound
+  // links into /motions. Format-bank slugs and motion-library format
+  // keys use the same vocabulary (apda / bp / worlds / asian / pf / ld
+  // / policy), so this is a direct match. Congress and MUN have no
+  // library entries yet and correctly render nothing.
+  const motions = motionsByFormat(formatSlug);
+  if (!motions.length) return '';
+  return `<h2>Motions with a full prep sheet</h2>
+  <p>Each one carries both cases, the clash the round turns on, and the mistakes that lose it.</p>
+  <div class="related-grid">
+    ${motions.map(m => `<a class="related-link" href="/motions/${esc(m.slug)}">
+      <div class="related-label">${esc(m.difficulty)} · both sides</div>
+      <div class="related-name">${esc(m.motion)}</div>
+    </a>`).join('')}
+  </div>
+  <p class="deep-dive">More across every format in the <a href="/motions">motion library</a>.</p>`;
 }
 
 // Each format-bank slug maps to a hand-curated /topics/{slug} pillar page
@@ -236,6 +258,8 @@ function renderPage(format) {
   <ul class="motion-list">${format.sampleMotions.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
 
   ${topicsSlug ? `<p class="deep-dive">Want the full ${esc(format.alias)} motion archive, strategy notes, and FAQ? Read the <a href="/topics/${topicsSlug}">${esc(format.name)} topic guide</a>.</p>` : ''}
+
+  ${renderLibraryMotions(format.slug)}
 
   ${renderFormatGuides(format.slug)}
 
