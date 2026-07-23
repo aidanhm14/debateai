@@ -8,6 +8,7 @@ import {
   updateRating, applyRound, displayRating, isRankable, tierFor,
   defaultRatingDoc, DEFAULT_RATING, DEFAULT_RD,
 } from '../app/netlify/functions/lib/rating.mjs';
+import { eligibility } from '../app/netlify/functions/lib/rating-apply.mjs';
 
 let pass = 0, fail = 0;
 const t = (name, cond, got) => {
@@ -115,6 +116,61 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   t('thin record is not rankable',   !isRankable({ rd: 80,  games: 2 }));
   t('real record is rankable',        isRankable({ rd: 80,  games: 12 }));
   t('provisional beats tier lookup', tierFor(1950, true) === 'Unranked');
+}
+
+// ── 6. eligibility: who actually counts ─────────────────────────────
+// This is the gate that decides whether a round touches the public
+// ladder. Getting it wrong either publishes results people opted out
+// of, or rates people for beating a bot.
+{
+  const asyncBase = {
+    state: 'complete', aiOpp: false, hidden: false, visibility: 'public',
+    ballot: { winner: 'prop' }, prop: { uid: 'u1', name: 'A' }, opp: { uid: 'u2', name: 'B' },
+    motion: 'THW test',
+  };
+  const e = eligibility('async', asyncBase);
+  t('async public complete is eligible', e.ok);
+  t('async winner maps to side a',       e.ok && e.outcome === 'a');
+  t('async verdict is server-owned',     e.ok && e.verdictSource === 'server');
+  t('async opp win maps to b',
+    eligibility('async', { ...asyncBase, ballot: { winner: 'opp' } }).outcome === 'b');
+
+  t('AI opponent excluded',
+    eligibility('async', { ...asyncBase, aiOpp: true }).reason === 'ai_opponent');
+  t('unlisted excluded',
+    eligibility('async', { ...asyncBase, visibility: 'unlisted' }).reason === 'not_public');
+  t('hidden excluded',
+    eligibility('async', { ...asyncBase, hidden: true }).reason === 'hidden');
+  t('incomplete excluded',
+    eligibility('async', { ...asyncBase, state: 'open' }).reason === 'not_complete');
+  t('no ballot excluded',
+    eligibility('async', { ...asyncBase, ballot: null }).reason === 'no_verdict');
+  t('garbage winner excluded',
+    eligibility('async', { ...asyncBase, ballot: { winner: 'maybe' } }).reason === 'no_verdict');
+  t('missing opponent excluded',
+    eligibility('async', { ...asyncBase, opp: null }).reason === 'missing_participant');
+  t('self-play excluded',
+    eligibility('async', { ...asyncBase, opp: { uid: 'u1' } }).reason === 'same_user');
+
+  const liveBase = {
+    ballot: { winner: 'pro' }, proUid: 'p1', conUid: 'c1',
+    proName: 'Pro', conName: 'Con', motion: 'THW test',
+    leaderboardConsent: { p1: true, c1: true },
+  };
+  t('live with mutual consent is eligible', eligibility('live', liveBase).ok);
+  t('live verdict marked participant-written',
+    eligibility('live', liveBase).verdictSource === 'participant');
+  t('live missing one consent excluded',
+    eligibility('live', { ...liveBase, leaderboardConsent: { p1: true } }).reason === 'consent_missing');
+  t('live no consent map excluded',
+    eligibility('live', { ...liveBase, leaderboardConsent: {} }).reason === 'consent_missing');
+  t('live consent must be true not truthy',
+    eligibility('live', { ...liveBase, leaderboardConsent: { p1: true, c1: 'yes' } }).reason === 'consent_missing');
+  t('live con win maps to b',
+    eligibility('live', { ...liveBase, ballot: { winner: 'con' } }).outcome === 'b');
+
+  t('unknown source rejected', eligibility('nope', liveBase).reason === 'unknown_source');
+  t('missing doc rejected',    eligibility('async', null).reason === 'not_found');
 }
 
 console.log(`rating lib: ${pass} passed, ${fail} failed`);

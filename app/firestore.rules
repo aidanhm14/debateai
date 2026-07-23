@@ -957,6 +957,42 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── user_ratings — the Debate Rating ladder ──────────────────────
+    // Glicko-2 rating, deviation, volatility, and the win/loss record.
+    // Public read: a competitive ladder that nobody can see is not a
+    // ladder. The doc holds no PII, only uid-keyed numbers.
+    //
+    // Server-write only, with no exceptions. A client that could write
+    // its own rating owns the leaderboard. Every mutation goes through
+    // lib/rating-apply.mjs, which re-derives the winner from the round
+    // document rather than trusting any caller.
+    //
+    // Note the consent coupling: rating-apply refuses a live round
+    // unless BOTH debaters set leaderboardConsent, matching the rule
+    // already enforced for leaderboard_entries. Appearing on this
+    // ladder is opt-in for live rounds, and implied by publishing an
+    // async round publicly.
+    match /user_ratings/{uid} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // ── rating_changes — append-only rating history ──────────────────
+    // One row per debater per rated round: before, after, delta, the
+    // opponent, and whether the verdict came from the server (async
+    // ballot) or a participant's browser (live ballot). That last field
+    // is what lets a later integrity pass find and reverse a bad
+    // verdict without re-reading every round.
+    //
+    // Public read so a profile can show "how did they get here" rather
+    // than an unexplained number. Server-write only, and never updated
+    // in place: a correction is a new compensating row, the same
+    // posture as the credit ledger.
+    match /rating_changes/{changeId} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }
