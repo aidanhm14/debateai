@@ -14,12 +14,12 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/icons/icon-192.png">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Debatable · Predict — live debate markets">
+<meta property="og:title" content="Predict · live debate markets · Debatable">
 <meta property="og:description" content="A live market on AI-judged debates. Stake points on who wins, parimutuel payouts, a real leaderboard. Points only.">
 <meta property="og:url" content="https://itsdebatable.com/predict">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Debatable · Predict — live debate markets">
+<meta name="twitter:title" content="Predict · live debate markets · Debatable">
 <meta name="twitter:description" content="Stake points on AI-judged debates. real pools, real leaderboard.">
 
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
@@ -71,31 +71,37 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   .head p strong{color:var(--tx);font-weight:800}
   .head .pts{color:var(--faint);font-size:.8rem;margin-top:6px}
 
-  /* How this works. Sits above the board because a first-time visitor
-     reads "50% / 2.00x / 0 bets" as a broken page rather than as an
-     untouched book, and bounces before asking. Open by default; the
-     <details> is there so a returning user can fold it away. */
+  /* The explainer stays above the board, but it teaches one action at a
+     time and uses one concrete 50 point call from pick through payout. */
   .how{margin:18px 0 2px;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
-  .how>summary{list-style:none;cursor:pointer;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;
-    font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .how>summary{list-style:none;cursor:pointer;padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:18px;color:var(--tx)}
   .how>summary::-webkit-details-marker{display:none}
-  .how>summary:hover{color:var(--tx)}
+  .how>summary:hover .how-title{color:var(--con)}
+  .how-summary-copy{display:flex;align-items:baseline;gap:12px;min-width:0}
+  .how-title{font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;transition:color .15s;white-space:nowrap}
+  .how-dek{font-size:.84rem;color:var(--dim);font-weight:500}
   .how>summary .tw{font-size:.7rem;letter-spacing:0;text-transform:none;font-weight:600;color:var(--faint)}
   .how[open]>summary .tw::after{content:'Hide'}
   .how:not([open])>summary .tw::after{content:'Show'}
-  .how-body{padding:0 16px 16px}
-  .how-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-  @media(max-width:860px){.how-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:520px){.how-steps{grid-template-columns:1fr}}
-  .how-step{border-top:2px solid var(--bd2);padding-top:9px}
-  .how-step .n{font-family:var(--mono);font-size:.66rem;font-weight:700;color:var(--con);letter-spacing:.06em}
-  .how-step h3{font-size:.95rem;font-weight:800;letter-spacing:-.01em;margin:3px 0 5px}
-  .how-step p{font-size:.85rem;line-height:1.55;color:var(--dim)}
-  .how-foot{margin-top:15px;padding-top:13px;border-top:1px solid var(--bd);display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media(max-width:700px){.how-foot{grid-template-columns:1fr}}
-  .how-foot p{font-size:.82rem;line-height:1.55;color:var(--dim)}
-  .how-foot b{color:var(--tx)}
-  .how-foot .k{font-family:var(--mono);font-size:.76rem;color:var(--tx);background:var(--panel2);border:1px solid var(--bd);border-radius:5px;padding:1px 5px}
+  .how-body{padding:0 18px 18px}
+  .how-primer{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(37,99,235,.07);color:var(--dim);font-size:.84rem;line-height:1.4}
+  .how-primer strong{color:var(--tx)}
+  .how-primer .eye{width:24px;height:24px;display:grid;place-items:center;flex:none;border-radius:50%;background:var(--panel);border:1px solid rgba(37,99,235,.22);color:var(--blue);font-family:var(--mono);font-size:.72rem;font-weight:800}
+  .how-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px}
+  @media(max-width:820px){.how-steps{grid-template-columns:1fr;gap:10px}}
+  .how-step{position:relative;border:1px solid var(--bd);border-radius:11px;background:var(--panel2);padding:12px}
+  .how-step:not(:last-child)::after{content:'›';position:absolute;right:-19px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:1.2rem;color:var(--bd2)}
+  @media(max-width:820px){.how-step:not(:last-child)::after{content:'↓';right:50%;top:auto;bottom:-15px;transform:translateX(50%);font-size:.75rem}}
+  @media(max-width:600px){
+    .how-steps{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(260px,87%);overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:inline mandatory;padding-bottom:5px}
+    .how-step{scroll-snap-align:start}
+    .how-step:not(:last-child)::after{display:none}
+  }
+  .how-step .step-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .how-step .n{width:23px;height:23px;display:grid;place-items:center;flex:none;border-radius:50%;background:var(--con);color:#fff;font-family:var(--mono);font-size:.61rem;font-weight:800}
+  .how-step h3{font-size:.96rem;font-weight:800;letter-spacing:-.01em}
+  .how-step p{font-size:.8rem;line-height:1.45;color:var(--dim)}
+  .how-step p strong{color:var(--tx)}
 
   /* ── step diagrams ──────────────────────────────────────────────
      Each step carries a small figure built from the same shapes as the
@@ -113,35 +119,56 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   .vbar.p .vl{color:var(--pro-d)} .vbar.c .vl{color:var(--con-d)}
   .vbar .vn{font-family:var(--mono);font-size:.66rem;font-weight:700}
   .vbar.sel{border-color:var(--pro);box-shadow:0 0 0 2px rgba(21,128,61,.18)}
-  .viz-arrow{text-align:center;font-size:.7rem;color:var(--faint);line-height:1;margin:5px 0}
   /* blinding diagram */
   .vchips{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
   .vchip{font-family:var(--mono);font-size:.65rem;font-weight:700;border-radius:5px;padding:3px 7px;border:1px solid var(--bd);background:var(--panel)}
   .vchip.p{color:var(--pro-d);border-color:rgba(21,128,61,.35)}
   .vchip.c{color:var(--con-d);border-color:rgba(220,38,38,.35)}
   .vchip.blind{color:var(--tx);border-style:dashed;border-color:var(--bd2)}
-  .vchip.strike{text-decoration:line-through;opacity:.45}
-  /* payout maths */
-  .vmath{display:grid;gap:3px}
-  .vrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:.7rem;color:var(--dim)}
-  .vrow b{font-family:var(--mono);font-size:.72rem;color:var(--tx);font-weight:700}
-  .vrow.tot{border-top:1px solid var(--bd);margin-top:3px;padding-top:4px;color:var(--tx);font-weight:700}
-  .vrow.tot b{color:var(--pro-d);font-size:.8rem}
+  .vresult{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px;color:var(--pro-d);font-size:.72rem;font-weight:800}
+
+  /* One end-to-end worked example. This is deliberately redundant with
+     the three steps: users can skim either the verbs or the numbers. */
+  .how-example{display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:center;margin-top:12px;padding:12px;border:1px solid rgba(21,128,61,.22);border-radius:11px;background:rgba(21,128,61,.055)}
+  .how-example .ex-k{font-family:var(--mono);font-size:.61rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--pro)}
+  .how-example h4{font-size:.95rem;line-height:1.25;margin:3px 0 2px}
+  .how-example p{font-size:.75rem;line-height:1.4;color:var(--dim)}
+  .ex-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+  .ex-stage{position:relative;background:var(--panel);border:1px solid var(--bd);border-radius:9px;padding:8px 9px;min-width:0}
+  .ex-stage:not(:last-child)::after{content:'→';position:absolute;right:-13px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:.7rem;color:var(--faint)}
+  .ex-stage .ex-l{font-size:.62rem;color:var(--faint);white-space:nowrap}
+  .ex-stage .ex-v{font-family:var(--mono);font-size:.76rem;font-weight:800;color:var(--tx);margin-top:2px;white-space:nowrap}
+  .ex-stage.win .ex-v{color:var(--pro)}
+  @media(max-width:760px){
+    .how-example{grid-template-columns:1fr}
+    .ex-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ex-stage:nth-child(2)::after{display:none}
+  }
+  @media(max-width:430px){
+    .how-summary-copy{align-items:flex-start;flex-direction:column;gap:2px}
+    .how-dek{font-size:.76rem}
+  }
+
+  /* The edge cases matter, but they do not need to block the board. */
+  .rules{margin-top:12px;border-top:1px solid var(--bd)}
+  .rules>summary{list-style:none;cursor:pointer;padding:11px 2px 0;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.78rem;font-weight:800;color:var(--tx)}
+  .rules>summary::-webkit-details-marker{display:none}
+  .rules>summary::after{content:'+';font-family:var(--mono);font-size:.9rem;color:var(--faint)}
+  .rules[open]>summary::after{content:'−'}
+  .rules-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+  @media(max-width:700px){.rules-grid{grid-template-columns:1fr}}
+  .rule-card{border:1px solid var(--bd);border-radius:9px;padding:10px 11px;background:var(--panel2)}
+  .rule-card h4{font-size:.82rem;margin-bottom:3px}
+  .rule-card p{font-size:.75rem;line-height:1.45;color:var(--dim)}
+  .rule-card b{color:var(--tx)}
+  .rule-card .k{font-family:var(--mono);font-size:.7rem;color:var(--tx);background:var(--panel);border:1px solid var(--bd);border-radius:5px;padding:1px 4px}
   /* rating scale */
   .vscale{position:relative;height:7px;border-radius:4px;margin:16px 0 5px;
     background:linear-gradient(90deg,rgba(21,128,61,.55),rgba(20,22,28,.14) 52%,rgba(220,38,38,.5))}
   .vtick{position:absolute;top:-13px;transform:translateX(-50%);font-family:var(--mono);font-size:.62rem;font-weight:700;color:var(--tx);white-space:nowrap}
   .vtick::after{content:'';position:absolute;left:50%;top:14px;width:1px;height:7px;background:var(--bd2)}
   .vends{display:flex;justify-content:space-between;font-size:.66rem;color:var(--faint);margin-top:2px}
-  /* legal strip */
-  .how-legal{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
-  .how-legal .lt{font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
-  .how-legal ul{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-  @media(max-width:700px){.how-legal ul{grid-template-columns:1fr}}
-  .how-legal li{font-size:.78rem;line-height:1.5;color:var(--dim);padding-left:16px;position:relative}
-  .how-legal li::before{content:'';position:absolute;left:0;top:8px;width:9px;height:1px;background:var(--bd2)}
-  .how-legal li b{color:var(--tx)}
-  .how-legal .fine{font-size:.72rem;color:var(--faint);margin-top:9px;line-height:1.5}
+  .rules-fine{font-size:.69rem;color:var(--faint);margin-top:9px;line-height:1.45}
 
   .layout{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start;padding:18px 0 90px}
   @media(max-width:820px){.layout{grid-template-columns:1fr}}
@@ -207,7 +234,7 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   <div class="top">
     <span class="brand"><em>Debatable</em> · Predict <span class="tag">Beta · points only</span></span>
     <div class="top-right">
-      <span class="bal" id="balWrap" hidden>Balance <b id="bal">—</b> · <span id="rankChip" class="rankchip">—</span></span>
+      <span class="bal" id="balWrap" hidden>Balance <b id="bal">…</b> · <span id="rankChip" class="rankchip">…</span></span>
       <button class="btn signin" id="authBtn">Sign in</button>
     </div>
   </div>
@@ -215,98 +242,87 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
 
 <div class="wrap head">
   <h1>Live debate markets.</h1>
-  <!-- 2026-07-23: hero closer was "No real money." Aidan asked to stop
-       leading with the money disclaimer and frame it as experimental
-       instead. The points-only signal has not gone anywhere: the
-       "BETA · POINTS ONLY" badge sits directly above this, and the
-       not-cashable / not-a-wagering-service disclosures further down the
-       page are untouched. Only the hero framing changed. -->
-  <p>Stake reputation points on who wins an AI-judged debate. Odds move with the crowd, the pool pays out parimutuel, and the leaderboard is real. <strong>Experimental for now, in beta.</strong></p>
+  <!-- Lead with the action. The points-only badge stays immediately above
+       this, and the full point rules remain one disclosure below. -->
+  <p>Read both cases, then back the one you think an AI judge will score higher. The crowd sets the odds. Correct calls split the points pool. <strong>Experimental for now, in beta.</strong></p>
   <div class="pts" id="signedOutNote" hidden>Browsing as a guest. <a href="#" id="inlineSignin">Sign in</a> to place bets and climb the ladder.</div>
 </div>
 
 <div class="wrap">
   <details class="how" id="howBox" open>
-    <summary>How this works <span class="tw"></span></summary>
+    <summary>
+      <span class="how-summary-copy"><span class="how-title">How to play</span><span class="how-dek">Read two cases. Predict the judge. Correct calls split the pool.</span></span>
+      <span class="tw"></span>
+    </summary>
     <div class="how-body">
+      <div class="how-primer"><span class="eye">≠</span><span><strong>Predict the stronger case, not the side you personally support.</strong> The AI judge decides on argument quality.</span></div>
       <div class="how-steps">
         <div class="how-step">
-          <div class="n">01</div>
-          <h3>Pick a side</h3>
-          <p>Every market is one motion with a written Pro case and a written Con case, both on the card. You are not voting for what you believe. You are calling which case a judge scores higher.</p>
+          <div class="step-top"><div class="n">1</div><h3>Read the clash</h3></div>
+          <p>Each market shows one motion and two short cases. Compare the <strong>Pro</strong> and <strong>Con</strong> arguments.</p>
           <div class="viz" aria-hidden="true">
-            <div class="vbar p sel"><span class="vf" style="width:50%"></span><span class="vl"><span>Pro</span><span class="vn">50%</span></span></div>
-            <div class="vbar c"><span class="vf" style="width:50%"></span><span class="vl"><span>Con</span><span class="vn">50%</span></span></div>
-            <div class="viz-cap">tap a side, then stake</div>
+            <div class="vchips"><span class="vchip p">Pro case</span><span class="vchip c">Con case</span></div>
+            <div class="viz-cap">same motion, opposing arguments</div>
           </div>
         </div>
         <div class="how-step">
-          <div class="n">02</div>
-          <!-- 2026-07-23: was "Odds follow the money". Nothing here is money,
-               and the card's own body already says "pool". -->
-          <h3>Odds follow the pool</h3>
-          <p>The percentage is that side's share of the pool, so it moves every time anyone stakes. Backing the less popular side is what makes the multiplier climb.</p>
+          <div class="step-top"><div class="n">2</div><h3>Back your call</h3></div>
+          <p>Tap who you think the judge will pick, then enter your points. <strong>33%</strong> is crowd support. <strong>3.00x</strong> is the current return.</p>
           <div class="viz" aria-hidden="true">
-            <div class="vbar p"><span class="vf" style="width:50%"></span><span class="vl"><span>Pro</span><span class="vn">50% · 2.00x</span></span></div>
-            <div class="viz-arrow">&darr; someone stakes 200 on Con</div>
-            <div class="vbar p"><span class="vf" style="width:33%"></span><span class="vl"><span>Pro</span><span class="vn">33% · 3.00x</span></span></div>
-            <div class="viz-cap">fewer backers, bigger multiplier</div>
+            <div class="vbar p sel"><span class="vf" style="width:33%"></span><span class="vl"><span>Pro · 3.00x</span><span class="vn">33%</span></span></div>
+            <div class="viz-cap">less crowd support means a higher return</div>
           </div>
         </div>
         <div class="how-step">
-          <div class="n">03</div>
-          <h3>An AI judge calls it</h3>
-          <p>At lock, both cases go to the judge with the side labels stripped and the order shuffled, so it cannot reward whoever went first. It picks a winner and writes the clash that decided it.</p>
+          <div class="step-top"><div class="n">3</div><h3>Judge, then settle</h3></div>
+          <p>At lock, side labels are hidden and case order is shuffled. Correct callers split the pool based on how many points they staked.</p>
           <div class="viz" aria-hidden="true">
-            <div class="vchips">
-              <span class="vchip p strike">Pro</span><span class="vchip c strike">Con</span>
-            </div>
-            <div class="viz-arrow">&darr; labels hidden, order shuffled</div>
             <div class="vchips">
               <span class="vchip blind">Side A</span><span class="vchip blind">Side B</span>
             </div>
-            <div class="viz-cap">judged on the case, not the label</div>
+            <div class="vresult">Judge picks Side A ✓</div>
           </div>
-        </div>
-        <div class="how-step">
-          <div class="n">04</div>
-          <h3>The pool splits</h3>
-          <p>Winners divide the whole pool in proportion to what they staked. The shortcut: your stake times the multiplier shown on the button is exactly what you get back.</p>
-          <div class="viz" aria-hidden="true">
-            <div class="vmath">
-              <div class="vrow"><span>Pool on Pro</span><b>200</b></div>
-              <div class="vrow"><span>Pool on Con</span><b>400</b></div>
-              <div class="vrow"><span>You staked on Pro</span><b>50</b></div>
-              <div class="vrow"><span>Pro multiplier</span><b>3.00x</b></div>
-              <div class="vrow tot"><span>Pro wins, you get</span><b>150</b></div>
-            </div>
-            <div class="viz-cap">50 &times; 3.00 = 150</div>
-          </div>
-        </div>
-      </div>
-      <div class="how-foot">
-        <p><b>Why a new market reads 50% with zero bets.</b> Every market opens with <span class="k">100</span> house points on each side so the book is never empty. That is the <span class="k">200 pts pool</span> showing before anyone has touched it. The split moves off even as soon as the first real stake lands.</p>
-        <div>
-          <p><b>Points and rating are different things.</b> Points are the pool. Rating is the ladder, and it pays for being right when the crowd is wrong.</p>
-          <div class="vscale" aria-hidden="true">
-            <span class="vtick" style="left:12%">+30</span>
-            <span class="vtick" style="left:50%">+21</span>
-            <span class="vtick" style="left:88%">+12</span>
-          </div>
-          <div class="vends" aria-hidden="true"><span>called a 20% underdog</span><span>rode an 80% favorite</span></div>
-          <p style="margin-top:7px">Blowing an 80% favorite costs <span class="k">30</span>, the same as calling the underdog earned.</p>
         </div>
       </div>
 
-      <div class="how-legal">
-        <div class="lt">What these points are</div>
-        <ul>
-          <li><b>Free.</b> Everyone is granted 1,000 to start. There is no way to buy points, and no payment path touches this board.</li>
-          <li><b>Not cashable.</b> Points cannot be withdrawn, redeemed, converted, or sent to another account. The product exposes no operation that does any of those.</li>
-          <li><b>Decided by a judge.</b> The winner comes from an AI judge reading both cases with the labels hidden. No part of the outcome is a random draw.</li>
-        </ul>
-        <p class="fine">Points are a scorekeeping device for reading arguments, with no cash value inside or outside the product. This is not a wagering service and nothing on this page is an offer to gamble. Balances can be reset or adjusted while Predict is in beta.</p>
+      <div class="how-example">
+        <div>
+          <div class="ex-k">One call, start to finish</div>
+          <h4>You back Pro with 50 points.</h4>
+          <p>Your stake is included in the return. If Pro loses, the 50 points join the winners' pool.</p>
+        </div>
+        <div class="ex-flow" aria-label="Example payout">
+          <div class="ex-stage"><div class="ex-l">Crowd on Pro</div><div class="ex-v">33%</div></div>
+          <div class="ex-stage"><div class="ex-l">Current return</div><div class="ex-v">3.00x</div></div>
+          <div class="ex-stage"><div class="ex-l">You stake</div><div class="ex-v">50 pts</div></div>
+          <div class="ex-stage win"><div class="ex-l">Pro wins, you get</div><div class="ex-v">150 pts</div></div>
+        </div>
       </div>
+
+      <details class="rules">
+        <summary>Odds, rating, and point rules</summary>
+        <div class="rules-grid">
+          <div class="rule-card">
+            <h4>Why 50% with zero bets?</h4>
+            <p>Each side starts with <span class="k">100</span> house points, so every new market begins at 50% and <span class="k">2.00x</span>. The first real prediction moves it.</p>
+          </div>
+          <div class="rule-card">
+            <h4>Points are not rating</h4>
+            <p><b>Points</b> are what you place in the pool. <b>Rating</b> is your ladder score. Calling an underdog correctly moves rating more.</p>
+            <div class="vscale" aria-hidden="true">
+              <span class="vtick" style="left:12%">+30</span>
+              <span class="vtick" style="left:50%">+21</span>
+              <span class="vtick" style="left:88%">+12</span>
+            </div>
+            <div class="vends" aria-hidden="true"><span>20% underdog</span><span>80% favorite</span></div>
+          </div>
+          <div class="rule-card">
+            <h4>Free, virtual, and not cashable</h4>
+            <p>Everyone starts with <span class="k">1,000</span>. Points cannot be bought, withdrawn, redeemed, converted, or transferred. The winner is decided by the AI judge, not a random draw.</p>
+          </div>
+        </div>
+        <p class="rules-fine">Points are a scorekeeping device for reading arguments, with no cash value inside or outside the product. This is not a wagering service and nothing on this page is an offer to gamble. Balances can be reset or adjusted while Predict is in beta.</p>
+      </details>
     </div>
   </details>
 </div>
@@ -402,7 +418,7 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
 
   function render(d){
     lastData=d;
-    if(d.signedIn){ $('balWrap').hidden=false; $('bal').textContent=(d.balance!=null?d.balance:'—'); $('rankChip').textContent=(d.tier||'Spectator')+' · '+(d.rating||1000); $('signedOutNote').hidden=true; }
+    if(d.signedIn){ $('balWrap').hidden=false; $('bal').textContent=(d.balance!=null?d.balance:'…'); $('rankChip').textContent=(d.tier||'Spectator')+' · '+(d.rating||1000); $('signedOutNote').hidden=true; }
     else { $('balWrap').hidden=true; $('signedOutNote').hidden=false; }
     var open=(d.markets||[]).filter(function(m){return m.status==='open'||m.status==='resolving';});
     var res=(d.markets||[]).filter(function(m){return m.status==='settled';});
