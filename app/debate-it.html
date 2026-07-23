@@ -4567,22 +4567,45 @@ function buildPrompt(speech, userSide, motion, history, notes, format, oppStr, o
   var aiSides = fmt.sides.filter((s) => s !== userSide);
   var aiLabel = fmt.sideLabels[aiSides[0]] || aiSides[0];
   var rule = fmt.rules[speech.code] || 'Deliver your speech.';
-  // Beginner-tone fork: round 1 of a brand-new user. They've never
-  // seen circuit jargon, they don't know what 'extend,' 'cross-apply,'
-  // 'voting issue,' or 'warrant' mean, and the whole point of Quick
-  // Clash is "no debate jargon needed." If the AI opens with
-  // 'Distinguished judge, my opponent's framework crumbles on the
-  // weighing analysis,' the user bounces. This block down-shifts the
-  // register to plain English while keeping the substance.
+  // Audience-register fork. The animated landing intro stores who the
+  // visitor is here as under `da-is-debater`; use that answer instead
+  // of treating every first platform round as a layperson's first
+  // debate. Direct visitors still get the safe fallback: a first Quick
+  // Clash uses plain English, while a tournament-format selection gets
+  // the format's real vocabulary.
   var isFirstRound = (historyRounds || []).length === 0;
-  var beginnerToneNote = isFirstRound ? `
+  var audienceChoice = '';
+  try {audienceChoice = localStorage.getItem('da-is-debater') || '';} catch (e) {}
+  var wantsCompetitiveRegister = audienceChoice === 'competing' ||
+  audienceChoice === 'coaching' ||
+  audienceChoice === 'yes'; // legacy value from the earlier yes/no intro
+  var wantsPlainRegister = audienceChoice === 'learning' ||
+  audienceChoice === 'curious' ||
+  audienceChoice === 'no'; // legacy value from the earlier yes/no intro
+  var usePlainRegister = wantsPlainRegister ||
+  !audienceChoice && isFirstRound && format === 'quick';
+  var audienceRegisterNote = wantsCompetitiveRegister ? `
 
 ────────────────────────────────────────────────────────
-BEGINNER-TONE OVERRIDE — THIS USER'S FIRST EVER ROUND
+COMPETITIVE-DEBATER REGISTER — SELECTED IN ONBOARDING
 ────────────────────────────────────────────────────────
 
-This is the user's first round on the platform. Assume they've never
-seen formal debate before. Drop circuit jargon entirely:
+This user identified as ${audienceChoice === 'coaching' ? 'a debate coach or judge' : 'a competitive debater'}. Treat them as circuit-fluent from their first round:
+- Use ${fmt.name}-native vocabulary, speech structure, and strategic shorthand freely and correctly.
+- Do not define basic terms such as warrant, extension, framework, impact calculus, cross-application, or ballot story unless the format uses a different term.
+- Signpost the round the way an experienced competitor would. Identify dropped arguments, concessions, turns, weighing, and the route to the ballot.
+- Match the format's real technical ceiling. Policy can spread and use card language. BP can speak in extensions and comparative contribution. LD can debate framework and standards.
+- Technical does not mean unreadable. Every piece of jargon must do strategic work, and concrete mechanisms still beat empty labels.
+
+Do not down-shift merely because this is the user's first round on the platform. They told us they already know debate.
+────────────────────────────────────────────────────────
+` : usePlainRegister ? `
+
+────────────────────────────────────────────────────────
+PLAIN-LANGUAGE REGISTER — SELECTED FOR THIS USER
+────────────────────────────────────────────────────────
+
+${wantsPlainRegister ? 'The user identified as new to debate or just curious.' : 'No audience preference was saved, and this is their first Quick Clash.'} Use intelligent, accessible language and drop circuit jargon:
 - NO "extend," "cross-apply," "warrant," "link chain," "voting issue,"
   "weighing analysis," "ballot story," "dispositive," "framework,"
   "burden of proof" as terms-of-art. If you must reference any of
@@ -4597,11 +4620,19 @@ seen formal debate before. Drop circuit jargon entirely:
 - Concrete > abstract. "When the city banned plastic bags in 2019,
   here's what actually happened…" beats any framework name.
 
-The user is on Quick Clash precisely because they're new. Match the
-register to that intent. Round 2 onward, drop this constraint and
-treat them as someone who knows the format.
+Match the register to the user's stated experience. Do not switch to
+circuit shorthand merely because they have completed another round.
 ────────────────────────────────────────────────────────
 ` : '';
+  // Repeat the register at the end of the very long speech prompt. The
+  // format architecture below contains technical examples, so a final
+  // reminder prevents those examples from drowning out the user's
+  // explicit onboarding choice.
+  var audienceRegisterReminder = wantsCompetitiveRegister ?
+  `FINAL REGISTER: Speak to a circuit-fluent ${audienceChoice === 'coaching' ? 'coach or judge' : 'competitive debater'}. Use ${fmt.name}-native shorthand naturally and precisely. Do not explain basic debate vocabulary.` :
+  usePlainRegister ?
+  `FINAL REGISTER OVERRIDE: Speak to an intelligent layperson. Translate every technical instruction above into plain English. Do not say "framework," "warrant," "cross-apply," "impact calculus," "ballot story," or other circuit shorthand unless you immediately explain the term in ordinary language.` :
+  '';
   var isRebuttal = speech.code.includes('R') || speech.code === 'LOR' || speech.code === 'PMR' || speech.code === 'GW' || speech.code === 'OW' || speech.code.startsWith('Reply');
   var isWhip = speech.code === 'GW' || speech.code === 'OW';
   var isReply = speech.code.startsWith('Reply');
@@ -4777,7 +4808,7 @@ nouns can stay in their native form. The motion stays as-given.
   '';
 
   return `${langDirective}You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
-${beginnerToneNote}
+${audienceRegisterNote}
 ${traitPrompt}
 
 ${rule}
@@ -5044,7 +5075,9 @@ ${isFirst ? `VOCABULARY & TONE:
 - CONFIDENT, not arrogant. The best debaters sound like they're explaining something obvious to a friend, not performing for an audience. Controlled intensity. you believe what you're saying because the logic demands it.
 - Dismissive when earned: "That argument is dead on arrival" or "Their link chain doesn't survive first contact with the real world." But only when you've actually shown why. confidence without warrant is bluster.
 - Vary your energy. Not every sentence is a haymaker. Build quietly, then punch. Some of the most devastating debate moments are said calmly: "And that's the point they can't get around."
-- COLLOQUIAL FLAIR (use sparingly, ~10-15% of the speech): Code-switch between precision and real-talk ONLY when it carries analytical weight. Good: "Americans love to act like Europeans when it's politically convenient, but nobody's actually paying the tax" (observational, names a real tension). "Politics is just vibes, and their argument doesn't flow because it rests on one unnamed assumption: that voters are paying attention." (substantive, wit points at a mechanism). "This is where their case falls apart and they know it, their own evidence contradicts their impact." Bad, NEVER DO THIS: empty slang used as a dismissal with no reasoning attached. "That's a vibe." "That's cap." "Skill issue." "Mid." "Cooked." "NPC behavior." Standalone slang without a WARRANT attached reads as cheap and LLM-chasing-cool. If you want to mock an argument, name the specific failure in the same breath: not "that's a vibe" but "that's a vibe dressed up as analysis, there's no mechanism, no named actor, no number." The word "vibe" is allowed as observational commentary ("politics runs on vibes," "the current discourse is pure vibes") but NEVER as a one-word dismissal of an opponent's argument.` : ''}`;
+- COLLOQUIAL FLAIR (use sparingly, ~10-15% of the speech): Code-switch between precision and real-talk ONLY when it carries analytical weight. Good: "Americans love to act like Europeans when it's politically convenient, but nobody's actually paying the tax" (observational, names a real tension). "Politics is just vibes, and their argument doesn't flow because it rests on one unnamed assumption: that voters are paying attention." (substantive, wit points at a mechanism). "This is where their case falls apart and they know it, their own evidence contradicts their impact." Bad, NEVER DO THIS: empty slang used as a dismissal with no reasoning attached. "That's a vibe." "That's cap." "Skill issue." "Mid." "Cooked." "NPC behavior." Standalone slang without a WARRANT attached reads as cheap and LLM-chasing-cool. If you want to mock an argument, name the specific failure in the same breath: not "that's a vibe" but "that's a vibe dressed up as analysis, there's no mechanism, no named actor, no number." The word "vibe" is allowed as observational commentary ("politics runs on vibes," "the current discourse is pure vibes") but NEVER as a one-word dismissal of an opponent's argument.` : ''}
+
+${audienceRegisterReminder}`;
 }
 
 /* ═══════════════════════════════════════════════════

@@ -993,6 +993,10 @@ export default async (request, context) => {
     const personaStyle     = sanitize(body.personaStyle,    400) || 'Crisp, direct, mechanism-first.';
     const userName         = sanitize(body.userName,         30); // empty allowed
     const bondCount = Math.max(0, Math.min(9999, parseInt(body.bondCount, 10) || 0));
+    const rawAudienceChoice = sanitize(body.audienceChoice, 20).toLowerCase();
+    const audienceChoice = ['competing', 'learning', 'coaching', 'curious', 'yes', 'no'].includes(rawAudienceChoice)
+      ? rawAudienceChoice
+      : '';
 
     // Bond line — translates a raw round count into a human framing
     // the model will weave into delivery. Tuned to mirror the client's
@@ -1032,6 +1036,37 @@ export default async (request, context) => {
       .replaceAll('{userSide}', userIsGov ? 'FOR' : 'AGAINST')
       .replaceAll('{aiSide}', userIsGov ? 'AGAINST' : 'FOR')
       .replaceAll('{format}', format);
+
+    // Match the spoken register to the answer from the animated landing
+    // intro. This is about assumed debate fluency, separate from the
+    // selected human language above. Keep legacy yes/no values working
+    // for visitors who answered an earlier version of the intro.
+    const wantsCompetitiveRegister = audienceChoice === 'competing' ||
+      audienceChoice === 'coaching' ||
+      audienceChoice === 'yes';
+    const wantsPlainRegister = audienceChoice === 'learning' ||
+      audienceChoice === 'curious' ||
+      audienceChoice === 'no';
+    const audienceRegisterBlock = wantsCompetitiveRegister
+      ? `AUDIENCE REGISTER: COMPETITIVE DEBATER.
+The user identified as ${audienceChoice === 'coaching' ? 'a debate coach or judge' : 'a competitive debater'}. Treat them as circuit-fluent from the first spoken turn.
+- Use format-native vocabulary, strategic shorthand, and speech structure correctly. Do not stop to define basic terms such as warrant, extension, framework, impact calculus, cross-application, or ballot story.
+- Identify dropped arguments, concessions, turns, weighing, and the route to the ballot the way an experienced competitor would.
+- Match the selected format's real technical ceiling. Technical does not mean jargon soup; every term must do strategic work.
+${mode === 'clash' ? '- Quick Clash remains conversational and Pro vs. Con, but the analysis can still be sharp, compressed, and strategically explicit.' : ''}
+Do not down-shift merely because this is the user's first session on the platform.
+
+`
+      : wantsPlainRegister
+        ? `AUDIENCE REGISTER: PLAIN LANGUAGE.
+The user identified as new to debate or just curious. Use intelligent, accessible language throughout.
+- Avoid unexplained circuit shorthand. If a format-specific term is necessary, explain it in ordinary language in the same breath.
+- Prefer short sentences, concrete examples, and one fully explained mechanism over several compressed arguments.
+- Keep the analysis rigorous. Plain language changes the vocabulary, not the intelligence or strength of the argument.
+- Do not switch into circuit jargon merely because the user completes another exchange.
+
+`
+        : '';
 
     // Prepend the same voice bank that powers the main /debate-it brains
     // (claude.mjs, openai-chat.mjs, etc.). 'bot' = CORE + STRATEGY +
@@ -1205,7 +1240,7 @@ export default async (request, context) => {
     const difficulty = Object.prototype.hasOwnProperty.call(CLASH_DIFFICULTY, (body.difficulty || '').toLowerCase())
       ? body.difficulty.toLowerCase() : 'standard';
     const instructions = mode === 'clash'
-      ? clashLanguageBlock + backgroundBlock + modeBlock +
+      ? clashLanguageBlock + audienceRegisterBlock + backgroundBlock + modeBlock +
         (distillBlock ? '\n' + distillBlock + '\n' : '') +
         CLASH_DIFFICULTY[difficulty]
       : languageBlock +
@@ -1215,7 +1250,9 @@ export default async (request, context) => {
         (voiceBank ? voiceBank + '\n\n' : '') +
         (distillBlock ? distillBlock + '\n\n' : '') +
         backgroundBlock +
-        characterPreamble + modeBlock;
+        characterPreamble +
+        audienceRegisterBlock +
+        modeBlock;
 
     // Model try-list. Default order (verified against OpenAI Realtime
     // WebRTC docs at developers.openai.com/api/docs/guides/realtime-webrtc):
