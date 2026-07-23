@@ -207,6 +207,127 @@
   status = 301
   force = true
 
+# ── debateprep.com: keyword front door (2026-07-23) ──
+# Checked before wiring, because two prior domain moves shipped on an
+# assumption that turned out false (debatable.com 2026-05-25,
+# debateit.com 2026-06-08). This one is genuinely controlled: it
+# resolved to a GoDaddy forward pointing at our own site. But the
+# "19-year-old domain" is worth nothing on its own. Wayback shows an
+# Afternic parking lander (imgaft.com sprites) from 2011 straight
+# through 2025, so there are no backlinks and no topical history, and
+# exact-match domains stopped being a ranking factor in Google's 2012
+# EMD update. What it IS worth: the URL states the product, which
+# earns clicks in a coach's inbox, on a flyer, and in a SERP.
+#
+# Deliberately NOT a content split. The /topics/* prep cluster and the
+# rest of the 66 sitemap URLs stay on itsdebatable.com. Splitting them
+# across two hosts would divide the little authority this site has
+# while debateprep.com contributes none of its own. So exactly one
+# unique page lives here (prep.html, self-canonical to
+# https://debateprep.com/) and every other path 301s path-preserving
+# to the canonical host. One door, aimed at the keyword.
+#
+# Was previously on GoDaddy Domain Forwarding, which threw the path
+# away: /pricing and /learn returned a GoDaddy 404 rather than
+# redirecting. Moving the host onto Netlify is what fixes that.
+#
+# Ordering: the apex exact-match and the asset passthroughs must
+# precede the catch-all, and this whole block must stay above the path
+# rewrites below. Same first-match reason as every other legacy-host
+# block, and specifically why /sitemap.xml on this host correctly
+# 301s away instead of hitting the force=true sitemap rewrite and
+# serving itsdebatable.com's URL list under the wrong hostname.
+
+# apex → the prep landing, served in place (no redirect, this is the
+# one URL debateprep.com actually owns)
+[[redirects]]
+  from = "https://debateprep.com/"
+  to = "/prep.html"
+  status = 200
+  force = true
+
+# www + http → https apex
+[[redirects]]
+  from = "https://www.debateprep.com/*"
+  to = "https://debateprep.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "http://debateprep.com/*"
+  to = "https://debateprep.com/:splat"
+  status = 301
+  force = true
+[[redirects]]
+  from = "http://www.debateprep.com/*"
+  to = "https://debateprep.com/:splat"
+  status = 301
+  force = true
+
+# Static assets serve in place so the landing stays same-origin. The
+# page inlines its CSS today and needs none of these, but without them
+# a future image or script on it would silently 301 cross-host.
+[[redirects]]
+  from = "https://debateprep.com/favicon.ico"
+  to = "/favicon.ico"
+  status = 200
+  force = true
+[[redirects]]
+  from = "https://debateprep.com/favicon.svg"
+  to = "/favicon.svg"
+  status = 200
+  force = true
+[[redirects]]
+  from = "https://debateprep.com/robots.txt"
+  to = "/robots.txt"
+  status = 200
+  force = true
+[[redirects]]
+  from = "https://debateprep.com/css/*"
+  to = "/css/:splat"
+  status = 200
+  force = true
+[[redirects]]
+  from = "https://debateprep.com/js/*"
+  to = "/js/:splat"
+  status = 200
+  force = true
+[[redirects]]
+  from = "https://debateprep.com/img/*"
+  to = "/img/:splat"
+  status = 200
+  force = true
+
+# 308 keeps the method on any API call, matching the debateai.com
+# treatment. Nothing on the prep landing calls the API today; this
+# exists so a future addition fails loudly rather than turning a POST
+# into a GET.
+[[redirects]]
+  from = "https://debateprep.com/api/*"
+  to = "https://itsdebatable.com/api/:splat"
+  status = 308
+  force = true
+
+# Everything else → canonical host, path preserved. This is the rule
+# that retires the GoDaddy 404s.
+[[redirects]]
+  from = "https://debateprep.com/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+
+# The other half of "one host owns this URL": /prep on the canonical
+# host sends people to the front door instead of serving a second copy.
+[[redirects]]
+  from = "https://itsdebatable.com/prep"
+  to = "https://debateprep.com/"
+  status = 301
+  force = true
+[[redirects]]
+  from = "https://itsdebatable.com/prep.html"
+  to = "https://debateprep.com/"
+  status = 301
+  force = true
+
 # Public round pages (/r/{id}). Each published round becomes its own
 # indexable page rendered server-side by app/netlify/functions/r.mjs.
 # The function path is /api/r/:id internally (consistent with every
