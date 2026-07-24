@@ -334,15 +334,16 @@
       '.ui-bell-row__time{font-size:.66rem;color:var(--text-ghost,#888);flex-shrink:0}' +
       '.ui-bell-foot{display:block;padding:11px 14px;text-align:center;font-size:.74rem;font-weight:700;color:var(--accent,#ef4444);text-decoration:none;border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
       '.ui-bell-foot:hover{background:var(--bg-elev,#101014)}' +
-      '#da-bell-toasts{position:fixed;top:calc(70px + env(safe-area-inset-top,0px));right:18px;z-index:400;display:flex;flex-direction:column;gap:10px;max-width:340px}' +
-      '.da-bell-toast{display:flex;align-items:center;gap:10px;padding:11px 14px;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border-strong,rgba(239,68,68,.3));border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.5);text-decoration:none;color:inherit;opacity:0;transform:translateX(20px);transition:opacity .3s,transform .3s}' +
-      '.da-bell-toast.in{opacity:1;transform:none}' +
+      '#da-bell-toasts{position:fixed;top:calc(66px + env(safe-area-inset-top,0px));left:50%;z-index:9999;display:flex;flex-direction:column;gap:10px;width:min(420px,calc(100vw - 24px));transform:translateX(-50%);pointer-events:none}' +
+      '.da-bell-toast{display:flex;align-items:center;gap:11px;width:100%;padding:12px 15px;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border-strong,rgba(239,68,68,.3));border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5),0 0 0 1px rgba(239,68,68,.08);text-decoration:none;color:inherit;pointer-events:auto;opacity:0;transform:translateY(-24px) scale(.97);transition:opacity .26s ease,transform .32s cubic-bezier(.2,.8,.2,1)}' +
+      '.da-bell-toast.in{opacity:1;transform:translateY(0) scale(1)}' +
       '.da-bell-toast img,.da-bell-toast__blank{width:32px;height:32px;border-radius:50%;flex-shrink:0;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--bg-elev,#101014);border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);font-size:.78rem;font-weight:800}' +
-      '.da-bell-toast__main{display:flex;flex-direction:column;gap:1px;min-width:0}' +
-      '.da-bell-toast__name{font-size:.8rem;font-weight:800;color:var(--text,#fff)}' +
-      '.da-bell-toast__preview{font-size:.74rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}' +
+      '.da-bell-toast__main{display:flex;flex:1;flex-direction:column;gap:1px;min-width:0}' +
+      '.da-bell-toast__eyebrow{font-size:.58rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:var(--accent,#ef4444)}' +
+      '.da-bell-toast__name{font-size:.86rem;font-weight:800;color:var(--text,#fff)}' +
+      '.da-bell-toast__preview{font-size:.78rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '@keyframes daBellLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
-      '@media(max-width:480px){#da-bell-toasts{left:12px;right:12px;max-width:none}.ui-bell-panel{width:300px}}' +
+      '@media(max-width:480px){#da-bell-toasts{top:calc(58px + env(safe-area-inset-top,0px));left:12px;right:12px;width:auto;transform:none}.ui-bell-panel{width:300px}}' +
       '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
       '.da-spar-pill:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
       '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--text-ghost,#888);transition:background .2s}' +
@@ -1055,10 +1056,17 @@
     }
     function showToast(disp, preview) {
       var host = document.getElementById('da-bell-toasts');
-      if (!host) { host = document.createElement('div'); host.id = 'da-bell-toasts'; document.body.appendChild(host); }
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'da-bell-toasts';
+        host.setAttribute('aria-live', 'polite');
+        host.setAttribute('aria-atomic', 'false');
+        document.body.appendChild(host);
+      }
       var t = document.createElement('a');
       t.className = 'da-bell-toast';
       t.href = disp.href;
+      t.setAttribute('aria-label', 'Open new message from ' + disp.name);
       var avatar = disp.isGroup
         ? '<span class="da-bell-toast__blank"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>'
         : (disp.photo
@@ -1066,6 +1074,7 @@
           : '<span class="da-bell-toast__blank">' + escHtml((disp.name[0] || '?').toUpperCase()) + '</span>');
       t.innerHTML = avatar +
         '<span class="da-bell-toast__main">' +
+          '<span class="da-bell-toast__eyebrow">' + (disp.isGroup ? 'New activity' : 'New message') + '</span>' +
           '<span class="da-bell-toast__name">' + escHtml(disp.name) + '</span>' +
           '<span class="da-bell-toast__preview">' + escHtml(preview) + '</span>' +
         '</span>';
@@ -1464,7 +1473,13 @@
     // status notes like "opponent passed" that aren't DM/activity rows.
     function sparNote(msg) {
       var host = document.getElementById('da-bell-toasts');
-      if (!host) { host = document.createElement('div'); host.id = 'da-bell-toasts'; document.body.appendChild(host); }
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'da-bell-toasts';
+        host.setAttribute('aria-live', 'polite');
+        host.setAttribute('aria-atomic', 'false');
+        document.body.appendChild(host);
+      }
       var t = document.createElement('div');
       t.className = 'da-bell-toast'; t.style.cursor = 'default';
       t.innerHTML = '<span class="da-bell-toast__blank">○</span><span class="da-bell-toast__main"><span class="da-bell-toast__name">' + escHtml(msg) + '</span></span>';
