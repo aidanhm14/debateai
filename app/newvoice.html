@@ -185,14 +185,42 @@ html[data-theme="light"] .stage-floor{background:
   margin-top:12px;max-width:48ch;color:var(--ink-dim);
   font-size:16px;line-height:1.55;
 }
-/* Engine chip: the one factual flex — speech-to-speech on GPT Realtime */
-.engine-chip{
-  display:inline-flex;align-items:center;gap:8px;margin-top:12px;
-  padding:7px 14px;border-radius:999px;
-  border:1px solid rgba(239,68,68,.28);background:rgba(239,68,68,.07);
-  font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-dim);
+.ai-presence{
+  display:inline-flex;align-items:center;gap:12px;margin-top:14px;
+  padding:9px 15px 9px 11px;border-radius:999px;
+  border:1px solid rgba(239,68,68,.30);
+  background:linear-gradient(180deg,rgba(239,68,68,.075),rgba(239,68,68,.035));
+  box-shadow:0 12px 30px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.04);
 }
-.engine-dot{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 8px rgba(239,68,68,.8);animation:pulse 1.6s ease-in-out infinite}
+.ai-signal{
+  position:relative;display:block;flex:none;width:88px;height:24px;
+  animation:ai-signal-float 3.8s ease-in-out infinite;
+}
+.ai-signal-line{
+  position:absolute;left:0;right:0;top:50%;height:1px;transform:translateY(-50%);
+  background:linear-gradient(90deg,transparent,rgba(239,68,68,.34) 18%,rgba(248,113,113,.72) 50%,rgba(239,68,68,.34) 82%,transparent);
+  box-shadow:0 0 9px rgba(239,68,68,.18);
+}
+.ai-signal-dot{
+  position:absolute;top:50%;left:10%;width:8px;height:8px;border-radius:50%;
+  background:#f87171;
+  box-shadow:0 0 0 4px rgba(239,68,68,.11),0 0 15px rgba(239,68,68,.9);
+  animation:ai-signal-travel 4.2s cubic-bezier(.42,0,.24,1) infinite;
+}
+.ai-presence-copy{display:flex;flex-direction:column;gap:2px;text-align:left}
+.ai-presence-copy b{
+  color:#fca5a5;font:800 10px/1.1 var(--sans);letter-spacing:.12em;text-transform:uppercase;
+}
+.ai-presence-copy small{color:var(--ink-dim);font:600 11.5px/1.25 var(--sans)}
+@keyframes ai-signal-float{
+  0%,100%{transform:translateY(-2px)}
+  50%{transform:translateY(2px)}
+}
+@keyframes ai-signal-travel{
+  0%,100%{left:10%;opacity:.58;transform:translate(-50%,-50%) scale(.82)}
+  48%{left:88%;opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+  72%{left:56%;opacity:.86;transform:translate(-50%,-50%) scale(.94)}
+}
 .resolution-panel{
   width:100%;margin-top:24px;padding:22px;border:1px solid rgba(239,68,68,.32);border-radius:26px;
   background:
@@ -396,6 +424,11 @@ html[data-theme="light"] .guide-panel{
 html[data-theme="light"] .resolution-panel{
   background:radial-gradient(circle at 88% 0,rgba(220,38,38,.09),transparent 38%),linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.58));
 }
+html[data-theme="light"] .ai-presence{
+  background:linear-gradient(180deg,rgba(255,255,255,.74),rgba(220,38,38,.055));
+  box-shadow:0 12px 28px rgba(40,20,20,.07),inset 0 1px 0 rgba(255,255,255,.72);
+}
+html[data-theme="light"] .ai-presence-copy b{color:#b91c1c}
 html[data-theme="light"] .guide-chip{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(246,245,240,.78))}
 html[data-theme="light"] .guide-chip.on{background:linear-gradient(180deg,rgba(220,38,38,.12),rgba(255,255,255,.84))}
 html[data-theme="light"] .guide-icon{background:rgba(22,22,26,.045)}
@@ -657,6 +690,9 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
   .side-btn small{display:none}
   .setup-h1{font-size:clamp(42px,13vw,58px)}
   .setup-sub{font-size:15px}
+  .ai-presence{width:min(340px,100%);justify-content:center;gap:10px;padding:9px 12px}
+  .ai-signal{width:72px}
+  .ai-presence-copy small{font-size:10.5px}
   .home-btn,.theme-btn{top:calc(22px + env(safe-area-inset-top))}
   .guide-grid{grid-template-columns:1fr 1fr}
   .guide-intent{grid-template-columns:1fr}
@@ -671,7 +707,8 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
   .controls{gap:8px}
 }
 @media (prefers-reduced-motion:reduce){
-  .ember,.live-dot,#startBtn{animation:none}
+  .ember,.live-dot,#startBtn,.ai-signal,.ai-signal-dot{animation:none}
+  .ai-signal-dot{left:58%;opacity:1;transform:translate(-50%,-50%)}
   .rise{animation-duration:.01s}
 }
 </style>
@@ -714,7 +751,10 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
     </div>
     <h1 class="setup-h1 rise rise-2">Debate it, out loud.</h1>
     <p class="setup-sub rise rise-3">Say your take. The machine argues the other side in real time. You pick how tough it plays.</p>
-    <p class="engine-chip rise rise-3" title="Voice rounds run speech-to-speech on OpenAI's GPT Realtime model"><span class="engine-dot" aria-hidden="true"></span>Runs on GPT Realtime &middot; real speech, real interruptions</p>
+    <div class="ai-presence rise rise-3" role="status" aria-label="Your AI opponent is waiting. Powered by GPT Realtime.">
+      <span class="ai-signal" aria-hidden="true"><i class="ai-signal-line"></i><i class="ai-signal-dot"></i></span>
+      <span class="ai-presence-copy"><b>AI opponent waiting</b><small>GPT Realtime. It talks, listens, and interrupts.</small></span>
+    </div>
 
     <div class="resolution-panel rise rise-4">
       <div class="claim-wrap">
