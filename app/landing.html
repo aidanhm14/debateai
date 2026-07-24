@@ -7702,13 +7702,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     border:1px solid rgba(26,26,31,.1);border-radius:18px;
     padding:clamp(15px,1.7vw,21px);
     box-shadow:0 28px 62px rgba(24,22,28,.1),0 3px 10px rgba(24,22,28,.05),inset 0 1px 0 #fff;
-    color:#1a1a1f;overflow:hidden}
-  /* The board is a link to /livedebates. The pager inside it is not, so the
-     handler ignores clicks on any button and the arrows keep their own
-     cursor rather than inheriting the link's. */
+    color:#1a1a1f;overflow:hidden;position:relative}
+  /* A native link covers the board so navigation still works if the
+     animation script does not run. The pager sits above it and keeps
+     browsing the examples without navigating away. */
   .fs-board{cursor:pointer}
-  .fs-board:focus-visible{outline:2px solid #dc2626;outline-offset:3px}
-  .fs-board .fs-pager{cursor:default}
+  .fs-board-hit{position:absolute;inset:0;z-index:3;display:block;border-radius:inherit}
+  .fs-board-hit:focus-visible{outline:2px solid #dc2626;outline-offset:-4px}
+  .fs-board .fs-pager{cursor:default;position:relative;z-index:4}
   .fs-board .fs-nav{cursor:pointer}
   .fs-board-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
   .fs-board .fs-chip{padding:5px 11px;border-radius:6px;background:rgba(220,38,38,.1);
@@ -7883,8 +7884,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
     </div>
 
-    <div class="fs-board" id="fsBoard" role="link" tabindex="0"
-         aria-label="See live debates you can join or watch">
+    <div class="fs-board" id="fsBoard">
+      <a class="fs-board-hit" href="/livedebates" aria-label="Open live debates" data-cta="first-screen-board"></a>
       <div class="fs-board-top">
         <span class="fs-chip" id="fsFmt">British Parli</span>
         <span class="fs-sample">Example rounds</span>
@@ -8224,26 +8225,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   paintRound(0);
   if (reduced) settle();
-
-  // Tapping the board goes to the live-debates page. The round pager lives
-  // inside the board, so anything that is itself a control is excluded first,
-  // otherwise paging through the examples would navigate away.
-  function openLiveDebates(){
-    try { if (window.dosTrack) dosTrack('first_screen_board_click', { round: idx + 1 }); } catch(e){}
-    window.location.href = '/livedebates';
-  }
-  if (board){
-    board.addEventListener('click', function(e){
-      if (e.target.closest('button, a, input, select, textarea')) return;
-      openLiveDebates();
-    });
-    board.addEventListener('keydown', function(e){
-      if (e.key !== 'Enter') return;
-      if (e.target !== board) return;   // let the arrows handle their own keys
-      e.preventDefault();
-      openLiveDebates();
-    });
-  }
 
   if (el.fsPrev) el.fsPrev.addEventListener('click', function(){ go(idx - 1, true); });
   if (el.fsNext) el.fsNext.addEventListener('click', function(){ go(idx + 1, true); });
