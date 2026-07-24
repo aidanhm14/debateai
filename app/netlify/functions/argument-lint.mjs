@@ -1,17 +1,17 @@
-// Argument linter — "Grammarly for debate."
+// Argument coach. Turns one passage into a structural argument map.
 // Takes a passage and returns a structured JSON critique: the claim it's
 // making, the warrants holding it up (with strength), the impact chain at
 // the end, what's missing, two suggested rephrasings, and the angles an
 // opponent would attack.
 //
-// HARD CONSTRAINT: the linter NEVER adds facts, statistics, citations,
+// HARD CONSTRAINT: the coach NEVER adds facts, statistics, citations,
 // or named cases. It rewrites STRUCTURE only. This is intentional — the
 // extension surface needs to be coaching, not cheating. (See soul.md §4
 // and the AGENTS.md decision log around the Counter extension.)
 //
 // Auth mirrors /api/claude: bearer token for signed-in users (team usage
 // counted), App Check + layered IP caps for anonymous callers. Anonymous
-// linting is allowed because the extension's primary entry point is the
+// anonymous reviews are allowed because the extension's primary entry point is the
 // "drop in on any Wikipedia / news / Docs page and tighten my argument"
 // use case, where the user hasn't necessarily authenticated yet.
 
@@ -53,7 +53,7 @@ function getCorsHeaders(request) {
   };
 }
 
-// Per-IP minute cap for anonymous callers. Linter calls are small (Haiku,
+// Per-IP minute cap for anonymous callers. Coach calls are small (Haiku,
 // ~1.4k output tokens) so this can be more permissive than /api/claude.
 const anonHits = new Map();
 const ANON_WINDOW = 60_000;
@@ -72,11 +72,11 @@ function checkAnon(ip) {
   return true;
 }
 
-// The linter contract. The model returns JSON matching this shape; the
+// The argument coach contract. The model returns JSON matching this shape; the
 // client renders it. Kept tight on purpose: more fields = more drift in
 // the model's structured output, fewer fields = a UI that loads fast and
 // reads clean in a side panel.
-const SYSTEM_PROMPT = `You are an argument linter for competitive debaters.
+const SYSTEM_PROMPT = `You are an argument coach for competitive debaters.
 You inspect a passage and return a STRUCTURAL critique only.
 
 ABSOLUTE RULES — violating any of these makes the response useless:
@@ -130,7 +130,7 @@ function buildUserMessage(text, format) {
   const fmtLine = format ? `Format hint: ${format}. Weigh suggestions for that format's conventions.` : '';
   return `${fmtLine}
 
-Passage to lint:
+Passage to review:
 """
 ${text}
 """
@@ -206,7 +206,7 @@ export default async (request) => {
     }
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
     if (!checkAnon(ip)) {
-      return new Response(JSON.stringify({ error: 'Too many lint requests. Wait a minute and try again.', code: 'ANON_LIMIT_MINUTE' }), {
+      return new Response(JSON.stringify({ error: 'Too many argument checks. Wait a minute and try again.', code: 'ANON_LIMIT_MINUTE' }), {
         status: 429, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
@@ -245,7 +245,7 @@ export default async (request) => {
     if (!upstream.ok) {
       const errText = await upstream.text().catch(() => '');
       console.warn('[argument-lint] anthropic non-2xx', upstream.status, errText.slice(0, 200));
-      return new Response(JSON.stringify({ error: 'Lint failed upstream. Try again.' }), {
+      return new Response(JSON.stringify({ error: 'The argument check failed. Try again.' }), {
         status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
@@ -259,7 +259,7 @@ export default async (request) => {
     try { parsed = JSON.parse(stripped); } catch (e) {
       console.warn('[argument-lint] JSON parse failed', e?.message, raw.slice(0, 200));
       return new Response(JSON.stringify({
-        error: 'The linter returned an unexpected response. Try again or shorten the passage.',
+        error: 'The coach returned an unexpected response. Try again or shorten the passage.',
         raw: raw.slice(0, 500),
       }), { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } });
     }

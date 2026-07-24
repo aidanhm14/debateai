@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Counter — argument linter</title>
-<meta name="description" content="Paste an argument. Get a claim / warrant / impact breakdown plus structural suggestions. No facts added, just structure tightened." />
+<title>Counter · Argument Coach | Debatable</title>
+<meta name="description" content="Paste one argument. See the main point, supporting reasons, missing logic, and a clearer version using only what you wrote." />
 <meta name="robots" content="noindex" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <style>
@@ -12,11 +12,13 @@
     color-scheme: dark;
     --bg: #0a0a0c;
     --fg: #e8e8ea;
-    --muted: #8a8a92;
-    --dim: #5c5c64;
+    --muted: #a1a1aa;
+    --dim: #696971;
     --line: #232328;
     --chip: #15151a;
     --chip-hover: #1f1f25;
+    --panel: #101015;
+    --panel-raised: #14141a;
     --crimson: #e54545;
     --crimson-dim: #c83232;
     --good: #22c55e;
@@ -34,12 +36,20 @@
   body {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    min-height: 100%;
+    overflow: auto;
+    background:
+      radial-gradient(circle at 50% -18%, rgba(229, 69, 69, 0.13), transparent 32rem),
+      var(--bg);
   }
   .topbar {
     flex: 0 0 auto;
-    padding: 14px 16px 10px;
+    padding: 42px 24px 34px;
     border-bottom: 1px solid var(--line);
+  }
+  .topbar__inner {
+    width: min(100%, 1080px);
+    margin: 0 auto;
   }
   .topbar__row {
     display: flex;
@@ -70,57 +80,147 @@
     100% { box-shadow: 0 0 0 0   rgba(229, 69, 69, 0); }
   }
   .topbar__title {
-    font-size: 16px;
-    font-weight: 700;
-    margin-top: 6px;
+    max-width: 760px;
+    font-size: clamp(30px, 4vw, 48px);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    margin: 18px 0 0;
   }
   .topbar__sub {
     color: var(--muted);
-    font-size: 12px;
-    margin-top: 2px;
+    font-size: 16px;
+    line-height: 1.6;
+    max-width: 760px;
+    margin-top: 14px;
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    min-width: 0;
+    padding: 14px;
+    background: rgba(20, 20, 26, 0.72);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .step__number {
+    display: grid;
+    place-items: center;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(229, 69, 69, 0.12);
+    color: #ff7676;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .step strong {
+    display: block;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .step p {
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.45;
+    margin: 3px 0 0;
   }
   main {
     flex: 1 1 auto;
-    overflow: auto;
-    padding: 14px 16px 28px;
+    width: min(100%, 1080px);
+    margin: 0 auto;
+    padding: 28px 24px 48px;
   }
   .panel {
-    background: #0f0f14;
+    background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 12px;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 18px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  }
+  .panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  .kicker {
+    display: block;
+    color: #ff7676;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .panel__title,
+  .results__title {
+    font-size: 21px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .panel__sub,
+  .results__sub {
+    color: var(--muted);
+    font-size: 12.5px;
+    margin: 5px 0 0;
   }
   textarea {
     width: 100%;
-    min-height: 110px;
-    max-height: 240px;
+    min-height: 190px;
+    max-height: 420px;
     resize: vertical;
     background: var(--chip);
     color: var(--fg);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 12px;
+    padding: 15px 16px;
     font: inherit;
-    font-size: 13.5px;
-    line-height: 1.55;
+    font-size: 14.5px;
+    line-height: 1.6;
   }
-  textarea:focus { outline: 1px solid var(--crimson); border-color: var(--crimson); }
+  textarea::placeholder { color: #707078; }
+  textarea:focus {
+    outline: 2px solid rgba(229, 69, 69, 0.32);
+    outline-offset: 1px;
+    border-color: var(--crimson);
+  }
   .row {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 14px;
     flex-wrap: wrap;
   }
   .row__spacer { flex: 1 1 auto; }
+  .format-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .field-label {
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 650;
+  }
   .btn {
     appearance: none;
     background: var(--chip);
     color: var(--fg);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 7px 12px;
+    border-radius: 9px;
+    padding: 9px 13px;
     font: inherit;
     font-size: 12.5px;
     font-weight: 500;
@@ -128,6 +228,11 @@
     transition: background 120ms ease;
   }
   .btn:hover { background: var(--chip-hover); }
+  .btn:focus-visible,
+  select:focus-visible {
+    outline: 2px solid rgba(229, 69, 69, 0.5);
+    outline-offset: 2px;
+  }
   .btn--primary {
     background: linear-gradient(180deg, var(--crimson), var(--crimson-dim));
     border-color: rgba(229, 69, 69, 0.6);
@@ -141,8 +246,8 @@
     background: var(--chip);
     color: var(--fg);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 7px 26px 7px 10px;
+    border-radius: 9px;
+    padding: 9px 30px 9px 11px;
     font: inherit;
     font-size: 12px;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238a8a92' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
@@ -153,25 +258,47 @@
     color: var(--dim);
     font-size: 11px;
     font-variant-numeric: tabular-nums;
+    padding-bottom: 10px;
   }
   .counter.is-over { color: var(--bad); }
   .hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
     color: var(--muted);
     font-size: 11.5px;
-    margin-top: 6px;
+    margin-top: 13px;
+  }
+  .hint::before {
+    content: '✓';
+    color: var(--good);
+    font-weight: 800;
   }
   .results { display: none; }
-  .results.is-shown { display: block; }
+  .results.is-shown {
+    display: block;
+    padding: 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+  .results__head {
+    padding-bottom: 18px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+  }
   .section {
     margin-bottom: 14px;
   }
   .section__h {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    color: var(--fg);
+  }
+  .section__sub {
     color: var(--muted);
-    margin-bottom: 8px;
+    font-size: 11.5px;
+    margin: 2px 0 9px;
   }
   .claim {
     font-size: 15px;
@@ -184,7 +311,7 @@
   }
   .warrants { display: flex; flex-direction: column; gap: 8px; }
   .warrant {
-    background: #0f0f14;
+    background: var(--panel-raised);
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 10px 12px;
@@ -214,8 +341,12 @@
     margin-top: 4px;
     font-style:normal;
   }
+  .issue-label {
+    color: #f7b955;
+    font-weight: 700;
+  }
   .impact {
-    background: #0f0f14;
+    background: var(--panel-raised);
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 10px 12px;
@@ -230,7 +361,6 @@
     font-size: 10.5px;
     font-weight: 600;
     letter-spacing: 0.06em;
-    text-transform: uppercase;
     padding: 3px 8px;
     border-radius: 999px;
     background: rgba(245, 158, 11, 0.1);
@@ -240,7 +370,7 @@
   .list { list-style: none; padding: 0; margin: 0; }
   .list li {
     padding: 8px 12px;
-    background: #0f0f14;
+    background: var(--panel-raised);
     border: 1px solid var(--line);
     border-radius: 8px;
     margin-bottom: 6px;
@@ -252,7 +382,7 @@
     color: var(--dim);
   }
   .rephrase {
-    background: #0f0f14;
+    background: var(--panel-raised);
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 10px 12px;
@@ -323,52 +453,105 @@
   }
   .toast.is-shown { transform: translateY(0); opacity: 1; }
   .disclaimer {
-    color: var(--dim);
-    font-size: 10.5px;
+    color: var(--muted);
+    font-size: 11px;
     text-align: center;
-    margin-top: 12px;
+    margin-top: 16px;
     padding: 0 8px;
   }
+  @media (max-width: 700px) {
+    .topbar { padding: 28px 16px 24px; }
+    .topbar__title { font-size: 31px; margin-top: 14px; }
+    .topbar__sub { font-size: 14px; }
+    .steps { grid-template-columns: 1fr; margin-top: 20px; }
+    main { padding: 18px 12px 36px; }
+    .panel, .results.is-shown { padding: 16px; border-radius: 13px; }
+    .panel__head { align-items: stretch; flex-direction: column; gap: 11px; }
+    .panel__head .btn { align-self: flex-start; }
+    textarea { min-height: 170px; }
+    .row__spacer { display: none; }
+    .format-field { flex: 1 1 100%; }
+    select { width: 100%; }
+    .counter { padding-bottom: 10px; }
+    #clearBtn { margin-left: auto; }
+  }
+  html[data-ext="1"] .topbar { padding: 20px 14px 18px; }
+  html[data-ext="1"] .topbar__title { font-size: 25px; margin-top: 12px; }
+  html[data-ext="1"] .topbar__sub { font-size: 13px; line-height: 1.5; }
+  html[data-ext="1"] .steps { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 16px; }
+  html[data-ext="1"] .step { display: block; padding: 10px; }
+  html[data-ext="1"] .step__number { margin-bottom: 7px; }
+  html[data-ext="1"] .step p { display: none; }
+  html[data-ext="1"] main { padding: 12px 10px 30px; }
+  html[data-ext="1"] .panel,
+  html[data-ext="1"] .results.is-shown { padding: 13px; }
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
 <body>
-  <div class="topbar">
-    <div class="topbar__row">
-      <span class="brand">Counter · Linter</span>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <div class="topbar__row">
+        <span class="brand">Counter · Argument coach</span>
+      </div>
+      <h1 class="topbar__title">Make your reasoning harder to attack.</h1>
+      <div class="topbar__sub">Paste one argument from a debate case, speech, essay, or oral exam. The coach shows how the argument works, where the reasoning is thin, and how to say it more clearly using only what you wrote. It does not grade a whole essay or generate new arguments.</div>
+      <div class="steps" aria-label="How the argument coach works">
+        <div class="step">
+          <span class="step__number">1</span>
+          <div><strong>Finds your point</strong><p>Identifies the position you are trying to prove.</p></div>
+        </div>
+        <div class="step">
+          <span class="step__number">2</span>
+          <div><strong>Checks the reasoning</strong><p>Flags missing links, weak support, and unclear consequences.</p></div>
+        </div>
+        <div class="step">
+          <span class="step__number">3</span>
+          <div><strong>Tightens the wording</strong><p>Rewrites the same ideas with clearer structure and signposting.</p></div>
+        </div>
+      </div>
     </div>
-    <div class="topbar__title">Tighten an argument.</div>
-    <div class="topbar__sub">Claim, warrants, impact. No facts added. Structure only.</div>
-  </div>
+  </header>
 
   <main>
-    <div class="panel">
-      <textarea id="input" placeholder="Paste an argument, an essay paragraph, or a contention from your case. You get the claim, its warrants, what's missing, and a tighter rewrite."></textarea>
+    <section class="panel" aria-labelledby="inputTitle">
+      <div class="panel__head">
+        <div>
+          <span class="kicker">Start here</span>
+          <h2 class="panel__title" id="inputTitle">Paste one argument</h2>
+          <p class="panel__sub" id="inputHelp">One paragraph is enough. Include your main point and the reasons that support it.</p>
+        </div>
+        <button class="btn" id="exampleBtn" type="button">Use an example</button>
+      </div>
+      <textarea id="input" aria-describedby="inputHelp" placeholder="Paste your argument here."></textarea>
       <div class="row">
-        <select id="format" aria-label="Format hint">
-          <option value="">General</option>
-          <option value="APDA">APDA</option>
-          <option value="BP">BP / Worlds</option>
-          <option value="Asian Parli">Asian Parli</option>
-          <option value="Policy">Policy</option>
-          <option value="LD">LD</option>
-          <option value="PF">PF</option>
-          <option value="Congress">Congress</option>
-          <option value="MUN">MUN</option>
-          <option value="Viva">Viva / oral exam</option>
-          <option value="Essay">Essay defense</option>
-        </select>
+        <div class="format-field">
+          <label class="field-label" for="format">Where will you use it?</label>
+          <select id="format">
+            <option value="">General writing</option>
+            <option value="APDA">APDA</option>
+            <option value="BP">BP / Worlds</option>
+            <option value="Asian Parli">Asian Parli</option>
+            <option value="Policy">Policy</option>
+            <option value="LD">LD</option>
+            <option value="PF">PF</option>
+            <option value="Congress">Congress</option>
+            <option value="MUN">MUN</option>
+            <option value="Viva">Viva / oral exam</option>
+            <option value="Essay">Essay / school writing</option>
+          </select>
+        </div>
         <span class="counter" id="counter">0 / 6000</span>
         <span class="row__spacer"></span>
         <button class="btn" id="clearBtn" type="button">Clear</button>
-        <button class="btn btn--primary" id="lintBtn" type="button">Lint argument</button>
+        <button class="btn btn--primary" id="lintBtn" type="button">Check my argument</button>
       </div>
-      <div class="hint">No facts get added or invented. The linter rewrites structure, not content.</div>
-    </div>
+      <div class="hint">The coach will not add research, evidence, citations, or new arguments.</div>
+    </section>
 
-    <div id="status"></div>
+    <div id="status" role="status" aria-live="polite"></div>
     <div class="results" id="results"></div>
-    <div class="disclaimer">Coaching, not cheating. The linter never adds evidence or rebuttals you didn't write.</div>
+    <div class="disclaimer">You stay the author. The coach only works with the ideas already in your passage.</div>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -377,6 +560,7 @@
     // ── Constants ───────────────────────────────────────────────────
     const MAX_INPUT = 6000;
     const API_URL = '/api/argument-lint';
+    const EXAMPLE_TEXT = 'Cities should make public buses free because fares keep low-income residents from getting to work and school. Removing fares would make those trips more reliable and leave households with more money for other essentials. That means more people can keep jobs, attend class, and participate in city life.';
 
     // ── DOM refs ────────────────────────────────────────────────────
     const inputEl = document.getElementById('input');
@@ -384,6 +568,7 @@
     const counterEl = document.getElementById('counter');
     const lintBtn = document.getElementById('lintBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const exampleBtn = document.getElementById('exampleBtn');
     const statusEl = document.getElementById('status');
     const resultsEl = document.getElementById('results');
     const toastEl = document.getElementById('toast');
@@ -408,6 +593,17 @@
     inputEl.addEventListener('input', updateCounter);
     updateCounter();
 
+    exampleBtn.addEventListener('click', () => {
+      inputEl.value = EXAMPLE_TEXT;
+      formatEl.value = '';
+      resultsEl.innerHTML = '';
+      resultsEl.classList.remove('is-shown');
+      statusEl.innerHTML = '';
+      updateCounter();
+      inputEl.focus();
+      inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+    });
+
     clearBtn.addEventListener('click', () => {
       inputEl.value = '';
       resultsEl.innerHTML = '';
@@ -431,7 +627,7 @@
       lintBtn.disabled = true;
       resultsEl.classList.remove('is-shown');
       resultsEl.innerHTML = '';
-      statusEl.innerHTML = '<div class="loading">Linting</div>';
+      statusEl.innerHTML = '<div class="loading">Checking your argument</div>';
 
       const headers = { 'Content-Type': 'application/json' };
       try {
@@ -459,7 +655,7 @@
       try { data = await res.json(); } catch (e) {}
 
       if (!res.ok || !data?.ok) {
-        const msg = data?.error || `Lint failed (${res.status}).`;
+        const msg = data?.error || `Argument check failed (${res.status}).`;
         statusEl.innerHTML = `<div class="err">${escapeHtml(msg)}</div>`;
         lintBtn.disabled = false;
         return;
@@ -475,26 +671,41 @@
 
     function renderResult(r) {
       if (!r || typeof r !== 'object') {
-        statusEl.innerHTML = `<div class="err">The linter returned an empty response. Try again.</div>`;
+        statusEl.innerHTML = `<div class="err">The coach returned an empty response. Try again.</div>`;
         return;
       }
-      const claim = r.claim || '(no claim detected)';
+      const claim = r.claim || 'No clear main point found.';
       const warrants = Array.isArray(r.warrants) ? r.warrants : [];
       const impact = r.impact || {};
       const missingMoves = Array.isArray(r.missing_moves) ? r.missing_moves : [];
       const rephrasings = Array.isArray(r.rephrasings) ? r.rephrasings : [];
       const oppHooks = Array.isArray(r.opposition_hooks) ? r.opposition_hooks : [];
+      const impactGapLabels = {
+        magnitude: 'the scale of the effect',
+        probability: 'how likely it is',
+        timeframe: 'when it happens',
+        reversibility: 'whether it can be undone',
+        'comparative weighing': 'why it matters more',
+      };
 
       const html = [];
 
+      html.push(`<div class="results__head">
+        <span class="kicker">Your argument map</span>
+        <h2 class="results__title">What works and what to strengthen</h2>
+        <p class="results__sub">Everything below comes from the passage you pasted.</p>
+      </div>`);
+
       html.push(`<div class="section">
-        <div class="section__h">Claim</div>
+        <div class="section__h">Your main point</div>
+        <div class="section__sub">The position this passage is trying to prove.</div>
         <div class="claim">${escapeHtml(claim)}</div>
       </div>`);
 
       if (warrants.length) {
         html.push(`<div class="section">
-          <div class="section__h">Warrants · ${warrants.length}</div>
+          <div class="section__h">Your supporting reasons · ${warrants.length}</div>
+          <div class="section__sub">The reasoning that is doing the work underneath your main point.</div>
           <div class="warrants">
             ${warrants.map(w => {
               const s = String(w.strength || 'medium').toLowerCase();
@@ -504,7 +715,7 @@
                   <span class="badge ${cls}">${escapeHtml(s)}</span>
                 </div>
                 <div class="warrant__text">${escapeHtml(w.text || '')}</div>
-                ${w.issue ? `<div class="warrant__issue">${escapeHtml(w.issue)}</div>` : ''}
+                ${w.issue ? `<div class="warrant__issue"><span class="issue-label">Needs work:</span> ${escapeHtml(w.issue)}</div>` : ''}
               </div>`;
             }).join('')}
           </div>
@@ -513,11 +724,16 @@
 
       if (impact.text || (impact.missing && impact.missing.length)) {
         html.push(`<div class="section">
-          <div class="section__h">Impact</div>
+          <div class="section__h">Why it matters</div>
+          <div class="section__sub">The consequence your audience is meant to care about.</div>
           <div class="impact">
-            <div>${escapeHtml(impact.text || '(no impact landed)')}</div>
+            <div>${escapeHtml(impact.text || 'The passage does not yet explain why the main point matters.')}</div>
             ${impact.missing && impact.missing.length
-              ? `<div class="missing">${impact.missing.map(m => `<span class="missing__chip">missing: ${escapeHtml(m)}</span>`).join('')}</div>`
+              ? `<div class="missing">${impact.missing.map(m => {
+                  const key = String(m || '').toLowerCase();
+                  const label = impactGapLabels[key] || key;
+                  return `<span class="missing__chip">Add ${escapeHtml(label)}</span>`;
+                }).join('')}</div>`
               : ''}
           </div>
         </div>`);
@@ -525,7 +741,8 @@
 
       if (missingMoves.length) {
         html.push(`<div class="section">
-          <div class="section__h">Structural gaps</div>
+          <div class="section__h">What to strengthen</div>
+          <div class="section__sub">Missing steps that make the logic easier to challenge.</div>
           <ul class="list">
             ${missingMoves.map(m => `<li>${escapeHtml(m)}</li>`).join('')}
           </ul>
@@ -534,7 +751,8 @@
 
       if (rephrasings.length) {
         html.push(`<div class="section">
-          <div class="section__h">Suggested rephrasings</div>
+          <div class="section__h">Clearer versions</div>
+          <div class="section__sub">The same ideas, reorganized. No new facts or arguments were added.</div>
           ${rephrasings.map((rp, i) => `<div class="rephrase">
             <button class="btn rephrase__copy" data-copy="${i}" type="button">Copy</button>
             <div class="rephrase__label">${escapeHtml(rp.label || 'Rewrite')}</div>
@@ -545,7 +763,8 @@
 
       if (oppHooks.length) {
         html.push(`<div class="section">
-          <div class="section__h">What an opponent attacks</div>
+          <div class="section__h">Where someone may push back</div>
+          <div class="section__sub">Pressure points to prepare for. The coach names the opening but does not write the response for you.</div>
           <ul class="list">
             ${oppHooks.map(h => `<li>${escapeHtml(h)}</li>`).join('')}
           </ul>
@@ -644,7 +863,7 @@
 
   <!-- Firebase compat SDKs + App Check helper. /js/app-check.js wraps
        window.fetch to inject the App Check token into every /api/* call,
-       so the linter doesn't need to handle the token by hand. We init
+       so the page doesn't need to handle the token by hand. We init
        Firebase on the load event to match the pattern used by
        learn.html / voice-debate.html. -->
   <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
@@ -665,7 +884,7 @@
         };
         if (!firebase.apps.length) firebase.initializeApp(CONFIG);
       } catch (e) {
-        console.warn('[linter] Firebase init failed', e && e.message);
+        console.warn('[argument-coach] Firebase init failed', e && e.message);
       }
     });
   </script>

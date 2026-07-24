@@ -284,7 +284,7 @@
     //                Indexed, live, and previously unreachable from any
     //                nav. (APDA stays out of it by design — impromptu,
     //                no rolling motion.)
-    //   /linter      paste an argument, get claim / warrant / impact.
+    //   /argument-coach  paste an argument, get claim / warrant / impact.
     //                noindex, same as /tournaments above: this menu is
     //                internal discovery, not a crawl surface.
     //   /oral-exam-prep  the viva vertical. Last because it is the
@@ -297,7 +297,7 @@
       { href: '/voice-debate', label: 'Classic voice trainer' },
       { href: '/coaches',      label: 'Coaches' },
       { href: '/topics',       label: 'Topics and motions' },
-      { href: '/linter',       label: 'Argument linter' },
+      { href: '/argument-coach', label: 'Argument coach' },
       { href: '/oral-exam-prep', label: 'Oral exam prep' },
     ]},
     { head: 'Site', links: [
