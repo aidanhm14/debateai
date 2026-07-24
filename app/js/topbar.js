@@ -344,6 +344,13 @@
     if (!mount) return;
 
     var nav = el('nav', { class: 'ui-topbar', 'aria-label': 'Site navigation' });
+    // Room Judge is a specialist streaming sidecar, not a first-step
+    // landing action. Keep it discoverable from the rest of the site,
+    // but leave it out of both landing-page nav surfaces.
+    var onLanding = here === '/' || /^\/landing(?:\.html)?$/.test(here);
+    var pageLinks = onLanding
+      ? LINKS.filter(function(L){ return L.href !== '/room-judge'; })
+      : LINKS;
 
     // ── Wordmark: "Debatable" in accent red ────────────────────────────
     // 2026-07-22, per Aidan: the red-vs-black A/B (2026-07-19, weighted
@@ -450,7 +457,7 @@
     }
     var moreMounted = false;
 
-    LINKS.forEach(function(L){
+    pageLinks.forEach(function(L){
       if (L.hot && !moreMounted){ right.appendChild(buildMore()); moreMounted = true; }
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
@@ -619,7 +626,7 @@
       'aria-label': 'Mobile navigation',
       hidden: 'hidden',
     });
-    LINKS.forEach(function(L){
+    pageLinks.forEach(function(L){
       var sheetLink = el('a', {
         href: L.href,
         class: 'ui-topbar-sheet-link' + (pathMatches(L.href) ? ' is-active' : ''),
