@@ -1546,9 +1546,10 @@ h1 em{color:var(--accent);font-style:normal}
 
   function guestSignupNudgeHtml(){
     if (!state.user || !state.user.isAnonymous) return '';
+    var identity = window.DBIdentity ? window.DBIdentity.forUser(state.user) : { name: guestName(state.user), username: 'guest' };
     return '<div class="guest-nudge">' +
-      '<div><strong>Guest mode.</strong> You can take the live round now. Sign up to keep a named profile, saved messages, and future invites.</div>' +
-      '<button type="button" id="guestSignUpBtn">Sign up</button>' +
+      '<div><strong>' + escHtml(identity.name) + ' · @' + escHtml(identity.username) + '</strong> You can take the live round now. Save this identity for messages and invites that follow you.</div>' +
+      '<button type="button" id="guestSignUpBtn">Save</button>' +
     '</div>';
   }
 
@@ -2816,6 +2817,9 @@ h1 em{color:var(--accent);font-style:normal}
     var ref = firebaseDb.collection('matchmaking_queue').doc(state.user.uid);
     state.queueDocRef = ref;
     var shortName = shortNameOf(state.user);
+    var publicUsername = window.DBIdentity
+      ? window.DBIdentity.forUser(state.user).username
+      : ('guest_' + String(state.user.uid || '').slice(-4).toLowerCase());
     var blockedUids = [];
     try {
       blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]');
@@ -2824,6 +2828,7 @@ h1 em{color:var(--accent);font-style:normal}
     ref.set({
       uid: state.user.uid,
       displayName: shortName,
+      username: publicUsername,
       photoURL: state.user.photoURL || '',
       anonymous: !!state.user.isAnonymous,
       format: formatParam,

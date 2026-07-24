@@ -1165,6 +1165,10 @@
       return p.length >= 2 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.'
            : (p[0] || (u.email ? u.email.split('@')[0] : 'You'));
     }
+    function publicUsername(u) {
+      if (window.DBIdentity) return window.DBIdentity.forUser(u).username;
+      return (u && u.email ? u.email.split('@')[0] : '') || ('guest_' + String(u && u.uid || '').slice(-4).toLowerCase());
+    }
     function ts() { return window.firebase.firestore.FieldValue.serverTimestamp(); }
     function ensureQueueUser(cb) {
       whenFirebaseReady(function () {
@@ -1272,6 +1276,7 @@
         myRef.set({
           uid: myUid,
           displayName: shortNm(myUser),
+          username: publicUsername(myUser),
           photoURL: (myUser && myUser.photoURL) || '',
           format: fmt(),
           status: 'waiting',
@@ -1296,7 +1301,7 @@
       var blockedUids = [];
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
       myRef.set({
-        uid: myUid, displayName: shortNm(myUser), photoURL: (myUser && myUser.photoURL) || '',
+        uid: myUid, displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '',
         format: fmt(), status: 'waiting', broaden: true, background: true,
         blockedUids: blockedUids.slice(-100), joinedAt: ts()
       }).then(function () { startTimers(); scan(); }).catch(function () {});

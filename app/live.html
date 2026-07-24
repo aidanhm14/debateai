@@ -2148,12 +2148,9 @@ button{font-family:inherit}
 
 <div id="daTopbar"></div>
 
-<!-- Auth gate. Required to use the live debate board (post + accept
-     are both Firestore writes, and we key challenges to your UID so
-     bails / posts / accepts are tied back to your record). The gate
-     covers the page until Firebase resolves a signed-in user. If
-     Firebase fails to load entirely, the gate is bypassed and the
-     page falls back to its prior localStorage-only behavior. -->
+<!-- Recovery card. Normal visitors receive a Firebase guest session
+     automatically, so this only appears if guest auth cannot start.
+     Google remains an optional way to save the identity across devices. -->
 <div id="authGate" class="auth-gate" style="display:none">
   <div class="auth-card">
     <div class="auth-eyebrow"><span class="dot-anim"></span> Live Debates · AI-Judged</div>
@@ -2162,18 +2159,18 @@ button{font-family:inherit}
          page shipped two top-level headings. The gate is UI chrome; the
          descriptive heading is what the page is about, so that one keeps the
          h1. .auth-card h1 in the stylesheet now also matches .auth-title. -->
-    <p class="auth-title">Sign in to debate live</p>
-    <p>One Google account. Both sides see the same board, the same speeches, and the same AI ballot. No manual coordination.</p>
+    <p class="auth-title">Guest access is reconnecting</p>
+    <p>Live debates normally open with a generated guest identity. You can retry, or save an identity with Google.</p>
     <div class="auth-bullets">
-      <div><span class="check">✓</span><span>Schedule and join debates across users (not just on your device)</span></div>
+      <div><span class="check">✓</span><span>Every guest gets a randomized name and @username</span></div>
       <div><span class="check">✓</span><span>Both sides see speeches as they're delivered + the ballot live</span></div>
-      <div><span class="check">✓</span><span>Round W/L, speaker points, and RFD saved to your record</span></div>
+      <div><span class="check">✓</span><span>Google is optional and saves your identity across devices</span></div>
     </div>
     <button class="auth-google-btn" id="signInGoogleBtn" type="button">
       <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-      Continue with Google
+      Save with Google
     </button>
-    <div class="auth-disclaimer">We use your Google name + photo as your debater label and your email to sync your record across devices. Sign out anytime from the top bar.</div>
+    <div class="auth-disclaimer">Your generated guest identity stays on this browser. Google is only needed if you want it to follow you to another device.</div>
     <div class="auth-error" id="authError" style="display:none"></div>
   </div>
 </div>
@@ -2650,14 +2647,14 @@ button{font-family:inherit}
           <div class="how-step-n">1</div>
           <span class="how-step-time">~30 sec</span>
         </div>
-        <h3>Continue with Google</h3>
-        <p>Both speakers need a Google account. Once.</p>
+        <h3>Start with a guest identity</h3>
+        <p>We generate a name and @username when you arrive.</p>
         <details class="how-more">
           <summary>Details</summary>
           <ul>
-          <li>Click <strong>Sign in</strong> top-right, or you'll be prompted.</li>
-          <li>Your name + photo label your speeches. Your email syncs your record across devices.</li>
-          <li>No password. Google handles login. Used only to log you in. I never email you.</li>
+          <li>Post, join, watch, and judge live rounds as a guest.</li>
+          <li>Your generated identity labels your speeches and ballot.</li>
+          <li>Use <strong>Save</strong> in the top bar only if you want the identity on another device.</li>
         </ul>
         </details>
       </div>
@@ -3072,8 +3069,9 @@ button{font-family:inherit}
     }
   } catch(e){ console.warn('[Firebase] init failed', e); }
 
-  // Current user, null until signed in. Used to gate writes (post,
-  // accept) and to attribute challenges to a UID.
+  // Current Firebase user, null while auth resolves. Visitors receive
+  // an anonymous user automatically, which gives every live write a UID
+  // without making Google sign-in part of the debate funnel.
   var currentUser = null;
 
   // ── Storage layer. localStorage v1, schema is shaped for an easy
@@ -3138,13 +3136,19 @@ button{font-family:inherit}
   function loadProfile(){
     try {
       var profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {};
-      if ((!profile.name || !profile.handle) && window.DBIdentity){
+      var shouldRefreshRandom = !!(
+        profile.randomIdentity
+        && currentUser
+        && profile.identityUid !== currentUser.uid
+      );
+      if (window.DBIdentity && ((!profile.name || !profile.handle) || shouldRefreshRandom)){
         var identity = currentUser
           ? window.DBIdentity.forUser(currentUser)
           : window.DBIdentity.forBrowser();
-        if (!profile.name) profile.name = identity.name;
-        if (!profile.handle) profile.handle = identity.username;
+        if (!profile.name || shouldRefreshRandom) profile.name = identity.name;
+        if (!profile.handle || shouldRefreshRandom) profile.handle = identity.username;
         profile.randomIdentity = true;
+        profile.identityUid = currentUser ? currentUser.uid : 'browser';
         localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
       }
       return profile;
@@ -4995,14 +4999,24 @@ button{font-family:inherit}
     submitEl.disabled = false;
   }
 
-  formEl.addEventListener('submit', function(e){
-    e.preventDefault();
+  function submitPost(){
     var errors = validatePost();
     if (errors.length){
       toast(errors.join(' '));
       return;
     }
     requireCommunityStandards(function(){ doPostSubmit(); });
+  }
+  formEl.addEventListener('submit', function(e){
+    e.preventDefault();
+    if (!currentUser && firebaseAuth){
+      toast('Creating your guest identity…');
+      ensureGuestAuth().then(submitPost).catch(function(){
+        toast('Guest access did not start. Try again in a moment.');
+      });
+      return;
+    }
+    submitPost();
   });
   function doPostSubmit(){
     var list = loadList();
@@ -5024,7 +5038,7 @@ button{font-family:inherit}
       posterSlot: selectedSlot,     // which named seat the poster took
       slots: slots,                 // full N-seat roster (poster filled, rest open)
       format: formatEl.value,
-      handle: handleEl.value.trim() || 'anonymous',
+      handle: handleEl.value.trim() || profile.handle || 'anonymous',
       ts: Date.now(),
       reveal: selectedReveal,
       topicLine: selectedReveal === 'topic' ? topicLineEl.value.trim() : '',
@@ -5194,6 +5208,8 @@ button{font-family:inherit}
     p.style    = document.getElementById('profileStyle').value;
     p.bio      = document.getElementById('profileBio').value.trim();
     p.contact  = document.getElementById('profileContact').value.trim();
+    p.randomIdentity = false;
+    p.identityUid = currentUser ? currentUser.uid : '';
     saveProfile(p);
     if (p.handle) handleEl.value = p.handle; // mirror into post-form so reposting auto-fills
     renderAvatar(p);
@@ -5514,8 +5530,9 @@ button{font-family:inherit}
       toast('That seat doesn’t exist on this format.'); return;
     }
     if (!currentUser){
-      if (typeof firebaseSignIn === 'function'){ firebaseSignIn(); } else { showAuthGate(); }
-      toast('Sign in to claim a seat.'); return;
+      toast('Creating your guest identity…');
+      ensureGuestAuth().then(function(){ handleJoinSlot(challengeId, slotKey); }).catch(function(){});
+      return;
     }
     var slots = c.slots && typeof c.slots === 'object' ? Object.assign({}, c.slots) : {};
     f.slotKeys.forEach(function(k){ if (!slots[k] && slots[k] !== null) slots[k] = null; });
@@ -5575,8 +5592,9 @@ button{font-family:inherit}
     if (!c){ toast('Debate not found.'); return; }
     if (c.allowViewers === false){ toast('This room isn’t open to viewers.'); return; }
     if (!currentUser){
-      if (typeof firebaseSignIn === 'function'){ firebaseSignIn(); } else { showAuthGate(); }
-      toast('Sign in to watch as a viewer.'); return;
+      toast('Creating your guest identity…');
+      ensureGuestAuth().then(function(){ handleViewerSignup(challengeId); }).catch(function(){});
+      return;
     }
     var viewers = Array.isArray(c.viewers) ? c.viewers.slice() : [];
     if (viewers.some(function(v){ return v && v.uid === currentUser.uid; })){
@@ -5611,8 +5629,9 @@ button{font-family:inherit}
     if (!c){ toast('Debate not found.'); return; }
     if (!c.needJudge){ toast('No judge slot on this room.'); return; }
     if (!currentUser){
-      if (typeof firebaseSignIn === 'function'){ firebaseSignIn(); } else { showAuthGate(); }
-      toast('Sign in to judge.'); return;
+      toast('Creating your guest identity…');
+      ensureGuestAuth().then(function(){ handleJudgeSignup(challengeId); }).catch(function(){});
+      return;
     }
     var judges = Array.isArray(c.judges) ? c.judges.slice() : [];
     if (judges.length >= 1){ toast('Judge seat already filled.'); return; }
@@ -5690,7 +5709,7 @@ button{font-family:inherit}
       var url = location.origin + '/live';
       try {
         navigator.clipboard.writeText(url);
-        toast('Link copied. Send it to your opponent, they sign in and join.');
+        toast('Link copied. Send it to your opponent, they open it and join.');
       } catch(err){ toast('Link is: ' + url); }
       return;
     }
@@ -5786,18 +5805,16 @@ button{font-family:inherit}
     if (e.key === 'Escape' && drawerOpenId) closeDrawer();
   });
 
-  // ── Auth gate. Pages stays gated until Firebase resolves a signed-
-  // in user. If Firebase fails to load entirely, the gate is bypassed
-  // and we fall back to local-only mode so the page still works on a
-  // bad network, degraded but functional.
+  // ── Guest auth. Firebase anonymous auth supplies the UID required by
+  // challenge writes. Google is optional and links the guest identity
+  // to a durable account.
   function showAuthGate(){ var g=document.getElementById('authGate'); if (g) g.style.display='flex'; }
   function hideAuthGate(){ var g=document.getElementById('authGate'); if (g) g.style.display='none'; }
+  function isNamedUser(user){ return !!(user && !user.isAnonymous); }
 
   // ── Guest sign-in reminder. Non-blocking, dismissible bar shown to
-  // visitors who land on the public board without signing in. They can
-  // browse + read the archive freely; this nudges them to sign in so
-  // they can post, accept, and save a record. Dismissal sticks for the
-  // browser session so it doesn't re-nag.
+  // guests after they have had time to use the board. This explains
+  // their generated identity and offers cross-device persistence.
   var signinReminderEl = null;
   var signinReminderTimer = null;
   function hideSignInReminder(){
@@ -5806,14 +5823,14 @@ button{font-family:inherit}
     signinReminderEl = null;
   }
   function scheduleSignInReminder(){
-    if (signinReminderTimer || signinReminderEl || currentUser) return;
+    if (signinReminderTimer || signinReminderEl || isNamedUser(currentUser)) return;
     signinReminderTimer = setTimeout(function(){
       signinReminderTimer = null;
       showSignInReminder();
     }, 5200);
   }
   function showSignInReminder(){
-    if (currentUser || signinReminderEl) return;
+    if (isNamedUser(currentUser) || signinReminderEl) return;
     try { if (window.sessionStorage && sessionStorage.getItem('live-signin-reminder-x')) return; } catch(e){}
     var bar = document.createElement('div');
     bar.id = 'signInReminder';
@@ -5831,11 +5848,12 @@ button{font-family:inherit}
       'opacity:0','transition:opacity .35s ease,transform .35s ease'
     ].join(';');
     var msg = document.createElement('span');
-    msg.textContent = 'Browsing as a guest. Sign in and the board becomes yours: post motions, accept matches, get rated.';
+    var guestProfile = loadProfile();
+    msg.textContent = 'You are ' + (guestProfile.name || 'a guest') + ' · @' + (guestProfile.handle || 'guest') + '. Save this identity to use it on another device.';
     msg.style.cssText = 'flex:1 1 240px;min-width:200px';
     var sin = document.createElement('button');
     sin.type = 'button';
-    sin.textContent = 'Sign in';
+    sin.textContent = 'Save';
     sin.style.cssText = 'cursor:pointer;border:0;border-radius:999px;padding:8px 16px;font:700 13px Inter,system-ui,sans-serif;background:#ef4444;color:#fff';
     var no = document.createElement('button');
     no.type = 'button';
@@ -5853,42 +5871,61 @@ button{font-family:inherit}
     requestAnimationFrame(function(){ bar.style.opacity='1'; bar.style.transform='translateX(-50%) translateY(0)'; });
     try { gtag('event','live_guest_reminder_show'); } catch(e){}
   }
-  function renderUserChip(){
-    var host = document.getElementById('barUser');
+  function renderUserChip(hostOverride, userOverride){
+    var host = hostOverride || document.getElementById('barUser');
     if (!host) return;
-    if (!currentUser){
-      // Signed out: show a Sign in button in the topbar slot (not an
-      // empty slot), wired to the live Google flow.
+    var chipUser = userOverride || currentUser;
+    if (!chipUser){
+      // Brief auth-resolution state. A guest session normally replaces
+      // this before the user can interact with the board.
       host.style.display = 'inline-flex';
-      host.innerHTML = '<button class="ui-btn ui-btn-ghost ui-btn-sm" id="liveSignInBtn" type="button" title="Sign in with Google. Free.">Sign in</button>';
-      var sb = document.getElementById('liveSignInBtn');
-      if (sb) sb.addEventListener('click', function(){ doGoogleSignIn(); });
+      host.innerHTML = '<span class="bar-user-name">Starting guest…</span>';
       return;
     }
-    var u = currentUser;
+    var u = chipUser;
+    var p = loadProfile();
     var photo = u.photoURL || '';
-    var nm = (u.displayName || u.email || 'You').split(/\s+/)[0];
-    var initials = (u.displayName || u.email || '?').split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
+    var nm = p.name || u.displayName || u.email || 'You';
+    var handle = p.handle || (u.email || '').split('@')[0] || 'guest';
+    var initials = nm.split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
     host.innerHTML =
       '<span class="bar-user">' +
         '<button class="bar-user-edit" id="editProfileBtn" type="button" title="Edit profile" aria-label="Edit profile">' +
           '<span class="bar-user-pic">' + (photo ? '<img src="' + escHtml(photo) + '" alt="" />' : escHtml(initials)) + '</span>' +
-          '<span class="bar-user-name">' + escHtml(nm) + '</span>' +
+          '<span class="bar-user-name" title="' + escHtml(nm + ' · @' + handle) + '">' + escHtml(nm.split(/\s+/)[0] + ' · @' + handle) + '</span>' +
         '</button>' +
-        '<button class="bar-user-out" id="signOutBtn" type="button">Out</button>' +
+        (u.isAnonymous
+          ? '<button class="bar-user-out" id="saveGuestBtn" type="button">Save</button>'
+          : '<button class="bar-user-out" id="signOutBtn" type="button">Out</button>') +
       '</span>';
     var ob = document.getElementById('signOutBtn');
     if (ob) ob.addEventListener('click', function(){ try { firebaseAuth.signOut(); } catch(e){} });
+    var sg = document.getElementById('saveGuestBtn');
+    if (sg) sg.addEventListener('click', doGoogleSignIn);
     var ep = document.getElementById('editProfileBtn');
     if (ep) ep.addEventListener('click', function(){ setTab('manage'); });
   }
+  window.daTopbarGuestSlot = function(slot, user){
+    currentUser = user;
+    renderUserChip(slot, user);
+  };
   function doGoogleSignIn(){
     if (!firebaseAuth){
       var err = document.getElementById('authError'); if (err){ err.style.display='block'; err.textContent='Sign-in is loading, try again in a moment.'; }
       return;
     }
     var provider = new firebase.auth.GoogleAuthProvider();
-    firebaseAuth.signInWithPopup(provider).catch(function(e){
+    var current = firebaseAuth.currentUser;
+    var signInPromise = (current && current.isAnonymous && current.linkWithPopup)
+      ? current.linkWithPopup(provider).catch(function(e){
+          var code = e && e.code || '';
+          if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use'){
+            return firebaseAuth.signInWithPopup(provider);
+          }
+          throw e;
+        })
+      : firebaseAuth.signInWithPopup(provider);
+    signInPromise.catch(function(e){
       console.warn('[Auth] sign-in failed', e);
       try { if (window.gtag) gtag('event', 'sign_in_error', { code: (e && e.code) || 'unknown', message: ((e && e.message) || '').slice(0, 200), surface: 'live', method: 'popup' }); } catch(_){}
       if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')){
@@ -5898,13 +5935,32 @@ button{font-family:inherit}
       }
     });
   }
+  var guestAuthPromise = null;
+  function ensureGuestAuth(){
+    if (!firebaseAuth) return Promise.reject(new Error('firebase-auth-unavailable'));
+    if (firebaseAuth.currentUser) return Promise.resolve(firebaseAuth.currentUser);
+    if (guestAuthPromise) return guestAuthPromise;
+    guestAuthPromise = firebaseAuth.signInAnonymously().then(function(cred){
+      guestAuthPromise = null;
+      hideAuthGate();
+      try { if (window.gtag) gtag('event', 'live_guest_start'); } catch(e){}
+      return (cred && cred.user) || firebaseAuth.currentUser;
+    }).catch(function(e){
+      guestAuthPromise = null;
+      console.warn('[Auth] guest session failed', e);
+      showAuthGate();
+      var err = document.getElementById('authError');
+      if (err){ err.style.display='block'; err.textContent='Guest access did not start. Check your connection and retry.'; }
+      throw e;
+    });
+    return guestAuthPromise;
+  }
   if (firebaseAuth){
     // Public board. Don't wall the page behind sign-in: load the
     // cross-user feed immediately so anyone (signed in or not) can
     // browse open challenges and read the archive of past rounds.
-    // Writes (post / accept / claim a seat) still gate on sign-in and
-    // pop the auth card on demand. The full-screen gate is no longer
-    // shown on load — guests get a dismissible reminder instead.
+    // Anonymous auth starts in the background so writes work without
+    // opening an OAuth prompt.
     hideAuthGate();
     subscribeChallenges();
     var gBtn = document.getElementById('signInGoogleBtn');
@@ -5912,14 +5968,12 @@ button{font-family:inherit}
     firebaseAuth.onAuthStateChanged(function(user){
       currentUser = user || null;
       if (user){
-        // Auto-fill profile from Google account on first sign-in
+        // Every public profile starts with a stable randomized identity.
         var p = loadProfile();
-        var dirty = false;
-        if (!p.name && user.displayName){ p.name = user.displayName; dirty = true; }
-        if (!p.avatar && user.photoURL){ p.avatar = user.photoURL; dirty = true; }
-        if (dirty) saveProfile(p);
+        if (!p.avatar && user.photoURL){ p.avatar = user.photoURL; saveProfile(p); }
         hideAuthGate();
-        hideSignInReminder();
+        if (user.isAnonymous) scheduleSignInReminder();
+        else hideSignInReminder();
         renderUserChip();
         // Subscribe to the cross-user Firestore challenge feed.
         // Re-renders board live whenever any user posts/accepts/bails.
@@ -5927,8 +5981,7 @@ button{font-family:inherit}
       } else {
         hideAuthGate();
         renderUserChip();
-        // Gentle, dismissible nudge — they can look first, sign in to act.
-        scheduleSignInReminder();
+        ensureGuestAuth().catch(function(){});
       }
     });
   } else {
@@ -6023,7 +6076,7 @@ button{font-family:inherit}
       themeLine: entry.themeLine || '',
       scheduledAt: entry.scheduledAt || null,
       posterUid: currentUser.uid,
-      posterName: currentUser.displayName || '',
+      posterName: (loadProfile().name || currentUser.displayName || ''),
       posterPhoto: currentUser.photoURL || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };

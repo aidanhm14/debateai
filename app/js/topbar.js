@@ -1156,7 +1156,20 @@
           if (realUser && !wasFirst){ try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){ } }
           var ss = document.getElementById('sheetSignIn');
           if (ss) ss.textContent = realUser ? 'Sign out' : 'Sign in · free';
-          if (!realUser){ renderSignedOut(slot); return; }
+          // Live debate pages use anonymous Firebase auth as a real guest
+          // seat. They can opt into painting that identity without making
+          // anonymous sessions look signed in across the rest of the site.
+          if (!realUser){
+            if (u && u.isAnonymous && typeof window.daTopbarGuestSlot === 'function'){
+              slot.style.display = 'inline-flex';
+              slot.style.alignItems = 'center';
+              slot.style.gap = '8px';
+              slot.innerHTML = '';
+              try { window.daTopbarGuestSlot(slot, u); return; } catch(e){}
+            }
+            renderSignedOut(slot);
+            return;
+          }
           renderSignedIn(slot, realUser);
         });
       } catch(e){}

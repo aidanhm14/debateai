@@ -1311,32 +1311,28 @@ body.lr-pip .lr-pip-notice{display:block}
     <span id="phaseLabel"><span class="dot"></span> Setup</span>
     <span id="watchCountPill" class="watch-count-pill" hidden><span class="wcp-eye" aria-hidden="true">&#128065;</span><span id="watchCountNum">0</span> watching</span>
     <button id="privacyToggle" class="privacy-toggle" type="button" hidden>Public</button>
-    <span id="barUser" style="display:none"></span>
+    <span id="roundBarUser" style="display:none"></span>
     <a href="/live" class="bar-back">← Back to board</a>
   </div>
 </nav>
 
-<!-- Auth gate. Required for any /live-round access, we need a UID to
-     key Firestore writes for the synced round state, and to identify
-     the speaker on the ballot. Hidden once Firebase auth resolves
-     with a user; if Firebase fails to load entirely, the gate offers
-     a 'continue without signing in' escape that falls back to local-
-     only mode (no cross-browser sync but the round still works). -->
+<!-- Recovery card. The normal path creates a Firebase guest session
+     automatically. This appears only if that session cannot start. -->
 <div id="authGate" class="auth-gate" style="display:none">
   <div class="auth-card">
     <div class="auth-eyebrow"><span class="dot"></span> Live Round · AI-Judged</div>
-    <h1>Sign in to enter the live room</h1>
-    <p>Debaters get speaker labels and a synced ballot. Viewers enter audience mode with camera and mic off.</p>
+    <h1>Guest access is reconnecting</h1>
+    <p>Live rooms normally open with a generated name and @username. You can retry, or save an identity with Google.</p>
     <div class="auth-bullets">
+      <div><span class="check">✓</span><span>Guests can debate, judge, and watch live</span></div>
       <div><span class="check">✓</span><span>Both sides see speeches as they're delivered</span></div>
       <div><span class="check">✓</span><span>AI ballot syncs to both screens at the end</span></div>
-      <div><span class="check">✓</span><span>Viewers stay off camera so the video room belongs to the debaters</span></div>
     </div>
     <button class="auth-google-btn" id="signInGoogleBtn" type="button">
       <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-      Continue with Google
+      Save with Google
     </button>
-    <div class="auth-disclaimer">We use your Google name + photo to label speeches if you are debating. Viewers are kept in audience mode. Sign out anytime from the top bar.</div>
+    <div class="auth-disclaimer">Your generated identity stays on this browser. Google is optional and lets it follow you to another device.</div>
     <div class="auth-error" id="authError" style="display:none"></div>
   </div>
 </div>
@@ -2110,6 +2106,11 @@ body.lr-pip .lr-pip-notice{display:block}
     return parts.length >= 2
       ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
       : (parts[0] || 'A debater');
+  }
+  function publicUsernameOf(user){
+    if (!user) return 'guest';
+    if (window.DBIdentity) return window.DBIdentity.forUser(user).username;
+    return (user.email || '').split('@')[0] || ('guest_' + String(user.uid || '').slice(-4).toLowerCase());
   }
 
   // ── Firebase init (shared project across the app)
@@ -4839,7 +4840,11 @@ body.lr-pip .lr-pip-notice{display:block}
     // just update the same doc instead of spamming the board.
     var pubBtn = $('publishDiscBtn');
     if (pubBtn) pubBtn.addEventListener('click', function(){
-      if (!firebaseDb || !state.user){ toast('Sign in to publish a disclosure.'); if (!state.user && typeof doGoogleSignIn === 'function') doGoogleSignIn(); return; }
+      if (!firebaseDb || !state.user){
+        toast('Guest access is still starting.');
+        if (!state.user && typeof ensureGuestAuth === 'function') ensureGuestAuth().catch(function(){});
+        return;
+      }
       var ms = mySide();
       var f = FORMATS[state.formatKey];
       // Filter the speech log to MY speeches (the ones tied to my side).
@@ -4929,7 +4934,11 @@ body.lr-pip .lr-pip-notice{display:block}
     // consented — see the leaderboardConsent block in onRoundSnapshot.
     var saveBtn = $('saveRoundBtn');
     if (saveBtn) saveBtn.addEventListener('click', function(){
-      if (!firebaseDb || !state.user){ toast('Sign in to save the round to your record.'); if (!state.user && typeof doGoogleSignIn === 'function') doGoogleSignIn(); return; }
+      if (!firebaseDb || !state.user){
+        toast('Guest access is still starting.');
+        if (!state.user && typeof ensureGuestAuth === 'function') ensureGuestAuth().catch(function(){});
+        return;
+      }
       var docId = state.user.uid + '_' + state.room;
       var savedDoc = {
         uid: state.user.uid,
@@ -6312,10 +6321,8 @@ body.lr-pip .lr-pip-notice{display:block}
   }
   (function(){ var rb = $('randomMotionBtn'); if (rb) rb.addEventListener('click', genRandomResolution); })();
 
-  // ── Auth gate. Required for Firestore writes (live round sync) and
-  // ballot save-to-record. If Firebase didn't load (script blocked,
-  // offline), the gate is silently bypassed so the round still works
-  // local-only, better degraded experience than a hard wall.
+  // ── Guest auth. Anonymous Firebase auth supplies the UID required
+  // for synced round writes. Google remains an optional account link.
   function showAuthGate(){
     var gate = $('authGate');
     if (gate) gate.style.display = 'flex';
@@ -6325,26 +6332,35 @@ body.lr-pip .lr-pip-notice{display:block}
     if (gate) gate.style.display = 'none';
   }
   function renderUserChip(){
-    var host = $('barUser');
+    var host = $('roundBarUser');
     if (!host) return;
-    if (!state.user){ host.style.display = 'none'; host.innerHTML = ''; return; }
+    if (!state.user){
+      host.style.display = 'inline-flex';
+      host.innerHTML = '<span class="bar-user-name">Starting guest…</span>';
+      return;
+    }
     var u = state.user;
     var photo = u.photoURL || '';
-    var name = (u.displayName || u.email || 'You').split(/\s+/)[0];
-    var initials = (u.displayName || u.email || '?').split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
+    var name = publicNameOf(u);
+    var username = publicUsernameOf(u);
+    var initials = name.split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
     host.style.display = 'inline-flex';
     host.innerHTML =
       '<span class="bar-user">' +
         '<a class="bar-user-edit" href="/live#manage" title="Edit profile" aria-label="Edit profile">' +
           '<span class="bar-user-pic">' + (photo ? '<img src="' + escHtml(photo) + '" alt="" />' : escHtml(initials)) + '</span>' +
-          '<span class="bar-user-name">' + escHtml(name) + '</span>' +
+          '<span class="bar-user-name" title="' + escHtml(name + ' · @' + username) + '">' + escHtml(name.split(/\s+/)[0] + ' · @' + username) + '</span>' +
         '</a>' +
-        '<button class="bar-user-out" id="signOutBtn" type="button">Out</button>' +
+        (u.isAnonymous
+          ? '<button class="bar-user-out" id="saveGuestBtn" type="button">Save</button>'
+          : '<button class="bar-user-out" id="signOutBtn" type="button">Out</button>') +
       '</span>';
     var ob = document.getElementById('signOutBtn');
     if (ob) ob.addEventListener('click', function(){
       try { firebaseAuth.signOut(); } catch(e){}
     });
+    var sg = document.getElementById('saveGuestBtn');
+    if (sg) sg.addEventListener('click', doGoogleSignIn);
   }
   function doGoogleSignIn(){
     if (!firebaseAuth){
@@ -6352,7 +6368,17 @@ body.lr-pip .lr-pip-notice{display:block}
       return;
     }
     var provider = new firebase.auth.GoogleAuthProvider();
-    firebaseAuth.signInWithPopup(provider).catch(function(e){
+    var current = firebaseAuth.currentUser;
+    var signInPromise = (current && current.isAnonymous && current.linkWithPopup)
+      ? current.linkWithPopup(provider).catch(function(e){
+          var code = e && e.code || '';
+          if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use'){
+            return firebaseAuth.signInWithPopup(provider);
+          }
+          throw e;
+        })
+      : firebaseAuth.signInWithPopup(provider);
+    signInPromise.catch(function(e){
       console.warn('[Auth] sign-in failed', e);
       try { if (window.gtag) gtag('event', 'sign_in_error', { code: (e && e.code) || 'unknown', message: ((e && e.message) || '').slice(0, 200), surface: 'live-round', method: 'popup' }); } catch(_){}
       // Some in-app browsers (Instagram/TikTok/etc) block popup OAuth.
@@ -6364,9 +6390,29 @@ body.lr-pip .lr-pip-notice{display:block}
       }
     });
   }
+  var guestAuthPromise = null;
+  function ensureGuestAuth(){
+    if (!firebaseAuth) return Promise.reject(new Error('firebase-auth-unavailable'));
+    if (firebaseAuth.currentUser) return Promise.resolve(firebaseAuth.currentUser);
+    if (guestAuthPromise) return guestAuthPromise;
+    guestAuthPromise = firebaseAuth.signInAnonymously().then(function(cred){
+      guestAuthPromise = null;
+      hideAuthGate();
+      try { if (window.gtag) gtag('event', 'live_round_guest_start'); } catch(e){}
+      return (cred && cred.user) || firebaseAuth.currentUser;
+    }).catch(function(e){
+      guestAuthPromise = null;
+      console.warn('[Auth] guest session failed', e);
+      showAuthGate();
+      var err = $('authError');
+      if (err){ err.style.display = 'block'; err.textContent = 'Guest access did not start. Check your connection and retry.'; }
+      throw e;
+    });
+    return guestAuthPromise;
+  }
   if (firebaseAuth){
-    // Show gate while we wait for Firebase to resolve current user
-    showAuthGate();
+    hideAuthGate();
+    renderUserChip();
     var googleBtn = $('signInGoogleBtn');
     if (googleBtn) googleBtn.addEventListener('click', doGoogleSignIn);
     firebaseAuth.onAuthStateChanged(function(user){
@@ -6435,8 +6481,8 @@ body.lr-pip .lr-pip-notice{display:block}
           setTimeout(kickoff, iAmFirst ? 600 : 3000);
         }
       } else {
-        showAuthGate();
         renderUserChip();
+        ensureGuestAuth().catch(function(){});
       }
     });
   } else {
