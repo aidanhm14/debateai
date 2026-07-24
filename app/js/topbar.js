@@ -272,9 +272,33 @@
       // own surface, so the public room and DMs share one frame.
       { href: '/chat',        label: 'Chat and DMs' },
     ]},
+    // 2026-07-24: Train was two links against six in the columns either
+    // side, so the menu read half-built. Filled with the practice
+    // surfaces and resources that had no nav entry at all:
+    //   /debate-it   the 15-format typed trainer. The landing links it
+    //                four times and how-it-works twice, but the bar
+    //                points Prep at /app#case (index.html), a different
+    //                app, so the timed-round surface was reachable only
+    //                by following a body link.
+    //   /topics      the motion bank, PF / LD / Policy / BQ / Worlds.
+    //                Indexed, live, and previously unreachable from any
+    //                nav. (APDA stays out of it by design — impromptu,
+    //                no rolling motion.)
+    //   /linter      paste an argument, get claim / warrant / impact.
+    //                noindex, same as /tournaments above: this menu is
+    //                internal discovery, not a crawl surface.
+    //   /oral-exam-prep  the viva vertical. Last because it is the
+    //                narrowest audience, not because it is unfinished.
+    // Deliberately NOT added: /research (a corpus-licensing page aimed
+    // at AI labs, not a debater resource) and /exhibition (watching two
+    // AI brains argue is Watch, not Train).
     { head: 'Train', links: [
+      { href: '/debate-it',    label: 'Timed rounds vs AI' },
       { href: '/voice-debate', label: 'Classic voice trainer' },
       { href: '/coaches',      label: 'Coaches' },
+      { href: '/topics',       label: 'Topics and motions' },
+      { href: '/linter',       label: 'Argument linter' },
+      { href: '/oral-exam-prep', label: 'Oral exam prep' },
     ]},
     { head: 'Site', links: [
       { href: '/how-it-works', label: 'How it works' },
