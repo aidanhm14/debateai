@@ -1158,6 +1158,7 @@
     }
     function shortNm(u) {
       if (!u) return 'You';
+      if (window.DBIdentity) return window.DBIdentity.forUser(u).name;
       if (u.isAnonymous) return 'Guest ' + String(u.uid || '').slice(-4).toUpperCase();
       var full = (u.displayName || '').trim();
       var p = full.split(/\s+/).filter(Boolean);
@@ -1578,16 +1579,37 @@
   }
 
   // ── boot ─────────────────────────────────────────────────────────
+  function bootSparLive() {
+    if (window.DBIdentity) { sparLive(); return; }
+    if (window.__dbIdentityLoading) {
+      window.addEventListener('debatable-identity-ready', sparLive, { once: true });
+      return;
+    }
+    window.__dbIdentityLoading = true;
+    var script = document.createElement('script');
+    script.src = '/js/public-identity.js';
+    script.onload = function () {
+      window.__dbIdentityLoading = false;
+      window.dispatchEvent(new Event('debatable-identity-ready'));
+      sparLive();
+    };
+    script.onerror = function () {
+      window.__dbIdentityLoading = false;
+      sparLive();
+    };
+    document.head.appendChild(script);
+  }
+
   function init() {
     injectStyles();
     // Idempotency: never produce a second bell (e.g. if a stale topbar
     // build still ships its own, or the module is double-included). The
     // background matcher still boots either way.
-    if (document.querySelector('.ui-bell')) { sparLive(); return; }
+    if (document.querySelector('.ui-bell')) { bootSparLive(); return; }
     var bell = createBell();
     placeBell(bell);
     controller(bell);
-    sparLive();
+    bootSparLive();
   }
 
   if (document.readyState === 'loading') {

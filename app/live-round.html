@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <script src="/js/native-bridge.js"></script>
+<script src="/js/public-identity.js"></script>
 <title>Live Round · Debatable</title>
 <meta name="description" content="Two humans, AI judge. In-platform video room + per-speech timer + transcript capture + tournament-grade ballot." />
 <meta name="robots" content="noindex" />
@@ -2100,6 +2101,16 @@ body.lr-pip .lr-pip-notice{display:block}
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
   };
+
+  function publicNameOf(user){
+    if (!user) return 'A debater';
+    if (window.DBIdentity) return window.DBIdentity.forUser(user).name;
+    var fullName = (user.displayName || '').trim();
+    var parts = fullName.split(/\s+/).filter(Boolean);
+    return parts.length >= 2
+      ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
+      : (parts[0] || 'A debater');
+  }
 
   // ── Firebase init (shared project across the app)
   var FIREBASE_CONFIG = {
@@ -4418,11 +4429,7 @@ body.lr-pip .lr-pip-notice{display:block}
       var myPoints = mySideForLb === 'pro' ? b.proPoints : b.conPoints;
       var myWon = b.winner === mySideForLb;
       if (typeof myPoints !== 'number' || isNaN(myPoints)) return;
-      var fullName = (state.user.displayName || '').trim();
-      var parts = fullName.split(/\s+/).filter(Boolean);
-      var shortName = parts.length >= 2
-        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-        : (parts[0] || 'Anonymous');
+      var shortName = publicNameOf(state.user);
       var lbEntry = {
         uid: state.user.uid,
         displayName: shortName,
@@ -4846,11 +4853,7 @@ body.lr-pip .lr-pip-notice{display:block}
       });
       var fullText = mine.map(function(e){ return '[' + (e.code || '') + ']\n' + (e.text || ''); }).join('\n\n');
       if (!fullText.trim()){ toast('No speeches to publish yet.'); return; }
-      var fullName = (state.user.displayName || '').trim();
-      var parts = fullName.split(/\s+/).filter(Boolean);
-      var shortName = parts.length >= 2
-        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-        : (parts[0] || (state.user.email ? state.user.email.split('@')[0] : 'Anonymous'));
+      var shortName = publicNameOf(state.user);
       var sideLabel = ms ? f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]] : '';
       // Closed-over publish writer. Runs once the safety guard
       // resolves (or immediately if the guard isn't available).
@@ -4930,7 +4933,7 @@ body.lr-pip .lr-pip-notice{display:block}
       var docId = state.user.uid + '_' + state.room;
       var savedDoc = {
         uid: state.user.uid,
-        userName: state.user.displayName || '',
+        userName: publicNameOf(state.user),
         userEmail: state.user.email || '',
         room: state.room,
         motion: state.motion,
@@ -5103,7 +5106,7 @@ body.lr-pip .lr-pip-notice{display:block}
   //    shape /spar uses, so it lands in the opponent's notification bell
   //    even if they have not opened the room yet. ──
   (function(){
-    function myName(){ var s=mySide(); var nm=(s==='pro')?state.proName:(s==='con')?state.conName:''; return (nm&&nm.trim())||(state.user&&state.user.displayName)||'A debater'; }
+    function myName(){ var s=mySide(); var nm=(s==='pro')?state.proName:(s==='con')?state.conName:''; return (nm&&nm.trim())||publicNameOf(state.user); }
     function openDm(){
       var m=$('dmModal'); if(!m) return;
       var d=state.oppDm||{}; var nm=$('dmOppName'); if(nm) nm.textContent=d.name||'your opponent';
@@ -5358,7 +5361,7 @@ body.lr-pip .lr-pip-notice{display:block}
       ctx.font = '700 22px ui-sans-serif, system-ui, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
       ctx.textAlign = 'left';
-      var byName = (state.user && state.user.displayName) ? state.user.displayName : (ms ? (ms === 'pro' ? state.proName : state.conName) : (winnerName || ''));
+      var byName = state.user ? publicNameOf(state.user) : (ms ? (ms === 'pro' ? state.proName : state.conName) : (winnerName || ''));
       var attLabel = 'by ' + (byName || 'Speaker');
       if (ms && f && f.sideLabels){
         attLabel += ', ' + f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]];
@@ -5555,7 +5558,7 @@ body.lr-pip .lr-pip-notice{display:block}
       var mine = col.doc(state.user.uid);
       var beat = function(){
         mine.set({
-          name: (state.user.displayName || 'A watcher'),
+          name: publicNameOf(state.user),
           ts: firebase.firestore.FieldValue.serverTimestamp(),
         }).catch(function(){});
       };
@@ -6084,7 +6087,7 @@ body.lr-pip .lr-pip-notice{display:block}
       proName: state.proName,
       conName: state.conName,
       posterUid: state.user.uid,
-      posterName: state.user.displayName || '',
+      posterName: publicNameOf(state.user),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       // Client epoch ms of the round opening. Published so spectators
       // measure their swing-vote taps against the SAME origin the
@@ -6373,9 +6376,10 @@ body.lr-pip .lr-pip-notice{display:block}
         // if this user is a participant. Spectators (UID matches
         // neither side) shouldn't overwrite the actual speakers'
         // names just because they happen to load the page.
-        if (user.displayName && !isSpectator()){
-          if (!state.proName){ state.proName = user.displayName; var pn=$('proName'); if (pn) pn.value = state.proName; }
-          else if (!state.conName && state.proName !== user.displayName){ state.conName = user.displayName; var cn=$('conName'); if (cn) cn.value = state.conName; }
+        if (!isSpectator()){
+          var publicName = publicNameOf(user);
+          if (!state.proName){ state.proName = publicName; var pn=$('proName'); if (pn) pn.value = state.proName; }
+          else if (!state.conName && state.proName !== publicName){ state.conName = publicName; var cn=$('conName'); if (cn) cn.value = state.conName; }
           updateStartBtn();
         }
         // Spectators skip the setup screen entirely — they're just

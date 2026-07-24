@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <script src="/js/native-bridge.js"></script>
+<script src="/js/public-identity.js"></script>
 <title>Debatable · Live debates with humans on your motion</title>
 <meta name="description" content="Schedule a live debate or spar right now with another human. Debatable handles the video room, format timer, calendar link, and AI judge ballot across APDA, BP, WSDC, PF, LD, Policy, Asian Parli, Congress, and MUN." />
 <meta name="keywords" content="live debate, debate online, find a debate partner, live debate rounds, APDA live, BP live, WSDC live, parli online, debate practice partner, online debate platform, debate scrim">
@@ -2814,11 +2815,11 @@ button{font-family:inherit}
       </div>
       <input type="file" id="avatarFile" accept="image/*" style="display:none" />
       <div class="field">
-        <label for="profileName">Display name</label>
+        <label for="profileName">Public name</label>
         <input type="text" id="profileName" maxlength="40" placeholder="e.g. Alex Chen" />
       </div>
       <div class="field">
-        <label for="profileHandle">Handle</label>
+        <label for="profileHandle">Username</label>
         <input type="text" id="profileHandle" maxlength="24" placeholder="e.g. apdachamp" />
       </div>
       <div class="field" style="display:flex;gap:10px;margin-bottom:14px">
@@ -2852,7 +2853,7 @@ button{font-family:inherit}
         <input type="text" id="profileContact" maxlength="120" placeholder="555-1234 or you@example.com" />
       </div>
       <button id="profileSave" class="post-submit">Save profile</button>
-      <p class="post-help">Stored in this browser. When you join a debate, your <strong>name</strong> and <strong>contact</strong> are shared with that one opponent so you can coordinate the call. Nothing else is sent.</p>
+      <p class="post-help">A randomized public name and username are assigned on your first visit. Edit either anytime. When you join a debate, your <strong>public name</strong> and <strong>contact</strong> are shared with that one opponent so you can coordinate the call.</p>
     </div>
 
     <div class="activity-card">
@@ -3132,9 +3133,22 @@ button{font-family:inherit}
 
   // ── Profile (localStorage). Surfaced in the Manage tab and prefilled
   // into the accept-confirmation modal so users don't retype contact
-  // info every match.
+  // info every match. New profiles receive a stable randomized public
+  // name + handle. Existing choices stay untouched.
   function loadProfile(){
-    try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {}; }
+    try {
+      var profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {};
+      if ((!profile.name || !profile.handle) && window.DBIdentity){
+        var identity = currentUser
+          ? window.DBIdentity.forUser(currentUser)
+          : window.DBIdentity.forBrowser();
+        if (!profile.name) profile.name = identity.name;
+        if (!profile.handle) profile.handle = identity.username;
+        profile.randomIdentity = true;
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+      }
+      return profile;
+    }
     catch(e){ return {}; }
   }
   function saveProfile(p){
@@ -3794,7 +3808,7 @@ button{font-family:inherit}
           'A meeting room is auto-created at <strong>' + escHtml(room) + '</strong>, Jitsi, no install. ' +
           'Your name + contact is shared with <strong>@' + escHtml(c.handle || 'anonymous') + '</strong> so you can coordinate. The AI judges live and posts a ballot at the end.' +
         '</div>' +
-        '<div class="field"><label for="acceptName">Display name</label><input id="acceptName" type="text" maxlength="40" value="' + escHtml(profile.name || '') + '" placeholder="What the opponent sees" /></div>' +
+        '<div class="field"><label for="acceptName">Public name</label><input id="acceptName" type="text" maxlength="40" value="' + escHtml(profile.name || '') + '" placeholder="What the opponent sees" /></div>' +
         '<div class="field"><label for="acceptContact">Contact <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">(phone or email, opponent will see this)</span></label><input id="acceptContact" type="text" maxlength="120" value="' + escHtml(profile.contact || '') + '" placeholder="555-1234 or you@example.com" /></div>' +
         '<label style="display:flex;gap:10px;align-items:flex-start;font-size:.82rem;color:var(--text-dim);line-height:1.45;cursor:pointer;margin-top:6px">' +
           '<input type="checkbox" id="acceptOptIn" style="margin-top:3px;flex-shrink:0" />' +

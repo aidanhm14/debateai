@@ -1169,6 +1169,7 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
      matched-set faces. Loaded before topbar.js so daTopbarUserSlot can
      use it. -->
 <script defer src="/js/avatar.js"></script>
+<script defer src="/js/public-identity.js"></script>
 <!-- Shared topbar — same nav across /landing, /debate-it, /learn,
      /high-school. The user-slot hook below lets
      /debate-it inject its app-specific Account modal trigger. -->
@@ -6070,7 +6071,7 @@ function App() {
         date: new Date().toISOString()
       };
       setCaseFiles((prev) => {
-        var next = [meta, ...prev || []].slice(0, 50);
+        var next = [meta, ...(prev || [])].slice(0, 50);
         syncFilesToServer(next);
         return next;
       });
@@ -6236,8 +6237,8 @@ function App() {
     var shouldNudge = false;
     try {
       shouldNudge = localStorage.getItem('da-is-debater') === 'yes' &&
-        localStorage.getItem('da-setup-mode') !== 'advanced' &&
-        localStorage.getItem('da-advanced-nudge-dismissed') !== '1';
+      localStorage.getItem('da-setup-mode') !== 'advanced' &&
+      localStorage.getItem('da-advanced-nudge-dismissed') !== '1';
     } catch (e) {}
     if (!shouldNudge) return;
     var id = setTimeout(() => setShowCompetitiveNudge(true), 38000);
@@ -6340,8 +6341,8 @@ function App() {
   // Publish the just-finished round's AI case to the public
   // /disclosures community board. Same shape the SharedCases flow in
   // /app uses (visibility:'public' on shared_cases doc), so the
-  // disclosures page picks it up immediately. Author shown as
-  // first-name + last-initial — never the full displayName.
+  // disclosures page picks it up immediately. Author shown through the
+  // stable randomized public identity, never the Google display name.
   var publishToDisclosures = async () => {
     if (!user || !firebaseDb) {alert('Sign in to publish to Community.');return;}
     var aiSpeeches = log.filter((l) => l.who === 'AI');
@@ -6364,7 +6365,9 @@ function App() {
     }
     var fullName = (user.displayName || '').trim();
     var parts = fullName.split(/\s+/).filter(Boolean);
-    var shortName = parts.length >= 2 ?
+    var shortName = window.DBIdentity ?
+    window.DBIdentity.forUser(user).name :
+    parts.length >= 2 ?
     parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.' :
     parts[0] || (user.email ? user.email.split('@')[0] : 'Anonymous');
     setCasePublished('pending');
@@ -6793,15 +6796,15 @@ function App() {
 
 
 
+
+
       // Only auto-advance if timer actually ran (not on initial mount)
     }}, [prepTimer.left]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
     var s = SPEECHES[i];var userTurn = s.side === side;setLiveRate(1.0); // reset live speed each speech
     if (userTurn) {// User turn. start timer + mic immediately
-      timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start();
-      // POI: AI may offer POIs during user speech (only in POI-enabled formats)
-      if (fmt.poi) {
-        poiCountRef.current = 0;
+      timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start(); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
+      if (fmt.poi) {poiCountRef.current = 0;
         poiAcceptsRef.current = 0;
         setPoiOffer(false);setPoiActive(null);setPoiText('');
         // Offer first POI after 60-90s, second after another 60-90s
@@ -7907,7 +7910,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
                 formatName: round.formatName,
                 decision: ballot && ballot.decision || '',
                 won: userWon === true,
-                displayName: (user.displayName || '').trim()
+                displayName: window.DBIdentity ?
+                window.DBIdentity.forUser(user).name :
+                (user.displayName || '').trim()
               }),
               keepalive: true
             }).catch(() => {});
@@ -8020,7 +8025,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         decision: ballot && ballot.decision || '',
         winner: ballot && ballot.winner || null,
         speakerPoints: ballot && ballot.speakerPoints || null,
-        displayName: (user.displayName || '').trim()
+        displayName: window.DBIdentity ?
+        window.DBIdentity.forUser(user).name :
+        (user.displayName || '').trim()
       };
       var res = await fetch('/api/round/publish', {
         method: 'POST',
@@ -8725,8 +8732,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('button', { onClick: () => openCaseFile(f), title: 'Open', style: { flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--c-text)' } },
   el('div', { style: { fontSize: '.84rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, f.name),
   el('div', { style: { fontSize: '.66rem', color: 'var(--c-dim)', marginTop: 2 } },
-  (f.size ? Math.max(1, Math.round(f.size / 1024)) + ' KB' : '') +
-  (f.date ? '  ·  ' + new Date(f.date).toLocaleDateString() : ''))
+  (f.size ? Math.max(1, Math.round(f.size / 1024)) + ' KB' : '') + (
+  f.date ? '  ·  ' + new Date(f.date).toLocaleDateString() : ''))
   ),
   el('button', { onClick: () => deleteCaseFile(f), title: 'Delete', style: { background: 'none', border: 0, padding: '2px 4px', cursor: 'pointer', color: 'var(--c-dim)', fontFamily: 'inherit', fontSize: '.72rem' } }, 'Remove')
   ))
@@ -8973,7 +8980,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     if (!fmtQuiz) return;
     var onKey = (e) => {
       var tag = (e.target && e.target.tagName || '').toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target && e.target.isContentEditable) return;
       var key = e.key === 'BackSpace' ? 'Backspace' : e.key === 'Esc' ? 'Escape' : e.key;
       if (key === 'Escape' || e.code === 'Escape') {setFmtQuiz(null);return;}
       if (key === 'Backspace' || e.code === 'Backspace') {e.preventDefault();fmtQuizBack();return;}
@@ -8989,7 +8996,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       if (isDown || isUp) {
         e.preventDefault();
         var d = isDown ? 1 : -1;
-        var n = kb < 0 ? (d > 0 ? 0 : opts.length - 1) : (kb + d + opts.length) % opts.length;
+        var n = kb < 0 ? d > 0 ? 0 : opts.length - 1 : (kb + d + opts.length) % opts.length;
         setFmtQuiz(Object.assign({}, fmtQuiz, { kb: n }));
         return;
       }
@@ -9172,11 +9179,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { style: { fontSize: '.95rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.25 } }, 'Need PF, LD, BP, APDA, speed, POIs, or a specific judge paradigm?'),
   el('div', { style: { fontSize: '.76rem', color: 'var(--c-dim)', lineHeight: 1.42, marginTop: 5 } }, 'Advanced setup opens the full format controls without changing the quick path for beginners.')
   ),
-  el('button', { onClick: function(){ setShowCompetitiveNudge(false); try {localStorage.setItem('da-advanced-nudge-dismissed','1');} catch(e){} }, style: { border: 0, background: 'transparent', color: 'var(--c-subtle)', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: 2 }, 'aria-label': 'Dismiss advanced setup suggestion' }, '×')
+  el('button', { onClick: function () {setShowCompetitiveNudge(false);try {localStorage.setItem('da-advanced-nudge-dismissed', '1');} catch (e) {}}, style: { border: 0, background: 'transparent', color: 'var(--c-subtle)', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: 2 }, 'aria-label': 'Dismiss advanced setup suggestion' }, '×')
   ),
   el('div', { style: { display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' } },
   el('button', { onClick: goAdvanced, style: { border: '1px solid #ef4444', background: '#ef4444', color: '#fff', borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 900, cursor: 'pointer' } }, 'Open advanced setup →'),
-  el('button', { onClick: function(){ setShowCompetitiveNudge(false); setShowCustomize(true); }, style: { border: '1px solid var(--c-border2)', background: 'var(--c-surface)', color: 'var(--c-text)', borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 800, cursor: 'pointer' } }, 'Stay guided')
+  el('button', { onClick: function () {setShowCompetitiveNudge(false);setShowCustomize(true);}, style: { border: '1px solid var(--c-border2)', background: 'var(--c-surface)', color: 'var(--c-text)', borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 800, cursor: 'pointer' } }, 'Stay guided')
   )
   ),
   showCustomize && el('div', { style: { marginTop: 26, textAlign: 'left', animation: 'fadeIn .25s ease' } },
@@ -11472,7 +11479,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
             score: b.speakerPoints.user,
             aiScore: typeof b.speakerPoints.ai === 'number' ? b.speakerPoints.ai : null,
             motion: motion || '',
-            displayName: (() => {
+            displayName: user && window.DBIdentity ? window.DBIdentity.forUser(user).name : (() => {
               var fn = (user && user.displayName || '').trim();
               var parts = fn.split(/\s+/).filter(Boolean);
               return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0] || 'Anonymous';
@@ -11657,7 +11664,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
     el('div', { style: { flex: 1, minWidth: 200 } },
     el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#a78bfa', marginBottom: 4 } }, 'Share this round publicly'),
-    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, 'Get a short link at /r/... Anyone can read the round. Your name shows as first-name + last-initial only.'),
+    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, 'Get a short link at /r/... Anyone can read the round. Your randomized public name appears instead of your Google name.'),
     publishStatus === 'error' && publishError && el('div', { style: { fontSize: '.7rem', color: '#fca5a5', marginTop: 4 } }, publishError)
     ),
     el('button', {

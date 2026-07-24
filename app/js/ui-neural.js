@@ -68,6 +68,7 @@
   // Pre-formatted color strings, refreshed on theme flip via a MutationObserver
   // on body.class (cheap; fires only when theme actually changes).
   var EDGE_COLOR='',NODE_COLOR='',PULSE_COLOR='',CDIST=CONNECT_DIST_DARK,CDIST_SQ=CDIST*CDIST;
+  var themeActive=true,themeInitialized=false;
   var lineW=.5,nodeRMul=1;
   function refreshTheme(){
     // Read both selectors so we react no matter which page set the theme:
@@ -76,6 +77,7 @@
     // colors to the lighter palette.
     var isLight=document.documentElement.getAttribute('data-theme')==='light'
               ||document.body.classList.contains('light-theme');
+    themeActive=!isLight;
     var R=isLight?100:239,G=isLight?130:68,B=isLight?180:68;
     var rgb=R+','+G+','+B;
     EDGE_COLOR='rgba('+rgb+','+(isLight?.07:.18)+')';
@@ -85,6 +87,14 @@
     CDIST_SQ=CDIST*CDIST;
     lineW=isLight?.4:.5;
     nodeRMul=isLight?.9:1;
+    // The constellation is intentionally invisible on light surfaces.
+    // Stop its frame loop instead of painting a near-transparent canvas.
+    if(!themeActive){
+      if(rafId){cancelAnimationFrame(rafId);rafId=0}
+      ctx.clearRect(0,0,W,H);
+    }else if(running&&themeInitialized){
+      start();
+    }
   }
 
   function resize(){
@@ -108,7 +118,7 @@
   function addPulse(fi,ti){pulses.push({from:fi,to:ti,t:0,speed:.006+Math.random()*.008})}
 
   function tick(ts){
-    if(!running){rafId=0;return}
+    if(!running||!themeActive){rafId=0;return}
     // Frame cap — skip the paint if we're firing at 144Hz but only
     // need 60Hz. The rAF re-fire still happens; we just bail out
     // before the expensive O(N²) edge pass.
@@ -220,7 +230,18 @@
   function stop(){running=false;if(rafId){cancelAnimationFrame(rafId);rafId=0}}
   if(reduced){init();return}
   init();
+  themeInitialized=true;
   window.addEventListener('resize',resize,{passive:true});
+  // Canvas paints compete directly with scrolling on the main thread.
+  // Freeze the decorative loop while the user is actively scrolling,
+  // then resume after the scroll has settled.
+  var scrollResumeTimer=0;
+  window.addEventListener('scroll',function(){
+    if(!running||!themeActive)return;
+    if(rafId){cancelAnimationFrame(rafId);rafId=0}
+    if(scrollResumeTimer)clearTimeout(scrollResumeTimer);
+    scrollResumeTimer=setTimeout(start,140);
+  },{passive:true});
   document.addEventListener('visibilitychange',function(){
     if(document.hidden){stop()}else{running=true;start()}
   });

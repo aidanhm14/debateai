@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script src="/js/native-bridge.js"></script>
+<script src="/js/public-identity.js"></script>
 <title>Community · Debatable</title>
 <meta name="description" content="The Debatable community: public case disclosures, threaded discussion, vote on what's good. Read how other debaters tackled motions across APDA, BP, Worlds, Asian Parli, LD, PF, Policy. Import any case." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -1466,6 +1467,7 @@ body::before{
   // shared_cases/{caseId}/comments; commentCount rides the parent doc so
   // the browse cards can show thread size without a subcollection read.
   function shortName(u){
+    if (u && window.DBIdentity) return window.DBIdentity.forUser(u).name;
     var n = String((u && u.displayName) || 'Debater').trim().split(/\s+/);
     return n.length > 1 ? n[0] + ' ' + n[n.length - 1].charAt(0).toUpperCase() + '.' : n[0];
   }
@@ -2363,16 +2365,12 @@ body::before{
       var category = $('ntCat').value || 'general';
       if (title.length < 4){ toast('Title is too short.'); return; }
       if (content.length < 10){ toast('Body is too short.'); return; }
-      var fullName = (currentUser.displayName || '').trim();
-      var parts = fullName.split(/\s+/).filter(Boolean);
-      var shortName = parts.length >= 2
-        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-        : (parts[0] || (currentUser.email ? currentUser.email.split('@')[0] : 'Anonymous'));
+      var publicName = shortName(currentUser);
       var btn = $('ntPost');
       btn.textContent = 'Posting…'; btn.disabled = true;
       firebaseDb.collection('forum_posts').add({
         authorUid: currentUser.uid,
-        authorName: shortName,
+        authorName: publicName,
         authorPhoto: currentUser.photoURL || '',
         authorVerified: currentUserVerified || false,
         title: title.slice(0, 200),
@@ -2579,16 +2577,12 @@ body::before{
       if (!currentUser){ toast('Sign in to reply.'); return; }
       var body = ($('replyBody').value || '').trim();
       if (body.length < 4){ toast('Reply is too short.'); return; }
-      var fullName = (currentUser.displayName || '').trim();
-      var parts = fullName.split(/\s+/).filter(Boolean);
-      var shortName = parts.length >= 2
-        ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-        : (parts[0] || (currentUser.email ? currentUser.email.split('@')[0] : 'Anonymous'));
+      var publicName = shortName(currentUser);
       var btn = $('postReplyBtn');
       btn.textContent = 'Posting…'; btn.disabled = true;
       firebaseDb.collection('forum_posts').add({
         authorUid: currentUser.uid,
-        authorName: shortName,
+        authorName: publicName,
         authorPhoto: currentUser.photoURL || '',
         authorVerified: currentUserVerified || false,
         title: '',

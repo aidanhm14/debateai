@@ -367,10 +367,14 @@
   /* Engagement: fired after 5s dwell. filters bouncers */
   setTimeout(function(){window.dosTrackOnce('landing_engaged',{dwell:5})},5000);
   /* Scroll depth */
-  var depths=[25,50,75,100],hit={};
+  var depths=[25,50,75,100],hit={},depthFrame=0;
   window.addEventListener('scroll',function(){
-    var h=document.documentElement,sc=(h.scrollTop+window.innerHeight)/h.scrollHeight*100;
-    depths.forEach(function(d){if(sc>=d&&!hit[d]){hit[d]=1;window.dosTrack('scroll_depth',{depth:d})}});
+    if(depthFrame)return;
+    depthFrame=requestAnimationFrame(function(){
+      depthFrame=0;
+      var h=document.documentElement,sc=(h.scrollTop+window.innerHeight)/h.scrollHeight*100;
+      depths.forEach(function(d){if(sc>=d&&!hit[d]){hit[d]=1;window.dosTrack('scroll_depth',{depth:d})}});
+    });
   },{passive:true});
   /* Delegated click tracking + SFX feedback for anchors and buttons.
      Piggy-backed on the existing tracker so every hero CTA / nav link
@@ -6040,10 +6044,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
   <div class="wi-wait">
     <div class="wi-wait-faces" aria-hidden="true">
-      <img src="/img/round/faces/face02.jpg" alt="">
-      <img src="/img/round/faces/face07.jpg" alt="">
-      <img src="/img/round/faces/face10.jpg" alt="">
-      <img src="/img/round/faces/face01.jpg" alt="">
+      <img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async">
+      <img src="/img/round/faces/face07.jpg" alt="" loading="lazy" decoding="async">
+      <img src="/img/round/faces/face10.jpg" alt="" loading="lazy" decoding="async">
+      <img src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async">
     </div>
     <div class="wi-wait-line">Your round is waiting.</div>
     <div class="wi-wait-sub">Real people, live rooms, an AI judge on every ballot.</div>
@@ -6709,14 +6713,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       }
       sticking = false;
     }
-    // Update the active link directly on scroll (spy() is a handful of
-    // getBoundingClientRect reads, only flips a class when the section
-    // changes). The trailing rAF still coalesces bursts where available,
-    // but the direct call means the active marker keeps tracking even when
-    // requestAnimationFrame is throttled to zero (backgrounded tabs, some
-    // in-app WebViews) — which used to freeze the indicator on one section.
+    // Coalesce layout reads into one painted frame. Calling spy() directly
+    // and again through rAF forced two getBoundingClientRect passes for
+    // every scroll event and fought the browser's own scrolling work.
     window.addEventListener('scroll', function(){
-      spy();
       if (!sticking){ requestAnimationFrame(spy); sticking = true; }
     }, { passive: true });
     window.addEventListener('load', spy);
@@ -7039,8 +7039,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       updateRange();
       poke();
     }
-    window.addEventListener('scroll', onScroll, { passive:true });
-    window.addEventListener('resize', onScroll, { passive:true });
+    var rangeFrame = 0;
+    function queueRangeUpdate(){
+      if (rangeFrame) return;
+      rangeFrame = requestAnimationFrame(function(){
+        rangeFrame = 0;
+        onScroll();
+      });
+    }
+    window.addEventListener('scroll', queueRangeUpdate, { passive:true });
+    window.addEventListener('resize', queueRangeUpdate, { passive:true });
     toc.addEventListener('mouseenter', function(){
       hovering = true;
       if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
@@ -9060,11 +9068,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             </div>
             <div class="hi-lf-stage" aria-hidden="true">
               <div class="hi-lf-tile hi-lf-tile--speaking">
-                <img src="/img/round/faces/face02.jpg" alt="" decoding="async" data-live-face-slot="speaker" />
+                <img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async" data-live-face-slot="speaker" />
                 <span class="hi-lf-timer">01:42</span>
               </div>
               <div class="hi-lf-tile">
-                <img src="/img/round/faces/face07.jpg" alt="" decoding="async" data-live-face-slot="opponent" />
+                <img src="/img/round/faces/face07.jpg" alt="" loading="lazy" decoding="async" data-live-face-slot="opponent" />
               </div>
             </div>
             <div class="hi-lf-motion" aria-hidden="true">
@@ -9124,7 +9132,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                  queries .va-stage breaks. -->
             <div class="hi-lf-amb-photo hi-lf-amb-photo--voice hi-lf-amb-photo--her" aria-hidden="true">
               <img class="hi-lf-her-still" src="/her-samantha-still.jpg"
-                   alt="" width="1200" height="800" decoding="async" fetchpriority="high"
+                   alt="" width="1200" height="800" loading="lazy" decoding="async" fetchpriority="low"
                    onerror="this.closest('.hi-lf-amb-photo').classList.remove('hi-lf-amb-photo--her')">
               <span class="va-stage">
                 <span class="va-eq"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
@@ -9365,7 +9373,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <div class="hi-path-visual" aria-hidden="true">
             <span class="hi-live-pill"><i aria-hidden="true"></i>Live</span>
             <div class="hi-live-tiles">
-              <img src="/img/round/faces/face03.jpg" alt="" decoding="async" /><img src="/img/round/faces/face08.jpg" alt="" decoding="async" /><img src="/img/round/faces/face12.jpg" alt="" decoding="async" />
+              <img src="/img/round/faces/face03.jpg" alt="" loading="lazy" decoding="async" /><img src="/img/round/faces/face08.jpg" alt="" loading="lazy" decoding="async" /><img src="/img/round/faces/face12.jpg" alt="" loading="lazy" decoding="async" />
             </div>
           </div>
           <span class="hi-path-eyebrow"><i aria-hidden="true"></i>With people</span>
@@ -9398,7 +9406,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </a>
         <a href="/ambassadors" class="hi-path-card hi-path-card--ambassadors" data-cta="hero-triptych-ambassadors">
           <div class="hi-path-visual" aria-hidden="true">
-            <div class="hi-amb-photo"><img src="/img/ambassadors/clubnight.jpg" alt="" decoding="async" /></div>
+            <div class="hi-amb-photo"><img src="/img/ambassadors/clubnight.jpg" alt="" loading="lazy" decoding="async" /></div>
           </div>
           <span class="hi-path-eyebrow"><i aria-hidden="true"></i>With us</span>
           <h2>Bring it to your school.</h2>
@@ -9419,7 +9427,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <a href="/spar" class="hio-path-card hio-path-card--live" data-cta="hero-triptych-live">
           <span class="hio-live-pill"><i aria-hidden="true"></i>Live</span>
           <div class="hio-live-tiles" aria-hidden="true">
-            <img src="/img/round/faces/face03.jpg" alt="" decoding="async" /><img src="/img/round/faces/face08.jpg" alt="" decoding="async" /><img src="/img/round/faces/face12.jpg" alt="" decoding="async" />
+            <img src="/img/round/faces/face03.jpg" alt="" loading="lazy" decoding="async" /><img src="/img/round/faces/face08.jpg" alt="" loading="lazy" decoding="async" /><img src="/img/round/faces/face12.jpg" alt="" loading="lazy" decoding="async" />
           </div>
           <div>
             <span class="hio-path-eyebrow">Live debates</span>
@@ -9447,7 +9455,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <span class="hio-path-cta">Start AI debate <span aria-hidden="true">&rarr;</span></span>
         </a>
         <a href="/ambassadors" class="hio-path-card hio-path-card--ambassadors" data-cta="hero-triptych-ambassadors">
-          <div class="hio-amb-photo" aria-hidden="true"><img src="/img/ambassadors/clubnight.jpg" alt="" decoding="async" /></div>
+          <div class="hio-amb-photo" aria-hidden="true"><img src="/img/ambassadors/clubnight.jpg" alt="" loading="lazy" decoding="async" /></div>
           <div>
             <span class="hio-path-eyebrow">Ambassadorships</span>
             <h2>Bring Debatable to your community.</h2>
@@ -10779,7 +10787,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          sign-in strip and the event banner read as one cluster. -->
     <div class="livenow-meta">
       <div class="lf-group">
-        <span class="lf-label">Choose a format</span>
+        <span class="lf-label">Choose a format of debate</span>
         <div class="lf-rail">
           <div class="lf-chips">
           <span class="lf-chip lf-chip--lead">Public Forum</span>
@@ -10809,12 +10817,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            of the globe. Portraits are AI-generated; the rotator crossfades
            them via the shared .rot-cam pool. -->
       <div class="livenow-wall" id="livenowWall">
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" decoding="async" /><i class="ln-cue" data-cue="headset" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face16.jpg" alt="" decoding="async" /><i class="ln-cue" data-cue="mic" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face24.jpg" alt="" decoding="async" /><i class="ln-cue" data-cue="phone" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" decoding="async" /><i class="ln-cue" data-cue="mic" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face21.jpg" alt="" decoding="async" /><i class="ln-cue" data-cue="headset" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face04.jpg" alt="" decoding="async" /><i class="ln-cue" data-cue="phone" aria-hidden="true"></i></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="headset" aria-hidden="true"></i></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face16.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="mic" aria-hidden="true"></i></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face24.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="phone" aria-hidden="true"></i></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="mic" aria-hidden="true"></i></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face21.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="headset" aria-hidden="true"></i></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face04.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="phone" aria-hidden="true"></i></span>
       </div>
     </div>
     <a class="livenow-cta" href="/spar">Match me with a stranger &rarr;</a>
@@ -15909,6 +15917,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     #founder-video,
     #overview,
     #live-proof,
+    #why-this-exists,
+    #floor-band,
+    #mode-select,
+    #credential-path,
+    #community-band,
+    #face-wall,
+    #ranked-band,
+    #creator-sweepstakes,
+    #reviews,
+    #book-founders,
+    #waitlist,
     #debate-ai,
     .topics-edu-pair,
     .landing-guides-block,
@@ -15917,6 +15936,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     #faq {
       content-visibility: auto;
       contain-intrinsic-size: auto 800px;
+    }
+    #face-wall,
+    #waitlist {
+      contain-intrinsic-size: auto 320px;
+    }
+    #ranked-band,
+    #creator-sweepstakes {
+      contain-intrinsic-size: auto 1500px;
+    }
+    #book-founders {
+      contain-intrinsic-size: auto 1000px;
     }
   }
 
