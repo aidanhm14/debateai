@@ -568,6 +568,90 @@ body.lr-pip .lr-pip-notice{display:block}
 .panel-section{padding:24px 26px;border-bottom:1px solid var(--border)}
 .panel-section:last-child{border-bottom:none}
 
+/* Persistent room guide. The live-round state was already turn-gated in
+   code, but the UI hid inactive controls and made the other debater guess
+   who could advance the clock. This strip names the three page states and
+   the current control owner on every screen. */
+.round-guide{
+  position:sticky;top:0;z-index:90;
+  padding:12px 20px 14px;
+  background:var(--bg);
+  background:color-mix(in srgb,var(--bg) 94%,transparent);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+.round-guide-path{
+  display:grid;grid-template-columns:auto 1fr auto 1fr auto;
+  align-items:center;gap:10px;margin-bottom:10px;
+}
+.rg-step{
+  display:flex;align-items:center;gap:8px;min-width:0;
+  color:var(--text-ghost);transition:color .2s ease;
+}
+.rg-step-num{
+  width:22px;height:22px;flex:0 0 auto;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--ui-soft);border:1px solid var(--border);
+  font-size:.62rem;font-weight:900;font-variant-numeric:tabular-nums;
+}
+.rg-step-copy{display:flex;align-items:baseline;gap:6px;min-width:0}
+.rg-step strong{font-size:.67rem;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+.rg-step small{font-size:.62rem;font-weight:700;white-space:nowrap}
+.rg-step.is-current{color:var(--text)}
+.rg-step.is-current .rg-step-num{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(239,68,68,.10)}
+.rg-step.is-done{color:var(--green)}
+.rg-step.is-done .rg-step-num{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.38);color:var(--green)}
+.rg-line{height:1px;background:var(--border)}
+.rg-line.is-done{background:rgba(34,197,94,.42)}
+.round-control{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:12px;padding:11px 13px;border-radius:13px;
+  border:1px solid var(--border);background:var(--ui-surface);
+  box-shadow:0 6px 20px rgba(0,0,0,.06);
+}
+.round-control[data-mode="mine"]{border-color:rgba(239,68,68,.42);background:rgba(239,68,68,.07)}
+.round-control[data-mode="theirs"]{border-color:rgba(245,158,11,.40);background:rgba(245,158,11,.07)}
+.round-control[data-mode="shared"]{border-color:rgba(59,130,246,.36);background:rgba(59,130,246,.06)}
+.round-control[data-mode="judge"]{border-color:rgba(217,201,138,.38);background:rgba(217,201,138,.07)}
+.round-control[data-mode="audience"]{border-color:var(--border);background:var(--ui-soft)}
+.rc-owner{
+  width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  background:var(--ui-soft);border:1px solid var(--border);
+  color:var(--text);font-size:.68rem;font-weight:900;letter-spacing:.03em;
+}
+.round-control[data-mode="mine"] .rc-owner{background:var(--accent);border-color:var(--accent);color:#fff}
+.round-control[data-mode="theirs"] .rc-owner{background:var(--amber);border-color:var(--amber);color:#2b1800}
+.round-control[data-mode="shared"] .rc-owner{background:#3b82f6;border-color:#3b82f6;color:#fff}
+.round-control[data-mode="judge"] .rc-owner{background:#d9c98a;border-color:#d9c98a;color:#2a2411;font-size:1rem}
+.rc-copy{min-width:0}
+.rc-kicker{display:block;margin-bottom:3px;font-size:.57rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim)}
+.rc-title{display:block;font-size:.86rem;font-weight:850;letter-spacing:-.01em;color:var(--text)}
+.rc-detail{display:block;margin-top:2px;font-size:.7rem;line-height:1.4;color:var(--text-dim)}
+.rc-state{
+  flex:0 0 auto;padding:6px 9px;border-radius:999px;
+  border:1px solid var(--border);background:var(--ui-soft);
+  color:var(--text-dim);font-size:.58rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;
+}
+.round-control[data-mode="mine"] .rc-state{border-color:rgba(239,68,68,.35);color:var(--accent)}
+.round-control[data-mode="theirs"] .rc-state{border-color:rgba(245,158,11,.42);color:var(--amber)}
+.round-control[data-mode="shared"] .rc-state{border-color:rgba(59,130,246,.38);color:#60a5fa}
+.round-control[data-mode="judge"] .rc-state{border-color:rgba(217,201,138,.42);color:#d9c98a}
+.btn-control-locked{
+  background:var(--ui-soft);border-color:var(--border);color:var(--text-dim);
+  text-transform:none;letter-spacing:0;cursor:not-allowed;
+}
+.btn-control-locked:hover{background:var(--ui-soft);border-color:var(--border);transform:none}
+@media(max-width:620px){
+  .round-guide{padding:10px 12px 12px}
+  .round-guide-path{gap:6px;margin-bottom:8px}
+  .rg-step{gap:5px}.rg-step-num{width:19px;height:19px}
+  .rg-step-copy{display:block}.rg-step strong{font-size:.56rem}.rg-step small{display:none}
+  .round-control{grid-template-columns:auto minmax(0,1fr);gap:9px;padding:10px}
+  .rc-owner{width:32px;height:32px}
+  .rc-state{display:none}
+  .rc-title{font-size:.78rem}.rc-detail{font-size:.66rem}
+}
+
 .label{
   font-size:.72rem;font-weight:800;letter-spacing:.12em;
   text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;
@@ -1331,6 +1415,34 @@ body.lr-pip .lr-pip-notice{display:block}
     <!-- Shown only while the video is popped out into a floating window. -->
     <div class="lr-pip-notice" id="lrPipNotice">The video is floating in its own window, on top while you switch tabs. Close that window to bring it back here.</div>
 
+    <div class="round-guide" id="roundGuide" aria-live="polite">
+      <div class="round-guide-path" aria-label="Round progress">
+        <div class="rg-step is-current" id="rgSetup">
+          <span class="rg-step-num">1</span>
+          <span class="rg-step-copy"><strong>Setup</strong><small>Shared</small></span>
+        </div>
+        <span class="rg-line" id="rgLineSetup"></span>
+        <div class="rg-step" id="rgRound">
+          <span class="rg-step-num">2</span>
+          <span class="rg-step-copy"><strong>Speeches</strong><small id="rgRoundMeta">Next</small></span>
+        </div>
+        <span class="rg-line" id="rgLineRound"></span>
+        <div class="rg-step" id="rgBallot">
+          <span class="rg-step-num">3</span>
+          <span class="rg-step-copy"><strong>Ballot</strong><small id="rgBallotMeta">Then</small></span>
+        </div>
+      </div>
+      <div class="round-control" id="roundControl" data-mode="shared">
+        <span class="rc-owner" id="rcOwner">BOTH</span>
+        <span class="rc-copy">
+          <span class="rc-kicker" id="rcKicker">Shared setup</span>
+          <strong class="rc-title" id="rcTitle">Either debater can edit.</strong>
+          <span class="rc-detail" id="rcDetail">Motion, context, format, and prep time lock when Speech 1 starts.</span>
+        </span>
+        <span class="rc-state" id="rcState">Both active</span>
+      </div>
+    </div>
+
 
     <!-- ── SETUP ── -->
     <div id="setupView">
@@ -1425,7 +1537,7 @@ body.lr-pip .lr-pip-notice{display:block}
         </div>
       </div>
       <div class="round-edit-bar" id="roundEditBar" hidden>
-        <span class="reb-note">Round setup <small>Locks when Speech 1 starts</small></span>
+        <span class="reb-note">Shared setup <small>Either debater can edit. Locks when Speech 1 starts.</small></span>
         <button type="button" class="reb-edit" id="rebMotionBtn">Edit resolution</button>
         <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 New motion</button>
         <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Add context</button>
@@ -2061,6 +2173,7 @@ body.lr-pip .lr-pip-notice{display:block}
     $('sequencePreview').innerHTML = seq + '<div style="margin-top:8px;color:var(--text-ghost)">Total: ~' + totalMin + ' minutes</div>';
 
     updateStartBtn();
+    updateRoundGuide();
   }
 
   function updateStartBtn(){
@@ -2111,6 +2224,117 @@ body.lr-pip .lr-pip-notice{display:block}
     if (!state.user) return false;
     if (!state.proUid || !state.conUid) return false;
     return state.user.uid !== state.proUid && state.user.uid !== state.conUid;
+  }
+
+  // Keep page progress and control ownership explicit. Every client
+  // already enforces turn ownership; this makes the rule visible before
+  // a user reaches for a disabled control.
+  function updateRoundGuide(){
+    var guide = $('roundGuide');
+    if (!guide) return;
+    var f = FORMATS[state.formatKey] || FORMATS.quick;
+    var rawPhase = state.phase || 'setup';
+    var phase = rawPhase === 'ballot-rendered' ? 'ballot' : rawPhase;
+    var phaseIdx = phase === 'setup' ? 0 : phase === 'round' ? 1 : 2;
+    var ids = ['rgSetup','rgRound','rgBallot'];
+    ids.forEach(function(id, idx){
+      var node = $(id);
+      if (!node) return;
+      node.classList.toggle('is-current', idx === phaseIdx);
+      node.classList.toggle('is-done', idx < phaseIdx);
+    });
+    var lineSetup = $('rgLineSetup'), lineRound = $('rgLineRound');
+    if (lineSetup) lineSetup.classList.toggle('is-done', phaseIdx > 0);
+    if (lineRound) lineRound.classList.toggle('is-done', phaseIdx > 1);
+    var total = f.speeches ? f.speeches.length : 0;
+    var roundMeta = $('rgRoundMeta');
+    var ballotMeta = $('rgBallotMeta');
+    if (roundMeta) roundMeta.textContent =
+      phase === 'setup' ? 'Next'
+      : phase === 'round' ? ((state.speechIdx + 1) + '/' + total)
+      : 'Done';
+    if (ballotMeta) ballotMeta.textContent =
+      rawPhase === 'ballot-rendered' ? 'Ready'
+      : phase === 'ballot' ? 'Judging'
+      : 'Then';
+
+    var control = $('roundControl');
+    var owner = $('rcOwner'), kicker = $('rcKicker'), title = $('rcTitle');
+    var detail = $('rcDetail'), statePill = $('rcState');
+    if (!control || !owner || !kicker || !title || !detail || !statePill) return;
+    var mode = 'shared';
+    var ownerText = 'BOTH';
+    var kickerText = 'Shared setup';
+    var titleText = 'Either debater can edit.';
+    var detailText = 'Motion, context, format, and prep time lock when Speech 1 starts.';
+    var pillText = 'Both active';
+
+    if (phase === 'setup'){
+      if (isSpectator()){
+        mode = 'audience'; ownerText = 'VIEW';
+        kickerText = 'Audience mode';
+        titleText = 'The debaters control setup.';
+        detailText = 'You will follow the same speeches and ballot without camera or mic access.';
+        pillText = 'View only';
+      }
+    } else if (phase === 'round'){
+      var sp = f.speeches && f.speeches[state.speechIdx];
+      var firstSide = sp ? sideBench(f, sp.side) === 'gov' : true;
+      var speakerName = firstSide ? (state.proName || 'First side') : (state.conName || 'Second side');
+      var lastSpeech = state.speechIdx >= total - 1;
+      var nextSp = !lastSpeech && f.speeches ? f.speeches[state.speechIdx + 1] : null;
+      var nextFirst = nextSp ? sideBench(f, nextSp.side) === 'gov' : false;
+      var nextName = nextSp ? (nextFirst ? (state.proName || 'first side') : (state.conName || 'second side')) : '';
+      var ms = mySide();
+      var mine = isMyTurn();
+      if (isSpectator()){
+        mode = 'audience'; ownerText = 'VIEW';
+        kickerText = 'Audience mode';
+        titleText = speakerName + ' controls this speech.';
+        detailText = 'The live clock and transcript sync here. Your camera and mic stay off.';
+        pillText = 'Watching';
+      } else if (ms && mine){
+        mode = 'mine'; ownerText = 'YOU';
+        kickerText = 'Your controls are live';
+        titleText = 'You control this speech.';
+        detailText = lastSpeech
+          ? 'Start, pause, edit, or end it. Ending sends both screens to the AI judge.'
+          : 'Start, pause, edit, or end it. Control passes to ' + nextName + ' when you finish.';
+        pillText = 'Your turn';
+      } else if (ms && !mine){
+        mode = 'theirs'; ownerText = 'THEM';
+        kickerText = 'Control is with ' + speakerName;
+        titleText = speakerName + ' controls this speech.';
+        detailText = lastSpeech
+          ? 'Their clock and transcript sync here. The AI judge takes over when they end it.'
+          : 'Their clock and transcript sync here. Your controls unlock when they end the speech.';
+        pillText = 'Listen + prep';
+      } else {
+        mode = 'shared'; ownerText = firstSide ? 'PRO' : 'CON';
+        kickerText = 'Current speaker';
+        titleText = speakerName + ' controls this speech.';
+        detailText = lastSpeech
+          ? 'Start, pause, and end the clock here. The ballot opens next.'
+          : 'Start, pause, and end the clock here. Control passes with the next speech.';
+        pillText = 'Speaker control';
+      }
+    } else {
+      mode = 'judge'; ownerText = '⚖';
+      kickerText = rawPhase === 'ballot-rendered' ? 'Ballot synced' : 'Round complete';
+      titleText = rawPhase === 'ballot-rendered'
+        ? 'The ballot is ready on both screens.'
+        : 'The AI judge has control.';
+      detailText = rawPhase === 'ballot-rendered'
+        ? 'Read the decision, reasoning, speaker points, and fixes together.'
+        : 'Both screens move here automatically while the judge weighs the transcripts.';
+      pillText = rawPhase === 'ballot-rendered' ? 'Ready' : 'Judging';
+    }
+    control.setAttribute('data-mode', mode);
+    owner.textContent = ownerText;
+    kicker.textContent = kickerText;
+    title.textContent = titleText;
+    detail.textContent = detailText;
+    statePill.textContent = pillText;
   }
 
   function initials(name, fallback){
@@ -2402,22 +2626,22 @@ body.lr-pip .lr-pip-notice{display:block}
     var hint = $('readyHint');
     if (spectator){
       if (ta){ ta.disabled = true; ta.placeholder = 'Spectator view. The transcript appears live as the speakers deliver each speech.'; }
-      if (micBtn) micBtn.disabled = true;
-      if (skipBtn) skipBtn.disabled = true;
-      if (endBtn) endBtn.disabled = true;
+      if (micBtn){ micBtn.disabled = true; micBtn.style.display = 'none'; }
+      if (skipBtn){ skipBtn.disabled = true; skipBtn.style.display = 'none'; }
+      if (endBtn){ endBtn.disabled = true; endBtn.style.display = ''; endBtn.textContent = 'Debaters control the round'; endBtn.className = 'btn btn-control-locked'; }
       var ppBtn = $('playPauseBtn');
-      if (ppBtn){ ppBtn.disabled = true; ppBtn.style.display = 'none'; }
+      if (ppBtn){ ppBtn.disabled = true; ppBtn.style.display = ''; ppBtn.textContent = 'Audience mode'; ppBtn.className = 'btn btn-control-locked'; }
       if (hint) hint.innerHTML = 'You\'re watching <strong>' + escHtml(state.proName || 'Pro') + '</strong> vs <strong>' + escHtml(state.conName || 'Con') + '</strong>. Your camera and mic stay off.';
     } else if (ms && !myTurn){
       if (ta){ ta.disabled = true; ta.placeholder = 'Opponent is speaking. Listen + prep your response.'; }
       if (micBtn){ micBtn.disabled = true; micBtn.style.display = 'none'; }
       if (skipBtn){ skipBtn.disabled = true; skipBtn.style.display = 'none'; }
-      if (endBtn){ endBtn.disabled = true; endBtn.style.display = 'none'; }
-      // Off-side speaker should NOT see the start-speech button — the
-      // active speaker is the only one who can advance the clock.
+      if (endBtn){ endBtn.disabled = true; endBtn.style.display = ''; endBtn.textContent = 'Only ' + speakerName + ' can end'; endBtn.className = 'btn btn-control-locked'; }
+      // Keep a visible locked control instead of hiding the whole row.
+      // The control owner is named here and in the persistent guide.
       var ppOff = $('playPauseBtn');
-      if (ppOff){ ppOff.disabled = true; ppOff.style.display = 'none'; }
-      if (hint) hint.innerHTML = '<strong>' + escHtml(speakerName) + '</strong> is up. Their timer ticks live above. Your turn comes next.';
+      if (ppOff){ ppOff.disabled = true; ppOff.style.display = ''; ppOff.textContent = speakerName + ' has control'; ppOff.className = 'btn btn-control-locked'; }
+      if (hint) hint.innerHTML = '<strong>' + escHtml(speakerName) + ' has control.</strong> Their clock and transcript sync here. Your controls unlock when they end the speech.';
     } else {
       if (ta){ ta.disabled = false; }
       // No-mic browsers (iOS Safari, Firefox): hide mic button entirely
@@ -2446,7 +2670,7 @@ body.lr-pip .lr-pip-notice{display:block}
         micHint.style.fontWeight = noMic ? '700' : '';
       }
       if (skipBtn){ skipBtn.disabled = false; skipBtn.style.display = ''; }
-      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; }
+      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = 'End speech →'; endBtn.className = 'btn btn-end'; }
       var pp = $('playPauseBtn'); if (pp){ pp.disabled = false; pp.style.display = ''; }
       if (hint){
         if (myTurn && ms){
@@ -2475,6 +2699,7 @@ body.lr-pip .lr-pip-notice{display:block}
     // Sync the auto-mic toggle visibility/state — handles the case
     // where renderRound runs before the auto-mic init block.
     if (typeof syncAutoMicToggle === 'function') syncAutoMicToggle();
+    updateRoundGuide();
   }
 
   function scheduleAutoStart(myTurn, ms, spectator){
@@ -2743,6 +2968,21 @@ body.lr-pip .lr-pip-notice{display:block}
   function updatePlayPauseBtn(){
     var btn = $('playPauseBtn');
     if (!btn) return;
+    if (state.phase === 'round' && isSpectator()){
+      btn.textContent = 'Audience mode';
+      btn.className = 'btn btn-control-locked';
+      return;
+    }
+    var ms = state.phase === 'round' ? mySide() : null;
+    if (ms && !isMyTurn()){
+      var f = FORMATS[state.formatKey];
+      var sp = f && f.speeches[state.speechIdx];
+      var firstSide = sp ? sideBench(f, sp.side) === 'gov' : true;
+      var speaker = firstSide ? (state.proName || 'Opponent') : (state.conName || 'Opponent');
+      btn.textContent = speaker + ' has control';
+      btn.className = 'btn btn-control-locked';
+      return;
+    }
     if (state.timerState === 'ready'){
       btn.textContent = '▶ Start speech';
       btn.className = 'btn btn-play';
@@ -3478,6 +3718,7 @@ body.lr-pip .lr-pip-notice{display:block}
 
   function finishRound(){
     state.phase = 'ballot';
+    updateRoundGuide();
     $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
     $('roundView').classList.add('hidden');
     $('ballotView').classList.remove('hidden');
@@ -4333,6 +4574,7 @@ body.lr-pip .lr-pip-notice{display:block}
     // and restarts staged-reveal animations or clobbers a user who
     // is mid-interstitial.
     state.phase = 'ballot-rendered';
+    updateRoundGuide();
     if (!state.ballotRevealMode){
       showBallotInterstitial(b);
       return;
@@ -5786,6 +6028,7 @@ body.lr-pip .lr-pip-notice{display:block}
     // of waiting until the final ballot lands.
     if (d.ballotPending && !d.ballot && state.phase !== 'ballot' && state.phase !== 'ballot-rendered'){
       state.phase = 'ballot';
+      updateRoundGuide();
       $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
       $('roundView').classList.add('hidden');
       $('ballotView').classList.remove('hidden');
@@ -5801,6 +6044,7 @@ body.lr-pip .lr-pip-notice{display:block}
     // Ballot landing, show it on both screens
     if (d.ballot && state.phase !== 'ballot-rendered'){
       state.phase = 'ballot-rendered';
+      updateRoundGuide();
       $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span> Ballot in';
       $('roundView').classList.add('hidden');
       $('ballotView').classList.remove('hidden');
