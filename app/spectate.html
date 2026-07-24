@@ -68,12 +68,6 @@
     .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff;box-shadow:0 14px 32px rgba(29,29,34,.12)}
     .btn.primary:hover{background:#08080b}
     .btn.ghost{color:var(--ink)}
-    .database-preview{display:grid;gap:9px;margin-top:30px}
-    .database-preview div{display:grid;grid-template-columns:30px 1fr;gap:11px;align-items:start}
-    .database-preview p{margin:0}
-    .database-preview span{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--soft);color:var(--red-dark);font-weight:900}
-    .database-preview b{display:block;font-size:1rem;line-height:1.1}
-    .database-preview small{display:block;color:var(--muted);font-size:.86rem;line-height:1.25;margin-top:3px}
     .waiting-card{
       background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:16px;
       box-shadow:0 20px 54px rgba(31,26,23,.07);padding:24px;position:relative;overflow:hidden;
@@ -97,6 +91,24 @@
     .network-copy{position:absolute;inset:auto 16px 14px 16px;display:flex;justify-content:space-between;align-items:center;gap:14px;border-top:1px solid rgba(29,29,34,.08);padding:12px 2px 0}
     .network-copy h2{margin:0;font-size:1.15rem;line-height:1.05}
     .network-copy p{margin:4px 0 0;color:var(--muted);font-size:.84rem;line-height:1.3}
+    .hero-brain{
+      height:260px;margin-top:30px;
+      background:
+        radial-gradient(circle at 50% 36%,rgba(239,68,68,.08),transparent 38%),
+        linear-gradient(180deg,#fbfaf7,#f6f4ef);
+      box-shadow:0 16px 38px rgba(31,26,23,.055);
+    }
+    .hero-brain .brain-map{inset:5px 12px 62px;width:calc(100% - 24px);height:calc(100% - 67px)}
+    .brain-layer{
+      position:absolute;z-index:2;display:inline-flex;align-items:center;gap:6px;
+      border:1px solid rgba(29,29,34,.09);border-radius:999px;background:rgba(255,255,255,.86);
+      padding:6px 9px;color:var(--muted);font-size:.72rem;font-weight:800;
+      box-shadow:0 8px 18px rgba(31,26,23,.045);backdrop-filter:blur(5px);
+    }
+    .brain-layer::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--red);opacity:.72}
+    .brain-layer.identity{left:14px;top:14px}
+    .brain-layer.vault{right:14px;top:20px}
+    .brain-layer.thinking{right:18px;bottom:72px}
     .pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-weight:900;color:var(--muted);white-space:nowrap}
     .panel-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:28px}
     .panel{background:rgba(255,255,255,.84);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 12px 34px rgba(31,26,23,.045)}
@@ -186,7 +198,7 @@
     @media (max-width:900px){
       .wrap{padding-top:68px}
       .hero,.panel-grid,.panel.brain-panel{grid-template-columns:1fr}
-      .network{height:260px}
+      .hero-brain{height:260px}
     }
     @media (max-width:560px){
       .wrap{width:min(100% - 22px,1180px);padding-top:64px}
@@ -211,6 +223,10 @@
       /* The tap is the whole point of this control on a phone, so give
          it a real thumb target rather than the desktop pill height. */
       .od-bar-tap{padding:13px 20px}
+    }
+    @media (prefers-reduced-motion:reduce){
+      .brain-active{transition:none}
+      .brain-pulse{animation:none}
     }
   </style>
 </head>
@@ -243,10 +259,30 @@
           <button class="btn primary" type="button" id="focusProfile">Start my database</button>
           <a class="btn ghost" href="/live">Browse upcoming rounds</a>
         </div>
-        <div class="database-preview" aria-label="What goes in your debate database">
-          <div><span>1</span><p><b>Debate identity</b><small>Formats, circuits, languages, goals, and style.</small></p></div>
-          <div><span>2</span><p><b>Case vault</b><small>Flows, ballots, cases, and notes you want close.</small></p></div>
-          <div><span>3</span><p><b>Thinking map</b><small>Strengths, habits, blind spots, and what to drill next.</small></p></div>
+        <div class="network hero-brain" aria-label="Your debate brain fills as you complete the setup">
+          <svg class="brain-map" viewBox="0 0 600 360" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g>
+              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
+              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
+              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
+            </g>
+            <g class="brain-active" id="brainFill">
+              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
+              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
+              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
+              <circle class="brain-pulse" cx="205" cy="194" r="4"/><circle class="brain-pulse" cx="300" cy="153" r="4"/><circle class="brain-pulse" cx="395" cy="194" r="4"/>
+            </g>
+          </svg>
+          <span class="brain-layer identity">Debate identity</span>
+          <span class="brain-layer vault">Case vault</span>
+          <span class="brain-layer thinking">Thinking map</span>
+          <div class="network-copy">
+            <div>
+              <h2>Your debate brain</h2>
+              <p>Each answer lights another connection.</p>
+            </div>
+            <span class="pill" id="brainPct">0% built</span>
+          </div>
         </div>
       </div>
       <aside class="waiting-card" id="profileBuilder" aria-label="Debate database quick setup">
@@ -406,6 +442,7 @@
       var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
       var progress = document.getElementById('progressBar');
       var pct = document.getElementById('profilePct');
+      var brainPct = document.getElementById('brainPct');
       var brainFill = document.getElementById('brainFill');
       var next = document.getElementById('nextStep');
       var back = document.getElementById('backStep');
@@ -448,6 +485,7 @@
         if (step === 2 && ctx && ctx.value.trim()) width = 100;
         progress.style.width = width + '%';
         pct.textContent = Math.round(width) + '% built';
+        if (brainPct) brainPct.textContent = Math.round(width) + '% built';
         if (brainFill) brainFill.style.clipPath = 'inset(' + (100 - width) + '% 0 0 0)';
         back.style.display = step ? 'inline-flex' : 'none';
         next.textContent = step === total - 1 ? 'Save to my database' : 'Next';
