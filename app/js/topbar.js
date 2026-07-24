@@ -169,7 +169,13 @@
   var LINKS = [
     // 2026-07-09: order follows the product path. Start live, learn the
     // rules, prep the case, judge a round, then schedule and credential.
-    { href: '/spar',          label: 'LIVE', pulse: true },
+    { href: '/spar',          label: 'LIVE', pulse: true, compactKeep: true },
+    // 2026-07-24: first-class orientation tab. This used to live only
+    // inside More, which made the product explanation invisible until a
+    // visitor already knew to open the overflow menu. It stays visible
+    // beside LIVE in the compact tablet rail, then moves into the mobile
+    // sheet with the rest of the primary links on phones.
+    { href: '/how-it-works',  label: 'How it works', compactKeep: true },
     // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
@@ -301,7 +307,6 @@
       { href: '/oral-exam-prep', label: 'Oral exam prep' },
     ]},
     { head: 'Site', links: [
-      { href: '/how-it-works', label: 'How it works' },
       { href: '/pricing', label: 'Free vs Paid' },
       { href: '/schools', label: 'For schools' },
       { href: '/atlas',   label: 'Debate atlas' },
@@ -466,7 +471,10 @@
       // Icon-only controls (SFX/theme/bell/CTA) keep their titles.
       var attrs = {
         href: L.href,
-        class: 'ui-topbar-link' + (active ? ' is-active' : '') + (L.mobileKeep ? ' ui-topbar-link--mobile-keep' : ''),
+        class: 'ui-topbar-link'
+          + (active ? ' is-active' : '')
+          + (L.mobileKeep ? ' ui-topbar-link--mobile-keep' : '')
+          + (L.compactKeep ? ' ui-topbar-link--compact-keep' : ''),
       };
       // External links (YouTube demo, etc.) open in a new tab so the
       // user doesn't lose the page; rel=noopener prevents the popup
