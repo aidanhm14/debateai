@@ -318,7 +318,6 @@
       { href: '/atlas',   label: 'Debate atlas' },
       { href: '/story',   label: 'Story' },
       { href: '/future',  label: 'Vision' },
-      { href: '/investors', label: 'For investors' },
     ]},
   ];
 
