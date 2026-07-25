@@ -6934,11 +6934,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       try { sec = document.querySelector(a.getAttribute('href')); } catch(e){}
       return sec ? { a:a, sec:sec } : null;
     }).filter(Boolean);
-    // A section that is not laid out at all (the "off" arm of the
-    // mode-select A/B sets display:none) gets its rail row hidden too,
+    // A section that is not laid out at all gets its rail row hidden too,
     // so the rail never advertises a destination that does not exist.
+    // Exception: the progressive "See more" gate intentionally hides every
+    // chapter after .landing-more-shell on first load. Those chapters are
+    // deferred, not missing. Keep them in both TOCs now so opening the full
+    // page does not leave a broken two-item "Live / Judged" strip behind.
+    var landingGate = document.querySelector('.landing-more-shell');
+    var gateCollapsed = document.body.classList.contains('landing-more-ready') &&
+      !document.body.classList.contains('landing-more-open');
     items = items.filter(function(it){
       if (it.sec.offsetParent || it.sec.offsetHeight > 0) return true;
+      var deferredByGate = gateCollapsed && landingGate &&
+        ((landingGate.compareDocumentPosition(it.sec) & 4) !== 0);
+      if (deferredByGate) return true;
       var row = it.a.closest ? it.a.closest('li') : it.a.parentNode;
       if (row) row.style.display = 'none';
       return false;
@@ -7063,6 +7072,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     window.addEventListener('scroll', queueRangeUpdate, { passive:true });
     window.addEventListener('resize', queueRangeUpdate, { passive:true });
+    window.addEventListener('landingmorechange', queueRangeUpdate);
     toc.addEventListener('mouseenter', function(){
       hovering = true;
       if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
@@ -7156,6 +7166,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     window.addEventListener('scroll', queueSync, { passive:true });
     window.addEventListener('resize', queueSync, { passive:true });
     window.addEventListener('hashchange', queueSync);
+    window.addEventListener('landingmorechange', queueSync);
     // Images and fonts landing late move every section top, so re-sync
     // once the page has finished settling.
     window.addEventListener('load', queueSync);
@@ -7200,6 +7211,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       }
       window.addEventListener('scroll', queueFill, { passive:true });
       window.addEventListener('resize', queueFill, { passive:true });
+      window.addEventListener('landingmorechange', queueFill);
       queueFill();
     }
   }
@@ -11194,6 +11206,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       document.body.classList.toggle('landing-more-open', open);
       gate.classList.toggle('is-open', open);
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      // The TOC is built while these chapters are still collapsed. Let its
+      // scrollspy, visibility range and progress track recalculate after
+      // the gate changes without coupling the two components directly.
+      try {
+        window.dispatchEvent(new CustomEvent('landingmorechange', {
+          detail: { open: open }
+        }));
+      } catch (_) {}
       if (track) {
         try {
           gtag('event', 'landing_more_toggle', {
