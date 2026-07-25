@@ -15,7 +15,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/judge">
 <meta property="og:title" content="AI Debate Judge · Get a real ballot on any round · Debatable">
-<meta property="og:description" content="Most rounds are scored by lay judges who don't flow. Set your phone on the table, hit listen, and get an objective ballot: who won, why, and speaker points per side. Free in beta.">
+<meta property="og:description" content="Most rounds are scored by lay judges who don't flow. Set your phone on the table, hit listen, and get an objective, format-native ballot with the result, RFD, and speaker points. Free in beta.">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="AI Debate Judge · Get a real ballot on any round">
@@ -392,6 +392,18 @@ textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68
 .opt>summary:hover{color:var(--text-dim)}
 .opt-hint{font-weight:500;letter-spacing:0;text-transform:none;font-size:.76rem}
 .opt-body{padding-top:18px}
+.format-guide{border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.018);padding:12px 14px;margin:-2px 0 18px}
+.format-guide b{display:block;font-size:.78rem;margin-bottom:3px;color:var(--text)}
+.format-guide span{display:block;font-size:.78rem;line-height:1.5;color:var(--text-ghost)}
+.participant-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.participant-grid .field{margin-bottom:0}
+.participant-meta{display:block;font-size:.7rem;font-weight:500;letter-spacing:0;text-transform:none;color:var(--text-ghost);margin-top:2px}
+.setup-section{margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+.setup-section:first-child{margin-top:0;padding-top:0;border-top:0}
+.setup-title{display:block;font-size:.72rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:8px}
+.setup-hint{font-size:.76rem;color:var(--text-ghost);margin:-2px 0 10px}
+.judge-action{margin-top:18px}
+.judge-action[hidden],.opt[hidden],.judge-choice[hidden]{display:none!important}
 
 /* Judge setup. Visible, but collapsed by default so the one-tap listen path
    stays intact for people who do not know or care about paradigms. */
@@ -425,18 +437,22 @@ textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68
 }
 @media(max-width:560px){.judge-choice-grid{grid-template-columns:1fr}}
 
-/* Your-call chips: optional, one tap, never blocks the ballot. */
+/* Your-call chips: optional. Four-team formats use click order so the
+   user can rank the room 1st through 4th without four dropdowns. */
 .call-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
 .call-lbl{font-size:.78rem;color:var(--text-ghost);font-weight:600}
+.call-options{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .call-chip{padding:7px 15px;border-radius:999px;border:1px solid var(--border-strong);font-size:.85rem;font-weight:700;transition:border-color .15s,background .15s,color .15s}
 .call-chip:hover{border-color:var(--accent)}
 .call-chip.on{border-color:var(--accent);background:rgba(239,68,68,.10);color:var(--accent)}
+.call-chip.ranked{box-shadow:0 0 0 2px rgba(239,68,68,.05)}
 
 @media (max-width:560px){
   .listen{flex-direction:column;text-align:center;gap:14px}
   .listen-copy{text-align:center}
   .mic{width:88px;height:88px}
   .mic::after{width:88px;height:88px}
+  .participant-grid{grid-template-columns:1fr}
 }
 /* Compact how-it-works strip under the lede */
 .hiw-strip{list-style:none;display:flex;gap:10px;flex-wrap:wrap;margin:0 0 26px;padding:0;max-width:760px}
@@ -462,8 +478,10 @@ textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68
 }
 .win-banner .tag{font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
 .win-banner .who{font-size:1.5rem;font-weight:900;letter-spacing:0;line-height:1.1}
-.scores{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
-@media (max-width:560px){.scores{grid-template-columns:1fr}}
+.scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:22px}
+.scores.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:900px){.scores.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.scores,.scores.four{grid-template-columns:1fr}}
 .score-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;text-align:center}
 .score-card.winner{border-color:rgba(34,197,94,.45)}
 .score-card .side{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:4px}
@@ -471,6 +489,10 @@ textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68
 .score-card .pts{font-size:2.4rem;font-weight:900;letter-spacing:0;line-height:1;color:var(--accent)}
 .score-card.winner .pts{color:var(--green)}
 .score-card .pts-lbl{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-ghost);margin-top:6px}
+.speaker-lines{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:grid;gap:6px;text-align:left}
+.speaker-line{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:.76rem;color:var(--text-dim)}
+.speaker-line b{font-weight:700;color:var(--text)}
+.speaker-line span:last-child{font-variant-numeric:tabular-nums;font-weight:800;color:var(--accent)}
 
 .rfd-block{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:16px}
 .rfd-block h3{font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
@@ -568,7 +590,7 @@ footer.foot a{color:var(--text-dim)}
 
       <span class="eyebrow"><span class="pip"></span> AI Judge · Free in beta</span>
       <h1>It listens. <em>It judges.</em></h1>
-      <p class="lede">Set your phone on the table and hit listen. It hears both sides, tracks the flow, and hands you a real ballot when the round ends: who won, why, and speaker points per side.</p>
+      <p class="lede">Set your phone on the table and hit listen. It tracks the flow and hands you a format-native ballot when the round ends: the result, the reason, and speaker points.</p>
 
       <ol class="hiw-strip" aria-label="How the judge works">
         <li><span>1</span> Hit listen. Debate the round.</li>
@@ -652,7 +674,7 @@ footer.foot a{color:var(--text-dim)}
         <div class="bars" id="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="live-text" id="liveText" aria-live="polite" aria-label="Live transcript"></div>
         <div class="live-actions">
-          <button id="stopBtn" class="btn-judge" type="button">Stop and judge <span aria-hidden="true">&rarr;</span></button>
+          <button id="stopBtn" class="btn-judge" type="button">Stop and review <span aria-hidden="true">&rarr;</span></button>
           <button id="discardBtn" class="live-cancel" type="button">Discard</button>
         </div>
       </div>
@@ -667,17 +689,6 @@ footer.foot a{color:var(--text-dim)}
           <div class="cap-s" id="capSub"></div>
         </div>
         <button type="button" class="cap-redo" id="redoBtn">Start over</button>
-      </div>
-
-      <div class="call-row" role="group" aria-label="Your own call, optional">
-        <span class="call-lbl">Your call first?</span>
-        <button type="button" class="call-chip" id="vPro" data-side="pro" aria-pressed="false">Pro won</button>
-        <button type="button" class="call-chip" id="vCon" data-side="con" aria-pressed="false">Con won</button>
-        <span class="call-lbl">Optional. Skip it and the ballot still comes.</span>
-      </div>
-
-      <div class="form-foot">
-        <button id="judgeBtn" class="btn-judge" type="button">Judge the round <span aria-hidden="true">&rarr;</span></button>
       </div>
     </div>
 
@@ -699,7 +710,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       </div>
     </div>
 
-    <details class="judge-choice" id="judgeChoice">
+    <details class="judge-choice" id="judgeChoice" hidden>
       <summary>
         <span>
           <span class="judge-choice-title">Choose your judge</span>
@@ -754,50 +765,56 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       </div>
     </details>
 
-    <!-- ── Optional details. Closed by default: the judge infers the
-         motion, the format, and the sides straight off the round. ── -->
-    <details class="opt" id="optBlock">
-      <summary>Round details <span class="opt-hint">optional. It works these out from the round itself.</span></summary>
+    <!-- ── Format-first setup. The selected format controls the teams,
+         speaking order, and the user's optional call. ────────────── -->
+    <details class="opt" id="optBlock" hidden>
+      <summary>Round setup <span class="opt-hint">pick the format first. Everything below adapts to it.</span></summary>
       <div class="opt-body">
         <div class="field">
-          <label for="motion">Motion <span class="hint">only if you want it quoted exactly</span></label>
+          <label for="format">Format</label>
+          <select id="format" class="ctl">
+            <option value="auto" selected>Work it out from the round</option>
+            <option value="pf">Public Forum</option>
+            <option value="ld">Lincoln-Douglas</option>
+            <option value="policy">Policy (CX)</option>
+            <option value="congress">Student Congress</option>
+            <option value="apda">APDA Parliamentary</option>
+            <option value="bp">British Parliamentary</option>
+            <option value="worlds">Worlds (WUDC)</option>
+            <option value="asian">Asian Parliamentary</option>
+            <option value="quick">Quick Clash</option>
+          </select>
+        </div>
+
+        <div id="formatGuide" class="format-guide" aria-live="polite"></div>
+
+        <div class="field">
+          <label for="motion">Motion <span class="hint">optional. Add it if you want it quoted exactly</span></label>
           <input id="motion" class="ctl" type="text" placeholder="THBT social media platforms should be liable for the content their algorithms amplify" autocomplete="off">
         </div>
 
-        <div class="two-col">
-          <div class="field">
-            <label for="format">Format</label>
-            <select id="format" class="ctl">
-              <option value="auto" selected>Work it out from the round</option>
-              <option value="pf">Public Forum</option>
-              <option value="ld">Lincoln-Douglas</option>
-              <option value="policy">Policy (CX)</option>
-              <option value="congress">Student Congress</option>
-              <option value="apda">APDA Parliamentary</option>
-              <option value="bp">British Parliamentary</option>
-              <option value="worlds">Worlds (WUDC)</option>
-              <option value="asian">Asian Parliamentary</option>
-              <option value="quick">Quick Clash</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="proName" id="proLabel">Pro speaker</label>
-            <input id="proName" class="ctl" type="text" placeholder="Side 1 name" autocomplete="off">
-          </div>
+        <div class="setup-section">
+          <span class="setup-title" id="participantTitle">Teams or speakers</span>
+          <div id="participantFields" class="participant-grid"></div>
         </div>
 
-        <div class="two-col">
-          <div class="field">
-            <label for="conName" id="conLabel">Con speaker</label>
-            <input id="conName" class="ctl" type="text" placeholder="Side 2 name" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="verdictWhy">Why you called it that way</label>
-            <input id="verdictWhy" class="ctl" type="text" placeholder="One line (optional)" autocomplete="off">
-          </div>
+        <div class="setup-section">
+          <span class="setup-title" id="callTitle">Your call first</span>
+          <p class="setup-hint" id="callHint">Optional. Skip it and the ballot still comes.</p>
+          <div id="callOptions" class="call-options" role="group" aria-label="Your own call, optional"></div>
+        </div>
+
+        <div class="field setup-section">
+          <label for="verdictWhy">Why you called it that way</label>
+          <input id="verdictWhy" class="ctl" type="text" placeholder="One line (optional)" autocomplete="off">
         </div>
       </div>
     </details>
+
+    <div id="judgeAction" class="form-foot judge-action" hidden>
+      <button id="judgeBtn" class="btn-judge" type="button">Judge the round <span aria-hidden="true">&rarr;</span></button>
+      <span class="form-note">The setup is optional. The judge can infer missing details from the round.</span>
+    </div>
 
     <div id="formError" class="form-error"></div>
   </section>
@@ -826,34 +843,12 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
         <div id="winWho" class="who"></div>
       </div>
     </div>
-    <div class="scores">
-      <div id="scorePro" class="score-card">
-        <div class="side" id="scoreProSide">Pro</div>
-        <div class="name" id="scoreProName"></div>
-        <div class="pts" id="scoreProPts"></div>
-        <div class="pts-lbl">Speaker points</div>
-      </div>
-      <div id="scoreCon" class="score-card">
-        <div class="side" id="scoreConSide">Con</div>
-        <div class="name" id="scoreConName"></div>
-        <div class="pts" id="scoreConPts"></div>
-        <div class="pts-lbl">Speaker points</div>
-      </div>
-    </div>
+    <div id="scoreGrid" class="scores"></div>
     <div class="rfd-block">
       <h3>Reason for decision</h3>
       <p id="rfdText"></p>
     </div>
-    <div class="fb-grid">
-      <div class="fb-block">
-        <h4 id="fbProLabel">Pro feedback</h4>
-        <p id="fbProText"></p>
-      </div>
-      <div class="fb-block">
-        <h4 id="fbConLabel">Con feedback</h4>
-        <p id="fbConText"></p>
-      </div>
-    </div>
+    <div id="feedbackGrid" class="fb-grid"></div>
     <div class="ballot-cta">
       <button class="primary" type="button" id="againBtn">Judge another round</button>
       <a class="ghost" href="/spar" onclick="try{gtag('event','judge_next_click',{to:'spar'})}catch(e){}">Debate a real person</a>
@@ -875,8 +870,8 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       <p>The RFD identifies the two or three key clashes by name, says who won each and why, and flags the arguments that got dropped. Drops decide rounds.</p>
     </div>
     <div class="card">
-      <h3>Speaker points per side</h3>
-      <p>Both speakers get a score on the format's real scale, calibrated honestly. No clustering everyone at 28 to be polite.</p>
+      <h3>Format-native scoring</h3>
+      <p>Every speaker gets a score on the format's real scale. BP and WUDC get the full four-team ranking, not a Government versus Opposition shortcut.</p>
     </div>
     <div class="card">
       <h3>Format-aware</h3>
@@ -885,11 +880,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   </div>
 
   <h2>How it works</h2>
-  <p><strong>One.</strong> Hit listen and set the phone down where it can hear both sides. It transcribes the round as it goes. <strong>Two.</strong> Hit stop when the round ends. It weighs the clashes the way a tournament judge does. <strong>Three.</strong> You get a winner, speaker points per side, a reason-for-decision, and one concrete fix per speaker. You never have to type the motion or pick the format: it works those out from the round. If you would rather not record, you can paste a transcript instead.</p>
+  <p><strong>One.</strong> Hit listen and set the phone down where it can hear the room. It transcribes the round as it goes. <strong>Two.</strong> Hit stop, confirm the format, and add team names if you want them on the ballot. <strong>Three.</strong> You get a winner or full team ranking, speaker points, a reason-for-decision, and concrete feedback. If you would rather not record, you can paste a transcript instead.</p>
 
   <h2>AI debate judge FAQ</h2>
   <div class="faq">
-    <details><summary>Is there an AI that can judge a debate round?</summary><p>Yes. Hit listen and it hears the round through your device's microphone, then returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's adjudication norms, not generic feedback. You can also paste a transcript if you already have one.</p></details>
+    <details><summary>Is there an AI that can judge a debate round?</summary><p>Yes. Hit listen and it hears the round through your device's microphone, then returns a tournament-grade ballot with the result, speaker points, and a reason-for-decision that names the key clashes and walks the weighing. Four-team formats receive a complete 1st-to-4th ranking. You can also paste a transcript if you already have one.</p></details>
     <details><summary>Does this work for Public Forum?</summary><p>Public Forum is the default format and the case this page was built for. PF runs on lay parent judges who don't flow, so an objective ballot that tracks the summary-to-final-focus chain and the first-versus-second-speaker rules is exactly the gap. LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, and a Quick Clash mode are all supported too.</p></details>
     <details><summary>How accurate is the AI ballot?</summary><p>It runs the same adjudication engine as our live rounds: format-pinned judging rules, explicit weighing across magnitude, probability, timeframe, and reversibility, and a speaker-point scale calibrated to use the full range. Treat it as a sharp second opinion, not a replacement for a real tournament panel. It catches drops and weighing gaps that a lay judge misses.</p></details>
     <details><summary>Where should I put the phone?</summary><p>Somewhere it can hear both sides. A table between the two speakers works; so does a laptop at the front of the room. It handles normal debate delivery, including fast speaking, but it cannot judge what it cannot hear, so keep it off the far side of a large room and away from an air vent. It shows you the words as it picks them up, so you can tell within a few seconds whether it is hearing the round.</p></details>
@@ -1009,14 +1004,14 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       "url":"https://itsdebatable.com/judge",
       "applicationCategory":"EducationalApplication",
       "operatingSystem":"Web",
-      "description":"An AI judge that listens to your debate round through your device microphone and returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes. Built for Public Forum and every other competitive format. Free in beta.",
+      "description":"An AI judge that listens to your debate round through your device microphone and returns a tournament-grade, format-native ballot with the result, speaker points, and a reason-for-decision that names the key clashes. Free in beta.",
       "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
-      "featureList":["Listens to a live round and transcribes it","AI judge ballot for any round, recorded or pasted","Works out the motion and format from the round itself","Winner and speaker points per side","Reason-for-decision that names the key clashes","Format-aware adjudication across PF, LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, Quick Clash","Explicit weighing of magnitude, probability, timeframe, reversibility","Per-speaker feedback with one concrete fix"]
+      "featureList":["Listens to a live round and transcribes it","AI judge ballot for any round, recorded or pasted","Works out the motion and format from the round itself","Two-side winner or four-team ranking plus speaker points","Reason-for-decision that names the key clashes","Format-aware adjudication across PF, LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, Quick Clash","Explicit weighing of magnitude, probability, timeframe, reversibility","Per-speaker feedback with one concrete fix"]
     },
     {
       "@type":"FAQPage",
       "mainEntity":[
-        {"@type":"Question","name":"Is there an AI that can judge a debate round?","acceptedAnswer":{"@type":"Answer","text":"Yes. It listens to the round through your device microphone and returns a tournament-grade ballot: winner, speaker points per side, and a reason-for-decision that names the key clashes and walks the weighing. It judges through your format's actual adjudication norms, not generic feedback. You can also paste a transcript."}},
+        {"@type":"Question","name":"Is there an AI that can judge a debate round?","acceptedAnswer":{"@type":"Answer","text":"Yes. It listens to the round through your device microphone and returns a tournament-grade ballot with the result, speaker points, and a reason-for-decision that names the key clashes and walks the weighing. Four-team formats receive a complete 1st-to-4th ranking. You can also paste a transcript."}},
         {"@type":"Question","name":"Does this AI judge work for Public Forum?","acceptedAnswer":{"@type":"Answer","text":"Public Forum is the default format and the case this page was built for. PF runs on lay parent judges who don't flow, so an objective ballot that tracks the summary-to-final-focus chain and the first-versus-second-speaker rules is exactly the gap. LD, Policy, Congress, APDA, BP, Worlds, Asian Parliamentary, and a Quick Clash mode are supported too."}},
         {"@type":"Question","name":"How accurate is the AI ballot?","acceptedAnswer":{"@type":"Answer","text":"It runs the same adjudication engine as our live rounds: format-pinned judging rules, explicit weighing across magnitude, probability, timeframe, and reversibility, and a speaker-point scale calibrated to use the full range. Treat it as a sharp second opinion, not a replacement for a real tournament panel."}},
         {"@type":"Question","name":"Does the AI judge replace a tournament judge?","acceptedAnswer":{"@type":"Answer","text":"No. It gives you an objective ballot when you don't have a flowing judge in the room, and a second read after a round you think you got robbed in. The point is to fill the lay-judge gap, not to stand in for a real panel."}}
@@ -1033,30 +1028,93 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 }
 </script>
 
-<!-- ── Judge logic. Builds the 2-side ballot prompt (mirrors
-     live-round.html buildBallotPrompt + generateBallot), posts to
+<!-- ── Judge logic. Builds a format-native ballot prompt, posts to
      /api/claude with _feature:'live-round' so claude.mjs injects the
      server-side adjudication core, parses the JSON ballot robustly,
      and renders it. ───────────────────────────────────────────── -->
 <script>
 (function(){
-  // 2-side format subset. BP / Worlds are natively 4-team; here we
-  // judge a pasted transcript on the gov/opp bench split, which is the
-  // honest 2-side read for a single pasted round.
   var FORMATS = {
-    pf:       { name:'Public Forum',        sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'} },
-    ld:       { name:'Lincoln-Douglas',     sides:['aff','neg'], sideLabels:{aff:'Affirmative',neg:'Negative'} },
-    policy:   { name:'Policy (CX)',         sides:['aff','neg'], sideLabels:{aff:'Affirmative',neg:'Negative'} },
-    congress: { name:'Student Congress',    sides:['pro','con'], sideLabels:{pro:'Proponent',con:'Opponent'} },
-    apda:     { name:'APDA Parliamentary',  sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'} },
-    bp:       { name:'British Parliamentary',sides:['gov','opp'],sideLabels:{gov:'Government',opp:'Opposition'} },
-    worlds:   { name:'Worlds (WUDC)',       sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'} },
-    asian:    { name:'Asian Parliamentary', sides:['gov','opp'], sideLabels:{gov:'Government',opp:'Opposition'} },
-    quick:    { name:'Quick Clash',         sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'} }
+    auto: {
+      name:'Auto-detect', sides:['pro','con'],
+      sideLabels:{pro:'Side 1',con:'Side 2'},
+      inputLabels:{pro:'Side 1 name',con:'Side 2 name'},
+      meta:{pro:'Add a team or speaker name',con:'Add a team or speaker name'},
+      guide:'The judge will identify the format from speech order, labels, crossfire or POIs, and evidence style.'
+    },
+    pf: {
+      name:'Public Forum', sides:['pro','con'],
+      sideLabels:{pro:'Pro',con:'Con'},
+      inputLabels:{pro:'Pro team',con:'Con team'},
+      meta:{pro:'Speaker 1 + Speaker 2',con:'Speaker 1 + Speaker 2'},
+      guide:'Enter the two teams. The judge follows Constructive, Rebuttal, Summary, and Final Focus.'
+    },
+    ld: {
+      name:'Lincoln-Douglas', sides:['pro','con'],
+      sideLabels:{pro:'Affirmative',con:'Negative'},
+      inputLabels:{pro:'Affirmative debater',con:'Negative debater'},
+      meta:{pro:'Affirmative speeches',con:'Negative speeches'},
+      guide:'Enter the two debaters. Framework comes first, then contention-level offense and the final collapse.'
+    },
+    policy: {
+      name:'Policy (CX)', sides:['pro','con'],
+      sideLabels:{pro:'Affirmative',con:'Negative'},
+      inputLabels:{pro:'Affirmative team',con:'Negative team'},
+      meta:{pro:'1A + 2A',con:'1N + 2N'},
+      guide:'Enter the two teams. The judge flows the full speech order and evaluates the final 2NR and 2AR collapse.'
+    },
+    congress: {
+      name:'Student Congress', sides:['pro','con'],
+      sideLabels:{pro:'Proponent',con:'Opponent'},
+      inputLabels:{pro:'Proponent speaker',con:'Opponent speaker'},
+      meta:{pro:'Primary pro speech',con:'Primary con speech'},
+      guide:'Enter the speakers you want compared. The judge weighs legislation-specific clash, questioning, and crystallization.'
+    },
+    apda: {
+      name:'APDA Parliamentary', sides:['pro','con'],
+      sideLabels:{pro:'Government',con:'Opposition'},
+      inputLabels:{pro:'Government team',con:'Opposition team'},
+      meta:{pro:'PM + MG + PMR',con:'LOC + MO + LOR'},
+      guide:'Enter Government and Opposition. The judge follows PM, LOC, MG, MO, LOR, then PMR.'
+    },
+    bp: {
+      name:'British Parliamentary', fourTeam:true,
+      sides:['og','oo','cg','co'],
+      sideLabels:{og:'Opening Government',oo:'Opening Opposition',cg:'Closing Government',co:'Closing Opposition'},
+      shortLabels:{og:'OG',oo:'OO',cg:'CG',co:'CO'},
+      inputLabels:{og:'Opening Government team',oo:'Opening Opposition team',cg:'Closing Government team',co:'Closing Opposition team'},
+      meta:{og:'Prime Minister + Deputy Prime Minister',oo:'Leader of Opposition + Deputy Leader',cg:'Member of Government + Government Whip',co:'Member of Opposition + Opposition Whip'},
+      speakerRoles:{og:['PM','DPM'],oo:['LO','DLO'],cg:['MG','GW'],co:['MO','OW']},
+      guide:'Four teams, ranked 1st to 4th. Speech order: PM, LO, DPM, DLO, MG, MO, GW, OW.'
+    },
+    worlds: {
+      name:'Worlds (WUDC)', fourTeam:true,
+      sides:['og','oo','cg','co'],
+      sideLabels:{og:'Opening Government',oo:'Opening Opposition',cg:'Closing Government',co:'Closing Opposition'},
+      shortLabels:{og:'OG',oo:'OO',cg:'CG',co:'CO'},
+      inputLabels:{og:'Opening Government team',oo:'Opening Opposition team',cg:'Closing Government team',co:'Closing Opposition team'},
+      meta:{og:'Prime Minister + Deputy Prime Minister',oo:'Leader of Opposition + Deputy Leader',cg:'Member of Government + Government Whip',co:'Member of Opposition + Opposition Whip'},
+      speakerRoles:{og:['PM','DPM'],oo:['LO','DLO'],cg:['MG','GW'],co:['MO','OW']},
+      guide:'Four teams, ranked 1st to 4th under WUDC rules. Speech order: PM, LO, DPM, DLO, MG, MO, GW, OW.'
+    },
+    asian: {
+      name:'Asian Parliamentary', sides:['pro','con'],
+      sideLabels:{pro:'Government',con:'Opposition'},
+      inputLabels:{pro:'Government team',con:'Opposition team'},
+      meta:{pro:'PM + DPM + Government Whip',con:'LO + DLO + Opposition Whip'},
+      guide:'Enter Government and Opposition. The judge separates substantive speeches, whips, and the reply speech.'
+    },
+    quick: {
+      name:'Quick Clash', sides:['pro','con'],
+      sideLabels:{pro:'Pro',con:'Con'},
+      inputLabels:{pro:'Pro speaker or team',con:'Con speaker or team'},
+      meta:{pro:'Supports the motion',con:'Opposes the motion'},
+      guide:'A direct two-side debate. Clear claims, warrants, clash, and comparative weighing decide it.'
+    }
   };
 
-  // Per-format judging instincts. Subset of live-round.html JUDGE_RULES
-  // for the 2-side formats; rides along so the RFD reads format-aware.
+  // Per-format judging instincts. These ride along with the server-side
+  // adjudication core so the RFD reads like the selected circuit.
   var JUDGE_RULES = {
     pf: [
       "- Summary is the pivot. What summary KEPT decides what Final Focus is allowed to argue. Penalize Final Focus that extends a contention the summary dropped.",
@@ -1095,13 +1153,17 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       "- Closing teams must EXTEND with new analytical terrain (new actor, timeframe, impact layer). A new example is not extension.",
       "- Whip speeches are ADJUDICATION, not partner-recap: global weighing structured by issues.",
       "- OG without a clear MODEL (who does what, funded how, enforced how) loses the first burden.",
-      "- Reward teams that paint BOTH counterfactual worlds: motion passes vs motion fails."
+      "- Reward teams that paint BOTH counterfactual worlds: motion passes vs motion fails.",
+      "- Rank all four teams from 1st to 4th. Resolve the five relevant half-calls: OG vs OO, OG vs CG, OO vs CO, CG vs CO, and the strongest cross-bench comparison.",
+      "- SPEAKER POINTS: score every speaker from 50 to 100, with 75 as the average tournament speech. Rank teams on their combined contribution, not just bench victory."
     ],
     worlds: [
       "- Closing teams must extend with new analytical terrain; whip speeches are adjudication, not recap.",
       "- Reward international grounding over US-default examples. The principled-vs-practical split is canonical.",
       "- Weighing vocabulary is reach, magnitude, probability, severity.",
-      "- An OG without a clear model loses the first burden; single-world cases underperform two-world painting."
+      "- An OG without a clear model loses the first burden; single-world cases underperform two-world painting.",
+      "- Rank all four teams from 1st to 4th. Resolve the five relevant half-calls: OG vs OO, OG vs CG, OO vs CO, CG vs CO, and the strongest cross-bench comparison.",
+      "- SPEAKER POINTS: score every speaker from 50 to 100, with 75 as the average tournament speech. Rank teams on their combined contribution, not just bench victory."
     ],
     asian: [
       "- The REPLY speech is mandatory and biased, delivered by PM/DPM or LO/DLO, not the Whip. No new arguments in reply.",
@@ -1153,6 +1215,8 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   }
 
   (function initJudgeChoice(){
+    var setupBlock = $('optBlock');
+    if (setupBlock) setupBlock.insertAdjacentElement('afterend', $('judgeChoice'));
     var params;
     try { params = new URLSearchParams(location.search); } catch(e) { params = { get:function(){ return ''; } }; }
     var savedStyle = '', savedParadigm = '', savedBrain = '';
@@ -1181,25 +1245,118 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     if (params.get('style') || params.get('paradigm') || params.get('brain')) $('judgeChoice').open = true;
   })();
 
-  // Keep the speaker-name labels and placeholders in sync with the
-  // picked format's side labels.
-  // 'auto' means the judge works the format out from the round itself.
-  // Side labels fall back to the generic Pro/Con pair until it does.
-  function fmtOf(key){ return FORMATS[key] || FORMATS.pf; }
+  var teamValues = {};
+  var humanRanking = [];
+  var humanWinner = '';
+  var renderedFormatKey = 'auto';
 
-  function syncLabels(){
-    var f = fmtOf($('format').value);
-    var s0 = f.sideLabels[f.sides[0]], s1 = f.sideLabels[f.sides[1]];
-    $('proLabel').textContent = s0 + ' speaker';
-    $('conLabel').textContent = s1 + ' speaker';
-    $('proName').placeholder = s0 + ' name';
-    $('conName').placeholder = s1 + ' name';
-    var vp = document.getElementById('vPro'), vc = document.getElementById('vCon');
-    if (vp) vp.textContent = s0 + ' won';
-    if (vc) vc.textContent = s1 + ' won';
+  function fmtOf(key){ return FORMATS[key] || FORMATS.auto; }
+  function isFourTeam(format){ return !!(format && format.fourTeam); }
+  function ordinal(n){ return n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th'; }
+
+  function captureTeamValues(){
+    var formatKey = renderedFormatKey;
+    var saved = teamValues[formatKey] || {};
+    $('participantFields').querySelectorAll('input[data-team]').forEach(function(input){
+      saved[input.getAttribute('data-team')] = input.value;
+    });
+    teamValues[formatKey] = saved;
   }
-  $('format').addEventListener('change', syncLabels);
-  syncLabels();
+
+  function getTeamNames(format){
+    var saved = teamValues[$('format').value] || {};
+    $('participantFields').querySelectorAll('input[data-team]').forEach(function(input){
+      saved[input.getAttribute('data-team')] = input.value.trim();
+    });
+    teamValues[$('format').value] = saved;
+    var names = {};
+    format.sides.forEach(function(side){ names[side] = (saved[side] || '').trim(); });
+    return names;
+  }
+
+  function renderParticipantFields(format){
+    var host = $('participantFields');
+    host.textContent = '';
+    var saved = teamValues[$('format').value] || {};
+    $('participantTitle').textContent = isFourTeam(format) ? 'Teams in speaking order' : 'Teams or speakers';
+    format.sides.forEach(function(side){
+      var field = document.createElement('div');
+      field.className = 'field';
+      var label = document.createElement('label');
+      var inputId = 'team-' + side;
+      label.setAttribute('for', inputId);
+      label.textContent = format.inputLabels[side];
+      var meta = document.createElement('span');
+      meta.className = 'participant-meta';
+      meta.textContent = format.meta[side];
+      label.appendChild(meta);
+      var input = document.createElement('input');
+      input.id = inputId;
+      input.className = 'ctl';
+      input.type = 'text';
+      input.autocomplete = 'off';
+      input.placeholder = format.sideLabels[side] + ' name';
+      input.setAttribute('data-team', side);
+      input.value = saved[side] || '';
+      input.addEventListener('input', function(){
+        var values = teamValues[$('format').value] || {};
+        values[side] = input.value;
+        teamValues[$('format').value] = values;
+      });
+      field.appendChild(label);
+      field.appendChild(input);
+      host.appendChild(field);
+    });
+  }
+
+  function renderCallOptions(format){
+    var host = $('callOptions');
+    host.textContent = '';
+    $('callTitle').textContent = isFourTeam(format) ? 'Your ranking first' : 'Your call first';
+    $('callHint').textContent = isFourTeam(format)
+      ? 'Optional. Tap teams in your predicted 1st-to-4th order. Tap a selected team to remove it.'
+      : 'Optional. Skip it and the ballot still comes.';
+    format.sides.forEach(function(side){
+      var rank = humanRanking.indexOf(side);
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'call-chip' + (rank >= 0 ? ' on' : '') + (isFourTeam(format) && rank >= 0 ? ' ranked' : '');
+      button.setAttribute('data-side', side);
+      button.setAttribute('aria-pressed', rank >= 0 ? 'true' : 'false');
+      button.textContent = isFourTeam(format)
+        ? (rank >= 0 ? ordinal(rank + 1) + ' · ' : '') + format.sideLabels[side]
+        : format.sideLabels[side] + ' won';
+      button.addEventListener('click', function(){ pickVerdict(side); });
+      host.appendChild(button);
+    });
+  }
+
+  function syncFormatUI(resetCall){
+    var format = fmtOf($('format').value);
+    if (resetCall){
+      humanRanking = [];
+      humanWinner = '';
+    }
+    $('formatGuide').textContent = '';
+    var title = document.createElement('b');
+    title.textContent = isFourTeam(format) ? 'Four-team ballot' : 'Format guide';
+    var copy = document.createElement('span');
+    copy.textContent = format.guide;
+    $('formatGuide').appendChild(title);
+    $('formatGuide').appendChild(copy);
+    renderParticipantFields(format);
+    renderCallOptions(format);
+    $('transcript').placeholder = isFourTeam(format)
+      ? 'Paste the full round here. Label speeches if you can: PM, LO, DPM, DLO, MG, MO, GW, OW.\n\nOr upload a .txt, .md, or .docx file, or drag one onto this box.'
+      : "Paste both sides' speeches here. Label them by speech if you can.\n\nOr upload a .txt, .md, or .docx file, or drag one onto this box.";
+    renderedFormatKey = $('format').value;
+  }
+
+  $('format').addEventListener('change', function(){
+    captureTeamValues();
+    syncFormatUI(true);
+  });
+  syncFormatUI(false);
 
   function showError(msg){
     var e = $('formError');
@@ -1208,13 +1365,20 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   }
   function clearError(){ $('formError').style.display = 'none'; }
 
-  // ── Build the 2-side ballot prompt. Mirrors live-round.html
-  //    buildBallotPrompt (2-side branch). ─────────────────────────
-  function buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, isVoice, styleKey, paradigmKey, customParadigm){
-    var auto = (formatKey === 'auto' || !FORMATS[formatKey]);
+  // ── Format-native ballot prompt. BP and WUDC stay four-team from
+  //    setup through the final ranking and speaker points. ─────────
+  function buildPrompt(motion, formatKey, teamNames, transcript, userRanking, humanReason, isVoice, styleKey, paradigmKey, customParadigm){
+    var auto = formatKey === 'auto';
     var f = fmtOf(formatKey);
-    var humanSideLabel = humanWinner === 'pro' ? f.sideLabels[f.sides[0]]
-                       : humanWinner === 'con' ? f.sideLabels[f.sides[1]] : '';
+    var four = isFourTeam(f);
+    var humanCall = userRanking.length
+      ? userRanking.map(function(side, i){ return ordinal(i + 1) + ' ' + f.sideLabels[side]; }).join(', ')
+      : '';
+    var formatRules = auto ? [
+      "- The debaters did NOT state their format. Identify it from speech order, speech labels, crossfire or POIs, and evidence style.",
+      "- Apply that format's real conventions. If it is genuinely unnamed, judge it as a general two-side debate on the flow.",
+      "- Use a 0-30 speaker point scale unless the identified format uses a different one."
+    ] : ["- " + f.name + " conventions apply."].concat(JUDGE_RULES[formatKey] || []);
     var style = JUDGE_OPTIONS.styles[validChoice('styles', styleKey, 'auto')] || JUDGE_OPTIONS.styles.auto;
     var paradigm = JUDGE_OPTIONS.paradigms[validChoice('paradigms', paradigmKey, 'auto')] || JUDGE_OPTIONS.paradigms.auto;
     var lensLines = [
@@ -1233,78 +1397,80 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
         "END CUSTOM JUDGE PREFERENCES"
       ]);
     }
-    var system = [
-      auto
-        ? "You are a tournament-grade debate judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round."
-        : "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round.",
-      "",
-      "JUDGING APPROACH:",
-      "- Treat this like a real RFD at a championship round: identify the 2-3 KEY CLASHES by name (not just topics, name the specific arguments).",
-      "- For each clash, walk through how it played out: who initiated it, who responded, how the response landed, who collapsed it.",
-      "- Name DROPPED arguments, anything one side put forward that the other didn't engage with. Drops decide rounds.",
-      "- Do explicit WEIGHING: magnitude vs probability vs timeframe vs reversibility. Tell the debaters which argument outweighed which and why.",
-      "- The deciding issue should be a single sentence ('The round comes down to X because...') and the rest of the RFD justifies it.",
-      "- Quote-style references are great. Cite specific phrases or claims from the transcript so debaters can find the exact moment.",
-    ].concat(lensLines).concat([
-      "",
-      "FORMAT RULES, judge through this lens:",
-    ]).concat(auto ? [
-      // Nobody picked a format. Rather than force a wrong lens onto the
-      // round, have the judge name the format off the speech structure
-      // and apply that circuit's real adjudication norms itself.
-      "- The debaters did NOT state their format. Work it out from the round: speech order, speech names, speech lengths, whether there is cross-examination or crossfire, whether cards are read, whether points of information are taken.",
-      "- Then judge by THAT format's real conventions. Public Forum: summary-to-final-focus chain, first vs second speaker burdens. LD: framework debate, value and criterion. Policy: the flow, offense/defense, cards and their qualifications. Parliamentary (APDA/BP/Worlds/Asian): no tagged citations, POIs, extensions and whip structure. Congress: legislation-specific clash and precedence.",
-      "- If the round genuinely does not match a named format, judge it as a general two-side debate on the flow and say so in one clause of the RFD.",
-      "- Use a 0-30 speaker point scale unless the format you identify uses a different one, in which case use that one.",
-    ] : ["- " + f.name + " conventions apply."].concat(JUDGE_RULES[formatKey] || [])).concat([
-      "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
-      "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
-      "- Speaker points: use the FULL RANGE including the low end. Most AI judges inflate to 28+. Default to the middle of the format's scale. If a speaker dropped a contention, had no real weighing, or never warranted a key claim, score them at or below average. If one debater clearly outclassed the other, separate them by a meaningful margin, not half a point.",
-      "- If the transcript is thin or a side ran no real arguments, say so plainly and score accordingly. Do not invent arguments that are not in the transcript.",
-      "",
-      "OUTPUT, return ONLY a single JSON object with NO prose before or after. Schema:",
+    var schema = four ? [
+      "{",
+      '  "winner": "og" | "oo" | "cg" | "co",',
+      '  "ranking": [',
+      '    {"team":"og","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"PM","name":"<speaker name>","points":<50-100>},{"role":"DPM","name":"<speaker name>","points":<50-100>}],"feedback":"<5-8 sentences in 2 short paragraphs. Bold exactly 3 short phrases: the strength, the fix, and the habit to carry forward.>"},',
+      '    {"team":"oo","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"LO","name":"<speaker name>","points":<50-100>},{"role":"DLO","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"},',
+      '    {"team":"cg","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"MG","name":"<speaker name>","points":<50-100>},{"role":"GW","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"},',
+      '    {"team":"co","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"MO","name":"<speaker name>","points":<50-100>},{"role":"OW","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"}',
+      "  ],",
+      '  "rfd": "<12-18 sentence RFD in 4-5 short paragraphs separated by \\n\\n. State the decisive comparison, resolve the five relevant half-calls, explain the closing extensions and whip weighing, name drops, then justify the complete 1st-to-4th ranking. Bold 6-10 short, load-bearing phrases.>",',
+      '  "divergence": "<3-5 sentences comparing the human ranking with yours, or naming the moment the ranking turned if no human call was given. Bold the one decisive phrase.>"',
+      "}"
+    ] : [
       "{",
       '  "winner": "pro" | "con",',
       '  "proName": "<name>",',
       '  "conName": "<name>",',
       '  "proPoints": <number>,',
       '  "conPoints": <number>,',
-      '  "rfd": "<8-14 sentence RFD in 3-4 short paragraphs separated by \\n\\n. Open with the deciding issue in one sentence. Then walk through the 2-3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it. Use **bold** around 5-8 short, load-bearing phrases: the deciding clash, the decisive drop, the comparison that wins, and the concrete fix. Never bold a full sentence or more than 8 words at once.>",',
-      '  "proFeedback": "<5-8 sentences in 2 short paragraphs for the ' + f.sideLabels[f.sides[0]] + ' speaker: one specific strategic strength, one technical fix with a concrete example from their speech, one big-picture observation about their approach to this format. Use **bold** around exactly 3 short phrases: the strength, the fix, and the habit to carry forward.>",',
-      '  "conFeedback": "<5-8 sentences in 2 short paragraphs for the ' + f.sideLabels[f.sides[1]] + ' speaker: same structure and the same 3 short bold phrases as proFeedback.>",',
-      humanSideLabel
-        ? '  "divergence": "<3-5 sentences written directly TO the person who judged this round before seeing your ballot. They called it for ' + humanSideLabel + '. If your verdict DISAGREES with theirs, name what a lay judge most often over-weights (delivery, confidence, who spoke last, a vivid example) and the specific argument or piece of weighing they needed to flow to land where you did. If you AGREE with them, name the single clash that should have sealed it and one thing to watch next time. Use **bold** around the one decisive phrase. Coaching tone, plain language, gloss any jargon.>"'
-        : '  "divergence": "<3-5 sentences on the single moment the round turned, written to both debaters. Name the clash that decided it and the one thing the losing side needed to say. Use **bold** around the one decisive phrase. Coaching tone, plain language, gloss any jargon.>"',
-      "}",
+      '  "rfd": "<8-14 sentence RFD in 3-4 short paragraphs separated by \\n\\n. Open with the deciding issue, walk through the key clashes, name drops, do explicit weighing, and close with what the losing side needed to win. Bold 5-8 short, load-bearing phrases.>",',
+      '  "proFeedback": "<5-8 sentences in 2 short paragraphs with one strategic strength, one technical fix tied to the transcript, and one big-picture format observation. Bold exactly 3 short phrases: the strength, the fix, and the habit to carry forward.>",',
+      '  "conFeedback": "<5-8 sentences in 2 short paragraphs with the same structure and bolding as proFeedback.>",',
+      '  "divergence": "<3-5 sentences comparing the human call with yours, or naming the moment the round turned if no human call was given. Bold the one decisive phrase.>"',
+      "}"
+    ];
+    var system = [
+      auto
+        ? "You are a tournament-grade debate judge deciding a completed human round. Be honest, specific, rigorous, and deep."
+        : "You are a tournament-grade " + f.name + " judge deciding a completed human round. Be honest, specific, rigorous, and deep.",
       "",
-      "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
-      "Be specific to what was said. Do not be sycophantic. Call out drops, missed weighing, and weak warrants.",
-      "Do not use em dashes. Use periods, commas, or colons.",
-      // The listen path produces a machine transcript of a live room, so
-      // it is lossy in ways a pasted one is not. The judge has to read
-      // through the noise instead of punishing debaters for it.
+      "JUDGING APPROACH:",
+      "- Treat this like a championship RFD. Identify the 2-3 key clashes by name and track how each developed.",
+      "- Name dropped arguments. Do explicit comparative weighing across magnitude, probability, timeframe, and reversibility.",
+      "- Cite specific claims from the transcript. Do not invent arguments or speakers.",
+      "- Reward clash, warranted analysis, strategic choices, and a clear ballot story.",
+      "- Penalize unweighed contradictions, abandoned offense, unsupported claims, and missing engagement.",
+      "- If the transcript is thin or unclear, say so and score accordingly."
+    ].concat(lensLines).concat([
+      "",
+      "FORMAT RULES:"
+    ]).concat(formatRules).concat([
+      "",
+      "OUTPUT: return ONLY one JSON object with no prose before or after.",
+      four
+        ? "Rank all four teams. The ranking array must contain og, oo, cg, and co exactly once, with unique ranks 1 through 4. winner must match rank 1. Give both speakers on every team a 50-100 score."
+        : "'pro' means " + f.sideLabels.pro + ". 'con' means " + f.sideLabels.con + ". Use the selected format's real speaker-point scale.",
+    ]).concat(schema).concat([
+      "",
+      "Map team and speaker names exactly when they are available. Be specific to what was said. Do not be sycophantic.",
+      "Never bold a full sentence or more than 8 words at once. Do not use em dashes. Use periods, commas, or colons.",
       isVoice
-        ? "\nTHIS TRANSCRIPT CAME FROM A MICROPHONE IN THE ROOM, not from the debaters typing it out. Expect speech-to-text noise: misheard proper nouns, missing punctuation, dropped words, crosstalk, and no speaker labels. Work out who is speaking from the content and the speech order. Judge the ARGUMENTS, never the transcription. Do NOT mark a side down for garbled text, and do not treat a transcription artifact as a dropped argument. If a passage is too garbled to judge, say so plainly in the RFD rather than guessing at what it said."
+        ? "THIS TRANSCRIPT CAME FROM A MICROPHONE IN THE ROOM. Expect speech-to-text noise, missing punctuation, crosstalk, and imperfect speaker labels. Judge the arguments, never the transcription. Do not treat a transcription artifact as a dropped argument."
         : ""
     ]).join('\n');
 
-    var user = (motion ? "MOTION: " + motion : "MOTION: not stated. Work it out from the round and quote it in the RFD as you understood it.")
+    var teamLines = f.sides.map(function(side){
+      return f.sideLabels[side].toUpperCase() + ': ' + (teamNames[side] || '(unnamed)');
+    }).join('\n');
+    var user = (motion ? "MOTION: " + motion : "MOTION: not stated. Work it out from the round and quote it as you understood it.")
       + "\n\nFORMAT: " + (auto ? "not stated. Identify it from the speech structure." : f.name)
-      + "\n\n" + f.sideLabels[f.sides[0]].toUpperCase() + " SPEAKER: " + (proName || '(unnamed)')
-      + "\n" + f.sideLabels[f.sides[1]].toUpperCase() + " SPEAKER: " + (conName || '(unnamed)')
+      + "\n\nTEAMS OR SPEAKERS:\n" + teamLines
       + "\n\nFULL ROUND TRANSCRIPT" + (isVoice ? " (auto-transcribed from room audio)" : "") + ":\n\n" + transcript
-      + "\n\nThe human who judged this round BEFORE seeing your ballot called it for: "
-        + (humanSideLabel ? humanSideLabel + (humanReason ? ' ("' + humanReason + '")' : '') : 'not stated')
-        + ". Reach your OWN independent verdict first, then fill the 'divergence' field."
+      + "\n\nThe human's call before seeing your ballot: " + (humanCall || 'not stated')
+      + (humanReason ? '\nTheir reason: "' + humanReason + '"' : '')
+      + ". Reach your own independent verdict first, then fill divergence."
+      + (four ? "\nDo not collapse this into Government versus Opposition. Return a complete four-team ranking." : "")
       + "\n\nReturn the JSON ballot now.";
 
     return { system: system, user: user };
   }
 
-  // ── Robust ballot parse. Mirrors live-round.html parseBallot:
-  //    unwrap a Claude content wrapper if present, then find the
-  //    outermost {...} and validate the 2-side shape. ──────────────
-  function parseBallot(raw){
+  // ── Robust ballot parse. Unwrap a Claude content wrapper, find the
+  //    outermost JSON object, then validate the selected format. ────
+  function parseBallot(raw, formatKey){
     if (!raw) return null;
     var s = String(raw).replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
     if (!s) return null;
@@ -1323,6 +1489,43 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     if (first < 0 || last <= first) return null;
     try {
       var obj = JSON.parse(inner.slice(first, last + 1));
+      var format = fmtOf(formatKey);
+      if (isFourTeam(format)){
+        if (!Array.isArray(obj.ranking) || obj.ranking.length !== 4) return null;
+        var aliases = {
+          og:'og', openinggovernment:'og',
+          oo:'oo', openingopposition:'oo',
+          cg:'cg', closinggovernment:'cg',
+          co:'co', closingopposition:'co'
+        };
+        var seenTeams = {}, seenRanks = {};
+        obj.ranking = obj.ranking.map(function(item){
+          item = item || {};
+          var rawTeam = String(item.team || item.position || '').toLowerCase().replace(/[^a-z]/g,'');
+          var team = aliases[rawTeam] || '';
+          var rank = Number(item.rank);
+          if (!team || rank < 1 || rank > 4 || seenTeams[team] || seenRanks[rank]) return null;
+          seenTeams[team] = true;
+          seenRanks[rank] = true;
+          return {
+            team: team,
+            rank: rank,
+            name: String(item.name || ''),
+            speakers: Array.isArray(item.speakers) ? item.speakers.map(function(speaker){
+              return {
+                role: String((speaker && speaker.role) || ''),
+                name: String((speaker && speaker.name) || ''),
+                points: speaker && speaker.points != null ? speaker.points : '--'
+              };
+            }) : [],
+            feedback: String(item.feedback || '')
+          };
+        });
+        if (obj.ranking.some(function(item){ return !item; })) return null;
+        obj.ranking.sort(function(a,b){ return a.rank - b.rank; });
+        obj.winner = obj.ranking[0].team;
+        return obj;
+      }
       obj.winner = String(obj.winner || '').toLowerCase();
       if (obj.winner !== 'pro' && obj.winner !== 'con') return null;
       return obj;
@@ -1394,10 +1597,12 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     return String(message || (brainName + ' could not judge this round (' + status + '). Try again in a moment.'));
   }
 
-  function esc(str){
-    var d = document.createElement('div');
-    d.textContent = str == null ? '' : String(str);
-    return d.innerHTML;
+  function addText(parent, className, text){
+    var node = document.createElement('div');
+    node.className = className;
+    node.textContent = text == null ? '' : String(text);
+    parent.appendChild(node);
+    return node;
   }
 
   // Render only the small **bold** vocabulary requested in the ballot
@@ -1423,60 +1628,149 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     });
   }
 
-  function renderBallot(b, formatKey, humanWinner){
-    var f = FORMATS[formatKey] || FORMATS.pf;
-    var s0 = f.sideLabels[f.sides[0]], s1 = f.sideLabels[f.sides[1]];
-    var proWon = b.winner === 'pro';
-    var winnerName = proWon ? (b.proName || s0) : (b.conName || s1);
-    var winnerSide = proWon ? s0 : s1;
+  function addFeedback(title, copy){
+    var block = document.createElement('div');
+    block.className = 'fb-block';
+    var heading = document.createElement('h4');
+    heading.textContent = title;
+    var text = document.createElement('p');
+    renderBallotText(text, copy || '');
+    block.appendChild(heading);
+    block.appendChild(text);
+    $('feedbackGrid').appendChild(block);
+  }
+
+  function renderBallot(b, formatKey, userRanking){
+    var f = fmtOf(formatKey);
+    var four = isFourTeam(f);
     var style = JUDGE_OPTIONS.styles[lastJudgeChoice.style] || JUDGE_OPTIONS.styles.auto;
     var paradigm = JUDGE_OPTIONS.paradigms[lastJudgeChoice.paradigm] || JUDGE_OPTIONS.paradigms.auto;
     var brain = JUDGE_OPTIONS.brains[lastJudgeChoice.brain] || JUDGE_OPTIONS.brains.claude;
-    $('ballotMeta').textContent = 'Ballot · ' + brain.name + ' · ' + style.name + ' · ' + paradigm.name;
+    var ballotContext = brain.name + ' · ' + style.name + ' · ' + paradigm.name;
+    var scoreGrid = $('scoreGrid');
+    scoreGrid.textContent = '';
+    scoreGrid.classList.toggle('four', four);
+    $('feedbackGrid').textContent = '';
 
-    // Dual adjudication: you vs the AI judge.
-    if (humanWinner){
-      $('vsYou').textContent = humanWinner === 'pro' ? s0 : s1;
-      $('vsAi').textContent = winnerSide;
-      var agree = humanWinner === b.winner;
-      var vd = $('vsVerdict');
-      vd.textContent = agree ? 'You agreed' : 'Split decision';
-      vd.className = 'vs-verdict ' + (agree ? 'agree' : 'split');
-      renderBallotText($('vsCoach'), b.divergence || '');
-      $('vsBlock').style.display = 'block';
+    if (four){
+      var aiRanking = b.ranking.map(function(item){ return item.team; });
+      var winner = b.ranking[0];
+      $('ballotMeta').textContent = 'Ballot · 1st place · ' + ballotContext;
+      $('winWho').textContent = (winner.name || f.sideLabels[winner.team]) + ' takes 1st (' + f.sideLabels[winner.team] + ')';
+
+      b.ranking.forEach(function(item){
+        var card = document.createElement('div');
+        card.className = 'score-card' + (item.rank === 1 ? ' winner' : '');
+        addText(card, 'side', ordinal(item.rank) + ' · ' + f.shortLabels[item.team]);
+        addText(card, 'name', item.name || f.sideLabels[item.team]);
+        addText(card, 'pts', ordinal(item.rank));
+        addText(card, 'pts-lbl', 'Team ranking');
+        var speakers = document.createElement('div');
+        speakers.className = 'speaker-lines';
+        var expected = f.speakerRoles[item.team] || [];
+        var entries = item.speakers.length ? item.speakers : expected.map(function(role){
+          return { role:role, name:'', points:'--' };
+        });
+        entries.forEach(function(speaker){
+          var row = document.createElement('div');
+          row.className = 'speaker-line';
+          var who = document.createElement('b');
+          who.textContent = (speaker.role || 'Speaker') + (speaker.name ? ' · ' + speaker.name : '');
+          var points = document.createElement('span');
+          points.textContent = speaker.points == null ? '--' : speaker.points;
+          row.appendChild(who);
+          row.appendChild(points);
+          speakers.appendChild(row);
+        });
+        card.appendChild(speakers);
+        scoreGrid.appendChild(card);
+        addFeedback(ordinal(item.rank) + ' · ' + f.sideLabels[item.team] + ' feedback', item.feedback);
+      });
+
+      if (userRanking.length){
+        var userText = userRanking.map(function(side){ return f.shortLabels[side]; }).join(' › ');
+        var aiText = aiRanking.map(function(side){ return f.shortLabels[side]; }).join(' › ');
+        $('vsYou').textContent = userText;
+        $('vsAi').textContent = aiText;
+        var exact = userRanking.length === 4 && userRanking.every(function(side, index){ return side === aiRanking[index]; });
+        var sameWinner = userRanking[0] === aiRanking[0];
+        var verdict = exact ? 'You agreed' : sameWinner ? 'Same winner' : 'Split decision';
+        var vdFour = $('vsVerdict');
+        vdFour.textContent = verdict;
+        vdFour.className = 'vs-verdict ' + (sameWinner ? 'agree' : 'split');
+        renderBallotText($('vsCoach'), b.divergence || '');
+        $('vsBlock').style.display = 'block';
+      } else {
+        $('vsBlock').style.display = 'none';
+      }
     } else {
-      $('vsBlock').style.display = 'none';
+      var s0 = f.sideLabels.pro, s1 = f.sideLabels.con;
+      var proWon = b.winner === 'pro';
+      var winnerName = proWon ? (b.proName || s0) : (b.conName || s1);
+      var winnerSide = proWon ? s0 : s1;
+      $('ballotMeta').textContent = 'Ballot · Winner · ' + ballotContext;
+      $('winWho').textContent = winnerName + ' wins (' + winnerSide + ')';
+
+      [
+        {side:'pro',label:s0,name:b.proName,points:b.proPoints,feedback:b.proFeedback},
+        {side:'con',label:s1,name:b.conName,points:b.conPoints,feedback:b.conFeedback}
+      ].forEach(function(item){
+        var card = document.createElement('div');
+        card.className = 'score-card' + (b.winner === item.side ? ' winner' : '');
+        addText(card, 'side', item.label);
+        addText(card, 'name', item.name || item.label);
+        addText(card, 'pts', item.points != null ? item.points : '--');
+        addText(card, 'pts-lbl', 'Speaker points');
+        scoreGrid.appendChild(card);
+        addFeedback(item.label + ' feedback', item.feedback);
+      });
+
+      if (userRanking.length){
+        $('vsYou').textContent = f.sideLabels[userRanking[0]];
+        $('vsAi').textContent = winnerSide;
+        var agree = userRanking[0] === b.winner;
+        var vd = $('vsVerdict');
+        vd.textContent = agree ? 'You agreed' : 'Split decision';
+        vd.className = 'vs-verdict ' + (agree ? 'agree' : 'split');
+        renderBallotText($('vsCoach'), b.divergence || '');
+        $('vsBlock').style.display = 'block';
+      } else {
+        $('vsBlock').style.display = 'none';
+      }
     }
 
-    $('winWho').textContent = winnerName + ' wins (' + winnerSide + ')';
-
-    $('scoreProSide').textContent = s0;
-    $('scoreConSide').textContent = s1;
-    $('scoreProName').textContent = b.proName || s0;
-    $('scoreConName').textContent = b.conName || s1;
-    $('scoreProPts').textContent = (b.proPoints != null ? b.proPoints : '--');
-    $('scoreConPts').textContent = (b.conPoints != null ? b.conPoints : '--');
-    $('scorePro').classList.toggle('winner', proWon);
-    $('scoreCon').classList.toggle('winner', !proWon);
-
     renderBallotText($('rfdText'), b.rfd || '');
-    $('fbProLabel').textContent = s0 + ' feedback';
-    $('fbConLabel').textContent = s1 + ' feedback';
-    renderBallotText($('fbProText'), b.proFeedback || '');
-    renderBallotText($('fbConText'), b.conFeedback || '');
-
     $('loading').style.display = 'none';
     $('ballot').style.display = 'block';
     $('ballot').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function looksLikeBP(transcript){
+    var text = String(transcript || '').toLowerCase();
+    var fullPositions = [
+      'opening government','opening opposition','closing government','closing opposition'
+    ].filter(function(label){ return text.indexOf(label) >= 0; }).length;
+    if (fullPositions === 4) return true;
+    var roles = ['pm','lo','dpm','dlo','mg','mo','gw','ow'];
+    var roleCount = roles.filter(function(role){
+      return new RegExp('(?:^|\\n)\\s*' + role + '\\s*[:\\-]').test(text);
+    }).length;
+    return roleCount >= 6;
+  }
+
+  function detectFormatFromTranscript(transcript){
+    if ($('format').value !== 'auto' || !looksLikeBP(transcript)) return;
+    captureTeamValues();
+    $('format').value = 'bp';
+    syncFormatUI(true);
+    var guideTitle = $('formatGuide').querySelector('b');
+    if (guideTitle) guideTitle.textContent = 'British Parliamentary detected';
   }
 
   function judge(){
     if (busy) return;
     clearError();
     var motion = $('motion').value.trim();
-    var formatKey = $('format').value;
-    var proName = $('proName').value.trim();
-    var conName = $('conName').value.trim();
     var transcript = ($('transcript').value || '').trim();
 
     // Motion, format, names, and the human's own call are all optional
@@ -1492,6 +1786,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       showError('That is too little of the round to judge fairly. Record more, or paste the full transcript.');
       return;
     }
+    detectFormatFromTranscript(transcript);
+    var formatKey = $('format').value;
+    var format = fmtOf(formatKey);
+    var teamNames = getTeamNames(format);
+    var submittedRanking = humanRanking.slice();
     var humanReason = $('verdictWhy').value.trim();
     var styleKey = validChoice('styles', activeJudgeStyle, 'auto');
     var paradigmKey = validChoice('paradigms', $('judgeParadigm').value, 'auto');
@@ -1510,7 +1809,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('loading').scrollIntoView({ behavior:'smooth', block:'center' });
     try { gtag('event', 'judge_round_submit', { format: formatKey, source: usedVoice ? 'listen' : 'paste', judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
 
-    var p = buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, usedVoice, styleKey, paradigmKey, customParadigm);
+    var p = buildPrompt(motion, formatKey, teamNames, transcript, submittedRanking, humanReason, usedVoice, styleKey, paradigmKey, customParadigm);
 
     brainHeaders(brainKey).then(function(headers){
       return fetch(brain.endpoint, {
@@ -1534,9 +1833,9 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
         return extractModelResponse(raw);
       });
     }).then(function(raw){
-      var parsed = parseBallot(raw);
+      var parsed = parseBallot(raw, formatKey);
       if (!parsed) throw new Error('The ballot came back in a shape we could not read. Try again, or trim the transcript if it is very long.');
-      renderBallot(parsed, formatKey, humanWinner);
+      renderBallot(parsed, formatKey, submittedRanking);
       try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner, judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
     }).catch(function(err){
       $('loading').style.display = 'none';
@@ -1547,19 +1846,20 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     });
   }
 
-  // Dual adjudication: capture the human's call before revealing the AI's.
-  // Optional now — it used to hard-block the ballot, which is exactly the
-  // read-the-whole-form friction this page was built to avoid.
-  var humanWinner = '';
+  // Dual adjudication. Two-side formats capture a winner. Four-team
+  // formats capture click order, which becomes the predicted ranking.
   function pickVerdict(side){
-    humanWinner = (humanWinner === side) ? '' : side; // tap again to clear
-    $('vPro').classList.toggle('on', humanWinner === 'pro');
-    $('vCon').classList.toggle('on', humanWinner === 'con');
-    $('vPro').setAttribute('aria-pressed', humanWinner === 'pro' ? 'true' : 'false');
-    $('vCon').setAttribute('aria-pressed', humanWinner === 'con' ? 'true' : 'false');
+    var format = fmtOf($('format').value);
+    if (isFourTeam(format)){
+      var current = humanRanking.indexOf(side);
+      if (current >= 0) humanRanking.splice(current, 1);
+      else if (humanRanking.length < 4) humanRanking.push(side);
+    } else {
+      humanRanking = humanRanking[0] === side ? [] : [side];
+    }
+    humanWinner = humanRanking[0] || '';
+    renderCallOptions(format);
   }
-  $('vPro').addEventListener('click', function(){ pickVerdict('pro'); });
-  $('vCon').addEventListener('click', function(){ pickVerdict('con'); });
   $('judgeBtn').addEventListener('click', judge);
 
   /* ══════════════════════════════════════════════════════════════
@@ -1591,11 +1891,13 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   function setState(name){
     $('idleState').hidden   = name !== 'idle';
     $('liveState').hidden   = name !== 'live';
-    $('readyState').hidden  = !(name === 'ready' || name === 'manual');
+    $('readyState').hidden  = name !== 'ready';
     $('manualState').hidden = name !== 'manual';
-    // The green "round captured" bar belongs to the listen path only.
-    var cap = document.querySelector('.captured');
-    if (cap) cap.hidden = (name !== 'ready');
+    var hasRound = name === 'ready' || name === 'manual';
+    $('optBlock').hidden = !hasRound;
+    $('judgeChoice').hidden = !hasRound;
+    $('judgeAction').hidden = !hasRound;
+    if (hasRound) $('optBlock').open = true;
   }
 
   function joinParts(){
@@ -1794,8 +2096,8 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     if (silent) setState('idle');
   }
 
-  // Stop, let the segments still in flight land, then judge. Waiting
-  // matters: the last 25 seconds of a round is usually the final focus.
+  // Stop, let the segments still in flight land, then show setup. Waiting
+  // matters because the final segment usually contains the last collapse.
   function finish(){
     if (!recording) return;
     var elapsed = Date.now() - startedAt;
@@ -1818,18 +2120,18 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
         showError('It only picked up a few words. Move the mic closer to the speakers and try again, or paste the transcript.');
         return;
       }
-      judge();
     })();
   }
 
   function resetToIdle(){
     stopListening(true);
-    usedVoice = false; heardAnything = false; parts = []; humanWinner = '';
+    usedVoice = false; heardAnything = false; parts = [];
+    humanRanking = []; humanWinner = '';
     $('transcript').value = '';
     $('liveText').textContent = '';
     $('recNote').textContent = 'Keep this tab open. It transcribes as it goes.';
     $('recTime').textContent = '0:00';
-    pickVerdict('');
+    renderCallOptions(fmtOf($('format').value));
     clearError();
     setState('idle');
   }
@@ -1842,6 +2144,9 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     usedVoice = false;
     setState('manual');
     $('transcript').focus();
+  });
+  $('transcript').addEventListener('input', function(){
+    detectFormatFromTranscript($('transcript').value);
   });
   $('pasteBack').addEventListener('click', function(){ resetToIdle(); });
   $('againBtn').addEventListener('click', function(){
