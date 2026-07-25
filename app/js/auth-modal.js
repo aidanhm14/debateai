@@ -54,7 +54,18 @@
   function track(ev, meta) { try { if (window.gtag) gtag('event', ev, meta || {}); } catch (e) {} }
 
   // ── Styles ─────────────────────────────────────────────────────────
+  function ensureBrandFont() {
+    try {
+      if (document.querySelector('link[href*="family=Crimson"]')) return;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap';
+      link.setAttribute('data-da-font', '1');
+      document.head.appendChild(link);
+    } catch (e) {}
+  }
   function injectStyles() {
+    ensureBrandFont();
     if (document.getElementById('ditAuthCss')) return;
     var dark = /dark|stone|grey|crimson/.test(document.documentElement.getAttribute('data-theme') || '') ||
                document.body.classList.contains('dark-theme') || document.body.classList.contains('crimson-theme');
@@ -69,7 +80,7 @@
     var s = document.createElement('style');
     s.id = 'ditAuthCss';
     s.textContent =
-      '#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:16px;background:' + veil + ';backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}' +
+      '#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:16px;background:' + veil + ';backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:"Crimson Pro","Fraunces",Georgia,"Times New Roman",serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}' +
       '#ditAuth *{box-sizing:border-box}' +
       '#ditAuth.on{display:flex}' +
       '#ditAuth .da-card{background:' + card + ';color:' + ink + ';width:min(408px,100%);max-height:calc(100vh - 32px);max-height:min(720px,calc(100dvh - 32px));overflow:auto;border:1px solid ' + line + ';border-radius:22px;padding:30px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.38);position:relative}' +
