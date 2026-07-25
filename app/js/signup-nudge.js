@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────────────────
-   Cross-page Google sign-up nudge for unsigned visitors.
+   Cross-page account sign-up nudge for unsigned visitors.
 
    Drop <script defer src="/js/signup-nudge.js"></script> on any
    page where you want a soft "sign up to save your stuff" prompt
@@ -15,15 +15,14 @@
      4. Picks copy based on URL path: landing, debate-ai, voice,
         learn, etc. each get a contextual line about WHAT the
         user is being asked to save.
-     5. Mounts a bottom-right pill with a Google CTA and a ×
-        dismiss. The CTA reuses window.triggerGoogleSignIn if
-        the host page already defines one; otherwise runs its
-        own signInWithPopup against firebase.auth().
+     5. Mounts a bottom-right pill with an account CTA and a ×
+        dismiss. The CTA opens the shared email/password + Google
+        chooser, with the legacy Google path as a fallback.
 
    Dismissal is "not now", not "never" (2026-07-02 re-nudge policy):
    while the visitor keeps actively using the page, the nudge returns
    after ~60s of real interaction with benefit-first copy explaining
-   why the email link matters (saved rounds + streaks, the AI learns
+   why an account matters (saved rounds + streaks, the AI learns
    your style, saved practice, DMs reach you). Caps: 3 shows per
    session, 24h cooloff across visits, 14 days after three separate
    dismissals. Signing in still auto-unmounts everything via
@@ -43,7 +42,7 @@
   // Re-nudge policy (2026-07-02): a dismissal is "not now", not "never".
   // While the visitor KEEPS ACTIVELY USING a tool page (real interactions,
   // not idle time), the nudge comes back after ~60s of continued use with
-  // copy that explains WHY linking a Google email matters. Caps keep it
+  // copy that explains WHY creating an account matters. Caps keep it
   // firm instead of obnoxious: max 3 appearances per session; across
   // visits the cooloff is 24h, stretching to 14 days once someone has
   // dismissed it three separate times (they've heard us).
@@ -55,11 +54,11 @@
   // Benefit-first copy for reminders. The first pass is contextual per
   // page (pageConfig); reminders answer the visitor's actual question,
   // "why does signing in matter," with concrete things tied to their
-  // email: work that persists, an AI that learns them, saved practice,
+  // account: work that persists, an AI that learns them, saved practice,
   // DMs that reach them. Honest, no invented urgency.
   var REMIND_MSGS = [
-    '<strong>Why sign in?</strong> Your rounds, ballots, and streaks save to your Google email and follow you on any device. You are not training GPT or Claude. You are training Debatable.',
-    '<strong>Still one tap.</strong> Without an email link your work vanishes when this tab closes. With it: saved history, a style profile Debatable learns from, DMs from sparring partners, a real leaderboard rank.'
+    '<strong>Why sign in?</strong> Your rounds, ballots, and streaks save to your account and follow you on any device. You are not training GPT or Claude. You are training Debatable.',
+    '<strong>Keep what you build.</strong> Without an account your work vanishes when this tab closes. With one: saved history, a style profile Debatable learns from, DMs from sparring partners, a real leaderboard rank.'
   ];
 
   // Per-path config. First match wins. Generic fallback at the end.
@@ -184,17 +183,19 @@
     document.head.appendChild(s);
   }
 
-  function googleSvg(){
-    return '<svg width="14" height="14" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>';
-  }
-
   function isRealUser(user){
     return !!(user && !user.isAnonymous);
   }
 
   function doSignIn(){
-    // If the host page already wired triggerGoogleSignIn, reuse it
-    // so any source-tagging / post-auth redirects are consistent.
+    // The shared chooser owns email/password and social-provider auth.
+    try {
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('signup');
+        return;
+      }
+    } catch (e) {}
+    // Legacy fallback for pages where the shared helper failed to load.
     try {
       if (typeof window.triggerGoogleSignIn === 'function') {
         window.triggerGoogleSignIn('signup_nudge');
@@ -271,7 +272,7 @@
     bar.setAttribute('aria-label', 'Sign up to save your work');
     bar.innerHTML =
       '<span class="su-line">' + msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
-      '<button type="button" class="su-cta">' + googleSvg() + 'Continue with Google</button>' +
+      '<button type="button" class="su-cta">Create account</button>' +
       '<button type="button" class="su-close" aria-label="Dismiss">×</button>';
     document.body.appendChild(bar);
     bumpSessionAttempts();

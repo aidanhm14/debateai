@@ -80,6 +80,7 @@
      /js modules that depend on the firebase global. -->
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script defer src="/js/auth-modal.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <!-- Storage backs the case-file locker in the Cases sidebar (2026-07-22). -->
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
@@ -4209,6 +4210,8 @@ function PolyBackground() {
 
 
 
+
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4222,11 +4225,9 @@ function PolyBackground() {
         el('circle', { cx: 60, cy: 38, r: 16, stroke: '#ffffff', strokeWidth: 1.3, fill: 'none', opacity: .5 }), // Hair line
         el('path', { d: 'M46 32 Q52 22 60 24 Q68 22 74 32', stroke: '#ffffff', strokeWidth: 1, fill: 'none', opacity: .3 }), // Inner detail. tie/collar
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
-        el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));}
-/* ═══════════════════════════════════════════════════
-   ANTHROPIC API HELPER
-   ═══════════════════════════════════════════════════ */
-
+        el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
+ANTHROPIC API HELPER
+═══════════════════════════════════════════════════ */
 /* API key is stored server-side in Netlify environment variables */
 
 /* ── Copy with visual feedback ────── */
@@ -4655,7 +4656,7 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
       await firebaseStorage.ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
       var meta = { id: Date.now(), name: file.name || safe, size: file.size || 0, type: file.type || '', path, date: new Date().toISOString() };
       setCaseFiles((prev) => {
-        var next = [meta, ...prev || []].slice(0, 50);
+        var next = [meta, ...(prev || [])].slice(0, 50);
         persistFiles(next);
         return next;
       });
@@ -5106,12 +5107,12 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
     var used = getAnonUsage();
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
-        throw new Error('Guest mode is one local preview. Sign in with Google to keep going and save your rounds.');
+        throw new Error('Guest mode is one local preview. Create an account to keep going and save your rounds.');
       }
       if (isCrossProvider) {
         throw new Error('Your BYOK key only unlocks Claude. Switch the brain picker to Claude, or sign in to use ' + (CASE_BRAINS[brainKey]?.name || brainKey) + ' and all 6 brains.');
       }
-      throw new Error('Guest mode is one local preview. Sign in with Google to keep going, save cases and ballots, and build your style profile.');
+      throw new Error('Guest mode is one local preview. Create an account to keep going, save cases and ballots, and build your style profile.');
     }
   } else if (__currentTeam) {
     var teamUsed = __currentTeam.usageThisPeriod || 0;
@@ -5257,9 +5258,9 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
     var used = getAnonUsage();
     if (used >= getAnonLimit()) {
       if (shouldGateForFeedback()) {
-        throw new Error('Guest mode is one local preview. Sign in with Google to keep going and save your rounds.');
+        throw new Error('Guest mode is one local preview. Create an account to keep going and save your rounds.');
       }
-      throw new Error('Guest mode is one local preview. Sign in with Google to keep going, save cases and ballots, and build your style profile.');
+      throw new Error('Guest mode is one local preview. Create an account to keep going, save cases and ballots, and build your style profile.');
     }
     // Don't increment here. increment after successful response below
   } else if (__currentTeam) {
@@ -12100,6 +12101,10 @@ function useAuth() {
     return () => {cancelled = true;if (unsub) unsub();};
   }, []);
   var signIn = async () => {
+    if (window.openAuthModal) {
+      window.openAuthModal('signup');
+      return;
+    }
     // If sync-script init failed, try a dynamic reload before surfacing an
     // error. Fixes the "Firebase not configured" dead-end when the gstatic
     // CDN blipped on first page load.
@@ -12271,10 +12276,9 @@ function AuthModal({ onSignIn, onClose }) {
   React.createElement('h2', null, 'Welcome to Debatable'),
   React.createElement('p', null, "From here on, the AI starts learning how you argue. Style profile, ballot history, and saved cases follow your account."),
   React.createElement('button', { className: 'auth-google-btn', onClick: onSignIn },
-  React.createElement('img', { src: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg', width: 20, height: 20 }),
-  'Continue with Google'
+  'Sign in or create an account'
   ),
-  React.createElement('p', { style: { fontSize: '.7rem', color: 'var(--text-dim,#94a3b8)', textAlign: 'center', marginTop: 10, lineHeight: 1.5 } }, "Privacy: Google shares only your name, email, and photo. We never sell your data, never post for you, never spam you. Sign out anytime.")
+  React.createElement('p', { style: { fontSize: '.7rem', color: 'var(--text-dim,#94a3b8)', textAlign: 'center', marginTop: 10, lineHeight: 1.5 } }, "Use email or Google. We never sell your data, post for you, or spam you. Sign out anytime.")
   )
   );
 }
@@ -12361,8 +12365,8 @@ function SignInGate({ label, onSignIn }) {
   React.createElement('path', { d: 'M8 11V7a4 4 0 0 1 8 0v4' })
   ),
   React.createElement('h3', { style: { margin: '0 0 8px', fontSize: '1.2rem', fontWeight: 700 } }, 'Sign in to use ' + label),
-  React.createElement('p', { style: { margin: '0 0 22px', color: 'var(--c-dim, #6b7280)', fontSize: '.92rem', lineHeight: 1.55 } }, label + ' keeps your rounds, ballots, and progress on your account. Free, and it takes five seconds with Google.'),
-  React.createElement('button', { onClick: onSignIn, style: { background: '#ef4444', color: '#fff', border: 'none', padding: '11px 22px', borderRadius: 999, fontWeight: 700, fontSize: '.9rem', cursor: 'pointer' } }, 'Sign in with Google')
+  React.createElement('p', { style: { margin: '0 0 22px', color: 'var(--c-dim, #6b7280)', fontSize: '.92rem', lineHeight: 1.55 } }, label + ' keeps your rounds, ballots, and progress on your account. Free, with email or Google.'),
+  React.createElement('button', { onClick: onSignIn, style: { background: '#ef4444', color: '#fff', border: 'none', padding: '11px 22px', borderRadius: 999, fontWeight: 700, fontSize: '.9rem', cursor: 'pointer' } }, 'Sign in or create account')
   );
 }
 
@@ -12386,10 +12390,9 @@ function SignUpNudgeModal({ onSignIn, onDismiss }) {
   bullet('Future rounds start from your actual level instead of a blank slate.')
   ),
   el('button', { className: 'auth-google-btn', onClick: onSignIn, style: { marginBottom: 10 } },
-  el('img', { src: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg', width: 20, height: 20 }),
-  'Continue with Google'
+  'Create an account'
   ),
-  el('p', { style: { fontSize: '.7rem', color: 'var(--text-dim,#94a3b8)', textAlign: 'center', marginBottom: 10, lineHeight: 1.5 } }, "Privacy: Google shares only your name, email, and photo. I never sell it, never post for you, never spam you. Sign out anytime."),
+  el('p', { style: { fontSize: '.7rem', color: 'var(--text-dim,#94a3b8)', textAlign: 'center', marginBottom: 10, lineHeight: 1.5 } }, "Use email or Google. I never sell your data, post for you, or spam you. Sign out anytime."),
   el('button', { className: 'auth-skip', onClick: onDismiss, style: { opacity: .48, fontSize: '.72rem', width: '100%' } }, 'Keep previewing locally')
   )
   );
@@ -12600,7 +12603,7 @@ function StyleProfileModal({ onClose }) {
   el('button', { type: 'button', className: 'style-primary-btn', onClick: save }, saving ? 'Mapping style...' : 'Save style profile')
   )
   ),
-  el('p', { className: 'style-storage-note' }, 'Stored locally. Sign in with Google to keep your profile across devices.')
+  el('p', { className: 'style-storage-note' }, 'Stored locally. Create an account to keep your profile across devices.')
   )
   )
   )
@@ -14230,7 +14233,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   ))
   ),
   el('div', { style: { textAlign: 'center' } },
-  el('p', { style: { color: '#94a3b8', fontSize: '.85rem', marginBottom: 12 } }, 'Continue with Google to get started')
+  el('p', { style: { color: '#94a3b8', fontSize: '.85rem', marginBottom: 12 } }, 'Create an account to get started')
   )
   );
 
@@ -15393,7 +15396,7 @@ function AdBanner({ team, user, onNavigate }) {
     if (remaining <= 0) {
       return el('div', { style: { maxWidth: 900, width: '94%', margin: '8px auto 0', padding: '10px 18px', background: 'linear-gradient(135deg,#ef444418,#ef44440a)', border: '1px solid #ef444440', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, boxShadow: '0 2px 16px #ef444415' } },
       el('span', { style: { color: '#fca5a5', fontSize: '.82rem', flex: 1, fontWeight: 500 } }, "Sample rounds used. The AI has started recognizing your patterns. Sign in to keep them."),
-      el('button', { onClick: () => {if (onNavigate) onNavigate('team');}, style: { padding: '6px 18px', background: 'linear-gradient(135deg,#ef4444,#ef4444cc)', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit' } }, 'Continue with Google')
+      el('button', { onClick: () => {if (onNavigate) onNavigate('team');}, style: { padding: '6px 18px', background: 'linear-gradient(135deg,#ef4444,#ef4444cc)', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit' } }, 'Create account')
       );
     }
     if (remaining <= 3) {
@@ -17061,6 +17064,10 @@ function App() {
   var [billingSuccess, setBillingSuccess] = useState(false);
   var [legalPage, setLegalPage] = useState(null); // null | 'terms' | 'privacy'
   var { user, loading: authLoading, signIn, signOut } = useAuth();
+  var requestAuth = (mode) => {
+    if (window.openAuthModal) window.openAuthModal(mode || 'signup');else
+    setShowAuth(true);
+  };
   useEffect(() => {__getAuthToken = user ? () => user.getIdToken() : null;}, [user]);
   // Merge Firestore cases with localStorage on sign-in
   useEffect(() => {
@@ -17257,7 +17264,7 @@ function App() {
   // cleared) so a dismissed modal never resurrects it on a later render.
   useEffect(() => {
     if (!checkoutResume || authLoading) return;
-    if (!user) {setShowAuth(true);return;}
+    if (!user) {requestAuth('signup');return;}
     setCheckoutResume(null);
     try {
       sessionStorage.removeItem('intended_plan');
@@ -17329,7 +17336,7 @@ function App() {
     // Guest-only branch (user === null) — signed-in users skip it entirely,
     // so their save flow is untouched. The [user] dep keeps this from a stale
     // closure capturing a null user.
-    if (!user) {setShowAuth(true);setToast('Sign in to save your case.');setTimeout(() => setToast(''), 2500);return;}
+    if (!user) {requestAuth('signup');setToast('Sign in to save your case.');setTimeout(() => setToast(''), 2500);return;}
     // Case version history: if we have a loadedCase and motion+side match, push a new version onto existing case.
     setSavedCases((prev) => {
       var existing = prev.find((c) =>
@@ -17421,7 +17428,7 @@ function App() {
   // Secondary/pro tabs require a real (non-anonymous) sign-in. Graceful:
   // the gate just opens the auth modal (handles Firebase-not-loaded).
   var gate = function (label, elm) {
-    return user && !user.isAnonymous ? elm : React.createElement(SignInGate, { label: label, onSignIn: function () {setShowAuth(true);} });
+    return user && !user.isAnonymous ? elm : React.createElement(SignInGate, { label: label, onSignIn: function () {requestAuth('signin');} });
   };
 
   return React.createElement(I18nContext.Provider, { value: { t, locale, setLocale } },
@@ -17450,7 +17457,7 @@ function App() {
   }),
   showStyleProfile && React.createElement(StyleProfileModal, { onClose: () => setShowStyleProfile(false) }),
   showSignUpNudge && React.createElement(SignUpNudgeModal, {
-    onSignIn: () => {setShowSignUpNudge(false);setShowAuth(true);},
+    onSignIn: () => {setShowSignUpNudge(false);requestAuth('signup');},
     onDismiss: () => setShowSignUpNudge(false)
   }),
   React.createElement(SavedCasesSidebar, {
@@ -17550,7 +17557,7 @@ function App() {
     className: 'topbar-pill',
     title: 'Guest preview. Sign in to save rounds.',
     style: { background: anonUsed >= getAnonLimit() ? 'rgba(239,68,68,.18)' : 'rgba(255,255,255,.04)', borderColor: anonUsed >= getAnonLimit() ? 'rgba(239,68,68,.4)' : 'rgba(255,255,255,.1)', color: anonUsed >= getAnonLimit() ? '#fca5a5' : 'rgba(255,255,255,.6)', fontWeight: 600, padding: '4px 10px' },
-    onClick: () => setShowAuth(true)
+    onClick: () => requestAuth('signup')
     // Display clamp: localStorage may hold a usage count from BEFORE we
     // lowered the free cap to 1 (users who racked up 20+ under the old
     // Infinity cap). Clamp the displayed numerator so the pill never
@@ -17639,9 +17646,8 @@ function App() {
   ),
   React.createElement('button', { className: 'topbar-signout', onClick: signOut }, 'Sign Out')
   ) :
-  React.createElement('button', { className: 'topbar-signin', onClick: () => setShowAuth(true), title: 'Sign in with Google to keep your rounds, ballots, and style profile. We never sell your data.', style: { background: '#ef4444', color: '#fff', padding: '6px 13px 6px 7px', borderRadius: 999, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.04em', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7 } },
-  React.createElement('span', { 'aria-hidden': 'true', style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', background: '#fff', flex: '0 0 auto' }, dangerouslySetInnerHTML: { __html: '<svg width="12" height="12" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' } }),
-  React.createElement('span', null, typeof window !== 'undefined' && window.innerWidth <= 640 ? 'Sign in' : 'Sign in with Google')
+  React.createElement('button', { className: 'topbar-signin', onClick: () => requestAuth('signin'), title: 'Sign in or create an account to keep your rounds, ballots, and style profile.', style: { background: '#ef4444', color: '#fff', padding: '6px 13px', borderRadius: 999, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.04em', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7 } },
+  React.createElement('span', null, 'Sign in')
   )
   )
   ),

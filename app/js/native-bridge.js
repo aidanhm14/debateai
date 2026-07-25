@@ -301,7 +301,7 @@
       ev.preventDefault();
       ev.stopPropagation();
       if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-      window.openAuthModal();
+      window.openAuthModal('signup');
     } catch (e) {}
   }, true);
 

@@ -116,11 +116,8 @@
   // below routes there). /js/coach-fab.js is now a no-op stub; the
   // auto-injector that used to mount the orb on every topbar page is gone.
 
-  // Shared multi-method sign-in modal (Google / email link / phone).
-  // Loaded site-wide so legacy auth CTAs can call window.openAuthModal
-  // and so its email-link completion handler runs when a user returns
-  // via a magic link. It only pulls firebase when actually arriving
-  // from a link, so it's cheap on normal loads.
+  // Shared sign-in modal (email/password + Google; Apple in the native app).
+  // Loaded site-wide so every auth CTA can offer the same choices.
   (function ensureAuthModalLoaded(){
     if (document.querySelector('script[src*="/js/auth-modal.js"]')) return;
     var s = document.createElement('script');
@@ -128,6 +125,23 @@
     s.defer = true;
     document.head.appendChild(s);
   })();
+
+  function openSharedAuth(mode){
+    mode = mode || 'signin';
+    if (typeof window.openAuthModal === 'function'){
+      window.openAuthModal(mode);
+      return;
+    }
+    var script = document.querySelector('script[src*="/js/auth-modal.js"]');
+    if (script){
+      script.addEventListener('load', function(){
+        if (typeof window.openAuthModal === 'function') window.openAuthModal(mode);
+        else startGoogleSignIn().catch(function(){});
+      }, { once: true });
+      return;
+    }
+    startGoogleSignIn().catch(function(){});
+  }
 
   // Normalize a few synonyms so "/" and "/landing" both light up Home.
   function pathMatches(href){
@@ -679,9 +693,7 @@
       closeSheet();
       if (fbRealUser()){ try { window.firebase.auth().signOut(); } catch(e){} }
       else {
-        startGoogleSignIn().catch(function(err){
-          console.warn('[topbar] google sign-in failed', (err && err.code) || err);
-        });
+        openSharedAuth('signin');
       }
     });
     sheet.appendChild(sheetSignIn);
@@ -983,8 +995,8 @@
     });
   }
 
-  // Signed-OUT state: a ghost "Sign in" button. Click bootstraps
-  // firebase if the page didn't preload it, then runs the Google popup.
+  // Signed-OUT state: a ghost "Sign in" button. Click opens the shared
+  // email/password + Google chooser.
   function renderSignedOut(slot){
     slot.style.display = 'inline-flex';
     slot.style.alignItems = 'center';
@@ -993,19 +1005,10 @@
     btn.type = 'button';
     btn.id = 'barSignIn';
     btn.className = 'ui-btn ui-btn-ghost ui-btn-sm';
-    btn.title = 'Sign in with Google. Free.';
+    btn.title = 'Sign in or create an account. Free.';
     btn.textContent = 'Sign in';
     btn.addEventListener('click', function(){
-      btn.disabled = true;
-      btn.textContent = 'Opening…';
-      startGoogleSignIn().catch(function(err){
-        console.warn('[topbar] google sign-in failed', (err && err.code) || err);
-      }).finally(function(){
-        if (document.getElementById('barSignIn') === btn && !fbRealUser()){
-          btn.disabled = false;
-          btn.textContent = 'Sign in';
-        }
-      });
+      openSharedAuth('signin');
     });
     slot.appendChild(btn);
   }

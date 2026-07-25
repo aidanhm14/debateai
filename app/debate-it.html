@@ -1475,6 +1475,10 @@ function useAuth() {
     return function () {cancelled = true;if (iv) clearInterval(iv);if (unsub) unsub();};
   }, []);
   var signIn = async () => {
+    if (window.openAuthModal) {
+      window.openAuthModal('signup');
+      return;
+    }
     if (!firebaseAuth) {
       if (window.gtag) gtag('event', 'sign_in_error', { code: 'auth_unavailable', page: 'debate-ai' });
       alert('Sign-in is still loading, refresh and try again.');
@@ -6798,15 +6802,15 @@ function App() {
 
 
 
+
+
       // Only auto-advance if timer actually ran (not on initial mount)
     }}, [prepTimer.left]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
     var s = SPEECHES[i];var userTurn = s.side === side;setLiveRate(1.0); // reset live speed each speech
     if (userTurn) {// User turn. start timer + mic immediately
       timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start(); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
-      if (fmt.poi) {poiCountRef.current = 0;
-        poiAcceptsRef.current = 0;
-        setPoiOffer(false);setPoiActive(null);setPoiText('');
+      if (fmt.poi) {poiCountRef.current = 0;poiAcceptsRef.current = 0;setPoiOffer(false);setPoiActive(null);setPoiText('');
         // Offer first POI after 60-90s, second after another 60-90s
         var offerPOI = () => {
           if (poiCountRef.current < 2) {
@@ -8285,7 +8289,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ),
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
   quotaCTA === 'signin' ?
-  el('button', { onClick: () => {setQuotaCTA(null);try {signIn();} catch (e) {}}, style: { padding: '12px 24px', background: '#fff', color: '#1f1f1f', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(0,0,0,.35)' } }, 'Continue with Google →') :
+  el('button', { onClick: () => {setQuotaCTA(null);try {signIn();} catch (e) {}}, style: { padding: '12px 24px', background: '#fff', color: '#1f1f1f', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(0,0,0,.35)' } }, 'Create account →') :
   el('a', { href: '/app#team', style: { padding: '12px 24px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block', boxShadow: '0 4px 16px rgba(239,68,68,.35)' } }, 'Open workspace')
   ),
   // 2026-05-27 — soft alt: email capture so anon users hitting the cap
@@ -10670,7 +10674,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       'Last sample round. The AI has started recognizing your patterns. Sign in to keep them.';
       var softCta = isSignedIn() ?
       el('a', { href: '/pricing', style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '8px 18px', background: '#ef4444', color: '#fff', borderRadius: 999, fontSize: '.78rem', fontWeight: 800, textDecoration: 'none', letterSpacing: '.04em' } }, 'See plans →') :
-      el('button', { onClick: () => {try {signIn();} catch (e) {}}, style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '8px 18px', background: '#fff', color: '#1f1f1f', border: 'none', borderRadius: 999, fontSize: '.78rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '.04em' } }, 'Continue with Google →');
+      el('button', { onClick: () => {try {signIn();} catch (e) {}}, style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '8px 18px', background: '#fff', color: '#1f1f1f', border: 'none', borderRadius: 999, fontSize: '.78rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '.04em' } }, 'Create account →');
       return el('div', { style: { maxWidth: 480, margin: '14px auto 0', padding: '12px 16px', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.32)', borderRadius: 12, textAlign: 'center' } },
       el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#f59e0b', marginBottom: 4 } }, 'Heads up'),
       el('div', { style: { fontSize: '.82rem', color: 'var(--c-text)', lineHeight: 1.4 } }, softMsg),
@@ -11599,7 +11603,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     'Sign in once to put ' + b.speakerPoints.user + ' on the leaderboard and sync your record across devices.' :
     'Sign in to save this round and train Debatable, not GPT or Claude.'
     ),
-    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'Local saves disappear across devices. Google keeps ballots, leaderboard scores, and your Debatable style profile together.')
+    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'Local saves disappear across devices. Your account keeps ballots, leaderboard scores, and your Debatable style profile together.')
     ),
     el('button', {
       onClick: signIn,
@@ -11612,10 +11616,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         boxShadow: '0 4px 14px rgba(0,0,0,.25)',
         whiteSpace: 'nowrap', flexShrink: 0
       },
-      title: 'Continue with Google'
+      title: 'Create an account'
     },
     el('span', { dangerouslySetInnerHTML: { __html: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' } }),
-    'Continue with Google'
+    'Create account'
     )
     ),
     // Publish-to-public panel — signed-in users only. Sends the
