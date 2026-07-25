@@ -266,14 +266,9 @@
     { href: '#waitlist',      label: 'Waitlist', cta: true, mobileKeep: true },
   ];
 
-  // 2026-07-19: "More" menu. The bar holds the pillars; everything Aidan
-  // pulled off it over June-July ("advertise this somehow else", "they can
-  // return when they fit") had NO discovery surface left — app pages carry
-  // no footer, so off-bar pages were reachable only by URL. One quiet
-  // dropdown at the end of the rail (desktop) + a More group in the mobile
-  // sheet fixes discovery without re-crowding the bar. Curated, grouped,
-  // not a sitemap dump. Clicks land in GA4 as nav_more_open /
-  // nav_more_click so usage is measurable per link.
+  // Curated secondary destinations for the desktop Explore menu and the
+  // mobile sheet. App pages carry no footer, so these links are the quiet
+  // discovery surface for pages that do not need permanent topbar space.
   var MORE_GROUPS = [
     { head: 'Watch & compete', links: [
       // 2026-07-22: async rounds — record now, they answer later. The
@@ -423,11 +418,15 @@
       '</svg>';
     right.appendChild(burger);
 
-    // "More" dropdown — mounted just BEFORE the hot Voice AI tab so the
-    // rail reads: ...pillars · More · [VOICE AI] [CTA]. Voice AI stays the
-    // rightmost tab per Aidan 2026-07-05. Desktop-only (≤560px hides it;
-    // the mobile sheet carries the same links as a More group below).
-    function buildMore(){
+    // Desktop navigation disclosure. The old rail rendered ten text links
+    // plus "More" at once, which made the header feel like a sitemap. Keep
+    // one quiet Explore trigger beside the two highlighted actions, then
+    // reveal the full grouped menu only when the visitor asks for it.
+    //
+    // Hover is the fast desktop path. Click, focus, Escape and outside-click
+    // handling keep the same interaction usable by keyboard, touch and
+    // assistive technology.
+    function buildExplore(){
       var wrap = el('span', { class: 'ui-topbar-more' });
       var btn = el('button', {
         type: 'button',
@@ -435,11 +434,19 @@
         'aria-haspopup': 'true',
         'aria-expanded': 'false',
       });
-      btn.innerHTML = 'More<svg viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>';
+      btn.innerHTML = 'Explore<svg viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>';
       // hidden attr guards the closed state even when a stale-cached
       // ui.css predates the panel rules (SW skew showed it unstyled).
-      var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'More pages', hidden: 'hidden' });
-      MORE_GROUPS.forEach(function(G){
+      var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'Explore DebateIt', hidden: 'hidden' });
+      var primaryGroups = [
+        { head: 'Debate', links: pageLinks.filter(function(L){
+          return ['/spar', '/app#case', '/live', '/room-judge', '/predict'].indexOf(L.href) !== -1;
+        })},
+        { head: 'Improve', links: pageLinks.filter(function(L){
+          return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach'].indexOf(L.href) !== -1;
+        })},
+      ];
+      primaryGroups.concat(MORE_GROUPS).forEach(function(G){
         var col = el('div', { class: 'ui-topbar-more-col' });
         col.appendChild(el('div', { class: 'ui-topbar-more-head' }, G.head));
         G.links.forEach(function(L){
@@ -453,32 +460,80 @@
         });
         panel.appendChild(col);
       });
-      function closeMore(){
+      var closeTimer = null;
+      var pinnedOpen = false;
+      function openExplore(source){
+        if (closeTimer){ clearTimeout(closeTimer); closeTimer = null; }
+        if (panel.classList.contains('is-open')) return;
+        panel.hidden = false;
+        panel.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+        navTrack('nav_more_open', { surface: source || 'desktop' });
+      }
+      function closeExplore(){
+        if (closeTimer){ clearTimeout(closeTimer); closeTimer = null; }
+        pinnedOpen = false;
         btn.setAttribute('aria-expanded', 'false');
         panel.classList.remove('is-open');
         panel.hidden = true;
       }
+      function scheduleClose(){
+        if (closeTimer) clearTimeout(closeTimer);
+        closeTimer = setTimeout(function(){
+          if (!wrap.matches(':hover') && !wrap.contains(document.activeElement)) closeExplore();
+        }, 140);
+      }
       btn.addEventListener('click', function(e){
         e.stopPropagation();
-        var open = panel.classList.toggle('is-open');
-        panel.hidden = !open;
-        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (open) navTrack('nav_more_open', {});
+        // A pointer reaches the button before its click, so hover may have
+        // already opened the panel. The first click pins that open state
+        // instead of immediately toggling it shut. A second click closes.
+        if (panel.classList.contains('is-open') && pinnedOpen) closeExplore();
+        else {
+          pinnedOpen = true;
+          openExplore('click');
+        }
       });
+      btn.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (panel.classList.contains('is-open') && pinnedOpen) closeExplore();
+          else {
+            pinnedOpen = true;
+            openExplore('keyboard');
+          }
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          pinnedOpen = true;
+          openExplore('keyboard');
+          var firstLink = panel.querySelector('a');
+          if (firstLink) firstLink.focus();
+        }
+      });
+      wrap.addEventListener('mouseenter', function(){ openExplore('hover'); });
+      wrap.addEventListener('mouseleave', function(){
+        if (!pinnedOpen) scheduleClose();
+      });
+      wrap.addEventListener('focusout', scheduleClose);
       document.addEventListener('click', function(e){
-        if (panel.classList.contains('is-open') && !wrap.contains(e.target)) closeMore();
+        if (panel.classList.contains('is-open') && !wrap.contains(e.target)) closeExplore();
       });
       document.addEventListener('keydown', function(e){
-        if (e.key === 'Escape' && panel.classList.contains('is-open')) closeMore();
+        if (e.key === 'Escape' && panel.classList.contains('is-open')) {
+          closeExplore();
+          btn.focus();
+        }
       });
       wrap.appendChild(btn);
       wrap.appendChild(panel);
       return wrap;
     }
-    var moreMounted = false;
 
-    pageLinks.forEach(function(L){
-      if (L.hot && !moreMounted){ right.appendChild(buildMore()); moreMounted = true; }
+    // The rail itself now carries only Explore and the two emphasized
+    // actions. Every regular destination remains in Explore and in the
+    // mobile sheet below.
+    right.appendChild(buildExplore());
+    pageLinks.filter(function(L){ return L.hot || L.cta; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
       // native tooltip just renders a dark box that floats over page
@@ -562,8 +617,6 @@
       a.appendChild(document.createTextNode(L.label));
       right.appendChild(a);
     });
-    // No hot link in LINKS (future edit)? Mount More at the rail's end.
-    if (!moreMounted){ right.appendChild(buildMore()); moreMounted = true; }
 
     // SFX mute toggle. Sits between the page links and the auth slot
     // so it's consistent across pages. Inline SVG speaker icon —
