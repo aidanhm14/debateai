@@ -71,10 +71,43 @@
 
   /* ---- header ---- */
   .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 20px;background:rgba(246,244,238,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-  .brand{display:flex;align-items:baseline;gap:9px;font-family:var(--serif);font-weight:800;font-size:1.18rem;letter-spacing:-.01em}
+  .brand{position:relative;display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:800;font-size:1.18rem;letter-spacing:-.01em}
+  .brand-home{display:inline-flex;align-items:center}
   .brand b{color:var(--accent)}
   .brand .sep{width:1px;height:18px;background:var(--border2);align-self:center}
   .brand .sub{font-family:var(--sans);font-weight:800;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ghost)}
+  .product-switch-trigger{display:inline-flex;align-items:center;gap:7px;margin:-6px -8px;padding:6px 8px;border-radius:9px}
+  .product-switch-trigger:hover,.product-switch-trigger[aria-expanded="true"]{background:var(--card);box-shadow:var(--shadow)}
+  .product-switch-trigger svg{width:9px;height:6px;color:var(--ghost);transition:transform .16s ease}
+  .product-switch-trigger[aria-expanded="true"] svg{transform:rotate(180deg)}
+  .product-menu{
+    position:absolute;left:0;top:calc(100% + 13px);z-index:100;
+    width:292px;padding:8px;border:1px solid var(--border);
+    border-radius:14px;background:rgba(255,255,255,.98);
+    box-shadow:var(--shadow2);font-family:var(--sans);letter-spacing:0
+  }
+  .product-menu[hidden]{display:none}
+  .product-menu-label{padding:7px 10px 6px;font-size:.59rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--faint)}
+  .product-menu-item{
+    width:100%;display:flex;align-items:center;gap:10px;padding:10px;
+    border-radius:10px;text-align:left;transition:background .14s ease,color .14s ease
+  }
+  .product-menu-item:hover,.product-menu-item:focus-visible{outline:none;background:var(--bg2)}
+  .product-menu-item.is-active{background:var(--accentGlow);color:var(--accent)}
+  .product-menu-dot{width:7px;height:7px;flex:none;border-radius:50%;border:1.5px solid var(--border2)}
+  .product-menu-item.is-active .product-menu-dot{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 4px var(--accentGlow)}
+  .product-menu-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}
+  .product-menu-copy strong{font-size:.79rem;font-weight:800;color:var(--text)}
+  .product-menu-copy small{font-size:.66rem;font-weight:500;line-height:1.25;color:var(--ghost)}
+  .product-menu-item.is-active .product-menu-copy strong{color:var(--accent)}
+  .product-menu-check{font-size:.72rem;font-weight:900;color:var(--accent);opacity:0}
+  .product-menu-item.is-active .product-menu-check{opacity:1}
+  .product-menu-home{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-top:6px;padding:10px;border-top:1px solid var(--border);
+    border-radius:0 0 9px 9px;font-size:.72rem;font-weight:800;color:var(--dim)
+  }
+  .product-menu-home:hover{color:var(--accent)}
   .top .spacer{flex:1}
   .who{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--dim)}
   .btn{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:.82rem;padding:8px 15px;border-radius:999px;border:1px solid var(--border2);background:var(--card);color:var(--text);transition:border-color .15s,background .15s}
@@ -243,6 +276,12 @@
   .backlink a:hover{color:var(--text)}
 
   @media (max-width:560px){
+    .top{gap:8px;padding:10px 12px}
+    .brand{gap:6px;font-size:1.05rem}
+    .brand .sub{font-size:.63rem;letter-spacing:.13em}
+    .product-switch-trigger{gap:5px;margin:-5px -6px;padding:5px 6px}
+    .product-menu{width:min(292px,calc(100vw - 24px));top:calc(100% + 11px)}
+    .who{max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .hero{padding-top:30px}
     .creator-callout-in{grid-template-columns:1fr;padding:20px}
     .creator-callout .btn{width:100%}
@@ -256,7 +295,38 @@
 <body>
 
 <header class="top">
-  <a class="brand" href="/landing.html"><b>Debatable</b><span class="sep"></span><span class="sub">Tournaments</span></a>
+  <div class="brand">
+    <a class="brand-home" href="/" aria-label="Debatable home"><b>Debatable</b></a>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="product-switch-trigger" id="productMenuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="productMenu">
+      <span class="sub">Tournaments</span>
+      <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+    </button>
+    <nav class="product-menu" id="productMenu" role="menu" aria-label="Tournament sections" hidden>
+      <div class="product-menu-label">Tournament board</div>
+      <button class="product-menu-item is-active" type="button" role="menuitem" data-panel-jump="open">
+        <span class="product-menu-dot" aria-hidden="true"></span>
+        <span class="product-menu-copy"><strong>Open tournaments</strong><small>Register for upcoming brackets</small></span>
+        <span class="product-menu-check" aria-hidden="true">✓</span>
+      </button>
+      <button class="product-menu-item" type="button" role="menuitem" data-panel-jump="live">
+        <span class="product-menu-dot" aria-hidden="true"></span>
+        <span class="product-menu-copy"><strong>Live brackets</strong><small>Follow rounds in progress</small></span>
+        <span class="product-menu-check" aria-hidden="true">✓</span>
+      </button>
+      <button class="product-menu-item" type="button" role="menuitem" data-panel-jump="champs">
+        <span class="product-menu-dot" aria-hidden="true"></span>
+        <span class="product-menu-copy"><strong>Champions</strong><small>Finished fields and results</small></span>
+        <span class="product-menu-check" aria-hidden="true">✓</span>
+      </button>
+      <button class="product-menu-item" type="button" role="menuitem" data-panel-jump="how">
+        <span class="product-menu-dot" aria-hidden="true"></span>
+        <span class="product-menu-copy"><strong>How it works</strong><small>Prelims, seeding, and elimination rounds</small></span>
+        <span class="product-menu-check" aria-hidden="true">✓</span>
+      </button>
+      <a class="product-menu-home" href="/" role="menuitem"><span>Debatable home</span><span aria-hidden="true">↗</span></a>
+    </nav>
+  </div>
   <div class="spacer"></div>
   <span class="who" id="whoSlot"></span>
   <button class="btn ghost" id="signBtn" style="display:none">Sign in</button>
@@ -782,21 +852,93 @@
   document.getElementById('regModal').addEventListener('click', function(e){ if(e.target.id==='regModal') closeReg(); });
   document.getElementById('regName').addEventListener('keydown', function(e){ if(e.key==='Enter') confirmReg(); });
 
-  /* ---- tabs ---- */
+  /* ---- tournament header menu + tabs ---- */
   var tabs = document.querySelectorAll('.tab');
+  var panels = document.querySelectorAll('.panel');
+  var productMenuBtn = document.getElementById('productMenuBtn');
+  var productMenu = document.getElementById('productMenu');
+  var productMenuItems = document.querySelectorAll('[data-panel-jump]');
+
+  function openProductMenu(focusFirst){
+    productMenu.hidden = false;
+    productMenuBtn.setAttribute('aria-expanded','true');
+    if(focusFirst){
+      var active = productMenu.querySelector('.product-menu-item.is-active');
+      if(active) active.focus();
+    }
+  }
+  function closeProductMenu(returnFocus){
+    productMenu.hidden = true;
+    productMenuBtn.setAttribute('aria-expanded','false');
+    if(returnFocus) productMenuBtn.focus();
+  }
+  function showPanel(name, shouldScroll, updateHash){
+    var target = document.getElementById('panel-'+name);
+    if(!target) return;
+    tabs.forEach(function(t){
+      t.setAttribute('aria-selected', t.getAttribute('data-panel')===name ? 'true' : 'false');
+    });
+    panels.forEach(function(p){ p.classList.toggle('on', p===target); });
+    productMenuItems.forEach(function(item){
+      var active = item.getAttribute('data-panel-jump')===name;
+      item.classList.toggle('is-active', active);
+      if(active) item.setAttribute('aria-current','page');
+      else item.removeAttribute('aria-current');
+    });
+    if(updateHash){
+      try{ history.replaceState(null,'','#panel-'+name); }catch(e){}
+    }
+    if(shouldScroll){
+      var reduced = false;
+      try{ reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+      document.querySelector('.tabs').scrollIntoView({ behavior:reduced?'auto':'smooth', block:'start' });
+    }
+  }
+
   tabs.forEach(function(tab){
     tab.addEventListener('click', function(){
-      tabs.forEach(function(t){ t.setAttribute('aria-selected','false'); });
-      tab.setAttribute('aria-selected','true');
-      document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('on'); });
-      document.getElementById('panel-'+tab.getAttribute('data-panel')).classList.add('on');
+      showPanel(tab.getAttribute('data-panel'), false, true);
     });
   });
+  productMenuItems.forEach(function(item){
+    item.addEventListener('click', function(){
+      showPanel(item.getAttribute('data-panel-jump'), true, true);
+      closeProductMenu(false);
+    });
+  });
+  productMenuBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(productMenu.hidden) openProductMenu(false);
+    else closeProductMenu(false);
+  });
+  productMenuBtn.addEventListener('keydown', function(e){
+    if(e.key==='ArrowDown'){
+      e.preventDefault();
+      openProductMenu(true);
+    }
+  });
+  productMenu.addEventListener('keydown', function(e){
+    if(e.key!=='ArrowDown' && e.key!=='ArrowUp') return;
+    e.preventDefault();
+    var items = Array.prototype.slice.call(productMenu.querySelectorAll('[role="menuitem"]'));
+    var index = items.indexOf(document.activeElement);
+    if(e.key==='ArrowDown') index = (index+1)%items.length;
+    else index = (index<=0?items.length:index)-1;
+    items[index].focus();
+  });
+  document.addEventListener('click', function(e){
+    if(!productMenu.hidden && !productMenu.contains(e.target) && e.target!==productMenuBtn) closeProductMenu(false);
+  });
+
+  var hashPanel = location.hash.match(/^#panel-(open|live|champs|how)$/);
+  if(hashPanel) showPanel(hashPanel[1], false, false);
+  else showPanel("open", false, false);
 
   /* ---- keyboard ---- */
   document.addEventListener('keydown', function(e){
     if(e.key==='Escape'){
-      if(document.getElementById('regModal').classList.contains('on')) closeReg();
+      if(!productMenu.hidden) closeProductMenu(true);
+      else if(document.getElementById('regModal').classList.contains('on')) closeReg();
       else if(document.getElementById('overlay').classList.contains('on')) closeSheet();
     }
   });
