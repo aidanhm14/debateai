@@ -47,7 +47,7 @@ body{
   -webkit-font-smoothing:antialiased;
   min-height:100vh;
 }
-.wrap{max-width:1080px;margin:0 auto;padding:28px 24px 64px}
+.wrap{max-width:1080px;margin:0 auto;padding:80px 24px 64px}
 
 /* ─── Loading + signed-out + error states ─── */
 .state{
@@ -73,17 +73,32 @@ body{
 .state .cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px var(--accent-glow)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ─── Hero strip ─── */
+/* ─── Profile hero ─── */
 .hero{
+  position:relative;isolation:isolate;overflow:hidden;
   display:grid;grid-template-columns:96px 1fr auto;gap:22px;align-items:center;
-  padding:22px 26px;
-  background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
-  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  padding:26px 28px;
+  background:
+    radial-gradient(circle at 8% 44%, var(--accent-soft), transparent 31%),
+    linear-gradient(125deg, var(--bg-elev), var(--bg-card) 58%);
+  border:1px solid var(--border-strong);border-radius:22px;
+  box-shadow:0 22px 64px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.04);
   margin-bottom:18px;
+}
+.hero::before{
+  content:"";position:absolute;z-index:-1;inset:-80px -30px auto auto;
+  width:280px;height:280px;border:1px solid var(--accent-border);
+  border-radius:50%;opacity:.42;
+  box-shadow:0 0 0 42px var(--accent-soft),0 0 0 84px rgba(239,68,68,.025);
+}
+.hero::after{
+  content:"";position:absolute;z-index:-1;right:154px;top:0;bottom:0;width:1px;
+  background:linear-gradient(transparent,var(--accent-border),transparent);
+  transform:skewX(-16deg);opacity:.55;
 }
 .avatar{
   width:96px;height:96px;border-radius:50%;
-  border:2px solid var(--accent);
+  border:2px solid var(--accent);box-shadow:0 0 0 5px var(--accent-soft),0 14px 32px rgba(0,0,0,.25);
   background:var(--bg-elev);
   display:flex;align-items:center;justify-content:center;
   font-size:2.2rem;font-weight:900;color:var(--accent);
@@ -109,8 +124,12 @@ body{
 .avatar-edit:hover::after,.avatar-edit:focus-visible::after{opacity:1}
 @media(hover:none){.avatar-edit::after{opacity:1}}
 .avatar img{width:100%;height:100%;object-fit:cover}
+.hero-kicker{
+  margin-bottom:5px;font-size:.6rem;font-weight:900;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--accent);
+}
 .hero-meta .name{
-  font-size:1.6rem;font-weight:900;letter-spacing:-.02em;line-height:1.1;
+  font-size:clamp(1.65rem,4vw,2.05rem);font-weight:900;letter-spacing:-.035em;line-height:1;
   margin:0 0 4px;
 }
 .hero-meta .sub{
@@ -144,10 +163,147 @@ body{
 .streak-chip.cold .dot{background:var(--text-ghost);box-shadow:none}
 .hero-side .small{font-size:.72rem;color:var(--text-ghost)}
 @media(max-width:680px){
-  .hero{grid-template-columns:72px 1fr;gap:14px;padding:18px}
+  .hero{grid-template-columns:72px 1fr;gap:14px;padding:20px}
+  .hero::after{display:none}
   .avatar{width:72px;height:72px;font-size:1.6rem}
   .hero-side{grid-column:1 / -1;flex-direction:row;justify-content:space-between;align-items:center;width:100%;text-align:left}
   .hero-meta .name{font-size:1.3rem}
+}
+
+/* ─── Debate brain launch ───
+   The profile used to open with three equally weighted progress cards.
+   This makes the compounding product loop the clear first move while
+   keeping the daily quest and nearest milestone beside it. */
+.profile-launch{
+  display:grid;grid-template-columns:minmax(0,1.16fr) minmax(340px,.84fr);
+  gap:14px;margin-bottom:18px;
+}
+.brain-builder{
+  min-height:318px;position:relative;isolation:isolate;overflow:hidden;
+  display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:18px;align-items:center;
+  padding:30px 30px 26px;color:#fff;text-decoration:none;
+  background:
+    radial-gradient(circle at 84% 50%,rgba(239,68,68,.28),transparent 32%),
+    radial-gradient(circle at 8% 100%,rgba(120,20,38,.34),transparent 38%),
+    linear-gradient(135deg,#210b10 0%,#0e080a 58%,#16070a 100%);
+  border:1px solid rgba(248,113,113,.28);border-radius:24px;
+  box-shadow:0 24px 70px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.07);
+  transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease;
+}
+.brain-builder::before{
+  content:"";position:absolute;z-index:-1;inset:0;
+  background-image:
+    linear-gradient(rgba(248,113,113,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(248,113,113,.055) 1px,transparent 1px);
+  background-size:34px 34px;
+  mask-image:linear-gradient(90deg,transparent,rgba(0,0,0,.8));
+}
+.brain-builder:hover{
+  transform:translateY(-3px);border-color:rgba(248,113,113,.56);
+  box-shadow:0 30px 80px rgba(0,0,0,.36),0 0 34px rgba(220,38,38,.12);
+}
+.brain-builder:focus-visible{outline:2px solid #fca5a5;outline-offset:3px}
+.brain-copy{position:relative;z-index:2}
+.brain-eyebrow{
+  display:flex;align-items:center;gap:9px;margin-bottom:12px;
+  font:900 .61rem/1 'Crimson Pro','Fraunces',Georgia,serif;
+  letter-spacing:.17em;text-transform:uppercase;color:#fca5a5;
+}
+.brain-pulse{
+  width:8px;height:8px;border-radius:50%;background:#ef4444;
+  box-shadow:0 0 0 5px rgba(239,68,68,.12),0 0 18px rgba(239,68,68,.8);
+  animation:brainPulse 2.4s ease-in-out infinite;
+}
+@keyframes brainPulse{50%{transform:scale(.72);box-shadow:0 0 0 9px rgba(239,68,68,0),0 0 26px rgba(239,68,68,.9)}}
+.brain-copy h2{
+  margin:0 0 10px;max-width:430px;
+  font-size:clamp(1.8rem,4vw,2.35rem);line-height:.98;letter-spacing:-.045em;
+}
+.brain-copy p{
+  margin:0;max-width:440px;color:rgba(255,255,255,.7);
+  font-size:.86rem;line-height:1.55;
+}
+.brain-signals{display:flex;flex-wrap:wrap;gap:7px;margin:18px 0 20px}
+.brain-signal{
+  padding:6px 9px;border:1px solid rgba(255,255,255,.12);border-radius:999px;
+  background:rgba(255,255,255,.045);color:rgba(255,255,255,.72);
+  font-size:.67rem;font-weight:700;white-space:nowrap;
+}
+.brain-signal b{color:#fff;font-weight:900}
+.brain-cta{
+  display:inline-flex;align-items:center;gap:12px;padding:11px 16px;
+  border-radius:999px;background:#ef4444;color:#fff;
+  font-size:.76rem;font-weight:900;letter-spacing:.025em;
+  box-shadow:0 10px 26px rgba(220,38,38,.28);
+}
+.brain-cta span{transition:transform .2s ease}
+.brain-builder:hover .brain-cta span{transform:translateX(4px)}
+.brain-map{position:relative;width:232px;height:226px;justify-self:end}
+.brain-orbit{
+  position:absolute;left:50%;top:50%;border:1px solid rgba(248,113,113,.18);
+  border-radius:50%;transform:translate(-50%,-50%);
+}
+.brain-orbit.o1{width:188px;height:188px}
+.brain-orbit.o2{width:132px;height:132px;border-style:dashed;animation:orbitSpin 18s linear infinite}
+@keyframes orbitSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.brain-core,.brain-node{
+  position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;
+  border-radius:50%;font-weight:900;letter-spacing:.02em;
+}
+.brain-core{
+  left:50%;top:50%;width:72px;height:72px;transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 35% 30%,#f87171,#b91c1c 62%,#450a0a);
+  border:1px solid rgba(255,255,255,.32);color:#fff;font-size:.68rem;text-transform:uppercase;
+  box-shadow:0 0 0 9px rgba(239,68,68,.08),0 0 38px rgba(239,68,68,.44);
+}
+.brain-node{
+  width:64px;height:64px;padding:8px;background:rgba(24,8,12,.92);
+  border:1px solid rgba(248,113,113,.34);color:rgba(255,255,255,.82);
+  font-size:.61rem;line-height:1.05;
+  box-shadow:0 10px 24px rgba(0,0,0,.34);
+}
+.brain-node::before{
+  content:"";position:absolute;z-index:-1;left:50%;top:50%;width:76px;height:1px;
+  background:linear-gradient(90deg,rgba(248,113,113,.48),rgba(248,113,113,.08));
+  transform-origin:0 50%;
+}
+.brain-node.identity{left:8px;top:20px}
+.brain-node.identity::before{transform:rotate(38deg)}
+.brain-node.vault{right:3px;top:37px}
+.brain-node.vault::before{transform:rotate(145deg)}
+.brain-node.thinking{right:38px;bottom:3px}
+.brain-node.thinking::before{width:70px;transform:rotate(216deg)}
+.mission-stack{display:grid;grid-template-rows:1fr 1fr;gap:14px}
+.mission-stack .quest-card,.mission-stack .milestone{height:100%;margin:0}
+.mission-stack .quest-card{
+  grid-template-columns:46px minmax(0,1fr);gap:13px;padding:18px;
+}
+.mission-stack .quest-side{
+  grid-column:1 / -1;flex-direction:row;justify-content:space-between;width:100%;align-items:center;
+}
+.mission-stack .milestone{grid-template-columns:1fr;padding:18px}
+.mission-stack .ms-cta{justify-self:start}
+@media(max-width:900px){
+  .profile-launch{grid-template-columns:1fr}
+  .brain-builder{min-height:300px}
+  .mission-stack{grid-template-columns:1fr 1fr;grid-template-rows:auto}
+}
+@media(max-width:680px){
+  .wrap{padding:70px 14px 52px}
+  .brain-builder{grid-template-columns:1fr;min-height:0;padding:25px 22px 22px}
+  .brain-map{position:absolute;right:-58px;top:42px;opacity:.5;transform:scale(.82)}
+  .brain-copy{max-width:82%}
+  .brain-copy h2{font-size:1.8rem}
+  .brain-signals{margin-top:15px}
+  .mission-stack{grid-template-columns:1fr}
+}
+@media(max-width:420px){
+  .brain-map{display:none}
+  .brain-copy{max-width:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .brain-pulse,.brain-orbit.o2{animation:none}
+  .brain-builder,.brain-cta span{transition:none}
 }
 
 /* ─── Daily quest ─── */
@@ -1651,7 +1807,7 @@ function hydrateProfileAvatar(){
     uid: host.dataset.uid,
     name: host.dataset.name,
     photo: host.dataset.photo || null,
-    size: 96,
+    size: window.matchMedia('(max-width:680px)').matches ? 72 : 96,
     live: true
   };
   const draw = () => {
@@ -1718,6 +1874,39 @@ function renderError(msg){
   `;
 }
 
+// The profile is the training record. /spectate#brain is where that
+// record becomes a user-owned identity, case vault, and thinking map.
+// The three chips below are live facts from the profile data, not an
+// invented completion score.
+function renderBrainBuilder(s){
+  const rounds = Number(s && s.total) || 0;
+  const formats = Object.keys((s && s.formats) || {}).length;
+  const days = Number(s && s.days) || 0;
+  return `
+    <a class="brain-builder" href="/spectate#brain" aria-label="Build your debate brain">
+      <div class="brain-copy">
+        <div class="brain-eyebrow"><span class="brain-pulse"></span>Personal debate intelligence</div>
+        <h2>Build your debate brain.</h2>
+        <p>Your identity, case files, and training history become a map of how you argue and what to sharpen next.</p>
+        <div class="brain-signals" aria-label="Your current training signals">
+          <span class="brain-signal"><b>${rounds}</b> round${rounds===1?'':'s'}</span>
+          <span class="brain-signal"><b>${formats}</b> format${formats===1?'':'s'}</span>
+          <span class="brain-signal"><b>${days}</b> training day${days===1?'':'s'}</span>
+        </div>
+        <span class="brain-cta">Build your brain <span aria-hidden="true">→</span></span>
+      </div>
+      <div class="brain-map" aria-hidden="true">
+        <span class="brain-orbit o1"></span>
+        <span class="brain-orbit o2"></span>
+        <span class="brain-core">Your brain</span>
+        <span class="brain-node identity">Identity</span>
+        <span class="brain-node vault">Case vault</span>
+        <span class="brain-node thinking">Thinking map</span>
+      </div>
+    </a>
+  `;
+}
+
 function renderEmpty(user, profileData){
   const avatar = renderAvatar(user);
   const overrideName = (profileData && profileData.displayNameOverride) || '';
@@ -1727,6 +1916,7 @@ function renderEmpty(user, profileData){
     <section class="hero">
       ${avatar}
       <div class="hero-meta">
+        <div class="hero-kicker">Your training room</div>
         <h1 class="name">${escapeHtml(first)}</h1>
         <div class="sub">${escapeHtml(user.email || '')}</div>
         <span class="title-pill">Novice</span>
@@ -1734,6 +1924,14 @@ function renderEmpty(user, profileData){
       <div class="hero-side">
         <span class="streak-chip cold"><span class="dot"></span> No streak yet</span>
         <span class="small">0 rounds logged</span>
+      </div>
+    </section>
+
+    <section class="profile-launch">
+      ${renderBrainBuilder({ total:0, formats:{}, days:0 })}
+      <div class="mission-stack">
+        ${renderDailyQuest([])}
+        ${renderMilestone(Object.assign({}, EMPTY_STATS, { dailyCounts:new Map() }), computeAchievements(EMPTY_STATS))}
       </div>
     </section>
 
@@ -1881,6 +2079,7 @@ function renderDashboard(user, rows, profileData){
     <section class="hero">
       ${avatar}
       <div class="hero-meta">
+        <div class="hero-kicker">Your training room</div>
         <h1 class="name">${escapeHtml(first)}</h1>
         <div class="sub">${escapeHtml(user.email || '')}</div>
         <span class="title-pill">${escapeHtml(s.level.cur.name)}</span>
@@ -1891,9 +2090,13 @@ function renderDashboard(user, rows, profileData){
       </div>
     </section>
 
-    ${renderDailyQuest(rows)}
-
-    ${renderMilestone(s, ach)}
+    <section class="profile-launch">
+      ${renderBrainBuilder(s)}
+      <div class="mission-stack">
+        ${renderDailyQuest(rows)}
+        ${renderMilestone(s, ach)}
+      </div>
+    </section>
 
     <section class="xp-card">
       <div class="xp-row">
