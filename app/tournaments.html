@@ -1,958 +1,498 @@
 <!doctype html>
-<!-- data-theme flipped with the palette (2026-07-23). Not cosmetic:
-     js/home-magnet.js:145 tests data-theme against /dark|stone|grey/ to
-     pick its own rendering, so leaving "dark" here would have drawn the
-     dark-surface magnet on top of the new light page. -->
 <html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Tournaments · Debatable</title>
-<meta name="description" content="Debatable tournaments: enter a real bracket, get seeded by AI prelims, advance through human elimination rounds, and take an AI-judged final. Format-accurate across Asian Parliamentary, WSDC, British Parliamentary, APDA, PF, LD, and Policy." />
-<!-- Campaign destination: linked from the homepage creator-sweepstakes
-     advertisement and listed in the footer site index. 2026-07-23: it is
-     no longer absent from global nav either. It stays off the main bar
-     (still event-by-event drops, and the bar is full) but it is now in
-     the topbar "More" menu under Watch & compete, because until today
-     this page had NO discovery surface at all and was reachable only by
-     typing the URL. Keep noindex until the shared tournament backend
-     replaces local registration. -->
-<meta name="robots" content="noindex" />
+<title>Online Debate Tournament Software | Debatable Tournament OS</title>
+<meta name="description" content="Run online debate tournaments from one control room. Debatable Tournament OS connects registration, pairings, private rooms, ballots, standings, and brackets in one audited ledger." />
+<meta name="robots" content="index,follow,max-image-preview:large" />
+<link rel="canonical" href="https://itsdebatable.com/tournaments" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Debatable" />
+<meta property="og:title" content="Debatable Tournament OS · Run the room from one ledger" />
+<meta property="og:description" content="A director control room for registration, deterministic pairings, private debate rooms, ballots, standings, and brackets." />
+<meta property="og:url" content="https://itsdebatable.com/tournaments" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Debatable Tournament OS" />
+<meta name="twitter:description" content="Tournament infrastructure built around the director's live control room." />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://itsdebatable.com/tournaments#page",
+      "url": "https://itsdebatable.com/tournaments",
+      "name": "Online Debate Tournament Software | Debatable Tournament OS",
+      "description": "A director-first operating system for online debate tournaments, from registration through published results.",
+      "isPartOf": {"@id": "https://itsdebatable.com/#website"},
+      "about": [
+        {"@type": "Thing", "name": "Debate tournament software"},
+        {"@type": "Thing", "name": "Online debate tournaments"},
+        {"@type": "Thing", "name": "Tournament tabulation"}
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://itsdebatable.com/tournaments#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does Debatable replace human judges?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Organizer-hosted events default to human-official ballots. Shadow AI can run only after the human ballot is locked. Debatable Cups may choose AI-official judging and disclose that policy before registration."}
+        },
+        {
+          "@type": "Question",
+          "name": "How are tournament pairings produced?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Pairings are deterministic. Directors preview a pairing run, inspect hard and soft constraint results, then commit one immutable version. Overrides require a reason and remain in the audit log."}
+        },
+        {
+          "@type": "Question",
+          "name": "What is the recommended pilot tournament?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Start with 16 entries, one division, one two-sided format, three preliminary rounds, and a break to four. That is large enough to test the whole operating loop without hiding failures inside scale."}
+        },
+        {
+          "@type": "Question",
+          "name": "Are online tournament rooms private?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Tournament rooms are designed as private Daily rooms with short-lived, room-scoped access tokens. Public room links and reusable meeting tokens are not part of the tournament model."}
+        }
+      ]
+    }
+  ]
+}
+</script>
 <style>
-  /* ============================================================
-     TOURNAMENTS — pre-launch build (unadvertised, noindex).
-     Self-contained vanilla JS. The tournament data lives in the
-     TOURNAMENTS array below and registrations persist to
-     localStorage, so the whole surface works with zero backend.
-     There is a single SERVER WIRING seam (see initServer / register)
-     that swaps the local store for the shared server ledger the day
-     /api/tournaments/* is reachable, exactly like /floor did.
-     ============================================================ */
-  /* 2026-07-23: flipped dark -> light per Aidan. Values are lifted from
-     /predict so the two Bet-family surfaces read as one system rather
-     than two products (--bg/--panel/--bd/--tx/--pro/--con/--blue/--amber
-     there map onto --bg/--card/--border/--text/--win/--accent/--blue/
-     --gold here).
-     The light rule that matters, learned the hard way on the Saved-tab
-     dashboard: surfaces must be BRIGHTER than the page, not a dark tint
-     on top of it. Inverting a dark theme by dropping alpha gives you
-     invisible cards. So --card is solid white against warm paper, and
-     depth comes from a real border plus --shadow, not from fill. */
-  :root{
-    --bg:#f6f4ee; --bg2:#f1eee5; --card:#ffffff; --card2:#faf8f3;
-    --border:rgba(20,22,28,.11); --border2:rgba(20,22,28,.24);
-    --text:#17181c; --dim:rgba(23,24,28,.64); --ghost:rgba(23,24,28,.44);
-    --faint:rgba(23,24,28,.32);
-    --accent:#dc2626; --accent2:#b91c1c; --accentGlow:rgba(220,38,38,.10);
-    --win:#15803d; --winBg:rgba(21,128,61,.09);
-    --live:#dc2626; --gold:#b45309; --blue:#2563eb; --blueBg:rgba(37,99,235,.09);
-    --shadow:0 1px 2px rgba(20,22,28,.05),0 4px 14px rgba(20,22,28,.05);
-    --shadow2:0 2px 6px rgba(20,22,28,.06),0 14px 34px rgba(20,22,28,.10);
-    --serif:'Crimson Pro','Fraunces',Georgia,'Times New Roman',serif;
-    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased}
-  /* The dark build could carry a .09 red bloom because it sat on near-black.
-     On paper that same alpha reads as a pink stain, so it drops to a warm
-     wash that you register as light falling on the page, not as colour. */
-  body{min-height:100vh;background:radial-gradient(1100px 620px at 82% -10%, rgba(220,38,38,.045), transparent 62%), var(--bg)}
-  a{color:inherit;text-decoration:none}
-  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
-  em,i{font-style:normal}
-  h1,h2,h3,h4{margin:0}
-  ::selection{background:var(--accentGlow)}
-
-  /* ---- header ---- */
-  .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 20px;background:rgba(246,244,238,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-  .brand{position:relative;display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:800;font-size:1.18rem;letter-spacing:-.01em}
-  .brand-home{display:inline-flex;align-items:center}
-  .brand b{color:var(--accent)}
-  .brand .sep{width:1px;height:18px;background:var(--border2);align-self:center}
-  .brand .sub{font-family:var(--sans);font-weight:800;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ghost)}
-  .product-switch-trigger{display:inline-flex;align-items:center;gap:7px;margin:-6px -8px;padding:6px 8px;border-radius:9px}
-  .product-switch-trigger:hover,.product-switch-trigger[aria-expanded="true"]{background:var(--card);box-shadow:var(--shadow)}
-  .product-switch-trigger svg{width:9px;height:6px;color:var(--ghost);transition:transform .16s ease}
-  .product-switch-trigger[aria-expanded="true"] svg{transform:rotate(180deg)}
-  .product-menu{
-    position:absolute;left:0;top:calc(100% + 13px);z-index:100;
-    width:292px;padding:8px;border:1px solid var(--border);
-    border-radius:14px;background:rgba(255,255,255,.98);
-    box-shadow:var(--shadow2);font-family:var(--sans);letter-spacing:0
-  }
-  .product-menu[hidden]{display:none}
-  .product-menu-label{padding:7px 10px 6px;font-size:.59rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--faint)}
-  .product-menu-item{
-    width:100%;display:flex;align-items:center;gap:10px;padding:10px;
-    border-radius:10px;text-align:left;transition:background .14s ease,color .14s ease
-  }
-  .product-menu-item:hover,.product-menu-item:focus-visible{outline:none;background:var(--bg2)}
-  .product-menu-item.is-active{background:var(--accentGlow);color:var(--accent)}
-  .product-menu-dot{width:7px;height:7px;flex:none;border-radius:50%;border:1.5px solid var(--border2)}
-  .product-menu-item.is-active .product-menu-dot{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 4px var(--accentGlow)}
-  .product-menu-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}
-  .product-menu-copy strong{font-size:.79rem;font-weight:800;color:var(--text)}
-  .product-menu-copy small{font-size:.66rem;font-weight:500;line-height:1.25;color:var(--ghost)}
-  .product-menu-item.is-active .product-menu-copy strong{color:var(--accent)}
-  .product-menu-check{font-size:.72rem;font-weight:900;color:var(--accent);opacity:0}
-  .product-menu-item.is-active .product-menu-check{opacity:1}
-  .product-menu-home{
-    display:flex;align-items:center;justify-content:space-between;
-    margin-top:6px;padding:10px;border-top:1px solid var(--border);
-    border-radius:0 0 9px 9px;font-size:.72rem;font-weight:800;color:var(--dim)
-  }
-  .product-menu-home:hover{color:var(--accent)}
-  .top .spacer{flex:1}
-  .who{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--dim)}
-  .btn{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:.82rem;padding:8px 15px;border-radius:999px;border:1px solid var(--border2);background:var(--card);color:var(--text);transition:border-color .15s,background .15s}
-  .btn:hover{border-color:var(--border2);background:var(--card2)}
-  .btn.primary{border-color:var(--accent);background:var(--accent);color:#fff}
-  .btn.primary:hover{background:var(--accent2)}
-  .btn.ghost{background:transparent}
-
-  /* ---- hero ---- */
-  .hero{max-width:1120px;margin:0 auto;padding:44px 20px 10px}
-  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
-  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accentGlow)}
-  .hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(2rem,5.2vw,3.4rem);line-height:1.04;letter-spacing:-.02em;max-width:16ch}
-  .hero h1 .accent{color:var(--accent)}
-  .hero p.lede{margin:18px 0 0;font-size:1.06rem;line-height:1.55;color:var(--dim);max-width:60ch}
-  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
-  .chip{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--dim);padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card);box-shadow:var(--shadow)}
-  .chip b{color:var(--text);font-weight:800}
-  .chip .ic{color:var(--accent)}
-
-  /* ---- creator sweepstakes campaign ---- */
-  .creator-callout{max-width:1120px;margin:26px auto 0;padding:0 20px}
-  .creator-callout-in{
-    position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;
-    gap:22px;align-items:center;padding:22px 24px;border:1px solid rgba(220,38,38,.26);
-    border-radius:16px;box-shadow:var(--shadow);
-    background:linear-gradient(125deg,rgba(220,38,38,.075),rgba(255,255,255,.85) 62%)
-  }
-  /* The watermark was .07 white-on-black. Paper needs MORE alpha, not less,
-     for the same presence, so this goes up rather than down. */
-  .creator-callout-in:after{
-    content:"VS";position:absolute;right:232px;top:50%;transform:translateY(-52%) rotate(-7deg);
-    font-family:var(--serif);font-weight:800;font-size:6.6rem;color:rgba(220,38,38,.085);pointer-events:none
-  }
-  /* right:170px used to be fine when the mark was a .07 ghost on black. At
-     light-theme alpha its right edge landed under the CTA and read as a
-     pink smear leaking from behind the button, so it moves into the gap
-     between the copy block and the button instead. Hidden once the grid
-     stacks, where there is no gap left to sit in. */
-  @media(max-width:860px){ .creator-callout-in:after{display:none} }
-  .creator-callout .k{
-    display:flex;align-items:center;gap:7px;margin-bottom:7px;font-family:var(--sans);
-    font-size:.64rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--live)
-  }
-  .creator-callout .k i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-  .creator-callout h2{font-family:var(--serif);font-size:1.55rem;line-height:1.08;font-weight:800}
-  .creator-callout p{max-width:68ch;margin:8px 0 0;color:var(--dim);font-size:.9rem;line-height:1.5}
-  .creator-callout p b{color:var(--text)}
-  .creator-callout .legal{display:block;margin-top:8px;color:var(--ghost);font-family:var(--sans);font-size:.64rem;line-height:1.45}
-  .creator-callout .btn{position:relative;z-index:1;white-space:nowrap;justify-content:center}
-
-  /* ---- tabs ---- */
-  .tabs{position:sticky;top:58px;z-index:30;max-width:1120px;margin:26px auto 0;padding:0 20px;display:flex;gap:6px;flex-wrap:wrap}
-  .tab{display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:700;color:var(--dim);padding:10px 15px;border-radius:11px 11px 0 0;border:1px solid transparent;border-bottom:none;background:transparent}
-  .tab:hover{color:var(--text)}
-  .tab[aria-selected="true"]{color:var(--text);background:var(--card);border-color:var(--border)}
-  .tab .n{font-size:.68rem;font-weight:800;color:var(--ghost);background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:1px 7px}
-  .tab[aria-selected="true"] .n{color:var(--accent)}
-
-  .wrap{max-width:1120px;margin:0 auto;padding:0 20px 90px}
-  .panel{display:none;padding-top:24px}
-  .panel.on{display:block;animation:fade .25s ease}
-  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .section-sub{margin:0 0 20px;color:var(--dim);font-size:.95rem;line-height:1.5;max-width:66ch}
-
-  /* ---- tournament cards ---- */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
-  .tcard{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px 16px;box-shadow:var(--shadow);transition:border-color .15s,transform .15s,box-shadow .15s;cursor:pointer;overflow:hidden}
-  .tcard:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:var(--shadow2)}
-  .tcard .toprow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
-  .status{display:inline-flex;align-items:center;gap:6px;font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
-  .status.open{color:var(--win);background:var(--winBg);border:1px solid rgba(21,128,61,.26)}
-  .status.live{color:#fff;background:var(--accent);border:1px solid var(--accent)}
-  .status.soon{color:var(--blue);background:var(--blueBg);border:1px solid rgba(37,99,235,.26)}
-  .status.done{color:var(--ghost);background:var(--bg2);border:1px solid var(--border)}
-  .status .live-dot{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.6s ease-out infinite}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}50%{box-shadow:0 0 0 5px rgba(255,255,255,0)}}
-  .fmt{font-size:.72rem;font-weight:700;color:var(--ghost);letter-spacing:.04em}
-  .tcard h3{font-family:var(--serif);font-weight:800;font-size:1.32rem;line-height:1.12;letter-spacing:-.01em}
-  .tcard .motion{margin-top:8px;font-size:.9rem;color:var(--dim);line-height:1.45;min-height:2.6em}
-  .meta{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
-  .meta .m{display:flex;flex-direction:column;gap:2px}
-  .meta .m .k{font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
-  .meta .m .v{font-size:.86rem;font-weight:700;color:var(--text)}
-  .fillbar{margin-top:14px;height:6px;border-radius:999px;background:var(--bg2);overflow:hidden}
-  .fillbar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px}
-  .cardfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
-  .cardfoot .cap{font-size:.76rem;color:var(--dim);font-weight:600}
-  .reg-pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;color:var(--win);background:var(--winBg);border:1px solid rgba(21,128,61,.26);border-radius:999px;padding:4px 10px}
-
-  .empty{border:1px dashed var(--border2);border-radius:16px;padding:40px 24px;text-align:center;color:var(--ghost)}
-  .empty b{color:var(--text);font-family:var(--serif);font-size:1.1rem}
-
-  /* ---- how it works ---- */
-  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:6px}
-  .step{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
-  .step .num{font-family:var(--serif);font-weight:800;font-size:1rem;color:var(--accent);width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--accent);border-radius:50%;margin-bottom:12px}
-  .step h4{font-family:var(--serif);font-weight:800;font-size:1.16rem;margin-bottom:7px}
-  .step p{margin:0;color:var(--dim);font-size:.9rem;line-height:1.5}
-  .faq{margin-top:30px;display:grid;gap:10px}
-  .faq details{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:2px 16px;box-shadow:var(--shadow)}
-  .faq summary{cursor:pointer;font-weight:700;padding:14px 0;list-style:none;font-size:.96rem}
-  .faq summary::-webkit-details-marker{display:none}
-  .faq summary::after{content:"+";float:right;color:var(--accent);font-weight:800}
-  .faq details[open] summary::after{content:"–"}
-  .faq p{margin:0 0 15px;color:var(--dim);font-size:.9rem;line-height:1.55}
-
-  /* ---- detail overlay ---- */
-  .overlay{position:fixed;inset:0;z-index:80;background:rgba(10,11,13,.72);backdrop-filter:blur(6px);display:none;overflow-y:auto}
-  .overlay.on{display:block}
-  .sheet{max-width:960px;margin:38px auto;background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow2)}
-  .sheet-head{padding:24px 26px 20px;border-bottom:1px solid var(--border);background:radial-gradient(700px 200px at 100% 0,rgba(220,38,38,.07),transparent 70%)}
-  .sheet-head .row1{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .sheet-head h2{font-family:var(--serif);font-weight:800;font-size:1.9rem;line-height:1.08;margin-top:12px;letter-spacing:-.01em}
-  .sheet-head .motion{margin-top:10px;color:var(--dim);font-size:1rem;line-height:1.5;max-width:62ch}
-  .close-x{width:34px;height:34px;border-radius:50%;border:1px solid var(--border2);background:var(--card);font-size:1.1rem;line-height:1;display:grid;place-items:center;color:var(--dim)}
-  .close-x:hover{color:var(--text);border-color:var(--border2)}
-  .sheet-body{padding:22px 26px 26px}
-  .infogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:8px}
-  .info{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
-  .info .k{font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
-  .info .v{font-size:.98rem;font-weight:700}
-  .subhead{font-family:var(--serif);font-weight:800;font-size:1.2rem;margin:26px 0 12px}
-
-  /* bracket */
-  .bracket{display:flex;gap:26px;overflow-x:auto;padding:6px 2px 14px}
-  .round{display:flex;flex-direction:column;justify-content:space-around;gap:14px;min-width:186px}
-  .round-lab{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:2px;text-align:center}
-  .match{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-  .seat{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;font-size:.84rem;font-weight:600;color:var(--dim)}
-  .seat + .seat{border-top:1px solid var(--border)}
-  .seat.win{color:var(--text);font-weight:800;background:var(--winBg)}
-  .seat.win .sc{color:var(--win)}
-  .seat .sd{width:16px;color:var(--faint);font-size:.72rem;font-weight:800}
-  .seat .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .seat .sc{font-size:.78rem;font-weight:800;color:var(--ghost)}
-  .seat.tbd{color:var(--faint)}
-
-  .reg-cta{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:24px;padding:18px 20px;border-radius:14px;border:1px solid var(--accent);background:var(--accentGlow)}
-  .reg-cta .t{font-weight:800;font-family:var(--serif);font-size:1.2rem}
-  .reg-cta .s{color:var(--dim);font-size:.86rem;margin-top:3px}
-  .reg-done{border-color:rgba(21,128,61,.34);background:var(--winBg)}
-  .reg-done .t{color:var(--win)}
-
-  /* ---- register modal ---- */
-  .modal{position:fixed;inset:0;z-index:90;background:rgba(10,11,13,.74);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
-  .modal.on{display:flex}
-  .mbox{width:100%;max-width:440px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:var(--shadow2)}
-  .mbox h3{font-family:var(--serif);font-weight:800;font-size:1.5rem;margin-bottom:6px}
-  .mbox .msub{color:var(--dim);font-size:.9rem;line-height:1.5;margin-bottom:18px}
-  .field{margin-bottom:15px}
-  .field label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ghost);margin-bottom:7px}
-  .field input,.field select{width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:.94rem;font-family:inherit}
-  .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
-  .modal-actions{display:flex;gap:10px;margin-top:6px}
-  .modal-actions .btn{flex:1;justify-content:center;padding:12px}
-  .mnote{font-size:.76rem;color:var(--ghost);margin-top:14px;line-height:1.45;text-align:center}
-
-  /* toast */
-  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);z-index:120;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;font-size:.88rem;font-weight:600;box-shadow:var(--shadow2);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;max-width:88vw}
-  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.good{border-color:rgba(21,128,61,.38);color:var(--win)}
-
-  .backlink{max-width:1120px;margin:0 auto;padding:8px 20px 40px;color:var(--ghost);font-size:.82rem}
-  .backlink a{color:var(--dim);font-weight:700}
-  .backlink a:hover{color:var(--text)}
-
-  @media (max-width:560px){
-    .top{gap:8px;padding:10px 12px}
-    .brand{gap:6px;font-size:1.05rem}
-    .brand .sub{font-size:.63rem;letter-spacing:.13em}
-    .product-switch-trigger{gap:5px;margin:-5px -6px;padding:5px 6px}
-    .product-menu{width:min(292px,calc(100vw - 24px));top:calc(100% + 11px)}
-    .who{max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .hero{padding-top:30px}
-    .creator-callout-in{grid-template-columns:1fr;padding:20px}
-    .creator-callout .btn{width:100%}
-    .creator-callout-in:after{right:-6px;top:38px;font-size:4rem}
-    .tabs{top:56px;overflow-x:auto;flex-wrap:nowrap}
-    .tab{white-space:nowrap}
-    .sheet{margin:0;border-radius:0;min-height:100vh}
-  }
+:root{
+  --paper:#f6f3eb;--paper2:#eee9de;--ink:#171817;--muted:#66635d;
+  --line:rgba(23,24,23,.13);--line2:rgba(23,24,23,.25);--card:#fffefa;
+  --red:#dc2626;--red2:#b91c1c;--redsoft:#fff0ef;--green:#16803b;
+  --greensoft:#edf8ef;--amber:#a85b08;--ambersoft:#fff7e8;--blue:#2357c6;
+  --shadow:0 1px 2px rgba(22,19,14,.05),0 14px 38px rgba(22,19,14,.07);
+  --serif:'Crimson Pro',Georgia,serif;--sans:'Inter',system-ui,sans-serif
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(900px 500px at 84% -8%,rgba(220,38,38,.075),transparent 62%),var(--paper);color:var(--ink);font-family:var(--serif);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}button{font:inherit;color:inherit}h1,h2,h3,p{margin-top:0}::selection{background:rgba(220,38,38,.16)}
+.shell{width:min(1180px,calc(100% - 40px));margin-inline:auto}
+.skip{position:fixed;left:16px;top:-80px;z-index:100;background:var(--ink);color:#fff;padding:10px 14px;border-radius:8px;font-family:var(--sans)}.skip:focus{top:16px}
+.topbar{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line);background:rgba(246,243,235,.9);backdrop-filter:blur(16px)}
+.topbar-in{height:66px;display:flex;align-items:center;gap:24px}.wordmark{display:inline-flex;align-items:baseline;font-size:1.38rem;font-weight:800;letter-spacing:-.025em}.wordmark b{color:var(--red)}
+.product-tag{margin-left:11px;padding-left:11px;border-left:1px solid var(--line2);font-family:var(--sans);font-size:.65rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.topnav{margin-left:auto;display:flex;align-items:center;gap:22px;font-family:var(--sans);font-size:.78rem;font-weight:700;color:var(--muted)}.topnav a:hover{color:var(--ink)}
+.top-cta{padding:10px 16px;border-radius:999px;background:var(--red);color:#fff!important;box-shadow:0 8px 22px rgba(220,38,38,.18)}.top-cta:hover{background:var(--red2)}
+.section{padding:92px 0}.section+.section{border-top:1px solid var(--line)}
+.kicker{display:flex;align-items:center;gap:9px;margin-bottom:16px;font-family:var(--sans);font-size:.69rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.kicker:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(220,38,38,.09)}
+.section-head{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,.65fr);gap:60px;align-items:end;margin-bottom:34px}.section-head h2{margin:0;font-size:clamp(2rem,4.5vw,3.45rem);line-height:.98;letter-spacing:-.035em}.section-head p{margin:0;color:var(--muted);font-size:1.03rem;line-height:1.6}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 19px;border:1px solid var(--line2);border-radius:999px;background:var(--card);font-family:var(--sans);font-size:.8rem;font-weight:800;cursor:pointer;transition:.18s ease}.btn:hover{transform:translateY(-1px);border-color:var(--ink)}
+.btn-primary{border-color:var(--red);background:var(--red);color:#fff;box-shadow:0 10px 24px rgba(220,38,38,.16)}.btn-primary:hover{border-color:var(--red2);background:var(--red2)}.btn-dark{border-color:var(--ink);background:var(--ink);color:#fff}.arrow{font-family:var(--sans);font-size:1rem}.fine{font-family:var(--sans);font-size:.69rem;line-height:1.5;color:var(--muted)}
+.hero{padding:84px 0 76px}.hero-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(320px,.72fr);gap:76px;align-items:center}
+.hero h1{max-width:11ch;margin-bottom:22px;font-size:clamp(3.4rem,7.5vw,6.7rem);line-height:.86;letter-spacing:-.055em}.hero h1 em{color:var(--red);font-style:normal}
+.hero-lede{max-width:650px;margin-bottom:26px;color:var(--muted);font-size:1.17rem;line-height:1.55}.hero-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.hero-note{margin:16px 0 0;font-family:var(--sans);font-size:.72rem;color:var(--muted)}
+.ledger-card{position:relative;padding:24px;border:1px solid var(--line);border-radius:24px;background:rgba(255,254,250,.92);box-shadow:var(--shadow);overflow:hidden}.ledger-card:before{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-70px;top:-100px;border:34px solid rgba(220,38,38,.06)}
+.ledger-top{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--line)}.ledger-title{font-size:1.32rem;font-weight:800}.ledger-sub{margin-top:3px;font-family:var(--sans);font-size:.69rem;color:var(--muted)}
+.live-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border-radius:999px;background:var(--greensoft);color:var(--green);font-family:var(--sans);font-size:.62rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.live-pill:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(22,128,59,.1)}
+.ledger-flow{position:relative;display:grid;gap:0;margin-top:8px}.ledger-row{display:grid;grid-template-columns:38px 1fr auto;gap:12px;align-items:center;padding:12px 0}.ledger-row+.ledger-row{border-top:1px solid var(--line)}
+.ledger-ic{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--paper);font-family:var(--sans);font-size:.67rem;font-weight:900;color:var(--red)}.ledger-row b{display:block;font-size:.96rem}.ledger-row span{display:block;margin-top:2px;font-family:var(--sans);font-size:.65rem;color:var(--muted)}.ledger-row .ledger-state{font-size:.62rem;font-weight:800;color:var(--green)}
+.pilot-strip{margin-top:42px;display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:16px;background:rgba(255,254,250,.62);overflow:hidden}.pilot-stat{padding:16px 18px}.pilot-stat+.pilot-stat{border-left:1px solid var(--line)}.pilot-stat b{display:block;font-size:1.15rem}.pilot-stat span{font-family:var(--sans);font-size:.66rem;color:var(--muted)}
+#control-room{background:rgba(255,254,250,.42)}.preview-label{display:inline-flex;gap:8px;align-items:center;margin-bottom:12px;padding:6px 9px;border:1px solid rgba(168,91,8,.25);border-radius:999px;background:var(--ambersoft);color:var(--amber);font-family:var(--sans);font-size:.61rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.control{border:1px solid var(--line2);border-radius:22px;background:#181a1d;color:#f5f2eb;box-shadow:0 28px 70px rgba(18,19,21,.18);overflow:hidden}
+.control-head{display:flex;align-items:center;gap:16px;padding:17px 20px;border-bottom:1px solid rgba(255,255,255,.1);background:#202226}.event-dot{width:10px;height:10px;border-radius:50%;background:#39d375;box-shadow:0 0 0 5px rgba(57,211,117,.1)}.event-title{font-size:1.12rem;font-weight:800}.event-meta{font-family:var(--sans);font-size:.65rem;color:rgba(255,255,255,.52)}.control-head .spacer{flex:1}.round-live{padding:7px 10px;border:1px solid rgba(57,211,117,.25);border-radius:999px;background:rgba(57,211,117,.08);color:#73e59d;font-family:var(--sans);font-size:.63rem;font-weight:800}
+.control-tabs{display:flex;gap:3px;padding:10px 16px 0;background:#202226;border-bottom:1px solid rgba(255,255,255,.1)}.control-tab{padding:10px 13px;border:0;border-radius:9px 9px 0 0;background:transparent;color:rgba(255,255,255,.52);font-family:var(--sans);font-size:.69rem;font-weight:800;cursor:pointer}.control-tab[aria-selected=true]{background:#181a1d;color:#fff}
+.control-screen{display:none;padding:18px}.control-screen.on{display:block}.ops-grid{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(260px,.68fr);gap:14px}.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}.metric{padding:13px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#202226}.metric b{display:block;font-family:var(--sans);font-size:1.18rem}.metric span{font-family:var(--sans);font-size:.61rem;color:rgba(255,255,255,.5)}.metric.warn b{color:#ffc66e}.metric.good b{color:#73e59d}
+.panel-dark{border:1px solid rgba(255,255,255,.1);border-radius:13px;background:#202226;overflow:hidden}.panel-dark-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);font-family:var(--sans);font-size:.65rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.panel-dark-head span{color:rgba(255,255,255,.4);font-size:.58rem}
+.room-row{display:grid;grid-template-columns:58px minmax(0,1fr) 92px 74px;gap:10px;align-items:center;padding:11px 14px;font-family:var(--sans);font-size:.66rem}.room-row+.room-row{border-top:1px solid rgba(255,255,255,.07)}.room-name{font-weight:800}.room-match{color:rgba(255,255,255,.68)}.room-status{font-size:.59rem;font-weight:800;color:#73e59d}.room-status.late{color:#ffc66e}.room-action{color:rgba(255,255,255,.48);text-align:right}
+.issue{display:grid;grid-template-columns:9px 1fr;gap:10px;padding:13px 14px}.issue+.issue{border-top:1px solid rgba(255,255,255,.07)}.issue-dot{width:8px;height:8px;margin-top:4px;border-radius:50%;background:#ffc66e}.issue-dot.red{background:#ff6565}.issue-dot.green{background:#73e59d}.issue b{display:block;font-family:var(--sans);font-size:.67rem}.issue p{margin:3px 0 0;color:rgba(255,255,255,.48);font-family:var(--sans);font-size:.6rem;line-height:1.45}
+.screen-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.09)}.screen-footer p{margin:0;font-family:var(--sans);font-size:.61rem;color:rgba(255,255,255,.45)}.demo-btn{padding:8px 11px;border:1px solid rgba(255,255,255,.17);border-radius:8px;background:#2a2d32;color:#fff;font-family:var(--sans);font-size:.61rem;font-weight:800;cursor:pointer}.demo-btn.primary{border-color:var(--red);background:var(--red)}
+.constraint-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(250px,.8fr);gap:14px}.pair-run{padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#202226}.pair-run-top{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px;font-family:var(--sans)}.pair-run-top b{font-size:.73rem}.pair-run-top span{font-size:.59rem;color:rgba(255,255,255,.45)}
+.pairing{display:grid;grid-template-columns:44px 1fr 18px 1fr 64px;gap:9px;align-items:center;padding:9px 0;font-family:var(--sans);font-size:.63rem}.pairing+.pairing{border-top:1px solid rgba(255,255,255,.07)}.pairing .room{color:rgba(255,255,255,.4)}.pairing .vs{text-align:center;color:rgba(255,255,255,.3)}.pairing .side{text-align:right;color:#8aafff}
+.rule{display:flex;gap:9px;align-items:flex-start;padding:11px 13px}.rule+.rule{border-top:1px solid rgba(255,255,255,.07)}.rule-mark{font-family:var(--sans);font-size:.67rem;font-weight:900;color:#73e59d}.rule-mark.warn{color:#ffc66e}.rule b{display:block;font-family:var(--sans);font-size:.64rem}.rule span{display:block;margin-top:2px;font-family:var(--sans);font-size:.58rem;line-height:1.4;color:rgba(255,255,255,.44)}
+.ballot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.ballot-card{padding:15px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#202226}.ballot-card .n{font-family:var(--sans);font-size:1.4rem;font-weight:800}.ballot-card .lab{font-family:var(--sans);font-size:.62rem;color:rgba(255,255,255,.45)}.ballot-card p{margin:10px 0 0;color:rgba(255,255,255,.58);font-family:var(--sans);font-size:.62rem;line-height:1.5}.ballot-card.good .n{color:#73e59d}.ballot-card.warn .n{color:#ffc66e}
+.director-points{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}.director-point{padding:17px 18px;border-left:2px solid var(--red);background:rgba(255,254,250,.6)}.director-point b{display:block;margin-bottom:5px}.director-point p{margin:0;color:var(--muted);font-size:.86rem;line-height:1.5}
+.pilot-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:18px}.pilot-card,.policy-card{border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}.pilot-card{padding:26px}.pilot-card h3{font-size:2rem;line-height:1;margin-bottom:9px}.pilot-card>p{color:var(--muted);line-height:1.55}
+.pilot-spec{display:grid;grid-template-columns:1fr 1fr;margin:22px 0;border:1px solid var(--line);border-radius:13px;overflow:hidden}.pilot-spec div{padding:14px}.pilot-spec div:nth-child(even){border-left:1px solid var(--line)}.pilot-spec div:nth-child(n+3){border-top:1px solid var(--line)}.pilot-spec b{display:block;font-size:1.05rem}.pilot-spec span{font-family:var(--sans);font-size:.62rem;color:var(--muted)}
+.policy-stack{display:grid;gap:14px}.policy-card{padding:22px;display:grid;grid-template-columns:44px 1fr;gap:14px}.policy-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:var(--redsoft);color:var(--red);font-family:var(--sans);font-size:.7rem;font-weight:900}.policy-card h3{font-size:1.35rem;margin-bottom:5px}.policy-card p{margin:0;color:var(--muted);font-size:.9rem;line-height:1.55}.policy-rule{display:inline-block;margin-top:11px;padding:6px 8px;border-radius:7px;background:var(--paper);font-family:var(--sans);font-size:.61rem;font-weight:800;color:var(--muted)}
+.pilot-cta{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:18px;padding:24px 26px;border-radius:19px;background:var(--red);color:#fff}.pilot-cta h3{margin:0;font-size:1.6rem}.pilot-cta p{margin:4px 0 0;color:rgba(255,255,255,.72);font-size:.87rem}.pilot-cta .btn{flex:none;border-color:#fff;color:var(--red)}
+.system-gate{padding:78px 0 96px;border-top:1px solid var(--line);text-align:center}.system-gate h2{margin-bottom:9px;font-size:clamp(2rem,4vw,3.2rem);letter-spacing:-.03em}.system-gate>.shell>p{max-width:650px;margin:0 auto 23px;color:var(--muted);font-size:1rem;line-height:1.55}.system-more{margin-top:48px;text-align:left}.system-more[hidden]{display:none}
+.deep-section{padding:42px 0;border-top:1px solid var(--line)}.deep-head{display:grid;grid-template-columns:220px 1fr;gap:34px;margin-bottom:24px}.deep-head .num{font-family:var(--sans);font-size:.65rem;font-weight:900;letter-spacing:.15em;color:var(--red)}.deep-head h3{margin:0;font-size:2rem}.deep-head p{margin:7px 0 0;color:var(--muted);line-height:1.55}
+.arch{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:12px;align-items:stretch}.arch-col{display:grid;gap:9px}.arch-node{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.arch-node b{display:block;font-family:var(--sans);font-size:.7rem}.arch-node span{display:block;margin-top:4px;font-family:var(--sans);font-size:.61rem;line-height:1.4;color:var(--muted)}
+.ledger-core{display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(220,38,38,.28);border-radius:16px;background:var(--redsoft);padding:22px}.core-tag{font-family:var(--sans);font-size:.61rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}.ledger-core h4{margin:6px 0;font-size:1.45rem}.ledger-core p{margin:0;color:var(--muted);font-size:.8rem;line-height:1.5}
+.schema-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.schema{padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.schema code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.69rem;font-weight:800;color:var(--red)}.schema p{margin:7px 0 0;color:var(--muted);font-size:.76rem;line-height:1.45}
+.machine{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:4px 0 10px}.state{flex:none;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);font-family:var(--sans);font-size:.62rem;font-weight:800}.state-arrow{flex:none;color:var(--red);font-family:var(--sans)}.machine-label{margin:16px 0 8px;font-family:var(--sans);font-size:.66rem;font-weight:900;color:var(--muted)}
+.api-list{border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden}.api-row{display:grid;grid-template-columns:64px minmax(0,1fr) minmax(180px,.8fr);gap:13px;align-items:center;padding:12px 14px}.api-row+.api-row{border-top:1px solid var(--line)}.method{font-family:var(--sans);font-size:.59rem;font-weight:900;color:var(--blue)}.api-row code{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.67rem}.api-row span:last-child{font-family:var(--sans);font-size:.61rem;color:var(--muted)}
+.security-grid,.surface-grid,.delivery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}.detail-card{padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--card)}.detail-card b{display:block;margin-bottom:6px}.detail-card p{margin:0;color:var(--muted);font-size:.79rem;line-height:1.5}.delivery-grid{grid-template-columns:repeat(4,1fr)}.phase{padding:18px;border:1px solid var(--line);border-radius:13px;background:var(--card)}.phase-n{font-family:var(--sans);font-size:.59rem;font-weight:900;color:var(--red);letter-spacing:.12em;text-transform:uppercase}.phase h4{margin:8px 0 6px;font-size:1.12rem}.phase p{margin:0;color:var(--muted);font-size:.74rem;line-height:1.5}
+.faq{display:grid;gap:9px}.faq details{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:0 16px}.faq summary{list-style:none;cursor:pointer;padding:15px 0;font-weight:800}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:"+";float:right;color:var(--red);font-family:var(--sans)}.faq details[open] summary:after{content:"−"}.faq p{margin:0 0 16px;color:var(--muted);font-size:.86rem;line-height:1.55}
+.footer{border-top:1px solid var(--line);padding:28px 0 38px}.footer-in{display:flex;justify-content:space-between;gap:24px;font-family:var(--sans);font-size:.68rem;color:var(--muted)}.footer-links{display:flex;gap:16px}.footer a:hover{color:var(--ink)}
+.toast{position:fixed;left:50%;bottom:24px;z-index:90;transform:translate(-50%,18px);opacity:0;pointer-events:none;padding:11px 15px;border:1px solid rgba(255,255,255,.2);border-radius:10px;background:#171817;color:#fff;box-shadow:var(--shadow);font-family:var(--sans);font-size:.68rem;font-weight:700;transition:.2s ease}.toast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:900px){
+  .topnav a:not(.top-cta){display:none}.hero-grid,.section-head,.pilot-grid,.deep-head{grid-template-columns:1fr}.hero-grid{gap:38px}.section-head{gap:18px}.ops-grid,.constraint-layout{grid-template-columns:1fr}.director-points,.security-grid,.surface-grid{grid-template-columns:1fr}.schema-grid{grid-template-columns:1fr 1fr}.delivery-grid{grid-template-columns:1fr 1fr}.arch{grid-template-columns:1fr}.arch-col{grid-template-columns:1fr 1fr}
+}
+@media(max-width:620px){
+  .shell{width:min(100% - 28px,1180px)}.section{padding:68px 0}.hero{padding:56px 0 62px}.topbar-in{height:58px}.product-tag{display:none}.top-cta{padding:9px 13px}.hero h1{font-size:clamp(3.2rem,18vw,5rem)}
+  .pilot-strip{grid-template-columns:1fr 1fr}.pilot-stat:nth-child(3){border-left:0;border-top:1px solid var(--line)}.pilot-stat:nth-child(4){border-top:1px solid var(--line)}
+  .control{margin-inline:-7px;border-radius:16px}.control-head{padding:14px}.round-live{display:none}.control-tabs{overflow-x:auto}.control-tab{white-space:nowrap}.control-screen{padding:12px}.metric-grid{grid-template-columns:1fr 1fr}
+  .room-row{grid-template-columns:50px 1fr 64px}.room-action{display:none}.pairing{grid-template-columns:38px 1fr 12px 1fr}.pairing .side{display:none}.ballot-grid{grid-template-columns:1fr}.director-points{gap:0}
+  .pilot-spec{grid-template-columns:1fr}.pilot-spec div:nth-child(even){border-left:0}.pilot-spec div:nth-child(n+2){border-top:1px solid var(--line)}.pilot-cta{align-items:flex-start;flex-direction:column}.pilot-cta .btn{width:100%}
+  .schema-grid,.delivery-grid,.arch-col{grid-template-columns:1fr}.api-row{grid-template-columns:52px 1fr}.api-row span:last-child{grid-column:2}.footer-in{flex-direction:column}.footer-links{flex-wrap:wrap}
+}
 </style>
 </head>
 <body>
-
-<header class="top">
-  <div class="brand">
-    <a class="brand-home" href="/" aria-label="Debatable home"><b>Debatable</b></a>
-    <span class="sep" aria-hidden="true"></span>
-    <button class="product-switch-trigger" id="productMenuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="productMenu">
-      <span class="sub">Tournaments</span>
-      <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
-    </button>
-    <nav class="product-menu" id="productMenu" role="menu" aria-label="Tournament sections" hidden>
-      <div class="product-menu-label">Tournament board</div>
-      <button class="product-menu-item is-active" type="button" role="menuitem" data-panel-jump="open">
-        <span class="product-menu-dot" aria-hidden="true"></span>
-        <span class="product-menu-copy"><strong>Open tournaments</strong><small>Register for upcoming brackets</small></span>
-        <span class="product-menu-check" aria-hidden="true">✓</span>
-      </button>
-      <button class="product-menu-item" type="button" role="menuitem" data-panel-jump="live">
-        <span class="product-menu-dot" aria-hidden="true"></span>
-        <span class="product-menu-copy"><strong>Live brackets</strong><small>Follow rounds in progress</small></span>
-        <span class="product-menu-check" aria-hidden="true">✓</span>
-      </button>
-      <button class="product-menu-item" type="button" role="menuitem" data-panel-jump="champs">
-        <span class="product-menu-dot" aria-hidden="true"></span>
-        <span class="product-menu-copy"><strong>Champions</strong><small>Finished fields and results</small></span>
-        <span class="product-menu-check" aria-hidden="true">✓</span>
-      </button>
-      <button class="product-menu-item" type="button" role="menuitem" data-panel-jump="how">
-        <span class="product-menu-dot" aria-hidden="true"></span>
-        <span class="product-menu-copy"><strong>How it works</strong><small>Prelims, seeding, and elimination rounds</small></span>
-        <span class="product-menu-check" aria-hidden="true">✓</span>
-      </button>
-      <a class="product-menu-home" href="/" role="menuitem"><span>Debatable home</span><span aria-hidden="true">↗</span></a>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="shell topbar-in">
+    <a class="wordmark" href="/" aria-label="Debatable home"><span>Debat</span><b>able</b><span class="product-tag">Tournament OS</span></a>
+    <nav class="topnav" aria-label="Tournament page">
+      <a href="#control-room">Control room</a>
+      <a href="#pilot">Pilot</a>
+      <a href="#system">Architecture</a>
+      <a class="top-cta" href="mailto:aidandavidhollinger@gmail.com?subject=Debatable%20Tournament%20Pilot">Host a pilot</a>
     </nav>
   </div>
-  <div class="spacer"></div>
-  <span class="who" id="whoSlot"></span>
-  <button class="btn ghost" id="signBtn" style="display:none">Sign in</button>
 </header>
-
-<section class="hero">
-  <div class="eyebrow"><span class="dot"></span>Debatable Tournaments</div>
-  <h1>Enter a real bracket. <span class="accent">Get judged like it counts.</span></h1>
-  <p class="lede">AI prelims seed the field so nobody waits on a bye. You climb through human elimination rounds on video, and the AI judge writes a full ballot for every round you debate. Format-accurate across Asian Parliamentary, WSDC, British Parliamentary, APDA, PF, LD, and Policy.</p>
-  <div class="chips">
-    <span class="chip"><span class="ic">◆</span> <b>7</b> formats supported</span>
-    <span class="chip"><span class="ic">◆</span> AI prelims, <b>human elims</b></span>
-    <span class="chip"><span class="ic">◆</span> Written RFD every round</span>
-    <span class="chip"><span class="ic">◆</span> Free to enter during beta</span>
-  </div>
-</section>
-
-<aside class="creator-callout" id="creator-sweepstakes" aria-label="Creator sweepstakes tournaments">
-  <div class="creator-callout-in">
-    <div>
-      <span class="k"><i aria-hidden="true"></i>Streamer sweepstakes</span>
-      <h2>Creators enter from one side. The community enters from the other.</h2>
-      <p>Each creator drop publishes the streamer lineup, format, entry window, prize, eligibility, and official rules before registration opens. <b>No follower count required.</b></p>
-      <small class="legal">No purchase necessary. Terms vary by event. Void where prohibited.</small>
-    </div>
-    <a class="btn primary" href="#panel-open">View the tournament board</a>
-  </div>
-</aside>
-
-<nav class="tabs" role="tablist">
-  <button class="tab" role="tab" aria-selected="true"  data-panel="open">Open<span class="n" id="nOpen"></span></button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="live">Live<span class="n" id="nLive"></span></button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="champs">Champions</button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="how">How it works</button>
-</nav>
-
-<div class="wrap">
-  <section class="panel on" id="panel-open">
-    <p class="section-sub">Registration is open. Grab a slot, pick the side you want to be tested on, and you are on the field. You can hold spots in more than one at a time.</p>
-    <div class="grid" id="openGrid"></div>
-  </section>
-
-  <section class="panel" id="panel-live">
-    <p class="section-sub">Rounds in progress. Open a bracket to follow the field advance in real time. Your own matchups sit at the top of the sheet.</p>
-    <div class="grid" id="liveGrid"></div>
-  </section>
-
-  <section class="panel" id="panel-champs">
-    <p class="section-sub">Finished tournaments and the debaters who took them. Every final was settled by the AI judge on the flow, with the reasons published on the ballot.</p>
-    <div class="grid" id="champGrid"></div>
-  </section>
-
-  <section class="panel" id="panel-how">
-    <p class="section-sub">One bracket, three stages. The engine handles seeding and judging so a small field still runs like a real invitational.</p>
-    <div class="steps">
-      <div class="step">
-        <div class="num">1</div>
-        <h4>AI prelims</h4>
-        <p>Every entrant debates two or three rounds against a format-tuned AI. Speaker points and win record seed you into the bracket, so nobody sits out waiting for a partner.</p>
+<main id="main">
+  <!-- Screen 1 -->
+  <section class="hero">
+    <div class="shell">
+      <div class="hero-grid">
+        <div>
+          <div class="kicker">Tournament infrastructure</div>
+          <h1>Run the room. <em>We keep the ledger.</em></h1>
+          <p class="hero-lede">Registration, pairings, private rooms, ballots, standings, and brackets move through one server-owned record. Directors see the whole event. Everyone else sees only what they need next.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="mailto:aidandavidhollinger@gmail.com?subject=Debatable%20Tournament%20Pilot">Plan a 16-entry pilot <span class="arrow" aria-hidden="true">→</span></a>
+            <a class="btn" href="#control-room">Open the director preview</a>
+          </div>
+          <p class="hero-note">Pilot design. Not an active tournament board yet.</p>
+        </div>
+        <aside class="ledger-card" aria-label="Tournament ledger flow">
+          <div class="ledger-top">
+            <div><div class="ledger-title">Summer Pilot</div><div class="ledger-sub">One division · Round 3</div></div>
+            <span class="live-pill">Live ledger</span>
+          </div>
+          <div class="ledger-flow">
+            <div class="ledger-row"><span class="ledger-ic">01</span><div><b>Registration</b><span>16 entries, eligibility checked</span></div><span class="ledger-state">LOCKED</span></div>
+            <div class="ledger-row"><span class="ledger-ic">02</span><div><b>Pairings</b><span>Run 04, deterministic seed</span></div><span class="ledger-state">COMMITTED</span></div>
+            <div class="ledger-row"><span class="ledger-ic">03</span><div><b>Private rooms</b><span>8 tokenized Daily sessions</span></div><span class="ledger-state">ACTIVE</span></div>
+            <div class="ledger-row"><span class="ledger-ic">04</span><div><b>Ballots</b><span>5 locked, 3 outstanding</span></div><span class="ledger-state">OPEN</span></div>
+            <div class="ledger-row"><span class="ledger-ic">05</span><div><b>Standings</b><span>Snapshot waits for release</span></div><span class="ledger-state">HELD</span></div>
+          </div>
+        </aside>
       </div>
-      <div class="step">
-        <div class="num">2</div>
-        <h4>Human elims</h4>
-        <p>The top seeds advance to live video rounds against other debaters on your motion and format. Timer, POIs, and speech order run exactly as the format expects.</p>
-      </div>
-      <div class="step">
-        <div class="num">3</div>
-        <h4>AI-judged final</h4>
-        <p>The judge adopts the paradigm the format calls for, honors any agreed instructions, and writes the reason for decision. The ballot is public, so the result is arguable.</p>
+      <div class="pilot-strip" aria-label="Recommended pilot size">
+        <div class="pilot-stat"><b>16</b><span>entries</span></div>
+        <div class="pilot-stat"><b>1</b><span>division</span></div>
+        <div class="pilot-stat"><b>1</b><span>two-sided format</span></div>
+        <div class="pilot-stat"><b>1 ledger</b><span>from check-in to results</span></div>
       </div>
     </div>
-    <div class="faq">
-      <details><summary>What does it cost to enter?</summary><p>Nothing during beta. The prize is a spot on the board, a verifiable Debatable credential for a deep run, and a bracket you can point to. No buy-ins, no cash.</p></details>
-      <details><summary>Do I need a partner or a team?</summary><p>No. The prelim rounds run against the AI, and the elimination bracket matches you to other entrants. Team formats pair you inside the tournament.</p></details>
-      <details><summary>Which formats can run a bracket?</summary><p>Asian Parliamentary, WSDC, British Parliamentary, APDA, PF, LD, and Policy. Each keeps its own speech order, timing, and evidence rules the whole way through.</p></details>
-      <details><summary>What if I lose a prelim to the AI?</summary><p>Prelims seed you; they do not cut you. A rough prelim just means a lower seed, and a lower seed can still run the table. The elimination rounds are where it counts.</p></details>
+  </section>
+
+  <!-- Screen 2 -->
+  <section class="section" id="control-room">
+    <div class="shell">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Director control room</div>
+          <h2>The event tells you where it is breaking.</h2>
+        </div>
+        <p>Check-ins, missing judges, late rooms, ballot progress, and release gates stay on one screen. Directors act on exceptions instead of refreshing five tabs.</p>
+      </div>
+      <span class="preview-label">Interactive product preview</span>
+      <div class="control" aria-label="Tournament director control room preview">
+        <div class="control-head">
+          <span class="event-dot" aria-hidden="true"></span>
+          <div><div class="event-title">Debatable Summer Pilot</div><div class="event-meta">World Schools · 16 entries · Director view</div></div>
+          <span class="spacer"></span>
+          <span class="round-live">Round 3 live · 18:42</span>
+        </div>
+        <div class="control-tabs" role="tablist" aria-label="Control room views">
+          <button class="control-tab" role="tab" aria-selected="true" aria-controls="screen-overview" data-screen="overview">Live operations</button>
+          <button class="control-tab" role="tab" aria-selected="false" aria-controls="screen-pairings" data-screen="pairings">Pairing preview</button>
+          <button class="control-tab" role="tab" aria-selected="false" aria-controls="screen-ballots" data-screen="ballots">Ballots and release</button>
+        </div>
+
+        <div class="control-screen on" id="screen-overview" role="tabpanel">
+          <div class="metric-grid">
+            <div class="metric good"><b>16/16</b><span>checked in</span></div>
+            <div class="metric warn"><b>7/8</b><span>judges ready</span></div>
+            <div class="metric warn"><b>2</b><span>late rooms</span></div>
+            <div class="metric"><b>5/8</b><span>ballots locked</span></div>
+          </div>
+          <div class="ops-grid">
+            <div class="panel-dark">
+              <div class="panel-dark-head">Active rooms <span>8 total</span></div>
+              <div class="room-row"><span class="room-name">Room 01</span><span class="room-match">Northbridge A vs Meridian</span><span class="room-status">Speech 6</span><span class="room-action">On time</span></div>
+              <div class="room-row"><span class="room-name">Room 03</span><span class="room-match">Vantage B vs Ashford</span><span class="room-status late">Held</span><span class="room-action">No judge</span></div>
+              <div class="room-row"><span class="room-name">Room 06</span><span class="room-match">Concord A vs Fairmont</span><span class="room-status late">Speech 4</span><span class="room-action">6m late</span></div>
+              <div class="room-row"><span class="room-name">Room 08</span><span class="room-match">Sierra vs Lakeside Red</span><span class="room-status">Ballot</span><span class="room-action">Drafting</span></div>
+            </div>
+            <div class="panel-dark">
+              <div class="panel-dark-head">Needs attention <span>3 open</span></div>
+              <div class="issue"><span class="issue-dot red"></span><div><b>Room 03 has no judge</b><p>Two eligible judges are unassigned.</p></div></div>
+              <div class="issue"><span class="issue-dot"></span><div><b>Room 06 is six minutes late</b><p>Timer is active. No technical flag filed.</p></div></div>
+              <div class="issue"><span class="issue-dot green"></span><div><b>Five ballots are locked</b><p>Standings remain held until the release gate.</p></div></div>
+            </div>
+          </div>
+          <div class="screen-footer"><p>Every intervention becomes an audit event with actor, reason, and ledger version.</p><button class="demo-btn" data-demo-action="The real control room opens the eligible judge queue.">Assign a judge</button></div>
+        </div>
+
+        <div class="control-screen" id="screen-pairings" role="tabpanel">
+          <div class="constraint-layout">
+            <div class="pair-run">
+              <div class="pair-run-top"><b>Round 4 preview · Run 04</b><span>seed 9d8f2c · not committed</span></div>
+              <div class="pairing"><span class="room">R01</span><span>Northbridge A</span><span class="vs">v</span><span>Fairmont</span><span class="side">PROP</span></div>
+              <div class="pairing"><span class="room">R02</span><span>Meridian</span><span class="vs">v</span><span>Ashford</span><span class="side">OPP</span></div>
+              <div class="pairing"><span class="room">R03</span><span>Vantage B</span><span class="vs">v</span><span>Sierra</span><span class="side">PROP</span></div>
+              <div class="pairing"><span class="room">R04</span><span>Concord A</span><span class="vs">v</span><span>Lakeside Red</span><span class="side">OPP</span></div>
+            </div>
+            <div class="panel-dark">
+              <div class="panel-dark-head">Constraint report <span>1 warning</span></div>
+              <div class="rule"><span class="rule-mark">✓</span><div><b>No rematches</b><span>Hard constraint passed across all eight pairings.</span></div></div>
+              <div class="rule"><span class="rule-mark">✓</span><div><b>School conflict</b><span>No same-institution matchup produced.</span></div></div>
+              <div class="rule"><span class="rule-mark">✓</span><div><b>Side balance</b><span>Every entry remains within the pilot limit.</span></div></div>
+              <div class="rule"><span class="rule-mark warn">!</span><div><b>Judge preference</b><span>Judge 04 has one soft preference conflict in Room 03.</span></div></div>
+            </div>
+          </div>
+          <div class="screen-footer"><p>Preview is reversible. Commit is idempotent and produces one immutable round version.</p><div><button class="demo-btn" data-demo-action="A re-run keeps the same inputs and records a new preview.">Re-run</button> <button class="demo-btn primary" data-demo-action="Commit requires director confirmation and a current ledger version.">Commit Round 4</button></div></div>
+        </div>
+
+        <div class="control-screen" id="screen-ballots" role="tabpanel">
+          <div class="ballot-grid">
+            <div class="ballot-card good"><div class="n">5</div><div class="lab">Locked ballots</div><p>Signed by the assigned judge. No further edits.</p></div>
+            <div class="ballot-card warn"><div class="n">2</div><div class="lab">Drafting</div><p>Judges are in the ballot editor. Nothing is public yet.</p></div>
+            <div class="ballot-card warn"><div class="n">1</div><div class="lab">Missing</div><p>Room 06 finished four minutes ago. Reminder ready.</p></div>
+          </div>
+          <div class="screen-footer"><p>Standings are calculated from locked ballots, stored as a snapshot, then released once.</p><div><button class="demo-btn" data-demo-action="The real control room sends a scoped reminder to the assigned judge.">Remind judge</button> <button class="demo-btn primary" data-demo-action="Release stays disabled until every official ballot is locked.">Release standings</button></div></div>
+        </div>
+      </div>
+      <div class="director-points">
+        <div class="director-point"><b>Exception-first</b><p>The quiet rooms disappear. Missing judges, late starts, and stalled ballots move up.</p></div>
+        <div class="director-point"><b>Preview, then commit</b><p>Pairing inputs and violations are visible before anything reaches competitors.</p></div>
+        <div class="director-point"><b>One release gate</b><p>Ballots lock first. Standings and brackets publish from the same version.</p></div>
+      </div>
     </div>
   </section>
-</div>
 
-<div class="backlink">Not seeing a bracket for your format? <a href="/spar">Spar a human now</a> or <a href="/voice-debate">run a voice round</a> while the next tournament fills.</div>
+  <!-- Screen 3 -->
+  <section class="section" id="pilot">
+    <span id="creator-sweepstakes" aria-hidden="true"></span>
+    <div class="shell">
+      <div class="section-head">
+        <div>
+          <div class="kicker">The first event</div>
+          <h2>Start with the smallest tournament that can fail honestly.</h2>
+        </div>
+        <p>Sixteen entries exercise check-in, power pairing, rooms, judging, ballots, standings, and a break. One division keeps every edge case visible.</p>
+      </div>
+      <div class="pilot-grid">
+        <article class="pilot-card">
+          <h3>16-entry pilot</h3>
+          <p>One two-sided format. One director. A contained field large enough to prove the operating loop.</p>
+          <div class="pilot-spec">
+            <div><b>3</b><span>preliminary rounds</span></div>
+            <div><b>Top 4</b><span>advance to elimination rounds</span></div>
+            <div><b>8</b><span>private rooms per prelim</span></div>
+            <div><b>1</b><span>published audit trail</span></div>
+          </div>
+          <p class="fine">Pilot exit criteria: no orphaned pairings, every official ballot attributable, standings reproducible from the ledger, and no reusable room access links.</p>
+        </article>
+        <div class="policy-stack">
+          <article class="policy-card">
+            <span class="policy-icon">CUP</span>
+            <div><h3>Debatable Cups</h3><p>AI-official judging is available when the event rules disclose it before registration. Every decision still produces a full ballot and an auditable model policy.</p><span class="policy-rule">AI may be the official judge</span></div>
+          </article>
+          <article class="policy-card">
+            <span class="policy-icon">HOST</span>
+            <div><h3>Organizer-hosted events</h3><p>Human ballots are official by default. Shadow AI may run only after the human ballot is locked, so it cannot steer the decision it later analyzes.</p><span class="policy-rule">Human official · shadow AI after lock</span></div>
+          </article>
+        </div>
+      </div>
+      <aside class="pilot-cta">
+        <div><h3>Bring the first field.</h3><p>We will scope the format, roles, judging policy, and release rules before registration opens.</p></div>
+        <a class="btn" href="mailto:aidandavidhollinger@gmail.com?subject=Debatable%20Tournament%20Pilot">Host a pilot <span class="arrow" aria-hidden="true">→</span></a>
+      </aside>
+    </div>
+  </section>
 
-<!-- detail overlay -->
-<div class="overlay" id="overlay" aria-hidden="true">
-  <div class="sheet" id="sheet"></div>
-</div>
+  <!-- Full system is opt-in -->
+  <section class="system-gate" id="system">
+    <div class="shell">
+      <div class="kicker" style="justify-content:center">Full system</div>
+      <h2>Need the infrastructure detail?</h2>
+      <p>The public page stops here on purpose. Open the architecture, schemas, state machines, APIs, security model, product surfaces, and delivery plan when you want the full build.</p>
+      <button class="btn btn-dark" id="systemToggle" aria-expanded="false" aria-controls="systemMore">See the full Tournament OS <span class="arrow" aria-hidden="true">↓</span></button>
+      <div class="system-more" id="systemMore" hidden>
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">01 · ARCHITECTURE</span>
+            <div><h3>Clients read views. The server writes truth.</h3><p>Existing Debatable pages and services stay in place. Netlify functions arbitrate state changes, Firestore owns the ledger, Daily carries the private room, and adjudication attaches to the ballot lifecycle.</p></div>
+          </div>
+          <div class="arch">
+            <div class="arch-col">
+              <div class="arch-node"><b>Director control room</b><span>Check-in, pairing preview, incidents, locks, releases.</span></div>
+              <div class="arch-node"><b>Competitor desk</b><span>Next pairing, side, room token, result status.</span></div>
+              <div class="arch-node"><b>Judge ballot</b><span>Assignment, flow, decision, signature, lock.</span></div>
+            </div>
+            <div class="ledger-core"><span class="core-tag">Server-owned source of truth</span><h4>Tournament ledger</h4><p>Versioned writes connect registration, eligibility, pairings, rooms, ballots, standings snapshots, brackets, and audit events.</p></div>
+            <div class="arch-col">
+              <div class="arch-node"><b>Netlify functions</b><span>Auth, validation, idempotency, preview, commit, release.</span></div>
+              <div class="arch-node"><b>Firestore</b><span>Event state, immutable snapshots, role-scoped reads.</span></div>
+              <div class="arch-node"><b>Daily + adjudication</b><span>Private room tokens and post-round verdict workflows.</span></div>
+            </div>
+          </div>
+        </section>
 
-<!-- register modal -->
-<div class="modal" id="regModal" aria-hidden="true">
-  <div class="mbox">
-    <h3 id="regTitle">Register</h3>
-    <p class="msub" id="regSub"></p>
-    <div class="field">
-      <label for="regName">Display name</label>
-      <input id="regName" type="text" maxlength="40" placeholder="How you show on the bracket" autocomplete="name" />
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">02 · SCHEMA</span>
+            <div><h3>Nine records carry the event.</h3><p>Documents are small, explicit, and versioned. Derived standings never overwrite the inputs that produced them.</p></div>
+          </div>
+          <div class="schema-grid">
+            <div class="schema"><code>tournaments/{id}</code><p>Owner, timezone, format policy, status, ledger version.</p></div>
+            <div class="schema"><code>divisions/{id}</code><p>Format, eligibility, round count, break rule, judging mode.</p></div>
+            <div class="schema"><code>entries/{id}</code><p>Members, institution, eligibility, check-in, side history.</p></div>
+            <div class="schema"><code>rounds/{id}</code><p>Sequence, motion, preview run, committed version, release state.</p></div>
+            <div class="schema"><code>pairings/{id}</code><p>Teams, sides, judge, room, constraint report, override reason.</p></div>
+            <div class="schema"><code>room_sessions/{id}</code><p>Daily room, scoped participants, token expiry, timing state.</p></div>
+            <div class="schema"><code>ballots/{id}</code><p>Official judge, scores, RFD, signature, lock, release status.</p></div>
+            <div class="schema"><code>standings_snapshots/{id}</code><p>Immutable ranking inputs, tiebreak order, published version.</p></div>
+            <div class="schema"><code>audit_events/{id}</code><p>Actor, action, reason, before and after versions, timestamp.</p></div>
+          </div>
+        </section>
+
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">03 · STATE MACHINES</span>
+            <div><h3>Every irreversible move has a gate.</h3><p>A refresh cannot commit a second pairing, reopen a locked ballot, or publish a different standings version.</p></div>
+          </div>
+          <div class="machine-label">Tournament</div>
+          <div class="machine"><span class="state">DRAFT</span><span class="state-arrow">→</span><span class="state">REGISTRATION</span><span class="state-arrow">→</span><span class="state">CHECK-IN</span><span class="state-arrow">→</span><span class="state">LIVE</span><span class="state-arrow">→</span><span class="state">COMPLETE</span><span class="state-arrow">→</span><span class="state">ARCHIVED</span></div>
+          <div class="machine-label">Round</div>
+          <div class="machine"><span class="state">DRAFT</span><span class="state-arrow">→</span><span class="state">PREVIEWED</span><span class="state-arrow">→</span><span class="state">COMMITTED</span><span class="state-arrow">→</span><span class="state">ACTIVE</span><span class="state-arrow">→</span><span class="state">BALLOT LOCK</span><span class="state-arrow">→</span><span class="state">RELEASED</span></div>
+          <div class="machine-label">Ballot</div>
+          <div class="machine"><span class="state">ASSIGNED</span><span class="state-arrow">→</span><span class="state">DRAFT</span><span class="state-arrow">→</span><span class="state">SUBMITTED</span><span class="state-arrow">→</span><span class="state">LOCKED</span><span class="state-arrow">→</span><span class="state">SHADOW AI ELIGIBLE</span><span class="state-arrow">→</span><span class="state">RELEASED</span></div>
+        </section>
+
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">04 · API</span>
+            <div><h3>Small commands around a versioned ledger.</h3><p>Mutation requests carry an idempotency key and expected ledger version. Stale clients get a conflict, then reload current state.</p></div>
+          </div>
+          <div class="api-list">
+            <div class="api-row"><span class="method">GET</span><code>/api/tournaments/:id/state</code><span>Role-scoped event view</span></div>
+            <div class="api-row"><span class="method">POST</span><code>/api/tournaments/:id/check-in</code><span>Entry or director check-in</span></div>
+            <div class="api-row"><span class="method">POST</span><code>/api/tournaments/:id/rounds/:n/preview</code><span>Deterministic pairing run</span></div>
+            <div class="api-row"><span class="method">POST</span><code>/api/tournaments/:id/rounds/:n/commit</code><span>Immutable pairing version</span></div>
+            <div class="api-row"><span class="method">POST</span><code>/api/tournaments/:id/rooms/:id/token</code><span>Short-lived Daily access</span></div>
+            <div class="api-row"><span class="method">POST</span><code>/api/tournaments/:id/ballots/:id/submit</code><span>Validate and sign ballot</span></div>
+            <div class="api-row"><span class="method">POST</span><code>/api/tournaments/:id/ballots/:id/lock</code><span>Freeze official decision</span></div>
+            <div class="api-row"><span class="method">POST</span><code>/api/tournaments/:id/rounds/:n/release</code><span>Publish one results snapshot</span></div>
+          </div>
+        </section>
+
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">05 · SECURITY</span>
+            <div><h3>Private by default. Audited when humans intervene.</h3><p>Tournament roles are narrower than account roles. A judge can write one assigned ballot, not read private registration data or publish a round.</p></div>
+          </div>
+          <div class="security-grid">
+            <div class="detail-card"><b>Server-only mutations</b><p>Firebase identity and App Check are verified in Netlify. Firestore clients never commit pairings, locks, or releases directly.</p></div>
+            <div class="detail-card"><b>Tokenized Daily rooms</b><p>Room-scoped, role-scoped tokens expire after the round. Public room names and reusable meeting tokens are rejected.</p></div>
+            <div class="detail-card"><b>Append-only audit</b><p>Pairing overrides, judge changes, ballot unlock exceptions, and releases record actor, reason, and ledger version.</p></div>
+            <div class="detail-card"><b>Ballot isolation</b><p>Drafts are visible only to the assigned judge and authorized directors. Competitors see ballots after release.</p></div>
+            <div class="detail-card"><b>AI policy boundary</b><p>Organizer events call shadow AI only after the human ballot lock. Model output cannot enter the official write path.</p></div>
+            <div class="detail-card"><b>Data minimization</b><p>Public standings expose competitive records. Contact details, eligibility evidence, and room tokens stay private.</p></div>
+          </div>
+        </section>
+
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">06 · UI SURFACES</span>
+            <div><h3>One next action per role.</h3><p>The control room is dense because directors need the whole event. Competitor and judge surfaces stay narrow.</p></div>
+          </div>
+          <div class="surface-grid">
+            <div class="detail-card"><b>Director control room</b><p>Live exceptions, pairing preview, audited overrides, ballot chase, and release gates.</p></div>
+            <div class="detail-card"><b>Registration and check-in</b><p>Eligibility, roster, division, contact status, consent, and final attendance.</p></div>
+            <div class="detail-card"><b>Competitor desk</b><p>One next pairing, side, motion release, room entry, and result status.</p></div>
+            <div class="detail-card"><b>Judge desk</b><p>Assignment, conflicts, room entry, ballot editor, submission, and lock receipt.</p></div>
+            <div class="detail-card"><b>Public results</b><p>Released pairings, standings snapshots, elimination bracket, and published ballots by policy.</p></div>
+            <div class="detail-card"><b>Operations audit</b><p>Searchable event history for directors, appeals, and post-tournament review.</p></div>
+          </div>
+        </section>
+
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">07 · DELIVERY</span>
+            <div><h3>Earn scale one event at a time.</h3><p>The first milestone is not feature coverage. It is a pilot whose final standings can be reproduced from the ledger without manual repair.</p></div>
+          </div>
+          <div class="delivery-grid">
+            <div class="phase"><span class="phase-n">Phase 1</span><h4>Ledger core</h4><p>Roles, registration, check-in, event states, audit events, and director read model.</p></div>
+            <div class="phase"><span class="phase-n">Phase 2</span><h4>Round engine</h4><p>Pairing preview and commit, private room tokens, judge assignment, and timing status.</p></div>
+            <div class="phase"><span class="phase-n">Phase 3</span><h4>Verdict loop</h4><p>Official ballots, locks, standings snapshots, bracket advancement, and releases.</p></div>
+            <div class="phase"><span class="phase-n">Phase 4</span><h4>Repeat and scale</h4><p>Second pilot, recovery drills, then multiple divisions, teams, and larger formats.</p></div>
+          </div>
+        </section>
+
+        <section class="deep-section">
+          <div class="deep-head">
+            <span class="num">08 · FAQ</span>
+            <div><h3>Policy before product.</h3><p>Judging authority, pairing rules, privacy, and overrides are declared before the first registration.</p></div>
+          </div>
+          <div class="faq">
+            <details><summary>Does Debatable replace human judges?</summary><p>Organizer-hosted events default to human-official ballots. Shadow AI can run only after the human ballot is locked. Debatable Cups may choose AI-official judging and disclose that policy before registration.</p></details>
+            <details><summary>How are pairings produced?</summary><p>The server receives a fixed input snapshot, tournament policy, and seed. It produces the same preview for the same inputs. Hard and soft constraint results are visible before commit. Overrides require a reason and remain in the audit log.</p></details>
+            <details><summary>Why start with a two-sided format?</summary><p>It tests side balance, rematch prevention, power pairing, judge assignment, room state, ballots, and elimination advancement without adding multi-team ranking logic to the first live event.</p></details>
+            <details><summary>What existing infrastructure is reused?</summary><p>The design reuses Debatable's current tournaments route, live-round experience, Firebase and Firestore stack, Netlify functions, Daily video rooms, and adjudication system. The new work is the authoritative tournament ledger and the role-specific views around it.</p></details>
+          </div>
+        </section>
+      </div>
     </div>
-    <div class="field">
-      <label for="regSide">Side preference</label>
-      <select id="regSide">
-        <option value="either">Either side (seed me anywhere)</option>
-        <option value="prop">Proposition / Government</option>
-        <option value="opp">Opposition</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn ghost" id="regCancel">Cancel</button>
-      <button class="btn primary" id="regConfirm">Lock my slot</button>
-    </div>
-    <div class="mnote" id="regNote">Held on this device for now. Sign in to sync your bracket across devices.</div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="shell footer-in">
+    <span>Debatable Tournament OS · Pilot design</span>
+    <div class="footer-links"><a href="/">Home</a><a href="/live">Live debates</a><a href="/judge">Judge a round</a><a href="/privacy">Privacy</a></div>
   </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
+</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 (function(){
   "use strict";
-
-  /* ============================================================
-     DATA — the seed field. Swap this for a /api/tournaments feed
-     when the server ledger is live (see initServer below). Dates
-     are relative-day offsets from "now" so the seed never goes
-     stale on the shelf: negative = past, 0 = today, positive =
-     upcoming. rendered through fmtWhen().
-     ============================================================ */
-  var TOURNAMENTS = [
-    {
-      id:'apda-summer-open', name:'The Summer Online Open', format:'APDA', status:'open',
-      motion:'Rolling motions, released at the top of each round. Impromptu, no prepared cases.',
-      opensIn:-3, startsIn:6, prelims:3, cap:64, filled:41, region:'Global · online', judged:'AI ballot every round'
-    },
-    {
-      id:'ap-clash-cup', name:'Asian Parli Clash Cup', format:'Asian Parliamentary', status:'open',
-      motion:'THW abolish legacy admissions at elite universities.',
-      opensIn:-1, startsIn:9, prelims:3, cap:48, filled:22, region:'Asia circuit · online', judged:'AI ballot every round'
-    },
-    {
-      id:'bp-novice-invitational', name:'BP Novice Invitational', format:'British Parliamentary', status:'open',
-      motion:'THBT developing nations should prioritise economic growth over environmental protection.',
-      opensIn:0, startsIn:14, prelims:2, cap:56, filled:9, region:'Open to first-year debaters', judged:'AI ballot every round'
-    },
-    {
-      id:'pf-monthly-ladder', name:'PF Monthly Ladder', format:'Public Forum', status:'soon',
-      motion:'Resolution drops with the NSDA topic release. Bracket seeds the week after.',
-      opensIn:5, startsIn:19, prelims:3, cap:32, filled:0, region:'US circuit · online', judged:'AI ballot every round'
-    },
-    {
-      id:'ld-value-classic', name:'LD Value Classic', format:'Lincoln-Douglas', status:'soon',
-      motion:'Value / criterion debate on the standing circuit resolution.',
-      opensIn:8, startsIn:24, prelims:3, cap:32, filled:0, region:'US circuit · online', judged:'AI ballot every round'
-    },
-    {
-      id:'wsdc-worlds-warmup', name:'WSDC Worlds Warm-up', format:'WSDC', status:'live',
-      motion:'THW require social media platforms to verify the age of all users.',
-      opensIn:-12, startsIn:-2, prelims:3, cap:32, filled:32, region:'Global · online', judged:'AI ballot every round',
-      bracket:{
-        rounds:[
-          {label:'Quarterfinals', matches:[
-            {a:'Meridian A', b:'Concord B', sa:271, sb:265, w:'a'},
-            {a:'Vantage', b:'Northbridge', sa:268, sb:274, w:'b'},
-            {a:'Ashford', b:'Lakeside Red', sa:277, sb:270, w:'a'},
-            {a:'Fairmont', b:'Sierra', sa:266, sb:272, w:'b'}
-          ]},
-          {label:'Semifinals', matches:[
-            {a:'Meridian A', b:'Northbridge', sa:279, sb:281, w:'b'},
-            {a:'Ashford', b:'Sierra', sa:274, sb:269, w:'a'}
-          ]},
-          {label:'Final', matches:[
-            {a:'Northbridge', b:'Ashford', sa:null, sb:null, w:null, liveNow:true}
-          ]}
-        ]
-      }
-    },
-    {
-      id:'policy-arctic-showcase', name:'Policy Arctic Showcase', format:'Policy', status:'live',
-      motion:'The USFG should substantially increase its security cooperation in the Arctic.',
-      opensIn:-16, startsIn:-4, prelims:2, cap:24, filled:24, region:'US circuit · online', judged:'AI ballot every round',
-      bracket:{
-        rounds:[
-          {label:'Octofinals', matches:[
-            {a:'Emory GS', b:'Kentucky KS', sa:0, sb:0, w:'a'},
-            {a:'Michigan MM', b:'Wake QT', sa:0, sb:0, w:'b'}
-          ]},
-          {label:'Semifinals', matches:[
-            {a:'Emory GS', b:'Wake QT', sa:null, sb:null, w:null, liveNow:true},
-            {a:'Northwestern LP', b:'Texas GS', sa:null, sb:null, w:null}
-          ]},
-          {label:'Final', matches:[
-            {a:'TBD', b:'TBD', sa:null, sb:null, w:null}
-          ]}
-        ]
-      }
-    },
-    {
-      id:'apda-spring-champs', name:'APDA Spring Championship', format:'APDA', status:'done',
-      motion:'A season of rolling motions. Impromptu throughout.',
-      opensIn:-58, startsIn:-42, prelims:3, cap:64, filled:64, region:'Global · online', judged:'AI ballot every round',
-      champion:'Rukin & Alvarez', runnerUp:'The Meridian pair', field:64,
-      bracket:{
-        rounds:[
-          {label:'Semifinals', matches:[
-            {a:'Rukin & Alvarez', b:'Hollis & Tan', sa:278, sb:272, w:'a'},
-            {a:'The Meridian pair', b:'Osei & Park', sa:275, sb:270, w:'a'}
-          ]},
-          {label:'Final', matches:[
-            {a:'Rukin & Alvarez', b:'The Meridian pair', sa:283, sb:279, w:'a'}
-          ]}
-        ]
-      }
-    },
-    {
-      id:'bp-winter-open', name:'BP Winter Open', format:'British Parliamentary', status:'done',
-      motion:'THW ban targeted political advertising.',
-      opensIn:-74, startsIn:-60, prelims:4, cap:80, filled:80, region:'Global · online', judged:'AI ballot every round',
-      champion:'Sato (CG)', runnerUp:'Okonkwo (OO)', field:80,
-      bracket:{
-        rounds:[
-          {label:'Semifinal', matches:[
-            {a:'Sato (CG)', b:'Lindqvist (OG)', sa:0, sb:0, w:'a'},
-            {a:'Okonkwo (OO)', b:'Bauer (CO)', sa:0, sb:0, w:'a'}
-          ]},
-          {label:'Final', matches:[
-            {a:'Sato (CG)', b:'Okonkwo (OO)', sa:0, sb:0, w:'a'}
-          ]}
-        ]
-      }
-    }
-  ];
-
-  /* ---- local registration store (ports to server later) ---- */
-  var REG_KEY = 'dit-tournament-regs';
-  function loadRegs(){ try{ return JSON.parse(localStorage.getItem(REG_KEY)||'{}')||{}; }catch(e){ return {}; } }
-  function saveRegs(r){ try{ localStorage.setItem(REG_KEY, JSON.stringify(r)); }catch(e){} }
-  var regs = loadRegs();
-
-  /* ---- optional firebase auth (advise, not require) ---- */
-  var FIREBASE_CONFIG = {
-    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
-    authDomain: "debateos-78ac5.firebaseapp.com",
-    projectId: "debateos-78ac5",
-    storageBucket: "debateos-78ac5.firebasestorage.app",
-    messagingSenderId: "860359449192",
-    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
-  };
-  var fbAuth = null, fbUser = null;
-  function initFirebase(){
-    try{
-      if(!window.firebase || !firebase.auth) return;
-      if(!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
-      fbAuth = firebase.auth();
-      fbAuth.onAuthStateChanged(function(u){ fbUser = u; renderWho(); });
-    }catch(e){}
-  }
-  function signIn(){
-    try{
-      if(!fbAuth){ toast('Sign-in is unavailable right now.'); return; }
-      var p = new firebase.auth.GoogleAuthProvider();
-      fbAuth.signInWithPopup(p).catch(function(){ try{ fbAuth.signInWithRedirect(p); }catch(e){} });
-    }catch(e){ toast('Sign-in is unavailable right now.'); }
-  }
-  function renderWho(){
-    var slot = document.getElementById('whoSlot');
-    var btn = document.getElementById('signBtn');
-    if(fbUser){
-      slot.textContent = (fbUser.displayName || 'Signed in');
-      btn.style.display = 'none';
-    } else {
-      slot.textContent = '';
-      btn.style.display = '';
-    }
-  }
-
-  /* ============================================================
-     SERVER WIRING SEAM — the day /api/tournaments/state answers,
-     replace TOURNAMENTS + regs with the server payload here and
-     the whole UI below renders unchanged. Left as a no-op so the
-     page runs fully on the local seed until then.
-     ============================================================ */
-  function initServer(){ /* fetch('/api/tournaments/state')... -> TOURNAMENTS/regs, then renderAll() */ }
-
-  /* ---- helpers ---- */
-  function el(tag, cls, txt){ var n=document.createElement(tag); if(cls) n.className=cls; if(txt!=null) n.textContent=txt; return n; }
-  function dayMs(){ return 86400000; }
-  function fmtWhen(offset){
-    if(offset===0) return 'Today';
-    if(offset===1) return 'Tomorrow';
-    if(offset===-1) return 'Yesterday';
-    if(offset<0)   return Math.abs(offset)+' days ago';
-    if(offset<=13) return 'in '+offset+' days';
-    var wk = Math.round(offset/7);
-    return 'in '+wk+' week'+(wk>1?'s':'');
-  }
-  var STATUS_LABEL = { open:'Registration open', live:'Live now', soon:'Opens soon', done:'Complete' };
-
-  var toastT;
-  function toast(msg, good){
-    var t=document.getElementById('toast'); t.textContent=msg;
-    t.className='toast on'+(good?' good':''); clearTimeout(toastT);
-    toastT=setTimeout(function(){ t.className='toast'+(good?' good':''); }, 2600);
-  }
-
-  function byId(id){ for(var i=0;i<TOURNAMENTS.length;i++){ if(TOURNAMENTS[i].id===id) return TOURNAMENTS[i]; } return null; }
-
-  /* ---- card render ---- */
-  function card(t){
-    var c = el('div','tcard'); c.setAttribute('data-id', t.id);
-    var mine = !!regs[t.id];
-
-    var top = el('div','toprow');
-    var st = el('span','status '+t.status);
-    if(t.status==='live') st.appendChild(el('span','live-dot'));
-    st.appendChild(document.createTextNode(STATUS_LABEL[t.status]||t.status));
-    top.appendChild(st);
-    top.appendChild(el('span','fmt', t.format));
-    c.appendChild(top);
-
-    c.appendChild(el('h3', null, t.name));
-    c.appendChild(el('div','motion', t.motion));
-
-    var meta = el('div','meta');
-    function m(k,v){ var w=el('div','m'); w.appendChild(el('span','k',k)); w.appendChild(el('span','v',v)); meta.appendChild(w); }
-    if(t.status==='done'){
-      m('Champion', t.champion || '—');
-      m('Field', (t.field||t.cap)+' entered');
-      m('Ran', fmtWhen(t.startsIn));
-    } else {
-      m(t.status==='live'?'Started':'Starts', fmtWhen(t.startsIn));
-      m('Prelims', t.prelims+' rounds');
-      m('Field', t.region);
-    }
-    c.appendChild(meta);
-
-    if(t.status==='open' || t.status==='live'){
-      var pct = Math.min(100, Math.round((t.filled/t.cap)*100));
-      var fb = el('div','fillbar'); var i=el('i'); i.style.width=pct+'%'; fb.appendChild(i); c.appendChild(fb);
-    }
-
-    var foot = el('div','cardfoot');
-    if(t.status==='open'){
-      foot.appendChild(el('span','cap', t.filled+' / '+t.cap+' slots filled'));
-      if(mine){ foot.appendChild(el('span','reg-pill','✓ You are in')); }
-      else{ var b=el('button','btn primary','Register'); b.style.padding='7px 15px'; foot.appendChild(b); }
-    } else if(t.status==='live'){
-      foot.appendChild(el('span','cap', 'Bracket in progress'));
-      foot.appendChild(el('button','btn','View bracket'));
-    } else if(t.status==='soon'){
-      foot.appendChild(el('span','cap', 'Registration '+fmtWhen(t.opensIn)));
-      foot.appendChild(el('button','btn ghost','Details'));
-    } else {
-      foot.appendChild(el('span','cap', 'Won by '+(t.champion||'—')));
-      foot.appendChild(el('button','btn ghost','Results'));
-    }
-    c.appendChild(foot);
-
-    c.addEventListener('click', function(ev){
-      // a bare Register button jumps straight to the modal; anything
-      // else on the card opens the detail sheet.
-      if(ev.target.tagName==='BUTTON' && ev.target.textContent==='Register'){ ev.stopPropagation(); openReg(t.id); return; }
-      openSheet(t.id);
-    });
-    return c;
-  }
-
-  function renderGrid(id, list, emptyMsg){
-    var g = document.getElementById(id); g.innerHTML='';
-    if(!list.length){ var e=el('div','empty'); e.innerHTML='<b>Nothing here yet.</b><br>'+emptyMsg; g.appendChild(e); return; }
-    list.forEach(function(t){ g.appendChild(card(t)); });
-  }
-
-  function renderAll(){
-    var open = TOURNAMENTS.filter(function(t){ return t.status==='open'||t.status==='soon'; });
-    var live = TOURNAMENTS.filter(function(t){ return t.status==='live'; });
-    var champ= TOURNAMENTS.filter(function(t){ return t.status==='done'; });
-    renderGrid('openGrid', open, 'New brackets open every week. Check back soon.');
-    renderGrid('liveGrid', live, 'No rounds are live right now. Register for an open bracket.');
-    renderGrid('champGrid', champ, 'The first champions will show up here.');
-    document.getElementById('nOpen').textContent = open.length;
-    document.getElementById('nLive').textContent = live.length;
-    renderWho();
-  }
-
-  /* ---- detail sheet + bracket ---- */
-  function seat(name, score, isWin, live){
-    var s = el('div','seat'+(isWin?' win':'')+((!name||name==='TBD')?' tbd':''));
-    s.appendChild(el('span','sd', isWin?'▶':''));
-    s.appendChild(el('span','nm', name||'TBD'));
-    if(live){ s.appendChild(el('span','sc','live')); }
-    else if(score!=null && score>0){ s.appendChild(el('span','sc', String(score))); }
-    return s;
-  }
-  function renderBracket(b){
-    var wrap = el('div','bracket');
-    b.rounds.forEach(function(r){
-      var col = el('div','round');
-      var inner = el('div');
-      inner.appendChild(el('div','round-lab', r.label));
-      r.matches.forEach(function(m){
-        var mm = el('div','match');
-        mm.appendChild(seat(m.a, m.sa, m.w==='a', m.liveNow));
-        mm.appendChild(seat(m.b, m.sb, m.w==='b', m.liveNow));
-        inner.appendChild(mm);
-      });
-      col.appendChild(inner);
-      wrap.appendChild(col);
-    });
-    return wrap;
-  }
-
-  function openSheet(id){
-    var t = byId(id); if(!t) return;
-    var sheet = document.getElementById('sheet'); sheet.innerHTML='';
-    var mine = !!regs[t.id];
-
-    var head = el('div','sheet-head');
-    var row1 = el('div','row1');
-    var st = el('span','status '+t.status);
-    if(t.status==='live') st.appendChild(el('span','live-dot'));
-    st.appendChild(document.createTextNode((STATUS_LABEL[t.status]||t.status)+' · '+t.format));
-    row1.appendChild(st);
-    var x = el('button','close-x','×'); x.addEventListener('click', closeSheet); row1.appendChild(x);
-    head.appendChild(row1);
-    head.appendChild(el('h2', null, t.name));
-    head.appendChild(el('div','motion', t.motion));
-    sheet.appendChild(head);
-
-    var body = el('div','sheet-body');
-    var ig = el('div','infogrid');
-    function info(k,v){ var w=el('div','info'); w.appendChild(el('div','k',k)); w.appendChild(el('div','v',v)); ig.appendChild(w); }
-    if(t.status==='done'){
-      info('Champion', t.champion||'—');
-      info('Runner-up', t.runnerUp||'—');
-      info('Field', (t.field||t.cap)+' entrants');
-      info('Ran', fmtWhen(t.startsIn));
-    } else {
-      info(t.status==='live'?'Started':'Starts', fmtWhen(t.startsIn));
-      info('Prelims', t.prelims+' AI rounds');
-      info('Field', (t.filled||0)+' / '+t.cap);
-      info('Judging', 'AI ballot, every round');
-    }
-    body.appendChild(ig);
-
-    if(t.bracket){
-      body.appendChild(el('div','subhead', t.status==='done'?'Final bracket':'Live bracket'));
-      body.appendChild(renderBracket(t.bracket));
-    }
-
-    if(t.status==='open'){
-      var cta = el('div','reg-cta'+(mine?' reg-done':''));
-      var left = el('div');
-      if(mine){
-        left.appendChild(el('div','t','You are on the field'));
-        left.appendChild(el('div','s','Registered as '+(regs[t.id].name||'you')+'. We will surface your prelim pairings here when seeding opens.'));
-      } else {
-        left.appendChild(el('div','t','Grab a slot'));
-        left.appendChild(el('div','s',(t.cap-t.filled)+' of '+t.cap+' spots left. Free to enter during beta.'));
-      }
-      cta.appendChild(left);
-      if(mine){
-        var drop = el('button','btn ghost','Withdraw');
-        drop.addEventListener('click', function(){ withdraw(t.id); });
-        cta.appendChild(drop);
-      } else {
-        var reg = el('button','btn primary','Register');
-        reg.addEventListener('click', function(){ openReg(t.id); });
-        cta.appendChild(reg);
-      }
-      body.appendChild(cta);
-    } else if(t.status==='soon'){
-      var cta2 = el('div','reg-cta');
-      var l2 = el('div');
-      l2.appendChild(el('div','t','Registration '+fmtWhen(t.opensIn)));
-      l2.appendChild(el('div','s','This bracket is not open yet. Run a voice round or spar a human to stay sharp until it fills.'));
-      cta2.appendChild(l2);
-      var go = el('a','btn primary','Warm up'); go.href='/voice-debate'; cta2.appendChild(go);
-      body.appendChild(cta2);
-    }
-
-    sheet.appendChild(body);
-    var ov = document.getElementById('overlay'); ov.classList.add('on'); ov.setAttribute('aria-hidden','false');
-    ov.scrollTop = 0;
-  }
-  function closeSheet(){ var ov=document.getElementById('overlay'); ov.classList.remove('on'); ov.setAttribute('aria-hidden','true'); }
-  document.getElementById('overlay').addEventListener('click', function(e){ if(e.target.id==='overlay') closeSheet(); });
-
-  /* ---- register modal ---- */
-  var pendingId = null;
-  function openReg(id){
-    var t = byId(id); if(!t) return;
-    pendingId = id;
-    document.getElementById('regTitle').textContent = 'Register · '+t.name;
-    document.getElementById('regSub').textContent = t.format+'. '+(t.cap-t.filled)+' slots left. Free to enter during beta.';
-    var nm = document.getElementById('regName');
-    nm.value = (fbUser && fbUser.displayName) || (regs[id] && regs[id].name) || '';
-    document.getElementById('regNote').textContent = fbUser ? 'Locked to your account.' : 'Held on this device for now. Sign in to sync your bracket across devices.';
-    var m = document.getElementById('regModal'); m.classList.add('on'); m.setAttribute('aria-hidden','false');
-    setTimeout(function(){ nm.focus(); }, 30);
-  }
-  function closeReg(){ var m=document.getElementById('regModal'); m.classList.remove('on'); m.setAttribute('aria-hidden','true'); pendingId=null; }
-  function confirmReg(){
-    if(!pendingId) return;
-    var t = byId(pendingId); if(!t) return;
-    var name = (document.getElementById('regName').value||'').trim() || (fbUser && fbUser.displayName) || 'Anonymous debater';
-    var side = document.getElementById('regSide').value;
-    if(!regs[t.id]){ t.filled = Math.min(t.cap, (t.filled||0)+1); }
-    regs[t.id] = { name:name, side:side, at:Date.now() };
-    saveRegs(regs);
-    // initServer() would POST /api/tournaments/register here.
-    closeReg();
-    toast('You are in. Slot locked for '+t.name+'.', true);
-    renderAll();
-    if(document.getElementById('overlay').classList.contains('on')) openSheet(t.id);
-  }
-  function withdraw(id){
-    var t = byId(id); if(!t||!regs[id]) return;
-    delete regs[id]; saveRegs(regs);
-    t.filled = Math.max(0, (t.filled||1)-1);
-    toast('Withdrawn from '+t.name+'.');
-    renderAll();
-    if(document.getElementById('overlay').classList.contains('on')) openSheet(id);
-  }
-  document.getElementById('regCancel').addEventListener('click', closeReg);
-  document.getElementById('regConfirm').addEventListener('click', confirmReg);
-  document.getElementById('regModal').addEventListener('click', function(e){ if(e.target.id==='regModal') closeReg(); });
-  document.getElementById('regName').addEventListener('keydown', function(e){ if(e.key==='Enter') confirmReg(); });
-
-  /* ---- tournament header menu + tabs ---- */
-  var tabs = document.querySelectorAll('.tab');
-  var panels = document.querySelectorAll('.panel');
-  var productMenuBtn = document.getElementById('productMenuBtn');
-  var productMenu = document.getElementById('productMenu');
-  var productMenuItems = document.querySelectorAll('[data-panel-jump]');
-
-  function openProductMenu(focusFirst){
-    productMenu.hidden = false;
-    productMenuBtn.setAttribute('aria-expanded','true');
-    if(focusFirst){
-      var active = productMenu.querySelector('.product-menu-item.is-active');
-      if(active) active.focus();
-    }
-  }
-  function closeProductMenu(returnFocus){
-    productMenu.hidden = true;
-    productMenuBtn.setAttribute('aria-expanded','false');
-    if(returnFocus) productMenuBtn.focus();
-  }
-  function showPanel(name, shouldScroll, updateHash){
-    var target = document.getElementById('panel-'+name);
-    if(!target) return;
-    tabs.forEach(function(t){
-      t.setAttribute('aria-selected', t.getAttribute('data-panel')===name ? 'true' : 'false');
-    });
-    panels.forEach(function(p){ p.classList.toggle('on', p===target); });
-    productMenuItems.forEach(function(item){
-      var active = item.getAttribute('data-panel-jump')===name;
-      item.classList.toggle('is-active', active);
-      if(active) item.setAttribute('aria-current','page');
-      else item.removeAttribute('aria-current');
-    });
-    if(updateHash){
-      try{ history.replaceState(null,'','#panel-'+name); }catch(e){}
-    }
-    if(shouldScroll){
-      var reduced = false;
-      try{ reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
-      document.querySelector('.tabs').scrollIntoView({ behavior:reduced?'auto':'smooth', block:'start' });
-    }
-  }
-
+  var tabs=document.querySelectorAll('.control-tab');
   tabs.forEach(function(tab){
-    tab.addEventListener('click', function(){
-      showPanel(tab.getAttribute('data-panel'), false, true);
+    tab.addEventListener('click',function(){
+      tabs.forEach(function(item){item.setAttribute('aria-selected','false')});
+      document.querySelectorAll('.control-screen').forEach(function(screen){screen.classList.remove('on')});
+      tab.setAttribute('aria-selected','true');
+      document.getElementById('screen-'+tab.getAttribute('data-screen')).classList.add('on');
     });
   });
-  productMenuItems.forEach(function(item){
-    item.addEventListener('click', function(){
-      showPanel(item.getAttribute('data-panel-jump'), true, true);
-      closeProductMenu(false);
-    });
+  var toastTimer;
+  function showToast(message){
+    var toast=document.getElementById('toast');
+    toast.textContent=message;toast.classList.add('on');clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){toast.classList.remove('on')},2800);
+  }
+  document.querySelectorAll('[data-demo-action]').forEach(function(button){
+    button.addEventListener('click',function(){showToast(button.getAttribute('data-demo-action'))});
   });
-  productMenuBtn.addEventListener('click', function(e){
-    e.stopPropagation();
-    if(productMenu.hidden) openProductMenu(false);
-    else closeProductMenu(false);
+  var toggle=document.getElementById('systemToggle');
+  var more=document.getElementById('systemMore');
+  toggle.addEventListener('click',function(){
+    var open=toggle.getAttribute('aria-expanded')==='true';
+    toggle.setAttribute('aria-expanded',String(!open));
+    more.hidden=open;
+    toggle.innerHTML=open
+      ? 'See the full Tournament OS <span class="arrow" aria-hidden="true">↓</span>'
+      : 'Hide the full system <span class="arrow" aria-hidden="true">↑</span>';
   });
-  productMenuBtn.addEventListener('keydown', function(e){
-    if(e.key==='ArrowDown'){
-      e.preventDefault();
-      openProductMenu(true);
-    }
-  });
-  productMenu.addEventListener('keydown', function(e){
-    if(e.key!=='ArrowDown' && e.key!=='ArrowUp') return;
-    e.preventDefault();
-    var items = Array.prototype.slice.call(productMenu.querySelectorAll('[role="menuitem"]'));
-    var index = items.indexOf(document.activeElement);
-    if(e.key==='ArrowDown') index = (index+1)%items.length;
-    else index = (index<=0?items.length:index)-1;
-    items[index].focus();
-  });
-  document.addEventListener('click', function(e){
-    if(!productMenu.hidden && !productMenu.contains(e.target) && e.target!==productMenuBtn) closeProductMenu(false);
-  });
-
-  var hashPanel = location.hash.match(/^#panel-(open|live|champs|how)$/);
-  if(hashPanel) showPanel(hashPanel[1], false, false);
-  else showPanel("open", false, false);
-
-  /* ---- keyboard ---- */
-  document.addEventListener('keydown', function(e){
-    if(e.key==='Escape'){
-      if(!productMenu.hidden) closeProductMenu(true);
-      else if(document.getElementById('regModal').classList.contains('on')) closeReg();
-      else if(document.getElementById('overlay').classList.contains('on')) closeSheet();
-    }
-  });
-
-  document.getElementById('signBtn').addEventListener('click', signIn);
-
-  /* ---- boot ---- */
-  // Reconcile seed counts with this device's own registrations so a
-  // "You are in" card also reflects your slot in the filled tally after
-  // a reload (the seed resets each load; the server will own this later).
-  Object.keys(regs).forEach(function(id){ var t=byId(id); if(t){ t.filled = Math.min(t.cap, (t.filled||0)+1); } });
-  initFirebase();
-  initServer();
-  renderAll();
 })();
 </script>
 <script defer src="/js/home-magnet.js"></script>

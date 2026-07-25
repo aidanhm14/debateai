@@ -275,11 +275,9 @@
       // no-simultaneity surface, so it belongs next to the live ones.
       { href: '/rounds',      label: 'Async rounds' },
       { href: '/spectate',    label: 'Spectate live rounds' },
-      // 2026-07-23: /tournaments had NO discovery surface. It is off the
-      // main bar by design (event-by-event drops) and app pages carry no
-      // footer, so the only way in was typing the URL or catching the
-      // landing's creator-sweepstakes ad. That is exactly the gap this
-      // menu exists to close. Stays noindex; this is internal discovery.
+      // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
+      // page. It stays off the main bar because the primary product is
+      // still debate practice; Explore is the right discovery surface.
       { href: '/tournaments', label: 'Tournaments' },
       { href: '/leaderboard', label: 'Leaderboard' },
       { href: '/community',   label: 'Community' },
@@ -300,8 +298,7 @@
     //                nav. (APDA stays out of it by design — impromptu,
     //                no rolling motion.)
     //   /argument-coach  paste an argument, get claim / warrant / impact.
-    //                noindex, same as /tournaments above: this menu is
-    //                internal discovery, not a crawl surface.
+    //                noindex; the menu is its internal discovery surface.
     //   /oral-exam-prep  the viva vertical. Last because it is the
     //                narrowest audience, not because it is unfinished.
     // Deliberately NOT added: /research (a corpus-licensing page aimed
