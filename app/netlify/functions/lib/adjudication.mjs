@@ -147,3 +147,22 @@ export function buildAdjudicationBlock(opts = {}) {
   void opts;
   return [ADJUDICATION_CORE, JUDGE_EXEMPLARS].join('\n\n');
 }
+
+// Non-Claude brain proxies do not use Claude's cached-prefix assembly, but
+// they still need the exact same judging core. Mutates the shared
+// Claude-shaped request body and always strips the private routing field.
+export function applyAdjudicationForFeature(body) {
+  if (!body || typeof body !== 'object') return;
+  const feature = body._feature || '';
+  const format = body._voiceFormat || '';
+  delete body._feature;
+  if (!isJudgeFeature(feature)) return;
+  const block = buildAdjudicationBlock({ format });
+  if (typeof body.system === 'string') {
+    body.system = block + (body.system ? '\n\n' + body.system : '');
+  } else if (Array.isArray(body.system)) {
+    body.system = [{ type: 'text', text: block }, ...body.system];
+  } else {
+    body.system = block;
+  }
+}

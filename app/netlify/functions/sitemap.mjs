@@ -78,6 +78,7 @@ const URLS = [
   // tournament-grade RFD + speaker points; PF-first, targets the
   // lay-parent-judge gap. Same playbook as /debate-an-ai.
   { path: '/judge',                                   changefreq: 'weekly',  priority: '0.88' },
+  { path: '/judge-paradigms',                         changefreq: 'monthly', priority: '0.82' },
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debateit-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debateit-vs-claude',              changefreq: 'monthly', priority: '0.84' },

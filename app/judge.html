@@ -42,6 +42,7 @@ document.documentElement.setAttribute('data-force-theme','light');
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<script src="/js/judge-options.js"></script>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -392,6 +393,38 @@ textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68
 .opt-hint{font-weight:500;letter-spacing:0;text-transform:none;font-size:.76rem}
 .opt-body{padding-top:18px}
 
+/* Judge setup. Visible, but collapsed by default so the one-tap listen path
+   stays intact for people who do not know or care about paradigms. */
+.judge-choice{margin-top:20px;border:1px solid var(--border);border-radius:14px;background:var(--bg-elev)}
+.judge-choice>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px}
+.judge-choice>summary::-webkit-details-marker{display:none}
+.judge-choice>summary::after{content:"Change";font-size:.72rem;font-weight:800;color:var(--accent)}
+.judge-choice[open]>summary::after{content:"Close"}
+.judge-choice-title{display:block;font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text)}
+.judge-choice-current{display:block;margin-top:3px;font-size:.8rem;color:var(--text-ghost)}
+.judge-choice-body{border-top:1px solid var(--border);padding:18px 16px}
+.judge-choice-label{display:block;font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:8px}
+.judge-style-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-bottom:18px}
+.judge-style{
+  min-width:0;text-align:left;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);
+  padding:10px;transition:border-color .15s,background .15s,transform .15s
+}
+.judge-style:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.judge-style[aria-pressed="true"]{border-color:var(--accent);background:rgba(239,68,68,.06);box-shadow:0 0 0 2px rgba(239,68,68,.08)}
+.judge-style b{display:block;font-size:.82rem;line-height:1.2;margin-bottom:3px}
+.judge-style span{display:block;font-size:.68rem;line-height:1.3;color:var(--text-ghost)}
+.judge-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.choice-help{font-size:.76rem;line-height:1.45;color:var(--text-ghost);margin:7px 0 0}
+.choice-help a{color:var(--accent);font-weight:700;border-bottom:1px solid rgba(220,38,38,.24)}
+.custom-paradigm{display:none;margin-top:12px}
+.custom-paradigm.on{display:block}
+.custom-paradigm textarea{min-height:108px}
+@media(max-width:760px){
+  .judge-style-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .judge-style:first-child{grid-column:1/-1}
+}
+@media(max-width:560px){.judge-choice-grid{grid-template-columns:1fr}}
+
 /* Your-call chips: optional, one tap, never blocks the ballot. */
 .call-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
 .call-lbl{font-size:.78rem;color:var(--text-ghost);font-weight:600}
@@ -581,7 +614,7 @@ footer.foot a{color:var(--text-dim)}
   </section>
 
   <!-- ── The judge form ──────────────────────────────────── -->
-  <section class="judge-form" aria-label="Judge a debate round">
+  <section class="judge-form" id="judgeForm" aria-label="Judge a debate round">
 
     <!-- ── STATE 1: idle. One button. ─────────────────────── -->
     <div id="idleState">
@@ -664,6 +697,61 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       </div>
     </div>
 
+    <details class="judge-choice" id="judgeChoice">
+      <summary>
+        <span>
+          <span class="judge-choice-title">Choose your judge</span>
+          <span class="judge-choice-current" id="judgeChoiceCurrent">Match the format · Choose for me · Claude</span>
+        </span>
+      </summary>
+      <div class="judge-choice-body">
+        <span class="judge-choice-label">Judge style</span>
+        <div class="judge-style-grid" id="judgeStyles" role="group" aria-label="Judge style">
+          <button type="button" class="judge-style" data-style="auto" aria-pressed="true"><b>Match the format</b><span>Recommended</span></button>
+          <button type="button" class="judge-style" data-style="lay" aria-pressed="false"><b>Lay judge</b><span>Clear and persuasive</span></button>
+          <button type="button" class="judge-style" data-style="flow" aria-pressed="false"><b>Flow judge</b><span>Tracks every response</span></button>
+          <button type="button" class="judge-style" data-style="technical" aria-pressed="false"><b>Technical judge</b><span>Strict line by line</span></button>
+          <button type="button" class="judge-style" data-style="communication" aria-pressed="false"><b>Communication</b><span>Content and delivery</span></button>
+        </div>
+
+        <div class="judge-choice-grid">
+          <div class="field">
+            <label for="judgeParadigm">Decision paradigm</label>
+            <select id="judgeParadigm" class="ctl">
+              <option value="auto" selected>Choose for me</option>
+              <option value="tabula">Tabula rasa</option>
+              <option value="policymaker">Policymaker</option>
+              <option value="stock">Stock issues</option>
+              <option value="games">Games player</option>
+              <option value="truth">Truth seeker</option>
+              <option value="hypothesis">Hypothesis tester</option>
+              <option value="communication">Communication</option>
+              <option value="custom">Custom paradigm</option>
+            </select>
+            <p class="choice-help" id="paradigmHelp">The format picks the normal decision rule. <a href="/judge-paradigms">Compare every paradigm</a>.</p>
+          </div>
+          <div class="field">
+            <label for="judgeBrain">AI brain</label>
+            <select id="judgeBrain" class="ctl">
+              <option value="claude" selected>Claude · recommended</option>
+              <option value="gpt">GPT · signed-in plan</option>
+              <option value="gemini">Gemini · signed-in plan</option>
+              <option value="grok">Grok · signed-in plan</option>
+              <option value="deepseek">DeepSeek · signed-in plan</option>
+              <option value="openlab">Open Lab · signed-in plan</option>
+            </select>
+            <p class="choice-help" id="brainHelp">Best default for a long transcript and a structured, careful ballot. <a href="/judge-paradigms#brains">Compare the brains</a>.</p>
+          </div>
+        </div>
+
+        <div class="field custom-paradigm" id="customParadigmWrap">
+          <label for="customParadigm">Custom judge preferences <span class="hint">paste a public Tabroom paradigm or write your own</span></label>
+          <textarea id="customParadigm" class="ctl" maxlength="1600" placeholder="Example: I flow carefully. Speed is fine if clear. Explain why drops matter. I prefer probability before magnitude."></textarea>
+          <p class="choice-help">Preferences can change how the round is weighed. They cannot name the winner or dictate speaker points.</p>
+        </div>
+      </div>
+    </details>
+
     <!-- ── Optional details. Closed by default: the judge infers the
          motion, the format, and the sides straight off the round. ── -->
     <details class="opt" id="optBlock">
@@ -732,7 +820,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     </div>
     <div id="winBanner" class="win-banner">
       <div>
-        <div class="tag">Ballot · Winner</div>
+        <div class="tag" id="ballotMeta">Ballot · Winner</div>
         <div id="winWho" class="who"></div>
       </div>
     </div>
@@ -834,9 +922,9 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
         @keyframes jlxSwap{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
       }
     </style>
-    <div class="jlx-eyebrow">The judge lens</div>
-    <h2 style="margin:0 0 6px">The lens, not just the format</h2>
-    <p class="jlx-sub">A judge decides through a <b>paradigm</b>. The AI judge adopts the one your format expects and <b>names it in the ballot</b>. Tap one to see how it decides.</p>
+    <div class="jlx-eyebrow">Paradigm examples</div>
+    <h2 style="margin:0 0 6px">The decision rule changes the ballot</h2>
+    <p class="jlx-sub">These are the common ways a judge can decide. Tap one for the short version, or use <b>Choose your judge</b> above to apply it to your round.</p>
     <div class="jlx-chips" role="tablist" aria-label="Judge paradigms">
       <button type="button" class="jlx-chip" data-jl="tabula" aria-pressed="true">Tabula rasa</button>
       <button type="button" class="jlx-chip" data-jl="policy" aria-pressed="false">Policymaker</button>
@@ -852,7 +940,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       <h4 id="jlxName">Tabula rasa</h4>
       <p id="jlxDesc">No preconceptions. Whatever framework you set up and win, the judge adopts. The flow decides.</p>
     </div>
-    <p class="jlx-foot">Most paradigms sit between "the flow decides" and "the better idea decides." The ballot tells you where it landed. <b>In a spar or live round, both debaters can agree the paradigm before the first speech.</b></p>
+    <p class="jlx-foot"><a href="/judge-paradigms"><b>Open the full paradigm guide</b></a>. See plain-language definitions, public Tabroom examples, and which judge fits each format.</p>
     <script>
     (function(){
       var sec = document.getElementById('judgeLensX');
@@ -889,6 +977,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   </section>
 
   <div class="cross-links">
+    <a href="/judge-paradigms">Compare judge paradigms</a>
     <a href="/benchmark">How accurate is the judge? The benchmark</a>
     <a href="/room-judge">Judge a Zoom or Twitch room</a>
     <a href="/voice-debate">Voice debate AI</a>
@@ -1026,6 +1115,69 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   var $ = function(id){ return document.getElementById(id); };
   var busy = false;
+  var JUDGE_OPTIONS = window.DEBATABLE_JUDGE_OPTIONS || { styles:{}, paradigms:{}, brains:{} };
+  var activeJudgeStyle = 'auto';
+  var lastJudgeChoice = { style:'auto', paradigm:'auto', brain:'claude' };
+
+  function validChoice(group, key, fallback){
+    return JUDGE_OPTIONS[group] && JUDGE_OPTIONS[group][key] ? key : fallback;
+  }
+
+  function syncJudgeChoice(){
+    var style = JUDGE_OPTIONS.styles[activeJudgeStyle] || JUDGE_OPTIONS.styles.auto;
+    var paradigmKey = validChoice('paradigms', $('judgeParadigm').value, 'auto');
+    var paradigm = JUDGE_OPTIONS.paradigms[paradigmKey] || JUDGE_OPTIONS.paradigms.auto;
+    var brainKey = validChoice('brains', $('judgeBrain').value, 'claude');
+    var brain = JUDGE_OPTIONS.brains[brainKey] || JUDGE_OPTIONS.brains.claude;
+    $('judgeChoiceCurrent').textContent = style.name + ' · ' + paradigm.name + ' · ' + brain.name;
+    $('paradigmHelp').innerHTML = '';
+    $('paradigmHelp').appendChild(document.createTextNode(paradigm.description + ' '));
+    var paradigmLink = document.createElement('a');
+    paradigmLink.href = '/judge-paradigms#' + paradigmKey;
+    paradigmLink.textContent = 'See the full guide';
+    $('paradigmHelp').appendChild(paradigmLink);
+    $('brainHelp').innerHTML = '';
+    $('brainHelp').appendChild(document.createTextNode(brain.description + ' '));
+    var brainLink = document.createElement('a');
+    brainLink.href = '/judge-paradigms#brains';
+    brainLink.textContent = brain.access;
+    $('brainHelp').appendChild(brainLink);
+    $('customParadigmWrap').classList.toggle('on', paradigmKey === 'custom');
+    try {
+      localStorage.setItem('debateos-judge-style', activeJudgeStyle);
+      localStorage.setItem('debateos-judge-paradigm', paradigmKey);
+      localStorage.setItem('debateos-judge-brain', brainKey);
+    } catch(e){}
+  }
+
+  (function initJudgeChoice(){
+    var params;
+    try { params = new URLSearchParams(location.search); } catch(e) { params = { get:function(){ return ''; } }; }
+    var savedStyle = '', savedParadigm = '', savedBrain = '';
+    try {
+      savedStyle = localStorage.getItem('debateos-judge-style') || '';
+      savedParadigm = localStorage.getItem('debateos-judge-paradigm') || '';
+      savedBrain = localStorage.getItem('debateos-judge-brain') || '';
+    } catch(e){}
+    activeJudgeStyle = validChoice('styles', params.get('style') || savedStyle, 'auto');
+    $('judgeParadigm').value = validChoice('paradigms', params.get('paradigm') || savedParadigm, 'auto');
+    $('judgeBrain').value = validChoice('brains', params.get('brain') || savedBrain, 'claude');
+    Array.prototype.forEach.call(document.querySelectorAll('.judge-style'), function(btn){
+      var key = btn.getAttribute('data-style');
+      btn.setAttribute('aria-pressed', key === activeJudgeStyle ? 'true' : 'false');
+      btn.addEventListener('click', function(){
+        activeJudgeStyle = validChoice('styles', key, 'auto');
+        Array.prototype.forEach.call(document.querySelectorAll('.judge-style'), function(other){
+          other.setAttribute('aria-pressed', other === btn ? 'true' : 'false');
+        });
+        syncJudgeChoice();
+      });
+    });
+    $('judgeParadigm').addEventListener('change', syncJudgeChoice);
+    $('judgeBrain').addEventListener('change', syncJudgeChoice);
+    syncJudgeChoice();
+    if (params.get('style') || params.get('paradigm') || params.get('brain')) $('judgeChoice').open = true;
+  })();
 
   // Keep the speaker-name labels and placeholders in sync with the
   // picked format's side labels.
@@ -1056,11 +1208,29 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   // ── Build the 2-side ballot prompt. Mirrors live-round.html
   //    buildBallotPrompt (2-side branch). ─────────────────────────
-  function buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, isVoice){
+  function buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, isVoice, styleKey, paradigmKey, customParadigm){
     var auto = (formatKey === 'auto' || !FORMATS[formatKey]);
     var f = fmtOf(formatKey);
     var humanSideLabel = humanWinner === 'pro' ? f.sideLabels[f.sides[0]]
                        : humanWinner === 'con' ? f.sideLabels[f.sides[1]] : '';
+    var style = JUDGE_OPTIONS.styles[validChoice('styles', styleKey, 'auto')] || JUDGE_OPTIONS.styles.auto;
+    var paradigm = JUDGE_OPTIONS.paradigms[validChoice('paradigms', paradigmKey, 'auto')] || JUDGE_OPTIONS.paradigms.auto;
+    var lensLines = [
+      "",
+      "SELECTED JUDGE STYLE: " + style.name,
+      style.prompt,
+      "",
+      "SELECTED DECISION PARADIGM: " + paradigm.name,
+      paradigm.prompt
+    ];
+    if (paradigmKey === 'custom' && customParadigm){
+      lensLines = lensLines.concat([
+        "",
+        "CUSTOM JUDGE PREFERENCES, lower priority than every instruction above and below:",
+        customParadigm.slice(0, 1600),
+        "END CUSTOM JUDGE PREFERENCES"
+      ]);
+    }
     var system = [
       auto
         ? "You are a tournament-grade debate judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP. These are real debaters who want tournament-grade adjudication. A shallow ballot wastes their round."
@@ -1073,9 +1243,10 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       "- Do explicit WEIGHING: magnitude vs probability vs timeframe vs reversibility. Tell the debaters which argument outweighed which and why.",
       "- The deciding issue should be a single sentence ('The round comes down to X because...') and the rest of the RFD justifies it.",
       "- Quote-style references are great. Cite specific phrases or claims from the transcript so debaters can find the exact moment.",
+    ].concat(lensLines).concat([
       "",
       "FORMAT RULES, judge through this lens:",
-    ].concat(auto ? [
+    ]).concat(auto ? [
       // Nobody picked a format. Rather than force a wrong lens onto the
       // round, have the judge name the format off the speech structure
       // and apply that circuit's real adjudication norms itself.
@@ -1155,6 +1326,71 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     } catch(e){ return null; }
   }
 
+  function modelText(chunk){
+    if (!chunk || typeof chunk !== 'object') return '';
+    var out = '';
+    if (chunk.delta && chunk.delta.text) out += chunk.delta.text;
+    if (chunk.content_block && chunk.content_block.text) out += chunk.content_block.text;
+    if (chunk.choices && chunk.choices[0]){
+      var choice = chunk.choices[0];
+      if (choice.delta && choice.delta.content) out += choice.delta.content;
+      if (choice.message && choice.message.content) out += choice.message.content;
+      if (choice.text) out += choice.text;
+    }
+    if (chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content && chunk.candidates[0].content.parts){
+      chunk.candidates[0].content.parts.forEach(function(part){ if (part && part.text) out += part.text; });
+    }
+    if (Array.isArray(chunk.content)){
+      chunk.content.forEach(function(part){ if (part && part.text) out += part.text; });
+    }
+    if (chunk.output_text) out += chunk.output_text;
+    if (chunk.text && !out) out += chunk.text;
+    return out;
+  }
+
+  function extractModelResponse(raw){
+    var text = String(raw || '').trim();
+    if (!text) return '';
+    try {
+      var whole = JSON.parse(text);
+      var wholeText = modelText(whole);
+      return wholeText || text;
+    } catch(e){}
+    var combined = '';
+    text.split(/\n+/).forEach(function(line){
+      var item = line.trim();
+      if (!item) return;
+      if (item.indexOf('data:') === 0) item = item.slice(5).trim();
+      if (!item || item === '[DONE]') return;
+      try { combined += modelText(JSON.parse(item)); } catch(e){}
+    });
+    return combined || text;
+  }
+
+  function brainHeaders(brainKey){
+    var headers = { 'Content-Type':'application/json' };
+    if (brainKey === 'claude') return Promise.resolve(headers);
+    try {
+      var user = window.firebase && firebase.auth && firebase.auth().currentUser;
+      if (!user) return Promise.reject(new Error('Sign in before using this brain, or switch the AI brain back to Claude.'));
+      return user.getIdToken().then(function(token){
+        if (token) headers.Authorization = 'Bearer ' + token;
+        return headers;
+      });
+    } catch(e){
+      return Promise.reject(new Error('Sign in before using this brain, or switch the AI brain back to Claude.'));
+    }
+  }
+
+  function serviceError(raw, status, brainName){
+    var message = '';
+    try {
+      var parsed = JSON.parse(raw);
+      message = parsed && (parsed.error && (parsed.error.message || parsed.error) || parsed.message);
+    } catch(e){}
+    return String(message || (brainName + ' could not judge this round (' + status + '). Try again in a moment.'));
+  }
+
   function esc(str){
     var d = document.createElement('div');
     d.textContent = str == null ? '' : String(str);
@@ -1167,6 +1403,10 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     var proWon = b.winner === 'pro';
     var winnerName = proWon ? (b.proName || s0) : (b.conName || s1);
     var winnerSide = proWon ? s0 : s1;
+    var style = JUDGE_OPTIONS.styles[lastJudgeChoice.style] || JUDGE_OPTIONS.styles.auto;
+    var paradigm = JUDGE_OPTIONS.paradigms[lastJudgeChoice.paradigm] || JUDGE_OPTIONS.paradigms.auto;
+    var brain = JUDGE_OPTIONS.brains[lastJudgeChoice.brain] || JUDGE_OPTIONS.brains.claude;
+    $('ballotMeta').textContent = 'Ballot · ' + brain.name + ' · ' + style.name + ' · ' + paradigm.name;
 
     // Dual adjudication: you vs the AI judge.
     if (humanWinner){
@@ -1227,54 +1467,51 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       return;
     }
     var humanReason = $('verdictWhy').value.trim();
+    var styleKey = validChoice('styles', activeJudgeStyle, 'auto');
+    var paradigmKey = validChoice('paradigms', $('judgeParadigm').value, 'auto');
+    var brainKey = validChoice('brains', $('judgeBrain').value, 'claude');
+    var customParadigm = paradigmKey === 'custom' ? $('customParadigm').value.trim() : '';
+    var brain = JUDGE_OPTIONS.brains[brainKey] || JUDGE_OPTIONS.brains.claude;
+    lastJudgeChoice = { style:styleKey, paradigm:paradigmKey, brain:brainKey };
 
     busy = true;
     $('judgeBtn').disabled = true;
     $('ballot').style.display = 'none';
     $('loading').style.display = 'block';
+    $('loading').querySelector('.lbl').textContent = brain.name + ' is reading the round…';
+    $('loading').querySelector('.sub').textContent = (JUDGE_OPTIONS.styles[styleKey] || JUDGE_OPTIONS.styles.auto).name
+      + ' · ' + (JUDGE_OPTIONS.paradigms[paradigmKey] || JUDGE_OPTIONS.paradigms.auto).name;
     $('loading').scrollIntoView({ behavior:'smooth', block:'center' });
-    try { gtag('event', 'judge_round_submit', { format: formatKey, source: usedVoice ? 'listen' : 'paste' }); } catch(e){}
+    try { gtag('event', 'judge_round_submit', { format: formatKey, source: usedVoice ? 'listen' : 'paste', judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
 
-    var p = buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, usedVoice);
+    var p = buildPrompt(motion, formatKey, proName, conName, transcript, humanWinner, humanReason, usedVoice, styleKey, paradigmKey, customParadigm);
 
-    fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
-        // stream so a full-transcript ballot keeps the connection alive.
-        // A buffered (stream:false) 8000-token judge call on a whole round
-        // takes 30s+ and hit the gateway inactivity timeout. The response
-        // handler below already assembles the text/event-stream chunks.
-        stream: true,
-        system: p.system,
-        messages: [{ role:'user', content: p.user }],
-        // _feature:'live-round' is what makes claude.mjs inject the
-        // server-side ADJUDICATION CORE (the elite-judge reasoning).
-        _feature: 'live-round'
-      })
+    brainHeaders(brainKey).then(function(headers){
+      return fetch(brain.endpoint, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          model: brain.model,
+          max_tokens: 8000,
+          // Stream so a full-transcript ballot keeps the connection alive.
+          stream: true,
+          system: p.system,
+          messages: [{ role:'user', content: p.user }],
+          // Every brain injects the same server-side adjudication core.
+          _feature: 'live-round',
+          _voiceFormat: formatKey
+        })
+      });
     }).then(function(r){
-      if (!r.ok) throw new Error('The judge service returned ' + r.status + '. Try again in a moment.');
-      var ct = r.headers.get('content-type') || '';
-      if (ct.indexOf('text/event-stream') >= 0){
-        return r.text().then(function(text){
-          var chunks = text.split('\n').filter(function(l){ return l.indexOf('data:') === 0; }).map(function(l){
-            try { return JSON.parse(l.slice(5).trim()); } catch(e){ return null; }
-          }).filter(Boolean);
-          return chunks.map(function(c){
-            if (c.delta && c.delta.text) return c.delta.text;
-            if (c.content_block && c.content_block.text) return c.content_block.text;
-            return '';
-          }).join('');
-        });
-      }
-      return r.text();
+      return r.text().then(function(raw){
+        if (!r.ok) throw new Error(serviceError(raw, r.status, brain.name));
+        return extractModelResponse(raw);
+      });
     }).then(function(raw){
       var parsed = parseBallot(raw);
       if (!parsed) throw new Error('The ballot came back in a shape we could not read. Try again, or trim the transcript if it is very long.');
       renderBallot(parsed, formatKey, humanWinner);
-      try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner }); } catch(e){}
+      try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner, judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
     }).catch(function(err){
       $('loading').style.display = 'none';
       showError(err && err.message ? err.message : 'Something went wrong judging the round. Try again.');

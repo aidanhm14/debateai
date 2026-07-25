@@ -17,6 +17,7 @@ import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
+import { applyAdjudicationForFeature } from './lib/adjudication.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -164,6 +165,7 @@ export default async (request, context) => {
     }
 
     applyPromptLibrary(body);
+    applyAdjudicationForFeature(body);
     await Promise.all([
       applyExemplars(body),
       applyDistillations(body),
