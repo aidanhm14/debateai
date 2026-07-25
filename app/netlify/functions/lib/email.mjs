@@ -108,10 +108,10 @@ export function unsubUrl(uid, stream) {
 
 // ── Shared template pieces ───────────────────────────────────────────────────
 
-// The wordmark div exactly as in the digest template: red "Debate" + dark "It".
+// The wordmark div exactly as in the site header: dark "Debat" + red "able".
 export function brandHeader() {
   return `<div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">
-    <span style="color:#dc2626">Debate</span>It
+    Debat<span style="color:#dc2626">able</span>
   </div>`;
 }
 

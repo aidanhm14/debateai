@@ -40,7 +40,7 @@ html,body{width:1200px;height:630px;overflow:hidden;font-family:'Inter',-apple-s
   <div class="glow"></div>
   <div class="left">
     <span class="pill"><span class="dot"></span>${c.eyebrow}</span>
-    <div class="brand">Debate<span class="p">It</span><sup>&trade;</sup></div>
+    <div class="brand">Debat<span class="p">able</span><sup>&trade;</sup></div>
     <div class="tag">${c.tag}</div>
     <div class="feat">${c.feat}</div>
   </div>

@@ -111,7 +111,7 @@ footer a{color:var(--ghost)} footer a:hover{color:var(--red)}
 </head>
 <body>
 <nav class="topnav">
-  <a class="brand" href="/">Debate<em>It</em></a>
+  <a class="brand" href="/">Debat<em>able</em></a>
   <div class="links"><a href="/judge">AI Judge</a><a href="/coaches">Coaches</a><a href="/schools">For schools</a><a href="/spar">Debate live</a></div>
 </nav>
 <main class="wrap">
