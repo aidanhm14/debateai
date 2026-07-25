@@ -11062,6 +11062,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 
+<!-- The registration band is authored with its styles and submit handler
+     near the footer, then moved into this slot before first paint. It stays
+     outside the optional-content gate so every visitor sees it after the
+     judged-round proof. -->
+<div id="waitlist-slot"></div>
+
 <!-- Progressive landing gate (2026-07-25). The first visit now ends after
      three focused beats: the promise, a live round, and a judged result.
      Everything below remains in the document for search, deep links, and
@@ -11088,7 +11094,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     body.landing-more-ready:not(.landing-more-open) #reviews,
     body.landing-more-ready:not(.landing-more-open) #faq,
     body.landing-more-ready:not(.landing-more-open) #book-founders,
-    body.landing-more-ready:not(.landing-more-open) #waitlist,
     body.landing-more-ready:not(.landing-more-open) .footer-links,
     body.landing-more-ready:not(.landing-more-open) .footer-more{
       display:none !important;
@@ -11104,8 +11109,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     body.landing-more-open #creator-sweepstakes,
     body.landing-more-open #reviews,
     body.landing-more-open #faq,
-    body.landing-more-open #book-founders,
-    body.landing-more-open #waitlist{
+    body.landing-more-open #book-founders{
       content-visibility:visible !important;
     }
     .landing-more-summary{
@@ -11205,7 +11209,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       '.hero-founder-frame > .hero',
       '#why-this-exists', '#floor-band', '#mode-select', '#credential-path',
       '#community-band', '#face-wall', '#ranked-band', '#creator-sweepstakes',
-      '#reviews', '#faq', '#book-founders', '#waitlist'
+      '#reviews', '#faq', '#book-founders'
     ].join(',');
     if (!gate || !toggle) return;
 
@@ -16419,10 +16423,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 <style>
-  /* The Calendly section already supplies a bottom gutter. Collapse the
-     double section gap, then make the final registration ask one compact
-     horizontal band instead of another tall centered stack. */
-  #book-founders{padding-bottom:18px !important}
+  /* Keep the early registration ask compact and horizontal so it bridges
+     the judged-round proof and the optional-content gate. */
   #waitlist{padding-top:18px !important;padding-bottom:30px !important}
   #waitlist{scroll-margin-top:84px}
   #waitlist .wl-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(440px,1.1fr);align-items:center;gap:52px;padding:24px 34px;border:1px solid var(--border);border-radius:22px;background:linear-gradient(135deg,var(--bg-card),rgba(239,68,68,.035));box-shadow:0 18px 48px rgba(31,28,24,.08),inset 0 1px 0 rgba(255,255,255,.48)}
@@ -16454,7 +16456,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     #waitlist .wl-action{padding:20px 0 0;border-left:0;border-top:1px solid var(--border)}
   }
   @media (max-width:540px){
-    #book-founders{padding-bottom:10px !important}
     #waitlist{padding-top:14px !important;padding-bottom:28px !important}
     #waitlist .wl-grid{padding:22px 18px;border-radius:17px}
     #waitlist .wl-row{flex-direction:column}
@@ -16468,6 +16469,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 </style>
 <script>
 (function(){
+  var section = document.getElementById('waitlist');
+  var slot = document.getElementById('waitlist-slot');
+  if (section && slot) slot.replaceWith(section);
   var form = document.getElementById('wlForm');
   if (!form) return;
   var btn = document.getElementById('wlBtn');
