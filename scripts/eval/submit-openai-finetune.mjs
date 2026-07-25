@@ -17,7 +17,7 @@ const opt = (name, def) => {
 const TRAIN = opt('train', '');
 const VALID = opt('valid', '');
 const MODEL = opt('model', process.env.ADJ_OPENAI_FT_MODEL || 'gpt-4.1-nano-2025-04-14');
-const SUFFIX = opt('suffix', 'debateit-judge');
+const SUFFIX = opt('suffix', 'debatable-judge');
 const EPOCHS = opt('epochs', 'auto');
 const DRY_RUN = flag('dry-run');
 const API_KEY = process.env.OPENAI_API_KEY || '';
@@ -25,13 +25,13 @@ const API_KEY = process.env.OPENAI_API_KEY || '';
 function usage(exitCode = 0) {
   console.log(`Usage:
   OPENAI_API_KEY=... node scripts/eval/submit-openai-finetune.mjs \\
-    --train=/tmp/debateit-adjudication-finetune/adjudication-train.jsonl \\
-    --valid=/tmp/debateit-adjudication-finetune/adjudication-valid.jsonl \\
+    --train=/tmp/debatable-adjudication-finetune/adjudication-train.jsonl \\
+    --valid=/tmp/debatable-adjudication-finetune/adjudication-valid.jsonl \\
     --model=gpt-4.1-nano-2025-04-14
 
 Options:
   --dry-run          Print the planned request, do not upload or create a job.
-  --suffix=name      Fine-tune suffix. Default: debateit-judge.
+  --suffix=name      Fine-tune suffix. Default: debatable-judge.
   --epochs=auto|N    Supervised fine-tuning epochs. Default: auto.`);
   process.exit(exitCode);
 }
@@ -109,7 +109,7 @@ function buildJobPayload(trainingFileId, validationFileId) {
       type: 'supervised',
     },
     metadata: {
-      app: 'debateit',
+      app: 'debatable',
       task: 'adjudication',
       dataset: 'local-judging-fixtures',
     },

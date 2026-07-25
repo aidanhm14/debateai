@@ -129,7 +129,7 @@
   }
 
   async function ensureFirebase() {
-    // Page may have already loaded firebase (index.html, debate-it.html, etc).
+    // Page may have already loaded firebase (index.html, practice.html, etc).
     // If so, just reuse it — initializeApp throws on duplicate without this check.
     if (!window.firebase || !window.firebase.initializeApp) {
       await loadScript('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-app-compat.js');

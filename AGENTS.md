@@ -20,12 +20,13 @@ the switch date. The hero surface is no longer frozen.
 
 ## What this is
 
-Debatable (renamed from DebateIt on 2026-07-18, itself renamed from
-Debate AI on 2026-06-08) is a voice-first adversarial-argument trainer
-at **itsdebatable.com** (canonical since 2026-07-22 — an aftermarket
-domain Aidan actually owns, whois-verified, unlike the debatable.com
-and debateit.com traps). Canonical URLs, og:url, sitemap, JSON-LD,
-and function site origins all point at itsdebatable.com. The legacy
+Debatable is a voice-first adversarial-argument trainer at
+**itsdebatable.com**. **Debatable is the only public product name.**
+Do not put retired names in visible copy, accessibility labels,
+structured-data aliases, social metadata, generated audio, or CTA copy.
+Use plain actions such as "Start debating" and "Start a round."
+Canonical URLs, og:url, sitemap, JSON-LD, and function site origins all
+point at itsdebatable.com. The legacy
 domains debateai.com, debateit.live, debatetable.com, and
 debatethedevil.com stay as Netlify aliases that 301 to it (rules at
 the top of both netlify.toml files); debateai.com also stays in the
@@ -45,7 +46,7 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 ├── AGENTS.md                  this file
 ├── CLAUDE.md                  imports this file (Claude Code entry point)
 ├── app/
-│   ├── debate-ai.html         5500+ lines. Single-file React-via-CDN.
+│   ├── practice.html          5500+ lines. Single-file React-via-CDN.
 │   │                            EDIT SURGICALLY. NEVER rewrite. NEVER
 │   │                            add JSX — uses `el(tag, props, ...kids)`
 │   │                            aliased to React.createElement.
@@ -142,7 +143,7 @@ scan).
 
 ## Inline React scripts: `<script data-precompile="es5">`
 
-Six pages (`index.html`, `debate-ai.html`, `voice-debate.html`,
+Six pages (`index.html`, `practice.html`, `voice-debate.html`,
 `learn.html`, `high-school.html`, `exhibition.html`) ship inline
 React-via-CDN blocks (index.html alone is 14k+ lines). We
 used to load `babel-standalone` in the browser to transpile that block
@@ -242,12 +243,12 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   BYOK attempts must throw a labeled error.
 - **APDA never goes in the Topics Hub.** It's impromptu — no rolling
   motion. Routes to the Motions tab.
-- **No JSX** in `debate-ai.html` or `landing.html`. React-via-CDN means
+- **No JSX** in `practice.html` or `landing.html`. React-via-CDN means
   `el(tag, props, ...children)`. JSX in those files breaks the runtime.
 - **Bump `CACHE_NAME` in BOTH `sw.js` files** when HTML/bundle changes. The `scripts/hooks/pre-commit` hook (installed via `bash scripts/install-hooks.sh`) does this automatically on every commit that touches client-side files. Only relevant if you skipped the hook install — in which case bump manually.
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
-- **Pricing is locked**: Free $0, BYOK $1/mo, Individual $10/year, Team $50/year. Currently in beta — every tier is $0 today; the table above is the post-beta plan and lives as JSON-LD/copy across pricing.html, debate-it.html, landing.html. (Individual + Team flipped to annual 2026-05-14; Individual $5→$10 and Team $20→$50 on 2026-06-27 per the unit-economics audit. **The Lifetime tier was removed from all pricing displays 2026-07-03** — it is no longer offered; the backend `lifetime` plan entitlement stays intact for any existing grants. See soul.md decision log.)
+- **Pricing is locked**: Free $0, BYOK $1/mo, Individual $10/year, Team $50/year. Currently in beta — every tier is $0 today; the table above is the post-beta plan and lives as JSON-LD/copy across pricing.html, practice.html, landing.html. (Individual + Team flipped to annual 2026-05-14; Individual $5→$10 and Team $20→$50 on 2026-06-27 per the unit-economics audit. **The Lifetime tier was removed from all pricing displays 2026-07-03** — it is no longer offered; the backend `lifetime` plan entitlement stays intact for any existing grants. See soul.md decision log.)
 
 ## Voice rules for AI debater outputs
 
@@ -319,7 +320,7 @@ is there because a real run produced the thing it catches:
 | Friction-selling | "no card is required" on /landing and /pricing |
 | Invented urgency | "lock in these rates before beta ends" — a promise that appears nowhere on /pricing |
 | Loading/empty states | "the feature is still loading, check back soon" on /spar |
-| Stale brand names | "DebateIt" on /research, /benchmark, /high-school |
+| Stale brand names | a retired name on /research, /benchmark, /high-school |
 | Spelled-out URLs | "chrome colon slash slash extensions" on /counter |
 | Prefaces | "Here's what this page lets you inspect" on /benchmark |
 
@@ -339,7 +340,7 @@ write a hint, and re-verify it when that page changes.
 **Check the route resolves before adding a page.** `--check-routes` hits
 production and reports anything that redirects away or 404s. Six legacy
 SEO pages were narrated in the first extension pass before anyone noticed
-they now 301 to /debate-it and friends, so that audio was unreachable the
+they now 301 to /practice and friends, so that audio was unreachable the
 moment it shipped. Same class of mistake as /scale, which is a meta
 refresh and got narrated once too. Also leave out anything whose copy
 turns over faster than someone will re-run this.
@@ -381,7 +382,7 @@ Because narration follows the listener, a round that starts three clicks
 after they pressed play would otherwise have a narrator talking over it.
 Landing on any of those routes stops playback and clears the resume
 state. It covers the live-round surfaces (/live-round, /voice-debate,
-/newvoice, /room-judge, /casual-room, /voice-rfd, /debate-it) and the
+/newvoice, /room-judge, /casual-room, /voice-rfd, /practice) and the
 pages that make their own sound (/coach, /exhibition, /spectate).
 **Any new page that plays audio or runs a round has to go in that list.**
 Lobbies that hand off to a round (/spar, /debate-chat) are narrated on
@@ -389,7 +390,7 @@ purpose: the handoff target is what's silenced.
 
 ## Editing playbook for the big single-file pages
 
-`debate-ai.html` and `landing.html` are huge single-file React apps.
+`practice.html` and `landing.html` are huge single-file React apps.
 
 - **Always use targeted Edit** with enough surrounding context to be
   unique. Never overwrite the whole file with Write.
@@ -422,7 +423,7 @@ weight, not a mirror.
 - Stripe webhook / Firestore rules / App Check token changes.
 - New AI provider integration (currently 6 brains: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab — last two added 2026-05-15: DeepSeek direct, Open Lab OpenRouter-backed pool).
 - Mobile / TWA wrapping (path is Capacitor; deferred — see soul.md §9).
-- Anything that breaks the single-file structure of debate-ai.html.
+- Anything that breaks the single-file structure of practice.html.
 
 ## Common pitfalls
 

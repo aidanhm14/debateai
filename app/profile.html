@@ -1253,7 +1253,7 @@ function pickNextMilestone(s, ach){
   const trainedToday = s.dailyCounts.has(todayKey);
   const trainedYesterday = s.dailyCounts.has(yKey);
 
-  let streakLine, ctaLabel = 'Debate it', ctaHref = '/voice-debate';
+  let streakLine, ctaLabel = 'Start a round', ctaHref = '/voice-debate';
   if(s.total === 0){
     streakLine = 'Run a voice round when you\'re ready. Dashboard fills in from there.';
   } else if(trainedToday){
@@ -1303,7 +1303,7 @@ function renderDailyQuest(rows){
       sub:'Run one round in any format today.',
       reward:25,
       done:(today) => today.length >= 1,
-      cta:{ label:'Debate it', href:'/debate-it' },
+      cta:{ label:'Start a round', href:'/practice' },
     },
     {
       id:'high_scorer',
@@ -1311,7 +1311,7 @@ function renderDailyQuest(rows){
       sub:'Score 27.5 or higher on any round today.',
       reward:50,
       done:(today) => today.some(r => typeof r.score === 'number' && r.score >= 27.5),
-      cta:{ label:'Go for the ballot', href:'/debate-it' },
+      cta:{ label:'Go for the ballot', href:'/practice' },
     },
     {
       id:'format_hopper',
@@ -1319,7 +1319,7 @@ function renderDailyQuest(rows){
       sub:'Run rounds in two different formats today.',
       reward:40,
       done:(today) => new Set(today.map(r => r.formatName || r.format || '')).size >= 2,
-      cta:{ label:'Pick a new format', href:'/debate-it' },
+      cta:{ label:'Pick a new format', href:'/practice' },
     },
     {
       id:'voice_up',
@@ -1335,7 +1335,7 @@ function renderDailyQuest(rows){
       sub:'Beat the AI on any round today.',
       reward:60,
       done:(today) => today.some(r => r.won === true && r.kind !== 'live'),
-      cta:{ label:'Take a shot', href:'/debate-it' },
+      cta:{ label:'Take a shot', href:'/practice' },
     },
   ];
 
@@ -1849,7 +1849,7 @@ function renderSignedOut(){
   if(btn) btn.addEventListener('click', () => {
     if(window.openAuthModal){ window.openAuthModal('signin'); return; }
     if(!auth || !firebase.auth.GoogleAuthProvider){
-      mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/debate-it">Open the app</a></div>`;
+      mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/practice">Open the app</a></div>`;
       return;
     }
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -1869,7 +1869,7 @@ function renderError(msg){
     <div class="state">
       <h3>Couldn't load your dashboard</h3>
       <p>${escapeHtml(clean)} Refresh once. If it sticks, run a round and the dashboard fills in from there.</p>
-      <a class="cta" href="/debate-it">Debate it</a>
+      <a class="cta" href="/practice">Start a round</a>
     </div>
   `;
 }
@@ -1958,7 +1958,7 @@ function renderEmpty(user, profileData){
     <div class="state">
       <h3>Nothing here is filled in yet</h3>
       <p>Every AI-judged round adds XP, level, format mastery, and achievements. One round is enough to start it moving.</p>
-      <a class="cta" href="/voice-debate">Debate it</a>
+      <a class="cta" href="/voice-debate">Start a round</a>
     </div>
 
     <div class="section"><h2>What fills in</h2><div class="right">After round one</div></div>
@@ -2059,7 +2059,7 @@ function renderDashboard(user, rows, profileData){
 
   // Recent rounds (8 most recent). Truncates the motion so it doesn't
   // wrap into a paragraph — full motion is still in the user's saved
-  // round inside /debate-it history.
+  // round inside /practice history.
   const recent = rows.slice(0, 8).map(r => {
     const motion = (r.motion || '(no motion saved)').slice(0, 90);
     const fmt = r.formatName || r.format || '—';
@@ -2185,7 +2185,7 @@ function renderDashboard(user, rows, profileData){
     ${savedRoundsSectionHtml()}
 
     <div class="cta-strip">
-      <a href="/debate-it"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, ballot at the end.</span></a>
+      <a href="/practice"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, ballot at the end.</span></a>
       <a href="/voice-debate"><span class="cl">Voice</span><span class="ct">Talk it out</span><span class="cs">Live speech, interruptions, a real timer.</span></a>
       <a href="/live"><span class="cl">Human vs human</span><span class="ct">Go live</span><span class="cs">Real opponents, same AI ballot.</span></a>
       <a href="/spar?inbox=1"><span class="cl">Messages</span><span class="ct">Your inbox</span><span class="cs">DMs with debaters you've matched or invited.</span></a>

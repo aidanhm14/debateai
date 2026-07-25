@@ -339,7 +339,7 @@ function topNav() {
     <a class="nav-home" href="/"><span class="ar">←</span> Debatable</a>
     <span class="nav-group">
       <a href="/debate">All motions</a>
-      <a class="nav-cta" href="/debate-it">Practice <span class="ar">→</span></a>
+      <a class="nav-cta" href="/practice">Practice <span class="ar">→</span></a>
     </span>
   </nav>`;
 }
@@ -552,7 +552,7 @@ ${rail(m)}
       </a>
       <a class="otherway-card" href="/exhibition">
         <span class="otherway-eye">Exhibition · two AI brains</span>
-        <span class="otherway-title">Watch two AI brains debate it</span>
+        <span class="otherway-title">Watch two AI brains argue it out</span>
         <span class="otherway-body">Pick two of six brains (Claude, GPT, Grok, Gemini, DeepSeek, Open Lab) and watch the round before you face one yourself.</span>
         <span class="otherway-arr">→</span>
       </a>
@@ -567,7 +567,7 @@ ${rail(m)}
 
   <footer class="dfoot">
     <span>© 2026 Debatable</span>
-    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/live">Live rounds</a> · <a href="/exhibition">Exhibition</a> · <a href="/learn">Learn</a> · <a href="/debate-it">Practice</a></span>
+    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/live">Live rounds</a> · <a href="/exhibition">Exhibition</a> · <a href="/learn">Learn</a> · <a href="/practice">Practice</a></span>
   </footer>
 </main>
 
@@ -675,7 +675,7 @@ function renderHubPage() {
 
   <footer class="dfoot">
     <span>© 2026 Debatable</span>
-    <span><a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/debate-it">Practice</a> · <a href="/">Home</a></span>
+    <span><a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/practice">Practice</a> · <a href="/">Home</a></span>
   </footer>
 </main>
 </body></html>`;

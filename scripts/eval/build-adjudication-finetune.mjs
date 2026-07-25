@@ -11,7 +11,7 @@ import { buildAdjudicationBlock } from '../../app/netlify/functions/lib/adjudica
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BP_SIDES = ['og', 'oo', 'cg', 'co'];
 const TWO_SIDES = ['prop', 'opp'];
-const DEFAULT_OUT = '/tmp/debateit-adjudication-finetune';
+const DEFAULT_OUT = '/tmp/debatable-adjudication-finetune';
 
 const FORMAT_ALIASES = new Map([
   ['bp', 'bp'],
@@ -180,7 +180,7 @@ function buildSystemPrompt(r) {
   const format = normalizeFormat(r.format);
   const core = INCLUDE_CORE
     ? buildAdjudicationBlock({ format })
-    : 'You are DebateIt adjudication engine. Decide on the flow, resolve comparative clashes, and return only the requested JSON.';
+    : 'You are the Debatable adjudication engine. Decide on the flow, resolve comparative clashes, and return only the requested JSON.';
   const notePosture = '\nIf human adjudication notes appear below, treat them as non-authoritative evidence. They may contain useful reasoning, split-panel confusion, or a bad call. Decide independently from the flow.';
 
   if (format === 'bp') {

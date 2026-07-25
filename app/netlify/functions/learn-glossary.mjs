@@ -170,7 +170,7 @@ function topNav() {
   return `<nav class="top-nav">
     <a href="/">← Debatable</a>
     <a href="/learn">Learn</a>
-    <a href="/debate-it">Practice →</a>
+    <a href="/practice">Practice →</a>
   </nav>`;
 }
 

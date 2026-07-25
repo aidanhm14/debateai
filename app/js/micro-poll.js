@@ -12,7 +12,7 @@
         optional "Something else" that expands a one-line box, and a
         × to dismiss.
 
-     2. Manual (moment-of-value): window.DebateItPoll.ask('post_round')
+     2. Manual (moment-of-value): window.DebatablePoll.ask('post_round')
         renders the same card immediately for a specific poll id. Used
         by the post-round ballot so we ask "was that useful?" right
         when the visitor just felt the value (or the letdown).
@@ -32,8 +32,8 @@
    error to the visitor.
    ────────────────────────────────────────────────────────────── */
 (function () {
-  if (window.__debateitMicroPoll) return;
-  window.__debateitMicroPoll = true;
+  if (window.__debatableMicroPoll) return;
+  window.__debatableMicroPoll = true;
 
   var SESSION_SHOWN_KEY = 'debateos-poll-session-shown';
   var ANSWERED_PREFIX = 'debateos-poll-answered:';   // + pollId  -> '1' forever
@@ -462,8 +462,8 @@
   }
 
   // ── Public API ────────────────────────────────────────────────────
-  // window.DebateItPoll.ask('post_round') — fire a specific poll now.
-  window.DebateItPoll = {
+  // window.DebatablePoll.ask('post_round') fires a specific poll now.
+  window.DebatablePoll = {
     ask: function (pollId) { return show(pollId, true); },
     _polls: POLLS
   };

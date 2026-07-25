@@ -63,7 +63,7 @@
     rootEl.id = 'da-usage-banner';
     // 2026-05-26 (rev2): banner moved off center entirely. At top:60
     // center the cap-reached pill was overlapping the hero headline
-    // ("Debate it. Debate it. Debate it.") in Aidan's screenshot —
+    // (the old repeated brand mantra) in Aidan's screenshot,
     // both were center-anchored, both at similar vertical positions
     // on a 1440x900 viewport. Moved to top-right corner so it sits
     // contextually near the user-avatar / "Aidan OUT" cluster in the
@@ -251,7 +251,7 @@
         // so they know the system uses teams + sees the settings entry.
         if (r.status === 404) {
           // No team yet — pre-cap free user. Stay hidden (the in-app
-          // counter inside debate-it.html already shows their quota; the
+          // counter inside practice.html already shows their quota; the
           // global floating banner here would just double up the paid
           // signal).
         }

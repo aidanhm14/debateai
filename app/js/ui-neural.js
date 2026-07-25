@@ -35,7 +35,7 @@
   // This is a slow decorative drift in the background. Capping at 30fps
   // (was 60) halves the per-second canvas + O(N^2) physics work and the
   // battery draw during a long active session — this layer runs on /app
-  // and /debate-it where users sit for minutes. Integration is per-tick
+  // and /practice where users sit for minutes. Integration is per-tick
   // (n.x += n.vx), so the drift is correspondingly gentler at 30fps;
   // for a background constellation that reads as calmer, not broken.
   var FRAME_MIN_MS = 1000/30 - 1;

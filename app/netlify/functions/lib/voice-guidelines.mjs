@@ -67,7 +67,7 @@
 // ─────────────────────────────────────────────────────────────────────
 //   Write path  (every brain call):
 //     captureTurn → generations/{id}      // app/index.html
-//     saveRound  → debate_rounds/{id}     // app/debate-it.html (post-round)
+//     saveRound  → debate_rounds/{id}     // app/practice.html (post-round)
 //
 //   Rate path  (admin):
 //     POST /api/admin/rate-generation     // admin-rate.html
@@ -848,7 +848,7 @@ The reasoning is invisible. The speech is the artifact.
 // this block is the meta-skill a varsity APDA debater does in the first
 // 90 seconds of prep room: assess balance, scope, definition, status quo
 // — BEFORE drafting contentions. Aligned with the in-round tight-call
-// definition in debate-it.html (~line 3034) so pre-prep triage and
+// definition in practice.html (~line 3034) so pre-prep triage and
 // in-round tight calls speak the same language. Hard ≠ tight.
 const MOTION_TRIAGE = `
 

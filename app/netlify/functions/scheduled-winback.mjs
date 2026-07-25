@@ -63,7 +63,7 @@ const MIN_GAP_USER_MS = 21 * DAY_MS; // per-user: at most one win-back / 21d
 // wau-digest's "motion of the week" set so a user who saw that doesn't
 // get a repeat here. Keys match the REAL slugs stored in `generations`
 // (log-generation.mjs stores whatever the client sends, unnormalized):
-// debate-it / room-judge use 'quick', 'worlds', 'asian', ...; voice-debate
+// practice / room-judge use 'quick', 'worlds', 'asian', ...; voice-debate
 // uses 'quickclash', 'apda', ...; index.html uses UPPERCASE ids that the
 // lowercased lookup folds in. Same alias approach as the wau-digest.
 const FORMAT = {
@@ -82,7 +82,7 @@ const FORMAT = {
 // Stored slug -> canonical FORMAT key. Lookup lowercases first, so this
 // only needs the already-lowercase synonyms.
 const FORMAT_ALIASES = {
-  quick:      'quickclash', // debate-it / room-judge slug (the most common)
+  quick:      'quickclash', // practice / room-judge slug (the most common)
   clash:      'quickclash', // newvoice
   '1v1':      'quickclash', // index.html one-on-one id
   crossex:    'quickclash', // voice-debate drill modes: format-agnostic clash
@@ -105,7 +105,7 @@ function fmtFor(format) {
 // Calm, founder-voice, no em-dashes, no streak/gamify nudge. The hook is
 // "your format is still here and your past rounds are saved," not guilt.
 function buildHtml({ uid, firstName, label, motion, lastMotion }) {
-  const runHref = `${SITE_URL}/debate-it?motion=${encodeURIComponent(motion)}`;
+  const runHref = `${SITE_URL}/practice?motion=${encodeURIComponent(motion)}`;
   const profileHref = `${SITE_URL}/profile`;
   const greeting = firstName ? `Hey ${esc(firstName)},` : 'Hey,';
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">

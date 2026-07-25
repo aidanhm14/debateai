@@ -33,7 +33,7 @@
  *   SFX.mute() / unmute() / toggleMute() / isMuted()
  *
  * Compatible with the SFX object that already exists inline inside
- * debate-it.html (different methods, no clash). debate-it.html keeps
+ * practice.html (different methods, no clash). practice.html keeps
  * its richer ambience system; other pages use this module.
  */
 (function(){
@@ -245,7 +245,7 @@
   }
 
   // ── Round-clock sounds ─────────────────────────────────────────────
-  // The useTimer in debate-it.html historically fired raw `beep()` calls
+  // The useTimer in practice.html historically fired raw `beep()` calls
   // against its own AudioContext, which (a) duplicated boilerplate and
   // (b) bypassed the global mute. Both now route through SFX so the
   // speaker toggle in the topbar actually silences the room. Pitches
@@ -286,7 +286,7 @@
   // Sustained two-oscillator drone that signals "model is working on
   // your reply." Returns a stop function so the caller can fade it out
   // when generation finishes. Mirrors the shape of the inline ambience
-  // in debate-it.html so /voice-debate's "thinking" beat sounds like
+  // in practice.html so /voice-debate's "thinking" beat sounds like
   // the same product. Low carrier with a 2Hz LFO = heartbeat; mid pad
   // with a 0.6Hz LFO = warm shimmer. A short rising starter chime gives
   // the user an immediate "starting" cue (the bare ambience is so quiet
@@ -397,14 +397,14 @@
   //                          NOT a celebration — it's a cut, not a win)
   //   end       → confirm  (session ended cleanly; warm closing chime)
   //
-  // MERGE, don't replace. debate-it.html has an inline `const SFX = {...}`
+  // MERGE, don't replace. practice.html has an inline `const SFX = {...}`
   // with richer methods (startRound, thinking, ready, preparing, etc.)
   // that get hoisted to window.SFX after Babel transpiles the inline
   // text/babel script (const → var → window prop). topbar.js then
   // injects this file deferred, AFTER the inline scope has already
   // populated window.SFX. A bare `window.SFX = {...}` here would clobber
   // those page-specific methods, breaking Quick Clash + every other
-  // round-start path on debate-it.html (the user got
+  // round-start path on practice.html (the user got
   // "SFX.startRound is not a function" the moment they clicked START
   // ROUND). Object.assign with the existing SFX as the LAST source
   // means page-specific methods win on conflicting keys, and pages

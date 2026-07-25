@@ -31,7 +31,7 @@ const config: CapacitorConfig = {
     contentInset: 'never',
     backgroundColor: '#F7F6F2',
     allowsLinkPreview: false,
-    appendUserAgent: ' DebateItApp/1.0',
+    appendUserAgent: ' DebatableApp/1.0',
   },
 
   plugins: {

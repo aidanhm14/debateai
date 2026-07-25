@@ -1,4 +1,4 @@
-/* Missing real HS programs from the Tabroom pull (debateit-outreach
+/* Missing real HS programs from the Tabroom pull (outreach research
    /out/programs.json), name-geocoded, quality-gated (institutional name,
    non-generic, US-bounds, deduped vs live). 99 schools.
    Concatenated into window.ATLAS_EXTRA; runtime dedup in atlas.html

@@ -1,5 +1,5 @@
 // Per-page 1200x630 share cards in the current Debatable design language
-// (2026-07-22). Replaces the stale dark "DebateIt" cards for /live, /voice,
+// (2026-07-22). Replaces stale dark pre-rebrand cards for /live, /voice,
 // /schools, /pricing, /leaderboard, and the app workspace — those still
 // carried the retired wordmark after the itsdebatable.com cutover.
 // Left column: pill + Debatable wordmark + page tag + feature line

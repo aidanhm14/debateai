@@ -87,7 +87,7 @@ export default async (request) => {
 
   // Salted, truncated IP hash: lets us group/dedupe answers without ever
   // storing the raw address. Salt keeps the space un-reversible.
-  const ipHash = createHash('sha256').update('debateit-poll:' + ip).digest('hex').slice(0, 16);
+  const ipHash = createHash('sha256').update('debatable-poll:' + ip).digest('hex').slice(0, 16);
 
   try {
     const db = getDb();

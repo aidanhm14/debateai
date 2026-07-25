@@ -51,7 +51,7 @@ function notFoundResponse() {
 </head><body>
 <h1>Unknown education topic</h1>
 <p>Try one of: ${links}</p>
-<p><a href="/learn/education">All topics</a> · <a href="/learn">Learn to argue</a> · <a href="/debate-it">Start a round</a></p>
+<p><a href="/learn/education">All topics</a> · <a href="/learn">Learn to argue</a> · <a href="/practice">Start a round</a></p>
 <script defer src="/js/home-magnet.js"></script></body></html>`;
   return new Response(body, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
@@ -352,7 +352,7 @@ function renderPrimer(slug) {
     <div class="misc-right">${esc(m.right)}</div>
   </div>`).join('\n');
 
-  const motions = t.sampleMotions.map(m => `<a class="motion-link" href="/debate-it?motion=${encodeURIComponent(m)}">
+  const motions = t.sampleMotions.map(m => `<a class="motion-link" href="/practice?motion=${encodeURIComponent(m)}">
     <span class="motion-text">${esc(m)}</span>
     <span class="motion-arrow">Argue →</span>
   </a>`).join('\n');
@@ -418,7 +418,7 @@ ${quizBox}
   <div class="cta-card">
     <h3>Argue a motion on ${esc(t.name)}.</h3>
     <p>Pick a side. The AI takes the other. Three minutes per speech, judge ballot at the end.</p>
-    <a class="cta-button" href="/debate-it?motion=${motionEncoded}">Argue this →</a>
+    <a class="cta-button" href="/practice?motion=${motionEncoded}">Argue this →</a>
   </div>
 
   <section class="related" aria-label="Other education topics">

@@ -86,7 +86,7 @@ function buildFingerprintEmail({ firstName, fingerprint }) {
   // Strip the fingerprint into the most-shareable bullets. The cron's
   // strict output schema means we can splice deterministically.
   const lines = String(fingerprint).split(/\n+/).map(l => l.trim()).filter(Boolean);
-  const tryHref = `${SITE_URL}/debate-it`;
+  const tryHref = `${SITE_URL}/practice`;
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:560px;margin:0 auto;padding:32px 24px">
   <div style="font-size:1.05rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;margin-bottom:24px">

@@ -41,7 +41,7 @@ const MIN_GAP_MS     = 6 * 24 * 60 * 60 * 1000; // 6 days — prevents double-se
 // One motion per format to use as the "try this next" hook. Keys match
 // the REAL format slugs stored in `generations` (log-generation.mjs
 // stores whatever the client sends, unnormalized): the canonical
-// lowercase vocabulary from debate-it / room-judge ('quick', 'worlds',
+// lowercase vocabulary from practice / room-judge ('quick', 'worlds',
 // 'asian', ...), the voice-debate mode keys ('quickclash', 'apda', ...),
 // and index.html's UPPERCASE ids ('APDA', 'BP', 'WSDC', 'AP', ...) which
 // the lowercased lookup below folds in. Anything unmapped (viva,
@@ -64,7 +64,7 @@ const MOTD_BY_FORMAT = {
 // Stored slug -> canonical MOTD key. Lookup lowercases first, so this
 // only needs the already-lowercase synonyms.
 const FORMAT_ALIASES = {
-  quick:      'quickclash', // debate-it / room-judge slug
+  quick:      'quickclash', // practice / room-judge slug
   clash:      'quickclash', // newvoice
   '1v1':      'quickclash', // index.html one-on-one id
   crossex:    'quickclash', // voice-debate drill modes: format-agnostic clash
@@ -100,7 +100,7 @@ function buildHtml({ uid, firstName, roundsThisWeek, roundsLastWeek, avgScore, t
         ${topCase.verdict ? `Judge's read: "${esc(topCase.verdict.slice(0, 120))}"` : ''}
        </p>`
     : '';
-  const nextHref = `${SITE_URL}/debate-it?motion=${encodeURIComponent(nextMotion)}`;
+  const nextHref = `${SITE_URL}/practice?motion=${encodeURIComponent(nextMotion)}`;
 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:540px;margin:0 auto;padding:32px 24px">

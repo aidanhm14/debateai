@@ -1069,7 +1069,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
 `
         : '';
 
-    // Prepend the same voice bank that powers the main /debate-it brains
+    // Prepend the same voice bank that powers the main /practice brains
     // (claude.mjs, openai-chat.mjs, etc.). 'bot' = CORE + STRATEGY +
     // CHARACTER + LANGUAGE_CONSTRUCTION — the right blocks for a live
     // opponent. Plus the format block when we have one. This is what

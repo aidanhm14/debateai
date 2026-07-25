@@ -30,9 +30,9 @@
   var HOLDBACK_PCT = 15;           // % of visitors who never see it (control). 0 = show everyone.
   var DEST = '/app#chat';
 
-  var SESSION_KEY = 'debateit-authprompt-session';
-  var QUIET_KEY = 'debateit-authprompt-quiet-until';
-  var AB_KEY = 'debateit-authprompt-ab';
+  var SESSION_KEY = 'debatable-authprompt-session';
+  var QUIET_KEY = 'debatable-authprompt-quiet-until';
+  var AB_KEY = 'debatable-authprompt-ab';
 
   var CONFIG = {
     apiKey: ['AIzaSyDDx', 'TYlyWLOJnFP99', 'e7XsLPb3FwIEijNNM'].join(''),

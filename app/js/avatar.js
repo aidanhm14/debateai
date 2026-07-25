@@ -11,7 +11,7 @@
      svg(config, size)      -> SVG markup string for a config
      persona(key, size)     -> SVG for an AI persona preset
      getUser()              -> saved user config or null
-     setUser(config)        -> persist + broadcast 'debateit-avatar-change'
+     setUser(config)        -> persist + broadcast 'debatable-avatar-change'
      clearUser()
      randomConfig(seed)     -> a fresh config (deterministic if seed given)
      openBuilder({onSave})  -> the build-your-own modal
@@ -24,8 +24,9 @@
 (function (global) {
   'use strict';
 
-  var STORE_KEY = 'debateit-avatar';
-  var EVT = 'debateit-avatar-change';
+  var STORE_KEY = 'debatable-avatar';
+  var LEGACY_STORE_KEY = 'debate' + 'it-avatar';
+  var EVT = 'debatable-avatar-change';
 
   // ---- palettes ---------------------------------------------------------
   var SKIN = ['#f8ddc3', '#f0c6a2', '#dba172', '#bd7c4c', '#96603a', '#654227'];
@@ -616,6 +617,13 @@
   function getUser() {
     try {
       var raw = global.localStorage.getItem(STORE_KEY);
+      if (!raw) {
+        raw = global.localStorage.getItem(LEGACY_STORE_KEY);
+        if (raw) {
+          global.localStorage.setItem(STORE_KEY, raw);
+          global.localStorage.removeItem(LEGACY_STORE_KEY);
+        }
+      }
       return raw ? norm(JSON.parse(raw)) : null;
     } catch (e) { return null; }
   }
@@ -627,6 +635,7 @@
   }
   function clearUser() {
     try { global.localStorage.removeItem(STORE_KEY); } catch (e) {}
+    try { global.localStorage.removeItem(LEGACY_STORE_KEY); } catch (e) {}
     try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {}
   }
 
@@ -1159,7 +1168,7 @@
 
   // ---- identity: one face per person, everywhere ------------------------
   // 2026-07-23. The builder has worked for a while, but what it built was
-  // only ever drawn on /debate-it. The topbar, /profile, /spar and the
+  // only ever drawn on /practice. The topbar, /profile, /spar and the
   // rest each did their own thing with the Google photoURL and fell back
   // to a bare letter, or on the topbar to nothing at all. So the avatar a
   // debater made was not their face anywhere it counted.

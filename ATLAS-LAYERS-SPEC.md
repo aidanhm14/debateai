@@ -49,7 +49,7 @@ The two builds below are the genuinely new asks.
 
 ## LAYER A — Adult-league potential
 
-**What an adult league is (Aidan's call): ONLINE-FIRST on DebateIt.** Adults
+**What an adult league is (Aidan's call): ONLINE-FIRST on Debatable.** Adults
 matched + ranked through the platform itself (rides the existing /spar
 matchmaker + leaderboard). In-person meetups are a later phase. So this layer
 is "which metros to seed an online adult league in first," not "where to open
@@ -70,7 +70,7 @@ SHOW each sub-score, plus a blended 0-100 `potential`:
    No external data needed — it's already on the map.
 2. **Reach** — metro population. Hardcode populations for the top ~30-40
    global metros (cite a source line like the calculator does). Normalize.
-3. **Your demand** — DebateIt signed-in user density per metro. This lives in
+3. **Your demand** — Debatable signed-in user density per metro. This lives in
    Firestore and isn't cleanly available to a static page. For v1: leave a
    clearly-labelled placeholder (0 or proportional to alumni supply) and a
    `TODO: wire from a Firestore user-geo export`. Don't fake precision.

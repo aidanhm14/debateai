@@ -949,7 +949,8 @@ var STATUS_COLOR = {prospect:'#ef4444',contacted:'#3b82f6',partnered:'#22c55e'};
 var STATUS_LABEL = {prospect:'Prospect',contacted:'Reached out',partnered:'Partnered'};
 
 /* ---- state ---- */
-var STORE_KEY='debateit-atlas-status';
+var STORE_KEY='debatable-atlas-status';
+var LEGACY_STORE_KEY='debate'+'it-atlas-status';
 var statusMap = {};
 var colorMode='program', levelFilter='all', heatOn=false;
 var activeFormats={}, activeRegions={};
@@ -1841,7 +1842,17 @@ function ensureFirebase(){
     .then(initFirebase);
   return firebaseLoadPromise;
 }
-try{ statusMap=JSON.parse(localStorage.getItem(STORE_KEY)||'{}'); }catch(e){}
+try{
+  var savedStatus=localStorage.getItem(STORE_KEY);
+  if(!savedStatus){
+    savedStatus=localStorage.getItem(LEGACY_STORE_KEY);
+    if(savedStatus){
+      localStorage.setItem(STORE_KEY,savedStatus);
+      localStorage.removeItem(LEGACY_STORE_KEY);
+    }
+  }
+  statusMap=JSON.parse(savedStatus||'{}');
+}catch(e){}
 function isEditor(){ return !!(fbReady&&fbUser); }
 function promptSignIn(){
   if(!fbAuth){
@@ -1890,10 +1901,17 @@ else setTimeout(warmFirebase,700);
 /* first-load hint */
 (function(){
   var hint=document.getElementById('hint'), seen=null;
-  try{ seen=localStorage.getItem('debateit-atlas-hint'); }catch(e){}
+  var hintKey='debatable-atlas-hint', legacyHintKey='debate'+'it-atlas-hint';
+  try{
+    seen=localStorage.getItem(hintKey)||localStorage.getItem(legacyHintKey);
+    if(seen){
+      localStorage.setItem(hintKey,seen);
+      localStorage.removeItem(legacyHintKey);
+    }
+  }catch(e){}
   if(seen||!hint) return;
   setTimeout(function(){ hint.classList.add('show'); },900);
-  var dismiss=function(){ hint.classList.remove('show'); try{ localStorage.setItem('debateit-atlas-hint','1'); }catch(e){} };
+  var dismiss=function(){ hint.classList.remove('show'); try{ localStorage.setItem(hintKey,'1'); }catch(e){} };
   var hx=document.getElementById('hint-x'); if(hx) hx.addEventListener('click',dismiss);
   setTimeout(function(){ if(hint.classList.contains('show')) dismiss(); },12000);
 })();

@@ -258,7 +258,7 @@ function topNav() {
     <a href="/debate">Dossiers</a>
   </div>
   <div class="g">
-    <a class="cta" href="/debate-it">Start a round <span aria-hidden="true">&rarr;</span></a>
+    <a class="cta" href="/practice">Start a round <span aria-hidden="true">&rarr;</span></a>
   </div>
 </nav>`;
 }
@@ -309,7 +309,7 @@ ${topNav()}
 ${bodyInner}
 <footer class="foot">
   <span>&copy; 2026 Debatable</span>
-  <span><a href="/motions">All motions</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/topics/">Format guides</a> &middot; <a href="/debate-it">Practice</a></span>
+  <span><a href="/motions">All motions</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/topics/">Format guides</a> &middot; <a href="/practice">Practice</a></span>
 </footer>
 </main>
 </body></html>`;
@@ -366,7 +366,7 @@ function renderMotionPage(m) {
     <p class="ps">Live voice round against an AI opponent, then a judge ballot.</p>
     <a class="btn btn-pro" href="${trainerHref(m, 'gov')}">Take ${esc(propLabel)} <span class="arr">&rarr;</span></a>
     <a class="btn btn-con" href="${trainerHref(m, 'opp')}">Take ${esc(oppLabel)} <span class="arr">&rarr;</span></a>
-    <a class="btn btn-ghost" href="/debate-it?motion=${encodeURIComponent(m.motion)}">Typed mode <span class="arr">&rarr;</span></a>
+    <a class="btn btn-ghost" href="/practice?motion=${encodeURIComponent(m.motion)}">Typed mode <span class="arr">&rarr;</span></a>
     <p class="fine">No card. Sign in to keep your record.</p>
   </aside>
 </section>

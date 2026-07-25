@@ -1,4 +1,4 @@
-# Growing the DebateIt database by email
+# Growing the Debatable database by email
 
 > How we turn the Debate Atlas from a map of programs into a network of
 > partnered teams, one honest email at a time. This is the plan the atlas
@@ -11,7 +11,7 @@ Grow two linked databases:
 
 1. **The Atlas** — every debate program on Earth as a pin (schools with a
    program, and, via the community layer, schools without one yet).
-2. **Partnered teams** — programs actually using DebateIt to drill.
+2. **Partnered teams** — programs actually using Debatable to drill.
 
 Email is the bridge: a program is a *pin* until a coach says yes, then
 it's a *partner*. The whole pipeline is one field on each pin:
@@ -29,7 +29,7 @@ Tabroom paradigm, league listing), not scraped personal contacts.
 In priority order, all public sources:
 
 1. **Tabroom** — coach paradigms and school pages list program contacts.
-   (`~/debateit-outreach/pull_tabroom.py` already pulls program/coach
+   (the existing outreach pull script already collects program and coach
    research.)
 2. **NSDA school map / league rosters** — member schools + program type.
 3. **State/national league directories** (NSDA, NDCA, urban leagues,
@@ -71,7 +71,7 @@ Every outreach email carries five beats, in this order:
    AI opponent that takes POIs and interrupts → a full judge ballot
    (winner, why, speaker points), format-accurate to their circuit.
 3. **The idea** — practice needs an opponent, a clock, and a judge, and
-   most teams can't get all three on demand. DebateIt gives every squad
+   most teams can't get all three on demand. Debatable gives every squad
    all three. Free while in beta.
 4. **The community / why now** — this is the network beat. We're building
    a community, not just a solo tool. The more teams that join, the better
@@ -153,6 +153,6 @@ free Atlas."
 
 ## What "done" looks like
 
-A coach opens the email, understands in ten seconds what DebateIt is and
+A coach opens the email, understands in ten seconds what Debatable is and
 why they got the note, tries a round, and opts their squad in — turning a
 red pin blue, then green. Repeat across circuits until the map fills in.

@@ -781,7 +781,7 @@ body::before{
     <p class="intro-lede">About <strong id="memberCount" data-baseline="101">101</strong> people opened Debatable in the last 30 days. This is where the arguing happens: published cases, replies, and full rounds you can read and answer. It is still early, so some threads are seeded by AI personas. Those are always labeled. I fund this myself and am raising money to build it properly. The best way to help is to use it: publish a case, reply, run a round, and tell me what is broken.</p>
     <div class="intro-you" id="memberYou">+ you, here today</div>
     <div class="cta-row">
-      <a class="cta primary" href="/debate-it">Publish a case</a>
+      <a class="cta primary" href="/practice">Publish a case</a>
       <a class="cta primary" href="/spar" style="background:transparent;border:1px solid rgba(239,68,68,.5);color:#ef4444">Find a debater now →</a>
       <a class="cta fund" href="mailto:aidandavidhollinger@gmail.com?subject=Help%20fund%20Debatable">Help fund the build</a>
       <a class="cta primary" href="#book" style="background:transparent;border:1px solid rgba(239,68,68,.5);color:#ef4444">Book a feedback call &rarr;</a>
@@ -931,7 +931,7 @@ body::before{
 
     <div id="empty" class="empty" style="display:none">
       <h3>No public cases yet.</h3>
-      <p style="margin-top:8px">Be the first. Run a round on <a href="/debate-it">/debate-it</a>, save the case, then publish it from the Team Case Library or the post-round screen.</p>
+      <p style="margin-top:8px">Be the first. Run a round on <a href="/practice">/practice</a>, save the case, then publish it from the Team Case Library or the post-round screen.</p>
     </div>
   </div>
 
@@ -987,7 +987,7 @@ body::before{
     <div id="roundsCards" class="cards" style="display:none"></div>
     <div id="roundsEmpty" class="empty" style="display:none">
       <h3>No published rounds yet.</h3>
-      <p style="margin-top:8px">Finish a round on <a href="/debate-it">/debate-it</a> or in the <a href="/live-round">live room</a>, then hit <strong>Publish to Community</strong> after the ballot. Each round gets a permanent <code style="background:var(--bg-card);padding:1px 5px;border-radius:4px;border:1px solid var(--border)">/r/{id}</code> URL with the motion as the title, the full transcript, and a "try this motion" CTA.</p>
+      <p style="margin-top:8px">Finish a round on <a href="/practice">/practice</a> or in the <a href="/live-round">live room</a>, then hit <strong>Publish to Community</strong> after the ballot. Each round gets a permanent <code style="background:var(--bg-card);padding:1px 5px;border-radius:4px;border:1px solid var(--border)">/r/{id}</code> URL with the motion as the title, the full transcript, and a "try this motion" CTA.</p>
     </div>
   </div>
 
@@ -1238,7 +1238,7 @@ body::before{
     var coldStartNotice = realCount === 0
       ? '<div style="padding:14px 16px;margin-bottom:12px;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.25);border-radius:10px;font-size:.8rem;line-height:1.5;color:var(--text-dim)">' +
         '<strong style="color:#a78bfa">◆ All seeded by AI personas</strong>; no human cases yet for this filter. ' +
-        '<a href="/debate-it" style="color:#a78bfa">Debate it</a> and click "Publish to Community" to be the first.' +
+        '<a href="/practice" style="color:#a78bfa">Start a round</a> and click "Publish to Community" to be the first.' +
         '</div>'
       : '';
     if (matched.length === 0){
@@ -1397,7 +1397,7 @@ body::before{
             '<button class="btn" id="modalShareXBtn" title="Share on X">Share on X</button>' +
             '<button class="btn" id="modalImportBtn">Import to my cases</button>' +
             '<button class="btn" id="modalSparBtn" title="Queue for a live human round in this format">Spar a human on this →</button>' +
-            '<button class="btn primary" data-href="/debate-it" id="modalDebateBtn">Debate this motion →</button>' +
+            '<button class="btn primary" data-href="/practice" id="modalDebateBtn">Debate this motion →</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1413,7 +1413,7 @@ body::before{
     $('modalImportBtn').addEventListener('click', function(){ importCase(c); close(); });
     $('modalDebateBtn').addEventListener('click', function(){
       try { gtag('event','disclosure_debate_motion'); } catch(e){}
-      var url = '/debate-it?motion=' + encodeURIComponent(c.motion || '');
+      var url = '/practice?motion=' + encodeURIComponent(c.motion || '');
       location.href = url;
     });
     // "Spar a human" — the live-discourse path. Routes to the /spar
@@ -1564,17 +1564,17 @@ body::before{
   }
 
   // Import a public disclosure into the visitor's localStorage cases.
-  // Uses the same shape /debate-it's loadSavedCases reads, so they
+  // Uses the same shape /practice's loadSavedCases reads, so they
   // immediately appear in the user's saved-cases list.
   function importCase(c){
     try {
       var raw = localStorage.getItem('debateos-saved-cases');
       var arr = raw ? JSON.parse(raw) : [];
-      // debate-it's saved-cases UI renders c.title / c.formatName /
+      // The practice page's saved-cases UI renders c.title / c.formatName /
       // c.sideLabel / c.date / c.fullText (see saveCase there), so the
       // import has to write that shape too or rows render
       // "undefined · undefined · Invalid Date". Tiny name map mirrors
-      // debate-it's FORMATS[k].name for the formats the board carries.
+      // The practice page's FORMATS[k].name for the formats the board carries.
       var IMPORT_FORMAT_NAMES = {
         quick: 'Quick Clash', apda: 'APDA Parliamentary',
         bp: 'British Parliamentary', asian: 'Asian Parliamentary',
@@ -1596,7 +1596,7 @@ body::before{
         savedAt: nowIso,
         sharedFrom: c.sharedBy || 'Anonymous',
         importedFromDisclosure: true,
-        // Reader-shape fields (what /debate-it actually renders):
+        // Reader-shape fields (what /practice actually renders):
         title: (c.motion || '').slice(0, 80) || 'Imported case',
         formatName: formatName,
         sideLabel: c.side || '',
@@ -1604,7 +1604,7 @@ body::before{
         fullText: c.output || '',
       });
       localStorage.setItem('debateos-saved-cases', JSON.stringify(arr.slice(0, 100)));
-      toast('✓ Imported. Open /debate-it to use it.');
+      toast('✓ Imported. Open /practice to use it.');
       try { gtag('event','disclosure_import',{ format: normalizeFormat(c.format), side: normalizeSide(c.side) }); } catch(e){}
     } catch(e){
       toast('Import failed: ' + e.message);
@@ -2653,7 +2653,7 @@ body::before{
   <div style="font-size:13px;display:flex;flex-wrap:wrap;gap:0 16px;justify-content:center">
     <a href="/" style="color:var(--text-ghost);text-decoration:none">Debatable</a>
     <span aria-hidden="true">·</span>
-    <a href="/debate-it" style="color:var(--text-ghost);text-decoration:none">Debate a round</a>
+    <a href="/practice" style="color:var(--text-ghost);text-decoration:none">Debate a round</a>
     <span aria-hidden="true">·</span>
     <a href="/voice-debate" style="color:var(--text-ghost);text-decoration:none">Voice round</a>
     <span aria-hidden="true">·</span>

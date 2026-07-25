@@ -2,8 +2,8 @@
    read-aloud.js — "listen to this page" narration, sitewide.
 
    Every content page has a pre-generated ElevenLabs narration that
-   explains what the page is and what you can do on it. Files live at
-   /audio/narration/<slug>.mp3 and are built by
+   explains what the page is and what you can do on it. Files live under
+   /audio/narration/ and are built by
    scripts/generate-narration.mjs. Nothing here calls a TTS API at
    runtime, so a visitor listening to ten pages costs nothing and
    cannot hit the /api/tts rate limit.
@@ -85,7 +85,7 @@
     '/coach',
     '/exhibition',
     '/spectate',
-    '/debate-it',
+    '/practice',
   ];
 
   // ── route → narration slug ──────────────────────────────────────
@@ -432,7 +432,7 @@
     // ── source + playback ─────────────────────────────────────────
     function load(entry, startAt) {
       current = entry;
-      audio.src = AUDIO_BASE + entry.slug + '.mp3';
+      audio.src = AUDIO_BASE + (entry.audio || entry.slug + '.mp3');
       audio.playbackRate = rate;
       if (startAt > 0) {
         // currentTime only sticks once metadata is in.
@@ -504,7 +504,7 @@
       try {
         navigator.mediaSession.metadata = new window.MediaMetadata({
           title: (current.title || 'Page narration').split('·')[0].trim(),
-          artist: 'DebateIt',
+          artist: 'Debatable',
           album: 'Page narration',
         });
         navigator.mediaSession.setActionHandler('play', play);

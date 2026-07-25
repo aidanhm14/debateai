@@ -8,9 +8,9 @@
 // tournament: how do I run this motion, on either side?
 //
 // Every motion here MUST exist verbatim in one of the motion pools in
-// app/debate-it.html (APDA_MOTIONS / BP_MOTIONS / ASIAN_MOTIONS /
+// app/practice.html (APDA_MOTIONS / BP_MOTIONS / ASIAN_MOTIONS /
 // WORLDS_MOTIONS / MOTIONS_BY_FORMAT). The page CTA prefills the
-// trainer with `motion`, and the curated case files in debate-it.html
+// trainer with `motion`, and the curated case files in practice.html
 // key off exact motion text, so a paraphrase here silently breaks the
 // handoff. Copy the string, do not retype it.
 //

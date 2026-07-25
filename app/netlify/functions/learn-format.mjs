@@ -50,7 +50,7 @@ function notFoundResponse() {
 </head><body>
 <h1>Unknown debate format</h1>
 <p>Try one of: ${Object.keys(FORMAT_BANK).map(s => `<a href="/learn/formats/${s}">${esc(FORMAT_BANK[s].name)}</a>`).join(' · ')}</p>
-<p><a href="/debate-it">Or start a round →</a></p>
+<p><a href="/practice">Or start a round →</a></p>
 </body></html>`;
   return new Response(body, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
@@ -266,7 +266,7 @@ function renderPage(format) {
   <div class="cta-card">
     <h3>Try a ${esc(format.alias)} round against the AI.</h3>
     <p>The AI knows the structure, the judging criteria, and the moves that win this format specifically. Pick a side, give a speech, get a judge ballot.</p>
-    <a class="cta-button" href="/debate-it?format=${esc(format.slug)}&motion=${motionEncoded}">Start a ${esc(format.alias)} round →</a>
+    <a class="cta-button" href="/practice?format=${esc(format.slug)}&motion=${motionEncoded}">Start a ${esc(format.alias)} round →</a>
   </div>
 
   <h2>Other formats</h2>
@@ -276,7 +276,7 @@ function renderPage(format) {
 
   <footer>
     <span>© 2026 Debatable</span>
-    <span><a href="/">Home</a> · <a href="/debate-it">New round</a> · <a href="/today">Today's motion</a></span>
+    <span><a href="/">Home</a> · <a href="/practice">New round</a> · <a href="/today">Today's motion</a></span>
   </footer>
 </main>
 </body></html>`;

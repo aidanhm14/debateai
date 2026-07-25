@@ -59,7 +59,7 @@ export function scrubText(input) {
 // with CORPUS_HASH_SALT; rotate the salt to sever the linkage entirely.
 export function anonAuthorId(uid) {
   if (!uid) return null;
-  const salt = process.env.CORPUS_HASH_SALT || 'debateit-corpus-v1';
+  const salt = process.env.CORPUS_HASH_SALT || 'debatable-corpus-v1';
   return 'a_' + createHash('sha256').update(salt + ':' + uid).digest('hex').slice(0, 16);
 }
 

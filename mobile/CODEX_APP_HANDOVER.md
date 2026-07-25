@@ -1,4 +1,4 @@
-# DebateIt iOS App — Handover for Codex (and any AI agent)
+# Debatable iOS App Handover for Codex
 
 > Read this before touching anything under `mobile/` or before making a
 > change meant to affect the iOS app. It explains what the app is, how it
@@ -10,7 +10,7 @@
 
 ## 1. What the app is (one paragraph)
 
-DebateIt is on iOS as a **Capacitor 6 wrapper** that loads the LIVE website
+Debatable is on iOS as a **Capacitor 6 wrapper** that loads the live website
 (`https://itsdebatable.com/native`) inside a native WKWebView. It is not a
 separate frontend. The native shell adds: splash, status bar, keyboard,
 share, push, camera/mic permission, and Firebase (Auth + Messaging)
@@ -18,7 +18,7 @@ plugins. The web content is the product; the shell is the frame.
 
 - **Bundle ID:** `com.debateai.debateit` (the obvious ones `com.debateai.app`
   and `com.debateit.app` were already taken on Apple's global registry).
-- **App name (under the icon):** `DebateIt` (`CFBundleDisplayName`).
+- **App name (under the icon):** `Debatable` (`CFBundleDisplayName`).
 - **Opens to:** `/native`, the app-only home with a persistent bottom tab bar.
 - **Firebase iOS app:** registered under project `debateos-78ac5`,
   bundle `com.debateai.debateit`, config at
@@ -72,7 +72,7 @@ schools, terms, us) and ten of those carried a purchase reference. Check with:
 
 ```bash
 cd app && for p in $(grep -oh 'href="/[a-z0-9-]*"' native.html coach.html \
-  profile.html spar.html newvoice.html live.html debate-it.html \
+  profile.html spar.html newvoice.html live.html practice.html \
   | sed 's/href="\///;s/"//' | sort -u); do
   [ -f "$p.html" ] && ! grep -q native-bridge "$p.html" && echo "MISSING $p.html"
 done
@@ -221,7 +221,7 @@ xcrun devicectl device install app --device 00008150-001679E40AA0C01C \
 
   The trap: nine surfaces ship their OWN Google-only button and never load
   the chooser (coach and spar are tab targets; also live, index,
-  voice-debate, debate-it, learn, community, room-judge). The bridge now
+  voice-debate, practice, learn, community, room-judge). The bridge now
   loads the chooser everywhere in the app and intercepts those buttons
   (capture phase, propagation stopped so the page's own popup does not also
   fire). **If you add a new sign-in button, label it with the word "Google"

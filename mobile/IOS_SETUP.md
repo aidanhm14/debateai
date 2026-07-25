@@ -16,7 +16,7 @@ the iOS Simulator," then to the App Store. Follow top-to-bottom.
   pricing / upgrade / checkout surface; the `/pricing` route redirects to
   `/native` in the app. `app/js/upgrade-cta.js` no-ops in native. This
   satisfies Apple **3.1.1 / 3.1.3** (no steering to web payment) while the
-  product is free in beta. Loaded on index / debate-it / landing / pricing /
+  product is free in beta. Loaded on index / practice / landing / pricing /
   coach / voice-debate.
 - **JS-built paywall surfaces gated at source (2026-07-15)** — the
   paywall / limit-hit modals and upgrade CTAs that React builds in JS
@@ -25,7 +25,7 @@ the iOS Simulator," then to the App Store. Follow top-to-bottom.
   copy, TeamDashboard plan grids + Upgrade Plan / Manage Billing button +
   trial pricing card, Judge Analyzer and Live Debates pro gates, brain-lock
   and cap error strings, upgrade promo banners, checkout-resume deep link),
-  debate-it.html (quota modal copy, account-modal Stripe button + upsell
+  practice.html (quota modal copy, account-modal Stripe button + upsell
   line, brain-row upgrade link, cap copy), voice-debate / newvoice / coach
   402 copy, learn.html (native-bridge added + cap alert). The
   native-bridge CTA sweeper also matches Upgrade / Go Pro / Upgrade Plan /

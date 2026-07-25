@@ -23,7 +23,7 @@
       "operatingSystem": "Web",
       "url": "https://itsdebatable.com/exhibition",
       "description": "Pick two AI brains, hand them a motion, watch them debate in proper format. The AI judge writes a full ballot at the end. Four brains: Claude, GPT, Grok, DeepSeek.",
-      "publisher": { "@type": "Organization", "@id": "https://itsdebatable.com/#org", "name": "Debatable", "alternateName": "DebateIt", "url": "https://itsdebatable.com/", "logo": { "@type": "ImageObject", "url": "https://itsdebatable.com/icons/icon-512.png?v=2" } },
+      "publisher": { "@type": "Organization", "@id": "https://itsdebatable.com/#org", "name": "Debatable", "url": "https://itsdebatable.com/", "logo": { "@type": "ImageObject", "url": "https://itsdebatable.com/icons/icon-512.png?v=2" } },
       "audience": { "@type": "Audience", "audienceType": "Competitive debaters, debate coaches, debate students researching prep tools" },
       "keywords": "AI vs AI debate, exhibition round, watch AI debate, Claude vs GPT debate, debate demo",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "category": "Free in beta" },
@@ -71,7 +71,6 @@
 <meta property="og:description" content="Pick two of four brains, hand them a motion, watch the round. Format-aware: APDA, BP, WSDC, PF, LD, Policy.">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:site" content="@debateit">
 <meta name="twitter:title" content="Exhibition rounds · Watch two AI brains debate · Debatable.com">
 <meta name="twitter:description" content="Pick two of four brains, hand them a motion, watch the round. Format-aware: APDA, BP, WSDC, PF, LD, Policy.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
@@ -80,7 +79,7 @@
      push. SoftwareApplication covers the "AI debate match" search
      intent; the Event entity catches "AI exhibition debate" / "AI
      debate tournament" queries; BreadcrumbList helps Google
-     surface the page under the parent /debate-it cluster. The
+     surface the page under the parent /practice cluster. The
      in-page content is React-rendered after JS so the schema is
      the only thing the crawler sees up front — making the schema
      load-bearing for indexability. -->
@@ -374,8 +373,8 @@ var BRAINS = {
 // hidden, bigger speech type, voice playback on by default. The voice
 // toggle also works outside stream mode.
 var STREAM_MODE = false;
-try { STREAM_MODE = new URLSearchParams(location.search).get('stream') === '1'; } catch (e) {}
-if (STREAM_MODE) { try { document.documentElement.setAttribute('data-stream', '1'); } catch (e) {} }
+try {STREAM_MODE = new URLSearchParams(location.search).get('stream') === '1';} catch (e) {}
+if (STREAM_MODE) {try {document.documentElement.setAttribute('data-stream', '1');} catch (e) {}}
 
 // Persona voice per side so the two benches are audibly distinct.
 // BP closing halves get their own voices (four teams, four registers).
@@ -384,10 +383,10 @@ var EXH_SIDE_VOICES = { og: 'statesman', oo: 'firebrand', cg: 'professor', co: '
 // Sentence-boundary chunking under the TTS payload cap.
 function exhChunkText(text) {
   var clean = String(text || '').replace(/\s+/g, ' ').trim();
-  var out = []; var cur = '';
+  var out = [];var cur = '';
   var parts = clean.match(/[^.!?]+[.!?]+(\s|$)/g) || [clean];
   for (var i = 0; i < parts.length; i++) {
-    if ((cur + parts[i]).length > 3600 && cur) { out.push(cur.trim()); cur = ''; }
+    if ((cur + parts[i]).length > 3600 && cur) {out.push(cur.trim());cur = '';}
     cur += parts[i];
   }
   if (cur.trim()) out.push(cur.trim());
@@ -397,7 +396,7 @@ function exhFetchTTSBlob(text, voice, intensity) {
   return fetch('/api/tts', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: text, voice: voice, speed: 1.06, premium: false, intensity: intensity })
-  }).then(function (r) { if (!r.ok) throw new Error('TTS ' + r.status); return r.blob(); });
+  }).then(function (r) {if (!r.ok) throw new Error('TTS ' + r.status);return r.blob();});
 }
 
 // Minimal format objects. Each speech: code, side, title, durationMin
@@ -456,7 +455,7 @@ var FORMATS = {
 
 // A format is "four-team" when it has more than two sides. Drives the
 // 4-brain picker + per-team dispatch below.
-function isFourTeam(fmt){ return fmt && Array.isArray(fmt.sides) && fmt.sides.length >= 4; }
+function isFourTeam(fmt) {return fmt && Array.isArray(fmt.sides) && fmt.sides.length >= 4;}
 
 // Role-prompt builder for each speech. Kept small but format-aware: the
 // system prompt sets up persona + format expectations; the user prompt
@@ -471,13 +470,13 @@ function buildSpeechPrompt(speech, fmt, motion, transcript) {
   // extend, not echo, or the exhibition reads as one side talking to
   // itself. Whips (GW/OW) adjudicate the round, they don't rebuild.
   var bpRoleNote = '';
-  if (fourTeam){
+  if (fourTeam) {
     var isClosing = speech.side === 'cg' || speech.side === 'co';
     var isWhip = speech.code === 'GW' || speech.code === 'OW';
     var bench = speech.side === 'og' || speech.side === 'cg' ? 'Government' : 'Opposition';
-    if (isWhip){
+    if (isWhip) {
       bpRoleNote = 'You are the WHIP for ' + sideLabel + '. NO new arguments. Give a global, issue-by-issue summary that explains why YOUR team (' + sideLabel + ') wins the whole debate. Compare your extension against the opening half on your own bench AND against both teams on the other bench.';
-    } else if (isClosing){
+    } else if (isClosing) {
       bpRoleNote = 'You are the substantive for ' + sideLabel + ', a CLOSING team. You MUST bring a clear EXTENSION — a new actor, timeframe, mechanism, or impact layer that the opening ' + bench + ' team did not run. Your team is scored against your own opening half, so out-flank them: be the most persuasive ' + bench + ' team in the room. Acknowledge the opening case once, then move past it.';
     } else {
       bpRoleNote = 'You are the OPENING ' + bench + ' team. Set the debate up well, but know two more teams speak after you — leave the bench in a strong position and stake the ground a closing team would want.';
@@ -552,7 +551,7 @@ async function callBrain(brainKey, sys, user, onDelta) {
     if (!text) throw new Error('empty response');
     return text;
   }
-  // Dual-dialect SSE reader (same shapes debate-it parses): Anthropic
+  // Dual-dialect SSE reader (same shapes the practice page parses): Anthropic
   // content_block_delta, OpenAI/xAI/DeepSeek choices[].delta, Gemini
   // candidates[].content.parts.
   var reader = res.body.getReader();
@@ -561,7 +560,7 @@ async function callBrain(brainKey, sys, user, onDelta) {
   var buf = '';
   while (true) {
     var chunk;
-    try { chunk = await reader.read(); } catch (e) { break; }
+    try {chunk = await reader.read();} catch (e) {break;}
     if (chunk.done) break;
     buf += dec.decode(chunk.value, { stream: true });
     var lines = buf.split('\n');
@@ -591,7 +590,7 @@ async function callBrain(brainKey, sys, user, onDelta) {
 // Deep links from /ai-vs-ai-debate (?prop=claude&opp=gpt) preselect the
 // two brains. Keys are validated against BRAINS; anything unknown (or a
 // missing param) falls back to the defaults below. Read once at boot.
-var DEEP_LINK_BRAINS = (function () {
+var DEEP_LINK_BRAINS = function () {
   var out = { prop: null, opp: null };
   try {
     var qs = new URLSearchParams(location.search);
@@ -601,7 +600,7 @@ var DEEP_LINK_BRAINS = (function () {
     if (BRAINS[o]) out.opp = o;
   } catch (e) {}
   return out;
-})();
+}();
 
 function App() {
   var [stage, setStage] = useState('setup'); // setup | running | done
@@ -631,11 +630,11 @@ function App() {
   // Spectate: voice playback + audience vote. voiceOn mirrors into a
   // ref because the orchestrator and player loops are long-lived
   // closures that must read the live value, not a stale render's.
-  var [voiceOn, setVoiceOn] = useState(STREAM_MODE || (function () { try { return localStorage.getItem('exh-voice') === '1'; } catch (e) { return false; } })());
+  var [voiceOn, setVoiceOn] = useState(STREAM_MODE || function () {try {return localStorage.getItem('exh-voice') === '1';} catch (e) {return false;}}());
   var [speakingIdx, setSpeakingIdx] = useState(-1);
   var [voiceNeedsTap, setVoiceNeedsTap] = useState(false);
   var [vote, setVote] = useState(null); // 'a' | 'b' | 'skip'
-  var voiceOnRef = useRef(voiceOn); voiceOnRef.current = voiceOn;
+  var voiceOnRef = useRef(voiceOn);voiceOnRef.current = voiceOn;
   var speechQueueRef = useRef([]);
   var speechesRef = useRef([]);
   var playerBusyRef = useRef(false);
@@ -646,8 +645,8 @@ function App() {
   var stopVoice = function () {
     stopGenRef.current++;
     speechQueueRef.current = [];
-    if (audioRef.current) { try { audioRef.current.pause(); } catch (e) {} }
-    if (stopResolveRef.current) { try { stopResolveRef.current(true); } catch (e) {} stopResolveRef.current = null; }
+    if (audioRef.current) {try {audioRef.current.pause();} catch (e) {}}
+    if (stopResolveRef.current) {try {stopResolveRef.current(true);} catch (e) {}stopResolveRef.current = null;}
     audioRef.current = null;
     playerBusyRef.current = false;
     setSpeakingIdx(-1);
@@ -656,7 +655,7 @@ function App() {
     if (EXH_SIDE_VOICES[sp.side]) return EXH_SIDE_VOICES[sp.side];
     return sp.side === sideA ? EXH_SIDE_VOICES._a : EXH_SIDE_VOICES._b;
   };
-  var brainBill = function (k) { return BRAINS[k].name + ' \u00b7 ' + BRAINS[k].modelLabel; };
+  var brainBill = function (k) {return BRAINS[k].name + ' \u00b7 ' + BRAINS[k].modelLabel;};
   // Drains the pending-speech queue through /api/tts sequentially,
   // prefetching the next chunk while the current one plays. Rebuttal
   // and reply speeches (short slots) get a hotter delivery.
@@ -676,7 +675,7 @@ function App() {
       for (var c = 0; c < chunks.length; c++) {
         if (!voiceOnRef.current || gen !== stopGenRef.current) break;
         var blob;
-        try { blob = await nextBlobP; } catch (e) { break; }
+        try {blob = await nextBlobP;} catch (e) {break;}
         if (c + 1 < chunks.length) nextBlobP = exhFetchTTSBlob(chunks[c + 1], voiceForSpeech(sp), intensity);
         if (!voiceOnRef.current || gen !== stopGenRef.current) break;
         var url = URL.createObjectURL(blob);
@@ -684,9 +683,9 @@ function App() {
           var a = new Audio(url);
           audioRef.current = a;
           stopResolveRef.current = resolve;
-          a.onended = function () { URL.revokeObjectURL(url); resolve(true); };
-          a.onerror = function () { URL.revokeObjectURL(url); resolve(true); };
-          a.play().catch(function () { URL.revokeObjectURL(url); resolve(false); });
+          a.onended = function () {URL.revokeObjectURL(url);resolve(true);};
+          a.onerror = function () {URL.revokeObjectURL(url);resolve(true);};
+          a.play().catch(function () {URL.revokeObjectURL(url);resolve(false);});
         });
         stopResolveRef.current = null;
         if (played === false) {
@@ -707,7 +706,7 @@ function App() {
     setVote(v);
     try {
       var list = JSON.parse(localStorage.getItem('debateai-exhibition-rounds') || '[]');
-      if (list[0]) { list[0].audienceVote = v; localStorage.setItem('debateai-exhibition-rounds', JSON.stringify(list)); }
+      if (list[0]) {list[0].audienceVote = v;localStorage.setItem('debateai-exhibition-rounds', JSON.stringify(list));}
     } catch (e) {}
   };
   var abortRef = useRef(false);
@@ -726,7 +725,7 @@ function App() {
     setTeamBrains((prev) => {
       var next = { ...prev };
       var fallback = Object.keys(BRAINS);
-      fmt.sides.forEach((s, i) => { if (!next[s] || !BRAINS[next[s]]) next[s] = fallback[i % fallback.length]; });
+      fmt.sides.forEach((s, i) => {if (!next[s] || !BRAINS[next[s]]) next[s] = fallback[i % fallback.length];});
       return next;
     });
   }, [format]);
@@ -744,8 +743,8 @@ function App() {
       var sid = sessionStorage.getItem('_da_sid');
       if (!sid) {
         sid = window.crypto && crypto.randomUUID ?
-          crypto.randomUUID() :
-          Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        crypto.randomUUID() :
+        Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
         sessionStorage.setItem('_da_sid', sid);
         sessionStorage.setItem('_da_sst', String(Date.now()));
       }
@@ -805,15 +804,15 @@ function App() {
   // Sends _promptId:'exhibitionBallot' so the adjudication core + ballot
   // instructions are injected server-side; Claude Haiku writes plain text.
   var generateBallot = async function (transcript) {
-    setBallotLoading(true); setBallotError(''); setBallot(null);
+    setBallotLoading(true);setBallotError('');setBallot(null);
     var matchup = fourTeam ?
-      fmt.sides.map(function (s) { return (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' as ' + fmt.sideLabels[s]; }).join(', ') :
-      BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find(function (x) { return x !== sideA; })] + ')';
+    fmt.sides.map(function (s) {return (BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?') + ' as ' + fmt.sideLabels[s];}).join(', ') :
+    BRAINS[brainA].name + ' (' + fmt.sideLabels[sideA] + ') vs ' + BRAINS[brainB].name + ' (' + fmt.sideLabels[fmt.sides.find(function (x) {return x !== sideA;})] + ')';
     try {
       var judge = BRAINS.claude;
       var rankingInstruction = fourTeam ?
-        'Rank ALL FOUR teams 1-2-3-4 by the half-call, and put the full ranking in the WINNER line.' :
-        'Pick the winning side.';
+      'Rank ALL FOUR teams 1-2-3-4 by the half-call, and put the full ranking in the WINNER line.' :
+      'Pick the winning side.';
       var res = await fetch(judge.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
@@ -827,7 +826,7 @@ function App() {
           _feature: 'exhibition-judge'
         })
       });
-      if (!res.ok) { var m = 'request failed (' + res.status + ')'; try { var j = await res.json(); if (j && j.error) m = j.error; } catch (e) {} throw new Error(m); }
+      if (!res.ok) {var m = 'request failed (' + res.status + ')';try {var j = await res.json();if (j && j.error) m = j.error;} catch (e) {}throw new Error(m);}
       var text = extractText(await res.json());
       if (!text) throw new Error('empty ballot');
       setBallot({ judge: judge.name, text: text });
@@ -846,13 +845,13 @@ function App() {
 
 
 
+
+
       // Same brain on both sides isn't useful for the disagreement signal,
       // but allow it — user might be testing self-consistency.
-    }setStage('running');abortRef.current = false;loggedRoundRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur,
-        // 4-team: dispatch by the team's brain. 2-side: the side that
+    }setStage('running');abortRef.current = false;loggedRoundRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur, // 4-team: dispatch by the team's brain. 2-side: the side that
         // matches sideA gets brainA, the other gets brainB.
-        brainKey: fourTeam ? (teamBrains[s.side] || brainA) : (s.side === sideA ? brainA : brainB),
-        text: '', status: 'queued', error: null
+        brainKey: fourTeam ? teamBrains[s.side] || brainA : s.side === sideA ? brainA : brainB, text: '', status: 'queued', error: null
       }));
     setSpeeches(queue);
     speechesRef.current = queue;
@@ -878,7 +877,7 @@ function App() {
         queue[i].status = 'done';
         transcript += (transcript ? '\n\n' : '') + '[' + sp.code + ' · ' + (fmt.sideLabels[sp.side] || sp.side) + ' · ' + BRAINS[sp.brainKey].name + ']:\n' + text;
         setSpeeches([...queue]);
-        if (voiceOnRef.current) { speechQueueRef.current.push(i); playQueueTick(); }
+        if (voiceOnRef.current) {speechQueueRef.current.push(i);playQueueTick();}
       } catch (e) {
         queue[i].status = 'error';
         queue[i].error = e.message || 'request failed';
@@ -911,8 +910,8 @@ function App() {
     el('div', { className: 'exh-eyebrow' }, 'New · exhibition mode'),
     el('h1', { className: 'exh-title' }, fourTeam ? 'Four AI brains. ' : 'Two AI brains. ', el('em', null, 'One motion.')),
     el('p', { className: 'exh-sub' }, fourTeam ?
-      'Pick a motion, then a brain for each of the four teams. The orchestrator runs the eight-speech BP sequence in proper order; closing teams have to extend past their own opening half. You flow it like a real round.' :
-      'Pick a motion, pick two brains, pick which side each plays. The orchestrator runs the format\'s speech sequence in proper order. You flow it like a real round.'),
+    'Pick a motion, then a brain for each of the four teams. The orchestrator runs the eight-speech BP sequence in proper order; closing teams have to extend past their own opening half. You flow it like a real round.' :
+    'Pick a motion, pick two brains, pick which side each plays. The orchestrator runs the format\'s speech sequence in proper order. You flow it like a real round.'),
     el('div', { className: 'setup-card' },
     el('div', { className: 'setup-row' },
     el('label', null, 'Motion'),
@@ -973,8 +972,8 @@ function App() {
     }, fmt.sideLabels[s]))
     ),
     el('div', { style: { fontSize: '.7rem', color: 'rgba(255,255,255,.5)', marginTop: 6 } }, 'Brain B plays ' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + '.')
-    )
-    ],
+    )],
+
     el('div', { className: 'go-row' },
     el('button', { className: 'go-btn', onClick: start, disabled: !motion.trim() }, 'Run exhibition →'),
     el('span', { className: 'go-meta' }, fmt.speeches.length + ' speeches · ' + (fourTeam ? fmt.sides.map((s) => BRAINS[teamBrains[s]] ? BRAINS[teamBrains[s]].name : '?').join(' · ') : brainBill(brainA) + ' vs ' + brainBill(brainB)))
@@ -991,8 +990,8 @@ function App() {
   el('div', { className: 'exh-eyebrow' }, stage === 'done' ? 'Round complete' : 'Round in progress'),
   el('h1', { className: 'exh-title', style: { fontSize: '1.6rem', marginBottom: 8 } }, motion),
   el('p', { className: 'exh-sub' }, fourTeam ?
-    fmt.name + ' · ' + fmt.sides.map((s) => (BRAINS[teamBrains[s]] ? brainBill(teamBrains[s]) : '?') + ' ' + fmt.sideLabels[s]).join(' · ') :
-    fmt.name + ' · ' + brainBill(brainA) + ' (' + fmt.sideLabels[sideA] + ') vs ' + brainBill(brainB) + ' (' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + ')'),
+  fmt.name + ' · ' + fmt.sides.map((s) => (BRAINS[teamBrains[s]] ? brainBill(teamBrains[s]) : '?') + ' ' + fmt.sideLabels[s]).join(' · ') :
+  fmt.name + ' · ' + brainBill(brainA) + ' (' + fmt.sideLabels[sideA] + ') vs ' + brainBill(brainB) + ' (' + fmt.sideLabels[fmt.sides.find((x) => x !== sideA)] + ')'),
   el('div', { className: 'exh-voice-row' },
   el('button', { className: 'voice-toggle' + (voiceOn ? ' on' : ''), onClick: () => {var next = !voiceOn;voiceOnRef.current = next;setVoiceOn(next);try {localStorage.setItem('exh-voice', next ? '1' : '0');} catch (e) {}if (!next) stopVoice();} }, voiceOn ? '\uD83D\uDD0A Voice on' : '\uD83D\uDD07 Voice off'),
   voiceOn && voiceNeedsTap && el('button', { className: 'voice-toggle tap', onClick: () => {setVoiceNeedsTap(false);playQueueTick();} }, '\u25B6 Tap to hear'),
@@ -1001,7 +1000,7 @@ function App() {
   speeches.map((sp, i) => el('div', { key: i, className: 'speech-card' + (i === currentIdx ? ' active' : '') },
   el('div', { className: 'speech-head' },
   el('span', { className: 'speech-code' }, sp.code),
-  el('span', { className: 'speech-side', style: { color: (BRAINS[sp.brainKey] ? BRAINS[sp.brainKey].color : undefined) } }, fmt.sideLabels[sp.side]),
+  el('span', { className: 'speech-side', style: { color: BRAINS[sp.brainKey] ? BRAINS[sp.brainKey].color : undefined } }, fmt.sideLabels[sp.side]),
   el('span', { className: 'speech-brain' },
   el('span', { className: 'dot', style: { background: BRAINS[sp.brainKey].color } }),
   BRAINS[sp.brainKey].name,
@@ -1033,7 +1032,7 @@ function App() {
   )
   ),
   el('div', { className: 'exh-ballot-wrap', style: !fourTeam && !vote ? { filter: 'blur(9px)', pointerEvents: 'none', userSelect: 'none' } : null },
-  el('div', { className: 'exh-ballot-head' }, el('span', { className: 'exh-ballot-dot' }), ballotLoading ? 'The judge is deliberating…' : ballot ? ('Ballot · judged by ' + ballot.judge) : ballotError ? 'Ballot unavailable' : 'Ballot'),
+  el('div', { className: 'exh-ballot-head' }, el('span', { className: 'exh-ballot-dot' }), ballotLoading ? 'The judge is deliberating…' : ballot ? 'Ballot · judged by ' + ballot.judge : ballotError ? 'Ballot unavailable' : 'Ballot'),
   ballotLoading && el('div', { className: 'exh-ballot-body exh-ballot-loading' }, 'Reading all ' + speeches.length + ' speeches, weighing the round, writing the RFD.'),
   ballot && el('div', { className: 'exh-ballot-body' }, ballot.text),
   ballot && vote && vote !== 'skip' && function () {
@@ -1053,7 +1052,7 @@ function App() {
   // argue the same motion yourself. Motion is prefilled into the round
   // simulator via ?motion=, with voice + leaderboard as alternates.
   el('div', { style: { marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' } },
-  el('a', { href: '/debate-it?motion=' + encodeURIComponent(motion), className: 'go-btn', style: { textDecoration: 'none', display: 'inline-block' } }, 'Now argue it yourself →'),
+  el('a', { href: '/practice?motion=' + encodeURIComponent(motion), className: 'go-btn', style: { textDecoration: 'none', display: 'inline-block' } }, 'Now argue it yourself →'),
   el('a', { href: '/voice-debate', style: { color: '#c084fc', fontSize: '.84rem', textDecoration: 'none', fontWeight: 700 } }, 'Or out loud, in a voice round'),
   el('a', { href: '/leaderboard', style: { color: 'rgba(255,255,255,.55)', fontSize: '.84rem', textDecoration: 'none' } }, 'See the leaderboard')
   ),

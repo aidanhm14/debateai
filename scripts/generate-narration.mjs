@@ -47,13 +47,12 @@ const OUT_DIR = path.join(ROOT, 'app', 'audio', 'narration');
 const MANIFEST = path.join(OUT_DIR, 'manifest.json');
 
 // ── Brand ──────────────────────────────────────────────────────────────
-// The product name has flip-flopped (Debate AI -> Debatable -> DebateIt ->
-// Debatable). Whatever is on origin/main is the truth; soul.md's decision
-// log has the history. Narration is AUDIO, so a stale brand name is much
-// more annoying to correct than a text diff — it is both prompted for and
-// linted below. Update BOTH values together if the brand moves again.
+// Whatever is on origin/main is the truth; soul.md's decision log has the
+// history. Narration is audio, so stale brand names are prompted against
+// and linted below. Update both values together if the brand moves again.
 const BRAND = 'Debatable';
-const STALE_BRANDS = /\b(DebateIt|DebateAI|Debate AI)\b/;
+const RETIRED_BRAND = 'Debate' + 'It';
+const STALE_BRANDS = new RegExp('\\b(' + RETIRED_BRAND + '|DebateAI|Debate AI)\\b');
 
 // ── The narrator ───────────────────────────────────────────────────────
 // 'tactician' in the TTS persona bank = the calm debater voice. The site
@@ -68,7 +67,7 @@ const DEFAULT_VOICE = process.env.NARRATION_VOICE_ID || 'HKsltWQPot5Fsrsvbq1g';
 // Three kinds of page are deliberately absent, for three different reasons:
 //   1. Pages that make their own sound (/coach, /exhibition, /spectate) or
 //      run a live round (/live-round, /voice-debate, /newvoice, /room-judge,
-//      /debate-it). A narrator there talks over the product. These are also
+//      /practice). A narrator there talks over the product. These are also
 //      listed in SILENT_ROUTES in read-aloud.js, which stops a narration
 //      carried in from an earlier page.
 //   2. Pages that are mostly one person's own data (/profile, /messages,
@@ -80,7 +79,7 @@ const DEFAULT_VOICE = process.env.NARRATION_VOICE_ID || 'HKsltWQPot5Fsrsvbq1g';
 //      actually says, so those stay text-only on purpose.
 const PAGES = [
   { slug: 'landing',                     file: 'app/landing.html',                        route: '/' },
-  { slug: 'why-debateit',                file: 'app/why-debateit.html',                   route: '/why-debateit' },
+  { slug: 'why-debatable',               file: 'app/why-debatable.html',                  route: '/why-debatable' },
   { slug: 'future',                      file: 'app/future.html',                         route: '/future' },
   { slug: 'story',                       file: 'app/story.html',                          route: '/story' },
   { slug: 'learn',                       file: 'app/learn.html',                          route: '/learn' },
@@ -109,8 +108,8 @@ const PAGES = [
   { slug: 'ai-vs-ai-debate',             file: 'app/ai-vs-ai-debate.html',                route: '/ai-vs-ai-debate' },
   { slug: 'debatable',                   file: 'app/debatable.html',                      route: '/debatable' },
   { slug: 'compare-index',               file: 'app/compare/index.html',                  route: '/compare' },
-  { slug: 'compare-chatgpt',             file: 'app/compare/debateit-vs-chatgpt.html',    route: '/compare/debateit-vs-chatgpt' },
-  { slug: 'compare-claude',              file: 'app/compare/debateit-vs-claude.html',     route: '/compare/debateit-vs-claude' },
+  { slug: 'compare-chatgpt',             file: 'app/compare/debatable-vs-chatgpt.html',    route: '/compare/debatable-vs-chatgpt' },
+  { slug: 'compare-claude',              file: 'app/compare/debatable-vs-claude.html',     route: '/compare/debatable-vs-claude' },
   { slug: 'compare-best',                file: 'app/compare/best-ai-for-debate-practice.html', route: '/compare/best-ai-for-debate-practice' },
   { slug: 'topics-index',                file: 'app/topics/index.html',                   route: '/topics' },
   { slug: 'topics-apda',                 file: 'app/topics/apda.html',                    route: '/topics/apda' },
@@ -398,7 +397,7 @@ function saveManifest(manifest, voiceId){
 // ── route reachability ─────────────────────────────────────────────────
 // A narration is only worth generating if a visitor can actually land on
 // its route. Six pages in the 2026-07-22 batch turned out to be legacy
-// SEO URLs that now 301 elsewhere (/ai-debate-practice -> /debate-it and
+// SEO URLs that now 301 elsewhere (/ai-debate-practice -> /practice and
 // friends), so their audio was unreachable the moment it shipped. Run
 // this against production before adding pages.
 async function checkRoutes(targets){

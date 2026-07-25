@@ -210,7 +210,7 @@ function renderDailyBoardPanel(entries, isToday) {
 function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   const titleCore = `${motion.motion} · Today's debate motion`;
   const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
-  const description = `${motion.motion} Debate it against the AI. ${motion.frame.slice(0, 100)}`;
+  const description = `${motion.motion} Argue it against the AI. ${motion.frame.slice(0, 100)}`;
   const canonical = `${SITE_ORIGIN}/today/${dateStr}`;
   const motionEncoded = encodeURIComponent(motion.motion);
   const pretty = prettyDate(date);
@@ -221,8 +221,8 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   // CTA appends ?dm=<date> so the debate-ai save flow can credit the
   // streak when the round completes. Off-today archive links don't.
   const ctaHref = isToday
-    ? `/debate-it?motion=${motionEncoded}&dm=${dateStr}`
-    : `/debate-it?motion=${motionEncoded}`;
+    ? `/practice?motion=${motionEncoded}&dm=${dateStr}`
+    : `/practice?motion=${motionEncoded}`;
 
   const ldArticle = {
     '@context': 'https://schema.org',
@@ -418,13 +418,13 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
 
   <footer>
     <span>© 2026 Debatable</span>
-    <span><a href="/">Home</a> · <a href="/debate-it">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
+    <span><a href="/">Home</a> · <a href="/practice">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
   </footer>
 </main>
 ${isToday ? `<script>
 (function(){
   // Wordle-shape streak hydration. Reads localStorage written by
-  // debate-it.html's saveRound after the user completes today's motion,
+  // practice.html's saveRound after the user completes today's motion,
   // then re-skins the pill + reveals the share button. SSR shell stays
   // crawlable as a static "Day 1" pill if JS never runs.
   var bar=document.querySelector('.streak-bar');

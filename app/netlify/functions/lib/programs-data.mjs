@@ -1,4 +1,4 @@
-// AUTO-BAKED from Tabroom public records (~/debateit-outreach), 2026-07-02.
+// AUTO-BAKED from Tabroom public records, 2026-07-02.
 // Public data only: school/program names + state + formats + activity. NO coach or judge names, NO emails.
 export const PROGRAMS = [
   { n:"Montgomery Academy", st:"AL", fmts:["Policy","LD","PF","Congress","World Schools","Big Questions","Speech"], act:51, t:3, seen:"2026" },

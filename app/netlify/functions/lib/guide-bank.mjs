@@ -19,7 +19,7 @@
 //   related       — slugs of related guides for cross-link block
 //   keywords      — meta + JSON-LD
 //   ctaLabel      — start-a-round CTA text
-//   ctaHref       — /debate-it?format=...&motion=... preloaded round
+//   ctaHref       — /practice?format=...&motion=... preloaded round
 //
 // Voice rules (per soul.md §5):
 //   - No em-dashes. Periods, commas, semicolons only.
@@ -115,7 +115,7 @@ export const GUIDE_BANK = {
       'asian parliamentary debate prime minister constructive',
     ],
     ctaLabel: 'Start an Asian Parli round',
-    ctaHref: '/debate-it?format=asian&motion=This%20house%20would%20ban%20political%20donations%20from%20corporations.',
+    ctaHref: '/practice?format=asian&motion=This%20house%20would%20ban%20political%20donations%20from%20corporations.',
   },
 
   'wsdc-reply-speech': {
@@ -194,7 +194,7 @@ export const GUIDE_BANK = {
       'wsdc reply speaker tips',
     ],
     ctaLabel: 'Practice a WSDC round',
-    ctaHref: '/debate-it?format=worlds&motion=THBT%20social%20media%20platforms%20should%20be%20liable%20for%20user%20content.',
+    ctaHref: '/practice?format=worlds&motion=THBT%20social%20media%20platforms%20should%20be%20liable%20for%20user%20content.',
   },
 
   'pf-crossfire-questions': {
@@ -279,7 +279,7 @@ export const GUIDE_BANK = {
       'pf crossfire what to ask',
     ],
     ctaLabel: 'Practice PF crossfire',
-    ctaHref: '/debate-it?format=pf&motion=Resolved%3A%20The%20United%20States%20should%20adopt%20a%20carbon%20tax.',
+    ctaHref: '/practice?format=pf&motion=Resolved%3A%20The%20United%20States%20should%20adopt%20a%20carbon%20tax.',
   },
 
   'bp-poi': {
@@ -358,7 +358,7 @@ export const GUIDE_BANK = {
       'british parliamentary poi tips',
     ],
     ctaLabel: 'Practice taking POIs',
-    ctaHref: '/debate-it?format=bp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
+    ctaHref: '/practice?format=bp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
   },
 
   'viva-exam-questions': {
@@ -531,7 +531,7 @@ export const GUIDE_BANK = {
       'american parliamentary debate opp case',
     ],
     ctaLabel: 'Practice an APDA round on Opp',
-    ctaHref: '/debate-it?format=apda&side=opp&motion=This%20house%20would%20scrap%20legacy%20admissions%20at%20universities.',
+    ctaHref: '/practice?format=apda&side=opp&motion=This%20house%20would%20scrap%20legacy%20admissions%20at%20universities.',
   },
 
   'policy-speed-reading': {
@@ -616,7 +616,7 @@ export const GUIDE_BANK = {
       'cross examination debate speed tips',
     ],
     ctaLabel: 'Practice a Policy round',
-    ctaHref: '/debate-it?format=policy&motion=Resolved%3A%20The%20United%20States%20federal%20government%20should%20substantially%20increase%20its%20military%20presence%20in%20the%20Indo-Pacific.',
+    ctaHref: '/practice?format=policy&motion=Resolved%3A%20The%20United%20States%20federal%20government%20should%20substantially%20increase%20its%20military%20presence%20in%20the%20Indo-Pacific.',
   },
 
   'ld-value-criterion': {
@@ -757,7 +757,7 @@ export const GUIDE_BANK = {
       },
     ],
     ctaLabel: 'Practice an LD round',
-    ctaHref: '/debate-it?format=ld&motion=Resolved%3A%20The%20United%20States%20ought%20to%20abolish%20capital%20punishment.',
+    ctaHref: '/practice?format=ld&motion=Resolved%3A%20The%20United%20States%20ought%20to%20abolish%20capital%20punishment.',
   },
 
   'asian-parli-whip': {
@@ -839,7 +839,7 @@ export const GUIDE_BANK = {
       'asian parliamentary closing speech',
     ],
     ctaLabel: 'Practice the whip speech',
-    ctaHref: '/debate-it?format=asian&motion=This%20house%20would%20open%20borders%20to%20skilled%20migration%20without%20quota.',
+    ctaHref: '/practice?format=asian&motion=This%20house%20would%20open%20borders%20to%20skilled%20migration%20without%20quota.',
   },
 
   'bp-closing-extension': {
@@ -939,7 +939,7 @@ export const GUIDE_BANK = {
       'wudc closing strategy',
     ],
     ctaLabel: 'Practice a BP round on Closing',
-    ctaHref: '/debate-it?format=bp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
+    ctaHref: '/practice?format=bp&motion=This%20house%20would%20impose%20a%20carbon%20tax%20on%20heavy%20industry.',
   },
 
   'apda-pmr': {
@@ -1032,7 +1032,7 @@ export const GUIDE_BANK = {
       'apda final speech',
     ],
     ctaLabel: 'Practice the PMR speech',
-    ctaHref: '/debate-it?format=apda&motion=This%20house%20would%20fund%20universal%20healthcare%20by%20raising%20marginal%20income%20tax.',
+    ctaHref: '/practice?format=apda&motion=This%20house%20would%20fund%20universal%20healthcare%20by%20raising%20marginal%20income%20tax.',
   },
 
   'wsdc-first-prop': {
@@ -1122,7 +1122,7 @@ export const GUIDE_BANK = {
       'wsdc 1st prop structure',
     ],
     ctaLabel: 'Practice a WSDC opening',
-    ctaHref: '/debate-it?format=worlds&motion=This%20house%20believes%20social%20media%20has%20done%20more%20harm%20than%20good.',
+    ctaHref: '/practice?format=worlds&motion=This%20house%20believes%20social%20media%20has%20done%20more%20harm%20than%20good.',
   },
 
   'pf-summary-speech': {
@@ -1211,7 +1211,7 @@ export const GUIDE_BANK = {
       'pf summary vs final focus',
     ],
     ctaLabel: 'Practice a PF round',
-    ctaHref: '/debate-it?format=pf&motion=Resolved%3A%20The%20benefits%20of%20regulating%20social%20media%20outweigh%20the%20harms.',
+    ctaHref: '/practice?format=pf&motion=Resolved%3A%20The%20benefits%20of%20regulating%20social%20media%20outweigh%20the%20harms.',
   },
 
 
@@ -1304,7 +1304,7 @@ export const GUIDE_BANK = {
       'how to practice debating at home',
     ],
     ctaLabel: 'Run a judged practice round',
-    ctaHref: '/debate-it',
+    ctaHref: '/practice',
     faqs: [
       {
         q: 'Can you get good at debate by practicing online?',
@@ -1410,7 +1410,7 @@ export const GUIDE_BANK = {
       'how to practice debate at home alone',
     ],
     ctaLabel: 'Start a solo round with an AI judge',
-    ctaHref: '/debate-it',
+    ctaHref: '/practice',
     faqs: [
       {
         q: 'Can you really practice debate without a partner?',
@@ -1515,7 +1515,7 @@ export const GUIDE_BANK = {
       'debate improvement plan',
     ],
     ctaLabel: 'Run a practice round',
-    ctaHref: '/debate-it?motion=This%20house%20would%20ban%20targeted%20political%20advertising.',
+    ctaHref: '/practice?motion=This%20house%20would%20ban%20targeted%20political%20advertising.',
     faqs: [
       {
         q: 'How can I get better at debating fast?',
@@ -1618,8 +1618,8 @@ export const GUIDE_BANK = {
       'weighing in debate',
       'how to win an argument in a debate',
     ],
-    ctaLabel: 'Debate it now',
-    ctaHref: '/debate-it?motion=This%20house%20would%20ban%20phones%20in%20schools.',
+    ctaLabel: 'Start a round',
+    ctaHref: '/practice?motion=This%20house%20would%20ban%20phones%20in%20schools.',
     faqs: [
       {
         q: 'How do you win a debate against someone more experienced?',
@@ -1725,7 +1725,7 @@ export const GUIDE_BANK = {
       'debate case file and blocks',
     ],
     ctaLabel: 'Run a judged practice round',
-    ctaHref: '/debate-it?format=quick&motion=This%20house%20would%20make%20voting%20compulsory.',
+    ctaHref: '/practice?format=quick&motion=This%20house%20would%20make%20voting%20compulsory.',
     faqs: [
       {
         q: 'How early should I start preparing for a debate tournament?',
@@ -1833,7 +1833,7 @@ export const GUIDE_BANK = {
       'how to rebut an argument',
     ],
     ctaLabel: 'Drill rebuttals against the AI',
-    ctaHref: '/debate-it?format=quick&motion=This%20house%20would%20ban%20targeted%20political%20advertising.',
+    ctaHref: '/practice?format=quick&motion=This%20house%20would%20ban%20targeted%20political%20advertising.',
     faqs: [
       {
         q: 'What is the four-step rebuttal structure?',

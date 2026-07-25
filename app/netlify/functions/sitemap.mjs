@@ -32,7 +32,7 @@ const DYNAMIC = new Set([
 
 const URLS = [
   { path: '/',                changefreq: 'daily',   priority: '1.0' },
-  { path: '/debate-it',       changefreq: 'weekly',  priority: '0.95' },
+  { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   // Product-loop explainer (opponent → timed round → AI ballot). Target
   // of the hero "How it works" link; HowTo + FAQPage schema on-page.
@@ -57,7 +57,7 @@ const URLS = [
   // High-intent SEO landing pages targeting specific query clusters.
   // /debate-an-ai and /debate-online are direct phrase-match doorways
   // from Google for the "debate an ai" / "debate online" intents the
-  // existing /debate-it app surface can't claim because its slug is
+  // existing /practice app surface can't claim because its slug is
   // taken by the typed-mode product page. /compare positions Debatable
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
@@ -80,8 +80,8 @@ const URLS = [
   { path: '/judge',                                   changefreq: 'weekly',  priority: '0.88' },
   { path: '/judge-paradigms',                         changefreq: 'monthly', priority: '0.82' },
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
-  { path: '/compare/debateit-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
-  { path: '/compare/debateit-vs-claude',              changefreq: 'monthly', priority: '0.84' },
+  { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
+  { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },
   { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
   { path: '/learn/formats/apda',     changefreq: 'monthly', priority: '0.78' },
   { path: '/learn/formats/bp',       changefreq: 'monthly', priority: '0.78' },
@@ -148,7 +148,7 @@ const URLS = [
   // signal "older than the rest of the site" on the exact crawl where we
   // want Google to re-fetch everything under the new origin.
   { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-22' },
-  { path: '/why-debateit',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-22' },
+  { path: '/why-debatable',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-22' },
   { path: '/learn',           changefreq: 'monthly', priority: '0.85' },
   // 2026-07-22: '/topics' -> '/topics/'. app/topics/ is a directory, so the
   // slashless form 301s to the trailing-slash one; listing the redirect made
@@ -193,7 +193,7 @@ const URLS = [
   // Issue-debate pages (/debate/{slug}). Two-sided sample AI debates on
   // high-search-volume questions at the debate × AI/tech intersection.
   // Each is an indexable, off-nav SEO landing whose only job is to rank
-  // for the question and funnel the reader into /debate-it. Kept out of
+  // for the question and funnel the reader into /practice. Kept out of
   // the topbar nav on purpose; discoverability is sitemap + the /debate
   // hub's internal cross-links. Add new slugs here as the cluster grows.
   { path: '/debate',                                          changefreq: 'weekly',  priority: '0.86' },

@@ -11,7 +11,7 @@
         in, never mounts. If Firebase isn't loaded on this page,
         skips silently — this isn't a hard requirement.
      3. Checks a single localStorage flag so a dismissal on /
-        carries to /debate-it and back.
+        carries to /practice and back.
      4. Picks copy based on URL path: landing, debate-ai, voice,
         learn, etc. each get a contextual line about WHAT the
         user is being asked to save.
@@ -29,7 +29,7 @@
    onAuthStateChanged, and pages that own their sign-in CTA stay
    skipped. Other surfaces can route their own "Maybe later" into
    this cadence via  window.dispatchEvent(new CustomEvent(
-   'debateit:maybe-later')).
+   'debatable:maybe-later')).
    ────────────────────────────────────────────────────────────── */
 (function(){
   if (window.__debateaiSignupNudge) return;
@@ -77,7 +77,7 @@
       delay: 180,
       variant: 'community',
       msg: '<strong>You\'re early.</strong> Sign in to save your rounds and ballots, and help shape where this goes.' },
-    { match: /^\/debate-it/,
+    { match: /^\/practice/,
       delay: 20,
       variant: 'community',
       msg: '<strong>You\'re early.</strong> Sign in to save your rounds and ballots, and help shape where this goes.' },
@@ -336,8 +336,8 @@
 
   // Any page surface with its own "Maybe later" button can hand its
   // dismissal to the same reminder cadence:
-  //   window.dispatchEvent(new CustomEvent('debateit:maybe-later'))
-  window.addEventListener('debateit:maybe-later', function(){
+  //   window.dispatchEvent(new CustomEvent('debatable:maybe-later'))
+  window.addEventListener('debatable:maybe-later', function(){
     markDismissed();
     armReminder(Math.max(1, sessionAttempts()));
   });

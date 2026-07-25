@@ -28,7 +28,7 @@
 
   var doc = global.document;
   var SUPPORTED = ('Notification' in global);
-  var ICON = '/assets/logo/debate-it-logo-128.png';
+  var ICON = '/assets/logo/practice-logo-128.png';
 
   var originalTitle = null;
   var flashTimer = null;
@@ -72,7 +72,7 @@
         liveNotif = new Notification(title, {
           body: body || '',
           icon: ICON,
-          tag: 'debateit-round',   // collapses repeat alerts into one
+          tag: 'debatable-round',   // collapses repeat alerts into one
           renotify: true,
         });
         liveNotif.onclick = function () {

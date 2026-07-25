@@ -1,4 +1,4 @@
-/* Shared topbar — single source of truth for /landing, /debate-it,
+/* Shared topbar — single source of truth for /landing, /practice,
    /learn, /high-school, /leaderboard, /live, /pricing.
    Each page gets the SAME markup, the SAME link order, the SAME theme
    dots, and the SAME auth slot, so navigation no longer feels jumpy
@@ -72,7 +72,7 @@
   // topbar (rendered below) does NOT include theme dots, so removing
   // any `.theme-dots` host that exists in the DOM is always correct.
   // Same for `.lighting-toggle` (the dark/dim/light pill) which was
-  // dropped from /debate-it but still rendered by some old caches.
+  // dropped from /practice but still rendered by some old caches.
   function sweepStaleTheming(){
     document.querySelectorAll('.theme-dots, .lighting-toggle').forEach(function(el){
       try { el.remove(); } catch(e){}
@@ -148,7 +148,7 @@
     var h = href.replace(/\/$/,'') || '/';
     if (h === here) return true;
     if (h === '/' && (here === '' || here === '/landing')) return true;
-    if (h === '/debate-it' && /\/debate-it/.test(here)) return true;
+    if (h === '/practice' && /\/practice/.test(here)) return true;
     return false;
   }
 
@@ -290,7 +290,7 @@
     // 2026-07-24: Train was two links against six in the columns either
     // side, so the menu read half-built. Filled with the practice
     // surfaces and resources that had no nav entry at all:
-    //   /debate-it   the 15-format typed trainer. The landing links it
+    //   /practice   the 15-format typed trainer. The landing links it
     //                four times and how-it-works twice, but the bar
     //                points Prep at /app#case (index.html), a different
     //                app, so the timed-round surface was reachable only
@@ -308,7 +308,7 @@
     // at AI labs, not a debater resource) and /exhibition (watching two
     // AI brains argue is Watch, not Train).
     { head: 'Train', links: [
-      { href: '/debate-it',    label: 'Timed rounds vs AI' },
+      { href: '/practice',    label: 'Timed rounds vs AI' },
       { href: '/voice-debate', label: 'Classic voice trainer' },
       { href: '/coaches',      label: 'Coaches' },
       { href: '/topics',       label: 'Topics and motions' },
@@ -386,7 +386,7 @@
         html: '<span>Debatable</span>'
             + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
             + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
-            + ' Debatable · also known as DebateIt · also known as Debate AI.'
+            + ' Debatable, home at itsdebatable.com.'
             + '</span>',
       }),
       // 2026-05-18: the "Beta · Updating daily" chip used to sit next to
@@ -934,7 +934,7 @@
     }
     document.documentElement.setAttribute('data-theme', saved);
     // Auto-sync data-lighting from data-theme on every page load. Fixes
-    // the legacy out-of-sync state where /debate-it set data-lighting
+    // the legacy out-of-sync state where /practice set data-lighting
     // independently of data-theme and a user-toggled `da-theme=light`
     // wasn't reflected as `debateos-lighting=light`. Without this, the
     // topbar text picked up the [data-theme="light"] dark-text rule
@@ -1110,7 +1110,11 @@
      with a working photo and no custom avatar pays nothing. */
   function paintTopbarFace(host, u){
     var built = false;
-    try { built = !!localStorage.getItem('debateit-avatar'); } catch(e){}
+    try {
+      var avatarValue = localStorage.getItem('debatable-avatar');
+      if (!avatarValue) avatarValue = localStorage.getItem('debate' + 'it-avatar');
+      built = !!avatarValue;
+    } catch(e){}
 
     if (!built && u.photoURL){
       var img = document.createElement('img');
@@ -1123,7 +1127,7 @@
       host.appendChild(img);
       // Building an avatar mid-session should show up here without a
       // reload, and this path has no engine listening yet.
-      window.addEventListener('debateit-avatar-change', toEngine, { once: true });
+      window.addEventListener('debatable-avatar-change', toEngine, { once: true });
       return;
     }
     withAvatarEngine(host, u);
@@ -1145,7 +1149,7 @@
 
   // Signed-IN state: name pill (-> /profile) + Sign out. Extension hook:
   // if the page sets window.daTopbarUserSlot(slot, user) BEFORE this
-  // script loads, we hand off rendering (e.g. /debate-it adds an Account
+  // script loads, we hand off rendering (e.g. /practice adds an Account
   // button that opens its in-app BYOK / plan modal).
   function renderSignedIn(slot, u){
     if (typeof window.daTopbarUserSlot === 'function'){

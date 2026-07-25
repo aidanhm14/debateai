@@ -3,7 +3,7 @@
 // the /admin dashboard next to Subscribers / Prospects. Distinct from
 // those two: subscribers = "notify me" signups, prospects = soft leads
 // captured at a wall, coaches = an outbound contact list Aidan builds by
-// hand (paired with the coach Outreach Desk at debateit-outreach-desk).
+// hand (paired with the coach Outreach Desk).
 //
 // GET    /api/admin/coaches       → list, newest-first
 // POST   /api/admin/coaches       → add one { name, program, location,

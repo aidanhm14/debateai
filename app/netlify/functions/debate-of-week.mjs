@@ -4,7 +4,7 @@
  *
  * Returns the "Resolution of the day": a featured, topical motion with a
  * short background (infoslide-style) and a strategy note. The UI in
- * debate-it.html renders this above the motion input — one click fills
+ * practice.html renders this above the motion input — one click fills
  * the field. Rotates DAILY (UTC) through the curated bank below; every
  * visitor sees the same motion on a given day.
  *
