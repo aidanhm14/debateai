@@ -437,7 +437,15 @@
       btn.innerHTML = 'Explore<svg viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>';
       // hidden attr guards the closed state even when a stale-cached
       // ui.css predates the panel rules (SW skew showed it unstyled).
-      var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'Explore DebateIt', hidden: 'hidden' });
+      var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'Explore Debatable', hidden: 'hidden' });
+      var intro = el('div', { class: 'ui-topbar-more-intro' }, [
+        el('div', { class: 'ui-topbar-more-intro-copy' }, [
+          el('div', { class: 'ui-topbar-more-intro-title' }, 'Explore Debatable'),
+          el('div', { class: 'ui-topbar-more-intro-sub' }, 'Debate, train, watch, and build a record.'),
+        ]),
+        el('div', { class: 'ui-topbar-more-intro-badge' }, 'One menu. Every way in.'),
+      ]);
+      panel.appendChild(intro);
       var primaryGroups = [
         { head: 'Debate', links: pageLinks.filter(function(L){
           return ['/spar', '/app#case', '/live', '/room-judge', '/predict'].indexOf(L.href) !== -1;
@@ -446,15 +454,22 @@
           return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach'].indexOf(L.href) !== -1;
         })},
       ];
-      primaryGroups.concat(MORE_GROUPS).forEach(function(G){
+      primaryGroups.concat(MORE_GROUPS).forEach(function(G, groupIndex){
         var col = el('div', { class: 'ui-topbar-more-col' });
-        col.appendChild(el('div', { class: 'ui-topbar-more-head' }, G.head));
+        var head = el('div', { class: 'ui-topbar-more-head' }, [
+          el('span', { class: 'ui-topbar-more-head-num', 'aria-hidden': 'true' }, '0' + (groupIndex + 1)),
+          el('span', null, G.head),
+        ]);
+        col.appendChild(head);
         G.links.forEach(function(L){
           var a = el('a', {
             href: L.href,
             role: 'menuitem',
             class: pathMatches(L.href) ? 'is-active' : null,
-          }, L.label);
+          }, [
+            el('span', null, L.label),
+            el('span', { class: 'ui-topbar-more-arrow', 'aria-hidden': 'true' }, '↗'),
+          ]);
           a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href }); });
           col.appendChild(a);
         });
