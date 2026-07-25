@@ -26,18 +26,22 @@ const SITE_ORIGIN = 'https://itsdebatable.com';
 // whole sitemap's trustworthiness.
 const STABLE_DATE = '2026-07-22'; // bumped when meaningful content changes (2026-07-22: domain cutover to itsdebatable.com changed every page's canonical URL; 2026-06-08: sitewide Debatable rebrand changed every page's brand, title, canonical)
 const DYNAMIC = new Set([
-  '/', '/today', '/community', '/live',
+  '/', '/community', '/live',
   '/champions', '/leaderboard', '/exhibition',
 ]);
 
 const URLS = [
   { path: '/',                changefreq: 'daily',   priority: '1.0' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
+  { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   // Product-loop explainer (opponent → timed round → AI ballot). Target
   // of the hero "How it works" link; HowTo + FAQPage schema on-page.
   { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-07-22' },
-  { path: '/today',           changefreq: 'daily',   priority: '0.85' },
+  // /today is a moving alias whose response canonicalizes to the dated
+  // /today/YYYY-MM-DD page. The dated canonical for today already leads
+  // sitemap-motions.xml, so listing the alias here submitted two URLs for
+  // one document and produced a canonical mismatch on every crawl.
   // /rounds was retired 2026-05-18 (the published-rounds listing moved
   // into /community#rounds) and the note here said not to list it. That
   // note went stale on 2026-07-22, when the slug was reused for the
@@ -67,6 +71,12 @@ const URLS = [
   // /debate-online, focused on the random-human /spar path (which is
   // noindex itself, so this page is the indexable doorway).
   { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90' },
+  // High-intent editorial doorways that remained in the hand-maintained
+  // sitemap snapshot but were missed when /sitemap.xml moved behind this
+  // function. Each is self-canonical, indexable, and substantive.
+  { path: '/online-debate-platforms',                 changefreq: 'monthly', priority: '0.90', lastmod: '2026-07-25' },
+  { path: '/online-debate-camp',                      changefreq: 'monthly', priority: '0.86', lastmod: '2026-07-25' },
+  { path: '/oral-exam-prep',                          changefreq: 'monthly', priority: '0.82', lastmod: '2026-07-23' },
   // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
   // debate" — the exact-match phrase the /exhibition product page
   // can't claim with its single-word slug. Static HTML, rich JSON-LD
@@ -78,20 +88,16 @@ const URLS = [
   // tournament-grade RFD + speaker points; PF-first, targets the
   // lay-parent-judge gap. Same playbook as /debate-an-ai.
   { path: '/judge',                                   changefreq: 'weekly',  priority: '0.88' },
+  { path: '/benchmark',                               changefreq: 'monthly', priority: '0.86', lastmod: '2026-07-23' },
   { path: '/judge-paradigms',                         changefreq: 'monthly', priority: '0.82' },
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },
   { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
-  { path: '/learn/formats/apda',     changefreq: 'monthly', priority: '0.78' },
-  { path: '/learn/formats/bp',       changefreq: 'monthly', priority: '0.78' },
-  { path: '/learn/formats/worlds',   changefreq: 'monthly', priority: '0.78' },
-  { path: '/learn/formats/asian',    changefreq: 'monthly', priority: '0.80' },
-  { path: '/learn/formats/pf',       changefreq: 'monthly', priority: '0.78' },
-  { path: '/learn/formats/ld',       changefreq: 'monthly', priority: '0.78' },
-  { path: '/learn/formats/policy',   changefreq: 'monthly', priority: '0.78' },
-  { path: '/learn/formats/congress', changefreq: 'monthly', priority: '0.78' },
-  { path: '/learn/formats/mun',      changefreq: 'monthly', priority: '0.78' },
+  // /learn/formats/* pages deliberately canonicalize to the deeper
+  // /topics/* pillars. They remain useful mechanics references linked
+  // from /learn, but canonical alternates do not belong in a sitemap.
+  // The canonical /topics/* URLs are listed below.
   // Education sub-hub under /learn. Domain-knowledge primers with a
   // self-check quiz on each. Add new entries here when
   // education-bank.mjs grows.
@@ -142,6 +148,9 @@ const URLS = [
   { path: '/community',       changefreq: 'daily',   priority: '0.88' },
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
+  { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-25' },
+  { path: '/tournaments',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-25' },
+  { path: '/coach',           changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-25' },
   { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },
   // 2026-07-22: these carried explicit 07-14 dates, which now predate the
   // domain cutover that rewrote their canonical URL. Left as-is they would
@@ -156,12 +165,16 @@ const URLS = [
   { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
+  { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
+  { path: '/uwc',             changefreq: 'monthly', priority: '0.68', lastmod: '2026-07-25' },
+  { path: '/credentials',     changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   // Company context. /investors distinguishes current product status
   // from the longer vision board; /future carries the full philosophy.
   { path: '/investors',       changefreq: 'monthly', priority: '0.60', lastmod: '2026-07-25' },
   { path: '/future',          changefreq: 'monthly', priority: '0.55', lastmod: '2026-07-25' },
-  { path: '/story',           changefreq: 'monthly', priority: '0.50', lastmod: '2026-07-25' },
-  { path: '/team',            changefreq: 'monthly', priority: '0.45', lastmod: '2026-07-25' },
+  // /story and /team are intentionally noindex until their copy review
+  // is complete. Keep them crawlable through internal links, but do not
+  // submit URLs that explicitly decline indexing.
   // 2026-07-22: '/spar' removed. app/spar.html carries
   // <meta name="robots" content="noindex">, so submitting it here asked
   // Google to crawl a page we tell it not to index — that lands as
@@ -169,6 +182,11 @@ const URLS = [
   // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
+  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-25' },
+  { path: '/reviews',         changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
+  { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-07-22' },
+  { path: '/atlas',           changefreq: 'weekly',  priority: '0.72', lastmod: '2026-07-25' },
+  { path: '/float',           changefreq: 'monthly', priority: '0.58', lastmod: '2026-07-23' },
   // Indexable, internally linked, never listed here (found 2026-07-23
   // by diffing the page inventory against this array). None carry
   // noindex, so Googlebot reaches them by crawl depth alone today —

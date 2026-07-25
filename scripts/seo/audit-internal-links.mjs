@@ -2,9 +2,10 @@
 // ────────────────────────────────────────────────────────────────────────
 // SEO internal-link auditor.
 //
-// Cross-checks every internal link in the shipped HTML against what the site
-// actually serves (page files + netlify.toml redirect rules + the function
-// sitemap's path list). Surfaces:
+// Cross-checks internal links in crawlable, served HTML against what the site
+// actually serves (page files + netlify.toml redirect rules). Noindex pages,
+// redirect-only source artifacts, and dynamically assembled asset paths are
+// excluded so the report stays actionable. Surfaces:
 //   - BROKEN  : internal links to a path that has no page and no redirect
 //               (these are the "Not found (404)" GSC reports).
 //   - REDIRECT: internal links pointing at a 301 source (wastes crawl budget,
@@ -52,6 +53,7 @@ const toml = readFileSync(join(APP, 'netlify.toml'), 'utf8');
 const exactRedirects = new Set();
 const wildcardRedirects = []; // prefixes ending in /*
 const redirectFrom = new Map(); // from -> to (for redirect-link reporting)
+const rewrittenHtmlTargets = new Set(); // HTML files served by a 200 rewrite
 {
   const blocks = toml.split(/\[\[redirects\]\]/).slice(1);
   for (const b of blocks) {
@@ -60,6 +62,9 @@ const redirectFrom = new Map(); // from -> to (for redirect-link reporting)
     const status = (b.match(/status\s*=\s*(\d+)/) || [])[1] || '200';
     if (!from) continue;
     redirectFrom.set(from, { to, status });
+    if (status === '200' && to?.startsWith('/') && to.endsWith('.html')) {
+      rewrittenHtmlTargets.add(to.slice(1));
+    }
     if (from.endsWith('/*')) wildcardRedirects.push(from.slice(0, -2));
     else exactRedirects.add(from);
   }
@@ -77,14 +82,27 @@ function redirectsTo(path) {
 
 // ── 3. collect every internal link from the shipped HTML ──
 const ASSET_EXT = /\.(png|jpe?g|svg|gif|webp|ico|css|js|mjs|xml|json|txt|webmanifest|woff2?|ttf|map|pdf|mp4|webm|avif|zip)$/i;
+const ASSET_PREFIXES = ['/img/', '/assets/', '/audio/', '/icons/', '/css/', '/js/', '/fonts/'];
 const links = new Map(); // path -> Set(sourceFiles)
+let auditedPages = 0;
 for (const f of pageFiles) {
   const html = readFileSync(join(APP, f), 'utf8');
+
+  // Audit the crawlable site, not source artifacts. A noindex page does
+  // not enter the index, and an old .html file whose pretty URL is a 301
+  // source is never served unless another 200 rewrite explicitly targets
+  // that file (landing.html at / is the important example).
+  if (/<meta\b(?=[^>]*\bname=["']robots["'])(?=[^>]*\bcontent=["'][^"']*\bnoindex\b)/i.test(html)) continue;
+  const prettyPath = '/' + f.replace(/\.html$/, '').replace(/\/index$/, '');
+  if (redirectsTo(prettyPath) && !rewrittenHtmlTargets.has(f)) continue;
+  auditedPages++;
+
   const re = /(?:href|src)\s*=\s*["'](\/[^"'#?\s]*)/g;
   let m;
   while ((m = re.exec(html))) {
     let p = m[1].replace(/\/$/, '') || '/';
     if (ASSET_EXT.test(p)) continue;          // static asset, not a page
+    if (ASSET_PREFIXES.some(prefix => p.startsWith(prefix))) continue;
     if (p.startsWith('/api/') || p.startsWith('/.netlify/')) continue;
     if (!links.has(p)) links.set(p, new Set());
     links.get(p).add(f);
@@ -99,7 +117,7 @@ for (const [p, srcs] of [...links].sort()) {
   else { const t = redirectsTo(p); if (t) toRedirect.push([p, t, srcs]); }
 }
 
-console.log(`\nSEO internal-link audit  ·  ${pageFiles.length} pages  ·  ${links.size} distinct internal link targets\n`);
+console.log(`\nSEO internal-link audit  ·  ${auditedPages} crawlable pages  ·  ${links.size} distinct internal link targets\n`);
 
 if (broken.length) {
   console.log(`✗ BROKEN — link target has no page and no redirect (these 404):`);
