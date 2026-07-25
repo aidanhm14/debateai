@@ -118,6 +118,7 @@ button{font-family:inherit}
 
 /* Top bar */
 .bar{
+  position:relative;z-index:800;overflow:visible;
   flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
   min-height:64px;padding:12px 24px;background:var(--bar-bg);border-bottom:1px solid var(--border);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
@@ -294,9 +295,48 @@ button{font-family:inherit}
 .watch-count-pill{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:700;color:var(--text-dim);font-variant-numeric:tabular-nums}
 .watch-count-pill[hidden]{display:none}
 .watch-count-pill .wcp-eye{font-size:.8rem;opacity:.7}
-.privacy-toggle{min-height:38px;padding:7px 14px;border:1px solid var(--border);border-radius:999px;font-size:.8rem;font-weight:700;color:var(--text-dim);background:transparent;cursor:pointer;font-family:inherit;transition:color .15s,border-color .15s,background .15s}
-.privacy-toggle:hover{color:var(--text);border-color:var(--border-strong)}
-.privacy-toggle.is-private{color:var(--amber);border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.08)}
+.visibility-control{position:relative;display:inline-flex}
+.privacy-toggle{
+  min-height:44px;padding:6px 12px 6px 10px;border:1px solid var(--border);border-radius:14px;
+  display:inline-flex;align-items:center;gap:8px;text-align:left;
+  color:var(--text-dim);background:rgba(255,255,255,.02);cursor:pointer;font-family:inherit;
+  transition:color .15s,border-color .15s,background .15s,box-shadow .15s;
+}
+.privacy-toggle[hidden]{display:none}
+.privacy-toggle:hover,.privacy-toggle[aria-expanded="true"]{color:var(--text);border-color:var(--border-strong);background:rgba(255,255,255,.05)}
+.privacy-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.privacy-toggle-dot{width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.12)}
+.privacy-toggle-copy{display:grid;gap:1px;line-height:1.05}
+.privacy-toggle-label{font-size:.8rem;font-weight:800;color:var(--text)}
+.privacy-toggle-hint{font-size:.66rem;font-weight:650;color:var(--text-dim);white-space:nowrap}
+.privacy-toggle-chevron{width:12px;height:12px;flex:0 0 auto;transition:transform .15s}
+.privacy-toggle[aria-expanded="true"] .privacy-toggle-chevron{transform:rotate(180deg)}
+.privacy-toggle.is-private{border-color:rgba(245,158,11,.42);background:rgba(245,158,11,.07)}
+.privacy-toggle.is-private .privacy-toggle-dot{background:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.12)}
+.privacy-menu{
+  position:absolute;top:calc(100% + 10px);right:0;z-index:700;width:360px;padding:14px;
+  color:var(--text);background:var(--bg-card);border:1px solid var(--border-strong);border-radius:16px;
+  box-shadow:var(--shadow-lg);
+}
+.privacy-menu[hidden]{display:none}
+.privacy-menu-head{padding:2px 3px 11px}
+.privacy-menu-head strong{display:block;font-size:.92rem;font-weight:850;margin-bottom:3px}
+.privacy-menu-head span{display:block;font-size:.74rem;line-height:1.42;color:var(--text-dim)}
+.privacy-option{
+  width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:12px;
+  display:grid;gap:4px;text-align:left;color:var(--text);background:transparent;cursor:pointer;font-family:inherit;
+  transition:border-color .15s,background .15s;
+}
+.privacy-option + .privacy-option{margin-top:8px}
+.privacy-option:hover{border-color:var(--border-strong);background:rgba(255,255,255,.04)}
+.privacy-option:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.privacy-option[aria-checked="true"]{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.06)}
+.privacy-option[data-private="true"][aria-checked="true"]{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.07)}
+.privacy-option-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.privacy-option-top strong{font-size:.84rem;font-weight:850}
+.privacy-option-top em{font-size:.62rem;font-style:normal;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim)}
+.privacy-option-copy{font-size:.72rem;line-height:1.42;color:var(--text-dim)}
+.privacy-menu-note{margin:11px 3px 1px;padding-top:10px;border-top:1px solid var(--border);font-size:.68rem;line-height:1.45;color:var(--text-dim)}
 .bar-back{display:inline-flex;align-items:center;min-height:40px;padding:8px 16px;border:1px solid var(--border);border-radius:999px;font-size:.82rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s,background .15s}
 .bar-back:hover{color:var(--text);border-color:var(--border-strong)}
 
@@ -347,6 +387,9 @@ button{font-family:inherit}
   .bar-logo{font-size:1rem}
   .bar-meta{gap:6px}
   .bar-meta #phaseLabel{display:none}
+  .privacy-toggle{min-height:36px;padding:6px 9px;border-radius:12px}
+  .privacy-toggle-hint{display:none}
+  .privacy-menu{position:fixed;top:64px;left:10px;right:10px;width:auto}
   .bar-back{min-height:36px;padding:7px 10px;font-size:.75rem}
   .bar-user{min-height:36px}
   .bar-user-name{display:none}
@@ -1336,7 +1379,31 @@ body.lr-pip .lr-pip-notice{display:block}
   <div class="bar-meta">
     <span id="phaseLabel"><span class="dot"></span> Setup</span>
     <span id="watchCountPill" class="watch-count-pill" hidden><span class="wcp-eye" aria-hidden="true">&#128065;</span><span id="watchCountNum">0</span> watching</span>
-    <button id="privacyToggle" class="privacy-toggle" type="button" hidden>Public</button>
+    <div class="visibility-control">
+      <button id="privacyToggle" class="privacy-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="privacyMenu" hidden>
+        <span class="privacy-toggle-dot" aria-hidden="true"></span>
+        <span class="privacy-toggle-copy">
+          <span id="privacyToggleLabel" class="privacy-toggle-label">Public</span>
+          <span id="privacyToggleHint" class="privacy-toggle-hint">Anyone can watch live</span>
+        </span>
+        <svg class="privacy-toggle-chevron" aria-hidden="true" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.25 6 7.75l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div id="privacyMenu" class="privacy-menu" role="menu" aria-labelledby="privacyMenuTitle" hidden>
+        <div class="privacy-menu-head">
+          <strong id="privacyMenuTitle">Who can find this round?</strong>
+          <span>This controls how spectators find the live room.</span>
+        </div>
+        <button class="privacy-option" type="button" role="menuitemradio" data-private="false" aria-checked="true">
+          <span class="privacy-option-top"><strong>Public</strong><em>Listed</em></span>
+          <span class="privacy-option-copy">Appears in Live rounds. Anyone can watch the video, timer, and transcript. Spectator cameras and mics stay off.</span>
+        </button>
+        <button class="privacy-option" type="button" role="menuitemradio" data-private="true" aria-checked="false">
+          <span class="privacy-option-top"><strong>Unlisted</strong><em>Link only</em></span>
+          <span class="privacy-option-copy">Hidden from Live rounds. People with the room link can still open the spectator view.</span>
+        </button>
+        <p class="privacy-menu-note">This does not publish your case or add the result to the leaderboard. Those are separate choices after the round.</p>
+      </div>
+    </div>
     <span id="roundBarUser" style="display:none"></span>
     <a href="/live" class="bar-back">← Back to board</a>
   </div>
@@ -5614,20 +5681,43 @@ body.lr-pip .lr-pip-notice{display:block}
       renderWatchCount(live);
     }, function(){});
 
-    // (c) Participants get the go-private toggle.
+    // (c) Participants choose whether the round is discoverable.
     if (!isSpectator()){
       var tog = document.getElementById('privacyToggle');
+      var menu = document.getElementById('privacyMenu');
       if (tog){
         tog.hidden = false;
         tog.addEventListener('click', function(){
-          var ref = getRoundDocRef();
-          if (!ref) return;
-          var next = !state.isPrivate;
-          ref.update({ isPrivate: next }).then(function(){
-            state.isPrivate = next;
-            paintPrivacyToggle();
-          }).catch(function(e){ console.warn('[watch] privacy toggle failed', e); });
+          setPrivacyMenuOpen(menu ? menu.hidden : false);
         });
+        if (menu){
+          menu.addEventListener('click', function(e){ e.stopPropagation(); });
+          Array.prototype.forEach.call(menu.querySelectorAll('.privacy-option'), function(option){
+            option.addEventListener('click', function(){
+              var next = option.getAttribute('data-private') === 'true';
+              if (next === !!state.isPrivate){ setPrivacyMenuOpen(false); tog.focus(); return; }
+              var ref = getRoundDocRef();
+              if (!ref) return;
+              option.disabled = true;
+              ref.update({ isPrivate: next }).then(function(){
+                state.isPrivate = next;
+                paintPrivacyToggle();
+                setPrivacyMenuOpen(false);
+                tog.focus();
+                toast(next ? 'Round is unlisted. The room link still works.' : 'Round is public and listed for spectators.');
+              }).catch(function(e){
+                console.warn('[watch] privacy toggle failed', e);
+                toast('Could not update round visibility.');
+              }).then(function(){ option.disabled = false; });
+            });
+          });
+          document.addEventListener('click', function(e){
+            if (!menu.hidden && !e.target.closest('.visibility-control')) setPrivacyMenuOpen(false);
+          });
+          document.addEventListener('keydown', function(e){
+            if (e.key === 'Escape' && !menu.hidden){ setPrivacyMenuOpen(false); tog.focus(); }
+          });
+        }
         paintPrivacyToggle();
       }
     }
@@ -5677,17 +5767,41 @@ body.lr-pip .lr-pip-notice{display:block}
     }
     updateRoomStage();
   }
+  function setPrivacyMenuOpen(open){
+    var tog = document.getElementById('privacyToggle');
+    var menu = document.getElementById('privacyMenu');
+    if (!tog || !menu) return;
+    menu.hidden = !open;
+    tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open){
+      var selected = menu.querySelector('.privacy-option[aria-checked="true"]');
+      if (selected) selected.focus();
+    }
+  }
   function paintPrivacyToggle(){
     var tog = document.getElementById('privacyToggle');
     if (!tog) return;
+    var label = document.getElementById('privacyToggleLabel');
+    var hint = document.getElementById('privacyToggleHint');
+    var menu = document.getElementById('privacyMenu');
     if (state.isPrivate){
-      tog.textContent = 'Private';
+      if (label) label.textContent = 'Unlisted';
+      if (hint) hint.textContent = 'Hidden from live list';
       tog.classList.add('is-private');
-      tog.title = 'Round is hidden from the watch list. Tap to make it public.';
+      tog.setAttribute('aria-label', 'Round visibility: Unlisted. Hidden from Live rounds; the room link still works.');
+      tog.title = 'Hidden from Live rounds. People with the room link can still watch.';
     } else {
-      tog.textContent = 'Public';
+      if (label) label.textContent = 'Public';
+      if (hint) hint.textContent = 'Anyone can watch live';
       tog.classList.remove('is-private');
-      tog.title = 'Anyone can watch from the /spar list. Tap to go private.';
+      tog.setAttribute('aria-label', 'Round visibility: Public. Anyone can find and watch this live round.');
+      tog.title = 'Listed in Live rounds. Anyone can watch the live room.';
+    }
+    if (menu){
+      Array.prototype.forEach.call(menu.querySelectorAll('.privacy-option'), function(option){
+        var isPrivateOption = option.getAttribute('data-private') === 'true';
+        option.setAttribute('aria-checked', isPrivateOption === !!state.isPrivate ? 'true' : 'false');
+      });
     }
   }
 
