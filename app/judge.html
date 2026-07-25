@@ -475,11 +475,13 @@ textarea.ctl.drag{border-color:var(--accent);box-shadow:0 0 0 3px rgba(239,68,68
 .rfd-block{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:16px}
 .rfd-block h3{font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
 .rfd-block p{font-size:.98rem;line-height:1.7;color:var(--text-dim);margin:0}
+.rfd-block p strong{font-weight:800;color:var(--text)}
 .fb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 @media (max-width:640px){.fb-grid{grid-template-columns:1fr}}
 .fb-block{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
 .fb-block h4{font-size:.72rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:var(--text-ghost);margin-bottom:10px}
 .fb-block p{font-size:.9rem;line-height:1.62;color:var(--text-dim);margin:0}
+.fb-block p strong,.vs-coach strong{font-weight:800;color:var(--text)}
 .ballot-cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
 .ballot-cta a,.ballot-cta button{
   display:inline-flex;align-items:center;gap:8px;
@@ -1267,16 +1269,17 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       '  "conName": "<name>",',
       '  "proPoints": <number>,',
       '  "conPoints": <number>,',
-      '  "rfd": "<8-14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2-3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
-      '  "proFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[0]] + ' speaker: one specific strategic strength, one technical fix with a concrete example from their speech, one big-picture observation about their approach to this format.>",',
-      '  "conFeedback": "<5-8 sentences for the ' + f.sideLabels[f.sides[1]] + ' speaker: same structure as proFeedback.>",',
+      '  "rfd": "<8-14 sentence RFD in 3-4 short paragraphs separated by \\n\\n. Open with the deciding issue in one sentence. Then walk through the 2-3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it. Use **bold** around 5-8 short, load-bearing phrases: the deciding clash, the decisive drop, the comparison that wins, and the concrete fix. Never bold a full sentence or more than 8 words at once.>",',
+      '  "proFeedback": "<5-8 sentences in 2 short paragraphs for the ' + f.sideLabels[f.sides[0]] + ' speaker: one specific strategic strength, one technical fix with a concrete example from their speech, one big-picture observation about their approach to this format. Use **bold** around exactly 3 short phrases: the strength, the fix, and the habit to carry forward.>",',
+      '  "conFeedback": "<5-8 sentences in 2 short paragraphs for the ' + f.sideLabels[f.sides[1]] + ' speaker: same structure and the same 3 short bold phrases as proFeedback.>",',
       humanSideLabel
-        ? '  "divergence": "<3-5 sentences written directly TO the person who judged this round before seeing your ballot. They called it for ' + humanSideLabel + '. If your verdict DISAGREES with theirs, name what a lay judge most often over-weights (delivery, confidence, who spoke last, a vivid example) and the specific argument or piece of weighing they needed to flow to land where you did. If you AGREE with them, name the single clash that should have sealed it and one thing to watch next time. Coaching tone, plain language, gloss any jargon.>"'
-        : '  "divergence": "<3-5 sentences on the single moment the round turned, written to both debaters. Name the clash that decided it and the one thing the losing side needed to say. Coaching tone, plain language, gloss any jargon.>"',
+        ? '  "divergence": "<3-5 sentences written directly TO the person who judged this round before seeing your ballot. They called it for ' + humanSideLabel + '. If your verdict DISAGREES with theirs, name what a lay judge most often over-weights (delivery, confidence, who spoke last, a vivid example) and the specific argument or piece of weighing they needed to flow to land where you did. If you AGREE with them, name the single clash that should have sealed it and one thing to watch next time. Use **bold** around the one decisive phrase. Coaching tone, plain language, gloss any jargon.>"'
+        : '  "divergence": "<3-5 sentences on the single moment the round turned, written to both debaters. Name the clash that decided it and the one thing the losing side needed to say. Use **bold** around the one decisive phrase. Coaching tone, plain language, gloss any jargon.>"',
       "}",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
       "Be specific to what was said. Do not be sycophantic. Call out drops, missed weighing, and weak warrants.",
+      "Do not use em dashes. Use periods, commas, or colons.",
       // The listen path produces a machine transcript of a live room, so
       // it is lossy in ways a pasted one is not. The judge has to read
       // through the noise instead of punishing debaters for it.
@@ -1397,6 +1400,29 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     return d.innerHTML;
   }
 
+  // Render only the small **bold** vocabulary requested in the ballot
+  // schema. DOM nodes keep transcript text inert, unlike innerHTML.
+  // Newlines give the decision, clash analysis, weighing, and fix room
+  // to breathe instead of collapsing into one dense paragraph.
+  function renderBallotText(el, value){
+    el.textContent = '';
+    var text = String(value || '');
+    var parts = text.split(/(\*\*[^*\n]{1,120}\*\*)/g);
+    parts.forEach(function(part){
+      if (!part) return;
+      if (part.slice(0,2) === '**' && part.slice(-2) === '**'){
+        var strong = document.createElement('strong');
+        strong.textContent = part.slice(2,-2);
+        el.appendChild(strong);
+        return;
+      }
+      part.split('\n').forEach(function(line, index){
+        if (index) el.appendChild(document.createElement('br'));
+        if (line) el.appendChild(document.createTextNode(line));
+      });
+    });
+  }
+
   function renderBallot(b, formatKey, humanWinner){
     var f = FORMATS[formatKey] || FORMATS.pf;
     var s0 = f.sideLabels[f.sides[0]], s1 = f.sideLabels[f.sides[1]];
@@ -1416,7 +1442,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       var vd = $('vsVerdict');
       vd.textContent = agree ? 'You agreed' : 'Split decision';
       vd.className = 'vs-verdict ' + (agree ? 'agree' : 'split');
-      $('vsCoach').textContent = b.divergence || '';
+      renderBallotText($('vsCoach'), b.divergence || '');
       $('vsBlock').style.display = 'block';
     } else {
       $('vsBlock').style.display = 'none';
@@ -1433,11 +1459,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('scorePro').classList.toggle('winner', proWon);
     $('scoreCon').classList.toggle('winner', !proWon);
 
-    $('rfdText').textContent = b.rfd || '';
+    renderBallotText($('rfdText'), b.rfd || '');
     $('fbProLabel').textContent = s0 + ' feedback';
     $('fbConLabel').textContent = s1 + ' feedback';
-    $('fbProText').textContent = b.proFeedback || '';
-    $('fbConText').textContent = b.conFeedback || '';
+    renderBallotText($('fbProText'), b.proFeedback || '');
+    renderBallotText($('fbConText'), b.conFeedback || '');
 
     $('loading').style.display = 'none';
     $('ballot').style.display = 'block';
