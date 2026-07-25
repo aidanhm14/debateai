@@ -440,7 +440,6 @@
           el('div', { class: 'ui-topbar-more-intro-title' }, 'Explore Debatable'),
           el('div', { class: 'ui-topbar-more-intro-sub' }, 'Debate, train, watch, and build a record.'),
         ]),
-        el('div', { class: 'ui-topbar-more-intro-badge' }, 'One menu. Every way in.'),
       ]);
       panel.appendChild(intro);
       var primaryGroups = [
