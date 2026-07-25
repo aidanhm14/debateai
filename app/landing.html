@@ -714,10 +714,11 @@
 <script>
   (function(){
     var v='';
+    var forced=false;
     try{
       var qp=(location.search||'').toLowerCase();
-      if(/[?&]herocopy=stranger(?:&|$)/.test(qp)) v='stranger';
-      else if(/[?&]herocopy=practice(?:&|$)/.test(qp)) v='practice';
+      if(/[?&]herocopy=stranger(?:&|$)/.test(qp)){v='stranger';forced=true;}
+      else if(/[?&]herocopy=practice(?:&|$)/.test(qp)){v='practice';forced=true;}
     }catch(e){}
     var assigned=false;
     if(v!=='stranger'&&v!=='practice'){
@@ -730,6 +731,8 @@
     }
     document.documentElement.setAttribute('data-first-copy',v);
     window.__firstCopyAb=v;
+    window.__abAssignments=window.__abAssignments||{};
+    window.__abAssignments.first_screen_copy_v1={variant:v,forced:forced};
     try{
       if(window.gtag){
         gtag('set','user_properties',{first_copy_ab:v});
@@ -741,6 +744,31 @@
         });
       }
     }catch(e){}
+  })();
+</script>
+
+<!-- Community CTA A/B (2026-07-25). Tests whether people respond more
+     to choosing a person or choosing a claim. The destination and async
+     product stay identical. ?communityCta=opponents|claim forces QA. -->
+<script>
+  (function(){
+    var v='';
+    var forced=false;
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]communitycta=opponents(?:&|$)/.test(qp)){v='opponents';forced=true;}
+      else if(/[?&]communitycta=claim(?:&|$)/.test(qp)){v='claim';forced=true;}
+    }catch(e){}
+    if(v!=='opponents'&&v!=='claim'){
+      try{v=localStorage.getItem('da-community-cta-ab1')||'';}catch(e){}
+      if(v!=='opponents'&&v!=='claim'){
+        v=(Math.random()<0.50)?'opponents':'claim';
+        try{localStorage.setItem('da-community-cta-ab1',v);}catch(e){}
+      }
+    }
+    document.documentElement.setAttribute('data-community-cta',v);
+    window.__abAssignments=window.__abAssignments||{};
+    window.__abAssignments.community_cta_v1={variant:v,forced:forced,deferImpression:true};
   })();
 </script>
 
@@ -836,6 +864,7 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/experiments.js"></script>
 <script defer src="/js/spar-night.js"></script>
 <!-- Reusable A/B primitive (sticky bucket + GA4 tagging). -->
 <script defer src="/js/ab.js"></script>
@@ -7863,12 +7892,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          experiment runs, instead of changing with whichever arm rendered. -->
     <div class="fscreen-copy" data-nosnippet>
       <div class="fs-copy-variant fs-copy-stranger">
-        <p class="fs-slogan">Speak <a href="/predict" class="fs-slogan-a" data-cta="first-screen-money">money</a> into existence.</p>
+        <p class="fs-slogan">Speak <a href="/predict" class="fs-slogan-a" data-cta="first-screen-money" data-ab-test="first_screen_copy_v1" data-ab-target="prediction">money</a> into existence.</p>
         <h1 class="fs-h1">Debate a stranger right now.</h1>
         <p class="fs-sub">Get matched, argue it out, and an AI judge picks the winner.</p>
         <div class="fs-ctas">
-          <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar">Debate a stranger <span aria-hidden="true">&rarr;</span></a>
-          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate">Watch a round</a>
+          <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Debate a stranger <span aria-hidden="true">&rarr;</span></a>
+          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Watch a round</a>
         </div>
       </div>
       <div class="fs-copy-variant fs-copy-practice">
@@ -7876,14 +7905,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <h1 class="fs-h1">Practice making your case with a real person.</h1>
         <p class="fs-sub">Choose a topic, speak against the clock, and get clear feedback when you finish.</p>
         <div class="fs-ctas">
-          <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar">Find a practice partner <span aria-hidden="true">&rarr;</span></a>
-          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate">Watch an example</a>
+          <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find a practice partner <span aria-hidden="true">&rarr;</span></a>
+          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Watch an example</a>
         </div>
       </div>
     </div>
 
     <div class="fs-board" id="fsBoard">
-      <a class="fs-board-hit" href="/spar" aria-label="Open live debate matchmaking" data-cta="first-screen-board"></a>
+      <a class="fs-board-hit" href="/spar" aria-label="Open live debate matchmaking" data-cta="first-screen-board" data-ab-test="first_screen_copy_v1" data-ab-target="example_board"></a>
       <div class="fs-board-top">
         <span class="fs-chip" id="fsFmt">British Parli</span>
         <span class="fs-sample">Example rounds</span>
@@ -13155,6 +13184,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .cb-path-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:16px}
     .cb-path-cta{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 17px;border-radius:999px;background:#dc2626;color:#fff;font-size:.75rem;font-weight:900;text-decoration:none;transition:transform .15s,background .15s}
     .cb-path-cta:hover{background:#b91c1c;transform:translateY(-1px)}
+    .cb-cta-copy--claim{display:none}
+    :root[data-community-cta="claim"] .cb-cta-copy--opponents{display:none}
+    :root[data-community-cta="claim"] .cb-cta-copy--claim{display:inline}
     .cb-path-note{font-size:.63rem;color:var(--text-dim,rgba(255,255,255,.5))}
     [data-theme="light"] .cb-path-note{color:rgba(29,25,21,.48)}
     .cb-path--spar{display:flex;flex-direction:column}
@@ -13268,8 +13300,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </div>
           <div class="cb-result"><b>AI result</b><small>Winner and feedback after both finish</small></div>
         </div>
-        <div class="cb-path-actions">
-          <a class="cb-path-cta" href="/rounds" data-cb="async">See available opponents →</a>
+        <div class="cb-path-actions" data-ab-impression="community_cta_v1">
+          <a class="cb-path-cta" href="/rounds" data-cb="async" data-ab-test="community_cta_v1" data-ab-target="async_rounds">
+            <span class="cb-cta-copy--opponents">See available opponents →</span>
+            <span class="cb-cta-copy--claim">Find a claim to answer →</span>
+          </a>
           <span class="cb-path-note">Debates on your own time stay open all week.</span>
         </div>
       </article>

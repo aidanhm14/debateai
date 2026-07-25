@@ -155,6 +155,43 @@ function sanitizeSid(raw) {
   return s;
 }
 
+function experimentRows(event, metadata, uid, isAnon) {
+  if (event !== 'app_event' || !metadata) return [];
+  const name = String(metadata.name || '');
+  const common = {
+    uid,
+    anon: isAnon,
+    sessionId: sanitizeSid(metadata.session_id),
+    path: String(metadata.path || '/').slice(0, 160),
+  };
+
+  if (name === 'ab_impression') {
+    return String(metadata.assignments || '')
+      .split('|')
+      .slice(0, 8)
+      .map((entry) => {
+        const match = entry.match(/^([a-z0-9_]{2,64})=([a-z0-9_]{1,48})$/);
+        return match ? { ...common, kind: 'impression', test: match[1], variant: match[2], target: '' } : null;
+      })
+      .filter(Boolean);
+  }
+
+  if (name === 'ab_conversion') {
+    const test = String(metadata.test || '');
+    const variant = String(metadata.variant || '');
+    if (!/^[a-z0-9_]{2,64}$/.test(test) || !/^[a-z0-9_]{1,48}$/.test(variant)) return [];
+    return [{
+      ...common,
+      kind: 'conversion',
+      test,
+      variant,
+      target: String(metadata.target || 'click').slice(0, 64),
+    }];
+  }
+
+  return [];
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -240,7 +277,9 @@ export default async (request) => {
 
   try {
     const db = getDb();
-    await db.collection('events').add({
+    const batch = db.batch();
+    const eventRef = db.collection('events').doc();
+    batch.set(eventRef, {
       uid,
       event,
       metadata: sanitizedMetadata,
@@ -256,6 +295,14 @@ export default async (request) => {
       createdAt: FieldValue.serverTimestamp(),
       timestamp: FieldValue.serverTimestamp(),
     });
+    experimentRows(event, sanitizedMetadata, uid, isAnon).forEach((row) => {
+      const ref = db.collection('experiment_events').doc();
+      batch.set(ref, {
+        ...row,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
 
     return jsonResponse({ ok: true }, 200, request);
   } catch (err) {

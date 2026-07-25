@@ -382,12 +382,16 @@
     .exp-choices{display:flex;flex-wrap:wrap;gap:5px}
     .exp-chip{font-size:.68rem;padding:2px 8px;border-radius:99px;background:var(--line-soft,rgba(127,127,127,.1));color:var(--muted);white-space:nowrap}
     .exp-chip b{color:var(--fg);font-weight:700}
+    .exp-chip--rate{background:rgba(34,197,94,.11);color:#15803d}
+    .exp-status{font-size:.66rem;font-weight:700;padding:3px 8px;border-radius:99px;background:rgba(245,158,11,.11);color:#b45309}
+    .exp-status--ready{background:rgba(34,197,94,.11);color:#15803d}
+    .exp-subhead{grid-column:1/-1;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
     .exp-texts{margin-top:8px;display:flex;flex-direction:column;gap:3px}
     .exp-text{font-size:.7rem;color:var(--muted)}
   </style>
   <div class="section" id="exp-section">
     <h2>Experiments · A/B <span class="badge" id="exp-meta">—</span></h2>
-    <div class="ts" style="margin:-4px 0 14px">Answer volume and answer mix per question-framing variant. Note: this counts answers, not impressions, so it is not a show-to-answer rate (that lives in GA4 as <code>micro_poll_shown</code>).</div>
+    <div class="ts" style="margin:-4px 0 14px">Page experiments show unique-session impressions, clicks, and click-through rate. A directional lead appears after every arm reaches 20 impressions. Poll experiments remain answer-volume comparisons.</div>
     <div id="experiments-body" class="exp-body"><div class="ts">Loading…</div></div>
   </div>
 
@@ -1314,14 +1318,42 @@ function animateNum(el, target, formatter){
 function renderExperiments(d){
   const body = $('experiments-body'); if(!body) return;
   const meta = $('exp-meta');
-  if(!d || !d.polls || !d.polls.length){
-    if(meta) meta.textContent = '0 responses';
-    body.innerHTML = '<div class="ts">No poll responses in this window yet. As the landing micro-poll collects answers, each framing variant shows up here with its response volume and answer mix.</div>';
+  const experiments = d && d.experiments || [];
+  const polls = d && d.polls || [];
+  if(!experiments.length && !polls.length){
+    if(meta) meta.textContent = '0 events';
+    body.innerHTML = '<div class="ts">No experiment impressions, clicks, or poll answers in this window yet.</div>';
     return;
   }
-  if(meta) meta.textContent = d.totalResponses + ' responses · ' + d.windowDays + 'd' + (d._stale ? ' · cached' : '') + (d.sampled ? ' · sampled' : '');
+  if(meta) meta.textContent =
+    (d.totalExperimentEvents || 0) + ' page events · ' +
+    (d.totalResponses || 0) + ' poll answers · ' +
+    d.windowDays + 'd' +
+    (d._stale ? ' · cached' : '') +
+    (d.sampled ? ' · sampled' : '');
   let html = '';
-  d.polls.forEach(function(P){
+  if(experiments.length) html += '<div class="exp-subhead">Page and CTA experiments</div>';
+  experiments.forEach(function(E){
+    const maxRate = E.variants.reduce(function(m,v){ return Math.max(m, v.conversionRate); }, 1);
+    html += '<div class="exp-poll">';
+    html += '<div class="exp-poll-head"><b>' + esc(E.test) + '</b>' +
+      '<span class="exp-status' + (E.ready ? ' exp-status--ready' : '') + '">' +
+      (E.ready ? 'Early lead: ' + esc(E.leader) : 'Collecting data') + '</span></div>';
+    E.variants.forEach(function(V){
+      const w = Math.round(V.conversionRate / maxRate * 100);
+      html += '<div class="exp-var">';
+      html += '<div class="exp-var-top"><span class="exp-var-name">' + esc(V.variant) + '</span>' +
+        '<span class="exp-var-n">' + V.impressions + ' views · ' + V.uniqueConversions + ' clicked</span></div>';
+      html += '<div class="exp-bar"><span style="width:' + w + '%"></span></div>';
+      html += '<div class="exp-choices"><span class="exp-chip exp-chip--rate"><b>' + V.conversionRate + '%</b> CTR</span>' +
+        (V.targets || []).map(function(t){ return '<span class="exp-chip">' + esc(t.target) + ' <b>' + t.count + '</b></span>'; }).join('') +
+        '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  if(polls.length) html += '<div class="exp-subhead">Question-framing polls</div>';
+  polls.forEach(function(P){
     const maxN = P.variants.reduce(function(m,v){ return Math.max(m, v.responses); }, 1);
     html += '<div class="exp-poll">';
     html += '<div class="exp-poll-head"><b>' + esc(P.poll) + '</b><span class="meta">' + P.responses + ' responses · ' + P.variantCount + ' variant' + (P.variantCount>1?'s':'') + '</span></div>';

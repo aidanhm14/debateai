@@ -156,6 +156,12 @@ const URLS = [
   { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
+  // Company context. /investors distinguishes current product status
+  // from the longer vision board; /future carries the full philosophy.
+  { path: '/investors',       changefreq: 'monthly', priority: '0.60', lastmod: '2026-07-25' },
+  { path: '/future',          changefreq: 'monthly', priority: '0.55', lastmod: '2026-07-25' },
+  { path: '/story',           changefreq: 'monthly', priority: '0.50', lastmod: '2026-07-25' },
+  { path: '/team',            changefreq: 'monthly', priority: '0.45', lastmod: '2026-07-25' },
   // 2026-07-22: '/spar' removed. app/spar.html carries
   // <meta name="robots" content="noindex">, so submitting it here asked
   // Google to crawl a page we tell it not to index — that lands as
