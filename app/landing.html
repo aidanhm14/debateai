@@ -758,54 +758,6 @@
   })();
 </script>
 
-<!-- Live-wall tile cues (2026-07-23). The #livenow face wall reads as a
-     high school computer lab: every portrait in the bank is a student on
-     a laptop in a dorm, a library or a classroom. This arm puts a small
-     headset / mic / phone glyph in each tile corner so the wall reads as
-     "people with setups, anywhere" instead of "kids on school laptops".
-     Deliberately NOT a LIVE badge and NOT a name/role/city caption: the
-     portraits are synthetic, so anything that asserts a specific person
-     is live, or is a lawyer in Chicago, would be a claim we can't make.
-     A glyph only echoes what the image already shows.
-     50/50, sticky in localStorage under da-tilecue-ab.
-     ?tilecue=on|off forces an arm for QA. Fires tilecue_variant_view so
-     converting sessions stay segmentable; the wall's CTA (.livenow-cta)
-     reads against the tilecue_ab user property.
-     Randomized independently of the streamer-hero arm above, so the two
-     cross factorially: read tilecue_ab within a streamer_hero level, not
-     across it, or the 10/90 hero split will smear the wall result.
-     Fail-open: if this never runs no attribute is set, the .ln-cue rule
-     stays display:none, and the wall renders exactly as it does today.
-     This is a complement to, not a substitute for, broadening the face
-     bank itself — see FACE_BANK_PROMPTS.md at the repo root. -->
-<script>
-  (function(){
-    var v='';
-    try{
-      var qp=(location.search||'').toLowerCase();
-      if(/[?&]tilecue=on(?:&|$)/.test(qp)) v='on';
-      else if(/[?&]tilecue=off(?:&|$)/.test(qp)) v='off';
-    }catch(e){}
-    var assigned=false;
-    if(v!=='on'&&v!=='off'){
-      try{ v=localStorage.getItem('da-tilecue-ab')||''; }catch(e){}
-      if(v!=='on'&&v!=='off'){
-        v=Math.random()<0.5?'on':'off';
-        assigned=true;
-        try{ localStorage.setItem('da-tilecue-ab',v); }catch(e){}
-      }
-    }
-    document.documentElement.setAttribute('data-tilecue-ab',v);
-    window.__tilecueAb=v;
-    try{
-      if(window.gtag){
-        gtag('set','user_properties',{tilecue_ab:v});
-        gtag('event','tilecue_variant_view',{variant:v,assigned:assigned});
-      }
-    }catch(e){}
-  })();
-</script>
-
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -10735,30 +10687,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     @media(max-width:520px){.livenow-wall{grid-template-columns:repeat(2,1fr)}}
     .ln-tile{position:relative;aspect-ratio:4/3;border-radius:11px;overflow:hidden;background:#0a0a0c;border:none}
     .ln-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.96);transition:opacity .5s ease}
-    /* 2026-07-23 A/B (data-tilecue-ab, see the assignment script in head):
-       a small headset / mic / phone chip in the tile corner so the wall
-       reads as people with setups anywhere, not students on school
-       laptops. Glyph only. No LIVE badge, no role or city caption: the
-       portraits are synthetic and those would assert things we can't
-       claim. Control arm renders nothing, so an unassigned page (or a
-       failed assignment script) is exactly today's wall. */
-    .ln-cue{display:none}
-    [data-tilecue-ab="on"] .ln-cue{
-      display:block;position:absolute;left:7px;bottom:7px;z-index:2;
-      width:20px;height:20px;border-radius:6px;pointer-events:none;
-      background:rgba(10,10,12,.55);border:1px solid rgba(255,255,255,.18);
-      box-shadow:0 2px 7px rgba(0,0,0,.30);
-      -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)
-    }
-    [data-tilecue-ab="on"] .ln-cue:after{
-      content:"";position:absolute;inset:0;background:rgba(255,255,255,.93);
-      -webkit-mask:var(--ln-cue) center/11px 11px no-repeat;
-              mask:var(--ln-cue) center/11px 11px no-repeat
-    }
-    .ln-cue[data-cue="mic"]{--ln-cue:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='2' width='6' height='11' rx='3'/%3E%3Cpath d='M5 10a7 7 0 0 0 14 0'/%3E%3Cpath d='M12 17v4'/%3E%3C/svg%3E")}
-    .ln-cue[data-cue="headset"]{--ln-cue:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14v-2a8 8 0 0 1 16 0v2'/%3E%3Crect x='2' y='13' width='4.5' height='7' rx='2.2'/%3E%3Crect x='17.5' y='13' width='4.5' height='7' rx='2.2'/%3E%3C/svg%3E")}
-    .ln-cue[data-cue="phone"]{--ln-cue:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='2' width='12' height='20' rx='3'/%3E%3Cpath d='M10.5 18.5h3'/%3E%3C/svg%3E")}
-    @media(max-width:520px){[data-tilecue-ab="on"] .ln-cue{width:18px;height:18px;left:6px;bottom:6px}}
     /* 2026-06-15: globe ("Where users argue from") sits left of the faces
        so the geo-spread reads next to the live debaters. Faces drop to a
        3-wide grid beside it; whole stage stacks under 860px. */
@@ -10856,12 +10784,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            of the globe. Portraits are AI-generated; the rotator crossfades
            them via the shared .rot-cam pool. -->
       <div class="livenow-wall" id="livenowWall">
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="headset" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face16.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="mic" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face24.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="phone" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="mic" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face21.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="headset" aria-hidden="true"></i></span>
-        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face04.jpg" alt="" loading="lazy" decoding="async" /><i class="ln-cue" data-cue="phone" aria-hidden="true"></i></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face16.jpg" alt="" loading="lazy" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face24.jpg" alt="" loading="lazy" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face06.jpg" alt="" loading="lazy" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face21.jpg" alt="" loading="lazy" decoding="async" /></span>
+        <span class="ln-tile"><img class="rot-cam" src="/img/round/faces/face04.jpg" alt="" loading="lazy" decoding="async" /></span>
       </div>
     </div>
     <a class="livenow-cta" href="/spar">Match me with a stranger &rarr;</a>
@@ -10917,25 +10845,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     return s;
   }
   function pick(){ var cur = claimedFaces(), p, n=0; do { p = POOL[Math.floor(Math.random()*POOL.length)]; n++; } while (cur.indexOf(p) >= 0 && n < 40); return p; }
-  // 2026-07-23: the .ln-cue setup glyph (tilecue A/B) rides the same swap.
-  // A fixed glyph on a rotating photo freezes into a wrong pairing (a phone
-  // chip stuck on someone plainly at a laptop), so the cue re-rolls with the
-  // face. It still won't describe the new photo, but it stops reading as a
-  // claim about one person. No-op on the other .rot-cam surfaces (hero
-  // seats, #face-wall) — they have no .ln-cue sibling — and on the control
-  // arm, where the chip is display:none anyway.
-  var CUES = ['headset','mic','phone'];
-  function rollCue(c){
-    var cue = c.parentNode && c.parentNode.querySelector ? c.parentNode.querySelector('.ln-cue') : null;
-    if (!cue) return;
-    var cur = cue.getAttribute('data-cue'), nx, n = 0;
-    do { nx = CUES[Math.floor(Math.random()*CUES.length)]; n++; } while (nx === cur && n < 8);
-    cue.setAttribute('data-cue', nx);
-  }
   function swap(c){
     var nx = pick(); c.__rotTarget = nx; // claim immediately so siblings exclude it
     var pre = new Image();
-    pre.onload = function(){ c.style.opacity = '0'; setTimeout(function(){ c.src = nx; rollCue(c); c.__rotTarget = null; c.style.opacity = ''; }, 480); };
+    pre.onload = function(){ c.style.opacity = '0'; setTimeout(function(){ c.src = nx; c.__rotTarget = null; c.style.opacity = ''; }, 480); };
     pre.onerror = function(){ c.__rotTarget = null; }; // release the claim if the image fails
     pre.src = nx;
   }
@@ -11076,10 +10989,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <div class="landing-more-shell">
   <script>document.body.classList.add('landing-more-ready');</script>
   <style>
-    .landing-more-shell{
-      border-top:1px solid var(--border,rgba(140,130,115,.24));
-      background:var(--bg,#faf9f5);
-    }
+    .landing-more-shell{background:var(--bg,#faf9f5)}
     .landing-more{width:100%}
     body.landing-more-ready:not(.landing-more-open) .hero-founder-frame > .hero,
     body.landing-more-ready:not(.landing-more-open) .chapter-nav,
@@ -11114,28 +11024,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     .landing-more-summary{
       width:calc(100% - clamp(36px,10vw,144px));
-      max-width:1180px;
-      margin:clamp(30px,4.5vw,58px) auto;
-      padding:clamp(22px,3vw,32px);
+      max-width:1120px;
+      margin:0 auto clamp(24px,4vw,44px);
+      padding:clamp(18px,2.5vw,24px) 2px;
       display:grid;
       grid-template-columns:minmax(0,1fr) auto;
       align-items:center;
       gap:24px;
       list-style:none;
       cursor:pointer;
-      border:1px solid var(--border,rgba(140,130,115,.24));
-      border-radius:20px;
-      background:var(--bg-card,#fff);
+      border:0;
+      border-top:1px solid var(--border,rgba(140,130,115,.24));
+      border-radius:0;
+      background:transparent;
       color:inherit;
       text-align:left;
       appearance:none;
-      box-shadow:0 14px 38px rgba(31,28,24,.07);
-      transition:border-color .18s,box-shadow .18s,transform .18s;
+      box-shadow:none;
+      transition:border-color .18s;
     }
     .landing-more-summary:hover{
       border-color:color-mix(in srgb,var(--accent,#dc2626) 36%,transparent);
-      box-shadow:0 18px 48px rgba(31,28,24,.1);
-      transform:translateY(-1px);
     }
     .landing-more-summary:focus-visible{
       outline:3px solid color-mix(in srgb,var(--accent,#dc2626) 28%,transparent);
@@ -11143,29 +11052,30 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     .lm-copy{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
     .lm-kicker{
-      margin-bottom:7px;
+      margin-bottom:5px;
       font-family:Inter,system-ui,-apple-system,sans-serif;
       font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
       color:var(--accent,#dc2626);
     }
     .lm-title{
       font-family:'Crimson Pro','Fraunces',Georgia,serif;
-      font-size:clamp(1.55rem,2.8vw,2.2rem);
+      font-size:clamp(1.35rem,2.3vw,1.8rem);
       font-weight:700;letter-spacing:-.025em;line-height:1.05;
       color:var(--text,#1a1a1f);
     }
     .lm-sub{
-      margin-top:7px;
-      font-size:.92rem;line-height:1.5;
+      margin-top:5px;
+      font-size:.86rem;line-height:1.45;
       color:var(--text-dim,rgba(0,0,0,.66));
     }
     .lm-action{
       display:inline-flex;align-items:center;justify-content:center;gap:10px;
-      min-width:186px;padding:13px 18px;
+      min-width:132px;padding:11px 16px;
       border-radius:999px;
-      background:var(--accent,#dc2626);color:#fff;
+      border:1px solid color-mix(in srgb,var(--accent,#dc2626) 34%,transparent);
+      background:transparent;color:var(--accent,#dc2626);
       font-family:Inter,system-ui,-apple-system,sans-serif;
-      font-size:.84rem;font-weight:800;line-height:1;
+      font-size:.78rem;font-weight:800;line-height:1;
       white-space:nowrap;
     }
     .lm-action i{font-style:normal;font-size:1rem;transition:transform .18s}
@@ -11176,10 +11086,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     @media (max-width:640px){
       .landing-more-summary{
         width:calc(100% - 36px);
-        margin:28px auto;
-        padding:22px 20px;
+        margin:0 auto 24px;
+        padding:20px 0;
         grid-template-columns:1fr;
-        gap:18px;
+        gap:14px;
       }
       .lm-action{width:100%;min-width:0}
     }
@@ -11190,13 +11100,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="landing-more" id="landing-more">
     <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false">
       <span class="lm-copy">
-        <span class="lm-kicker">More when you want it</span>
+        <span class="lm-kicker">Explore more</span>
         <strong class="lm-title">See the rest of Debatable.</strong>
-        <span class="lm-sub">Formats, credentials, community, tournaments, pricing, FAQs, and more.</span>
+        <span class="lm-sub">Formats, community, tournaments, pricing, FAQs, and more.</span>
       </span>
       <span class="lm-action">
-        <span class="lm-closed">See more options</span>
-        <span class="lm-open">Show fewer options</span>
+        <span class="lm-closed">Show more</span>
+        <span class="lm-open">Show less</span>
         <i aria-hidden="true">↓</i>
       </span>
     </button>
@@ -16397,22 +16307,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="wrap" style="max-width:1280px;text-align:left">
     <div class="wl-grid">
       <div class="wl-copy">
-        <span class="wl-eyebrow">Waitlist &middot; One list for everything</span>
-        <h2 class="wl-title">Register once.<br>Stay updated.</h2>
-        <p class="wl-sub">Round alerts, product updates, team news, applications, tournament sign-ups.</p>
+        <span class="wl-eyebrow">Debatable updates</span>
+        <h2 class="wl-title">Know when the next round goes live.</h2>
+        <p class="wl-sub">Get round alerts, tournament sign-ups, and the product updates worth opening.</p>
       </div>
       <div class="wl-action">
-        <div class="wl-chips" aria-hidden="true">
-          <span>Rounds</span><span>Product</span><span>Team</span><span>Applications</span><span>Tournaments</span>
-        </div>
         <form class="wl-form" id="wlForm" novalidate>
-          <label class="wl-label" for="wlEmail">Your email</label>
+          <label class="wl-label" for="wlEmail">Email address</label>
           <div class="wl-row">
-            <input type="email" id="wlEmail" name="email" required autocomplete="email" placeholder="you@school.edu" />
-            <button type="submit" id="wlBtn" class="wl-btn" data-cta="waitlist-register">Register</button>
+            <input type="email" id="wlEmail" name="email" required autocomplete="email" placeholder="you@email.com" />
+            <button type="submit" id="wlBtn" class="wl-btn" data-cta="waitlist-register">Join the list</button>
           </div>
           <p class="wl-err" id="wlErr" role="alert"></p>
-          <p class="wl-foot">Low volume. Debatable updates only. <a href="/early">Add format and skill preferences</a> &middot; <a href="/privacy">Privacy</a></p>
+          <p class="wl-foot">Low volume. <a href="/early">Add format preferences</a> &middot; <a href="/privacy">Privacy</a></p>
         </form>
         <div class="wl-success" id="wlSuccess" hidden>
           <b id="wlSuccessHead">You're on the list.</b>
@@ -16425,35 +16332,35 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <style>
   /* Keep the early registration ask compact and horizontal so it bridges
      the judged-round proof and the optional-content gate. */
-  #waitlist{padding-top:18px !important;padding-bottom:30px !important}
+  #waitlist{padding-top:18px !important;padding-bottom:20px !important}
   #waitlist{scroll-margin-top:84px}
-  #waitlist .wl-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(440px,1.1fr);align-items:center;gap:52px;padding:24px 34px;border:1px solid var(--border);border-radius:22px;background:linear-gradient(135deg,var(--bg-card),rgba(239,68,68,.035));box-shadow:0 18px 48px rgba(31,28,24,.08),inset 0 1px 0 rgba(255,255,255,.48)}
+  #waitlist .wrap{max-width:1120px !important}
+  #waitlist .wl-grid{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,.95fr) minmax(420px,1.05fr);align-items:center;gap:44px;padding:30px 34px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(135deg,rgba(239,68,68,.055),var(--bg-card) 52%);box-shadow:0 14px 38px rgba(31,28,24,.065)}
+  #waitlist .wl-grid:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent,#ef4444)}
   #waitlist .wl-copy{min-width:0}
-  #waitlist .wl-action{min-width:0;padding-left:30px;border-left:1px solid var(--border)}
-  #waitlist .wl-eyebrow{display:inline-block;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:7px}
-  #waitlist .wl-title{font-size:clamp(1.6rem,2.4vw,2.05rem);font-weight:800;line-height:1.06;letter-spacing:-.025em;margin:0 0 8px;color:var(--text,#1a1a1e)}
-  #waitlist .wl-sub{max-width:520px;margin:0;font-size:.9rem;line-height:1.5;color:var(--text-dim)}
-  #waitlist .wl-chips{display:flex;justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-  #waitlist .wl-chips span{font-size:.62rem;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);border:1px solid var(--border);border-radius:999px;padding:5px 9px;background:var(--bg-card)}
+  #waitlist .wl-action{min-width:0}
+  #waitlist .wl-eyebrow{display:inline-block;font-size:.63rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:7px}
+  #waitlist .wl-title{max-width:430px;font-size:clamp(1.55rem,2.4vw,1.95rem);font-weight:800;line-height:1.08;letter-spacing:-.025em;margin:0 0 8px;color:var(--text,#1a1a1e)}
+  #waitlist .wl-sub{max-width:480px;margin:0;font-size:.88rem;line-height:1.48;color:var(--text-dim)}
   #waitlist .wl-form{max-width:none;margin:0}
-  #waitlist .wl-label{display:block;text-align:left;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px}
-  #waitlist .wl-row{display:flex;gap:10px}
-  #waitlist .wl-row input{flex:1;min-width:0;font-family:inherit;font-size:1rem;padding:13px 16px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text,#1a1a1e);transition:border-color .15s}
+  #waitlist .wl-label{display:block;text-align:left;font-size:.65rem;font-weight:750;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:7px}
+  #waitlist .wl-row{display:flex;gap:8px}
+  #waitlist .wl-row input{flex:1;min-width:0;font-family:inherit;font-size:.96rem;padding:12px 15px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text,#1a1a1e);transition:border-color .15s}
   #waitlist .wl-row input:focus{outline:none;border-color:var(--accent,#ef4444);box-shadow:0 0 0 3px rgba(239,68,68,.10)}
-  #waitlist .wl-btn{font-family:inherit;font-size:.95rem;font-weight:800;letter-spacing:.01em;cursor:pointer;border:0;border-radius:10px;padding:13px 26px;background:var(--accent,#ef4444);color:#fff;transition:background .15s,transform .15s;white-space:nowrap}
+  #waitlist .wl-btn{font-family:inherit;font-size:.88rem;font-weight:800;letter-spacing:.01em;cursor:pointer;border:0;border-radius:10px;padding:12px 20px;background:var(--accent,#ef4444);color:#fff;transition:background .15s,transform .15s;white-space:nowrap}
   #waitlist .wl-btn:hover:not(:disabled){background:#dc2626;transform:translateY(-1px)}
   #waitlist .wl-btn:disabled{opacity:.6;cursor:wait}
   #waitlist .wl-err{display:none;margin:10px 0 0;font-size:.88rem;color:var(--accent,#ef4444);text-align:left}
   #waitlist .wl-err.is-on{display:block}
-  #waitlist .wl-foot{margin:10px 0 0;font-size:.73rem;color:var(--text-dim);line-height:1.5}
+  #waitlist .wl-foot{margin:8px 0 0;font-size:.7rem;color:var(--text-dim);line-height:1.45}
   #waitlist .wl-foot a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
   #waitlist .wl-foot a:hover{color:var(--text)}
   #waitlist .wl-success{max-width:none;margin:0;border:1px solid var(--accent,#ef4444);border-radius:12px;padding:18px 20px;background:rgba(220,38,38,.04)}
   #waitlist .wl-success b{display:block;font-size:1.1rem;color:var(--text,#1a1a1e);margin-bottom:6px}
   #waitlist .wl-success p{margin:0;font-size:.92rem;color:var(--text-dim);line-height:1.55}
   @media (max-width:860px){
-    #waitlist .wl-grid{grid-template-columns:1fr;gap:22px;padding:26px}
-    #waitlist .wl-action{padding:20px 0 0;border-left:0;border-top:1px solid var(--border)}
+    #waitlist .wl-grid{grid-template-columns:1fr;gap:20px;padding:26px}
+    #waitlist .wl-action{padding:18px 0 0;border-top:1px solid var(--border)}
   }
   @media (max-width:540px){
     #waitlist{padding-top:14px !important;padding-bottom:28px !important}
