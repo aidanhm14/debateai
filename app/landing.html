@@ -99,7 +99,7 @@
 <meta property="og:image" content="https://itsdebatable.com/og-home.png?v=floor1" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="Debatable — live debate room with The Floor market chart" />
+<meta property="og:image:alt" content="Debatable, live debate room with The Floor market chart" />
 <meta property="og:site_name" content="Debatable" />
 
 <!-- Twitter -->
@@ -108,7 +108,7 @@
 <meta name="debatable:share-title-variant" content="bet" />
 <meta name="twitter:description" content="Run timed debate rounds in your format: Asian Parli, WSDC, BP, PF, APDA, LD, Policy, and the rest. A judge scores every round: who won, why, what to drill next. Free to start." />
 <meta name="twitter:image" content="https://itsdebatable.com/og-home.png?v=floor1" />
-<meta name="twitter:image:alt" content="Debatable — live debate room with The Floor market chart" />
+<meta name="twitter:image:alt" content="Debatable, live debate room with The Floor market chart" />
 
 <!-- Structured data: Organization + WebSite + SoftwareApplication + FAQPage
      for rich-result eligibility and brand-SERP entity association. The
@@ -480,23 +480,11 @@
       else if (/[?&]v=b(?:&|$)/.test(qp)) v = 'B';
       else if (/[?&]v=legacy(?:&|$)/.test(qp)) v = 'A';
     } catch(e){}
-    var assigned = false;
-    if (v !== 'A' && v !== 'B') {
-      try { v = localStorage.getItem('da-landing-ab') || ''; } catch(e){}
-      if (v !== 'A' && v !== 'B') {
-        v = (Math.random() < 0.50) ? 'A' : 'B';
-        assigned = true;
-        try { localStorage.setItem('da-landing-ab', v); } catch(e){}
-      }
-    }
+    // 2026-07-27: A/B retired per Aidan. Locked to 'A' (the known-good
+    // existing layout). ?v=B still forces the alt scene for QA.
+    if (v !== 'A' && v !== 'B') v = 'A';
     document.documentElement.setAttribute('data-landing-variant', v);
     window.__landingAb = v;
-    try {
-      if (window.gtag) {
-        gtag('set', 'user_properties', { landing_ab: v });
-        gtag('event', 'landing_ab_view', { variant: v, assigned: assigned });
-      }
-    } catch(e){}
   })();
 </script>
 
@@ -552,23 +540,11 @@
       if(/[?&]heromsg=flow(?:&|$)/.test(qp)) v='flow';
       else if(/[?&]heromsg=default(?:&|$)/.test(qp)) v='default';
     }catch(e){}
-    var assigned=false;
-    if(v!=='flow'&&v!=='default'){
-      try{ v=localStorage.getItem('da-hero-msg')||''; }catch(e){}
-      if(v!=='flow'&&v!=='default'){
-        v=(Math.random()<0.50)?'flow':'default';
-        assigned=true;
-        try{ localStorage.setItem('da-hero-msg',v); }catch(e){}
-      }
-    }
+    // 2026-07-27: A/B retired per Aidan. Locked to 'default'. ?heroMsg=flow
+    // still forces the alt subhead for QA.
+    if(v!=='flow'&&v!=='default') v='default';
     document.documentElement.setAttribute('data-hero-msg',v);
     window.__heroMsg=v;
-    try{
-      if(window.gtag){
-        gtag('set','user_properties',{hero_msg:v});
-        gtag('event','hero_msg_view',{variant:v,assigned:assigned});
-      }
-    }catch(e){}
   })();
 </script>
 
@@ -689,47 +665,21 @@
   })();
 </script>
 
-<!-- First-screen COPY A/B (2026-07-25). A clean 50/50 test between the
-     stranger-first front door and the plain-language practice front door.
-     The assignment sticks in localStorage so repeat visits stay in one arm.
-     ?heroCopy=stranger and ?heroCopy=practice force an arm for QA.
-     Both arms use the same URL, destinations, canonical, title, and meta
-     description. This follows Google's same-URL JavaScript experiment
-     guidance and keeps SEO signals stable while the CTA language changes.
-     The old streamer-copy test is closed so it cannot confound this result. -->
+<!-- First screen: LOCKED to the stranger-first front door (2026-07-27).
+     A/B testing retired per Aidan. Every visitor gets the "debate a
+     stranger" landing. ?heroCopy=practice still forces the old practice
+     copy for QA/side-by-side; no user bucketing, no localStorage. -->
 <script>
   (function(){
-    var v='';
-    var forced=false;
+    var v='stranger';
     try{
       var qp=(location.search||'').toLowerCase();
-      if(/[?&]herocopy=stranger(?:&|$)/.test(qp)){v='stranger';forced=true;}
-      else if(/[?&]herocopy=practice(?:&|$)/.test(qp)){v='practice';forced=true;}
+      if(/[?&]herocopy=practice(?:&|$)/.test(qp)) v='practice';
     }catch(e){}
-    var assigned=false;
-    if(v!=='stranger'&&v!=='practice'){
-      try{v=localStorage.getItem('da-first-copy-ab1')||'';}catch(e){}
-      if(v!=='stranger'&&v!=='practice'){
-        v=(Math.random()<0.50)?'stranger':'practice';
-        assigned=true;
-        try{localStorage.setItem('da-first-copy-ab1',v);}catch(e){}
-      }
-    }
     document.documentElement.setAttribute('data-first-copy',v);
     window.__firstCopyAb=v;
     window.__abAssignments=window.__abAssignments||{};
-    window.__abAssignments.first_screen_copy_v1={variant:v,forced:forced};
-    try{
-      if(window.gtag){
-        gtag('set','user_properties',{first_copy_ab:v});
-        gtag('event','first_screen_copy_view',{
-          test:'first_screen_copy_v1',
-          variant:v,
-          assigned:assigned,
-          split:'50_50'
-        });
-      }
-    }catch(e){}
+    window.__abAssignments.first_screen_copy_v1={variant:v,forced:true};
   })();
 </script>
 
@@ -745,16 +695,12 @@
       if(/[?&]communitycta=opponents(?:&|$)/.test(qp)){v='opponents';forced=true;}
       else if(/[?&]communitycta=claim(?:&|$)/.test(qp)){v='claim';forced=true;}
     }catch(e){}
-    if(v!=='opponents'&&v!=='claim'){
-      try{v=localStorage.getItem('da-community-cta-ab1')||'';}catch(e){}
-      if(v!=='opponents'&&v!=='claim'){
-        v=(Math.random()<0.50)?'opponents':'claim';
-        try{localStorage.setItem('da-community-cta-ab1',v);}catch(e){}
-      }
-    }
+    // 2026-07-27: A/B retired per Aidan. Locked to 'opponents'.
+    // ?communityCta=claim still forces the alt copy for QA.
+    if(v!=='opponents'&&v!=='claim') v='opponents';
     document.documentElement.setAttribute('data-community-cta',v);
     window.__abAssignments=window.__abAssignments||{};
-    window.__abAssignments.community_cta_v1={variant:v,forced:forced,deferImpression:true};
+    window.__abAssignments.community_cta_v1={variant:v,forced:true,deferImpression:true};
   })();
 </script>
 

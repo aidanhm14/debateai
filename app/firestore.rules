@@ -67,9 +67,32 @@ service cloud.firestore {
     }
 
     // ── user_profiles ────────────────────────────────────────────────
-    // Doc ID = uid. Users can only touch their own profile.
+    // Doc ID = uid. Users can read/write ONLY their own profile, and can
+    // NEVER set privileged fields from the client. isAdmin + entitlement
+    // fields are Admin-SDK-only (the server bypasses these rules). Letting
+    // the browser write them was a full admin-takeover hole: a user could
+    // set isAdmin:true on their own doc and every admin-* endpoint +
+    // isAtlasAdmin() would then trust them. Every legit client write is a
+    // prefs / settings / corpus field, none of which are in the denylist.
+    function noPrivProfileFields(keys) {
+      return !keys.hasAny([
+        'isAdmin', 'admin', 'role', 'roles',
+        'plan', 'tier', 'isPro', 'pro', 'premium', 'lifetime',
+        'entitlement', 'entitlements',
+        'credits', 'playCredits', 'prizeCredits',
+        'subscription', 'subscriptionStatus',
+        'stripeCustomerId', 'stripeSubscriptionId',
+        'weight', 'exemplarWeight', 'ratingWeight',
+        'verified', 'banned'
+      ]);
+    }
     match /user_profiles/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && noPrivProfileFields(request.resource.data.keys());
+      allow update: if isOwner(uid)
+                    && noPrivProfileFields(
+                         request.resource.data.diff(resource.data).affectedKeys());
     }
 
     // ── shared_cases ─────────────────────────────────────────────────

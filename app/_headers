@@ -1,0 +1,21 @@
+# Security headers — applied to every route (added 2026-07-27, launch hardening).
+# Lives in the publish dir (app/) so it applies no matter which netlify.toml
+# Netlify treats as authoritative. Deliberately zero-breakage for this live site:
+#   - Clickjacking is blocked with CSP frame-ancestors, NOT X-Frame-Options,
+#     so the Counter chrome extension can still iframe voice-debate.html
+#     (chrome-extension: is allowed; any external website is not).
+#   - Permissions-Policy does NOT list microphone/camera/autoplay/clipboard/
+#     display-capture, so voice rounds, Daily video, and the extension keep
+#     their default self-access. Only clearly-unused, higher-risk features
+#     are turned off.
+#   - No script-src/style-src CSP yet: the pages ship many inline scripts and
+#     third-party origins (Firebase, Stripe, Daily, GA, Clarity, Google Fonts,
+#     CDN React), so a strict content CSP needs per-page testing before it can
+#     enforce without white-screening users. Tracked as a follow-up.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: geolocation=(), browsing-topics=(), interest-cohort=(), usb=(), serial=(), bluetooth=()
+  Content-Security-Policy: frame-ancestors 'self' chrome-extension:;
+  X-Permitted-Cross-Domain-Policies: none

@@ -128,6 +128,7 @@ export function isOwnerEmail(email) {
  */
 export const ADMIN_EMAILS = new Set([
   'andreacasagrandecaron@gmail.com',
+  'aidandavidhollinger@gmail.com',
 ]);
 
 export function isAdminEmail(email) {
