@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /tokens — subscription-funded usage tokens. DARK PREVIEW: unlinked,
+     noindex, and the checkout endpoint 403s until TOKENS_LIVE=true in
+     the Netlify env. The full pipe (Stripe subscription Checkout ->
+     webhook -> token_accounts grants) is wired behind it.
+     Tokens are usage allowance only. They are NOT the free Play Points
+     on /predict, never enter prize events, and never convert to money. -->
+<title>Tokens · Debatable</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/icons/icon-192.png">
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try { if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG); }
+catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap">
+<style>
+  :root{
+    --bg:#f6f4ee; --panel:#ffffff; --panel2:#f1eee5; --bd:rgba(20,22,28,.11);
+    --bd2:rgba(20,22,28,.24); --tx:#17181c; --dim:rgba(23,24,28,.64);
+    --faint:rgba(23,24,28,.44); --pro:#15803d; --con:#dc2626; --con-d:#b91c1c;
+    --blue:#2563eb; --amber:#b45309; --r:14px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --shadow:0 1px 2px rgba(20,22,28,.05),0 4px 14px rgba(20,22,28,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  em,i{font-style:normal}
+  body{background:var(--bg);color:var(--tx);font-family:'Crimson Pro',Georgia,serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px}
+  a{color:var(--blue);text-decoration:none}
+
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-bottom:1px solid var(--bd)}
+  .brand{font-weight:800;letter-spacing:-.02em;font-size:1.12rem}.brand em{color:var(--con)}
+  .brand .tag{font-size:.54rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .btn{font-family:'Crimson Pro',serif;font-weight:700;border:none;border-radius:999px;cursor:pointer;transition:.15s}
+  .signin{background:var(--con);color:#fff;font-size:.8rem;padding:7px 16px}
+  .signin:hover{background:var(--con-d)}
+  .acct{font-size:.78rem;color:var(--dim);background:transparent;border:1px solid var(--bd2);padding:6px 12px;border-radius:999px;cursor:pointer}
+
+  .head{padding:30px 0 6px}
+  .head-chip{display:inline-flex;align-items:center;margin-bottom:10px;padding:5px 9px;border-radius:999px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);color:var(--con);font-family:var(--mono);font-size:.61rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+  .head h1{font-size:clamp(1.6rem,4vw,2.2rem);font-weight:800;letter-spacing:-.02em}
+  .head p{color:var(--dim);font-size:.98rem;margin-top:8px;max-width:58ch}
+  .head p strong{color:var(--tx);font-weight:800}
+
+  .banner{margin:16px 0 0;padding:11px 14px;border-radius:11px;font-size:.9rem;display:none}
+  .banner.on{display:block}
+  .banner.good{background:rgba(21,128,61,.09);border:1px solid rgba(21,128,61,.25);color:var(--pro)}
+  .banner.info{background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.22);color:var(--blue)}
+
+  .card{margin:18px 0 0;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:18px}
+  .card h2{font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+  .balrow{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .balnum{font-family:var(--mono);font-size:2rem;font-weight:800}
+  .balmeta{font-family:var(--mono);font-size:.74rem;color:var(--dim)}
+  .statuschip{font-family:var(--mono);font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--bd2);color:var(--dim)}
+  .statuschip.active{color:var(--pro);border-color:rgba(21,128,61,.35);background:rgba(21,128,61,.07)}
+
+  .cta-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .subscribe{background:var(--con);color:#fff;font-size:.92rem;padding:11px 20px;border-radius:10px}
+  .subscribe:hover{background:var(--con-d)}
+  .subscribe[disabled]{opacity:.55;cursor:not-allowed}
+  .cta-note{font-size:.82rem;color:var(--faint);max-width:40ch}
+
+  .rules{margin-top:8px}
+  .rules li{margin:7px 0 0 18px;font-size:.92rem;color:var(--dim)}
+  .rules b{color:var(--tx)}
+
+  .foot{margin:26px 0 40px;font-size:.82rem;color:var(--faint)}
+  .foot a{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Debatable <em>·</em> Tokens<span class="tag">Preview · not on sale</span></div>
+    <button class="btn signin" id="authBtn">Sign in</button>
+  </div>
+
+  <div class="head">
+    <span class="head-chip">Subscription · in the works</span>
+    <h1>Subscribe and get tokens every month.</h1>
+    <p>One subscription refills your token balance on each billing cycle. <strong>Tokens power the AI surfaces</strong>: voice rounds, sparring, judge ballots. Nothing is on sale yet; this page is the wired preview while pricing gets decided.</p>
+  </div>
+
+  <div class="banner good" id="successBanner">Subscription active. Tokens land within a minute of each paid invoice.</div>
+  <div class="banner info" id="canceledBanner">Checkout closed. Nothing was charged.</div>
+  <div class="banner info" id="notLiveBanner">Not on sale yet. The checkout is wired end to end and opens when pricing is set.</div>
+
+  <div class="card">
+    <h2>Your balance</h2>
+    <div id="balBody">
+      <div class="balmeta">Sign in to see your balance.</div>
+    </div>
+    <div class="cta-row">
+      <button class="btn subscribe" id="subscribeBtn">Subscribe</button>
+      <span class="cta-note" id="ctaNote">Monthly plan. Cancel anytime; tokens already granted stay yours.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>What tokens are, and are not</h2>
+    <ul class="rules">
+      <li><b>Tokens are usage.</b> They pay for AI time on this site and nothing else.</li>
+      <li><b>Tokens are not Play Points.</b> Play Points on <a href="/predict">/predict</a> stay free and never touch money.</li>
+      <li><b>Tokens never enter prize events.</b> No stake, no entry, no conversion, in either direction.</li>
+      <li><b>Tokens never convert to money.</b> No cash value, not transferable, not redeemable.</li>
+    </ul>
+  </div>
+
+  <div class="foot">Questions or pricing thoughts: <a href="mailto:contact@devilsadvocateteam.com">contact@devilsadvocateteam.com</a> · <a href="/">Home</a></div>
+</div>
+
+<script>
+(function(){
+  var user=null;
+  function $(id){ return document.getElementById(id); }
+
+  var qs=new URLSearchParams(location.search);
+  if(qs.get('billing')==='success'){ $('successBanner').classList.add('on'); }
+  if(qs.get('billing')==='canceled'){ $('canceledBanner').classList.add('on'); }
+
+  async function authedHeaders(){
+    var h={'Content-Type':'application/json'};
+    try{
+      if(user){
+        var tok=await Promise.race([ user.getIdToken(), new Promise(function(_,rej){ setTimeout(function(){rej(new Error('token timeout'));},4000); }) ]);
+        h['Authorization']='Bearer '+tok;
+      }
+    }catch(e){}
+    return h;
+  }
+
+  async function loadBalance(){
+    if(!user){ $('balBody').innerHTML='<div class="balmeta">Sign in to see your balance.</div>'; return; }
+    try{
+      var r=await fetch('/api/tokens',{headers:await authedHeaders()});
+      if(!r.ok) throw new Error('http '+r.status);
+      var d=await r.json();
+      var st=String(d.status||'none');
+      $('balBody').innerHTML=
+        '<div class="balrow"><span class="balnum">'+(d.tokens||0)+'</span>'+
+        '<span class="balmeta">granted '+(d.granted||0)+' · spent '+(d.spent||0)+'</span>'+
+        '<span class="statuschip'+(st==='active'?' active':'')+'">'+st+'</span></div>'+
+        '<div class="balmeta" style="margin-top:8px">'+(d.perCycle||500)+' tokens per paid cycle.</div>';
+    }catch(e){
+      $('balBody').innerHTML='<div class="balmeta">Could not load your balance. Refresh to retry.</div>';
+    }
+  }
+
+  async function subscribe(){
+    var btn=$('subscribeBtn');
+    if(!user){ doSignIn(); return; }
+    btn.disabled=true; btn.textContent='Opening checkout';
+    try{
+      var r=await fetch('/api/tokens/checkout',{method:'POST',headers:await authedHeaders(),body:'{}'});
+      var d=await r.json().catch(function(){return {};});
+      if(r.status===403 && d.error==='TOKENS_NOT_LIVE'){ $('notLiveBanner').classList.add('on'); }
+      else if(r.ok && d.url){ location.href=d.url; return; }
+      else { $('ctaNote').textContent='Checkout hit an error. Try again in a minute.'; }
+    }catch(e){
+      $('ctaNote').textContent='Checkout hit an error. Try again in a minute.';
+    }
+    btn.disabled=false; btn.textContent='Subscribe';
+  }
+
+  function doSignIn(){
+    var p=new firebase.auth.GoogleAuthProvider();
+    p.setCustomParameters({prompt:'select_account'});
+    firebase.auth().signInWithPopup(p).catch(function(e){ try{ firebase.auth().signInWithRedirect(p); }catch(_){} });
+  }
+
+  $('authBtn').addEventListener('click',function(){
+    if(user){ firebase.auth().signOut(); } else { doSignIn(); }
+  });
+  $('subscribeBtn').addEventListener('click',subscribe);
+
+  try{
+    firebase.auth().onAuthStateChanged(function(u){
+      user=u||null;
+      $('authBtn').textContent=user?'Sign out':'Sign in';
+      $('authBtn').className=user?'btn acct':'btn signin';
+      loadBalance();
+    });
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

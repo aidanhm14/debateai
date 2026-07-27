@@ -1068,6 +1068,22 @@ service cloud.firestore {
       }
     }
 
+    // ── token_accounts — paid usage tokens ───────────────────────────
+    // A Stripe subscription grants a monthly token allowance for AI
+    // usage. Deliberately a separate economy from credit_accounts:
+    // tokens never stake markets, never enter prize events, never
+    // convert to Play Points or money. The Stripe webhook (admin SDK)
+    // is the only writer; the txns subcollection is the append-only
+    // grant/spend ledger, keyed by invoice id for idempotency.
+    match /token_accounts/{uid} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+      match /txns/{txnId} {
+        allow read:  if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }

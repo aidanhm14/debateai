@@ -1,5 +1,24 @@
 import Stripe from 'stripe';
 import { getDb, PLANS, FieldValue } from './lib/firestore.mjs';
+import { TOKENS, grantTokensForInvoice, setTokenSubscriptionState } from './lib/tokens.mjs';
+
+// Newer Stripe API versions move invoice.subscription under
+// invoice.parent.subscription_details. Read both shapes.
+function getInvoiceSubscriptionId(invoice) {
+  const raw = invoice?.subscription
+    ?? invoice?.parent?.subscription_details?.subscription
+    ?? null;
+  if (!raw) return null;
+  return typeof raw === 'string' ? raw : raw.id;
+}
+
+// Tokens subscriptions are per-user (metadata: kind + uid), not team
+// plans. Every subscription-shaped handler branches here first so the
+// team logic below only ever sees team subscriptions.
+function tokensUidFromSubscription(subscription) {
+  if (subscription?.metadata?.kind !== 'tokens') return null;
+  return subscription.metadata.uid || null;
+}
 
 // Stripe API 2024-06-20+ moved current_period_start / current_period_end
 // from the Subscription object onto its line items. Older API versions
@@ -67,6 +86,20 @@ export default async (request) => {
 
         const subscriptionId = session.subscription;
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+        // Tokens plan: record the linkage; the grant itself rides
+        // invoice.payment_succeeded (idempotent per invoice).
+        const tokensUid = tokensUidFromSubscription(subscription);
+        if (tokensUid) {
+          await setTokenSubscriptionState(tokensUid, {
+            stripeCustomerId: session.customer || null,
+            stripeSubscriptionId: subscriptionId,
+            status: mapStripeStatus(subscription.status),
+          });
+          console.log(`Tokens subscription started for uid ${tokensUid}`);
+          break;
+        }
+
         const teamId = subscription.metadata?.teamId;
 
         if (!teamId) {
@@ -105,6 +138,17 @@ export default async (request) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
+
+        const tokensUid = tokensUidFromSubscription(subscription);
+        if (tokensUid) {
+          await setTokenSubscriptionState(tokensUid, {
+            stripeSubscriptionId: subscription.id,
+            status: mapStripeStatus(subscription.status),
+          });
+          console.log(`Tokens subscription ${subscription.status} for uid ${tokensUid}`);
+          break;
+        }
+
         const teamId = subscription.metadata?.teamId;
         if (!teamId) break;
 
@@ -145,6 +189,19 @@ export default async (request) => {
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object;
+
+        // Tokens: cancellation stops future grants; the balance already
+        // granted stays spendable.
+        const tokensUid = tokensUidFromSubscription(subscription);
+        if (tokensUid) {
+          await setTokenSubscriptionState(tokensUid, {
+            stripeSubscriptionId: null,
+            status: 'canceled',
+          });
+          console.log(`Tokens subscription canceled for uid ${tokensUid}`);
+          break;
+        }
+
         const teamId = subscription.metadata?.teamId;
         if (!teamId) break;
 
@@ -163,8 +220,28 @@ export default async (request) => {
 
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
-        const subscriptionId = invoice.subscription;
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
         if (!subscriptionId) break;
+
+        // Tokens plan: this is THE grant path. One grant per paid
+        // invoice, idempotent on the invoice id, so first payment,
+        // renewals, and Stripe retries all resolve to exactly one
+        // ledger entry each.
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const tokensUid = tokensUidFromSubscription(subscription);
+        if (tokensUid) {
+          const perCycle = parseInt(subscription.metadata?.tokensPerCycle, 10) || TOKENS.PER_CYCLE;
+          const res = await grantTokensForInvoice({
+            uid: tokensUid,
+            invoiceId: invoice.id,
+            amount: perCycle,
+            reason: 'Subscription token grant',
+          });
+          console.log(res.granted
+            ? `Granted ${perCycle} tokens to uid ${tokensUid} (invoice ${invoice.id})`
+            : `Duplicate token grant skipped for invoice ${invoice.id}`);
+          break;
+        }
 
         // Find team by subscription ID
         const teamsSnap = await db.collection('teams')
@@ -187,8 +264,16 @@ export default async (request) => {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
-        const subscriptionId = invoice.subscription;
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
         if (!subscriptionId) break;
+
+        const failedSub = await stripe.subscriptions.retrieve(subscriptionId);
+        const tokensUid = tokensUidFromSubscription(failedSub);
+        if (tokensUid) {
+          await setTokenSubscriptionState(tokensUid, { status: 'past_due' });
+          console.log(`Tokens subscription past_due for uid ${tokensUid}`);
+          break;
+        }
 
         const teamsSnap = await db.collection('teams')
           .where('stripeSubscriptionId', '==', subscriptionId)
