@@ -66,7 +66,7 @@ async function buildXml() {
     <changefreq>monthly</changefreq>
     <priority>0.62</priority>
   </url>`;
-  }).join('\n');
+  }).join('\n') || FALLBACK_URLS;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls}
@@ -76,8 +76,18 @@ ${urls}
   return xml;
 }
 
+// Search Console reports a urlset with zero <url> entries as an error
+// ("Missing XML tag"), which reads as a broken sitemap on the property.
+// While no published rounds exist, carry the /rounds surface page so the
+// file is always a valid non-empty urlset; real entries displace this.
+const FALLBACK_URLS = `  <url>
+    <loc>${SITE_ORIGIN}/rounds</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.60</priority>
+  </url>`;
+
 function emptyUrlset() {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${FALLBACK_URLS}\n</urlset>\n`;
 }
 
 export default async () => {
