@@ -121,6 +121,18 @@
   .ballot .b-eyebrow{font-size:.64rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--red-deep);margin:0 0 8px}
   .ballot .b-win{font-size:1.5rem;font-weight:800;letter-spacing:-.015em;margin:0 0 4px}
   .ballot .b-pts{font-size:.9rem;color:var(--ink-soft);margin:0 0 12px}
+  .ballot .b-dims{margin:0 0 14px;padding:12px 14px 8px;border:1px solid rgba(29,25,21,.12);border-radius:12px;background:rgba(29,25,21,.02)}
+  .ballot .b-dims-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 8px;
+    font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-ghost)}
+  .ballot .b-dims-h span{font-size:.74rem;font-weight:700;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+  .ballot .b-dim{display:grid;grid-template-columns:92px 1fr;gap:10px;align-items:center;margin:6px 0}
+  .ballot .b-dim-l{font-size:.78rem;font-weight:700;color:var(--ink-soft)}
+  .ballot .b-dim-r{display:flex;align-items:center;gap:8px}
+  .ballot .b-dim-r b{font-size:.78rem;font-variant-numeric:tabular-nums;min-width:18px}
+  .ballot .b-dim-p{color:var(--red-deep);text-align:right}
+  .ballot .b-dim-o{color:#3d6b8c}
+  .ballot .b-dim-bar{flex:1;height:7px;border-radius:99px;overflow:hidden;background:#3d6b8c;display:block}
+  .ballot .b-dim-bar i{display:block;height:100%;background:var(--red)}
   .ballot .b-rfd{font-size:.98rem;line-height:1.65;color:var(--ink)}
   .voterow{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 18px}
   .voterow .v-q{font-weight:800;margin:0 0 10px}
@@ -596,6 +608,32 @@
   }
 
   /* ── round view ── */
+  // Judge's scorecard: the ballot's per-axis dimensions block as one
+  // tug-of-war bar per axis. Prop share fills in red, Opp remainder in
+  // steel blue, the same side colors the crowd votebar uses. All four
+  // axes must validate or nothing renders — ballots judged before the
+  // schema carried dimensions render exactly as before.
+  function dimBarsHtml(b, propName, oppName){
+    try {
+      var dm = b && b.dimensions;
+      if (!dm) return '';
+      var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing']];
+      var rows = '';
+      for (var i=0;i<AXES.length;i++){
+        var a = dm[AXES[i][0]];
+        var pv = a && Number(a.prop), ov = a && Number(a.opp);
+        if (!a || !isFinite(pv) || !isFinite(ov)) return '';
+        pv = Math.max(0, Math.min(10, pv)); ov = Math.max(0, Math.min(10, ov));
+        var share = (pv + ov) ? Math.round(pv / (pv + ov) * 100) : 50;
+        rows += '<div class="b-dim"><span class="b-dim-l">'+AXES[i][1]+'</span>' +
+          '<span class="b-dim-r"><b class="b-dim-p">'+pv+'</b>' +
+          '<span class="b-dim-bar"><i style="width:'+share+'%"></i></span>' +
+          '<b class="b-dim-o">'+ov+'</b></span></div>';
+      }
+      return '<div class="b-dims"><p class="b-dims-h">Judge&#39;s scorecard <span>'+esc(propName)+' vs '+esc(oppName)+' · each axis 1 to 10</span></p>'+rows+'</div>';
+    } catch(e){ return ''; }
+  }
+
   async function renderRound(){
     shell('<div class="skel">Loading the round…</div>');
     var data;
@@ -652,6 +690,7 @@
       ballotHtml = '<div class="ballot"><p class="b-eyebrow">The ballot</p>' +
         '<p class="b-win">'+esc(winName)+' takes the round.</p>' +
         '<p class="b-pts">'+esc(r.prop&&r.prop.name||'Prop')+' '+r.ballot.propPoints+' · '+esc(r.opp&&r.opp.name||'Opp')+' '+r.ballot.oppPoints+' speaker points'+(r.replyWaived?' · reply waived':'')+'</p>' +
+        dimBarsHtml(r.ballot, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp') +
         '<div class="b-rfd">'+esc(r.ballot.rfd)+'</div></div>';
     }
 

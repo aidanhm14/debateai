@@ -13,7 +13,11 @@
 //   prop: {uid,name,photo}   opp: {uid,name,photo}|null   aiOpp: bool
 //   turns: [{n,uid,ai,kind,mediaId,durationSec,transcript|null,name,photo,createdAt}]
 //   deadlineAt: ms   sweepAt: ms (deleted when nothing is pending)
-//   ballot: {winner,propPoints,oppPoints,rfd,model,at} | null
+//   ballot: {winner,propPoints,oppPoints,rfd,model,at,
+//     dimensions?: {clarity|reasoning|responsiveness|weighing:
+//       {prop:1-10,opp:1-10}} — absent on ballots judged before the
+//       scorecard shipped, and whenever the model's block failed
+//       validation (async-sweep drops it whole, never partial)} | null
 //   votes: {prop,opp}   reports: n   hidden: bool   replyWaived: bool
 // Private subdoc `async_rounds/{id}/private/notify` holds participant
 // emails for transactional notifications. Never returned by any GET.

@@ -79,7 +79,9 @@ function ballotPrompt(d) {
   const system = buildAdjudicationBlock() +
     '\n\nASYNC ROUND BALLOT. Three recorded speeches: Prop opening, Opp answer, Prop reply (the reply may be waived). ' +
     'Judge ONLY what is in the transcripts. Weigh the actual clash, not what could have been said. ' +
-    'Return STRICT JSON, nothing else: {"winner":"prop"|"opp","propPoints":<25-30 one decimal>,"oppPoints":<25-30 one decimal>,"rfd":"<=150 words, plain register, name the deciding clash, no em dashes"}';
+    'Return STRICT JSON, nothing else: {"winner":"prop"|"opp","propPoints":<25-30 one decimal>,"oppPoints":<25-30 one decimal>,"rfd":"<=150 words, plain register, name the deciding clash, no em dashes",' +
+    '"dimensions":{"clarity":{"prop":<1-10 int>,"opp":<1-10 int>},"reasoning":{"prop":<1-10 int>,"opp":<1-10 int>},"responsiveness":{"prop":<1-10 int>,"opp":<1-10 int>},"weighing":{"prop":<1-10 int>,"opp":<1-10 int>}}} ' +
+    'For "dimensions": score each side alone on each axis. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with what the other side actually said. weighing = impact comparison and ballot-story crystallization. Score the axes independently from the flow; they should differ where the round differed and need not average to the speaker points.';
   const t = {};
   for (const turn of d.turns || []) t[turn.n] = turn.transcript || '[transcript unavailable]';
   const user =
@@ -88,6 +90,29 @@ function ballotPrompt(d) {
     '\n\nOPP ANSWER (' + ((d.opp && d.opp.name) || 'Opp') + (d.aiOpp ? ', AI opponent' : '') + '):\n' + (t[2] || '[missing]') +
     '\n\nPROP REPLY:\n' + (d.replyWaived ? '[reply waived — the opener did not record within the window]' : (t[3] || '[missing]'));
   return { system, user };
+}
+
+// Per-axis scorecard. All four axes must carry finite prop+opp scores
+// or the whole block is dropped: the renderers (rounds.html, r.mjs)
+// treat dimensions as all-or-nothing, and a partial scorecard would
+// read as a lopsided verdict. A model that ignores the field just
+// yields a ballot shaped exactly like the pre-scorecard ones.
+const DIM_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
+
+function parseDims(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  for (const axis of DIM_AXES) {
+    const a = raw[axis];
+    const prop = Math.round(Number(a && a.prop));
+    const opp = Math.round(Number(a && a.opp));
+    if (!Number.isFinite(prop) || !Number.isFinite(opp)) return null;
+    out[axis] = {
+      prop: Math.max(1, Math.min(10, prop)),
+      opp: Math.max(1, Math.min(10, opp)),
+    };
+  }
+  return out;
 }
 
 function parseBallot(text) {
@@ -99,7 +124,12 @@ function parseBallot(text) {
   const oppPoints = clamp(j.oppPoints);
   let winner = j.winner === 'prop' || j.winner === 'opp' ? j.winner : null;
   if (!winner) winner = propPoints >= oppPoints ? 'prop' : 'opp';
-  return { winner, propPoints, oppPoints, rfd: String(j.rfd || '').slice(0, 1600) };
+  const dimensions = parseDims(j.dimensions);
+  return {
+    winner, propPoints, oppPoints,
+    rfd: String(j.rfd || '').slice(0, 1600),
+    ...(dimensions ? { dimensions } : {}),
+  };
 }
 
 async function ensureTranscripts(store, ref, d) {

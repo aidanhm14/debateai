@@ -120,6 +120,19 @@ const PAGE_CSS = `
   .rfd{padding:22px 24px;border-radius:14px;border:1px solid rgba(251,191,36,.22);background:rgba(251,191,36,.04);margin-bottom:40px}
   .rfd h2{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#fbbf24;margin-bottom:14px}
   .rfd-body p{margin:0 0 10px;font-size:.9rem;line-height:1.65;color:rgba(255,255,255,.78)}
+  .dims{padding:20px 24px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02);margin-bottom:40px}
+  .dims h2{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
+  .dims-key{font-size:.78rem;color:rgba(255,255,255,.55);margin-bottom:12px}
+  .dims-key strong,.dim-track b{font-weight:700}
+  .dims-prop{color:#86efac}
+  .dims-opp{color:#fca5a5}
+  .dim-row{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;margin:8px 0}
+  .dim-label{font-size:.8rem;font-weight:600;color:rgba(255,255,255,.75)}
+  .dim-track{display:flex;align-items:center;gap:10px}
+  .dim-track b{font-size:.8rem;font-variant-numeric:tabular-nums;min-width:20px}
+  .dim-track b.dims-prop{text-align:right}
+  .dim-bar{flex:1;height:7px;border-radius:99px;overflow:hidden;display:flex;background:rgba(239,68,68,.65)}
+  .dim-bar i{display:block;height:100%;background:#22c55e}
   .cta-card{padding:24px;border-radius:16px;border:1px solid rgba(239,68,68,.32);background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(245,158,11,.04));text-align:center;margin-bottom:32px}
   .cta-card h3{font-size:1.2rem;font-weight:900;letter-spacing:-.01em;margin-bottom:8px}
   .cta-card p{font-size:.88rem;color:rgba(255,255,255,.65);margin-bottom:16px;max-width:480px;margin-left:auto;margin-right:auto}
@@ -254,6 +267,34 @@ export function renderPage(id, doc) {
 
 const TURN_SIDE = { 1: 'prop', 2: 'opp', 3: 'prop' };
 
+// Judge's scorecard axes. async-sweep writes {prop,opp} ints 1-10 per
+// axis; all four must validate or the block is dropped whole, so
+// ballots judged before the schema carried dimensions render unchanged.
+const DIM_AXES = [
+  ['clarity', 'Clarity'],
+  ['reasoning', 'Reasoning'],
+  ['responsiveness', 'Clash'],
+  ['weighing', 'Weighing'],
+];
+
+function validDims(b) {
+  const dm = b && b.dimensions;
+  if (!dm || typeof dm !== 'object') return null;
+  const out = [];
+  for (const [key, label] of DIM_AXES) {
+    const a = dm[key];
+    const prop = Number(a && a.prop);
+    const opp = Number(a && a.opp);
+    if (!Number.isFinite(prop) || !Number.isFinite(opp)) return null;
+    out.push({
+      label,
+      prop: Math.max(0, Math.min(10, prop)),
+      opp: Math.max(0, Math.min(10, opp)),
+    });
+  }
+  return out;
+}
+
 function fmtClock(sec) {
   const s = Math.max(0, Math.round(Number(sec) || 0));
   if (!s) return '';
@@ -342,6 +383,18 @@ export function renderAsyncPage(id, d) {
   </section>`
     : '';
 
+  const dims = validDims(b);
+  const dimBlock = dims
+    ? `<section class="dims" aria-label="Judge's scorecard">
+    <h2>Judge's scorecard</h2>
+    <p class="dims-key"><strong class="dims-prop">${esc(propName)}</strong> vs <strong class="dims-opp">${esc(oppName)}</strong> · each axis 1 to 10</p>
+    ${dims.map(x => {
+      const share = (x.prop + x.opp) ? Math.round(x.prop / (x.prop + x.opp) * 100) : 50;
+      return `<div class="dim-row"><span class="dim-label">${x.label}</span><span class="dim-track"><b class="dims-prop">${x.prop}</b><span class="dim-bar"><i style="width:${share}%"></i></span><b class="dims-opp">${x.opp}</b></span></div>`;
+    }).join('\n    ')}
+  </section>`
+    : '';
+
   const votes = d.votes || {};
   const voteTotal = (Number(votes.prop) || 0) + (Number(votes.opp) || 0);
   const voteStrip = voteTotal > 0
@@ -393,6 +446,8 @@ export function renderAsyncPage(id, d) {
     ${turns.map(renderAsyncTurn).join('\n')}
   </section>
   ${d.replyWaived ? '<p class="waived-note">The reply window closed unused, so the round went to ballot on two speeches.</p>' : ''}
+
+  ${dimBlock}
 
   ${rfdBlock}
 

@@ -28,6 +28,27 @@ export function judgmentId(source, eventId) {
   return `${source}_${eventId}`;
 }
 
+// Per-axis judge scorecard, normalized to the same a/b side abstraction
+// as sideScores (async: a=prop b=opp, live: a=pro b=con). Null unless
+// the ballot carried a complete numeric block — a partial scorecard is
+// dropped whole, matching what the render surfaces do. Judgments
+// written before the scorecard shipped simply carry null.
+const DIMENSION_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
+
+function dimensionsFromBallot(ballot, aKey, bKey) {
+  const dm = ballot && ballot.dimensions;
+  if (!dm || typeof dm !== 'object') return null;
+  const out = {};
+  for (const axis of DIMENSION_AXES) {
+    const ax = dm[axis];
+    const a = Number(ax && ax[aKey]);
+    const b = Number(ax && ax[bKey]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    out[axis] = { a, b };
+  }
+  return out;
+}
+
 // Extract the canonical verdict from a stored round.
 //
 // Note this deliberately does NOT check leaderboard consent. Consent
@@ -58,6 +79,7 @@ export function fromRound(source, eventId, d) {
         },
         aiOpponent: !!d.aiOpp,
         sideScores: { a: numOr(b.propPoints, 0), b: numOr(b.oppPoints, 0) },
+        dimensionScores: dimensionsFromBallot(b, 'prop', 'opp'),
         rfd: String(b.rfd || '').slice(0, 4000),
         motion: String(d.motion || '').slice(0, 500),
         // Written by async-sweep on the server, so we own it.
@@ -90,6 +112,7 @@ export function fromRound(source, eventId, d) {
         participants: { a: d.proUid, b: d.conUid },
         aiOpponent: false,
         sideScores: { a: numOr(b.proPoints, 0), b: numOr(b.conPoints, 0) },
+        dimensionScores: dimensionsFromBallot(b, 'pro', 'con'),
         rfd: String(b.rfd || '').slice(0, 4000),
         motion: String(d.motion || '').slice(0, 500),
         // Written by a participant's browser. Recorded honestly so an
