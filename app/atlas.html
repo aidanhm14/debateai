@@ -50,8 +50,10 @@
   a{color:var(--accent);text-decoration:none}
 
   /* ── Map canvas fills the viewport ──────────────────────── */
-  #map{position:absolute;inset:0;z-index:1;background:#1b1b20}
-  .leaflet-container{background:#1b1b20;font-family:var(--serif)}
+  /* Ocean + gutters tuned to CARTO dark_all's ocean so tile edges never
+     show as seams while tiles stream in. */
+  #map{position:absolute;inset:0;z-index:1;background:#101319}
+  .leaflet-container{background:#101319;font-family:var(--serif)}
   .leaflet-control-zoom a{background:rgba(17,15,22,.92)!important;color:var(--ink)!important;
     border-color:var(--panel-line)!important}
   .leaflet-control-zoom a:hover{background:rgba(40,30,30,.95)!important;color:var(--accent)!important}
@@ -196,11 +198,60 @@
     color:var(--ink-dim);background:rgba(255,255,255,.05);border:1px solid var(--panel-line);border-radius:9px;padding:8px 12px}
   .comm-del:hover{border-color:var(--accent);color:var(--accent)}
   .leaflet-tooltip.atlas-tt-comm{color:#6ee7b7;border-color:#1f6f57}
-  .placebanner{position:fixed;left:50%;top:66px;transform:translateX(-50%);z-index:1500;display:none;align-items:center;gap:12px;
-    background:var(--accent);color:#fff;border-radius:999px;padding:10px 12px 10px 20px;box-shadow:0 12px 36px var(--glow);font-size:.92rem;font-weight:600}
-  .placebanner.show{display:flex}
-  .placebanner button{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
-    background:rgba(0,0,0,.25);color:#fff;border:none;border-radius:999px;padding:6px 12px}
+  /* ── Pin-drop placement mode: fixed center ghost pin + bottom drop bar ── */
+  .drop-ghost{position:fixed;left:50%;top:50%;z-index:1450;display:none;pointer-events:none;
+    transform:translate(-50%,-100%);filter:drop-shadow(0 8px 16px rgba(0,0,0,.55))}
+  .drop-ghost.show{display:block}
+  .dg-bob{animation:dgbob 1.5s ease-in-out infinite}
+  .dg-pin{width:30px;height:30px;background:var(--accent);border:3px solid #fff;
+    border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 0 20px var(--glow)}
+  .dg-dot{position:absolute;left:50%;top:calc(100% + 1px);width:10px;height:4px;border-radius:50%;
+    background:rgba(0,0,0,.5);transform:translateX(-50%)}
+  @keyframes dgbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .dropbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1460;display:none;
+    align-items:center;gap:9px;background:rgba(17,15,22,.97);border:1px solid var(--panel-line);
+    border-radius:999px;padding:8px 8px 8px 18px;box-shadow:0 18px 50px rgba(0,0,0,.6);
+    font-size:.95rem;color:var(--ink-dim);max-width:min(94vw,640px)}
+  .dropbar.show{display:flex}
+  .db-go{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+    background:var(--accent);color:#fff;border:none;border-radius:999px;padding:9px 16px;font-weight:700;white-space:nowrap}
+  .db-go:hover{background:var(--accent-hover)}
+  .db-cancel{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+    background:transparent;color:var(--ink-ghost);border:none;border-radius:999px;padding:9px 10px}
+  .db-cancel:hover{color:var(--ink)}
+  @media (max-width:560px){.dropbar span{display:none}.dropbar{padding:8px}}
+  /* ── Toast + celebration pulse ── */
+  .toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,180%);z-index:1700;display:flex;
+    align-items:center;gap:12px;background:rgba(17,15,22,.98);border:1px solid rgba(52,211,153,.5);
+    border-radius:14px;padding:12px 14px 12px 17px;box-shadow:0 18px 50px rgba(0,0,0,.65);
+    font-size:.98rem;color:var(--ink);max-width:min(94vw,560px);transition:transform .45s cubic-bezier(.16,1,.3,1)}
+  .toast.show{transform:translate(-50%,0)}
+  .toast.err{border-color:rgba(239,68,68,.55)}
+  .toast button{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+    background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--panel-line);border-radius:999px;padding:7px 13px;white-space:nowrap}
+  .toast button:hover{border-color:var(--accent);color:var(--accent)}
+  .pulse-ring{position:relative;width:14px;height:14px}
+  .pulse-ring::before,.pulse-ring::after{content:"";position:absolute;inset:0;border-radius:50%;
+    border:2px solid #34d399;animation:pring 1.5s ease-out infinite}
+  .pulse-ring::after{animation-delay:.75s}
+  @keyframes pring{0%{transform:scale(.55);opacity:1}100%{transform:scale(4.4);opacity:0}}
+  /* ── Just-added strip (social proof) ── */
+  .recent{display:flex;flex-direction:column;gap:6px}
+  .rec{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--ink-dim);cursor:pointer;
+    border:1px solid transparent;border-radius:9px;padding:6px 8px;background:rgba(255,255,255,.03)}
+  .rec:hover{border-color:var(--panel-line);color:var(--ink)}
+  .rec .rd{width:8px;height:8px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 6px currentColor}
+  .rec .rn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rec .rw{font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-ghost)}
+  .recent[hidden],.blocklabel[hidden]{display:none!important}
+  /* ── Mobile add FAB ── */
+  .add-fab{display:none;position:fixed;bottom:14px;left:14px;z-index:1300;
+    font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
+    background:var(--accent);color:#fff;border:none;border-radius:999px;padding:12px 16px;font-weight:700;
+    box-shadow:0 10px 30px var(--glow)}
+  .hint-ghost{background:none;border:none;color:var(--ink-ghost);font-size:1.15rem;cursor:pointer;padding:2px 8px;line-height:1}
+  .hint-ghost:hover{color:var(--ink)}
+  body.placing .add-fab,body.placing .panel-toggle,body.placing .card{display:none}
   .submodal{position:fixed;inset:0;z-index:1600;display:none;align-items:center;justify-content:center;background:rgba(5,4,8,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
   .submodal.show{display:flex}
   .submodal-card{position:relative;width:min(92vw,400px);background:var(--panel);border:1px solid var(--panel-line);border-radius:18px;
@@ -291,7 +342,9 @@
   .pin{border-radius:50%;border:2px solid rgba(11,10,16,.85);box-shadow:0 0 0 1px rgba(0,0,0,.3),0 0 10px 1px currentColor;transition:transform .15s ease}
   .cluster{display:flex;align-items:center;justify-content:center;border-radius:50%;
     font-family:var(--mono);font-weight:700;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(248,113,113,.95),rgba(220,38,38,.92));
-    border:2px solid rgba(255,255,255,.35);box-shadow:0 0 16px 3px var(--glow);transition:transform .16s cubic-bezier(.16,1,.3,1),box-shadow .16s}
+    border:2px solid rgba(255,255,255,.35);box-shadow:0 0 16px 3px var(--glow);transition:transform .16s cubic-bezier(.16,1,.3,1),box-shadow .16s;
+    animation:clpop .34s cubic-bezier(.2,1.25,.35,1) backwards}
+  @keyframes clpop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.07);opacity:1}100%{transform:scale(1);opacity:1}}
   .leaflet-marker-icon:hover{z-index:10000!important}
   .leaflet-marker-icon:hover .pin{transform:scale(1.5)}
   .leaflet-marker-icon:hover .cluster{transform:scale(1.09);box-shadow:0 0 24px 6px var(--glow)}
@@ -328,6 +381,7 @@
     .panel.open{transform:none}
     .card{width:calc(100vw - 28px)}
     .panel-toggle{display:block}
+    .add-fab{display:block}
     .topbar{padding:0 14px}
     .signin{font-size:.58rem;letter-spacing:.1em;padding:7px 10px}
   }
@@ -344,7 +398,7 @@
 <header class="topbar">
   <div class="brand">Debat<span class="it">able</span><span class="tag">The Debate Atlas</span></div>
   <div class="topright">
-    <button class="signin" id="signin">Sign in to edit</button>
+    <button class="signin" id="signin">Sign in</button>
     <a class="back" href="/">Back to site</a>
   </div>
 </header>
@@ -352,7 +406,7 @@
 <!-- Left control panel -->
 <aside class="panel" id="panel">
   <h1>The Debate Atlas</h1>
-  <div class="sub">Find debate programs by place, level, and format. Add your team if it is missing.</div>
+  <div class="sub">Every debate program on one map. Find yours, or put it here.</div>
 
   <div class="search">
     <input id="search-in" type="search" placeholder="School, city, country, or format" autocomplete="off" spellcheck="false"
@@ -362,21 +416,15 @@
   </div>
 
   <button class="addprog" id="addprog">Add a debate program</button>
-  <button class="addprog addmember" id="addmember">Join the community map</button>
+  <button class="addprog addmember" id="addmember">Pin yourself on the map</button>
+
+  <div class="blocklabel" id="recent-lab" hidden>Just added</div>
+  <div class="recent" id="recent" hidden></div>
 
   <div class="counters">
     <div class="ctr"><div class="n" id="c-prog">0</div><div class="l">Programs</div></div>
     <div class="ctr"><div class="n" id="c-cty">0</div><div class="l">Countries</div></div>
     <div class="ctr"><div class="n" id="c-fmt">0</div><div class="l">Formats</div></div>
-  </div>
-
-  <div class="blocklabel">Color pins by</div>
-  <div class="seg" id="seg-color">
-    <button data-m="program" class="on">Program</button>
-    <button data-m="format">Format</button>
-    <button data-m="level">Level</button>
-    <button data-m="status" id="seg-pipeline" hidden>Pipeline</button>
-    <button data-m="contacts" id="seg-contacts" hidden>Contacts</button>
   </div>
 
   <div class="blocklabel">Level</div>
@@ -400,6 +448,14 @@
 
   <details class="advanced">
     <summary>Map layers and style</summary>
+    <div class="blocklabel">Color pins by</div>
+    <div class="seg" id="seg-color">
+      <button data-m="program">Program</button>
+      <button data-m="format" class="on">Format</button>
+      <button data-m="level">Level</button>
+      <button data-m="status" id="seg-pipeline" hidden>Pipeline</button>
+      <button data-m="contacts" id="seg-contacts" hidden>Contacts</button>
+    </div>
     <div class="blocklabel">Map style</div>
     <div class="seg" id="seg-base">
       <button data-b="dark" class="on">Dark</button>
@@ -470,8 +526,11 @@
 </aside>
 
 <button class="panel-toggle" id="panel-toggle" aria-expanded="false" aria-controls="panel">Search &amp; filters</button>
-<div class="hint" id="hint"><span>Search for a program, or click a region to explore.</span><button class="hint-x" id="hint-x">Got it</button></div>
-<div class="placebanner" id="placebanner"><span>Click the map where your program is.</span><button id="place-cancel">Cancel</button></div>
+<button class="add-fab" id="add-fab">+ Add your team</button>
+<div class="hint" id="hint"><span>Is your team on the map yet?</span><button class="hint-x" id="hint-add">Add my team</button><button class="hint-ghost" id="hint-x" aria-label="Dismiss">&times;</button></div>
+<div class="drop-ghost" id="drop-ghost" aria-hidden="true"><div class="dg-bob"><div class="dg-pin"></div></div><div class="dg-dot"></div></div>
+<div class="dropbar" id="dropbar"><span id="db-msg">Move the map until the pin sits on your school.</span><button class="db-go" id="db-go">Drop pin here</button><button class="db-cancel" id="db-cancel">Cancel</button></div>
+<div class="toast" id="toast" role="status"></div>
 <div class="submodal" id="submodal"><div class="submodal-card">
   <button class="x" id="sub-x" aria-label="Close">&times;</button>
   <div class="submodal-h">Add your program</div>
@@ -952,7 +1011,7 @@ var STATUS_LABEL = {prospect:'Prospect',contacted:'Reached out',partnered:'Partn
 var STORE_KEY='debatable-atlas-status';
 var LEGACY_STORE_KEY='debate'+'it-atlas-status';
 var statusMap = {};
-var colorMode='program', levelFilter='all', heatOn=false;
+var colorMode='format', levelFilter='all', heatOn=false;
 var activeFormats={}, activeRegions={};
 var FORMATS = Object.keys(FMT_COLOR);
 var REGIONS = ['North America','South America','Europe','Asia','Oceania','Africa','Middle East'];
@@ -1010,9 +1069,12 @@ var _dupCount=0;
 if(window.console&&_dupCount) console.log('[atlas] deduped '+_dupCount+' double-pins');
 
 /* ---- map ---- */
-var map = L.map('map',{worldCopyJump:false,minZoom:2,maxZoom:18,zoomControl:true,zoomSnap:0.25,
-  attributionControl:true})
-  .setView([28,8],2.3);
+/* Integer zoom keeps raster tiles crisp (fractional zoom scales tiles and
+   reads blurry). Bounded world: no infinite horizontal repeats, side gutters
+   blend into the page background. */
+var map = L.map('map',{worldCopyJump:false,minZoom:2,maxZoom:18,zoomControl:true,
+  maxBounds:[[-85,-200],[85,200]],maxBoundsViscosity:0.9,attributionControl:true})
+  .setView([26,10],2);
 map.attributionControl.setPrefix('');
 
 /* Vector floor: a bundled GeoJSON world drawn in a low pane UNDER the tiles.
@@ -1022,7 +1084,7 @@ map.createPane('floor'); map.getPane('floor').style.zIndex=150;
 map.getPane('floor').style.pointerEvents='none';
 L.geoJSON(window.WORLD_GEO,{interactive:false,pane:'floor',
   renderer:L.canvas({padding:0.5,pane:'floor'}),
-  style:{color:'rgba(248,245,240,0.10)',weight:0.5,fillColor:'#26262b',fillOpacity:1}
+  style:{color:'rgba(248,245,240,0.055)',weight:0.5,fillColor:'#0d0e10',fillOpacity:1}
 }).addTo(map);
 
 /* Country-density choropleth: shade each country by how many programs it
@@ -1096,20 +1158,17 @@ if(tzSlider) tzSlider.addEventListener('input',function(){ hostUTC=+tzSlider.val
    Default dark to match the brand; switch to satellite / streets from the
    panel. The vector floor above guarantees geography even if tiles are blocked. */
 var BASEMAPS={
-  dark:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',opt:{maxZoom:16,attribution:'Esri'}},
-  satellite:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',opt:{maxZoom:18,attribution:'Esri, Maxar, Earthstar Geographics'}},
-  streets:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',opt:{maxZoom:18,attribution:'Esri'}}
+  /* CARTO dark_all ships city/country labels baked in, so the dark map reads
+     alive at every zoom without a second overlay request. */
+  dark:{url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',opt:{maxZoom:19,subdomains:'abcd',noWrap:true,attribution:'&copy; OpenStreetMap &copy; CARTO'}},
+  satellite:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',opt:{maxZoom:18,noWrap:true,attribution:'Esri, Maxar, Earthstar Geographics'}},
+  streets:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',opt:{maxZoom:18,noWrap:true,attribution:'Esri'}}
 };
 var baseTileLayer=null, baseMode='dark';
-var labelLayer=null;
 function setBasemap(key){
   baseMode=key;
   if(baseTileLayer){ map.removeLayer(baseTileLayer); baseTileLayer=null; }
-  if(labelLayer){ map.removeLayer(labelLayer); labelLayer=null; }
   if(key!=='minimal' && BASEMAPS[key]){ baseTileLayer=L.tileLayer(BASEMAPS[key].url,BASEMAPS[key].opt); baseTileLayer.addTo(map); }
-  /* dark mode gets a place-label overlay (city/country names) so it reads
-     like a real map and labels resolve in as you zoom. */
-  if(key==='dark'){ labelLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,opacity:.85}); labelLayer.addTo(map); }
   if(typeof syncURL==='function') syncURL();
 }
 setBasemap('dark');
@@ -1164,7 +1223,7 @@ var cluster = L.markerClusterGroup({
     var n=c.getChildCount();
     var s = n<10?34:n<30?42:n<60?50:60;
     return L.divIcon({className:'',iconSize:[s,s],
-      html:'<div class="cluster" style="width:'+s+'px;height:'+s+'px;font-size:'+(n<100?14:12)+'px">'+n+'</div>'});
+      html:'<div class="cluster" style="width:'+s+'px;height:'+s+'px;font-size:'+(n<100?14:12)+'px;animation-delay:'+((Math.random()*240)|0)+'ms">'+n+'</div>'});
   }
 });
 map.addLayer(cluster);
@@ -1198,6 +1257,17 @@ function visibleCommunitySet(){
   });
 }
 
+/* Stats-only refresh: counters, legend, country bars, recent strip. Cheap.
+   Live-data snapshots call this instead of rebuild() so the cluster layer
+   never re-renders (and flashes) when a community pin arrives. */
+function refreshStats(vis){
+  vis=vis||visibleSet();
+  updateCounters(vis);
+  updateLegend(vis);
+  updateTopCountries(vis);
+  if(typeof refreshChoro==='function') refreshChoro(vis);
+  if(typeof renderRecent==='function') renderRecent();
+}
 function rebuild(){
   var vis=visibleSet();
   /* markers */
@@ -1214,10 +1284,8 @@ function rebuild(){
     heatLayer=L.heatLayer(pts,{radius:26,blur:22,maxZoom:9,minOpacity:0.35,
       gradient:{0.0:'rgba(120,20,20,0)',0.3:'#7f1d1d',0.55:'#dc2626',0.8:'#f87171',1.0:'#fee2e2'}}).addTo(map);
   }
-  updateCounters(vis);
-  updateLegend(vis);
-  updateTopCountries(vis);
-  if(typeof refreshChoro==='function') refreshChoro(vis);
+  if(typeof renderSubs==='function') renderSubs();
+  refreshStats(vis);
   if(typeof tourOn!=='undefined' && tourOn) rebuildTour();
   if(typeof syncURL==='function') syncURL();
 }
@@ -1293,7 +1361,13 @@ function updateLegend(vis){
 var cardEl=document.getElementById('card'), current=null;
 var _ctot=null;
 function countryTotal(c){ if(!_ctot){ _ctot={}; SCHOOLS.forEach(function(d){ _ctot[d.country]=(_ctot[d.country]||0)+1; }); } return _ctot[c]||0; }
-function openCard(d){
+/* The panel covers the left ~350px and the card the bottom center, so the
+   "safe" viewport is the area right of the panel and above the card. */
+function safeViewport(){
+  var sz=map.getSize(), mob=window.matchMedia('(max-width:760px)').matches;
+  return {minX:mob?16:352, maxX:sz.x-56, minY:70, maxY:sz.y-(mob?320:260), sz:sz};
+}
+function openCard(d,skipPan){
   current=d;
   var isTour=(d.kind==='tournament'), isComm=(d.kind==='community'), isMem=(d.kind==='member');
   document.getElementById('card-nm').textContent=d.n;
@@ -1391,7 +1465,15 @@ function openCard(d){
   }
   if(!isTour && !isComm && !isMem) paintStage();
   cardEl.classList.add('show');
-  map.panTo([d.lat,d.lng],{animate:true});
+  /* Pan only when the pin sits under the panel/card or off-screen, and pan
+     to the safe-area center, never blindly to viewport center (which used to
+     bury the pin under the UI and cancel in-flight flyTo animations). */
+  if(!skipPan){
+    var v=safeViewport(), pt=map.latLngToContainerPoint([d.lat,d.lng]);
+    if(pt.x<v.minX||pt.x>v.maxX||pt.y<v.minY||pt.y>v.maxY){
+      map.panBy([pt.x-(v.minX+v.maxX)/2, pt.y-(v.minY+v.maxY)/2],{animate:true,duration:.5});
+    }
+  }
 }
 function paintStage(){
   var st=statusOf(current);
@@ -1456,7 +1538,15 @@ function searchText(d){
 }
 function chooseSearch(d){
   if(!d||typeof d.lat!=='number'||typeof d.lng!=='number') return;
-  map.flyTo([d.lat,d.lng],9,{duration:1.0}); openCard(d);
+  /* One smooth flight, offset so the pin lands in the safe area (right of
+     the panel, above the card) instead of under the UI. openCard gets
+     skipPan so it cannot cancel this animation mid-flight. */
+  var v=safeViewport(), z=9;
+  if(v.sz.x>0&&v.sz.y>0){
+    var pt=map.project([d.lat,d.lng],z).subtract(L.point((v.minX+v.maxX)/2-v.sz.x/2,(v.minY+v.maxY)/2-v.sz.y/2));
+    try{ map.flyTo(map.unproject(pt,z),z,{duration:1.0}); }catch(e){ map.setView([d.lat,d.lng],z); }
+  } else map.setView([d.lat,d.lng],z);
+  openCard(d,true);
   searchIn.value=d.n||''; searchClear.classList.toggle('show',!!searchIn.value); closeSearch();
   var panel=document.getElementById('panel'), toggle=document.getElementById('panel-toggle');
   if(window.matchMedia('(max-width:760px)').matches){ panel.classList.remove('open'); toggle.setAttribute('aria-expanded','false'); }
@@ -1584,9 +1674,10 @@ function buildRegionChips(){
   box.querySelectorAll('.chip').forEach(function(ch){
     ch.addEventListener('click',function(){
       var k=ch.getAttribute('data-k');
-      if(k==='All'){ focusRegion=null; REGIONS.forEach(function(r){ activeRegions[r]=true; }); map.flyTo([28,5],2.2,{duration:.9}); }
+      if(k==='All'){ focusRegion=null; REGIONS.forEach(function(r){ activeRegions[r]=true; }); try{ map.flyTo([26,10],2,{duration:.9}); }catch(e){} }
       else { focusRegion=k; REGIONS.forEach(function(r){ activeRegions[r]=(r===k); });
-        var b=REGION_BOUNDS[k]; if(b) map.flyToBounds(b,{duration:.9,padding:[40,40]}); }
+        var b=REGION_BOUNDS[k], mob=window.matchMedia('(max-width:760px)').matches;
+        if(b) try{ map.flyToBounds(b,{duration:.9,paddingTopLeft:mob?[20,70]:[364,70],paddingBottomRight:mob?[20,120]:[36,44]}); }catch(e){} }
       buildRegionChips(); rebuild();
     });
   });
@@ -1679,7 +1770,7 @@ function deleteAtlasPin(coll,docId,mine){
 }
 function renderSubs(){
   subLayer.clearLayers();
-  SUBS.forEach(function(s){
+  visibleCommunitySet().forEach(function(s){
     var pinCls='cpin'+(s.noProgram?' cpin--gap':'');
     var ic=L.divIcon({className:'',iconSize:[15,15],iconAnchor:[7.5,7.5],html:'<div class="'+pinCls+'" style="width:13px;height:13px"></div>'});
     var m=L.marker([s.lat,s.lng],{icon:ic,zIndexOffset:900});
@@ -1693,7 +1784,7 @@ function subscribeSubs(){
   fbDb.collection('atlas_submissions').onSnapshot(function(snap){
     SUBS=[]; snap.forEach(function(doc){ var d=doc.data()||{}; d.id=doc.id; d.kind='community'; d.n=d.name||'Program';
       if(typeof d.lat==='number'&&typeof d.lng==='number') SUBS.push(d); });
-    renderSubs(); rebuild();
+    renderSubs(); refreshStats();
   },function(e){ console.warn('[atlas] subs',e); });
 }
 function renderMembers(){
@@ -1711,64 +1802,202 @@ function subscribeMembers(){
   fbDb.collection('atlas_members').onSnapshot(function(snap){
     MEMBERS=[]; snap.forEach(function(doc){ var d=doc.data()||{}; d.id=doc.id; d.uid=doc.id; d.kind='member'; d.n=d.name||'Member';
       if(typeof d.lat==='number'&&typeof d.lng==='number') MEMBERS.push(d); });
-    renderMembers();
+    renderMembers(); if(typeof renderRecent==='function') renderRecent();
   },function(e){ console.warn('[atlas] members',e); });
 }
+/* ── Add-flow helpers: toast, celebration, prefill, deferred sign-in ──
+   Anyone can start adding. Google sign-in is asked for only at the final
+   submit; the filled-out payload is stashed and flushed after auth (works
+   across the redirect fallback too). */
+var toastTimer=null;
+function toast(msg,btnLabel,btnFn,isErr){
+  var t=document.getElementById('toast'); if(!t) return;
+  t.className='toast'+(isErr?' err':''); t.innerHTML='';
+  var s=document.createElement('span'); s.textContent=msg; t.appendChild(s);
+  if(btnLabel){ var b=document.createElement('button'); b.textContent=btnLabel;
+    b.addEventListener('click',function(){ if(btnFn) btnFn(b); }); t.appendChild(b); }
+  requestAnimationFrame(function(){ t.classList.add('show'); });
+  clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); },6500);
+}
+function pulseAt(lat,lng){
+  var ic=L.divIcon({className:'',iconSize:[14,14],iconAnchor:[7,7],html:'<div class="pulse-ring"></div>'});
+  var m=L.marker([lat,lng],{icon:ic,interactive:false,zIndexOffset:1200}).addTo(map);
+  setTimeout(function(){ try{ map.removeLayer(m); }catch(e){} },4500);
+}
+function celebrate(lat,lng,msg){
+  try{ map.flyTo([lat,lng],7,{duration:1.1}); }catch(e){}
+  pulseAt(lat,lng);
+  toast(msg,'Copy link',function(b){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(location.origin+'/atlas').then(function(){ b.textContent='Copied'; },function(){ b.textContent='Copied'; });
+    }
+  });
+}
+function nearestCity(lat,lng){
+  var best=null,bd=1e9;
+  for(var k in CITY){ var c=CITY[k]; var dd=_dkm(lat,lng,c.ll[0],c.ll[1]); if(dd<bd){ bd=dd; best=k; } }
+  return (best&&bd<=150)?{key:best,c:CITY[best].c}:null;
+}
+function cityLabel(key,country){ var parts=key.split(', '); if(parts.length>1&&parts[parts.length-1]===country) parts.pop(); return parts.join(', '); }
+var PENDING_KEY='debatable-atlas-pending', pendingMem=null;
+function stashPending(kind,payload){ pendingMem={k:kind,p:payload}; try{ sessionStorage.setItem(PENDING_KEY,JSON.stringify(pendingMem)); }catch(e){} }
+function readPending(){ if(pendingMem) return pendingMem; try{ var s=sessionStorage.getItem(PENDING_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function clearPending(){ pendingMem=null; try{ sessionStorage.removeItem(PENDING_KEY); }catch(e){} }
+function flushPending(){
+  if(!fbUser||!fbDb) return; var raw=readPending(); if(!raw||!raw.p) return; clearPending();
+  if(raw.k==='program') doSubmitProgram(raw.p,document.getElementById('sub-go'));
+  else if(raw.k==='member') doSubmitMember(raw.p,document.getElementById('mem-go'));
+}
+function refreshGoLabels(){
+  var authed=!!fbUser;
+  var s=document.getElementById('sub-go'); if(s&&!s.disabled) s.textContent=authed?'Add to the map':'Continue with Google';
+  var m=document.getElementById('mem-go'); if(m&&!m.disabled) m.textContent=authed?'Add me to the map':'Continue with Google';
+}
+function doSubmitProgram(p,btn){
+  if(!fbDb||!fbUser) return;
+  if(btn){ btn.disabled=true; btn.textContent='Adding…'; }
+  fbDb.collection('atlas_submissions').add({
+    name:p.name, city:p.city, country:p.country,
+    lat:p.lat, lng:p.lng, lvl:p.lvl, fmt:p.fmt, noProgram:!!p.noProgram,
+    by:fbUser.uid, byName:(fbUser.displayName||fbUser.email||'member'),
+    at:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    var sm=document.getElementById('submodal'); if(sm) sm.classList.remove('show');
+    ['sub-name','sub-city','sub-country'].forEach(function(id){ var i=document.getElementById(id); if(i) i.value=''; });
+    if(btn) btn.disabled=false; refreshGoLabels();
+    celebrate(p.lat,p.lng,'“'+p.name+'” is on the map.');
+  }).catch(function(err){
+    if(btn) btn.disabled=false; refreshGoLabels();
+    toast((err&&err.code==='permission-denied')?'Adding needs a Google sign-in.':'Could not add. Try again.',null,null,true);
+  });
+}
+function doSubmitMember(p,btn){
+  if(!fbDb||!fbUser) return;
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  fbDb.collection('atlas_members').doc(fbUser.uid).set({
+    name:p.name, role:p.role, city:p.city,
+    lat:p.lat, lng:p.lng, at:firebase.firestore.FieldValue.serverTimestamp()
+  },{merge:true}).then(function(){
+    var mm=document.getElementById('memmodal'); if(mm) mm.classList.remove('show');
+    if(btn) btn.disabled=false; refreshGoLabels();
+    celebrate(p.lat,p.lng,'You are on the map.');
+  }).catch(function(err){
+    if(btn) btn.disabled=false; refreshGoLabels();
+    toast((err&&err.code==='permission-denied')?'Saving needs a Google sign-in.':'Could not save. Try again.',null,null,true);
+  });
+}
+/* Recently-added strip: proof the map is alive, and a nudge to join it. */
+function relTime(t){
+  var ms=null;
+  if(t&&typeof t.toDate==='function') ms=t.toDate().getTime();
+  else if(t&&t.seconds) ms=t.seconds*1000;
+  if(!ms) return 'now';
+  var m=(Date.now()-ms)/60000;
+  if(m<1) return 'now'; if(m<60) return Math.floor(m)+'m';
+  var h=m/60; if(h<24) return Math.floor(h)+'h';
+  var d=h/24; if(d<45) return Math.floor(d)+'d';
+  return Math.floor(d/30)+'mo';
+}
+function renderRecent(){
+  var box=document.getElementById('recent'), lab=document.getElementById('recent-lab'); if(!box) return;
+  var items=SUBS.map(function(s){ return {t:s.at,d:s,c:s.noProgram?'#f59e0b':'#34d399',tag:s.noProgram?'starting one':'program'}; })
+    .concat(MEMBERS.map(function(m){ return {t:m.at,d:m,c:'#a78bfa',tag:m.role||'member'}; }))
+    .filter(function(i){ return i.t; })
+    .sort(function(a,b){ return (b.t.seconds||0)-(a.t.seconds||0); }).slice(0,3);
+  if(!items.length){ box.hidden=true; if(lab) lab.hidden=true; return; }
+  box.hidden=false; if(lab) lab.hidden=false;
+  box.innerHTML='';
+  items.forEach(function(i){
+    var row=document.createElement('div'); row.className='rec';
+    var dot=document.createElement('span'); dot.className='rd'; dot.style.background=i.c; dot.style.color=i.c;
+    var nm=document.createElement('span'); nm.className='rn'; nm.textContent=(i.d.n||'')+' · '+i.tag;
+    var w=document.createElement('span'); w.className='rw'; w.textContent=relTime(i.t);
+    row.appendChild(dot); row.appendChild(nm); row.appendChild(w);
+    row.addEventListener('click',function(){ if(typeof i.d.lat==='number'){ map.flyTo([i.d.lat,i.d.lng],7,{duration:1.0}); openCard(i.d,true); } });
+    box.appendChild(row);
+  });
+}
 function openMemberModal(){
-  var sl=document.getElementById('mem-loc'); if(sl&&placeLatLng) sl.textContent='You are at '+placeLatLng.lat.toFixed(2)+', '+placeLatLng.lng.toFixed(2);
+  var g=placeLatLng?nearestCity(placeLatLng.lat,placeLatLng.lng):null;
+  var sl=document.getElementById('mem-loc');
+  if(sl) sl.textContent=g?('Pin dropped near '+g.key):(placeLatLng?('Pin dropped at '+placeLatLng.lat.toFixed(2)+', '+placeLatLng.lng.toFixed(2)):'');
   var nm=document.getElementById('mem-name'); if(nm && fbUser && !nm.value) nm.value=(fbUser.displayName||'');
+  var mc=document.getElementById('mem-city'); if(g&&mc&&!mc.value) mc.value=cityLabel(g.key,g.c);
+  refreshGoLabels();
   var mm=document.getElementById('memmodal'); if(mm) mm.classList.add('show');
 }
-function exitPlacing(){ placeMode=null; var pb=document.getElementById('placebanner'); if(pb) pb.classList.remove('show'); var mp=document.getElementById('map'); if(mp) mp.style.cursor=''; }
+/* Center-pin placement: a ghost pin is fixed at the screen center; the user
+   moves the map under it (works the same on desktop and mobile, no blind
+   tap-aiming at world zoom), then confirms from the drop bar. */
+function exitPlacing(){
+  placeMode=null;
+  document.body.classList.remove('placing');
+  var g=document.getElementById('drop-ghost'); if(g) g.classList.remove('show');
+  var db=document.getElementById('dropbar'); if(db) db.classList.remove('show');
+}
 function startPlacing(mode,label){
-  if(!fbReady){
-    ensureFirebase().then(function(){ startPlacing(mode,label); })
-      .catch(function(){ alert('The community map could not load. Check your connection and try again.'); });
-    return;
-  }
-  if(!fbUser){ promptSignIn(); return; }
-  placeMode=mode; var pb=document.getElementById('placebanner');
-  if(pb){ var t=pb.querySelector('span'); if(t) t.textContent=label; pb.classList.add('show'); }
-  var mp=document.getElementById('map'); if(mp) mp.style.cursor='crosshair';
+  placeMode=mode;
+  document.body.classList.add('placing');
+  var msg=document.getElementById('db-msg'); if(msg) msg.textContent=label;
+  var g=document.getElementById('drop-ghost'); if(g) g.classList.add('show');
+  var db=document.getElementById('dropbar'); if(db) db.classList.add('show');
+  cardEl.classList.remove('show'); current=null;
+  var hint=document.getElementById('hint'); if(hint) hint.classList.remove('show');
   var pn=document.getElementById('panel'); if(pn) pn.classList.remove('open');
+  var pt=document.getElementById('panel-toggle'); if(pt) pt.setAttribute('aria-expanded','false');
+  if(map.getZoom()<4){ try{ map.flyTo(map.getCenter(),4,{duration:.7}); }catch(e){} }
+  ensureFirebase().catch(function(){});
 }
 function openSubModal(){
-  var sl=document.getElementById('sub-loc'); if(sl&&placeLatLng) sl.textContent='Pin set near '+placeLatLng.lat.toFixed(2)+', '+placeLatLng.lng.toFixed(2);
-  var fb=document.getElementById('sub-fmt'); if(fb) fb.innerHTML=Object.keys(FMT_COLOR).map(function(f){ return '<label><input type="checkbox" value="'+f+'"> '+f+'</label>'; }).join('');
+  var g=placeLatLng?nearestCity(placeLatLng.lat,placeLatLng.lng):null;
+  var sl=document.getElementById('sub-loc');
+  if(sl) sl.textContent=g?('Pin dropped near '+g.key):(placeLatLng?('Pin dropped at '+placeLatLng.lat.toFixed(2)+', '+placeLatLng.lng.toFixed(2)):'');
+  if(g){
+    var ci=document.getElementById('sub-city'); if(ci&&!ci.value) ci.value=cityLabel(g.key,g.c);
+    var co=document.getElementById('sub-country'); if(co&&!co.value) co.value=g.c;
+  }
+  var fb=document.getElementById('sub-fmt'); if(fb&&!fb.children.length) fb.innerHTML=Object.keys(FMT_COLOR).map(function(f){ return '<label><input type="checkbox" value="'+f+'"> '+f+'</label>'; }).join('');
+  refreshGoLabels();
   var sm=document.getElementById('submodal'); if(sm) sm.classList.add('show');
+  var nm=document.getElementById('sub-name'); if(nm) setTimeout(function(){ try{ nm.focus(); }catch(e){} },80);
 }
 (function(){
+  var PROG_LABEL='Move the map until the pin sits on your school.';
   var addprog=document.getElementById('addprog');
-  if(addprog) addprog.addEventListener('click',function(){ startPlacing('program','Click the map where your program is.'); });
+  if(addprog) addprog.addEventListener('click',function(){ startPlacing('program',PROG_LABEL); });
   var addmem=document.getElementById('addmember');
-  if(addmem) addmem.addEventListener('click',function(){ startPlacing('member','Click the map where you are.'); });
-  var pc=document.getElementById('place-cancel'); if(pc) pc.addEventListener('click',exitPlacing);
-  map.on('click',function(e){ if(!placeMode) return; placeLatLng=e.latlng; var mode=placeMode; exitPlacing(); if(mode==='program') openSubModal(); else openMemberModal(); });
+  if(addmem) addmem.addEventListener('click',function(){ startPlacing('member','Move the map to where you are.'); });
+  var fab=document.getElementById('add-fab');
+  if(fab) fab.addEventListener('click',function(){ startPlacing('program',PROG_LABEL); });
+  var hintAdd=document.getElementById('hint-add');
+  if(hintAdd) hintAdd.addEventListener('click',function(){ startPlacing('program',PROG_LABEL); });
+  var dbGo=document.getElementById('db-go');
+  if(dbGo) dbGo.addEventListener('click',function(){
+    placeLatLng=map.getCenter(); var mode=placeMode; exitPlacing();
+    if(mode==='member') openMemberModal(); else openSubModal();
+  });
+  var dbCancel=document.getElementById('db-cancel'); if(dbCancel) dbCancel.addEventListener('click',exitPlacing);
+  /* In placement mode a map click recenters the pin there (quick aiming). */
+  map.on('click',function(e){ if(!placeMode) return; map.panTo(e.latlng,{animate:true,duration:.35}); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&placeMode) exitPlacing(); });
   var mx=document.getElementById('mem-x'); if(mx) mx.addEventListener('click',function(){ document.getElementById('memmodal').classList.remove('show'); });
   document.querySelectorAll('#mem-role button').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('#mem-role button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }); });
   var mg=document.getElementById('mem-go');
   if(mg) mg.addEventListener('click',function(){
-    if(!fbDb||!fbUser){ promptSignIn(); return; }
     var name=(document.getElementById('mem-name').value||'').trim();
     if(!name){ alert('Add your name or handle.'); return; }
     if(!placeLatLng){ alert('Pick your spot on the map first.'); return; }
     var rb=document.querySelector('#mem-role button.on'); var role=rb?rb.getAttribute('data-r'):'Debater';
-    mg.disabled=true; mg.textContent='Saving…';
-    fbDb.collection('atlas_members').doc(fbUser.uid).set({
-      name:name, role:role, city:(document.getElementById('mem-city').value||'').trim(),
-      lat:placeLatLng.lat, lng:placeLatLng.lng, at:firebase.firestore.FieldValue.serverTimestamp()
-    },{merge:true}).then(function(){
-      document.getElementById('memmodal').classList.remove('show'); mg.disabled=false; mg.textContent='Add me to the map';
-      try{ map.flyTo([placeLatLng.lat,placeLatLng.lng],6,{duration:1.0}); }catch(e){}
-    }).catch(function(err){ mg.disabled=false; mg.textContent='Add me to the map';
-      alert('Could not save: '+((err&&err.code==='permission-denied')?'sign in with Google.':((err&&err.code)||'error'))); });
+    var payload={name:name, role:role, city:(document.getElementById('mem-city').value||'').trim(),
+      lat:placeLatLng.lat, lng:placeLatLng.lng};
+    if(!fbReady||!fbUser){ stashPending('member',payload); promptSignIn(); return; }
+    doSubmitMember(payload,mg);
   });
   var sx=document.getElementById('sub-x'); if(sx) sx.addEventListener('click',function(){ document.getElementById('submodal').classList.remove('show'); });
   document.querySelectorAll('#sub-lvl button').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('#sub-lvl button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }); });
   document.querySelectorAll('#sub-prog button').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('#sub-prog button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }); });
   var sg=document.getElementById('sub-go');
   if(sg) sg.addEventListener('click',function(){
-    if(!fbDb||!fbUser){ promptSignIn(); return; }
     var name=(document.getElementById('sub-name').value||'').trim();
     var city=(document.getElementById('sub-city').value||'').trim();
     var country=(document.getElementById('sub-country').value||'').trim();
@@ -1783,19 +2012,10 @@ function openSubModal(){
     })[0];
     if(dup&&!confirm((dup.n||'A similar program')+' is already listed nearby. Add another pin anyway?')) return;
     var pgb=document.querySelector('#sub-prog button.on'); var noProgram=!!(pgb&&pgb.getAttribute('data-p')==='no');
-    sg.disabled=true; sg.textContent='Adding…';
-    fbDb.collection('atlas_submissions').add({
-      name:name, city:city, country:country,
-      lat:placeLatLng.lat, lng:placeLatLng.lng, lvl:lvl, fmt:fmt, noProgram:noProgram,
-      by:fbUser.uid, byName:(fbUser.displayName||fbUser.email||'member'),
-      at:firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function(){
-      document.getElementById('submodal').classList.remove('show');
-      document.getElementById('sub-name').value=''; document.getElementById('sub-city').value=''; document.getElementById('sub-country').value='';
-      sg.disabled=false; sg.textContent='Add to the map';
-      try{ map.flyTo([placeLatLng.lat,placeLatLng.lng],6,{duration:1.0}); }catch(e){}
-    }).catch(function(err){ sg.disabled=false; sg.textContent='Add to the map';
-      alert('Could not add: '+((err&&err.code==='permission-denied')?'sign in with a Google account to add.':((err&&err.code)||'error'))); });
+    var payload={name:name, city:city, country:country, lvl:lvl, fmt:fmt, noProgram:noProgram,
+      lat:placeLatLng.lat, lng:placeLatLng.lng};
+    if(!fbReady||!fbUser){ stashPending('program',payload); promptSignIn(); return; }
+    doSubmitProgram(payload,sg);
   });
 })();
 
@@ -1820,7 +2040,10 @@ function initFirebase(){
     if(!firebaseSubscriptionsReady){
       firebaseSubscriptionsReady=true;
       fbAuth.onAuthStateChanged(function(u){
-        fbUser=u||null; updateAuthUI(); checkAdmin(); if(current) paintStage(); rebuild();
+        fbUser=u||null; updateAuthUI(); checkAdmin(); if(current) paintStage();
+        if(colorMode==='status'||colorMode==='contacts') rebuild(); else refreshStats();
+        if(typeof refreshGoLabels==='function') refreshGoLabels();
+        if(typeof flushPending==='function') flushPending();
       });
       subscribeSubs();
       subscribeMembers();
@@ -1890,7 +2113,7 @@ var signinBtn=document.getElementById('signin');
 function updateAuthUI(){
   if(!signinBtn) return;
   if(fbUser){ signinBtn.textContent=(fbUser.displayName||'Account').split(' ')[0]+' · sign out'; signinBtn.classList.add('in'); }
-  else { signinBtn.textContent='Sign in to edit'; signinBtn.classList.remove('in'); }
+  else { signinBtn.textContent='Sign in'; signinBtn.classList.remove('in'); }
 }
 if(signinBtn) signinBtn.addEventListener('click',function(){ if(fbUser) fbAuth.signOut(); else promptSignIn(); });
 updateAuthUI();
@@ -1910,17 +2133,18 @@ else setTimeout(warmFirebase,700);
     }
   }catch(e){}
   if(seen||!hint) return;
-  setTimeout(function(){ hint.classList.add('show'); },900);
+  setTimeout(function(){ hint.classList.add('show'); },1400);
   var dismiss=function(){ hint.classList.remove('show'); try{ localStorage.setItem(hintKey,'1'); }catch(e){} };
   var hx=document.getElementById('hint-x'); if(hx) hx.addEventListener('click',dismiss);
-  setTimeout(function(){ if(hint.classList.contains('show')) dismiss(); },12000);
+  var ha=document.getElementById('hint-add'); if(ha) ha.addEventListener('click',dismiss);
+  setTimeout(function(){ if(hint.classList.contains('show')) dismiss(); },14000);
 })();
 
 /* Shareable view links keep public map filters and layers in the URL. */
 function setSegOn(id,attr,val){ document.querySelectorAll('#'+id+' button').forEach(function(b){ b.classList.toggle('on', b.getAttribute(attr)===val); }); }
 function syncURL(){
   var p=[];
-  if(colorMode!=='program') p.push('c='+colorMode);
+  if(colorMode!=='format') p.push('c='+colorMode);
   if(levelFilter!=='all') p.push('lvl='+levelFilter);
   if(focusRegion) p.push('r='+encodeURIComponent(focusRegion));
   if(typeof baseMode!=='undefined' && baseMode!=='dark') p.push('b='+baseMode);
@@ -1955,7 +2179,7 @@ var HomeCtl=L.Control.extend({options:{position:'topleft'},onAdd:function(){
   var b=L.DomUtil.create('a','leaflet-home',c); b.innerHTML='&#8634;'; b.href='#'; b.title='Reset to world view';
   L.DomEvent.on(b,'click',function(e){ L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e);
     if(focusRegion){ focusRegion=null; REGIONS.forEach(function(r){ activeRegions[r]=true; }); buildRegionChips(); rebuild(); }
-    map.flyTo([28,5],2.3,{duration:1.0}); });
+    map.flyTo([26,10],2,{duration:1.0}); });
   return c; }});
 map.addControl(new HomeCtl());
 
