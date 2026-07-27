@@ -86,17 +86,17 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
 <body>
 <div class="wrap">
   <div class="top">
-    <div class="brand">Debatable <em>·</em> Tokens<span class="tag">Preview · not on sale</span></div>
+    <div class="brand">Debatable <em>·</em> Tokens<span class="tag">Beta · live</span></div>
     <button class="btn signin" id="authBtn">Sign in</button>
   </div>
 
   <div class="head">
-    <span class="head-chip">Subscription · in the works</span>
+    <span class="head-chip">Subscription · live</span>
     <h1>Subscribe and get tokens every month.</h1>
-    <p><strong>$4.99 a month for 500 tokens.</strong> A voice round past your free allowance costs 50 tokens, so a cycle covers 10 extra voice rounds. More AI surfaces will draw on the same balance. Not on sale yet; the pipe is wired and opens with launch.</p>
+    <p><strong>$4.99 a month for 500 tokens.</strong> A voice round past your free allowance costs 50 tokens, so a cycle covers 10 extra voice rounds. Your free rounds stay free; tokens add capacity on top. More AI surfaces will draw on the same balance.</p>
   </div>
 
-  <div class="banner good" id="successBanner">Subscription active. Tokens land within a minute of each paid invoice.</div>
+  <div class="banner good" id="successBanner">Subscription active. Tokens land within a minute of each paid invoice. <a href="/voice-debate">Start a voice round now</a>.</div>
   <div class="banner info" id="canceledBanner">Checkout closed. Nothing was charged.</div>
   <div class="banner info" id="notLiveBanner">Not on sale yet. The checkout is wired end to end and opens when pricing is set.</div>
 
@@ -107,7 +107,8 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
     </div>
     <div class="cta-row">
       <button class="btn subscribe" id="subscribeBtn">Subscribe</button>
-      <span class="cta-note" id="ctaNote">$4.99 a month, 500 tokens per cycle. Cancel anytime; tokens already granted stay yours.</span>
+      <button class="btn acct" id="portalBtn" style="display:none">Manage billing</button>
+      <span class="cta-note" id="ctaNote">$4.99 a month, 500 tokens per cycle. Billing by Stripe; cancel anytime from this page. Granted tokens stay yours.</span>
     </div>
   </div>
 
@@ -151,6 +152,7 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
       if(!r.ok) throw new Error('http '+r.status);
       var d=await r.json();
       var st=String(d.status||'none');
+      $('portalBtn').style.display=(st==='active'||st==='past_due')?'':'none';
       $('balBody').innerHTML=
         '<div class="balrow"><span class="balnum">'+(d.tokens||0)+'</span>'+
         '<span class="balmeta">granted '+(d.granted||0)+' · spent '+(d.spent||0)+'</span>'+
@@ -183,10 +185,22 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
     firebase.auth().signInWithPopup(p).catch(function(e){ try{ firebase.auth().signInWithRedirect(p); }catch(_){} });
   }
 
+  async function openPortal(){
+    var btn=$('portalBtn');
+    btn.disabled=true;
+    try{
+      var r=await fetch('/api/tokens/portal',{method:'POST',headers:await authedHeaders(),body:'{}'});
+      var d=await r.json().catch(function(){return {};});
+      if(r.ok && d.url){ location.href=d.url; return; }
+    }catch(e){}
+    btn.disabled=false;
+  }
+
   $('authBtn').addEventListener('click',function(){
     if(user){ firebase.auth().signOut(); } else { doSignIn(); }
   });
   $('subscribeBtn').addEventListener('click',subscribe);
+  $('portalBtn').addEventListener('click',openPortal);
 
   try{
     firebase.auth().onAuthStateChanged(function(u){

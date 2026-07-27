@@ -4339,17 +4339,51 @@ function App() {
       } else {
         used = readAnonUsed();
       }
+      var tokenInfo = null;
       if (isPro) {
         state = 'ok';
       } else if (signedIn && used >= FREE_VOICE_LIMIT) {
         state = 'upgrade';
+        // A token balance keeps the mic open past the free cap. The
+        // server re-checks and spends per round; this only unblocks
+        // the Start button and feeds the gate copy.
+        try {
+          var tk = await u.getIdToken();
+          var tr = await fetch('/api/tokens', { headers: { 'Authorization': 'Bearer ' + tk } });
+          if (tr.ok) {
+            var td = await tr.json();
+            tokenInfo = { balance: td.tokens || 0, perRound: td.voiceRound || 50, live: !!td.live };
+            if (tokenInfo.balance >= tokenInfo.perRound) state = 'ok';
+          }
+        } catch (e) {/* no token info → plain upgrade gate */}
       } else if (!signedIn && used >= ANON_VOICE_LIMIT) {
         state = 'sign-in';
       } else {
         state = 'ok';
       }
     } catch (e) {/* fall through with defaults */}
-    setVoiceGate({ loading: false, signedIn, isPro, used, limit, state });
+    setVoiceGate({ loading: false, signedIn, isPro, used, limit, state, tokens: tokenInfo });
+  }, []);
+
+  // One-tap tokens checkout from the voice gate. Falls back to the
+  // /tokens page on any failure so the click always lands somewhere.
+  var buyVoiceTokens = useCallback(async () => {
+    try {if (window.gtag) gtag('event', 'token_checkout_click', { surface: 'voice-gate' });} catch (e) {}
+    try {
+      var u = firebase.auth().currentUser;
+      if (!u) {window.location.href = '/tokens'; return;}
+      var tok = await u.getIdToken();
+      var r = await fetch('/api/tokens/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: '{}'
+      });
+      var d = await r.json().catch(function () {return {};});
+      if (r.ok && d.url) {window.location.href = d.url; return;}
+      window.location.href = '/tokens';
+    } catch (e) {
+      window.location.href = '/tokens';
+    }
   }, []);
 
   // Watch Firebase auth so the greeting personalizes once sign-in resolves
@@ -7940,8 +7974,19 @@ Use intelligent, everyday English. Never use or mention "RFD," "ballot," "flow,"
     'You\'ve used your 2 free voice debates. Voice runs on OpenAI\'s Realtime API, which charges per audio minute. Typed mode stays unmetered for your account.'
   )
   ),
+  // Tokens: the live purchase at the exact moment of intent. Only on
+  // web (Apple 3.1.1 — no external purchase pitch in the native app)
+  // and only when the server says sales are live.
+  (!window.__DB_NATIVE && voiceGate.tokens && voiceGate.tokens.live) ?
+  el('button', {
+    type: 'button', className: 'cta vg-cta', onClick: buyVoiceTokens
+  }, 'Get 10 voice rounds · $4.99/mo') : null,
+  (!window.__DB_NATIVE && voiceGate.tokens && voiceGate.tokens.live && voiceGate.tokens.balance > 0) ?
+  el('div', { className: 'helper', style: { marginTop: 6 } },
+    'You have ' + voiceGate.tokens.balance + ' tokens; a round is ' + voiceGate.tokens.perRound + '.') : null,
   el('a', {
-    href: '/pricing', className: 'cta vg-cta'
+    href: '/pricing', className: 'cta vg-cta',
+    style: (!window.__DB_NATIVE && voiceGate.tokens && voiceGate.tokens.live) ? { opacity: .75 } : null
   }, 'See plans →'),
   el('a', { href: '/app#casual', className: 'vg-fallback' }, 'or keep going in casual typed chat →')
   ) :
@@ -7970,6 +8015,8 @@ Use intelligent, everyday English. Never use or mention "RFD," "ballot," "flow,"
   el('div', { className: 'helper' },
   voiceGate.isPro ?
   audienceCopy('Pro · unlimited voice rounds. Interrupt the AI mid-sentence.', 'Pro · unlimited voice debates. Interrupt the AI mid-sentence.') :
+  voiceGate.tokens && voiceGate.signedIn && voiceGate.used >= voiceGate.limit ?
+  'Running on tokens: ' + voiceGate.tokens.balance + ' left · ' + voiceGate.tokens.perRound + audienceCopy(' per round.', ' per debate.') :
   voiceGate.signedIn ?
   voiceGate.limit - voiceGate.used + ' of ' + voiceGate.limit + audienceCopy(' free rounds left.', ' free debates left.') :
   voiceGate.used > 0 ?
