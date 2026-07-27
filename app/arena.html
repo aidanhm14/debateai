@@ -1115,7 +1115,7 @@
           <span class="broadcast-note">Archived round visuals</span>
         </div>
         <div class="stage-actions">
-          <a class="btn dark" href="/spectate">
+          <a class="btn dark" href="/spectate" id="stageWatchBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 3 14 9-14 9V3z"/></svg>
             Open the watch room
           </a>
@@ -1410,6 +1410,7 @@
       document.getElementById('clockState').textContent='Speaking';
     }
     function tickSpeech(){
+      if(liveRoundNow) return; // a real round owns the stage
       speechSeconds-=1;
       if(speechSeconds<0){
         speechSeconds=179;
@@ -1422,6 +1423,7 @@
     var judgeSteps=['Listening for clash','Extracting arguments','Comparing impacts','Tracking dropped claims','Testing the weighing'];
     var judgeStep=0;
     function tickJudge(){
+      if(liveRoundNow) return; // a real round owns the judge chip
       judgeStep=(judgeStep+1)%judgeSteps.length;
       document.getElementById('judgeState').textContent=judgeSteps[judgeStep];
     }
@@ -1433,6 +1435,45 @@
         document.getElementById('onlineProof').textContent=n>0?(n+' online now'):'Floor open · no wait';
         document.getElementById('viewerCount').textContent=n>0?(n+' active across Debatable'):'How a round reads';
         document.getElementById('worldCaption').textContent=n>0?(n+' active in the last five minutes.'):'Presence lights up when debaters are online.';
+      }).catch(function(){});
+    }
+    // Real live round → the stage stops being a preview. Names, motion,
+    // format, and the watch CTA come from /api/watch-live (public
+    // rounds with a fresh participant heartbeat). Nothing live → the
+    // honest "Exhibition round / archived visuals" framing stays.
+    var liveRoundNow=false;
+    var WATCH_FORMATS={quick:'Quick Clash',apda:'APDA',bp:'BP',worlds:'Worlds (WUDC)',asian:'Asian Parli',ld:'LD',pf:'Public Forum',policy:'Policy'};
+    function setStageSpeaker(id,name,school){
+      var seat=document.getElementById(id);
+      if(!seat) return;
+      var nm=seat.querySelector('.speaker-name'); if(nm) nm.textContent=name;
+      var sc=seat.querySelector('.speaker-school'); if(sc) sc.textContent=school;
+      seat.classList.remove('active'); // we don't know whose speech it is from here
+    }
+    function hydrateWatchLive(){
+      fetch('/api/watch-live',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+        var r=(j&&j.rounds&&j.rounds[0])||null;
+        if(!r){liveRoundNow=false;return}
+        liveRoundNow=true;
+        var flag=document.querySelector('.live-flag');
+        if(flag){flag.classList.remove('exhibition');flag.innerHTML='<i></i>Live now';}
+        document.getElementById('heroFormat').textContent=(WATCH_FORMATS[r.format]||String(r.format||'').toUpperCase())+' · Round in progress';
+        document.getElementById('heroMotion').textContent=r.motion||'Live debate';
+        setStageSpeaker('speakerPro',r.proName||'Pro','On the floor now');
+        setStageSpeaker('speakerCon',r.conName||'Con','On the floor now');
+        document.getElementById('speechLabel').textContent=r.status==='ballot'?'Judge writing the ballot':'Round in progress';
+        document.getElementById('speechClock').textContent='LIVE';
+        document.getElementById('clockState').textContent='Open the room for the clock';
+        var chart=document.querySelector('.momentum-chart'); if(chart)chart.style.display='none';
+        var js=document.getElementById('judgeState'); if(js)js.textContent='In the room · writes the ballot at the end';
+        var conf=document.querySelector('.judge-confidence'); if(conf)conf.style.display='none';
+        var jg=document.querySelector('.judge-grid'); if(jg)jg.style.display='none';
+        var note=document.querySelector('.broadcast-note'); if(note)note.textContent='Round data live · room visuals archived';
+        var btn=document.getElementById('stageWatchBtn');
+        if(btn){
+          btn.href='/live-round?room='+encodeURIComponent(r.room)+'&spectate=1';
+          btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 3 14 9-14 9V3z"/></svg> Watch this round live';
+        }
       }).catch(function(){});
     }
     function hydrateLiveNow(){
@@ -1601,6 +1642,7 @@
 
     function loadLiveSignals(){
       hydrateOnline();
+      hydrateWatchLive();
       hydrateLiveNow();
       hydrateActivity();
       hydrateRanks();
@@ -1614,6 +1656,7 @@
       loadLiveSignals();
     }
     setInterval(function(){if(!document.hidden){hydrateOnline();hydrateLiveNow();hydrateActivity()}},90000);
+    setInterval(function(){if(!document.hidden)hydrateWatchLive()},45000);
   })();
   </script>
 </body>

@@ -127,6 +127,23 @@ h1,h2,h3,p{margin-top:0}
 .watch-center .state{display:block;margin-bottom:10px;font-family:var(--sans);font-size:.59rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#ffc56f}
 .watch-center h2{margin:0 0 9px;font-size:2rem;line-height:1}
 .watch-center p{margin:0;color:rgba(255,255,255,.58);font-family:var(--sans);font-size:.71rem;line-height:1.55}
+.waiting-pill.is-live{background:rgba(217,47,47,.16);color:#ff8f8f}
+.waiting-pill.is-live i{background:#ff5d5d;box-shadow:0 0 0 5px rgba(255,93,93,.14);animation:pipPulse 1.4s ease-in-out infinite}
+.watch-live-card{position:relative;z-index:2;max-width:360px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.wl-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:8px;background:#d92f2f;color:#fff;
+  font-family:var(--sans);font-size:.62rem;font-weight:900;letter-spacing:.14em}
+.wl-badge i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pipPulse 1.2s ease-in-out infinite}
+.wl-format{font-family:var(--sans);font-size:.6rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.66)}
+.wl-motion{margin:0;font-size:1.5rem;line-height:1.16;color:#fff}
+.wl-vs{font-family:var(--sans);font-size:.72rem;font-weight:800;color:rgba(255,255,255,.85)}
+.wl-vs span{color:rgba(255,255,255,.45);font-weight:700;margin:0 6px}
+.wl-actions{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+.wl-watch,.wl-stage{font-family:var(--sans);font-size:.72rem;font-weight:900;letter-spacing:.03em;text-decoration:none;
+  border-radius:10px;padding:10px 16px}
+.wl-watch{background:#d92f2f;color:#fff}
+.wl-watch:hover{background:#c02020}
+.wl-stage{border:1px solid rgba(255,255,255,.3);color:#fff}
+.wl-stage:hover{border-color:rgba(255,255,255,.55)}
 .watch-meta{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)}
 .watch-meta div{padding:13px 16px}
 .watch-meta div+div{border-left:1px solid rgba(255,255,255,.08)}
@@ -281,10 +298,12 @@ h1,h2,h3,p{margin-top:0}
           <div class="motion-preview-text" data-preview-motion aria-live="polite">This House would ban social media for children under 16.</div>
           <p class="motion-preview-note">The official tournament motion replaces this preview when a round goes live.</p>
         </div>
+        <div data-spar-night="banner" style="margin:14px 16px 16px;--text:#1d1915;--text-dim:rgba(29,25,21,.62);--border:rgba(29,25,21,.16);--border-strong:rgba(29,25,21,.3);--bg-card:#fffdf9;--accent:#d92f2f"></div>
       </aside>
     </div>
   </section>
 
+  <span id="creator-sweepstakes" aria-hidden="true"></span>
   <section class="guide" id="watch-guide">
     <div class="shell">
       <div class="section-head">
@@ -337,6 +356,48 @@ h1,h2,h3,p{margin-top:0}
   </div>
 </footer>
 
+<script src="/js/spar-night.js" defer></script>
+<script>
+  // Watch window goes live when /api/watch-live reports a public round
+  // with a fresh participant heartbeat. Nothing live → the waiting
+  // state stays exactly as designed.
+  (function(){
+    var FORMATS={quick:'Quick Clash',apda:'APDA',bp:'BP',worlds:'Worlds (WUDC)',asian:'Asian Parli',ld:'LD',pf:'Public Forum',policy:'Policy'};
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+    function hydrate(){
+      fetch('/api/watch-live',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+        var r=(j&&j.rounds&&j.rounds[0])||null;
+        if(!r) return;
+        var pill=document.querySelector('.waiting-pill');
+        if(pill){pill.classList.add('is-live');pill.innerHTML='<i aria-hidden="true"></i> Round live now';}
+        var label=FORMATS[r.format]||String(r.format||'').toUpperCase();
+        var win=document.querySelector('.watch-window');
+        if(win){
+          win.innerHTML='<div class="watch-live-card">'+
+            '<span class="wl-badge"><i></i>LIVE</span>'+
+            '<div class="wl-format">'+esc(label)+(r.status==='ballot'?' · Judge writing the ballot':' · Round in progress')+'</div>'+
+            '<h2 class="wl-motion">'+esc(r.motion||'Live debate')+'</h2>'+
+            '<div class="wl-vs">'+esc(r.proName||'Pro')+'<span>vs</span>'+esc(r.conName||'Con')+'</div>'+
+            '<div class="wl-actions">'+
+              '<a class="wl-watch" href="/live-round?room='+encodeURIComponent(r.room)+'&spectate=1">Watch live</a>'+
+              '<a class="wl-stage" href="/live-round?room='+encodeURIComponent(r.room)+'&stage=1" title="Chromeless full-screen view for projectors and stream capture">Broadcast view</a>'+
+            '</div></div>';
+        }
+        var meta=document.querySelectorAll('.watch-meta div');
+        if(meta[0]){meta[0].innerHTML='<span>Current status</span><b>Live</b>';}
+        if(meta[1]){meta[1].innerHTML='<span>What to do</span><b>Open the round and watch</b>';}
+        var pv=document.querySelector('[data-preview-motion]');
+        if(pv) pv.textContent=r.motion||'Live debate';
+        var pvTop=document.querySelector('.motion-preview-top');
+        if(pvTop) pvTop.innerHTML='<b>Official motion</b><span>Live right now</span>';
+        var pvNote=document.querySelector('.motion-preview-note');
+        if(pvNote) pvNote.style.display='none';
+      }).catch(function(){});
+    }
+    hydrate();
+    setInterval(function(){if(!document.hidden)hydrate()},60000);
+  })();
+</script>
 <script>
 (function(){
   "use strict";
