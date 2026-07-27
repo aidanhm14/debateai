@@ -42,6 +42,66 @@ function checkUpRate(ip) {
 // alphabet) so a caller can't mint arbitrary blob keys inside its namespace.
 const ID_SUFFIX = /^[abcdefghjkmnpqrstuvwxyz23456789]{18}$/;
 
+// Per-uid caps, layered on top of the per-IP limiter above. The per-IP cap
+// catches many accounts behind one IP; these catch one account behind many
+// IPs — anonymous Firebase auth is free to mint and IPs are cheap to rotate,
+// so a per-IP cap alone does not bound a single determined account, which is
+// exactly the storage/cost vector here. Two controls:
+//   - a per-uid request-rate layer (covers init + part hammering), and
+//   - a rolling aggregate-BYTES budget on the part path, the piece the
+//     request-rate caps structurally miss (a 1-byte part and a 5MB part cost
+//     a request limiter the same).
+// In-memory, so per-instance: an attacker riding cold starts or parallel
+// instances gets a multiple of these numbers. That is an acceptable bound for
+// a low-severity cost issue; a hard cap would need a durable counter, and this
+// function is deliberately Firestore-free (async-turn.mjs owns the finalize).
+const uidUse = new Map(); // uid -> { reqs: number[], bytes: [ts, n][] }
+const UID_REQ_LAYERS = [
+  { window: 60_000, max: 40, code: 'RATE_UID_MINUTE' },
+  { window: 3_600_000, max: 400, code: 'RATE_UID_HOUR' },
+];
+// One full upload is MAX_PARTS x MAX_PART_BYTES (40MB). Allowing ~24 of those
+// an hour sits far past any real recording session yet turns an unbounded
+// write into a finite ceiling.
+const UID_BYTES_WINDOW = 3_600_000;
+const UID_BYTES_MAX = 24 * MAX_PARTS * MAX_PART_BYTES;
+
+function uidBucket(uid) {
+  let u = uidUse.get(uid);
+  if (!u) {
+    if (uidUse.size > 5000) {
+      const keep = Array.from(uidUse.entries()).slice(-2500);
+      uidUse.clear();
+      for (const [k, v] of keep) uidUse.set(k, v);
+    }
+    u = { reqs: [], bytes: [] };
+    uidUse.set(uid, u);
+  }
+  return u;
+}
+// Every call (init or part) counts against the per-uid request rate.
+function checkUidReq(uid) {
+  const now = Date.now();
+  const u = uidBucket(uid);
+  u.reqs = u.reqs.filter((t) => now - t < 3_600_000);
+  for (const layer of UID_REQ_LAYERS) {
+    if (u.reqs.filter((t) => now - t < layer.window).length >= layer.max) return { ok: false, code: layer.code };
+  }
+  u.reqs.push(now);
+  return { ok: true };
+}
+// Part writes additionally count against the rolling aggregate-byte budget.
+// Only records on pass, so a rejected part does not spend the budget.
+function checkUidBytes(uid, n) {
+  const now = Date.now();
+  const u = uidBucket(uid);
+  u.bytes = u.bytes.filter((e) => now - e[0] < UID_BYTES_WINDOW);
+  const spent = u.bytes.reduce((s, e) => s + e[1], 0);
+  if (spent + n > UID_BYTES_MAX) return { ok: false, code: 'QUOTA_BYTES' };
+  u.bytes.push([now, n]);
+  return { ok: true };
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -57,6 +117,9 @@ export default async (request) => {
     || 'anon';
   const rate = checkUpRate(ip);
   if (!rate.ok) return errorResponse('Too many uploads. Give it a minute.', 429, request);
+
+  const uidRate = checkUidReq(uid);
+  if (!uidRate.ok) return errorResponse('Too many uploads on this account. Give it a minute.', 429, request);
 
   const store = mediaStore();
 
@@ -79,6 +142,10 @@ export default async (request) => {
   const buf = Buffer.from(await request.arrayBuffer());
   if (!buf.length) return errorResponse('Empty part', 400, request);
   if (buf.length > MAX_PART_BYTES) return errorResponse('Part too large', 413, request);
+
+  // Aggregate storage ceiling per account, checked before the write lands.
+  const byteRate = checkUidBytes(uid, buf.length);
+  if (!byteRate.ok) return errorResponse('Upload limit reached for this account. Try again later.', 429, request);
 
   await store.set(`m/${uploadId}/p${idx}`, buf);
   return jsonResponse({ ok: true, idx, bytes: buf.length }, 200, request);
