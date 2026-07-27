@@ -1,17 +1,16 @@
 // Firebase App Check init + auto-attach helper.
 //
-// Setup (one-time, in Firebase Console):
-//   1. Build → App Check → register the web app with reCAPTCHA Enterprise.
-//   2. Copy the site key Firebase shows you.
-//   3. Paste it as APP_CHECK_SITE_KEY below.
-//   4. (Server) set APP_CHECK_REQUIRED=true in Netlify env vars to enforce.
+// Provider: reCAPTCHA Enterprise (score-based site key below), registered on
+// the DebateOS web app in Firebase project debateos-78ac5 on 2026-07-27.
 //
-// Until the site key is filled in, this file is a graceful no-op — pages still
-// work, fetch still works, App Check just doesn't activate. Server matches:
-// it soft-passes missing tokens unless APP_CHECK_REQUIRED=true.
+// Server enforcement: set APP_CHECK_REQUIRED=true in the Netlify prod env for
+// the AI functions to hard-enforce. Do that ONLY once real sessions are minting
+// valid tokens (verify X-Firebase-AppCheck flows on /api/* calls), or anonymous
+// calls will 401. Until enforced, the server soft-passes missing/invalid tokens
+// and only logs, so this activation is safe to ship ahead of the flip.
 
 (function () {
-  var APP_CHECK_SITE_KEY = '__FILL_IN_FROM_FIREBASE_CONSOLE__';
+  var APP_CHECK_SITE_KEY = '6LcCG2gtAAAAANR70uPFdOC0TeixdQqspYYciOac';
 
   var activated = false;
   var activationAttempted = false;
@@ -27,9 +26,14 @@
       return;
     }
     try {
-      firebase.appCheck().activate(APP_CHECK_SITE_KEY, /* isTokenAutoRefreshEnabled */ true);
+      // reCAPTCHA Enterprise: activate() takes a provider instance, not a bare
+      // string (the bare-string form is the reCAPTCHA v3 shape). If the compat
+      // SDK didn't load the class for any reason, this throws and is caught
+      // below, leaving App Check inactive (graceful soft-pass), not broken.
+      var provider = new firebase.appCheck.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY);
+      firebase.appCheck().activate(provider, /* isTokenAutoRefreshEnabled */ true);
       activated = true;
-      console.info('[appcheck] activated');
+      console.info('[appcheck] activated (reCAPTCHA Enterprise)');
     } catch (e) {
       console.warn('[appcheck] activation failed:', e && e.message);
     }
