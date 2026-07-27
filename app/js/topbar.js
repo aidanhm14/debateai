@@ -311,7 +311,11 @@
       { href: '/practice',    label: 'Timed rounds vs AI' },
       { href: '/voice-debate', label: 'Classic voice trainer' },
       { href: '/coaches',      label: 'Coaches' },
-      { href: '/topics',       label: 'Topics and motions' },
+      // 2026-07-27: was "Topics and motions", which the landing's plain-
+      // audience jargon layer (motion -> topic, lowercase) rendered as
+      // the shipped "Topics and topics". The jargon word sits second so
+      // the layer yields "Browse topics" with casing intact.
+      { href: '/topics',       label: 'Browse motions' },
       { href: '/argument-coach', label: 'Argument coach' },
       { href: '/oral-exam-prep', label: 'Oral exam prep' },
     ]},
@@ -323,6 +327,40 @@
       { href: '/future',  label: 'Vision' },
     ]},
   ];
+
+  // Desktop Explore panel presentation layer: one small stroke icon and
+  // one plain sentence per destination, keyed by href. Labels keep living
+  // in LINKS / MORE_GROUPS; the mobile sheet stays label-only.
+  var MENU_META = {
+    '/spar':           { desc: 'Random matchmaking, right now', icon: '<circle cx="12" cy="12" r="2.1"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2"/>' },
+    '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
+    '/learn':          { desc: 'Lessons, drills, and formats', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
+    '/app#case':       { desc: 'Case builder and prep tools', icon: '<path d="M12 5.2H6.6A2.4 2.4 0 0 0 4.2 7.6v9.8a2.4 2.4 0 0 0 2.4 2.4h9.8a2.4 2.4 0 0 0 2.4-2.4V12"/><path d="M17.7 4.3a2 2 0 0 1 2.8 2.8l-7.3 7.3-3.8 1 1-3.8z"/>' },
+    '/judge':          { desc: 'Paste a round, get the verdict', icon: '<rect x="6" y="4.6" width="12" height="15.8" rx="2.2"/><path d="M9.5 4.6a2.5 2.5 0 0 1 5 0M9.3 13.4l2 2 3.6-3.9"/>' },
+    '/live':           { desc: 'The organized round board', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
+    '/credentials':    { desc: 'Proof of your record', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
+    '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
+    '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
+    '/predict':        { desc: 'Call winners, earn points', icon: '<path d="M4 17l5.5-5.5 3.5 3.5L19.5 8.4"/><path d="M14.8 8.4h4.7v4.7"/>' },
+    '/rounds':         { desc: 'Record now, they answer later', icon: '<path d="M16.5 4L20 7.5 16.5 11M20 7.5H7.8M7.5 20L4 16.5 7.5 13M4 16.5h12.2"/>' },
+    '/spectate':       { desc: 'Watch rounds as they happen', icon: '<path d="M3.6 12S6.9 5.9 12 5.9 20.4 12 20.4 12 17.1 18.1 12 18.1 3.6 12 3.6 12z"/><circle cx="12" cy="12" r="2.7"/>' },
+    '/arena':          { desc: 'One lobby for everything live', icon: '<path d="M5.6 20.8V3.9M5.6 4.6c4.7-2.3 8 2 12.8-.2v9.4c-4.8 2.2-8.1-2.1-12.8.2"/>' },
+    '/tournaments':    { desc: 'Brackets, tab, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
+    '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M4.6 19.4V13M9.5 19.4V6.6M14.5 19.4V10M19.4 19.4V4.6"/>' },
+    '/community':      { desc: 'Find debaters and clubs', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
+    '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
+    '/practice':       { desc: '15 formats against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
+    '/voice-debate':   { desc: 'The original spoken round', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
+    '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
+    '/topics':         { desc: 'PF, LD, Policy, BQ, Worlds', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },
+    '/argument-coach': { desc: 'Claim, warrant, impact checks', icon: '<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1"/>' },
+    '/oral-exam-prep': { desc: 'Defend your work out loud', icon: '<path d="M2.6 9.4L12 4.6l9.4 4.8-9.4 4.8z"/><path d="M6.6 11.9v4.2c3.6 2.7 7.2 2.7 10.8 0v-4.2M21.4 9.4v5"/>' },
+  };
+  function menuIcon(href){
+    var m = MENU_META[href];
+    var inner = m && m.icon ? m.icon : '<circle cx="12" cy="12" r="3.5"/>';
+    return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+  }
 
   function navTrack(event, meta){
     try {
@@ -438,21 +476,50 @@
       // ui.css predates the panel rules (SW skew showed it unstyled).
       var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'Explore Debatable', hidden: 'hidden' });
       var intro = el('div', { class: 'ui-topbar-more-intro' }, [
-        el('div', { class: 'ui-topbar-more-intro-copy' }, [
-          el('div', { class: 'ui-topbar-more-intro-title' }, 'Explore Debatable'),
-          el('div', { class: 'ui-topbar-more-intro-sub' }, 'Debate, train, watch, and build a record.'),
-        ]),
+        el('div', { class: 'ui-topbar-more-intro-title' }, 'Explore Debatable'),
+        el('div', { class: 'ui-topbar-more-intro-sub' }, 'Debate, train, watch, and build a record.'),
       ]);
       panel.appendChild(intro);
+
+      // Left spotlight: the one action a first-time opener should take.
+      // A real opponent stays the headline; Voice AI is the quiet alternate.
+      var spotWrap = el('div', { class: 'ui-topbar-more-spotwrap' });
+      var spot = el('a', { href: '/spar', role: 'menuitem', class: 'ui-topbar-more-spot' });
+      spot.innerHTML =
+        '<span class="ui-topbar-more-spot-eyebrow"><span class="ui-topbar-more-live-dot" aria-hidden="true"></span>Live</span>' +
+        '<span class="ui-topbar-more-spot-title">Debate a real person</span>' +
+        '<span class="ui-topbar-more-spot-sub">Get matched, argue it out, and an AI judge writes the ballot.</span>' +
+        '<span class="ui-topbar-more-spot-proof">' +
+          '<img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async">' +
+          '<img src="/img/round/faces/face07.jpg" alt="" loading="lazy" decoding="async">' +
+          '<img src="/img/round/faces/face10.jpg" alt="" loading="lazy" decoding="async">' +
+          '<img src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async">' +
+          '<span>Real people first. AI if the queue is quiet.</span>' +
+        '</span>' +
+        '<span class="ui-topbar-more-spot-cta">Go LIVE' +
+          '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' +
+        '</span>';
+      spot.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/spar', via: 'spotlight' }); });
+      spotWrap.appendChild(spot);
+      var spotAlt = el('a', { href: '/newvoice', role: 'menuitem', class: 'ui-topbar-more-spot-alt' }, [
+        el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon('/voice-debate') }),
+        el('span', null, 'Try Voice AI instead'),
+      ]);
+      spotAlt.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/newvoice', via: 'spotlight' }); });
+      spotWrap.appendChild(spotAlt);
+      panel.appendChild(spotWrap);
+
       var primaryGroups = [
+        // /spar lives in the spotlight card, so it is not repeated here.
         { head: 'Debate', links: pageLinks.filter(function(L){
-          return ['/spar', '/app#case', '/live', '/room-judge', '/predict'].indexOf(L.href) !== -1;
+          return ['/app#case', '/live', '/room-judge', '/predict'].indexOf(L.href) !== -1;
         })},
         { head: 'Improve', links: pageLinks.filter(function(L){
           return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach'].indexOf(L.href) !== -1;
         })},
       ];
-      primaryGroups.concat(MORE_GROUPS).forEach(function(G, groupIndex){
+      var columnGroups = primaryGroups.concat(MORE_GROUPS.filter(function(G){ return G.head !== 'Site'; }));
+      columnGroups.forEach(function(G, groupIndex){
         var col = el('div', { class: 'ui-topbar-more-col' });
         var head = el('div', { class: 'ui-topbar-more-head' }, [
           el('span', { class: 'ui-topbar-more-head-num', 'aria-hidden': 'true' }, '0' + (groupIndex + 1)),
@@ -460,19 +527,45 @@
         ]);
         col.appendChild(head);
         G.links.forEach(function(L){
+          var meta = MENU_META[L.href] || {};
           var a = el('a', {
             href: L.href,
             role: 'menuitem',
-            class: pathMatches(L.href) ? 'is-active' : null,
+            class: 'ui-topbar-more-item' + (pathMatches(L.href) ? ' is-active' : ''),
           }, [
-            el('span', null, L.label),
-            el('span', { class: 'ui-topbar-more-arrow', 'aria-hidden': 'true' }, '↗'),
+            el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon(L.href) }),
+            el('span', { class: 'ui-topbar-more-item-text' }, [
+              el('span', { class: 'ui-topbar-more-item-label' }, [
+                el('span', null, L.label),
+                L.pulse ? el('span', { class: 'ui-topbar-more-live-dot', 'aria-hidden': 'true' }) : null,
+              ]),
+              meta.desc ? el('span', { class: 'ui-topbar-more-item-desc' }, meta.desc) : null,
+            ]),
           ]);
           a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href }); });
           col.appendChild(a);
         });
         panel.appendChild(col);
       });
+
+      // Site pages read as chrome, not product. They close the panel as a
+      // one-line footer strip instead of holding a fifth column.
+      var siteGroup = null;
+      MORE_GROUPS.forEach(function(G){ if (G.head === 'Site') siteGroup = G; });
+      if (siteGroup){
+        var strip = el('div', { class: 'ui-topbar-more-site' });
+        strip.appendChild(el('span', { class: 'ui-topbar-more-site-head' }, siteGroup.head));
+        siteGroup.links.forEach(function(L){
+          var a = el('a', {
+            href: L.href,
+            role: 'menuitem',
+            class: pathMatches(L.href) ? 'is-active' : null,
+          }, L.label);
+          a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href }); });
+          strip.appendChild(a);
+        });
+        panel.appendChild(strip);
+      }
       var closeTimer = null;
       var pinnedOpen = false;
       function openExplore(source){
