@@ -416,6 +416,10 @@
       stream: out,
       videoTrack: outVideo,
       canvas: canvas,
+      // Raw camera element + source stream, exposed for the on-device
+      // NSFW guard (nsfw-guard.js) which samples the LOCAL feed only.
+      videoEl: videoEl,
+      srcStream: mediaStream,
       setMode: function (m) { if (['camera', 'avatar', 'off'].indexOf(m) >= 0) mode = m; },
       mode: function () { return mode; },
       setLabel: function (s) { label = String(s || '').slice(0, 3).toUpperCase(); },

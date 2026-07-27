@@ -19,6 +19,13 @@
      instead of leaving the user staring at an empty Daily room.
      Falls back to raw <iframe> in mountDaily if this script fails. -->
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
+<!-- Camera converter (Camera / Avatar / Off) + on-device NSFW watchdog.
+     The parent page owns the outgoing pixels via a canvas track, so the
+     watchdog sees exactly what the room sees; Avatar mode never
+     transmits camera pixels at all. Both optional: video works fine if
+     either script fails to load. -->
+<script defer src="/js/cam-avatar.js"></script>
+<script defer src="/js/nsfw-guard.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -226,6 +233,37 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 }
 .room-foot strong{color:var(--text-dim);font-weight:600;text-transform:none;letter-spacing:0}
 
+/* ─── Camera converter + safety (Camera / Avatar / Off / Report) ─── */
+.cam-modes{
+  position:absolute;left:14px;bottom:14px;z-index:6;
+  display:flex;gap:4px;padding:4px;border-radius:999px;
+  background:rgba(0,0,0,.62);border:1px solid var(--border);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.cam-modes button{
+  padding:6px 12px;border-radius:999px;font-size:.72rem;font-weight:700;
+  color:var(--text-ghost);transition:color .15s,background .15s;
+}
+.cam-modes button.on{background:var(--accent);color:#fff}
+.cam-modes button:hover{color:var(--text)}
+.cam-modes button.report{color:rgba(239,68,68,.9)}
+.report-sheet{
+  position:absolute;left:14px;bottom:60px;z-index:7;
+  display:flex;flex-direction:column;gap:7px;min-width:230px;
+  background:var(--bg-card);border:1px solid var(--border-strong);
+  border-radius:12px;padding:12px;box-shadow:0 18px 50px rgba(0,0,0,.55);
+}
+.report-sheet .rs-head{
+  font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-ghost);
+}
+.report-sheet button{
+  text-align:left;background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;font-size:.85rem;color:var(--text);
+}
+.report-sheet button:hover{border-color:var(--border-strong)}
+
 /* ─── Mobile ─── */
 @media (max-width:680px){
   .room-bar{grid-template-columns:auto 1fr;gap:10px;padding:10px 14px}
@@ -362,6 +400,142 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     });
   }
 
+  // ── Safety layer ──────────────────────────────────────
+  // Parent-owned camera pipeline (cam-avatar.js) + on-device NSFW
+  // watchdog (nsfw-guard.js) + peer reports (/api/video-moderate).
+  // The published video track is a canvas the parent draws, so the
+  // watchdog sees exactly what the room sees, and Avatar mode can
+  // never leak camera pixels. If getUserMedia fails here, Daily's
+  // internal camera keeps working as before — just unguarded.
+  var remotePeer = null;       // { sessionId, userName } of the other side
+  var cam = null;              // DebateCam instance (canvas pipeline)
+  var camGuard = null;         // DebateGuard instance
+  var camMode = 'camera';
+  var modBar = null;
+
+  function localSessionId(){
+    try {
+      var p = callFrame && callFrame.participants();
+      return (p && p.local && p.local.session_id) || '';
+    } catch(e){ return ''; }
+  }
+
+  function initSafety(){
+    if (!callFrame || !window.DebateCam || cam) { buildModBar(!window.DebateCam); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, facingMode: 'user' } })
+      .then(function(ms){
+        if (!ms.getVideoTracks().length) throw new Error('no video track');
+        return window.DebateCam.start(ms, { mode: 'camera', label: '' });
+      })
+      .then(function(c){
+        cam = c;
+        return callFrame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
+          callFrame.setLocalVideo(true);
+          buildModBar(false);
+          startGuard();
+          try { gtag('event', 'casual_room_cam_unified'); } catch(e){}
+        });
+      })
+      .catch(function(e){
+        console.warn('[casual-room] safety pipeline unavailable', e);
+        buildModBar(true);   // report button still renders
+      });
+  }
+
+  function buildModBar(noConverter){
+    if (modBar) return;
+    modBar = document.createElement('div');
+    modBar.className = 'cam-modes';
+    modBar.innerHTML = noConverter
+      ? '<button type="button" class="report" data-m="report">⚑ Report</button>'
+      : '<button type="button" data-m="camera" class="on">Camera</button>' +
+        '<button type="button" data-m="avatar">Avatar</button>' +
+        '<button type="button" data-m="off">Off</button>' +
+        '<button type="button" class="report" data-m="report">⚑ Report</button>';
+    modBar.addEventListener('click', function(ev){
+      var b = ev.target.closest('button');
+      if (!b) return;
+      var m = b.getAttribute('data-m');
+      if (m === 'report'){ openReportSheet(); return; }
+      setCamMode(m);
+    });
+    stage.appendChild(modBar);
+  }
+
+  function setCamMode(m){
+    if (!cam || !callFrame || m === camMode) return;
+    camMode = m;
+    if (m === 'off'){
+      cam.setMode('off');
+      callFrame.setLocalVideo(false);
+    } else {
+      cam.setMode(m);
+      callFrame.setLocalVideo(true);
+    }
+    if (modBar) Array.prototype.forEach.call(modBar.querySelectorAll('button'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-m') === m);
+    });
+    try { gtag('event', 'casual_room_cam_mode', { mode: m }); } catch(e){}
+  }
+
+  function startGuard(){
+    if (camGuard || !window.DebateGuard || !cam) return;
+    camGuard = window.DebateGuard.attach({
+      videoEl: function(){ return cam.videoEl; },
+      isActive: function(){ return camMode === 'camera'; },
+      room: roomName,
+      roundId: roomName,
+      sessionId: localSessionId,
+      onTrip: function(){
+        try { cam.setMode('off'); } catch(e){}
+        try { callFrame && callFrame.setLocalVideo(false); } catch(e){}
+        camMode = 'off';
+        showOpponentBanner(
+          'Removed by the safety system.',
+          'The on-device detector flagged explicit content on your camera. The feed was cut before it reached the room, and this counts as a strike. Repeat strikes suspend video access.'
+        );
+        setTimeout(function(){ try { callFrame && callFrame.leave(); } catch(e){} }, 400);
+        try { gtag('event', 'casual_room_guard_trip'); } catch(e){}
+      },
+    });
+  }
+
+  function openReportSheet(){
+    var old = stage.querySelector('.report-sheet');
+    if (old){ old.remove(); return; }
+    var sheet = document.createElement('div');
+    sheet.className = 'report-sheet';
+    var target = remotePeer;
+    sheet.innerHTML = '<div class="rs-head">Report ' + escHtml(target ? target.userName : 'your opponent') + '</div>';
+    [['nsfw','Explicit content'],['not_serious','Not serious, trolling'],['harassment','Harassment'],['other','Something else']].forEach(function(c){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = c[1];
+      b.addEventListener('click', function(){
+        sheet.remove();
+        if (!window.DebateGuard) return;
+        window.DebateGuard.report({
+          room: roomName, roundId: roomName, category: c[0],
+          sessionId: localSessionId(),
+          offender: target ? { sessionId: target.sessionId, userName: target.userName } : {},
+        }).then(function(res){
+          if (res && res.ejected){
+            showOpponentBanner('Opponent removed.', 'They were removed from the room after your report. Find a new debater?');
+          } else {
+            var t = document.createElement('div');
+            t.className = 'report-sheet';
+            t.innerHTML = '<div class="rs-head">Report filed. Two independent reports remove a debater.</div>';
+            stage.appendChild(t);
+            setTimeout(function(){ try { t.remove(); } catch(e){} }, 3500);
+          }
+        });
+        try { gtag('event', 'casual_room_report', { category: c[0] }); } catch(e){}
+      });
+      sheet.appendChild(b);
+    });
+    stage.appendChild(sheet);
+  }
+
   function mountDaily(){
     if (!roomName){
       setStatus(
@@ -378,6 +552,16 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     }).then(function(r){
       return r.json().then(function(j){ return { ok: r.ok, status: r.status, body: j }; });
     }).then(function(res){
+      if (res.status === 403 && res.body && res.body.banned){
+        var untilStr = res.body.until ? new Date(res.body.until).toLocaleString() : 'later';
+        setStatus(
+          '<h2>Video access suspended.</h2>' +
+          '<p>A safety violation was recorded on this account or network. Video rooms reopen after ' + escHtml(untilStr) + '.</p>' +
+          '<div class="row"><a class="ghost" href="/spar">← Back to debate chat</a></div>'
+        );
+        try { gtag('event', 'casual_room_ban_gate'); } catch(e){}
+        return;
+      }
       if (!res.ok || !res.body || !res.body.url){
         var hint = (res.body && res.body.hint) || '';
         var detail = (res.body && (res.body.error || ('http_' + res.status))) || 'unknown error';
@@ -394,6 +578,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         return;
       }
       var url = res.body.url;
+      // Identity-attributed join (see create-daily-room.mjs): the
+      // meeting token carries uid or IP hash as user_id, which is what
+      // turns peer reports into strikes and makes eject's ban stick.
+      if (res.body.token){
+        url += (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(res.body.token);
+      }
 
       // Preferred path: daily-js with participant events.
       if (window.DailyIframe && typeof window.DailyIframe.createFrame === 'function'){
@@ -407,9 +597,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
             showLeaveButton: false,
             showFullscreenButton: true,
           });
-          callFrame.on('participant-joined', function(){
+          callFrame.on('participant-joined', function(ev){
             sawOpponent = true;
             if (opponentTimer){ clearTimeout(opponentTimer); opponentTimer = null; }
+            // Track the remote side so the Report button has a target.
+            if (ev && ev.participant && !ev.participant.local){
+              remotePeer = { sessionId: ev.participant.session_id, userName: ev.participant.user_name || 'Opponent' };
+            }
           });
           callFrame.on('participant-left', function(ev){
             // Don't fire the banner if WE already left (the "Leave" /
@@ -428,6 +622,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           });
           callFrame.join({ url: url, userName: displayName }).then(function(){
             clearStatus();
+            initSafety();
             // Start the "opponent never showed" timer. Resets whenever
             // participant-joined fires.
             opponentTimer = setTimeout(function(){
@@ -483,6 +678,14 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
   // ── Leave + Next opponent ─────────────────────────────
   function destroyRoom(){
+    // Safety pipeline first so the camera + detector release cleanly.
+    if (camGuard){ try { camGuard.stop(); } catch(e){} camGuard = null; }
+    if (cam){
+      try { cam.srcStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      try { cam.stop(); } catch(e){}
+      cam = null;
+    }
+    if (modBar){ try { modBar.remove(); } catch(e){} modBar = null; }
     // Daily-js path: clean leave + destroy so the mic/cam release.
     if (callFrame){
       try { callFrame.leave(); } catch(e){}
