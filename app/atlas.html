@@ -1073,9 +1073,28 @@ if(window.console&&_dupCount) console.log('[atlas] deduped '+_dupCount+' double-
    reads blurry). Bounded world: no infinite horizontal repeats, side gutters
    blend into the page background. */
 var map = L.map('map',{worldCopyJump:false,minZoom:2,maxZoom:18,zoomControl:true,
-  maxBounds:[[-85,-200],[85,200]],maxBoundsViscosity:0.9,attributionControl:true})
-  .setView([26,10],2);
+  maxBounds:[[-85,-200],[85,200]],maxBoundsViscosity:0.9,attributionControl:true});
 map.attributionControl.setPrefix('');
+/* Zoom floor that always covers the container. The Web-Mercator world is a
+   256*2^z square; below that size the tiles run out and the page background
+   shows through as dead grey bands on the right + bottom of wide screens.
+   Floor the zoom so the world is at least as big as the viewport, and keep
+   it current when the window resizes. */
+function coverZoom(){
+  var s=map.getSize();
+  if(!s.x||!s.y) return 2;
+  return Math.max(2,Math.ceil(Math.log(Math.max(s.x,s.y)/256)/Math.LN2));
+}
+map.setMinZoom(coverZoom());
+/* Center west of Greenwich: at the cover zoom a wide viewport spans ~280
+   degrees, so [26,10] would push the Americas (most of the pin mass) off
+   the left edge behind the panel. [26,-30] opens on US through India. */
+map.setView([26,-30],map.getMinZoom());
+map.on('resize',function(){
+  var z=coverZoom();
+  map.setMinZoom(z);
+  if(map.getZoom()<z) map.setZoom(z);
+});
 
 /* Vector floor: a bundled GeoJSON world drawn in a low pane UNDER the tiles.
    It paints instantly and stays visible if tiles ever fail to load, so the
