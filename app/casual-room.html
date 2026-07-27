@@ -470,12 +470,59 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       callFrame.setLocalVideo(false);
     } else {
       cam.setMode(m);
+      // Re-push the canvas track on every mode entry: Daily's own camera
+      // button can have swapped the device camera back in since the first
+      // publish, and Avatar must never ride on top of a raw feed. In
+      // Avatar mode a failed push fails CLOSED (camera off), never the
+      // raw camera under an Avatar label.
+      callFrame.setInputDevicesAsync({ videoSource: cam.videoTrack }).then(function(){
+        if (camMode === m) maskAsserted = true;
+      }).catch(function(e){
+        console.warn('[cam-mode publish]', e);
+        if (m === 'avatar' && camMode === 'avatar'){
+          try { callFrame.setLocalVideo(false); } catch(e2){}
+          setCamMode('off');
+        }
+      });
       callFrame.setLocalVideo(true);
     }
     if (modBar) Array.prototype.forEach.call(modBar.querySelectorAll('button'), function(b){
       b.classList.toggle('on', b.getAttribute('data-m') === m);
     });
     try { gtag('event', 'casual_room_cam_mode', { mode: m }); } catch(e){}
+  }
+
+  // Daily's prebuilt camera button / device picker / high-CPU recovery
+  // can silently re-acquire the DEVICE camera over our canvas track.
+  // While Avatar is on, watch the local participant and re-push the mask
+  // the moment anything else goes live. Cooldown keeps it loop-proof.
+  var maskAsserted = false, reassertAt = 0;
+  function reassertMask(ev){
+    var p = ev && ev.participant;
+    if (!p || !p.local) return;
+    if (camMode !== 'avatar' || !cam || !callFrame) return;
+    var v = p.tracks && p.tracks.video;
+    if (!v || v.state !== 'playable'){ maskAsserted = false; return; }
+    var live = v.persistentTrack || v.track || null;
+    if (live && cam.videoTrack && live.id === cam.videoTrack.id){ maskAsserted = true; return; }
+    // Track objects can be withheld across the iframe boundary; when we
+    // cannot compare ids, re-assert only on the off -> playable edge.
+    if (!live && maskAsserted) return;
+    var now = Date.now();
+    if (reassertAt && now - reassertAt < 1500) return;
+    reassertAt = now; maskAsserted = true;
+    callFrame.setInputDevicesAsync({ videoSource: cam.videoTrack })
+      .catch(function(e){ console.warn('[avatar reassert]', e); });
+  }
+  // Full stop on leave: kill the guard + canvas pipeline and release the
+  // camera + mic so the recording light goes off with the room.
+  function teardownSafety(){
+    if (camGuard){ try { camGuard.stop(); } catch(e){} camGuard = null; }
+    if (cam){ try { cam.stop(); } catch(e){} cam = null; }
+    camMode = 'camera'; maskAsserted = false;
+    if (modBar) Array.prototype.forEach.call(modBar.querySelectorAll('button'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-m') === 'camera');
+    });
   }
 
   function startGuard(){
@@ -605,6 +652,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
               remotePeer = { sessionId: ev.participant.session_id, userName: ev.participant.user_name || 'Opponent' };
             }
           });
+          callFrame.on('participant-updated', reassertMask);
+          callFrame.on('left-meeting', teardownSafety);
           callFrame.on('participant-left', function(ev){
             // Don't fire the banner if WE already left (the "Leave" /
             // "Next" buttons set bannerShown via destroyRoom flag-free

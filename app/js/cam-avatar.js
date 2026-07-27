@@ -29,7 +29,11 @@
  *   cam.stop()
  */
 (function () {
-  const OUT_W = 1280, OUT_H = 720, FPS = 24;
+  // 960x540 out: the camera source is captured at 640x480, so a 720p
+  // canvas was a pure upscale that nearly doubled paint + encode work.
+  // 540p keeps the mask crisp on a call tile and cuts CPU enough to
+  // stay under Daily's high-CPU warning on ordinary laptops.
+  const OUT_W = 960, OUT_H = 540, FPS = 24;
   const INK = '#0b0b0c', BONE = '#f0ede6', RED = '#dd2e2e', DIM = '#232326';
   const HEAD = '#1b1b1f', TORSO = '#131317', THROAT = '#a51f1f';
 
@@ -321,6 +325,7 @@
     let target = zeroFace();
     let lastFaceTs = 0;       // last successful detection
     let lastVideoTime = -1;
+    let lastDetect = 0;       // detection throttle clock
     let demoFace = null;      // QA override (debugFace)
 
     let running = true;
@@ -333,8 +338,12 @@
     function detect(now) {
       if (tracker.status === 'idle' && vTracks.length) loadTracker();
       if (tracker.status !== 'ready' || videoEl.readyState < 2) return;
+      // ~15fps tracker budget: the landmarker is the most expensive step
+      // in the loop, and smoothInto interpolates the gap invisibly.
+      if (now - lastDetect < 62) return;
       if (videoEl.currentTime === lastVideoTime) return;
       lastVideoTime = videoEl.currentTime;
+      lastDetect = now;
       // detectForVideo timestamps must increase monotonically even across
       // instances sharing the landmarker
       const ts = Math.max(now, tracker.lastTs + 1); tracker.lastTs = ts;
@@ -380,16 +389,27 @@
     // moment a debater switches tabs to read their notes. A timer keeps
     // painting (browsers clamp hidden-tab timers to ~1fps, which still
     // reads as live to the room).
+    // The off tile (and camera mode before video is ready) is a still
+    // image: repaint it at 1fps as a keep-alive heartbeat instead of
+    // burning a full-rate draw on pixels that never change.
+    let staticAt = 0, staticKey = '';
+    function paintStatic() {
+      const key = 'off|' + label;
+      const now = performance.now();
+      if (key === staticKey && now - staticAt < 1000) return;
+      staticKey = key; staticAt = now;
+      drawOff(ctx, OUT_W, OUT_H, label);
+    }
     function loop() {
       if (!running) return;
       const now = performance.now();
       const dt = Math.min(1000, now - lastTick); lastTick = now;
-      const lv = meter.level();
       if (mode === 'camera' && videoEl.readyState >= 2) {
+        staticKey = '';
         drawCameraFrame(ctx, OUT_W, OUT_H, videoEl);
-      } else if (mode === 'camera') {
-        drawOff(ctx, OUT_W, OUT_H, label);
       } else if (mode === 'avatar') {
+        staticKey = '';
+        const lv = meter.level();
         let src;
         if (demoFace) { src = demoFace; }
         else {
@@ -403,10 +423,12 @@
         smoothInto(face, src, dt);
         drawAvatar(ctx, OUT_W, OUT_H, label, face, lv, now);
       } else {
-        drawOff(ctx, OUT_W, OUT_H, label);
+        paintStatic();
       }
     }
-    const drawTimer = setInterval(loop, 33);
+    // 42ms ≈ 24fps, matching the captureStream cap; painting faster than
+    // the capture rate was pure waste.
+    const drawTimer = setInterval(loop, 42);
     loop();
 
     const outVideo = canvas.captureStream(FPS).getVideoTracks()[0];
@@ -429,6 +451,9 @@
         running = false; clearInterval(drawTimer);
         outVideo.stop(); meter.close();
         videoEl.srcObject = null;
+        // Terminal: release the source camera + mic too, so the recording
+        // light goes off the moment the pipeline is stopped.
+        try { mediaStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
       },
     };
   }

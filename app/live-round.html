@@ -3480,7 +3480,7 @@ body.lr-pip .lr-pip-notice{display:block}
   // debater's real head motion, blinks, brows, and mouth onto the mask,
   // and the avatar degrades to a mic-driven mouth plus idle sway if the
   // camera or tracker is unavailable.
-  var camConv = { cam:null, savedVideoId:null, mode:'camera', bar:null };
+  var camConv = { cam:null, camP:null, savedVideoId:null, mode:'camera', bar:null, maskAsserted:false, reassertAt:0 };
   function seatLabel(){
     var s = (state.mySideHint || '').toUpperCase().slice(0,3);
     return s || 'ANON';
@@ -3530,7 +3530,12 @@ body.lr-pip .lr-pip-notice{display:block}
       pip.appendChild(tag);
       shell.appendChild(pip);
     }
-    if (cam.canvas.parentNode !== pip) pip.insertBefore(cam.canvas, pip.firstChild);
+    if (cam.canvas.parentNode !== pip){
+      // A rebuilt pipeline means a new canvas; drop any stale one so the
+      // tile can never show a dead frame above the live mask.
+      Array.prototype.forEach.call(pip.querySelectorAll('canvas'), function(old){ old.remove(); });
+      pip.insertBefore(cam.canvas, pip.firstChild);
+    }
     pip.style.display = '';
   }
   function hideSelfPip(){
@@ -3538,16 +3543,22 @@ body.lr-pip .lr-pip-notice{display:block}
     if (pip) pip.style.display = 'none';
   }
   function ensureAvatarCam(mode){
-    if (camConv.cam) return Promise.resolve(camConv.cam);
+    // Single-flight on the PROMISE, not the resolved instance: the
+    // joined-meeting unify call and a quick Avatar tap otherwise race
+    // into two parallel pipelines (two camera captures, two draw loops,
+    // and a published track that isn't the one in the self-check tile).
+    if (camConv.camP) return camConv.camP;
     // Camera pixels go to the room ONLY in 'camera' (passthrough) mode;
     // in 'avatar' mode they feed the on-device face tracker and nothing
     // else. Degrade to audio-only, then to an empty stream; the avatar
     // animates from mic level alone if it has to.
-    return navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, facingMode: 'user' } })
+    camConv.camP = navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, facingMode: 'user' } })
       .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio: true, video: false }); })
       .catch(function(){ return new MediaStream(); })
       .then(function(ms){ return window.DebateCam.start(ms, { mode: mode || 'avatar', label: seatLabel() }); })
-      .then(function(c){ camConv.cam = c; startGuard(c); return c; });
+      .then(function(c){ camConv.cam = c; startGuard(c); return c; })
+      .catch(function(e){ camConv.camP = null; throw e; });
+    return camConv.camP;
   }
   // ── Safety watchdog: on-device NSFW detection over the raw camera.
   // Only meaningful while the published mode is 'camera' (avatar/off
@@ -3691,12 +3702,19 @@ body.lr-pip .lr-pip-notice{display:block}
       }).then(function(){
         frame.setLocalVideo(true);
         markCamMode('avatar');
+        camConv.maskAsserted = true;
         showSelfPip();
         toast('Avatar on. The room sees only the animated mask, never your camera. The corner tile is your view of it.');
         try { gtag('event', 'live_round_avatar_on'); } catch(e){}
       }).catch(function(e){
         console.warn('[avatar]', e);
-        toast('Avatar mode did not take in this browser');
+        // Fail CLOSED. If the mask cannot be published, the honest state
+        // is camera off, never the raw feed under an Avatar label.
+        try { frame.setLocalVideo(false); } catch(e2){}
+        if (camConv.cam) try { camConv.cam.setMode('off'); } catch(e3){}
+        markCamMode('off');
+        hideSelfPip();
+        toast('Avatar could not start here, so your camera was turned off instead');
       });
     } else if (m === 'camera'){
       // Preferred: passthrough through the parent-owned canvas so the
@@ -3746,6 +3764,45 @@ body.lr-pip .lr-pip-notice{display:block}
       hideSelfPip();
       toast('Camera off. Your mic is unaffected.');
     }
+  }
+
+  // Daily's prebuilt owns its own camera button, device picker, and
+  // auto-recovery (including the high-CPU "turn off your camera" flow).
+  // Any of those can silently re-acquire the DEVICE camera over our
+  // canvas track, which puts the raw feed on stage while the bar still
+  // says Avatar. Watch the local participant and re-push the mask the
+  // moment anything else goes live. The cooldown keeps it loop-proof.
+  function reassertMask(ev){
+    var p = ev && ev.participant;
+    if (!p || !p.local) return;
+    if (camConv.mode !== 'avatar' || !camConv.cam || !state.dailyFrame) return;
+    var v = p.tracks && p.tracks.video;
+    if (!v || v.state !== 'playable'){ camConv.maskAsserted = false; return; }
+    var live = v.persistentTrack || v.track || null;
+    if (live && camConv.cam.videoTrack && live.id === camConv.cam.videoTrack.id){
+      camConv.maskAsserted = true;
+      return;
+    }
+    // Track objects can be withheld across the iframe boundary; when we
+    // cannot compare ids, re-assert only on the off -> playable edge.
+    if (!live && camConv.maskAsserted) return;
+    var now = Date.now();
+    if (camConv.reassertAt && now - camConv.reassertAt < 1500) return;
+    camConv.reassertAt = now;
+    camConv.maskAsserted = true;
+    state.dailyFrame.setInputDevicesAsync({ videoSource: camConv.cam.videoTrack })
+      .catch(function(e){ console.warn('[avatar reassert]', e); });
+  }
+  // Full stop on leave: kill the guard and the canvas pipeline, release
+  // the camera + mic (recording light off), and reset so a rejoin
+  // rebuilds from scratch instead of reusing a dead canvas track.
+  function teardownCamPipeline(){
+    hideSelfPip();
+    if (modGuard){ try { modGuard.stop(); } catch(e){} modGuard = null; }
+    if (camConv.cam){ try { camConv.cam.stop(); } catch(e){} }
+    camConv.cam = null; camConv.camP = null; camConv.unified = false;
+    camConv.maskAsserted = false;
+    markCamMode('camera');
   }
 
   function mountDaily(){
@@ -3806,7 +3863,8 @@ body.lr-pip .lr-pip-notice{display:block}
             state.dailyFrame = frame;
             window.__lrDailyWrapper = true; // pop-out must not adopt this iframe (see enterPip)
             frame.on('joined-meeting', function(){ unifyCameraPipeline(); });
-            frame.on('left-meeting', function(){ hideSelfPip(); });
+            frame.on('participant-updated', reassertMask);
+            frame.on('left-meeting', teardownCamPipeline);
             frame.join({ url: url });
             buildCamModes(shell);
             state.dailyMounted = true;
