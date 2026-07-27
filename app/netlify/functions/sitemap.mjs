@@ -73,6 +73,15 @@ const URLS = [
   // /debate-online, focused on the random-human /spar path (which is
   // noindex itself, so this page is the indexable doorway).
   { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90' },
+  // 2026-07-27 doorway pack. /omegle-alternative targets the huge
+  // "omegle alternative" / "new omegle" cluster (Omegle died Nov 2023;
+  // the query volume did not). The two brand-phrase pages make the
+  // landing slogans indexable: "bet on your words" (play-credit markets,
+  // /predict itself is noindex so this is the indexable explainer) and
+  // "everyone has an opinion" (argue-your-opinion intents).
+  { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-07-27' },
+  { path: '/bet-on-your-words',                       changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
+  { path: '/everyone-has-an-opinion',                 changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
   // High-intent editorial doorways that remained in the hand-maintained
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.
