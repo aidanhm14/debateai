@@ -52,6 +52,8 @@ const URLS = [
   // occupant of the URL. Relisted 2026-07-23. The individual round
   // corpus is still sitemap-rounds.xml; this is the surface page.
   { path: '/rounds',          changefreq: 'weekly',  priority: '0.80', lastmod: '2026-07-22' },
+  // Standalone live-lobby experience. Added 2026-07-27.
+  { path: '/arena',           changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-27' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
   // Aidan's brief ("promote exhibition debate via SEO improvements

@@ -1181,8 +1181,11 @@
     function renderFeed(rows,real){
       rows=(rows&&rows.length?rows:sampleActivity).slice(0,7);
       document.getElementById('activityFeed').innerHTML=rows.map(function(r){
+        // Real activity is user-authored. Keep the public Arena lively
+        // without promoting unreviewed motions or waitlist notes here.
+        var detail=!real&&r.motion?' · '+esc(r.motion):'';
         return '<a class="feed-row" href="'+esc(r.href||'/live')+'"><span class="feed-icon">'+iconFor(r.kind)+'</span>'+
-          '<span class="feed-main"><strong>'+esc(r.name||'A debater')+'</strong><span>'+esc(r.label||'moved on the live board')+(r.motion?' · '+esc(r.motion):'')+'</span></span>'+
+          '<span class="feed-main"><strong>'+esc(r.name||'A debater')+'</strong><span>'+esc(r.label||'moved on the live board')+detail+'</span></span>'+
           '<span class="feed-time">'+esc(relTime(r.when))+'</span></a>';
       }).join('');
       setSource('feedSource',real?'Live network':'Preview activity',real);
