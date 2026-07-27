@@ -275,6 +275,9 @@
       // no-simultaneity surface, so it belongs next to the live ones.
       { href: '/rounds',      label: 'Async rounds' },
       { href: '/spectate',    label: 'Spectate live rounds' },
+      // 2026-07-27: standalone lobby prototype. It gathers the public
+      // network signals into one venue without replacing the landing.
+      { href: '/arena',       label: 'The Arena' },
       // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
       // page. It stays off the main bar because the primary product is
       // still debate practice; Explore is the right discovery surface.
