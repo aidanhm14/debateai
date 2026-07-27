@@ -22,6 +22,35 @@ import { checkAppCheck } from './lib/appcheck.mjs';
 const MODEL = process.env.DOCS_AGENT_MODEL || 'claude-sonnet-4-6';
 const MAX_TOKENS = 1024;
 
+// Per-IP rate limit. This endpoint proxies an expensive Claude Sonnet call and
+// is reachable anonymously (the Counter extension has no Firebase session, and
+// App Check is not yet enforced), so this in-memory limiter is the PRIMARY
+// abuse gate. Layered like transcribe.mjs. A human editing a doc fires a
+// handful of edits a minute; these caps only bite scripted hammering.
+const rlHits = new Map();
+const RL_LAYERS = [
+  { window: 60_000, max: 15, code: 'RATE_MINUTE' },
+  { window: 3_600_000, max: 120, code: 'RATE_HOUR' },
+  { window: 86_400_000, max: 500, code: 'RATE_DAY' },
+];
+function checkDocsRate(ip) {
+  const now = Date.now();
+  const arr = (rlHits.get(ip) || []).filter((t) => now - t < 86_400_000);
+  for (const layer of RL_LAYERS) {
+    if (arr.filter((t) => now - t < layer.window).length >= layer.max) {
+      return { ok: false, code: layer.code };
+    }
+  }
+  arr.push(now);
+  rlHits.set(ip, arr);
+  if (rlHits.size > 5000) {
+    const keep = Array.from(rlHits.entries()).slice(-2500);
+    rlHits.clear();
+    for (const [k, v] of keep) rlHits.set(k, v);
+  }
+  return { ok: true };
+}
+
 const SYSTEM_PROMPT = `You are an editor helping a student sharpen their own academic work before they defend it orally to a panel. The student wrote the passage below; your job is to make it tighter and more defensible without changing what the student is trying to say.
 
 Rules:
@@ -103,15 +132,34 @@ export default async (request, context) => {
     });
   }
 
-  // App Check: optional for the chrome extension origin (it has no
-  // App Check token), required for browser-origin requests.
+  // Abuse gate. The per-IP rate limit is the primary defense (App Check is
+  // dormant) and runs for EVERY origin — the chrome-extension:// origin is
+  // client-spoofable, so it gets no free pass.
+  const ip = request.headers.get('x-forwarded-for')
+    || request.headers.get('x-nf-client-connection-ip')
+    || 'anon';
+  const rate = checkDocsRate(ip);
+  if (!rate.ok) {
+    return new Response(JSON.stringify({ error: 'Too many requests. Give it a minute.', code: rate.code }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  }
+
+  // App Check layered on top for browser origins. checkAppCheck returns
+  // { ok, reason } and soft-passes until APP_CHECK_REQUIRED=true in prod, so
+  // this is a no-op today and real enforcement once App Check is set up.
+  // (The old `!appCheckOK` test compared against a truthy object and never
+  // fired; the NODE_ENV gate was unreliable at function runtime.) The
+  // extension origin can't produce a token, so it's waived here but still
+  // rate-limited above.
   const origin = request.headers.get('origin') || '';
   const isExtensionOrigin = origin.startsWith('chrome-extension://');
   if (!isExtensionOrigin) {
-    const appCheckOK = await checkAppCheck(request).catch(() => false);
-    if (!appCheckOK && process.env.NODE_ENV === 'production') {
-      return new Response(JSON.stringify({ error: 'app-check-failed' }), {
-        status: 403,
+    const appCheck = await checkAppCheck(request).catch(() => ({ ok: true, reason: 'error' }));
+    if (!appCheck.ok) {
+      return new Response(JSON.stringify({ error: 'App verification failed. Reload the page and try again.', code: 'APP_CHECK_' + String(appCheck.reason || '').toUpperCase() }), {
+        status: 401,
         headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
@@ -192,7 +240,8 @@ export default async (request, context) => {
       }),
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'anthropic upstream unreachable: ' + (e?.message || e) }), {
+    console.error('[docs-agent] anthropic unreachable:', e?.message || e);
+    return new Response(JSON.stringify({ error: 'The editing service is unreachable. Try again shortly.' }), {
       status: 502,
       headers: { 'Content-Type': 'application/json', ...CORS },
     });
@@ -200,7 +249,8 @@ export default async (request, context) => {
 
   if (!upstream.ok) {
     const txt = await upstream.text().catch(() => '');
-    return new Response(JSON.stringify({ error: `anthropic ${upstream.status}: ${txt.slice(0, 400)}` }), {
+    console.error('[docs-agent] anthropic ' + upstream.status + ': ' + txt.slice(0, 400));
+    return new Response(JSON.stringify({ error: 'The editing service is unavailable. Try again shortly.' }), {
       status: upstream.status,
       headers: { 'Content-Type': 'application/json', ...CORS },
     });

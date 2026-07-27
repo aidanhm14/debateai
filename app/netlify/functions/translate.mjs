@@ -100,7 +100,12 @@ export default async (request) => {
   // Same language on both sides means the caller should not have called.
   if (from && from === to) return json({ text, translated: false }, 200, request);
 
-  await checkAppCheck(request).catch(() => {});
+  // Enforce the App Check result (was discarded). Soft-passes until
+  // APP_CHECK_REQUIRED=true in prod, so this is a no-op today and real
+  // enforcement once App Check is configured; the per-IP limiter above is the
+  // gate in the meantime.
+  const ac = await checkAppCheck(request).catch(() => ({ ok: true, reason: 'error' }));
+  if (!ac.ok) return json({ error: 'App verification failed. Reload and try again.', code: 'APP_CHECK_' + String(ac.reason || '').toUpperCase() }, 401, request);
 
   const key = process.env.OPENAI_API_KEY;
   if (!key) return json({ error: 'Translation is not configured.' }, 503, request);
@@ -135,11 +140,10 @@ export default async (request) => {
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       console.error('translate upstream error', res.status, detail.slice(0, 300));
-      // Surface the upstream status. Without it a failure here is a black box:
-      // key, quota and model-access problems all look identical from outside.
-      let upstream = '';
-      try { upstream = (JSON.parse(detail).error || {}).message || ''; } catch { upstream = detail.slice(0, 160); }
-      return json({ error: 'Translation failed.', upstreamStatus: res.status, upstream }, 502, request);
+      // Surface only the upstream STATUS (a number), never the upstream error
+      // body: it can leak key/quota/model-access hints. Full detail is logged
+      // server-side above.
+      return json({ error: 'Translation failed.', upstreamStatus: res.status }, 502, request);
     }
 
     const data = await res.json();
