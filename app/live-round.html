@@ -210,6 +210,14 @@ button{font-family:inherit}
 .cam-modes button + button{border-left:1px solid rgba(255,255,255,.1)}
 .cam-modes button.on{background:var(--accent,#ef4444);color:#fff}
 .cam-modes button:not(.on):hover{color:#fff}
+/* Avatar self-check tile. While Avatar mode is on, the exact canvas that
+   is published to the room renders here, so the debater sees the same
+   mask the crowd sees. The prebuilt UI's self tile can keep showing the
+   raw camera; this tile is the parent-owned truth. pointer-events:none
+   keeps every click falling through to the call underneath. */
+.cam-self-pip{position:absolute;left:10px;bottom:64px;z-index:30;width:clamp(120px,24%,200px);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.22);background:#0a0a0e;box-shadow:0 6px 22px rgba(0,0,0,.5);pointer-events:none}
+.cam-self-pip canvas{display:block;width:100%;height:auto}
+.cam-self-tag{position:absolute;left:0;right:0;bottom:0;padding:10px 7px 4px;font:600 .54rem/1.3 Inter,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.88);background:linear-gradient(transparent,rgba(0,0,0,.78));text-align:center}
 /* ── Stage rail. One slim strip UNDER the video: the two debaters'
    nameplates flanking a quiet AI-judge chip. The call itself is the
    hero of the left pane; this rail is the only chrome it carries.
@@ -3504,6 +3512,31 @@ body.lr-pip .lr-pip-notice{display:block}
       b.classList.toggle('on', b.getAttribute('data-m') === m);
     });
   }
+  // Self-check tile: shows the published avatar canvas to its owner while
+  // Avatar mode is on. The canvas element IS the captureStream source, so
+  // what renders here is pixel-identical to what the room receives.
+  function showSelfPip(){
+    var cam = camConv.cam;
+    var shell = $('callShell') || $('jitsiPane');
+    if (!shell || !cam || !cam.canvas) return;
+    var pip = document.getElementById('camSelfPip');
+    if (!pip){
+      pip = document.createElement('div');
+      pip.id = 'camSelfPip';
+      pip.className = 'cam-self-pip';
+      var tag = document.createElement('span');
+      tag.className = 'cam-self-tag';
+      tag.textContent = 'What the room sees';
+      pip.appendChild(tag);
+      shell.appendChild(pip);
+    }
+    if (cam.canvas.parentNode !== pip) pip.insertBefore(cam.canvas, pip.firstChild);
+    pip.style.display = '';
+  }
+  function hideSelfPip(){
+    var pip = document.getElementById('camSelfPip');
+    if (pip) pip.style.display = 'none';
+  }
   function ensureAvatarCam(mode){
     if (camConv.cam) return Promise.resolve(camConv.cam);
     // Camera pixels go to the room ONLY in 'camera' (passthrough) mode;
@@ -3539,6 +3572,7 @@ body.lr-pip .lr-pip-notice{display:block}
         try { cam.setMode('off'); } catch(e){}
         try { state.dailyFrame && state.dailyFrame.setLocalVideo(false); } catch(e){}
         markCamMode('off');
+        hideSelfPip();
         showModerationCard(
           'Removed by the safety system',
           'The on-device detector flagged explicit content on your camera. The feed was cut before it reached the room, and this counts as a strike. Repeat strikes suspend video access.'
@@ -3657,7 +3691,8 @@ body.lr-pip .lr-pip-notice{display:block}
       }).then(function(){
         frame.setLocalVideo(true);
         markCamMode('avatar');
-        toast('Avatar on. The room sees only the animated mask, never your camera.');
+        showSelfPip();
+        toast('Avatar on. The room sees only the animated mask, never your camera. The corner tile is your view of it.');
         try { gtag('event', 'live_round_avatar_on'); } catch(e){}
       }).catch(function(e){
         console.warn('[avatar]', e);
@@ -3675,6 +3710,7 @@ body.lr-pip .lr-pip-notice{display:block}
           return frame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
             frame.setLocalVideo(true);
             markCamMode('camera');
+            hideSelfPip();
           });
         }).catch(function(e){
           console.warn('[camera passthrough]', e);
@@ -3684,6 +3720,7 @@ body.lr-pip .lr-pip-notice{display:block}
           Promise.resolve(restore).then(function(){
             frame.setLocalVideo(true);
             markCamMode('camera');
+            hideSelfPip();
           }).catch(function(e2){
             console.warn('[camera restore]', e2);
             toast('Use the in-call camera picker to re-enable your camera');
@@ -3696,6 +3733,7 @@ body.lr-pip .lr-pip-notice{display:block}
         Promise.resolve(restore).then(function(){
           frame.setLocalVideo(true);
           markCamMode('camera');
+          hideSelfPip();
         }).catch(function(e){
           console.warn('[camera restore]', e);
           toast('Use the in-call camera picker to re-enable your camera');
@@ -3705,6 +3743,7 @@ body.lr-pip .lr-pip-notice{display:block}
       if (camConv.cam) try { camConv.cam.setMode('off'); } catch(e){}
       frame.setLocalVideo(false);
       markCamMode('off');
+      hideSelfPip();
       toast('Camera off. Your mic is unaffected.');
     }
   }
@@ -3767,6 +3806,7 @@ body.lr-pip .lr-pip-notice{display:block}
             state.dailyFrame = frame;
             window.__lrDailyWrapper = true; // pop-out must not adopt this iframe (see enterPip)
             frame.on('joined-meeting', function(){ unifyCameraPipeline(); });
+            frame.on('left-meeting', function(){ hideSelfPip(); });
             frame.join({ url: url });
             buildCamModes(shell);
             state.dailyMounted = true;
