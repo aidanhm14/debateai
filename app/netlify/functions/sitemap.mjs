@@ -82,6 +82,10 @@ const URLS = [
   { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-07-27' },
   { path: '/bet-on-your-words',                       changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
   { path: '/everyone-has-an-opinion',                 changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
+  // /get-paid-to-debate answers the money-intent cluster ("get paid to
+  // debate", "win money debating", "make money arguing") honestly:
+  // prizes coming, board free today, waitlist CTA.
+  { path: '/get-paid-to-debate',                      changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-27' },
   // High-intent editorial doorways that remained in the hand-maintained
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.
