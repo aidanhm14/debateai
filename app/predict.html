@@ -70,7 +70,23 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   .signin:hover{background:var(--con-d)}
   .acct{font-size:.78rem;color:var(--dim);background:transparent;border:1px solid var(--bd2);padding:6px 12px;border-radius:999px;cursor:pointer}
 
-  .head{padding:26px 20px 8px}
+  /* Money field: drifting currency marks behind the hero and the pay
+     band, same motif as the landing's .fb-money (muted, ~9% opacity,
+     decorative only). Content sits above at z-index 1. */
+  .money-field{position:absolute;inset:-20px 0;pointer-events:none;z-index:0;overflow:hidden}
+  .money-field span{position:absolute;left:var(--x);top:var(--y);
+    font-family:'Crimson Pro',Georgia,serif;font-weight:700;line-height:1;
+    font-size:calc(var(--s,1) * 44px);color:var(--con);opacity:.12;
+    animation:pmFloat 11s ease-in-out var(--d,0s) infinite}
+  .money-field.green span{color:var(--pro);opacity:.16}
+  @keyframes pmFloat{
+    0%,100%{transform:rotate(var(--r,0deg)) translateY(0)}
+    50%    {transform:rotate(var(--r,0deg)) translateY(-14px)}
+  }
+  @media(prefers-reduced-motion:reduce){.money-field span{animation:none}}
+
+  .head{padding:26px 20px 8px;position:relative}
+  .head>*{position:relative;z-index:1}
   .head h1{font-size:clamp(1.9rem,4.5vw,2.7rem);font-weight:800;letter-spacing:-.02em}
   .head p{color:var(--dim);font-size:.96rem;margin-top:4px;max-width:60ch}
   /* 2026-07-23: the lede is set at --dim, so bold alone barely reads.
@@ -213,6 +229,30 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   .vends{display:flex;justify-content:space-between;font-size:.66rem;color:var(--faint);margin-top:2px}
   .rules-fine{font-size:.69rem;color:var(--faint);margin-top:9px;line-height:1.45}
 
+  /* Pay band: the money-in surface, green where the prize band is
+     amber. Same grid grammar as .sweep-banner. */
+  .pay-band{position:relative;overflow:hidden;display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:16px;align-items:center;margin:18px 0 2px;padding:18px 20px;border:1px solid rgba(21,128,61,.28);border-radius:var(--r);background:linear-gradient(110deg,#f2fbf4,#fff 66%);box-shadow:var(--shadow)}
+  .pay-band>*{position:relative;z-index:1}
+  .pay-band .money-field{z-index:0}
+  .pay-badge{width:64px;height:64px;display:grid;place-items:center;border-radius:16px;background:rgba(21,128,61,.12);border:1px solid rgba(21,128,61,.28);font-family:'Crimson Pro',Georgia,serif;font-size:1.7rem;font-weight:900;color:var(--pro)}
+  .pay-copy .k{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--pro)}
+  .pay-copy h2{font-size:1.14rem;line-height:1.18;margin:3px 0 4px}
+  .pay-copy p{font-size:.8rem;line-height:1.45;color:var(--dim);max-width:72ch}
+  .pay-copy p strong{color:var(--tx)}
+  .pay-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+  .pay-actions a{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;padding:10px 15px;border-radius:10px;font-size:.78rem;font-weight:800}
+  .pay-actions .primary{background:var(--pro-d);color:#fff}
+  .pay-actions .primary:hover{background:var(--pro)}
+  .pay-actions .secondary{border:1px solid var(--bd2);color:var(--tx);background:var(--panel)}
+  .pay-legal{grid-column:2/-1;font-family:var(--mono);font-size:.57rem;color:var(--faint);margin-top:-9px}
+  @media(max-width:980px){
+    .pay-band{grid-template-columns:52px 1fr}
+    .pay-badge{width:52px;height:52px}
+    .pay-actions,.pay-legal{grid-column:1/-1}
+    .pay-actions{justify-content:stretch}
+    .pay-actions a{flex:1}
+  }
+
   .sweep-banner{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:14px;align-items:center;margin:14px 0 2px;padding:14px 16px;border:1px solid rgba(180,83,9,.26);border-radius:var(--r);background:linear-gradient(110deg,#fffaf0,#fff 66%);box-shadow:var(--shadow)}
   .sweep-badge{width:54px;height:54px;display:grid;place-items:center;border-radius:14px;background:rgba(251,191,36,.14);border:1px solid rgba(180,83,9,.25);font-family:var(--mono);font-size:1.08rem;font-weight:900;color:var(--amber)}
   .sweep-copy .k{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
@@ -302,10 +342,20 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
 </div>
 
 <div class="wrap head">
+  <div class="money-field" aria-hidden="true">
+    <span style="--x:4%;--y:6%;--s:1.4;--r:-11deg;--d:0s">$</span>
+    <span style="--x:30%;--y:2%;--s:.85;--r:8deg;--d:1.3s">&euro;</span>
+    <span style="--x:56%;--y:8%;--s:1.1;--r:-5deg;--d:2.5s">&pound;</span>
+    <span style="--x:83%;--y:4%;--s:1.3;--r:13deg;--d:.7s">$</span>
+    <span style="--x:68%;--y:52%;--s:.9;--r:-8deg;--d:3.4s">&#8377;</span>
+    <span style="--x:91%;--y:64%;--s:1.15;--r:6deg;--d:1.9s">&yen;</span>
+    <span style="--x:44%;--y:78%;--s:.8;--r:-13deg;--d:2.8s">$</span>
+  </div>
   <h1>Bet on your words.</h1>
   <p>Every debate here runs on stakes. <strong>Debaters back themselves</strong> by putting their name on a side. <strong>The audience backs its reads</strong> with free <strong>Play Points</strong> on who wins. The <strong>AI judge</strong> settles the market the moment the round ends. <strong>Points never turn into money.</strong> The cash-prize track is separate and rules-first.</p>
   <div class="head-actions">
     <a class="primary" href="#markets">See the open markets</a>
+    <a class="secondary" href="/tokens">Get tokens · $4.99</a>
     <a class="secondary" href="/#waitlist">Join the prize waitlist</a>
   </div>
   <div class="pts" id="signedOutNote" hidden>Browsing as a guest. <a href="#" id="inlineSignin">Sign in</a> to predict and climb the ladder.</div>
@@ -336,6 +386,32 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
     </div>
   </section>
   <p class="model-loop">Stakes make people watch whole rounds. Watching makes you vote. Votes teach the judge. The judge gets sharper, the odds get sharper, better debaters show up, the pool grows.</p>
+
+  <!-- The money-in surface. Facts mirror /pricing exactly: Tokens are
+       the one live purchase ($4.99/mo, Stripe), plans are reservable,
+       and the wall stays verbatim: paying never buys points, prizes,
+       or odds. That sentence is what keeps the free market a game and
+       the purchase a product, not a wager. -->
+  <section class="pay-band" aria-label="Go paid">
+    <div class="money-field green" aria-hidden="true">
+      <span style="--x:2%;--y:8%;--s:1.2;--r:-9deg;--d:.4s">$</span>
+      <span style="--x:22%;--y:60%;--s:.8;--r:11deg;--d:2.1s">&euro;</span>
+      <span style="--x:60%;--y:6%;--s:.95;--r:-6deg;--d:1.2s">$</span>
+      <span style="--x:78%;--y:58%;--s:1.25;--r:8deg;--d:3s">&pound;</span>
+      <span style="--x:93%;--y:12%;--s:.85;--r:-12deg;--d:1.7s">$</span>
+    </div>
+    <div class="pay-badge" aria-hidden="true">$</div>
+    <div class="pay-copy">
+      <span class="k">Live now · billing by Stripe</span>
+      <h2>Voice rounds are on sale. The market stays free.</h2>
+      <p>Tokens are the one thing for sale during beta: <strong>$4.99 a month for 500</strong>, and a voice round past the free cap costs 50. Full app plans are open to reserve at their launch price. Buying anything <strong>never buys points, prizes, or odds</strong>.</p>
+    </div>
+    <div class="pay-actions">
+      <a class="primary" href="/tokens" data-cta="predict-tokens">Get tokens</a>
+      <a class="secondary" href="/pricing" data-cta="predict-plans">See all plans</a>
+    </div>
+    <p class="pay-legal">Payments run through Stripe. Play Points stay free, non-purchasable, and non-redeemable.</p>
+  </section>
 </div>
 
 <div class="wrap">
