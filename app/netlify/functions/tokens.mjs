@@ -30,6 +30,7 @@ export default async (request) => {
     spent: a.spent || 0,
     status: a.status || 'none',
     perCycle: TOKENS.PER_CYCLE,
+    voiceRound: TOKENS.VOICE_ROUND,
     live: TOKENS_LIVE,
     disclaimer: 'Tokens are usage allowance for AI features. Not Play Points, not prize entries, never redeemable for money.',
   }, 200, request);

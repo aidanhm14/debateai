@@ -31,6 +31,7 @@
 
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
+import { TOKENS, TOKENS_LIVE, getTokenBalance, spendTokens } from './lib/tokens.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 
 // Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
@@ -902,6 +903,8 @@ export default async (request, context) => {
   let signedInUid = null;
   let isPro = false;
   let voiceUsedBefore = 0;
+  let tokenFunded = false;
+  let tokenBalance = 0;
   try {
     const token = extractBearerToken(request);
     if (token){
@@ -940,12 +943,32 @@ export default async (request, context) => {
       }
       } // end non-owner cap reads
       if (!isPro && voiceUsedBefore >= FREE_VOICE_LIFETIME_LIMIT){
-        return new Response(JSON.stringify({
-          error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice sessions. Upgrade to Pro for unlimited voice.',
-          upgrade: true,
-          used: voiceUsedBefore,
-          limit: FREE_VOICE_LIFETIME_LIMIT,
-        }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
+        // Token-funded path: past the free cap, a token balance covers
+        // the round (TOKENS.VOICE_ROUND per mint). Balance is checked
+        // here; the spend happens AFTER a successful mint, same as the
+        // usage counter, so failed mints cost nothing. The spend
+        // transaction re-validates, so a stale read can't overdraw.
+        try {
+          tokenBalance = await withTimeout(getTokenBalance(signedInUid), 1500, 'token balance read');
+        } catch (tokErr) {
+          console.warn('[realtime-session] token read soft-failed:', tokErr && tokErr.message);
+          tokenBalance = 0;
+        }
+        if (tokenBalance >= TOKENS.VOICE_ROUND){
+          tokenFunded = true;
+        } else {
+          return new Response(JSON.stringify({
+            error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice sessions. Upgrade to Pro for unlimited voice.',
+            upgrade: true,
+            used: voiceUsedBefore,
+            limit: FREE_VOICE_LIFETIME_LIMIT,
+            // Token fields ride the 402 so the client can surface the
+            // tokens path the moment TOKENS_LIVE flips, no client change.
+            tokensLive: TOKENS_LIVE,
+            tokensNeeded: TOKENS.VOICE_ROUND,
+            tokensBalance: tokenBalance,
+          }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
+        }
       }
     }
   } catch(authErr){
@@ -1466,6 +1489,28 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       }
     }
 
+    // Token-funded round: spend after the successful mint, idempotent
+    // on the session id so a retried mint can't double-charge. Bounded
+    // so a Firestore stall never delays the WebRTC handshake; on
+    // timeout the round goes unspent (logged, acceptable failure mode,
+    // mirrors the usage-counter contract above).
+    let tokensAfter = null;
+    if (tokenFunded && signedInUid){
+      try {
+        const spendRes = await withTimeout(spendTokens({
+          uid: signedInUid,
+          amount: TOKENS.VOICE_ROUND,
+          refType: 'voice_round',
+          refId: sessionId || ('mint_' + Date.now() + '_' + signedInUid.slice(0, 8)),
+          reason: 'Voice round',
+        }), 2500, 'token spend');
+        if (spendRes.ok) tokensAfter = spendRes.balance;
+        else console.warn('[realtime-session] token spend insufficient at spend time for', signedInUid);
+      } catch(e){
+        console.warn('[realtime-session] token spend failed:', e && e.message);
+      }
+    }
+
     // Hand the browser only what WebRTC needs. The ephemeral
     // client_secret is short-lived and scoped to one session — safe to
     // ship to the page. The raw OPENAI_API_KEY stays here.
@@ -1486,6 +1531,9 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
         used: voiceUsedBefore + 1,
         limit: isPro ? null : FREE_VOICE_LIFETIME_LIMIT,
         isPro: isPro,
+        tokenFunded: tokenFunded,
+        tokensSpent: tokenFunded ? TOKENS.VOICE_ROUND : 0,
+        tokensBalance: tokensAfter,
       } : null,
     }), {
       status: 200,

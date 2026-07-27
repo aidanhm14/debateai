@@ -16,6 +16,10 @@ export const TOKENS = {
   // number can move without a redeploy of the price itself. The value
   // pinned in subscription metadata at checkout time wins over this.
   PER_CYCLE: Math.max(1, parseInt(process.env.TOKENS_PER_CYCLE || '500', 10) || 500),
+  // Cost of one voice round past the free allowance. 500 per cycle at
+  // 50 per round = 10 funded voice rounds a month, which prices a
+  // round at roughly $0.50 against realtime-API cost of $0.30-0.75.
+  VOICE_ROUND: Math.max(1, parseInt(process.env.TOKENS_VOICE_ROUND || '50', 10) || 50),
 };
 
 // Sale switch. Off by default: every checkout attempt 403s until the
@@ -75,6 +79,53 @@ export async function grantTokensForInvoice({ uid, invoiceId, amount, reason }) 
       createdAt: now,
     });
     return { granted: true, balance: tokens };
+  });
+}
+
+// Read-only balance for gate checks. The spend itself re-validates
+// inside a transaction, so a stale read here can never overdraw.
+export async function getTokenBalance(uid) {
+  const db = getDb();
+  const snap = await db.collection('token_accounts').doc(uid).get();
+  return snap.exists ? (snap.data().tokens || 0) : 0;
+}
+
+// Spend atomically. Pass a stable refId (e.g. the realtime session id)
+// and the txn doc id spend_<refId> makes retries idempotent: a
+// duplicate call finds the txn and charges nothing.
+export async function spendTokens({ uid, amount, refType, refId, reason }) {
+  const db = getDb();
+  const acctRef = db.collection('token_accounts').doc(uid);
+  const txnRef = refId
+    ? acctRef.collection('txns').doc('spend_' + String(refId).replace(/[^\w-]/g, '_').slice(0, 120))
+    : acctRef.collection('txns').doc();
+  const now = Date.now();
+
+  return db.runTransaction(async (tx) => {
+    const [txnSnap, acctSnap] = await Promise.all([tx.get(txnRef), tx.get(acctRef)]);
+    const a = acctSnap.exists ? acctSnap.data() : defaultTokenAccount(uid, now);
+    if (txnSnap.exists) return { ok: true, duplicate: true, balance: a.tokens || 0 };
+    if ((a.tokens || 0) < amount) return { ok: false, insufficient: true, balance: a.tokens || 0 };
+
+    const tokens = (a.tokens || 0) - amount;
+    tx.set(acctRef, {
+      ...a,
+      uid,
+      tokens,
+      spent: (a.spent || 0) + amount,
+      updatedAt: now,
+    }, { merge: true });
+    tx.set(txnRef, {
+      kind: 'spend',
+      uid,
+      amount: -amount,
+      balanceAfter: tokens,
+      refType: refType || 'usage',
+      refId: refId || null,
+      reason: reason || 'Usage',
+      createdAt: now,
+    });
+    return { ok: true, balance: tokens };
   });
 }
 

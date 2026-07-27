@@ -5563,7 +5563,12 @@ function App() {
           // be higher than the server's), so the user never loops on a
           // Start button that always 402s with no path forward.
           setVoiceGate((g) => ({ ...g, state: 'upgrade', loading: false }));
-          var e = new Error(window.__DB_NATIVE ? 'Free voice rounds exhausted for now.' : body.error || 'Free voice rounds exhausted. Keep going with a plan.');
+          // When token sales are live the server says so on the 402;
+          // point at the tokens path instead of the generic upsell.
+          var tokMsg = (body.tokensLive && body.tokensNeeded)
+            ? 'Free voice rounds used. A round costs ' + body.tokensNeeded + ' tokens; get them at itsdebatable.com/tokens.'
+            : (body.error || 'Free voice rounds exhausted. Keep going with a plan.');
+          var e = new Error(window.__DB_NATIVE ? 'Free voice rounds exhausted for now.' : tokMsg);
           e.kind = 'upgrade';
           throw e;
         }
