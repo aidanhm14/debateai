@@ -694,6 +694,33 @@
   })();
 </script>
 
+<!-- Chapter content-visibility A/B (2026-07-27). Pure renderer-perf
+     test: the 'cv' arm keeps content-visibility:auto on the gated
+     chapters after "See more" opens, so only near-viewport chapters
+     render; 'control' keeps the 2026-07-25 force-render-all behavior.
+     Copy and layout are identical in both arms. ?lpcv=cv|control
+     forces QA. CSS lives next to the landing-more gate rules and in
+     the @supports (content-visibility:auto) block near the FAQ. -->
+<script>
+  (function(){
+    var v='',forced=false;
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]lpcv=cv(?:&|$)/.test(qp)){v='cv';forced=true;}
+      else if(/[?&]lpcv=control(?:&|$)/.test(qp)){v='control';forced=true;}
+    }catch(e){}
+    if(!v){
+      try{
+        v=localStorage.getItem('da-lpcv-ab')||'';
+        if(v!=='cv'&&v!=='control'){v=Math.random()<0.5?'cv':'control';localStorage.setItem('da-lpcv-ab',v);}
+      }catch(e){v='control';}
+    }
+    document.documentElement.setAttribute('data-lpcv',v);
+    window.__abAssignments=window.__abAssignments||{};
+    window.__abAssignments.landing_cv_v1=forced?{variant:v,forced:true}:{variant:v};
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -10307,17 +10334,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       display:none !important;
     }
     body.landing-more-ready:not(.landing-more-open) .footer-row{justify-content:center}
-    body.landing-more-open #why-this-exists,
-    body.landing-more-open #floor-band,
-    body.landing-more-open #mode-select,
-    body.landing-more-open #credential-path,
-    body.landing-more-open #community-band,
-    body.landing-more-open #face-wall,
-    body.landing-more-open #ranked-band,
-    body.landing-more-open #creator-sweepstakes,
-    body.landing-more-open #reviews,
-    body.landing-more-open #faq,
-    body.landing-more-open #book-founders{
+    /* Control arm (and JS-off visitors): opening the gate force-renders
+       every chapter at once, the behavior this rule shipped with on
+       2026-07-25. The landing_cv_v1 'cv' arm drops the override so the
+       chapters keep content-visibility:auto after the gate opens and
+       only render near the viewport. QA: ?lpcv=cv|control. */
+    html:not([data-lpcv="cv"]) body.landing-more-open #why-this-exists,
+    html:not([data-lpcv="cv"]) body.landing-more-open #floor-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #mode-select,
+    html:not([data-lpcv="cv"]) body.landing-more-open #credential-path,
+    html:not([data-lpcv="cv"]) body.landing-more-open #community-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #face-wall,
+    html:not([data-lpcv="cv"]) body.landing-more-open #ranked-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #creator-sweepstakes,
+    html:not([data-lpcv="cv"]) body.landing-more-open #reviews,
+    html:not([data-lpcv="cv"]) body.landing-more-open #faq,
+    html:not([data-lpcv="cv"]) body.landing-more-open #book-founders{
       content-visibility:visible !important;
     }
     .landing-more-summary{
@@ -10451,7 +10483,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
   </style>
   <div class="landing-more" id="landing-more">
-    <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false">
+    <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false" data-ab-test="landing_cv_v1" data-ab-target="gate_toggle">
       <span class="lm-copy">
         <span class="lm-kicker">Explore more</span>
         <strong class="lm-title">See the rest of Debatable.</strong>
@@ -10491,9 +10523,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       if (track) {
         try {
           gtag('event', 'landing_more_toggle', {
-            state: open ? 'open' : 'closed'
+            state: open ? 'open' : 'closed',
+            cv: document.documentElement.getAttribute('data-lpcv') || ''
           });
         } catch (_) {}
+      }
+    }
+
+    // cv arm: a chapter that has never rendered sits at its
+    // contain-intrinsic-size placeholder, so chapters above a deep-link
+    // target can re-render after the jump and shift the landing.
+    // Render everything above the target up front (founder-scroll
+    // precedent); chapters at and below it keep containment.
+    function forceRenderAbove(target){
+      if (document.documentElement.getAttribute('data-lpcv') !== 'cv') return;
+      var chapters = ['why-this-exists','floor-band','mode-select','credential-path','community-band','face-wall','ranked-band','creator-sweepstakes','reviews','faq','book-founders'];
+      for (var i = 0; i < chapters.length; i++){
+        var el = document.getElementById(chapters[i]);
+        if (!el) continue;
+        if (el === target || el.contains(target)) break;
+        el.style.contentVisibility = 'visible';
       }
     }
 
@@ -10503,10 +10552,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var id;
       try { id = decodeURIComponent(raw); } catch (_) { id = raw; }
       var target = document.getElementById(id);
-      if (!target || !target.closest(extraSelector)) return;
-      setOpen(true, false);
+      if (!target) return;
+      var inChapters = !!target.closest(extraSelector);
+      // #waitlist sits after the gated chapters but outside the gate, so
+      // a jump to it while the gate is open crosses every contained
+      // chapter and needs the same stabilization.
+      var pastChapters = !inChapters && !!target.closest('#waitlist');
+      if (!inChapters && !pastChapters) return;
+      if (pastChapters && !document.body.classList.contains('landing-more-open')) return;
+      if (inChapters) setOpen(true, false);
+      forceRenderAbove(target);
       window.requestAnimationFrame(function(){
         target.scrollIntoView({ block: 'start' });
+        // cv arm: land once more after real heights settle (same
+        // pattern as the founder-call scroll above).
+        if (document.documentElement.getAttribute('data-lpcv') === 'cv'){
+          setTimeout(function(){ target.scrollIntoView({ block: 'start' }); }, 450);
+        }
       });
     }
 
@@ -15545,16 +15607,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      Chromium auto-renders the target section before scrolling.
      Gated behind @supports so older browsers just see normal layout. */
   @supports (content-visibility: auto) {
-    /* 2026-05-27 expansion: added .price-compare ("Different premise"),
-       #founder-video, and the trailing "Everywhere else" section.
-       Each is multi-thousand-line below-fold content that was costing
-       paint/layout on every scroll on Chrome despite never being
-       on-screen at first paint. contain-intrinsic-size gives the
-       browser a placeholder height so scroll position stays correct
-       before the section hydrates. */
-    .price-compare,
-    #founder-video,
-    #overview,
+    /* 2026-07-27: placeholder sizes re-measured per section at 1280px
+       and 375px (gate open, fully rendered). The old blanket 800px was
+       off by up to ~1000px on #faq, which made a first anchor jump land
+       short until the sections above it rendered at real height. The
+       `auto` keyword keeps the last-rendered size once a section has
+       been on screen, so these only steer the first paint and the first
+       far-anchor jump. Dead selectors from the 2026-05-27 expansion
+       pruned (.price-compare, #founder-video, #overview, #debate-ai,
+       .topics-edu-pair, .landing-guides-block, .landing-compare-block,
+       #philosophy no longer exist in this document). */
     #live-proof,
     #why-this-exists,
     #floor-band,
@@ -15567,25 +15629,37 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     #reviews,
     #book-founders,
     #waitlist,
-    #debate-ai,
-    .topics-edu-pair,
-    .landing-guides-block,
-    .landing-compare-block,
-    #philosophy,
     #faq {
       content-visibility: auto;
       contain-intrinsic-size: auto 800px;
     }
-    #face-wall,
-    #waitlist {
-      contain-intrinsic-size: auto 320px;
-    }
-    #ranked-band,
-    #creator-sweepstakes {
-      contain-intrinsic-size: auto 1500px;
-    }
-    #book-founders {
-      contain-intrinsic-size: auto 1000px;
+    #live-proof{contain-intrinsic-size:auto 910px}
+    #why-this-exists{contain-intrinsic-size:auto 460px}
+    #floor-band{contain-intrinsic-size:auto 740px}
+    #mode-select{contain-intrinsic-size:auto 590px}
+    #credential-path{contain-intrinsic-size:auto 810px}
+    #community-band{contain-intrinsic-size:auto 1440px}
+    #face-wall{contain-intrinsic-size:auto 320px}
+    #ranked-band{contain-intrinsic-size:auto 1490px}
+    #creator-sweepstakes{contain-intrinsic-size:auto 1650px}
+    #reviews{contain-intrinsic-size:auto 770px}
+    #faq{contain-intrinsic-size:auto 1830px}
+    #book-founders{contain-intrinsic-size:auto 1070px}
+    #waitlist{contain-intrinsic-size:auto 260px}
+    @media (max-width:760px){
+      #live-proof{contain-intrinsic-size:auto 1680px}
+      #why-this-exists{contain-intrinsic-size:auto 750px}
+      #floor-band{contain-intrinsic-size:auto 1410px}
+      #mode-select{contain-intrinsic-size:auto 820px}
+      #credential-path{contain-intrinsic-size:auto 2080px}
+      #community-band{contain-intrinsic-size:auto 2630px}
+      #face-wall{contain-intrinsic-size:auto 290px}
+      #ranked-band{contain-intrinsic-size:auto 1830px}
+      #creator-sweepstakes{contain-intrinsic-size:auto 2000px}
+      #reviews{contain-intrinsic-size:auto 1250px}
+      #faq{contain-intrinsic-size:auto 1910px}
+      #book-founders{contain-intrinsic-size:auto 1430px}
+      #waitlist{contain-intrinsic-size:auto 450px}
     }
   }
 
