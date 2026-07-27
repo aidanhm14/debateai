@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="crimson" data-force-theme="crimson" data-lighting="dark">
+<html lang="en" data-theme="crimson" data-lighting="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -12,6 +12,17 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#08080a">
+  <script>
+    (function(){
+      var saved='light';
+      try{saved=localStorage.getItem('arena-theme')||localStorage.getItem('da-theme')||'light'}catch(e){}
+      saved=saved==='light'?'light':'crimson';
+      document.documentElement.setAttribute('data-theme',saved);
+      document.documentElement.setAttribute('data-force-theme',saved);
+      document.documentElement.setAttribute('data-lighting',saved==='light'?'light':'dark');
+      document.querySelector('meta[name="theme-color"]').setAttribute('content',saved==='light'?'#f6f2ea':'#08080a');
+    })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Debatable">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
@@ -61,6 +72,7 @@
 
   <style>
     :root{
+      color-scheme:dark;
       --arena-bg:#070708;
       --arena-panel:#111114;
       --arena-panel-2:#16161a;
@@ -78,6 +90,24 @@
       --arena-radius:20px;
       --arena-shadow:0 24px 80px rgba(0,0,0,.36);
       --arena-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --arena-bg:#f6f2ea;
+      --arena-panel:#fffdf9;
+      --arena-panel-2:#fffdf9;
+      --arena-panel-3:#f4ede3;
+      --arena-line:rgba(63,44,32,.14);
+      --arena-line-hot:rgba(185,28,28,.3);
+      --arena-ink:#251d18;
+      --arena-dim:rgba(37,29,24,.7);
+      --arena-ghost:rgba(37,29,24,.48);
+      --arena-red:#c92f2f;
+      --arena-red-dark:#991f1f;
+      --arena-green:#187a55;
+      --arena-gold:#a96812;
+      --arena-blue:#3767b5;
+      --arena-shadow:0 24px 70px rgba(67,45,29,.12);
     }
     *{box-sizing:border-box}
     [hidden]{display:none!important}
@@ -101,6 +131,17 @@
       pointer-events:none;
       z-index:0;
       background:linear-gradient(115deg,transparent 0 46%,rgba(239,68,68,.028) 46% 46.2%,transparent 46.2% 100%);
+    }
+    [data-theme="light"] body{
+      background:
+        radial-gradient(circle at 50% -10%,rgba(201,47,47,.12),transparent 34%),
+        linear-gradient(rgba(63,44,32,.035) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(63,44,32,.035) 1px,transparent 1px),
+        var(--arena-bg);
+      background-size:auto,48px 48px,48px 48px,auto;
+    }
+    [data-theme="light"] body:before{
+      background:linear-gradient(115deg,transparent 0 46%,rgba(201,47,47,.035) 46% 46.2%,transparent 46.2% 100%);
     }
     a{color:inherit}
     button,input{font:inherit}
@@ -158,6 +199,36 @@
       font-weight:900;
     }
     .arena-mast h1 span{color:var(--arena-red)}
+    .mast-status{
+      display:grid;
+      justify-items:end;
+      gap:13px;
+    }
+    .arena-theme-toggle{
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:7px 11px;
+      border:1px solid var(--arena-line);
+      border-radius:999px;
+      color:var(--arena-dim);
+      background:color-mix(in srgb,var(--arena-panel) 82%,transparent);
+      box-shadow:0 8px 24px rgba(0,0,0,.12);
+      cursor:pointer;
+      font:800 .65rem/1 var(--arena-mono);
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      transition:transform .18s ease,border-color .18s ease,color .18s ease,background .18s ease;
+    }
+    .arena-theme-toggle:hover{transform:translateY(-1px);border-color:var(--arena-line-hot);color:var(--arena-ink)}
+    .arena-theme-toggle:focus-visible{outline:2px solid var(--arena-ink);outline-offset:3px}
+    .arena-theme-toggle svg{width:14px;height:14px}
+    .arena-theme-toggle .theme-sun,
+    .arena-theme-toggle .theme-moon{display:none}
+    [data-theme="crimson"] .arena-theme-toggle .theme-sun,
+    [data-theme="light"] .arena-theme-toggle .theme-moon{display:block}
     .network-proof{
       display:flex;
       align-items:center;
@@ -208,6 +279,10 @@
       border-radius:inherit;
       box-shadow:inset 0 1px rgba(255,255,255,.035);
     }
+    [data-theme="light"] .panel{
+      background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(250,245,237,.9));
+    }
+    [data-theme="light"] .panel:after{box-shadow:inset 0 1px rgba(255,255,255,.9)}
     .panel-head{
       display:flex;
       align-items:center;
@@ -309,6 +384,18 @@
     .btn.primary:hover{background:#ff5353;border-color:#ff5353;box-shadow:0 16px 34px rgba(185,28,28,.38)}
     .btn.dark{background:#fff;color:#111;border-color:#fff}
     .btn svg{width:16px;height:16px;flex:0 0 auto}
+    [data-theme="light"] .btn{
+      background:rgba(255,255,255,.72);
+      border-color:var(--arena-line);
+    }
+    [data-theme="light"] .btn:hover{border-color:rgba(63,44,32,.28);background:#fff}
+    [data-theme="light"] .btn.primary{color:#fff;background:var(--arena-red);border-color:var(--arena-red)}
+    [data-theme="light"] .btn.primary:hover{background:var(--arena-red-dark);border-color:var(--arena-red-dark)}
+    [data-theme="light"] .btn.dark{color:#fff;background:#251d18;border-color:#251d18}
+    [data-theme="light"] .btn.dark:hover{background:#3a2d25;border-color:#3a2d25}
+    [data-theme="light"] .btn:focus-visible,
+    [data-theme="light"] .motion-row:focus-visible,
+    [data-theme="light"] .remind:focus-visible{outline-color:#251d18}
 
     .stage{grid-area:stage;min-height:620px;background:linear-gradient(180deg,#121215 0%,#09090b 100%)}
     .stage .panel-head{border-color:rgba(239,68,68,.16)}
@@ -451,6 +538,25 @@
       text-transform:uppercase;
       letter-spacing:.07em;
     }
+    [data-theme="light"] .stage{background:linear-gradient(180deg,#fffaf3 0%,#f2eadf 100%)}
+    [data-theme="light"] .live-flag{color:var(--arena-ink)}
+    [data-theme="light"] .broadcast{
+      background:
+        radial-gradient(circle at 50% 28%,rgba(201,47,47,.12),transparent 37%),
+        linear-gradient(118deg,rgba(255,255,255,.72),transparent 42%),
+        #f8f1e7;
+    }
+    [data-theme="light"] .broadcast:before{
+      background:
+        repeating-linear-gradient(90deg,transparent 0 79px,rgba(63,44,32,.05) 80px),
+        repeating-linear-gradient(0deg,transparent 0 79px,rgba(63,44,32,.05) 80px);
+    }
+    [data-theme="light"] .speaker-avatar{
+      color:#392b24;
+      background:linear-gradient(145deg,#eee4d7,#d9c9ba);
+      border-color:rgba(63,44,32,.18);
+    }
+    [data-theme="light"] .speaker.active .speaker-avatar:after{border-color:#f8f1e7}
     .stage-actions{
       display:flex;
       gap:10px;
@@ -485,6 +591,9 @@
     .metric-track{height:3px;margin-top:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
     .metric-track i{display:block;height:100%;width:var(--w);border-radius:inherit;background:var(--arena-gold);transform-origin:left;animation:metricIn 1.2s ease both}
     @keyframes metricIn{from{transform:scaleX(.05)}}
+    [data-theme="light"] .goal-track,
+    [data-theme="light"] .metric-track{background:rgba(63,44,32,.09)}
+    [data-theme="light"] .judge-metric{background:rgba(63,44,32,.025)}
 
     .feed{grid-area:feed;min-height:620px;display:flex;flex-direction:column}
     .feed-list{padding:0 16px;flex:1}
@@ -552,6 +661,7 @@
       background:rgba(239,68,68,.08);
       filter:blur(4px);
     }
+    [data-theme="light"] .arena-card{box-shadow:0 18px 55px rgba(67,45,29,.1)}
     .card-featured{grid-column:span 5}
     .card-trending{grid-column:span 4}
     .card-hottest{grid-column:span 3}
@@ -568,6 +678,7 @@
     .card-label span:first-child{color:var(--arena-dim);font:800 .67rem/1 var(--arena-mono);letter-spacing:.11em;text-transform:uppercase}
     .card-label a{color:var(--arena-ghost);font:700 .66rem/1 var(--arena-mono);text-decoration:none}
     .card-label a:hover{color:#fff}
+    [data-theme="light"] .card-label a:hover{color:var(--arena-ink)}
     .feature-time{
       position:relative;
       display:flex;
@@ -590,6 +701,7 @@
       cursor:pointer;
       font:800 .7rem/1 var(--arena-mono);
     }
+    [data-theme="light"] .remind{color:var(--arena-ink);background:rgba(201,47,47,.055)}
     .remind[aria-pressed="true"]{color:var(--arena-green);border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.07)}
     .motion-list{position:relative;display:grid}
     .motion-row{
@@ -625,6 +737,7 @@
     .rank-row:hover .rank-name{color:var(--arena-red)}
     .rank-num{color:var(--arena-ghost);font:700 .62rem/1 var(--arena-mono)}
     .rank-avatar{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#25252b;border:1px solid var(--arena-line);font:800 .64rem/1 var(--arena-mono)}
+    [data-theme="light"] .rank-avatar{background:#eee4d7}
     .rank-name{display:block;font-size:.88rem;line-height:1;font-weight:800}
     .rank-meta{display:block;margin-top:4px;color:var(--arena-ghost);font:700 .58rem/1 var(--arena-mono)}
     .rank-score{color:var(--arena-green);font:800 .68rem/1 var(--arena-mono)}
@@ -651,6 +764,8 @@
     .decision-format{color:var(--arena-ghost);font:700 .58rem/1 var(--arena-mono)}
     .decision-motion{margin:12px 0 10px;font-size:.92rem;line-height:1.12;font-weight:800}
     .decision-reason{margin-top:auto;color:var(--arena-dim);font-size:.77rem;line-height:1.25}
+    [data-theme="light"] .market-side,
+    [data-theme="light"] .decision{background:rgba(63,44,32,.025)}
 
     .world-section{
       position:relative;
@@ -691,6 +806,12 @@
       font:700 .62rem/1.35 var(--arena-mono);
       text-align:right;
     }
+    [data-theme="light"] .world-section{
+      background:
+        radial-gradient(circle at 65% 50%,rgba(201,47,47,.09),transparent 34%),
+        linear-gradient(120deg,#fffaf2,#eee4d7);
+    }
+    [data-theme="light"] .world-map svg{filter:saturate(.95) contrast(1.02)}
 
     .tv{
       display:grid;
@@ -715,6 +836,12 @@
     .tv-intro h2{margin:22px 0 10px;font-size:2.2rem;line-height:.94}
     .tv-intro p{margin:0;color:var(--arena-dim);line-height:1.35}
     .tv-intro .btn{margin-top:22px;align-self:flex-start}
+    [data-theme="light"] .tv-intro{
+      background:
+        radial-gradient(circle at 25% 20%,rgba(201,47,47,.2),transparent 38%),
+        linear-gradient(145deg,#f8dcd5,#f7efe6 68%);
+    }
+    [data-theme="light"] .tv-mark{color:rgba(63,44,32,.1)}
     .tv-list{
       overflow:hidden;
       border:1px solid var(--arena-line);
@@ -771,6 +898,7 @@
       font:700 .66rem/1.35 var(--arena-mono);
     }
     .arena-foot a:hover{color:#fff}
+    [data-theme="light"] .arena-foot a:hover{color:var(--arena-ink)}
 
     @media(max-width:1240px){
       .lobby-grid{
@@ -790,7 +918,9 @@
     @media(max-width:900px){
       .arena-main{width:min(100% - 26px,1540px);padding-top:80px}
       .arena-mast{display:block}
+      .mast-status{justify-items:start;margin-top:20px}
       .network-proof{justify-content:flex-start;margin-top:20px}
+      .mast-status .network-proof{margin-top:0}
       .card-featured,.card-trending,.card-hottest,.card-market,.card-decisions{grid-column:span 12}
       .card-hottest{min-height:0}
       .rank-list{grid-template-columns:1fr 1fr}
@@ -857,9 +987,16 @@
         <div class="arena-kicker">Debatable Arena</div>
         <h1>The floor is <span>open.</span></h1>
       </div>
-      <div class="network-proof" aria-live="polite">
-        <span class="proof-item"><i class="proof-dot"></i><span id="onlineProof">Checking the network</span></span>
-        <span class="proof-item" id="queueProof">Matchmaker ready</span>
+      <div class="mast-status">
+        <button class="arena-theme-toggle" id="arenaThemeToggle" type="button">
+          <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+          <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.5A8.2 8.2 0 0 1 9.5 3.6a8.2 8.2 0 1 0 10.9 10.9Z"/></svg>
+          <span id="arenaThemeLabel">Light mode</span>
+        </button>
+        <div class="network-proof" aria-live="polite">
+          <span class="proof-item"><i class="proof-dot"></i><span id="onlineProof">Checking the network</span></span>
+          <span class="proof-item" id="queueProof">Matchmaker ready</span>
+        </div>
       </div>
     </header>
 
@@ -1060,6 +1197,44 @@
   <script>
   (function(){
     'use strict';
+
+    var mapInstance=null;
+
+    function currentTheme(){
+      return document.documentElement.getAttribute('data-theme')==='light'?'light':'crimson';
+    }
+    function paintThemeToggle(){
+      var btn=document.getElementById('arenaThemeToggle');
+      var label=document.getElementById('arenaThemeLabel');
+      if(!btn||!label) return;
+      var next=currentTheme()==='light'?'dark':'light';
+      label.textContent=next.charAt(0).toUpperCase()+next.slice(1)+' mode';
+      btn.setAttribute('aria-label','Switch the Arena to '+next+' mode');
+      btn.title='Switch to '+next+' mode';
+    }
+    function applyArenaTheme(theme,persist){
+      theme=theme==='light'?'light':'crimson';
+      var lighting=theme==='light'?'light':'dark';
+      document.documentElement.setAttribute('data-theme',theme);
+      document.documentElement.setAttribute('data-force-theme',theme);
+      document.documentElement.setAttribute('data-lighting',lighting);
+      var themeMeta=document.querySelector('meta[name="theme-color"]');
+      if(themeMeta) themeMeta.setAttribute('content',theme==='light'?'#f6f2ea':'#08080a');
+      if(persist){
+        try{localStorage.setItem('arena-theme',theme)}catch(e){}
+      }
+      paintThemeToggle();
+    }
+    function wireThemeToggle(){
+      var btn=document.getElementById('arenaThemeToggle');
+      if(!btn) return;
+      paintThemeToggle();
+      btn.addEventListener('click',function(){
+        applyArenaTheme(currentTheme()==='light'?'crimson':'light',true);
+        mountMap();
+        try{gtag('event','arena_theme_toggle',{theme:currentTheme()})}catch(e){}
+      });
+    }
 
     var motions = [
       { text:'This house would ban legacy admissions.', count:'2.1k views', trend:'+18%' },
@@ -1362,9 +1537,13 @@
     }
 
     function mountMap(){
+      if(mapInstance&&typeof mapInstance.stop==='function') mapInstance.stop();
+      var host=document.getElementById('arenaWorldMap');
+      if(!host) return;
+      host.innerHTML='';
       if(window.GlobalDebateMap&&GlobalDebateMap.mount){
-        GlobalDebateMap.mount(document.getElementById('arenaWorldMap'),{
-          palette:'dark',
+        mapInstance=GlobalDebateMap.mount(host,{
+          palette:currentTheme()==='light'?'light':'dark',
           maxActiveDots:10,
           maxActiveArcs:3,
           spawnEveryMs:1150,
@@ -1379,6 +1558,7 @@
     renderDecisions(null,false);
     renderFeed(null,false);
     renderTv(null,false);
+    wireThemeToggle();
     wireReminder();
     wireIdentity();
     paintSpeaker();
