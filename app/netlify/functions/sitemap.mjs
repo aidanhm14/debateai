@@ -86,6 +86,8 @@ const URLS = [
   // debate", "win money debating", "make money arguing") honestly:
   // prizes coming, board free today, waitlist CTA.
   { path: '/get-paid-to-debate',                      changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-27' },
+  // /tokens: the live $4.99 purchase page, indexable now that it sells.
+  { path: '/tokens',                                  changefreq: 'monthly', priority: '0.70', lastmod: '2026-07-27' },
   // High-intent editorial doorways that remained in the hand-maintained
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.
