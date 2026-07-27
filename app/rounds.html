@@ -709,7 +709,16 @@
       };
     });
     $('shareBtn').onclick = function(){
-      var url = location.origin + '/rounds?r=' + r.id;
+      // Completed public human-opened rounds have a server-rendered
+      // permalink at /r/{id} (the page Google indexes); share that so
+      // inbound links stack on the canonical URL. Everything else
+      // shares the live ?r= view, which handles open windows, unlisted
+      // rounds, and AI-seeded challenges. Mirrors indexableAsyncRound
+      // in netlify/functions/lib/async-rounds.mjs.
+      var perma = r.state === 'complete' && r.visibility === 'public' && !r.hidden
+        && !/^seed-/.test(r.id) && !(r.prop && r.prop.uid === 'ai')
+        && (r.turns || []).some(function(t){ return t && t.transcript && String(t.transcript).trim().length > 40; });
+      var url = location.origin + (perma ? '/r/' + r.id : '/rounds?r=' + r.id);
       try{ navigator.clipboard.writeText(url); sfx('click'); $('shareBtn').textContent = 'Link copied'; }catch(e){ prompt('Copy this link', url); }
     };
     $('reportBtn').onclick = async function(){

@@ -182,6 +182,22 @@ export function feedKeyFor(state, visibility, hidden) {
   return state === 'complete' ? 'done-public' : (state === 'open' ? 'open-public' : 'active-public');
 }
 
+// Which async rounds earn an indexable /r/{id} page and a
+// sitemap-rounds.xml entry. Human-opened public completed rounds only:
+// AI-seeded challenges are excluded twice over (the 'seed-' doc-id
+// prefix AND prop.uid === 'ai', because pre-2026-07-22 sweep passes
+// created AI challenges under plain auto-ids), so Google never reads
+// AI inventory as user rounds. A round also has to carry at least one
+// real transcript; a page of "no transcript available" placeholders is
+// worse than no page.
+export function indexableAsyncRound(id, d) {
+  if (!d || d.hidden) return false;
+  if (d.visibility !== 'public' || d.state !== 'complete') return false;
+  if (String(id).startsWith('seed-')) return false;
+  if (((d.prop || {}).uid) === AI_UID) return false;
+  return (d.turns || []).some((t) => t && typeof t.transcript === 'string' && t.transcript.trim().length > 40);
+}
+
 // Public projection of a round doc. Emails never touch the doc itself;
 // uids stay (the client needs them to know which CTA to show).
 export function publicRound(id, d) {

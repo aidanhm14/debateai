@@ -105,6 +105,35 @@ document.documentElement.setAttribute('data-lighting','light');
      the rest; every call site guards on firebaseStorage being present. -->
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- A/B practice_publish_cta_v1 (2026-07-27): does a publish CTA inside
+     the ballot (spotlight) out-convert the passive card far below it
+     (card)? public_rounds has 0 docs after months of the passive card,
+     so placement is the first lever to test. Sticky per browser;
+     ?publishCta=card|spotlight forces an arm for QA and forced arms are
+     excluded from telemetry. Impressions fire from the ballot screen
+     when the CTA is actually 50% visible (the ballot mounts long after
+     boot, so experiments.js's boot-time deferred observer never sees
+     it); clicks ride experiments.js via data-ab-test attributes. -->
+<script>
+(function(){
+  var v='',forced=false;
+  try{
+    var qp=(location.search||'').toLowerCase();
+    if(/[?&]publishcta=card(?:&|$)/.test(qp)){v='card';forced=true;}
+    else if(/[?&]publishcta=spotlight(?:&|$)/.test(qp)){v='spotlight';forced=true;}
+  }catch(e){}
+  if(!v){
+    try{
+      v=localStorage.getItem('da-ab-publish-cta')||'';
+      if(v!=='card'&&v!=='spotlight'){v=Math.random()<0.5?'card':'spotlight';localStorage.setItem('da-ab-publish-cta',v);}
+    }catch(e){v='card';}
+  }
+  window.__publishCtaArm=v;
+  window.__abAssignments=window.__abAssignments||{};
+  window.__abAssignments.practice_publish_cta_v1={variant:v,forced:forced,deferImpression:true};
+})();
+</script>
+<script defer src="/js/experiments.js"></script>
 <script defer src="/js/disclosure-guard.js"></script>
 <script defer src="/js/usage-banner.js"></script>
 <script defer src="/js/upgrade-cta.js"></script>
@@ -6791,6 +6820,8 @@ function App() {
 
 
 
+
+
       // Only auto-advance if timer actually ran (not on initial mount)
     }}, [prepTimer.left]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
@@ -6798,9 +6829,7 @@ function App() {
     if (userTurn) {// User turn. start timer + mic immediately
       timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start(); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
       if (fmt.poi) {poiCountRef.current = 0;poiAcceptsRef.current = 0;setPoiOffer(false);setPoiActive(null);setPoiText(''); // Offer first POI after 60-90s, second after another 60-90s
-        var offerPOI = () => {
-          if (poiCountRef.current < 2) {
-            setPoiOffer(true);
+        var offerPOI = () => {if (poiCountRef.current < 2) {setPoiOffer(true);
             poiCountRef.current++;
             // Schedule a possible second POI
             if (poiCountRef.current < 2) {
@@ -8030,13 +8059,64 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       }
       setPublishedRound({ id: data.id, url: data.url, fullUrl: data.fullUrl });
       setPublishStatus('published');
-      try {window.gtag && gtag('event', 'round_published', { format, has_score: !!(ballot && ballot.speakerPoints) });} catch (e) {}
+      try {window.gtag && gtag('event', 'round_published', { format, has_score: !!(ballot && ballot.speakerPoints), publish_cta_arm: pubCtaArm });} catch (e) {}
     } catch (err) {
       console.error('publishRound failed:', err);
       setPublishError(err.message || 'Could not publish.');
       setPublishStatus('error');
     }
   };
+
+  // A/B practice_publish_cta_v1 plumbing. The arm is assigned pre-boot
+  // in the <head> (sticky localStorage, ?publishCta= QA force); this is
+  // the render-side share of it.
+  var pubCtaArm = typeof window !== 'undefined' && window.__publishCtaArm === 'spotlight' ? 'spotlight' : 'card';
+
+  // Impression ref: one ab_impression per session, counted only when
+  // the publish CTA is at least half visible. Mirrors experiments.js
+  // sendImpression (same event shape, same sessionStorage key) because
+  // the ballot mounts long after that file's boot-time observer ran.
+  var pubCtaImpressionRef = (node) => {
+    if (!node || node.__pubCtaObserved) return;
+    var rec = window.__abAssignments && window.__abAssignments.practice_publish_cta_v1 || {};
+    if (rec.forced || !rec.variant) return;
+    if (typeof IntersectionObserver !== 'function') return;
+    var assignment = 'practice_publish_cta_v1=' + rec.variant;
+    var key = '_da_ab_imp:' + (location.pathname || '/') + ':' + assignment;
+    try {if (sessionStorage.getItem(key) === '1') return;} catch (e) {}
+    node.__pubCtaObserved = true;
+    var obs = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.5) return;
+        try {sessionStorage.setItem(key, '1');} catch (e) {}
+        try {window.gtag && gtag('event', 'ab_impression', { assignments: assignment, experiment_count: 1, path: location.pathname || '/' });} catch (e) {}
+        obs.disconnect();
+      });
+    }, { threshold: 0.5 });
+    obs.observe(node);
+  };
+
+  // Share row for a published round; both arms render it.
+  var publishShareRow = () => el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+  el('a', {
+    href: publishedRound.url, target: '_blank', rel: 'noopener',
+    style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--c-border2)', color: 'var(--c-text)', fontSize: '.76rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }
+  }, 'Open page →'),
+  el('button', {
+    onClick: async () => {try {await navigator.clipboard.writeText(publishedRound.fullUrl);setPublishStatus('copied');setTimeout(() => setPublishStatus('published'), 1500);} catch (e) {}},
+    style: { padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--c-border2)', color: 'var(--c-text)', fontSize: '.76rem', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }
+  }, publishStatus === 'copied' ? '✓ Copied' : 'Copy link'),
+  el('a', {
+    href: 'https://api.whatsapp.com/send?text=' + encodeURIComponent('I just argued "' + (motion || '').slice(0, 80) + '" against an AI. ' + publishedRound.fullUrl),
+    target: '_blank', rel: 'noopener',
+    style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: 'rgba(37,211,102,.12)', border: '1px solid rgba(37,211,102,.32)', color: '#25D366', fontSize: '.76rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }
+  }, 'WhatsApp'),
+  el('a', {
+    href: 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('I just argued "' + (motion || '').slice(0, 80) + '" against an AI. Try to beat it →') + '&url=' + encodeURIComponent(publishedRound.fullUrl),
+    target: '_blank', rel: 'noopener',
+    style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--c-border2)', color: 'var(--c-text)', fontSize: '.76rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }
+  }, 'Post on X')
+  );
 
   // Copy transcript
   var copyAll = () => {
@@ -11438,6 +11518,48 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('div', { style: { fontSize: '2rem', fontWeight: 900, color: wr.rate >= 0.5 ? '#22c55e' : '#f59e0b' } }, Math.round(wr.rate * 100) + '%')
     )
     ),
+    // A/B practice_publish_cta_v1 'spotlight' arm: the publish CTA sits
+    // inside the ballot, right under the verdict and points, instead of
+    // the passive card far below the fold. Signed-in only (publishing
+    // needs auth). The 'card' arm keeps the original placement below.
+    user && pubCtaArm === 'spotlight' && el('div', {
+      id: 'pub-cta-card',
+      ref: pubCtaImpressionRef,
+      style: { padding: '20px 22px', marginBottom: 20, borderRadius: 16, background: 'linear-gradient(135deg,rgba(139,92,246,.12),rgba(59,130,246,.05))', border: '1px solid rgba(139,92,246,.38)', textAlign: 'center' }
+    },
+    publishStatus === 'published' && publishedRound ?
+    el('div', {},
+    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#a78bfa', marginBottom: 6 } }, 'Published ✓'),
+    el('div', { style: { fontSize: '.9rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.45, marginBottom: 4, wordBreak: 'break-all' } },
+    'Live at ',
+    el('a', { href: publishedRound.url, target: '_blank', rel: 'noopener', style: { color: '#a78bfa', textDecoration: 'underline' } }, publishedRound.fullUrl)
+    ),
+    el('div', { style: { fontSize: '.72rem', color: 'var(--c-muted)', marginBottom: 12, lineHeight: 1.45 } }, 'Anyone with the link can read this round. Indexed by Google over time.'),
+    el('div', { style: { display: 'flex', justifyContent: 'center' } }, publishShareRow())
+    ) :
+    el('div', {},
+    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#a78bfa', marginBottom: 6 } }, 'Public page'),
+    el('div', { style: { fontSize: '1.05rem', fontWeight: 900, color: 'var(--c-text)', letterSpacing: '-.01em', marginBottom: 6 } }, 'Put this round on the record.'),
+    el('div', { style: { fontSize: '.82rem', color: 'var(--c-muted)', lineHeight: 1.5, maxWidth: 480, margin: '0 auto 14px' } }, 'One tap gives it a permanent page with the full transcript and this ballot. Your randomized public name, not your Google name.'),
+    publishStatus === 'error' && publishError && el('div', { style: { fontSize: '.72rem', color: '#fca5a5', marginBottom: 10 } }, publishError),
+    el('button', {
+      onClick: publishRound,
+      disabled: publishStatus === 'publishing',
+      'data-ab-test': 'practice_publish_cta_v1',
+      'data-ab-target': 'publish',
+      style: {
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '11px 26px', borderRadius: 999,
+        background: '#7c3aed', border: 'none', color: '#fff',
+        fontSize: '.84rem', fontWeight: 800, letterSpacing: '.02em',
+        cursor: publishStatus === 'publishing' ? 'wait' : 'pointer',
+        opacity: publishStatus === 'publishing' ? 0.6 : 1,
+        fontFamily: 'inherit',
+        boxShadow: '0 10px 26px -10px rgba(124,58,237,.65)'
+      }
+    }, publishStatus === 'publishing' ? 'Publishing…' : 'Publish this round')
+    )
+    ),
     // Post-round CTAs — leaderboard + share. Only render when we have
     // a numeric score (anchor for both). Highest-conversion placement:
     // user just got their score and naturally wants to (a) know where
@@ -11589,7 +11711,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     'Sign in once to put ' + b.speakerPoints.user + ' on the leaderboard and sync your record across devices.' :
     'Sign in to save this round and train Debatable, not GPT or Claude.'
     ),
-    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'Local saves disappear across devices. Your account keeps ballots, leaderboard scores, and your Debatable style profile together.')
+    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'Local saves disappear across devices. Your account keeps ballots, leaderboard scores, and your Debatable style profile together. Signed-in debaters can also publish a round to a public page.')
     ),
     el('button', {
       onClick: signIn,
@@ -11617,7 +11739,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // dialog (WhatsApp / Copy / X) covers the user-side
     // distribution loop, especially crucial for the 80% of MAU in
     // India where WhatsApp is the universal share channel.
-    user && el('div', { style: {
+    // This placement is the 'card' arm of practice_publish_cta_v1;
+    // the 'spotlight' arm renders the same action inside the ballot
+    // instead.
+    user && pubCtaArm === 'card' && el('div', { id: 'pub-cta-card', ref: pubCtaImpressionRef, style: {
         padding: '14px 18px', marginBottom: 20, borderRadius: 14,
         background: 'linear-gradient(135deg,rgba(139,92,246,.07),rgba(59,130,246,.04))',
         border: '1px solid rgba(139,92,246,.22)'
@@ -11630,26 +11755,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('a', { href: publishedRound.url, target: '_blank', rel: 'noopener', style: { color: '#a78bfa', textDecoration: 'underline' } }, publishedRound.fullUrl)
     ),
     el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginBottom: 10, lineHeight: 1.45 } }, 'Anyone with the link can read this round. Indexed by Google over time.'),
-    el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-    el('a', {
-      href: publishedRound.url, target: '_blank', rel: 'noopener',
-      style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--c-border2)', color: 'var(--c-text)', fontSize: '.76rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }
-    }, 'Open page →'),
-    el('button', {
-      onClick: async () => {try {await navigator.clipboard.writeText(publishedRound.fullUrl);setPublishStatus('copied');setTimeout(() => setPublishStatus('published'), 1500);} catch (e) {}},
-      style: { padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--c-border2)', color: 'var(--c-text)', fontSize: '.76rem', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }
-    }, publishStatus === 'copied' ? '✓ Copied' : 'Copy link'),
-    el('a', {
-      href: 'https://api.whatsapp.com/send?text=' + encodeURIComponent('I just argued "' + (motion || '').slice(0, 80) + '" against an AI. ' + publishedRound.fullUrl),
-      target: '_blank', rel: 'noopener',
-      style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: 'rgba(37,211,102,.12)', border: '1px solid rgba(37,211,102,.32)', color: '#25D366', fontSize: '.76rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }
-    }, 'WhatsApp'),
-    el('a', {
-      href: 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('I just argued "' + (motion || '').slice(0, 80) + '" against an AI. Try to beat it →') + '&url=' + encodeURIComponent(publishedRound.fullUrl),
-      target: '_blank', rel: 'noopener',
-      style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--c-border2)', color: 'var(--c-text)', fontSize: '.76rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }
-    }, 'Post on X')
-    )
+    publishShareRow()
     ) :
     el('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
     el('div', { style: { flex: 1, minWidth: 200 } },
@@ -11660,6 +11766,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('button', {
       onClick: publishRound,
       disabled: publishStatus === 'publishing',
+      'data-ab-test': 'practice_publish_cta_v1',
+      'data-ab-target': 'publish',
       style: {
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '9px 18px', borderRadius: 999,

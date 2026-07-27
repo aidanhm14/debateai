@@ -1,11 +1,16 @@
-// /sitemap-rounds.xml — dynamic sitemap for every published /r/{id}.
+// /sitemap-rounds.xml — dynamic sitemap for every indexable /r/{id}.
 //
 // The crawl-coverage half of the SEO play. /rounds is the human-visible
 // index; this is the same content shaped for Googlebot. Without it,
 // Google has to chain-crawl one round at a time from /rounds; with it,
 // the full back-catalog gets indexed in a single crawl.
 //
-// Reads `public_rounds`, ordered by publishedAt desc, capped at 5000.
+// Two sources, one URL namespace:
+//  - `public_rounds` (practice rounds published from the ballot screen),
+//    ordered by publishedAt desc, capped at 5000.
+//  - `async_rounds` with feedKey 'done-public' (completed public recorded
+//    rounds from /rounds), filtered through indexableAsyncRound so
+//    AI-seeded challenges and transcript-less docs never reach Google.
 // Google's hard limit is 50k URLs / 50MB per sitemap; we're well under.
 // When the round count gets larger, paginate via sitemap-rounds-1.xml /
 // sitemap-rounds-2.xml etc, listed from sitemap-index.xml.
@@ -14,6 +19,7 @@
 // roughly a per-day cadence, so 1hr is more than tight enough.
 
 import { getDb } from './lib/firestore.mjs';
+import { indexableAsyncRound } from './lib/async-rounds.mjs';
 
 const SITE_ORIGIN = 'https://itsdebatable.com';
 const LIMIT = 5000;
@@ -57,6 +63,25 @@ async function buildXml() {
     console.warn('[sitemap-rounds] firestore query failed:', err.message);
     // Soft-fail to the last good cache (could be empty on cold start).
     return cache.xml || emptyUrlset();
+  }
+  // Completed public recorded rounds. feedKey is the cheap equality
+  // filter (public + complete + not hidden by construction, no
+  // composite index needed); indexableAsyncRound then drops AI-seeded
+  // challenges and transcript-less docs. Soft-fail: a bad async query
+  // should not cost the practice-round entries above.
+  try {
+    const db = getDb();
+    const snap = await db.collection('async_rounds')
+      .where('feedKey', '==', 'done-public')
+      .limit(2000)
+      .get();
+    (snap.docs || []).forEach((d) => {
+      const data = d.data() || {};
+      if (!indexableAsyncRound(d.id, data)) return;
+      entries.push({ id: d.id, publishedAt: data.completedAt });
+    });
+  } catch (err) {
+    console.warn('[sitemap-rounds] async_rounds query failed:', err.message);
   }
   const urls = entries.map(r => {
     const lastmod = isoDate(r.publishedAt);
