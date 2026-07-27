@@ -185,8 +185,11 @@ export default async () => {
         if (d.state === 'open') {
           if ((d.prop || {}).uid === AI_UID) {
             // Never AI-vs-AI: an unanswered AI challenge retires quietly.
+            // retiredAt is read by nobody; it exists so a parked doc
+            // (state 'open', feedKey 'quiet', no sweepAt) explains itself
+            // in Firestore instead of reading as a stranded round.
             if (now >= (d.deadlineAt || 0)) {
-              await ref.update({ feedKey: 'quiet', sweepAt: FieldValue.delete() });
+              await ref.update({ feedKey: 'quiet', retiredAt: now, sweepAt: FieldValue.delete() });
               await deleteCachedShared(FEED_CACHE_KEY).catch(() => {});
             } else {
               await ref.update({ sweepAt: d.deadlineAt || (now + AI_CHALLENGE_TTL_MS) });

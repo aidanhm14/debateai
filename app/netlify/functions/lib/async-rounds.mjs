@@ -4,7 +4,11 @@
 // Round shape (Firestore `async_rounds/{id}`, all writes admin-SDK only —
 // the collection has no client rules on purpose, so default-deny covers it):
 //   state: 'open' | 'awaiting_reply' | 'judging' | 'complete'
-//   feedKey: 'open-public' | 'done-public' | 'quiet' (unlisted/hidden)
+//   feedKey: 'open-public' | 'active-public' (mid-round) | 'done-public'
+//     | 'quiet' — unlisted, hidden, OR a retired unanswered AI challenge
+//     (the sweep parks those past their TTL: feedKey 'quiet', retiredAt
+//     stamped, sweepAt deleted, state left 'open' so a stale link can
+//     still answer it and revive the round)
 //   motion, format, visibility: 'public' | 'unlisted'
 //   prop: {uid,name,photo}   opp: {uid,name,photo}|null   aiOpp: bool
 //   turns: [{n,uid,ai,kind,mediaId,durationSec,transcript|null,name,photo,createdAt}]
