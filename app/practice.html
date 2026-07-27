@@ -5443,13 +5443,16 @@ function App() {
     try {
       var qs = new URLSearchParams(location.search);
       if (qs.get('ext') === '1') return; // ext bridge owns prefill when in ext mode
-      var m = (qs.get('motion') || '').trim();
-      if (!m) return;
-      setMotion(m.slice(0, 600));
+      // Format prefill works with OR without a motion: the /spar warm-up
+      // handoff arrives format-only (the queue has no motion until match
+      // time), and should still land one tap from Start in that format.
       var wantFormat = (qs.get('format') || '').trim();
       if (wantFormat && typeof FORMATS !== 'undefined' && FORMATS[wantFormat]) {
         try {setFormat(wantFormat);} catch (_) {}
       }
+      var m = (qs.get('motion') || '').trim();
+      if (!m) return;
+      setMotion(m.slice(0, 600));
       // challenge=1: pre-select the specified side so the friend runs
       // the other side of the motion their challenger already argued.
       // Accept any side that exists in the target format's sides array
@@ -6822,6 +6825,8 @@ function App() {
 
 
 
+
+
       // Only auto-advance if timer actually ran (not on initial mount)
     }}, [prepTimer.left]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
@@ -6829,9 +6834,7 @@ function App() {
     if (userTurn) {// User turn. start timer + mic immediately
       timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start(); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
       if (fmt.poi) {poiCountRef.current = 0;poiAcceptsRef.current = 0;setPoiOffer(false);setPoiActive(null);setPoiText(''); // Offer first POI after 60-90s, second after another 60-90s
-        var offerPOI = () => {if (poiCountRef.current < 2) {setPoiOffer(true);
-            poiCountRef.current++;
-            // Schedule a possible second POI
+        var offerPOI = () => {if (poiCountRef.current < 2) {setPoiOffer(true);poiCountRef.current++; // Schedule a possible second POI
             if (poiCountRef.current < 2) {
               poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);
             }

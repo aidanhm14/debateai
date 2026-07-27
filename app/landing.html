@@ -670,6 +670,30 @@
   })();
 </script>
 
+<!-- Verdict ticker A/B (2026-07-27). Tests whether a strip of real
+     recent verdicts above the footer converts browsers into watchers
+     and debaters. Feed = /api/async/feed done-public rounds; nothing
+     invented, no cash language. ?ticker=on|off forces QA. -->
+<script>
+  (function(){
+    var v='',forced=false;
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]ticker=on(?:&|$)/.test(qp)){v='on';forced=true;}
+      else if(/[?&]ticker=off(?:&|$)/.test(qp)){v='off';forced=true;}
+    }catch(e){}
+    if(!v){
+      try{
+        v=localStorage.getItem('da-vt-ab')||'';
+        if(v!=='on'&&v!=='off'){v=Math.random()<0.5?'on':'off';localStorage.setItem('da-vt-ab',v);}
+      }catch(e){v='on';}
+    }
+    document.documentElement.setAttribute('data-verdict-ticker',v);
+    window.__abAssignments=window.__abAssignments||{};
+    window.__abAssignments.verdict_ticker_v1=forced?{variant:v,forced:true}:{variant:v};
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -15755,6 +15779,146 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         btn.textContent = prevText;
       });
   });
+})();
+</script>
+
+<!-- Recent verdicts ticker · verdict_ticker_v1 'on' arm only.
+     Real completed public rounds from /api/async/feed (60s shared cache
+     server-side; fetched once per view, after idle, only on the 'on'
+     arm). Stays hidden unless >=3 verdicts come back, so the strip can
+     never render empty or thin. Every line is a real ballot; the copy
+     never claims cash or winnings (see #floor-band note). -->
+<section id="verdict-ticker" class="vticker" aria-label="Recent verdicts" hidden>
+  <div class="vt-head">
+    <span class="vt-eyebrow"><span class="vt-dot" aria-hidden="true"></span>Recent verdicts</span>
+    <a class="vt-all" href="/rounds" data-cta="vticker-all" data-ab-test="verdict_ticker_v1" data-ab-target="all_rounds">All rounds <span aria-hidden="true">&rarr;</span></a>
+  </div>
+  <div class="vt-rail" id="vtRail">
+    <div class="vt-track" id="vtTrack"></div>
+  </div>
+</section>
+<style>
+  .vticker{border-top:1px solid var(--border);background:var(--bg-card);padding:14px 0 16px}
+  .vt-head{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    max-width:1280px;margin:0 auto 10px;padding:0 24px}
+  .vt-eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:.66rem;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--text-ghost)}
+  .vt-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-glow2);animation:vtPulse 2.2s infinite}
+  @keyframes vtPulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .vt-all{font-size:.78rem;font-weight:700;color:var(--text-dim);text-decoration:none;white-space:nowrap}
+  .vt-all:hover{color:var(--accent)}
+  .vt-rail{overflow:hidden;position:relative;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+  /* Paused by default; .vt-live (IntersectionObserver) runs it only
+     while the strip is actually on screen, so the compositor never
+     holds a moving 6000px-wide layer for a strip nobody is looking at. */
+  .vt-track{display:flex;align-items:center;gap:30px;width:max-content;padding:2px 24px;
+    animation:vtScroll var(--vt-dur,52s) linear infinite;animation-play-state:paused}
+  .vticker.vt-live .vt-track{animation-play-state:running}
+  .vt-rail:hover .vt-track,.vt-rail:focus-within .vt-track{animation-play-state:paused!important}
+  @keyframes vtScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .vt-item{display:inline-flex;align-items:baseline;gap:9px;white-space:nowrap;
+    text-decoration:none;color:var(--text-dim);font-size:.86rem}
+  .vt-item:hover .vt-motion{color:var(--accent)}
+  .vt-fmt{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-ghost);border:1px solid var(--border);border-radius:999px;
+    padding:2px 8px;align-self:center}
+  .vt-item b{font-weight:800;color:var(--text)}
+  .vt-motion{color:var(--text-dim)}
+  .vt-when{font-size:.72rem;color:var(--text-ghost)}
+  @media(prefers-reduced-motion:reduce){
+    .vt-track{animation:none}
+    .vt-rail{overflow-x:auto;mask-image:none;-webkit-mask-image:none}
+    .vt-dot{animation:none}
+  }
+  @media(max-width:680px){.vt-head{padding:0 16px}.vt-track{gap:22px;padding:2px 16px}}
+</style>
+<script>
+(function(){
+  if (document.documentElement.getAttribute('data-verdict-ticker') !== 'on') return;
+  var sec = document.getElementById('verdict-ticker');
+  var track = document.getElementById('vtTrack');
+  if (!sec || !track) return;
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  // First name only, same posture as /api/recent-activity: public feed,
+  // no full display names on a marketing surface.
+  function nm(seat){
+    if (!seat || seat.uid === 'ai') return 'The AI';
+    var t = String(seat.name || '').trim().split(/\s+/)[0].replace(/[^\wÀ-ɏ-]/g, '').slice(0, 16);
+    return t || 'A debater';
+  }
+  function ago(ms){
+    var d = Date.now() - (ms || 0);
+    if (!ms || d < 0) return '';
+    var m = Math.floor(d / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + 'm ago';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.floor(h / 24) + 'd ago';
+  }
+
+  function render(rows){
+    var items = [];
+    for (var i = 0; i < rows.length && items.length < 14; i++){
+      var r = rows[i];
+      if (!r || !r.motion || (r.winner !== 'prop' && r.winner !== 'opp')) continue;
+      var winSeat  = r.winner === 'prop' ? r.prop : r.opp;
+      var loseSeat = r.winner === 'prop' ? r.opp  : r.prop;
+      var winAi  = (winSeat  && winSeat.uid  === 'ai') || (r.winner === 'opp'  && r.aiOpp);
+      var loseAi = (loseSeat && loseSeat.uid === 'ai') || (r.winner === 'prop' && r.aiOpp);
+      if (winAi && loseAi) continue;
+      var w = winAi ? 'The AI' : nm(winSeat);
+      var loser = loseAi ? 'the AI' : nm(loseSeat);
+      var motion = String(r.motion).length > 72 ? String(r.motion).slice(0, 71).replace(/\s+\S*$/, '') + '…' : String(r.motion);
+      items.push(
+        '<a class="vt-item" href="/r/' + encodeURIComponent(r.id) + '" data-cta="vticker-round" ' +
+          'data-ab-test="verdict_ticker_v1" data-ab-target="round" title="' + esc(r.motion) + '">' +
+          '<span class="vt-fmt">' + esc(r.formatName || r.format || 'Round') + '</span>' +
+          '<span><b>' + esc(w) + '</b> beat <b>' + esc(loser) + '</b> on ' +
+          '<span class="vt-motion">&ldquo;' + esc(motion) + '&rdquo;</span></span>' +
+          (ago(r.completedAt) ? '<span class="vt-when">' + ago(r.completedAt) + '</span>' : '') +
+        '</a>'
+      );
+    }
+    if (items.length < 3) return false;
+    var half = items.join('');
+    // Second copy makes the -50% translate loop seamless; hidden from AT.
+    track.innerHTML = half + '<div style="display:contents" aria-hidden="true">' + half + '</div>';
+    track.style.setProperty('--vt-dur', Math.min(84, Math.max(34, items.length * 5)) + 's');
+    sec.hidden = false;
+    // Run the marquee only while visible (RAM/compositor care).
+    try {
+      if ('IntersectionObserver' in window){
+        var io = new IntersectionObserver(function(es){
+          for (var i = 0; i < es.length; i++) sec.classList.toggle('vt-live', es[i].isIntersecting);
+        }, { threshold: 0 });
+        io.observe(sec);
+      } else sec.classList.add('vt-live');
+    } catch(e){ sec.classList.add('vt-live'); }
+    try { window.dosTrackOnce && window.dosTrackOnce('vticker_shown', { count: items.length }); } catch(e){}
+    return true;
+  }
+  window.__vtRender = render; // QA hook: __vtRender([{id,motion,winner,prop,opp,aiOpp,formatName,completedAt}])
+
+  function load(){
+    try {
+      fetch('/api/async/feed').then(function(res){ return res.ok ? res.json() : null; }).then(function(j){
+        if (j && j.done && j.done.length) render(j.done);
+      }).catch(function(){});
+    } catch(e){}
+  }
+  // After idle: the strip sits above the footer; nobody needs it in the
+  // first paint and the feed is 60s-cached upstream anyway.
+  if ('requestIdleCallback' in window) requestIdleCallback(load, { timeout: 4000 });
+  else setTimeout(load, 2500);
 })();
 </script>
 

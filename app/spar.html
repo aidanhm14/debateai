@@ -1888,13 +1888,19 @@ h1 em{color:var(--accent);font-style:normal}
       '</div>' +
       '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
-      // One clear action while waiting: prep (you stay in the queue and
-      // get pinged the moment a human is found, anywhere on the site).
-      // Cancel + Skip-to-AI demoted to quiet links so the screen reads
-      // as one next step, not three competing buttons.
+      // One clear action while waiting: warm up against the AI (you stay
+      // in the queue and get pinged the moment a human is found, anywhere
+      // on the site). Cancel + Skip-to-AI demoted to quiet links so the
+      // screen reads as one next step, not three competing buttons.
+      // 2026-07-27: reframed from "Prep while you wait" — the queue read
+      // as a dead end when thin. The warm-up names the payoff (a round
+      // right now, in your format) and the note under it carries the
+      // no-auto-switch promise: WE never move you to AI; a human match
+      // still interrupts anything.
       '<div class="btn-row">' +
-        '<button class="btn primary" id="bgAvailBtn" title="Keep this itsdebatable.com tab open and switch to other tabs freely. We keep matching you in the background and ping you the moment a human is found.">Prep while you wait &rarr;</button>' +
+        '<button class="btn primary" id="bgAvailBtn" title="Starts an AI round in your chosen format. Keep this itsdebatable.com tab open and switch tabs freely; we keep matching you in the background.">Warm up against the AI &rarr;</button>' +
       '</div>' +
+      '<div class="dim" style="margin-top:9px;font-size:.76rem;line-height:1.5">Your queue spot stays live while you warm up. A match card interrupts the second a human is ready.</div>' +
       // Quiet-queue answer (2026-07-22). An empty queue used to read only
       // as "You're first in line" over a timer counting up with no limit,
       // which tells the user to keep waiting without saying what they are
@@ -2006,7 +2012,9 @@ h1 em{color:var(--accent);font-style:normal}
         try { localStorage.setItem('debateos-spar-format', formatParam); } catch(e){}
         try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
         try { if (window.gtag) gtag('event', 'spar_bg_on', { from: 'spar_searching' }); } catch(e){}
-        location.href = '/practice';
+        // Carry the queued format so /practice lands one tap from Start
+        // in the same format (its prefill effect accepts format-only).
+        location.href = '/practice?format=' + encodeURIComponent(formatParam || '') + '&handoff=spar-warmup';
       });
     })();
     (function(){

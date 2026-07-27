@@ -4340,8 +4340,10 @@ html.stage-mode .stage-ov{display:block}
       '  "conPoints": <number>,',
       '  "rfd": "<8–14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2–3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
       '  "proFeedback": "<5–8 sentences for the Pro speaker: 1) one specific strategic strength (what worked + why), 2) one technical area to fix with a concrete example from their speech, 3) one big-picture observation about their approach to this format.>",',
-      '  "conFeedback": "<5–8 sentences for the Con speaker: same structure as proFeedback.>"',
+      '  "conFeedback": "<5–8 sentences for the Con speaker: same structure as proFeedback.>",',
+      '  "dimensions": { "clarity": {"pro": <n>, "con": <n>}, "reasoning": {"pro": <n>, "con": <n>}, "responsiveness": {"pro": <n>, "con": <n>}, "weighing": {"pro": <n>, "con": <n>} }',
       "}",
+      "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. Score axes independently from the flow; they should differ where the round differed. These do NOT need to average to the speaker points.",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
       "Be specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops, missed weighing, and weak warrants. If a side ran no real arguments, say so plainly.",
@@ -5175,6 +5177,47 @@ html.stage-mode .stage-ov{display:block}
       + '</div>';
   }
 
+  // Judge's scorecard: the ballot's per-axis dimensions block as one
+  // tug-of-war bar per axis (green = Pro share, red = Con share). All
+  // four axes must validate or nothing renders — old ballots stored
+  // before the schema carried dimensions, and any model that ignores
+  // the field, degrade to the exact pre-scorecard layout. Spectators
+  // render the same ballot doc, so bettors see the same math.
+  function dimScorecardHtml(b){
+    try {
+      var dm = b && b.dimensions;
+      if (!dm) return '';
+      var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing']];
+      var rows = [];
+      for (var i = 0; i < AXES.length; i++){
+        var a = dm[AXES[i][0]];
+        var pv = a && Number(a.pro), cv = a && Number(a.con);
+        if (!a || !isFinite(pv) || !isFinite(cv)) return '';
+        pv = Math.max(0, Math.min(10, pv)); cv = Math.max(0, Math.min(10, cv));
+        var share = (pv + cv) ? Math.round(pv / (pv + cv) * 100) : 50;
+        rows.push(
+          '<div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;margin:7px 0">' +
+            '<span style="font-size:.8rem;font-weight:600;opacity:.85">' + AXES[i][1] + '</span>' +
+            '<span style="display:flex;align-items:center;gap:8px">' +
+              '<b style="font-size:.8rem;color:#22c55e;font-variant-numeric:tabular-nums;min-width:22px;text-align:right">' + escHtml(String(pv)) + '</b>' +
+              '<span style="flex:1;height:7px;border-radius:99px;overflow:hidden;display:flex;background:rgba(239,68,68,.72)">' +
+                '<i style="display:block;height:100%;width:' + share + '%;background:#22c55e"></i>' +
+              '</span>' +
+              '<b style="font-size:.8rem;color:#ef4444;font-variant-numeric:tabular-nums;min-width:22px">' + escHtml(String(cv)) + '</b>' +
+            '</span>' +
+          '</div>'
+        );
+      }
+      return '<div class="dim-scorecard" style="margin:0 0 18px;border:1px solid rgba(127,127,127,.28);border-radius:12px;padding:13px 16px 9px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px">' +
+          '<span style="font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.65">Judge&#39;s scorecard</span>' +
+          '<span style="font-size:.74rem;opacity:.72"><b style="color:#22c55e">' + escHtml(state.proName) + '</b> vs <b style="color:#ef4444">' + escHtml(state.conName) + '</b> · each axis 1 to 10</span>' +
+        '</div>' +
+        rows.join('') +
+      '</div>';
+    } catch(e){ return ''; }
+  }
+
   function renderBallotBody(b, mode){
     var staged = mode === 'staged' || mode === 'read-aloud';
     $('ballotLoading').classList.add('hidden');
@@ -5243,6 +5286,7 @@ html.stage-mode .stage-ov{display:block}
         '</div>' +
       '</div>' +
       '<div class="rfd ballot-section" data-stage="2">' +
+        dimScorecardHtml(b) +
         '<h3>Reason for decision</h3>' +
         '<p>' + escHtml(b.rfd || '(no RFD generated)') + '</p>' +
         (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + escHtml(b.proFeedback) + '</p>' : '') +
