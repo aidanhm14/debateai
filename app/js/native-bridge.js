@@ -46,18 +46,31 @@
 
   document.documentElement.classList.add('dbnative');
 
-  // ── Service worker, for the app specifically ───────────────────────
+  // ── Service worker: DOES NOT RUN IN THE APP. Measured, not assumed ──
   // Only index.html ('/app') registers /sw.js, and none of the five tabs
-  // point there: they are /native, /newvoice, /coach, /spar, /profile. So
-  // an app user who stays in the tab bar never registered a service worker
-  // at all, and the app re-fetched every asset on every cold launch with
-  // no offline behaviour whatsoever.
+  // point there (/native, /newvoice, /coach, /spar, /profile), so the obvious
+  // conclusion was that app users never got a service worker and registering
+  // one here was the fix.
   //
-  // Registering here covers every page the app can reach, since the bridge
-  // is required on all of them. Gated behind the isNative return above, so
-  // the website's registration story is unchanged: pages that had no SW on
-  // the web still have none. Takes effect from the SECOND launch, which is
-  // how service workers work; the first one installs it.
+  // That is wrong, and it is worth writing down so nobody loses an afternoon
+  // to it again. WKWebView does not expose the API at all unless the app
+  // declares WKAppBoundDomains in Info.plist. Verified 2026-07-28 by rendering
+  // the check into /native and reading it off the phone:
+  //
+  //     SWDIAG api=false secure=true
+  //
+  // So `'serviceWorker' in navigator` is false here and this block is a no-op.
+  // It stays because it costs nothing and becomes correct if the app ever
+  // adopts app-bound domains.
+  //
+  // We are NOT adopting them: app-bound domains cap the webview at 10 domains
+  // and confine navigation to that list, which would break Google and Apple
+  // sign-in, Stripe, and the Daily.co video rooms. Caching is not worth
+  // trading working auth and live video for.
+  //
+  // Consequence to remember: the app has NO asset cache and no offline story.
+  // The sw.js work (the /native shell entry, the Firestore-channel guard) is
+  // real, but it only benefits the website and PWA users.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js').catch(function () {});
