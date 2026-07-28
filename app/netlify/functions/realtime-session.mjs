@@ -263,18 +263,36 @@ const VOICE_LAYERS_ANON = [
   { window: 86_400_000,     max: 10, label: 'day'  },
 ];
 
-// Signed-in callers are metered per UID instead (2026-07-28). Keying them
-// on IP put a whole building behind one counter: at a school tournament
-// every debater shares one NAT'd public IP, so the 7th voice round of the
-// hour got a 429 regardless of who started it or what they had paid. The
-// cap fired before the plan gate, so a paying user was blocked by someone
-// else's practice. Entitlement is enforced properly below
-// (FREE_VOICE_LIFETIME_LIMIT, plan, token balance); these layers only stop
-// one account running away, so they can be generous.
+// NAMED signed-in callers are metered per UID instead (2026-07-28). Keying
+// them on IP put a whole building behind one counter: at a school
+// tournament every debater shares one NAT'd public IP, so the 7th voice
+// round of the hour got a 429 regardless of who started it or what they
+// had paid. The cap fired before the plan gate, so a paying user was
+// blocked by someone else's practice. Entitlement is enforced properly
+// below (FREE_VOICE_LIFETIME_LIMIT, plan, token balance); these layers
+// only stop one account running away, so they can be generous.
+//
+// "NAMED" is load-bearing and was a same-day correction. This app uses
+// Firebase ANONYMOUS auth for guests (see isNamedAccount() in
+// firestore.rules), and anonymous accounts are free and unlimited to
+// mint. Handing the per-UID lane to any valid token therefore replaced a
+// hard 6/hour/IP ceiling with no ceiling at all: rotate a throwaway
+// anonymous account and the IP layers never apply. Anonymous-auth callers
+// are metered on IP with everyone else who has no durable identity.
+// Tournament debaters sign in with Google or email, so they are named and
+// the venue fix is unaffected.
 const VOICE_LAYERS_USER = [
   { window: 60 * 60_000,    max: 30,  label: 'hour' },
   { window: 86_400_000,     max: 100, label: 'day'  },
 ];
+
+// Firebase puts the provider on the token itself; 'anonymous' is the
+// signInAnonymously() path. Absent claim is treated as anonymous (fail
+// closed onto the tighter IP lane).
+function isNamedAccount(decoded) {
+  const provider = decoded && decoded.firebase && decoded.firebase.sign_in_provider;
+  return !!provider && provider !== 'anonymous';
+}
 
 // CHARACTER preamble prepended to every mode prompt. Powers the
 // gamified persona system on the client: each user picks one of N
@@ -896,11 +914,14 @@ export default async (request, context) => {
     signedInUid = null;
   }
 
-  const rtCheck = signedInUid
-    ? await checkLayers('voice', 'uid_' + signedInUid, VOICE_LAYERS_USER)
+  // Only a NAMED account earns the per-UID lane. Anonymous-auth callers
+  // fall back to the IP lane; see the note on VOICE_LAYERS_USER.
+  const meterUid = (signedInUid && isNamedAccount(earlyDecoded)) ? signedInUid : null;
+  const rtCheck = meterUid
+    ? await checkLayers('voice', 'uid_' + meterUid, VOICE_LAYERS_USER)
     : await checkLayers('voice', 'ip_' + callerIp(request), VOICE_LAYERS_ANON);
   if (!rtCheck.ok) {
-    const msg = signedInUid
+    const msg = meterUid
       ? (rtCheck.layer === 'hour'
           ? 'You have started a lot of voice rounds this hour. Wait a bit and try again.'
           : 'You have hit today\'s voice-round limit on this account. Come back tomorrow.')
