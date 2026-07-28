@@ -15,8 +15,19 @@
 //   online5, online30}. Rides the Firestore-backed shared cache
 //   (60s TTL) so polling costs 1 cache read, not a collection scan —
 //   same quota posture as floor-state's anon payload.
+//
+// DAILY ROLLUP (added 2026-07-28). presence_live is a rolling snapshot:
+//   one doc per tab, overwritten on every beat, swept at 48h. That
+//   answers "who is here now" and nothing about last Tuesday. Firebase
+//   Auth is not the answer either — anonymous accounts only exist on
+//   the three pages that mint one, so the Auth user list counts arena
+//   visits, not site visits. So the FIRST beat of each session also
+//   increments presence_daily/{YYYY-MM-DD}: total sessions, sessions by
+//   country, and sessions by entry page. That is ~1 extra write per
+//   session (not per beat), and it is the only place anonymous traffic
+//   accumulates over time. /api/admin/visitors reads it.
 // ─────────────────────────────────────────────────────────────
-import { getDb } from './lib/firestore.mjs';
+import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
@@ -26,6 +37,34 @@ const CACHE_KEY = 'presence-live:pins';
 const CACHE_TTL_MS = 60_000;
 const MAX_DOCS = 300;
 const STALE_MS = 48 * 60 * 60 * 1000; // opportunistic cleanup horizon
+
+function dayKey(ms) {
+  return new Date(ms).toISOString().slice(0, 10); // UTC, matches the crons
+}
+
+// Entry path → a Firestore-safe map key. Firestore field names can't
+// hold '/', so slashes become '~'. Anything that isn't a plain path
+// is dropped rather than sanitized into something misleading.
+function entryKey(p) {
+  if (typeof p !== 'string' || !p) return '';
+  let s = p.split('?')[0].split('#')[0].slice(0, 60);
+  if (s.length > 1 && s.endsWith('/')) s = s.slice(0, -1);
+  if (!/^\/[A-Za-z0-9/_-]*$/.test(s)) return '';
+  return s === '/' ? '~root' : s.replace(/\//g, '~');
+}
+
+// One increment per new session. Bounded: `sessions` is a counter,
+// byCountry maxes out at the number of ISO codes, and byEntry only
+// ever holds real site paths.
+async function bumpDailyRollup(db, now, geo, entry) {
+  const inc = FieldValue.increment(1);
+  const day = dayKey(now);
+  const patch = { day, sessions: inc, updatedAt: now };
+  const cc = /^[A-Za-z]{2}$/.test(geo.country || '') ? geo.country.toUpperCase() : '';
+  if (cc) patch.byCountry = { [cc]: inc };
+  if (entry) patch.byEntry = { [entry]: inc };
+  await db.collection('presence_daily').doc(day).set(patch, { merge: true });
+}
 
 function readGeo(request, context) {
   // Netlify v2 functions expose parsed geo on context; the x-nf-geo
@@ -74,18 +113,36 @@ export default async (request, context) => {
     if (!geo) return jsonResponse({ ok: true, geo: false }, 200, request); // dev / no edge geo: accept quietly
 
     try {
-      await db.collection('presence_live').doc(sid).set(
-        {
-          // 1-decimal rounding ≈ 11 km — enough to place a city dot,
-          // deliberately not enough to place a person.
-          lat: Math.round(geo.lat * 10) / 10,
-          lng: Math.round(geo.lng * 10) / 10,
-          city: String(geo.city).slice(0, 60),
-          country: String(geo.country).slice(0, 40),
-          lastSeen: now,
-        },
-        { merge: true }
-      );
+      const ref = db.collection('presence_live').doc(sid);
+      const fields = {
+        // 1-decimal rounding ≈ 11 km — enough to place a city dot,
+        // deliberately not enough to place a person.
+        lat: Math.round(geo.lat * 10) / 10,
+        lng: Math.round(geo.lng * 10) / 10,
+        city: String(geo.city).slice(0, 60),
+        country: String(geo.country).slice(0, 40),
+        lastSeen: now,
+      };
+
+      // create() throws ALREADY_EXISTS when we've already seen this tab,
+      // which is how we detect a first beat without paying a read on
+      // every beat. Success = new session, so roll it into the day.
+      let isNewSession = false;
+      try {
+        await ref.create({ ...fields, firstSeen: now });
+        isNewSession = true;
+      } catch (err) {
+        const already = err && (err.code === 6 || /already exists/i.test(err.message || ''));
+        if (!already) throw err;
+        await ref.set(fields, { merge: true });
+      }
+      if (isNewSession) {
+        // Never let the rollup break the beat — the globe matters more
+        // than the counter.
+        await bumpDailyRollup(db, now, geo, entryKey(body?.path)).catch((e) => {
+          console.error('presence_daily rollup failed:', e.message);
+        });
+      }
 
       // Opportunistic cleanup: ~5% of beats sweep a small batch of
       // long-dead docs so the collection never needs a TTL policy.

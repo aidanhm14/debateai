@@ -5963,9 +5963,23 @@ button{font-family:inherit}
         // Re-renders board live whenever any user posts/accepts/bails.
         subscribeChallenges();
       } else {
+        // NO anonymous account is minted here (changed 2026-07-28).
+        // This used to call ensureGuestAuth() on load, which created a
+        // permanent Firebase Auth record for every visitor who merely
+        // opened the board — the dominant source of (anonymous) rows in
+        // the Auth console, and useless as a metric since it counted
+        // page loads. Nothing on the read path needs it: live_challenges
+        // is `allow read: if true` and subscribeChallenges() already ran
+        // above, before auth resolved. Every WRITE path mints on demand
+        // and chains off the promise (postChallenge, join slot, viewer
+        // signup, judge signup, and the explicit "continue as guest"
+        // link), so a cold no-auth start is a supported state.
         hideAuthGate();
         renderUserChip();
-        ensureGuestAuth().catch(function(){});
+        // The sign-in nudge used to ride the anonymous user landing in
+        // the branch above. Fire it here so removing the mint doesn't
+        // also remove the prompt.
+        scheduleSignInReminder();
       }
     });
   } else {

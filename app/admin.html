@@ -364,6 +364,41 @@
   <!-- KPIs with sparklines -->
   <div class="kpis" id="kpis"></div>
 
+  <!-- Anonymous visitors · presence pipeline.
+       Everything else on this dashboard is uid-keyed, because track.js
+       treats anonymous visitors as signed-out on purpose (the 2026-05-18
+       credit-burn call: anon lifecycle events would have added ~17K
+       /api/log-event invocations a month). Firebase Auth doesn't answer
+       "how many people saw the site" either — its (anonymous) rows are
+       minted only by /spar, /live, /live-round and the Spar-live toggle,
+       so they count arena visits.
+       This card reads presence_daily instead, which the first beat of
+       every session increments regardless of auth. Units are SESSIONS,
+       not people. Reads /api/admin/visitors. -->
+  <style>
+    .av-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;margin-bottom:14px}
+    .av-stat{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--card)}
+    .av-stat .lbl{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.09em;font-weight:700}
+    .av-stat .val{font:700 21px/1.05 "SF Pro Display",system-ui,sans-serif;margin-top:5px;font-variant-numeric:tabular-nums}
+    .av-stat.now{border-color:rgba(34,197,94,.30)}
+    .av-stat.now .val{color:var(--good)}
+    .av-lists{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+    .av-list h4{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin:0 0 7px}
+    .av-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;border-top:1px solid var(--line-soft)}
+    .av-row:first-of-type{border-top:none}
+    .av-row .n{color:var(--muted);font-variant-numeric:tabular-nums}
+    @media (max-width:700px){ .av-lists{grid-template-columns:1fr} }
+  </style>
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Anonymous visitors <span class="badge">sessions</span></span>
+        <span class="meta" id="av-meta">Loading…</span>
+      </div>
+      <div id="av-body" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Experiments · A/B — live poll-variant results from poll_responses.
        Surfaces the landing micro-poll's multi-variant framing test and any
        other A/B poll: response volume + answer mix per framing. -->
@@ -1212,6 +1247,7 @@ async function loadAll(force){
     loadCoaches().catch(()=>{});
     loadFunnel().catch(()=>{});
     loadFounderVideo().catch(()=>{});
+    loadVisitors().catch(()=>{});
     loadDistillations().catch(()=>{});
     loadWinback().catch(()=>{});
     loadPollResults().catch(()=>{});
@@ -2019,6 +2055,65 @@ async function loadWinback(){
     meta.textContent = '';
   }
 }
+// ── Anonymous visitors (presence pipeline) ───────────────────────
+// The only panel here that counts people who never signed in. Reads
+// presence_daily via /api/admin/visitors. Deliberately labels its own
+// units: a "session" is one tab for one sessionStorage lifetime, and
+// only from pages that load track.js — nothing dedupes a returning
+// visitor, so this is traffic shape, not a headcount.
+async function loadVisitors(){
+  const meta = $('av-meta');
+  const body = $('av-body');
+  body.textContent = 'Loading…';
+  meta.textContent = 'Loading…';
+  try {
+    const v = await fetchJson('/api/admin/visitors');
+    const series = v.series || [];
+    const wow = v.prev7 > 0 ? Math.round(((v.d7 - v.prev7) / v.prev7) * 100) : null;
+    meta.textContent = v.online30 + ' in the last 30 min' + (v.liveSampled ? ' (capped)' : '');
+
+    const stat = (lbl, val, cls, sub) =>
+      '<div class="av-stat' + (cls ? ' ' + cls : '') + '">' +
+        '<div class="lbl">' + lbl + '</div>' +
+        '<div class="val">' + val + '</div>' +
+        (sub ? '<div class="ts" style="margin-top:3px">' + sub + '</div>' : '') +
+      '</div>';
+
+    const list = (title, rows, empty) =>
+      '<div class="av-list"><h4>' + title + '</h4>' +
+      (rows.length
+        ? rows.map(r => '<div class="av-row"><span>' + esc(r.key) + '</span><span class="n">' + r.count + '</span></div>').join('')
+        : '<div class="ts">' + empty + '</div>') +
+      '</div>';
+
+    body.innerHTML =
+      '<div class="av-stats">' +
+        stat('Now', v.online5, 'now', 'last 5 min') +
+        stat('30 min', v.online30, '', 'live window') +
+        stat('Today', v.today, '', 'UTC day') +
+        stat('7 days', v.d7, '', wow == null ? 'no prior week' : (wow >= 0 ? '+' : '') + wow + '% vs prior 7d') +
+        stat('30 days', v.d30, '', v.trackedDays + '/' + series.length + ' days recorded') +
+      '</div>' +
+      '<div class="chart-area" style="height:52px"><canvas id="av-spark"></canvas></div>' +
+      '<div class="ts" style="margin-top:4px;text-align:right">sessions per day · last ' + series.length + ' days</div>' +
+      '<div class="av-lists">' +
+        list('Top countries · 30d', v.topCountries || [], 'No country data yet.') +
+        list('Entry pages · 30d', v.topEntries || [], 'No entry-page data yet.') +
+      '</div>' +
+      (v.liveCities && v.liveCities.length
+        ? '<div class="av-list" style="margin-top:14px"><h4>Cities live right now</h4>' +
+          v.liveCities.map(r => '<div class="av-row"><span>' + esc(r.key) + '</span><span class="n">' + r.count + '</span></div>').join('') +
+          '</div>'
+        : '') +
+      '<div class="meta" style="margin-top:12px">Counts SESSIONS, not people: one per browser tab per session, from any page loading <code>track.js</code>. Signed-in and anonymous both land here, so this is a superset of the uid-keyed panels above. The daily rollup starts accumulating from the day it shipped, so earlier days read 0.</div>';
+
+    drawSpark($('av-spark'), series.map(r => r.sessions), '#0ea5e9', { fill: true });
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Visitors load failed: ' + esc(e.message || e) + '</div>';
+    meta.textContent = '';
+  }
+}
+
 async function loadDistillations(){
   const meta = $('dist-meta');
   const body = $('dist-body');

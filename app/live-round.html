@@ -7208,7 +7208,24 @@ html.stage-mode .stage-ov{display:block}
         }
       } else {
         renderUserChip();
-        ensureGuestAuth().catch(function(){});
+        // The ?stage broadcast overlay is the one arrival that should
+        // never create an account: it is a rendering surface, not a
+        // person. It writes nothing, and live_rounds is
+        // `allow read: if true`, so the round doc, ballot and transcript
+        // all render fine unauthenticated. Every stage view used to
+        // leave a permanent (anonymous) row in the Auth console.
+        //
+        // Everyone else still mints EAGERLY, on purpose:
+        //   - Debaters: the action handlers here (publish to
+        //     /disclosures, save round, leaderboard consent) check
+        //     `!state.user` and bail with "Guest access is still
+        //     starting" instead of awaiting the promise, so a lazy mint
+        //     would cost them a dead first click.
+        //   - ?spectate viewers: startWatchPresence() needs a uid to
+        //     write the watchers doc, and dropping them would quietly
+        //     undercount the "N watching" tally.
+        if (prefill.stage && !prefill.mySide) subscribeRound();
+        else ensureGuestAuth().catch(function(){});
       }
     });
   } else {

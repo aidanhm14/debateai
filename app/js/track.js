@@ -102,7 +102,10 @@
       fetch('/api/presence-live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sid: sessionId }),
+        // `path` is only read on the FIRST beat of a session, where it
+        // becomes the entry-page tally in presence_daily. Sent on every
+        // beat because the client can't know which beat is first.
+        body: JSON.stringify({ sid: sessionId, path: location.pathname }),
         keepalive: true,
       }).catch(function () {});
     } catch (e) {
