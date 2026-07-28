@@ -2,6 +2,7 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { SWAY, assignArm, integrityWeight, emptyTally } from './lib/sway.mjs';
 
 // Opinion-delta capture — measures what actually changes a mind.
 //
@@ -110,6 +111,58 @@ function stanceAxis(side, conf) {
   return 0;
 }
 
+// Does this viewer hold a position on the round's play-money market?
+// Recorded either way, counted never. A voter with credits riding on
+// the outcome has a reason to misreport their own mind, which is the
+// precise corruption the staking layer must not introduce into the
+// dataset it exists to make honest. Markets are keyed by round id;
+// a missing market simply means nobody could have staked.
+async function hasStake(db, roundId, uid) {
+  if (!roundId || !uid) return false;
+  try {
+    const snap = await db.collection('floor_markets').doc(roundId)
+      .collection('positions').doc(uid).get();
+    return snap.exists;
+  } catch { return false; }
+}
+
+// Rolling per-round aggregate so the public read is one document
+// instead of a fan-out over every spectator in the room. Written
+// best-effort: a failed roll-up must never fail the vote itself, since
+// the raw row in opinion_deltas is the source of truth and the tally
+// can be rebuilt from it.
+async function rollTally(db, roundId, patch) {
+  if (!roundId) return;
+  const ref = db.collection('sway_rounds').doc(roundId);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const t = { ...emptyTally(), ...((snap.exists && snap.data().tally) || {}) };
+      patch(t);
+      tx.set(ref, {
+        roundId,
+        tally: t,
+        updatedAt: FieldValue.serverTimestamp(),
+        ...(snap.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
+      }, { merge: true });
+    });
+  } catch (err) {
+    console.error('[log-opinion-delta] tally roll failed:', err.message);
+  }
+}
+
+function readWatchMs(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(ROUND_MAX_MS, Math.round(n));
+}
+
+function clipArgId(raw) {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim().slice(0, 32);
+  return /^[A-Za-z0-9_-]+$/.test(s) ? s : null;
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -173,17 +226,32 @@ export default async (request) => {
       if (!VALID_SIDES.has(sideBefore)) return errorResponse('Invalid sideBefore', 400, request);
       if (confBefore === null) return errorResponse('Invalid confBefore', 400, request);
 
+      // Arm assignment is server-side and deterministic on the owning
+      // identity, so a client cannot shop for the arm it prefers and a
+      // reload cannot move someone mid-round. A holdout row still gets
+      // created (we need somewhere to put the closing stance) but the
+      // opening stance is discarded rather than stored: that arm has to
+      // reach the ballot unanchored, and the client is told so it can
+      // skip the question entirely.
+      const arm = assignArm(roundId, uid || anonId);
+      const anchored = arm === 'exposed';
+
       const doc = {
         roundId,
         motion,
         format,
         uid,
         anonId,
-        sideBefore,
-        confBefore,
+        arm,
+        sideBefore: anchored ? sideBefore : null,
+        confBefore: anchored ? confBefore : null,
         movedAt: [],
         sideAfter: null,
         confAfter: null,
+        movedBy: null,
+        watchMs: 0,
+        weight: 0,
+        staked: false,
         flipped: null,
         shift: null,
         createdAt: FieldValue.serverTimestamp(),
@@ -191,8 +259,11 @@ export default async (request) => {
       };
 
       const ref = await db.collection('opinion_deltas').add(doc);
-      console.log('[log-opinion-delta] create round=', roundId, 'side=', sideBefore, 'id=', ref.id);
-      return jsonResponse({ ok: true, id: ref.id }, 200, request);
+      if (anchored) {
+        await rollTally(db, roundId, (t) => { t.pre[sideBefore] = (t.pre[sideBefore] || 0) + 1; });
+      }
+      console.log('[log-opinion-delta] create round=', roundId, 'arm=', arm, 'side=', anchored ? sideBefore : 'held', 'id=', ref.id);
+      return jsonResponse({ ok: true, id: ref.id, arm, anchored }, 200, request);
     }
 
     // ── Mode B: taps during, and the closing stance ──────────────────
@@ -233,6 +304,10 @@ export default async (request) => {
         const confAfter = readConfidence(body.confAfter);
         if (!VALID_SIDES.has(sideAfter)) return errorResponse('Invalid sideAfter', 400, request);
         if (confAfter === null) return errorResponse('Invalid confAfter', 400, request);
+        if (existing.sideAfter) {
+          // Already restated. Silently accept rather than double-count.
+          return jsonResponse({ ok: true, counted: false, reason: 'already-restated' }, 200, request);
+        }
 
         update.sideAfter = sideAfter;
         update.confAfter = confAfter;
@@ -243,6 +318,82 @@ export default async (request) => {
           && existing.sideBefore !== 'undecided';
         update.shift = stanceAxis(sideAfter, confAfter)
           - stanceAxis(existing.sideBefore, existing.confBefore);
+
+        // ── the integrity layer ──────────────────────────────────
+        // Three ways a closing stance ends up recorded but not
+        // counted: the viewer had credits on the round, the viewer
+        // did not actually watch, or the identity is too fresh to
+        // carry full weight. All three are published as counts, so a
+        // reader can see how much was thrown away and why.
+        const watchMs = readWatchMs(body.watchMs);
+        const staked = await hasStake(db, existing.roundId, uid || existing.uid);
+
+        // Age and history come from the viewer's own sway record, not
+        // from Firebase account metadata: an ID token carries
+        // auth_time (last sign-in), which says nothing about how long
+        // an identity has existed. What the weight wants to know is
+        // whether this identity has been around and participated, and
+        // that is a fact we own.
+        const ownerKey = uid || existing.uid || anonId;
+        const voterRef = db.collection('sway_voters').doc(String(ownerKey).slice(0, 128));
+        let accountAgeDays = 0, priorRounds = 0, seenBefore = false;
+        try {
+          const vs = await voterRef.get();
+          if (vs.exists) {
+            const v = vs.data();
+            seenBefore = true;
+            const first = v.firstSeenAt?.toMillis?.() ?? Date.now();
+            accountAgeDays = Math.max(0, (Date.now() - first) / 86400000);
+            priorRounds = Number(v.roundsVoted || 0);
+          }
+          // firstSeenAt is written once and never again. A merge that
+          // re-stamps it every vote would reset every identity's age to
+          // zero on each round, which is exactly backwards: the field
+          // exists to make an identity harder to fake by being old.
+          await voterRef.set({
+            uid: uid || existing.uid || null,
+            ...(seenBefore ? {} : { firstSeenAt: FieldValue.serverTimestamp() }),
+            lastSeenAt: FieldValue.serverTimestamp(),
+            roundsVoted: FieldValue.increment(1),
+          }, { merge: true });
+        } catch (err) {
+          console.error('[log-opinion-delta] voter record failed:', err.message);
+        }
+
+        const weight = integrityWeight({
+          signedIn: !!(uid || existing.uid),
+          accountAgeDays, priorRounds, watchMs, staked,
+        });
+
+        const argId = clipArgId(body.movedBy);
+        update.watchMs = watchMs;
+        update.staked = staked;
+        update.weight = weight;
+        if (argId) update.movedBy = argId;
+
+        const arm = existing.arm === 'holdout' ? 'holdout' : 'exposed';
+        await rollTally(db, existing.roundId, (t) => {
+          if (staked) { t.excludedStakers = (t.excludedStakers || 0) + 1; return; }
+          if (!weight) { t.lowWatch = (t.lowWatch || 0) + 1; return; }
+          if (arm === 'holdout') {
+            t.holdoutPost[sideAfter] = (t.holdoutPost[sideAfter] || 0) + 1;
+            t.holdoutCounted = (t.holdoutCounted || 0) + 1;
+            return;
+          }
+          t.post[sideAfter] = (t.post[sideAfter] || 0) + 1;
+          t.counted = (t.counted || 0) + 1;
+          if (existing.sideBefore && existing.sideBefore !== sideAfter) {
+            t.switched = (t.switched || 0) + 1;
+          }
+        });
+
+        await ref.update(update);
+        return jsonResponse({
+          ok: true,
+          counted: !staked && weight > 0,
+          arm, weight, staked,
+          minWatchSeconds: Math.round(SWAY.MIN_WATCH_MS / 1000),
+        }, 200, request);
       }
 
       await ref.update(update);

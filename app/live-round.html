@@ -4546,6 +4546,52 @@ html.stage-mode .stage-ov{display:block}
     } catch(e){ return 's-anon'; }
   }
 
+  /* ── Holdout arm ────────────────────────────────────────────────
+     A deterministic quarter of spectators are never asked where they
+     stand BEFORE the round. Committing to a side in public makes
+     people defend it, so a before/after delta measured on people who
+     were asked twice systematically under-reads real movement. The
+     unheld arm arrives at the ballot unanchored and its closing split
+     is the control that tells us how much the asking itself moved the
+     answer.
+
+     The hash matches assignArm() in netlify/functions/lib/sway.mjs
+     byte for byte so both sides agree without a round trip. The server
+     recomputes it on every write and wins any disagreement, so a
+     client that forces itself into the anchored arm just gets its
+     opening stance discarded. */
+  function svHash32(str){
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function svOwnerKey(){
+    return (state.user && state.user.uid) ? state.user.uid : svAnonId();
+  }
+  function svArm(){
+    if (!state.room) return 'exposed';
+    return (svHash32(state.room + ':' + svOwnerKey()) % 1000) < 250 ? 'holdout' : 'exposed';
+  }
+
+  /* Watched time, not time on page. A closing stance from someone who
+     had the tab open for eleven minutes in another window is not a
+     measurement of anything. The server drops anything under its floor
+     and reports how many it dropped. */
+  var svWatchAccum = 0, svWatchStart = 0, svWatching = false;
+  function svWatchTick(on){
+    if (on && !svWatching){ svWatchStart = Date.now(); svWatching = true; }
+    else if (!on && svWatching){ svWatchAccum += Date.now() - svWatchStart; svWatching = false; }
+  }
+  function svWatchMs(){
+    return svWatchAccum + (svWatching ? Date.now() - svWatchStart : 0);
+  }
+  document.addEventListener('visibilitychange', function(){
+    svWatchTick(document.visibilityState === 'visible' && !!svPanel);
+  });
+
   function svPost(payload){
     payload.anonId = svAnonId();
     var headers = { 'Content-Type': 'application/json' };
@@ -4594,6 +4640,33 @@ html.stage-mode .stage-ov{display:block}
     try {
       if (!isSpectator() || !state.room || svPanel) return;
       svRenderPanel();
+      svWatchTick(document.visibilityState !== 'hidden');
+
+      if (svArm() === 'holdout'){
+        // Held out of the opening question on purpose. The row still
+        // has to exist so the closing stance has somewhere to land, so
+        // it is opened silently; the server discards the stance it is
+        // sent and records the arm. This spectator can still flag
+        // moments, they are just never asked to pick a side until the
+        // ballot is in.
+        svRow = { id:null, movedAt:[], phase:'during' };
+        svCreateRetried = false;
+        svCreatePayload = {
+          action: 'create',
+          roundId: state.room,
+          motion: (state.motion || '').slice(0, 2000),
+          format: state.formatKey || '',
+          sideBefore: 'undecided',
+          confBefore: 50
+        };
+        svSendCreate();
+        svShowPhase('during');
+        var eb = svPanel && svPanel.querySelector('#svEyebrow');
+        var ti = svPanel && svPanel.querySelector('#svTitle');
+        if (eb) eb.textContent = 'Your call · after the ballot';
+        if (ti) ti.textContent = 'Flag the moments that land.';
+        return;
+      }
       svShowPhase('before');
     } catch(e){}
   }
@@ -4741,15 +4814,27 @@ html.stage-mode .stage-ov{display:block}
     var conf = confEl ? parseInt(confEl.value, 10) : 50;
     if (isNaN(conf)) conf = 50;
     var after = svPickAfter;
-    svWithRow(function(id){ svPost({ action:'update', id:id, sideAfter:after, confAfter:conf }); });
+    var held = svArm() === 'holdout';
+    // watchMs is what lets the server tell a spectator apart from a
+    // tab. It decides whether this stance counts at all, so it rides
+    // the closing write rather than being inferred later.
+    svWithRow(function(id){
+      svPost({ action:'update', id:id, sideAfter:after, confAfter:conf, watchMs: svWatchMs() });
+    });
     var moved = svRow.movedAt.length;
     svShowPhase('done');
     var d = svPanel && svPanel.querySelector('#svDone');
     if (d){
-      var changed = after !== svCreatePayload.sideBefore;
-      d.innerHTML = (changed ? '<b>You moved.</b> ' : '<b>You held.</b> ') +
-        'Started ' + escHtml(svLabel(svCreatePayload.sideBefore)) + ', ended ' + escHtml(svLabel(after)) + '. ' +
-        moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
+      if (held){
+        d.innerHTML = '<b>Recorded.</b> You were kept out of the opening question on purpose, ' +
+          'so this answer is unanchored. It is the control the rest of the room gets measured against. ' +
+          moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
+      } else {
+        var changed = after !== svCreatePayload.sideBefore;
+        d.innerHTML = (changed ? '<b>You moved.</b> ' : '<b>You held.</b> ') +
+          'Started ' + escHtml(svLabel(svCreatePayload.sideBefore)) + ', ended ' + escHtml(svLabel(after)) + '. ' +
+          moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
+      }
     }
     try { gtag('event', 'swing_vote_restate', { format: state.formatKey, flipped: after !== svCreatePayload.sideBefore }); } catch(e){}
   }
