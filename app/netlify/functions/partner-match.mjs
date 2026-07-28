@@ -174,13 +174,24 @@ function revertShape() {
 // Team membership is one-at-a-time. A debater who is already on a
 // ready duo can't also be in the pool or accept a second proposal —
 // otherwise two duos queue the same person into two 2v2 rooms.
+// Status is filtered in memory rather than in the query on purpose.
+// Combining array-contains with an `in` clause needs a composite index
+// and sits close to Firestore's compound-query limits, and this runs on
+// every load of /partners: if it ever throws, the page cannot tell a
+// user whether they have a team, which breaks the whole surface. A
+// debater accumulates a handful of team docs over their whole account
+// life, so reading them and filtering here costs nothing and cannot
+// fail for a reason nobody can see.
 async function activeTeamOf(db, uid) {
   const snap = await db.collection('duo_teams')
     .where('members', 'array-contains', uid)
-    .where('status', 'in', ['forming', 'ready'])
-    .limit(1)
+    .limit(20)
     .get();
-  return snap.empty ? null : snap.docs[0];
+  const live = snap.docs.filter((d) => {
+    const s = (d.data() || {}).status;
+    return s === 'forming' || s === 'ready';
+  });
+  return live.length ? live[live.length - 1] : null;
 }
 
 function teamPublic(doc) {
