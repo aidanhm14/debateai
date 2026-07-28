@@ -1324,7 +1324,7 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
       <li><strong style="color:#fff">Policy (CX)</strong> · rapid quoted-evidence delivery (tagged cards), plan vs. counterplan vs. kritik, evidence on a clock.</li>
       <li><strong style="color:#fff">Student Congress</strong> · legislative format, authorship and floor speeches, rebuttal of prior speakers.</li>
       <li><strong style="color:#fff">Model UN (MUN)</strong> · committee speeches, resolution drafting, moderated and unmoderated caucus.</li>
-      <li><strong style="color:#fff">Quick Clash</strong> · two-minute rapid format for warm-ups and casual rounds.</li>
+      <li><strong style="color:#fff">Quick Clash</strong> · the default. A constructive and a rebuttal each side, scored out of 30 for a general audience.</li>
       <li><strong style="color:#fff">Viva (oral exam)</strong> · academic defense mode; explain your reasoning out loud while the AI examiner pushes on the weak link.</li>
     </ul>
 
@@ -1689,29 +1689,50 @@ var LANGUAGES = {
   nl: { code: 'nl', label: '🇳🇱 Nederlands', nativeName: 'Dutch' }
 };
 
+/* ── LAY BALLOT ───────────────────────── */
+// The 30-point rubric for the default format. Quick Clash is what a
+// first-timer meets, so it is judged the way a lay audience actually
+// scores an argument (is the case good, did you answer theirs, could I
+// follow it) instead of on the 23-30 circuit speaker scale. Injected
+// into the server-side singleJudgeBallot prompt as {{formatJudgingCriteria}}.
+var LAY_RUBRIC = [
+'SCORING FOR THIS FORMAT. 30-POINT LAY BALLOT.',
+'Quick Clash is judged for a general audience, not a circuit panel. Score EACH side out of 30, split three ways:',
+'  Strength of overall argument (0-15). Is the case itself true, warranted, and worth caring about?',
+'  Strength of responses to the opponent (0-10). Did they answer what was actually said, by name, or talk past it?',
+'  Structure and comprehension (0-5). Claim, then warrant, then impact. Could a first-time listener follow it?',
+'The higher total wins the round, and "winner" must match the higher total. A side with the weaker case can win on responses plus structure. When that happens, say so in the first line of the RFD.',
+'Judge in plain English. No debate jargon on this ballot: no framework, no flow, no cross-apply, no voting issues, no speaks talk.',
+'Keep "speakerPoints" on the standard 23-30 scale described below. That is a separate measure and does not decide this round.',
+'ALSO return a top-level "rubric" key alongside the other fields:',
+'"rubric": { "user": { "argument": 0-15, "responses": 0-10, "structure": 0-5, "total": 0-30 }, "ai": { "argument": 0-15, "responses": 0-10, "structure": 0-5, "total": 0-30 } }',
+'Each total must equal its own three components. Do not round to flatter anyone.'].
+join('\n');
+
 /* ── DEBATE FORMATS ──────────────────── */
 // Ordered so non-debater-friendly formats come first. `quick` is the default
 // in useState('quick') below so new visitors land on something approachable.
 var FORMATS = {
   quick: {
     name: 'Quick Clash',
-    desc: '2 speeches each. Fast and casual. No debate jargon needed.',
+    desc: 'A constructive and a rebuttal each side. Scored out of 30. No debate jargon needed.',
     sides: ['pro', 'con'],
     sideLabels: { pro: 'Pro', con: 'Con' },
     speeches: [
-    { code: 'P1', name: 'Pro Opening', side: 'pro', time: 180 },
-    { code: 'C1', name: 'Con Opening', side: 'con', time: 180 },
-    { code: 'P2', name: 'Pro Rebuttal', side: 'pro', time: 120 },
-    { code: 'C2', name: 'Con Rebuttal', side: 'con', time: 120 }],
+    { code: 'P1', name: 'Pro Constructive', side: 'pro', time: 300 },
+    { code: 'C1', name: 'Con Constructive', side: 'con', time: 300 },
+    { code: 'P2', name: 'Pro Rebuttal', side: 'pro', time: 180 },
+    { code: 'C2', name: 'Con Rebuttal', side: 'con', time: 180 }],
 
     rules: {
-      P1: 'You are Pro. Make your best 2-3 arguments for the topic. Be direct and conversational.',
-      C1: 'You are Con. Directly push back on Pro\'s points and make your own 2-3 counter-arguments.',
-      P2: 'You are Pro rebuttal. Respond to Con\'s attacks and explain why Pro still wins.',
-      C2: 'You are Con rebuttal. Final word. why Con wins this debate. NO new arguments.'
+      P1: 'You are Pro, constructive. Build the whole case for the topic: 2-3 arguments, each one a claim, then why it is true, then why it matters. Direct and conversational. Nothing to respond to yet.',
+      C1: 'You are Con, constructive. Do two jobs. Answer Pro\'s arguments one by one, naming each, then build your own 2-3 arguments the same way: claim, why it is true, why it matters.',
+      P2: 'You are Pro rebuttal. Answer Con\'s best arguments by name, rebuild your own where they were hit, and say why Pro wins overall. NO new arguments.',
+      C2: 'You are Con rebuttal. Final word. Answer Pro\'s rebuttal, compare what each side is left holding, say why Con wins. NO new arguments.'
     },
-    prep: 120,
-    entry: 'easy'
+    prep: 300,
+    entry: 'easy',
+    judging: LAY_RUBRIC
   },
   apda: {
     name: 'APDA Parliamentary',
@@ -6747,10 +6768,10 @@ function App() {
         window.track('battle_started', { format: fmt.name, side, motion_length: motion.length });
       }
     } catch (e) {/* telemetry must never break the round-start flow */}
-    // First-round prep cut. The default Quick Clash prep is 120s
-    // which is fine for a returning debater warming up but is a
-    // bounce-trap for first-timers — they hit Quick Clash expecting
-    // instant action and get a 2-minute timer instead. For round 1
+    // First-round prep cut. The default Quick Clash prep is 300s
+    // which is the spec'd prep for the format but is a bounce-trap
+    // for first-timers — they hit Quick Clash expecting instant
+    // action and get a five-minute timer instead. For round 1
     // on Quick Clash specifically, cut prep to 30s so they're in
     // their first speech in under a minute. Other formats keep
     // their full prep (Worlds debaters need 15 minutes; we don't
@@ -7667,7 +7688,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var ts = window.TypeStream && window.TypeStream.create(setSecondOpinionText, { cps: 120 });
       var fb = await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;if (ts) ts.feed(chunk);else setSecondOpinionText(chunk);}, otherBrain, {
         promptId: 'singleJudgeBallot',
-        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister }
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' }
       });
       if (ts) ts.done();
       setSecondOpinionText(fb);
@@ -7733,7 +7754,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         var raw = '';
         await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;}, brainKey, {
           promptId: 'singleJudgeBallot',
-          promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister }
+          promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' }
         });
         return { brain: brainKey, raw, ballot: parseBallot(raw), error: null };
       } catch (e) {
@@ -7771,7 +7792,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var ballotBrain = judgeBrain || brain;
       var fb = await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;if (ts) ts.feed(chunk);else setFeedback(chunk);}, ballotBrain, {
         promptId: 'singleJudgeBallot',
-        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister }
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' }
       });
       if (ts) ts.done();
       setFeedback(fb);
@@ -8144,6 +8165,14 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       txt += `JUDGE BALLOT\n${'═'.repeat(50)}\n\n`;
       txt += `Winner: ${roundBallot.winner === 'user' ? 'You' : 'AI'}\n`;
       txt += `Decision: ${roundBallot.decision || ''}\n\n`;
+      if (roundBallot.rubric && roundBallot.rubric.user && roundBallot.rubric.ai) {
+        var ru = roundBallot.rubric.user,ra = roundBallot.rubric.ai;
+        txt += `Scorecard (out of 30)          You    AI\n`;
+        txt += `  Overall argument (15)        ${ru.argument}     ${ra.argument}\n`;
+        txt += `  Responses (10)               ${ru.responses}     ${ra.responses}\n`;
+        txt += `  Structure and clarity (5)    ${ru.structure}     ${ra.structure}\n`;
+        txt += `  Total                        ${ru.total}    ${ra.total}\n\n`;
+      }
       if (roundBallot.speakerPoints) txt += `Speaker Points. You: ${roundBallot.speakerPoints.user} | AI: ${roundBallot.speakerPoints.ai}\n\n`;
       if (roundBallot.keyClash) txt += `Key Clash: ${roundBallot.keyClash}\n\n`;
       if (roundBallot.speeches) roundBallot.speeches.forEach((sp) => {
@@ -9178,7 +9207,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ), document.body);
 
   var simplePracticeCards = [
-  { icon: '⚡', title: 'Quick Clash', desc: 'Pro vs. Con. Two short speeches each. No jargon.', on: format === 'quick', go: () => chooseFormat('quick') },
+  { icon: '⚡', title: 'Quick Clash', desc: 'Pro vs. Con. A constructive and a rebuttal each. Scored out of 30.', on: format === 'quick', go: () => chooseFormat('quick') },
   { icon: '🏛', title: 'Parliamentary Debate', desc: 'Asian Parli, WSDC, BP, APDA. Gov vs. Opp.', on: SIMPLE_PARLI_KEYS.indexOf(format) !== -1, go: () => chooseFormat('asian') },
   { icon: '🎤', title: 'Public Speaking / Oral Exam', desc: 'Defend a thesis out loud. An examiner probes you.', on: format === 'viva', go: () => chooseFormat('viva') },
   { icon: '💼', title: 'Work & Career', desc: 'Courtroom, negotiation, investor pitch. Argue like it\'s your job.', on: SIMPLE_CAREER_KEYS.indexOf(format) !== -1, go: () => chooseFormat('pitch') },
@@ -9903,7 +9932,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ),
   // Helper line under the format picker for brand-new users
   !isCounterExt && format === 'quick' && el('div', { style: { fontSize: '.74rem', color: 'var(--c-dim)', marginTop: 6, maxWidth: 520 } },
-  'New to debate? Stay on Quick Clash. It\'s Pro vs. Con, two short speeches each, no jargon.'
+  'New to debate? Stay on Quick Clash. It\'s Pro vs. Con, a constructive and a rebuttal each, no jargon.'
   ),
 
   // Motion label + placeholder — adapts to the picked use case so
@@ -11504,6 +11533,45 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     b.winner === 'user' ? 'You Win' : 'Opponent Wins'
     ),
     el('p', { style: { fontSize: '.86rem', color: 'var(--c-text4)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' } }, b.decision)
+    ),
+
+    // 30-point lay scorecard. Only the default format asks for it (see
+    // LAY_RUBRIC), and where it exists the totals ARE the verdict, so it
+    // sits directly under the decision and above the speaker-point tiles.
+    b.rubric && b.rubric.user && b.rubric.ai && el('div', { style: { padding: '16px 18px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, marginBottom: 18 } },
+    el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 66px 66px', gap: 6, alignItems: 'center', fontSize: '.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--c-muted)', marginBottom: 10 } },
+    el('span', null, 'Scorecard'),
+    el('span', { style: { textAlign: 'right' } }, 'You'),
+    el('span', { style: { textAlign: 'right' } }, 'AI')
+    ),
+    [
+    ['Overall argument', 'argument', 15],
+    ['Responses to their case', 'responses', 10],
+    ['Structure and clarity', 'structure', 5],
+    ['Total', 'total', 30]].
+    map((r) => {
+      var isTotal = r[1] === 'total';
+      var u = b.rubric.user[r[1]];
+      var a = b.rubric.ai[r[1]];
+      var cell = (v) => v == null || isNaN(parseFloat(v)) ? ', ' : parseFloat(v) + '/' + r[2];
+      return el('div', {
+        key: r[1],
+        style: {
+          display: 'grid', gridTemplateColumns: '1fr 66px 66px', gap: 6, alignItems: 'center',
+          padding: isTotal ? '10px 0 0' : '5px 0',
+          marginTop: isTotal ? 6 : 0,
+          borderTop: isTotal ? '1px solid var(--c-border)' : 'none',
+          fontSize: isTotal ? '.86rem' : '.8rem',
+          fontWeight: isTotal ? 900 : 600,
+          color: isTotal ? 'var(--fg)' : 'var(--c-text4)'
+        }
+      },
+      el('span', null, r[0]),
+      el('span', { style: { textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: isTotal && parseFloat(u) > parseFloat(a) ? '#22c55e' : 'inherit' } }, cell(u)),
+      el('span', { style: { textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: isTotal && parseFloat(a) > parseFloat(u) ? '#ef4444' : 'inherit' } }, cell(a))
+      );
+    }),
+    el('p', { style: { margin: '10px 0 0', fontSize: '.68rem', color: 'var(--c-muted)', lineHeight: 1.5 } }, 'Argument out of 15, responses out of 10, structure out of 5. Highest total wins, so a weaker case can still take the round on responses and clarity.')
     ),
 
     // Speaker points / plain-language scores
