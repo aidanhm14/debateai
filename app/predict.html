@@ -113,6 +113,29 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   .model-card>a:hover{color:var(--con)}
   .model-loop{font-family:var(--mono);font-size:.66rem;line-height:1.6;letter-spacing:.02em;color:var(--faint);text-align:center;margin:12px auto 0;max-width:74ch}
 
+  /* Crowd-vote band. The free, no-points way in, so it sits above the
+     points market in the reading order. Kept visually lighter than .how
+     because it is one idea, not a mechanic that needs steps. */
+  .crowd{display:grid;grid-template-columns:1.12fr .88fr;gap:16px;align-items:center;margin-top:14px;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 17px}
+  @media(max-width:820px){.crowd{grid-template-columns:1fr;gap:13px}}
+  .crowd .k{display:block;font-family:var(--mono);font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--con);margin-bottom:6px}
+  .crowd h2{font-size:1.18rem;line-height:1.2;letter-spacing:-.015em;margin:0 0 7px}
+  .crowd p{font-size:.86rem;line-height:1.5;color:var(--dim);margin:0 0 8px;max-width:56ch}
+  .crowd p strong{color:var(--tx);font-weight:800}
+  .crowd-copy>a{display:inline-block;margin-top:2px;font-size:.78rem;font-weight:800;color:var(--tx)}
+  .crowd-copy>a:hover{color:var(--con)}
+  .crowd-viz{background:var(--panel2);border:1px solid var(--bd);border-radius:11px;padding:13px 13px 11px}
+  .cv-q{font-size:.86rem;font-weight:800;margin-bottom:10px}
+  .cvbar{height:13px;border-radius:8px;overflow:hidden;display:flex;background:var(--bd);margin-bottom:8px}
+  .cvbar i{display:block;height:100%}
+  .cvbar .cvp{background:var(--pro)}
+  .cvbar .cvo{background:var(--con);flex:1}
+  .cv-legend{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.64rem;font-weight:700;color:var(--dim)}
+  .cv-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .cv-legend i.p{background:var(--pro)}
+  .cv-legend i.o{background:var(--con)}
+  .cv-note{margin-top:10px;padding-top:9px;border-top:1px solid var(--bd);font-size:.7rem;line-height:1.45;color:var(--faint)}
+
   /* How it works: visible above the board, not behind a toggle. Three
      steps and one worked example; the odds curve and edge-case rules sit
      one click deeper in the disclosure at the bottom of the section. */
@@ -354,7 +377,8 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
     <span style="--x:44%;--y:78%;--s:.8;--r:-13deg;--d:2.8s">$</span>
   </div>
   <h1>Bet on your words.</h1>
-  <p>Every debate here runs on stakes. <strong>Debaters back themselves</strong> by putting their name on a side. <strong>The audience backs its reads</strong> with free <strong>Play Points</strong> on who wins. The <strong>AI judge</strong> settles the market the moment the round ends. <strong>Points never turn into money.</strong> The cash-prize track is separate and rules-first.</p>
+  <p>Watch a round. Say who won. <strong>That vote is free and takes one tap.</strong></p>
+  <p>Want more on the line? Stake <strong>Play Points</strong> on the side you think the <strong>AI judge</strong> will score higher. Everyone starts with 1,000. They cost nothing, and they <strong>never turn into money</strong>. Cash prizes are a separate track with published rules.</p>
   <div class="head-actions">
     <a class="primary" href="#markets">See the open markets</a>
     <a class="secondary" href="/tokens">Get tokens · $4.99</a>
@@ -373,21 +397,44 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   <section class="model" aria-label="The three ways in">
     <div class="model-card">
       <div class="model-top"><h3>Predict the winner</h3><span class="mchip live">Live now</span></div>
-      <p>Read both cases, stake Play Points on the side you think the judge scores higher, and split the pool when you are right. Free for everyone, on this board, today.</p>
+      <p>Read both cases. Back the one you think the judge scores higher. Get it right and you take a share of the pool. Free for everyone, today.</p>
       <a href="#markets">Open the board <span aria-hidden="true">&rarr;</span></a>
     </div>
     <div class="model-card">
       <div class="model-top"><h3>Bet on yourself</h3><span class="mchip">For debaters</span></div>
-      <p>Start a round and a market opens on it. Your name and your case are the position: the crowd prices you while you speak, the ballot settles you, and your rating carries the result forward. Staking points on your own round is next.</p>
+      <p>Start a round and a market opens on you. The crowd backs you or backs against you while you speak. The ballot settles it, and the result follows your rating. Staking your own points on yourself is next.</p>
       <a href="/spar">Open a round <span aria-hidden="true">&rarr;</span></a>
     </div>
     <div class="model-card">
       <div class="model-top"><h3>Prize matches</h3><span class="mchip soon">Coming · rules first</span></div>
-      <p>The cash track is separate from this board. Featured matches will pay the winning debater a real prize, run as a skill contest. Audience prize pools follow only where legal, with official rules and eligibility published before anything opens.</p>
+      <p>The cash track is separate from this board. Featured matches will pay the winning debater a real prize, run as a skill contest. Audience prize pools follow only where legal. The rules and who can enter get published before anything opens.</p>
       <a href="/get-paid-to-debate">How getting paid will work <span aria-hidden="true">&rarr;</span></a>
     </div>
   </section>
-  <p class="model-loop">Stakes make people watch whole rounds. Watching makes you vote. Votes teach the judge. The judge gets sharper, the odds get sharper, better debaters show up, the pool grows.</p>
+  <!-- Crowd vote band. The free, no-points way in: every finished round
+       carries a one-tap "Who convinced you?" vote (the .voterow block in
+       rounds.html), one per person, with the two debaters excluded from
+       their own round. Deliberately NOT the points market. The vote is
+       the opinion of the room; the ballot is the judge's. Conflating the
+       two is what made this page hard to read, so keep them separate in
+       copy. The bar is an illustration, not live data. -->
+  <section class="crowd" aria-labelledby="crowdTitle">
+    <div class="crowd-copy">
+      <span class="k">The crowd vote</span>
+      <h2 id="crowdTitle">The judge writes the ballot. You say who convinced you.</h2>
+      <p>Every finished round ends with one question: <strong>who convinced you?</strong> One tap, one vote per person, nothing staked. The two debaters do not vote on their own round.</p>
+      <p>The judge scores the arguments. The room says who moved it. Those two answers do not always agree, and the rounds where they split are the ones worth watching.</p>
+      <a href="/rounds">See finished rounds <span aria-hidden="true">&rarr;</span></a>
+    </div>
+    <div class="crowd-viz" aria-hidden="true">
+      <div class="cv-q">Who convinced you?</div>
+      <div class="cvbar"><i class="cvp" style="width:62%"></i><i class="cvo"></i></div>
+      <div class="cv-legend"><span><i class="p"></i>Prop 62%</span><span><i class="o"></i>Opp 38%</span></div>
+      <div class="cv-note">Example. The judge can score it the other way, and that split is the point.</div>
+    </div>
+  </section>
+
+  <p class="model-loop">Stakes make people watch the whole round. Watching makes them vote. More votes make the judge sharper. Better judging brings better debaters.</p>
 
   <!-- The money-in surface. Facts mirror /pricing exactly: Tokens are
        the one live purchase ($4.99/mo, Stripe), plans are reservable,
