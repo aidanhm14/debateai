@@ -4858,7 +4858,50 @@ html.stage-mode .stage-ov{display:block}
     } catch(e){}
   }
 
-  function generateBallot(){
+  // Ballot requests retry (added 2026-07-28). A tournament ends many rounds
+  // inside the same minute, so this endpoint takes a burst of 8000-token
+  // calls at exactly the moment it matters most. Before this, one upstream
+  // 429 or 529 ended the round with no ballot and a button that reloaded
+  // the page straight back into the same overloaded window. Retries are
+  // bounded, backed off, and JITTERED, because N clients retrying on an
+  // identical schedule is just a second thundering herd.
+  //
+  // Parse failures retry too (they arrive with no .status): a truncated or
+  // malformed generation is exactly the transient case a retry fixes, and
+  // the attempt budget bounds the token cost either way.
+  var BALLOT_MAX_ATTEMPTS = 4;
+  var BALLOT_RETRY_STATUS = { 408:1, 425:1, 429:1, 500:1, 502:1, 503:1, 504:1, 529:1 };
+  var ballotLoadingHTML = null;
+
+  function ballotBackoffMs(attempt, retryAfterHeader){
+    // Honor an explicit Retry-After when the upstream sends one.
+    var ra = parseInt(retryAfterHeader, 10);
+    if (ra > 0) return Math.min(ra * 1000, 30000);
+    var base = [2000, 5000, 12000][attempt - 1] || 12000;
+    return base + Math.floor(Math.random() * 1500);
+  }
+
+  function ballotStatus(msg){
+    var host = $('ballotLoading');
+    if (!host) return;
+    var el = document.getElementById('ballotRetryNote');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'ballotRetryNote';
+      el.style.cssText = 'margin-top:10px;font-size:.78rem;color:var(--text-dim)';
+      host.appendChild(el);
+    }
+    el.textContent = msg;
+  }
+
+  function generateBallot(attempt){
+    attempt = attempt || 1;
+    // Snapshot the loading markup once so a manual retry can restore it
+    // instead of leaving the failure card on screen.
+    if (ballotLoadingHTML === null){
+      var blHost = $('ballotLoading');
+      if (blHost) ballotLoadingHTML = blHost.innerHTML;
+    }
     var p = buildBallotPrompt();
     fetch('/api/claude', {
       method: 'POST',
@@ -4876,7 +4919,12 @@ html.stage-mode .stage-ov{display:block}
         _feature: 'live-round',
       }),
     }).then(function(r){
-      if (!r.ok) throw new Error('Ballot API ' + r.status);
+      if (!r.ok){
+        var httpErr = new Error('Ballot API ' + r.status);
+        httpErr.status = r.status;
+        httpErr.retryAfter = r.headers.get('retry-after');
+        throw httpErr;
+      }
       var ct = r.headers.get('content-type') || '';
       if (ct.indexOf('text/event-stream') >= 0) {
         // Streaming response, collect chunks from SSE.
@@ -4909,10 +4957,30 @@ html.stage-mode .stage-ov{display:block}
       publishBallot(parsed);
       try { gtag('event', 'live_round_ballot', { format: state.formatKey, winner: parsed.winner }); } catch(e){}
     }).catch(function(err){
+      // No .status means a network failure or a parse failure; both are
+      // worth another attempt. An explicit 4xx that isn't 408/425/429 will
+      // not fix itself (auth, plan, malformed request), so it fails fast.
+      var retryable = !err.status || !!BALLOT_RETRY_STATUS[err.status];
+      if (retryable && attempt < BALLOT_MAX_ATTEMPTS){
+        var wait = ballotBackoffMs(attempt, err.retryAfter);
+        console.warn('[ballot] attempt ' + attempt + ' failed (' + err.message + '), retrying in ' + wait + 'ms');
+        ballotStatus('The judge is busy. Retrying in ' + Math.round(wait / 1000) + 's. Attempt ' + (attempt + 1) + ' of ' + BALLOT_MAX_ATTEMPTS + '.');
+        setTimeout(function(){ generateBallot(attempt + 1); }, wait);
+        return;
+      }
       console.error('[ballot]', err);
+      try { gtag('event', 'live_round_ballot_failed', { format: state.formatKey, status: err.status || 0, attempts: attempt }); } catch(e){}
       $('ballotLoading').innerHTML = '<div style="color:#fca5a5;font-weight:700">Ballot failed</div>'
         + '<div style="font-size:.78rem;margin-top:6px;color:var(--text-dim)">' + escHtml(err.message) + '</div>'
-        + '<div style="margin-top:14px"><button class="btn" onclick="location.reload()">Try again</button></div>';
+        + '<div style="font-size:.74rem;margin-top:6px;color:var(--text-dim)">The transcript is saved. Retrying does not lose the round.</div>'
+        + '<div style="margin-top:14px"><button class="btn" id="ballotRetryBtn" type="button">Try again</button></div>';
+      var rbtn = document.getElementById('ballotRetryBtn');
+      // Retry in place rather than location.reload(): a reload drops the
+      // round view and lands back in the same overloaded window anyway.
+      if (rbtn) rbtn.addEventListener('click', function(){
+        if (ballotLoadingHTML !== null) $('ballotLoading').innerHTML = ballotLoadingHTML;
+        generateBallot(1);
+      });
     });
   }
 
