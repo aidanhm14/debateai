@@ -2184,6 +2184,24 @@ html.stage-mode .stage-ov{display:block}
     con:    qs.get('con')    || '',
     proUid: qs.get('proUid') || '',
     conUid: qs.get('conUid') || '',
+    // ── 2v2 partner seats ────────────────────────────────────────
+    // A 2v2 round is still a TWO BENCH round: the format spec, the
+    // transcript tags, and the ballot all reason about gov vs opp,
+    // and none of that changes when a bench holds two people instead
+    // of one. What changes is who controls which speech, so the extra
+    // seats are carried as partner uids on the existing benches
+    // rather than as a new four-side seating model.
+    //
+    // Getting this wrong is not cosmetic: without the partner uids,
+    // mySide() returns null for both partners (signed in, matches
+    // neither named seat), which classifies them as SPECTATORS and
+    // locks them out of their own round.
+    pro2:    qs.get('pro2')    || '',
+    con2:    qs.get('con2')    || '',
+    proUid2: qs.get('proUid2') || '',
+    conUid2: qs.get('conUid2') || '',
+    proTeam: qs.get('proTeam') || '',
+    conTeam: qs.get('conTeam') || '',
     // Explicit side hint from /live.html — survives anonymous users
     // (no Firebase UID) and same-account-two-tabs testing where UID
     // matching collapses both viewers onto one side. Empty string for
@@ -2284,11 +2302,31 @@ html.stage-mode .stage-ov{display:block}
     teamNames: { og: '', oo: '', cg: '', co: '' },
     proUid: prefill.proUid,
     conUid: prefill.conUid,
+    // Partner seats. A round is a 2v2 when either bench names a
+    // second debater; both benches are expected to, but one missing
+    // partner should degrade to a normal round rather than break the
+    // one that is there.
+    proUid2: prefill.proUid2,
+    conUid2: prefill.conUid2,
+    proName2: prefill.pro2,
+    conName2: prefill.con2,
+    proTeam: prefill.proTeam,
+    conTeam: prefill.conTeam,
+    isDuo: !!(prefill.proUid2 || prefill.conUid2 || prefill.pro2 || prefill.con2),
     // A seat claim (mySide) always outranks a watch flag — watch
     // links never carry mySide, so a conflict means participant.
     forceSpectate: (prefill.spectate || prefill.stage) && !prefill.mySide,
     audienceMode: false,   // set once any spectator path engages
     specBeatOn: false,     // watcher heartbeat started
+    // Spectator admission. `admitted` gates the video + audience view;
+    // `roundDocSeen` exists because visibility is only known once the
+    // round document arrives, and treating "not yet loaded" as public
+    // is the safe default.
+    admitted: false,
+    admissionStatus: 'none', // 'none' | 'pending' | 'accepted' | 'rejected'
+    admitUnsub: null,
+    admitPoll: null,
+    roundDocSeen: false,
     lastFloorRemark: null, // latest between-speech judge remark (stage overlay)
     lastBallot: null,      // latest rendered ballot (stage overlay)
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
@@ -2441,13 +2479,61 @@ html.stage-mode .stage-ov{display:block}
     if (state.user && state.proUid && state.conUid){
       if (state.proUid === state.user.uid) return 'pro';
       if (state.conUid === state.user.uid) return 'con';
-      return null; // signed in but in neither slot → spectator
+      if (state.proUid2 && state.proUid2 === state.user.uid) return 'pro';
+      if (state.conUid2 && state.conUid2 === state.user.uid) return 'con';
+      return null; // signed in but in no slot → spectator
     }
     if (state.mySideHint === 'pro' || state.mySideHint === 'con') return state.mySideHint;
     if (!state.user) return null;
     if (state.proUid && state.proUid === state.user.uid) return 'pro';
     if (state.conUid && state.conUid === state.user.uid) return 'con';
+    if (state.proUid2 && state.proUid2 === state.user.uid) return 'pro';
+    if (state.conUid2 && state.conUid2 === state.user.uid) return 'con';
     return null;
+  }
+
+  // Which seat on my bench I hold: 1 for the first speaker, 2 for the
+  // partner. Only meaningful in a 2v2; a 1v1 always answers 1.
+  //
+  // In a 2v2 the bench is not the unit of control. Two people share
+  // gov, and if both of them own every gov speech then both can start
+  // the clock, both can end a speech, and the round desynchronises the
+  // first time they disagree about whose turn it is. The seat is what
+  // resolves that.
+  function mySeat(){
+    if (!state.isDuo || !state.user) return 1;
+    if (state.proUid2 && state.proUid2 === state.user.uid) return 2;
+    if (state.conUid2 && state.conUid2 === state.user.uid) return 2;
+    return 1;
+  }
+
+  // Which seat speaks a given speech. Speeches alternate between
+  // benches, so within one bench the first speech belongs to seat 1,
+  // the second to seat 2, and so on. Counting the bench's earlier
+  // speeches gives the ordinal without hard-coding any format's
+  // speech list, which matters because APDA, BP and Asian Parli all
+  // distribute their bench speeches differently.
+  function seatForSpeech(f, idx){
+    if (!f || !f.speeches || !f.speeches[idx]) return 1;
+    var bench = sideBench(f, f.speeches[idx].side);
+    var ordinal = 0;
+    for (var i = 0; i < idx; i += 1){
+      if (sideBench(f, f.speeches[i].side) === bench) ordinal += 1;
+    }
+    return (ordinal % 2) + 1;
+  }
+
+  // The individual speaking right now, rather than the bench. In a
+  // 1v1 these are the same thing; in a 2v2 the guide has to name a
+  // person or neither partner knows which of them is up.
+  function speakerNameFor(f, idx){
+    if (!f || !f.speeches || !f.speeches[idx]) return '';
+    var bench = sideBench(f, f.speeches[idx].side);
+    var seat = state.isDuo ? seatForSpeech(f, idx) : 1;
+    if (bench === 'gov'){
+      return (seat === 2 ? (state.proName2 || state.proName) : state.proName) || 'First side';
+    }
+    return (seat === 2 ? (state.conName2 || state.conName) : state.conName) || 'Second side';
   }
 
   // Audience gate. True when the visitor explicitly arrived to watch
@@ -2460,7 +2546,8 @@ html.stage-mode .stage-ov{display:block}
     if (state.forceSpectate) return true;
     if (!state.user) return false;
     if (!state.proUid || !state.conUid) return false;
-    return state.user.uid !== state.proUid && state.user.uid !== state.conUid;
+    return state.user.uid !== state.proUid && state.user.uid !== state.conUid
+        && state.user.uid !== state.proUid2 && state.user.uid !== state.conUid2;
   }
 
   // Keep page progress and control ownership explicit. Every client
@@ -2520,11 +2607,11 @@ html.stage-mode .stage-ov{display:block}
     } else if (phase === 'round'){
       var sp = f.speeches && f.speeches[state.speechIdx];
       var firstSide = sp ? sideBench(f, sp.side) === 'gov' : true;
-      var speakerName = firstSide ? (state.proName || 'First side') : (state.conName || 'Second side');
+      var speakerName = speakerNameFor(f, state.speechIdx);
       var lastSpeech = state.speechIdx >= total - 1;
       var nextSp = !lastSpeech && f.speeches ? f.speeches[state.speechIdx + 1] : null;
       var nextFirst = nextSp ? sideBench(f, nextSp.side) === 'gov' : false;
-      var nextName = nextSp ? (nextFirst ? (state.proName || 'first side') : (state.conName || 'second side')) : '';
+      var nextName = nextSp ? speakerNameFor(f, state.speechIdx + 1) : '';
       var ms = mySide();
       var mine = isMyTurn();
       if (isSpectator()){
@@ -2593,6 +2680,15 @@ html.stage-mode .stage-ov{display:block}
     var secondLabel = f && f.sideLabels ? (f.sideLabels[f.sides[1]] || 'Second side') : 'Second side';
     var proName = state.proName || firstLabel || 'Pro';
     var conName = state.conName || secondLabel || 'Con';
+    // On a 2v2 the nameplate names the TEAM, because the bench is
+    // what the ballot decides and what the transcript is tagged
+    // against. The individual speaking is named by the round guide
+    // and the speech header instead, which is where "whose turn is
+    // it" actually needs answering.
+    if (state.isDuo){
+      proName = state.proTeam || (state.proName2 ? proName + ' & ' + state.proName2 : proName);
+      conName = state.conTeam || (state.conName2 ? conName + ' & ' + state.conName2 : conName);
+    }
     // Judge chip status tracks the phase: the judge "listens" through
     // the round and writes the ballot at the end.
     var rjStatus = $('railJudgeStatusText');
@@ -2635,7 +2731,19 @@ html.stage-mode .stage-ov{display:block}
     var ms = mySide();
     if (!ms) return true; // no UID mapping → don't gate
     var spIsFirstSide = sideBench(f, sp.side) === 'gov';
-    return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
+    var myBench = (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
+    if (!myBench) return false;
+    // On a 2v2 bench, only the partner whose turn it is drives the
+    // clock. Ungated, both partners hold live controls for every
+    // speech on their side and the round desyncs the moment they
+    // both reach for it. Only gate when the seat is actually known:
+    // a duo round whose second uid never arrived (an older link, a
+    // partner who joined by name only) falls back to bench control
+    // rather than locking the bench out entirely.
+    if (state.isDuo && (state.proUid2 || state.conUid2)){
+      return seatForSpeech(f, state.speechIdx) === mySeat();
+    }
+    return true;
   }
 
   // Track which speech we last flashed an overlay for so we don't
@@ -2650,7 +2758,7 @@ html.stage-mode .stage-ov{display:block}
     var sp = f && f.speeches[state.speechIdx];
     if (!sp) return;
     var isFirstSide = sideBench(f, sp.side) === 'gov';
-    var speakerName = isFirstSide ? state.proName : state.conName;
+    var speakerName = speakerNameFor(f, state.speechIdx);
     var sideLabel = f.sideLabels[sp.side];
     var ms = mySide();
     var myTurn = isMyTurn();
@@ -2687,7 +2795,7 @@ html.stage-mode .stage-ov{display:block}
     if (!sp){ finishRound(); return; }
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
-    var speakerName = isFirstSide ? state.proName : state.conName;
+    var speakerName = speakerNameFor(f, state.speechIdx);
     var sideLabel = f.sideLabels[sideKey];
 
     $('speechCode').textContent = sp.code;
@@ -4191,7 +4299,7 @@ html.stage-mode .stage-ov{display:block}
     setMicActive(false);
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
-    var speakerName = isFirstSide ? state.proName : state.conName;
+    var speakerName = speakerNameFor(f, state.speechIdx);
     var entry = {
       code: sp.code,
       name: sp.name,
@@ -6264,7 +6372,189 @@ html.stage-mode .stage-ov{display:block}
   // individually idempotent, so late paths reinforce instead of
   // repeating work — the pre-auth boot call paints the UI, then the
   // auth event re-runs it to start the watcher heartbeat.
+  // ── Spectator admission ("knock to watch") ───────────────────────
+  //
+  // Watching used to be open: anyone holding a room link, or arriving
+  // from a discovery surface, dropped straight into the audience and
+  // the debaters found out only from the watcher count ticking up.
+  // That is fine for a practice round and wrong for a competition,
+  // where the people in the room should decide who is in it.
+  //
+  // The rule is keyed to how the visitor could have got here:
+  //
+  //   PUBLIC round      discoverable by strangers, so watching is by
+  //                     permission. The visitor knocks and waits; a
+  //                     debater lets them in.
+  //   UNLISTED round    reachable only by a link somebody handed out.
+  //                     The link IS the invitation, so admission is
+  //                     automatic and knocking would be theatre.
+  //
+  // Debaters never knock: a seat claim is resolved before this runs.
+  //
+  // Honest about what this is: an admission gate, not access control.
+  // A live round document stays publicly readable, because completed
+  // public rounds are indexable pages and the same document backs
+  // both. This decides who gets the room, the video and the live
+  // audience view; it does not pretend a determined reader cannot
+  // reach the underlying document.
+  var ADMIT_POLL_MS = 4000;
+
+  function spectatorAdmissionRequired(){
+    if (!state.audienceMode && !isSpectator()) return false;
+    if (state.admitted) return false;
+    // Unlisted rounds admit link-holders. Until the round document
+    // has loaded we do NOT know the visibility, and defaulting to
+    // "open" would let every public round leak a few seconds of
+    // unadmitted viewing on every visit, so the unknown case waits.
+    if (state.roundDocSeen && state.isPrivate) return false;
+    // A broadcast/stage view is the host's own projector feed, not a
+    // stranger arriving; gating it would black out the screen at the
+    // front of the room.
+    if (prefill.stage) return false;
+    return true;
+  }
+
+  function renderAdmissionGate(){
+    var host = $('panel');
+    if (!host) return;
+    var card = document.getElementById('admitGate');
+    if (!card){
+      card = document.createElement('div');
+      card.id = 'admitGate';
+      card.style.cssText = 'padding:40px 22px;text-align:center;color:var(--text-dim);font-size:.92rem;line-height:1.55';
+      host.appendChild(card);
+    }
+    var wait = document.getElementById('spectatorWait');
+    if (wait) wait.remove();
+
+    var status = state.admissionStatus || 'none';
+    if (status === 'pending'){
+      card.innerHTML =
+        '<div style="font-weight:800;color:var(--text);font-size:1.05rem;margin-bottom:6px">Waiting to be let in</div>' +
+        '<div>The debaters have been asked. This round is public, so someone in the room admits watchers.</div>' +
+        '<div style="margin-top:16px;font-size:.78rem">You will drop straight into the round when they accept.</div>';
+      return;
+    }
+    if (status === 'rejected'){
+      card.innerHTML =
+        '<div style="font-weight:800;color:var(--text);font-size:1.05rem;margin-bottom:6px">Not admitted</div>' +
+        '<div>The debaters declined this request. You can ask again, or watch the round once it is published.</div>' +
+        '<div style="margin-top:16px"><button type="button" class="btn" id="admitAskAgain">Ask again</button></div>';
+      var again = document.getElementById('admitAskAgain');
+      if (again) again.addEventListener('click', function(){ requestAdmission(); });
+      return;
+    }
+    if (!state.user){
+      card.innerHTML =
+        '<div style="font-weight:800;color:var(--text);font-size:1.05rem;margin-bottom:6px">Sign in to watch</div>' +
+        '<div>This round is public, so watchers are admitted by the debaters. Signing in is how they know who is asking.</div>';
+      return;
+    }
+    card.innerHTML =
+      '<div style="font-weight:800;color:var(--text);font-size:1.05rem;margin-bottom:6px">Ask to watch this round</div>' +
+      '<div>Public rounds admit watchers by permission. Send a request and a debater lets you in.</div>' +
+      '<div style="margin-top:16px"><button type="button" class="btn btn-primary" id="admitAsk">Ask to watch</button></div>';
+    var ask = document.getElementById('admitAsk');
+    if (ask) ask.addEventListener('click', function(){ requestAdmission(); });
+  }
+
+  function admissionDocRef(){
+    if (!state.user || !firebaseDb) return null;
+    return firebaseDb.collection('live_rounds').doc(state.room)
+      .collection('joinRequests').doc(state.user.uid);
+  }
+
+  function requestAdmission(){
+    var ref = admissionDocRef();
+    if (!ref) return;
+    state.admissionStatus = 'pending';
+    renderAdmissionGate();
+    ref.set({
+      // `kind` is what separates this from the existing "let me DEBATE
+      // in this round" request the landing feed sends. Same collection,
+      // same accept/decline surface, different ask.
+      kind: 'watch',
+      status: 'pending',
+      name: publicNameOf(state.user),
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true }).catch(function(e){
+      console.warn('[admit] request failed', e);
+      state.admissionStatus = 'none';
+      renderAdmissionGate();
+    });
+    watchAdmission();
+    try { gtag('event', 'spectator_request', { room: state.room }); } catch(e){}
+  }
+
+  function watchAdmission(){
+    if (state.admitUnsub) return;
+    var ref = admissionDocRef();
+    if (!ref) return;
+    state.admitUnsub = ref.onSnapshot(function(snap){
+      var d = snap.exists ? (snap.data() || {}) : null;
+      if (!d) return;
+      if (d.status === 'accepted'){
+        state.admissionStatus = 'accepted';
+        grantAdmission();
+      } else if (d.status === 'rejected'){
+        state.admissionStatus = 'rejected';
+        renderAdmissionGate();
+      }
+    }, function(){
+      // Snapshot streams stall on flaky connections, and a spectator
+      // stuck on "waiting" after they were let in reads as a broken
+      // product. Poll as a net.
+      if (state.admitPoll) return;
+      state.admitPoll = setInterval(function(){
+        var r = admissionDocRef(); if (!r) return;
+        r.get().then(function(s){
+          var v = s.exists ? (s.data() || {}) : {};
+          if (v.status === 'accepted'){ state.admissionStatus = 'accepted'; grantAdmission(); }
+          else if (v.status === 'rejected'){ state.admissionStatus = 'rejected'; renderAdmissionGate(); }
+        }).catch(function(){});
+      }, ADMIT_POLL_MS);
+    });
+  }
+
+  function grantAdmission(){
+    if (state.admitted) return;
+    state.admitted = true;
+    if (state.admitPoll){ clearInterval(state.admitPoll); state.admitPoll = null; }
+    var card = document.getElementById('admitGate');
+    if (card) card.remove();
+    try { gtag('event', 'spectator_admitted', { room: state.room }); } catch(e){}
+    enterAudienceMode();
+    // Don't wait for the next round-doc write to reveal the round. A
+    // round mid-speech writes often, but between speeches it can sit
+    // quiet for minutes, and a viewer who was just let in should not
+    // be staring at a blank panel wondering whether it worked.
+    var rr = getRoundDocRef();
+    if (rr) rr.get().then(function(s){ if (s.exists) onRoundSnapshot(s.data() || {}); }).catch(function(){});
+  }
+
+  // Re-evaluate once the round document reveals visibility. An
+  // unlisted round admits immediately; a public one that was waiting
+  // on the document now knows to ask.
+  function refreshAdmissionGate(){
+    if (state.admitted) return;
+    if (!state.audienceMode && !isSpectator()) return;
+    if (!spectatorAdmissionRequired()){ grantAdmission(); return; }
+    if (state.admissionStatus === 'none' || !state.admissionStatus) renderAdmissionGate();
+  }
+
   function enterAudienceMode(){
+    // Public rounds hold watchers at the door. Everything below this
+    // line mounts the video and starts the watcher heartbeat, so the
+    // gate has to come first or an unadmitted visitor is already in
+    // the room by the time they are asked.
+    if (spectatorAdmissionRequired()){
+      state.audienceMode = true;
+      var sv0 = $('setupView'); if (sv0) sv0.classList.add('hidden');
+      renderAdmissionGate();
+      watchAdmission();
+      return;
+    }
+    state.admitted = true;
     state.audienceMode = true;
     var sv = $('setupView'); if (sv) sv.classList.add('hidden');
     if (state.phase === 'setup' && !document.getElementById('spectatorWait')){
@@ -6338,8 +6628,11 @@ html.stage-mode .stage-ov{display:block}
     if (!col) return;
     state.watchInit = true;
 
-    // (a) I'm a spectator → write + heartbeat my presence.
-    if (isSpectator()) startSpectatorBeat();
+    // (a) I'm a spectator → write + heartbeat my presence. Only once
+    // admitted: an unadmitted watcher is at the door, not in the
+    // audience, and counting them would inflate the number the
+    // debaters use to decide whether the room is worth opening up.
+    if (isSpectator() && state.admitted) startSpectatorBeat();
 
     // (b) Nobody subscribes to the watchers collection. The count arrives
     // on the round doc, which every client in the room already has a
@@ -6547,15 +6840,23 @@ html.stage-mode .stage-ov{display:block}
     var card = document.createElement('div');
     card.id = 'joinReq-' + reqRef.id;
     card.className = 'join-req-card';
-    var name = escHtml(req.name || 'A debater');
+    // Two different asks share this surface. A DEBATE request wants a
+    // seat and is time-critical, so it keeps the 20s auto-decline. A
+    // WATCH request wants the audience and is not: auto-declining
+    // spectators after 20s would bounce almost all of them, because
+    // the debaters are mid-speech and not looking at a card. Watch
+    // requests sit there until somebody answers.
+    var isWatch = req.kind === 'watch';
+    var name = escHtml(req.name || (isWatch ? 'Someone' : 'A debater'));
     var comment = req.comment ? '<div class="join-req-comment">“' + escHtml(req.comment) + '”</div>' : '';
     card.innerHTML =
-      '<div class="join-req-top"><span class="join-req-dot"></span><strong>' + name + '</strong> wants to join this round</div>' +
+      '<div class="join-req-top"><span class="join-req-dot"></span><strong>' + name + '</strong> ' +
+        (isWatch ? 'wants to watch this round' : 'wants to join this round') + '</div>' +
       comment +
       '<div class="join-req-actions">' +
         '<button type="button" class="btn btn-primary join-req-accept">Let in</button>' +
         '<button type="button" class="btn join-req-reject">Decline</button>' +
-        '<span class="join-req-timer" aria-hidden="true">20</span>' +
+        (isWatch ? '' : '<span class="join-req-timer" aria-hidden="true">20</span>') +
       '</div>';
     document.body.appendChild(card);
     try { window.SFX && window.SFX.notify && window.SFX.notify(); } catch(e){}
@@ -6570,7 +6871,7 @@ html.stage-mode .stage-ov{display:block}
       }, { merge: true }).catch(function(e){ console.warn('[join] resolve failed', e); });
       card.remove();
     }
-    var iv = setInterval(function(){
+    var iv = isWatch ? null : setInterval(function(){
       secs--; if (timerEl) timerEl.textContent = secs;
       if (secs <= 0) resolve('rejected');   // 20s → auto-reject
     }, 1000);
@@ -6744,6 +7045,16 @@ html.stage-mode .stage-ov{display:block}
 
   function onRoundSnapshot(d){
     var changedSetup = false;
+    // Visibility is only knowable from the round document, and the
+    // admission gate defaults to "ask" until it arrives. Re-check on
+    // every snapshot: an unlisted round lets its link-holders in the
+    // moment we learn it is unlisted, and a debater flipping a round
+    // to public mid-session starts gating new arrivals from then on.
+    if (!state.roundDocSeen){
+      state.roundDocSeen = true;
+      if (typeof d.isPrivate === 'boolean') state.isPrivate = d.isPrivate;
+      refreshAdmissionGate();
+    }
     // Audience count rides the round doc (written by seatBeat). Only
     // render when the field is actually present, so a round doc from
     // before this shipped, or a beat that raced ahead of its count read,
@@ -6818,6 +7129,16 @@ html.stage-mode .stage-ov{display:block}
     if ((d.status === 'round' || d.status === 'ballot') && state.phase === 'setup'){
       state.phase = 'round';
       var spec = isSpectator();
+      // A watcher still at the door does not get the round when it
+      // starts. Without this, the admission gate is decorative: the
+      // first snapshot that flips the round to live reveals the round
+      // view and mounts the video for anyone on the page.
+      if (spec && spectatorAdmissionRequired()){
+        state.phase = 'setup';
+        renderAdmissionGate();
+        watchAdmission();
+        return;
+      }
       $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (spec ? 'Spectating · Speech ' : 'Live · Speech ') + ((d.speechIdx||0)+1) + '/' + FORMATS[state.formatKey].speeches.length;
       $('setupView').classList.add('hidden');
       var sw = document.getElementById('spectatorWait');
