@@ -46,6 +46,24 @@
 
   document.documentElement.classList.add('dbnative');
 
+  // ── Service worker, for the app specifically ───────────────────────
+  // Only index.html ('/app') registers /sw.js, and none of the five tabs
+  // point there: they are /native, /newvoice, /coach, /spar, /profile. So
+  // an app user who stays in the tab bar never registered a service worker
+  // at all, and the app re-fetched every asset on every cold launch with
+  // no offline behaviour whatsoever.
+  //
+  // Registering here covers every page the app can reach, since the bridge
+  // is required on all of them. Gated behind the isNative return above, so
+  // the website's registration story is unchanged: pages that had no SW on
+  // the web still have none. Takes effect from the SECOND launch, which is
+  // how service workers work; the first one installs it.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+  }
+
   var currentPath = (location.pathname || '/').replace(/\/$/, '') || '/';
   var immersive = /^\/(newvoice|voice-debate|live-round|room-judge)(?:\.html)?$/.test(currentPath);
   if (immersive) document.documentElement.classList.add('dbnative-immersive');

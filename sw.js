@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v2051';
+const CACHE_NAME = 'debateos-v2052';
 
 
 
@@ -22,7 +22,12 @@ const CACHE_NAME = 'debateos-v2051';
 // scripts/precompile-inline-babel.mjs commit-time precompiler. The
 // browser no longer loads or executes babel at all, but the SW kept
 // dragging the file down on every first visit. Removed.
+// 2026-07-28: '/native' added. It is the iOS app's entry point, so the app
+// hit the network for it on EVERY cold launch while the shell precached
+// /splash and /landing, two pages the app never opens (the bridge redirects
+// both to /native). See the '/native' branch in the fetch handler below.
 const APP_SHELL = [
+  '/native',
   '/splash',
   '/landing',
   '/offline.html',
@@ -131,8 +136,54 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Never intercept Firebase realtime / auth endpoints.
+  // Firestore's Listen and Write channels are long-poll GETs that return 200
+  // CORS responses, which shouldCache() happily accepts. Every one carries a
+  // unique gsessionid/SID/AID, so each got written to the cache and could
+  // never be read back: one browsing session left ~40 dead channel entries
+  // in there, growing without bound and eventually risking storage quota.
+  // Auth and installations are per-request too, and replaying either would
+  // be worse than useless.
+  //
+  // Scoped by exact host so fonts.googleapis.com and fonts.gstatic.com stay
+  // cacheable, which is what makes the webfont survive a cold launch.
+  if (/^(firestore|firebaseinstallations|identitytoolkit|securetoken|firebaseremoteconfig)\.googleapis\.com$/.test(url.hostname) ||
+      /\.firebaseio\.com$/.test(url.hostname)) {
+    return;
+  }
+
   // Never intercept POST/PUT/DELETE — SW caching of mutations is a footgun
   if (request.method !== 'GET') {
+    return;
+  }
+
+  // ── /native: serve from cache, refresh behind it ──────────────────
+  // Every other page is network-first below, which is right for a website:
+  // a visitor should never read stale copy. But /native is the iOS app's
+  // launch screen, so network-first meant the app sat on a cream splash
+  // waiting for a round trip on every single cold start (measured 3.6s in
+  // the simulator, on fast network with a warm cache). It is a 13KB static
+  // shell whose live content all arrives client-side from Firebase, so
+  // last launch's copy is safe to paint immediately.
+  //
+  // Staleness is bounded to one launch two ways: the revalidate below
+  // writes the fresh copy for next time, and CACHE_NAME bumps on every
+  // client deploy, which drops the whole cache and forces a real fetch.
+  if (request.mode === 'navigate' && /^\/native(?:\.html)?\/?$/.test(url.pathname)) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const network = fetch(request)
+          .then((response) => {
+            if (shouldCache(response) && isCacheableRequest(request)) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(()=>{});
+            }
+            return response;
+          })
+          .catch(() => cached || caches.match('/offline.html'));
+        return cached || network;
+      })
+    );
     return;
   }
 
