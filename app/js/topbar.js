@@ -488,7 +488,7 @@
       spot.innerHTML =
         '<span class="ui-topbar-more-spot-eyebrow"><span class="ui-topbar-more-live-dot" aria-hidden="true"></span>Live</span>' +
         '<span class="ui-topbar-more-spot-title">Debate a real person</span>' +
-        '<span class="ui-topbar-more-spot-sub">Get matched, argue it out, and an AI judge writes the ballot.</span>' +
+        '<span class="ui-topbar-more-spot-sub">Get matched, argue it out, and get a verdict.</span>' +
         '<span class="ui-topbar-more-spot-proof">' +
           '<img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async">' +
           '<img src="/img/round/faces/face07.jpg" alt="" loading="lazy" decoding="async">' +
