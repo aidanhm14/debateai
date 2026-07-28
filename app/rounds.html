@@ -151,6 +151,17 @@
   .cm-q{margin:3px 0;padding-left:11px;border-left:2px solid rgba(29,25,21,.16);font-size:.82rem;line-height:1.6;color:var(--ink-soft)}
   .cm-q b{display:block;font-size:.6rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:rgba(29,25,21,.42);margin-bottom:1px}
   .cm-note{margin:5px 0 0;font-size:.8rem;line-height:1.55;color:var(--ink-soft)}
+  .cm-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .cm-open{font:inherit;font-size:.72rem;font-weight:800;letter-spacing:.02em;color:var(--ink-soft);
+    background:none;border:1px solid rgba(29,25,21,.2);border-radius:999px;padding:3px 11px;cursor:pointer}
+  .cm-open:hover{border-color:var(--red-deep);color:var(--red-deep)}
+  .cm-picks{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.72rem;color:var(--ink-soft)}
+  .cm-pick{font:inherit;font-size:.7rem;font-weight:800;color:var(--ink);background:#fff;
+    border:1px solid rgba(29,25,21,.22);border-radius:999px;padding:3px 10px;cursor:pointer}
+  .cm-pick:hover{border-color:var(--red-deep);color:var(--red-deep)}
+  .cm-pick--vague{font-weight:600;color:var(--ink-soft)}
+  .cm-done{font-size:.72rem;font-weight:700;color:#2f6b45}
+  .cm-count{font-size:.72rem;color:var(--ink-soft)}
   .voterow{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 18px}
   .voterow .v-q{font-weight:800;margin:0 0 10px}
   .votebar{height:12px;border-radius:8px;overflow:hidden;display:flex;background:rgba(29,25,21,.08);margin:12px 0 6px}
@@ -442,8 +453,9 @@
   ];
 
   var state = { user:null, view:'feed', roundId:null, feed:null, mine:null, round:null,
-    rec:null, pollTimer:null, votedLocal:{} };
+    rec:null, pollTimer:null, votedLocal:{}, clashDisputed:{} };
   try { state.votedLocal = JSON.parse(localStorage.getItem('da-async-voted')||'{}'); } catch(e){}
+  try { state.clashDisputed = JSON.parse(localStorage.getItem('da-clash-disputed')||'{}'); } catch(e){}
 
   var fbAuth = null;
   try {
@@ -637,7 +649,8 @@
   // transcript server-side, so anything that failed never reached here.
   // Absent on rounds judged before the map shipped; those render as before.
   var CLASH_TAG = { rebutted:'Answered', conceded:'Conceded', 'self-contradiction':'Contradicts their own', dropped:'Dropped' };
-  function clashHtml(map, propName, oppName){
+  var CLASH_ORDER = ['rebutted','conceded','self-contradiction','dropped'];
+  function clashHtml(map, propName, oppName, roundId, counts){
     try {
       var rows = map && map.clashes;
       if (!rows || !rows.length) return '';
@@ -650,18 +663,37 @@
         var who = byProp ? propName : oppName;
         var answering = byProp ? oppName : propName;
         var resp = (c.responseQuote || '').trim();
-        out += '<div class="cm-row">' +
+        // Contesting a row. Local state mirrors the vote pattern: the
+        // GET is unauthenticated, so the page cannot ask which rows this
+        // account already flagged. The server rejects the duplicate
+        // either way; this only keeps the button honest between reloads.
+        var mine = state.clashDisputed[roundId + '__' + i];
+        var n = counts && Number(counts[String(i)]) || 0;
+        var picks = '';
+        for (var k=0;k<CLASH_ORDER.length;k++){
+          if (CLASH_ORDER[k] === label) continue;
+          picks += '<button class="cm-pick" data-cd="'+i+'" data-cdl="'+CLASH_ORDER[k]+'">'+CLASH_TAG[CLASH_ORDER[k]]+'</button>';
+        }
+        picks += '<button class="cm-pick cm-pick--vague" data-cd="'+i+'" data-cdl="">Wrong, not sure how</button>';
+        out += '<div class="cm-row" data-cmrow="'+i+'">' +
           '<div class="cm-head"><span class="cm-by '+(byProp?'cm-p':'cm-o')+'">'+(byProp?'Prop':'Opp')+'</span>' +
           '<span class="cm-claim">'+esc(c.claim)+'</span>' +
           '<span class="cm-tag" data-l="'+label+'">'+CLASH_TAG[label]+'</span></div>' +
           '<p class="cm-q"><b>'+esc(who)+' said</b>'+esc(c.claimQuote)+'</p>' +
           (resp ? '<p class="cm-q"><b>'+esc(answering)+' said</b>'+esc(resp)+'</p>' : '') +
-          (c.note ? '<p class="cm-note">'+esc(c.note)+'</p>' : '');
+          (c.note ? '<p class="cm-note">'+esc(c.note)+'</p>' : '') +
+          '<div class="cm-foot">' +
+            (mine
+              ? '<span class="cm-done">You flagged this'+(mine !== '1' ? ' as ' + esc(CLASH_TAG[mine] || mine).toLowerCase() : '')+'.</span>'
+              : '<button class="cm-open" data-cdopen="'+i+'">Disagree</button>' +
+                '<span class="cm-picks" data-cdpicks="'+i+'" hidden>Should be: '+picks+'</span>') +
+            (n ? '<span class="cm-count">'+n+' flagged this mapping</span>' : '') +
+          '</div>';
         out += '</div>';
       }
       if (!out) return '';
       return '<div class="cm"><p class="cm-h">Clash map <span>advisory, it does not decide the round</span></p>' +
-        '<p class="cm-key">Every argument that carried weight, and what the other side did with it. Read the quotes and disagree with any row.</p>' + out + '</div>';
+        '<p class="cm-key">Every argument that carried weight, and what the other side did with it. Read the quotes and disagree with any row. Flagging a row does not change the ballot; it teaches the mapper.</p>' + out + '</div>';
     } catch(e){ return ''; }
   }
 
@@ -744,7 +776,7 @@
         '<p class="b-pts">'+esc(r.prop&&r.prop.name||'Prop')+' '+r.ballot.propPoints+' · '+esc(r.opp&&r.opp.name||'Opp')+' '+r.ballot.oppPoints+' speaker points'+(r.replyWaived?' · reply waived':'')+'</p>' +
         dimBarsHtml(r.ballot, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp') +
         '<div class="b-rfd">'+esc(r.ballot.rfd)+'</div></div>' +
-        clashHtml(r.clashMap, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp');
+        clashHtml(r.clashMap, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp', r.id, r.clashDisputes);
     }
 
     var voteHtml = '';
@@ -796,6 +828,37 @@
           state.round.votes = out.votes;
           sfx('confirm');
           track('async_vote', { id:r.id, side:b.getAttribute('data-vote') });
+          renderRound();
+        } catch(e){ sfx('error'); alert(e.message); }
+      };
+    });
+    // Clash-map disagreement. Two steps on purpose: "Disagree" only
+    // opens the picker, and the label click is what posts. A one-tap
+    // "wrong" would be cheap to fire and produce an unlabelled
+    // complaint, which is exactly the data that cannot train anything.
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cdopen]'), function(b){
+      b.onclick = function(){
+        var i = b.getAttribute('data-cdopen');
+        var picks = document.querySelector('[data-cdpicks="'+i+'"]');
+        if (!picks) return;
+        picks.hidden = false;
+        b.hidden = true;
+        sfx('click');
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cd]'), function(b){
+      b.onclick = async function(){
+        var i = Number(b.getAttribute('data-cd'));
+        var label = b.getAttribute('data-cdl') || '';
+        try {
+          await ensureAuth();
+          var out = await api('/api/async/round', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ id:r.id, action:'clash-dispute', row:i, label:label || null }) }, true);
+          state.clashDisputed[r.id + '__' + i] = label || '1';
+          try{ localStorage.setItem('da-clash-disputed', JSON.stringify(state.clashDisputed)); }catch(e){}
+          state.round.clashDisputes = out.clashDisputes;
+          sfx('confirm');
+          track('clash_dispute', { id:r.id, row:i, from:(r.clashMap.clashes[i]||{}).label, to:label||'unsure' });
           renderRound();
         } catch(e){ sfx('error'); alert(e.message); }
       };

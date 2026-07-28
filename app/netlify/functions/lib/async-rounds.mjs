@@ -23,6 +23,11 @@
 //     Written only when at least one row survived quote verification, so
 //     absent means either "judged before maps shipped" or "nothing checked
 //     out". Never carries a winner; the ballot owns the decision.
+//   clashDisputes: {"<rowIndex>": count} | absent — how many readers
+//     contested each mapping. The corrections themselves live in the
+//     `clashDisputes` subcollection (one doc per uid per row, admin-read
+//     only) and are the labelled training data; this map is just the
+//     public counter. Disputing changes nothing about the ballot.
 //   votes: {prop,opp}   reports: n   hidden: bool   replyWaived: bool
 // Private subdoc `async_rounds/{id}/private/notify` holds participant
 // emails for transactional notifications. Never returned by any GET.
@@ -229,6 +234,10 @@ export function publicRound(id, d) {
     })),
     ballot: d.ballot || null,
     clashMap: d.clashMap || null,
+    // {rowIndex: count} of readers who contested that mapping. Public so
+    // the row can say so; the corrections themselves stay in the
+    // admin-only clashDisputes subcollection.
+    clashDisputes: d.clashDisputes || null,
     votes: d.votes || { prop: 0, opp: 0 },
   };
 }

@@ -7,7 +7,8 @@
 //
 //   node scripts/test-clash-map.mjs
 
-import { parseClashMap, clashMapForBallot, CLASH_DISCIPLINE } from '../app/netlify/functions/lib/clash-map.mjs';
+import { readFileSync } from 'node:fs';
+import { parseClashMap, clashMapForBallot, CLASH_DISCIPLINE, CLASH_LABELS } from '../app/netlify/functions/lib/clash-map.mjs';
 import { DEBATE_VOICE } from '../app/netlify/functions/lib/voice-guidelines.mjs';
 
 const { forFeature } = DEBATE_VOICE;
@@ -106,6 +107,60 @@ for (const feat of ['case', 'sneaky', 'rebuttal', 'bot', 'simulator', 'practice'
 // ADJUDICATION_CORE, which owns the same reasoning from the other side.
 for (const feat of ['judge', 'feedback', 'adaptive']) {
   check(`non-speech feature stays clean: ${feat}`, !forFeature(feat).includes(marker));
+}
+
+// ── the round page's renderer ───────────────────────────────────────
+// clashHtml is lifted out of rounds.html and run for real rather than
+// reimplemented here, so this cannot pass against a copy that has drifted
+// from what ships. Escaping matters more than usual on this surface: every
+// string in a clash row is model output derived from what a user said into
+// a microphone, so a debater can attempt injection through their own turn.
+const page = readFileSync(new URL('../app/rounds.html', import.meta.url), 'utf8');
+const src = page.slice(page.indexOf('var CLASH_TAG ='), page.indexOf('function dimBarsHtml'));
+check('clashHtml was found in rounds.html', src.includes('function clashHtml'));
+
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clashHtml = new Function('esc', 'state', 'sfx', src + '\nreturn clashHtml;')(
+  esc, { clashDisputed: { 'rd1__1': 'dropped' } }, () => {});
+
+const html = clashHtml(m, 'Priya R.', 'Marcus T.', 'rd1', { '0': 3 });
+check('renders one row per clash', (html.match(/class="cm-row"/g) || []).length === 3);
+check('dropped row shows only the claimant quote', (html.match(/cm-q/g) || []).length === 5);
+check('label chips render', /data-l="dropped"/.test(html) && /data-l="conceded"/.test(html));
+check('advisory framing is on the card', /does not decide the round/.test(html));
+check('undisputed row offers the control', /data-cdopen="0"/.test(html));
+check('picker omits the label already applied',
+  !/data-cd="0" data-cdl="dropped"/.test(html) && /data-cd="0" data-cdl="conceded"/.test(html));
+check('picker offers an unlabelled option', /data-cdl=""/.test(html));
+check('already-disputed row shows its own choice and no control',
+  /You flagged this as dropped/.test(html) && !/data-cdopen="1"/.test(html));
+check('dispute count renders', /3 flagged this mapping/.test(html));
+check('rows nobody contested show no count', (html.match(/flagged this mapping/g) || []).length === 1);
+check('no map renders nothing', clashHtml(null, 'a', 'b', 'rd1', null) === '');
+check('empty map renders nothing', clashHtml({ clashes: [] }, 'a', 'b', 'rd1', null) === '');
+
+// Injection through a debater's own speech.
+const hostile = clashHtml({ clashes: [{
+  claim: '<img src=x onerror=alert(1)>', by: 'prop',
+  claimQuote: '"><script>alert(2)</script>', label: 'dropped" onmouseover="alert(3)',
+  responseQuote: '', note: "</p><script>alert(4)</script>",
+}] }, 'Priya R.', 'Marcus T.', 'rd1', null);
+check('claim markup is escaped', !/<img src=x/.test(hostile) && /&lt;img src=x/.test(hostile));
+check('quote script tag is escaped', !/<script>alert\(2\)/.test(hostile));
+check('note script tag is escaped', !/<script>alert\(4\)/.test(hostile));
+check('an unknown label cannot break out of the attribute',
+  !/onmouseover/.test(hostile) && /data-l="rebutted"/.test(hostile));
+
+// The four labels have to agree across the server parser, the ballot
+// block, the round page, and the admin card. They drift silently
+// otherwise, and a label the page cannot name renders as a blank chip.
+for (const label of CLASH_LABELS) {
+  check(`round page knows the label: ${label}`, new RegExp(`'?${label}'?\\s*:`).test(src));
+}
+const adminSrc = readFileSync(new URL('../app/admin.html', import.meta.url), 'utf8');
+for (const label of CLASH_LABELS) {
+  check(`admin card knows the label: ${label}`, new RegExp(`'?${label}'?\\s*:`).test(adminSrc));
 }
 
 // ── house style ─────────────────────────────────────────────────────

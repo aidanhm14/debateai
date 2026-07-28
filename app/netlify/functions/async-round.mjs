@@ -9,7 +9,11 @@
 //                     participants excluded. Tallies live on the doc.
 //   report {reason}   flags the round; two distinct reporters hide it
 //                     from the feed pending review.
+//   clash-dispute {row, label}
+//                     disagrees with one row of the clash map. Writes a
+//                     labelled correction and bumps a per-row counter.
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { CLASH_LABELS } from './lib/clash-map.mjs';
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { deleteCachedShared } from './lib/admin-cache.mjs';
@@ -40,9 +44,15 @@ export default async (request) => {
 
   const token = extractBearerToken(request);
   if (!token) return errorResponse('Sign in first.', 401, request);
-  let uid;
-  try { uid = (await verifyIdToken(token)).sub; }
+  let uid, decoded;
+  try { decoded = await verifyIdToken(token); uid = decoded.sub; }
   catch { return errorResponse('Authentication failed.', 401, request); }
+
+  // Guests here are real Firebase ANONYMOUS accounts, which are free and
+  // unlimited to mint (same fact that broke the voice rate limit on
+  // 2026-07-28). Absent claim is treated as anonymous, so this fails closed.
+  const named = !!(decoded.firebase && decoded.firebase.sign_in_provider
+    && decoded.firebase.sign_in_provider !== 'anonymous');
 
   let body;
   try { body = await request.json(); } catch { return errorResponse('Invalid request body', 400, request); }
@@ -104,10 +114,66 @@ export default async (request) => {
       return jsonResponse({ ok: true, hidden }, 200, request);
     }
 
+    // Contesting one row of the clash map. The map is advisory, so this
+    // moves nothing: no score changes, no row is removed, the ballot
+    // stands. What it produces is a labelled (claim, response) pair with
+    // a human correction on it, which is the only training data that can
+    // make the mapper better than a prompt.
+    //
+    // DEBATERS MAY DISPUTE, unlike voting. Voting excludes them because a
+    // participant tallying their own win is a conflict; a mapping
+    // correction has no such shape, and the person who gave the speech is
+    // the best-placed reader of what they actually answered.
+    //
+    // `currentLabel` is read off the stored map server-side and never
+    // taken from the request, because a pair whose "before" came from the
+    // client is worthless as a label.
+    if (action === 'clash-dispute') {
+      // Named accounts only. Every other action here costs an attacker
+      // nothing but a tally; this one writes into the pool a future model
+      // would be trained on, and a rotating anonymous account could seed
+      // it at will. Cheap gate, and the people who care enough to correct
+      // a mapping are signed in anyway.
+      if (!named) return errorResponse('Sign in with an account to correct a mapping.', 403, request);
+      const row = Number(body.row);
+      const proposed = CLASH_LABELS.has(body.label) ? body.label : null;
+      if (!Number.isInteger(row) || row < 0) return errorResponse('Pick a row', 400, request);
+      const counts = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new Error('Round not found.');
+        const d = snap.data();
+        const clashes = (d.clashMap && Array.isArray(d.clashMap.clashes)) ? d.clashMap.clashes : [];
+        const c = clashes[row];
+        if (!c) throw new Error('That clash is not on this round.');
+        if (proposed && proposed === c.label) throw new Error('That is already the label on this clash.');
+        const dRef = ref.collection('clashDisputes').doc(`${uid}__${row}`);
+        const prior = await tx.get(dRef);
+        const map = { ...(d.clashDisputes || {}) };
+        // Changing your mind overwrites the row and does not double-count.
+        if (!prior.exists) map[String(row)] = (Number(map[String(row)]) || 0) + 1;
+        tx.set(dRef, {
+          uid, row,
+          currentLabel: c.label,
+          proposedLabel: proposed,        // null = "wrong, no opinion which"
+          claim: String(c.claim || '').slice(0, 120),
+          claimQuote: String(c.claimQuote || '').slice(0, 300),
+          responseQuote: String(c.responseQuote || '').slice(0, 300),
+          by: c.by || null,
+          format: d.format || '',
+          motion: String(d.motion || '').slice(0, 300),
+          participant: !!((d.prop && d.prop.uid === uid) || (d.opp && d.opp.uid === uid)),
+          at: Date.now(),
+        });
+        tx.update(ref, { clashDisputes: map });
+        return map;
+      });
+      return jsonResponse({ ok: true, clashDisputes: counts }, 200, request);
+    }
+
     return errorResponse('Unknown action', 400, request);
   } catch (err) {
     const msg = err && err.message ? err.message : 'Action failed.';
-    const expected = /Round|vote|ballot|opener|window|already|Debaters/i.test(msg);
+    const expected = /Round|vote|ballot|opener|window|already|Debaters|clash/i.test(msg);
     if (!expected) console.error('[async-round]', err);
     return errorResponse(msg, expected ? 409 : 500, request);
   }

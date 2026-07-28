@@ -568,6 +568,20 @@
     </div>
   </div>
 
+  <!-- Clash-map corrections: every reader who disagreed with a mapping.
+       Reads the clashDisputes collection group via /api/admin/clash-disputes.
+       The confusion matrix is the actionable half: a heavy cell means the
+       mapper prompt is systematically wrong in one direction. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Clash map · contested rows</span>
+        <span class="meta" id="cd-meta">Loading…</span>
+      </div>
+      <div id="cd-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Retention: lapsed-user win-back email cohort. Read-only view of
        config/winback_state (written by scheduled-winback.mjs in dry-run).
        Shows what it WOULD email; flipping it live is an env change, not a
@@ -1249,6 +1263,7 @@ async function loadAll(force){
     loadFounderVideo().catch(()=>{});
     loadVisitors().catch(()=>{});
     loadDistillations().catch(()=>{});
+    loadClashDisputes().catch(()=>{});
     loadWinback().catch(()=>{});
     loadPollResults().catch(()=>{});
 
@@ -2165,6 +2180,65 @@ async function loadDistillations(){
       '<div class="meta" style="margin-top:10px">Stale = older than ' + Math.round(d.staleThresholdMs / 3600000) + 'h. Cron fires nightly at 04:00 UTC via scheduled-distill.mjs.</div>';
   } catch (e) {
     body.innerHTML = '<div class="err-box">Distillations load failed: ' + esc(e.message || e) + '</div>';
+    meta.textContent = '';
+  }
+}
+
+// ── Clash-map corrections ──────────────────────────────────────────
+// Every reader who disagreed with a mapping, plus the confusion matrix
+// of what the mapper said against what they say it should have been.
+// Read the matrix first: a heavy cell is a systematic prompt error, a
+// scatter of ones is noise. Disputing changes nothing about any ballot,
+// so nothing here is a correction to apply, only a signal to learn from.
+const CD_LABEL = { rebutted:'Answered', conceded:'Conceded', 'self-contradiction':'Self-contradiction', dropped:'Dropped' };
+async function loadClashDisputes(){
+  const meta = $('cd-meta');
+  const body = $('cd-body');
+  if (!body || !meta) return;
+  body.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/clash-disputes');
+    const rows = d.rows || [];
+    const s = d.summary || {};
+    meta.textContent = (s.total || 0) + ' contested · ' + (s.rounds || 0) + ' rounds'
+      + (s.fromParticipants ? ' · ' + s.fromParticipants + ' from debaters' : '')
+      + (s.truncated ? ' · capped, older ones not shown' : '');
+    if (!rows.length){ body.innerHTML = '<div class="meta">Nobody has contested a mapping yet. The control sits under each clash-map row on a completed round.</div>'; return; }
+
+    const matrix = Object.entries(d.matrix || {}).sort((a, b) => b[1] - a[1]);
+    const matrixHtml = matrix.length
+      ? '<div style="margin:0 0 14px">' + matrix.map(([k, n]) => {
+          const [from, to] = k.split('→');
+          return '<span style="display:inline-block;margin:0 8px 6px 0;padding:3px 10px;border-radius:8px;'
+            + 'background:rgba(220,38,38,' + (n > 2 ? '.14' : '.06') + ');color:#b91c1c;font-size:12px;font-weight:600">'
+            + esc(CD_LABEL[from] || from) + ' → ' + esc(CD_LABEL[to] || to) + ' <b>' + n + '</b></span>';
+        }).join('')
+        + (s.unlabelled ? '<span class="meta" style="font-size:12px">' + s.unlabelled + ' flagged wrong without a proposed label</span>' : '')
+        + '</div>'
+      : '';
+
+    body.innerHTML = matrixHtml +
+      '<table style="width:100%;font-size:13px"><thead>' +
+      '<tr><th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Argument</th>' +
+      '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Said</th>' +
+      '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Should be</th>' +
+      '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Round</th></tr></thead><tbody>' +
+      rows.slice(0, 60).map(r => {
+        const to = r.proposedLabel
+          ? esc(CD_LABEL[r.proposedLabel] || r.proposedLabel)
+          : '<span style="color:var(--muted);opacity:.6">not sure</span>';
+        return '<tr style="border-top:1px solid var(--line)">' +
+          '<td style="padding:8px;max-width:360px"><b>' + esc(r.claim) + '</b>' +
+          '<div class="meta" style="font-size:12px;margin-top:2px">' + esc(r.by === 'prop' ? 'Prop' : 'Opp') + ': ' + esc(r.claimQuote.slice(0, 130)) + '…</div></td>' +
+          '<td style="padding:8px">' + esc(CD_LABEL[r.currentLabel] || r.currentLabel || '—') + '</td>' +
+          '<td style="padding:8px;font-weight:600">' + to + (r.participant ? ' <span class="meta" style="font-size:11px">debater</span>' : '') + '</td>' +
+          '<td style="padding:8px"><a href="/r/' + esc(r.roundId || '') + '" target="_blank" rel="noopener">' + esc((r.roundId || '').slice(0, 8)) + '</a></td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>' +
+      '<div class="meta" style="margin-top:10px">Advisory signal only. No ballot, score, or leaderboard entry moves when a row is contested.</div>';
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Clash disputes load failed: ' + esc(e.message || e) + '</div>';
     meta.textContent = '';
   }
 }
