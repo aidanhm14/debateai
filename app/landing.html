@@ -7014,6 +7014,44 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-cta--ghost{color:#1a1a1f;border:1px solid rgba(26,26,31,.2)}
   .fs-cta--ghost:hover{border-color:rgba(26,26,31,.45)}
 
+  /* Guide video. A thumbnail-sized card under the CTAs so a first-time
+     visitor can see there is a walkthrough without leaving the first
+     screen. The card stays small; the player opens in a lightbox. */
+  .fs-guide{display:inline-flex;align-items:center;gap:12px;margin-top:20px;padding:7px 18px 7px 7px;
+    border:1px solid rgba(26,26,31,.14);border-radius:14px;background:#fff;cursor:pointer;
+    font:inherit;text-align:left;color:inherit;
+    transition:border-color .15s,transform .15s,box-shadow .15s}
+  .fs-guide:hover{border-color:rgba(26,26,31,.34);transform:translateY(-1px);
+    box-shadow:0 12px 28px -20px rgba(20,20,30,.6)}
+  .fs-guide-thumb{position:relative;flex:none;width:74px;height:44px;border-radius:9px;overflow:hidden;
+    background:rgba(26,26,31,.06)}
+  .fs-guide-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  /* The poster is a bright screenshot, so a white triangle on its own
+     disappears. Scrim first, triangle above it. */
+  .fs-guide-thumb::after{content:'';position:absolute;inset:0;z-index:1;background:rgba(12,12,16,.38)}
+  .fs-guide-thumb i{position:absolute;inset:0;z-index:2;margin:auto;width:0;height:0;
+    border-left:13px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent;
+    filter:drop-shadow(0 1px 4px rgba(0,0,0,.55))}
+  .fs-guide-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .fs-guide-txt b{font-size:.92rem;font-weight:800;color:#1a1a1f;letter-spacing:-.01em}
+  .fs-guide-txt span{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:rgba(26,26,31,.48)}
+  @media(max-width:430px){.fs-guide{margin-top:16px;padding-right:14px}.fs-guide-thumb{width:62px;height:37px}}
+
+  /* The lightbox the card opens into. */
+  .vg-backdrop{position:fixed;inset:0;z-index:9600;display:flex;align-items:center;justify-content:center;
+    padding:clamp(14px,4vw,44px);background:rgba(12,12,16,.84);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .vg-backdrop[hidden]{display:none}
+  .vg-card{width:min(940px,100%);background:#0c0c10;border-radius:16px;overflow:hidden;
+    box-shadow:0 40px 90px -30px rgba(0,0,0,.85)}
+  .vg-head{display:flex;align-items:center;gap:12px;padding:12px 13px 12px 18px}
+  .vg-head h2{margin:0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.1rem;font-weight:700;color:#fff}
+  .vg-head .vg-sp{flex:1}
+  .vg-x{width:32px;height:32px;flex:none;border-radius:50%;border:1px solid rgba(255,255,255,.24);
+    background:transparent;color:#fff;font-size:1.15rem;line-height:1;cursor:pointer;padding:0}
+  .vg-x:hover{background:rgba(255,255,255,.14)}
+  .vg-card video{display:block;width:100%;max-height:70vh;background:#000}
+
   /* The board. A white market screen (2026-07-23, per Aidan: "less red,
      more just a white tab"). The red wash from 2026-07-22 tinted the whole
      panel and fought the market data, which is already red-and-blue. Now
@@ -7212,6 +7250,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Watch an example</a>
         </div>
       </div>
+
+      <!-- Sits outside both copy arms so whichever headline renders keeps
+           the walkthrough under its CTAs. Opens the lightbox at the end
+           of the document; the card itself never loads the video. -->
+      <button type="button" class="fs-guide" data-guide-open data-cta="first-screen-guide">
+        <span class="fs-guide-thumb">
+          <img src="/assets/video/how-debatable-works-poster.jpg" alt="" width="640" height="360" loading="lazy" decoding="async">
+          <i aria-hidden="true"></i>
+        </span>
+        <span class="fs-guide-txt">
+          <b>How Debatable works</b>
+          <span>Watch the walkthrough &middot; 3 min</span>
+        </span>
+      </button>
     </div>
 
     <div class="fs-board" id="fsBoard">
@@ -17403,6 +17455,58 @@ window.addEventListener('load', function(){
 })();
 </script>
 
+<!-- ── GUIDE VIDEO LIGHTBOX ──────────────────────────────────────────
+     One player for every "How Debatable works" trigger on the page.
+     preload="none" means a visitor who never opens it pays nothing. -->
+<div class="vg-backdrop" id="guideVideoModal" hidden>
+  <div class="vg-card" role="dialog" aria-modal="true" aria-labelledby="guideVideoTitle">
+    <div class="vg-head">
+      <h2 id="guideVideoTitle">How Debatable works</h2>
+      <span class="vg-sp"></span>
+      <button type="button" class="vg-x" data-guide-close aria-label="Close the walkthrough">&times;</button>
+    </div>
+    <video id="guideVideoEl" controls playsinline preload="none"
+           poster="/assets/video/how-debatable-works-poster.jpg">
+      <source src="/assets/video/how-debatable-works.mp4" type="video/mp4">
+    </video>
+  </div>
+</div>
+<script>
+(function(){
+  var modal = document.getElementById('guideVideoModal');
+  var vid   = document.getElementById('guideVideoEl');
+  if (!modal || !vid) return;
+  var lastFocus = null;
+
+  function open(trigger){
+    lastFocus = trigger || document.activeElement;
+    modal.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    var p = vid.play();
+    if (p && p.catch) p.catch(function(){});   /* autoplay refusal: controls are right there */
+    var x = modal.querySelector('[data-guide-close]');
+    if (x) x.focus();
+    if (window.gtag) window.gtag('event', 'guide_video_open');
+  }
+  function close(){
+    modal.hidden = true;
+    document.documentElement.style.overflow = '';
+    vid.pause();
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  document.addEventListener('click', function(e){
+    var t = e.target.closest && e.target.closest('[data-guide-open]');
+    if (t) { e.preventDefault(); open(t); return; }
+    if (e.target.closest && e.target.closest('[data-guide-close]')) { e.preventDefault(); close(); return; }
+    /* Backdrop, but not the card itself. */
+    if (e.target === modal) close();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+</script>
 
 </body>
 </html>
