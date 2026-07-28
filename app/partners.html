@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Find a 2v2 partner · Debatable</title>
+<meta name="description" content="Team up for two on two debate. Bring a partner with an invite code, or join the partner pool and get matched, then queue your team against another team.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://itsdebatable.com/partners">
+<meta property="og:title" content="Find a 2v2 debate partner">
+<meta property="og:description" content="Form a team, then queue it against another team. Two on two, with the AI judge writing the ballot.">
+<meta property="og:url" content="https://itsdebatable.com/partners">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon-192.png">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800&display=swap">
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){ document.documentElement.setAttribute('data-theme','crimson'); }
+})();
+</script>
+<link rel="stylesheet" href="/css/ui.css">
+<script defer src="/js/track.js"></script>
+
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0b0d;
+    --panel:#131317;
+    --panel-2:#1a1a20;
+    --fg:#f4f4f6;
+    --dim:rgba(244,244,246,.62);
+    --faint:rgba(244,244,246,.38);
+    --line:rgba(244,244,246,.11);
+    --red:#ef4444;
+    --red-dark:#dc2626;
+    --green:#22c55e;
+    --serif:'Crimson Pro',Georgia,serif;
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  html{background:var(--bg)}
+  body{
+    background:
+      radial-gradient(900px 460px at 50% -180px,rgba(239,68,68,.13),transparent 64%) no-repeat,
+      var(--bg);
+    color:var(--fg);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    padding-bottom:80px;
+  }
+  a{color:inherit}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  input,select,textarea{font:inherit;color:inherit}
+
+  .wrap{width:min(920px,calc(100% - 32px));margin:0 auto}
+  .head{padding:104px 0 26px}
+  .kicker{
+    font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--red);margin-bottom:10px;
+  }
+  h1{font-family:var(--serif);font-size:clamp(2rem,5vw,2.9rem);font-weight:700;line-height:1.1;letter-spacing:-.01em}
+  .lede{margin-top:12px;color:var(--dim);font-size:1.02rem;line-height:1.6;max-width:60ch}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:22px;
+    margin-top:16px;
+  }
+  .card h2{font-size:1.06rem;font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+  .card p.sub{color:var(--dim);font-size:.9rem;line-height:1.55}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}.head{padding-top:88px}}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:11px 18px;border-radius:11px;
+    background:rgba(244,244,246,.07);border:1px solid var(--line);
+    font-size:.88rem;font-weight:700;
+    transition:background .15s ease,transform .12s ease;
+  }
+  .btn:hover{background:rgba(244,244,246,.12)}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn-primary{background:var(--red);border-color:var(--red);color:#fff}
+  .btn-primary:hover{background:var(--red-dark)}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+  label.f{display:block;font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:14px 0 6px}
+  .in{
+    width:100%;padding:11px 13px;border-radius:10px;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--fg);
+    font-size:.92rem;
+  }
+  .in:focus{outline:2px solid rgba(239,68,68,.5);outline-offset:1px}
+
+  .code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:1.6rem;font-weight:700;letter-spacing:.32em;
+    color:var(--fg);background:var(--panel-2);
+    border:1px dashed var(--line);border-radius:12px;
+    padding:16px;text-align:center;margin-top:14px;
+  }
+
+  .row{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 0;border-top:1px solid var(--line);
+  }
+  .row:first-of-type{border-top:0}
+  .av{
+    width:36px;height:36px;border-radius:50%;flex:0 0 auto;
+    background:var(--panel-2);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-size:.76rem;font-weight:800;color:var(--dim);
+    background-size:cover;background-position:center;
+  }
+  .row .nm{font-size:.92rem;font-weight:700}
+  .row .meta{font-size:.78rem;color:var(--faint);margin-top:1px}
+  .row .sp{margin-left:auto}
+
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:4px 10px;border-radius:999px;
+    font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  }
+  .pill-live{background:rgba(34,197,94,.14);color:#4ade80}
+  .pill-wait{background:rgba(244,244,246,.08);color:var(--dim)}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .empty{color:var(--faint);font-size:.88rem;padding:18px 0;text-align:center}
+  .note{font-size:.8rem;color:var(--faint);margin-top:10px;line-height:1.5}
+  .err{
+    margin-top:12px;padding:10px 13px;border-radius:10px;
+    background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.34);
+    color:#fca5a5;font-size:.85rem;
+  }
+  .hidden{display:none !important}
+
+  .propose{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    width:min(440px,calc(100% - 28px));z-index:120;
+    background:var(--panel);border:1px solid rgba(239,68,68,.4);
+    border-radius:16px;padding:18px;
+    box-shadow:0 22px 60px rgba(0,0,0,.6);
+  }
+  .propose h3{font-size:1rem;font-weight:800;margin-bottom:4px}
+  .propose p{font-size:.86rem;color:var(--dim);line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- Shared topbar renders into this mount (js/topbar.js). Without the
+     node the script no-ops and the page loses site navigation. -->
+<div id="daTopbar"></div>
+
+<main class="wrap">
+  <header class="head">
+    <div class="kicker">Two on two</div>
+    <h1>Find a partner. Then find a team to beat.</h1>
+    <p class="lede">A 2v2 needs four people who are free at the same time. Bring a partner with a code, or join the pool and get matched with one. Once your team exists, it queues as a unit against another team.</p>
+  </header>
+
+  <div id="gate" class="card hidden">
+    <h2>Sign in to team up</h2>
+    <p class="sub">A partnership is between two accounts, so both of you need one. It takes a moment and the rest of the page works the same afterward.</p>
+    <div class="btn-row"><button class="btn btn-primary" id="signInBtn">Sign in</button></div>
+  </div>
+
+  <!-- ── No team yet ─────────────────────────────────────────── -->
+  <div id="noTeam" class="hidden">
+    <div class="grid2">
+      <section class="card">
+        <h2>You already have a partner</h2>
+        <p class="sub">Start the team and send them the code. It works once, then the seat is filled.</p>
+        <div id="codeBox" class="hidden">
+          <div class="code" id="codeText">------</div>
+          <p class="note">Give this to your partner. They enter it on this page and the team is live.</p>
+          <div class="btn-row">
+            <button class="btn" id="copyCodeBtn">Copy code</button>
+            <button class="btn" id="cancelTeamBtn">Cancel</button>
+          </div>
+        </div>
+        <div id="createBox">
+          <label class="f" for="fmtSel">Format</label>
+          <select class="in" id="fmtSel">
+            <option value="quick">Quick Clash</option>
+            <option value="apda" selected>APDA Parliamentary</option>
+            <option value="asian">Asian Parliamentary</option>
+            <option value="bp">British Parliamentary</option>
+            <option value="worlds">Worlds (WUDC)</option>
+          </select>
+          <div class="btn-row"><button class="btn btn-primary" id="createTeamBtn">Get an invite code</button></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Your partner sent you a code</h2>
+        <p class="sub">Six characters. Enter it and you are on their team.</p>
+        <label class="f" for="codeIn">Invite code</label>
+        <input class="in" id="codeIn" maxlength="7" autocomplete="off" spellcheck="false" placeholder="e.g. K4WPQR" style="letter-spacing:.22em;text-transform:uppercase">
+        <div class="btn-row"><button class="btn btn-primary" id="joinCodeBtn">Join the team</button></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>No partner? Join the pool</h2>
+      <p class="sub">Everyone here is looking for the same thing. Pick someone, they accept, and you are a team. Nobody is teamed up without both people saying yes.</p>
+      <div id="poolJoin">
+        <label class="f" for="noteIn">A line about what you are after (optional)</label>
+        <input class="in" id="noteIn" maxlength="160" placeholder="Prepping for a tournament, want serious rounds">
+        <div class="btn-row"><button class="btn btn-primary" id="joinPoolBtn">Enter the partner pool</button></div>
+      </div>
+      <div id="poolJoined" class="hidden">
+        <div class="btn-row" style="margin-top:0">
+          <span class="pill pill-live"><span class="dot"></span>In the pool</span>
+          <button class="btn" id="leavePoolBtn">Leave</button>
+        </div>
+      </div>
+      <div id="poolList" style="margin-top:14px"></div>
+    </section>
+  </div>
+
+  <!-- ── Team formed ─────────────────────────────────────────── -->
+  <div id="hasTeam" class="hidden">
+    <section class="card">
+      <h2 id="teamName">Your team</h2>
+      <p class="sub" id="teamSub"></p>
+      <div id="teamMembers" style="margin-top:14px"></div>
+      <div class="btn-row">
+        <button class="btn" id="leaveTeamBtn">Leave team</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Queue for a 2v2</h2>
+      <p class="sub">Your team goes in as a unit. Your partner does not have to be at their screen right now; the round link pulls them in when it fires.</p>
+      <div id="queueIdle">
+        <label class="f" for="motionIn">A motion you want (optional)</label>
+        <input class="in" id="motionIn" maxlength="280" placeholder="Leave blank and one gets picked">
+        <label class="f" for="paraIn">Note for the judge (optional)</label>
+        <input class="in" id="paraIn" maxlength="240" placeholder="Weigh probability before magnitude">
+        <div class="btn-row"><button class="btn btn-primary" id="queueBtn">Find a team to debate</button></div>
+      </div>
+      <div id="queueSearching" class="hidden">
+        <div class="btn-row" style="margin-top:0">
+          <span class="pill pill-live"><span class="dot"></span><span id="queueStatus">Looking for another team</span></span>
+          <button class="btn" id="cancelQueueBtn">Cancel</button>
+        </div>
+        <p class="note" id="queueNote">Teams in the queue right now: checking.</p>
+      </div>
+    </section>
+  </div>
+
+  <div id="err" class="err hidden"></div>
+
+  <section class="card" style="margin-top:28px">
+    <h2>How a 2v2 runs here</h2>
+    <p class="sub">Four people, two benches. Speeches alternate between the benches, and within a bench they alternate between partners, so each of you speaks and only one of you holds the clock at a time. The AI judge writes the ballot at the end. APDA and Quick Clash run as true two on two. Asian Parliamentary is three a side in the wild and Worlds and BP are four teams of two, so those run here as a compressed version rather than the full format.</p>
+  </section>
+</main>
+
+<!-- Incoming partner proposal lands here -->
+<div id="proposeCard" class="propose hidden"></div>
+
+<script defer src="/js/topbar.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ── /partners ────────────────────────────────────────────────────
+  // Two ways to end up on a team, one place to queue it.
+  //
+  // The whole page is a thin client over /api/partner-match and
+  // /api/duo-pair. Nothing that decides a partnership or a match is
+  // computed here: the browser proposes and polls, the server decides
+  // and writes both sides. That split is deliberate and it is the
+  // same one /spar arrived at the hard way, because Firestore rules
+  // cannot express "write this other person's document, but only as
+  // half of a real match."
+  //
+  // What the client DOES own is polling. Both pools are read directly
+  // from Firestore with a snapshot listener plus a slow poll behind
+  // it, because a stalled snapshot stream on a matchmaking screen
+  // reads as a dead product.
+
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+
+  var app = null, auth = null, db = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      db = firebase.firestore();
+    }
+  } catch(e){ console.warn('[partners] firebase init failed', e); }
+
+  var state = {
+    user: null,
+    team: null,
+    inPool: false,
+    poolUnsub: null,
+    poolPoll: null,
+    myPoolUnsub: null,
+    queueUnsub: null,
+    queuePoll: null,
+    queueBeat: null,
+    proposalUid: '',
+    navigating: false,
+    pendingCreateCode: '',
+  };
+
+  function $(id){ return document.getElementById(id); }
+  function show(id, on){ var el = $(id); if (el) el.classList.toggle('hidden', !on); }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function fail(msg){
+    var el = $('err');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    clearTimeout(fail._t);
+    fail._t = setTimeout(function(){ el.classList.add('hidden'); }, 7000);
+  }
+  function initials(name){
+    var p = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return '?';
+    return (p[0][0] + (p.length > 1 ? p[p.length-1][0] : '')).toUpperCase();
+  }
+  function shortName(u){
+    if (window.DBIdentity && u) return window.DBIdentity.forUser(u).name;
+    var full = String((u && u.displayName) || '').trim();
+    var parts = full.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return parts[0] + ' ' + parts[parts.length-1][0].toUpperCase() + '.';
+    return parts[0] || 'You';
+  }
+
+  function api(path, body){
+    if (!auth || !auth.currentUser) return Promise.reject(new Error('signed out'));
+    return auth.currentUser.getIdToken().then(function(tok){
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify(body || {}),
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return {}; }).then(function(j){
+        if (!res.ok || j.error) throw new Error(j.error || ('Request failed (' + res.status + ')'));
+        return j;
+      });
+    });
+  }
+
+  // ── Team state ──────────────────────────────────────────────────
+  function loadTeam(){
+    return api('/api/partner-match', { action: 'my-team' }).then(function(j){
+      state.team = j.team || null;
+      paint();
+      if (state.team && state.team.status === 'ready') watchQueue();
+      return state.team;
+    }).catch(function(){ /* signed out or offline; gate already shown */ });
+  }
+
+  function paint(){
+    var signedIn = !!state.user;
+    show('gate', !signedIn);
+    show('noTeam', signedIn && !state.team);
+    show('hasTeam', signedIn && !!state.team);
+
+    if (state.team){
+      var t = state.team;
+      var full = (t.members || []).length >= 2;
+      $('teamName').textContent = t.name || 'Your team';
+      $('teamSub').textContent = full
+        ? 'Ready. Queue whenever you are.'
+        : 'Waiting on your partner to enter the code.';
+      var host = $('teamMembers');
+      host.innerHTML = '';
+      (t.members || []).forEach(function(uid){
+        var info = (t.memberInfo || {})[uid] || {};
+        var row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML =
+          '<div class="av"' + (info.photoURL ? ' style="background-image:url(' + esc(info.photoURL) + ')"' : '') + '>' +
+            (info.photoURL ? '' : esc(initials(info.name))) + '</div>' +
+          '<div><div class="nm">' + esc(info.name || 'Debater') + '</div>' +
+          '<div class="meta">' + (uid === (state.user && state.user.uid) ? 'You' : 'Partner') + '</div></div>';
+        host.appendChild(row);
+      });
+      if (!full && t.inviteCode){
+        var row2 = document.createElement('div');
+        row2.className = 'row';
+        row2.innerHTML =
+          '<div class="av">?</div>' +
+          '<div><div class="nm">Open seat</div>' +
+          '<div class="meta">Code ' + esc(t.inviteCode) + '</div></div>';
+        host.appendChild(row2);
+      }
+      // Queueing needs two people. A half-formed team can sit here
+      // with its code showing, but it cannot enter a 2v2.
+      var qb = $('queueBtn');
+      if (qb) qb.disabled = !full;
+    }
+  }
+
+  // ── Invite-code path ────────────────────────────────────────────
+  function createTeam(){
+    var fmt = $('fmtSel').value;
+    api('/api/partner-match', {
+      action: 'create-team',
+      format: fmt,
+      profile: profilePayload(),
+    }).then(function(j){
+      state.team = j.team || null;
+      if (state.team && state.team.inviteCode && (state.team.members || []).length < 2){
+        $('codeText').textContent = state.team.inviteCode;
+        show('codeBox', true);
+        show('createBox', false);
+      }
+      paint();
+      try { gtag('event', 'partner_team_create', { format: fmt }); } catch(e){}
+    }).catch(function(e){ fail(e.message); });
+  }
+
+  function joinByCode(){
+    var code = ($('codeIn').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length !== 6) { fail('An invite code is six characters.'); return; }
+    api('/api/partner-match', { action: 'join-code', code: code, profile: profilePayload() })
+      .then(function(j){
+        state.team = j.team || null;
+        leavePool(true);
+        paint();
+        if (state.team) watchQueue();
+        try { gtag('event', 'partner_team_join', {}); } catch(e){}
+      })
+      .catch(function(e){ fail(e.message); });
+  }
+
+  function profilePayload(){
+    var u = state.user || {};
+    return {
+      displayName: u.displayName || shortName(u),
+      photoURL: u.photoURL || '',
+      username: (window.DBIdentity && state.user) ? window.DBIdentity.forUser(state.user).username : '',
+    };
+  }
+
+  function leaveTeam(){
+    api('/api/partner-match', { action: 'leave-team' }).then(function(){
+      state.team = null;
+      stopQueue();
+      show('codeBox', false);
+      show('createBox', true);
+      paint();
+    }).catch(function(e){ fail(e.message); });
+  }
+
+  // ── Partner pool ────────────────────────────────────────────────
+  // The pool doc is written by the client (own doc only, exactly like
+  // the /spar queue); every read of somebody else's doc is just a
+  // read, and every write that touches them goes through the server.
+  function joinPool(){
+    if (!state.user || !db) return;
+    var ref = db.collection('partner_pool').doc(state.user.uid);
+    ref.set({
+      uid: state.user.uid,
+      displayName: shortName(state.user),
+      photoURL: state.user.photoURL || '',
+      format: $('fmtSel') ? $('fmtSel').value : 'apda',
+      note: ($('noteIn').value || '').slice(0, 160),
+      status: 'looking',
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).then(function(){
+      state.inPool = true;
+      show('poolJoin', false);
+      show('poolJoined', true);
+      watchMyPool();
+      startPoolHeartbeat();
+      try { gtag('event', 'partner_pool_join', {}); } catch(e){}
+    }).catch(function(e){
+      fail('Could not join the pool. ' + (e.message || ''));
+    });
+  }
+
+  function leavePool(quiet){
+    if (!state.user || !db) return;
+    state.inPool = false;
+    if (state.poolBeat){ clearInterval(state.poolBeat); state.poolBeat = null; }
+    db.collection('partner_pool').doc(state.user.uid)
+      .set({ status: 'cancelled' }, { merge: true }).catch(function(){});
+    if (!quiet){
+      show('poolJoin', true);
+      show('poolJoined', false);
+    }
+  }
+
+  // Freshness beat. The server skips pool entries older than three
+  // minutes, so a browser sitting open with nobody around has to keep
+  // saying it is still there or it stops being proposable.
+  function startPoolHeartbeat(){
+    if (state.poolBeat) return;
+    state.poolBeat = setInterval(function(){
+      if (!state.inPool || !state.user || !db) return;
+      if (document.hidden) return;
+      db.collection('partner_pool').doc(state.user.uid)
+        .set({ joinedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+        .catch(function(){});
+    }, 45000);
+  }
+
+  function watchPool(){
+    if (!db || state.poolUnsub) return;
+    var q = db.collection('partner_pool').where('status', '==', 'looking').limit(30);
+    state.poolUnsub = q.onSnapshot(function(snap){
+      var rows = [];
+      snap.forEach(function(d){
+        var v = d.data() || {};
+        if (d.id === (state.user && state.user.uid)) return;
+        rows.push({ uid: d.id, name: v.displayName || 'Debater', photo: v.photoURL || '', note: v.note || '', format: v.format || '' });
+      });
+      renderPool(rows);
+    }, function(){
+      // Snapshot failed (most likely the composite index is still
+      // building). Fall back to polling so the pool is not simply
+      // blank with no explanation.
+      if (state.poolPoll) return;
+      state.poolPoll = setInterval(readPoolOnce, 6000);
+      readPoolOnce();
+    });
+  }
+
+  function readPoolOnce(){
+    if (!db) return;
+    db.collection('partner_pool').where('status', '==', 'looking').limit(30).get()
+      .then(function(snap){
+        var rows = [];
+        snap.forEach(function(d){
+          var v = d.data() || {};
+          if (d.id === (state.user && state.user.uid)) return;
+          rows.push({ uid: d.id, name: v.displayName || 'Debater', photo: v.photoURL || '', note: v.note || '', format: v.format || '' });
+        });
+        renderPool(rows);
+      }).catch(function(){});
+  }
+
+  function renderPool(rows){
+    var host = $('poolList');
+    if (!host) return;
+    if (!rows.length){
+      host.innerHTML = '<div class="empty">Nobody in the pool right now. Join it and you will be the one people find.</div>';
+      return;
+    }
+    host.innerHTML = '';
+    rows.forEach(function(r){
+      var row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML =
+        '<div class="av"' + (r.photo ? ' style="background-image:url(' + esc(r.photo) + ')"' : '') + '>' +
+          (r.photo ? '' : esc(initials(r.name))) + '</div>' +
+        '<div><div class="nm">' + esc(r.name) + '</div>' +
+        '<div class="meta">' + esc(r.note || 'Looking for a partner') + '</div></div>' +
+        '<div class="sp"><button class="btn" data-uid="' + esc(r.uid) + '">Ask to team up</button></div>';
+      host.appendChild(row);
+    });
+    Array.prototype.forEach.call(host.querySelectorAll('button[data-uid]'), function(b){
+      b.addEventListener('click', function(){ propose(b.getAttribute('data-uid')); });
+    });
+  }
+
+  function propose(peerUid){
+    if (!state.inPool){ fail('Join the pool first, so they can see you back.'); return; }
+    api('/api/partner-match', { action: 'propose', peerUid: peerUid })
+      .then(function(j){
+        if (!j.ok){
+          var msg = {
+            lost_race: 'They just teamed up with someone else.',
+            stale_peer: 'That debater has gone quiet. Try another.',
+            skipped_peer: 'One of you already passed on this pairing.',
+            pool_doc_missing: 'They have left the pool.',
+          }[j.reason] || 'Could not send that. Try again.';
+          fail(msg);
+        }
+      })
+      .catch(function(e){ fail(e.message); });
+  }
+
+  // My own pool doc drives every handshake transition, exactly like
+  // the /spar queue: the server writes both sides and each client
+  // reacts to its own document rather than to the other person.
+  function watchMyPool(){
+    if (!db || !state.user || state.myPoolUnsub) return;
+    state.myPoolUnsub = db.collection('partner_pool').doc(state.user.uid)
+      .onSnapshot(function(snap){
+        var d = snap.exists ? (snap.data() || {}) : null;
+        if (!d) return;
+        if (d.status === 'proposed' && d.proposedTo){
+          renderProposal(d);
+        } else {
+          hideProposal();
+        }
+        if (d.status === 'teamed' && d.teamId){
+          hideProposal();
+          state.inPool = false;
+          loadTeam();
+        }
+        if (d.status === 'cancelled'){
+          state.inPool = false;
+          show('poolJoin', true);
+          show('poolJoined', false);
+        }
+      }, function(){});
+  }
+
+  function renderProposal(d){
+    var card = $('proposeCard');
+    if (!card) return;
+    var mine = (d.accepts || {})[state.user.uid];
+    state.proposalUid = d.proposedTo;
+    card.classList.remove('hidden');
+    if (mine){
+      // I proposed (or already accepted); waiting on them.
+      card.innerHTML =
+        '<h3>Waiting on ' + esc(d.proposedToName || 'them') + '</h3>' +
+        '<p>They have been asked. Nobody is teamed up until you both say yes.</p>' +
+        '<div class="btn-row"><button class="btn" id="pWithdraw">Withdraw</button></div>';
+      var w = $('pWithdraw');
+      if (w) w.addEventListener('click', function(){ respond(false); });
+      return;
+    }
+    card.innerHTML =
+      '<h3>' + esc(d.proposedToName || 'A debater') + ' wants to partner up</h3>' +
+      '<p>Accept and you are a team, ready to queue for a 2v2.</p>' +
+      '<div class="btn-row">' +
+        '<button class="btn btn-primary" id="pAccept">Team up</button>' +
+        '<button class="btn" id="pPass">Pass</button>' +
+      '</div>';
+    $('pAccept').addEventListener('click', function(){ respond(true); });
+    $('pPass').addEventListener('click', function(){ respond(false); });
+  }
+
+  function hideProposal(){
+    var card = $('proposeCard');
+    if (card) card.classList.add('hidden');
+  }
+
+  function respond(accept){
+    if (!state.proposalUid) return;
+    api('/api/partner-match', { action: 'respond', peerUid: state.proposalUid, accept: !!accept })
+      .then(function(j){
+        if (j.teamId || (j.team && j.team.teamId)){
+          hideProposal();
+          loadTeam();
+        }
+      })
+      .catch(function(e){ fail(e.message); });
+  }
+
+  // ── 2v2 queue ───────────────────────────────────────────────────
+  function queueUp(){
+    if (!state.team) return;
+    api('/api/duo-pair', {
+      action: 'join',
+      teamId: state.team.teamId,
+      format: state.team.format,
+      motion: ($('motionIn').value || '').slice(0, 280),
+      paradigm: ($('paraIn').value || '').slice(0, 240),
+    }).then(function(){
+      show('queueIdle', false);
+      show('queueSearching', true);
+      watchQueue();
+      startQueuePolling();
+      startQueueBeat();
+      try { gtag('event', 'duo_queue_join', { format: state.team.format }); } catch(e){}
+    }).catch(function(e){ fail(e.message); });
+  }
+
+  function stopQueue(){
+    if (state.queuePoll){ clearInterval(state.queuePoll); state.queuePoll = null; }
+    if (state.queueBeat){ clearInterval(state.queueBeat); state.queueBeat = null; }
+    show('queueIdle', true);
+    show('queueSearching', false);
+  }
+
+  function cancelQueue(){
+    if (!state.team) return;
+    api('/api/duo-pair', { action: 'cancel', teamId: state.team.teamId })
+      .catch(function(){});
+    stopQueue();
+  }
+
+  function startQueueBeat(){
+    if (state.queueBeat) return;
+    state.queueBeat = setInterval(function(){
+      if (!state.team || document.hidden) return;
+      api('/api/duo-pair', { action: 'heartbeat', teamId: state.team.teamId }).catch(function(){});
+    }, 45000);
+  }
+
+  // Watch my own team's queue doc. Whichever side wins the pair
+  // transaction, BOTH docs get the room, so each client navigates off
+  // its own snapshot and never has to agree with the other about who
+  // matched whom.
+  function watchQueue(){
+    if (!db || !state.team || state.queueUnsub) return;
+    state.queueUnsub = db.collection('duo_queue').doc(state.team.teamId)
+      .onSnapshot(function(snap){
+        var d = snap.exists ? (snap.data() || {}) : null;
+        if (!d) return;
+        if (d.status === 'waiting'){
+          show('queueIdle', false);
+          show('queueSearching', true);
+          startQueuePolling();
+          startQueueBeat();
+        }
+        if (d.status === 'matched' && d.room){ goToRound(d); }
+        if (d.status === 'cancelled'){ stopQueue(); }
+      }, function(){});
+  }
+
+  // Look for another waiting team and ask the server to pair us. Both
+  // sides poll; whichever lands the transaction first wins and the
+  // other simply sees its own doc flip to matched.
+  function startQueuePolling(){
+    if (state.queuePoll || !db) return;
+    var tick = function(){
+      if (!state.team || state.navigating) return;
+      db.collection('duo_queue')
+        .where('status', '==', 'waiting')
+        .limit(10)
+        .get()
+        .then(function(snap){
+          var peers = [];
+          snap.forEach(function(d){ if (d.id !== state.team.teamId) peers.push(d.id); });
+          var note = $('queueNote');
+          if (note){
+            note.textContent = peers.length
+              ? (peers.length === 1 ? 'One other team is waiting.' : peers.length + ' other teams are waiting.')
+              : 'No other team in the queue yet. You keep your place while you wait.';
+          }
+          if (!peers.length) return;
+          return api('/api/duo-pair', {
+            action: 'pair',
+            teamId: state.team.teamId,
+            peerTeamId: peers[0],
+          }).then(function(j){
+            if (j && j.ok && j.room) goToRound(j);
+          }).catch(function(){});
+        })
+        .catch(function(){});
+    };
+    state.queuePoll = setInterval(tick, 2500);
+    tick();
+  }
+
+  function goToRound(d){
+    if (state.navigating) return;
+    var seats = d.seats || {};
+    if (!seats.proUid && !seats.conUid) return;
+    state.navigating = true;
+    var p = new URLSearchParams({
+      room: d.room,
+      format: d.pairedFormat || (state.team && state.team.format) || 'quick',
+      motion: d.pairedMotion || '',
+      paradigm: d.pairedParadigm || '',
+      pro: seats.proName || '', pro2: seats.proName2 || '',
+      con: seats.conName || '', con2: seats.conName2 || '',
+      proUid: seats.proUid || '', proUid2: seats.proUid2 || '',
+      conUid: seats.conUid || '', conUid2: seats.conUid2 || '',
+      proTeam: seats.proTeamName || '', conTeam: seats.conTeamName || '',
+      source: 'partners',
+    });
+    var st = $('queueStatus');
+    if (st) st.textContent = 'Match found';
+    setTimeout(function(){ location.href = '/live-round.html?' + p.toString(); }, 400);
+  }
+
+  // ── Boot ────────────────────────────────────────────────────────
+  function wire(){
+    var on = function(id, fn){ var el = $(id); if (el) el.addEventListener('click', fn); };
+    on('createTeamBtn', createTeam);
+    on('joinCodeBtn', joinByCode);
+    on('cancelTeamBtn', function(){ leaveTeam(); });
+    on('copyCodeBtn', function(){
+      var code = $('codeText').textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(code).catch(function(){});
+      var b = $('copyCodeBtn'); if (b){ b.textContent = 'Copied'; setTimeout(function(){ b.textContent = 'Copy code'; }, 1600); }
+    });
+    on('joinPoolBtn', joinPool);
+    on('leavePoolBtn', function(){ leavePool(); });
+    on('leaveTeamBtn', leaveTeam);
+    on('queueBtn', queueUp);
+    on('cancelQueueBtn', cancelQueue);
+    on('signInBtn', function(){
+      if (window.openAuthModal) window.openAuthModal('signin');
+      else if (auth) auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){ fail(e.message); });
+    });
+    var ci = $('codeIn');
+    if (ci) ci.addEventListener('keydown', function(e){ if (e.key === 'Enter') joinByCode(); });
+  }
+
+  wire();
+  watchPool();
+
+  if (auth){
+    auth.onAuthStateChanged(function(u){
+      state.user = u || null;
+      paint();
+      if (u){
+        loadTeam();
+        watchMyPool();
+      }
+    });
+  } else {
+    paint();
+  }
+
+  // Leaving the pool on unload is best effort. The server reaps stale
+  // entries anyway, which is what actually keeps the pool honest.
+  window.addEventListener('pagehide', function(){
+    if (state.inPool && state.user && db){
+      db.collection('partner_pool').doc(state.user.uid)
+        .set({ status: 'cancelled' }, { merge: true }).catch(function(){});
+    }
+  });
+})();
+</script>
+<script defer src="/js/auth-modal.js"></script>
+</body>
+</html>

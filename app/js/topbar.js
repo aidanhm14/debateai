@@ -282,6 +282,12 @@
       // page. It stays off the main bar because the primary product is
       // still debate practice; Explore is the right discovery surface.
       { href: '/tournaments', label: 'Tournaments' },
+      // 2026-07-28: the two surfaces behind running a real competition.
+      // /partners is where a 2v2 team gets formed (and the only place it
+      // can be, since a tournament of teams needs the teams to exist
+      // first); /tournament is the draw, the tab and the bracket.
+      { href: '/partners',    label: 'Find a 2v2 partner' },
+      { href: '/tournament',  label: 'Enter a tournament' },
       { href: '/leaderboard', label: 'Leaderboard' },
       { href: '/community',   label: 'Community' },
       // 2026-07-22: chat moved out of the /community Live tab onto its
@@ -346,6 +352,8 @@
     '/spectate':       { desc: 'Watch rounds as they happen', icon: '<path d="M3.6 12S6.9 5.9 12 5.9 20.4 12 20.4 12 17.1 18.1 12 18.1 3.6 12 3.6 12z"/><circle cx="12" cy="12" r="2.7"/>' },
     '/arena':          { desc: 'One lobby for everything live', icon: '<path d="M5.6 20.8V3.9M5.6 4.6c4.7-2.3 8 2 12.8-.2v9.4c-4.8 2.2-8.1-2.1-12.8.2"/>' },
     '/tournaments':    { desc: 'Brackets, tab, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
+    '/partners':       { desc: 'Team up for two on two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
+    '/tournament':     { desc: 'Register, draw, tab, bracket', icon: '<path d="M4.7 5.6h14.6M6.8 5.6v4.1a5.2 5.2 0 0 0 10.4 0V5.6M12 14.9v3.3M8.6 20.2h6.8"/>' },
     '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M4.6 19.4V13M9.5 19.4V6.6M14.5 19.4V10M19.4 19.4V4.6"/>' },
     '/community':      { desc: 'Find debaters and clubs', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },

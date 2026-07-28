@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tournament · Debatable</title>
+<meta name="description" content="Register a team, see the draw, find your room, and follow the tab and the bracket as a tournament runs.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://itsdebatable.com/tournament">
+<meta property="og:title" content="Tournaments on Debatable">
+<meta property="og:description" content="Register, get the draw, debate your round, follow the tab.">
+<meta property="og:url" content="https://itsdebatable.com/tournament">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon-192.png">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800&display=swap">
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){ document.documentElement.setAttribute('data-theme','crimson'); }
+})();
+</script>
+<link rel="stylesheet" href="/css/ui.css">
+<script defer src="/js/track.js"></script>
+
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0b0d; --panel:#131317; --panel-2:#1a1a20;
+    --fg:#f4f4f6; --dim:rgba(244,244,246,.62); --faint:rgba(244,244,246,.38);
+    --line:rgba(244,244,246,.11);
+    --red:#ef4444; --red-dark:#dc2626; --green:#22c55e; --amber:#f59e0b;
+    --serif:'Crimson Pro',Georgia,serif;
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  html{background:var(--bg)}
+  body{
+    background:radial-gradient(900px 460px at 50% -180px,rgba(239,68,68,.13),transparent 64%) no-repeat,var(--bg);
+    color:var(--fg);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;min-height:100vh;padding-bottom:80px;
+  }
+  a{color:inherit}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  input,select,textarea{font:inherit;color:inherit}
+
+  .wrap{width:min(1040px,calc(100% - 32px));margin:0 auto}
+  .head{padding:104px 0 22px}
+  @media(max-width:760px){.head{padding-top:88px}}
+  .kicker{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:10px}
+  h1{font-family:var(--serif);font-size:clamp(1.9rem,5vw,2.8rem);font-weight:700;line-height:1.1;letter-spacing:-.01em}
+  .lede{margin-top:12px;color:var(--dim);font-size:1rem;line-height:1.6;max-width:62ch}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:16px}
+  .card h2{font-size:1.05rem;font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+  .card p.sub{color:var(--dim);font-size:.9rem;line-height:1.55}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:10px 16px;border-radius:11px;background:rgba(244,244,246,.07);
+    border:1px solid var(--line);font-size:.86rem;font-weight:700;
+    transition:background .15s ease,transform .12s ease}
+  .btn:hover{background:rgba(244,244,246,.12)}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn-primary{background:var(--red);border-color:var(--red);color:#fff}
+  .btn-primary:hover{background:var(--red-dark)}
+  .btn-sm{padding:7px 12px;font-size:.79rem;border-radius:9px}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+  label.f{display:block;font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:14px 0 6px}
+  .in{width:100%;padding:10px 12px;border-radius:10px;background:var(--panel-2);
+    border:1px solid var(--line);color:var(--fg);font-size:.9rem}
+  .in:focus{outline:2px solid rgba(239,68,68,.5);outline-offset:1px}
+  .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 14px}
+
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:.87rem}
+  th{text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);padding:0 10px 8px;border-bottom:1px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:0}
+  td.num{font-variant-numeric:tabular-nums;color:var(--dim)}
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .pill-live{background:rgba(34,197,94,.14);color:#4ade80}
+  .pill-soon{background:rgba(239,68,68,.14);color:#fca5a5}
+  .pill-done{background:rgba(244,244,246,.08);color:var(--dim)}
+  .pill-warn{background:rgba(245,158,11,.16);color:#fbbf24}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .pairing{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .pairing:first-of-type{border-top:0}
+  .side{font-size:.9rem;font-weight:700}
+  .vs{color:var(--faint);font-size:.76rem;font-weight:800;letter-spacing:.08em}
+  .pairing .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .mine{border-left:3px solid var(--red);padding-left:12px;margin-left:-15px}
+
+  .empty{color:var(--faint);font-size:.88rem;padding:20px 0;text-align:center}
+  .note{font-size:.79rem;color:var(--faint);margin-top:10px;line-height:1.5}
+  .err{margin-top:12px;padding:10px 13px;border-radius:10px;background:rgba(239,68,68,.12);
+    border:1px solid rgba(239,68,68,.34);color:#fca5a5;font-size:.85rem}
+  .ok{margin-top:12px;padding:10px 13px;border-radius:10px;background:rgba(34,197,94,.12);
+    border:1px solid rgba(34,197,94,.34);color:#86efac;font-size:.85rem}
+  .hidden{display:none !important}
+  .host-zone{border-color:rgba(245,158,11,.32)}
+  .host-zone h2{color:#fbbf24}
+
+  .tlist a.trow{display:flex;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--line);text-decoration:none}
+  .tlist a.trow:first-child{border-top:0}
+  .trow .nm{font-size:.95rem;font-weight:700}
+  .trow .meta{font-size:.78rem;color:var(--faint);margin-top:2px}
+  .trow .sp{margin-left:auto}
+</style>
+</head>
+<body>
+
+<div id="daTopbar"></div>
+
+<main class="wrap">
+  <header class="head">
+    <div class="kicker" id="kicker">Tournaments</div>
+    <h1 id="title">Tournaments</h1>
+    <p class="lede" id="lede">Register a team, get your draw, debate your round, and watch the tab move.</p>
+  </header>
+
+  <div id="err" class="err hidden"></div>
+  <div id="ok" class="ok hidden"></div>
+
+  <!-- ── List view ───────────────────────────────────────────── -->
+  <div id="listView" class="hidden">
+    <section class="card">
+      <h2>Open and running</h2>
+      <div class="tlist" id="tlist"></div>
+    </section>
+
+    <section class="card">
+      <h2>Run your own</h2>
+      <p class="sub">Set it up, open registration, and the draw, the tab and the bracket are handled for you. Rounds happen in the same rooms the rest of the site uses, with the AI judge on every one.</p>
+      <div id="createBox" class="hidden">
+        <div class="fields">
+          <div>
+            <label class="f" for="tName">Name</label>
+            <input class="in" id="tName" maxlength="80" placeholder="Winter Invitational">
+          </div>
+          <div>
+            <label class="f" for="tFormat">Format</label>
+            <select class="in" id="tFormat">
+              <option value="apda">APDA Parliamentary</option>
+              <option value="quick">Quick Clash</option>
+              <option value="asian">Asian Parliamentary</option>
+              <option value="bp">British Parliamentary</option>
+              <option value="worlds">Worlds (WUDC)</option>
+              <option value="ld">Lincoln-Douglas</option>
+              <option value="pf">Public Forum</option>
+              <option value="policy">Policy</option>
+            </select>
+          </div>
+          <div>
+            <label class="f" for="tTeamSize">Entries are</label>
+            <select class="in" id="tTeamSize">
+              <option value="1">Solo debaters</option>
+              <option value="2">Teams of two</option>
+            </select>
+          </div>
+          <div>
+            <label class="f" for="tRounds">Prelim rounds</label>
+            <input class="in" id="tRounds" type="number" min="1" max="9" value="4">
+          </div>
+          <div>
+            <label class="f" for="tBreak">Break to</label>
+            <select class="in" id="tBreak">
+              <option value="0">No elims</option>
+              <option value="2">Final</option>
+              <option value="4" selected>Semifinals</option>
+              <option value="8">Quarterfinals</option>
+              <option value="16">Octofinals</option>
+            </select>
+          </div>
+          <div>
+            <label class="f" for="tStarts">Starts</label>
+            <input class="in" id="tStarts" maxlength="40" placeholder="Sat 14 Feb, 10:00 ET">
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary" id="createBtn">Create it</button></div>
+        <p class="note">A new tournament starts private. It appears on this page once it is reviewed, so you can set one up and test it without an audience.</p>
+      </div>
+      <div id="createGate">
+        <div class="btn-row"><button class="btn" id="hostSignIn">Sign in to host</button></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── Detail view ─────────────────────────────────────────── -->
+  <div id="detailView" class="hidden">
+    <section class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="statusPill" class="pill pill-done">Draft</span>
+        <span class="note" id="tMeta" style="margin-top:0"></span>
+      </div>
+      <p class="sub" id="tDesc" style="margin-top:10px"></p>
+      <div id="entryActions" class="btn-row"></div>
+      <div id="myRoom"></div>
+    </section>
+
+    <section class="card" id="drawCard">
+      <h2 id="drawTitle">The draw</h2>
+      <p class="sub" id="drawMotion"></p>
+      <div id="drawBody"></div>
+    </section>
+
+    <section class="card">
+      <h2>The tab</h2>
+      <p class="sub">Ordered by ballots won, then speaker points.</p>
+      <div class="tbl-scroll"><table id="tabTable"><tbody></tbody></table></div>
+    </section>
+
+    <section class="card" id="bracketCard">
+      <h2>Bracket</h2>
+      <div id="bracketBody"></div>
+    </section>
+
+    <!-- Host-only controls -->
+    <section class="card host-zone hidden" id="hostCard">
+      <h2>Control room</h2>
+      <p class="sub">Only you see this. Draws stay private until you release them, so a bad draw costs nothing to redo.</p>
+      <div id="hostBody"></div>
+    </section>
+  </div>
+</main>
+
+<script defer src="/js/topbar.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ── /tournament ──────────────────────────────────────────────────
+  //
+  // One page, three audiences:
+  //   spectator     reads the draw, the tab and the bracket. No auth.
+  //   participant   registers, checks in, and gets a link to the room
+  //                 they are actually paired into.
+  //   director      everything else, behind the host check.
+  //
+  // Reads go through /api/tournament, which is public and
+  // shared-cached; writes go through /api/tournament (participant) or
+  // /api/tournament-admin (director). The client computes nothing that
+  // decides anything: the tab it renders is the same one the server
+  // pairs the next round from, so what a team reads here is what the
+  // draw will be built on.
+
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var auth = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+    }
+  } catch(e){ console.warn('[tournament] firebase init failed', e); }
+
+  var qs = new URLSearchParams(location.search);
+  var TKEY = (qs.get('t') || '').trim();
+
+  var state = { user: null, data: null, team: null, poll: null };
+
+  function $(id){ return document.getElementById(id); }
+  function show(id, on){ var el = $(id); if (el) el.classList.toggle('hidden', !on); }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function flash(id, msg){
+    var el = $(id); if (!el) return;
+    el.textContent = msg; el.classList.remove('hidden');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.classList.add('hidden'); }, 6000);
+  }
+  var fail = function(m){ flash('err', m); };
+  var good = function(m){ flash('ok', m); };
+
+  function api(path, body){
+    if (!auth || !auth.currentUser) return Promise.reject(new Error('Sign in first.'));
+    return auth.currentUser.getIdToken().then(function(tok){
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify(body || {}),
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return {}; }).then(function(j){
+        if (!res.ok || j.error) throw new Error(j.error || ('Request failed (' + res.status + ')'));
+        return j;
+      });
+    });
+  }
+
+  function load(){
+    var url = '/api/tournament' + (TKEY ? ('?t=' + encodeURIComponent(TKEY)) : '');
+    return fetch(url).then(function(r){
+      // A failed API call can return an HTML error page, and handing
+      // that to res.json() surfaces "Unexpected token '<'" to the
+      // user, which tells them nothing. Read as text and decide.
+      return r.text().then(function(txt){
+        var j = null;
+        try { j = JSON.parse(txt); } catch(e){ j = null; }
+        if (!j) throw new Error(r.status === 404
+          ? 'That tournament does not exist, or the link is wrong.'
+          : 'Could not reach the tournament service. Try again in a moment.');
+        if (!j.ok) throw new Error(j.error || 'Could not load this tournament.');
+        return j;
+      });
+    }).then(function(j){
+      state.data = j;
+      if (TKEY) renderDetail(); else renderList(j.tournaments || []);
+    }).catch(function(e){
+      fail(e.message);
+      // Never leave the page as a bare error. The list shell still
+      // lets a host set one up, which is the useful action here.
+      if (!TKEY && !state.data) renderList([]);
+    });
+  }
+
+  // ── List ────────────────────────────────────────────────────────
+  function renderList(list){
+    show('listView', true);
+    var host = $('tlist');
+    if (!list.length){
+      // Honest empty state. Nothing here invents a tournament that
+      // does not exist, and the page still shows a host how to make
+      // the first one.
+      host.innerHTML = '<div class="empty">No tournament is open right now. If you run one, you can set it up below.</div>';
+      return;
+    }
+    host.innerHTML = '';
+    list.forEach(function(t){
+      var a = document.createElement('a');
+      a.className = 'trow';
+      a.href = '/tournament?t=' + encodeURIComponent(t.slug || t.tid);
+      var live = (t.status === 'running' || t.status === 'elims' || t.status === 'break');
+      a.innerHTML =
+        '<div><div class="nm">' + esc(t.name) + '</div>' +
+        '<div class="meta">' + esc(fmtName(t.format)) + ' · ' +
+          (t.teamSize === 2 ? 'teams of two' : 'solo') +
+          (t.startsAt ? ' · ' + esc(t.startsAt) : '') +
+          ' · ' + t.entryCount + ' entered</div></div>' +
+        '<div class="sp"><span class="pill ' + (live ? 'pill-live' : t.status === 'registration' ? 'pill-soon' : 'pill-done') + '">' +
+          (live ? '<span class="dot"></span>' : '') + esc(statusLabel(t.status)) + '</span></div>';
+      host.appendChild(a);
+    });
+  }
+
+  function statusLabel(s){
+    return { draft:'Draft', registration:'Registration open', running:'Prelims running',
+      break:'Break announced', elims:'Elims', complete:'Complete', cancelled:'Cancelled' }[s] || s;
+  }
+  function fmtName(f){
+    return { quick:'Quick Clash', apda:'APDA', bp:'British Parliamentary', worlds:'Worlds',
+      asian:'Asian Parliamentary', ld:'Lincoln-Douglas', pf:'Public Forum',
+      policy:'Policy', congress:'Congress' }[f] || f;
+  }
+
+  // ── Detail ──────────────────────────────────────────────────────
+  function myEntry(){
+    if (!state.user || !state.data) return null;
+    var me = state.user.uid;
+    return (state.data.entries || []).filter(function(e){
+      return (e.members || []).indexOf(me) >= 0;
+    })[0] || null;
+  }
+
+  function isHost(){
+    return !!(state.user && state.data && state.data.tournament.hostUid === state.user.uid);
+  }
+
+  function renderDetail(){
+    show('detailView', true);
+    var t = state.data.tournament;
+    document.title = t.name + ' · Debatable';
+    $('title').textContent = t.name;
+    $('kicker').textContent = fmtName(t.format) + (t.teamSize === 2 ? ' · two on two' : '');
+    $('lede').textContent = t.description || 'Register, get your draw, debate your round, and follow the tab.';
+    $('tDesc').textContent = '';
+    var live = (t.status === 'running' || t.status === 'elims');
+    var pill = $('statusPill');
+    pill.className = 'pill ' + (live ? 'pill-live' : t.status === 'registration' ? 'pill-soon' : 'pill-done');
+    pill.innerHTML = (live ? '<span class="dot"></span>' : '') + esc(statusLabel(t.status));
+    $('tMeta').textContent = [
+      t.prelimRounds + ' prelims',
+      t.breakSize ? ('break to ' + t.breakSize) : 'no elims',
+      t.entryCount + ' entered',
+      t.startsAt || '',
+      t.hostName ? ('hosted by ' + t.hostName) : '',
+    ].filter(Boolean).join(' · ');
+
+    renderEntryActions();
+    renderDraw();
+    renderTab();
+    renderBracket();
+    renderHost();
+  }
+
+  function renderEntryActions(){
+    var host = $('entryActions');
+    var t = state.data.tournament;
+    host.innerHTML = '';
+    var mine = myEntry();
+
+    if (!state.user){
+      host.innerHTML = '<button class="btn" id="signInBtn">Sign in to register</button>';
+      $('signInBtn').addEventListener('click', signIn);
+      return;
+    }
+    if (mine){
+      var status = mine.status;
+      var label = status === 'checked_in' ? 'Checked in'
+        : status === 'withdrawn' ? 'Withdrawn'
+        : status === 'eliminated' ? 'Eliminated'
+        : 'Registered';
+      host.innerHTML = '<span class="pill ' + (status === 'checked_in' ? 'pill-live' : 'pill-done') + '">' + esc(label) + '</span>' +
+        '<span class="note" style="margin-top:0;align-self:center">' + esc(mine.name) + '</span>';
+      if (status === 'registered'){
+        var ci = document.createElement('button');
+        ci.className = 'btn btn-primary'; ci.textContent = 'Check in';
+        ci.addEventListener('click', function(){
+          api('/api/tournament', { action: 'check-in', tid: t.tid })
+            .then(function(){ good('Checked in. You are in the next draw.'); return load(); })
+            .catch(function(e){ fail(e.message); });
+        });
+        host.appendChild(ci);
+      }
+      if (status === 'registered' || status === 'checked_in'){
+        var wd = document.createElement('button');
+        wd.className = 'btn'; wd.textContent = 'Withdraw';
+        wd.addEventListener('click', function(){
+          api('/api/tournament', { action: 'withdraw', tid: t.tid })
+            .then(function(){ good('Withdrawn.'); return load(); })
+            .catch(function(e){ fail(e.message); });
+        });
+        host.appendChild(wd);
+      }
+      return;
+    }
+    if (t.status !== 'registration'){
+      host.innerHTML = '<span class="note" style="margin-top:0">Registration is closed.</span>';
+      return;
+    }
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-primary';
+    btn.textContent = t.teamSize === 2 ? 'Register my team' : 'Register';
+    btn.addEventListener('click', register);
+    host.appendChild(btn);
+    if (t.teamSize === 2){
+      var link = document.createElement('a');
+      link.className = 'btn'; link.href = '/partners'; link.textContent = 'Find a partner';
+      host.appendChild(link);
+    }
+  }
+
+  function register(){
+    var t = state.data.tournament;
+    var body = { action: 'register', tid: t.tid, name: (state.user.displayName || 'Debater') };
+    var go = Promise.resolve();
+    if (t.teamSize === 2){
+      // A 2v2 tournament enters a FORMED duo. The partnership was
+      // already agreed on /partners, so there is no second consent
+      // step to invent here; we just need its id.
+      go = api('/api/partner-match', { action: 'my-team' }).then(function(j){
+        if (!j.team || (j.team.members || []).length < 2){
+          throw new Error('This tournament takes teams of two. Form a partnership first on the partners page.');
+        }
+        body.teamId = j.team.teamId;
+      });
+    }
+    go.then(function(){ return api('/api/tournament', body); })
+      .then(function(){ good('Registered. Check in when the day starts.'); return load(); })
+      .catch(function(e){ fail(e.message); });
+  }
+
+  // ── Draw ────────────────────────────────────────────────────────
+  function currentRound(){
+    var rounds = (state.data.rounds || []).filter(function(r){ return r.released; });
+    if (!rounds.length) return null;
+    return rounds[rounds.length - 1];
+  }
+
+  function renderDraw(){
+    var r = currentRound();
+    var body = $('drawBody');
+    var t = state.data.tournament;
+    if (!r){
+      $('drawTitle').textContent = 'The draw';
+      $('drawMotion').textContent = '';
+      body.innerHTML = '<div class="empty">' +
+        (t.status === 'registration'
+          ? 'Nothing drawn yet. The first pairing goes up when registration closes.'
+          : 'No round has been released yet.') + '</div>';
+      return;
+    }
+    $('drawTitle').textContent = r.label || ('Round ' + r.roundNo);
+    $('drawMotion').textContent = r.motion ? ('Motion: ' + r.motion) : '';
+    body.innerHTML = '';
+    var mine = myEntry();
+    (r.pairings || []).forEach(function(p){
+      var isMine = mine && (p.govEntry === mine.entryId || p.oppEntry === mine.entryId);
+      var row = document.createElement('div');
+      row.className = 'pairing' + (isMine ? ' mine' : '');
+      var result = p.status === 'complete'
+        ? '<span class="pill pill-done">' + (p.winner === 'gov' ? esc(p.govName) : esc(p.oppName)) + ' won</span>'
+        : '';
+      row.innerHTML =
+        '<div><div class="side">' + esc(p.govName) + '</div><div class="note" style="margin-top:2px">Gov</div></div>' +
+        '<div class="vs">VS</div>' +
+        '<div><div class="side">' + esc(p.oppName) + '</div><div class="note" style="margin-top:2px">Opp</div></div>' +
+        '<div class="sp">' + result + '</div>';
+      if (isMine && p.status !== 'complete' && p.room){
+        var join = document.createElement('a');
+        join.className = 'btn btn-primary btn-sm';
+        join.textContent = 'Join your room';
+        join.href = roomUrl(p, r, mine);
+        row.querySelector('.sp').appendChild(join);
+      } else if (p.room && p.status !== 'complete'){
+        var watch = document.createElement('a');
+        watch.className = 'btn btn-sm';
+        watch.textContent = 'Watch';
+        watch.href = '/live-round.html?room=' + encodeURIComponent(p.room) + '&spectate=1';
+        row.querySelector('.sp').appendChild(watch);
+      }
+      body.appendChild(row);
+    });
+    if (r.bye){
+      var b = document.createElement('div');
+      b.className = 'pairing';
+      b.innerHTML = '<div><div class="side">' + esc(r.bye.name) + '</div>' +
+        '<div class="note" style="margin-top:2px">Bye this round, scored as a win</div></div>';
+      body.appendChild(b);
+    }
+    if (r.rematches){
+      var warn = document.createElement('p');
+      warn.className = 'note';
+      warn.textContent = r.rematches + ' pairing(s) in this round are rematches. The field ran out of fresh opponents.';
+      body.appendChild(warn);
+    }
+  }
+
+  // Both partners on a 2v2 entry get the same four-seat link; the
+  // round itself works out which seat the viewer holds from their uid.
+  function roomUrl(p, r, mine){
+    var t = state.data.tournament;
+    var entries = {};
+    (state.data.entries || []).forEach(function(e){ entries[e.entryId] = e; });
+    var gov = entries[p.govEntry] || {}, opp = entries[p.oppEntry] || {};
+    var params = new URLSearchParams({
+      room: p.room,
+      format: t.format,
+      motion: r.motion || '',
+      source: 'tournament',
+      pro: (gov.memberNames || [])[0] || gov.name || 'Gov',
+      con: (opp.memberNames || [])[0] || opp.name || 'Opp',
+      proUid: (gov.members || [])[0] || '',
+      conUid: (opp.members || [])[0] || '',
+    });
+    if (t.teamSize === 2){
+      params.set('pro2', (gov.memberNames || [])[1] || '');
+      params.set('con2', (opp.memberNames || [])[1] || '');
+      params.set('proUid2', (gov.members || [])[1] || '');
+      params.set('conUid2', (opp.members || [])[1] || '');
+      params.set('proTeam', gov.name || '');
+      params.set('conTeam', opp.name || '');
+    }
+    return '/live-round.html?' + params.toString();
+  }
+
+  // ── Tab ─────────────────────────────────────────────────────────
+  function renderTab(){
+    var rows = state.data.standings || [];
+    var tb = $('tabTable').querySelector('tbody');
+    if (!rows.length){
+      tb.innerHTML = '<tr><td class="empty">No results yet.</td></tr>';
+      return;
+    }
+    var mine = myEntry();
+    tb.innerHTML = '<tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
+      rows.map(function(r){
+        var me = mine && r.entryId === mine.entryId;
+        return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '>' +
+          '<td class="num">' + r.rank + '</td>' +
+          '<td>' + esc(r.name) + '</td>' +
+          '<td class="num">' + r.wins + '</td>' +
+          '<td class="num">' + r.losses + '</td>' +
+          '<td class="num">' + r.speaks + '</td></tr>';
+      }).join('');
+  }
+
+  function renderBracket(){
+    var elims = (state.data.rounds || []).filter(function(r){ return r.kind === 'elim' && r.released; });
+    show('bracketCard', elims.length > 0);
+    if (!elims.length) return;
+    var host = $('bracketBody');
+    host.innerHTML = '';
+    elims.forEach(function(r){
+      var h = document.createElement('div');
+      h.style.cssText = 'margin-top:14px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
+      h.textContent = r.label;
+      host.appendChild(h);
+      (r.pairings || []).forEach(function(p){
+        var row = document.createElement('div');
+        row.className = 'pairing';
+        row.innerHTML =
+          '<div class="side">' + (p.govSeed ? '<span class="note" style="margin-top:0">' + p.govSeed + '</span> ' : '') + esc(p.govName) + '</div>' +
+          '<div class="vs">VS</div>' +
+          '<div class="side">' + (p.oppSeed ? '<span class="note" style="margin-top:0">' + p.oppSeed + '</span> ' : '') + esc(p.oppName) + '</div>' +
+          '<div class="sp">' + (p.status === 'complete'
+            ? '<span class="pill pill-done">' + esc(p.winner === 'gov' ? p.govName : p.oppName) + '</span>' : '') + '</div>';
+        host.appendChild(row);
+      });
+    });
+    var champ = state.data.tournament.champion;
+    if (champ){
+      var c = document.createElement('p');
+      c.className = 'sub';
+      c.style.marginTop = '14px';
+      c.innerHTML = '<strong>Champion: ' + esc(champ.name) + '</strong>';
+      host.appendChild(c);
+    }
+  }
+
+  // ── Control room ────────────────────────────────────────────────
+  function renderHost(){
+    show('hostCard', isHost());
+    if (!isHost()) return;
+    var t = state.data.tournament;
+    var host = $('hostBody');
+    host.innerHTML = '';
+
+    var bar = document.createElement('div');
+    bar.className = 'btn-row';
+    function act(label, fn, primary){
+      var b = document.createElement('button');
+      b.className = 'btn btn-sm' + (primary ? ' btn-primary' : '');
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      bar.appendChild(b);
+      return b;
+    }
+
+    if (t.status === 'draft') act('Open registration', function(){ setStatus('registration'); }, true);
+    if (t.status === 'registration') act('Close registration', function(){ setStatus('running'); }, true);
+
+    var nextRound = (t.currentRound || 0) + 1;
+    var pendingPrelim = (state.data.rounds || []).filter(function(r){
+      return r.kind === 'prelim' && !r.released;
+    })[0];
+
+    if (t.status === 'running' || t.status === 'break'){
+      if (pendingPrelim){
+        act('Release ' + (pendingPrelim.label || ('Round ' + pendingPrelim.roundNo)), function(){
+          var motion = prompt('Motion for this round (optional):', '');
+          adminCall({ action: 'release-round', tid: t.tid, roundNo: pendingPrelim.roundNo, kind: 'prelim', motion: motion || '' });
+        }, true);
+        act('Redraw it', function(){
+          adminCall({ action: 'pair-round', tid: t.tid, roundNo: pendingPrelim.roundNo, force: true, reseed: true });
+        });
+      } else if (nextRound <= t.prelimRounds){
+        act('Pair round ' + nextRound, function(){
+          adminCall({ action: 'pair-round', tid: t.tid, roundNo: nextRound });
+        }, true);
+      }
+      if (t.breakSize > 0) act('Break to elims', function(){
+        adminCall({ action: 'break', tid: t.tid, breakSize: t.breakSize });
+      });
+    }
+
+    var pendingElim = (state.data.rounds || []).filter(function(r){
+      return r.kind === 'elim' && !r.released;
+    })[0];
+    if (pendingElim){
+      act('Release ' + pendingElim.label, function(){
+        var motion = prompt('Motion for ' + pendingElim.label + ' (optional):', '');
+        adminCall({ action: 'release-round', tid: t.tid, roundNo: pendingElim.roundNo, kind: 'elim', motion: motion || '' });
+      }, true);
+    }
+    var lastElim = (state.data.rounds || []).filter(function(r){ return r.kind === 'elim' && r.released; }).pop();
+    if (lastElim){
+      act('Advance past ' + lastElim.label, function(){
+        adminCall({ action: 'advance-elim', tid: t.tid, roundNo: lastElim.roundNo });
+      });
+    }
+    host.appendChild(bar);
+
+    // Result entry for the live round.
+    var r = currentRound();
+    if (r && (r.pairings || []).some(function(p){ return p.status !== 'complete'; })){
+      var h = document.createElement('div');
+      h.style.cssText = 'margin-top:18px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
+      h.textContent = 'Results · ' + r.label;
+      host.appendChild(h);
+      (r.pairings || []).forEach(function(p){
+        if (p.status === 'complete') return;
+        var row = document.createElement('div');
+        row.className = 'pairing';
+        row.innerHTML =
+          '<div class="side">' + esc(p.govName) + ' <span class="vs">vs</span> ' + esc(p.oppName) + '</div>';
+        var sp = document.createElement('div');
+        sp.className = 'sp';
+        ['gov', 'opp'].forEach(function(side){
+          var b = document.createElement('button');
+          b.className = 'btn btn-sm';
+          b.textContent = (side === 'gov' ? p.govName : p.oppName) + ' won';
+          b.addEventListener('click', function(){
+            var gs = parseFloat(prompt('Speaker points for ' + p.govName + ' (optional):', '') || '0') || 0;
+            var os = parseFloat(prompt('Speaker points for ' + p.oppName + ' (optional):', '') || '0') || 0;
+            adminCall({
+              action: 'report-result', tid: t.tid, roundNo: r.roundNo, kind: r.kind,
+              pairingId: p.pairingId, winner: side, govSpeaks: gs, oppSpeaks: os,
+            });
+          });
+          sp.appendChild(b);
+        });
+        row.appendChild(sp);
+        host.appendChild(row);
+      });
+      if (r.bye && !r.byeRecorded){
+        var bb = document.createElement('div');
+        bb.className = 'btn-row';
+        var btn = document.createElement('button');
+        btn.className = 'btn btn-sm';
+        btn.textContent = 'Record the bye for ' + r.bye.name;
+        btn.addEventListener('click', function(){
+          adminCall({ action: 'record-bye', tid: t.tid, roundNo: r.roundNo });
+        });
+        bb.appendChild(btn);
+        host.appendChild(bb);
+      }
+    }
+  }
+
+  function setStatus(s){
+    adminCall({ action: 'set-status', tid: state.data.tournament.tid, status: s });
+  }
+  function adminCall(body){
+    api('/api/tournament-admin', body)
+      .then(function(j){
+        good('Done.');
+        if (j.rematches) good('Drawn with ' + j.rematches + ' rematch(es); the field is short on fresh opponents.');
+        return load();
+      })
+      .catch(function(e){ fail(e.message); });
+  }
+
+  function createTournament(){
+    api('/api/tournament-admin', {
+      action: 'create',
+      name: $('tName').value,
+      format: $('tFormat').value,
+      teamSize: parseInt($('tTeamSize').value, 10),
+      prelimRounds: parseInt($('tRounds').value, 10),
+      breakSize: parseInt($('tBreak').value, 10),
+      startsAt: $('tStarts').value,
+    }).then(function(j){
+      location.href = '/tournament?t=' + encodeURIComponent(j.slug || j.tid);
+    }).catch(function(e){ fail(e.message); });
+  }
+
+  function signIn(){
+    if (window.openAuthModal) window.openAuthModal('signin');
+    else if (auth) auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){ fail(e.message); });
+  }
+
+  // ── Boot ────────────────────────────────────────────────────────
+  var cb = $('createBtn'); if (cb) cb.addEventListener('click', createTournament);
+  var hs = $('hostSignIn'); if (hs) hs.addEventListener('click', signIn);
+
+  load();
+
+  if (auth){
+    auth.onAuthStateChanged(function(u){
+      state.user = u || null;
+      show('createBox', !!u);
+      show('createGate', !u);
+      if (state.data){ if (TKEY) renderDetail(); }
+    });
+  }
+
+  // A tournament page is something people leave open between rounds,
+  // so it refreshes itself. Slow on purpose, and paused when the tab
+  // is hidden: the payload is shared-cached server-side, but a room
+  // full of open laptops still adds up.
+  state.poll = setInterval(function(){
+    if (document.hidden) return;
+    load();
+  }, 30000);
+})();
+</script>
+<script defer src="/js/auth-modal.js"></script>
+</body>
+</html>
