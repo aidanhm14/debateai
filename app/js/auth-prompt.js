@@ -25,6 +25,11 @@
   if (window.__ditAuthPrompt) return;
   window.__ditAuthPrompt = true;
 
+  // KILL SWITCH (2026-07-28). Temporarily off while investors are
+  // reviewing the site. Flip back to false to restore the prompt.
+  var DISABLED = true;
+  if (DISABLED) return;
+
   var DELAY_MS = 10000;            // 2026-07-22: 3 minutes -> 10s per Aidan
   var QUIET_DAYS = 4;              // cooloff after a dismissal
   var HOLDBACK_PCT = 15;           // % of visitors who never see it (control). 0 = show everyone.

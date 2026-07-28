@@ -35,6 +35,11 @@
   if (window.__debateaiSignupNudge) return;
   window.__debateaiSignupNudge = true;
 
+  // KILL SWITCH (2026-07-28). Temporarily off while investors are
+  // reviewing the site. Flip back to false to restore the nudge.
+  var DISABLED = true;
+  if (DISABLED) return;
+
   var DISMISS_KEY = 'debateos-signup-reminder-dismissed';
   var DISMISS_TS_KEY = 'debateos-signup-reminder-dismissed-at';
   var DISMISS_COUNT_KEY = 'debateos-signup-reminder-dismiss-count';
