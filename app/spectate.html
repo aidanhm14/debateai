@@ -36,48 +36,85 @@
       min-height:100vh;
     }
     a{color:inherit}
-    .wrap{width:min(1160px,calc(100% - 32px));margin:0 auto;padding:72px 0;position:relative}
+    /* The page reads as one descending sequence: where you are, rounds
+       you can watch now, the one-minute thing to do about the motion,
+       then the slower database build. DOM order is left alone so every
+       script keeps its element; `order` does the sequencing. */
+    .wrap{width:min(1160px,calc(100% - 32px));margin:0 auto;padding:72px 0 40px;position:relative;
+      display:flex;flex-direction:column;gap:20px}
+    .wait-banner{order:1}
+    .live-strip{order:2}
+    .od{order:3}
+    .hero{order:4}
+    .panel-grid{order:5}
+    .wrap-foot{order:6;color:var(--faint);font-size:.88rem;text-align:center;margin:2px 0 0}
+    .wrap-foot a{font-weight:800;color:var(--muted);text-underline-offset:3px}
+    .wrap-foot a:hover{color:var(--red-dark)}
     /* Live-now strip: when /api/watch-live reports open public
-       rounds, the waiting room stops waiting and lists them. */
-    .live-strip{display:none;margin-top:14px;border:1px solid rgba(217,47,47,.35);background:#fff;
-      border-radius:16px;overflow:hidden;box-shadow:0 12px 32px rgba(31,26,23,.055)}
+       rounds, the waiting room stops waiting and lists them. This is the
+       payoff of the page, so it outranks every other card on the screen. */
+    .live-strip{display:none;border:1px solid rgba(217,47,47,.34);background:#fff;
+      border-radius:18px;overflow:hidden;box-shadow:0 18px 44px rgba(217,47,47,.10)}
     .live-strip.has-rounds{display:block}
-    .live-strip-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+    .live-strip-head{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(217,47,47,.055),transparent)}
     .ls-badge{display:inline-flex;align-items:center;gap:6px;background:#d92f2f;color:#fff;border-radius:8px;
       padding:4px 10px;font-size:.66rem;font-weight:900;letter-spacing:.12em}
     .ls-badge i{width:6px;height:6px;border-radius:50%;background:#fff;animation:lsBlink 1.2s infinite}
     @keyframes lsBlink{0%,100%{opacity:1}50%{opacity:.3}}
     .live-strip-head b{font-size:.92rem}
-    .ls-row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid var(--line);
-      text-decoration:none;color:inherit}
-    .ls-row:hover{background:rgba(217,47,47,.04)}
+    .ls-row{display:flex;align-items:center;gap:16px;padding:15px 18px;border-top:1px solid var(--line);
+      text-decoration:none;color:inherit;transition:background .16s ease}
+    .ls-row:first-child{border-top:none}
+    .ls-row:hover{background:rgba(217,47,47,.045)}
     .ls-body{flex:1;min-width:0}
-    .ls-motion{display:block;font-weight:700;font-size:.98rem;line-height:1.3;overflow:hidden;
+    .ls-motion{display:block;font-weight:800;font-size:1.12rem;line-height:1.25;overflow:hidden;
       text-overflow:ellipsis;white-space:nowrap}
-    .ls-meta{display:block;font-size:.74rem;color:rgba(31,26,23,.6);margin-top:2px}
-    .ls-watch{flex:0 0 auto;background:#d92f2f;color:#fff;border-radius:10px;padding:8px 14px;
-      font-size:.76rem;font-weight:800}
-    .ls-watch:hover{background:#c02020}
+    .ls-meta{display:block;font-size:.84rem;color:rgba(31,26,23,.62);margin-top:4px}
+    .ls-watch{flex:0 0 auto;background:#d92f2f;color:#fff;border-radius:999px;padding:11px 20px;
+      font-size:.9rem;font-weight:800;transition:background .16s ease,transform .16s ease}
+    .ls-row:hover .ls-watch{background:#c02020;transform:translateY(-1px)}
     .ls-stage{flex:0 0 auto;font-size:.72rem;color:rgba(31,26,23,.55);text-decoration:underline}
+    .ls-chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 9px;
+      font-size:.72rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+      background:#fdfcfa;margin-right:8px;vertical-align:1px}
+    /* Live changes the meaning of the whole banner, so the status light
+       stops being a patient green and becomes the same red as the strip. */
+    .wait-banner.live .wait-dot{background:var(--red);box-shadow:0 0 0 6px rgba(239,68,68,.12);animation:none}
+    .wait-banner.live .timer-wrap{display:none}
     .wait-banner{
       display:flex;align-items:center;justify-content:space-between;gap:24px;
       background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:16px;
       padding:15px 18px;box-shadow:0 12px 32px rgba(31,26,23,.055);
     }
     .wait-state{display:flex;align-items:center;gap:13px;min-width:0}
-    .wait-dot{width:10px;height:10px;flex:0 0 auto;border-radius:50%;background:var(--green);box-shadow:0 0 0 6px rgba(34,197,94,.10)}
+    /* A slow breath, not a strobe. The dot is the only thing on the page
+       saying "still checking", so it should read as calm, not urgent. */
+    .wait-dot{width:10px;height:10px;flex:0 0 auto;border-radius:50%;background:var(--green);
+      box-shadow:0 0 0 6px rgba(34,197,94,.10);animation:waitBreath 3.4s ease-in-out infinite}
+    @keyframes waitBreath{0%,100%{box-shadow:0 0 0 5px rgba(34,197,94,.09)}50%{box-shadow:0 0 0 10px rgba(34,197,94,.02)}}
     .wait-state strong{display:block;font-size:1rem;line-height:1.1}
     .wait-state p{margin:3px 0 0;color:var(--muted);font-size:.9rem;line-height:1.25}
     .wait-meta{display:flex;align-items:center;gap:14px;flex:0 0 auto}
     .timer-wrap{text-align:right}
-    .timer-label{display:block;color:var(--faint);font-size:.7rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase}
-    .timer{display:block;font-weight:900;color:var(--ink);font-size:1.1rem;letter-spacing:.06em;line-height:1.1;margin-top:2px}
+    .timer-label{display:block;color:var(--faint);font-size:.68rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+    /* Deliberately quiet. A big bold count of how long you have waited is
+       a scoreboard for boredom; it only needs to prove the tab is alive. */
+    .timer{display:block;font-weight:800;color:var(--faint);font-size:.92rem;letter-spacing:.06em;line-height:1.1;margin-top:2px;font-variant-numeric:tabular-nums}
     .wait-link{color:var(--muted);font-weight:800;font-size:.9rem;text-underline-offset:3px}
     .wait-link:hover{color:var(--red-dark)}
-    .hero{display:grid;grid-template-columns:minmax(0,.88fr) minmax(500px,1.12fr);gap:44px;align-items:start;position:relative;z-index:1;margin-top:34px}
+    .hero{display:grid;grid-template-columns:minmax(0,.88fr) minmax(500px,1.12fr);gap:44px;align-items:start;position:relative;z-index:1}
+    /* What actually happens when a round opens. The old page asked people
+       to wait without ever saying what they were waiting for. */
+    .flow{list-style:none;margin:30px 0 0;padding:20px 0 0;border-top:1px solid var(--line);display:grid;gap:14px;counter-reset:flow}
+    .flow li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:12px;align-items:start;counter-increment:flow}
+    .flow li:before{content:counter(flow);width:26px;height:26px;border-radius:50%;background:var(--soft);
+      color:var(--red-dark);font-size:.82rem;font-weight:900;display:grid;place-items:center;align-self:start}
+    .flow b{display:block;font-size:1rem;line-height:1.2}
+    .flow span{display:block;color:var(--muted);font-size:.9rem;line-height:1.3;margin-top:2px}
     .eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--red-dark);font-weight:900;letter-spacing:.18em;text-transform:uppercase;font-size:.78rem}
     .eyebrow:before{content:"";width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 0 8px rgba(239,68,68,.10)}
-    h1{font-size:clamp(3.2rem,5.1vw,5rem);line-height:.94;margin:18px 0 18px;letter-spacing:0;font-weight:900}
+    h1{font-size:clamp(2.5rem,3.6vw,3.5rem);line-height:1;margin:16px 0 16px;letter-spacing:0;font-weight:900}
     .lead{font-size:clamp(1.12rem,1.4vw,1.3rem);line-height:1.4;color:var(--muted);max-width:570px;margin:0}
     .lead strong{color:var(--ink)}
     .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
@@ -95,44 +132,19 @@
       box-shadow:0 20px 54px rgba(31,26,23,.07);padding:24px;position:relative;overflow:hidden;
     }
     .waiting-card>*{position:relative;z-index:1}
+    /* On desktop the builder is already on screen next to the CTA, so a
+       scroll does nothing visible. Ring it instead. */
+    .waiting-card.flash{animation:cardFlash 1.1s ease}
+    @keyframes cardFlash{0%{box-shadow:0 20px 54px rgba(31,26,23,.07),0 0 0 0 rgba(239,68,68,.34)}
+      35%{box-shadow:0 20px 54px rgba(31,26,23,.07),0 0 0 7px rgba(239,68,68,.16)}
+      100%{box-shadow:0 20px 54px rgba(31,26,23,.07),0 0 0 0 rgba(239,68,68,0)}}
     .builder-head{display:flex;justify-content:space-between;align-items:start;gap:18px;margin-bottom:18px}
     .builder-head h2{margin:4px 0 6px;font-size:1.7rem;line-height:1}
     .builder-head p{margin:0;color:var(--muted);font-size:.96rem;line-height:1.3;max-width:380px}
     .builder-kicker{color:var(--red-dark);font-size:.72rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase}
     .builder-saved{min-height:18px;margin:12px 0 0;color:var(--green);font-size:.86rem;font-weight:800}
-    .network{height:380px;border-radius:14px;background:linear-gradient(180deg,#fbfaf7,#f6f4ef);border:1px solid #ece7e1;position:relative;overflow:hidden}
-    .brain-map{position:absolute;inset:8px 10px 58px;width:calc(100% - 20px);height:calc(100% - 66px)}
-    .brain-outline{fill:rgba(255,255,255,.62);stroke:#cfc9c2;stroke-width:1.4}
-    .brain-fold{fill:none;stroke:#dcd6cf;stroke-width:1.2;stroke-linecap:round}
-    .brain-active{clip-path:inset(100% 0 0 0);transition:clip-path .75s cubic-bezier(.2,.8,.2,1)}
-    .brain-active .brain-outline{fill:rgba(239,68,68,.055);stroke:#d95b58}
-    .brain-active .brain-fold{stroke:#dc7771}
-    .brain-pulse{fill:#fff;stroke:#cf5753;stroke-width:2;filter:drop-shadow(0 0 6px rgba(239,68,68,.26));animation:brainPulse 3.2s ease-in-out infinite}
-    .brain-pulse:nth-of-type(2){animation-delay:-1.1s}.brain-pulse:nth-of-type(3){animation-delay:-2.2s}
-    @keyframes brainPulse{0%,100%{r:4;opacity:.48}50%{r:6;opacity:1}}
-    .network-copy{position:absolute;inset:auto 16px 14px 16px;display:flex;justify-content:space-between;align-items:center;gap:14px;border-top:1px solid rgba(29,29,34,.08);padding:12px 2px 0}
-    .network-copy h2{margin:0;font-size:1.15rem;line-height:1.05}
-    .network-copy p{margin:4px 0 0;color:var(--muted);font-size:.84rem;line-height:1.3}
-    .hero-brain{
-      height:260px;margin-top:30px;
-      background:
-        radial-gradient(circle at 50% 36%,rgba(239,68,68,.08),transparent 38%),
-        linear-gradient(180deg,#fbfaf7,#f6f4ef);
-      box-shadow:0 16px 38px rgba(31,26,23,.055);
-    }
-    .hero-brain .brain-map{inset:5px 12px 62px;width:calc(100% - 24px);height:calc(100% - 67px)}
-    .brain-layer{
-      position:absolute;z-index:2;display:inline-flex;align-items:center;gap:6px;
-      border:1px solid rgba(29,29,34,.09);border-radius:999px;background:rgba(255,255,255,.86);
-      padding:6px 9px;color:var(--muted);font-size:.72rem;font-weight:800;
-      box-shadow:0 8px 18px rgba(31,26,23,.045);backdrop-filter:blur(5px);
-    }
-    .brain-layer::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--red);opacity:.72}
-    .brain-layer.identity{left:14px;top:14px}
-    .brain-layer.vault{right:14px;top:20px}
-    .brain-layer.thinking{right:18px;bottom:72px}
     .pill{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-weight:900;color:var(--muted);white-space:nowrap}
-    .panel-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:28px}
+    .panel-grid{display:grid;grid-template-columns:1fr;gap:18px}
     .panel{background:rgba(255,255,255,.84);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 12px 34px rgba(31,26,23,.045)}
     .panel.brain-panel{display:grid;grid-template-columns:minmax(0,.9fr) minmax(420px,1.1fr);gap:30px;align-items:center}
     .panel h2{margin:0 0 8px;font-size:1.8rem;line-height:1}
@@ -144,11 +156,17 @@
     @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     .choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .choice{
-      appearance:none;border:1px solid var(--line);border-radius:13px;background:#fff;padding:13px 14px;text-align:left;
-      font:800 1rem "Crimson Pro", Georgia, serif;color:var(--ink);cursor:pointer;transition:transform .16s,border-color .16s,background .16s;
+      appearance:none;border:1px solid var(--line);border-radius:13px;background:#fff;padding:13px 36px 13px 14px;text-align:left;
+      font:800 1rem "Crimson Pro", Georgia, serif;color:var(--ink);cursor:pointer;position:relative;
+      transition:transform .16s,border-color .16s,background .16s,box-shadow .16s;
     }
     .choice small{display:block;color:var(--muted);font-weight:600;font-size:.78rem;margin-top:4px;line-height:1.25}
-    .choice:hover,.choice.on{border-color:rgba(239,68,68,.38);background:var(--soft)}
+    .choice:hover{border-color:rgba(239,68,68,.38);background:var(--soft)}
+    /* A picked answer has to survive a glance from across the room; the
+       old tint alone read as a hover state that got stuck. */
+    .choice.on{border-color:rgba(239,68,68,.55);background:var(--soft);box-shadow:inset 0 0 0 1px rgba(239,68,68,.3)}
+    .choice.on:after{content:"";display:block;width:16px;height:16px;border-radius:50%;background:var(--red);
+      position:absolute;top:12px;right:12px;box-shadow:0 0 0 3px rgba(239,68,68,.16)}
     .field{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 16px;font:700 1rem "Crimson Pro", Georgia, serif;color:var(--ink);outline:none}
     .field:focus{border-color:rgba(239,68,68,.5);box-shadow:0 0 0 4px rgba(239,68,68,.08)}
     .step-actions{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
@@ -178,15 +196,23 @@
     .file-pill{border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:#fff;font-weight:800;color:var(--muted);font-size:.85rem}
     .mini{font-size:.82rem;color:var(--faint);line-height:1.35;margin-top:12px}
     /* ── Opinion delta: stance before, taps during, restate after ──── */
-    .od{margin-top:28px;display:none}
+    .od{display:none;background:#fff;position:relative;overflow:hidden}
     .od.on{display:block}
+    /* The one thing on this page you can finish in under a minute, so it
+       gets the only coloured edge on the screen. */
+    .od:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--red),#f87171)}
     .od-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:10px}
     .od-skip{appearance:none;border:none;background:transparent;color:var(--faint);font:700 .85rem "Crimson Pro", Georgia, serif;cursor:pointer;padding:4px 2px}
     .od-skip:hover{color:var(--muted);text-decoration:underline}
-    .od-motion{margin:0 0 18px;font-size:1.22rem;line-height:1.32;color:var(--ink);font-weight:700;border-left:3px solid var(--red);padding-left:14px}
+    .od-motion{margin:0 0 18px;font-size:1.34rem;line-height:1.32;color:var(--ink);font-weight:700;border-left:3px solid var(--red);padding-left:16px;max-width:64ch}
+    .od-motion-label{color:var(--faint);font-size:.7rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;margin:14px 0 6px}
+    .od-phase>p,.od-phase>.mini{max-width:68ch}
+    /* A 0-100 slider stretched across the full panel is unreadable; a
+       thumb move of 40px would change the answer by one point. */
+    .od-conf{max-width:520px}
     .od-phase{display:none;animation:rise .22s ease}
     .od-phase.on{display:block}
-    .od-sides{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .od-sides{grid-template-columns:repeat(3,minmax(0,1fr));max-width:920px}
     .od-conf{display:block;margin-top:18px}
     .od-conf b{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:.95rem;color:var(--muted);font-weight:800}
     .od-conf b span{color:var(--red-dark);font-weight:900;font-size:1.05rem}
@@ -220,7 +246,6 @@
     @media (max-width:900px){
       .wrap{padding-top:68px}
       .hero,.panel-grid,.panel.brain-panel{grid-template-columns:1fr}
-      .hero-brain{height:260px}
     }
     @media (max-width:560px){
       .wrap{width:min(100% - 22px,1180px);padding-top:64px}
@@ -229,13 +254,14 @@
       .wait-state p{font-size:.82rem}
       .wait-meta{display:block;text-align:right}
       .wait-link{display:none}
-      h1{font-size:3.15rem}
-      .lead{font-size:1.16rem}
-      .hero{margin-top:28px}
+      h1{font-size:2.35rem}
+      .lead{font-size:1.1rem}
       .choices{grid-template-columns:1fr}
-      .network-copy{display:block}
       .pill{margin-top:10px}
       .btn{width:100%}
+      .ls-row{align-items:flex-start}
+      .ls-motion{white-space:normal}
+      .ls-watch{width:100%;text-align:center;margin-top:10px}
       .builder-head{display:block}
       .builder-head .pill{display:inline-flex}
       .brain-viz{height:212px}
@@ -248,8 +274,9 @@
       .od-bar-tap{padding:13px 20px}
     }
     @media (prefers-reduced-motion:reduce){
-      .brain-active{transition:none}
-      .brain-pulse{animation:none}
+      .wait-dot,.ls-badge i{animation:none}
+      .waiting-card.flash{animation:none}
+      .btn:hover,.ls-row:hover .ls-watch{transform:none}
     }
   </style>
 </head>
@@ -260,23 +287,23 @@
       <div class="wait-state">
         <span class="wait-dot" aria-hidden="true"></span>
         <div>
-          <strong>You are in the waiting room</strong>
-          <p>Keep this tab open. You will spawn in here when a live debate opens.</p>
+          <strong>No round is open yet</strong>
+          <p>Keep this tab open. The moment one starts, it appears at the top of this page.</p>
         </div>
       </div>
       <div class="wait-meta">
         <div class="timer-wrap">
-          <span class="timer-label">Waiting</span>
+          <span class="timer-label">Checking</span>
           <span class="timer" id="waitTimer">00:00</span>
         </div>
-        <a class="wait-link" href="/live">View the room board</a>
+        <a class="wait-link" href="/live">See the room board</a>
       </div>
     </section>
 
     <section class="live-strip" id="liveNowStrip" aria-label="Live rounds you can watch right now">
       <div class="live-strip-head">
         <span class="ls-badge"><i></i>LIVE</span>
-        <b>Rounds open right now. Walk in and watch.</b>
+        <b>Open rooms</b>
       </div>
       <div id="liveNowRows"></div>
     </section>
@@ -285,43 +312,23 @@
       <div>
         <div class="eyebrow">While you wait</div>
         <h1 id="spectateTitle">Build your debate database.</h1>
-        <p class="lead">Save the formats you know, the topics you follow, and the rounds that shaped you. Add a little now. Keep building after you spawn in.</p>
+        <p class="lead">Save the formats you know, the topics you follow, and the rounds that shaped you. Add a little now, keep building later.</p>
         <div class="actions">
           <button class="btn primary" type="button" id="focusProfile">Start my database</button>
           <a class="btn ghost" href="/live">Browse upcoming rounds</a>
         </div>
-        <div class="network hero-brain" aria-label="Your debate brain fills as you complete the setup">
-          <svg class="brain-map" viewBox="0 0 600 360" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-            <g>
-              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
-              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
-              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
-            </g>
-            <g class="brain-active" id="brainFill">
-              <path class="brain-outline" d="M300 58 C253 27 194 52 181 98 C137 105 116 147 129 186 C110 222 137 269 181 271 C198 313 254 326 300 294 C346 326 402 313 419 271 C463 269 490 222 471 186 C484 147 463 105 419 98 C406 52 347 27 300 58 Z"/>
-              <path class="brain-fold" d="M300 60 V294 M184 99 C233 91 262 116 300 153 M130 185 C196 170 245 191 300 221 M181 271 C221 244 257 251 300 263 M416 99 C367 91 338 116 300 153 M470 185 C404 170 355 191 300 221 M419 271 C379 244 343 251 300 263"/>
-              <path class="brain-fold" d="M182 126 C216 137 219 167 205 194 M418 126 C384 137 381 167 395 194 M171 225 C214 213 250 224 270 247 M429 225 C386 213 350 224 330 247"/>
-              <circle class="brain-pulse" cx="205" cy="194" r="4"/><circle class="brain-pulse" cx="300" cy="153" r="4"/><circle class="brain-pulse" cx="395" cy="194" r="4"/>
-            </g>
-          </svg>
-          <span class="brain-layer identity">Debate identity</span>
-          <span class="brain-layer vault">Case vault</span>
-          <span class="brain-layer thinking">Thinking map</span>
-          <div class="network-copy">
-            <div>
-              <h2>Your debate brain</h2>
-              <p>Each answer lights another connection.</p>
-            </div>
-            <span class="pill" id="brainPct">0% built</span>
-          </div>
-        </div>
+        <ol class="flow">
+          <li><div><b>A round opens</b><span>It appears at the top of this page and the status above turns red.</span></div></li>
+          <li><div><b>You walk in muted</b><span>Camera off, mic off. Nobody in the room can see or hear you.</span></div></li>
+          <li><div><b>You watch and take a side</b><span>Flag the arguments that move you, then read the ballot the judge writes.</span></div></li>
+        </ol>
       </div>
       <aside class="waiting-card" id="profileBuilder" aria-label="Debate database quick setup">
         <div class="builder-head">
           <div>
             <div class="builder-kicker">Quick setup</div>
-            <h2>Add the first layer</h2>
-            <p>Three short answers make this room, your suggestions, and future rounds more useful.</p>
+            <h2>Three quick questions</h2>
+            <p>They set how much a round explains itself to you, and which motions get surfaced first. About thirty seconds.</p>
           </div>
           <span class="pill" id="profilePct">0% built</span>
         </div>
@@ -347,8 +354,8 @@
           </div>
         </div>
         <div class="step" data-step="2">
-          <h3>What else should Debatable remember?</h3>
-          <p>Add a format, circuit, school, language, goal, or recurring topic.</p>
+          <h3>Anything else worth remembering?</h3>
+          <p>A format, circuit, school, language, goal, or a topic you keep coming back to. Optional.</p>
           <input class="field" id="otherContext" aria-label="More details for your debate database" placeholder="Example: PF circuit, WSDC, Hindi and English, climate motions">
         </div>
         <div class="step-actions">
@@ -365,6 +372,7 @@
         <button class="od-skip" type="button" id="odSkip">Skip this</button>
       </div>
       <h2 id="odTitle">Where do you stand right now?</h2>
+      <div class="od-motion-label">The motion</div>
       <p class="od-motion" id="odMotion"></p>
 
       <div class="od-phase on" data-od-phase="before">
@@ -453,6 +461,8 @@
         </div>
       </div>
     </section>
+
+    <p class="wrap-foot">Nothing to watch yet. <a href="/practice">Run a round against the AI</a> or <a href="/spar">find a human to spar</a> instead.</p>
   </main>
 
   <div class="od-bar" id="odBar" role="region" aria-label="Persuasion tracker">
@@ -473,8 +483,6 @@
       var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
       var progress = document.getElementById('progressBar');
       var pct = document.getElementById('profilePct');
-      var brainPct = document.getElementById('brainPct');
-      var brainFill = document.getElementById('brainFill');
       var next = document.getElementById('nextStep');
       var back = document.getElementById('backStep');
       var ctx = document.getElementById('otherContext');
@@ -516,8 +524,6 @@
         if (step === 2 && ctx && ctx.value.trim()) width = 100;
         progress.style.width = width + '%';
         pct.textContent = Math.round(width) + '% built';
-        if (brainPct) brainPct.textContent = Math.round(width) + '% built';
-        if (brainFill) brainFill.style.clipPath = 'inset(' + (100 - width) + '% 0 0 0)';
         back.style.display = step ? 'inline-flex' : 'none';
         next.textContent = step === total - 1 ? 'Save to my database' : 'Next';
         updateBrainViz();
@@ -551,7 +557,16 @@
         render();
       });
       back.addEventListener('click', function(){ if (step > 0) step -= 1; render(); });
-      document.getElementById('focusProfile').addEventListener('click', function(){ profileBuilder.scrollIntoView({ behavior:'smooth', block:'start' }); });
+      document.getElementById('focusProfile').addEventListener('click', function(){
+        profileBuilder.scrollIntoView({ behavior:'smooth', block:'center' });
+        // Side by side on desktop the scroll is a no-op, so say where the
+        // click landed instead of appearing to do nothing.
+        profileBuilder.classList.remove('flash');
+        void profileBuilder.offsetWidth;
+        profileBuilder.classList.add('flash');
+        var first = profileBuilder.querySelector('.step.on .choice, .step.on .field');
+        if (first) setTimeout(function(){ try { first.focus({ preventScroll:true }); } catch(e){} }, 260);
+      });
       document.getElementById('avatarBtn').addEventListener('click', function(){
         if (window.DBAvatar && DBAvatar.openBuilder) DBAvatar.openBuilder();
         else location.href = '/coach';
@@ -951,7 +966,14 @@
     function hydrate(){
       fetch('/api/watch-live',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
         var rounds=(j&&j.rounds)||[];
-        if(!rounds.length){strip.classList.remove('has-rounds');return}
+        var banner=document.querySelector('.wait-banner');
+        var foot=document.querySelector('.wrap-foot');
+        if(!rounds.length){
+          strip.classList.remove('has-rounds');
+          if(banner)banner.classList.remove('live');
+          if(foot)foot.hidden=false;
+          return;
+        }
         rows.innerHTML=rounds.map(function(r){
           var label=FORMATS[r.format]||String(r.format||'').toUpperCase();
           var who=[r.proName,r.conName].filter(Boolean).join(' vs ')||'In progress';
@@ -959,16 +981,21 @@
           return '<a class="ls-row" href="/live-round?room='+encodeURIComponent(r.room)+'&spectate=1">'+
             '<span class="ls-body">'+
               '<span class="ls-motion">'+esc(r.motion||'Live debate')+'</span>'+
-              '<span class="ls-meta">'+esc(label)+' · '+esc(who)+' · '+state+'</span>'+
+              '<span class="ls-meta"><span class="ls-chip">'+esc(label)+'</span> '+esc(who)+' · '+state+'</span>'+
             '</span>'+
             '<span class="ls-watch">Watch</span>'+
           '</a>';
         }).join('');
         strip.classList.add('has-rounds');
+        if(banner)banner.classList.add('live');
+        // The closing line offers alternatives to watching. There is now
+        // something to watch, so it would be arguing against the strip.
+        if(foot)foot.hidden=true;
         var st=document.querySelector('.wait-state strong');
         var sp=document.querySelector('.wait-state p');
-        if(st)st.textContent='A live round is open right now';
-        if(sp)sp.textContent='Pick a round below. You join muted, camera off.';
+        var n=rounds.length;
+        if(st)st.textContent=n>1?(n+' rounds are open right now'):'A round is open right now';
+        if(sp)sp.textContent='Pick one below. You walk in muted with your camera off.';
       }).catch(function(){});
     }
     hydrate();
