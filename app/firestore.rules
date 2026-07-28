@@ -1084,6 +1084,75 @@ service cloud.firestore {
       }
     }
 
+    // ── partner_pool — "looking for a 2v2 partner" ───────────────────
+    // Doc id == uid, same shape as matchmaking_queue. A client writes
+    // and clears its OWN entry and reads the pool to find candidates;
+    // every write that touches two people (proposing a partnership,
+    // accepting one, forming the team) runs server-side in
+    // partner-match.mjs with admin credentials.
+    //
+    // The reason is the one spar-pair was rebuilt for: rules cannot
+    // express "you may write another user's document, but only as
+    // half of a legitimate match." Allowing the cross-user write at
+    // all would let any signed-in account move any other account
+    // through the handshake; denying it entirely and moving pairing
+    // to the server is the only shape that is both correct and safe.
+    match /partner_pool/{poolUid} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && poolUid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'looking';
+      allow update: if isSignedIn() && poolUid == request.auth.uid;
+      allow delete: if isSignedIn() && poolUid == request.auth.uid;
+    }
+
+    // ── duo_teams — a formed 2v2 partnership ─────────────────────────
+    // Readable by any signed-in user (a draw sheet, a tournament
+    // entry, and an opponent card all name the team). Writes are
+    // server-only: membership decides who may queue the team, enter it
+    // in a tournament, and speak in its rooms, so a client that could
+    // edit `members` could add itself to someone else's team.
+    match /duo_teams/{teamId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── duo_queue — a duo waiting for another duo ────────────────────
+    // Doc id == teamId. Readable so clients can poll for an opponent;
+    // written only by duo-pair.mjs, which verifies team membership
+    // before it queues or cancels anything.
+    match /duo_queue/{teamId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── tournaments ──────────────────────────────────────────────────
+    // Public read: a draw, a tab, and a bracket are spectator
+    // surfaces, and a host posting a link into a Discord should not
+    // be asking strangers to sign in to look at it. Unreleased draws
+    // are withheld by the API rather than by these rules, since the
+    // round document also holds the released version.
+    //
+    // Writes are entirely server-side (tournament.mjs for
+    // registration, tournament-admin.mjs for everything a director
+    // does). Results decide who breaks, so nothing about a record may
+    // be writable by the team it belongs to.
+    match /tournaments/{tid} {
+      allow read:  if true;
+      allow write: if false;
+
+      match /entries/{entryId} {
+        allow read:  if true;
+        allow write: if false;
+      }
+
+      match /rounds/{roundKey} {
+        allow read:  if true;
+        allow write: if false;
+      }
+    }
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }
