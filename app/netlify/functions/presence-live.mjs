@@ -126,16 +126,22 @@ export default async (request, context) => {
 
       await ref.set(fields, { merge: true });
 
-      // First-beat detection is the CLIENT's job, via body.first.
-      //
-      // The obvious server-side trick — call create() and treat
-      // ALREADY_EXISTS as "seen before" — does not work here. The
-      // Firestore Node SDK does not reject that promptly; it retries the
-      // commit with backoff, so every repeat beat hung until the function
-      // timed out and the gateway returned 504. That shipped briefly on
-      // 2026-07-28 and broke the /spar globe: only a session's first beat
-      // ever landed. Reading the doc first would work but costs a read on
-      // every beat, which is exactly the drain the 2026-05-18 audit cut.
+      // First-beat detection is the CLIENT's job, via body.first, because
+      // both server-side alternatives cost something per beat:
+      //   - ref.get() before writing = one extra Firestore READ on every
+      //     beat, which is exactly the drain the 2026-05-18 audit cut.
+      //   - ref.create() and treat the rejection as "seen before" = one
+      //     extra failed COMMIT on every repeat beat, i.e. two writes per
+      //     beat instead of one, forever, to learn one bit.
+      // (The create() version shipped on 2026-07-28 and was replaced the
+      // same day on the write-cost argument. A commit message at the time
+      // claimed it also HUNG, on the theory that the SDK retried
+      // ALREADY_EXISTS with backoff. That was wrong: Commit's retry set in
+      // @google-cloud/firestore 7.x is ["RESOURCE_EXHAUSTED","UNAVAILABLE"]
+      // only, so create() on an existing doc rejects immediately. The 504s
+      // that prompted it were a local proxy failing bursts of POSTs over a
+      // reused connection, and they reproduced against the fixed code too.
+      // Don't "restore" create() on the grounds that the hang was fake.)
       //
       // track.js already knows: its `_da_plast` sessionStorage key is
       // absent on the first beat of a session, the same lifecycle as the
