@@ -34,13 +34,18 @@ import { esc, brandHeader, unsubUrl, verifyUnsubToken, isOptedOut, SITE_URL } fr
 // 'sparrsvp' is the anonymous Open Spar Night RSVP list. Unlike every
 // other stream it has no user_profiles doc behind it: the subject id is a
 // spar_night_rsvps doc id, and the opt-out is written there instead.
-const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'onboarding', 'all'];
+const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'partner', 'onboarding', 'all'];
 const RSVP_STREAM = 'sparrsvp';
 
 const FLAG_BY_STREAM = {
   digest: 'wauDigestOptOut',
   winback: 'winbackOptOut',
   sparnight: 'sparNightOptOut',
+  // Partner-pool alerts. Their own flag, because someone who wants a
+  // 2v2 partner and someone who wants a weekly digest are not the
+  // same person, and folding them together makes leaving one mean
+  // leaving both.
+  partner: 'partnerOptOut',
   onboarding: 'emailOptOut',
   all: 'emailOptOut',
 };
@@ -54,6 +59,7 @@ const STOP_SENTENCE = {
   winback: 'The occasional check-in emails stop here. Nothing else changes.',
   sparnight: 'The Spar Night reminders stop here. Nothing else changes.',
   sparrsvp: 'The Spar Night reminders stop here. Nothing else changes.',
+  partner: 'Partner match alerts stop here. Nothing else changes.',
   onboarding: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
   all: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
 };
@@ -63,6 +69,7 @@ const CONFIRM_SENTENCE = {
   winback: 'This stops the occasional check-in emails. Nothing else changes.',
   sparnight: 'This stops the weekly Spar Night reminders. Nothing else changes.',
   sparrsvp: 'This stops the weekly Spar Night reminders. Nothing else changes.',
+  partner: 'This stops the partner match alerts. Nothing else changes.',
   onboarding: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
   all: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
 };
@@ -72,6 +79,7 @@ const RESUME_SENTENCE = {
   winback: 'The occasional check-in emails are back on.',
   sparnight: 'The Spar Night reminders are back on.',
   sparrsvp: 'The Spar Night reminders are back on.',
+  partner: 'Partner match alerts are back on.',
   onboarding: 'Debatable email is back on.',
   all: 'Debatable email is back on.',
 };

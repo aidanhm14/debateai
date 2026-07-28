@@ -79,6 +79,11 @@ export function isOptedOut(profile, stream) {
   if (stream === 'digest') return !!profile.wauDigestOptOut;
   if (stream === 'winback') return !!(profile.wauDigestOptOut || profile.winbackOptOut);
   if (stream === 'sparnight') return !!(profile.wauDigestOptOut || profile.sparNightOptOut);
+  // 'partner' is deliberately NOT suppressed by the digest flag. It is
+  // an alert about a specific person asking to team up with you, which
+  // is closer to a reply than to a mailing list, so it rides its own
+  // switch and nothing else turns it off but the global one.
+  if (stream === 'partner') return !!profile.partnerOptOut;
   // 'onboarding', 'transactional', and anything unknown: global switch only.
   return false;
 }

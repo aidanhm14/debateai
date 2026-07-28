@@ -85,6 +85,12 @@
   .card h2{font-size:1.06rem;font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
   .card p.sub{color:var(--dim);font-size:.9rem;line-height:1.55}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 14px}
+  .fit{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-right:10px}
+  .fit b{font-size:.95rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .fit span{font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .fit-strong b{color:#4ade80} .fit-good b{color:var(--fg)}
+  .fit-ok b{color:var(--dim)} .fit-low b{color:var(--faint)}
   @media(max-width:760px){.grid2{grid-template-columns:1fr}.head{padding-top:88px}}
 
   .btn{
@@ -131,7 +137,7 @@
   }
   .row .nm{font-size:.92rem;font-weight:700}
   .row .meta{font-size:.78rem;color:var(--faint);margin-top:1px}
-  .row .sp{margin-left:auto}
+  .row .sp{margin-left:auto;display:flex;align-items:center}
 
   .pill{
     display:inline-flex;align-items:center;gap:6px;
@@ -222,6 +228,8 @@
       <h2>No partner? Join the pool</h2>
       <p class="sub">Everyone here is looking for the same thing. Pick someone, they accept, and you are a team. Nobody is teamed up without both people saying yes.</p>
       <div id="poolJoin">
+        <p class="note" style="margin-top:14px">Five questions. They decide who gets shown at the top of the list, for you and for everyone looking at you.</p>
+        <div class="fields" id="prefQuiz"></div>
         <label class="f" for="noteIn">A line about what you are after (optional)</label>
         <input class="in" id="noteIn" maxlength="160" placeholder="Prepping for a tournament, want serious rounds">
         <div class="btn-row"><button class="btn btn-primary" id="joinPoolBtn">Enter the partner pool</button></div>
@@ -278,6 +286,7 @@
 <!-- Incoming partner proposal lands here -->
 <div id="proposeCard" class="propose hidden"></div>
 
+<script src="/js/partner-fit.js"></script>
 <script defer src="/js/topbar.js"></script>
 <script>
 (function(){
@@ -486,6 +495,9 @@
   // read, and every write that touches them goes through the server.
   function joinPool(){
     if (!state.user || !db) return;
+    var prefs = window.PartnerFit ? window.PartnerFit.read($('prefQuiz')) : {};
+    try { localStorage.setItem('da-partner-prefs', JSON.stringify(prefs)); } catch(e){}
+    state.myPrefs = prefs;
     var ref = db.collection('partner_pool').doc(state.user.uid);
     ref.set({
       uid: state.user.uid,
@@ -493,6 +505,14 @@
       photoURL: state.user.photoURL || '',
       format: $('fmtSel') ? $('fmtSel').value : 'apda',
       note: ($('noteIn').value || '').slice(0, 160),
+      // Quiz answers. Public to signed-in users by the same rule the
+      // rest of the pool doc is: everyone browsing the pool needs them
+      // to rank it, and they are preferences, not personal data.
+      level: prefs.level || '',
+      goal: prefs.goal || '',
+      position: prefs.position || '',
+      availability: prefs.availability || '',
+      intensity: prefs.intensity || '',
       status: 'looking',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).then(function(){
@@ -541,7 +561,7 @@
       snap.forEach(function(d){
         var v = d.data() || {};
         if (d.id === (state.user && state.user.uid)) return;
-        rows.push({ uid: d.id, name: v.displayName || 'Debater', photo: v.photoURL || '', note: v.note || '', format: v.format || '' });
+        rows.push(poolRow(d.id, v));
       });
       renderPool(rows);
     }, function(){
@@ -562,10 +582,36 @@
         snap.forEach(function(d){
           var v = d.data() || {};
           if (d.id === (state.user && state.user.uid)) return;
-          rows.push({ uid: d.id, name: v.displayName || 'Debater', photo: v.photoURL || '', note: v.note || '', format: v.format || '' });
+          rows.push(poolRow(d.id, v));
         });
         renderPool(rows);
       }).catch(function(){});
+  }
+
+  // One pool document, flattened into what the list needs plus the
+  // quiz answers the fit score reads.
+  function poolRow(uid, v){
+    return {
+      uid: uid,
+      name: v.displayName || 'Debater',
+      photo: v.photoURL || '',
+      note: v.note || '',
+      format: v.format || '',
+      level: v.level || '',
+      goal: v.goal || '',
+      position: v.position || '',
+      availability: v.availability || '',
+      intensity: v.intensity || '',
+    };
+  }
+
+  // My own answers, for scoring. Taken from the live quiz rather than
+  // from the saved copy so moving a dropdown re-ranks the list on the
+  // spot, before committing to anything.
+  function myPrefs(){
+    var live = window.PartnerFit ? window.PartnerFit.read($('prefQuiz')) : {};
+    live.format = $('fmtSel') ? $('fmtSel').value : '';
+    return live;
   }
 
   function renderPool(rows){
@@ -575,16 +621,32 @@
       host.innerHTML = '<div class="empty">Nobody in the pool right now. Join it and you will be the one people find.</div>';
       return;
     }
+    // Best fit first. Ranking by join time instead would sort by who
+    // refreshed most recently, which is not a reason to spend an hour
+    // debating with someone.
+    var me = myPrefs();
+    var fit = window.PartnerFit;
+    rows.forEach(function(r){
+      r._score = fit ? fit.score(me, r) : 0;
+      r._why = fit ? fit.reasons(me, r) : [];
+    });
+    rows.sort(function(a, b){ return b._score - a._score; });
+
     host.innerHTML = '';
     rows.forEach(function(r){
+      var cls = r._score >= 78 ? 'fit-strong' : r._score >= 58 ? 'fit-good' : r._score >= 38 ? 'fit-ok' : 'fit-low';
+      var why = r._why.length ? r._why.join(' · ') : (r.note || 'Looking for a partner');
       var row = document.createElement('div');
       row.className = 'row';
       row.innerHTML =
         '<div class="av"' + (r.photo ? ' style="background-image:url(' + esc(r.photo) + ')"' : '') + '>' +
           (r.photo ? '' : esc(initials(r.name))) + '</div>' +
         '<div><div class="nm">' + esc(r.name) + '</div>' +
-        '<div class="meta">' + esc(r.note || 'Looking for a partner') + '</div></div>' +
-        '<div class="sp"><button class="btn" data-uid="' + esc(r.uid) + '">Ask to team up</button></div>';
+        '<div class="meta">' + esc(why) + '</div></div>' +
+        '<div class="sp">' +
+          (fit ? '<span class="fit ' + cls + '"><b>' + r._score + '</b><span>' + esc(fit.band(r._score)) + '</span></span>' : '') +
+          '<button class="btn" data-uid="' + esc(r.uid) + '">Ask to team up</button>' +
+        '</div>';
       host.appendChild(row);
     });
     Array.prototype.forEach.call(host.querySelectorAll('button[data-uid]'), function(b){
@@ -822,6 +884,13 @@
     var ci = $('codeIn');
     if (ci) ci.addEventListener('keydown', function(e){ if (e.key === 'Enter') joinByCode(); });
   }
+
+  // Quiz first: the pool list is meaningless until we know what the
+  // person reading it wants, and the answers persist so nobody fills
+  // it in twice.
+  var savedPrefs = {};
+  try { savedPrefs = JSON.parse(localStorage.getItem('da-partner-prefs') || '{}') || {}; } catch(e){ savedPrefs = {}; }
+  if (window.PartnerFit) window.PartnerFit.render($('prefQuiz'), savedPrefs);
 
   wire();
   watchPool();

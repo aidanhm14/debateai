@@ -1,6 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
+import { notifyProposal, notifyTeamFormed } from './lib/partner-email.mjs';
 
 // ── Partner matching for 2v2 rounds ────────────────────────────────
 //
@@ -411,8 +412,27 @@ export default async (request) => {
           proposedToName: myShort,
           proposedToPhoto: String(mine.photoURL || ''),
         });
-        return { ok: true, pending: 'accept', proposedFormat };
+        return {
+          ok: true, pending: 'accept', proposedFormat,
+          // Carried out of the transaction so the email can be sent
+          // after it commits. Sending inside a transaction risks
+          // mailing somebody about a partnership that then rolls back.
+          notify: {
+            toUid: peerUid,
+            fromName: myShort,
+            fromNote: cleanText(mine.note, 160),
+            format: proposedFormat,
+          },
+        };
       });
+      // Best effort, and awaited so the Lambda does not freeze
+      // mid-send. The pool is asynchronous: a proposal that nobody is
+      // on the page to see is exactly the case this exists for.
+      if (result.ok && result.notify) {
+        try { await notifyProposal(db, result.notify); }
+        catch (e) { /* an email failure never fails a proposal */ }
+        delete result.notify;
+      }
       return jsonResponse(result, 200, request);
     } catch (err) {
       console.error('[partner-match] propose error:', err?.message || err);
@@ -524,7 +544,16 @@ export default async (request) => {
 
       if (result.ok && result.teamId) {
         const teamDoc = await newTeamRef.get();
-        return jsonResponse({ ...result, team: teamPublic(teamDoc) }, 200, request);
+        const team = teamPublic(teamDoc);
+        try {
+          await notifyTeamFormed(db, {
+            uids: team.members,
+            teamName: team.name,
+            memberInfo: team.memberInfo,
+            format: team.format,
+          });
+        } catch (e) { /* the team exists either way */ }
+        return jsonResponse({ ...result, team }, 200, request);
       }
       return jsonResponse(result, 200, request);
     } catch (err) {
