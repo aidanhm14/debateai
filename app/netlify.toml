@@ -241,6 +241,30 @@
   status = 301
   force = true
 
+# ── debateos1.netlify.app (raw Netlify origin host) ──
+# 2026-07-27: the bare *.netlify.app origin had no host rule, so it
+# served the full site at 200 as duplicate content — the same gap the
+# debatethedevil.com www pair had above. Pages carry canonical tags to
+# itsdebatable.com so Google mostly consolidated, but the host was
+# crawlable and GSC still holds two verified legacy properties on it.
+# Scoped to the exact bare host: deploy previews and branch deploys
+# live on their own hostnames (deploy-preview-N--debateos1.netlify.app)
+# and never match. /api/* keeps the method-preserving 308, mirroring
+# the debateai.com pattern, and the functions' CORS allowlists still
+# include this origin, so a stale SW-cached page POSTing from here
+# keeps working across the redirect. No http:// pair — netlify.app is
+# HSTS-preloaded, so requests only ever arrive as https.
+[[redirects]]
+  from = "https://debateos1.netlify.app/api/*"
+  to = "https://itsdebatable.com/api/:splat"
+  status = 308
+  force = true
+[[redirects]]
+  from = "https://debateos1.netlify.app/*"
+  to = "https://itsdebatable.com/:splat"
+  status = 301
+  force = true
+
 # ── debateprep.com: keyword front door (2026-07-23) ──
 # Checked before wiring, because two prior domain moves shipped on an
 # assumption that turned out false (debatable.com 2026-05-25,
