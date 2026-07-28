@@ -87,7 +87,7 @@ function nextEventStart(nowMs) {
 }
 
 // ── Email template ───────────────────────────────────────────────────────────
-function renderEmail({ firstName, uid }) {
+function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   const cta = `${SITE_URL}/spar?utm_source=email&utm_medium=email&utm_campaign=spar_night`;
   const gcal = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
     + '&text=' + encodeURIComponent('Open Spar Night · Debatable')
@@ -117,7 +117,13 @@ function renderEmail({ firstName, uid }) {
     Can't make it tonight? It runs every Wednesday.
     <a href="${gcal}" style="color:#dc2626;text-decoration:underline">Add it to your calendar</a> once and you're set.
   </p>
-  ${renderFooter({ uid, stream: 'sparnight', reason: 'You\'re getting this because you have a Debatable account.' })}
+  ${renderFooter({
+    uid,
+    stream,
+    reason: stream === 'sparrsvp'
+      ? 'You\'re getting this because you asked to be reminded about Open Spar Night.'
+      : 'You\'re getting this because you have a Debatable account.',
+  })}
 </div>`;
   return html;
 }
@@ -167,6 +173,9 @@ export default async () => {
   let eligible = 0, sent = 0, skipped = 0, errors = 0, noProfile = 0;
   const sampleWould = [];
   const errorReasons = {};   // reason -> count, so a failed run says WHY
+  // Every address this run has already taken, so the RSVP pass below
+  // cannot send a second copy to someone who also holds an account.
+  const mailedAddrs = new Set();
 
   for (const user of authUsers) {
     if (sent >= MAX_EMAILS) break;
@@ -179,6 +188,7 @@ export default async () => {
     if (!prof) { noProfile++; skipped++; continue; }
     if (isOptedOut(prof, 'sparnight')) { skipped++; continue; }
     eligible++;
+    mailedAddrs.add(String(user.email).trim().toLowerCase());
 
     const firstName = String(prof.displayName || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
     if (dryRun) {
@@ -205,6 +215,56 @@ export default async () => {
     }
   }
 
+  // ── RSVP cohort (2026-07-28) ───────────────────────────────────────────────
+  // The Auth loop above only reaches people who created an account, and
+  // sign-ups run ~12 a fortnight against ~2,200 people who see the countdown
+  // card. spar_night_rsvps holds addresses left by anonymous visitors via
+  // /api/spar-rsvp, which is the cohort this event actually needs.
+  //
+  // Deduped against the addresses already mailed above so nobody who both
+  // has an account and left an RSVP gets two copies.
+  let rsvpSent = 0, rsvpSkipped = 0, rsvpErrors = 0;
+  try {
+    const rsvpSnap = await db.collection('spar_night_rsvps').limit(2000).get();
+    for (const doc of rsvpSnap.docs) {
+      if (sent + rsvpSent >= MAX_EMAILS) break;
+      const r = doc.data() || {};
+      const addr = String(r.email || '').trim().toLowerCase();
+      if (!addr || r.unsubscribed) { rsvpSkipped++; continue; }
+      if (mailedAddrs.has(addr)) { rsvpSkipped++; continue; }
+      mailedAddrs.add(addr);
+
+      if (dryRun) {
+        if (sampleWould.length < 10) sampleWould.push(addr);
+        continue;
+      }
+
+      const res = await sendEmail({
+        to: addr,
+        subject: 'Open Spar Night is tonight: 8pm ET',
+        // No uid for an anonymous RSVP, so the shared footer cannot build
+        // an unsubscribe link from user_profiles. Pass the doc id as the
+        // token subject instead; email-unsub handles the 'sparrsvp' stream
+        // by writing to this collection.
+        html: renderEmail({ firstName: 'debater', uid: doc.id, stream: 'sparrsvp' }),
+        uid: doc.id,
+        stream: 'sparrsvp',
+        from: FROM_EMAIL,
+        replyTo: REPLY_TO,
+      });
+      if (res.ok) {
+        rsvpSent++;
+        await doc.ref.update({ lastSentAt: FieldValue.serverTimestamp() }).catch(() => {});
+      } else {
+        rsvpErrors++;
+        const why = res.reason || `status-${res.status || 'unknown'}`;
+        errorReasons[why] = (errorReasons[why] || 0) + 1;
+      }
+    }
+  } catch (e) {
+    console.error('[spar-night] rsvp cohort failed:', e.message);
+  }
+
   await stateRef.set({
     lastRunAt: FieldValue.serverTimestamp(),
     status: 'done',
@@ -214,6 +274,9 @@ export default async () => {
     sent,
     skipped,
     errors,
+    rsvpSent,
+    rsvpSkipped,
+    rsvpErrors,
     // 2026-07-22: the 6/6 failure on the first live run recorded only a
     // count, so there was no way to tell a bad API key from a rejected
     // sender domain without tailing logs after the fact. Persist the
@@ -226,7 +289,7 @@ export default async () => {
     sampleWould: dryRun ? sampleWould : FieldValue.delete(),
   }, { merge: true }).catch(() => {});
 
-  console.log(`[spar-night] ${dryRun ? 'DRY-RUN' : 'LIVE'} — eligible:${eligible} sent:${sent} skipped:${skipped} (noProfile:${noProfile}) errors:${errors} ${JSON.stringify(errorReasons)}`);
+  console.log(`[spar-night] ${dryRun ? 'DRY-RUN' : 'LIVE'} — accounts eligible:${eligible} sent:${sent} skipped:${skipped} (noProfile:${noProfile}) errors:${errors} | rsvps sent:${rsvpSent} skipped:${rsvpSkipped} errors:${rsvpErrors} ${JSON.stringify(errorReasons)}`);
 };
 
 export const config = {

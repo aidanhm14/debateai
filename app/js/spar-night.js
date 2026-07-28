@@ -118,6 +118,29 @@
     try { if (window.gtag) window.gtag('event', name, meta || {}); } catch (e) {}
   }
 
+  // ── RSVP state (2026-07-28) ──────────────────────────────
+  // The calendar link leaves no record, so a visitor who wanted in was
+  // unreachable afterwards. "Remind me" captures an address instead.
+  // Confirmation is remembered locally so a returning visitor sees that
+  // they are already on the list rather than being asked again.
+  var RSVP_KEY = 'debateos-spar-rsvp';
+  function rsvpDone() {
+    try { return !!localStorage.getItem(RSVP_KEY); } catch (e) { return false; }
+  }
+  function markRsvpDone(email) {
+    try { localStorage.setItem(RSVP_KEY, email || '1'); } catch (e) {}
+  }
+  function localTz() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+  }
+  function currentUid() {
+    // Best-effort: most visitors here are anonymous, which is the point.
+    try {
+      return (window.firebase && firebase.auth && firebase.auth().currentUser
+        && firebase.auth().currentUser.uid) || '';
+    } catch (e) { return ''; }
+  }
+
   // ── Styles (shared once) ─────────────────────────────
   var CSS = '' +
     '.sn-card{border:1px solid var(--border,rgba(255,255,255,.14));border-radius:14px;' +
@@ -141,6 +164,22 @@
     '.sn-cta--ghost{border:1px solid var(--border,rgba(255,255,255,.18));' +
       'color:var(--text-dim,rgba(255,255,255,.66));background:transparent}' +
     '.sn-cta--ghost:hover{color:var(--text,#f4f4f2);border-color:var(--border-strong,rgba(255,255,255,.34))}' +
+    /* RSVP capture (2026-07-28) */
+    '.sn-rsvp{display:none;grid-column:1 / -1;margin-top:12px}' +
+    '.sn-rsvp.sn-rsvp-open{display:block}' +
+    '.sn-rsvp-form{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}' +
+    '.sn-rsvp-input{flex:1 1 200px;min-width:0;border-radius:999px;padding:10px 15px;font:inherit;' +
+      'font-size:.86rem;color:var(--text,#f4f4f2);background:var(--bg-input,rgba(255,255,255,.06));' +
+      'border:1px solid var(--border,rgba(255,255,255,.18));min-height:44px;box-sizing:border-box}' +
+    '.sn-rsvp-input::placeholder{color:var(--text-dim,rgba(255,255,255,.45))}' +
+    '.sn-rsvp-input:focus{outline:none;border-color:var(--accent,#ef4444)}' +
+    '[data-theme="light"] .sn-rsvp-input,[data-theme="stone"] .sn-rsvp-input{background:#fff;' +
+      'border-color:rgba(29,25,21,.18);color:#1d1915}' +
+    '.sn-rsvp-note{margin:7px 0 0;font-size:.7rem;line-height:1.45;color:var(--text-dim,rgba(255,255,255,.5))}' +
+    '.sn-rsvp-note.sn-rsvp-err{color:#f87171}' +
+    '.sn-rsvp-ok{margin:0;font-size:.82rem;font-weight:700;color:#22c55e}' +
+    /* Off-screen honeypot: bots fill it, humans never see it. */
+    '.sn-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}' +
     /* banner variant (landing) */
     // Calendar tile: a torn-off desk-calendar page. Red cap with the
     // month, big Eastern date, weekday under it. Reads as "a date" at a
@@ -204,7 +243,15 @@
     '.sn-card--rail .sn-count{font-size:.86rem}' +
     '.sn-card--rail .sn-local{display:block;font-size:.62rem;margin-top:1px}' +
     '.sn-card--rail .sn-row{display:flex;align-items:center;justify-content:space-between;gap:10px}' +
-    '.sn-card--rail .sn-cta{font-size:.66rem;padding:5px 11px;flex:none}';
+    '.sn-card--rail .sn-cta{font-size:.66rem;padding:5px 11px;flex:none}' +
+    /* Last, on purpose. Both variants stretch .sn-cta to fill their action
+       slot (banner width:100%, rail flex:none), which inside the RSVP form
+       pushes the submit onto its own row. Same specificity as those rules,
+       so it has to come after them to win. */
+    '.sn-rsvp-form .sn-cta{width:auto;flex:0 0 auto;min-height:44px;font-size:.86rem;padding:10px 18px}' +
+    '.sn-card--banner .sn-rsvp{max-width:460px}' +
+    '.sn-rail-remind{margin-top:8px}' +
+    '.sn-rail-remind .sn-cta{width:100%;justify-content:center;font-size:.66rem;padding:6px 11px}';
 
   function injectCss() {
     if (document.getElementById('sparNightCss')) return;
@@ -245,20 +292,54 @@
     var count = live
       ? 'ends in <span class="sn-count" data-sn-count></span>'
       : 'next one in <span class="sn-count" data-sn-count></span>';
-    var solid = live
-      ? '<a class="sn-cta sn-cta--solid" data-sn-act="join" href="/spar">Join the queue &rarr;</a>'
-      : (page === 'spar'
-          ? '<a class="sn-cta sn-cta--solid" data-sn-act="calendar" href="' + GCAL_URL + '" target="_blank" rel="noopener">Add to calendar</a>'
-          : '<a class="sn-cta sn-cta--solid" data-sn-act="spar" href="/spar">View the queue &rarr;</a>');
-    var ghost = live ? '' : (page === 'spar' ? ''
-      : '<a class="sn-cta sn-cta--ghost" data-sn-act="calendar" href="' + GCAL_URL + '" target="_blank" rel="noopener">Add to calendar</a>');
+    // Pre-event, the primary ask is an address we can actually reach.
+    // The calendar template stays available but it captures nothing, so
+    // it drops to the secondary slot (and reappears after a successful
+    // RSVP, which is the moment someone actually wants it).
+    var already = rsvpDone();
+    var remindLabel = already ? 'You\'re on the list' : 'Remind me';
+    var remindBtn = '<button type="button" class="sn-cta sn-cta--REMSTYLE" data-sn-act="rsvp"'
+      + (already ? ' disabled style="cursor:default;opacity:.7"' : '') + '>' + remindLabel + '</button>';
+    var calBtn = '<a class="sn-cta sn-cta--CALSTYLE" data-sn-act="calendar" href="' + GCAL_URL
+      + '" target="_blank" rel="noopener">Add to calendar</a>';
+
+    var solid, ghost;
+    if (live) {
+      solid = '<a class="sn-cta sn-cta--solid" data-sn-act="join" href="/spar">Join the queue &rarr;</a>';
+      ghost = '';
+    } else if (page === 'spar') {
+      // Already on /spar: the queue link would be a no-op, so lead with capture.
+      solid = remindBtn.replace('sn-cta--REMSTYLE', 'sn-cta--solid');
+      ghost = calBtn.replace('sn-cta--CALSTYLE', 'sn-cta--ghost');
+    } else {
+      solid = '<a class="sn-cta sn-cta--solid" data-sn-act="spar" href="/spar">View the queue &rarr;</a>';
+      ghost = remindBtn.replace('sn-cta--REMSTYLE', 'sn-cta--ghost');
+    }
+
+    var rsvpPanel = live ? '' :
+      '<div class="sn-rsvp" data-sn-rsvp>' +
+        '<form class="sn-rsvp-form" data-sn-rsvp-form novalidate>' +
+          '<input type="email" class="sn-rsvp-input" data-sn-rsvp-email required ' +
+            'autocomplete="email" placeholder="you@school.edu" aria-label="Email for the Spar Night reminder">' +
+          '<input type="text" class="sn-hp" data-sn-rsvp-hp tabindex="-1" autocomplete="off" aria-hidden="true">' +
+          '<button type="submit" class="sn-cta sn-cta--solid" data-sn-rsvp-submit>Send it</button>' +
+        '</form>' +
+        '<p class="sn-rsvp-note" data-sn-rsvp-note>One email the day of. Nothing else.</p>' +
+      '</div>';
 
     if (variant === 'rail') {
       el.innerHTML = eyebrow +
         '<div class="sn-title">' + title + '</div>' +
         '<div class="sn-sub">' + sub + '</div>' +
         '<div class="sn-row"><span class="sn-sub" style="margin:0">' + count +
-        (local ? '<span class="sn-local">' + local + '</span>' : '') + '</span>' + solid + '</div>';
+        (local ? '<span class="sn-local">' + local + '</span>' : '') + '</span>' + solid + '</div>' +
+        // On /spar the rail's primary IS the remind button. Anywhere else
+        // the primary is the queue link, so the trigger has to come along
+        // or the panel below would have nothing to open it. It goes under
+        // the row, not inside it: the rail is ~280px and a second button
+        // beside the countdown wraps the digits onto four lines.
+        (live || page === 'spar' ? '' : '<div class="sn-rail-remind">' + ghost + '</div>') +
+        rsvpPanel;
     } else {
       el.innerHTML = cal +
         '<div class="sn-main">' + eyebrow +
@@ -268,14 +349,98 @@
           '<span class="sn-timer-label">' + (live ? 'Ends in' : 'Starts in') + '</span>' +
           '<span class="sn-count" data-sn-count></span>' +
           (local ? '<span class="sn-local">' + local + '</span>' : '') + '</div>' +
-          '<div class="sn-actions">' + solid + ghost + '</div></div>';
+          '<div class="sn-actions">' + solid + ghost + '</div></div>' +
+        rsvpPanel;
     }
     el.querySelectorAll('[data-sn-act]').forEach(function (a) {
       a.addEventListener('click', function () {
         ga('spar_night_click', { action: a.getAttribute('data-sn-act'), page: page, live: live ? 1 : 0 });
       });
     });
+    wireRsvp(el, page);
     return { el: el, variant: variant, page: page, live: live, start: st.start, endsAt: st.endsAt };
+  }
+
+  // ── RSVP wiring ──────────────────────────────────────
+  // "Remind me" reveals an inline field rather than navigating, so the
+  // visitor never leaves the page they were reading. The POST is
+  // best-effort: a network failure says so and leaves the field filled
+  // rather than pretending it worked.
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function wireRsvp(el, page) {
+    var panel = el.querySelector('[data-sn-rsvp]');
+    var form = el.querySelector('[data-sn-rsvp-form]');
+    if (!panel || !form) return;
+
+    var trigger = el.querySelector('[data-sn-act="rsvp"]');
+    if (trigger && !trigger.disabled) {
+      trigger.addEventListener('click', function () {
+        var open = panel.classList.toggle('sn-rsvp-open');
+        if (open) {
+          var input = el.querySelector('[data-sn-rsvp-email]');
+          if (input) { try { input.focus(); } catch (e) {} }
+          ga('spar_night_rsvp_open', { page: page });
+        }
+      });
+    }
+
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var input = el.querySelector('[data-sn-rsvp-email]');
+      var hp = el.querySelector('[data-sn-rsvp-hp]');
+      var note = el.querySelector('[data-sn-rsvp-note]');
+      var submit = el.querySelector('[data-sn-rsvp-submit]');
+      if (!input) return;
+
+      var email = (input.value || '').trim();
+      if (!EMAIL_RE.test(email)) {
+        if (note) {
+          note.textContent = 'That address does not look right.';
+          note.className = 'sn-rsvp-note sn-rsvp-err';
+        }
+        return;
+      }
+
+      if (submit) { submit.disabled = true; submit.textContent = 'Saving'; }
+      if (note) { note.textContent = ''; note.className = 'sn-rsvp-note'; }
+
+      fetch('/api/spar-rsvp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          tz: localTz(),
+          page: page,
+          uid: currentUid(),
+          'bot-field': hp ? hp.value : '',
+        }),
+      }).then(function (r) {
+        return r.json().catch(function () { return { ok: r.ok }; });
+      }).then(function (j) {
+        if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+        markRsvpDone(email);
+        ga('spar_night_rsvp', { page: page });
+        // Success state doubles as the right moment to offer the calendar.
+        panel.innerHTML =
+          '<p class="sn-rsvp-ok">On the list. Reminder lands Wednesday morning.</p>' +
+          '<p class="sn-rsvp-note">Want it in your calendar too? ' +
+          '<a href="' + GCAL_URL + '" target="_blank" rel="noopener" ' +
+          'style="color:var(--accent,#ef4444)">Add the weekly event</a>.</p>';
+        if (trigger) {
+          trigger.textContent = 'You\'re on the list';
+          trigger.disabled = true;
+          trigger.style.cursor = 'default';
+          trigger.style.opacity = '.7';
+        }
+      }).catch(function () {
+        if (submit) { submit.disabled = false; submit.textContent = 'Send it'; }
+        if (note) {
+          note.textContent = 'That did not save. Try again in a moment.';
+          note.className = 'sn-rsvp-note sn-rsvp-err';
+        }
+      });
+    });
   }
 
   function tick() {

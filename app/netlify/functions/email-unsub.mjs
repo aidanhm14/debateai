@@ -31,7 +31,11 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { esc, brandHeader, unsubUrl, verifyUnsubToken, isOptedOut, SITE_URL } from './lib/email.mjs';
 
-const STREAMS = ['digest', 'winback', 'sparnight', 'onboarding', 'all'];
+// 'sparrsvp' is the anonymous Open Spar Night RSVP list. Unlike every
+// other stream it has no user_profiles doc behind it: the subject id is a
+// spar_night_rsvps doc id, and the opt-out is written there instead.
+const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'onboarding', 'all'];
+const RSVP_STREAM = 'sparrsvp';
 
 const FLAG_BY_STREAM = {
   digest: 'wauDigestOptOut',
@@ -49,6 +53,7 @@ const STOP_SENTENCE = {
   digest: 'The weekly digest and the occasional check-in emails stop here.',
   winback: 'The occasional check-in emails stop here. Nothing else changes.',
   sparnight: 'The Spar Night reminders stop here. Nothing else changes.',
+  sparrsvp: 'The Spar Night reminders stop here. Nothing else changes.',
   onboarding: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
   all: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
 };
@@ -57,6 +62,7 @@ const CONFIRM_SENTENCE = {
   digest: 'This stops the weekly digest and the occasional check-in emails.',
   winback: 'This stops the occasional check-in emails. Nothing else changes.',
   sparnight: 'This stops the weekly Spar Night reminders. Nothing else changes.',
+  sparrsvp: 'This stops the weekly Spar Night reminders. Nothing else changes.',
   onboarding: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
   all: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
 };
@@ -65,6 +71,7 @@ const RESUME_SENTENCE = {
   digest: 'The weekly digest will show up again.',
   winback: 'The occasional check-in emails are back on.',
   sparnight: 'The Spar Night reminders are back on.',
+  sparrsvp: 'The Spar Night reminders are back on.',
   onboarding: 'Debatable email is back on.',
   all: 'Debatable email is back on.',
 };
@@ -209,6 +216,20 @@ export default async (req) => {
 
   try {
     const db = getDb();
+
+    // The anonymous RSVP list lives in its own collection and has no
+    // profile doc, so it gets its own write path. Everything below this
+    // branch is the profile-backed streams, unchanged.
+    if (stream === RSVP_STREAM) {
+      await db.doc(`spar_night_rsvps/${uid}`).set({
+        unsubscribed: !resub,
+        emailUnsubAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      if (resub) return resubPage({ uid, stream, stillBlocked: false });
+      if (fromForm) return confirmPage({ uid, stream });
+      return textResponse(200, 'Unsubscribed. Debatable will stop sending these emails.');
+    }
+
     const patch = resub
       ? (stream === 'onboarding' || stream === 'all'
           // "Back on" for the global switch clears the per-stream flags

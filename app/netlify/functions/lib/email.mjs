@@ -156,7 +156,12 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   const resolvedText = text || toText(html);
 
   const allHeaders = { ...(headers || {}) };
-  if (stream === 'digest' || stream === 'winback' || stream === 'onboarding') {
+  // Bulk streams carry RFC 8058 one-click headers so Gmail/Yahoo show a
+  // native Unsubscribe chip, which their bulk-sender rules require. The
+  // Spar Night reminders are bulk by the same definition (one send, many
+  // recipients, non-transactional), including the anonymous RSVP list.
+  if (stream === 'digest' || stream === 'winback' || stream === 'onboarding'
+      || stream === 'sparnight' || stream === 'sparrsvp') {
     const url = unsubUrl(uid, stream);
     if (url) {
       allHeaders['List-Unsubscribe'] = `<${url}>`;
