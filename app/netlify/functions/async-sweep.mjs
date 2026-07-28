@@ -13,6 +13,7 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { deleteCachedShared } from './lib/admin-cache.mjs';
 import { buildAdjudicationBlock } from './lib/adjudication.mjs';
+import { clashMapPrompt, parseClashMap, clashMapForBallot } from './lib/clash-map.mjs';
 import { applyRoundRating } from './lib/rating-apply.mjs';
 import { recordJudgment } from './lib/judgment.mjs';
 import { settleMarket } from './lib/settle.mjs';
@@ -26,6 +27,11 @@ import {
 const SITE = process.env.SITE_ORIGIN || 'https://itsdebatable.com';
 const OPP_MODEL   = process.env.ASYNC_OPP_MODEL   || 'claude-sonnet-5';
 const JUDGE_MODEL = process.env.ASYNC_JUDGE_MODEL || 'claude-sonnet-5';
+const CLASH_MODEL = process.env.ASYNC_CLASH_MODEL || 'claude-sonnet-5';
+// One extra call per completed round. Set ASYNC_CLASH_ENABLED=0 to stop
+// drawing maps without a redeploy; the ballot then runs exactly as it did
+// before the map existed.
+const CLASH_ENABLED = process.env.ASYNC_CLASH_ENABLED !== '0';
 const TIME_BUDGET_MS = 18_000;   // stop starting new work near the 26s wall
 const MAX_TRANSCRIPT_TRIES = 4;
 
@@ -36,6 +42,7 @@ function oppSpeechPrompt(motion, format, openingTranscript) {
     'You are The Debater, the AI sparring partner on Debatable, recording a spoken Opposition answer in an async round. ' +
     'Register: varsity debater on the circuit, spoken not written. 200 to 240 words. ' +
     'Structure: direct clash with the two strongest things the opening actually said, then one independent reason the motion fails, then one line of impact weighing. ' +
+    'The ballot maps every argument to whether you answered it, conceded it, or said nothing, so account for their strongest points out loud: answer them, or concede one on purpose and say why it does not decide the round. ' +
     'No invented citations or statistics. No preface, no salutation, no "ladies and gentlemen". Do not use em dashes. Start mid-argument the way a real speech does.';
   const user = 'Motion: ' + motion + '\nFormat: ' + (FORMAT_NAMES[format] || format) +
     '\n\nProposition opening (transcript):\n' + (openingTranscript || '[transcript unavailable — answer the motion on its merits]');
@@ -58,7 +65,7 @@ function propReplyPrompt(d) {
   for (const turn of d.turns || []) t[turn.n] = turn.transcript || '';
   const system =
     'You are The Debater, the AI sparring partner on Debatable, recording the spoken Proposition reply in an async round you opened. ' +
-    '120 to 150 words. Rebuild your strongest point against what the answer actually said, concede nothing by silence on their best attack, ' +
+    '120 to 150 words. Rebuild your strongest point against what the answer actually said, concede nothing by silence on their best attack (the ballot maps silence as a drop, so concede out loud or answer it), ' +
     'then weigh the round in one or two lines. No new arguments, no invented citations. Spoken register, no preface. Do not use em dashes.';
   const user = 'Motion: ' + d.motion + '\nFormat: ' + (FORMAT_NAMES[d.format] || d.format) +
     '\n\nYour opening:\n' + (t[1] || '') + '\n\nTheir answer:\n' + (t[2] || '');
@@ -75,7 +82,7 @@ async function makeAiTurn(store, n, kind, speech, now) {
     durationSec: Math.round(words / 2.4), transcript: speech, name: AI_NAME, photo: '', createdAt: now };
 }
 
-function ballotPrompt(d) {
+function ballotPrompt(d, clashMap) {
   const system = buildAdjudicationBlock() +
     '\n\nASYNC ROUND BALLOT. Three recorded speeches: Prop opening, Opp answer, Prop reply (the reply may be waived). ' +
     'Judge ONLY what is in the transcripts. Weigh the actual clash, not what could have been said. ' +
@@ -88,7 +95,8 @@ function ballotPrompt(d) {
     'Motion: ' + d.motion + '\nFormat: ' + (FORMAT_NAMES[d.format] || d.format) +
     '\n\nPROP OPENING (' + ((d.prop && d.prop.name) || 'Prop') + '):\n' + (t[1] || '[missing]') +
     '\n\nOPP ANSWER (' + ((d.opp && d.opp.name) || 'Opp') + (d.aiOpp ? ', AI opponent' : '') + '):\n' + (t[2] || '[missing]') +
-    '\n\nPROP REPLY:\n' + (d.replyWaived ? '[reply waived — the opener did not record within the window]' : (t[3] || '[missing]'));
+    '\n\nPROP REPLY:\n' + (d.replyWaived ? '[reply waived — the opener did not record within the window]' : (t[3] || '[missing]')) +
+    clashMapForBallot(clashMap);
   return { system, user };
 }
 
@@ -162,7 +170,7 @@ export default async () => {
   const started = Date.now();
   const db = getDb();
   const store = mediaStore();
-  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, rated: 0, settled: 0, errors: 0 };
+  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, clashMaps: 0, rated: 0, settled: 0, errors: 0 };
 
   try {
     // ── board inventory: keep a couple of AI-opened challenges live so a
@@ -288,11 +296,28 @@ export default async () => {
 
         if (d.state === 'judging') {
           if (!transcriptsReady) { await ref.update({ sweepAt: now + 10 * 60_000 }); continue; }
-          const { system, user } = ballotPrompt(d);
+
+          // Draw the clash map BEFORE the ballot so the judge decides with
+          // the flow in front of it. Best effort on purpose: a failed or
+          // fully-rejected map yields `null`, ballotPrompt appends nothing,
+          // and the round is judged exactly as it was before maps existed.
+          let clashMap = null;
+          if (CLASH_ENABLED) {
+            try {
+              const cp = clashMapPrompt(d, FORMAT_NAMES[d.format] || d.format);
+              clashMap = parseClashMap(await claude(cp.system, cp.user, 1600, CLASH_MODEL), d);
+              if (clashMap) stats.clashMaps++;
+            } catch (err) {
+              console.warn('[async-sweep] clash map failed', ref.id, err && err.message);
+            }
+          }
+
+          const { system, user } = ballotPrompt(d, clashMap);
           const ballot = parseBallot(await claude(system, user, 900, JUDGE_MODEL));
           await ref.update({
             state: 'complete', feedKey: feedKeyFor('complete', d.visibility, d.hidden),
             ballot: { ...ballot, model: JUDGE_MODEL, at: Date.now() },
+            ...(clashMap ? { clashMap: { ...clashMap, model: CLASH_MODEL } } : {}),
             completedAt: Date.now(), sweepAt: FieldValue.delete(),
           });
           stats.ballots++;

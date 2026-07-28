@@ -133,6 +133,21 @@ const PAGE_CSS = `
   .dim-track b.dims-prop{text-align:right}
   .dim-bar{flex:1;height:7px;border-radius:99px;overflow:hidden;display:flex;background:rgba(239,68,68,.65)}
   .dim-bar i{display:block;height:100%;background:#22c55e}
+  .clash{padding:20px 24px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02);margin-bottom:40px}
+  .clash h2{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
+  .clash-key{font-size:.78rem;color:rgba(255,255,255,.5);margin-bottom:14px;line-height:1.55}
+  .clash-row{padding:12px 0;border-top:1px solid rgba(255,255,255,.07)}
+  .clash-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .clash-claim{font-size:.88rem;font-weight:700;color:rgba(255,255,255,.88)}
+  .clash-by{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+  .clash-tag{font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid currentColor}
+  .clash-tag[data-l="dropped"]{color:#fca5a5}
+  .clash-tag[data-l="conceded"]{color:#fbbf24}
+  .clash-tag[data-l="rebutted"]{color:#86efac}
+  .clash-tag[data-l="self-contradiction"]{color:#c4b5fd}
+  .clash-q{margin:4px 0;padding-left:12px;border-left:2px solid rgba(255,255,255,.15);font-size:.82rem;line-height:1.6;color:rgba(255,255,255,.62)}
+  .clash-q b{display:block;font-size:.64rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);margin-bottom:2px}
+  .clash-note{font-size:.8rem;color:rgba(255,255,255,.55);margin-top:6px}
   .cta-card{padding:24px;border-radius:16px;border:1px solid rgba(239,68,68,.32);background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(245,158,11,.04));text-align:center;margin-bottom:32px}
   .cta-card h3{font-size:1.2rem;font-weight:900;letter-spacing:-.01em;margin-bottom:8px}
   .cta-card p{font-size:.88rem;color:rgba(255,255,255,.65);margin-bottom:16px;max-width:480px;margin-left:auto;margin-right:auto}
@@ -295,6 +310,36 @@ function validDims(b) {
   return out;
 }
 
+// The clash map, rendered as the flow the ballot was built on. Advisory
+// by construction: it carries no score and no winner, and every row shows
+// the quotes it rests on so a reader can overrule it on sight. Rows were
+// already quote-verified against the transcript server-side; anything that
+// failed never reached the doc.
+const CLASH_TAG = {
+  rebutted: 'Answered',
+  conceded: 'Conceded',
+  'self-contradiction': 'Contradicts their own',
+  dropped: 'Dropped',
+};
+
+function renderClashRow(c, propName, oppName) {
+  const label = CLASH_TAG[c.label] ? c.label : 'rebutted';
+  const byProp = c.by === 'prop';
+  const who = byProp ? propName : oppName;
+  const answering = byProp ? oppName : propName;
+  const resp = (c.responseQuote || '').trim();
+  return `<div class="clash-row">
+      <div class="clash-head">
+        <span class="clash-by ${byProp ? 'dims-prop' : 'dims-opp'}">${byProp ? 'Prop' : 'Opp'}</span>
+        <span class="clash-claim">${esc(c.claim)}</span>
+        <span class="clash-tag" data-l="${label}">${CLASH_TAG[label]}</span>
+      </div>
+      <p class="clash-q"><b>${esc(who)} said</b>${esc(c.claimQuote)}</p>
+      ${resp ? `<p class="clash-q"><b>${esc(answering)} said</b>${esc(resp)}</p>` : ''}
+      ${c.note ? `<p class="clash-note">${esc(c.note)}</p>` : ''}
+    </div>`;
+}
+
 function fmtClock(sec) {
   const s = Math.max(0, Math.round(Number(sec) || 0));
   if (!s) return '';
@@ -395,6 +440,15 @@ export function renderAsyncPage(id, d) {
   </section>`
     : '';
 
+  const clashRows = (d.clashMap && Array.isArray(d.clashMap.clashes) ? d.clashMap.clashes : []).slice(0, 8);
+  const clashBlock = clashRows.length
+    ? `<section class="clash" aria-label="Clash map">
+    <h2>Clash map</h2>
+    <p class="clash-key">Every argument that carried weight, and what the other side did with it. Advisory: it does not decide the round or move a single point. Read the quotes and disagree with any row.</p>
+    ${clashRows.map(c => renderClashRow(c, propName, oppName)).join('\n    ')}
+  </section>`
+    : '';
+
   const votes = d.votes || {};
   const voteTotal = (Number(votes.prop) || 0) + (Number(votes.opp) || 0);
   const voteStrip = voteTotal > 0
@@ -448,6 +502,8 @@ export function renderAsyncPage(id, d) {
   ${d.replyWaived ? '<p class="waived-note">The reply window closed unused, so the round went to ballot on two speeches.</p>' : ''}
 
   ${dimBlock}
+
+  ${clashBlock}
 
   ${rfdBlock}
 

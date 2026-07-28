@@ -6,6 +6,10 @@
 // deepseek, openlab) resolve the right voice block server-side and
 // prepend it to body.system.
 //
+// CLASH_DISCIPLINE is imported from lib/clash-map.mjs rather than written
+// here: it is the debater-facing half of the judge's clash map, and the
+// two have to agree on the same four labels.
+//
 // Keep parity with the original client API (CORE / STRATEGY / CHARACTER /
 // CASE_CONSTRUCTION / LANGUAGE_CONSTRUCTION / FULL / FEATURE_MAP /
 // forFeature) so future per-format work can slot straight in.
@@ -92,6 +96,8 @@
 // nightly distill, and the rated-generation pool the next fingerprint
 // pass can reference. /admin-rate throughput is the single biggest
 // lever on prompt-layer quality.
+
+import { CLASH_DISCIPLINE } from './clash-map.mjs';
 
 const CORE = `
 PUNCH OVER POLISH — READ THIS FIRST, IT OVERRIDES EVERYTHING BELOW:
@@ -976,7 +982,12 @@ function motionTriageOverlay(format) {
   return '';
 }
 
-const FULL = CORE + STRATEGY + CHARACTER + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY + VOICE_REINFORCEMENT;
+// CLASH_DISCIPLINE is authored next to the judge-side map it mirrors
+// (lib/clash-map.mjs) so the two never drift: the labels the AI is taught
+// to avoid earning are the same four labels the map records. It rides the
+// speech-generating stacks only. A judge or feedback surface has no turn
+// to take, so telling it not to drop anything is noise.
+const FULL = CORE + STRATEGY + CLASH_DISCIPLINE + CHARACTER + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY + VOICE_REINFORCEMENT;
 
 // Feature → subsection mapping. Mirrors the old client file so callers can
 // migrate without behavior changes. Over time, add per-format subsections
@@ -999,21 +1010,26 @@ SNEAKY MODE — explicit user request: weaponize the deployment moves
 The user picked sneaky mode. That means the SNEAKY DEPLOYMENT moves from STRATEGY (BURY THE LOAD-BEARING PREMISE, POI BAIT, FAUX-SYMMETRIC FRAMEWORK, DECISION-RULE SMUGGLING, TANGENT TRAP, PRELOADED CONCESSION, SANDBAG THE SPIKE, TONE LAUNDERING, LATE-ROUND PIVOT, CROSS-EX TRAP, SANDWICH, DELIBERATE DROP, FRAMING PRE-EMPT, FALSE CONCESSION) are not optional flourishes. Deploy at least THREE of them in any case you write. Specifically: every case should (1) have a buried load-bearing premise, (2) carry a POI bait line, and (3) embed a smuggled decision rule inside an apparently-symmetric framework. The whole point of this mode is that the case wins by controlling which clashes get prosecuted, not by being loudest. Still substance first — sneakiness is an amplifier, not a replacement.
 `;
 
+// CLASH_DISCIPLINE rides every stack that GENERATES A SPEECH (case,
+// sneaky, rebuttal, bot, simulator, practice). The judging and feedback
+// stacks are deliberately left without it: they have no turn to take, and
+// the judge already carries ADJUDICATION_CORE, which owns the same
+// responded-vs-dropped reasoning from the other side of the table.
 const FEATURE_MAP = {
-  case:        CORE + STRATEGY + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY,
+  case:        CORE + STRATEGY + CLASH_DISCIPLINE + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY,
   // 'sneaky' is a pro-tier feature explicitly asking for round-level
   // concealment moves (POI bait, sandbag, decision-rule smuggling, etc.).
   // Same content stack as case, plus SNEAKY_EMPHASIS to push the
   // deployment moves from optional to default-on.
-  sneaky:      CORE + STRATEGY + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY + SNEAKY_EMPHASIS,
+  sneaky:      CORE + STRATEGY + CLASH_DISCIPLINE + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY + SNEAKY_EMPHASIS,
   // 'rebuttal' is live-round client feature (e.g. index.html line 15178).
   // Was silently falling through to `unknown` (CORE + LEGITIMACY only) —
   // missing STRATEGY, CASE_CONSTRUCTION, and the new REASONING_ALGORITHM.
   // Maps to case's stack since rebuttals are speech generation.
-  rebuttal:    CORE + STRATEGY + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY,
-  bot:         CORE + STRATEGY + CHARACTER + LANGUAGE_CONSTRUCTION,
-  simulator:   CORE + STRATEGY + CHARACTER + LANGUAGE_CONSTRUCTION,
-  practice:    CORE + STRATEGY + LANGUAGE_CONSTRUCTION + LEGITIMACY,
+  rebuttal:    CORE + STRATEGY + CLASH_DISCIPLINE + CASE_CONSTRUCTION + LANGUAGE_CONSTRUCTION + LEGITIMACY,
+  bot:         CORE + STRATEGY + CLASH_DISCIPLINE + CHARACTER + LANGUAGE_CONSTRUCTION,
+  simulator:   CORE + STRATEGY + CLASH_DISCIPLINE + CHARACTER + LANGUAGE_CONSTRUCTION,
+  practice:    CORE + STRATEGY + CLASH_DISCIPLINE + LANGUAGE_CONSTRUCTION + LEGITIMACY,
   resolution:  STRATEGY + LEGITIMACY,
   vision:      STRATEGY + LEGITIMACY,
   philosophy:  CORE + LEGITIMACY,

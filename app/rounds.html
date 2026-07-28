@@ -134,6 +134,23 @@
   .ballot .b-dim-bar{flex:1;height:7px;border-radius:99px;overflow:hidden;background:#3d6b8c;display:block}
   .ballot .b-dim-bar i{display:block;height:100%;background:var(--red)}
   .ballot .b-rfd{font-size:.98rem;line-height:1.65;color:var(--ink)}
+  .cm{margin:14px 0 0;padding:16px 18px 6px;border:1px solid rgba(29,25,21,.14);border-radius:16px;background:#fffdf8}
+  .cm-h{margin:0 0 4px;font-size:.64rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--red-deep)}
+  .cm-h span{font-size:.68rem;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+  .cm-key{margin:0 0 12px;font-size:.8rem;line-height:1.55;color:var(--ink-soft)}
+  .cm-row{padding:11px 0;border-top:1px solid rgba(29,25,21,.1)}
+  .cm-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:5px}
+  .cm-by{font-size:.64rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+  .cm-p{color:var(--red-deep)} .cm-o{color:#3d6b8c}
+  .cm-claim{font-size:.88rem;font-weight:800;color:var(--ink)}
+  .cm-tag{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+  .cm-tag[data-l="dropped"]{color:var(--red-deep)}
+  .cm-tag[data-l="conceded"]{color:#8a6a1f}
+  .cm-tag[data-l="rebutted"]{color:#2f6b45}
+  .cm-tag[data-l="self-contradiction"]{color:#5b4a9e}
+  .cm-q{margin:3px 0;padding-left:11px;border-left:2px solid rgba(29,25,21,.16);font-size:.82rem;line-height:1.6;color:var(--ink-soft)}
+  .cm-q b{display:block;font-size:.6rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:rgba(29,25,21,.42);margin-bottom:1px}
+  .cm-note{margin:5px 0 0;font-size:.8rem;line-height:1.55;color:var(--ink-soft)}
   .voterow{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 18px}
   .voterow .v-q{font-weight:800;margin:0 0 10px}
   .votebar{height:12px;border-radius:8px;overflow:hidden;display:flex;background:rgba(29,25,21,.08);margin:12px 0 6px}
@@ -613,6 +630,41 @@
   // steel blue, the same side colors the crowd votebar uses. All four
   // axes must validate or nothing renders — ballots judged before the
   // schema carried dimensions render exactly as before.
+  // Clash map: every argument that carried weight, and what the other
+  // side did with it. Advisory by construction. It carries no score and
+  // never names a winner, and each row shows the quotes it rests on so a
+  // reader can overrule it. Rows were quote-verified against the
+  // transcript server-side, so anything that failed never reached here.
+  // Absent on rounds judged before the map shipped; those render as before.
+  var CLASH_TAG = { rebutted:'Answered', conceded:'Conceded', 'self-contradiction':'Contradicts their own', dropped:'Dropped' };
+  function clashHtml(map, propName, oppName){
+    try {
+      var rows = map && map.clashes;
+      if (!rows || !rows.length) return '';
+      var out = '';
+      for (var i=0;i<rows.length && i<8;i++){
+        var c = rows[i];
+        if (!c || !c.claim || !c.claimQuote) continue;
+        var label = CLASH_TAG[c.label] ? c.label : 'rebutted';
+        var byProp = c.by === 'prop';
+        var who = byProp ? propName : oppName;
+        var answering = byProp ? oppName : propName;
+        var resp = (c.responseQuote || '').trim();
+        out += '<div class="cm-row">' +
+          '<div class="cm-head"><span class="cm-by '+(byProp?'cm-p':'cm-o')+'">'+(byProp?'Prop':'Opp')+'</span>' +
+          '<span class="cm-claim">'+esc(c.claim)+'</span>' +
+          '<span class="cm-tag" data-l="'+label+'">'+CLASH_TAG[label]+'</span></div>' +
+          '<p class="cm-q"><b>'+esc(who)+' said</b>'+esc(c.claimQuote)+'</p>' +
+          (resp ? '<p class="cm-q"><b>'+esc(answering)+' said</b>'+esc(resp)+'</p>' : '') +
+          (c.note ? '<p class="cm-note">'+esc(c.note)+'</p>' : '');
+        out += '</div>';
+      }
+      if (!out) return '';
+      return '<div class="cm"><p class="cm-h">Clash map <span>advisory, it does not decide the round</span></p>' +
+        '<p class="cm-key">Every argument that carried weight, and what the other side did with it. Read the quotes and disagree with any row.</p>' + out + '</div>';
+    } catch(e){ return ''; }
+  }
+
   function dimBarsHtml(b, propName, oppName){
     try {
       var dm = b && b.dimensions;
@@ -691,7 +743,8 @@
         '<p class="b-win">'+esc(winName)+' takes the round.</p>' +
         '<p class="b-pts">'+esc(r.prop&&r.prop.name||'Prop')+' '+r.ballot.propPoints+' · '+esc(r.opp&&r.opp.name||'Opp')+' '+r.ballot.oppPoints+' speaker points'+(r.replyWaived?' · reply waived':'')+'</p>' +
         dimBarsHtml(r.ballot, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp') +
-        '<div class="b-rfd">'+esc(r.ballot.rfd)+'</div></div>';
+        '<div class="b-rfd">'+esc(r.ballot.rfd)+'</div></div>' +
+        clashHtml(r.clashMap, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp');
     }
 
     var voteHtml = '';

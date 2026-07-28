@@ -18,6 +18,11 @@
 //       {prop:1-10,opp:1-10}} — absent on ballots judged before the
 //       scorecard shipped, and whenever the model's block failed
 //       validation (async-sweep drops it whole, never partial)} | null
+//   clashMap: {clashes:[{claim,by,claimQuote,label,responseQuote,note}],
+//     rejected,at,model} | absent — the advisory flow map (lib/clash-map.mjs).
+//     Written only when at least one row survived quote verification, so
+//     absent means either "judged before maps shipped" or "nothing checked
+//     out". Never carries a winner; the ballot owns the decision.
 //   votes: {prop,opp}   reports: n   hidden: bool   replyWaived: bool
 // Private subdoc `async_rounds/{id}/private/notify` holds participant
 // emails for transactional notifications. Never returned by any GET.
@@ -223,6 +228,7 @@ export function publicRound(id, d) {
       uid: t.uid || '', createdAt: t.createdAt || 0,
     })),
     ballot: d.ballot || null,
+    clashMap: d.clashMap || null,
     votes: d.votes || { prop: 0, opp: 0 },
   };
 }
