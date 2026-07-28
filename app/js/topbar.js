@@ -236,7 +236,11 @@
     // only, server-authoritative, settled from the AI ballot of an
     // actual live round. The Floor stays reachable at /floor as the
     // interface preview it says it is.
-    { href: '/predict',       label: 'Bet'          },
+    // 2026-07-28: label was 'Bet'. It is a points market settled from an
+    // AI ballot, so 'Predict' names the route it already points at and
+    // stops the one word on every page of the site from reading as a
+    // gambling product to anyone scanning the nav.
+    { href: '/predict',       label: 'Predict'      },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
