@@ -124,24 +124,32 @@ export default async (request, context) => {
         lastSeen: now,
       };
 
-      // create() throws ALREADY_EXISTS when we've already seen this tab,
-      // which is how we detect a first beat without paying a read on
-      // every beat. Success = new session, so roll it into the day.
-      let isNewSession = false;
-      try {
-        await ref.create({ ...fields, firstSeen: now });
-        isNewSession = true;
-      } catch (err) {
-        const already = err && (err.code === 6 || /already exists/i.test(err.message || ''));
-        if (!already) throw err;
-        await ref.set(fields, { merge: true });
-      }
-      if (isNewSession) {
+      await ref.set(fields, { merge: true });
+
+      // First-beat detection is the CLIENT's job, via body.first.
+      //
+      // The obvious server-side trick — call create() and treat
+      // ALREADY_EXISTS as "seen before" — does not work here. The
+      // Firestore Node SDK does not reject that promptly; it retries the
+      // commit with backoff, so every repeat beat hung until the function
+      // timed out and the gateway returned 504. That shipped briefly on
+      // 2026-07-28 and broke the /spar globe: only a session's first beat
+      // ever landed. Reading the doc first would work but costs a read on
+      // every beat, which is exactly the drain the 2026-05-18 audit cut.
+      //
+      // track.js already knows: its `_da_plast` sessionStorage key is
+      // absent on the first beat of a session, the same lifecycle as the
+      // sid itself. A hostile client could inflate the daily count by
+      // lying, but it could equally just rotate sids, so this trusts no
+      // more than the counter already did.
+      if (body?.first === true) {
         // Never let the rollup break the beat — the globe matters more
         // than the counter.
-        await bumpDailyRollup(db, now, geo, entryKey(body?.path)).catch((e) => {
+        try {
+          await bumpDailyRollup(db, now, geo, entryKey(body?.path));
+        } catch (e) {
           console.error('presence_daily rollup failed:', e.message);
-        });
+        }
       }
 
       // Opportunistic cleanup: ~5% of beats sweep a small batch of

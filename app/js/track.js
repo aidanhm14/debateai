@@ -98,14 +98,22 @@
       if (document.hidden) return;
       const last = Number(sessionStorage.getItem('_da_plast') || 0);
       if (Date.now() - last < PRESENCE_MIN_GAP_MS) return;
+      // No prior beat in this tab = first beat of this session. Same
+      // sessionStorage lifecycle as `_da_sid`, so it lines up with the
+      // sid the server keys on. The server counts a session in
+      // presence_daily only when this is true, and only then reads
+      // `path` for the entry-page tally — it cannot infer "first beat"
+      // on its own without paying a read per beat.
+      const isFirst = !last;
       sessionStorage.setItem('_da_plast', String(Date.now()));
       fetch('/api/presence-live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // `path` is only read on the FIRST beat of a session, where it
-        // becomes the entry-page tally in presence_daily. Sent on every
-        // beat because the client can't know which beat is first.
-        body: JSON.stringify({ sid: sessionId, path: location.pathname }),
+        body: JSON.stringify({
+          sid: sessionId,
+          first: isFirst,
+          path: location.pathname,
+        }),
         keepalive: true,
       }).catch(function () {});
     } catch (e) {
