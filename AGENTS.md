@@ -53,6 +53,14 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   ├── landing.html           ~2700 lines, marketing entry. Same rules.
 │   ├── live.html              live tournament rooms (Daily.co video)
 │   ├── spar.html              live-human sparring matchmaking + AI fallback
+│   ├── partners.html         2v2 partner matching. Invite code OR an
+│   │                            open pool ranked by a 5-question fit
+│   │                            quiz (js/partner-fit.js); a formed duo
+│   │                            queues as a unit against another duo.
+│   ├── tournament.html       one tournament: register, draw, tab,
+│   │                            bracket, plus a host-only control room.
+│   │                            /tournaments (plural) is the separate
+│   │                            public spectator lobby. Don't merge them.
 │   ├── voice-debate.html      live voice debate via OpenAI Realtime
 │   │                            (WebRTC, server-side VAD = interruption,
 │   │                             5 modes, post-session RFD)
@@ -89,7 +97,21 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       │   ├── tts-humanize.mjs       strips stage directions, picks
 │   │       │   │                            intensity, normalizes pauses.
 │   │       │   └── appcheck.mjs           Firebase App Check verification.
-│   │       ├── stripe-webhook.mjs, create-checkout.mjs,
+│   │       ├── partner-match.mjs, duo-pair.mjs
+│       │     2v2 matchmaking. partner-match forms the duo (invite code
+│       │     or pool handshake); duo-pair matches two duos into one
+│       │     four-seat room. The duo queue doc is keyed by TEAM, not
+│       │     user — that is what keeps a 2v2 pairing a two-document
+│       │     transaction instead of a four-way write that can strand
+│       │     one person in a room their partner never entered.
+│       ├── tournament.mjs, tournament-admin.mjs, lib/tournament.mjs
+│       │     The tab. lib/tournament.mjs is PURE and deterministic
+│       │     (seeded, so any draw can be reproduced during a dispute)
+│       │     and pairs GLOBALLY over the ranked field, never per
+│       │     win-bracket — see the 2026-07-28 decision log for why the
+│       │     per-bracket version produced rematches. Change it only
+│       │     with scripts/test-tournament-pairing.mjs passing.
+│       ├── stripe-webhook.mjs, create-checkout.mjs,
 │   │       │   billing-portal.mjs, cancel-subscription.mjs
 │   │       └── admin-*, team-*, log-*, scheduled-* (analytics + ops)
 │   ├── package.json           Vite dev server (rarely needed for HTML edits)
