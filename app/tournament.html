@@ -114,6 +114,33 @@
   .ok{margin-top:12px;padding:10px 13px;border-radius:10px;background:rgba(34,197,94,.12);
     border:1px solid rgba(34,197,94,.34);color:#86efac;font-size:.85rem}
   .hidden{display:none !important}
+  .btn.is-busy{opacity:.7;pointer-events:none}
+  .btn.is-busy::after{content:'';width:11px;height:11px;border-radius:50%;
+    border:2px solid currentColor;border-top-color:transparent;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .result-row{padding:14px 0;border-top:1px solid var(--line)}
+  .result-teams{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .result-entry{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+  .spk{display:flex;flex-direction:column;gap:4px}
+  .spk span{font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+    max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .in-spk{width:86px;padding:8px 10px;font-size:.86rem}
+
+  .modal-back{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);
+    display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+  .modal{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);
+    border-radius:16px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .modal h3{font-size:1.05rem;font-weight:800;margin-bottom:8px}
+  .modal p{font-size:.9rem;color:var(--dim);line-height:1.6}
+  .btn-danger{background:var(--red);border-color:var(--red);color:#fff}
+
+  .nextup{margin-top:14px;padding:14px 16px;border-radius:12px;
+    background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.28)}
+  .nextup b{display:block;font-size:.72rem;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:#fca5a5;margin-bottom:5px}
+  .nextup span{font-size:.9rem;color:var(--fg);line-height:1.55}
+
   .host-zone{border-color:rgba(245,158,11,.32)}
   .host-zone h2{color:#fbbf24}
 
@@ -297,6 +324,40 @@
   var fail = function(m){ flash('err', m); };
   var good = function(m){ flash('ok', m); };
 
+  function busy(el, on, label){
+    if (!el) return;
+    if (on){
+      el._label = el._label || el.textContent;
+      if (label) el.textContent = label;
+      el.classList.add('is-busy');
+    } else {
+      el.classList.remove('is-busy');
+      if (el._label){ el.textContent = el._label; el._label = null; }
+    }
+  }
+
+  function confirmAction(opts){
+    return new Promise(function(resolve){
+      var back = document.createElement('div');
+      back.className = 'modal-back';
+      back.innerHTML =
+        '<div class="modal" role="dialog" aria-modal="true">' +
+          '<h3>' + esc(opts.title) + '</h3><p>' + esc(opts.body) + '</p>' +
+          '<div class="btn-row">' +
+            '<button class="btn ' + (opts.danger ? 'btn-danger' : 'btn-primary') + '" data-yes>' + esc(opts.confirmLabel || 'Confirm') + '</button>' +
+            '<button class="btn" data-no>Cancel</button>' +
+          '</div></div>';
+      function close(v){ back.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
+      function onKey(e){ if (e.key === 'Escape') close(false); }
+      back.querySelector('[data-yes]').addEventListener('click', function(){ close(true); });
+      back.querySelector('[data-no]').addEventListener('click', function(){ close(false); });
+      back.addEventListener('click', function(e){ if (e.target === back) close(false); });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(back);
+      back.querySelector('[data-yes]').focus();
+    });
+  }
+
   function api(path, body){
     if (!auth || !auth.currentUser) return Promise.reject(new Error('Sign in first.'));
     return auth.currentUser.getIdToken().then(function(tok){
@@ -412,10 +473,75 @@
     ].filter(Boolean).join(' · ');
 
     renderEntryActions();
+    renderNextUp();
     renderDraw();
     renderTab();
     renderBracket();
     renderHost();
+  }
+
+  // The single most useful thing a tournament page can tell someone is
+  // what they are supposed to do RIGHT NOW. Without this the page is a
+  // wall of tables and the answer is buried in whichever one changed.
+  function renderNextUp(){
+    var host = $('myRoom');
+    if (!host) return;
+    host.innerHTML = '';
+    var t = state.data.tournament;
+    var mine = myEntry();
+    var msg = '';
+    var link = null;
+
+    if (!state.user){
+      msg = t.status === 'registration'
+        ? 'Sign in to register. You can read the draw and the tab without an account.'
+        : 'You are watching this one. Sign in if you are competing.';
+    } else if (!mine){
+      msg = t.status === 'registration'
+        ? (t.teamSize === 2
+            ? 'You are not entered. This is a two on two, so form a partnership first, then register it.'
+            : 'You are not entered yet. Registration is open.')
+        : 'You are not entered in this tournament.';
+    } else if (mine.status === 'withdrawn'){
+      msg = 'You have withdrawn. Talk to the host if that was a mistake.';
+    } else if (mine.status === 'eliminated'){
+      msg = 'Your run is over. The bracket below plays out without you.';
+    } else if (mine.status === 'registered' && t.status === 'registration'){
+      msg = 'You are registered. Check in when the tournament starts so the host knows you turned up, or you will be left out of the draw.';
+    } else {
+      // Find my live pairing, which is the only thing that matters
+      // once rounds are running.
+      var r = currentRound();
+      var p = r && (r.pairings || []).filter(function(x){
+        return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
+      })[0];
+      if (p && p.status !== 'complete'){
+        var side = p.govEntry === mine.entryId ? 'Gov' : 'Opp';
+        var opp = p.govEntry === mine.entryId ? p.oppName : p.govName;
+        msg = 'You are ' + side + ' against ' + opp + ' in ' + (r.label || 'this round') + '.';
+        link = { href: roomUrl(p, r, mine), label: 'Join your room' };
+      } else if (r && r.bye && r.bye.entryId === mine.entryId){
+        msg = 'You have the bye this round. It counts as a win, and you are back in the draw next round.';
+      } else if (p && p.status === 'complete'){
+        var won = (p.winner === 'gov' && p.govEntry === mine.entryId) || (p.winner === 'opp' && p.oppEntry === mine.entryId);
+        msg = (won ? 'You won ' : 'You lost ') + (r.label || 'that round') + '. Wait for the next draw.';
+      } else {
+        msg = 'Nothing to do yet. The next draw appears here when the host releases it.';
+      }
+    }
+
+    var box = document.createElement('div');
+    box.className = 'nextup';
+    box.innerHTML = '<b>What now</b><span>' + esc(msg) + '</span>';
+    if (link){
+      var a = document.createElement('a');
+      a.className = 'btn btn-primary';
+      a.style.marginTop = '12px';
+      a.href = link.href;
+      a.textContent = link.label;
+      box.appendChild(a);
+    }
+    host.appendChild(box);
   }
 
   function renderEntryActions(){
@@ -441,9 +567,11 @@
         var ci = document.createElement('button');
         ci.className = 'btn btn-primary'; ci.textContent = 'Check in';
         ci.addEventListener('click', function(){
+          busy(ci, true, 'Checking in');
           api('/api/tournament', { action: 'check-in', tid: t.tid })
             .then(function(){ good('Checked in. You are in the next draw.'); return load(); })
-            .catch(function(e){ fail(e.message); });
+            .catch(function(e){ fail(e.message); })
+            .then(function(){ busy(ci, false); });
         });
         host.appendChild(ci);
       }
@@ -451,9 +579,21 @@
         var wd = document.createElement('button');
         wd.className = 'btn'; wd.textContent = 'Withdraw';
         wd.addEventListener('click', function(){
-          api('/api/tournament', { action: 'withdraw', tid: t.tid })
-            .then(function(){ good('Withdrawn.'); return load(); })
-            .catch(function(e){ fail(e.message); });
+          confirmAction({
+            title: 'Withdraw from ' + t.name + '?',
+            body: t.teamSize === 2
+              ? 'This pulls your whole team out. Getting back in means asking the host.'
+              : 'You come out of every remaining draw. Getting back in means asking the host.',
+            confirmLabel: 'Withdraw',
+            danger: true,
+          }).then(function(yes){
+            if (!yes) return;
+            busy(wd, true, 'Withdrawing');
+            api('/api/tournament', { action: 'withdraw', tid: t.tid })
+              .then(function(){ good('Withdrawn.'); return load(); })
+              .catch(function(e){ fail(e.message); })
+              .then(function(){ busy(wd, false); });
+          });
         });
         host.appendChild(wd);
       }
@@ -466,7 +606,7 @@
     var btn = document.createElement('button');
     btn.className = 'btn btn-primary';
     btn.textContent = t.teamSize === 2 ? 'Register my team' : 'Register';
-    btn.addEventListener('click', register);
+    btn.addEventListener('click', function(){ register(btn); });
     host.appendChild(btn);
     if (t.teamSize === 2){
       var link = document.createElement('a');
@@ -475,8 +615,9 @@
     }
   }
 
-  function register(){
+  function register(btn){
     var t = state.data.tournament;
+    busy(btn, true, 'Registering');
     var body = { action: 'register', tid: t.tid, name: (state.user.displayName || 'Debater') };
     var go = Promise.resolve();
     if (t.teamSize === 2){
@@ -491,8 +632,9 @@
       });
     }
     go.then(function(){ return api('/api/tournament', body); })
-      .then(function(){ good('Registered. Check in when the day starts.'); return load(); })
-      .catch(function(e){ fail(e.message); });
+      .then(function(){ good('Registered. Check in when the tournament starts.'); return load(); })
+      .catch(function(e){ fail(e.message); })
+      .then(function(){ busy(btn, false); });
   }
 
   // ── Draw ────────────────────────────────────────────────────────
@@ -651,6 +793,7 @@
     var host = $('hostBody');
     host.innerHTML = '';
 
+    var releaseForm = null;
     var bar = document.createElement('div');
     bar.className = 'btn-row';
     function act(label, fn, primary){
@@ -672,10 +815,10 @@
 
     if (t.status === 'running' || t.status === 'break'){
       if (pendingPrelim){
-        act('Release ' + (pendingPrelim.label || ('Round ' + pendingPrelim.roundNo)), function(){
-          var motion = prompt('Motion for this round (optional):', '');
-          adminCall({ action: 'release-round', tid: t.tid, roundNo: pendingPrelim.roundNo, kind: 'prelim', motion: motion || '' });
-        }, true);
+        // The draw exists but nobody has seen it. Release publishes it
+        // together with the motion, so the motion belongs on this step
+        // rather than in a dialog that interrupts it.
+        releaseForm = { roundNo: pendingPrelim.roundNo, kind: 'prelim', label: pendingPrelim.label || ('Round ' + pendingPrelim.roundNo) };
         act('Redraw it', function(){
           adminCall({ action: 'pair-round', tid: t.tid, roundNo: pendingPrelim.roundNo, force: true, reseed: true });
         });
@@ -693,10 +836,7 @@
       return r.kind === 'elim' && !r.released;
     })[0];
     if (pendingElim){
-      act('Release ' + pendingElim.label, function(){
-        var motion = prompt('Motion for ' + pendingElim.label + ' (optional):', '');
-        adminCall({ action: 'release-round', tid: t.tid, roundNo: pendingElim.roundNo, kind: 'elim', motion: motion || '' });
-      }, true);
+      releaseForm = { roundNo: pendingElim.roundNo, kind: 'elim', label: pendingElim.label };
     }
     var lastElim = (state.data.rounds || []).filter(function(r){ return r.kind === 'elim' && r.released; }).pop();
     if (lastElim){
@@ -706,38 +846,82 @@
     }
     host.appendChild(bar);
 
+    // An unreleased draw: the motion and the release live together,
+    // because releasing is the moment the motion becomes public.
+    if (releaseForm){
+      var rf = document.createElement('div');
+      rf.style.cssText = 'margin-top:16px;padding:16px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px';
+      rf.innerHTML =
+        '<div style="font-size:.9rem;font-weight:800;margin-bottom:4px">' + esc(releaseForm.label) + ' is drawn but not released</div>' +
+        '<p class="note" style="margin-top:0">Nobody can see the pairings yet. Add the motion and release when you are ready.</p>' +
+        '<label class="f" for="releaseMotion">Motion</label>' +
+        '<input class="in" id="releaseMotion" maxlength="280" placeholder="This House would abolish private schooling">' +
+        '<div class="btn-row"><button class="btn btn-primary" id="releaseBtn">Release ' + esc(releaseForm.label) + '</button></div>';
+      host.appendChild(rf);
+      var relBtn = rf.querySelector('#releaseBtn');
+      relBtn.addEventListener('click', function(){
+        busy(relBtn, true, 'Releasing');
+        adminCall({
+          action: 'release-round', tid: t.tid,
+          roundNo: releaseForm.roundNo, kind: releaseForm.kind,
+          motion: (rf.querySelector('#releaseMotion').value || ''),
+        }, relBtn);
+      });
+    }
+
     // Result entry for the live round.
+    //
+    // This used to be two sequential window.prompt() calls per pairing
+    // for speaker points. A director runs this once per room per round;
+    // at eight rooms that is sixteen browser dialogs an hour, each one
+    // blocking the page, none of them showing which pairing you are
+    // even filling in. Inline inputs instead: type the points if you
+    // are recording them, press the winner, done in one click.
     var r = currentRound();
     if (r && (r.pairings || []).some(function(p){ return p.status !== 'complete'; })){
       var h = document.createElement('div');
-      h.style.cssText = 'margin-top:18px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
+      h.style.cssText = 'margin-top:20px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
       h.textContent = 'Results · ' + r.label;
       host.appendChild(h);
+      var hint = document.createElement('p');
+      hint.className = 'note';
+      hint.textContent = 'Press whoever won. Speaker points are optional, and the tab falls back to ballots alone if you leave them blank.';
+      host.appendChild(hint);
+
       (r.pairings || []).forEach(function(p){
         if (p.status === 'complete') return;
         var row = document.createElement('div');
-        row.className = 'pairing';
+        row.className = 'result-row';
         row.innerHTML =
-          '<div class="side">' + esc(p.govName) + ' <span class="vs">vs</span> ' + esc(p.oppName) + '</div>';
-        var sp = document.createElement('div');
-        sp.className = 'sp';
-        ['gov', 'opp'].forEach(function(side){
-          var b = document.createElement('button');
-          b.className = 'btn btn-sm';
-          b.textContent = (side === 'gov' ? p.govName : p.oppName) + ' won';
+          '<div class="result-teams">' +
+            '<span class="side">' + esc(p.govName) + '</span>' +
+            '<span class="vs">vs</span>' +
+            '<span class="side">' + esc(p.oppName) + '</span>' +
+          '</div>' +
+          '<div class="result-entry">' +
+            '<label class="spk"><span>' + esc(p.govName) + '</span>' +
+              '<input class="in in-spk" type="number" step="0.5" inputmode="decimal" placeholder="pts" data-gov></label>' +
+            '<label class="spk"><span>' + esc(p.oppName) + '</span>' +
+              '<input class="in in-spk" type="number" step="0.5" inputmode="decimal" placeholder="pts" data-opp></label>' +
+            '<button class="btn btn-sm" data-win="gov">' + esc(p.govName) + ' won</button>' +
+            '<button class="btn btn-sm" data-win="opp">' + esc(p.oppName) + ' won</button>' +
+          '</div>';
+
+        Array.prototype.forEach.call(row.querySelectorAll('[data-win]'), function(b){
           b.addEventListener('click', function(){
-            var gs = parseFloat(prompt('Speaker points for ' + p.govName + ' (optional):', '') || '0') || 0;
-            var os = parseFloat(prompt('Speaker points for ' + p.oppName + ' (optional):', '') || '0') || 0;
+            var gs = parseFloat(row.querySelector('[data-gov]').value) || 0;
+            var os = parseFloat(row.querySelector('[data-opp]').value) || 0;
+            busy(b, true, 'Saving');
             adminCall({
               action: 'report-result', tid: t.tid, roundNo: r.roundNo, kind: r.kind,
-              pairingId: p.pairingId, winner: side, govSpeaks: gs, oppSpeaks: os,
-            });
+              pairingId: p.pairingId, winner: b.getAttribute('data-win'),
+              govSpeaks: gs, oppSpeaks: os,
+            }, b);
           });
-          sp.appendChild(b);
         });
-        row.appendChild(sp);
         host.appendChild(row);
       });
+
       if (r.bye && !r.byeRecorded){
         var bb = document.createElement('div');
         bb.className = 'btn-row';
@@ -745,7 +929,8 @@
         btn.className = 'btn btn-sm';
         btn.textContent = 'Record the bye for ' + r.bye.name;
         btn.addEventListener('click', function(){
-          adminCall({ action: 'record-bye', tid: t.tid, roundNo: r.roundNo });
+          busy(btn, true, 'Saving');
+          adminCall({ action: 'record-bye', tid: t.tid, roundNo: r.roundNo }, btn);
         });
         bb.appendChild(btn);
         host.appendChild(bb);
@@ -756,17 +941,20 @@
   function setStatus(s){
     adminCall({ action: 'set-status', tid: state.data.tournament.tid, status: s });
   }
-  function adminCall(body){
-    api('/api/tournament-admin', body)
+  function adminCall(body, btn){
+    return api('/api/tournament-admin', body)
       .then(function(j){
-        good('Done.');
-        if (j.rematches) good('Drawn with ' + j.rematches + ' rematch(es); the field is short on fresh opponents.');
+        good(j.rematches
+          ? ('Drawn, but with ' + j.rematches + ' rematch(es). The field is short on fresh opponents.')
+          : 'Done.');
         return load();
       })
-      .catch(function(e){ fail(e.message); });
+      .catch(function(e){ fail(e.message); })
+      .then(function(){ busy(btn, false); });
   }
 
   function createTournament(){
+    busy($('createBtn'), true, 'Creating');
     api('/api/tournament-admin', {
       action: 'create',
       name: $('tName').value,
@@ -777,7 +965,7 @@
       startsAt: $('tStarts').value,
     }).then(function(j){
       location.href = '/tournament?t=' + encodeURIComponent(j.slug || j.tid);
-    }).catch(function(e){ fail(e.message); });
+    }).catch(function(e){ busy($('createBtn'), false); fail(e.message); });
   }
 
   function signIn(){

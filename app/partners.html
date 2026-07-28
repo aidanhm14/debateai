@@ -167,6 +167,42 @@
   }
   .propose h3{font-size:1rem;font-weight:800;margin-bottom:4px}
   .propose p{font-size:.86rem;color:var(--dim);line-height:1.5}
+
+  /* A button that is waiting on the network says so. Without this a
+     slow request reads as a dead button and people click it again. */
+  .btn.is-busy{opacity:.7;pointer-events:none}
+  .btn.is-busy::after{
+    content:'';width:12px;height:12px;border-radius:50%;
+    border:2px solid currentColor;border-top-color:transparent;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Confirm dialog. Leaving a team ends it for the OTHER person too,
+     which is not something to discover after the fact. */
+  .modal-back{
+    position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);
+    display:flex;align-items:center;justify-content:center;padding:20px;
+    backdrop-filter:blur(3px);
+  }
+  .modal{
+    width:min(420px,100%);background:var(--panel);
+    border:1px solid var(--line);border-radius:16px;padding:22px;
+    box-shadow:0 24px 70px rgba(0,0,0,.6);
+  }
+  .modal h3{font-size:1.05rem;font-weight:800;margin-bottom:8px}
+  .modal p{font-size:.9rem;color:var(--dim);line-height:1.6}
+  .btn-danger{background:var(--red);border-color:var(--red);color:#fff}
+  .btn-danger:hover{background:var(--red-dark)}
+
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  @media(max-width:640px){.steps{grid-template-columns:1fr}}
+  .step{padding:14px 16px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px}
+  .step b{display:block;font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+  .step span{font-size:.86rem;color:var(--dim);line-height:1.5}
+
+  .sharebox{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .sharebox input{flex:1;min-width:200px}
 </style>
 </head>
 <body>
@@ -179,7 +215,12 @@
   <header class="head">
     <div class="kicker">Two on two</div>
     <h1>Find a partner. Then find a team to beat.</h1>
-    <p class="lede">A 2v2 needs four people who are free at the same time. Bring a partner with a code, or join the pool and get matched with one. Once your team exists, it queues as a unit against another team.</p>
+    <p class="lede">A 2v2 needs four people who are free at the same time. This page gets you the first one.</p>
+    <div class="steps">
+      <div class="step"><b>Step 1</b><span>Get a partner. Send someone a link, or pick one from the pool.</span></div>
+      <div class="step"><b>Step 2</b><span>Your team queues as a unit. Your partner can be anywhere.</span></div>
+      <div class="step"><b>Step 3</b><span>Four of you debate. The AI judge writes the ballot.</span></div>
+    </div>
   </header>
 
   <div id="gate" class="card hidden">
@@ -196,10 +237,14 @@
         <p class="sub">Start the team and send them the code. It works once, then the seat is filled.</p>
         <div id="codeBox" class="hidden">
           <div class="code" id="codeText">------</div>
-          <p class="note">Give this to your partner. They enter it on this page and the team is live.</p>
+          <p class="note">Send your partner the link. It opens this page with the code already filled in, so they only have to press one button.</p>
+          <div class="sharebox">
+            <input class="in" id="inviteLink" readonly onclick="this.select()">
+            <button class="btn btn-primary" id="shareLinkBtn">Copy link</button>
+          </div>
           <div class="btn-row">
-            <button class="btn" id="copyCodeBtn">Copy code</button>
-            <button class="btn" id="cancelTeamBtn">Cancel</button>
+            <button class="btn" id="copyCodeBtn">Copy just the code</button>
+            <button class="btn" id="cancelTeamBtn">Cancel this team</button>
           </div>
         </div>
         <div id="createBox">
@@ -228,7 +273,7 @@
       <h2>No partner? Join the pool</h2>
       <p class="sub">Everyone here is looking for the same thing. Pick someone, they accept, and you are a team. Nobody is teamed up without both people saying yes.</p>
       <div id="poolJoin">
-        <p class="note" style="margin-top:14px">Five questions. They decide who gets shown at the top of the list, for you and for everyone looking at you.</p>
+        <p class="note" style="margin-top:14px">Five quick questions. They sort the list so the people most likely to suit you are at the top, and they do the same for anyone looking at you.</p>
         <div class="fields" id="prefQuiz"></div>
         <label class="f" for="noteIn">A line about what you are after (optional)</label>
         <input class="in" id="noteIn" maxlength="160" placeholder="Prepping for a tournament, want serious rounds">
@@ -356,6 +401,75 @@
     clearTimeout(fail._t);
     fail._t = setTimeout(function(){ el.classList.add('hidden'); }, 7000);
   }
+  // A click that fires a network call has to look like it did
+  // something. Without this, a slow request is indistinguishable from
+  // a dead button, and people click it again (which is how you get two
+  // teams, or two queue entries).
+  function busy(el, on, label){
+    if (!el) return;
+    if (on){
+      el._label = el._label || el.textContent;
+      if (label) el.textContent = label;
+      el.classList.add('is-busy');
+    } else {
+      el.classList.remove('is-busy');
+      if (el._label){ el.textContent = el._label; el._label = null; }
+    }
+  }
+
+  // In-page confirm. Used for the one action here that is destructive
+  // to somebody ELSE: leaving a team ends it for your partner too, and
+  // that is not something to find out afterwards.
+  function confirmAction(opts){
+    return new Promise(function(resolve){
+      var back = document.createElement('div');
+      back.className = 'modal-back';
+      back.innerHTML =
+        '<div class="modal" role="dialog" aria-modal="true">' +
+          '<h3>' + esc(opts.title) + '</h3>' +
+          '<p>' + esc(opts.body) + '</p>' +
+          '<div class="btn-row">' +
+            '<button class="btn ' + (opts.danger ? 'btn-danger' : 'btn-primary') + '" data-yes>' + esc(opts.confirmLabel || 'Confirm') + '</button>' +
+            '<button class="btn" data-no>Keep it</button>' +
+          '</div>' +
+        '</div>';
+      function close(v){
+        back.remove();
+        document.removeEventListener('keydown', onKey);
+        resolve(v);
+      }
+      function onKey(e){ if (e.key === 'Escape') close(false); }
+      back.querySelector('[data-yes]').addEventListener('click', function(){ close(true); });
+      back.querySelector('[data-no]').addEventListener('click', function(){ close(false); });
+      back.addEventListener('click', function(e){ if (e.target === back) close(false); });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(back);
+      var yes = back.querySelector('[data-yes]');
+      if (yes) yes.focus();
+    });
+  }
+
+  function inviteLinkFor(code){
+    return location.origin + '/partners?code=' + encodeURIComponent(code);
+  }
+
+  function copyText(text, btn, doneLabel){
+    var done = function(){
+      if (!btn) return;
+      var was = btn.textContent;
+      btn.textContent = doneLabel || 'Copied';
+      setTimeout(function(){ btn.textContent = was; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){ done(); });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch(e){}
+      ta.remove(); done();
+    }
+  }
+
   function initials(name){
     var p = String(name || '').trim().split(/\s+/).filter(Boolean);
     if (!p.length) return '?';
@@ -440,6 +554,8 @@
   // ── Invite-code path ────────────────────────────────────────────
   function createTeam(){
     var fmt = $('fmtSel').value;
+    var btn = $('createTeamBtn');
+    busy(btn, true, 'Making your team');
     api('/api/partner-match', {
       action: 'create-team',
       format: fmt,
@@ -448,17 +564,26 @@
       state.team = j.team || null;
       if (state.team && state.team.inviteCode && (state.team.members || []).length < 2){
         $('codeText').textContent = state.team.inviteCode;
+        var link = $('inviteLink');
+        if (link) link.value = inviteLinkFor(state.team.inviteCode);
         show('codeBox', true);
         show('createBox', false);
       }
       paint();
       try { gtag('event', 'partner_team_create', { format: fmt }); } catch(e){}
-    }).catch(function(e){ fail(e.message); });
+    }).catch(function(e){ fail(e.message); })
+      .then(function(){ busy(btn, false); });
   }
 
   function joinByCode(){
     var code = ($('codeIn').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (code.length !== 6) { fail('An invite code is six characters.'); return; }
+    if (!code) { fail('Paste the code your partner sent you.'); return; }
+    if (code.length !== 6) {
+      fail('That code is ' + code.length + ' characters. It should be six.');
+      return;
+    }
+    var btn = $('joinCodeBtn');
+    busy(btn, true, 'Joining');
     api('/api/partner-match', { action: 'join-code', code: code, profile: profilePayload() })
       .then(function(j){
         state.team = j.team || null;
@@ -467,7 +592,8 @@
         if (state.team) watchQueue();
         try { gtag('event', 'partner_team_join', {}); } catch(e){}
       })
-      .catch(function(e){ fail(e.message); });
+      .catch(function(e){ fail(e.message); })
+      .then(function(){ busy(btn, false); });
   }
 
   function profilePayload(){
@@ -480,13 +606,37 @@
   }
 
   function leaveTeam(){
-    api('/api/partner-match', { action: 'leave-team' }).then(function(){
-      state.team = null;
-      stopQueue();
-      show('codeBox', false);
-      show('createBox', true);
-      paint();
-    }).catch(function(e){ fail(e.message); });
+    var full = state.team && (state.team.members || []).length >= 2;
+    var partner = '';
+    if (full && state.user){
+      var other = (state.team.members || []).filter(function(u){ return u !== state.user.uid; })[0];
+      partner = ((state.team.memberInfo || {})[other] || {}).name || 'your partner';
+    }
+    // A duo has exactly two seats, so one person leaving ends it. The
+    // partner does not get a say and may not even be at their screen,
+    // which is exactly why this asks first and names them.
+    var ask = full
+      ? confirmAction({
+          title: 'Leave the team?',
+          body: 'This ends the team for ' + partner + ' too, and takes you both out of the 2v2 queue. They will have to find another partner.',
+          confirmLabel: 'Leave the team',
+          danger: true,
+        })
+      : Promise.resolve(true);
+
+    ask.then(function(yes){
+      if (!yes) return;
+      var btn = $('leaveTeamBtn');
+      busy(btn, true, 'Leaving');
+      api('/api/partner-match', { action: 'leave-team' }).then(function(){
+        state.team = null;
+        stopQueue();
+        show('codeBox', false);
+        show('createBox', true);
+        paint();
+      }).catch(function(e){ fail(e.message); })
+        .then(function(){ busy(btn, false); });
+    });
   }
 
   // ── Partner pool ────────────────────────────────────────────────
@@ -495,6 +645,7 @@
   // read, and every write that touches them goes through the server.
   function joinPool(){
     if (!state.user || !db) return;
+    busy($('joinPoolBtn'), true, 'Joining the pool');
     var prefs = window.PartnerFit ? window.PartnerFit.read($('prefQuiz')) : {};
     try { localStorage.setItem('da-partner-prefs', JSON.stringify(prefs)); } catch(e){}
     state.myPrefs = prefs;
@@ -522,7 +673,9 @@
       watchMyPool();
       startPoolHeartbeat();
       try { gtag('event', 'partner_pool_join', {}); } catch(e){}
+      busy($('joinPoolBtn'), false);
     }).catch(function(e){
+      busy($('joinPoolBtn'), false);
       fail('Could not join the pool. ' + (e.message || ''));
     });
   }
@@ -745,6 +898,7 @@
   // ── 2v2 queue ───────────────────────────────────────────────────
   function queueUp(){
     if (!state.team) return;
+    busy($('queueBtn'), true, 'Entering the queue');
     api('/api/duo-pair', {
       action: 'join',
       teamId: state.team.teamId,
@@ -758,7 +912,8 @@
       startQueuePolling();
       startQueueBeat();
       try { gtag('event', 'duo_queue_join', { format: state.team.format }); } catch(e){}
-    }).catch(function(e){ fail(e.message); });
+      busy($('queueBtn'), false);
+    }).catch(function(e){ busy($('queueBtn'), false); fail(e.message); });
   }
 
   function stopQueue(){
@@ -868,9 +1023,19 @@
     on('joinCodeBtn', joinByCode);
     on('cancelTeamBtn', function(){ leaveTeam(); });
     on('copyCodeBtn', function(){
-      var code = $('codeText').textContent;
-      if (navigator.clipboard) navigator.clipboard.writeText(code).catch(function(){});
-      var b = $('copyCodeBtn'); if (b){ b.textContent = 'Copied'; setTimeout(function(){ b.textContent = 'Copy code'; }, 1600); }
+      copyText(($('codeText').textContent || '').trim(), $('copyCodeBtn'));
+    });
+    on('shareLinkBtn', function(){
+      var link = ($('inviteLink') && $('inviteLink').value) || '';
+      if (!link) return;
+      // Native share sheet on phones, which is where "send this to my
+      // partner" actually happens. Falls back to the clipboard.
+      if (navigator.share){
+        navigator.share({ title: 'Be my 2v2 debate partner', text: 'Join my team on Debatable.', url: link })
+          .catch(function(){ copyText(link, $('shareLinkBtn'), 'Copied'); });
+      } else {
+        copyText(link, $('shareLinkBtn'), 'Copied');
+      }
     });
     on('joinPoolBtn', joinPool);
     on('leavePoolBtn', function(){ leavePool(); });
@@ -894,6 +1059,28 @@
 
   wire();
   watchPool();
+
+  // An invite link (/partners?code=ABC123) lands here. Fill the code in
+  // and say so, so the person who was sent it does not have to work out
+  // which of the three cards on this page is meant for them.
+  (function(){
+    var code = (new URLSearchParams(location.search).get('code') || '')
+      .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    if (code.length !== 6) return;
+    var input = $('codeIn');
+    if (!input) return;
+    input.value = code;
+    var card = input.closest('.card');
+    if (card){
+      var h = card.querySelector('h2');
+      if (h) h.textContent = 'You were invited to a team';
+      var sub = card.querySelector('p.sub');
+      if (sub) sub.textContent = 'The code is filled in already. Sign in if you have not, then join.';
+      card.style.borderColor = 'rgba(239,68,68,.45)';
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    try { gtag('event', 'partner_invite_link_open', {}); } catch(e){}
+  })();
 
   if (auth){
     auth.onAuthStateChanged(function(u){
