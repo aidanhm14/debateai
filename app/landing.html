@@ -7014,43 +7014,66 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-cta--ghost{color:#1a1a1f;border:1px solid rgba(26,26,31,.2)}
   .fs-cta--ghost:hover{border-color:rgba(26,26,31,.45)}
 
-  /* Guide video. A thumbnail-sized card under the CTAs so a first-time
-     visitor can see there is a walkthrough without leaving the first
-     screen. The card stays small; the player opens in a lightbox. */
-  .fs-guide{display:inline-flex;align-items:center;gap:14px;margin-top:20px;padding:8px 20px 8px 8px;
-    border:1px solid rgba(26,26,31,.14);border-radius:14px;background:#fff;cursor:pointer;
-    font:inherit;text-align:left;color:inherit;
+  /* Guide video. 2026-07-28: was a 160x90 thumbnail sitting beside its
+     label in a pill. At that size a first-time visitor read it as a
+     footnote rather than as something to press, so it is now a real
+     video card: full-width 16:9 poster with a red play badge, label bar
+     underneath. The player still opens in a lightbox; the card itself
+     never loads the video. */
+  .fs-guide{display:block;width:100%;max-width:430px;margin-top:22px;padding:0;
+    border:1px solid rgba(26,26,31,.14);border-radius:16px;background:#fff;cursor:pointer;
+    font:inherit;text-align:left;color:inherit;overflow:hidden;
+    box-shadow:0 14px 34px -26px rgba(20,20,30,.55);
     transition:border-color .15s,transform .15s,box-shadow .15s}
-  .fs-guide:hover{border-color:rgba(26,26,31,.34);transform:translateY(-1px);
-    box-shadow:0 12px 28px -20px rgba(20,20,30,.6)}
-  .fs-guide-thumb{position:relative;flex:none;width:160px;height:90px;border-radius:10px;overflow:hidden;
+  .fs-guide:hover{border-color:rgba(26,26,31,.34);transform:translateY(-2px);
+    box-shadow:0 22px 46px -24px rgba(20,20,30,.6)}
+  /* The first screen is 100svh and this column already carries slogan,
+     h1, sub and CTAs, so an unbounded 16:9 poster pushes the card under
+     the fold on a short or zoomed viewport. Capping the width caps the
+     height with it. */
+  @media(min-width:941px) and (max-height:860px){.fs-guide{max-width:348px;margin-top:18px}}
+  @media(min-width:941px) and (max-height:760px){.fs-guide{max-width:288px;margin-top:14px}}
+  .fs-guide-thumb{position:relative;display:block;width:100%;aspect-ratio:16/9;overflow:hidden;
     background:rgba(26,26,31,.06)}
-  .fs-guide-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-  /* The poster is a bright screenshot, so a white triangle on its own
-     disappears. Scrim first, triangle above it. */
-  /* Lighter than it was at 74px wide: the thumbnail is now big enough to
-     read, so the scrim only has to carry the triangle. */
-  .fs-guide-thumb::after{content:'';position:absolute;inset:0;z-index:1;background:rgba(12,12,16,.28)}
-  .fs-guide-thumb i{position:absolute;inset:0;z-index:2;margin:auto;width:0;height:0;
-    border-left:22px solid #fff;border-top:14px solid transparent;border-bottom:14px solid transparent;
-    filter:drop-shadow(0 1px 6px rgba(0,0,0,.6))}
-  .fs-guide-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .fs-guide-thumb img{width:100%;height:100%;object-fit:cover;display:block;
+    transition:transform .3s ease}
+  .fs-guide:hover .fs-guide-thumb img{transform:scale(1.035)}
+  /* The poster is a bright screenshot, so the badge needs a scrim under
+     it to hold its edge. */
+  .fs-guide-thumb::after{content:'';position:absolute;inset:0;z-index:1;background:rgba(12,12,16,.24)}
+  /* The badge is the affordance: a bare triangle at this size read as
+     decoration. Brand red, same as the primary CTA above it. */
+  .fs-guide-thumb i{position:absolute;inset:0;z-index:2;margin:auto;display:block;
+    width:58px;height:58px;border-radius:50%;background:#dc2626;
+    box-shadow:0 10px 26px rgba(220,38,38,.42);
+    transition:transform .18s ease,background .18s ease}
+  .fs-guide-thumb i::before{content:'';position:absolute;top:50%;left:50%;
+    transform:translate(-40%,-50%);
+    border-left:19px solid #fff;border-top:12px solid transparent;border-bottom:12px solid transparent}
+  .fs-guide:hover .fs-guide-thumb i{transform:scale(1.09);background:#b91c1c}
+  .fs-guide-txt{display:flex;flex-direction:column;gap:3px;min-width:0;padding:13px 16px 14px}
   /* Direct child only: the subtitle carries its own <b> pair for the
      long/short label swap, which must not pick up the title's size. */
-  .fs-guide-txt > b{font-size:.92rem;font-weight:800;color:#1a1a1f;letter-spacing:-.01em}
-  .fs-guide-txt span{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  .fs-guide-txt > b{font-size:1rem;font-weight:800;color:#1a1a1f;letter-spacing:-.012em}
+  .fs-guide-txt span{font-size:.67rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
     color:rgba(26,26,31,.48)}
   .fs-guide-txt span b{font:inherit;letter-spacing:inherit;color:inherit}
+  /* The label sits on its own row now, so the long form fits at full
+     card width. */
   .fs-guide-short{display:none}
-  /* The bigger thumbnail leaves a phone ~186px for the subtitle, which
-     "Watch the walkthrough · 3 min" overruns. Drop to the short label
-     rather than shrinking the thumbnail back down. */
-  @media(max-width:430px){
-    .fs-guide{margin-top:16px;padding-right:14px;gap:12px}
-    .fs-guide-thumb{width:118px;height:66px}
-    .fs-guide-txt span{font-size:.63rem;letter-spacing:.09em}
+  /* Under ~300px of card the long subtitle wraps to two lines, which adds
+     back the height the narrower card just saved. Short label instead.
+     Must sit after the rule above to win at equal specificity. */
+  @media(min-width:941px) and (max-height:760px){
     .fs-guide-long{display:none}
     .fs-guide-short{display:inline}
+  }
+  @media(max-width:430px){
+    .fs-guide{margin-top:16px;max-width:none}
+    .fs-guide-thumb i{width:52px;height:52px}
+    .fs-guide-thumb i::before{border-left-width:17px;border-top-width:11px;border-bottom-width:11px}
+    .fs-guide-txt{padding:12px 14px 13px}
+    .fs-guide-txt span{font-size:.63rem;letter-spacing:.09em}
   }
 
   /* The lightbox the card opens into. */
