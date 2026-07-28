@@ -559,6 +559,11 @@ h1 em{color:var(--accent);font-style:normal}
 .setup-head span{
   font-weight:500;letter-spacing:0;text-transform:none;color:var(--text-ghost);
 }
+.setup-summary{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.setup-mode{font-size:.9rem;font-weight:800;color:var(--text);min-width:0}
+.setup-opts-btn{flex:0 0 auto}
+.setup-options{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.setup-options-note{font-size:.74rem;color:var(--text-ghost);margin-bottom:9px;line-height:1.5}
 .style-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
 .style-chip{
   padding:7px 13px;border-radius:999px;border:1px solid var(--border);
@@ -1448,16 +1453,28 @@ h1 em{color:var(--accent);font-style:normal}
   // the user picked last session, then 'quick' (most newcomer-friendly
   // + universal pair point). The on-page style chips rewrite all three.
   var qs = new URLSearchParams(location.search);
-  var FORMATS = ['quick','apda','bp','worlds','asian','ld','pf','policy'];
+  // 'quick' is the General default (key kept for old links + queue docs);
+  // the rest are the competition styles behind the Options toggle.
+  var FORMATS = ['quick','apda','bp','worlds','asian','ld','pf','policy','congress'];
   var FORMAT_LABELS = {
-    quick: 'Quick Clash', apda: 'APDA', bp: 'BP', worlds: 'Worlds (WUDC)',
+    quick: 'General', apda: 'APDA', bp: 'BP', worlds: 'Worlds (WUDC)',
     asian: 'Asian Parli', ld: 'LD', pf: 'Public Forum', policy: 'Policy',
+    congress: 'Congress',
   };
   var DISCORD_INVITE = 'https://discord.gg/WMHZW9BKvJ';
   var storedFormat = '';
   try { storedFormat = localStorage.getItem('debateos-spar-format') || ''; } catch(e){}
   var formatParam = (qs.get('format') || storedFormat || 'quick').toLowerCase();
   if (FORMATS.indexOf(formatParam) < 0) formatParam = 'quick';
+  // Style chips + judge proposal live behind Options; auto-open for
+  // users who already run a non-default setup so it never hides their
+  // own choices. Survives renderSearching re-renders.
+  var setupOpen = formatParam !== 'quick';
+  function setupModeText(){
+    return formatParam === 'quick'
+      ? 'General · open clash'
+      : (FORMAT_LABELS[formatParam] || formatParam.toUpperCase()) + ' · competition style';
+  }
 
   // Judge-paradigm note: the user's instructions for how the AI judge
   // should weigh the round. Rides on the queue doc; ONLY reaches the
@@ -1470,6 +1487,7 @@ h1 em{color:var(--accent);font-style:normal}
   }
   var storedParadigm = '';
   try { storedParadigm = cleanParadigm(localStorage.getItem('debateos-spar-paradigm')); } catch(e){}
+  if (storedParadigm) setupOpen = true; // a saved judge note must stay visible
 
   // Judge presets for the setup card. Each fills the judge-instructions note
   // with a canonical archetype in the register real Tabroom paradigms use
@@ -1940,7 +1958,13 @@ h1 em{color:var(--accent);font-style:normal}
       // become round terms after the opponent reads + accepts them on
       // the consent card.
       '<div class="setup-card" id="setupCard">' +
-        '<div class="setup-head">Round setup<span>Propose a format. Your opponent can accept or pass before the round starts.</span></div>' +
+        '<div class="setup-head">Round setup<span>Interruptions are captured by the AI judge. Human judges can watch and score public rounds.</span></div>' +
+        '<div class="setup-summary">' +
+          '<span class="setup-mode" id="setupModeLabel">' + escHtml(setupModeText()) + '</span>' +
+          '<button type="button" class="style-chip setup-opts-btn" id="setupOptionsBtn" aria-expanded="' + (setupOpen ? 'true' : 'false') + '" aria-controls="setupOptions">Options ' + (setupOpen ? '▴' : '▾') + '</button>' +
+        '</div>' +
+        '<div class="setup-options" id="setupOptions"' + (setupOpen ? '' : ' hidden') + '>' +
+        '<div class="setup-options-note">Propose a debate style. Your opponent can accept or pass before the round starts.</div>' +
         '<div class="style-chips" id="styleChips">' +
           FORMATS.map(function(k){
             return '<button type="button" class="style-chip' + (k === formatParam ? ' on' : '') + '" data-fmt="' + k + '">' + escHtml(FORMAT_LABELS[k] || k.toUpperCase()) + '</button>';
@@ -1962,6 +1986,7 @@ h1 em{color:var(--accent);font-style:normal}
           '<textarea id="paradigmInput" maxlength="' + PARADIGM_MAX + '" rows="2" placeholder="Propose a judging lens. e.g. Weigh probability before magnitude. Punish drops hard. Truth over tech on factual claims."></textarea>' +
           '<div class="paradigm-meta"><span id="paradigmSaved"></span><span id="paradigmCount">0/' + PARADIGM_MAX + '</span></div>' +
         '</div>' +
+        '</div>' + /* /setup-options */
       '</div>' +
       // 2026-05-18: while the user is waiting on the random matchmaker,
       // give them a clear pivot to /live (the schedule board with
@@ -2135,6 +2160,8 @@ h1 em{color:var(--accent);font-style:normal}
     chips.forEach(function(chip){
       chip.classList.toggle('on', chip.getAttribute('data-fmt') === key);
     });
+    var modeLabel = document.getElementById('setupModeLabel');
+    if (modeLabel) modeLabel.textContent = setupModeText();
     if (state.queueDocRef){
       state.queueDocRef.update({ format: key }).catch(function(){});
     } else if (!state.user || !firebaseDb) {
@@ -2143,6 +2170,16 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   function wireSetupCard(){
+    var optsBtn = document.getElementById('setupOptionsBtn');
+    var optsWrap = document.getElementById('setupOptions');
+    if (optsBtn && optsWrap){
+      optsBtn.addEventListener('click', function(){
+        setupOpen = !setupOpen;
+        optsWrap.hidden = !setupOpen;
+        optsBtn.setAttribute('aria-expanded', setupOpen ? 'true' : 'false');
+        optsBtn.textContent = 'Options ' + (setupOpen ? '▴' : '▾');
+      });
+    }
     var chips = document.getElementById('styleChips');
     if (chips){
       chips.addEventListener('click', function(ev){
@@ -2323,7 +2360,7 @@ h1 em{color:var(--accent);font-style:normal}
   // normalizes to its own set. Unknown/'other' falls through to a
   // generic "a live round" so a row never shows a raw slug.
   var SEEK_LABELS = {
-    quick: 'Quick Clash', apda: 'APDA', bp: 'BP',
+    quick: 'General', apda: 'APDA', bp: 'BP',
     worlds: 'Worlds (WUDC)', wsdc: 'Worlds (WUDC)',
     asian: 'Asian Parli', asian_parli: 'Asian Parli',
     ld: 'LD', pf: 'Public Forum', policy: 'Policy',
@@ -3714,7 +3751,7 @@ h1 em{color:var(--accent);font-style:normal}
   var WL_MSG_MAX = 1000;
   var WL_FORMATS = [
     { v: 'any',    label: 'Any format' },
-    { v: 'quick',  label: 'Quick Clash' },
+    { v: 'quick',  label: 'General' },
     { v: 'apda',   label: 'APDA' },
     { v: 'bp',     label: 'BP / WUDC' },
     { v: 'worlds', label: 'Worlds (WUDC)' },
@@ -4860,7 +4897,7 @@ h1 em{color:var(--accent);font-style:normal}
   // failed match converts into an RSVP for a future one. Same device
   // id + anonymous posture as /community; hidden when nothing is
   // scheduled; refreshes every 2 min while the tab is visible.
-  var SCHED_FMT_LABELS = { quick:'Quick Clash', apda:'APDA', bp:'BP', worlds:'Worlds', asian:'Asian Parli', ld:'LD', pf:'Public Forum', policy:'Policy' };
+  var SCHED_FMT_LABELS = { quick:'General', apda:'APDA', bp:'BP', worlds:'Worlds', asian:'Asian Parli', ld:'LD', pf:'Public Forum', policy:'Policy', congress:'Congress' };
   function schedDeviceId(){
     var id = '';
     try { id = localStorage.getItem('da-device-id') || ''; } catch(e){}
@@ -4896,7 +4933,7 @@ h1 em{color:var(--accent);font-style:normal}
           var when = soon ? 'starting<br>soon'
             : (d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' })) +
               '<br>' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-          var what = '<b>' + schedEsc(SCHED_FMT_LABELS[r.format] || 'Quick Clash') + '</b>' +
+          var what = '<b>' + schedEsc(SCHED_FMT_LABELS[r.format] || 'General') + '</b>' +
             (r.motion ? ' · ' + schedEsc(String(r.motion).slice(0, 60)) : '') +
             ' · ' + r.rsvpCount + ' in';
           var action = soon

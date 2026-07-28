@@ -15,10 +15,10 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { sendToManyUsers, pushConfigured } from './lib/webpush.mjs';
 
-const VALID_FORMATS = ['quick', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'casual'];
+const VALID_FORMATS = ['quick', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress', 'casual'];
 const FORMAT_LABEL = {
-  quick: 'Quick Clash', apda: 'APDA', bp: 'BP', worlds: 'Worlds', asian: 'Asian Parli',
-  ld: 'LD', pf: 'PF', policy: 'Policy', casual: 'a casual round',
+  quick: 'General', apda: 'APDA', bp: 'BP', worlds: 'Worlds', asian: 'Asian Parli',
+  ld: 'LD', pf: 'PF', policy: 'Policy', congress: 'Congress', casual: 'a casual round',
 };
 const BROADCAST_COOLDOWN_MS = 10 * 60 * 1000; // one broadcast per debater per 10 min
 const MAX_RECIPIENTS = 500;                    // hard cap on a single fan-out
@@ -35,8 +35,8 @@ export default async (request) => {
 
   let body = {};
   try { body = await request.json(); } catch (e) { body = {}; }
-  let format = String((body && body.format) || 'apda').toLowerCase();
-  if (VALID_FORMATS.indexOf(format) < 0) format = 'apda';
+  let format = String((body && body.format) || 'quick').toLowerCase();
+  if (VALID_FORMATS.indexOf(format) < 0) format = 'quick';
   const name = String((decoded.name || '').split(/\s+/)[0] || 'A debater').slice(0, 40);
 
   const db = getDb();

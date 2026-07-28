@@ -56,7 +56,7 @@ const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 const FORMAT_LABELS = {
   any:      'open',
-  quick:    'Quick Clash',
+  quick:    'General',
   apda:     'APDA',
   bp:       'BP',
   worlds:   'Worlds',

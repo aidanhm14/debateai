@@ -727,6 +727,16 @@ body.lr-pip .lr-pip-notice{display:block}
   text-transform:none;letter-spacing:0;cursor:not-allowed;
 }
 .btn-control-locked:hover{background:var(--ui-soft);border-color:var(--border);transform:none}
+/* During the active round the stepper + explainer lines are redundant
+   with the speech header below; collapse the guide to one calm control
+   line so the screen reads clock-first. Setup + ballot keep the full
+   three-step orientation. */
+.round-guide[data-phase="round"] .round-guide-path{display:none}
+.round-guide[data-phase="round"]{padding:8px 20px 9px}
+.round-guide[data-phase="round"] .rc-kicker{display:none}
+.round-guide[data-phase="round"] .rc-detail{display:none}
+.round-guide[data-phase="round"] .round-control{padding:7px 11px;box-shadow:none}
+.round-guide[data-phase="round"] .rc-owner{width:29px;height:29px;border-radius:9px;font-size:.6rem}
 @media(max-width:620px){
   .round-guide{padding:10px 12px 12px}
   .round-guide-path{gap:6px;margin-bottom:8px}
@@ -791,19 +801,30 @@ body.lr-pip .lr-pip-notice{display:block}
   font-family:inherit;transition:background .15s,border-color .15s}
 .prep-step:hover{background:rgba(34,197,94,.24)}
 .prep-step:disabled{opacity:.35;cursor:default}
-/* Pre-Speech-1 round editor: change resolution + format before the
-   first speech locks the sequence. Hidden once Speech 1 begins. */
-.round-edit-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:10px;margin:12px 22px 0;padding:12px;
+/* Pre-Speech-1 round editor: one summary line (mode name + what it
+   means) with the motion tools + style picker behind Options. Hidden
+   once Speech 1 begins. */
+.round-edit-bar{margin:12px 22px 0;padding:10px 12px;
   border:1px solid var(--border,rgba(255,255,255,.2));border-radius:13px;
   font-size:.85rem;color:var(--text-dim,rgba(255,255,255,.6));background:var(--ui-soft)}
-.round-edit-bar .reb-note{display:flex;flex-direction:column;gap:2px;font-weight:800;color:var(--text)}
+.round-edit-bar .reb-summary{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.round-edit-bar .reb-note{display:flex;flex-direction:column;gap:2px;min-width:0;font-weight:800;color:var(--text)}
 .round-edit-bar .reb-note small{font-size:.72rem;font-weight:550;color:var(--text-dim)}
 .round-edit-bar .reb-edit{min-height:38px;padding:8px 14px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.22));
   width:100%;background:var(--ui-surface);color:var(--text,#fff);font:inherit;font-size:.8rem;font-weight:750;cursor:pointer}
 .round-edit-bar .reb-edit:hover{border-color:var(--text-dim,rgba(255,255,255,.5));background:var(--ui-accent-soft)}
-.round-edit-bar .reb-fmt{grid-column:2/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;font-size:.78rem;font-weight:750;color:var(--text-dim)}
+.round-edit-bar .reb-opts{flex:0 0 auto;width:auto;min-height:34px;padding:7px 13px}
+.round-edit-bar .reb-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:10px;margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--border,rgba(255,255,255,.14))}
+.round-edit-bar .reb-tools[hidden]{display:none}
+.round-edit-bar .reb-lock{grid-column:1/-1;font-size:.72rem;font-weight:600;color:var(--text-dim)}
+.round-edit-bar .reb-fmt{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;font-size:.78rem;font-weight:750;color:var(--text-dim)}
 .round-edit-bar .reb-fmt select{min-height:38px;font:inherit;font-size:.82rem;font-weight:650;padding:7px 34px 7px 10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.22));
   width:100%;min-width:0;background:var(--ui-surface);color:var(--text,#fff);cursor:pointer}
+@media(max-width:620px){
+  .round-edit-bar{margin:10px 12px 0}
+  .round-edit-bar .reb-tools{grid-template-columns:1fr 1fr}
+}
 .round-motion-bar .rmb-motion[contenteditable="true"]{outline:1px dashed var(--accent,#ef4444);outline-offset:3px;border-radius:6px;cursor:text}
 .tag{
   display:inline-flex;padding:5px 11px;border-radius:999px;
@@ -860,8 +881,8 @@ body.lr-pip .lr-pip-notice{display:block}
 
 /* Round phase */
 .speech-header{
-  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 28px;
-  padding:22px 26px;background:var(--ui-surface);
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 28px;
+  padding:16px 26px;background:var(--ui-surface);
   border-top:1px solid var(--border);border-bottom:1px solid var(--border);
 }
 .speech-primary{min-width:0;display:flex;flex-direction:column;justify-content:center}
@@ -986,12 +1007,12 @@ body.lr-pip .lr-pip-notice{display:block}
 [data-theme="light"] .rmb-rec.recording .rmb-rec-elapsed,
 [data-theme="stone"] .rmb-rec.recording .rmb-rec-elapsed{color:#b91c1c}
 .round-roster{
-  display:flex;gap:12px;padding:14px 22px;
+  display:flex;gap:10px;padding:10px 22px;
   border-bottom:1px solid var(--border);
 }
 .roster-card{
-  flex:1;display:flex;align-items:center;gap:12px;
-  min-height:66px;padding:12px 15px;border-radius:13px;
+  flex:1;display:flex;align-items:center;gap:11px;
+  min-height:52px;padding:8px 13px;border-radius:12px;
   border:1px solid var(--border);background:var(--ui-surface);
   transition:background .25s,border-color .25s,box-shadow .25s;
   min-width:0;
@@ -1648,15 +1669,17 @@ html.stage-mode .stage-ov{display:block}
         <div class="label">Format</div>
         <div class="field">
           <select id="formatSel">
-            <option value="quick">Quick Clash · 2 speeches each (fastest test)</option>
-            <option value="apda">APDA Parliamentary · 6 speeches</option>
-            <option value="bp">British Parliamentary · 8 speeches</option>
-            <option value="worlds">Worlds (WUDC) · 8 speeches</option>
-            <option value="asian">Asian Parliamentary · 8 speeches</option>
-            <option value="ld">Lincoln-Douglas · 7 segments</option>
-            <option value="pf">Public Forum · 11 segments</option>
-            <option value="policy">Policy (CX) · 12 segments</option>
-            <option value="congress">Student Congress</option>
+            <option value="quick">General · open clash, 2 speeches each</option>
+            <optgroup label="Competition styles">
+              <option value="apda">APDA Parliamentary · 6 speeches</option>
+              <option value="bp">British Parliamentary · 8 speeches</option>
+              <option value="worlds">Worlds (WUDC) · 8 speeches</option>
+              <option value="asian">Asian Parliamentary · 8 speeches</option>
+              <option value="ld">Lincoln-Douglas · 7 segments</option>
+              <option value="pf">Public Forum · 11 segments</option>
+              <option value="policy">Policy (CX) · 12 segments</option>
+              <option value="congress">Student Congress</option>
+            </optgroup>
           </select>
         </div>
         <div class="label">Speech sequence</div>
@@ -1701,14 +1724,24 @@ html.stage-mode .stage-ov{display:block}
           </div>
         </div>
       </div>
+      <!-- Pre-Speech-1 setup. One calm summary line by default; the
+           motion tools + style picker live behind Options so the round
+           screen stays readable. -->
       <div class="round-edit-bar" id="roundEditBar" hidden>
-        <span class="reb-note">Shared setup <small>Either debater can edit. Locks when Speech 1 starts.</small></span>
-        <button type="button" class="reb-edit" id="rebMotionBtn">Edit resolution</button>
-        <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 New motion</button>
-        <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Add context</button>
-        <label class="reb-fmt">Format
-          <select id="roundFormatSel" aria-label="Debate format"></select>
-        </label>
+        <div class="reb-summary">
+          <span class="reb-note"><span id="rebModeName">General round</span>
+            <small id="rebModeSub">Interruptions are captured by the AI judge. Human judges can watch and score public rounds.</small></span>
+          <button type="button" class="reb-edit reb-opts" id="rebOptionsBtn" aria-expanded="false" aria-controls="rebTools">Options ▾</button>
+        </div>
+        <div class="reb-tools" id="rebTools" hidden>
+          <span class="reb-lock">Shared setup, either debater can edit. Locks when Speech 1 starts.</span>
+          <button type="button" class="reb-edit" id="rebMotionBtn">Edit resolution</button>
+          <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 New motion</button>
+          <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Add context</button>
+          <label class="reb-fmt">Style
+            <select id="roundFormatSel" aria-label="Debate style"></select>
+          </label>
+        </div>
       </div>
       <div class="round-roster" id="roundRoster">
         <div class="roster-card" id="rosterYou">
@@ -1871,7 +1904,11 @@ html.stage-mode .stage-ov{display:block}
   // are humans here, AI only judges at the end). speeches[] is the
   // canonical ordering; each entry has code, name, side, time(seconds).
   var FORMATS = {
-    quick: { name:'Quick Clash', sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'}, speeches:[
+    // 'quick' is the GENERAL default mode (key kept as 'quick' so old
+    // links, queue docs, and mid-flight rounds keep resolving). Open
+    // clash: interruptions are legit and the AI captures them in the
+    // transcript + ballot; competition styles live behind Options.
+    quick: { name:'General', sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'}, speeches:[
       { code:'P1', name:'Pro Opening',  side:'pro', time:180 },
       { code:'C1', name:'Con Opening',  side:'con', time:180 },
       { code:'P2', name:'Pro Rebuttal', side:'pro', time:120 },
@@ -2126,7 +2163,8 @@ html.stage-mode .stage-ov{display:block}
       "- The INDIA CIRCUIT (IIMUN, HMUN India, DAIMUN, Delhi MUN) uses a MORE FORMAL register than American MUN. 'Honorable Chair, the delegate of [country] would like to bring to the attention of the august committee...' is the norm. Calibrate accordingly.",
     ],
     quick: [
-      "- Casual 2-speech format. Plain English only — no debate jargon to evaluate.",
+      "- General open format, 2 speeches a side. Plain English only — no debate jargon to evaluate.",
+      "- Interruptions and crosstalk are legitimate here. If the transcript shows an interjection, judge how it was handled: credit a speaker who absorbs or answers it cleanly, credit a sharp interjection that lands, and never penalize a speaker merely for being interrupted.",
       "- Reward: punch, named specifics, clean engagement with the other side.",
       "- Penalize: throat-clearing, recap, generic moralizing, jargon imports from other formats.",
       "- Speaker scale is 1-10 effort, not a debate-speaks scale. 6-8 typical; 9-10 is rare clean clash.",
@@ -2333,6 +2371,9 @@ html.stage-mode .stage-ov{display:block}
       '<span class="tag">' + escHtml(f.name) + '</span>' +
       sideChips +
       '<span class="tag">' + f.speeches.length + ' speech' + (f.speeches.length===1?'':'es') + '</span>' +
+      (state.formatKey === 'quick'
+        ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Open clash. Interruptions are captured by the AI judge. Human judges can watch and score public rounds. Competition styles are in the Format menu below.</div>'
+        : '') +
       // Agreed judge paradigm from /spar's consent handshake — both
       // debaters signed off on it, so keep it visible in the room.
       (state.paradigm
@@ -2431,6 +2472,9 @@ html.stage-mode .stage-ov{display:block}
     var f = FORMATS[state.formatKey] || FORMATS.quick;
     var rawPhase = state.phase || 'setup';
     var phase = rawPhase === 'ballot-rendered' ? 'ballot' : rawPhase;
+    // CSS keys off this to collapse the stepper + explainer lines while
+    // speeches run; the full guide returns for setup + ballot.
+    guide.setAttribute('data-phase', phase);
     var phaseIdx = phase === 'setup' ? 0 : phase === 'round' ? 1 : 2;
     var ids = ['rgSetup','rgRound','rgBallot'];
     ids.forEach(function(id, idx){
@@ -2655,10 +2699,10 @@ html.stage-mode .stage-ov{display:block}
       var total = f.speeches.length;
       var cur1 = state.speechIdx + 1;
       var remaining = total - cur1;
-      var tail = remaining === 0 ? 'last speech · then ballot'
-        : remaining === 1 ? 'one speech left · then ballot'
-        : (remaining + ' speeches left · then ballot');
-      prog.textContent = 'Speech ' + cur1 + ' of ' + total + ' · ' + tail;
+      // "1 of 4" already says how many are left; keep the tail to the
+      // one fact the count doesn't carry (the ballot comes next).
+      prog.textContent = 'Speech ' + cur1 + ' of ' + total +
+        (remaining === 0 ? ' · ballot next' : ' · then ballot');
     }
     var myTurn = isMyTurn();
     var ms = mySide();
@@ -2682,7 +2726,8 @@ html.stage-mode .stage-ov{display:block}
 
     // In-round editor: before Speech 1, debaters can still fix the
     // resolution + format (format drives speaker count + the AI judging
-    // lens). Locks the moment Speech 1 starts.
+    // lens). Locks the moment Speech 1 starts. Renders as one summary
+    // line; the tools sit behind the Options toggle.
     var reb = $('roundEditBar');
     if (reb){
       var canEdit = !isSpectator() && state.speechIdx === 0 && state.phase === 'round';
@@ -2691,6 +2736,16 @@ html.stage-mode .stage-ov{display:block}
       if (rfs){
         if (!rfs.options.length){ var srcSel = $('formatSel'); if (srcSel) rfs.innerHTML = srcSel.innerHTML; }
         rfs.value = state.formatKey;
+      }
+      var modeName = $('rebModeName'), modeSub = $('rebModeSub');
+      if (modeName && modeSub){
+        if (state.formatKey === 'quick'){
+          modeName.textContent = 'General round';
+          modeSub.textContent = 'Interruptions are captured by the AI judge. Human judges can watch and score public rounds.';
+        } else {
+          modeName.textContent = f.name;
+          modeSub.textContent = f.speeches.length + ' speeches · style and motion stay editable under Options until Speech 1.';
+        }
       }
       if (rmb && !canEdit && rmb.getAttribute('contenteditable') === 'true'){
         rmb.removeAttribute('contenteditable');
@@ -4325,7 +4380,7 @@ html.stage-mode .stage-ov{display:block}
       "    APDA/Worlds/Parli 22–30: 22-23 incoherent, 24 struggling (no link chain, key drops), 25 below average (weak warrants, missed framework, LLM filler), 26 average (basic warrants, no weighing), 27 good (real warrants, some weighing), 28 excellent — would clear at most tournaments, 28.5 late-out-rounds, 29 top-of-field (1 in 50), 30 essentially never given.",
       "    PF/LD 24–30 same shape, default mid scale.",
       "    Policy 25–29 (Policy's range compresses tight).",
-      "    Quick Clash 1–10 effort.",
+      "    General (open format) 1–10 effort.",
       "  DEFAULT TO 25-27. If a speaker dropped a contention, had no real weighing, used generic LLM phrasing, or never warranted a key claim, score them 25 or below. If a speech was fundamentally unfinished, 24 or below — yes, 24-25 happens, it is what an honest ballot looks like when someone is over their head. Do NOT cluster both speakers at 28+ to be encouraging. If one debater clearly outclassed the other, separate by 1.5-3 points, not 0.5.",
       "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
@@ -5527,6 +5582,16 @@ html.stage-mode .stage-ov{display:block}
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(function(){});
     }
+    // Options disclosure: the summary line stays, the tools grid toggles.
+    // State lives in the DOM (hidden attr), so renderRound re-runs leave
+    // an open panel open.
+    var rebOpts = $('rebOptionsBtn'), rebTools = $('rebTools');
+    if (rebOpts && rebTools) rebOpts.addEventListener('click', function(){
+      var open = rebTools.hidden;
+      rebTools.hidden = !open;
+      rebOpts.setAttribute('aria-expanded', open ? 'true' : 'false');
+      rebOpts.textContent = open ? 'Options ▴' : 'Options ▾';
+    });
     var rebBtn = $('rebMotionBtn');
     if (rebBtn) rebBtn.addEventListener('click', function(){
       var rmb = $('rmbMotion'); if (!rmb) return;

@@ -997,8 +997,8 @@
         var sameDay = nd.toDateString() === new Date().toDateString();
         var whenTxt = (sameDay ? 'Today' : nd.toLocaleDateString(undefined, { weekday: 'short' })) +
           ' ' + nd.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-        var fmtNames = { quick: 'Quick Clash', apda: 'APDA', bp: 'BP', worlds: 'Worlds', asian: 'Asian Parli', ld: 'LD', pf: 'Public Forum', policy: 'Policy' };
-        var schedSub = escHtml(whenTxt) + ' · ' + (fmtNames[nextRound.format] || 'Quick Clash') +
+        var fmtNames = { quick: 'General', apda: 'APDA', bp: 'BP', worlds: 'Worlds', asian: 'Asian Parli', ld: 'LD', pf: 'Public Forum', policy: 'Policy', congress: 'Congress' };
+        var schedSub = escHtml(whenTxt) + ' · ' + (fmtNames[nextRound.format] || 'General') +
           (nextRound.rsvpCount > 0 ? ' · ' + nextRound.rsvpCount + ' in' : '');
         html += '<div class="ui-bell-list">' +
           '<a class="ui-bell-row" href="/community?from=bell-sched">' +
@@ -1113,7 +1113,7 @@
     var STALE_MS = 3 * 60 * 1000;             // ignore peers older than this
     var COUNTDOWN_S = 20;                     // accept window
     var REINVITE_COOLDOWN_MS = 2 * 60 * 1000; // after a decline/timeout, stay quiet this long before any re-invite
-    var VALID =['quick','apda','bp','worlds','asian','ld','pf','policy','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
+    var VALID =['quick','apda','bp','worlds','asian','ld','pf','policy','congress','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
     // Don't run the matcher ON an active round (notifications.js loads on
     // /live-round + /voice-debate too) — you're already debating; being
     // re-queued as "waiting" there would pop a match mid-round.

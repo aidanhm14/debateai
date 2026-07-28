@@ -88,7 +88,7 @@ function formatLabel(key) {
     bp: 'British Parliamentary',
     worlds: 'Worlds',
     asian: 'Asian Parliamentary',
-    quick: 'Quick Clash',
+    quick: 'General',
     courtroom: 'Courtroom',
     pitch: 'Pitch Defense',
     negotiation: 'Negotiation',
