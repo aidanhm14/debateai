@@ -31,6 +31,7 @@
 
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
+import { checkLayers, callerIp } from './lib/rate-limit.mjs';
 import { TOKENS, TOKENS_LIVE, getTokenBalance, spendTokens } from './lib/tokens.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 
@@ -249,38 +250,31 @@ function getCorsHeaders(request) {
   };
 }
 
-// Realtime sessions are EXPENSIVE (audio in + audio out, both billed).
-// Cap aggressively per IP. A real Pro-gating story will land later;
-// this is the floor that protects the OpenAI bill on day one.
+// Realtime sessions are EXPENSIVE (audio in + audio out, both billed), so
+// every caller is metered. WHAT the meter keys on depends on whether we
+// know who they are.
 //
-// Layered: hour cap stops bursts, day cap stops sustained abuse.
-// 6/hour was the only gate until 2026-05-18; added 10/day on the
-// credit-burn audit because 6×24 = 144 voice mints/day per IP was
-// hypothetical-bot territory and each mint is billed per-minute of
-// audio. 10/day comfortably covers any real human's daily practice.
-const VOICE_LAYERS = [
+// Anonymous callers have no identity but their IP, and unauthenticated
+// mints are the abuse surface, so they stay capped per IP. 6/hour was the
+// only gate until 2026-05-18; 10/day was added on the credit-burn audit
+// because 6×24 = 144 mints/day per IP was bot territory.
+const VOICE_LAYERS_ANON = [
   { window: 60 * 60_000,    max: 6,  label: 'hour' },
   { window: 86_400_000,     max: 10, label: 'day'  },
 ];
-const rateLimitHistory = new Map(); // key → array of request timestamps
 
-function checkRateLimit(key) {
-  const now = Date.now();
-  const maxWindow = Math.max(...VOICE_LAYERS.map(l => l.window));
-  const history = (rateLimitHistory.get(key) || []).filter(t => now - t < maxWindow);
-  for (const layer of VOICE_LAYERS) {
-    const count = history.filter(t => now - t < layer.window).length;
-    if (count >= layer.max) return { ok: false, layer: layer.label };
-  }
-  history.push(now);
-  rateLimitHistory.set(key, history);
-  if (rateLimitHistory.size > 5000) {
-    const entries = Array.from(rateLimitHistory.entries());
-    rateLimitHistory.clear();
-    entries.slice(-2500).forEach(([k, v]) => rateLimitHistory.set(k, v));
-  }
-  return { ok: true };
-}
+// Signed-in callers are metered per UID instead (2026-07-28). Keying them
+// on IP put a whole building behind one counter: at a school tournament
+// every debater shares one NAT'd public IP, so the 7th voice round of the
+// hour got a 429 regardless of who started it or what they had paid. The
+// cap fired before the plan gate, so a paying user was blocked by someone
+// else's practice. Entitlement is enforced properly below
+// (FREE_VOICE_LIFETIME_LIMIT, plan, token balance); these layers only stop
+// one account running away, so they can be generous.
+const VOICE_LAYERS_USER = [
+  { window: 60 * 60_000,    max: 30,  label: 'hour' },
+  { window: 86_400_000,     max: 100, label: 'day'  },
+];
 
 // CHARACTER preamble prepended to every mode prompt. Powers the
 // gamified persona system on the client: each user picks one of N
@@ -880,14 +874,39 @@ export default async (request, context) => {
     }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  const ip = request.headers.get('x-forwarded-for')
-    || request.headers.get('x-nf-client-connection-ip')
-    || 'anon';
-  const rtCheck = checkRateLimit('rt_' + ip);
+  // ── Identify the caller BEFORE metering ───────────────────────────
+  // verifyIdToken is a JWKS-cached signature check with no Firestore
+  // reads, so doing it here is cheap. It is what lets the limiter below
+  // key on the person rather than the building they are sitting in. The
+  // decoded token is reused by the usage gate further down, so the token
+  // is verified once per request, not twice.
+  let signedInUid = null;
+  let earlyDecoded = null;
+  try {
+    const token = extractBearerToken(request);
+    if (token) {
+      earlyDecoded = await verifyIdToken(token);
+      signedInUid = earlyDecoded.sub;
+    }
+  } catch (authErr) {
+    // Invalid or expired token: fall through as anonymous and let the
+    // per-IP layers apply. Not an error worth failing the request over.
+    console.warn('[realtime-session] token verify soft-failed:', authErr && authErr.message);
+    earlyDecoded = null;
+    signedInUid = null;
+  }
+
+  const rtCheck = signedInUid
+    ? await checkLayers('voice', 'uid_' + signedInUid, VOICE_LAYERS_USER)
+    : await checkLayers('voice', 'ip_' + callerIp(request), VOICE_LAYERS_ANON);
   if (!rtCheck.ok) {
-    const msg = rtCheck.layer === 'hour'
-      ? 'Too many live debate sessions started. Wait an hour.'
-      : 'Daily voice-debate cap reached on this IP. Come back tomorrow.';
+    const msg = signedInUid
+      ? (rtCheck.layer === 'hour'
+          ? 'You have started a lot of voice rounds this hour. Wait a bit and try again.'
+          : 'You have hit today\'s voice-round limit on this account. Come back tomorrow.')
+      : (rtCheck.layer === 'hour'
+          ? 'Too many live debate sessions started. Wait an hour, or sign in for a higher limit.'
+          : 'Daily voice-debate cap reached on this network. Sign in for a higher limit, or come back tomorrow.');
     return new Response(JSON.stringify({
       error: 'RATE_LIMIT_' + rtCheck.layer.toUpperCase() + ': ' + msg,
     }), { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } });
@@ -900,16 +919,15 @@ export default async (request, context) => {
   // compute the verdict here so we can reject before paying the OpenAI
   // mint cost. The actual increment happens AFTER the mint succeeds —
   // failed mints don't burn the user's quota.
-  let signedInUid = null;
+  // signedInUid + earlyDecoded were resolved above (before rate limiting);
+  // reuse them rather than verifying the same token a second time.
   let isPro = false;
   let voiceUsedBefore = 0;
   let tokenFunded = false;
   let tokenBalance = 0;
   try {
-    const token = extractBearerToken(request);
-    if (token){
-      const decoded = await verifyIdToken(token);
-      signedInUid = decoded.sub;
+    const decoded = earlyDecoded;
+    if (decoded){
       if (isOwnerEmail(decoded.email)){
         // Owner bypass BEFORE the Firestore reads: with quota blown those
         // reads stall ~10s each before failing, which delays the mint.

@@ -6224,10 +6224,41 @@ html.stage-mode .stage-ov{display:block}
 
   // ── Watcher presence + count ─────────────────────────
   // Spectators write a heartbeat doc to live_rounds/{room}/watchers/{uid};
-  // everyone (debaters + watchers) subscribes and renders the live count.
-  // Counts only heartbeats touched in the last 75s so a closed tab drops
-  // off within ~one cycle even when pagehide doesn't fire (iOS).
+  // everyone (debaters + watchers) renders the live count. Counts only
+  // heartbeats touched in the last 75s so a closed tab drops off within
+  // ~one cycle even when pagehide doesn't fire (iOS).
+  //
+  // COUNTING IS DONE BY THE SEATED DEBATERS, NOT BY EVERY VIEWER
+  // (changed 2026-07-28). This used to be col.onSnapshot() with no limit
+  // on every client, so each viewer streamed every watcher document: N
+  // spectators heartbeating every 30s, fanned out to N listeners, meant
+  // the reads behind one number grew as N SQUARED (~2N²/min). 50
+  // spectators was ~5K reads/min, 200 was ~80K, 500 was ~500K (~$18/hr
+  // for a counter), and every browser in the room re-processed all N
+  // docs on every beat, which is what actually made big rooms janky.
+  //
+  // Firestore's count() aggregation would be the obvious fix, but it is
+  // MODULAR-SDK ONLY. Verified against the compat builds this page loads:
+  // Query.count is undefined in both 10.5.0 and 11.10.0. Don't "restore"
+  // it without re-checking that.
+  //
+  // So: seated debaters already write a presence beat to the round doc
+  // every 30s (see seatBeat below), and every client in the room already
+  // listens to that doc. Folding the count into that existing write makes
+  // it free to distribute. Cost is now ~4N reads/min TOTAL (two debaters
+  // reading N watcher docs each per beat) regardless of how many people
+  // are watching, and a spectator pays nothing at all. At 500 spectators
+  // that is ~2K reads/min against the old ~500K.
+  //
+  // Trade-off, deliberate: with nobody seated (spectator-only replay
+  // viewing) the number stops updating and holds its last value rather
+  // than dropping to zero. A frozen count beats a wrong one.
   var WATCH_HB_MS = 30000;
+  var WATCH_STALE_MS = 75000;
+  // Runaway guard. Past this the pill reads "N+" instead of an exact
+  // number, so one enormous room can't quietly become the expensive case
+  // this whole change exists to avoid.
+  var WATCH_COUNT_CAP = 1000;
   function watchersRef(){
     var r = getRoundDocRef();
     return r ? r.collection('watchers') : null;
@@ -6242,16 +6273,10 @@ html.stage-mode .stage-ov{display:block}
     // (a) I'm a spectator → write + heartbeat my presence.
     if (isSpectator()) startSpectatorBeat();
 
-    // (b) Everyone subscribes to the count.
-    state.watchUnsub = col.onSnapshot(function(snap){
-      var now = Date.now(), live = 0;
-      snap.forEach(function(d){
-        var t = (d.data() || {}).ts;
-        var ms = (t && t.toMillis) ? t.toMillis() : now; // unresolved serverTimestamp = just written
-        if (now - ms < 75000) live++;
-      });
-      renderWatchCount(live);
-    }, function(){});
+    // (b) Nobody subscribes to the watchers collection. The count arrives
+    // on the round doc, which every client in the room already has a
+    // listener on, so rendering it costs a spectator nothing. Seated
+    // debaters compute it in seatBeat below; see the note there.
 
     // (c) Participants choose whether the round is discoverable.
     if (!isSpectator()){
@@ -6317,7 +6342,26 @@ html.stage-mode .stage-ov{display:block}
             beat.seatSeen = {};
             beat.seatSeen[state.user.uid] = firebase.firestore.FieldValue.serverTimestamp();
           }
-          rref.set(beat, { merge: true }).catch(function(){});
+          // Fold the audience count into this same write so the whole room
+          // gets it through the round-doc listener it already has, instead
+          // of every viewer subscribing to the watchers collection. The
+          // freshness filter runs SERVER-side, so stale heartbeats are
+          // never fetched; `ts` is a plain field, so Firestore's automatic
+          // single-field index covers it and there is no composite index
+          // to deploy. Both debaters do this (2x a small number is still a
+          // small number) rather than running a leader election that could
+          // strand the count when the leader's tab dies.
+          var wcol = watchersRef();
+          if (!wcol){ rref.set(beat, { merge: true }).catch(function(){}); return; }
+          wcol.where('ts', '>', new Date(Date.now() - WATCH_STALE_MS))
+              .limit(WATCH_COUNT_CAP + 1)
+              .get()
+              .then(function(snap){
+                beat.watchCount = snap.size;
+                beat.watchCountCapped = snap.size > WATCH_COUNT_CAP;
+              })
+              .catch(function(){ /* count is optional; never block the beat */ })
+              .then(function(){ rref.set(beat, { merge: true }).catch(function(){}); });
         };
         seatBeat();
         state.seatHbInterval = setInterval(seatBeat, WATCH_HB_MS);
@@ -6349,10 +6393,10 @@ html.stage-mode .stage-ov{display:block}
     window.addEventListener('pagehide', function(){ mine.delete().catch(function(){}); });
   }
 
-  function renderWatchCount(n){
+  function renderWatchCount(n, capped){
     var pill = document.getElementById('watchCountPill');
     var num = document.getElementById('watchCountNum');
-    if (num) num.textContent = n;
+    if (num) num.textContent = capped ? (WATCH_COUNT_CAP + '+') : n;
     if (!pill) { updateRoomStage(); return; }
     if (n > 0){
       pill.hidden = false;
@@ -6632,6 +6676,13 @@ html.stage-mode .stage-ov{display:block}
 
   function onRoundSnapshot(d){
     var changedSetup = false;
+    // Audience count rides the round doc (written by seatBeat). Only
+    // render when the field is actually present, so a round doc from
+    // before this shipped, or a beat that raced ahead of its count read,
+    // leaves the last known number up instead of blanking the pill.
+    if (typeof d.watchCount === 'number'){
+      renderWatchCount(d.watchCount, !!d.watchCountCapped);
+    }
     // Opponent forfeited (spar 'Next →' was hit by the other side).
     // Show a banner + auto-bounce back to the queue after 4s so we
     // re-pair instead of staring at an abandoned round.
