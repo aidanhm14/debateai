@@ -83,12 +83,19 @@
         let sum = 0;
         for (let i = 0; i < buf.length; i++) { const d = (buf[i] - 128) / 128; sum += d * d; }
         const rms = Math.sqrt(sum / buf.length);            // ~0.01 quiet, ~0.2 loud
-        const target = Math.min(1, Math.max(0, (rms - 0.015) * 9));
+        // Perceptual curve, not linear RMS. Conversational speech sits
+        // around 0.04-0.09 rms, which the old linear map turned into a
+        // half-open mouth that barely moved; the exponent lifts the quiet
+        // half of the range so ordinary talking actually reads as talking.
+        const raw = Math.min(1, Math.max(0, (rms - 0.012) * 10));
+        const target = Math.pow(raw, 0.72);
         // Time-based smoothing (fast attack, slower release) so the mouth
         // behaves the same at 30fps and in a 1fps background-throttled tab.
+        // Attack is deliberately quick: syllables land on the beat, and a
+        // slow attack is what made the mouth look dubbed.
         const now = performance.now();
         const dt = Math.min(1000, now - lastT); lastT = now;
-        const a = 1 - Math.exp(-dt / (target > smooth ? 60 : 250));
+        const a = 1 - Math.exp(-dt / (target > smooth ? 38 : 190));
         smooth += (target - smooth) * a;
         return smooth;
       },
@@ -187,7 +194,14 @@
     const fx = f.yaw * R * 0.34;                 // feature shift, x
     const fy = f.pitch * R * 0.26;               // feature shift, y
 
-    ctx.beginPath(); ctx.ellipse(0, 0, R * 0.90 * squash, R * 1.02, 0, 0, Math.PI * 2);
+    // Openness drives the whole lower face, not just the lips. A real jaw
+    // lengthens the head as it drops; without this the mouth reads as a hole
+    // punched in a rigid mask.
+    const openAmt = Math.pow(clamp(Math.max(f.jaw, level * 0.85), 0, 1), 0.75);
+    const jawDrop = openAmt * R * 0.075;
+
+    ctx.beginPath();
+    ctx.ellipse(0, jawDrop * 0.5, R * 0.90 * squash, R * 1.02 + jawDrop * 0.5, 0, 0, Math.PI * 2);
     ctx.fillStyle = HEAD; ctx.fill();
     ctx.lineWidth = Math.max(3, R * 0.035); ctx.strokeStyle = RED; ctx.stroke();
     // soft top light so the head reads as a form, not a flat disc
@@ -195,7 +209,8 @@
     hl.addColorStop(0, 'rgba(240,237,230,0.07)');
     hl.addColorStop(0.55, 'rgba(240,237,230,0.015)');
     hl.addColorStop(1, 'rgba(240,237,230,0)');
-    ctx.beginPath(); ctx.ellipse(0, 0, R * 0.90 * squash, R * 1.02, 0, 0, Math.PI * 2);
+    ctx.beginPath();
+    ctx.ellipse(0, jawDrop * 0.5, R * 0.90 * squash, R * 1.02 + jawDrop * 0.5, 0, 0, Math.PI * 2);
     ctx.fillStyle = hl; ctx.fill();
 
     // domino mask band (the anonymity mark): two lobes + bridge
@@ -242,22 +257,53 @@
     ctx.quadraticCurveTo(fx + ex, by - R * 0.05 + f.browDown * R * 0.02, fx + ex - bw2 * 0.5, by + browTilt - R * 0.03);
     ctx.stroke();
 
-    // mouth: corners lift with smile, opens with jaw/mic, teeth + throat
-    const moY = R * 0.47 + fy * 0.9, open = 3 + f.jaw * R * 0.36;
-    const moW = R * (0.46 + f.smile * 0.16 - f.pucker * 0.18) * squash;
-    const cornerY = moY - f.smile * R * 0.11;
+    // Mouth. Openness drives height AND pulls the corners in, because a jaw
+    // drop physically narrows the mouth; the old shape only got taller, which
+    // is what made a wide-open mouth read as a red stripe. Corners lift with
+    // smile, pucker rounds it, and the lower lip carries most of the travel.
+    const moY = R * 0.44 + fy * 0.9 + jawDrop * 0.75;
+    // A pucker is narrow AND tall, so it takes height back rather than just
+    // shrinking to nothing; the resting floor keeps lips visible when shut.
+    const openH = R * (0.036 + openAmt * 0.33) * (1 + f.pucker * 0.38);
+    const moW = R * (0.46 + f.smile * 0.17 - f.pucker * 0.13 - openAmt * 0.11) * squash;
+    const cornerY = moY - f.smile * R * 0.10;
+    const upperY = moY - openH * 0.34 - f.smile * R * 0.02;
+    const lowerY = moY + openH * 0.86 + f.smile * R * 0.05;
+
+    // lip body: cupid's bow on top (two curves meeting at centre), one
+    // sweep underneath, so the silhouette is a mouth and not a lens
+    // Outer control points stay near the corner height on both curves, so the
+    // corners close to a soft point. Pulling them to the lip extremes instead
+    // darts the corners into spikes at wide openings.
     ctx.beginPath();
     ctx.moveTo(fx - moW, cornerY);
-    ctx.quadraticCurveTo(fx, moY - open * 0.75, fx + moW, cornerY);
-    ctx.quadraticCurveTo(fx, moY + open + f.smile * R * 0.08, fx - moW, cornerY);
+    ctx.bezierCurveTo(fx - moW * 0.70, cornerY - openH * 0.34, fx - moW * 0.30, upperY, fx, upperY + openH * 0.05);
+    ctx.bezierCurveTo(fx + moW * 0.30, upperY, fx + moW * 0.70, cornerY - openH * 0.34, fx + moW, cornerY);
+    ctx.bezierCurveTo(fx + moW * 0.74, cornerY + openH * 0.44, fx + moW * 0.34, lowerY, fx, lowerY);
+    ctx.bezierCurveTo(fx - moW * 0.34, lowerY, fx - moW * 0.74, cornerY + openH * 0.44, fx - moW, cornerY);
     ctx.closePath();
     ctx.fillStyle = RED; ctx.fill();
-    if (open > R * 0.09) {
+
+    // cavity: only once the mouth is genuinely open, and inset from the lip
+    // line so the lips stay readable as lips at every openness
+    if (openH > R * 0.075) {
       ctx.save(); ctx.clip();
-      ctx.fillStyle = THROAT;
-      ctx.fillRect(fx - moW, moY + open * 0.15, moW * 2, open);
-      ctx.fillStyle = 'rgba(240,237,230,0.92)';
-      ctx.fillRect(fx - moW * 0.72, cornerY - open * 0.55, moW * 1.44, open * 0.42);
+      const inner = ctx.createLinearGradient(0, moY - openH, 0, moY + openH);
+      inner.addColorStop(0, THROAT);
+      inner.addColorStop(1, '#5e1212');
+      ctx.fillStyle = inner;
+      ctx.beginPath();
+      ctx.ellipse(fx, moY + openH * 0.22, moW * 0.76, openH * 0.72, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Upper teeth: a thin band tucked under the top lip, not a slab. Sized
+      // large it reads as dentures, which is worse than no teeth at all.
+      const teeth = clamp((openAmt - 0.20) / 0.55, 0, 1);
+      if (teeth > 0) {
+        ctx.fillStyle = 'rgba(240,237,230,' + (0.84 * teeth) + ')';
+        ctx.beginPath();
+        ctx.ellipse(fx, upperY + openH * 0.24, moW * 0.58, openH * 0.16 * teeth, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
 
@@ -363,7 +409,13 @@
       t.roll = Math.sin(s * 0.17 + ph2) * 0.05;
       t.x = Math.sin(s * 0.13 + ph1) * 0.10;
       t.y = Math.sin(s * 0.19 + ph3) * 0.06;
-      t.jaw = level * 0.9;
+      // Syllable wobble: a mouth driven by a smoothed envelope alone opens
+      // and closes like a hinge. Two detuned oscillators, scaled by how loud
+      // the speech is, break the envelope into something with a beat.
+      const wob = (Math.sin(s * 17.0 + ph1) * 0.5 + Math.sin(s * 26.3 + ph2) * 0.3) * level * 0.18;
+      t.jaw = clamp(level + wob, 0, 1);
+      // vowels round the mouth as they open; consonants pull it wide
+      t.pucker = clamp(level * 0.30 + Math.sin(s * 9.1 + ph3) * level * 0.12, 0, 0.45);
       t.browUp = clamp(level * 0.5 - 0.05, 0, 0.5);
       t.gazeX = t.yaw * 0.5;
       if (now > nextBlink) { blinkUntil = now + 150; nextBlink = now + 2500 + Math.random() * 4000; }
@@ -372,14 +424,18 @@
     }
 
     function smoothInto(dst, src, dt) {
-      // pose eases slower than expressions; blinks snap
+      // pose eases slower than expressions; jaw is faster than the rest of
+      // the face (speech is the fastest thing on a face, and a jaw eased at
+      // expression speed lags the audio enough to read as a dub); blinks snap
       const aPose = 1 - Math.exp(-dt / 110);
       const aExpr = 1 - Math.exp(-dt / 65);
+      const aJaw = 1 - Math.exp(-dt / (src.jaw > dst.jaw ? 26 : 80));
       const aBlink = 1 - Math.exp(-dt / 28);
       const P = ['x', 'y', 's', 'yaw', 'pitch', 'roll'];
-      const E = ['jaw', 'smile', 'pucker', 'browUp', 'browDown', 'gazeX', 'gazeY'];
+      const E = ['smile', 'pucker', 'browUp', 'browDown', 'gazeX', 'gazeY'];
       for (let i = 0; i < P.length; i++) dst[P[i]] += (src[P[i]] - dst[P[i]]) * aPose;
       for (let i = 0; i < E.length; i++) dst[E[i]] += (src[E[i]] - dst[E[i]]) * aExpr;
+      dst.jaw += (src.jaw - dst.jaw) * aJaw;
       dst.blinkL += (src.blinkL - dst.blinkL) * aBlink;
       dst.blinkR += (src.blinkR - dst.blinkR) * aBlink;
     }
@@ -418,7 +474,7 @@
           src = tracked ? target : idleTargets(now, lv);
           // even while tracked, loud speech guarantees some mouth motion
           // (covers tracking lag and off-axis faces)
-          if (tracked) src.jaw = Math.max(src.jaw, lv * 0.55);
+          if (tracked) src.jaw = Math.max(src.jaw, lv * 0.8);
         }
         smoothInto(face, src, dt);
         drawAvatar(ctx, OUT_W, OUT_H, label, face, lv, now);
