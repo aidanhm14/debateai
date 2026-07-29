@@ -43,6 +43,8 @@
 <script src="/js/round-prefs.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/transcript-consent.js"></script>
+<script defer src="/js/voice-transcript.js"></script>
 
 <style>
 :root{
@@ -1311,6 +1313,18 @@ let lastActiveAt = 0;              // last moment the mic carried speech-level a
 let lastAiDoneAt = 0;              // when the AI last finished a response
 let nudgeFired = false;            // one re-engage nudge per lull
 let turns = [];                    // {who:'you'|'ai', text}
+/* Durable transcript capture (app/js/voice-transcript.js). The session
+   resolves asynchronously because it has to load the firestore SDK and
+   clear the consent prompt, and the user can easily land a turn or two
+   before that finishes, so turns queue until it resolves. A declined
+   prompt resolves to a null session and the queue is dropped. */
+let vtSession = null, vtPending = [], vtResolved = false;
+function vtPush(who, text){
+  if (!text) return;
+  const turn = { who, text, t: startedAt ? Date.now() - startedAt : 0 };
+  if (vtSession) { vtSession.push(turn); return; }
+  if (!vtResolved && vtPending.length < 40) vtPending.push(turn);
+}
 let aiLive = '';                   // streaming AI caption
 let connectAbort = null, connectWatchdog = null;
 let muted = false;
@@ -1723,6 +1737,21 @@ async function start(){
   status = 'live';
   startedAt = Date.now();
   turns = []; aiLive = '';
+  // Durable capture, gated on consent. Starts async and may resolve to
+  // null (declined, no account, no SDK); pushTranscriptTurn handles that,
+  // and turns spoken before it resolves are replayed from `turns` so the
+  // opening exchange is not lost to the round-trip.
+  vtSession = null; vtPending = []; vtResolved = false;
+  if (window.VoiceTranscript) {
+    VoiceTranscript.start({
+      surface: 'newvoice', motion: motion, mode: 'clash',
+      format: 'clash', side: side, persona: 'clash',
+    }).then((s) => {
+      vtSession = s; vtResolved = true;
+      if (s) vtPending.forEach((tn) => s.push(tn));
+      vtPending = [];
+    }).catch(() => { vtResolved = true; vtPending = []; });
+  } else { vtResolved = true; }
   $('stageMotion').textContent = motion;
   capYouText.textContent = pttMode
     ? 'Tap to speak when you are ready. Tap again to hand the floor back.'
@@ -2020,6 +2049,7 @@ function handleEvent(e){
       const text = (e.transcript || '').trim();
       if (text) {
         turns.push({ who: 'you', text });
+        vtPush('you', text);
         capYouText.textContent = text;
         capYouText.classList.remove('idle');
         renderTs();
@@ -2052,7 +2082,7 @@ function handleEvent(e){
     case 'response.audio_transcript.done':
     case 'response.output_audio_transcript.done': {
       const text = ((e.transcript || aiLive) || '').trim();
-      if (text) { turns.push({ who: 'ai', text }); capAiText.textContent = text; renderTs(); }
+      if (text) { turns.push({ who: 'ai', text }); vtPush('ai', text); capAiText.textContent = text; renderTs(); }
       break;
     }
     case 'response.done':
@@ -2280,6 +2310,8 @@ function endRound(){
   // so re-saving updates in place while a fresh round gets its own row.
   roundId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   resetSaveBtn();
+  if (vtSession) { try { vtSession.finish({ status: 'complete', roundId }); } catch (e) {} }
+  vtSession = null; vtPending = [];
   logRound();
   cleanup();
   // recap
@@ -2381,9 +2413,16 @@ function judgeRound(){
 }
 
 /* Feed the learning loop, best-effort. Signed-in rounds land under the
-   uid; anonymous rounds ride a hashed session id, never contributable. */
+   uid; anonymous rounds ride a hashed session id, never contributable.
+
+   Gated on the same consent as durable capture. This used to fire
+   unconditionally, which would have made the new prompt a lie: someone
+   who declined would still have had every word of the round written to
+   the generations collection. Declining has to mean the text is not
+   stored anywhere, not just that one collection skips it. */
 function logRound(){
   try {
+    if (!(window.TranscriptConsent && TranscriptConsent.granted())) return;
     const t = turns.filter((x) => x && x.who !== 'judge' && (x.text || '').trim());
     if (t.length < 2) return;
     const payload = {

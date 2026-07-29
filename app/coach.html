@@ -1046,6 +1046,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     user: null, starting: false, pc: null, micStream: null, dc: null,
     partialUser: '', partialAgent: '', muted: false,
     audioCtx: null, analyser: null, raf: 0, timerId: 0, startedAt: 0,
+    vt: null, vtPending: [], vtResolved: false,
     recommended: '', // drill key the coach recommends from the profile
   };
 
@@ -1509,6 +1510,18 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   // ── Session timer ───────────────────────────────────────────
   function startTimer() {
     state.startedAt = Date.now();
+    // Durable transcript capture, consent-gated. See app/js/voice-transcript.js.
+    state.vt = null; state.vtPending = []; state.vtResolved = false;
+    if (window.VoiceTranscript) {
+      VoiceTranscript.start({
+        surface: 'coach', motion: (els.motionInput.value || '').trim(),
+        mode: loadDrill(), format: 'coach'
+      }).then(function(sess){
+        state.vt = sess; state.vtResolved = true;
+        if (sess) state.vtPending.forEach(function(t){ sess.push(t); });
+        state.vtPending = [];
+      }).catch(function(){ state.vtResolved = true; state.vtPending = []; });
+    } else { state.vtResolved = true; }
     els.timer.hidden = false;
     function paint() {
       var s = Math.floor((Date.now() - state.startedAt) / 1000);
@@ -1682,7 +1695,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
         coachState('listening');   // you're talking; the coach listens
         break;
       case 'conversation.item.input_audio_transcription.completed':
-        if (typeof msg.transcript === 'string') appendOrUpdateRow('you', msg.transcript, true);
+        if (typeof msg.transcript === 'string') { appendOrUpdateRow('you', msg.transcript, true); vtPush('you', msg.transcript); }
         state.partialUser = '';
         coachState('thinking');    // you stopped; the coach considers before it answers
         break;
@@ -1693,7 +1706,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
         break;
       case 'response.output_audio_transcript.done':
       case 'response.audio_transcript.done':
-        if (typeof msg.transcript === 'string') appendOrUpdateRow('coach', msg.transcript, true);
+        if (typeof msg.transcript === 'string') { appendOrUpdateRow('coach', msg.transcript, true); vtPush('ai', msg.transcript); }
         state.partialAgent = '';
         coachState('listening');   // coach done; back to listening for you
         break;
@@ -1761,7 +1774,18 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   }
 
   // Full reset used by start-error paths.
-  function stopSession() { teardown(); resetToSetup(); }
+  function vtPush(who, text) {
+    var body = (text || '').trim();
+    if (!body) return;
+    var turn = { who: who, text: body, t: state.startedAt ? Date.now() - state.startedAt : 0 };
+    if (state.vt) { state.vt.push(turn); return; }
+    if (!state.vtResolved && state.vtPending.length < 40) state.vtPending.push(turn);
+  }
+  function vtFinish() {
+    try { if (state.vt) state.vt.finish({ status: 'complete' }); } catch (e) {}
+    state.vt = null; state.vtPending = [];
+  }
+  function stopSession() { vtFinish(); teardown(); resetToSetup(); }
 
   els.endBtn.addEventListener('click', endSession);
   els.againBtn.addEventListener('click', resetToSetup);
@@ -1780,6 +1804,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   // User-initiated end → tear down, then write a short debrief from the
   // transcript (signed-in only, and only if there's enough to read).
   function endSession() {
+    vtFinish();
     teardown();
     var rows = readTranscript();
     var userTurns = 0;
@@ -1810,6 +1835,9 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   // spot in the learning loop. Signed-in only (the coach requires sign-in).
   function flushCoachRound(rows, userTurns) {
     if (!state.user || userTurns < 1 || rows.length < 2) return;
+    // Same consent gate as durable capture: declining has to stop the
+    // words reaching every collection, not just the new one.
+    if (!(window.TranscriptConsent && TranscriptConsent.granted())) return;
     try {
       var drill = loadDrill();
       var motion = (els.motionInput.value || '').trim().slice(0, 2000);
@@ -1901,5 +1929,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
 </script>
 
   <script src="/js/home-magnet.js" defer></script>
+<script defer src="/js/transcript-consent.js"></script>
+<script defer src="/js/voice-transcript.js"></script>
 </body>
 </html>

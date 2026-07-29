@@ -434,7 +434,8 @@ textarea.ctl{min-height:76px;resize:vertical}
   var state = {
     user:null, pc:null, dc:null, captureStream:null, audioCtx:null, analyser:null, raf:0,
     startedAt:0, timerId:0, starting:false, live:false, voiceOn:false,
-    rows:[], partialRoom:'', partialJudge:'', twitchWs:null, chatBuffer:[], chatFlushId:0, transcriptId:null
+    rows:[], partialRoom:'', partialJudge:'', twitchWs:null, chatBuffer:[], chatFlushId:0, transcriptId:null,
+    vt:null, vtPending:[], vtResolved:false, vtStartedAt:0
   };
 
   function cleanChannel(v){ return String(v || '').replace(/^@/,'').replace(/[^A-Za-z0-9_]/g,'').slice(0,80); }
@@ -539,6 +540,11 @@ textarea.ctl{min-height:76px;resize:vertical}
     text = String(text || '').trim();
     if (!text) return;
     state.rows.push({ kind:kind, text:text, meta:meta || '', at:Date.now() });
+    // Durable capture. addRow is the single funnel every spoken line and
+    // judge note passes through, so hooking here covers the whole room
+    // without touching each realtime event case. Twitch chat is excluded:
+    // it is third-party text from people who never saw a consent prompt.
+    if (kind !== 'chat') vtPush(kind === 'judge' ? 'ai' : 'you', text);
     if (state.rows.length > 260) state.rows = state.rows.slice(-260);
     renderRows();
     paintMeters();
@@ -647,6 +653,16 @@ textarea.ctl{min-height:76px;resize:vertical}
     els.startBtn.textContent = 'Starting...';
     els.ballot.classList.remove('on');
     state.rows = [];
+    state.vtStartedAt = Date.now();
+    state.vt = null; state.vtPending = []; state.vtResolved = false;
+    if (window.VoiceTranscript) {
+      VoiceTranscript.start({ surface:'room-judge', motion:(state.motion||''), mode:'room', format:'room-judge' })
+        .then(function(sess){
+          state.vt = sess; state.vtResolved = true;
+          if (sess) state.vtPending.forEach(function(t){ sess.push(t); });
+          state.vtPending = [];
+        }).catch(function(){ state.vtResolved = true; state.vtPending = []; });
+    } else { state.vtResolved = true; }
     state.partialRoom = '';
     state.partialJudge = '';
     renderRows();
@@ -856,7 +872,16 @@ textarea.ctl{min-height:76px;resize:vertical}
     });
   });
 
+  function vtPush(who, text){
+    var body = String(text || '').trim();
+    if (!body) return;
+    var turn = { who: who, text: body, t: state.vtStartedAt ? Date.now() - state.vtStartedAt : 0 };
+    if (state.vt) { state.vt.push(turn); return; }
+    if (!state.vtResolved && (state.vtPending || []).length < 40) (state.vtPending = state.vtPending || []).push(turn);
+  }
   function teardown(){
+    try { if (state.vt) state.vt.finish({ status:'complete' }); } catch (e) {}
+    state.vt = null; state.vtPending = [];
     state.starting = false;
     state.live = false;
     stopTimer();
@@ -995,6 +1020,8 @@ textarea.ctl{min-height:76px;resize:vertical}
   }
   async function logGeneration(ballot, prompt){
     if (!state.user) return;
+    // Consent gate, same as durable capture.
+    if (!(window.TranscriptConsent && TranscriptConsent.granted())) return;
     var tok = await state.user.getIdToken();
     await fetch('/api/log-generation', {
       method:'POST',
@@ -1018,5 +1045,7 @@ textarea.ctl{min-height:76px;resize:vertical}
   window.addEventListener('beforeunload', teardown);
 })();
 </script>
+<script defer src="/js/transcript-consent.js"></script>
+<script defer src="/js/voice-transcript.js"></script>
 </body>
 </html>

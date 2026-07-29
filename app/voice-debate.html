@@ -87,6 +87,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/transcript-consent.js"></script>
+<script defer src="/js/voice-transcript.js"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/prospect-capture.js"></script>
 <!-- Credential v1.0 lipsync capture. Module is inert (zero CPU, zero
@@ -4836,6 +4838,21 @@ function App() {
 
   /* ── Turn helpers ─────────────────────────────── */
 
+  // Durable transcript capture (app/js/voice-transcript.js). Pushed on
+  // the COMPLETED transcription events only, never on the streaming
+  // deltas, so a turn lands once with its final text rather than once
+  // per partial. The session resolves async (firestore SDK + consent
+  // prompt), so early turns queue until it does.
+  var vtRef = useRef(null);
+  var vtPendingRef = useRef([]);
+  var vtResolvedRef = useRef(false);
+  var vtPush = function (who, text, stamp) {
+    var body = (text || '').trim();
+    if (!body) return;
+    var turn = { who: who, text: body, t: (stamp && stamp.t) || 0, phase: (stamp && stamp.phase) || '' };
+    if (vtRef.current) { vtRef.current.push(turn); return; }
+    if (!vtResolvedRef.current && vtPendingRef.current.length < 40) vtPendingRef.current.push(turn);
+  };
   var upsertTurn = useCallback((turn) => {
     setTurns((prev) => {
       var idx = prev.findIndex((t) => t.id === turn.id);
@@ -5162,6 +5179,7 @@ function App() {
           } else {
             upsertTurn({ id: 'you-' + Date.now(), who: 'you', text: evt.transcript || '', ...turnStamp() });
           }
+          vtPush('you', evt.transcript || '', turnStamp());
           break;
         }
 
@@ -5228,6 +5246,7 @@ function App() {
           if (_cur2) {
             _cur2.text = evt.transcript || _cur2.text;
             upsertTurn(_cur2);
+            vtPush('ai', _cur2.text, { t: _cur2.t, phase: _cur2.phase });
           }
           break;
         }
@@ -5317,6 +5336,12 @@ function App() {
   }
 
   function stop(systemMsg) {
+    // Close the durable capture before anything else can throw. A round
+    // that ends badly is still a round worth having stored.
+    try {
+      if (vtRef.current) vtRef.current.finish({ status: 'complete' });
+    } catch (vtErr) {console.warn('[stop] transcript finish skipped:', vtErr);}
+    vtRef.current = null; vtPendingRef.current = [];
     try {window.SFX && SFX.end && SFX.end();} catch (sfxErr) {console.warn('[stop] SFX skipped:', sfxErr);}
     // Kill any lingering thinking ambience so it doesn't drone after
     // the session ends (e.g. user hits End-drill mid-thinking-gap).
@@ -5356,7 +5381,10 @@ function App() {
     if (realUserTurns >= 1) {
       try {
         var t = (turnsRef.current || []).filter((x) => x && x.who !== 'system' && (x.text || '').trim());
-        if (t.length >= 2) {
+        // Same consent gate as durable capture: a decline has to mean the
+        // words are not written anywhere, not just that one collection
+        // skips them.
+        if (t.length >= 2 && window.TranscriptConsent && TranscriptConsent.granted()) {
           var transcript = t.map((x) => (x.who === 'you' ? 'USER' : 'AI') + ': ' + (x.text || '').trim()).join('\n\n');
           var userTurnsText = t.filter((x) => x.who === 'you').map((x) => (x.text || '').trim()).join('\n\n');
           var aiTurnsText = t.filter((x) => x.who === 'ai').map((x) => (x.text || '').trim()).join('\n\n');
@@ -6161,6 +6189,18 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
     startedAtRef.current = Date.now();
     capWarnedRef.current = false;
     funnel('connected');
+    vtRef.current = null; vtPendingRef.current = []; vtResolvedRef.current = false;
+    if (window.VoiceTranscript) {
+      VoiceTranscript.start({
+        surface: 'voice-debate', motion: motion || '',
+        mode: modeRef.current || '', format: modeRef.current || '',
+        side: side || '', persona: personaKey || ''
+      }).then(function (sess) {
+        vtRef.current = sess; vtResolvedRef.current = true;
+        if (sess) vtPendingRef.current.forEach(function (tn) {sess.push(tn);});
+        vtPendingRef.current = [];
+      }).catch(function () {vtResolvedRef.current = true;vtPendingRef.current = [];});
+    } else {vtResolvedRef.current = true;}
     // Kick the first prep phase. The AI's opener (from response.create
     // above) is the "you're up with the PMC, X minutes" announcement;
     // this clock measures how long the user sits before pressing Start.
@@ -6860,7 +6900,12 @@ Use intelligent, everyday English. Never use or mention "RFD," "ballot," "flow,"
           var roundDocId = null;
           try {
             var _ru = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
-            if (_ru && typeof firebase.firestore === 'function') {
+            // Consent-gated: voice_rounds carries the full turn-by-turn
+            // transcript, so it is exactly the write a decline has to
+            // stop. The ballot still renders from the sessionStorage
+            // payload, it just cannot be reopened later by ?id=.
+            var _vtOk = !!(window.TranscriptConsent && TranscriptConsent.granted());
+            if (_ru && _vtOk && typeof firebase.firestore === 'function') {
               var roundRef = firebase.firestore().collection('voice_rounds').doc();
               roundDocId = roundRef.id;
               payload.id = roundDocId;

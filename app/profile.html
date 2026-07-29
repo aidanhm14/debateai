@@ -1601,6 +1601,13 @@ function renderSettings(user, profileData){
   const corpusOn = d.contributeToCorpus === true;
   const ageAttested = d.corpusAgeAttested === true;
   try { localStorage.setItem('debateos-corpus-contribute', corpusOn ? '1' : '0'); } catch(_){}
+  // Transcript capture: a SEPARATE and much narrower consent than the
+  // corpus toggle above. This one keeps your own rounds for you; the
+  // corpus one ships an anonymized subset outside Debatable. Answered in
+  // a prompt before the first voice round; this is where it is reversed.
+  // Unanswered reads as off, matching the capture gate itself.
+  const captureOn = d.transcriptCapture === true;
+  try { localStorage.setItem('debateos-transcript-capture', captureOn ? '1' : '0'); } catch(_){}
   let muted = false;
   try { muted = localStorage.getItem('da-sfx-muted') === '1'; } catch(_){}
   const ph = user.displayName || 'Your name';
@@ -1627,6 +1634,13 @@ function renderSettings(user, profileData){
           <div>
             <label class="set-toggle"><input id="setSfx" type="checkbox" ${muted?'':'checked'}/><span class="set-track"></span></label>
             <div class="hint">Sign-in chime, ballot reveal, streak transitions. Honored across the site.</div>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="key">Store my round transcripts</div>
+          <div>
+            <label class="set-toggle"><input id="setCapture" type="checkbox" ${captureOn?'checked':''}/><span class="set-track"></span></label>
+            <div class="hint">Keeps the text of your spoken rounds so your ballot can be reopened later and your progress can be measured. Private to your account; nobody else can read it. Turn it off and rounds still run and still get a ballot, they just are not stored, cannot be reopened, and do not count toward your progress. <a href="/privacy#transcripts" style="color:var(--accent);text-decoration:underline">What exactly gets stored.</a></div>
           </div>
         </div>
         <div class="set-row">
@@ -1701,9 +1715,14 @@ function wireSettings(user, rows){
         // path on /app and /voice-debate reads sync without a Firestore hit
         // per turn. Firestore is still the source of truth across devices.
         try { localStorage.setItem('debateos-corpus-contribute', effectiveCorpus ? '1' : '0'); } catch(_){}
+        const captureEl = document.getElementById('setCapture');
+        const captureNow = !!(captureEl && captureEl.checked);
+        try { localStorage.setItem('debateos-transcript-capture', captureNow ? '1' : '0'); } catch(_){}
         await db.collection('user_profiles').doc(user.uid).set({
           displayNameOverride: name || null,
           leaderboardOptOut: !lbOn,
+          transcriptCapture: captureNow,
+          transcriptCaptureAt: new Date(),
           contributeToCorpus: effectiveCorpus,
           corpusAgeAttested: !!age18,
           contributeToCorpusUpdatedAt: new Date(),
