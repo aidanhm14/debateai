@@ -791,6 +791,106 @@ body.lr-pip .lr-pip-notice{display:block}
   font-size:.82rem;color:var(--text,#fff)}
 .prep-banner strong{font-variant-numeric:tabular-nums;font-size:1rem}
 .prep-banner.is-over{background:rgba(255,255,255,.04);border-color:var(--border)}
+
+/* ── Judge draft ──────────────────────────────────────────────────
+   Pre-round beat: both benches read the paradigm cards, nominate, and
+   the lens binds only when the two nominations match. Lives at the top
+   of the round view while speech 1 has not started, then collapses to
+   the agreed strip for the rest of the round. --jx is the archetype
+   accent, set per card inline. */
+/* flex:none is load-bearing. #roundView is a flex column with flex:1 on
+   its scrolling child, so a plain block child gets shrunk to nothing:
+   the draft rendered at 2px tall before this. */
+.jd{flex:none;margin:0 0 14px;border:1px solid var(--border);border-radius:14px;
+  background:rgba(255,255,255,.025);overflow:hidden}
+[data-theme="light"] .jd{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.jd-head{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;
+  user-select:none;-webkit-user-select:none}
+.jd-head:hover{background:rgba(255,255,255,.03)}
+[data-theme="light"] .jd-head:hover{background:rgba(0,0,0,.02)}
+.jd-eyebrow{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim);font-weight:700}
+.jd-name{font-size:.94rem;font-weight:800;color:var(--text);line-height:1.25}
+.jd-tag{font-size:.76rem;color:var(--text-dim);line-height:1.45;margin-top:2px}
+.jd-head-main{flex:1;min-width:0}
+.jd-seal{width:34px;height:34px;flex:none;border-radius:9px;display:flex;
+  align-items:center;justify-content:center;font-size:.72rem;font-weight:800;
+  letter-spacing:.04em;background:color-mix(in srgb, var(--jx) 18%, transparent);
+  color:var(--jx);border:1px solid color-mix(in srgb, var(--jx) 45%, transparent)}
+.jd:not(.is-agreed) .jd-seal{font-size:1rem;letter-spacing:0}
+.jd-state{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800;
+  padding:4px 9px;border-radius:999px;white-space:nowrap;flex:none}
+.jd-state--agreed{background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.4)}
+[data-theme="light"] .jd-state--agreed{color:#15803d}
+.jd-state--pending{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.4)}
+[data-theme="light"] .jd-state--pending{color:#b91c1c}
+.jd-chev{font-size:.7rem;color:var(--text-dim);flex:none;transition:transform .18s ease}
+.jd.is-open .jd-chev{transform:rotate(180deg)}
+.jd-body{display:none;padding:2px 14px 14px}
+.jd.is-open .jd-body{display:block}
+.jd-note{font-size:.75rem;line-height:1.5;color:var(--text-dim);margin:0 0 11px}
+.jd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:9px}
+.jd-card{position:relative;text-align:left;padding:11px 12px 12px;border-radius:11px;
+  border:1px solid var(--border);background:rgba(255,255,255,.02);cursor:pointer;
+  color:var(--text);font:inherit;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+[data-theme="light"] .jd-card{background:#fbfaf5}
+.jd-card:hover{border-color:color-mix(in srgb, var(--jx) 55%, transparent);transform:translateY(-1px)}
+.jd-card:disabled{cursor:default;opacity:.75}
+.jd-card:disabled:hover{transform:none;border-color:var(--border)}
+.jd-card.is-agreed{border-color:var(--jx);background:color-mix(in srgb, var(--jx) 10%, transparent)}
+.jd-card.is-split{border-color:color-mix(in srgb, var(--jx) 60%, transparent);
+  background:color-mix(in srgb, var(--jx) 6%, transparent)}
+.jd-card-name{font-size:.84rem;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;
+  display:flex;align-items:center;gap:7px}
+.jd-dot{width:8px;height:8px;border-radius:50%;background:var(--jx);flex:none}
+.jd-card-tag{font-size:.72rem;line-height:1.45;color:var(--text-dim);margin-bottom:8px}
+.jd-card ul{margin:0;padding-left:14px;display:flex;flex-direction:column;gap:3px}
+.jd-card li{font-size:.68rem;line-height:1.45;color:var(--text-dim)}
+.jd-marks{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;min-height:19px}
+.jd-mark{font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;font-weight:800;
+  padding:3px 7px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim)}
+.jd-mark--me{border-color:rgba(34,197,94,.45);color:#4ade80;background:rgba(34,197,94,.1)}
+[data-theme="light"] .jd-mark--me{color:#15803d}
+.jd-mark--them{border-color:rgba(239,68,68,.45);color:#f87171;background:rgba(239,68,68,.1)}
+[data-theme="light"] .jd-mark--them{color:#b91c1c}
+.jd-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.jd-mini{font-size:.72rem;padding:7px 13px;border-radius:9px;border:1px solid var(--border);
+  background:transparent;color:var(--text);cursor:pointer;font-weight:700;letter-spacing:.02em}
+.jd-mini:hover{border-color:var(--text-dim)}
+.jd-mini--go{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.12);color:#4ade80}
+[data-theme="light"] .jd-mini--go{color:#15803d}
+.jd-hint{font-size:.7rem;color:var(--text-ghost,var(--text-dim));line-height:1.5;flex:1;min-width:160px}
+
+/* Reveal. Fires once per newly agreed archetype, ~1.6s, then removes
+   itself. prefers-reduced-motion drops the movement, not the card. */
+.jd-reveal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;
+  justify-content:center;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);
+  animation:jdFade .22s ease both;pointer-events:none}
+[data-theme="light"] .jd-reveal{background:rgba(20,18,16,.42)}
+.jd-reveal-card{text-align:center;padding:26px 34px;border-radius:16px;
+  border:1px solid color-mix(in srgb, var(--jx) 55%, transparent);
+  background:var(--bg,#0b0b0d);box-shadow:0 24px 70px rgba(0,0,0,.55),
+  0 0 0 1px color-mix(in srgb, var(--jx) 18%, transparent);
+  animation:jdPop .42s cubic-bezier(.2,.9,.3,1.2) both;max-width:min(92vw,420px)}
+[data-theme="light"] .jd-reveal-card{background:#fff}
+.jd-reveal-eyebrow{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text-dim);font-weight:800;margin-bottom:9px}
+.jd-reveal-name{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--jx);
+  line-height:1.15;margin-bottom:8px}
+.jd-reveal-tag{font-size:.85rem;line-height:1.5;color:var(--text)}
+.jd-reveal-foot{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-dim);font-weight:700;margin-top:14px}
+@keyframes jdFade{from{opacity:0}to{opacity:1}}
+@keyframes jdPop{from{opacity:0;transform:scale(.9) translateY(10px)}
+  to{opacity:1;transform:scale(1) translateY(0)}}
+@media (prefers-reduced-motion:reduce){
+  .jd-reveal,.jd-reveal-card{animation-duration:.01ms}
+  .jd-card:hover{transform:none}
+}
+@media (max-width:620px){
+  .jd-grid{grid-template-columns:1fr}
+  .jd-tag{display:none}
+}
 /* Inline prep-time editor: −/+ steppers around the clock so either
    debater can adjust prep length before the clock starts. */
 .prep-edit{display:inline-flex;align-items:center;gap:8px}
@@ -2175,6 +2275,106 @@ html.stage-mode .stage-ov{display:block}
     ],
   };
 
+  // ── JUDGE ARCHETYPES ─────────────────────────────────────────────
+  //
+  // Real circuit paradigm types, not characters. Every one of these is
+  // a lens an actual judge writes on their Tabroom paradigm, and every
+  // debater has lost a round to one of them. Both sides read the card
+  // before the round and have to AGREE on which lens judges them, so
+  // the paradigm is a known quantity going in instead of something you
+  // reverse-engineer from the RFD afterwards.
+  //
+  // `lens` is what ships into the ballot prompt. It shifts EMPHASIS
+  // only: what to resolve first, how hard to punish a drop, how much
+  // rope to give jargon. It cannot name a winner or dictate scores —
+  // judgeLensBallotLines() re-states that guard for the model, and the
+  // adjudication core still governs the actual decision. A lens that
+  // could flip a ballot on its own would make the draft a weapon
+  // rather than a setting, which is the whole thing to avoid.
+  //
+  // 'chair' is the default and is deliberately lens-free: it is the
+  // behaviour every round on this site has today, so a room that never
+  // opens the draft is judged exactly as it was before this shipped.
+  var JUDGE_ARCHETYPES = [
+    {
+      key: 'chair', name: 'Standard chair', accent: '#9aa4b2',
+      tag: 'I judge the flow and I weigh what you weighed.',
+      bullets: [
+        'Decides on what was actually said, nothing imported.',
+        'No house style. The default tournament read.',
+        'Picked for you unless both sides agree on another.',
+      ],
+      lens: '',
+    },
+    {
+      key: 'tab', name: 'Tabula rasa', accent: '#7aa2f7',
+      tag: 'I do nothing you do not tell me to do. A dropped argument is a won argument.',
+      bullets: [
+        'Silence concedes. Answer everything or lose it.',
+        'No intervention. If you did not say it, it is not on my flow.',
+        'Tell me how to evaluate, or I use your opponent’s instructions.',
+      ],
+      lens: 'Run the round as a strict tabula-rasa flow judge. Import nothing the debaters did not say: no filling in warrants, no supplying the obvious answer, no crediting an argument the speaker gestured at but never made. Treat a genuinely unanswered argument as conceded for the round and say so explicitly in the RFD, naming the speech where it went unanswered. Where the debaters gave you competing evaluative instructions, follow the one that was actually extended and explained rather than the one you find more sensible. Speaker points still reflect quality, and the truth-test guardrail in the method above still applies to flatly false claims.',
+    },
+    {
+      key: 'truth', name: 'Truth tester', accent: '#5ea88a',
+      tag: 'An unanswered claim still has to be true.',
+      bullets: [
+        'A false premise loses even when nobody catches it.',
+        'Evidence quality over evidence volume.',
+        'Real-world plausibility is part of the warrant.',
+      ],
+      lens: 'Weight accuracy heavily. An unanswered claim does not automatically become true for the round: if a key premise is flatly wrong about the world, discount it even when the opponent missed it, and name in the RFD both that it went unanswered and why it still failed. Prefer the side whose factual and causal picture is more plausible when the flow leaves a clash close. Scrutinise evidence quality, recency, and whether a cited source actually supports the claim it is attached to. Do not invent arguments neither side made, and do not use this lens to rescue a side that ran no offense.',
+    },
+    {
+      key: 'lay', name: 'Lay judge', accent: '#c98a7a',
+      tag: 'Say it like the room has never seen a debate.',
+      bullets: [
+        'Jargon with no plain-language gloss does not score.',
+        'Speed past clarity is your loss, not my problem.',
+        'The clearest story about the real world usually wins.',
+      ],
+      lens: 'Judge as an intelligent, attentive person with no technical debate training. Credit arguments only to the extent they were made intelligible: unexplained jargon, format shorthand, theory shells, and unglossed acronyms carry little weight even when technically correct. Reward signposting, clean structure, concrete real-world explanation, and speakers who make the stakes legible. Penalise speed that outruns clarity, and say plainly in the RFD where you lost the thread. Persuasion and comprehensibility matter more than coverage here. Still decide on the arguments made, not on likeability or delivery polish alone.',
+    },
+    {
+      key: 'tech', name: 'Technical', accent: '#a78bfa',
+      tag: 'Go as fast as you are clear. Line by line, and theory is live.',
+      bullets: [
+        'Coverage counts. Conceded lines are real offense.',
+        'Theory and framework arguments get evaluated properly.',
+        'Signpost and I will follow you anywhere.',
+      ],
+      lens: 'Judge on technical execution. Speed and density are fine as long as the speaker is intelligible; do not penalise a fast speech that was clear. Follow the line-by-line closely and give real credit for clean coverage, correctly extended concessions, and disciplined signposting. Evaluate theory, framework, topicality, and other procedural arguments properly when they are warranted and impacted rather than dismissing them for being technical. Demand that late speeches collapse and weigh instead of going for everything. Blipped one-line arguments still do not carry a round just because they were fast.',
+    },
+    {
+      key: 'principle', name: 'Principle first', accent: '#e0af68',
+      tag: 'Prove the right exists before you tell me it is useful.',
+      bullets: [
+        'Framework gets resolved before any impact is counted.',
+        'Useful is not the same as owed. Build the bridge.',
+        'A won principle can outweigh a bigger consequence.',
+      ],
+      lens: 'Resolve the framework, value, criterion, or principled burden BEFORE weighing any consequences, and let that resolution gate what counts as an impact. Where a side claims a right, an obligation, a dignity interest, or a democratic entitlement, demand the bridge from "this is valuable" to "this is owed": utility alone never discharges that burden. A cleanly won and properly warranted principle can outweigh a larger consequentialist impact, but only if the team actually did the work of proving it rather than asserting a philosopher’s name. Do not let a final rebuttal invent a new framework the round never ran on.',
+    },
+    {
+      key: 'calculus', name: 'Impact calculus', accent: '#ef4444',
+      tag: 'If you do not weigh it, I will, and you will not like how.',
+      bullets: [
+        'Magnitude, probability, timeframe, reversibility. Out loud.',
+        'Unweighed offense is dead weight, however true.',
+        'Comparative or it does not score.',
+      ],
+      lens: 'Make explicit comparative weighing the centre of the decision. An argument that was never weighed against the other side’s world is dead weight no matter how true it is. Demand that teams name the axis a clash turns on: magnitude, probability, timeframe, reversibility, or logical priority. Reward the side that terminalises its impacts and does the comparison for you, and penalise the side that stacks offense without ever telling you why it outweighs. If neither side weighed, state in the RFD that they forced you to default, name the default you used, and let both speaker scores carry the cost.',
+    },
+  ];
+
+  function judgeArchetype(key){
+    for (var i = 0; i < JUDGE_ARCHETYPES.length; i++){
+      if (JUDGE_ARCHETYPES[i].key === key) return JUDGE_ARCHETYPES[i];
+    }
+    return JUDGE_ARCHETYPES[0];
+  }
+
   // ── URL params. /live-round.html?motion=X&format=apda&pro=Alex&con=Bob&room=Debatable-c123
   // Both /live.html (after accept) and direct links share the same shape so
   // a posted-then-accepted challenge lands here with everything prefilled.
@@ -2335,6 +2535,15 @@ html.stage-mode .stage-ov{display:block}
     lastBallot: null,      // latest rendered ballot (stage overlay)
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
     paradigm: prefill.paradigm, // agreed judge instructions from /spar consent
+    // ── Judge draft. Each bench nominates an archetype; the lens only
+    // binds when BOTH benches are on the same key, so nobody is judged
+    // by a paradigm they did not read and accept. Seeded to 'chair' on
+    // both sides so an untouched room is already agreed on the default
+    // and starts the round without a decision to make.
+    judgePicks: { pro: 'chair', con: 'chair' },
+    judgeLocked: 'chair',      // the agreed key, or '' while the benches differ
+    judgeRevealed: '',         // last key we played the reveal for
+    judgeDraftOpen: false,     // card grid expanded
     room: prefill.room,
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
@@ -2797,6 +3006,9 @@ html.stage-mode .stage-ov{display:block}
     var f = FORMATS[state.formatKey];
     var sp = f.speeches[state.speechIdx];
     if (!sp){ finishRound(); return; }
+    // Judge strip repaints with the round: interactive before speech 1,
+    // a readable record of what was agreed for the rest of the round.
+    try { renderJudgeDraft(); } catch(e){}
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = speakerNameFor(f, state.speechIdx);
@@ -4425,6 +4637,7 @@ html.stage-mode .stage-ov{display:block}
       "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END): WUDC Imperial 50-100 — 60-65 incoherent, 67 struggling, 70 below average, 73 average (no weighing), 75 good (real warrants), 77-78 excellent (would break at most tournaments), 80 top-of-field, 85+ essentially never given. DEFAULT TO 73-76. If a speaker dropped a contention, gave 0 POIs, used generic LLM phrasing, or never warranted a key claim, score them 71 or below. Do NOT cluster speakers at 78+ to be encouraging.",
       "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
+      ...judgeLensBallotLines(),
       ...paradigmBallotLines(),
       "",
       "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
@@ -4501,6 +4714,7 @@ html.stage-mode .stage-ov{display:block}
       "  DEFAULT TO 25-27. If a speaker dropped a contention, had no real weighing, used generic LLM phrasing, or never warranted a key claim, score them 25 or below. If a speech was fundamentally unfinished, 24 or below — yes, 24-25 happens, it is what an honest ballot looks like when someone is over their head. Do NOT cluster both speakers at 28+ to be encouraging. If one debater clearly outclassed the other, separate by 1.5-3 points, not 0.5.",
       "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
+      ...judgeLensBallotLines(),
       ...paradigmBallotLines(),
       "",
       "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
@@ -6898,6 +7112,259 @@ html.stage-mode .stage-ov{display:block}
   // debater hits Start and the clock begins, syncing to the other side
   // via the round doc's prepStartedAtMs (see onRoundSnapshot).
   var PREP_MAX = 30; // minutes — cap for the inline +/- editor
+  // ── JUDGE DRAFT ──────────────────────────────────────────────────
+  //
+  // The pre-round beat. Both benches read the archetype cards, each
+  // nominates, and the lens binds ONLY when the two nominations match.
+  // That is the whole safety property: you cannot be judged by a
+  // paradigm the other side picked for you, because your own bench has
+  // to land on the same card before anything reaches the ballot prompt.
+  //
+  // Seeded to 'chair' on both sides, so a room that ignores this is
+  // already agreed on the default and starts with nothing to resolve.
+  // 'chair' carries an empty lens, so an ignored draft is byte-for-byte
+  // the ballot behaviour that shipped before this existed.
+  //
+  // Lives in the round view rather than the setup view because /spar
+  // rounds never see setup: matchmaking auto-starts them straight into
+  // speech 1 with the prep clock. The draft is interactive while no
+  // speech has started and collapses to a readable strip afterwards, so
+  // mid-round you can still check what you agreed to be judged by.
+  //
+  // Sync rides live_rounds/{room}.judgePicks through the existing
+  // snapshot listener. No new collection, no new rules: the round doc
+  // is already the source of truth both clients reconcile against.
+
+  function judgeDraftIsLive(){
+    // Interactive only before the first speech. After that the picks
+    // are history: changing the lens mid-round would mean the speeches
+    // already given were delivered to a different judge than the one
+    // scoring them.
+    return state.phase === 'round' && state.speechIdx === 0 && state.timerState === 'ready';
+  }
+
+  function judgeLockKey(){
+    var p = state.judgePicks || {};
+    var pro = p.pro || 'chair';
+    var con = p.con || 'chair';
+    return pro === con ? pro : '';
+  }
+
+  // Recompute the agreed key from the two nominations, fire the reveal
+  // on a newly agreed archetype, repaint. Idempotent: safe to call from
+  // a local click and from every remote snapshot.
+  function syncJudgeLock(){
+    var locked = judgeLockKey();
+    var was = state.judgeLocked;
+    state.judgeLocked = locked;
+    if (locked && locked !== 'chair' && locked !== state.judgeRevealed && judgeDraftIsLive()){
+      state.judgeRevealed = locked;
+      playJudgeReveal(locked);
+    }
+    // Falling out of agreement re-arms the reveal, so re-agreeing on
+    // the same archetype after a re-draft still lands as a moment.
+    if (!locked && was) state.judgeRevealed = '';
+    renderJudgeDraft();
+  }
+
+  function nominateJudge(key){
+    if (isSpectator() || !judgeDraftIsLive()) return;
+    var side = mySide();
+    if (side !== 'pro' && side !== 'con') return;
+    if (!judgeArchetype(key) || judgeArchetype(key).key !== key) return;
+    if (!state.judgePicks) state.judgePicks = { pro:'chair', con:'chair' };
+    if (state.judgePicks[side] === key) return;
+    state.judgePicks[side] = key;
+    syncJudgeLock();
+    var ref = getRoundDocRef();
+    if (ref){
+      var patch = {}; patch[side] = key;
+      ref.set({ judgePicks: patch }, { merge: true }).catch(function(e){
+        console.warn('[judge draft] nominate failed', e);
+      });
+    }
+    try { gtag('event', 'judge_nominate', { judge: key, format: state.formatKey }); } catch(e){}
+  }
+
+  // Respawn: drop both nominations back to the default and reopen the
+  // grid. Either bench can call it, because a draft one side regrets is
+  // not an agreement worth holding them to.
+  function redraftJudge(){
+    if (isSpectator() || !judgeDraftIsLive()) return;
+    var side = mySide();
+    if (side !== 'pro' && side !== 'con') return;
+    state.judgePicks = { pro:'chair', con:'chair' };
+    state.judgeRevealed = '';
+    state.judgeDraftOpen = true;
+    syncJudgeLock();
+    var ref = getRoundDocRef();
+    if (ref){
+      ref.set({ judgePicks: { pro:'chair', con:'chair' } }, { merge: true }).catch(function(){});
+    }
+    try { gtag('event', 'judge_redraft', { format: state.formatKey }); } catch(e){}
+  }
+
+  function playJudgeReveal(key){
+    var a = judgeArchetype(key);
+    var old = document.getElementById('jdReveal');
+    if (old) old.remove();
+    var wrap = document.createElement('div');
+    wrap.id = 'jdReveal';
+    wrap.className = 'jd-reveal';
+    wrap.style.setProperty('--jx', a.accent);
+    wrap.innerHTML =
+      '<div class="jd-reveal-card">' +
+        '<div class="jd-reveal-eyebrow">Both sides agreed</div>' +
+        '<div class="jd-reveal-name">' + escHtml(a.name) + '</div>' +
+        '<div class="jd-reveal-tag">' + escHtml(a.tag) + '</div>' +
+        '<div class="jd-reveal-foot">This is the lens on your ballot</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    setTimeout(function(){
+      var n = document.getElementById('jdReveal');
+      if (n) n.remove();
+    }, 1900);
+  }
+
+  function judgeDraftHost(){
+    var rv = document.getElementById('roundView');
+    if (!rv) return null;
+    var el = document.getElementById('judgeDraft');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'judgeDraft';
+      el.className = 'jd';
+      rv.insertBefore(el, rv.firstChild);
+      el.addEventListener('click', onJudgeDraftClick);
+    }
+    return el;
+  }
+
+  function onJudgeDraftClick(e){
+    var head = e.target.closest ? e.target.closest('.jd-head') : null;
+    if (head){
+      state.judgeDraftOpen = !state.judgeDraftOpen;
+      renderJudgeDraft();
+      return;
+    }
+    var card = e.target.closest ? e.target.closest('.jd-card') : null;
+    if (card && !card.disabled){ nominateJudge(card.getAttribute('data-jk')); return; }
+    var re = e.target.closest ? e.target.closest('#jdRedraft') : null;
+    if (re){ redraftJudge(); }
+  }
+
+  function renderJudgeDraft(){
+    if (state.phase !== 'round') return;
+    var el = judgeDraftHost();
+    if (!el) return;
+
+    var live = judgeDraftIsLive();
+    var side = mySide();
+    var iAmDebater = !isSpectator() && (side === 'pro' || side === 'con');
+    var theirSide = side === 'pro' ? 'con' : side === 'con' ? 'pro' : '';
+    var picks = state.judgePicks || { pro:'chair', con:'chair' };
+    var locked = state.judgeLocked;
+    var shown = judgeArchetype(locked || picks[side] || 'chair');
+
+    el.style.setProperty('--jx', shown.accent);
+    el.classList.toggle('is-open', !!state.judgeDraftOpen);
+    el.classList.toggle('is-agreed', !!locked);
+
+    var stateChip = locked
+      ? '<span class="jd-state jd-state--agreed">Agreed</span>'
+      : '<span class="jd-state jd-state--pending">Not agreed</span>';
+
+    var headline = locked
+      ? shown.name
+      : 'Judge not agreed';
+    var subline = locked
+      ? shown.tag
+      : 'Both sides have to land on the same paradigm before it counts.';
+
+    // Initials only once a judge is actually agreed. While the benches
+    // differ, a two-letter mark for one side's nomination reads like a
+    // decision that has not been made.
+    var seal = locked ? escHtml(shown.name.slice(0,2).toUpperCase()) : '&#9878;';
+
+    var head =
+      '<div class="jd-head">' +
+        '<div class="jd-seal">' + seal + '</div>' +
+        '<div class="jd-head-main">' +
+          '<div class="jd-eyebrow">Judge paradigm</div>' +
+          '<div class="jd-name">' + escHtml(headline) + '</div>' +
+          '<div class="jd-tag">' + escHtml(subline) + '</div>' +
+        '</div>' +
+        stateChip +
+        '<span class="jd-chev">&#9660;</span>' +
+      '</div>';
+
+    var note = live
+      ? (iAmDebater
+          ? 'Pick the lens you want judging this round. It binds when your opponent picks the same one, and it can shift what the ballot emphasises, never who wins.'
+          : 'The debaters are agreeing on a paradigm. It binds only when both pick the same card.')
+      : 'Locked in for this round. The ballot reads through this lens.';
+
+    var cards = JUDGE_ARCHETYPES.map(function(a){
+      var mine = side && picks[side] === a.key;
+      var theirs = theirSide && picks[theirSide] === a.key;
+      var bothHere = locked === a.key;
+      var marks = '';
+      if (iAmDebater){
+        if (mine) marks += '<span class="jd-mark jd-mark--me">You</span>';
+        if (theirs) marks += '<span class="jd-mark jd-mark--them">Opponent</span>';
+      } else {
+        if (picks.pro === a.key) marks += '<span class="jd-mark jd-mark--me">Pro</span>';
+        if (picks.con === a.key) marks += '<span class="jd-mark jd-mark--them">Con</span>';
+      }
+      if (bothHere) marks = '<span class="jd-mark jd-mark--me">Agreed</span>';
+      var cls = 'jd-card' + (bothHere ? ' is-agreed' : (mine || theirs) ? ' is-split' : '');
+      return '<button type="button" class="' + cls + '" data-jk="' + a.key + '"' +
+        ' style="--jx:' + a.accent + '"' +
+        (live && iAmDebater ? '' : ' disabled') + '>' +
+        '<div class="jd-card-name"><span class="jd-dot"></span>' + escHtml(a.name) + '</div>' +
+        '<div class="jd-card-tag">' + escHtml(a.tag) + '</div>' +
+        '<ul>' + a.bullets.map(function(b){ return '<li>' + escHtml(b) + '</li>'; }).join('') + '</ul>' +
+        '<div class="jd-marks">' + marks + '</div>' +
+      '</button>';
+    }).join('');
+
+    var actions = '';
+    if (live && iAmDebater){
+      var hint = locked
+        ? 'Agreed on ' + shown.name + '. Re-draft if either of you wants to reopen it.'
+        : (picks[theirSide] && picks[theirSide] !== 'chair'
+            ? 'Your opponent is on ' + judgeArchetype(picks[theirSide]).name + '. Tap that card to agree, or hold your pick.'
+            : 'Nothing binds until you both pick the same card.');
+      actions =
+        '<div class="jd-actions">' +
+          '<button type="button" class="jd-mini" id="jdRedraft">Re-draft</button>' +
+          '<span class="jd-hint">' + escHtml(hint) + '</span>' +
+        '</div>';
+    }
+
+    el.innerHTML = head +
+      '<div class="jd-body">' +
+        '<p class="jd-note">' + escHtml(note) + '</p>' +
+        '<div class="jd-grid">' + cards + '</div>' +
+        actions +
+      '</div>';
+  }
+
+  // Agreed archetype as ballot-prompt lines. Kept separate from
+  // paradigmBallotLines() so a /spar-consented note and a drafted
+  // archetype can both apply without either overwriting the other.
+  // Same guard either way: emphasis yes, verdict no.
+  function judgeLensBallotLines(){
+    var key = judgeLockKey();
+    if (!key || key === 'chair') return [];
+    var a = judgeArchetype(key);
+    if (!a.lens) return [];
+    return [
+      "",
+      "AGREED JUDGE PARADIGM (\"" + a.name + "\") — both debaters read this lens and independently selected it before the round started. Apply it as your evaluative posture ON TOP of the adjudication method above. It may shift emphasis: what you resolve first, how hard you punish a drop, how much rope you give jargon or speed, what earns speaker points. It may NOT override honest adjudication. If it ever conflicts with deciding the round on the flow, the flow wins. Name the paradigm once in the RFD so the debaters can see it was applied.",
+      "PARADIGM: " + a.lens,
+    ];
+  }
   function startPrepBanner(){
     if (!state.prepMin || state.prepMin <= 0) return;
     if (state.speechIdx > 0 || state.phase !== 'round') return;  // only before Speech 1
@@ -7120,6 +7587,20 @@ html.stage-mode .stage-ov{display:block}
       var plE = $('phaseLabel');
       if (plE && FORMATS[state.formatKey]) plE.innerHTML = '<span class="dot"></span> ' + (isSpectator() ? 'Spectating · Speech ' : 'Live · Speech ') + '1/' + FORMATS[state.formatKey].speeches.length;
       renderRound();
+    }
+    // Judge draft: adopt the peer's nomination and recompute agreement.
+    // Both nominations live on the round doc, so a late joiner, a
+    // reload, and a spectator all reconstruct the same draft state.
+    if (d.judgePicks && typeof d.judgePicks === 'object'){
+      var jp = state.judgePicks || { pro:'chair', con:'chair' };
+      var jNext = {
+        pro: judgeArchetype(d.judgePicks.pro || jp.pro).key,
+        con: judgeArchetype(d.judgePicks.con || jp.con).key,
+      };
+      if (jNext.pro !== jp.pro || jNext.con !== jp.con){
+        state.judgePicks = jNext;
+        syncJudgeLock();
+      }
     }
     // Peer adjusted the prep length before the clock started — adopt it
     // and re-render the idle banner so both sides show the same time.
