@@ -367,7 +367,7 @@ html[data-theme="light"] .stage-floor{background:
 .side-btn small{display:block;margin-top:2px;font-size:10.5px;color:var(--ink-faint)}
 .tune-row{
   margin-top:10px;width:100%;
-  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:14px;
 }
 .tune{
   display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:13px;
@@ -379,7 +379,7 @@ html[data-theme="light"] .stage-floor{background:
 .tune-seg{
   display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:100%;
 }
-#judgeSeg{grid-template-columns:repeat(2,1fr)}
+#judgeSeg,#micSeg{grid-template-columns:repeat(2,1fr)}
 .tune-seg button{
   min-width:0;background:rgba(255,255,255,.025);border:1px solid var(--card-line);border-radius:10px;cursor:pointer;
   font-family:var(--sans);font-size:11.5px;font-weight:650;color:var(--ink-dim);
@@ -500,6 +500,23 @@ html[data-theme="light"] .side-pill{background:linear-gradient(180deg,rgba(220,3
 .cap-text.idle{color:var(--ink-faint)}
 .eq{display:inline-flex;align-items:flex-end;gap:2px;height:10px}
 .eq b{width:2.5px;border-radius:2px;background:currentColor;height:3px;transition:height .12s}
+/* The floor button is the primary action in tap mode, so it sits above the
+   control row at full CTA weight rather than hiding among four equal pills.
+   Open state goes red and steady, not pulsing: a blinking control next to a
+   live waveform reads as an error. */
+.floor-btn{
+  display:block;margin:0 auto 14px;min-width:min(320px,72vw);
+  border-radius:999px;cursor:pointer;font-family:var(--sans);font-weight:800;font-size:16px;
+  padding:16px 30px;border:1px solid rgba(239,68,68,.5);
+  background:rgba(239,68,68,.12);color:var(--ink);
+  backdrop-filter:blur(8px);
+  transition:background .2s,border-color .2s,transform .15s,color .2s;
+}
+.floor-btn:hover{background:rgba(239,68,68,.2);transform:translateY(-1px)}
+.floor-btn.open{background:#ef4444;border-color:#ef4444;color:#fff;box-shadow:0 12px 34px -10px rgba(239,68,68,.6)}
+.floor-btn.open:hover{background:#dc2626}
+.floor-btn[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.floor-btn{transition:none}.floor-btn:hover{transform:none}}
 .controls{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
 .ctl{
   border-radius:999px;cursor:pointer;font-family:var(--sans);font-weight:700;font-size:14px;
@@ -848,6 +865,14 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
           <div class="tune-help">How quickly the AI speaks.</div>
         </div>
         <div class="tune">
+          <div class="tune-head"><div class="tune-label">Microphone</div><small>Turn-taking</small></div>
+          <div class="tune-seg" id="micSeg">
+            <button type="button" data-mic="free" class="active">Hands free</button>
+            <button type="button" data-mic="ptt">Tap to speak</button>
+          </div>
+          <div class="tune-help">Hands free listens for a pause. Tap to speak gives you the floor until you tap again.</div>
+        </div>
+        <div class="tune">
           <div class="tune-head"><div class="tune-label">Extra feedback</div><small>After the debate</small></div>
           <div class="tune-seg" id="judgeSeg">
             <button type="button" data-judge="off" class="active">Off</button>
@@ -891,8 +916,10 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
         <div class="cap-text idle" id="capAiText">Waking up.</div>
       </div>
     </div>
+    <button class="floor-btn" id="floorBtn" type="button" aria-pressed="false" hidden>Tap to speak</button>
     <div class="controls">
       <button class="ctl ctl-mute" id="muteBtn" type="button">Mute</button>
+      <button class="ctl" id="micModeBtn" type="button">Mic: Hands free</button>
       <button class="ctl" id="paceBtn" type="button">Speed: Normal</button>
       <button class="ctl" id="tsBtn" type="button">Transcript</button>
       <button class="ctl ctl-end" id="endBtn" type="button">Finish debate</button>
@@ -1283,6 +1310,25 @@ let turns = [];                    // {who:'you'|'ai', text}
 let aiLive = '';                   // streaming AI caption
 let connectAbort = null, connectWatchdog = null;
 let muted = false;
+/* ── tap to speak ─────────────────────────────────────────────────
+   Hands-free turn-taking has to infer when someone finished, and every
+   wrong inference is the AI talking over them. Tap to speak removes the
+   inference: the mic is dead until you take the floor and the AI cannot
+   answer until you hand it back. Slower, and completely predictable.
+
+   `pttOpen` gates the mic TRACK, not just the meter, so nothing reaches
+   OpenAI while the floor is closed. Muting only the analyser would leave
+   the server's own VAD firing on room noise and flipping pendingTurn. */
+let pttMode = false;           // tap to speak is on
+let pttOpen = false;           // the floor is open, mic is hot
+let spokeOnFloor = false;      // real speech happened since the floor opened
+try { pttMode = localStorage.getItem('da-nv-mic') === 'ptt'; } catch (e) {}
+// One place decides whether audio is reaching the model, so the meter, the
+// track, and the barge gate can never disagree about it.
+function micLive(){ return !muted && (!pttMode || pttOpen); }
+function applyMicTrack(){
+  if (micStream) micStream.getAudioTracks().forEach((t) => { t.enabled = micLive(); });
+}
 const HARD_CAP_MS = 8 * 60_000;    // realtime audio is billed by the minute
 
 function show(name){
@@ -1384,6 +1430,10 @@ $('paceSeg').addEventListener('click', (e) => {
 let liveJudge = false;
 try { liveJudge = localStorage.getItem('debateos-newvoice-judge-live') === 'on'; } catch (e) {}
 paintSeg($('judgeSeg'), 'judge', liveJudge ? 'on' : 'off');
+// Mic mode is read from localStorage at declaration; paint the setup seg and
+// the stage controls to match it before anything renders.
+paintSeg($('micSeg'), 'mic', pttMode ? 'ptt' : 'free');
+paintMic();
 $('judgeSeg').addEventListener('click', (e) => {
   const v = e.target && e.target.dataset && e.target.dataset.judge;
   if (!v) return;
@@ -1519,6 +1569,11 @@ async function start(){
     });
     userAnalyser = tap(micStream);
     if (userAnalyser) userBuf = new Uint8Array(userAnalyser.frequencyBinCount);
+    // Listen to the room while the rest of connect happens. Deliberately not
+    // awaited: the mint and the SDP exchange take well over a second, so the
+    // measurement is free, and if it somehow is not done by the time the
+    // round starts the gates just sit at their quiet-room constants.
+    measureNoiseFloor();
 
     // 2. Mint the ephemeral session.
     let authHeader = {};
@@ -1608,12 +1663,19 @@ async function start(){
       try {
         dc.send(JSON.stringify({
           type: 'response.create',
+          // START ON THE ARGUMENT. The old version of this asked for the
+          // claim read back in full and then a clause naming both sides,
+          // which produced openings like "Cities should replace street
+          // parking with parks and bike lanes. They are for it, and I am
+          // against it." Both facts are already on the user's screen: the
+          // motion is the page heading and they chose their own side one tap
+          // ago. Reciting them spends the first ten seconds saying nothing.
           response: { instructions:
-            'Open the round in under twenty-five seconds, in this exact shape: ' +
-            '(1) State the claim naturally in one line: "' + motion.replace(/"/g, "'") + '". ' +
-            '(2) One short clause on sides: they are ' + userWord + ' it, you are ' + aiWord + ' it. ' +
-            '(3) Deliver a compact opening case for your side: three or four sentences building your single strongest argument, with the reasoning walked through and one concrete real-world example. A real case, not a quip, not a list. ' +
-            '(4) Hand them the floor and teach the handoff in one short clause, like: "the floor is yours. say your turn when you want me back in, or just pause." ' +
+            'You are arguing ' + aiWord + ' the claim; they are ' + userWord + ' it. ' +
+            'Open in under twenty seconds and open ON THE ARGUMENT. ' +
+            'Do NOT read the claim back to them, do NOT announce who is on which side, do NOT greet them. They can see the claim and they picked their side. ' +
+            'First sentence is your position and the reason for it, together. Then two or three sentences walking the reasoning through, with one concrete real-world example. A real case, not a quip, not a list. ' +
+            'Close by handing them the floor and teaching the handoff in one short clause, like: "the floor is yours. say your turn when you want me back in, or just pause." ' +
             'Serious, calm, confident. No jokes, no welcome speech, no other rules explanation, no "Absolutely", no enthusiasm words.' },
         }));
       } catch (e) {}
@@ -1658,9 +1720,17 @@ async function start(){
   startedAt = Date.now();
   turns = []; aiLive = '';
   $('stageMotion').textContent = motion;
-  capYouText.textContent = 'Mic is live. Make your case. Say "your turn" or pause to hand it back.'; capYouText.classList.add('idle');
+  capYouText.textContent = pttMode
+    ? 'Tap to speak when you are ready. Tap again to hand the floor back.'
+    : 'Mic is live. Make your case. Say "your turn" or pause to hand it back.';
+  capYouText.classList.add('idle');
   capAiText.textContent = 'Waking up.'; capAiText.classList.add('idle');
   pendingTurn = false; awaitingResponse = false; nudgeFired = false;
+  // The floor starts closed in tap mode, so the AI opens into a dead mic and
+  // nothing the user says over the top of it is half-captured.
+  pttOpen = false; spokeOnFloor = false;
+  applyMicTrack();
+  paintMic();
   lastActiveAt = Date.now(); lastAiDoneAt = 0;
   turnsJudged = 0; lastJudgeAt = 0; judgeBusy = false;
   $('judgeStrip').hidden = !liveJudge;
@@ -1693,9 +1763,44 @@ async function start(){
 // deliberately HIGHER: only clearly-louder, sustained speech cuts the AI
 // off mid-answer, so a cough / "mm" / room noise no longer steals the
 // floor. (2026-07-09, per "require louder speech to interrupt".)
-const SPEECH_LEVEL = 0.12;     // mic RMS floor that counts as the user talking
-const BARGE_LEVEL = 0.22;      // absolute floor: how loud to interrupt the AI
-const BARGE_SUSTAIN_MS = 750;  // continuous loud speech needed to take the floor
+// 2026-07-29, per "too sensitive to interruptions": every number here moved
+// up. The old floors were tuned in a quiet room and read ordinary background
+// sound as a person talking, which held the floor and cut the AI off.
+const SPEECH_LEVEL = 0.18;     // mic RMS floor that counts as the user talking
+const BARGE_LEVEL = 0.30;      // absolute floor: how loud to interrupt the AI
+const BARGE_SUSTAIN_MS = 1100; // continuous loud speech needed to take the floor
+// AMBIENT CALIBRATION. A fixed threshold cannot know the room: 0.18 is a
+// whisper in a library and inaudible in a cafe, so the same constant is
+// either deaf or hair-trigger depending on where someone sits. The mic is
+// already live during connect, so the first stretch of it gets sampled and
+// the gates ride on what the room actually sounds like.
+//
+// The 75th percentile, not the mean or the peak: a single door slam should
+// not deafen the round, and the mean sits under the noise it is meant to
+// clear. NOISE_CAP is the safety rail for the case that matters most, which
+// is someone already talking while the round connects. Without it that voice
+// becomes the floor and nothing they say afterwards registers.
+const NOISE_SAMPLES = 14;      // ~700ms at the 50ms tick
+const NOISE_MARGIN = 0.09;     // how far over the room a real voice must sit
+const NOISE_CAP = 0.24;        // never let a loud room raise the bar past this
+let noiseFloor = 0;
+function measureNoiseFloor(){
+  if (!userAnalyser || !userBuf) return;
+  noiseFloor = 0;
+  const samples = [];
+  const iv = setInterval(() => {
+    if (!userAnalyser) { clearInterval(iv); return; }
+    samples.push(level(userAnalyser, userBuf));
+    if (samples.length < NOISE_SAMPLES) return;
+    clearInterval(iv);
+    samples.sort((a, b) => a - b);
+    noiseFloor = Math.min(NOISE_CAP, samples[Math.floor(samples.length * 0.75)]);
+  }, 50);
+}
+// The gates the tick actually uses. Both collapse to the constants above in
+// a quiet room, so this can only ever make the mic harder to trip.
+function speechGate(){ return Math.max(SPEECH_LEVEL, noiseFloor + NOISE_MARGIN); }
+function bargeFloor(){ return Math.max(BARGE_LEVEL, speechGate() + 0.10); }
 // ECHO GUARD (2026-07-22, per "the AI stops mid-sentence when nobody is
 // talking"). BARGE_LEVEL alone was a FIXED floor, so the gate could not tell
 // the user's voice apart from the AI's own voice coming back through the mic.
@@ -1735,16 +1840,28 @@ let aiTurnAt = 0;              // response.created timestamp for the grace windo
 // read as a long lag after the user stopped; 1500 stays clear of a mid-
 // thought breath while feeling responsive. Handoff phrases ("your turn")
 // still answer instantly. (2026-07-09, per "delayed response takes a while".)
-const TURN_SILENCE_MS = 1500;
+// Raised 1500 → 2000 on 2026-07-29. 1500 was set on 2026-07-09 because 3000
+// read as lag, and that still holds, but at 1500 an ordinary breath between
+// clauses reads as a finished turn and the AI starts talking over the second
+// half of the thought. 2000 is the compromise; anyone who wants zero guessing
+// has tap to speak, where silence never hands the floor over at all.
+const TURN_SILENCE_MS = 2000;
 const NUDGE_AFTER_MS = 16000;  // dead air before one gentle re-engage
+// PTT_HANDOFF_MS: after the tap that closes the floor, how long to let the
+// server's VAD commit the trailing audio before the AI is asked to answer.
+// Backdating lastActiveAt is what schedules it, so the existing silence path
+// fires it and there is only one code path that starts an AI turn.
+const PTT_HANDOFF_MS = 400;
 function bargeTick(){
   if (!dc || dc.readyState !== 'open') { bargeMs = 0; return; }
   const now = Date.now();
-  const lvl = muted ? 0 : level(userAnalyser, userBuf);
-  if (lvl > SPEECH_LEVEL) { lastActiveAt = now; nudgeFired = false; }
+  const lvl = micLive() ? level(userAnalyser, userBuf) : 0;
+  if (lvl > speechGate()) { lastActiveAt = now; nudgeFired = false; spokeOnFloor = true; }
 
   // Interrupt gate: sustained speech while the AI talks takes the floor.
-  if (aiTalking && !muted) {
+  // Not reached in tap-to-speak: there, taking the floor is a tap, and the
+  // tap cancels the AI outright instead of banking loudness credit.
+  if (aiTalking && micLive() && !pttMode) {
     // Track the AI's own output with a short peak-hold, then require the mic
     // to clear it by a margin. This is what stops the AI cancelling itself on
     // its own echo; see the ECHO GUARD note above.
@@ -1753,7 +1870,7 @@ function bargeTick(){
     // Keep the hold warm through the grace window so the gate is already at
     // full height the moment barge credit can start accumulating.
     if (aiTurnAt && now - aiTurnAt < BARGE_GRACE_MS) { bargeMs = 0; return; }
-    const gate = Math.max(BARGE_LEVEL, aiHold * BARGE_ECHO_RATIO + BARGE_ECHO_MARGIN);
+    const gate = Math.max(bargeFloor(), aiHold * BARGE_ECHO_RATIO + BARGE_ECHO_MARGIN);
     if (lvl > gate) bargeMs += 50;
     else bargeMs = Math.max(0, bargeMs - 100);
     if (bargeMs >= BARGE_SUSTAIN_MS) {
@@ -1772,6 +1889,13 @@ function bargeTick(){
     return;
   }
   bargeMs = 0;
+
+  // Tap to speak: while the floor is open the AI never takes it back, no
+  // matter how long the pause runs. This is the whole point of the mode. A
+  // silence timer has to guess whether quiet means "finished" or "thinking",
+  // and it is the guess that produces the AI talking over someone who was
+  // only drawing breath. A tap does not guess.
+  if (pttMode && pttOpen) return;
 
   // Turn engine: the floor is the user's until they hand it over. A
   // handoff phrase answers immediately (handled in handleEvent); this
@@ -1829,8 +1953,16 @@ function requestAiTurn(instructions){
 function sendSessionConfig(kind){
   if (!dc || dc.readyState !== 'open') return;
   const turnDetection = kind === 'semantic'
-    ? { type: 'semantic_vad', eagerness: 'auto', create_response: false, interrupt_response: false }
-    : { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 900, create_response: false, interrupt_response: false };
+    // Both configs got less trigger-happy on 2026-07-29. VAD still drives
+    // commits and transcription here, not replies, but a spurious
+    // speech_started/stopped pair flips pendingTurn and hands the floor over,
+    // so a jumpy detector reads to the user as the AI interrupting them.
+    // 'low' eagerness waits for the thought to actually close; the server_vad
+    // fallback wants a louder onset and a longer tail before it agrees the
+    // turn ended. In tap-to-speak the mic track is off between turns, so
+    // neither detector sees anything at all until the floor is open.
+    ? { type: 'semantic_vad', eagerness: 'low', create_response: false, interrupt_response: false }
+    : { type: 'server_vad', threshold: 0.68, prefix_padding_ms: 300, silence_duration_ms: 1300, create_response: false, interrupt_response: false };
   const sess = {
     type: 'realtime',
     output_modalities: ['audio'],
@@ -2017,10 +2149,81 @@ function maybeLiveJudge(){
   }).catch(() => { judgeBusy = false; });
 }
 
+/* ── tap to speak ────────────────────────────────────────────── */
+// Opening the floor is also the interrupt signal in this mode. A tap while
+// the AI is mid-sentence is unambiguous intent, so it cancels outright
+// rather than accumulating loudness credit the way hands-free does.
+function setFloor(open){
+  if (!pttMode || status !== 'live') return;
+  pttOpen = !!open;
+  applyMicTrack();
+  if (pttOpen) {
+    lastActiveAt = Date.now();
+    nudgeFired = false;
+    spokeOnFloor = false;
+    if (aiTalking) {
+      aiTalking = false; aiHold = 0; aiTurnAt = 0; bargeMs = 0;
+      try {
+        dc.send(JSON.stringify({ type: 'response.cancel' }));
+        dc.send(JSON.stringify({ type: 'output_audio_buffer.clear' }));
+      } catch (e) {}
+      setSpeaking('ai', false);
+    }
+  } else if (spokeOnFloor) {
+    // Hand over through the existing silence path rather than calling
+    // requestAiTurn here: the server's VAD still has to commit the trailing
+    // audio, and backdating the clock buys it PTT_HANDOFF_MS to do that
+    // without adding a second way for an AI turn to start.
+    pendingTurn = true;
+    lastActiveAt = Date.now() - (TURN_SILENCE_MS - PTT_HANDOFF_MS);
+  }
+  // A tap that opened and closed with nothing said is a misfire, not a turn.
+  paintMic();
+}
+// One painter for both controls: the floor button and the mode toggle are
+// two views of the same state, and drifting them apart is how a live mic
+// ends up labelled closed.
+function paintMic(){
+  const floor = $('floorBtn');
+  const mode = $('micModeBtn');
+  const mute = $('muteBtn');
+  if (mode) mode.textContent = pttMode ? 'Mic: Tap' : 'Mic: Hands free';
+  if (mute) mute.hidden = pttMode;   // in tap mode the floor button IS the mute
+  if (!floor) return;
+  floor.hidden = !pttMode;
+  floor.textContent = pttOpen ? 'Done. Their turn' : 'Tap to speak';
+  floor.classList.toggle('open', pttOpen);
+  floor.setAttribute('aria-pressed', pttOpen ? 'true' : 'false');
+}
+function setMicMode(ptt){
+  pttMode = !!ptt;
+  try { localStorage.setItem('da-nv-mic', pttMode ? 'ptt' : 'free'); } catch (e) {}
+  // Leaving tap mode must not strand a closed floor as a dead mic.
+  pttOpen = false;
+  applyMicTrack();
+  paintMic();
+  paintSeg($('micSeg'), 'mic', pttMode ? 'ptt' : 'free');
+}
+$('floorBtn').addEventListener('click', () => setFloor(!pttOpen));
+$('micModeBtn').addEventListener('click', () => setMicMode(!pttMode));
+$('micSeg').addEventListener('click', (e) => {
+  const v = e.target && e.target.dataset && e.target.dataset.mic;
+  if (v) setMicMode(v === 'ptt');
+});
+// Space takes and gives back the floor without aiming at a button. Ignored
+// while typing so the transcript panel and the setup inputs still work.
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || !pttMode || status !== 'live') return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  e.preventDefault();
+  setFloor(!pttOpen);
+});
+
 /* ── mute / end ──────────────────────────────────────────────── */
 $('muteBtn').addEventListener('click', () => {
   muted = !muted;
-  if (micStream) micStream.getAudioTracks().forEach((t) => { t.enabled = !muted; });
+  applyMicTrack();
   const b = $('muteBtn');
   b.textContent = muted ? 'Unmute' : 'Mute';
   b.classList.toggle('muted', muted);
@@ -2045,7 +2248,11 @@ function cleanup(){
   dc = null; pc = null; micStream = null; audioEl = null;
   userAnalyser = null; aiAnalyser = null;
   muted = false;
+  // pttMode is the user's standing preference and survives the round; the
+  // floor state does not, or the next round opens with a dead mic.
+  pttOpen = false; spokeOnFloor = false; noiseFloor = 0;
   const b = $('muteBtn'); b.textContent = 'Mute'; b.classList.remove('muted');
+  paintMic();
 }
 
 function endRound(){
@@ -2519,7 +2726,7 @@ function drawArena(now){
   const mid = h * 0.52;
 
   // live energies, smoothed so the line glides instead of jitters
-  const rawYou = simMode ? simLevel(0) : (muted ? 0 : level(userAnalyser, userBuf));
+  const rawYou = simMode ? simLevel(0) : (micLive() ? level(userAnalyser, userBuf) : 0);
   const rawAi = simMode ? simLevel(1) : level(aiAnalyser, aiBuf);
   smoothYou += (rawYou - smoothYou) * 0.16;
   smoothAi += (rawAi - smoothAi) * 0.16;
