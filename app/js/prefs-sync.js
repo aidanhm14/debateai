@@ -45,6 +45,11 @@
     'debateos-skip-ai-countdown', 'debateos-auto-mic',
     'debateos-spar-format', 'debateos-spar-paradigm',
     'debateos-newvoice-diff', 'debateos-newvoice-pace', 'debateos-newvoice-theme',
+    'debateos-newvoice-judge-live',
+    // /settings turn-taking (js/round-prefs.js). Someone who needs tap to
+    // speak or a noisy-room gate needs it on their phone too; a factory
+    // reset on the second device is exactly the problem this file exists for.
+    'da-nv-mic', 'da-turn-wait', 'da-room-noise', 'da-barge',
     // consent + identity
     'debateos-corpus-contribute', 'debateos-use-case', 'debateos-use-case-confirmed',
     // "stop showing me this" — the most annoying thing to lose on a new device

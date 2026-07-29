@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /settings — how a round behaves on this device.
+     Deliberately NOT the account page. /profile owns identity, privacy,
+     billing and data (name, leaderboard opt-out, research corpus, delete
+     account); this owns turn-taking and opponent defaults. Splitting them
+     that way means this page needs no sign-in and no network: every control
+     is a localStorage write, so it works for an anonymous visitor tuning
+     their mic before their first round. prefs-sync.js mirrors the keys to
+     the account for anyone signed in, so the choices still follow them.
+     noindex: it is a control panel, not a page anyone should land on cold. -->
+<title>Settings · Debatable</title>
+<meta name="description" content="Tune how the AI takes turns in a live round: microphone mode, how long a pause before it replies, how hard it is to interrupt, and the opponent defaults for new rounds.">
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="https://itsdebatable.com/settings">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap">
+<!-- topbar.js injects markup that ui.css styles. Without this the shared nav
+     renders as a raw select and unstyled buttons. -->
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+  :root{
+    --bg:#f6f4ee; --panel:#ffffff; --panel2:#f1eee5; --bd:rgba(20,22,28,.11);
+    --bd2:rgba(20,22,28,.24); --tx:#17181c; --dim:rgba(23,24,28,.64);
+    --faint:rgba(23,24,28,.44); --con:#dc2626; --con-d:#b91c1c; --ok:#15803d;
+    --blue:#2563eb; --r:14px;
+    --shadow:0 1px 2px rgba(20,22,28,.05),0 4px 14px rgba(20,22,28,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  em,i{font-style:normal}
+  body{background:var(--bg);color:var(--tx);font-family:'Crimson Pro',Georgia,serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  header.hd{padding:38px 0 22px;border-bottom:1px solid var(--bd)}
+  .eyebrow{font-size:.62rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--con);margin-bottom:9px}
+  h1{font-size:2.1rem;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin-bottom:10px}
+  .lede{font-size:1.02rem;color:var(--dim);max-width:56ch}
+
+  section.card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:22px;margin:22px 0}
+  h2{font-size:1.22rem;font-weight:800;letter-spacing:-.015em;margin-bottom:4px}
+  .sub{font-size:.92rem;color:var(--dim);margin-bottom:16px}
+
+  .field{padding:15px 0;border-top:1px solid var(--bd)}
+  .field:first-of-type{border-top:0;padding-top:2px}
+  .flabel{font-size:1rem;font-weight:700;margin-bottom:2px}
+  .fhelp{font-size:.88rem;color:var(--dim);margin-bottom:10px;max-width:62ch}
+  .seg{display:flex;gap:8px;flex-wrap:wrap}
+  .seg button{
+    flex:1 1 150px;min-width:0;text-align:left;cursor:pointer;font-family:inherit;
+    background:var(--panel2);border:1px solid var(--bd);border-radius:11px;padding:10px 13px;
+    transition:border-color .15s,background .15s,transform .15s;
+  }
+  .seg button:hover{border-color:var(--bd2);transform:translateY(-1px)}
+  .seg button[aria-pressed="true"]{background:rgba(220,38,38,.07);border-color:rgba(220,38,38,.5)}
+  .seg b{display:block;font-size:.95rem;font-weight:700}
+  .seg small{display:block;font-size:.82rem;color:var(--faint);margin-top:1px}
+  .seg button[aria-pressed="true"] b{color:var(--con-d)}
+
+  /* Mic check. The bar is the point: the marker is the actual level your
+     voice has to clear at your current settings, not a decorative VU. */
+  .mic{margin-top:14px;padding:14px;border:1px solid var(--bd);border-radius:12px;background:var(--panel2)}
+  .mic-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .mic-title{font-size:.95rem;font-weight:700}
+  .btn{cursor:pointer;font-family:inherit;font-size:.9rem;font-weight:700;padding:8px 16px;border-radius:999px;border:1px solid var(--bd2);background:var(--panel);color:var(--tx);transition:background .15s,border-color .15s}
+  .btn:hover{background:var(--panel2)}
+  .btn.primary{background:var(--con);border-color:var(--con);color:#fff}
+  .btn.primary:hover{background:var(--con-d)}
+  .meter{position:relative;height:16px;border-radius:999px;background:rgba(20,22,28,.09);overflow:hidden}
+  .meter i{display:block;height:100%;width:0;background:var(--dim);transition:width .06s linear}
+  .meter i.over{background:var(--ok)}
+  .gate{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--con);border-radius:2px}
+  .mic-legend{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:.84rem;color:var(--dim)}
+  .mic-verdict{font-weight:700}
+  .mic-verdict.good{color:var(--ok)}
+  .mic-verdict.warn{color:var(--con-d)}
+
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .saved{font-size:.88rem;color:var(--ok);font-weight:700;opacity:0;transition:opacity .2s}
+  .saved.on{opacity:1}
+
+  footer{padding:26px 0 40px;border-top:1px solid var(--bd);margin-top:26px;font-size:.88rem;color:var(--faint);display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div id="daTopbar"></div>
+
+<div class="wrap">
+  <header class="hd">
+    <div class="eyebrow">Settings</div>
+    <h1>How a round behaves</h1>
+    <p class="lede">Turn-taking, your microphone, and the defaults a new round starts with. Saved on this device the moment you tap, and carried to your account if you are signed in.</p>
+  </header>
+
+  <section class="card">
+    <h2>Voice rounds</h2>
+    <p class="sub">The AI has to decide when your turn ended. These are the numbers behind that decision.</p>
+    <div id="voiceFields"></div>
+
+    <div class="mic">
+      <div class="mic-top">
+        <span class="mic-title">Check your microphone</span>
+        <button class="btn" id="micBtn" type="button">Start</button>
+      </div>
+      <div class="meter"><i id="meterFill"></i><span class="gate" id="gateMark" hidden></span></div>
+      <div class="mic-legend">
+        <span id="micHint">Speak at your normal debating volume. The red line is what counts as you talking.</span>
+        <span class="mic-verdict" id="micVerdict"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Your opponent</h2>
+    <p class="sub">What a new round starts with. You can still change any of it on the setup screen before you begin.</p>
+    <div id="oppFields"></div>
+  </section>
+
+  <section class="card">
+    <h2>Sound</h2>
+    <div id="soundFields"></div>
+    <div class="actions">
+      <button class="btn" id="resetBtn" type="button">Reset round settings</button>
+      <span class="saved" id="savedFlag">Saved</span>
+    </div>
+  </section>
+
+  <footer>
+    <span>Name, privacy, plan and your data live on <a href="/profile">your profile</a>.</span>
+    <span><a href="/newvoice">Start a round</a></span>
+  </footer>
+</div>
+
+<script src="/js/round-prefs.js"></script>
+<script defer src="/js/topbar.js"></script>
+<script defer src="/js/prefs-sync.js"></script>
+<script defer src="/js/track.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var RP = window.RoundPrefs;
+
+  function flash(){
+    var f = $('savedFlag');
+    f.classList.add('on');
+    clearTimeout(flash._t);
+    flash._t = setTimeout(function(){ f.classList.remove('on'); }, 1400);
+  }
+  function ga(name, params){
+    try { if (window.gtag) window.gtag('event', name, params || {}); } catch (e) {}
+  }
+
+  /* A field is a label, a help line, and one row of options. Rendering them
+     from a spec rather than hand-writing markup is what keeps this page and
+     the round engine describing the same settings: RoundPrefs.DEFS is the
+     spec for the voice group, and the opponent/sound groups follow the same
+     shape against their own localStorage keys. */
+  function renderField(host, spec, current, onPick){
+    var wrap = document.createElement('div');
+    wrap.className = 'field';
+    var h = document.createElement('div');
+    h.className = 'flabel'; h.textContent = spec.label;
+    var help = document.createElement('p');
+    help.className = 'fhelp'; help.textContent = spec.help;
+    var seg = document.createElement('div');
+    seg.className = 'seg';
+    spec.opts.forEach(function(o){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', o.id === current ? 'true' : 'false');
+      var strong = document.createElement('b'); strong.textContent = o.label;
+      var small = document.createElement('small'); small.textContent = o.hint || '';
+      b.appendChild(strong); b.appendChild(small);
+      b.addEventListener('click', function(){
+        Array.prototype.forEach.call(seg.children, function(c){ c.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', 'true');
+        onPick(o.id);
+        flash();
+      });
+      seg.appendChild(b);
+    });
+    wrap.appendChild(h); wrap.appendChild(help); wrap.appendChild(seg);
+    host.appendChild(wrap);
+  }
+
+  // ── voice group, straight off the shared spec ───────────────────
+  var VOICE_ORDER = ['mic', 'turnWait', 'room', 'barge'];
+  function paintVoice(){
+    var host = $('voiceFields');
+    host.textContent = '';
+    VOICE_ORDER.forEach(function(name){
+      var spec = RP.DEFS[name];
+      if (!spec) return;
+      renderField(host, spec, RP.get(name), function(id){
+        RP.set(name, id);
+        ga('settings_change', { setting: name, value: id });
+        drawGate();
+      });
+    });
+  }
+
+  // ── opponent + sound groups, against their existing keys ────────
+  // These write the same localStorage keys /newvoice's setup screen writes,
+  // so the two surfaces stay one setting rather than two that disagree.
+  var LOCAL = [
+    { host: 'oppFields', key: 'debateos-newvoice-diff', def: 'standard',
+      label: 'Challenge level',
+      help: 'How hard the AI disagrees. Relaxed concedes more and explains itself; Tough presses every weak link.',
+      opts: [
+        { id: 'chill', label: 'Relaxed', hint: 'Gentler pushback.' },
+        { id: 'standard', label: 'Balanced', hint: 'The default.' },
+        { id: 'ruthless', label: 'Tough', hint: 'Presses every gap.' },
+      ] },
+    { host: 'oppFields', key: 'debateos-newvoice-pace', def: 'natural',
+      label: 'Speaking speed',
+      help: 'How fast the AI talks. Slow is easier to flow; Fast is closer to a real circuit round.',
+      opts: [
+        { id: 'calm', label: 'Slow', hint: 'Easier to follow.' },
+        { id: 'natural', label: 'Normal', hint: 'The default.' },
+        { id: 'quick', label: 'Fast', hint: 'Circuit pace.' },
+      ] },
+    { host: 'oppFields', key: 'debateos-newvoice-judge-live', def: 'off',
+      label: 'Judge notes during the round',
+      help: 'A judge sits in and takes notes as you go, which show up with your feedback at the end. Costs a little more of your allowance per round.',
+      opts: [
+        { id: 'off', label: 'Off', hint: 'Feedback at the end only.' },
+        { id: 'on', label: 'On', hint: 'Notes taken as you go.' },
+      ] },
+    { host: 'soundFields', key: 'da-sfx-muted', def: '0',
+      label: 'Sound effects',
+      help: 'The small chimes on sign-in, ballot reveal, and streaks. Honored across the site.',
+      opts: [
+        { id: '0', label: 'On', hint: 'Chimes play.' },
+        { id: '1', label: 'Off', hint: 'Silent.' },
+      ] },
+  ];
+  function readLocal(f){
+    var v = null;
+    try { v = localStorage.getItem(f.key); } catch (e) {}
+    for (var i = 0; i < f.opts.length; i++) if (f.opts[i].id === v) return v;
+    return f.def;
+  }
+  function paintLocal(){
+    $('oppFields').textContent = '';
+    $('soundFields').textContent = '';
+    LOCAL.forEach(function(f){
+      renderField($(f.host), f, readLocal(f), function(id){
+        try { localStorage.setItem(f.key, id); } catch (e) {}
+        ga('settings_change', { setting: f.key, value: id });
+      });
+    });
+  }
+
+  $('resetBtn').addEventListener('click', function(){
+    RP.reset();
+    LOCAL.forEach(function(f){ try { localStorage.removeItem(f.key); } catch (e) {} });
+    paintVoice(); paintLocal(); drawGate(); flash();
+    ga('settings_reset', {});
+  });
+
+  /* ── mic check ───────────────────────────────────────────────────
+     The reason this is here and not a nicety: "how sensitive should my mic
+     be" is unanswerable in the abstract. You can read the three room options
+     all day and still not know which one your voice clears. So the bar draws
+     the ACTUAL threshold at the current setting, using the same RMS math and
+     the same base numbers the round engine uses, and tells you whether you
+     are over it. Nothing is uploaded; the stream never leaves the page and
+     is stopped the moment you stop the check. */
+  var micStream = null, analyser = null, buf = null, raf = 0, ctx = null;
+  var noiseFloor = 0, noiseSamples = [], peak = 0;
+
+  function levelOf(){
+    if (!analyser || !buf) return 0;
+    analyser.getByteTimeDomainData(buf);
+    var sum = 0;
+    for (var i = 0; i < buf.length; i += 2) { var d = (buf[i] - 128) / 128; sum += d * d; }
+    return Math.min(1, Math.sqrt(sum / (buf.length / 2)) * 5.2);
+  }
+  // Mirrors speechGate() in newvoice.html. Kept in step by the base numbers
+  // living in RoundPrefs.GATE and a test that asserts the page and the engine
+  // agree; if this drifts, the bar starts lying, which is worse than no bar.
+  function gateNow(){
+    var G = RP.GATE;
+    return Math.max(G.speech, Math.min(G.noiseCap, noiseFloor) + G.noiseMargin) * RP.val('room', 'gate', 1);
+  }
+  function drawGate(){
+    var g = Math.min(1, gateNow());
+    var mark = $('gateMark');
+    mark.hidden = !micStream;
+    mark.style.left = (g * 100) + '%';
+  }
+  function tick(){
+    var lvl = levelOf();
+    if (noiseSamples.length < 14) {
+      noiseSamples.push(lvl);
+      if (noiseSamples.length === 14) {
+        var s = noiseSamples.slice().sort(function(a, b){ return a - b; });
+        noiseFloor = s[Math.floor(s.length * 0.75)];
+        drawGate();
+        $('micHint').textContent = 'Room measured. Speak at your normal debating volume.';
+      }
+    }
+    var g = gateNow();
+    if (lvl > peak) peak = lvl;
+    var fill = $('meterFill');
+    fill.style.width = Math.min(100, lvl * 100) + '%';
+    fill.classList.toggle('over', lvl > g);
+    var v = $('micVerdict');
+    if (noiseSamples.length < 14) { v.textContent = 'Listening to the room…'; v.className = 'mic-verdict'; }
+    else if (peak > g * 1.25) { v.textContent = 'Clears the line comfortably.'; v.className = 'mic-verdict good'; }
+    else if (peak > g) { v.textContent = 'Only just clears it. A quieter setting would be safer.'; v.className = 'mic-verdict warn'; }
+    else { v.textContent = 'Not clearing the line yet.'; v.className = 'mic-verdict warn'; }
+    raf = requestAnimationFrame(tick);
+  }
+  function stopMic(){
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    try { if (micStream) micStream.getTracks().forEach(function(t){ t.stop(); }); } catch (e) {}
+    micStream = null; analyser = null; buf = null;
+    noiseSamples = []; noiseFloor = 0; peak = 0;
+    $('micBtn').textContent = 'Start';
+    $('meterFill').style.width = '0';
+    $('meterFill').classList.remove('over');
+    $('gateMark').hidden = true;
+    $('micVerdict').textContent = '';
+    $('micHint').textContent = 'Speak at your normal debating volume. The red line is what counts as you talking.';
+  }
+  $('micBtn').addEventListener('click', function(){
+    if (micStream) { stopMic(); return; }
+    $('micBtn').textContent = 'Asking…';
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    }).then(function(s){
+      micStream = s;
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      var src = ctx.createMediaStreamSource(s);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.72;
+      src.connect(analyser);
+      buf = new Uint8Array(analyser.frequencyBinCount);
+      $('micBtn').textContent = 'Stop';
+      $('micHint').textContent = 'Measuring your background noise. Stay quiet for a second.';
+      drawGate();
+      tick();
+      ga('settings_mic_check', {});
+    }).catch(function(){
+      $('micBtn').textContent = 'Start';
+      $('micHint').textContent = 'No microphone access. Allow it in your browser, then try again.';
+    });
+  });
+  // A live mic on a backgrounded tab is a battery drain and a privacy smell.
+  document.addEventListener('visibilitychange', function(){ if (document.hidden && micStream) stopMic(); });
+  window.addEventListener('pagehide', stopMic);
+
+  paintVoice();
+  paintLocal();
+})();
+</script>
+</body>
+</html>

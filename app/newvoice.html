@@ -37,6 +37,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+<!-- Not deferred: the turn engine reads RoundPrefs the moment a round starts,
+     and the accessors fall back to their constants if it is missing, so a
+     late-arriving prefs file would silently run one round on defaults. -->
+<script src="/js/round-prefs.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 
@@ -870,7 +874,7 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
             <button type="button" data-mic="free" class="active">Hands free</button>
             <button type="button" data-mic="ptt">Tap to speak</button>
           </div>
-          <div class="tune-help">Hands free listens for a pause. Tap to speak gives you the floor until you tap again.</div>
+          <div class="tune-help">Hands free listens for a pause. Tap to speak gives you the floor until you tap again. <a href="/settings" style="color:inherit;text-decoration:underline">More turn-taking settings</a></div>
         </div>
         <div class="tune">
           <div class="tune-head"><div class="tune-label">Extra feedback</div><small>After the debate</small></div>
@@ -1797,10 +1801,22 @@ function measureNoiseFloor(){
     noiseFloor = Math.min(NOISE_CAP, samples[Math.floor(samples.length * 0.75)]);
   }, 50);
 }
+// USER TUNING (/settings, via js/round-prefs.js). Each accessor falls back to
+// the constant above, so a missing or broken prefs file leaves the round
+// behaving exactly as it did before the settings page existed. The multipliers
+// ride on TOP of the ambient calibration rather than replacing it: the room
+// measurement handles where you are, the preference handles how you want it.
+function pref(name, field, fallback){
+  try { return window.RoundPrefs ? window.RoundPrefs.val(name, field, fallback) : fallback; }
+  catch (e) { return fallback; }
+}
 // The gates the tick actually uses. Both collapse to the constants above in
-// a quiet room, so this can only ever make the mic harder to trip.
-function speechGate(){ return Math.max(SPEECH_LEVEL, noiseFloor + NOISE_MARGIN); }
-function bargeFloor(){ return Math.max(BARGE_LEVEL, speechGate() + 0.10); }
+// a quiet room on default settings, so this can only ever make the mic harder
+// to trip than the bare constant, never easier.
+function speechGate(){ return Math.max(SPEECH_LEVEL, noiseFloor + NOISE_MARGIN) * pref('room', 'gate', 1); }
+function bargeFloor(){ return Math.max(BARGE_LEVEL * pref('barge', 'lvl', 1), speechGate() + 0.10); }
+function bargeSustainMs(){ return pref('barge', 'ms', BARGE_SUSTAIN_MS); }
+function turnWaitMs(){ return pref('turnWait', 'ms', TURN_SILENCE_MS); }
 // ECHO GUARD (2026-07-22, per "the AI stops mid-sentence when nobody is
 // talking"). BARGE_LEVEL alone was a FIXED floor, so the gate could not tell
 // the user's voice apart from the AI's own voice coming back through the mic.
@@ -1873,7 +1889,7 @@ function bargeTick(){
     const gate = Math.max(bargeFloor(), aiHold * BARGE_ECHO_RATIO + BARGE_ECHO_MARGIN);
     if (lvl > gate) bargeMs += 50;
     else bargeMs = Math.max(0, bargeMs - 100);
-    if (bargeMs >= BARGE_SUSTAIN_MS) {
+    if (bargeMs >= bargeSustainMs()) {
       bargeMs = 0;
       aiTalking = false;
       aiHold = 0;
@@ -1901,7 +1917,7 @@ function bargeTick(){
   // handoff phrase answers immediately (handled in handleEvent); this
   // path covers "they finished and went quiet": three seconds of real
   // mic silence after their last audio reads as "not mid-thought".
-  if (pendingTurn && !awaitingResponse && now - lastActiveAt >= TURN_SILENCE_MS) {
+  if (pendingTurn && !awaitingResponse && now - lastActiveAt >= turnWaitMs()) {
     requestAiTurn('');
     return;
   }
@@ -2175,7 +2191,7 @@ function setFloor(open){
     // audio, and backdating the clock buys it PTT_HANDOFF_MS to do that
     // without adding a second way for an AI turn to start.
     pendingTurn = true;
-    lastActiveAt = Date.now() - (TURN_SILENCE_MS - PTT_HANDOFF_MS);
+    lastActiveAt = Date.now() - (turnWaitMs() - PTT_HANDOFF_MS);
   }
   // A tap that opened and closed with nothing said is a misfire, not a turn.
   paintMic();
