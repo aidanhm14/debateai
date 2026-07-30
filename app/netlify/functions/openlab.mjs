@@ -1,10 +1,22 @@
 // Open Lab brain proxy — routes to OpenRouter for open-weights models
 // that aren't shipped by the four big labs (Anthropic / OpenAI / Google
-// / xAI). Pinned default: Nous Hermes 4 405B — a Llama-3.1-405B
-// fine-tune known for character-rich prose and low refusal rates, the
+// / xAI). Default stays Nous Hermes 4 405B: a Llama-3.1-405B fine-tune
+// known for character-rich prose and low refusal rates, the
 // "human-sounding, less guardrail-nag" register the brand voice calls
 // for. The model is env-overrideable (OPENLAB_MODEL) so the slug can
 // be swapped without a redeploy if the underlying availability shifts.
+//
+// THE ROSTER LIVES IN lib/engines.mjs, not here. This file used to
+// carry its own ALLOWED_MODELS array, which then had to agree with the
+// picker in three HTML files; it did not. The allow-list is now derived
+// from the shared roster, so a new engine is one edit in one file and
+// the proxy, the picker, and /engines cannot disagree about what is
+// callable.
+//
+// The client may send either a roster key ('kimi-k3') or a raw slug
+// ('moonshotai/kimi-k3'). Anything unrecognized falls back to the
+// default rather than erroring: a stale cached bundle asking for a
+// retired slug should still get a round, not a 400.
 //
 // Translates the same Claude-style request shape (system + messages)
 // the other proxies accept. OpenRouter is OpenAI-compatible, so the
@@ -18,6 +30,7 @@ import { applyDistillations } from './lib/distillations.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 import { applyAdjudicationForFeature } from './lib/adjudication.mjs';
+import { resolveOpenSlug, DEFAULT_OPEN_SLUG } from './lib/engines.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -64,20 +77,11 @@ function checkRateLimit(key) {
 }
 
 // Allow-list keeps a runaway client from billing an arbitrary model
-// through the proxy. Env override lets ops swap defaults without a
-// deploy. Slugs follow OpenRouter convention: <vendor>/<model>.
-const DEFAULT_MODEL = process.env.OPENLAB_MODEL || 'nousresearch/hermes-4-405b';
-const ALLOWED_MODELS = (
-  process.env.OPENLAB_ALLOWED_MODELS
-  || [
-    'nousresearch/hermes-4-405b',
-    'nousresearch/hermes-3-llama-3.1-405b', // fallback if Hermes 4 unavailable
-    'mistralai/mistral-large-2407',
-    'qwen/qwen3-235b-a22b',
-    'meta-llama/llama-4-maverick',
-    'meta-llama/llama-4-scout',
-  ].join(',')
-).split(',').map(s => s.trim()).filter(Boolean);
+// through the proxy. Both the roster and the legacy fallbacks come from
+// lib/engines.mjs; OPENLAB_ALLOWED_MODELS still overrides the whole set
+// and OPENLAB_MODEL still overrides the default, so ops can pin or
+// unpin without a deploy.
+const DEFAULT_MODEL = process.env.OPENLAB_MODEL || DEFAULT_OPEN_SLUG;
 const MAX_TOKENS_CAP = 16000;
 
 export default async (request, context) => {
@@ -173,7 +177,18 @@ export default async (request, context) => {
     ]);
     applyVoiceGuidelines(body);
 
-    const model = ALLOWED_MODELS.includes(body.model) ? body.model : DEFAULT_MODEL;
+    // `engine` is the roster key the picker sends; `model` is the raw
+    // slug older callers send. Either resolves through the shared
+    // allow-list. An unrecognized value is not an error: it falls back
+    // to the configured default so a stale bundle still gets a round.
+    //
+    // Precedence, deliberately: OPENLAB_MODEL is an OUTAGE LEVER and
+    // wins over the user's pick when set, because the reason to set it
+    // is that a specific engine is failing. Unset (the normal case), the
+    // user's pick decides and DEFAULT_OPEN_SLUG catches the rest.
+    const requested = body.engine || body.model;
+    const model = process.env.OPENLAB_MODEL
+      || resolveOpenSlug(requested, process.env.OPENLAB_ALLOWED_MODELS);
     const maxTokens = Math.min(body.max_tokens || 4000, MAX_TOKENS_CAP);
 
     const messages = [];
@@ -204,11 +219,16 @@ export default async (request, context) => {
       }),
     });
 
+    // Echo the engine that actually ran. The client labels the output
+    // with this rather than with what it asked for, so a fallback or an
+    // ops pin shows up in the UI instead of being invisible.
     return new Response(response.body, {
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
         'Cache-Control': 'no-cache',
+        'X-Debatable-Engine': model,
+        'Access-Control-Expose-Headers': 'X-Debatable-Engine',
         ...CORS,
       },
     });

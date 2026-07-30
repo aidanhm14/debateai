@@ -419,5 +419,53 @@ function t(label, cond) {
   t('filing freezes settlement', /disputeState: 'open'/.test(filing));
 }
 
+// ── 10. the bench is a face, not a lever ────────────────────────────
+{
+  // lib/judge-bench.mjs puts archetypes on the pinned jurors so a panel
+  // can be drawn. The risk it introduces is that "pick your judge"
+  // arrives through the presentation layer, which is the pinned-panel
+  // promise defeated from the other side. So: it may describe the panel
+  // and it may not participate in deciding one.
+  const bench = readFileSync(new URL('../app/netlify/functions/lib/judge-bench.mjs', import.meta.url), 'utf8');
+  // Comments are stripped before these checks. This file documents its
+  // own prohibitions ("exports no winner"), so matching raw text would
+  // fail on the prose that promises the thing being asserted, and a
+  // guard that fires on a comment teaches people to weaken the guard.
+  const benchCode = bench.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  t('the bench calls no model', !/api\.anthropic|api\.openai|generativelanguage|callPanel|callJuror/.test(benchCode));
+  t('the bench exports no verdict', !/\bwinner\b|speakerPoints|tallyPanel/.test(benchCode));
+  t('every guest judge is unranked', /guestJudgeIsRanked[\s\S]*return false/.test(benchCode));
+
+  // The tally path must not know the bench exists. If judge-panel ever
+  // imports it, a persona could weight a vote.
+  const panel = readFileSync(new URL('../app/netlify/functions/lib/judge-panel.mjs', import.meta.url), 'utf8');
+  t('the tally does not import the bench', !/judge-bench/.test(panel));
+
+  // The bench must derive from the season's own juror list rather than
+  // carrying its own copy of the pin. A hardcoded model id here would be
+  // a second, unversioned pin that the charter hash does not cover.
+  t('the bench pins no model of its own', !/claude-sonnet|gpt-4o|gemini-[0-9]/.test(bench));
+
+  const { benchForSeason } = await import('../app/netlify/functions/lib/judge-bench.mjs');
+  const { SEASONS } = await import('../app/netlify/functions/lib/judge-charter.mjs');
+  const current = SEASONS[SEASONS.length - 1];
+  const drawn = benchForSeason(current);
+  t('the bench seats exactly the pinned jurors', drawn.seated.length === current.panel.jurors.length);
+  t('the bench reports itself as pinned', drawn.pinned === true);
+  t(
+    'the bench carries the pinned model ids unchanged',
+    drawn.seated.every((s, i) => s.pinnedModel === current.panel.jurors[i].model),
+  );
+  // A disclosed override has to show on the card. A silent one is the
+  // whole problem the charter exists to prevent.
+  const overridden = benchForSeason(current, { [current.panel.jurors[0].id]: 'some-other-model' });
+  t('an override is marked on the bench', overridden.seated[0].overridden === true);
+
+  // The pre-panel season has no panel. It must say so rather than
+  // drawing three chairs that were never there.
+  const preseason = SEASONS[0];
+  t('a single-judge season draws no panel', benchForSeason(preseason).seated.length === 0);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

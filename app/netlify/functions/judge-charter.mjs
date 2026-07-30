@@ -14,6 +14,7 @@
 import { corsResponse, errorResponse } from './lib/response.mjs';
 import { charterDoc, seasonFor } from './lib/judge-charter.mjs';
 import { jurorAvailable } from './lib/judge-jurors.mjs';
+import { benchForSeason } from './lib/judge-bench.mjs';
 
 const PANEL_ENABLED = process.env.JUDGE_PANEL_ENABLED !== '0';
 const REQUIRE_PANEL = process.env.JUDGE_REQUIRE_PANEL === '1';
@@ -57,6 +58,13 @@ export default async (request) => {
 
   const now = Date.now();
   const doc = charterDoc(now, runningState(now));
+
+  // The bench is the same pinned jurors with an archetype attached, for
+  // surfaces that draw the panel. It is added NEXT TO the panel rather
+  // than replacing it: the provider and model ids stay in `season.panel`
+  // exactly as before, so nothing that reads the charter today changes
+  // meaning, and a client cannot mistake a persona for a pin.
+  doc.bench = benchForSeason(seasonFor(now));
 
   // Cacheable at the edge. The charter changes when a season changes,
   // which is a deploy, so an hour of staleness is fine and it keeps a
