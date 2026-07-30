@@ -55,6 +55,29 @@ if [ -f "$PRICE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Judge-integrity guard. Blocks a commit that breaks a promise the
+# public /judge-integrity page makes: the season calendar staying
+# contiguous, the rubric hash staying content-addressed, an even panel
+# split staying unresolved instead of tie-broken, appeals staying
+# human-only, and the settlement path staying free of any rake or
+# side-dependent fee.
+#
+# Why a hook and not just a test anyone can run: every one of those is
+# a claim published to users and quotable in a dispute, so a commit
+# that quietly falsifies one should not be able to reach main. Same
+# hard-fail, soft-skip posture as the price guard.
+# ──────────────────────────────────────────────────────────────────
+JUDGE_GUARD="$REPO_ROOT/scripts/test-judge-integrity.mjs"
+if [ -f "$JUDGE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-judge-integrity.mjs >/tmp/judge-guard.log 2>&1); then
+    echo "[judge-guard] commit blocked — the judge integrity promises no longer hold:" >&2
+    grep '^FAIL' /tmp/judge-guard.log >&2 || tail -20 /tmp/judge-guard.log >&2
+    echo "[judge-guard] see scripts/test-judge-integrity.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Precompile inline <script data-precompile="es5"> blocks before
 # anything else. Why first: the precompile may mutate staged HTML,
 # which downstream steps (sw.js cache bump) need to see.

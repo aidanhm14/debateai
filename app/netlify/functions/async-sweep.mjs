@@ -18,6 +18,11 @@ import { applyRoundRating } from './lib/rating-apply.mjs';
 import { recordJudgment } from './lib/judgment.mjs';
 import { settleMarket } from './lib/settle.mjs';
 import { marketId as mkMarketId } from './lib/credits.mjs';
+import { seasonFor } from './lib/judge-charter.mjs';
+import { callPanel, jurorAvailable } from './lib/judge-jurors.mjs';
+import { normalizeVote, tallyPanel } from './lib/judge-panel.mjs';
+import { auditRecord, writeAudit } from './lib/judge-audit.mjs';
+import { judgmentId as mkJudgmentId } from './lib/judgment.mjs';
 import {
   mediaStore, readMediaBuffer, transcribe, claude, speechToMp3, sendEmail,
   newId, feedKeyFor, FEED_CACHE_KEY, FORMAT_NAMES, REPLY_WINDOW_MS,
@@ -140,6 +145,108 @@ function parseBallot(text) {
   };
 }
 
+// ── the panel ───────────────────────────────────────────────────────
+//
+// One model call is one opinion the operator can tune. The season pins
+// three independent model families, they judge the same round from
+// byte-identical prompts, and the majority is the verdict. Disagreement
+// is not smoothed over: it is recorded on the ballot and published.
+//
+// DEGRADED MODE, disclosed rather than silent. If a provider key is
+// unset or a juror fails, the panel runs short. When too few jurors are
+// available to reach the season's quorum, the ballot falls back to a
+// single judge and is STAMPED `degraded: true`, which the public charter
+// endpoint surfaces. Set JUDGE_REQUIRE_PANEL=1 to refuse a verdict
+// instead of degrading; the default keeps rounds moving, because a
+// missing key should not silently freeze every ballot on the site.
+const PANEL_ENABLED = process.env.JUDGE_PANEL_ENABLED !== '0';
+const REQUIRE_PANEL = process.env.JUDGE_REQUIRE_PANEL === '1';
+
+async function runPanel(season, system, user) {
+  const panelCfg = PANEL_ENABLED ? (season && season.panel) : null;
+  const wanted = (panelCfg && panelCfg.jurors) || [];
+  const available = wanted.filter(jurorAvailable);
+  const quorum = (panelCfg && panelCfg.quorum) || 2;
+
+  // Not enough jurors to constitute the panel the season promised.
+  if (!panelCfg || available.length < quorum) {
+    if (REQUIRE_PANEL && panelCfg) {
+      throw new Error(`panel not constitutable: ${available.length} of ${wanted.length} jurors available, quorum ${quorum}`);
+    }
+    const started = Date.now();
+    const ballot = parseBallot(await claude(system, user, 900, JUDGE_MODEL));
+    return {
+      ballot: { ...ballot, model: JUDGE_MODEL },
+      panel: {
+        resolution: 'single',
+        degraded: !!panelCfg,
+        votesCast: 1, panelSize: 1, quorum: 1,
+        tally: ballot.winner === 'prop' ? { a: 1, b: 0 } : { a: 0, b: 1 },
+        agreement: 1, unanimous: false, dissent: [], dissents: [],
+        marginSpread: 0, marginStdev: 0,
+        models: [JUDGE_MODEL],
+        jurorsWanted: wanted.length,
+        jurorsAvailable: available.length,
+      },
+      jurorResults: [{
+        jurorId: 'single', provider: 'anthropic', model: JUDGE_MODEL,
+        ok: true, ballot, ms: Date.now() - started, promptHash: '',
+      }],
+    };
+  }
+
+  const results = await callPanel(available, system, user, 900, parseBallot);
+  const votes = results
+    .filter((r) => r.ok && r.ballot)
+    .map((r) => normalizeVote(r, r.ballot, 'prop', 'opp'))
+    .filter(Boolean);
+
+  const tally = tallyPanel(votes, { size: available.length, quorum });
+  const lead = votes.find((v) => v.jurorId === tally.leadJurorId) || votes[0] || null;
+
+  // Every juror that came out the other way, with its reasoning intact.
+  // Blending contradictory RFDs into one paragraph produces prose that
+  // reasons like neither juror, so a dissent is shown as a dissent.
+  const dissents = votes
+    .filter((v) => tally.winner && v.winner !== tally.winner)
+    .map((v) => ({ jurorId: v.jurorId, model: v.model, winner: v.winner === 'a' ? 'prop' : 'opp', rfd: v.rfd }));
+
+  const ballot = {
+    winner: tally.winner === 'a' ? 'prop' : (tally.winner === 'b' ? 'opp' : null),
+    propPoints: tally.points.a,
+    oppPoints: tally.points.b,
+    rfd: lead ? lead.rfd : '',
+    ...(tally.dimensions ? {
+      dimensions: Object.fromEntries(
+        Object.entries(tally.dimensions).map(([axis, v]) => [axis, { prop: v.a, opp: v.b }]),
+      ),
+    } : {}),
+    model: lead ? lead.model : '',
+  };
+
+  return {
+    ballot,
+    panel: {
+      resolution: tally.resolution,
+      degraded: available.length < wanted.length,
+      votesCast: tally.votesCast,
+      panelSize: tally.panelSize,
+      quorum,
+      tally: tally.tally,
+      agreement: tally.agreement,
+      unanimous: tally.unanimous,
+      dissent: tally.dissent,
+      dissents,
+      marginSpread: tally.marginSpread,
+      marginStdev: tally.marginStdev,
+      models: available.map((j) => j.model),
+      jurorsWanted: wanted.length,
+      jurorsAvailable: available.length,
+    },
+    jurorResults: results,
+  };
+}
+
 async function ensureTranscripts(store, ref, d) {
   // Returns true when every present turn has a transcript (or gave up).
   let turns = d.turns || [];
@@ -170,7 +277,7 @@ export default async () => {
   const started = Date.now();
   const db = getDb();
   const store = mediaStore();
-  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, clashMaps: 0, rated: 0, settled: 0, errors: 0 };
+  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, clashMaps: 0, rated: 0, settled: 0, audited: 0, unresolved: 0, errors: 0 };
 
   try {
     // ── board inventory: keep a couple of AI-opened challenges live so a
@@ -313,24 +420,69 @@ export default async () => {
           }
 
           const { system, user } = ballotPrompt(d, clashMap);
-          const ballot = parseBallot(await claude(system, user, 900, JUDGE_MODEL));
+          const season = seasonFor(Date.now());
+          const judged = await runPanel(season, system, user);
+
+          // Nobody voted. Every juror failed, which is a transient
+          // provider problem rather than an undecidable round, so leave
+          // the round in `judging` and come back. Completing it with an
+          // empty ballot would burn the round permanently.
+          if (judged.panel.resolution === 'no_votes') {
+            stats.errors++;
+            console.error('[async-sweep] panel returned no votes', ref.id);
+            await ref.update({ sweepAt: Date.now() + 10 * 60_000 });
+            continue;
+          }
+
+          const ballot = judged.ballot;
+          const judgedAt = Date.now();
           await ref.update({
             state: 'complete', feedKey: feedKeyFor('complete', d.visibility, d.hidden),
-            ballot: { ...ballot, model: JUDGE_MODEL, at: Date.now() },
+            ballot: { ...ballot, panel: judged.panel, at: judgedAt },
             ...(clashMap ? { clashMap: { ...clashMap, model: CLASH_MODEL } } : {}),
-            completedAt: Date.now(), sweepAt: FieldValue.delete(),
+            completedAt: judgedAt, sweepAt: FieldValue.delete(),
           });
           stats.ballots++;
+          if (judged.panel.resolution === 'unresolved') stats.unresolved++;
           await deleteCachedShared(FEED_CACHE_KEY).catch(() => {});
+
+          // The audit record, before anything settles off the verdict.
+          // A regulator or a plaintiff asks what configuration decided
+          // this round, and the answer has to have been written down at
+          // the moment it was decided rather than reconstructed later.
+          // Best effort on the write, loud on failure: a missing audit
+          // row must never strand a judged round in the sweep.
+          try {
+            const jid = mkJudgmentId('async', ref.id);
+            await writeAudit(db, auditRecord({
+              judgmentId: jid,
+              source: 'async',
+              eventId: ref.id,
+              season,
+              jurorResults: judged.jurorResults,
+              panel: judged.panel,
+              motion: d.motion,
+              format: d.format,
+              clashMapUsed: !!clashMap,
+              now: judgedAt,
+            }));
+            stats.audited++;
+          } catch (err) {
+            console.error('[async-sweep] audit write failed', ref.id, err && err.message);
+          }
 
           // Record the judgment FIRST. It is the document both the
           // ladder and the credit market settle from, so nothing
-          // downstream can invent a winner if this step fails.
+          // downstream can invent a winner if this step fails. A panel
+          // that could not reach a majority has no winner, so
+          // recordJudgment refuses it and nothing settles: that is the
+          // charter's `unresolved` promise doing its job rather than a
+          // failure to handle.
           try {
             await recordJudgment(db, {
               source: 'async',
               eventId: ref.id,
-              roundData: { ...d, state: 'complete', ballot, completedAt: Date.now() },
+              roundData: { ...d, state: 'complete', ballot: { ...ballot, panel: judged.panel, at: judgedAt }, completedAt: judgedAt },
             });
             const settled = await settleMarket(db, mkMarketId('async', ref.id));
             if (settled.settled) stats.settled++;
@@ -356,11 +508,19 @@ export default async () => {
           try {
             const priv = await ref.collection('private').doc('notify').get();
             const p = priv.exists ? priv.data() : {};
-            const who = ballot.winner === 'prop' ? ((d.prop && d.prop.name) || 'Prop') : ((d.opp && d.opp.name) || 'Opp');
-            const html = `<p>The ballot is in on “${d.motion}”: <b>${who}</b> takes it, ${ballot.propPoints} to ${ballot.oppPoints}.</p>` +
+            // A split panel has no winner to announce. Say that instead
+            // of picking one, which is the same discipline the ballot
+            // itself is under.
+            const who = ballot.winner === 'prop' ? ((d.prop && d.prop.name) || 'Prop')
+              : ballot.winner === 'opp' ? ((d.opp && d.opp.name) || 'Opp') : '';
+            const subject = who ? `Ballot in: ${who} wins` : 'Ballot in: the panel split';
+            const headline = who
+              ? `<p>The ballot is in on “${d.motion}”: <b>${who}</b> takes it, ${ballot.propPoints} to ${ballot.oppPoints}.</p>`
+              : `<p>The judging panel split on “${d.motion}”, so the round is recorded without a winner. Every juror's reasoning is on the round page, and either of you can ask a human to review it.</p>`;
+            const html = headline +
               `<p><a href="${SITE}/rounds?r=${ref.id}">Read the reason for decision</a></p>`;
-            if (p.propEmail) await sendEmail(p.propEmail, `Ballot in: ${who} wins`, html);
-            if (p.oppEmail && !d.aiOpp) await sendEmail(p.oppEmail, `Ballot in: ${who} wins`, html);
+            if (p.propEmail) await sendEmail(p.propEmail, subject, html);
+            if (p.oppEmail && !d.aiOpp) await sendEmail(p.oppEmail, subject, html);
           } catch { /* best effort */ }
           continue;
         }

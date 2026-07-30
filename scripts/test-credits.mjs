@@ -11,7 +11,8 @@ import {
   verdictFrom, payoutFor, txnId, ledgerEntry, defaultAccount,
   sharpScore, canStake, marketId,
 } from '../app/netlify/functions/lib/credits.mjs';
-import { fromRound, judgmentId, RUBRIC_VERSION } from '../app/netlify/functions/lib/judgment.mjs';
+import { fromRound, judgmentId } from '../app/netlify/functions/lib/judgment.mjs';
+import { seasonFor, rubricHash } from '../app/netlify/functions/lib/judge-charter.mjs';
 
 let pass = 0, fail = 0;
 const t = (name, cond, got) => {
@@ -128,7 +129,18 @@ const t = (name, cond, got) => {
   t('async judgment extracted',    j.ok);
   t('prop maps to side a',         j.value.winner === 'a');
   t('model version recorded',      j.value.modelVersion === 'claude-x');
-  t('rubric version recorded',     j.value.rubricVersion === RUBRIC_VERSION);
+  // The rubric stamped on a judgment is the one in force WHEN THE ROUND
+  // WAS JUDGED, not the one in force today. The fixture's ballot carries
+  // `at: 42`, so it belongs to the earliest season forever, even after a
+  // later season pins a new rubric. That is what makes a ballot
+  // reproducible against the criteria that actually decided it.
+  t('rubric version is the one in force when judged',
+    j.value.rubricVersion === seasonFor(42).rubricVersion);
+  t('season recorded',             j.value.seasonId === seasonFor(42).id);
+  t('rubric hash recorded',        j.value.rubricHash === rubricHash(seasonFor(42).rubricVersion));
+  t('a later judgment gets a later rubric',
+    fromRound('async', 'e1', { ...asyncRound, ballot: { ...asyncRound.ballot, at: Date.now() } })
+      .value.rubricVersion === seasonFor(Date.now()).rubricVersion);
   t('async verdict is server-owned', j.value.verdictSource === 'server');
   t('judgment id is deterministic', j.value.id === judgmentId('async', 'e1'));
   t('incomplete round has no judgment',

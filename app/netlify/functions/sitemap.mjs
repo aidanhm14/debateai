@@ -107,6 +107,7 @@ const URLS = [
   { path: '/judge',                                   changefreq: 'weekly',  priority: '0.88' },
   { path: '/benchmark',                               changefreq: 'monthly', priority: '0.86', lastmod: '2026-07-23' },
   { path: '/judge-paradigms',                         changefreq: 'monthly', priority: '0.82' },
+  { path: '/judge-integrity',                         changefreq: 'monthly', priority: '0.80' },
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },

@@ -82,14 +82,24 @@ export function eligibility(source, d) {
   return { ok: false, reason: 'unknown_source' };
 }
 
+// Change-row ids are deterministic, which is what makes a re-run a
+// no-op. A round whose verdict was overturned on appeal has to be
+// applied a second time off the corrected result, so every pass after
+// the first is namespaced by its revision. Revision 0 keeps the original
+// bare id, so nothing already written moves.
+function changeId(source, eventId, uid, rev) {
+  const n = Number(rev) || 0;
+  return n > 0 ? `${source}_${eventId}_${uid}_r${n}` : `${source}_${eventId}_${uid}`;
+}
+
 // Transactional apply. Returns { applied:bool, reason?, changes? }.
-export async function applyRoundRating(db, { source, eventId, roundData, now }) {
+export async function applyRoundRating(db, { source, eventId, roundData, now, rev }) {
   const at = now || Date.now();
   const elig = eligibility(source, roundData);
   if (!elig.ok) return { applied: false, reason: elig.reason };
 
-  const idA = `${source}_${eventId}_${elig.a.uid}`;
-  const idB = `${source}_${eventId}_${elig.b.uid}`;
+  const idA = changeId(source, eventId, elig.a.uid, rev);
+  const idB = changeId(source, eventId, elig.b.uid, rev);
   const changeA = db.collection('rating_changes').doc(idA);
   const changeB = db.collection('rating_changes').doc(idB);
   const rateA = db.collection('user_ratings').doc(elig.a.uid);
@@ -114,6 +124,7 @@ export async function applyRoundRating(db, { source, eventId, roundData, now }) 
       side: me.side,
       source,
       eventId,
+      rev: Number(rev) || 0,
       motion: elig.motion.slice(0, 300),
       verdictSource: elig.verdictSource,
       result: won ? 'win' : 'loss',
@@ -144,5 +155,95 @@ export async function applyRoundRating(db, { source, eventId, roundData, now }) 
     tx.set(changeB, rowB);
 
     return { applied: true, changes: [rowA, rowB] };
+  });
+}
+
+// ── reversal ────────────────────────────────────────────────────────
+//
+// Back a rated round out of the ladder, so a verdict overturned by a
+// human reviewer does not leave the standing it produced in place. An
+// appeal that cannot reach the ladder is not an appeal.
+//
+// WHAT THIS CAN AND CANNOT RESTORE, stated because the difference
+// matters and quietly pretending otherwise would be a false record.
+// The stored change row carries `before` and `after`, so the rating
+// DELTA is exactly reversible and the win or loss count is exactly
+// reversible. Glicko rating deviation and volatility are path
+// dependent: if the debater has played other rounds since, there is no
+// arithmetic that returns them to a counterfactual rd. So rating,
+// games, wins and losses are corrected, rd and vol are left where the
+// later rounds put them, and the compensating row says so rather than
+// implying a clean rewind. Peak is not walked back either, for the same
+// reason: it is a historical high water mark, not a running total.
+//
+// Append-only, same as the ledger: the original change row stays, and
+// the correction is a new row with `kind:'reversal'`.
+export async function reverseRoundRating(db, { source, eventId, uids, now, rev, reason }) {
+  const at = now || Date.now();
+  const revN = Number(rev) || 0;
+  const list = (uids || []).filter(Boolean);
+  if (list.length !== 2) return { reversed: false, reason: 'need_two_participants' };
+
+  const refs = list.map((uid) => ({
+    uid,
+    change: db.collection('rating_changes').doc(changeId(source, eventId, uid, revN)),
+    // The compensating row gets its own deterministic id, so a retried
+    // reversal is a no-op rather than a second clawback.
+    rebate: db.collection('rating_changes').doc(`${changeId(source, eventId, uid, revN)}_reversal`),
+    rating: db.collection('user_ratings').doc(uid),
+  }));
+
+  return db.runTransaction(async (tx) => {
+    const snaps = await Promise.all(refs.flatMap((r) => [tx.get(r.change), tx.get(r.rebate), tx.get(r.rating)]));
+    const rows = [];
+    for (let i = 0; i < refs.length; i++) {
+      const [cSnap, rbSnap, rSnap] = [snaps[i * 3], snaps[i * 3 + 1], snaps[i * 3 + 2]];
+      if (!cSnap.exists) return { reversed: false, reason: 'nothing_applied' };
+      if (rbSnap.exists) return { reversed: false, reason: 'already_reversed' };
+      rows.push({ ref: refs[i], change: cSnap.data(), rating: rSnap.exists ? rSnap.data() : null });
+    }
+
+    const out = [];
+    for (const row of rows) {
+      const c = row.change;
+      const cur = row.rating || {};
+      const delta = Number(c.delta) || 0;
+      const won = c.result === 'win';
+      const rating = Math.round(((Number(cur.rating) || 0) - delta) * 10) / 10;
+
+      tx.set(row.ref.rating, {
+        rating,
+        games: Math.max(0, (cur.games || 0) - 1),
+        wins: Math.max(0, (cur.wins || 0) - (won ? 1 : 0)),
+        losses: Math.max(0, (cur.losses || 0) - (won ? 0 : 1)),
+        updatedAt: at,
+      }, { merge: true });
+
+      const rebate = {
+        uid: c.uid,
+        name: c.name || '',
+        opponentUid: c.opponentUid || '',
+        side: c.side || '',
+        source,
+        eventId,
+        rev: revN,
+        kind: 'reversal',
+        reversesChangeId: row.ref.change.id,
+        motion: c.motion || '',
+        verdictSource: 'human-review',
+        result: 'reversed',
+        reason: String(reason || 'Verdict overturned on appeal').slice(0, 200),
+        before: { rating: Number(cur.rating) || 0, rd: cur.rd ?? null, vol: cur.vol ?? null },
+        after: { rating, rd: cur.rd ?? null, vol: cur.vol ?? null },
+        delta: Math.round(-delta * 10) / 10,
+        // Named on the row so nobody reading it later assumes the
+        // confidence terms were rewound too.
+        note: 'Rating, games, wins and losses corrected. Rating deviation and volatility are not reconstructed.',
+        at,
+      };
+      tx.set(row.ref.rebate, rebate);
+      out.push(rebate);
+    }
+    return { reversed: true, changes: out };
   });
 }

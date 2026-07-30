@@ -1076,6 +1076,44 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── judge_audit — the model config that decided each round ────────
+    // One immutable document per ballot: the season, the rubric version
+    // AND its hash, every juror's provider and model id, whether that
+    // model was the season pin or a disclosed override, the raw votes,
+    // and the panel's disagreement.
+    //
+    // Public read is the whole point. An AI judge the operator can
+    // silently retune is house control of the outcome; the answer is a
+    // record anyone can fetch, not a promise. Never updated in place: a
+    // correction is an appended revision, same posture as the credit
+    // ledger, so a document cannot be quietly improved after someone
+    // complains about the verdict it describes.
+    match /judge_audit/{judgmentId} {
+      allow read:  if true;
+      allow write: if false;
+      match /revisions/{revisionId} {
+        allow read:  if true;
+        allow write: if false;
+      }
+    }
+
+    // ── judge_appeals — the human layer above the model ──────────────
+    // A debater's written appeal against a ballot. Server-write only:
+    // filing goes through /api/judge/appeal, which is what sets
+    // disputeState on the judgment and freezes settlement, and resolving
+    // goes through /api/admin/appeals, which requires a human reviewer
+    // who did not debate the round.
+    //
+    // Read is narrower than judgments on purpose. The verdict is public
+    // and so is its resolution, but the appellant's own written account
+    // of their round is their text rather than part of the public record
+    // of it. The public projection (outcome, ground, reviewer reason)
+    // is served by /api/judge/appeal instead.
+    match /judge_appeals/{appealId} {
+      allow read:  if isSignedIn() && resource.data.appellantUid == request.auth.uid;
+      allow write: if false;
+    }
+
     // ── markets — prediction on a real event ─────────────────────────
     // Play credits only. Public read so the arena card can show the
     // crowd split live over onSnapshot rather than polling a function.

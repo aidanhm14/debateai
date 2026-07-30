@@ -15,14 +15,63 @@
 //
 // Judgments are also the dispute surface. A ballot that turns out to be
 // wrong gets humanReview and disputeState set here, and the compensating
-// entries downstream reference this id.
+// entries downstream reference this id. That is what judge-appeal.mjs
+// writes to, and what lib/settle.mjs reverses off.
 // ─────────────────────────────────────────────────────────────
+import { seasonFor, rubricHash } from './judge-charter.mjs';
 
-// Bump when the adjudication rubric materially changes, so a disputed
-// ballot can be reproduced against the rubric that actually judged it.
-export const RUBRIC_VERSION = 'adjudication-2026-07';
-
+// The rubric a judgment was decided under is no longer a constant in
+// this file. It is read from the season calendar in
+// lib/judge-charter.mjs at the moment the round was judged, along with
+// the hash of that rubric's published text.
+//
+// That matters for exactly the reason this whole layer exists: a
+// judgment has to be reproducible against the criteria that actually
+// judged it, not against whatever the criteria say today. A round judged
+// in July is stamped with July's rubric forever, even after a new season
+// pins a new one, and the hash makes an after-the-fact edit to the
+// published criteria detectable rather than a matter of trust.
 export const SOURCES = ['async', 'live'];
+
+// Season and rubric stamp for a moment in time. `judgedAt` of 0 falls
+// into the earliest season, which is the honest reading of a round with
+// no timestamp: it was judged before we started recording this.
+function charterStamp(judgedAt) {
+  const season = seasonFor(judgedAt || 0);
+  return {
+    seasonId: season.id,
+    rubricVersion: season.rubricVersion,
+    rubricHash: rubricHash(season.rubricVersion),
+    rubricPublished: !!season.published,
+  };
+}
+
+// Panel summary for the judgment document. The full per-juror record
+// lives in judge_audit; what belongs on the verdict itself is how much
+// the panel agreed, because that is the number a debater reading their
+// own ballot should see next to the result.
+function panelStamp(ballot) {
+  const p = ballot && ballot.panel;
+  if (!p) return { panel: null, confidence: null };
+  return {
+    panel: {
+      resolution: p.resolution || '',
+      votesCast: Number(p.votesCast) || 0,
+      panelSize: Number(p.panelSize) || 0,
+      tally: p.tally || null,
+      agreement: Number.isFinite(Number(p.agreement)) ? Number(p.agreement) : null,
+      unanimous: !!p.unanimous,
+      dissent: Array.isArray(p.dissent) ? p.dissent : [],
+      marginSpread: Number(p.marginSpread) || 0,
+      models: Array.isArray(p.models) ? p.models : [],
+    },
+    // Panel agreement IS the confidence figure. It was a null column
+    // waiting for exactly this: a number that comes from independent
+    // jurors rather than from asking one model how sure it feels, which
+    // is a self-report and worth nothing.
+    confidence: Number.isFinite(Number(p.agreement)) ? Number(p.agreement) : null,
+  };
+}
 
 export function judgmentId(source, eventId) {
   return `${source}_${eventId}`;
@@ -63,14 +112,16 @@ export function fromRound(source, eventId, d) {
     if (d.state !== 'complete') return { ok: false, reason: 'not_complete' };
     const b = d.ballot;
     if (!b || (b.winner !== 'prop' && b.winner !== 'opp')) return { ok: false, reason: 'no_verdict' };
+    const judgedAt = b.at || d.completedAt || 0;
+    const ps = panelStamp(b);
     return {
       ok: true,
       value: {
         id: judgmentId(source, eventId),
         source, eventId,
-        judgeType: 'ai',
+        judgeType: ps.panel ? 'ai-panel' : 'ai',
         modelVersion: b.model || 'unknown',
-        rubricVersion: RUBRIC_VERSION,
+        ...charterStamp(judgedAt),
         winner: b.winner === 'prop' ? 'a' : 'b',
         sideLabels: { a: 'prop', b: 'opp' },
         participants: {
@@ -82,15 +133,17 @@ export function fromRound(source, eventId, d) {
         dimensionScores: dimensionsFromBallot(b, 'prop', 'opp'),
         rfd: String(b.rfd || '').slice(0, 4000),
         motion: String(d.motion || '').slice(0, 500),
-        // Written by async-sweep on the server, so we own it.
+        // Written by async-sweep on the server, so we own it. This is
+        // also the only provenance lib/settle.mjs will move credits on.
         verdictSource: 'server',
-        confidence: null,
+        panel: ps.panel,
+        confidence: ps.confidence,
         decisiveArgs: [],
         strongestRebuttal: '',
         unresolved: [],
         humanReview: null,
         disputeState: 'none',
-        judgedAt: b.at || d.completedAt || 0,
+        judgedAt,
       },
     };
   }
@@ -106,7 +159,7 @@ export function fromRound(source, eventId, d) {
         source, eventId,
         judgeType: 'ai',
         modelVersion: b.model || 'unknown',
-        rubricVersion: RUBRIC_VERSION,
+        ...charterStamp(b.at || d.completedAt || 0),
         winner: b.winner === 'pro' ? 'a' : 'b',
         sideLabels: { a: 'pro', b: 'con' },
         participants: { a: d.proUid, b: d.conUid },
@@ -116,8 +169,11 @@ export function fromRound(source, eventId, d) {
         rfd: String(b.rfd || '').slice(0, 4000),
         motion: String(d.motion || '').slice(0, 500),
         // Written by a participant's browser. Recorded honestly so an
-        // integrity pass can find these without re-reading every round.
+        // integrity pass can find these without re-reading every round,
+        // and now load-bearing: lib/settle.mjs refuses to move credits
+        // on a verdict one of the two interested parties authored.
         verdictSource: 'participant',
+        panel: null,
         confidence: null,
         decisiveArgs: [],
         strongestRebuttal: '',

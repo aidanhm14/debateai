@@ -272,6 +272,60 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 - **Never skip git hooks** (`--no-verify`).
 - **Pricing is locked**: Free $0, BYOK $1/mo, Individual $10/year, Team $50/year. Currently in beta — every tier is $0 today; the table above is the post-beta plan and lives as JSON-LD/copy across pricing.html, practice.html, landing.html. (Individual + Team flipped to annual 2026-05-14; Individual $5→$10 and Team $20→$50 on 2026-06-27 per the unit-economics audit. **The Lifetime tier was removed from all pricing displays 2026-07-03** — it is no longer offered; the backend `lifetime` plan entitlement stays intact for any existing grants. See soul.md decision log.)
 
+## The AI judge integrity layer (READ BEFORE TOUCHING JUDGING)
+
+The judge is the one component where a quiet change is a legal problem
+rather than a bug, because credits, standing, and reputation settle off
+its verdicts. Five promises are published at `/judge-integrity` and
+served from `/api/judge/charter`, and `scripts/test-judge-integrity.mjs`
+runs in the **pre-commit hook** and will block a commit that breaks any
+of them. Do not work around it.
+
+```
+lib/judge-charter.mjs   the constitution: season calendar (pins rubric +
+                          models per window), the published rubric, the
+                          rubric hash, fee policy, appeal policy. PURE.
+lib/judge-panel.mjs     ensemble maths: tally, medians, Fleiss' kappa,
+                          reliability rollup. PURE.
+lib/judge-jurors.mjs    provider dispatch (anthropic / openai / google).
+lib/judge-audit.mjs     the immutable judge_audit record.
+lib/judge-appeals.mjs   appeal eligibility + revision shapes. PURE.
+judge-charter.mjs       GET /api/judge/charter      (public, keyless)
+judge-reliability.mjs   GET /api/judge/reliability  (public, keyless)
+judge-appeal.mjs        POST /api/judge/appeal      (debaters)
+admin-appeals.mjs       /api/admin/appeals          (human reviewer)
+```
+
+The rules that are easy to break by accident:
+
+- **Never edit a rubric version in place.** `RUBRICS` entries are
+  immutable once a season referencing them has judged rounds. Changing
+  the criteria means: add a new rubric version, add a new season pinning
+  it, leave the old entries alone. The hash exists to make an in-place
+  edit detectable, so an in-place edit is the one thing it catches.
+- **Never tie-break an even panel split.** `tallyPanel` returns
+  `winner: null` and `resolution:'unresolved'` on a tie, and every
+  downstream caller must leave it that way. Any tie-break rule is a
+  thumb on the scale and it is ours. A split round voids its market and
+  does not move the ladder.
+- **Never route an appeal to a model.** `admin-appeals.mjs` must contain
+  no provider call and no `schedule` config. The test asserts both. A
+  bigger model re-judging the round is the same circularity, and an
+  auto-resolving cron is house control wearing a job scheduler.
+- **Never add a rake, fee, or house account** to `credits.mjs` or
+  `settle.mjs`. The operator's take cannot depend on who wins.
+- **Money settles only on `verdictSource:'server'`** (`MONEY_VERDICT_SOURCES`
+  in settle.mjs). Live-round ballots are written by a participant's own
+  browser, so they cannot settle credits until that moves server-side.
+  This is deliberate; do not "fix" it by widening the set.
+- **The season calendar must stay contiguous** (each `from` equals the
+  previous `to`, first starts at 0). A gap means a round judged under no
+  declared configuration. Extend the calendar before the last `to`
+  passes; the charter reports `calendarExpired` when it has.
+- Panel degradation is fine and disclosed (stamped on the audit row,
+  surfaced by the charter). Silent degradation is not. `JUDGE_PANEL_ENABLED=0`
+  and `JUDGE_REQUIRE_PANEL=1` are the two env switches.
+
 ## Voice rules for AI debater outputs
 
 The voice bank lives **server-side** in
