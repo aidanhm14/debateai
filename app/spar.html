@@ -569,6 +569,11 @@ h1 em{color:var(--accent);font-style:normal}
 .setup-summary{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .setup-mode{font-size:.9rem;font-weight:800;color:var(--text);min-width:0}
 .setup-opts-btn{flex:0 0 auto}
+/* Judge faces under the summary row. Sits above the Options fold so
+   the panel is readable while the queue is still searching; the strip
+   and the paradigm sheet are drawn by js/judge-draft.js. */
+.setup-bench-strip{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.setup-bench-strip:empty{display:none}
 .setup-options{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
 .setup-options-note{font-size:.74rem;color:var(--text-ghost);margin-bottom:9px;line-height:1.5}
 .style-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
@@ -1970,6 +1975,13 @@ h1 em{color:var(--accent);font-style:normal}
           '<span class="setup-mode" id="setupModeLabel">' + escHtml(setupModeText()) + '</span>' +
           '<button type="button" class="style-chip setup-opts-btn" id="setupOptionsBtn" aria-expanded="' + (setupOpen ? 'true' : 'false') + '" aria-controls="setupOptions">Options ' + (setupOpen ? '▴' : '▾') + '</button>' +
         '</div>' +
+        // The bench, as faces, OUTSIDE the collapsed options. Waiting in
+        // a queue is the one minute a debater has to work out who is
+        // listening, and that only helps if the panel is on screen
+        // without opening a settings panel first. Tapping a face opens
+        // that juror's paradigm; it picks nothing, because a spar round
+        // is ranked and the bench is pinned by the season.
+        '<div class="setup-bench-strip" data-draft-bench-strip></div>' +
         '<div class="setup-options" id="setupOptions"' + (setupOpen ? '' : ' hidden') + '>' +
         // The draft rail. Three steps so setup reads as a sequence with
         // an end. State is derived from the controls below by
@@ -2019,7 +2031,7 @@ h1 em{color:var(--accent);font-style:normal}
         // argue to. Filled by judge-draft.js from /api/judge/charter.
         '<div class="arc-group" style="margin:22px 0 0">' +
           '<div class="arc-group-head"><h3 style="font-size:.95rem">The bench</h3>' +
-            '<span class="arc-group-hint">Pinned, not picked</span></div>' +
+            '<span class="arc-group-hint">Pinned, not picked. Read them.</span></div>' +
           '<div data-draft-bench></div>' +
         '</div>' +
         '</div>' + /* /setup-options */

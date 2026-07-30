@@ -17,6 +17,14 @@
  * picking one, just pointed the other way. So the panel is presented as
  * something to argue TO, not something to shop for.
  *
+ * Each seat draws as an avatar and opens a full paradigm: what that
+ * juror rewards, what loses in front of them, how they weigh, how much
+ * rope they give speed and jargon, and the rubric tests they are
+ * hardest on. Everything in the sheet comes from /api/judge/charter, so
+ * the paradigm on the card is the paradigm the endpoint publishes.
+ * Reading is the whole interaction. Tapping a face opens a dialog and
+ * changes nothing about who judges the round.
+ *
  * Guest judges (pickable) appear only when the host page mounts with
  * ranked:false, which today means an unranked practice round: nothing
  * settles, no ladder moves, so there is nothing for a choice to corrupt.
@@ -61,6 +69,237 @@
     return charterPromise;
   }
 
+  /* ── AVATARS ────────────────────────────────────────────────────
+   *
+   * A monogram seal, not a portrait. Two things were ruled out first: a
+   * generated headshot claims a person who does not exist, and a stock
+   * silhouette reads as the placeholder icon every half-built product
+   * ships. What is left is what a judge would actually stamp on a
+   * ballot: an initial, a ring, and a motif taken from the thing that
+   * juror is hardest on, in their own colour.
+   *
+   * Every mark is inline SVG built from the charter's own persona
+   * fields. Nothing loads, nothing is requested, and an unnamed juror
+   * family draws the fallback ring rather than borrowing a face. */
+  var avatarSeq = 0;
+
+  var MOTIFS = {
+    /* Beams. The Architect looks for the missing one. */
+    anthropic: '<path d="M13 44V15M35 44V15M13 22h22" stroke-width="1.4" opacity=".5"/>',
+    /* Rows of seats. The Generalist judges from the back one. */
+    openai: '<path d="M6 20a18 18 0 0 1 36 0M11 30a13 13 0 0 1 26 0" stroke-width="1.4" opacity=".45"/>',
+    /* Ruled lines. The Registrar holds the flow as the record. */
+    google: '<path d="M10 16h28M10 23h28M10 30h28M10 37h28" stroke-width="1.2" opacity=".38"/>',
+    /* A cut across the case. The Contrarian goes at the weak step. */
+    xai: '<path d="M8 40 40 8M20 44 44 20" stroke-width="1.4" opacity=".42"/>',
+    unknown: '<circle cx="24" cy="24" r="15" stroke-width="1.2" stroke-dasharray="3 4" opacity=".4"/>',
+  };
+
+  /* The letter, taken from the archetype name rather than stored, so a
+     renamed persona restamps itself. "The Architect" gives A. */
+  function monogram(name) {
+    var words = String(name || '?').replace(/^the\s+/i, '').trim().split(/\s+/);
+    return (words[0] || '?').charAt(0).toUpperCase();
+  }
+
+  function avatarSvg(p, size) {
+    var c = (p && p.color) || '#9ca3af';
+    var motif = MOTIFS[p && p.key] || MOTIFS.unknown;
+    var id = 'jbclip' + (++avatarSeq);
+    var px = size || 46;
+    return '<svg class="jb-avatar" width="' + px + '" height="' + px + '" viewBox="0 0 48 48" aria-hidden="true" focusable="false">'
+      + '<defs><clipPath id="' + id + '"><circle cx="24" cy="24" r="22.2"/></clipPath></defs>'
+      + '<circle cx="24" cy="24" r="22.2" fill="' + esc(c) + '" fill-opacity=".09"/>'
+      + '<g clip-path="url(#' + id + ')" fill="none" stroke="' + esc(c) + '">' + motif + '</g>'
+      + '<text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="' + esc(c) + '"'
+      + ' font-family="\'Crimson Pro\',\'EB Garamond\',Georgia,serif" font-size="23" font-weight="600"'
+      + ' letter-spacing="0.5">' + esc(monogram(p && p.name)) + '</text>'
+      + '<circle cx="24" cy="24" r="22.2" fill="none" stroke="' + esc(c) + '" stroke-opacity=".5" stroke-width="1.2"/>'
+      + '</svg>';
+  }
+
+  /* ── THE PARADIGM SHEET ─────────────────────────────────────────
+   *
+   * Written the way a paradigm is actually written: first person, a few
+   * paragraphs, then the short practical lines every judge on Tabroom
+   * ends up putting at the bottom (speed, evidence, drops). That shape
+   * is deliberate. A grid of plus and minus bullets is the shape of a
+   * generated spec sheet, and a debater reads it as one. Prose from
+   * somebody with an opinion is the thing you actually adjust for.
+   *
+   * Same posture as the bench itself, which is why the closing line
+   * says out loud that reading is the only move on offer. Opening a
+   * paradigm picks nothing.
+   *
+   * Content comes from the charter, so a paradigm cannot drift from
+   * the persona the endpoint publishes. A juror with no paradigm block
+   * renders its temper and its hardest-on line and nothing invented. */
+  var sheetEl = null;
+  var sheetReturnFocus = null;
+
+  function closeSheet() {
+    if (!sheetEl) return;
+    sheetEl.remove();
+    sheetEl = null;
+    document.removeEventListener('keydown', onSheetKey);
+    if (sheetReturnFocus && sheetReturnFocus.focus) sheetReturnFocus.focus();
+    sheetReturnFocus = null;
+  }
+
+  function onSheetKey(e) {
+    if (e.key === 'Escape') { e.preventDefault(); closeSheet(); }
+  }
+
+  function openSheet(seat, tests) {
+    closeSheet();
+    sheetReturnFocus = document.activeElement;
+    var par = seat.paradigm || {};
+    var c = seat.color || '#9ca3af';
+
+    /* Rubric tests this juror leans on, resolved against the charter's
+       own test list so the wording matches the published rubric. */
+    var hard = (seat.hardOn || []).map(function (k) {
+      var t = (tests || []).filter(function (x) { return x.key === k; })[0];
+      return t ? { label: t.label, body: t.body } : null;
+    }).filter(Boolean);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'jb-sheet-wrap';
+    wrap.innerHTML =
+      '<div class="jb-scrim" data-jb-close></div>'
+      + '<div class="jb-sheet" role="dialog" aria-modal="true" aria-label="Paradigm, ' + esc(seat.name) + '" style="--jbc:' + esc(c) + '">'
+      + '<button type="button" class="jb-close" data-jb-close aria-label="Close">&#10005;</button>'
+      + '<div class="jb-sheet-head">'
+      + avatarSvg(seat, 58)
+      + '<div>'
+      + '<h3 class="jb-sheet-name">' + esc(seat.name) + '</h3>'
+      + '<div class="jb-sheet-seat">' + esc(seat.seat || 'Wing') + ' on your panel'
+      + (seasonId ? ', ' + esc(seasonId) : '') + '</div>'
+      + '</div>'
+      + '</div>'
+      + '<div class="jb-note">'
+      + (par.note && par.note.length
+        ? par.note.map(function (para) { return '<p>' + esc(para) + '</p>'; }).join('')
+        : '<p>' + esc(seat.temper || '') + '</p><p>' + esc(seat.hardOnLine || '') + '</p>')
+      + '</div>'
+      + (par.inPractice && par.inPractice.length
+        ? '<dl class="jb-practice">'
+          + par.inPractice.map(function (row) {
+            return '<dt>' + esc(row.k) + '</dt><dd>' + esc(row.v) + '</dd>';
+          }).join('')
+          + '</dl>'
+        : '')
+      + (hard.length
+        ? '<div class="jb-hard"><p class="jb-hard-h">Where I am strictest, in the rubric\'s own words</p>'
+          + hard.map(function (t) {
+            return '<p class="jb-test"><span class="jb-test-l">' + esc(t.label) + '.</span> ' + esc(t.body) + '</p>';
+          }).join('')
+          + '</div>'
+        : '')
+      + '<p class="jb-foot">You are reading this instead of picking it. The bench is pinned for the season, so neither you nor we can shop for a friendlier juror. '
+      + '<a href="/judge-integrity">Full criteria.</a></p>'
+      + '</div>';
+
+    document.body.appendChild(wrap);
+    sheetEl = wrap;
+    wrap.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('[data-jb-close]')) closeSheet();
+    });
+    document.addEventListener('keydown', onSheetKey);
+    var close = wrap.querySelector('.jb-close');
+    if (close) close.focus();
+  }
+
+  /* Seats from the last charter read, so a click can find its juror
+     without threading the whole document through the DOM. */
+  var seatsByKey = {};
+  var rubricTests = [];
+  var seasonId = '';
+
+  function rememberSeats(doc) {
+    seatsByKey = {};
+    rubricTests = (doc && doc.rubric && doc.rubric.tests) || [];
+    seasonId = (doc && doc.season && doc.season.id) || '';
+    var seated = (doc && doc.bench && doc.bench.seated) || [];
+    seated.forEach(function (s) { seatsByKey[s.jurorId || s.key] = s; });
+    return seated;
+  }
+
+  /* One click handler for every avatar on the page, bound once. */
+  var clicksBound = false;
+  function bindClicks() {
+    if (clicksBound) return;
+    clicksBound = true;
+    document.addEventListener('click', function (e) {
+      var hit = e.target.closest ? e.target.closest('[data-jb-seat]') : null;
+      if (!hit) return;
+      var seat = seatsByKey[hit.getAttribute('data-jb-seat')];
+      if (seat) { e.preventDefault(); openSheet(seat, rubricTests); }
+    });
+  }
+
+  /* Styles ride with the module so any page that mounts a bench gets
+     the whole component, markup and looks together. */
+  var CSS = [
+    '.jb-avatar{display:block;flex-shrink:0}',
+    '.jb-card{cursor:pointer}',
+    '.jb-card-top{display:flex;align-items:center;gap:11px}',
+    '.jb-card-id{min-width:0}',
+    '.jb-read{font-size:.8rem;font-weight:600;color:var(--jbc,#9ca3af);margin-top:2px}',
+    '.jb-card .arc-opt-name{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif;font-size:1.08rem;font-weight:600}',
+    '.jb-strip-name{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif}',
+    '.jb-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
+    '.jb-strip-btn{display:flex;align-items:center;gap:7px;padding:5px 11px 5px 5px;border-radius:999px;',
+    'background:var(--bg-card,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.12));',
+    'color:inherit;font:inherit;cursor:pointer;transition:border-color .16s ease,transform .16s ease}',
+    '.jb-strip-btn:hover{border-color:var(--jbc,#9ca3af);transform:translateY(-1px)}',
+    '.jb-strip-btn:focus-visible{outline:2px solid var(--accent,#ef4444);outline-offset:2px}',
+    '.jb-strip-name{font-size:.74rem;font-weight:700;line-height:1.15}',
+    '.jb-strip-seat{font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.62}',
+    '.jb-strip-note{font-size:.72rem;line-height:1.5;opacity:.7;margin:8px 0 0}',
+    '.jb-sheet-wrap{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:18px}',
+    '.jb-scrim{position:absolute;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(2px)}',
+    '.jb-sheet{position:relative;max-width:520px;width:100%;max-height:86vh;overflow-y:auto;',
+    'background:var(--bg-panel,var(--bg-card,#12100f));border:1px solid var(--border,rgba(255,255,255,.14));',
+    'border-top:3px solid var(--jbc,#9ca3af);border-radius:16px;padding:22px 22px 18px;',
+    'box-shadow:0 24px 60px rgba(0,0,0,.5);color:inherit}',
+    '.jb-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;',
+    'background:transparent;border:1px solid var(--border,rgba(255,255,255,.14));color:inherit;',
+    'font-size:.8rem;cursor:pointer;opacity:.7}',
+    '.jb-close:hover{opacity:1}',
+    '.jb-sheet-head{display:flex;align-items:center;gap:13px;padding:0 34px 14px 0;',
+    'border-bottom:1px solid var(--border,rgba(255,255,255,.12));margin-bottom:16px}',
+    '.jb-sheet-seat{font-size:.76rem;opacity:.6;margin-top:2px}',
+    '.jb-sheet-name{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif;font-size:1.5rem;',
+    'font-weight:600;margin:0;letter-spacing:-.01em}',
+    /* The paradigm itself, set as text somebody wrote rather than a
+       panel of labelled fields. */
+    '.jb-note{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif;font-size:1.02rem;line-height:1.62}',
+    '.jb-note p{margin:0 0 11px}',
+    '.jb-note p:last-child{margin-bottom:0}',
+    '.jb-practice{margin:18px 0 0;padding:14px 0 2px;border-top:1px solid var(--border,rgba(255,255,255,.12));',
+    'display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:.84rem;line-height:1.5}',
+    '.jb-practice dt{font-weight:700;color:var(--jbc,#9ca3af);white-space:nowrap}',
+    '.jb-practice dd{margin:0;opacity:.85}',
+    '.jb-hard{margin-top:16px;padding-top:13px;border-top:1px solid var(--border,rgba(255,255,255,.12))}',
+    '.jb-hard-h{font-size:.75rem;opacity:.55;margin:0 0 7px}',
+    '.jb-test{font-size:.82rem;line-height:1.55;margin:0 0 6px;opacity:.8}',
+    '.jb-test-l{font-weight:700;color:var(--jbc,#9ca3af)}',
+    '.jb-foot{font-size:.76rem;line-height:1.55;opacity:.55;margin:16px 0 0}',
+    '.jb-foot a{color:inherit;text-decoration:underline}',
+    '@media (max-width:560px){.jb-sheet{padding:18px 16px 14px;max-height:92vh}',
+    '.jb-sheet-name{font-size:1.3rem}.jb-note{font-size:1rem}',
+    '.jb-practice{grid-template-columns:1fr;gap:2px 0}.jb-practice dd{margin-bottom:8px}}',
+  ].join('');
+
+  function injectCss() {
+    if (document.getElementById('jb-css')) return;
+    var s = document.createElement('style');
+    s.id = 'jb-css';
+    s.textContent = CSS;
+    document.head.appendChild(s);
+  }
+
   /* The bench, drawn from the charter's own pinned jurors.
      A failed fetch renders a plain statement rather than inventing a
      panel: three made-up seats would be a false claim about who judges
@@ -72,7 +311,14 @@
     }
     var b = doc.bench;
     var season = (doc.season && doc.season.id) || '';
+    injectCss();
+    bindClicks();
+    rememberSeats(doc);
 
+    /* The card is a button now, and the only thing it does is open the
+       paradigm. A locked card that opens nothing tells a debater who is
+       judging them without telling them what that juror wants, which is
+       the half of the information that changes how you speak. */
     var cards = b.seated.map(function (s) {
       var flags = '<span class="arc-badge arc-badge--mono">' + esc(s.model) + '</span>';
       if (s.overridden) {
@@ -80,14 +326,20 @@
         // charter exists because a quiet one is the problem.
         flags += '<span class="arc-badge arc-badge--warn">Override, pinned was ' + esc(s.pinnedModel) + '</span>';
       }
-      return '<div class="arc-opt arc-locked" style="cursor:default;border-left:3px solid ' + esc(s.color) + '">'
-        + '<span class="arc-opt-glyph" aria-hidden="true" style="color:' + esc(s.color) + '">' + esc(s.glyph) + '</span>'
-        + '<span class="arc-opt-name">' + esc(s.name) + '</span>'
-        + '<span class="arc-opt-sub" style="color:var(--arc-faint)">' + esc(s.seat) + '</span>'
+      return '<button type="button" class="arc-opt jb-card" data-jb-seat="' + esc(s.jurorId || s.key) + '"'
+        + ' aria-haspopup="dialog" style="--jbc:' + esc(s.color) + ';border-left:3px solid ' + esc(s.color) + '">'
+        + '<span class="jb-card-top">'
+        + avatarSvg(s, 46)
+        + '<span class="jb-card-id">'
+        + '<span class="arc-opt-name" style="padding-right:0">' + esc(s.name) + '</span>'
+        + '<span class="arc-opt-sub" style="display:block;color:' + esc(s.color) + '">' + esc(s.seat) + '</span>'
+        + '</span>'
+        + '</span>'
         + '<p class="arc-opt-body">' + esc(s.temper) + '</p>'
         + '<p class="arc-opt-body" style="color:var(--arc-faint)">' + esc(s.hardOnLine) + '</p>'
+        + '<span class="jb-read">Read their paradigm &#8594;</span>'
         + '<span class="arc-opt-meta">' + flags + '</span>'
-        + '</div>';
+        + '</button>';
     }).join('');
 
     var split = b.noMajority === 'unresolved'
@@ -98,9 +350,34 @@
       + '<p class="arc-locked-why" style="margin:12px 0 0">'
       + 'Pinned for the season' + (season ? ' (' + esc(season) + ')' : '') + '. '
       + 'You cannot choose your judges and neither can we, which is the point. '
-      + 'A majority carries. ' + split
+      + 'Read them instead. A majority carries. ' + split
       + '<a href="/judge-integrity" style="color:inherit;text-decoration:underline">Read the criteria before you speak.</a>'
       + '</p>';
+  }
+
+  /* The compact form: three faces on a row, each one a door into the
+     same paradigm sheet. Built for a surface where the bench is context
+     rather than the subject, like the /spar queue where somebody is
+     about to be matched and has a minute to work out who is listening. */
+  function stripHtml(doc) {
+    var seated = (doc && doc.bench && doc.bench.seated) || [];
+    if (!seated.length) {
+      return '<p class="jb-strip-note" style="margin:0">The bench could not be read right now. '
+        + 'It is published at <a href="/judge-integrity" style="color:inherit">judge integrity</a>.</p>';
+    }
+    return '<div class="jb-strip">'
+      + seated.map(function (s) {
+        return '<button type="button" class="jb-strip-btn" data-jb-seat="' + esc(s.jurorId || s.key) + '"'
+          + ' aria-haspopup="dialog" style="--jbc:' + esc(s.color) + '">'
+          + avatarSvg(s, 30)
+          + '<span style="text-align:left">'
+          + '<span class="jb-strip-name" style="display:block;color:' + esc(s.color) + '">' + esc(s.name) + '</span>'
+          + '<span class="jb-strip-seat" style="display:block">' + esc(s.seat) + '</span>'
+          + '</span>'
+          + '</button>';
+      }).join('')
+      + '</div>'
+      + '<p class="jb-strip-note">This is who hears your round. You cannot pick them, so read them: each one wrote down what wins in front of them and what does not.</p>';
   }
 
   /* Guest judges, unranked only. Rendered from the same personas the
@@ -176,6 +453,11 @@
       var lens = host.querySelector('#paradigmInput');
       if (lens) lens.addEventListener('input', function () { syncRail(host); });
 
+      // The face strip, where a host page wants the bench visible
+      // without opening the full setup panel. Same seats, same sheet.
+      var stripEl = host.querySelector('[data-draft-bench-strip]');
+      if (stripEl) JudgeDraft.stripInto(stripEl);
+
       if (!benchEl) return;
       benchEl.innerHTML = '<p class="arc-locked-why" style="margin:0;color:var(--arc-faint)">Reading the bench.</p>';
 
@@ -195,6 +477,26 @@
     benchInto: function (el) {
       if (!el) return;
       charter().then(function (doc) { el.innerHTML = benchHtml(doc); });
+    },
+
+    /* The avatar strip on its own, for surfaces where the bench is
+       context rather than a section: a queue, a match card, a lobby. */
+    stripInto: function (el) {
+      if (!el) return;
+      injectCss();
+      bindClicks();
+      charter().then(function (doc) {
+        rememberSeats(doc);
+        el.innerHTML = stripHtml(doc);
+      });
+    },
+
+    /* Open a juror's paradigm from anywhere on the page. Takes the
+       juror id the charter published, so a caller cannot conjure a
+       juror the bench does not seat. */
+    openParadigm: function (jurorId) {
+      var seat = seatsByKey[jurorId];
+      if (seat) openSheet(seat, rubricTests);
     },
 
     charter: charter,

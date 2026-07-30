@@ -51,6 +51,18 @@ export const BENCH_PERSONAS = {
     temper: 'Structural. Reads the case as a load-bearing thing and finds the beam that is missing.',
     hardOn: ['warrant', 'burden'],
     hardOnLine: 'Hardest on an unwarranted key claim and a burden nobody discharged.',
+    paradigm: {
+      note: [
+        'I read a case the way you would read a building. Something is holding it up, and most rounds turn on whether that thing is actually there.',
+        'So I go looking for the step you skipped. Not the flourish, the step. If the run from your claim to your impact never got said out loud, I am not going to say it for you, and the ballot will name the exact sub-claim your case needed and never went back for.',
+        'Do that work and I am easy to win in front of. Tell me what your case has to prove. Prove it. Then tell me what theirs had to prove and did not.',
+      ],
+      inPractice: [
+        { k: 'Speed', v: 'Whatever you can hold. I lose the frame before I lose the words, so signpost.' },
+        { k: 'Evidence', v: 'One source that says what your tag claims beats three that nearly do.' },
+        { k: 'Drops', v: 'A drop counts once you tell me which beam it was holding up.' },
+      ],
+    },
   },
   openai: {
     key: 'openai',
@@ -61,6 +73,18 @@ export const BENCH_PERSONAS = {
     temper: 'Broad. Judges the round the way an educated stranger in the back row would.',
     hardOn: ['responsive', 'comparative'],
     hardOnLine: 'Hardest on a rebuttal that answers the original claim instead of the answer given.',
+    paradigm: {
+      note: [
+        'Picture the back row. I am the person sitting in it: awake, reasonably smart, never been to a tournament.',
+        'That means you have to beat the answer they actually gave you, not the version you prepared for on the bus. And you have to tell me why your world beats theirs in a sentence I could repeat to someone in the hallway afterwards.',
+        'None of this is hostility to technical debate. I just do not hand out credit for anything I could not explain back.',
+      ],
+      inPractice: [
+        { k: 'Speed', v: 'Conversational to brisk. Past that I stop keeping up and you stop banking coverage.' },
+        { k: 'Jargon', v: 'Fine if you gloss it once. Unglossed, it did not land.' },
+        { k: 'Weighing', v: 'Do the comparison yourselves, or I default and say in the ballot that you made me.' },
+      ],
+    },
   },
   google: {
     key: 'google',
@@ -71,6 +95,18 @@ export const BENCH_PERSONAS = {
     temper: 'Literal. Holds the flow as the record and will not fill a gap that sounded fine.',
     hardOn: ['delta', 'status-quo'],
     hardOnLine: 'Hardest on offense the status quo already delivers, and a delta never shown.',
+    paradigm: {
+      note: [
+        'The flow is the record. I write down what was said, in the speech it was said in, and that is what the round gets decided on.',
+        'The gap I will not fill for you is the delta. Tell me what changes from the world we are already living in, and by how much. Plenty of true cases win nothing here, because the status quo was already doing the thing they promised.',
+        'Answers are owed in the speech where they were owed. A point revived two speeches later is a new argument wearing an old name.',
+      ],
+      inPractice: [
+        { k: 'Speed', v: 'Fast is fine when it is clear. What I could not hear is not on the record at all.' },
+        { k: 'Evidence', v: 'Recency and fit. A source about the neighbouring question is not a source about this one.' },
+        { k: 'Extensions', v: 'Carry the warrant forward, not just the label.' },
+      ],
+    },
   },
   // Fallbacks so an override or a future season pin still renders a
   // face. An unnamed family is reported as unnamed rather than silently
@@ -84,6 +120,18 @@ export const BENCH_PERSONAS = {
     temper: 'Adversarial. Assumes the pretty argument is hiding the weak step.',
     hardOn: ['symmetry', 'terminal'],
     hardOnLine: 'Hardest on a mechanism that runs on both sides, and an impact that stops short.',
+    paradigm: {
+      note: [
+        'The prettiest argument in the round is usually covering for the weakest step. That step is what I am listening for.',
+        'If your mechanism runs just as well on their side, it cancels, and proving the asymmetry is your job. If your impact stops at awareness rising or money moving or confidence falling, it has not landed yet. Take it to the thing that happens to a person.',
+        'I will rebuild the strongest version of an argument you strawmanned before I score that clash, so beat the real one.',
+      ],
+      inPractice: [
+        { k: 'Speed', v: 'Any speed you can hold.' },
+        { k: 'Evidence', v: 'Read the qualifier out loud. An overclaimed source costs you more than a missing one.' },
+        { k: 'Turns', v: 'Their own material turned against them beats any amount of defense.' },
+      ],
+    },
   },
 };
 
@@ -94,6 +142,12 @@ export const UNKNOWN_PERSONA = {
   color: '#9ca3af',
   seat: 'Wing',
   temper: 'A juror family with no published archetype.',
+  paradigm: {
+    note: [
+      'No published tendency for this juror family. The rubric is the whole of it, applied test by test in the order it publishes.',
+    ],
+    inPractice: [],
+  },
   hardOn: [],
   hardOnLine: 'Applies the published rubric without a stated tendency.',
 };
