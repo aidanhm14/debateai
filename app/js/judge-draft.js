@@ -107,13 +107,17 @@
     var motif = MOTIFS[p && p.key] || MOTIFS.unknown;
     var id = 'jbclip' + (++avatarSeq);
     var px = size || 46;
+    /* Lenses pass a two-letter mark because three of them start with T,
+       and a stamp that cannot tell Truth tester from Technical is not a
+       stamp. Jurors keep a single letter; theirs do not collide. */
+    var mark = (p && p.mark) || monogram(p && p.name);
     return '<svg class="jb-avatar" width="' + px + '" height="' + px + '" viewBox="0 0 48 48" aria-hidden="true" focusable="false">'
       + '<defs><clipPath id="' + id + '"><circle cx="24" cy="24" r="22.2"/></clipPath></defs>'
       + '<circle cx="24" cy="24" r="22.2" fill="' + esc(c) + '" fill-opacity=".09"/>'
       + '<g clip-path="url(#' + id + ')" fill="none" stroke="' + esc(c) + '">' + motif + '</g>'
       + '<text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="' + esc(c) + '"'
-      + ' font-family="\'Crimson Pro\',\'EB Garamond\',Georgia,serif" font-size="23" font-weight="600"'
-      + ' letter-spacing="0.5">' + esc(monogram(p && p.name)) + '</text>'
+      + ' font-family="\'Crimson Pro\',\'EB Garamond\',Georgia,serif" font-size="' + (mark.length > 1 ? 17 : 23) + '" font-weight="600"'
+      + ' letter-spacing="0.5">' + esc(mark) + '</text>'
       + '<circle cx="24" cy="24" r="22.2" fill="none" stroke="' + esc(c) + '" stroke-opacity=".5" stroke-width="1.2"/>'
       + '</svg>';
   }
@@ -150,7 +154,7 @@
     if (e.key === 'Escape') { e.preventDefault(); closeSheet(); }
   }
 
-  function openSheet(seat, tests) {
+  function openSheet(seat, tests, lensOpts) {
     closeSheet();
     sheetReturnFocus = document.activeElement;
     var par = seat.paradigm || {};
@@ -173,8 +177,9 @@
       + avatarSvg(seat, 58)
       + '<div>'
       + '<h3 class="jb-sheet-name">' + esc(seat.name) + '</h3>'
-      + '<div class="jb-sheet-seat">' + esc(seat.seat || 'Wing') + ' on your panel'
-      + (seasonId ? ', ' + esc(seasonId) : '') + '</div>'
+      + '<div class="jb-sheet-seat">' + (lensOpts
+        ? 'A lens your round can be judged through'
+        : esc(seat.seat || 'Wing') + ' on your panel' + (seasonId ? ', ' + esc(seasonId) : '')) + '</div>'
       + '</div>'
       + '</div>'
       + '<div class="jb-note">'
@@ -196,8 +201,16 @@
           }).join('')
           + '</div>'
         : '')
-      + '<p class="jb-foot">You are reading this instead of picking it. The bench is pinned for the season, so neither you nor we can shop for a friendlier juror. '
-      + '<a href="/judge-integrity">Full criteria.</a></p>'
+      + (lensOpts
+        ? '<div class="jb-actions">'
+          + '<button type="button" class="jb-propose" data-jb-pick="' + esc(lensOpts.lensKey) + '"'
+          + (lensOpts.proposed ? ' disabled' : '') + '>'
+          + (lensOpts.proposed ? 'Proposing this lens' : 'Propose this lens') + '</button>'
+          + '<p class="jb-foot" style="margin:0">Proposing sends it into the round as your nomination. '
+          + 'It binds only if your opponent picks the same card, and a lens can shift what the ballot weighs, never who wins.</p>'
+          + '</div>'
+        : '<p class="jb-foot">You are reading this instead of picking it. The bench is pinned for the season, so neither you nor we can shop for a friendlier juror. '
+          + '<a href="/judge-integrity">Full criteria.</a></p>')
       + '</div>';
 
     document.body.appendChild(wrap);
@@ -231,7 +244,21 @@
     if (clicksBound) return;
     clicksBound = true;
     document.addEventListener('click', function (e) {
-      var hit = e.target.closest ? e.target.closest('[data-jb-seat]') : null;
+      if (!e.target.closest) return;
+      var pick = e.target.closest('[data-jb-pick]');
+      if (pick && !pick.disabled) {
+        e.preventDefault();
+        pickLens(pick.getAttribute('data-jb-pick'));
+        closeSheet();
+        return;
+      }
+      var lensHit = e.target.closest('[data-jb-lens]');
+      if (lensHit) {
+        var l = lensByKey(lensHit.getAttribute('data-jb-lens'));
+        if (l) { e.preventDefault(); openLensSheet(l); }
+        return;
+      }
+      var hit = e.target.closest('[data-jb-seat]');
       if (!hit) return;
       var seat = seatsByKey[hit.getAttribute('data-jb-seat')];
       if (seat) { e.preventDefault(); openSheet(seat, rubricTests); }
@@ -254,6 +281,11 @@
     'color:inherit;font:inherit;cursor:pointer;transition:border-color .16s ease,transform .16s ease}',
     '.jb-strip-btn:hover{border-color:var(--jbc,#9ca3af);transform:translateY(-1px)}',
     '.jb-strip-btn:focus-visible{outline:2px solid var(--accent,#ef4444);outline-offset:2px}',
+    '.jb-strip-btn.is-on{border-color:var(--jbc,#9ca3af);box-shadow:inset 0 0 0 1px var(--jbc,#9ca3af)}',
+    '.jb-actions{margin-top:18px;padding-top:14px;border-top:1px solid var(--border,rgba(255,255,255,.12))}',
+    '.jb-propose{display:inline-block;margin-bottom:9px;padding:9px 16px;border-radius:999px;',
+    'background:var(--jbc,#9ca3af);border:none;color:#0b0a09;font:inherit;font-size:.86rem;font-weight:700;cursor:pointer}',
+    '.jb-propose[disabled]{background:transparent;border:1px solid var(--jbc,#9ca3af);color:var(--jbc,#9ca3af);cursor:default}',
     '.jb-strip-name{font-size:.74rem;font-weight:700;line-height:1.15}',
     '.jb-strip-seat{font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.62}',
     '.jb-strip-note{font-size:.72rem;line-height:1.5;opacity:.7;margin:8px 0 0}',
@@ -351,6 +383,8 @@
       + 'Pinned for the season' + (season ? ' (' + esc(season) + ')' : '') + '. '
       + 'You cannot choose your judges and neither can we, which is the point. '
       + 'Read them instead. A majority carries. ' + split
+      + 'This panel decides ranked async rounds. A live round is written by one judge in the room, '
+      + 'through the lens the two of you agreed on, from the same published method. ' 
       + '<a href="/judge-integrity" style="color:inherit;text-decoration:underline">Read the criteria before you speak.</a>'
       + '</p>';
   }
@@ -377,7 +411,111 @@
           + '</button>';
       }).join('')
       + '</div>'
-      + '<p class="jb-strip-note">This is who hears your round. You cannot pick them, so read them: each one wrote down what wins in front of them and what does not.</p>';
+      + '<p class="jb-strip-note">Ranked async rounds are decided by this three-model panel, and no one picks it, us included. '
+      + 'A live round is different: one judge writes the ballot in the room, from the same published method.</p>';
+  }
+
+  /* ── LENSES ─────────────────────────────────────────────────────
+   *
+   * The paradigms a LIVE round can be judged under, which is the set
+   * that matters on /spar because a spar match becomes a live round.
+   * Distinct from the bench above, and the distinction is not cosmetic:
+   * the bench is who judges async rounds and is pinned, while the lens
+   * is the one part of a live ballot the two debaters agree on.
+   *
+   * Picking here is a NOMINATION and nothing more. It rides into the
+   * round, and it binds only when the opponent independently lands on
+   * the same card, so nobody can be judged under a paradigm the other
+   * side chose for them. That is why the card says proposed rather
+   * than selected until the round says otherwise.
+   *
+   * Data comes from js/judge-lenses.js, the same array live-round.html
+   * reads, so the paradigm you read in the queue is the paradigm that
+   * reaches the ballot. */
+  var lensPickKey = '';
+  var lensHost = null;
+  var onLensPick = null;
+
+  function lenses() {
+    return (window.JUDGE_LENSES && window.JUDGE_LENSES.length) ? window.JUDGE_LENSES : [];
+  }
+
+  function lensByKey(k) {
+    var l = lenses();
+    for (var i = 0; i < l.length; i++) if (l[i].key === k) return l[i];
+    return l[0] || null;
+  }
+
+  /* A lens wears the same mark as a juror. Both are things you stand in
+     front of, and one visual vocabulary is easier to learn than two. */
+  function lensAsPersona(l) {
+    var first = String(l.name || '?').replace(/^the\s+/i, '').split(/\s+/)[0] || '?';
+    return {
+      key: 'lens-' + l.key,
+      name: l.name,
+      color: l.accent,
+      seat: 'Lens',
+      mark: first.slice(0, 2).toUpperCase(),
+    };
+  }
+
+  function lensHtml() {
+    var list = lenses();
+    if (!list.length) {
+      return '<p class="jb-strip-note" style="margin:0">The paradigm cards could not be loaded. '
+        + 'Your round is judged on the published method either way.</p>';
+    }
+    var picked = lensByKey(lensPickKey) || list[0];
+    return '<div class="jb-strip">'
+      + list.map(function (l) {
+        var on = l.key === picked.key;
+        return '<button type="button" class="jb-strip-btn' + (on ? ' is-on' : '') + '" data-jb-lens="' + esc(l.key) + '"'
+          + ' aria-haspopup="dialog" style="--jbc:' + esc(l.accent) + '">'
+          + avatarSvg(lensAsPersona(l), 30)
+          + '<span style="text-align:left">'
+          + '<span class="jb-strip-name" style="display:block;color:' + esc(l.accent) + '">' + esc(l.name) + '</span>'
+          + '<span class="jb-strip-seat" style="display:block">' + (on ? 'Proposing' : 'Read') + '</span>'
+          + '</span>'
+          + '</button>';
+      }).join('')
+      + '</div>'
+      + '<p class="jb-strip-note">One AI judge writes the ballot in your round. This is the lens it reads through, '
+      + 'and it only counts if your opponent lands on the same card once you are in the room. '
+      + 'Tap any of them to read the paradigm first.</p>';
+  }
+
+  function paintLenses() {
+    if (lensHost) lensHost.innerHTML = lensHtml();
+  }
+
+  function pickLens(key) {
+    var l = lensByKey(key);
+    if (!l) return;
+    lensPickKey = l.key;
+    paintLenses();
+    if (onLensPick) onLensPick(l.key);
+  }
+
+  /* The lens sheet reuses the juror sheet's shape, because a paradigm
+     reads the same whoever wrote it. The only addition is the propose
+     action, and the line under it that keeps the word honest. */
+  function openLensSheet(l) {
+    var face = lensAsPersona(l);
+    var seat = {
+      name: l.name,
+      seat: 'Judge lens',
+      color: l.accent,
+      key: face.key,
+      mark: face.mark,
+      temper: l.tag,
+      hardOnLine: '',
+      paradigm: { note: l.note, inPractice: l.inPractice },
+      hardOn: [],
+    };
+    openSheet(seat, [], {
+      lensKey: l.key,
+      proposed: lensPickKey === l.key,
+    });
   }
 
   /* Guest judges, unranked only. Rendered from the same personas the
@@ -489,6 +627,20 @@
         rememberSeats(doc);
         el.innerHTML = stripHtml(doc);
       });
+    },
+
+    /* The lens roster: the paradigms a live round can run under, with
+       the current nomination marked. `onPick` fires with the lens key
+       so the host page can persist it and carry it into the round. */
+    lensesInto: function (el, options) {
+      if (!el) return;
+      var opts = options || {};
+      injectCss();
+      bindClicks();
+      lensHost = el;
+      onLensPick = typeof opts.onPick === 'function' ? opts.onPick : null;
+      lensPickKey = opts.selected || lensPickKey || 'chair';
+      paintLenses();
     },
 
     /* Open a juror's paradigm from anywhere on the page. Takes the

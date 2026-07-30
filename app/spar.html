@@ -48,6 +48,7 @@
      judge note still work and the queue is unaffected, which is the only
      acceptable posture for a script on a live matchmaking page. -->
 <script defer src="/js/arcade-menu.js"></script>
+<script defer src="/js/judge-lenses.js"></script>
 <script defer src="/js/judge-draft.js"></script>
 <script defer src="/js/spar-night.js"></script>
 <script defer src="/js/voice-input.js"></script>
@@ -1497,6 +1498,12 @@ h1 em{color:var(--accent);font-style:normal}
   function cleanParadigm(s){
     return String(s || "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, PARADIGM_MAX);
   }
+  // Judge lens nomination. Rides to /live-round as ?judge= and seeds
+  // this debater's own pick in the in-round draft, where it binds only
+  // if the opponent independently lands on the same card.
+  var storedLens = 'chair';
+  try { storedLens = localStorage.getItem('debateos-judge-lens') || 'chair'; } catch(e){}
+
   var storedParadigm = '';
   try { storedParadigm = cleanParadigm(localStorage.getItem('debateos-spar-paradigm')); } catch(e){}
   if (storedParadigm) setupOpen = true; // a saved judge note must stay visible
@@ -1536,6 +1543,7 @@ h1 em{color:var(--accent);font-style:normal}
     waitingPeers: 0,
     cancelled: false,
     paradigm: storedParadigm,      // my judge-paradigm note (queue doc `paradigm`)
+    judgeLens: storedLens,         // nominated live-round paradigm (rides the round URL)
     skipUids: [],                  // mirror of my doc's mutual-skip list (declined proposals)
     inConsent: false,              // a 'consent' proposal is on screen
     consentKey: '',                // fingerprint of the rendered consent state (skip echo re-renders)
@@ -1975,13 +1983,18 @@ h1 em{color:var(--accent);font-style:normal}
           '<span class="setup-mode" id="setupModeLabel">' + escHtml(setupModeText()) + '</span>' +
           '<button type="button" class="style-chip setup-opts-btn" id="setupOptionsBtn" aria-expanded="' + (setupOpen ? 'true' : 'false') + '" aria-controls="setupOptions">Options ' + (setupOpen ? '▴' : '▾') + '</button>' +
         '</div>' +
-        // The bench, as faces, OUTSIDE the collapsed options. Waiting in
-        // a queue is the one minute a debater has to work out who is
-        // listening, and that only helps if the panel is on screen
-        // without opening a settings panel first. Tapping a face opens
-        // that juror's paradigm; it picks nothing, because a spar round
-        // is ranked and the bench is pinned by the season.
-        '<div class="setup-bench-strip" data-draft-bench-strip></div>' +
+        // Judge lenses, as faces, OUTSIDE the collapsed options.
+        // Waiting in the queue is the one minute a debater has to work
+        // out who is listening, and that only helps if it is on screen
+        // without opening a settings panel first.
+        //
+        // These are the LIVE-round paradigms, deliberately: a spar match
+        // becomes a live round, and a live round's ballot is written by
+        // one judge through the lens both debaters land on. The pinned
+        // three-model panel in the Options panel below decides ranked
+        // ASYNC rounds and is a different thing; conflating them would
+        // tell a debater the wrong story about who is about to hear them.
+        '<div class="setup-bench-strip" id="lensStrip"></div>' +
         '<div class="setup-options" id="setupOptions"' + (setupOpen ? '' : ' hidden') + '>' +
         // The draft rail. Three steps so setup reads as a sequence with
         // an end. State is derived from the controls below by
@@ -2233,6 +2246,14 @@ h1 em{color:var(--accent);font-style:normal}
           // ranked:true. A spar round feeds the ladder, so the panel is
           // the season's pinned bench and no guest judges are offered.
           window.JudgeDraft.mount(draftHost, { ranked: true });
+          window.JudgeDraft.lensesInto(document.getElementById('lensStrip'), {
+            selected: state.judgeLens,
+            onPick: function(key){
+              state.judgeLens = key;
+              try { localStorage.setItem('debateos-judge-lens', key); } catch(e){}
+              try { gtag('event', 'spar_lens_pick', { lens: key, format: formatParam }); } catch(e){}
+            },
+          });
         } else if (tries < 20) {
           setTimeout(function(){ mountDraft(tries + 1); }, 100);
         }
@@ -3148,6 +3169,9 @@ h1 em{color:var(--accent);font-style:normal}
       conUid: d.conUid || d.matchedWith || '',
       room: d.room,
       paradigm: d.pairedParadigm || '',
+      // My lens nomination. /live-round seeds it as this side's pick in
+      // the judge draft; it binds only when the opponent picks the same.
+      judge: state.judgeLens || 'chair',
       source: 'spar',
     });
     setTimeout(function(){ location.href = '/live-round.html?' + params.toString(); }, delay || 0);

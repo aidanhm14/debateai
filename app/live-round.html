@@ -29,6 +29,11 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <!-- Per-user telemetry. Captures every signed-in user's experience on
      /live-round (round start, speech end, ballot view, save, leaderboard
      consent) so the per-user activity log on /admin is complete. -->
+<!-- Judge lenses. Shared with /spar so the paradigm a debater reads in
+     the queue is the one that reaches this page's ballot. Loaded without
+     defer on purpose: the inline round script below reads it at parse
+     time, and a deferred copy would not exist yet. -->
+<script src="/js/judge-lenses.js"></script>
 <script defer src="/js/track.js"></script>
 <!-- Client-side floor for the publish-to-/disclosures flow: profanity
      word-list, min length, URL-spam ratio. Cheap pre-check before the
@@ -2295,78 +2300,23 @@ html.stage-mode .stage-ov{display:block}
   // 'chair' is the default and is deliberately lens-free: it is the
   // behaviour every round on this site has today, so a room that never
   // opens the draft is judged exactly as it was before this shipped.
-  var JUDGE_ARCHETYPES = [
-    {
-      key: 'chair', name: 'Standard chair', accent: '#9aa4b2',
-      tag: 'I judge the flow and I weigh what you weighed.',
-      bullets: [
-        'Decides on what was actually said, nothing imported.',
-        'No house style. The default tournament read.',
-        'Picked for you unless both sides agree on another.',
-      ],
-      lens: '',
-    },
-    {
-      key: 'tab', name: 'Tabula rasa', accent: '#7aa2f7',
-      tag: 'I do nothing you do not tell me to do. A dropped argument is a won argument.',
-      bullets: [
-        'Silence concedes. Answer everything or lose it.',
-        'No intervention. If you did not say it, it is not on my flow.',
-        'Tell me how to evaluate, or I use your opponent’s instructions.',
-      ],
-      lens: 'Run the round as a strict tabula-rasa flow judge. Import nothing the debaters did not say: no filling in warrants, no supplying the obvious answer, no crediting an argument the speaker gestured at but never made. Treat a genuinely unanswered argument as conceded for the round and say so explicitly in the RFD, naming the speech where it went unanswered. Where the debaters gave you competing evaluative instructions, follow the one that was actually extended and explained rather than the one you find more sensible. Speaker points still reflect quality, and the truth-test guardrail in the method above still applies to flatly false claims.',
-    },
-    {
-      key: 'truth', name: 'Truth tester', accent: '#5ea88a',
-      tag: 'An unanswered claim still has to be true.',
-      bullets: [
-        'A false premise loses even when nobody catches it.',
-        'Evidence quality over evidence volume.',
-        'Real-world plausibility is part of the warrant.',
-      ],
-      lens: 'Weight accuracy heavily. An unanswered claim does not automatically become true for the round: if a key premise is flatly wrong about the world, discount it even when the opponent missed it, and name in the RFD both that it went unanswered and why it still failed. Prefer the side whose factual and causal picture is more plausible when the flow leaves a clash close. Scrutinise evidence quality, recency, and whether a cited source actually supports the claim it is attached to. Do not invent arguments neither side made, and do not use this lens to rescue a side that ran no offense.',
-    },
-    {
-      key: 'lay', name: 'Lay judge', accent: '#c98a7a',
-      tag: 'Say it like the room has never seen a debate.',
-      bullets: [
-        'Jargon with no plain-language gloss does not score.',
-        'Speed past clarity is your loss, not my problem.',
-        'The clearest story about the real world usually wins.',
-      ],
-      lens: 'Judge as an intelligent, attentive person with no technical debate training. Credit arguments only to the extent they were made intelligible: unexplained jargon, format shorthand, theory shells, and unglossed acronyms carry little weight even when technically correct. Reward signposting, clean structure, concrete real-world explanation, and speakers who make the stakes legible. Penalise speed that outruns clarity, and say plainly in the RFD where you lost the thread. Persuasion and comprehensibility matter more than coverage here. Still decide on the arguments made, not on likeability or delivery polish alone.',
-    },
-    {
-      key: 'tech', name: 'Technical', accent: '#a78bfa',
-      tag: 'Go as fast as you are clear. Line by line, and theory is live.',
-      bullets: [
-        'Coverage counts. Conceded lines are real offense.',
-        'Theory and framework arguments get evaluated properly.',
-        'Signpost and I will follow you anywhere.',
-      ],
-      lens: 'Judge on technical execution. Speed and density are fine as long as the speaker is intelligible; do not penalise a fast speech that was clear. Follow the line-by-line closely and give real credit for clean coverage, correctly extended concessions, and disciplined signposting. Evaluate theory, framework, topicality, and other procedural arguments properly when they are warranted and impacted rather than dismissing them for being technical. Demand that late speeches collapse and weigh instead of going for everything. Blipped one-line arguments still do not carry a round just because they were fast.',
-    },
-    {
-      key: 'principle', name: 'Principle first', accent: '#e0af68',
-      tag: 'Prove the right exists before you tell me it is useful.',
-      bullets: [
-        'Framework gets resolved before any impact is counted.',
-        'Useful is not the same as owed. Build the bridge.',
-        'A won principle can outweigh a bigger consequence.',
-      ],
-      lens: 'Resolve the framework, value, criterion, or principled burden BEFORE weighing any consequences, and let that resolution gate what counts as an impact. Where a side claims a right, an obligation, a dignity interest, or a democratic entitlement, demand the bridge from "this is valuable" to "this is owed": utility alone never discharges that burden. A cleanly won and properly warranted principle can outweigh a larger consequentialist impact, but only if the team actually did the work of proving it rather than asserting a philosopher’s name. Do not let a final rebuttal invent a new framework the round never ran on.',
-    },
-    {
-      key: 'calculus', name: 'Impact calculus', accent: '#ef4444',
-      tag: 'If you do not weigh it, I will, and you will not like how.',
-      bullets: [
-        'Magnitude, probability, timeframe, reversibility. Out loud.',
-        'Unweighed offense is dead weight, however true.',
-        'Comparative or it does not score.',
-      ],
-      lens: 'Make explicit comparative weighing the centre of the decision. An argument that was never weighed against the other side’s world is dead weight no matter how true it is. Demand that teams name the axis a clash turns on: magnitude, probability, timeframe, reversibility, or logical priority. Reward the side that terminalises its impacts and does the comparison for you, and penalise the side that stacks offense without ever telling you why it outweighs. If neither side weighed, state in the RFD that they forced you to default, name the default you used, and let both speaker scores carry the cost.',
-    },
-  ];
+  // The roster now lives in js/judge-lenses.js so /spar can show the
+  // same paradigms before the round starts. The fallback is deliberately
+  // 'chair' alone: if that file fails to load, the draft offers the
+  // lens-free default and the round is judged exactly as it was before
+  // any of this existed, rather than half a roster nobody can agree on.
+  var JUDGE_ARCHETYPES = (window.JUDGE_LENSES && window.JUDGE_LENSES.length)
+    ? window.JUDGE_LENSES
+    : [{
+        key: 'chair', name: 'Standard chair', accent: '#9aa4b2',
+        tag: 'I judge the flow and I weigh what you weighed.',
+        bullets: [
+          'Decides on what was actually said, nothing imported.',
+          'No house style. The default tournament read.',
+          'Picked for you unless both sides agree on another.',
+        ],
+        note: [], inPractice: [], lens: '',
+      }];
 
   function judgeArchetype(key){
     for (var i = 0; i < JUDGE_ARCHETYPES.length; i++){
@@ -2422,6 +2372,11 @@ html.stage-mode .stage-ov{display:block}
     stage: qs.get('stage') === '1',
     room:   qs.get('room')   || ('Debatable-Round-' + Math.random().toString(36).slice(2,10)),
     source: qs.get('source') || '',
+    // Lens nominated on /spar before the match resolved. Seeds THIS
+    // side's pick in the judge draft below, nothing more: it binds only
+    // when the opponent lands on the same card, so a paradigm still
+    // cannot be chosen for somebody by the other bench.
+    judgeSeed: String(qs.get('judge') || '').slice(0, 24),
     // Agreed judge paradigm from /spar's consent handshake — both
     // debaters read and accepted these notes before the match
     // finalized (name-attributed, "Alex H.: weigh probability first |
@@ -7253,8 +7208,28 @@ html.stage-mode .stage-ov{display:block}
     if (re){ redraftJudge(); }
   }
 
+  // The /spar nomination, applied once. Runs from renderJudgeDraft
+  // rather than from init because it needs the round phase AND a seat,
+  // and a spectator or a re-entering debater must not have a stale URL
+  // overwrite a pick already made in the room.
+  var judgeSeedDone = false;
+  function maybeSeedJudgeFromUrl(){
+    if (judgeSeedDone) return;
+    var key = prefill.judgeSeed;
+    if (!key || key === 'chair' || judgeArchetype(key).key !== key) { judgeSeedDone = true; return; }
+    if (isSpectator()) { judgeSeedDone = true; return; }
+    if (!judgeDraftIsLive()) return;
+    var side = mySide();
+    if (side !== 'pro' && side !== 'con') return;
+    var picks = state.judgePicks || { pro:'chair', con:'chair' };
+    if (picks[side] !== 'chair') { judgeSeedDone = true; return; }
+    judgeSeedDone = true;
+    nominateJudge(key);
+  }
+
   function renderJudgeDraft(){
     if (state.phase !== 'round') return;
+    maybeSeedJudgeFromUrl();
     var el = judgeDraftHost();
     if (!el) return;
 
