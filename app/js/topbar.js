@@ -241,6 +241,32 @@
     // stops the one word on every page of the site from reading as a
     // gambling product to anyone scanning the nav.
     { href: '/predict',       label: 'Predict'      },
+    // 2026-07-30: three destinations promoted from Explore onto the rail
+    // itself (`rail: true`), on outside feedback that the decluttered bar
+    // reads clean but hides the three things a first-time visitor asks
+    // about after "what is this": where the money is, who decides the
+    // round, and who is winning. Everything else stays in Explore, which
+    // is what keeps the bar from going back to a twelve-tab sitemap.
+    //   Money      -> /get-paid-to-debate. The prize story, not /pricing:
+    //                 the question is "how does money work here", and
+    //                 that page answers it honestly (free board today,
+    //                 Play Points never convert, prizes when the rules
+    //                 are published) and links on to /predict and
+    //                 /season-1. Label deliberately is not "Bet" — see
+    //                 the 2026-07-28 note above on why that word came off
+    //                 the bar in the first place.
+    //   Judging    -> /judge-integrity, the explainer (published rubric,
+    //                 three-family panel, human appeal), NOT /judge,
+    //                 which is the paste-a-round tool and stays in
+    //                 Explore. "How does the judging work" and "judge my
+    //                 round" are different questions.
+    //   Leaderboard-> restored to the bar after coming off 2026-07-02.
+    // These carry no compactKeep, so at <=1280px they collapse into the
+    // hamburger sheet with the rest of the primary links. The bar stayed
+    // clean at laptop widths precisely because that rule is strict.
+    { href: '/get-paid-to-debate', label: 'Money',       rail: true },
+    { href: '/judge-integrity',    label: 'Judging',     rail: true },
+    { href: '/leaderboard',        label: 'Leaderboard', rail: true },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
@@ -292,7 +318,8 @@
       // first); /tournament is the draw, the tab and the bracket.
       { href: '/partners',    label: 'Find a 2v2 partner' },
       { href: '/tournament',  label: 'Enter a tournament' },
-      { href: '/leaderboard', label: 'Leaderboard' },
+      // 2026-07-30: Leaderboard moved out of here and onto the rail.
+      // Leaving it in both would list it twice in the mobile sheet.
       { href: '/community',   label: 'Community' },
       // 2026-07-22: chat moved out of the /community Live tab onto its
       // own surface, so the public room and DMs share one frame.
@@ -647,11 +674,11 @@
       return wrap;
     }
 
-    // The rail itself now carries only Explore and the two emphasized
-    // actions. Every regular destination remains in Explore and in the
-    // mobile sheet below.
+    // The rail carries Explore, the three promoted destinations (`rail`),
+    // and the two emphasized actions. Every other destination remains in
+    // Explore and in the mobile sheet below.
     right.appendChild(buildExplore());
-    pageLinks.filter(function(L){ return L.hot || L.cta; }).forEach(function(L){
+    pageLinks.filter(function(L){ return L.hot || L.cta || L.rail; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
       // native tooltip just renders a dark box that floats over page
