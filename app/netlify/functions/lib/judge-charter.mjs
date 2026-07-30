@@ -252,6 +252,7 @@ export const FEE_POLICY = {
     'Debaters cannot stake on their own round.',
     'Subscription and token pricing is set per account and never varies with a verdict.',
     'Prediction credits are free, non-purchasable, non-transferable, and non-redeemable.',
+    'The audience vote is a separate public reading and never settles a market or moves the ladder.',
   ],
 };
 

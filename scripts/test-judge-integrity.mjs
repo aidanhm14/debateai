@@ -467,5 +467,49 @@ function t(label, cond) {
   t('a single-judge season draws no panel', benchForSeason(preseason).seated.length === 0);
 }
 
+// ── 11. the crowd vote decides nothing ──────────────────────────────
+{
+  // Every completed round takes an audience vote (async-round.mjs,
+  // action 'vote', tallied onto async_rounds/{id}.votes). It is a
+  // public reading and it is the contrast that makes panel divergence
+  // measurable. It must never become a resolver.
+  //
+  // Two reasons, and the second is the one that bites. First, a vote is
+  // brigadable in a way a three-family panel is not: one motivated
+  // group with throwaway accounts outvotes a room, and every guarantee
+  // above (published rubric, no tie-break, human appeal, no rake) exists
+  // precisely because settlement has to survive someone trying. Second,
+  // a resolver cannot also be an independent measurement OF the
+  // resolver. The moment the vote settles anything, crowd-versus-panel
+  // agreement stops being a reliability signal and becomes a
+  // self-portrait, which throws away the one genuinely novel number
+  // this product can publish.
+  //
+  // MONEY_VERDICT_SOURCES is already pinned to exactly ['server'] in
+  // section 4, so a crowd verdict cannot enter through the front door.
+  // This closes the back door: reading the tally DIRECTLY inside the
+  // money or ladder path, which would never touch that set.
+  const CROWD = /\bvotes\b|\bvoteScore\b|\bvoteCount\b|crowdVote|audienceVote|popularVote|\bcrowdWinner\b/i;
+  for (const f of ['lib/settle.mjs', 'lib/credits.mjs', 'lib/rating-apply.mjs']) {
+    let code;
+    try {
+      code = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
+    } catch {
+      // A renamed or deleted money path must fail loudly rather than
+      // silently passing a guard over a file that is no longer there.
+      t(`${f} exists to be guarded`, false);
+      continue;
+    }
+    const stripped = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    t(`${f} never reads a crowd tally`, !CROWD.test(stripped));
+  }
+
+  // And state it where users can read it, not only where we can.
+  t(
+    'the fee policy publishes that the audience vote settles nothing',
+    FEE_POLICY.guarantees.some((g) => /audience vote/i.test(g) && /never settles/i.test(g)),
+  );
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
