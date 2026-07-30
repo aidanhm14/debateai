@@ -241,12 +241,16 @@
     // stops the one word on every page of the site from reading as a
     // gambling product to anyone scanning the nav.
     { href: '/predict',       label: 'Predict'      },
-    // 2026-07-30: three destinations promoted from Explore onto the rail
-    // itself (`rail: true`), on outside feedback that the decluttered bar
-    // reads clean but hides the three things a first-time visitor asks
-    // about after "what is this": where the money is, who decides the
-    // round, and who is winning. Everything else stays in Explore, which
-    // is what keeps the bar from going back to a twelve-tab sitemap.
+    // 2026-07-30 (later same day, per Aidan): these three came OFF the
+    // rail and into the Explore menu. The `rail: true` flag is gone from
+    // all of them. Reason is optics, not clutter: "Money" sitting in the
+    // permanent top nav of every page makes the site scan as a betting
+    // product to an investor who is skimming, which is the same reason
+    // "Bet" was renamed to "Predict" two days earlier. The destinations
+    // still answer the three questions a first-time visitor asks after
+    // "what is this", so they stay one click away in Explore (Money and
+    // Leaderboard under Debate, Judging under Improve) and keep their
+    // slots in the mobile hamburger sheet, which renders LINKS in full.
     //   Money      -> /get-paid-to-debate. The prize story, not /pricing:
     //                 the question is "how does money work here", and
     //                 that page answers it honestly (free board today,
@@ -260,13 +264,10 @@
     //                 which is the paste-a-round tool and stays in
     //                 Explore. "How does the judging work" and "judge my
     //                 round" are different questions.
-    //   Leaderboard-> restored to the bar after coming off 2026-07-02.
-    // These carry no compactKeep, so at <=1280px they collapse into the
-    // hamburger sheet with the rest of the primary links. The bar stayed
-    // clean at laptop widths precisely because that rule is strict.
-    { href: '/get-paid-to-debate', label: 'Money',       rail: true },
-    { href: '/judge-integrity',    label: 'Judging',     rail: true },
-    { href: '/leaderboard',        label: 'Leaderboard', rail: true },
+    //   Leaderboard-> off the bar since 2026-07-02, and staying off.
+    { href: '/get-paid-to-debate', label: 'Money'       },
+    { href: '/judge-integrity',    label: 'Judging'     },
+    { href: '/leaderboard',        label: 'Leaderboard' },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
@@ -318,8 +319,9 @@
       // first); /tournament is the draw, the tab and the bracket.
       { href: '/partners',    label: 'Find a 2v2 partner' },
       { href: '/tournament',  label: 'Enter a tournament' },
-      // 2026-07-30: Leaderboard moved out of here and onto the rail.
-      // Leaving it in both would list it twice in the mobile sheet.
+      // Leaderboard is not listed here: it lives in LINKS, so the menu
+      // renders it in the Debate column and the mobile sheet renders it
+      // with the primary links. Adding it here too would list it twice.
       { href: '/community',   label: 'Community' },
       // 2026-07-22: chat moved out of the /community Live tab onto its
       // own surface, so the public room and DMs share one frame.
@@ -384,6 +386,13 @@
     '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
     '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
     '/predict':        { desc: 'Call winners, earn points', icon: '<path d="M4 17l5.5-5.5 3.5 3.5L19.5 8.4"/><path d="M14.8 8.4h4.7v4.7"/>' },
+    // 2026-07-30: these two moved off the rail into the menu, so they now
+    // need the icon + one-line description every menu row carries. The
+    // descriptions do the disambiguating the one-word labels used to do
+    // on the bar: "Judge" is the paste-a-round tool, "Judging" is how the
+    // verdict gets made, and they sit in the same column.
+    '/get-paid-to-debate': { desc: 'Prizes, points, and payouts', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M14.4 9.3a2.7 2.7 0 0 0-2.4-1.2c-1.5 0-2.4.8-2.4 1.9 0 2.6 5 1.3 5 3.9 0 1.1-1 1.9-2.6 1.9a2.8 2.8 0 0 1-2.5-1.3M12 6.4v1.7M12 15.8v1.8"/>' },
+    '/judge-integrity':    { desc: 'The rubric, the panel, appeals', icon: '<path d="M12 4.6v14.8M7.4 19.4h9.2M5 8.2h14M5 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM19 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM12 4.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/>' },
     '/rounds':         { desc: 'Record now, they answer later', icon: '<path d="M16.5 4L20 7.5 16.5 11M20 7.5H7.8M7.5 20L4 16.5 7.5 13M4 16.5h12.2"/>' },
     '/spectate':       { desc: 'Watch rounds as they happen', icon: '<path d="M3.6 12S6.9 5.9 12 5.9 20.4 12 20.4 12 17.1 18.1 12 18.1 3.6 12 3.6 12z"/><circle cx="12" cy="12" r="2.7"/>' },
     '/arena':          { desc: 'One lobby for everything live', icon: '<path d="M5.6 20.8V3.9M5.6 4.6c4.7-2.3 8 2 12.8-.2v9.4c-4.8 2.2-8.1-2.1-12.8.2"/>' },
@@ -557,10 +566,12 @@
       var primaryGroups = [
         // /spar lives in the spotlight card, so it is not repeated here.
         { head: 'Debate', links: pageLinks.filter(function(L){
-          return ['/app#case', '/live', '/room-judge', '/predict'].indexOf(L.href) !== -1;
+          return ['/app#case', '/live', '/room-judge', '/predict',
+                  '/get-paid-to-debate', '/leaderboard'].indexOf(L.href) !== -1;
         })},
         { head: 'Improve', links: pageLinks.filter(function(L){
-          return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach'].indexOf(L.href) !== -1;
+          return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach',
+                  '/judge-integrity'].indexOf(L.href) !== -1;
         })},
       ];
       var columnGroups = primaryGroups.concat(MORE_GROUPS.filter(function(G){ return G.head !== 'Site'; }));
@@ -680,11 +691,11 @@
       return wrap;
     }
 
-    // The rail carries Explore, the three promoted destinations (`rail`),
-    // and the two emphasized actions. Every other destination remains in
-    // Explore and in the mobile sheet below.
+    // The rail carries Explore and the two emphasized actions, nothing
+    // else. Every regular destination remains in Explore and in the
+    // mobile sheet below.
     right.appendChild(buildExplore());
-    pageLinks.filter(function(L){ return L.hot || L.cta || L.rail; }).forEach(function(L){
+    pageLinks.filter(function(L){ return L.hot || L.cta; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
       // native tooltip just renders a dark box that floats over page
