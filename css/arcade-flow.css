@@ -1,0 +1,257 @@
+/* ─────────────────────────────────────────────────────────────
+   ARCADE FLOW — one choice per screen, scrolled through.
+
+   WHAT IT IS FOR
+   arcade.css makes a group of options a proper menu. This puts those
+   menus one-per-screen and moves between them, so setting up a round
+   reads like a game's option select rather than a settings form: a
+   single question fills the screen, you pick, it travels to the next.
+
+   Aidan's ask, verbatim: "very simple per page and scrolls in between
+   each selection with an audio effect each button press, with a skip
+   option." The audio lives in js/arcade-flow.js (synthesised, no files
+   to download); everything visual is here.
+
+   SAME DISCIPLINE AS arcade.css: no palette, no typeface. Built from the
+   tokens ui.css publishes, inherits the page's face. A host page that
+   never loaded ui.css still renders, because every var() carries a
+   fallback derived from currentColor rather than a white alpha, which
+   is what stopped the invisible-white-on-cream class of bug the
+   2026-05-20 dashboard rebuild had to undo.
+
+   SCROLLING IS REAL SCROLLING. The panels are a scroll-snap container,
+   not a translated filmstrip, so a phone's own momentum, a trackpad, a
+   screen reader's focus jump and the keyboard all move through it
+   without this file knowing about any of them. Reduced motion turns the
+   travel instant rather than removing it, because the position change
+   is the information.
+   ───────────────────────────────────────────────────────────── */
+
+.afl {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #faf9f5);
+  color: var(--text, currentColor);
+  /* dvh, not vh: on iOS the URL bar makes vh taller than the visible
+     area, which pushed every panel's action row under the chrome. */
+  height: 100dvh;
+}
+.afl[hidden] { display: none; }
+
+/* ── Top rail: progress, mute, skip, close ───────────────────── */
+.afl-rail {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+  border-bottom: 1px solid var(--border, rgba(128, 128, 128, .22));
+}
+.afl-dots { display: flex; gap: 6px; align-items: center; margin-right: auto; }
+.afl-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; opacity: .22;
+  transition: opacity .2s ease, transform .2s ease, background-color .2s ease;
+}
+.afl-dot[data-state="done"] { opacity: .5; }
+.afl-dot[data-state="now"] {
+  opacity: 1; transform: scale(1.5);
+  background: var(--accent, #dc2626);
+}
+.afl-btn {
+  appearance: none;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border, rgba(128, 128, 128, .28));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+.afl-btn:hover { border-color: currentColor; }
+.afl-btn:focus-visible {
+  outline: 2px solid var(--accent, #dc2626);
+  outline-offset: 2px;
+}
+.afl-mute { padding: 7px 10px; line-height: 1; }
+.afl-mute svg { width: 15px; height: 15px; display: block; fill: currentColor; }
+
+/* ── The scroller ─────────────────────────────────────────────── */
+.afl-track {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  /* auto, and it must be stated. js/arcade-flow.js animates the travel
+     itself, so this element has to honour a scrollTop write immediately.
+     Leaving it unset is not enough: measured on /native, this container
+     computed `smooth` anyway, and under smooth EVERY programmatic write
+     is turned into an animation that this environment never finished,
+     which silently swallowed the write and froze the run on panel one.
+     Stating auto is what makes the tween's own frames land. */
+  scroll-behavior: auto;
+  overscroll-behavior: contain;
+  /* Momentum scrolling on iOS; without it the snap feels sticky. */
+  -webkit-overflow-scrolling: touch;
+}
+.afl-panel {
+  min-height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+.afl-panel-in {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.afl-step {
+  font-size: .62rem;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent, #dc2626);
+  margin: 0 0 10px;
+}
+.afl-q {
+  font-size: clamp(1.7rem, 6.4vw, 2.5rem);
+  font-weight: 750;
+  letter-spacing: -.03em;
+  line-height: 1.06;
+  margin: 0 0 8px;
+}
+.afl-hint {
+  font-size: .95rem;
+  line-height: 1.5;
+  color: var(--text-dim, rgba(128, 128, 128, .95));
+  margin: 0 0 20px;
+}
+
+/* ── Options: big, thumb-sized, one column ────────────────────── */
+.afl-opts { display: grid; gap: 10px; }
+.afl-opt {
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  /* 60px floor: the app is thumb-driven and these are the only targets
+     on the screen, so they get the whole width and a real height. */
+  min-height: 60px;
+  padding: 14px 16px;
+  border-radius: var(--radius, 14px);
+  border: 1px solid var(--border, rgba(128, 128, 128, .28));
+  background: var(--bg-card, rgba(128, 128, 128, .06));
+  color: inherit;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease, transform .12s ease;
+}
+.afl-opt:hover { border-color: currentColor; }
+.afl-opt:active { transform: scale(.985); }
+.afl-opt:focus-visible {
+  outline: 2px solid var(--accent, #dc2626);
+  outline-offset: 2px;
+}
+.afl-opt[aria-checked="true"] {
+  border-color: var(--accent, #dc2626);
+  background: var(--accent-soft, rgba(220, 38, 38, .09));
+}
+.afl-opt-t { display: block; font-size: 1.06rem; font-weight: 700; line-height: 1.25; }
+.afl-opt-s {
+  display: block;
+  font-size: .85rem;
+  line-height: 1.4;
+  color: var(--text-dim, rgba(128, 128, 128, .95));
+  margin-top: 2px;
+}
+/* Selection is border + tint + mark, never colour alone. */
+.afl-opt-mark {
+  width: 22px; height: 22px; flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border, rgba(128, 128, 128, .34));
+  display: grid;
+  place-items: center;
+  font-size: .8rem;
+  color: transparent;
+}
+.afl-opt[aria-checked="true"] .afl-opt-mark {
+  border-color: var(--accent, #dc2626);
+  background: var(--accent, #dc2626);
+  color: #fff;
+}
+
+.afl-back {
+  margin-top: 16px;
+  font-size: .84rem;
+  font-weight: 700;
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  color: var(--text-dim, rgba(128, 128, 128, .95));
+  cursor: pointer;
+}
+.afl-back:hover { color: inherit; }
+
+/* ── Last panel: the launch ───────────────────────────────────── */
+.afl-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 16px 26px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--accent, #dc2626);
+  cursor: pointer;
+  transition: transform .14s ease;
+}
+.afl-go:active { transform: scale(.98); }
+.afl-go:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.afl-summary {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+}
+.afl-summary li {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--bg-card, rgba(128, 128, 128, .06));
+  border: 1px solid var(--border, rgba(128, 128, 128, .2));
+  font-size: .92rem;
+}
+.afl-summary b { font-weight: 750; }
+.afl-summary span { color: var(--text-dim, rgba(128, 128, 128, .95)); }
+
+@media (min-width: 620px) {
+  .afl-opts { gap: 12px; }
+  .afl-panel { padding: 32px 24px; }
+}
+
+/* Travel becomes instant, not absent: where you are is the information,
+   the animation is only how you got there. */
+@media (prefers-reduced-motion: reduce) {
+  .afl-opt, .afl-go, .afl-dot { transition: none; }
+  .afl-opt:active, .afl-go:active { transform: none; }
+}

@@ -69,6 +69,7 @@
     @media(max-width:360px){.app-home{padding-left:14px;padding-right:14px}h1{font-size:39px}.primary{min-height:142px}.action{min-height:118px}}
     @media(prefers-reduced-motion:reduce){.wave i{animation:none}}
   </style>
+  <link rel="stylesheet" href="/css/arcade-flow.css">
 </head>
 <body>
   <main class="app-home">
@@ -142,6 +143,7 @@
   </main>
 
   <script src="/js/auth-modal.js"></script>
+  <script defer src="/js/arcade-flow.js"></script>
   <script>
     (function(){
       var signIn = document.getElementById('signInBtn');
@@ -159,6 +161,53 @@
         }
       } catch(e){}
       signIn.addEventListener('click', function(){ if (window.openAuthModal) window.openAuthModal(); });
+
+      /* Round setup as an option select: one question a screen, a blip on
+         each press, Skip to take the defaults. The tile keeps its href, so
+         this is an upgrade over a working link and never the only path. */
+      var startTile = document.querySelector('a.primary');
+      if (startTile) startTile.addEventListener('click', function (ev) {
+        if (!window.ArcadeFlow) return;              // link handles it
+        if (ev.metaKey || ev.ctrlKey || ev.shiftKey) return;
+        ev.preventDefault();
+        window.ArcadeFlow.start({
+          label: 'Set up your round',
+          steps: [
+            { key: 'who', q: 'Who are you arguing?', summaryLabel: 'Opponent',
+              hint: 'A stranger takes a moment to match. The AI starts now.',
+              options: [
+                { value: 'ai', label: 'The AI', sub: 'Starts immediately. It argues back and takes interruptions.' },
+                { value: 'human', label: 'A stranger', sub: 'Matched live. Falls back to the AI if the queue is quiet.' }
+              ] },
+            { key: 'format', q: 'Which format?', summaryLabel: 'Format',
+              hint: 'General is the short one. The rest run real speech times.',
+              options: [
+                { value: 'quick', label: 'General', sub: 'Two speeches a side. Judged out of 30.' },
+                { value: 'apda', label: 'APDA', sub: 'American Parliamentary. Impromptu.' },
+                { value: 'bp', label: 'British Parliamentary', sub: 'Four benches, extensions, whips.' },
+                { value: 'ld', label: 'Lincoln Douglas', sub: 'Value and criterion.' },
+                { value: 'pf', label: 'Public Forum', sub: 'Evidence and weighing.' }
+              ] },
+            { key: 'side', q: 'Which side?', summaryLabel: 'Side',
+              hint: 'Take the side you disagree with when you want the harder round.',
+              options: [
+                { value: '', label: 'Surprise me', sub: 'Assigned when the round opens.' },
+                { value: 'prop', label: 'Proposition', sub: 'You argue for the motion.' },
+                { value: 'opp', label: 'Opposition', sub: 'You argue against it.' }
+              ] }
+          ],
+          launch: { title: 'That is the setup.', hint: 'Microphone access is requested when the round starts, not before.', cta: 'Start the round' },
+          onDone: function (a) {
+            var q = [];
+            if (a.format) q.push('format=' + encodeURIComponent(a.format));
+            if (a.side) q.push('side=' + encodeURIComponent(a.side));
+            q.push('source=ios_home');
+            var base = a.who === 'human' ? '/spar' : '/practice';
+            location.href = base + '?' + q.join('&');
+          },
+          onClose: function () {}
+        });
+      });
       share.addEventListener('click', function(){ if (window.DBShareApp) window.DBShareApp(); });
       alerts.addEventListener('click', function(){
         if (!window.DBEnableAlerts) return;
