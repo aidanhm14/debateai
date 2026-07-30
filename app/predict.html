@@ -9,18 +9,41 @@
      leaderboard, parimutuel settlement. App-run AI markets (a motion with two
      framed sides; the AI judge resolves it at lock) keep the board live with
      no human round needed. Human-round markets run on /live-round. No client
-     can write balances/pools/payouts (rules deny it). -->
+     can write balances/pools/payouts (rules deny it).
+
+     MONEY STRUCTURE (2026-07-30) — the page now states the whole ladder
+     instead of apologising for the free tier. Three surfaces, each one
+     deliberately missing a different leg of the prize/chance/consideration
+     test, and each labelled with its real tense:
+       1. Play the board   LIVE   free points, no prize, nothing to pay.
+       2. Back a debater   NEXT   real money, buys a product, and the buyer
+                                  holds no claim on any outcome. A published
+                                  share funds the pot. That non-contingency
+                                  is the entire reason it is a purchase.
+       3. Compete          NEXT   debaters win the pot on a judged ballot.
+                                  A free qualifying path stays open in every
+                                  event, so the cash prize never requires a
+                                  payment to reach.
+     The strongest asset here is NOT the disclaimer, it is the judge:
+     lib/judge-charter.mjs publishes and HASHES the rubric before the round,
+     three model families vote, an even split voids rather than being
+     tie-broken, and scripts/test-judge-integrity.mjs fails the build on any
+     rake, fee, or house account in credits.mjs / settle.mjs. So "the house
+     cannot profit from an outcome" is a property of the build, not a
+     promise, and the legal section links the receipts at /judge-integrity.
+     Keep the tenses matched to /get-paid-to-debate; do not promise amounts
+     or dates, and do not put a rake on a pool to monetise this. -->
 <title>Predict · live debate markets · Debatable</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/icons/icon-192.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Predict · live debate markets · Debatable">
-<meta property="og:description" content="Every round runs a market. Debaters back themselves, the audience predicts the winner with free Play Points, and the AI ballot settles it. Prize track coming, rules first.">
+<meta property="og:description" content="Predict debate rounds with free points that never turn into money. The cash sits in one place: a prize pot fans fund and debaters win on a published, hashed ballot. No rake, ever.">
 <meta property="og:url" content="https://itsdebatable.com/predict">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Predict · live debate markets · Debatable">
-<meta name="twitter:description" content="Every round runs a market. Debaters back themselves, the audience predicts the winner with free Play Points, and the AI ballot settles it. Prize track coming, rules first.">
+<meta name="twitter:description" content="Predict debate rounds with free points that never turn into money. The cash sits in one place: a prize pot fans fund and debaters win on a published, hashed ballot. No rake, ever.">
 
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
@@ -114,31 +137,13 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   .head-actions .primary{background:var(--con);color:#fff}
   .head-actions .secondary{border:1px solid var(--bd2);color:var(--tx);background:var(--panel)}
 
-  /* "What else is here" strip. Everything that is NOT the points board
-     (the free vote, self-staking, the cash track) used to be explained
-     three separate times ABOVE the board, in ~400 words, before a
-     visitor saw a single market. It is now one strip of three short
-     cards, below the board, where it belongs. */
-  .ways{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
-  @media(max-width:1080px){.ways{grid-template-columns:1fr}}
-  .way{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 15px 12px}
-  .way-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
-  .way h3{font-size:1rem;font-weight:800;letter-spacing:-.01em}
+  /* Tense chip. Lives on the lane cards below the board and is the one
+     thing on this page that must never drift: "Live now" means a
+     visitor can do it today, "Next" means they cannot. The rest of the
+     old .ways strip CSS went with the markup it styled. */
   .mchip{flex:none;font-family:var(--mono);font-size:.56rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--bd2);color:var(--dim)}
   .mchip.live{color:var(--pro);border-color:rgba(21,128,61,.4);background:rgba(21,128,61,.08)}
   .mchip.soon{color:var(--amber);border-color:rgba(180,83,9,.35);background:rgba(251,191,36,.1)}
-  .way p{font-size:.82rem;line-height:1.5;color:var(--dim);flex:1}
-  .way p strong{color:var(--tx);font-weight:800}
-  .way>a{display:inline-block;margin-top:9px;font-size:.78rem;font-weight:800;color:var(--tx)}
-  .way>a:hover{color:var(--con)}
-  .cvbar{height:11px;border-radius:8px;overflow:hidden;display:flex;background:var(--bd);margin:9px 0 6px}
-  .cvbar i{display:block;height:100%}
-  .cvbar .cvp{background:var(--pro)}
-  .cvbar .cvo{background:var(--con);flex:1}
-  .cv-legend{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;font-weight:700;color:var(--dim)}
-  .cv-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
-  .cv-legend i.p{background:var(--pro)}
-  .cv-legend i.o{background:var(--con)}
 
   /* ── The vote, drawn ────────────────────────────────────────────
      The hero's right column. A finished round's crowd vote as it
@@ -371,6 +376,123 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
      confirmation was unreadable. */
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b1e26;border:1px solid rgba(255,255,255,.16);color:#f4f2ea;padding:10px 18px;border-radius:999px;font-size:.84rem;z-index:200;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  /* ── Stakes ladder ──────────────────────────────────────────────
+     Three chips under the hero naming all three money surfaces in
+     about twenty words. The long version is the .lanes section below
+     the board; this exists so a visitor knows the shape of the thing
+     before they scroll, without the 400-word wall that used to sit
+     above the market cards. */
+  .ladder{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
+  .ladder .rung{display:flex;align-items:baseline;gap:7px;border:1px solid var(--bd);background:var(--panel);border-radius:999px;padding:6px 13px 6px 9px;box-shadow:var(--shadow)}
+  .ladder .rung .n{font-family:var(--mono);font-size:.58rem;font-weight:800;width:17px;height:17px;flex:none;border-radius:50%;display:inline-grid;place-items:center;color:#fff;align-self:center}
+  .ladder .rung.a .n{background:var(--pro)} .ladder .rung.b .n{background:var(--blue)} .ladder .rung.c .n{background:var(--con)}
+  .ladder .rung b{font-size:.79rem;font-weight:800}
+  .ladder .rung span{font-size:.75rem;color:var(--faint)}
+
+  /* ── The three lanes ────────────────────────────────────────────
+     Replaces the old .ways strip. Same slot on the page (below the
+     board), same three-up geometry, but each card now carries the
+     leg of the gambling test it is missing, because the structure IS
+     the pitch on a surface like this. The tense chip is load-bearing:
+     lane 1 is live, lanes 2 and 3 are not, and nothing here may imply
+     otherwise. */
+  .lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+  @media(max-width:1080px){.lanes{grid-template-columns:1fr}}
+  .lane{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:15px 16px 13px;border-top:3px solid var(--bd2)}
+  .lane.a{border-top-color:var(--pro)} .lane.b{border-top-color:var(--blue)} .lane.c{border-top-color:var(--con)}
+  .lane-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px}
+  .lane h3{font-size:1.04rem;font-weight:800;letter-spacing:-.01em}
+  .lane .who{font-family:var(--mono);font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+  .lane p{font-size:.81rem;line-height:1.5;color:var(--dim);flex:1}
+  .lane p strong{color:var(--tx);font-weight:800}
+  /* The missing-leg line. Mono + a tinted tray so it reads as the
+     structural fact it is rather than as more marketing prose. */
+  .lane .leg{margin-top:9px;padding:7px 9px;border-radius:8px;background:var(--panel2);border:1px solid var(--bd);font-size:.72rem;line-height:1.4;color:var(--dim)}
+  .lane .leg b{font-family:var(--mono);font-size:.6rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tx);display:block;margin-bottom:2px}
+  .lane>a{display:inline-block;margin-top:9px;font-size:.77rem;font-weight:800;color:var(--tx)}
+  .lane>a:hover{color:var(--con)}
+
+  /* ── The pot ────────────────────────────────────────────────────
+     Where money comes in and where it goes out, drawn as a flow so
+     the non-contingency is visible: fans pay on the left, debaters
+     are paid on the right, and no arrow runs back to a bettor. */
+  .pot{position:relative;overflow:hidden;margin:18px 0 2px;padding:18px 20px;border:1px solid rgba(37,99,235,.26);border-radius:var(--r);background:linear-gradient(110deg,#f3f7fe,#fff 64%);box-shadow:var(--shadow)}
+  .pot>*{position:relative;z-index:1}
+  .pot .money-field{position:absolute;z-index:0}
+  .pot .k{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--blue)}
+  .pot h2{font-size:1.3rem;line-height:1.18;margin:3px 0 4px;letter-spacing:-.015em}
+  .pot>p{font-size:.83rem;line-height:1.5;color:var(--dim);max-width:74ch}
+  .pot>p strong{color:var(--tx);font-weight:800}
+  .potflow{display:grid;grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr) 22px minmax(0,1fr);align-items:stretch;gap:6px;margin-top:13px}
+  @media(max-width:900px){.potflow{grid-template-columns:1fr;gap:4px}}
+  .potnode{display:flex;flex-direction:column;justify-content:center;border:1px solid var(--bd);border-radius:10px;background:var(--panel);padding:10px 11px}
+  .potnode .pl{font-family:var(--mono);font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .potnode .pv{font-size:.87rem;font-weight:800;color:var(--tx);margin-top:3px;line-height:1.3}
+  .potnode .ps{font-size:.72rem;color:var(--dim);margin-top:3px;line-height:1.4}
+  .potnode.mid{border-color:rgba(37,99,235,.4);background:rgba(37,99,235,.055)}
+  .potnode.out{border-color:rgba(21,128,61,.4);background:rgba(21,128,61,.05)}
+  .potnode.out .pv{color:var(--pro-d)}
+  .potarrow{display:grid;place-items:center;font-family:var(--mono);font-size:.8rem;color:var(--faint)}
+  @media(max-width:900px){.potarrow{transform:rotate(90deg);height:16px}}
+  .potnots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:11px}
+  @media(max-width:900px){.potnots{grid-template-columns:1fr}}
+  .potnot{font-size:.73rem;line-height:1.4;color:var(--dim);padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.14)}
+  .potnot b{color:var(--tx)}
+
+  /* ── A contest, not a casino ────────────────────────────────────
+     The legal structure, published. It leads on the judge rather
+     than on a disclaimer, because the judge is the part that is
+     actually built and actually verifiable: the rubric is hashed
+     before the round and the build fails on any rake. */
+  .legal{margin:18px 0 2px;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 18px 16px}
+  .legal>.k{display:block;font-family:var(--mono);font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--con);margin-bottom:6px}
+  .legal h2{font-size:1.32rem;line-height:1.18;letter-spacing:-.015em}
+  .legal>p{color:var(--dim);font-size:.87rem;line-height:1.5;margin:5px 0 0;max-width:76ch}
+  .legal>p strong{color:var(--tx);font-weight:800}
+  .ltable{margin-top:14px;border:1px solid var(--bd);border-radius:11px;overflow:hidden}
+  .lrow{display:grid;grid-template-columns:minmax(0,1.15fr) repeat(3,minmax(0,1fr));gap:0}
+  .lrow>div{padding:9px 11px;border-bottom:1px solid var(--bd);font-size:.76rem;line-height:1.4;color:var(--dim)}
+  .lrow:last-child>div{border-bottom:none}
+  .lrow>div+div{border-left:1px solid var(--bd)}
+  .lrow.hd>div{background:var(--panel2);font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
+  .lrow .surf{font-weight:800;color:var(--tx);font-size:.79rem}
+  .lrow .no{color:var(--pro-d);font-weight:700}
+  .lrow .yes{color:var(--con-d);font-weight:700}
+  @media(max-width:820px){
+    /* A four-column table at phone width is unreadable, so each
+       surface becomes its own stacked block with the column headers
+       inlined as labels. */
+    .lrow{grid-template-columns:1fr;border-bottom:1px solid var(--bd2)}
+    .lrow:last-child{border-bottom:none}
+    .lrow.hd{display:none}
+    .lrow>div+div{border-left:none}
+    .lrow>div[data-l]::before{content:attr(data-l) ' ';font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  }
+  .lproof{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px}
+  @media(max-width:820px){.lproof{grid-template-columns:1fr}}
+  .lp{border:1px solid var(--bd);border-radius:10px;background:var(--panel2);padding:10px 12px}
+  .lp h4{font-size:.83rem;margin-bottom:3px}
+  .lp p{font-size:.75rem;line-height:1.45;color:var(--dim)}
+  .lp p b{color:var(--tx)}
+  .lnever{margin-top:12px;padding-top:11px;border-top:1px solid var(--bd)}
+  .lnever h4{font-size:.83rem;margin-bottom:5px}
+  .lnever ul{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 16px}
+  @media(max-width:820px){.lnever ul{grid-template-columns:1fr}}
+  .lnever li{font-size:.75rem;line-height:1.45;color:var(--dim);padding-left:16px;position:relative}
+  .lnever li::before{content:'\00d7';position:absolute;left:2px;top:0;color:var(--con);font-weight:800}
+  .legal-fine{font-size:.7rem;color:var(--faint);margin-top:11px;line-height:1.45}
+
+  /* ── Hot / cold ─────────────────────────────────────────────────
+     Every market opens seeded 100/100, so a side's distance from 50%
+     IS its line movement since open. No history table needed, and
+     nothing is inferred from a single client session. */
+  .hc{font-family:var(--mono);font-size:.56rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1px solid var(--bd);color:var(--faint);white-space:nowrap}
+  .hc.hot{color:var(--con-d);border-color:rgba(220,38,38,.35);background:rgba(220,38,38,.08)}
+  .hc.cold{color:var(--blue);border-color:rgba(37,99,235,.3);background:rgba(37,99,235,.07)}
+  .hc.even{color:var(--faint);background:var(--panel2)}
+  .mkt-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .mkt-pills{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end}
 </style>
 <style>body{padding-top:52px}</style>
 </head>
@@ -390,13 +512,18 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   <div class="head-split">
     <div>
       <h1>Call the winner before the room does.</h1>
-      <p>Every debate ends with an audience vote. <strong>Back the side you think takes it, and win points when you call it right.</strong></p>
-      <p>A market opens whenever a live round starts, so the board below fills up when people are actually debating.</p>
+      <p>Every round ends twice. The judge writes a ballot and the room votes. <strong>Back the side you think takes the ballot, and win points when you call it right.</strong></p>
+      <p>Points are free and stay free. The real money sits in exactly one place, and it is not the board.</p>
+      <div class="ladder" aria-label="The three money surfaces">
+        <span class="rung a"><span class="n">1</span><b>Play</b><span>free points, no cash in or out</span></span>
+        <span class="rung b"><span class="n">2</span><b>Back a debater</b><span>fans fund the pot</span></span>
+        <span class="rung c"><span class="n">3</span><b>Compete</b><span>debaters win it</span></span>
+      </div>
       <div class="head-actions">
         <a class="primary" href="/spar">Start a round</a>
-        <a class="secondary" href="#how">How it works</a>
+        <a class="secondary" href="#lanes">Where the money is</a>
       </div>
-      <p class="pts">Points are free and never turn into money.</p>
+      <p class="pts">Lane 1 is live today. Lanes 2 and 3 open with published rules.</p>
       <div class="pts" id="signedOutNote" hidden>Sign in to predict and climb the ladder. <a href="#" id="inlineSignin">Sign in</a></div>
     </div>
     <div class="votecard" aria-label="Example crowd vote on a finished round">
@@ -410,7 +537,7 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
         <div class="vrow-top"><span class="vrow-nm">Opp</span><span class="vrow-n">38%</span></div>
         <div class="vtrack"><i style="width:38%"></i></div>
       </div>
-      <p class="vfoot"><b>248 people voted.</b> Anyone watching gets one vote. Debaters cannot vote on their own round.</p>
+      <p class="vfoot"><b>248 people voted.</b> Anyone watching gets one vote, and debaters cannot vote on their own round. The market settles on the judge's ballot, not on this. <b>When the two disagree, that is the round worth arguing about.</b></p>
     </div>
   </div>
 </div>
@@ -439,8 +566,8 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
           </div>
         </div>
         <div class="how-step">
-          <div class="step-top"><div class="n">3</div><h3>The room votes</h3></div>
-          <p>Predictions close before the round ends, so nobody backs a known winner. <strong>Everyone who called it right shares the pool. Everyone who called it wrong loses what they put in.</strong></p>
+          <div class="step-top"><div class="n">3</div><h3>The ballot lands</h3></div>
+          <p>Predictions close before the round ends, so nobody backs a known winner. Three judges vote on a rubric published before the round. <strong>Everyone who called it right shares the pool. Everyone who called it wrong loses what they put in.</strong></p>
           <div class="viz" aria-hidden="true">
             <div class="vchips">
               <span class="vchip blind">Side A</span><span class="vchip blind">Side B</span>
@@ -549,7 +676,11 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
           </div>
           <div class="rule-card">
             <h4>Free, virtual, and not cashable</h4>
-            <p>Everyone starts with <span class="k">1,000</span>. Points cannot be bought, withdrawn, redeemed, converted, or transferred. The winner is decided by the AI judge, not a random draw.</p>
+            <p>Everyone starts with <span class="k">1,000</span>. Points cannot be bought, withdrawn, redeemed, converted, or transferred. The winner is decided by a judging panel on a published rubric, not a random draw.</p>
+          </div>
+          <div class="rule-card">
+            <h4>What hot and cold mean</h4>
+            <p>Every market opens even. <b>Hot</b> is the side money has moved toward since then, <b>cold</b> is the side it moved away from. Hot is the crowd's read, not the answer: the cold side is the one paying more if it lands.</p>
           </div>
         </div>
         <p class="rules-fine">Points are a scorekeeping device for reading arguments, with no cash value inside or outside the product. This is not a wagering service and nothing on this page is an offer to gamble. Balances can be reset or adjusted while Predict is in beta.</p>
@@ -576,34 +707,147 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   </div>
 </div>
 
-<!-- Everything that is not the points board. These three used to run
-     ABOVE the board as a card row, a two-paragraph crowd-vote band, and
-     a prize banner that repeated the third card almost verbatim, so a
+<!-- Everything that is not the points board. These used to run ABOVE
+     the board as a card row, a two-paragraph crowd-vote band, and a
+     prize banner that repeated the third card almost verbatim, so a
      first-time visitor read the prize story twice and the vote story
-     once before seeing a single market. One strip, one card each, below
-     the board. Tenses must still match /get-paid-to-debate: the free
-     vote is live, self-staking is next, cash is coming with rules
-     first, and Play Points never touch any of it. -->
+     once before seeing a single market. One strip, one card each,
+     below the board, where they belong.
+
+     2026-07-30: the strip became the three MONEY LANES, because the
+     question this page kept dodging is "where is the money". Tenses
+     must still match /get-paid-to-debate: lane 1 is live, lanes 2 and
+     3 are not, no amounts and no dates are promised, and Play Points
+     never touch any of it. The free crowd vote folds into lane 1
+     rather than getting its own card. -->
 <div class="wrap" style="padding-bottom:70px">
-  <div class="seclbl">Also on Debatable</div>
-  <section class="ways" aria-label="What else is here">
-    <div class="way">
-      <div class="way-top"><h3>Go vote</h3><span class="mchip live">Live now</span></div>
-      <p>Every finished round is sitting there waiting for your call. Watch it, pick who convinced you, and see how the rest of the room split. <strong>No points needed, no stake, just a vote.</strong></p>
-      <div class="cvbar" aria-hidden="true"><i class="cvp" style="width:62%"></i><i class="cvo"></i></div>
-      <div class="cv-legend" aria-hidden="true"><span><i class="p"></i>Prop 62%</span><span><i class="o"></i>Opp 38%</span></div>
-      <a href="/rounds">See finished rounds <span aria-hidden="true">&rarr;</span></a>
+  <div class="seclbl" id="lanes">Where the money is</div>
+  <section class="lanes" aria-label="The three money surfaces">
+    <div class="lane a">
+      <div class="lane-top"><h3>Play the board</h3><span class="mchip live">Live now</span></div>
+      <div class="who">Anyone, any age, anywhere</div>
+      <p>1,000 free points on arrival, and more every day you show up. Back sides, climb the ladder, argue with the ballot when it goes against you. Every finished round also takes a free crowd vote, no stake required. <strong>Nothing here costs money and nothing here pays money.</strong></p>
+      <div class="leg"><b>No prize, no payment</b>Points cannot be bought, sold, transferred, or cashed out, at any balance, ever.</div>
+      <a href="/rounds">Go vote on a finished round <span aria-hidden="true">&rarr;</span></a>
     </div>
-    <div class="way">
-      <div class="way-top"><h3>Bet on yourself</h3><span class="mchip">For debaters</span></div>
-      <p>Start a round and a market opens on you. The crowd backs you or backs against you while you speak, and the ballot settles it. Staking your own points on yourself is next.</p>
+    <div class="lane b">
+      <div class="lane-top"><h3>Back a debater</h3><span class="mchip soon">Next · rules first</span></div>
+      <div class="who">For the crowd</div>
+      <p>Real money, and none of it is a bet. You buy a season pass and keep what it comes with. A <strong>published share of every pass goes into the prize pot</strong> that the debaters compete for, so backing someone is closer to buying a ticket than to placing one.</p>
+      <div class="leg"><b>Nothing rides on the result</b>What you get for paying is fixed at purchase. No outcome makes your pass worth more, which is what keeps it a purchase.</div>
+      <a href="/get-paid-to-debate">How the prize track works <span aria-hidden="true">&rarr;</span></a>
+    </div>
+    <div class="lane c">
+      <div class="lane-top"><h3>Compete for the pot</h3><span class="mchip soon">Next · rules first</span></div>
+      <div class="who">For debaters</div>
+      <p>Argue, and the pot is what you are arguing for. Prizes go to the people who debated best, on a written ballot, against a rubric published before the round. <strong>A free qualifying path stays open in every event</strong>, so reaching the prize never requires paying to enter.</p>
+      <div class="leg"><b>Judged, not drawn</b>Age and region rules publish with each event. Minors compete and rank; they are not eligible for cash.</div>
       <a href="/spar">Open a round <span aria-hidden="true">&rarr;</span></a>
     </div>
-    <div class="way">
-      <div class="way-top"><h3>Cash prizes</h3><span class="mchip soon">Coming · rules first</span></div>
-      <p>Featured matches will pay the winning debater a real prize, as a skill contest. The prize, the rules, and who can enter all get published before anything opens. <strong>Points have $0 value and never buy an entry.</strong></p>
-      <a href="/get-paid-to-debate">How getting paid will work <span aria-hidden="true">&rarr;</span></a>
+  </section>
+
+  <!-- The pot. Drawn as a flow on purpose: the money enters from the
+       crowd on the left and leaves to the debaters on the right, and
+       there is deliberately no arrow back to a bettor anywhere in the
+       diagram. No amount, no date, no fake counter. -->
+  <section class="pot" aria-label="How the prize pot works">
+    <div class="money-field" aria-hidden="true">
+      <span style="--x:3%;--y:10%;--s:1.1;--r:-8deg;--d:.5s">$</span>
+      <span style="--x:29%;--y:62%;--s:.8;--r:10deg;--d:2.3s">&euro;</span>
+      <span style="--x:66%;--y:8%;--s:.95;--r:-5deg;--d:1.4s">$</span>
+      <span style="--x:88%;--y:56%;--s:1.15;--r:9deg;--d:3.1s">&pound;</span>
     </div>
+    <span class="k">The pot</span>
+    <h2>The crowd fills it. The debaters win it. The house never touches it.</h2>
+    <p>A prize pot is not a pool of bets. It is funded up front by people who bought something, and it pays out to whoever argued best. <strong>The operator takes no cut of it, and structurally cannot:</strong> settlement carries no rake, no fee, and no house account, and the build fails if anyone adds one.</p>
+    <div class="potflow" aria-label="Money enters from passes and sponsors, collects in the pot, and pays out to winning debaters">
+      <div class="potnode">
+        <span class="pl">Money in</span>
+        <span class="pv">Season passes and sponsors</span>
+        <span class="ps">A product with a fixed price and fixed contents.</span>
+      </div>
+      <div class="potarrow" aria-hidden="true">&rarr;</div>
+      <div class="potnode mid">
+        <span class="pl">The pot</span>
+        <span class="pv">A published share of every pass</span>
+        <span class="ps">The percentage and the running total both publish before entries open.</span>
+      </div>
+      <div class="potarrow" aria-hidden="true">&rarr;</div>
+      <div class="potnode out">
+        <span class="pl">Money out</span>
+        <span class="pv">Paid to winning debaters</span>
+        <span class="ps">On the ballot, per the official rules of that event.</span>
+      </div>
+    </div>
+    <div class="potnots">
+      <div class="potnot"><b>The pot never pays a spectator.</b> Predicting well wins points and standing, not money.</div>
+      <div class="potnot"><b>Points never buy into it.</b> No balance, streak, or rank converts to an entry or a prize.</div>
+      <div class="potnot"><b>Nobody has to pay to reach it.</b> Every event keeps a free qualifying path open.</div>
+    </div>
+  </section>
+
+  <!-- The legal structure, sold rather than apologised for. It leads on
+       the judge because that is the part that is actually built: see
+       lib/judge-charter.mjs (published + hashed rubric, season pins),
+       lib/judge-panel.mjs (three families, no tie-break), judge-appeal
+       + admin-appeals (human review, no model), and settle.mjs (no rake
+       term, guarded by scripts/test-judge-integrity.mjs). Every claim
+       below must stay traceable to one of those. -->
+  <section class="legal" aria-labelledby="legalTitle">
+    <span class="k">The structure</span>
+    <h2 id="legalTitle">A contest, not a casino.</h2>
+    <p>US law treats something as gambling when three things are true together: a <strong>prize</strong>, decided partly by <strong>chance</strong>, that you paid <strong>consideration</strong> to enter. Remove any one and it stops being a wager. Every surface here removes at least one, on purpose, and this is which one.</p>
+    <div class="ltable" role="table" aria-label="Which leg each surface removes">
+      <div class="lrow hd" role="row"><div role="columnheader">Surface</div><div role="columnheader">Prize</div><div role="columnheader">Chance</div><div role="columnheader">You pay</div></div>
+      <div class="lrow" role="row">
+        <div class="surf" role="cell">Play the board</div>
+        <div role="cell" data-l="Prize"><span class="no">None.</span> Points have no cash value</div>
+        <div role="cell" data-l="Chance">Judged on a rubric</div>
+        <div role="cell" data-l="You pay"><span class="no">Nothing.</span> Free, and unbuyable</div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="surf" role="cell">Back a debater</div>
+        <div role="cell" data-l="Prize"><span class="no">None to you.</span> You get goods, not a payout</div>
+        <div role="cell" data-l="Chance">Not applicable, nothing rides on the result</div>
+        <div role="cell" data-l="You pay"><span class="yes">Yes,</span> a fixed price for a fixed thing</div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="surf" role="cell">Compete for the pot</div>
+        <div role="cell" data-l="Prize"><span class="yes">Yes,</span> cash to the debaters</div>
+        <div role="cell" data-l="Chance"><span class="no">Skill.</span> Your own speeches, on a written ballot</div>
+        <div role="cell" data-l="You pay"><span class="no">Not required.</span> Free qualifying path in every event</div>
+      </div>
+    </div>
+    <div class="lproof">
+      <div class="lp">
+        <h4>The rubric is published before the round, and hashed</h4>
+        <p>Criteria are versioned and fingerprinted, so a ballot stays attributable to the exact standard it was judged under. <b>Nobody can quietly retune the judge after the fact</b>, because a changed rubric changes the hash.</p>
+      </div>
+      <div class="lp">
+        <h4>Three judges from three model families</h4>
+        <p>Majority carries, medians set the points, and <b>an even split is never tie-broken</b>. A round nobody can decide voids and returns every stake at face value, because any tie-break rule would be ours.</p>
+      </div>
+      <div class="lp">
+        <h4>Appeals go to a person, never back to a model</h4>
+        <p>Either debater can appeal on stated grounds. A reviewer who was in the round is disqualified, the original ballot is kept beside the correction, and <b>a reversal claws payouts back through the ledger</b> rather than just changing the display.</p>
+      </div>
+      <div class="lp">
+        <h4>The house earns the same whoever wins</h4>
+        <p>Settlement has no rake, no fee, and no house account, and a build that introduces one fails its tests. <b>We have no position to protect</b>, which is the only reason an operator-run judge can be trusted at all.</p>
+      </div>
+    </div>
+    <div class="lnever">
+      <h4>What this will never do</h4>
+      <ul>
+        <li>Take deposits, or let you cash points out</li>
+        <li>Sell points, odds, standing, or a better price</li>
+        <li>Take a cut of a pool, on either side</li>
+        <li>Book a wager against you, at any stake</li>
+        <li>Pay cash to a minor, at any rank</li>
+        <li>Open a prize event before its rules publish</li>
+      </ul>
+    </div>
+    <p class="legal-fine">This is the structure being built to, published so it can be read before anyone takes part. It is not legal advice and not a claim that every question here is settled. Prize events open only after specialist counsel signs off on their official rules, eligibility, and age and region requirements; balances can be reset while Predict is in beta. Verify the judging claims yourself at <a href="/judge-integrity">judge integrity</a>, where the live charter, the rubric hash, and the panel agreement figures are served straight from the same code that judges the rounds.</p>
   </section>
 
   <!-- The money-in surface. Facts mirror /pricing exactly: Tokens are
@@ -662,6 +906,22 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   function pct(market, side){ var tot=(market.poolPro||0)+(market.poolCon||0); if(tot<=0) return 50; return Math.round(((side==='pro'?market.poolPro:market.poolCon)/tot)*100); }
   function multi(market, side){ var tot=(market.poolPro||0)+(market.poolCon||0); var p=side==='pro'?market.poolPro:market.poolCon; if(!p) return null; return (tot/p); }
 
+  // Hot/cold. Every market is seeded 100/100 by the server, so a side's
+  // distance from 50% IS how far the line has moved since it opened. That
+  // makes the read a property of the market itself rather than of how long
+  // this particular tab has been watching, so it is correct on first paint
+  // and identical for everyone. Dead zone of 3 points so a single small
+  // bet on a quiet market does not get announced as momentum.
+  function hotCold(m){
+    var d=pct(m,'pro')-50;
+    if(Math.abs(d)<=3) return '<span class="hc even">Even</span>';
+    var hotSide=d>0?'pro':'con';
+    var nm=hotSide==='pro'?(m.proName||'Pro'):(m.conName||'Con');
+    var coldNm=hotSide==='pro'?(m.conName||'Con'):(m.proName||'Pro');
+    return '<span class="hc hot" title="'+esc(nm)+' is where the money has moved since this opened">'+esc(nm)+' hot +'+Math.abs(d)+'</span>'+
+           '<span class="hc cold" title="'+esc(coldNm)+' pays more precisely because the crowd left it">'+esc(coldNm)+' pays more</span>';
+  }
+
   function outcomeBtn(m, side){
     var p=pct(m,side), mu=multi(m,side), locked=m.status!=='open';
     var nm=side==='pro'?(m.proName||'Pro'):(m.conName||'Con');
@@ -685,7 +945,8 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
         '<span class="hint" id="hint-'+m.room+'"></span></div>';
     var pos = m.myBet ? '<div class="pos">Your position: <b>'+m.myBet.stake+'</b> pts on <b>'+m.myBet.pick.toUpperCase()+'</b>.</div>' : '';
     return '<div class="mkt" data-card="'+m.room+'">'+
-      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div class="mkt-q">'+esc(m.motion)+'</div>'+spill+'</div>'+
+      '<div class="mkt-head"><div class="mkt-q">'+esc(m.motion)+'</div>'+
+      '<div class="mkt-pills">'+hotCold(m)+spill+'</div></div>'+
       sub+
       '<div class="outcome">'+outcomeBtn(m,'pro')+'</div>'+
       '<div class="outcome">'+outcomeBtn(m,'con')+'</div>'+
