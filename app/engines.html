@@ -100,6 +100,7 @@ h1{font-size:clamp(2.4rem,6.2vw,4.6rem);line-height:1;letter-spacing:-.045em;mar
           <p class="loading">Loading the roster.</p>
         </div>
         <div id="engineDetail" class="detail" aria-live="polite"></div>
+        <p id="pickNote" class="note" aria-live="polite">Pick an engine to set it as the one Open Lab runs in your rounds.</p>
         <div class="arc-keys">
           <span><span class="arc-key">←</span><span class="arc-key">→</span><span class="arc-key">↑</span><span class="arc-key">↓</span> move</span>
           <span><span class="arc-key">Enter</span> choose</span>
@@ -223,10 +224,23 @@ h1{font-size:clamp(2.4rem,6.2vw,4.6rem);line-height:1;letter-spacing:-.045em;mar
     .then(function (r) { if (!r.ok) throw new Error('status ' + r.status); return r.json(); })
     .then(function (data) {
       roster = data;
-      openGrid.innerHTML = (data.open || []).map(function (e, i) { return optCard(e, i === 0); }).join('');
+      // Restore the saved pick rather than always highlighting the first
+      // card, so returning here shows what your rounds are actually
+      // running. A saved slug no longer on the roster falls through to the
+      // first engine instead of leaving nothing selected.
+      var saved = '';
+      try { saved = localStorage.getItem('debateos-open-engine') || ''; } catch (err) {}
+      var open = data.open || [];
+      var current = open.filter(function (e) { return e.slug === saved; })[0] || open[0];
+      openGrid.innerHTML = open.map(function (e) { return optCard(e, current && e.key === current.key); }).join('');
       houseGrid.innerHTML = (data.houses || []).map(houseCard).join('');
-      var first = (data.open || [])[0];
-      if (first) showDetail(first.key);
+      if (current) {
+        showDetail(current.key);
+        if (saved && current.slug === saved) {
+          var note = document.getElementById('pickNote');
+          if (note) note.innerHTML = '<strong>' + esc(current.label) + '</strong> is your current open engine.';
+        }
+      }
       // Enhancement only. If arcade-menu.js has not executed yet its own
       // load-time scan picks these groups up, and wire() preserves the
       // aria-checked the markup already carries.
@@ -241,9 +255,27 @@ h1{font-size:clamp(2.4rem,6.2vw,4.6rem);line-height:1;letter-spacing:-.045em;mar
       if (window.console) console.warn('engines: roster fetch failed', err);
     });
 
+  /* Picking here is the actual control, not a preview. The round surfaces
+     read this key when the Open Lab brain is selected and send the slug as
+     the model, so this page IS the engine picker rather than a brochure
+     next to one. The slug is stored (not the roster key) because that is
+     what the proxy validates, and it is re-validated server-side anyway. */
+  function remember(key) {
+    var e = (roster.open || []).filter(function (x) { return x.key === key; })[0];
+    if (!e) return;
+    try { localStorage.setItem('debateos-open-engine', e.slug); } catch (err) {}
+    var note = document.getElementById('pickNote');
+    if (note) {
+      note.innerHTML = '<strong>' + esc(e.label) + '</strong> is set as your open engine. '
+        + 'Choose the Open Lab brain in a round and it argues. '
+        + '<a href="/practice" style="color:var(--red);font-weight:700">Start a round</a>';
+    }
+  }
+
   openGrid.addEventListener('arc:change', function (e) {
     showDetail(e.detail.value);
-    if (window.track) window.track('engine_detail_view', { engine: e.detail.value });
+    remember(e.detail.value);
+    if (window.track) window.track('engine_pick', { engine: e.detail.value });
   });
 })();
 </script>

@@ -5133,6 +5133,17 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   // logic above (BETA_PRO_UNLOCK).
   var isPro = BETA_PRO_UNLOCK || __currentTeam && (__currentTeam.plan === 'individual' || __currentTeam.plan === 'team' || __currentTeam.plan === 'lifetime');
   var model = isPro && brain.proModel ? brain.proModel : brain.model;
+  // Open Lab is a roster, not a model, so its slug is the engine the user
+  // picked on /engines rather than a fixed default. Sent as `model` the
+  // same as every other brain; openlab.mjs validates it against the
+  // shared allow-list in lib/engines.mjs, so a stale or hand-edited value
+  // quietly falls back to the default instead of erroring a round.
+  if (brainKey === 'openlab') {
+    try {
+      var pickedEngine = localStorage.getItem('debateos-open-engine');
+      if (pickedEngine) model = pickedEngine;
+    } catch (e) {}
+  }
   var maxTokens = opts.maxTokens || 16000;
 
   // Voice block is now resolved server-side from _voiceFeature; the client
