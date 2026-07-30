@@ -43,6 +43,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
 
 <script defer src="/js/track.js"></script>
+<!-- The draft: menu behaviour plus the pinned-bench reveal in Round
+     setup. Both are additive. If either fails to load the chips and the
+     judge note still work and the queue is unaffected, which is the only
+     acceptable posture for a script on a live matchmaking page. -->
+<script defer src="/js/arcade-menu.js"></script>
+<script defer src="/js/judge-draft.js"></script>
 <script defer src="/js/spar-night.js"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/prospect-capture.js"></script>
@@ -64,6 +70,7 @@
 <!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so
      page-specific rules override ui.css's defaults via cascade order. -->
 <link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="/css/arcade.css">
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1957,17 +1964,33 @@ h1 em{color:var(--accent);font-style:normal}
       // the judge how to evaluate. These ride on the queue doc and only
       // become round terms after the opponent reads + accepts them on
       // the consent card.
-      '<div class="setup-card" id="setupCard">' +
+      '<div class="setup-card arc" id="setupCard">' +
         '<div class="setup-head">Round setup<span>Interruptions are captured by the AI judge. Human judges can watch and score public rounds.</span></div>' +
         '<div class="setup-summary">' +
           '<span class="setup-mode" id="setupModeLabel">' + escHtml(setupModeText()) + '</span>' +
           '<button type="button" class="style-chip setup-opts-btn" id="setupOptionsBtn" aria-expanded="' + (setupOpen ? 'true' : 'false') + '" aria-controls="setupOptions">Options ' + (setupOpen ? '▴' : '▾') + '</button>' +
         '</div>' +
         '<div class="setup-options" id="setupOptions"' + (setupOpen ? '' : ' hidden') + '>' +
+        // The draft rail. Three steps so setup reads as a sequence with
+        // an end. State is derived from the controls below by
+        // judge-draft.js, never from a counter, so the rail cannot
+        // disagree with what is actually picked.
+        '<ol class="arc-steps" data-draft-rail aria-label="Round setup steps">' +
+          '<li class="arc-step" data-state="now"><span class="arc-step-n">1</span>Style</li>' +
+          '<li class="arc-step" data-state="next"><span class="arc-step-n">2</span>Judge lens</li>' +
+          '<li class="arc-step" data-state="next"><span class="arc-step-n">3</span>Meet the bench</li>' +
+        '</ol>' +
         '<div class="setup-options-note">Propose a debate style. Your opponent can accept or pass before the round starts.</div>' +
-        '<div class="style-chips" id="styleChips">' +
+        // Cards keep `data-fmt` and the `styleChips` id so the existing
+        // delegated handler and switchFormat's `.on` toggle drive them
+        // unchanged. arcade.css styles `.on` as selected for exactly
+        // this reason: restyle the menu, touch no matchmaking.
+        '<div class="arc-grid" data-dense id="styleChips" data-arc-menu="spar-format" aria-label="Debate style">' +
           FORMATS.map(function(k){
-            return '<button type="button" class="style-chip' + (k === formatParam ? ' on' : '') + '" data-fmt="' + k + '">' + escHtml(FORMAT_LABELS[k] || k.toUpperCase()) + '</button>';
+            return '<button type="button" class="arc-opt' + (k === formatParam ? ' on' : '') + '" data-arc-opt data-fmt="' + k + '"' +
+              ' data-arc-value="' + k + '" data-arc-label="' + escHtml(FORMAT_LABELS[k] || k) + '">' +
+              '<span class="arc-opt-name">' + escHtml(FORMAT_LABELS[k] || k.toUpperCase()) + '</span>' +
+              '</button>';
           }).join('') +
         '</div>' +
         '<div class="paradigm-row">' +
@@ -1978,13 +2001,26 @@ h1 em{color:var(--accent);font-style:normal}
           // preset is just TEXT in the same note field, so the consent
           // handshake and the live-round ballot guard apply unchanged and
           // the opponent reads the exact lens they are agreeing to.
-          '<div class="judge-presets" id="judgePresets">' +
+          '<div class="arc-grid" data-dense id="judgePresets" data-arc-menu="spar-lens" aria-label="Judge lens">' +
           JUDGE_PRESETS.map(function(p){
-            return '<button type="button" class="style-chip judge-preset-chip" data-preset="' + p.key + '">' + escHtml(p.label) + '</button>';
+            return '<button type="button" class="arc-opt judge-preset-chip" data-arc-opt data-preset="' + p.key + '"' +
+              ' data-arc-value="' + p.key + '" data-arc-label="' + escHtml(p.label) + '">' +
+              '<span class="arc-opt-name">' + escHtml(p.label) + '</span>' +
+              '</button>';
           }).join('') +
           '</div>' +
           '<textarea id="paradigmInput" maxlength="' + PARADIGM_MAX + '" rows="2" placeholder="Propose a judging lens. e.g. Weigh probability before magnitude. Punish drops hard. Truth over tech on factual claims."></textarea>' +
           '<div class="paradigm-meta"><span id="paradigmSaved"></span><span id="paradigmCount">0/' + PARADIGM_MAX + '</span></div>' +
+        '</div>' +
+        // Step 3. The bench is READ-ONLY here by design: a spar round is
+        // ranked, so its panel is pinned by the season charter and is
+        // not a thing either debater gets to pick. Showing it anyway is
+        // the point, because a panel you can picture is a panel you can
+        // argue to. Filled by judge-draft.js from /api/judge/charter.
+        '<div class="arc-group" style="margin:22px 0 0">' +
+          '<div class="arc-group-head"><h3 style="font-size:.95rem">The bench</h3>' +
+            '<span class="arc-group-hint">Pinned, not picked</span></div>' +
+          '<div data-draft-bench></div>' +
         '</div>' +
         '</div>' + /* /setup-options */
       '</div>' +
@@ -2170,6 +2206,27 @@ h1 em{color:var(--accent);font-style:normal}
   }
 
   function wireSetupCard(){
+    // Mount the draft (rail + bench + keyboard nav) over the controls
+    // this function wires below. Guarded because it is progressive
+    // enhancement: if judge-draft.js did not load, setup still works.
+    // Retried because this can run before the deferred script executes,
+    // and a silent `if (window.JudgeDraft)` miss would just leave the
+    // bench blank with nothing to explain why. Bounded, and it gives up
+    // quietly: the setup card is fully usable without it.
+    (function mountDraft(tries){
+      try {
+        var draftHost = document.getElementById('setupCard');
+        if (!draftHost) return;
+        if (window.JudgeDraft) {
+          // ranked:true. A spar round feeds the ladder, so the panel is
+          // the season's pinned bench and no guest judges are offered.
+          window.JudgeDraft.mount(draftHost, { ranked: true });
+        } else if (tries < 20) {
+          setTimeout(function(){ mountDraft(tries + 1); }, 100);
+        }
+      } catch (e) {}
+    })(0);
+
     var optsBtn = document.getElementById('setupOptionsBtn');
     var optsWrap = document.getElementById('setupOptions');
     if (optsBtn && optsWrap){

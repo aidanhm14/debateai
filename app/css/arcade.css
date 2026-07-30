@@ -1,0 +1,348 @@
+/* ─────────────────────────────────────────────────────────────
+   ARCADE — the option-select system.
+
+   WHAT IT IS FOR
+   Every pre-round surface asks the same question in a different shape:
+   pick a format, pick a side, pick a lens, pick an engine. Each one grew
+   its own chips, its own selected state, and its own keyboard behaviour
+   (mostly none). This is one grammar for all of them, so choosing feels
+   like a menu you move through rather than a form you fill in.
+
+   IT ADDS NO PALETTE AND NO TYPEFACE. Everything below is built from the
+   tokens ui.css already publishes (--bg-card, --border, --text-dim,
+   --accent-soft, --radius, --shadow, --ease) and inherits Crimson Pro
+   from body. That is deliberate and it is the second attempt: the first
+   version of this file invented an --arc-* palette and an Inter stack,
+   which made every menu read as a different product bolted onto the
+   site. Tokens also mean light theme, crimson theme, and any future
+   theme come free, instead of this file carrying its own override block
+   that drifts from the real one.
+
+   Fallbacks are supplied on every var() so the classes still render on a
+   page that has not loaded ui.css.
+
+   COLOUR DISCIPLINE (2026-05-19 sweep): --accent (red) is the action
+   colour and marks selection. Amber is reserved for state semantics and
+   is used here ONLY for a warning or a locked reason, never as
+   decoration. Per-engine and per-persona colours are identity, set
+   inline from the roster, and never carry meaning alone.
+
+   ACCESSIBILITY. These are radio groups wearing a costume: real buttons,
+   aria-checked, roving tabindex, and a focus ring that is restyled but
+   never removed. Selection is marked by border, tint AND a check mark,
+   because colour alone fails for a lot of people.
+   ───────────────────────────────────────────────────────────── */
+
+.arc {
+  --arc-warn: #f59e0b;
+}
+[data-theme="light"] .arc,
+[data-lighting="light"] .arc,
+body.light-theme .arc {
+  /* Amber on white fails AA at #f59e0b. This is the only colour this
+     file sets that ui.css does not already publish. */
+  --arc-warn: #b45309;
+}
+
+/* ── step rail ───────────────────────────────────────────────── */
+/* Shows where you are without hiding the steps you have not reached. A
+   progress bar that conceals what is coming is what makes a setup flow
+   feel long. */
+.arc-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.arc-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text-ghost, color-mix(in srgb, currentColor 52%, transparent));
+  padding: 0 12px 0 0;
+}
+.arc-step::after {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: var(--border, color-mix(in srgb, currentColor 15%, transparent));
+  margin-left: 12px;
+}
+.arc-step:last-child { padding-right: 0; }
+.arc-step:last-child::after { display: none; }
+.arc-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong, color-mix(in srgb, currentColor 32%, transparent));
+  font-size: .72rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.arc-step[data-state="done"] { color: var(--text-dim, color-mix(in srgb, currentColor 76%, transparent)); }
+.arc-step[data-state="done"] .arc-step-n {
+  background: var(--accent, #ef4444);
+  border-color: var(--accent, #ef4444);
+  color: #fff;
+}
+.arc-step[data-state="now"] { color: var(--text, currentColor); }
+.arc-step[data-state="now"] .arc-step-n {
+  border-color: var(--accent, #ef4444);
+  color: var(--accent, #ef4444);
+  box-shadow: 0 0 0 3px var(--accent-soft, rgba(239, 68, 68, .08));
+}
+
+/* ── a group of options ──────────────────────────────────────── */
+.arc-group { margin: 0 0 26px; }
+.arc-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+.arc-group-head h2,
+.arc-group-head h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  margin: 0;
+}
+.arc-group-hint {
+  font-size: .8rem;
+  color: var(--text-ghost, color-mix(in srgb, currentColor 52%, transparent));
+  font-weight: 600;
+}
+.arc-group-sub {
+  font-size: .92rem;
+  line-height: 1.55;
+  color: var(--text-dim, color-mix(in srgb, currentColor 76%, transparent));
+  margin: 0 0 14px;
+  max-width: 62ch;
+}
+
+.arc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  gap: 10px;
+}
+.arc-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.arc-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.arc-grid[data-dense] { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+/* ── the option card ────────────────────────────────────────── */
+.arc-opt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  width: 100%;
+  padding: 13px 15px;
+  background: var(--bg-card, color-mix(in srgb, currentColor 4%, transparent));
+  border: 1px solid var(--border, color-mix(in srgb, currentColor 15%, transparent));
+  border-radius: var(--radius, 14px);
+  color: inherit;
+  /* Inherit the house face rather than restating a stack. */
+  font: inherit;
+  cursor: pointer;
+  transition: transform .16s var(--ease, ease), border-color .16s var(--ease, ease),
+              background .16s var(--ease, ease), box-shadow .16s var(--ease, ease);
+}
+.arc-opt:hover:not([disabled]):not([aria-disabled="true"]) {
+  border-color: var(--border-strong, color-mix(in srgb, currentColor 32%, transparent));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm, 0 2px 10px rgba(0, 0, 0, .2));
+}
+/* Focus is the whole point of a menu you can drive from the keyboard.
+   Never replace this with outline:none. */
+.arc-opt:focus-visible {
+  outline: 2px solid var(--accent, #ef4444);
+  outline-offset: 2px;
+}
+.arc-opt[aria-checked="true"],
+.arc-opt[data-selected],
+.arc-opt.on {
+  border-color: var(--accent-border, rgba(239, 68, 68, .25));
+  background: var(--accent-soft, rgba(239, 68, 68, .08));
+  box-shadow: inset 0 0 0 1px var(--accent-border, rgba(239, 68, 68, .25));
+}
+/* Selection is marked three ways on purpose: tint, border, and this
+   mark. Colour alone fails for a chunk of the people using it. */
+.arc-opt[aria-checked="true"]::after,
+.arc-opt[data-selected]::after,
+.arc-opt.on::after {
+  content: "✓";
+  position: absolute;
+  top: 9px;
+  right: 12px;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--accent, #ef4444);
+}
+.arc-opt[disabled],
+.arc-opt[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: .5;
+  transform: none;
+}
+
+.arc-opt-glyph {
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+.arc-opt-name {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  padding-right: 18px;
+}
+.arc-opt-sub {
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--accent, #ef4444);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.arc-opt-body {
+  font-size: .88rem;
+  line-height: 1.5;
+  color: var(--text-dim, color-mix(in srgb, currentColor 76%, transparent));
+  margin: 0;
+}
+.arc-opt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* ── badges ─────────────────────────────────────────────────── */
+.arc-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-card, color-mix(in srgb, currentColor 4%, transparent));
+  border: 1px solid var(--border, color-mix(in srgb, currentColor 15%, transparent));
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-dim, color-mix(in srgb, currentColor 76%, transparent));
+  white-space: nowrap;
+}
+.arc-badge--on { color: var(--green, #22c55e); border-color: rgba(34, 197, 94, .38); }
+.arc-badge--warn { color: var(--arc-warn); border-color: rgba(245, 158, 11, .38); }
+.arc-badge--red { color: var(--accent, #ef4444); border-color: var(--accent-border, rgba(239, 68, 68, .25)); }
+.arc-badge--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: .66rem;
+}
+
+/* ── locked rows ─────────────────────────────────────────────── */
+/* A pinned choice still gets a card, because hiding it would read as
+   "no such option" rather than "this one is not yours to move". The
+   reason is stated on the card, never left to a tooltip. */
+.arc-locked {
+  border-style: dashed;
+  cursor: default;
+}
+.arc-locked:hover { transform: none; box-shadow: none; }
+.arc-locked-why {
+  font-size: .86rem;
+  line-height: 1.55;
+  color: var(--text-dim, color-mix(in srgb, currentColor 76%, transparent));
+  margin: 0;
+}
+
+/* ── the confirm bar ────────────────────────────────────────── */
+.arc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  margin-top: 22px;
+  background: var(--bg-elev-solid, color-mix(in srgb, currentColor 6%, transparent));
+  border: 1px solid var(--border, color-mix(in srgb, currentColor 15%, transparent));
+  border-radius: var(--radius, 14px);
+}
+.arc-bar-read {
+  font-size: .92rem;
+  color: var(--text-dim, color-mix(in srgb, currentColor 76%, transparent));
+  line-height: 1.5;
+}
+.arc-bar-read b { color: var(--text, currentColor); font-weight: 700; }
+.arc-go {
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-pill, 999px);
+  padding: 12px 24px;
+  background: var(--accent, #ef4444);
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .16s var(--ease, ease), transform .16s var(--ease, ease);
+}
+.arc-go:hover:not([disabled]) { background: var(--accent-hover, #f87171); transform: translateY(-1px); }
+.arc-go:focus-visible { outline: 2px solid var(--text, currentColor); outline-offset: 2px; }
+.arc-go[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* ── keyboard hint ──────────────────────────────────────────── */
+/* Hidden until a key is actually used. Telling someone about arrow keys
+   before they have touched the keyboard is noise. */
+.arc-keys {
+  display: none;
+  gap: 12px;
+  align-items: center;
+  font-size: .8rem;
+  color: var(--text-ghost, color-mix(in srgb, currentColor 52%, transparent));
+  margin-top: 12px;
+}
+.arc[data-kbd] .arc-keys { display: flex; flex-wrap: wrap; }
+.arc-key {
+  display: inline-block;
+  min-width: 19px;
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong, color-mix(in srgb, currentColor 32%, transparent));
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .7rem;
+  color: var(--text-dim, color-mix(in srgb, currentColor 76%, transparent));
+  margin-right: 4px;
+}
+
+@media (max-width: 620px) {
+  /* Full cards collapse to one column so the body copy stays readable.
+     `data-dense` grids deliberately do NOT: those hold short labels
+     (format names, lens presets), and nine of them stacked one-per-row
+     is a scroll where a 2-up grid is a glance. The minmax(140px) keeps
+     it at two on a phone and it is stated here because the specificity
+     that produces it would otherwise look like an oversight. */
+  .arc-grid,
+  .arc-grid[data-cols="2"],
+  .arc-grid[data-cols="3"] { grid-template-columns: 1fr; }
+  .arc-grid[data-dense] { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .arc-bar { flex-direction: column; align-items: stretch; }
+  .arc-go { width: 100%; }
+}
+
+/* The lift is decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .arc-opt, .arc-go { transition: none; }
+  .arc-opt:hover:not([disabled]), .arc-go:hover:not([disabled]) { transform: none; }
+}
