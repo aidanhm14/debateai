@@ -8,7 +8,7 @@
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
-import { json, errorResponse } from './lib/response.mjs';
+import { jsonResponse, errorResponse } from './lib/response.mjs';
 
 const VALID_DIMENSIONS = new Set([
   'clarity',
@@ -31,7 +31,7 @@ function validateRatings(ratings) {
 
 export default async (request) => {
   if (request.method === 'OPTIONS') {
-    return json({}, 200, request);
+    return jsonResponse({}, 200, request);
   }
   if (request.method !== 'POST') {
     return errorResponse('Method not allowed', 405, request);
@@ -92,7 +92,7 @@ export default async (request) => {
       ratedByCount: FieldValue.increment(1),
     });
 
-    return json({ ok: true, roundId, raterUid }, 200, request);
+    return jsonResponse({ ok: true, roundId, raterUid }, 200, request);
   } catch (err) {
     console.error('[log-rfd-rating] error:', err.message);
     return errorResponse('Failed to log rating', 500, request);

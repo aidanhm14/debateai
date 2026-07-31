@@ -7,7 +7,7 @@
 // Pe = expected agreement by chance
 
 import { getDb } from './lib/firestore.mjs';
-import { json, errorResponse } from './lib/response.mjs';
+import { jsonResponse, errorResponse } from './lib/response.mjs';
 
 function computeKappa(ratings1, ratings2) {
   if (!ratings1 || !ratings2) return null;
@@ -107,7 +107,7 @@ export default async (request) => {
     // Outliers = kappa < 0.4 (poor agreement)
     const outliers = rounds.filter(r => r.kappa < 0.4).slice(0, 10);
 
-    return json({
+    return jsonResponse({
       ok: true,
       roundsRated: rounds.length,
       avgKappa: kappaCount > 0 ? totalKappa / kappaCount : null,
