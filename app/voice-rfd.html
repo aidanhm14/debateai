@@ -912,8 +912,12 @@ body{
 
     html +=
       '<section class="section section--full">'
-        + '<div class="section-head"><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
+        + '<div class="section-head" style="display:flex;justify-content:space-between;align-items:center">'
+          + '<div><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
+          + '<button type="button" class="read-rfd-btn" id="readRfdBtn" style="margin-left:auto;padding:8px 14px;background:var(--accent,#ef4444);color:#fff;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600;white-space:nowrap">🔊 Read ballot</button>'
+        + '</div>'
         + '<div class="section-body">' + escHtml(payload.rfd) + '</div>'
+        + '<audio id="rfdAudio" style="width:100%;margin-top:12px;display:none"></audio>'
       + '</section>';
 
     // WS2: Post-vote questionnaire (shown after the full ballot)
@@ -1277,6 +1281,80 @@ body{
     notesEl.addEventListener('blur', function(e){
       if (state.notesTimer) { clearTimeout(state.notesTimer); state.notesTimer = null; }
       if (state.rating) postRate();
+    });
+  }
+
+  // TTS for RFD playback via ElevenLabs (HD quality)
+  var readRfdBtn = document.getElementById('readRfdBtn');
+  var rfdAudio = document.getElementById('rfdAudio');
+  if (readRfdBtn && rfdAudio && payload && payload.rfd) {
+    readRfdBtn.addEventListener('click', async function(){
+      var isPlaying = rfdAudio.currentTime > 0 && !rfdAudio.paused;
+      if (isPlaying) {
+        rfdAudio.pause();
+        readRfdBtn.textContent = '🔊 Read ballot';
+        return;
+      }
+
+      if (rfdAudio.src) {
+        rfdAudio.play();
+        readRfdBtn.textContent = '⏸ Pause';
+        return;
+      }
+
+      readRfdBtn.disabled = true;
+      readRfdBtn.textContent = '⏳ Synthesizing…';
+
+      try {
+        var authToken = '';
+        if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+          authToken = await firebase.auth().currentUser.getIdToken();
+        }
+
+        var res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(authToken ? { 'Authorization': 'Bearer ' + authToken } : {}) },
+          body: JSON.stringify({
+            text: payload.rfd,
+            voice: 'Statesman',
+            intensity: 0.7,
+            premium: true,
+            provider: 'elevenlabs'
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error('TTS failed: ' + res.status);
+        }
+
+        var blob = await res.blob();
+        var url = URL.createObjectURL(blob);
+        rfdAudio.src = url;
+        rfdAudio.style.display = 'block';
+
+        rfdAudio.onplay = function() {
+          readRfdBtn.textContent = '⏸ Pause';
+        };
+        rfdAudio.onpause = function() {
+          readRfdBtn.textContent = '🔊 Read ballot';
+        };
+        rfdAudio.onended = function() {
+          readRfdBtn.textContent = '🔊 Read ballot';
+        };
+
+        rfdAudio.play();
+        readRfdBtn.textContent = '⏸ Pause';
+
+        if (typeof gtag === 'function') {
+          gtag('event', 'voice_rfd_read', { payload_id: payload.id || '', text_length: (payload.rfd || '').length });
+        }
+      } catch (e) {
+        console.error('[voice-rfd] TTS error:', e);
+        readRfdBtn.textContent = '🔊 Read ballot';
+        alert('Could not synthesize audio. Try again.');
+      } finally {
+        readRfdBtn.disabled = false;
+      }
     });
   }
 
