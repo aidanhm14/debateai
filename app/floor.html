@@ -1,14 +1,12 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>The Floor · Debatable</title>
-<meta name="description" content="Watch the round. Call the winner. Climb the board. The Floor is Debatable's play-credit prediction game: read exhibition matchups between AI debater personas across three windows, the crowd reads it too. Play credits, no cash value." />
+<title>The Floor · DebateIt</title>
+<meta name="description" content="Watch the round. Call the winner. Climb the board. The Floor is DebateIt's prediction arena: back a side across three windows, the AI judge settles, the crowd argues. Play credits only." />
 <meta name="robots" content="noindex" />
 <link rel="icon" href="/icons/icon-192.png" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script>
   /* First-visit gate: cover the board with the get-to-know-you intro from
      the very first paint so the board never flashes behind it. Pairs with
@@ -27,20 +25,18 @@
      persists to localStorage so the leaderboard climb survives.
      ============================================================ */
   :root{
-    --bg:#16181c; --bg2:#1b1d22; --card:#202329; --card2:#282b32;
-    --border:rgba(255,255,255,.09); --border2:rgba(255,255,255,.15);
-    --text:#f3f4f6; --dim:rgba(243,244,246,.66); --ghost:rgba(243,244,246,.42);
-    --accent:#9ca3af; --accent2:#6b7280; --accentGlow:rgba(156,163,175,.14);
-    --up:#2dd4bf; --upBg:rgba(45,212,191,.18); --down:#fb7185; --downBg:rgba(251,113,133,.16);
+    --bg:#1a1c20; --bg2:#212329; --card:#262931; --card2:#2e313a;
+    --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.16);
+    --text:#f5f5f7; --dim:rgba(245,245,247,.72); --ghost:rgba(245,245,247,.46);
+    --accent:#ef4444; --accent2:#dc2626; --accentGlow:rgba(239,68,68,.18);
     --win:#34d399; --winBg:rgba(52,211,153,.12);
-    --chartGrid:rgba(243,244,246,.16);
-    --gold:#a8a29e;
+    --gold:#fbbf24;
     --serif:'Crimson Pro','Fraunces',Georgia,'Times New Roman',serif;
     --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased}
-  body{min-height:100vh;background:radial-gradient(1100px 600px at 80% -8%, rgba(156,163,175,.06), transparent 60%), var(--bg)}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;background:radial-gradient(1100px 600px at 80% -8%, rgba(239,68,68,.08), transparent 60%), var(--bg)}
   a{color:inherit}
   button{font-family:inherit;cursor:pointer}
   em,i{font-style:normal}
@@ -52,10 +48,6 @@
   .brand b{color:var(--text)} .brand .it{color:var(--accent)}
   .brand .sep{width:1px;height:18px;background:var(--border2);align-self:center}
   .brand .floor{font-family:var(--sans);font-weight:800;font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ghost)}
-  .floor-nav{display:flex;align-items:center;gap:15px;margin-left:18px}
-  .floor-nav a{position:relative;text-decoration:none;color:var(--dim);font-family:var(--serif);font-size:.88rem;font-weight:800;letter-spacing:.01em;white-space:nowrap}
-  .floor-nav a:hover,.floor-nav a[aria-current="page"]{color:var(--text)}
-  .floor-nav a.hot::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.14)}
   .top .spacer{flex:1}
   .streak{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:700;color:var(--dim);padding:6px 11px;border:1px solid var(--border);border-radius:999px;background:var(--card)}
   .streak b{color:var(--gold)}
@@ -71,68 +63,6 @@
   .hero p{margin:0;font-size:1rem;color:var(--dim);max-width:60ch;line-height:1.55}
   .hero .pmark{display:inline-flex;align-items:center;gap:7px;margin-top:12px;font-size:.72rem;font-weight:700;color:var(--ghost);letter-spacing:.02em}
   .hero .pmark .dot{width:7px;height:7px;border-radius:50%;background:var(--win);box-shadow:0 0 0 4px var(--winBg)}
-
-  /* Exhibition-mode disclosure. Uses --gold (state semantics, not brand
-     chrome) so it reads as a standing notice rather than a promo band. */
-  /* Width math keeps the left edge on the same rail as .hero/.tabs/.wrap
-     (1180px column, 20px gutter) at every viewport, instead of centering a
-     narrower box and floating 100px inboard of everything else. */
-  .exhib-note{width:calc(100% - 40px);max-width:1140px;margin:0 auto 22px;padding:14px 18px;display:flex;align-items:flex-start;gap:13px;border:1px solid var(--border2);border-left:3px solid var(--gold);border-radius:10px;background:var(--card)}
-  .exhib-note p{margin:0;font-size:.82rem;line-height:1.55;color:var(--dim);max-width:84ch}
-  .exhib-pill{flex:none;margin-top:1px;padding:3px 9px;border-radius:999px;background:var(--gold);color:#fff;font-size:.62rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
-  @media (max-width:640px){ .exhib-note{flex-direction:column;gap:9px;margin-left:16px;margin-right:16px} }
-
-  /* ============================================================
-     EXPERIMENTAL PREVIEW LAYER
-     The Floor is a concept surface, not a live product: markets are
-     seeded persona matchups and computeVerdict() settles them from a
-     rating model, not from a real ballot. Until real rounds are bound
-     (the boundResult seam), nothing here may take a user action that
-     looks like a wager. This layer states that, and openCallDrawer()
-     plus placeBet() are hard-gated behind PREVIEW below.
-     Remove this whole block in the same commit that ships real
-     settlement, together with the gate and the ribbon markup.
-     ============================================================ */
-  .exp-ribbon{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;
-    gap:10px;padding:7px 16px;background:var(--gold);color:#17181b;
-    font-family:var(--sans);font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
-  .exp-ribbon b{font-weight:800}
-  .exp-ribbon span{font-weight:600;letter-spacing:.03em;text-transform:none;font-size:.78rem;opacity:.82}
-  @media (max-width:640px){ .exp-ribbon{flex-direction:column;gap:2px;padding:6px 12px;text-align:center} }
-
-  /* Diagonal repeating watermark. Fixed, behind nothing clickable. */
-  .exp-watermark{position:fixed;inset:-20%;z-index:45;pointer-events:none;
-    display:flex;flex-wrap:wrap;gap:0;transform:rotate(-24deg);opacity:.032;overflow:hidden}
-  .exp-watermark span{font-family:var(--sans);font-size:2.2rem;font-weight:900;letter-spacing:.24em;
-    color:var(--text);white-space:nowrap;padding:44px 58px;line-height:1;user-select:none}
-  @media (max-width:640px){ .exp-watermark span{font-size:1.4rem;padding:26px 30px} }
-
-  /* The honesty panel that replaces the old exhibition note. */
-  .prev-note{width:calc(100% - 40px);max-width:1140px;margin:0 auto 20px;
-    border:1px solid var(--border2);border-top:3px solid var(--gold);border-radius:12px;background:var(--card);overflow:hidden}
-  .prev-note-head{display:flex;align-items:center;gap:11px;padding:14px 18px 0}
-  .prev-note-head h2{margin:0;font-family:var(--serif);font-size:1.02rem;font-weight:700;color:var(--text)}
-  .prev-note-body{padding:9px 18px 4px}
-  .prev-note-body p{margin:0;font-size:.84rem;line-height:1.6;color:var(--dim);max-width:88ch}
-  .prev-split{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:14px;border-top:1px solid var(--border)}
-  .prev-col{padding:13px 18px 15px}
-  .prev-col+.prev-col{border-left:1px solid var(--border)}
-  .prev-col h3{margin:0 0 8px;font-family:var(--sans);font-size:.63rem;font-weight:800;letter-spacing:.11em;
-    text-transform:uppercase;color:var(--ghost)}
-  .prev-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
-  .prev-col li{position:relative;padding-left:17px;font-size:.81rem;line-height:1.5;color:var(--dim)}
-  .prev-col li::before{content:'';position:absolute;left:0;top:.52em;width:6px;height:6px;border-radius:50%}
-  .prev-col.is-real li::before{background:var(--win)}
-  .prev-col.is-todo li::before{background:var(--gold)}
-  @media (max-width:640px){ .prev-split{grid-template-columns:1fr} .prev-col+.prev-col{border-left:0;border-top:1px solid var(--border)} .prev-note{width:calc(100% - 24px)} }
-
-  /* Locked call buttons: still legible as the design, plainly not live. */
-  .back[data-locked]{cursor:not-allowed;opacity:.62;filter:saturate(.55)}
-  .back[data-locked]:hover{transform:none;box-shadow:none}
-  .back[data-locked] .back-action::after{content:' ·  locked';font-weight:700;opacity:.7}
-  .lockbar{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;padding:8px 12px;
-    border:1px dashed var(--border2);border-radius:9px;background:rgba(168,162,158,.06);
-    font-family:var(--sans);font-size:.71rem;font-weight:600;color:var(--ghost);letter-spacing:.02em}
 
   /* ---- nav tabs ---- */
   .tabs{position:sticky;top:57px;z-index:30;display:flex;gap:6px;max-width:1180px;margin:18px auto 0;padding:10px 20px;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);flex-wrap:wrap}
@@ -153,15 +83,14 @@
   .mkt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .chip{font-size:.64rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:7px;border:1px solid var(--border2);color:var(--dim)}
   .chip.fmt{color:var(--text)}
-  .chip.lens{color:var(--accent);border-color:var(--accent);background:var(--accentGlow);cursor:help}
-  .chip.kind-ai{color:var(--dim);border-color:var(--border2)}
-  .chip.kind-featured{color:var(--text);border-color:var(--border2)}
-  .chip.kind-human{color:var(--dim);border-color:var(--border2)}
+  .chip.kind-ai{color:#a78bfa;border-color:rgba(167,139,250,.4)}
+  .chip.kind-featured{color:var(--accent);border-color:var(--accent)}
+  .chip.kind-human{color:#60a5fa;border-color:rgba(96,165,250,.4)}
   .status{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ghost)}
   .status .pip{width:7px;height:7px;border-radius:50%;background:var(--ghost)}
   .status.w1 .pip{background:var(--gold)} .status.w1{color:var(--gold)}
-  .status.w2 .pip{background:var(--dim)} .status.w2{color:var(--dim)}
-  .status.live .pip{background:var(--text);animation:pulse 1.3s infinite} .status.live{color:var(--text)}
+  .status.w2 .pip{background:#60a5fa} .status.w2{color:#60a5fa}
+  .status.live .pip{background:var(--accent);animation:pulse 1.3s infinite} .status.live{color:var(--accent)}
   .status.locked .pip{background:var(--ghost)}
   .status.resolved .pip{background:var(--win)} .status.resolved{color:var(--win)}
   @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--accentGlow)}50%{box-shadow:0 0 0 5px transparent}}
@@ -170,7 +99,6 @@
   .deb{flex:1;min-width:0;display:flex;align-items:center;gap:9px}
   .deb--r{flex-direction:row-reverse;text-align:right}
   .av{width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border2);flex:none;background:var(--card2)}
-  .av--mono{display:inline-flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:.85rem;color:var(--dim);line-height:1}
   .dtext{min-width:0}
   .deb .nm{font-weight:800;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .deb .meta{font-size:.7rem;color:var(--ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -180,30 +108,9 @@
   .motion.hidden{color:var(--ghost);font-style:normal}
   .motion b{color:var(--text);font-weight:600}
 
-  .poolbar{display:flex;height:7px;border-radius:7px;overflow:hidden;background:rgba(255,255,255,.08);gap:2px}
-  .poolbar .a{background:rgba(243,244,246,.82)} .poolbar .b{background:rgba(243,244,246,.28)}
+  .poolbar{display:flex;height:7px;border-radius:6px;overflow:hidden;background:var(--card2)}
+  .poolbar .a{background:var(--accent)} .poolbar .b{background:#60a5fa}
   .poolrow{display:flex;justify-content:space-between;font-size:.68rem;color:var(--ghost);font-weight:700}
-
-  /* ---- probability header + sparkline (Polymarket-style) ---- */
-  .prob{display:flex;flex-direction:column;gap:2px}
-  .prob-main{display:flex;align-items:baseline;gap:9px}
-  .prob-pct{font-family:var(--serif);font-weight:800;font-size:2rem;line-height:.95;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  .prob-who{font-size:.8rem;font-weight:800;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .prob-move{margin-left:auto;font-size:.74rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .prob-move.up{color:var(--up)} .prob-move.down{color:var(--down)} .prob-move.flat{color:var(--ghost)}
-  .spark{display:block;width:100%;height:52px;margin-top:6px;overflow:visible;border-radius:9px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0))}
-  .spark-grid{fill:none;stroke:var(--chartGrid);stroke-width:1;vector-effect:non-scaling-stroke}
-  .spark-line{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
-  .spark-line.up{stroke:var(--up)} .spark-line.down{stroke:var(--down)} .spark-line.flat{stroke:var(--accent)}
-  .spark-area.up{fill:var(--up)} .spark-area.down{fill:var(--down)} .spark-area.flat{fill:var(--accent)}
-  .spark-dot.up{fill:var(--up)} .spark-dot.down{fill:var(--down)} .spark-dot.flat{fill:var(--accent)}
-  .spark-line.up,.spark-dot.up{filter:drop-shadow(0 0 6px rgba(45,212,191,.34))}
-  .spark-line.down,.spark-dot.down{filter:drop-shadow(0 0 6px rgba(251,113,133,.28))}
-  .spark-dot{stroke:var(--card);stroke-width:2}
-  .prob-cap{display:flex;justify-content:space-between;font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ghost)}
-  /* featured-hero probability scale-up */
-  .featured-hero .prob-pct{font-size:2.5rem}
-  .featured-hero .spark{height:68px}
 
   .stake-sel{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
   .stake-sel .lab{font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ghost);margin-right:2px}
@@ -216,8 +123,8 @@
   .back:hover{border-color:var(--accent);transform:translateY(-1px)}
   .back:disabled{opacity:.4;cursor:not-allowed;transform:none}
   .back .who{font-weight:800;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .back .mult{font-size:.7rem;color:var(--dim);font-weight:700}
-  .back.myA{box-shadow:inset 0 0 0 1px var(--text)} .back.myB{box-shadow:inset 0 0 0 1px var(--text)}
+  .back .mult{font-size:.7rem;color:var(--win);font-weight:800}
+  .back.myA{box-shadow:inset 0 0 0 1px var(--accent)} .back.myB{box-shadow:inset 0 0 0 1px #60a5fa}
   .mybet{font-size:.68rem;color:var(--ghost);font-weight:700}
   .mybet b{color:var(--text)}
 
@@ -234,7 +141,7 @@
   .rfd{font-size:.78rem;line-height:1.45;color:var(--dim);background:var(--card2);border-radius:10px;padding:9px 11px}
   .rfd .by{font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ghost);display:block;margin-bottom:3px}
   .pnl{font-weight:800;font-size:.84rem}
-  .pnl.up{color:var(--win)} .pnl.down{color:var(--down)} .pnl.flat{color:var(--ghost)}
+  .pnl.up{color:var(--win)} .pnl.down{color:var(--accent)} .pnl.flat{color:var(--ghost)}
 
   /* ---- leaderboards / tables ---- */
   .lb{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card)}
@@ -250,7 +157,7 @@
   .lb-score{font-family:var(--serif);font-weight:800;font-size:1.35rem;text-align:right}
   .lb-score .u{font-size:.6rem;color:var(--ghost);letter-spacing:.1em;text-transform:uppercase;display:block;font-family:var(--sans)}
   .draw-bars{display:flex;gap:3px;margin-top:5px}
-  .draw-bars span{height:4px;border-radius:2px;background:var(--dim);opacity:.85}
+  .draw-bars span{height:4px;border-radius:2px;background:var(--accent);opacity:.85}
 
   .statline{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 16px;font-size:.76rem;color:var(--dim)}
   .statline b{color:var(--text);font-weight:800}
@@ -267,122 +174,9 @@
   .hist-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.8rem;align-items:center}
   .hist-row:last-child{border-bottom:0}
   .hist-row .amt{font-weight:800;font-variant-numeric:tabular-nums}
-  .hist-row .amt.up{color:var(--win)} .hist-row .amt.down{color:var(--down)}
+  .hist-row .amt.up{color:var(--win)} .hist-row .amt.down{color:var(--accent)}
   .hist-row .t{color:var(--ghost);font-size:.68rem}
   .empty{color:var(--ghost);font-size:.86rem;padding:20px;text-align:center}
-
-  /* ---- arena: board + Your Calls rail ---- */
-  .arena{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start;margin-top:6px}
-  .arena-main{min-width:0}
-  .rail{position:sticky;top:118px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 134px);overflow:auto}
-  .rail-title{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin:2px 2px -2px}
-  .rail-card{border:1px solid var(--border);border-radius:14px;background:var(--card);padding:14px}
-  .rail-head .rail-h{font-family:var(--serif);font-weight:800;font-size:1.15rem;margin-bottom:11px}
-  .rail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
-  .rail-stats .rk{font-size:.56rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ghost)}
-  .rail-stats .rv{font-family:var(--serif);font-weight:800;font-size:1.3rem;margin-top:2px}
-  .rail-card.call{padding:12px 13px;display:flex;flex-direction:column;gap:5px}
-  .call-top{display:flex;align-items:center;gap:8px}
-  .call-top .status{margin-left:auto}
-  .call-who{font-size:.9rem;color:var(--dim)} .call-who b{font-weight:800;color:var(--text)}
-  .call-sub{font-size:.7rem;color:var(--ghost);font-weight:700}
-  .rc-tag{margin-left:auto;font-size:.62rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
-  .rc-tag.split{color:var(--gold)} .rc-tag.agree{color:var(--win)}
-  .empty-rail{text-align:center;padding:22px 16px}
-  .empty-rail .er-emoji{font-size:1.7rem;line-height:1}
-  .empty-rail .er-t{font-weight:800;font-size:.98rem;margin-top:8px;color:var(--text)}
-  .empty-rail .er-p{font-size:.8rem;color:var(--dim);line-height:1.45;margin:5px auto 12px;max-width:30ch}
-  .empty-rail .er-btn{appearance:none;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:.82rem;padding:9px 16px;border-radius:9px;cursor:pointer}
-  .empty-rail .er-btn:hover{background:var(--accent2)}
-  @media (max-width:920px){ .arena{grid-template-columns:1fr} .rail{position:static;max-height:none} }
-
-  /* ---- featured live card (main event) ---- */
-  .featured-wrap{margin-bottom:16px}
-  .featured-wrap:empty{display:none}
-  .featured-hero{border:1px solid var(--accent);border-radius:18px;background:linear-gradient(180deg,var(--accentGlow),transparent 42%),var(--card);padding:18px 18px 16px}
-  .fh-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:13px}
-  .fh-head .status{margin-left:auto}
-  .fh-body{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px;align-items:stretch}
-  .fh-left{min-width:0;display:flex;flex-direction:column}
-  .fh-vs{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-  .fh-deb{flex:1;min-width:0;display:flex;align-items:center;gap:11px}
-  .fh-deb.r{flex-direction:row-reverse;text-align:right}
-  .fh-av{width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);flex:none;background:var(--card2);display:inline-block}
-  .fh-av--mono{display:inline-flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:1.2rem;color:var(--dim);line-height:1}
-  .fh-deb .nm{font-family:var(--serif);font-weight:800;font-size:1.28rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .fh-deb .meta{font-size:.74rem;color:var(--ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .fh-vsx{font-family:var(--serif);font-weight:800;color:var(--ghost);font-size:1rem}
-  .fh-motion{font-size:.95rem;line-height:1.45;color:var(--dim);border-left:2px solid var(--border2);padding:3px 0 3px 12px;margin-bottom:13px}
-  .fh-motion b{color:var(--text);font-weight:600}
-  .fh-split{margin-top:auto}
-  .fh-split .splitrow{display:flex;justify-content:space-between;font-size:.76rem;font-weight:800;margin-bottom:5px;gap:10px}
-  .fh-split .splitrow span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .fh-split .splitrow .pa{color:var(--text)} .fh-split .splitrow .pb{color:var(--dim);text-align:right}
-  .fh-poolbar{display:flex;height:9px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.08);gap:2px}
-  .fh-poolbar .a{background:rgba(243,244,246,.86)} .fh-poolbar .b{background:rgba(243,244,246,.30)}
-  .fh-meta{display:flex;justify-content:space-between;gap:10px;font-size:.72rem;color:var(--ghost);font-weight:700;margin-top:7px}
-  .fh-call{border:1px solid var(--border);border-radius:14px;background:var(--bg2);padding:14px;display:flex;flex-direction:column}
-  .fh-call .cl{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:10px}
-  .fh-call .stake-sel{margin-bottom:11px}
-  .fh-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-  .fh-watch{display:block;text-align:center;text-decoration:none;font-size:.78rem;font-weight:800;color:var(--dim);border:1px solid var(--border);border-radius:9px;padding:8px;transition:.13s;margin-top:auto}
-  .fh-watch:hover{color:var(--text);border-color:var(--border2)}
-  .fh-aside{margin-top:12px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
-  .fh-aside-t{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:8px}
-  .fh-aside-r{display:flex;justify-content:space-between;align-items:baseline;font-size:.82rem;margin-bottom:5px}
-  .fh-aside-r span{color:var(--dim)}
-  .fh-aside-r b{color:var(--text);font-variant-numeric:tabular-nums}
-  .fh-aside-n{font-size:.68rem;color:var(--ghost);line-height:1.4;margin-top:6px}
-  @media (max-width:760px){ .fh-body{grid-template-columns:1fr} }
-
-  /* ---- make-your-call drawer / bottom-sheet ---- */
-  .call-drawer{position:fixed;inset:0;z-index:88;display:none;align-items:flex-end;justify-content:center;background:rgba(10,12,15,.66);backdrop-filter:blur(4px)}
-  .call-drawer.on{display:flex;animation:fade .2s ease}
-  .cd-sheet{width:100%;max-width:480px;background:var(--card);border:1px solid var(--border2);border-radius:16px 16px 0 0;padding:20px;box-shadow:0 -24px 70px -28px rgba(0,0,0,.7);animation:cdUp .24s cubic-bezier(.2,.7,.3,1) both}
-  @keyframes cdUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
-  @media (min-width:560px){ .call-drawer{align-items:center} .cd-sheet{border-radius:16px} }
-  @media (prefers-reduced-motion:reduce){ .cd-sheet{animation:none} }
-  .cd-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-  .cd-fmt{font-size:.7rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--dim)}
-  .cd-status{display:inline-flex;align-items:center;gap:6px;font-size:.66rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ghost)}
-  .cd-status .pip{width:6px;height:6px;border-radius:50%;background:var(--ghost)}
-  .cd-status.open .pip{background:var(--win)}
-  .cd-x{margin-left:auto;appearance:none;background:none;border:0;color:var(--ghost);font-size:1.4rem;line-height:1;cursor:pointer;padding:0 2px}
-  .cd-x:hover{color:var(--text)}
-  .cd-title{font-family:var(--serif);font-weight:700;font-size:1.18rem;letter-spacing:-.01em;margin:0 0 4px;color:var(--text)}
-  .cd-sub{font-size:.82rem;color:var(--dim);line-height:1.45;margin:0 0 16px}
-  .cd-sides{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-  .cd-side{position:relative;appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--card2);border-radius:12px;padding:15px 10px 13px;display:flex;flex-direction:column;align-items:center;gap:7px;transition:border-color .13s,background .13s}
-  .cd-side:hover{border-color:var(--border2)}
-  .cd-side.sel{border-color:var(--accent);background:rgba(255,255,255,.025)}
-  .cd-check{position:absolute;top:9px;right:11px;color:var(--accent);font-size:.82rem;font-weight:800;line-height:1}
-  .cd-side img,.cd-side .noav{width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--border2);background:var(--card)}
-  .cd-side .nm{font-weight:700;font-size:.92rem;text-align:center;line-height:1.15;color:var(--text)}
-  .cd-side .score{font-size:.72rem;color:var(--dim);font-weight:600;text-align:center}
-  .cd-context{display:flex;justify-content:space-between;gap:12px;font-size:.74rem;color:var(--ghost);font-weight:600;margin-bottom:18px}
-  .cd-field{margin-bottom:16px}
-  .cd-label{font-size:.66rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
-  .cd-stakes{display:flex;gap:7px;flex-wrap:wrap}
-  .cd-pill{appearance:none;flex:1;min-width:54px;border:1px solid var(--border);background:transparent;color:var(--dim);font-weight:700;font-size:.84rem;padding:9px 0;border-radius:9px;cursor:pointer;transition:.12s}
-  .cd-pill:hover{color:var(--text);border-color:var(--border2)}
-  .cd-pill[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
-  .cd-help{font-size:.72rem;color:var(--ghost);line-height:1.45;margin-top:10px}
-  .cd-note{font-size:.8rem;color:var(--dim);line-height:1.5;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:14px}
-  .cd-go{appearance:none;width:100%;border:0;background:var(--accent);color:#fff;font-weight:700;font-size:.92rem;padding:13px;border-radius:10px;cursor:pointer;transition:background .13s}
-  .cd-go:hover{background:var(--accent2)}
-  .cd-go:disabled{opacity:.45;cursor:not-allowed}
-
-  /* ---- mobile sticky "Your calls" bar ---- */
-  .mobile-calls{display:none}
-  @media (max-width:920px){
-    .mobile-calls{display:flex;position:fixed;left:12px;right:12px;bottom:12px;z-index:70;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border:1px solid var(--accent);border-radius:14px;background:var(--card);box-shadow:0 12px 34px -12px rgba(0,0,0,.55);font:inherit;color:var(--text);cursor:pointer}
-    .mobile-calls .mc-l{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
-    .mobile-calls .mc-k{font-size:.56rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ghost)}
-    .mobile-calls .mc-v{font-weight:800;font-size:.92rem}
-    .mobile-calls .mc-cta{font-size:.8rem;font-weight:800;color:var(--accent)}
-    .wrap{padding-bottom:82px}
-    .toasts{bottom:78px}
-  }
 
   /* toast */
   .toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:340px}
@@ -418,33 +212,15 @@
   .icon-btn{appearance:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--dim);font-size:1rem;line-height:1;transition:.14s}
   .icon-btn:hover{color:var(--text);border-color:var(--border2)}
   .help-btn{width:auto;padding:0 13px;gap:6px;font-size:.76rem;font-weight:800}
-  @media (max-width:720px){
-    .top{gap:8px;padding:10px 12px}
-    .brand{gap:6px;font-size:1.08rem}
-    .floor-nav{display:none}
-    .streak{gap:5px;padding:6px 9px;font-size:.74rem}
-    .bal{gap:5px;padding:6px 9px;font-size:.82rem}
-    .icon-btn{width:32px;height:32px}
-  }
   @media (max-width:560px){ .help-btn{display:none} }
-  @media (max-width:480px){
-    .brand .sep,.brand .floor{display:none}
-    .streak-label,.bal .c{display:none}
-    .streak{padding:6px 8px}
-    .bal{min-width:50px;justify-content:center}
-  }
-  @media (max-width:350px){ .streak{display:none} }
 
   /* ---- hero floating round motifs ---- */
   .hero{position:relative;overflow:hidden}
-  /* Must clear the deco stack: three ~95px cards at top 2/76/150 put the
-     bottom edge at ~245. Anything shorter and overflow:hidden guillotines
-     card 3, which is what it used to do at 236. */
-  @media (min-width:900px){ .hero{min-height:252px} }
+  @media (min-width:900px){ .hero{min-height:236px} }
   .hero-deco{position:absolute;inset:0;pointer-events:none;z-index:0}
   .hero > *{position:relative;z-index:1}
   .hero h1{max-width:760px}
-  .float-card{position:absolute;border:1px solid var(--border2);background:var(--card);border-radius:12px;padding:9px 12px;opacity:.72;box-shadow:0 10px 34px -14px rgba(0,0,0,.5);animation:floaty 9s ease-in-out infinite;will-change:transform}
+  .float-card{position:absolute;border:1px solid var(--border2);background:var(--card);border-radius:12px;padding:9px 12px;opacity:.5;box-shadow:0 10px 34px -14px rgba(0,0,0,.5);animation:floaty 9s ease-in-out infinite;will-change:transform}
   .float-card .fc-fmt{font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
   .float-card .fc-vs{font-size:.74rem;font-weight:700;color:var(--text);margin-top:3px;white-space:nowrap}
   .float-card .fc-tag{font-size:.6rem;font-weight:700;color:var(--win);margin-top:4px}
@@ -502,280 +278,61 @@
   .gtky-go:hover{transform:translateY(-2px)}
   .gtky-profile-chip{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:var(--dim);padding:7px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card);margin-bottom:14px}
   .gtky-profile-chip b{color:var(--accent)}
-
-  /* ---- 3D market pass (2026-07-19) ----
-     The board should feel like a live instrument, not a list of forms.
-     Depth stays restrained and pointer tilt is progressive enhancement. */
-  [data-theme="light"]{
-    --sideA:#0f9f8f; --sideASoft:rgba(15,159,143,.11); --sideALine:rgba(15,159,143,.34);
-    --sideB:#7c5ce5; --sideBSoft:rgba(124,92,229,.10); --sideBLine:rgba(124,92,229,.30);
-  }
-  [data-theme="light"] body{
-    background:
-      linear-gradient(rgba(26,26,31,.022) 1px,transparent 1px),
-      linear-gradient(90deg,rgba(26,26,31,.022) 1px,transparent 1px),
-      radial-gradient(900px 460px at 78% 1%,rgba(220,38,38,.08),transparent 64%),
-      #f7f6f1;
-    background-size:42px 42px,42px 42px,auto,auto;
-  }
-  .top{box-shadow:0 10px 30px -24px rgba(15,23,42,.34)}
-  .hero{
-    width:calc(100% - 40px);max-width:1140px;min-height:276px;
-    margin:26px auto 16px;padding:38px 36px;
-    border:1px solid var(--border);border-radius:28px;
-    background:
-      radial-gradient(560px 300px at 82% 30%,rgba(220,38,38,.10),transparent 70%),
-      linear-gradient(145deg,rgba(255,255,255,.98),rgba(249,244,238,.94));
-    box-shadow:0 28px 70px -38px rgba(24,24,28,.38),inset 0 1px 0 rgba(255,255,255,.9);
-    isolation:isolate;overflow:visible;
-  }
-  .hero::before{
-    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:0;
-    background:linear-gradient(120deg,transparent 0 48%,rgba(255,255,255,.7) 50%,transparent 52% 100%);
-    opacity:.45;
-  }
-  .hero h1{font-size:clamp(2.35rem,4.5vw,3.7rem);max-width:58%;margin-bottom:12px}
-  .hero p{max-width:56%;font-size:1.04rem}
-  .hero .pmark{max-width:56%;line-height:1.45}
-  .hero-deco{perspective:900px}
-  .float-card{
-    min-width:222px;padding:13px 15px;border-radius:15px;opacity:1;
-    border-color:rgba(15,23,42,.12);
-    box-shadow:0 24px 46px -24px rgba(15,23,42,.42),0 2px 5px rgba(15,23,42,.08),inset 0 1px 0 #fff;
-    transform-style:preserve-3d;background:rgba(255,255,255,.94);
-  }
-  .float-card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
-  .float-card .fc-fmt,.float-card .fc-vs,.float-card .fc-tag{transform:translateZ(16px)}
-  .hero-deco .float-card:nth-child(1){top:25px!important;right:28px!important}
-  .hero-deco .float-card:nth-child(2){top:101px!important;right:170px!important}
-  .hero-deco .float-card:nth-child(3){top:168px!important;right:42px!important}
-  @keyframes floaty{
-    0%,100%{transform:translate3d(0,0,0) rotate(var(--rot,0deg)) rotateX(4deg)}
-    50%{transform:translate3d(0,-10px,22px) rotate(var(--rot,0deg)) rotateX(0deg)}
-  }
-
-  .exhib-note{margin-bottom:14px;padding:12px 16px;border-left-width:4px;border-radius:14px;box-shadow:0 12px 30px -25px rgba(15,23,42,.38)}
-  .exhib-note p{max-width:none}
-  .tabs{
-    width:calc(100% - 40px);max-width:1140px;margin:10px auto 12px;padding:7px;
-    border:1px solid var(--border);border-radius:16px;
-    background:rgba(247,246,241,.88);box-shadow:0 14px 30px -26px rgba(15,23,42,.45);
-    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  }
-  .tab{border-color:transparent;background:transparent;padding:9px 16px}
-  .tab:hover{background:var(--card);border-color:var(--border)}
-  .tab[aria-selected="true"]{background:#171b24;border-color:#171b24;color:#fff;box-shadow:0 8px 18px -10px rgba(15,23,42,.65)}
-  .wrap{padding-top:4px}
-
-  .mkt{
-    --tiltX:0deg;--tiltY:0deg;--lift:0px;
-    border-color:rgba(15,23,42,.11);border-radius:19px;
-    box-shadow:0 18px 38px -30px rgba(15,23,42,.42),0 2px 5px rgba(15,23,42,.04),inset 0 1px 0 rgba(255,255,255,.8);
-    transform:perspective(1100px) rotateX(var(--tiltX)) rotateY(var(--tiltY)) translateY(var(--lift));
-    transform-style:preserve-3d;will-change:transform;
-    transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,border-color .18s ease;
-  }
-  .board .mkt:hover{--lift:-4px;border-color:rgba(15,23,42,.18);box-shadow:0 28px 48px -28px rgba(15,23,42,.38),0 6px 12px rgba(15,23,42,.06),inset 0 1px 0 #fff}
-  .mkt > *{position:relative;z-index:1}
-  .mkt-top,.vs,.prob,.sides,.mybet,.result{transform:translateZ(8px)}
-  .featured-hero{
-    --card:#111722;--card2:#182131;--bg2:#0c111b;
-    --text:#f8fafc;--dim:rgba(248,250,252,.70);--ghost:rgba(248,250,252,.46);
-    --border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.20);
-    --chartGrid:rgba(255,255,255,.12);--accent:#ff5157;--accent2:#ef3038;--accentGlow:rgba(255,81,87,.18);
-    overflow:hidden;border:1px solid rgba(255,81,87,.6);padding:22px;color:var(--text);
-    background:
-      radial-gradient(620px 260px at 18% -10%,rgba(45,212,191,.16),transparent 60%),
-      radial-gradient(520px 260px at 90% 4%,rgba(124,92,229,.17),transparent 62%),
-      linear-gradient(145deg,#121927,#0c111b 72%);
-    box-shadow:0 34px 70px -30px rgba(2,6,23,.7),0 14px 26px -18px rgba(2,6,23,.55),inset 0 1px 0 rgba(255,255,255,.10);
-  }
-  .featured-hero::before{
-    content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-    background:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
-    background-size:34px 34px;mask-image:linear-gradient(to bottom,black,transparent 84%);
-  }
-  .featured-hero:hover{--lift:-3px;box-shadow:0 42px 82px -28px rgba(2,6,23,.76),0 18px 30px -18px rgba(2,6,23,.62),inset 0 1px 0 rgba(255,255,255,.12)}
-  .featured-hero .fh-head,.featured-hero .fh-body{transform:translateZ(16px)}
-  .featured-hero .chip{background:rgba(255,255,255,.035)}
-  .featured-hero .fh-deb .nm{color:var(--text)}
-  .featured-hero .fh-av{box-shadow:0 10px 24px rgba(0,0,0,.34)}
-  .featured-hero .fh-call{box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 18px 34px -26px rgba(0,0,0,.85)}
-  .featured-hero .spark{background:linear-gradient(180deg,rgba(45,212,191,.08),transparent)}
-
-  .back{
-    --side:var(--sideA);--sideSoft:var(--sideASoft);--sideLine:var(--sideALine);
-    position:relative;overflow:hidden;min-height:84px;padding:11px 12px;
-    border-color:var(--sideLine);background:linear-gradient(145deg,var(--sideSoft),var(--card2) 74%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.4);transform:translateZ(0);
-  }
-  .back[data-back="B"]{--side:var(--sideB);--sideSoft:var(--sideBSoft);--sideLine:var(--sideBLine)}
-  .back::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--side);transform:scaleX(.28);transform-origin:left;transition:transform .18s ease}
-  .back:hover{border-color:var(--side);background:linear-gradient(145deg,var(--sideSoft),var(--card2) 64%);box-shadow:0 12px 22px -16px var(--side);transform:translateY(-2px)}
-  .back:hover::after{transform:scaleX(1)}
-  .back-top{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin-bottom:3px}
-  .back-action{font-family:var(--sans);font-size:.54rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--side)}
-  .back-price{font-family:var(--sans);font-size:1rem;font-weight:900;line-height:1;color:var(--side);font-variant-numeric:tabular-nums}
-  .back .who{font-size:.88rem;color:var(--text)}
-  .back .mult{font-size:.68rem;color:var(--dim)}
-  .featured-hero .back{--sideASoft:rgba(45,212,191,.13);--sideALine:rgba(45,212,191,.34);--sideBSoft:rgba(167,139,250,.13);--sideBLine:rgba(167,139,250,.34);--sideA:#2dd4bf;--sideB:#a78bfa;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
-  .featured-hero .back:hover{box-shadow:0 15px 28px -18px var(--side),inset 0 1px 0 rgba(255,255,255,.08)}
-  .rail-card{box-shadow:0 16px 32px -28px rgba(15,23,42,.36),inset 0 1px 0 rgba(255,255,255,.75)}
-  .rail-head{border-top:3px solid var(--accent)}
-  .rail-stats .rv{font-variant-numeric:tabular-nums}
-  .bal{box-shadow:0 10px 22px -18px rgba(220,38,38,.58),inset 0 1px 0 rgba(255,255,255,.8)}
-  .mkt--in{animation:mktIn .45s cubic-bezier(.2,.7,.3,1) both}
-  @keyframes mktIn{from{opacity:0;translate:0 14px;scale:.985}to{opacity:1;translate:0 0;scale:1}}
-
-  @media(max-width:1080px){
-    .hero{min-height:0}
-    .hero h1,.hero p,.hero .pmark{max-width:100%}
-  }
-  @media(max-width:700px){
-    .hero{width:calc(100% - 24px);margin:14px auto 10px;padding:26px 22px;border-radius:21px}
-    .hero h1{font-size:2.35rem}
-    .exhib-note{width:calc(100% - 24px);margin-left:auto;margin-right:auto}
-    .tabs{width:100%;max-width:none;margin-top:8px;padding:7px 12px;border-left:0;border-right:0;border-radius:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-    .tabs::-webkit-scrollbar{display:none}
-    .tab{flex:0 0 auto;white-space:nowrap}
-    .featured-hero{padding:17px;border-radius:17px}
-    .fh-vs{align-items:flex-start}
-    .fh-deb .nm{font-size:1.08rem}
-  }
-  @media(pointer:coarse),(prefers-reduced-motion:reduce){
-    .mkt,.mkt:hover,.board .mkt:hover,.featured-hero:hover{transform:none!important;--lift:0px}
-  }
 </style>
 </head>
 <body>
-<!-- Experimental preview chrome. Ribbon sits above the sticky header so it
-     is never scrolled away; the watermark is a fixed, pointer-events:none
-     overlay so it marks every screenshot without blocking the page. -->
-<div class="exp-ribbon" role="note">
-  <b>Experimental</b>
-  <span>A design preview of The Floor. Not playable, no credits move, no cash value.</span>
-</div>
-<div class="exp-watermark" aria-hidden="true">
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-  <span>Experimental</span><span>Experimental</span><span>Experimental</span><span>Experimental</span>
-</div>
 <header class="top">
-  <!-- "Debat" + "able" wrapped as ONE flex item; the container's gap is for
-       separating the wordmark from .sep / .floor, not for splitting the word. -->
-  <a class="brand" href="/landing.html"><span class="wm"><b>Debat</b><span class="it">able</span></span><span class="sep"></span><span class="floor">The Floor</span></a>
-  <nav class="floor-nav" aria-label="Debatable sections">
-    <a class="hot" href="/spar">LIVE</a>
-    <a href="/learn">Learn</a>
-    <a href="/prep">Prep</a>
-    <a href="/judge">Judge</a>
-    <a href="/schedule">Schedule</a>
-    <a href="/credentials">Certificate</a>
-    <a href="/coach">Coach</a>
-    <a href="/room">Room</a>
-    <a aria-current="page" href="/floor">Bet</a>
-    <a href="/voice-debate">Voice AI</a>
-  </nav>
+  <a class="brand" href="/landing.html"><b>Debate</b><span class="it">It</span><span class="sep"></span><span class="floor">The Floor</span></a>
   <div class="spacer"></div>
-  <button class="icon-btn help-btn" id="helpBtn" title="How The Floor works" aria-label="How The Floor works">? How it works</button>
-  <span class="streak" title="Predict once a day to keep your streak"><b id="streakN">0</b><span class="streak-label"> day sharp</span></span>
-  <!-- PREVIEW: labelled "sample" so the number never reads as a spendable
-       balance. Restore to "Credits" when PREVIEW flips to false. -->
-  <span class="bal" aria-label="Sample credit balance, preview only"><span class="c">Sample</span><span id="balN">0</span><span class="delta" id="balDelta"></span></span>
+  <button class="icon-btn help-btn" id="helpBtn" title="How The Floor works">? How it works</button>
+  <span class="streak" title="Predict once a day to keep your streak">🔥 <b id="streakN">0</b> day sharp</span>
+  <span class="bal"><span class="c">Credits</span><span id="balN">0</span><span class="delta" id="balDelta"></span></span>
   <button class="icon-btn" id="signBtn" title="Sign in to play" style="display:none;width:auto;padding:0 12px;font-size:.76rem;font-weight:800">Sign in</button>
+  <button class="icon-btn" id="themeBtn" title="Toggle light or dark" aria-label="Toggle theme">☀</button>
 </header>
 
 <div class="hero">
   <div class="hero-deco" aria-hidden="true">
-    <div class="float-card" style="top:2px;right:8px;--rot:2deg;animation-delay:0s"><div class="fc-fmt">BP · resolved</div><div class="fc-vs">Marcus T. def. Aanya R.</div><div class="fc-tag">⚖ judge + crowd agreed</div></div>
-    <div class="float-card" style="top:76px;right:150px;--rot:-2deg;animation-delay:1.1s"><div class="fc-fmt">PF · live</div><div class="fc-vs">Priya S. vs Dev K.</div><div class="fc-tag" style="color:var(--accent)">● 240 credits in play</div></div>
-    <div class="float-card" style="top:150px;right:22px;--rot:1.5deg;animation-delay:2.3s"><div class="fc-fmt">APDA · resolved</div><div class="fc-vs">Omar F. vs Grace L.</div><div class="fc-tag split">⚡ split verdict</div></div>
+    <div class="float-card" style="top:10px;right:8px;--rot:4deg;animation-delay:0s"><div class="fc-fmt">BP · resolved</div><div class="fc-vs">The Surgeon def. The Closer</div><div class="fc-tag">⚖ judge + crowd agreed</div></div>
+    <div class="float-card" style="top:106px;right:138px;--rot:-5deg;animation-delay:1.1s"><div class="fc-fmt">PF · live</div><div class="fc-vs">Priya S. vs Dev K.</div><div class="fc-tag" style="color:var(--accent)">● 240 cr in the pool</div></div>
+    <div class="float-card" style="top:194px;right:20px;--rot:3deg;animation-delay:2.3s"><div class="fc-fmt">APDA · resolved</div><div class="fc-vs">The Veteran vs The Upstart</div><div class="fc-tag split">⚡ split verdict</div></div>
   </div>
-  <h1>Predict the <span class="accent">ballot.</span></h1>
-  <p>One question per round: which side will the AI judge vote for? Read the matchup, take a position, and the ballot settles it when the round ends. This page is a design preview, so nothing here takes a call yet.</p>
-  <span class="pmark"><span class="dot"></span>Preview only · Nothing is playable · No credits move · No cash value at any point</span>
-</div>
-
-<!-- Exhibition-mode disclosure. The Floor's markets are generated by
-     floor-seed from a fixed persona bank, and computeVerdict() in
-     lib/floor.mjs settles them from a rating model, not from a live AI
-     ballot (the boundResult seam for real rounds is not written yet).
-     Copy across this page still frames the settle as an "AI judge"
-     because that is the intended end state; until real rounds are bound,
-     this banner scopes every one of those mentions. Remove it in the
-     same commit that starts writing boundResult from real ballots. -->
-<div class="prev-note" role="note">
-  <div class="prev-note-head">
-    <span class="exhib-pill">Experimental</span>
-    <h2>A preview of The Floor, not a working game.</h2>
-  </div>
-  <div class="prev-note-body">
-    <p>Everything below is the real interface running on seeded data, kept here so the shape of the product is visible. The matchups are AI debater personas, not live rounds between real debaters, and the outcomes come from a rating model rather than a judge reading an actual ballot. Calls are locked off until that changes.</p>
-  </div>
-  <div class="prev-split">
-    <div class="prev-col is-real">
-      <h3>Built and working</h3>
-      <ul>
-        <li>The ledger: atomic balances, idempotent positions, append-only history.</li>
-        <li>Settlement that cannot double pay.</li>
-        <li>The board, the windows, and the read on the crowd.</li>
-      </ul>
-    </div>
-    <div class="prev-col is-todo">
-      <h3>Needed before it opens</h3>
-      <ul>
-        <li>Real rounds bound to the verdict, so a result is earned rather than modeled.</li>
-        <li>Speech transcripts held server side, so settlement can be checked.</li>
-        <li>An age gate and self-exclusion before anything resembling stakes.</li>
-      </ul>
-    </div>
-  </div>
+  <h1>Call the winner <span class="accent">before the room does.</span></h1>
+  <p>Back a side. The AI judge settles when the round ends. The crowd votes too. When they disagree—that is the whole show.</p>
+  <span class="pmark"><span class="dot"></span>Play credits only. Status is the prize.</span>
 </div>
 
 <nav class="tabs" role="tablist">
-  <button class="tab" role="tab" aria-selected="true" data-panel="board">Live now<span class="n" id="liveCount"></span></button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="results">Results</button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="lb">Leaderboard</button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="you">Your calls</button>
-  <button class="tab" role="tab" aria-selected="false" data-panel="judging">How rounds settle</button>
+  <button class="tab" role="tab" aria-selected="true" data-panel="board">Live board<span class="n" id="liveCount"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="you">Your slip</button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="sharp">Sharpest Predictors</button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="draws">Biggest Draws</button>
+  <button class="tab" role="tab" aria-selected="false" data-panel="judging">How it's judged</button>
 </nav>
 
 <div class="wrap">
   <section class="panel on" id="panel-board">
-    <div class="arena">
-      <div class="arena-main"><div class="featured-wrap" id="featured"></div><div class="board" id="board"></div></div>
-      <aside class="rail" id="rail" aria-label="Your calls"></aside>
-    </div>
+    <div class="board" id="board"></div>
   </section>
 
   <section class="panel" id="panel-you">
-    <h2 class="section-h">Your calls</h2>
-    <p class="section-sub">Every call you have made, and how you are scoring as a predictor. Conviction rewards calling it early: a Window 1 read (motion hidden) is worth more than a live read.</p>
+    <h2 class="section-h">Your slip</h2>
+    <p class="section-sub">Your bets and your score. Early calls (motion hidden) are worth more than live reads.</p>
     <div class="you-grid" id="youStats"></div>
     <h3 class="section-h" style="font-size:1.1rem">Recent activity</h3>
     <div class="hist" id="hist"></div>
   </section>
 
-  <section class="panel" id="panel-results">
-    <h2 class="section-h">Recent verdicts</h2>
-    <p class="section-sub">Called rounds: the AI judge's winner, the crowd's favorite, and whether they agreed. When they split, that gap is the show. Each card carries the reason for decision.</p>
-    <div class="board" id="results"></div>
-  </section>
-
-  <section class="panel" id="panel-lb">
-    <h2 class="section-h">Leaderboard</h2>
-    <p class="section-sub">Two boards: the sharpest predictors of the judge, and the debaters the room shows up for.</p>
-    <h3 class="section-h" style="font-size:1.18rem;margin-top:8px">Sharpest predictors</h3>
-    <p class="section-sub">Not just who wins most. A blended score: how often you call winners, whether your picks beat the crowd, how early you commit, and how hot you are right now. New accounts are shrunk toward the mean, so a 3-0 streak does not outrank a proven read.</p>
+  <section class="panel" id="panel-sharp">
+    <h2 class="section-h">Sharpest Predictors</h2>
+    <p class="section-sub">Ranked by accuracy: win rate, crowd-beat rate, conviction (early calls), and current hot streak.</p>
     <div class="statline" id="sharpMine"></div>
     <div class="lb" id="sharpLb"></div>
-    <h3 class="section-h" style="font-size:1.18rem;margin-top:28px">Biggest draws</h3>
-    <p class="section-sub">Who the room shows up for. Draw Score blends unique backers, watch time, repeat spectators, and how often a debater splits the judge and the crowd. Controversy counts: a debater who keeps winning the flow but losing the room is a walking comment section.</p>
+  </section>
+
+  <section class="panel" id="panel-draws">
+    <h2 class="section-h">Biggest Draws</h2>
+    <p class="section-sub">Who the room shows up for. Watch time, spectators, and judge/crowd splits fuel the score.</p>
     <div class="lb" id="drawsLb"></div>
   </section>
 
@@ -791,75 +348,43 @@
       .fp-note p{margin:0;font-size:.86rem;line-height:1.5;color:var(--dim)}
       .fp-note b{color:var(--text)}
       @media (max-width:520px){ .fp-note{flex-direction:column;gap:8px} }
-      .settle-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:6px 0 16px}
-      .settle-step{border:1px solid var(--border);border-radius:14px;background:var(--card);padding:15px 16px 13px}
-      .settle-step .num{font-family:var(--serif);font-weight:800;font-size:1.4rem;color:var(--accent);line-height:1}
-      .settle-step h4{margin:7px 0 5px;font-size:1rem;font-weight:800;color:var(--text)}
-      .settle-step p{margin:0;font-size:.84rem;line-height:1.45;color:var(--dim)}
-      .lens-acc{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card)}
-      .lens-acc + .lens-acc{margin-top:8px}
-      .lens-acc summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:13px 15px;font-weight:800;font-size:.94rem;color:var(--text)}
-      .lens-acc summary::-webkit-details-marker{display:none}
-      .lens-acc summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-      .lens-acc summary .ll{font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 7px;background:var(--accentGlow)}
-      .lens-acc summary .chev{margin-left:auto;color:var(--ghost);font-size:1.15rem;transition:transform .2s}
-      .lens-acc[open] summary .chev{transform:rotate(90deg)}
-      .lens-acc .body{padding:2px 15px 13px;font-size:.84rem;line-height:1.5;color:var(--dim);border-top:1px solid var(--border)}
-      .lens-acc .body .pr{margin:9px 0 0}
-      .lens-acc .body b{color:var(--text)}
-      @media (max-width:680px){ .settle-steps{grid-template-columns:1fr} }
     </style>
-    <h2 class="section-h">How rounds settle</h2>
-    <p class="section-sub">Watch, call it, and the round settles. The whole loop in three steps, then the lens it reads through.</p>
-    <div class="settle-steps">
-      <div class="settle-step"><div class="num">1</div><h4>Watch the round</h4><p>Read the matchup and the round context. Every round shows its format and judge lens before you pick.</p></div>
-      <div class="settle-step"><div class="num">2</div><h4>Pick the winner</h4><p>Use play credits to back the debater you think takes the round, before the window locks.</p></div>
-      <div class="settle-step"><div class="num">3</div><h4>Verdict posts</h4><p>The exhibition round resolves from the matchup model, the crowd read appears beside it, and the round is called.</p></div>
+    <h2 class="section-h">How it's judged</h2>
+    <p class="section-sub">AI judge settles every market. Pick your paradigm, it honors the format. Here is the lens.</p>
+    <div class="fp-grid">
+      <div class="fp-card"><span class="fp-tag">Blank slate</span><h4>Tabula rasa</h4><p>Whatever framework you set up and win, the judge adopts. The flow is everything.</p></div>
+      <div class="fp-card"><span class="fp-tag">Net benefits</span><h4>Policymaker</h4><p>Does the plan's benefit beat its cost against the status quo or a counterplan?</p></div>
+      <div class="fp-card"><span class="fp-tag">Burdens</span><h4>Stock issues</h4><p>The proposition must carry every burden: harms, inherency, solvency, topicality.</p></div>
+      <div class="fp-card"><span class="fp-tag">Tech over truth</span><h4>Games player</h4><p>The round is a game. A dropped argument is a conceded argument; the line-by-line decides.</p></div>
+      <div class="fp-card"><span class="fp-tag">Truth over tech</span><h4>Truth-seeker / lay</h4><p>Real-world plausibility and persuasion decide it, not jargon or the flow.</p></div>
+      <div class="fp-card"><span class="fp-tag">Manner counts</span><h4>Communication</h4><p>Delivery and clarity scored alongside the argument: 40 style, speaker points.</p></div>
+      <div class="fp-card"><span class="fp-tag">Test the motion</span><h4>Hypothesis tester</h4><p>The motion is a hypothesis; does it hold across the likely cases, not just Gov's?</p></div>
+      <div class="fp-card"><span class="fp-tag">PF spectrum</span><h4>Lay · flay · flow · tech</h4><p>From a parent weighing persuasion to a circuit judge flowing every card.</p></div>
     </div>
     <div class="fp-note">
-      <span class="lab">Before you call it</span>
-      <p>You are predicting the AI judge's winner, shown by the lens on each round. The crowd vote is shown for comparison. <b>Same motion, different lens, different verdict.</b></p>
+      <span class="lab">Read before you back</span>
+      <p>The format chip on each market sets the default paradigm. <b>Same motion, different lens, different verdict</b> — knowing the lens is the edge.</p>
     </div>
 
-    <h3 class="section-h" style="font-size:1.2rem;margin-top:28px">See judge lenses</h3>
-    <p class="section-sub">The lens on a round is its default. Open a format for what the judge prioritizes and the questions that decide the round.</p>
+    <div class="fp-note">
+      <span class="lab">Tech ↔ Truth</span>
+      <p>Most paradigms sit between "the flow decides" and "the better idea decides." The AI judge tells you where it landed, so the verdict is never a black box. In a spar or live round, both debaters can agree the paradigm before the first speech and the ballot holds to it.</p>
+    </div>
 
-    <details class="lens-acc">
-      <summary>Public Forum <span class="ll">Lay + flow</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr"><b>What the judge prioritizes:</b> clear claims, evidence quality, clash, weighing, and final-focus consistency.</p><p class="pr"><b>Common deciding questions:</b> Who won the clearest offense? Did either side weigh impacts? Were the key responses extended through summary?</p></div>
-    </details>
-    <details class="lens-acc">
-      <summary>Policy <span class="ll">Stock issues</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr"><b>What the judge prioritizes:</b> harms, inherency, solvency and topicality, plus disads, counterplans and dropped arguments depending on the round's lens.</p><p class="pr"><b>Common deciding questions:</b> Did the aff prove solvency? Did the neg win a disad that outweighs the case? What got conceded on the flow?</p></div>
-    </details>
-    <details class="lens-acc">
-      <summary>British Parliamentary <span class="ll">Comparative weighing</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr"><b>What the judge prioritizes:</b> comparative contribution across four teams; extensions and the whip writing the ballot by issue.</p><p class="pr"><b>Common deciding questions:</b> Whose extension was most necessary? Who won the framing clash? Did the closing add new terrain or just recap?</p></div>
-    </details>
-    <details class="lens-acc">
-      <summary>APDA <span class="ll">Hypothesis tester</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr"><b>What the judge prioritizes:</b> whether the motion holds across the likely cases; general-knowledge mechanisms over tagged cards, no fabricated citations.</p><p class="pr"><b>Common deciding questions:</b> Did Gov defend a fair, central case? Was the burden met across the round? Who won the weighing in the rebuttals?</p></div>
-    </details>
-    <details class="lens-acc">
-      <summary>Lincoln-Douglas <span class="ll">Framework first</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr"><b>What the judge prioritizes:</b> the value and criterion resolve before any contention; offense flows under the winning framework.</p><p class="pr"><b>Common deciding questions:</b> Whose framework controls the ballot? What offense links cleanly to it? What got dropped and conceded?</p></div>
-    </details>
-    <details class="lens-acc">
-      <summary>World Schools <span class="ll">Principled + practical</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr"><b>What the judge prioritizes:</b> reach, magnitude and probability across the principled and practical layer; matter, manner and method scored.</p><p class="pr"><b>Common deciding questions:</b> Who won the principled clash? Who grounded the impacts? Did the reply crystallize the right two issues?</p></div>
-    </details>
-    <details class="lens-acc">
-      <summary>General debate <span class="ll">Tech ↔ Truth</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr">Most paradigms sit between <b>the flow decides</b> (a dropped argument is conceded) and <b>the better idea decides</b> (real-world plausibility wins). The AI judge names where it landed, so the verdict is never a black box.</p><p class="pr">In a spar or live round, both debaters can agree the paradigm before the first speech and the ballot holds to it.</p></div>
-    </details>
-    <details class="lens-acc">
-      <summary>What lands in the ballot <span class="ll">Reason for decision</span><span class="chev">›</span></summary>
-      <div class="body"><p class="pr"><b>The call:</b> who won and the margin, so a near-split and a blowout do not read the same.</p><p class="pr"><b>The hinge:</b> the one exchange the round turned on, named.</p><p class="pr"><b>The why:</b> what was extended, dropped or outweighed, judged in the format's paradigm.</p><p class="pr"><b>The read:</b> per-speaker notes in the register the format scores.</p></div>
-    </details>
+    <h3 class="section-h" style="font-size:1.2rem;margin-top:30px">What lands in the ballot</h3>
+    <p class="section-sub">When the round ends the judge writes a Reason for Decision, and that is what settles the market. Four parts, every time.</p>
+    <div class="fp-grid">
+      <div class="fp-card"><span class="fp-tag">The call</span><h4>Who won, and the margin</h4><p>A clear winner plus how close it was, so a near-split round and a blowout do not read the same.</p></div>
+      <div class="fp-card"><span class="fp-tag">The hinge</span><h4>The deciding clash</h4><p>The one exchange the round turned on, named — not a vague "good debate by both sides."</p></div>
+      <div class="fp-card"><span class="fp-tag">The why</span><h4>Weighing on the flow</h4><p>Which arguments were extended, dropped, or outweighed, judged in the format's paradigm.</p></div>
+      <div class="fp-card"><span class="fp-tag">The read</span><h4>Per-speaker notes</h4><p>What each side did well and where they leaked points, in the register the format scores.</p></div>
+    </div>
 
-    <div class="fp-note" style="margin-top:18px">
-      <span class="lab">Two markets, one round</span>
-      <p>Every event runs two markets: the <b>result</b> market settles the round, and the <b>crowd</b> votes who won. When they split, that disagreement is the whole show. Nothing on The Floor pays cash or prizes.</p>
+    <h3 class="section-h" style="font-size:1.2rem;margin-top:30px">Two markets, one round</h3>
+    <p class="section-sub">Every event runs two markets side by side, and the gap between them is the whole show.</p>
+    <div class="fp-grid">
+      <div class="fp-card"><span class="fp-tag">Objective</span><h4>The AI Judge</h4><p>Settles on the format-accurate ballot. Hard to game, instant, and the only market that can ever pay real prizes.</p></div>
+      <div class="fp-card"><span class="fp-tag">Subjective</span><h4>The Crowd</h4><p>The room votes who won. When the judge and the crowd split, that disagreement is the content — winning the flow is not the same as winning the room.</p></div>
     </div>
   </section>
 </div>
@@ -888,12 +413,6 @@
   </div>
 </div>
 
-<div class="call-drawer" id="callDrawer" role="dialog" aria-modal="true" aria-label="Predict the AI judge">
-  <div class="cd-sheet" id="cdSheet"></div>
-</div>
-
-<button class="mobile-calls" id="mobileCalls" aria-label="Your calls"></button>
-
 <div class="toasts" id="toasts"></div>
 
 <script>
@@ -903,18 +422,6 @@
   // ---------------------------------------------------------------
   // CONFIG
   // ---------------------------------------------------------------
-  /* PREVIEW gate. While true, The Floor renders in full but refuses every
-     action that would place a call. Both entry points (openCallDrawer and
-     placeBet) and the server path (serverBet) return through previewBlock(),
-     so a stray call site cannot leak a wager. Flip to false only in the
-     commit that binds markets to real ballots, and delete the ribbon, the
-     watermark and the .prev-note panel in that same commit. */
-  var PREVIEW = true;
-  function previewBlock(){
-    toast('The Floor is an experimental preview. Calls are switched off until rounds settle on a real ballot.','');
-    return false;
-  }
-
   var CFG = {
     START_CREDITS: 1000,
     SEED_LIQUIDITY: 40,          // opening pari-mutuel liquidity per side (no empty books)
@@ -935,16 +442,16 @@
   // ---------------------------------------------------------------
   var FACE = function(n){ return '/img/round/faces/face' + n + '.jpg'; };
   var PERSONAS = [
-    { nm:'Aanya R.', style:'aggressive principle', r:88, face:FACE('01') },
-    { nm:'Marcus T.',   style:'clean line-by-line',   r:91, face:FACE('02') },
-    { nm:'Grace L.',    style:'crystallizes late',    r:86, face:FACE('03') },
-    { nm:'Omar F.',   style:'unflappable weighing',  r:89, face:FACE('04') },
-    { nm:'Leo P.',   style:'high-variance reframes',r:80, face:FACE('06') },
-    { nm:'Nadia H.',  style:'comparative framing',   r:84, face:FACE('07') },
-    { nm:'Caleb M.',style:'burden pressure',       r:87, face:FACE('08') },
-    { nm:'Hana K.', style:'strategic collapse',    r:85, face:FACE('09') },
-    { nm:'James W.', style:'big-picture impact',    r:83, face:FACE('10') },
-    { nm:'Theo A.',   style:'relentless POIs',       r:79, face:FACE('11') }
+    { nm:'The Firebrand', style:'aggressive principle', r:88, face:FACE('01') },
+    { nm:'The Surgeon',   style:'clean line-by-line',   r:91, face:FACE('02') },
+    { nm:'The Closer',    style:'crystallizes late',    r:86, face:FACE('03') },
+    { nm:'The Veteran',   style:'unflappable weighing',  r:89, face:FACE('04') },
+    { nm:'The Upstart',   style:'high-variance reframes',r:80, face:FACE('06') },
+    { nm:'The Diplomat',  style:'comparative framing',   r:84, face:FACE('07') },
+    { nm:'The Prosecutor',style:'burden pressure',       r:87, face:FACE('08') },
+    { nm:'The Tactician', style:'strategic collapse',    r:85, face:FACE('09') },
+    { nm:'The Statesman', style:'big-picture impact',    r:83, face:FACE('10') },
+    { nm:'The Heckler',   style:'relentless POIs',       r:79, face:FACE('11') }
   ];
   var HUMANS = [
     { nm:'Priya S.', style:'PF · 2x TOC bid', r:90, face:FACE('12') },
@@ -959,8 +466,8 @@
     'BP': ['TH would abolish private schooling','THW prioritise economic growth over reducing inequality','THBT the feminist movement should oppose the institution of marriage'],
     'APDA': ['TH regrets the cult of the founder in tech','THW let cities go bankrupt','TH prefers a world without intellectual property'],
     'Worlds': ['THW abolish the UN Security Council veto','THBT developing nations should reject IMF conditionality','THR the rise of the gig economy'],
-    'PF': ['Called: The US should adopt a wealth tax','Called: AI does more harm than good to journalism','Called: NATO should admit Ukraine'],
-    'LD': ['Called: A just government ought to prioritise rehabilitation over retribution','Called: Predictive policing is unjust','Called: States ought to ban lethal autonomous weapons'],
+    'PF': ['Resolved: The US should adopt a wealth tax','Resolved: AI does more harm than good to journalism','Resolved: NATO should admit Ukraine'],
+    'LD': ['Resolved: A just government ought to prioritise rehabilitation over retribution','Resolved: Predictive policing is unjust','Resolved: States ought to ban lethal autonomous weapons'],
     'Policy': ['The USFG should substantially increase its Arctic infrastructure','The USFG should guarantee a federal jobs program','The USFG should phase out nuclear weapons'],
     'Asian Parli': ['THW ban political advertising on social media','THBT the Global South should form a debt cartel','THW make voting compulsory'],
     'Quick Clash': ['Pineapple belongs on pizza','Remote work beats the office','Tipping culture should end']
@@ -969,44 +476,44 @@
   // short RFD flavor per format (ties to the real adjudication paradigm)
   var RFD = {
     'BP': ['Closing {W} extended new terrain on enforcement; opening was left to recap and got outweighed.','{W} won the comparative: their whip wrote the ballot by issue while {L} narrated their partner.','POI engagement and a clean model carried {W}; {L} ducked the framing clash.'],
-    'APDA': ['{W} negotiated the burden cleanly; {L} leaned on a tight read that did not hold.','No fabricated cites, a sharper general-knowledge mechanism. {W} won it on substance.','{L} went defensive in the MG and conceded the weighing to {W}.'],
+    'APDA': ['{W} negotiated the burden cleanly; {L} leaned on a tight read that did not hold.','No fabricated cites, sharper general-knowledge mechanism — {W} on the substance.','{L} went defensive in the MG and conceded the weighing to {W}.'],
     'Worlds': ['{W} grounded the impacts internationally and ran both the principled and practical layer; {L} stayed narrow.','Reach and probability went to {W}; {L} asserted magnitude without the link chain.','{W} on the canonical principled-vs-practical split.'],
-    'PF': ['{W}\'s summary kept the weighing clean; {L} extended an argument the crowd dropped in the back half.','Named weighing mechanism, clean frontline; {W} took it. {L} power-tagged the evidence.','{W} won the second rebuttal exchange; {L} never collapsed.'],
+    'PF': ['{W}\'s summary kept the weighing clean; {L} extended an argument the crowd dropped in the back half.','Named weighing mechanism, clean frontline — {W}. {L} power-tagged the evidence.','{W} won the second rebuttal exchange; {L} never collapsed.'],
     'LD': ['Framework resolved to {W} before contention; {L} name-dropped without the warrant.','{W} collapsed to two clean voters; {L} tried to extend everything and watered it down.','The criterion debate went {W}; offense flowed cleanly under it.'],
-    'Policy': ['{W} collapsed the 2NR to one position with a clear ballot story; {L} went for everything.','Tag accuracy and an extended impact won it for {W}. {L} left a dropped sub nobody pulled through.','{W} won the flow on the line-by-line; {L} undercovered.'],
+    'Policy': ['{W} collapsed the 2NR to one position with a clear ballot story; {L} went for everything.','Tag accuracy and an extended impact — {W}. {L} left a dropped sub nobody pulled through.','{W} won the flow on the line-by-line; {L} undercovered.'],
     'Asian Parli': ['{W} won the key exchanges on Method; {L} drifted the whip into summary.','Regional grounding and dense analysis from {W}; {L} reframed too late.','Matter and manner both edged to {W}.'],
     'Quick Clash': ['{W} punched first with named specifics; {L} opened with throat-clearing.','Direct clash from {W}; {L} stayed generic.','{W} just engaged harder. Close, but clean.']
   };
 
   // seeded competitors for the Sharpest Predictor board
   var BOTS = [
-    { id:'b1', nm:'Elena K.',   title:'The Oracle',   tag:'gold', score:1840, acc:.71, edge:.12 },
-    { id:'b2', nm:'Tom H.',     title:'The Shark',    tag:'',     score:1790, acc:.64, edge:.19 },
-    { id:'b3', nm:'Ravi S.', title:'The Scout',    tag:'',     score:1710, acc:.61, edge:.09 },
-    { id:'b4', nm:'Mara B.',  title:'The Livewire', tag:'',     score:1655, acc:.66, edge:.05 },
-    { id:'b5', nm:'Jonas P.',title:'The Skeptic',    tag:'',     score:1590, acc:.58, edge:.14 },
-    { id:'b6', nm:'Aria N.',  title:'The Loyalist', tag:'',     score:1520, acc:.62, edge:.04 },
-    { id:'b7', nm:'Sam D.',    title:'',             tag:'',     score:1410, acc:.55, edge:.02 },
-    { id:'b8', nm:'Noor A.', title:'',             tag:'',     score:1280, acc:.53, edge:.01 },
-    { id:'b9', nm:'Cara V.', title:'',             tag:'',     score:1090, acc:.50, edge:-.02 }
+    { id:'b1', nm:'oracle_ek',   title:'The Oracle',   tag:'gold', score:1840, acc:.71, edge:.12 },
+    { id:'b2', nm:'flowgod',     title:'The Shark',    tag:'',     score:1790, acc:.64, edge:.19 },
+    { id:'b3', nm:'blindcaller', title:'The Scout',    tag:'',     score:1710, acc:.61, edge:.09 },
+    { id:'b4', nm:'late_money',  title:'The Livewire', tag:'',     score:1655, acc:.66, edge:.05 },
+    { id:'b5', nm:'fade_the_fav',title:'The Hater',    tag:'',     score:1590, acc:.58, edge:.14 },
+    { id:'b6', nm:'mira_backs',  title:'The Loyalist', tag:'',     score:1520, acc:.62, edge:.04 },
+    { id:'b7', nm:'tab_room',    title:'',             tag:'',     score:1410, acc:.55, edge:.02 },
+    { id:'b8', nm:'pointofinfo', title:'',             tag:'',     score:1280, acc:.53, edge:.01 },
+    { id:'b9', nm:'casual_call', title:'',             tag:'',     score:1090, acc:.50, edge:-.02 }
   ];
 
   // seeded Draw Score (fame) — debaters people show up for
   var DRAWS = [
-    { nm:'Aanya R.', fmt:'BP',    draw:94, split:.38 },
+    { nm:'The Firebrand', fmt:'BP',    draw:94, split:.38 },
     { nm:'Priya S.',       fmt:'PF',    draw:91, split:.21 },
-    { nm:'Marcus T.',   fmt:'Policy', draw:88, split:.12 },
+    { nm:'The Surgeon',   fmt:'Policy', draw:88, split:.12 },
     { nm:'Arjun N.',      fmt:'APDA',  draw:85, split:.27 },
-    { nm:'Theo A.',   fmt:'Worlds', draw:82, split:.41 },
+    { nm:'The Heckler',   fmt:'Worlds', draw:82, split:.41 },
     { nm:'Dev K.',        fmt:'BP',    draw:79, split:.18 },
-    { nm:'Grace L.',    fmt:'LD',    draw:74, split:.15 },
+    { nm:'The Closer',    fmt:'LD',    draw:74, split:.15 },
     { nm:'Sofia L.',      fmt:'Worlds', draw:69, split:.22 }
   ];
 
   // ---------------------------------------------------------------
   // UTIL
   // ---------------------------------------------------------------
-  var now = function(){ return Date.now() + ((SERVER && SERVER.on) ? (SERVER.clockSkew || 0) : 0); };
+  var now = function(){ return Date.now(); };
   var rnd = function(a,b){ return a + Math.random()*(b-a); };
   var pick = function(arr){ return arr[Math.floor(Math.random()*arr.length)]; };
   var uid = function(){ return 'm'+Math.floor(rnd(1e8,9e8)).toString(36); };
@@ -1058,15 +565,6 @@
   // MARKET ENGINE
   // ---------------------------------------------------------------
   var MARKETS = [];
-  var RESULTS = [];   // recently-called rounds, newest first (for the Results feed)
-  function addResult(m){
-    if(!m || !m.result) return;
-    for(var i=0;i<RESULTS.length;i++){
-      if(RESULTS[i].id===m.id){ RESULTS[i] = m; return; }
-    }
-    RESULTS.unshift(m);
-    if(RESULTS.length > 14) RESULTS.length = 14;
-  }
 
   function makeMarket(kind){
     var fmt = pick(FORMATS);
@@ -1092,26 +590,9 @@
       result: null,
       settled: false
     };
-    m.probHist = seedHist(m);   // time-series of P(A wins) for the sparkline
     return m;
   }
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
-
-  // ---- probability time-series (drives the Polymarket-style sparkline) ----
-  // implied P(A wins) = A's share of the pari-mutuel pool, same number the
-  // payout multiplier inverts. This IS the market price.
-  function impliedA(m){ var t=m.pool.A+m.pool.B; return t>0 ? clamp(m.pool.A/t,0.03,0.97) : 0.5; }
-  function seedHist(m){
-    var target = impliedA(m), v = clamp(target + rnd(-0.14,0.14), 0.1, 0.9), arr=[];
-    for(var i=0;i<13;i++){ v = clamp(v + (target-v)*0.22 + rnd(-0.045,0.045), 0.05, 0.95); arr.push(v); }
-    arr.push(target);
-    return arr;
-  }
-  function pushProb(m){
-    if(!m.probHist) m.probHist = [impliedA(m)];
-    m.probHist.push(impliedA(m));
-    if(m.probHist.length > 48) m.probHist.shift();
-  }
 
   function windowOf(m){
     var t = now();
@@ -1148,7 +629,6 @@
   }
 
   function placeBet(m, side){
-    if(PREVIEW) return previewBlock();
     if(SERVER.on) return serverBet(m, side);
     var w = windowOf(m);
     if(!bettable(w)) return toast('That window just closed.', '');
@@ -1158,13 +638,12 @@
     var mlt = CFG.MULT[w];
     m.pool[side] += stake;
     m.backers[side] += 1;
-    pushProb(m);
     m.myBet = { side:side, stake:stake, window:w, mult:mlt, oddsAtBet: mult(m, side) };
-    tx(P, 'stake', -stake, 'Predicted ' + m[side].nm + ' · ' + m.fmt);
+    tx(P, 'stake', -stake, 'Backed ' + m[side].nm + ' · ' + m.fmt);
     P.staked += stake;
     save();
     var wlabel = w==='w1'?'blind (1.5x)': w==='w2'?'motion (1.0x)':'live (0.7x)';
-    toast('Predicting <b>'+esc(m[side].nm)+'</b> · '+stake+' cr · '+wlabel+' read', '');
+    toast('Backed <b>'+esc(m[side].nm)+'</b> for '+stake+' · '+wlabel+' read', '');
     render();
   }
 
@@ -1179,8 +658,6 @@
     var L = judge==='A' ? 'B' : 'A';
     var rfd = pick(RFD[m.fmt]||RFD['Quick Clash']).replace(/\{W\}/g, m[judge].nm).replace(/\{L\}/g, m[L].nm);
     m.result = { judge:judge, crowd:crowd, diverged: judge!==crowd, rfd:rfd };
-    m.calledAt = now();
-    addResult(m);
 
     // settle the user's position against the AI-judge market (pari-mutuel)
     if(m.myBet){
@@ -1194,12 +671,12 @@
         P.returned += payout;
         P.wins += 1;
         bumpStreak();
-        toast('<b>+'+fmtN(payout)+'</b> · your '+esc(m[side].nm)+' call hit', 'win');
+        toast('<b>+'+fmtN(payout)+'</b> · your '+stake+' on '+esc(m[side].nm)+' hit', 'win');
         flashDelta(payout - stake);
       } else {
         tx(P, 'settle_loss', 0, 'Missed on ' + m[side].nm + ' · ' + m.fmt);
         P.streak = 0;
-        toast(esc(m[judge].nm)+' took it. Your call for '+esc(m[side].nm)+' missed.', '');
+        toast(esc(m[judge].nm)+' took it. Your '+stake+' on '+esc(m[side].nm)+' missed.', '');
       }
       save();
     }
@@ -1264,7 +741,7 @@
     messagingSenderId: "860359449192",
     appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
   };
-  var SERVER = { on:false, me:null, leaderboard:null, txns:[], clockSkew:0, loading:false, pollTimer:null, pollMs:30000, failures:0, seenSettled:{} };
+  var SERVER = { on:false, me:null, leaderboard:null };
   var fbAuth = null, fbUser = null;
 
   function initFirebase(){
@@ -1272,7 +749,7 @@
       if(!window.firebase || !firebase.auth) return;
       if(!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
       fbAuth = firebase.auth();
-      fbAuth.onAuthStateChanged(function(u){ fbUser = u; renderHeader(); refreshServer({ force:true }); });
+      fbAuth.onAuthStateChanged(function(u){ fbUser = u; renderHeader(); refreshServer(); });
     }catch(e){}
   }
   function authToken(){
@@ -1284,181 +761,45 @@
       fbAuth.signInWithPopup(p).catch(function(){ try{ fbAuth.signInWithRedirect(p); }catch(e){} });
     }catch(e){ toast('Sign-in is unavailable right now.',''); }
   }
-  function serverPayout(m){
-    if(!m || !m.myBet) return 0;
-    var p = Number(m.myBet.payout);
-    if(Number.isFinite(p) && (m.myBet.settled || p > 0)) return p;
-    var side = m.myBet.side;
-    return side && m.pool && m.pool[side] ? (m.myBet.stake * (m.pool.A + m.pool.B) / m.pool[side]) : 0;
-  }
-  function mergeServerMarket(m, pos, prev){
-    if(pos){ m.myBet = { side:pos.side, stake:pos.stake, window:pos.window, mult:pos.mult, settled:!!pos.settled, won:pos.won, payout:pos.payout||0 }; }
-    var nextP = impliedA(m);
-    if(prev && prev.probHist && prev.probHist.length){
-      m.probHist = prev.probHist.slice();
-      var lastP = m.probHist[m.probHist.length-1];
-      var poolMoved = prev.pool && m.pool && (prev.pool.A !== m.pool.A || prev.pool.B !== m.pool.B);
-      if(poolMoved || Math.abs(nextP-lastP) > 0.001){
-        m.probHist.push(nextP);
-        if(m.probHist.length > 48) m.probHist.shift();
-      }
-    } else {
-      m.probHist = seedHist(m);
-    }
-    return m;
-  }
-  function announceServerSettlements(markets, prevById){
-    markets.forEach(function(m){
-      if(!m.settled || !m.result || !m.myBet || SERVER.seenSettled[m.id]) return;
-      var prev = prevById[m.id];
-      if(!prev || prev.settled) return;
-      SERVER.seenSettled[m.id] = true;
-      if(m.myBet.side === m.result.judge || m.myBet.won){
-        var payout = serverPayout(m);
-        toast('<b>+'+fmtN(payout)+'</b> · your '+esc(m[m.myBet.side].nm)+' call hit', 'win');
-        flashDelta(payout - (m.myBet.stake || 0));
-      } else {
-        toast(esc(m[m.result.judge].nm)+' took it. Your call for '+esc(m[m.myBet.side].nm)+' missed.', '');
-      }
-    });
-  }
-  function refreshServer(opts){
-    opts = opts || {};
-    if(SERVER.loading && !opts.force) return Promise.resolve(false);
-    SERVER.loading = true;
-    return authToken().then(function(tok){
+  function refreshServer(){
+    authToken().then(function(tok){
       return fetch('/api/floor/state', { headers: tok ? { Authorization:'Bearer '+tok } : {}, cache:'no-store' });
     }).then(function(r){ if(!r.ok) throw r.status; return r.json(); })
     .then(function(d){
       if(!d || !Array.isArray(d.markets) || !d.markets.length) throw 'empty';
-      var prevById = {};
-      MARKETS.forEach(function(x){ prevById[x.id] = x; });
-      SERVER.on = true;
-      SERVER.clockSkew = Number(d.now || 0) ? (Number(d.now) - Date.now()) : 0;
-      SERVER.me = d.me || null;
-      SERVER.leaderboard = d.leaderboard || [];
-      SERVER.txns = Array.isArray(d.recentTxns) ? d.recentTxns : [];
-      SERVER.failures = 0;
+      SERVER.on = true; SERVER.me = d.me || null; SERVER.leaderboard = d.leaderboard || [];
       var mp = d.myPositions || {};
       MARKETS = d.markets.map(function(m){
-        return mergeServerMarket(m, mp[m.id], prevById[m.id]);
+        var pos = mp[m.id];
+        if(pos){ m.myBet = { side:pos.side, stake:pos.stake, window:pos.window, mult:pos.mult, settled:!!pos.settled, won:pos.won, payout:pos.payout||0 }; }
+        return m;
       });
-      announceServerSettlements(MARKETS, prevById);
       render();
-      SERVER.loading = false;
-      return true;
-    }).catch(function(){
-      SERVER.failures += 1;
-      SERVER.loading = false;
-      return false;
-    });
-  }
-  function startServerPolling(){
-    if(SERVER.pollTimer) return;
-    SERVER.pollTimer = setInterval(function(){ if(!document.hidden) refreshServer(); }, SERVER.pollMs);
-    document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshServer({ force:true }); });
+    }).catch(function(){ /* stay in current mode; the local demo engine covers if the server never came on */ });
   }
   function serverBet(m, side){
-    if(PREVIEW) return previewBlock();
-    if(!fbUser){ toast('Sign in to predict.',''); signIn(); return; }
+    if(!fbUser){ toast('Sign in to back a side.',''); signIn(); return; }
     if(m.myBet) return toast('You already have a position on this round.','');
     var w = windowOf(m); if(!bettable(w)) return toast('That window just closed.','');
     var stake = selectedStake;
     authToken().then(function(tok){
-      if(!tok) throw new Error('auth');
       return fetch('/api/floor/bet', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+tok }, body: JSON.stringify({ marketId:m.id, side:side, stake:stake }) });
     }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); })
     .then(function(res){
-      if(!res.ok){ return toast((res.j && res.j.error) ? res.j.error : 'Could not save that prediction.',''); }
+      if(!res.ok){ return toast((res.j && res.j.error) ? res.j.error : 'Could not place that bet.',''); }
       var wl = w==='w1'?'blind (1.5x)': w==='w2'?'motion (1.0x)':'live (0.7x)';
-      toast('Predicting <b>'+esc(m[side].nm)+'</b> · '+stake+' cr · '+wl+' read','');
-      refreshServer({ force:true });
-    }).catch(function(){ toast('Network error saving your prediction.',''); });
+      toast('Backed <b>'+esc(m[side].nm)+'</b> for '+stake+' · '+wl+' read','');
+      refreshServer();
+    }).catch(function(){ toast('Network error placing bet.',''); });
   }
   var $ = function(id){ return document.getElementById(id); };
 
   function render(){
     renderHeader();
     renderBoard();
-    renderRail();
-    renderResults();
     renderYou();
     renderSharp();
     renderDraws();
-  }
-
-  function renderResults(){
-    var el = $('results'); if(!el) return;
-    if(!RESULTS.length){
-      el.innerHTML = '<div class="empty">No called rounds yet. The moment the AI judge settles one, it lands here with the crowd vote and the reason for decision.</div>';
-      return;
-    }
-    el.innerHTML = RESULTS.map(resolvedCardHTML).join('');
-  }
-
-  // Compact "Your calls" rail beside the board: balance, sharp rank, streak,
-  // active calls, and a strong empty state. The full breakdown is the
-  // "Your calls" tab; this is the always-visible glance.
-  function renderRail(){
-    var rail = $('rail'); if(!rail) return;
-    var u = (SERVER.on && SERVER.me) ? SERVER.me : P;
-    var s = sharp();
-    var rows = BOTS.concat([{ id:'me', score:s.score, me:true }]).sort(function(a,b){ return b.score-a.score; });
-    var rank = rows.findIndex(function(r){ return r.me; }) + 1;
-    var active = MARKETS.filter(function(m){ return m.myBet && !m.settled; });
-    var html = '';
-    html += '<div class="rail-card rail-head">'+
-      '<div class="rail-h">Your calls</div>'+
-      '<div class="rail-stats">'+
-        '<div><div class="rk">Credits</div><div class="rv">'+fmtN(u.credits||0)+'</div></div>'+
-        '<div><div class="rk">Sharp rank</div><div class="rv">#'+rank+'</div></div>'+
-        '<div><div class="rk">Streak</div><div class="rv">'+(u.streak||0)+'</div></div>'+
-      '</div></div>';
-    if(active.length){
-      html += '<div class="rail-title">Live calls · '+active.length+'</div>';
-      html += active.map(function(m){
-        var side = m.myBet.side, w = windowOf(m), st = statusMeta(w, m);
-        return '<div class="rail-card call">'+
-          '<div class="call-top"><span class="chip fmt">'+esc(m.fmt)+'</span>'+
-            '<span class="status '+st.cls+'"><span class="pip"></span>'+st.label+'</span></div>'+
-          '<div class="call-who">Predicting <b>'+esc(m[side].nm)+'</b></div>'+
-          '<div class="call-sub">'+m.myBet.stake+' cr · '+String(m.myBet.window||'').toUpperCase()+' read'+(st.sub?' · '+st.sub:'')+'</div>'+
-        '</div>';
-      }).join('');
-    } else {
-      html += '<div class="rail-card empty-rail">'+
-        '<div class="er-emoji">🎯</div>'+
-        '<div class="er-t">No calls yet</div>'+
-        '<div class="er-p">Pick a live round and predict the winner before the verdict posts.</div>'+
-        '<button class="er-btn" id="railToBoard">View live rounds</button>'+
-      '</div>';
-    }
-    if(RESULTS.length){
-      var rc = RESULTS[0];
-      html += '<div class="rail-title">Last verdict</div>'+
-        '<div class="rail-card call">'+
-          '<div class="call-top"><span class="chip fmt">'+esc(rc.fmt)+'</span>'+
-            (rc.result.diverged ? '<span class="rc-tag split">⚡ Split</span>' : '<span class="rc-tag agree">✓ Agreed</span>')+'</div>'+
-          '<div class="call-who"><b>'+esc(rc[rc.result.judge].nm)+'</b> took it</div>'+
-          '<div class="call-sub">'+(rc.result.diverged ? 'Crowd had '+esc(rc[rc.result.crowd].nm) : 'Judge and crowd agreed')+'</div>'+
-        '</div>';
-    }
-    rail.innerHTML = html;
-    var b = $('railToBoard'); if(b) b.addEventListener('click', function(){ window.scrollTo({ top:0, behavior:'smooth' }); });
-    var mc = $('mobileCalls');
-    if(mc){
-      if(PREVIEW){
-        // No call-to-action in preview: the bar would invite the one thing
-        // the page refuses to do.
-        mc.innerHTML = '<span class="mc-l"><span class="mc-k">Experimental preview</span>'+
-          '<span class="mc-v">Calls are switched off</span></span>'+
-          '<span class="mc-cta" style="opacity:.6">Locked</span>';
-      } else {
-        mc.innerHTML = '<span class="mc-l"><span class="mc-k">Your calls</span><span class="mc-v">'+
-          (active.length ? (active.length+' live · '+fmtN(u.credits||0)+' cr') : (fmtN(u.credits||0)+' credits'))+
-          '</span></span><span class="mc-cta">'+(active.length ? 'View →' : 'Predict →')+'</span>';
-      }
-    }
   }
 
   function renderHeader(){
@@ -1469,7 +810,7 @@
     $('liveCount').textContent = live;
     var sb = $('signBtn');
     if(sb){
-      if(SERVER.on){ sb.style.display=''; sb.textContent = fbUser ? ('\u2713 '+((fbUser.displayName||'').split(' ')[0] || 'You')) : 'Sign in'; }
+      if(SERVER.on){ sb.style.display=''; sb.textContent = fbUser ? ('✓ '+((fbUser.displayName||'').split(' ')[0] || 'You')) : 'Sign in'; }
       else { sb.style.display='none'; }
     }
   }
@@ -1477,7 +818,7 @@
   function flashDelta(net){
     var d = $('balDelta');
     d.textContent = (net>=0?'+':'') + fmtN(net);
-    d.style.color = net>=0 ? 'var(--win)' : 'var(--down)';
+    d.style.color = net>=0 ? 'var(--win)' : 'var(--accent)';
     d.classList.add('show');
     clearTimeout(deltaTimer);
     deltaTimer = setTimeout(function(){ d.classList.remove('show'); }, 2600);
@@ -1485,224 +826,34 @@
 
   function statusMeta(w, m){
     var t = now();
-    if(w==='w1') return { cls:'w1', label:'Predictions open · motion hidden', sub:'Motion in ' + timeStr(m.motionRevealAt-t) };
-    if(w==='w2') return { cls:'w2', label:'Predictions open · motion out', sub:'Round in ' + timeStr(m.roundStartAt-t) };
-    if(w==='w3') return { cls:'live', label:'Live · predictions open', sub:'Predictions lock in ' + timeStr(m.midpointAt-t) };
-    if(w==='locked') return { cls:'locked', label:'Predictions locked', sub:'Verdict in ' + timeStr(m.resolveAt-t) };
-    return { cls:'resolved', label:'Called', sub:'' };
+    if(w==='w1') return { cls:'w1', label:'Window 1 · blind', sub:'Motion in ' + timeStr(m.motionRevealAt-t) };
+    if(w==='w2') return { cls:'w2', label:'Window 2 · motion', sub:'Starts in ' + timeStr(m.roundStartAt-t) };
+    if(w==='w3') return { cls:'live', label:'Live · open', sub:'Locks in ' + timeStr(m.midpointAt-t) };
+    if(w==='locked') return { cls:'locked', label:'Locked · 2nd half', sub:'Verdict in ' + timeStr(m.resolveAt-t) };
+    return { cls:'resolved', label:'Resolved', sub:'' };
   }
-
-  // ---------------------------------------------------------------
-  // MAKE-YOUR-CALL DRAWER — a confirm step before the bet is placed
-  // ---------------------------------------------------------------
-  var cdState = { id:null, side:null, stake:CFG.DEFAULT_STAKE };
-  function openCallDrawer(m, side){
-    if(!m) return;
-    if(PREVIEW) return previewBlock();
-    var w = windowOf(m);
-    if(!bettable(w)) return toast('That window just closed.','');
-    if(m.myBet) return toast('You already have a call on this round.','');
-    cdState = { id:m.id, side:side, stake:selectedStake||CFG.DEFAULT_STAKE };
-    renderCallDrawer();
-    var d = $('callDrawer'); if(d) d.classList.add('on');
-  }
-  function closeCallDrawer(){ var d = $('callDrawer'); if(d) d.classList.remove('on'); }
-  function renderCallDrawer(){
-    var sheet = $('cdSheet'); if(!sheet) return;
-    var m = MARKETS.find(function(x){ return x.id===cdState.id; });
-    if(!m){ closeCallDrawer(); return; }
-    var w = windowOf(m), st = statusMeta(w, m);
-    var tot = m.pool.A + m.pool.B, pctA = Math.round(clamp(m.pool.A/tot*100, 4, 96));
-    var u = (SERVER.on && SERVER.me) ? SERVER.me : P;
-    var avail = u.credits || 0;
-    function scoreIf(s){ return Math.round(cdState.stake * mult(m,s) - cdState.stake); } // net credits if correct
-    function sideBtn(s){
-      var sel = cdState.side===s ? 'sel' : '';
-      var av = m[s].face ? '<img src="'+esc(m[s].face)+'" alt=""/>' : '<span class="noav"></span>';
-      var check = sel ? '<span class="cd-check" aria-hidden="true">✓</span>' : '';
-      return '<button class="cd-side '+sel+'" data-cdside="'+s+'">'+check+av+'<span class="nm">'+esc(m[s].nm)+'</span><span class="score">Score if correct +'+scoreIf(s)+' cr</span></button>';
-    }
-    var canAfford = cdState.stake <= avail;
-    sheet.innerHTML =
-      '<div class="cd-head"><span class="cd-fmt">'+esc(m.fmt)+' · '+esc(lensFor(m.fmt))+'</span>'+
-        '<span class="cd-status'+(bettable(w)?' open':'')+'"><span class="pip"></span>'+esc(st.label)+'</span>'+
-        '<button class="cd-x" id="cdX" aria-label="Close">×</button></div>'+
-      '<h3 class="cd-title">Predict the AI judge</h3>'+
-      '<p class="cd-sub">Choose who you think the AI judge will award the round to.</p>'+
-      '<div class="cd-sides">'+sideBtn('A')+sideBtn('B')+'</div>'+
-      '<div class="cd-context"><span>Crowd read: '+esc(m.A.nm)+' '+pctA+'% · '+esc(m.B.nm)+' '+(100-pctA)+'%</span><span>'+esc(st.sub||'')+'</span></div>'+
-      '<div class="cd-field"><div class="cd-label">Confidence</div>'+
-        '<div class="cd-stakes">'+CFG.STAKES.map(function(s){ return '<button class="cd-pill" data-cdstake="'+s+'" aria-pressed="'+(s===cdState.stake)+'">'+s+'</button>'; }).join('')+'</div>'+
-        '<div class="cd-help">You have '+fmtN(avail)+' play credits. Credits have no cash value. Earlier predictions score higher.</div>'+
-      '</div>'+
-      '<div class="cd-note">You are predicting the AI judge\'s decision for this round. The crowd read is shown for comparison and does not determine the result.</div>'+
-      '<button class="cd-go" id="cdGo"'+(canAfford?'':' disabled')+'>'+(canAfford ? ('Predict '+esc(m[cdState.side].nm)+' · '+cdState.stake+' cr') : 'Not enough credits')+'</button>';
-    var x = $('cdX'); if(x) x.addEventListener('click', closeCallDrawer);
-    sheet.querySelectorAll('[data-cdside]').forEach(function(b){ b.addEventListener('click', function(){ cdState.side=b.getAttribute('data-cdside'); renderCallDrawer(); }); });
-    sheet.querySelectorAll('[data-cdstake]').forEach(function(b){ b.addEventListener('click', function(){ cdState.stake=parseInt(b.getAttribute('data-cdstake'),10); renderCallDrawer(); }); });
-    var go = $('cdGo'); if(go) go.addEventListener('click', function(){
-      selectedStake = cdState.stake;
-      var mm = MARKETS.find(function(x){ return x.id===cdState.id; });
-      closeCallDrawer();
-      if(mm) placeBet(mm, cdState.side);
-    });
-  }
-  (function(){
-    var d = $('callDrawer');
-    if(d) d.addEventListener('click', function(e){ if(e.target===d) closeCallDrawer(); });
-    document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeCallDrawer(); });
-    var mc = $('mobileCalls');
-    if(mc) mc.addEventListener('click', function(){ var rail = $('rail'); if(rail) rail.scrollIntoView({ behavior:'smooth', block:'start' }); });
-  })();
 
   function renderBoard(){
     var board = $('board');
-    var feat = $('featured');
-    // capture any settled markets into the Results feed (covers server-resolved too)
-    MARKETS.forEach(function(m){ if(m.settled && m.result) addResult(m); });
-    // the live board is live + upcoming only; called rounds move to the Results feed
-    var order = MARKETS.filter(function(m){ return !m.settled; }).sort(function(a,b){
-      var rank = function(m){ var w=windowOf(m); if(m.kind==='featured') return 0; if(w==='w3') return 1; if(w==='w2') return 2; if(w==='w1') return 3; return 4; };
+    // order: featured first, then live, then upcoming, then resolved
+    var order = MARKETS.slice().sort(function(a,b){
+      var rank = function(m){ var w=windowOf(m); if(m.kind==='featured'&&!m.settled) return 0; if(w==='w3') return 1; if(w==='w2') return 2; if(w==='w1') return 3; if(w==='locked') return 4; return 5; };
       return rank(a)-rank(b);
     });
-    // promote the top open round to the featured hero card; the rest fill the grid
-    var featured = order[0] || null;
-    var rest = order.filter(function(m){ return m !== featured; });
-    if(feat) feat.innerHTML = featured ? featuredHTML(featured) : '';
-    board.innerHTML = rest.map(cardHTML).join('');
+    board.innerHTML = order.map(cardHTML).join('');
     // wire buttons + one-time entrance animation for newly-appeared markets
     order.forEach(function(m, i){
       var el = document.querySelector('[data-mkt="'+m.id+'"]'); if(!el) return;
       if(!revealed[m.id]){ el.classList.add('mkt--in'); el.style.animationDelay = Math.min(i*0.05, 0.45)+'s'; revealed[m.id] = true; }
-      var ba = el.querySelector('[data-back="A"]'); if(ba) ba.addEventListener('click', function(){ openCallDrawer(m,'A'); });
-      var bb = el.querySelector('[data-back="B"]'); if(bb) bb.addEventListener('click', function(){ openCallDrawer(m,'B'); });
+      el.querySelectorAll('.pill[data-stake]').forEach(function(p){
+        p.addEventListener('click', function(){ selectedStake = parseInt(p.getAttribute('data-stake'),10); renderBoard(); });
+      });
+      var ba = el.querySelector('[data-back="A"]'); if(ba) ba.addEventListener('click', function(){ placeBet(m,'A'); });
+      var bb = el.querySelector('[data-back="B"]'); if(bb) bb.addEventListener('click', function(){ placeBet(m,'B'); });
     });
   }
 
-  function fhAv(d){ if(d && d.face) return '<img class="fh-av" src="'+esc(d.face)+'" loading="lazy" decoding="async" alt="" />'; var ini=((d&&d.nm)||'?').replace(/^The\s+/i,'').charAt(0).toUpperCase(); return '<span class="fh-av fh-av--mono">'+esc(ini)+'</span>'; }
-
-  // Featured live card — the main event, full width above the grid.
-  function fhAside(m,w){
-    if(!bettable(w) && !m.myBet){
-      return '<div class="fh-aside fh-aside--wait"><div class="fh-aside-t">Verdict incoming</div><div class="fh-aside-n">The AI judge is scoring the round on the format ballot. The crowd read is shown for comparison only.</div></div>';
-    }
-    if(m.myBet){
-      var mw = Math.round(m.myBet.stake * (m.myBet.mult||1));
-      return '<div class="fh-aside"><div class="fh-aside-t">If the round goes your way</div><div class="fh-aside-r"><span>'+esc(m[m.myBet.side].nm)+'</span><b>'+m.myBet.stake+' &rarr; '+mw+'</b></div><div class="fh-aside-n">Exhibition round, modeled outcome. Play credits only.</div></div>';
-    }
-    return '<div class="fh-aside"><div class="fh-aside-t">If the round goes your way</div>'+
-      '<div class="fh-aside-r"><span>'+esc(m.A.nm)+'</span><b>100 &rarr; '+Math.round(100*mult(m,'A'))+'</b></div>'+
-      '<div class="fh-aside-r"><span>'+esc(m.B.nm)+'</span><b>100 &rarr; '+Math.round(100*mult(m,'B'))+'</b></div>'+
-      '<div class="fh-aside-n">Play credits. The forecast shifts as the crowd predicts.</div></div>';
-  }
-  function featuredHTML(m){
-    if(m.settled && m.result) return resolvedCardHTML(m);
-    var w = windowOf(m), st = statusMeta(w, m);
-    var kindChip = m.kind==='featured'
-      ? '<span class="chip kind-featured">★ Main event</span>'
-      : (m.kind==='human' ? '<span class="chip kind-human">Live human</span>' : '<span class="chip kind-ai">AI vs AI</span>');
-    var tot = m.pool.A + m.pool.B, pctA = Math.round(clamp(m.pool.A/tot*100, 4, 96));
-    var motionHTML = (w==='w1')
-      ? '<div class="fh-motion" style="color:var(--ghost)">Motion hidden. You are reading the debaters, not the topic. <b style="color:var(--text)">Reveals in '+timeStr(m.motionRevealAt-now())+'.</b></div>'
-      : '<div class="fh-motion"><b>'+esc(m.motion)+'</b></div>';
-    var mA = mult(m,'A').toFixed(2), mB = mult(m,'B').toFixed(2);
-    // Preview: mark locked but do NOT set disabled, so the click still
-    // reaches openCallDrawer() and previewBlock() can say why it refused.
-    // A dead click reads as a broken page.
-    var disabled = !bettable(w) ? 'disabled' : '';
-    if(PREVIEW) disabled += ' data-locked aria-disabled="true"';
-    var myA = m.myBet && m.myBet.side==='A' ? 'myA' : '', myB = m.myBet && m.myBet.side==='B' ? 'myB' : '';
-    var callInner;
-    if(m.myBet){
-      callInner = '<div class="cl">Your prediction is in</div>'+
-        '<div class="mybet">Predicting <b>'+esc(m[m.myBet.side].nm)+'</b> · '+m.myBet.stake+' cr · '+String(m.myBet.window||'').toUpperCase()+' read ('+m.myBet.mult+'x)</div>';
-    } else if(bettable(w)){
-      callInner = '<div class="cl">Predict the winner · tap a side</div>'+
-        '<div class="fh-sides">'+
-          '<button class="back '+myA+'" data-back="A" '+disabled+'><span class="back-top"><span class="back-action">Back</span><span class="back-price">'+pctA+'%</span></span><span class="who">'+esc(m.A.nm)+'</span><span class="mult">Returns '+mA+'x</span></button>'+
-          '<button class="back '+myB+'" data-back="B" '+disabled+'><span class="back-top"><span class="back-action">Back</span><span class="back-price">'+(100-pctA)+'%</span></span><span class="who">'+esc(m.B.nm)+'</span><span class="mult">Returns '+mB+'x</span></button>'+
-        '</div>';
-    } else {
-      callInner = '<div class="cl">Predictions closed</div><div class="mybet">This window is locked. '+(st.sub||'Verdict soon')+'.</div>';
-    }
-    return ''+
-    '<div class="featured-hero mkt" data-mkt="'+m.id+'">'+
-      '<div class="fh-head">'+kindChip+'<span class="chip fmt">'+esc(m.fmt)+'</span>'+lensChip(m.fmt)+
-        '<span class="status '+st.cls+'"><span class="pip"></span>'+st.label+'</span></div>'+
-      '<div class="fh-body">'+
-        '<div class="fh-left">'+
-          '<div class="fh-vs">'+
-            '<div class="fh-deb">'+fhAv(m.A)+'<div class="dtext"><div class="nm">'+esc(m.A.nm)+'</div><div class="meta">'+esc(m.A.style)+'</div></div></div>'+
-            '<span class="fh-vsx">vs</span>'+
-            '<div class="fh-deb r">'+fhAv(m.B)+'<div class="dtext"><div class="nm">'+esc(m.B.nm)+'</div><div class="meta">'+esc(m.B.style)+'</div></div></div>'+
-          '</div>'+
-          motionHTML+
-          probBlock(m)+
-          '<div class="fh-split">'+
-            '<div class="splitrow"><span class="pa">'+pctA+'% '+esc(m.A.nm)+'</span><span class="pb">'+esc(m.B.nm)+' '+(100-pctA)+'%</span></div>'+
-            '<div class="fh-poolbar"><div class="a" style="width:'+pctA+'%"></div><div class="b" style="width:'+(100-pctA)+'%"></div></div>'+
-            '<div class="fh-meta"><span>Crowd lean · '+fmtN(tot)+' credits in play</span><span class="countdown">'+esc(st.sub||'')+'</span></div>'+
-          '</div>'+
-        '</div>'+
-        '<div class="fh-call">'+callInner+fhAside(m,w)+
-          '<a class="fh-watch" href="/live.html">Watch live rounds →</a>'+
-        '</div>'+
-      '</div>'+
-    '</div>';
-  }
-
-  var LENS = { 'BP':'Comparative weighing', 'APDA':'Hypothesis tester', 'Worlds':'Principled + practical', 'PF':'Lay + flow', 'LD':'Framework first', 'Policy':'Stock issues', 'Asian Parli':'Matter, manner, method', 'Quick Clash':'Plain-English clash' };
-  var LENS_TIP = { 'BP':'The judge weighs comparatively: which side better proved their world matters more.', 'APDA':'Hypothesis tester: does the motion hold across the likely cases, not just the one Gov picked.', 'Worlds':'Weighed on reach, magnitude and probability, across the principled and practical layer.', 'PF':'Lay + flow: tracks the arguments but rewards clear persuasion, weighing and accessible impact.', 'LD':'Framework first: the value and criterion resolve before any contention is weighed.', 'Policy':'Stock issues: the proposition must prove harms, inherency, solvency and topicality.', 'Asian Parli':'Scored on matter, manner and method, with the key clashes decided on the flow.', 'Quick Clash':'Plain-English clash: the clearer, better-warranted case wins, no jargon required.' };
-  function lensFor(f){ return LENS[f] || 'Judge ballot'; }
-  function lensTip(f){ return LENS_TIP[f] || 'Settled on the format-accurate AI judge ballot.'; }
-  function lensChip(f){ return '<span class="chip lens" title="'+esc(lensTip(f))+'">'+esc(lensFor(f))+'</span>'; }
-
-  function avHTML(d){ if(d && d.face) return '<img class="av" src="'+esc(d.face)+'" loading="lazy" decoding="async" alt="" />'; var ini=((d&&d.nm)||'?').replace(/^The\s+/i,'').charAt(0).toUpperCase(); return '<span class="av av--mono">'+esc(ini)+'</span>'; }
-
-  // inline SVG sparkline of a probability series (0..1). Colored by net direction.
-  function sparkSVG(series){
-    var n = series ? series.length : 0;
-    if(n < 2) return '';
-    var W = 320, H = 60, pad = 4;
-    var min = Math.min.apply(null, series), max = Math.max.apply(null, series);
-    var range = Math.max(max - min, 0.06);
-    min -= range*0.18; max += range*0.18; range = max - min;
-    var X = function(i){ return (pad + (i/(n-1))*(W-2*pad)).toFixed(1); };
-    var Y = function(v){ return (pad + (1-(v-min)/range)*(H-2*pad)).toFixed(1); };
-    var pts = series.map(function(v,i){ return X(i)+','+Y(v); });
-    var delta = series[n-1] - series[0];
-    var dir = Math.abs(delta) < 0.005 ? 'flat' : (delta > 0 ? 'up' : 'down');
-    var line = 'M' + pts.join(' L');
-    var area = line + ' L'+X(n-1)+','+H+' L'+X(0)+','+H+' Z';
-    var grid = 'M'+pad+','+(H*.34).toFixed(1)+' H'+(W-pad)+' M'+pad+','+(H*.67).toFixed(1)+' H'+(W-pad);
-    return '<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true">'+
-      '<path class="spark-grid" d="'+grid+'"/>'+
-      '<path class="spark-area '+dir+'" d="'+area+'" opacity="0.22"/>'+
-      '<path class="spark-line '+dir+'" d="'+line+'" vector-effect="non-scaling-stroke"/>'+
-      '<circle class="spark-dot '+dir+'" cx="'+X(n-1)+'" cy="'+Y(series[n-1])+'" r="4" vector-effect="non-scaling-stroke"/>'+
-    '</svg>';
-  }
-  // probability header (hero %) + sparkline for the favored side
-  function probBlock(m){
-    var t = m.pool.A + m.pool.B; if(!t) return '';
-    var pA = clamp(m.pool.A/t, 0.03, 0.97);
-    var fav = pA >= 0.5 ? 'A' : 'B';
-    var favProb = fav==='A' ? pA : 1-pA;
-    var hist = (m.probHist && m.probHist.length>1) ? m.probHist : [pA, pA];
-    var favHist = fav==='A' ? hist : hist.map(function(v){ return 1-v; });
-    var delta = Math.round((favHist[favHist.length-1] - favHist[0]) * 100);
-    var dir = delta === 0 ? 'flat' : (delta > 0 ? 'up' : 'down');
-    var arrow = dir==='up' ? '▲' : (dir==='down' ? '▼' : '–');
-    return '<div class="prob">'+
-      '<div class="prob-main">'+
-        '<span class="prob-pct">'+Math.round(favProb*100)+'%</span>'+
-        '<span class="prob-who">'+esc(m[fav].nm)+'</span>'+
-        '<span class="prob-move '+dir+'">'+arrow+' '+(delta>0?'+':'')+delta+'</span>'+
-      '</div>'+
-      sparkSVG(favHist)+
-      '<div class="prob-cap"><span>Implied chance · live</span><span>'+fmtN(t)+' cr pool</span></div>'+
-    '</div>';
-  }
+  function avHTML(d){ return d && d.face ? '<img class="av" src="'+esc(d.face)+'" loading="lazy" decoding="async" alt="" />' : ''; }
 
   function cardHTML(m){
     var w = windowOf(m);
@@ -1722,20 +873,21 @@
     }
 
     var mA = mult(m,'A').toFixed(2), mB = mult(m,'B').toFixed(2);
-    // Preview: mark locked but do NOT set disabled, so the click still
-    // reaches openCallDrawer() and previewBlock() can say why it refused.
-    // A dead click reads as a broken page.
     var disabled = !bettable(w) ? 'disabled' : '';
-    if(PREVIEW) disabled += ' data-locked aria-disabled="true"';
     var myA = m.myBet && m.myBet.side==='A' ? 'myA' : '';
     var myB = m.myBet && m.myBet.side==='B' ? 'myB' : '';
     var myBetLine = m.myBet
       ? '<div class="mybet">Your read: <b>'+esc(m[m.myBet.side].nm)+'</b> · '+m.myBet.stake+' cr · '+(m.myBet.window.toUpperCase())+' ('+m.myBet.mult+'x)</div>'
       : '';
 
+    var stakeSel = m.myBet || !bettable(w) ? '' :
+      '<div class="stake-sel"><span class="lab">Stake</span>' +
+      CFG.STAKES.map(function(s){ return '<button class="pill" data-stake="'+s+'" aria-pressed="'+(s===selectedStake)+'">'+s+'</button>'; }).join('') +
+      '</div>';
+
     return ''+
     '<div class="mkt '+(m.kind==='featured'?'featured':'')+'" data-mkt="'+m.id+'">'+
-      '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+lensChip(m.fmt)+
+      '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+
         '<span class="status '+st.cls+'"><span class="pip"></span>'+st.label+'</span></div>'+
       '<div class="vs">'+
         '<div class="deb">'+avHTML(m.A)+'<div class="dtext"><div class="nm">'+esc(m.A.nm)+'</div><div class="meta">'+esc(m.A.style)+'</div></div></div>'+
@@ -1743,12 +895,12 @@
         '<div class="deb deb--r">'+avHTML(m.B)+'<div class="dtext"><div class="nm">'+esc(m.B.nm)+'</div><div class="meta">'+esc(m.B.style)+'</div></div></div>'+
       '</div>'+
       motionHTML+
-      probBlock(m)+
       '<div class="poolbar"><div class="a" style="width:'+pctA+'%"></div><div class="b" style="width:'+(100-pctA)+'%"></div></div>'+
-      '<div class="poolrow"><span>'+fmtN(m.backers ? m.backers.A+m.backers.B : 0)+' predictors in</span><span>'+st.sub+'</span></div>'+
+      '<div class="poolrow"><span>'+fmtN(tot)+' cr in the pool</span><span>'+st.sub+'</span></div>'+
+      stakeSel+
       '<div class="sides">'+
-        '<button class="back '+myA+'" data-back="A" '+disabled+'><span class="back-top"><span class="back-action">Back</span><span class="back-price">'+Math.round(pctA)+'%</span></span><span class="who">'+esc(m.A.nm)+'</span><span class="mult">Returns '+mA+'x</span></button>'+
-        '<button class="back '+myB+'" data-back="B" '+disabled+'><span class="back-top"><span class="back-action">Back</span><span class="back-price">'+Math.round(100-pctA)+'%</span></span><span class="who">'+esc(m.B.nm)+'</span><span class="mult">Returns '+mB+'x</span></button>'+
+        '<button class="back '+myA+'" data-back="A" '+disabled+'><span class="who">'+esc(m.A.nm)+'</span><span class="mult">pays ~'+mA+'x</span></button>'+
+        '<button class="back '+myB+'" data-back="B" '+disabled+'><span class="who">'+esc(m.B.nm)+'</span><span class="mult">pays ~'+mB+'x</span></button>'+
       '</div>'+
       myBetLine+
     '</div>';
@@ -1760,10 +912,11 @@
     var pnl='';
     if(m.myBet){
       if(m.myBet.side===r.judge){
-        var payout = serverPayout(m);
-        pnl = '<div class="pnl up">Your call for '+esc(m[m.myBet.side].nm)+' hit · +'+fmtN(payout)+' cr</div>';
+        var payout = m.myBet.stake * (m.pool.A+m.pool.B)/m.pool[m.myBet.side];
+        var net = payout - m.myBet.stake;
+        pnl = '<div class="pnl up">Your '+m.myBet.stake+' on '+esc(m[m.myBet.side].nm)+' hit · +'+fmtN(payout)+' cr</div>';
       } else {
-        pnl = '<div class="pnl down">Your call for '+esc(m[m.myBet.side].nm)+' missed</div>';
+        pnl = '<div class="pnl down">Your '+m.myBet.stake+' on '+esc(m[m.myBet.side].nm)+' missed</div>';
       }
     } else {
       pnl = '<div class="pnl flat">No position on this one</div>';
@@ -1771,8 +924,8 @@
     var kindChip = m.kind==='featured' ? '<span class="chip kind-featured">★ Main event</span>' : (m.kind==='human'?'<span class="chip kind-human">Live human</span>':'<span class="chip kind-ai">AI vs AI</span>');
     return ''+
     '<div class="mkt resolved" data-mkt="'+m.id+'">'+
-      '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+lensChip(m.fmt)+
-        '<span class="status resolved"><span class="pip"></span>Called</span></div>'+
+      '<div class="mkt-top">'+kindChip+'<span class="chip fmt">'+m.fmt+'</span>'+
+        '<span class="status resolved"><span class="pip"></span>Resolved</span></div>'+
       '<div class="vs"><div class="deb">'+avHTML(m.A)+'<div class="dtext"><div class="nm">'+esc(m.A.nm)+'</div></div></div><span class="vsx">vs</span><div class="deb deb--r">'+avHTML(m.B)+'<div class="dtext"><div class="nm">'+esc(m.B.nm)+'</div></div></div></div>'+
       '<div class="result">'+
         '<div class="verdicts">'+
@@ -1793,27 +946,23 @@
     var roiPct = (s.roi*100);
     var cards = [
       ['Sharp Score', fmtN(s.score), 'blended predictor rating'],
-      ['Record', (u.wins||0)+'-'+((u.bets||0)-(u.wins||0)), (u.bets||0)+' predictions settled'],
+      ['Record', (u.wins||0)+'-'+((u.bets||0)-(u.wins||0)), (u.bets||0)+' calls settled'],
       ['Net P&L', (net>=0?'+':'')+fmtN(net), 'credits'],
       ['Accuracy', Math.round(s.acc*100)+'%', 'shrunk toward the mean'],
       ['Conviction', s.conviction.toFixed(2)+'x', 'avg window you commit'],
-      ['Heat', s.heat, 'current win streak']
+      ['Heat', '🔥 '+s.heat, 'current win streak']
     ];
     $('youStats').innerHTML = cards.map(function(c){
       return '<div class="stat-card"><div class="k">'+c[0]+'</div><div class="v">'+c[1]+'</div><div class="x">'+c[2]+'</div></div>';
     }).join('');
 
     var h = $('hist');
-    var txns = (SERVER.on && fbUser) ? (SERVER.txns || []) : P.txns;
-    if(!txns.length){
-      h.innerHTML = '<div class="empty">'+(SERVER.on && !fbUser ? 'Sign in to load your live ledger.' : 'No activity yet. Make a prediction on the board to get on it.')+'</div>';
-      return;
-    }
-    h.innerHTML = txns.slice(0,18).map(function(t){
+    if(!P.txns.length){ h.innerHTML = '<div class="empty">No activity yet. Back a side on the Live board to get on the board.</div>'; return; }
+    h.innerHTML = P.txns.slice(0,18).map(function(t){
       var up = t.amount>0, isStake = t.type==='stake';
       var cls = isStake ? '' : (up?'up':'down');
       var sign = t.amount>0?'+':'';
-      return '<div class="hist-row"><div><div>'+esc(t.note || 'Ledger update')+'</div><div class="t">'+rel(t.ts || now())+'</div></div>'+
+      return '<div class="hist-row"><div><div>'+esc(t.note)+'</div><div class="t">'+rel(t.ts)+'</div></div>'+
              '<div class="amt '+cls+'">'+sign+fmtN(t.amount)+'</div></div>';
     }).join('');
   }
@@ -1827,25 +976,6 @@
       '<span>Conviction <b>'+s.conviction.toFixed(2)+'x</b></span>'+
       '<span>Heat <b>'+s.heat+'</b></span>'+
       '<span>Reliability <b>'+Math.round(s.reliability*100)+'%</b></span>';
-
-    // Server mode: the REAL cross-browser leaderboard from the shared
-    // ledger (floor_users, name/photo stamped at bet time by floor-bet).
-    // The bots exist for the offline demo only — they never outrank a
-    // real person on the live board.
-    if (SERVER.on && SERVER.leaderboard && SERVER.leaderboard.length){
-      var myUid = fbUser ? fbUser.uid : null;
-      $('sharpLb').innerHTML = SERVER.leaderboard.map(function(r, i){
-        var isMe = myUid && r.uid === myUid;
-        var nm = isMe ? 'You' : (r.name || ('Predictor ' + String(r.uid||'').slice(0, 4)));
-        var streak = (r.streak||0) >= 3 ? '<span class="title-tag gold">'+r.streak+' streak</span>' : '';
-        return '<div class="lb-row '+(isMe?'me':'')+'">'+
-          '<div class="lb-rank">'+(i+1)+'</div>'+
-          '<div><div class="lb-name">'+esc(nm)+streak+'</div>'+
-            '<div class="lb-sub">'+(r.wins||0)+' wins · '+(r.bets||0)+' calls</div></div>'+
-          '<div class="lb-score">'+fmtN(r.sharpScore||600)+'<span class="u">sharp</span></div></div>';
-      }).join('');
-      return;
-    }
 
     var meRow = { id:'me', nm:P.handle, title:(P.predictorProfile||titleFor(s)), tag:'', score:s.score, acc:s.acc, edge:s.roi, me:true };
     var rows = BOTS.concat([meRow]).sort(function(a,b){ return b.score-a.score; });
@@ -1890,14 +1020,19 @@
   }
 
   // ---------------------------------------------------------------
-  // THEME
+  // THEME (light / dark)
   // ---------------------------------------------------------------
   var THEME_KEY='floor-theme';
   function applyTheme(t){
-    document.documentElement.setAttribute('data-theme', 'light');
-    try{ localStorage.setItem(THEME_KEY, 'light'); }catch(e){}
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+    var b=$('themeBtn'); if(b) b.textContent = (t==='light') ? '☾' : '☀';
   }
-  applyTheme('light');
+  (function(){ var t='dark'; try{ t=localStorage.getItem(THEME_KEY)||'dark'; }catch(e){} applyTheme(t); })();
+  $('themeBtn').addEventListener('click', function(){
+    var cur=document.documentElement.getAttribute('data-theme');
+    applyTheme(cur==='light' ? 'dark' : 'light');
+  });
 
   // ---------------------------------------------------------------
   // GET-TO-KNOW-YOU (first visit): 3 questions, one at a time, builds a
@@ -1949,14 +1084,6 @@
       $('gtkyGo').addEventListener('click', function(){ gtkyFinish(prof); });
     }
   }
-  // The welcome toast waits its turn: if the tutorial is about to open,
-  // firing it immediately buries it under the overlay.
-  var pendingWelcome = null;
-  function flushWelcome(delay){
-    if(!pendingWelcome) return;
-    var msg = pendingWelcome; pendingWelcome = null;
-    setTimeout(function(){ toast(msg,''); }, delay||0);
-  }
   function gtkyFinish(prof){
     document.documentElement.classList.remove('gtky-first');
     $('gtkyOverlay').classList.remove('on');
@@ -1964,14 +1091,7 @@
     if(prof&&prof.t){ P.predictorProfile = prof.t; P.seenWelcome = true; save(); }
     revealed = {}; // let the board animate in as the intro closes
     render();
-    if(prof&&prof.t){ pendingWelcome = 'Welcome, <b>'+esc(prof.t)+'</b>. You have '+fmtN(P.credits)+' credits. Predict before the motion drops for the biggest Sharp boost.'; }
-    // The quiz owns the first slot, the mechanics own the second. Until
-    // 2026-07-22 the tutorial opened only from the "? How it works"
-    // button, so a first-timer met a live prediction market having been
-    // told nothing about how predicting works. It opens after render()
-    // so the steps land against a board that is already there.
-    if(!tutSeen()) setTimeout(openTut, 420);
-    else flushWelcome(500);
+    if(prof&&prof.t){ setTimeout(function(){ toast('Welcome, <b>'+esc(prof.t)+'</b>. You have '+fmtN(P.credits)+' credits. Back a side before the motion drops for the biggest Sharp boost.',''); }, 500); }
   }
   function gtkyOpen(){ gtkyAns={}; gtkyI=0; gtkyRender(); $('gtkyOverlay').classList.add('on'); }
   (function(){ var done=false; try{ done=!!localStorage.getItem(GTKY_KEY); }catch(e){} if(!done) gtkyOpen(); })(); // synchronous so the overlay is filled before first paint (no board flash)
@@ -1981,11 +1101,11 @@
   // ---------------------------------------------------------------
   var TUT_KEY='floor-tutorial-seen';
   var TUT_STEPS=[
-    {ico:'🎯', t:'Read the round', b:'The Floor turns every matchup into a call. These are exhibition rounds between AI debater personas, and the outcome is modeled from their form. Spend play credits on the debater you think takes it. Read it right and you score. Play credits only, no cash value.'},
-    {ico:'⏱', t:'Three windows to predict', b:'Predict before the motion even drops (blind, scores highest), after you see the topic, or live until the round hits halftime. The earlier you commit, the more your Sharp Score grows.'},
-    {ico:'⚖', t:'Two verdicts, one round', b:'When the round ends the modeled outcome posts and credits go to the correct reads. The crowd reads it too, and when the result and the room disagree, that split is the whole show.'},
-    {ico:'📈', t:'Confidence shapes the score', b:'The more the crowd leans onto one debater, the less a correct read on that side returns. The edge is spotting the underdog the room is sleeping on.'},
-    {ico:'🏆', t:'Climb two boards', b:'Sharpest Predictors ranks your read on the round. Biggest Draws ranks the debaters people show up for. Be the sharpest, or become someone worth watching.'}
+    {ico:'🎯', t:'Predict who wins', b:'The Floor turns every debate into a market. Back the debater you think wins and climb the board. Play credits only, no cash. The status is the prize.'},
+    {ico:'⏱', t:'Three windows to call it', b:'Back a side before the motion even drops (blind, biggest reward), after you see the topic, or live until the round hits halftime. The earlier you commit, the more your Sharp Score grows.'},
+    {ico:'⚖', t:'Two verdicts settle it', b:'When the round ends the AI judge calls the winner and pays the pool pro-rata. The crowd votes too, and when the judge and the room disagree, that split is the whole show.'},
+    {ico:'📈', t:'Odds move with the money', b:'Pools are pari-mutuel: the more the crowd piles onto one debater, the smaller that side pays. The edge is spotting the underdog the room is sleeping on.'},
+    {ico:'🏆', t:'Climb two boards', b:'Sharpest Predictors ranks your read on the game. Biggest Draws ranks the debaters people show up for. Be the sharpest, or become someone worth betting on.'}
   ];
   var tutI=0;
   function renderTut(){
@@ -1995,23 +1115,15 @@
     $('tutBack').style.visibility = tutI===0 ? 'hidden' : 'visible';
     $('tutNext').textContent = (tutI===TUT_STEPS.length-1) ? 'Got it' : 'Next';
   }
-  function tutSeen(){ try{ return localStorage.getItem(TUT_KEY)==='1'; }catch(e){ return false; } }
   function openTut(){ tutI=0; renderTut(); $('tutOverlay').classList.add('on'); }
-  function closeTut(){ $('tutOverlay').classList.remove('on'); try{ localStorage.setItem(TUT_KEY,'1'); }catch(e){} flushWelcome(400); }
+  function closeTut(){ $('tutOverlay').classList.remove('on'); try{ localStorage.setItem(TUT_KEY,'1'); }catch(e){} }
   $('helpBtn').addEventListener('click', openTut);
   $('tutSkip').addEventListener('click', closeTut);
   $('tutBack').addEventListener('click', function(){ if(tutI>0){ tutI--; renderTut(); } });
   $('tutNext').addEventListener('click', function(){ if(tutI<TUT_STEPS.length-1){ tutI++; renderTut(); } else closeTut(); });
   $('tutOverlay').addEventListener('click', function(e){ if(e.target===$('tutOverlay')) closeTut(); });
-  // The tutorial now follows the get-to-know-you intro on a first visit
-  // (see gtkyFinish). "How it works" still reopens it anytime.
-  // Backfill: everyone who took the quiz before the two were chained
-  // together has never seen the mechanics at all. Show them once, on a
-  // short delay so the board paints first.
-  (function(){
-    var gtkyDone=false; try{ gtkyDone=!!localStorage.getItem(GTKY_KEY); }catch(e){}
-    if(gtkyDone && !tutSeen()) setTimeout(openTut, 900);
-  })();
+  // Tutorial no longer auto-opens on first visit — the get-to-know-you
+  // intro owns that slot. "How it works" reopens the mechanics anytime.
 
   // ---------------------------------------------------------------
   // TABS
@@ -2035,7 +1147,6 @@
       var w = windowOf(m);
       if(w==='resolve' && !m.settled) resolve(m);
       else if(bettable(w)) driftPool(m, w);
-      if(!m.settled) pushProb(m);
     });
     render();
   }
@@ -2050,64 +1161,24 @@
       m.createdAt -= shift; m.motionRevealAt -= shift; m.roundStartAt -= shift;
       m.midpointAt -= shift; m.resolveAt -= shift;
       m.pool.A += rnd(20,140); m.pool.B += rnd(20,140);
-      m.probHist = seedHist(m);
       MARKETS.push(m);
     }
-    if(!P.seenWelcome){ P.seenWelcome=true; save(); setTimeout(function(){ toast('Welcome to The Floor. You have <b>'+fmtN(P.credits)+' credits</b>. Predict before the motion drops for the biggest Sharp boost.',''); }, 700); }
+    if(!P.seenWelcome){ P.seenWelcome=true; save(); setTimeout(function(){ toast('Welcome to The Floor. You have <b>'+fmtN(P.credits)+' credits</b>. Back a side before the motion drops for the biggest Sharp boost.',''); }, 700); }
   })();
 
   render();
   setInterval(tick, 1000);
 
-  // connect to the live server ledger (falls back to the local demo if unreachable)
+  // ── connect to the live server ledger (falls back to the local demo if unreachable) ──
   (function(){
     var sb = $('signBtn');
     if(sb) sb.addEventListener('click', function(){ if(fbUser){ try{ fbAuth.signOut(); }catch(e){} } else signIn(); });
   })();
   initFirebase();
-  refreshServer({ force:true });
-  startServerPolling();
+  refreshServer();
+  setInterval(refreshServer, 10000);
 
 })();
 </script>
-<script>
-/* Fine-pointer depth. Market cards still work and remain flat on touch,
-   keyboard navigation, and reduced-motion setups. */
-(function(){
-  if (!window.matchMedia || !window.matchMedia('(pointer:fine)').matches || window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
-  var active = null;
-  var frame = 0;
-  var px = 0;
-  var py = 0;
-
-  function reset(card){
-    if (!card) return;
-    card.style.setProperty('--tiltX','0deg');
-    card.style.setProperty('--tiltY','0deg');
-  }
-  function paint(){
-    frame = 0;
-    if (!active || !document.documentElement.contains(active)) return;
-    var r = active.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    var x = Math.max(0,Math.min(1,(px-r.left)/r.width));
-    var y = Math.max(0,Math.min(1,(py-r.top)/r.height));
-    active.style.setProperty('--tiltX',((.5-y)*2.2).toFixed(2)+'deg');
-    active.style.setProperty('--tiltY',((x-.5)*2.8).toFixed(2)+'deg');
-  }
-  document.addEventListener('pointermove',function(e){
-    var card = e.target.closest && e.target.closest('.mkt');
-    if (!card){ reset(active); active = null; return; }
-    if (card !== active){ reset(active); active = card; }
-    px = e.clientX; py = e.clientY;
-    if (!frame) frame = requestAnimationFrame(paint);
-  },{passive:true});
-  document.addEventListener('pointerout',function(e){
-    if (!active || (e.relatedTarget && active.contains(e.relatedTarget))) return;
-    reset(active); active = null;
-  },{passive:true});
-})();
-</script>
-<script defer src="/js/read-aloud.js"></script>
 </body>
 </html>
