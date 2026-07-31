@@ -595,6 +595,16 @@ service cloud.firestore {
       }
     }
 
+    // ── rfd_ratings (WS1 Phase 3: quality validation) ────────────────
+    // Blind inter-rater review scores for RFD quality. Doc ID = roundId:raterUid.
+    // Each signed-in user can rate each RFD once (upsert). Five dimensions scored 1-5.
+    // Server-side admin SDK (compute-rfd-metrics) reads all ratings for metrics.
+    match /rfd_ratings/{ratingId} {
+      allow read:   if isSignedIn();  // All signed-in users can read (public for transparency)
+      allow create, update: if isSignedIn();
+      allow delete: if false;  // Ratings are immutable; no revisions
+    }
+
     // ── waitlist_posts ───────────────────────────────────────────────
     // /spar left-rail "open invites" board. Anyone signed in can read
     // the board; you can only create/edit/delete your own post. Note
