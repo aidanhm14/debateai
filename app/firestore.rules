@@ -574,6 +574,23 @@ service cloud.firestore {
         allow create, update, delete: if false;  // server-side only
       }
 
+      // ── polls (WS2 Phase 2: mid-debate polling) ─────────────────────
+      // Live polls during voice rounds; questions generated server-side,
+      // responses collected per poll. Doc ID = pollNumber (1, 2, 3, ...).
+      // Public read (for admin dashboards); server-side write via /api/log-poll-response.
+      match /polls/{pollNumber} {
+        allow read:   if true;  // admin aggregation + WS3 analytics
+        allow create, update: if false;  // server-side only
+        allow delete: if false;  // polls are immutable
+
+        // Responses: one doc per responder, doc ID = userId (or anon-timestamp)
+        match /responses/{responseId} {
+          allow read:   if true;  // public aggregation
+          allow create: if true;  // signed-in users OR anon can respond
+          allow update, delete: if false;  // responses are immutable
+        }
+      }
+
       // ── votes (WS2 pre/post spectator voting) ──────────────────────
       // Anonymous audience votes on recorded debates. Doc ID = voterId
       // (signed device cookie hash; permanent 365d). Spectators answer

@@ -6199,6 +6199,26 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
     }
   }, [status]);
 
+  // WS2 Phase 2: Start/stop mid-debate polling
+  useEffect(() => {
+    if (status === 'live' && typeof window.LivePollWidget !== 'undefined' && lastVoiceRoundIdRef.current && motion) {
+      var getCurrentArg = function() {
+        var current = currentAiTurnRef.current || currentUserTurnRef.current;
+        return (current && current.text) || motion;
+      };
+      var getElapsed = function() {
+        return startedAtRef.current ? Date.now() - startedAtRef.current : 0;
+      };
+      window.LivePollWidget.start(lastVoiceRoundIdRef.current, motion, {
+        getCurrentArg: getCurrentArg,
+        getElapsed: getElapsed,
+        interval: 90000
+      });
+    } else if (status !== 'live' && typeof window.LivePollWidget !== 'undefined') {
+      window.LivePollWidget.stop();
+    }
+  }, [status, motion]);
+
   // Arena: interrupt shock. Each time the user cuts the AI off
   // (interruptFlash bumps), flip interruptShock on for ~0.7s so the
   // arena visibly reacts — flash wash + the AI entity recoils — then
@@ -8650,5 +8670,6 @@ root.render(el(App));</script>
   Feedback
 </a>
 <script defer src="/js/notifications.js"></script>
+<script defer src="/js/live-poll-widget.js"></script>
 </body>
 </html>
