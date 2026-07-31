@@ -267,7 +267,10 @@
     //   Leaderboard-> off the bar since 2026-07-02, and staying off.
     { href: '/get-paid-to-debate', label: 'Money'       },
     { href: '/judge-integrity',    label: 'Judging'     },
-    { href: '/leaderboard',        label: 'Leaderboard' },
+    // `strong` bolds the row in the Explore menu. Leaderboard is the one
+    // page in the Debate column a returning debater comes back for, so it
+    // carries more weight than the rows around it.
+    { href: '/leaderboard',        label: 'Leaderboard', strong: true },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
@@ -587,7 +590,8 @@
           var a = el('a', {
             href: L.href,
             role: 'menuitem',
-            class: 'ui-topbar-more-item' + (pathMatches(L.href) ? ' is-active' : ''),
+            class: 'ui-topbar-more-item' + (pathMatches(L.href) ? ' is-active' : '')
+                     + (L.strong ? ' is-strong' : ''),
           }, [
             el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon(L.href) }),
             el('span', { class: 'ui-topbar-more-item-text' }, [
