@@ -4251,6 +4251,12 @@ function App() {
   var latencyMarkRef = useRef({ sessionStart: 0, sessionMint: 0, firstAiAudio: 0 });
   var pendingTurnsRef = useRef([]);
   var flushTurnsTimerRef = useRef(null);
+  // WS1 Phase 2: Network resilience (30s drop recovery)
+  var isDisconnectedRef = useRef(false);
+  var disconnectTimeRef = useRef(0);
+  var queuedTurnsWhileDisconnectedRef = useRef([]);
+  var reconnectAttemptRef = useRef(0);
+  var maxReconnectAttemptsRef = useRef(3);
 
   function funnel(step, extra, allowRepeat) {
     try {
@@ -4304,6 +4310,27 @@ function App() {
     if (flushTurnsTimerRef.current) return;
     flushTurnsTimerRef.current = setTimeout(flushPendingTurns, 5000);
   }, [flushPendingTurns]);
+
+  // WS1 Phase 2: Queue turns that arrive while disconnected
+  var queueTurnIfDisconnected = useCallback((turn) => {
+    if (isDisconnectedRef.current) {
+      queuedTurnsWhileDisconnectedRef.current.push(turn);
+      return true;
+    }
+    return false;
+  }, []);
+
+  // WS1 Phase 2: Replay queued turns after reconnection
+  var replayQueuedTurns = useCallback(() => {
+    var queued = queuedTurnsWhileDisconnectedRef.current.splice(0);
+    if (queued.length > 0) {
+      console.log('[voice-debate] replaying ' + queued.length + ' queued turns after reconnect');
+      // Re-inject turns into the turn stream; they'll be persisted via the normal flow
+      for (var i = 0; i < queued.length; i++) {
+        upsertTurn(queued[i]);
+      }
+    }
+  }, [upsertTurn]);
   // End-session two-step confirm. First click arms the button (label
   // swaps to "End for real?"); a second click within 4s actually calls
   // stop(). Auto-disarms after the timeout. Matches the resetStreakBtn
@@ -4633,6 +4660,10 @@ function App() {
   /* ── Turn helpers ─────────────────────────────── */
 
   var upsertTurn = useCallback((turn) => {
+    // WS1 Phase 2: Buffer turns if currently disconnected
+    if (queueTurnIfDisconnected(turn)) {
+      return;
+    }
     setTurns((prev) => {
       var idx = prev.findIndex((t) => t.id === turn.id);
       if (idx >= 0) {
@@ -4645,7 +4676,7 @@ function App() {
     // Queue turn for incremental flush (WS1: transcript resilience)
     pendingTurnsRef.current.push(turn);
     scheduleNextFlush();
-  }, [scheduleNextFlush]);
+  }, [scheduleNextFlush, queueTurnIfDisconnected]);
   // Per-turn documentation metadata, stamped at turn creation so the
   // saved transcript can show WHEN (session-relative) and in WHICH
   // speech each exchange happened. `t` is ms since the round clock
@@ -4675,6 +4706,12 @@ function App() {
     if (pendingTurnsRef.current.length > 0 && lastVoiceRoundIdRef.current) {
       flushPendingTurns().catch(e => console.warn('[cleanup] final flush failed:', e));
     }
+
+    // WS1 Phase 2: Clear network resilience state
+    isDisconnectedRef.current = false;
+    disconnectTimeRef.current = 0;
+    queuedTurnsWhileDisconnectedRef.current = [];
+    reconnectAttemptRef.current = 0;
 
     if (tickRef.current) {clearInterval(tickRef.current);tickRef.current = null;}
     if (micPollRef.current) {clearInterval(micPollRef.current);micPollRef.current = null;}
@@ -5489,17 +5526,58 @@ function App() {
         if (statusRef.current !== 'live') return;
         if (cs === 'failed' || cs === 'closed') {
           if (connDropTimerRef.current) {clearTimeout(connDropTimerRef.current);connDropTimerRef.current = null;}
+          // WS1 Phase 2: Clear disconnect state on hard failure
+          isDisconnectedRef.current = false;
+          queuedTurnsWhileDisconnectedRef.current = [];
           try {stopRef.current && stopRef.current('Connection lost. The round ended early.');} catch (e) {}
         } else if (cs === 'disconnected') {
+          // WS1 Phase 2: Mark as disconnected, start buffering turns
+          if (!isDisconnectedRef.current) {
+            isDisconnectedRef.current = true;
+            disconnectTimeRef.current = Date.now();
+            queuedTurnsWhileDisconnectedRef.current = [];
+            addSystem('⚠ Connection lost. Attempting to reconnect…');
+            if (typeof gtag === 'function') {
+              gtag('event', 'voice_network_disconnect', {
+                session_id: lastVoiceRoundIdRef.current || ''
+              });
+            }
+          }
           if (connDropTimerRef.current) return;
           connDropTimerRef.current = setTimeout(() => {
             connDropTimerRef.current = null;
-            if (pc.connectionState !== 'connected' && statusRef.current === 'live') {
-              try {stopRef.current && stopRef.current('Connection lost. The round ended early.');} catch (e) {}
+            if (pc.connectionState !== 'connected' && statusRef.current === 'live' && isDisconnectedRef.current) {
+              // Attempt reconnect instead of immediately ending
+              if (reconnectAttemptRef.current < maxReconnectAttemptsRef.current) {
+                reconnectAttemptRef.current++;
+                addSystem('Reconnect attempt ' + reconnectAttemptRef.current + ' of ' + maxReconnectAttemptsRef.current + '…');
+                // The reconnect will be attempted by the realtime event handler
+                // when it detects the need to re-establish the session
+              } else {
+                isDisconnectedRef.current = false;
+                queuedTurnsWhileDisconnectedRef.current = [];
+                try {stopRef.current && stopRef.current('Connection lost after ' + maxReconnectAttemptsRef.current + ' reconnect attempts.');} catch (e) {}
+              }
             }
           }, 6000);
         } else if (cs === 'connected') {
           if (connDropTimerRef.current) {clearTimeout(connDropTimerRef.current);connDropTimerRef.current = null;}
+          // WS1 Phase 2: Reconnection successful, clear disconnect state
+          if (isDisconnectedRef.current) {
+            isDisconnectedRef.current = false;
+            addSystem('✓ Reconnected. Resuming…');
+            if (typeof gtag === 'function') {
+              var dropDuration = Date.now() - disconnectTimeRef.current;
+              gtag('event', 'voice_network_reconnect', {
+                session_id: lastVoiceRoundIdRef.current || '',
+                drop_duration_ms: dropDuration,
+                attempt_number: reconnectAttemptRef.current
+              });
+            }
+            // Replay any turns that arrived while disconnected
+            replayQueuedTurns();
+            reconnectAttemptRef.current = 0;
+          }
         }
       };
 
