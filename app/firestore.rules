@@ -20,14 +20,6 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
-    function isAtlasAdmin() {
-      return isSignedIn()
-        && (request.auth.uid == 'Dh2EqyEdPGX2cCOAxLzMk9nAlUV2'
-            || request.auth.token.email in ['andreacasagrandecaron@gmail.com']
-            || (exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid))
-                && get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.isAdmin == true));
-    }
-
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -67,32 +59,9 @@ service cloud.firestore {
     }
 
     // ── user_profiles ────────────────────────────────────────────────
-    // Doc ID = uid. Users can read/write ONLY their own profile, and can
-    // NEVER set privileged fields from the client. isAdmin + entitlement
-    // fields are Admin-SDK-only (the server bypasses these rules). Letting
-    // the browser write them was a full admin-takeover hole: a user could
-    // set isAdmin:true on their own doc and every admin-* endpoint +
-    // isAtlasAdmin() would then trust them. Every legit client write is a
-    // prefs / settings / corpus field, none of which are in the denylist.
-    function noPrivProfileFields(keys) {
-      return !keys.hasAny([
-        'isAdmin', 'admin', 'role', 'roles',
-        'plan', 'tier', 'isPro', 'pro', 'premium', 'lifetime',
-        'entitlement', 'entitlements',
-        'credits', 'playCredits', 'prizeCredits',
-        'subscription', 'subscriptionStatus',
-        'stripeCustomerId', 'stripeSubscriptionId',
-        'weight', 'exemplarWeight', 'ratingWeight',
-        'verified', 'banned'
-      ]);
-    }
+    // Doc ID = uid. Users can only touch their own profile.
     match /user_profiles/{uid} {
-      allow read, delete: if isOwner(uid);
-      allow create: if isOwner(uid)
-                    && noPrivProfileFields(request.resource.data.keys());
-      allow update: if isOwner(uid)
-                    && noPrivProfileFields(
-                         request.resource.data.diff(resource.data).affectedKeys());
+      allow read, write: if isOwner(uid);
     }
 
     // ── shared_cases ─────────────────────────────────────────────────
@@ -121,7 +90,7 @@ service cloud.firestore {
       // effect: voters can bump the score, but can't rewrite the case.
       function onlyVoteFieldsChanged() {
         let changed = request.resource.data.diff(resource.data).affectedKeys();
-        return changed.hasOnly(['voteScore', 'voteCount', 'commentCount']);
+        return changed.hasOnly(['voteScore', 'voteCount']);
       }
       allow update: if isSignedIn()
                     && (
@@ -146,22 +115,6 @@ service cloud.firestore {
                       && voterUid == request.auth.uid
                       && request.resource.data.vote in [-1, 0, 1];
         allow delete: if isSignedIn() && voterUid == request.auth.uid;
-      }
-
-      // Discussion thread on a shared case (2026-07-19). Any signed-in
-      // user can read + post; authors can edit or delete their own
-      // comment. commentCount on the parent doc is maintained by the
-      // commenting client via onlyVoteFieldsChanged above.
-      match /comments/{commentId} {
-        allow read:   if isSignedIn();
-        allow create: if isSignedIn()
-                      && request.resource.data.authorUid == request.auth.uid
-                      && stringUnder('text', 1200);
-        allow update: if isSignedIn()
-                      && resource.data.authorUid == request.auth.uid
-                      && request.resource.data.authorUid == request.auth.uid
-                      && stringUnder('text', 1200);
-        allow delete: if isSignedIn() && resource.data.authorUid == request.auth.uid;
       }
     }
 
@@ -252,7 +205,7 @@ service cloud.firestore {
     // Per-room synced state for the AI-judged 2-human round flow:
     // motion, format, speaker names + UIDs, completed speech log,
     // current speech index, and the AI ballot once generated. Doc ID
-    // is the deterministic room slug (a legacy app prefix plus challengeId, or a
+    // is the deterministic room slug (DebateIt-<challengeId> or a
     // randomly-generated room name shared via URL).
     //
     // Read = any signed-in user (links are shared between speakers,
@@ -611,49 +564,25 @@ service cloud.firestore {
                     && stringUnder('motion', 1024)
                     && stringUnder('rfd', 20000);
       allow update, delete: if false;
-    }
 
-    // ── voice_transcripts ────────────────────────────────────────────
-    // Incremental capture of what was actually said in a spoken round,
-    // written DURING the round by app/js/voice-transcript.js.
-    //
-    // Distinct from voice_rounds above, which is a finished-ballot
-    // artifact: written once inside generateRFD, publicly readable
-    // because a ballot can be shared, and immutable after creation. A
-    // round abandoned before the ballot never produces one.
-    //
-    // These are private. A transcript is a recording of a person
-    // speaking, they consented to storage rather than to publication,
-    // and nothing on the site renders someone else's. Read is owner-only
-    // even though the ballot built from it may be public.
-    //
-    // The header is mutable by its owner because status, counts and the
-    // eventual score land as the round progresses. The uid is pinned on
-    // update so a document cannot be reassigned to another account.
-    match /voice_transcripts/{transcriptId} {
-      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
-      allow create: if isSignedIn()
-                    && request.resource.data.uid == request.auth.uid
-                    && stringUnder('motion', 1024)
-                    && stringUnder('surface', 64);
-      allow update: if isSignedIn()
-                    && resource.data.uid == request.auth.uid
-                    && request.resource.data.uid == resource.data.uid;
-      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
-
-      // Append-only. Chunks are never updated or deleted, so a stored
-      // transcript cannot be quietly edited after the fact, which is
-      // what makes it usable as a record of the round.
-      //
-      // Ownership is checked against the uid ON THE CHUNK rather than by
-      // get()-ing the parent header. A get() inside a rule is a billed
-      // read on every single chunk write, and capture writes a chunk
-      // every ten seconds of every round.
-      match /chunks/{seq} {
-        allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
-        allow create: if isSignedIn()
-                      && request.resource.data.uid == request.auth.uid;
-        allow update, delete: if false;
+      // ── votes (WS2 pre/post spectator voting) ──────────────────────
+      // Anonymous audience votes on recorded debates. Doc ID = voterId
+      // (signed device cookie hash; permanent 365d). Spectators answer
+      // pre (before playback) and post (after ballot) questions:
+      // "which side do you agree with" + "confidence 0-100".
+      // Public write so any spectator with the unguessable voice_rounds
+      // link can cast votes. Rate limit + trust_weight (server-side) guard
+      // against spam and bot clusters (same-IP repeaters, vote-lag <5s,
+      // etc.; see /api/log-vote for details).
+      // Side values: 'gov' (government), 'opp' (opposition), null (unsure)
+      match /votes/{voterId} {
+        allow read:   if true;  // public; vote counts visible during async playback
+        allow create: if request.resource.data.phase in ['pre', 'post']
+                      && request.resource.data.side in ['gov', 'opp', null]
+                      && (request.resource.data.confidence == null
+                          || (request.resource.data.confidence >= 0
+                              && request.resource.data.confidence <= 100));
+        allow update, delete: if false;  // votes are immutable; no revisions
       }
     }
 
@@ -677,22 +606,10 @@ service cloud.firestore {
     // check the EXISTING doc. update is intentionally open to either
     // participant so the sender can bump lastMessage + increment the
     // recipient's unread counter, and the recipient can zero their own
-    // unread on read — both are participant-scoped writes, so the unread
-    // map must stay writable by BOTH sides (no own-key-only restriction).
+    // unread on read — both are participant-scoped writes.
     match /dm_threads/{threadId} {
-      allow read: if isSignedIn()
+      allow read, update: if isSignedIn()
                     && request.auth.uid in resource.data.participants;
-      // Membership is frozen on update: neither side can eject the other,
-      // swap them out, or inject a third uid (2026-07-18 hardening; before
-      // this, either participant could rewrite the whole doc including the
-      // participants array). Set-compare rather than list ==, because the
-      // stored array ORDER legitimately varies: spar's openDMThread and
-      // live-round's sendDm write [self, peer] while the doc may hold the
-      // sorted pair, so strict equality would deny real sends.
-      allow update: if isSignedIn()
-                    && request.auth.uid in resource.data.participants
-                    && request.resource.data.participants.toSet()
-                       == resource.data.participants.toSet();
       // Create is open to any signed-in user (named OR guest, since
       // 2026-06-16) as long as they put THEMSELVES in the participants
       // array — you can't fabricate a thread you're not in. The
@@ -814,23 +731,6 @@ service cloud.firestore {
                             && request.resource.data.screenshots.size() <= 2));
     }
 
-    // ── opinion_deltas ───────────────────────────────────────────────
-    // Persuasion capture from /spectate: a spectator's stance before the
-    // round, the timestamps of every "that moved me" tap during it, and
-    // the restated stance after the ballot. Written ONLY by the
-    // log-opinion-delta Netlify function via the Admin SDK (which
-    // bypasses these rules), so the client can neither forge a row nor
-    // edit someone else's. Ownership is checked in the function against
-    // the caller's anonId/uid before any update lands.
-    //
-    // Reads are closed too: a spectator holds their own doc id locally
-    // and never needs to read it back, and the aggregate ("what share
-    // of the room flipped") is an admin-side query. Opening reads here
-    // would expose one visitor's stance history to any other client.
-    match /opinion_deltas/{docId} {
-      allow read, write: if false;
-    }
-
     // ── votes (collection group) ─────────────────────────────────────
     // Authorizes the collectionGroup('votes') hydration on /community:
     // path-scoped vote rules above never authorize group queries. The
@@ -840,399 +740,6 @@ service cloud.firestore {
     match /{path=**}/votes/{voterUid} {
       allow read: if isSignedIn()
                   && resource.data.uid == request.auth.uid;
-    }
-
-    // ── atlas_pipeline (Debate Atlas shared outreach tracker) ────────
-    // One doc per program (slug id). Read is public so the /atlas map can
-    // be shared with investors as a live link. Writes need a signed-in
-    // named (non-anonymous) account, are self-attributed via `by`, and
-    // the status is enum-validated. The URL is unlisted; tighten to an
-    // explicit editor allowlist later if the team grows.
-    match /atlas_pipeline/{slug} {
-      allow read: if true;
-      allow create, update: if isNamedAccount()
-        && request.resource.data.status in ['prospect', 'contacted', 'partnered']
-        && request.resource.data.by == request.auth.uid
-        && request.resource.data.name is string
-        && request.resource.data.name.size() <= 160;
-      allow delete: if isNamedAccount();
-    }
-
-    // ── atlas_contacts (admin-only email store for the outreach CRM) ─
-    // Coach / program / national-org emails live here, readable ONLY by
-    // atlas admins, so they never sit in the public client bundle.
-    // Written server-side via an admin token, never by clients.
-    // (Ported back into the repo 2026-07-01: this block was live in the
-    // deployed ruleset since 2026-06-25 but never committed, so the repo
-    // file was BEHIND deployed. Keep repo == deployed.)
-    match /atlas_contacts/{doc} {
-      allow read: if isAtlasAdmin();
-      allow write: if false;
-    }
-
-    // ── public_profiles (debater-facing public profile cards) ────────
-    // The profile a debater chooses to show other debaters: display name,
-    // school/program, circuit, formats, short bio. Public read (powers
-    // /messages thread headers + profile cards); owner-only write with
-    // hard field caps. NO contact fields by design: DMs are the contact
-    // channel, so emails/phones never sit in a public collection. Named
-    // accounts only (a guest has no durable identity worth a profile).
-    match /public_profiles/{uid} {
-      allow read: if true;
-      allow create, update: if isNamedAccount()
-        && request.auth.uid == uid
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 60
-        && (!('school' in request.resource.data) || (request.resource.data.school is string && request.resource.data.school.size() <= 80))
-        && (!('circuit' in request.resource.data) || (request.resource.data.circuit is string && request.resource.data.circuit.size() <= 60))
-        && (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 280))
-        && (!('formats' in request.resource.data) || (request.resource.data.formats is list && request.resource.data.formats.size() <= 8))
-        && (!('photo' in request.resource.data) || (request.resource.data.photo is string && request.resource.data.photo.size() <= 400));
-      allow delete: if isSignedIn() && request.auth.uid == uid;
-    }
-
-    // ── atlas_submissions (community "add your program" pins) ────────
-    // Signed-in named accounts add a pin (self-attributed, validated, in
-    // range). Authors can edit/withdraw their own; atlas admins can
-    // remove or verify any. Read is public so pins show on the map.
-    match /atlas_submissions/{id} {
-      allow read: if true;
-      allow create: if isNamedAccount()
-        && request.resource.data.by == request.auth.uid
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 160
-        && (!('city' in request.resource.data) || (request.resource.data.city is string && request.resource.data.city.size() <= 120))
-        && (!('country' in request.resource.data) || (request.resource.data.country is string && request.resource.data.country.size() <= 80))
-        && request.resource.data.lat is number && request.resource.data.lat >= -85 && request.resource.data.lat <= 85
-        && request.resource.data.lng is number && request.resource.data.lng >= -180 && request.resource.data.lng <= 180
-        && request.resource.data.lvl in ['college', 'hs'];
-      allow update: if isSignedIn() && (resource.data.by == request.auth.uid || isAtlasAdmin());
-      allow delete: if isSignedIn() && (resource.data.by == request.auth.uid || isAtlasAdmin());
-    }
-
-    // ── atlas_members (debaters place themselves on the globe) ───────
-    // One doc per user (keyed by uid). A signed-in named account writes
-    // only its own member pin; anyone can read; admins can remove.
-    match /atlas_members/{uid} {
-      allow read: if true;
-      allow write: if isNamedAccount() && uid == request.auth.uid
-        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
-        && request.resource.data.lat is number && request.resource.data.lat >= -85 && request.resource.data.lat <= 85
-        && request.resource.data.lng is number && request.resource.data.lng >= -180 && request.resource.data.lng <= 180;
-      allow delete: if isSignedIn() && (request.auth.uid == uid || isAtlasAdmin());
-    }
-
-    // ── Prediction market (predict_*) ────────────────────────────────
-    // POINTS ONLY, server-authoritative. Every economy mutation goes through
-    // the predict.mjs Netlify function (admin credentials, validated). Clients
-    // can NEVER write balances, pools, payouts, or bets; they may only read
-    // public market state, the public leaderboard, and their own balance.
-    match /predict_markets/{room} {
-      allow read:  if true;     // public market state (motion, pools, status, verdict)
-      allow write: if false;    // opened / updated / settled only by the server
-      match /bets/{betUid} {
-        allow read:  if false;  // bets are blind; only the server function reads them
-        allow write: if false;  // placed only via the server (atomic balance debit)
-      }
-    }
-    match /predict_balances/{uid} {
-      allow read:  if isOwner(uid);  // you can see your own points
-      allow write: if false;         // server-authoritative
-    }
-    match /predict_leaderboard/{uid} {
-      allow read:  if true;          // public skill ladder
-      allow write: if false;         // server-authoritative
-    }
-
-    // ── The Floor — play-money prediction arena (Phase 0) ────────────
-    // All money state is server-authoritative: written ONLY by the
-    // floor-* Netlify functions via the Admin SDK (which bypasses these
-    // rules). Clients read the public board + their own balance/position
-    // through /api/floor/state; they can never write. Play credits only.
-    match /floor_users/{uid} {
-      allow read:  if isOwner(uid);  // your own balance/stats; the leaderboard is served by the function
-      allow write: if false;         // server-only (floor-bet / floor-resolve)
-    }
-    match /floor_markets/{marketId} {
-      allow read:  if true;          // public board: matchup, pools, status, verdict
-      allow write: if false;         // opened / settled only by the server
-      match /positions/{posUid} {
-        allow read:  if isOwner(posUid); // you can see your own position
-        allow write: if false;           // placed only via floor-bet
-      }
-    }
-    match /floor_ledger/{uid} {
-      allow read, write: if false;
-      match /txns/{txnId} {
-        allow read:  if isOwner(uid);  // your own append-only transaction log
-        allow write: if false;         // server-side only
-      }
-    }
-
-    // ── challenges — the atomic unit of the arena ────────────────────
-    // A challenge is a claim someone will defend, plus the sides, the
-    // schedule, the crowd split, and the stakes. It is the object the
-    // whole arena renders: cards, the /c/{slug} page, share images.
-    //
-    // Read is open. The doc carries no PII by construction: the creator
-    // and accepted speakers are uid + display name + photo, the same
-    // three fields already public on live_challenges and
-    // public_profiles. Contact details live in
-    // live_challenge_contacts and never move here. `unlisted` and
-    // `arena` visibility rely on the doc id being unguessable, the same
-    // capability model async_rounds uses ("the id is the capability").
-    // Open read is also the cheap path: the arena board polls a live
-    // percentage, and doing that over onSnapshot costs Firestore reads
-    // instead of Netlify invocations, which is the scarcer budget here.
-    //
-    // Write is server-only, with no exceptions. Status is a state
-    // machine (lib/challenge.mjs), crowd counts feed a prediction
-    // market, and moderation state gates the feed. Every one of those
-    // is an integrity surface: a client that could write status could
-    // mark its own challenge `completed`, and a client that could write
-    // crowd could manufacture the percentage the market prices off.
-    // The live_challenges takeover bug is the precedent — field-level
-    // client writes on a public board are hard to get right, so this
-    // collection does not try. All mutations go through
-    // /api/challenge with the Admin SDK.
-    match /challenges/{challengeId} {
-      allow read:  if true;
-      allow write: if false;
-
-      // Your own side pick and follow state. One doc per user, so the
-      // challenge page can render "you're on Prop" after a reload
-      // without a function call. Other people's picks stay private:
-      // the aggregate is on the parent doc, and exposing who picked
-      // what would turn a prediction surface into a herding surface.
-      match /sides/{sideUid} {
-        allow read:  if isOwner(sideUid);
-        allow write: if false;
-      }
-      match /followers/{followerUid} {
-        allow read:  if isOwner(followerUid);
-        allow write: if false;
-      }
-    }
-
-    // ── claims — aggregate identity across challenges ────────────────
-    // One doc per normalized claim, so "THW ban X" and "This house
-    // would ban X" aggregate to a single subject. Read-only to clients;
-    // counters are server-maintained.
-    match /claims/{claimId} {
-      allow read:  if true;
-      allow write: if false;
-    }
-
-    // ── user_ratings — the Debate Rating ladder ──────────────────────
-    // Glicko-2 rating, deviation, volatility, and the win/loss record.
-    // Public read: a competitive ladder that nobody can see is not a
-    // ladder. The doc holds no PII, only uid-keyed numbers.
-    //
-    // Server-write only, with no exceptions. A client that could write
-    // its own rating owns the leaderboard. Every mutation goes through
-    // lib/rating-apply.mjs, which re-derives the winner from the round
-    // document rather than trusting any caller.
-    //
-    // Note the consent coupling: rating-apply refuses a live round
-    // unless BOTH debaters set leaderboardConsent, matching the rule
-    // already enforced for leaderboard_entries. Appearing on this
-    // ladder is opt-in for live rounds, and implied by publishing an
-    // async round publicly.
-    match /user_ratings/{uid} {
-      allow read:  if true;
-      allow write: if false;
-    }
-
-    // ── rating_changes — append-only rating history ──────────────────
-    // One row per debater per rated round: before, after, delta, the
-    // opponent, and whether the verdict came from the server (async
-    // ballot) or a participant's browser (live ballot). That last field
-    // is what lets a later integrity pass find and reverse a bad
-    // verdict without re-reading every round.
-    //
-    // Public read so a profile can show "how did they get here" rather
-    // than an unexplained number. Server-write only, and never updated
-    // in place: a correction is a new compensating row, the same
-    // posture as the credit ledger.
-    match /rating_changes/{changeId} {
-      allow read:  if true;
-      allow write: if false;
-    }
-
-    // ── judgments — the canonical record of who won ──────────────────
-    // One doc per event, carrying the model and rubric version that
-    // produced the verdict. Both the rating ladder and the credit
-    // economy settle from this and nothing else. The Floor's bug was
-    // that settlement could reach a winner with no such record and fell
-    // back to Math.random(); a judgment is now structurally required.
-    //
-    // Public read: a ballot people stake credits and reputation on has
-    // to be inspectable. Server-write only, and never updated in place.
-    // Overturning a verdict is a dispute, recorded on the doc, with
-    // compensating entries downstream.
-    match /judgments/{judgmentId} {
-      allow read:  if true;
-      allow write: if false;
-    }
-
-    // ── judge_audit — the model config that decided each round ────────
-    // One immutable document per ballot: the season, the rubric version
-    // AND its hash, every juror's provider and model id, whether that
-    // model was the season pin or a disclosed override, the raw votes,
-    // and the panel's disagreement.
-    //
-    // Public read is the whole point. An AI judge the operator can
-    // silently retune is house control of the outcome; the answer is a
-    // record anyone can fetch, not a promise. Never updated in place: a
-    // correction is an appended revision, same posture as the credit
-    // ledger, so a document cannot be quietly improved after someone
-    // complains about the verdict it describes.
-    match /judge_audit/{judgmentId} {
-      allow read:  if true;
-      allow write: if false;
-      match /revisions/{revisionId} {
-        allow read:  if true;
-        allow write: if false;
-      }
-    }
-
-    // ── judge_appeals — the human layer above the model ──────────────
-    // A debater's written appeal against a ballot. Server-write only:
-    // filing goes through /api/judge/appeal, which is what sets
-    // disputeState on the judgment and freezes settlement, and resolving
-    // goes through /api/admin/appeals, which requires a human reviewer
-    // who did not debate the round.
-    //
-    // Read is narrower than judgments on purpose. The verdict is public
-    // and so is its resolution, but the appellant's own written account
-    // of their round is their text rather than part of the public record
-    // of it. The public projection (outcome, ground, reviewer reason)
-    // is served by /api/judge/appeal instead.
-    match /judge_appeals/{appealId} {
-      allow read:  if isSignedIn() && resource.data.appellantUid == request.auth.uid;
-      allow write: if false;
-    }
-
-    // ── markets — prediction on a real event ─────────────────────────
-    // Play credits only. Public read so the arena card can show the
-    // crowd split live over onSnapshot rather than polling a function.
-    //
-    // Positions are private per user. Blind books are the point: if you
-    // could read other people's stakes before the lock, the market
-    // measures herding rather than belief.
-    match /markets/{marketId} {
-      allow read:  if true;
-      allow write: if false;
-      match /positions/{posUid} {
-        allow read:  if isOwner(posUid);
-        allow write: if false;
-      }
-    }
-
-    // ── credit_accounts / credit_ledger ──────────────────────────────
-    // Free, non-purchasable, non-transferable, non-redeemable virtual
-    // participation points. Balances are server-authoritative; a client
-    // that could write its own balance owns the economy.
-    //
-    // The ledger is append-only and readable only by its owner. There
-    // is no ledger kind for transfer, withdrawal, or purchase, and
-    // scripts/test-credits.mjs asserts none can be constructed.
-    match /credit_accounts/{uid} {
-      allow read:  if isOwner(uid);
-      allow write: if false;
-    }
-    match /credit_ledger/{uid} {
-      allow read, write: if false;
-      match /txns/{txnId} {
-        allow read:  if isOwner(uid);
-        allow write: if false;
-      }
-    }
-
-    // ── token_accounts — paid usage tokens ───────────────────────────
-    // A Stripe subscription grants a monthly token allowance for AI
-    // usage. Deliberately a separate economy from credit_accounts:
-    // tokens never stake markets, never enter prize events, never
-    // convert to Play Points or money. The Stripe webhook (admin SDK)
-    // is the only writer; the txns subcollection is the append-only
-    // grant/spend ledger, keyed by invoice id for idempotency.
-    match /token_accounts/{uid} {
-      allow read:  if isOwner(uid);
-      allow write: if false;
-      match /txns/{txnId} {
-        allow read:  if isOwner(uid);
-        allow write: if false;
-      }
-    }
-
-    // ── partner_pool — "looking for a 2v2 partner" ───────────────────
-    // Doc id == uid, same shape as matchmaking_queue. A client writes
-    // and clears its OWN entry and reads the pool to find candidates;
-    // every write that touches two people (proposing a partnership,
-    // accepting one, forming the team) runs server-side in
-    // partner-match.mjs with admin credentials.
-    //
-    // The reason is the one spar-pair was rebuilt for: rules cannot
-    // express "you may write another user's document, but only as
-    // half of a legitimate match." Allowing the cross-user write at
-    // all would let any signed-in account move any other account
-    // through the handshake; denying it entirely and moving pairing
-    // to the server is the only shape that is both correct and safe.
-    match /partner_pool/{poolUid} {
-      allow read:   if isSignedIn();
-      allow create: if isSignedIn()
-                    && poolUid == request.auth.uid
-                    && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.status == 'looking';
-      allow update: if isSignedIn() && poolUid == request.auth.uid;
-      allow delete: if isSignedIn() && poolUid == request.auth.uid;
-    }
-
-    // ── duo_teams — a formed 2v2 partnership ─────────────────────────
-    // Readable by any signed-in user (a draw sheet, a tournament
-    // entry, and an opponent card all name the team). Writes are
-    // server-only: membership decides who may queue the team, enter it
-    // in a tournament, and speak in its rooms, so a client that could
-    // edit `members` could add itself to someone else's team.
-    match /duo_teams/{teamId} {
-      allow read:  if isSignedIn();
-      allow write: if false;
-    }
-
-    // ── duo_queue — a duo waiting for another duo ────────────────────
-    // Doc id == teamId. Readable so clients can poll for an opponent;
-    // written only by duo-pair.mjs, which verifies team membership
-    // before it queues or cancels anything.
-    match /duo_queue/{teamId} {
-      allow read:  if isSignedIn();
-      allow write: if false;
-    }
-
-    // ── tournaments ──────────────────────────────────────────────────
-    // Public read: a draw, a tab, and a bracket are spectator
-    // surfaces, and a host posting a link into a Discord should not
-    // be asking strangers to sign in to look at it. Unreleased draws
-    // are withheld by the API rather than by these rules, since the
-    // round document also holds the released version.
-    //
-    // Writes are entirely server-side (tournament.mjs for
-    // registration, tournament-admin.mjs for everything a director
-    // does). Results decide who breaks, so nothing about a record may
-    // be writable by the team it belongs to.
-    match /tournaments/{tid} {
-      allow read:  if true;
-      allow write: if false;
-
-      match /entries/{entryId} {
-        allow read:  if true;
-        allow write: if false;
-      }
-
-      match /rounds/{roundKey} {
-        allow read:  if true;
-        allow write: if false;
-      }
     }
 
     // ── Default deny ─────────────────────────────────────────────────

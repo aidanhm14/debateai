@@ -2,23 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Judge feedback · Debatable</title>
-<meta name="description" content="The judge's result, what worked, the biggest missed opportunity, and two things to try next." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Judge RFD · DebateIt</title>
+<meta name="description" content="The judge's verdict on your voice round: speaker points, best moment, costliest moment, two fixes for next round." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://itsdebatable.com/voice-rfd">
-<!-- 2026-07-22: noindex. The ballot is read from sessionStorage (or a
-     ?p= share link), so a crawler with neither gets the "No ballot to
-     show yet" empty state. That is a thin page on a real URL, the same
-     problem /live-round is already disallowed for in robots.txt. follow
-     is kept so it still passes equity to /voice-debate. -->
-<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="https://debateai.com/voice-rfd">
 
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://itsdebatable.com/voice-rfd">
-<meta property="og:title" content="Judge feedback · Debatable">
-<meta property="og:description" content="The judge's result and clear feedback on your debate.">
+<meta property="og:url" content="https://debateai.com/voice-rfd">
+<meta property="og:title" content="Judge RFD · DebateIt">
+<meta property="og:description" content="The judge's verdict on your voice round.">
 <meta name="twitter:card" content="summary_large_image">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -119,11 +113,7 @@ body{
 .topbar{
   position:sticky;top:0;z-index:50;
   display:flex;align-items:center;gap:14px;
-  /* env() is 0 in a normal browser and ~59px in the full-bleed Capacitor
-     webview, where nothing else holds this bar off the status bar. Left
-     unscoped on purpose: harmless on the web, and it does not depend on
-     native-bridge.js having run. */
-  padding:calc(14px + env(safe-area-inset-top,0px)) clamp(16px,4vw,28px) 14px;
+  padding:14px clamp(16px,4vw,28px);
   background:rgba(0,0,0,.7);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--border);
 }
@@ -138,11 +128,6 @@ body{
   box-shadow:0 0 12px var(--accent-glow);
 }
 .spacer{flex:1}
-.bar-links{display:flex;align-items:center;gap:14px}
-/* notifications.js injects the bell and the spar Available pill into
-   .bar-links, which overflows this bar on a phone. Both links here point
-   at /voice-debate, so the ghost is the redundant one to drop. */
-@media(max-width:560px){.bar-ghost{display:none}}
 .bar-cta, .bar-ghost{
   font-family:inherit;font-size:.76rem;font-weight:800;
   letter-spacing:.04em;cursor:pointer;border-radius:999px;
@@ -515,27 +500,87 @@ body{
 }
 .rate-notes:focus{border-color:rgba(245,158,11,.45)}
 .rate-done{color:var(--text-dim)}
+
+/* ── WS2: Vote cards (pre/post spectator) ──────────────────────────── */
+.vote-card{
+  margin:28px 0;padding:24px;border-radius:14px;
+  background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.24);
+}
+[data-theme="light"] .vote-card{
+  background:rgba(220,38,38,.05);border-color:rgba(220,38,38,.16);
+}
+.vote-header{margin-bottom:20px;text-align:center}
+.vote-header h3{
+  font-size:1.1rem;font-weight:700;margin-bottom:6px;
+  color:var(--text);
+}
+.vote-header p{
+  font-size:.88rem;color:var(--text-dim);
+}
+.vote-form{display:flex;flex-direction:column;gap:18px}
+.vote-side-group{display:flex;flex-direction:column;gap:10px}
+.vote-side-option{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-radius:10px;
+  border:1px solid var(--border);background:transparent;
+  cursor:pointer;font-size:.92rem;
+  transition:background .15s,border-color .15s;
+}
+.vote-side-option:hover{
+  background:rgba(239,68,68,.06);border-color:var(--border-strong);
+}
+.vote-side-option input[type="radio"]{
+  cursor:pointer;width:16px;height:16px;
+}
+.radio-label{color:var(--text)}
+.vote-confidence{display:flex;flex-direction:column;gap:10px}
+.vote-confidence label{
+  font-size:.88rem;font-weight:600;color:var(--text-dim);
+}
+.confidence-value{
+  color:var(--accent);font-weight:700;
+}
+.confidence-slider{
+  width:100%;height:6px;border-radius:3px;
+  background:rgba(239,68,68,.2);outline:none;
+  -webkit-appearance:none;appearance:none;
+  cursor:pointer;
+}
+.confidence-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--accent);cursor:pointer;
+  box-shadow:0 2px 8px rgba(239,68,68,.3);
+}
+.confidence-slider::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;
+  background:var(--accent);cursor:pointer;
+  border:none;box-shadow:0 2px 8px rgba(239,68,68,.3);
+}
+.vote-submit{
+  padding:12px 20px;border-radius:10px;
+  background:var(--accent);color:#fff;border:none;
+  font-family:inherit;font-size:.92rem;font-weight:700;
+  cursor:pointer;transition:background .15s,transform .15s;
+}
+.vote-submit:hover{background:#dc2626;transform:translateY(-1px)}
+.vote-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
 </style>
-  <script src="/js/native-bridge.js"></script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+  <script src="/js/vote-collector.js"></script>
 </head>
 <body>
 <header class="topbar">
-  <a href="/" class="brand"><span class="b-mark"></span>Debatable</a>
+  <a href="/" class="brand"><span class="b-mark"></span>DebateIt</a>
   <div class="spacer"></div>
-  <!-- .bar-links is the hook notifications.js looks for to mount the bell
-       inline (before .bar-cta). Without it the bell falls back to a fixed
-       chip that lands on top of "Run another". -->
-  <div class="bar-links">
-    <a href="/voice-debate" class="bar-ghost">← Back to debate</a>
-    <a href="/voice-debate" class="bar-cta">Debate again</a>
-  </div>
+  <a href="/voice-debate" class="bar-ghost">← Back to round</a>
+  <a href="/voice-debate" class="bar-cta">Run another</a>
 </header>
 
 <main id="root" class="wrap">
   <div class="loading" id="loadingBlock">
     <div class="intro-orb" aria-hidden="true"></div>
-    <div class="loading-text">Preparing judge feedback…</div>
+    <div class="loading-text">Tallying the ballot…</div>
   </div>
 </main>
 
@@ -548,21 +593,6 @@ body{
     return String(s||'').replace(/[&<>"']/g, function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
-  }
-
-  function audienceChoiceFor(payload){
-    if (payload && payload.audienceChoice) return String(payload.audienceChoice);
-    try { return localStorage.getItem('da-is-debater') || ''; } catch(e){ return ''; }
-  }
-
-  function isPlainAudience(choice){
-    return choice === 'learning' || choice === 'curious' || choice === 'no';
-  }
-
-  var initialChoice = audienceChoiceFor(null);
-  if (isPlainAudience(initialChoice)){
-    var loadingText = loading && loading.querySelector('.loading-text');
-    if (loadingText) loadingText.textContent = 'Reviewing your debate…';
   }
 
   // ── Payload resolution.
@@ -658,7 +688,7 @@ body{
   function parseRfd(raw){
     var text = String(raw || '');
     var sections = { speakerPoints:'', decision:'', best:'', costliest:'', fixes:[] };
-    var spMatch = text.match(/(?:SPEAKER\s*POINTS?|SCORE)\s*[:\-]?\s*([0-9]{2}(?:\.[0-9])?)/i);
+    var spMatch = text.match(/SPEAKER\s*POINTS?\s*[:\-]?\s*([0-9]{2}(?:\.[0-9])?)/i);
     if (spMatch) sections.speakerPoints = spMatch[1];
     function grab(label, nextLabels){
       // Match the header on its own line, then capture body up to the
@@ -672,38 +702,16 @@ body{
       var m = text.match(pattern);
       return m ? m[1].trim() : '';
     }
-    var bestLabel = '(?:BEST\\s*MOMENT|WHAT\\s*WORKED\\s*BEST)';
-    var costliestLabel = '(?:COSTLIEST\\s*MOMENT|BIGGEST\\s*MISSED\\s*OPPORTUNITY)';
-    var fixesLabel = '(?:TWO\\s*FIXES|TWO\\s*THINGS\\s*TO\\s*TRY\\s*NEXT)';
-    sections.decision  = grab('(?:DECISION|RESULT)', [bestLabel, costliestLabel, fixesLabel]);
-    sections.best      = grab(bestLabel,             [costliestLabel, fixesLabel]);
-    sections.costliest = grab(costliestLabel,        [fixesLabel, bestLabel]);
-    var fixesBlock = grab(fixesLabel, ['__never__']);
+    sections.decision  = grab('DECISION',            ['BEST\\s*MOMENT', 'COSTLIEST\\s*MOMENT', 'TWO\\s*FIXES']);
+    sections.best      = grab('BEST\\s*MOMENT',      ['COSTLIEST\\s*MOMENT', 'TWO\\s*FIXES']);
+    sections.costliest = grab('COSTLIEST\\s*MOMENT', ['TWO\\s*FIXES', 'BEST\\s*MOMENT']);
+    var fixesBlock = grab('TWO\\s*FIXES', ['__never__']);
     if (fixesBlock){
       sections.fixes = fixesBlock.split(/\n+/)
         .map(function(l){ return l.replace(/^\s*\d+[\.\)]\s*/, '').trim(); })
         .filter(function(l){ return l.length > 2; });
     }
     return sections;
-  }
-
-  // ── Dimensions parser. Both RFD prompts (competitive + plain) already
-  // emit a DIMENSIONS block of five axis scores on the speaker-points
-  // scale; until now only create-cert.mjs read it and this page dropped
-  // it on the floor. All-or-nothing like the cert parser: a partial
-  // block renders nothing rather than a lopsided scorecard.
-  function parseDimensions(raw){
-    var text = String(raw || '');
-    var keys = ['CLARITY','REASONING','RESPONSIVENESS','LISTENING','PERSUASION'];
-    var out = [];
-    for (var i = 0; i < keys.length; i++){
-      var m = text.match(new RegExp('^\\s*' + keys[i] + '\\s*[:\\-]\\s*([0-9]{2}(?:\\.[0-9])?)\\s*$', 'im'));
-      if (!m) return null;
-      var v = parseFloat(m[1]);
-      if (!isFinite(v) || v < 20 || v > 30) return null;
-      out.push({ label: keys[i].charAt(0) + keys[i].slice(1).toLowerCase(), score: v });
-    }
-    return out;
   }
 
   // Viva mode ships an examiner's report instead of a debate ballot.
@@ -756,67 +764,28 @@ body{
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  function plainFeedbackText(raw){
-    return String(raw || '')
-      .replace(/SPEAKER\s*POINTS?/gi, 'SCORE')
-      .replace(/\bDECISION\b/gi, 'RESULT')
-      .replace(/\bBEST\s*MOMENT\b/gi, 'WHAT WORKED BEST')
-      .replace(/\bCOSTLIEST\s*MOMENT\b/gi, 'BIGGEST MISSED OPPORTUNITY')
-      .replace(/\bTWO\s*FIXES\s*FOR\s*NEXT\s*ROUND\b/gi, 'TWO THINGS TO TRY NEXT')
-      .replace(/\bRFD\b/gi, 'judge feedback')
-      .replace(/\bballot\b/gi, 'judge feedback')
-      .replace(/\bUSER\b/g, 'YOU')
-      .replace(/\bon the flow\b/gi, 'based on the arguments')
-      .replace(/\bflow\b/gi, 'arguments')
-      .replace(/\bframework\b/gi, 'main standard')
-      .replace(/\bre-extended\b/gi, 'repeated')
-      .replace(/\bextended\b/gi, 'kept using')
-      .replace(/\bdropped\b/gi, 'left unanswered')
-      .replace(/\bdrops\b/gi, 'unanswered points')
-      .replace(/\bwarrants?\b/gi, 'reasoning')
-      .replace(/\bweighing\b/gi, 'comparison')
-      .replace(/\bcontentions?\b/gi, 'main claims')
-      .replace(/\boffense\b/gi, 'winning arguments')
-      .replace(/\bclash\b/gi, 'main disagreement')
-      .replace(/\bvoter\b/gi, 'deciding reason')
-      .replace(/\brounds\b/gi, 'debates')
-      .replace(/\bround\b/gi, 'debate');
-  }
-
   function render(payload){
-    var audienceChoice = audienceChoiceFor(payload);
-    var plainAudience = isPlainAudience(audienceChoice);
-    var audienceCopy = function(competitiveCopy, plainCopy){
-      return plainAudience ? plainCopy : competitiveCopy;
-    };
-    document.title = audienceCopy('Judge RFD · Debatable', 'Judge feedback · Debatable');
-    var backLink = document.querySelector('.bar-ghost');
-    var runLink = document.querySelector('.bar-cta');
-    if (backLink) backLink.textContent = audienceCopy('← Back to round', '← Back to debate');
-    if (runLink) runLink.textContent = audienceCopy('Run another', 'Debate again');
     if (!payload || !payload.rfd){
       root.innerHTML =
         '<div class="empty">'
-          + '<h2>' + audienceCopy('No ballot to show yet', 'No judge feedback to show yet') + '</h2>'
-          + '<p>' + audienceCopy('Run a voice round at /voice-debate and click <strong>Generate Judge RFD</strong>; the judge\'s verdict will land here.', 'Finish a voice debate and the judge will explain who won, why, and what you can improve.') + '</p>'
-          + '<div style="margin-top:18px"><a href="/voice-debate" class="cta-btn primary">' + audienceCopy('Start a voice round →', 'Start a voice debate →') + '</a></div>'
+          + '<h2>No ballot to show yet</h2>'
+          + '<p>Run a voice round at /voice-debate and click <strong>Generate Judge RFD</strong>; the judge\'s verdict will land here.</p>'
+          + '<div style="margin-top:18px"><a href="/voice-debate" class="cta-btn primary">Start a voice round →</a></div>'
         + '</div>';
       return;
     }
+    var sections = parseRfd(payload.rfd);
     var isViva = payload.format === 'viva';
-    var displayRfd = plainAudience && !isViva ? plainFeedbackText(payload.rfd) : payload.rfd;
-    var sections = parseRfd(displayRfd);
     var viva = isViva ? parseVivaScorecard(payload.rfd) : null;
     if (isViva && viva){
       if (viva.strongest) sections.best = viva.strongest;
       if (viva.broke) sections.costliest = viva.broke;
       if (viva.study && viva.study.length) sections.fixes = viva.study;
     }
-    var dims = isViva ? null : parseDimensions(payload.rfd);
     var winner = detectWinner(sections.decision);
-    var winnerLabel = winner === 'user' ? audienceCopy('You take the round', 'You won') :
-                      winner === 'ai'   ? audienceCopy('The AI takes the round', 'The AI won') :
-                                          audienceCopy('The judge calls it close', 'The judge calls it too close');
+    var winnerLabel = winner === 'user' ? 'You take the round' :
+                      winner === 'ai'   ? 'The AI takes the round' :
+                                          'The judge calls it close';
     var winnerClass = winner === 'user' ? 'user' : '';
     var stats = payload.stats || {};
     var talkYou = stats.talkSplit && typeof stats.talkSplit.you === 'number' ? Math.round(stats.talkSplit.you) : null;
@@ -863,44 +832,20 @@ body{
           + stageGrid
         + '</div></section>';
     } else {
-      // Judge's scorecard: the five DIMENSIONS axes as bar rows, same
-      // visual grammar as the viva stage grid above. Shows the math
-      // behind the composite so the verdict reads as reasoned, not
-      // oracular. Renders only when all five axes parsed.
-      var dimGrid = (dims && dims.length === 5)
-        ? '<div style="margin-top:18px;display:grid;gap:12px">'
-          + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">'
-            + '<span style="font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim)">' + audienceCopy('Judge&#39;s scorecard', 'Where the score comes from') + '</span>'
-            + '<span style="font-size:.78rem;color:var(--text-dim)">' + audienceCopy('Each axis scored 25.0 to 30.0, independently.', 'Each part scored on the same scale as your overall number.') + '</span>'
-          + '</div>'
-          + dims.map(function(d){
-              var pct = Math.max(4, Math.min(100, Math.round((d.score - 25) / 5 * 100)));
-              var col = d.score >= 28 ? '#4ade80' : d.score < 26 ? '#f87171' : 'var(--text)';
-              return '<div>'
-                + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
-                  + '<span style="font-weight:600">' + d.label + '</span>'
-                  + '<span style="font-variant-numeric:tabular-nums;color:' + col + ';font-weight:700">' + d.score.toFixed(1) + '<span style="opacity:.5;font-weight:400"> / 30</span></span>'
-                + '</div>'
-                + '<div style="height:6px;border-radius:99px;background:rgba(127,127,127,.18);overflow:hidden"><i style="display:block;height:100%;width:' + pct + '%;background:' + col + '"></i></div>'
-              + '</div>';
-            }).join('')
-        + '</div>'
-        : '';
       html =
-      '<div class="eyebrow">' + audienceCopy('Ballot · Reason for decision', 'Judge feedback · Why the decision went this way') + '</div>'
+      '<div class="eyebrow">Ballot · Reason for decision</div>'
       + '<section class="verdict"><div class="verdict-inner">'
         + '<div class="verdict-row">' + rowParts.map(function(p, i){
             return (i > 0 ? '<span class="dot"></span>' : '') + '<span>' + p + '</span>';
           }).join('') + '</div>'
         + '<h1 class="verdict-headline">' + (winner ? '<span class="winner ' + winnerClass + '">' + escHtml(winnerLabel) + '.</span>' : escHtml(winnerLabel) + '.') + '</h1>'
-        + (payload.motion ? '<p class="verdict-sub">' + audienceCopy('On the motion: ', 'Topic: ') + '<em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
+        + (payload.motion ? '<p class="verdict-sub">On the motion: <em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
         + '<div class="verdict-stats">'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">' + audienceCopy('Speaker points', 'Score') + '</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">' + audienceCopy('Round time', 'Debate time') + '</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Round time</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Your turns</div><div class="verdict-stat-value">' + (stats.yourTurns != null ? stats.yourTurns : '—') + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Talk-time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
         + '</div>'
-        + dimGrid
       + '</div></section>';
     }
 
@@ -949,27 +894,32 @@ body{
 
     if (sections.best) html +=
       '<section class="section section--best">'
-        + '<div class="section-head"><div class="icon">✓</div><h2>' + (isViva ? 'Strongest answer' : audienceCopy('Best moment', 'What worked best')) + '</h2><div class="sub">' + (isViva ? 'What you nailed' : audienceCopy('What landed', 'Your strongest point')) + '</div></div>'
+        + '<div class="section-head"><div class="icon">✓</div><h2>' + (isViva ? 'Strongest answer' : 'Best moment') + '</h2><div class="sub">' + (isViva ? 'What you nailed' : 'What landed') + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.best) + '</div>'
       + '</section>';
 
     if (sections.costliest) html +=
       '<section class="section section--costliest">'
-        + '<div class="section-head"><div class="icon">!</div><h2>' + (isViva ? 'Where it broke' : audienceCopy('Costliest moment', 'Biggest missed opportunity')) + '</h2><div class="sub">' + (isViva ? 'Where knowledge gave out' : audienceCopy('What slipped', 'What to improve')) + '</div></div>'
+        + '<div class="section-head"><div class="icon">!</div><h2>' + (isViva ? 'Where it broke' : 'Costliest moment') + '</h2><div class="sub">' + (isViva ? 'Where knowledge gave out' : 'What slipped') + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.costliest) + '</div>'
       + '</section>';
 
     if (sections.fixes && sections.fixes.length) html +=
       '<section class="section section--fixes">'
-        + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : audienceCopy('Two fixes for next round', 'Two things to try next')) + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : audienceCopy('Actionable', 'Practical next steps')) + '</div></div>'
+        + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : 'Two fixes for next round') + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : 'Actionable') + '</div></div>'
         + '<ol class="fixes-list">' + sections.fixes.map(function(f){ return '<li>' + escHtml(f) + '</li>'; }).join('') + '</ol>'
       + '</section>';
 
     html +=
       '<section class="section section--full">'
-        + '<div class="section-head"><div class="icon">§</div><h2>' + audienceCopy('Full ballot', 'Full feedback') + '</h2><div class="sub">' + audienceCopy('Verbatim', 'Complete review') + '</div></div>'
-        + '<div class="section-body">' + escHtml(displayRfd) + '</div>'
+        + '<div class="section-head"><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
+        + '<div class="section-body">' + escHtml(payload.rfd) + '</div>'
       + '</section>';
+
+    // WS2: Post-vote questionnaire (shown after the full ballot)
+    if (payload.id) {
+      html += window.VoteCollector ? window.VoteCollector.buildPostVoteUI(payload.id) : '';
+    }
 
     if (Array.isArray(payload.transcript) && payload.transcript.length){
       var turnsHtml = payload.transcript.map(function(t){
@@ -1023,7 +973,7 @@ body{
     // Quiet neutral register so it doesn't fight the red primaries below.
     html +=
       '<section class="save-hook" id="saveCard" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--border-strong,rgba(255,255,255,.18));background:var(--surface,rgba(255,255,255,.03));flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;display:none">'
-        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Keep your record.</strong> This round will not save to your profile. Sign in (free, one tap) and your next rounds save to your record, and the AI starts learning how you argue.<span style="display:block;margin-top:7px;font-size:.78rem;opacity:.72">Privacy: Google shares only your name, email, and photo. We never sell your data or post for you. Sign out anytime.</span></div>'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Keep your record.</strong> This round will not save to your profile. Sign in (free, one tap) and your next rounds save to your record, and the AI starts learning your style and adapting to how you argue.</div>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
           + '<button class="cta-btn primary" id="saveSignIn" type="button" style="white-space:nowrap">Continue with Google</button>'
           + '<button class="cta-btn ghost" id="saveDismiss" type="button">Maybe later</button>'
@@ -1049,9 +999,9 @@ body{
     var liveHref = '/live' + (payload.motion ? motionQ + '&compose=1' : '');
     html +=
       '<div class="cta-row">'
-        + '<div class="cta-text">' + audienceCopy('Ballot saved. <strong>Run it back</strong> while the read is fresh.', 'Feedback saved. <strong>Try it again</strong> while the ideas are fresh.') + '</div>'
-        + '<a href="' + runBackHref + '" class="cta-btn primary">' + (payload.motion ? audienceCopy('Run this motion again →', 'Debate this topic again →') : audienceCopy('Run another round →', 'Start another debate →')) + '</a>'
-        + '<button class="cta-btn ghost" id="copyBallot" type="button">' + audienceCopy('Copy ballot', 'Copy feedback') + '</button>'
+        + '<div class="cta-text">Ballot saved. <strong>Run it back</strong>; the second round is always the better one.</div>'
+        + '<a href="' + runBackHref + '" class="cta-btn primary">' + (payload.motion ? 'Run this motion again →' : 'Run another round →') + '</a>'
+        + '<button class="cta-btn ghost" id="copyBallot" type="button">Copy ballot</button>'
         + '<button class="cta-btn ghost" id="shareBallot" type="button">Share link</button>'
       + '</div>'
       // ── Next-step row: surface /live + /spar after the user has just
@@ -1065,17 +1015,23 @@ body{
         + '<a href="' + liveHref + '" class="next-step-link">Schedule this motion live →</a>'
         + '<a href="/spar" class="next-step-link">Spar now →</a>'
       + '</div>'
-      // Streamer nudge: same quiet register as the row above. Routes to
-      // the /plugins/twitch room-judge setup; partnership mail goes to
-      // Aidan directly (his explicit ask, not the general contact inbox).
-      + '<div class="next-step-row">'
-        + '<span class="next-step-label">Make it content:</span>'
-        + '<a href="/plugins/twitch" class="next-step-link"><svg viewBox="0 0 2400 2800" fill-rule="evenodd" style="width:11px;height:13px;fill:#9146FF;vertical-align:-1px;margin-right:5px" aria-hidden="true"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>Stream your next round on Twitch →</a>'
-        + '<a href="mailto:aidandavidhollinger@gmail.com?subject=Streaming%20Debatable%20on%20Twitch" class="next-step-link">Partner with us</a>'
-      + '</div>'
-      + '<div class="foot">' + audienceCopy('All ballots are written by Claude Haiku per Debatable\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a>', 'Your review was written by an AI judge using the full debate. <a href="/voice-debate">Start another debate</a> · <a href="/live">Debate a person</a> · <a href="/leaderboard">Leaderboard</a>') + '</div>';
+      + '<div class="foot">All ballots are written by Claude Haiku per DebateIt\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
+
+    // WS2: Prepend pre-vote card at the top (shown before the ballot/verdict)
+    if (payload.id && window.VoteCollector) {
+      html = window.VoteCollector.buildPreVoteUI(payload.id) + html;
+    }
 
     root.innerHTML = html;
+
+    // WS2: Attach vote listeners (pre/post)
+    if (payload.id && window.VoteCollector) {
+      // Delayed to allow DOM to settle
+      setTimeout(function(){
+        window.VoteCollector.attachVoteListeners(payload.id, 'pre');
+        window.VoteCollector.attachVoteListeners(payload.id, 'post');
+      }, 100);
+    }
 
     // Transcript filter: hide non-matching turns as the user types. The
     // match key is precomputed into data-tx so this stays O(n) per keypress.
@@ -1110,9 +1066,9 @@ body{
     var copyBtn = document.getElementById('copyBallot');
     if (copyBtn) copyBtn.addEventListener('click', function(){
       try {
-        navigator.clipboard.writeText(displayRfd || '');
+        navigator.clipboard.writeText(payload.rfd || '');
         copyBtn.textContent = '✓ Copied';
-        setTimeout(function(){ copyBtn.textContent = audienceCopy('Copy ballot', 'Copy feedback'); }, 1800);
+        setTimeout(function(){ copyBtn.textContent = 'Copy ballot'; }, 1800);
         try { gtag('event', 'voice_rfd_copy'); } catch(e){}
       } catch(e){ copyBtn.textContent = 'Couldn\'t copy'; }
     });
@@ -1363,5 +1319,6 @@ body{
 })();
 </script>
 <script defer src="/js/notifications.js"></script>
+<script defer src="/js/coach-fab.js"></script>
 </body>
 </html>
