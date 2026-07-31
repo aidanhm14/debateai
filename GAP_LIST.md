@@ -10,7 +10,7 @@
 | Workstream | Status | Readiness |
 |-----------|--------|-----------|
 | **WS0** (Audit) | ✅ EXISTS | Blueprint exists; this audit now complete |
-| **WS1** (Voice-first core loop) | ✅ EXISTS | Core shipped; incremental save + latency instrumentation complete (2026-07-31). Network resilience deferred to Phase 2. |
+| **WS1** (Voice-first core loop) | ✅ EXISTS | Phase 1 + Phase 2 complete (2026-07-31): incremental save, latency instrumentation, network resilience (30s drop recovery). |
 | **WS2** (Live audience layer) | 🟡 PARTIAL | Pre/post voting missing; mid-debate prompts missing; reactions missing |
 | **WS3** (Persuasion delta pipeline) | ❌ MISSING | Claim extraction, delta computation, dashboard all absent |
 | **WS4** (Creator layer) | ❌ MISSING | Auto-clip, share links, challenge links, public profiles, leaderboards missing |
@@ -38,7 +38,7 @@
 
 **Target**: Tap to first AI word in <5s; no signup required for round one; full transcript + AI score + "run it back" button.
 
-**Status**: ✅ **EXISTS** (mostly shipped; latency & resilience gaps remain)
+**Status**: ✅ **COMPLETE** (Phase 1: incremental save + latency instrumentation; Phase 2: network resilience — all shipped 2026-07-31)
 
 ### Acceptance Criteria
 | Criterion | Status | Notes |
@@ -67,7 +67,7 @@
 1. **Incremental transcript save** — ✅ **SHIPPED (2026-07-31)**. Each turn queued + flushed to `voice_rounds/{id}/turns` subcollection every 5s via `/api/log-generation` 'incremental_transcript' action. Survives mid-round network drops.
 2. **Latency instrumentation** — ✅ **SHIPPED (2026-07-31)**. GA4 events track `voice_session_start` (session begins), `voice_session_mint_complete` (mint latency), `voice_first_ai_audio` (end-to-end latency). Measures in milliseconds.
 3. **Council timeout handling** — 9s hard cap; on timeout all brains silently fail and base system prompt is used. Recommend: expose "council timeout" as a warning metric.
-4. **Network resilience** — zero handling for 30s drop. DEFERRED to WS1 Phase 2. Implement: local audio queue + reconnect replay for 30s survivability.
+4. **Network resilience** — ✅ **SHIPPED (2026-07-31)**. Local turn buffering + reconnect replay. On connection drop: buffer turns + show '⚠ Connection lost. Attempting to reconnect…'. Wait 6s, retry up to 3× with per-attempt feedback. On reconnect success: '✓ Reconnected. Resuming…' + replay queued turns. GA4 tracks drop duration + attempt count.
 
 ---
 
