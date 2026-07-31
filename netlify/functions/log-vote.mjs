@@ -15,7 +15,7 @@
 // (default 1.0) reduces outlier voter impact in aggregates.
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
-import { json } from './lib/response.mjs';
+import { jsonResponse } from './lib/response.mjs';
 
 const RATE_LIMIT_PER_MIN = 3;
 const RATE_LIMIT_PER_HOUR = 30;
@@ -41,18 +41,18 @@ function hashVoterId(voterId) {
 }
 
 export default async (req, context) => {
-  if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
+  if (req.method !== 'POST') return jsonResponse({ error: 'POST only' }, 405, req);
 
   try {
     const payload = req.json ? await req.json() : JSON.parse(req.body || '{}');
     const { roundId, side, confidence, phase, voterId } = payload;
 
     // Validate inputs
-    if (!roundId) return json({ error: 'roundId required' }, 400);
-    if (!voterId) return json({ error: 'voterId required (device cookie)' }, 400);
+    if (!roundId) return jsonResponse({ error: 'roundId required' }, 400, req);
+    if (!voterId) return jsonResponse({ error: 'voterId required (device cookie)' }, 400, req);
 
     const validationError = validateVote(side, confidence, phase);
-    if (validationError) return json({ error: validationError }, 400);
+    if (validationError) return jsonResponse({ error: validationError }, 400, req);
 
     const db = getDb();
 
@@ -105,7 +105,7 @@ export default async (req, context) => {
       createdAt: FieldValue.serverTimestamp(),
       clientIp,  // for clustering analysis (stored server-side, not exposed to client)
       trustWeight,
-    });
+    }, 200, req);
 
     // If this is a post-vote, compute the delta vs the pre-vote
     let delta = { side_switched: false, confidence_delta: 0 };
@@ -119,15 +119,15 @@ export default async (req, context) => {
       }
     }
 
-    return json({
+    return jsonResponse({
       success: true,
       voteId,
       delta,
       trustWeight,
-    });
+    }, 200, req);
 
   } catch (e) {
     console.error('[log-vote] error:', e.message);
-    return json({ error: e.message }, 500);
+    return jsonResponse({ error: e.message }, 500, req);
   }
 };
