@@ -6,7 +6,6 @@
 // Uses Claude to identify the 3-5 strongest claims from a speech.
 // Strength = how directly this argument advances the motion.
 
-import { callAnyAI } from './lib/brain-router.mjs';
 import { json, errorResponse } from './lib/response.mjs';
 
 const EXTRACTION_PROMPT = `You are analyzing a debate speech. Extract the 3-5 strongest claims made.
@@ -39,16 +38,32 @@ export default async (request) => {
 
   try {
     const prompt = EXTRACTION_PROMPT.replace('{SPEECH}', text.slice(0, 3000));
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return errorResponse('API key not configured', 500, request);
+    }
 
-    const result = await callAnyAI({
-      messages: [{ role: 'user', content: prompt }],
-      stream: false,
-      model: 'claude',  // Use Claude for reasoning over claim extraction
-      max_tokens: 800,
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-5',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      })
     });
 
+    if (!res.ok) {
+      throw new Error(`Anthropic API error: ${res.status}`);
+    }
+
+    const result = await res.json();
     const responseText = result?.content?.[0]?.text || '';
-    
+
     // Parse JSON array from response
     let claims = [];
     try {
