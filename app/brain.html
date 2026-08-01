@@ -20,6 +20,29 @@
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/prefs-sync.js"></script>
 
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+<!-- Auth only, so a signed-in brain can be pushed to and pulled from
+     /api/brain. Firestore-compat rides along because prefs-sync.js needs
+     it for the localStorage mirror. Public web config, same as every
+     other page; the guard makes a re-init a no-op. -->
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try {
+  if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+  }
+} catch (e) { console.warn('[brain] firebase init skipped:', e.message); }
+</script>
+
 <style>
   :root { --brain-red: #dc2626; --brain-red-deep: #991b1b; }
 
@@ -269,6 +292,76 @@
   function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
+  /* ── the signed-in copy ────────────────────────────────────────────
+     localStorage is the always-available layer; /api/brain is the one
+     the SERVER reads when it builds a round's prompt. Both are kept in
+     step here rather than one being derived from the other, because
+     each covers a case the other cannot: localStorage works signed-out
+     and offline, and only the server copy can reach the brain proxies.
+
+     Anonymous Firebase accounts are excluded on purpose (the endpoint
+     rejects them too). A guest's answers live locally and upload on
+     their first real sign-in, which is the moment the record is worth
+     storing. */
+  function namedUser() {
+    try {
+      var u = firebase.auth().currentUser;
+      if (!u || u.isAnonymous) return null;
+      return u;
+    } catch (e) { return null; }
+  }
+
+  function collect() {
+    var out = {};
+    STEPS.forEach(function (s) {
+      var v = read(s.storageKey);
+      if (v === null) return;
+      var ok = s.options.some(function (o) { return o.value === v; });
+      if (ok) out[s.key] = v;
+    });
+    return out;
+  }
+
+  function pushBrain() {
+    var u = namedUser();
+    if (!u) return Promise.resolve(false);
+    var brain = collect();
+    if (!Object.keys(brain).length) return Promise.resolve(false);
+    return u.getIdToken().then(function (tok) {
+      return fetch('/api/brain', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ brain: brain })
+      });
+    }).then(function (r) { return !!(r && r.ok); })
+      .catch(function () { return false; });
+  }
+
+  /* Pull only fills GAPS. A server value never overwrites an answer
+     sitting in this browser, because the local one is either what the
+     person just chose or what they chose last time on this device, and
+     silently replacing a visible answer with a remote one is the
+     confusing half of every sync bug. */
+  function pullBrain() {
+    var u = namedUser();
+    if (!u) return;
+    u.getIdToken().then(function (tok) {
+      return fetch('/api/brain', { headers: { authorization: 'Bearer ' + tok } });
+    }).then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.brain) return;
+        var filled = 0;
+        STEPS.forEach(function (s) {
+          if (read(s.storageKey) !== null) return;
+          var v = d.brain[s.key];
+          if (v === undefined || v === null) return;
+          var ok = s.options.some(function (o) { return o.value === String(v); });
+          if (ok) { write(s.storageKey, String(v)); filled++; }
+        });
+        if (filled) paintSaved();
+      }).catch(function () {});
+  }
+
   /* Saved answers preselect, so a returning debater edits a brain
      rather than rebuilding one from the first question. */
   function withDefaults() {
@@ -353,6 +446,7 @@
       write(s.storageKey, String(v));
     });
     write('da-brain-built', String(Date.now()));
+    pushBrain();
     try {
       if (window.gtag) window.gtag('event', 'brain_built', {
         level: answers.level || '', format: answers.format || '', goal: answers.goal || ''
@@ -389,6 +483,18 @@
   });
 
   paintSaved();
+
+  /* Auth settles after this script runs, so the sync hangs off the state
+     change rather than a one-shot read. Signing in does BOTH directions:
+     pull fills anything this browser is missing, push uploads whatever a
+     guest answered before they had an account. */
+  try {
+    firebase.auth().onAuthStateChanged(function (u) {
+      if (!u || u.isAnonymous) return;
+      pullBrain();
+      pushBrain();
+    });
+  } catch (e) { /* signed-out and offline both stay fully usable */ }
 })();
 </script>
 

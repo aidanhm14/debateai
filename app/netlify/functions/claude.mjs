@@ -8,6 +8,7 @@ import { checkMotionBody } from './lib/content-guard.mjs';
 import { getExemplarBlock } from './lib/exemplars.mjs';
 import { getDistillationBlock } from './lib/distillations.mjs';
 import { getFingerprintBlock } from './lib/user-fingerprints.mjs';
+import { getBrainBlock } from './lib/brain.mjs';
 import { buildAdjudicationBlock, isJudgeFeature } from './lib/adjudication.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
@@ -422,10 +423,11 @@ export default async (request, context) => {
     const voiceSeg = buildVoiceSegments(vFeature, vFormat, vTopic);
     // Independent Firestore-backed reads, run in parallel (each is cached
     // 1hr/10min internally, so this is near-zero cost on warm caches).
-    const [distillBlock, fingerprintBlock, exemplarBlock] = await Promise.all([
+    const [distillBlock, fingerprintBlock, exemplarBlock, brainBlock] = await Promise.all([
       getDistillationBlock(vFormat, vFeature),
       getFingerprintBlock(userId, vFeature),
       getExemplarBlock({ feature: vFeature, motion: vMotion, format: vFormat, side: vSide }),
+      getBrainBlock(userId, vFeature),
     ]);
     let spice = voiceSeg ? pickSpice(vFeature) : '';
     // Don't double-inject a section the stable block already contains.
@@ -451,7 +453,11 @@ export default async (request, context) => {
     const cachedPrefix = [adjudicateBlock, voiceSeg && voiceSeg.stable, distillBlock].filter(Boolean).join('\n');
     // UNCACHED tail — per-round base system, per-motion reference rounds,
     // per-user style, random spice, then the voice-check reinforcement LAST.
-    const tail = [baseSystem, exemplarBlock, fingerprintBlock, spice, voiceSeg && voiceSeg.reinforcement]
+    // brainBlock before fingerprintBlock: what they TOLD us outranks what
+    // we INFERRED, so editing /brain this morning beats a fingerprint
+    // built from ten older rounds. Both are per-user, so both stay in
+    // the uncached tail and never contaminate the shared prefix.
+    const tail = [baseSystem, exemplarBlock, brainBlock, fingerprintBlock, spice, voiceSeg && voiceSeg.reinforcement]
       .filter(Boolean).join('\n\n');
 
     // Anthropic's minimum cacheable size is 1024 tokens (~4KB). Only mark a

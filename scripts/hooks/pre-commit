@@ -78,6 +78,24 @@ if [ -f "$JUDGE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Debate-brain guard. The stored brain is concatenated into the system
+# prompt of every future round its owner runs, so the allow-list in
+# lib/brain-schema.mjs is a prompt-injection boundary rather than a
+# tidiness rule, and the feature gate is what keeps the AI JUDGE from
+# ever learning who it is scoring. Both were verified non-vacuous by
+# deliberately breaking them. Same hard-fail, soft-skip posture.
+# ──────────────────────────────────────────────────────────────────
+BRAIN_GUARD="$REPO_ROOT/scripts/test-brain.mjs"
+if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-brain.mjs >/tmp/brain-guard.log 2>&1); then
+    echo "[brain-guard] commit blocked - the debate-brain guarantees no longer hold:" >&2
+    tail -20 /tmp/brain-guard.log >&2
+    echo "[brain-guard] see scripts/test-brain.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Netlify-function import guard. Blocks a commit that stages a function
 # importing a name a sibling lib module does not export (the repeated
 # `json` vs `jsonResponse` mistake), or importing a lib module that

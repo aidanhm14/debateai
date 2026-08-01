@@ -6,6 +6,7 @@ import { checkMotionBody } from './lib/content-guard.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
+import { applyBrain } from './lib/brain.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 import { applyAdjudicationForFeature } from './lib/adjudication.mjs';
 
@@ -150,6 +151,7 @@ export default async (request, context) => {
       applyExemplars(body),
       applyDistillations(body),
       applyUserFingerprint(body, paidCheck.uid),
+      applyBrain(body, paidCheck.uid),
     ]);
     applyVoiceGuidelines(body);
 

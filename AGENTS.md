@@ -177,6 +177,45 @@ build while unrelated commits queue behind it. Static parse, no npm
 deps, ~80ms on the whole tree. Scan the whole deployed tree by hand
 with `node scripts/check-function-imports.mjs --all`.
 
+## The debate brain (/brain, per signed-in user)
+
+Six questions on `/brain` (the arcade-flow engine) become the identity
+the AI argues against. Storage and prompt injection:
+
+```
+app/brain.html                      the six-step build, red arcade surface
+lib/brain-schema.mjs                PURE: field allow-list, sanitize, block text
+lib/brain.mjs                       read/write user_profiles/{uid}.brain, applyBrain
+brain.mjs                           GET/POST /api/brain (named accounts only)
+scripts/test-brain.mjs              runs in the pre-commit hook
+```
+
+Four things that are easy to break by accident:
+
+- **Values are ALLOW-LISTED, never sanitised strings.** Everything stored
+  is concatenated into the system prompt of every future round that user
+  runs, so a free-text field would be a persistent prompt-injection
+  channel with a per-user blast radius. Unknown ids are DROPPED, not
+  defaulted, because a default asserts something the user never chose.
+- **The AI judge must never see the block.** `BRAIN_FEATURES` gates it to
+  debate-generation features only. A ballot that knows one debater is a
+  beginner, or is working on rebuttal, is a ballot with a thumb on the
+  scale, and the judge charter forbids exactly that. The test asserts it.
+- **The block carries two hard limits and they are load-bearing.** A model
+  told "new to competitive debate" with no ceiling starts conceding, which
+  turns the one thing this product sells into a yes-man. The prompt says
+  do NOT go easier and do NOT decide substance from it; the test asserts
+  both strings survive.
+- **Anonymous accounts are not stored.** They are free and unlimited to
+  mint (see the 2026-07-28 rate-limit entry), so `/api/brain` requires a
+  named provider. Guests keep the brain in localStorage; it uploads on
+  their first real sign-in.
+
+Adding a step means editing three places: the step in `brain.html`, its
+field in `brain-schema.mjs`, and its `da-brain-*` key in `SYNCED_KEYS`
+(`js/prefs-sync.js`). Miss the third and that one answer never leaves the
+device it was set on.
+
 ## Inline React scripts: `<script data-precompile="es5">`
 
 Six pages (`index.html`, `practice.html`, `voice-debate.html`,
