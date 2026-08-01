@@ -7891,8 +7891,30 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            in the card beside it. Mirrors the .hi-band-row treatment. */
         .hero-illustrated .hi-pair-row > .hi-ambassador-banner{
           width:auto;max-width:none;margin:0;
-          grid-template-columns:minmax(0,1fr);grid-template-rows:1fr auto;
+          /* auto 1fr auto: copy takes what it needs, the PHOTO absorbs the
+             leftover height so this card matches the taller one beside it,
+             CTA pins to the bottom. Before the photo existed the copy row
+             was the 1fr and the slack rendered as a large empty middle. */
+          grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr auto;
           align-items:start;gap:14px;
+        }
+        /* min-height, not aspect-ratio: the row is already sized by the
+           grid, and an aspect-ratio here would fight it and reintroduce
+           the gap at some widths. object-fit keeps the crop sane at
+           whatever height the grid lands on. Scoped to the banner rather
+           than to the pair row, so the photo still renders correctly if
+           the card is ever placed somewhere else. */
+        .hero-illustrated .hi-ambassador-banner .hi-amb-shot{
+          position:relative;z-index:1;display:block;align-self:stretch;
+          min-height:150px;border-radius:14px;overflow:hidden;
+          border:1px solid rgba(200,50,50,.20);
+          background:rgba(29,25,21,.06);
+        }
+        .hero-illustrated .hi-ambassador-banner .hi-amb-shot img{
+          width:100%;height:100%;object-fit:cover;display:block;
+          /* Nudged toward the page's warm palette so a raw photo does not
+             read as a foreign object dropped into the card. */
+          filter:saturate(.92) contrast(.98);
         }
         .hero-illustrated .hi-pair-row .hi-ambassador-cta{
           width:100%;box-sizing:border-box;justify-content:center;
@@ -8560,6 +8582,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <span class="hi-ambassador-kicker">The Ambassador Fund</span>
           <strong class="hi-ambassador-title">Bring Debatable to your school.</strong>
           <span class="hi-ambassador-detail">Debatable's fund for growing debate, school by school. Paid and remote.</span>
+        </span>
+        <!-- 2026-08-01 (Aidan): the card's middle was empty, because the
+             copy sits in the grid's 1fr row and does not fill it. A real
+             round fills it instead. Photo, not the illustration language
+             used elsewhere on this page: the pitch is "bring debate to a
+             room that does not have it", and a drawing of a schoolhouse
+             argues that less well than a photograph of the thing. The
+             schoolhouse SVG stays as the corner mark. -->
+        <span class="hi-amb-shot">
+          <img src="/img/ambassadors/round.jpg"
+               alt="Debaters in a classroom round, one speaking while the others flow the speech"
+               width="1400" height="1050" loading="lazy" decoding="async" fetchpriority="low"
+               onerror="this.closest('.hi-amb-shot').remove()">
         </span>
         <span class="hi-ambassador-cta">Apply for the founding class <span aria-hidden="true">&rarr;</span></span>
       </a>
