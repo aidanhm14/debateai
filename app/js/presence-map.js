@@ -1,7 +1,7 @@
 /* presence-map.js
  *
- * Flat 2D world map showing REAL live presence: everyone seen on
- * Debatable in the last 30 minutes, city-level, from /api/presence-live
+ * Flat 2D world map showing REAL presence: everyone seen on
+ * Debatable in the last 24 hours, city-level, from /api/presence-live
  * (the anonymous track.js beat; coords are server-rounded to ~11 km).
  *
  * Designed as a BACKGROUND layer: faint dotted continents (from
@@ -27,8 +27,9 @@
  *                    tab is hidden)
  *   opts.onData    — function(payload|null) called after every fetch,
  *                    so the page can render an honest caption ("N on
- *                    Debatable in the last 30 minutes") somewhere in its
- *                    own DOM. payload.online30 is the real count.
+ *                    Debatable in the last 24 hours") somewhere in its
+ *                    own DOM. payload.online24 is the real count
+ *                    (online30 / online5 are still returned).
  *
  * Requires /js/world-data.js (waits for 'world-data:ready' if needed).
  */

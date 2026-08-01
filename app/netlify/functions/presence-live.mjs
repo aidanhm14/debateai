@@ -8,11 +8,11 @@
 //   Privacy posture: coords rounded to 1 decimal (~11 km), city-level
 //   only, no uid, no IP stored, and the sid is a random per-tab id
 //   that links to nothing else. This exists so /spar can show REAL
-//   "people were here in the last 30 minutes" pins instead of the
-//   ambient decorative city pool.
+//   "people were here recently" pins instead of the ambient
+//   decorative city pool.
 //
 // GET: aggregated pins for anyone. {pins:[{lat,lng,city,country,n}],
-//   online5, online30}. Rides the Firestore-backed shared cache
+//   online5, online30, online24}. Rides the Firestore-backed shared cache
 //   (60s TTL) so polling costs 1 cache read, not a collection scan —
 //   same quota posture as floor-state's anon payload.
 //
@@ -31,11 +31,19 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
-const WINDOW_MS = 30 * 60 * 1000; // "live" = seen in the last 30 min
+// 2026-08-01: the pin window widened from 30 minutes to 24 hours. On this
+// traffic base a 30-min window painted an almost-empty globe most of the
+// day, which reads as a dead product rather than an honest one. A day is
+// still a real, defensible "recently" (every pin is a real visit), and it
+// is inside the 48h sweep horizon so no extra retention is needed. The
+// 5-min and 30-min counts are still computed and returned for anything
+// that wants the narrower read.
+const WINDOW_MS = 24 * 60 * 60 * 1000; // pins = seen in the last 24 hours
+const THIRTY_MIN = 30 * 60 * 1000;
 const FIVE_MIN = 5 * 60 * 1000;
 const CACHE_KEY = 'presence-live:pins';
 const CACHE_TTL_MS = 60_000;
-const MAX_DOCS = 300;
+const MAX_DOCS = 600;
 const STALE_MS = 48 * 60 * 60 * 1000; // opportunistic cleanup horizon
 
 function dayKey(ms) {
@@ -192,10 +200,12 @@ export default async (request, context) => {
 
       const byCell = new Map();
       let online5 = 0;
+      let online30 = 0;
       snap.docs.forEach((d) => {
         const p = d.data();
         if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
         if (now - p.lastSeen <= FIVE_MIN) online5 += 1;
+        if (now - p.lastSeen <= THIRTY_MIN) online30 += 1;
         const key = p.lat + ',' + p.lng;
         const cell = byCell.get(key) || { lat: p.lat, lng: p.lng, city: p.city || '', country: p.country || '', n: 0, lastSeen: 0 };
         cell.n += 1;
@@ -206,7 +216,8 @@ export default async (request, context) => {
 
       const payload = {
         pins: Array.from(byCell.values()),
-        online30: snap.size,
+        online24: snap.size,
+        online30,
         online5,
       };
       await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS).catch(() => {});

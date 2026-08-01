@@ -8426,7 +8426,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            the geo-spread sits next to the live debater faces. -->
       <div class="story-globe livenow-globe" id="storyGlobeBlock" aria-hidden="false" role="link" tabindex="0" data-cta="globe-atlas" style="cursor:pointer" onclick="location.href='/atlas'">
         <div class="hero-globe-canvas-wrap">
-          <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with pins where people have been live in the last 30 minutes"></canvas>
+          <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with pins where debaters have been active in the last 24 hours"></canvas>
         </div>
         <div class="story-globe-caption" id="globeLiveCaption">People around the world. See the map &rarr;</div>
       </div>
@@ -11145,7 +11145,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (!ctx) return;
     // 2026-07-02: the static country markers (decorative "visual breadth"
     // pins) were replaced with REAL live presence: everyone seen on
-    // Debatable in the last 30 minutes, city-level, from /api/presence-live
+    // Debatable in the last 24 hours, city-level, from /api/presence-live
     // (the anonymous track.js beat; coords server-rounded to ~11 km).
     // Honest by construction: a pin only exists if a real visitor produced
     // it. Zero visitors = a quiet globe with just the coastlines, no fake
@@ -11155,7 +11155,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     function setLiveCaption(count){
       if (!liveCaption || !(count > 0)) return;
       liveCaption.innerHTML = '<b style="color:var(--accent,#ef4444)">' + count +
-        ' ' + (count===1?'person':'people') + '</b> live in the last 30 minutes. See the map &rarr;';
+        ' debater' + (count===1?'':'s') + '</b> active recently. See the map &rarr;';
     }
     function fetchLive(){
       fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
@@ -11163,7 +11163,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         LIVE = Array.isArray(d.pins) ? d.pins.filter(function(p){
           return typeof p.lat === 'number' && typeof p.lng === 'number';
         }) : [];
-        setLiveCaption(typeof d.online30 === 'number' ? d.online30 : LIVE.length);
+        setLiveCaption(typeof d.online24 === 'number' ? d.online24 :
+          (typeof d.online30 === 'number' ? d.online30 : LIVE.length));
         // Repaint paused/static globes (reduced motion, offscreen) so
         // fresh pins land without waiting on the rAF loop.
         if (!rafId) draw();
