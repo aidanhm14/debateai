@@ -589,6 +589,20 @@ service cloud.firestore {
           allow create: if true;  // signed-in users OR anon can respond
           allow update, delete: if false;  // responses are immutable
         }
+
+        // Questions (WS2 Phase 3: audience Q&A injection)
+        // Audience members submit questions during polls; crowd upvotes
+        // to surface the most important ones. Server injects top-3 into
+        // AI's next prompt. Doc ID = auto-generated. Public read/write
+        // (signed-in only via client gate in live-poll-widget.js).
+        match /questions/{questionId} {
+          allow read:   if true;  // public for dashboards
+          allow create: if isSignedIn()
+                        && stringUnder('question', 300);  // 10-300 char guard on client
+          allow update: if isSignedIn()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotes']);
+          allow delete: if false;  // questions are immutable
+        }
       }
 
       // ── votes (WS2 pre/post spectator voting) ──────────────────────
@@ -609,6 +623,24 @@ service cloud.firestore {
                           || (request.resource.data.confidence >= 0
                               && request.resource.data.confidence <= 100));
         allow update, delete: if false;  // votes are immutable; no revisions
+      }
+
+      // ── reactions (WS2 Phase 3: reaction rail) ─────────────────────
+      // Spectators react to speeches with tagged moments: 👍 strong point,
+      // ❌ dodge, 📖 citation needed, 🎯 direct, 💭 unclear.
+      // Doc ID = speechIndex (0, 1, 2, ...); each reaction type counted
+      // per speech. Public read (for WS3 dashboards); signed-in write via
+      // /api/log-reaction. Storage: reactions/{speechIndex}/types/{reactionType}
+      // with count + lastReactedAt.
+      match /reactions/{speechIndex} {
+        allow read:   if true;  // public for analytics dashboards
+        allow create, update: if false;  // server-side only
+
+        match /types/{reactionType} {
+          allow read:   if true;
+          allow create, update: if false;  // server-side only
+          allow delete: if false;
+        }
       }
     }
 

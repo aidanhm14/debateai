@@ -4704,7 +4704,7 @@ function App() {
     }
     // Synchronously queue the final flush (non-blocking, no await)
     if (pendingTurnsRef.current.length > 0 && lastVoiceRoundIdRef.current) {
-      flushPendingTurns().catch(e => console.warn('[cleanup] final flush failed:', e));
+      flushPendingTurns().catch((e) => console.warn('[cleanup] final flush failed:', e));
     }
 
     // WS1 Phase 2: Clear network resilience state
@@ -5239,7 +5239,7 @@ function App() {
             },
             // Research-corpus opt-in (off by default). Profile toggle in
             // profile.html flips localStorage['debateos-corpus-contribute'].
-            contributable: namedUser && (function () {try {return localStorage.getItem('debateos-corpus-contribute') === '1';} catch (e) {return false;}}())
+            contributable: namedUser && function () {try {return localStorage.getItem('debateos-corpus-contribute') === '1';} catch (e) {return false;}}()
           };
 
           var handleVoiceLogResponse = (r) => r.ok ? r.json() : null;
@@ -6202,11 +6202,11 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
   // WS2 Phase 2: Start/stop mid-debate polling
   useEffect(() => {
     if (status === 'live' && typeof window.LivePollWidget !== 'undefined' && lastVoiceRoundIdRef.current && motion) {
-      var getCurrentArg = function() {
+      var getCurrentArg = function () {
         var current = currentAiTurnRef.current || currentUserTurnRef.current;
-        return (current && current.text) || motion;
+        return current && current.text || motion;
       };
-      var getElapsed = function() {
+      var getElapsed = function () {
         return startedAtRef.current ? Date.now() - startedAtRef.current : 0;
       };
       window.LivePollWidget.start(lastVoiceRoundIdRef.current, motion, {
@@ -7458,9 +7458,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         rememberPersona(p.key);
       }
     },
-    (window.DBAvatar
-      ? el('div', { className: 'av', style: { background: 'transparent', padding: 0 }, dangerouslySetInnerHTML: { __html: window.DBAvatar.persona(p.key, '100%') } })
-      : el('div', { className: 'av' }, p.initials)),
+    window.DBAvatar ?
+    el('div', { className: 'av', style: { background: 'transparent', padding: 0 }, dangerouslySetInnerHTML: { __html: window.DBAvatar.persona(p.key, '100%') } }) :
+    el('div', { className: 'av' }, p.initials),
     el('div', { className: 'info' },
     el('div', { className: 'nm' }, p.name),
     el('div', { className: 'role' }, p.archetype)
@@ -8671,5 +8671,6 @@ root.render(el(App));</script>
 </a>
 <script defer src="/js/notifications.js"></script>
 <script defer src="/js/live-poll-widget.js"></script>
+<script defer src="/js/reaction-rail.js"></script>
 </body>
 </html>
