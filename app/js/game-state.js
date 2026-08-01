@@ -162,12 +162,16 @@ const GameState = (() => {
     if (!roundIdRef || !sideRef) return;
 
     try {
-      const token = await firebase.auth().currentUser?.getIdToken();
-      if (!token) return;
+      // Token optional: anon rounds still score (the endpoint only reads
+      // public reaction counts); signed-in users get attributed.
+      let token = null;
+      try { token = await firebase.auth().currentUser?.getIdToken(); } catch (_) {}
+      const headers = { 'content-type': 'application/json' };
+      if (token) headers['authorization'] = `Bearer ${token}`;
 
       const res = await fetch('/api/compute-game-score', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'authorization': `Bearer ${token}` },
+        headers,
         body: JSON.stringify({
           roundId: roundIdRef,
           speechIndex,
