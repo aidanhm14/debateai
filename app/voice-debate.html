@@ -4608,6 +4608,10 @@ function App() {
   var aiSpeakingMsRef = useRef(0);
   var userSpeakingMsRef = useRef(0);
   var lastVoiceRoundIdRef = useRef(null);
+  // WS2 Phase 4: monotonic speech counter shared by the reaction rail
+  // (tags the speech currently in progress) and the scoring engine
+  // (scores a speech the moment it completes).
+  var speechIndexRef = useRef(0);
   var lastVoiceRoundAnonymousRef = useRef(false);
   // Resolves to the logged generation id (or null). stop() flushes the
   // round to /api/log-generation asynchronously; generateRFD awaits this
@@ -5008,6 +5012,19 @@ function App() {
           } else {
             upsertTurn({ id: 'you-' + Date.now(), who: 'you', text: evt.transcript || '', ...turnStamp() });
           }
+          // WS2 Phase 4: a completed user speech scores immediately, then
+          // the reaction rail advances to tag the next speech.
+          if ((evt.transcript || '').trim() && window.GameState && lastVoiceRoundIdRef.current) {
+            var _scoredIdx = speechIndexRef.current;
+            speechIndexRef.current = _scoredIdx + 1;
+            try {window.GameState.updateScore(_scoredIdx, evt.transcript);} catch (_) {}
+            try {
+              var _rDock = document.getElementById('reactionDock');
+              if (_rDock && window.ReactionRail) {
+                window.ReactionRail.start(lastVoiceRoundIdRef.current, speechIndexRef.current, _rDock);
+              }
+            } catch (_) {}
+          }
           break;
         }
 
@@ -5100,6 +5117,21 @@ function App() {
           }
           lastSpeechTickRef.current = { ai: 0, user: 0, who: null };
           if (speakingRef.current === 'ai') setSpeaking('idle');
+          // WS2 Phase 4: score the AI speech that just finished (its
+          // transcript landed on audio_transcript.done, which fires before
+          // response.done) and advance the reaction rail.
+          var _aiText = currentAiTurnRef.current && (currentAiTurnRef.current.text || '');
+          if ((_aiText || '').trim() && window.GameState && lastVoiceRoundIdRef.current) {
+            var _scoredAiIdx = speechIndexRef.current;
+            speechIndexRef.current = _scoredAiIdx + 1;
+            try {window.GameState.updateScore(_scoredAiIdx, _aiText);} catch (_) {}
+            try {
+              var _rDock2 = document.getElementById('reactionDock');
+              if (_rDock2 && window.ReactionRail) {
+                window.ReactionRail.start(lastVoiceRoundIdRef.current, speechIndexRef.current, _rDock2);
+              }
+            } catch (_) {}
+          }
           // AI turn ended — release auto-mute so the user's mic comes back
           // on (unless they manually muted in the interim, in which case
           // manual still wins via applyTrackEnabledFromState).
@@ -6218,6 +6250,30 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       window.LivePollWidget.stop();
     }
   }, [status, motion]);
+
+  // WS2 Phase 4: game scoreboard + reaction rail lifecycle. Both mount
+  // into fixed docks outside the React root (see #gameStateDock /
+  // #reactionDock before the closing body tag). The scoreboard listens
+  // to game_state via Firestore; the rail re-mounts per speech from the
+  // realtime event handler as speeches complete.
+  useEffect(() => {
+    var gDock = document.getElementById('gameStateDock');
+    var rDock = document.getElementById('reactionDock');
+    if (status === 'live' && window.GameState && lastVoiceRoundIdRef.current && gDock) {
+      speechIndexRef.current = 0;
+      gDock.style.display = 'block';
+      try {window.GameState.start(lastVoiceRoundIdRef.current, side, gDock);} catch (_) {}
+      if (rDock && window.ReactionRail) {
+        rDock.style.display = 'block';
+        try {window.ReactionRail.start(lastVoiceRoundIdRef.current, 0, rDock);} catch (_) {}
+      }
+    } else if (status !== 'live') {
+      if (window.GameState) {try {window.GameState.stop();} catch (_) {}}
+      if (window.ReactionRail) {try {window.ReactionRail.stop();} catch (_) {}}
+      if (gDock) gDock.style.display = 'none';
+      if (rDock) rDock.style.display = 'none';
+    }
+  }, [status, side]);
 
   // Arena: interrupt shock. Each time the user cuts the AI off
   // (interruptFlash bumps), flip interruptShock on for ~0.7s so the
@@ -8669,6 +8725,10 @@ root.render(el(App));</script>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
   Feedback
 </a>
+<!-- WS2 Phase 4: fixed docks for the live scoreboard + reaction rail.
+     Hidden until the round goes live; toggled by the lifecycle useEffect. -->
+<div id="gameStateDock" style="position:fixed;top:84px;right:16px;width:250px;z-index:60;display:none"></div>
+<div id="reactionDock" style="position:fixed;bottom:88px;left:50%;transform:translateX(-50%);z-index:60;display:none;max-width:calc(100vw - 24px)"></div>
 <script defer src="/js/notifications.js"></script>
 <script defer src="/js/live-poll-widget.js"></script>
 <script defer src="/js/reaction-rail.js"></script>
