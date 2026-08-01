@@ -625,6 +625,15 @@ service cloud.firestore {
         allow update, delete: if false;  // votes are immutable; no revisions
       }
 
+      // ── game_state (WS2 Phase 4: scoring engine) ───────────────────
+      // Live game score/streak/combo per round, computed server-side by
+      // /api/compute-game-score from reaction counts. Doc ID = 'current'.
+      // Public read (spectator scoreboard); server-side write only.
+      match /game_state/{stateId} {
+        allow read:   if true;  // spectators watch the live score
+        allow create, update, delete: if false;  // server-side only
+      }
+
       // ── reactions (WS2 Phase 3: reaction rail) ─────────────────────
       // Spectators react to speeches with tagged moments: 👍 strong point,
       // ❌ dodge, 📖 citation needed, 🎯 direct, 💭 unclear.
