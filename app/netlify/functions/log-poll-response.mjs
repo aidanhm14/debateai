@@ -5,7 +5,7 @@
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
-import { json, errorResponse } from './lib/response.mjs';
+import { jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
   if (request.method !== 'POST') {
@@ -69,7 +69,7 @@ export default async (request) => {
       }, { merge: true });
     });
 
-    return json({ ok: true, roundId, pollNumber }, 200, request);
+    return jsonResponse({ ok: true, roundId, pollNumber }, 200, request);
   } catch (err) {
     console.error('[log-poll-response] error:', err.message);
     return errorResponse('Failed to log response', 500, request);

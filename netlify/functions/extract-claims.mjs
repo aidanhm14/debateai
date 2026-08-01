@@ -6,7 +6,7 @@
 // Uses Claude to identify the 3-5 strongest claims from a speech.
 // Strength = how directly this argument advances the motion.
 
-import { json, errorResponse } from './lib/response.mjs';
+import { jsonResponse, errorResponse } from './lib/response.mjs';
 
 const EXTRACTION_PROMPT = `You are analyzing a debate speech. Extract the 3-5 strongest claims made.
 For each claim:
@@ -78,7 +78,7 @@ export default async (request) => {
       console.warn('[extract-claims] JSON parse failed:', parseErr.message);
     }
 
-    return json({
+    return jsonResponse({
       ok: true,
       format,
       side: side || '',

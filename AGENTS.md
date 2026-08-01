@@ -163,6 +163,20 @@ fix the price — don't `--no-verify`. Intentional *historical* price
 prose belongs in `report.html` or a `.md` file (both excluded from the
 scan).
 
+It also runs `scripts/check-function-imports.mjs`, a **function-import
+guard** that HARD-BLOCKS a commit staging a `.mjs` under
+`app/netlify/functions/` that imports a name a sibling `./lib/*.mjs`
+does not export, or imports a lib module that doesn't exist. The
+recurring case is `import { json } from './lib/response.mjs'` — the
+real exports are `corsResponse`, `jsonResponse`, `errorResponse`.
+Seven functions shipped that exact typo across four commits on
+2026-07-31. It matters more than a normal typo because it fails at
+Netlify "Functions bundling" with exit code 2, which blocks **every**
+deploy, not just the broken function; the site then serves a stale
+build while unrelated commits queue behind it. Static parse, no npm
+deps, ~80ms on the whole tree. Scan the whole deployed tree by hand
+with `node scripts/check-function-imports.mjs --all`.
+
 ## Inline React scripts: `<script data-precompile="es5">`
 
 Six pages (`index.html`, `practice.html`, `voice-debate.html`,

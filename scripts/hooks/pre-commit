@@ -78,6 +78,27 @@ if [ -f "$JUDGE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Netlify-function import guard. Blocks a commit that stages a function
+# importing a name a sibling lib module does not export (the repeated
+# `json` vs `jsonResponse` mistake), or importing a lib module that
+# does not exist.
+#
+# Why a hook: these fail at Netlify "Functions bundling" with exit 2,
+# and a bundling failure blocks EVERY deploy, not just the broken
+# function — the site serves a stale build while unrelated commits
+# queue behind it. It happened seven times across four commits on
+# 2026-07-31 alone. Static parse, no deps, ~80ms on the whole tree.
+# Same hard-fail, soft-skip posture as the guards above.
+# ──────────────────────────────────────────────────────────────────
+IMPORT_GUARD="$REPO_ROOT/scripts/check-function-imports.mjs"
+if [ -f "$IMPORT_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/check-function-imports.mjs); then
+    echo "[import-guard] commit blocked — fix the import(s) above. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Precompile inline <script data-precompile="es5"> blocks before
 # anything else. Why first: the precompile may mutate staged HTML,
 # which downstream steps (sw.js cache bump) need to see.

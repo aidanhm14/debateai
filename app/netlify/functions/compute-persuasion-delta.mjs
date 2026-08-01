@@ -9,7 +9,7 @@
 // 4. Rank by persuasion impact
 
 import { getDb } from './lib/firestore.mjs';
-import { json, errorResponse } from './lib/response.mjs';
+import { jsonResponse, errorResponse } from './lib/response.mjs';
 
 export default async (request) => {
   if (request.method !== 'GET') {
@@ -80,7 +80,7 @@ export default async (request) => {
     // Sort by persuasion impact (highest first)
     deltas.sort((a, b) => Math.abs(b.persuasionScore) - Math.abs(a.persuasionScore));
 
-    return json({
+    return jsonResponse({
       ok: true,
       roundId,
       pollCount: deltas.length,

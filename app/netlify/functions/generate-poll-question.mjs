@@ -8,7 +8,7 @@
 // Types: claim (true/false factual), persuasion (agree/disagree value), strategy (which side wins this point).
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-import { json, errorResponse } from './lib/response.mjs';
+import { jsonResponse, errorResponse } from './lib/response.mjs';
 
 const POLL_TYPES = {
   claim: {
@@ -58,7 +58,7 @@ export default async (request) => {
       console.log(`[generate-poll] type=${pollType}, pollNum=${pollNumber}, motion=${motion.slice(0, 30)}`);
     }
 
-    return json({
+    return jsonResponse({
       ok: true,
       roundId,
       question,
