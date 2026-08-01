@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Build your debate brain | Debatable</title>
+<meta name="description" content="Six questions that teach the AI who you are as a debater. Your level, format, style, register, side, and what you want to sharpen. It remembers." />
+<link rel="canonical" href="https://itsdebatable.com/brain" />
+<meta property="og:title" content="Build your debate brain | Debatable" />
+<meta property="og:description" content="Six questions that teach the AI who you are as a debater. It remembers." />
+<meta property="og:url" content="https://itsdebatable.com/brain" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Build your debate brain | Debatable" />
+<meta name="twitter:description" content="Six questions that teach the AI who you are as a debater. It remembers." />
+
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="/css/arcade-flow.css">
+<script defer src="/js/arcade-flow.js"></script>
+<script defer src="/js/topbar.js"></script>
+<script defer src="/js/prefs-sync.js"></script>
+
+<style>
+  :root { --brain-red: #dc2626; --brain-red-deep: #991b1b; }
+
+  body {
+    margin: 0;
+    background: var(--bg, #faf9f5);
+    color: var(--text, #1a1a1f);
+    font-family: 'Crimson Pro', Georgia, serif;
+  }
+
+  /* ── The resting page, before the run starts ───────────────────────
+     Deliberately one screen and one button. Everything explanatory
+     belongs inside the run, where it is attached to the question it
+     explains; a page that argues for the flow before you enter it is
+     the density problem the landing already has. */
+  .bx-wrap {
+    max-width: 660px;
+    margin: 0 auto;
+    padding: 68px 22px 90px;
+    text-align: center;
+  }
+  .bx-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: .72rem; font-weight: 800; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--brain-red);
+    margin-bottom: 20px;
+  }
+  .bx-eyebrow i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--brain-red); box-shadow: 0 0 10px rgba(220,38,38,.8);
+    animation: bxBeat 2.1s ease-in-out infinite;
+  }
+  @keyframes bxBeat { 50% { transform: scale(.66); opacity: .55; } }
+
+  .bx-h1 { font-size: clamp(2.1rem, 6vw, 3.2rem); line-height: 1.06; margin: 0 0 16px; font-weight: 800; }
+  .bx-sub { font-size: 1.08rem; line-height: 1.5; color: var(--text-dim, #57534e); margin: 0 auto 30px; max-width: 46ch; }
+
+  .bx-start {
+    appearance: none; border: 0; font: inherit; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    min-width: 230px; padding: 15px 30px; border-radius: 999px;
+    background: var(--brain-red); color: #fff;
+    font-weight: 800; font-size: 1.02rem;
+    box-shadow: 0 12px 30px rgba(220,38,38,.26);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .bx-start:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(220,38,38,.32); }
+  .bx-start:active { transform: translateY(0); }
+
+  /* Six dots standing in for the six steps. Reads as a level select. */
+  .bx-steps { display: flex; justify-content: center; gap: 9px; margin: 34px 0 0; padding: 0; list-style: none; }
+  .bx-steps li {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--brain-red); opacity: .2;
+    animation: bxRise 3.4s ease-in-out infinite;
+  }
+  .bx-steps li:nth-child(2){animation-delay:.18s} .bx-steps li:nth-child(3){animation-delay:.36s}
+  .bx-steps li:nth-child(4){animation-delay:.54s} .bx-steps li:nth-child(5){animation-delay:.72s}
+  .bx-steps li:nth-child(6){animation-delay:.9s}
+  @keyframes bxRise { 40% { opacity: .95; transform: translateY(-4px); } }
+
+  .bx-note { margin-top: 26px; font-size: .88rem; color: var(--text-dim, #57534e); }
+  .bx-note a { color: var(--brain-red); }
+
+  /* Saved-state card, shown instead of the pitch once a brain exists. */
+  .bx-saved {
+    margin: 30px auto 0; max-width: 430px; text-align: left;
+    border: 1px solid var(--border, rgba(29,25,21,.14));
+    border-radius: 16px; padding: 16px 18px;
+    background: var(--bg-card, #fff);
+  }
+  .bx-saved h2 { margin: 0 0 10px; font-size: .74rem; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim, #57534e); font-weight: 800; }
+  .bx-saved dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; font-size: .95rem; }
+  .bx-saved dt { color: var(--text-dim, #57534e); }
+  .bx-saved dd { margin: 0; font-weight: 700; text-align: right; }
+
+  /* ── Live-rounds strip, hung in the flow's top slot ────────────────
+     Real numbers from /api/live-now. It renders nothing at all when the
+     count is zero rather than inventing activity: a strip that claims a
+     busy arena to someone who then queues alone does more damage than
+     an absent strip. */
+  .bx-live { display: flex; align-items: center; gap: 12px; padding: 9px 14px; overflow: hidden; }
+  .bx-live[hidden] { display: none; }
+  .bx-live-flag {
+    display: inline-flex; align-items: center; gap: 7px; flex: none;
+    font-size: .68rem; font-weight: 900; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--brain-red);
+    font-family: system-ui, sans-serif;
+  }
+  .bx-live-flag i {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--brain-red);
+    box-shadow: 0 0 9px rgba(220,38,38,.85); animation: bxBeat 2s ease-in-out infinite;
+  }
+  .bx-live-names {
+    flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; font-size: .84rem; color: var(--text-dim, #57534e);
+  }
+  .bx-live-go {
+    flex: none; font-size: .76rem; font-weight: 800; text-decoration: none;
+    color: var(--brain-red); border: 1px solid rgba(220,38,38,.32);
+    padding: 5px 11px; border-radius: 999px;
+    font-family: system-ui, sans-serif;
+  }
+  .bx-live-go:hover { background: rgba(220,38,38,.07); }
+
+  /* The flow paints from ui.css tokens; these pin its accent to brand
+     red on this page so the option marks, dots and launch button match
+     the surface rather than whatever the host page's accent happens to
+     be. */
+  .afl { --accent: var(--brain-red); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bx-eyebrow i, .bx-steps li, .bx-live-flag i { animation: none; }
+    .bx-start { transition: none; }
+  }
+  @media (max-width: 520px) {
+    .bx-wrap { padding: 44px 18px 70px; }
+    .bx-live-go { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar-slot"></div>
+
+<main class="bx-wrap">
+  <div class="bx-eyebrow"><i aria-hidden="true"></i>Personal debate intelligence</div>
+  <h1 class="bx-h1">Build your debate brain.</h1>
+  <p class="bx-sub" id="bxSub">Six questions. The AI learns your level, your format, and how you actually argue, then brings that into every round you run.</p>
+
+  <button type="button" class="bx-start" id="bxStart">Start building <span aria-hidden="true">&rarr;</span></button>
+
+  <ul class="bx-steps" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li></ul>
+
+  <div class="bx-saved" id="bxSaved" hidden>
+    <h2>Your brain right now</h2>
+    <dl id="bxSavedList"></dl>
+  </div>
+
+  <p class="bx-note">Answers are yours. <a href="/practice">Skip and just run a round</a> if you would rather start arguing.</p>
+</main>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   /brain — the debate identity, built one question per screen.
+
+   WHY THE ANSWERS ARE localStorage KEYS AND NOT A FIRESTORE WRITE
+   prefs-sync.js already mirrors a whitelist of localStorage keys onto
+   user_profiles/{uid}.prefs, last-write-wins per key, merging both ways
+   on sign-in. Writing `da-brain-*` keys therefore gets per-account
+   persistence, cross-device merge and offline tolerance for free, and
+   an ANONYMOUS visitor keeps their brain locally and carries it into
+   the account they make later. A direct Firestore write here would have
+   needed its own auth wait, its own merge rule, and would have thrown
+   away every answer given before sign-in, which is most of them.
+
+   The keys are added to SYNCED_KEYS in prefs-sync.js. Adding a step
+   here means adding its key there too, or that one answer silently
+   stays on one device.
+
+   PROGRESSIVE ENHANCEMENT. If arcade-flow.js fails to load, the button
+   falls back to /practice rather than doing nothing.
+   ───────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+
+  var STEPS = [
+    {
+      key: 'level', storageKey: 'da-brain-level',
+      q: 'How much have you done?',
+      summaryLabel: 'Level',
+      hint: 'This sets how hard the AI argues before you have said a word.',
+      options: [
+        { value: 'new', label: 'New to this', sub: 'It explains the shape of a round as it goes.' },
+        { value: 'school', label: 'School team', sub: 'Competent opponent. It will not spread you.' },
+        { value: 'circuit', label: 'Circuit regular', sub: 'Fast, technical, punishes a dropped argument.' },
+        { value: 'elite', label: 'I break at nationals', sub: 'Full strength. It goes for the throat.' }
+      ]
+    },
+    {
+      key: 'format', storageKey: 'da-brain-format',
+      q: 'What do you actually debate?',
+      summaryLabel: 'Format',
+      hint: 'Formats differ on evidence, structure and register. This picks the right one.',
+      options: [
+        { value: 'quick', label: 'General', sub: 'Two speeches a side. Judged out of 30.' },
+        { value: 'asian', label: 'Asian Parliamentary', sub: 'Three a side, reply speeches, POIs.' },
+        { value: 'wsdc', label: 'WSDC', sub: 'Worlds Schools. Content, style, strategy.' },
+        { value: 'bp', label: 'British Parliamentary', sub: 'Four benches, extensions, whips.' },
+        { value: 'apda', label: 'APDA', sub: 'American Parli. Impromptu, no tagged cards.' },
+        { value: 'pf', label: 'Public Forum', sub: 'Evidence and weighing.' },
+        { value: 'ld', label: 'Lincoln Douglas', sub: 'Value and criterion.' },
+        { value: 'policy', label: 'Policy', sub: 'Tagged cards, speed, the flow.' }
+      ]
+    },
+    {
+      key: 'style', storageKey: 'da-brain-style',
+      q: 'How do you win rounds?',
+      summaryLabel: 'Style',
+      hint: 'Your strength, so the AI knows where to attack you.',
+      options: [
+        { value: 'evidence', label: 'On the evidence', sub: 'Facts, studies, receipts.' },
+        { value: 'framework', label: 'On the framework', sub: 'Win the lens, win the round.' },
+        { value: 'weighing', label: 'On impact weighing', sub: 'Magnitude, probability, timeframe.' },
+        { value: 'clash', label: 'On clash', sub: 'Rebuttal and refutation carry it.' },
+        { value: 'delivery', label: 'On delivery', sub: 'Persuasion and presence do the work.' }
+      ]
+    },
+    {
+      key: 'register', storageKey: 'da-brain-register',
+      q: 'What should it sound like against you?',
+      summaryLabel: 'Opponent',
+      hint: 'The register of the AI opponent, not its difficulty.',
+      options: [
+        { value: 'surgical', label: 'Calm and surgical', sub: 'Quiet, precise, finds the loose thread.' },
+        { value: 'aggressive', label: 'Relentless', sub: 'Pushes hard, takes the floor back.' },
+        { value: 'warm', label: 'Warm and persuasive', sub: 'Wins the room before it wins the point.' },
+        { value: 'technical', label: 'Technical', sub: 'Line by line, on the flow.' }
+      ]
+    },
+    {
+      key: 'side', storageKey: 'da-brain-side',
+      q: 'Which side do you want?',
+      summaryLabel: 'Side',
+      hint: 'Take the side you disagree with when you want the harder round.',
+      options: [
+        { value: '', label: 'Surprise me', sub: 'Assigned when the round opens.' },
+        { value: 'prop', label: 'Proposition', sub: 'You argue for the motion.' },
+        { value: 'opp', label: 'Opposition', sub: 'You argue against it.' }
+      ]
+    },
+    {
+      key: 'goal', storageKey: 'da-brain-goal',
+      q: 'What do you want to get better at?',
+      summaryLabel: 'Sharpening',
+      hint: 'The ballot leans on this when it writes your feedback.',
+      options: [
+        { value: 'pressure', label: 'Speaking under pressure', sub: 'Holding the thread when it gets fast.' },
+        { value: 'case', label: 'Case construction', sub: 'Building something that survives contact.' },
+        { value: 'rebuttal', label: 'Rebuttal', sub: 'Answering what was actually said.' },
+        { value: 'crossex', label: 'Cross examination', sub: 'Questions that set up your own case.' },
+        { value: 'adapt', label: 'Reading the judge', sub: 'Adapting to lay, flow, and tech panels.' }
+      ]
+    }
+  ];
+
+  function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  /* Saved answers preselect, so a returning debater edits a brain
+     rather than rebuilding one from the first question. */
+  function withDefaults() {
+    return STEPS.map(function (s) {
+      var saved = read(s.storageKey);
+      var valid = s.options.some(function (o) { return o.value === saved; });
+      var out = {
+        key: s.key, q: s.q, hint: s.hint,
+        summaryLabel: s.summaryLabel, options: s.options
+      };
+      out['default'] = valid ? saved : s.options[0].value;
+      return out;
+    });
+  }
+
+  function labelFor(step, value) {
+    var hit = null;
+    step.options.forEach(function (o) { if (o.value === value) hit = o; });
+    return hit ? hit.label : '';
+  }
+
+  /* ── saved-state card ── */
+  var savedCard = document.getElementById('bxSaved');
+  var savedList = document.getElementById('bxSavedList');
+  var startBtn = document.getElementById('bxStart');
+  var sub = document.getElementById('bxSub');
+
+  function paintSaved() {
+    var rows = [];
+    STEPS.forEach(function (s) {
+      var v = read(s.storageKey);
+      if (v === null) return;
+      var valid = s.options.some(function (o) { return o.value === v; });
+      if (!valid) return;
+      rows.push([s.summaryLabel, labelFor(s, v) || 'Surprise me']);
+    });
+    if (!rows.length) { savedCard.hidden = true; return; }
+    savedList.innerHTML = '';
+    rows.forEach(function (r) {
+      var dt = document.createElement('dt'); dt.textContent = r[0];
+      var dd = document.createElement('dd'); dd.textContent = r[1];
+      savedList.appendChild(dt); savedList.appendChild(dd);
+    });
+    savedCard.hidden = false;
+    startBtn.innerHTML = 'Edit your brain <span aria-hidden="true">&rarr;</span>';
+    sub.textContent = 'Six questions, already answered. Change any of them and every round after this one follows the new setup.';
+  }
+
+  /* ── live-rounds strip for the flow's top slot ──
+     Built fresh per run because the flow removes its own root on close,
+     which takes the slot with it. */
+  function buildLiveStrip() {
+    var wrap = document.createElement('div');
+    wrap.className = 'bx-live';
+    wrap.hidden = true;
+    wrap.innerHTML =
+      '<span class="bx-live-flag"><i aria-hidden="true"></i><span data-n>Live now</span></span>' +
+      '<span class="bx-live-names" data-names></span>' +
+      '<a class="bx-live-go" href="/spar" data-cta="brain-live-strip">Debate a stranger</a>';
+
+    fetch('/api/live-now', { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.count) return;           // silent when nobody is live
+        var n = d.count;
+        wrap.querySelector('[data-n]').textContent =
+          n + (n === 1 ? ' debater live' : ' debaters live');
+        var names = (d.debaters || []).map(function (x) { return x.name; }).filter(Boolean);
+        wrap.querySelector('[data-names]').textContent =
+          names.length ? names.slice(0, 3).join(' · ') + ' waiting for a round' : 'Waiting for a round';
+        wrap.hidden = false;
+      })
+      .catch(function () { /* strip stays hidden; never a blocker */ });
+
+    return wrap;
+  }
+
+  function persist(answers) {
+    STEPS.forEach(function (s) {
+      var v = answers[s.key];
+      if (v === undefined || v === null) return;
+      write(s.storageKey, String(v));
+    });
+    write('da-brain-built', String(Date.now()));
+    try {
+      if (window.gtag) window.gtag('event', 'brain_built', {
+        level: answers.level || '', format: answers.format || '', goal: answers.goal || ''
+      });
+    } catch (e) {}
+  }
+
+  startBtn.addEventListener('click', function () {
+    if (!window.ArcadeFlow) { location.href = '/practice'; return; }
+    window.ArcadeFlow.start({
+      label: 'Build your debate brain',
+      topSlot: buildLiveStrip(),
+      steps: withDefaults(),
+      launch: {
+        title: 'That is your brain.',
+        hint: 'Every round from here reads this. Change it any time at /brain.',
+        cta: 'Run a round with it'
+      },
+      onDone: function (a) {
+        persist(a);
+        var q = [];
+        if (a.format) q.push('format=' + encodeURIComponent(a.format));
+        if (a.side) q.push('side=' + encodeURIComponent(a.side));
+        q.push('source=brain');
+        location.href = '/practice?' + q.join('&');
+      },
+      /* Skip still SAVES. The defaults on a skipped run are either the
+         person's own previous answers or the first option, and either is
+         a truer brain than none; discarding them would mean a visitor who
+         skipped step six lost steps one through five. */
+      onSkip: function (a) { persist(a); paintSaved(); },
+      onClose: function () { paintSaved(); }
+    });
+  });
+
+  paintSaved();
+})();
+</script>
+
+</body>
+</html>

@@ -110,6 +110,20 @@
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', cfg.label || 'Set up your round');
 
+    /* ── optional top slot ──
+       An element the caller hangs ABOVE the rail, spanning the width and
+       staying put while the panels travel underneath. /brain uses it for
+       the live-rounds strip: the point of the surface is that you are
+       building a brain while real rounds are happening, so that has to be
+       visible on every step rather than on a step of its own.
+
+       Purely additive. Callers that pass nothing (native.html) get the
+       rail flush to the top exactly as before. */
+    if (cfg.topSlot && cfg.topSlot.nodeType === 1) {
+      cfg.topSlot.classList.add('afl-top');
+      root.appendChild(cfg.topSlot);
+    }
+
     /* ── rail ── */
     var rail = el('div', 'afl-rail');
     var dots = el('div', 'afl-dots');

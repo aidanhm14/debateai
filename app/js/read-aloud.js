@@ -86,6 +86,10 @@
     '/exhibition',
     '/spectate',
     '/practice',
+    // /brain plays a synthesised blip on every option press (arcade-flow.js),
+    // so a narration that followed a listener here would talk over the
+    // build. Same rule as the other sound-making pages above.
+    '/brain',
   ];
 
   // ── route → narration slug ──────────────────────────────────────

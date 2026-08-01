@@ -50,6 +50,12 @@
     // speak or a noisy-room gate needs it on their phone too; a factory
     // reset on the second device is exactly the problem this file exists for.
     'da-nv-mic', 'da-turn-wait', 'da-room-noise', 'da-barge',
+    // the debate brain (/brain). These ARE the identity the AI argues
+    // against, so losing them on a second device is the whole failure this
+    // file exists to prevent. Adding a step to /brain means adding its key
+    // here, or that one answer quietly stays on one machine.
+    'da-brain-level', 'da-brain-format', 'da-brain-style',
+    'da-brain-register', 'da-brain-side', 'da-brain-goal', 'da-brain-built',
     // consent + identity
     'debateos-corpus-contribute', 'debateos-use-case', 'debateos-use-case-confirmed',
     // "stop showing me this" — the most annoying thing to lose on a new device
