@@ -260,3 +260,7 @@ const GameState = (() => {
 
   return { start, stop, updateScore };
 })();
+
+// Top-level const doesn't attach to window; the voice-debate wiring
+// checks window.GameState, so expose explicitly.
+window.GameState = GameState;

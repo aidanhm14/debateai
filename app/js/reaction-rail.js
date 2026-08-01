@@ -123,3 +123,7 @@ const ReactionRail = (() => {
 
   return { start, stop };
 })();
+
+// Top-level const doesn't attach to window; the voice-debate wiring
+// checks window.ReactionRail, so expose explicitly.
+window.ReactionRail = ReactionRail;
