@@ -3014,7 +3014,7 @@ button{font-family:inherit}
     render();
   }
   newMatchup();
-  setInterval(tick, 1700);
+  setInterval(function(){ if (!document.hidden) tick(); }, 1700);
   setInterval(function(){ if (!document.hidden) newMatchup(); }, 14000);
 })();
 </script>
@@ -4675,7 +4675,8 @@ button{font-family:inherit}
       el.innerHTML = (cd.cls === 'live' ? '<span class="live-blink"></span>' : '') + escHtml(cd.label);
     });
   }
-  setInterval(updateCountdowns, 30000);
+  setInterval(function(){ if (!document.hidden) updateCountdowns(); }, 30000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) updateCountdowns(); });
 
   // ── Accept flow (consent modal → mark + publish). Shared by the
   // card button and the drawer button via the action delegate below.
@@ -6644,12 +6645,14 @@ button{font-family:inherit}
   // states flip on automatically. Cheap because the list is small.
   // Day-of clock ticks every second (one DOM text-node update) when
   // the banner is showing; everything else is on the 20s cadence.
-  setInterval(function(){
+  function refreshViews(){
     render();
     renderTodayPanel();
     if (document.getElementById('manageView').style.display !== 'none') renderManage();
-  }, 20000);
-  setInterval(tickDayofClock, 1000);
+  }
+  setInterval(function(){ if (!document.hidden) refreshViews(); }, 20000);
+  setInterval(function(){ if (!document.hidden) tickDayofClock(); }, 1000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden){ refreshViews(); tickDayofClock(); } });
 })();
 </script>
 

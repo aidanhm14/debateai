@@ -204,24 +204,30 @@ body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webki
    This is what makes the in-app feel like the same product as the
    marketing site instead of a separate dashboard. */
 .bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;background:var(--bg,#111)}
+/* Same perf fix as landing's .hero-bg glows (see that comment block):
+   Chrome runs large-radius filter:blur on the main thread, and animating
+   scale() on a 100px-blurred layer re-rasterized it every frame, pinning
+   a core for the life of every /app session. The radial-gradient's own
+   transparent falloff (stretched larger) replaces the blur, and the
+   drift animates translate only so it stays a pure compositor op. */
 .bg-canvas::before{
   content:'';position:absolute;
-  top:-20%;right:-10%;width:80%;height:120%;
-  background:radial-gradient(ellipse at center,var(--accent-glow,rgba(239,68,68,.05)) 0%,transparent 70%);
-  filter:blur(100px);
+  top:-35%;right:-25%;width:110%;height:150%;
+  background:radial-gradient(ellipse at center,var(--accent-glow,rgba(239,68,68,.05)) 0%,transparent 62%);
   pointer-events:none;
+  will-change:transform;
   animation:bgDrift 12s ease-in-out infinite alternate;
 }
 .bg-canvas::after{
   content:'';position:absolute;
-  bottom:-10%;left:-10%;width:60%;height:80%;
-  background:radial-gradient(ellipse at center,var(--accent-glow2,rgba(239,68,68,.03)) 0%,transparent 70%);
-  filter:blur(80px);
+  bottom:-25%;left:-25%;width:90%;height:110%;
+  background:radial-gradient(ellipse at center,var(--accent-glow2,rgba(239,68,68,.03)) 0%,transparent 62%);
   pointer-events:none;
+  will-change:transform;
   animation:bgDrift2 14s ease-in-out infinite alternate;
 }
-@keyframes bgDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-40px,30px) scale(1.05)}}
-@keyframes bgDrift2{0%{transform:translate(0,0) scale(1)}100%{transform:translate(30px,-20px) scale(1.08)}}
+@keyframes bgDrift{0%{transform:translate(0,0)}100%{transform:translate(-40px,30px)}}
+@keyframes bgDrift2{0%{transform:translate(0,0)}100%{transform:translate(30px,-20px)}}
 .bg-grain{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 /* Hidden by default. dated decorative geometric shapes that weren't on landing.
    Light theme rules below still set their colors so re-enabling is one line. */
@@ -379,7 +385,7 @@ body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webki
 .topbar-style-cta::after{
   content:'';position:absolute;inset:-45% auto -45% -40%;width:42%;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.34),transparent);
-  transform:skewX(-18deg);animation:styleCtaSweep 3.4s ease-in-out infinite;
+  transform:translateX(0) skewX(-18deg);animation:styleCtaSweep 3.4s ease-in-out infinite;
 }
 .topbar-style-cta:hover{background:#b91c1c!important;border-color:#b91c1c!important;box-shadow:0 14px 32px rgba(220,38,38,.3);transform:translateY(-1px)}
 .topbar-style-cta span{position:relative;z-index:1}
@@ -389,7 +395,10 @@ body{font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;-webki
   box-shadow:inset -2px -3px 5px rgba(127,29,29,.32),0 0 0 3px rgba(255,255,255,.16);
   flex:0 0 auto;animation:styleCtaPulse 1.8s ease-in-out infinite;
 }
-@keyframes styleCtaSweep{0%,48%{left:-48%;opacity:0}58%{opacity:1}82%,100%{left:120%;opacity:0}}
+/* translateX, not left — animating `left` forced layout every frame. The
+   element is 42% wide starting at -40%, so 400% of its own width clears
+   the pill's right edge. */
+@keyframes styleCtaSweep{0%,48%{transform:translateX(0) skewX(-18deg);opacity:0}58%{opacity:1}82%,100%{transform:translateX(400%) skewX(-18deg);opacity:0}}
 @keyframes styleCtaPulse{0%,100%{transform:scale(1);box-shadow:inset -2px -3px 5px rgba(127,29,29,.32),0 0 0 3px rgba(255,255,255,.16)}50%{transform:scale(1.08);box-shadow:inset -2px -3px 5px rgba(127,29,29,.32),0 0 0 6px rgba(255,255,255,.1)}}
 
 /* Style-profile teaching flow */
@@ -1505,14 +1514,16 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
 /* ── AI Icon Animation ──────────────────── */
 @keyframes flameFlicker{0%,100%{transform:scaleY(1) scaleX(1);opacity:.9}25%{transform:scaleY(1.1) scaleX(.95);opacity:1}50%{transform:scaleY(.95) scaleX(1.05);opacity:.85}75%{transform:scaleY(1.05) scaleX(.98);opacity:.95}}
-@keyframes flameGlow{0%,100%{filter:blur(2px) brightness(1)}50%{filter:blur(3px) brightness(1.2)}}
+/* Static filter + opacity pulse — animating the filter chain itself re-ran
+   blur+brightness on the whole subtree every frame. */
+@keyframes flameGlow{0%,100%{opacity:.75}50%{opacity:1}}
 @keyframes tridentFloat{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-4px) rotate(.5deg)}}
 @keyframes emberRise{0%{transform:translateY(0) scale(1);opacity:.8}100%{transform:translateY(-20px) scale(0);opacity:0}}
 .AI-icon{position:relative;width:80px;height:90px;margin:0 auto 8px;animation:tridentFloat 6s ease-in-out infinite}
 .AI-icon svg{width:100%;height:100%;filter:drop-shadow(0 0 12px #ef444440)}
 .AI-flame{transform-origin:bottom center;animation:flameFlicker 1.5s ease-in-out infinite}
 .AI-flame-outer{transform-origin:bottom center;animation:flameFlicker 2s ease-in-out infinite .3s}
-.AI-glow{animation:flameGlow 3s ease-in-out infinite}
+.AI-glow{filter:blur(2.5px) brightness(1.1);animation:flameGlow 3s ease-in-out infinite}
 .AI-ember{position:absolute;width:3px;height:3px;background:#ef4444;border-radius:50%;animation:emberRise 2s ease-out infinite}
 .AI-ember:nth-child(2){left:35%;animation-delay:.4s;animation-duration:1.8s}
 .AI-ember:nth-child(3){left:55%;animation-delay:.8s;animation-duration:2.2s}
@@ -2810,7 +2821,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+  <!-- Non-blocking via the media="print" onload swap (same pattern as the
+       Inter load above and every font on landing). Serif fallback holds
+       until the file lands; display=swap avoids invisible text. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap"></noscript>
 </head>
 <!-- voice-guidelines.js is a 1.4KB no-op stub (the real voice bank lives
      server-side). Inlined here to drop a render-blocking round-trip while

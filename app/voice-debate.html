@@ -56,9 +56,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="/js/live-pip.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/ui.css">
+<!-- Non-blocking CSS via the media="print" onload swap (same pattern as
+     landing). System fallbacks hold until each sheet lands. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null">
+<link rel="stylesheet" href="/css/ui.css" media="print" onload="this.media='all';this.onload=null">
+<noscript>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/ui.css">
+</noscript>
 <script>
 (function(){
   try{
@@ -2826,7 +2833,10 @@ html[data-theme="light"] .interrupts-row,
 html[data-theme="light"] .live-clock,
 html[data-theme="light"] .live-speaker{color:#1a1a1f}
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
+  <!-- Non-blocking via the media="print" onload swap; serif fallback holds
+       until the file lands. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap"></noscript>
 </head>
 <body>
 <div class="bg" aria-hidden="true"></div>
@@ -3718,12 +3728,17 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
 
     ctx.restore();
 
+    // Park while the tab is hidden; onVis restarts the chain.
+    if (document.hidden) { raf = 0; return; }
     raf = requestAnimationFrame(draw);
   };
+  var onVis = () => { if (!document.hidden && !raf) { raf = requestAnimationFrame(draw); } };
+  document.addEventListener('visibilitychange', onVis);
   draw();
 
   return () => {
     if (raf) cancelAnimationFrame(raf);
+    document.removeEventListener('visibilitychange', onVis);
     window.removeEventListener('resize', fitCanvas);
   };
 }

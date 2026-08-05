@@ -762,6 +762,7 @@
     }catch(e){ toast('Sign-in is unavailable right now.',''); }
   }
   function refreshServer(){
+    if(document.hidden) return;   // no authed API calls from a backgrounded tab
     authToken().then(function(tok){
       return fetch('/api/floor/state', { headers: tok ? { Authorization:'Bearer '+tok } : {}, cache:'no-store' });
     }).then(function(r){ if(!r.ok) throw r.status; return r.json(); })
@@ -1167,7 +1168,11 @@
   })();
 
   render();
-  setInterval(tick, 1000);
+  setInterval(function(){ if(!document.hidden) tick(); }, 1000);
+  // catch up as soon as the tab is foregrounded again
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden){ tick(); refreshServer(); }
+  });
 
   // ── connect to the live server ledger (falls back to the local demo if unreachable) ──
   (function(){

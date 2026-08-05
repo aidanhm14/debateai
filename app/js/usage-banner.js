@@ -282,7 +282,9 @@
       }
       fetchUsage();
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(fetchUsage, POLL_MS);
+      // Hidden tabs skip the fetch; the visibilitychange handler below
+      // refreshes immediately on return, so nothing is stale.
+      pollTimer = setInterval(() => { if (!document.hidden) fetchUsage(); }, POLL_MS);
     });
 
     // Also refresh when the tab becomes visible again — users often come

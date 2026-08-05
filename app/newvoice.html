@@ -2745,16 +2745,22 @@ function sizeCanvas(){
 }
 window.addEventListener('resize', sizeCanvas);
 
+var arenaOn = false;
 function startArena(){
   sizeCanvas();
   t0 = performance.now();
   smoothYou = 0; smoothAi = 0; balance = 0; sparks = [];
+  arenaOn = true;
   if (!raf) raf = requestAnimationFrame(drawArena);
 }
 function stopArena(){
+  arenaOn = false;
   if (raf) cancelAnimationFrame(raf);
   raf = null;
 }
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden && arenaOn && !raf) raf = requestAnimationFrame(drawArena);
+});
 
 /* Canvas colors follow the lighting. In light mode the "you" side is
    dark ink (white-on-paper is invisible) and the hot node core flips
@@ -2775,6 +2781,9 @@ function driveEq(bars, e, t){
 }
 
 function drawArena(now){
+  // Full-viewport redraw is pure waste in a hidden tab; park and let the
+  // visibilitychange listener below restart the chain.
+  if (document.hidden) { raf = null; return; }
   raf = requestAnimationFrame(drawArena);
   const t = (now - t0) / 1000;
   const w = innerWidth, h = innerHeight;

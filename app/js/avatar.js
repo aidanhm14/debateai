@@ -554,7 +554,23 @@
       var rot = reduce ? 0 : (state === 'thinking' ? -2.4 : (state === 'listening' ? 1.4 : (state === 'talking' ? Math.sin(t * 5.4) * 1.05 : Math.sin(t * 1.2) * 0.45)));
       faceEl.setAttribute('transform', 'translate(' + tx.toFixed(2) + ' ' + (breathe + bob).toFixed(2) + ') rotate(' + rot.toFixed(2) + ' 50 60) translate(50 60) scale(' + faceScale.toFixed(2) + ') translate(-50 -60)');
 
+      // Park the chain while the tab is hidden or the avatar is offscreen;
+      // onVis / the IntersectionObserver restart it. FFT + innerHTML writes
+      // every frame are pure waste when nothing is painted.
+      if (document.hidden || !inView) { raf = 0; return; }
       raf = requestAnimationFrame(frame);
+    }
+    var inView = true;
+    function wake() { if (running && !raf && !document.hidden && inView) raf = requestAnimationFrame(frame); }
+    function onVis() { if (document.hidden) { if (raf) { cancelAnimationFrame(raf); raf = 0; } } else wake(); }
+    document.addEventListener('visibilitychange', onVis);
+    var io = null;
+    if (global.IntersectionObserver) {
+      io = new IntersectionObserver(function (entries) {
+        inView = !!(entries[0] && entries[0].isIntersecting);
+        if (!inView) { if (raf) { cancelAnimationFrame(raf); raf = 0; } } else wake();
+      }, { rootMargin: '80px' });
+      io.observe(container);
     }
     raf = requestAnimationFrame(frame);
 
@@ -590,7 +606,7 @@
         } catch (e) { return false; }
       },
       detachAudio: function () { analyser = null; if (ownCtx && audioCtx) { try { audioCtx.close(); } catch (e) {} } audioCtx = null; srcNode = null; ownCtx = false; return this; },
-      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); this.detachAudio(); if (container) container.innerHTML = ''; }
+      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', onVis); if (io) { try { io.disconnect(); } catch (e) {} } this.detachAudio(); if (container) container.innerHTML = ''; }
     };
     return ctrl;
   }

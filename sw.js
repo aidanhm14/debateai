@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v2133';
+const CACHE_NAME = 'debateos-v2134';
 
 
 
@@ -26,6 +26,11 @@ const CACHE_NAME = 'debateos-v2133';
 // hit the network for it on EVERY cold launch while the shell precached
 // /splash and /landing, two pages the app never opens (the bridge redirects
 // both to /native). See the '/native' branch in the fetch handler below.
+// 2026-08-05 perf pass: d3 removed from the shell. index.html lazy-loads it
+// via loadD3() for a MindMapView that rarely mounts, and the cdnjs
+// cache-first fetch branch below caches it on first real use anyway —
+// precaching re-downloaded ~270KB on every CACHE_NAME bump for a view
+// nobody opens. Same class of waste as the babel-standalone entry above.
 const APP_SHELL = [
   '/native',
   '/splash',
@@ -33,7 +38,6 @@ const APP_SHELL = [
   '/offline.html',
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js',
 ];
 
 // Install: cache app shell (don't fail install if any asset fails to cache)

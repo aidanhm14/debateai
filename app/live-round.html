@@ -6684,6 +6684,7 @@ html.stage-mode .stage-ov{display:block}
       // product. Poll as a net.
       if (state.admitPoll) return;
       state.admitPoll = setInterval(function(){
+        if (document.hidden) return;   // don't burn Firestore reads from a backgrounded gate
         var r = admissionDocRef(); if (!r) return;
         r.get().then(function(s){
           var v = s.exists ? (s.data() || {}) : {};
@@ -8168,7 +8169,7 @@ html.stage-mode .stage-ov{display:block}
         '<div class="sov-plate sov-plate--con" id="sovCon"><span class="sov-name" id="sovConName">Con</span><span class="sov-side" id="sovConSide">Second side</span></div>' +
       '</div>';
     document.body.appendChild(ov);
-    setInterval(stageSync, 400);
+    setInterval(function(){ if (!document.hidden) stageSync(); }, 400);
     stageSync();
   }
   function stageSync(){

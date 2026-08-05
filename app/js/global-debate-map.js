@@ -994,7 +994,9 @@
         spawnRoom();
       }
 
-      requestAnimationFrame(frame);
+      // Keep rafId pointing at the LIVE frame, or every cancelAnimationFrame
+      // in the pause paths is a no-op against a stale handle.
+      rafId = requestAnimationFrame(frame);
     }
 
     if (reduceMotion) {
