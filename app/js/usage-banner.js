@@ -18,7 +18,7 @@
     messagingSenderId: '860359449192',
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
   };
-  const SDK_VERSION = '10.7.1';
+  const SDK_VERSION = '10.13.2';
   const POLL_MS = 45_000; // Re-fetch usage every 45s so the banner stays live.
   const MANAGE_URL = 'https://itsdebatable.com/app#team';
 

@@ -191,13 +191,13 @@
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) daStopFlashTitle(); });
   window.addEventListener('focus', daStopFlashTitle);
 
-  var FIRESTORE_SDK_URL = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js';
+  var FIRESTORE_SDK_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
   // Self-bootstrap firebase so the Available pill + DM bell work on ANY
   // page that loads this script, including marketing/content sub-pages
   // that don't set up firebase themselves. Pages that already init
   // firebase are detected and left alone (no double init).
-  var APP_SDK_URL = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js';
-  var AUTH_SDK_URL = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js';
+  var APP_SDK_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js';
+  var AUTH_SDK_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js';
   var FIREBASE_CONFIG = {
     apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
     authDomain: "debateos-78ac5.firebaseapp.com",

@@ -40,7 +40,7 @@
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
     measurementId: 'G-0V4R5MY3BT',
   };
-  const SDK_VERSION = '10.7.1';
+  const SDK_VERSION = '10.13.2';
   // 3-minute heartbeat. Was 60s but at ~7K MAU that's ~210K
   // /api/log-event invocations/month from heartbeats alone — enough
   // to push the Netlify free tier (125K/mo) into usage_exceeded.

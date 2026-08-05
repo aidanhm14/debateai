@@ -24,7 +24,7 @@
     messagingSenderId: '860359449192',
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
   };
-  const SDK_VERSION = '10.7.1';
+  const SDK_VERSION = '10.13.2';
   const PRICING_URL = '/app#team';
   const REFRESH_MS = 120_000; // Re-check team plan every 2 min.
   const DISMISS_HOURS = 24;   // Respect a dismiss for a day.

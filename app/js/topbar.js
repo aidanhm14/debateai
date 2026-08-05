@@ -1138,8 +1138,8 @@
   //    on every page, including content/SEO pages that don't preload
   //    firebase). Mirrors notifications.js — shared script ids mean
   //    nothing double-loads. ─────────────────────────────────────────
-  var FB_APP_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js';
-  var FB_AUTH_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js';
+  var FB_APP_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js';
+  var FB_AUTH_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js';
   var FB_CONFIG = {
     apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
     authDomain: "debateos-78ac5.firebaseapp.com",

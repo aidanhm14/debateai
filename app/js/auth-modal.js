@@ -16,8 +16,8 @@
   if (window.__ditAuthModal) return;
   window.__ditAuthModal = true;
 
-  var APP_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js';
-  var AUTH_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js';
+  var APP_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js';
+  var AUTH_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js';
   var CONFIG = {
     apiKey: ["AIzaSyDDx", "TYlyWLOJnFP99", "e7XsLPb3FwIEijNNM"].join(""),
     authDomain: "debateos-78ac5.firebaseapp.com",
