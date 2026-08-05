@@ -1243,18 +1243,22 @@
     }
 
     // ── availability ──
-    function setAvailable(on) {
+    function setAvailable(on, quiet) {
+      // quiet=true is the programmatic path (the landing live-pull
+      // auto-enlist): no OS-permission ask (needs a real gesture), no
+      // go-live broadcast to the opted-in pool, no "Matchable" toast.
+      // The queue doc, pill, and matcher behave identically.
       if (on && !myUid) {
         available = false;
         try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
-        ensureQueueUser(function () { setAvailable(true); });
+        ensureQueueUser(function () { setAvailable(true, quiet); });
         return;
       }
       available = !!on;
       // Going available = the moment the user most wants to be pinged when a
       // match lands while they browse elsewhere. Ask for OS-notification
       // permission here, on this real click (Safari ignores passive asks).
-      if (available) daAskNotify();
+      if (available && !quiet) daAskNotify();
       try { localStorage.setItem(LSKEY, available ? '1' : '0'); } catch (e) {}
       try { if (window.gtag) gtag('event', on ? 'spar_bg_on' : 'spar_bg_off'); } catch (e) {}
       paintPill();
@@ -1262,10 +1266,11 @@
       // lingering post-decline quiet window.
       if (on) { declineUntil = 0; if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; } }
       if (available && myUid && !ON_ROUND && !ON_SPAR) {
+        if (quiet) suppressAvailableNoteOnce = true;
         goAvailable();
         // Going live = ping the pool of opted-in debaters (server enforces a
         // per-debater cooldown so this can't spam on repeated toggles).
-        daBroadcastGoLive(fmt(), 'spar');
+        if (!quiet) daBroadcastGoLive(fmt(), 'spar');
         // Tell them why the tab matters: a hidden tab pauses our own scan, but
         // the queue doc stays live so an active peer can still pair you and the
         // OS ping fires. Close the tab and the doc is reaped = unmatchable.
@@ -1274,6 +1279,11 @@
       }
       else goOffline();
     }
+    // Programmatic hook for the landing live-pull module (and QA).
+    window.DASparLive = {
+      setAvailable: setAvailable,
+      isAvailable: function () { return available; }
+    };
     function goAvailable() {
       if (!myUid || ON_ROUND || ON_SPAR || ON_PUBLIC) return;
       ensureFirestore(function () {
