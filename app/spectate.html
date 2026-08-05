@@ -11,6 +11,26 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/ui.css">
+  <script>
+    /* Flash guard for the Round Setup HUD. Runs before first paint: if
+       setup is likely pending, hide the page and paint the HUD paper
+       color so the waiting room never flashes before the take-over.
+       The HUD engine at the end of body owns removing the class; the
+       timeout is a dead-man switch in case that script ever fails. */
+    (function(){
+      try {
+        if (new URLSearchParams(location.search).get('hud') === 'off') return;
+        var profile = JSON.parse(localStorage.getItem('dit-spectate-profile') || '{}') || {};
+        var odState = localStorage.getItem('dit-opinion-delta');
+        var skippedAt = parseInt(localStorage.getItem('dit-opinion-delta-skipped'), 10) || 0;
+        var stanceLikely = !odState && (Date.now() - skippedAt > 24 * 60 * 60 * 1000);
+        if (!profile.level || !profile.topic || stanceLikely) {
+          document.documentElement.classList.add('hud-wait');
+          setTimeout(function(){ document.documentElement.classList.remove('hud-wait'); }, 8000);
+        }
+      } catch(e){}
+    })();
+  </script>
   <style>
     :root{
       --ink:#1d1d22;
@@ -279,76 +299,86 @@
       .btn:hover,.ls-row:hover .ls-watch{transform:none}
     }
     /* ── Round Setup HUD: full-screen step-by-step take-over ─────────
-       One question per screen, options in a row, arcade pacing. Dark
-       on purpose; the page beneath stays the light waiting room. */
+       One question per screen, options in a row, arcade pacing. Same
+       paper-and-red system as the page beneath, turned up. */
     .hud{position:fixed;inset:0;z-index:20000;display:none;flex-direction:column;
       background:
-        radial-gradient(1100px 520px at 50% -10%, rgba(239,68,68,.16), transparent 60%),
-        linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),
-        #0b0b0f;
+        radial-gradient(1100px 520px at 50% -10%, rgba(239,68,68,.10), transparent 60%),
+        linear-gradient(rgba(29,29,34,.022) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(29,29,34,.022) 1px,transparent 1px),
+        linear-gradient(180deg,#fffefa 0%,#f8f7f3 100%);
       background-size:auto,44px 44px,44px 44px,auto;
-      color:#f4f2ee;font-family:"Crimson Pro", Georgia, serif}
+      color:var(--ink);font-family:"Crimson Pro", Georgia, serif}
     .hud.on{display:flex}
+    /* The head flash-guard hides the page until the HUD decides; while
+       it holds, the screen is already HUD-colored so first paint never
+       shows the waiting room underneath. */
+    html.hud-wait body>*:not(.hud){visibility:hidden}
+    html.hud-wait{background:#fffefa}
     .hud-top{display:flex;align-items:center;justify-content:space-between;gap:18px;
-      padding:22px clamp(18px,4vw,44px) 0}
-    .hud-kicker{display:inline-flex;align-items:center;gap:10px;color:#f87171;font-weight:900;
-      letter-spacing:.22em;text-transform:uppercase;font-size:.74rem}
-    .hud-kicker:before{content:"";width:10px;height:10px;border-radius:50%;background:#ef4444;
-      box-shadow:0 0 14px rgba(239,68,68,.8)}
-    .hud-count{font-variant-numeric:tabular-nums;color:rgba(244,242,238,.55);font-weight:800;
-      letter-spacing:.14em;font-size:.8rem}
-    .hud-skip{appearance:none;border:1px solid rgba(255,255,255,.18);background:transparent;
-      color:rgba(244,242,238,.7);border-radius:999px;padding:9px 16px;
-      font:800 .85rem "Crimson Pro",Georgia,serif;cursor:pointer}
-    .hud-skip:hover{border-color:rgba(239,68,68,.6);color:#fff}
-    .hud-seg{display:flex;gap:6px;padding:16px clamp(18px,4vw,44px) 0}
-    .hud-seg i{height:4px;flex:1;border-radius:999px;background:rgba(255,255,255,.12)}
-    .hud-seg i.done{background:#ef4444;box-shadow:0 0 10px rgba(239,68,68,.5)}
+      padding:24px clamp(18px,4vw,48px) 0}
+    .hud-kicker{display:inline-flex;align-items:center;gap:10px;color:var(--red-dark);font-weight:900;
+      letter-spacing:.22em;text-transform:uppercase;font-size:.82rem}
+    .hud-kicker:before{content:"";width:11px;height:11px;border-radius:50%;background:var(--red);
+      box-shadow:0 0 0 7px rgba(239,68,68,.12)}
+    .hud-count{font-variant-numeric:tabular-nums;color:var(--faint);font-weight:800;
+      letter-spacing:.14em;font-size:.9rem}
+    .hud-skip{appearance:none;border:1px solid var(--line);background:#fff;
+      color:var(--muted);border-radius:999px;padding:10px 18px;
+      font:800 .95rem "Crimson Pro",Georgia,serif;cursor:pointer}
+    .hud-skip:hover{border-color:rgba(239,68,68,.5);color:var(--red-dark)}
+    .hud-seg{display:flex;gap:6px;padding:18px clamp(18px,4vw,48px) 0}
+    .hud-seg i{height:5px;flex:1;border-radius:999px;background:#eee9e2}
+    .hud-seg i.done{background:var(--red);box-shadow:0 1px 8px rgba(239,68,68,.35)}
     .hud-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-      padding:20px clamp(18px,4vw,44px) 26px;text-align:center;overflow-y:auto}
-    .hud-motion{max-width:760px;margin:0 0 18px;font-size:clamp(1.02rem,1.6vw,1.25rem);line-height:1.35;
-      color:rgba(244,242,238,.82);border-left:3px solid #ef4444;padding-left:14px;text-align:left}
-    .hud-q{margin:0 0 8px;font-weight:900;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1.02;letter-spacing:-.01em}
-    .hud-sub{margin:0 0 30px;color:rgba(244,242,238,.6);font-size:clamp(1rem,1.4vw,1.15rem);
-      max-width:640px;line-height:1.4}
-    .hud-row{display:flex;gap:14px;width:min(1080px,100%);align-items:stretch;justify-content:center}
-    .hud-opt{appearance:none;cursor:pointer;flex:1;min-height:172px;max-width:300px;border-radius:18px;
-      border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.035);color:#f4f2ee;
-      padding:22px 18px 18px;text-align:left;position:relative;
-      font:800 1.28rem "Crimson Pro",Georgia,serif;
+      padding:20px clamp(18px,4vw,48px) 26px;text-align:center;overflow-y:auto}
+    .hud-motion{max-width:820px;margin:0 0 22px;font-size:clamp(1.15rem,1.8vw,1.45rem);line-height:1.35;
+      color:var(--muted);border-left:3px solid var(--red);padding-left:16px;text-align:left;font-weight:600}
+    .hud-q{margin:0 0 12px;font-weight:900;font-size:clamp(2.5rem,5.4vw,4.2rem);line-height:1;
+      letter-spacing:-.01em;color:var(--ink)}
+    .hud-sub{margin:0 0 34px;color:var(--muted);font-size:clamp(1.15rem,1.6vw,1.35rem);
+      max-width:720px;line-height:1.45}
+    .hud-row{display:flex;gap:16px;width:min(1180px,100%);align-items:stretch;justify-content:center}
+    .hud-opt{appearance:none;cursor:pointer;flex:1;min-height:196px;max-width:340px;border-radius:20px;
+      border:1px solid var(--line);background:#fff;color:var(--ink);
+      padding:26px 22px 22px;text-align:left;position:relative;
+      font:800 1.5rem "Crimson Pro",Georgia,serif;
+      box-shadow:0 12px 32px rgba(31,26,23,.06);
       transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
-    .hud-opt small{display:block;font-weight:600;font-size:.86rem;line-height:1.35;
-      color:rgba(244,242,238,.6);margin-top:8px}
-    .hud-opt em{position:absolute;top:14px;right:14px;font-style:normal;width:24px;height:24px;
-      border-radius:7px;display:grid;place-items:center;font-size:.72rem;font-weight:900;
-      color:rgba(244,242,238,.55);border:1px solid rgba(255,255,255,.18)}
-    .hud-opt:hover{transform:translateY(-4px);border-color:rgba(239,68,68,.65);
-      background:rgba(239,68,68,.08);
-      box-shadow:0 22px 44px rgba(0,0,0,.5),0 0 0 1px rgba(239,68,68,.25) inset}
-    .hud-opt.picked{border-color:#ef4444;background:rgba(239,68,68,.16);
-      box-shadow:0 0 0 2px rgba(239,68,68,.5) inset}
-    .hud-field{width:min(640px,100%);border:1px solid rgba(255,255,255,.18);border-radius:16px;
-      background:rgba(255,255,255,.05);color:#f4f2ee;padding:18px 20px;
-      font:700 1.15rem "Crimson Pro",Georgia,serif;outline:none;text-align:center}
-    .hud-field:focus{border-color:rgba(239,68,68,.7);box-shadow:0 0 0 4px rgba(239,68,68,.14)}
-    .hud-actions{display:flex;gap:12px;margin-top:26px;align-items:center;justify-content:center;flex-wrap:wrap}
-    .hud-btn{appearance:none;cursor:pointer;border-radius:999px;padding:14px 26px;
-      font:800 1rem "Crimson Pro",Georgia,serif;border:1px solid transparent;background:#ef4444;color:#fff;
-      transition:transform .16s,background .16s}
-    .hud-btn:hover{background:#d32929;transform:translateY(-2px)}
-    .hud-btn.ghost{background:transparent;border-color:rgba(255,255,255,.2);color:rgba(244,242,238,.75)}
-    .hud-btn.ghost:hover{border-color:rgba(239,68,68,.6);color:#fff;background:transparent}
-    .hud-hint{padding:0 0 20px;color:rgba(244,242,238,.38);font-size:.8rem;text-align:center;letter-spacing:.04em}
-    .hud-chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:0 0 26px}
-    .hud-chip{border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:8px 14px;font-weight:800;
-      font-size:.9rem;color:rgba(244,242,238,.8);background:rgba(255,255,255,.04)}
+    .hud-opt small{display:block;font-weight:600;font-size:1rem;line-height:1.35;
+      color:var(--muted);margin-top:10px}
+    .hud-opt em{position:absolute;top:16px;right:16px;font-style:normal;width:28px;height:28px;
+      border-radius:8px;display:grid;place-items:center;font-size:.82rem;font-weight:900;
+      color:var(--faint);border:1px solid var(--line);background:#fdfcfa}
+    .hud-opt:hover{transform:translateY(-4px);border-color:rgba(239,68,68,.55);
+      background:var(--soft);
+      box-shadow:0 24px 48px rgba(217,47,47,.14),inset 0 0 0 1px rgba(239,68,68,.22)}
+    .hud-opt.picked{border-color:var(--red);background:var(--soft);
+      box-shadow:inset 0 0 0 2px rgba(239,68,68,.45),0 16px 36px rgba(217,47,47,.14)}
+    .hud-opt.picked em{background:var(--red);color:#fff;border-color:var(--red)}
+    .hud-field{width:min(720px,100%);border:1px solid var(--line);border-radius:18px;
+      background:#fff;color:var(--ink);padding:20px 22px;
+      font:700 1.3rem "Crimson Pro",Georgia,serif;outline:none;text-align:center;
+      box-shadow:0 12px 32px rgba(31,26,23,.06)}
+    .hud-field:focus{border-color:rgba(239,68,68,.55);box-shadow:0 0 0 4px rgba(239,68,68,.10)}
+    .hud-actions{display:flex;gap:12px;margin-top:30px;align-items:center;justify-content:center;flex-wrap:wrap}
+    .hud-btn{appearance:none;cursor:pointer;border-radius:999px;padding:16px 30px;
+      font:800 1.15rem "Crimson Pro",Georgia,serif;border:1px solid var(--red);background:var(--red);color:#fff;
+      box-shadow:0 14px 32px rgba(217,47,47,.22);transition:transform .16s,background .16s}
+    .hud-btn:hover{background:var(--red-dark);transform:translateY(-2px)}
+    .hud-btn.ghost{background:#fff;border-color:var(--line);color:var(--muted);box-shadow:none}
+    .hud-btn.ghost:hover{border-color:rgba(239,68,68,.5);color:var(--red-dark);background:#fff}
+    .hud-hint{padding:0 0 22px;color:var(--faint);font-size:.92rem;text-align:center;letter-spacing:.04em}
+    .hud-chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:0 0 28px}
+    .hud-chip{border:1px solid rgba(239,68,68,.3);border-radius:999px;padding:10px 18px;font-weight:800;
+      font-size:1.05rem;color:var(--red-dark);background:var(--soft)}
     .hud-step{animation:hudRise .26s ease}
     @keyframes hudRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
     @media (max-width:760px){
       .hud-row{flex-direction:column;align-items:stretch}
-      .hud-opt{max-width:none;min-height:0;padding:16px 16px 14px}
-      .hud-q{font-size:1.75rem}
+      .hud-opt{max-width:none;min-height:0;padding:18px 18px 16px}
+      .hud-q{font-size:2.1rem}
+      .hud-sub{font-size:1.05rem}
       .hud-stage{justify-content:flex-start;padding-top:26px}
     }
     @media (prefers-reduced-motion:reduce){
@@ -1239,6 +1269,7 @@
 
     function close(){
       hud.classList.remove('on');
+      document.documentElement.classList.remove('hud-wait');
       document.documentElement.style.overflow = '';
       document.removeEventListener('keydown', onKey);
     }
@@ -1369,14 +1400,22 @@
 
     function show(){
       steps = buildSteps();
-      if (!steps.length || steps.length === 1) return;   // nothing left to set up
+      if (!steps.length || steps.length === 1){ close(); return; }   // nothing left to set up
       hadStance = steps.some(function(s){ return s.id === 'side'; });
       idx = 0;
       hud.classList.add('on');
       document.documentElement.style.overflow = 'hidden';
       document.addEventListener('keydown', onKey);
-      hud.querySelector('#hudSkip').addEventListener('click', skipAll);
       render();
+    }
+
+    hud.querySelector('#hudSkip').addEventListener('click', skipAll);
+
+    // The head flash-guard already painted the take-over color; open
+    // the shell now so first paint is the HUD frame, not the page.
+    if (document.documentElement.classList.contains('hud-wait')){
+      hud.classList.add('on');
+      document.documentElement.style.overflow = 'hidden';
     }
 
     // The stance panel resolves its motion async (URL param or the
@@ -1386,11 +1425,11 @@
     var profilePending = !saved.level || !saved.topic;
     var waited = 0;
     var poll = setInterval(function(){
-      waited += 150;
+      waited += 100;
       if (stancePending()){ clearInterval(poll); show(); return; }
-      if (profilePending && waited >= 1200){ clearInterval(poll); show(); return; }
-      if (waited >= 5000){ clearInterval(poll); if (profilePending) show(); }
-    }, 150);
+      if (profilePending && waited >= 900){ clearInterval(poll); show(); return; }
+      if (waited >= 4000){ clearInterval(poll); if (profilePending) show(); else close(); }
+    }, 100);
   })();
   </script>
 </body>
