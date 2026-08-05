@@ -20,12 +20,12 @@
 (function(){
   'use strict';
 
-  const SEED_VERSION = 3;
+  const SEED_VERSION = 4;
 
   // Handle pool. Mix of:
   //   - debate-coded handles (parli, flow, 1ar, condo, k, etc.)
   //   - generic short handles (mango42, klondike)
-  //   - lowercase first names (aarav, meera) — what a user gets if
+  //   - lowercase first names (priya, kenji) — what a user gets if
   //     they only typed a first name into the Google account form
   //   - a few First-Lastinitial entries to keep variety realistic
   // No emoji, no special chars beyond _ . and digits — real platforms
@@ -41,13 +41,13 @@
     'mango42','zenith23','nightshift_','darkbluepen','quietkid','purplehaze',
     'tundra','ringo07','klondike','merlot','cinnabar','slowburn','hibachi',
     'ferrum','aux_8','octalpha','sevenup','riverbend','ploughshare',
-    // lowercase first names
-    'aarav','priya','meera','tarun','diya','connor','niharika','sara',
-    'pranav','rohan','akhil','olivia','sebastian','vihaan',
+    // lowercase first names — global circuit mix
+    'priya','rohan','meera','connor','sara','olivia','sebastian',
+    'kenji','amara','mateo','zofia','tunde','elif','minji',
     // occasional First L. for variety (matches what real Google sign-in produces)
-    'Aarav K.','Madison T.','Connor B.','Anjali R.','Hassan A.',
+    'Anjali R.','Madison T.','Connor B.','Hassan A.','Yuki S.',
     // edge cases — real boards have these too
-    'Anonymous','coach','?','vivek','x_x','newkid',
+    'Anonymous','coach','?','luca','x_x','newkid',
   ];
 
   // Format mix tuned to where Debatable traffic actually competes.
@@ -191,13 +191,15 @@
   // empties ("?", "—") because those exist on real boards too.
 
   const LURKER_FIRSTS = [
-    'aarav','priya','meera','tarun','diya','rohan','vihaan','anika',
-    'connor','olivia','sebastian','niharika','sara','akhil','pranav',
-    'ishaan','zara','arjun','kavya','dev','nikhil','ananya','riya',
-    'aditi','varun','ria','samar','kabir','isha','dhruv','tanvi',
-    'noah','liam','emma','ava','mason','ethan','sophia','amir',
-    'leila','omar','yusuf','fatima','hassan','aisha','jamal','khalid',
-    'maya','jonah','julia',
+    // global circuit mix — roughly even across regions
+    'aarav','priya','meera','rohan','kavya','arjun','ananya','kabir',
+    'connor','olivia','sebastian','sara','noah','liam','emma','ava',
+    'mason','ethan','sophia','maya','jonah','julia','charlotte',
+    'amir','leila','omar','yusuf','fatima','hassan','aisha','khalid',
+    'kenji','yuna','minjun','mei','haruto','jia','wei',
+    'amara','kwame','zuri','tunde','femi','adaeze',
+    'mateo','camila','diego','lucia','thiago',
+    'zofia','luca','elena','nikolaj','elif','liana','arief',
   ];
   const LURKER_LASTS = ['K.','S.','M.','T.','R.','P.','D.','B.','A.','N.','J.','C.','H.','L.'];
   const LURKER_GENERIC_PREFIXES = ['user','guest','debater','member','anon'];

@@ -3445,6 +3445,7 @@ var PANEL_JUDGES = {
     role: 'Tab/Flow Judge',
     color: '#60a5fa',
     initial: 'M',
+    avatar: { skin: 2, hair: 0, top: 4, eyes: 1, brows: 0, mouth: 2, facial: 0, glasses: 1, accessory: 0, bg: 8, outfit: 2 },
     paradigm: 'Tab/flow judge. Evaluates strictly on the flow. what was said, what was dropped, what was extended, what was cross-applied. Believes judge intervention is the original sin. Quotes specific arguments by name. Penalizes dropped arguments ruthlessly and rewards clean extensions. Speaker points reward technical precision. Paradigm quote: "I weigh the round on the flow. If you didn\'t say it, it didn\'t happen."',
     voice: 'Precise, measured, slightly tired circuit-vet energy. Uses "on the flow" constantly. Says things like "extended through," "dropped the link," "clean extension," "that\'s a turn."'
   },
@@ -3452,7 +3453,8 @@ var PANEL_JUDGES = {
     name: 'Marcus',
     role: 'Comm Judge',
     color: '#f59e0b',
-    initial: 'R',
+    initial: 'M',
+    avatar: { skin: 4, hair: 0, top: 1, eyes: 3, brows: 2, mouth: 3, facial: 1, glasses: 0, accessory: 0, bg: 2, outfit: 7 },
     paradigm: 'Comm/lay-leaning judge. Values persuasion, rhetorical skill, credibility, clarity. Skeptical of "debate jargon." Votes for whoever sounded more convincing in plain English. Rewards speakers with strong delivery and common-sense framing. Will call out debaters who hide behind technical language. Paradigm quote: "I vote for whoever I\'d trust to make this argument to a room full of non-debaters."',
     voice: 'Warm but no-nonsense. Cites specific moments from the round. Says things like "when they said X, that landed," "I wasn\'t sold on the delivery there," "that argument needed a story," "I didn\'t buy it."'
   },
@@ -3461,10 +3463,20 @@ var PANEL_JUDGES = {
     role: 'Philosophy Judge',
     color: '#a855f7',
     initial: 'C',
+    avatar: { skin: 1, hair: 0, top: 7, eyes: 2, brows: 0, mouth: 0, facial: 0, glasses: 2, accessory: 0, bg: 5, outfit: 3 },
     paradigm: 'Framework-first judge. Cares about the normative lens. whose framework more coherently captures the impacts in this round. Does rigorous impact calculus (magnitude × probability × timeframe × reversibility). Often reframes the debate through a lens neither team explicitly adopted. Paradigm quote: "Before I know who won, I need to know what we\'re evaluating and why."',
     voice: 'Reflective, analytical, slightly academic. Uses philosophical terms appropriately. Says things like "the deeper question is," "let\'s steel-man that," "the normative warrant here," "on a consequentialist reading," "but the framework layer..."'
   }
 };
+
+// Judge portrait. DBAvatar face when the engine is loaded, initials
+// circle fallback otherwise. Size in px.
+function judgeAvatar(j, size) {
+  if (window.DBAvatar && j.avatar) {
+    return el('div', { style: { width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }, 'aria-hidden': true, dangerouslySetInnerHTML: { __html: window.DBAvatar.svg(j.avatar, size) } });
+  }
+  return el('div', { style: { width: size, height: size, borderRadius: '50%', background: j.color, color: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: Math.max(10, Math.round(size * 0.44)) + 'px', flexShrink: 0 } }, j.initial);
+}
 
 // BYOK helpers. direct Anthropic calls when the proxy is down
 function getStoredKey() {try {return localStorage.getItem('debateos-anthropic-key') || '';} catch {return '';}}
@@ -10615,7 +10627,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     type: 'text',
     value: newPartnerName,
     onChange: (e) => setNewPartnerName(e.target.value.slice(0, 40)),
-    placeholder: 'Name (e.g. Priya, Coach Marcus, Eleanor)',
+    placeholder: 'Name (e.g. Sofia, Coach Marcus, Eleanor)',
     style: {
       width: '100%', padding: '8px 12px', borderRadius: 8,
       background: 'var(--c-surface3)', border: '1px solid var(--c-border5)',
@@ -11991,7 +12003,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('div', { style: { display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' } },
     Object.entries(PANEL_JUDGES).map(([k, j]) =>
     el('div', { key: k, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: j.color + '12', border: '1px solid ' + j.color + '30', borderRadius: 999 } },
-    el('div', { style: { width: 26, height: 26, borderRadius: '50%', background: j.color, color: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '.78rem' } }, j.initial),
+    judgeAvatar(j, 26),
     el('div', { style: { textAlign: 'left' } },
     el('div', { style: { fontSize: '.75rem', fontWeight: 700, color: j.color, lineHeight: 1.1 } }, j.name),
     el('div', { style: { fontSize: '.6rem', color: 'var(--c-muted)', lineHeight: 1.1 } }, j.role)
@@ -12010,7 +12022,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var j = PANEL_JUDGES[turn.judge];
       if (!j) return null;
       return el('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start' } },
-      el('div', { style: { width: 32, height: 32, borderRadius: '50%', background: j.color, color: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '.82rem', flexShrink: 0 } }, j.initial),
+      judgeAvatar(j, 32),
       el('div', { style: { flex: 1, padding: '10px 14px', background: j.color + '0c', border: '1px solid ' + j.color + '22', borderRadius: 14 } },
       el('div', { style: { fontSize: '.68rem', fontWeight: 700, color: j.color, marginBottom: 4, letterSpacing: '.04em' } }, j.name.toUpperCase() + ' · ' + j.role.toUpperCase()),
       el('div', { style: { fontSize: '.86rem', color: 'var(--c-text4)', lineHeight: 1.55, whiteSpace: 'pre-wrap' } }, turn.text)
@@ -12032,7 +12044,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var vote = panelResult[k];
       var userVoted = vote === 'user';
       return el('div', { key: k, style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: j.color + '10', border: '1px solid ' + j.color + '28', borderRadius: 999, fontSize: '.72rem' } },
-      el('div', { style: { width: 18, height: 18, borderRadius: '50%', background: j.color, color: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '.62rem' } }, j.initial),
+      judgeAvatar(j, 18),
       el('span', { style: { color: j.color, fontWeight: 700 } }, j.name),
       el('span', { style: { color: 'var(--c-muted)' } }, '→'),
       el('span', { style: { color: userVoted ? '#22c55e' : '#ef4444', fontWeight: 700 } }, userVoted ? 'You' : 'AI')

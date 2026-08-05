@@ -83,9 +83,19 @@
     return Math.floor(diff / (24 * 60 * 60_000)) + 'd';
   }
 
+  // Seeded avatar per handle — same handle always draws the same face
+  // (DBAvatar ships on the page; empty string degrades to text-only).
+  function avChip(handle){
+    if (!window.DBAvatar) return '';
+    return '<span class="chat-av" aria-hidden="true">'
+      + window.DBAvatar.svg(window.DBAvatar.randomConfig(handle || 'anon'), 24)
+      + '</span>';
+  }
+
   function rowHtml(row, myHandle){
     if (row.kind === 'join'){
       return '<div class="chat-row chat-join">'
+        + avChip(row.handle)
         + '<span class="chat-join-name">' + escHtml(row.handle || 'Anonymous') + '</span>'
         + ' <span class="chat-join-verb">just joined.</span>'
         + '</div>';
@@ -93,6 +103,7 @@
     const mine = row.handle && myHandle && row.handle === myHandle;
     return '<div class="chat-row chat-msg' + (mine ? ' chat-msg-mine' : '') + '" data-handle="' + escHtml(row.handle) + '">'
       + '<div class="chat-msg-head">'
+      +   avChip(row.handle)
       +   '<span class="chat-msg-handle">' + escHtml(row.handle || 'anon') + '</span>'
       +   '<span class="chat-msg-time">' + escHtml(timeAgo(row.at)) + '</span>'
       + '</div>'
