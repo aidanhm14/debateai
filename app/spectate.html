@@ -12,14 +12,36 @@
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/ui.css">
   <script>
-    /* Flash guard for the Round Setup HUD. Runs before first paint: if
-       setup is likely pending, hide the page and paint the HUD paper
-       color so the waiting room never flashes before the take-over.
-       The HUD engine at the end of body owns removing the class; the
-       timeout is a dead-man switch in case that script ever fails. */
+    /* Round Setup HUD arm assignment + flash guard. Runs before first
+       paint. spectate_hud_v1: 'hud' = the full-screen guided take-over,
+       'inline' = the original in-page panels. Sticky per browser;
+       ?hud=on|off forces (forced arms are excluded from telemetry).
+       In the hud arm, if setup is likely pending we hide the page and
+       paint the HUD paper color so the waiting room never flashes
+       before the take-over. The HUD engine at the end of body owns
+       removing the class; the timeout is a dead-man switch in case
+       that script ever fails. */
     (function(){
+      var arm = '', forced = false;
       try {
-        if (new URLSearchParams(location.search).get('hud') === 'off') return;
+        var q = new URLSearchParams(location.search).get('hud');
+        if (q === 'off') { arm = 'inline'; forced = true; }
+        else if (q === 'on') { arm = 'hud'; forced = true; }
+      } catch(e){}
+      if (!arm) {
+        try {
+          arm = localStorage.getItem('da-shud-ab') || '';
+          if (arm !== 'hud' && arm !== 'inline') {
+            arm = Math.random() < 0.5 ? 'hud' : 'inline';
+            localStorage.setItem('da-shud-ab', arm);
+          }
+        } catch(e){ arm = 'hud'; }
+      }
+      window.__spectateHudArm = arm;
+      window.__abAssignments = window.__abAssignments || {};
+      window.__abAssignments.spectate_hud_v1 = forced ? { variant: arm, forced: true } : { variant: arm };
+      if (arm !== 'hud') return;
+      try {
         var profile = JSON.parse(localStorage.getItem('dit-spectate-profile') || '{}') || {};
         var odState = localStorage.getItem('dit-opinion-delta');
         var skippedAt = parseInt(localStorage.getItem('dit-opinion-delta-skipped'), 10) || 0;
@@ -494,7 +516,7 @@
           <input class="od-range" type="range" id="odConfBefore" min="0" max="100" step="5" value="50">
         </label>
         <div class="step-actions">
-          <button class="btn primary" type="button" id="odLockIn">Lock in my stance</button>
+          <button class="btn primary" type="button" id="odLockIn" data-ab-test="spectate_hud_v1" data-ab-target="stance_locked">Lock in my stance</button>
         </div>
         <p class="mini">Nothing here is published and nothing is scored. It is stored to study which arguments move a room.</p>
       </div>
@@ -580,6 +602,8 @@
   </div>
 
   <script defer src="/js/topbar.js"></script>
+  <script defer src="/js/track.js"></script>
+  <script defer src="/js/experiments.js"></script>
   <script defer src="/js/avatar.js"></script>
   <script>
     (function(){
@@ -1119,9 +1143,7 @@
      lock-in button), so storage, network writes, phase logic, and
      analytics all stay where they already live. Kill switch: ?hud=off. */
   (function(){
-    var qs = null;
-    try { qs = new URLSearchParams(location.search); } catch(e){}
-    if (qs && qs.get('hud') === 'off') return;
+    if (window.__spectateHudArm !== 'hud') return;   // 'inline' arm keeps the original panels
 
     var reduced = false;
     try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
@@ -1247,7 +1269,7 @@
       '<div class="hud-top">' +
         '<span class="hud-kicker">Round setup</span>' +
         '<span class="hud-count" id="hudCount"></span>' +
-        '<button class="hud-skip" type="button" id="hudSkip">Skip setup</button>' +
+        '<button class="hud-skip" type="button" id="hudSkip" data-ab-test="spectate_hud_v1" data-ab-target="hud_skip">Skip setup</button>' +
       '</div>' +
       '<div class="hud-seg" id="hudSeg" aria-hidden="true"></div>' +
       '<div class="hud-stage" id="hudStage"></div>' +
@@ -1335,7 +1357,7 @@
             return '<span class="hud-chip">' + esc(c) + '</span>';
           }).join('') + '</div>';
         }
-        html += '<div class="hud-actions"><button class="hud-btn" type="button" data-hud-enter>Enter the waiting room</button></div>';
+        html += '<div class="hud-actions"><button class="hud-btn" type="button" data-hud-enter data-ab-test="spectate_hud_v1" data-ab-target="hud_complete">Enter the waiting room</button></div>';
       }
       html += '</div>';
       stage.innerHTML = html;
@@ -1407,6 +1429,7 @@
       document.documentElement.style.overflow = 'hidden';
       document.addEventListener('keydown', onKey);
       render();
+      try { if (window.track) window.track('spectate_hud_shown', { steps: steps.length, stance: hadStance }); } catch(e){}
     }
 
     hud.querySelector('#hudSkip').addEventListener('click', skipAll);
