@@ -177,8 +177,11 @@ h1 em{color:var(--accent);font-style:normal}
    styling that the module's HTML overlay uses. Class names .globe-wrap /
    .globe-frame are preserved so the matched/fallback states don't have
    to change. */
+/* Cozy pass 2026-08-05: the globe is the room's fireplace now — nearly
+   double the old 266px, with the copy around it cut back so it carries
+   the screen instead of competing with text modules. */
 .globe-wrap{
-  position:relative;width:266px;max-width:82vw;margin:10px auto 22px;
+  position:relative;width:min(460px,88vw);margin:18px auto 26px;
   aspect-ratio:1 / 1;
 }
 /* Ambient light behind the disc. Without it the ivory globe reads as a
@@ -210,8 +213,10 @@ h1 em{color:var(--accent);font-style:normal}
 @media (max-width: 640px){
   /* Smaller orb + tighter rhythm so the status, countdown, and the
      primary "Prep while you wait" button sit above the fold and clear
-     of the bottom FABs instead of getting pushed under them. */
-  .globe-wrap{width:150px;max-width:42vw;margin:2px auto 10px}
+     of the bottom FABs instead of getting pushed under them. (Cozy pass:
+     bumped 150px → 240px; the removed tab-card/seek-feed/lede text gave
+     the fold that room back.) */
+  .globe-wrap{width:240px;max-width:64vw;margin:4px auto 14px}
   h1{font-size:1.9rem;line-height:1.08}
   .lede{font-size:.92rem;margin-bottom:10px}
   .meta-strip{margin-top:6px}
@@ -830,7 +835,13 @@ h1 em{color:var(--accent);font-style:normal}
   overflow:hidden;
   z-index:30;
   box-shadow:var(--shadow-lg);
+  /* Cozy pass 2026-08-05: the rail is a drawer on EVERY width now, not
+     just mobile. A permanent column of invite cards + Discord copy was
+     half the reason the searching screen felt like a control room; the
+     "Open invites" pill (badge included) keeps it one tap away. */
+  transform:translateX(-110%); transition:transform .25s ease;
 }
+.waitlist-rail.open{ transform:translateX(0) }
 .waitlist-rail__head{
   padding:14px 16px;
   border-bottom:1px solid var(--border);
@@ -1042,12 +1053,14 @@ h1 em{color:var(--accent);font-style:normal}
   font-family:inherit;
 }
 .waitlist-fab{
-  position:fixed; left:14px; bottom:14px; z-index:25;
+  /* Sits above the read-aloud narration pill (fixed left:16px bottom:16px),
+     which now shares the corner on every width. */
+  position:fixed; left:14px; bottom:72px; z-index:25;
   padding:10px 16px; border-radius:999px;
   background:var(--accent); color:#fff;
   font-size:.78rem; font-weight:700; cursor:pointer; border:none;
   box-shadow:0 8px 24px var(--accent-glow);
-  display:none; align-items:center; gap:8px;
+  display:inline-flex; align-items:center; gap:8px;
   font-family:inherit;
 }
 .waitlist-fab .fab-badge{
@@ -1156,17 +1169,8 @@ h1 em{color:var(--accent);font-style:normal}
   background:var(--green); box-shadow:0 0 5px rgba(34,197,94,.5);
 }
 
-/* Mobile: rail slides off-screen, FAB toggles it. */
-@media (max-width: 1100px){
-  .waitlist-rail{
-    transform:translateX(-110%); transition:transform .25s ease;
-  }
-  .waitlist-rail.open{ transform:translateX(0) }
-  .waitlist-fab{ display:inline-flex }
-}
-@media (min-width: 1101px){
-  .waitlist-rail__close{ display:none }
-}
+/* Drawer behavior is now universal (see .waitlist-rail above); the FAB
+   toggles it at every width and the close button always renders. */
 
 /* ── Modal scaffold (post composer + DM thread + inbox) ─── */
 .wl-modal-backdrop{
@@ -1479,10 +1483,11 @@ h1 em{color:var(--accent);font-style:normal}
   try { storedFormat = localStorage.getItem('debateos-spar-format') || ''; } catch(e){}
   var formatParam = (qs.get('format') || storedFormat || 'quick').toLowerCase();
   if (FORMATS.indexOf(formatParam) < 0) formatParam = 'quick';
-  // Style chips + judge proposal live behind Options; auto-open for
-  // users who already run a non-default setup so it never hides their
-  // own choices. Survives renderSearching re-renders.
-  var setupOpen = formatParam !== 'quick';
+  // Style chips + judge proposal live behind Options. Cozy pass
+  // 2026-08-05: collapsed by default even on non-default formats — the
+  // setup-summary line already names the picked style, so the open grid
+  // was repetition. A saved judge note still forces it open below.
+  var setupOpen = false;
   function setupModeText(){
     return formatParam === 'quick'
       ? 'General · open clash'
@@ -1857,26 +1862,12 @@ h1 em{color:var(--accent);font-style:normal}
   // ── Render: searching state ──────────────────────────
   function renderSearching(){
     shell.innerHTML =
-      '<div class="eyebrow"><span class="pip"></span>Rooms opening worldwide</div>' +
+      // Cozy pass 2026-08-05: one headline, one calm line, then the globe.
+      // The eyebrow, tab-mock card, and long lede all said versions of the
+      // same thing; the single lede line now carries the whole message
+      // (you can leave, we chime). The globe is the centerpiece.
       '<h1>Finding someone to <em>argue with.</em></h1>' +
-      '<p class="lede">Matching you with another debater. Your format and judge notes are proposed round terms, not filters.</p>' +
-      // Keep-this-tab-open reassurance, moved up to render right after the
-      // lede — the single most useful thing a waiting user can learn,
-      // ahead of the globe/meta-strip/status noise below. Was buried
-      // between the status text and the countdown pill, which on mobile
-      // sat past the fold. Inline tab-mock instead of the old fixed-size
-      // PNG (/img/spar-keep-tab-open.png), which rendered as a blank
-      // white box on a slow load. Copy no longer contradicts itself
-      // ("keep this tab open" next to "you can switch to other tabs") —
-      // one message: you don't have to babysit it, we'll ping you.
-      '<div class="tab-open-card">' +
-        '<div class="tab-mock" aria-hidden="true">' +
-          '<span class="tab-mock__fav">D</span>' +
-          '<span class="tab-mock__title">Spar &middot; Debate live</span>' +
-          '<span class="tab-mock__dot"></span>' +
-        '</div>' +
-        '<p><strong>You don&rsquo;t have to watch this tab.</strong> Switch away and do something else. The moment a debater is ready, this tab updates and chimes.</p>' +
-      '</div>' +
+      '<p class="lede">Wander off if you like. This tab chimes the moment a debater is ready.</p>' +
       // Guest sign-up ask lands here, but ~4s after the searching screen
       // mounts (delayedGuestNudge below) so a non-signed-in visitor first
       // sees the round actually running — matchmaking works without an
@@ -1915,16 +1906,13 @@ h1 em{color:var(--accent);font-style:normal}
         '<span class="meta-sep meta-month-sep" id="metaMonthSep" style="display:none">·</span>' +
         '<span class="meta-cell meta-month-cell" id="metaMonthCell" style="display:none"><strong id="metaMonth">0</strong> this month</span>' +
       '</div>' +
-      // Recent-attempts timeline. An ordered "who came looking, and when"
-      // list so a "0 in queue" arrival sees that real debaters tried —
-      // and roughly when — instead of a dead empty state. Populated by
-      // renderRecentSeeks() from /api/log-missed-match's `recent` array;
-      // stays hidden until there's at least one event to show.
-      '<div class="seek-feed" id="seekFeed" hidden>' +
-        '<div class="seek-feed__head">Recent attempts to find a live round</div>' +
-        '<div class="seek-feed__list" id="seekFeedList"></div>' +
-      '</div>' +
-      '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:block;margin-top:4px;font-size:.78rem;font-weight:400">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
+      // Recent-attempts timeline cut in the 2026-08-05 cozy pass — the
+      // rotating "a debater looked for X" rows added a whole extra text
+      // module; the meta-strip's weekly count carries the same honesty.
+      // renderRecentSeeks() no-ops without #seekFeed.
+      // The status sub-line element stays (startStatusCycle writes both
+      // spans and bails if either is missing) but is display:none in CSS.
+      '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:none">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
       '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
       // One clear action while waiting: warm up against the AI (you stay
       // in the queue and get pinged the moment a human is found, anywhere
@@ -1938,7 +1926,7 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="btn-row">' +
         '<button class="btn primary" id="bgAvailBtn" title="Starts an AI round in your chosen format. Keep this itsdebatable.com tab open and switch tabs freely; we keep matching you in the background.">Warm up against the AI &rarr;</button>' +
       '</div>' +
-      '<div class="dim" style="margin-top:9px;font-size:.76rem;line-height:1.5">Your queue spot stays live while you warm up. A match card interrupts the second a human is ready.</div>' +
+      '<div class="dim" style="margin-top:9px;font-size:.76rem;line-height:1.5">Your queue spot stays live while you warm up.</div>' +
       // Quiet-queue answer (2026-07-22). An empty queue used to read only
       // as "You're first in line" over a timer counting up with no limit,
       // which tells the user to keep waiting without saying what they are
@@ -1950,12 +1938,12 @@ h1 em{color:var(--accent);font-style:normal}
       // stable markup, NOT in #queueStats, which repaints every ~2s and
       // would remount the card (and restart its countdown) each tick.
       '<div class="sn-quiet" id="sparNightQuiet" hidden>' +
-        '<p class="sn-quiet-line">Nobody else is searching this minute. The queue reliably fills at one fixed hour a week.</p>' +
+        '<p class="sn-quiet-line">Quiet this minute. The queue fills at one fixed hour a week.</p>' +
         '<div data-spar-night="rail"></div>' +
         // 2026-07-22: the no-wait exit. An async round needs nobody else
         // online: record the opening now, a debater answers on their own
         // time, the AI takes the other side after 24h if nobody does.
-        '<p class="sn-quiet-line" style="margin-top:10px">Or skip the clock entirely: <a href="/rounds" data-cta="spar-quiet-async" style="color:var(--accent,#ef4444);font-weight:700">record an async round now</a>. They answer later, the ballot still comes back.</p>' +
+        '<p class="sn-quiet-line" style="margin-top:10px">Or <a href="/rounds" data-cta="spar-quiet-async" style="color:var(--accent,#ef4444);font-weight:700">record an async round now</a>; they answer later, the ballot still comes back.</p>' +
       '</div>' +
       '<div class="quiet-links">' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
@@ -2049,21 +2037,9 @@ h1 em{color:var(--accent);font-style:normal}
         '</div>' +
         '</div>' + /* /setup-options */
       '</div>' +
-      // 2026-05-18: while the user is waiting on the random matchmaker,
-      // give them a clear pivot to /live (the schedule board with
-      // upcoming + live-now scheduled rounds, "what's on my schedule"
-      // block, RSVP-style sign-ups) so a slow queue doesn't dead-end
-      // them with just "cancel" or "skip to AI". /community is the
-      // chat/forum surface — wrong tool for "find a scheduled debate".
-      '<div class="organized-pivot" style="margin-top:14px;font-size:.78rem;color:var(--text-dim);text-align:center;line-height:1.55">' +
-        'Or skip the random match. ' +
-        '<a href="/live" style="color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.45)">browse scheduled debates on the live board →</a>' +
-        ' or ' +
-        '<a href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer" style="color:#a7b3ff;font-weight:700;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(88,101,242,.45)">organize times and forum threads in Discord →</a>' +
-        /* 2026-05-26: dropped the "/debate-chat" follow-up link — that
-           page redirects here now, so suggesting it from /spar is a
-           loop. The /live board is the meaningful alternative. */
-      '</div>' +
+      // organized-pivot links cut in the 2026-08-05 cozy pass — /live and
+      // Discord both live in the while-you-wait rail; the same sentence
+      // repeated under the setup card was pure noise.
       // pairingTicker removed (2026-05-25): the "Recent pairing · @x ↔ @y · paired in Ns"
       // line cycled 8 fabricated handles every 3s. Same dead-internet dishonesty
       // ruled out in community.html (May 2026). Status text below is the honest signal.
@@ -2079,7 +2055,7 @@ h1 em{color:var(--accent);font-style:normal}
       // test windows confirm they're on different accounts), and the
       // last spar-pair attempt outcome (success/soft-fail reason).
       '<div class="diag" id="diagLine" aria-live="polite" style="margin-top:10px;font-size:.66rem;color:var(--text-ghost);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:.04em;text-transform:uppercase;opacity:.7"></div>' +
-      '<div class="foot">Your camera + mic stay off until you accept the match. Match found = you both jump into a video room.</div>';
+      '<div class="foot">Camera and mic stay off until you accept the match.</div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     (function(){
       // "Prep while you wait" — flip on BACKGROUND availability (the flag
@@ -2365,20 +2341,21 @@ h1 em{color:var(--accent);font-style:normal}
     var savedPad = '';
     try { savedPad = localStorage.getItem('da-spar-warmup') || ''; } catch(e){}
     rail.innerHTML =
+      // Cozy pass 2026-08-05: the green "Your spot follows you" paragraph
+      // shrank to one line, the five spot-kept links to three plain ones.
+      // The lede up top already carries the you-can-leave promise.
       '<div class="wait-rail__head"><span class="live-dot"></span>While you wait</div>' +
       '<div class="wait-rail__body">' +
-        '<div class="wait-rail__note"><strong>Your spot follows you.</strong> Leave this page and you stay in the queue; the green Available pill in the top bar tracks it, and a match card pops on whatever page you\'re on. Cancel here turns it off.</div>' +
+        '<div class="wait-rail__note">Your spot follows you anywhere on the site.</div>' +
         '<div class="wait-rail__card">' +
           '<div class="wait-rail__label">Warm-up motion <button class="wait-rail__shuffle" id="warmupShuffle" type="button">New motion</button></div>' +
           '<div class="wait-rail__motion" id="warmupMotion"></div>' +
-          '<textarea class="wait-rail__pad" id="warmupPad" placeholder="Outline: main argument / why it matters / what the other side says, and why that\'s wrong."></textarea>' +
+          '<textarea class="wait-rail__pad" id="warmupPad" placeholder="Sketch your case here."></textarea>' +
         '</div>' +
         '<div class="wait-rail__links">' +
-          '<a class="wait-rail__link" href="/app#case">Prep a case <span class="spot-tag">spot kept</span></a>' +
-          '<a class="wait-rail__link" href="/learn">Run a drill <span class="spot-tag">spot kept</span></a>' +
-          '<a class="wait-rail__link" href="/live">Browse scheduled rounds <span class="spot-tag">spot kept</span></a>' +
-          '<a class="wait-rail__link wait-rail__link--discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer">Set times in Discord <span class="spot-tag">spot kept</span></a>' +
-          '<a class="wait-rail__link" href="/community">Read the community <span class="spot-tag">spot kept</span></a>' +
+          '<a class="wait-rail__link" href="/app#case">Prep a case</a>' +
+          '<a class="wait-rail__link" href="/live">Browse scheduled rounds</a>' +
+          '<a class="wait-rail__link wait-rail__link--discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer">Set times in Discord</a>' +
         '</div>' +
       '</div>';
     document.body.appendChild(rail);
@@ -3924,7 +3901,7 @@ h1 em{color:var(--accent);font-style:normal}
           '<button class="waitlist-rail__close" id="wlCloseBtn" type="button" aria-label="Close">×</button>' +
         '</div>' +
       '</div>' +
-      '<div class="waitlist-rail__sub">Open invites for live debates. Join to show up here, and keep the matchmaker running above for instant rounds.</div>' +
+      '<div class="waitlist-rail__sub">Debaters open to a round. Join, or DM to organize.</div>' +
       '<div style="margin:10px 16px 0" data-spar-night="rail"></div>' +
       '<div class="waitlist-rail__sched" id="wlSched" hidden></div>' +
       '<a class="waitlist-rail__discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><strong>Talk it out in Discord</strong><span>Channels and forum threads for judges, reminders, and longer planning.</span></a>' +
