@@ -192,11 +192,18 @@ export default async (request, context) => {
       const cached = await getCachedShared(CACHE_KEY).catch(() => null);
       if (cached) return jsonResponse(cached, 200, request);
 
-      const snap = await db
+      // Pins stay capped at MAX_DOCS (they only need to paint a globe), but
+      // the caption count must be the REAL number, not min(count, 600) —
+      // the landing was displaying a capped "600 debaters". The aggregate
+      // count query is 1 read per 1000 matched docs; if the SDK lacks it,
+      // fall back to the capped snapshot size rather than failing.
+      const baseQuery = db
         .collection('presence_live')
-        .where('lastSeen', '>=', now - WINDOW_MS)
-        .limit(MAX_DOCS)
-        .get();
+        .where('lastSeen', '>=', now - WINDOW_MS);
+      const [snap, countSnap] = await Promise.all([
+        baseQuery.limit(MAX_DOCS).get(),
+        baseQuery.count().get().catch(() => null),
+      ]);
 
       const byCell = new Map();
       let online5 = 0;
@@ -216,7 +223,7 @@ export default async (request, context) => {
 
       const payload = {
         pins: Array.from(byCell.values()),
-        online24: snap.size,
+        online24: countSnap ? countSnap.data().count : snap.size,
         online30,
         online5,
       };
