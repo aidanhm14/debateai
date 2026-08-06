@@ -453,6 +453,10 @@
   function controller(bell) {
     var badge = bell.querySelector('.ui-bell-badge');
     var panel = null, seenSnapshot = 0;
+    // Full-page mode: /notifications carries an always-open container that
+    // renders the same feed the bell dropdown does, uncapped. When it
+    // exists, every data callback repaints it alongside the panel.
+    var pageEl = document.getElementById('daNotifPage');
 
     // updates feed state
     var updates = [], updatesSeen = 0;
@@ -509,6 +513,16 @@
     });
     document.addEventListener('click', function () { if (panel) closePanel(); });
 
+    // /notifications page: landing on it counts as reading everything, the
+    // same way opening the dropdown does. Snapshot first so this visit's
+    // new items still carry their unread dot.
+    if (pageEl) {
+      seenSnapshot = updatesSeen;
+      activitySeenSnapshot = activitySeen;
+      replySeenSnapshot = replySeen;
+      paintPage();
+    }
+
     // ── updates feed (no auth required) ──────────────────────────────
     loadUpdates();
     function loadUpdates() {
@@ -518,7 +532,7 @@
           updates = (Array.isArray(list) ? list : []).slice()
             .sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
           if (!hadUpdatesBaseline) { markUpdatesSeen(); hadUpdatesBaseline = true; } // first visit: caught up
-          if (panel) { markUpdatesSeen(); paintPanel(); } // open while loading: count as read
+          if (panel || pageEl) { markUpdatesSeen(); paintPanel(); } // open while loading: count as read
           renderBadge();
         })
         .catch(function () { /* offline / missing file — updates stay empty */ });
@@ -560,7 +574,7 @@
             if (rows[i].startAt > Date.now()) { next = rows[i]; break; }
           }
           nextRound = next;
-          if (panel) paintPanel();
+          if (panel || pageEl) paintPanel();
         })
         .catch(function () { /* function down — row stays hidden */ });
     }
@@ -570,7 +584,7 @@
         .then(function (j) {
           if (!j || typeof j.count !== 'number') return;
           liveNow = j;
-          if (panel) paintPanel();
+          if (panel || pageEl) paintPanel();
         })
         .catch(function () { /* function down — live row stays hidden */ });
     }
@@ -581,7 +595,7 @@
           if (!j || !Array.isArray(j.items)) return;
           activity = j.items.slice();
           if (!hadActivityBaseline) { markActivitySeen(); hadActivityBaseline = true; } // first visit: caught up
-          if (panel) { markActivitySeen(); paintPanel(); }
+          if (panel || pageEl) { markActivitySeen(); paintPanel(); }
           renderBadge();
         })
         .catch(function () { /* function down — section stays quiet */ });
@@ -592,7 +606,7 @@
         .then(function (j) {
           if (!j || typeof j.online !== 'number') return;
           onlineCount = Math.max(0, j.online | 0);
-          if (panel) paintPanel();
+          if (panel || pageEl) paintPanel();
         })
         .catch(function () { /* function down — presence row stays hidden */ });
     }
@@ -633,7 +647,7 @@
           if (repliesUnsub) { try { repliesUnsub(); } catch (e) {} repliesUnsub = null; }
           myUid = null; dmRows = []; dmUnread = 0; prevUnread = {}; firstSnap = true;
           replyRows = []; replyFirstSnap = true;
-          renderBadge(); if (panel) paintPanel();
+          renderBadge(); if (panel || pageEl) paintPanel();
           return;
         }
         myUid = u.uid;
@@ -645,7 +659,7 @@
         }).then(function (r) { return r.json(); }).then(function (p) {
           if (!p) return;
           try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
-          if (panel) paintPanel();
+          if (panel || pageEl) paintPanel();
         }).catch(function () {});
         renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
@@ -736,7 +750,7 @@
       // same baseline rule as the updates/activity feeds.
       if (!hadReplyBaseline) { markRepliesSeen(); hadReplyBaseline = true; }
       renderBadge();
-      if (panel) paintPanel();
+      if (panel || pageEl) paintPanel();
       if (isFresh) {
         announce(
           { name: newest.name + ' replied to your thread', href: '/community#thread=' + encodeURIComponent(newest.threadId), isGroup: true, photo: '' },
@@ -775,7 +789,7 @@
       });
       dmRows = rows; dmUnread = unreadCount;
       renderBadge();
-      if (panel) paintPanel();
+      if (panel || pageEl) paintPanel();
       if (!firstSnap && newest) {
         announce(threadDisplay(newest.data, myUid, newest.id), newest.data.lastMessage || 'sent a message');
       }
@@ -930,25 +944,30 @@
       '</button>';
     }
     function bindLiveAlertToggle() {
-      var btn = document.getElementById('daLiveAlertToggle');
-      if (!btn) return;
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var next = !daGetLiveAlerts();
-        daSetLiveAlerts(next, function () { paintPanel(); });
-        paintPanel(); // optimistic repaint
-      });
+      // Class-based so the panel and the /notifications page can both carry
+      // the toggle without fighting over one element id.
+      var btns = document.querySelectorAll('.ui-bell-la');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].addEventListener('click', function (e) {
+          e.stopPropagation();
+          var next = !daGetLiveAlerts();
+          daSetLiveAlerts(next, function () { paintPanel(); });
+          paintPanel(); // optimistic repaint (also repaints the page)
+        });
+      }
     }
 
-    function paintPanel() {
-      if (!panel) return;
+    // One feed builder for both surfaces. `full` (the /notifications page)
+    // lifts the row caps so the whole history shows instead of the
+    // dropdown's short slice.
+    function buildFeedHtml(full) {
       var html = '';
       if (myUid) html += liveAlertRowHtml();
       html += '<div class="ui-bell-head">What’s new</div>';
       if (!updates.length) {
         html += '<div class="ui-bell-empty">No updates yet.</div>';
       } else {
-        html += '<div class="ui-bell-list">' + updates.slice(0, 6).map(updateRowHtml).join('') + '</div>';
+        html += '<div class="ui-bell-list">' + updates.slice(0, full ? 60 : 6).map(updateRowHtml).join('') + '</div>';
       }
       // Site activity — visible to anon visitors too. Shows recent
       // posted challenges + waitlist invites so the page reads as
@@ -1018,7 +1037,7 @@
                 '<a href="/live" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">Post a challenge</a>' +
                 ' or <a href="/spar" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">join the waitlist</a> to start one.</div>';
       } else {
-        html += '<div class="ui-bell-list">' + activity.slice(0, 8).map(activityRowHtml).join('') + '</div>';
+        html += '<div class="ui-bell-list">' + activity.slice(0, full ? 40 : 8).map(activityRowHtml).join('') + '</div>';
         html += '<a class="ui-bell-foot" href="/live">See the live board</a>';
       }
       if (myUid && replyRows.length) {
@@ -1034,8 +1053,30 @@
         }
         html += '<a class="ui-bell-foot" href="/spar">Open all messages</a>';
       }
-      panel.innerHTML = html;
+      return html;
+    }
+
+    function paintPanel() {
+      if (pageEl) paintPage();
+      if (!panel) return;
+      // The dropdown gets a footer link to the full page; the page itself
+      // obviously doesn't.
+      panel.innerHTML = buildFeedHtml(false) +
+        '<a class="ui-bell-foot" href="/notifications" style="font-weight:800">All notifications &rarr;</a>';
       if (myUid) bindLiveAlertToggle();
+    }
+
+    function paintPage() {
+      if (!pageEl) return;
+      pageEl.innerHTML = buildFeedHtml(true);
+      if (myUid) bindLiveAlertToggle();
+      // Viewing the page reads everything: advance the seen markers (the
+      // snapshots above keep this visit's unread dots visible) and clear
+      // the bell badge.
+      markUpdatesSeen();
+      markActivitySeen();
+      markRepliesSeen();
+      renderBadge();
     }
 
     function announce(disp, preview) {
