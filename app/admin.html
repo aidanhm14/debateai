@@ -568,6 +568,48 @@
     </div>
   </div>
 
+  <!-- Livestream + recordings. Go live creates a Daily broadcast room and
+       flips the live band on /watch; "Open studio" joins that room with the
+       owner token (camera on, cloud recording auto-starts on Daily plans
+       that support it). Sync pulls finished recordings into Firestore so
+       they appear as replays. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Live stream · tournaments</span>
+        <span class="meta" id="stream-meta">checking…</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        Go live puts a player band on /watch. Open the studio tab, allow the camera, and you are broadcasting; viewers are watch-only. End stream takes the band down and stops the recording.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input id="stream-title" type="text" placeholder="Stream title, e.g. Winter Open · Finals" style="flex:2;min-width:220px;padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none">
+        <button id="stream-start-btn" class="pill-btn primary">Go live</button>
+        <button id="stream-stop-btn" class="pill-btn">End stream</button>
+        <a id="stream-studio-link" class="pill-btn" href="#" target="_blank" rel="noopener" style="display:none">Open studio ↗</a>
+        <a class="pill-btn" href="/watch" target="_blank" rel="noopener">View /watch ↗</a>
+      </div>
+      <div id="stream-status-line" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Recordings · replays</span>
+        <span class="meta" id="rec-meta">—</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        Sync pulls finished cloud recordings from Daily and auto-publishes them to /watch (rounds under 45s stay unpublished). Toggle any row to pull it down or put it back up.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <button id="rec-sync-btn" class="pill-btn primary">Sync recordings</button>
+        <button id="rec-refresh-btn" class="pill-btn">↻ Refresh list</button>
+      </div>
+      <div id="rec-body" class="ts" style="padding:6px 2px">Press Sync to pull the latest from Daily.</div>
+    </div>
+  </div>
+
   <!-- Research corpus: consent + integrity health.
        Reads /api/admin/corpus-manifest (counts, consent ledger, nightly
        audit). Red pills when the audit quarantined rows or went stale. -->
@@ -2597,6 +2639,117 @@ $('grant-btn').addEventListener('click', async () => {
 });
 $('grant-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
 $('grant-reason').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('grant-btn').click(); });
+
+// ── Live stream + recordings ────────────────────────────────────────
+// Drives /api/stream-control (admin) and /api/admin/recordings. The
+// status read is the same public endpoint /watch uses, so this card and
+// the public band can never disagree about whether we are on air.
+async function adminPost(url, body){
+  const token = await getToken();
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'API ' + r.status);
+  return data;
+}
+
+async function refreshStreamStatus(){
+  try {
+    const r = await fetch('/api/stream-status', { cache: 'no-store' });
+    const s = await r.json();
+    const meta = $('stream-meta');
+    if (s.live){
+      meta.textContent = 'LIVE';
+      meta.style.color = 'var(--good)';
+      $('stream-status-line').textContent = 'On air: "' + (s.title || '') + '". /watch is showing the player band.';
+    } else {
+      meta.textContent = 'off air';
+      meta.style.color = 'var(--muted)';
+    }
+  } catch (e){ $('stream-meta').textContent = 'status unavailable'; }
+}
+refreshStreamStatus();
+
+$('stream-start-btn').addEventListener('click', async () => {
+  const line = $('stream-status-line');
+  line.textContent = 'Creating broadcast room…'; line.style.color = 'var(--muted)';
+  try {
+    const data = await adminPost('/api/stream-control', {
+      action: 'start',
+      title: ($('stream-title').value || '').trim(),
+      userName: 'Host',
+    });
+    const link = $('stream-studio-link');
+    link.href = data.studioUrl;
+    link.style.display = '';
+    line.innerHTML = '✓ Live. <b>Open studio</b> in a new tab and allow the camera to start broadcasting.' +
+      (data.recording ? ' Cloud recording will start when you join.' : ' Recording is off (Daily plan has no cloud recording).');
+    line.style.color = 'var(--good)';
+    refreshStreamStatus();
+  } catch (e){ line.textContent = 'Failed: ' + (e.message || e); line.style.color = 'var(--accent)'; }
+});
+
+$('stream-stop-btn').addEventListener('click', async () => {
+  const line = $('stream-status-line');
+  line.textContent = 'Ending stream…'; line.style.color = 'var(--muted)';
+  try {
+    await adminPost('/api/stream-control', { action: 'stop' });
+    $('stream-studio-link').style.display = 'none';
+    line.textContent = '✓ Stream ended. The live band is down; run Sync in a few minutes to pull the recording.';
+    line.style.color = 'var(--good)';
+    refreshStreamStatus();
+  } catch (e){ line.textContent = 'Failed: ' + (e.message || e); line.style.color = 'var(--accent)'; }
+});
+
+function fmtRecDur(sec){
+  sec = Math.max(0, Math.round(sec || 0));
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+
+async function loadRecordings(){
+  const body = $('rec-body');
+  try {
+    const data = await fetchJson('/api/admin/recordings');
+    const recs = data.recordings || [];
+    $('rec-meta').textContent = recs.filter(r => r.published).length + ' published / ' + recs.length + ' total';
+    if (!recs.length){ body.textContent = 'No recordings yet. Record a round or a stream, then Sync.'; return; }
+    body.innerHTML = recs.map(r => {
+      const date = r.startTs ? new Date(r.startTs * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
+      const label = (r.title || r.roomName || r.id).slice(0, 80);
+      return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">' +
+        '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + label.replace(/"/g, '&quot;') + '">' +
+          (r.isStream ? '📡 ' : '') + label + '</span>' +
+        '<span style="color:var(--muted);font-size:11px">' + date + ' · ' + fmtRecDur(r.duration) + ' · ' + (r.status || '') + '</span>' +
+        '<a class="pill-btn" style="padding:4px 9px;font-size:11px" target="_blank" rel="noopener" href="/watch?r=' + encodeURIComponent(r.id) + '">watch</a>' +
+        '<button class="pill-btn rec-pub-btn" style="padding:4px 9px;font-size:11px' + (r.published ? ';color:var(--good);border-color:var(--good)' : '') + '" data-id="' + r.id + '" data-pub="' + (r.published ? '1' : '') + '">' +
+          (r.published ? 'published' : 'hidden') + '</button>' +
+        '</div>';
+    }).join('');
+    body.querySelectorAll('.rec-pub-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await adminPost('/api/admin/recordings', { action: 'publish', id: btn.dataset.id, published: !btn.dataset.pub });
+          loadRecordings();
+        } catch (e){ btn.textContent = 'failed'; btn.disabled = false; }
+      });
+    });
+  } catch (e){ body.textContent = 'Could not load recordings: ' + (e.message || e); }
+}
+
+$('rec-sync-btn').addEventListener('click', async () => {
+  const body = $('rec-body');
+  body.textContent = 'Syncing from Daily…';
+  try {
+    const res = await adminPost('/api/admin/recordings', { action: 'sync' });
+    body.textContent = '✓ Synced ' + res.total + ' (' + res.created + ' new). Loading list…';
+    loadRecordings();
+  } catch (e){ body.textContent = 'Sync failed: ' + (e.message || e); }
+});
+$('rec-refresh-btn').addEventListener('click', loadRecordings);
 
 // ── Feedback cohort tracker ─────────────────────────────────────────
 // Paste uids/emails → call /api/admin/feedback-cohort → render a payout
