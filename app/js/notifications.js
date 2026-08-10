@@ -1,4 +1,4 @@
-/* notifications.js — site-wide DM notification surface.
+/* notifications.js — site-wide notification surface.
  *
  * One self-mounting module included on every auth-bearing page. It
  * owns the whole notification experience so there's a single source of
@@ -20,9 +20,9 @@
  *     lastMessage, lastMessageAt, lastMessageFrom, unread:{uid:n}
  *   }
  *
- * Behavior: unread badge + dropdown of recent threads (deep-link to
- * /spar?dm=<peerUid>), an in-page toast on new inbound messages, and an
- * OS Notification when permission is granted and the tab is hidden.
+ * Behavior: unread badge linking to /notifications, an in-page toast on
+ * new inbound messages, and an OS Notification when permission is granted
+ * and the tab is hidden.
  * Firestore is loaded lazily — only signed-in users on pages that
  * didn't already ship the SDK pay the cost, once.
  *
@@ -389,12 +389,10 @@
 
   // ── bell element + placement ─────────────────────────────────────
   function createBell() {
-    var bell = document.createElement('button');
+    var bell = document.createElement('a');
     bell.className = 'ui-bell';
-    bell.type = 'button';
+    bell.href = '/notifications';
     bell.setAttribute('aria-label', 'Notifications');
-    bell.setAttribute('aria-haspopup', 'true');
-    bell.setAttribute('aria-expanded', 'false');
     bell.title = 'Notifications';
     bell.style.display = 'none'; // shown once auth resolves with a user
     bell.innerHTML =
@@ -446,10 +444,10 @@
     }, 100);
   }
 
-  // ── controller: badge + panel shared by two feeds ────────────────
-  // The bell now carries two things: a "What's new" updates feed (the
-  // changelog — loads for every visitor, no auth) and the DM inbox
-  // (wires up only once a user is signed in). One combined unread badge.
+  // ── controller: badge + page feed ─────────────────────────────────
+  // The bell counts two things: a "What's new" updates feed (the changelog,
+  // which loads for every visitor) and the DM inbox (which wires up only
+  // once a user is signed in). One combined unread badge links to the page.
   function controller(bell) {
     var badge = bell.querySelector('.ui-bell-badge');
     var panel = null, seenSnapshot = 0;
@@ -507,11 +505,10 @@
     bell.style.display = 'inline-flex'; // visible to everyone for updates, not just signed-in users
 
     bell.addEventListener('click', function (e) {
-      e.stopPropagation();
-      togglePanel();
       daAskNotify(); // request permission (if needed) + register Web Push on grant
+      if (pageEl) e.preventDefault(); // already on the destination page
     });
-    document.addEventListener('click', function () { if (panel) closePanel(); });
+    if (pageEl) bell.setAttribute('aria-current', 'page');
 
     // /notifications page: landing on it counts as reading everything, the
     // same way opening the dropdown does. Snapshot first so this visit's
