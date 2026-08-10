@@ -315,6 +315,13 @@
       // Leaderboard is not listed here: it lives in LINKS, so the menu
       // renders it in the Debate column and the mobile sheet renders it
       // with the primary links. Adding it here too would list it twice.
+      // 2026-08-10: moved up out of the "Site" group, which is pricing,
+      // story and vision — pages about the company. The Atlas is a
+      // product surface (a live map of real programs), and it lost its
+      // only prominent entry point the same day, when the landing's
+      // globe stopped being a link to it. Sits next to Community
+      // because both answer "who else is out there".
+      { href: '/atlas',       label: 'Debate atlas' },
       { href: '/community',   label: 'Community' },
       // 2026-07-22: chat moved out of the /community Live tab onto its
       // own surface, so the public room and DMs share one frame.
@@ -359,7 +366,6 @@
     { head: 'Site', links: [
       { href: '/pricing', label: 'Free vs Paid' },
       { href: '/schools', label: 'For schools' },
-      { href: '/atlas',   label: 'Debate atlas' },
       { href: '/story',   label: 'Story' },
       { href: '/future',  label: 'Vision' },
     ]},
@@ -393,6 +399,7 @@
     '/partners':       { desc: 'Team up for two on two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
     '/tournament':     { desc: 'Register, draw, tab, bracket', icon: '<path d="M4.7 5.6h14.6M6.8 5.6v4.1a5.2 5.2 0 0 0 10.4 0V5.6M12 14.9v3.3M8.6 20.2h6.8"/>' },
     '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M4.6 19.4V13M9.5 19.4V6.6M14.5 19.4V10M19.4 19.4V4.6"/>' },
+    '/atlas':          { desc: 'Map of real debate programs', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.2 2.4 3.4 5.4 3.4 8.6s-1.2 6.2-3.4 8.6c-2.2-2.4-3.4-5.4-3.4-8.6s1.2-6.2 3.4-8.6z"/>' },
     '/community':      { desc: 'Find debaters and clubs', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },

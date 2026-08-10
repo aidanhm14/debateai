@@ -7672,11 +7672,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            keeps it. Same #heroGlobeCanvas id — the 2D-canvas globe
            script near the end of the document finds it wherever it
            lives in the DOM. -->
-      <div class="story-globe fs-globe" id="storyGlobeBlock" aria-hidden="false" role="link" tabindex="0" data-cta="globe-atlas" style="cursor:pointer" onclick="location.href='/atlas'">
+      <!-- 2026-08-10: the whole block used to be a link to /atlas
+           (role="link" + tabindex + an onclick on the container). It sits
+           directly under the hero CTAs on the tallest part of the first
+           screen, so scrolling or dragging over it navigated away by
+           accident. It is now inert: a live figure you scroll past. The
+           Atlas keeps a real entry in the Explore menu, which is a
+           deliberate destination rather than a mis-tap. -->
+      <div class="story-globe fs-globe" id="storyGlobeBlock" aria-hidden="false">
         <div class="hero-globe-canvas-wrap">
           <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with pins where debaters have been active in the last 24 hours"></canvas>
         </div>
-        <div class="story-globe-caption" id="globeLiveCaption"><span>People around the world.</span><span class="globe-map-link">See the map &rarr;</span></div>
+        <div class="story-globe-caption" id="globeLiveCaption"><span>People around the world.</span></div>
       </div>
     </div>
 
@@ -16206,9 +16213,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var liveCaption = document.getElementById('globeLiveCaption');
     function setLiveCaption(count){
       if (!liveCaption || !(count > 0)) return;
+      // The "See the map" line went with the block's click-to-/atlas
+       // behavior (2026-08-10). Repainting it here would put the label
+       // back on every live-count refresh, on a block that no longer
+       // navigates. Atlas lives in the Explore menu now.
       liveCaption.innerHTML = '<span><b style="color:var(--accent,#ef4444)">' + count +
-        ' debater' + (count===1?'':'s') + '</b> active today.</span>' +
-        '<span class="globe-map-link">See the map &rarr;</span>';
+        ' debater' + (count===1?'':'s') + '</b> active today.</span>';
     }
     function fetchLive(){
       fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
