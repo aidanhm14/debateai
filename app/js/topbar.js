@@ -1015,6 +1015,17 @@
     // a body that can't go light. Pin the theme, hide the (meaningless
     // here) toggle, and skip the localStorage read + toggle wiring.
     var forced = document.documentElement.getAttribute('data-force-theme');
+    /* 2026-08-10 revival: ~31 pages self-pin data-force-theme="light" in
+       an inline early-paint script from the light-only era. That pin is
+       now a DEFAULT, not a lock: a visitor who explicitly picked a dark
+       family gets it on these pages too, so the white/dark option is
+       genuinely site-wide. Pages pinned to a dark palette (/us, /india:
+       data-force-theme="crimson") keep their hard pin; their bodies
+       cannot go light. */
+    if (forced === 'light' && DARK_MODE_ENABLED) {
+      document.documentElement.removeAttribute('data-force-theme');
+      forced = null;
+    }
     if (forced) {
       document.documentElement.setAttribute('data-theme', forced);
       document.documentElement.setAttribute('data-lighting', forced === 'light' ? 'light' : 'dark');
@@ -1059,6 +1070,8 @@
         }
       }
     } catch(e){}
+    /* The old da-theme-default-v2 migration (cleared light prefs to make
+       dark the brand default) stays retired: light is the default now. */
     var saved = '';
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!saved) {
