@@ -227,7 +227,7 @@ const URLS = [
   { path: '/early',                 changefreq: 'weekly',  priority: '0.60' },
   { path: '/communication-profile', changefreq: 'monthly', priority: '0.60' },
   { path: '/registry',              changefreq: 'weekly',  priority: '0.50' },
-  { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80' },
+  { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-10' },
   { path: '/topics/lincoln-douglas',      changefreq: 'monthly', priority: '0.80' },
   { path: '/topics/policy',               changefreq: 'monthly', priority: '0.80' },
   { path: '/topics/big-questions',        changefreq: 'monthly', priority: '0.75' },

@@ -288,6 +288,20 @@ export default async (request) => {
   const format = getFormat(slug);
   if (!format) return notFoundResponse();
 
+  // PF had two substantive URLs competing for the same format queries.
+  // A canonical tag was only a hint, and Search Console continued to
+  // report the older /learn/formats/pf URL separately. Make the
+  // consolidation unambiguous and preserve its existing link equity.
+  if (slug === 'pf') {
+    return new Response(null, {
+      status: 301,
+      headers: {
+        Location: `${SITE_ORIGIN}/topics/public-forum`,
+        'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+      },
+    });
+  }
+
   const html = renderPage(format);
   return new Response(html, {
     status: 200,
