@@ -16,6 +16,8 @@
 <meta name="twitter:title" content="Debatable Tournaments" />
 <meta name="twitter:description" content="Wait for the next featured round, explore sample motions, and watch when the room goes live." />
 <link rel="icon" href="/icons/icon-192.png" />
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
@@ -232,6 +234,7 @@ h1,h2,h3,p{margin-top:0}
     <nav class="topnav" aria-label="Tournament page">
       <a href="#watch">Watch</a>
       <a href="#motions">Motions</a>
+      <a href="#enter">Enter</a>
       <a href="#watch-guide">How it works</a>
       <a class="top-cta" href="mailto:aidandavidhollinger@gmail.com?subject=Host%20a%20Debatable%20Tournament">Host a tournament</a>
     </nav>
@@ -333,6 +336,77 @@ h1,h2,h3,p{margin-top:0}
     </div>
   </section>
 
+  <!-- ── Bracket entry (2026-08-10) ─────────────────────────────────
+       Two doors, one board: pay in to a prize bracket or enter the
+       same bracket free. Hydrates from the `tournaments` Firestore
+       collection (first status:'open' doc); with no open doc it shows
+       the honest empty state. Fees render from the doc's
+       entryFeeCents — no price is hardcoded on this page. Paid door
+       posts to /api/entry-checkout (Stripe Checkout, 18+ attestation
+       required); free door posts the same endpoint with mode:'free'. -->
+  <section class="enter" id="enter">
+    <style>
+      .enter{padding:56px 0;border-top:1px solid var(--line);background:linear-gradient(180deg,var(--paper),var(--paper-2))}
+      .enter .section-head p{max-width:56ch}
+      .enter-card{border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:var(--shadow);padding:26px;max-width:860px}
+      .enter-name{font-family:var(--serif);font-size:1.5rem;font-weight:750;margin:0 0 4px}
+      .enter-meta{font-family:var(--sans);font-size:.74rem;color:var(--muted);margin:0 0 18px}
+      .enter-doors{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+      @media(max-width:680px){.enter-doors{grid-template-columns:1fr}}
+      .enter-door{border:1px solid var(--line);border-radius:14px;padding:18px;background:#fff;display:flex;flex-direction:column;gap:8px}
+      .enter-door--paid{border-color:rgba(217,47,47,.4);background:var(--red-soft)}
+      .enter-door-k{font-family:var(--sans);font-size:.6rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+      .enter-door--paid .enter-door-k{color:var(--red)}
+      .enter-door-fee{font-family:var(--serif);font-size:1.7rem;font-weight:800;line-height:1}
+      .enter-door-sub{font-family:var(--sans);font-size:.76rem;line-height:1.5;color:var(--muted);margin:0}
+      .enter-age{display:flex;align-items:flex-start;gap:8px;font-family:var(--sans);font-size:.7rem;color:var(--muted);margin-top:2px}
+      .enter-age input{margin-top:2px;accent-color:var(--red)}
+      .enter-btn{margin-top:auto;display:inline-flex;justify-content:center;align-items:center;gap:8px;padding:11px 16px;border-radius:10px;border:1px solid var(--line-strong);background:var(--dark);color:#fff;font-family:var(--sans);font-size:.8rem;font-weight:800;cursor:pointer;transition:transform .15s,opacity .15s}
+      .enter-btn:hover{transform:translateY(-1px)}
+      .enter-btn[disabled]{opacity:.5;cursor:default;transform:none}
+      .enter-door--paid .enter-btn{background:var(--red);border-color:var(--red-dark)}
+      .enter-note{font-family:var(--sans);font-size:.66rem;line-height:1.5;color:var(--muted);margin:16px 0 0}
+      .enter-status{font-family:var(--sans);font-size:.78rem;font-weight:700;margin:14px 0 0;color:var(--ink)}
+      .enter-status[data-tone="good"]{color:#1d7a3d}
+      .enter-status[data-tone="bad"]{color:var(--red-dark)}
+      .enter-empty{font-family:var(--sans);font-size:.85rem;line-height:1.6;color:var(--muted)}
+      .enter-empty a{font-weight:750;color:var(--red-dark);text-decoration:underline;text-underline-offset:3px}
+    </style>
+    <div class="shell">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Enter</div>
+          <h2>Two doors into the same bracket.</h2>
+        </div>
+        <p>Pay in and the prize pool pays the debaters who place. Or enter free: same rounds, same judge, same leaderboard. Free entry never locks you out of the ladder.</p>
+      </div>
+      <div class="enter-card" id="enterCard">
+        <p class="enter-empty" id="enterEmpty">Checking for open brackets&hellip;</p>
+        <div id="enterBody" hidden>
+          <h3 class="enter-name" id="enterName"></h3>
+          <p class="enter-meta" id="enterMeta"></p>
+          <div class="enter-doors">
+            <div class="enter-door enter-door--paid" id="paidDoor">
+              <span class="enter-door-k">Paid entry</span>
+              <span class="enter-door-fee" id="enterFee"></span>
+              <p class="enter-door-sub">Place high and the payout is yours. Pool and rake posted per event. A human judge signs off on top of the AI ballot before money moves.</p>
+              <label class="enter-age"><input type="checkbox" id="enterAge"> I confirm I am 18 or older and paid entry is legal where I live.</label>
+              <button type="button" class="enter-btn" id="enterPaidBtn">Pay in with card</button>
+            </div>
+            <div class="enter-door">
+              <span class="enter-door-k">Free entry</span>
+              <span class="enter-door-fee">0</span>
+              <p class="enter-door-sub">Same motions, same clock, same ballot. Your speaks post to the public leaderboard either way.</p>
+              <button type="button" class="enter-btn" id="enterFreeBtn">Enter free</button>
+            </div>
+          </div>
+          <p class="enter-status" id="enterStatus" hidden></p>
+          <p class="enter-note">No purchase necessary to compete or to climb the leaderboard. Paid entry is 18+ and void where prohibited. Official rules, pool, and payout split are posted per event. Payouts are processed after a human judge confirms the final ballots.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="host" id="host">
     <div class="shell">
       <aside class="host-card">
@@ -397,6 +471,150 @@ h1,h2,h3,p{margin-top:0}
     hydrate();
     setInterval(function(){if(!document.hidden)hydrate()},60000);
   })();
+</script>
+<script>
+/* Bracket entry. Renders the first tournament in registration from the
+   engine's public list (GET /api/tournament), then drives the two
+   doors: free entry through the engine's own register action, paid
+   entry through /api/entry-checkout (Stripe). Sign-in is the same
+   Google popup the rest of the site uses. All failure modes surface as
+   inline status text, never alerts. */
+(function(){
+  "use strict";
+  var FIREBASE_CONFIG={
+    apiKey:["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain:"debateos-78ac5.firebaseapp.com",
+    projectId:"debateos-78ac5",
+    storageBucket:"debateos-78ac5.firebasestorage.app",
+    messagingSenderId:"860359449192",
+    appId:"1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+    measurementId:"G-0V4R5MY3BT"
+  };
+  var auth=null;
+  try{
+    if(typeof firebase!=='undefined'){
+      if(!(firebase.apps&&firebase.apps.length))firebase.initializeApp(FIREBASE_CONFIG);
+      if(firebase.auth)auth=firebase.auth();
+    }
+  }catch(e){console.warn('[tournaments] firebase init failed:',e)}
+
+  var empty=document.getElementById('enterEmpty');
+  var bodyEl=document.getElementById('enterBody');
+  var statusEl=document.getElementById('enterStatus');
+  var paidBtn=document.getElementById('enterPaidBtn');
+  var freeBtn=document.getElementById('enterFreeBtn');
+  var ageBox=document.getElementById('enterAge');
+  var current=null;
+
+  function say(msg,tone){
+    if(!statusEl)return;
+    statusEl.hidden=!msg;
+    statusEl.textContent=msg||'';
+    if(tone)statusEl.setAttribute('data-tone',tone);else statusEl.removeAttribute('data-tone');
+  }
+  function money(cents,cur){
+    try{
+      return new Intl.NumberFormat(undefined,{style:'currency',currency:(cur||'usd').toUpperCase(),minimumFractionDigits:cents%100?2:0}).format(cents/100);
+    }catch(e){return '$'+(cents/100)}
+  }
+
+  // Landing back from Stripe: ?entry=success|canceled
+  try{
+    var q=new URLSearchParams(location.search);
+    if(q.get('entry')==='success')say('Payment confirmed. You are payout-eligible in this bracket.','good');
+    else if(q.get('entry')==='canceled')say('Checkout canceled. Free entry is still open.',null);
+  }catch(e){}
+
+  if(!empty)return;
+
+  fetch('/api/tournament',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+    var list=(j&&j.tournaments)||[];
+    var t=null;
+    for(var i=0;i<list.length;i++){if(list[i].status==='registration'){t=list[i];break}}
+    if(!t){
+      empty.innerHTML='No brackets in registration right now. The next one is announced to the <a href="/#waitlist">waitlist</a> first.';
+      return;
+    }
+    current=t;
+    empty.hidden=true;
+    bodyEl.hidden=false;
+    document.getElementById('enterName').textContent=t.name||'Open bracket';
+    var bits=[];
+    if(t.entryCount>0)bits.push(t.entryCount+(t.entryCount===1?' entry':' entries')+' so far');
+    if(t.prizePoolCents>0)bits.push(money(t.prizePoolCents,t.currency)+' in the pool');
+    if(t.startsAt)bits.push('Starts '+t.startsAt);
+    document.getElementById('enterMeta').textContent=bits.join(' · ')||'Registration open';
+    if(t.entryFeeCents>0){
+      document.getElementById('enterFee').textContent=money(t.entryFeeCents,t.currency);
+    }else{
+      document.getElementById('paidDoor').style.display='none';
+    }
+  }).catch(function(e){
+    console.warn('[tournaments] bracket read failed:',e);
+    empty.textContent='Could not load brackets. Refresh to retry.';
+  });
+
+  function withUser(fn){
+    if(!auth){say('Sign-in is unavailable in this browser.','bad');return}
+    var u=auth.currentUser;
+    if(u&&!u.isAnonymous){fn(u);return}
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(function(res){
+      if(res&&res.user)fn(res.user);
+    }).catch(function(){say('Sign-in was closed. Try again when ready.',null)});
+  }
+  function registerFree(user,token){
+    return fetch('/api/tournament',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({action:'register',tid:current.tid,name:user.displayName||''})
+    }).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})});
+  }
+  function enter(mode){
+    if(!current)return;
+    if(mode==='paid'&&(!ageBox||!ageBox.checked)){
+      say('Tick the 18+ box first. Paid entry is adults only.','bad');
+      return;
+    }
+    withUser(function(user){
+      var btn=mode==='paid'?paidBtn:freeBtn;
+      if(btn)btn.disabled=true;
+      say(mode==='paid'?'Opening secure checkout…':'Registering…',null);
+      user.getIdToken().then(function(token){
+        if(mode==='free'){
+          return registerFree(user,token).then(function(res){
+            if(res.ok&&res.j&&res.j.already)say('You are already registered for this bracket.','good');
+            else if(res.ok)say('You are in. Check in when the tournament opens; pairings post here.','good');
+            else say((res.j&&(res.j.error||res.j.message))||'Registration failed. Try again.','bad');
+          });
+        }
+        // Paid door: make sure the engine entry exists first (idempotent),
+        // then mint the checkout session.
+        return registerFree(user,token).then(function(reg){
+          if(!reg.ok&&!(reg.j&&reg.j.already)){
+            say((reg.j&&(reg.j.error||reg.j.message))||'Registration failed. Try again.','bad');
+            return null;
+          }
+          return fetch('/api/entry-checkout',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+            body:JSON.stringify({tid:current.tid,ageAttested:!!(ageBox&&ageBox.checked)})
+          }).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(res){
+            if(!res)return;
+            if(res.ok&&res.j&&res.j.url){location.href=res.j.url;return}
+            var code=res.j&&res.j.error;
+            if(code==='ALREADY_PAID')say('You already paid in. You are payout-eligible.','good');
+            else if(code==='ENTRY_PAYMENTS_OFF')say((res.j&&res.j.message)||'Paid entry opens soon. Free entry works today.',null);
+            else say((res.j&&(res.j.message||res.j.error))||'Something went wrong. Try again.','bad');
+          });
+        });
+      }).catch(function(){say('Network error. Try again.','bad')}).finally(function(){
+        if(btn)btn.disabled=false;
+      });
+    });
+  }
+  if(paidBtn)paidBtn.addEventListener('click',function(){enter('paid')});
+  if(freeBtn)freeBtn.addEventListener('click',function(){enter('free')});
+})();
 </script>
 <script>
 (function(){

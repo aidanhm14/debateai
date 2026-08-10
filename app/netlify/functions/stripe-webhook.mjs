@@ -61,6 +61,49 @@ export default async (request) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
 
+        // Tournament pay-in (entry-checkout.mjs). Payment lands as
+        // tournaments/{tid}/payments/{uid} — keyed by uid so a webhook
+        // retry is an idempotent overwrite, never a duplicate. The
+        // registration itself lives in the engine's entries
+        // subcollection (tournament.mjs register action); paying makes
+        // that entry payout-eligible, it does not create it.
+        if (session.metadata?.kind === 'tournament_entry') {
+          const { uid, tid } = session.metadata;
+          if (uid && tid) {
+            const tRef = db.collection('tournaments').doc(tid);
+            await tRef.collection('payments').doc(uid).set({
+              uid,
+              status: 'paid',
+              amountCents: session.amount_total ?? null,
+              currency: session.currency || 'usd',
+              stripeSessionId: session.id,
+              paymentIntentId: typeof session.payment_intent === 'string'
+                ? session.payment_intent
+                : (session.payment_intent?.id ?? null),
+              // Payouts are settled manually from the Stripe dashboard
+              // for now; settlement flips this to 'owed' for placers.
+              payout: { status: 'none' },
+              createdAt: FieldValue.serverTimestamp(),
+            }, { merge: true });
+            await tRef.set({
+              paidEntries: FieldValue.increment(1),
+              prizePoolCents: FieldValue.increment(session.amount_total || 0),
+            }, { merge: true });
+            // Stamp the debater's engine entry when it already exists,
+            // so the tab can show payout eligibility without a second
+            // lookup. Best-effort: paying before registering is fine.
+            try {
+              const entry = await tRef.collection('entries')
+                .where('members', 'array-contains', uid).limit(1).get();
+              if (!entry.empty) await entry.docs[0].ref.update({ paidEntry: true });
+            } catch (e) {
+              console.warn('tournament entry stamp failed:', e.message);
+            }
+            console.log(`Tournament pay-in: ${tid} by ${uid}`);
+          }
+          break;
+        }
+
         // Handle lifetime one-time payment
         if (session.mode === 'payment') {
           const paymentIntentId = session.payment_intent;

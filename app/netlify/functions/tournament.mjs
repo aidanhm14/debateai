@@ -63,6 +63,13 @@ function publicTournament(id, d) {
     entryCount: Number(d.entryCount) || 0,
     champion: d.champion || null,
     isPublic: !!d.isPublic,
+    // Prize-bracket fields (entry-checkout.mjs / stripe-webhook.mjs).
+    // Fee lives on the doc so pricing is a data decision, not a deploy;
+    // 0 or missing means the tournament is free-only.
+    entryFeeCents: Number(d.entryFeeCents) || 0,
+    currency: d.currency || 'usd',
+    prizePoolCents: Number(d.prizePoolCents) || 0,
+    paidEntries: Number(d.paidEntries) || 0,
   };
 }
 
