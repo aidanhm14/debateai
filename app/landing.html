@@ -7034,6 +7034,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-cta--ghost{min-width:140px;padding:14px 26px;font-size:.98rem;font-weight:700;
     color:rgba(26,26,31,.72);border:1px solid rgba(26,26,31,.22)}
   .fs-cta--ghost:hover{border-color:rgba(26,26,31,.5);color:#1a1a1f}
+  /* Live-round count on Spectate. Filled by the watch-live poll near the
+     end of the document; stays hidden until at least one public round is
+     actually live, so the badge can never overstate the room. */
+  .fs-cta-live{display:none;align-items:center;gap:6px;margin-left:2px;padding:3px 9px;
+    border-radius:999px;background:#dc2626;color:#fff;font-size:.7rem;font-weight:800;
+    letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  .fs-cta-live::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;
+    animation:fsLivePulse 1.6s ease-in-out infinite}
+  .fs-cta.is-live .fs-cta-live{display:inline-flex}
+  @keyframes fsLivePulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media(prefers-reduced-motion:reduce){.fs-cta-live::before{animation:none}}
 
   /* Guide video. 2026-07-28: was a 160x90 thumbnail sitting beside its
      label in a pill. At that size a first-time visitor read it as a
@@ -7309,7 +7320,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="fs-sub">Get matched, argue it out, and get a verdict.</p>
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Debate <span aria-hidden="true">&rarr;</span></a>
-          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate</a>
+          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
         </div>
       </div>
       <div class="fs-copy-variant fs-copy-practice">
@@ -7318,7 +7329,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="fs-sub">Pick a topic, get matched, and settle it out loud.</p>
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find someone to argue with <span aria-hidden="true">&rarr;</span></a>
-          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate</a>
+          <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
         </div>
       </div>
 
@@ -10828,7 +10839,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </div>
     <a class="livenow-cta" href="/spar">Match me with a stranger &rarr;</a>
     <p style="margin:12px 0 0;font-size:.85rem">
-      <a href="/spectate" data-cta="livenow-spectate" style="color:var(--text-dim);text-decoration:underline;text-underline-offset:3px">Not ready to speak? Spectate</a>
+      <a href="/spectate" data-cta="livenow-spectate" style="color:var(--text-dim);text-decoration:underline;text-underline-offset:3px">Not ready to speak? Spectate<span data-live-count-inline></span></a>
       <span style="color:var(--text-dim);opacity:.5;margin:0 6px">·</span>
       <a href="/debate-strangers" style="color:var(--text-dim);text-decoration:underline;text-underline-offset:3px">How matching with strangers works</a>
     </p>
@@ -15787,6 +15798,36 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   // canvases; debugging across users' specific configs was a rabbit
   // hole. 2D canvas paints reliably everywhere and looks consistent
   // with the dark/red landing aesthetic.
+  /* Spectate live-count. /api/watch-live is the same real-liveness feed
+     the arena and tournaments watch windows read (participant heartbeat
+     inside ~100s, public rounds only, no floor, no padding). When count
+     is 0 every badge stays hidden and the CTAs read exactly as before.
+     The endpoint shared-caches 12s server-side; we re-check every 60s
+     while the tab is visible so a round starting mid-visit lights up. */
+  (function(){
+    var badges = document.querySelectorAll('[data-live-count]');
+    var inlines = document.querySelectorAll('[data-live-count-inline]');
+    if (!badges.length && !inlines.length) return;
+    function paint(n){
+      var i;
+      for (i = 0; i < badges.length; i++){
+        badges[i].textContent = n > 0 ? (n + ' live') : '';
+        var cta = badges[i].closest('.fs-cta');
+        if (cta) cta.classList.toggle('is-live', n > 0);
+      }
+      for (i = 0; i < inlines.length; i++){
+        inlines[i].textContent = n > 0 ? (' (' + n + ' round' + (n === 1 ? '' : 's') + ' live now)') : '';
+      }
+    }
+    function poll(){
+      fetch('/api/watch-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+        paint(d && typeof d.count === 'number' ? d.count : 0);
+      }).catch(function(){});
+    }
+    poll();
+    setInterval(function(){ if (!document.hidden) poll(); }, 60000);
+  })();
+
   (function(){
     var canvas = document.getElementById('heroGlobeCanvas');
     if (!canvas || !canvas.getContext) return;
