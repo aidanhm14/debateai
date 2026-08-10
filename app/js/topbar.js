@@ -1015,17 +1015,18 @@
     // a body that can't go light. Pin the theme, hide the (meaningless
     // here) toggle, and skip the localStorage read + toggle wiring.
     var forced = document.documentElement.getAttribute('data-force-theme');
-    /* 2026-08-10 revival: ~31 pages self-pin data-force-theme="light" in
-       an inline early-paint script from the light-only era. That pin is
-       now a DEFAULT, not a lock: a visitor who explicitly picked a dark
-       family gets it on these pages too, so the white/dark option is
-       genuinely site-wide. Pages pinned to a dark palette (/us, /india:
-       data-force-theme="crimson") keep their hard pin; their bodies
-       cannot go light. */
-    if (forced === 'light' && DARK_MODE_ENABLED) {
-      document.documentElement.removeAttribute('data-force-theme');
-      forced = null;
-    }
+    /* 2026-08-10 revival, reverted same day: ~31 pages self-pin
+       data-force-theme="light" in an inline early-paint script from the
+       light-only era. A same-day change briefly treated that pin as a
+       default rather than a lock, so a visitor with a saved dark pick
+       got a dark topbar force-injected onto these pages too - including
+       the 16 that were pinned in the first place specifically because
+       they have NO dark palette on the body (see the 2026-08-10 "theme:
+       dark mode back as a sitewide opt-in" commit's file list). Result:
+       dark topbar over a body that never got dark styling, breaking
+       layout. Pins are locks again, full stop, same as pre-revival.
+       Reaching the toggle onto the pages that genuinely have dual
+       palettes needs a real per-page audit, not a blanket override. */
     if (forced) {
       document.documentElement.setAttribute('data-theme', forced);
       document.documentElement.setAttribute('data-lighting', forced === 'light' ? 'light' : 'dark');
