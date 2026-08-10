@@ -6165,6 +6165,46 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     color:var(--accent);
     font-weight:700;
   }
+  /* Size tiers (2026-08-10): the conversion-path chapters (how it
+     works, the two live-proof chapters, choose-a-path, join) read
+     slightly larger/bolder than the rest; low-commitment reads (why
+     debate, reviews) read slightly smaller and dimmer. Kept subtle on
+     the vertical rail since it's a tight editorial list, not a button
+     row — the size swing is much more visible on .chapter-nav below. */
+  .page-toc-list li[data-size="lg"] a{font-weight:700;opacity:.78}
+  .page-toc-list li[data-size="sm"] a{font-size:.72rem;opacity:.48}
+  /* Shared hover/focus preview popover — see wireTocPreviews() below.
+     Fixed-position singleton, reused across every pill in both TOCs. */
+  .toc-preview-pop{
+    position:fixed;z-index:2147483000;
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    width:172px;padding:14px 12px 12px;
+    border-radius:14px;
+    background:#16090b;color:#f5efe7;
+    border:1px solid rgba(220,38,38,.34);
+    box-shadow:0 20px 48px rgba(0,0,0,.34);
+    opacity:0;transform:translateY(6px) scale(.96);
+    transition:opacity .15s ease,transform .15s ease;
+    pointer-events:none;
+    text-align:center;
+  }
+  .toc-preview-pop.is-below{transform:translateY(-6px) scale(.96)}
+  .toc-preview-pop.is-shown{opacity:1;transform:translateY(0) scale(1)}
+  .toc-preview-pop .tpp-icon{width:34px;height:34px;color:var(--accent,#dc2626)}
+  .toc-preview-pop .tpp-icon svg{width:100%;height:100%;display:block}
+  .toc-preview-pop .tpp-label{
+    font-family:'Crimson Pro','Fraunces',Georgia,serif;
+    font-size:.9rem;font-weight:700;color:#fff;margin:0;line-height:1.2;
+  }
+  .toc-preview-pop .tpp-note{
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-size:.66rem;line-height:1.42;color:rgba(245,239,231,.66);margin:0;
+  }
+  [data-theme="light"] .toc-preview-pop{background:#fff;color:#1a1a1f;border-color:rgba(220,38,38,.28);box-shadow:0 20px 48px rgba(0,0,0,.16)}
+  [data-theme="light"] .toc-preview-pop .tpp-label{color:#1a1a1f}
+  [data-theme="light"] .toc-preview-pop .tpp-note{color:rgba(0,0,0,.58)}
+  @media (hover:none){.toc-preview-pop{display:none !important}}
+  @media (prefers-reduced-motion:reduce){.toc-preview-pop{transition:none}}
   /* The rail is fixed at left:24px and is 206px wide, so it owns the
      leftmost ~230px of the window. The middle chapters are a 1180px
      column, centred, so their left edge only clears the rail once the
@@ -6201,26 +6241,124 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        independently of the label on active state, and the init script
        renumbers whatever survives its hidden-section filter, so these
        values are the authored intent rather than the final render. -->
+  <!-- 2026-08-10: data-size marks the handful of chapters that carry
+       the conversion path (how it works, the two live proof chapters,
+       choose-a-path, join) as "lg"; low-commitment reads (why debate,
+       reviews) as "sm". The init script below copies this attribute
+       onto the mirrored .chapter-nav <li> too, and a shared hover/focus
+       popover (built from TOC_PREVIEWS) reads it off both. -->
   <ul class="page-toc-list">
-    <li><a href="#how-it-works"><span class="num">01</span><span class="lab">How it works</span></a></li>
-    <li><a href="#live-now"><span class="num">02</span><span class="lab">Live rounds</span></a></li>
-    <li><a href="#live-proof"><span class="num">03</span><span class="lab">Judged round</span></a></li>
+    <li data-size="lg"><a href="#how-it-works"><span class="num">01</span><span class="lab">How it works</span></a></li>
+    <li data-size="lg"><a href="#live-now"><span class="num">02</span><span class="lab">Live rounds</span></a></li>
+    <li data-size="lg"><a href="#live-proof"><span class="num">03</span><span class="lab">Judged round</span></a></li>
     <li><a href="#ranked-band"><span class="num">04</span><span class="lab">Leaderboard</span></a></li>
     <li><a href="#creator-sweepstakes"><span class="num">05</span><span class="lab">Creators</span></a></li>
     <li><a href="#stream-it"><span class="num">06</span><span class="lab">Stream it</span></a></li>
-    <li><a href="#why-this-exists"><span class="num">07</span><span class="lab">Why debate</span></a></li>
+    <li data-size="sm"><a href="#why-this-exists"><span class="num">07</span><span class="lab">Why debate</span></a></li>
     <li><a href="#floor-band"><span class="num">08</span><span class="lab">The Floor</span></a></li>
-    <li><a href="#mode-select"><span class="num">09</span><span class="lab">Choose a path</span></a></li>
+    <li data-size="lg"><a href="#mode-select"><span class="num">09</span><span class="lab">Choose a path</span></a></li>
     <li><a href="#credential-path"><span class="num">10</span><span class="lab">Credential + vision</span></a></li>
     <li><a href="#community-band"><span class="num">11</span><span class="lab">Community</span></a></li>
     <li><a href="#face-wall"><span class="num">12</span><span class="lab">Debaters</span></a></li>
-    <li><a href="#reviews"><span class="num">13</span><span class="lab">Reviews</span></a></li>
+    <li data-size="sm"><a href="#reviews"><span class="num">13</span><span class="lab">Reviews</span></a></li>
     <li><a href="#faq"><span class="num">14</span><span class="lab">FAQ</span></a></li>
-    <li><a href="#book-founders"><span class="num">15</span><span class="lab">Join</span></a></li>
+    <li data-size="lg"><a href="#book-founders"><span class="num">15</span><span class="lab">Join</span></a></li>
   </ul>
 </nav>
 <script>
 (function(){
+  // Icon set for the hover/focus preview popover, one per chapter.
+  // Simple stroke-based glyphs (not literal screenshots): this page's
+  // copy is edited weekly per the decision log, so a pixel screenshot
+  // would go stale within days. currentColor picks up --accent via the
+  // .tpp-icon wrapper.
+  var TOC_PREVIEWS = {
+    'how-it-works': { note: 'Five steps, ladder to featured to paid brackets.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="20" cy="12" r="2.2"/><path d="M6.4 12h3.2M14.4 12h3.2"/></svg>' },
+    'live-now': { note: 'Watch a round happening right now.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="10" opacity=".45"/></svg>' },
+    'live-proof': { note: 'Real ballot, real reasoning, no cherry-picking.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2.2"/><path d="M8 12l3 3 5-6.5"/></svg>' },
+    'ranked-band': { note: 'Public leaderboard. Five scores, not one.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 18V10M12 18V5M19 18v-6"/></svg>' },
+    'creator-sweepstakes': { note: 'Top of the board debates streamers, live.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3"/><path d="M12 13v3M9 20h6M10 17h4v3h-4z"/></svg>' },
+    'why-this-exists': { note: 'The case for practicing out loud.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2.2h5.2c0-1 .4-1.7 1-2.2A6 6 0 0 0 12 3Z"/></svg>' },
+    'mode-select': { note: 'Pick human, AI, or both.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-7"/><path d="M12 13 6 6"/><path d="M12 13l6-7"/><circle cx="12" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>' },
+    'credential-path': { note: "Who built this and why it's built this way.",
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M9 13.5 7.5 21 12 18.5 16.5 21 15 13.5"/></svg>' },
+    'face-wall': { note: 'Debaters on the platform right now.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/></svg>' },
+    'reviews': { note: 'What debaters say after a round.',
+      icon: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 4.5l2.2 4.6 5 .6-3.7 3.4.9 5-4.4-2.5-4.4 2.5.9-5-3.7-3.4 5-.6z"/></svg>' },
+    'faq': { note: 'Answers to the obvious questions.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 3.6 6.7L4 20l1-3.6A8 8 0 0 1 4 12Z"/><path d="M10 9.6a2 2 0 1 1 3 1.7c-.8.5-1 1-1 1.8"/><circle cx="12" cy="16" r=".2" fill="currentColor"/></svg>' },
+    'book-founders': { note: 'Start your first round.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5l6 7-6 7"/><path d="M19 12H4"/></svg>' }
+  };
+
+  var previewPop = null;
+  var previewHideTimer = null;
+  function ensurePreviewPop(){
+    if (previewPop) return previewPop;
+    previewPop = document.createElement('div');
+    previewPop.className = 'toc-preview-pop';
+    previewPop.setAttribute('aria-hidden', 'true');
+    previewPop.innerHTML = '<span class="tpp-icon"></span><p class="tpp-label"></p><p class="tpp-note"></p>';
+    document.body.appendChild(previewPop);
+    return previewPop;
+  }
+  function showPreview(a, sectionId){
+    var data = TOC_PREVIEWS[sectionId];
+    if (!data) return;
+    if (previewHideTimer){ clearTimeout(previewHideTimer); previewHideTimer = null; }
+    var pop = ensurePreviewPop();
+    // .page-toc-list links wrap their text in .lab; the mirrored
+    // .chapter-nav links append it as a bare text node after .num, so
+    // textContent alone would read "12Join". Strip the num prefix.
+    var lab = a.querySelector('.lab');
+    var num = a.querySelector('.num');
+    var label = lab ? lab.textContent : (num ? a.textContent.slice(num.textContent.length) : a.textContent);
+    pop.querySelector('.tpp-icon').innerHTML = data.icon;
+    pop.querySelector('.tpp-label').textContent = label;
+    pop.querySelector('.tpp-note').textContent = data.note;
+    // Position above the pill, centered, clamped to the viewport so a
+    // pill near the left/right edge doesn't push the card off-screen.
+    var r = a.getBoundingClientRect();
+    var popW = 172; // matches the CSS width
+    var left = r.left + r.width / 2 - popW / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));
+    var top = r.top - 10;
+    var showBelow = top < 100; // near top of viewport (e.g. sticky strip): flip below
+    pop.style.left = left + 'px';
+    pop.classList.toggle('is-below', showBelow);
+    pop.style.top = showBelow ? (r.bottom + 10) + 'px' : 'auto';
+    pop.style.bottom = showBelow ? 'auto' : (window.innerHeight - top) + 'px';
+    pop.classList.add('is-shown');
+  }
+  function hidePreview(){
+    if (!previewPop) return;
+    previewHideTimer = setTimeout(function(){
+      previewPop.classList.remove('is-shown');
+    }, 60);
+  }
+  function wireTocPreviews(items, links, stripLinks){
+    if (!window.matchMedia || !window.matchMedia('(hover:hover)').matches) return;
+    function attach(a, sectionId){
+      if (!TOC_PREVIEWS[sectionId]) return;
+      a.addEventListener('mouseenter', function(){ showPreview(a, sectionId); });
+      a.addEventListener('mouseleave', hidePreview);
+      a.addEventListener('focus', function(){ showPreview(a, sectionId); });
+      a.addEventListener('blur', hidePreview);
+    }
+    items.forEach(function(it, i){
+      if (links[i]) attach(links[i], it.sec.id);
+      if (stripLinks[i]) attach(stripLinks[i], it.sec.id);
+    });
+  }
+
   function init(){
     var toc = document.querySelector('.page-toc');
     if (!toc) return;
@@ -6296,6 +6434,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           a.appendChild(n);
         }
         a.appendChild(document.createTextNode(lab ? lab.textContent : it.a.textContent));
+        // Carry the size tier from the authored <li data-size> onto the
+        // mirrored <a>, since .chapter-nav has no <li> styling hook.
+        var srcLi = it.a.closest('li');
+        var size = srcLi && srcLi.getAttribute('data-size');
+        if (size) a.setAttribute('data-size', size);
         a.addEventListener('click', function(){
           if (typeof gtag === 'function') {
             gtag('event', 'toc_click', { toc_target: a.getAttribute('href') });
@@ -6317,6 +6460,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         }
       });
     });
+
+    // Hover/focus preview popovers, shared across both the vertical
+    // rail (links) and the horizontal strip (stripLinks) — same
+    // section ids, same lookup. One popover element is reused rather
+    // than building one per pill: 15 tooltip nodes for a feature only
+    // one is ever showing at a time is wasted DOM.
+    wireTocPreviews(items, links, stripLinks);
 
     // Direct-style fade so we don't depend on a cascade-level CSS
     // transition. Earlier testing found the implicit CSSTransition
@@ -7040,6 +7190,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-cta--ghost{min-width:140px;padding:14px 26px;font-size:.98rem;font-weight:700;
     color:rgba(26,26,31,.72);border:1px solid rgba(26,26,31,.22)}
   .fs-cta--ghost:hover{border-color:rgba(26,26,31,.5);color:#1a1a1f}
+  /* 2026-08-10: the walkthrough video used to live only in the hero,
+     then moved down to chapter 2 (livenow stage) on 2026-08-05, which
+     buried it below the fold for anyone who doesn't scroll. This pill
+     puts a low-key "watch the demo" door back in the hero without
+     competing with the two real CTAs — text-link weight, not a third
+     button. Opens the same #guideVideoEl modal via data-guide-open. */
+  .fs-cta-video{
+    display:inline-flex;align-items:center;gap:9px;
+    padding:8px 6px;margin-left:2px;
+    background:none;border:none;cursor:pointer;
+    font-family:inherit;font-size:.9rem;font-weight:700;
+    color:var(--accent,#dc2626);white-space:nowrap;
+  }
+  .fs-cta-video:hover{text-decoration:underline;text-underline-offset:3px}
+  .fs-cta-video-play{
+    position:relative;flex:none;width:26px;height:26px;border-radius:50%;
+    background:var(--accent,#dc2626);
+  }
+  .fs-cta-video-play::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:var(--accent,#dc2626);opacity:.4;
+    animation:fsVideoPing 2.2s ease-out infinite;
+  }
+  .fs-cta-video-play::after{
+    content:"";position:absolute;top:50%;left:54%;
+    transform:translate(-50%,-50%);
+    border-style:solid;border-width:5px 0 5px 8px;
+    border-color:transparent transparent transparent #fff;
+  }
+  .fs-cta-video-min{font-weight:600;opacity:.7}
+  @keyframes fsVideoPing{
+    0%{transform:scale(1);opacity:.4}
+    75%,100%{transform:scale(1.7);opacity:0}
+  }
+  @media(prefers-reduced-motion:reduce){.fs-cta-video-play::before{animation:none}}
+  @media(max-width:640px){.fs-cta-video{width:100%;justify-content:center;padding:10px 6px}}
   /* Live-round count on Spectate. Filled by the watch-live poll near the
      end of the document; stays hidden until at least one public round is
      actually live, so the badge can never overstate the room. */
@@ -7364,6 +7550,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Debate <span aria-hidden="true">&rarr;</span></a>
           <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
+          <button type="button" class="fs-cta-video" data-guide-open data-cta="first-screen-video"><span class="fs-cta-video-play" aria-hidden="true"></span>Watch the walkthrough <span class="fs-cta-video-min">&middot; 3 min</span></button>
         </div>
       </div>
       <div class="fs-copy-variant fs-copy-practice">
@@ -7373,6 +7560,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find someone to argue with <span aria-hidden="true">&rarr;</span></a>
           <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
+          <button type="button" class="fs-cta-video" data-guide-open data-cta="first-screen-video"><span class="fs-cta-video-play" aria-hidden="true"></span>Watch the walkthrough <span class="fs-cta-video-min">&middot; 3 min</span></button>
         </div>
       </div>
 
@@ -12259,6 +12447,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       font-size:.6rem;font-weight:700;font-variant-numeric:tabular-nums;
       color:var(--text-ghost,rgba(0,0,0,.42));
     }
+    /* Size tiers, collapsed-gate jump-menu variant — this is the wrapped
+       pill grid shown once "See more" is collapsed. Bigger swing here
+       than the sticky bar since these pills have room to breathe. */
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="lg"]{
+      font-size:.94rem;font-weight:800;padding:10px 17px;
+      border-color:color-mix(in srgb,var(--accent,#dc2626) 30%,transparent);
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="sm"]{
+      font-size:.74rem;padding:7px 12px;opacity:.78;
+    }
     body.landing-more-ready:not(.landing-more-open) .chapter-nav a:hover{
       color:var(--accent,#dc2626);
       border-color:color-mix(in srgb,var(--accent,#dc2626) 40%,transparent);
@@ -12663,6 +12861,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       color:var(--text-ghost,rgba(0,0,0,.42));
       transition:color .18s;
     }
+    /* Size tiers, sticky-bar variant. See the .page-toc-list li[data-size]
+       comment above for which chapters get which tier. */
+    .chapter-nav a[data-size="lg"]{font-size:.9rem;font-weight:800;padding:8px 15px}
+    .chapter-nav a[data-size="sm"]{font-size:.72rem;padding:6px 11px;opacity:.8}
     .chapter-nav a.is-active{
       color:var(--accent,#dc2626);
       border-color:color-mix(in srgb, var(--accent,#dc2626) 34%, transparent);
@@ -15931,13 +16133,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // liveness. The caption under the globe shows the real count.
     // 2026-08-01: window widened 30 min -> 24 h so a day's worth of dots
     // populate instead of the handful live at this exact minute. Caption
-    // says "active recently" and the payload's online24 is the count.
+    // says "active today" and the payload's online24 is the count.
     var LIVE = [];
     var liveCaption = document.getElementById('globeLiveCaption');
     function setLiveCaption(count){
       if (!liveCaption || !(count > 0)) return;
       liveCaption.innerHTML = '<span><b style="color:var(--accent,#ef4444)">' + count +
-        ' debater' + (count===1?'':'s') + '</b> active recently.</span>' +
+        ' debater' + (count===1?'':'s') + '</b> active today.</span>' +
         '<span class="globe-map-link">See the map &rarr;</span>';
     }
     function fetchLive(){
