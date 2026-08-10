@@ -7253,6 +7253,108 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   :root:not([data-theme="light"]) .fs-guide-txt span{color:rgba(245,239,231,.55)}
   :root:not([data-theme="light"]) .fs-guide{background:#1c1a19;border-color:rgba(245,239,231,.16)}
 
+  /* 2026-08-10: the example board was authored in the light-only era as a
+     hardcoded white card (#fff gradient, #1a1a1f ink). On a dark theme that
+     put a bright white slab on a near-black page, which is the first thing
+     the eye lands on and the harshest edge on the screen. Everything below
+     restates the same card in the dark palette. The video tiles, the red
+     and blue side colors, and the green ballot verdict are untouched: those
+     carry meaning, and they read correctly on both surfaces. */
+  :root:not([data-theme="light"]) .fs-board{
+    background:linear-gradient(168deg,#211f1e 0%,#1c1a19 58%,#181615 100%);
+    border-color:rgba(245,239,231,.14);color:#f5efe7;
+    box-shadow:0 28px 62px rgba(0,0,0,.5),0 3px 10px rgba(0,0,0,.34),inset 0 1px 0 rgba(245,239,231,.06)}
+  :root:not([data-theme="light"]) .fs-board .fs-sample{color:rgba(245,239,231,.45)}
+  :root:not([data-theme="light"]) .fs-board .fs-pager{color:rgba(245,239,231,.55)}
+  :root:not([data-theme="light"]) .fs-board .fs-nav{border-color:rgba(245,239,231,.24);color:rgba(245,239,231,.6)}
+  :root:not([data-theme="light"]) .fs-board .fs-nav:hover{border-color:#f5efe7;color:#f5efe7}
+  :root:not([data-theme="light"]) .fs-board .fs-motion{color:#f5efe7}
+  :root:not([data-theme="light"]) .fs-board .fs-tile{border-color:rgba(245,239,231,.14)}
+  :root:not([data-theme="light"]) .fs-board .fs-odds-k,
+  :root:not([data-theme="light"]) .fs-board .fs-odds-live{color:rgba(245,239,231,.55)}
+  :root:not([data-theme="light"]) .fs-board .fs-odds-live.is-settled i{background:rgba(245,239,231,.3)}
+  :root:not([data-theme="light"]) .fs-board .fs-scale-end b{color:rgba(245,239,231,.62)}
+  :root:not([data-theme="light"]) .fs-board .fs-scale-end em{color:#f5efe7}
+  /* Pro/Con keep their red and blue; only the neutral mark needs flipping so
+     it stays visible against the track instead of vanishing into it. */
+  :root:not([data-theme="light"]) .fs-scale-mark{background:#f5efe7;box-shadow:0 1px 6px rgba(0,0,0,.6)}
+  :root:not([data-theme="light"]) .fs-ballot{border-top-color:rgba(245,239,231,.14)}
+  :root:not([data-theme="light"]) .fs-board .fs-ballot-wait{color:rgba(245,239,231,.45)}
+  :root:not([data-theme="light"]) .fs-board .fs-ballot-card p{color:rgba(245,239,231,.62)}
+  /* Green verdict text is legible on dark, but lift it off the deep tone so
+     it does not sit at the same value as the body copy around it. */
+  :root:not([data-theme="light"]) .fs-board .fs-ballot-top b{color:#4ade80}
+
+  /* Same era, same bug, further down the page: these bands were authored
+     against the light surface and hardcoded near-black ink (#1a1a1f), so on
+     a dark theme they render black-on-black and the text simply is not
+     there. Found by sweeping every text node on the dark theme and
+     comparing its computed ink against its real painted background.
+     Sections whose cards paint their OWN light surface (the ballot mock,
+     the poster, the motion cards, the certificate cover) are deliberately
+     left alone: those are paper artifacts, their dark ink sits on their own
+     white, and repainting them would break the metaphor rather than fix
+     contrast. */
+  :root:not([data-theme="light"]) .creator-sweep .cs-title{color:#f5efe7}
+  :root:not([data-theme="light"]) .creator-sweep .cs-lede{color:rgba(245,239,231,.68)}
+  :root:not([data-theme="light"]) .creator-sweep .cs-legal{color:rgba(245,239,231,.55)}
+  :root:not([data-theme="light"]) .cs-motion-strip{border-top-color:rgba(245,239,231,.14)}
+  /* Ink is set on the CONTAINERS and inherited, rather than listed selector
+     by selector: the prose here is deep and irregular (p, a, q, summary,
+     details, bare b), and enumerating it missed nested copy on the first
+     pass. The paper cards then re-assert their own dark ink below, so the
+     cascade does the exclusion instead of a fragile :not() chain. Doing it
+     the other way round put near-white bold text on white cards, which
+     traded one invisible-text bug for another. */
+  :root:not([data-theme="light"]) .cs-motion-strip,
+  :root:not([data-theme="light"]) .creator-sweep .cs-copy{color:rgba(245,239,231,.68)}
+  :root:not([data-theme="light"]) .cs-motion-strip a{color:#f5efe7}
+  :root:not([data-theme="light"]) .cs-motion-strip b,
+  :root:not([data-theme="light"]) .creator-sweep .cs-copy b{color:#f5efe7}
+  :root:not([data-theme="light"]) .live-proof-video .lpv-ballotin{color:#f5efe7}
+  /* Remaining dark-on-dark text, listed per section because each of these
+     sets its own color rather than inheriting one. Found by walking every
+     text node on the dark theme and comparing computed ink against the
+     nearest opaque painted background, so this is the measured set rather
+     than a guess at which sections look light-authored. */
+  :root:not([data-theme="light"]) #live-proof span{color:rgba(245,239,231,.68)}
+  /* Prose that sits directly on the page. Deliberately broad (bare p / q /
+     summary) because this copy is unclassed, so the paper cards below have
+     to take their ink back rather than be excluded up front. Every selector
+     in this pair carries the same id, because an id outranks any number of
+     classes: the first attempt scoped the broad rules by id and the paper
+     re-asserts by class, so the broad ones won inside the white cards and
+     produced near-white bold text on white. Same id both sides, then more
+     classes on the paper side, is what actually orders these correctly. */
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip p,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip q,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip b,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip summary{color:rgba(245,239,231,.72)}
+  /* Paper artifacts keep their own surface, so they keep their own ink. */
+  :root:not([data-theme="light"]) #live-proof .live-proof-ballot span,
+  :root:not([data-theme="light"]) #live-proof .live-proof-ballot b,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion p,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion b,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-claim p,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-claim b,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-poster p,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-poster b{color:#1a1a1f}
+  /* The one panel inside the poster that is NOT paper: the world figure
+     paints its own dark photo panel, so its caption needs light ink even
+     though everything around it in the poster is dark-on-white. */
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-world figcaption,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-world figcaption b{color:rgba(245,239,231,.82)}
+  /* Pre-existing, not from this pass: the translation cards take the dark
+     theme's light ink while keeping their own near-white card, so the
+     source-language line renders white on white and the card looks empty.
+     Only the untranslated side is affected; the red "live" line already
+     wants light ink and keeps it. */
+  :root:not([data-theme="light"]) #credential-path .credential-card--xlang .xl-cap{color:#1a1a1f}
+  :root:not([data-theme="light"]) #credential-path .credential-card--xlang .xl-cap--live{color:#fff}
+  :root:not([data-theme="light"]) #mode-select h3,
+  :root:not([data-theme="light"]) #mode-select p{color:rgba(245,239,231,.72)}
+  :root:not([data-theme="light"]) #mode-select h3{color:#f5efe7}
+
   /* Guide video. 2026-07-28: was a 160x90 thumbnail sitting beside its
      label in a pill. At that size a first-time visitor read it as a
      footnote rather than as something to press, so it is now a real
@@ -7392,8 +7494,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-board .fs-pager{cursor:default;position:relative;z-index:4}
   .fs-board .fs-nav{cursor:pointer}
   .fs-board-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-  .fs-board .fs-chip{padding:5px 11px;border-radius:6px;background:rgba(220,38,38,.1);
-    font-size:.6rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#b91c1c;white-space:nowrap}
   .fs-board .fs-sample{font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(26,26,31,.45);white-space:nowrap}
   @media(max-width:430px){.fs-board .fs-sample{letter-spacing:.06em;font-size:.54rem}}
   .fs-board .fs-pager{margin-left:auto;display:inline-flex;align-items:center;gap:8px;
@@ -7583,7 +7683,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="fs-board" id="fsBoard">
       <a class="fs-board-hit" href="/spar" aria-label="Open live debate matchmaking" data-cta="first-screen-board" data-ab-test="first_screen_copy_v1" data-ab-target="example_board"></a>
       <div class="fs-board-top">
-        <span class="fs-chip" id="fsFmt">British Parli</span>
+        <!-- 2026-08-10: the per-round format chip ("World Schools", "British
+             Parli") was cut. A cold visitor does not know the formats yet, so
+             naming one on the first screen asked them to decode a label before
+             they had seen what a round is. "Example rounds" plus the pager is
+             the whole header now. The format still rides each ROUNDS entry and
+             shows up where it means something (the motion, /practice). -->
         <span class="fs-sample">Example rounds</span>
         <span class="fs-pager">
           <button type="button" class="fs-nav" id="fsPrev" aria-label="Previous example round">&lsaquo;</button>
@@ -8308,7 +8413,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   ];
 
   var el = {};
-  ['fsFmt','fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
+  ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
    'fsOddsLive','fsBallot','fsWinner','fsScore','fsRfd','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
@@ -8424,7 +8529,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   function paintRound(i){
     var r = ROUNDS[i];
-    el.fsFmt.textContent = r.fmt;
     el.fsCount.textContent = (i + 1) + ' of ' + ROUNDS.length;
     el.fsMotion.textContent = r.motion;
     el.fsFaceA.src = '/img/round/faces/' + r.a.face + '.jpg';
