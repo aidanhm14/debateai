@@ -283,21 +283,11 @@
     // rightmost tab, red + dotted via `hot`, sitting next to the primary
     // CTA. Routes to /newvoice (the rebuilt live clash); the classic
     // trainer stays reachable at /voice-debate via /newvoice crosslinks.
-    // 2026-07-22: mobileKeep dropped. With Waitlist added below (2026-07-20)
-    // the bar carried TWO kept pills on phones, and burger + Voice AI +
-    // Waitlist + bell + language measured 398px inside a 375px bar, so the
-    // language picker was sliced off the right edge on an iPhone. The
-    // --mobile-keep rule was written to keep ONE tab. Waitlist is the
-    // primary (solid fill) so it holds the slot; Voice AI stays one tap
-    // away in the hamburger sheet, which already lists it.
-    { href: '/newvoice',      label: 'Voice AI', hot: true },
-    // 2026-07-20 (Aidan: "put the waitlist button at the very top and
-    // highlight it top right"). Rightmost slot, solid fill so it reads
-    // as the primary action next to the faint Voice AI pill. There is no
-    // /waitlist page, only the landing section, so this is an anchor:
-    // bare '#waitlist' when already on the landing (no reload), '/#waitlist'
-    // from the other 46 pages.
-    { href: '#waitlist',      label: 'Waitlist', cta: true, mobileKeep: true },
+    // 2026-08-10: the Waitlist CTA tab (added 2026-07-20) is gone per
+    // Aidan ("remove waitlist from topbar"). Voice AI takes back the
+    // one kept mobile pill it held before Waitlist displaced it — the
+    // --mobile-keep rule still keeps exactly ONE tab on phones.
+    { href: '/newvoice',      label: 'Voice AI', hot: true, mobileKeep: true },
   ];
 
   // Curated secondary destinations for the desktop Explore menu and the
@@ -719,7 +709,6 @@
         attrs.target = '_blank';
         attrs.rel = 'noopener noreferrer';
       }
-      if (L.cta && attrs.href === '#waitlist' && !/^\/(landing(\.html)?)?$/.test(here)) attrs.href = '/#waitlist';
       var a = el('a', attrs);
       if (L.live){
         a.style.display = 'inline-flex';
