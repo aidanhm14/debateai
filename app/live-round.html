@@ -318,19 +318,28 @@ button{font-family:inherit}
   cursor:pointer;font-size:.85rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;
 }
 .floor-remark .fr-close:hover{color:#fff;background:rgba(0,0,0,.6)}
-/* Audience deck: floating button + three-tab panel (comments, group
-   chats, tell-the-judge). Sits above the page, below modals; offset
-   up so the coach FAB keeps the corner. */
+/* Audience deck: an edge tab, not a floating button (2026-08-10). Was
+   a pill floating over the round, which is one more loose object on
+   top of an already busy view, and it stayed on screen even once the
+   panel it opens was itself open on narrow widths. Now it's a slim
+   tab flush against the right edge — near-zero footprint until
+   someone actually wants the deck, and it disappears the moment the
+   panel is open (the panel's own × is the way back, at any width). */
 #audFab{
-  position:fixed;right:18px;bottom:86px;z-index:58;
-  display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:999px;cursor:pointer;
-  border:1px solid var(--border,rgba(255,255,255,.14));background:var(--surface,#141417);color:var(--text,#f4f4f2);
-  font-size:.78rem;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.4);
+  position:fixed;right:0;top:50%;z-index:58;
+  transform:translateY(-50%);
+  display:inline-flex;flex-direction:column;align-items:center;gap:7px;
+  padding:14px 8px;border-radius:10px 0 0 10px;cursor:pointer;
+  border:1px solid var(--border,rgba(255,255,255,.14));border-right:0;
+  background:var(--surface,#141417);color:var(--text,#f4f4f2);
+  box-shadow:-8px 0 24px rgba(0,0,0,.35);
 }
 #audFab{transition:transform .18s,border-color .18s,box-shadow .18s}
-#audFab:hover,#audFab.is-open{border-color:rgba(239,68,68,.6);transform:translateY(-2px);box-shadow:0 14px 36px rgba(0,0,0,.5),0 0 0 1px rgba(239,68,68,.25)}
-#audFab:active{transform:none}
-#audFab b{font-weight:800;letter-spacing:.04em}
+#audFab:hover{border-color:rgba(239,68,68,.6);transform:translateY(-50%) translateX(-3px);box-shadow:-12px 0 28px rgba(0,0,0,.45),0 0 0 1px rgba(239,68,68,.25)}
+#audFab:active{transform:translateY(-50%)}
+#audFab span{font-size:.98rem;line-height:1}
+#audFab b{font-size:.68rem;font-weight:800;letter-spacing:.06em;writing-mode:vertical-rl;text-orientation:mixed}
+body.lr-aud-open #audFab{display:none}
 /* Docked chat rail (2026-08-10). This was a floating 370px card pinned
    above the FAB, which overlapped the live transcript and collided with
    the pop-out control stack — chat and the thing being discussed fought
@@ -365,17 +374,19 @@ button{font-family:inherit}
   --surface:#141417;
   color:var(--text);
 }
+/* Load-bearing bug fix (2026-08-10): #audPanel{display:flex} is an ID
+   selector (specificity 1-0-0), which beats the UA stylesheet's
+   [hidden]{display:none} (specificity 0-1-0) — so the hidden attribute
+   audSetOpen() relies on to close the panel was doing nothing, and the
+   rail rendered fully open, permanently, on every load, for every
+   visitor. This is why it read as "always there": it was. Restated
+   at equal-or-higher specificity so [hidden] actually wins again. */
+#audPanel[hidden]{display:none}
 /* Reflow rather than overlay: the round gives up exactly the rail's
    width. Transitioned so opening chat reads as the page making room. */
 @media(min-width:1080px){
   body.lr-aud-open .split{ margin-right:var(--aud-w,336px); }
   .split{ transition:margin-right .2s ease; }
-  /* Once the rail is docked it carries its own close control in the
-     header, so the floating button is redundant AND it lands on top of
-     the round content it just made room for. Hide it; the × reopens the
-     FAB by closing the rail. (Overlay widths keep the FAB, because there
-     the panel covers the page and the button is the way back.) */
-  body.lr-aud-open #audFab{ display:none; }
 }
 @media(prefers-reduced-motion:reduce){ .split{transition:none} }
 /* Minimized / popped-out modes own the whole viewport; a docked rail
@@ -444,7 +455,6 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
   .split{margin-right:0 !important}
 }
 @media(max-width:640px){
-  #audFab{bottom:76px;right:12px}
   /* Phone: a side sheet at this width is a column of two-word lines, so
      chat takes the full width and sits as a bottom sheet instead. */
   #audPanel{left:0;right:0;width:auto;top:auto;height:min(68vh,520px);
@@ -966,27 +976,36 @@ body.lr-pip .lr-pip-notice{display:block}
    the lens binds only when the two nominations match. Lives at the top
    of the round view while speech 1 has not started, then collapses to
    the agreed strip for the rest of the round. --jx is the archetype
-   accent, set per card inline. */
+   accent, set per card inline.
+   2026-08-10: the collapsed head used to carry a 34px seal plus a
+   two-line name+description, permanently, stacked with the prep timer
+   and the "your turn" banner right above it — a lot of always-on
+   height for something that is only interactive for the ~30 seconds
+   before speech 1. It's now a slim single-line strip; the description
+   (.jd-tag) moved into the expanded body only, read on demand instead
+   of sitting in the flow at all times. */
 /* flex:none is load-bearing. #roundView is a flex column with flex:1 on
    its scrolling child, so a plain block child gets shrunk to nothing:
    the draft rendered at 2px tall before this. */
-.jd{flex:none;margin:0 0 14px;border:1px solid var(--border);border-radius:14px;
+.jd{flex:none;margin:0 0 10px;border:1px solid var(--border);border-radius:12px;
   background:rgba(255,255,255,.025);overflow:hidden}
 [data-theme="light"] .jd{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.jd-head{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;
+.jd-head{display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer;
   user-select:none;-webkit-user-select:none}
 .jd-head:hover{background:rgba(255,255,255,.03)}
 [data-theme="light"] .jd-head:hover{background:rgba(0,0,0,.02)}
-.jd-eyebrow{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--text-dim);font-weight:700}
-.jd-name{font-size:.94rem;font-weight:800;color:var(--text);line-height:1.25}
-.jd-tag{font-size:.76rem;color:var(--text-dim);line-height:1.45;margin-top:2px}
-.jd-head-main{flex:1;min-width:0}
-.jd-seal{width:34px;height:34px;flex:none;border-radius:9px;display:flex;
-  align-items:center;justify-content:center;font-size:.72rem;font-weight:800;
+.jd-eyebrow{font-size:.62rem;font-weight:700;letter-spacing:.02em;color:var(--text-dim);flex:none}
+.jd-name{font-size:.82rem;font-weight:800;color:var(--text);line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Read on expand only (see .jd-body .jd-tag below) — not in the
+   always-visible collapsed head. */
+.jd-head .jd-tag{display:none}
+.jd-head-main{flex:1;min-width:0;display:flex;align-items:baseline;gap:7px}
+.jd-seal{width:24px;height:24px;flex:none;border-radius:7px;display:flex;
+  align-items:center;justify-content:center;font-size:.6rem;font-weight:800;
   letter-spacing:.04em;background:color-mix(in srgb, var(--jx) 18%, transparent);
   color:var(--jx);border:1px solid color-mix(in srgb, var(--jx) 45%, transparent)}
-.jd:not(.is-agreed) .jd-seal{font-size:1rem;letter-spacing:0}
+.jd:not(.is-agreed) .jd-seal{font-size:.8rem;letter-spacing:0}
 .jd-state{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800;
   padding:4px 9px;border-radius:999px;white-space:nowrap;flex:none}
 .jd-state--agreed{background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.4)}
