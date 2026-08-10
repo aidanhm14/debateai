@@ -1486,7 +1486,12 @@
       overlay.className = 'da-match-overlay';
       overlay.innerHTML =
         '<div class="da-match-card" role="alertdialog" aria-label="Match found">' +
-          '<div class="da-match-eyebrow">Opponent in the room</div>' +
+          // Nobody is in the room yet at this point: the server has paired
+          // two queue documents and BOTH sides are being invited. Saying
+          // "opponent in the room" here promised a person who was not
+          // there, and the room could still end up empty if they decline.
+          // Name what actually happened.
+          '<div class="da-match-eyebrow">Debater found</div>' +
           '<div class="da-match-ring">' +
             '<svg viewBox="0 0 72 72"><circle class="da-match-ring__track" cx="36" cy="36" r="32"/>' +
             '<circle class="da-match-ring__bar" cx="36" cy="36" r="32" stroke-dasharray="' + C + '" stroke-dashoffset="0"/></svg>' +

@@ -331,12 +331,60 @@ button{font-family:inherit}
 #audFab:hover,#audFab.is-open{border-color:rgba(239,68,68,.6);transform:translateY(-2px);box-shadow:0 14px 36px rgba(0,0,0,.5),0 0 0 1px rgba(239,68,68,.25)}
 #audFab:active{transform:none}
 #audFab b{font-weight:800;letter-spacing:.04em}
+/* Docked chat rail (2026-08-10). This was a floating 370px card pinned
+   above the FAB, which overlapped the live transcript and collided with
+   the pop-out control stack — chat and the thing being discussed fought
+   for the same pixels. Twitch's answer is the one that works: chat is a
+   full-height column at the edge of the window and the content reflows
+   to sit beside it, so both are readable at once and neither moves.
+   Below --aud-dock-min the viewport is too narrow to give up a column,
+   so it stays an overlay sheet (see the media queries at the end). */
 #audPanel{
-  position:fixed;right:18px;bottom:140px;z-index:58;width:min(370px,calc(100vw - 32px));
-  display:flex;flex-direction:column;max-height:min(62vh,560px);border-radius:16px;overflow:hidden;
-  background:var(--surface,#141417);border:1px solid var(--border,rgba(255,255,255,.12));
-  box-shadow:0 24px 64px rgba(0,0,0,.55);
+  /* --lr-bar-h is measured from the in-flow .bar in JS, because the bar
+     wraps taller on narrow widths and a hardcoded offset would either
+     tuck the rail under it or leave a gap. 64px matches .bar min-height
+     as the pre-measurement default. */
+  position:fixed;right:0;top:var(--lr-bar-h,64px);bottom:0;z-index:58;
+  width:var(--aud-w,336px);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--surface,#141417);
+  border-left:1px solid var(--border,rgba(255,255,255,.12));
+  box-shadow:-18px 0 48px rgba(0,0,0,.34);
+  /* Same trap .call-shell documents, and this panel was already in it:
+     the surface is a hardcoded near-black in EVERY theme, but every
+     descendant reads var(--text*)/var(--border*), which flip to dark ink
+     on the light theme — so on a light page the whole rail was dark grey
+     on near-black. Verified unreadable in the browser before this. Pin
+     the tokens light-on-dark locally so the header, tabs, comments,
+     composer and anything added here later stay legible on both themes. */
+  --text:#f4f4f2;
+  --text-dim:rgba(244,244,242,.72);
+  --text-faint:rgba(244,244,242,.46);
+  --border:rgba(255,255,255,.14);
+  --border-strong:rgba(255,255,255,.24);
+  --surface:#141417;
+  color:var(--text);
 }
+/* Reflow rather than overlay: the round gives up exactly the rail's
+   width. Transitioned so opening chat reads as the page making room. */
+@media(min-width:1080px){
+  body.lr-aud-open .split{ margin-right:var(--aud-w,336px); }
+  .split{ transition:margin-right .2s ease; }
+  /* Once the rail is docked it carries its own close control in the
+     header, so the floating button is redundant AND it lands on top of
+     the round content it just made room for. Hide it; the × reopens the
+     FAB by closing the rail. (Overlay widths keep the FAB, because there
+     the panel covers the page and the button is the way back.) */
+  body.lr-aud-open #audFab{ display:none; }
+}
+@media(prefers-reduced-motion:reduce){ .split{transition:none} }
+/* Minimized / popped-out modes own the whole viewport; a docked rail
+   would fight the floating console for the same corner. */
+body.lr-mini #audPanel,body.lr-pip #audPanel{
+  top:auto;bottom:96px;right:14px;border-radius:16px;
+  height:min(60vh,520px);border:1px solid var(--border,rgba(255,255,255,.12));
+}
+body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
 #audPanel .aud-head{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border,rgba(255,255,255,.1))}
 #audPanel .aud-head b{font-size:.95rem;font-weight:900}
 #audPanel .aud-live{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim,rgba(244,244,242,.6))}
@@ -348,7 +396,10 @@ button{font-family:inherit}
   transition:color .15s,border-color .15s,background .15s}
 #audPanel .aud-tab:hover{color:var(--text,#f4f4f2);background:rgba(255,255,255,.04)}
 #audPanel .aud-tab.is-on{color:var(--text,#f4f4f2);border-bottom-color:var(--accent,#ef4444)}
-#audPanel .aud-body{display:flex;flex-direction:column;min-height:180px;max-height:46vh;padding:10px 12px 12px;overflow:hidden}
+/* Fills the rail. The old max-height:46vh sized a short floating card and
+   would leave the bottom half of a full-height column empty, with the
+   composer stranded mid-rail instead of at the foot of the chat. */
+#audPanel .aud-body{display:flex;flex-direction:column;flex:1;min-height:0;padding:10px 12px 12px;overflow:hidden}
 #audPanel .aud-body[hidden]{display:none}
 #audPanel #audGroupHome,#audPanel #audGroupRoom{display:flex;flex-direction:column;min-height:0;flex:1}
 #audPanel #audGroupHome[hidden],#audPanel #audGroupRoom[hidden]{display:none}
@@ -384,9 +435,20 @@ button{font-family:inherit}
 #audPanel .aud-eval-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 #audPanel .aud-eval-state{flex:1;font-size:.74rem;color:var(--text-faint,rgba(244,244,242,.5))}
 #audPanel .aud-signin{padding:8px 14px 12px;font-size:.78rem;color:#fbbf24}
+/* Under the dock threshold there is no column to spare, so the rail
+   stops reflowing the round and becomes an overlay sheet against the
+   right edge. Still full height (chat wants the vertical run), just
+   layered over the round instead of beside it. */
+@media(max-width:1079px){
+  #audPanel{width:min(340px,calc(100vw - 24px));border-radius:16px 0 0 16px}
+  .split{margin-right:0 !important}
+}
 @media(max-width:640px){
   #audFab{bottom:76px;right:12px}
-  #audPanel{right:12px;bottom:128px}
+  /* Phone: a side sheet at this width is a column of two-word lines, so
+     chat takes the full width and sits as a bottom sheet instead. */
+  #audPanel{left:0;right:0;width:auto;top:auto;height:min(68vh,520px);
+    border-radius:16px 16px 0 0;border-left:0;border-top:1px solid var(--border,rgba(255,255,255,.12))}
 }
 /* The shell is a permanently-dark tile (#050506) in every theme, but the
    pre-call card inside it reads var(--text*)/var(--border*). In light
@@ -2626,6 +2688,7 @@ html.stage-mode .stage-ov{display:block}
     noShowTimer: null,       // interval that watches whether the opponent has entered
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
+    lookingEl: null,         // the calm "looking for your debater" strip
   };
 
   function publicNameOf(user){
@@ -6773,7 +6836,12 @@ html.stage-mode .stage-ov{display:block}
     startJoinRequestHost();
     // Poll opponent presence so the no-show prompt appears promptly after
     // the grace window even between the slow (30s) round-doc snapshots.
-    if (!state.noShowTimer) state.noShowTimer = setInterval(checkOpponentPresence, 7000);
+    // Poll faster than the old 7s now that the pre-grace "looking for your
+    // debater" strip rides the same check: at 7s a debater could sit in a
+    // silent empty room for most of the first beat before anything
+    // acknowledged them, which is the exact gap this strip exists to fill.
+    if (!state.noShowTimer) state.noShowTimer = setInterval(checkOpponentPresence, 3000);
+    checkOpponentPresence();
     window.addEventListener('pagehide', function(){ if (state.noShowTimer){ clearInterval(state.noShowTimer); state.noShowTimer = null; } });
   }
 
@@ -6792,26 +6860,28 @@ html.stage-mode .stage-ov{display:block}
   // That is fine for a practice round and wrong for a competition,
   // where the people in the room should decide who is in it.
   //
-  // The rule is keyed to how the visitor could have got here:
+  // WATCHING IS OPEN (2026-08-10, Aidan). This gate used to make PUBLIC
+  // rounds permission-only: a stranger knocked and waited for a debater
+  // mid-speech to notice a card. That contradicted the visibility
+  // control the debaters actually set, which says in as many words
+  // "Public · Anyone can watch live" — so the product promised an open
+  // door and then asked people to queue at it. Public now means public:
+  // you pop in. Unlisted was already automatic (the link is the
+  // invitation), so both visibilities admit instantly and the gate is
+  // dormant rather than deleted.
   //
-  //   PUBLIC round      discoverable by strangers, so watching is by
-  //                     permission. The visitor knocks and waits; a
-  //                     debater lets them in.
-  //   UNLISTED round    reachable only by a link somebody handed out.
-  //                     The link IS the invitation, so admission is
-  //                     automatic and knocking would be theatre.
+  // Debaters never knock: a seat claim is resolved before this runs, and
+  // the SEAT request path (kind:'debate') is untouched — asking for a
+  // seat in someone's round is a real ask, watching is not.
   //
-  // Debaters never knock: a seat claim is resolved before this runs.
-  //
-  // Honest about what this is: an admission gate, not access control.
-  // A live round document stays publicly readable, because completed
-  // public rounds are indexable pages and the same document backs
-  // both. This decides who gets the room, the video and the live
-  // audience view; it does not pretend a determined reader cannot
-  // reach the underlying document.
+  // To bring knocking back for a future invite-only visibility, return
+  // true here for that visibility only; requestAdmission / the host-side
+  // accept card / the joinRequests rules are all still wired.
   var ADMIT_POLL_MS = 4000;
+  var WATCH_ADMISSION_ENABLED = false;
 
   function spectatorAdmissionRequired(){
+    if (!WATCH_ADMISSION_ENABLED) return false;
     if (!state.audienceMode && !isSpectator()) return false;
     if (state.admitted) return false;
     // Unlisted rounds admit link-holders. Until the round document
@@ -6956,10 +7026,12 @@ html.stage-mode .stage-ov{display:block}
   }
 
   function enterAudienceMode(){
-    // Public rounds hold watchers at the door. Everything below this
-    // line mounts the video and starts the watcher heartbeat, so the
-    // gate has to come first or an unadmitted visitor is already in
-    // the room by the time they are asked.
+    // Dormant while watching is open (WATCH_ADMISSION_ENABLED is false),
+    // so this falls straight through and the viewer is in. Kept ahead of
+    // everything below because that code mounts the video and starts the
+    // watcher heartbeat: if a future visibility ever gates watching
+    // again, the check has to run before the visitor is already in the
+    // room.
     if (spectatorAdmissionRequired()){
       state.audienceMode = true;
       var sv0 = $('setupView'); if (sv0) sv0.classList.add('hidden');
@@ -7270,6 +7342,12 @@ html.stage-mode .stage-ov{display:block}
     wireSend('audGroupName', 'audGroupCreate', audCreateGroup);
     wireSend('audMsgInput', 'audMsgSend', audPostGroupMsg);
     panel.querySelector('#audEvalSave').addEventListener('click', audSaveEval);
+
+    // Keep the rail's top edge pinned to the bar as it reflows.
+    syncAudBarOffset();
+    window.addEventListener('resize', function(){
+      if (!panel.hidden) syncAudBarOffset();
+    }, { passive: true });
   }
 
   function audSetOpen(open){
@@ -7278,7 +7356,21 @@ html.stage-mode .stage-ov{display:block}
     if (!panel) return;
     panel.hidden = !open;
     if (fab) fab.classList.toggle('is-open', open);
+    // Drives the desktop reflow: the round gives up the rail's width so
+    // chat sits BESIDE the transcript instead of on top of it.
+    document.body.classList.toggle('lr-aud-open', open);
+    if (open) syncAudBarOffset();
     if (open && !AUD.started) audStart();
+  }
+
+  // The rail hangs from the bottom of the in-flow .bar, which wraps
+  // taller at narrow widths. Measure instead of hardcoding, or the rail
+  // either tucks under the bar or floats below it with a gap.
+  function syncAudBarOffset(){
+    var bar = document.querySelector('.bar');
+    if (!bar) return;
+    var h = Math.round(bar.getBoundingClientRect().height);
+    if (h > 0) document.documentElement.style.setProperty('--lr-bar-h', h + 'px');
   }
 
   function audShowTab(tab){
@@ -7959,17 +8051,54 @@ html.stage-mode .stage-ov{display:block}
     var oppUid = noShowOpponentUid();
     // Only identified human-vs-human rounds, pre-start, non-spectator.
     var eligible = me && oppUid && oppUid !== me && !isSpectator() && state.phase === 'setup';
-    if (!eligible){ hideNoShow(); return; }
-    if (Date.now() - state.arrivedAtMs < NOSHOW_GRACE_MS){ hideNoShow(); return; }
-    if (state.noShowSnoozeUntil && Date.now() < state.noShowSnoozeUntil) return;
+    if (!eligible){ hideNoShow(); hideLooking(); return; }
     // Trust the signal only once MY OWN presence write has round-tripped.
     // If the write is denied (rules) or hasn't landed, seatSeen[me] is
     // absent — bail rather than false-fire "opponent hasn't joined" at
     // everyone. This makes the feature degrade safely.
-    if (!(state.seatSeen && state.seatSeen[me])) { hideNoShow(); return; }
-    var present = !!state.seatSeen[oppUid];
-    if (present) hideNoShow(); else showNoShow(oppUid);
+    if (!(state.seatSeen && state.seatSeen[me])) { hideNoShow(); hideLooking(); return; }
+    if (state.seatSeen[oppUid]) { hideNoShow(); hideLooking(); return; }
+    // Opponent genuinely not here yet. The first ~28s is the normal case
+    // (they are still navigating in from /spar), so it gets a calm
+    // "still looking" strip rather than the alarm. Only after the grace
+    // does this escalate to the no-show prompt with a way out.
+    if (Date.now() - state.arrivedAtMs < NOSHOW_GRACE_MS){ hideNoShow(); showLooking(); return; }
+    if (state.noShowSnoozeUntil && Date.now() < state.noShowSnoozeUntil) { showLooking(); return; }
+    hideLooking();
+    showNoShow(oppUid);
   }
+
+  // ── "Looking for your debater" (pre-grace, and while snoozed) ─────
+  // Landing in an empty room with no explanation reads as broken. This
+  // says what is happening, and points at Minimize so the wait is spent
+  // on the rest of the site instead of on a blank tile. It is a strip,
+  // not a modal: the room behind it stays usable, because prep and the
+  // motion are worth reading before the opponent lands.
+  function showLooking(){
+    if (state.lookingEl){ state.lookingEl.style.display = 'flex'; return; }
+    var el = document.createElement('div');
+    el.id = 'lookingPrompt';
+    el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:540px;width:calc(100% - 32px);padding:13px 18px;background:var(--bg-elev,#16131a);border:1px solid var(--border-strong,rgba(255,255,255,.2));border-radius:14px;z-index:319;box-shadow:0 14px 40px rgba(0,0,0,.45);display:flex;align-items:center;gap:12px;font-family:inherit';
+    el.innerHTML =
+      '<span style="flex:none;width:9px;height:9px;border-radius:50%;background:var(--accent,#ef4444);animation:pulse 1.6s ease-in-out infinite"></span>' +
+      '<span style="flex:1;min-width:0;font-size:.86rem;line-height:1.45;color:var(--text,#fff)">' +
+        '<b style="font-weight:800">Looking for your debater.</b> ' +
+        '<span style="color:var(--text-dim,rgba(255,255,255,.62))">They are on their way in. Read the motion, or minimize and keep browsing.</span>' +
+      '</span>' +
+      '<button type="button" id="lookingMin" style="flex:none;padding:8px 14px;border-radius:9px;border:1px solid var(--border-strong,rgba(255,255,255,.22));background:transparent;color:var(--text,#fff);font-family:inherit;font-size:.76rem;font-weight:700;cursor:pointer">Minimize</button>';
+    document.body.appendChild(el);
+    // Delegate to the real Minimize control so this stays one code path:
+    // the dock, the site shell and the surviving Daily iframe all come
+    // from there, and duplicating any of it would fork the call handling.
+    var mb = el.querySelector('#lookingMin');
+    if (mb) mb.addEventListener('click', function(){
+      var real = document.getElementById('lrMinBtn');
+      if (real) real.click();
+      try { gtag('event', 'live_looking_minimize', { format: state.formatKey }); } catch(e){}
+    });
+    state.lookingEl = el;
+  }
+  function hideLooking(){ if (state.lookingEl) state.lookingEl.style.display = 'none'; }
   function nsBtn(label, fn, primary){
     var b = document.createElement('button');
     b.type = 'button'; b.textContent = label;
