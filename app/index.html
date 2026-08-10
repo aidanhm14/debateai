@@ -4236,6 +4236,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4251,8 +4252,7 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */
-/* ── Copy with visual feedback ────── */
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */
 function copyWithFeedback(text, btnEl) {
   if (!navigator.clipboard || !text) return;
   navigator.clipboard.writeText(text).then(function () {
@@ -5507,31 +5507,59 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
       max_tokens: safeMaxTokens,
       stream: true,
       thinking: { type: 'enabled', budget_tokens: Math.max(1024, Math.min(2000, safeBudget)) },
-      system: systemPrompt,
+      // Same assembled system prompt as the initial request. Sending the
+      // bare systemPrompt here dropped the language directive, team brief,
+      // and style block mid-generation.
+      system: fullSystemPrompt,
       messages: [
       ...messages,
       { role: 'assistant', content: fullText },
       { role: 'user', content: 'Continue generating from exactly where you left off. Do not repeat any text that was already written. Pick up mid-sentence if needed.' }]
 
     };
-    if (opts.promptId) contBody._promptId = opts.promptId;
-    contBody._feature = feature;
 
     var contResponse = void 0;
+    // Same hang guard as the initial request. a stuck continuation froze
+    // the round UI just as badly.
+    var contController = new AbortController();
+    var contTimeout = setTimeout(() => contController.abort(), 45000);
     try {
-      var contHeaders = { 'Content-Type': 'application/json' };
-      if (__getAuthToken) {
-        try {
-          var _token = await __getAuthToken();
-          if (_token) contHeaders['Authorization'] = 'Bearer ' + _token;
-        } catch (e) {}
+      if (byokKey && byokKey.startsWith('sk-ant-')) {
+        // BYOK rounds continue on the user's own key, matching the initial
+        // request. Routing the continuation through /api/claude would spend
+        // the house key on a BYOK round and move part of the round onto a
+        // data path privacy §7 says BYOK rounds don't take. No underscore
+        // fields. Anthropic rejects unknown params.
+        contResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': byokKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify(contBody),
+          signal: contController.signal
+        });
+      } else {
+        if (opts.promptId) contBody._promptId = opts.promptId;
+        contBody._feature = feature;
+        var contHeaders = { 'Content-Type': 'application/json' };
+        if (__getAuthToken) {
+          try {
+            var _token = await __getAuthToken();
+            if (_token) contHeaders['Authorization'] = 'Bearer ' + _token;
+          } catch (e) {}
+        }
+        contResponse = await fetch('/api/claude', {
+          method: 'POST',
+          headers: contHeaders,
+          body: JSON.stringify(contBody),
+          signal: contController.signal
+        });
       }
-      contResponse = await fetch('/api/claude', {
-        method: 'POST',
-        headers: contHeaders,
-        body: JSON.stringify(contBody)
-      });
-    } catch (e) {break;}
+    } catch (e) {clearTimeout(contTimeout);break;}
+    clearTimeout(contTimeout);
     if (!contResponse.ok) break;
 
     var contReader = contResponse.body.getReader();
