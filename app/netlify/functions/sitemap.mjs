@@ -72,7 +72,7 @@ const URLS = [
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
   // "debate strangers" / "omegle for debate" query cluster. Sister to
   // /debate-online, focused on the random-human /spar path (which is
   // noindex itself, so this page is the indexable doorway).
