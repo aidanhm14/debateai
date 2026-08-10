@@ -214,10 +214,10 @@ button{font-family:inherit}
 
 /* Daily.co iframe, fills the call well under the custom broadcast stage. */
 .daily-frame{width:100%;height:100%;border:none;background:#000;display:block}
-/* Camera converter pill (seated debaters only): Camera / Avatar / Off.
+/* Camera converter pill (seated debaters only): Camera / Avatar / Design / Off.
    Floats over the Daily iframe, same overlay pattern as the mini timer. */
 .cam-modes{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;display:flex;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.16);background:rgba(10,10,14,.85);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.45)}
-.cam-modes button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.72);font:600 .72rem/1 Inter,system-ui,sans-serif;letter-spacing:.06em;padding:9px 13px;cursor:pointer}
+.cam-modes button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.72);font:600 .72rem/1 Inter,system-ui,sans-serif;letter-spacing:.06em;padding:9px 11px;cursor:pointer}
 .cam-modes button + button{border-left:1px solid rgba(255,255,255,.1)}
 .cam-modes button.on{background:var(--accent,#ef4444);color:#fff}
 .cam-modes button:not(.on):hover{color:#fff}
@@ -4109,16 +4109,32 @@ html.stage-mode .stage-ov{display:block}
     bar.innerHTML =
       '<button type="button" data-m="camera" class="on">Camera</button>' +
       '<button type="button" data-m="avatar">Avatar</button>' +
+      '<button type="button" data-m="design" title="Design your avatar">Design</button>' +
       '<button type="button" data-m="off">Off</button>' +
       '<button type="button" data-m="report" title="Report a debater">⚑ Report</button>';
     bar.addEventListener('click', function(ev){
       var b = ev.target.closest('button');
       if (!b) return;
       if (b.getAttribute('data-m') === 'report') openReportSheet(bar);
+      else if (b.getAttribute('data-m') === 'design') openAvatarDesigner();
       else setCamMode(b.getAttribute('data-m'));
     });
     shell.appendChild(bar);
     camConv.bar = bar;
+  }
+  function openAvatarDesigner(){
+    if (!window.DebateCam || !window.DebateCam.openDesigner){
+      toast('Avatar designer is still loading, try again in a second');
+      return;
+    }
+    window.DebateCam.openDesigner({
+      cam: camConv.cam,
+      label: seatLabel(),
+      onSave: function(){
+        toast('Avatar saved. Your look will follow you into future rooms.');
+        try { gtag('event', 'live_round_avatar_designed'); } catch(e){}
+      }
+    });
   }
   function markCamMode(m){
     camConv.mode = m;

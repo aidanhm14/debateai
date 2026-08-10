@@ -233,7 +233,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 }
 .room-foot strong{color:var(--text-dim);font-weight:600;text-transform:none;letter-spacing:0}
 
-/* ─── Camera converter + safety (Camera / Avatar / Off / Report) ─── */
+/* ─── Camera converter + safety (Camera / Avatar / Design / Off / Report) ─── */
 .cam-modes{
   position:absolute;left:14px;bottom:14px;z-index:6;
   display:flex;gap:4px;padding:4px;border-radius:999px;
@@ -241,7 +241,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
 .cam-modes button{
-  padding:6px 12px;border-radius:999px;font-size:.72rem;font-weight:700;
+  padding:6px 10px;border-radius:999px;font-size:.72rem;font-weight:700;
   color:var(--text-ghost);transition:color .15s,background .15s;
 }
 .cam-modes button.on{background:var(--accent);color:#fff}
@@ -447,9 +447,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     modBar = document.createElement('div');
     modBar.className = 'cam-modes';
     modBar.innerHTML = noConverter
-      ? '<button type="button" class="report" data-m="report">⚑ Report</button>'
+      ? (window.DebateCam && window.DebateCam.openDesigner ? '<button type="button" data-m="design" title="Design your avatar">Design</button>' : '') +
+        '<button type="button" class="report" data-m="report">⚑ Report</button>'
       : '<button type="button" data-m="camera" class="on">Camera</button>' +
         '<button type="button" data-m="avatar">Avatar</button>' +
+        '<button type="button" data-m="design" title="Design your avatar">Design</button>' +
         '<button type="button" data-m="off">Off</button>' +
         '<button type="button" class="report" data-m="report">⚑ Report</button>';
     modBar.addEventListener('click', function(ev){
@@ -457,9 +459,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       if (!b) return;
       var m = b.getAttribute('data-m');
       if (m === 'report'){ openReportSheet(); return; }
+      if (m === 'design'){ openAvatarDesigner(); return; }
       setCamMode(m);
     });
     stage.appendChild(modBar);
+  }
+
+  function openAvatarDesigner(){
+    if (!window.DebateCam || !window.DebateCam.openDesigner) return;
+    window.DebateCam.openDesigner({ cam: cam, label: 'YOU' });
   }
 
   function setCamMode(m){

@@ -24,6 +24,7 @@
  *   const cam = await DebateCam.start(mediaStream, { mode:'avatar', label:'PRO' });
  *   cam.stream    -> MediaStream (converted video + original audio)
  *   cam.setMode('camera'|'avatar'|'off'); cam.setLabel('CON');
+ *   cam.setDesign({...}); DebateCam.openDesigner({ cam:cam });
  *   cam.mode()    -> current mode      cam.level() -> 0..1 mic level
  *   cam.debugFace(sig|null) -> QA hook: override face signals (demo pages)
  *   cam.stop()
@@ -36,6 +37,79 @@
   const OUT_W = 960, OUT_H = 540, FPS = 24;
   const INK = '#0b0b0c', BONE = '#f0ede6', RED = '#dd2e2e', DIM = '#232326';
   const HEAD = '#1b1b1f';
+  const DESIGN_KEY = 'debatable-live-avatar-v1';
+  const DESIGN_EVENT = 'debatable-avatar-design';
+  const DEFAULT_DESIGN = { scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
+  const DESIGN_OPTIONS = {
+    scene: [
+      { key: 'arena', label: 'Arena', sample: 'radial-gradient(circle at 50% 45%,#492028,#16161a 48%,#070708)' },
+      { key: 'skyline', label: 'Skyline', sample: 'linear-gradient(#101b38 0 54%,#16213a 55%,#05070d 56%)' },
+      { key: 'library', label: 'Library', sample: 'linear-gradient(90deg,#19100d,#3a2117 47%,#17100e)' },
+      { key: 'studio', label: 'Studio', sample: 'linear-gradient(135deg,#07121d,#18304b 48%,#090b11)' },
+      { key: 'orbit', label: 'Orbit', sample: 'radial-gradient(circle at 68% 30%,#654676 0 12%,#10122a 13%,#04050b 65%)' },
+      { key: 'forest', label: 'Forest', sample: 'linear-gradient(#142c34,#17262b 48%,#07100f)' },
+    ],
+    accent: [
+      { key: 'crimson', label: 'Crimson', color: '#dd2e2e' },
+      { key: 'electric', label: 'Electric', color: '#4f7cff' },
+      { key: 'violet', label: 'Violet', color: '#9b5de5' },
+      { key: 'teal', label: 'Teal', color: '#17b6a4' },
+      { key: 'rose', label: 'Rose', color: '#e44878' },
+      { key: 'silver', label: 'Silver', color: '#b8c1cf' },
+    ],
+    outfit: [
+      { key: 'ink', label: 'Ink', color: '#27272f', dark: '#09090b' },
+      { key: 'navy', label: 'Navy', color: '#20334d', dark: '#090e18' },
+      { key: 'plum', label: 'Plum', color: '#392942', dark: '#110b16' },
+      { key: 'pine', label: 'Pine', color: '#1f3a35', dark: '#08110f' },
+      { key: 'slate', label: 'Slate', color: '#414956', dark: '#101318' },
+    ],
+    mask: [
+      { key: 'blade', label: 'Blade' },
+      { key: 'classic', label: 'Classic' },
+      { key: 'visor', label: 'Visor' },
+    ],
+    eyes: [
+      { key: 'focus', label: 'Focused' },
+      { key: 'sharp', label: 'Sharp' },
+      { key: 'open', label: 'Open' },
+      { key: 'calm', label: 'Calm' },
+    ],
+  };
+
+  function findOption(group, key) {
+    const opts = DESIGN_OPTIONS[group];
+    for (let i = 0; i < opts.length; i++) if (opts[i].key === key) return opts[i];
+    return opts[0];
+  }
+  function normalizeDesign(input) {
+    input = input || {};
+    const out = {};
+    Object.keys(DEFAULT_DESIGN).forEach(function (group) {
+      const key = input[group];
+      out[group] = findOption(group, key).key;
+    });
+    return out;
+  }
+  function getSavedDesign() {
+    try { return normalizeDesign(JSON.parse(localStorage.getItem(DESIGN_KEY) || '{}')); }
+    catch (e) { return normalizeDesign(); }
+  }
+  function saveDesign(input) {
+    const design = normalizeDesign(input);
+    try { localStorage.setItem(DESIGN_KEY, JSON.stringify(design)); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent(DESIGN_EVENT, { detail: design })); } catch (e) {}
+    return design;
+  }
+  function rgba(hex, alpha) {
+    const n = parseInt(String(hex).replace('#', ''), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+  }
+  function shade(hex, amount) {
+    const n = parseInt(String(hex).replace('#', ''), 16);
+    const part = function (shift) { return Math.max(0, Math.min(255, ((n >> shift) & 255) + Math.round(255 * amount))); };
+    return '#' + [part(16), part(8), part(0)].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+  }
 
   // ── Face tracker (shared across instances, loaded once per page) ──────
   // MediaPipe tasks-vision, WASM, runs entirely in this tab. ~3MB model,
@@ -180,46 +254,128 @@
   }
 
   // ── Drawing ───────────────────────────────────────────────────────────
-  function drawBackdrop(ctx, w, h, now, talk) {
-    const grad = ctx.createRadialGradient(w / 2, h * 0.38, h * 0.06, w / 2, h * 0.52, h * 0.92);
-    grad.addColorStop(0, '#202026');
-    grad.addColorStop(0.48, '#111114');
-    grad.addColorStop(1, '#060607');
+  function drawBackdrop(ctx, w, h, now, talk, design) {
+    const accent = findOption('accent', design.accent).color;
+    const scene = design.scene;
+    const horizon = h * 0.70;
+    let grad = ctx.createRadialGradient(w / 2, h * 0.38, h * 0.06, w / 2, h * 0.52, h * 0.92);
+    grad.addColorStop(0, scene === 'studio' ? '#17304a' : scene === 'forest' ? '#18343b' : scene === 'orbit' ? '#171633' : '#202026');
+    grad.addColorStop(0.48, scene === 'skyline' ? '#10172c' : scene === 'library' ? '#241611' : '#111114');
+    grad.addColorStop(1, scene === 'forest' ? '#050d0c' : '#060607');
     ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
 
-    // A quiet arena floor gives the mask a place, while staying abstract
-    // enough that it never resembles or leaks the user's actual room.
-    const horizon = h * 0.70;
+    if (scene === 'skyline') {
+      // A night skyline with stable procedural windows. No image or live
+      // camera pixels are involved, so this is scenery rather than a filter.
+      const moon = ctx.createRadialGradient(w * 0.76, h * 0.20, 2, w * 0.76, h * 0.20, h * 0.14);
+      moon.addColorStop(0, 'rgba(240,237,230,.38)'); moon.addColorStop(1, 'rgba(240,237,230,0)');
+      ctx.fillStyle = moon; ctx.fillRect(0, 0, w, h * 0.5);
+      for (let i = 0; i < 15; i++) {
+        const bw = w * (0.055 + (i % 3) * 0.012);
+        const bx = i * w / 14 - bw * 0.5;
+        const bh = h * (0.14 + ((i * 37) % 23) / 100);
+        const by = horizon - bh;
+        ctx.fillStyle = i % 2 ? '#0a0e18' : '#0d1322'; ctx.fillRect(bx, by, bw, bh + h * 0.3);
+        ctx.fillStyle = rgba(accent, 0.12 + talk * 0.08);
+        for (let row = 0; row < 4; row++) for (let col = 0; col < 2; col++) {
+          if ((i + row + col) % 3) ctx.fillRect(bx + bw * (0.2 + col * 0.42), by + 16 + row * 22, 5, 8);
+        }
+      }
+    } else if (scene === 'library') {
+      ctx.fillStyle = 'rgba(16,8,6,.64)';
+      for (let side = 0; side < 2; side++) {
+        const x0 = side ? w * 0.72 : w * 0.03;
+        ctx.fillRect(x0, h * 0.08, w * 0.25, h * 0.66);
+        for (let shelf = 0; shelf < 4; shelf++) {
+          const sy = h * (0.20 + shelf * 0.15);
+          ctx.fillStyle = '#4a2b1e'; ctx.fillRect(x0, sy, w * 0.25, 7);
+          for (let book = 0; book < 8; book++) {
+            const bh = h * (0.055 + ((book + shelf * 3) % 4) * 0.008);
+            ctx.fillStyle = book % 3 === 0 ? rgba(accent, 0.30) : (book % 2 ? '#5b3a29' : '#26353a');
+            ctx.fillRect(x0 + 8 + book * w * 0.028, sy - bh, w * 0.019, bh - 3);
+          }
+        }
+      }
+      const lamp = ctx.createRadialGradient(w * 0.15, h * 0.28, 0, w * 0.15, h * 0.28, h * 0.28);
+      lamp.addColorStop(0, 'rgba(255,209,143,.16)'); lamp.addColorStop(1, 'rgba(255,209,143,0)');
+      ctx.fillStyle = lamp; ctx.fillRect(0, 0, w * 0.5, h * 0.7);
+    } else if (scene === 'studio') {
+      for (let i = 0; i < 9; i++) {
+        const x = i * w / 9;
+        ctx.fillStyle = i % 2 ? 'rgba(255,255,255,.018)' : 'rgba(0,0,0,.14)';
+        ctx.fillRect(x, 0, w / 9 - 3, h * 0.72);
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const beamL = ctx.createLinearGradient(0, 0, w * 0.55, h * 0.75);
+      beamL.addColorStop(0, rgba(accent, 0.13)); beamL.addColorStop(1, rgba(accent, 0));
+      ctx.fillStyle = beamL; ctx.beginPath(); ctx.moveTo(w * 0.05, 0); ctx.lineTo(w * 0.40, h); ctx.lineTo(w * 0.61, h); ctx.lineTo(w * 0.17, 0); ctx.fill();
+      const beamR = ctx.createLinearGradient(w, 0, w * 0.45, h * 0.75);
+      beamR.addColorStop(0, 'rgba(180,220,255,.10)'); beamR.addColorStop(1, 'rgba(180,220,255,0)');
+      ctx.fillStyle = beamR; ctx.beginPath(); ctx.moveTo(w * 0.95, 0); ctx.lineTo(w * 0.40, h); ctx.lineTo(w * 0.58, h); ctx.lineTo(w * 0.82, 0); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = rgba(accent, 0.22 + talk * 0.12); ctx.lineWidth = 3;
+      ctx.strokeRect(w * 0.20, h * 0.10, w * 0.60, h * 0.46);
+    } else if (scene === 'orbit') {
+      for (let i = 0; i < 70; i++) {
+        const x = ((i * 83) % 997) / 997 * w, y = ((i * 47) % 541) / 541 * h * 0.78;
+        const r = 0.7 + (i % 4) * 0.38;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = i % 9 === 0 ? rgba(accent, 0.55) : 'rgba(240,237,230,.48)'; ctx.fill();
+      }
+      const planet = ctx.createRadialGradient(w * 0.82, h * 0.20, h * 0.02, w * 0.82, h * 0.20, h * 0.16);
+      planet.addColorStop(0, shade(accent, 0.16)); planet.addColorStop(0.48, rgba(accent, 0.74)); planet.addColorStop(1, rgba(accent, 0));
+      ctx.fillStyle = planet; ctx.fillRect(w * 0.62, 0, w * 0.38, h * 0.45);
+      ctx.strokeStyle = rgba(BONE, 0.16); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(w * 0.82, h * 0.20, h * 0.22, h * 0.06, -0.22, 0, Math.PI * 2); ctx.stroke();
+    } else if (scene === 'forest') {
+      ctx.beginPath(); ctx.arc(w * 0.78, h * 0.18, h * 0.095, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(218,230,219,.24)'; ctx.fill();
+      ctx.fillStyle = 'rgba(7,18,17,.76)';
+      ctx.beginPath(); ctx.moveTo(0, h * 0.58);
+      for (let i = 0; i <= 10; i++) ctx.lineTo(i * w / 10, h * (0.43 + ((i * 31) % 13) / 100));
+      ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.fill();
+      for (let i = 0; i < 15; i++) {
+        const x = i * w / 14, th = h * (0.16 + ((i * 17) % 15) / 100), y = h * 0.72;
+        ctx.fillStyle = i % 2 ? '#07100f' : '#0a1715';
+        ctx.beginPath(); ctx.moveTo(x, y - th); ctx.lineTo(x - th * 0.34, y); ctx.lineTo(x + th * 0.34, y); ctx.fill();
+      }
+    }
+
+    // Every scene shares a low reactive floor glow. It ties custom scenes
+    // back to the mask and makes speaking energy legible on small tiles.
     const glow = ctx.createRadialGradient(w / 2, horizon, 0, w / 2, horizon, w * 0.54);
-    glow.addColorStop(0, 'rgba(221,46,46,' + (0.07 + talk * 0.08) + ')');
-    glow.addColorStop(0.55, 'rgba(221,46,46,0.018)');
-    glow.addColorStop(1, 'rgba(221,46,46,0)');
+    glow.addColorStop(0, rgba(accent, 0.07 + talk * 0.08));
+    glow.addColorStop(0.55, rgba(accent, 0.018));
+    glow.addColorStop(1, rgba(accent, 0));
     ctx.fillStyle = glow; ctx.fillRect(0, h * 0.38, w, h * 0.62);
 
-    ctx.save();
-    ctx.strokeStyle = 'rgba(240,237,230,0.035)'; ctx.lineWidth = 1;
-    for (let i = -7; i <= 7; i++) {
-      ctx.beginPath(); ctx.moveTo(w / 2 + i * 8, horizon); ctx.lineTo(w / 2 + i * w * 0.12, h); ctx.stroke();
+    if (scene === 'arena') {
+      ctx.save(); ctx.strokeStyle = 'rgba(240,237,230,0.035)'; ctx.lineWidth = 1;
+      for (let i = -7; i <= 7; i++) {
+        ctx.beginPath(); ctx.moveTo(w / 2 + i * 8, horizon); ctx.lineTo(w / 2 + i * w * 0.12, h); ctx.stroke();
+      }
+      for (let i = 0; i < 6; i++) {
+        const y = horizon + (1 - Math.pow(0.68, i + 1)) * (h - horizon);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      ctx.restore();
     }
-    for (let i = 0; i < 6; i++) {
-      const y = horizon + (1 - Math.pow(0.68, i + 1)) * (h - horizon);
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    }
-    ctx.restore();
 
-    // The broken orbit is the broadcast identity mark. It drifts by only a
-    // few degrees, enough to feel live without becoming a loading spinner.
     const spin = now * 0.00008;
     ctx.save(); ctx.translate(w / 2, h * 0.46); ctx.rotate(spin);
-    ctx.strokeStyle = 'rgba(221,46,46,' + (0.14 + talk * 0.16) + ')'; ctx.lineWidth = 2.5;
+    ctx.strokeStyle = rgba(accent, 0.14 + talk * 0.16); ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.arc(0, 0, h * 0.39, -2.65, -0.38); ctx.stroke();
     ctx.beginPath(); ctx.arc(0, 0, h * 0.39, 0.52, 2.48); ctx.stroke();
     ctx.restore();
   }
 
-  function drawAvatar(ctx, w, h, label, f, level, now) {
+  function drawAvatar(ctx, w, h, label, f, level, now, design) {
+    design = normalizeDesign(design);
+    const accent = findOption('accent', design.accent).color;
+    const outfit = findOption('outfit', design.outfit);
     const talk = Math.max(level, f.jaw * 0.8);
-    drawBackdrop(ctx, w, h, now, talk);
+    drawBackdrop(ctx, w, h, now, talk, design);
     const baseR = Math.min(w, h) * 0.305;
     const R = baseR * f.s * (1 + level * 0.015);
     const hx = w / 2 + f.x * baseR * 0.42;
@@ -232,43 +388,43 @@
       for (let i = 0; i < 2; i++) {
         const p = (pulse + i * 0.5) % 1;
         ctx.beginPath(); ctx.arc(hx, hy, R * (1.05 + p * 0.24), 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(221,46,46,' + ((1 - p) * (0.10 + talk * 0.24)) + ')';
+        ctx.strokeStyle = rgba(accent, (1 - p) * (0.10 + talk * 0.24));
         ctx.lineWidth = 3 + talk * 5; ctx.stroke();
       }
       for (let i = 0; i < 5; i++) {
         const bh = R * (0.05 + talk * (0.08 + (i % 3) * 0.035));
-        ctx.fillStyle = 'rgba(221,46,46,' + (0.18 + talk * 0.42) + ')';
+        ctx.fillStyle = rgba(accent, 0.18 + talk * 0.42);
         ctx.fillRect(hx - R * 1.43 - i * R * 0.075, hy + R * 0.34 - bh / 2, R * 0.025, bh);
         ctx.fillRect(hx + R * 1.40 + i * R * 0.075, hy + R * 0.34 - bh / 2, R * 0.025, bh);
       }
     }
 
-    // Hood behind the head. The split red rim keeps the silhouette crisp
+    // Hood behind the head. The split accent rim keeps the silhouette crisp
     // against a black video tile without reading as a plain circle.
     ctx.save(); ctx.translate(hx, hy);
     const hood = ctx.createRadialGradient(-R * 0.25, -R * 0.35, R * 0.15, 0, R * 0.08, R * 1.3);
-    hood.addColorStop(0, '#2b2b32'); hood.addColorStop(0.62, '#151519'); hood.addColorStop(1, '#09090b');
+    hood.addColorStop(0, shade(outfit.color, 0.06)); hood.addColorStop(0.62, shade(outfit.color, -0.08)); hood.addColorStop(1, outfit.dark);
     ctx.beginPath();
     ctx.moveTo(-R * 1.07, R * 0.82);
     ctx.bezierCurveTo(-R * 1.25, R * 0.08, -R * 1.03, -R * 0.88, -R * 0.38, -R * 1.16);
     ctx.bezierCurveTo(0, -R * 1.33, R * 0.38, -R * 1.16, R * 0.82, -R * 0.78);
     ctx.bezierCurveTo(R * 1.22, -R * 0.34, R * 1.23, R * 0.30, R * 1.08, R * 0.82);
     ctx.closePath(); ctx.fillStyle = hood; ctx.fill();
-    ctx.strokeStyle = 'rgba(221,46,46,0.52)'; ctx.lineWidth = Math.max(3, R * 0.025); ctx.stroke();
+    ctx.strokeStyle = rgba(accent, 0.52); ctx.lineWidth = Math.max(3, R * 0.025); ctx.stroke();
     ctx.restore();
 
     // Shoulders follow the head at a fraction of its offset, so the face
     // moves against them and reads as a person rather than a floating badge.
     const sx = w / 2 + f.x * baseR * 0.16, sy = h / 2 + baseR * 0.98;
     const bodyGrad = ctx.createLinearGradient(sx, sy - R * 0.4, sx, h);
-    bodyGrad.addColorStop(0, '#24242b'); bodyGrad.addColorStop(1, '#0c0c0f');
+    bodyGrad.addColorStop(0, outfit.color); bodyGrad.addColorStop(1, outfit.dark);
     ctx.beginPath();
     ctx.moveTo(sx - R * 1.72, h + 4);
     ctx.bezierCurveTo(sx - R * 1.58, sy - R * 0.02, sx - R * 0.86, sy - R * 0.40, sx, sy - R * 0.36);
     ctx.bezierCurveTo(sx + R * 0.86, sy - R * 0.40, sx + R * 1.58, sy - R * 0.02, sx + R * 1.72, h + 4);
     ctx.closePath();
     ctx.fillStyle = bodyGrad; ctx.fill();
-    ctx.strokeStyle = 'rgba(221,46,46,0.28)'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.strokeStyle = rgba(accent, 0.28); ctx.lineWidth = 3; ctx.stroke();
     // Jacket seams and hood drawstrings give the lower half structure.
     ctx.strokeStyle = 'rgba(240,237,230,0.10)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(sx - R * 0.54, sy - R * 0.28); ctx.quadraticCurveTo(sx - R * 0.35, sy + R * 0.12, sx - R * 0.22, h); ctx.stroke();
@@ -300,7 +456,7 @@
       ctx.closePath();
     }
     headPath(); ctx.fillStyle = HEAD; ctx.fill();
-    ctx.lineWidth = Math.max(3, R * 0.034); ctx.strokeStyle = RED; ctx.stroke();
+    ctx.lineWidth = Math.max(3, R * 0.034); ctx.strokeStyle = accent; ctx.stroke();
     // soft top light so the head reads as a form, not a flat disc
     const hl = ctx.createRadialGradient(-R * 0.3, -R * 0.55, R * 0.1, 0, 0, R * 1.15);
     hl.addColorStop(0, 'rgba(240,237,230,0.07)');
@@ -315,40 +471,57 @@
     side.addColorStop(1, f.yaw > 0 ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0.34)');
     ctx.fillStyle = side; ctx.fillRect(-R, -R * 1.1, R * 2, R * 2.3); ctx.restore();
 
-    // Angular domino mask. It keeps the recognizable anonymity mark but now
-    // reads as purpose-built arena gear instead of two red ovals.
+    // Three silhouettes let the avatar feel owned without weakening the
+    // shared anonymous-mask identity.
     const my = -R * 0.20 + fy, mw = R * 1.13 * squash, mh = R * 0.48;
     const maskGrad = ctx.createLinearGradient(fx - mw, my, fx + mw, my);
-    maskGrad.addColorStop(0, '#a9151d'); maskGrad.addColorStop(0.5, '#f03a3a'); maskGrad.addColorStop(1, '#a9151d');
+    maskGrad.addColorStop(0, shade(accent, -0.24)); maskGrad.addColorStop(0.5, shade(accent, 0.08)); maskGrad.addColorStop(1, shade(accent, -0.24));
     ctx.beginPath();
-    ctx.moveTo(fx - mw * 0.62, my - mh * 0.12);
-    ctx.quadraticCurveTo(fx - mw * 0.38, my - mh * 0.65, fx - mw * 0.08, my - mh * 0.24);
-    ctx.quadraticCurveTo(fx, my - mh * 0.08, fx + mw * 0.08, my - mh * 0.24);
-    ctx.quadraticCurveTo(fx + mw * 0.38, my - mh * 0.65, fx + mw * 0.62, my - mh * 0.12);
-    ctx.lineTo(fx + mw * 0.54, my + mh * 0.36);
-    ctx.quadraticCurveTo(fx + mw * 0.30, my + mh * 0.63, fx + mw * 0.08, my + mh * 0.22);
-    ctx.quadraticCurveTo(fx, my + mh * 0.09, fx - mw * 0.08, my + mh * 0.22);
-    ctx.quadraticCurveTo(fx - mw * 0.30, my + mh * 0.63, fx - mw * 0.54, my + mh * 0.36);
+    if (design.mask === 'classic') {
+      ctx.moveTo(fx - mw * 0.66, my - mh * 0.10);
+      ctx.bezierCurveTo(fx - mw * 0.58, my - mh * 0.58, fx - mw * 0.22, my - mh * 0.66, fx, my - mh * 0.24);
+      ctx.bezierCurveTo(fx + mw * 0.22, my - mh * 0.66, fx + mw * 0.58, my - mh * 0.58, fx + mw * 0.66, my - mh * 0.10);
+      ctx.bezierCurveTo(fx + mw * 0.61, my + mh * 0.56, fx + mw * 0.24, my + mh * 0.62, fx, my + mh * 0.18);
+      ctx.bezierCurveTo(fx - mw * 0.24, my + mh * 0.62, fx - mw * 0.61, my + mh * 0.56, fx - mw * 0.66, my - mh * 0.10);
+    } else if (design.mask === 'visor') {
+      ctx.moveTo(fx - mw * 0.70, my - mh * 0.42);
+      ctx.quadraticCurveTo(fx, my - mh * 0.68, fx + mw * 0.70, my - mh * 0.42);
+      ctx.lineTo(fx + mw * 0.58, my + mh * 0.42);
+      ctx.quadraticCurveTo(fx + mw * 0.24, my + mh * 0.58, fx, my + mh * 0.22);
+      ctx.quadraticCurveTo(fx - mw * 0.24, my + mh * 0.58, fx - mw * 0.58, my + mh * 0.42);
+      ctx.closePath();
+    } else {
+      ctx.moveTo(fx - mw * 0.62, my - mh * 0.12);
+      ctx.quadraticCurveTo(fx - mw * 0.38, my - mh * 0.65, fx - mw * 0.08, my - mh * 0.24);
+      ctx.quadraticCurveTo(fx, my - mh * 0.08, fx + mw * 0.08, my - mh * 0.24);
+      ctx.quadraticCurveTo(fx + mw * 0.38, my - mh * 0.65, fx + mw * 0.62, my - mh * 0.12);
+      ctx.lineTo(fx + mw * 0.54, my + mh * 0.36);
+      ctx.quadraticCurveTo(fx + mw * 0.30, my + mh * 0.63, fx + mw * 0.08, my + mh * 0.22);
+      ctx.quadraticCurveTo(fx, my + mh * 0.09, fx - mw * 0.08, my + mh * 0.22);
+      ctx.quadraticCurveTo(fx - mw * 0.30, my + mh * 0.63, fx - mw * 0.54, my + mh * 0.36);
+    }
     ctx.closePath(); ctx.fillStyle = maskGrad; ctx.fill();
     ctx.strokeStyle = 'rgba(240,237,230,0.18)'; ctx.lineWidth = Math.max(1.5, R * 0.012); ctx.stroke();
 
-    // Eyes use a focused almond shape, not the old round cartoon dots. The
-    // pupil still tracks gaze and each lid closes independently.
+    // Eye shape is cosmetic; gaze and independent blink tracking stay live.
     const ex = mw * 0.30, eyeW = mw * 0.122;
     const drawEye = function (side, blink) {
       const cxE = fx + side * ex, open = Math.max(0.04, 1 - blink);
-      const eyeH = mh * 0.19 * open;
+      const eyeScale = design.eyes === 'open' ? 1.28 : design.eyes === 'calm' ? 0.58 : design.eyes === 'sharp' ? 0.76 : 1;
+      const eyeH = mh * 0.19 * eyeScale * open;
+      const angle = design.eyes === 'sharp' ? side * -0.12 : 0;
+      ctx.save(); ctx.translate(cxE, my); ctx.rotate(angle);
       const eyePath = function () {
-        ctx.beginPath(); ctx.moveTo(cxE - eyeW, my);
-        ctx.bezierCurveTo(cxE - eyeW * 0.46, my - eyeH, cxE + eyeW * 0.46, my - eyeH, cxE + eyeW, my);
-        ctx.bezierCurveTo(cxE + eyeW * 0.46, my + eyeH, cxE - eyeW * 0.46, my + eyeH, cxE - eyeW, my);
+        ctx.beginPath(); ctx.moveTo(-eyeW, 0);
+        ctx.bezierCurveTo(-eyeW * 0.46, -eyeH, eyeW * 0.46, -eyeH, eyeW, 0);
+        ctx.bezierCurveTo(eyeW * 0.46, eyeH, -eyeW * 0.46, eyeH, -eyeW, 0);
         ctx.closePath();
       };
       eyePath(); ctx.fillStyle = BONE; ctx.fill();
       if (open > 0.25) {
         ctx.save(); eyePath(); ctx.clip();
-        const px = cxE + (f.gazeX + f.yaw * 0.4) * eyeW * 0.40;
-        const py = my + (-f.gazeY + f.pitch * 0.4) * eyeH * 0.45;
+        const px = (f.gazeX + f.yaw * 0.4) * eyeW * 0.40;
+        const py = (-f.gazeY + f.pitch * 0.4) * eyeH * 0.45;
         const pupilR = Math.min(eyeW * 0.38, eyeH * 0.76);
         ctx.beginPath(); ctx.arc(px, py, pupilR, 0, Math.PI * 2);
         ctx.fillStyle = INK; ctx.fill();
@@ -357,8 +530,9 @@
         ctx.restore();
       }
       ctx.strokeStyle = 'rgba(11,11,12,0.42)'; ctx.lineWidth = Math.max(1.5, R * 0.012);
-      ctx.beginPath(); ctx.moveTo(cxE - eyeW * 0.86, my - eyeH * 0.12);
-      ctx.quadraticCurveTo(cxE, my - eyeH * 1.08, cxE + eyeW * 0.86, my - eyeH * 0.12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-eyeW * 0.86, -eyeH * 0.12);
+      ctx.quadraticCurveTo(0, -eyeH * 1.08, eyeW * 0.86, -eyeH * 0.12); ctx.stroke();
+      ctx.restore();
     };
     drawEye(-1, f.blinkL);
     drawEye(1, f.blinkR);
@@ -446,7 +620,7 @@
     // seat label on the torso, screen-space so it never rides the chin
     if (label) {
       const labelY = hy + R * 1.29;
-      ctx.strokeStyle = 'rgba(221,46,46,0.72)'; ctx.lineWidth = Math.max(2, R * 0.018);
+      ctx.strokeStyle = rgba(accent, 0.72); ctx.lineWidth = Math.max(2, R * 0.018);
       ctx.beginPath(); ctx.moveTo(hx - R * 0.28, labelY - R * 0.13); ctx.lineTo(hx + R * 0.28, labelY - R * 0.13); ctx.stroke();
       ctx.font = '700 ' + Math.round(R * 0.18) + 'px ui-monospace, Menlo, monospace';
       ctx.fillStyle = 'rgba(240,237,230,0.86)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -461,7 +635,7 @@
     else ctx.rect(chipX, chipY - 16, chipW, 32);
     ctx.fillStyle = 'rgba(11,11,12,0.55)'; ctx.fill();
     ctx.beginPath(); ctx.arc(chipX + 22, chipY, 5 + talk * 3, 0, Math.PI * 2);
-    ctx.fillStyle = RED; ctx.fill();
+    ctx.fillStyle = accent; ctx.fill();
     ctx.font = '14px monospace'; ctx.fillStyle = 'rgba(240,237,230,0.78)';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(talk > 0.10 ? 'ANONYMOUS · SPEAKING' : 'ANONYMOUS · LIVE', chipX + 40, chipY + 1);
@@ -488,6 +662,9 @@
     opts = opts || {};
     let mode = ['camera', 'avatar', 'off'].indexOf(opts.mode) >= 0 ? opts.mode : 'avatar';
     let label = (opts.label || '').slice(0, 3).toUpperCase();
+    let design = normalizeDesign(opts.design || getSavedDesign());
+    const syncDesign = function (ev) { design = normalizeDesign(ev && ev.detail); };
+    window.addEventListener(DESIGN_EVENT, syncDesign);
 
     const canvas = document.createElement('canvas');
     canvas.width = OUT_W; canvas.height = OUT_H;
@@ -621,7 +798,7 @@
           }
         }
         smoothInto(face, src, dt);
-        drawAvatar(ctx, OUT_W, OUT_H, label, face, lv, now);
+        drawAvatar(ctx, OUT_W, OUT_H, label, face, lv, now, design);
       } else {
         paintStatic();
       }
@@ -645,10 +822,13 @@
       setMode: function (m) { if (['camera', 'avatar', 'off'].indexOf(m) >= 0) mode = m; },
       mode: function () { return mode; },
       setLabel: function (s) { label = String(s || '').slice(0, 3).toUpperCase(); },
+      setDesign: function (d) { design = saveDesign(d); return Object.assign({}, design); },
+      design: function () { return Object.assign({}, design); },
       level: function () { return meter.level(); },
       debugFace: function (sig) { demoFace = sig ? Object.assign(zeroFace(), sig) : null; },
       stop: function () {
         running = false; clearInterval(drawTimer);
+        window.removeEventListener(DESIGN_EVENT, syncDesign);
         outVideo.stop(); meter.close();
         videoEl.srcObject = null;
         // Terminal: release the source camera + mic too, so the recording
@@ -658,5 +838,169 @@
     };
   }
 
-  window.DebateCam = { start: start };
+  // ── Avatar designer ──────────────────────────────────────────────────
+  // Kept inside this module so every room gets the same editor, preview,
+  // persistence, and privacy language without duplicating modal code.
+  let activeDesigner = null;
+  function installDesignerStyles() {
+    if (document.getElementById('debatable-avatar-designer-css')) return;
+    const style = document.createElement('style');
+    style.id = 'debatable-avatar-designer-css';
+    style.textContent =
+      '.dac-overlay{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:18px;background:rgba(2,2,4,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);font-family:Inter,system-ui,sans-serif;color:#f0ede6}' +
+      '.dac-modal{width:min(760px,100%);max-height:min(860px,94vh);overflow:auto;border:1px solid rgba(255,255,255,.17);border-radius:22px;background:#0c0c0f;box-shadow:0 30px 90px rgba(0,0,0,.72)}' +
+      '.dac-head{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;padding:21px 22px 15px}' +
+      '.dac-kicker{font:700 11px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:#dd2e2e}' +
+      '.dac-title{margin:5px 0 4px;font-size:clamp(22px,4vw,31px);letter-spacing:-.035em;line-height:1.05}' +
+      '.dac-sub{margin:0;color:rgba(240,237,230,.58);font-size:13px;line-height:1.45}' +
+      '.dac-close{flex:0 0 auto;width:36px;height:36px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:rgba(255,255,255,.04);color:#f0ede6;font-size:22px;cursor:pointer}' +
+      '.dac-body{display:grid;grid-template-columns:minmax(260px,.9fr) minmax(300px,1.1fr);gap:20px;padding:0 22px 22px}' +
+      '.dac-preview-wrap{position:sticky;top:0;align-self:start}' +
+      '.dac-preview{display:block;width:100%;height:auto;border-radius:16px;background:#060607;border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 38px rgba(0,0,0,.45)}' +
+      '.dac-private{display:flex;gap:8px;margin:10px 3px 0;color:rgba(240,237,230,.56);font-size:11px;line-height:1.45}' +
+      '.dac-private b{color:#67d7c8}' +
+      '.dac-controls{min-width:0}' +
+      '.dac-group{margin:0 0 16px}' +
+      '.dac-label{display:block;margin:0 0 8px;color:rgba(240,237,230,.52);font:700 10px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase}' +
+      '.dac-choices{display:flex;flex-wrap:wrap;gap:7px}' +
+      '.dac-choice{appearance:none;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:rgba(255,255,255,.035);color:rgba(240,237,230,.72);min-height:35px;padding:8px 11px;font:650 12px/1 Inter,system-ui,sans-serif;cursor:pointer;transition:border-color .15s,background .15s,color .15s,transform .15s}' +
+      '.dac-choice:hover{color:#fff;border-color:rgba(255,255,255,.32);transform:translateY(-1px)}' +
+      '.dac-choice.is-selected{color:#fff;border-color:var(--dac-accent,#dd2e2e);background:color-mix(in srgb,var(--dac-accent,#dd2e2e) 18%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--dac-accent,#dd2e2e) 20%,transparent)}' +
+      '.dac-choice--scene{display:grid;grid-template-columns:35px auto;align-items:center;gap:8px;padding:4px 9px 4px 4px}' +
+      '.dac-scene-sample{display:block;width:35px;height:27px;border-radius:7px;border:1px solid rgba(255,255,255,.14)}' +
+      '.dac-choice--swatch{display:inline-flex;align-items:center;gap:7px}' +
+      '.dac-swatch{display:block;width:15px;height:15px;border-radius:50%;border:1px solid rgba(255,255,255,.32);box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}' +
+      '.dac-foot{display:flex;align-items:center;gap:9px;padding:15px 22px 20px;border-top:1px solid rgba(255,255,255,.09)}' +
+      '.dac-foot button{appearance:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px 14px;background:rgba(255,255,255,.04);color:#f0ede6;font:700 12px/1 Inter,system-ui,sans-serif;cursor:pointer}' +
+      '.dac-foot button:hover{border-color:rgba(255,255,255,.35)}' +
+      '.dac-foot .dac-save{margin-left:auto;border-color:var(--dac-accent,#dd2e2e);background:var(--dac-accent,#dd2e2e);color:#fff;padding-inline:18px}' +
+      '@media(max-width:650px){.dac-overlay{padding:0;place-items:end center}.dac-modal{width:100%;max-height:94vh;border-radius:20px 20px 0 0}.dac-head{padding:18px 16px 13px}.dac-body{display:block;padding:0 16px 16px}.dac-preview-wrap{position:relative;margin-bottom:18px}.dac-preview{max-height:260px;object-fit:contain}.dac-foot{position:sticky;bottom:0;background:rgba(12,12,15,.96);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}}' +
+      '@media(prefers-reduced-motion:reduce){.dac-choice{transition:none}}';
+    document.head.appendChild(style);
+  }
+
+  function buildDesignerGroup(host, title, group) {
+    const section = document.createElement('div'); section.className = 'dac-group';
+    const label = document.createElement('span'); label.className = 'dac-label'; label.textContent = title;
+    const choices = document.createElement('div'); choices.className = 'dac-choices';
+    DESIGN_OPTIONS[group].forEach(function (option) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'dac-choice';
+      button.setAttribute('data-group', group); button.setAttribute('data-value', option.key);
+      button.setAttribute('aria-pressed', 'false');
+      if (group === 'scene') {
+        button.className += ' dac-choice--scene';
+        const sample = document.createElement('span'); sample.className = 'dac-scene-sample'; sample.style.background = option.sample;
+        const name = document.createElement('span'); name.textContent = option.label;
+        button.appendChild(sample); button.appendChild(name);
+      } else if (group === 'accent' || group === 'outfit') {
+        button.className += ' dac-choice--swatch';
+        const swatch = document.createElement('span'); swatch.className = 'dac-swatch'; swatch.style.background = option.color;
+        const name = document.createElement('span'); name.textContent = option.label;
+        button.appendChild(swatch); button.appendChild(name);
+      } else button.textContent = option.label;
+      choices.appendChild(button);
+    });
+    section.appendChild(label); section.appendChild(choices); host.appendChild(section);
+  }
+
+  function openDesigner(opts) {
+    opts = opts || {};
+    if (activeDesigner) activeDesigner.close();
+    installDesignerStyles();
+    let draft = getSavedDesign();
+    let alive = true, raf = 0, lastPaint = 0;
+    const oldOverflow = document.body.style.overflow;
+    const overlay = document.createElement('div'); overlay.className = 'dac-overlay';
+    overlay.innerHTML =
+      '<section class="dac-modal" role="dialog" aria-modal="true" aria-labelledby="dacTitle">' +
+        '<header class="dac-head"><div><div class="dac-kicker">Live identity</div><h2 class="dac-title" id="dacTitle">Design your avatar</h2><p class="dac-sub">Build a look that follows you into every room.</p></div><button type="button" class="dac-close" aria-label="Close avatar designer">×</button></header>' +
+        '<div class="dac-body"><div class="dac-preview-wrap"><canvas class="dac-preview" width="960" height="540"></canvas><p class="dac-private"><b>PRIVATE</b><span>Only this animated canvas is sent to the room. Your real background stays hidden.</span></p></div><div class="dac-controls"></div></div>' +
+        '<footer class="dac-foot"><button type="button" data-action="surprise">Surprise me</button><button type="button" data-action="cancel">Cancel</button><button type="button" class="dac-save" data-action="save">Save avatar</button></footer>' +
+      '</section>';
+    const controls = overlay.querySelector('.dac-controls');
+    buildDesignerGroup(controls, 'Scene', 'scene');
+    buildDesignerGroup(controls, 'Mask', 'mask');
+    buildDesignerGroup(controls, 'Color', 'accent');
+    buildDesignerGroup(controls, 'Outfit', 'outfit');
+    buildDesignerGroup(controls, 'Eyes', 'eyes');
+    const canvas = overlay.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function sync() {
+      const accent = findOption('accent', draft.accent).color;
+      overlay.style.setProperty('--dac-accent', accent);
+      Array.prototype.forEach.call(overlay.querySelectorAll('[data-group]'), function (button) {
+        const selected = draft[button.getAttribute('data-group')] === button.getAttribute('data-value');
+        button.classList.toggle('is-selected', selected);
+        button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+    }
+    function close() {
+      if (!alive) return;
+      alive = false; cancelAnimationFrame(raf);
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = oldOverflow;
+      overlay.remove();
+      if (activeDesigner && activeDesigner.overlay === overlay) activeDesigner = null;
+    }
+    function onKey(ev) { if (ev.key === 'Escape') close(); }
+    function animate(now) {
+      if (!alive) return;
+      if (now - lastPaint > 41) {
+        lastPaint = now;
+        const s = now / 1000, f = zeroFace();
+        const phrase = Math.sin(s * 1.05) > -0.45 ? 1 : 0;
+        const voice = phrase * clamp(0.24 + Math.sin(s * 10.7) * 0.18 + Math.sin(s * 17.3) * 0.12, 0.02, 0.58);
+        f.x = Math.sin(s * 0.55) * 0.045; f.yaw = Math.sin(s * 0.46) * 0.13;
+        f.pitch = Math.sin(s * 0.35) * 0.05; f.roll = Math.sin(s * 0.31) * 0.025;
+        f.jaw = voice; f.wide = voice * (0.32 + Math.max(0, Math.sin(s * 3.4)) * 0.42);
+        f.pucker = voice * Math.max(0, Math.sin(s * 2.7 + 1.4)) * 0.44;
+        f.smile = 0.13; f.browUp = voice * 0.28; f.gazeX = Math.sin(s * 0.67) * 0.16;
+        const blink = (now % 4200) > 4050 ? 1 : 0; f.blinkL = f.blinkR = blink;
+        drawAvatar(ctx, canvas.width, canvas.height, String(opts.label || 'YOU').slice(0, 3).toUpperCase(), f, voice, now, draft);
+      }
+      raf = requestAnimationFrame(animate);
+    }
+    overlay.addEventListener('click', function (ev) {
+      const choice = ev.target.closest('[data-group]');
+      if (choice) {
+        draft[choice.getAttribute('data-group')] = choice.getAttribute('data-value');
+        draft = normalizeDesign(draft); sync(); return;
+      }
+      const action = ev.target.closest('[data-action]');
+      if (action) {
+        const key = action.getAttribute('data-action');
+        if (key === 'cancel') close();
+        else if (key === 'surprise') {
+          Object.keys(DEFAULT_DESIGN).forEach(function (group) {
+            const options = DESIGN_OPTIONS[group]; draft[group] = options[Math.floor(Math.random() * options.length)].key;
+          });
+          sync();
+        } else if (key === 'save') {
+          let saved;
+          try { saved = opts.cam && opts.cam.setDesign ? opts.cam.setDesign(draft) : saveDesign(draft); }
+          catch (e) { saved = saveDesign(draft); }
+          if (typeof opts.onSave === 'function') opts.onSave(saved);
+          close();
+        }
+        return;
+      }
+      if (ev.target === overlay || ev.target.closest('.dac-close')) close();
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay); document.body.style.overflow = 'hidden';
+    sync(); raf = requestAnimationFrame(animate);
+    activeDesigner = { overlay: overlay, close: close };
+    window.setTimeout(function () { const first = overlay.querySelector('.dac-close'); if (first) first.focus(); }, 0);
+    return activeDesigner;
+  }
+
+  window.DebateCam = {
+    start: start,
+    getDesign: getSavedDesign,
+    setDesign: saveDesign,
+    openDesigner: openDesigner,
+    designOptions: DESIGN_OPTIONS,
+  };
 })();
