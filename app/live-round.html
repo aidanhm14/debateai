@@ -7371,6 +7371,22 @@ html.stage-mode .stage-ov{display:block}
     return me;
   }
 
+  // Judge notes need a NAMED account (rules enforce it): eval text is
+  // folded into the ballot prompt, and anonymous sessions are free to
+  // mint, so guests don't get a lane to the judge. Guests can still
+  // comment and join group chats.
+  function audNamedMe(){
+    var me = audRequireMe();
+    if (!me) return null;
+    var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (u && u.isAnonymous){
+      var st = document.getElementById('audEvalState');
+      if (st) st.textContent = 'Sign in with an account to talk to the judge. Guests can comment and chat.';
+      return null;
+    }
+    return me;
+  }
+
   function audPostComment(inp){
     var me = audRequireMe();
     var col = audCol('comments');
@@ -7420,7 +7436,7 @@ html.stage-mode .stage-ov{display:block}
   }
 
   function audSaveEval(){
-    var me = audRequireMe();
+    var me = audNamedMe();
     var col = audCol('audienceEvals');
     var ta = document.getElementById('audEvalText');
     var st = document.getElementById('audEvalState');

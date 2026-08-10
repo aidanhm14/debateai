@@ -339,10 +339,15 @@ service cloud.firestore {
       // Audience evals — one "tell the judge" note per viewer (doc id
       // == uid), editable until the ballot. Read is public because the
       // acting debater's client folds up to 8 of these into the ballot
-      // prompt as guarded, advisory-only audience notes.
+      // prompt as guarded, advisory-only audience notes. NAMED accounts
+      // only: this text reaches the judge prompt, and anonymous auth is
+      // free to mint, so a guest lane would let one person fill all 8
+      // slots with throwaways (same posture as the waitlist bar and the
+      // voice per-UID lane). Comments/group chats above stay guest-open
+      // on purpose; their blast radius is the chat UI, not the ballot.
       match /audienceEvals/{viewerUid} {
         allow read: if true;
-        allow create, update: if isSignedIn()
+        allow create, update: if isNamedAccount()
                       && viewerUid == request.auth.uid
                       && request.resource.data.uid == request.auth.uid
                       && request.resource.data.text is string
