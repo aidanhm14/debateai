@@ -112,7 +112,7 @@ const URLS = [
   { path: '/judge-paradigms',                         changefreq: 'monthly', priority: '0.82' },
   { path: '/judge-integrity',                         changefreq: 'monthly', priority: '0.80' },
   { path: '/engines',                                 changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-30' },
-  { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
+  { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },
   { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
@@ -181,10 +181,12 @@ const URLS = [
   { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-22' },
   { path: '/why-debatable',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-22' },
   { path: '/learn',           changefreq: 'monthly', priority: '0.85' },
-  // 2026-07-22: '/topics' -> '/topics/'. app/topics/ is a directory, so the
-  // slashless form 301s to the trailing-slash one; listing the redirect made
-  // every crawl of this entry a wasted hop. Same for '/compare' below.
-  { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
+  // 2026-08-10: back to the slashless form. The 07-22 comment claimed the
+  // slashless URL 301s to the trailing-slash one; it never did — both were
+  // 200 rewrites in netlify.toml, and the page's own rel=canonical points at
+  // '/topics', so the sitemap was submitting the non-canonical variant.
+  // netlify.toml now 301s '/topics/' -> '/topics'. Same for '/compare'.
+  { path: '/topics',          changefreq: 'weekly',  priority: '0.85' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
@@ -323,6 +325,19 @@ const URLS = [
   // above are still hand-listed because that bank predates this and a
   // conversion is a separate change.
   { path: '/motions',         changefreq: 'weekly',  priority: '0.86' },
+  // 2026-08-10 orphan sweep: indexable, self-canonical pages that were
+  // routed in netlify.toml but never listed here. /partners and
+  // /tournament only had JS-injected topbar links, so discovery depended
+  // on Googlebot rendering the nav; /verify is the public certificate
+  // check linked from /credentials.
+  { path: '/partners',          changefreq: 'monthly', priority: '0.70' },
+  { path: '/tournament',        changefreq: 'monthly', priority: '0.70' },
+  { path: '/voice-rfd',         changefreq: 'monthly', priority: '0.55' },
+  { path: '/verify',            changefreq: 'monthly', priority: '0.55' },
+  { path: '/brain',             changefreq: 'monthly', priority: '0.65' },
+  { path: '/privacy-extension', changefreq: 'yearly',  priority: '0.30' },
+  { path: '/privacy',           changefreq: 'yearly',  priority: '0.30' },
+  { path: '/terms',             changefreq: 'yearly',  priority: '0.30' },
 ];
 
 // Every motion in the library, generated from the bank. These are
