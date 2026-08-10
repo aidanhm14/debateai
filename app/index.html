@@ -3064,7 +3064,10 @@ function captureTurn(args) {
       output: args.output,
       durationMs: typeof args.durationMs === 'number' ? args.durationMs : null,
       context: lc,
-      contributable: corpusContribute()
+      // BYOK-routed turns are excluded from the licensed corpus regardless
+      // of the consent toggle (privacy §7). The server can't see routing,
+      // so this flag is the only enforcement point.
+      contributable: args.byok ? false : corpusContribute()
     });
   } catch (e) {console.warn('[captureTurn]', e.message);}
 }
@@ -4232,6 +4235,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4248,7 +4252,6 @@ function PolyBackground() {
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
 ═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */
-
 /* ── Copy with visual feedback ────── */
 function copyWithFeedback(text, btnEl) {
   if (!navigator.clipboard || !text) return;
@@ -5603,7 +5606,9 @@ async function callClaude(systemPrompt, userPrompt, onChunk, opts = {}) {
     messages: typeof userPrompt === 'string' && userPrompt ? null : messages,
     output: fullText,
     durationMs: Date.now() - startTime,
-    logContext: opts.logContext
+    logContext: opts.logContext,
+    // Same condition that picked the direct-to-Anthropic path above.
+    byok: !!(byokKey && byokKey.startsWith('sk-ant-'))
   });
   maybeShowSupportNudge();
   return fullText;
