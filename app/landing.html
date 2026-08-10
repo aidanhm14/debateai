@@ -389,42 +389,33 @@
      still re-toggle. -->
 <script>
   (function(){
-    /* DARK MODE DISABLED (2026-07-09): one surface, light. The whole
-       theme system below (saved-pref read, 70/30 light/crimson A/B,
-       theme_ab GA tagging) is KEPT and dormant; flip this flag back to
-       true to restore it. Saved da-theme values in localStorage are not
-       touched, so returning users get their old pick back on re-enable.
-       Pair with the same flag in /js/topbar.js (toggle button) and the
-       lighting-nudge toast near the bottom of this file. */
-    var DARK_MODE_ENABLED = false;
+    /* DARK MODE RE-ENABLED as an OPT-IN (2026-08-10, Aidan). Early
+       paint honors a saved da-theme so a dark-picked visitor never
+       flashes light; everyone else defaults to light. No random dark
+       bucketing (the 70/30 A/B stays retired). Prefs parked by the
+       2026-07-09 disable restore once from da-theme-saved-pref, same
+       logic as /js/topbar.js, which pairs with this flag. */
+    var DARK_MODE_ENABLED = true;
     if (!DARK_MODE_ENABLED) {
       document.documentElement.setAttribute('data-theme', 'light');
       return;
     }
     try {
-      if (!localStorage.getItem('da-theme-default-v2')) {
-        if (localStorage.getItem('da-theme') === 'light') {
-          localStorage.removeItem('da-theme');
+      var parked = localStorage.getItem('da-theme-saved-pref');
+      if (parked) {
+        localStorage.removeItem('da-theme-saved-pref');
+        if ((localStorage.getItem('da-theme') || 'light') === 'light') {
+          localStorage.setItem('da-theme', parked);
         }
-        localStorage.setItem('da-theme-default-v2', '1');
       }
     } catch(e){}
     var t = '';
     try { t = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!t || t === 'day') {
-      // Landing A/B: first-time visitors get a true coin flip between
-      // light (white) and crimson (red/dark) so neither front door is
-      // privileged. Persist to da-theme so it sticks and the topbar toggle
-      // still overrides it; mirror to da-theme-ab so sign-up rate stays
-      // segmentable in GA.
-      try {
-        t = (Math.random() < 0.70) ? 'light' : 'crimson';
-        localStorage.setItem('da-theme', t);
-        if (!localStorage.getItem('da-theme-ab')) {
-          localStorage.setItem('da-theme-ab', t);
-          window.__themeAbAssigned = t;
-        }
-      } catch(e){ t = 'light'; }
+      // No explicit pick yet: light, always. Dark is a deliberate
+      // toggle click, never an assignment.
+      t = 'light';
+      try { localStorage.setItem('da-theme', t); } catch(e){}
     }
     document.documentElement.setAttribute('data-theme', t);
     try {
@@ -7129,6 +7120,28 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-globe .hero-globe-canvas-wrap{margin:0;max-width:330px;min-width:200px;min-height:200px}
   .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:center;width:100%;max-width:330px;margin-top:-14px;text-align:center;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.62)}
   .fs-globe .story-globe-caption .globe-map-link{margin-top:3px;color:#1a1a1f;font-weight:700}
+  /* Dark family (opt-in via the topbar toggle, 2026-08-10): the copy
+     column was authored with hardcoded light-surface ink, so each ink
+     color gets a dark twin here. The example board stays a white card
+     on purpose — a lit screen in a dark room. */
+  [data-theme="dark"] .fs-h1,[data-theme="crimson"] .fs-h1,
+  [data-theme="grey"] .fs-h1,[data-theme="stone"] .fs-h1{color:#f5efe7}
+  [data-theme="dark"] .fs-sub,[data-theme="crimson"] .fs-sub,
+  [data-theme="grey"] .fs-sub,[data-theme="stone"] .fs-sub{color:rgba(245,239,231,.72)}
+  [data-theme="dark"] .fs-slogan,[data-theme="crimson"] .fs-slogan,
+  [data-theme="grey"] .fs-slogan,[data-theme="stone"] .fs-slogan{color:rgba(245,239,231,.56)}
+  [data-theme="dark"] .fs-cta--ghost,[data-theme="crimson"] .fs-cta--ghost,
+  [data-theme="grey"] .fs-cta--ghost,[data-theme="stone"] .fs-cta--ghost{
+    color:rgba(245,239,231,.78);border-color:rgba(245,239,231,.28)}
+  [data-theme="dark"] .fs-cta--ghost:hover,[data-theme="crimson"] .fs-cta--ghost:hover,
+  [data-theme="grey"] .fs-cta--ghost:hover,[data-theme="stone"] .fs-cta--ghost:hover{
+    color:#f5efe7;border-color:rgba(245,239,231,.55)}
+  [data-theme="dark"] .fs-globe .story-globe-caption,[data-theme="crimson"] .fs-globe .story-globe-caption,
+  [data-theme="grey"] .fs-globe .story-globe-caption,[data-theme="stone"] .fs-globe .story-globe-caption{
+    color:rgba(245,239,231,.62)}
+  [data-theme="dark"] .fs-globe .story-globe-caption .globe-map-link,[data-theme="crimson"] .fs-globe .story-globe-caption .globe-map-link,
+  [data-theme="grey"] .fs-globe .story-globe-caption .globe-map-link,[data-theme="stone"] .fs-globe .story-globe-caption .globe-map-link{
+    color:#f5efe7}
   @media(min-width:941px) and (max-height:860px){.fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:270px}}
   @media(min-width:941px) and (max-height:760px){.fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:225px}}
   @media(max-width:940px){
@@ -18314,11 +18327,11 @@ window.addEventListener('load', function(){
   }
 
   /* ---- 1) lighting swap at ~45s ---- */
-  /* DARK MODE DISABLED (2026-07-09): the site runs one light surface,
-     so the switch-to-dark offer is dormant. Kept for revival; flip the
-     flag together with the early-paint theme script near the top of
-     this file and /js/topbar.js. */
-  var DARK_MODE_ENABLED = false;
+  /* DARK MODE RE-ENABLED (2026-08-10): the toast offers the other
+     surface once, 45s in — an invitation, not an assignment. Pairs
+     with the early-paint theme script near the top of this file and
+     /js/topbar.js. */
+  var DARK_MODE_ENABLED = true;
   setTimeout(function(){
     if (!DARK_MODE_ENABLED) return;
     if (seen('nudge-light') || !scrolled) return;

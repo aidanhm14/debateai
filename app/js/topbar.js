@@ -15,15 +15,15 @@
    markup should remove it before mounting this. The CSS lives in
    /css/ui.css under .ui-topbar* — every page already loads ui.css. */
 (function(){
-  /* DARK MODE DISABLED (2026-07-09): the site runs one light surface.
-     The whole theme system (sun/moon toggle, saved-pref read, 70/30
-     light/crimson bucketing) is KEPT below and dormant; flip this flag
-     back to true to restore it. Saved da-theme values are untouched so
-     preferences survive a revival. Pair with the same flag in
-     landing.html (early-paint script + lighting-nudge toast). Pages
-     with data-force-theme (hardcoded dark palettes like /us, /india)
-     are unaffected; that's a page palette, not user dark mode. */
-  var DARK_MODE_ENABLED = false;
+  /* DARK MODE RE-ENABLED as an OPT-IN (2026-08-10, Aidan). The sun/moon
+     toggle is back on the topbar sitewide. Everyone defaults to the
+     light surface; dark is a deliberate click, never a random bucket
+     (the 2026-06-01 70/30 split stays retired). Prefs parked by the
+     2026-07-09 disable are restored once from da-theme-saved-pref.
+     Pair with the same flag in landing.html (early-paint script +
+     lighting-nudge toast). Pages with data-force-theme (hardcoded dark
+     palettes like /us, /india) are unaffected. */
+  var DARK_MODE_ENABLED = true;
 
   var here = (location.pathname || '/').replace(/\/$/,'') || '/';
 
@@ -1043,34 +1043,30 @@
       document.documentElement.setAttribute('data-lighting', 'light');
       return;
     }
-    // Migration v2026-05: dark is the brand default. One-time sweep
-    // clears a legacy `da-theme=light` so subpages match the marketing
-    // landing's dark front door. Gated by `da-theme-default-v2` so it
-    // only runs once per browser; users who explicitly re-toggle to
-    // light afterward keep their preference (the sentinel is already
-    // set, so the migration won't fire again).
+    // Restore the pref parked by the 2026-07-09 disable, once. The
+    // disable overwrote da-theme with 'light' after saving the real
+    // pick to da-theme-saved-pref; a visitor who kept the forced light
+    // value gets their dark pick back, and anyone who has since
+    // toggled explicitly (da-theme no longer 'light') keeps that.
+    // The old v2026-05 dark-default migration is retired: dark is
+    // opt-in now, so nothing may clear a light pref.
     try {
-      if (!localStorage.getItem('da-theme-default-v2')) {
-        if (localStorage.getItem('da-theme') === 'light') {
-          localStorage.removeItem('da-theme');
+      var parked = localStorage.getItem('da-theme-saved-pref');
+      if (parked) {
+        localStorage.removeItem('da-theme-saved-pref');
+        if ((localStorage.getItem('da-theme') || 'light') === 'light') {
+          localStorage.setItem('da-theme', parked);
         }
-        localStorage.setItem('da-theme-default-v2', '1');
       }
     } catch(e){}
     var saved = '';
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!saved) {
-      // No explicit pick yet (and not arrived via the landing, which sets
-      // da-theme itself). Bucket ~70% light / ~30% crimson per Aidan
-      // 2026-06-01 ("default to white 70%+ sitewide"), and persist to
-      // da-theme — same key the landing uses — so the default is stable
-      // across pages and consistent whichever surface the visitor hits
-      // first. An explicit topbar toggle still overrides it.
-      saved = (Math.random() < 0.70) ? 'light' : 'crimson';
-      try {
-        localStorage.setItem('da-theme', saved);
-        if (!localStorage.getItem('da-theme-ab')) localStorage.setItem('da-theme-ab', saved);
-      } catch(e){}
+      // No explicit pick yet: light, always. Dark is opt-in via the
+      // toggle, never a random bucket (2026-08-10, supersedes the
+      // 2026-06-01 70/30 split).
+      saved = 'light';
+      try { localStorage.setItem('da-theme', saved); } catch(e){}
     }
     document.documentElement.setAttribute('data-theme', saved);
     // Auto-sync data-lighting from data-theme on every page load. Fixes
