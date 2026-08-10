@@ -190,13 +190,24 @@
   // ── Palette ─────────────────────────────────────────────────────
 
   function resolvePalette(opt) {
-    if (opt === 'dark') return 'dark';
-    // This module's house style is the ivory print-inset. We render
-    // the LIGHT palette regardless of page theme — the disc is meant
-    // to feel like a calm magazine plate even when sitting on a dark
-    // page. Pages that genuinely want the dark variant can pass
-    // palette:'dark' explicitly; everything else (including 'auto')
-    // resolves to light.
+    if (opt === 'dark' || opt === 'light') return opt;
+    // 2026-08-10: 'auto' used to be forced to 'light' unconditionally
+    // ("the disc is meant to feel like a calm magazine plate even on a
+    // dark page") — that shipped the ivory disc as a bright island on
+    // every dark-themed page (landing hero, /spar while-you-wait), the
+    // same bug class as the cards fixed elsewhere on this pass. The DARK
+    // palette above already exists for exactly this. 'auto' now reads
+    // the page's real theme, matching this file's own documented
+    // contract (see the opts.palette doc comment above). Pages that
+    // want the ivory look regardless of theme can still pass 'light'
+    // explicitly.
+    try {
+      var root = document.documentElement;
+      var lighting = root.getAttribute('data-lighting');
+      var theme = root.getAttribute('data-theme');
+      if (lighting === 'light' || theme === 'light') return 'light';
+      if (lighting === 'dark' || (theme && theme !== 'light')) return 'dark';
+    } catch (e) {}
     return 'light';
   }
 
