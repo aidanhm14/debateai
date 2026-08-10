@@ -39,6 +39,20 @@ export default async (request) => {
       .limit(QUERY_LIMIT)
       .get(), 2500);
 
+    // First pass: per-debater aggregates over the whole snapshot, so a
+    // row can say "3 ranked rounds, 2 wins" from data that is actually
+    // on the board rather than invented recency texture.
+    const agg = new Map();
+    snap.forEach((doc) => {
+      const d = doc.data() || {};
+      if (typeof d.score !== 'number') return;
+      const uid = d.uid || doc.id;
+      const a = agg.get(uid) || { rounds: 0, wins: 0 };
+      a.rounds += 1;
+      if (d.won === true) a.wins += 1;
+      agg.set(uid, a);
+    });
+
     const seen = new Set();
     const rows = [];
     snap.forEach((doc) => {
@@ -55,6 +69,7 @@ export default async (request) => {
       const completedAt = typeof d.completedAt === 'number'
         ? d.completedAt
         : (d.completedAt && typeof d.completedAt.toMillis === 'function' ? d.completedAt.toMillis() : null);
+      const a = agg.get(uid) || { rounds: 1, wins: d.won === true ? 1 : 0 };
       rows.push({
         name: String(d.displayName || 'A debater').slice(0, 40),
         format: String(d.formatName || d.format || '').slice(0, 24),
@@ -62,6 +77,15 @@ export default async (request) => {
         kind: d.kind === 'live' ? 'live' : 'voice',
         side: String(d.sideLabel || d.side || '').slice(0, 18),
         completedAt,
+        won: d.won === true,
+        rounds: a.rounds,
+        wins: a.wins,
+        // uid powers the landing's per-row Challenge deep link into the
+        // /spar DM flow. Only for challengeable rows: real Firebase uids,
+        // never seeds (a DM to a seed uid is a thread nobody answers).
+        // leaderboard_entries is publicly readable, so this exposes
+        // nothing /leaderboard doesn't already render client-side.
+        uid: (d.seed !== true && typeof d.uid === 'string' && d.uid.length >= 8) ? d.uid : null,
       });
     });
 
