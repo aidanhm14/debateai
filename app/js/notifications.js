@@ -316,7 +316,7 @@
       '.ui-bell--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:16px;z-index:99996;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
       '.ui-bell-badge{position:absolute;top:-3px;right:-3px;z-index:3;min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-size:.58rem;font-weight:800;line-height:15px;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1.5px var(--bar-bg,#0a0a0c)}' +
       '.ui-bell-badge[hidden]{display:none}' +
-      '.ui-bell-panel{position:absolute;top:calc(100% + 10px);right:0;width:320px;max-width:86vw;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.5);overflow:hidden;z-index:200;text-align:left;cursor:default;animation:daBellIn .16s ease-out}' +
+      '.ui-bell-panel{position:absolute;top:calc(100% + 10px);right:0;width:380px;max-width:90vw;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.5);overflow:hidden;z-index:200;text-align:left;cursor:default;animation:daBellIn .16s ease-out}' +
       '@keyframes daBellIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}' +
       '.ui-bell-head{padding:12px 14px 10px;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-ghost,#888);border-bottom:1px solid var(--border,rgba(255,255,255,.08))}' +
       '.ui-bell-head--mid{border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
@@ -330,7 +330,7 @@
       '.ui-bell-row__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}' +
       '.ui-bell-row__name{font-size:.82rem;font-weight:700;color:var(--text,#fff);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.ui-bell-dot{width:7px;height:7px;border-radius:50%;background:var(--accent,#ef4444);flex-shrink:0}' +
-      '.ui-bell-row__preview{font-size:.74rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.ui-bell-row__preview{font-size:.74rem;color:var(--text-dim,#9aa);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
       '.ui-bell-row__time{font-size:.66rem;color:var(--text-ghost,#888);flex-shrink:0}' +
       '.ui-bell-foot{display:block;padding:11px 14px;text-align:center;font-size:.74rem;font-weight:700;color:var(--accent,#ef4444);text-decoration:none;border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
       '.ui-bell-foot:hover{background:var(--bg-elev,#101014)}' +
@@ -343,7 +343,7 @@
       '.da-bell-toast__name{font-size:.86rem;font-weight:800;color:var(--text,#fff)}' +
       '.da-bell-toast__preview{font-size:.78rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '@keyframes daBellLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
-      '@media(max-width:480px){#da-bell-toasts{top:calc(58px + env(safe-area-inset-top,0px));left:12px;right:12px;width:auto;transform:none}.ui-bell-panel{width:300px}}' +
+      '@media(max-width:480px){#da-bell-toasts{top:calc(58px + env(safe-area-inset-top,0px));left:12px;right:12px;width:auto;transform:none}}' +
       '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
       '.da-spar-pill:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
       '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--text-ghost,#888);transition:background .2s}' +
