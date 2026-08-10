@@ -112,7 +112,7 @@ const URLS = [
   { path: '/judge-paradigms',                         changefreq: 'monthly', priority: '0.82' },
   { path: '/judge-integrity',                         changefreq: 'monthly', priority: '0.80' },
   { path: '/engines',                                 changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-30' },
-  { path: '/compare',                                 changefreq: 'monthly', priority: '0.86' },
+  { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },
   { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
@@ -181,12 +181,13 @@ const URLS = [
   { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-22' },
   { path: '/why-debatable',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-22' },
   { path: '/learn',           changefreq: 'monthly', priority: '0.85' },
-  // 2026-08-10: back to the slashless form. The 07-22 comment claimed the
-  // slashless URL 301s to the trailing-slash one; it never did — both were
-  // 200 rewrites in netlify.toml, and the page's own rel=canonical points at
-  // '/topics', so the sitemap was submitting the non-canonical variant.
-  // netlify.toml now 301s '/topics/' -> '/topics'. Same for '/compare'.
-  { path: '/topics',          changefreq: 'weekly',  priority: '0.85' },
+  // 2026-07-22: '/topics' -> '/topics/'. app/topics/ is a directory and
+  // Netlify's automatic pretty-URL normalization 301s the slashless form
+  // to the trailing-slash one (verified live 2026-08-10; it outranks the
+  // 200 rewrite in netlify.toml), so listing the slashless URL would make
+  // every crawl a wasted hop. The PAGE canonical was corrected to match
+  // this instead. Same for '/compare' below.
+  { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
