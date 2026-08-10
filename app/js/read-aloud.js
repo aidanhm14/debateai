@@ -90,6 +90,10 @@
     // so a narration that followed a listener here would talk over the
     // build. Same rule as the other sound-making pages above.
     '/brain',
+    // /watch is the stream and replay hub: the live band autoplays and every
+    // recording is a video with sound. /replays is the same document.
+    '/watch',
+    '/replays',
   ];
 
   // ── route → narration slug ──────────────────────────────────────

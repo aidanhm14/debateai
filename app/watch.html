@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Watch Debates Live · Streams, Replays, and Clips · Debatable</title>
+<meta name="description" content="Watch live debate streams and full round replays. Every published round is recorded end to end and clippable, so you can cut the moment a round turned and share it anywhere: YouTube, TikTok, X, or your team channel." />
+<meta name="keywords" content="watch debate online, live debate stream, debate livestream, stream a debate tournament, debate replays, debate recordings, record a debate round, debate clips, debate highlights, debate video, watch debate rounds, debate content for youtube" />
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://itsdebatable.com/watch">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://itsdebatable.com/watch">
+<meta property="og:title" content="Watch Debates Live · Streams, Replays, and Clips">
+<meta property="og:description" content="Live debate streams and full round replays. Every published round is recorded and clippable, so the moment a round turned is one link away.">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Watch Debates Live · Streams, Replays, and Clips">
+<meta name="twitter:description" content="Live debate streams and full round replays. Every published round is recorded and clippable.">
+<meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+
+<script defer src="/js/track.js"></script>
+
+<style>
+:root{
+  --bg:#0b0b0d;
+  --surface:#141417;
+  --surface2:#1c1c21;
+  --border:rgba(255,255,255,.08);
+  --text:#f4f4f2;
+  --dim:rgba(244,244,242,.62);
+  --faint:rgba(244,244,242,.4);
+  --red:#ef4444;
+  --red-deep:#dc2626;
+  --green:#22c55e;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Crimson Pro',Georgia,serif;min-height:100vh}
+em,i{font-style:normal}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+a{color:inherit}
+
+/* ── Header */
+.page-head{padding:44px 0 10px}
+.page-eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);font-weight:700}
+.page-title{font-size:clamp(30px,5vw,44px);font-weight:800;line-height:1.05;margin-top:8px}
+.page-sub{color:var(--dim);font-size:17px;margin-top:10px;max-width:640px}
+
+/* ── Live band */
+.live-band{display:none;margin-top:26px;border:1px solid rgba(239,68,68,.35);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.live-band.on{display:block}
+.live-band-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.live-pill{display:inline-flex;align-items:center;gap:7px;background:var(--red);color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.live-title{font-size:18px;font-weight:700}
+.live-frame{width:100%;aspect-ratio:16/9;border:0;display:block;background:#000}
+
+/* ── Player */
+.player-card{display:none;margin-top:26px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.player-card.on{display:block}
+.player-head{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;flex-wrap:wrap}
+.player-head h2{font-size:20px;font-weight:800;flex:1;min-width:220px}
+.player-meta{color:var(--faint);font-size:14px;width:100%}
+video{width:100%;max-height:66vh;display:block;background:#000}
+.clip-note{display:none;padding:10px 18px;background:rgba(239,68,68,.12);border-top:1px solid rgba(239,68,68,.3);font-size:15px}
+.clip-note.on{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.clip-note button{margin-left:auto}
+
+/* ── Clip maker */
+.clip-tools{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.clip-tools .hint{color:var(--faint);font-size:14px;width:100%}
+.btn{font-family:inherit;font-size:15px;font-weight:700;padding:9px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;transition:background .15s,border-color .15s}
+.btn:hover{background:#26262c}
+.btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.primary:hover{background:var(--red-deep)}
+.btn[disabled]{opacity:.45;cursor:default}
+.mark{font-variant-numeric:tabular-nums;color:var(--dim);font-size:15px}
+input.clip-title{flex:1;min-width:180px;font-family:inherit;font-size:15px;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+
+/* ── Grids */
+.sec{margin-top:44px}
+.sec-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.sec-sub{color:var(--faint);font-size:15px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text)}
+.card:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.4)}
+.card:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.card .kicker{display:flex;gap:8px;align-items:center;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.chip{background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;font-size:12px;letter-spacing:.06em}
+.chip.stream{border-color:rgba(239,68,68,.4);color:var(--red)}
+.card h3{font-size:17.5px;font-weight:700;line-height:1.3;margin-top:9px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card .foot{margin-top:12px;color:var(--faint);font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.empty{color:var(--faint);font-size:16px;padding:26px;border:1px dashed var(--border);border-radius:var(--radius);text-align:center}
+
+footer{margin:70px 0 40px;color:var(--faint);font-size:14px;text-align:center}
+footer a{color:var(--dim)}
+@media (max-width:640px){ .page-head{padding-top:30px} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="page-head">
+    <div class="page-eyebrow">Watch</div>
+    <h1 class="page-title">Live streams and round replays</h1>
+    <p class="page-sub">Tournament streams go out live here and on the homepage. Every recorded round lands below, full ballot-to-ballot video you can replay and clip.</p>
+  </header>
+
+  <!-- Live stream, shown only while the owner is broadcasting -->
+  <section class="live-band" id="liveBand" aria-live="polite">
+    <div class="live-band-head">
+      <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+      <span class="live-title" id="liveTitle">Live from the arena</span>
+    </div>
+    <iframe class="live-frame" id="liveFrame" title="Live tournament stream" allow="autoplay; clipboard-write"></iframe>
+  </section>
+
+  <!-- Replay player -->
+  <section class="player-card" id="playerCard">
+    <div class="player-head">
+      <h2 id="playerTitle">Replay</h2>
+      <button class="btn" id="shareBtn" type="button">Copy link</button>
+      <button class="btn" id="closePlayer" type="button">Close</button>
+      <div class="player-meta" id="playerMeta"></div>
+    </div>
+    <video id="player" controls playsinline preload="metadata"></video>
+    <div class="clip-note" id="clipNote">
+      <strong id="clipNoteTitle"></strong>
+      <span id="clipNoteRange" class="mark"></span>
+      <button class="btn" id="watchFullBtn" type="button">Watch full round</button>
+    </div>
+    <div class="clip-tools" id="clipTools">
+      <span class="hint">Make a clip: play to a moment, mark start and end, name it, save. Anyone with the link can watch it.</span>
+      <button class="btn" id="markStart" type="button">Mark start</button>
+      <span class="mark" id="startMark">start --:--</span>
+      <button class="btn" id="markEnd" type="button">Mark end</button>
+      <span class="mark" id="endMark">end --:--</span>
+      <input class="clip-title" id="clipTitle" maxlength="120" placeholder="Name the clip (the turn, the POI, the collapse)">
+      <button class="btn primary" id="saveClip" type="button">Save clip</button>
+    </div>
+  </section>
+
+  <!-- Clips of the open recording -->
+  <section class="sec" id="clipsSec" style="display:none">
+    <h2 class="sec-title">Clips from this round</h2>
+    <div class="sec-sub" id="clipsSub">Moments the audience pulled out.</div>
+    <div class="grid" id="clipsGrid"></div>
+  </section>
+
+  <!-- Replay library -->
+  <section class="sec" id="replaysSec">
+    <h2 class="sec-title">Round replays</h2>
+    <div class="sec-sub">Newest first. Recordings publish shortly after a round ends.</div>
+    <div class="grid" id="replaysGrid"><div class="empty">Loading replays…</div></div>
+  </section>
+
+  <!-- Recent clips across all rounds -->
+  <section class="sec" id="recentClipsSec" style="display:none">
+    <h2 class="sec-title">Recent clips</h2>
+    <div class="sec-sub">Short moments, straight to the point.</div>
+    <div class="grid" id="recentClipsGrid"></div>
+  </section>
+
+  <footer>
+    <a href="/">Home</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+    measurementId: "G-0V4R5MY3BT"
+  };
+  var auth = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      var app = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      if (firebase.auth) auth = firebase.auth();
+    }
+  } catch(e){ console.warn('[watch] firebase init failed:', e); }
+
+  function $(id){ return document.getElementById(id); }
+  function fmtTime(sec){
+    sec = Math.max(0, Math.floor(sec || 0));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    var h = Math.floor(m / 60); m = m % 60;
+    var mm = (h ? String(m).padStart(2,'0') : m);
+    return (h ? h + ':' : '') + mm + ':' + String(s).padStart(2,'0');
+  }
+  function fmtDate(unixSec){
+    if (!unixSec) return '';
+    try {
+      return new Date(unixSec * 1000).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+    } catch(e){ return ''; }
+  }
+  function esc(s){
+    return String(s || '').replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  // ── Live stream band ─────────────────────────────────────────────
+  var liveWasOn = false;
+  function pollLive(){
+    fetch('/api/stream-status').then(function(r){ return r.json(); }).then(function(s){
+      var band = $('liveBand');
+      if (s && s.live && s.url){
+        $('liveTitle').textContent = s.title || 'Live from the arena';
+        var frame = $('liveFrame');
+        var want = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
+        if (frame.src !== want) frame.src = want;
+        band.classList.add('on');
+        if (!liveWasOn){ try { gtag('event', 'watch_live_shown'); } catch(e){} }
+        liveWasOn = true;
+      } else {
+        band.classList.remove('on');
+        if (liveWasOn) $('liveFrame').src = 'about:blank';
+        liveWasOn = false;
+      }
+    }).catch(function(){});
+  }
+  pollLive();
+  setInterval(function(){ if (!document.hidden) pollLive(); }, 60000);
+
+  // ── Replay player ────────────────────────────────────────────────
+  var current = null;       // recording object
+  var currentLink = null;   // { link, expires }
+  var activeClip = null;    // clip object while clip playback is clamped
+  var marks = { start: null, end: null };
+
+  function metaLine(rec){
+    var bits = [];
+    if (rec.format) bits.push(rec.format.toUpperCase());
+    if (rec.proName && rec.conName) bits.push(esc(rec.proName) + ' vs ' + esc(rec.conName));
+    if (rec.startTs) bits.push(fmtDate(rec.startTs));
+    if (rec.duration) bits.push(fmtTime(rec.duration));
+    return bits.join(' · ');
+  }
+
+  function fetchLink(recId){
+    return fetch('/api/recordings?id=' + encodeURIComponent(recId) + '&link=1')
+      .then(function(r){ if (!r.ok) throw new Error('link'); return r.json(); });
+  }
+
+  function openRecording(rec, clip){
+    current = rec;
+    activeClip = clip || null;
+    marks = { start: null, end: null };
+    $('startMark').textContent = 'start --:--';
+    $('endMark').textContent = 'end --:--';
+    $('clipTitle').value = '';
+    $('playerTitle').textContent = rec.title || 'Replay';
+    $('playerMeta').textContent = metaLine(rec).replace(/&amp;/g, '&');
+    $('playerCard').classList.add('on');
+    var note = $('clipNote');
+    if (clip){
+      $('clipNoteTitle').textContent = clip.title;
+      $('clipNoteRange').textContent = fmtTime(clip.start) + ' to ' + fmtTime(clip.end);
+      note.classList.add('on');
+    } else {
+      note.classList.remove('on');
+    }
+    var player = $('player');
+    player.pause();
+    player.removeAttribute('src');
+    fetchLink(rec.id).then(function(l){
+      currentLink = l;
+      player.src = l.link;
+      if (clip){
+        player.addEventListener('loadedmetadata', function seekOnce(){
+          player.removeEventListener('loadedmetadata', seekOnce);
+          player.currentTime = clip.start;
+          player.play().catch(function(){});
+        });
+      }
+      player.load();
+    }).catch(function(){
+      $('playerMeta').textContent = 'Playback is not available for this recording right now. Try again in a minute.';
+    });
+    loadClips(rec.id);
+    $('playerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try { gtag('event', clip ? 'watch_clip_play' : 'watch_replay_play', { id: rec.id }); } catch(e){}
+  }
+
+  // Clamp clip playback: stop at the clip's end. Seeking away exits
+  // clip mode and turns into normal full-round playback.
+  $('player').addEventListener('timeupdate', function(){
+    if (!activeClip) return;
+    var t = $('player').currentTime;
+    if (t >= activeClip.end){
+      $('player').pause();
+    }
+    if (t < activeClip.start - 8 || t > activeClip.end + 8){
+      activeClip = null;
+      $('clipNote').classList.remove('on');
+    }
+  });
+  $('watchFullBtn').addEventListener('click', function(){
+    activeClip = null;
+    $('clipNote').classList.remove('on');
+    $('player').play().catch(function(){});
+    try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(current.id)); } catch(e){}
+  });
+
+  $('closePlayer').addEventListener('click', function(){
+    $('player').pause();
+    $('playerCard').classList.remove('on');
+    $('clipsSec').style.display = 'none';
+    current = null; activeClip = null;
+    try { history.replaceState(null, '', '/watch'); } catch(e){}
+  });
+
+  $('shareBtn').addEventListener('click', function(){
+    if (!current) return;
+    var url = location.origin + '/watch?r=' + encodeURIComponent(current.id);
+    navigator.clipboard.writeText(url).then(function(){
+      $('shareBtn').textContent = 'Copied';
+      setTimeout(function(){ $('shareBtn').textContent = 'Copy link'; }, 1600);
+    }).catch(function(){});
+  });
+
+  // ── Clip maker ───────────────────────────────────────────────────
+  $('markStart').addEventListener('click', function(){
+    marks.start = Math.floor($('player').currentTime);
+    $('startMark').textContent = 'start ' + fmtTime(marks.start);
+  });
+  $('markEnd').addEventListener('click', function(){
+    marks.end = Math.ceil($('player').currentTime);
+    $('endMark').textContent = 'end ' + fmtTime(marks.end);
+  });
+
+  function signIn(){
+    if (!auth) return Promise.reject(new Error('auth unavailable'));
+    var provider = new firebase.auth.GoogleAuthProvider();
+    return auth.signInWithPopup(provider);
+  }
+
+  $('saveClip').addEventListener('click', function(){
+    if (!current) return;
+    if (marks.start === null || marks.end === null || marks.end <= marks.start){
+      $('clipTitle').placeholder = 'Mark a start and an end first';
+      return;
+    }
+    var btn = $('saveClip');
+    var doSave = function(){
+      return auth.currentUser.getIdToken().then(function(token){
+        return fetch('/api/clips', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({
+            recordingId: current.id,
+            start: marks.start,
+            end: marks.end,
+            title: $('clipTitle').value.trim(),
+            name: (auth.currentUser.displayName || '').split(' ')[0],
+          }),
+        });
+      }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); });
+    };
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    var authed = auth && auth.currentUser ? Promise.resolve() : signIn();
+    authed.then(doSave).then(function(res){
+      if (!res.ok) throw new Error((res.body && res.body.error) || 'save failed');
+      btn.textContent = 'Saved';
+      var url = location.origin + '/watch?clip=' + encodeURIComponent(res.body.id);
+      navigator.clipboard.writeText(url).catch(function(){});
+      loadClips(current.id);
+      try { gtag('event', 'watch_clip_saved', { id: res.body.id }); } catch(e){}
+      setTimeout(function(){ btn.textContent = 'Save clip'; btn.disabled = false; }, 1800);
+    }).catch(function(e){
+      btn.textContent = /sign in/i.test(e.message || '') ? 'Sign in to clip' : 'Save clip';
+      btn.disabled = false;
+      console.warn('[watch] clip save failed:', e);
+    });
+  });
+
+  // ── Clip lists ───────────────────────────────────────────────────
+  function clipCard(clip, withSource){
+    var btn = document.createElement('button');
+    btn.className = 'card';
+    btn.type = 'button';
+    btn.innerHTML =
+      '<div class="kicker"><span class="chip">Clip · ' + fmtTime(clip.end - clip.start) + '</span></div>' +
+      '<h3>' + esc(clip.title) + '</h3>' +
+      '<div class="foot"><span>' + esc(clip.name) + '</span>' +
+      (withSource ? '<span>' + esc(clip.recordingTitle || '') + '</span>' : '<span>' + fmtTime(clip.start) + ' to ' + fmtTime(clip.end) + '</span>') +
+      '</div>';
+    btn.addEventListener('click', function(){ openClipById(clip); });
+    return btn;
+  }
+
+  function openClipById(clip){
+    if (current && current.id === clip.recordingId){
+      activeClip = clip;
+      $('clipNoteTitle').textContent = clip.title;
+      $('clipNoteRange').textContent = fmtTime(clip.start) + ' to ' + fmtTime(clip.end);
+      $('clipNote').classList.add('on');
+      var p = $('player');
+      p.currentTime = clip.start;
+      p.play().catch(function(){});
+      try { history.replaceState(null, '', '/watch?clip=' + encodeURIComponent(clip.id)); } catch(e){}
+      return;
+    }
+    fetch('/api/recordings?id=' + encodeURIComponent(clip.recordingId))
+      .then(function(r){ if (!r.ok) throw new Error('rec'); return r.json(); })
+      .then(function(j){
+        openRecording(j.recording, clip);
+        try { history.replaceState(null, '', '/watch?clip=' + encodeURIComponent(clip.id)); } catch(e){}
+      })
+      .catch(function(){});
+  }
+
+  function loadClips(recordingId){
+    fetch('/api/clips?recording=' + encodeURIComponent(recordingId))
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var clips = (j && j.clips) || [];
+        var sec = $('clipsSec');
+        if (!clips.length){ sec.style.display = 'none'; return; }
+        sec.style.display = '';
+        var grid = $('clipsGrid');
+        grid.innerHTML = '';
+        clips.forEach(function(c){ grid.appendChild(clipCard(c, false)); });
+      }).catch(function(){});
+  }
+
+  function loadRecentClips(){
+    fetch('/api/clips').then(function(r){ return r.json(); }).then(function(j){
+      var clips = (j && j.clips) || [];
+      if (!clips.length) return;
+      $('recentClipsSec').style.display = '';
+      var grid = $('recentClipsGrid');
+      grid.innerHTML = '';
+      clips.slice(0, 12).forEach(function(c){ grid.appendChild(clipCard(c, true)); });
+    }).catch(function(){});
+  }
+
+  // ── Replay library ───────────────────────────────────────────────
+  var recCache = {};
+  function loadReplays(){
+    fetch('/api/recordings').then(function(r){ return r.json(); }).then(function(j){
+      var recs = (j && j.recordings) || [];
+      var grid = $('replaysGrid');
+      grid.innerHTML = '';
+      if (!recs.length){
+        grid.innerHTML = '<div class="empty">No replays yet. The next recorded round shows up here.</div>';
+        return;
+      }
+      recs.forEach(function(rec){
+        recCache[rec.id] = rec;
+        var btn = document.createElement('button');
+        btn.className = 'card';
+        btn.type = 'button';
+        btn.innerHTML =
+          '<div class="kicker">' +
+            (rec.isStream ? '<span class="chip stream">Stream</span>' : '<span class="chip">' + esc((rec.format || 'round').toUpperCase()) + '</span>') +
+            '<span>' + fmtDate(rec.startTs) + '</span>' +
+          '</div>' +
+          '<h3>' + esc(rec.title) + '</h3>' +
+          '<div class="foot">' +
+            '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : '') + '</span>' +
+            '<span>' + fmtTime(rec.duration) + '</span>' +
+          '</div>';
+        btn.addEventListener('click', function(){
+          openRecording(rec, null);
+          try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(rec.id)); } catch(e){}
+        });
+        grid.appendChild(btn);
+      });
+    }).catch(function(){
+      $('replaysGrid').innerHTML = '<div class="empty">Replays could not load. Refresh to retry.</div>';
+    });
+  }
+
+  // ── Deep links: /watch?r=<recording> and /watch?clip=<clip> ──────
+  function handleDeepLink(){
+    var params = new URLSearchParams(location.search);
+    var clipId = params.get('clip');
+    var recId = params.get('r');
+    if (clipId){
+      fetch('/api/clips?id=' + encodeURIComponent(clipId))
+        .then(function(r){ if (!r.ok) throw new Error('clip'); return r.json(); })
+        .then(function(j){ openClipById(j.clip); })
+        .catch(function(){});
+    } else if (recId){
+      fetch('/api/recordings?id=' + encodeURIComponent(recId))
+        .then(function(r){ if (!r.ok) throw new Error('rec'); return r.json(); })
+        .then(function(j){ openRecording(j.recording, null); })
+        .catch(function(){});
+    }
+  }
+
+  loadReplays();
+  loadRecentClips();
+  handleDeepLink();
+})();
+</script>
+</body>
+</html>

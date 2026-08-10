@@ -54,6 +54,10 @@ const URLS = [
   { path: '/rounds',          changefreq: 'weekly',  priority: '0.80', lastmod: '2026-07-22' },
   // Standalone live-lobby experience. Added 2026-07-27.
   { path: '/arena',           changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-27' },
+  // Watch hub: live stream band, published replays, clips. Added 2026-08-10.
+  // /replays serves the same document, so it is deliberately NOT listed;
+  // submitting both would be two URLs for one page against one canonical.
+  { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-10' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
   // Aidan's brief ("promote exhibition debate via SEO improvements
