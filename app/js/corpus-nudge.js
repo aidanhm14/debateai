@@ -78,6 +78,12 @@
   }
 
   function optIn(){
+    // The 18+ attestation is a hard prerequisite, not a formality: the
+    // server refuses to mark any round contributable without
+    // corpusAgeAttested on the profile, so an opt-in written without it
+    // would silently do nothing. Minors' rounds are never licensable.
+    var ageBox = document.getElementById('corpusNudgeAge');
+    if (!ageBox || !ageBox.checked) return;
     set(CONSENT_KEY, '1');
     set(SHOWN_KEY, '1');
     try {
@@ -85,6 +91,7 @@
       if (user && firebase.firestore) {
         firebase.firestore().collection('user_profiles').doc(user.uid).set({
           contributeToCorpus: true,
+          corpusAgeAttested: true,
           contributeToCorpusUpdatedAt: new Date(),
         }, { merge: true }).catch(function(e){ console.warn('[corpus-nudge] save failed:', e && e.message); });
       }
@@ -117,6 +124,9 @@
       + '#corpusNudgeCard .cb.ghost{background:transparent;color:rgba(247,245,238,.62);padding:12px 16px;font-size:.9rem;font-weight:500}'
       + '#corpusNudgeCard .cb.ghost:hover{color:#fff}'
       + '#corpusNudgeCard a.cb{display:inline-block;text-decoration:none}'
+      + '#corpusNudgeCard .cb.primary:disabled{opacity:.45;cursor:not-allowed;filter:none}'
+      + '#corpusNudgeAgeRow{display:flex;align-items:flex-start;gap:9px;margin-top:14px;padding:10px 12px;border:1px solid rgba(239,68,68,.22);border-radius:10px;background:rgba(239,68,68,.06);font-size:.88rem;line-height:1.45;color:rgba(247,245,238,.85);cursor:pointer}'
+      + '#corpusNudgeAgeRow input{margin-top:3px;accent-color:#ef4444;cursor:pointer}'
       + '</style>'
       + '<div id="corpusNudgeCard" role="dialog" aria-modal="true" aria-labelledby="corpusNudgeTitle" style="background:#1a0808;color:#f7f5ee;border:1px solid rgba(239,68,68,.25);border-radius:18px;padding:32px 30px;max-width:520px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.6)">'
       +   '<div style="font-size:.72rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#ef4444;margin-bottom:10px">A quick ask</div>'
@@ -125,15 +135,19 @@
       +     '<p style="margin:0 0 10px">You\'ve rated a few rounds now. The rounds you\'re generating here are exactly the data AI research orgs are looking for: structured, format-aware, judge-graded argumentative speech that they can\'t get from reddit or podcasts.</p>'
       +     '<p style="margin:0 0 10px">If you opt in, your <strong>future</strong> rounds (typed and voice) become part of an anonymized corpus we may license to those research orgs. Anonymized means stripped of name, email, account id. Past rounds are never affected. Off by default. Toggle off any time in profile settings.</p>'
       +   '</div>'
+      +   '<label id="corpusNudgeAgeRow"><input type="checkbox" id="corpusNudgeAge"><span>I confirm I am 18 or older. Rounds from anyone under 18 are never licensed, so this box is required.</span></label>'
       +   '<div id="corpusNudgeBtns" style="margin-top:22px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end">'
       +     '<a href="/privacy#corpus" target="_blank" rel="noopener" class="cb ghost" id="corpusNudgeLearn">Read terms</a>'
       +     '<button class="cb ghost" id="corpusNudgeLater">Not now</button>'
-      +     '<button class="cb primary" id="corpusNudgeYes">Yes, count me in</button>'
+      +     '<button class="cb primary" id="corpusNudgeYes" disabled>Yes, count me in</button>'
       +   '</div>'
       + '</div>';
 
     document.body.appendChild(root);
 
+    document.getElementById('corpusNudgeAge').addEventListener('change', function(e){
+      document.getElementById('corpusNudgeYes').disabled = !e.target.checked;
+    });
     document.getElementById('corpusNudgeYes').addEventListener('click', optIn);
     document.getElementById('corpusNudgeLater').addEventListener('click', function(){ close(true); });
     document.getElementById('corpusNudgeLearn').addEventListener('click', function(){

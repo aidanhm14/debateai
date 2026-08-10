@@ -5256,7 +5256,12 @@ function App() {
     // contributable:false so they feed the internal learning loop but
     // never the opt-in licensed corpus export.
     if (realUserTurns >= 1) {
-      try {
+      // Declining the round-entry storage prompt has to actually mean the
+      // words are not stored: this flush used to ship unconditionally,
+      // which would have made the prompt a lie. Denied or unanswered both
+      // skip the write entirely.
+      var transcriptConsentOK = !!(window.TranscriptConsent && window.TranscriptConsent.granted());
+      if (transcriptConsentOK) try {
         var t = (turnsRef.current || []).filter((x) => x && x.who !== 'system' && (x.text || '').trim());
         if (t.length >= 2) {
           var transcript = t.map((x) => (x.who === 'you' ? 'USER' : 'AI') + ': ' + (x.text || '').trim()).join('\n\n');
@@ -5284,9 +5289,11 @@ function App() {
               source: namedUser ? 'voice_signed_in' : 'anonymous_voice_round',
               fullTranscript: transcript.slice(0, 39000)
             },
-            // Research-corpus opt-in (off by default). Profile toggle in
-            // profile.html flips localStorage['debateos-corpus-contribute'].
-            contributable: namedUser && function () {try {return localStorage.getItem('debateos-corpus-contribute') === '1';} catch (e) {return false;}}()
+            // Research-corpus opt-in (off by default). This is a request,
+            // not an authorization: the server re-checks the profile's
+            // contributeToCorpus + corpusAgeAttested (18+) before stamping
+            // the flag, so a stale localStorage mirror can't over-grant.
+            contributable: namedUser
           };
 
           var handleVoiceLogResponse = (r) => r.ok ? r.json() : null;
@@ -5377,6 +5384,11 @@ function App() {
     cleanup();
     setStatus('connecting');
     setConnectStep('Minting session…');
+    // Round-entry storage consent, asked once before the first stored
+    // round. Non-blocking: the modal overlays the connecting screen and
+    // the answer is read again at flush time in stop(). Unanswered or
+    // declined both mean the transcript is never written to the server.
+    try {if (window.TranscriptConsent) window.TranscriptConsent.ensure();} catch (e) {}
     // Bound the whole handshake. Aborts at 30s (or via the Cancel button);
     // the outer catch rolls back to idle so the spinner can't hang forever.
     var connectAbort = new AbortController();
@@ -8712,6 +8724,7 @@ root.render(el(App));</script>
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/onboarding.js"></script>
 <script defer src="/js/corpus-nudge.js"></script>
+<script defer src="/js/transcript-consent.js"></script>
 
 <!-- Floating Feedback pill. Surface parity with landing.html and
      pricing.html. Links straight to the Google Form rather than

@@ -39,6 +39,10 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      word-list, min length, URL-spam ratio. Cheap pre-check before the
      Firestore write so junk never lands on the public board. -->
 <script defer src="/js/disclosure-guard.js"></script>
+<!-- Round-entry storage consent. Debaters get asked once, before their
+     first stored round; declining means their speeches are never written
+     to the server. Gates the kind:'live_round' flush at ballot time. -->
+<script defer src="/js/transcript-consent.js"></script>
 <!-- Floating / picture-in-picture mini player (Minimize + Pop out). -->
 <script defer src="/js/live-pip.js"></script>
 <!-- daily-js wrapper + the camera converter (Camera / Avatar / Off).
@@ -4340,6 +4344,7 @@ html.stage-mode .stage-ov{display:block}
     // during a round can be aligned to what was being said.
     state.roundStartedAt = Date.now();
     state.phase = 'round';
+    try { maybeAskRoundConsent(); } catch(e){}
     try { pmOpen(); pmInitSpectator(); } catch(e){}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
     $('setupView').classList.add('hidden');
@@ -5180,6 +5185,82 @@ html.stage-mode .stage-ov{display:block}
     el.textContent = msg;
   }
 
+  // ── Durable round capture (consent-gated) ─────────────────────────
+  // A live round used to lose its words when the tab closed: the speech
+  // transcripts fed the judge and evaporated. If this signed-in debater
+  // said yes to the storage prompt, their OWN speeches + the ballot flush
+  // to /api/log-generation as kind:'live_round' when the ballot lands.
+  // Each debater's client flushes only their side under their own uid, so
+  // every stored row is covered by the consent of the person who actually
+  // said the words; the opponent's copy is theirs to grant or refuse.
+  // The server re-checks the research-corpus opt-in + 18+ attestation
+  // before any row is marked contributable, so `contributable:true` here
+  // is a request, not an authorization.
+  // Skipped for 4-team and partnered formats: a bench filter there would
+  // sweep a partner's speeches under the wrong person's consent.
+  var corpusFlushed = false;
+  function maybeAskRoundConsent(){
+    // Only signed-in debaters get the ask. Spectators store nothing, and
+    // anonymous debaters can't flush (the endpoint requires an account
+    // for live rounds), so prompting either would be consent theater.
+    if (isSpectator()) return;
+    var s = mySide();
+    if (s !== 'pro' && s !== 'con') return;
+    if (!state.user || !window.TranscriptConsent) return;
+    TranscriptConsent.ensure();
+  }
+  function logMyRoundSpeeches(b){
+    if (corpusFlushed) return;
+    if (isSpectator()) return;
+    var side = mySide();
+    if (side !== 'pro' && side !== 'con') return;
+    if (!state.user || !state.user.getIdToken) return;
+    if (!(window.TranscriptConsent && TranscriptConsent.granted())) return;
+    var f = FORMATS[state.formatKey];
+    if (!f || isFourTeam(f)) return;
+    if (state.proUid2 || state.conUid2) return;
+    var mySideKey = side === 'pro' ? f.sides[0] : f.sides[1];
+    var mine = (state.log || []).filter(function(l){
+      return l && l.side === mySideKey && !l.skipped
+        && l.text && l.text !== '(no transcript)';
+    });
+    if (!mine.length) return;
+    corpusFlushed = true;
+    // Speech tags carry the speech code only, never the speaker's name;
+    // the export pipeline scrubs free text but names don't need to be
+    // there in the first place.
+    var speechText = mine.map(function(l){ return '[' + l.code + ']\n' + l.text; }).join('\n\n');
+    var rfd = (b && typeof b.rfd === 'string') ? b.rfd : '';
+    var myPoints = b ? (side === 'pro' ? b.proPoints : b.conPoints) : null;
+    var payload = {
+      action: 'generation',
+      kind: 'live_round',
+      motion: (state.motion || '').slice(0, 2000),
+      side: side,
+      format: state.formatKey || '',
+      model: 'human',
+      promptId: 'live-round',
+      userPrompt: speechText.slice(0, 7800),
+      output: (rfd || '(no ballot)').slice(0, 39000),
+      context: {
+        source: 'live_round',
+        speechCount: mine.length,
+        result: (b && b.winner) ? (b.winner === side ? 'won' : 'lost') : '',
+        speakerPoints: typeof myPoints === 'number' ? myPoints : 0,
+        fullTranscript: speechText.slice(0, 39000)
+      },
+      contributable: true
+    };
+    state.user.getIdToken().then(function(tok){
+      if (!tok) return;
+      return fetch('/api/log-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify(payload)
+      });
+    }).catch(function(){ corpusFlushed = false; });
+  }
+
   function generateBallot(attempt){
     attempt = attempt || 1;
     // Snapshot the loading markup once so a manual retry can restore it
@@ -5521,6 +5602,10 @@ html.stage-mode .stage-ov{display:block}
   function renderBallot(b){
     state.lastBallot = b || null;
     state.lastBallot = b;
+    // Both clients pass through here (the generating debater directly,
+    // the other via the Firestore sync), so this is the one choke point
+    // where each side can flush its own consented speeches.
+    try { logMyRoundSpeeches(b); } catch(e){}
     // Pin phase so the Firestore snapshot guard (state.phase ===
     // 'ballot-rendered') stops re-firing renderBallot. Without this,
     // generateBallot's success path enters renderBallot first while
@@ -7594,6 +7679,7 @@ html.stage-mode .stage-ov{display:block}
     // Phase advance: remote is in round/ballot but we're still in setup
     if ((d.status === 'round' || d.status === 'ballot') && state.phase === 'setup'){
       state.phase = 'round';
+      try { maybeAskRoundConsent(); } catch(e){}
       var spec = isSpectator();
       // A watcher still at the door does not get the round when it
       // starts. Without this, the admission gate is decorative: the

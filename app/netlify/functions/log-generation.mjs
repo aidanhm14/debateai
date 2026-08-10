@@ -34,6 +34,7 @@ const VALID_KINDS = new Set([
   'vision',
   'resolution',
   'voice_round',
+  'live_round',
   'other',
 ]);
 
@@ -102,6 +103,36 @@ function sanitizeSid(raw) {
 
 function anonUid(sessionId) {
   return 'anon:' + createHash('sha256').update(sessionId).digest('hex').slice(0, 24);
+}
+
+// Server-side re-check of the research-corpus opt-in. privacy.html §7
+// promises "the server re-checks the confirmation before marking any round
+// as contributable" — this is that check. The client's `contributable`
+// field is only a request; the flag that lands on the doc requires
+// user_profiles/{uid} to carry BOTH contributeToCorpus:true AND
+// corpusAgeAttested:true (the 18+ attestation — minors' rounds are never
+// licensable). Fail-closed: a missing profile or a read error means false.
+// 5-min in-memory cache so opt-in/opt-out propagates quickly while the
+// steady-state cost stays near zero Firestore reads.
+const consentCache = new Map(); // uid -> { ok, at }
+const CONSENT_CACHE_MS = 5 * 60 * 1000;
+
+async function verifyCorpusConsent(db, uid) {
+  const now = Date.now();
+  const hit = consentCache.get(uid);
+  if (hit && now - hit.at < CONSENT_CACHE_MS) return hit.ok;
+  let ok = false;
+  try {
+    const snap = await db.collection('user_profiles').doc(uid).get();
+    const d = snap.exists ? snap.data() : null;
+    ok = !!(d && d.contributeToCorpus === true && d.corpusAgeAttested === true);
+  } catch (err) {
+    console.warn('[log-generation] consent check failed, treating as no:', err.message);
+    ok = false;
+  }
+  if (consentCache.size > 5000) consentCache.clear();
+  consentCache.set(uid, { ok, at: now });
+  return ok;
 }
 
 function clientIp(request) {
@@ -199,8 +230,12 @@ export default async (request) => {
       // a previously contributable round, and an opt-in does not reach back
       // to pre-consent rounds. This is the only legally clean posture for
       // any downstream licensing of the generations corpus.
+      // The client's flag is a request, not an authorization: the server
+      // verifies the profile opt-in + 18+ attestation before stamping true.
       const anonymousAuth = isAnon || authProvider === 'anonymous';
-      const contributable = !anonymousAuth && body.contributable === true;
+      const contributable = !anonymousAuth
+        && body.contributable === true
+        && await verifyCorpusConsent(db, uid);
       const cleanContext = sanitizeContext(context);
       if (isAnon) cleanContext.source = cleanContext.source || 'anonymous_voice_round';
 

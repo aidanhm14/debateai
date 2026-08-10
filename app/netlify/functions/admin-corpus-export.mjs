@@ -73,6 +73,10 @@ const ALLOWED_CONTEXT = new Set([
   'mode',
   'depth',
   'feature',
+  // live_round rows (human vs human): structural outcome metadata.
+  'speechCount',
+  'result',
+  'speakerPoints',
 ]);
 
 const DEFAULT_LIMIT = 500;
@@ -114,12 +118,21 @@ function anonymize(doc) {
   // Provenance: which half is human-authored (cleanly licensable) vs model
   // output (resale gated by the upstream provider's ToS). Typed rounds put the
   // human's words in userPrompt and the AI's in output; voice rounds split
-  // inside fullTranscript. Labeling it lets a buyer filter without guessing.
-  out.provenance = {
-    humanAuthored: data.kind === 'voice_round' ? 'transcript:User turns' : 'userPrompt',
-    aiAuthored: 'output',
-    aiModel: data.model || '',
-  };
+  // inside fullTranscript. live_round rows are human-vs-human: every speech
+  // is human-authored (the consenting speaker's own side only) and the only
+  // AI text is the judge ballot in output. Labeling it lets a buyer filter
+  // without guessing.
+  out.provenance = data.kind === 'live_round'
+    ? {
+        humanAuthored: 'userPrompt + context.fullTranscript (speaker\'s own speeches, all human)',
+        aiAuthored: 'output (AI judge ballot)',
+        aiModel: 'judge',
+      }
+    : {
+        humanAuthored: data.kind === 'voice_round' ? 'transcript:User turns' : 'userPrompt',
+        aiAuthored: 'output',
+        aiModel: data.model || '',
+      };
   out.piiScrubHits = scrubHits;
   // Synthetic stable row id so a lab can reference a specific row in
   // a withdrawal request without seeing the underlying Firestore id.

@@ -2445,7 +2445,12 @@ function logRound(){
         source: 'newvoice',
         fullTranscript: t.map((x) => (x.who === 'you' ? 'USER' : 'AI') + ': ' + x.text).join('\n\n').slice(0, 39000),
       },
-      contributable: false,
+      // Request, not authorization: the server only stamps contributable
+      // after re-checking the profile's corpus opt-in + 18+ attestation,
+      // and anonymous rounds are always forced to false server-side. The
+      // old hardcoded false silently excluded opted-in users' clash
+      // rounds from the corpus.
+      contributable: true,
     };
     const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
     if (u && !u.isAnonymous) {
