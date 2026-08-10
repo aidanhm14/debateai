@@ -6251,10 +6251,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var landingGate = document.querySelector('.landing-more-shell');
     var gateCollapsed = document.body.classList.contains('landing-more-ready') &&
       !document.body.classList.contains('landing-more-open');
+    // Chapters gated by the one-pager collapse but physically BEFORE the
+    // shell (see the hide list after #first-screen). Position alone
+    // cannot spot them, so they are named here.
+    var gatedBeforeShell = {
+      'how-it-works':1, 'live-now':1, 'live-proof':1,
+      'ranked-band':1, 'creator-sweepstakes':1
+    };
+    // PARKED chapters (see the display:none rule in the gate shell) are
+    // hidden even when the gate is open. Their rows must drop, or the
+    // pills advertise destinations that scroll nowhere.
+    var parked = {
+      'stream-it':1, 'floor-band':1, 'community-band':1, 'engine-select':1
+    };
     items = items.filter(function(it){
       if (it.sec.offsetParent || it.sec.offsetHeight > 0) return true;
       var deferredByGate = gateCollapsed && landingGate &&
-        ((landingGate.compareDocumentPosition(it.sec) & 4) !== 0);
+        parked[it.sec.id] !== 1 &&
+        (((landingGate.compareDocumentPosition(it.sec) & 4) !== 0) ||
+          gatedBeforeShell[it.sec.id] === 1);
       if (deferredByGate) return true;
       var row = it.a.closest ? it.a.closest('li') : it.a.parentNode;
       if (row) row.style.display = 'none';
@@ -7439,6 +7454,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </div>
   </div>
 </section>
+
+<!-- ── One-pager gate flag (2026-08-10) ──────────────────────────────
+     Per Aidan: the landing is one simple screen. Every chapter after
+     the first screen waits behind the "Load more" card; the
+     .landing-more-shell further down keeps the card, the section
+     pills, the open-state cv rules and the toggle script. The
+     collapsed hide rules + the landing-more-ready flag sit HERE,
+     before any gated chapter parses, so a slow connection never
+     paints a chapter that then collapses away. Keep this hide list,
+     the shell's extraSelector and the page-toc's pre-shell gate list
+     in sync when gating or promoting a section. -->
+<style>
+  body.landing-more-ready:not(.landing-more-open) #how-it-works,
+  body.landing-more-ready:not(.landing-more-open) .hero-founder-frame > .hero,
+  body.landing-more-ready:not(.landing-more-open) #live-now,
+  body.landing-more-ready:not(.landing-more-open) #live-proof,
+  body.landing-more-ready:not(.landing-more-open) #ranked-band,
+  body.landing-more-ready:not(.landing-more-open) #creator-sweepstakes,
+  body.landing-more-ready:not(.landing-more-open) #stream-it,
+  body.landing-more-ready:not(.landing-more-open) #why-this-exists,
+  body.landing-more-ready:not(.landing-more-open) #floor-band,
+  body.landing-more-ready:not(.landing-more-open) #mode-select,
+  body.landing-more-ready:not(.landing-more-open) #engine-select,
+  body.landing-more-ready:not(.landing-more-open) #credential-path,
+  body.landing-more-ready:not(.landing-more-open) #community-band,
+  body.landing-more-ready:not(.landing-more-open) #face-wall,
+  body.landing-more-ready:not(.landing-more-open) #reviews,
+  body.landing-more-ready:not(.landing-more-open) #faq,
+  body.landing-more-ready:not(.landing-more-open) #book-founders,
+  body.landing-more-ready:not(.landing-more-open) .footer-links,
+  body.landing-more-ready:not(.landing-more-open) .footer-more{
+    display:none !important;
+  }
+  body.landing-more-ready:not(.landing-more-open) .footer-row{justify-content:center}
+</style>
+<script>document.body.classList.add('landing-more-ready');</script>
 
 <!-- ── HOW IT WORKS (2026-08-10, v2 same day) ────────────────────────
      Full-viewport swipe deck, dark slab. v1 rode the warm-paper card
@@ -12023,35 +12074,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      visitors who want the full tour, but it no longer competes for attention
      until they choose to open it. -->
 <div class="landing-more-shell">
-  <script>document.body.classList.add('landing-more-ready');</script>
+  <!-- 2026-08-10: the landing-more-ready flag + the collapsed hide
+       rules moved up to sit right after #first-screen (one-pager
+       gate flag block), so gated chapters never paint before the
+       rules that hide them exist. The gate itself, the pills and the
+       open-state rules still live here. That pass also re-gated
+       #how-it-works, #live-now, #live-proof, #ranked-band and
+       #creator-sweepstakes: the whole page after the first screen is
+       behind the Load more card now. -->
   <style>
     .landing-more-shell{background:var(--bg,#faf9f5)}
     .landing-more{width:100%}
-    body.landing-more-ready:not(.landing-more-open) .hero-founder-frame > .hero,
-    body.landing-more-ready:not(.landing-more-open) #stream-it,
-    body.landing-more-ready:not(.landing-more-open) #why-this-exists,
-    body.landing-more-ready:not(.landing-more-open) #floor-band,
-    body.landing-more-ready:not(.landing-more-open) #mode-select,
-    body.landing-more-ready:not(.landing-more-open) #engine-select,
-    body.landing-more-ready:not(.landing-more-open) #credential-path,
-    body.landing-more-ready:not(.landing-more-open) #community-band,
-    body.landing-more-ready:not(.landing-more-open) #face-wall,
-    /* 2026-08-10: #ranked-band + #creator-sweepstakes removed from this
-       hide list — they were promoted above the gate to carry the
-       leaderboard -> streamer-show vision and must render pre-open. */
-    body.landing-more-ready:not(.landing-more-open) #reviews,
-    body.landing-more-ready:not(.landing-more-open) #faq,
-    body.landing-more-ready:not(.landing-more-open) #book-founders,
-    body.landing-more-ready:not(.landing-more-open) .footer-links,
-    body.landing-more-ready:not(.landing-more-open) .footer-more{
-      display:none !important;
-    }
-    body.landing-more-ready:not(.landing-more-open) .footer-row{justify-content:center}
     /* Control arm (and JS-off visitors): opening the gate force-renders
        every chapter at once, the behavior this rule shipped with on
        2026-07-25. The landing_cv_v1 'cv' arm drops the override so the
        chapters keep content-visibility:auto after the gate opens and
        only render near the viewport. QA: ?lpcv=cv|control. */
+    html:not([data-lpcv="cv"]) body.landing-more-open #how-it-works,
+    html:not([data-lpcv="cv"]) body.landing-more-open #live-now,
+    html:not([data-lpcv="cv"]) body.landing-more-open #live-proof,
     html:not([data-lpcv="cv"]) body.landing-more-open #stream-it,
     html:not([data-lpcv="cv"]) body.landing-more-open #why-this-exists,
     html:not([data-lpcv="cv"]) body.landing-more-open #floor-band,
@@ -12212,7 +12253,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="lm-sub">Debate is a spectator sport here. Meet the debaters, see how rounds get judged, follow the leaderboard. Or jump straight to a section below.</span>
       </span>
       <span class="lm-action">
-        <span class="lm-closed">Show more</span>
+        <span class="lm-closed">Load more</span>
         <span class="lm-open">Show less</span>
         <i aria-hidden="true">↓</i>
       </span>
@@ -12224,6 +12265,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var toggle = document.getElementById('landing-more-toggle');
     var extraSelector = [
       '.hero-founder-frame > .hero',
+      '#how-it-works', '#live-now', '#live-proof', '#ranked-band', '#creator-sweepstakes',
       '#why-this-exists', '#floor-band', '#mode-select', '#engine-select', '#credential-path',
       '#community-band', '#face-wall',
       '#reviews', '#faq', '#book-founders'
@@ -12259,7 +12301,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // precedent); chapters at and below it keep containment.
     function forceRenderAbove(target){
       if (document.documentElement.getAttribute('data-lpcv') !== 'cv') return;
-      var chapters = ['ranked-band','creator-sweepstakes','stream-it','why-this-exists','floor-band','mode-select','engine-select','credential-path','community-band','face-wall','reviews','faq','book-founders'];
+      var chapters = ['how-it-works','live-now','live-proof','ranked-band','creator-sweepstakes','stream-it','why-this-exists','floor-band','mode-select','engine-select','credential-path','community-band','face-wall','reviews','faq','book-founders'];
       for (var i = 0; i < chapters.length; i++){
         var el = document.getElementById(chapters[i]);
         if (!el) continue;
