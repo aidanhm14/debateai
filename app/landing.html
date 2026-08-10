@@ -7428,266 +7428,371 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 
-<!-- ── HOW IT WORKS (2026-08-10) ─────────────────────────────────────
-     Five-step swipe deck, per Aidan: "have it swipe between steps like
-     1-5 steps with the match with person, get verdict, go in
-     leaderboard, win money if you do well. pay in to get payouts or
-     compete for free." Sits directly under the first-screen demo so a
-     cold visitor gets the loop before the hero pitch. Native scroll-
-     snap carousel: swipe on touch, arrows + dots + step chips on
-     desktop, gentle auto-advance that stops on first interaction.
-     Steps 3-5 are the vision ladder (leaderboard -> streamer show ->
-     money), which the promoted #ranked-band and #creator-sweepstakes
-     sections below back up with the real surfaces. -->
+<!-- ── HOW IT WORKS (2026-08-10, v2 same day) ────────────────────────
+     Full-viewport swipe deck, dark slab. v1 rode the warm-paper card
+     system; Aidan: "change the color to a little darker black like
+     polymarket and then make it bigger and whole screen swiping with
+     more detail". So: hardcoded near-black band in both site themes
+     (deliberate slab, same precedent as the live-proof bands), slides
+     sized to the viewport, and each visual is a data panel (ticket,
+     ballot with rubric axes, board table, stream stage, pool split)
+     instead of a vignette. Steps per his spec: match with person, get
+     verdict, go on leaderboard, the streamer show, win money (pay in
+     for payouts or compete free).
+     Carousel JS notes (verified live on this page, do not re-simplify):
+     native smooth scrolling gets cancelled by the landing's scroll
+     machinery, scroll events never fire on nested scrollers, and
+     clientWidth reads 0 outside the lazy-layout range. Hence the
+     hand-rolled tween + position poller. -->
 <section id="how-it-works" class="hiw" aria-label="How Debatable works">
   <style>
-    .hiw{padding:var(--mid-pad-block,clamp(52px,6vw,92px)) var(--mid-gutter,20px);display:flex;justify-content:center}
-    [data-theme="light"] .hiw{background:linear-gradient(180deg,#fdfbf6,#faf7f1)}
-    .hiw-wrap{width:100%;max-width:var(--mid-w,1180px)}
-    .hiw-head{text-align:center;max-width:820px;margin:0 auto 26px}
-    .hiw-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.6));margin-bottom:12px}
-    .hiw-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(2rem,3.6vw,3rem);font-weight:700;letter-spacing:-.02em;line-height:1.06;margin:0 0 12px;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .hiw-title{color:#1a1a1f}
-    .hiw-title em{font-style:normal;color:#ef4444}
-    .hiw-sub{font-size:clamp(.98rem,1.25vw,1.08rem);line-height:1.5;color:var(--text-dim,rgba(255,255,255,.7));margin:0}
-    [data-theme="light"] .hiw-sub{color:rgba(0,0,0,.66)}
-    /* Step chips: the clickable 1-5 rail. */
-    .hiw-chips{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:0;list-style:none}
-    .hiw-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;cursor:pointer;
-      border:1px solid rgba(255,255,255,.14);background:transparent;
-      font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.72rem;font-weight:750;
-      color:var(--text-dim,rgba(255,255,255,.62));transition:border-color .15s,color .15s,background .15s}
-    .hiw-chip b{font-family:'Crimson Pro',Georgia,serif;font-size:.9rem;font-weight:800;color:inherit}
-    .hiw-chip[aria-current="true"]{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.09);color:#ef4444}
-    [data-theme="light"] .hiw-chip{border-color:rgba(29,25,21,.14);color:rgba(29,25,21,.6)}
-    [data-theme="light"] .hiw-chip[aria-current="true"]{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.07);color:#c0392f}
-    @media(max-width:640px){.hiw-chip span{display:none}.hiw-chip{padding:8px 12px}}
-    /* Deck: one card per view, native x-snap. */
+    /* Slab palette. Near-black slate, data-terminal register. */
+    .hiw{
+      --hiw-bg:#0e1116;
+      --hiw-panel:#161b23;
+      --hiw-panel2:#1c2330;
+      --hiw-line:rgba(255,255,255,.08);
+      --hiw-line2:rgba(255,255,255,.14);
+      --hiw-ink:#e8eaed;
+      --hiw-dim:rgba(232,234,237,.6);
+      --hiw-faint:rgba(232,234,237,.38);
+      --hiw-red:#ef4444;
+      --hiw-red-deep:#dc2626;
+      --hiw-green:#22c55e;
+      padding:clamp(48px,6vh,84px) 0 clamp(40px,5vh,64px);
+      background:
+        radial-gradient(1100px 420px at 85% -4%,rgba(239,68,68,.07),transparent 62%),
+        var(--hiw-bg);
+      color:var(--hiw-ink);
+      overflow:hidden;
+    }
+    .hiw-wrap{width:100%;margin:0}
+    .hiw-head{text-align:center;max-width:900px;margin:0 auto clamp(20px,3vh,34px);padding:0 20px}
+    .hiw-eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:Inter,system-ui,-apple-system,sans-serif;
+      font-size:.64rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--hiw-dim);margin-bottom:14px}
+    .hiw-eyebrow:before,.hiw-eyebrow:after{content:"";width:34px;height:1px;background:var(--hiw-line2)}
+    .hiw-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(2.3rem,4.4vw,3.9rem);
+      font-weight:700;letter-spacing:-.025em;line-height:1.02;margin:0 0 14px;color:#fff}
+    .hiw-title em{font-style:normal;color:var(--hiw-red)}
+    .hiw-sub{font-size:clamp(1rem,1.3vw,1.14rem);line-height:1.55;color:var(--hiw-dim);margin:0;max-width:66ch;margin-inline:auto}
+    /* Step rail */
+    .hiw-chips{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:clamp(18px,2.6vh,28px) auto;padding:0 16px;list-style:none;max-width:1100px}
+    .hiw-chip{display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border-radius:8px;cursor:pointer;
+      border:1px solid var(--hiw-line);background:transparent;
+      font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.74rem;font-weight:700;
+      color:var(--hiw-dim);transition:border-color .15s,color .15s,background .15s}
+    .hiw-chip b{font-variant-numeric:tabular-nums;font-weight:800;color:var(--hiw-faint)}
+    .hiw-chip:hover{border-color:var(--hiw-line2);color:var(--hiw-ink)}
+    .hiw-chip[aria-current="true"]{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.10);color:#fff}
+    .hiw-chip[aria-current="true"] b{color:var(--hiw-red)}
+    @media(max-width:640px){.hiw-chip span{display:none}.hiw-chip{padding:9px 13px}}
+    /* Deck: full-bleed, viewport-scaled slides */
     .hiw-deck{position:relative}
-    .hiw-viewport{overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;
-      -webkit-overflow-scrolling:touch;border-radius:20px}
+    .hiw-viewport{overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch}
     .hiw-viewport::-webkit-scrollbar{display:none}
     .hiw-track{display:flex}
     .hiw-card{flex:none;width:100%;scroll-snap-align:center;scroll-snap-stop:always;box-sizing:border-box;
-      display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(22px,3.5vw,52px);align-items:center;
-      padding:clamp(24px,3.4vw,44px);border:1px solid rgba(255,255,255,.12);border-radius:20px;
-      background:rgba(255,255,255,.03)}
-    [data-theme="light"] .hiw-card{border-color:rgba(29,25,21,.10);background:#fffefb;box-shadow:0 12px 32px rgba(29,25,21,.06)}
-    @media(max-width:820px){.hiw-card{grid-template-columns:minmax(0,1fr);gap:18px;padding:20px 18px 24px}}
-    .hiw-step-k{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font-family:Inter,system-ui,-apple-system,sans-serif}
-    .hiw-step-num{font-family:'Crimson Pro',Georgia,serif;font-size:2.2rem;font-weight:800;line-height:1;color:#ef4444;font-variant-numeric:tabular-nums}
-    .hiw-step-of{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5))}
-    [data-theme="light"] .hiw-step-of{color:rgba(29,25,21,.5)}
-    .hiw-card-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.5rem,2.4vw,2.1rem);font-weight:700;letter-spacing:-.018em;line-height:1.1;margin:0 0 10px;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .hiw-card-title{color:#1a1a1f}
-    .hiw-card-body{font-size:clamp(.95rem,1.15vw,1.05rem);line-height:1.6;color:var(--text-dim,rgba(255,255,255,.68));margin:0}
-    [data-theme="light"] .hiw-card-body{color:rgba(0,0,0,.62)}
-    .hiw-card-body b{color:var(--text,#f4f4f2);font-weight:750}
-    [data-theme="light"] .hiw-card-body b{color:#1a1a1f}
-    .hiw-go{display:inline-block;margin-top:16px;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.8rem;font-weight:800;color:#ef4444;text-decoration:none}
-    .hiw-go:hover{text-decoration:underline;text-underline-offset:3px}
-    .hiw-fine{margin:12px 0 0;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.62rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.45))}
-    [data-theme="light"] .hiw-fine{color:rgba(29,25,21,.45)}
-    /* Mini visuals. All CSS + the shared face bank; no new assets. */
-    .hiw-viz{min-height:200px;display:flex;align-items:center;justify-content:center}
-    .hiw-mini{width:100%;max-width:380px;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px;background:rgba(0,0,0,.18);font-family:Inter,system-ui,-apple-system,sans-serif}
-    [data-theme="light"] .hiw-mini{border-color:rgba(29,25,21,.1);background:#faf6ef}
-    .hiw-mini-k{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;
-      font-size:.56rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55))}
-    [data-theme="light"] .hiw-mini-k{color:rgba(29,25,21,.5)}
-    .hiw-live{display:inline-flex;align-items:center;gap:6px;color:#e2564f}
-    .hiw-live i{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:hiwPulse 1.6s ease-in-out infinite}
-    @keyframes hiwPulse{0%,100%{opacity:1}50%{opacity:.5}}
+      min-height:clamp(520px,74vh,820px);
+      display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+      gap:clamp(28px,4.5vw,84px);align-items:center;
+      padding:clamp(24px,4vh,48px) clamp(22px,6vw,110px)}
+    @media(max-width:900px){.hiw-card{grid-template-columns:minmax(0,1fr);gap:24px;min-height:0;padding:18px 20px 30px;align-content:start}}
+    .hiw-step-k{display:flex;align-items:baseline;gap:12px;margin:0 0 14px;font-family:Inter,system-ui,-apple-system,sans-serif}
+    .hiw-step-num{font-family:'Crimson Pro',Georgia,serif;font-size:clamp(2.4rem,3.4vw,3.4rem);font-weight:800;line-height:1;color:var(--hiw-red);font-variant-numeric:tabular-nums}
+    .hiw-step-of{font-size:.64rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--hiw-faint)}
+    .hiw-card-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.8rem,3.1vw,2.9rem);font-weight:700;letter-spacing:-.02em;line-height:1.05;margin:0 0 14px;color:#fff}
+    .hiw-card-body{font-size:clamp(.98rem,1.2vw,1.12rem);line-height:1.65;color:var(--hiw-dim);margin:0;max-width:56ch}
+    .hiw-card-body b{color:var(--hiw-ink);font-weight:700}
+    /* Mechanics list under the body copy */
+    .hiw-mech{margin:18px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:0;
+      border-top:1px solid var(--hiw-line);max-width:56ch;font-family:Inter,system-ui,-apple-system,sans-serif}
+    .hiw-mech li{display:flex;align-items:baseline;justify-content:space-between;gap:18px;
+      padding:9px 2px;border-bottom:1px solid var(--hiw-line);font-size:.82rem;color:var(--hiw-dim)}
+    .hiw-mech li b{flex:none;font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--hiw-faint)}
+    .hiw-mech li span{text-align:right;color:var(--hiw-ink);font-weight:600}
+    .hiw-go{display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:12px 20px;border-radius:8px;
+      font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.82rem;font-weight:800;
+      color:#fff;background:var(--hiw-red-deep);text-decoration:none;transition:background .15s,transform .15s}
+    .hiw-go:hover{background:#b91c1c;transform:translateY(-1px)}
+    .hiw-fine{margin:14px 0 0;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.64rem;line-height:1.55;color:var(--hiw-faint);max-width:56ch}
+    /* Data panels (right column) */
+    .hiw-viz{min-width:0}
+    .hiw-panel{width:100%;max-width:640px;margin:0 auto;border:1px solid var(--hiw-line);border-radius:12px;
+      background:var(--hiw-panel);box-shadow:0 24px 70px rgba(0,0,0,.45);
+      font-family:Inter,system-ui,-apple-system,sans-serif;overflow:hidden}
+    .hiw-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:13px 18px;border-bottom:1px solid var(--hiw-line);
+      font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--hiw-dim)}
+    .hiw-panel-body{padding:18px}
+    .hiw-live{display:inline-flex;align-items:center;gap:7px;color:#f87171}
+    .hiw-live i{width:6px;height:6px;border-radius:50%;background:var(--hiw-red);animation:hiwPulse 1.6s ease-in-out infinite}
+    @keyframes hiwPulse{0%,100%{opacity:1}50%{opacity:.45}}
     @media(prefers-reduced-motion:reduce){.hiw-live i{animation:none}}
-    /* 1 · match */
-    .hiw-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}
-    .hiw-vs-seat{text-align:center}
-    .hiw-vs-seat img{width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.2);display:block;margin:0 auto 8px}
-    [data-theme="light"] .hiw-vs-seat img{border-color:#fff;outline:1px solid rgba(29,25,21,.12)}
-    .hiw-vs-nm{font-size:.72rem;font-weight:750;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .hiw-vs-nm{color:#1a1a1f}
-    .hiw-vs-side{font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5))}
-    [data-theme="light"] .hiw-vs-side{color:rgba(29,25,21,.5)}
-    .hiw-vs-mid{font-family:'Crimson Pro',Georgia,serif;font-size:1rem;font-weight:800;color:#ef4444}
-    .hiw-clock{margin-top:12px;text-align:center;font-variant-numeric:tabular-nums;font-size:.78rem;font-weight:800;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .hiw-clock{color:#1a1a1f}
-    /* 2 · verdict */
-    .hiw-ballot-win{font-family:'Crimson Pro',Georgia,serif;font-size:1.3rem;font-weight:750;color:var(--text,#f4f4f2);margin:0 0 2px}
-    [data-theme="light"] .hiw-ballot-win{color:#1a1a1f}
-    .hiw-ballot-score{font-size:.72rem;font-weight:750;color:#ef4444;margin:0 0 10px}
-    .hiw-skel{height:7px;border-radius:4px;background:rgba(255,255,255,.12);margin:7px 0}
-    [data-theme="light"] .hiw-skel{background:rgba(29,25,21,.1)}
-    /* 3 · board */
-    .hiw-row{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:9px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);margin-top:6px}
-    [data-theme="light"] .hiw-row{border-color:rgba(29,25,21,.08);background:#fff}
-    .hiw-row:first-of-type{margin-top:0;border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.06)}
-    [data-theme="light"] .hiw-row:first-of-type{background:#fff6f4}
-    .hiw-rk{width:20px;text-align:center;font-family:'Crimson Pro',Georgia,serif;font-weight:800;color:var(--text-dim,rgba(255,255,255,.55))}
-    .hiw-row:first-of-type .hiw-rk{color:#ef4444}
-    [data-theme="light"] .hiw-rk{color:rgba(29,25,21,.5)}
-    .hiw-row img{width:30px;height:30px;border-radius:50%;object-fit:cover}
-    .hiw-row-nm{flex:1;min-width:0;font-size:.74rem;font-weight:750;color:var(--text,#f4f4f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    [data-theme="light"] .hiw-row-nm{color:#1a1a1f}
-    .hiw-row-pts{font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .hiw-row-pts{color:#1a1a1f}
-    /* 4 · the show */
-    .hiw-stage{background:linear-gradient(165deg,#1c1414,#120e0e);border-color:rgba(255,255,255,.14)}
-    [data-theme="light"] .hiw-stage{background:linear-gradient(165deg,#221816,#151010);border-color:rgba(0,0,0,.3)}
-    .hiw-stage .hiw-mini-k{color:rgba(255,255,255,.6)}
-    .hiw-stage .hiw-vs-nm{color:#fff}
-    .hiw-stage .hiw-vs-side{color:rgba(255,255,255,.55)}
-    .hiw-stage .hiw-vs-seat .hiw-seat-disc{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;margin:0 auto 8px;
-      font-family:'Crimson Pro',Georgia,serif;font-size:1.5rem;font-weight:800}
-    .hiw-seat-disc--streamer{background:rgba(145,70,255,.16);border:2px solid rgba(145,70,255,.6);color:#c9a6ff}
-    .hiw-seat-disc--you{background:rgba(239,68,68,.14);border:2px solid rgba(239,68,68,.6);color:#f87171}
-    .hiw-stage-foot{margin-top:12px;text-align:center;font-size:.6rem;font-weight:700;letter-spacing:.06em;color:rgba(255,255,255,.6)}
-    /* 5 · money */
-    .hiw-pay{display:flex;flex-direction:column;gap:8px}
-    .hiw-pay-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px;border-radius:11px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.03)}
-    [data-theme="light"] .hiw-pay-card{border-color:rgba(29,25,21,.09);background:#fff}
-    .hiw-pay-card--paid{border-color:rgba(239,68,68,.42);background:rgba(239,68,68,.06)}
-    [data-theme="light"] .hiw-pay-card--paid{background:#fff6f4}
-    .hiw-pay-k{font-size:.58rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.55));display:block;margin-bottom:3px}
-    [data-theme="light"] .hiw-pay-k{color:rgba(29,25,21,.5)}
-    .hiw-pay-card--paid .hiw-pay-k{color:#e2564f}
-    .hiw-pay-v{font-size:.78rem;font-weight:750;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .hiw-pay-v{color:#1a1a1f}
-    .hiw-pay-tag{flex:none;font-family:'Crimson Pro',Georgia,serif;font-size:1.1rem;font-weight:800;color:#ef4444}
+    /* 1 · match ticket */
+    .hiw-motion{font-family:'Crimson Pro',Georgia,serif;font-size:1.28rem;font-weight:700;line-height:1.25;color:#fff;margin:0 0 16px}
+    .hiw-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;margin:0 0 16px}
+    .hiw-vs-seat{display:flex;align-items:center;gap:12px;min-width:0}
+    .hiw-vs-seat--r{flex-direction:row-reverse;text-align:right}
+    .hiw-vs-seat img{width:52px;height:52px;border-radius:50%;object-fit:cover;border:1px solid var(--hiw-line2);flex:none}
+    .hiw-vs-nm{display:block;font-size:.9rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hiw-vs-side{display:block;margin-top:2px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--hiw-faint)}
+    .hiw-vs-mid{font-size:.66rem;font-weight:800;letter-spacing:.12em;color:var(--hiw-faint)}
+    .hiw-ticket-row{display:flex;justify-content:space-between;gap:12px;padding:10px 2px;border-top:1px solid var(--hiw-line);
+      font-size:.78rem;color:var(--hiw-dim)}
+    .hiw-ticket-row b{font-variant-numeric:tabular-nums;font-weight:800;color:#fff}
+    /* 2 · ballot */
+    .hiw-verdict{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin:0 0 14px}
+    .hiw-verdict-win{font-family:'Crimson Pro',Georgia,serif;font-size:1.6rem;font-weight:750;color:#fff}
+    .hiw-verdict-win i{font-style:normal;color:var(--hiw-green)}
+    .hiw-verdict-pts{font-size:.9rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--hiw-ink)}
+    .hiw-axis{margin:0 0 10px}
+    .hiw-axis-top{display:flex;justify-content:space-between;gap:12px;font-size:.72rem;color:var(--hiw-dim);margin-bottom:5px}
+    .hiw-axis-top b{font-variant-numeric:tabular-nums;color:#fff}
+    .hiw-bar{height:4px;border-radius:2px;background:rgba(255,255,255,.09);overflow:hidden}
+    .hiw-bar i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#f87171,var(--hiw-red))}
+    .hiw-rfd{margin:14px 0 0;padding:12px 14px;border:1px solid var(--hiw-line);border-radius:8px;background:rgba(255,255,255,.02)}
+    .hiw-rfd-k{font-size:.58rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--hiw-faint);margin:0 0 8px}
+    .hiw-rfd p{margin:0;font-size:.8rem;line-height:1.55;color:var(--hiw-dim)}
+    /* 3 · board table */
+    .hiw-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .hiw-table th{padding:8px 10px;text-align:left;font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--hiw-faint);border-bottom:1px solid var(--hiw-line2)}
+    .hiw-table td{padding:11px 10px;border-bottom:1px solid var(--hiw-line);color:var(--hiw-dim);white-space:nowrap}
+    .hiw-table td:first-child{font-variant-numeric:tabular-nums;font-weight:800;color:var(--hiw-faint);width:36px}
+    .hiw-table .nm{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700}
+    .hiw-table .nm img{width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid var(--hiw-line)}
+    .hiw-table .pts{text-align:right;font-variant-numeric:tabular-nums;font-weight:800;color:#fff}
+    .hiw-table tr.top td{background:rgba(239,68,68,.07)}
+    .hiw-table tr.top td:first-child{color:var(--hiw-red)}
+    .hiw-table tr:last-child td{border-bottom:0}
+    .hiw-table .fmt{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    /* 4 · stream stage */
+    .hiw-stage-body{padding:22px 18px 18px}
+    .hiw-stage-seats{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;margin:0 0 18px}
+    .hiw-seat{border:1px solid var(--hiw-line);border-radius:10px;padding:16px 12px;text-align:center;background:var(--hiw-panel2)}
+    .hiw-seat-disc{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:0 auto 10px;
+      font-family:'Crimson Pro',Georgia,serif;font-size:1.3rem;font-weight:800}
+    .hiw-seat-disc--creator{background:rgba(145,70,255,.14);border:2px solid rgba(145,70,255,.55);color:#c9a6ff}
+    .hiw-seat-disc--ladder{background:rgba(239,68,68,.12);border:2px solid rgba(239,68,68,.55);color:#f87171}
+    .hiw-seat b{display:block;font-size:.86rem;font-weight:750;color:#fff}
+    .hiw-seat span{display:block;margin-top:3px;font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--hiw-faint)}
+    .hiw-ballot-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:11px 14px;border:1px solid var(--hiw-line);border-radius:8px;background:rgba(255,255,255,.02);
+      font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--hiw-dim)}
+    .hiw-plat{display:inline-flex;align-items:center;gap:12px}
+    .hiw-plat svg{width:15px;height:15px;fill:var(--hiw-dim)}
+    /* 5 · pool */
+    .hiw-pool-row{display:flex;justify-content:space-between;gap:12px;padding:11px 2px;border-bottom:1px solid var(--hiw-line);font-size:.82rem;color:var(--hiw-dim)}
+    .hiw-pool-row b{font-variant-numeric:tabular-nums;font-weight:800;color:#fff}
+    .hiw-pool-row.total b{color:var(--hiw-red)}
+    .hiw-pool-note{margin:12px 0 0;font-size:.62rem;line-height:1.5;color:var(--hiw-faint)}
     /* Arrows + dots */
-    .hiw-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:40px;height:40px;border-radius:50%;cursor:pointer;
-      display:grid;place-items:center;border:1px solid rgba(255,255,255,.18);background:rgba(20,16,16,.72);color:#fff;
+    .hiw-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:46px;height:46px;border-radius:50%;cursor:pointer;
+      display:grid;place-items:center;border:1px solid var(--hiw-line2);background:rgba(14,17,22,.82);color:var(--hiw-ink);
       backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:border-color .15s,background .15s}
-    .hiw-nav:hover{border-color:rgba(239,68,68,.6);background:rgba(40,20,18,.85)}
-    [data-theme="light"] .hiw-nav{border-color:rgba(29,25,21,.16);background:rgba(255,255,255,.9);color:#1a1a1f;box-shadow:0 6px 18px rgba(29,25,21,.12)}
-    .hiw-nav--prev{left:-14px}.hiw-nav--next{right:-14px}
-    .hiw-nav[disabled]{opacity:.35;cursor:default}
-    @media(max-width:820px){.hiw-nav{display:none}}
-    .hiw-dots{display:flex;justify-content:center;gap:8px;margin-top:16px}
-    .hiw-dot{width:8px;height:8px;border-radius:50%;border:0;padding:0;cursor:pointer;background:rgba(255,255,255,.22);transition:background .15s,transform .15s}
-    .hiw-dot[aria-current="true"]{background:#ef4444;transform:scale(1.25)}
-    [data-theme="light"] .hiw-dot{background:rgba(29,25,21,.18)}
-    [data-theme="light"] .hiw-dot[aria-current="true"]{background:#ef4444}
+    .hiw-nav:hover{border-color:rgba(239,68,68,.6);background:rgba(30,16,16,.9)}
+    .hiw-nav--prev{left:clamp(8px,2vw,28px)}.hiw-nav--next{right:clamp(8px,2vw,28px)}
+    .hiw-nav[disabled]{opacity:.3;cursor:default}
+    @media(max-width:900px){.hiw-nav{display:none}}
+    .hiw-dots{display:flex;justify-content:center;gap:9px;margin-top:clamp(10px,2vh,20px)}
+    .hiw-dot{width:26px;height:4px;border-radius:2px;border:0;padding:0;cursor:pointer;background:rgba(255,255,255,.16);transition:background .15s}
+    .hiw-dot[aria-current="true"]{background:var(--hiw-red)}
+    /* Ink guarantees. This slab is dark in BOTH site themes, but the
+       light theme carries broad [data-theme="light"] text rules whose
+       specificity beats a bare class (measured live: the h2 came out
+       #1a1a1f and table cells came out red on the dark panel). The id
+       prefix outranks them all without !important. */
+    #how-it-works .hiw-title,
+    #how-it-works .hiw-card-title,
+    #how-it-works .hiw-motion,
+    #how-it-works .hiw-verdict-win,
+    #how-it-works .hiw-table .nm,
+    #how-it-works .hiw-table .pts,
+    #how-it-works .hiw-seat b{color:#fff}
+    #how-it-works .hiw-title em{color:var(--hiw-red)}
+    #how-it-works .hiw-sub,
+    #how-it-works .hiw-card-body,
+    #how-it-works .hiw-rfd p,
+    #how-it-works .hiw-pool-row,
+    #how-it-works .hiw-ticket-row,
+    #how-it-works .hiw-table td{color:var(--hiw-dim)}
+    #how-it-works .hiw-card-body b{color:var(--hiw-ink)}
+    #how-it-works .hiw-ticket-row b,
+    #how-it-works .hiw-pool-row b,
+    #how-it-works .hiw-axis-top b{color:#fff}
+    #how-it-works .hiw-pool-row.total b{color:var(--hiw-red)}
+    #how-it-works .hiw-table td:first-child{color:var(--hiw-faint)}
+    #how-it-works .hiw-table tr.top td:first-child{color:var(--hiw-red)}
+    #how-it-works .hiw-table th{color:var(--hiw-faint)}
+    #how-it-works .hiw-go{color:#fff}
+    #how-it-works .hiw-step-num{color:var(--hiw-red)}
   </style>
   <div class="hiw-wrap">
     <div class="hiw-head">
       <div class="hiw-eyebrow">How it works</div>
       <h2 class="hiw-title">Five steps, <em>one ladder</em>.</h2>
-      <p class="hiw-sub">Match, argue, get judged, climb. The top of the board plays on stream. Swipe through the loop.</p>
+      <p class="hiw-sub">A matched round, a written ballot, a public rank, a streamed final, and a pool that pays the debaters who place. Swipe through the loop.</p>
     </div>
     <ul class="hiw-chips" role="tablist" aria-label="Steps">
-      <li><button type="button" class="hiw-chip" data-hiw-chip="0" aria-current="true"><b>1</b><span>Match</span></button></li>
-      <li><button type="button" class="hiw-chip" data-hiw-chip="1"><b>2</b><span>Verdict</span></button></li>
-      <li><button type="button" class="hiw-chip" data-hiw-chip="2"><b>3</b><span>Leaderboard</span></button></li>
-      <li><button type="button" class="hiw-chip" data-hiw-chip="3"><b>4</b><span>The show</span></button></li>
-      <li><button type="button" class="hiw-chip" data-hiw-chip="4"><b>5</b><span>Money</span></button></li>
+      <li><button type="button" class="hiw-chip" data-hiw-chip="0" aria-current="true"><b>01</b><span>Match</span></button></li>
+      <li><button type="button" class="hiw-chip" data-hiw-chip="1"><b>02</b><span>Verdict</span></button></li>
+      <li><button type="button" class="hiw-chip" data-hiw-chip="2"><b>03</b><span>Leaderboard</span></button></li>
+      <li><button type="button" class="hiw-chip" data-hiw-chip="3"><b>04</b><span>The show</span></button></li>
+      <li><button type="button" class="hiw-chip" data-hiw-chip="4"><b>05</b><span>Money</span></button></li>
     </ul>
     <div class="hiw-deck">
       <button type="button" class="hiw-nav hiw-nav--prev" id="hiwPrev" aria-label="Previous step">
-        <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M9 2 4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 14 14" width="15" height="15" aria-hidden="true"><path d="M9 2 4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <button type="button" class="hiw-nav hiw-nav--next" id="hiwNext" aria-label="Next step">
-        <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M5 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 14 14" width="15" height="15" aria-hidden="true"><path d="M5 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="hiw-viewport" id="hiwViewport" tabindex="0" aria-label="How it works, steps 1 to 5. Use arrow keys or swipe.">
         <div class="hiw-track" id="hiwTrack">
 
           <article class="hiw-card" data-hiw-step="match">
             <div>
-              <p class="hiw-step-k"><span class="hiw-step-num">1</span><span class="hiw-step-of">of 5</span></p>
+              <p class="hiw-step-k"><span class="hiw-step-num">1</span><span class="hiw-step-of">Match</span></p>
               <h3 class="hiw-card-title">Match with a real person.</h3>
-              <p class="hiw-card-body">Tap once and you are paired with a stranger who took the other side. Pick the format, get the motion, the clock starts. <b>An AI opponent steps in when the queue is thin</b>, so there is always a round.</p>
-              <a class="hiw-go" href="/spar" data-cta="hiw-step1-match">Match me with a stranger &rarr;</a>
+              <p class="hiw-card-body">One tap queues you. You are paired with a stranger who took the other side, the motion posts, and both of you prep on the clock. <b>15 formats</b>, from Public Forum and Lincoln-Douglas to BP, APDA, and Policy. When the queue is thin an AI opponent takes the seat, so a round always fires.</p>
+              <ul class="hiw-mech" aria-label="Round mechanics">
+                <li><b>Formats</b><span>15, format-accurate rules</span></li>
+                <li><b>Prep</b><span>Timed, both sides at once</span></li>
+                <li><b>Speeches</b><span>On the clock, order per format</span></li>
+                <li><b>No partner needed</b><span>AI fills the empty seat</span></li>
+              </ul>
+              <a class="hiw-go" href="/spar" data-cta="hiw-step1-match">Match me with a stranger</a>
             </div>
             <div class="hiw-viz">
-              <div class="hiw-mini">
-                <div class="hiw-mini-k"><span class="hiw-live"><i></i>Live round</span><span>British Parli</span></div>
-                <div class="hiw-vs">
-                  <div class="hiw-vs-seat"><img src="/img/round/faces/face04.jpg" alt="" loading="lazy" decoding="async"><span class="hiw-vs-nm">You</span><br><span class="hiw-vs-side">Pro</span></div>
-                  <span class="hiw-vs-mid">vs.</span>
-                  <div class="hiw-vs-seat"><img src="/img/round/faces/face11.jpg" alt="" loading="lazy" decoding="async"><span class="hiw-vs-nm">A stranger</span><br><span class="hiw-vs-side">Con</span></div>
+              <div class="hiw-panel">
+                <div class="hiw-panel-head"><span class="hiw-live"><i></i>Live round</span><span>British Parli</span></div>
+                <div class="hiw-panel-body">
+                  <p class="hiw-motion">Should algorithms help decide criminal sentences?</p>
+                  <div class="hiw-vs">
+                    <div class="hiw-vs-seat"><img src="/img/round/faces/face04.jpg" alt="" loading="lazy" decoding="async"><span><span class="hiw-vs-nm">You</span><span class="hiw-vs-side">Proposition</span></span></div>
+                    <span class="hiw-vs-mid">VS</span>
+                    <div class="hiw-vs-seat hiw-vs-seat--r"><img src="/img/round/faces/face11.jpg" alt="" loading="lazy" decoding="async"><span><span class="hiw-vs-nm">A stranger</span><span class="hiw-vs-side">Opposition</span></span></div>
+                  </div>
+                  <div class="hiw-ticket-row"><span>Speech</span><b>2 of 6</b></div>
+                  <div class="hiw-ticket-row"><span>On the clock</span><b>03:47</b></div>
+                  <div class="hiw-ticket-row"><span>Points of information</span><b>Open</b></div>
                 </div>
-                <p class="hiw-clock">03:47 on the clock</p>
               </div>
             </div>
           </article>
 
           <article class="hiw-card" data-hiw-step="verdict">
             <div>
-              <p class="hiw-step-k"><span class="hiw-step-num">2</span><span class="hiw-step-of">of 5</span></p>
-              <h3 class="hiw-card-title">Get the verdict.</h3>
-              <p class="hiw-card-body">The round ends and the AI judge writes the full ballot in seconds: <b>winner, speaker points, and the reason for decision</b>. Then the audience votes on whether the judge got it right.</p>
-              <a class="hiw-go" href="#live-proof" data-cta="hiw-step2-verdict">See a real ballot &rarr;</a>
+              <p class="hiw-step-k"><span class="hiw-step-num">2</span><span class="hiw-step-of">Verdict</span></p>
+              <h3 class="hiw-card-title">The judge writes the ballot.</h3>
+              <p class="hiw-card-body">The round ends and the AI judge returns a full ballot in seconds: <b>winner, speaker points on the 30 scale, and a reason for decision</b> that cites what was actually said. The rubric is published before the round, every ballot is auditable against it, and the audience votes on whether the judge got it right.</p>
+              <ul class="hiw-mech" aria-label="Ballot contents">
+                <li><b>Decided on</b><span>The flow, never the topic</span></li>
+                <li><b>Rubric</b><span>Published and versioned</span></li>
+                <li><b>Turnaround</b><span>Seconds after the last speech</span></li>
+              </ul>
+              <a class="hiw-go" href="#live-proof" data-cta="hiw-step2-verdict">See a real ballot</a>
             </div>
             <div class="hiw-viz">
-              <div class="hiw-mini">
-                <div class="hiw-mini-k"><span>Ballot &middot; Round 1</span><span>AI judge</span></div>
-                <p class="hiw-ballot-win">Pro wins</p>
-                <p class="hiw-ballot-score">28 &ndash; 26 on speaks</p>
-                <div class="hiw-skel" style="width:96%"></div>
-                <div class="hiw-skel" style="width:88%"></div>
-                <div class="hiw-skel" style="width:92%"></div>
-                <div class="hiw-skel" style="width:64%"></div>
+              <div class="hiw-panel">
+                <div class="hiw-panel-head"><span>Ballot · Round 1</span><span>AI judge · published rubric</span></div>
+                <div class="hiw-panel-body">
+                  <div class="hiw-verdict"><span class="hiw-verdict-win"><i>Pro wins</i></span><span class="hiw-verdict-pts">28 &ndash; 26 speaks</span></div>
+                  <div class="hiw-axis"><div class="hiw-axis-top"><span>The argument</span><b>12 / 15</b></div><div class="hiw-bar"><i style="width:80%"></i></div></div>
+                  <div class="hiw-axis"><div class="hiw-axis-top"><span>Responses to the other case</span><b>8 / 10</b></div><div class="hiw-bar"><i style="width:80%"></i></div></div>
+                  <div class="hiw-axis"><div class="hiw-axis-top"><span>Structure and comprehension</span><b>4 / 5</b></div><div class="hiw-bar"><i style="width:80%"></i></div></div>
+                  <div class="hiw-rfd">
+                    <p class="hiw-rfd-k">Reason for decision</p>
+                    <p>The round turns on the clash between Pro's structural-harm framing and Con's network-value defense. Pro establishes three harms and weighs them by probability before magnitude; Con's strongest turn goes unanswered until the final speech, which is too late to&hellip;</p>
+                  </div>
+                </div>
               </div>
             </div>
           </article>
 
           <article class="hiw-card" data-hiw-step="leaderboard">
             <div>
-              <p class="hiw-step-k"><span class="hiw-step-num">3</span><span class="hiw-step-of">of 5</span></p>
-              <h3 class="hiw-card-title">Land on the leaderboard.</h3>
-              <p class="hiw-card-body">Every ballot posts your speaks to the <b>public cross-format board</b>. Best entry per debater, same judge on every row, so the scale means the same thing for everyone.</p>
-              <a class="hiw-go" href="/leaderboard" data-cta="hiw-step3-board">See the leaderboard &rarr;</a>
+              <p class="hiw-step-k"><span class="hiw-step-num">3</span><span class="hiw-step-of">Leaderboard</span></p>
+              <h3 class="hiw-card-title">Your speaks go on the board.</h3>
+              <p class="hiw-card-body">Every judged round posts to the <b>public cross-format leaderboard</b>. One judge and one scale across every format, so a 29 in APDA means what a 29 means in PF. Best entry per debater, live rounds marked against AI rounds, and anyone can check the standings.</p>
+              <ul class="hiw-mech" aria-label="Board rules">
+                <li><b>Scale</b><span>Speaker points out of 30</span></li>
+                <li><b>Entry</b><span>Best per debater</span></li>
+                <li><b>Visibility</b><span>Public, no account needed</span></li>
+              </ul>
+              <a class="hiw-go" href="/leaderboard" data-cta="hiw-step3-board">See the leaderboard</a>
             </div>
             <div class="hiw-viz">
-              <div class="hiw-mini">
-                <div class="hiw-mini-k"><span>Cross-format</span><span>Speaks / 30</span></div>
-                <div class="hiw-row"><span class="hiw-rk">1</span><img src="/img/round/faces/face15.jpg" alt="" loading="lazy" decoding="async"><span class="hiw-row-nm">Priya S.</span><span class="hiw-row-pts">29.4</span></div>
-                <div class="hiw-row"><span class="hiw-rk">2</span><img src="/img/round/faces/face22.jpg" alt="" loading="lazy" decoding="async"><span class="hiw-row-nm">Marcus T.</span><span class="hiw-row-pts">29.1</span></div>
-                <div class="hiw-row"><span class="hiw-rk">3</span><img src="/img/round/faces/face31.jpg" alt="" loading="lazy" decoding="async"><span class="hiw-row-nm">Elena V.</span><span class="hiw-row-pts">28.8</span></div>
+              <div class="hiw-panel">
+                <div class="hiw-panel-head"><span>Cross-format board</span><span>Best speaks / 30</span></div>
+                <table class="hiw-table" aria-label="Sample leaderboard rows">
+                  <thead><tr><th>#</th><th>Debater</th><th>Format</th><th style="text-align:right">Speaks</th></tr></thead>
+                  <tbody>
+                    <tr class="top"><td>1</td><td><span class="nm"><img src="/img/round/faces/face15.jpg" alt="" loading="lazy" decoding="async">Priya S.</span></td><td class="fmt">BP · Live</td><td class="pts">29.4</td></tr>
+                    <tr><td>2</td><td><span class="nm"><img src="/img/round/faces/face22.jpg" alt="" loading="lazy" decoding="async">Marcus T.</span></td><td class="fmt">APDA · Live</td><td class="pts">29.1</td></tr>
+                    <tr><td>3</td><td><span class="nm"><img src="/img/round/faces/face31.jpg" alt="" loading="lazy" decoding="async">Elena V.</span></td><td class="fmt">Asian Parli</td><td class="pts">28.8</td></tr>
+                    <tr><td>4</td><td><span class="nm"><img src="/img/round/faces/face08.jpg" alt="" loading="lazy" decoding="async">Dhruv M.</span></td><td class="fmt">PF · Live</td><td class="pts">28.6</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </article>
 
           <article class="hiw-card" data-hiw-step="show">
             <div>
-              <p class="hiw-step-k"><span class="hiw-step-num">4</span><span class="hiw-step-of">of 5</span></p>
-              <h3 class="hiw-card-title">Climb into the show.</h3>
-              <p class="hiw-card-body">The top of the board earns featured matches: <b>streamers versus the best of the ladder</b>, argued live with the ballot posted on screen for the whole chat to fight over.</p>
-              <a class="hiw-go" href="#creator-sweepstakes" data-cta="hiw-step4-show">How creator matches work &rarr;</a>
+              <p class="hiw-step-k"><span class="hiw-step-num">4</span><span class="hiw-step-of">The show</span></p>
+              <h3 class="hiw-card-title">The top of the board gets the show.</h3>
+              <p class="hiw-card-body">Featured matches put the ladder's best against <b>streamers and creators</b>, argued live in front of their audience with the ballot posted on screen the moment the round ends. Half the chat disagrees with the call. That argument is the content.</p>
+              <ul class="hiw-mech" aria-label="Show mechanics">
+                <li><b>Qualification</b><span>Climb the board</span></li>
+                <li><b>Stage</b><span>Twitch, YouTube, anywhere</span></li>
+                <li><b>The moment</b><span>Ballot on screen, chat votes</span></li>
+              </ul>
+              <a class="hiw-go" href="#creator-sweepstakes" data-cta="hiw-step4-show">How creator matches work</a>
             </div>
             <div class="hiw-viz">
-              <div class="hiw-mini hiw-stage">
-                <div class="hiw-mini-k"><span class="hiw-live"><i></i>Streamed live</span><span>12,408 watching</span></div>
-                <div class="hiw-vs">
-                  <div class="hiw-vs-seat"><span class="hiw-seat-disc hiw-seat-disc--streamer">S</span><span class="hiw-vs-nm">The streamer</span><br><span class="hiw-vs-side">Their audience</span></div>
-                  <span class="hiw-vs-mid">vs.</span>
-                  <div class="hiw-vs-seat"><span class="hiw-seat-disc hiw-seat-disc--you">#1</span><span class="hiw-vs-nm">Top of the ladder</span><br><span class="hiw-vs-side">Your seat, maybe</span></div>
+              <div class="hiw-panel">
+                <div class="hiw-panel-head"><span class="hiw-live"><i></i>Streamed live</span><span>12,408 watching</span></div>
+                <div class="hiw-stage-body">
+                  <div class="hiw-stage-seats">
+                    <div class="hiw-seat"><span class="hiw-seat-disc hiw-seat-disc--creator">S</span><b>The creator</b><span>Brings the audience</span></div>
+                    <span class="hiw-vs-mid">VS</span>
+                    <div class="hiw-seat"><span class="hiw-seat-disc hiw-seat-disc--ladder">#1</span><b>Top of the ladder</b><span>Brings the case</span></div>
+                  </div>
+                  <div class="hiw-ballot-strip">
+                    <span>Ballot posts on screen</span>
+                    <span class="hiw-plat">
+                      <svg viewBox="0 0 2400 2800" aria-hidden="true" fill-rule="evenodd"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>
+                      <svg viewBox="0 0 576 512" aria-hidden="true"><path d="M549.7 124.1c-6.3-23.7-24.8-42.3-48.3-48.6C458.8 64 288 64 288 64S117.2 64 74.6 75.5c-23.5 6.3-42 24.9-48.3 48.6C15 167 15 256 15 256s0 89 11.3 131.9c6.3 23.7 24.8 41.5 48.3 47.8C117.2 448 288 448 288 448s170.8 0 213.4-11.5c23.5-6.3 42-24.1 48.3-47.8C561 345 561 256 561 256s0-89-11.3-131.9zM232.1 337.6V174.4L377.2 256l-145.1 81.6z"/></svg>
+                    </span>
+                  </div>
                 </div>
-                <p class="hiw-stage-foot">The AI judge posts the ballot on stream.</p>
               </div>
             </div>
           </article>
 
           <article class="hiw-card" data-hiw-step="money">
             <div>
-              <p class="hiw-step-k"><span class="hiw-step-num">5</span><span class="hiw-step-of">of 5</span></p>
-              <h3 class="hiw-card-title">Win money if you place.</h3>
-              <p class="hiw-card-body"><b>Pay in to a prize bracket and payouts go to the debaters who place.</b> Or compete free: same rounds, same judge, same leaderboard. Free entry never locks you out of the ladder.</p>
-              <a class="hiw-go" href="/tournaments" data-cta="hiw-step5-money">See open brackets &rarr;</a>
+              <p class="hiw-step-k"><span class="hiw-step-num">5</span><span class="hiw-step-of">Money</span></p>
+              <h3 class="hiw-card-title">Paid brackets pay the field.</h3>
+              <p class="hiw-card-body"><b>Pay the posted entry and the pool pays the debaters who place.</b> The split and the rake are published per event, and a human judge confirms the final ballots before anything pays out. Or enter free: same motions, same judge, same board. Free entry never blocks the ladder.</p>
+              <ul class="hiw-mech" aria-label="Money rules">
+                <li><b>Entry</b><span>Paid or free, same bracket</span></li>
+                <li><b>Pool</b><span>Entries fund it, split posted</span></li>
+                <li><b>Payout</b><span>Human sign-off on final ballots</span></li>
+              </ul>
+              <a class="hiw-go" href="/tournaments" data-cta="hiw-step5-money">See open brackets</a>
               <p class="hiw-fine">Prize brackets roll out by event. Free entry always available. 18+ for paid entry, void where prohibited. Official rules per event.</p>
             </div>
             <div class="hiw-viz">
-              <div class="hiw-mini">
-                <div class="hiw-mini-k"><span>Entry</span><span>Two doors, one board</span></div>
-                <div class="hiw-pay">
-                  <div class="hiw-pay-card hiw-pay-card--paid">
-                    <div><span class="hiw-pay-k">Paid bracket</span><span class="hiw-pay-v">Place high, get paid out</span></div>
-                    <span class="hiw-pay-tag">$</span>
-                  </div>
-                  <div class="hiw-pay-card">
-                    <div><span class="hiw-pay-k">Free entry</span><span class="hiw-pay-v">Same rounds, same board</span></div>
-                    <span class="hiw-pay-tag">0</span>
-                  </div>
+              <div class="hiw-panel">
+                <div class="hiw-panel-head"><span>Prize pool</span><span>Example split · posted per event</span></div>
+                <div class="hiw-panel-body">
+                  <div class="hiw-pool-row"><span>Champion</span><b>50% of the pool</b></div>
+                  <div class="hiw-pool-row"><span>Finalist</span><b>25%</b></div>
+                  <div class="hiw-pool-row"><span>Semifinalists</span><b>12.5% each</b></div>
+                  <div class="hiw-pool-row total"><span>Pool</span><b>Entries fund it. Rake posted.</b></div>
+                  <div class="hiw-pool-row"><span>Free entry</span><b>Same rounds, same board</b></div>
+                  <p class="hiw-pool-note">Payouts release after a human judge confirms the elimination-round ballots. Money never rides on the AI ballot alone.</p>
                 </div>
               </div>
             </div>
@@ -7706,11 +7811,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 <script>
-/* How-it-works deck. Native scroll-snap does the swiping; this IIFE only
-   syncs chips/dots/arrows to the scroll position, wires click-to-step,
-   and runs a gentle auto-advance (6s, in-viewport only) that stops for
-   good on the first user interaction. Defensive throughout: a failure
-   here must never take down the rest of the landing scripts. */
+/* How-it-works deck. Native snap does the touch swiping; this IIFE
+   syncs chips/dots/arrows, wires click-to-step, and runs a one-pass
+   auto-advance that stops on first interaction. Verified-on-this-page
+   constraints (do not re-simplify): native smooth scrolling gets
+   cancelled by the landing's scroll machinery, scroll events never
+   fire on nested scrollers here, and clientWidth is 0 outside the
+   lazy-layout range. Hence the hand-rolled tween + position poller,
+   both setTimeout-based so they run in hidden panes too. */
 (function(){
   try{
     var vp=document.getElementById('hiwViewport');
@@ -7722,24 +7830,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var prev=document.getElementById('hiwPrev');
     var next=document.getElementById('hiwNext');
     var idx=0,seen={0:1},userTouched=false;
-    /* Hand-rolled tween instead of behavior:'smooth': the landing's
-       own scroll machinery cancels native smooth scrolls on this page
-       (verified live), and a mandatory-snap container plus
-       scroll-snap-stop:always also refuses to glide past intermediate
-       cards. setTimeout, not rAF, so it works in background panes. */
     var tween=0;
     function goTo(i,smooth){
       i=Math.max(0,Math.min(cards-1,i));
       if(tween){clearTimeout(tween);tween=0}
       var to=i*vp.clientWidth;
-      if(smooth===false){vp.scrollLeft=to;return}
-      var from=vp.scrollLeft,start=Date.now(),DUR=320;
-      (function step(){
-        var t=Math.min(1,(Date.now()-start)/DUR);
-        var e=1-Math.pow(1-t,3);
-        vp.scrollLeft=from+(to-from)*e;
-        if(t<1)tween=setTimeout(step,16);else tween=0;
-      })();
+      if(smooth===false){vp.scrollLeft=to}
+      else{
+        var from=vp.scrollLeft,start=Date.now(),DUR=340;
+        (function step(){
+          var t=Math.min(1,(Date.now()-start)/DUR);
+          var e=1-Math.pow(1-t,3);
+          vp.scrollLeft=from+(to-from)*e;
+          if(t<1)tween=setTimeout(step,16);else tween=0;
+        })();
+      }
       if(i!==idx){idx=i;paint()}
     }
     function paint(){
@@ -7752,12 +7857,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         if(window.dosTrack)dosTrack('hiw_step_view',{step:idx+1});
       }
     }
-    /* Position sync for touch swipes. Not a scroll listener: this page
-       suppresses scroll events on nested scrollers (verified live — a
-       fresh listener never fires while scrollLeft changes), so the
-       deck polls its own position instead. setTimeout-based so it also
-       works in hidden panes, and skipped entirely while the section is
-       outside the lazy-layout range (clientWidth 0). */
     function syncFromScroll(){
       if(tween||vp.clientWidth<10)return;
       var i=Math.round(vp.scrollLeft/vp.clientWidth);
@@ -7776,10 +7875,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       if(e.key==='ArrowRight'){stopAuto();goTo(idx+1);e.preventDefault()}
       else if(e.key==='ArrowLeft'){stopAuto();goTo(idx-1);e.preventDefault()}
     });
-    /* Auto-advance: only while the deck is on screen, never after the
-       user has touched it, never under reduced motion, and it parks at
-       the last card instead of looping (a loop reads as a carousel ad;
-       a single pass reads as a guided tour). */
+    /* One-pass auto-advance: in-viewport only, never after the user has
+       touched the deck, never under reduced motion, parks at the last
+       card instead of looping. */
     var reduced=false;
     try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(_){}
     if(!reduced){
@@ -7792,15 +7890,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       setInterval(function(){
         if(userTouched||!inView||document.hidden)return;
         if(idx<cards-1)goTo(idx+1);
-      },6000);
+      },7000);
     }
-    /* Resize keeps the snap position honest (width changes shift
-       scrollLeft targets). */
     window.addEventListener('resize',function(){goTo(idx,false)});
     paint();
   }catch(e){}
 })();
 </script>
+
 
 <script>
 (function(){
@@ -10843,7 +10940,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        760px of empty rail underneath. Sticky travels it down the column
        instead, and keeps the CTA beside the rows it is selling. Clears the
        52px fixed topbar. */
-    @media(min-width:981px){.rbs{position:sticky;top:72px}}
+    /* 2026-08-10: the rail is now two cards (open challenges + the
+       streamers promo), so the wrapper carries the sticky travel. */
+    @media(min-width:981px){.rb-rail{position:sticky;top:72px}}
+    .rb-rail{display:flex;flex-direction:column;gap:16px;min-width:0}
+    /* Open-challenges card */
+    .rb-chal-list{display:flex;flex-direction:column;gap:8px;margin:12px 0 4px}
+    .rb-chal-row{display:block;padding:10px 12px;border-radius:10px;text-decoration:none;
+      border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.025);
+      transition:border-color .15s,transform .15s}
+    .rb-chal-row:hover{border-color:rgba(239,68,68,.4);transform:translateX(3px)}
+    [data-theme="light"] .rb-chal-row{border-color:rgba(29,25,21,.08);background:#fff;box-shadow:0 1px 2px rgba(29,25,21,.04)}
+    [data-theme="light"] .rb-chal-row:hover{background:#fffaf8}
+    .rb-chal-q{display:block;font-size:.9rem;font-weight:700;line-height:1.35;color:var(--text,#f4f4f2);
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    [data-theme="light"] .rb-chal-q{color:#1a1a1f}
+    .rb-chal-meta{display:block;margin-top:5px;font-size:.6rem;font-weight:700;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    [data-theme="light"] .rb-chal-meta{color:rgba(29,25,21,.5)}
+    .rb-chal-empty{margin:0;padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:10px;
+      font-size:.84rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.6))}
+    [data-theme="light"] .rb-chal-empty{border-color:rgba(0,0,0,.16);color:rgba(0,0,0,.55)}
     /* Streamers rail. Small, so it earns attention on colour rather than
        size: a filled brand-red card against a cream band and the white
        board beside it, with the CTA inverted to white-on-red. */
@@ -10977,6 +11094,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div id="rbBoard"></div>
         <a class="rb-go" href="/leaderboard" data-rb="leaderboard">See the full leaderboard &rarr;</a>
       </div>
+      <div class="rb-rail">
+      <!-- 2026-08-10, per Aidan: open challenges live next to the
+           leaderboard. Hydrates from /api/async/feed (top 3 open
+           claims); the empty state is the invite. -->
+      <div class="rb-card" id="open-challenges">
+        <p class="rb-kicker">Open challenges</p>
+        <p class="rb-card-title">Claims waiting for an opponent.</p>
+        <p class="rb-card-body">Someone said it and took a side. Answer one, or post your own claim and let the internet take the other side.</p>
+        <div class="rb-chal-list" id="rbChalList">
+          <p class="rb-chal-empty">No open claims right now. Yours can be first on the board.</p>
+        </div>
+        <a class="rb-go" href="/rounds" data-rb="challenges">Post your own claim &rarr;</a>
+      </div>
       <div class="rbs" id="stream-band">
         <div class="rbs-eyebrow">
           <svg viewBox="0 0 2400 2800" aria-hidden="true" fill-rule="evenodd"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>
@@ -10993,6 +11123,29 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <a class="rbs-go" href="/room-judge" data-sb="setup">Set up the stream judge <span aria-hidden="true">&rarr;</span></a>
         <p class="rbs-note">Already streaming debate? <a href="/future#streaming">See how it fits together</a>.</p>
       </div>
+      </div><!-- /.rb-rail -->
+      <script>
+      /* Open-challenges hydration. Keeps the static empty-state when the
+         feed is empty or unreachable; rows link into the async round. */
+      (function(){
+        try{
+          var list=document.getElementById('rbChalList');
+          if(!list||!window.fetch)return;
+          function esc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+          fetch('/api/async/feed',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+            var open=((j&&j.open)||[]).filter(function(r){return r&&r.motion}).slice(0,3);
+            if(!open.length)return;
+            list.innerHTML=open.map(function(r){
+              var side=(r.prop&&r.prop.name)?('Prop taken · answer as Opp'):((r.opp&&r.opp.name)?'Opp taken · answer as Prop':'Open seat');
+              var fmt=r.formatName?esc(r.formatName)+' · ':'';
+              return '<a class="rb-chal-row" href="/rounds?r='+encodeURIComponent(r.id)+'" data-rb="chal">'
+                +'<span class="rb-chal-q">'+esc(r.motion)+'</span>'
+                +'<span class="rb-chal-meta">'+fmt+side+'</span></a>';
+            }).join('');
+          }).catch(function(){});
+        }catch(e){}
+      })();
+      </script>
     </div>
   </div>
 </section>
@@ -11603,6 +11756,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <i><b>Core clash</b> Accountability vs. dissent</i>
         </div>
       </article>
+      <!-- 2026-08-10, per Aidan: "or post your own claim here" in the
+           center of the topics strip. Full-row band between the two
+           motion rows; routes to the async challenge board (/rounds),
+           where "Start a challenge" is the composer. -->
+      <style>
+        .cs-claim{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+          text-align:center;padding:clamp(26px,3.5vw,46px) 20px;
+          border:1px dashed rgba(26,26,31,.3);border-radius:18px;background:rgba(255,255,255,.55)}
+        .cs-claim q{quotes:"\201C" "\201D";font-family:'Crimson Pro','Fraunces',Georgia,serif;
+          font-size:clamp(1.5rem,2.5vw,2.2rem);font-weight:750;letter-spacing:-.02em;line-height:1.12;color:#1a1a1f}
+        .cs-claim q:after{content:no-close-quote}
+        .cs-claim q b{color:#dc2626;font-weight:750}
+        .cs-claim p{margin:10px 0 0;max-width:54ch;font-family:Inter,system-ui,-apple-system,sans-serif;
+          font-size:.8rem;line-height:1.55;color:rgba(26,26,31,.64)}
+        .cs-claim .cs-cta{margin-top:18px}
+      </style>
+      <div class="cs-claim">
+        <q>Or post <b>your own claim</b> here.</q>
+        <p>Say it out loud, take a side, and a stranger takes the other one. The judge scores it like any round, and it lands on the open-challenge board until someone answers.</p>
+        <a class="cs-cta" href="/rounds" data-cta="motions-post-claim">Post a claim <span aria-hidden="true">→</span></a>
+      </div>
       <article class="cs-motion cs-motion--memory">
         <figure class="cs-motion-media">
           <img src="/img/landing/topics/public-memory.jpg"
