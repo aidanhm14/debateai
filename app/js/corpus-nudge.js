@@ -70,7 +70,25 @@
     mount();
   }
 
+  // Server-side consent ledger (append-only consent_events). The profile
+  // write is the state; this is the receipt: when, on which surface,
+  // under which policy version. Fire and forget.
+  function ledger(event, extra){
+    try {
+      var u = firebase.auth().currentUser;
+      if (!u) return;
+      u.getIdToken().then(function(t){
+        fetch('/api/log-consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+          body: JSON.stringify(Object.assign({ event: event, surface: 'corpus-nudge' }, extra || {}))
+        }).catch(function(){});
+      }).catch(function(){});
+    } catch (e) {}
+  }
+
   function close(persistDismissed){
+    if (persistDismissed && !alreadyOptedIn()) ledger('corpus_nudge_dismissed', { contribute: false });
     if (persistDismissed) set(SHOWN_KEY, '1');
     var root = document.getElementById('corpusNudgeRoot');
     if (root && root.parentNode) root.parentNode.removeChild(root);
@@ -96,6 +114,7 @@
         }, { merge: true }).catch(function(e){ console.warn('[corpus-nudge] save failed:', e && e.message); });
       }
     } catch (e) { console.warn('[corpus-nudge] firestore write skipped:', e.message); }
+    ledger('corpus_opt_in', { contribute: true, ageAttested: true });
     // Visual confirmation: swap modal content to a thank-you for 2s
     // then close. Keeps the moment of consent from feeling like a
     // disappear-on-click.

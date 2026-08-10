@@ -69,6 +69,21 @@
         transcriptCaptureAt: firebase.firestore.FieldValue.serverTimestamp(),
       }, { merge: true }).catch(function () {});
     } catch (e) {}
+    // Append-only server-side ledger: the profile field is the state,
+    // this row is the receipt (when, which surface, which policy text).
+    try {
+      u.getIdToken().then(function (t) {
+        fetch('/api/log-consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+          body: JSON.stringify({
+            event: granted ? 'transcript_grant' : 'transcript_deny',
+            surface: 'round-entry',
+            contribute: !!granted,
+          }),
+        }).catch(function () {});
+      }).catch(function () {});
+    } catch (e) {}
   }
 
   // Adopt a stored choice made on another browser, but never downgrade a

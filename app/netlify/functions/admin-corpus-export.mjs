@@ -15,69 +15,9 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, errorResponse } from './lib/response.mjs';
 import { scrubText } from './lib/pii-scrub.mjs';
-
-// Free-text fields that can carry PII spoken/typed *inside* the content
-// (a real name in a voice transcript, an email in a typed argument). The
-// field-level allowlist below drops identifying COLUMNS (uid, IP); this set
-// is run through pii-scrub so identifiers leaking INSIDE the text are redacted
-// too. Without this, fullTranscript / userPrompt / output ship raw.
-const SCRUB_FIELDS = new Set(['motion', 'userPrompt', 'output', 'userNotes']);
-
-// Output schema: explicit allowlist of top-level fields. Anything not
-// listed here is dropped. New fields added to the generations doc
-// (e.g. when we add a new training signal) need a deliberate addition
-// here before they reach an external party. The default direction is
-// "exclude" so a leak is structurally hard.
-const ALLOWED_TOP = new Set([
-  'kind',
-  'motion',
-  'side',
-  'format',
-  'depth',
-  'model',
-  'promptId',
-  'systemPrompt',
-  'userPrompt',
-  'output',
-  'outputLength',
-  'durationMs',
-  'inputTokens',
-  'outputTokens',
-  'rating',
-  'saved',
-  'shared',
-  'regenerated',
-  'edited',
-  'boring',
-  'userNotes',
-  'lastSignal',
-  'contributable',
-  'createdAt',
-  // context is allowlisted below in its own pass
-]);
-
-// Context-object allowlist. Same posture: anything not here gets dropped.
-// Keep this conservative — only structural metadata that helps a lab
-// understand the row, never anything that ties back to a person.
-const ALLOWED_CONTEXT = new Set([
-  'persona',
-  'turnCount',
-  'userTurnCount',
-  'fullTranscript',
-  'language',
-  'aiLanguage',
-  'modeKey',
-  'intensity',
-  'source',
-  'judgePool',
-  'mode',
-  'depth',
-  'feature',
-  // live_round rows (human vs human): structural outcome metadata.
-  'speechCount',
-  'result',
-  'speakerPoints',
-]);
+// The allowlists + scrub-field set live in lib/corpus-schema.mjs so the
+// manifest endpoint documents the exact schema this file enforces.
+import { SCRUB_FIELDS, ALLOWED_TOP, ALLOWED_CONTEXT } from './lib/corpus-schema.mjs';
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;

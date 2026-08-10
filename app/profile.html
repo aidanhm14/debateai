@@ -1728,6 +1728,20 @@ function wireSettings(user, rows){
           contributeToCorpusUpdatedAt: new Date(),
           settingsUpdatedAt: new Date(),
         }, { merge: true });
+        // Append-only server-side consent ledger. The profile fields are
+        // the state; these rows are the receipts a licensing recipient's
+        // diligence asks for (when, which surface, which policy version).
+        try {
+          const t = await user.getIdToken();
+          const ledger = (event, extra) => fetch('/api/log-consent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+            body: JSON.stringify(Object.assign({ event, surface: 'profile' }, extra || {})),
+          }).catch(() => {});
+          ledger(effectiveCorpus ? 'corpus_opt_in' : 'corpus_opt_out',
+                 { contribute: effectiveCorpus, ageAttested: !!age18 });
+          ledger(captureNow ? 'transcript_grant' : 'transcript_deny', { contribute: captureNow });
+        } catch(_){}
         setStatus('Saved. Future rounds will reflect these settings.', 'ok');
       } catch(e){
         console.warn('[profile] settings save failed:', e && e.message);

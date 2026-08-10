@@ -568,6 +568,19 @@
     </div>
   </div>
 
+  <!-- Research corpus: consent + integrity health.
+       Reads /api/admin/corpus-manifest (counts, consent ledger, nightly
+       audit). Red pills when the audit quarantined rows or went stale. -->
+  <div class="section">
+    <div class="card">
+      <div class="title">
+        <span>Research corpus · consent + audit</span>
+        <span class="meta" id="cp-meta">Loading…</span>
+      </div>
+      <div id="cp-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Clash-map corrections: every reader who disagreed with a mapping.
        Reads the clashDisputes collection group via /api/admin/clash-disputes.
        The confusion matrix is the actionable half: a heavy cell means the
@@ -1263,6 +1276,7 @@ async function loadAll(force){
     loadFounderVideo().catch(()=>{});
     loadVisitors().catch(()=>{});
     loadDistillations().catch(()=>{});
+    loadCorpusHealth().catch(()=>{});
     loadClashDisputes().catch(()=>{});
     loadWinback().catch(()=>{});
     loadPollResults().catch(()=>{});
@@ -2033,6 +2047,75 @@ async function loadFounderVideo(){
   }
 }
 
+// ── Research corpus: consent + integrity health ──────────────────
+// One manifest call covers the whole story: licensable row count and
+// breakdown, consent-ledger volume, and the nightly audit verdict.
+// scheduled-corpus-audit fires at 05:00 UTC; >36h without a run (12h
+// grace for one missed cron) is flagged, as is any quarantine.
+async function loadCorpusHealth(){
+  const meta = $('cp-meta');
+  const body = $('cp-body');
+  if(!meta || !body) return;
+  try {
+    const d = await fetchJson('/api/admin/corpus-manifest');
+    const c = d.counts || {};
+    const a = d.audit || {};
+    meta.textContent = 'policy ' + (d.policy && d.policy.policyVersion || '?');
+
+    let html = '<div style="font-size:15px;font-weight:600;margin-bottom:4px">' +
+      (c.contributableRows || 0) + ' licensable row' + (c.contributableRows === 1 ? '' : 's') + '</div>';
+    html += '<div class="meta">opt-in members ' + (c.optInMembers || 0) +
+      ' · transcript-capture members ' + (c.transcriptCaptureMembers || 0) +
+      ' · consent-ledger events ' + (c.consentLedgerEvents || 0) + '</div>';
+
+    const kinds = Object.entries(c.byKind || {}).sort((x,y)=>y[1]-x[1]);
+    if (kinds.length){
+      html += '<div class="meta" style="margin-top:6px">' +
+        kinds.map(([k,n]) => esc(k) + ' ' + n).join(' · ') + '</div>';
+    }
+
+    const pill = (txt) => '<span style="display:inline-block;padding:1px 8px;border-radius:99px;' +
+      'background:rgba(239,68,68,.14);color:#ef4444;font-weight:700;font-size:11px">' + esc(txt) + '</span>';
+    let auditLine;
+    if (a.neverRan || !a.ranAt){
+      auditLine = pill('audit never ran') + ' <span class="meta">nightly cron 05:00 UTC</span>';
+    } else {
+      const ageH = (Date.now() - new Date(a.ranAt).getTime()) / 36e5;
+      auditLine = 'audit ' + (ageH < 1 ? 'under an hour' : Math.round(ageH) + 'h') + ' ago · scanned ' +
+        (a.scanned || 0) + ' · clean ' + (a.clean || 0);
+      if (a.quarantined > 0) auditLine += ' ' + pill(a.quarantined + ' quarantined');
+      if (a.revokedLaterRows > 0) auditLine += ' <span class="meta">(' + a.revokedLaterRows + ' rows from later-revoked accounts, kept per write-time consent)</span>';
+      if (ageH > 36) auditLine += ' ' + pill('stale');
+    }
+    html += '<div class="meta" style="margin-top:6px">' + auditLine + '</div>';
+
+    html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="pill-btn" id="cpManifestBtn" type="button">Download manifest</button>' +
+      '<button class="pill-btn" id="cpSampleBtn" type="button">Sample rows (JSONL)</button>' +
+      '</div>';
+    body.innerHTML = html;
+
+    const dl = async (url, filename) => {
+      const token = await getToken();
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error('API ' + r.status);
+      const blob = await r.blob();
+      const aEl = document.createElement('a');
+      aEl.href = URL.createObjectURL(blob);
+      aEl.download = filename;
+      aEl.click();
+      setTimeout(() => URL.revokeObjectURL(aEl.href), 5000);
+    };
+    const stamp = new Date().toISOString().slice(0,10);
+    $('cpManifestBtn').addEventListener('click', () =>
+      dl('/api/admin/corpus-manifest', 'corpus-manifest-' + stamp + '.json').catch(e => alert(e.message)));
+    $('cpSampleBtn').addEventListener('click', () =>
+      dl('/api/admin/corpus-export?limit=500', 'corpus-sample-' + stamp + '.jsonl').catch(e => alert(e.message)));
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Corpus manifest load failed: ' + esc(e.message || e) + '</div>';
+    meta.textContent = '';
+  }
+}
 // ── Learning-loop distillation freshness ─────────────────────────
 // scheduled-distill.mjs fires nightly at 04:00 UTC. Each format gets
 // a learning_distillations/{slug} doc rewritten with that day's
