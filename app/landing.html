@@ -14565,21 +14565,36 @@ window.addEventListener('load', function(){
 })();
 </script>
 
-<!-- Homepage live band (WS2 Phase 6). When the owner is streaming a
-     tournament, /api/stream-status flips live:true and this injects a
-     player band ABOVE the hero. Deliberately built as injected DOM from
-     a standalone script: when nothing is live the page is byte-for-byte
-     untouched, and none of the hero A/B arms or scroll observers ever
-     see a new sibling unless a stream is actually on. -->
+<!-- Homepage live band (WS2 Phase 6). When the owner streams a
+     tournament, /api/stream-status flips live:true and this mounts the
+     player into the #live-now grid, in the right-hand slot next to the
+     globe (the old face-photo filler is gone; off-air the globe stands
+     alone). Fallback for layouts without that section: inject a full
+     band above the hero. Injected DOM from a standalone script, so
+     off-air the page renders byte-for-byte untouched. -->
 <script>
 (function(){
   'use strict';
   var mounted = false;
-  function mount(s){
-    if (mounted) return;
-    var hero = document.querySelector('section.hero');
-    if (!hero || !hero.parentNode) return;
-    mounted = true;
+
+  function mountGrid(grid, s){
+    var slot = document.createElement('div');
+    slot.className = 'return-live-player';
+    slot.id = 'homeLiveBand';
+    slot.innerHTML =
+      '<div class="rlp-head">' +
+        '<span class="rlp-pill"><span class="rlp-dot"></span>LIVE</span>' +
+        '<span class="rlp-title"></span>' +
+        '<a class="rlp-watch" href="/watch">Open the watch page</a>' +
+      '</div>' +
+      '<iframe title="Live tournament stream" allow="autoplay; clipboard-write"></iframe>';
+    slot.querySelector('.rlp-title').textContent = s.title || 'Live from the arena';
+    slot.querySelector('iframe').src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
+    grid.appendChild(slot);
+    grid.classList.add('is-live');
+  }
+
+  function mountHero(hero, s){
     var band = document.createElement('section');
     band.id = 'homeLiveBand';
     band.setAttribute('aria-label', 'Live tournament stream');
@@ -14607,12 +14622,28 @@ window.addEventListener('load', function(){
     band.querySelector('.hlb-title').textContent = s.title || 'Live from the arena';
     band.querySelector('iframe').src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
     hero.parentNode.insertBefore(band, hero);
+  }
+
+  function mount(s){
+    if (mounted) return;
+    var grid = document.querySelector('#live-now .return-live-grid');
+    var hero = document.querySelector('section.hero');
+    if (grid){
+      mountGrid(grid, s);
+    } else if (hero && hero.parentNode){
+      mountHero(hero, s);
+    } else {
+      return;
+    }
+    mounted = true;
     try { if (window.gtag) gtag('event', 'home_live_band_shown'); } catch(e){}
   }
   function unmount(){
     if (!mounted) return;
     var band = document.getElementById('homeLiveBand');
     if (band) band.remove();
+    var grid = document.querySelector('#live-now .return-live-grid');
+    if (grid) grid.classList.remove('is-live');
     mounted = false;
   }
   function check(){
