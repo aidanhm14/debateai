@@ -14564,5 +14564,65 @@ window.addEventListener('load', function(){
   }
 })();
 </script>
+
+<!-- Homepage live band (WS2 Phase 6). When the owner is streaming a
+     tournament, /api/stream-status flips live:true and this injects a
+     player band ABOVE the hero. Deliberately built as injected DOM from
+     a standalone script: when nothing is live the page is byte-for-byte
+     untouched, and none of the hero A/B arms or scroll observers ever
+     see a new sibling unless a stream is actually on. -->
+<script>
+(function(){
+  'use strict';
+  var mounted = false;
+  function mount(s){
+    if (mounted) return;
+    var hero = document.querySelector('section.hero');
+    if (!hero || !hero.parentNode) return;
+    mounted = true;
+    var band = document.createElement('section');
+    band.id = 'homeLiveBand';
+    band.setAttribute('aria-label', 'Live tournament stream');
+    band.innerHTML =
+      '<style>' +
+      '#homeLiveBand{background:#0b0b0d;border-bottom:1px solid rgba(239,68,68,.35);padding:18px 20px 22px}' +
+      '#homeLiveBand .hlb-in{max-width:1080px;margin:0 auto}' +
+      '#homeLiveBand .hlb-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}' +
+      '#homeLiveBand .hlb-pill{display:inline-flex;align-items:center;gap:7px;background:#ef4444;color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}' +
+      '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
+      '@keyframes hlbPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
+      '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px}' +
+      '#homeLiveBand .hlb-open{margin-left:auto;color:rgba(244,244,242,.7);font-size:14.5px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 13px}' +
+      '#homeLiveBand .hlb-open:hover{color:#fff;border-color:rgba(239,68,68,.5)}' +
+      '#homeLiveBand iframe{width:100%;aspect-ratio:16/9;max-height:62vh;border:0;border-radius:12px;background:#000;display:block}' +
+      '</style>' +
+      '<div class="hlb-in">' +
+        '<div class="hlb-head">' +
+          '<span class="hlb-pill"><span class="hlb-dot"></span>LIVE</span>' +
+          '<span class="hlb-title"></span>' +
+          '<a class="hlb-open" href="/watch">Open the watch page</a>' +
+        '</div>' +
+        '<iframe title="Live tournament stream" allow="autoplay; clipboard-write"></iframe>' +
+      '</div>';
+    band.querySelector('.hlb-title').textContent = s.title || 'Live from the arena';
+    band.querySelector('iframe').src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
+    hero.parentNode.insertBefore(band, hero);
+    try { if (window.gtag) gtag('event', 'home_live_band_shown'); } catch(e){}
+  }
+  function unmount(){
+    if (!mounted) return;
+    var band = document.getElementById('homeLiveBand');
+    if (band) band.remove();
+    mounted = false;
+  }
+  function check(){
+    fetch('/api/stream-status').then(function(r){ return r.json(); }).then(function(s){
+      if (s && s.live && s.url) mount(s); else unmount();
+    }).catch(function(){});
+  }
+  check();
+  setInterval(function(){ if (!document.hidden) check(); }, 90000);
+})();
+</script>
 </body>
 </html>

@@ -72,15 +72,31 @@ async function debaterAllowed(rawName, request){
   }
 }
 
-async function mintOwnerToken(roomName, headers, expSec, userName){
+function recordingEnabled(){
+  // Cloud-record every round by default (WS2 Phase 6: replays + clips).
+  // DAILY_RECORD=0 turns it off without a redeploy. Recording needs a
+  // recording-capable Daily plan; all paths degrade gracefully without.
+  return process.env.DAILY_RECORD !== '0';
+}
+
+async function mintOwnerToken(roomName, headers, expSec, userName, startRecording){
   const properties = { room_name: roomName, is_owner: true, exp: expSec };
   if (userName) properties.user_name = String(userName).slice(0, 60);
+  // First debater in auto-starts the cloud recording; Daily ignores a
+  // start when one is already running, so both debaters carrying the
+  // flag is harmless.
+  if (startRecording) properties.start_cloud_recording = true;
   const resp = await fetch(DAILY_API + '/meeting-tokens', {
     method: 'POST',
     headers,
     body: JSON.stringify({ properties }),
   });
-  if (!resp.ok) return null;
+  if (!resp.ok){
+    // start_cloud_recording is rejected on plans without recording —
+    // retry bare so the debater still gets send permissions.
+    if (startRecording) return mintOwnerToken(roomName, headers, expSec, userName, false);
+    return null;
+  }
   const data = await resp.json();
   return data.token || null;
 }
@@ -119,22 +135,33 @@ export default async (req) => {
     start_audio_off: false,
     eject_at_room_exp: true,
   };
+  if (recordingEnabled()) properties.enable_recording = 'cloud';
 
   // Try create first. If 400 ("already exists"), fall through to GET.
   const headers = {
     'Authorization': 'Bearer ' + apiKey,
     'Content-Type': 'application/json',
   };
-  let resp = await fetch(DAILY_API + '/rooms', {
+  const createRoom = (props) => fetch(DAILY_API + '/rooms', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ name, privacy: 'public', properties }),
+    body: JSON.stringify({ name, privacy: 'public', properties: props }),
   });
+  let recordingOn = recordingEnabled();
+  let resp = await createRoom(properties);
 
   if (resp.status === 400 || resp.status === 409) {
     // Room exists — fetch it. Daily returns 400 for "already exists",
     // 409 isn't standard but we handle it just in case.
     resp = await fetch(DAILY_API + '/rooms/' + encodeURIComponent(name), { headers });
+    if (resp.status === 404 && recordingOn) {
+      // The 400 wasn't "already exists" — likely enable_recording on a
+      // plan without cloud recording. Retry the create without it so
+      // rounds still get a video room.
+      recordingOn = false;
+      const { enable_recording, ...bare } = properties;
+      resp = await createRoom(bare);
+    }
   }
 
   if (!resp.ok) {
@@ -154,7 +181,7 @@ export default async (req) => {
 
   let token = null;
   if (await debaterAllowed(rawName, req)) {
-    token = await mintOwnerToken(room.name || name, headers, expSec, body.userName);
+    token = await mintOwnerToken(room.name || name, headers, expSec, body.userName, recordingOn);
     if (!token) console.warn('[create-daily-room] owner token mint failed for', name);
   }
 
