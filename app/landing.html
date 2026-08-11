@@ -730,6 +730,42 @@
   })();
 </script>
 
+<!-- One-pager A/B (landing_onepager_v1, 2026-08-10). The 08-10 collapse
+     put EVERY chapter behind "Load more", leaving a first paint of
+     first-screen + waitlist + gate card + section pills + footer. That
+     is a real bet on conversion in both directions (less to wade
+     through, or a first screen too thin to earn a signup) and it
+     shipped as a one-way switch, so nothing could tell us which.
+
+       onepager  everything after the first screen waits behind the gate
+       full      the pre-08-10 page: how-it-works, live-now, live-proof,
+                 ranked-band and creator-sweepstakes render immediately,
+                 deeper chapters still behind the gate
+
+     Runs before first paint so a `full` visitor never sees five
+     chapters vanish. ?onepager=onepager|full forces QA (forced arms are
+     excluded from telemetry by experiments.js). Read the arm off
+     <html data-onepager>; the gate CSS keys on it. -->
+<script>
+  (function(){
+    var v='',forced=false;
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]onepager=onepager(?:&|$)/.test(qp)){v='onepager';forced=true;}
+      else if(/[?&]onepager=full(?:&|$)/.test(qp)){v='full';forced=true;}
+    }catch(e){}
+    if(!v){
+      try{
+        v=localStorage.getItem('da-onepager-ab')||'';
+        if(v!=='onepager'&&v!=='full'){v=Math.random()<0.5?'onepager':'full';localStorage.setItem('da-onepager-ab',v);}
+      }catch(e){v='onepager';}
+    }
+    document.documentElement.setAttribute('data-onepager',v);
+    window.__abAssignments=window.__abAssignments||{};
+    window.__abAssignments.landing_onepager_v1=forced?{variant:v,forced:true}:{variant:v};
+  })();
+</script>
+
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
@@ -6392,11 +6428,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       !document.body.classList.contains('landing-more-open');
     // Chapters gated by the one-pager collapse but physically BEFORE the
     // shell (see the hide list after #first-screen). Position alone
-    // cannot spot them, so they are named here.
-    var gatedBeforeShell = {
+    // cannot spot them, so they are named here. Only the `onepager` arm
+    // hides them; in `full` they render, so the map must stay empty
+    // there or a genuinely missing section would keep its pill.
+    var onepagerArm = document.documentElement.getAttribute('data-onepager') === 'onepager';
+    var gatedBeforeShell = onepagerArm ? {
       'how-it-works':1, 'live-now':1, 'live-proof':1,
       'ranked-band':1, 'creator-sweepstakes':1
-    };
+    } : {};
     // PARKED chapters (see the display:none rule in the gate shell) are
     // hidden even when the gate is open. Their rows must drop, or the
     // pills advertise destinations that scroll nowhere.
@@ -7772,14 +7811,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      before any gated chapter parses, so a slow connection never
      paints a chapter that then collapses away. Keep this hide list,
      the shell's extraSelector and the page-toc's pre-shell gate list
-     in sync when gating or promoting a section. -->
+     in sync when gating or promoting a section.
+
+     SPLIT BY ARM (landing_onepager_v1, see the assignment script in
+     <head>). The five chapters below the first rule are the ones the
+     08-10 collapse newly took away, so they are the difference between
+     the arms: hidden in `onepager`, rendered in `full`. Everything in
+     the always-gated block has been behind the gate since 2026-07-25
+     and is identical in both arms. -->
 <style>
-  body.landing-more-ready:not(.landing-more-open) #how-it-works,
+  html[data-onepager="onepager"] body.landing-more-ready:not(.landing-more-open) #how-it-works,
+  html[data-onepager="onepager"] body.landing-more-ready:not(.landing-more-open) #live-now,
+  html[data-onepager="onepager"] body.landing-more-ready:not(.landing-more-open) #live-proof,
+  html[data-onepager="onepager"] body.landing-more-ready:not(.landing-more-open) #ranked-band,
+  html[data-onepager="onepager"] body.landing-more-ready:not(.landing-more-open) #creator-sweepstakes{
+    display:none !important;
+  }
   body.landing-more-ready:not(.landing-more-open) .hero-founder-frame > .hero,
-  body.landing-more-ready:not(.landing-more-open) #live-now,
-  body.landing-more-ready:not(.landing-more-open) #live-proof,
-  body.landing-more-ready:not(.landing-more-open) #ranked-band,
-  body.landing-more-ready:not(.landing-more-open) #creator-sweepstakes,
   body.landing-more-ready:not(.landing-more-open) #stream-it,
   body.landing-more-ready:not(.landing-more-open) #why-this-exists,
   body.landing-more-ready:not(.landing-more-open) #floor-band,
@@ -7798,6 +7846,66 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   body.landing-more-ready:not(.landing-more-open) .footer-row{justify-content:center}
 </style>
 <script>document.body.classList.add('landing-more-ready');</script>
+
+<!-- Conversions for landing_onepager_v1.
+     The shared rail in experiments.js maps ONE test per element via
+     data-ab-test, and the first-screen CTAs are already claimed by
+     first_screen_copy_v1 — which is permanently forced:true, so the
+     rail skips it and those attributes emit nothing today. Rather than
+     retag someone else's markup, this listens for the actions that
+     actually matter to this test and emits the rail's own
+     `ab_conversion` shape, so both land in one GA4 report.
+     Deduped per session per target: one visitor clicking Debate five
+     times is one converted visitor, and counting five would quietly
+     inflate whichever arm has the more frustrating first screen. -->
+<script>
+(function(){
+  var TEST = 'landing_onepager_v1';
+  function arm(){
+    var rec = (window.__abAssignments || {})[TEST] || {};
+    return rec.forced ? '' : (rec.variant || '');   // forced = QA, never counted
+  }
+  function fire(target){
+    var v = arm();
+    if (!v) return;
+    var key = '_da_onepager_cv:' + target;
+    try {
+      if (sessionStorage.getItem(key) === '1') return;
+      sessionStorage.setItem(key, '1');
+    } catch(e){}
+    var params = { test: TEST, variant: v, target: target, path: location.pathname || '/' };
+    try {
+      if (typeof window.gtag === 'function') window.gtag('event', 'ab_conversion', params);
+      else if (typeof window.track === 'function') window.track('app_event', Object.assign({ name:'ab_conversion' }, params));
+    } catch(e){}
+  }
+  var MAP = [
+    ['[data-cta="first-screen-spar"]',      'start_round'],
+    ['[data-cta="first-screen-spectate"]',  'spectate'],
+    ['#landing-more-toggle',                'gate_open'],
+    ['.ui-btn-signin, #googleSignupBtn',    'signin']
+  ];
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    for (var i = 0; i < MAP.length; i++){
+      if (t.closest(MAP[i][0])){
+        // The gate only converts on OPEN. Counting the close click too
+        // would score "read it and collapsed it" as engagement.
+        if (MAP[i][1] === 'gate_open' &&
+            document.body.classList.contains('landing-more-open')) return;
+        fire(MAP[i][1]);
+        return;
+      }
+    }
+  }, true);
+  // Waitlist is a form, so the click target is the button but the real
+  // signal is a submit that passed validation.
+  document.addEventListener('submit', function(e){
+    if (e.target && e.target.id === 'wlForm') fire('waitlist');
+  }, true);
+})();
+</script>
 
 <!-- ── HOW IT WORKS (2026-08-10, v2 same day) ────────────────────────
      Full-viewport swipe deck, dark slab. v1 rode the warm-paper card
@@ -12619,13 +12727,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   (function(){
     var gate = document.getElementById('landing-more');
     var toggle = document.getElementById('landing-more-toggle');
-    var extraSelector = [
+    // Sections a deep link has to open the gate to reach. The first five
+    // are arm-dependent: in `full` they are already on the page, and
+    // listing them there would pop the gate open on a jump to a chapter
+    // the visitor can already see.
+    var armGated = document.documentElement.getAttribute('data-onepager') === 'onepager'
+      ? ['#how-it-works', '#live-now', '#live-proof', '#ranked-band', '#creator-sweepstakes']
+      : [];
+    var extraSelector = armGated.concat([
       '.hero-founder-frame > .hero',
-      '#how-it-works', '#live-now', '#live-proof', '#ranked-band', '#creator-sweepstakes',
       '#why-this-exists', '#floor-band', '#mode-select', '#engine-select', '#credential-path',
       '#community-band', '#face-wall',
       '#reviews', '#faq', '#book-founders'
-    ].join(',');
+    ]).join(',');
     if (!gate || !toggle) return;
 
     function setOpen(open, track){
