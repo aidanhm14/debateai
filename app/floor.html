@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>The Floor · Debatable</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
-<meta name="description" content="Watch the round. Call the winner. Climb the board. The Floor is Debatable's prediction arena: back a side across three windows, the AI judge settles, the crowd argues. Play credits only." />
+<meta name="description" content="Watch the round. Call the winner. Climb the board. The Floor is Debatable's prediction arena: back a side across three windows and read the odds. Exhibition rounds settle from a rating model, not a live ballot. Play credits only." />
 <meta name="robots" content="noindex" />
 <link rel="icon" href="/icons/icon-192.png" />
 <script>
@@ -68,6 +68,13 @@
   .hero p{margin:0;font-size:1rem;color:var(--dim);max-width:60ch;line-height:1.55}
   .hero .pmark{display:inline-flex;align-items:center;gap:7px;margin-top:12px;font-size:.72rem;font-weight:700;color:var(--ghost);letter-spacing:.02em}
   .hero .pmark .dot{width:7px;height:7px;border-radius:50%;background:var(--win);box-shadow:0 0 0 4px var(--winBg)}
+  /* Exhibition disclosure. computeVerdict() in lib/floor.mjs settles from
+     skillProb() unless a market carries boundResult, and nothing writes
+     boundResult yet, so every market on this page resolves from a rating
+     model. Do not soften this line until real ballots bind to markets. */
+  .hero .exhibit-note{margin:14px 0 0;max-width:62ch;padding:10px 13px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:var(--card);font-size:.82rem;line-height:1.5;color:var(--dim)}
+  .hero .exhibit-note b{color:var(--text);font-weight:800}
+  .sim-tag{display:inline-block;margin-left:8px;padding:1px 7px;border:1px solid var(--border);border-radius:999px;font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ghost);vertical-align:middle}
 
   /* ---- nav tabs ---- */
   .tabs{position:sticky;top:57px;z-index:30;display:flex;gap:6px;max-width:1180px;margin:18px auto 0;padding:10px 20px;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);flex-wrap:wrap}
@@ -315,8 +322,9 @@
     <div class="float-card" style="top:194px;right:20px;--rot:3deg;animation-delay:2.3s"><div class="fc-fmt">APDA · resolved</div><div class="fc-vs">The Veteran vs The Upstart</div><div class="fc-tag split">⚡ split verdict</div></div>
   </div>
   <h1>Call the winner <span class="accent">before the room does.</span></h1>
-  <p>Back a side. The AI judge settles when the round ends. The crowd votes too. When they disagree, that is the whole show.</p>
+  <p>Back a side across three windows. Watch the odds move as the room piles in. The board ranks the sharpest reads, not the loudest ones.</p>
   <span class="pmark"><span class="dot"></span>Play credits only. Status is the prize.</span>
+  <p class="exhibit-note"><b>Exhibition mode.</b> These markets settle from a rating model, not from a live AI ballot. Play credits only, no cash value.</p>
 </div>
 
 <nav class="tabs" role="tablist">
@@ -367,7 +375,7 @@
       @media (max-width:520px){ .fp-note{flex-direction:column;gap:8px} }
     </style>
     <h2 class="section-h">How it's judged</h2>
-    <p class="section-sub">AI judge settles every market. Pick your paradigm, it honors the format. Here is the lens.</p>
+    <p class="section-sub">Pick your paradigm and the ballot honors the format. Here is the lens.</p>
     <div class="fp-grid">
       <div class="fp-card"><span class="fp-tag">Blank slate</span><h4>Tabula rasa</h4><p>Whatever framework you set up and win, the judge adopts. The flow is everything.</p></div>
       <div class="fp-card"><span class="fp-tag">Net benefits</span><h4>Policymaker</h4><p>Does the plan's benefit beat its cost against the status quo or a counterplan?</p></div>
@@ -400,7 +408,7 @@
     <h3 class="section-h" style="font-size:1.2rem;margin-top:30px">Two markets, one round</h3>
     <p class="section-sub">Every event runs two markets side by side, and the gap between them is the whole show.</p>
     <div class="fp-grid">
-      <div class="fp-card"><span class="fp-tag">Objective</span><h4>The AI Judge</h4><p>Settles on the format-accurate ballot. Hard to game, instant, and the only market that can ever pay real prizes.</p></div>
+      <div class="fp-card"><span class="fp-tag">Objective</span><h4>The AI Judge</h4><p>Reads the round on the format-accurate ballot, published and auditable at /judge-integrity. Exhibition markets here do not settle on it yet.</p></div>
       <div class="fp-card"><span class="fp-tag">Subjective</span><h4>The Crowd</h4><p>The room votes who won. When the judge and the crowd split, that disagreement is the content. Winning the flow is not the same as winning the room.</p></div>
     </div>
   </section>
@@ -957,11 +965,14 @@
       '<div class="vs"><div class="deb">'+avHTML(m.A)+'<div class="dtext"><div class="nm">'+esc(m.A.nm)+'</div></div></div><span class="vsx">vs</span><div class="deb deb--r">'+avHTML(m.B)+'<div class="dtext"><div class="nm">'+esc(m.B.nm)+'</div></div></div></div>'+
       '<div class="result">'+
         '<div class="verdicts">'+
-          '<div class="vbox win"><div class="h">AI Judge</div><div class="w">'+esc(jName)+'</div></div>'+
+          // Anything not bound to a real round is a rating-model result.
+          // Label it. Erring toward over-labelling is deliberate: an
+          // unlabelled simulated verdict reads as a real ballot.
+          '<div class="vbox win"><div class="h">'+(r.source==='round'?'AI Judge':'Verdict<span class="sim-tag">Simulated</span>')+'</div><div class="w">'+esc(jName)+'</div></div>'+
           '<div class="vbox '+(r.diverged?'':'win')+'"><div class="h">The Crowd</div><div class="w">'+esc(cName)+'</div></div>'+
         '</div>'+
         (r.diverged ? '<div class="divergence">⚡ Split verdict · the judge and the room disagreed</div>' : '') +
-        '<div class="rfd"><span class="by">Reason for decision · '+m.fmt+'</span>'+esc(r.rfd)+'</div>'+
+        '<div class="rfd"><span class="by">'+(r.source==='round'?'Reason for decision · ':'Sample reason for decision · ')+m.fmt+'</span>'+esc(r.rfd)+'</div>'+
         pnl+
       '</div>'+
     '</div>';
@@ -1131,7 +1142,7 @@
   var TUT_STEPS=[
     {ico:'🎯', t:'Predict who wins', b:'The Floor turns every debate into a market. Back the debater you think wins and climb the board. Play credits only, no cash. The status is the prize.'},
     {ico:'⏱', t:'Three windows to call it', b:'Back a side before the motion even drops (blind, biggest reward), after you see the topic, or live until the round hits halftime. The earlier you commit, the more your Sharp Score grows.'},
-    {ico:'⚖', t:'Two verdicts settle it', b:'When the round ends the AI judge calls the winner and pays the pool pro-rata. The crowd votes too, and when the judge and the room disagree, that split is the whole show.'},
+    {ico:'⚖', t:'How a market settles', b:'Exhibition rounds resolve from a rating model and pay the pool pro-rata in play credits. Settlement on a real AI ballot is not live yet, and every resolved market says which one it was.'},
     {ico:'📈', t:'Odds move with the money', b:'Pools are pari-mutuel: the more the crowd piles onto one debater, the smaller that side pays. The edge is spotting the underdog the room is sleeping on.'},
     {ico:'🏆', t:'Climb two boards', b:'Sharpest Predictors ranks your read on the game. Biggest Draws ranks the debaters people show up for. Be the sharpest, or become someone worth betting on.'}
   ];
