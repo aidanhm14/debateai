@@ -23,6 +23,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { esc, sendEmail } from './lib/email.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
+import { getDb } from './lib/firestore.mjs';
 
 // The room link goes into a branded "Open the round room" button in an email
 // sent from our domain. It MUST point at a room we host, or this endpoint is a
@@ -110,16 +111,17 @@ export default async (req) => {
     });
   }
 
-  // Auth check — caller must be signed in. We don't strictly enforce
-  // "caller is one of the parties" because the challenge doc isn't
-  // fetched server-side here; rate-limited at Resend's free tier
-  // (100/day) so abuse is bounded.
+  // Auth check — caller must be signed in. The "caller is a party" check and
+  // the recipient addresses are enforced/derived server-side below from the
+  // challenge doc, so the body cannot pick who gets emailed.
   const token = extractBearerToken(req);
   if (!token) return jsonResponse(401, { error: 'Auth required (Bearer token)' });
   let uid = null;
+  let callerEmail = '';
   try {
     const decoded = await verifyIdToken(token);
     uid = decoded && decoded.sub;
+    callerEmail = (decoded && decoded.email) || '';
   } catch (e) {
     return jsonResponse(401, { error: 'Invalid token: ' + (e.message || 'unknown') });
   }
@@ -143,19 +145,59 @@ export default async (req) => {
   const calendarUrl = body.calendarUrl ? String(body.calendarUrl).slice(0, 1500) : null;
   const poster = body.poster || {};
   const accepter = body.accepter || {};
+  const challengeId = String(body.challengeId || '').slice(0, 200);
 
-  if (!motion || !roomUrl || !poster.email || !accepter.email) {
-    return jsonResponse(400, { error: 'Missing required fields (motion, roomUrl, poster.email, accepter.email)' });
+  if (!motion || !roomUrl || !challengeId) {
+    return jsonResponse(400, { error: 'Missing required fields (motion, roomUrl, challengeId)' });
   }
 
   // Reject an off-allowlist room link so this can't be used as a branded
-  // phishing relay. (Deeper fix, tracked separately: derive recipient emails +
-  // roomUrl from the challenge doc server-side and verify the caller is a
-  // party, instead of trusting the request body.)
+  // phishing relay.
   if (!hostAllowed(roomUrl, ROOM_HOSTS)) {
     return jsonResponse(400, { error: 'roomUrl host not allowed' });
   }
   const safeCalendarUrl = (calendarUrl && hostAllowed(calendarUrl, CAL_HOSTS)) ? calendarUrl : null;
+
+  // Recipient emails are DERIVED SERVER-SIDE from the challenge, never trusted
+  // from the request body. Otherwise any signed-in user could email arbitrary
+  // addresses under our brand. The caller must also be a party to the round.
+  // Poster email lives on the private companion live_challenge_contacts/{id}
+  // (with a legacy fallback to the challenge doc); accepter email is the
+  // caller's own verified-token email.
+  let posterEmail = '';
+  let accepterEmail = '';
+  try {
+    const db = getDb();
+    const challSnap = await db.collection('live_challenges').doc(challengeId).get();
+    if (!challSnap.exists) return jsonResponse(404, { error: 'Challenge not found' });
+    const chall = challSnap.data() || {};
+
+    // Party check: caller must be the poster or the recorded accepter. If no
+    // accepter is stamped yet, the caller IS the one accepting right now, so a
+    // non-poster is allowed through as the accepter.
+    const isPoster = chall.posterUid && chall.posterUid === uid;
+    const isAccepter = chall.accepterUid && chall.accepterUid === uid;
+    const acceptingNow = !chall.accepterUid && chall.posterUid !== uid;
+    if (!isPoster && !isAccepter && !acceptingNow) {
+      return jsonResponse(403, { error: 'Not a party to this challenge' });
+    }
+
+    const contactSnap = await db.collection('live_challenge_contacts').doc(challengeId).get();
+    const contact = (contactSnap.exists && contactSnap.data()) || {};
+    posterEmail = contact.posterEmail || chall.posterEmail || '';
+    // Accepter is normally the caller (their own verified-token email). Fall
+    // back to the companion doc for the defensive poster-initiated path.
+    accepterEmail = isPoster ? (contact.accepterEmail || '') : (callerEmail || contact.accepterEmail || '');
+  } catch (e) {
+    return jsonResponse(500, { error: 'Could not verify challenge' });
+  }
+
+  if (!posterEmail || !accepterEmail) {
+    return jsonResponse(400, { error: 'No deliverable address on file for one side' });
+  }
+  // Force the server-derived addresses; ignore any body-supplied emails.
+  poster.email = posterEmail;
+  accepter.email = accepterEmail;
 
   // Build both emails. Each side sees the OTHER side's contact.
   const posterHtml = template({
