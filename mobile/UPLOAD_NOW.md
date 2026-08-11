@@ -1,24 +1,36 @@
 # Upload Debatable to App Store Connect
 
-Written 2026-07-28. Everything below was verified on this Mac that day.
-Supersedes the 2026-07-22 version, which was wrong about the one thing it
-called the gate on going live (see "Corrections" at the bottom).
+Updated 2026-08-10. The artifact and signing details below were verified
+directly from the exported IPA on this Mac.
 
 ## The artifact
 
-**`~/mobile/build/v3/Debatable.ipa`** — version 1.0, **build 4**, 6.6 MB.
+**`~/mobile/build/v7/Debatable.ipa`**. Version 1.0, **build 7**, 6.9 MB.
 
-- Archived off current `origin/main`, so it matches the live site.
+- SHA-256: `05ad6d33bf0c3dcedff211682362b9e16367074c76091a8f7e5e2c896f47b0bc`.
+- Archive and App Store export both completed successfully on 2026-08-10.
 - Points at `https://itsdebatable.com/native`.
+- Uses `DebatableApp/1.0`; no legacy domain is present in the navigation allowlist.
+- Camera, microphone, and photo-library permission copy all says Debatable.
 - Signed **Cloud Managed Apple Distribution** (`35Z3KB54MV`), profile valid to 2027-07-16.
 - Entitlements: `aps-environment=production`, `beta-reports-active`,
   Sign in with Apple, `get-task-allow=false`.
 - `ITSAppUsesNonExemptEncryption=false`, so Apple should not ask about export compliance.
 
-Do not upload `build/` or `build/v2/`. Both predate the brand sweep and
-still point at `debateai.com/native`.
+Do not upload build 6. Its signed payload still contains three old DebateIt
+permission labels and the old user-agent. Build 7 fixes those release defects.
 
-## Step 1 — Upload (~10 min + processing)
+Repeat the release audit at any time:
+
+```bash
+node scripts/verify-ios-release.mjs ~/mobile/build/v7/Debatable.ipa 7
+```
+
+The verifier checks ZIP integrity, identifiers, build number, permission copy,
+server and navigation configuration, distribution signing, production push,
+TestFlight reporting, Sign in with Apple, debug status, and symbols.
+
+## Step 1: Upload (~10 min + processing)
 
 App Store Connect record already exists: app ID `6791712877`, bundle
 `com.debateai.debateit`. Do not create a second one.
@@ -26,22 +38,22 @@ App Store Connect record already exists: app ID `6791712877`, bundle
 **Transporter** (installed at `/Applications/Transporter.app`):
 
 1. Open it, sign in with your Apple ID (normal 2FA)
-2. Drag in `~/mobile/build/v3/Debatable.ipa`
+2. Drag in `~/mobile/build/v7/Debatable.ipa`
 3. Let it validate, then **Deliver**
 
 CLI alternative, using an app-specific password from appleid.apple.com.
 Type the password yourself, never paste it into a chat:
 
 ```bash
-xcrun altool --upload-app -f ~/mobile/build/v3/Debatable.ipa -t ios -u <your-apple-id> -p <app-specific-password>
+xcrun altool --upload-app -f ~/mobile/build/v7/Debatable.ipa -t ios -u <your-apple-id> -p <app-specific-password>
 ```
 
 Then wait 10-30 minutes for processing. Apple emails you.
 
-Rebuilding later? Bump `CURRENT_PROJECT_VERSION` past 4 first. App Store
+Rebuilding later? Bump `CURRENT_PROJECT_VERSION` past 7 first. App Store
 Connect rejects a build number it has already seen.
 
-## Step 2 — TestFlight (~10 min, no Apple review)
+## Step 2: TestFlight (~10 min, no Apple review)
 
 App Store Connect → TestFlight → Internal Testing → new group → add your
 own Apple ID. Internal testing skips Beta App Review, so it is immediate
@@ -57,7 +69,7 @@ once processing finishes.
    simulator with no iCloud account, where it cannot succeed. A real
    signed-in phone is the first honest test.
 
-## Step 3 — Before PUBLIC review
+## Step 3: Before public review
 
 TestFlight needs none of this.
 
