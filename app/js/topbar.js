@@ -296,6 +296,11 @@
       // no-simultaneity surface, so it belongs next to the live ones.
       { href: '/rounds',      label: 'Async rounds' },
       { href: '/spectate',    label: 'Spectate live rounds' },
+      // 2026-08-10: the watch hub — tournament streams, full round
+      // replays, and clips. Its only other entry point is a link inside
+      // the landing's stream-it section, so Explore is what makes it
+      // findable from the rest of the site.
+      { href: '/watch',       label: 'Streams and replays' },
       // 2026-07-27: standalone lobby prototype. It gathers the public
       // network signals into one venue without replacing the landing.
       { href: '/arena',       label: 'The Arena' },
@@ -391,6 +396,7 @@
     '/judge-integrity':    { desc: 'The rubric, the panel, appeals', icon: '<path d="M12 4.6v14.8M7.4 19.4h9.2M5 8.2h14M5 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM19 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM12 4.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/>' },
     '/rounds':         { desc: 'Record now, they answer later', icon: '<path d="M16.5 4L20 7.5 16.5 11M20 7.5H7.8M7.5 20L4 16.5 7.5 13M4 16.5h12.2"/>' },
     '/spectate':       { desc: 'Watch rounds as they happen', icon: '<path d="M3.6 12S6.9 5.9 12 5.9 20.4 12 20.4 12 17.1 18.1 12 18.1 3.6 12 3.6 12z"/><circle cx="12" cy="12" r="2.7"/>' },
+    '/watch':          { desc: 'Streams, replays, and clips', icon: '<rect x="4" y="5.4" width="16" height="11.6" rx="2.2"/><path d="M10.4 8.8l4.4 2.8-4.4 2.8zM8.2 20.4h7.6"/>' },
     '/arena':          { desc: 'One lobby for everything live', icon: '<path d="M5.6 20.8V3.9M5.6 4.6c4.7-2.3 8 2 12.8-.2v9.4c-4.8 2.2-8.1-2.1-12.8.2"/>' },
     '/tournaments':    { desc: 'Brackets, tab, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
     '/partners':       { desc: 'Team up for two on two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
