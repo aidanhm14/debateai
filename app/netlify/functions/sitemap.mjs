@@ -71,7 +71,7 @@ const URLS = [
   // taken by the typed-mode product page. /compare positions Debatable
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
-  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92' },
+  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
   // "debate strangers" / "omegle for debate" query cluster. Sister to
   // /debate-online, focused on the random-human /spar path (which is
@@ -98,15 +98,15 @@ const URLS = [
   // High-intent editorial doorways that remained in the hand-maintained
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.
-  { path: '/online-debate-platforms',                 changefreq: 'monthly', priority: '0.90', lastmod: '2026-07-25' },
-  { path: '/online-debate-camp',                      changefreq: 'monthly', priority: '0.86', lastmod: '2026-07-25' },
+  { path: '/online-debate-platforms',                 changefreq: 'monthly', priority: '0.90', lastmod: '2026-08-10' },
+  { path: '/online-debate-camp',                      changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-10' },
   { path: '/oral-exam-prep',                          changefreq: 'monthly', priority: '0.82', lastmod: '2026-07-23' },
   // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
   // debate" — the exact-match phrase the /exhibition product page
   // can't claim with its single-word slug. Static HTML, rich JSON-LD
   // (HowTo + SoftwareApplication + FAQPage + BreadcrumbList), strong
   // CTA into /exhibition. Same playbook as /debate-an-ai → /voice-debate.
-  { path: '/ai-vs-ai-debate',                         changefreq: 'weekly',  priority: '0.88' },
+  { path: '/ai-vs-ai-debate',                         changefreq: 'weekly',  priority: '0.88', lastmod: '2026-08-10' },
   // Dedicated SEO doorway for "ai debate judge" / "judge a debate
   // round" / "debate ballot" intents. Paste-a-round produces a
   // tournament-grade RFD + speaker points; PF-first, targets the
@@ -119,7 +119,7 @@ const URLS = [
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },
-  { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86' },
+  { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-10' },
   // /learn/formats/* pages deliberately canonicalize to the deeper
   // /topics/* pillars. They remain useful mechanics references linked
   // from /learn, but canonical alternates do not belong in a sitemap.
@@ -174,7 +174,7 @@ const URLS = [
   { path: '/community',       changefreq: 'daily',   priority: '0.88' },
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
-  { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-25' },
+  { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-10' },
   { path: '/tournaments',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-25' },
   { path: '/coach',           changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-25' },
   { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },
@@ -195,7 +195,7 @@ const URLS = [
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
-  { path: '/uwc',             changefreq: 'monthly', priority: '0.68', lastmod: '2026-07-25' },
+  { path: '/uwc',             changefreq: 'monthly', priority: '0.68', lastmod: '2026-08-10' },
   { path: '/credentials',     changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   // Company context. /investors distinguishes current product status
   // from the longer vision board; /future carries the full philosophy.
@@ -211,10 +211,10 @@ const URLS = [
   // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
-  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-25' },
+  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-10' },
   { path: '/reviews',         changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-07-22' },
-  { path: '/atlas',           changefreq: 'weekly',  priority: '0.72', lastmod: '2026-07-25' },
+  { path: '/atlas',           changefreq: 'weekly',  priority: '0.72', lastmod: '2026-08-10' },
   { path: '/float',           changefreq: 'monthly', priority: '0.58', lastmod: '2026-07-23' },
   // Indexable, internally linked, never listed here (found 2026-07-23
   // by diffing the page inventory against this array). None carry
@@ -305,9 +305,9 @@ const URLS = [
   { path: '/debate/should-books-be-banned-in-schools',        changefreq: 'monthly', priority: '0.80' },
   { path: '/debate/is-space-exploration-worth-the-cost',      changefreq: 'monthly', priority: '0.76' },
   { path: '/debate/is-veganism-better-for-the-environment',   changefreq: 'monthly', priority: '0.76' },
-  { path: '/india',           changefreq: 'monthly', priority: '0.90' },
+  { path: '/india',           changefreq: 'monthly', priority: '0.90', lastmod: '2026-08-10' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
-  { path: '/report',          changefreq: 'monthly', priority: '0.60' },
+  { path: '/report',          changefreq: 'monthly', priority: '0.60', lastmod: '2026-08-10' },
   // debateprep.com — STAGED, DELIBERATELY NOT ENABLED (2026-07-23).
   // app/prep.html and the host rules in netlify.toml shipped in
   // 3ea56578, but the domain still answers on GoDaddy's parking lander:
