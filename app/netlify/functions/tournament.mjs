@@ -95,6 +95,11 @@ function publicEntry(e) {
     members: Array.isArray(e.members) ? e.members : [],
     memberNames: Array.isArray(e.memberNames) ? e.memberNames : [],
     status: e.status || 'registered',
+    // Who the entry debates for. Optional, and free text on purpose:
+    // this is a school, a club, a Discord, or a country, and a fixed
+    // list would exclude exactly the informal communities we are
+    // trying to reach.
+    affiliation: cleanText(e.affiliation, 60),
     wins: Number(e.wins || 0),
     losses: Number(e.losses || 0),
     speaks: Number(e.speaks || 0),
@@ -180,6 +185,11 @@ export default async (request) => {
       ref.collection('rounds').get(),
     ]);
     const entries = entrySnap.docs.map((d) => ({ entryId: d.id, ...d.data() }));
+    // standings() runs entries through the pairing module's own
+    // normaliser, which keeps only what pairing needs. Join the label
+    // back on here rather than widening a pure module the draw depends
+    // on.
+    const affById = new Map(entries.map((e) => [e.entryId, cleanText(e.affiliation, 60)]));
     const rounds = roundSnap.docs
       .map((d) => publicRound(d.id, d.data()))
       .sort((a, b) => (a.kind === b.kind ? a.roundNo - b.roundNo : (a.kind === 'prelim' ? -1 : 1)));
@@ -195,6 +205,7 @@ export default async (request) => {
         rank: i + 1,
         entryId: e.entryId,
         name: e.name || 'Team',
+        affiliation: affById.get(e.entryId) || '',
         wins: e.wins,
         losses: Number(e.losses || 0),
         speaks: e.speaks,
@@ -281,6 +292,7 @@ export default async (request) => {
       members,
       memberNames,
       teamId: teamSize === 2 ? String(body?.teamId || '') : '',
+      affiliation: cleanText(body?.affiliation, 60),
       status: 'registered',
       // Registration always starts as the free, non-prize path. The
       // signed Stripe webhook is the only code that can flip this true.
@@ -307,6 +319,19 @@ export default async (request) => {
     const mine = await existingEntryFor(myUid);
     if (!mine) return errorResponse('You are not registered for this tournament.', 404, request);
     await mine.ref.update({ status: 'checked_in', checkedInAt: FieldValue.serverTimestamp() });
+    cache.clear();
+    return jsonResponse({ ok: true }, 200, request);
+  }
+
+  // ── affiliation ─────────────────────────────────────────────────
+  // Editable after the fact, deliberately. Someone registers on their
+  // own and their coach asks to be represented a week later, which is
+  // exactly the conversation the outreach is trying to start, so this
+  // cannot be a set-once field buried in the registration form.
+  if (action === 'affiliation') {
+    const mine = await existingEntryFor(myUid);
+    if (!mine) return errorResponse('You are not registered for this tournament.', 404, request);
+    await mine.ref.update({ affiliation: cleanText(body?.affiliation, 60) });
     cache.clear();
     return jsonResponse({ ok: true }, 200, request);
   }

@@ -578,6 +578,11 @@
         host.appendChild(ci);
       }
       if (status === 'registered' || status === 'checked_in'){
+        affiliationField(host, t, mine.affiliation, function(value){
+          return api('/api/tournament', { action: 'affiliation', tid: t.tid, affiliation: value });
+        });
+      }
+      if (status === 'registered' || status === 'checked_in'){
         var wd = document.createElement('button');
         wd.className = 'btn'; wd.textContent = 'Withdraw';
         wd.addEventListener('click', function(){
@@ -611,6 +616,7 @@
     btn.textContent = t.teamSize === 2 ? 'Register my team' : 'Register';
     btn.addEventListener('click', function(){ register(btn); });
     host.appendChild(btn);
+    state.affiliationInput = affiliationField(host, t, '', null);
     appendPrizeLinks(host, t);
     if (t.teamSize === 2){
       var link = document.createElement('a');
@@ -645,10 +651,56 @@
     host.appendChild(rules);
   }
 
+  // ── Who you debate for ───────────────────────────────────────────
+  // Optional, free text, editable at any time. This exists because the
+  // partner outreach promises coaches that their club shows up on the
+  // board; without somewhere to put the name, that promise had nothing
+  // behind it. Free text rather than a picker: the communities worth
+  // reaching are Discords and informal circuits, not a list we can
+  // enumerate in advance.
+  function affiliationField(host, t, current, onSave){
+    var wrap = document.createElement('div');
+    // The action host is a wrapping flex row of buttons. Ordering this
+    // last and letting it take a full basis puts the field on its own
+    // line instead of wedging it between Check in and Withdraw.
+    wrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;' +
+      'flex:1 0 100%;order:9;margin-top:2px';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 60;
+    input.value = current || '';
+    input.placeholder = 'School, club, or community (optional)';
+    input.setAttribute('aria-label', 'School, club, or community');
+    input.style.cssText = 'flex:0 1 300px;min-width:0;padding:9px 12px;border-radius:9px;' +
+      'border:1px solid var(--line);background:var(--panel-2);' +
+      'color:var(--fg);font:inherit;font-size:.92rem';
+    wrap.appendChild(input);
+    if (onSave){
+      var save = document.createElement('button');
+      save.className = 'btn';
+      save.textContent = 'Save';
+      save.addEventListener('click', function(){
+        busy(save, true, 'Saving');
+        onSave(input.value.trim())
+          .then(function(){ good('Saved. Your board entry shows it now.'); return load(); })
+          .catch(function(e){ fail(e.message); })
+          .then(function(){ busy(save, false); });
+      });
+      wrap.appendChild(save);
+    }
+    host.appendChild(wrap);
+    return input;
+  }
+
   function register(btn){
     var t = state.data.tournament;
     busy(btn, true, 'Registering');
-    var body = { action: 'register', tid: t.tid, name: (state.user.displayName || 'Debater') };
+    var body = {
+      action: 'register',
+      tid: t.tid,
+      name: (state.user.displayName || 'Debater'),
+      affiliation: state.affiliationInput ? state.affiliationInput.value.trim() : '',
+    };
     var go = Promise.resolve();
     if (t.teamSize === 2){
       // A 2v2 tournament enters a FORMED duo. The partnership was
@@ -773,9 +825,12 @@
     tb.innerHTML = '<tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
       rows.map(function(r){
         var me = mine && r.entryId === mine.entryId;
+        var aff = r.affiliation
+          ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>'
+          : '';
         return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '>' +
           '<td class="num">' + r.rank + '</td>' +
-          '<td>' + esc(r.name) + '</td>' +
+          '<td>' + esc(r.name) + aff + '</td>' +
           '<td class="num">' + r.wins + '</td>' +
           '<td class="num">' + r.losses + '</td>' +
           '<td class="num">' + r.speaks + '</td></tr>';
