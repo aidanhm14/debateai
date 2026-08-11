@@ -1,42 +1,59 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light" data-force-theme="light">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- /ladder — trade a debater's rating with points.
      POINTS ONLY (virtual, non-purchasable, non-transferable, non-redeemable).
 
-     WHAT THIS IS, AND WHY IT IS NOT /predict
-     /predict is a binary market on one round: pick a side, wait for the
-     ballot, collect. Its weakness is that nothing happens between rounds.
-     This is a CONTINUOUS market on a person. One share of a debater pays
-     their normalized Debate Rating at season close, so it can be traded
-     any day, held, and exited, and it moves every time they compete.
-     "Trade their chance of winning" and "trade them climbing the
-     rankings" are the same instrument, because winning rounds is how the
-     rating rises.
+     WHAT YOU ARE BUYING
+     One share of a debater is a claim on where their Debate Rating ends the
+     season. LONG pays the normalized final rating, SHORT pays the
+     complement, so a matched pair always pays exactly 100 between them and
+     the book is solvent by construction rather than by hoping.
+
+     WHY THIS IS NOT /predict
+     /predict is a binary call on one round, and its weakness is that
+     nothing happens between rounds. A rating claim is continuously
+     tradeable, holdable, and exitable on a day with no rounds on it, which
+     is what a daily habit needs. Winning rounds is how a rating rises, so
+     "trade their chance of winning" and "trade them climbing the rankings"
+     are one instrument here, not two features.
 
      THE EDGE IS THE PRODUCT
-     Glicko-2 carries a rating deviation, so a new debater sits at 1500
-     with the ladder openly admitting it does not know. The number lags
-     someone obviously good for several rounds. Every card shows the
-     ladder's mark next to the market price and the gap between them,
-     because that gap is the entire reason to open this page.
+     Glicko-2 carries a rating deviation, so a new debater sits at 1500 with
+     the ladder openly saying it does not know, and the number lags anyone
+     obviously good for several rounds. Every row shows the ladder's mark
+     against the market price and names the gap, because that gap is the
+     only reason to open this page.
+
+     THE LOOK IS AN INSTRUMENT, NOT A BROCHURE (rebuilt 2026-08-11)
+     v1 shipped as marketing-style cards on the light editorial surface,
+     which is the right surface for a page that sells and the wrong one for
+     a page you check. A board is read in glances: the eye scans one column
+     for the number it wants, so this is a dense ruled table with the price,
+     the ladder mark, the gap and a real price series on one line each.
+     Cards forced a re-scan per tile and fit four markets on a screen where
+     rows fit fifteen.
+
+     Dual palette, joining the sitewide toggle rather than pinning itself
+     (see the 2026-08-11 theme audit). Light is a paper tape; dark is a
+     trading floor. Neither is decoration: the same tokens drive both and
+     the numbers carry the same weight in each.
 
      NO RAKE, BY CONSTRUCTION
-     Pricing is LMSR. The operator SUBSIDIZES each market by a bounded
-     amount and takes no cut of any trade or settlement, so we earn the
-     same whoever turns out to be good. Same fee-neutrality property the
-     judge charter publishes at /judge-integrity, held the same way: as a
-     property of the maths rather than a promise in a footer.
+     Pricing is LMSR. The maker SUBSIDIZES each book by a bounded, known
+     amount and takes no cut of any trade or settlement, so we earn the same
+     whoever turns out to be good. Same fee-neutrality the judge charter
+     publishes at /judge-integrity, held the same way: a property of the
+     maths rather than a promise in a footer.
 
-     Server-authoritative. The client cannot write a balance, a book, or
-     a position; value_* collections carry no Firestore rules, so the
-     default deny covers them and every mutation goes through
-     value-market.mjs with admin credentials. -->
+     Server-authoritative. The client cannot write a balance, a book, or a
+     position; value_* collections carry no Firestore rules, so the default
+     deny covers them and every mutation goes through value-market.mjs. -->
 <title>The Ladder · trade a debater's rating · Debatable</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="Trade shares in a debater's rating with free points. Buy them before the ladder catches up, sell when it does. No cash value, no rake.">
+<meta name="description" content="Trade shares in a debater's rating with free points. Buy them before the ladder catches up. No cash value, no rake.">
 <link rel="icon" href="/icons/icon-192.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="The Ladder · trade a debater's rating · Debatable">
@@ -44,6 +61,20 @@
 <meta property="og:url" content="https://itsdebatable.com/ladder">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
+
+<!-- Early-load theme restore, matching the sitewide pattern: ui.css serves
+     the three-theme tokens, this only sets data-theme before first paint so
+     the toggle in the topbar reaches this page. Light is the default for
+     anyone who has not picked; dark is opt-in. -->
+<script>
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -62,191 +93,319 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap">
 <link rel="stylesheet" href="/css/ui.css">
 <style>
+  /* ── palette ───────────────────────────────────────────────────────
+     Two complete themes rather than a dark skin over a light page. Ink
+     rides as a raw rgb triple so the alpha ladders below follow the
+     theme instead of being re-declared per rule, the same technique the
+     sitewide theme audit used. */
   :root{
-    --bg:#f1eee4; --panel:#ffffff; --panel2:#f0ece1; --panel3:#e7e2d3;
-    --bd:rgba(20,22,28,.15); --bd2:rgba(20,22,28,.32);
-    --tx:#17181c; --dim:rgba(23,24,28,.72); --faint:rgba(23,24,28,.65);
-    --pro:#166534; --pro-d:#14532d; --con:#b91c1c; --con-d:#991b1b;
-    --blue:#1d4ed8; --amber:#92400e; --r:14px;
-    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-    --shadow:0 1px 2px rgba(20,22,28,.06),0 4px 14px rgba(20,22,28,.07);
+    --ink-rgb:20,22,28;
+    --paper:#f4f2ea; --panel:#fffffe; --sunken:#eae7dc; --rule:rgba(20,22,28,.13);
+    --rule-hard:rgba(20,22,28,.26);
+    --tx:rgb(var(--ink-rgb));
+    --dim:rgba(var(--ink-rgb),.70); --faint:rgba(var(--ink-rgb),.50);
+    --up:#12693f; --down:#b3221f; --brand:#c02626; --brand-hi:#e03535;
+    --acc:#1d4ed8;
+    --row-hover:rgba(20,22,28,.035);
+    --glow:none;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:'Crimson Pro',Georgia,"Times New Roman",serif;
   }
-  *{box-sizing:border-box;margin:0;padding:0}
+  html[data-theme="crimson"]{
+    --ink-rgb:236,235,232;
+    /* Warm near-black, not slate. A cold grey terminal would read as a
+       different product; this keeps the brand's paper warmth at night. */
+    --paper:#0e0d0f; --panel:#16151a; --sunken:#100f13; --rule:rgba(236,235,232,.13);
+    --rule-hard:rgba(236,235,232,.28);
+    --dim:rgba(var(--ink-rgb),.68); --faint:rgba(var(--ink-rgb),.44);
+    --up:#3fd08a; --down:#ff6a63; --brand:#ff4444; --brand-hi:#ff6a6a;
+    --acc:#7aa2ff;
+    --row-hover:rgba(236,235,232,.05);
+    --glow:0 0 22px rgba(255,68,68,.13);
+    --fill-a:.42;
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   /* The UA's [hidden] rule is display:none at user-agent weight, so any
-     author rule setting display (and .equity/.drip/.bal all do) beats it.
-     Without this the signed-out page renders an empty equity strip and
-     offers daily credits to someone with no account. */
+     author rule setting display beats it. Without this the signed-out
+     page renders an empty equity readout and offers daily credits to
+     someone with no account. */
   [hidden]{display:none!important}
-  body{background:var(--bg);color:var(--tx);font-family:'Crimson Pro',Georgia,serif;line-height:1.5;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
-  a{color:var(--blue);text-decoration:none}
-  button{font-family:'Crimson Pro',Georgia,serif}
+  html{background:var(--paper)}
+  body{background:var(--paper);color:var(--tx);font-family:var(--serif);line-height:1.45;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font-family:var(--serif);color:inherit}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .up{color:var(--up)} .down{color:var(--down)}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 18px}
 
-  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid var(--bd);position:sticky;top:0;background:rgba(241,238,228,.94);backdrop-filter:blur(10px);z-index:50}
-  .brand{font-weight:800;letter-spacing:-.02em;font-size:1.05rem}
-  .brand em{color:var(--con);font-style:normal}
-  .top-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .bal{font-family:var(--mono);font-size:.78rem;color:var(--dim)}
-  .bal b{color:var(--pro);font-size:.9rem}
-  .btn{border:none;border-radius:999px;cursor:pointer;transition:.15s;font-weight:700}
-  .signin{background:var(--con);color:#fff;font-size:.82rem;padding:7px 16px}
-  .signin:hover{background:var(--con-d)}
-  .ghost{background:transparent;border:1px solid var(--bd2);color:var(--tx);font-size:.78rem;padding:6px 13px;border-radius:999px;cursor:pointer}
-  .ghost:hover{background:var(--panel)}
+  /* ── masthead ────────────────────────────────────────────────────── */
+  .mast{position:sticky;top:0;z-index:60;background:var(--paper);border-bottom:1px solid var(--rule-hard)}
+  .mast-in{max-width:1280px;margin:0 auto;padding:11px 18px;display:flex;align-items:center;gap:16px}
+  .logo{font-weight:800;letter-spacing:-.02em;font-size:1.02rem;white-space:nowrap}
+  .logo em{color:var(--brand);font-style:normal}
+  .logo span{font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-left:9px;vertical-align:middle}
+  .mast-sp{flex:1}
+  .mono-btn{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    padding:7px 13px;border:1px solid var(--rule-hard);background:transparent;border-radius:4px;cursor:pointer;white-space:nowrap}
+  .mono-btn:hover{background:var(--row-hover)}
+  .mono-btn.solid{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:var(--glow)}
+  .mono-btn.solid:hover{background:var(--brand-hi)}
 
-  .head{padding:28px 0 6px}
-  .head h1{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:800;letter-spacing:-.025em;line-height:1.1}
-  .head p{color:var(--dim);font-size:1rem;margin-top:8px;max-width:62ch}
-  .head p strong{color:var(--tx);font-weight:800}
-  .pts{color:var(--faint);font-size:.78rem;margin-top:10px}
+  /* ── ticker ──────────────────────────────────────────────────────── */
+  .tape{border-bottom:1px solid var(--rule);background:var(--sunken);overflow:hidden;position:relative}
+  .tape-track{display:flex;gap:0;white-space:nowrap;will-change:transform;animation:tape 60s linear infinite}
+  .tape:hover .tape-track{animation-play-state:paused}
+  @keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  @media(prefers-reduced-motion:reduce){.tape-track{animation:none}.tape{overflow-x:auto}}
+  .tick{display:inline-flex;align-items:baseline;gap:8px;padding:7px 18px;border-right:1px solid var(--rule);
+    font-family:var(--mono);font-size:.72rem}
+  .tick b{font-family:var(--serif);font-size:.86rem;font-weight:700;letter-spacing:-.01em}
+  .tick .d{font-size:.68rem}
 
-  /* Equity strip. A trader's first question every session is "where do
-     I stand", so it sits above the board rather than behind a tab. */
-  .equity{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin:20px 0 6px}
-  @media(max-width:640px){.equity{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  .eq{background:var(--panel);padding:12px 14px}
-  .eq .k{font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
-  .eq .v{font-family:var(--mono);font-size:1.15rem;font-weight:700;margin-top:3px}
-  .up{color:var(--pro)} .down{color:var(--con)}
+  /* ── head ────────────────────────────────────────────────────────── */
+  .head{padding:26px 0 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:26px;align-items:end}
+  @media(max-width:820px){.head{grid-template-columns:1fr;gap:16px;padding:20px 0 12px}}
+  .head h1{font-size:clamp(1.9rem,4.2vw,2.7rem);font-weight:800;letter-spacing:-.03em;line-height:1.02}
+  .head p{color:var(--dim);font-size:.98rem;margin-top:9px;max-width:56ch}
+  .head p b{color:var(--tx);font-weight:700}
+  .head .fine{color:var(--faint);font-size:.79rem;margin-top:9px}
 
-  .drip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(21,128,61,.07);border:1px solid rgba(21,128,61,.28);border-radius:10px;padding:9px 13px;margin:12px 0;font-size:.85rem;color:var(--pro-d)}
-  .drip button{background:var(--pro);color:#fff;font-size:.78rem;padding:5px 13px;border-radius:999px;border:none;cursor:pointer;font-weight:700}
+  /* Equity readout: a compact instrument block, not four marketing tiles. */
+  .eq{display:grid;grid-template-columns:repeat(4,minmax(72px,auto));gap:0;border:1px solid var(--rule-hard);border-radius:5px;overflow:hidden}
+  @media(max-width:820px){.eq{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .eq div{padding:9px 15px;border-right:1px solid var(--rule);text-align:right}
+  .eq div:last-child{border-right:none}
+  .eq .k{font-family:var(--mono);font-size:.55rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+  .eq .v{font-family:var(--mono);font-size:1.06rem;font-weight:700;margin-top:2px}
 
-  .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 0 12px}
-  .tabs{display:flex;gap:6px}
-  .tab{background:transparent;border:1px solid var(--bd2);color:var(--dim);font-size:.8rem;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer}
-  .tab[aria-selected=true]{background:var(--tx);border-color:var(--tx);color:#fff}
-  .sorts{display:flex;gap:5px;font-size:.74rem}
-  .sortb{background:transparent;border:1px solid var(--bd);color:var(--faint);padding:5px 11px;border-radius:999px;cursor:pointer;font-weight:700;font-size:.74rem}
-  .sortb[aria-pressed=true]{border-color:var(--bd2);color:var(--tx);background:var(--panel)}
+  .drip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--up);
+    border-radius:5px;padding:9px 14px;margin:4px 0 0;font-size:.87rem;color:var(--up)}
+  .drip button{background:var(--up);color:var(--paper);font-family:var(--mono);font-size:.66rem;font-weight:800;
+    letter-spacing:.08em;text-transform:uppercase;padding:5px 12px;border:none;border-radius:3px;cursor:pointer}
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:15px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:11px}
-  .crow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-  .who{min-width:0}
-  .who h3{font-size:1.12rem;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .who .meta{font-family:var(--mono);font-size:.66rem;color:var(--faint);margin-top:2px}
-  .price{text-align:right;flex:none}
-  .price .p{font-family:var(--mono);font-size:1.5rem;font-weight:700;line-height:1}
-  .price .u{font-family:var(--mono);font-size:.58rem;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+  /* ── toolbar ─────────────────────────────────────────────────────── */
+  .bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:16px 0 9px;border-bottom:1px solid var(--rule-hard)}
+  .seg{display:flex;border:1px solid var(--rule-hard);border-radius:4px;overflow:hidden}
+  .seg button{font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    padding:7px 13px;background:transparent;border:none;border-right:1px solid var(--rule);cursor:pointer;color:var(--faint)}
+  .seg button:last-child{border-right:none}
+  .seg button[aria-pressed=true],.seg button[aria-selected=true]{background:var(--tx);color:var(--paper)}
+  .bar-sp{flex:1}
+  .find{font-family:var(--mono);font-size:.74rem;padding:7px 11px;border:1px solid var(--rule-hard);
+    border-radius:4px;background:transparent;color:var(--tx);width:170px}
+  .find::placeholder{color:var(--faint)}
 
-  /* The edge readout. The ladder's mark and the market price on one
-     track, with the gap called out. This is the card's whole job. */
-  .track{position:relative;height:30px;background:var(--panel2);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
-  .fill{position:absolute;left:0;top:0;bottom:0;background:rgba(29,78,216,.16)}
-  .tick{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--tx)}
-  .tick::after{content:attr(data-l);position:absolute;top:50%;left:6px;transform:translateY(-50%);font-family:var(--mono);font-size:.56rem;font-weight:700;color:var(--tx);white-space:nowrap}
-  .edge{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:.78rem}
-  .edge b{font-size:.98rem}
-  .edge .lab{color:var(--faint);font-size:.64rem;letter-spacing:.08em;text-transform:uppercase}
+  /* ── the book ────────────────────────────────────────────────────── */
+  /* One column list, shared by the header and every row, so they cannot
+     drift apart. The meta cells (ladder, 24h, volume) sit contiguous in
+     the DOM inside a wrapper that is `display:contents` here and a flex
+     row on mobile: same markup, two layouts, no second render path. */
+  .cols{display:grid;grid-template-columns:26px minmax(110px,1.4fr) 92px 74px 74px 64px 168px 128px;
+    gap:12px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--rule);
+    font-family:var(--mono);font-size:.55rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+  .cols .r{text-align:right}
+  .row{display:grid;grid-template-columns:26px minmax(110px,1.4fr) 92px 74px 74px 64px 168px 128px;
+    gap:12px;align-items:center;padding:11px 10px;border-bottom:1px solid var(--rule);transition:background .12s}
+  .meta{display:contents}
+  .sparkw{display:none}
+  /* Positions carry no ladder mark or series, so they get their own
+     column list rather than an inline override that the mobile
+     grid-template-areas would then fight. */
+  .row.pos{grid-template-columns:minmax(120px,1.7fr) 96px 104px 104px 128px}
+  .row:hover{background:var(--row-hover)}
+  .rank{font-family:var(--mono);font-size:.72rem;color:var(--faint)}
+  .who .nm{font-size:1.06rem;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who .sub{font-family:var(--mono);font-size:.62rem;color:var(--faint);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .px{text-align:right;font-family:var(--mono);font-size:1.18rem;font-weight:700;letter-spacing:-.02em}
+  .col-r{text-align:right;font-family:var(--mono);font-size:.82rem}
+  .col-r .lab{display:none}
 
-  .stats{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--faint)}
-  .stats b{color:var(--dim);font-weight:700}
-  .acts{display:flex;gap:7px}
-  .acts button{flex:1;border-radius:9px;font-size:.82rem;font-weight:800;padding:9px 8px;cursor:pointer;border:1px solid transparent}
-  .buy{background:rgba(21,128,61,.1);border-color:rgba(21,128,61,.35)!important;color:var(--pro-d)}
-  .buy:hover{background:rgba(21,128,61,.18)}
-  .sell{background:rgba(185,28,28,.08);border-color:rgba(185,28,28,.32)!important;color:var(--con-d)}
-  .sell:hover{background:rgba(185,28,28,.15)}
-  .holding{font-family:var(--mono);font-size:.66rem;color:var(--blue);background:rgba(29,78,216,.09);border:1px solid rgba(29,78,216,.25);border-radius:7px;padding:5px 9px}
+  /* Edge: the number reads, the bar shows which way and how far. The
+     first version centred the label inside the bar, where it sat on top
+     of the fill and the ladder tick at any realistic column width. The
+     number lives outside now and the bar is a pure graphic. */
+  .edge{display:flex;align-items:center;gap:9px;min-width:0}
+  .egn{font-family:var(--mono);font-size:.78rem;font-weight:700;white-space:nowrap;flex:none;width:58px;text-align:right}
+  .gap{position:relative;height:20px;flex:1;min-width:0;border:1px solid var(--rule);
+    border-radius:3px;background:var(--sunken);overflow:hidden}
+  /* The fill needs more presence on the dark sunken tone than it does on
+     paper, where the same alpha already reads. */
+  .gap i{position:absolute;top:0;bottom:0;background:var(--acc);opacity:var(--fill-a,.26)}
+  .gap u{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--tx)}
 
-  .empty{background:var(--panel);border:1px dashed var(--bd2);border-radius:var(--r);padding:30px;text-align:center;color:var(--dim)}
-  .empty b{display:block;font-size:1.1rem;color:var(--tx);margin-bottom:5px}
+  .spark{display:block;width:100%;height:26px;overflow:visible}
+  .spark path{fill:none;stroke-width:1.6;vector-effect:non-scaling-stroke}
+  .spark .area{stroke:none;opacity:.12}
 
-  /* trade sheet */
-  .sheet{position:fixed;inset:0;background:rgba(15,16,20,.42);display:none;align-items:flex-end;justify-content:center;z-index:100;backdrop-filter:blur(2px)}
+  .act{display:flex;gap:6px;justify-content:flex-end}
+  .act button{font-family:var(--mono);font-size:.64rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+    padding:7px 0;width:58px;border-radius:3px;cursor:pointer;border:1px solid}
+  .b-l{border-color:var(--up)!important;color:var(--up);background:transparent}
+  .b-l:hover{background:var(--up);color:var(--paper)}
+  .b-s{border-color:var(--down)!important;color:var(--down);background:transparent}
+  .b-s:hover{background:var(--down);color:var(--paper)}
+  .held{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--acc);margin-right:6px;vertical-align:middle}
+
+  /* Mobile: the same data as stacked blocks. A horizontally scrolling
+     table on a phone is a table nobody reads. */
+  @media(max-width:900px){
+    .cols{display:none}
+    .row{grid-template-columns:minmax(0,1fr) auto;gap:9px 12px;padding:15px 2px;
+      grid-template-areas:"who px" "edge edge" "spark spark" "meta act"}
+    .row.pos{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who px" "meta act"}
+    .rank{display:none}
+    .who{grid-area:who;min-width:0} .px{grid-area:px}
+    .edge{grid-area:edge}
+    /* The series earns its place on a phone, where there is no room for a
+       ladder column but plenty for one line showing the shape. */
+    .sparkw{display:block;grid-area:spark}
+    .meta{display:flex;grid-area:meta;gap:16px;align-items:baseline;flex-wrap:wrap;min-width:0}
+    .col-r{text-align:left;font-size:.74rem;color:var(--dim)}
+    .col-r .lab{display:inline;letter-spacing:.09em;text-transform:uppercase;font-size:.54rem;
+      margin-right:5px;color:var(--faint)}
+    .act{grid-area:act;align-self:center}
+    .act button{width:66px;padding:9px 0}
+  }
+
+  .empty{border:1px dashed var(--rule-hard);border-radius:6px;padding:40px 26px;text-align:center;margin-top:22px}
+  .empty b{display:block;font-size:1.24rem;margin-bottom:7px}
+  .empty p{color:var(--dim);max-width:52ch;margin:0 auto;font-size:.94rem}
+  .empty a{color:var(--acc);border-bottom:1px solid currentColor}
+  .skel{height:52px;border-bottom:1px solid var(--rule);opacity:.35;
+    background:linear-gradient(90deg,transparent,var(--row-hover),transparent);background-size:200% 100%;animation:sh 1.3s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+
+  /* ── trade sheet ─────────────────────────────────────────────────── */
+  .sheet{position:fixed;inset:0;background:rgba(6,6,8,.55);display:none;align-items:flex-end;justify-content:center;z-index:100}
   .sheet[data-open]{display:flex}
   @media(min-width:700px){.sheet{align-items:center}}
-  .sbox{background:var(--panel);border:1px solid var(--bd2);border-radius:16px 16px 0 0;width:100%;max-width:460px;padding:20px;max-height:90vh;overflow:auto}
-  @media(min-width:700px){.sbox{border-radius:16px}}
-  .sbox h2{font-size:1.3rem;font-weight:800;letter-spacing:-.015em}
-  .sbox .sub{color:var(--dim);font-size:.85rem;margin-top:3px}
-  .sides{display:flex;gap:7px;margin:15px 0 12px}
-  .sides button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--bd2);background:transparent;font-weight:800;font-size:.88rem;cursor:pointer;color:var(--dim)}
-  .sides button[aria-pressed=true].l{background:rgba(21,128,61,.13);border-color:rgba(21,128,61,.5);color:var(--pro-d)}
-  .sides button[aria-pressed=true].s{background:rgba(185,28,28,.11);border-color:rgba(185,28,28,.45);color:var(--con-d)}
-  .qty{display:flex;align-items:center;gap:9px;margin-bottom:12px}
-  .qty input{flex:1;font-family:var(--mono);font-size:1.15rem;font-weight:700;padding:9px 12px;border:1px solid var(--bd2);border-radius:9px;background:var(--panel2);color:var(--tx);min-width:0}
-  .qty button{width:38px;height:38px;border-radius:9px;border:1px solid var(--bd2);background:transparent;font-size:1.15rem;font-weight:800;cursor:pointer;flex:none}
-  .chips{display:flex;gap:6px;margin-bottom:13px;flex-wrap:wrap}
-  .chips button{border:1px solid var(--bd);background:transparent;font-family:var(--mono);font-size:.72rem;font-weight:700;padding:4px 11px;border-radius:999px;cursor:pointer;color:var(--dim)}
-  .quote{background:var(--panel2);border:1px solid var(--bd);border-radius:10px;padding:12px;font-family:var(--mono);font-size:.8rem}
-  .qline{display:flex;justify-content:space-between;padding:3px 0}
-  .qline.tot{border-top:1px solid var(--bd);margin-top:6px;padding-top:8px;font-size:.95rem;font-weight:700}
-  .confirm{width:100%;margin-top:14px;background:var(--tx);color:#fff;border:none;border-radius:10px;padding:13px;font-size:.95rem;font-weight:800;cursor:pointer}
-  .confirm:disabled{opacity:.42;cursor:not-allowed}
-  .cancel{width:100%;margin-top:7px;background:transparent;border:none;color:var(--faint);font-size:.82rem;padding:7px;cursor:pointer;font-weight:700}
-  .err{background:rgba(185,28,28,.09);border:1px solid rgba(185,28,28,.3);color:var(--con-d);border-radius:9px;padding:9px 12px;font-size:.83rem;margin-top:11px}
+  .sbox{background:var(--panel);border:1px solid var(--rule-hard);border-radius:8px 8px 0 0;width:100%;max-width:460px;
+    padding:22px;max-height:92vh;overflow:auto}
+  @media(min-width:700px){.sbox{border-radius:8px}}
+  .sbox h2{font-size:1.44rem;font-weight:800;letter-spacing:-.025em}
+  .sbox .sub{color:var(--dim);font-size:.86rem;margin-top:3px}
+  .sides{display:flex;gap:8px;margin:17px 0 13px}
+  .sides button{flex:1;padding:12px 8px;border-radius:4px;border:1px solid var(--rule-hard);background:transparent;
+    font-family:var(--mono);font-size:.72rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;color:var(--faint)}
+  .sides button b{display:block;font-size:1.16rem;letter-spacing:-.02em;margin-top:4px}
+  .sides button[aria-pressed=true].l{border-color:var(--up);color:var(--up)}
+  .sides button[aria-pressed=true].s{border-color:var(--down);color:var(--down)}
+  .qty{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+  .qty input{flex:1;font-family:var(--mono);font-size:1.22rem;font-weight:700;padding:10px 13px;
+    border:1px solid var(--rule-hard);border-radius:4px;background:var(--sunken);color:var(--tx);min-width:0;text-align:center}
+  .qty button{width:42px;height:42px;border-radius:4px;border:1px solid var(--rule-hard);background:transparent;
+    font-size:1.18rem;font-weight:700;cursor:pointer;flex:none}
+  .chips{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .chips button{border:1px solid var(--rule);background:transparent;font-family:var(--mono);font-size:.68rem;
+    font-weight:700;padding:5px 11px;border-radius:3px;cursor:pointer;color:var(--dim)}
+  .chips button:hover{border-color:var(--rule-hard)}
+  .quote{border:1px solid var(--rule);border-radius:5px;padding:13px;font-family:var(--mono);font-size:.79rem;background:var(--sunken)}
+  .qline{display:flex;justify-content:space-between;padding:3px 0;color:var(--dim)}
+  .qline b{color:var(--tx)}
+  .qline.tot{border-top:1px solid var(--rule);margin-top:7px;padding-top:9px;font-size:1rem}
+  .confirm{width:100%;margin-top:15px;background:var(--brand);color:#fff;border:none;border-radius:4px;padding:14px;
+    font-family:var(--mono);font-size:.78rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;cursor:pointer}
+  .confirm:hover{background:var(--brand-hi)}
+  .confirm:disabled{opacity:.4;cursor:not-allowed}
+  .cancel{width:100%;margin-top:8px;background:transparent;border:none;color:var(--faint);font-size:.83rem;padding:8px;cursor:pointer}
+  .err{border:1px solid var(--down);color:var(--down);border-radius:4px;padding:10px 13px;font-size:.85rem;margin-top:12px}
 
-  /* pitches: stake to speak */
-  .pitchbox{margin-top:16px;border-top:1px solid var(--bd);padding-top:14px}
-  .pitchbox h3{font-size:.95rem;font-weight:800}
-  .pitchbox .note{font-size:.78rem;color:var(--faint);margin-top:2px}
-  .pitchbox textarea{width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--bd2);border-radius:9px;background:var(--panel2);font-family:'Crimson Pro',Georgia,serif;font-size:.88rem;resize:vertical;min-height:64px;color:var(--tx)}
-  .pitch{border-top:1px solid var(--bd);padding:10px 0}
-  .pitch .ph{display:flex;align-items:center;gap:8px;font-size:.78rem}
-  .pitch .nm{font-weight:800}
-  .ps{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
-  .ps.long{background:rgba(21,128,61,.12);color:var(--pro-d)}
-  .ps.short{background:rgba(185,28,28,.1);color:var(--con-d)}
-  .pitch p{font-size:.88rem;color:var(--dim);margin-top:4px}
+  .pitchbox{margin-top:20px;border-top:1px solid var(--rule);padding-top:16px}
+  .pitchbox h3{font-family:var(--mono);font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .pitchbox .note{font-size:.82rem;color:var(--dim);margin-top:6px}
+  .pitchbox textarea{width:100%;margin-top:10px;padding:10px 12px;border:1px solid var(--rule-hard);border-radius:4px;
+    background:var(--sunken);font-family:var(--serif);font-size:.9rem;resize:vertical;min-height:66px;color:var(--tx)}
+  .pitch{border-top:1px solid var(--rule);padding:11px 0}
+  .pitch .ph{display:flex;align-items:center;gap:9px;font-size:.8rem}
+  .pitch .nm{font-weight:700}
+  .ps{font-family:var(--mono);font-size:.56rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1px solid}
+  .ps.long{color:var(--up);border-color:var(--up)}
+  .ps.short{color:var(--down);border-color:var(--down)}
+  .pitch p{font-size:.9rem;color:var(--dim);margin-top:5px}
 
-  .legal{margin:34px 0 40px;padding:15px 17px;background:var(--panel2);border:1px solid var(--bd);border-radius:var(--r);font-size:.8rem;color:var(--faint);line-height:1.6}
-  .legal b{color:var(--dim)}
-  .skel{height:190px;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);opacity:.5}
+  .legal{margin:38px 0 44px;padding-top:20px;border-top:1px solid var(--rule-hard);
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:22px;font-size:.83rem;color:var(--faint);line-height:1.6}
+  .legal h4{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+  .legal a{color:var(--acc);border-bottom:1px solid currentColor}
 </style>
 </head>
 <body>
 
+<header class="mast">
+  <div class="mast-in">
+    <div class="logo">Debat<em>able</em><span>The Ladder</span></div>
+    <div class="mast-sp"></div>
+    <div class="num" id="balStrip" hidden style="font-size:.78rem;color:var(--dim)">CR <b id="balNum" style="color:var(--up)">0</b></div>
+    <button class="mono-btn" id="themeBtn" title="Toggle theme">Dark</button>
+    <button class="mono-btn" id="acctBtn" hidden>Account</button>
+    <button class="mono-btn solid" id="signinBtn">Sign in</button>
+  </div>
+</header>
+
+<div class="tape" id="tape" hidden><div class="tape-track" id="tapeTrack"></div></div>
+
 <div class="wrap">
-  <div class="top">
-    <div class="brand">Debat<em>able</em> · The Ladder</div>
-    <div class="top-right">
-      <div class="bal" id="balStrip" hidden>Credits <b id="balNum">0</b></div>
-      <button class="ghost" id="acctBtn" hidden>Account</button>
-      <button class="btn signin" id="signinBtn">Sign in</button>
+  <div class="head">
+    <div>
+      <h1>Trade a debater's rating.</h1>
+      <p>One share pays what a debater's rating is worth when the season closes. <b>The ladder is slow on purpose</b>, because Glicko-2 will not claim to know someone after two rounds. Buy the people it has not caught up with yet.</p>
+      <p class="fine">Free points. No cash value, nothing to buy, nothing to withdraw. The house takes no cut of any trade.</p>
+    </div>
+    <div class="eq" id="equity" hidden>
+      <div><div class="k">Credits</div><div class="v" id="eqCash">0</div></div>
+      <div><div class="k">Positions</div><div class="v" id="eqExp">0</div></div>
+      <div><div class="k">Equity</div><div class="v" id="eqTot">0</div></div>
+      <div><div class="k">Open P&amp;L</div><div class="v" id="eqPnl">0</div></div>
     </div>
   </div>
 
-  <div class="head">
-    <h1>Trade a debater's rating.</h1>
-    <p>One share pays what a debater's rating is worth when the season closes. <strong>The ladder is slow on purpose</strong>, because Glicko-2 will not claim to know someone after two rounds. Buy the people it has not caught up with yet.</p>
-    <p class="pts">Free points. No cash value, nothing to buy, nothing to withdraw. The house takes no cut of any trade.</p>
-  </div>
-
-  <div class="equity" id="equity" hidden>
-    <div class="eq"><div class="k">Credits</div><div class="v" id="eqCash">0</div></div>
-    <div class="eq"><div class="k">Positions</div><div class="v" id="eqExp">0</div></div>
-    <div class="eq"><div class="k">Equity</div><div class="v" id="eqTot">0</div></div>
-    <div class="eq"><div class="k">Open P&amp;L</div><div class="v" id="eqPnl">0</div></div>
-  </div>
-
   <div class="drip" id="dripBar" hidden>
-    <span id="dripMsg">Your daily credits are ready.</span>
+    <span id="dripMsg">Daily credits ready.</span>
     <button id="dripBtn">Claim</button>
   </div>
 
   <div class="bar">
-    <div class="tabs">
-      <button class="tab" id="tabBoard" aria-selected="true">Board</button>
-      <button class="tab" id="tabBook" aria-selected="false">My positions</button>
+    <div class="seg">
+      <button id="tabBoard" aria-selected="true">Board</button>
+      <button id="tabBook" aria-selected="false">Positions</button>
     </div>
-    <div class="sorts" id="sorts">
-      <button class="sortb" data-sort="edge" aria-pressed="true">Mispriced</button>
-      <button class="sortb" data-sort="volume" aria-pressed="false">Busiest</button>
-      <button class="sortb" data-sort="rating" aria-pressed="false">Top rated</button>
+    <div class="seg" id="sorts">
+      <button data-sort="edge" aria-pressed="true">Mispriced</button>
+      <button data-sort="movers" aria-pressed="false">Movers</button>
+      <button data-sort="volume" aria-pressed="false">Volume</button>
+      <button data-sort="rating" aria-pressed="false">Rating</button>
     </div>
+    <div class="bar-sp"></div>
+    <input class="find" id="find" type="search" placeholder="Filter debaters" aria-label="Filter debaters">
   </div>
 
-  <div class="grid" id="grid">
-    <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+  <div class="cols" id="cols">
+    <div>#</div><div>Debater</div><div class="r">Price</div><div class="r">Ladder</div>
+    <div class="r">24h</div><div class="r">Vol</div><div>Edge</div><div class="r">Trade</div>
+  </div>
+
+  <div id="book">
+    <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
   </div>
 
   <div class="legal">
-    <b>How a share settles.</b> A long share pays the debater's Debate Rating at season close, mapped onto a fixed band (1200 pays nothing, 1900 pays the full 100). A short share pays the remainder, so a matched pair always pays exactly 100 between them and the book cannot owe more than it holds. If there is no rating to settle against, the market stays open and nobody is paid. There is no simulated close and no fallback outcome.<br><br>
-    <b>Pricing.</b> An automated market maker quotes both sides at all times, so you can always enter or exit without waiting for someone to take the other side. Bigger orders move the price against you, which is why the confirm screen shows the average price you will actually pay rather than the headline one.<br><br>
-    <b>No rake.</b> The market maker subsidizes each book by a fixed, known amount and takes nothing from any trade or settlement. We earn the same whoever turns out to be good. The same fee-neutrality applies to the judge that produces the results underneath: see <a href="/judge-integrity">the judge charter</a>.<br><br>
-    <b>Who cannot trade.</b> Debaters are excluded from their own market: they decide that outcome by competing, which is control, not insight. Staking is 18+ and is unavailable where it is not permitted. Points are free, non-purchasable, non-transferable, and non-redeemable. No purchase necessary. Void where prohibited.
+    <div>
+      <h4>How a share settles</h4>
+      A long share pays the debater's Debate Rating at season close, mapped onto a fixed band (1200 pays nothing, 1900 pays the full 100). A short share pays the remainder, so a matched pair always pays exactly 100 between them and the book cannot owe more than it holds. With no rating to settle against, the market stays open and nobody is paid. There is no simulated close and no fallback outcome.
+    </div>
+    <div>
+      <h4>Pricing</h4>
+      An automated market maker quotes both sides at all times, so you can enter or exit without waiting for someone to take the other side. Bigger orders move the price against you, which is why the confirm screen shows the average price you will actually pay rather than the headline one.
+    </div>
+    <div>
+      <h4>No rake</h4>
+      The market maker subsidizes each book by a fixed, known amount and takes nothing from any trade or settlement. We earn the same whoever turns out to be good. The same fee neutrality applies to the judge that produces the results underneath: see <a href="/judge-integrity">the judge charter</a>.
+    </div>
+    <div>
+      <h4>Who cannot trade</h4>
+      Debaters are excluded from their own market: they decide that outcome by competing, which is control, not insight. Staking is 18+ and is unavailable where it is not permitted. Points are free, non-purchasable, non-transferable, and non-redeemable. No purchase necessary. Void where prohibited.
+    </div>
   </div>
 </div>
 
@@ -256,14 +415,14 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
     <div class="sub" id="shSub"></div>
 
     <div class="sides">
-      <button class="l" id="sideLong" aria-pressed="true">Long <span id="pLong"></span></button>
-      <button class="s" id="sideShort" aria-pressed="false">Short <span id="pShort"></span></button>
+      <button class="l" id="sideLong" aria-pressed="true">Long<b id="pLong">&mdash;</b></button>
+      <button class="s" id="sideShort" aria-pressed="false">Short<b id="pShort">&mdash;</b></button>
     </div>
 
     <div class="qty">
-      <button id="qMinus">&minus;</button>
-      <input id="qInput" type="number" inputmode="numeric" value="10" min="1">
-      <button id="qPlus">+</button>
+      <button id="qMinus" aria-label="Fewer shares">&minus;</button>
+      <input id="qInput" type="number" inputmode="numeric" value="10" min="1" aria-label="Shares">
+      <button id="qPlus" aria-label="More shares">+</button>
     </div>
     <div class="chips" id="qChips">
       <button data-q="5">5</button><button data-q="10">10</button>
@@ -271,7 +430,7 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
       <button data-q="-1" id="qSellAll">Sell all</button>
     </div>
 
-    <div class="quote" id="quoteBox">
+    <div class="quote">
       <div class="qline"><span>Average price</span><b id="qAvg">&mdash;</b></div>
       <div class="qline"><span>Price after</span><b id="qAfter">&mdash;</b></div>
       <div class="qline tot"><span id="qLbl">Cost</span><b id="qCost">&mdash;</b></div>
@@ -281,12 +440,12 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
     <button class="confirm" id="confirmBtn">Confirm</button>
     <button class="cancel" id="cancelBtn">Close</button>
 
-    <div class="pitchbox" id="pitchBox">
+    <div class="pitchbox">
       <h3>The case</h3>
       <div class="note" id="pitchNote"></div>
       <div id="pitchCompose" hidden>
         <textarea id="pitchText" maxlength="600" placeholder="Why is the market wrong about this debater?"></textarea>
-        <button class="ghost" id="pitchSend" style="margin-top:8px">Post</button>
+        <button class="mono-btn" id="pitchSend" style="margin-top:9px">Post</button>
       </div>
       <div id="pitchList"></div>
     </div>
@@ -299,26 +458,44 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
   'use strict';
 
   var API = '/api/value-market';
-  var state = {
-    user: null, token: '', tab: 'board', sort: 'edge',
-    markets: [], holding: [], cfg: null, portfolio: null,
+  var S = {
+    token: '', tab: 'board', sort: 'edge', q: '',
+    markets: [], holding: [], portfolio: null,
     open: null, side: 'long', qty: 10, quoteTimer: 0, busy: false,
   };
 
   var $ = function (id) { return document.getElementById(id); };
-  var esc = function (s) {
+  function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
-  };
+  }
   var n0 = function (v) { return Math.round(Number(v) || 0).toLocaleString(); };
   var n2 = function (v) { return (Number(v) || 0).toFixed(2); };
-  var signed = function (v) { var x = Math.round(Number(v) || 0); return (x > 0 ? '+' : '') + x.toLocaleString(); };
+  function signed(v) { var x = Math.round(Number(v) || 0); return (x > 0 ? '+' : '') + x.toLocaleString(); }
+  function signed2(v) { var x = Number(v) || 0; return (x > 0 ? '+' : '') + x.toFixed(2); }
+  var dirCls = function (v) { return v > 0 ? 'up' : (v < 0 ? 'down' : ''); };
+
+  // ── theme ─────────────────────────────────────────────────────────
+  function paintThemeBtn() {
+    var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    $('themeBtn').textContent = dark ? 'Light' : 'Dark';
+  }
+  $('themeBtn').addEventListener('click', function () {
+    var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var next = dark ? 'light' : 'crimson';
+    document.documentElement.setAttribute('data-theme', next);
+    document.documentElement.setAttribute('data-lighting', next === 'light' ? 'light' : 'dark');
+    try { localStorage.setItem('da-theme', next); } catch (e) {}
+    paintThemeBtn();
+    render();
+  });
+  paintThemeBtn();
 
   // ── api ───────────────────────────────────────────────────────────
   function call(action, body) {
     var headers = { 'Content-Type': 'application/json' };
-    if (state.token) headers.Authorization = 'Bearer ' + state.token;
+    if (S.token) headers.Authorization = 'Bearer ' + S.token;
     return fetch(API, {
       method: 'POST', headers,
       body: JSON.stringify(Object.assign({ action: action }, body || {})),
@@ -338,9 +515,8 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
       // mints one on every page for the background Spar pill, so gating on
       // truthiness alone would hand a guest the signed-in surface.
       if (u && !u.isAnonymous) {
-        state.user = u;
         u.getIdToken().then(function (t) {
-          state.token = t;
+          S.token = t;
           $('signinBtn').hidden = true;
           $('acctBtn').hidden = false;
           $('balStrip').hidden = false;
@@ -350,18 +526,17 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
           call('claim').then(showDrip).catch(function () {});
         });
       } else {
-        state.user = null; state.token = '';
+        S.token = '';
         $('signinBtn').hidden = false;
         $('acctBtn').hidden = true;
         loadBoard();
       }
     });
   }
-
   $('signinBtn').addEventListener('click', function () {
     if (typeof firebase === 'undefined' || !firebase.auth) return;
-    var p = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithPopup(p).catch(function (e) { console.warn('[ladder] sign in:', e.message); });
+    firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider())
+      .catch(function (e) { console.warn('[ladder] sign in:', e.message); });
   });
   $('acctBtn').addEventListener('click', function () { window.location.href = '/profile'; });
 
@@ -377,141 +552,238 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
   $('dripBtn').addEventListener('click', function () {
     call('claim').then(function (r) { showDrip(r); if (!r.ok) $('dripBar').hidden = true; });
   });
-
   function setBalance(v) { $('balNum').textContent = n0(v); $('eqCash').textContent = n0(v); }
 
-  // ── board ─────────────────────────────────────────────────────────
+  // ── data ──────────────────────────────────────────────────────────
   function loadBoard() {
-    call('board', { sort: state.sort }).then(function (d) {
-      state.markets = d.markets || [];
-      state.holding = d.holding || [];
-      state.cfg = d.cfg || d.config || null;
-      if (state.tab === 'board') renderBoard();
+    call('board', { sort: S.sort }).then(function (d) {
+      S.markets = d.markets || [];
+      S.holding = d.holding || [];
+      paintTape();
+      if (S.tab === 'board') render();
     }).catch(function (e) {
-      $('grid').innerHTML = '<div class="empty"><b>The board is not loading.</b>' + esc(e.message) + '</div>';
+      $('book').innerHTML = '<div class="empty"><b>The board is not loading.</b><p>' + esc(e.message) + '</p></div>';
     });
   }
 
   function refreshPortfolio() {
-    if (!state.token) return Promise.resolve();
+    if (!S.token) return Promise.resolve();
     return call('portfolio').then(function (p) {
-      state.portfolio = p;
+      S.portfolio = p;
       setBalance(p.balance);
       $('eqExp').textContent = n0(p.exposure);
       $('eqTot').textContent = n0(p.equity);
-      var pnl = $('eqPnl');
-      pnl.textContent = signed(p.unrealized);
-      pnl.className = 'v ' + (p.unrealized > 0 ? 'up' : (p.unrealized < 0 ? 'down' : ''));
-      if (state.tab === 'book') renderBook();
+      var el = $('eqPnl');
+      el.textContent = signed(p.unrealized);
+      el.className = 'v num ' + dirCls(p.unrealized);
+      if (S.tab === 'book') render();
     }).catch(function () {});
   }
 
+  // ── ticker ────────────────────────────────────────────────────────
+  function paintTape() {
+    if (!S.markets.length) { $('tape').hidden = true; return; }
+    var one = S.markets.slice(0, 14).map(function (m) {
+      var c = m.change;
+      var d = c === null || c === undefined
+        ? '<span class="d" style="color:var(--faint)">&mdash;</span>'
+        : '<span class="d ' + dirCls(c) + '">' + signed2(c) + '</span>';
+      return '<span class="tick"><b>' + esc(m.name) + '</b>' + n2(m.long) + d + '</span>';
+    }).join('');
+    // Duplicated so the -50% translate loops seamlessly.
+    $('tapeTrack').innerHTML = one + one;
+    $('tape').hidden = false;
+  }
+
+  // ── sparkline ─────────────────────────────────────────────────────
+  //
+  // Scaled to the series, but never tighter than SPARK_MIN_BAND credits.
+  //
+  // The first version drew on a fixed 0-100 price axis so every row shared
+  // one scale. That is the honest choice on paper and it drew a dead flat
+  // line on every market, because prices cluster inside a band far narrower
+  // than the payout. Pure per-series normalization is the opposite failure:
+  // it makes a market that moved 0.2 look exactly as dramatic as one that
+  // moved 30.
+  //
+  // The floor is what reconciles them. A market that moved less than the
+  // band renders as the small wobble it was, and one that moved more fills
+  // the box. The 24h number sits in the same row for the magnitude, so the
+  // drawing only has to carry the shape.
+  var SPARK_MIN_BAND = 12;
+
+  function spark(hist, change) {
+    var pts = (hist || []).filter(function (n) { return typeof n === 'number' && isFinite(n); });
+    if (pts.length < 2) {
+      return '<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">'
+        + '<path d="M0 15 L100 15" stroke="currentColor" opacity=".16"/></svg>';
+    }
+    var n = pts.length;
+    var lo = Math.min.apply(null, pts);
+    var hi = Math.max.apply(null, pts);
+    var mid = (lo + hi) / 2;
+    var band = Math.max(SPARK_MIN_BAND, hi - lo);
+    var top = mid + band / 2;
+    var stroke = change > 0 ? 'var(--up)' : (change < 0 ? 'var(--down)' : 'var(--faint)');
+
+    var d = '';
+    for (var i = 0; i < n; i++) {
+      var x = (i / (n - 1)) * 100;
+      // 2px of padding top and bottom so a peak is not clipped by the edge.
+      var y = 2 + ((top - pts[i]) / band) * 26;
+      d += (i ? 'L' : 'M') + x.toFixed(2) + ' ' + y.toFixed(2) + ' ';
+    }
+    return '<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">'
+      + '<path class="area" d="' + d + 'L100 30 L0 30 Z" fill="' + stroke + '"/>'
+      + '<path d="' + d + '" stroke="' + stroke + '"/></svg>';
+  }
+
+  // ── edge bar ──────────────────────────────────────────────────────
+  function gapBar(m) {
+    if (m.fair === null || m.fair === undefined) {
+      return '<div class="edge"><span class="egn" style="color:var(--faint)">&mdash;</span>'
+        + '<div class="gap" title="The ladder has not rated this debater yet"></div></div>';
+    }
+    var lo = Math.min(m.long, m.fair), hi = Math.max(m.long, m.fair);
+    var e = m.edge;
+    var flat = Math.abs(e) < 1;
+    var col = flat ? 'var(--faint)' : (e > 0 ? 'var(--up)' : 'var(--down)');
+    var tip = flat ? 'Priced at the ladder'
+      : (e > 0 ? 'Cheap: the ladder marks this debater ' + n2(e) + ' above the market'
+               : 'Rich: the ladder marks this debater ' + n2(-e) + ' below the market');
+    return '<div class="edge">'
+      + '<span class="egn" style="color:' + col + '">' + (flat ? '0.00' : signed2(e)) + '</span>'
+      + '<div class="gap" title="' + esc(tip) + '">'
+        + '<i style="left:' + lo + '%;width:' + Math.max(0.8, hi - lo) + '%"></i>'
+        + '<u style="left:' + Math.max(0, Math.min(99.5, m.fair)) + '%"></u>'
+      + '</div></div>';
+  }
+
+  // ── render ────────────────────────────────────────────────────────
+  function render() { if (S.tab === 'board') renderBoard(); else renderBook(); }
+
+  function visible() {
+    var q = S.q.trim().toLowerCase();
+    if (!q) return S.markets;
+    return S.markets.filter(function (m) { return (m.name || '').toLowerCase().indexOf(q) >= 0; });
+  }
+
   function renderBoard() {
-    var g = $('grid');
-    if (!state.markets.length) {
-      g.innerHTML = '<div class="empty"><b>No markets are open yet.</b>'
-        + 'A debater gets a market once the ladder has enough rounds to rate them. '
-        + 'Go win some.<br><br><a href="/spar">Find a round</a></div>';
+    $('cols').hidden = false;
+    var rows = visible();
+    var el = $('book');
+
+    if (!S.markets.length) {
+      $('cols').hidden = true;
+      el.innerHTML = '<div class="empty"><b>No markets are open yet.</b>'
+        + '<p>A debater gets a market once the ladder has enough rounds to rate them. '
+        + 'Nobody clears that bar today, so the book is empty until real rounds finish. '
+        + '<a href="/spar">Go win some</a>.</p></div>';
       return;
     }
-    g.innerHTML = state.markets.map(cardHtml).join('');
-    Array.prototype.forEach.call(g.querySelectorAll('[data-open]'), function (el) {
-      el.addEventListener('click', function () {
-        openSheet(el.getAttribute('data-open'), el.getAttribute('data-side') || 'long');
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty"><b>Nothing matches that.</b><p>No open market has that name.</p></div>';
+      return;
+    }
+
+    el.innerHTML = rows.map(function (m, i) {
+      var held = S.holding.indexOf(m.marketId) >= 0;
+      var c = m.change;
+      var chg = (c === null || c === undefined)
+        ? '<span style="color:var(--faint)">&mdash;</span>'
+        : '<span class="' + dirCls(c) + '">' + signed2(c) + '</span>';
+      return '<div class="row">'
+        + '<div class="rank">' + (i + 1) + '</div>'
+        + '<div class="who"><div class="nm">' + (held ? '<span class="held" title="You hold this"></span>' : '') + esc(m.name) + '</div>'
+          + '<div class="sub">' + (m.rating ? m.rating + ' rating &middot; ' + m.games + ' rounds'
+            + (m.confidence !== null && m.confidence !== undefined ? ' &middot; ' + m.confidence + '% conf' : '') : 'Unrated') + '</div></div>'
+        + '<div class="px">' + n2(m.long) + '</div>'
+        + '<div class="meta">'
+          + '<div class="col-r"><span class="lab">Ladder</span>' + (m.fair === null || m.fair === undefined ? '&mdash;' : n2(m.fair)) + '</div>'
+          + '<div class="col-r"><span class="lab">24h</span>' + chg + '</div>'
+          + '<div class="col-r"><span class="lab">Vol</span>' + n0(m.volume) + '</div>'
+        + '</div>'
+        + gapBar(m)
+        + '<div class="sparkw">' + spark(m.history, c) + '</div>'
+        + '<div class="act">'
+          + '<button class="b-l" data-open="' + esc(m.marketId) + '" data-side="long">Long</button>'
+          + '<button class="b-s" data-open="' + esc(m.marketId) + '" data-side="short">Short</button>'
+        + '</div></div>';
+    }).join('');
+    wireRows(el);
+  }
+
+  function renderBook() {
+    $('cols').hidden = true;
+    var el = $('book');
+    if (!S.token) {
+      el.innerHTML = '<div class="empty"><b>Sign in to hold a position.</b><p>Your credits and positions follow your account.</p></div>';
+      return;
+    }
+    var p = S.portfolio;
+    if (!p || !p.positions.length) {
+      el.innerHTML = '<div class="empty"><b>You are not holding anything.</b>'
+        + '<p>Open the board and find a debater the ladder has not caught up with.</p></div>';
+      return;
+    }
+    el.innerHTML = p.positions.map(function (r) {
+      return '<div class="row pos">'
+        + '<div class="who"><div class="nm">' + esc(r.name) + '</div>'
+          + '<div class="sub">' + (r.long ? r.long + ' long' : '') + (r.short ? (r.long ? ' &middot; ' : '') + r.short + ' short' : '')
+          + ' &middot; cost ' + n0(r.costBasis) + '</div></div>'
+        + '<div class="px">' + n2(r.mark) + '</div>'
+        + '<div class="meta">'
+          + '<div class="col-r"><span class="lab">Value</span>' + n0(r.value) + '</div>'
+          + '<div class="col-r ' + dirCls(r.unrealized) + '"><span class="lab">P&amp;L</span>' + signed(r.unrealized) + '</div>'
+        + '</div>'
+        + '<div class="act"><button class="b-l" data-open="' + esc(r.marketId) + '" data-side="long">Trade</button></div>'
+        + '</div>';
+    }).join('');
+    wireRows(el);
+  }
+
+  function wireRows(el) {
+    Array.prototype.forEach.call(el.querySelectorAll('[data-open]'), function (b) {
+      b.addEventListener('click', function () {
+        openSheet(b.getAttribute('data-open'), b.getAttribute('data-side') || 'long');
       });
     });
   }
 
-  function cardHtml(m) {
-    var pct = Math.max(0, Math.min(100, m.long));
-    var fairPct = m.fair == null ? null : Math.max(0, Math.min(100, m.fair));
-    var held = state.holding.indexOf(m.marketId) >= 0;
-    var edge = m.edge;
-    var edgeTxt = edge == null ? 'Unrated'
-      : (Math.abs(edge) < 1 ? 'At the ladder'
-        : (edge > 0 ? 'Cheap by ' + n2(edge) : 'Rich by ' + n2(-edge)));
-    var edgeCls = edge == null ? '' : (edge > 1 ? 'up' : (edge < -1 ? 'down' : ''));
-
-    return '<div class="card">'
-      + '<div class="crow">'
-        + '<div class="who"><h3>' + esc(m.name) + '</h3>'
-        + '<div class="meta">' + (m.rating ? 'Rating ' + m.rating + ' &middot; ' + m.games + ' rounds' : 'Unrated')
-        + (m.confidence != null ? ' &middot; ' + m.confidence + '% confident' : '') + '</div></div>'
-        + '<div class="price"><div class="p">' + n2(m.long) + '</div><div class="u">per share</div></div>'
-      + '</div>'
-      + '<div class="track"><div class="fill" style="width:' + pct + '%"></div>'
-        + (fairPct == null ? '' : '<div class="tick" style="left:' + fairPct + '%" data-l="ladder"></div>')
-      + '</div>'
-      + '<div class="edge"><span class="lab">Edge</span><b class="' + edgeCls + '">' + esc(edgeTxt) + '</b></div>'
-      + '<div class="stats"><span>Volume <b>' + n0(m.volume) + '</b></span>'
-        + '<span>Traders <b>' + n0(m.traders) + '</b></span>'
-        + (held ? '<span class="holding">You hold this</span>' : '') + '</div>'
-      + '<div class="acts">'
-        + '<button class="buy" data-open="' + esc(m.marketId) + '" data-side="long">Long</button>'
-        + '<button class="sell" data-open="' + esc(m.marketId) + '" data-side="short">Short</button>'
-      + '</div></div>';
-  }
-
-  function renderBook() {
-    var g = $('grid');
-    var p = state.portfolio;
-    if (!state.token) {
-      g.innerHTML = '<div class="empty"><b>Sign in to hold a position.</b>Your credits and positions follow your account.</div>';
-      return;
-    }
-    if (!p || !p.positions.length) {
-      g.innerHTML = '<div class="empty"><b>You are not holding anything.</b>'
-        + 'Open the board and find a debater the ladder has not caught up with.</div>';
-      return;
-    }
-    g.innerHTML = p.positions.map(function (r) {
-      var pnl = r.unrealized;
-      return '<div class="card">'
-        + '<div class="crow"><div class="who"><h3>' + esc(r.name) + '</h3>'
-          + '<div class="meta">' + (r.long ? r.long + ' long' : '') + (r.short ? (r.long ? ' &middot; ' : '') + r.short + ' short' : '') + '</div></div>'
-          + '<div class="price"><div class="p ' + (pnl > 0 ? 'up' : (pnl < 0 ? 'down' : '')) + '">' + signed(pnl) + '</div>'
-          + '<div class="u">open p&amp;l</div></div></div>'
-        + '<div class="stats"><span>Mark <b>' + n2(r.mark) + '</b></span>'
-          + '<span>Value <b>' + n0(r.value) + '</b></span>'
-          + '<span>Cost <b>' + n0(r.costBasis) + '</b></span></div>'
-        + '<div class="acts"><button class="buy" data-open="' + esc(r.marketId) + '" data-side="long">Trade</button></div>'
-        + '</div>';
-    }).join('');
-    Array.prototype.forEach.call(g.querySelectorAll('[data-open]'), function (el) {
-      el.addEventListener('click', function () { openSheet(el.getAttribute('data-open'), 'long'); });
-    });
-  }
-
-  // ── tabs + sorts ──────────────────────────────────────────────────
+  // ── controls ──────────────────────────────────────────────────────
   $('tabBoard').addEventListener('click', function () { switchTab('board'); });
   $('tabBook').addEventListener('click', function () { switchTab('book'); });
   function switchTab(t) {
-    state.tab = t;
+    S.tab = t;
     $('tabBoard').setAttribute('aria-selected', String(t === 'board'));
     $('tabBook').setAttribute('aria-selected', String(t === 'book'));
-    $('sorts').style.visibility = t === 'board' ? '' : 'hidden';
-    if (t === 'board') renderBoard(); else { renderBook(); refreshPortfolio(); }
+    $('sorts').style.display = t === 'board' ? '' : 'none';
+    $('find').style.visibility = t === 'board' ? '' : 'hidden';
+    if (t === 'book') refreshPortfolio();
+    render();
   }
-  Array.prototype.forEach.call(document.querySelectorAll('.sortb'), function (b) {
+  Array.prototype.forEach.call(document.querySelectorAll('#sorts button'), function (b) {
     b.addEventListener('click', function () {
-      state.sort = b.getAttribute('data-sort');
-      Array.prototype.forEach.call(document.querySelectorAll('.sortb'), function (o) {
+      S.sort = b.getAttribute('data-sort');
+      Array.prototype.forEach.call(document.querySelectorAll('#sorts button'), function (o) {
         o.setAttribute('aria-pressed', String(o === b));
       });
       loadBoard();
     });
   });
+  $('find').addEventListener('input', function () { S.q = $('find').value || ''; render(); });
 
   // ── trade sheet ───────────────────────────────────────────────────
   function openSheet(marketId, side) {
-    state.open = null; state.side = side; state.qty = 10;
+    S.open = null; S.side = side; S.qty = 10;
     $('qInput').value = 10;
     $('shErr').innerHTML = '';
+    $('qAvg').textContent = '—'; $('qAfter').textContent = '—'; $('qCost').textContent = '—';
     $('sheet').setAttribute('data-open', '1');
     setSide(side);
 
     call('market', { marketId: marketId }).then(function (d) {
-      state.open = d;
+      S.open = d;
       var m = d.market;
       $('shName').textContent = m.name;
       $('shSub').textContent = m.rating
@@ -529,14 +801,13 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
       }
     }).catch(function (e) { showErr(e.message); });
   }
-
-  function closeSheet() { $('sheet').removeAttribute('data-open'); state.open = null; }
+  function closeSheet() { $('sheet').removeAttribute('data-open'); S.open = null; }
   $('cancelBtn').addEventListener('click', closeSheet);
   $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) closeSheet(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
 
   function setSide(s) {
-    state.side = s;
+    S.side = s;
     $('sideLong').setAttribute('aria-pressed', String(s === 'long'));
     $('sideShort').setAttribute('aria-pressed', String(s === 'short'));
     quote();
@@ -545,7 +816,7 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
   $('sideShort').addEventListener('click', function () { setSide('short'); });
 
   function setQty(v) {
-    state.qty = v;
+    S.qty = v;
     $('qInput').value = v;
     $('qLbl').textContent = v < 0 ? 'You receive' : 'Cost';
     quote();
@@ -557,8 +828,8 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
     b.addEventListener('click', function () {
       var q = Number(b.getAttribute('data-q'));
       if (q === -1) {
-        var pos = state.open && state.open.position;
-        var held = pos ? (state.side === 'long' ? pos.long : pos.short) : 0;
+        var pos = S.open && S.open.position;
+        var held = pos ? (S.side === 'long' ? pos.long : pos.short) : 0;
         if (!held) return showErr('You hold no shares on that side.');
         return setQty(-held);
       }
@@ -566,15 +837,14 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
     });
   });
 
-  // Quoted from the live book rather than computed here, so the number on
-  // the confirm button is the number the server will charge.
+  // Quoted from the live book, so the number on the confirm button is the
+  // number the server will actually charge.
   function quote() {
-    if (!state.open) return;
-    clearTimeout(state.quoteTimer);
-    state.quoteTimer = setTimeout(function () {
-      var q = state.qty;
-      if (!q) return;
-      call('quote', { marketId: state.open.market.marketId, side: state.side, shares: q })
+    if (!S.open) return;
+    clearTimeout(S.quoteTimer);
+    S.quoteTimer = setTimeout(function () {
+      if (!S.qty) return;
+      call('quote', { marketId: S.open.market.marketId, side: S.side, shares: S.qty })
         .then(function (r) {
           $('qAvg').textContent = n2(r.avgPrice);
           $('qAfter').textContent = n2(r.markAfter);
@@ -582,36 +852,29 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
         }).catch(function () {});
     }, 160);
   }
-
-  function showErr(msg) {
-    $('shErr').innerHTML = '<div class="err">' + esc(msg) + '</div>';
-  }
+  function showErr(msg) { $('shErr').innerHTML = '<div class="err">' + esc(msg) + '</div>'; }
 
   $('confirmBtn').addEventListener('click', function () {
-    if (!state.open || state.busy) return;
-    if (!state.token) return showErr('Sign in to trade.');
-    state.busy = true;
+    if (!S.open || S.busy) return;
+    if (!S.token) return showErr('Sign in to trade.');
+    S.busy = true;
     $('confirmBtn').disabled = true;
     $('shErr').innerHTML = '';
-    call('trade', {
-      marketId: state.open.market.marketId,
-      side: state.side,
-      shares: state.qty,
-    }).then(function (r) {
-      state.busy = false;
-      $('confirmBtn').disabled = false;
-      if (!r.ok) return showErr(r.message || 'That trade could not be placed.');
-      setBalance(r.balance);
-      closeSheet();
-      loadBoard();
-      refreshPortfolio();
-    }).catch(function (e) {
-      state.busy = false; $('confirmBtn').disabled = false;
-      showErr(e.message);
-    });
+    call('trade', { marketId: S.open.market.marketId, side: S.side, shares: S.qty })
+      .then(function (r) {
+        S.busy = false; $('confirmBtn').disabled = false;
+        if (!r.ok) return showErr(r.message || 'That trade could not be placed.');
+        setBalance(r.balance);
+        closeSheet();
+        loadBoard();
+        refreshPortfolio();
+      }).catch(function (e) {
+        S.busy = false; $('confirmBtn').disabled = false;
+        showErr(e.message);
+      });
   });
 
-  // ── pitches ───────────────────────────────────────────────────────
+  // ── pitches: capital is what buys the microphone ──────────────────
   function renderPitches(d) {
     var min = (d.config && d.config.pitchMin) || 25;
     var can = d.position && d.position.canPitch;
@@ -623,18 +886,17 @@ catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
       return '<div class="pitch"><div class="ph"><span class="nm">' + esc(p.name) + '</span>'
         + '<span class="ps ' + esc(p.side) + '">' + esc(p.side) + ' ' + n0(p.shares) + '</span></div>'
         + '<p>' + esc(p.body) + '</p></div>';
-    }).join('') || '<div class="pitch"><p>Nobody has made a case on this debater yet.</p></div>';
+    }).join('') || '<div class="pitch"><p style="color:var(--faint)">Nobody has made a case on this debater yet.</p></div>';
   }
-
   $('pitchSend').addEventListener('click', function () {
-    if (!state.open) return;
+    if (!S.open) return;
     var body = $('pitchText').value.trim();
     if (!body) return;
-    call('pitch', { marketId: state.open.market.marketId, body: body }).then(function (r) {
+    call('pitch', { marketId: S.open.market.marketId, body: body }).then(function (r) {
       if (!r.ok) return showErr(r.message || 'Could not post.');
       $('pitchText').value = '';
-      return call('market', { marketId: state.open.market.marketId }).then(function (d) {
-        state.open = d; renderPitches(d);
+      return call('market', { marketId: S.open.market.marketId }).then(function (d) {
+        S.open = d; renderPitches(d);
       });
     }).catch(function (e) { showErr(e.message); });
   });

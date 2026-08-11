@@ -41,6 +41,7 @@ import {
   emptyPosition, positionValue, netShares, applyToPosition,
   settleValue, settlePosition,
   canTrade, canPitch, TRADE_REASONS, marketEligible, MIN_MARKET_GAMES,
+  pushHistory,
 } from './lib/value-market.mjs';
 
 const MARKETS = 'value_markets';
@@ -102,6 +103,9 @@ async function board(db, uid, sort) {
 
   if (sort === 'volume') rows.sort((a, b) => (b.volume || 0) - (a.volume || 0));
   else if (sort === 'rating') rows.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  // Movers ranks by absolute move, and a market with too short a series
+  // to have a real 24h change sorts last rather than counting as zero.
+  else if (sort === 'movers') rows.sort((a, b) => Math.abs(b.change ?? -1) - Math.abs(a.change ?? -1));
   else rows.sort((a, b) => b._edge - a._edge);
   rows.forEach((r) => { delete r._edge; });
 
@@ -257,6 +261,9 @@ async function trade(db, uid, name, marketId, side, shares) {
       volume: (m.volume || 0) + Math.abs(cost),
       trades: (m.trades || 0) + 1,
       traders: (m.traders || 0) + (firstTrade ? 1 : 0),
+      // The series is appended inside the same transaction as the book
+      // move, so a chart can never disagree with the price it charts.
+      history: pushHistory(m.history, markPrice(nextBook, 'long'), now),
       updatedAt: now,
     });
 

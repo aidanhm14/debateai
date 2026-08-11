@@ -19,6 +19,7 @@ import {
   settleValue, settlePosition,
   canTrade, canPitch, openMarket, publicMarket, marketIdFor, applyToPosition,
   marketEligible, MIN_MARKET_GAMES,
+  pushHistory, historyPrices, changeOver, HISTORY_CAP,
 } from '../app/netlify/functions/lib/value-market.mjs';
 import { isRankable } from '../app/netlify/functions/lib/rating.mjs';
 
@@ -286,6 +287,51 @@ ok(canPitch({ long: 13, short: 13 }).ok, 'holdings across both sides count towar
     ok(seen.size === 20000, 'market ids do not collide across 20k uids');
   }
   ok(openMarket({ subjectUid: 'u', name: 'x'.repeat(500), ratingDoc: {}, now: 1 }).name.length <= 80, 'name is truncated');
+}
+
+// ── price history ───────────────────────────────────────────────────
+//
+// The board ranks by this, so a wrong or invented change moves what
+// every visitor is shown first.
+{
+  const MIN = 60_000;
+  let h = [];
+  h = pushHistory(h, 50, 0);
+  ok(h.length === 1 && h[0][1] === 50, 'first point is stored');
+  ok(historyPrices(h)[0] === 50, 'prices project out of the series');
+
+  // Same minute collapses, so a burst cannot flush the window.
+  h = pushHistory(h, 52, 30_000);
+  ok(h.length === 1 && h[0][1] === 52, 'a same-minute point overwrites rather than appends');
+  h = pushHistory(h, 55, 2 * MIN);
+  ok(h.length === 2, 'a later minute appends');
+
+  // The cap holds, and keeps the NEWEST points.
+  let big = [];
+  for (let i = 0; i < 500; i++) big = pushHistory(big, i, i * 2 * MIN);
+  ok(big.length === HISTORY_CAP, 'the series is capped');
+  ok(big[big.length - 1][1] === 499, 'the cap keeps the newest point');
+  ok(big[0][1] === 500 - HISTORY_CAP, 'the cap drops the oldest');
+
+  // Garbage in the stored array cannot poison the series or the chart.
+  const dirty = [[1, 2], 'nope', null, [NaN, 5], [3], [4, 9]];
+  ok(historyPrices(dirty).length === 2, 'malformed points are dropped, not rendered');
+  ok(pushHistory(dirty, 7, 10 * MIN).length === 3, 'appending to a dirty series cleans it');
+  ok(historyPrices(undefined).length === 0, 'a missing series projects empty');
+  ok(pushHistory(undefined, 5, 0).length === 1, 'a missing series can still be appended to');
+
+  // Change over a window.
+  const now = 100 * MIN;
+  const series = [[now - 90 * MIN, 40], [now - 30 * MIN, 45], [now, 60]];
+  near(changeOver(series, 60 * MIN, 60), 15, 0.01, 'change measures from the oldest point inside the window');
+  near(changeOver(series, 200 * MIN, 60), 20, 0.01, 'a wider window reaches further back');
+  ok(changeOver(series, 1 * MIN, 60) === null, 'a window with one point reports no change, not zero');
+  ok(changeOver([[0, 50]], 60 * MIN, 50) === null, 'a single point is not a change');
+  ok(changeOver([], 60 * MIN, 50) === null, 'an empty series is not a change');
+  ok(changeOver(null, 60 * MIN, 50) === null, 'a missing series is not a change');
+  // Null rather than 0 is the load-bearing part: the movers sort must be
+  // able to tell "flat" from "we do not know yet".
+  near(changeOver([[0, 50], [60_001, 50]], 60 * MIN, 50), 0, 0.01, 'a genuinely flat market reports 0, not null');
 }
 
 // ── who gets a market ───────────────────────────────────────────────

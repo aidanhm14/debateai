@@ -452,5 +452,71 @@ export function publicMarket(m, ratingDoc) {
     trades: m.trades || 0,
     finalRating: m.finalRating ?? null,
     updatedAt: m.updatedAt || 0,
+    // Enough of a series to draw. Without this a "market" page is a
+    // single number with no past, which is the thing that makes a board
+    // worth opening twice.
+    history: historyPrices(m.history),
+    change: changeOver(m.history, MOVER_WINDOW_MS, mark),
   };
+}
+
+// ── price history ───────────────────────────────────────────────────
+//
+// A mark on its own says nothing. What brings a trader back tomorrow is
+// that the number MOVED, so the book carries its own recent series and
+// the board can rank by who moved rather than only by who is mispriced.
+//
+// Stored on the market document as a bounded array rather than a
+// subcollection: it is read on every board render, and a subcollection
+// would turn one document read into one per market per visitor. The cap
+// is what keeps that safe.
+
+export const HISTORY_CAP = 60;
+export const MOVER_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Append a mark to the series. Points are [timestamp, price] pairs
+ * rather than objects, because sixty `{t,p}` objects per market is a
+ * meaningful share of a board payload and the shape is never read by a
+ * human.
+ *
+ * Consecutive points inside the same minute collapse onto the latest
+ * price, so a burst of trades cannot flush the whole window in a few
+ * seconds and leave the 24h change measuring the last minute.
+ */
+export function pushHistory(hist, price, now, cap) {
+  const limit = Number.isFinite(cap) && cap > 0 ? cap : HISTORY_CAP;
+  const p = Math.round((Number(price) || 0) * 100) / 100;
+  const t = Number(now) || 0;
+  const out = Array.isArray(hist) ? hist.filter(isPoint).slice() : [];
+  const last = out[out.length - 1];
+  if (last && t - last[0] < 60_000) out[out.length - 1] = [last[0], p];
+  else out.push([t, p]);
+  return out.length > limit ? out.slice(out.length - limit) : out;
+}
+
+function isPoint(x) {
+  return Array.isArray(x) && x.length === 2 && Number.isFinite(x[0]) && Number.isFinite(x[1]);
+}
+
+export function historyPrices(hist) {
+  return Array.isArray(hist) ? hist.filter(isPoint).map((p) => p[1]) : [];
+}
+
+/**
+ * Change over a window, in credits. Measured against the oldest point
+ * still inside the window, and null when the series does not reach back
+ * that far, because reporting a 24h move from twenty minutes of history
+ * would be a made-up number on a board that ranks by it.
+ */
+export function changeOver(hist, windowMs, currentMark) {
+  const pts = Array.isArray(hist) ? hist.filter(isPoint) : [];
+  if (pts.length < 2) return null;
+  const now = pts[pts.length - 1][0];
+  const cutoff = now - (Number(windowMs) || MOVER_WINDOW_MS);
+  const inWindow = pts.filter((p) => p[0] >= cutoff);
+  if (inWindow.length < 2) return null;
+  const from = inWindow[0][1];
+  const to = Number.isFinite(currentMark) ? currentMark : inWindow[inWindow.length - 1][1];
+  return Math.round((to - from) * 100) / 100;
 }
