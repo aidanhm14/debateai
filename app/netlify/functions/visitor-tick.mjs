@@ -11,7 +11,7 @@
  *     count: number (cumulative all-time)
  *     updatedAt: server timestamp
  *
- *   metrics/daily/{YYYY-MM-DD}
+ *   metrics_daily/{YYYY-MM-DD}
  *     count: number (visits on that UTC day)
  *     updatedAt: server timestamp
  *
@@ -40,7 +40,16 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { writeJoinEvent } from './chat-feed.mjs';
 
 const COUNTER_DOC = 'metrics/visitor_counter';
-const DAILY_COLLECTION = 'metrics/daily';
+
+// FLAT, 2-segment collection. It used to be `metrics/daily`, which
+// made every per-day ref `metrics/daily/{YYYY-MM-DD}` — three
+// segments, which Firestore reads as a COLLECTION path and rejects
+// as a document. Every read and write in this function threw on
+// construction, for months, so the counter silently served its
+// hardcoded fallback and not one daily doc was ever written. That is
+// why /community has always shown the static baseline. Nothing to
+// migrate: the old path never held data.
+const DAILY_COLLECTION = 'metrics_daily';
 
 // The counter doc was SEEDED at 7,074 in the ad-spike era, so the
 // stored cumulative number carries seven thousand visits that never
