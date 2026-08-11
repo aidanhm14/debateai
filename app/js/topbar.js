@@ -212,7 +212,13 @@
     // rail flag, so it lives in Explore's Debate group and the mobile
     // sheet. Its promoted home is now the landing's opened section (the
     // Watch CTA beside "Match me with a stranger" in #live-now).
-    { href: '/watch',         label: 'Watch' },
+    // 2026-08-10 (again, per Aidan): `big` renders the Explore-menu row
+    // as a large flagship tile. Sized by venture weight, not traffic:
+    // Watch (the audience surface), Predict (the market), Leaderboard
+    // (the public record) and Tournaments (the event engine) are the
+    // scale bets; utility rows stay small so the hierarchy means
+    // something.
+    { href: '/watch',         label: 'Watch', big: true },
     { href: '/credentials',   label: 'Certificate' },
     // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
@@ -247,7 +253,7 @@
     // AI ballot, so 'Predict' names the route it already points at and
     // stops the one word on every page of the site from reading as a
     // gambling product to anyone scanning the nav.
-    { href: '/predict',       label: 'Predict'      },
+    { href: '/predict',       label: 'Predict', big: true },
     // 2026-07-30 (later same day, per Aidan): these three came OFF the
     // rail and into the Explore menu. The `rail: true` flag is gone from
     // all of them. Reason is optics, not clutter: "Money" sitting in the
@@ -274,10 +280,10 @@
     //   Leaderboard-> off the bar since 2026-07-02, and staying off.
     { href: '/get-paid-to-debate', label: 'Money'       },
     { href: '/judge-integrity',    label: 'Judging'     },
-    // `strong` bolds the row in the Explore menu. Leaderboard is the one
-    // page in the Debate column a returning debater comes back for, so it
-    // carries more weight than the rows around it.
-    { href: '/leaderboard',        label: 'Leaderboard', strong: true },
+    // 2026-08-10: was `strong` (bolded label); upgraded to a `big` tile
+    // in the venture-weight pass. Leaderboard is the public record the
+    // returning debater comes back for.
+    { href: '/leaderboard',        label: 'Leaderboard', big: true },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
@@ -309,7 +315,7 @@
       // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
       // page. It stays off the main bar because the primary product is
       // still debate practice; Explore is the right discovery surface.
-      { href: '/tournaments', label: 'Tournaments' },
+      { href: '/tournaments', label: 'Tournaments', big: true },
       // 2026-07-28: the two surfaces behind running a real competition.
       // /partners is where a 2v2 team gets formed (and the only place it
       // can be, since a tournament of teams needs the teams to exist
@@ -597,7 +603,8 @@
             href: L.href,
             role: 'menuitem',
             class: 'ui-topbar-more-item' + (pathMatches(L.href) ? ' is-active' : '')
-                     + (L.strong ? ' is-strong' : ''),
+                     + (L.strong ? ' is-strong' : '')
+                     + (L.big ? ' is-big' : ''),
           }, [
             el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon(L.href) }),
             el('span', { class: 'ui-topbar-more-item-text' }, [
