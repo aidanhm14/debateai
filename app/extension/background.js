@@ -316,8 +316,21 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
       const res = await chrome.tabs.sendMessage(tab.id, { type: 'getSelection' });
       text = (res?.text || '').trim();
     } catch (e) {
-      // Content script not present (chrome:// pages, store, etc.) — open
-      // the panel anyway so the user can paste manually.
+      // No persistent content script on this host — since 0.16.1 we only
+      // inject one on Docs/Office. Read the live selection on demand
+      // instead. activeTab authorizes this because the user just invoked a
+      // command on this tab, so "grab my highlight" still works on any site
+      // without passively injecting into every page they visit.
+      try {
+        const [inj] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => String(window.getSelection?.() || '').trim(),
+        });
+        text = String(inj?.result || '').trim();
+      } catch (_) {
+        // chrome:// pages, the web store, PDF viewer, etc. — open the panel
+        // anyway so the user can paste manually.
+      }
     }
   }
   await queueAction({
