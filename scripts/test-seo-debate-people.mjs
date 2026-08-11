@@ -100,6 +100,12 @@ check('online-debate hub links exact anchor to canonical', hub.includes('<a href
 check('comparison page links exact anchor to canonical', platforms.includes('<a href="/debate-strangers">Debate people online</a>'));
 check('AI discovery file identifies canonical page', llms.includes('[Debate people online](https://itsdebatable.com/debate-strangers)'));
 check('guide cluster links human intent to canonical', guides.includes('<a href="/debate-strangers">Debate people online on video</a>'));
+check('online-debate primary CTA explicitly enters a live debate',
+  /<a class="btn-primary" href="\/spar"[^>]*>[\s\S]*?<span class="btn-primary-title">Enter a live debate<\/span>/.test(hub));
+check('online-debate primary CTA has a large tap target',
+  /\.btn-primary\{[\s\S]{0,180}min-height:84px/.test(hub));
+check('online-debate primary CTA stacks first on small screens',
+  /@media\(max-width:680px\)[\s\S]{0,180}\.hero-ctas\{grid-template-columns:1fr\}/.test(hub));
 
 check('visible brand is Debatable, not a fake dot-com name', !visible.includes('Debatable.com'));
 check('visible copy has no em dash', !visible.includes('—'));
