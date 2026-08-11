@@ -98,7 +98,13 @@ const URLS = [
   // "everyone has an opinion" (argue-your-opinion intents).
   { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-07-27' },
   { path: '/bet-on-your-words',                       changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
-  { path: '/everyone-has-an-opinion',                 changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
+  // 2026-08-11: was '/everyone-has-an-opinion', which netlify.toml 301s
+  // to '/argue-online' with force=true. Submitting the redirecting URL
+  // landed as "Page with redirect" in Search Console: never indexed, and
+  // a wasted crawl hop every fetch. /argue-online is the 200 that serves
+  // everyone-has-an-opinion.html and is what the page's own canonical
+  // already points at.
+  { path: '/argue-online',                            changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-11' },
   // /get-paid-to-debate answers the money-intent cluster ("get paid to
   // debate", "win money debating", "make money arguing"). Rewritten
   // 2026-08-11 around the live event; it used to answer "not here yet".
