@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script src="/js/native-bridge.js"></script>
+  <title>Flow Any Debate Speech | Debatable</title>
+  <meta name="description" content="Speak, upload, or paste a debate speech. Get a tournament-quality argument flow, dropped-argument audit, clash map, and response plan.">
+  <link rel="canonical" href="https://itsdebatable.com/flow">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://itsdebatable.com/flow">
+  <meta property="og:title" content="Flow any debate speech | Debatable">
+  <meta property="og:description" content="A tournament flow, dropped-argument audit, clash map, and response plan from any speech or round.">
+  <meta property="og:image" content="https://itsdebatable.com/flow-og.png?v=1">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Flow any debate speech | Debatable">
+  <meta name="twitter:description" content="Speak, upload, or paste. Leave with the flow and your next speech plan.">
+  <meta name="twitter:image" content="https://itsdebatable.com/flow-og.png?v=1">
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/ui.css">
+  <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+  <script defer src="/js/track.js"></script>
+  <script defer src="/js/app-check.js"></script>
+  <script defer src="/js/topbar.js"></script>
+  <script defer src="/js/notifications.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"SoftwareApplication",
+    "name":"Debatable Flow",
+    "applicationCategory":"EducationalApplication",
+    "operatingSystem":"Web",
+    "url":"https://itsdebatable.com/flow",
+    "description":"Turn a debate speech or round transcript into a tournament argument flow, clash map, drop audit, and response plan."
+  }
+  </script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{
+      --paper:#f4f1e9;--paper-2:#fbfaf6;--ink:#151515;--muted:#67645e;
+      --rule:#d4cfc3;--red:#d8282f;--red-dark:#a81920;--red-soft:#f9e8e8;
+      --blue:#225a73;--blue-soft:#e8f2f5;--green:#2f6b50;--amber:#956816;
+      --card:#fffdfa;--shadow:0 20px 60px rgba(39,31,20,.09);
+      --serif:'Crimson Pro',Georgia,serif;--sans:'Inter',Arial,sans-serif;--mono:'DM Mono',monospace;
+    }
+    html{scroll-behavior:smooth;background:var(--paper)}
+    body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+    body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(rgba(70,62,48,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(70,62,48,.035) 1px,transparent 1px);background-size:28px 28px;mask-image:linear-gradient(to bottom,#000,transparent 70%)}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .shell{width:min(1180px,calc(100% - 40px));margin:0 auto;padding:42px 0 90px}
+    .hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:68px;align-items:center;padding:58px 0 52px}
+    .eyebrow{display:flex;align-items:center;gap:10px;color:var(--red);font:500 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;margin-bottom:22px}
+    .eyebrow::before{content:"";width:34px;height:2px;background:var(--red)}
+    h1{font:700 clamp(56px,8vw,104px)/.78 var(--serif);letter-spacing:-.055em;margin:0;max-width:660px}
+    h1 span{color:var(--red);font-style:italic;font-weight:600}
+    .lede{font:500 clamp(18px,2vw,23px)/1.45 var(--serif);color:#46433e;max-width:610px;margin:30px 0 0}
+    .proofline{display:flex;gap:22px;flex-wrap:wrap;margin-top:30px;color:var(--muted);font:500 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.08em}
+    .proofline span{display:flex;align-items:center;gap:8px}
+    .proofline i{width:6px;height:6px;background:var(--red);border-radius:50%;display:inline-block}
+    .sample-flow{background:#fff;border:1px solid #cbc5b9;border-radius:2px;box-shadow:var(--shadow);transform:rotate(1.25deg);position:relative;padding:30px 32px 28px;min-height:392px}
+    .sample-flow::before{content:"";position:absolute;left:26px;top:0;bottom:0;width:1px;background:rgba(216,40,47,.24)}
+    .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #202020;padding:0 0 13px 16px;margin-bottom:2px}
+    .sheet-kicker{font:500 10px/1 var(--mono);letter-spacing:.12em;color:var(--red);text-transform:uppercase}
+    .sheet-title{font:700 28px/1 var(--serif);margin-top:5px}
+    .sheet-mark{font:500 10px/1.2 var(--mono);text-align:right;color:var(--muted)}
+    .flow-line{display:grid;grid-template-columns:35px 1fr auto;gap:13px;padding:15px 0 14px 16px;border-bottom:1px solid #ddd8ce;align-items:start}
+    .flow-id{font:500 10px/1 var(--mono);color:var(--red);padding-top:4px}
+    .flow-tag{font:700 17px/1.1 var(--serif)}
+    .flow-note{font:400 11px/1.4 var(--mono);color:var(--muted);margin-top:5px}
+    .flow-status{font:500 9px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid;padding:5px 6px;border-radius:99px;color:var(--green)}
+    .flow-status.drop{color:var(--red);background:var(--red-soft)}
+    .sheet-footer{display:flex;justify-content:space-between;align-items:center;padding:18px 0 0 16px;font:500 10px/1 var(--mono);color:var(--muted)}
+    .sheet-footer strong{color:var(--red);font-weight:500}
+
+    .workspace{background:var(--paper-2);border:1px solid var(--rule);box-shadow:0 1px 0 rgba(255,255,255,.8) inset;display:grid;grid-template-columns:300px minmax(0,1fr);min-height:670px}
+    .setup-rail{padding:31px 27px;border-right:1px solid var(--rule);background:#efebe2}
+    .rail-number{font:500 10px/1 var(--mono);color:var(--red);letter-spacing:.1em;margin-bottom:9px}
+    .rail-title{font:700 25px/1 var(--serif);margin:0 0 24px}
+    .field{margin-bottom:22px}
+    .field label,.field-label{display:block;font:600 10px/1 var(--mono);letter-spacing:.11em;text-transform:uppercase;color:#514e48;margin-bottom:9px}
+    .field input,.field select{width:100%;height:45px;border:1px solid #c8c2b6;background:#fffdfa;color:var(--ink);border-radius:0;padding:0 12px;outline:none}
+    .field input:focus,.field select:focus{border-color:var(--red);box-shadow:0 0 0 2px rgba(216,40,47,.1)}
+    .segmented{display:grid;gap:7px}
+    .seg-btn{width:100%;text-align:left;border:1px solid #cbc5b9;background:transparent;color:#55514a;padding:10px 11px;display:flex;gap:9px;align-items:flex-start}
+    .seg-btn b{display:block;color:var(--ink);font-size:12px;line-height:1.2}
+    .seg-btn small{display:block;font-size:10px;line-height:1.35;margin-top:2px;color:var(--muted)}
+    .seg-dot{width:10px;height:10px;border:1px solid #9f988c;border-radius:50%;margin-top:2px;flex:0 0 auto;position:relative}
+    .seg-btn.active{border-color:var(--red);background:#fff}
+    .seg-btn.active .seg-dot{border-color:var(--red)}
+    .seg-btn.active .seg-dot::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--red)}
+    .privacy-note{border-top:1px solid #d1cbc0;margin-top:25px;padding-top:19px;font:400 10px/1.55 var(--mono);color:#777168}
+    .privacy-note strong{color:#4d4943;font-weight:500}
+
+    .input-pane{padding:32px 34px 38px;min-width:0}
+    .pane-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}
+    .pane-title{font:700 30px/1 var(--serif);margin:0}
+    .pane-sub{font-size:12px;line-height:1.5;color:var(--muted);margin-top:7px}
+    .count{font:500 10px/1.3 var(--mono);color:var(--muted);white-space:nowrap;padding-top:5px}
+    .methods{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+    .method{height:39px;border:1px solid #c9c3b8;background:#fff;color:#35322f;padding:0 14px;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700}
+    .method:hover{border-color:#999084}
+    .method.primary{background:var(--ink);color:white;border-color:var(--ink)}
+    .method.recording{background:var(--red);border-color:var(--red);color:white}
+    .method-icon{font:500 10px/1 var(--mono);width:18px;height:18px;border:1px solid currentColor;border-radius:50%;display:grid;place-items:center}
+    .method.recording .method-icon{animation:pulse 1.1s infinite}
+    @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,255,255,.2)}}
+    #fileInput{display:none}
+    .record-strip{display:none;border:1px solid var(--red);background:var(--red-soft);padding:13px 15px;margin-bottom:12px;align-items:center;gap:14px}
+    .record-strip.show{display:flex}
+    .record-time{font:500 12px/1 var(--mono);color:var(--red-dark);width:50px}
+    .meter{height:24px;display:flex;align-items:center;gap:3px;flex:1;overflow:hidden}
+    .meter i{display:block;width:3px;height:5px;background:var(--red);opacity:.34;transition:height .08s}
+    .record-copy{font:500 10px/1.3 var(--mono);color:var(--red-dark);white-space:nowrap}
+    .dropzone{position:relative}
+    textarea{width:100%;min-height:338px;resize:vertical;border:1px solid #bfb8ab;border-radius:0;background:#fff;color:#1d1c1a;padding:20px 21px;font:500 16px/1.58 var(--serif);outline:none;box-shadow:0 1px 0 rgba(0,0,0,.02) inset}
+    textarea::placeholder{color:#9a9489}
+    textarea:focus,textarea.drag{border-color:var(--red);box-shadow:0 0 0 3px rgba(216,40,47,.09)}
+    .file-hint{min-height:18px;font:400 10px/1.4 var(--mono);color:var(--muted);margin-top:9px}
+    .input-footer{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-top:19px}
+    .honesty{max-width:430px;font:400 10px/1.5 var(--mono);color:var(--muted)}
+    .analyze{height:50px;border:0;background:var(--red);color:#fff;padding:0 25px;min-width:188px;font-weight:800;font-size:13px;letter-spacing:.01em;display:flex;align-items:center;justify-content:center;gap:10px}
+    .analyze:hover{background:var(--red-dark)}
+    .analyze:disabled{cursor:not-allowed;opacity:.62}
+    .analyze .arrow{font:500 16px/1 var(--mono)}
+    .spinner{display:none;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+    .analyze.loading .spinner{display:block}.analyze.loading .arrow{display:none}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .error{display:none;background:#fff0f0;border:1px solid #e6a9ab;color:#8c161b;font-size:12px;line-height:1.5;padding:12px 14px;margin-top:14px}
+    .error.show{display:block}
+
+    .results{display:none;padding-top:80px;scroll-margin-top:20px}
+    .results.show{display:block}
+    .result-top{display:flex;justify-content:space-between;gap:30px;align-items:flex-end;padding-bottom:23px;border-bottom:2px solid var(--ink)}
+    .result-kicker{font:500 10px/1 var(--mono);letter-spacing:.13em;color:var(--red);text-transform:uppercase;margin-bottom:9px}
+    .result-title{font:700 clamp(38px,6vw,66px)/.9 var(--serif);letter-spacing:-.03em;margin:0}
+    .result-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .quiet-btn{border:1px solid #bcb5aa;background:transparent;color:#302e2a;height:38px;padding:0 13px;font-size:11px;font-weight:700}
+    .quiet-btn:hover{background:#fff}
+    .scopebar{display:flex;align-items:flex-start;gap:18px;padding:18px 0 22px;border-bottom:1px solid var(--rule)}
+    .scope-pill{font:500 9px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;background:var(--blue-soft);color:var(--blue);white-space:nowrap}
+    .scope-copy{font:400 12px/1.5 var(--mono);color:#5e5a53}
+    .scope-copy strong{color:var(--ink);font-weight:500}
+    .overview{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rule);border-top:0;background:var(--card);margin-bottom:42px}
+    .overview-cell{padding:22px 23px;min-height:134px;border-right:1px solid var(--rule)}
+    .overview-cell:last-child{border-right:0}
+    .cell-label{font:500 9px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--red);margin-bottom:11px}
+    .cell-value{font:600 17px/1.35 var(--serif)}
+    .section-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;margin-bottom:14px}
+    .section-head h2{font:700 31px/1 var(--serif);margin:0}
+    .section-note{font:400 10px/1.4 var(--mono);color:var(--muted);text-align:right}
+    .ledger{border-top:2px solid var(--ink);margin-bottom:46px}
+    .ledger-row{display:grid;grid-template-columns:54px minmax(160px,.8fr) minmax(260px,1.7fr) 118px;border-bottom:1px solid var(--rule);background:rgba(255,253,250,.48)}
+    .ledger-row>div{padding:18px 17px;border-right:1px solid var(--rule);min-width:0}
+    .ledger-row>div:last-child{border-right:0}
+    .ledger-id{font:500 10px/1 var(--mono);color:var(--red)}
+    .ledger-tag{font:700 18px/1.1 var(--serif);margin-bottom:7px}
+    .ledger-speaker{font:400 9px/1.3 var(--mono);text-transform:uppercase;color:var(--muted)}
+    .argument-parts{display:grid;gap:7px}
+    .arg-line{font:400 12px/1.48 var(--sans);color:#45413c}
+    .arg-line strong{font:600 9px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:#7d776e;margin-right:7px}
+    .journey{margin-top:11px;padding-top:10px;border-top:1px dotted #c9c2b8;font:400 10px/1.45 var(--mono);color:#69645c}
+    .status-wrap{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+    .status{font:500 9px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid;padding:6px 7px}
+    .status-live{color:var(--green);border-color:#96b9a6;background:#edf6f1}.status-answered{color:var(--blue);border-color:#9ebbc8;background:var(--blue-soft)}
+    .status-dropped{color:var(--red);border-color:#dc9b9e;background:var(--red-soft)}.status-turned{color:#7b3fa1;border-color:#c4a3d8;background:#f5eef9}
+    .status-conceded{color:var(--amber);border-color:#d5be8e;background:#faf4e6}.status-unclear{color:#65615b;border-color:#bbb5aa;background:#f1eee8}
+    .judge-note{font:400 9px/1.45 var(--mono);color:var(--muted)}
+    .empty-block{padding:20px;border:1px solid var(--rule);background:var(--card);font:400 12px/1.5 var(--mono);color:var(--muted)}
+    .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-bottom:46px}
+    .result-card{border:1px solid var(--rule);background:var(--card);padding:25px}
+    .card-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--rule);padding-bottom:15px;margin-bottom:3px}
+    .card-head h3{font:700 25px/1 var(--serif);margin:0}
+    .card-count{font:500 9px/1 var(--mono);color:var(--muted)}
+    .drop-row,.clash-row{padding:18px 0;border-bottom:1px solid #ddd8cf}.drop-row:last-child,.clash-row:last-child{border-bottom:0;padding-bottom:0}
+    .mini-top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+    .mini-id{font:500 9px/1 var(--mono);color:var(--red)}
+    .class-pill{font:500 8px/1 var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:4px 5px;background:var(--red-soft);color:var(--red-dark)}
+    .mini-title{font:700 17px/1.2 var(--serif);margin-bottom:7px}
+    .mini-body{font-size:11px;line-height:1.5;color:#5d5851}
+    .mini-body strong{color:#25231f}
+    .clash-sides{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+    .clash-side{padding:10px;background:#f3f0ea;font-size:10px;line-height:1.45;color:#545049}
+    .clash-side strong{display:block;font:500 8px/1 var(--mono);text-transform:uppercase;color:var(--red);margin-bottom:5px}
+    .edge{font:500 9px/1.4 var(--mono);color:var(--blue)}
+    .responses{border-top:2px solid var(--ink);margin-bottom:46px}
+    .response-row{display:grid;grid-template-columns:56px minmax(160px,.7fr) minmax(300px,1.5fr);border-bottom:1px solid var(--rule)}
+    .response-row>div{padding:20px 18px;border-right:1px solid var(--rule)}.response-row>div:last-child{border-right:0}
+    .priority{font:700 30px/1 var(--serif);color:var(--red)}
+    .response-type{font:500 8px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:8px}
+    .response-target{font:700 17px/1.2 var(--serif)}
+    .response-line{font:600 17px/1.35 var(--serif);margin-bottom:9px}
+    .response-why,.proof-needed{font-size:10px;line-height:1.5;color:var(--muted)}
+    .proof-needed{margin-top:8px;color:var(--amber)}
+    .speech-plan{display:flex;gap:0;border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);overflow-x:auto;margin-bottom:36px}
+    .plan-step{min-width:180px;flex:1;padding:20px 18px;border-right:1px solid var(--rule);background:var(--card)}
+    .plan-step:last-child{border-right:0}
+    .plan-meta{display:flex;justify-content:space-between;font:500 9px/1 var(--mono);color:var(--red);margin-bottom:10px}
+    .plan-move{font:700 18px/1.15 var(--serif);margin-bottom:7px}
+    .plan-copy{font-size:10px;line-height:1.5;color:var(--muted)}
+    .bottom-action{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--rule);padding-top:22px}
+    .bottom-action p{font:400 11px/1.5 var(--mono);color:var(--muted);margin:0}
+    .bottom-action a{color:var(--red);text-decoration:none;font-weight:500}
+    .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#171717;color:white;padding:11px 15px;font:500 10px/1 var(--mono);opacity:0;pointer-events:none;transition:.2s;z-index:1000}
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    footer{padding:42px 20px;border-top:1px solid var(--rule);text-align:center;font:400 10px/1.5 var(--mono);color:var(--muted)}
+    footer a{color:inherit;text-decoration:none;margin:0 8px}footer a:hover{color:var(--red)}
+    @media(max-width:900px){
+      .hero{grid-template-columns:1fr;gap:46px;padding-top:35px}.sample-flow{max-width:600px;margin:auto;transform:none}
+      .workspace{grid-template-columns:1fr}.setup-rail{border-right:0;border-bottom:1px solid var(--rule);display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.rail-title,.rail-number,.privacy-note{grid-column:1/-1}.segmented{grid-template-columns:repeat(3,1fr)}
+      .overview{grid-template-columns:1fr}.overview-cell{border-right:0;border-bottom:1px solid var(--rule)}.overview-cell:last-child{border-bottom:0}
+      .ledger-row{grid-template-columns:48px minmax(140px,.65fr) minmax(230px,1.35fr) 105px;overflow-x:auto}.result-grid{grid-template-columns:1fr}
+    }
+    @media(max-width:640px){
+      .shell{width:min(100% - 24px,1180px);padding-top:20px}.hero{padding:30px 0 38px}.lede{font-size:18px}.proofline{gap:12px}
+      .sample-flow{padding:24px 19px}.sample-flow::before{left:18px}.flow-line,.sheet-head,.sheet-footer{padding-left:10px}.flow-line{grid-template-columns:28px 1fr}.flow-status{grid-column:2;width:max-content}
+      .setup-rail{display:block;padding:25px 20px}.segmented{display:grid;grid-template-columns:1fr}.input-pane{padding:25px 19px 30px}.pane-head{display:block}.count{margin-top:9px}.method{flex:1;justify-content:center;min-width:100px}
+      textarea{min-height:300px;padding:16px;font-size:15px}.input-footer{display:block}.analyze{width:100%;margin-top:16px}.record-copy{display:none}
+      .results{padding-top:58px}.result-top{display:block}.result-actions{justify-content:flex-start;margin-top:18px}.scopebar{display:block}.scope-copy{margin-top:10px}
+      .ledger{border:1px solid var(--rule);border-top:2px solid var(--ink)}.ledger-row{display:block}.ledger-row>div{border-right:0;border-bottom:1px solid var(--rule);padding:13px 15px}.ledger-row>div:last-child{border-bottom:0}.ledger-id{padding-bottom:0}.status-wrap{flex-direction:row;align-items:center}
+      .response-row{display:block}.response-row>div{border-right:0;border-bottom:1px solid var(--rule);padding:14px 15px}.response-row>div:last-child{border-bottom:0}.priority{font-size:24px}.clash-sides{grid-template-columns:1fr}.bottom-action{display:block}.bottom-action .quiet-btn{margin-top:15px}
+    }
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.method.recording .method-icon,.spinner{animation:none}}
+  </style>
+</head>
+<body>
+  <div id="daTopbar"></div>
+  <main class="shell">
+    <section class="hero" aria-labelledby="flowTitle">
+      <div>
+        <div class="eyebrow">The flow desk</div>
+        <h1 id="flowTitle">Nothing gets <span>dropped.</span></h1>
+        <p class="lede">Speak, upload, or paste any debate speech. Get the argument ledger, every live clash, the pressure points, and the next speech you should give.</p>
+        <div class="proofline" aria-label="Flow features">
+          <span><i></i> Format-aware</span>
+          <span><i></i> Speech to flow</span>
+          <span><i></i> Response ready</span>
+        </div>
+      </div>
+      <div class="sample-flow" aria-label="Sample tournament flow">
+        <div class="sheet-head">
+          <div><div class="sheet-kicker">Sample flow</div><div class="sheet-title">Public Forum</div></div>
+          <div class="sheet-mark">ROUND 04<br>CON VS PRO</div>
+        </div>
+        <div class="flow-line"><div class="flow-id">A1</div><div><div class="flow-tag">Access gap</div><div class="flow-note">Link conceded, impact comparison missing</div></div><div class="flow-status">live</div></div>
+        <div class="flow-line"><div class="flow-id">A2</div><div><div class="flow-tag">Enforcement</div><div class="flow-note">No answer in summary, needs chronology</div></div><div class="flow-status drop">flag</div></div>
+        <div class="flow-line"><div class="flow-id">B1</div><div><div class="flow-tag">Innovation turn</div><div class="flow-note">Probability takeout survives crossfire</div></div><div class="flow-status">live</div></div>
+        <div class="sheet-footer"><span>CLASHES 03 · RESPONSES 04</span><strong>NEXT: WEIGH ACCESS</strong></div>
+      </div>
+    </section>
+
+    <section class="workspace" aria-labelledby="workspaceTitle">
+      <aside class="setup-rail">
+        <div class="rail-number">01 / SET THE ROUND</div>
+        <h2 class="rail-title" id="workspaceTitle">What are we flowing?</h2>
+        <div class="field">
+          <label for="motion">Motion or resolution <span style="font-weight:400;color:#918a80">optional</span></label>
+          <input id="motion" type="text" maxlength="500" placeholder="This House would..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="format">Format</label>
+          <select id="format">
+            <option value="Auto">Auto-detect</option>
+            <option value="Public Forum">Public Forum</option>
+            <option value="Lincoln-Douglas">Lincoln-Douglas</option>
+            <option value="Policy">Policy</option>
+            <option value="APDA">APDA</option>
+            <option value="British Parliamentary">British Parliamentary</option>
+            <option value="World Schools">World Schools</option>
+            <option value="Asian Parliamentary">Asian Parliamentary</option>
+            <option value="Congress">Congress</option>
+            <option value="General debate">General debate</option>
+          </select>
+        </div>
+        <div class="field">
+          <span class="field-label">Material supplied</span>
+          <div class="segmented" role="radiogroup" aria-label="Material supplied">
+            <button class="seg-btn active" type="button" role="radio" aria-checked="true" data-perspective="mine"><span class="seg-dot"></span><span><b>My speech</b><small>Find my live offense and fixes</small></span></button>
+            <button class="seg-btn" type="button" role="radio" aria-checked="false" data-perspective="opponent"><span class="seg-dot"></span><span><b>Opponent speech</b><small>Build my response priorities</small></span></button>
+            <button class="seg-btn" type="button" role="radio" aria-checked="false" data-perspective="round"><span class="seg-dot"></span><span><b>Full round</b><small>Track clash and true drops</small></span></button>
+          </div>
+        </div>
+        <div class="privacy-note"><strong>Your draft stays in this tab.</strong> Debatable sends the transcript for analysis only when you press Build my flow. Audio is transcribed, not stored here.</div>
+      </aside>
+
+      <div class="input-pane">
+        <div class="pane-head">
+          <div><h2 class="pane-title">Add the speech</h2><div class="pane-sub">Speaker labels and speech order make multi-speech flows more accurate.</div></div>
+          <div class="count" id="count">0 WORDS · 0:00</div>
+        </div>
+        <div class="methods" aria-label="Input methods">
+          <button class="method primary" type="button" id="speakBtn"><span class="method-icon" aria-hidden="true">●</span><span id="speakLabel">Speak</span></button>
+          <button class="method" type="button" id="uploadBtn"><span class="method-icon" aria-hidden="true">↑</span>Upload</button>
+          <button class="method" type="button" id="pasteBtn"><span class="method-icon" aria-hidden="true">T</span>Paste</button>
+          <input id="fileInput" type="file" accept=".txt,.text,.md,.markdown,.rtf,.csv,.docx,.mp3,.m4a,.mp4,.wav,.webm,.ogg,audio/*">
+        </div>
+        <div class="record-strip" id="recordStrip" role="status" aria-live="polite">
+          <span class="record-time" id="recordTime">0:00</span>
+          <span class="meter" id="meter" aria-hidden="true"></span>
+          <span class="record-copy">Recording locally. Press Stop to transcribe.</span>
+        </div>
+        <div class="dropzone">
+          <textarea id="transcript" maxlength="50000" aria-label="Speech or transcript" placeholder="Paste a speech, label each speaker in a round transcript, or press Speak and give the speech out loud."></textarea>
+        </div>
+        <div class="file-hint" id="fileHint" aria-live="polite">Text, DOCX, MP3, M4A, WAV, WebM, or OGG. Audio limit 24 MB.</div>
+        <div class="input-footer">
+          <div class="honesty">One speech cannot prove a true drop. Flow labels unanswered material honestly until chronology establishes what happened.</div>
+          <button class="analyze" type="button" id="analyzeBtn"><span class="spinner" aria-hidden="true"></span><span id="analyzeLabel">Build my flow</span><span class="arrow" aria-hidden="true">→</span></button>
+        </div>
+        <div class="error" id="error" role="alert"></div>
+      </div>
+    </section>
+
+    <section class="results" id="results" aria-labelledby="resultTitle" aria-live="polite">
+      <div class="result-top">
+        <div><div class="result-kicker">Your tournament flow</div><h2 class="result-title" id="resultTitle">The round, on paper.</h2></div>
+        <div class="result-actions"><button class="quiet-btn" type="button" id="copyFlowBtn">Copy flow</button><button class="quiet-btn" type="button" id="copyResponsesBtn">Copy responses</button><button class="quiet-btn" type="button" id="anotherBtn">Analyze another</button></div>
+      </div>
+      <div class="scopebar"><span class="scope-pill" id="scopePill">Single speech</span><div class="scope-copy" id="scopeCopy"></div></div>
+      <div class="overview" id="overview"></div>
+
+      <div class="section-head"><h2>Argument ledger</h2><div class="section-note">Claim, warrant, impact, and treatment across the supplied material</div></div>
+      <div class="ledger" id="ledger"></div>
+
+      <div class="result-grid">
+        <article class="result-card"><div class="card-head"><h3>Drops and gaps</h3><span class="card-count" id="dropCount"></span></div><div id="drops"></div></article>
+        <article class="result-card"><div class="card-head"><h3>Clash map</h3><span class="card-count" id="clashCount"></span></div><div id="clashes"></div></article>
+      </div>
+
+      <div class="section-head"><h2>Suggested responses</h2><div class="section-note">Highest-leverage answers first</div></div>
+      <div class="responses" id="responses"></div>
+
+      <div class="section-head"><h2>Next speech plan</h2><div class="section-note">A delivery order, not a script</div></div>
+      <div class="speech-plan" id="speechPlan"></div>
+      <div class="bottom-action"><p>Want to test the answers out loud? <a href="/voice-debate">Take them into a voice round.</a></p><button class="quiet-btn" type="button" id="backToInput">Edit source material</button></div>
+    </section>
+  </main>
+  <footer><a href="/">Debatable</a><a href="/practice">Timed rounds</a><a href="/judge">AI judge</a><a href="/privacy">Privacy</a></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (function(){
+    'use strict';
+    var $=function(id){return document.getElementById(id)};
+    var transcript=$('transcript'), motion=$('motion'), format=$('format');
+    var perspective='mine', currentResult=null, recording=false, recorder=null;
+    var mediaStream=null, chunks=[], recordStarted=0, timer=null, audioContext=null, analyser=null, raf=0;
+    var MAX_AUDIO=24*1024*1024, MAX_RECORD_MS=12*60*1000;
+    var meterBars=[];
+
+    for(var m=0;m<30;m++){var bar=document.createElement('i');$('meter').appendChild(bar);meterBars.push(bar)}
+
+    function esc(value){return String(value==null?'':value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+    function list(value){return Array.isArray(value)?value:[]}
+    function humanKind(kind){return kind==='round'?'Full round':kind==='multi_speech'?'Multiple speeches':'Single speech'}
+    function words(){var clean=transcript.value.trim();return clean?clean.split(/\s+/).length:0}
+    function updateCount(){var n=words(),seconds=Math.round(n/2.4);$('count').textContent=n.toLocaleString()+' WORDS · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')}
+    function setHint(message,error){$('fileHint').textContent=message;$('fileHint').style.color=error?'#a81920':''}
+    function showError(message){$('error').textContent=message;$('error').classList.toggle('show',!!message)}
+    function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(function(){$('toast').classList.remove('show')},1800)}
+    function saveDraft(){try{sessionStorage.setItem('debatable-flow-draft',JSON.stringify({text:transcript.value,motion:motion.value,format:format.value,perspective:perspective}))}catch(e){}}
+    function restoreDraft(){try{var d=JSON.parse(sessionStorage.getItem('debatable-flow-draft')||'null');if(!d)return;transcript.value=String(d.text||'').slice(0,50000);motion.value=String(d.motion||'').slice(0,500);format.value=d.format||'Auto';setPerspective(d.perspective||'mine')}catch(e){}}
+    function track(name,meta){try{if(window.gtag)gtag('event',name,meta||{});else if(window.track)window.track(name,meta||{})}catch(e){}}
+    function setPerspective(value){perspective=['mine','opponent','round'].indexOf(value)>=0?value:'mine';document.querySelectorAll('.seg-btn').forEach(function(btn){var on=btn.dataset.perspective===perspective;btn.classList.toggle('active',on);btn.setAttribute('aria-checked',on?'true':'false')});saveDraft()}
+
+    document.querySelectorAll('.seg-btn').forEach(function(btn){btn.addEventListener('click',function(){setPerspective(btn.dataset.perspective)})});
+    [transcript,motion,format].forEach(function(node){node.addEventListener(node===format?'change':'input',function(){updateCount();saveDraft()})});
+    $('pasteBtn').addEventListener('click',function(){transcript.focus();try{navigator.clipboard.readText().then(function(text){if(text&&!transcript.value.trim()){transcript.value=text.slice(0,50000);updateCount();saveDraft();setHint('Pasted from your clipboard.')}}).catch(function(){})}catch(e){}track('flow_input_method',{method:'paste'})});
+    $('uploadBtn').addEventListener('click',function(){$('fileInput').click()});
+
+    function loadText(text,name){transcript.value=String(text||'').trim().slice(0,50000);updateCount();saveDraft();setHint('Loaded '+name+' · '+transcript.value.length.toLocaleString()+' characters');transcript.focus();track('flow_input_method',{method:'upload_text'})}
+    function loadMammoth(file){setHint('Reading '+file.name+'...');function run(){file.arrayBuffer().then(function(buffer){return window.mammoth.extractRawText({arrayBuffer:buffer})}).then(function(result){loadText(result.value,file.name)}).catch(function(){setHint('Could not read that DOCX. Save it as text or paste the speech.',true)})}if(window.mammoth)return run();var script=document.createElement('script');script.src='https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js';script.onload=run;script.onerror=function(){setHint('Could not load the DOCX reader. Paste the speech instead.',true)};document.head.appendChild(script)}
+    function isAudio(file){return /^audio\//.test(file.type||'')||/\.(mp3|m4a|mp4|wav|webm|ogg)$/i.test(file.name||'')}
+    function transcribeAudio(file){if(file.size>MAX_AUDIO){setHint('That audio file is over 24 MB. Compress it or upload a transcript.',true);return}setHint('Transcribing '+(file.name||'recording')+'...');$('uploadBtn').disabled=true;var fd=new FormData();fd.append('audio',file,file.name||'speech.webm');fetch('/api/transcribe',{method:'POST',body:fd}).then(function(response){return response.json().catch(function(){return{}}).then(function(data){if(!response.ok)throw new Error(data.error||'Transcription failed.');return data})}).then(function(data){loadText(data.text||'',file.name||'recording');setHint('Transcribed '+(file.name||'recording')+'. Check names and debate terms before analysis.');track('flow_input_method',{method:'upload_audio'})}).catch(function(error){setHint(error.message||'Could not transcribe that audio.',true)}).finally(function(){$('uploadBtn').disabled=false})}
+    function handleFile(file){if(!file)return;if(isAudio(file))return transcribeAudio(file);if(/\.docx$/i.test(file.name||''))return loadMammoth(file);if(/\.(txt|text|md|markdown|rtf|csv)$/i.test(file.name||'')||/^text\//.test(file.type||'')){var reader=new FileReader();reader.onload=function(){loadText(reader.result,file.name)};reader.onerror=function(){setHint('Could not read that file. Paste the speech instead.',true)};reader.readAsText(file);return}setHint('Unsupported file. Use text, DOCX, MP3, M4A, WAV, WebM, or OGG.',true)}
+    $('fileInput').addEventListener('change',function(){handleFile(this.files&&this.files[0]);this.value=''})
+    ;['dragenter','dragover'].forEach(function(type){transcript.addEventListener(type,function(event){event.preventDefault();transcript.classList.add('drag')})});
+    ;['dragleave','dragend'].forEach(function(type){transcript.addEventListener(type,function(){transcript.classList.remove('drag')})});
+    transcript.addEventListener('drop',function(event){event.preventDefault();transcript.classList.remove('drag');handleFile(event.dataTransfer&&event.dataTransfer.files&&event.dataTransfer.files[0])});
+
+    function mimeType(){var candidates=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'];if(!window.MediaRecorder)return'';for(var i=0;i<candidates.length;i++)if(!MediaRecorder.isTypeSupported||MediaRecorder.isTypeSupported(candidates[i]))return candidates[i];return''}
+    function drawMeter(){if(!recording||!analyser)return;var data=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(data);for(var i=0;i<meterBars.length;i++){var index=Math.floor(i*data.length/meterBars.length);var level=data[index]/255;meterBars[i].style.height=(5+level*19)+'px';meterBars[i].style.opacity=String(.3+level*.7)}raf=requestAnimationFrame(drawMeter)}
+    function cleanupAudio(){clearInterval(timer);timer=null;cancelAnimationFrame(raf);raf=0;if(mediaStream)mediaStream.getTracks().forEach(function(track){track.stop()});mediaStream=null;if(audioContext)audioContext.close().catch(function(){});audioContext=null;analyser=null;recording=false;$('recordStrip').classList.remove('show');$('speakBtn').classList.remove('recording');$('speakLabel').textContent='Speak'}
+    function stopRecording(){if(!recording)return;try{recorder.stop()}catch(e){cleanupAudio()}}
+    function startRecording(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){showError('Live recording is not supported in this browser. Upload audio or paste a transcript instead.');return}showError('');navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(stream){mediaStream=stream;chunks=[];var mime=mimeType();try{recorder=new MediaRecorder(stream,Object.assign({audioBitsPerSecond:64000},mime?{mimeType:mime}:{}))}catch(e){recorder=new MediaRecorder(stream)}recorder.ondataavailable=function(event){if(event.data&&event.data.size)chunks.push(event.data)};recorder.onerror=function(){showError('The recording stopped unexpectedly. Try again or upload the audio.');cleanupAudio()};recorder.onstop=function(){var type=recorder.mimeType||mime||'audio/webm';var blob=new Blob(chunks,{type:type});cleanupAudio();if(blob.size<2048){setHint('No speech was captured. Check the microphone and try again.',true);return}var ext=type.indexOf('mp4')>=0?'m4a':type.indexOf('ogg')>=0?'ogg':'webm';var file=new File([blob],'spoken-speech.'+ext,{type:type});transcribeAudio(file)};recorder.start(1000);recording=true;recordStarted=Date.now();$('recordStrip').classList.add('show');$('speakBtn').classList.add('recording');$('speakLabel').textContent='Stop';setHint('Recording. Speak naturally and press Stop when the speech ends.');timer=setInterval(function(){var ms=Date.now()-recordStarted;$('recordTime').textContent=Math.floor(ms/60000)+':'+String(Math.floor(ms/1000)%60).padStart(2,'0');if(ms>=MAX_RECORD_MS)stopRecording()},250);try{audioContext=new(window.AudioContext||window.webkitAudioContext)();analyser=audioContext.createAnalyser();analyser.fftSize=128;audioContext.createMediaStreamSource(stream).connect(analyser);drawMeter()}catch(e){}track('flow_input_method',{method:'speak'})}).catch(function(error){showError(error&&error.name==='NotAllowedError'?'Microphone access was blocked. Allow it in browser settings, or upload audio.':'The microphone could not start. Upload audio or paste a transcript instead.')})}
+    $('speakBtn').addEventListener('click',function(){if(recording)stopRecording();else startRecording()});
+    window.addEventListener('beforeunload',function(event){if(recording){event.preventDefault();event.returnValue=''}});
+
+    var DEMO={scope:{kind:'multi_speech',format:'Public Forum',speaker:'Pro and Con',confidence:'high',note:'The supplied excerpt includes opening cases and rebuttals, but not final focus. True drops are limited to completed response windows.'},overview:{thesis:'Pro wins access through lower participation barriers, while Con says weak enforcement makes the benefit temporary.',ballot_story:'Compare whether enforcement failure outweighs the conceded access gain, then weigh probability before magnitude.',speech_role:'Opening offense plus first-line rebuttal on access, enforcement, and innovation.'},flow:[{id:'A1',tag:'Access gap',speaker:'Pro',claim:'The policy expands access for students without family support.',warrant:'Removing the unpaid period lowers the financial barrier to entry.',impact:'More qualified students can enter selective fields.',evidence:'No specific evidence named.',status:'live',journey:'Extended in rebuttal. Con contests scale but does not answer the financial mechanism.',judge_note:'Strongest Pro offense if probability is compared.'},{id:'A2',tag:'Enforcement solvency',speaker:'Con',claim:'The policy will not change employer behavior without enforcement.',warrant:'Employers can relabel or reduce positions instead of paying.',impact:'Nominal reform produces little access and fewer placements.',evidence:'No specific evidence named.',status:'answered',journey:'Pro says reputational pressure creates compliance, but does not explain the mechanism.',judge_note:'Central solvency clash remains unresolved.'},{id:'B1',tag:'Innovation turn',speaker:'Con',claim:'A mandate reduces experimental early-career roles.',warrant:'Some employers will cancel roles whose output does not cover wages.',impact:'Students lose low-risk entry points.',evidence:'No specific evidence named.',status:'turned',journey:'Pro turns this by saying low-quality roles create exclusion rather than opportunity.',judge_note:'Needs a comparison between job quantity and access quality.'}],drops:[{argument_id:'A2',dropped_by:'Not established',classification:'unanswered_in_material',why_it_matters:'Pro has not fully answered how the policy changes employer behavior.',repair:'Add a concrete compliance mechanism before extending access.'},{argument_id:'B1',dropped_by:'Con',classification:'missing_extension',why_it_matters:'The role-cancellation link is not carried into the latest supplied Con speech.',repair:'Re-extend the link and compare lost roles against Pro access.'}],clashes:[{name:'Access versus role quantity',side_one:'Pro says paid positions open selective fields to more students.',side_two:'Con says employers create fewer positions under a wage mandate.',comparison:'Whether access quality or total placement count creates more opportunity.',edge:'Unresolved',reason:'Neither side compares the number affected or the probability of employer exit.'},{name:'Enforcement',side_one:'Pro relies on reputational and legal compliance.',side_two:'Con says employers can evade by relabeling roles.',comparison:'Which behavior is more likely after the policy changes.',edge:'Con',reason:'Con names a mechanism while Pro currently asserts compliance.'}],responses:[{priority:1,target:'A2 · Enforcement solvency',response_type:'takeout',line:'Their evasion claim assumes every employer can relabel the same work without reputational or legal cost.',why:'It attacks the link holding together Con solvency offense.',proof_needed:'A mechanism already in the case showing how compliance is monitored.'},{priority:2,target:'Access versus role quantity',response_type:'weighing',line:'Prefer access probability over speculative role loss because the barrier exists now while cancellation depends on employer exit.',why:'It gives the judge a clean comparison even if both impacts survive.',proof_needed:''},{priority:3,target:'B1 · Innovation turn',response_type:'turn',line:'A role that only exists when the worker can subsidize it is exclusion, not access.',why:'It converts Con opportunity offense into Pro access offense.',proof_needed:''}],next_speech:[{order:1,move:'Frame the ballot',seconds:18,instruction:'Name access probability as the deciding comparison.'},{order:2,move:'Close enforcement',seconds:28,instruction:'Answer relabeling with the compliance mechanism in the case.'},{order:3,move:'Extend access',seconds:25,instruction:'Carry claim, financial-barrier warrant, and opportunity impact together.'},{order:4,move:'Weigh',seconds:20,instruction:'Compare present exclusion against conditional role cancellation.'}]};
+
+    function renderOverview(result){var values=[['Thesis',result.overview&&result.overview.thesis],['Ballot story',result.overview&&result.overview.ballot_story],['Speech role',result.overview&&result.overview.speech_role]];$('overview').innerHTML=values.map(function(v){return'<div class="overview-cell"><div class="cell-label">'+esc(v[0])+'</div><div class="cell-value">'+esc(v[1]||'Not established from the supplied material.')+'</div></div>'}).join('')}
+    function statusClass(status){return 'status-'+String(status||'unclear').toLowerCase()}
+    function renderLedger(rows){if(!rows.length){$('ledger').innerHTML='<div class="empty-block">No distinct arguments could be mapped from this material.</div>';return}$('ledger').innerHTML=rows.map(function(row){var parts='<div class="arg-line"><strong>Claim</strong>'+esc(row.claim||'Not clear')+'</div><div class="arg-line"><strong>Warrant</strong>'+esc(row.warrant||'Not supplied')+'</div><div class="arg-line"><strong>Impact</strong>'+esc(row.impact||'Not supplied')+'</div>';if(row.evidence)parts+='<div class="arg-line"><strong>Evidence</strong>'+esc(row.evidence)+'</div>';if(row.journey)parts+='<div class="journey">'+esc(row.journey)+'</div>';return'<div class="ledger-row"><div class="ledger-id">'+esc(row.id)+'</div><div><div class="ledger-tag">'+esc(row.tag||row.claim)+'</div><div class="ledger-speaker">'+esc(row.speaker||'Unclear')+'</div></div><div class="argument-parts">'+parts+'</div><div class="status-wrap"><span class="status '+statusClass(row.status)+'">'+esc(row.status||'unclear')+'</span><div class="judge-note">'+esc(row.judge_note||'')+'</div></div></div>'}).join('')}
+    function classLabel(value){return value==='true_drop'?'True drop':value==='missing_extension'?'Missing extension':'Unanswered here'}
+    function renderDrops(rows){$('dropCount').textContent=rows.length+' FLAG'+(rows.length===1?'':'S');if(!rows.length){$('drops').innerHTML='<div class="empty-block">No defensible drops or extension gaps found.</div>';return}$('drops').innerHTML=rows.map(function(row){return'<div class="drop-row"><div class="mini-top"><span class="mini-id">'+esc(row.argument_id||'FLOW')+'</span><span class="class-pill">'+esc(classLabel(row.classification))+'</span></div><div class="mini-title">'+esc(row.why_it_matters||'Flow gap')+'</div><div class="mini-body"><strong>Repair:</strong> '+esc(row.repair||'Rebuild the claim, warrant, and impact.')+'</div></div>'}).join('')}
+    function renderClashes(rows){$('clashCount').textContent=rows.length+' CLASH'+(rows.length===1?'':'ES');if(!rows.length){$('clashes').innerHTML='<div class="empty-block">A second side is needed for a real clash map.</div>';return}$('clashes').innerHTML=rows.map(function(row){return'<div class="clash-row"><div class="mini-title">'+esc(row.name||'Clash')+'</div><div class="clash-sides"><div class="clash-side"><strong>Side one</strong>'+esc(row.side_one||'Not supplied')+'</div><div class="clash-side"><strong>Side two</strong>'+esc(row.side_two||'Not supplied')+'</div></div><div class="mini-body">'+esc(row.comparison||'No comparison supplied.')+'</div><div class="edge">EDGE: '+esc(row.edge||'Unresolved')+' · '+esc(row.reason||'')+'</div></div>'}).join('')}
+    function renderResponses(rows){if(!rows.length){$('responses').innerHTML='<div class="empty-block">No grounded responses could be written from the supplied material.</div>';return}$('responses').innerHTML=rows.map(function(row,index){return'<div class="response-row"><div class="priority">'+String(index+1).padStart(2,'0')+'</div><div><div class="response-type">'+esc(row.response_type||'response')+'</div><div class="response-target">'+esc(row.target||'Priority clash')+'</div></div><div><div class="response-line">'+esc(row.line||'')+'</div><div class="response-why">'+esc(row.why||'')+'</div>'+(row.proof_needed?'<div class="proof-needed">PROOF NEEDED: '+esc(row.proof_needed)+'</div>':'')+'</div></div>'}).join('')}
+    function renderPlan(rows){if(!rows.length){$('speechPlan').innerHTML='<div class="empty-block" style="width:100%">No next-speech order could be built from this material.</div>';return}$('speechPlan').innerHTML=rows.map(function(row,index){return'<div class="plan-step"><div class="plan-meta"><span>0'+(index+1)+'</span><span>'+esc(row.seconds||20)+' SEC</span></div><div class="plan-move">'+esc(row.move||'Next move')+'</div><div class="plan-copy">'+esc(row.instruction||'')+'</div></div>'}).join('')}
+    function renderResult(result){currentResult=result;var scope=result.scope||{};$('scopePill').textContent=humanKind(scope.kind);$('scopeCopy').innerHTML='<strong>'+esc(scope.format||'General debate')+'</strong> · '+esc(scope.speaker||'Unclear speaker')+' · '+esc(scope.confidence||'low')+' confidence<br>'+esc(scope.note||'Status is limited to the supplied material.');renderOverview(result);renderLedger(list(result.flow));renderDrops(list(result.drops));renderClashes(list(result.clashes));renderResponses(list(result.responses));renderPlan(list(result.next_speech));$('results').classList.add('show');setTimeout(function(){$('results').scrollIntoView({behavior:'smooth',block:'start'})},60)}
+    function setLoading(on){$('analyzeBtn').disabled=on;$('analyzeBtn').classList.toggle('loading',on);$('analyzeLabel').textContent=on?'Reading the flow':'Build my flow'}
+    function analyze(){var text=transcript.value.trim();if(text.length<40){showError('Add more of the speech first. Forty characters is the minimum.');transcript.focus();return}showError('');setLoading(true);saveDraft();track('flow_analysis_start',{format:format.value,perspective:perspective,characters:text.length});fetch('/api/flow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,motion:motion.value.trim(),format:format.value,perspective:perspective})}).then(function(response){return response.json().catch(function(){return{}}).then(function(data){if(!response.ok)throw new Error(data.error||'The flow could not be generated.');return data})}).then(function(data){if(!data.result)throw new Error('The flow came back incomplete. Try again.');renderResult(data.result);track('flow_analysis_complete',{format:format.value,perspective:perspective,arguments:list(data.result.flow).length})}).catch(function(error){showError(error.message||'Something went wrong generating the flow.');$('error').scrollIntoView({behavior:'smooth',block:'center'})}).finally(function(){setLoading(false)})}
+    $('analyzeBtn').addEventListener('click',analyze);
+
+    function flowText(){if(!currentResult)return'';var r=currentResult,lines=['DEBATABLE FLOW',humanKind(r.scope&&r.scope.kind)+' · '+(r.scope&&r.scope.format||'General debate'),''];list(r.flow).forEach(function(row){lines.push((row.id||'')+' · '+(row.tag||'' )+' ['+(row.status||'unclear').toUpperCase()+']');lines.push('Claim: '+(row.claim||''));lines.push('Warrant: '+(row.warrant||''));lines.push('Impact: '+(row.impact||''));if(row.journey)lines.push('Journey: '+row.journey);lines.push('')});return lines.join('\n')}
+    function responseText(){if(!currentResult)return'';var lines=['SUGGESTED RESPONSES',''];list(currentResult.responses).forEach(function(row,index){lines.push((index+1)+'. '+(row.target||'Priority clash'));lines.push(row.line||'');if(row.why)lines.push('Why: '+row.why);if(row.proof_needed)lines.push('Proof needed: '+row.proof_needed);lines.push('')});lines.push('NEXT SPEECH');list(currentResult.next_speech).forEach(function(row,index){lines.push((index+1)+'. '+(row.move||'Move')+' ('+(row.seconds||20)+' sec): '+(row.instruction||''))});return lines.join('\n')}
+    function copy(value,label){if(!value)return;navigator.clipboard.writeText(value).then(function(){toast(label+' copied')}).catch(function(){toast('Copy failed. Select the text manually.')})}
+    $('copyFlowBtn').addEventListener('click',function(){copy(flowText(),'Flow')});$('copyResponsesBtn').addEventListener('click',function(){copy(responseText(),'Responses')});
+    function back(){document.querySelector('.workspace').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(function(){transcript.focus()},500)}
+    $('backToInput').addEventListener('click',back);$('anotherBtn').addEventListener('click',function(){transcript.value='';motion.value='';currentResult=null;$('results').classList.remove('show');updateCount();saveDraft();back()});
+
+    restoreDraft();updateCount();
+    var params=new URLSearchParams(location.search);if(params.get('demo')==='1'||params.get('preview')==='results'){transcript.value='PRO: Paying interns removes the family wealth barrier. CON: Employers will cut roles instead of paying. PRO REBUTTAL: A role that only exists through worker subsidy is exclusion, not access.';format.value='Public Forum';setPerspective('round');updateCount();setTimeout(function(){renderResult(DEMO)},250)}
+  })();
+  </script>
+  <script src="/js/home-magnet.js" defer></script>
+</body>
+</html>

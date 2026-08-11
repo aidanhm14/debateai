@@ -357,6 +357,9 @@
       // surface you have to already know you need.
       { href: '/masterclass', label: 'Masterclass' },
       { href: '/practice',    label: 'Timed rounds vs AI' },
+      // 2026-08-10: daily-use flow desk. It accepts one speech or a
+      // whole round and keeps true drops distinct from unanswered excerpts.
+      { href: '/flow',        label: 'Flow a speech' },
       { href: '/voice-debate', label: 'Classic voice trainer' },
       { href: '/coaches',      label: 'Coaches' },
       // 2026-07-27: was "Topics and motions", which the landing's plain-
@@ -409,6 +412,7 @@
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },
     '/practice':       { desc: 'Full rounds against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
+    '/flow':           { desc: 'Speech to flow, clash, and answers', icon: '<path d="M5 5.2h14M5 10.1h14M5 15h9M5 19.9h6"/><circle cx="18" cy="15.3" r="2.5"/>' },
     '/voice-debate':   { desc: 'The original spoken round', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
     '/topics':         { desc: 'PF, LD, Policy, BQ, Worlds', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },

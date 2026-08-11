@@ -33,6 +33,7 @@ const DYNAMIC = new Set([
 const URLS = [
   { path: '/',                changefreq: 'daily',   priority: '1.0' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
+  { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   // Product-loop explainer (opponent → timed round → AI ballot). Target
@@ -73,10 +74,10 @@ const URLS = [
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
-  // "debate strangers" / "omegle for debate" query cluster. Sister to
-  // /debate-online, focused on the random-human /spar path (which is
-  // noindex itself, so this page is the indexable doorway).
-  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90' },
+  // "debate people online" / "debate strangers" / "omegle for debate"
+  // query cluster. Sister to /debate-online, focused on the random-human
+  // /spar path (which is noindex itself, so this is the indexable doorway).
+  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
   // 2026-07-27 doorway pack. /omegle-alternative targets the huge
   // "omegle alternative" / "new omegle" cluster (Omegle died Nov 2023;
   // the query volume did not). The two brand-phrase pages make the
