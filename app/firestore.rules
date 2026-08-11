@@ -647,10 +647,13 @@ service cloud.firestore {
         allow delete: if false;  // polls are immutable
 
         // Responses: one doc per responder, doc ID = userId (or anon-timestamp)
+        // Writes go through /api/log-poll-response (admin SDK), which is where
+        // auth + rate limiting live. Direct client writes were `if true`
+        // (fully unauthenticated), letting anyone stuff any public round's poll
+        // and drive up Firestore write cost — locked to server-only 2026-08-10.
         match /responses/{responseId} {
           allow read:   if true;  // public aggregation
-          allow create: if true;  // signed-in users OR anon can respond
-          allow update, delete: if false;  // responses are immutable
+          allow create, update, delete: if false;  // server-side only (/api/log-poll-response)
         }
 
         // Questions (WS2 Phase 3: audience Q&A injection)
@@ -658,13 +661,15 @@ service cloud.firestore {
         // to surface the most important ones. Server injects top-3 into
         // AI's next prompt. Doc ID = auto-generated. Public read/write
         // (signed-in only via client gate in live-poll-widget.js).
+        // Submission + upvotes both route through admin-SDK functions
+        // (/api/submit-audience-question, /api/upvote-question), which own the
+        // auth + rate limiting. The old client `update` rule only pinned WHICH
+        // field changed, not the value or delta, so a signed-in user could set
+        // upvotes to any number and pin their own question into the AI's live
+        // prompt. Locked to server-only 2026-08-10.
         match /questions/{questionId} {
           allow read:   if true;  // public for dashboards
-          allow create: if isSignedIn()
-                        && stringUnder('question', 300);  // 10-300 char guard on client
-          allow update: if isSignedIn()
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotes']);
-          allow delete: if false;  // questions are immutable
+          allow create, update, delete: if false;  // server-side only
         }
       }
 
@@ -678,14 +683,15 @@ service cloud.firestore {
       // against spam and bot clusters (same-IP repeaters, vote-lag <5s,
       // etc.; see /api/log-vote for details).
       // Side values: 'gov' (government), 'opp' (opposition), null (unsure)
+      // Votes are written exclusively by /api/log-vote (admin SDK), which
+      // applies the rate-limit + trust_weight anti-stuffing logic. The old
+      // rule allowed UNAUTHENTICATED client writes with a client-chosen
+      // voterId, so anyone could mint unlimited voterIds and ballot-stuff the
+      // pre/post swing-vote metric (a headline product feature) straight past
+      // the server function. Locked to server-only 2026-08-10.
       match /votes/{voterId} {
         allow read:   if true;  // public; vote counts visible during async playback
-        allow create: if request.resource.data.phase in ['pre', 'post']
-                      && request.resource.data.side in ['gov', 'opp', null]
-                      && (request.resource.data.confidence == null
-                          || (request.resource.data.confidence >= 0
-                              && request.resource.data.confidence <= 100));
-        allow update, delete: if false;  // votes are immutable; no revisions
+        allow create, update, delete: if false;  // server-side only (/api/log-vote)
       }
 
       // ── game_state (WS2 Phase 4: scoring engine) ───────────────────
@@ -720,10 +726,15 @@ service cloud.firestore {
     // Blind inter-rater review scores for RFD quality. Doc ID = roundId:raterUid.
     // Each signed-in user can rate each RFD once (upsert). Five dimensions scored 1-5.
     // Server-side admin SDK (compute-rfd-metrics) reads all ratings for metrics.
+    // Ratings are written server-side (compute-rfd-metrics / admin rate flow,
+    // admin SDK). The old `create, update: if isSignedIn()` let any signed-in
+    // user (including anonymous auth) overwrite ANY rating doc id — including
+    // impersonating another rater's `roundId:raterUid` id — and write arbitrary
+    // fields, poisoning the RFD-quality metrics that gate the learning loop.
+    // Locked to server-only 2026-08-10.
     match /rfd_ratings/{ratingId} {
       allow read:   if isSignedIn();  // All signed-in users can read (public for transparency)
-      allow create, update: if isSignedIn();
-      allow delete: if false;  // Ratings are immutable; no revisions
+      allow create, update, delete: if false;  // server-side only
     }
 
     // ── community_channels ───────────────────────────────────────────

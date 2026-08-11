@@ -5,10 +5,28 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse } from './lib/response.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 
 export default async (request) => {
   if (request.method !== 'POST') {
     return errorResponse('POST only', 405, request);
+  }
+
+  // Questions land in the AI's live prompt (top-3 upvoted), so this is a
+  // prompt-injection + write-cost surface, not just cosmetic. App Check keeps
+  // scripted callers out; the per-IP rate limit caps flooding.
+  const appCheck = await checkAppCheck(request);
+  if (!appCheck.ok) {
+    return errorResponse('App verification failed. Reload and try again.', 401, request);
+  }
+  const ip = callerIp(request);
+  const rl = await checkLayers('submit-question', ip, [
+    { label: 'min', window: 60_000, max: 6 },
+    { label: 'hour', window: 3_600_000, max: 40 },
+  ]);
+  if (!rl.ok) {
+    return errorResponse('Too many questions — give it a moment.', 429, request);
   }
 
   let body;
@@ -21,7 +39,7 @@ export default async (request) => {
     return errorResponse('roundId, pollNumber, question required', 400, request);
   }
 
-  if (question.length < 10 || question.length > 300) {
+  if (typeof question !== 'string' || question.length < 10 || question.length > 300) {
     return errorResponse('Question must be 10-300 characters', 400, request);
   }
 

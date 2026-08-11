@@ -204,7 +204,7 @@ export default async (request) => {
         status: 401, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
-    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
+    const ip = request.headers.get('x-nf-client-connection-ip') || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';  // nf ip is Netlify-set + unforgeable; XFF (client-settable) only as fallback
     if (!checkAnon(ip)) {
       return new Response(JSON.stringify({ error: 'Too many argument checks. Wait a minute and try again.', code: 'ANON_LIMIT_MINUTE' }), {
         status: 429, headers: { 'Content-Type': 'application/json', ...CORS },

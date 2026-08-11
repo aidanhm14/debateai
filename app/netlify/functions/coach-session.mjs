@@ -114,9 +114,20 @@ function checkRateLimit(key) {
   return { ok: true };
 }
 
+// This endpoint mints a real (paid) OpenAI Realtime session, so it must not
+// echo an arbitrary Origin — that let any website drive a signed-in visitor's
+// browser into minting a session on their quota (CSRF-style). Reflect only
+// known origins; fall back to the canonical domain otherwise.
+const ALLOWED_ORIGINS = [
+  'https://itsdebatable.com',
+  'https://www.itsdebatable.com',
+  'https://debateai.com',
+  'https://www.debateai.com',
+  'https://debateos1.netlify.app',
+];
 function getCorsHeaders(request) {
   const origin = request?.headers?.get?.('origin') || '';
-  const allow = origin || '*';
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -230,8 +241,11 @@ export default async (request) => {
     }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  const ip = request.headers.get('x-forwarded-for')
-    || request.headers.get('x-nf-client-connection-ip')
+  // nf ip is Netlify-set and unforgeable; XFF is client-settable, so it can
+  // only be a fallback (and only its first hop) or a caller mints a fresh
+  // rate-limit bucket per request.
+  const ip = request.headers.get('x-nf-client-connection-ip')
+    || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
     || 'anon';
   const rt = checkRateLimit('coach_' + ip);
   if (!rt.ok) {

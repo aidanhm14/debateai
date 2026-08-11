@@ -128,7 +128,7 @@ export default async (request, context) => {
     );
   }
 
-  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
+  const ip = request.headers.get('x-nf-client-connection-ip') || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';  // nf ip is Netlify-set + unforgeable; XFF (client-settable) only as fallback
   if (!checkRateLimit('openlab_' + ip)) {
     return new Response(
       JSON.stringify({ error: 'Too many requests. Please wait.' }),

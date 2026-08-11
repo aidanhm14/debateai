@@ -5,10 +5,27 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse } from './lib/response.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 
 export default async (request) => {
   if (request.method !== 'POST') {
     return errorResponse('POST only', 405, request);
+  }
+
+  // App Check keeps scripted (non-browser) callers out; rate limit blocks
+  // upvote-spamming a question into the AI's live prompt from one source.
+  const appCheck = await checkAppCheck(request);
+  if (!appCheck.ok) {
+    return errorResponse('App verification failed. Reload and try again.', 401, request);
+  }
+  const ip = callerIp(request);
+  const rl = await checkLayers('upvote-question', ip, [
+    { label: 'min', window: 60_000, max: 30 },
+    { label: 'hour', window: 3_600_000, max: 300 },
+  ]);
+  if (!rl.ok) {
+    return errorResponse('Too many upvotes — slow down a moment.', 429, request);
   }
 
   let body;

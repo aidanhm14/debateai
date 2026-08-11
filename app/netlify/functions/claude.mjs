@@ -334,7 +334,7 @@ export default async (request, context) => {
         { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
-    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-nf-client-connection-ip') || 'anon';
+    const ip = request.headers.get('x-nf-client-connection-ip') || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';  // nf ip is Netlify-set + unforgeable; XFF (client-settable) only as fallback
     const check = await checkAnonLayers(ip);
     if (!check.ok) {
       const msg = check.layer === 'minute'
