@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+/* Theme: resolve the visitor's saved `da-theme` before first paint. This
+   page carries no topbar, so it has no toggle of its own; it follows the
+   choice made anywhere else on the site. Light is the default. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>How the AI judge is kept honest · Debatable</title>
@@ -20,20 +32,20 @@
 <script defer src="/js/track.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box}
-:root{--ink:#1d1d22;--muted:#626269;--line:rgba(29,29,34,.12);--paper:#fafaf7;--card:#fff;--red:#dc2626;--red-soft:rgba(220,38,38,.07)}
+:root{--muted-lit:#4b4b52;--link-red:#b91c1c;/* Paper surfaces, named so dark can restate them. */--surf-1:#f5f4ef;--surf-2:#fff;--ink-rgb:29,29,34;--ink:#1d1d22;--muted:#626269;--line:rgba(var(--ink-rgb),.12);--paper:#fafaf7;--card:#fff;--red:#dc2626;--red-soft:rgba(220,38,38,.07)}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:Crimson Pro,Georgia,serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 .wrap{width:min(1120px,calc(100% - 36px));margin:0 auto}
 .top{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 0;border-bottom:1px solid var(--line)}
-.brand{font-weight:800;text-decoration:none}.brand strong{color:var(--red)}.brand span{color:#5f5f6a;font-weight:500}
+.brand{font-weight:800;text-decoration:none}.brand strong{color:var(--red)}.brand span{color:var(--muted-lit);font-weight:500}
 .back{font-size:.84rem;font-weight:700;color:var(--muted);text-decoration:none}.back:hover{color:var(--red)}
 .hero{padding:76px 0 44px;max-width:900px}
 .eyebrow{font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:14px}
 h1,h2,h3{font-family:Crimson Pro,Georgia,serif}
 h1{font-size:clamp(2.4rem,6.4vw,4.9rem);line-height:.99;letter-spacing:-.045em;margin:0 0 24px}
 .lede{font-size:clamp(1.05rem,2vw,1.28rem);line-height:1.65;color:var(--muted);max-width:780px;margin:0}
-.plain-note{margin:30px 0 0;padding:16px 18px;border-left:3px solid var(--red);background:var(--red-soft);font-size:.95rem;line-height:1.6;color:#4b4b52;max-width:780px}
+.plain-note{margin:30px 0 0;padding:16px 18px;border-left:3px solid var(--red);background:var(--red-soft);font-size:.95rem;line-height:1.6;color:var(--muted-lit);max-width:780px}
 .section{padding:10px 0 68px}
 .section-head{display:flex;align-items:end;justify-content:space-between;gap:22px;margin-bottom:22px}
 .section-head h2{font-size:clamp(1.9rem,4vw,3rem);line-height:1;margin:0}
@@ -68,13 +80,13 @@ h1{font-size:clamp(2.4rem,6.4vw,4.9rem);line-height:.99;letter-spacing:-.045em;m
 .rank{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:.7rem;font-weight:800;margin-right:9px;flex:0 0 auto}
 .rowflex{display:flex;align-items:baseline}
 .ordered li{display:flex;align-items:baseline}
-.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:var(--red-soft);color:#b91c1c;font-size:.68rem;font-weight:800}
-.tag.grey{background:rgba(29,29,34,.06);color:#4b4b52}
-.api{border:1px solid var(--line);border-radius:17px;background:#f5f4ef;padding:24px;margin-bottom:68px}
+.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:var(--red-soft);color:var(--link-red);font-size:.68rem;font-weight:800}
+.tag.grey{background:rgba(var(--ink-rgb),.06);color:var(--muted-lit)}
+.api{border:1px solid var(--line);border-radius:17px;background:var(--surf-1);padding:24px;margin-bottom:68px}
 .api h2{font-size:1.5rem;margin:0 0 10px}
 .api p{font-size:.88rem;line-height:1.6;color:var(--muted);margin:0 0 14px;max-width:760px}
 .api-links{display:flex;flex-wrap:wrap;gap:8px}
-.api-links a{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 12px;text-decoration:none;font-size:.75rem;font-weight:700;color:#4b4b52;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.api-links a{background:var(--surf-2);border:1px solid var(--line);border-radius:999px;padding:8px 12px;text-decoration:none;font-size:.75rem;font-weight:700;color:var(--muted-lit);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .api-links a:hover{border-color:var(--red);color:var(--red)}
 .bottom{border-top:1px solid var(--line);padding:46px 0 60px;display:flex;align-items:center;justify-content:space-between;gap:20px}
 .bottom h2{font-size:clamp(1.7rem,4vw,2.6rem);margin:0 0 8px}.bottom p{color:var(--muted);margin:0;max-width:560px;line-height:1.6}
@@ -97,7 +109,7 @@ h1{font-size:clamp(2.4rem,6.4vw,4.9rem);line-height:.99;letter-spacing:-.045em;m
 }
 .round-shot figcaption{
   margin-top:10px;font-size:.84rem;line-height:1.5;
-  color:rgba(0,0,0,.64);
+  color:rgba(var(--ink-rgb),.64);
 }
 @media(max-width:680px){
   .hero{padding-top:52px}
@@ -105,6 +117,16 @@ h1{font-size:clamp(2.4rem,6.4vw,4.9rem);line-height:.99;letter-spacing:-.045em;m
   .bottom{align-items:flex-start;flex-direction:column}.top{padding:17px 0}
   .round-shot{margin-top:26px}
 }
+
+/* ── Dark theme ─────────────────────────────────────────────────────
+   Sitewide dark is opt-in (the topbar sun/moon writes localStorage
+   `da-theme`); light stays the default. Ink rides as a raw rgb triple
+   so the rgba() ladders above follow the theme on their own. */
+html[data-theme="crimson"],html[data-theme="grey"]{--muted-lit:#a3a3ad;--link-red:#f87171;--surf-1:#191920;--surf-2:#191920;
+    color-scheme:dark;--ink-rgb:234,234,240;
+    --ink:#f2f2f6;--muted:#9a9aa8;--paper:#0b0b0e;--card:#16161b;
+    --red:#ef4444;--red-soft:rgba(239,68,68,.12);
+  }
 </style>
 </head>
 <body>

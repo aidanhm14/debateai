@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+/* Theme: resolve the visitor's saved `da-theme` before first paint. This
+   page carries no topbar, so it has no toggle of its own; it follows the
+   choice made anywhere else on the site. Light is the default. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Can AI Judge a Debate Round? The Judge Benchmark · Debatable</title>
@@ -24,10 +36,10 @@
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--paper:#faf9f4;--card:#fff;--ink:#1d1915;--dim:rgba(29,25,21,.72);--ghost:rgba(29,25,21,.64);--line:rgba(29,25,21,.12);--red:#c0392b;--red-soft:rgba(192,57,43,.08)}
+:root{/* Paper surfaces, named so dark can restate them. */--surf-rgb-1:250,249,244;--ink-rgb:29,25,21;--paper:#faf9f4;--card:#fff;--ink:#1d1915;--dim:rgba(var(--ink-rgb),.72);--ghost:rgba(var(--ink-rgb),.64);--line:rgba(var(--ink-rgb),.12);--red:#c0392b;--red-soft:rgba(192,57,43,.08)}
 body{background:var(--paper);color:var(--ink);font-family:'Crimson Pro',Georgia,'Times New Roman',serif;line-height:1.6;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--line);background:rgba(250,249,244,.94);position:sticky;top:0;z-index:40;backdrop-filter:blur(8px)}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--line);background:rgba(var(--surf-rgb-1),.94);position:sticky;top:0;z-index:40;backdrop-filter:blur(8px)}
 .topnav .brand{font-weight:900;font-size:1.05rem;letter-spacing:-.02em}
 .topnav .brand em{color:var(--red);font-style:normal}
 .topnav .links{display:flex;gap:18px;font-size:.85rem;font-weight:600;color:var(--dim)}
@@ -62,18 +74,28 @@ li b{color:var(--ink)}
 .board td.lab .model{display:block;font-weight:400;font-size:.74rem;color:var(--ghost);font-family:'Menlo','Monaco',monospace;margin-top:2px}
 .board td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .board td.pair{min-width:170px}
-.bar-track{position:relative;background:rgba(29,25,21,.06);border-radius:6px;height:22px;overflow:hidden}
+.bar-track{position:relative;background:rgba(var(--ink-rgb),.06);border-radius:6px;height:22px;overflow:hidden}
 .bar-fill{position:absolute;top:0;bottom:0;left:0;background:var(--red);border-radius:6px;opacity:.85}
 .bar-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;font-size:.8rem;font-weight:800;color:var(--ink)}
 tr.baseline td{color:var(--ghost)}
 tr.baseline td.lab{font-weight:400}
-tr.baseline .bar-fill{background:rgba(29,25,21,.18)}
+tr.baseline .bar-fill{background:rgba(var(--ink-rgb),.18)}
 .board-note{font-size:.8rem;color:var(--ghost);margin-bottom:22px}
 .note{margin-top:40px;padding:18px 20px;background:var(--card);border:1px solid var(--line);border-radius:13px;font-size:.9rem;color:var(--dim)}
 .note b{color:var(--ink)}
 .note a,p a{color:var(--red);font-weight:600;border-bottom:1px solid rgba(192,57,43,.3)}
 footer{margin-top:70px;padding-top:22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:.82rem;color:var(--ghost)}
 footer a{color:var(--ghost)} footer a:hover{color:var(--red)}
+
+/* ── Dark theme ─────────────────────────────────────────────────────
+   Sitewide dark is opt-in (the topbar sun/moon writes localStorage
+   `da-theme`); light stays the default. Ink rides as a raw rgb triple
+   so the rgba() ladders above follow the theme on their own. */
+html[data-theme="crimson"],html[data-theme="grey"]{--surf-rgb-1:25,25,32;
+    color-scheme:dark;--ink-rgb:238,234,228;
+    --paper:#0c0b0a;--card:#171614;--ink:#f3f1ed;--red:#ef4444;
+    --red-soft:rgba(239,68,68,.12);
+  }
 </style>
 </head>
 <body>

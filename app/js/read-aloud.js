@@ -222,6 +222,17 @@
       '  .ra-host[data-open="1"] .ra-card{width:auto;}}',
       // never fight the print stylesheet
       '@media print{.ra-host{display:none;}}',
+      // Every rule above reads its color through var(--x, <paper fallback>),
+      // which is correct on a page that defines those tokens and wrong on
+      // one that does not: the player rendered a white pill on a dark page.
+      // Setting the tokens on .ra-host itself fixes the whole component at
+      // once, and stays scoped so a page's own palette is untouched.
+      'html[data-theme="crimson"] .ra-host,html[data-theme="grey"] .ra-host{',
+      '  --bg-elev-solid:#17171d;--text:#f2f2f6;',
+      '  --text-dim:rgba(255,255,255,.72);--text-ghost:rgba(255,255,255,.55);',
+      '  --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.28);',
+      '  --accent:#ef4444;--accent-hover:#f87171;',
+      '  --accent-soft:rgba(239,68,68,.16);}',
     ].join('\n');
     var el = document.createElement('style');
     el.id = 'dit-ra-styles';
