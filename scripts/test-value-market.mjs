@@ -18,7 +18,9 @@ import {
   emptyPosition, positionValue, netShares,
   settleValue, settlePosition,
   canTrade, canPitch, openMarket, publicMarket, marketIdFor, applyToPosition,
+  marketEligible, MIN_MARKET_GAMES,
 } from '../app/netlify/functions/lib/value-market.mjs';
+import { isRankable } from '../app/netlify/functions/lib/rating.mjs';
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -284,6 +286,36 @@ ok(canPitch({ long: 13, short: 13 }).ok, 'holdings across both sides count towar
     ok(seen.size === 20000, 'market ids do not collide across 20k uids');
   }
   ok(openMarket({ subjectUid: 'u', name: 'x'.repeat(500), ratingDoc: {}, now: 1 }).name.length <= 80, 'name is truncated');
+}
+
+// ── who gets a market ───────────────────────────────────────────────
+//
+// The bar is a record, not a confidence. These assertions exist because
+// the first version reused isRankable from rating.mjs, which is the
+// leaderboard's rule and excludes exactly the debaters worth pricing.
+{
+  ok(marketEligible({ rating: 1600, games: 3 }).ok, 'three rounds earns a market');
+  ok(!marketEligible({ rating: 1600, games: 2 }).ok, 'two rounds is too thin');
+  ok(marketEligible({ rating: 1600, games: 2 }).reason === 'thin_record', 'thin record is named');
+  ok(!marketEligible({ rating: 1600, games: 0 }).ok, 'no rounds, no market');
+  ok(!marketEligible({ games: 9 }).ok, 'a record with no rating cannot be priced');
+  ok(!marketEligible(null).ok, 'a missing rating doc is refused');
+
+  // The whole point of the separate rule: high uncertainty is the
+  // product, not a disqualification.
+  ok(marketEligible({ rating: 1740, rd: 300, games: 4 }).ok,
+    'a wildly uncertain debater still gets a market, because that is where the edge is');
+  ok(marketEligible({ rating: 1500, rd: 115, games: 50 }).ok,
+    'fifty rounds at RD 115 gets a market, which isRankable would have refused');
+
+  // Confirms the two rules genuinely disagree, so this is not a
+  // distinction without a difference.
+  ok(isRankable({ rd: 300, games: 4 }) === false, 'the leaderboard would not rank that debater');
+  ok(isRankable({ rd: 115, games: 50 }) === false, 'nor that one');
+
+  ok(marketEligible({ rating: 1600, games: 4 }, 10).ok === false, 'the threshold is overridable upward');
+  ok(marketEligible({ rating: 1600, games: 4 }, 0).ok, 'a zero override falls back to the default');
+  ok(MIN_MARKET_GAMES >= 2, 'the default bar is above a single coin flip');
 }
 
 // ── public projection leaks nothing ─────────────────────────────────

@@ -40,7 +40,7 @@ import {
   tradeCost, avgPrice, markPrice, applyTrade, fairValue,
   emptyPosition, positionValue, netShares, applyToPosition,
   settleValue, settlePosition,
-  canTrade, canPitch, TRADE_REASONS,
+  canTrade, canPitch, TRADE_REASONS, marketEligible, MIN_MARKET_GAMES,
 } from './lib/value-market.mjs';
 
 const MARKETS = 'value_markets';
@@ -471,6 +471,7 @@ async function settle(db, marketId) {
 async function sync(db, limit = 50) {
   const snap = await db.collection(RATINGS).limit(Math.min(300, limit * 4)).get();
   const now = Date.now();
+  const minGames = Number(process.env.VALUE_MIN_MARKET_GAMES) || MIN_MARKET_GAMES;
   let opened = 0;
   const skipped = [];
 
@@ -478,7 +479,10 @@ async function sync(db, limit = 50) {
     if (opened >= limit) break;
     const r = doc.data();
     const uid = doc.id;
-    if (!isRankable({ ...r, games: r.games || 0 })) { skipped.push('provisional'); continue; }
+    // marketEligible, not isRankable. See the note on marketEligible:
+    // the leaderboard's confidence bar would exclude precisely the
+    // debaters worth pricing.
+    if (!marketEligible(r, minGames).ok) { skipped.push('thin_record'); continue; }
     const id = marketIdFor(uid);
     // eslint-disable-next-line no-await-in-loop
     const exists = await db.collection(MARKETS).doc(id).get();
@@ -497,7 +501,7 @@ async function sync(db, limit = 50) {
     await db.collection(MARKETS).doc(id).set(m);
     opened += 1;
   }
-  return { ok: true, opened, considered: snap.size, skippedProvisional: skipped.length };
+  return { ok: true, opened, considered: snap.size, skippedThinRecord: skipped.length, minGames };
 }
 
 // ── handler ─────────────────────────────────────────────────────────

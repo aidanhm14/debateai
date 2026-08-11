@@ -349,6 +349,43 @@ function fnv1a(str, seed) {
   }
   return h >>> 0;
 }
+/**
+ * Does this debater get a market? Deliberately NOT `isRankable` from
+ * rating.mjs, which was the first thing this reached for and is the
+ * wrong rule.
+ *
+ * `isRankable` guards the public LEADERBOARD, where the question is
+ * "do we know enough to rank this person", and it answers no above
+ * RD 110. A market asks something different: is there a claim here
+ * worth pricing. Those come apart in both directions.
+ *
+ *  - It would refuse a market to someone with fifty rounds and RD 115,
+ *    who is obviously tradeable.
+ *  - More importantly it refuses exactly the debaters the whole thesis
+ *    is about. A high RD means the ladder is openly unsure, which is
+ *    where the lag between the number and the reality is largest, which
+ *    is where a trader who watches rounds has an edge. Gating on
+ *    certainty would have shipped a market that only lists people
+ *    nobody needs to price.
+ *
+ * So the bar is a record, not a confidence: enough completed rounds
+ * that the rating reflects something that happened. One round is a
+ * coin landing heads, and a market on it prices noise.
+ *
+ * MIN_MARKET_GAMES is the one number to move if the board is too thin
+ * or too noisy, and it is env-overridable so that does not need a
+ * deploy.
+ */
+export const MIN_MARKET_GAMES = 3;
+
+export function marketEligible(ratingDoc, minGames) {
+  const min = Number.isFinite(minGames) && minGames > 0 ? minGames : MIN_MARKET_GAMES;
+  const games = Number(ratingDoc?.games) || 0;
+  if (games < min) return { ok: false, reason: 'thin_record', games, min };
+  if (!Number.isFinite(ratingDoc?.rating)) return { ok: false, reason: 'no_rating', games, min };
+  return { ok: true, games, min };
+}
+
 export function marketIdFor(uid) {
   const s = String(uid || '');
   const a = fnv1a(s, 0x811c9dc5).toString(36);
