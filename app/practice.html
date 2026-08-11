@@ -7672,6 +7672,10 @@ function App() {
 
   // Judge feedback. structured ballot
   var [ballot, setBallot] = useState(null); // parsed structured ballot
+  // Id of the `generations` row written for this round, and the rating
+  // the user gave it. Both reset with the round.
+  var [roundGenId, setRoundGenId] = useState(null);
+  var [roundRating, setRoundRating] = useState(0);
   var [panelText, setPanelText] = useState(''); // streaming 3-judge deliberation
   var [panelResult, setPanelResult] = useState(null); // parsed vote tally
   var [panelLoading, setPanelLoading] = useState(false);
@@ -8115,9 +8119,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         var parsed = JSON.parse(cleaned);
         setBallot(parsed);
         saveRound(allLog, fb, parsed.winner === 'user', parsed.speakerPoints || null);
+        logRoundGeneration(allLog, fb, parsed);
       } catch {
-        // Fallback: save as unstructured
+        // Fallback: save as unstructured. The round still happened and is
+        // still rateable, so it is still worth capturing.
         saveRound(allLog, fb, null, null);
+        logRoundGeneration(allLog, fb, null);
       }
     } catch (e) {setFeedback('Could not generate feedback: ' + e.message);}
     setFbLoading(false);
@@ -8128,6 +8135,87 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     if (judgeCount === 3 && !panelText && !panelLoading) {
       try {genPanelFeedback(allLog);} catch (e) {}
     }
+  };
+
+  // ── Round capture for the learning loop ──────────────────────────
+  //
+  // /practice is the canonical round surface and was contributing
+  // NOTHING to `generations`: captureTurn only ever lived in index.html
+  // (/app) and voice-debate.html, so the busiest surface produced no
+  // training signal and, downstream of that, nothing here was rateable.
+  // That is one of the two reasons the nightly distill has never
+  // produced an artifact (the other being that no rating widget reached
+  // a finished round).
+  //
+  // ONE row per round, written when the ballot lands, not one per turn.
+  // A Quick Clash round makes ~19 model calls, and 19 writes a round is
+  // exactly the drain shape the 2026-05-18 credit-burn audit exists to
+  // prevent. The distill wants a rated ROUND anyway, so a single row
+  // carrying the transcript plus the ballot is both cheaper and a
+  // better label than 19 fragments nobody can rate individually.
+  //
+  // Named accounts only: the server refuses anonymous logging for any
+  // kind but voice_round, and an anonymous uid is one a guest can never
+  // sign back into, so a row under it is unattributable.
+  var logRoundGeneration = async (allLog, fb, parsed) => {
+    if (!user) return;
+    try {
+      var token = await user.getIdToken();
+      var transcript = (allLog || []).map((l) => '[' + l.code + '. ' + l.who + ']: ' + l.text).join('\n\n');
+      if (!transcript) return;
+      var res = await fetch('/api/log-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          action: 'generation',
+          kind: 'practice_round',
+          motion: motion || '',
+          side: side || '',
+          // The distill groups by `format`, so this key is what decides
+          // which per-format LEARNED PATTERNS block a rated round can
+          // ever feed. It has to be the format slug, not the label.
+          format: format || '',
+          brain: brain || '',
+          model: (BRAINS[brain] && BRAINS[brain].model) || '',
+          output: transcript + '\n\n=== BALLOT ===\n' + (fb || ''),
+          context: {
+            source: 'practice_round',
+            winner: (parsed && parsed.winner) || '',
+            speeches: (allLog || []).length,
+            formatName: (FORMATS[format] || FORMATS.apda).name,
+          },
+          // Corpus contribution is deliberately NOT requested here. It is
+          // a separate consent with an 18+ attestation behind it, this
+          // page holds no such state, and the distill does not read the
+          // flag. Asserting it from a page that cannot know would be the
+          // client claiming a permission it has no basis for.
+        }),
+      });
+      if (!res.ok) return;
+      var out = await res.json();
+      if (out && out.id) setRoundGenId(out.id);
+    } catch (e) { /* capture is best-effort; never block the ballot */ }
+  };
+
+  // One tap on the ballot is the whole rating flow. The existing widget
+  // on /voice-rfd has produced ZERO labels in its entire life (newest
+  // rating signal in the corpus predates the day it shipped), and the
+  // distill needs 3 rounds per format rated 4+ before it writes anything
+  // at all, so the loop has never once run. A rating that costs a tap,
+  // sitting on the screen the round actually ends on, is the only part
+  // of that anyone was ever going to do.
+  var rateRound = async (n) => {
+    if (!roundGenId || !user) return;
+    setRoundRating(n);
+    try {
+      var token = await user.getIdToken();
+      await fetch('/api/log-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ action: 'signal', generationId: roundGenId, signal: 'rate', value: n, meta: { format: format, surface: 'practice_ballot' } }),
+      });
+      try { window.gtag && gtag('event', 'practice_round_rate', { format: format, value: n }); } catch (e) {}
+    } catch (e) { /* the star stays lit; a failed label is not worth a scary state */ }
   };
 
   // Save round to history
@@ -8602,7 +8690,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   };
 
   // Reset
-  var newRound = () => {clearSession();endRoundCredit();transition('setup', () => {setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null);});};
+  var newRound = () => {clearSession();endRoundCredit();transition('setup', () => {setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setRoundGenId(null);setRoundRating(0);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null);});};
 
   // Turn the current ballot into one short, specific practice target.
   // Quick Clash has normalized dimension scores. Other formats expose
@@ -12047,6 +12135,30 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     wr.total >= 2 && el('div', { style: { flex: 1, minWidth: 140, padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, textAlign: 'center' } },
     el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 6 } }, 'Overall Win Rate'),
     el('div', { style: { fontSize: '2rem', fontWeight: 900, color: wr.rate >= 0.5 ? '#22c55e' : '#f59e0b' } }, Math.round(wr.rate * 100) + '%')
+    )
+    ),
+    // Rate this round. Sits directly under the verdict and the points,
+    // which is the one moment the user has an opinion about the round
+    // and is still looking at the screen. Gated on the capture landing
+    // (roundGenId) so it never renders a control that writes nowhere.
+    roundGenId && el('div', {
+      style: { padding: '14px 18px', marginBottom: 20, borderRadius: 14, background: 'var(--c-surface)', border: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }
+    },
+    el('div', { style: { fontSize: '.8rem', fontWeight: 700, color: roundRating ? 'var(--c-muted)' : 'var(--c-text)' } },
+    roundRating ? 'Rated ' + roundRating + '/5. This trains the format.' : 'Was this a good round?'),
+    el('div', { style: { display: 'flex', gap: 4 } },
+    [1, 2, 3, 4, 5].map((n) => el('button', {
+      key: n,
+      onClick: () => rateRound(n),
+      'aria-label': n + ' out of 5',
+      style: {
+        width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
+        border: '1px solid ' + (n <= roundRating ? 'rgba(245,158,11,.45)' : 'var(--c-border)'),
+        background: n <= roundRating ? 'rgba(245,158,11,.14)' : 'transparent',
+        color: n <= roundRating ? '#f59e0b' : 'var(--c-muted)',
+        fontSize: '.95rem', lineHeight: 1, padding: 0
+      }
+    }, '\u2605'))
     )
     ),
     // A/B practice_publish_cta_v1 'spotlight' arm: the publish CTA sits

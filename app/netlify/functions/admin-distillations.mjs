@@ -15,7 +15,7 @@
 // chars of the distillation. Stale (>36h) or missing formats render
 // as red flags so a regression is obvious at a glance.
 //
-// Read cost: 9 Firestore reads per call (FORMATS.length). Cheap.
+// Read cost: one Firestore read per format (FORMATS.length). Cheap.
 // Cached 5 min via admin-cache so refreshing the dashboard doesn't
 // re-read for every keystroke.
 //
@@ -32,6 +32,7 @@ const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 // get added there — a format missing from this list won't have a row
 // on /admin and will look invisibly skipped by the nightly run.
 const FORMATS = [
+  { slug: 'quick',    name: 'Quick Clash' },
   { slug: 'apda',     name: 'APDA' },
   { slug: 'bp',       name: 'British Parli' },
   { slug: 'asian',    name: 'Asian Parli' },
@@ -40,6 +41,11 @@ const FORMATS = [
   { slug: 'ld',       name: 'Lincoln-Douglas' },
   { slug: 'policy',   name: 'Policy' },
   { slug: 'congress', name: 'Congress' },
+  { slug: 'viva',     name: 'Viva (Oral Exam)' },
+  { slug: 'popper',   name: 'Karl Popper' },
+  { slug: 'courtroom', name: 'Courtroom' },
+  { slug: 'negotiation', name: 'Negotiation' },
+  { slug: 'pitch',    name: 'Pitch Defense' },
   { slug: 'mun',      name: 'MUN' },
 ];
 

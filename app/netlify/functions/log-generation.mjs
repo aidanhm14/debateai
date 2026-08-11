@@ -35,6 +35,16 @@ const VALID_KINDS = new Set([
   'resolution',
   'voice_round',
   'live_round',
+  // One row per COMPLETED /practice round, written when the ballot
+  // renders. /practice is the canonical round surface and was capturing
+  // nothing at all: captureTurn only ever lived in index.html (/app) and
+  // voice-debate, so the busiest surface contributed no training signal
+  // and had nothing for a user to rate. Deliberately one row per ROUND
+  // rather than per turn: a Quick Clash round makes ~19 model calls, and
+  // 19 writes per round is the drain shape the 2026-05-18 credit-burn
+  // audit existed to stop. The distill wants a rated round, not 19
+  // fragments, so one row is both cheaper and a better label.
+  'practice_round',
   'other',
 ]);
 

@@ -31,7 +31,21 @@ const MAX_EXAMPLE_CHARS = 1200;  // per example, keep total prompt manageable
 
 // Formats we run distill over. Matches the slugs used in practice.html
 // FORMATS and seed-round.mjs FORMATS so downstream lookups align.
+// One entry per format slug the client can actually write. This list is
+// the whole universe the distill will ever look at: a format missing from
+// it can accumulate any number of top-rated rounds and never produce a
+// LEARNED PATTERNS block, silently, because nothing queries it.
+//
+// It was missing SIX of the fifteen live formats, including `quick`
+// (Quick Clash), which soul.md §8 measures at 56% of all rounds. So the
+// single most-used format on the site was structurally excluded from the
+// learning loop. The Career trio and Karl Popper (added 2026-06-10) and
+// Viva (2026-05-10) were never added here either.
+//
+// Keep in sync with FORMATS in app/practice.html. A slug here with no
+// rounds behind it costs two cheap indexed queries a night and skips.
 const FORMATS = [
+  { slug: 'quick',  name: 'Quick Clash' },
   { slug: 'apda',   name: 'APDA' },
   { slug: 'bp',     name: 'British Parli' },
   { slug: 'asian',  name: 'Asian Parli' },
@@ -41,6 +55,11 @@ const FORMATS = [
   { slug: 'policy', name: 'Policy' },
   { slug: 'congress', name: 'Congress' },
   { slug: 'mun',    name: 'MUN' },
+  { slug: 'viva',   name: 'Viva (Oral Exam)' },
+  { slug: 'popper', name: 'Karl Popper' },
+  { slug: 'courtroom', name: 'Courtroom' },
+  { slug: 'negotiation', name: 'Negotiation' },
+  { slug: 'pitch',  name: 'Pitch Defense' },
 ];
 
 const DISTILL_SYSTEM = `You are analyzing top-rated debate AI outputs to extract the patterns that made them succeed. Your job is to identify reusable moves — structural, rhetorical, and analytical — that future generations should mirror.
