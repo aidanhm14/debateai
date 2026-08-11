@@ -417,8 +417,8 @@ ${guide.faqs && guide.faqs.length ? `<script type="application/ld+json">${jsonLd
   <section class="related">
     <div class="related-head">Put it in a round</div>
     <ul>
-      <li><a href="/debate-strangers">Debate a stranger on video</a></li>
-      <li><a href="/debate-online">Debate real people online</a></li>
+      <li><a href="/debate-strangers">Debate people online on video</a></li>
+      <li><a href="/debate-online">Compare live, AI, and scheduled rounds</a></li>
       <li><a href="/topics/">Browse motions by format</a></li>
     </ul>
   </section>
