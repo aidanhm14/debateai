@@ -406,7 +406,7 @@
     '/community':      { desc: 'Find debaters and clubs', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },
-    '/practice':       { desc: '15 formats against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
+    '/practice':       { desc: 'Full rounds against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
     '/voice-debate':   { desc: 'The original spoken round', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
     '/topics':         { desc: 'PF, LD, Policy, BQ, Worlds', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },
