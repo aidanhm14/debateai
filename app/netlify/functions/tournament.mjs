@@ -2,6 +2,7 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { standings } from './lib/tournament.mjs';
+import { accountCreatedMs, grantFoundingComp, FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
 
 // ── Tournament, participant and spectator side ─────────────────────
 //
@@ -253,8 +254,29 @@ export default async (request) => {
     if (t.data.status !== 'registration') {
       return errorResponse('Registration is not open for this tournament.', 409, request);
     }
+
+    // Founding comp: an account created before the cutoff enters the
+    // prize bracket without paying. Claimable on a NEW registration or
+    // on one already sitting in the bracket as a free entry, so someone
+    // who entered last week is not told to withdraw and come back.
+    // Requested explicitly by the client; never granted silently.
+    const wantsFounding = body?.founding === true;
+    async function tryFounding() {
+      if (!wantsFounding) return null;
+      const createdMs = await accountCreatedMs(myUid);
+      const res = await grantFoundingComp(db, t.id, myUid, {
+        createdMs,
+        ageAttested: body?.ageAttested === true,
+      });
+      return { ...res, cutoffMs: FOUNDING_CUTOFF_MS };
+    }
+
     const already = await existingEntryFor(myUid);
-    if (already) return jsonResponse({ ok: true, already: true, entryId: already.id }, 200, request);
+    if (already) {
+      const founding = await tryFounding();
+      cache.clear();
+      return jsonResponse({ ok: true, already: true, entryId: already.id, founding }, 200, request);
+    }
 
     const teamSize = Number(t.data.teamSize) || 1;
     let members = [myUid];
@@ -294,9 +316,13 @@ export default async (request) => {
       teamId: teamSize === 2 ? String(body?.teamId || '') : '',
       affiliation: cleanText(body?.affiliation, 60),
       status: 'registered',
-      // Registration always starts as the free, non-prize path. The
-      // signed Stripe webhook is the only code that can flip this true.
+      // Registration always starts as the free, non-prize path.
+      // `paidEntry` means money moved, and the signed Stripe webhook is
+      // still the only code that can flip it true. `prizeEligible` is
+      // the wider question, "can cash reach this entry", and a founding
+      // comp can flip that one without any money changing hands.
       paidEntry: false,
+      prizeEligible: false,
       entryKind: 'free',
       wins: 0,
       losses: 0,
@@ -307,8 +333,9 @@ export default async (request) => {
       registeredAt: FieldValue.serverTimestamp(),
     });
     await ref.update({ entryCount: FieldValue.increment(1) }).catch(() => {});
+    const founding = await tryFounding();
     cache.clear();
-    return jsonResponse({ ok: true, entryId: entryRef.id }, 200, request);
+    return jsonResponse({ ok: true, entryId: entryRef.id, founding }, 200, request);
   }
 
   // ── check-in ────────────────────────────────────────────────────

@@ -631,6 +631,12 @@ h1,h2,h3,p{margin-top:0}
       .enter-door{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--surf-3);display:flex;flex-direction:column;gap:8px}
       .enter-door-k{font-family:var(--sans);font-size:.6rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
       .enter-door-fee{font-family:var(--serif);font-size:1.7rem;font-weight:800;line-height:1}
+      .enter-door-was{font-size:1.1rem;font-weight:700;color:var(--muted);text-decoration:line-through;margin-right:4px}
+      .enter-door-until{font-family:var(--sans);font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--red);vertical-align:middle;margin-left:6px}
+      /* Specificity has to clear `.enter-door--paid .enter-btn`, which
+         paints every button in this door red. The fallback pay button
+         is secondary and must not compete with the free claim. */
+      .enter-door--paid .enter-btn.enter-btn--alt{background:transparent;color:var(--ink);border-color:var(--line-strong);margin-top:8px}
       .enter-door-sub{font-family:var(--sans);font-size:.76rem;line-height:1.5;color:var(--muted);margin:0}
       .enter-door--paid{border-color:rgba(217,47,47,.4);background:var(--red-soft)}
       .enter-door--paid .enter-door-k{color:var(--red)}
@@ -671,10 +677,11 @@ h1,h2,h3,p{margin-top:0}
           <div class="enter-doors">
             <div class="enter-door enter-door--paid" id="paidDoor">
               <span class="enter-door-k">Prize entry</span>
-              <span class="enter-door-fee">$20</span>
-              <p class="enter-door-sub">Makes you eligible for the cash prizes. Same rounds, same judge, same standings as a free entry; the only thing it changes is whether the money can come to you. <strong>If $20 is the reason you would not enter, <a href="mailto:aidandavidhollinger@gmail.com?subject=Debatable%20Open%20fee%20waiver">ask and it is waived</a>, on identical terms.</strong> You do not have to explain why.</p>
-              <label class="enter-age"><input type="checkbox" id="enterAge"> I confirm I am 18 or older and paid entry is legal where I live.</label>
-              <button type="button" class="enter-btn" id="enterPaidBtn">Pay in with card</button>
+              <span class="enter-door-fee"><span class="enter-door-was">$20</span> Free <span class="enter-door-until">until Fri, Aug 22</span></span>
+              <p class="enter-door-sub">Makes you eligible for the cash prizes. Same rounds, same judge, same standings as a free entry; the only thing it changes is whether the money can come to you. <strong>Every account created before Friday, August 22 has the $20 fee waived, on identical terms.</strong> After that it is $20, and it is still <a href="mailto:aidandavidhollinger@gmail.com?subject=Debatable%20Open%20fee%20waiver">waived for anyone who asks</a>. You do not have to explain why.</p>
+              <label class="enter-age"><input type="checkbox" id="enterAge"> I confirm I am 18 or older and prize entry is legal where I live.</label>
+              <button type="button" class="enter-btn" id="enterFoundingBtn">Claim free prize entry</button>
+              <button type="button" class="enter-btn enter-btn--alt" id="enterPaidBtn" hidden>Pay in with card</button>
             </div>
             <div class="enter-door">
               <span class="enter-door-k">Free entry</span>
@@ -684,7 +691,7 @@ h1,h2,h3,p{margin-top:0}
             </div>
           </div>
           <p class="enter-status" id="enterStatus" hidden></p>
-          <p class="enter-note" id="enterNote">No purchase is necessary to compete or to climb the leaderboard. Free entries cannot receive cash prizes. Cash prizes go to prize-eligible entrants aged 18 or over and are void where prohibited. The fee is waived for anyone who asks, on identical terms. The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.</p>
+          <p class="enter-note" id="enterNote">No purchase is necessary to compete or to climb the leaderboard. Accounts created before Friday, August 22 have the prize-entry fee waived, on identical terms. Free entries without that waiver cannot receive cash prizes. Cash prizes go to prize-eligible entrants aged 18 or over and are void where prohibited. The fee is waived for anyone else who asks. The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.</p>
         </div>
       </div>
     </div>
@@ -774,7 +781,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
         </details>
         <details class="faq-item" id="faqCost">
           <summary id="faqCostQ">There is prize money. Where does it come from?</summary>
-          <p id="faqCostA">Prizes are funded by us, not raised from a pot of entry fees. Cash eligibility needs a paid or waived entry and age 18 or older; ask and the fee is waived. Free entrants play the same field and can win the placement title and ranking, but cannot receive cash. That cash moves to the next highest paid entrant.</p>
+          <p id="faqCostA">Prizes are funded by us, not raised from a pot of entry fees. Cash eligibility needs a prize entry and age 18 or older, and the fee is waived for every account created before Friday, August 22; after that, ask and it is waived. Free entrants play the same field and can win the placement title and ranking, but cannot receive cash. That cash moves to the next highest paid entrant.</p>
         </details>
         <details class="faq-item">
           <summary>Who judges, and is that actually fair?</summary>
@@ -896,6 +903,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   var statusEl=document.getElementById('enterStatus');
   var freeBtn=document.getElementById('enterFreeBtn');
   var paidBtn=document.getElementById('enterPaidBtn');
+  var foundingBtn=document.getElementById('enterFoundingBtn');
   var ageBox=document.getElementById('enterAge');
   var current=null;
 
@@ -975,7 +983,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
       // report; a "0 entries" counter on a launch page argues against
       // entering, and its absence claims nothing either way.
       var bits=[];
-      bits.push('<b>Free</b> non-prize entry');
+      bits.push('<b>Free</b> prize entry until Aug 22');
       bits.push('Every round <b>judged in writing</b>');
       if(t.entryCount>0)bits.push('<b>'+t.entryCount+'</b> '+(t.entryCount===1?'entry':'entries')+' so far');
       bits.push('Final <b>streamed live</b>');
@@ -993,11 +1001,11 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     setText('enterSub','Sign in and enter. Then show up whenever suits you on the day, get paired, and debate. You are not committing to a start time.');
     var note=document.getElementById('enterNote');
     if(note){
-      note.innerHTML='No purchase is necessary to compete or to climb the leaderboard. Free entries cannot receive cash prizes. Paid entry is 18+ and void where prohibited. '+
+      note.innerHTML='No purchase is necessary to compete or to climb the leaderboard. Accounts created before Friday, August 22 have the prize-entry fee waived, on identical terms. Free entries without that waiver cannot receive cash prizes. Prize entry is 18+ and void where prohibited. '+
         'The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.';
     }
-    setText('faqCostQ','What does the $20 actually buy?');
-    setText('faqCostA','Eligibility for the cash, and nothing else. Both doors play the same field, on the same motions, in front of the same judge, and both post to the same public leaderboard. Only a prize-eligible entry can receive cash, and the fee is waived for anyone who asks. A free entrant can win the placement title and ranking, while that cash moves to the next highest prize-eligible entrant.');
+    setText('faqCostQ','What does prize entry actually buy?');
+    setText('faqCostA','Eligibility for the cash, and nothing else. Both doors play the same field, on the same motions, in front of the same judge, and both post to the same public leaderboard. If your account was created before Friday, August 22, that eligibility costs you nothing. After that it is $20, and still waived for anyone who asks. A free entrant can win the placement title and ranking, while that cash moves to the next highest prize-eligible entrant.');
 
     var cta=document.getElementById('heroEnter');
     if(cta&&t.status==='registration')cta.firstChild.nodeValue='Enter '+(t.name||'the bracket')+' ';
@@ -1067,27 +1075,38 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
       if(res&&res.user)fn(res.user);
     }).catch(function(){say('Sign-in was closed. Try again when ready.',null)});
   }
-  function registerFree(user,token){
+  function registerFree(user,token,opts){
+    var payload={action:'register',tid:current.tid,name:user.displayName||''};
+    // The founding comp is only ever granted on an explicit request
+    // carrying the 18+ attestation. The server re-checks both; this
+    // just means nobody is quietly enrolled in a cash bracket.
+    if(opts&&opts.founding){payload.founding=true;payload.ageAttested=!!opts.ageAttested}
     return fetch('/api/tournament',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify({action:'register',tid:current.tid,name:user.displayName||''})
+      body:JSON.stringify(payload)
     }).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})});
   }
+  // A refused comp is not a dead end: reveal the card door so the
+  // person who does not qualify still has a way to be prize-eligible.
+  function revealPayDoor(){if(paidBtn)paidBtn.hidden=false}
   function enter(mode){
     if(!current)return;
-    if(mode==='paid'&&(!ageBox||!ageBox.checked)){
-      say('Tick the 18+ box first. Paid entry is adults only.','bad');
+    if((mode==='paid'||mode==='founding')&&(!ageBox||!ageBox.checked)){
+      say('Tick the 18+ box first. Prize entry is adults only.','bad');
       return;
     }
     withUser(function(user){
-      var btn=mode==='paid'?paidBtn:freeBtn;
+      var btn=mode==='paid'?paidBtn:(mode==='founding'?foundingBtn:freeBtn);
       if(btn)btn.disabled=true;
       say(mode==='paid'?'Opening secure checkout…':'Registering…',null);
       user.getIdToken().then(function(token){
         // The engine entry is created first either way, so a card that
         // fails still leaves a real free entry rather than nothing.
-        return registerFree(user,token).then(function(res){
+        return registerFree(user,token,{
+          founding:mode==='founding',
+          ageAttested:!!(ageBox&&ageBox.checked)
+        }).then(function(res){
           if(!res.ok&&!(res.j&&res.j.already)){
             say((res.j&&(res.j.error||res.j.message))||'Registration failed. Try again.','bad');
             return null;
@@ -1098,6 +1117,21 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
               : 'You are in. Come back any time on the day and you will be paired.','good');
             return null;
           }
+          if(mode==='founding'){
+            var f=res.j&&res.j.founding;
+            if(f&&f.ok){
+              say(f.status==='paid'
+                ? 'You are in, and you were already eligible for the cash prizes.'
+                : 'You are in, and eligible for the cash prizes. Nothing to pay. Come back any time on the day.','good');
+            }else if(f&&f.reason==='not-founding'){
+              say('Your entry is registered, but this account was created after the free-entry cutoff, so it is not eligible for the cash prizes yet. Pay in below, or email to have the fee waived.',null);
+              revealPayDoor();
+            }else{
+              say('Your entry is registered. We could not confirm free prize eligibility, so pay in below or email to have the fee waived.',null);
+              revealPayDoor();
+            }
+            return null;
+          }
           return fetch('/api/entry-checkout',{
             method:'POST',
             headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
@@ -1106,6 +1140,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
             if(out.ok&&out.j&&out.j.url){location.href=out.j.url;return}
             var code=out.j&&out.j.error;
             if(code==='ALREADY_PAID')say('You already paid in. You are prize-eligible.','good');
+            else if(code==='ALREADY_ELIGIBLE')say('Your entry is already eligible for the cash prizes. There is nothing to pay.','good');
             else if(code==='FREE_ONLY'||code==='ENTRY_PAYMENTS_OFF')
               say('Paid entry is not open right now. Your free entry is registered, but it is not eligible for cash prizes.',null);
             else say((out.j&&(out.j.message||out.j.error))||'Payment could not start. Your free entry is registered, but it is not eligible for cash prizes.','bad');
@@ -1118,6 +1153,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   }
   if(freeBtn)freeBtn.addEventListener('click',function(){enter('free')});
   if(paidBtn)paidBtn.addEventListener('click',function(){enter('paid')});
+  if(foundingBtn)foundingBtn.addEventListener('click',function(){enter('founding')});
 })();
 </script>
 <script>

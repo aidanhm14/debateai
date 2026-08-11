@@ -825,6 +825,27 @@
     </div>
   </div>
 
+  <!-- The Debatable Open announcement. One-time send to every account,
+       carrying the founding comp (accounts created before the cutoff get
+       prize entry free). Preview first: it counts the cohort and sends
+       nothing. Sending walks the list in batches because Netlify's sync
+       timeout is ten seconds; each batch stamps who it reached, so a
+       stopped run resumes where it left off and never doubles up. -->
+  <div class="section" data-pane="ops">
+    <div class="card">
+      <div class="title">
+        <span>The Debatable Open · announcement email</span>
+        <span class="meta" id="oa-meta">Not run yet</span>
+      </div>
+      <div id="oa-body" class="ts" style="padding:6px 2px">Preview to count the cohort. Nothing sends until you confirm.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 2px 2px">
+        <button class="pill-btn" id="oa-preview">Preview cohort</button>
+        <button class="pill-btn primary" id="oa-send" disabled>Send</button>
+        <button class="pill-btn" id="oa-stop" hidden>Stop</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Micro-poll A/B results (poll_responses, tallied by qvariant). -->
   <div class="section" data-pane="growth">
     <div class="card">
@@ -3181,6 +3202,84 @@ async function adminPost(url, body){
   if (!r.ok) throw new Error(data.error || 'API ' + r.status);
   return data;
 }
+
+// ── The Debatable Open announcement ─────────────────────────────────
+// Two-step by design. Preview is a dry run; Send needs a second click
+// inside five seconds, because this is the most irreversible button on
+// the dashboard and a single misclick reaches every account we have.
+(function(){
+  const meta = $('oa-meta'), body = $('oa-body');
+  const previewBtn = $('oa-preview'), sendBtn = $('oa-send'), stopBtn = $('oa-stop');
+  if (!previewBtn) return;
+  let armed = false, armTimer = null, stopped = false;
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  function render(r){
+    const s = r.skipped || {};
+    body.innerHTML =
+      '<div>' + (r.dryRun ? 'Would send to' : 'Sent this batch') + ': <b>' +
+        (r.dryRun ? r.eligible : r.sent) + '</b>' +
+        (r.remaining ? ' &middot; <b>' + r.remaining + '</b> still to go' : '') +
+      '</div>' +
+      '<div style="opacity:.7;margin-top:4px">' + esc(r.accounts) + ' accounts &middot; ' +
+        'skipped: ' + (s.noEmail||0) + ' no email, ' + (s.noProfile||0) + ' no preferences on file, ' +
+        (s.optedOut||0) + ' opted out, ' + (s.alreadySent||0) + ' already sent</div>' +
+      '<div style="opacity:.7;margin-top:4px">From ' + esc(r.from) +
+        (r.senderVerified ? '' : ' <b style="color:#dc2626">(unverified sender, sending is blocked)</b>') + '</div>' +
+      '<div style="opacity:.7;margin-top:4px">Bracket: ' + esc(r.tournament && r.tournament.name) + '</div>' +
+      (r.errors ? '<div style="color:#dc2626;margin-top:4px">' + r.errors + ' failed: ' +
+        esc(Object.keys(r.errorReasons || {}).join(', ')) + '</div>' : '') +
+      (r.dryRun && r.sample && r.sample.length
+        ? '<div style="opacity:.55;margin-top:6px">e.g. ' + esc(r.sample.slice(0,5).join(', ')) + '</div>' : '');
+    meta.textContent = r.dryRun ? r.eligible + ' eligible' : r.remaining + ' remaining';
+  }
+
+  function fail(e){
+    body.innerHTML = '<span style="color:#dc2626">' + esc(e.message || String(e)) + '</span>';
+    meta.textContent = 'error';
+  }
+
+  previewBtn.addEventListener('click', async () => {
+    previewBtn.disabled = true; meta.textContent = 'Counting…';
+    try {
+      const r = await adminPost('/api/admin/open-announce', {});
+      render(r);
+      // Arming Send on a real preview is the point: nobody sends this
+      // without having seen the number it is about to reach.
+      sendBtn.disabled = !(r.eligible > 0 && r.senderVerified);
+    } catch (e) { fail(e); }
+    previewBtn.disabled = false;
+  });
+
+  sendBtn.addEventListener('click', async () => {
+    if (!armed) {
+      armed = true;
+      sendBtn.textContent = 'Click again to send';
+      armTimer = setTimeout(() => { armed = false; sendBtn.textContent = 'Send'; }, 5000);
+      return;
+    }
+    clearTimeout(armTimer); armed = false; stopped = false;
+    sendBtn.disabled = true; sendBtn.textContent = 'Sending…'; stopBtn.hidden = false;
+    let total = 0;
+    try {
+      // Batched loop. Each pass stamps the people it reached, so Stop
+      // leaves a resumable state rather than a half-finished mess.
+      for (;;) {
+        const r = await adminPost('/api/admin/open-announce', { confirm: 'SEND' });
+        total += r.sent || 0;
+        render(r);
+        meta.textContent = total + ' sent · ' + r.remaining + ' to go';
+        if (stopped || !r.remaining || !r.sent) break;
+      }
+    } catch (e) { fail(e); }
+    stopBtn.hidden = true;
+    sendBtn.textContent = 'Send'; sendBtn.disabled = true;
+  });
+
+  stopBtn.addEventListener('click', () => { stopped = true; stopBtn.disabled = true;
+    setTimeout(() => { stopBtn.disabled = false; }, 1000); });
+})();
 
 async function refreshStreamStatus(){
   try {

@@ -34,7 +34,11 @@ import { esc, brandHeader, unsubUrl, verifyUnsubToken, isOptedOut, SITE_URL } fr
 // 'sparrsvp' is the anonymous Open Spar Night RSVP list. Unlike every
 // other stream it has no user_profiles doc behind it: the subject id is a
 // spar_night_rsvps doc id, and the opt-out is written there instead.
-const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'partner', 'onboarding', 'all'];
+// 'open' is tournament news: The Debatable Open announcement and the
+// handful of follow-ups around a prize event. Its own flag, because
+// someone who wants to hear about a tournament and someone who wants a
+// weekly digest are not the same person.
+const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'partner', 'open', 'onboarding', 'all'];
 const RSVP_STREAM = 'sparrsvp';
 
 const FLAG_BY_STREAM = {
@@ -46,6 +50,7 @@ const FLAG_BY_STREAM = {
   // same person, and folding them together makes leaving one mean
   // leaving both.
   partner: 'partnerOptOut',
+  open: 'openOptOut',
   onboarding: 'emailOptOut',
   all: 'emailOptOut',
 };
@@ -60,6 +65,7 @@ const STOP_SENTENCE = {
   sparnight: 'The Spar Night reminders stop here. Nothing else changes.',
   sparrsvp: 'The Spar Night reminders stop here. Nothing else changes.',
   partner: 'Partner match alerts stop here. Nothing else changes.',
+  open: 'Tournament emails stop here. Nothing else changes.',
   onboarding: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
   all: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
 };
@@ -70,6 +76,7 @@ const CONFIRM_SENTENCE = {
   sparnight: 'This stops the weekly Spar Night reminders. Nothing else changes.',
   sparrsvp: 'This stops the weekly Spar Night reminders. Nothing else changes.',
   partner: 'This stops the partner match alerts. Nothing else changes.',
+  open: 'This stops emails about tournaments. Nothing else changes.',
   onboarding: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
   all: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
 };
@@ -80,6 +87,7 @@ const RESUME_SENTENCE = {
   sparnight: 'The Spar Night reminders are back on.',
   sparrsvp: 'The Spar Night reminders are back on.',
   partner: 'Partner match alerts are back on.',
+  open: 'Tournament emails are back on.',
   onboarding: 'Debatable email is back on.',
   all: 'Debatable email is back on.',
 };

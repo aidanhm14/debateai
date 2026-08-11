@@ -95,7 +95,9 @@ export default async (request) => {
             try {
               const entry = await tRef.collection('entries')
                 .where('members', 'array-contains', uid).limit(1).get();
-              if (!entry.empty) await entry.docs[0].ref.update({ paidEntry: true, entryKind: 'paid' });
+              // prizeEligible is the field eligibility reads answer to;
+              // paidEntry additionally records that money moved.
+              if (!entry.empty) await entry.docs[0].ref.update({ paidEntry: true, prizeEligible: true, entryKind: 'paid' });
             } catch (e) {
               console.warn('tournament entry stamp failed:', e.message);
             }

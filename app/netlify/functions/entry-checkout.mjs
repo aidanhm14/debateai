@@ -89,6 +89,15 @@ export default async (request) => {
   if (paidSnap.exists && paidSnap.data().status === 'paid') {
     return jsonResponse({ error: 'ALREADY_PAID', message: 'You have already paid in to this tournament.' }, 409, request);
   }
+  // A founding comp is already full prize eligibility. Taking $20 from
+  // someone who owes nothing is the one bug here that costs a person
+  // money, so it is refused before Stripe is ever reached.
+  if (paidSnap.exists && paidSnap.data().status === 'comp') {
+    return jsonResponse({
+      error: 'ALREADY_ELIGIBLE',
+      message: 'Your entry is already eligible for the cash prizes. There is nothing to pay.',
+    }, 409, request);
+  }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const siteUrl = process.env.SITE_URL || 'https://itsdebatable.com';

@@ -180,6 +180,13 @@ export async function getAuthUserByUid(uid) {
     email: u.email || null,
     displayName: u.displayName || null,
     providerData: (u.providerUserInfo || []).map(p => ({ providerId: p.providerId })),
+    metadata: {
+      // Same shape listAllAuthUsers returns. Identity Toolkit gives
+      // createdAt as a string of Unix ms. Added 2026-08-11 for the
+      // founding-cohort comp, which has to answer "when did this one
+      // account sign up" without listing every account to find out.
+      creationTime: u.createdAt ? new Date(Number(u.createdAt)).toISOString() : null,
+    },
   };
 }
 

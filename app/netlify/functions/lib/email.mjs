@@ -84,6 +84,9 @@ export function isOptedOut(profile, stream) {
   // is closer to a reply than to a mailing list, so it rides its own
   // switch and nothing else turns it off but the global one.
   if (stream === 'partner') return !!profile.partnerOptOut;
+  // 'open' is tournament news. Bulk, so the digest flag suppresses it
+  // too: someone who muted the mailing list did not ask for a second one.
+  if (stream === 'open') return !!(profile.wauDigestOptOut || profile.openOptOut);
   // 'onboarding', 'transactional', and anything unknown: global switch only.
   return false;
 }
@@ -166,7 +169,7 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   // Spar Night reminders are bulk by the same definition (one send, many
   // recipients, non-transactional), including the anonymous RSVP list.
   if (stream === 'digest' || stream === 'winback' || stream === 'onboarding'
-      || stream === 'sparnight' || stream === 'sparrsvp') {
+      || stream === 'sparnight' || stream === 'sparrsvp' || stream === 'open') {
     const url = unsubUrl(uid, stream);
     if (url) {
       allHeaders['List-Unsubscribe'] = `<${url}>`;
