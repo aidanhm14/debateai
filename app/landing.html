@@ -13324,6 +13324,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="si-actions">
         <a class="si-cta si-cta--primary" href="/room-judge" data-si="setup" data-cta="stream-band-setup">Set up the stream judge <span aria-hidden="true">&rarr;</span></a>
         <a class="si-cta si-cta--ghost" href="/plugins/twitch" data-si="howto" data-cta="stream-band-howto">Twitch setup</a>
+        <a class="si-cta si-cta--ghost" href="/watch" data-si="watch" data-cta="stream-band-watch">Watch streams and replays</a>
       </div>
       <p class="si-note">Chat tells the judge where the room was persuaded or lost. It never decides who won; the ballot comes from the flow. Runs as a panel or overlay URL today. Want a bracket instead? <a href="#creator-sweepstakes">Creator tournaments</a>.</p>
     </div>
@@ -19204,6 +19205,67 @@ window.addEventListener('load', function(){
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape' && !modal.hidden) close();
   });
+})();
+</script>
+
+<!-- Homepage live band. When a tournament stream is on, /api/stream-status
+     flips live:true and this injects a player band ABOVE the hero.
+     Injected DOM from a standalone script on purpose: off air the page is
+     byte-for-byte untouched, so the hero A/B arms, the "See more" gate,
+     and the scroll observers never see a new sibling unless a stream is
+     actually running. The status endpoint is CDN-cached 15s; the 90s
+     visible-tab poll costs a handful of function calls an hour sitewide. -->
+<script>
+(function(){
+  'use strict';
+  var mounted = false;
+  function mount(s){
+    if (mounted) return;
+    var hero = document.querySelector('section.hero');
+    if (!hero || !hero.parentNode) return;
+    mounted = true;
+    var band = document.createElement('section');
+    band.id = 'homeLiveBand';
+    band.setAttribute('aria-label', 'Live tournament stream');
+    band.innerHTML =
+      '<style>' +
+      '#homeLiveBand{background:#0b0b0d;border-bottom:1px solid rgba(239,68,68,.35);padding:18px 20px 22px}' +
+      '#homeLiveBand .hlb-in{max-width:1080px;margin:0 auto}' +
+      '#homeLiveBand .hlb-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}' +
+      '#homeLiveBand .hlb-pill{display:inline-flex;align-items:center;gap:7px;background:#ef4444;color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}' +
+      '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
+      '@keyframes hlbPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
+      '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px}' +
+      '#homeLiveBand .hlb-open{margin-left:auto;color:rgba(244,244,242,.7);font-size:14.5px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 13px}' +
+      '#homeLiveBand .hlb-open:hover{color:#fff;border-color:rgba(239,68,68,.5)}' +
+      '#homeLiveBand iframe{width:100%;aspect-ratio:16/9;max-height:62vh;border:0;border-radius:12px;background:#000;display:block}' +
+      '</style>' +
+      '<div class="hlb-in">' +
+        '<div class="hlb-head">' +
+          '<span class="hlb-pill"><span class="hlb-dot"></span>LIVE</span>' +
+          '<span class="hlb-title"></span>' +
+          '<a class="hlb-open" href="/watch">Open the watch page</a>' +
+        '</div>' +
+        '<iframe title="Live tournament stream" allow="autoplay; clipboard-write"></iframe>' +
+      '</div>';
+    band.querySelector('.hlb-title').textContent = s.title || 'Live from the arena';
+    band.querySelector('iframe').src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
+    hero.parentNode.insertBefore(band, hero);
+    try { if (window.gtag) gtag('event', 'home_live_band_shown'); } catch(e){}
+  }
+  function unmount(){
+    if (!mounted) return;
+    var band = document.getElementById('homeLiveBand');
+    if (band) band.remove();
+    mounted = false;
+  }
+  function check(){
+    fetch('/api/stream-status').then(function(r){ return r.json(); }).then(function(s){
+      if (s && s.live && s.url) mount(s); else unmount();
+    }).catch(function(){});
+  }
+  check();
+  setInterval(function(){ if (!document.hidden) check(); }, 90000);
 })();
 </script>
 
