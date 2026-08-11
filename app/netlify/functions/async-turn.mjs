@@ -22,6 +22,34 @@ import {
 
 const SITE = process.env.SITE_ORIGIN || 'https://itsdebatable.com';
 
+const AVATAR_SCENES = new Set(['arena','skyline','library','studio','orbit','forest']);
+const AVATAR_ACCENTS = new Set(['crimson','electric','violet','teal','rose','silver']);
+const AVATAR_OUTFITS = new Set(['ink','navy','plum','pine','slate']);
+const AVATAR_MASKS = new Set(['blade','classic','visor']);
+const AVATAR_EYES = new Set(['focus','sharp','open','calm']);
+function cleanAvatarIdentity(value) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.kind === 'live') {
+    const d = value.design && typeof value.design === 'object' ? value.design : {};
+    return { kind: 'live', design: {
+      scene: AVATAR_SCENES.has(d.scene) ? d.scene : 'arena',
+      accent: AVATAR_ACCENTS.has(d.accent) ? d.accent : 'crimson',
+      outfit: AVATAR_OUTFITS.has(d.outfit) ? d.outfit : 'ink',
+      mask: AVATAR_MASKS.has(d.mask) ? d.mask : 'blade',
+      eyes: AVATAR_EYES.has(d.eyes) ? d.eyes : 'focus',
+    }};
+  }
+  if (value.kind === 'portrait' && value.config && typeof value.config === 'object') {
+    const safe = {};
+    ['skin','hair','top','eyes','brows','mouth','facial','glasses','accessory','bg','outfit','iris','detail'].forEach((key) => {
+      const n = Number(value.config[key]);
+      if (Number.isFinite(n)) safe[key] = Math.max(0, Math.min(20, Math.floor(n)));
+    });
+    return { kind: 'portrait', config: safe };
+  }
+  return null;
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -38,6 +66,7 @@ export default async (request) => {
 
   let body;
   try { body = await request.json(); } catch { return errorResponse('Invalid request body', 400, request); }
+  const avatarIdentity = cleanAvatarIdentity(body.avatarIdentity);
 
   const turnN = body.turn === 1 || body.turn === 2 || body.turn === 3 ? body.turn : 0;
   if (!turnN) return errorResponse('Bad turn number', 400, request);
@@ -69,7 +98,7 @@ export default async (request) => {
   const now = Date.now();
   const turnEntry = {
     n: turnN, uid, ai: false, kind, mediaId: uploadId, durationSec,
-    transcript: null, name, photo, createdAt: now,
+    transcript: null, name, photo, avatarIdentity, createdAt: now,
   };
 
   try {
@@ -90,7 +119,7 @@ export default async (request) => {
         state: 'open', visibility, hidden: false,
         feedKey: feedKeyFor('open', visibility, false),
         motion, format,
-        prop: { uid, name, photo }, opp: null, aiOpp: false,
+        prop: { uid, name, photo, avatarIdentity }, opp: null, aiOpp: false,
         turns: [turnEntry],
         replyWaived: false,
         createdAt: now, deadlineAt: now + ANSWER_WINDOW_MS, completedAt: 0,
@@ -121,7 +150,7 @@ export default async (request) => {
         tx.update(ref, {
           state: 'awaiting_reply',
           feedKey: feedKeyFor('awaiting_reply', d.visibility, false),
-          opp: { uid, name, photo }, aiOpp: false,
+          opp: { uid, name, photo, avatarIdentity }, aiOpp: false,
           turns: [...(d.turns || []), turnEntry],
           answeredAt: now, deadlineAt: now + REPLY_WINDOW_MS, sweepAt: now,
         });

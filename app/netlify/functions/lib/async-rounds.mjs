@@ -10,8 +10,8 @@
 //     stamped, sweepAt deleted, state left 'open' so a stale link can
 //     still answer it and revive the round)
 //   motion, format, visibility: 'public' | 'unlisted'
-//   prop: {uid,name,photo}   opp: {uid,name,photo}|null   aiOpp: bool
-//   turns: [{n,uid,ai,kind,mediaId,durationSec,transcript|null,name,photo,createdAt}]
+//   prop: {uid,name,photo,avatarIdentity?}   opp: {uid,name,photo,avatarIdentity?}|null   aiOpp: bool
+//   turns: [{n,uid,ai,kind,mediaId,durationSec,transcript|null,name,photo,avatarIdentity?,createdAt}]
 //   deadlineAt: ms   sweepAt: ms (deleted when nothing is pending)
 //   ballot: {winner,propPoints,oppPoints,rfd,model,at,
 //     dimensions?: {clarity|reasoning|responsiveness|weighing:
@@ -230,6 +230,7 @@ export function publicRound(id, d) {
     turns: (d.turns || []).map((t) => ({
       n: t.n, kind: t.kind, mediaId: t.mediaId, durationSec: t.durationSec || 0,
       transcript: t.transcript || null, ai: !!t.ai, name: t.name || '', photo: t.photo || '',
+      avatarIdentity: t.avatarIdentity || null,
       uid: t.uid || '', createdAt: t.createdAt || 0,
     })),
     ballot: d.ballot || null,

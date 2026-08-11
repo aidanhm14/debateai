@@ -41,6 +41,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script defer src="/js/avatar.js"></script>
+<script defer src="/js/avatar-account.js"></script>
 
 <script defer src="/js/track.js"></script>
 <!-- The draft: menu behaviour plus the pinned-bench reveal in Round
@@ -686,7 +688,7 @@ h1 em{color:var(--accent);font-style:normal}
   overflow:hidden;flex-shrink:0;
   font-size:.66rem;font-weight:800;color:#fca5a5;
 }
-.wl-avi img{width:100%;height:100%;object-fit:cover;display:block}
+.wl-avi img,.wl-avi svg{width:100%;height:100%;object-fit:cover;display:block}
 .wl-name{
   font-size:.82rem;color:var(--text);font-weight:600;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -951,8 +953,15 @@ h1 em{color:var(--accent);font-style:normal}
 .waitlist-card__avatar{
   width:32px; height:32px; border-radius:50%;
   background:linear-gradient(135deg,#444,#222);
-  flex-shrink:0; object-fit:cover;
+  flex-shrink:0; object-fit:cover; overflow:hidden;
 }
+.waitlist-card__avatar svg{width:100%;height:100%;display:block}
+.match-avatar{
+  width:68px;height:68px;margin:4px auto 16px;border-radius:50%;overflow:hidden;
+  border:1px solid rgba(239,68,68,.36);box-shadow:0 0 30px rgba(239,68,68,.14);
+  background:#0b0b0e;
+}
+.match-avatar svg,.match-avatar img{width:100%;height:100%;display:block;object-fit:cover}
 .waitlist-card__who{ flex:1; min-width:0; display:flex; flex-direction:column }
 .waitlist-card__name{
   font-size:.82rem; font-weight:700; color:var(--text);
@@ -1618,6 +1627,23 @@ h1 em{color:var(--accent);font-style:normal}
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
+  function currentPublicAvatarIdentity(){
+    try {
+      if (window.DBAvatarAccount && DBAvatarAccount.publicIdentity) return DBAvatarAccount.publicIdentity();
+      if (window.DBAvatar && DBAvatar.getPublicIdentity){
+        var id = DBAvatar.getPublicIdentity();
+        return id && id.kind === 'live' ? {kind:'live',design:id.design}
+             : id && id.kind === 'portrait' ? {kind:'portrait',config:id.config} : null;
+      }
+    } catch(e){}
+    return null;
+  }
+  function avatarMarkup(identity, cls, uid, name, fallback){
+    if (identity && window.DBAvatar && DBAvatar.publicSvg){
+      return '<span class="' + cls + '" aria-hidden="true">' + DBAvatar.publicSvg(identity,'100%',{uid:uid,name:name}) + '</span>';
+    }
+    return fallback || '<span class="' + cls + '" aria-hidden="true"></span>';
+  }
 
   function isNamedUser(u){
     return !!(u && !u.isAnonymous);
@@ -1700,7 +1726,9 @@ h1 em{color:var(--accent);font-style:normal}
       var uid = (d && d.id) ? d.id : (data.uid || '');
       var name = escHtml(data.displayName || 'Anonymous');
       var initial = (name.replace(/&[^;]+;/g,'').charAt(0) || '?').toUpperCase();
-      var avi = data.photoURL
+      var avi = data.avatarIdentity && window.DBAvatar && DBAvatar.publicSvg
+        ? DBAvatar.publicSvg(data.avatarIdentity, '100%', { uid: uid, name: data.displayName || name })
+        : data.photoURL
         ? '<img src="' + escHtml(data.photoURL) + '" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'' + initial + '\'}))" />'
         : initial;
       var sec = (data.joinedAt && data.joinedAt.seconds)
@@ -2770,7 +2798,7 @@ h1 em{color:var(--accent);font-style:normal}
   // for two humans" bug — the server paired them fine; the client
   // crashed rendering the match.
   var radarHandle = null;
-  function renderMatched(roomName, peerName){
+  function renderMatched(roomName, peerName, peerAvatar){
     removeWaitRail();
     try { gtag('event', 'spar_match_found', { format: formatParam }); } catch(e){}
 
@@ -2805,6 +2833,7 @@ h1 em{color:var(--accent);font-style:normal}
 
       shell.innerHTML =
         '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80;opacity:0;transition:opacity .4s ease"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
+        avatarMarkup(peerAvatar, 'match-avatar', '', peerName || 'Debater', '') +
         '<h1 style="opacity:0;transition:opacity .4s ease .08s">You\'re paired with <em>' + escHtml(peerName || 'a debater') + '</em>.</h1>' +
         '<p class="lede" style="opacity:0;transition:opacity .4s ease .16s">Joining the round room now. Camera + mic prompt in a sec; accept and you\'re live.</p>' +
         '<div class="orb-wrap matched" id="orbWrap" style="opacity:0;transition:opacity .4s ease .24s"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
@@ -2999,6 +3028,7 @@ h1 em{color:var(--accent);font-style:normal}
       displayName: shortName,
       username: publicUsername,
       photoURL: state.user.photoURL || '',
+      avatarIdentity: currentPublicAvatarIdentity(),
       anonymous: !!state.user.isAnonymous,
       format: formatParam,
       paradigm: state.paradigm || '',
@@ -3071,7 +3101,7 @@ h1 em{color:var(--accent);font-style:normal}
         // round is the load-bearing step. Never let a render error
         // (e.g. a future undefined ref) swallow the navigation and
         // strand a successfully-paired user on the search screen.
-        try { renderMatched(d.room, d.matchedWithName || 'a debater'); }
+        try { renderMatched(d.room, d.matchedWithName || 'a debater', d.matchedWithAvatar); }
         catch (e) { console.warn('[spar] renderMatched failed, navigating anyway', e); }
         navigateToRound(d, 900);
       } else if (d.status === 'consent' && d.matchedWith){
@@ -3262,6 +3292,7 @@ h1 em{color:var(--accent);font-style:normal}
     if (firstRender) pauseSearchForConsent();
 
     var peerName = escHtml(d.matchedWithName || 'Your opponent');
+    var peerAvatar = avatarMarkup(d.matchedWithAvatar, 'match-avatar', d.matchedWith || '', d.matchedWithName || 'Your opponent', '');
     var fmtLabel = escHtml(FORMAT_LABELS[d.pairedFormat] || String(d.pairedFormat || 'this').toUpperCase());
     var theirNote = cleanParadigm(paradigms[peerUid]);
     var myNote = cleanParadigm(paradigms[me]);
@@ -3287,6 +3318,7 @@ h1 em{color:var(--accent);font-style:normal}
       shell.innerHTML =
         '<div class="consent-wrap">' +
           '<div class="eyebrow"><span class="pip"></span>Match found · awaiting opponent</div>' +
+          peerAvatar +
           '<h1>Waiting on <em>' + peerName + '.</em></h1>' +
           '<p class="lede">' + (crossFmt ? 'They\'re confirming the <strong>' + fmtLabel + '</strong> round. It starts the moment they accept.' : 'They\'re reading your judge instructions. The round starts the moment they accept.') + '</p>' +
           (crossFmt ? formatBlock : '') +
@@ -3326,6 +3358,7 @@ h1 em{color:var(--accent);font-style:normal}
     shell.innerHTML =
       '<div class="consent-wrap">' +
         '<div class="eyebrow"><span class="pip"></span>Match found · needs your OK</div>' +
+        peerAvatar +
         '<h1>' + peerName + ' proposes a <em>' + fmtLabel + '</em> round.</h1>' +
         '<p class="lede">' + lede + '</p>' +
         formatBlock +
@@ -4086,7 +4119,9 @@ h1 em{color:var(--accent);font-style:normal}
         ? '<div class="waitlist-card__note">' + escHtml(d.note) + '</div>'
         : '<div class="waitlist-card__note waitlist-card__note--default">Open to a round. DM to organize.</div>';
       var time = relTime(p.createdMs);
-      var avatar = d.photoURL
+      var avatar = d.avatarIdentity
+        ? avatarMarkup(d.avatarIdentity, 'waitlist-card__avatar', d.uid || '', d.displayName || 'Debater', '')
+        : d.photoURL
         ? '<img class="waitlist-card__avatar" src="' + escHtml(d.photoURL) + '" alt="">'
         : '<div class="waitlist-card__avatar" aria-hidden="true"></div>';
       var isMine = (d.uid === myUid);
@@ -4173,6 +4208,7 @@ h1 em{color:var(--accent);font-style:normal}
       uid: state.user.uid,
       displayName: shortNameOf(state.user),
       photoURL: state.user.photoURL || '',
+      avatarIdentity: currentPublicAvatarIdentity(),
       format: fmtEl.value,
       note: note,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),

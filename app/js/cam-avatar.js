@@ -38,6 +38,7 @@
   const INK = '#0b0b0c', BONE = '#f0ede6', RED = '#dd2e2e', DIM = '#232326';
   const HEAD = '#1b1b1f';
   const DESIGN_KEY = 'debatable-live-avatar-v1';
+  const LOOKS_KEY = 'debatable-avatar-looks-v1';
   const DESIGN_EVENT = 'debatable-avatar-design';
   const DEFAULT_DESIGN = { scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
   const DESIGN_OPTIONS = {
@@ -95,8 +96,73 @@
     try { return normalizeDesign(JSON.parse(localStorage.getItem(DESIGN_KEY) || '{}')); }
     catch (e) { return normalizeDesign(); }
   }
+  function makeLookId() {
+    try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+    return 'look-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+  function getLooksState() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LOOKS_KEY) || '{}');
+      const looks = (Array.isArray(raw.looks) ? raw.looks : []).slice(0, 8).map(function (look, index) {
+        return {
+          id: String(look && look.id || ('look-' + index)).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64),
+          name: String(look && look.name || ('Look ' + (index + 1))).trim().slice(0, 32) || ('Look ' + (index + 1)),
+          design: normalizeDesign(look && look.design),
+          updatedAtMs: Math.max(0, Number(look && look.updatedAtMs) || 0),
+        };
+      });
+      let activeId = String(raw.activeId || '').slice(0, 64);
+      if (!looks.some(function (look) { return look.id === activeId; })) activeId = looks[0] ? looks[0].id : '';
+      return { activeId: activeId, looks: looks, updatedAtMs: Math.max(0, Number(raw.updatedAtMs) || 0) };
+    } catch (e) { return { activeId:'', looks:[], updatedAtMs:0 }; }
+  }
+  function storeLooksState(state) {
+    try { localStorage.setItem(LOOKS_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function saveLook(input, name, id) {
+    const design = normalizeDesign(input);
+    const state = getLooksState();
+    const now = Date.now();
+    let look = state.looks.filter(function (item) { return item.id === id; })[0];
+    if (!look) {
+      look = { id: makeLookId(), name:'', design:design, updatedAtMs:now };
+      state.looks.unshift(look);
+      state.looks = state.looks.slice(0, 8);
+    }
+    look.name = String(name || 'My avatar').trim().slice(0, 32) || 'My avatar';
+    look.design = design; look.updatedAtMs = now;
+    state.activeId = look.id; state.updatedAtMs = now;
+    storeLooksState(state);
+    try { localStorage.setItem(DESIGN_KEY, JSON.stringify(design)); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent(DESIGN_EVENT, { detail: design })); } catch (e) {}
+    return { id:look.id, name:look.name, design:design };
+  }
+  function activateLook(id) {
+    const state = getLooksState();
+    const look = state.looks.filter(function (item) { return item.id === id; })[0];
+    if (!look) return null;
+    state.activeId = look.id; state.updatedAtMs = Date.now(); storeLooksState(state);
+    return saveLook(look.design, look.name, look.id);
+  }
+  function deleteLook(id) {
+    const state = getLooksState();
+    state.looks = state.looks.filter(function (look) { return look.id !== id; });
+    state.activeId = state.looks[0] ? state.looks[0].id : '';
+    state.updatedAtMs = Date.now(); storeLooksState(state);
+    if (state.looks[0]) return activateLook(state.looks[0].id);
+    try { localStorage.removeItem(DESIGN_KEY); } catch (e) {}
+    const design = normalizeDesign();
+    try { window.dispatchEvent(new CustomEvent(DESIGN_EVENT, { detail: design })); } catch (e) {}
+    return null;
+  }
   function saveDesign(input) {
     const design = normalizeDesign(input);
+    const state = getLooksState();
+    const active = state.looks.filter(function (look) { return look.id === state.activeId; })[0];
+    if (active) {
+      active.design = design; active.updatedAtMs = Date.now(); state.updatedAtMs = active.updatedAtMs;
+      storeLooksState(state);
+    }
     try { localStorage.setItem(DESIGN_KEY, JSON.stringify(design)); } catch (e) {}
     try { window.dispatchEvent(new CustomEvent(DESIGN_EVENT, { detail: design })); } catch (e) {}
     return design;
@@ -862,6 +928,9 @@
       '.dac-controls{min-width:0}' +
       '.dac-group{margin:0 0 16px}' +
       '.dac-label{display:block;margin:0 0 8px;color:rgba(240,237,230,.52);font:700 10px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase}' +
+      '.dac-look-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}' +
+      '.dac-look-name{width:100%;height:38px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.04);color:#f0ede6;padding:0 11px;font:650 12px/1 Inter,system-ui,sans-serif;outline:none}' +
+      '.dac-look-name:focus{border-color:var(--dac-accent,#dd2e2e);box-shadow:0 0 0 2px color-mix(in srgb,var(--dac-accent,#dd2e2e) 18%,transparent)}' +
       '.dac-choices{display:flex;flex-wrap:wrap;gap:7px}' +
       '.dac-choice{appearance:none;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:rgba(255,255,255,.035);color:rgba(240,237,230,.72);min-height:35px;padding:8px 11px;font:650 12px/1 Inter,system-ui,sans-serif;cursor:pointer;transition:border-color .15s,background .15s,color .15s,transform .15s}' +
       '.dac-choice:hover{color:#fff;border-color:rgba(255,255,255,.32);transform:translateY(-1px)}' +
@@ -909,6 +978,10 @@
     if (activeDesigner) activeDesigner.close();
     installDesignerStyles();
     let draft = getSavedDesign();
+    const looksState = getLooksState();
+    const initialLook = looksState.looks.filter(function (look) { return look.id === looksState.activeId; })[0] || null;
+    let editLookId = initialLook ? initialLook.id : '';
+    let lookName = initialLook ? initialLook.name : 'My avatar';
     let alive = true, raf = 0, lastPaint = 0;
     const oldOverflow = document.body.style.overflow;
     const overlay = document.createElement('div'); overlay.className = 'dac-overlay';
@@ -919,6 +992,12 @@
         '<footer class="dac-foot"><button type="button" data-action="surprise">Surprise me</button><button type="button" data-action="cancel">Cancel</button><button type="button" class="dac-save" data-action="save">Save avatar</button></footer>' +
       '</section>';
     const controls = overlay.querySelector('.dac-controls');
+    const looksGroup = document.createElement('div'); looksGroup.className = 'dac-group';
+    looksGroup.innerHTML = '<span class="dac-label">Saved looks</span><div class="dac-look-row"></div><input class="dac-look-name" maxlength="32" aria-label="Look name" placeholder="Name this look">';
+    controls.appendChild(looksGroup);
+    const lookRow = looksGroup.querySelector('.dac-look-row');
+    const lookInput = looksGroup.querySelector('.dac-look-name');
+    lookInput.value = lookName;
     buildDesignerGroup(controls, 'Scene', 'scene');
     buildDesignerGroup(controls, 'Mask', 'mask');
     buildDesignerGroup(controls, 'Color', 'accent');
@@ -926,6 +1005,18 @@
     buildDesignerGroup(controls, 'Eyes', 'eyes');
     const canvas = overlay.querySelector('canvas');
     const ctx = canvas.getContext('2d');
+
+    function paintLooks() {
+      lookRow.innerHTML = '';
+      getLooksState().looks.forEach(function (look) {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'dac-choice';
+        button.setAttribute('data-look-id', look.id); button.textContent = look.name;
+        if (look.id === editLookId) button.classList.add('is-selected');
+        lookRow.appendChild(button);
+      });
+      const fresh = document.createElement('button'); fresh.type = 'button'; fresh.className = 'dac-choice';
+      fresh.setAttribute('data-look-new', '1'); fresh.textContent = '+ New look'; lookRow.appendChild(fresh);
+    }
 
     function sync() {
       const accent = findOption('accent', draft.accent).color;
@@ -935,6 +1026,7 @@
         button.classList.toggle('is-selected', selected);
         button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       });
+      paintLooks();
     }
     function close() {
       if (!alive) return;
@@ -963,6 +1055,19 @@
       raf = requestAnimationFrame(animate);
     }
     overlay.addEventListener('click', function (ev) {
+      const savedLookButton = ev.target.closest('[data-look-id]');
+      if (savedLookButton) {
+        const state = getLooksState();
+        const selected = state.looks.filter(function (look) { return look.id === savedLookButton.getAttribute('data-look-id'); })[0];
+        if (selected) {
+          editLookId = selected.id; lookName = selected.name; draft = normalizeDesign(selected.design);
+          lookInput.value = lookName; sync();
+        }
+        return;
+      }
+      if (ev.target.closest('[data-look-new]')) {
+        editLookId = ''; lookName = 'New look'; lookInput.value = lookName; lookInput.select(); sync(); return;
+      }
       const choice = ev.target.closest('[data-group]');
       if (choice) {
         draft[choice.getAttribute('data-group')] = choice.getAttribute('data-value');
@@ -978,9 +1083,7 @@
           });
           sync();
         } else if (key === 'save') {
-          let saved;
-          try { saved = opts.cam && opts.cam.setDesign ? opts.cam.setDesign(draft) : saveDesign(draft); }
-          catch (e) { saved = saveDesign(draft); }
+          const saved = saveLook(draft, lookInput.value, editLookId);
           if (typeof opts.onSave === 'function') opts.onSave(saved);
           close();
         }
@@ -1000,6 +1103,9 @@
     start: start,
     getDesign: getSavedDesign,
     setDesign: saveDesign,
+    getLooks: getLooksState,
+    activateLook: activateLook,
+    deleteLook: deleteLook,
     openDesigner: openDesigner,
     designOptions: DESIGN_OPTIONS,
   };

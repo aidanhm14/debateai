@@ -63,6 +63,41 @@ function cleanParadigm(s) {
     .slice(0, PARADIGM_MAX);
 }
 
+// Queue docs are user-writable. Copy only the compact, enumerated avatar
+// fields needed by a peer's match card. Camera frames and account-only look
+// names never pass through matchmaking.
+const AVATAR_SCENES = new Set(['arena','skyline','library','studio','orbit','forest']);
+const AVATAR_ACCENTS = new Set(['crimson','electric','violet','teal','rose','silver']);
+const AVATAR_OUTFITS = new Set(['ink','navy','plum','pine','slate']);
+const AVATAR_MASKS = new Set(['blade','classic','visor']);
+const AVATAR_EYES = new Set(['focus','sharp','open','calm']);
+function cleanAvatarIdentity(value) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.kind === 'live') {
+    const d = value.design && typeof value.design === 'object' ? value.design : {};
+    return {
+      kind: 'live',
+      design: {
+        scene: AVATAR_SCENES.has(d.scene) ? d.scene : 'arena',
+        accent: AVATAR_ACCENTS.has(d.accent) ? d.accent : 'crimson',
+        outfit: AVATAR_OUTFITS.has(d.outfit) ? d.outfit : 'ink',
+        mask: AVATAR_MASKS.has(d.mask) ? d.mask : 'blade',
+        eyes: AVATAR_EYES.has(d.eyes) ? d.eyes : 'focus',
+      },
+    };
+  }
+  if (value.kind === 'portrait' && value.config && typeof value.config === 'object') {
+    const c = value.config;
+    const safe = {};
+    ['skin','hair','top','eyes','brows','mouth','facial','glasses','accessory','bg','outfit','iris','detail'].forEach((key) => {
+      const n = Number(c[key]);
+      if (Number.isFinite(n)) safe[key] = Math.max(0, Math.min(20, Math.floor(n)));
+    });
+    return { kind: 'portrait', config: safe };
+  }
+  return null;
+}
+
 // The agreed-paradigm string /live-round passes into the ballot
 // prompt. Name-attributed so the judge can tell whose lens is whose
 // when both sides filed one.
@@ -293,6 +328,8 @@ export default async (request) => {
       consents: FieldValue.delete(),
       matchedWith: FieldValue.delete(),
       matchedWithName: FieldValue.delete(),
+      matchedWithPhoto: FieldValue.delete(),
+      matchedWithAvatar: FieldValue.delete(),
       lastPassBy: FieldValue.delete(),
       lastPassAt: FieldValue.delete(),
     };
@@ -453,6 +490,8 @@ export default async (request) => {
       // who they're about to debate.
       const myPhoto = String(mine.photoURL || '');
       const peerPhoto = String(theirs.photoURL || '');
+      const myAvatar = cleanAvatarIdentity(mine.avatarIdentity);
+      const peerAvatar = cleanAvatarIdentity(theirs.avatarIdentity);
       // Older joiner's motion wins (theirs is older because the
       // poller sorted oldest-first). Both clients read pairedMotion
       // from their now-matched queue doc so the casual-room banner
@@ -524,6 +563,7 @@ export default async (request) => {
           matchedWith: peerUid,
           matchedWithName: peerShort,
           matchedWithPhoto: peerPhoto,
+          matchedWithAvatar: peerAvatar,
           myFormatPref: myFormat,
           peerFormat: theirFormat,
         });
@@ -532,6 +572,7 @@ export default async (request) => {
           matchedWith: myUid,
           matchedWithName: myShort,
           matchedWithPhoto: myPhoto,
+          matchedWithAvatar: myAvatar,
           myFormatPref: theirFormat,
           peerFormat: myFormat,
         });
@@ -549,12 +590,14 @@ export default async (request) => {
         matchedWith: peerUid,
         matchedWithName: peerShort,
         matchedWithPhoto: peerPhoto,
+        matchedWithAvatar: peerAvatar,
       });
       tx.update(peerRef, {
         ...matched,
         matchedWith: myUid,
         matchedWithName: myShort,
         matchedWithPhoto: myPhoto,
+        matchedWithAvatar: myAvatar,
       });
 
       return {
@@ -566,6 +609,7 @@ export default async (request) => {
         conName: common.conName,
         matchedWithName: peerShort,
         matchedWithPhoto: peerPhoto,
+        matchedWithAvatar: peerAvatar,
         pairedFormat,
       };
     });

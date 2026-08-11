@@ -91,6 +91,7 @@
 <script defer src="/js/lipsync-capture.js"></script>
 <!-- Avatar engine: matched-set faces for the AI opponents. -->
 <script defer src="/js/avatar.js"></script>
+<script defer src="/js/avatar-account.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%;width:100%}
@@ -3316,6 +3317,17 @@ function getUserFirstName() {
     var first = dn.split(/\s+/)[0] || '';
     return first.slice(0, 30);
   } catch (e) {return '';}
+}
+function currentPublicAvatarIdentity() {
+  try {
+    if (window.DBAvatarAccount && DBAvatarAccount.publicIdentity) return DBAvatarAccount.publicIdentity();
+    if (window.DBAvatar && DBAvatar.getPublicIdentity) {
+      var id = DBAvatar.getPublicIdentity();
+      return id && id.kind === 'live' ? { kind:'live', design:id.design }
+           : id && id.kind === 'portrait' ? { kind:'portrait', config:id.config } : null;
+    }
+  } catch (e) {}
+  return null;
 }
 
 // Curated motions that produce strong, clashy practice rounds. Each is
@@ -6801,6 +6813,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
                 decision: roundDecision,
                 won: roundWon,
                 generationId: payload.generationId || null,
+                avatarIdentity: currentPublicAvatarIdentity(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 ts: payload.ts
               }).catch(function (e) {console.warn('[generateRFD] round save failed', e);});
@@ -6876,6 +6889,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
             var entry = {
               uid: u.uid,
               displayName: shortName,
+              avatarIdentity: currentPublicAvatarIdentity(),
               score,
               won: userWon,
               // kind = 'voice' is the new leaderboard source of truth.

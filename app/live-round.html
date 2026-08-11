@@ -25,6 +25,8 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script defer src="/js/avatar.js"></script>
+<script defer src="/js/avatar-account.js"></script>
 
 <!-- Per-user telemetry. Captures every signed-in user's experience on
      /live-round (round start, speech end, ballot view, save, leaderboard
@@ -1306,6 +1308,8 @@ body.lr-pip .lr-pip-notice{display:block}
   min-width:0;
 }
 .roster-card .rc-meta{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.roster-card .rc-avatar{width:34px;height:34px;border-radius:50%;overflow:hidden;display:grid;place-items:center;flex:0 0 auto;background:rgba(255,255,255,.06);font-size:.72rem;font-weight:900}
+.roster-card .rc-avatar svg{display:block;width:100%;height:100%}
 .roster-card .rc-eyebrow{
   font-size:.65rem;font-weight:800;letter-spacing:.12em;
   text-transform:uppercase;color:var(--text-ghost);
@@ -1490,6 +1494,8 @@ body.lr-pip .lr-pip-notice{display:block}
 .verdict.pro .verdict-headline{color:#4ade80}
 .verdict.con .verdict-headline{color:#fca5a5}
 .verdict-sub{font-size:.86rem;color:var(--text-dim);line-height:1.5}
+.ballot-avatar{display:block;width:54px;height:54px;margin:0 auto 9px;border-radius:50%;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.ballot-avatar svg{display:block;width:100%;height:100%}
 
 .points-grid{
   display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 22px 18px;
@@ -2034,6 +2040,7 @@ html.stage-mode .stage-ov{display:block}
       <div class="round-roster" id="roundRoster">
         <div class="roster-card" id="rosterYou">
           <span class="rc-active-dot"></span>
+          <span class="rc-avatar" id="rosterYouAvatar" aria-hidden="true">Y</span>
           <div class="rc-meta">
             <span class="rc-eyebrow" id="rosterYouEyebrow">You</span>
             <span class="rc-name" id="rosterYouName">—</span>
@@ -2042,6 +2049,7 @@ html.stage-mode .stage-ov{display:block}
         </div>
         <div class="roster-card" id="rosterOpp">
           <span class="rc-active-dot"></span>
+          <span class="rc-avatar" id="rosterOppAvatar" aria-hidden="true">O</span>
           <div class="rc-meta">
             <span class="rc-eyebrow" id="rosterOppEyebrow">Opponent</span>
             <span class="rc-name" id="rosterOppName">—</span>
@@ -2708,6 +2716,7 @@ html.stage-mode .stage-ov{display:block}
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
     lookingEl: null,         // the calm "looking for your debater" strip
+    participantAvatars: {}, // uid -> compact public avatar renderer config
   };
 
   function publicNameOf(user){
@@ -2723,6 +2732,36 @@ html.stage-mode .stage-ov{display:block}
     if (!user) return 'guest';
     if (window.DBIdentity) return window.DBIdentity.forUser(user).username;
     return (user.email || '').split('@')[0] || ('guest_' + String(user.uid || '').slice(-4).toLowerCase());
+  }
+  function currentPublicAvatarIdentity(){
+    try {
+      if (window.DBAvatarAccount && DBAvatarAccount.publicIdentity) return DBAvatarAccount.publicIdentity();
+      if (window.DBAvatar && DBAvatar.getPublicIdentity){
+        var id = DBAvatar.getPublicIdentity();
+        return id && id.kind === 'live' ? {kind:'live',design:id.design}
+             : id && id.kind === 'portrait' ? {kind:'portrait',config:id.config} : null;
+      }
+    } catch(e){}
+    return null;
+  }
+  function publicAvatarFor(uid){
+    if (uid && state.participantAvatars && state.participantAvatars[uid]) return state.participantAvatars[uid];
+    if (uid && state.user && uid === state.user.uid) return currentPublicAvatarIdentity();
+    return null;
+  }
+  function paintPublicAvatar(node, uid, name, fallback, size){
+    if (!node) return;
+    var avatar = publicAvatarFor(uid);
+    if (avatar && window.DBAvatar && DBAvatar.mountIdentity){
+      DBAvatar.mountIdentity(node, {publicIdentity:avatar,uid:uid,name:name,size:size||34,live:!!(state.user&&uid===state.user.uid)});
+    } else {
+      node.textContent = initials(name, fallback || '?');
+    }
+  }
+  function publicAvatarHtml(uid, name, size){
+    var avatar = publicAvatarFor(uid);
+    if (!avatar || !window.DBAvatar || !DBAvatar.publicSvg) return '';
+    return '<span class="ballot-avatar" aria-hidden="true">' + DBAvatar.publicSvg(avatar, size || 54, {uid:uid,name:name}) + '</span>';
   }
 
   // ── Firebase init (shared project across the app)
@@ -3056,8 +3095,8 @@ html.stage-mode .stage-ov{display:block}
     if (conNm) conNm.textContent = conName;
     if (proRole) proRole.textContent = firstLabel;
     if (conRole) conRole.textContent = secondLabel;
-    if (proAv) proAv.textContent = initials(proName, 'P');
-    if (conAv) conAv.textContent = initials(conName, 'C');
+    paintPublicAvatar(proAv, state.proUid, proName, 'P', 34);
+    paintPublicAvatar(conAv, state.conUid, conName, 'C', 34);
 
     var proSeat = $('stageProSeat'), conSeat = $('stageConSeat');
     var activeFirst = false;
@@ -3323,6 +3362,10 @@ html.stage-mode .stage-ov{display:block}
       var leftIsActive = (youIsFirstSide && spIsFirstSide) || (!youIsFirstSide && !spIsFirstSide);
       rYou.classList.toggle('is-active', leftIsActive);
       rOpp.classList.toggle('is-active', !leftIsActive);
+      var leftUid = youIsFirstSide ? state.proUid : state.conUid;
+      var rightUid = youIsFirstSide ? state.conUid : state.proUid;
+      paintPublicAvatar($('rosterYouAvatar'), leftUid, youIsFirstSide ? proName : conName, 'Y', 34);
+      paintPublicAvatar($('rosterOppAvatar'), rightUid, youIsFirstSide ? conName : proName, 'O', 34);
       // Only show the "is-you" emphasis when we actually know which
       // card is the viewer's (i.e. mySide is set and not spectator).
       rYou.classList.toggle('is-you', !!ms && !spectator);
@@ -5707,6 +5750,7 @@ html.stage-mode .stage-ov{display:block}
         uid: state.user.uid,
         displayName: shortName,
         photoURL: (state.user.photoURL || '').slice(0, 500),
+        avatarIdentity: currentPublicAvatarIdentity(),
         score: myPoints,
         won: myWon,
         kind: 'live',
@@ -6068,6 +6112,7 @@ html.stage-mode .stage-ov{display:block}
       return;
     }
     var winnerName = b.winner === 'pro' ? state.proName : state.conName;
+    var winnerUid = b.winner === 'pro' ? state.proUid : state.conUid;
     var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
     var loserName  = b.winner === 'pro' ? state.conName : state.proName;
     var loserSide  = b.winner === 'pro' ? f.sideLabels[f.sides[1]] : f.sideLabels[f.sides[0]];
@@ -6096,6 +6141,7 @@ html.stage-mode .stage-ov{display:block}
     }
     result.innerHTML =
       '<div class="verdict ballot-section ' + (b.winner === 'pro' ? 'pro' : 'con') + '" data-stage="0">' +
+        publicAvatarHtml(winnerUid, winnerName, 54) +
         '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +
         '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
       '</div>' +
@@ -6263,6 +6309,7 @@ html.stage-mode .stage-ov{display:block}
       var savedDoc = {
         uid: state.user.uid,
         userName: publicNameOf(state.user),
+        avatarIdentity: currentPublicAvatarIdentity(),
         userEmail: state.user.email || '',
         room: state.room,
         motion: state.motion,
@@ -6744,11 +6791,31 @@ html.stage-mode .stage-ov{display:block}
     ctx.textAlign = 'right';
     ctx.fillText('Spar a real debater. Free.', 1000, 1880);
 
-    return new Promise(function(resolve, reject){
-      canvas.toBlob(function(blob){
-        if (blob) resolve(blob); else reject(new Error('toBlob returned null'));
-      }, 'image/png', 0.95);
-    });
+    function finishBlob(){
+      return new Promise(function(resolve, reject){
+        canvas.toBlob(function(blob){
+          if (blob) resolve(blob); else reject(new Error('toBlob returned null'));
+        }, 'image/png', 0.95);
+      });
+    }
+    // Put the sharer's chosen identity on the verdict itself. The SVG is
+    // generated from the five cosmetic settings only; no camera frame or
+    // private profile data enters the image.
+    var shareIdentity = state.user ? publicAvatarFor(state.user.uid) : null;
+    if (!shareIdentity || !window.DBAvatar || !DBAvatar.publicSvg) return finishBlob();
+    return new Promise(function(resolve){
+      try {
+        var img = new Image();
+        img.onload = function(){
+          ctx.save(); ctx.beginPath(); ctx.arc(124, verdictY + verdictH / 2, 58, 0, Math.PI * 2); ctx.clip();
+          ctx.drawImage(img, 66, verdictY + verdictH / 2 - 58, 116, 116); ctx.restore();
+          ctx.beginPath(); ctx.arc(124, verdictY + verdictH / 2, 59, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 3; ctx.stroke(); resolve();
+        };
+        img.onerror = resolve;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(DBAvatar.publicSvg(shareIdentity, 116, {uid:state.user.uid,name:publicNameOf(state.user)}));
+      } catch(e){ resolve(); }
+    }).then(finishBlob);
   }
 
   // Open the modal: render the canvas, drop the blob URL into a
@@ -8167,6 +8234,10 @@ html.stage-mode .stage-ov{display:block}
 
   function onRoundSnapshot(d){
     var changedSetup = false;
+    if (d.participantAvatars && typeof d.participantAvatars === 'object'){
+      state.participantAvatars = Object.assign({}, state.participantAvatars || {}, d.participantAvatars);
+      updateRoomStage();
+    }
     // Visibility is only knowable from the round document, and the
     // admission gate defaults to "ask" until it arrives. Re-check on
     // every snapshot: an unlisted round lets its link-holders in the
@@ -8430,6 +8501,11 @@ html.stage-mode .stage-ov{display:block}
       // drop the round from that list (go-private toggle, follow-up).
       isPrivate: false,
     };
+    var ownAvatar = currentPublicAvatarIdentity();
+    if (ownAvatar && state.user && state.user.uid){
+      payload.participantAvatars = {}; payload.participantAvatars[state.user.uid] = ownAvatar;
+      state.participantAvatars[state.user.uid] = ownAvatar;
+    }
     // Write the participant UIDs when we have BOTH, so the rules'
     // participant gate engages and the round stops being writable by
     // any signed-in user. Never write empty strings: the rule treats

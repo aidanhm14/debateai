@@ -27,6 +27,15 @@
   var STORE_KEY = 'debatable-avatar';
   var LEGACY_STORE_KEY = 'debate' + 'it-avatar';
   var EVT = 'debatable-avatar-change';
+  var LIVE_STORE_KEY = 'debatable-live-avatar-v1';
+  var LIVE_LOOKS_KEY = 'debatable-avatar-looks-v1';
+  var LIVE_EVT = 'debatable-avatar-design';
+  var LIVE_SCENES = ['arena','skyline','library','studio','orbit','forest'];
+  var LIVE_ACCENTS = { crimson:'#dd2e2e', electric:'#4f7cff', violet:'#9b5de5', teal:'#17b6a4', rose:'#e44878', silver:'#b8c1cf' };
+  var LIVE_OUTFITS = { ink:['#27272f','#09090b'], navy:['#20334d','#090e18'], plum:['#392942','#110b16'], pine:['#1f3a35','#08110f'], slate:['#414956','#101318'] };
+  var LIVE_MASKS = ['blade','classic','visor'];
+  var LIVE_EYES = ['focus','sharp','open','calm'];
+  var maskSeq = 0;
 
   // ---- palettes ---------------------------------------------------------
   var SKIN = ['#f8ddc3', '#f0c6a2', '#dba172', '#bd7c4c', '#96603a', '#654227'];
@@ -655,6 +664,93 @@
     try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {}
   }
 
+  // ---- live identity ---------------------------------------------------
+  // The camera avatar has a different renderer, but its compact design is
+  // also the strongest public identity for profile, leaderboard, match,
+  // ballot, and share surfaces. This SVG is deliberately static and tiny.
+  // It contains no camera pixels or landmarks.
+  function inList(value, list, fallback) { return list.indexOf(value) >= 0 ? value : fallback; }
+  function normLiveDesign(d) {
+    d = d || {};
+    return {
+      scene: inList(d.scene, LIVE_SCENES, 'arena'),
+      accent: Object.prototype.hasOwnProperty.call(LIVE_ACCENTS, d.accent) ? d.accent : 'crimson',
+      outfit: Object.prototype.hasOwnProperty.call(LIVE_OUTFITS, d.outfit) ? d.outfit : 'ink',
+      mask: inList(d.mask, LIVE_MASKS, 'blade'),
+      eyes: inList(d.eyes, LIVE_EYES, 'focus')
+    };
+  }
+  function getLiveIdentity() {
+    try {
+      var raw = global.localStorage.getItem(LIVE_STORE_KEY);
+      if (!raw) return null;
+      var design = normLiveDesign(JSON.parse(raw));
+      var lookName = 'My avatar';
+      var lookId = '';
+      try {
+        var state = JSON.parse(global.localStorage.getItem(LIVE_LOOKS_KEY) || '{}');
+        var looks = Array.isArray(state.looks) ? state.looks : [];
+        var active = looks.filter(function (look) { return look && look.id === state.activeId; })[0];
+        if (active) { lookName = String(active.name || lookName).slice(0, 32); lookId = String(active.id || '').slice(0, 64); }
+      } catch (e) {}
+      return { kind:'live', name:lookName, lookId:lookId, design:design };
+    } catch (e) { return null; }
+  }
+  function getPublicIdentity() {
+    var live = getLiveIdentity();
+    if (live) return live;
+    var portrait = getUser();
+    return portrait ? { kind:'portrait', config:portrait } : null;
+  }
+  function normPublicIdentity(value) {
+    value = value || {};
+    if (value.kind === 'live' && value.design) {
+      return { kind:'live', name:String(value.name || 'Avatar').slice(0,32), lookId:String(value.lookId || '').slice(0,64), design:normLiveDesign(value.design) };
+    }
+    if (value.kind === 'portrait' && value.config) return { kind:'portrait', config:norm(value.config) };
+    return null;
+  }
+  function maskScene(design, accent) {
+    if (design.scene === 'skyline') return '<path d="M0 68h100v32H0z" fill="#070b14"/><path d="M2 68V42h13v26h5V32h16v36h6V48h12v20h7V38h17v30h5V28h14v40" fill="#0c1425"/><g fill="' + accent + '" opacity=".32"><path d="M8 50h3v4H8zM25 40h3v5h-3zM48 55h3v4h-3zM69 46h3v5h-3zM88 36h3v4h-3z"/></g>';
+    if (design.scene === 'library') return '<path d="M0 0h100v100H0z" fill="#21130f"/><g stroke="#70442f" stroke-width="3"><path d="M0 25h100M0 49h100M0 73h100"/></g><g fill="' + accent + '" opacity=".35"><path d="M7 9h6v14H7zM28 32h7v15h-7zM76 55h6v16h-6zM87 8h5v15h-5z"/></g>';
+    if (design.scene === 'studio') return '<path d="M0 0h100v100H0z" fill="#07121d"/><path d="M7 0l30 100H15zM93 0L63 100h22z" fill="' + accent + '" opacity=".16"/><path d="M18 14h64v48H18z" fill="none" stroke="' + accent + '" opacity=".35" stroke-width="2"/>';
+    if (design.scene === 'orbit') return '<path d="M0 0h100v100H0z" fill="#08091a"/><g fill="#f0ede6" opacity=".5"><circle cx="12" cy="16" r="1"/><circle cx="29" cy="8" r=".7"/><circle cx="78" cy="42" r=".8"/><circle cx="91" cy="12" r="1"/><circle cx="68" cy="20" r=".6"/></g><circle cx="82" cy="21" r="12" fill="' + accent + '" opacity=".68"/><ellipse cx="82" cy="21" rx="18" ry="5" fill="none" stroke="#f0ede6" opacity=".3"/>';
+    if (design.scene === 'forest') return '<path d="M0 0h100v100H0z" fill="#0d201f"/><circle cx="80" cy="18" r="10" fill="#dbe7df" opacity=".28"/><g fill="#071110"><path d="M0 80l14-38 14 38zM18 84l16-48 16 48zM58 82l14-43 15 43zM75 85l14-37 14 37z"/></g>';
+    return '<path d="M0 0h100v100H0z" fill="#0b0b0e"/><g fill="none" stroke="' + accent + '" opacity=".24"><circle cx="50" cy="48" r="38"/><path d="M0 84h100M14 100l36-16 36 16M31 100l19-16 19 16"/></g>';
+  }
+  function maskShape(design) {
+    if (design.mask === 'classic') return 'M22 38C25 27 39 27 50 36c11-9 25-9 28 2-2 14-16 16-28 6-12 10-26 8-28-6Z';
+    if (design.mask === 'visor') return 'M20 31Q50 23 80 31l-4 18q-16 7-26-2-10 9-26 2Z';
+    return 'M23 37q10-16 26-5l1 3 1-3q16-11 26 5l-4 13q-12 7-22-3h-2q-10 10-22 3Z';
+  }
+  function maskSvg(input, size) {
+    var design = normLiveDesign(input);
+    var accent = LIVE_ACCENTS[design.accent];
+    var outfit = LIVE_OUTFITS[design.outfit];
+    var id = 'dbmask' + (++maskSeq);
+    var eyeRy = design.eyes === 'open' ? 4.8 : design.eyes === 'calm' ? 2.2 : design.eyes === 'sharp' ? 2.8 : 3.6;
+    var eyeRot = design.eyes === 'sharp' ? 7 : 0;
+    var sz = size == null ? 100 : size;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="avatar" style="display:block">' +
+      '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath><radialGradient id="' + id + 'h" cx="36%" cy="25%"><stop stop-color="' + shade(outfit[0],.12) + '"/><stop offset="1" stop-color="' + outfit[1] + '"/></radialGradient><linearGradient id="' + id + 'm"><stop stop-color="' + shade(accent,-.22) + '"/><stop offset=".5" stop-color="' + shade(accent,.1) + '"/><stop offset="1" stop-color="' + shade(accent,-.22) + '"/></linearGradient></defs>' +
+      '<g clip-path="url(#' + id + ')">' + maskScene(design,accent) +
+      '<path d="M5 106Q10 72 34 69l16 11 16-11q24 3 29 37Z" fill="url(#' + id + 'h)" stroke="' + accent + '" stroke-width="1.3"/>' +
+      '<path d="M22 70Q13 33 30 14q20-19 40 0 17 19 8 56l-10 8H32Z" fill="url(#' + id + 'h)" stroke="' + accent + '" stroke-width="1.8"/>' +
+      '<path d="M50 15c18 0 24 15 22 32-1 20-10 29-22 34-12-5-21-14-22-34-2-17 4-32 22-32Z" fill="#1b1b1f" stroke="' + accent + '" stroke-width="1.8"/>' +
+      '<path d="' + maskShape(design) + '" fill="url(#' + id + 'm)"/>' +
+      '<g fill="#f0ede6"><ellipse cx="38" cy="39" rx="6.2" ry="' + eyeRy + '" transform="rotate(' + (-eyeRot) + ' 38 39)"/><ellipse cx="62" cy="39" rx="6.2" ry="' + eyeRy + '" transform="rotate(' + eyeRot + ' 62 39)"/></g>' +
+      '<g fill="#0b0b0c"><circle cx="38" cy="39" r="2.1"/><circle cx="62" cy="39" r="2.1"/></g>' +
+      '<path d="M40 63q10 5 20 0" fill="none" stroke="#dd2e2e" stroke-width="2.4" stroke-linecap="round"/>' +
+      '</g></svg>';
+  }
+  function publicSvg(value, size, fallback) {
+    var id = normPublicIdentity(value);
+    if (id && id.kind === 'live') return maskSvg(id.design, size);
+    if (id && id.kind === 'portrait') return svg(id.config, size);
+    fallback = fallback || {};
+    return svg(randomConfig(fallback.uid || fallback.name || 'anon'), size);
+  }
+
   // ---- deterministic randomizer ----------------------------------------
   function hashStr(s) { var h = 2166136261; s = String(s || ''); for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function randomConfig(seed) {
@@ -850,15 +946,15 @@
   // changes, so it stays correct regardless of the host framework.
   function mountWelcome(node, user) {
     if (!node) return;
-    if (node.__dbavHandler) { global.removeEventListener(EVT, node.__dbavHandler); }
+    if (node.__dbavHandler) { global.removeEventListener(EVT, node.__dbavHandler); global.removeEventListener(LIVE_EVT, node.__dbavHandler); }
     var first = ((user && (user.displayName || user.email)) || '').split(/\s+/)[0] || '';
 
     function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
     function render() {
-      var cfg = getUser();
-      var has = !!cfg;
+      var currentIdentity = getPublicIdentity();
+      var has = !!currentIdentity;
       var av = has
-        ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.22)">' + svg(cfg, '100%') + '</div>'
+        ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.22)">' + publicSvg(currentIdentity, '100%') + '</div>'
         : '<div style="width:64px;height:64px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--c-surface2,rgba(127,127,127,.12));border:1px dashed var(--c-border2,rgba(127,127,127,.3));font-size:1.5rem">🙂</div>';
       var title = has
         ? (first ? 'Welcome back, ' + esc(first) + '.' : 'Welcome back.')
@@ -883,6 +979,7 @@
 
     node.__dbavHandler = function () { render(); };
     global.addEventListener(EVT, node.__dbavHandler);
+    global.addEventListener(LIVE_EVT, node.__dbavHandler);
     render();
   }
 
@@ -1201,6 +1298,12 @@
   // no case where a signed-in debater has no face.
   function identity(o) {
     o = o || {};
+    var published = normPublicIdentity(o.publicIdentity);
+    if (published) return published;
+    if (!o.config) {
+      var live = getLiveIdentity();
+      if (live) return live;
+    }
     var custom = o.config || getUser();
     if (custom) return { kind: 'custom', config: norm(custom), seed: o.uid || o.name || 'anon' };
     var seed = o.uid || o.name || 'anon';
@@ -1239,7 +1342,7 @@
       node.style.flexShrink = '0';
       node.style.display = 'block';
       node.style.position = 'relative';
-      node.innerHTML = svg(id.config, '100%');
+      node.innerHTML = id.kind === 'live' ? maskSvg(id.design, '100%') : svg(id.config, '100%');
 
       if (id.kind !== 'photo') return;
       var img = document.createElement('img');
@@ -1256,9 +1359,13 @@
 
     paint();
     if (o.live) {
-      if (node.__dbIdentityHandler) global.removeEventListener(EVT, node.__dbIdentityHandler);
+      if (node.__dbIdentityHandler) {
+        global.removeEventListener(EVT, node.__dbIdentityHandler);
+        global.removeEventListener(LIVE_EVT, node.__dbIdentityHandler);
+      }
       node.__dbIdentityHandler = function () { paint(); };
       global.addEventListener(EVT, node.__dbIdentityHandler);
+      global.addEventListener(LIVE_EVT, node.__dbIdentityHandler);
     }
     return node;
   }
@@ -1268,6 +1375,8 @@
     getUser: getUser, setUser: setUser, clearUser: clearUser,
     randomConfig: randomConfig, openBuilder: openBuilder, mountWelcome: mountWelcome,
     identity: identity, mountIdentity: mountIdentity,
+    getLiveIdentity: getLiveIdentity, getPublicIdentity: getPublicIdentity,
+    normPublicIdentity: normPublicIdentity, maskSvg: maskSvg, publicSvg: publicSvg,
     talkingSvg: talkingSvg, mountTalking: mountTalking,
     cameo: cameo, cameoSvg: cameoSvg, CAMEOS: CAMEOS, CAMEO_MAP: CAMEO_MAP,
     SKIN: SKIN, HAIR: HAIR, BG: BG, OUTFIT: OUTFIT, EVENT: EVT

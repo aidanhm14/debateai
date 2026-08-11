@@ -22,6 +22,9 @@
 <link rel="stylesheet" href="/css/ui.css">
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script defer src="/js/avatar.js"></script>
+<script defer src="/js/avatar-account.js"></script>
 <style>
   :root{
     --paper:#faf8f3; --card:#ffffff; --ink:#1a1a1f; --ink-soft:rgba(26,26,31,.64);
@@ -64,7 +67,7 @@
   .who{display:flex;align-items:center;gap:9px}
   .ava{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#eee;border:1px solid var(--line);
     display:inline-grid;place-items:center;font-size:.7rem;font-weight:800;color:var(--ink-soft);flex:none;overflow:hidden}
-  .ava img{width:100%;height:100%;object-fit:cover}
+  .ava img,.ava svg{width:100%;height:100%;object-fit:cover;display:block}
   .who b{font-size:.9rem}
   .who i{font-style:normal;font-size:.72rem;color:var(--ink-ghost)}
   .card .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -497,6 +500,9 @@
   }
   function fmtClock(s){ var m=Math.floor(s/60), ss=s%60; return m+':'+(ss<10?'0':'')+ss; }
   function avatar(p){
+    if (p && p.avatarIdentity && window.DBAvatar && DBAvatar.publicSvg){
+      return '<span class="ava">'+DBAvatar.publicSvg(p.avatarIdentity,'100%',{uid:p.uid||'',name:p.name||'Debater'})+'</span>';
+    }
     if (p && p.photo) return '<span class="ava"><img src="'+esc(p.photo)+'" alt="" referrerpolicy="no-referrer"></span>';
     var init = ((p && p.name) || '?').trim().charAt(0).toUpperCase() || '?';
     return '<span class="ava">'+esc(init)+'</span>';
@@ -1193,7 +1199,8 @@
         $('progFill').style.width = Math.round(((i+1)/(parts+1))*100)+'%';
       }
       var body = { uploadId: init.uploadId, partCount: parts, bytes: rec.blob.size, mime: mime,
-        kind: rec.mode, durationSec: rec.secs, turn: rec.ctx.turn };
+        kind: rec.mode, durationSec: rec.secs, turn: rec.ctx.turn,
+        avatarIdentity: window.DBAvatarAccount && DBAvatarAccount.publicIdentity ? DBAvatarAccount.publicIdentity() : null };
       if (rec.ctx.turn===1){ body.motion = rec.ctx.motion; body.format = rec.ctx.format; body.visibility = rec.ctx.visibility; }
       else body.roundId = rec.ctx.roundId;
       var out = await api('/api/async/turn', { method:'POST',

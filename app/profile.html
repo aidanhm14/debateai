@@ -18,6 +18,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script defer src="/js/avatar.js"></script>
+<script defer src="/js/avatar-account.js"></script>
+<script defer src="/js/cam-avatar.js"></script>
 
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
@@ -1659,6 +1662,14 @@ function renderSettings(user, profileData){
           <div class="val">${escapeHtml(user.email || '—')}</div>
         </div>
         <div class="set-row">
+          <div class="key">Avatar identity</div>
+          <div>
+            <button class="set-btn" id="editLiveAvatar" type="button">Edit live avatar</button>
+            <button class="set-btn" id="editPortraitAvatar" type="button">Edit portrait</button>
+            <div class="hint">Name and save up to eight live looks. Signed-in designs follow your account and appear on match cards, ballots, verdict links, and the leaderboard. Camera tracking only runs inside a round.</div>
+          </div>
+        </div>
+        <div class="set-row">
           <div class="key">Round behavior</div>
           <div>
             <a class="set-btn" href="/settings" style="display:inline-flex">Open round settings</a>
@@ -1684,6 +1695,19 @@ function wireSettings(user, rows){
     if(!status) return;
     status.textContent = msg || '';
     status.className = 'set-status ' + (cls||'');
+  }
+
+  const liveAvatarBtn = document.getElementById('editLiveAvatar');
+  if(liveAvatarBtn){
+    liveAvatarBtn.addEventListener('click', () => {
+      if(window.DebateCam && window.DebateCam.openDesigner) window.DebateCam.openDesigner({ label:'YOU' });
+    });
+  }
+  const portraitAvatarBtn = document.getElementById('editPortraitAvatar');
+  if(portraitAvatarBtn){
+    portraitAvatarBtn.addEventListener('click', () => {
+      if(window.DBAvatar && window.DBAvatar.openBuilder) window.DBAvatar.openBuilder();
+    });
   }
 
   const saveBtn = document.getElementById('saveSettings');
@@ -1856,7 +1880,8 @@ function hydrateProfileAvatar(){
     host.style.borderRadius = '50%';
   };
   host.addEventListener('click', () => {
-    if(window.DBAvatar && window.DBAvatar.openBuilder) window.DBAvatar.openBuilder();
+    if(window.DebateCam && window.DebateCam.openDesigner) window.DebateCam.openDesigner({ label:'YOU' });
+    else if(window.DBAvatar && window.DBAvatar.openBuilder) window.DBAvatar.openBuilder();
   });
   if(window.DBAvatar && window.DBAvatar.mountIdentity){ draw(); return; }
   const existing = document.getElementById('db-avatar-engine');
