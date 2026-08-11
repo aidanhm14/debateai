@@ -63,7 +63,12 @@
   .gate .signed{color:var(--muted);margin-top:14px;font-size:11px;font-variant-numeric:tabular-nums;word-break:break-all}
 
   /* kpi strip — animated counters with sparklines */
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(186px,1fr));gap:12px;margin-bottom:22px}
+  /* Eight cards on auto-fit wrapped 7+1, an orphan that read as a
+     broken row. Fixed 4-wide gives two even rows at any width the
+     page is actually used at. */
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+  @media (max-width:1000px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .kpi{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,21,28,.04);transition:border-color .15s, box-shadow .15s}
   .kpi:hover{border-color:var(--line-strong);box-shadow:0 2px 8px rgba(16,21,28,.06)}
   .kpi .lbl{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:0.10em;font-weight:700;display:flex;align-items:center;gap:6px}
@@ -96,6 +101,53 @@
   .tab{padding:4px 10px;border:none;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;transition:all .15s}
   .tab[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
   .tabs.subtle .tab[aria-pressed="true"]{background:rgba(17,21,28,.07);color:var(--fg)}
+
+  /* ── Workspaces ───────────────────────────────────────────────────
+     The page used to be one 25-panel scroll where the thing you opened
+     it for was always somewhere in the middle. Panels are now grouped
+     into six workspaces and only the open one is in the DOM path, which
+     also means only its endpoints get fetched (see PANE_LOADERS). That
+     second half matters: this dashboard has been hitting the Firestore
+     free-tier daily read ceiling, and a cold open used to pull all
+     seventeen endpoints whether or not you looked at them. */
+  .wsnav{position:sticky;top:0;z-index:40;margin:0 -22px 20px;padding:10px 22px;background:rgba(245,246,248,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .wsnav-tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .wstab{position:relative;padding:8px 13px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;letter-spacing:.01em;display:inline-flex;align-items:center;gap:7px;transition:all .14s}
+  .wstab:hover{background:var(--card-2);color:var(--fg)}
+  .wstab[aria-selected="true"]{background:var(--card);border-color:var(--line-strong);color:var(--fg);box-shadow:0 1px 3px rgba(16,21,28,.07)}
+  .wstab .k{font-size:9.5px;font-weight:700;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:14px;font-variant-numeric:tabular-nums}
+  .wstab[aria-selected="true"] .k{border-color:var(--line-strong);color:var(--muted)}
+  .wstab .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:none}
+  .wstab.has-alert .dot{display:inline-block}
+  .pane{display:none}
+  .pane.active{display:block;animation:paneIn .18s ease}
+  @keyframes paneIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .pane-intro{font-size:12.5px;color:var(--muted);margin:0 0 16px;line-height:1.55;max-width:760px}
+  @media (max-width:700px){ .wsnav{margin:0 -14px 16px;padding:9px 14px} .wstab .k{display:none} }
+
+  /* ── Attention strip ──────────────────────────────────────────────
+     A rollup of the things that are actually wrong right now, computed
+     from panels that would otherwise each have to be scrolled to. */
+  .attn{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:20px}
+  .attn-card{border:1px solid var(--line);border-left:3px solid var(--line-strong);border-radius:12px;padding:11px 14px;background:var(--card);box-shadow:0 1px 2px rgba(16,21,28,.04)}
+  .attn-card.bad{border-left-color:var(--accent);background:linear-gradient(100deg,rgba(220,38,38,.045),var(--card) 55%)}
+  .attn-card.warn{border-left-color:var(--warn);background:linear-gradient(100deg,rgba(180,83,9,.05),var(--card) 55%)}
+  .attn-card.good{border-left-color:var(--good)}
+  .attn-card .h{font-size:12.5px;font-weight:700;color:var(--fg);display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .attn-card .b{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .attn-card .go{font-size:11px;font-weight:700;color:var(--accent);cursor:pointer;white-space:nowrap}
+  .attn-empty{font-size:12.5px;color:var(--muted);border:1px dashed var(--line-strong);border-radius:12px;padding:13px 15px;margin-bottom:20px}
+
+  /* header overflow menu — the ten pills across the top were an even
+     scan cost for ten very unequal actions */
+  .more{position:relative}
+  .more>summary{list-style:none;cursor:pointer}
+  .more>summary::-webkit-details-marker{display:none}
+  .more-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:230px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px -10px rgba(16,21,28,.28);padding:6px;display:flex;flex-direction:column;gap:2px}
+  .more-menu a,.more-menu button{text-align:left;padding:8px 10px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--fg);background:none;border:none;display:block;width:100%}
+  .more-menu a:hover,.more-menu button:hover{background:var(--card-2)}
+  .more-menu .sep{height:1px;background:var(--line-soft);margin:4px 2px}
+  .more-menu .lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);font-weight:700;padding:6px 10px 3px}
 
   /* chart */
   canvas{display:block;width:100%}
@@ -238,10 +290,14 @@
 
   /* Global time-window bar. Sticks to the top so the control stays reachable
      while scrolling the long dashboard. */
-  .range-bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-    margin:0 0 22px;padding:11px 16px;border:1px solid var(--line);border-radius:14px;
-    background:rgba(13,17,29,.86);backdrop-filter:blur(14px);box-shadow:0 6px 24px -14px rgba(0,0,0,.6)}
-  .range-bar-label{display:flex;flex-direction:column;gap:1px;margin-right:auto;min-width:0}
+  /* The time window now rides inside the workspace nav, so it is a plain
+     inline group. It kept a dark-theme background from before the light
+     rebuild, which put near-black label text on a near-black slab; and
+     it was a second position:sticky top:0 element, so it and the nav
+     stacked on top of each other on scroll. One sticky strip, one
+     surface, both fixed by moving it in. */
+  .range-bar{display:flex;align-items:center;gap:10px;margin-left:auto}
+  .range-bar-label{display:flex;flex-direction:column;gap:1px;min-width:0}
   .range-bar-title{font:700 11px Crimson Pro,Georgia,serif;text-transform:uppercase;letter-spacing:.12em;color:var(--fg)}
   #range-bar-sub{font-size:11px}
   #global-range{padding:4px}
@@ -318,34 +374,75 @@
       <button id="auto-toggle" class="pill-btn" aria-pressed="false">Auto-refresh off</button>
       <button id="refresh" class="pill-btn">↻ Refresh</button>
       <span id="last-updated" class="ts"></span>
-      <a class="pill-btn" href="/admin-rate">★ Rate outputs</a>
-      <a class="pill-btn" href="/admin-ambassadors">◈ Ambassadors</a>
-      <button id="corpus-export" class="pill-btn" title="Download an anonymized JSONL sample of contributable rounds — paste into a cold email to a lab">↓ Corpus sample</button>
-      <button id="pref-export" class="pill-btn" title="Download (chosen, rejected) preference pairs built from rated rounds — the labeled reward/DPO sample for a data-vendor pitch or the deck">↓ Preference pack</button>
-      <button id="signout" class="pill-btn">Sign out</button>
-      <a class="pill-btn" href="/">← home</a>
+      <details class="more" id="more-menu-wrap">
+        <summary class="pill-btn">⋯ More</summary>
+        <div class="more-menu">
+          <div class="lbl">Other consoles</div>
+          <a href="/admin-rate">★ Rate outputs</a>
+          <a href="/admin-ambassadors">◈ Ambassadors</a>
+          <div class="sep"></div>
+          <div class="lbl">Exports</div>
+          <button id="corpus-export" title="Download an anonymized JSONL sample of contributable rounds — paste into a cold email to a lab">↓ Corpus sample</button>
+          <button id="pref-export" title="Download (chosen, rejected) preference pairs built from rated rounds — the labeled reward/DPO sample for a data-vendor pitch or the deck">↓ Preference pack</button>
+          <div class="sep"></div>
+          <a href="/">← Back to site</a>
+          <button id="signout">Sign out</button>
+        </div>
+      </details>
     </div>
   </header>
 
-  <!-- Global time window. One control drives every day-windowed panel on
-       the page at once (heatmap + its mix/devices/browsers/top-pages,
-       power users, round funnel, founder video). The "?" opens the
-       in-app guide on what does / does not move with it. -->
-  <div class="range-bar">
-    <div class="range-bar-label">
-      <span class="range-bar-title">Time window</span>
-      <span class="meta" id="range-bar-sub">last 7d</span>
+  <!-- Workspace nav. Six groups instead of one 25-panel scroll. The
+       panels themselves are authored further down this file at their
+       original positions and RELOCATED into these panes at load by the
+       data-pane block near the bottom of the script — same pattern the
+       landing uses for its chapter accordion. Moving nodes rather than
+       retyping them means every id, listener and render function keeps
+       working untouched, and a panel stays editable where you'd expect
+       to find it. -->
+  <nav class="wsnav" id="wsnav" aria-label="Dashboard workspaces">
+    <div class="wsnav-tabs" role="tablist">
+      <button class="wstab" role="tab" data-ws="pulse"     aria-selected="true"><span>Pulse</span><span class="dot"></span><span class="k">1</span></button>
+      <button class="wstab" role="tab" data-ws="growth"    aria-selected="false"><span>Growth</span><span class="dot"></span><span class="k">2</span></button>
+      <button class="wstab" role="tab" data-ws="people"    aria-selected="false"><span>People</span><span class="dot"></span><span class="k">3</span></button>
+      <button class="wstab" role="tab" data-ws="product"   aria-selected="false"><span>Product</span><span class="dot"></span><span class="k">4</span></button>
+      <button class="wstab" role="tab" data-ws="broadcast" aria-selected="false"><span>Broadcast</span><span class="dot"></span><span class="k">5</span></button>
+      <button class="wstab" role="tab" data-ws="ops"       aria-selected="false"><span>Ops</span><span class="dot"></span><span class="k">6</span></button>
     </div>
-    <div class="tabs" id="global-range" role="group" aria-label="Global time window">
-      <button class="tab" data-gr="1"  aria-pressed="false">24h</button>
-      <button class="tab" data-gr="3"  aria-pressed="false">3d</button>
-      <button class="tab" data-gr="7"  aria-pressed="true">7d</button>
-      <button class="tab" data-gr="30" aria-pressed="false">30d</button>
+
+    <!-- Global time window. One control drives every day-windowed panel
+         on the page at once (heatmap + its mix/devices/browsers/top-pages,
+         power users, round funnel, founder video). The "?" opens the
+         in-app guide on what does / does not move with it. -->
+    <div class="range-bar">
+      <div class="range-bar-label">
+        <span class="range-bar-title">Time window</span>
+        <span class="meta" id="range-bar-sub">last 7d</span>
+      </div>
+      <div class="tabs" id="global-range" role="group" aria-label="Global time window">
+        <button class="tab" data-gr="1"  aria-pressed="false">24h</button>
+        <button class="tab" data-gr="3"  aria-pressed="false">3d</button>
+        <button class="tab" data-gr="7"  aria-pressed="true">7d</button>
+        <button class="tab" data-gr="30" aria-pressed="false">30d</button>
+      </div>
+      <button id="help-btn" class="pill-btn" aria-haspopup="dialog" title="How to read this dashboard">?</button>
     </div>
-    <button id="help-btn" class="pill-btn" aria-haspopup="dialog" title="How to read this dashboard">? How to read this</button>
-  </div>
+  </nav>
 
   <div id="err"></div>
+
+
+  <!-- KPIs with sparklines. Global: lifetime totals belong to no one
+       workspace, so they stay pinned above the panes. -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Needs attention. Every item here is a condition some panel further
+       down already knew about and could only tell you by being scrolled
+       to: a stale distill, a quarantined corpus row, contested clash
+       mappings, a failed endpoint. Rolled up so the dashboard opens with
+       what is wrong rather than with what exists. Each card deep-links
+       into the workspace holding the panel it came from. -->
+  <div id="attn-wrap"></div>
 
   <!-- Plain-language glossary so the metric acronyms aren't a guessing game.
        Collapsed by default to keep the dashboard calm. -->
@@ -361,8 +458,25 @@
     </div>
   </details>
 
-  <!-- KPIs with sparklines -->
-  <div class="kpis" id="kpis"></div>
+  <!-- Workspace panes. Filled at load from [data-pane] sections below. -->
+  <div class="pane active" id="pane-pulse" data-pane-host="pulse">
+    <p class="pane-intro">What is happening right now: live totals, the event tail, who is online, and how the last few weeks trend.</p>
+  </div>
+  <div class="pane" id="pane-growth" data-pane-host="growth">
+    <p class="pane-intro">Acquisition and conversion: retention cohorts, the round funnel, when people show up, which devices they arrive on, and every running A/B.</p>
+  </div>
+  <div class="pane" id="pane-people" data-pane-host="people">
+    <p class="pane-intro">Individual humans rather than aggregates: power users, a session-by-session inspector, the email and prospect lists, and the paid-feedback payout tracker.</p>
+  </div>
+  <div class="pane" id="pane-product" data-pane-host="product">
+    <p class="pane-intro">What the product is doing with the rounds it gets: format and brain mix, feature usage, the learning loop, corpus consent health, and contested clash mappings.</p>
+  </div>
+  <div class="pane" id="pane-broadcast" data-pane-host="broadcast">
+    <p class="pane-intro">Going live and publishing replays. Starting a stream puts a player band on /watch; syncing pulls finished recordings out of Daily.</p>
+  </div>
+  <div class="pane" id="pane-ops" data-pane-host="ops">
+    <p class="pane-intro">Levers rather than readouts: the coach directory, the win-back email cohort, and the write actions (grants, backfills, migrations, scrubs).</p>
+  </div>
 
   <!-- Anonymous visitors · presence pipeline.
        Everything else on this dashboard is uid-keyed, because track.js
@@ -389,7 +503,7 @@
     .av-row .n{color:var(--muted);font-variant-numeric:tabular-nums}
     @media (max-width:700px){ .av-lists{grid-template-columns:1fr} }
   </style>
-  <div class="section">
+  <div class="section" data-pane="pulse">
     <div class="card">
       <div class="title">
         <span>Anonymous visitors <span class="badge">sessions</span></span>
@@ -424,14 +538,14 @@
     .exp-texts{margin-top:8px;display:flex;flex-direction:column;gap:3px}
     .exp-text{font-size:.7rem;color:var(--muted)}
   </style>
-  <div class="section" id="exp-section">
+  <div class="section" id="exp-section" data-pane="growth">
     <h2>Experiments · A/B <span class="badge" id="exp-meta">—</span></h2>
     <div class="ts" style="margin:-4px 0 14px">Page experiments show unique-session impressions, clicks, and click-through rate. A directional lead appears after every arm reaches 20 impressions. Poll experiments remain answer-volume comparisons.</div>
     <div id="experiments-body" class="exp-body"><div class="ts">Loading…</div></div>
   </div>
 
   <!-- Hero row: activity chart + new users + DAU -->
-  <div class="grid-2-3 section">
+  <div class="grid-2-3 section" data-pane="pulse">
     <div class="card">
       <div class="title">
         <span>New users</span>
@@ -455,7 +569,7 @@
   </div>
 
   <!-- Live event tail + Online roster -->
-  <div class="section">
+  <div class="section" data-pane="pulse">
     <h2><span class="pulse-dot"></span> Live activity <span class="badge" id="tail-meta">—</span></h2>
     <div class="grid-3-2">
       <div class="card">
@@ -479,7 +593,7 @@
   </div>
 
   <!-- Cohort retention grid + hour-of-day heatmap -->
-  <div class="grid-2-3 section">
+  <div class="grid-2-3 section" data-pane="growth">
     <div class="card">
       <div class="title">
         <span title="Each row is everyone who signed up in one week; each cell is the share who came back N weeks later.">Weekly cohorts · retention</span>
@@ -499,8 +613,10 @@
     </div>
   </div>
 
-  <!-- Power users + Format / Brain mix -->
-  <div class="grid-3-2 section">
+  <!-- Power users and the format/brain mix used to share one grid row.
+       They answer different questions (who is here vs what they run), so
+       they now sit in different workspaces and each gets its own row. -->
+  <div class="section" data-pane="people">
     <div class="card">
       <div class="title">
         <span>Power users</span>
@@ -508,6 +624,9 @@
       </div>
       <div id="pu-body"><div class="ts">Loading…</div></div>
     </div>
+  </div>
+
+  <div class="section" data-pane="product">
     <div class="card">
       <div class="title">
         <span>Format · brain mix</span>
@@ -518,7 +637,7 @@
   </div>
 
   <!-- Devices / browsers / surfaces / top pages -->
-  <div class="grid-3 section">
+  <div class="grid-3 section" data-pane="growth">
     <div class="card">
       <div class="title"><span>Devices</span><span class="meta" id="devices-meta"></span></div>
       <div id="devices-body" class="ring-wrap"><div class="ts">Loading…</div></div>
@@ -534,7 +653,7 @@
   </div>
 
   <!-- Round-complete funnel -->
-  <div class="section">
+  <div class="section" data-pane="growth">
     <div class="card">
       <div class="title">
         <span>Round-complete funnel</span>
@@ -545,7 +664,7 @@
   </div>
 
   <!-- Founder-intro video drop-off -->
-  <div class="section">
+  <div class="section" data-pane="growth">
     <div class="card">
       <div class="title">
         <span>Founder video</span>
@@ -558,7 +677,7 @@
   <!-- Learning-loop freshness: nightly distill heartbeat.
        Reads learning_distillations/{format} via /api/admin/distillations.
        Stale-first ordering surfaces a missed run at the top. -->
-  <div class="section">
+  <div class="section" data-pane="product">
     <div class="card">
       <div class="title">
         <span>Learning loop · nightly distill</span>
@@ -573,7 +692,7 @@
        owner token (camera on, cloud recording auto-starts on Daily plans
        that support it). Sync pulls finished recordings into Firestore so
        they appear as replays. -->
-  <div class="section">
+  <div class="section" data-pane="broadcast">
     <div class="card">
       <div class="title">
         <span>Live stream · tournaments</span>
@@ -593,7 +712,7 @@
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" data-pane="broadcast">
     <div class="card">
       <div class="title">
         <span>Recordings · replays</span>
@@ -613,7 +732,7 @@
   <!-- Research corpus: consent + integrity health.
        Reads /api/admin/corpus-manifest (counts, consent ledger, nightly
        audit). Red pills when the audit quarantined rows or went stale. -->
-  <div class="section">
+  <div class="section" data-pane="product">
     <div class="card">
       <div class="title">
         <span>Research corpus · consent + audit</span>
@@ -627,7 +746,7 @@
        Reads the clashDisputes collection group via /api/admin/clash-disputes.
        The confusion matrix is the actionable half: a heavy cell means the
        mapper prompt is systematically wrong in one direction. -->
-  <div class="section">
+  <div class="section" data-pane="product">
     <div class="card">
       <div class="title">
         <span>Clash map · contested rows</span>
@@ -641,7 +760,7 @@
        config/winback_state (written by scheduled-winback.mjs in dry-run).
        Shows what it WOULD email; flipping it live is an env change, not a
        button here. -->
-  <div class="section">
+  <div class="section" data-pane="ops">
     <div class="card">
       <div class="title">
         <span>Retention · win-back email</span>
@@ -652,7 +771,7 @@
   </div>
 
   <!-- Micro-poll A/B results (poll_responses, tallied by qvariant). -->
-  <div class="section">
+  <div class="section" data-pane="growth">
     <div class="card">
       <div class="title">
         <span>Micro-poll · A/B results</span>
@@ -663,7 +782,7 @@
   </div>
 
   <!-- Event breakdown + top features -->
-  <div class="grid-2 section">
+  <div class="grid-2 section" data-pane="product">
     <div class="card">
       <div class="title"><span>Event breakdown</span><span class="meta">last 30d</span></div>
       <table id="events-table"><tbody></tbody></table>
@@ -675,7 +794,7 @@
   </div>
 
   <!-- Recent feedback -->
-  <div class="section">
+  <div class="section" data-pane="people">
     <div class="card">
       <div class="title"><span>Recent feedback</span><span class="meta">last 5</span></div>
       <div id="feedback-list"></div>
@@ -683,7 +802,7 @@
   </div>
 
   <!-- Per-user activity feed with session journeys -->
-  <div class="section">
+  <div class="section" data-pane="people">
     <div class="card">
       <div class="title">
         <span>User · session inspector</span>
@@ -702,7 +821,7 @@
   </div>
 
   <!-- Email subscribers -->
-  <div class="section">
+  <div class="section" data-pane="people">
     <div class="card">
       <div class="title">
         <span>Email subscribers <span id="subs-count" class="meta" style="margin-left:6px"></span></span>
@@ -723,7 +842,7 @@
   <!-- Prospects: soft email/phone leads captured at sign-in / paywall
        walls by prospect-capture.js (writes the `prospects` collection,
        distinct from email_signups). Carries source + page attribution. -->
-  <div class="section">
+  <div class="section" data-pane="people">
     <div class="card">
       <div class="title">
         <span>Prospects <span id="prospects-count" class="meta" style="margin-left:6px"></span></span>
@@ -747,7 +866,7 @@
        page at /coaches lets anyone browse + add; this panel manages the
        same coach_directory collection (add here as admin, or delete any
        entry incl. community-added ones). Backed by /api/admin/coaches. -->
-  <div class="section">
+  <div class="section" data-pane="ops">
     <div class="card">
       <div class="title">
         <span>Coaches <span id="coaches-count" class="meta" style="margin-left:6px"></span></span>
@@ -788,7 +907,7 @@
   <!-- Paid-feedback cohort tracker. Paste uids or emails, compute
        active-time over the trailing window, see who qualifies for
        which payout tier ($5 for showing up, $10 for >=30 min). -->
-  <div class="section">
+  <div class="section" data-pane="people">
     <div class="card">
       <div class="title">
         <span>Feedback cohort · payout tracker</span>
@@ -859,7 +978,7 @@
   </style>
 
   <!-- Admin tools (collapsed under a single details element to declutter) -->
-  <div class="section">
+  <div class="section" data-pane="ops">
     <details>
       <summary>Admin tools · grant lifetime · grant exemplar · backfill · scrub</summary>
 
@@ -978,6 +1097,14 @@
     <div class="help-body">
 
       <section class="help-sec">
+        <h3><span class="help-num">0</span> Six workspaces</h3>
+        <p><strong>Pulse</strong> is what is happening now. <strong>Growth</strong> is acquisition, retention and every running A/B. <strong>People</strong> is individual humans rather than aggregates. <strong>Product</strong> is what the rounds themselves look like. <strong>Broadcast</strong> is going live and publishing replays. <strong>Ops</strong> is the write actions.</p>
+        <p>Press <strong>1</strong> through <strong>6</strong> to jump between them, or link straight to one with <code>/admin#growth</code>. Your last workspace is remembered per browser.</p>
+        <p class="help-note">A workspace only pulls its own endpoints, and only the first time you open it. That is deliberate: opening this page used to fetch all seventeen endpoints at once, which is most of why it kept hitting the Firestore daily read ceiling. ↻ Refresh re-pulls the workspace you are looking at.</p>
+        <p>The strip under the KPIs is <strong>Needs attention</strong>: failing endpoints, stale nightly jobs, quarantined corpus rows, contested clash mappings. A red dot on a tab means something in that workspace wants looking at.</p>
+      </section>
+
+      <section class="help-sec">
         <h3><span class="help-num">1</span> The time window</h3>
         <p>The bar at the top has four spans: <strong>24h</strong>, <strong>3d</strong>, <strong>7d</strong>, <strong>30d</strong>. Pick one and every time-windowed panel re-pulls for exactly that span. Your choice is remembered on this browser, so a reload keeps it.</p>
       </section>
@@ -1070,6 +1197,23 @@ let cohortWeeks = 8;
 // persisted per-browser. KPIs (lifetime totals), the activity chart
 // (its own grain tabs) and weekly cohorts sit on a different axis and do
 // NOT move with it — the in-app "How to read this" guide spells this out.
+
+// ── Workspaces ─────────────────────────────────────────────────────
+// Which pane is open, which panes have already pulled, and the health
+// rollup the attention strip renders from. `health` is written by the
+// three eager health loaders plus loadAll's endpoint-failure pass; every
+// key is optional, so a loader that fails just contributes nothing
+// rather than blanking the strip.
+const PANES = ['pulse', 'growth', 'people', 'product', 'broadcast', 'ops'];
+let activePane = (function(){
+  var h = (location.hash || '').replace('#', '');
+  if (PANES.indexOf(h) !== -1) return h;
+  try { var v = localStorage.getItem('admin-pane'); if (PANES.indexOf(v) !== -1) return v; } catch {}
+  return 'pulse';
+})();
+let paneLoaded = {};
+const health = {};
+
 const GLOBAL_RANGES = [1, 3, 7, 30];
 let globalDays = (function(){
   var v = parseInt((function(){ try { return localStorage.getItem('admin-global-days'); } catch { return null; } })() || '', 10);
@@ -1088,6 +1232,13 @@ let allSubs = [];
 let allProspects = [];
 let allUsersList = []; // for search suggest
 const FALLBACK_NAME = 'anon';
+
+// Move every [data-pane] panel into its workspace and open the
+// remembered one. Runs before auth resolves so the layout is settled by
+// the time data lands. #app is still hidden, so loadPane is a no-op here
+// and the first real pull happens at the end of loadAll.
+relocatePanes();
+setPane(activePane, { silent: true });
 
 // ── Auth flow ──────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
@@ -1306,22 +1457,30 @@ async function loadAll(force){
     }
     errBox.innerHTML = banner;
     failures.forEach(f => console.error('[admin]', f.label, f.msg));
+    health.endpoints = { failed: realFailures.map(f => f.label), quota: quotaHit, stale: staleVals.length };
 
     loading.hidden = true;
     appEl.hidden = false;
 
-    // Fire-and-forget pulls for legacy panels.
-    loadSubscribers().catch(()=>{});
-    loadProspects().catch(()=>{});
-    loadCoaches().catch(()=>{});
-    loadFunnel().catch(()=>{});
-    loadFounderVideo().catch(()=>{});
-    loadVisitors().catch(()=>{});
-    loadDistillations().catch(()=>{});
-    loadCorpusHealth().catch(()=>{});
-    loadClashDisputes().catch(()=>{});
-    loadWinback().catch(()=>{});
-    loadPollResults().catch(()=>{});
+    // Health signals feed the attention strip, which is above the panes
+    // and therefore has to be right on a cold open regardless of which
+    // workspace is showing. These three stay eager for that reason; they
+    // are also the cheapest of the secondary endpoints (9 doc reads,
+    // and two server-cached rollups).
+    Promise.allSettled([
+      loadDistillations(),
+      loadCorpusHealth(),
+      loadClashDisputes(),
+    ]).then(renderAttention);
+    renderAttention();
+
+    // Everything else loads when its workspace is opened. Previously all
+    // seventeen endpoints fired on every open, which is a large share of
+    // why this dashboard kept exhausting the Firestore free-tier daily
+    // read budget (see the quota banner above). Reopening a pane does
+    // not re-fetch; ↻ Refresh clears the flags and re-pulls the open one.
+    paneLoaded = {};
+    loadPane(activePane);
 
     if (autoRefresh) startAuto();
   } catch (e) {
@@ -1993,12 +2152,164 @@ function setGlobalDays(days){
   // the format/brain mix, devices, browsers and top-pages panels.
   loadHeatmap().catch(()=>{});
   loadPower().catch(()=>{});
-  loadFunnel().catch(()=>{});
-  loadFounderVideo().catch(()=>{});
+  // The funnel and founder-video panels live in Growth, which may not
+  // have been opened yet. Drop its loaded flag so it re-pulls on the new
+  // window whenever it IS opened, and re-pull now only if it is showing.
+  delete paneLoaded.growth;
+  if (activePane === 'growth') loadPane('growth');
 }
 document.querySelectorAll('#global-range .tab').forEach(t => {
   t.addEventListener('click', () => setGlobalDays(parseInt(t.dataset.gr, 10) || 7));
 });
+
+// ── Workspaces: relocation, switching, lazy loading ───────────────
+// Panels stay authored in their original places in the document and get
+// MOVED into their pane host once, at boot. appendChild moves the live
+// node, so ids, already-attached listeners and every render function
+// that writes into them keep working with no rewiring. Adding a panel to
+// a workspace is one attribute: data-pane="growth".
+function relocatePanes(){
+  PANES.forEach(function(p){
+    var host = document.querySelector('[data-pane-host="' + p + '"]');
+    if (!host) return;
+    document.querySelectorAll('[data-pane="' + p + '"]').forEach(function(sec){ host.appendChild(sec); });
+  });
+}
+
+// Endpoints that only fire when their workspace is opened. The core six
+// (analytics, realtime, cohorts, heatmap, power-users, experiments) plus
+// the three health pulls are eager and live in loadAll; everything below
+// is deferred, which is the bulk of the per-open read volume.
+const PANE_LOADERS = {
+  pulse:     [ () => loadVisitors() ],
+  growth:    [ () => loadFunnel(), () => loadFounderVideo(), () => loadPollResults() ],
+  people:    [ () => loadSubscribers(), () => loadProspects() ],
+  product:   [],
+  broadcast: [ () => refreshStreamStatus() ],
+  ops:       [ () => loadCoaches(), () => loadWinback() ],
+};
+
+function loadPane(pane){
+  if (paneLoaded[pane]) return;
+  paneLoaded[pane] = true;
+  (PANE_LOADERS[pane] || []).forEach(function(fn){
+    try { Promise.resolve(fn()).catch(function(){}); } catch (e) { console.error('[admin] pane loader', pane, e); }
+  });
+}
+
+function setPane(pane, opts){
+  if (PANES.indexOf(pane) === -1) pane = 'pulse';
+  activePane = pane;
+  try { localStorage.setItem('admin-pane', pane); } catch {}
+  PANES.forEach(function(p){
+    var el = $('pane-' + p);
+    if (el) el.classList.toggle('active', p === pane);
+  });
+  document.querySelectorAll('.wstab').forEach(function(b){
+    b.setAttribute('aria-selected', b.dataset.ws === pane ? 'true' : 'false');
+  });
+  if (!(opts && opts.silent)) {
+    // Replace rather than push: the back button should leave the
+    // dashboard, not walk back through every tab you glanced at.
+    try { history.replaceState(null, '', '#' + pane); } catch {}
+  }
+  if (!appEl.hidden) loadPane(pane);
+  // A pane that was display:none while its charts drew has zero-width
+  // canvases. Redraw the ones that live in the pane just revealed.
+  if (pane === 'pulse' && cachedAnalytics){ drawActivityChart(currentRange); drawUsersChart(); }
+  if (pane === 'pulse' && cachedRealtime) renderRealtime(cachedRealtime);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.querySelectorAll('.wstab').forEach(function(b){
+  b.addEventListener('click', function(){ setPane(b.dataset.ws); });
+});
+// Number keys jump between workspaces, but not while typing into one of
+// the many search / paste boxes on this page.
+document.addEventListener('keydown', function(e){
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  var i = ['1','2','3','4','5','6'].indexOf(e.key);
+  if (i !== -1) { e.preventDefault(); setPane(PANES[i]); }
+});
+window.addEventListener('hashchange', function(){
+  var h = (location.hash || '').replace('#', '');
+  if (PANES.indexOf(h) !== -1 && h !== activePane) setPane(h, { silent: true });
+});
+
+// ── Attention strip ───────────────────────────────────────────────
+// The dashboard should open with what is wrong, not with what exists.
+// Everything here is a condition some panel already knew about and could
+// only report by being scrolled to. Each card links to the workspace
+// holding the panel it came from.
+function renderAttention(){
+  var wrap = $('attn-wrap');
+  if (!wrap) return;
+  var items = [];
+  var ep = health.endpoints || {};
+  var a = cachedAnalytics || {};
+
+  if (ep.quota){
+    items.push({ sev:'bad', h:'Firestore read quota reached', b:'Panels are showing the last cached numbers until the daily reset, around midnight Pacific.' });
+  }
+  if (ep.failed && ep.failed.length){
+    items.push({ sev:'bad', h: ep.failed.length + ' endpoint' + (ep.failed.length > 1 ? 's' : '') + ' failing', b: ep.failed.join(', ') + '. Details in the banner above and the console.' });
+  }
+  if (health.distill && health.distill.stale > 0){
+    items.push({ sev:'bad', pane:'product', go:'Learning loop',
+      h: health.distill.stale + ' format' + (health.distill.stale === 1 ? '' : 's') + ' stale in the distill',
+      b:'The nightly pass has not written for these. It needs 3 rated rounds per format before it writes anything at all.' });
+  } else if (health.distill && health.distill.present === 0){
+    items.push({ sev:'warn', pane:'product', go:'Learning loop',
+      h:'The learning loop has never produced an artifact',
+      b:'No distillation documents exist. The nightly pass needs 3 rounds rated 4+ per format; until then it skips every format every night.' });
+  }
+  if (health.corpus && health.corpus.quarantined > 0){
+    items.push({ sev:'bad', pane:'product', go:'Corpus',
+      h: health.corpus.quarantined + ' corpus row' + (health.corpus.quarantined === 1 ? '' : 's') + ' quarantined',
+      b:'The nightly consent audit pulled these out of the licensable set.' });
+  }
+  if (health.corpus && health.corpus.auditStale){
+    items.push({ sev:'warn', pane:'product', go:'Corpus',
+      h:'Corpus audit is stale', b:'The 05:00 UTC consent audit has not run in over 36 hours.' });
+  }
+  if (health.clash && health.clash.rows > 0){
+    items.push({ sev:'warn', pane:'product', go:'Clash map',
+      h: health.clash.rows + ' contested clash mapping' + (health.clash.rows === 1 ? '' : 's'),
+      b:'Readers disagreed with the mapper. A heavy cell in the matrix means the prompt is wrong in one direction.' });
+  }
+  if (a.totalUsers != null && a.recentSignups === 0){
+    items.push({ sev:'warn', pane:'growth', go:'Growth',
+      h:'No signups in the last 7 days', b:'Total is holding at ' + fmt(a.totalUsers) + '. Acquisition, not retention, is the read here.' });
+  }
+  if (a.totalFeedback === 0){
+    items.push({ sev:'warn', pane:'people', go:'People',
+      h:'No feedback has ever been submitted', b:'The form is reachable but nothing has come through it.' });
+  }
+
+  if (!items.length){
+    wrap.innerHTML = '<div class="attn-empty">Nothing needs attention. No failing endpoints, no stale nightly jobs, no quarantined rows, and signups are moving.</div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="attn">' + items.map(function(it){
+    return '<div class="attn-card ' + it.sev + '">' +
+      '<div class="h"><span>' + esc(it.h) + '</span>' +
+        (it.pane ? '<span class="go" data-goto="' + it.pane + '">' + esc(it.go) + ' →</span>' : '') +
+      '</div>' +
+      '<div class="b">' + esc(it.b) + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+  wrap.querySelectorAll('[data-goto]').forEach(function(el){
+    el.addEventListener('click', function(){ setPane(el.dataset.goto); });
+  });
+  // Flag the workspaces carrying a problem so the tab itself says so.
+  var flagged = {};
+  items.forEach(function(it){ if (it.pane) flagged[it.pane] = true; });
+  document.querySelectorAll('.wstab').forEach(function(b){
+    b.classList.toggle('has-alert', !!flagged[b.dataset.ws]);
+  });
+}
 
 // ── How-to-read guide ──────────────────────────────────────────────
 function openHelp(){ const o = $('help-overlay'); if (o){ o.hidden = false; document.body.style.overflow = 'hidden'; } }
@@ -2102,6 +2413,11 @@ async function loadCorpusHealth(){
     const d = await fetchJson('/api/admin/corpus-manifest');
     const c = d.counts || {};
     const a = d.audit || {};
+    health.corpus = {
+      quarantined: a.quarantined || 0,
+      auditStale: !!(a.neverRan || !a.ranAt) || ((Date.now() - new Date(a.ranAt || 0).getTime()) / 36e5) > 36,
+      rows: c.contributableRows || 0,
+    };
     meta.textContent = 'policy ' + (d.policy && d.policy.policyVersion || '?');
 
     let html = '<div style="font-size:15px;font-weight:600;margin-bottom:4px">' +
@@ -2263,6 +2579,7 @@ async function loadDistillations(){
     const d = await fetchJson('/api/admin/distillations');
     const rows = d.rows || [];
     const s = d.summary || {};
+    health.distill = { stale: s.stale || 0, present: s.present || 0, total: s.total || 0 };
     meta.textContent = (s.stale || 0) + ' stale · ' + (s.present || 0) + '/' + (s.total || 0) + ' present';
     if (!rows.length){ body.innerHTML = '<div class="meta">No distillations yet. Nightly cron may not have run.</div>'; return; }
     // ageMs → "3h ago" / "2d ago" / "—" (missing). Stale rows get a
@@ -2325,6 +2642,7 @@ async function loadClashDisputes(){
     const d = await fetchJson('/api/admin/clash-disputes');
     const rows = d.rows || [];
     const s = d.summary || {};
+    health.clash = { rows: s.total || 0, rounds: s.rounds || 0 };
     meta.textContent = (s.total || 0) + ' contested · ' + (s.rounds || 0) + ' rounds'
       + (s.fromParticipants ? ' · ' + s.fromParticipants + ' from debaters' : '')
       + (s.truncated ? ' · capped, older ones not shown' : '');
@@ -2671,7 +2989,7 @@ async function refreshStreamStatus(){
     }
   } catch (e){ $('stream-meta').textContent = 'status unavailable'; }
 }
-refreshStreamStatus();
+// Called by PANE_LOADERS when Broadcast is opened, not at parse time.
 
 $('stream-start-btn').addEventListener('click', async () => {
   const line = $('stream-status-line');
