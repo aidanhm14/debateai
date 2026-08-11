@@ -340,6 +340,35 @@ button{font-family:inherit}
   cursor:pointer;font-size:.85rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;
 }
 .floor-remark .fr-close:hover{color:#fff;background:rgba(0,0,0,.6)}
+/* Audience camera pill: sits over the spectator video, bottom-left,
+   mirroring the debaters' cam-modes bar position. Light-on-dark pinned
+   for the same theme trap #audPanel documents. */
+#audCamPill{
+  position:absolute;left:10px;bottom:10px;z-index:6;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 14px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(10,10,12,.82);color:#f4f4f2;
+  font-family:inherit;font-size:.82rem;font-weight:700;letter-spacing:.02em;
+  backdrop-filter:blur(6px);
+  transition:border-color .15s,background .15s;
+}
+#audCamPill:hover{border-color:rgba(239,68,68,.65);background:rgba(20,16,16,.92)}
+#audCamPill.is-live{border-color:rgba(239,68,68,.75);background:rgba(60,12,12,.88)}
+#audCamPill .acp-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;animation:acpPulse 1.4s infinite}
+@keyframes acpPulse{0%,100%{opacity:1}50%{opacity:.35}}
+#audCamPill[hidden]{display:none}
+/* Turnstile verification overlay */
+#audCamVerify{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.62)}
+#audCamVerify .acv-card{
+  background:#141417;border:1px solid rgba(255,255,255,.14);border-radius:14px;
+  padding:22px;max-width:360px;width:calc(100% - 40px);text-align:center;color:#f4f4f2;
+  box-shadow:0 24px 80px rgba(0,0,0,.5);
+}
+#audCamVerify .acv-title{font-weight:800;font-size:1.02rem}
+#audCamVerify .acv-sub{color:rgba(244,244,242,.62);font-size:.86rem;margin:8px 0 14px;line-height:1.5}
+#audCamVerify .acv-slot{display:flex;justify-content:center;min-height:66px;margin-bottom:14px}
+#audCamVerify .acv-cancel{font-size:.84rem}
 /* Audience deck: an edge tab, not a floating button (2026-08-10). Was
    a pill floating over the round, which is one more loose object on
    top of an already busy view, and it stayed on screen even once the
@@ -1873,11 +1902,15 @@ html.stage-mode .stage-ov{display:block}
         </div>
         <button class="privacy-option" type="button" role="menuitemradio" data-private="false" aria-checked="true">
           <span class="privacy-option-top"><strong>Public</strong><em>Listed</em></span>
-          <span class="privacy-option-copy">Appears in Live rounds. Anyone can watch the video, timer, and transcript. Spectator cameras and mics stay off.</span>
+          <span class="privacy-option-copy">Appears in Live rounds. Anyone can watch the video, timer, and transcript. Watcher mics stay off; cameras take a verified opt-in you control below.</span>
         </button>
         <button class="privacy-option" type="button" role="menuitemradio" data-private="true" aria-checked="false">
           <span class="privacy-option-top"><strong>Unlisted</strong><em>Link only</em></span>
           <span class="privacy-option-copy">Hidden from Live rounds. People with the room link can still open the spectator view.</span>
+        </button>
+        <button class="privacy-option" type="button" role="switch" id="audCamsToggle" aria-checked="true">
+          <span class="privacy-option-top"><strong>Audience cameras</strong><em id="audCamsToggleState">On</em></span>
+          <span class="privacy-option-copy" id="audCamsToggleCopy">Verified watchers can appear on camera, video only, mics never open. Tap to turn every audience camera off.</span>
         </button>
         <p class="privacy-menu-note">This does not publish your case or add the result to the leaderboard. Those are separate choices after the round.</p>
       </div>
@@ -4924,6 +4957,7 @@ html.stage-mode .stage-ov{display:block}
             frame.on('joined-meeting', function(){ unifyCameraPipeline(); });
             frame.on('participant-updated', reassertMask);
             frame.on('left-meeting', teardownCamPipeline);
+            wireAudienceReceiveSettings(frame);
             frame.join({ url: url });
             buildCamModes(shell);
             state.dailyMounted = true;
@@ -4945,6 +4979,7 @@ html.stage-mode .stage-ov{display:block}
         iframe.title = 'Live video room';
         shell.appendChild(iframe);
         state.dailyMounted = true;
+        if (isSpectator()) buildAudCamPill(shell);
         updateRoomStage();
         try { gtag('event', 'live_round_daily_mount'); } catch(e){}
       }).catch(function(e){
@@ -7658,7 +7693,7 @@ html.stage-mode .stage-ov{display:block}
         });
         if (menu){
           menu.addEventListener('click', function(e){ e.stopPropagation(); });
-          Array.prototype.forEach.call(menu.querySelectorAll('.privacy-option'), function(option){
+          Array.prototype.forEach.call(menu.querySelectorAll('.privacy-option[data-private]'), function(option){
             option.addEventListener('click', function(){
               var next = option.getAttribute('data-private') === 'true';
               if (next === !!state.isPrivate){ setPrivacyMenuOpen(false); tog.focus(); return; }
@@ -7677,6 +7712,29 @@ html.stage-mode .stage-ov{display:block}
               }).then(function(){ option.disabled = false; });
             });
           });
+          // Audience-camera kill switch. Participant-only (this whole
+          // block is), defaults ON, persisted on the round doc so the
+          // server refuses new camera tokens and live audience cams
+          // shut off through the snapshot they already hold.
+          var camsTog = document.getElementById('audCamsToggle');
+          if (camsTog){
+            camsTog.addEventListener('click', function(){
+              var next = state.allowAudienceCams === false; // off → turn on
+              var ref = getRoundDocRef();
+              if (!ref) return;
+              camsTog.disabled = true;
+              ref.update({ allowAudienceCams: next }).then(function(){
+                state.allowAudienceCams = next;
+                paintAudCamsToggle();
+                toast(next ? 'Audience cameras allowed again.' : 'Audience cameras are off for this round.');
+                try { gtag('event', 'aud_cams_toggle', { on: next ? 1 : 0 }); } catch(e){}
+              }).catch(function(e){
+                console.warn('[aud-cam] toggle failed', e);
+                toast('Could not update audience cameras.');
+              }).then(function(){ camsTog.disabled = false; });
+            });
+            paintAudCamsToggle();
+          }
           document.addEventListener('click', function(e){
             if (!menu.hidden && !e.target.closest('.visibility-control')) setPrivacyMenuOpen(false);
           });
@@ -7744,6 +7802,16 @@ html.stage-mode .stage-ov{display:block}
   // mode can start it late — startWatchPresence runs once right after
   // subscribing (before the first snapshot), and a room-only visitor
   // only proves to be audience when the doc's UIDs arrive.
+  // Declared ABOVE startSpectatorBeat on purpose: the beat reads
+  // audCam.active, and `var` hoists the binding but not the object, so
+  // a beat that ever ran before the literal executed would throw inside
+  // the IIFE and take the whole round page with it.
+  var audCam = {
+    active: false, joining: false,
+    stream: null, frame: null, guard: null, guardVideo: null,
+    pill: null, beatNow: null,
+  };
+
   function startSpectatorBeat(){
     if (state.specBeatOn) return;
     if (!state.user || !firebaseDb) return;
@@ -7752,14 +7820,295 @@ html.stage-mode .stage-ov{display:block}
     state.specBeatOn = true;
     var mine = col.doc(state.user.uid);
     var beat = function(){
-      mine.set({
+      var payload = {
         name: publicNameOf(state.user),
         ts: firebase.firestore.FieldValue.serverTimestamp(),
-      }).catch(function(){});
+      };
+      // Camera spectators keep a camAt heartbeat in the same doc; the
+      // server counts fresh camAt entries to enforce the audience-cam
+      // slot cap. Plain set() (no merge) so turning the camera off
+      // drops the field on the next beat.
+      if (audCam.active) payload.camAt = firebase.firestore.FieldValue.serverTimestamp();
+      mine.set(payload).catch(function(){});
     };
+    audCam.beatNow = beat;
     beat();
     state.watchHbInterval = setInterval(beat, WATCH_HB_MS);
     window.addEventListener('pagehide', function(){ mine.delete().catch(function(){}); });
+  }
+
+  // ── Audience cameras: a verified spectator can BE SEEN watching ──
+  // Video only. The mic can never open: the server mints a Daily token
+  // with permissions.canSend = ['video'], enforced by Daily's media
+  // server rather than by anything a client could patch out. The gate
+  // (named account, optional Turnstile, video_bans, slot cap) lives in
+  // /api/audience-cam; this side handles the join UX, publishes a
+  // deliberately low-res track (320x240 @ 12fps so N audience tiles
+  // stay cheap for the debaters' CPUs), runs the same on-device NSFW
+  // watchdog debater cameras use, and obeys the debaters' kill switch.
+  // Audience tiles are texture, not the round. Pin every audience
+  // participant to the lowest simulcast layer so four extra faces cost
+  // the debaters four thumbnails of decode instead of four more HD
+  // streams. Daily's prebuilt layout promotes the active speaker, and
+  // an audience token can never send audio, so a downgraded audience
+  // tile can never be the thing someone is trying to look at.
+  function wireAudienceReceiveSettings(frame){
+    if (!frame) return;
+    var applied = {};
+    var apply = function(){
+      var ps;
+      try { ps = frame.participants() || {}; } catch(e){ return; }
+      var patch = null;
+      Object.keys(ps).forEach(function(k){
+        var p = ps[k];
+        if (!p || p.local || !p.session_id) return;
+        if (String(p.user_name || '').indexOf('Audience · ') !== 0) return;
+        if (applied[p.session_id]) return;
+        applied[p.session_id] = true;
+        patch = patch || {};
+        patch[p.session_id] = { video: { layer: 0 } };
+      });
+      if (patch){
+        try { frame.updateReceiveSettings(patch); } catch(e){ /* older daily-js */ }
+      }
+    };
+    frame.on('participant-joined', apply);
+    frame.on('participant-updated', apply);
+    apply();
+  }
+
+  function buildAudCamPill(shell){
+    if (audCam.pill || !shell) return;
+    var btn = document.createElement('button');
+    btn.id = 'audCamPill';
+    btn.type = 'button';
+    btn.innerHTML = '<span aria-hidden="true">&#128247;</span> <b>Join on camera</b>';
+    btn.title = 'Appear on camera as audience. Video only, your mic never turns on.';
+    btn.addEventListener('click', function(){ audCam.active ? stopAudienceCam('user') : joinAudienceCam(); });
+    shell.appendChild(btn);
+    audCam.pill = btn;
+    paintAudCamPill();
+  }
+  function paintAudCamPill(){
+    var btn = audCam.pill;
+    if (!btn) return;
+    var off = state.allowAudienceCams === false;
+    btn.hidden = off || !isSpectator();
+    btn.classList.toggle('is-live', audCam.active);
+    btn.innerHTML = audCam.active
+      ? '<span class="acp-dot" aria-hidden="true"></span> <b>On camera · stop</b>'
+      : (audCam.joining
+        ? '<b>Checking&hellip;</b>'
+        : '<span aria-hidden="true">&#128247;</span> <b>Join on camera</b>');
+  }
+  function audCamOnPolicyChange(){
+    if (state.allowAudienceCams === false && audCam.active){
+      stopAudienceCam('policy');
+      toast('The debaters turned audience cameras off.');
+    }
+    paintAudCamPill();
+  }
+
+  // Turnstile human check, shown only when the server has keys
+  // configured. The widget script loads on demand; nothing rides the
+  // normal page load for spectators who never opt in.
+  function audCamVerify(siteKey){
+    return new Promise(function(resolve, reject){
+      var wrap = document.createElement('div');
+      wrap.id = 'audCamVerify';
+      wrap.innerHTML =
+        '<div class="acv-card">' +
+          '<div class="acv-title">Quick check before your camera joins</div>' +
+          '<div class="acv-sub">Confirms a person is behind this camera. Your mic stays off either way.</div>' +
+          '<div class="acv-slot"></div>' +
+          '<button type="button" class="acv-cancel btn">Cancel</button>' +
+        '</div>';
+      document.body.appendChild(wrap);
+      var done = false;
+      var finish = function(fn, arg){
+        if (done) return; done = true;
+        wrap.remove();
+        fn(arg);
+      };
+      wrap.querySelector('.acv-cancel').addEventListener('click', function(){
+        finish(reject, new Error('Verification cancelled'));
+      });
+      var render = function(){
+        try {
+          window.turnstile.render(wrap.querySelector('.acv-slot'), {
+            sitekey: siteKey,
+            callback: function(token){ finish(resolve, token); },
+            'error-callback': function(){ finish(reject, new Error('Verification failed. Reload and try again.')); },
+          });
+        } catch(e){ finish(reject, new Error('Verification could not load')); }
+      };
+      if (window.turnstile){ render(); return; }
+      var s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      s.async = true;
+      s.onload = render;
+      s.onerror = function(){ finish(reject, new Error('Verification could not load')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function joinAudienceCam(){
+    if (audCam.joining || audCam.active) return;
+    if (state.allowAudienceCams === false){ toast('Audience cameras are off for this round.'); return; }
+    if (!state.dailyUrl){ toast('The video room has not started yet.'); return; }
+    if (!window.DailyIframe){ toast('Video is still loading, try again in a second.'); return; }
+    var u = firebaseAuth && firebaseAuth.currentUser;
+    if (!u || u.isAnonymous){
+      toast('Camera spectating needs a named account. Sign in, then tap again.');
+      try { doGoogleSignIn(); } catch(e){}
+      return;
+    }
+    audCam.joining = true;
+    paintAudCamPill();
+    var tokenOut = null;
+    fetch('/api/audience-cam').then(function(r){ return r.json(); }).catch(function(){ return {}; })
+      .then(function(cfg){
+        if (cfg && cfg.enabled === false) throw new Error('Video is not configured on this site.');
+        return cfg && cfg.siteKey ? audCamVerify(cfg.siteKey) : '';
+      })
+      .then(function(tsToken){
+        return u.getIdToken().then(function(idt){
+          return fetch('/api/audience-cam', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idt },
+            body: JSON.stringify({ room: state.room, turnstileToken: tsToken || '' }),
+          });
+        });
+      })
+      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); })
+      .then(function(res){
+        if (!res.ok || !res.body || !res.body.token){
+          throw new Error((res.body && res.body.error) || 'Camera join was refused.');
+        }
+        tokenOut = res.body.token;
+        // Low-res on purpose: audience texture, not broadcast quality.
+        // Keeps encode cost near-zero for the spectator and decode cost
+        // bounded for everyone rendering up to 4 audience tiles.
+        return navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 12, max: 15 }, facingMode: 'user' },
+        });
+      })
+      .then(function(ms){
+        audCam.stream = ms;
+        return mountAudCamFrame(tokenOut);
+      })
+      .then(function(){
+        audCam.active = true;
+        startAudCamGuard();
+        if (audCam.beatNow) audCam.beatNow();
+        paintAudCamPill();
+        toast('You are on camera as audience. Your mic stays off.');
+        try { gtag('event', 'aud_cam_on', { room: state.room }); } catch(e){}
+      })
+      .catch(function(e){
+        audCamCleanupMedia();
+        toast((e && e.message) || 'Could not join on camera.');
+      })
+      .then(function(){ audCam.joining = false; paintAudCamPill(); });
+  }
+
+  function mountAudCamFrame(token){
+    var shell = $('callShell') || $('jitsiPane');
+    if (!shell) return Promise.reject(new Error('No video pane'));
+    var old = shell.querySelector('iframe.daily-frame');
+    if (old) old.remove();
+    var frame = window.DailyIframe.createFrame(shell, {
+      showLeaveButton: false,
+      iframeStyle: { width:'100%', height:'100%', border:'0', background:'#000', position:'absolute', top:'0', left:'0' },
+    });
+    audCam.frame = frame;
+    window.__lrDailyWrapper = true; // pop-out must not adopt this iframe
+    frame.on('left-meeting', function(){ if (audCam.active) stopAudienceCam('left'); });
+    wireAudienceReceiveSettings(frame);
+    return frame.join({ url: state.dailyUrl, token: token, startAudioOff: true })
+      .then(function(){
+        var track = audCam.stream && audCam.stream.getVideoTracks()[0];
+        if (!track) throw new Error('Camera unavailable');
+        return frame.setInputDevicesAsync({ videoSource: track });
+      })
+      .then(function(){
+        frame.setLocalVideo(true);
+        try { frame.setLocalAudio(false); } catch(e){}
+      });
+  }
+
+  function audCamCleanupMedia(){
+    if (audCam.guard){ try { audCam.guard.stop(); } catch(e){} audCam.guard = null; }
+    if (audCam.guardVideo){ try { audCam.guardVideo.remove(); } catch(e){} audCam.guardVideo = null; }
+    if (audCam.stream){
+      try { audCam.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      audCam.stream = null;
+    }
+  }
+
+  function stopAudienceCam(reason){
+    var wasActive = audCam.active;
+    audCam.active = false;
+    audCamCleanupMedia();
+    if (audCam.frame){
+      var f = audCam.frame; audCam.frame = null;
+      try { f.leave(); } catch(e){}
+      try { f.destroy(); } catch(e){}
+      window.__lrDailyWrapper = false;
+      // Back to the plain audience iframe: same mount the spectator
+      // branch of mountDaily builds, cam/mic withheld at the browser.
+      var shell = $('callShell') || $('jitsiPane');
+      if (shell && state.dailyUrl){
+        var url = state.dailyUrl + (state.dailyUrl.indexOf('?') >= 0 ? '&' : '?') +
+          'startVideoOff=true&startAudioOff=true&videoSource=false&audioSource=false';
+        var iframe = document.createElement('iframe');
+        iframe.className = 'daily-frame';
+        iframe.src = url;
+        iframe.allow = 'autoplay; clipboard-write';
+        iframe.title = 'Live video room';
+        shell.appendChild(iframe);
+      }
+    }
+    if (audCam.beatNow) audCam.beatNow(); // next write drops camAt, freeing the slot
+    paintAudCamPill();
+    if (wasActive && reason === 'user') toast('Camera off. You are still watching.');
+    try { gtag('event', 'aud_cam_off', { reason: reason || '' }); } catch(e){}
+  }
+
+  // Same on-device NSFW watchdog debater cameras run. On a trip the
+  // feed is cut client-side, the strike is recorded server-side (score
+  // numbers only, never pixels), and the camera spectator is dropped
+  // back to plain watching.
+  function startAudCamGuard(){
+    if (!window.DebateGuard || !audCam.stream) return;
+    var v = document.createElement('video');
+    v.muted = true; v.playsInline = true;
+    v.srcObject = audCam.stream;
+    v.style.cssText = 'position:fixed;left:-12px;top:-12px;width:2px;height:2px;opacity:0;pointer-events:none';
+    document.body.appendChild(v);
+    v.play().catch(function(){});
+    audCam.guardVideo = v;
+    audCam.guard = window.DebateGuard.attach({
+      videoEl: function(){ return v; },
+      isActive: function(){ return audCam.active; },
+      room: state.room,
+      roundId: state.room,
+      sessionId: function(){
+        try {
+          var p = audCam.frame && audCam.frame.participants();
+          return (p && p.local && p.local.session_id) || '';
+        } catch(e){ return ''; }
+      },
+      onTrip: function(){
+        stopAudienceCam('guard');
+        showModerationCard(
+          'Removed by the safety system',
+          'The on-device detector flagged explicit content on your camera. The feed was cut before it reached the room, and this counts as a strike. Repeat strikes suspend video access.'
+        );
+        try { gtag('event', 'aud_cam_guard_trip'); } catch(e){}
+      },
+    });
   }
 
   function renderWatchCount(n, capped){
@@ -8106,11 +8455,24 @@ html.stage-mode .stage-ov{display:block}
       tog.title = 'Listed in Live rounds. Anyone can watch the live room.';
     }
     if (menu){
-      Array.prototype.forEach.call(menu.querySelectorAll('.privacy-option'), function(option){
+      Array.prototype.forEach.call(menu.querySelectorAll('.privacy-option[data-private]'), function(option){
         var isPrivateOption = option.getAttribute('data-private') === 'true';
         option.setAttribute('aria-checked', isPrivateOption === !!state.isPrivate ? 'true' : 'false');
       });
     }
+  }
+
+  function paintAudCamsToggle(){
+    var camsTog = document.getElementById('audCamsToggle');
+    if (!camsTog) return;
+    var on = state.allowAudienceCams !== false;
+    camsTog.setAttribute('aria-checked', on ? 'true' : 'false');
+    var st = document.getElementById('audCamsToggleState');
+    if (st) st.textContent = on ? 'On' : 'Off';
+    var copy = document.getElementById('audCamsToggleCopy');
+    if (copy) copy.textContent = on
+      ? 'Verified watchers can appear on camera, video only, mics never open. Tap to turn every audience camera off.'
+      : 'Audience cameras are off. Watchers can still see and hear the round. Tap to allow cameras again.';
   }
 
   // ── Incoming join requests (participant side) ─────────────────────
@@ -8722,6 +9084,11 @@ html.stage-mode .stage-ov{display:block}
       if (isSpectator()) enterAudienceMode();
     }
     if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
+    if (typeof d.allowAudienceCams === 'boolean' && d.allowAudienceCams !== state.allowAudienceCams){
+      state.allowAudienceCams = d.allowAudienceCams;
+      paintAudCamsToggle();
+      audCamOnPolicyChange();
+    }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; }
     if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }

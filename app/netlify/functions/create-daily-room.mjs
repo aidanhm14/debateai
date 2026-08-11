@@ -25,8 +25,11 @@
 //   DAILY_DOMAIN   — subdomain only ("debateai"), not full host
 //
 // Rooms expire 24h after creation so we don't accumulate stale state
-// in Daily's room list. max_participants is intentionally low (8) so
-// a stranger guessing the URL can't flood a private debate.
+// in Daily's room list. See the max_participants comment below for why
+// that ceiling is not a debater count: spectators share this room.
+// Note the create-or-fetch shape means an EXISTING room keeps the
+// properties it was made with, so a ceiling change reaches live rooms
+// as they expire (within 24h), not instantly.
 
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { verifyIdToken } from './lib/auth.mjs';
@@ -149,7 +152,15 @@ export default async (req) => {
   const expSec = Math.floor(Date.now() / 1000) + 24 * 3600;
   const properties = {
     exp: expSec,
-    max_participants: 8,
+    // Every spectator joins this room too (receive-only, cam + mic
+    // withheld at the iframe), so this ceiling was never "8 debaters" —
+    // it was 2 debaters plus SIX watchers, and the seventh person to
+    // open a live round got a full room. Audience cameras land in the
+    // same room, so the old number would have made four camera slots
+    // eat two thirds of the audience. 24 leaves real headroom; flooding
+    // is handled where it belongs (unlisted rounds, the admission gate,
+    // and /api/audience-cam's own cap of 4 concurrent cameras).
+    max_participants: 24,
     enable_prejoin_ui: false,       // skip the "set name + cam" prejoin
     enable_screenshare: true,
     enable_chat: true,
