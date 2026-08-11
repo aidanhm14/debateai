@@ -317,7 +317,6 @@
       { href: '/debate-shows', label: 'Debate shows' },
       // 2026-07-27: standalone lobby prototype. It gathers the public
       // network signals into one venue without replacing the landing.
-      { href: '/arena',       label: 'The Arena' },
       // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
       // page. It stays off the main bar because the primary product is
       // still debate practice; Explore is the right discovery surface.
@@ -417,7 +416,6 @@
     // Speech-bubble pair: the page is about watching people argue, and
     // about what the room thinks afterwards.
     '/debate-shows':   { desc: 'Surrounded, and who changed their mind', icon: '<path d="M4.2 6.4a1.8 1.8 0 0 1 1.8-1.8h7.6a1.8 1.8 0 0 1 1.8 1.8v4.4a1.8 1.8 0 0 1-1.8 1.8H8.6L5 15.6v-3H6a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M9.4 15.4h1.2l3.6 3v-3h1.8a1.8 1.8 0 0 0 1.8-1.8V9.2"/>' },
-    '/arena':          { desc: 'One lobby for everything live', icon: '<path d="M5.6 20.8V3.9M5.6 4.6c4.7-2.3 8 2 12.8-.2v9.4c-4.8 2.2-8.1-2.1-12.8.2"/>' },
     '/tournaments':    { desc: 'Brackets, tab, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
     '/partners':       { desc: 'Team up for two on two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
     '/tournament':     { desc: 'Register, draw, tab, bracket', icon: '<path d="M4.7 5.6h14.6M6.8 5.6v4.1a5.2 5.2 0 0 0 10.4 0V5.6M12 14.9v3.3M8.6 20.2h6.8"/>' },

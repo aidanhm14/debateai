@@ -54,7 +54,6 @@ const URLS = [
   // corpus is still sitemap-rounds.xml; this is the surface page.
   { path: '/rounds',          changefreq: 'weekly',  priority: '0.80', lastmod: '2026-07-22' },
   // Standalone live-lobby experience. Added 2026-07-27.
-  { path: '/arena',           changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-27' },
   // Watch hub: live stream band, published replays, clips. Added 2026-08-10.
   // /replays serves the same document, so it is deliberately NOT listed;
   // submitting both would be two URLs for one page against one canonical.
