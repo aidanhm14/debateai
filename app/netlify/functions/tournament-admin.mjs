@@ -212,7 +212,21 @@ export default async (request) => {
   // up) without anyone having seen it is the difference between a tab
   // and a spreadsheet.
   if (action === 'pair-round') {
-    const entries = await loadEntries(db, tid);
+    const all = await loadEntries(db, tid);
+    // Check-in gates the draw. The page tells every registrant "check
+    // in or you will be left out of the draw," and until 2026-08-10
+    // the engine quietly paired 'registered' entries anyway, which is
+    // how a director ends up debating empty rooms. When at least two
+    // entries have checked in, only checked-in entries are paired;
+    // a tournament whose director skipped check-in entirely (zero
+    // checked in) still pairs everyone, so the old workflow keeps
+    // working. Pass includeUnchecked to override for one draw.
+    const checkedIn = all.filter((e) => String(e.status || '') === 'checked_in');
+    const gateOnCheckIn = checkedIn.length >= 2 && !body?.includeUnchecked;
+    const entries = gateOnCheckIn ? checkedIn : all;
+    const leftOut = gateOnCheckIn
+      ? all.filter((e) => String(e.status || 'registered') === 'registered').length
+      : 0;
     const roundNo = Number(body?.roundNo) || (Number(t.data.currentRound) || 0) + 1;
     if (roundNo > Number(t.data.prelimRounds || 4)) {
       return errorResponse('That is past the last prelim round. Break to elims instead.', 400, request);
@@ -245,12 +259,15 @@ export default async (request) => {
       pullUps: draw.pullUps || 0,
       rematches: draw.rematches || 0,
       searchExhausted: !!draw.searchExhausted,
+      checkedInOnly: gateOnCheckIn,
+      leftOut,
       pairedAt: FieldValue.serverTimestamp(),
     });
     return jsonResponse({
       ok: true,
       round: { roundNo, key, pairings, bye: draw.bye || null,
-        pullUps: draw.pullUps, rematches: draw.rematches },
+        pullUps: draw.pullUps, rematches: draw.rematches,
+        checkedInOnly: gateOnCheckIn, leftOut },
     }, 200, request);
   }
 

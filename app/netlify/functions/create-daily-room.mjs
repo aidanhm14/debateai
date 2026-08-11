@@ -30,6 +30,7 @@
 
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { verifyIdToken } from './lib/auth.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 
@@ -94,6 +95,16 @@ export default async (req) => {
     });
   }
 
+  // Organizer kill switch. Blocks NEW room creation only; rooms that
+  // already exist keep running (rejoin fetches an existing room, which
+  // still routes through here, so the pause message names the fix).
+  if (process.env.DAILY_ROOMS_DISABLED === '1') {
+    return jsonResponse(503, {
+      paused: true,
+      error: 'Live video rooms are paused by the organizer. Check the event page for the schedule.',
+    });
+  }
+
   let body;
   try { body = await req.json(); } catch { return jsonResponse(400, { error: 'Invalid JSON' }); }
   const name = safeRoomName(body && body.name);
@@ -101,6 +112,29 @@ export default async (req) => {
 
   // Video-ban gate. uid ban and IP ban both block.
   const who = await identify(req);
+
+  // Cost guards. Every participant calls this on join and rejoin
+  // (idempotent re-create), so per-caller layers are generous: they
+  // stop a loop, not a venue. Signed-in callers meter per uid so a
+  // NAT'd school building never shares one counter (the 2026-07-28
+  // realtime-session lesson). The global layer is a runaway backstop
+  // for the whole site, sized above any real tournament burst and
+  // overridable without a redeploy via DAILY_ROOM_HOURLY_CAP.
+  const perCaller = await checkLayers('droom', who.uid ? ('uid_' + who.uid) : who.ipKey, [
+    { window: 60_000, max: 12, label: 'min' },
+    { window: 3_600_000, max: 90, label: 'hour' },
+  ]);
+  if (!perCaller.ok) {
+    return jsonResponse(429, { error: 'Too many room requests. Wait a minute and rejoin.' });
+  }
+  const globalCap = Math.max(50, parseInt(process.env.DAILY_ROOM_HOURLY_CAP, 10) || 1200);
+  const globalLayer = await checkLayers('droom', 'global', [
+    { window: 3_600_000, max: globalCap, label: 'site_hour' },
+  ]);
+  if (!globalLayer.ok) {
+    console.error('[create-daily-room] site-wide hourly room cap hit (' + globalCap + ')');
+    return jsonResponse(503, { error: 'Video rooms are at capacity right now. Try again in a few minutes.' });
+  }
   const ban = await banFor(who.uid ? [who.key, who.ipKey] : [who.ipKey]);
   if (ban) {
     return jsonResponse(403, {

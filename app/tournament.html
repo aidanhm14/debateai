@@ -846,6 +846,65 @@
     }
     host.appendChild(bar);
 
+    // At-a-glance health: who actually turned up, what is outstanding.
+    var activeEntries = (state.data.entries || []).filter(function(e){
+      return e.status === 'registered' || e.status === 'checked_in';
+    });
+    var ciCount = activeEntries.filter(function(e){ return e.status === 'checked_in'; }).length;
+    var rNow = currentRound();
+    var doneCount = rNow ? (rNow.pairings || []).filter(function(p){ return p.status === 'complete'; }).length : 0;
+    var totalPairs = rNow ? (rNow.pairings || []).length : 0;
+    var hl = document.createElement('p');
+    hl.className = 'note';
+    hl.textContent = ciCount + ' of ' + activeEntries.length + ' active entries checked in.'
+      + (totalPairs ? (' Results in: ' + doneCount + ' of ' + totalPairs + '.') : '')
+      + ' Once two or more entries have checked in, new draws pair checked-in entries only.';
+    host.appendChild(hl);
+
+    // Entry admin. The server has always supported these moves
+    // (set-entry-status); this is the first UI for them. A director
+    // needs to drop a no-show, re-add a late team, or check someone in
+    // over the phone without the team touching anything.
+    if ((state.data.entries || []).length){
+      var eh = document.createElement('div');
+      eh.style.cssText = 'margin-top:20px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
+      eh.textContent = 'Entries';
+      host.appendChild(eh);
+      (state.data.entries || []).forEach(function(e){
+        var row = document.createElement('div');
+        row.className = 'pairing';
+        var pillClass = e.status === 'checked_in' ? 'pill-live'
+          : (e.status === 'registered' ? 'pill-soon' : 'pill-done');
+        row.innerHTML =
+          '<div class="side">' + esc(e.name) + '</div>' +
+          '<span class="pill ' + pillClass + '">' + esc(e.status || 'registered') + '</span>' +
+          '<div class="sp"></div>';
+        var sp = row.querySelector('.sp');
+        function entryBtn(label, next, danger){
+          var b = document.createElement('button');
+          b.className = 'btn btn-sm';
+          b.textContent = label;
+          b.addEventListener('click', function(){
+            var go = danger
+              ? confirmAction({ title: label + ' ' + e.name + '?',
+                  body: 'This changes their status to "' + next + '" and takes effect on the next draw.',
+                  confirmLabel: label, danger: true })
+              : Promise.resolve(true);
+            go.then(function(yes){
+              if (!yes) return;
+              busy(b, true, 'Saving');
+              adminCall({ action: 'set-entry-status', tid: t.tid, entryId: e.entryId, status: next }, b);
+            });
+          });
+          sp.appendChild(b);
+        }
+        if (e.status === 'registered'){ entryBtn('Check in', 'checked_in'); entryBtn('Drop', 'dropped', true); }
+        else if (e.status === 'checked_in'){ entryBtn('Undo check-in', 'registered'); entryBtn('Drop', 'dropped', true); }
+        else { entryBtn('Restore', 'registered'); }
+        host.appendChild(row);
+      });
+    }
+
     // An unreleased draw: the motion and the release live together,
     // because releasing is the moment the motion becomes public.
     if (releaseForm){
@@ -878,7 +937,7 @@
     // even filling in. Inline inputs instead: type the points if you
     // are recording them, press the winner, done in one click.
     var r = currentRound();
-    if (r && (r.pairings || []).some(function(p){ return p.status !== 'complete'; })){
+    if (r && (r.pairings || []).length){
       var h = document.createElement('div');
       h.style.cssText = 'margin-top:20px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
       h.textContent = 'Results · ' + r.label;
@@ -888,8 +947,47 @@
       hint.textContent = 'Press whoever won. Speaker points are optional, and the tab falls back to ballots alone if you leave them blank.';
       host.appendChild(hint);
 
+      // One row per pairing. An open pairing renders the entry form;
+      // a completed one renders the recorded result plus a Correct
+      // button that reopens the same form with amend set, which makes
+      // the server reverse the old result before applying the new one.
+      function resultForm(row, p, amend){
+        var form = document.createElement('div');
+        form.className = 'result-entry';
+        form.innerHTML =
+          '<label class="spk"><span>' + esc(p.govName) + '</span>' +
+            '<input class="in in-spk" type="number" step="0.5" inputmode="decimal" placeholder="pts" data-gov></label>' +
+          '<label class="spk"><span>' + esc(p.oppName) + '</span>' +
+            '<input class="in in-spk" type="number" step="0.5" inputmode="decimal" placeholder="pts" data-opp></label>' +
+          '<button class="btn btn-sm" data-win="gov">' + esc(p.govName) + ' won</button>' +
+          '<button class="btn btn-sm" data-win="opp">' + esc(p.oppName) + ' won</button>';
+        Array.prototype.forEach.call(form.querySelectorAll('[data-win]'), function(b){
+          b.addEventListener('click', function(){
+            var gs = parseFloat(form.querySelector('[data-gov]').value) || 0;
+            var os = parseFloat(form.querySelector('[data-opp]').value) || 0;
+            var win = b.getAttribute('data-win');
+            var go = amend
+              ? confirmAction({
+                  title: 'Correct this result?',
+                  body: 'The recorded result is reversed and ' +
+                    (win === 'gov' ? p.govName : p.oppName) + ' is credited with the win instead. The tab updates immediately.',
+                  confirmLabel: 'Correct it', danger: true })
+              : Promise.resolve(true);
+            go.then(function(yes){
+              if (!yes) return;
+              busy(b, true, 'Saving');
+              adminCall({
+                action: 'report-result', tid: t.tid, roundNo: r.roundNo, kind: r.kind,
+                pairingId: p.pairingId, winner: win,
+                govSpeaks: gs, oppSpeaks: os, amend: !!amend,
+              }, b);
+            });
+          });
+        });
+        row.appendChild(form);
+      }
+
       (r.pairings || []).forEach(function(p){
-        if (p.status === 'complete') return;
         var row = document.createElement('div');
         row.className = 'result-row';
         row.innerHTML =
@@ -897,28 +995,24 @@
             '<span class="side">' + esc(p.govName) + '</span>' +
             '<span class="vs">vs</span>' +
             '<span class="side">' + esc(p.oppName) + '</span>' +
-          '</div>' +
-          '<div class="result-entry">' +
-            '<label class="spk"><span>' + esc(p.govName) + '</span>' +
-              '<input class="in in-spk" type="number" step="0.5" inputmode="decimal" placeholder="pts" data-gov></label>' +
-            '<label class="spk"><span>' + esc(p.oppName) + '</span>' +
-              '<input class="in in-spk" type="number" step="0.5" inputmode="decimal" placeholder="pts" data-opp></label>' +
-            '<button class="btn btn-sm" data-win="gov">' + esc(p.govName) + ' won</button>' +
-            '<button class="btn btn-sm" data-win="opp">' + esc(p.oppName) + ' won</button>' +
           '</div>';
-
-        Array.prototype.forEach.call(row.querySelectorAll('[data-win]'), function(b){
-          b.addEventListener('click', function(){
-            var gs = parseFloat(row.querySelector('[data-gov]').value) || 0;
-            var os = parseFloat(row.querySelector('[data-opp]').value) || 0;
-            busy(b, true, 'Saving');
-            adminCall({
-              action: 'report-result', tid: t.tid, roundNo: r.roundNo, kind: r.kind,
-              pairingId: p.pairingId, winner: b.getAttribute('data-win'),
-              govSpeaks: gs, oppSpeaks: os,
-            }, b);
+        if (p.status === 'complete'){
+          var done = document.createElement('div');
+          done.className = 'result-entry';
+          done.innerHTML = '<span class="pill pill-done">' +
+            esc(p.winner === 'gov' ? p.govName : p.oppName) + ' won</span>';
+          var fix = document.createElement('button');
+          fix.className = 'btn btn-sm';
+          fix.textContent = 'Correct';
+          fix.addEventListener('click', function(){
+            fix.remove();
+            resultForm(row, p, true);
           });
-        });
+          done.appendChild(fix);
+          row.appendChild(done);
+        } else {
+          resultForm(row, p, false);
+        }
         host.appendChild(row);
       });
 
@@ -944,9 +1038,11 @@
   function adminCall(body, btn){
     return api('/api/tournament-admin', body)
       .then(function(j){
-        good(j.rematches
-          ? ('Drawn, but with ' + j.rematches + ' rematch(es). The field is short on fresh opponents.')
-          : 'Done.');
+        var round = j.round || {};
+        var bits = [];
+        if (round.rematches) bits.push(round.rematches + ' rematch(es); the field is short on fresh opponents');
+        if (round.leftOut) bits.push(round.leftOut + ' registered entr' + (round.leftOut === 1 ? 'y' : 'ies') + ' left out for not checking in');
+        good(bits.length ? ('Drawn, with ' + bits.join(' and ') + '.') : 'Done.');
         return load();
       })
       .catch(function(e){ fail(e.message); })
