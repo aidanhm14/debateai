@@ -108,12 +108,12 @@ const PAGE_CSS = `
   .speech[data-who=ai]{border-color:rgba(239,68,68,.18);background:rgba(239,68,68,.03)}
   .speech[data-who=user]{border-color:rgba(34,197,94,.18);background:rgba(34,197,94,.03)}
   .speech-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;flex-wrap:wrap;gap:8px}
-  .speech-num{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.4)}
+  .speech-num{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.68)}
   .speech-who{font-size:.78rem;font-weight:700;letter-spacing:.04em}
   .speech-body p{margin:0 0 10px;font-size:.94rem;line-height:1.65;color:rgba(255,255,255,.88)}
   .speech-body p:last-child{margin-bottom:0}
-  .speech-body p.no-transcript{color:rgba(255,255,255,.45);font-size:.85rem}
-  .waived-note{font-size:.8rem;color:rgba(255,255,255,.45);margin:-24px 0 40px;text-align:center}
+  .speech-body p.no-transcript{color:rgba(255,255,255,.68);font-size:.85rem}
+  .waived-note{font-size:.8rem;color:rgba(255,255,255,.68);margin:-24px 0 40px;text-align:center}
   .vote-strip{padding:12px 18px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);font-size:.85rem;color:rgba(255,255,255,.7);text-align:center;margin-bottom:32px}
   .vote-strip strong{color:#fff}
   .vote-strip a{color:#ef4444;font-weight:700}
@@ -146,7 +146,7 @@ const PAGE_CSS = `
   .clash-tag[data-l="rebutted"]{color:#86efac}
   .clash-tag[data-l="self-contradiction"]{color:#c4b5fd}
   .clash-q{margin:4px 0;padding-left:12px;border-left:2px solid rgba(255,255,255,.15);font-size:.82rem;line-height:1.6;color:rgba(255,255,255,.62)}
-  .clash-q b{display:block;font-size:.64rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);margin-bottom:2px}
+  .clash-q b{display:block;font-size:.64rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.68);margin-bottom:2px}
   .clash-note{font-size:.8rem;color:rgba(255,255,255,.55);margin-top:6px}
   .cta-card{padding:24px;border-radius:16px;border:1px solid rgba(239,68,68,.32);background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(245,158,11,.04));text-align:center;margin-bottom:32px}
   .cta-card h3{font-size:1.2rem;font-weight:900;letter-spacing:-.01em;margin-bottom:8px}
@@ -156,7 +156,7 @@ const PAGE_CSS = `
   .cta-button:hover{transform:translateY(-1px);box-shadow:0 14px 34px -8px rgba(239,68,68,.7)}
   .cta-button--ghost{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);box-shadow:none}
   .cta-button--ghost:hover{box-shadow:none;background:rgba(255,255,255,.1)}
-  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.68)}
   footer a:hover{color:#fff}
 `;
 

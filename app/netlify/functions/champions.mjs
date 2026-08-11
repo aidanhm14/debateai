@@ -223,7 +223,7 @@ function renderPage(champions) {
   .champ-meta{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fbbf24;margin-bottom:10px}
   .champ-headline{font-family:'Playfair Display',serif;font-weight:700;font-style:italic;font-size:1.32rem;line-height:1.25;margin-bottom:12px}
   .champ-winner{color:#fff;font-weight:900;font-style:normal}
-  .champ-vs{color:rgba(255,255,255,.42);font-style:normal;font-weight:400;font-size:.92rem;font-family:'Inter',sans-serif}
+  .champ-vs{color:rgba(255,255,255,.68);font-style:normal;font-weight:400;font-size:.92rem;font-family:'Inter',sans-serif}
   .champ-runner{color:rgba(255,255,255,.72);font-style:normal;font-weight:500}
   .champ-motion{font-size:.92rem;color:rgba(255,255,255,.85);line-height:1.55;margin-bottom:12px}
   .champ-rfd{font-size:.82rem;color:rgba(255,255,255,.65);line-height:1.55;padding:10px 12px;border-radius:8px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.06)}
@@ -240,7 +240,7 @@ function renderPage(champions) {
   .how-text{font-size:.85rem;line-height:1.55;color:rgba(255,255,255,.82)}
   .how-text strong{color:#fff;font-weight:700}
 
-  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.68)}
   footer a:hover{color:#fff}
 
   /* Honest-status watermark. Pre-Final-#1 the page reads as a stub

@@ -88,7 +88,7 @@ ${jsonLdBlocks.map(b => `<script type="application/ld+json">${jsonLd(b)}</script
   body{background:#000;color:#fff;font-family:'Inter',system-ui,-apple-system,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
   .shell{max-width:880px;margin:0 auto;padding:90px 24px 80px}
-  .crumbs{font-size:.66rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:14px}
+  .crumbs{font-size:.66rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.68);margin-bottom:14px}
   .crumbs a{color:rgba(255,255,255,.6);transition:.15s}
   .crumbs a:hover{color:#a78bfa}
   .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#a78bfa;padding:5px 14px;border-radius:999px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.32);margin-bottom:14px}
@@ -169,7 +169,7 @@ ${jsonLdBlocks.map(b => `<script type="application/ld+json">${jsonLd(b)}</script
   .qscore-best{font-size:.78rem;color:rgba(255,255,255,.55);margin-bottom:14px}
   .qreset{appearance:none;cursor:pointer;padding:10px 20px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);color:#fff;font:inherit;font-size:.82rem;font-weight:700;letter-spacing:.02em;transition:.15s}
   .qreset:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.32)}
-  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.68)}
   footer a:hover{color:#fff}
 </style>
 </head>

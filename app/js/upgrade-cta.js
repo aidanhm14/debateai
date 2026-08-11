@@ -94,7 +94,7 @@
     root.innerHTML = '';
     const card = document.createElement('div');
     card.style.cssText = [
-      'background:linear-gradient(135deg,#ef4444,#dc2626)',
+      'background:linear-gradient(135deg,#dc2626,#b91c1c)',
       'color:#fff',
       'padding:12px 18px 12px 16px',
       'border-radius:14px',

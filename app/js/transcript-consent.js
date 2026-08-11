@@ -151,7 +151,7 @@
       '#tcRow{display:flex;gap:9px;flex-wrap:wrap}' +
       '#tcRoot button{flex:1;min-width:132px;padding:11px 16px;border-radius:10px;cursor:pointer;' +
         'font:inherit;font-size:.85rem;font-weight:700;letter-spacing:.01em;border:1px solid transparent}' +
-      '#tcYes{background:#ef4444;color:#fff}' +
+      '#tcYes{background:#b91c1c;color:#fff}' +
       '#tcYes:hover{background:#dc2626}' +
       '#tcNo{background:transparent;color:inherit;border-color:rgba(255,255,255,.22)}' +
       ':root[data-theme="light"] #tcNo{border-color:rgba(0,0,0,.2)}' +

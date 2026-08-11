@@ -918,16 +918,16 @@
       '.dac-head{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;padding:21px 22px 15px}' +
       '.dac-kicker{font:700 11px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:#dd2e2e}' +
       '.dac-title{margin:5px 0 4px;font-size:clamp(22px,4vw,31px);letter-spacing:-.035em;line-height:1.05}' +
-      '.dac-sub{margin:0;color:rgba(240,237,230,.58);font-size:13px;line-height:1.45}' +
+      '.dac-sub{margin:0;color:rgba(240,237,230,.68);font-size:13px;line-height:1.45}' +
       '.dac-close{flex:0 0 auto;width:36px;height:36px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:rgba(255,255,255,.04);color:#f0ede6;font-size:22px;cursor:pointer}' +
       '.dac-body{display:grid;grid-template-columns:minmax(260px,.9fr) minmax(300px,1.1fr);gap:20px;padding:0 22px 22px}' +
       '.dac-preview-wrap{position:sticky;top:0;align-self:start}' +
       '.dac-preview{display:block;width:100%;height:auto;border-radius:16px;background:#060607;border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 38px rgba(0,0,0,.45)}' +
-      '.dac-private{display:flex;gap:8px;margin:10px 3px 0;color:rgba(240,237,230,.56);font-size:11px;line-height:1.45}' +
+      '.dac-private{display:flex;gap:8px;margin:10px 3px 0;color:rgba(240,237,230,.68);font-size:11px;line-height:1.45}' +
       '.dac-private b{color:#67d7c8}' +
       '.dac-controls{min-width:0}' +
       '.dac-group{margin:0 0 16px}' +
-      '.dac-label{display:block;margin:0 0 8px;color:rgba(240,237,230,.52);font:700 10px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase}' +
+      '.dac-label{display:block;margin:0 0 8px;color:rgba(240,237,230,.68);font:700 10px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase}' +
       '.dac-look-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}' +
       '.dac-look-name{width:100%;height:38px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.04);color:#f0ede6;padding:0 11px;font:650 12px/1 Crimson Pro,Georgia,serif;outline:none}' +
       '.dac-look-name:focus{border-color:var(--dac-accent,#dd2e2e);box-shadow:0 0 0 2px color-mix(in srgb,var(--dac-accent,#dd2e2e) 18%,transparent)}' +

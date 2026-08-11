@@ -353,7 +353,8 @@
       '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
       '.da-spar-pill:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
       '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--text-ghost,#888);transition:background .2s}' +
-      '.da-spar-pill.is-on{color:#22c55e;border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
+      '.da-spar-pill.is-on{color:var(--success-text,#4ade80);border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
+      '[data-theme="light"] .da-spar-pill.is-on,[data-lighting="light"] .da-spar-pill.is-on,body.light-theme .da-spar-pill.is-on{color:#15803d;border-color:rgba(21,128,61,.5);background:rgba(21,128,61,.08)}' +
       '.da-spar-pill.is-on .da-spar-pill__dot{background:#22c55e;animation:daSparPulse 1.7s ease-out infinite}' +
       '@media(max-width:560px){.ui-topbar .da-spar-pill{display:none!important}}' +
       '@keyframes daSparPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +

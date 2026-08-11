@@ -275,7 +275,7 @@
       '.micro-poll.is-in{transform:translateY(0);opacity:1}' +
       '.micro-poll .mp-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:11px}' +
       '.micro-poll .mp-q{flex:1;color:#fff;font-weight:600;font-size:.9rem;line-height:1.32}' +
-      '.micro-poll .mp-close{border:none;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-size:1.15rem;' +
+      '.micro-poll .mp-close{border:none;background:transparent;color:rgba(255,255,255,.68);cursor:pointer;font-size:1.15rem;' +
         'line-height:1;padding:0 2px;margin:-2px -2px 0 0;font-family:inherit}' +
       '.micro-poll .mp-close:hover{color:#fff}' +
       '.micro-poll .mp-opts{display:flex;flex-direction:column;gap:7px}' +
@@ -291,28 +291,28 @@
         'border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:#fff;font-family:inherit;font-size:.82rem;' +
         'padding:8px 10px;line-height:1.35}' +
       '.micro-poll .mp-more textarea:focus{outline:none;border-color:rgba(239,68,68,.6)}' +
-      '.micro-poll .mp-more textarea::placeholder{color:rgba(255,255,255,.4)}' +
-      '.micro-poll .mp-send{margin-top:8px;width:100%;border:none;border-radius:999px;background:#ef4444;color:#fff;' +
+      '.micro-poll .mp-more textarea::placeholder{color:rgba(255,255,255,.68)}' +
+      '.micro-poll .mp-send{margin-top:8px;width:100%;border:none;border-radius:999px;background:#b91c1c;color:#fff;' +
         'font-family:inherit;font-weight:700;font-size:.8rem;padding:9px 12px;cursor:pointer}' +
       '.micro-poll .mp-send:hover{background:#dc2626}' +
       '.micro-poll .mp-thanks{color:rgba(255,255,255,.85);font-size:.85rem;padding:2px 0 1px}' +
       '.micro-poll .mp-eyebrow{font-size:.58rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;' +
-        'color:rgba(255,255,255,.42);margin-bottom:6px}' +
+        'color:rgba(255,255,255,.68);margin-bottom:6px}' +
       // Light / stone themes: flip to the paper card treatment.
       '[data-theme="light"] .micro-poll,[data-theme="stone"] .micro-poll{background:#fff;color:#1a1a1f;' +
         'border-color:rgba(0,0,0,.1);box-shadow:0 16px 40px rgba(0,0,0,.12)}' +
       '[data-theme="light"] .micro-poll .mp-q,[data-theme="stone"] .micro-poll .mp-q{color:#1a1a1f}' +
-      '[data-theme="light"] .micro-poll .mp-eyebrow,[data-theme="stone"] .micro-poll .mp-eyebrow{color:rgba(0,0,0,.4)}' +
-      '[data-theme="light"] .micro-poll .mp-close,[data-theme="stone"] .micro-poll .mp-close{color:rgba(0,0,0,.42)}' +
+      '[data-theme="light"] .micro-poll .mp-eyebrow,[data-theme="stone"] .micro-poll .mp-eyebrow{color:rgba(0,0,0,.64)}' +
+      '[data-theme="light"] .micro-poll .mp-close,[data-theme="stone"] .micro-poll .mp-close{color:rgba(0,0,0,.64)}' +
       '[data-theme="light"] .micro-poll .mp-close:hover,[data-theme="stone"] .micro-poll .mp-close:hover{color:#1a1a1f}' +
       '[data-theme="light"] .micro-poll .mp-opt,[data-theme="stone"] .micro-poll .mp-opt{border-color:rgba(0,0,0,.14);' +
         'background:#faf9f5;color:#1a1a1f}' +
       '[data-theme="light"] .micro-poll .mp-opt:hover,[data-theme="stone"] .micro-poll .mp-opt:hover{' +
         'border-color:rgba(220,38,38,.5);background:#fff3f2}' +
-      '[data-theme="light"] .micro-poll .mp-other,[data-theme="stone"] .micro-poll .mp-other{color:rgba(0,0,0,.6)}' +
+      '[data-theme="light"] .micro-poll .mp-other,[data-theme="stone"] .micro-poll .mp-other{color:rgba(0,0,0,.64)}' +
       '[data-theme="light"] .micro-poll .mp-more textarea,[data-theme="stone"] .micro-poll .mp-more textarea{' +
         'border-color:rgba(0,0,0,.16);background:#faf9f5;color:#1a1a1f}' +
-      '[data-theme="light"] .micro-poll .mp-more textarea::placeholder,[data-theme="stone"] .micro-poll .mp-more textarea::placeholder{color:rgba(0,0,0,.38)}' +
+      '[data-theme="light"] .micro-poll .mp-more textarea::placeholder,[data-theme="stone"] .micro-poll .mp-more textarea::placeholder{color:rgba(0,0,0,.64)}' +
       '[data-theme="light"] .micro-poll .mp-thanks,[data-theme="stone"] .micro-poll .mp-thanks{color:rgba(0,0,0,.7)}' +
       '@media (max-width:520px){.micro-poll{left:8px;right:8px;bottom:8px;width:auto;max-width:none}}' +
       '@media (prefers-reduced-motion:reduce){.micro-poll{transition:opacity .2s ease}}';

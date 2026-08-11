@@ -300,7 +300,7 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   .archive-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
   .archive-link{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);transition:.15s}
   .archive-link:hover{border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.04)}
-  .archive-date{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
+  .archive-date{font-size:.62rem;color:rgba(255,255,255,.68);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
   .archive-motion{font-size:.82rem;color:rgba(255,255,255,.85);line-height:1.4}
   .recent-rounds{margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}
   .recent-rounds h3{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:14px}
@@ -350,7 +350,7 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   .streak-pill.done{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.30);color:rgba(187,247,208,.95)}
   .streak-share{padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.85);font-size:.72rem;font-weight:600;cursor:pointer;letter-spacing:.04em;transition:.15s;font-family:inherit}
   .streak-share:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.32)}
-  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.68)}
   footer a:hover{color:#fff}
 </style>
 </head>

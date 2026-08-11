@@ -1504,12 +1504,12 @@
     var row = 'display:block;width:100%;text-align:left;padding:11px 14px;margin:8px 0 0;border:1px solid rgba(29,25,21,.15);border-radius:10px;background:#fff;color:#1d1915;font:inherit;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;box-sizing:border-box';
     card.innerHTML =
       '<div style="font-weight:800;font-size:17px">Send an email</div>' +
-      '<div style="font-size:13.5px;color:rgba(29,25,21,.6);margin-top:2px;word-break:break-all">' + info.to.replace(/</g, '&lt;') + '</div>' +
+      '<div style="font-size:13.5px;color:rgba(29,25,21,.64);margin-top:2px;word-break:break-all">' + info.to.replace(/</g, '&lt;') + '</div>' +
       '<a data-x="gmail" style="' + row + '" href="' + gmail + '" target="_blank" rel="noopener">Open in Gmail</a>' +
       '<a data-x="outlook" style="' + row + '" href="' + outlook + '" target="_blank" rel="noopener">Open in Outlook</a>' +
       '<a data-x="mailapp" style="' + row + '" href="' + rawHref + '">Use my mail app</a>' +
       '<button data-x="copy" style="' + row + ';border-style:dashed;font-weight:600">Copy address</button>' +
-      '<button data-x="close" style="display:block;margin:10px auto 0;border:0;background:none;color:rgba(29,25,21,.55);font:inherit;font-size:13px;cursor:pointer">Cancel</button>';
+      '<button data-x="close" style="display:block;margin:10px auto 0;border:0;background:none;color:rgba(29,25,21,.64);font:inherit;font-size:13px;cursor:pointer">Cancel</button>';
     scrim.appendChild(card);
     document.body.appendChild(scrim);
     function close(){ scrim.remove(); document.removeEventListener('keydown', onKey); }

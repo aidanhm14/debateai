@@ -84,13 +84,13 @@ function commonStyles() {
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
   :root{
-    --bg:#fbfaf7; --ink:#1b1b21; --dim:#5f5f6a; --ghost:#8c8c97;
+    --bg:#fbfaf7; --ink:#1b1b21; --dim:#5f5f6a; --ghost:#5f5f6a;
     --pro:#15803d; --pro-soft:rgba(21,128,61,.09); --pro-line:rgba(21,128,61,.38);
-    --con:#dc2626; --con-soft:rgba(220,38,38,.07); --con-line:rgba(220,38,38,.34);
+    --con:#b91c1c; --con-soft:rgba(220,38,38,.07); --con-line:rgba(220,38,38,.34);
     --gold:#b45309;
     --card:#ffffff; --card-2:#ffffff;
     --line:rgba(20,20,30,.10); --line-2:rgba(20,20,30,.17);
-    --red:#dc2626;
+    --red:#b91c1c;
     --serif:'Fraunces',Georgia,'Times New Roman',serif;
     --sans:Crimson Pro,Georgia,serif;
   }
@@ -123,7 +123,7 @@ function commonStyles() {
   .topnav a:hover{color:var(--ink);border-color:var(--line-2);background:rgba(20,20,30,.04);text-decoration:none;transform:translateY(-1px)}
   .topnav a .ar{color:var(--ghost);font-size:14px;transition:color .14s}
   .topnav a:hover .ar{color:var(--ink)}
-  .topnav a.nav-cta{color:#fff;border-color:transparent;background:linear-gradient(180deg,#ef4444,#dc2626);box-shadow:0 8px 20px -10px rgba(220,38,38,.6)}
+  .topnav a.nav-cta{color:#fff;border-color:transparent;background:linear-gradient(180deg,#dc2626,#b91c1c);box-shadow:0 8px 20px -10px rgba(220,38,38,.6)}
   .topnav a.nav-cta .ar{color:rgba(255,255,255,.8)}
   .topnav a.nav-cta:hover{background:linear-gradient(180deg,#dc2626,#b91c1c)}
   .topnav a.nav-cta:hover .ar{color:#fff}

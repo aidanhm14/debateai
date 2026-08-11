@@ -95,7 +95,7 @@
       '#ditAuth .da-btn--google{background:#fff;color:#16130f;border-color:rgba(0,0,0,.14)}' +
       '#ditAuth .da-btn--apple{background:#050505;color:#fff;border-color:#050505}' +
       '#ditAuth .da-btn--apple:hover{background:#1b1b1b;border-color:#1b1b1b}' +
-      '#ditAuth .da-btn--primary{background:#ef4444;color:#fff;border-color:#ef4444}' +
+      '#ditAuth .da-btn--primary{background:#b91c1c;color:#fff;border-color:#ef4444}' +
       '#ditAuth .da-btn--primary:hover{background:#dc2626;border-color:#dc2626}' +
       '#ditAuth .da-btn--hero{min-height:54px;padding:14px 16px;font-size:17px;font-weight:800;box-shadow:0 10px 28px rgba(0,0,0,.08)}' +
       '#ditAuth .da-or{display:flex;align-items:center;gap:10px;margin:14px 0 6px;color:' + sub + ';font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}' +

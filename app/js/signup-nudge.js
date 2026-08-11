@@ -179,19 +179,19 @@
       '.signup-nudge .su-cta{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:none;border-radius:999px;cursor:pointer;background:#fff;color:#1a1a1f;font-family:inherit;font-size:.76rem;font-weight:700;letter-spacing:.01em;white-space:nowrap}' +
       '.signup-nudge .su-g{width:15px;height:15px;flex:none}' +
       '.signup-nudge .su-cta:hover{background:#f3f3f0}' +
-      '.signup-nudge .su-close{border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit}' +
+      '.signup-nudge .su-close{border:none;background:transparent;color:rgba(255,255,255,.68);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit}' +
       '.signup-nudge .su-close:hover{color:#fff}' +
-      '.signup-nudge .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Crimson Pro,Georgia,serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.65);cursor:pointer}' +
+      '.signup-nudge .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Crimson Pro,Georgia,serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.68);cursor:pointer}' +
       '.signup-nudge .su-optin input{width:15px;height:15px;margin:1px 0 0;accent-color:#dc2626;flex:none}' +
       '.signup-nudge--prominent{width:min(390px,calc(100vw - 36px));flex-wrap:wrap;padding:18px;border-radius:18px}' +
       '.signup-nudge--prominent .su-line{flex:1 1 100%;font-size:.9rem;line-height:1.45}' +
       '[data-theme="light"] .signup-nudge{background:#fff;color:#1a1a1f;border-color:rgba(220,38,38,.32);box-shadow:0 14px 36px rgba(0,0,0,.10)}' +
       '[data-theme="light"] .signup-nudge .su-line{color:rgba(0,0,0,.7)}' +
       '[data-theme="light"] .signup-nudge .su-line strong{color:#1a1a1f}' +
-      '[data-theme="light"] .signup-nudge .su-optin{color:rgba(0,0,0,.62)}' +
+      '[data-theme="light"] .signup-nudge .su-optin{color:rgba(0,0,0,.64)}' +
       '[data-theme="light"] .signup-nudge .su-cta{background:#dc2626;color:#fff}' +
       '[data-theme="light"] .signup-nudge .su-cta:hover{background:#b91c1c}' +
-      '[data-theme="light"] .signup-nudge .su-close{color:rgba(0,0,0,.45)}' +
+      '[data-theme="light"] .signup-nudge .su-close{color:rgba(0,0,0,.64)}' +
       '[data-theme="light"] .signup-nudge .su-close:hover{color:#1a1a1f}' +
       // A sign-in modal owns the screen while open; never stack the nudge
       // under it (the mobile overwhelm was modal + nudge + go-live card).

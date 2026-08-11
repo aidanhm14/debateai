@@ -69,7 +69,7 @@ function shell({ title, desc, canonical, jsonLd, body }) {
 ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ''}
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--paper:#faf9f4;--card:#fff;--ink:#1d1915;--dim:rgba(29,25,21,.72);--ghost:rgba(29,25,21,.5);--line:rgba(29,25,21,.12);--red:#c0392b;--red-soft:rgba(192,57,43,.08)}
+:root{--paper:#faf9f4;--card:#fff;--ink:#1d1915;--dim:rgba(29,25,21,.72);--ghost:rgba(29,25,21,.64);--line:rgba(29,25,21,.12);--red:#c0392b;--red-soft:rgba(192,57,43,.08)}
 body{background:var(--paper);color:var(--ink);font-family:'Crimson Pro',Georgia,'Times New Roman',serif;line-height:1.55;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--line);background:rgba(250,249,244,.94);position:sticky;top:0;z-index:40;backdrop-filter:blur(8px)}

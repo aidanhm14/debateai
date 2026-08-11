@@ -225,7 +225,7 @@ function renderPage(format) {
   .deep-dive{font-size:.95rem;color:rgba(255,255,255,.72);margin:22px 0 0;line-height:1.6}
   .deep-dive a{color:#fca5a5;border-bottom:1px solid rgba(239,68,68,.35);transition:.15s}
   .deep-dive a:hover{color:#fff;border-bottom-color:#fff}
-  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.4)}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:.75rem;color:rgba(255,255,255,.68)}
   footer a:hover{color:#fff}
 </style>
 </head>
