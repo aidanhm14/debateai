@@ -94,6 +94,13 @@
     // recording is a video with sound. /replays is the same document.
     '/watch',
     '/replays',
+    // /debate-shows embeds seven YouTube players. Nothing autoplays, so a
+    // listener could sit through the whole page narrated with no clash,
+    // but the entire point of the page is to press play on one of them,
+    // and narration follows people across navigation. Someone who started
+    // it three pages ago would get a narrator over Mehdi Hasan. Same rule
+    // as every other page that makes sound: on-demand still counts.
+    '/debate-shows',
   ];
 
   // ── route → narration slug ──────────────────────────────────────
