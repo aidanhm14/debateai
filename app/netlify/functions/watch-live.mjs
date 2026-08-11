@@ -17,6 +17,30 @@ const CACHE_TTL_MS = 12 * 1000;
 const LIVE_WINDOW_MS = 100 * 1000;   // match spar.html roomIsLiveNow()
 const SCAN_LIMIT = 40;               // heartbeat-fresh docs to inspect
 const MAX_ROUNDS = 6;
+const SHOT_FRESH_MS = 75 * 1000;     // match room-shot's serve window
+
+// Rooms where a debater has a camera on publish a still every ~25s
+// (/api/room-shot). Callers get only the timestamp; it versions the
+// image URL so a card can show the room rather than a text tile. One
+// batched read for the whole list, and only for rounds already cleared
+// as public — a round with no fresh still just has no `shot` field.
+async function attachShots(db, rounds) {
+  if (!rounds.length) return;
+  try {
+    const refs = rounds.map((r) => db.collection('live_shots').doc(r.room));
+    const docs = await withDeadline(db.getAll(...refs), 2000);
+    docs.forEach((doc, i) => {
+      if (!doc.exists) return;
+      const s = doc.data() || {};
+      if (s.public !== true) return;
+      const at = Number(s.at || 0);
+      if (Date.now() - at < SHOT_FRESH_MS) rounds[i].shot = at;
+    });
+  } catch (err) {
+    // A still is decoration. Never let it cost the list.
+    console.warn('[watch-live] shots failed', err && err.message);
+  }
+}
 
 function payload(rounds, error) {
   const out = { count: rounds.length, rounds, at: Date.now() };
@@ -61,6 +85,8 @@ export default async (request) => {
         speechIdx: typeof d.speechIdx === 'number' ? d.speechIdx : 0,
       });
     });
+
+    await attachShots(db, rounds);
 
     const out = payload(rounds);
     await setCachedShared(CACHE_KEY, out, CACHE_TTL_MS);

@@ -4606,6 +4606,9 @@ html.stage-mode .stage-ov{display:block}
   }
   function markCamMode(m){
     camConv.mode = m;
+    // Camera or Avatar publishes pixels, so the room can have a still.
+    // Off publishes none, so it stops posting one.
+    if (m === 'off') stopRoomShots(); else startRoomShots();
     if (!camConv.bar) return;
     Array.prototype.forEach.call(camConv.bar.querySelectorAll('button'), function(b){
       b.classList.toggle('on', b.getAttribute('data-m') === m);
@@ -4780,6 +4783,7 @@ html.stage-mode .stage-ov{display:block}
       if (!hasVideo || camConv.mode !== 'camera') return;
       return state.dailyFrame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
         state.dailyFrame.setLocalVideo(true);
+        startRoomShots();
         try { gtag('event', 'live_round_cam_unified'); } catch(e){}
       });
     }).catch(function(e){
@@ -4787,6 +4791,63 @@ html.stage-mode .stage-ov{display:block}
       console.warn('[cam-unify]', e);
     });
   }
+  // ── Room still. A public round with a camera on posts a 320x180 frame
+  // every 25s so the homepage live strip can show the actual room
+  // instead of a text card. The source is camConv.cam.canvas — the exact
+  // surface the room is already receiving — so this publishes nothing
+  // the other side isn't already seeing: the mask in Avatar mode, the
+  // camera in Camera mode, and nothing at all in Off mode or in a
+  // Private round. The server re-checks all of that before it stores.
+  var roomShot = { timer:null, cv:null, busy:false, fails:0 };
+  function roomShotEligible(){
+    if (isSpectator() || state.isPrivate) return false;
+    if (camConv.mode === 'off' || !camConv.cam || !camConv.cam.canvas) return false;
+    if (state.phase !== 'round') return false;
+    return !!(state.user && state.user.getIdToken && state.room);
+  }
+  function pushRoomShot(){
+    if (roomShot.busy || document.hidden || !roomShotEligible()) return;
+    var src = camConv.cam.canvas;
+    if (!src.width || !src.height) return;
+    if (!roomShot.cv){
+      roomShot.cv = document.createElement('canvas');
+      roomShot.cv.width = 320; roomShot.cv.height = 180;
+    }
+    var data;
+    try {
+      roomShot.cv.getContext('2d').drawImage(src, 0, 0, roomShot.cv.width, roomShot.cv.height);
+      data = roomShot.cv.toDataURL('image/jpeg', 0.55);
+    } catch(e){ return; }
+    if (!data || data.length < 200) return;
+    roomShot.busy = true;
+    state.user.getIdToken().then(function(tok){
+      return fetch('/api/room-shot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ room: state.room, image: data })
+      });
+    }).then(function(r){
+      // A refusal is a real answer (private, ended, not a seat). Stop
+      // asking rather than burning a request every 25s for the round.
+      if (r && (r.status === 403 || r.status === 409 || r.status === 404)) stopRoomShots();
+      roomShot.fails = 0;
+    }).catch(function(){
+      if (++roomShot.fails >= 3) stopRoomShots();
+    }).then(function(){ roomShot.busy = false; });
+  }
+  // Both guard on the object itself: these are called from mode changes
+  // that can fire before this literal has run, and a throw here would
+  // take the whole page IIFE with it.
+  function startRoomShots(){
+    if (!roomShot || roomShot.timer || isSpectator()) return;
+    roomShot.timer = setInterval(pushRoomShot, 25000);
+    setTimeout(pushRoomShot, 4000);
+  }
+  function stopRoomShots(){
+    if (roomShot && roomShot.timer){ clearInterval(roomShot.timer); roomShot.timer = null; }
+  }
+  window.addEventListener('pagehide', stopRoomShots);
+
   function setCamMode(m){
     var frame = state.dailyFrame;
     if (!frame || m === camConv.mode) return;

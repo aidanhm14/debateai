@@ -19650,7 +19650,10 @@ window.addEventListener('load', function(){
        it, which is the tournament-day shape: one thing to watch, the
        rest of the event visible around it.
      WALL: no stream, but /api/watch-live reports public rounds in
-       progress. Those render as a row of room tiles on their own.
+       progress. Those render as ONE skinny strip of room chips under
+       the topbar, scrolling sideways rather than wrapping into a
+       block — the hero is the point of the page, and a room list
+       earns a line above it, not a panel.
      Injected DOM from a standalone script on purpose: with nothing live
      the page is byte-for-byte untouched, so the hero A/B arms, the "See
      more" gate, and the scroll observers never see a new sibling unless
@@ -19667,7 +19670,12 @@ window.addEventListener('load', function(){
      Tiles LINK to the spectate view, they do not embed it. Every watcher
      joins the round's Daily room receive-only against a participant
      ceiling, so six embedded players on the homepage would spend real
-     audience slots on people who never chose to watch. -->
+     audience slots on people who never chose to watch. What a chip CAN
+     show is a still: a debater in a public round whose camera is on
+     posts a 320x180 frame of the canvas the room already receives
+     (/api/room-shot), and watch-live reports it only while it is under
+     75 seconds old. Private round, camera off, or a stale frame means
+     no image at all. -->
 
 <script>
 (function(){
@@ -19714,26 +19722,30 @@ window.addEventListener('load', function(){
     a.href = '/live-round?room=' + encodeURIComponent(r.room) + '&spectate=1';
     a.setAttribute('data-room', r.room);
 
-    var top = el('span', 'hlb-tile-top');
-    var live = el('span', 'hlb-tag');
-    live.appendChild(el('i', 'hlb-tag-dot'));
-    live.appendChild(el('span', null, 'LIVE'));
-    top.appendChild(live);
-    top.appendChild(el('span', 'hlb-tile-fmt', formatName(r.format)));
-    a.appendChild(top);
-
-    a.appendChild(el('span', 'hlb-tile-motion', r.motion || 'Live debate'));
-
-    var names = [r.proName, r.conName].filter(Boolean);
-    if (names.length === 2){
-      var vs = el('span', 'hlb-tile-vs');
-      vs.appendChild(el('b', null, names[0]));
-      vs.appendChild(el('span', null, ' vs '));
-      vs.appendChild(el('b', null, names[1]));
-      a.appendChild(vs);
+    // A still exists only when the round is public AND a debater has a
+    // camera on: /api/room-shot refuses anything else, and watch-live
+    // only reports one that landed in the last 75 seconds. The timestamp
+    // doubles as the cache-buster. No still, no placeholder rectangle —
+    // the chip is just text, and nothing pretends to be a picture.
+    if (r.shot){
+      var img = document.createElement('img');
+      img.className = 'hlb-shot';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = '/api/room-shot?room=' + encodeURIComponent(r.room) + '&v=' + r.shot;
+      img.addEventListener('error', function(){ img.remove(); });
+      a.appendChild(img);
     }
 
-    a.appendChild(el('span', 'hlb-tile-status', roundStatus(r)));
+    var txt = el('span', 'hlb-tile-txt');
+    txt.appendChild(el('span', 'hlb-tile-motion', r.motion || 'Live debate'));
+
+    var bits = [formatName(r.format)];
+    var names = [r.proName, r.conName].filter(Boolean);
+    if (names.length === 2) bits.push(names[0] + ' vs ' + names[1]);
+    bits.push(roundStatus(r));
+    txt.appendChild(el('span', 'hlb-tile-meta', bits.join(' · ')));
+    a.appendChild(txt);
 
     a.addEventListener('click', function(){
       try { if (window.gtag) gtag('event', 'home_room_tile_click', { room: r.room, format: r.format || '' }); } catch(e){}
@@ -19744,15 +19756,32 @@ window.addEventListener('load', function(){
   var STYLE =
     // The band is now the first thing in the frame, so it owns the
     // clearance under the fixed topbar that #first-screen used to.
+    // Wall mode is a strip, not a section: one row the height of a
+    // browser tab bar, sitting directly under the topbar. It is the
+    // first thing above the hero, so every pixel it takes is a pixel
+    // the hero loses — a room list earns a line, not a panel. Stage
+    // mode (a real tournament stream) still gets the taller block.
     '#homeLiveBand{background:#0b0b0d;border-bottom:1px solid rgba(239,68,68,.35);padding:84px 20px 22px}' +
+    // The top padding is topbar clearance, not decoration: the bar sits
+    // at top:32 with the beta strip up, so its bottom edge is 84px. The
+    // strip gets thinner by shrinking its content, never by tucking
+    // under a fixed bar.
+    '#homeLiveBand.hlb-is-wall{padding:84px 16px 8px}' +
     '#homeLiveBand .hlb-in{max-width:1400px;margin:0 auto}' +
     '#homeLiveBand .hlb-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}' +
+    // The strip head: LIVE pill, the scrollable room row, the watch link.
+    // No title line — the chips say what is live, and a sentence above
+    // them would double the height to repeat them.
+    '#homeLiveBand .hlb-strip{display:flex;align-items:center;gap:10px;min-width:0}' +
     '#homeLiveBand .hlb-pill{display:inline-flex;align-items:center;gap:7px;background:#b91c1c;color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}' +
+    '#homeLiveBand .hlb-strip .hlb-pill{flex:0 0 auto;font-size:11.5px;padding:4px 10px;letter-spacing:.1em}' +
     '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
+    '#homeLiveBand .hlb-strip .hlb-dot{width:6px;height:6px}' +
     '@keyframes hlbPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
     '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '#homeLiveBand .hlb-open{margin-left:auto;color:rgba(244,244,242,.7);font-size:14.5px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 13px}' +
     '#homeLiveBand .hlb-open:hover{color:#fff;border-color:rgba(239,68,68,.5)}' +
+    '#homeLiveBand .hlb-strip .hlb-open{flex:0 0 auto;margin-left:0;font-size:13px;padding:5px 11px;border-radius:8px;white-space:nowrap}' +
     '#homeLiveBand iframe{width:100%;aspect-ratio:16/9;max-height:62vh;border:0;border-radius:12px;background:#000;display:block}' +
     // The stage: player in the middle column, rooms in the rails either
     // side. Rails are sized so a 16:9 player still gets most of the width.
@@ -19779,33 +19808,46 @@ window.addEventListener('load', function(){
     '@media(max-width:720px){' +
       '#homeLiveBand .hlb-rail{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:row}' +
     '}' +
-    '#homeLiveBand .hlb-wall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}' +
-    '@media(max-width:900px){#homeLiveBand .hlb-wall{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
-    '@media(max-width:520px){#homeLiveBand .hlb-wall{grid-template-columns:minmax(0,1fr)}}' +
-    // Tiles read as room cards, not as video frames. There is no
-    // thumbnail to show (pulling one means joining the call), so the
-    // motion carries the card and nothing pretends to be a still.
-    '#homeLiveBand .hlb-tile{display:flex;flex-direction:column;gap:6px;padding:12px 13px;min-height:118px;' +
-      'background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;' +
-      'transition:border-color .15s ease,transform .15s ease,background .15s ease}' +
-    '#homeLiveBand .hlb-tile:hover{border-color:rgba(239,68,68,.5);background:#18181c;transform:translateY(-1px)}' +
-    '#homeLiveBand .hlb-tile-top{display:flex;align-items:center;gap:8px;justify-content:space-between}' +
-    '#homeLiveBand .hlb-tag{display:inline-flex;align-items:center;gap:5px;color:#f87171;font-size:10.5px;font-weight:800;letter-spacing:.1em}' +
-    '#homeLiveBand .hlb-tag-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:hlbPulse 1.4s infinite;display:block}' +
-    '#homeLiveBand .hlb-tile-fmt{color:rgba(244,244,242,.5);font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-    '#homeLiveBand .hlb-tile-motion{color:#f4f4f2;font-size:14.5px;font-weight:600;line-height:1.28;' +
-      'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}' +
-    '#homeLiveBand .hlb-tile-vs{color:rgba(244,244,242,.62);font-size:12.5px;margin-top:auto}' +
-    '#homeLiveBand .hlb-tile-vs b{color:rgba(244,244,242,.88);font-weight:700}' +
-    '#homeLiveBand .hlb-tile-status{color:rgba(244,244,242,.45);font-size:11.5px;font-weight:600}' +
-    // Phone: the head stops competing for one line, and the list is
-    // capped. Six full-width cards is a whole screen of tiles before the
-    // reader reaches anything that says what the site is.
+    // The room row scrolls sideways instead of wrapping: wrapping is
+    // what turned this into a block in the first place, and a sixth
+    // room should cost a swipe, not another line of the front page.
+    '#homeLiveBand .hlb-wall{display:flex;gap:8px;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;' +
+      'scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x proximity;padding:1px 0}' +
+    '#homeLiveBand .hlb-wall::-webkit-scrollbar{display:none}' +
+    // Only fades while there is actually more to the right, so a cut-off
+    // chip reads as "keep scrolling" instead of as a broken edge.
+    '#homeLiveBand .hlb-wall.hlb-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent);' +
+      'mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent)}' +
+    '#homeLiveBand .hlb-wall .hlb-tile{flex:0 0 auto;max-width:320px;scroll-snap-align:start}' +
+    // A chip: the room's own still when there is one, the motion, and
+    // one muted line of format, names, and where the round has got to.
+    '#homeLiveBand .hlb-tile{display:flex;align-items:center;gap:9px;padding:5px 11px 5px 5px;min-width:0;' +
+      'background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:10px;text-decoration:none;' +
+      'transition:border-color .15s ease,background .15s ease}' +
+    '#homeLiveBand .hlb-tile:hover{border-color:rgba(239,68,68,.5);background:#18181c}' +
+    // The still is the frame the room is already receiving, posted by a
+    // debater whose camera is on in a public round. 16:9 so it reads as
+    // video, not as an avatar.
+    '#homeLiveBand .hlb-shot{width:64px;height:36px;flex:0 0 auto;display:block;object-fit:cover;' +
+      'border-radius:6px;background:#000}' +
+    '#homeLiveBand .hlb-tile-txt{display:flex;flex-direction:column;gap:1px;min-width:0;padding:3px 0}' +
+    '#homeLiveBand .hlb-tile-motion{color:#f4f4f2;font-size:13.5px;font-weight:600;line-height:1.25;' +
+      'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '#homeLiveBand .hlb-tile-meta{color:rgba(244,244,242,.5);font-size:11px;font-weight:600;line-height:1.3;' +
+      'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    // Phone: the strip stays one row and the chips get narrower rather
+    // than taller. The row scrolls, so nothing is hidden.
     '@media(max-width:520px){' +
       '#homeLiveBand{padding-top:76px}' +
+      '#homeLiveBand.hlb-is-wall{padding:76px 12px 7px}' +
       '#homeLiveBand .hlb-title{white-space:normal;font-size:16px;flex:1 1 100%;order:3}' +
       '#homeLiveBand .hlb-open{margin-left:auto;padding:6px 11px;font-size:13.5px}' +
-      '#homeLiveBand .hlb-wall .hlb-tile:nth-child(n+4){display:none}' +
+      '#homeLiveBand .hlb-strip .hlb-open{padding:5px 9px;font-size:12px}' +
+      '#homeLiveBand .hlb-open-rest{display:none}' +
+      '#homeLiveBand .hlb-strip{gap:8px}' +
+      '#homeLiveBand .hlb-strip .hlb-pill{font-size:10px;padding:4px 8px;gap:5px}' +
+      '#homeLiveBand .hlb-wall .hlb-tile{max-width:230px}' +
+      '#homeLiveBand .hlb-shot{width:56px;height:32px}' +
       '#homeLiveBand .hlb-rail .hlb-tile:nth-child(n+3){display:none}' +
     '}';
 
@@ -19827,6 +19869,12 @@ window.addEventListener('load', function(){
       }
     }
     return document.getElementById('first-screen') || document.querySelector('section.hero');
+  }
+
+  function markMore(wall){
+    if (!wall) return;
+    var more = wall.scrollWidth - wall.clientWidth - wall.scrollLeft > 4;
+    wall.classList.toggle('hlb-more', more);
   }
 
   function makeBand(){
@@ -19867,6 +19915,7 @@ window.addEventListener('load', function(){
     var at = anchorNode();
     if (!at || !at.parentNode) return;
     var band = makeBand();
+    band.className = 'hlb-is-stage';
     band.setAttribute('aria-label', 'Live tournament stream');
 
     var head = el('div', 'hlb-head');
@@ -19904,21 +19953,26 @@ window.addEventListener('load', function(){
     var at = anchorNode();
     if (!at || !at.parentNode) return;
     var band = makeBand();
+    band.className = 'hlb-is-wall';
     band.setAttribute('aria-label', 'Debate rounds happening now');
 
-    var head = el('div', 'hlb-head');
+    var strip = el('div', 'hlb-strip');
     var pill = el('span', 'hlb-pill');
     pill.appendChild(el('span', 'hlb-dot'));
     pill.appendChild(el('span', null, 'LIVE'));
-    head.appendChild(pill);
-    head.appendChild(el('span', 'hlb-title', 'Rounds happening right now.'));
-    var open = el('a', 'hlb-open', 'Watch a round');
+    strip.appendChild(pill);
+    var wall = el('div', 'hlb-wall');
+    wall.addEventListener('scroll', function(){ markMore(wall); });
+    strip.appendChild(wall);
+    // "a round" is dropped on a phone, where the row is only ~350px wide
+    // and every word the CTA keeps is a word of motion the reader loses.
+    var open = el('a', 'hlb-open', 'Watch');
+    open.appendChild(el('span', 'hlb-open-rest', ' a round'));
     open.href = '/watch';
-    head.appendChild(open);
+    strip.appendChild(open);
 
     var inner = el('div', 'hlb-in');
-    inner.appendChild(head);
-    inner.appendChild(el('div', 'hlb-wall'));
+    inner.appendChild(strip);
     band.appendChild(inner);
 
     withHeightHeld(null, function(){ at.parentNode.insertBefore(band, at); });
@@ -19931,7 +19985,7 @@ window.addEventListener('load', function(){
   function paintTiles(rounds){
     var band = document.getElementById(BAND_ID);
     if (!band) return;
-    var key = rounds.map(function(r){ return r.room + ':' + r.status + ':' + r.speechIdx; }).join('|');
+    var key = rounds.map(function(r){ return r.room + ':' + r.status + ':' + r.speechIdx + ':' + (r.shot || 0); }).join('|');
     if (key === tileKey) return;
 
     withHeightHeld(band, function(){
@@ -19940,6 +19994,7 @@ window.addEventListener('load', function(){
         if (!wall) return;
         wall.textContent = '';
         rounds.forEach(function(r){ wall.appendChild(tile(r)); });
+        markMore(wall);
         return;
       }
       var rails = band.querySelectorAll('.hlb-rail');
