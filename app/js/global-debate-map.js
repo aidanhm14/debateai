@@ -411,7 +411,7 @@
     container.appendChild(host);
 
     // ── State ────────────────────────────────────────────────────
-    var rotDeg = 0;             // current rotation (degrees)
+    var rotDeg = 98;            // start centered on the continental USA
     var tiltDeg = 18;           // tilt — a touch of axial lean
     var lastFrame = performance.now();
     var lastSpawn = lastFrame;

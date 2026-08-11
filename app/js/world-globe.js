@@ -167,7 +167,7 @@
     var dpr = global.devicePixelRatio || 1;
 
     // State carried between frames.
-    var lngOffset = -25;        // start rotated so India is left of center
+    var lngOffset = 98;         // start centered on the continental USA
     var lastFrameTs = 0;
     var paused = false;
     var rafId = 0;
