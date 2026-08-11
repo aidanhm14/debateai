@@ -96,9 +96,9 @@ const URLS = [
   { path: '/bet-on-your-words',                       changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
   { path: '/everyone-has-an-opinion',                 changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
   // /get-paid-to-debate answers the money-intent cluster ("get paid to
-  // debate", "win money debating", "make money arguing") honestly:
-  // prizes coming, board free today, waitlist CTA.
-  { path: '/get-paid-to-debate',                      changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-27' },
+  // debate", "win money debating", "make money arguing"). Rewritten
+  // 2026-08-11 around the live event; it used to answer "not here yet".
+  { path: '/get-paid-to-debate',                      changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-11' },
   // /masterclass answers the learn-intent cluster ("learn to debate",
   // "debate class", "online debate course") with the 8-week curriculum.
   { path: '/masterclass',                             changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-30' },
@@ -185,8 +185,8 @@ const URLS = [
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
   { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-10' },
-  { path: '/tournaments',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-07-25' },
-  { path: '/tournament-rules', changefreq: 'monthly', priority: '0.50', lastmod: '2026-08-10' },
+  { path: '/tournaments',     changefreq: 'daily',   priority: '0.90', lastmod: '2026-08-11' },
+  { path: '/tournament-rules', changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-11' },
   { path: '/coach',           changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-25' },
   { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },
   // 2026-07-22: these carried explicit 07-14 dates, which now predate the
