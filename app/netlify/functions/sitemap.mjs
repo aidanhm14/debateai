@@ -67,13 +67,13 @@ const URLS = [
   { path: '/exhibition',      changefreq: 'weekly',  priority: '0.85' },
   // High-intent SEO landing pages targeting specific query clusters.
   // /debate-an-ai and /debate-online are direct phrase-match doorways
-  // from Google for the "debate an ai" / "debate online" intents the
+  // from Google for the "debate an ai" / "online debate" intents the
   // existing /practice app surface can't claim because its slug is
   // taken by the typed-mode product page. /compare positions Debatable
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
   // Multilingual search cluster. These are full native-language pages with
   // reciprocal hreflang, visible language links, and localized app handoffs.
   { path: '/languages/',                              changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-10' },
