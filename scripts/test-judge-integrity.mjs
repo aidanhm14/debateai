@@ -236,6 +236,32 @@ function t(label, cond) {
   t('the tally names the deciding issue', !!tallied.decidingIssue);
 }
 
+// ── 2d. the paradigm pickers match their data source ────────────────
+//
+// /judge's paradigm <select> is hardcoded markup, not built from
+// js/judge-options.js, so adding a paradigm to the data file leaves the
+// dropdown missing it and every deep link to it lands on an empty
+// selection. That shipped once. This is the guard.
+{
+  const opts = readFileSync(new URL('../app/js/judge-options.js', import.meta.url), 'utf8');
+  const judge = readFileSync(new URL('../app/judge.html', import.meta.url), 'utf8');
+  const guide = readFileSync(new URL('../app/judge-paradigms.html', import.meta.url), 'utf8');
+
+  const block = opts.slice(opts.indexOf('paradigms: {'), opts.indexOf('brains: {'));
+  const keys = [...block.matchAll(/^\s{6}([a-z]+): \{/gm)].map((m) => m[1]);
+  t('the paradigm list parsed', keys.length >= 10);
+
+  const select = judge.slice(judge.indexOf('id="judgeParadigm"'), judge.indexOf('</select>', judge.indexOf('id="judgeParadigm"')));
+  const missing = keys.filter((k) => !select.includes('value="' + k + '"'));
+  t('every paradigm is in the /judge dropdown', missing.length === 0);
+
+  // A guide card that deep-links to a paradigm the picker cannot select
+  // is a dead link, which is how the same defect surfaces to a user.
+  const linked = [...guide.matchAll(/paradigm=([a-z]+)/g)].map((m) => m[1]);
+  const dead = [...new Set(linked)].filter((k) => !keys.includes(k));
+  t('every guide deep link names a real paradigm', dead.length === 0);
+}
+
 // ── 3. the charter document ─────────────────────────────────────────
 {
   const doc = charterDoc(Date.now());
