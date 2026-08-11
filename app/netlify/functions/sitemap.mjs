@@ -74,6 +74,15 @@ const URLS = [
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
+  // Multilingual search cluster. These are full native-language pages with
+  // reciprocal hreflang, visible language links, and localized app handoffs.
+  { path: '/languages/',                              changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-10' },
+  { path: '/languages/es',                            changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-10' },
+  { path: '/languages/fr',                            changefreq: 'monthly', priority: '0.82', lastmod: '2026-08-10' },
+  { path: '/languages/de',                            changefreq: 'monthly', priority: '0.82', lastmod: '2026-08-10' },
+  { path: '/languages/hi',                            changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-10' },
+  { path: '/languages/zh',                            changefreq: 'monthly', priority: '0.82', lastmod: '2026-08-10' },
+  { path: '/languages/ko',                            changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-10' },
   // "debate people online" / "debate strangers" / "omegle for debate"
   // query cluster. Sister to /debate-online, focused on the random-human
   // /spar path (which is noindex itself, so this is the indexable doorway).
