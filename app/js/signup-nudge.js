@@ -45,6 +45,13 @@
   var DISMISS_COUNT_KEY = 'debateos-signup-reminder-dismiss-count';
   var SESSION_ATTEMPTS_KEY = 'debateos-nudge-session-attempts';
   var INVITE_OPT_IN_KEY = 'debatable-signin-invite-opt-in';
+  var LAST_METHOD_KEY = 'debateos-last-signin-method';
+  // Google One Tap. This is the Firebase project's own Google-provider
+  // web client (Identity Platform defaultSupportedIdpConfigs/google.com),
+  // NOT the Drive-integration client in index.html — One Tap ID tokens
+  // must be minted against this client or signInWithCredential rejects
+  // them with an audience mismatch.
+  var ONE_TAP_CLIENT_ID = '860359449192-5ic17i3lgbrri1j2va41p9d4a9f0o7em.apps.googleusercontent.com';
   // Re-nudge policy (2026-07-02): a dismissal is "not now", not "never".
   // While the visitor KEEPS ACTIVELY USING a tool page (real interactions,
   // not idle time), the nudge comes back after ~60s of continued use with
@@ -224,6 +231,10 @@
     } catch (e) {}
   }
 
+  function rememberMethod(method){
+    try { localStorage.setItem(LAST_METHOD_KEY, method); } catch (e) {}
+  }
+
   function doSignIn(cfg){
     rememberInviteChoice(cfg);
     // Landing owns the most resilient Google flow: popup first, then a
@@ -238,16 +249,130 @@
       if (typeof firebase === 'undefined' || !firebase.auth) return;
       var provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      firebase.auth().signInWithPopup(provider).then(function(result){
+      var auth = firebase.auth();
+      // Guests carry an ANONYMOUS Firebase account whose uid owns their
+      // rounds and prefs. A plain signInWithPopup here minted a fresh
+      // account and orphaned that work, which is the opposite of the
+      // "sign in to keep your rounds" pitch this pill makes. Link the
+      // anonymous account like auth-modal.js does; fall back to a plain
+      // sign-in only when the Google account already exists.
+      var current = auth.currentUser;
+      var attempt = current && current.isAnonymous && current.linkWithPopup
+        ? current.linkWithPopup(provider).catch(function(err){
+            var code = (err && err.code) || '';
+            if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+              return auth.signInWithPopup(provider);
+            }
+            throw err;
+          })
+        : auth.signInWithPopup(provider);
+      attempt.then(function(result){
+        rememberMethod('google');
         flushInviteOptIn(result && result.user);
+        try {
+          if (window.gtag) gtag('event', 'sign_in_complete', { method: 'google', source: 'signup_nudge', path: location.pathname });
+        } catch (e) {}
       }).catch(function(){
-        try { firebase.auth().signInWithRedirect(provider); } catch (e) {}
+        try {
+          var redirect = current && current.isAnonymous && current.linkWithRedirect
+            ? current.linkWithRedirect(provider)
+            : auth.signInWithRedirect(provider);
+          Promise.resolve(redirect).catch(function(){});
+        } catch (e) {}
       });
       try {
         if (window.gtag) gtag('event', 'sign_up_start', { method: 'Google', source: 'signup_nudge', path: location.pathname });
       } catch (e) {}
     } catch (e) {}
   }
+
+  // ── Google One Tap ────────────────────────────────────────────────
+  // The native account chip (the visitor's own Google avatar, one click,
+  // no popup window) — the highest-converting capture surface Google
+  // ships. Runs alongside the pill: it starts at page load while the
+  // pill waits out its 18-60s delay, and Chrome's own One Tap backoff
+  // suppresses it for visitors who keep dismissing it, so the two rarely
+  // stack. Sign-in through it links anonymous accounts the same way the
+  // pill and auth-modal do. Skipped in the native shell (no Google web
+  // session in WKWebView) and on pages that own their sign-in flow.
+  // If it errors (origin not authorized, ITP, FedCM off) it fails
+  // silently and the pill cadence is unaffected.
+  function onOneTapCredential(resp){
+    if (!resp || !resp.credential) return;
+    try {
+      var cred = firebase.auth.GoogleAuthProvider.credential(resp.credential);
+      var auth = firebase.auth();
+      var current = auth.currentUser;
+      var attempt = current && current.isAnonymous && current.linkWithCredential
+        ? current.linkWithCredential(cred).catch(function(err){
+            var code = (err && err.code) || '';
+            if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+              return auth.signInWithCredential(cred);
+            }
+            throw err;
+          })
+        : auth.signInWithCredential(cred);
+      attempt.then(function(result){
+        rememberMethod('google');
+        flushInviteOptIn(result && result.user);
+        try {
+          if (window.gtag) gtag('event', 'sign_in_complete', { method: 'google_one_tap', path: location.pathname });
+        } catch (e) {}
+        // Reload so every signed-in surface on the page hydrates — same
+        // posture as auth-modal.js finishSignIn.
+        setTimeout(function(){ window.location.reload(); }, 400);
+      }).catch(function(err){
+        try {
+          if (window.gtag) gtag('event', 'one_tap_error', { code: (err && err.code) || 'signin_failed' });
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  function tryOneTap(){
+    try {
+      if (window.__DB_NATIVE) return;
+      if (getConfig().skip) return;
+      if (typeof firebase === 'undefined' || !firebase.auth) return;
+      if (isRealUser(firebase.auth().currentUser)) return;
+      var s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.defer = true;
+      s.onload = function(){
+        try {
+          if (isRealUser(firebase.auth().currentUser)) return;
+          window.google.accounts.id.initialize({
+            client_id: ONE_TAP_CLIENT_ID,
+            callback: onOneTapCredential,
+            cancel_on_tap_outside: false,
+            context: 'signin',
+            use_fedcm_for_prompt: true
+          });
+          window.google.accounts.id.prompt(function(moment){
+            try {
+              if (!window.gtag || !moment) return;
+              if (moment.isSkippedMoment && moment.isSkippedMoment()) {
+                gtag('event', 'one_tap_skipped', { path: location.pathname });
+              } else if (moment.isDismissedMoment && moment.isDismissedMoment()) {
+                gtag('event', 'one_tap_dismissed', {
+                  reason: (moment.getDismissedReason && moment.getDismissedReason()) || '',
+                  path: location.pathname
+                });
+              }
+            } catch (e) {}
+          });
+          try { if (window.gtag) gtag('event', 'one_tap_attempted', { path: location.pathname }); } catch (e) {}
+        } catch (e) {}
+      };
+      document.head.appendChild(s);
+    } catch (e) {}
+  }
+  // Opening the shared auth modal supersedes One Tap; retract the chip
+  // so the two account choosers never show at once.
+  window.addEventListener('debatable:authmodal-open', function(){
+    try { window.google.accounts.id.cancel(); } catch (e) {}
+  });
 
   var bar = null;
 
@@ -297,6 +422,15 @@
     // Reminders swap the page-contextual line for the benefits pitch:
     // the visitor already saw the ask, so answer "why bother" instead.
     var msg = attempt > 0 ? REMIND_MSGS[Math.min(attempt - 1, REMIND_MSGS.length - 1)] : cfg.msg;
+    // A visitor who signed in before but is signed out now (new browser,
+    // cleared storage, explicit sign-out) gets recognition instead of
+    // the cold pitch: their account already holds the things the pitch
+    // promises.
+    try {
+      if (attempt === 0 && localStorage.getItem(LAST_METHOD_KEY)) {
+        msg = '<strong>Welcome back.</strong> Sign in again and your rounds, ballots, and rank pick up where they left off.';
+      }
+    } catch (e) {}
     bar = document.createElement('div');
     bar.className = 'signup-nudge' + (cfg.variant ? ' signup-nudge--' + cfg.variant : '');
     bar.setAttribute('role', 'dialog');
@@ -378,6 +512,12 @@
   });
 
   function start(){
+    // One Tap runs regardless of the pill's dismissal cooloff: it is a
+    // different surface with Chrome's own escalating backoff (a visitor
+    // who closes it gets hours-to-weeks of native quiet), so gating it
+    // on the pill's 24h key would only starve the higher-converting
+    // surface to protect the lower one.
+    tryOneTap();
     if (recentlyDismissed()) return;
     var cfg = getConfig();
     var delayMs = (cfg.delay || 25) * 1000;

@@ -150,14 +150,22 @@
 
   function renderChooser(mode) {
     var c = home(); if (!c) return;
-    mode = mode === 'signin' ? 'signin' : 'signup';
+    // No explicit mode: someone who has signed in on this device before
+    // lands on sign-in, not "Create your account".
+    if (mode !== 'signin' && mode !== 'signup') mode = lastMethod() ? 'signin' : 'signup';
     var creating = mode === 'signup';
+    var last = lastMethod();
+    var lastHint = !creating && last
+      ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
+        (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' : 'email') + '.</p>'
+      : '';
     var nativeButtons = window.__DB_NATIVE ?
       '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>' : '';
     c.innerHTML =
       '<button class="da-x" aria-label="Close">×</button>' +
       '<h2>' + (creating ? 'Create your account' : 'Welcome back') + '</h2>' +
       '<p class="da-sub">' + (creating ? 'Save your rounds, ballots, and style profile across devices.' : 'Sign in to pick up your rounds, rank, and style profile.') + '</p>' +
+      lastHint +
       nativeButtons +
       '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
       '<div class="da-or">or use email</div>' +
@@ -192,8 +200,20 @@
     } catch (e) { return null; }
   }
 
+  function lastMethod() {
+    try { return localStorage.getItem('debateos-last-signin-method') || ''; } catch (e) { return ''; }
+  }
+
   function finishSignIn(method) {
     try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
+    // Remember how this person signs in, normalized to the provider
+    // family. Next visit the modal opens in sign-in mode with their
+    // method called out, instead of restarting them at "Create your
+    // account" with three equal choices.
+    try {
+      var fam = /google/.test(method) ? 'google' : /apple/.test(method) ? 'apple' : 'email';
+      localStorage.setItem('debateos-last-signin-method', fam);
+    } catch (e) {}
     track('sign_in_complete', { method: method });
     window.location.href = window.__DB_NATIVE ? '/native' : destination();
   }
@@ -426,6 +446,9 @@
     renderChooser(mode);
     modal.classList.add('on');
     document.body.classList.add('signin-modal-open');
+    // Retract Google One Tap if it's showing (signup-nudge.js listens);
+    // two account choosers at once reads as broken.
+    try { window.dispatchEvent(new CustomEvent('debatable:authmodal-open')); } catch (e) {}
     var closeButton = modal.querySelector('.da-x');
     if (closeButton) closeButton.focus();
   }
