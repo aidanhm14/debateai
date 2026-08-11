@@ -345,12 +345,12 @@ const URLS = [
   // conversion is a separate change.
   { path: '/motions',         changefreq: 'weekly',  priority: '0.86' },
   // 2026-08-10 orphan sweep: indexable, self-canonical pages that were
-  // routed in netlify.toml but never listed here. /partners and
-  // /tournament only had JS-injected topbar links, so discovery depended
-  // on Googlebot rendering the nav; /verify is the public certificate
+  // routed in netlify.toml but never listed here. /tournament was removed
+  // again on 2026-08-11 after the public /tournaments landing became the
+  // single search target; the singular page is operational draw/tab UI
+  // and now carries noindex,follow. /verify is the public certificate
   // check linked from /credentials.
   { path: '/partners',          changefreq: 'monthly', priority: '0.70' },
-  { path: '/tournament',        changefreq: 'monthly', priority: '0.70' },
   { path: '/voice-rfd',         changefreq: 'monthly', priority: '0.55' },
   { path: '/verify',            changefreq: 'monthly', priority: '0.55' },
   { path: '/brain',             changefreq: 'monthly', priority: '0.65' },
