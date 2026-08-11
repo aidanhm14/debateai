@@ -37,6 +37,7 @@
 // this in voice" CTA.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 
 const MODEL = process.env.COUNTER_DOC_MODEL || 'claude-sonnet-4-6';
 const MAX_TOKENS = 1400;
@@ -200,11 +201,31 @@ export default async (request) => {
     });
   }
 
+  // Per-IP rate limit is the primary abuse gate and runs for EVERY origin.
+  // The chrome-extension:// origin is a client-spoofable header, so it gets
+  // no free pass here — an LLM proxy (claude-sonnet, up to 25K-char payloads)
+  // must be bounded even when App Check is dormant.
+  const rl = await checkLayers('counter-doc', callerIp(request), [
+    { label: 'min', window: 60_000, max: 12 },
+    { label: 'hour', window: 3_600_000, max: 80 },
+  ]);
+  if (!rl.ok) {
+    return new Response(JSON.stringify({ error: 'Too many requests. Give it a minute.', code: rl.layer }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  }
+
+  // App Check layered on for browser origins (soft until APP_CHECK_REQUIRED,
+  // gated on CONTEXT to match the rest of the codebase — the old NODE_ENV
+  // test was unreliable at function runtime and compared a truthy object, so
+  // it never actually fired). The extension origin can't mint a token, so it
+  // is waived here but still rate-limited above.
   const origin = request.headers.get('origin') || '';
   const isExtensionOrigin = origin.startsWith('chrome-extension://');
   if (!isExtensionOrigin) {
-    const appCheckOK = await checkAppCheck(request).catch(() => false);
-    if (!appCheckOK && process.env.NODE_ENV === 'production') {
+    const appCheck = await checkAppCheck(request).catch(() => ({ ok: true, reason: 'error' }));
+    if (!appCheck.ok && process.env.CONTEXT === 'production') {
       return new Response(JSON.stringify({ error: 'app-check-failed' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...CORS },

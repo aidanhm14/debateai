@@ -341,6 +341,20 @@ export default async (request) => {
       }
 
       const voiceRoundRef = db.collection('voice_rounds').doc(generationId);
+
+      // Ownership check: the round must belong to the caller. Without this,
+      // any authenticated (or App-Check-passing anon) caller could overwrite
+      // turns on ANY round's transcript, corrupting other users' rounds and
+      // the training corpus. Matches the Mode B `uid` guard above. A round
+      // doc that doesn't exist yet is allowed (the client creates it and
+      // streams turns in the same session); one owned by someone else is not.
+      const roundSnap = await voiceRoundRef.get();
+      if (roundSnap.exists) {
+        const ownerUid = roundSnap.data().uid;
+        if (ownerUid && ownerUid !== uid) {
+          return errorResponse('Not your round', 403, request);
+        }
+      }
       const turnsCollRef = voiceRoundRef.collection('turns');
 
       // Batch write turns (up to 500 per batch)

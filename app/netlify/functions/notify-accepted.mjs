@@ -22,6 +22,21 @@
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { esc, sendEmail } from './lib/email.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
+
+// The room link goes into a branded "Open the round room" button in an email
+// sent from our domain. It MUST point at a room we host, or this endpoint is a
+// phishing relay: any signed-in user could email an attacker-chosen link to
+// arbitrary recipients under our brand. Allowlist the hosts a real round link
+// uses (Daily rooms + our own origins) and reject everything else.
+function hostAllowed(url, allowSuffixes) {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return allowSuffixes.some((s) => h === s || h.endsWith('.' + s));
+  } catch { return false; }
+}
+const ROOM_HOSTS = ['daily.co', 'itsdebatable.com', 'debateai.com', 'debateos1.netlify.app'];
+const CAL_HOSTS = ['google.com', 'calendar.google.com', 'outlook.live.com', 'outlook.office.com'];
 
 function jsonResponse(status, body){
   return new Response(JSON.stringify(body), {
@@ -110,6 +125,14 @@ export default async (req) => {
   }
   if (!uid) return jsonResponse(401, { error: 'No UID on token' });
 
+  // Per-caller rate limit. A signed-in user still shouldn't be able to drain
+  // the shared Resend allowance (100/day) blasting notifications.
+  const rl = await checkLayers('notify-accepted', uid, [
+    { label: 'min', window: 60_000, max: 4 },
+    { label: 'day', window: 86_400_000, max: 30 },
+  ]);
+  if (!rl.ok) return jsonResponse(429, { error: 'Too many notifications — try again later.' });
+
   let body;
   try { body = await req.json(); } catch { return jsonResponse(400, { error: 'Invalid JSON' }); }
 
@@ -125,18 +148,27 @@ export default async (req) => {
     return jsonResponse(400, { error: 'Missing required fields (motion, roomUrl, poster.email, accepter.email)' });
   }
 
+  // Reject an off-allowlist room link so this can't be used as a branded
+  // phishing relay. (Deeper fix, tracked separately: derive recipient emails +
+  // roomUrl from the challenge doc server-side and verify the caller is a
+  // party, instead of trusting the request body.)
+  if (!hostAllowed(roomUrl, ROOM_HOSTS)) {
+    return jsonResponse(400, { error: 'roomUrl host not allowed' });
+  }
+  const safeCalendarUrl = (calendarUrl && hostAllowed(calendarUrl, CAL_HOSTS)) ? calendarUrl : null;
+
   // Build both emails. Each side sees the OTHER side's contact.
   const posterHtml = template({
     headline: 'Your challenge was accepted',
     sub: `${accepter.name || 'Someone'} took the other side. Round room is ready when you are.`,
-    motion, format, kickoff, roomUrl, calendarUrl,
+    motion, format, kickoff, roomUrl, calendarUrl: safeCalendarUrl,
     opponent: accepter.name || 'Anonymous',
     opponentContact: accepter.contact || accepter.email || '',
   });
   const accepterHtml = template({
     headline: "You're in. Round confirmed",
     sub: `You accepted ${poster.name || 'the poster'}'s challenge. Save the kickoff time and you're set.`,
-    motion, format, kickoff, roomUrl, calendarUrl,
+    motion, format, kickoff, roomUrl, calendarUrl: safeCalendarUrl,
     opponent: poster.name || 'Anonymous',
     opponentContact: poster.contact || poster.email || '',
   });

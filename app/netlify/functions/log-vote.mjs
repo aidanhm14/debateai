@@ -16,6 +16,7 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse } from './lib/response.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 
 const RATE_LIMIT_PER_MIN = 3;
 const RATE_LIMIT_PER_HOUR = 30;
@@ -53,6 +54,17 @@ export default async (req, context) => {
 
     const validationError = validateVote(side, confidence, phase);
     if (validationError) return jsonResponse({ error: validationError }, 400, req);
+
+    // Real per-IP rate limit. voterId is a client-supplied field, so an
+    // attacker can rotate it to stuff the pre/post swing-vote metric; the
+    // in-code voterId "limit" below only weights trust and does NOT block the
+    // write. This IP layer bounds ballot-stuffing at the source. (Now the sole
+    // write path: the Firestore `votes` rule was locked to server-only.)
+    const rl = await checkLayers('log-vote', callerIp(req), [
+      { label: 'min', window: 60_000, max: 8 },
+      { label: 'hour', window: 3_600_000, max: 60 },
+    ]);
+    if (!rl.ok) return jsonResponse({ error: 'Too many votes — slow down.' }, 429, req);
 
     const db = getDb();
 

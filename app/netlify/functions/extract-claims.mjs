@@ -7,6 +7,14 @@
 // Strength = how directly this argument advances the motion.
 
 import { jsonResponse, errorResponse } from './lib/response.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
+
+// Model is env-overridable so an expensive default can be rolled back without
+// a redeploy. Defaults to Haiku, not Opus — this endpoint summarizes a speech,
+// it does not need frontier reasoning, and it used to hardcode claude-opus-5
+// with no gate at all (a free unmetered Opus proxy for any anonymous caller).
+const CLAIMS_MODEL = process.env.EXTRACT_CLAIMS_MODEL || 'claude-haiku-4-5-20251001';
 
 const EXTRACTION_PROMPT = `You are analyzing a debate speech. Extract the 3-5 strongest claims made.
 For each claim:
@@ -24,6 +32,20 @@ Return ONLY the JSON array, no preamble.`;
 export default async (request) => {
   if (request.method !== 'POST') {
     return errorResponse('POST only', 405, request);
+  }
+
+  // App Check (soft until APP_CHECK_REQUIRED=true) + a hard per-IP rate limit
+  // so this LLM proxy can't be looped for free credit burn.
+  const appCheck = await checkAppCheck(request);
+  if (!appCheck.ok) {
+    return errorResponse('App verification failed. Reload and try again.', 401, request);
+  }
+  const rl = await checkLayers('extract-claims', callerIp(request), [
+    { label: 'min', window: 60_000, max: 10 },
+    { label: 'hour', window: 3_600_000, max: 60 },
+  ]);
+  if (!rl.ok) {
+    return errorResponse('Too many requests — give it a moment.', 429, request);
   }
 
   let body;
@@ -51,7 +73,7 @@ export default async (request) => {
         'content-type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-opus-5',
+        model: CLAIMS_MODEL,
         max_tokens: 800,
         messages: [{ role: 'user', content: prompt }]
       })
