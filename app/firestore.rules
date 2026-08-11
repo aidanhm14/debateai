@@ -726,6 +726,27 @@ service cloud.firestore {
       allow delete: if false;  // Ratings are immutable; no revisions
     }
 
+    // ── community_channels ───────────────────────────────────────────
+    // The /community Chat tab's named channels (2026-08-11). Channel
+    // ids are a fixed allow-list so nobody mints rooms; #lobby is NOT
+    // here (it stays on the server-mediated /api/chat-feed pipeline
+    // with its per-IP limits). Public read so signed-out lurkers see
+    // a live room before committing; posting is named-accounts only,
+    // self-authored, bounded. Append-only, delete your own.
+    match /community_channels/{channelId}/messages/{msgId} {
+      allow read: if true;
+      allow create: if isNamedAccount()
+                    && channelId.matches('^(general|find-a-round|motions|apda|bp|public-forum|ld|policy|help)$')
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.channel == channelId
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() > 0
+                    && request.resource.data.text.size() <= 500
+                    && stringUnder('name', 60);
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // ── waitlist_posts ───────────────────────────────────────────────
     // /spar left-rail "open invites" board. Anyone signed in can read
     // the board; you can only create/edit/delete your own post. Note

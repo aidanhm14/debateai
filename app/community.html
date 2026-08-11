@@ -47,11 +47,13 @@
      atomic increment) on first device visit, GETs current count
      otherwise. Powers the live MAU number in the Members surface. -->
 <script src="/js/visitor-counter.js"></script>
-<!-- community-chat.js powers the Live tab: anonymous handle pinned in
+<script defer src="/js/auth-modal.js"></script>
+<!-- community-channels.js powers the Chat tab: channel rail +
+     one live room. #lobby keeps the anonymous handle pinned in
      localStorage, polled message feed via /api/chat-feed, "X just
      joined!" lines tied to the same visitor-tick first-device event. -->
 <script src="/js/avatar.js"></script>
-<script src="/js/community-chat.js"></script>
+<script src="/js/community-channels.js"></script>
 <!-- community-pulse.js renders the live-activity strip above the tabs
      (real presence, spar queue, latest chat line) and owns the Live
      tab's green dot. Real data only; rows hide when nothing is live. -->
@@ -583,6 +585,149 @@ body::before{
 .reply .reply-meta{font-size:.7rem;color:var(--text-ghost);font-weight:600;margin-bottom:6px}
 .verified-badge{display:inline-flex;align-items:center;gap:2px;font-size:.55rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#ef4444;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);border-radius:999px;padding:1px 5px;margin-left:5px;vertical-align:middle;line-height:1.4}
 
+/* ── CHANNELS (the Chat tab, 2026-08-11) ─────────────────────
+   Discord-shaped: channel rail left, one live room right. Type runs
+   larger than the old chat on purpose (.95rem+ body) — this surface
+   is built for a community reading it all day. */
+.disc{
+  display:grid;grid-template-columns:210px minmax(0,1fr);
+  height:min(680px, 74vh);
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;position:relative;
+}
+.disc-rail{
+  display:flex;flex-direction:column;gap:2px;
+  padding:14px 10px;border-right:1px solid var(--border);
+  background:rgba(0,0,0,.14);overflow-y:auto;scrollbar-width:thin;
+}
+[data-theme="light"] .disc-rail{background:rgba(0,0,0,.03)}
+.disc-rail-head{
+  font-size:.68rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--text-ghost);padding:0 8px 8px;
+}
+.disc-ch{
+  display:flex;align-items:center;gap:7px;width:100%;
+  padding:8px 10px;border:none;border-radius:9px;background:transparent;
+  color:var(--text-dim);font-family:inherit;font-size:.95rem;font-weight:600;
+  text-align:left;cursor:pointer;transition:background .12s,color .12s;
+}
+.disc-ch:hover{background:rgba(255,255,255,.05);color:var(--text)}
+[data-theme="light"] .disc-ch:hover{background:rgba(0,0,0,.05)}
+.disc-ch.is-on{background:rgba(239,68,68,.14);color:var(--text);font-weight:700}
+.disc-ch-hash{color:var(--text-ghost);font-weight:700}
+.disc-ch.is-on .disc-ch-hash{color:var(--accent)}
+.disc-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  margin-left:auto;flex:none;
+}
+.disc-rail-foot{
+  margin-top:auto;padding:12px 8px 2px;font-size:.78rem;line-height:1.5;
+  color:var(--text-ghost);
+}
+.disc-rail-foot a{color:var(--text-dim);font-weight:700;text-decoration:none}
+.disc-rail-foot a:hover{color:var(--accent)}
+.disc-main{display:flex;flex-direction:column;min-width:0;position:relative}
+.disc-head{
+  padding:12px 18px;border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.10);
+}
+[data-theme="light"] .disc-head{background:rgba(0,0,0,.02)}
+.disc-head-top{display:flex;align-items:baseline;gap:10px;min-width:0}
+.disc-head-top b{font-size:1.05rem;color:var(--text)}
+.disc-topic{
+  font-size:.85rem;color:var(--text-dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
+.disc-id{font-size:.78rem;color:var(--text-ghost);margin-top:2px}
+.disc-id b{color:var(--text-dim)}
+.disc-scroll{
+  flex:1;overflow-y:auto;padding:16px 18px;
+  display:flex;flex-direction:column;gap:10px;
+  scrollbar-width:thin;overscroll-behavior:contain;
+}
+.disc-empty{margin:auto;color:var(--text-ghost);font-size:.95rem}
+.disc-sys{font-size:.78rem;color:var(--text-ghost);padding-left:46px}
+.disc-msg{display:flex;gap:12px;min-width:0}
+.disc-msg--grouped{padding-left:46px;margin-top:-6px}
+.disc-av{
+  width:34px;height:34px;border-radius:50%;flex:none;object-fit:cover;
+  background:linear-gradient(135deg,#ef4444,#a855f7);
+}
+.disc-av--txt{
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:.85rem;font-weight:800;
+}
+.disc-msg-main{min-width:0;flex:1}
+.disc-msg-head{display:flex;align-items:baseline;gap:8px}
+.disc-msg-head b{font-size:.95rem;color:var(--text)}
+.disc-time{font-size:.72rem;color:var(--text-ghost)}
+.disc-body{
+  font-size:.97rem;line-height:1.55;color:var(--text);
+  overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.disc-new-pill{
+  position:absolute;left:50%;bottom:86px;transform:translateX(-50%);
+  padding:7px 14px;border-radius:999px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text);font-family:inherit;
+  font-size:.8rem;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.3);
+}
+.disc-input-row{
+  display:flex;gap:10px;align-items:flex-end;
+  padding:12px 14px;border-top:1px solid var(--border);
+  background:rgba(0,0,0,.10);
+}
+[data-theme="light"] .disc-input-row{background:rgba(0,0,0,.02)}
+.disc-input{
+  flex:1;min-height:42px;max-height:130px;
+  padding:10px 13px;border:1px solid var(--border);border-radius:10px;
+  background:rgba(0,0,0,.25);color:var(--text);
+  font-family:inherit;font-size:.95rem;line-height:1.5;
+  resize:none;outline:none;scrollbar-width:thin;
+}
+[data-theme="light"] .disc-input{background:#fff}
+.disc-input:focus{border-color:rgba(239,68,68,.45)}
+.disc-input::placeholder{color:var(--text-ghost)}
+.disc-input--err{border-color:#fbbf24 !important}
+.disc-input-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.disc-count{font-size:.7rem;color:var(--text-ghost);font-variant-numeric:tabular-nums}
+.disc-reroll{
+  border:none;background:transparent;color:var(--text-ghost);cursor:pointer;
+  font-family:inherit;font-size:.7rem;padding:0;
+}
+.disc-reroll:hover{color:var(--text-dim);text-decoration:underline}
+.disc-send{
+  padding:10px 20px;border-radius:10px;border:none;
+  background:var(--accent);color:#fff;font-family:inherit;font-weight:800;
+  font-size:.85rem;letter-spacing:.03em;cursor:pointer;
+  transition:background .15s, transform .1s;
+}
+.disc-send:hover:not(:disabled){background:#dc2626}
+.disc-send:active{transform:translateY(1px)}
+.disc-send:disabled{opacity:.55;cursor:not-allowed}
+.disc-signin{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex:1;flex-wrap:wrap;font-size:.9rem;color:var(--text-dim);
+}
+.disc-signin-btn{
+  padding:10px 18px;border-radius:999px;border:none;
+  background:var(--accent);color:#fff;font-family:inherit;font-weight:800;
+  font-size:.85rem;cursor:pointer;
+}
+.disc-signin-btn:hover{background:#dc2626}
+@media(max-width:760px){
+  .disc{grid-template-columns:1fr;height:min(640px, 78vh)}
+  .disc-rail{
+    flex-direction:row;align-items:center;gap:6px;
+    padding:10px 12px;border-right:none;border-bottom:1px solid var(--border);
+    overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
+  }
+  .disc-rail::-webkit-scrollbar{display:none}
+  .disc-rail-head{display:none}
+  .disc-rail-foot{display:none}
+  .disc-ch{width:auto;flex:0 0 auto;padding:7px 12px;font-size:.9rem}
+  .disc-topic{display:none}
+}
+
 /* ── Identity badge system (3-tier: verified human / unverified human /
    AI persona, + roles). Honest-by-design: AI personas get an unmistakable
    violet "AI Persona" tag, never a human-passing label. Verified humans
@@ -896,7 +1041,7 @@ body::before{
     <button class="tab on" data-tab="cases">Cases</button>
     <button class="tab" data-tab="discussion">Discussions</button>
     <button class="tab" data-tab="rounds">Rounds</button>
-    <button class="tab" data-tab="live">Live Rooms <span class="tab-dot"></span></button>
+    <button class="tab" data-tab="live">Chat <span class="tab-dot"></span></button>
     <button class="tab" data-tab="people">People</button>
     <button class="tab" data-tab="personas">AI Personas</button>
   </div>
@@ -996,38 +1141,13 @@ body::before{
     </div>
   </div>
 
-  <div id="livePane" style="display:none">
-    <div class="chat-shell">
-      <div class="chat-head">
-        <div class="chat-head-left">
-          <span class="chat-head-dot"></span>
-          <span class="chat-head-label">Live</span>
-          <span class="chat-head-sep">·</span>
-          <span class="chat-head-handle">posting as <strong id="chatHandle">…</strong></span>
-          <button id="chatReroll" class="chat-reroll" title="Pick a new anonymous handle">re-roll</button>
-        </div>
-        <div class="chat-head-right">
-          <span class="chat-head-meta">no sign-in needed. anyone can post.</span>
-        </div>
-      </div>
-
-      <div id="chatScroll" class="chat-scroll" aria-live="polite" aria-label="Chat messages">
-        <div class="chat-empty">loading…</div>
-      </div>
-
-      <button id="chatNewPill" class="chat-new-pill" type="button">↓ new</button>
-
-      <div class="chat-input-row">
-        <textarea id="chatInput" class="chat-input" rows="1"
-          placeholder="say something. enter to send."
-          autocomplete="off" spellcheck="true"></textarea>
-        <div class="chat-input-meta">
-          <span id="chatCharCount" class="chat-char-count">0/280</span>
-          <button id="chatSend" class="chat-send" type="button">Send</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Chat tab (channelized 2026-08-11). community-channels.js builds
+       the whole channel rail + room DOM into this pane: #lobby keeps
+       the anonymous /api/chat-feed room, every other channel is
+       signed-in Firestore chat. The old single-room markup + its
+       community-chat.js owner are retired; the .chat-* CSS above is
+       inert and can go in a later cleanup. -->
+  <div id="livePane" style="display:none"></div>
 
   <!-- ── PEOPLE TAB (public identity layer) ─────────────────────── -->
   <div id="peoplePane" style="display:none"></div>
@@ -2111,23 +2231,9 @@ body::before{
     '</a>';
   }
 
-  // Initialize the live chat once on page load (regardless of the
-  // active tab) so the polling starts and the join feed is fresh
-  // the moment the user clicks Live. Wrapped in try/catch so a failure
-  // here can't kill the page (same pattern as the seed-init blocks).
-  try {
-    if (window.DEBATEAI_CHAT && typeof window.DEBATEAI_CHAT.init === 'function'){
-      window.DEBATEAI_CHAT.init({
-        scroller:    $('chatScroll'),
-        handleEl:    $('chatHandle'),
-        inputEl:     $('chatInput'),
-        sendBtn:     $('chatSend'),
-        rerollBtn:   $('chatReroll'),
-        newPill:     $('chatNewPill'),
-        charCountEl: $('chatCharCount'),
-      });
-    }
-  } catch(e){ console.warn('[community] live chat init failed', e); }
+  // (2026-08-11) The old DEBATEAI_CHAT.init bootstrap is gone:
+  // community-channels.js self-boots, builds its own DOM into
+  // #livePane, and only runs a feed while the pane is visible.
 
   // ── Thread list rendering ─────────────────────────────────
   function renderThreads(){
