@@ -120,6 +120,16 @@ fi
 # overriding a minor age range, unknown country passing a live
 # blocklist, and caching the fail-closed error); each was caught.
 # ──────────────────────────────────────────────────────────────────
+JUDGE_RUN_GUARD="$REPO_ROOT/scripts/test-judge-run.mjs"
+if [ -f "$JUDGE_RUN_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-judge-run.mjs >/tmp/judge-run-guard.log 2>&1); then
+    echo "[judge-run-guard] commit blocked - the shared panel runner changed:" >&2
+    tail -20 /tmp/judge-run-guard.log >&2
+    echo "[judge-run-guard] see scripts/test-judge-run.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 WAGER_GUARD="$REPO_ROOT/scripts/test-wager-eligibility.mjs"
 if [ -f "$WAGER_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-wager-eligibility.mjs >/tmp/wager-guard.log 2>&1); then

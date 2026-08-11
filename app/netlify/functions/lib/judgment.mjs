@@ -36,6 +36,20 @@ export const SOURCES = ['async', 'live'];
 // Season and rubric stamp for a moment in time. `judgedAt` of 0 falls
 // into the earliest season, which is the honest reading of a round with
 // no timestamp: it was judged before we started recording this.
+// Firestore Timestamps do not coerce to a number: Number(ts) is NaN, and
+// seasonFor(NaN) silently falls through to the earliest season, which is
+// the unpublished pre-charter one. So a ballot stamped from a raw
+// completedAt was being attributed to a rubric that was never published.
+// Every judgedAt now goes through here.
+function toMs(v) {
+  if (!v) return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (typeof v.seconds === 'number') return v.seconds * 1000;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function charterStamp(judgedAt) {
   const season = seasonFor(judgedAt || 0);
   return {
@@ -152,14 +166,33 @@ export function fromRound(source, eventId, d) {
     const b = d.ballot;
     if (!b || (b.winner !== 'pro' && b.winner !== 'con')) return { ok: false, reason: 'no_verdict' };
     if (!d.proUid || !d.conUid) return { ok: false, reason: 'missing_participant' };
+    const liveJudgedAt = toMs(b.at) || toMs(d.completedAt);
+    // PROVENANCE, and it is the whole reason this branch exists.
+    //
+    // A live ballot can now arrive two ways. live-judge.mjs reads the
+    // transcript off the round doc, runs the season's panel server-side,
+    // and stamps `ballot.panel`. The legacy path is a debater's browser
+    // calling /api/claude and publishing whatever came back.
+    //
+    // The panel stamp is the discriminator, and it is honest rather than
+    // convenient: a ballot carrying a panel record was produced by the
+    // server (a degraded single-juror run still carries one, resolution
+    // 'single'), and a ballot with no panel was produced by a browser.
+    // Only the first may move money, per MONEY_VERDICT_SOURCES.
+    //
+    // Do NOT make this unconditional. Flipping every live round to
+    // 'server' would relabel the browser-authored back catalogue as
+    // server-authored, which is the exact false claim the provenance
+    // field was added to prevent.
+    const ps = panelStamp(b);
     return {
       ok: true,
       value: {
         id: judgmentId(source, eventId),
         source, eventId,
-        judgeType: 'ai',
+        judgeType: ps.panel ? 'ai-panel' : 'ai',
         modelVersion: b.model || 'unknown',
-        ...charterStamp(b.at || d.completedAt || 0),
+        ...charterStamp(liveJudgedAt),
         winner: b.winner === 'pro' ? 'a' : 'b',
         sideLabels: { a: 'pro', b: 'con' },
         participants: { a: d.proUid, b: d.conUid },
@@ -168,19 +201,16 @@ export function fromRound(source, eventId, d) {
         dimensionScores: dimensionsFromBallot(b, 'pro', 'con'),
         rfd: String(b.rfd || '').slice(0, 4000),
         motion: String(d.motion || '').slice(0, 500),
-        // Written by a participant's browser. Recorded honestly so an
-        // integrity pass can find these without re-reading every round,
-        // and now load-bearing: lib/settle.mjs refuses to move credits
-        // on a verdict one of the two interested parties authored.
-        verdictSource: 'participant',
-        panel: null,
-        confidence: null,
+        // 'participant' means a browser wrote it, which lib/settle.mjs
+        // refuses to move credits on. See the note above the panel stamp.
+        verdictSource: ps.panel ? 'server' : 'participant',
+        ...ps,
         decisiveArgs: [],
         strongestRebuttal: '',
         unresolved: [],
         humanReview: null,
         disputeState: 'none',
-        judgedAt: b.at || d.completedAt || 0,
+        judgedAt: liveJudgedAt,
       },
     };
   }

@@ -19,8 +19,7 @@ import { recordJudgment } from './lib/judgment.mjs';
 import { settleMarket } from './lib/settle.mjs';
 import { marketId as mkMarketId } from './lib/credits.mjs';
 import { seasonFor } from './lib/judge-charter.mjs';
-import { callPanel, jurorAvailable } from './lib/judge-jurors.mjs';
-import { normalizeVote, tallyPanel } from './lib/judge-panel.mjs';
+import { runPanel } from './lib/judge-run.mjs';
 import { auditRecord, writeAudit } from './lib/judge-audit.mjs';
 import { judgmentId as mkJudgmentId } from './lib/judgment.mjs';
 import {
@@ -105,147 +104,12 @@ function ballotPrompt(d, clashMap) {
   return { system, user };
 }
 
-// Per-axis scorecard. All four axes must carry finite prop+opp scores
-// or the whole block is dropped: the renderers (rounds.html, r.mjs)
-// treat dimensions as all-or-nothing, and a partial scorecard would
-// read as a lopsided verdict. A model that ignores the field just
-// yields a ballot shaped exactly like the pre-scorecard ones.
-const DIM_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
-
-function parseDims(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  const out = {};
-  for (const axis of DIM_AXES) {
-    const a = raw[axis];
-    const prop = Math.round(Number(a && a.prop));
-    const opp = Math.round(Number(a && a.opp));
-    if (!Number.isFinite(prop) || !Number.isFinite(opp)) return null;
-    out[axis] = {
-      prop: Math.max(1, Math.min(10, prop)),
-      opp: Math.max(1, Math.min(10, opp)),
-    };
-  }
-  return out;
-}
-
-function parseBallot(text) {
-  const m = String(text || '').match(/\{[\s\S]*\}/);
-  if (!m) throw new Error('no JSON in ballot output');
-  const j = JSON.parse(m[0]);
-  const clamp = (x) => Math.max(25, Math.min(30, Math.round(Number(x) * 10) / 10 || 27));
-  const propPoints = clamp(j.propPoints);
-  const oppPoints = clamp(j.oppPoints);
-  let winner = j.winner === 'prop' || j.winner === 'opp' ? j.winner : null;
-  if (!winner) winner = propPoints >= oppPoints ? 'prop' : 'opp';
-  const dimensions = parseDims(j.dimensions);
-  return {
-    winner, propPoints, oppPoints,
-    rfd: String(j.rfd || '').slice(0, 1600),
-    ...(dimensions ? { dimensions } : {}),
-  };
-}
-
-// ── the panel ───────────────────────────────────────────────────────
-//
-// One model call is one opinion the operator can tune. The season pins
-// three independent model families, they judge the same round from
-// byte-identical prompts, and the majority is the verdict. Disagreement
-// is not smoothed over: it is recorded on the ballot and published.
-//
-// DEGRADED MODE, disclosed rather than silent. If a provider key is
-// unset or a juror fails, the panel runs short. When too few jurors are
-// available to reach the season's quorum, the ballot falls back to a
-// single judge and is STAMPED `degraded: true`, which the public charter
-// endpoint surfaces. Set JUDGE_REQUIRE_PANEL=1 to refuse a verdict
-// instead of degrading; the default keeps rounds moving, because a
-// missing key should not silently freeze every ballot on the site.
-const PANEL_ENABLED = process.env.JUDGE_PANEL_ENABLED !== '0';
-const REQUIRE_PANEL = process.env.JUDGE_REQUIRE_PANEL === '1';
-
-async function runPanel(season, system, user) {
-  const panelCfg = PANEL_ENABLED ? (season && season.panel) : null;
-  const wanted = (panelCfg && panelCfg.jurors) || [];
-  const available = wanted.filter(jurorAvailable);
-  const quorum = (panelCfg && panelCfg.quorum) || 2;
-
-  // Not enough jurors to constitute the panel the season promised.
-  if (!panelCfg || available.length < quorum) {
-    if (REQUIRE_PANEL && panelCfg) {
-      throw new Error(`panel not constitutable: ${available.length} of ${wanted.length} jurors available, quorum ${quorum}`);
-    }
-    const started = Date.now();
-    const ballot = parseBallot(await claude(system, user, 900, JUDGE_MODEL));
-    return {
-      ballot: { ...ballot, model: JUDGE_MODEL },
-      panel: {
-        resolution: 'single',
-        degraded: !!panelCfg,
-        votesCast: 1, panelSize: 1, quorum: 1,
-        tally: ballot.winner === 'prop' ? { a: 1, b: 0 } : { a: 0, b: 1 },
-        agreement: 1, unanimous: false, dissent: [], dissents: [],
-        marginSpread: 0, marginStdev: 0,
-        models: [JUDGE_MODEL],
-        jurorsWanted: wanted.length,
-        jurorsAvailable: available.length,
-      },
-      jurorResults: [{
-        jurorId: 'single', provider: 'anthropic', model: JUDGE_MODEL,
-        ok: true, ballot, ms: Date.now() - started, promptHash: '',
-      }],
-    };
-  }
-
-  const results = await callPanel(available, system, user, 900, parseBallot);
-  const votes = results
-    .filter((r) => r.ok && r.ballot)
-    .map((r) => normalizeVote(r, r.ballot, 'prop', 'opp'))
-    .filter(Boolean);
-
-  const tally = tallyPanel(votes, { size: available.length, quorum });
-  const lead = votes.find((v) => v.jurorId === tally.leadJurorId) || votes[0] || null;
-
-  // Every juror that came out the other way, with its reasoning intact.
-  // Blending contradictory RFDs into one paragraph produces prose that
-  // reasons like neither juror, so a dissent is shown as a dissent.
-  const dissents = votes
-    .filter((v) => tally.winner && v.winner !== tally.winner)
-    .map((v) => ({ jurorId: v.jurorId, model: v.model, winner: v.winner === 'a' ? 'prop' : 'opp', rfd: v.rfd }));
-
-  const ballot = {
-    winner: tally.winner === 'a' ? 'prop' : (tally.winner === 'b' ? 'opp' : null),
-    propPoints: tally.points.a,
-    oppPoints: tally.points.b,
-    rfd: lead ? lead.rfd : '',
-    ...(tally.dimensions ? {
-      dimensions: Object.fromEntries(
-        Object.entries(tally.dimensions).map(([axis, v]) => [axis, { prop: v.a, opp: v.b }]),
-      ),
-    } : {}),
-    model: lead ? lead.model : '',
-  };
-
-  return {
-    ballot,
-    panel: {
-      resolution: tally.resolution,
-      degraded: available.length < wanted.length,
-      votesCast: tally.votesCast,
-      panelSize: tally.panelSize,
-      quorum,
-      tally: tally.tally,
-      agreement: tally.agreement,
-      unanimous: tally.unanimous,
-      dissent: tally.dissent,
-      dissents,
-      marginSpread: tally.marginSpread,
-      marginStdev: tally.marginStdev,
-      models: available.map((j) => j.model),
-      jurorsWanted: wanted.length,
-      jurorsAvailable: available.length,
-    },
-    jurorResults: results,
-  };
-}
+// The panel, the ballot parser and the scorecard clamp all moved to
+// lib/judge-run.mjs when live rounds needed the same machinery. Two
+// copies of "how a panel decides a round" is how degraded-mode and
+// no-majority semantics drift apart, and those two are the difference
+// between a disclosed limitation and a silent one. Async speaks
+// prop/opp on the wire; the runner is parameterised on exactly that.
 
 async function ensureTranscripts(store, ref, d) {
   // Returns true when every present turn has a transcript (or gave up).
@@ -421,7 +285,7 @@ export default async () => {
 
           const { system, user } = ballotPrompt(d, clashMap);
           const season = seasonFor(Date.now());
-          const judged = await runPanel(season, system, user);
+          const judged = await runPanel(season, system, user, { aKey: 'prop', bKey: 'opp', singleModel: JUDGE_MODEL });
 
           // Nobody voted. Every juror failed, which is a transient
           // provider problem rather than an undecidable round, so leave

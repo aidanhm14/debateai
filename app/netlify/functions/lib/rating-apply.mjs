@@ -74,7 +74,13 @@ export function eligibility(source, d) {
       a: { uid: a, name: d.proName || '', side: 'pro' },
       b: { uid: b, name: d.conName || '', side: 'con' },
       outcome: ballot.winner === 'pro' ? 'a' : 'b',
-      verdictSource: 'participant',
+      // Same discriminator lib/judgment.mjs uses: a ballot carrying a
+      // panel record came from live-judge.mjs running the season's panel
+      // server-side; one without came from a debater's browser. Recorded
+      // rather than acted on here, because the ladder deliberately moves
+      // on both (a rating pays nobody). Money does not: see
+      // MONEY_VERDICT_SOURCES in lib/settle.mjs.
+      verdictSource: (ballot && ballot.panel) ? 'server' : 'participant',
       motion: d.motion || '',
     };
   }

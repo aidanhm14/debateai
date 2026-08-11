@@ -6022,6 +6022,46 @@ html.stage-mode .stage-ov{display:block}
       var blHost = $('ballotLoading');
       if (blHost) ballotLoadingHTML = blHost.innerHTML;
     }
+    // ── Server-judged ballot, tried first ──────────────────────────
+    // /api/live-judge reads the transcript off the round doc and runs
+    // the season's three-family panel server-side. That is what makes
+    // the verdict verdictSource:'server', which is the only provenance
+    // lib/settle.mjs will move credits on. This path sends a room id and
+    // nothing else: the browser cannot influence what the judge sees.
+    //
+    // On ANY failure we fall through to the client path below. A round
+    // judged in the browser is worth less (it cannot settle a market)
+    // but it is a ballot, and no ballot at all is the worse outcome.
+    // Spectators never trigger it; the server refuses them anyway.
+    if (!state.serverJudgeTried && !isSpectator() && state.user && state.user.getIdToken){
+      state.serverJudgeTried = true;
+      ballotStatus('The judging panel is reading the round.');
+      state.user.getIdToken().then(function(token){
+        return fetch('/api/live-judge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ room: state.room }),
+        });
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if (!res || !res.ok || !res.ballot) throw new Error((res && res.code) || 'server_judge_unavailable');
+        renderBallot(res.ballot);
+        try { pmSettleVerdict(res.ballot.winner); } catch(e){}
+        // Deliberately NOT publishBallot(): the server already wrote it,
+        // and a client write here would replace a panel-stamped ballot
+        // with an identical-looking one carrying no provenance.
+        try {
+          gtag('event', 'live_round_ballot', {
+            format: state.formatKey, winner: res.ballot.winner,
+            judge: 'server', resolution: (res.panel && res.panel.resolution) || '',
+          });
+        } catch(e){}
+      }).catch(function(err){
+        console.warn('[ballot] server judge unavailable (' + (err && err.message) + '), falling back to the client path');
+        try { gtag('event', 'live_round_server_judge_fallback', { format: state.formatKey, reason: (err && err.message) || '' }); } catch(e){}
+        generateBallot(attempt);
+      });
+      return;
+    }
     var p = buildBallotPrompt();
     fetch('/api/claude', {
       method: 'POST',
