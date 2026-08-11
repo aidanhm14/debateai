@@ -715,6 +715,23 @@
     // The rail carries Explore only. Every destination remains in Explore
     // and in the mobile sheet below; AI sparring is promoted inside those
     // menus and contextually on /spar, not as a permanent pill.
+    // "How this site works" sits directly beside the Explore trigger, as a
+    // button rather than one more text link in a rail of text links.
+    // Rationale (Aidan, 2026-08-11): a first-time visitor's actual first
+    // question is "what is this and what do I do", and the answer was a
+    // low-contrast nav word competing with nine siblings. A stranger
+    // should be able to find the explanation without reading the menu.
+    var howBtn = el('a', {
+      href: '/how-it-works',
+      class: 'ui-topbar-howbtn' + (pathMatches('/how-it-works') ? ' is-active' : ''),
+      'aria-label': 'How this site works',
+    });
+    howBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<circle cx="8" cy="8" r="6.4"/><path d="M6.2 6.1a1.9 1.9 0 1 1 2.4 2.2c-.5.2-.8.6-.8 1.1v.3"/><path d="M8 12.1h.01"/></svg>'
+      + '<span>How this site works</span>';
+    howBtn.addEventListener('click', function(){ navTrack('nav_howitworks_click', { from: location.pathname }); });
+    right.appendChild(howBtn);
+
     right.appendChild(buildExplore());
     pageLinks.filter(function(L){ return L.hot || L.cta || L.rail; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
