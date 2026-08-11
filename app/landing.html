@@ -6321,7 +6321,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <!-- TOC mirrors the actual section order on the page, top to bottom
        (2026-07-23 refresh: Sweepstakes moved from 03 to 10, and
        #face-wall was added, having been on the page but missing from
-       this list). Keep this in sync with real section y-positions; the
+       this list. 2026-08-11: the expanded half was resequenced to
+       why -> credential -> debaters -> reviews -> choose a path, so
+       Credential/Community/Debaters/Reviews each climb one and
+       "Choose a path" drops from 09 to 13.) Keep this in sync with
+       real section y-positions; the
        order here is asserted against document order, not eyeballed.
        Section numbers are inline <span class="num"> so they can recolor
        independently of the label on active state, and the init script
@@ -6342,11 +6346,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <li><a href="#stream-it"><span class="num">06</span><span class="lab">Stream it</span></a></li>
     <li data-size="sm"><a href="#why-this-exists"><span class="num">07</span><span class="lab">Why debate</span></a></li>
     <li><a href="#floor-band"><span class="num">08</span><span class="lab">The Floor</span></a></li>
-    <li data-size="lg"><a href="#mode-select"><span class="num">09</span><span class="lab">Choose a path</span></a></li>
-    <li><a href="#credential-path"><span class="num">10</span><span class="lab">Credential + vision</span></a></li>
-    <li><a href="#community-band"><span class="num">11</span><span class="lab">Community</span></a></li>
-    <li><a href="#face-wall"><span class="num">12</span><span class="lab">Debaters</span></a></li>
-    <li data-size="sm"><a href="#reviews"><span class="num">13</span><span class="lab">Reviews</span></a></li>
+    <li><a href="#credential-path"><span class="num">09</span><span class="lab">Credential + vision</span></a></li>
+    <li><a href="#community-band"><span class="num">10</span><span class="lab">Community</span></a></li>
+    <li><a href="#face-wall"><span class="num">11</span><span class="lab">Debaters</span></a></li>
+    <li data-size="sm"><a href="#reviews"><span class="num">12</span><span class="lab">Reviews</span></a></li>
+    <li data-size="lg"><a href="#mode-select"><span class="num">13</span><span class="lab">Choose a path</span></a></li>
     <li><a href="#faq"><span class="num">14</span><span class="lab">FAQ</span></a></li>
     <li data-size="lg"><a href="#book-founders"><span class="num">15</span><span class="lab">Join</span></a></li>
   </ul>
@@ -13041,7 +13045,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // precedent); chapters at and below it keep containment.
     function forceRenderAbove(target){
       if (document.documentElement.getAttribute('data-lpcv') !== 'cv') return;
-      var chapters = ['how-it-works','live-now','live-proof','ranked-band','creator-sweepstakes','stream-it','why-this-exists','floor-band','mode-select','engine-select','credential-path','community-band','face-wall','reviews','faq','book-founders'];
+      var chapters = ['how-it-works','live-now','live-proof','ranked-band','creator-sweepstakes','stream-it','why-this-exists','floor-band','credential-path','community-band','face-wall','reviews','mode-select','engine-select','faq','book-founders'];
       for (var i = 0; i < chapters.length; i++){
         var el = document.getElementById(chapters[i]);
         if (!el) continue;
@@ -14417,509 +14421,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .live-proof-video .lpv-ctl-leave{color:#ef4444;border-color:rgba(239,68,68,.4)}
 </style>
 
-<!-- ── MODE SELECT (2026-07-18) ──────────────────────────────────────
-     Declutter experiment. The front page stacks ten dense bands with no
-     wayfinding; this is a game-style mode-select directly under the
-     hero so a first visit starts with a pick, not a scroll. Six tiles,
-     one per primary surface, routes mirror the topbar. 50/50 sticky
-     via localStorage (da-mode-menu); ?modeMenu=on|off forces an arm
-     for QA. GA: mode_menu_view {variant}, mode_menu_click {mode}.
-     Default-visible so no-JS visitors still get the menu; the script
-     only hides control. -->
-<script>
-  (function(){
-    // 2026-07-22: the 50/50 arm is retired, the door wall ships to everyone.
-    // Stale 'off' assignments were sticky in localStorage and kept hiding the
-    // menu from returning visitors, so clear the key on sight. ?modeMenu=off
-    // still forces it hidden for QA.
-    var v='on';
-    try{
-      if(/[?&]modemenu=off(?:&|$)/.test((location.search||'').toLowerCase())) v='off';
-    }catch(e){}
-    try{ localStorage.removeItem('da-mode-menu'); }catch(e){}
-    document.documentElement.setAttribute('data-mode-menu',v);
-    try{
-      if(window.gtag) gtag('event','mode_menu_view',{variant:v});
-    }catch(e){}
-  })();
-</script>
-<section id="mode-select" class="mode-select" aria-label="Pick your mode">
-  <style>
-    /* Wall of doors (2026-07-22). Was a 3x2 tile grid; now six equal
-       vertical doors in one row that expand on hover/focus via flex-grow.
-       `.ms-tile` survives on the anchors purely as the click-tracking
-       hook at the bottom of this section, it carries no styles now. */
-    html[data-mode-menu="off"] .mode-select{display:none}
-    /* Extra top air (2026-07-22): the Floor's pot card ends flush and the
-       doors started right under it. Doubling the block padding on this
-       edge gives the two bands a real seam. */
-    .mode-select{padding:calc(var(--mid-pad-block) * 2.2) var(--mid-gutter) var(--mid-pad-block);display:flex;justify-content:center}
-    /* This six-card wall needs a little more reading width than the
-       shared 1180px chapters. The extra 120px buys each door roughly
-       20px without turning the row into an edge-to-edge banner. */
-    .mode-select-wrap{width:100%;max-width:1300px}
-    .ms-title{margin:0 0 22px;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.7rem,3.2vw,2.4rem);font-weight:700;letter-spacing:-.02em;line-height:1.08;color:#1a1a1f}
-    .ms-title em{font-style:normal;color:#dc2626}
-    /* Dark themes (2026-08-10 revival): the title sits directly on the
-       page background; the doors are self-painted paper and stay put. */
-    :root:not([data-theme="light"]) .ms-title{color:#f5efe7}
-
-    .ms-wall{display:flex;align-items:stretch;gap:12px}
-    /* Dark by default (2026-08-10): the door wall used to stay a
-       fixed near-white card wall regardless of site theme.
-       [data-theme="light"] pins the original paper-white doors back. */
-    .ms-door{
-      --ms-a:#c01326;--ms-a-rgb:192,19,38;
-      position:relative;overflow:hidden;flex:1 1 0;min-width:0;
-      display:flex;flex-direction:column;
-      min-height:clamp(296px,24vw,352px);
-      padding:16px 26px 16px 18px;
-      border:1px solid rgba(245,239,231,.12);border-radius:16px;
-      background:linear-gradient(var(--ms-a),var(--ms-a)) 0 0/100% 3px no-repeat,#221f1e;
-      box-shadow:0 10px 30px rgba(0,0,0,.3);
-      color:#f5efe7;text-decoration:none;
-      transition:flex-grow .34s cubic-bezier(.22,.68,.24,1),transform .34s cubic-bezier(.22,.68,.24,1),box-shadow .34s ease,border-color .28s ease;
-    }
-    [data-theme="light"] .ms-door{
-      border-color:rgba(29,25,21,.10);
-      background:linear-gradient(var(--ms-a),var(--ms-a)) 0 0/100% 3px no-repeat,rgba(255,253,247,.94);
-      box-shadow:0 10px 30px rgba(29,25,21,.06);
-      color:#1a1a1f;
-    }
-    .ms-door>*{position:relative;z-index:1}
-    /* inset door panel */
-    .ms-door::before{content:'';position:absolute;inset:9px;border-radius:9px;border:1px solid rgba(var(--ms-a-rgb),.15);pointer-events:none;transition:border-color .3s ease}
-    /* inner glow, capped low so text keeps AA contrast over it */
-    .ms-door::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(130% 52% at 50% 118%,rgba(var(--ms-a-rgb),.15),rgba(var(--ms-a-rgb),.04) 48%,transparent 74%);opacity:.55;transition:opacity .34s ease}
-    .ms-num{font-family:'Crimson Pro',Georgia,serif;font-size:2.2rem;font-weight:700;line-height:1;letter-spacing:-.02em;color:rgba(var(--ms-a-rgb),.4);transition:color .3s ease}
-    [data-theme="light"] .ms-num{color:rgba(var(--ms-a-rgb),.28)}
-    .ms-tag{position:absolute;top:15px;right:14px;z-index:2;display:inline-flex;align-items:center;gap:7px;font-size:.62rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#fca5a5;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.12);border-radius:999px;padding:4px 9px}
-    [data-theme="light"] .ms-tag{color:#c81e1e;border-color:rgba(200,30,30,.16);background:rgba(239,68,68,.06)}
-    .ms-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:msDot 1.8s ease-in-out infinite}
-    @keyframes msDot{0%,100%{opacity:1}50%{opacity:.4}}
-    .ms-door h3{margin:14px 0 0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.06rem,1.12vw,1.26rem);font-weight:700;letter-spacing:-.01em;line-height:1.18;color:#f5efe7}
-    [data-theme="light"] .ms-door h3{color:#1a1a1f}
-    .ms-door p{margin:9px 0 0;font-size:.83rem;line-height:1.5;color:rgba(245,239,231,.78);opacity:.86;transform:translateY(6px);transition:opacity .34s ease,transform .34s cubic-bezier(.22,.68,.24,1)}
-    [data-theme="light"] .ms-door p{color:rgba(26,26,31,.78)}
-    /* the rail line turns the blank middle into a door panel */
-    .ms-go{margin-top:auto;padding-top:13px;border-top:1px solid rgba(var(--ms-a-rgb),.16);display:block;font-size:.8rem;font-weight:800;color:rgba(245,239,231,.75);opacity:.9;transform:translateY(8px);transition:color .3s ease,border-color .3s ease,opacity .34s ease,transform .34s cubic-bezier(.22,.68,.24,1)}
-    [data-theme="light"] .ms-go{color:rgba(26,26,31,.72)}
-    .ms-arrow{display:inline-block;transition:transform .34s cubic-bezier(.22,.68,.24,1)}
-    /* handle */
-    .ms-knob{position:absolute;right:12px;bottom:56px;z-index:2;width:10px;height:10px;border-radius:50%;background:rgba(var(--ms-a-rgb),.5);box-shadow:0 0 0 4px rgba(var(--ms-a-rgb),.09);transition:background-color .3s ease,box-shadow .3s ease}
-
-    .ms-door[data-mode="live"]{--ms-a:#c01326;--ms-a-rgb:192,19,38}
-    .ms-door[data-mode="voice"]{--ms-a:#b4470f;--ms-a-rgb:180,71,15}
-    .ms-door[data-mode="judge"]{--ms-a:#7d2a63;--ms-a-rgb:125,42,99}
-    .ms-door[data-mode="prep"]{--ms-a:#0f6b64;--ms-a-rgb:15,107,100}
-    .ms-door[data-mode="learn"]{--ms-a:#1f4fb5;--ms-a-rgb:31,79,181}
-    .ms-door[data-mode="schedule"]{--ms-a:#6b3ab8;--ms-a-rgb:107,58,184}
-    /* Purple through violet is taken, so the stream door takes the
-       Twitch-adjacent indigo rather than repeating the live door's red. */
-    .ms-door[data-mode="stream"]{--ms-a:#4b3fa8;--ms-a-rgb:75,63,168}
-
-    /* open by keyboard. :has() keeps siblings from compressing when the
-       pointer sits in a gap; without :has() the door still expands. */
-    .ms-wall:has(.ms-door:focus-visible) .ms-door:not(:focus-visible){flex-grow:.88}
-    .ms-door:focus-visible{flex-grow:2.2;transform:translateY(-6px);border-color:rgba(var(--ms-a-rgb),.42);box-shadow:0 22px 46px rgba(var(--ms-a-rgb),.16);outline:2px solid var(--ms-a);outline-offset:3px}
-    .ms-door:focus-visible::after{opacity:1}
-    .ms-door:focus-visible::before{border-color:rgba(var(--ms-a-rgb),.3)}
-    .ms-door:focus-visible .ms-num{color:rgba(var(--ms-a-rgb),.5)}
-    .ms-door:focus-visible p{opacity:1;transform:none}
-    .ms-door:focus-visible .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
-    .ms-door:focus-visible .ms-arrow{transform:translateX(5px)}
-    .ms-door:focus-visible .ms-knob{background:var(--ms-a);box-shadow:0 0 0 6px rgba(var(--ms-a-rgb),.14)}
-
-    /* open by pointer */
-    @media (hover:hover) and (pointer:fine){
-      .ms-wall:has(.ms-door:hover) .ms-door:not(:hover){flex-grow:.88}
-      .ms-door:hover{flex-grow:2.2;transform:translateY(-6px);border-color:rgba(var(--ms-a-rgb),.42);box-shadow:0 22px 46px rgba(var(--ms-a-rgb),.16)}
-      .ms-door:hover::after{opacity:1}
-      .ms-door:hover::before{border-color:rgba(var(--ms-a-rgb),.3)}
-      .ms-door:hover .ms-num{color:rgba(var(--ms-a-rgb),.5)}
-      .ms-door:hover p{opacity:1;transform:none}
-      .ms-door:hover .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
-      .ms-door:hover .ms-arrow{transform:translateX(5px)}
-      .ms-door:hover .ms-knob{background:var(--ms-a);box-shadow:0 0 0 6px rgba(var(--ms-a-rgb),.14)}
-    }
-
-    /* under 1100 the wall becomes a scroll-snap rail, same left-to-right
-       order, every door fully open, next one peeking. */
-    @media(max-width:1099px){
-      .ms-wall{overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding:6px 0 12px}
-      .ms-door{flex:0 0 79vw;scroll-snap-align:start;min-height:clamp(272px,46vw,320px);box-shadow:0 6px 18px rgba(29,25,21,.06)}
-      .ms-door::after{opacity:1}
-      .ms-door p{opacity:1;transform:none}
-      .ms-door .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
-      .ms-num{color:rgba(var(--ms-a-rgb),.4)}
-      .ms-knob{bottom:50px}
-    }
-    /* phones keep the full 79vw door; past ~700px that width stretches a
-       door into a squat banner, so cap it and show more of the wall. */
-    @media(min-width:700px) and (max-width:1099px){
-      .ms-door{max-width:452px}
-    }
-
-    /* Under 1100 the rail above turns six doors into 79vw slides you swipe
-       through, which reads as a slide deck rather than a set of choices: you
-       cannot see how many there are, and five of the six are off-screen. This
-       block overrides it into a single menu, one tappable row per door, all
-       six visible at once. Placed after the rail rules on purpose, since it
-       has to win on source order at equal specificity. */
-    @media(max-width:1099px){
-      /* Dark by default (2026-08-10), same fix as the desktop door wall
-         above: this mobile stacked-list variant stayed cream regardless
-         of theme. [data-theme="light"] pins the original back. */
-      .ms-wall{
-        display:block;overflow:hidden;padding:0;gap:0;
-        scroll-snap-type:none;overscroll-behavior-x:auto;
-        border:1px solid rgba(245,239,231,.14);border-radius:14px;
-        background:#221f1e;
-        box-shadow:0 10px 30px rgba(0,0,0,.3);
-      }
-      [data-theme="light"] .ms-wall{
-        border-color:rgba(29,25,21,.12);
-        background:rgba(255,253,247,.94);
-        box-shadow:0 10px 30px rgba(29,25,21,.06);
-      }
-      .ms-door{
-        display:grid;grid-template-columns:auto 1fr auto;
-        grid-template-rows:auto auto auto;
-        align-items:center;column-gap:14px;
-        flex:none;max-width:none;min-height:0;
-        padding:14px 15px;
-        border:0;border-bottom:1px solid rgba(245,239,231,.12);border-radius:0;
-        box-shadow:none;background:none;
-        scroll-snap-align:none;transition:background-color .18s ease;
-      }
-      [data-theme="light"] .ms-door{border-bottom-color:rgba(29,25,21,.1)}
-      .ms-door:last-child{border-bottom:0}
-      .ms-door:active{background:rgba(var(--ms-a-rgb),.06)}
-      /* the card chrome is what made each row look like its own slide */
-      .ms-door::before{display:none}
-      .ms-door::after{opacity:0}
-      .ms-knob{display:none}
-      .ms-num{
-        grid-column:1;grid-row:1 / 4;
-        font-size:1.1rem;color:rgba(var(--ms-a-rgb),.6);
-        font-variant-numeric:tabular-nums;
-      }
-      .ms-tag{
-        position:static;grid-column:2;grid-row:1;
-        justify-self:start;margin-bottom:5px;padding:3px 7px;font-size:.55rem;
-      }
-      .ms-door h3{grid-column:2;grid-row:2;margin:0;font-size:1rem}
-      .ms-door p{
-        grid-column:2;grid-row:3;margin:3px 0 0;font-size:.8rem;line-height:1.45;
-        opacity:1;transform:none;
-        display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-      }
-      /* the CTA collapses to its arrow; the whole row is the link */
-      .ms-go{
-        grid-column:3;grid-row:1 / 4;
-        margin:0;padding:0;border-top:0;
-        font-size:0;opacity:1;transform:none;
-      }
-      .ms-arrow{font-size:1.15rem;color:rgba(var(--ms-a-rgb),.75)}
-    }
-
-    .ms-alts{margin:16px 0 0;text-align:center;font-size:.84rem;line-height:1.55;color:var(--text-dim)}
-    .ms-alts a{color:var(--text);font-weight:700;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.4)}
-    .ms-alts a:hover{color:#ef4444;text-decoration-color:#ef4444}
-    @media(prefers-reduced-motion:reduce){
-      .ms-door,.ms-door::before,.ms-door::after,.ms-door p,.ms-go,.ms-arrow,.ms-num,.ms-knob{transition:none!important}
-      .ms-door{flex-grow:1!important}
-      .ms-door,.ms-door p,.ms-door .ms-go,.ms-arrow{transform:none!important}
-      .ms-door p,.ms-door .ms-go{opacity:1}
-    }
-  </style>
-  <div class="mode-select-wrap">
-    <h2 class="ms-title">What are you here to <em>do</em>?</h2>
-    <div class="ms-wall">
-      <a class="ms-tile ms-door" href="/spar" data-mode="live">
-        <span class="ms-num">01</span>
-        <span class="ms-tag"><span class="ms-dot" aria-hidden="true"></span>Live</span>
-        <h3>Debate a person</h3>
-        <p>Match with a real opponent on a real clock. The AI judge writes the ballot.</p>
-        <span class="ms-go" aria-hidden="true">Find an opponent <span class="ms-arrow">→</span></span>
-        <span class="ms-knob" aria-hidden="true"></span>
-      </a>
-      <!-- 2026-07-22: this door pointed at /newvoice, the lean clash
-           room. Aidan's call: /practice is the flagship AI room and the
-           main path to a credential, so it takes the door and the other
-           two voice rooms drop to the alternates line under the wall. -->
-      <a class="ms-tile ms-door" href="/practice" data-mode="voice">
-        <span class="ms-num">02</span>
-        <h3>Debate the AI</h3>
-        <p>Run a full-format round on the clock against an AI opponent that interrupts, takes POIs, and argues back. Finish with a written ballot.</p>
-        <span class="ms-go" aria-hidden="true">Open Debatable <span class="ms-arrow">→</span></span>
-        <span class="ms-knob" aria-hidden="true"></span>
-      </a>
-      <a class="ms-tile ms-door" href="/judge" data-mode="judge">
-        <span class="ms-num">03</span>
-        <h3>Get judged</h3>
-        <p data-audience-competitive="Drop in a speech or case. Winner, speaker points, and a written RFD." data-audience-plain="Share an argument or speech. See who won, why, and what to improve.">Drop in a speech or case. Winner, speaker points, and a written RFD.</p>
-        <span class="ms-go" aria-hidden="true">Get a ballot <span class="ms-arrow">→</span></span>
-        <span class="ms-knob" aria-hidden="true"></span>
-      </a>
-      <a class="ms-tile ms-door" href="/app#case" data-mode="prep">
-        <span class="ms-num">04</span>
-        <h3>Prep a case</h3>
-        <p>Build cases and rebuttals for any motion, in your format's structure.</p>
-        <span class="ms-go" aria-hidden="true">Open the prep room <span class="ms-arrow">→</span></span>
-        <span class="ms-knob" aria-hidden="true"></span>
-      </a>
-      <a class="ms-tile ms-door" href="/learn" data-mode="learn">
-        <span class="ms-num">05</span>
-        <h3>Learn the craft</h3>
-        <p>Formats, drills, and vocabulary, from first round to circuit level.</p>
-        <span class="ms-go" aria-hidden="true">Start a drill <span class="ms-arrow">→</span></span>
-        <span class="ms-knob" aria-hidden="true"></span>
-      </a>
-      <a class="ms-tile ms-door" href="/live" data-mode="schedule">
-        <span class="ms-num">06</span>
-        <h3>Schedule or spectate</h3>
-        <p>Book a round for later, or watch one that is already running.</p>
-        <span class="ms-go" aria-hidden="true">See the schedule <span class="ms-arrow">→</span></span>
-        <span class="ms-knob" aria-hidden="true"></span>
-      </a>
-      <a class="ms-tile ms-door" href="/room-judge" data-mode="stream">
-        <span class="ms-num">07</span>
-        <h3>Stream it</h3>
-        <p>Run the AI judge over your broadcast. Chat argues with the ballot.</p>
-        <span class="ms-go" aria-hidden="true">Open the stream judge <span class="ms-arrow">→</span></span>
-        <span class="ms-knob" aria-hidden="true"></span>
-      </a>
-    </div>
-    <p class="ms-alts">Other AI rooms: <a href="/newvoice" data-mode-alt="newvoice">quick clash</a> for one fast unstructured round, <a href="/voice-debate" data-mode-alt="trainer">the full trainer</a> for every format on real speech clocks.</p>
-  </div>
-  <script>
-    (function(){
-      document.querySelectorAll('#mode-select .ms-tile').forEach(function(t){
-        t.addEventListener('click',function(){
-          try{ if(window.dosTrack) dosTrack('mode_menu_click',{mode:t.getAttribute('data-mode')}); }catch(e){}
-        });
-      });
-    })();
-  </script>
-</section>
-
-
-<!-- ── Choose your opponent (2026-07-30). Sits directly under the mode
-     wall: you have just picked the ROOM, so the next question is who is
-     in it. Six houses argue here and nine open-weight models sit behind
-     the open bench, and until now that was a number in a pricing bullet
-     rather than something a visitor could see or touch.
-
-     It is a REAL PICKER, not a logo wall. Choosing a model writes the
-     same `debateos-open-engine` key /engines writes, which the round
-     surfaces read when the Open Lab brain is selected, so a pick made
-     here is the model that argues in the next round. The CTA relabels to
-     the chosen name so the promise is legible before the click.
-
-     Written in this page's own vocabulary (Crimson Pro, warm paper,
-     red hairline, .ms-door proportions) rather than importing the
-     arcade.css menu system. A menu grammar that suits an app surface
-     reads as a foreign object on a marketing page, and the landing
-     already carries enough CSS without another system on top.
-
-     Model names are static markup so the band paints with no request and
-     survives with JS off, then a single deferred fetch to /api/engines
-     re-renders it so the list cannot drift from what the server will
-     actually call. Static-first also means the content-visibility work
-     on this page is unaffected. -->
-<section id="engine-select" class="engine-select" aria-label="Choose the AI that argues against you">
-  <style>
-    .engine-select{padding:var(--mid-pad-block) var(--mid-gutter);display:flex;justify-content:center}
-    .es-wrap{width:100%;max-width:1300px}
-    .es-head{display:flex;align-items:flex-end;justify-content:space-between;gap:26px;flex-wrap:wrap;margin:0 0 20px}
-    .es-title{margin:0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.7rem,3.2vw,2.4rem);font-weight:700;letter-spacing:-.02em;line-height:1.08;color:#1a1a1f}
-    .es-title em{font-style:normal;color:#dc2626}
-    .es-sub{margin:9px 0 0;max-width:64ch;font-size:.92rem;line-height:1.55;color:rgba(26,26,31,.72)}
-    /* Dark themes (2026-08-10 revival): head ink sits directly on the
-       page background; the engine cards are self-painted paper. */
-    :root:not([data-theme="light"]) .es-title{color:#f5efe7}
-    :root:not([data-theme="light"]) .es-sub{color:rgba(245,239,231,.68)}
-    .es-all{flex:0 0 auto;font-size:.82rem;font-weight:800;color:#c01326;text-decoration:none;border-bottom:1px solid rgba(192,19,38,.3);padding-bottom:2px}
-    .es-all:hover{border-bottom-color:#c01326}
-
-    .es-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px}
-    .es-card{
-      position:relative;text-align:left;display:flex;flex-direction:column;gap:5px;
-      min-height:132px;padding:15px 16px;font:inherit;cursor:pointer;
-      border:1px solid rgba(29,25,21,.10);border-radius:16px;
-      background:linear-gradient(#c01326,#c01326) 0 0/100% 3px no-repeat,rgba(255,253,247,.94);
-      box-shadow:0 10px 30px rgba(29,25,21,.06);
-      color:#1a1a1f;
-      transition:transform .3s cubic-bezier(.22,.68,.24,1),box-shadow .3s ease,border-color .26s ease;
-    }
-    .es-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(29,25,21,.10);border-color:rgba(192,19,38,.28)}
-    .es-card:focus-visible{outline:2px solid #c01326;outline-offset:3px}
-    .es-card[aria-checked="true"]{border-color:rgba(192,19,38,.45);box-shadow:0 16px 40px rgba(192,19,38,.14),inset 0 0 0 1px rgba(192,19,38,.16)}
-    /* Selection legible without colour. */
-    .es-card[aria-checked="true"]::after{content:"✓";position:absolute;top:12px;right:14px;font-weight:800;color:#c01326}
-    .es-name{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.12rem;font-weight:700;letter-spacing:-.01em;line-height:1.15;padding-right:20px}
-    .es-vendor{font-size:.62rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(26,26,31,.64)}
-    .es-role{margin:2px 0 0;font-size:.82rem;line-height:1.45;color:rgba(26,26,31,.74)}
-    .es-tags{margin-top:auto;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px}
-    .es-tag{font-size:.6rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:rgba(26,26,31,.64);border:1px solid rgba(29,25,21,.14);border-radius:999px;padding:3px 8px;white-space:nowrap}
-    .es-tag--open{color:#15803d;border-color:rgba(21,128,61,.3)}
-
-    .es-bar{margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:14px 18px;border:1px solid rgba(29,25,21,.10);border-radius:16px;background:rgba(255,253,247,.94)}
-    .es-read{font-size:.9rem;line-height:1.5;color:rgba(26,26,31,.74)}
-    .es-read strong{color:#1a1a1f;font-weight:800}
-    .es-go{flex:0 0 auto;display:inline-block;padding:12px 24px;border-radius:999px;background:#c01326;color:#fff;text-decoration:none;font-size:.94rem;font-weight:800;transition:background .2s ease,transform .2s ease}
-    .es-go:hover{background:#a10f1f;transform:translateY(-1px)}
-    .es-houses{margin:14px 0 0;font-size:.84rem;line-height:1.6;color:rgba(26,26,31,.64)}
-    .es-houses b{color:rgba(26,26,31,.8);font-weight:800}
-    @media(max-width:620px){
-      .es-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-      .es-bar{flex-direction:column;align-items:stretch}
-      .es-go{width:100%;text-align:center}
-    }
-  </style>
-  <div class="es-wrap">
-    <div class="es-head">
-      <div>
-        <h2 class="es-title">Then choose <em>who argues back</em>.</h2>
-        <p class="es-sub">Six houses. Pick one and it takes the other side of your next round.</p>
-      </div>
-      <a class="es-all" href="/engines">See every engine and its licence →</a>
-    </div>
-
-    <div class="es-grid" id="esGrid" role="radiogroup" aria-label="Open-weight engines">
-      <button type="button" class="es-card" role="radio" aria-checked="true" data-es="moonshotai/kimi-k3" data-es-name="Kimi K3">
-        <span class="es-name">Kimi K3</span>
-        <span class="es-vendor">Moonshot AI</span>
-        <p class="es-role">The heavyweight. Longest reach on a dense motion, and it does not hedge.</p>
-        <span class="es-tags"><span class="es-tag es-tag--open">Open weights</span><span class="es-tag">1M context</span></span>
-      </button>
-      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="z-ai/glm-5.2" data-es-name="GLM-5.2">
-        <span class="es-name">GLM-5.2</span>
-        <span class="es-vendor">Zhipu AI</span>
-        <p class="es-role">Frontier reasoning at a fraction of frontier cost. The value pick.</p>
-        <span class="es-tags"><span class="es-tag es-tag--open">MIT</span><span class="es-tag">1M context</span></span>
-      </button>
-      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="deepseek/deepseek-v4-pro" data-es-name="DeepSeek V4 Pro">
-        <span class="es-name">DeepSeek V4 Pro</span>
-        <span class="es-vendor">DeepSeek</span>
-        <p class="es-role">Cold and technical. Least likely to be charmed by a pretty argument.</p>
-        <span class="es-tags"><span class="es-tag es-tag--open">MIT</span><span class="es-tag">1M context</span></span>
-      </button>
-      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="minimax/minimax-m3" data-es-name="MiniMax M3">
-        <span class="es-name">MiniMax M3</span>
-        <span class="es-vendor">MiniMax</span>
-        <p class="es-role">Long-context specialist. Holds a full tournament transcript without losing the thread.</p>
-        <span class="es-tags"><span class="es-tag es-tag--open">Open weights</span><span class="es-tag">1M context</span></span>
-      </button>
-      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="nousresearch/hermes-4-405b" data-es-name="Hermes 4 405B">
-        <span class="es-name">Hermes 4 405B</span>
-        <span class="es-vendor">Nous Research</span>
-        <p class="es-role">Human voice. Argues a hard motion without a disclaimer first.</p>
-        <span class="es-tags"><span class="es-tag es-tag--open">Open weights</span><span class="es-tag">405B</span></span>
-      </button>
-      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="allenai/olmo-3-32b-think" data-es-name="OLMo 3 32B">
-        <span class="es-name">OLMo 3 32B</span>
-        <span class="es-vendor">Allen Institute for AI</span>
-        <p class="es-role">Open all the way down: weights, data, and training recipe.</p>
-        <span class="es-tags"><span class="es-tag es-tag--open">Apache 2.0</span><span class="es-tag">Reproducible</span></span>
-      </button>
-    </div>
-
-    <div class="es-bar">
-      <p class="es-read" id="esRead"><strong>Kimi K3</strong> will argue against you. Change it any time, mid season.</p>
-      <a class="es-go" id="esGo" href="/practice">Debate Kimi K3</a>
-    </div>
-    <p class="es-houses"><b>Claude</b>, <b>GPT</b>, <b>Gemini</b>, <b>Grok</b>, <b>DeepSeek</b>, and the <b>open bench</b>. Judging is separate, so you cannot pick your judge. <a href="/judge-integrity" style="color:#c01326;font-weight:700">How that works</a>.</p>
-  </div>
-  <script>
-    (function(){
-      var grid = document.getElementById('esGrid');
-      if (!grid) return;
-      var read = document.getElementById('esRead');
-      var go = document.getElementById('esGo');
-      var KEY = 'debateos-open-engine';
-
-      function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
-        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-
-      function paint(card, persist){
-        if (!card) return;
-        grid.querySelectorAll('.es-card').forEach(function(c){
-          c.setAttribute('aria-checked', c === card ? 'true' : 'false');
-        });
-        var name = card.getAttribute('data-es-name') || 'this model';
-        if (read) read.innerHTML = '<strong>' + esc(name) + '</strong> will argue against you. Change it any time, mid season.';
-        if (go) go.textContent = 'Debate ' + name;
-        if (persist){
-          try { localStorage.setItem(KEY, card.getAttribute('data-es') || ''); } catch(e){}
-          try { if (window.dosTrack) dosTrack('engine_pick_landing', { engine: card.getAttribute('data-es') }); } catch(e){}
-        }
-      }
-
-      // Restore an earlier pick (made here or on /engines) so the band
-      // shows what rounds are actually running rather than resetting to
-      // the first card on every visit.
-      try {
-        var saved = localStorage.getItem(KEY);
-        if (saved){
-          var match = grid.querySelector('.es-card[data-es="' + saved.replace(/"/g,'') + '"]');
-          if (match) paint(match, false);
-        }
-      } catch(e){}
-
-      grid.addEventListener('click', function(ev){
-        var card = ev.target.closest ? ev.target.closest('.es-card') : null;
-        if (card) paint(card, true);
-      });
-      // Arrow keys, matching the option-select behaviour on the app
-      // surfaces. Roving focus does not select; Enter and click do.
-      grid.addEventListener('keydown', function(ev){
-        var cards = Array.prototype.slice.call(grid.querySelectorAll('.es-card'));
-        var i = cards.indexOf(document.activeElement);
-        if (i < 0) return;
-        var next = null;
-        if (ev.key === 'ArrowRight') next = i + 1;
-        else if (ev.key === 'ArrowLeft') next = i - 1;
-        else if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); paint(cards[i], true); return; }
-        else return;
-        ev.preventDefault();
-        cards[((next % cards.length) + cards.length) % cards.length].focus();
-      });
-
-      // Enhance from the live roster so this band cannot claim an engine
-      // the server will not call. Static markup above is the fallback and
-      // stays if the request fails or JS never runs.
-      function refresh(){
-        fetch('/api/engines').then(function(r){ return r.ok ? r.json() : null; }).then(function(data){
-          if (!data || !data.open || !data.open.length) return;
-          var live = data.open.filter(function(e){ return e.available; }).slice(0, 6);
-          if (live.length < 3) return; // not worth a repaint over
-          var chosen = grid.querySelector('.es-card[aria-checked="true"]');
-          var chosenSlug = chosen ? chosen.getAttribute('data-es') : '';
-          grid.innerHTML = live.map(function(e){
-            var lic = e.licenseKnown ? e.license : 'Open weights';
-            var ctx = e.context >= 1000000 ? '1M context' : Math.round(e.context / 1024) + 'K context';
-            return '<button type="button" class="es-card" role="radio" aria-checked="'
-              + (e.slug === chosenSlug ? 'true' : 'false') + '" data-es="' + esc(e.slug)
-              + '" data-es-name="' + esc(e.label) + '">'
-              + '<span class="es-name">' + esc(e.label) + '</span>'
-              + '<span class="es-vendor">' + esc(e.vendor) + '</span>'
-              + '<p class="es-role">' + esc(e.role) + '</p>'
-              + '<span class="es-tags"><span class="es-tag es-tag--open">' + esc(lic) + '</span>'
-              + '<span class="es-tag">' + esc(ctx) + '</span></span>'
-              + '</button>';
-          }).join('');
-          if (!grid.querySelector('.es-card[aria-checked="true"]')) paint(grid.querySelector('.es-card'), false);
-        }).catch(function(){});
-      }
-      // Deferred to idle: this band is below the fold and the landing has
-      // a first-paint budget worth protecting.
-      if ('requestIdleCallback' in window) requestIdleCallback(refresh, { timeout: 4000 });
-      else setTimeout(refresh, 2500);
-    })();
-  </script>
-</section>
 
 
 <!-- ── Community band (2026-07-14). Sits right under the live-people
@@ -16129,18 +15630,603 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 })();
 </script>
 
+<!-- 2026-07-08: minimal reviews echo restored above the FAQ per Aidan. The
+     full proof wall lives at /reviews; this is a trimmed four-quote grid,
+     no carousel/photos/stars. Quotes are faithful pull-quotes of the real
+     testimonials on /reviews (do not fabricate). Themed via shared tokens. -->
+
+<section id="reviews" class="sec" aria-label="What debaters say">
+  <style>
+    #reviews.sec{padding-top:clamp(46px,4vw,62px) !important}
+    [data-theme="light"] #reviews{
+      border-top:1px solid rgba(53,43,36,.12);
+      background:linear-gradient(180deg,#eae6de 0%,#f3f0e9 18%,#f7f5ef 100%)
+    }
+    #reviews .rv-head{text-align:center;margin-bottom:24px}
+    #reviews .rv-eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+    #reviews .rv-title{font-family:'Crimson Pro',Georgia,serif;font-size:clamp(1.65rem,2.8vw,2.35rem);font-weight:600;letter-spacing:-.01em;color:var(--text);margin:9px 0 0}
+    #reviews > .wrap{max-width:1320px !important;padding-left:clamp(20px,3vw,40px) !important;padding-right:clamp(20px,3vw,40px) !important}
+    #reviews .rv-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;width:100%;max-width:1240px;margin:0 auto;align-items:stretch}
+    #reviews .rv-card{position:relative;display:flex;min-width:0;flex-direction:column;gap:14px;padding:22px 22px 20px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));overflow:hidden}
+    #reviews .rv-card::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,var(--accent),transparent 76%);opacity:.86}
+    #reviews .rv-card:first-child{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.34fr);gap:30px;align-items:end;min-height:260px;padding:34px 38px 32px;border-radius:28px;background:radial-gradient(circle at 12% 0,rgba(239,68,68,.12),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.02));box-shadow:0 24px 70px rgba(0,0,0,.18)}
+    [data-theme="light"] #reviews .rv-eyebrow{color:#b91c1c}
+    [data-theme="light"] #reviews .rv-title{color:#17171a}
+    [data-theme="light"] #reviews .rv-card{background:#fff;border-color:rgba(53,43,36,.14);box-shadow:0 20px 54px -28px rgba(57,40,29,.34)}
+    [data-theme="light"] #reviews .rv-card:first-child{background:radial-gradient(circle at 12% 0,rgba(220,38,38,.12),transparent 34%),linear-gradient(135deg,#fff,#fbfaf6);box-shadow:0 28px 72px -34px rgba(80,42,28,.42),0 1px 0 rgba(0,0,0,.04)}
+    #reviews .rv-quote{font-family:'Crimson Pro',Georgia,serif;font-size:clamp(1rem,1.1vw,1.12rem);line-height:1.47;color:var(--text);margin:0}
+    #reviews .rv-card:first-child .rv-quote{font-size:clamp(1.45rem,2.45vw,2.18rem);line-height:1.18;letter-spacing:-.018em;max-width:820px}
+    #reviews .rv-hl{color:var(--accent);font-weight:650}
+    #reviews .rv-attr{margin-top:auto;display:flex;flex-direction:column;gap:2px;padding-top:15px;border-top:1px solid var(--border)}
+    #reviews .rv-card:first-child .rv-attr{margin-top:0;padding:0 0 0 22px;border-top:0;border-left:1px solid var(--border)}
+    #reviews .rv-name{font-size:.84rem;font-weight:800;color:var(--text)}
+    #reviews .rv-card:first-child .rv-name{font-family:'Crimson Pro',Georgia,serif;font-size:1.05rem;letter-spacing:-.01em}
+    #reviews .rv-cred{font-size:.75rem;line-height:1.4;color:var(--text-dim)}
+    [data-theme="light"] #reviews .rv-cred{color:rgba(26,26,31,.7)}
+    @media(max-width:900px){#reviews .rv-grid{grid-template-columns:minmax(0,1fr);max-width:720px}#reviews .rv-card:first-child{grid-column:auto;display:flex;min-height:0;padding:28px;border-radius:22px}#reviews .rv-card:first-child .rv-quote{font-size:clamp(1.22rem,4.4vw,1.62rem);line-height:1.26}#reviews .rv-card:first-child .rv-attr{padding-top:16px;border-top:1px solid var(--border);border-left:0}}
+    @media(max-width:640px){#reviews .rv-head{text-align:left;margin-bottom:20px}#reviews .rv-grid{gap:12px}#reviews .rv-card{padding:19px;border-radius:16px}#reviews .rv-card:first-child{padding:22px;border-radius:18px}}
+  </style>
+  <div class="wrap" style="max-width:1320px">
+    <div class="rv-head">
+      <span class="rv-eyebrow">Reviews</span>
+      <h2 class="rv-title">From the circuit</h2>
+    </div>
+    <div class="rv-grid" role="list">
+      <figure class="rv-card" role="listitem">
+        <blockquote class="rv-quote">The real gap between circuits isn't talent, it's <span class="rv-hl">access to quality practice</span>. Debatable closes it. The AI argues back at full strength, and the ballot tells you exactly where the round was won or lost.</blockquote>
+        <figcaption class="rv-attr">
+          <span class="rv-name">Mukudzeiishe Madzivire</span>
+          <span class="rv-cred">Captain, Zimbabwe World Schools Team · Columbia University</span>
+        </figcaption>
+      </figure>
+      <figure class="rv-card" role="listitem">
+        <blockquote class="rv-quote">Proof that <span class="rv-hl">AI can sharpen critical thinking rather than replace it</span>. You can tell how much thought went into every layer, from case generation to the objectivity of the judging.</blockquote>
+        <figcaption class="rv-attr">
+          <span class="rv-name">2025 Public Forum National Champion</span>
+          <span class="rv-cred">NSDA Nationals</span>
+        </figcaption>
+      </figure>
+      <figure class="rv-card" role="listitem">
+        <blockquote class="rv-quote">In four years of British Parliamentary, I'd never seen a tool able to <span class="rv-hl">summarize, refute, and analyze high-level argumentation</span> until I used Debatable. It would have made a real difference in my prep for international majors.</blockquote>
+        <figcaption class="rv-attr">
+          <span class="rv-name">Arjun Raman</span>
+          <span class="rv-cred">WUDC Octofinalist · Princeton IV finalist</span>
+        </figcaption>
+      </figure>
+      <figure class="rv-card" role="listitem">
+        <blockquote class="rv-quote">In a world where we can outsource our thinking to AI, we need more tools to keep us sharp. Debatable is <span class="rv-hl">the chess.com of debate</span>.</blockquote>
+        <figcaption class="rv-attr">
+          <span class="rv-name">Pratyush Sharma</span>
+          <span class="rv-cred">Debater, University of Chicago</span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ── MODE SELECT (2026-07-18) ──────────────────────────────────────
+     Declutter experiment. The front page stacks ten dense bands with no
+     wayfinding; this is a game-style mode-select directly under the
+     hero so a first visit starts with a pick, not a scroll. Six tiles,
+     one per primary surface, routes mirror the topbar. 50/50 sticky
+     via localStorage (da-mode-menu); ?modeMenu=on|off forces an arm
+     for QA. GA: mode_menu_view {variant}, mode_menu_click {mode}.
+     Default-visible so no-JS visitors still get the menu; the script
+     only hides control. -->
+<script>
+  (function(){
+    // 2026-07-22: the 50/50 arm is retired, the door wall ships to everyone.
+    // Stale 'off' assignments were sticky in localStorage and kept hiding the
+    // menu from returning visitors, so clear the key on sight. ?modeMenu=off
+    // still forces it hidden for QA.
+    var v='on';
+    try{
+      if(/[?&]modemenu=off(?:&|$)/.test((location.search||'').toLowerCase())) v='off';
+    }catch(e){}
+    try{ localStorage.removeItem('da-mode-menu'); }catch(e){}
+    document.documentElement.setAttribute('data-mode-menu',v);
+    try{
+      if(window.gtag) gtag('event','mode_menu_view',{variant:v});
+    }catch(e){}
+  })();
+</script>
+<section id="mode-select" class="mode-select" aria-label="Pick your mode">
+  <style>
+    /* Wall of doors (2026-07-22). Was a 3x2 tile grid; now six equal
+       vertical doors in one row that expand on hover/focus via flex-grow.
+       `.ms-tile` survives on the anchors purely as the click-tracking
+       hook at the bottom of this section, it carries no styles now. */
+    html[data-mode-menu="off"] .mode-select{display:none}
+    /* Extra top air (2026-07-22): the Floor's pot card ends flush and the
+       doors started right under it. Doubling the block padding on this
+       edge gives the two bands a real seam. */
+    .mode-select{padding:calc(var(--mid-pad-block) * 2.2) var(--mid-gutter) var(--mid-pad-block);display:flex;justify-content:center}
+    /* This six-card wall needs a little more reading width than the
+       shared 1180px chapters. The extra 120px buys each door roughly
+       20px without turning the row into an edge-to-edge banner. */
+    .mode-select-wrap{width:100%;max-width:1300px}
+    .ms-title{margin:0 0 22px;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.7rem,3.2vw,2.4rem);font-weight:700;letter-spacing:-.02em;line-height:1.08;color:#1a1a1f}
+    .ms-title em{font-style:normal;color:#dc2626}
+    /* Dark themes (2026-08-10 revival): the title sits directly on the
+       page background; the doors are self-painted paper and stay put. */
+    :root:not([data-theme="light"]) .ms-title{color:#f5efe7}
+
+    .ms-wall{display:flex;align-items:stretch;gap:12px}
+    /* Dark by default (2026-08-10): the door wall used to stay a
+       fixed near-white card wall regardless of site theme.
+       [data-theme="light"] pins the original paper-white doors back. */
+    .ms-door{
+      --ms-a:#c01326;--ms-a-rgb:192,19,38;
+      position:relative;overflow:hidden;flex:1 1 0;min-width:0;
+      display:flex;flex-direction:column;
+      min-height:clamp(296px,24vw,352px);
+      padding:16px 26px 16px 18px;
+      border:1px solid rgba(245,239,231,.12);border-radius:16px;
+      background:linear-gradient(var(--ms-a),var(--ms-a)) 0 0/100% 3px no-repeat,#221f1e;
+      box-shadow:0 10px 30px rgba(0,0,0,.3);
+      color:#f5efe7;text-decoration:none;
+      transition:flex-grow .34s cubic-bezier(.22,.68,.24,1),transform .34s cubic-bezier(.22,.68,.24,1),box-shadow .34s ease,border-color .28s ease;
+    }
+    [data-theme="light"] .ms-door{
+      border-color:rgba(29,25,21,.10);
+      background:linear-gradient(var(--ms-a),var(--ms-a)) 0 0/100% 3px no-repeat,rgba(255,253,247,.94);
+      box-shadow:0 10px 30px rgba(29,25,21,.06);
+      color:#1a1a1f;
+    }
+    .ms-door>*{position:relative;z-index:1}
+    /* inset door panel */
+    .ms-door::before{content:'';position:absolute;inset:9px;border-radius:9px;border:1px solid rgba(var(--ms-a-rgb),.15);pointer-events:none;transition:border-color .3s ease}
+    /* inner glow, capped low so text keeps AA contrast over it */
+    .ms-door::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(130% 52% at 50% 118%,rgba(var(--ms-a-rgb),.15),rgba(var(--ms-a-rgb),.04) 48%,transparent 74%);opacity:.55;transition:opacity .34s ease}
+    .ms-num{font-family:'Crimson Pro',Georgia,serif;font-size:2.2rem;font-weight:700;line-height:1;letter-spacing:-.02em;color:rgba(var(--ms-a-rgb),.4);transition:color .3s ease}
+    [data-theme="light"] .ms-num{color:rgba(var(--ms-a-rgb),.28)}
+    .ms-tag{position:absolute;top:15px;right:14px;z-index:2;display:inline-flex;align-items:center;gap:7px;font-size:.62rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#fca5a5;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.12);border-radius:999px;padding:4px 9px}
+    [data-theme="light"] .ms-tag{color:#c81e1e;border-color:rgba(200,30,30,.16);background:rgba(239,68,68,.06)}
+    .ms-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:msDot 1.8s ease-in-out infinite}
+    @keyframes msDot{0%,100%{opacity:1}50%{opacity:.4}}
+    .ms-door h3{margin:14px 0 0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.06rem,1.12vw,1.26rem);font-weight:700;letter-spacing:-.01em;line-height:1.18;color:#f5efe7}
+    [data-theme="light"] .ms-door h3{color:#1a1a1f}
+    .ms-door p{margin:9px 0 0;font-size:.83rem;line-height:1.5;color:rgba(245,239,231,.78);opacity:.86;transform:translateY(6px);transition:opacity .34s ease,transform .34s cubic-bezier(.22,.68,.24,1)}
+    [data-theme="light"] .ms-door p{color:rgba(26,26,31,.78)}
+    /* the rail line turns the blank middle into a door panel */
+    .ms-go{margin-top:auto;padding-top:13px;border-top:1px solid rgba(var(--ms-a-rgb),.16);display:block;font-size:.8rem;font-weight:800;color:rgba(245,239,231,.75);opacity:.9;transform:translateY(8px);transition:color .3s ease,border-color .3s ease,opacity .34s ease,transform .34s cubic-bezier(.22,.68,.24,1)}
+    [data-theme="light"] .ms-go{color:rgba(26,26,31,.72)}
+    .ms-arrow{display:inline-block;transition:transform .34s cubic-bezier(.22,.68,.24,1)}
+    /* handle */
+    .ms-knob{position:absolute;right:12px;bottom:56px;z-index:2;width:10px;height:10px;border-radius:50%;background:rgba(var(--ms-a-rgb),.5);box-shadow:0 0 0 4px rgba(var(--ms-a-rgb),.09);transition:background-color .3s ease,box-shadow .3s ease}
+
+    .ms-door[data-mode="live"]{--ms-a:#c01326;--ms-a-rgb:192,19,38}
+    .ms-door[data-mode="voice"]{--ms-a:#b4470f;--ms-a-rgb:180,71,15}
+    .ms-door[data-mode="judge"]{--ms-a:#7d2a63;--ms-a-rgb:125,42,99}
+    .ms-door[data-mode="prep"]{--ms-a:#0f6b64;--ms-a-rgb:15,107,100}
+    .ms-door[data-mode="learn"]{--ms-a:#1f4fb5;--ms-a-rgb:31,79,181}
+    .ms-door[data-mode="schedule"]{--ms-a:#6b3ab8;--ms-a-rgb:107,58,184}
+    /* Purple through violet is taken, so the stream door takes the
+       Twitch-adjacent indigo rather than repeating the live door's red. */
+    .ms-door[data-mode="stream"]{--ms-a:#4b3fa8;--ms-a-rgb:75,63,168}
+
+    /* open by keyboard. :has() keeps siblings from compressing when the
+       pointer sits in a gap; without :has() the door still expands. */
+    .ms-wall:has(.ms-door:focus-visible) .ms-door:not(:focus-visible){flex-grow:.88}
+    .ms-door:focus-visible{flex-grow:2.2;transform:translateY(-6px);border-color:rgba(var(--ms-a-rgb),.42);box-shadow:0 22px 46px rgba(var(--ms-a-rgb),.16);outline:2px solid var(--ms-a);outline-offset:3px}
+    .ms-door:focus-visible::after{opacity:1}
+    .ms-door:focus-visible::before{border-color:rgba(var(--ms-a-rgb),.3)}
+    .ms-door:focus-visible .ms-num{color:rgba(var(--ms-a-rgb),.5)}
+    .ms-door:focus-visible p{opacity:1;transform:none}
+    .ms-door:focus-visible .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
+    .ms-door:focus-visible .ms-arrow{transform:translateX(5px)}
+    .ms-door:focus-visible .ms-knob{background:var(--ms-a);box-shadow:0 0 0 6px rgba(var(--ms-a-rgb),.14)}
+
+    /* open by pointer */
+    @media (hover:hover) and (pointer:fine){
+      .ms-wall:has(.ms-door:hover) .ms-door:not(:hover){flex-grow:.88}
+      .ms-door:hover{flex-grow:2.2;transform:translateY(-6px);border-color:rgba(var(--ms-a-rgb),.42);box-shadow:0 22px 46px rgba(var(--ms-a-rgb),.16)}
+      .ms-door:hover::after{opacity:1}
+      .ms-door:hover::before{border-color:rgba(var(--ms-a-rgb),.3)}
+      .ms-door:hover .ms-num{color:rgba(var(--ms-a-rgb),.5)}
+      .ms-door:hover p{opacity:1;transform:none}
+      .ms-door:hover .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
+      .ms-door:hover .ms-arrow{transform:translateX(5px)}
+      .ms-door:hover .ms-knob{background:var(--ms-a);box-shadow:0 0 0 6px rgba(var(--ms-a-rgb),.14)}
+    }
+
+    /* under 1100 the wall becomes a scroll-snap rail, same left-to-right
+       order, every door fully open, next one peeking. */
+    @media(max-width:1099px){
+      .ms-wall{overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding:6px 0 12px}
+      .ms-door{flex:0 0 79vw;scroll-snap-align:start;min-height:clamp(272px,46vw,320px);box-shadow:0 6px 18px rgba(29,25,21,.06)}
+      .ms-door::after{opacity:1}
+      .ms-door p{opacity:1;transform:none}
+      .ms-door .ms-go{color:var(--ms-a);border-top-color:rgba(var(--ms-a-rgb),.34);opacity:1;transform:none}
+      .ms-num{color:rgba(var(--ms-a-rgb),.4)}
+      .ms-knob{bottom:50px}
+    }
+    /* phones keep the full 79vw door; past ~700px that width stretches a
+       door into a squat banner, so cap it and show more of the wall. */
+    @media(min-width:700px) and (max-width:1099px){
+      .ms-door{max-width:452px}
+    }
+
+    /* Under 1100 the rail above turns six doors into 79vw slides you swipe
+       through, which reads as a slide deck rather than a set of choices: you
+       cannot see how many there are, and five of the six are off-screen. This
+       block overrides it into a single menu, one tappable row per door, all
+       six visible at once. Placed after the rail rules on purpose, since it
+       has to win on source order at equal specificity. */
+    @media(max-width:1099px){
+      /* Dark by default (2026-08-10), same fix as the desktop door wall
+         above: this mobile stacked-list variant stayed cream regardless
+         of theme. [data-theme="light"] pins the original back. */
+      .ms-wall{
+        display:block;overflow:hidden;padding:0;gap:0;
+        scroll-snap-type:none;overscroll-behavior-x:auto;
+        border:1px solid rgba(245,239,231,.14);border-radius:14px;
+        background:#221f1e;
+        box-shadow:0 10px 30px rgba(0,0,0,.3);
+      }
+      [data-theme="light"] .ms-wall{
+        border-color:rgba(29,25,21,.12);
+        background:rgba(255,253,247,.94);
+        box-shadow:0 10px 30px rgba(29,25,21,.06);
+      }
+      .ms-door{
+        display:grid;grid-template-columns:auto 1fr auto;
+        grid-template-rows:auto auto auto;
+        align-items:center;column-gap:14px;
+        flex:none;max-width:none;min-height:0;
+        padding:14px 15px;
+        border:0;border-bottom:1px solid rgba(245,239,231,.12);border-radius:0;
+        box-shadow:none;background:none;
+        scroll-snap-align:none;transition:background-color .18s ease;
+      }
+      [data-theme="light"] .ms-door{border-bottom-color:rgba(29,25,21,.1)}
+      .ms-door:last-child{border-bottom:0}
+      .ms-door:active{background:rgba(var(--ms-a-rgb),.06)}
+      /* the card chrome is what made each row look like its own slide */
+      .ms-door::before{display:none}
+      .ms-door::after{opacity:0}
+      .ms-knob{display:none}
+      .ms-num{
+        grid-column:1;grid-row:1 / 4;
+        font-size:1.1rem;color:rgba(var(--ms-a-rgb),.6);
+        font-variant-numeric:tabular-nums;
+      }
+      .ms-tag{
+        position:static;grid-column:2;grid-row:1;
+        justify-self:start;margin-bottom:5px;padding:3px 7px;font-size:.55rem;
+      }
+      .ms-door h3{grid-column:2;grid-row:2;margin:0;font-size:1rem}
+      .ms-door p{
+        grid-column:2;grid-row:3;margin:3px 0 0;font-size:.8rem;line-height:1.45;
+        opacity:1;transform:none;
+        display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+      }
+      /* the CTA collapses to its arrow; the whole row is the link */
+      .ms-go{
+        grid-column:3;grid-row:1 / 4;
+        margin:0;padding:0;border-top:0;
+        font-size:0;opacity:1;transform:none;
+      }
+      .ms-arrow{font-size:1.15rem;color:rgba(var(--ms-a-rgb),.75)}
+    }
+
+    .ms-alts{margin:16px 0 0;text-align:center;font-size:.84rem;line-height:1.55;color:var(--text-dim)}
+    .ms-alts a{color:var(--text);font-weight:700;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(239,68,68,.4)}
+    .ms-alts a:hover{color:#ef4444;text-decoration-color:#ef4444}
+    @media(prefers-reduced-motion:reduce){
+      .ms-door,.ms-door::before,.ms-door::after,.ms-door p,.ms-go,.ms-arrow,.ms-num,.ms-knob{transition:none!important}
+      .ms-door{flex-grow:1!important}
+      .ms-door,.ms-door p,.ms-door .ms-go,.ms-arrow{transform:none!important}
+      .ms-door p,.ms-door .ms-go{opacity:1}
+    }
+  </style>
+  <div class="mode-select-wrap">
+    <h2 class="ms-title">What are you here to <em>do</em>?</h2>
+    <div class="ms-wall">
+      <a class="ms-tile ms-door" href="/spar" data-mode="live">
+        <span class="ms-num">01</span>
+        <span class="ms-tag"><span class="ms-dot" aria-hidden="true"></span>Live</span>
+        <h3>Debate a person</h3>
+        <p>Match with a real opponent on a real clock. The AI judge writes the ballot.</p>
+        <span class="ms-go" aria-hidden="true">Find an opponent <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
+      </a>
+      <!-- 2026-07-22: this door pointed at /newvoice, the lean clash
+           room. Aidan's call: /practice is the flagship AI room and the
+           main path to a credential, so it takes the door and the other
+           two voice rooms drop to the alternates line under the wall. -->
+      <a class="ms-tile ms-door" href="/practice" data-mode="voice">
+        <span class="ms-num">02</span>
+        <h3>Debate the AI</h3>
+        <p>Run a full-format round on the clock against an AI opponent that interrupts, takes POIs, and argues back. Finish with a written ballot.</p>
+        <span class="ms-go" aria-hidden="true">Open Debatable <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
+      </a>
+      <a class="ms-tile ms-door" href="/judge" data-mode="judge">
+        <span class="ms-num">03</span>
+        <h3>Get judged</h3>
+        <p data-audience-competitive="Drop in a speech or case. Winner, speaker points, and a written RFD." data-audience-plain="Share an argument or speech. See who won, why, and what to improve.">Drop in a speech or case. Winner, speaker points, and a written RFD.</p>
+        <span class="ms-go" aria-hidden="true">Get a ballot <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
+      </a>
+      <a class="ms-tile ms-door" href="/app#case" data-mode="prep">
+        <span class="ms-num">04</span>
+        <h3>Prep a case</h3>
+        <p>Build cases and rebuttals for any motion, in your format's structure.</p>
+        <span class="ms-go" aria-hidden="true">Open the prep room <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
+      </a>
+      <a class="ms-tile ms-door" href="/learn" data-mode="learn">
+        <span class="ms-num">05</span>
+        <h3>Learn the craft</h3>
+        <p>Formats, drills, and vocabulary, from first round to circuit level.</p>
+        <span class="ms-go" aria-hidden="true">Start a drill <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
+      </a>
+      <a class="ms-tile ms-door" href="/live" data-mode="schedule">
+        <span class="ms-num">06</span>
+        <h3>Schedule or spectate</h3>
+        <p>Book a round for later, or watch one that is already running.</p>
+        <span class="ms-go" aria-hidden="true">See the schedule <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
+      </a>
+      <a class="ms-tile ms-door" href="/room-judge" data-mode="stream">
+        <span class="ms-num">07</span>
+        <h3>Stream it</h3>
+        <p>Run the AI judge over your broadcast. Chat argues with the ballot.</p>
+        <span class="ms-go" aria-hidden="true">Open the stream judge <span class="ms-arrow">→</span></span>
+        <span class="ms-knob" aria-hidden="true"></span>
+      </a>
+    </div>
+    <p class="ms-alts">Other AI rooms: <a href="/newvoice" data-mode-alt="newvoice">quick clash</a> for one fast unstructured round, <a href="/voice-debate" data-mode-alt="trainer">the full trainer</a> for every format on real speech clocks.</p>
+  </div>
+  <script>
+    (function(){
+      document.querySelectorAll('#mode-select .ms-tile').forEach(function(t){
+        t.addEventListener('click',function(){
+          try{ if(window.dosTrack) dosTrack('mode_menu_click',{mode:t.getAttribute('data-mode')}); }catch(e){}
+        });
+      });
+    })();
+  </script>
+</section>
+
+
+<!-- ── Choose your opponent (2026-07-30). Sits directly under the mode
+     wall: you have just picked the ROOM, so the next question is who is
+     in it. Six houses argue here and nine open-weight models sit behind
+     the open bench, and until now that was a number in a pricing bullet
+     rather than something a visitor could see or touch.
+
+     It is a REAL PICKER, not a logo wall. Choosing a model writes the
+     same `debateos-open-engine` key /engines writes, which the round
+     surfaces read when the Open Lab brain is selected, so a pick made
+     here is the model that argues in the next round. The CTA relabels to
+     the chosen name so the promise is legible before the click.
+
+     Written in this page's own vocabulary (Crimson Pro, warm paper,
+     red hairline, .ms-door proportions) rather than importing the
+     arcade.css menu system. A menu grammar that suits an app surface
+     reads as a foreign object on a marketing page, and the landing
+     already carries enough CSS without another system on top.
+
+     Model names are static markup so the band paints with no request and
+     survives with JS off, then a single deferred fetch to /api/engines
+     re-renders it so the list cannot drift from what the server will
+     actually call. Static-first also means the content-visibility work
+     on this page is unaffected. -->
+<section id="engine-select" class="engine-select" aria-label="Choose the AI that argues against you">
+  <style>
+    .engine-select{padding:var(--mid-pad-block) var(--mid-gutter);display:flex;justify-content:center}
+    .es-wrap{width:100%;max-width:1300px}
+    .es-head{display:flex;align-items:flex-end;justify-content:space-between;gap:26px;flex-wrap:wrap;margin:0 0 20px}
+    .es-title{margin:0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.7rem,3.2vw,2.4rem);font-weight:700;letter-spacing:-.02em;line-height:1.08;color:#1a1a1f}
+    .es-title em{font-style:normal;color:#dc2626}
+    .es-sub{margin:9px 0 0;max-width:64ch;font-size:.92rem;line-height:1.55;color:rgba(26,26,31,.72)}
+    /* Dark themes (2026-08-10 revival): head ink sits directly on the
+       page background; the engine cards are self-painted paper. */
+    :root:not([data-theme="light"]) .es-title{color:#f5efe7}
+    :root:not([data-theme="light"]) .es-sub{color:rgba(245,239,231,.68)}
+    .es-all{flex:0 0 auto;font-size:.82rem;font-weight:800;color:#c01326;text-decoration:none;border-bottom:1px solid rgba(192,19,38,.3);padding-bottom:2px}
+    .es-all:hover{border-bottom-color:#c01326}
+
+    .es-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px}
+    .es-card{
+      position:relative;text-align:left;display:flex;flex-direction:column;gap:5px;
+      min-height:132px;padding:15px 16px;font:inherit;cursor:pointer;
+      border:1px solid rgba(29,25,21,.10);border-radius:16px;
+      background:linear-gradient(#c01326,#c01326) 0 0/100% 3px no-repeat,rgba(255,253,247,.94);
+      box-shadow:0 10px 30px rgba(29,25,21,.06);
+      color:#1a1a1f;
+      transition:transform .3s cubic-bezier(.22,.68,.24,1),box-shadow .3s ease,border-color .26s ease;
+    }
+    .es-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(29,25,21,.10);border-color:rgba(192,19,38,.28)}
+    .es-card:focus-visible{outline:2px solid #c01326;outline-offset:3px}
+    .es-card[aria-checked="true"]{border-color:rgba(192,19,38,.45);box-shadow:0 16px 40px rgba(192,19,38,.14),inset 0 0 0 1px rgba(192,19,38,.16)}
+    /* Selection legible without colour. */
+    .es-card[aria-checked="true"]::after{content:"✓";position:absolute;top:12px;right:14px;font-weight:800;color:#c01326}
+    .es-name{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.12rem;font-weight:700;letter-spacing:-.01em;line-height:1.15;padding-right:20px}
+    .es-vendor{font-size:.62rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:rgba(26,26,31,.64)}
+    .es-role{margin:2px 0 0;font-size:.82rem;line-height:1.45;color:rgba(26,26,31,.74)}
+    .es-tags{margin-top:auto;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+    .es-tag{font-size:.6rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:rgba(26,26,31,.64);border:1px solid rgba(29,25,21,.14);border-radius:999px;padding:3px 8px;white-space:nowrap}
+    .es-tag--open{color:#15803d;border-color:rgba(21,128,61,.3)}
+
+    .es-bar{margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:14px 18px;border:1px solid rgba(29,25,21,.10);border-radius:16px;background:rgba(255,253,247,.94)}
+    .es-read{font-size:.9rem;line-height:1.5;color:rgba(26,26,31,.74)}
+    .es-read strong{color:#1a1a1f;font-weight:800}
+    .es-go{flex:0 0 auto;display:inline-block;padding:12px 24px;border-radius:999px;background:#c01326;color:#fff;text-decoration:none;font-size:.94rem;font-weight:800;transition:background .2s ease,transform .2s ease}
+    .es-go:hover{background:#a10f1f;transform:translateY(-1px)}
+    .es-houses{margin:14px 0 0;font-size:.84rem;line-height:1.6;color:rgba(26,26,31,.64)}
+    .es-houses b{color:rgba(26,26,31,.8);font-weight:800}
+    @media(max-width:620px){
+      .es-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+      .es-bar{flex-direction:column;align-items:stretch}
+      .es-go{width:100%;text-align:center}
+    }
+  </style>
+  <div class="es-wrap">
+    <div class="es-head">
+      <div>
+        <h2 class="es-title">Then choose <em>who argues back</em>.</h2>
+        <p class="es-sub">Six houses. Pick one and it takes the other side of your next round.</p>
+      </div>
+      <a class="es-all" href="/engines">See every engine and its licence →</a>
+    </div>
+
+    <div class="es-grid" id="esGrid" role="radiogroup" aria-label="Open-weight engines">
+      <button type="button" class="es-card" role="radio" aria-checked="true" data-es="moonshotai/kimi-k3" data-es-name="Kimi K3">
+        <span class="es-name">Kimi K3</span>
+        <span class="es-vendor">Moonshot AI</span>
+        <p class="es-role">The heavyweight. Longest reach on a dense motion, and it does not hedge.</p>
+        <span class="es-tags"><span class="es-tag es-tag--open">Open weights</span><span class="es-tag">1M context</span></span>
+      </button>
+      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="z-ai/glm-5.2" data-es-name="GLM-5.2">
+        <span class="es-name">GLM-5.2</span>
+        <span class="es-vendor">Zhipu AI</span>
+        <p class="es-role">Frontier reasoning at a fraction of frontier cost. The value pick.</p>
+        <span class="es-tags"><span class="es-tag es-tag--open">MIT</span><span class="es-tag">1M context</span></span>
+      </button>
+      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="deepseek/deepseek-v4-pro" data-es-name="DeepSeek V4 Pro">
+        <span class="es-name">DeepSeek V4 Pro</span>
+        <span class="es-vendor">DeepSeek</span>
+        <p class="es-role">Cold and technical. Least likely to be charmed by a pretty argument.</p>
+        <span class="es-tags"><span class="es-tag es-tag--open">MIT</span><span class="es-tag">1M context</span></span>
+      </button>
+      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="minimax/minimax-m3" data-es-name="MiniMax M3">
+        <span class="es-name">MiniMax M3</span>
+        <span class="es-vendor">MiniMax</span>
+        <p class="es-role">Long-context specialist. Holds a full tournament transcript without losing the thread.</p>
+        <span class="es-tags"><span class="es-tag es-tag--open">Open weights</span><span class="es-tag">1M context</span></span>
+      </button>
+      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="nousresearch/hermes-4-405b" data-es-name="Hermes 4 405B">
+        <span class="es-name">Hermes 4 405B</span>
+        <span class="es-vendor">Nous Research</span>
+        <p class="es-role">Human voice. Argues a hard motion without a disclaimer first.</p>
+        <span class="es-tags"><span class="es-tag es-tag--open">Open weights</span><span class="es-tag">405B</span></span>
+      </button>
+      <button type="button" class="es-card" role="radio" aria-checked="false" data-es="allenai/olmo-3-32b-think" data-es-name="OLMo 3 32B">
+        <span class="es-name">OLMo 3 32B</span>
+        <span class="es-vendor">Allen Institute for AI</span>
+        <p class="es-role">Open all the way down: weights, data, and training recipe.</p>
+        <span class="es-tags"><span class="es-tag es-tag--open">Apache 2.0</span><span class="es-tag">Reproducible</span></span>
+      </button>
+    </div>
+
+    <div class="es-bar">
+      <p class="es-read" id="esRead"><strong>Kimi K3</strong> will argue against you. Change it any time, mid season.</p>
+      <a class="es-go" id="esGo" href="/practice">Debate Kimi K3</a>
+    </div>
+    <p class="es-houses"><b>Claude</b>, <b>GPT</b>, <b>Gemini</b>, <b>Grok</b>, <b>DeepSeek</b>, and the <b>open bench</b>. Judging is separate, so you cannot pick your judge. <a href="/judge-integrity" style="color:#c01326;font-weight:700">How that works</a>.</p>
+  </div>
+  <script>
+    (function(){
+      var grid = document.getElementById('esGrid');
+      if (!grid) return;
+      var read = document.getElementById('esRead');
+      var go = document.getElementById('esGo');
+      var KEY = 'debateos-open-engine';
+
+      function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+      function paint(card, persist){
+        if (!card) return;
+        grid.querySelectorAll('.es-card').forEach(function(c){
+          c.setAttribute('aria-checked', c === card ? 'true' : 'false');
+        });
+        var name = card.getAttribute('data-es-name') || 'this model';
+        if (read) read.innerHTML = '<strong>' + esc(name) + '</strong> will argue against you. Change it any time, mid season.';
+        if (go) go.textContent = 'Debate ' + name;
+        if (persist){
+          try { localStorage.setItem(KEY, card.getAttribute('data-es') || ''); } catch(e){}
+          try { if (window.dosTrack) dosTrack('engine_pick_landing', { engine: card.getAttribute('data-es') }); } catch(e){}
+        }
+      }
+
+      // Restore an earlier pick (made here or on /engines) so the band
+      // shows what rounds are actually running rather than resetting to
+      // the first card on every visit.
+      try {
+        var saved = localStorage.getItem(KEY);
+        if (saved){
+          var match = grid.querySelector('.es-card[data-es="' + saved.replace(/"/g,'') + '"]');
+          if (match) paint(match, false);
+        }
+      } catch(e){}
+
+      grid.addEventListener('click', function(ev){
+        var card = ev.target.closest ? ev.target.closest('.es-card') : null;
+        if (card) paint(card, true);
+      });
+      // Arrow keys, matching the option-select behaviour on the app
+      // surfaces. Roving focus does not select; Enter and click do.
+      grid.addEventListener('keydown', function(ev){
+        var cards = Array.prototype.slice.call(grid.querySelectorAll('.es-card'));
+        var i = cards.indexOf(document.activeElement);
+        if (i < 0) return;
+        var next = null;
+        if (ev.key === 'ArrowRight') next = i + 1;
+        else if (ev.key === 'ArrowLeft') next = i - 1;
+        else if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); paint(cards[i], true); return; }
+        else return;
+        ev.preventDefault();
+        cards[((next % cards.length) + cards.length) % cards.length].focus();
+      });
+
+      // Enhance from the live roster so this band cannot claim an engine
+      // the server will not call. Static markup above is the fallback and
+      // stays if the request fails or JS never runs.
+      function refresh(){
+        fetch('/api/engines').then(function(r){ return r.ok ? r.json() : null; }).then(function(data){
+          if (!data || !data.open || !data.open.length) return;
+          var live = data.open.filter(function(e){ return e.available; }).slice(0, 6);
+          if (live.length < 3) return; // not worth a repaint over
+          var chosen = grid.querySelector('.es-card[aria-checked="true"]');
+          var chosenSlug = chosen ? chosen.getAttribute('data-es') : '';
+          grid.innerHTML = live.map(function(e){
+            var lic = e.licenseKnown ? e.license : 'Open weights';
+            var ctx = e.context >= 1000000 ? '1M context' : Math.round(e.context / 1024) + 'K context';
+            return '<button type="button" class="es-card" role="radio" aria-checked="'
+              + (e.slug === chosenSlug ? 'true' : 'false') + '" data-es="' + esc(e.slug)
+              + '" data-es-name="' + esc(e.label) + '">'
+              + '<span class="es-name">' + esc(e.label) + '</span>'
+              + '<span class="es-vendor">' + esc(e.vendor) + '</span>'
+              + '<p class="es-role">' + esc(e.role) + '</p>'
+              + '<span class="es-tags"><span class="es-tag es-tag--open">' + esc(lic) + '</span>'
+              + '<span class="es-tag">' + esc(ctx) + '</span></span>'
+              + '</button>';
+          }).join('');
+          if (!grid.querySelector('.es-card[aria-checked="true"]')) paint(grid.querySelector('.es-card'), false);
+        }).catch(function(){});
+      }
+      // Deferred to idle: this band is below the fold and the landing has
+      // a first-paint budget worth protecting.
+      if ('requestIdleCallback' in window) requestIdleCallback(refresh, { timeout: 4000 });
+      else setTimeout(refresh, 2500);
+    })();
+  </script>
+</section>
+
 <script>
 /* 2026-07-24: the large live/AI/ambassador cluster used to sit directly
    under the first-screen board and repeated its live-debate pitch. Keep the
-   cluster intact, but move it after the community and face-wall chapters so
-   it works as a deeper product directory instead of a second opening. This
-   runs while the document is still parsing, before the section can enter the
-   viewport, and preserves every existing listener and A/B hook on the node. */
+   cluster intact, but move it deeper into the page so it works as a product
+   directory instead of a second opening. This runs while the document is
+   still parsing, before the section can enter the viewport, and preserves
+   every existing listener and A/B hook on the node.
+   2026-08-11: anchor moved from #face-wall to #mode-select. The expanded
+   page used to ask the visitor to pick twice, three chapters apart (the
+   mode wall, then this cluster's three doors). Anchoring here makes the
+   two choice surfaces one pivot: pick the mode, then walk through a door.
+   The anchor must stay INSIDE .hero-founder-frame — the collapsed-gate
+   hide rule and the deep-link selector both key off `.hero-founder-frame
+   > .hero` — and must be parsed before this script runs. */
 (function(){
   var featureCluster = document.querySelector('.hero-founder-frame > .hero');
-  var faceWall = document.getElementById('face-wall');
-  if (featureCluster && faceWall && faceWall.parentNode === featureCluster.parentNode) {
-    faceWall.insertAdjacentElement('afterend', featureCluster);
+  var anchor = document.getElementById('mode-select');
+  if (featureCluster && anchor && anchor.parentNode === featureCluster.parentNode) {
+    anchor.insertAdjacentElement('afterend', featureCluster);
   }
 })();
 </script>
@@ -17296,79 +17382,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
 
 
-<!-- 2026-07-08: minimal reviews echo restored above the FAQ per Aidan. The
-     full proof wall lives at /reviews; this is a trimmed four-quote grid,
-     no carousel/photos/stars. Quotes are faithful pull-quotes of the real
-     testimonials on /reviews (do not fabricate). Themed via shared tokens. -->
-
-<section id="reviews" class="sec" aria-label="What debaters say">
-  <style>
-    #reviews.sec{padding-top:clamp(46px,4vw,62px) !important}
-    [data-theme="light"] #reviews{
-      border-top:1px solid rgba(53,43,36,.12);
-      background:linear-gradient(180deg,#eae6de 0%,#f3f0e9 18%,#f7f5ef 100%)
-    }
-    #reviews .rv-head{text-align:center;margin-bottom:24px}
-    #reviews .rv-eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
-    #reviews .rv-title{font-family:'Crimson Pro',Georgia,serif;font-size:clamp(1.65rem,2.8vw,2.35rem);font-weight:600;letter-spacing:-.01em;color:var(--text);margin:9px 0 0}
-    #reviews > .wrap{max-width:1320px !important;padding-left:clamp(20px,3vw,40px) !important;padding-right:clamp(20px,3vw,40px) !important}
-    #reviews .rv-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;width:100%;max-width:1240px;margin:0 auto;align-items:stretch}
-    #reviews .rv-card{position:relative;display:flex;min-width:0;flex-direction:column;gap:14px;padding:22px 22px 20px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));overflow:hidden}
-    #reviews .rv-card::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,var(--accent),transparent 76%);opacity:.86}
-    #reviews .rv-card:first-child{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.34fr);gap:30px;align-items:end;min-height:260px;padding:34px 38px 32px;border-radius:28px;background:radial-gradient(circle at 12% 0,rgba(239,68,68,.12),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.02));box-shadow:0 24px 70px rgba(0,0,0,.18)}
-    [data-theme="light"] #reviews .rv-eyebrow{color:#b91c1c}
-    [data-theme="light"] #reviews .rv-title{color:#17171a}
-    [data-theme="light"] #reviews .rv-card{background:#fff;border-color:rgba(53,43,36,.14);box-shadow:0 20px 54px -28px rgba(57,40,29,.34)}
-    [data-theme="light"] #reviews .rv-card:first-child{background:radial-gradient(circle at 12% 0,rgba(220,38,38,.12),transparent 34%),linear-gradient(135deg,#fff,#fbfaf6);box-shadow:0 28px 72px -34px rgba(80,42,28,.42),0 1px 0 rgba(0,0,0,.04)}
-    #reviews .rv-quote{font-family:'Crimson Pro',Georgia,serif;font-size:clamp(1rem,1.1vw,1.12rem);line-height:1.47;color:var(--text);margin:0}
-    #reviews .rv-card:first-child .rv-quote{font-size:clamp(1.45rem,2.45vw,2.18rem);line-height:1.18;letter-spacing:-.018em;max-width:820px}
-    #reviews .rv-hl{color:var(--accent);font-weight:650}
-    #reviews .rv-attr{margin-top:auto;display:flex;flex-direction:column;gap:2px;padding-top:15px;border-top:1px solid var(--border)}
-    #reviews .rv-card:first-child .rv-attr{margin-top:0;padding:0 0 0 22px;border-top:0;border-left:1px solid var(--border)}
-    #reviews .rv-name{font-size:.84rem;font-weight:800;color:var(--text)}
-    #reviews .rv-card:first-child .rv-name{font-family:'Crimson Pro',Georgia,serif;font-size:1.05rem;letter-spacing:-.01em}
-    #reviews .rv-cred{font-size:.75rem;line-height:1.4;color:var(--text-dim)}
-    [data-theme="light"] #reviews .rv-cred{color:rgba(26,26,31,.7)}
-    @media(max-width:900px){#reviews .rv-grid{grid-template-columns:minmax(0,1fr);max-width:720px}#reviews .rv-card:first-child{grid-column:auto;display:flex;min-height:0;padding:28px;border-radius:22px}#reviews .rv-card:first-child .rv-quote{font-size:clamp(1.22rem,4.4vw,1.62rem);line-height:1.26}#reviews .rv-card:first-child .rv-attr{padding-top:16px;border-top:1px solid var(--border);border-left:0}}
-    @media(max-width:640px){#reviews .rv-head{text-align:left;margin-bottom:20px}#reviews .rv-grid{gap:12px}#reviews .rv-card{padding:19px;border-radius:16px}#reviews .rv-card:first-child{padding:22px;border-radius:18px}}
-  </style>
-  <div class="wrap" style="max-width:1320px">
-    <div class="rv-head">
-      <span class="rv-eyebrow">Reviews</span>
-      <h2 class="rv-title">From the circuit</h2>
-    </div>
-    <div class="rv-grid" role="list">
-      <figure class="rv-card" role="listitem">
-        <blockquote class="rv-quote">The real gap between circuits isn't talent, it's <span class="rv-hl">access to quality practice</span>. Debatable closes it. The AI argues back at full strength, and the ballot tells you exactly where the round was won or lost.</blockquote>
-        <figcaption class="rv-attr">
-          <span class="rv-name">Mukudzeiishe Madzivire</span>
-          <span class="rv-cred">Captain, Zimbabwe World Schools Team · Columbia University</span>
-        </figcaption>
-      </figure>
-      <figure class="rv-card" role="listitem">
-        <blockquote class="rv-quote">Proof that <span class="rv-hl">AI can sharpen critical thinking rather than replace it</span>. You can tell how much thought went into every layer, from case generation to the objectivity of the judging.</blockquote>
-        <figcaption class="rv-attr">
-          <span class="rv-name">2025 Public Forum National Champion</span>
-          <span class="rv-cred">NSDA Nationals</span>
-        </figcaption>
-      </figure>
-      <figure class="rv-card" role="listitem">
-        <blockquote class="rv-quote">In four years of British Parliamentary, I'd never seen a tool able to <span class="rv-hl">summarize, refute, and analyze high-level argumentation</span> until I used Debatable. It would have made a real difference in my prep for international majors.</blockquote>
-        <figcaption class="rv-attr">
-          <span class="rv-name">Arjun Raman</span>
-          <span class="rv-cred">WUDC Octofinalist · Princeton IV finalist</span>
-        </figcaption>
-      </figure>
-      <figure class="rv-card" role="listitem">
-        <blockquote class="rv-quote">In a world where we can outsource our thinking to AI, we need more tools to keep us sharp. Debatable is <span class="rv-hl">the chess.com of debate</span>.</blockquote>
-        <figcaption class="rv-attr">
-          <span class="rv-name">Pratyush Sharma</span>
-          <span class="rv-cred">Debater, University of Chicago</span>
-        </figcaption>
-      </figure>
-    </div>
-  </div>
-</section>
 
 <section id="faq" class="sec">
   <div class="wrap" style="max-width:1440px">
