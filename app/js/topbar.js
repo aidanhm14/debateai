@@ -206,10 +206,13 @@
     // sessions both restored the pair, so the entries were briefly
     // duplicated on the live bar — deduped same day.)
     { href: '/live',          label: 'Schedule'    },
-    // 2026-08-10: recorded rounds now have an afterlife on /watch. Keep
-    // this visible on desktop and tablet beside Debate an AI, instead of
-    // making people discover replays and clips inside Explore first.
-    { href: '/watch',         label: 'Watch', compactKeep: true, rail: true, watch: true },
+    // 2026-08-10 (later, per Aidan): the Watch button came OFF the rail
+    // the same day it landed there — the bar was carrying one tab too
+    // many. Same demotion shape as Money/Leaderboard on 2026-07-30: no
+    // rail flag, so it lives in Explore's Debate group and the mobile
+    // sheet. Its promoted home is now the landing's opened section (the
+    // Watch CTA beside "Match me with a stranger" in #live-now).
+    { href: '/watch',         label: 'Watch' },
     { href: '/credentials',   label: 'Certificate' },
     // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
