@@ -37,6 +37,8 @@ import { auditRecord, writeAudit } from './lib/judge-audit.mjs';
 import { recordJudgment, judgmentId } from './lib/judgment.mjs';
 import { settleMarket } from './lib/settle.mjs';
 import { marketId } from './lib/credits.mjs';
+import { applyRoundRating } from './lib/rating-apply.mjs';
+import { verifyTournamentPairing } from './lib/tournament-round.mjs';
 
 const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || 'claude-sonnet-5';
 
@@ -209,11 +211,68 @@ export default async (request, context) => {
     console.error('[live-judge] judgment/settle failed', room, err.message);
   }
 
+  // ── the ladder ────────────────────────────────────────────────────
+  //
+  // NOTHING in this codebase called applyRoundRating for a live round.
+  // The endpoint existed, `eligibility('live', ...)` was written and
+  // tested, and no caller ever invoked either, so a live human round has
+  // never moved the Debate Rating in the product's history. Only the
+  // async sweep and a manual admin backfill ever wrote `user_ratings`,
+  // which is why the ladder holds two documents.
+  //
+  // This is the wire. It runs here rather than on the client because the
+  // ballot is written here, the panel provenance is known here, and the
+  // guard above (`d.ballot && d.ballot.panel` returns early) means it
+  // runs exactly once per round. rating_changes ids are deterministic,
+  // so a retry is a no-op rather than a double credit.
+  //
+  // A failure is logged and swallowed: the ballot is what the two
+  // debaters are waiting on, and a ladder write that could not happen
+  // must not turn their finished round into an error screen.
+  let rated = null;
+  try {
+    let consents = d.leaderboardConsent || {};
+    const bothConsented = !!(d.proUid && d.conUid
+      && consents[d.proUid] === true && consents[d.conUid] === true);
+
+    // Entering the tournament IS consent to a competitive record, per the
+    // rules and the entry copy. Rather than teach rating-apply a second
+    // consent rule, the tournament's own confirmation is written as real
+    // consent with its provenance recorded, so the stored record says why
+    // it was rated and the eligibility rule stays exactly one rule.
+    if (!bothConsented && d.proUid && d.conUid) {
+      const t = await verifyTournamentPairing(db, room, d.proUid, d.conUid);
+      if (t.ok) {
+        await ref.update({
+          ['leaderboardConsent.' + d.proUid]: true,
+          ['leaderboardConsent.' + d.conUid]: true,
+          consentSource: 'tournament_entry',
+          tournamentId: t.tid,
+          tournamentRound: t.roundKey,
+        });
+        consents = { ...consents, [d.proUid]: true, [d.conUid]: true };
+      }
+    }
+
+    rated = await applyRoundRating(db, {
+      source: 'live',
+      eventId: room,
+      // Mirrors what the document now holds. Passing the merged consent
+      // matters: rating-apply reads consent off roundData, so handing it
+      // the pre-stamp copy would refuse the very round we just consented.
+      roundData: { ...d, ballot, leaderboardConsent: consents, completedAt: judgedAt },
+    });
+  } catch (err) {
+    console.error('[live-judge] rating apply failed', room, err.message);
+  }
+
   return jsonResponse({
     ok: true,
     ballot,
     panel: judged.panel,
     settled: settled && settled.ok ? true : false,
+    rated: !!(rated && rated.ok),
+    ratedReason: rated && !rated.ok ? rated.reason : undefined,
   }, 200, request);
 };
 

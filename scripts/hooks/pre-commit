@@ -147,6 +147,22 @@ if [ -f "$JUDGE_RUN_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Tournament-round guard. This decides whether a live round rates
+# AUTOMATICALLY, which publishes a competitive record with someone's name
+# on it. The failure that matters is a casual round rating because a
+# client-supplied hint was trusted, so the guard pins that verification
+# goes through the tournament's own entries and never through the room
+# string or a query param.
+TROUND_GUARD="$REPO_ROOT/scripts/test-tournament-round.mjs"
+if [ -f "$TROUND_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-tournament-round.mjs >/tmp/tround-guard.log 2>&1); then
+    echo "[tournament-round-guard] commit blocked - the auto-rating consent check changed:" >&2
+    tail -20 /tmp/tround-guard.log >&2
+    echo "[tournament-round-guard] see scripts/test-tournament-round.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 WAGER_GUARD="$REPO_ROOT/scripts/test-wager-eligibility.mjs"
 if [ -f "$WAGER_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-wager-eligibility.mjs >/tmp/wager-guard.log 2>&1); then
