@@ -278,13 +278,13 @@
     // moment metering matters, and the landing hero secondary pill rail
     // carries a "Free vs Paid" pill (data-cta="hero-free-vs-paid").
     // /pricing stays live + crawlable; just not a top-nav slot.
-    // 2026-08-10: one explicit Debate now action replaces the narrower
+    // 2026-08-10: one explicit Debate an AI action replaces the narrower
     // Voice AI label. It starts the remembered AI loadout directly.
     // 2026-08-10: the Waitlist CTA tab (added 2026-07-20) is gone per
-    // Aidan ("remove waitlist from topbar"). Debate now takes back the
+    // Aidan ("remove waitlist from topbar"). Debate an AI takes back the
     // one kept mobile pill it held before Waitlist displaced it — the
     // --mobile-keep rule still keeps exactly ONE tab on phones.
-    { href: '/practice?now=1', label: 'Debate now', hot: true, mobileKeep: true },
+    { href: '/practice?now=1', label: 'Debate an AI', hot: true, mobileKeep: true },
   ];
 
   // Curated secondary destinations for the desktop Explore menu and the
