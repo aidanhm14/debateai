@@ -140,6 +140,23 @@ if [ -f "$WAGER_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Value-market guard. The properties it holds are the ones that decide
+# whether a trader can extract credits without being right: an instant
+# round trip never profits, rounding never favours the trader, the house
+# loss stays inside the LMSR bound at every possible close, and a market
+# with no final rating pays nobody. It also greps the module for
+# randomness, because the Floor shipped a coin-flip settlement once and
+# it stood for months.
+VALUE_GUARD="$REPO_ROOT/scripts/test-value-market.mjs"
+if [ -f "$VALUE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-value-market.mjs >/tmp/value-guard.log 2>&1); then
+    echo "[value-guard] commit blocked - a debater-market money property broke:" >&2
+    tail -20 /tmp/value-guard.log >&2
+    echo "[value-guard] see scripts/test-value-market.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Netlify-function import guard. Blocks a commit that stages a function
 # importing a name a sibling lib module does not export (the repeated

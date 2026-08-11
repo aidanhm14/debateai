@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-force-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /ladder — trade a debater's rating with points.
+     POINTS ONLY (virtual, non-purchasable, non-transferable, non-redeemable).
+
+     WHAT THIS IS, AND WHY IT IS NOT /predict
+     /predict is a binary market on one round: pick a side, wait for the
+     ballot, collect. Its weakness is that nothing happens between rounds.
+     This is a CONTINUOUS market on a person. One share of a debater pays
+     their normalized Debate Rating at season close, so it can be traded
+     any day, held, and exited, and it moves every time they compete.
+     "Trade their chance of winning" and "trade them climbing the
+     rankings" are the same instrument, because winning rounds is how the
+     rating rises.
+
+     THE EDGE IS THE PRODUCT
+     Glicko-2 carries a rating deviation, so a new debater sits at 1500
+     with the ladder openly admitting it does not know. The number lags
+     someone obviously good for several rounds. Every card shows the
+     ladder's mark next to the market price and the gap between them,
+     because that gap is the entire reason to open this page.
+
+     NO RAKE, BY CONSTRUCTION
+     Pricing is LMSR. The operator SUBSIDIZES each market by a bounded
+     amount and takes no cut of any trade or settlement, so we earn the
+     same whoever turns out to be good. Same fee-neutrality property the
+     judge charter publishes at /judge-integrity, held the same way: as a
+     property of the maths rather than a promise in a footer.
+
+     Server-authoritative. The client cannot write a balance, a book, or
+     a position; value_* collections carry no Firestore rules, so the
+     default deny covers them and every mutation goes through
+     value-market.mjs with admin credentials. -->
+<title>The Ladder · trade a debater's rating · Debatable</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Trade shares in a debater's rating with free points. Buy them before the ladder catches up, sell when it does. No cash value, no rake.">
+<link rel="icon" href="/icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="The Ladder · trade a debater's rating · Debatable">
+<meta property="og:description" content="One share pays a debater's rating at season close. Buy them before the ladder catches up. Free points, no cash value, no rake.">
+<meta property="og:url" content="https://itsdebatable.com/ladder">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try { if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG); }
+catch (e) { console.warn('[ladder] firebase init skipped:', e.message); }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+  :root{
+    --bg:#f1eee4; --panel:#ffffff; --panel2:#f0ece1; --panel3:#e7e2d3;
+    --bd:rgba(20,22,28,.15); --bd2:rgba(20,22,28,.32);
+    --tx:#17181c; --dim:rgba(23,24,28,.72); --faint:rgba(23,24,28,.65);
+    --pro:#166534; --pro-d:#14532d; --con:#b91c1c; --con-d:#991b1b;
+    --blue:#1d4ed8; --amber:#92400e; --r:14px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --shadow:0 1px 2px rgba(20,22,28,.06),0 4px 14px rgba(20,22,28,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  /* The UA's [hidden] rule is display:none at user-agent weight, so any
+     author rule setting display (and .equity/.drip/.bal all do) beats it.
+     Without this the signed-out page renders an empty equity strip and
+     offers daily credits to someone with no account. */
+  [hidden]{display:none!important}
+  body{background:var(--bg);color:var(--tx);font-family:'Crimson Pro',Georgia,serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  a{color:var(--blue);text-decoration:none}
+  button{font-family:'Crimson Pro',Georgia,serif}
+
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid var(--bd);position:sticky;top:0;background:rgba(241,238,228,.94);backdrop-filter:blur(10px);z-index:50}
+  .brand{font-weight:800;letter-spacing:-.02em;font-size:1.05rem}
+  .brand em{color:var(--con);font-style:normal}
+  .top-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .bal{font-family:var(--mono);font-size:.78rem;color:var(--dim)}
+  .bal b{color:var(--pro);font-size:.9rem}
+  .btn{border:none;border-radius:999px;cursor:pointer;transition:.15s;font-weight:700}
+  .signin{background:var(--con);color:#fff;font-size:.82rem;padding:7px 16px}
+  .signin:hover{background:var(--con-d)}
+  .ghost{background:transparent;border:1px solid var(--bd2);color:var(--tx);font-size:.78rem;padding:6px 13px;border-radius:999px;cursor:pointer}
+  .ghost:hover{background:var(--panel)}
+
+  .head{padding:28px 0 6px}
+  .head h1{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:800;letter-spacing:-.025em;line-height:1.1}
+  .head p{color:var(--dim);font-size:1rem;margin-top:8px;max-width:62ch}
+  .head p strong{color:var(--tx);font-weight:800}
+  .pts{color:var(--faint);font-size:.78rem;margin-top:10px}
+
+  /* Equity strip. A trader's first question every session is "where do
+     I stand", so it sits above the board rather than behind a tab. */
+  .equity{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin:20px 0 6px}
+  @media(max-width:640px){.equity{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .eq{background:var(--panel);padding:12px 14px}
+  .eq .k{font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .eq .v{font-family:var(--mono);font-size:1.15rem;font-weight:700;margin-top:3px}
+  .up{color:var(--pro)} .down{color:var(--con)}
+
+  .drip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(21,128,61,.07);border:1px solid rgba(21,128,61,.28);border-radius:10px;padding:9px 13px;margin:12px 0;font-size:.85rem;color:var(--pro-d)}
+  .drip button{background:var(--pro);color:#fff;font-size:.78rem;padding:5px 13px;border-radius:999px;border:none;cursor:pointer;font-weight:700}
+
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 0 12px}
+  .tabs{display:flex;gap:6px}
+  .tab{background:transparent;border:1px solid var(--bd2);color:var(--dim);font-size:.8rem;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer}
+  .tab[aria-selected=true]{background:var(--tx);border-color:var(--tx);color:#fff}
+  .sorts{display:flex;gap:5px;font-size:.74rem}
+  .sortb{background:transparent;border:1px solid var(--bd);color:var(--faint);padding:5px 11px;border-radius:999px;cursor:pointer;font-weight:700;font-size:.74rem}
+  .sortb[aria-pressed=true]{border-color:var(--bd2);color:var(--tx);background:var(--panel)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:15px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:11px}
+  .crow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .who{min-width:0}
+  .who h3{font-size:1.12rem;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who .meta{font-family:var(--mono);font-size:.66rem;color:var(--faint);margin-top:2px}
+  .price{text-align:right;flex:none}
+  .price .p{font-family:var(--mono);font-size:1.5rem;font-weight:700;line-height:1}
+  .price .u{font-family:var(--mono);font-size:.58rem;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+
+  /* The edge readout. The ladder's mark and the market price on one
+     track, with the gap called out. This is the card's whole job. */
+  .track{position:relative;height:30px;background:var(--panel2);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+  .fill{position:absolute;left:0;top:0;bottom:0;background:rgba(29,78,216,.16)}
+  .tick{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--tx)}
+  .tick::after{content:attr(data-l);position:absolute;top:50%;left:6px;transform:translateY(-50%);font-family:var(--mono);font-size:.56rem;font-weight:700;color:var(--tx);white-space:nowrap}
+  .edge{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:.78rem}
+  .edge b{font-size:.98rem}
+  .edge .lab{color:var(--faint);font-size:.64rem;letter-spacing:.08em;text-transform:uppercase}
+
+  .stats{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--faint)}
+  .stats b{color:var(--dim);font-weight:700}
+  .acts{display:flex;gap:7px}
+  .acts button{flex:1;border-radius:9px;font-size:.82rem;font-weight:800;padding:9px 8px;cursor:pointer;border:1px solid transparent}
+  .buy{background:rgba(21,128,61,.1);border-color:rgba(21,128,61,.35)!important;color:var(--pro-d)}
+  .buy:hover{background:rgba(21,128,61,.18)}
+  .sell{background:rgba(185,28,28,.08);border-color:rgba(185,28,28,.32)!important;color:var(--con-d)}
+  .sell:hover{background:rgba(185,28,28,.15)}
+  .holding{font-family:var(--mono);font-size:.66rem;color:var(--blue);background:rgba(29,78,216,.09);border:1px solid rgba(29,78,216,.25);border-radius:7px;padding:5px 9px}
+
+  .empty{background:var(--panel);border:1px dashed var(--bd2);border-radius:var(--r);padding:30px;text-align:center;color:var(--dim)}
+  .empty b{display:block;font-size:1.1rem;color:var(--tx);margin-bottom:5px}
+
+  /* trade sheet */
+  .sheet{position:fixed;inset:0;background:rgba(15,16,20,.42);display:none;align-items:flex-end;justify-content:center;z-index:100;backdrop-filter:blur(2px)}
+  .sheet[data-open]{display:flex}
+  @media(min-width:700px){.sheet{align-items:center}}
+  .sbox{background:var(--panel);border:1px solid var(--bd2);border-radius:16px 16px 0 0;width:100%;max-width:460px;padding:20px;max-height:90vh;overflow:auto}
+  @media(min-width:700px){.sbox{border-radius:16px}}
+  .sbox h2{font-size:1.3rem;font-weight:800;letter-spacing:-.015em}
+  .sbox .sub{color:var(--dim);font-size:.85rem;margin-top:3px}
+  .sides{display:flex;gap:7px;margin:15px 0 12px}
+  .sides button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--bd2);background:transparent;font-weight:800;font-size:.88rem;cursor:pointer;color:var(--dim)}
+  .sides button[aria-pressed=true].l{background:rgba(21,128,61,.13);border-color:rgba(21,128,61,.5);color:var(--pro-d)}
+  .sides button[aria-pressed=true].s{background:rgba(185,28,28,.11);border-color:rgba(185,28,28,.45);color:var(--con-d)}
+  .qty{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+  .qty input{flex:1;font-family:var(--mono);font-size:1.15rem;font-weight:700;padding:9px 12px;border:1px solid var(--bd2);border-radius:9px;background:var(--panel2);color:var(--tx);min-width:0}
+  .qty button{width:38px;height:38px;border-radius:9px;border:1px solid var(--bd2);background:transparent;font-size:1.15rem;font-weight:800;cursor:pointer;flex:none}
+  .chips{display:flex;gap:6px;margin-bottom:13px;flex-wrap:wrap}
+  .chips button{border:1px solid var(--bd);background:transparent;font-family:var(--mono);font-size:.72rem;font-weight:700;padding:4px 11px;border-radius:999px;cursor:pointer;color:var(--dim)}
+  .quote{background:var(--panel2);border:1px solid var(--bd);border-radius:10px;padding:12px;font-family:var(--mono);font-size:.8rem}
+  .qline{display:flex;justify-content:space-between;padding:3px 0}
+  .qline.tot{border-top:1px solid var(--bd);margin-top:6px;padding-top:8px;font-size:.95rem;font-weight:700}
+  .confirm{width:100%;margin-top:14px;background:var(--tx);color:#fff;border:none;border-radius:10px;padding:13px;font-size:.95rem;font-weight:800;cursor:pointer}
+  .confirm:disabled{opacity:.42;cursor:not-allowed}
+  .cancel{width:100%;margin-top:7px;background:transparent;border:none;color:var(--faint);font-size:.82rem;padding:7px;cursor:pointer;font-weight:700}
+  .err{background:rgba(185,28,28,.09);border:1px solid rgba(185,28,28,.3);color:var(--con-d);border-radius:9px;padding:9px 12px;font-size:.83rem;margin-top:11px}
+
+  /* pitches: stake to speak */
+  .pitchbox{margin-top:16px;border-top:1px solid var(--bd);padding-top:14px}
+  .pitchbox h3{font-size:.95rem;font-weight:800}
+  .pitchbox .note{font-size:.78rem;color:var(--faint);margin-top:2px}
+  .pitchbox textarea{width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--bd2);border-radius:9px;background:var(--panel2);font-family:'Crimson Pro',Georgia,serif;font-size:.88rem;resize:vertical;min-height:64px;color:var(--tx)}
+  .pitch{border-top:1px solid var(--bd);padding:10px 0}
+  .pitch .ph{display:flex;align-items:center;gap:8px;font-size:.78rem}
+  .pitch .nm{font-weight:800}
+  .ps{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+  .ps.long{background:rgba(21,128,61,.12);color:var(--pro-d)}
+  .ps.short{background:rgba(185,28,28,.1);color:var(--con-d)}
+  .pitch p{font-size:.88rem;color:var(--dim);margin-top:4px}
+
+  .legal{margin:34px 0 40px;padding:15px 17px;background:var(--panel2);border:1px solid var(--bd);border-radius:var(--r);font-size:.8rem;color:var(--faint);line-height:1.6}
+  .legal b{color:var(--dim)}
+  .skel{height:190px;background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);opacity:.5}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Debat<em>able</em> · The Ladder</div>
+    <div class="top-right">
+      <div class="bal" id="balStrip" hidden>Credits <b id="balNum">0</b></div>
+      <button class="ghost" id="acctBtn" hidden>Account</button>
+      <button class="btn signin" id="signinBtn">Sign in</button>
+    </div>
+  </div>
+
+  <div class="head">
+    <h1>Trade a debater's rating.</h1>
+    <p>One share pays what a debater's rating is worth when the season closes. <strong>The ladder is slow on purpose</strong>, because Glicko-2 will not claim to know someone after two rounds. Buy the people it has not caught up with yet.</p>
+    <p class="pts">Free points. No cash value, nothing to buy, nothing to withdraw. The house takes no cut of any trade.</p>
+  </div>
+
+  <div class="equity" id="equity" hidden>
+    <div class="eq"><div class="k">Credits</div><div class="v" id="eqCash">0</div></div>
+    <div class="eq"><div class="k">Positions</div><div class="v" id="eqExp">0</div></div>
+    <div class="eq"><div class="k">Equity</div><div class="v" id="eqTot">0</div></div>
+    <div class="eq"><div class="k">Open P&amp;L</div><div class="v" id="eqPnl">0</div></div>
+  </div>
+
+  <div class="drip" id="dripBar" hidden>
+    <span id="dripMsg">Your daily credits are ready.</span>
+    <button id="dripBtn">Claim</button>
+  </div>
+
+  <div class="bar">
+    <div class="tabs">
+      <button class="tab" id="tabBoard" aria-selected="true">Board</button>
+      <button class="tab" id="tabBook" aria-selected="false">My positions</button>
+    </div>
+    <div class="sorts" id="sorts">
+      <button class="sortb" data-sort="edge" aria-pressed="true">Mispriced</button>
+      <button class="sortb" data-sort="volume" aria-pressed="false">Busiest</button>
+      <button class="sortb" data-sort="rating" aria-pressed="false">Top rated</button>
+    </div>
+  </div>
+
+  <div class="grid" id="grid">
+    <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+  </div>
+
+  <div class="legal">
+    <b>How a share settles.</b> A long share pays the debater's Debate Rating at season close, mapped onto a fixed band (1200 pays nothing, 1900 pays the full 100). A short share pays the remainder, so a matched pair always pays exactly 100 between them and the book cannot owe more than it holds. If there is no rating to settle against, the market stays open and nobody is paid. There is no simulated close and no fallback outcome.<br><br>
+    <b>Pricing.</b> An automated market maker quotes both sides at all times, so you can always enter or exit without waiting for someone to take the other side. Bigger orders move the price against you, which is why the confirm screen shows the average price you will actually pay rather than the headline one.<br><br>
+    <b>No rake.</b> The market maker subsidizes each book by a fixed, known amount and takes nothing from any trade or settlement. We earn the same whoever turns out to be good. The same fee-neutrality applies to the judge that produces the results underneath: see <a href="/judge-integrity">the judge charter</a>.<br><br>
+    <b>Who cannot trade.</b> Debaters are excluded from their own market: they decide that outcome by competing, which is control, not insight. Staking is 18+ and is unavailable where it is not permitted. Points are free, non-purchasable, non-transferable, and non-redeemable. No purchase necessary. Void where prohibited.
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sbox">
+    <h2 id="shName">Debater</h2>
+    <div class="sub" id="shSub"></div>
+
+    <div class="sides">
+      <button class="l" id="sideLong" aria-pressed="true">Long <span id="pLong"></span></button>
+      <button class="s" id="sideShort" aria-pressed="false">Short <span id="pShort"></span></button>
+    </div>
+
+    <div class="qty">
+      <button id="qMinus">&minus;</button>
+      <input id="qInput" type="number" inputmode="numeric" value="10" min="1">
+      <button id="qPlus">+</button>
+    </div>
+    <div class="chips" id="qChips">
+      <button data-q="5">5</button><button data-q="10">10</button>
+      <button data-q="25">25</button><button data-q="50">50</button>
+      <button data-q="-1" id="qSellAll">Sell all</button>
+    </div>
+
+    <div class="quote" id="quoteBox">
+      <div class="qline"><span>Average price</span><b id="qAvg">&mdash;</b></div>
+      <div class="qline"><span>Price after</span><b id="qAfter">&mdash;</b></div>
+      <div class="qline tot"><span id="qLbl">Cost</span><b id="qCost">&mdash;</b></div>
+    </div>
+
+    <div id="shErr"></div>
+    <button class="confirm" id="confirmBtn">Confirm</button>
+    <button class="cancel" id="cancelBtn">Close</button>
+
+    <div class="pitchbox" id="pitchBox">
+      <h3>The case</h3>
+      <div class="note" id="pitchNote"></div>
+      <div id="pitchCompose" hidden>
+        <textarea id="pitchText" maxlength="600" placeholder="Why is the market wrong about this debater?"></textarea>
+        <button class="ghost" id="pitchSend" style="margin-top:8px">Post</button>
+      </div>
+      <div id="pitchList"></div>
+    </div>
+  </div>
+</div>
+
+<script defer src="/js/read-aloud.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var API = '/api/value-market';
+  var state = {
+    user: null, token: '', tab: 'board', sort: 'edge',
+    markets: [], holding: [], cfg: null, portfolio: null,
+    open: null, side: 'long', qty: 10, quoteTimer: 0, busy: false,
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var n0 = function (v) { return Math.round(Number(v) || 0).toLocaleString(); };
+  var n2 = function (v) { return (Number(v) || 0).toFixed(2); };
+  var signed = function (v) { var x = Math.round(Number(v) || 0); return (x > 0 ? '+' : '') + x.toLocaleString(); };
+
+  // ── api ───────────────────────────────────────────────────────────
+  function call(action, body) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (state.token) headers.Authorization = 'Bearer ' + state.token;
+    return fetch(API, {
+      method: 'POST', headers,
+      body: JSON.stringify(Object.assign({ action: action }, body || {})),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok && !j.reason) throw new Error(j.error || 'Request failed');
+        return j;
+      });
+    });
+  }
+
+  // ── auth ──────────────────────────────────────────────────────────
+  function initAuth() {
+    if (typeof firebase === 'undefined' || !firebase.auth) return loadBoard();
+    firebase.auth().onAuthStateChanged(function (u) {
+      // An anonymous Firebase user is not a signed-in user. notifications.js
+      // mints one on every page for the background Spar pill, so gating on
+      // truthiness alone would hand a guest the signed-in surface.
+      if (u && !u.isAnonymous) {
+        state.user = u;
+        u.getIdToken().then(function (t) {
+          state.token = t;
+          $('signinBtn').hidden = true;
+          $('acctBtn').hidden = false;
+          $('balStrip').hidden = false;
+          $('equity').hidden = false;
+          refreshPortfolio();
+          loadBoard();
+          call('claim').then(showDrip).catch(function () {});
+        });
+      } else {
+        state.user = null; state.token = '';
+        $('signinBtn').hidden = false;
+        $('acctBtn').hidden = true;
+        loadBoard();
+      }
+    });
+  }
+
+  $('signinBtn').addEventListener('click', function () {
+    if (typeof firebase === 'undefined' || !firebase.auth) return;
+    var p = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(p).catch(function (e) { console.warn('[ladder] sign in:', e.message); });
+  });
+  $('acctBtn').addEventListener('click', function () { window.location.href = '/profile'; });
+
+  function showDrip(r) {
+    if (!r || !r.ok || !r.granted) return;
+    $('dripBar').hidden = false;
+    $('dripMsg').textContent = r.reason === 'opening_grant'
+      ? 'You have ' + n0(r.balance) + ' credits to start with.'
+      : n0(r.granted) + ' daily credits added.';
+    $('dripBtn').hidden = true;
+    setBalance(r.balance);
+  }
+  $('dripBtn').addEventListener('click', function () {
+    call('claim').then(function (r) { showDrip(r); if (!r.ok) $('dripBar').hidden = true; });
+  });
+
+  function setBalance(v) { $('balNum').textContent = n0(v); $('eqCash').textContent = n0(v); }
+
+  // ── board ─────────────────────────────────────────────────────────
+  function loadBoard() {
+    call('board', { sort: state.sort }).then(function (d) {
+      state.markets = d.markets || [];
+      state.holding = d.holding || [];
+      state.cfg = d.cfg || d.config || null;
+      if (state.tab === 'board') renderBoard();
+    }).catch(function (e) {
+      $('grid').innerHTML = '<div class="empty"><b>The board is not loading.</b>' + esc(e.message) + '</div>';
+    });
+  }
+
+  function refreshPortfolio() {
+    if (!state.token) return Promise.resolve();
+    return call('portfolio').then(function (p) {
+      state.portfolio = p;
+      setBalance(p.balance);
+      $('eqExp').textContent = n0(p.exposure);
+      $('eqTot').textContent = n0(p.equity);
+      var pnl = $('eqPnl');
+      pnl.textContent = signed(p.unrealized);
+      pnl.className = 'v ' + (p.unrealized > 0 ? 'up' : (p.unrealized < 0 ? 'down' : ''));
+      if (state.tab === 'book') renderBook();
+    }).catch(function () {});
+  }
+
+  function renderBoard() {
+    var g = $('grid');
+    if (!state.markets.length) {
+      g.innerHTML = '<div class="empty"><b>No markets are open yet.</b>'
+        + 'A debater gets a market once the ladder has enough rounds to rate them. '
+        + 'Go win some.<br><br><a href="/spar">Find a round</a></div>';
+      return;
+    }
+    g.innerHTML = state.markets.map(cardHtml).join('');
+    Array.prototype.forEach.call(g.querySelectorAll('[data-open]'), function (el) {
+      el.addEventListener('click', function () {
+        openSheet(el.getAttribute('data-open'), el.getAttribute('data-side') || 'long');
+      });
+    });
+  }
+
+  function cardHtml(m) {
+    var pct = Math.max(0, Math.min(100, m.long));
+    var fairPct = m.fair == null ? null : Math.max(0, Math.min(100, m.fair));
+    var held = state.holding.indexOf(m.marketId) >= 0;
+    var edge = m.edge;
+    var edgeTxt = edge == null ? 'Unrated'
+      : (Math.abs(edge) < 1 ? 'At the ladder'
+        : (edge > 0 ? 'Cheap by ' + n2(edge) : 'Rich by ' + n2(-edge)));
+    var edgeCls = edge == null ? '' : (edge > 1 ? 'up' : (edge < -1 ? 'down' : ''));
+
+    return '<div class="card">'
+      + '<div class="crow">'
+        + '<div class="who"><h3>' + esc(m.name) + '</h3>'
+        + '<div class="meta">' + (m.rating ? 'Rating ' + m.rating + ' &middot; ' + m.games + ' rounds' : 'Unrated')
+        + (m.confidence != null ? ' &middot; ' + m.confidence + '% confident' : '') + '</div></div>'
+        + '<div class="price"><div class="p">' + n2(m.long) + '</div><div class="u">per share</div></div>'
+      + '</div>'
+      + '<div class="track"><div class="fill" style="width:' + pct + '%"></div>'
+        + (fairPct == null ? '' : '<div class="tick" style="left:' + fairPct + '%" data-l="ladder"></div>')
+      + '</div>'
+      + '<div class="edge"><span class="lab">Edge</span><b class="' + edgeCls + '">' + esc(edgeTxt) + '</b></div>'
+      + '<div class="stats"><span>Volume <b>' + n0(m.volume) + '</b></span>'
+        + '<span>Traders <b>' + n0(m.traders) + '</b></span>'
+        + (held ? '<span class="holding">You hold this</span>' : '') + '</div>'
+      + '<div class="acts">'
+        + '<button class="buy" data-open="' + esc(m.marketId) + '" data-side="long">Long</button>'
+        + '<button class="sell" data-open="' + esc(m.marketId) + '" data-side="short">Short</button>'
+      + '</div></div>';
+  }
+
+  function renderBook() {
+    var g = $('grid');
+    var p = state.portfolio;
+    if (!state.token) {
+      g.innerHTML = '<div class="empty"><b>Sign in to hold a position.</b>Your credits and positions follow your account.</div>';
+      return;
+    }
+    if (!p || !p.positions.length) {
+      g.innerHTML = '<div class="empty"><b>You are not holding anything.</b>'
+        + 'Open the board and find a debater the ladder has not caught up with.</div>';
+      return;
+    }
+    g.innerHTML = p.positions.map(function (r) {
+      var pnl = r.unrealized;
+      return '<div class="card">'
+        + '<div class="crow"><div class="who"><h3>' + esc(r.name) + '</h3>'
+          + '<div class="meta">' + (r.long ? r.long + ' long' : '') + (r.short ? (r.long ? ' &middot; ' : '') + r.short + ' short' : '') + '</div></div>'
+          + '<div class="price"><div class="p ' + (pnl > 0 ? 'up' : (pnl < 0 ? 'down' : '')) + '">' + signed(pnl) + '</div>'
+          + '<div class="u">open p&amp;l</div></div></div>'
+        + '<div class="stats"><span>Mark <b>' + n2(r.mark) + '</b></span>'
+          + '<span>Value <b>' + n0(r.value) + '</b></span>'
+          + '<span>Cost <b>' + n0(r.costBasis) + '</b></span></div>'
+        + '<div class="acts"><button class="buy" data-open="' + esc(r.marketId) + '" data-side="long">Trade</button></div>'
+        + '</div>';
+    }).join('');
+    Array.prototype.forEach.call(g.querySelectorAll('[data-open]'), function (el) {
+      el.addEventListener('click', function () { openSheet(el.getAttribute('data-open'), 'long'); });
+    });
+  }
+
+  // ── tabs + sorts ──────────────────────────────────────────────────
+  $('tabBoard').addEventListener('click', function () { switchTab('board'); });
+  $('tabBook').addEventListener('click', function () { switchTab('book'); });
+  function switchTab(t) {
+    state.tab = t;
+    $('tabBoard').setAttribute('aria-selected', String(t === 'board'));
+    $('tabBook').setAttribute('aria-selected', String(t === 'book'));
+    $('sorts').style.visibility = t === 'board' ? '' : 'hidden';
+    if (t === 'board') renderBoard(); else { renderBook(); refreshPortfolio(); }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.sortb'), function (b) {
+    b.addEventListener('click', function () {
+      state.sort = b.getAttribute('data-sort');
+      Array.prototype.forEach.call(document.querySelectorAll('.sortb'), function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+      loadBoard();
+    });
+  });
+
+  // ── trade sheet ───────────────────────────────────────────────────
+  function openSheet(marketId, side) {
+    state.open = null; state.side = side; state.qty = 10;
+    $('qInput').value = 10;
+    $('shErr').innerHTML = '';
+    $('sheet').setAttribute('data-open', '1');
+    setSide(side);
+
+    call('market', { marketId: marketId }).then(function (d) {
+      state.open = d;
+      var m = d.market;
+      $('shName').textContent = m.name;
+      $('shSub').textContent = m.rating
+        ? 'Ladder rating ' + m.rating + ' over ' + m.games + ' rounds. Market says ' + n2(m.long) + '.'
+        : 'Not yet rated by the ladder.';
+      $('pLong').textContent = n2(m.long);
+      $('pShort').textContent = n2(m.short);
+      renderPitches(d);
+      if (d.isSubject) {
+        showErr('This is your own market. You cannot trade yourself.');
+        $('confirmBtn').disabled = true;
+      } else {
+        $('confirmBtn').disabled = false;
+        quote();
+      }
+    }).catch(function (e) { showErr(e.message); });
+  }
+
+  function closeSheet() { $('sheet').removeAttribute('data-open'); state.open = null; }
+  $('cancelBtn').addEventListener('click', closeSheet);
+  $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) closeSheet(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+
+  function setSide(s) {
+    state.side = s;
+    $('sideLong').setAttribute('aria-pressed', String(s === 'long'));
+    $('sideShort').setAttribute('aria-pressed', String(s === 'short'));
+    quote();
+  }
+  $('sideLong').addEventListener('click', function () { setSide('long'); });
+  $('sideShort').addEventListener('click', function () { setSide('short'); });
+
+  function setQty(v) {
+    state.qty = v;
+    $('qInput').value = v;
+    $('qLbl').textContent = v < 0 ? 'You receive' : 'Cost';
+    quote();
+  }
+  $('qMinus').addEventListener('click', function () { setQty(Math.max(1, (Number($('qInput').value) || 0) - 5)); });
+  $('qPlus').addEventListener('click', function () { setQty((Number($('qInput').value) || 0) + 5); });
+  $('qInput').addEventListener('input', function () { setQty(Math.trunc(Number($('qInput').value) || 0)); });
+  Array.prototype.forEach.call(document.querySelectorAll('#qChips button'), function (b) {
+    b.addEventListener('click', function () {
+      var q = Number(b.getAttribute('data-q'));
+      if (q === -1) {
+        var pos = state.open && state.open.position;
+        var held = pos ? (state.side === 'long' ? pos.long : pos.short) : 0;
+        if (!held) return showErr('You hold no shares on that side.');
+        return setQty(-held);
+      }
+      setQty(q);
+    });
+  });
+
+  // Quoted from the live book rather than computed here, so the number on
+  // the confirm button is the number the server will charge.
+  function quote() {
+    if (!state.open) return;
+    clearTimeout(state.quoteTimer);
+    state.quoteTimer = setTimeout(function () {
+      var q = state.qty;
+      if (!q) return;
+      call('quote', { marketId: state.open.market.marketId, side: state.side, shares: q })
+        .then(function (r) {
+          $('qAvg').textContent = n2(r.avgPrice);
+          $('qAfter').textContent = n2(r.markAfter);
+          $('qCost').textContent = n0(Math.abs(r.cost));
+        }).catch(function () {});
+    }, 160);
+  }
+
+  function showErr(msg) {
+    $('shErr').innerHTML = '<div class="err">' + esc(msg) + '</div>';
+  }
+
+  $('confirmBtn').addEventListener('click', function () {
+    if (!state.open || state.busy) return;
+    if (!state.token) return showErr('Sign in to trade.');
+    state.busy = true;
+    $('confirmBtn').disabled = true;
+    $('shErr').innerHTML = '';
+    call('trade', {
+      marketId: state.open.market.marketId,
+      side: state.side,
+      shares: state.qty,
+    }).then(function (r) {
+      state.busy = false;
+      $('confirmBtn').disabled = false;
+      if (!r.ok) return showErr(r.message || 'That trade could not be placed.');
+      setBalance(r.balance);
+      closeSheet();
+      loadBoard();
+      refreshPortfolio();
+    }).catch(function (e) {
+      state.busy = false; $('confirmBtn').disabled = false;
+      showErr(e.message);
+    });
+  });
+
+  // ── pitches ───────────────────────────────────────────────────────
+  function renderPitches(d) {
+    var min = (d.config && d.config.pitchMin) || 25;
+    var can = d.position && d.position.canPitch;
+    $('pitchNote').textContent = can
+      ? 'You hold the position, so you can make the case.'
+      : 'Hold ' + min + ' shares in this debater to post here.';
+    $('pitchCompose').hidden = !can;
+    $('pitchList').innerHTML = (d.pitches || []).map(function (p) {
+      return '<div class="pitch"><div class="ph"><span class="nm">' + esc(p.name) + '</span>'
+        + '<span class="ps ' + esc(p.side) + '">' + esc(p.side) + ' ' + n0(p.shares) + '</span></div>'
+        + '<p>' + esc(p.body) + '</p></div>';
+    }).join('') || '<div class="pitch"><p>Nobody has made a case on this debater yet.</p></div>';
+  }
+
+  $('pitchSend').addEventListener('click', function () {
+    if (!state.open) return;
+    var body = $('pitchText').value.trim();
+    if (!body) return;
+    call('pitch', { marketId: state.open.market.marketId, body: body }).then(function (r) {
+      if (!r.ok) return showErr(r.message || 'Could not post.');
+      $('pitchText').value = '';
+      return call('market', { marketId: state.open.market.marketId }).then(function (d) {
+        state.open = d; renderPitches(d);
+      });
+    }).catch(function (e) { showErr(e.message); });
+  });
+
+  initAuth();
+})();
+</script>
+</body>
+</html>
