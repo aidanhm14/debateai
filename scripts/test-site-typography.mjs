@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Crimson Pro is the universal face: body AND display, every page.
+// The 2026-08-10 Flow pairing (Inter body + Crimson display) was reverted
+// the same week. These checks exist so a sans body face cannot creep back
+// onto the shared surfaces one page at a time.
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const fail = [];
@@ -9,11 +13,11 @@ const ok = (condition, message) => {
 };
 
 const ui = read('app/css/ui.css');
-ok(ui.includes("--font-body:'Inter'"), 'ui.css exposes Inter as --font-body');
-ok(ui.includes("--font-display:'Crimson Pro'"), 'ui.css exposes Crimson Pro as --font-display');
-ok(ui.includes('--font-legacy-serif'), 'ui.css keeps the previous serif stack for rollback');
-ok(/body\{[\s\S]*font-family:var\(--font-body\) !important/.test(ui), 'ui.css forces body text to Flow body font');
-ok(/h1,h2,h3,h4,h5,h6\{[\s\S]*font-family:var\(--font-display\) !important/.test(ui), 'ui.css forces headings to Flow display font');
+ok(ui.includes("--font-body:'Crimson Pro'"), 'ui.css sets Crimson Pro as --font-body');
+ok(ui.includes("--font-display:'Crimson Pro'"), 'ui.css sets Crimson Pro as --font-display');
+ok(/body\{[\s\S]*font-family:var\(--font-body\) !important/.test(ui), 'ui.css forces body text to the house font');
+ok(/h1,h2,h3,h4,h5,h6\{[\s\S]*font-family:var\(--font-display\) !important/.test(ui), 'ui.css forces headings to the house font');
+ok(!/--font-body:'Inter'/.test(ui), 'ui.css does not reintroduce a sans body face');
 
 for (const file of [
   'app/css/topic.css',
@@ -28,7 +32,8 @@ for (const file of [
   'seo-growth.css'
 ]) {
   const css = read(file);
-  ok(css.includes('Crimson+Pro') && css.includes('Inter'), `${file} loads the Flow font pair`);
+  ok(css.includes('Crimson+Pro'), `${file} loads Crimson Pro`);
+  ok(!/font-family:\s*'Inter'/.test(css), `${file} does not set Inter as a body face`);
 }
 
 for (const file of [
@@ -46,7 +51,7 @@ for (const file of [
   'app/index.html'
 ]) {
   const html = read(file);
-  ok(html.includes('Inter') && html.includes('Crimson'), `${file} declares the Flow font pair`);
+  ok(html.includes('Crimson'), `${file} declares the house font`);
 }
 
 for (const file of [
