@@ -730,39 +730,25 @@
   })();
 </script>
 
-<!-- One-pager A/B (landing_onepager_v1, 2026-08-10). The 08-10 collapse
-     put EVERY chapter behind "Load more", leaving a first paint of
-     first-screen + waitlist + gate card + section pills + footer. That
-     is a real bet on conversion in both directions (less to wade
-     through, or a first screen too thin to earn a signup) and it
-     shipped as a one-way switch, so nothing could tell us which.
-
-       onepager  everything after the first screen waits behind the gate
-       full      the pre-08-10 page: how-it-works, live-now, live-proof,
-                 ranked-band and creator-sweepstakes render immediately,
-                 deeper chapters still behind the gate
-
-     Runs before first paint so a `full` visitor never sees five
-     chapters vanish. ?onepager=onepager|full forces QA (forced arms are
-     excluded from telemetry by experiments.js). Read the arm off
-     <html data-onepager>; the gate CSS keys on it. -->
+<!-- One-pager CALLED by Aidan, 2026-08-10, same day the A/B shipped.
+     He hit the `full` arm and read the page as a long unfocused deck:
+     one simple screen, people choose to see more. So every visitor
+     gets `onepager` now; the `da-onepager-ab` sticky key is cleared so
+     old full-arm visitors flip over on their next load. ?onepager=full
+     still forces the old page as a QA/debug view. The assignment is
+     registered forced:true so the conversion listener below the first
+     screen never counts anything again; the gate CSS keys on
+     <html data-onepager> as before. -->
 <script>
   (function(){
-    var v='',forced=false;
+    var v='onepager';
     try{
-      var qp=(location.search||'').toLowerCase();
-      if(/[?&]onepager=onepager(?:&|$)/.test(qp)){v='onepager';forced=true;}
-      else if(/[?&]onepager=full(?:&|$)/.test(qp)){v='full';forced=true;}
+      if(/[?&]onepager=full(?:&|$)/.test((location.search||'').toLowerCase()))v='full';
+      localStorage.removeItem('da-onepager-ab');
     }catch(e){}
-    if(!v){
-      try{
-        v=localStorage.getItem('da-onepager-ab')||'';
-        if(v!=='onepager'&&v!=='full'){v=Math.random()<0.5?'onepager':'full';localStorage.setItem('da-onepager-ab',v);}
-      }catch(e){v='onepager';}
-    }
     document.documentElement.setAttribute('data-onepager',v);
     window.__abAssignments=window.__abAssignments||{};
-    window.__abAssignments.landing_onepager_v1=forced?{variant:v,forced:true}:{variant:v};
+    window.__abAssignments.landing_onepager_v1={variant:v,forced:true};
   })();
 </script>
 
@@ -7813,12 +7799,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      the shell's extraSelector and the page-toc's pre-shell gate list
      in sync when gating or promoting a section.
 
-     SPLIT BY ARM (landing_onepager_v1, see the assignment script in
-     <head>). The five chapters below the first rule are the ones the
-     08-10 collapse newly took away, so they are the difference between
-     the arms: hidden in `onepager`, rendered in `full`. Everything in
-     the always-gated block has been behind the gate since 2026-07-25
-     and is identical in both arms. -->
+     ARM CALLED same day (2026-08-10): Aidan saw the `full` arm and
+     called it a long unfocused deck, so `onepager` is now the only
+     assignment (see the head script). The [data-onepager="onepager"]
+     scoping below stays because ?onepager=full still forces the old
+     page as a QA view; in normal traffic the attribute is always
+     "onepager" and all five chapters wait behind the gate. -->
 <style>
   html[data-onepager="onepager"] body.landing-more-ready:not(.landing-more-open) #how-it-works,
   html[data-onepager="onepager"] body.landing-more-ready:not(.landing-more-open) #live-now,
