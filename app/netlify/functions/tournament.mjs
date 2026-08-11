@@ -70,6 +70,17 @@ function publicTournament(id, d) {
     currency: d.currency || 'usd',
     prizePoolCents: Number(d.prizePoolCents) || 0,
     paidEntries: Number(d.paidEntries) || 0,
+    // Payout ladder in cents, first place first. The public page renders
+    // the prize amounts from THIS, so an event that has not declared a
+    // split shows no prize figures rather than an invented one. Same
+    // reason entryFeeCents lives on the doc: money is data, not code.
+    prizeSplit: Array.isArray(d.prizeSplit)
+      ? d.prizeSplit.map((n) => Number(n) || 0).filter((n) => n > 0).slice(0, 5)
+      : [],
+    // Machine-readable start, alongside the human `startsAt` string.
+    // The countdown needs a real instant; a display string like
+    // "Sat Aug 29, 10:00 AM ET" is not parseable across browsers.
+    startsAtISO: typeof d.startsAtISO === 'string' ? d.startsAtISO : '',
   };
 }
 

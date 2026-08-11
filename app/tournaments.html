@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Watch Live Online Debate Tournaments | Debatable</title>
-<meta name="description" content="Watch featured online debate tournament rounds on Debatable. See when the next round goes live, preview example motions, and follow the decision." />
+<title>Online Debate Tournaments with Cash Prizes | Debatable</title>
+<meta name="description" content="Enter a one-day online debate tournament. Cash prizes for the top three, $20 to enter or enter free, every round judged with a written ballot, and the final streamed live." />
 <meta name="robots" content="index,follow,max-image-preview:large" />
 <link rel="canonical" href="https://itsdebatable.com/tournaments" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Debatable" />
-<meta property="og:title" content="Watch live debate tournaments on Debatable" />
-<meta property="og:description" content="The watch room for featured debate tournament rounds, motions, and judge decisions." />
+<meta property="og:title" content="Get paid to win an argument" />
+<meta property="og:description" content="A one-day online debate tournament. Cash prizes, real opponents, a written verdict on every round, and a streamed final. No experience needed." />
 <meta property="og:url" content="https://itsdebatable.com/tournaments" />
 <meta property="og:image" content="https://itsdebatable.com/og-live.png?v=deb1" />
 <meta name="twitter:image" content="https://itsdebatable.com/og-live.png?v=deb1" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Debatable Tournaments" />
-<meta name="twitter:description" content="Wait for the next featured round, explore sample motions, and watch when the room goes live." />
+<meta name="twitter:title" content="Get paid to win an argument" />
+<meta name="twitter:description" content="A one-day online debate tournament. Cash prizes, real opponents, a written verdict on every round." />
 <link rel="icon" href="/icons/icon-192.png" />
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -38,6 +38,37 @@
         {"@type": "Thing", "name": "Online debate tournaments"},
         {"@type": "Thing", "name": "Live debate rounds"},
         {"@type": "Thing", "name": "Debate motions"}
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://itsdebatable.com/tournaments#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "I have never debated. Am I going to embarrass myself?",
+          "acceptedAnswer": {"@type": "Answer", "text": "You will lose some rounds; everyone does. The default format is written for people who have never competed: no jargon, no prepared case, no citations to memorise. You make a point, explain why it holds, and answer what the other person said. The judge writes its reasoning in plain English, so a round you lose still tells you what to fix."}
+        },
+        {
+          "@type": "Question",
+          "name": "It is free, and there is prize money. What is the catch?",
+          "acceptedAnswer": {"@type": "Answer", "text": "There is no entry fee and no card. Prizes are funded by the organizer rather than out of a pot of entry fees, so the amounts are fixed: they do not grow with a big field or shrink with a small one. The one condition is age. Cash prizes are paid to winners aged 18 or over; anyone younger competes for the placement and the ranking."}
+        },
+        {
+          "@type": "Question",
+          "name": "Who judges, and is that fair?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Rounds are judged by an AI judge working from a rubric published before the round. It gives a written reason for every decision, and either debater can appeal, at which point a human reviews it. The criteria, reliability figures, and appeal process are public."}
+        },
+        {
+          "@type": "Question",
+          "name": "What if I enter and then cannot make it?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Withdraw from the tournament page and nothing happens to you; there is no fee to lose. Withdrawing rather than silently not turning up matters, because the draw is built around who is checked in."}
+        },
+        {
+          "@type": "Question",
+          "name": "Can I just watch?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Yes, and it costs nothing. Live rounds and past ones are on the watch page, with no account required."}
+        }
       ]
     }
   ]
@@ -98,12 +129,36 @@ h1,h2,h3,p{margin-top:0}
 .btn-primary:hover{border-color:var(--red-dark);background:var(--red-dark)}
 .arrow{font-family:var(--sans);font-size:1rem}
 
-.hero{padding:66px 0 76px}
-.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(430px,.9fr);gap:70px;align-items:center}
-.hero h1{max-width:10ch;margin:0 0 20px;font-size:clamp(3.6rem,6.6vw,6rem);line-height:.88;letter-spacing:-.052em}
+.hero{padding:56px 0 66px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(430px,.86fr);gap:60px;align-items:start}
+.hero h1{max-width:13ch;margin:0 0 18px;font-size:clamp(3rem,5.6vw,5rem);line-height:.9;letter-spacing:-.045em}
 .hero h1 em{color:var(--red);font-style:normal}
-.hero-lede{max-width:620px;margin-bottom:23px;color:var(--muted);font-size:1.08rem;line-height:1.6}
+.hero-lede{max-width:620px;margin-bottom:22px;color:var(--muted);font-size:1.08rem;line-height:1.6}
 .hero-actions{display:flex;flex-wrap:wrap;gap:10px}
+
+/* Prize ladder. Amounts render from the tournament doc's prizeSplit,
+   so the page never hardcodes a payout it cannot honour. */
+.prizes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 22px}
+.prize{padding:15px 16px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:var(--shadow)}
+.prize--first{border-color:rgba(217,47,47,.38);background:var(--red-soft)}
+.prize-k{display:block;font-family:var(--sans);font-size:.56rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.prize--first .prize-k{color:var(--red)}
+.prize-v{display:block;margin-top:5px;font-size:2rem;font-weight:800;line-height:1;letter-spacing:-.03em}
+.prize--first .prize-v{color:var(--red)}
+@media(max-width:560px){.prize-v{font-size:1.6rem}}
+
+/* Countdown. The ticking digits are aria-hidden and a static sentence
+   carries the same information for screen readers, because a live
+   region updating every second is unusable with one. */
+.countdown{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 20px;font-family:var(--sans)}
+.cd-unit{min-width:62px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);text-align:center}
+.cd-n{display:block;font-size:1.32rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.cd-l{display:block;margin-top:3px;font-size:.52rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cd-when{font-size:.78rem;font-weight:750;color:var(--muted);line-height:1.4}
+.hero-stats{display:flex;flex-wrap:wrap;gap:6px 0;margin-top:22px;font-family:var(--sans);font-size:.76rem;color:var(--muted)}
+.hero-stats b{color:var(--ink);font-weight:800}
+.hero-stats span+span:before{content:"·";margin:0 11px;color:var(--line-strong)}
+
 .motion-picker{margin-top:30px}
 .motion-picker-label{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px;font-family:var(--sans)}
 .motion-picker-label b{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase}
@@ -174,6 +229,52 @@ h1,h2,h3,p{margin-top:0}
 .guide-step.is-waiting{background:linear-gradient(145deg,var(--amber-soft),var(--card) 72%)}
 .guide-step.is-waiting .guide-step-n{color:var(--amber)}
 
+/* Run of the day. A real schedule beats an abstract three-step
+   explainer: someone deciding whether to give up a Saturday needs to
+   know what the Saturday costs them. */
+.run{padding:76px 0;border-top:1px solid var(--line)}
+.run-list{margin:0;padding:0;list-style:none;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+.run-item{display:grid;grid-template-columns:132px minmax(0,1fr);gap:22px;padding:19px 24px;align-items:baseline}
+.run-item+.run-item{border-top:1px solid var(--line)}
+.run-time{font-family:var(--sans);font-size:.68rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--red)}
+.run-item h3{margin:0 0 4px;font-size:1.2rem;font-weight:750}
+.run-item p{margin:0;color:var(--muted);font-family:var(--sans);font-size:.82rem;line-height:1.55}
+.run-note{margin:16px 0 0;font-family:var(--sans);font-size:.74rem;color:var(--muted);line-height:1.6}
+@media(max-width:640px){
+  .run{padding:58px 0}
+  .run-item{grid-template-columns:1fr;gap:4px;padding:16px 18px}
+}
+
+/* What you need. The barrier this page has to clear is "I have never
+   done this", not "I do not know the schedule". */
+.need{padding:0 0 76px}
+.need-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.need-card{padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--shadow)}
+.need-card h3{margin:0 0 6px;font-size:1.08rem;font-weight:750}
+.need-card p{margin:0;color:var(--muted);font-family:var(--sans);font-size:.8rem;line-height:1.55}
+.need-ic{display:grid;place-items:center;width:34px;height:34px;margin-bottom:12px;border-radius:10px;background:var(--red-soft);color:var(--red);font-size:1rem}
+@media(max-width:900px){.need-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.need-grid{grid-template-columns:1fr}.need{padding-bottom:58px}}
+
+/* FAQ. Native details/summary so keyboard and screen-reader behaviour
+   is the browser's, not ours. */
+.faq{padding:0 0 84px}
+.faq-list{border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+.faq-item+.faq-item{border-top:1px solid var(--line)}
+.faq-item summary{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:19px 24px;cursor:pointer;font-size:1.08rem;font-weight:750;list-style:none}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary:hover{background:rgba(217,47,47,.03)}
+.faq-item summary:focus-visible{outline:2px solid var(--red);outline-offset:-3px}
+.faq-item summary:after{content:"+";font-family:var(--sans);font-size:1.2rem;font-weight:700;color:var(--red);flex:none}
+.faq-item[open] summary:after{content:"\2212"}
+.faq-item p{margin:0;padding:0 24px 21px;max-width:74ch;color:var(--muted);font-family:var(--sans);font-size:.86rem;line-height:1.65}
+.faq-item p a{color:var(--red-dark);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:640px){
+  .faq{padding-bottom:64px}
+  .faq-item summary{padding:16px 18px;font-size:1rem}
+  .faq-item p{padding:0 18px 18px}
+}
+
 .host{padding:72px 0}
 .host-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:30px;align-items:center;padding:31px 34px;border-radius:22px;background:var(--red);color:#fff;box-shadow:0 20px 52px rgba(217,47,47,.2)}
 .host-card h2{margin:0 0 7px;font-size:2.2rem;line-height:1}
@@ -192,7 +293,7 @@ h1,h2,h3,p{margin-top:0}
   .topnav a:not(.top-cta){display:none}
   .hero-grid,.section-head{grid-template-columns:1fr}
   .hero-grid{gap:38px}
-  .hero h1{max-width:12ch}
+  .hero h1{max-width:14ch}
   .section-head{gap:16px}
   .watch-card{max-width:680px}
 }
@@ -234,11 +335,11 @@ h1,h2,h3,p{margin-top:0}
   <div class="shell topbar-in">
     <a class="wordmark" href="/" aria-label="Debatable home"><span>Debat</span><b>able</b><span class="product-tag">Tournaments</span></a>
     <nav class="topnav" aria-label="Tournament page">
-      <a href="#watch">Watch</a>
-      <a href="#motions">Motions</a>
-      <a href="#enter">Enter</a>
-      <a href="#watch-guide">How it works</a>
-      <a class="top-cta" href="mailto:aidandavidhollinger@gmail.com?subject=Host%20a%20Debatable%20Tournament">Host a tournament</a>
+      <a href="#watch-guide">The day</a>
+      <a href="#faq">Questions</a>
+      <a href="/tournament-rules">Rules</a>
+      <a href="/watch">Watch</a>
+      <a class="top-cta" href="#enter">Enter</a>
     </nav>
   </div>
 </header>
@@ -247,17 +348,32 @@ h1,h2,h3,p{margin-top:0}
   <section class="hero" id="watch">
     <div class="shell hero-grid">
       <div>
-        <div class="kicker">Live tournaments</div>
-        <h1>The next live round <em>starts here.</em></h1>
-        <p class="hero-lede">No featured round is live right now. When one begins, this page becomes the watch room. Until then, choose a sample motion and see what the debate could be about.</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#watch-guide">What happens when it goes live <span class="arrow" aria-hidden="true">↓</span></a>
-          <a class="btn" href="mailto:aidandavidhollinger@gmail.com?subject=Host%20a%20Debatable%20Tournament">Host your tournament</a>
+        <div class="kicker" id="heroKicker">Tournaments</div>
+        <h1>Get paid to <em>win an argument.</em></h1>
+        <p class="hero-lede" id="heroLede">A one-day tournament, run entirely online. Anyone can enter. You debate from your laptop, one round at a time, and every round ends with a written verdict explaining who won and why.</p>
+
+        <!-- Prize ladder + countdown + stats all hydrate from the open
+             tournament doc and stay hidden until it loads, so nothing
+             here can promise a prize or a date that does not exist. -->
+        <div class="prizes" id="heroPrizes" hidden></div>
+
+        <div class="countdown" id="heroCountdown" hidden>
+          <div class="cd-unit" aria-hidden="true"><span class="cd-n" id="cdD">0</span><span class="cd-l">Days</span></div>
+          <div class="cd-unit" aria-hidden="true"><span class="cd-n" id="cdH">0</span><span class="cd-l">Hours</span></div>
+          <div class="cd-unit" aria-hidden="true"><span class="cd-n" id="cdM">0</span><span class="cd-l">Mins</span></div>
+          <p class="cd-when" id="cdWhen"></p>
         </div>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#enter" id="heroEnter">See how to enter <span class="arrow" aria-hidden="true">↓</span></a>
+          <a class="btn" href="/watch">Watch a live round</a>
+        </div>
+
+        <p class="hero-stats" id="heroStats" hidden></p>
 
         <div class="motion-picker" id="motions">
           <div class="motion-picker-label">
-            <b>Example motions while you wait</b>
+            <b>The kind of thing you will argue</b>
             <span>Select one to preview</span>
           </div>
           <div class="motion-list" aria-label="Example debate motions">
@@ -283,20 +399,20 @@ h1,h2,h3,p{margin-top:0}
 
       <aside class="watch-card" aria-label="Featured tournament watch room">
         <div class="watch-top">
-          <span class="waiting-pill"><i aria-hidden="true"></i> Waiting for a live round</span>
+          <span class="waiting-pill"><i aria-hidden="true"></i> Off air right now</span>
           <span class="watch-top-note">Featured stream</span>
         </div>
         <div class="watch-window">
           <div class="watch-ring" aria-hidden="true"></div>
           <div class="watch-center">
-            <span class="state">No round live right now</span>
-            <h2>Waiting for the next featured debate</h2>
-            <p>When the room opens, the live video, speakers, sides, and official motion will appear in this frame.</p>
+            <span class="state">Nothing live at this moment</span>
+            <h2>The final streams right here</h2>
+            <p>When a round goes live, the video, the speakers, their sides, and the official motion all appear in this frame. Anyone can watch. You do not need an account.</p>
           </div>
         </div>
         <div class="watch-meta">
-          <div><span>Current status</span><b>Waiting</b></div>
-          <div><span>What to do</span><b>Return when a round is announced</b></div>
+          <div><span>Watching costs</span><b>Nothing, and no sign-in</b></div>
+          <div><span>Competing costs</span><b id="watchMetaEntry">See the entry options</b></div>
         </div>
         <div class="motion-preview">
           <div class="motion-preview-top"><b>Sample motion preview</b><span>Not an official round</span></div>
@@ -315,30 +431,101 @@ h1,h2,h3,p{margin-top:0}
   </section>
 
   <span id="creator-sweepstakes" aria-hidden="true"></span>
-  <section class="guide" id="watch-guide">
+
+  <!-- ── Run of the day ─────────────────────────────────────────────
+       Replaced the old abstract Waiting / Live / Decision explainer.
+       Someone deciding whether to give up a Saturday needs the actual
+       shape of the Saturday, and vagueness here reads as "this is not
+       a real event". Round counts flex with the field, which is said
+       out loud rather than smoothed over. -->
+  <section class="run" id="watch-guide">
     <div class="shell">
       <div class="section-head">
         <div>
-          <div class="kicker">What to expect</div>
-          <h2>Waiting now. Watching when the room opens.</h2>
+          <div class="kicker">The day</div>
+          <h2>What a tournament day actually looks like.</h2>
         </div>
-        <p>You do not need to register to understand the page. The status changes as the featured tournament moves from waiting, to live, to a published decision.</p>
+        <p>Start to finish it is an afternoon, not a weekend. You can lose a round and keep debating; the preliminary rounds all count toward whether you break.</p>
       </div>
-      <div class="guide-steps">
-        <article class="guide-step is-waiting">
-          <div class="guide-step-n"><span>Waiting</span><b>1</b></div>
-          <h3>Before the round</h3>
-          <p>This holding screen tells you that no featured debate is live. Sample motions give you something to explore while you wait.</p>
+      <ol class="run-list">
+        <li class="run-item">
+          <span class="run-time">30 min before</span>
+          <div>
+            <h3>Check in</h3>
+            <p>Open this page, press check in, and you are in the draw. Miss it and you sit out round one, so set a reminder.</p>
+          </div>
+        </li>
+        <li class="run-item">
+          <span class="run-time">Round one</span>
+          <div>
+            <h3>You get a motion, a side, and an opponent</h3>
+            <p>The pairing is done for you. You get a few minutes to think, then you speak. Your opponent is another person, not a bot.</p>
+          </div>
+        </li>
+        <li class="run-item">
+          <span class="run-time">After every round</span>
+          <div>
+            <h3>A written verdict, not just a score</h3>
+            <p>The judge names who won, which arguments survived, and what you should have answered. That ballot is yours whether you won or lost.</p>
+          </div>
+        </li>
+        <li class="run-item">
+          <span class="run-time">Through the day</span>
+          <div>
+            <h3>Preliminary rounds</h3>
+            <p>Everyone debates several rounds regardless of record, so one bad draw does not end your day. Wins and speaker scores decide the standings.</p>
+          </div>
+        </li>
+        <li class="run-item">
+          <span class="run-time">Late afternoon</span>
+          <div>
+            <h3>The break, then the bracket</h3>
+            <p>The top of the standings advances to elimination rounds. From there it is single elimination: win and you keep going.</p>
+          </div>
+        </li>
+        <li class="run-item">
+          <span class="run-time">The end</span>
+          <div>
+            <h3>The final, streamed live</h3>
+            <p>Two people left, one motion, everyone watching. It goes out on <a href="/watch">the watch page</a> for anyone who wants to see it.</p>
+          </div>
+        </li>
+      </ol>
+      <p class="run-note">Exact round count and break size depend on how many people enter, and both are posted before round one. A small field runs shorter.</p>
+    </div>
+  </section>
+
+  <!-- What you need. The barrier is "I have never done this", so this
+       band answers that directly instead of listing features. -->
+  <section class="need">
+    <div class="shell">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Before you talk yourself out of it</div>
+          <h2>You need less than you think.</h2>
+        </div>
+        <p>Most people who enter have never been in a competitive round. The format is written in plain English and the judge explains itself.</p>
+      </div>
+      <div class="need-grid">
+        <article class="need-card">
+          <div class="need-ic" aria-hidden="true">💻</div>
+          <h3>A laptop and a mic</h3>
+          <p>Headphones help. Everything runs in the browser, so there is nothing to install.</p>
         </article>
-        <article class="guide-step">
-          <div class="guide-step-n"><span>Live</span><b>2</b></div>
-          <h3>When the room opens</h3>
-          <p>The video player, official motion, speaker names, sides, format, and round status appear together.</p>
+        <article class="need-card">
+          <div class="need-ic" aria-hidden="true">🗣️</div>
+          <h3>No experience</h3>
+          <p>No jargon, no debate-club vocabulary, no prepared case. You make a point, back it up, and answer theirs.</p>
         </article>
-        <article class="guide-step">
-          <div class="guide-step-n"><span>Decision</span><b>3</b></div>
-          <h3>After the debate</h3>
-          <p>The result and the judge's reason are posted, so you can see which case held up and why.</p>
+        <article class="need-card">
+          <div class="need-ic" aria-hidden="true">🕐</div>
+          <h3>An afternoon</h3>
+          <p>Rounds are short. You are not reading for three hours; you are talking for a few minutes at a time.</p>
+        </article>
+        <article class="need-card">
+          <div class="need-ic" aria-hidden="true">🌍</div>
+          <h3>Any country</h3>
+          <p>It is online, so the field is global. Times are posted in Eastern; your calendar will convert them.</p>
         </article>
       </div>
     </div>
@@ -384,9 +571,9 @@ h1,h2,h3,p{margin-top:0}
       <div class="section-head">
         <div>
           <div class="kicker">Enter</div>
-          <h2>Two doors into the same bracket.</h2>
+          <h2 id="enterHead">Take a seat in the bracket.</h2>
         </div>
-        <p>Pay in and the prize pool pays the debaters who place. Or enter free: same rounds, same judge, same leaderboard. Free entry never locks you out of the ladder.</p>
+        <p id="enterSub">Sign in, press enter, and you are in the draw. Then check in when the tournament opens and the pairings come to you.</p>
       </div>
       <div class="enter-card" id="enterCard">
         <p class="enter-empty" id="enterEmpty">Checking for open brackets&hellip;</p>
@@ -397,20 +584,66 @@ h1,h2,h3,p{margin-top:0}
             <div class="enter-door enter-door--paid" id="paidDoor">
               <span class="enter-door-k">Paid entry</span>
               <span class="enter-door-fee" id="enterFee"></span>
-              <p class="enter-door-sub">Place high and the payout is yours. Pool and rake posted per event. A human judge signs off on top of the AI ballot before money moves.</p>
+              <p class="enter-door-sub">Makes you eligible for the cash prizes. Amounts are fixed and guaranteed by the organizer, so they do not shrink if fewer people enter. A human confirms the final ballots before any money moves.</p>
               <label class="enter-age"><input type="checkbox" id="enterAge"> I confirm I am 18 or older and paid entry is legal where I live.</label>
               <button type="button" class="enter-btn" id="enterPaidBtn">Pay in with card</button>
             </div>
             <div class="enter-door">
-              <span class="enter-door-k">Free entry</span>
-              <span class="enter-door-fee">0</span>
-              <p class="enter-door-sub">Same motions, same clock, same ballot. Your speaks post to the public leaderboard either way.</p>
-              <button type="button" class="enter-btn" id="enterFreeBtn">Enter free</button>
+              <span class="enter-door-k">Entry</span>
+              <span class="enter-door-fee" id="enterFreeFee">Free</span>
+              <p class="enter-door-sub" id="enterFreeSub">One seat, no cost. You get a written verdict on every round you debate, and your scores post to the public leaderboard.</p>
+              <button type="button" class="enter-btn" id="enterFreeBtn">Enter the bracket</button>
             </div>
           </div>
           <p class="enter-status" id="enterStatus" hidden></p>
-          <p class="enter-note">No purchase necessary to compete or to climb the leaderboard. Paid entry is 18+ and void where prohibited. The <a href="/tournament-rules">official rules</a> carry the payout split, refund policy, and streaming consent. Payouts are processed after a human judge confirms the final ballots.</p>
+          <p class="enter-note" id="enterNote">Entry is free and no purchase is ever necessary. Cash prizes are paid to winners aged 18 or over, and are void where prohibited. The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ. Native details/summary: keyboard and screen-reader
+       behaviour is the browser's rather than something we reimplement.
+       Answers are the real objections, including the ones that are
+       awkward for us (is the AI judge fair, do I get my money back). -->
+  <section class="faq" id="faq">
+    <div class="shell">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Straight answers</div>
+          <h2>The questions people actually ask.</h2>
+        </div>
+        <p>Anything not covered here lives in the <a href="/tournament-rules" style="color:var(--red-dark);font-weight:700;text-decoration:underline;text-underline-offset:3px">official rules</a>, which are worth two minutes before you pay anything.</p>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary>I have never debated. Am I going to embarrass myself?</summary>
+          <p>You will lose some rounds. Everyone does, including people who have done this for years. The default format is written for people who have never competed: no jargon, no prepared case, no citations to memorise. You make a point, explain why it holds, and answer what the other person said. The judge writes its reasoning in plain English, so a round you lose still tells you exactly what to fix.</p>
+        </details>
+        <details class="faq-item">
+          <summary>It is free, and there is prize money. What is the catch?</summary>
+          <p>There is no entry fee and no card, so the prizes are funded by us rather than out of a pot of entry fees. That means the amounts are fixed: they do not grow if a thousand people enter and they do not shrink if twelve do. The one condition is age. Cash prizes are paid to winners aged 18 or over, and anyone younger competes for the placement and the ranking rather than the money.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Who judges, and is that actually fair?</summary>
+          <p>Rounds are judged by an AI judge working from a rubric that is published before the round, not written after it. It gives a written reason for every decision, and either debater can appeal, at which point a human reviews it. The criteria, the reliability figures, and the appeal process are all public at <a href="/judge-integrity">the judge integrity page</a>. Nobody has to take our word for how a round was decided.</p>
+        </details>
+        <details class="faq-item">
+          <summary>What if I enter and then cannot make it?</summary>
+          <p>Withdraw from this page and nothing happens to you; there is no fee to lose. The one thing worth doing is withdrawing rather than silently not turning up, because the draw is built around who is checked in and a no-show hands somebody a round they did not debate.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Will I be on a stream?</summary>
+          <p>Only if you make it deep into the bracket. Preliminary rounds are not broadcast. Elimination rounds, including the final, may be streamed and recorded, and entering counts as agreeing to that. If being on camera is a problem, say so before the event and it can be worked around.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Can I just watch?</summary>
+          <p>Yes, and it costs nothing. Live rounds and past ones are on <a href="/watch">the watch page</a>, no account required. Watching a couple of rounds is the cheapest way to decide whether you want to enter the next one.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How big is the field?</summary>
+          <p>These are early events, so expect a bracket you can actually win rather than a thousand-person tournament. That cuts both ways and we would rather say it than imply otherwise. The number of entries is shown on this page as they come in.</p>
+        </details>
       </div>
     </div>
   </section>
@@ -535,12 +768,100 @@ h1,h2,h3,p{margin-top:0}
 
   if(!empty)return;
 
+  /* Hero hydration. Every promise in the hero (prize amounts, date,
+     entry count) comes from the tournament doc, and each block stays
+     hidden until its own field is present, so an event without a prize
+     split or without a start time degrades to a quieter hero rather
+     than to a wrong one. */
+  var PLACE=['First','Second','Third','Fourth','Fifth'];
+  function hydrateHero(t){
+    var split=Array.isArray(t.prizeSplit)?t.prizeSplit:[];
+    var box=document.getElementById('heroPrizes');
+    if(box&&split.length){
+      box.innerHTML='';
+      split.slice(0,3).forEach(function(cents,i){
+        if(!(Number(cents)>0))return;
+        var d=document.createElement('div');
+        d.className='prize'+(i===0?' prize--first':'');
+        d.innerHTML='<span class="prize-k">'+(PLACE[i]||('Place '+(i+1)))+'</span>'+
+          '<span class="prize-v">'+money(Number(cents),t.currency)+'</span>';
+        box.appendChild(d);
+      });
+      if(box.children.length)box.hidden=false;
+    }
+
+    var kick=document.getElementById('heroKicker');
+    if(kick)kick.textContent=t.status==='registration'?'Registration open':'Tournament';
+
+    var lede=document.getElementById('heroLede');
+    if(lede&&t.name){
+      lede.textContent=t.name+' runs '+(t.startsAt||'soon')+'. One day, entirely online, '+
+        (t.entryFeeCents>0?'open to anyone.':'free to enter, open to anyone.')+
+        ' You debate from your laptop, one round at a time, and every round ends with a written verdict explaining who won and why.';
+    }
+
+    var stats=document.getElementById('heroStats');
+    if(stats){
+      // Each stat is one flex child, otherwise the row's gap lands
+      // between the <b> and its own trailing words and the line reads
+      // as fragments. Entry count only appears once there is one to
+      // report; a "0 entries" counter on a launch page argues against
+      // entering, and its absence claims nothing either way.
+      var bits=[];
+      bits.push(t.entryFeeCents>0?('<b>'+money(t.entryFeeCents,t.currency)+'</b> to enter'):'<b>Free</b> to enter');
+      bits.push('Every round <b>judged in writing</b>');
+      if(t.entryCount>0)bits.push('<b>'+t.entryCount+'</b> '+(t.entryCount===1?'entry':'entries')+' so far');
+      bits.push('Final <b>streamed live</b>');
+      stats.innerHTML=bits.map(function(b){return '<span>'+b+'</span>'}).join('');
+      stats.hidden=false;
+    }
+
+    var wm=document.getElementById('watchMetaEntry');
+    if(wm)wm.textContent=t.entryFeeCents>0?(money(t.entryFeeCents,t.currency)+' to enter'):'Nothing either';
+
+    var cta=document.getElementById('heroEnter');
+    if(cta&&t.status==='registration')cta.firstChild.nodeValue='Enter '+(t.name||'the bracket')+' ';
+
+    // Countdown. Ticking digits are aria-hidden; the sentence beside
+    // them carries the same fact for a screen reader, because a live
+    // region that updates every minute is hostile to one.
+    var iso=t.startsAtISO||'';
+    var when=iso?new Date(iso):null;
+    var cd=document.getElementById('heroCountdown');
+    if(cd&&when&&!isNaN(when.getTime())){
+      var whenEl=document.getElementById('cdWhen');
+      var pretty='';
+      try{
+        pretty=new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(when);
+      }catch(e){pretty=t.startsAt||''}
+      function tick(){
+        var ms=when.getTime()-Date.now();
+        if(ms<=0){
+          cd.hidden=false;
+          document.getElementById('cdD').textContent='0';
+          document.getElementById('cdH').textContent='0';
+          document.getElementById('cdM').textContent='0';
+          if(whenEl)whenEl.textContent='Under way now.';
+          return;
+        }
+        var mins=Math.floor(ms/60000);
+        document.getElementById('cdD').textContent=Math.floor(mins/1440);
+        document.getElementById('cdH').textContent=Math.floor(mins%1440/60);
+        document.getElementById('cdM').textContent=mins%60;
+        if(whenEl)whenEl.textContent='Starts '+pretty+', your time.';
+        cd.hidden=false;
+      }
+      tick();
+      setInterval(function(){if(!document.hidden)tick()},30000);
+    }
+  }
+
   fetch('/api/tournament',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     var list=(j&&j.tournaments)||[];
     var t=null;
     for(var i=0;i<list.length;i++){if(list[i].status==='registration'){t=list[i];break}}
     if(!t){
-      empty.innerHTML='No brackets in registration right now. The next one is announced to the <a href="/#waitlist">waitlist</a> first.';
+      empty.innerHTML='No bracket is open for entry right now. The next one is announced to the <a href="/#waitlist">waitlist</a> first, and you can <a href="/watch">watch past rounds</a> in the meantime.';
       return;
     }
     current=t;
@@ -549,7 +870,7 @@ h1,h2,h3,p{margin-top:0}
     document.getElementById('enterName').textContent=t.name||'Open bracket';
     var bits=[];
     if(t.entryCount>0)bits.push(t.entryCount+(t.entryCount===1?' entry':' entries')+' so far');
-    if(t.prizePoolCents>0)bits.push(money(t.prizePoolCents,t.currency)+' in the pool');
+    if(t.prizePoolCents>0)bits.push(money(t.prizePoolCents,t.currency)+' in prizes');
     if(t.startsAt)bits.push('Starts '+t.startsAt);
     document.getElementById('enterMeta').textContent=bits.join(' · ')||'Registration open';
     if(t.entryFeeCents>0){
@@ -557,6 +878,7 @@ h1,h2,h3,p{margin-top:0}
     }else{
       document.getElementById('paidDoor').style.display='none';
     }
+    try{hydrateHero(t)}catch(e){console.warn('[tournaments] hero hydrate failed:',e)}
   }).catch(function(e){
     console.warn('[tournaments] bracket read failed:',e);
     empty.textContent='Could not load brackets. Refresh to retry.';
