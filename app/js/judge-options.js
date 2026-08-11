@@ -163,7 +163,7 @@
         short: 'Long-context read',
         description: 'A useful second opinion for long, evidence-heavy transcripts.',
         endpoint: '/api/gemini',
-        model: 'gemini-2.5-pro-preview-05-06',
+        model: 'gemini-3.6-flash',
         access: 'Signed-in plan'
       },
       grok: {

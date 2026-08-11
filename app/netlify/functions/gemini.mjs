@@ -54,10 +54,17 @@ function checkRateLimit(key) {
   return entry.count <= RATE_LIMIT_MAX;
 }
 
+// Verified against the account's own /v1beta/models list on
+// 2026-08-12. The three ids pinned here before that date were ALL
+// retired: gemini-2.5-pro-preview-05-06 and gemini-2.5-flash-preview
+// 404 as not-found, and gemini-2.5-pro answers "no longer available to
+// new users". A preview id is a rental, not a pin, and nothing here was
+// re-checking. Keep the retired ids OUT rather than as fallbacks: a
+// silent fallback to a dead model is the failure mode this had.
 const ALLOWED_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.5-pro-preview-05-06',
-  'gemini-2.5-flash-preview-04-17',
+  'gemini-3.6-flash',
+  'gemini-3.1-pro-preview',
+  'gemini-2.5-flash',
 ];
 const MAX_TOKENS_CAP = 16000;
 
@@ -160,7 +167,7 @@ export default async (request, context) => {
     // to body.system) so the IP stays server-side.
     applyVoiceGuidelines(body);
 
-    const model = ALLOWED_MODELS.includes(body.model) ? body.model : 'gemini-2.0-flash';
+    const model = ALLOWED_MODELS.includes(body.model) ? body.model : 'gemini-3.6-flash';
     const maxTokens = Math.min(body.max_tokens || 4000, MAX_TOKENS_CAP);
 
     // Build Gemini request format

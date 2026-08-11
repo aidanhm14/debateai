@@ -17,7 +17,7 @@
 export const BRAINS = [
   { key: 'claude',   name: 'Claude',   maker: 'Anthropic',  model: 'claude-opus-5',                env: 'ANTHROPIC_API_KEY' },
   { key: 'gpt',      name: 'GPT',      maker: 'OpenAI',     model: 'gpt-5.5',                      env: 'OPENAI_API_KEY' },
-  { key: 'gemini',   name: 'Gemini',   maker: 'Google',     model: 'gemini-2.5-pro-preview-05-06', env: 'GEMINI_API_KEY' },
+  { key: 'gemini',   name: 'Gemini',   maker: 'Google',     model: 'gemini-3.6-flash',              env: 'GEMINI_API_KEY' },
   { key: 'grok',     name: 'Grok',     maker: 'xAI',        model: 'grok-3',                       env: 'XAI_API_KEY' },
   { key: 'deepseek', name: 'DeepSeek', maker: 'DeepSeek',   model: 'deepseek-chat',                env: 'DEEPSEEK_API_KEY' },
   { key: 'openlab',  name: 'Open Lab', maker: 'OpenRouter', model: 'nousresearch/hermes-4-405b',   env: 'OPENROUTER_API_KEY' },
