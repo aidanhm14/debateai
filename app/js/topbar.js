@@ -206,6 +206,10 @@
     // sessions both restored the pair, so the entries were briefly
     // duplicated on the live bar — deduped same day.)
     { href: '/live',          label: 'Schedule'    },
+    // 2026-08-10: recorded rounds now have an afterlife on /watch. Keep
+    // this visible on desktop and tablet beside Debate an AI, instead of
+    // making people discover replays and clips inside Explore first.
+    { href: '/watch',         label: 'Watch', compactKeep: true, rail: true, watch: true },
     { href: '/credentials',   label: 'Certificate' },
     // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
@@ -296,11 +300,6 @@
       // no-simultaneity surface, so it belongs next to the live ones.
       { href: '/rounds',      label: 'Async rounds' },
       { href: '/spectate',    label: 'Spectate live rounds' },
-      // 2026-08-10: the watch hub — tournament streams, full round
-      // replays, and clips. Its only other entry point is a link inside
-      // the landing's stream-it section, so Explore is what makes it
-      // findable from the rest of the site.
-      { href: '/watch',       label: 'Streams and replays' },
       // 2026-07-27: standalone lobby prototype. It gathers the public
       // network signals into one venue without replacing the landing.
       { href: '/arena',       label: 'The Arena' },
@@ -569,7 +568,7 @@
       var primaryGroups = [
         // /spar lives in the spotlight card, so it is not repeated here.
         { head: 'Debate', links: pageLinks.filter(function(L){
-          return ['/app#case', '/live', '/room-judge', '/predict',
+          return ['/app#case', '/live', '/watch', '/room-judge', '/predict',
                   '/get-paid-to-debate', '/leaderboard'].indexOf(L.href) !== -1;
         })},
         { head: 'Improve', links: pageLinks.filter(function(L){
@@ -699,7 +698,7 @@
     // else. Every regular destination remains in Explore and in the
     // mobile sheet below.
     right.appendChild(buildExplore());
-    pageLinks.filter(function(L){ return L.hot || L.cta; }).forEach(function(L){
+    pageLinks.filter(function(L){ return L.hot || L.cta || L.rail; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
       // native tooltip just renders a dark box that floats over page
@@ -778,6 +777,16 @@
         a.style.borderRadius = '999px';
         a.style.padding = '5px 14px';
         a.style.boxShadow = '0 6px 18px -8px rgba(220,38,38,.7)';
+      }
+      if (L.watch){
+        a.style.display = 'inline-flex';
+        a.style.alignItems = 'center';
+        a.style.gap = '7px';
+        a.style.fontWeight = '750';
+        var play = el('span', { 'aria-hidden': 'true' });
+        play.style.cssText = 'width:19px;height:19px;border-radius:50%;display:inline-grid;place-items:center;background:#dc2626;color:#fff;box-shadow:0 5px 13px -7px rgba(220,38,38,.9)';
+        play.innerHTML = '<svg viewBox="0 0 16 16" width="9" height="9" fill="currentColor" aria-hidden="true"><path d="M5 3.4v9.2L12 8z"/></svg>';
+        a.appendChild(play);
       }
       a.appendChild(document.createTextNode(L.label));
       right.appendChild(a);
