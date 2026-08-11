@@ -257,8 +257,11 @@ button{font-family:inherit}
 .stage-meta{min-width:0;flex:1}
 .stage-name{display:block;font-size:.92rem;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stage-role{display:block;font-size:.7rem;color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.stage-speaking{display:none;margin-top:3px;font-size:.5rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
-.stage-seat.is-speaking .stage-speaking{display:inline-flex;align-items:center;gap:5px}
+/* The label keeps its line even when idle: toggling display added a
+   third text row mid-round, which changed the rail's height and nudged
+   the video above it every time the speaker flipped. */
+.stage-speaking{visibility:hidden;display:inline-flex;align-items:center;gap:5px;margin-top:3px;font-size:.5rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.stage-seat.is-speaking .stage-speaking{visibility:visible}
 .stage-seat--con.is-speaking .stage-speaking{flex-direction:row-reverse}
 .stage-seat.is-speaking .stage-speaking::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.4s ease-in-out infinite}
 /* AI-judge chip: the third party in the room. It listens through the
@@ -301,6 +304,23 @@ button{font-family:inherit}
 @media(prefers-reduced-motion:reduce){.rail-judge .rj-eye b,.rail-judge .rj-eye::after{animation:none!important}}
 .rail-judge .rj-status{display:inline-flex;align-items:center;gap:5px;font-size:.64rem;font-weight:700;color:rgba(255,255,255,.62);white-space:nowrap}
 .rail-judge .rj-status i{width:5px;height:5px;border-radius:50%;background:#d9c98a;box-shadow:0 0 6px rgba(217,201,138,.8);animation:pulse 2.2s ease-in-out infinite}
+/* The video pane can be dragged narrow (split resizer), so the rail
+   compresses on its own width, not the viewport: the judge chip sheds
+   its status then its label before the debaters' names get crushed to
+   two letters. Browsers without container queries keep the wide layout. */
+.stage-rail{container-type:inline-size}
+@container (max-width:640px){
+  .stage-seat{padding:7px 9px;gap:8px}
+  .rail-judge{padding:6px 10px}
+  .rail-judge .rj-status{display:none}
+}
+@container (max-width:470px){
+  .stage-avatar{width:28px;height:28px;font-size:.68rem;border-radius:8px}
+  .stage-name{font-size:.82rem}
+  .stage-role{display:none}
+  .rail-judge .rj-label{display:none}
+  .rail-judge .rj-eyes{margin-bottom:0}
+}
 /* Floor-judge remark card. Slides up from the rail over the bottom of
    the video. Only ever rendered by clients with the floor-judge flag
    on; invisible to everyone else. */
