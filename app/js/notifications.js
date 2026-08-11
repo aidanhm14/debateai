@@ -20,9 +20,9 @@
  *     lastMessage, lastMessageAt, lastMessageFrom, unread:{uid:n}
  *   }
  *
- * Behavior: unread badge linking to /notifications, an in-page toast on
+ * Behavior: unread badge with a hover/click preview, an in-page toast on
  * new inbound messages, and an OS Notification when permission is granted
- * and the tab is hidden.
+ * and the tab is hidden. The preview links to the full notifications page.
  * Firestore is loaded lazily — only signed-in users on pages that
  * didn't already ship the SDK pay the cost, once.
  *
@@ -316,8 +316,13 @@
       '.ui-bell--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:16px;z-index:99996;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
       '.ui-bell-badge{position:absolute;top:-3px;right:-3px;z-index:3;min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-size:.58rem;font-weight:800;line-height:15px;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1.5px var(--bar-bg,#0a0a0c)}' +
       '.ui-bell-badge[hidden]{display:none}' +
-      '.ui-bell-panel{position:absolute;top:calc(100% + 10px);right:0;width:380px;max-width:90vw;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.5);overflow:hidden;z-index:200;text-align:left;cursor:default;animation:daBellIn .16s ease-out}' +
+      '.ui-bell-panel{position:fixed;top:0;right:0;width:400px;max-width:calc(100vw - 24px);max-height:calc(100vh - 88px);display:flex;flex-direction:column;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:16px;box-shadow:0 20px 64px rgba(0,0,0,.52);overflow:hidden;z-index:99998;text-align:left;cursor:default;animation:daBellIn .16s ease-out}' +
       '@keyframes daBellIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}' +
+      '.ui-bell-panel__bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:15px 16px 13px;border-bottom:1px solid var(--border,rgba(255,255,255,.08))}' +
+      '.ui-bell-panel__title{font-size:1rem;font-weight:850;letter-spacing:-.01em;color:var(--text,#fff)}' +
+      '.ui-bell-panel__hint{font-size:.68rem;font-weight:700;color:var(--text-ghost,#888)}' +
+      '.ui-bell-panel__scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}' +
+      '.ui-bell-panel .ui-bell-list{max-height:none;overflow:visible}' +
       '.ui-bell-head{padding:12px 14px 10px;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-ghost,#888);border-bottom:1px solid var(--border,rgba(255,255,255,.08))}' +
       '.ui-bell-head--mid{border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
       '.ui-bell-empty{padding:22px 16px;text-align:center;font-size:.8rem;color:var(--text-dim,#9aa);line-height:1.5}' +
@@ -332,7 +337,7 @@
       '.ui-bell-dot{width:7px;height:7px;border-radius:50%;background:var(--accent,#ef4444);flex-shrink:0}' +
       '.ui-bell-row__preview{font-size:.74rem;color:var(--text-dim,#9aa);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
       '.ui-bell-row__time{font-size:.66rem;color:var(--text-ghost,#888);flex-shrink:0}' +
-      '.ui-bell-foot{display:block;padding:11px 14px;text-align:center;font-size:.74rem;font-weight:700;color:var(--accent,#ef4444);text-decoration:none;border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
+      '.ui-bell-foot{display:block;flex-shrink:0;padding:12px 14px;text-align:center;font-size:.78rem;font-weight:700;color:var(--accent,#ef4444);text-decoration:none;border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
       '.ui-bell-foot:hover{background:var(--bg-elev,#101014)}' +
       '#da-bell-toasts{position:fixed;top:calc(66px + env(safe-area-inset-top,0px));left:50%;z-index:9999;display:flex;flex-direction:column;gap:10px;width:min(420px,calc(100vw - 24px));transform:translateX(-50%);pointer-events:none}' +
       '.da-bell-toast{display:flex;align-items:center;gap:11px;width:100%;padding:12px 15px;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border-strong,rgba(239,68,68,.3));border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5),0 0 0 1px rgba(239,68,68,.08);text-decoration:none;color:inherit;pointer-events:auto;opacity:0;transform:translateY(-24px) scale(.97);transition:opacity .26s ease,transform .32s cubic-bezier(.2,.8,.2,1)}' +
@@ -343,6 +348,7 @@
       '.da-bell-toast__name{font-size:.86rem;font-weight:800;color:var(--text,#fff)}' +
       '.da-bell-toast__preview{font-size:.78rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '@keyframes daBellLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
+      '@media(max-width:560px){.ui-bell-panel{width:auto;max-width:none}.ui-bell-panel__hint{display:none}}' +
       '@media(max-width:480px){#da-bell-toasts{top:calc(58px + env(safe-area-inset-top,0px));left:12px;right:12px;width:auto;transform:none}}' +
       '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
       '.da-spar-pill:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
@@ -389,10 +395,12 @@
 
   // ── bell element + placement ─────────────────────────────────────
   function createBell() {
-    var bell = document.createElement('a');
+    var bell = document.createElement('button');
     bell.className = 'ui-bell';
-    bell.href = '/notifications';
+    bell.type = 'button';
     bell.setAttribute('aria-label', 'Notifications');
+    bell.setAttribute('aria-haspopup', 'true');
+    bell.setAttribute('aria-expanded', 'false');
     bell.title = 'Notifications';
     bell.style.display = 'none'; // shown once auth resolves with a user
     bell.innerHTML =
@@ -447,10 +455,11 @@
   // ── controller: badge + page feed ─────────────────────────────────
   // The bell counts two things: a "What's new" updates feed (the changelog,
   // which loads for every visitor) and the DM inbox (which wires up only
-  // once a user is signed in). One combined unread badge links to the page.
+  // once a user is signed in). One combined unread badge opens the preview.
   function controller(bell) {
     var badge = bell.querySelector('.ui-bell-badge');
     var panel = null, seenSnapshot = 0;
+    var panelOpenTimer = null, panelCloseTimer = null;
     // Full-page mode: /notifications carries an always-open container that
     // renders the same feed the bell dropdown does, uncapped. When it
     // exists, every data callback repaints it alongside the panel.
@@ -521,11 +530,50 @@
 
     bell.style.display = 'inline-flex'; // visible to everyone for updates, not just signed-in users
 
+    function canHover() {
+      return window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+    }
+    function cancelPanelTimers() {
+      if (panelOpenTimer) { clearTimeout(panelOpenTimer); panelOpenTimer = null; }
+      if (panelCloseTimer) { clearTimeout(panelCloseTimer); panelCloseTimer = null; }
+    }
+    function schedulePanelOpen() {
+      cancelPanelTimers();
+      if (panel) return;
+      panelOpenTimer = setTimeout(function () { panelOpenTimer = null; openPanel(); }, 90);
+    }
+    function schedulePanelClose() {
+      if (panelOpenTimer) { clearTimeout(panelOpenTimer); panelOpenTimer = null; }
+      if (panelCloseTimer) clearTimeout(panelCloseTimer);
+      panelCloseTimer = setTimeout(function () { panelCloseTimer = null; closePanel(); }, 180);
+    }
+
+    bell.addEventListener('mouseenter', function () { if (canHover()) schedulePanelOpen(); });
+    bell.addEventListener('mouseleave', function () { if (canHover()) schedulePanelClose(); });
+    bell.addEventListener('focus', function () { if (canHover()) openPanel(); });
     bell.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
       daAskNotify(); // request permission (if needed) + register Web Push on grant
-      if (pageEl) e.preventDefault(); // already on the destination page
+      if (!panel) openPanel();
+      else if (!canHover()) closePanel();
     });
-    if (pageEl) bell.setAttribute('aria-current', 'page');
+    bell.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); closePanel(); bell.blur(); }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        openPanel();
+        var firstLink = panel && panel.querySelector('a,button');
+        if (firstLink) firstLink.focus();
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (panel && !bell.contains(e.target) && !panel.contains(e.target)) closePanel();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel) { closePanel(); bell.focus(); }
+    });
+    window.addEventListener('resize', function () { if (panel) positionPanel(); });
 
     // /notifications page: landing on it counts as reading everything, the
     // same way opening the dropdown does. Snapshot first so this visit's
@@ -811,8 +859,30 @@
     }
 
     // ── panel ────────────────────────────────────────────────────────
-    function togglePanel() { panel ? closePanel() : openPanel(); }
+    function positionPanel() {
+      if (!panel) return;
+      var rect = bell.getBoundingClientRect();
+      var gutter = 12;
+      var topPx = Math.round(rect.bottom + 10);
+      panel.style.top = topPx + 'px';
+      panel.style.bottom = 'auto';
+      panel.style.maxHeight = Math.max(220, window.innerHeight - topPx - gutter) + 'px';
+      if (window.matchMedia('(max-width:560px)').matches) {
+        panel.style.left = gutter + 'px';
+        panel.style.right = gutter + 'px';
+        panel.style.width = 'auto';
+        panel.style.maxWidth = 'none';
+      } else {
+        panel.style.left = 'auto';
+        panel.style.right = Math.max(gutter, Math.round(window.innerWidth - rect.right)) + 'px';
+        panel.style.width = '400px';
+        panel.style.maxWidth = 'calc(100vw - 24px)';
+      }
+    }
+
     function openPanel() {
+      cancelPanelTimers();
+      if (panel) { positionPanel(); return; }
       seenSnapshot = updatesSeen;   // snapshot before marking, so the new ones still get a dot
       activitySeenSnapshot = activitySeen;  // same trick for activity rows
       replySeenSnapshot = replySeen;        // and for forum-reply rows
@@ -820,32 +890,14 @@
       loadOnlineCount();            // refresh the live-presence row too
       panel = document.createElement('div');
       panel.className = 'ui-bell-panel';
+      panel.id = 'daBellPanel';
       panel.addEventListener('click', function (e) { e.stopPropagation(); });
-      // On phones the bell sits mid-bar (lang flag + Voice AI CTA are to
-      // its right), so a panel right-aligned to the bell extends off the
-      // LEFT edge of the screen and clips "WHAT'S NEW" + the card titles.
-      // Mount it on <body> as a fixed, full-width-with-gutters sheet
-      // instead. Body-mounted (not bell-mounted) because the topbar's
-      // backdrop-filter creates a containing block that would otherwise
-      // trap a position:fixed descendant. Top is measured off the live
-      // bar so it clears whatever height the bar is (with/without the
-      // beta strip). Desktop keeps the absolute, bell-anchored dropdown.
-      if (window.matchMedia('(max-width:560px)').matches) {
-        document.body.appendChild(panel);
-        var bar = document.querySelector('.ui-topbar');
-        var topPx = bar ? Math.round(bar.getBoundingClientRect().bottom + 8) : 60;
-        panel.style.position = 'fixed';
-        panel.style.top = topPx + 'px';
-        panel.style.left = '12px';
-        panel.style.right = '12px';
-        panel.style.width = 'auto';
-        panel.style.maxWidth = 'none';
-        panel.style.maxHeight = (window.innerHeight - topPx - 16) + 'px';
-        panel.style.overflowY = 'auto';
-      } else {
-        bell.appendChild(panel);
-      }
+      panel.addEventListener('mouseenter', cancelPanelTimers);
+      panel.addEventListener('mouseleave', function () { if (canHover()) schedulePanelClose(); });
+      document.body.appendChild(panel);
+      positionPanel();
       bell.setAttribute('aria-expanded', 'true');
+      bell.setAttribute('aria-controls', 'daBellPanel');
       markUpdatesSeen();            // opening the panel clears the updates side of the badge
       markActivitySeen();           // and the activity side
       markRepliesSeen();            // and the forum-reply side
@@ -853,9 +905,11 @@
       paintPanel();
     }
     function closePanel() {
+      cancelPanelTimers();
       if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
       panel = null;
       bell.setAttribute('aria-expanded', 'false');
+      bell.removeAttribute('aria-controls');
     }
 
     function updateRowHtml(u) {
@@ -1102,10 +1156,16 @@
     function paintPanel() {
       if (pageEl) paintPage();
       if (!panel) return;
+      var oldScroller = panel.querySelector('.ui-bell-panel__scroll');
+      var oldScrollTop = oldScroller ? oldScroller.scrollTop : 0;
       // The dropdown gets a footer link to the full page; the page itself
       // obviously doesn't.
-      panel.innerHTML = buildFeedHtml(false, 'all') +
-        '<a class="ui-bell-foot" href="/notifications" style="font-weight:800">All notifications &rarr;</a>';
+      panel.innerHTML =
+        '<div class="ui-bell-panel__bar"><span class="ui-bell-panel__title">Notifications</span><span class="ui-bell-panel__hint">Scroll to browse</span></div>' +
+        '<div class="ui-bell-panel__scroll">' + buildFeedHtml(true, 'all') + '</div>' +
+        '<a class="ui-bell-foot" href="/notifications" style="font-weight:800">Notifications page &rarr;</a>';
+      var newScroller = panel.querySelector('.ui-bell-panel__scroll');
+      if (newScroller && oldScrollTop) newScroller.scrollTop = oldScrollTop;
       if (myUid) bindLiveAlertToggle();
     }
 
