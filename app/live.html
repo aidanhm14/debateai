@@ -2088,6 +2088,13 @@ button{font-family:inherit}
 
 /* ─── List | Calendar toggle + month grid ──────────── */
 .view-toggle{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:999px;overflow:hidden;margin-left:auto}
+/* Each of these sets its own display, which out-specifies the UA
+   [hidden] rule, so hiding the feed controls on an empty board needs
+   these three explicit overrides. Same trap noted above for .tab-badge
+   and .dayof-banner. */
+.view-toggle[hidden],.filter-row[hidden],.week-strip[hidden]{display:none}
+/* With the controls gone the feed heading is alone on its row. */
+.sec-head.is-bare{margin-bottom:2px}
 .view-toggle button{
   padding:6px 14px;border:0;background:transparent;color:var(--text-dim);
   font-family:inherit;font-size:.7rem;font-weight:800;letter-spacing:.04em;cursor:pointer;
@@ -2140,6 +2147,31 @@ button{font-family:inherit}
   background:var(--accent);color:#fff;font-size:.66rem;font-weight:900;
 }
 .step-head strong{font-size:.74rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+/* Optional-field disclosures in the composer. Closed by default so the
+   required path is motion, format, time. */
+.post-more{border-top:1px solid var(--border);margin-top:14px;padding-top:12px}
+.post-more > summary{
+  cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+  font-size:.74rem;font-weight:800;letter-spacing:.04em;color:var(--text-dim);
+  padding:4px 0;
+}
+.post-more > summary::-webkit-details-marker{display:none}
+.post-more > summary::before{
+  content:"+";display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;flex:none;border:1px solid var(--border);border-radius:5px;
+  font-size:.8rem;line-height:1;color:var(--text-dim);
+}
+.post-more[open] > summary::before{content:"\2212"}
+.post-more > summary:hover{color:var(--text)}
+.post-more > summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.post-more > summary span{
+  font-weight:600;letter-spacing:0;text-transform:none;
+  color:var(--text-ghost);font-size:.7rem;
+}
+.post-more > .field:first-of-type{margin-top:10px}
+/* Explicit collapse. The composer's own .field rule was winning over the
+   UA's closed-details behaviour, so the "hidden" fields still rendered. */
+.post-more:not([open]) > *:not(summary){display:none}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
@@ -2331,7 +2363,9 @@ button{font-family:inherit}
   <span class="snav-label" aria-hidden="true">Create</span>
   <a class="snav-item" href="/spar">Spar Now</a>
   <button class="snav-item" data-nav="schedule" type="button">Create Debate</button>
-  <button class="snav-item" data-nav="calendar" type="button">Calendar View</button>
+  <!-- "Calendar View" lived here and duplicated the List/Calendar toggle
+       that sits on the feed itself. One control, one place. -->
+
   <span class="snav-div" aria-hidden="true"></span>
   <span class="snav-label" aria-hidden="true">You</span>
   <button class="snav-item" data-nav="mine" data-tab="mine" type="button">My Debates <span class="tab-badge" id="tabBadgeMine" hidden>0</span></button>
@@ -2461,6 +2495,13 @@ button{font-family:inherit}
           <textarea id="motion" rows="2" placeholder="e.g. This house would ban legacy admissions" maxlength="320" required></textarea>
           <p style="font-size:.7rem;color:var(--text-ghost);margin-top:4px;line-height:1.45">Don’t like the random one? Hit reroll. <span id="motionCatHint" hidden>Category: <strong id="motionCatLabel" style="color:var(--text-dim);font-weight:700"></strong></span></p>
         </div>
+        <!-- Everything below the motion itself is optional, so it sits
+             behind a disclosure. Publishing needs a motion, a format and
+             a time; the other seven inputs were being shown to everyone
+             as if they were required. Fields keep their ids and stay
+             inside the form, so the submit handler is unchanged. -->
+        <details class="post-more">
+        <summary>Background, category, and reveal <span>optional</span></summary>
         <div class="field">
           <label for="bgText" style="display:flex;align-items:center;justify-content:space-between">
             <span>Background <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· optional, both sides see it</span></span>
@@ -2529,6 +2570,7 @@ button{font-family:inherit}
             <option value="Other">Other</option>
           </select>
         </div>
+        </details>
         <div class="step-head"><span class="step-num">2</span><strong>2 · Format &amp; seats</strong></div>
         <div class="field">
           <label for="format">Format</label>
@@ -2602,7 +2644,8 @@ button{font-family:inherit}
           <label for="customTime">Date &amp; time</label>
           <input id="customTime" type="datetime-local" />
         </div>
-        <div class="step-head"><span class="step-num">4</span><strong>4 · Visibility &amp; roles</strong></div>
+        <details class="post-more">
+        <summary>Roles and handle <span>optional</span></summary>
         <div class="field">
           <label>Open roles</label>
           <div class="role-toggles">
@@ -2621,6 +2664,7 @@ button{font-family:inherit}
           <label for="handle">Handle (optional)</label>
           <input id="handle" type="text" maxlength="24" placeholder="anonymous" />
         </div>
+        </details>
         <button id="postSubmit" type="submit" class="post-submit" disabled>Publish debate</button>
         <p class="post-help">Published debates are public on this board. Pick any handle above.</p>
         
@@ -4309,6 +4353,25 @@ button{font-family:inherit}
     }
     pruneRoomSubscriptions(activeRooms);
 
+    // Hide the feed's controls while there is nothing to control. With an
+    // empty board these read as four filters that all say 0, a week strip
+    // with no events, and a List/Calendar switch for an empty list, which
+    // is a lot of machinery in front of a first-time visitor. They come
+    // back the moment the board has anything on it.
+    // The calendar clause matters: without it, anything that puts the
+    // board in calendar mode on an empty board would hide the only
+    // control that switches back to the list.
+    var boardHasAnything = viewMode === 'calendar' || fullList.some(function(c){
+      var i = classifyChallenge(c);
+      return !i.expired && !i.hasBallot;
+    });
+    ['weekStrip', 'filterRow', 'viewToggle'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.hidden = !boardHasAnything;
+    });
+    var secHead = document.querySelector('#browseView .sec-head');
+    if (secHead) secHead.classList.toggle('is-bare', !boardHasAnything);
+
     renderNextDebate(fullList);
     renderMineFeed(fullList);
     renderArchiveFeed(fullList);
@@ -4468,24 +4531,23 @@ button{font-family:inherit}
     if (!c){
       host.classList.remove('is-live');
       host.innerHTML =
-        '<div class="nd-eyebrow">Go live in two ways</div>' +
+        // The hero directly above already offers these same two actions
+        // and explains them. Repeating the lesson here made a visitor
+        // read the same choice three times before reaching any content,
+        // so this is now just the empty state plus the two buttons.
         '<div class="nd-empty">' +
           '<div class="nd-empty-copy">' +
             '<h2>No live round on your calendar yet.</h2>' +
-            '<p>Use the fast path when you want a random partner now. Use the planned path when you want a specific motion, format, time, and calendar invite.</p>' +
+            '<p>Spar now for a random opponent, or schedule one to pick the motion, format, and time.</p>' +
           '</div>' +
           '<div class="nd-paths">' +
             '<a class="nd-path nd-path-primary" href="/spar">' +
-              '<span class="nd-path-kicker">Fast path</span>' +
               '<strong>Spar live now</strong>' +
-              '<em>Queue for a random opponent. If no human is ready, you can still practice.</em>' +
-              '<small>Best for quick reps</small>' +
+              '<em>Random opponent, no scheduling.</em>' +
             '</a>' +
             '<button class="nd-path" type="button" data-nd-schedule>' +
-              '<span class="nd-path-kicker">Planned path</span>' +
-              '<strong>Schedule a judged debate</strong>' +
-              '<em>Pick the motion, format, side, and time. The accepted round gets video, timer, and AI ballot.</em>' +
-              '<small>Best for full rounds</small>' +
+              '<strong>Schedule a debate</strong>' +
+              '<em>Your motion, format, and time.</em>' +
             '</button>' +
           '</div>' +
         '</div>';
