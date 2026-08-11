@@ -200,7 +200,12 @@ h1,h2,h3,p{margin-top:0}
 .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(430px,.86fr);gap:60px;align-items:start}
 .hero h1{max-width:13ch;margin:0 0 18px;font-size:clamp(3rem,5.6vw,5rem);line-height:.9;letter-spacing:-.045em}
 .hero h1 em{color:var(--red);font-style:normal}
-.hero-lede{max-width:620px;margin-bottom:22px;color:var(--muted);font-size:1.08rem;line-height:1.6}
+.hero-lede{max-width:620px;margin-bottom:14px;color:var(--muted);font-size:1.08rem;line-height:1.6}
+/* Reads as a disclosure rather than more marketing: a ruled block, one
+   step quieter than the lede, but above the fold and above the CTA. */
+.hero-judge-note{max-width:620px;margin-bottom:22px;padding-left:13px;
+  border-left:2px solid var(--accent,#b3221f);color:var(--muted);font-size:.95rem;line-height:1.55}
+.hero-judge-note a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .hero-actions{display:flex;flex-wrap:wrap;gap:10px}
 
 /* Prize ladder. Amounts render from the tournament doc's prizeSplit,
@@ -418,7 +423,15 @@ h1,h2,h3,p{margin-top:0}
       <div>
         <div class="kicker" id="heroKicker">Saturday, August 29 &middot; Registration open</div>
         <h1>Get paid to <em>win an argument.</em></h1>
-        <p class="hero-lede" id="heroLede">The Debatable Open runs Saturday, August 29, online, from 10 AM ET. You get paired with real people from other schools and other countries, every round ends with a written verdict explaining who won and why, and the final is streamed live for anyone who wants to watch.</p>
+        <!-- "a written verdict" did not say who writes it, on the page
+             that sells entry to a cash contest. Someone deciding whether
+             to compete for $500 should know a machine calls the round
+             before they enter, not after they lose one.
+             The judge line below is NOT rewritten by the tournament-doc
+             renderer on purpose: the lede text is data-driven and a stale
+             doc must never be able to take the disclosure off screen. -->
+        <p class="hero-lede" id="heroLede">The Debatable Open runs Saturday, August 29, online, from 10 AM ET. You get paired with real people from other schools and other countries, every round is decided by an AI judge that writes out who won and why, and the final is streamed live for anyone who wants to watch.</p>
+        <p class="hero-judge-note">Rounds here are judged by AI, not by human volunteers. It scores every round against the same published rubric, and you can read that rubric, the models on the panel, and how often they disagree at <a href="/judge-integrity">the judge charter</a>.</p>
 
         <!-- Prize ladder + countdown + stats all hydrate from the open
              tournament doc and stay hidden until it loads, so nothing
@@ -944,9 +957,13 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
 
     var lede=document.getElementById('heroLede');
     if(lede&&t.name){
+      // Keep the AI-judge clause in the data-driven copy too. The static
+      // lede above is replaced wholesale the moment a tournament doc
+      // loads, so omitting it here would quietly undo the disclosure on
+      // every real visit.
       lede.textContent=t.name+' runs '+(t.startsAt||'soon')+'. Entirely online. '+
         'You get paired with real people from other schools and other countries, '+
-        'every round ends with a written verdict explaining who won and why, '+
+        'every round is decided by an AI judge that writes out who won and why, '+
         'and the final is streamed live for anyone who wants to watch.';
     }
 
