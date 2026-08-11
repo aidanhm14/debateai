@@ -35,15 +35,16 @@
   if (window.__debateaiSignupNudge) return;
   window.__debateaiSignupNudge = true;
 
-  // KILL SWITCH (2026-07-28). Temporarily off while investors are
-  // reviewing the site. Flip back to false to restore the nudge.
-  var DISABLED = true;
+  // Restored 2026-08-10. The prompt remains dismissible, capped, and
+  // suppressed for signed-in visitors and pages with their own auth gate.
+  var DISABLED = false;
   if (DISABLED) return;
 
   var DISMISS_KEY = 'debateos-signup-reminder-dismissed';
   var DISMISS_TS_KEY = 'debateos-signup-reminder-dismissed-at';
   var DISMISS_COUNT_KEY = 'debateos-signup-reminder-dismiss-count';
   var SESSION_ATTEMPTS_KEY = 'debateos-nudge-session-attempts';
+  var INVITE_OPT_IN_KEY = 'debatable-signin-invite-opt-in';
   // Re-nudge policy (2026-07-02): a dismissal is "not now", not "never".
   // While the visitor KEEPS ACTIVELY USING a tool page (real interactions,
   // not idle time), the nudge comes back after ~60s of continued use with
@@ -79,9 +80,10 @@
     // two don't stack into a doubled sign-in nag. 2026-06-14.
     { match: /^\/(spar|live)(?:\.html)?(?:[/?#]|$)/, skip: true },
     { match: /^\/(landing|index)?(\.html)?($|\?)/,
-      delay: 180,
-      variant: 'community',
-      msg: '<strong>You\'re early.</strong> Sign in to save your rounds and ballots, and help shape where this goes.' },
+      delay: 18,
+      variant: 'prominent',
+      inviteOptIn: true,
+      msg: '<strong>Keep your rounds.</strong> Sign in with Google to save ballots, join the leaderboard, and find your next opponent.' },
     { match: /^\/practice/,
       delay: 20,
       variant: 'community',
@@ -165,12 +167,18 @@
       '.signup-nudge .su-line{flex:1;color:rgba(255,255,255,.82)}' +
       '.signup-nudge .su-line strong{color:#fff;font-weight:700}' +
       '.signup-nudge .su-cta{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:none;border-radius:999px;cursor:pointer;background:#fff;color:#1a1a1f;font-family:inherit;font-size:.76rem;font-weight:700;letter-spacing:.01em;white-space:nowrap}' +
+      '.signup-nudge .su-g{width:15px;height:15px;flex:none}' +
       '.signup-nudge .su-cta:hover{background:#f3f3f0}' +
       '.signup-nudge .su-close{border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit}' +
       '.signup-nudge .su-close:hover{color:#fff}' +
+      '.signup-nudge .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.65);cursor:pointer}' +
+      '.signup-nudge .su-optin input{width:15px;height:15px;margin:1px 0 0;accent-color:#dc2626;flex:none}' +
+      '.signup-nudge--prominent{width:min(390px,calc(100vw - 36px));flex-wrap:wrap;padding:18px;border-radius:18px}' +
+      '.signup-nudge--prominent .su-line{flex:1 1 100%;font-size:.9rem;line-height:1.45}' +
       '[data-theme="light"] .signup-nudge{background:#fff;color:#1a1a1f;border-color:rgba(220,38,38,.32);box-shadow:0 14px 36px rgba(0,0,0,.10)}' +
       '[data-theme="light"] .signup-nudge .su-line{color:rgba(0,0,0,.7)}' +
       '[data-theme="light"] .signup-nudge .su-line strong{color:#1a1a1f}' +
+      '[data-theme="light"] .signup-nudge .su-optin{color:rgba(0,0,0,.62)}' +
       '[data-theme="light"] .signup-nudge .su-cta{background:#dc2626;color:#fff}' +
       '[data-theme="light"] .signup-nudge .su-cta:hover{background:#b91c1c}' +
       '[data-theme="light"] .signup-nudge .su-close{color:rgba(0,0,0,.45)}' +
@@ -192,29 +200,47 @@
     return !!(user && !user.isAnonymous);
   }
 
-  function doSignIn(){
-    // The shared chooser owns email/password and social-provider auth.
+  function rememberInviteChoice(cfg){
+    if (!cfg.inviteOptIn || !bar) return;
     try {
-      if (typeof window.openAuthModal === 'function') {
-        window.openAuthModal('signup');
-        return;
-      }
+      var optin = bar.querySelector('.su-optin input');
+      if (optin && optin.checked) localStorage.setItem(INVITE_OPT_IN_KEY, '1');
+      else localStorage.removeItem(INVITE_OPT_IN_KEY);
     } catch (e) {}
-    // Legacy fallback for pages where the shared helper failed to load.
+  }
+
+  function flushInviteOptIn(user){
+    var optedIn = false;
+    try { optedIn = localStorage.getItem(INVITE_OPT_IN_KEY) === '1'; } catch(e){}
+    if (!optedIn || !user || !user.email) return;
+    try { localStorage.removeItem(INVITE_OPT_IN_KEY); } catch(e){}
     try {
-      if (typeof window.triggerGoogleSignIn === 'function') {
-        window.triggerGoogleSignIn('signup_nudge');
-        return;
-      }
+      fetch('/api/early-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, displayName: user.displayName || '', source: 'google-signin-nudge' }),
+        keepalive: true
+      }).catch(function(){});
     } catch (e) {}
-    // Fallback: run our own popup against firebase.auth(). Falls
-    // through silently if Firebase isn't loaded on this page.
+  }
+
+  function doSignIn(cfg){
+    rememberInviteChoice(cfg);
+    // Landing owns the most resilient Google flow: popup first, then a
+    // redirect fallback for Safari and in-app browsers. Use its hidden
+    // delegate when present so every landing CTA shares that path.
+    try {
+      var landingDelegate = document.getElementById('googleSignupBtn');
+      if (landingDelegate) { landingDelegate.click(); return; }
+    } catch(e){}
+    // Other pages open Google's account chooser directly from this click.
     try {
       if (typeof firebase === 'undefined' || !firebase.auth) return;
       var provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      firebase.auth().signInWithPopup(provider).catch(function(err){
-        // Popup blocked / cancelled. Try redirect-based auth.
+      firebase.auth().signInWithPopup(provider).then(function(result){
+        flushInviteOptIn(result && result.user);
+      }).catch(function(){
         try { firebase.auth().signInWithRedirect(provider); } catch (e) {}
       });
       try {
@@ -272,12 +298,16 @@
     // the visitor already saw the ask, so answer "why bother" instead.
     var msg = attempt > 0 ? REMIND_MSGS[Math.min(attempt - 1, REMIND_MSGS.length - 1)] : cfg.msg;
     bar = document.createElement('div');
-    bar.className = 'signup-nudge';
+    bar.className = 'signup-nudge' + (cfg.variant ? ' signup-nudge--' + cfg.variant : '');
     bar.setAttribute('role', 'dialog');
-    bar.setAttribute('aria-label', 'Sign up to save your work');
+    bar.setAttribute('aria-label', 'Sign in with Google to save your work');
+    var optin = cfg.inviteOptIn
+      ? '<label class="su-optin"><input type="checkbox"> <span>Email me occasional round invites and product updates.</span></label>'
+      : '';
     bar.innerHTML =
       '<span class="su-line">' + msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
-      '<button type="button" class="su-cta">Create account</button>' +
+      optin +
+      '<button type="button" class="su-cta"><svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>Continue with Google</button>' +
       '<button type="button" class="su-close" aria-label="Dismiss">×</button>';
     document.body.appendChild(bar);
     bumpSessionAttempts();
@@ -286,7 +316,7 @@
       // Measure after is-in is applied so the pill lift matches real height.
       requestAnimationFrame(function(){ syncFeedbackPill(); bindSync(); });
     });
-    bar.querySelector('.su-cta').addEventListener('click', doSignIn);
+    bar.querySelector('.su-cta').addEventListener('click', function(){ doSignIn(cfg); });
     bar.querySelector('.su-close').addEventListener('click', function(){
       markDismissed();
       unmount();
