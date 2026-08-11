@@ -38,22 +38,6 @@ can read everything without an account and watch rooms; the main stage
 is a separate owner-only broadcast started from /admin, surfaced on
 /watch and the landing.
 
-## 2b. Money: there isn't any on the entry side
-
-Competing is free at every tournament and there is no paid tier
-(decision 2026-08-10, soul.md decision log). `entry-checkout.mjs`
-refuses with a 410 behind a code constant, so no charge can fire even
-though `ENTRY_PAYMENTS_LIVE` is still `true` in the Netlify env. If a
-tournament doc still carries a non-zero `entryFeeCents`, that is stale
-data: set it to 0, and never advertise a pay-in.
-
-Where prizes are offered, they come out of the organizer's pocket and
-are paid manually after a human reviews the final ballots. Cash goes
-only to winners aged 18 and over; a younger winner keeps the placement
-and the title, and the cash passes down. That age rule is doctrine
-(money never reaches minors), not an organizer preference, so it is not
-yours to waive at an event.
-
 ## 3. Hard limits and switches (site owner)
 
 - Interactive rooms cap at 8 participants (2 to 4 debaters, judge,

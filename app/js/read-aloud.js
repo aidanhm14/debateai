@@ -248,6 +248,19 @@
       return;
     }
 
+    // The landing page gives that bottom-left slot to the feedback pill
+    // instead (2026-08-10, Aidan). Only one thing can own that corner,
+    // and on the first screen a way to tell us what is wrong beats a way
+    // to have the page read to you. Narration still exists on the other
+    // 55 pages.
+    //
+    // No player mounts here, so nothing plays or resumes WHILE on the
+    // landing page. The saved resume state is deliberately left alone
+    // rather than cleared like SILENT_ROUTES does above: passing through
+    // the landing page should not throw away someone's place, so if they
+    // navigate on to a narrated page it picks up where it left off.
+    if (here === '/') return;
+
     var pageEntry = byRoute[here] || null;
     var saved = readState();
     var resuming = saved && saved.slug && pages[saved.slug] && saved.playing;
