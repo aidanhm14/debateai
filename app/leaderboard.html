@@ -288,6 +288,31 @@ body.has-beta-strip .shell{padding-top:98px}
 [data-theme="light"] .fmt-pill.active{background:#1a1208;color:#faf8f4;border-color:#1a1208}
 [data-theme="light"] .fmt-pill.active .c{background:rgba(255,255,255,.15);color:rgba(255,255,255,.85)}
 
+/* Plain-language key. The board has a lot of debate-native shorthand,
+   so explain the ranking before asking a new visitor to parse it. */
+.rank-guide{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  margin:0 0 12px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-md);overflow:hidden;
+}
+.rank-guide-item{
+  display:flex;gap:10px;align-items:flex-start;padding:11px 14px;min-width:0;
+}
+.rank-guide-item+.rank-guide-item{border-left:1px solid var(--border)}
+.rank-guide-n{
+  width:22px;height:22px;flex:0 0 22px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(239,68,68,.10);color:var(--accent);
+  font-size:.68rem;font-weight:900;font-variant-numeric:tabular-nums;
+}
+.rank-guide-copy{font-size:.72rem;line-height:1.42;color:var(--text-dim)}
+.rank-guide-copy strong{display:block;color:var(--text);font-size:.74rem;margin-bottom:1px}
+.rank-guide-copy a{color:var(--accent);font-weight:800}
+@media(max-width:760px){
+  .rank-guide{grid-template-columns:1fr}
+  .rank-guide-item+.rank-guide-item{border-left:none;border-top:1px solid var(--border)}
+}
+
 /* ─── Results ticker: broadcast-style marquee of the latest scores ── */
 .ticker{
   display:flex;align-items:center;gap:14px;
@@ -564,7 +589,7 @@ body.has-beta-strip .shell{padding-top:98px}
 }
 .board-row{
   display:grid;
-  grid-template-columns:54px 1fr 84px 80px 80px 76px 88px;
+  grid-template-columns:48px minmax(150px,1fr) 68px 58px 58px 68px 72px 154px;
   align-items:center;gap:12px;padding:13px 18px;
   border-bottom:1px solid var(--border);
   transition:background .15s,transform .15s;
@@ -641,33 +666,45 @@ body.has-beta-strip .shell{padding-top:98px}
   color:var(--accent);font-weight:800;font-size:.6rem;
   letter-spacing:.1em;text-transform:uppercase;
 }
-/* Challenge action (2026-07-23). Quiet by default — it rides in the
-   debater's sub-line, so it must not outshout the name above it. When
-   the page is opened in challenge mode (?challenge=1 from /live) the
-   whole board leans into it: the buttons fill in and lift so the
-   answer to "who do I call out" is every row at once. */
-.chal-btn{
-  display:inline-flex;align-items:center;
-  padding:1px 9px;border-radius:999px;
-  border:1px solid var(--border);background:transparent;
-  color:var(--text-dim);font-weight:800;font-size:.6rem;
-  letter-spacing:.05em;text-transform:uppercase;text-decoration:none;
-  line-height:1.5;white-space:nowrap;
+.example-mark{
+  display:inline-flex;align-items:center;padding:1px 6px;border-radius:999px;
+  background:rgba(217,119,6,.10);color:var(--bronze);
+  font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+}
+/* Direct actions for every real profile. Message is quiet, Challenge is
+   the primary path. Both use the existing DM system. */
+.debater-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.debater-action{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:28px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border-strong);background:transparent;
+  color:var(--text);font-weight:800;font-size:.64rem;
+  letter-spacing:.02em;text-decoration:none;line-height:1.2;white-space:nowrap;
   transition:background .15s,color .15s,border-color .15s,transform .12s;
 }
-.chal-btn:hover{
-  background:var(--accent);border-color:var(--accent);color:#fff;
+.debater-action:hover{
+  background:var(--bg-elev);border-color:var(--text-dim);
   transform:translateY(-1px);
 }
-.chal-btn:active{transform:scale(.96)}
+.debater-action:active{transform:scale(.96)}
+.chal-btn{background:var(--accent);border-color:var(--accent);color:#fff}
+.chal-btn:hover{background:#dc2626;border-color:#dc2626;color:#fff}
+.you-chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:26px;padding:3px 9px;border-radius:999px;
+  background:var(--bg-elev);color:var(--text-dim);
+  font-size:.62rem;font-weight:800;
+}
 body.challenge-on .chal-btn{
   background:var(--accent);border-color:var(--accent);color:#fff;
   box-shadow:0 4px 14px rgba(239,68,68,.24);
 }
 body.challenge-on .chal-btn:hover{filter:brightness(1.06)}
-/* On the podium the button sits under the meta line, a little larger
-   so the top three read as the marquee targets they are. */
-.pod .chal-btn{margin-top:9px;padding:3px 12px;font-size:.64rem}
+.pod .debater-actions{margin-top:10px}
+.pod .debater-action{min-height:30px;padding:5px 12px;font-size:.66rem}
+.cell-connect{display:flex;justify-content:flex-end}
+.cell-connect .debater-actions{justify-content:flex-end;flex-wrap:nowrap}
+.table-mobile-actions{display:none}
 /* Challenge-mode banner: a single line telling an arrival from /live
    what to do, dismissible, matching the seed-note treatment. */
 .chal-banner{
@@ -727,7 +764,7 @@ body.challenge-on .chal-banner{display:flex}
 
 @media(max-width:960px){
   .board-row{
-    grid-template-columns:44px 1fr 70px 64px 70px;
+    grid-template-columns:44px minmax(150px,1fr) 70px 64px 70px 154px;
     gap:10px;padding:12px 14px;
   }
   .board-row .cell-rounds,
@@ -745,8 +782,10 @@ body.challenge-on .chal-banner{display:flex}
   .board-row .cell-wl,
   .board-row .cell-streak,
   .board-row .streak-col,
+  .board-row .cell-connect,
   .board-row.head .cell-wl,
   .board-row.head .cell-streak,
+  .board-row.head .cell-connect,
   .board-row.head div:nth-child(3),
   .board-row.head div:nth-child(4){display:none}
   /* 38px rank track: the number alone; movement badges overflow here */
@@ -754,6 +793,9 @@ body.challenge-on .chal-banner{display:flex}
   .deb-name{font-size:.85rem}
   .cell-score{font-size:.95rem}
   .deb-av{width:26px;height:26px;font-size:.66rem}
+  .deb{align-items:flex-start}
+  .table-mobile-actions{display:flex;margin-top:7px}
+  .table-mobile-actions .debater-action{min-height:27px;padding:4px 9px}
 }
 
 /* ─── Sidebar ─── */
@@ -997,12 +1039,12 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
     <div class="hero-copy">
       <div class="hero-eyebrow">
         <span class="dot" aria-hidden="true"></span>
-        Live ranks · AI-judged voice rounds
+        Rankings from judged voice rounds
       </div>
       <h1>The <span class="hero-acc">leaderboard.</span></h1>
       <p class="hero-sub">
-        Two ranks. Humans beating each other in live voice rounds, and solo speakers scored on speaker points (your speaking score).
-        Same AI ballot judges both. <span class="rule">Voice only. Typed rounds stay in your history, but never rank.</span>
+        Head-to-head ranks debates against other people. Solo practice ranks individual speaking.
+        Each person appears once, and their best judged score in the selected format sets their place. <span class="rule">Higher is better. Typed rounds do not count.</span>
       </p>
     </div>
     <div class="hero-side">
@@ -1023,26 +1065,41 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 
   <div class="controls">
     <div class="tabs" role="tablist">
-      <button class="tab active" data-view="live" role="tab" type="button">
+      <button class="tab active" data-view="live" role="tab" type="button" aria-selected="true">
         <svg class="tab-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <circle cx="5" cy="8" r="2" fill="currentColor"/>
           <circle cx="11" cy="8" r="2" fill="currentColor"/>
           <path d="M3 13c.6-1.2 1.7-2 3-2M13 13c-.6-1.2-1.7-2-3-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
         </svg>
-        Live voice
+        Head-to-head
         <span class="tab-count" id="countLive"></span>
       </button>
-      <button class="tab" data-view="ai" role="tab" type="button">
+      <button class="tab" data-view="ai" role="tab" type="button" aria-selected="false">
         <svg class="tab-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <rect x="6" y="3" width="4" height="7" rx="2" fill="currentColor"/>
           <path d="M4 9a4 4 0 0 0 8 0M8 13v1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
         </svg>
-        Solo voice
+        Solo practice
         <span class="tab-count" id="countAi"></span>
       </button>
     </div>
     <div id="fmtPills" class="fmt-pills" hidden></div>
   </div>
+
+  <section class="rank-guide" aria-label="How the leaderboard works">
+    <div class="rank-guide-item">
+      <span class="rank-guide-n" aria-hidden="true">1</span>
+      <div class="rank-guide-copy"><strong id="guideRankTitle">Best score sets the rank</strong><span id="guideRankCopy">One person, one place, using their highest judged score.</span></div>
+    </div>
+    <div class="rank-guide-item">
+      <span class="rank-guide-n" aria-hidden="true">2</span>
+      <div class="rank-guide-copy"><strong id="guideRecordTitle">W / L is the record</strong><span id="guideRecordCopy">Wins and losses from the head-to-head rounds shown.</span></div>
+    </div>
+    <div class="rank-guide-item">
+      <span class="rank-guide-n" aria-hidden="true">3</span>
+      <div class="rank-guide-copy"><strong id="guideActionTitle">Debate someone on the board</strong><span id="guideActionCopy">Real profiles show Message and Challenge. Examples link to matchmaking.</span></div>
+    </div>
+  </section>
 
   <div id="ticker" class="ticker" hidden>
     <span class="ticker-eyebrow"><span class="tick-dot" aria-hidden="true"></span>Latest scores</span>
@@ -1086,7 +1143,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 
       <div class="side-card" id="sideHotCard">
         <div class="side-head">
-          <span class="side-eye">What's hot tonight</span>
+          <span class="side-eye">Most debated formats</span>
         </div>
         <div id="hotList">
           <div class="side-empty">Waiting on rounds…</div>
@@ -1102,9 +1159,9 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
             <path d="M17 4l3 3-7 7-3-3 7-7z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h4>One ballot. Six brains.</h4>
-        <p class="body">Every score is the AI judge's RFD on the 50-100 speaker scale. Same rubric for live human-vs-human and solo voice rounds. <strong>No house style</strong> between Claude, GPT, Gemini, Grok, DeepSeek, and Open Lab.</p>
-        <a class="side-link" href="/voice-debate">Hear it judge a round →</a>
+        <h4>What does the score mean?</h4>
+        <p class="body">The score is the judge's rating of how well you argued. Higher is better. Formats use different scoring scales, so choose a format before comparing people.</p>
+        <a class="side-link" href="/voice-debate">Try a judged voice round →</a>
       </div>
     </aside>
   </main>
@@ -1114,13 +1171,13 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 <aside class="signin-strip" id="signinStrip" hidden>
   <div class="copy">
     <h4>Claim your spot</h4>
-    <p>Sign in once and your voice rounds count automatically. Only voice speaker points feed the rank.</p>
+    <p>Sign in once and your judged voice rounds count automatically. Your best score sets your place.</p>
   </div>
   <a class="cta" href="/voice-debate" id="signinStripCta">Start a voice round →</a>
 </aside>
 
 <footer class="footer">
-  Voice rounds only. <a href="/live">Debate humans live</a> · <a href="/voice-debate">Run a voice round</a> · <a href="/learn">Learn the formats</a>
+  Judged voice rounds only. <a href="/live">Debate someone live</a> · <a href="/voice-debate">Practice solo</a> · <a href="/learn">Learn the formats</a>
 </footer>
 
 <script>
@@ -1159,28 +1216,29 @@ const countAi=document.getElementById('countAi');
 const statRoundsN=document.getElementById('statRoundsN');
 const statLiveN=document.getElementById('statLiveN');
 const statBestN=document.getElementById('statBestN');
+const guideRankTitle=document.getElementById('guideRankTitle');
+const guideRankCopy=document.getElementById('guideRankCopy');
+const guideRecordTitle=document.getElementById('guideRecordTitle');
+const guideRecordCopy=document.getElementById('guideRecordCopy');
+const guideActionTitle=document.getElementById('guideActionTitle');
+const guideActionCopy=document.getElementById('guideActionCopy');
 
 const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement:{}};
 
-// ── challenge mode (2026-07-23) ───────────────────────────────────
+// ── direct profile actions ────────────────────────────────────────
 // /live's "Challenge a debater" used to jump to #postForm, a generic
-// "schedule a debate" form with no name field — the one thing the
-// section promised (call someone out BY NAME) was the one thing the
-// flow could not do. It now lands here, where the debaters actually
-// are, and every row that belongs to a REAL signed-in user offers a
-// Challenge action that opens a DM with them.
+// "schedule a debate" form with no named opponent. It now lands here,
+// where real accounts offer Message and Challenge actions. Message
+// deep-links into /messages; Challenge opens /spar's challenge draft.
 //
 // Two rows deliberately get no button, because both would dead-end:
 //   · seeded rows (r.seed) are synthetic texture, not accounts
 //   · your own row — you cannot DM yourself, openDMThread no-ops
-// The board is mostly seeded today, so most rows show nothing. That
-// is the honest state: a Challenge button that opens a thread nobody
-// reads is worse than no button.
 const challengeMode = (function(){
   try { return new URLSearchParams(location.search).get('challenge')==='1'; }
   catch(_){ return false; }
 })();
-function canChallenge(r){
+function canContact(r){
   if(!r || r.seed) return false;
   const uid = r.uid;
   // Rows fall back to displayName as a key elsewhere; a DM needs a real
@@ -1190,10 +1248,30 @@ function canChallenge(r){
   return true;
 }
 function challengeBtn(r){
-  if(!canChallenge(r)) return '';
+  if(!canContact(r)) return '';
   const name = r.displayName || 'Debater';
-  return `<a class="chal-btn" href="/spar?dm=${encodeURIComponent(r.uid)}&challenge=1"
+  return `<a class="debater-action chal-btn" href="/spar?dm=${encodeURIComponent(r.uid)}&challenge=1"
     data-cta="lb-challenge" aria-label="Challenge ${escapeHtml(name)}">Challenge</a>`;
+}
+function messageBtn(r){
+  if(!canContact(r)) return '';
+  const name = r.displayName || 'Debater';
+  return `<a class="debater-action msg-btn" href="/messages?dm=${encodeURIComponent(r.uid)}&name=${encodeURIComponent(name)}"
+    data-cta="lb-message" aria-label="Message ${escapeHtml(name)}">Message</a>`;
+}
+function debaterActions(r, extraClass){
+  if(state.user && r && r.uid===state.user.uid){
+    return `<div class="debater-actions${extraClass?' '+extraClass:''}"><span class="you-chip">You</span></div>`;
+  }
+  if(r && r.seed){
+    return `<div class="debater-actions${extraClass?' '+extraClass:''}"><a class="debater-action msg-btn" href="/spar"
+      data-cta="lb-example-spar" aria-label="Find a real opponent">Find opponent</a></div>`;
+  }
+  if(!canContact(r)) return '';
+  return `<div class="debater-actions${extraClass?' '+extraClass:''}">${messageBtn(r)}${challengeBtn(r)}</div>`;
+}
+function profileTypeTag(r){
+  return r && r.seed ? '<span class="example-mark">Example</span>' : '';
 }
 // The board is seeded texture until real rounds land on it, so on most
 // days there is nobody here to call out. Sending a user from /live into
@@ -1412,6 +1490,24 @@ function enrichRows(rows){
   });
 }
 
+// Firestore stores one leaderboard entry per round. A people leaderboard
+// should show one person once, so keep each account's highest-scoring row
+// while retaining the aggregate record computed above.
+function rankPeople(rounds){
+  const enriched=enrichRows(rounds).slice().sort((a,b)=>{
+    const as=typeof a.score==='number'?a.score:-Infinity;
+    const bs=typeof b.score==='number'?b.score:-Infinity;
+    return bs-as;
+  });
+  const seen=new Set();
+  return enriched.filter(r=>{
+    const key=r.uid||r.displayName||'';
+    if(!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // ── rank movement vs the viewer's previous visit. localStorage snapshot
 // keyed by view+format; first load has no arrows (nothing to compare to).
 function snapshotKey(){
@@ -1491,7 +1587,7 @@ function podHTML(row, place){
     : '';
   return `
     <article class="pod pod--${place}">
-      <div class="pod-rank"><span class="medal" aria-hidden="true">${place}</span><span>${place===1?'Top of board':place===2?'Runner up':'Bronze'}</span>${laurel}</div>
+      <div class="pod-rank"><span class="medal" aria-hidden="true">${place}</span><span>${place===1?'1st place':place===2?'2nd place':'3rd place'}</span>${laurel}</div>
       <div class="pod-body">
         <div class="pod-avatar" aria-hidden="true">${av}</div>
         <div class="pod-id">
@@ -1500,8 +1596,9 @@ function podHTML(row, place){
             <span class="fmt">${fmt}</span>
             <span class="dot-sep">·</span>
             <span>${escapeHtml(fmtAgo(row.completedAt)||'recent')}</span>
+            ${profileTypeTag(row)}
           </div>
-          ${challengeBtn(row)}
+          ${debaterActions(row)}
         </div>
       </div>
       <svg class="pod-wave" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
@@ -1509,7 +1606,7 @@ function podHTML(row, place){
       </svg>
       <div class="pod-score-row">
         <div class="pod-score"${typeof row.score==='number'?` data-count="${row.score}"`:''}>${score}</div>
-        <div class="pod-score-l">Speaker pts</div>
+        <div class="pod-score-l">Judge score</div>
       </div>
       <div class="pod-wl">
         <span class="w">${wins}W</span>
@@ -1650,17 +1747,20 @@ function renderTable(rows){
     } catch(_){}
     return;
   }
-  // Top 3 are in the podium; table picks up from rank 4.
-  const tail = rows.slice(3);
+  // Top 3 are in the podium. With fewer than three people, keep every
+  // person in the table so a small board never renders as an empty shell.
+  const hasPodium=rows.length>=3;
+  const tail = hasPodium ? rows.slice(3) : rows;
   const head = `
     <div class="board-row head" role="row">
       <div>Rank</div>
       <div>Debater</div>
-      <div>W / L</div>
+      <div title="Wins and losses">W / L</div>
       <div>Streak</div>
       <div class="cell-rounds">Rounds</div>
       <div class="cell-when">Last</div>
-      <div style="text-align:right">Score</div>
+      <div style="text-align:right">Judge score</div>
+      <div class="cell-connect" style="text-align:right">Connect</div>
     </div>`;
   const selfUid = state.user && state.user.uid;
   // Score bars: normalize against the visible spread, not a fixed
@@ -1672,7 +1772,7 @@ function renderTable(rows){
   const minS = scored.length ? Math.min.apply(null, scored.map(r=>r.score)) : null;
   const barFloor = (maxS!==null && maxS>minS) ? (minS - Math.max((maxS-minS)*0.35, 0.5)) : null;
   const body = tail.map((r,i)=>{
-    const idx=i+3;
+    const idx=i+(hasPodium?3:0);
     const uid=r.uid||r.displayName||'';
     const isSelf = selfUid && uid===selfUid;
     const fresh = isFresh(r.completedAt, 30);
@@ -1695,8 +1795,9 @@ function renderTable(rows){
             <div class="deb-sub">
               <span class="fmt-chip">${escapeHtml(r.formatName||r.format||'—')}</span>
               ${liveMark}
-              ${challengeBtn(r)}
+              ${profileTypeTag(r)}
             </div>
+            ${debaterActions(r,'table-mobile-actions')}
           </div>
         </div>
         <div class="cell-wl"><span class="w">${r._wins||0}</span><span style="opacity:.4"> / </span><span class="l">${r._losses||0}</span></div>
@@ -1704,6 +1805,7 @@ function renderTable(rows){
         <div class="cell-rounds">${r._rounds||0}</div>
         <div class="cell-when${fresh?' fresh':''}">${escapeHtml(fmtAgo(r.completedAt))}</div>
         <div class="cell-score"><span>${fmtScore(r.score)}</span>${pct!==null?`<span class="score-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>`:''}</div>
+        <div class="cell-connect">${debaterActions(r)}</div>
       </div>`;
   }).join('');
   board.innerHTML = head + body;
@@ -1741,18 +1843,18 @@ function renderTicker(rows){
 }
 
 function renderBoard(allRowsRaw){
-  const allRows = applyFormatFilter(allRowsRaw);
-  const rows = enrichRows(allRows);
+  const roundRows = applyFormatFilter(allRowsRaw);
+  const rows = rankPeople(roundRows);
   state.rankMovement = computeMovement(rows);
   renderPodium(rows);
   renderTable(rows);
-  renderTicker(rows);
+  renderTicker(roundRows);
   // After both row renderers, so it can count the buttons they emitted.
   syncChallengeBanner();
   // Save the snapshot for the next visit. Done after render so the
   // first paint of a session is stable.
   saveSnapshot(rows);
-  updateHeroStats(allRowsRaw, rows);
+  updateHeroStats(allRowsRaw, roundRows);
   // (Seed-note disclosure removed 2026-05-25 alongside the seed merge.
   // With no seeded rows ever showing up, the note had nothing to
   // disclose. The empty-state pitch below is the new honesty surface.)
@@ -1774,12 +1876,14 @@ function updateHeroStats(allRows, filtered){
 // ── format pills with counts (derived from the current view) ──────
 function renderFormatPills(allRows){
   if(!fmtPillsHost) return;
-  const counts=new Map();
+  const peopleByFormat=new Map();
   for(const r of allRows){
     const display=r.formatName||r.format||'';
     if(!display) continue;
-    counts.set(display, (counts.get(display)||0)+1);
+    if(!peopleByFormat.has(display)) peopleByFormat.set(display,new Set());
+    peopleByFormat.get(display).add(r.uid||r.displayName||'');
   }
+  const counts=new Map(Array.from(peopleByFormat.entries()).map(([name,people])=>[name,people.size]));
   if(counts.size<=1){
     fmtPillsHost.hidden=true;
     fmtPillsHost.innerHTML='';
@@ -1790,7 +1894,7 @@ function renderFormatPills(allRows){
   const formats=Array.from(counts.entries())
     .sort((a,b)=> (b[1]-a[1]) || a[0].localeCompare(b[0]))
     .map(e=>e[0]);
-  const totalCount = allRows.length;
+  const totalCount = rankPeople(allRows).length;
   const html=[
     `<button class="fmt-pill${state.format===null?' active':''}" data-fmt="" type="button">All<span class="c">${totalCount}</span></button>`,
     ...formats.map(f=>`<button class="fmt-pill${state.format===f?' active':''}" data-fmt="${escapeHtml(f)}" type="button">${escapeHtml(f)}<span class="c">${counts.get(f)}</span></button>`),
@@ -1820,15 +1924,14 @@ async function renderYourRank(){
   const uid=state.user.uid;
   const allRows=state.cache[state.view]||[];
   const filteredRows=applyFormatFilter(allRows);
+  const rankedRows=rankPeople(filteredRows);
 
   let best=null;
   let rankInView=-1;
-  for(let i=0;i<filteredRows.length;i++){
-    const r=filteredRows[i];
+  for(let i=0;i<rankedRows.length;i++){
+    const r=rankedRows[i];
     if(r.uid===uid){
-      if(!best||(typeof r.score==='number'&&r.score>(best.score||-Infinity))){
-        best=r; rankInView=i;
-      }
+      best=r; rankInView=i; break;
     }
   }
 
@@ -1863,7 +1966,7 @@ async function renderYourRank(){
     return;
   }
 
-  const totalLoaded=filteredRows.length;
+  const totalLoaded=rankedRows.length;
   const yourScore=typeof best.score==='number'?best.score:null;
   let rankCopy;
   if(rankInView>=0){
@@ -2000,8 +2103,10 @@ function renderHotFormats(rows){
 function updateTabCounts(){
   const liveRows = state.cache.live || [];
   const aiRows = state.cache.ai || [];
-  if(countLive) countLive.textContent = liveRows.length ? String(liveRows.length) : '';
-  if(countAi)   countAi.textContent   = aiRows.length   ? String(aiRows.length)   : '';
+  const livePeople=rankPeople(liveRows).length;
+  const aiPeople=rankPeople(aiRows).length;
+  if(countLive) countLive.textContent = livePeople ? String(livePeople) : '';
+  if(countAi)   countAi.textContent   = aiPeople   ? String(aiPeople)   : '';
 }
 
 // ── retained Firestore plumbing ───────────────────────────────────
@@ -2103,6 +2208,24 @@ function updateSigninStripCta(view){
   }
 }
 
+function syncRankingGuide(view){
+  if(view==='live'){
+    guideRankTitle.textContent='Best head-to-head score sets the rank';
+    guideRankCopy.textContent='One person, one place, using their highest judged score.';
+    guideRecordTitle.textContent='W / L is the record';
+    guideRecordCopy.textContent='Wins and losses from the head-to-head rounds shown.';
+    guideActionTitle.textContent='Debate someone on the board';
+    guideActionCopy.innerHTML='Real profiles show Message and Challenge. Examples <a href="/spar">link to matchmaking</a>.';
+  }else{
+    guideRankTitle.textContent='Best solo score sets the rank';
+    guideRankCopy.textContent='One speaker, one place, using their highest judged score.';
+    guideRecordTitle.textContent='W / L is your AI record';
+    guideRecordCopy.textContent='It tracks wins and losses against the AI. Judge score still sets the rank.';
+    guideActionTitle.textContent='Connect with another speaker';
+    guideActionCopy.innerHTML='Real profiles show Message and Challenge. Examples <a href="/spar">link to matchmaking</a>.';
+  }
+}
+
 tabs.forEach(t=>{
   t.addEventListener('click',()=>{
     const view=t.dataset.view;
@@ -2110,7 +2233,9 @@ tabs.forEach(t=>{
     state.view=view;
     state.format=null;
     tabs.forEach(x=>x.classList.toggle('active',x===t));
+    tabs.forEach(x=>x.setAttribute('aria-selected',x===t?'true':'false'));
     updateSigninStripCta(view);
+    syncRankingGuide(view);
     loadView(view);
   });
 });
@@ -2137,6 +2262,7 @@ if (challengeMode){
 }
 
 updateSigninStripCta(state.view);
+syncRankingGuide(state.view);
 loadView(state.view);
 renderLiveRooms();
 // Refresh live rooms every 45s so the sidebar feels alive without being noisy.
