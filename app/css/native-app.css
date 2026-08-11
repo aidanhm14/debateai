@@ -39,6 +39,42 @@ html.dbnative body {
   padding-bottom: calc(82px + var(--safe-bottom)) !important;
   overscroll-behavior-y: contain;
 }
+
+/* ── Status-bar scrim ───────────────────────────────────────────────
+   StatusBar.overlaysWebView is true, so the webview runs edge to edge
+   and the clock / Dynamic Island / battery are painted ON TOP of the
+   page with nothing between them. The top padding above only fixes
+   where content STARTS; the moment you scroll, content slides under
+   the status bar and collides with it. Caught on /native in the
+   iPhone 17 Pro simulator, 2026-08-11: two scrolls in, the "Free in
+   beta" pill and the wordmark's red rule were sitting behind the 9:41.
+
+   Fix is the same one iOS uses for a scrolled-under nav bar: a fixed
+   blur strip exactly as tall as the top inset. Blur ONLY, no colour —
+   the app spans light pages (/native, /coach) and dark ones, so any
+   hardcoded fill would be wrong on half of them, whereas a backdrop
+   filter takes on whatever is passing beneath it.
+
+   z-index sits below the tab bar (2147482000) so the bar always wins,
+   and above ordinary page content, including modals — a modal header
+   should not collide with the clock either.
+
+   Immersive pages are excluded: live-round and the voice surfaces are
+   deliberately full-bleed and already declare their own top clearance
+   (see the nav.bar rule further down), so they get the fix they were
+   given rather than a second one layered on top. */
+html.dbnative:not(.dbnative-immersive)::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  z-index: 2147481000;
+  pointer-events: none;
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+}
 /* The browser topbar becomes a native bottom tab bar in the app. */
 html.dbnative .ui-topbar {
   display: none !important;
