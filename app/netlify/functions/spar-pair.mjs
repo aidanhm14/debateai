@@ -24,18 +24,26 @@ import { sendToUser } from './lib/webpush.mjs';
 // trust the caller's uid from the verified token, NOT from the body.
 // Body only supplies peerUid + format (for format-mismatch defense).
 //
-// CONSENT HANDSHAKE (2026-06-12). A queued debater can attach a
-// judge-paradigm note (`paradigm` on their own queue doc — how the AI
-// judge should weigh the round). A note only ever reaches the judge
-// with BOTH debaters' eyes on it, so when either side of a candidate
-// pair carries one, the pair lands in a two-phase state instead of
-// matching instantly:
+// CONSENT HANDSHAKE (2026-06-12) / READY-CHECK (2026-08-10). EVERY
+// foreground pair lands in a two-phase state instead of matching
+// instantly, and both sides must affirmatively accept before a room
+// opens. Two jobs share the one gate:
+//   - PRESENCE. Proving a human is actually at the keyboard before a
+//     round doc goes live. This is the 2026-08-10 addition and it is
+//     why the gate is now unconditional; see the measurement in the
+//     needsConsent block below.
+//   - CONSENT. A judge-paradigm note (`paradigm` on the queue doc: how
+//     the AI judge should weigh the round) only ever reaches the judge
+//     with BOTH debaters' eyes on it, and a cross-format pair never
+//     silently forces one side into the other's format.
+// Phases:
 //   phase 1 (action 'pair', default): both docs get status 'consent'
 //     with every matched-shape field already in place (room, sides,
-//     names, pairedFormat) plus `paradigms` (note per uid) and
-//     `consents` (per-uid booleans; a side with nothing to review is
-//     auto-true). Clients render an accept/pass card off their own
-//     doc snapshot.
+//     names, pairedFormat) plus `paradigms` (note per uid), `consents`
+//     (per-uid booleans, BOTH starting false), and `readyCheck` (true
+//     when there is nothing to review, so the client renders a plain
+//     "are you there" card instead of a review card). Clients render
+//     off their own doc snapshot.
 //   phase 2 (action 'consent'): accept flips my consent flag; when
 //     both are true the docs flip to status 'matched' and the agreed
 //     notes collapse into `pairedParadigm` (name-attributed, what
@@ -326,6 +334,7 @@ export default async (request) => {
       pairedParadigm: FieldValue.delete(),
       paradigms: FieldValue.delete(),
       consents: FieldValue.delete(),
+      readyCheck: FieldValue.delete(),
       matchedWith: FieldValue.delete(),
       matchedWithName: FieldValue.delete(),
       matchedWithPhoto: FieldValue.delete(),
@@ -532,11 +541,22 @@ export default async (request) => {
       const myParadigm = cleanParadigm(mine.paradigm);
       const theirParadigm = cleanParadigm(theirs.paradigm);
       const anyBackground = !!mine.background || !!theirs.background;
-      // Consent gate fires for judge-paradigm notes OR a cross-format
-      // pair. Background ("Spar live") sessions have no consent surface,
-      // so those skip it: a cross-format background pair just runs in the
-      // older joiner's format silently, same as before.
-      const needsConsent = !anyBackground && (!!(myParadigm || theirParadigm) || crossFormat);
+      // READY-CHECK (2026-08-10): the gate now fires for EVERY foreground
+      // pair, not just ones carrying a judge note or a format conflict.
+      //
+      // Measured on 411 live rounds: only ~85 ever had both people
+      // actually present, 215 had exactly one, and 390 never completed a
+      // single speech (median room lifetime 1.5 min). Names are written
+      // at match time, not arrival, so the round doc looked complete
+      // while one side had never walked in. The product was not losing
+      // people mid-round or at the ballot: past speech one, ~43% of
+      // rounds finish. It was matching them against nobody.
+      //
+      // So presence has to be proven before a room opens. Background
+      // ("Spar live") sessions still skip the gate because
+      // js/notifications.js has no consent surface to render.
+      const readyCheck = !(myParadigm || theirParadigm) && !crossFormat;
+      const needsConsent = !anyBackground;
 
       if (needsConsent) {
         const proposal = {
@@ -550,13 +570,14 @@ export default async (request) => {
           // pair into two half-states.
           joinedAt: FieldValue.serverTimestamp(),
           paradigms: { [myUid]: myParadigm, [peerUid]: theirParadigm },
-          // You consent to the OTHER side's note AND to the proposed
-          // format when it isn't the one you proposed. Nothing to
-          // review on either axis means your half is auto-yes.
-          consents: {
-            [myUid]: !theirParadigm && (!crossFormat || pairedFormat === myFormat),
-            [peerUid]: !myParadigm && (!crossFormat || pairedFormat === theirFormat),
-          },
+          readyCheck,
+          // BOTH sides start false, always. The old rule auto-yessed the
+          // side with nothing to review, which is exactly the side that
+          // could be an empty chair: a debater who filed no note was
+          // consented into a room without ever proving they were there.
+          // Presence is the thing being checked now, so having nothing
+          // to read no longer answers it.
+          consents: { [myUid]: false, [peerUid]: false },
         };
         tx.update(myRef, {
           ...proposal,

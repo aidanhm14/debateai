@@ -3172,14 +3172,26 @@ h1 em{color:var(--accent);font-style:normal}
   // when the wait is on THEM). Timer-fired actions carry auto:true so the
   // server can tell idle-timeout from a human click.
   //
-  // autoAccept (2026-06-15, B): on the DECIDING card we now auto-JOIN at
-  // 0 instead of auto-passing — a present user who doesn't click still
-  // gets the match rather than losing it (matchmaking is low-liquidity;
-  // dropping rare pairs to a slow click hurt more than it helped). Guard:
-  // only auto-accept when the tab is VISIBLE. A hidden/dead tab can't
-  // actually navigate into the room, so accepting there would strand the
-  // opponent alone — fall back to the old auto-pass in that case. The
-  // waiting-on-peer net keeps autoAccept=false (always unwind a ghost).
+  // autoAccept: RETIRED 2026-08-10. Every call site now passes false.
+  //
+  // The 2026-06-15 tuning auto-JOINED at 0 on the deciding card when the
+  // tab was visible, reasoning that a present user who doesn't click
+  // shouldn't lose a rare match. Its own comment named the risk exactly
+  // right ("accepting there would strand the opponent alone") and then
+  // trusted visibilityState to rule it out. It doesn't: a foregrounded
+  // tab nobody is sitting at is 'visible', so for 15 seconds an empty
+  // chair could accept a match.
+  //
+  // That is the measured failure. Of 411 live rounds only ~85 ever had
+  // both people present, and 390 never completed one speech. Trading a
+  // few extra matches for rooms that open onto nobody is a bad trade:
+  // the person who DID show up waits alone and leaves, and they are the
+  // one we can least afford to lose. A timeout now always auto-PASSES,
+  // which routes into the existing ghost path (server cancels the silent
+  // side, requeues the live one with a clean doc).
+  //
+  // The parameter is kept rather than deleted so the deliberate choice
+  // stays visible at every call site instead of vanishing into history.
   function startConsentCountdown(peerUid, secs, showNum, autoAccept){
     clearConsentTimer();
     var deadline = Date.now() + secs * 1000;
@@ -3191,8 +3203,9 @@ h1 em{color:var(--accent);font-style:normal}
       }
       if (left <= 0){
         clearConsentTimer();
-        var join = !!autoAccept && (typeof document === 'undefined' || document.visibilityState === 'visible');
-        sendConsent(peerUid, join, true);
+        // autoAccept is false at every call site (see above). A silent
+        // timeout is not a person; it unwinds.
+        sendConsent(peerUid, !!autoAccept, true);
       }
     }, 250);
   }
@@ -3271,7 +3284,11 @@ h1 em{color:var(--accent);font-style:normal}
           '<div class="eyebrow"><span class="pip"></span>Match found · awaiting opponent</div>' +
           peerAvatar +
           '<h1>Waiting on <em>' + peerName + '.</em></h1>' +
-          '<p class="lede">' + (crossFmt ? 'They\'re confirming the <strong>' + fmtLabel + '</strong> round. It starts the moment they accept.' : 'They\'re reading your judge instructions. The round starts the moment they accept.') + '</p>' +
+          '<p class="lede">' + (crossFmt
+            ? 'They\'re confirming the <strong>' + fmtLabel + '</strong> round. It starts the moment they accept.'
+            : (myNote
+              ? 'They\'re reading your judge instructions. The round starts the moment they accept.'
+              : 'Checking they\'re still at their desk. The round starts the moment they confirm.')) + '</p>' +
           (crossFmt ? formatBlock : '') +
           (myNote ? '<div class="consent-note mine"><div class="consent-note-label">Your instructions to the judge</div>' + escHtml(myNote) + '</div>' : '') +
           '<div class="btn-row"><button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button></div>' +
@@ -3298,6 +3315,42 @@ h1 em{color:var(--accent);font-style:normal}
     // Lede depends on what they're being asked to OK: a format switch, a
     // judge note, or both. Format gets named first since it changes the
     // whole round; the note rides on top of the standard ballot method.
+    // Pure ready-check: nothing to review, so the only question is
+    // whether a human is here. Different card on purpose. "Accept &
+    // start" invites reading and weighing; this one wants a reflex, and
+    // the count is framed as the match expiring rather than as a
+    // deadline to decide by, because there is nothing to decide.
+    if (d.readyCheck && !theirNote && !myNote && !crossFmt){
+      shell.innerHTML =
+        '<div class="consent-wrap">' +
+          '<div class="eyebrow"><span class="pip"></span>Match found</div>' +
+          peerAvatar +
+          '<h1><em>' + peerName + '</em> is ready.</h1>' +
+          '<p class="lede">Confirm you\'re here and the <strong>' + fmtLabel + '</strong> round starts. If you don\'t, they go back in the queue instead of waiting in an empty room.</p>' +
+          '<div class="btn-row">' +
+            '<button class="btn primary" id="consentAcceptBtn">I\'m here, start the round</button>' +
+            '<button class="btn ghost" id="consentDeclineBtn">Not now</button>' +
+          '</div>' +
+          '<div class="countdown">Match expires in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
+        '</div>';
+      document.getElementById('consentAcceptBtn').addEventListener('click', function(){
+        this.disabled = true;
+        this.textContent = 'Starting…';
+        var dec = document.getElementById('consentDeclineBtn');
+        if (dec) dec.disabled = true;
+        clearConsentTimer();
+        sendConsent(peerUid, true);
+      });
+      document.getElementById('consentDeclineBtn').addEventListener('click', function(){
+        clearConsentTimer();
+        sendConsent(peerUid, false);
+      });
+      startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true, false);
+      if (firstRender) sparChime();
+      document.title = '● Match found · Spar';
+      return;
+    }
+
     var lede;
     if (crossFmt && (theirNote || myNote)){
       lede = 'You proposed different formats. Run the <strong>' + fmtLabel + '</strong> round, with the judge instructions below applied on top. Accept to start, pass to keep searching.';
@@ -3332,7 +3385,7 @@ h1 em{color:var(--accent);font-style:normal}
       clearConsentTimer();
       sendConsent(peerUid, false);
     });
-    startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true, true);
+    startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true, false);
     // Ping the moment a real human match lands (B, 2026-06-15): the user
     // asked not to be dropped in silently. Only on first render so a
     // snapshot re-paint doesn't double-chime.
