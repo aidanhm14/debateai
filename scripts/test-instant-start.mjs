@@ -23,7 +23,7 @@ function check(label, ok) {
   'debateai-persona', 'debateos-newvoice-side'
 ].forEach((key) => check('account sync includes ' + key, prefs.includes("'" + key + "'")));
 
-check('global action is named Debate now', /href: '\/practice\?now=1', label: 'Debate now'/.test(topbar));
+check('global action clearly starts an AI debate', /href: '\/practice\?now=1', label: 'Debate an AI'/.test(topbar));
 check('practice seeds the saved format', practice.includes("localStorage.getItem('debateos-round-format')"));
 check('practice seeds the saved side', practice.includes("localStorage.getItem('debateos-round-side')"));
 check('practice seeds the saved voice', practice.includes("localStorage.getItem('debateos-round-voice')"));
