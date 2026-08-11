@@ -45,17 +45,19 @@
         { v: 'new', label: 'New to debate' },
       ] },
     { key: 'formats', title: 'Which formats do you debate?', sub: 'Pick any that apply.', multi: true,
+      // s: size tier ('lg' | 'sm', default medium) — the biggest circuits
+      // render bigger so the wall of chips has a visual hierarchy.
       options: [
-        { v: 'bp', label: 'BP' },
+        { v: 'bp', label: 'BP', s: 'lg' },
         { v: 'asian_parli', label: 'Asian Parli' },
-        { v: 'wsdc', label: 'WSDC' },
+        { v: 'wsdc', label: 'WSDC', s: 'lg' },
         { v: 'apda', label: 'APDA' },
-        { v: 'pf', label: 'Public Forum' },
+        { v: 'pf', label: 'Public Forum', s: 'lg' },
         { v: 'ld', label: 'LD' },
-        { v: 'policy', label: 'Policy' },
-        { v: 'congress', label: 'Congress' },
-        { v: 'mun', label: 'MUN' },
-        { v: 'unsure', label: 'Not sure yet' },
+        { v: 'policy', label: 'Policy', s: 'lg' },
+        { v: 'congress', label: 'Congress', s: 'sm' },
+        { v: 'mun', label: 'MUN', s: 'sm' },
+        { v: 'unsure', label: 'Not sure yet', s: 'sm' },
       ] },
     { key: 'source', title: 'How did you hear about Debatable?',
       options: [
@@ -105,6 +107,8 @@
       '.ob-opt:hover{border-color:rgba(255,255,255,.4)}' +
       '.ob-opt.sel{background:#dc2626;border-color:#dc2626}' +
       '.ob-opt--wide{flex:1 1 100%;text-align:left}' +
+      '.ob-opt--lg{font-size:1.02rem;font-weight:700;padding:12px 19px}' +
+      '.ob-opt--sm{font-size:.76rem;padding:7px 11px;opacity:.85}' +
       '.ob-foot{display:flex;align-items:center;justify-content:space-between;margin-top:12px}' +
       '.ob-skip{border:none;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;font-size:.8rem;padding:6px 0}' +
       '.ob-skip:hover{color:#fff}' +
@@ -168,7 +172,7 @@
     var opts = '';
     for (var j = 0; j < step.options.length; j++) {
       var o = step.options[j];
-      opts += '<button type="button" class="ob-opt' + (step.multi ? '' : ' ob-opt--wide') + '" data-v="' + o.v + '">' + o.label + '</button>';
+      opts += '<button type="button" class="ob-opt' + (step.multi ? '' : ' ob-opt--wide') + (o.s ? ' ob-opt--' + o.s : '') + '" data-v="' + o.v + '">' + o.label + '</button>';
     }
     card.innerHTML =
       '<div class="ob-dots">' + dots + '</div>' +
