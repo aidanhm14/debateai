@@ -18,6 +18,7 @@ import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { SCRUB_FIELDS, ALLOWED_TOP, ALLOWED_CONTEXT } from './lib/corpus-schema.mjs';
 import { CONSENT_POLICY_VERSION } from './lib/consent.mjs';
+import { PROPOSITIONS, REASK_AFTER_DAYS } from './lib/stance-bank.mjs';
 
 const SCAN_LIMIT = 4000; // matches scheduled-corpus-audit MAX_ROWS
 
@@ -78,6 +79,42 @@ export default async (request) => {
       db.collection('corpus_audit').doc('latest').get().catch(() => null),
     ]);
 
+    // ── opinion panel ──────────────────────────────────────────────
+    // Counted separately because it is a separate asset: belief state on a
+    // fixed instrument, not argument text. The number that matters to a
+    // buyer is reaskedRows, since a first answer is a poll and a second
+    // answer to the identical stem is the drift measurement nobody else
+    // has. Reported honestly even when it is zero.
+    const [panelRows, panelPanelists] = await Promise.all([
+      db.collection('stance_responses').where('contributable', '==', true).count().get()
+        .then((s) => s.data().count || 0).catch(() => 0),
+      db.collection('stance_panelists').count().get()
+        .then((s) => s.data().count || 0).catch(() => 0),
+    ]);
+
+    const panelByTopic = {};
+    let panelScanned = 0;
+    let reaskedRows = 0;
+    let attributedRows = 0;
+    try {
+      const psnap = await db.collection('stance_responses')
+        .where('contributable', '==', true)
+        .orderBy('createdAt', 'asc')
+        .select('topic', 'wave', 'trigger', 'shift')
+        .limit(SCAN_LIMIT)
+        .get();
+      panelScanned = psnap.size;
+      psnap.forEach((doc) => {
+        const d = doc.data();
+        const t = d.topic || 'unknown';
+        panelByTopic[t] = (panelByTopic[t] || 0) + 1;
+        if ((d.wave || 1) > 1) reaskedRows++;
+        if (d.trigger === 'post_round') attributedRows++;
+      });
+    } catch (e) {
+      console.warn('[corpus-manifest] panel scan failed:', e.message);
+    }
+
     const manifest = {
       generatedAt: new Date().toISOString(),
       policy: {
@@ -89,6 +126,7 @@ export default async (request) => {
         revocation: 'forward-only; prior rounds stay under the consent they were written with (privacy §7). Per-round withdrawal honored by email.',
         rawAudio: 'never stored; transcripts and timing only, no voiceprints',
         consentLedger: 'append-only consent_events collection: every grant, withdrawal, and decline with surface + policy version',
+        opinionPanel: 'rides the same opt-in and the same 18+ attestation as the round corpus; a self-reported under-18 band blocks licensing on its own regardless of the toggle. Signed-out answers are stored for public aggregates only and are never licensed.',
       },
       counts: {
         contributableRows: contributableCount,
@@ -101,6 +139,27 @@ export default async (request) => {
         optInMembers: optInCount,
         transcriptCaptureMembers: captureCount,
         consentLedgerEvents: ledgerCount,
+      },
+      opinionPanel: {
+        endpoint: '/api/admin/panel-export',
+        modes: {
+          default: 'one row per response',
+          panel: 'one row per panelist, full answered series',
+          drift: 'only re-asked rows, carrying prior position and signed shift',
+        },
+        instrument: '7-point Likert (-3 strongly disagree to +3 strongly agree, 0 neutral) plus a separate 0-100 confidence reading, so direction and certainty move independently',
+        reaskWindowDays: REASK_AFTER_DAYS,
+        propositions: PROPOSITIONS.length,
+        licensableRows: panelRows,
+        panelists: panelPanelists,
+        breakdownScanned: panelScanned,
+        breakdownTruncated: panelScanned >= SCAN_LIMIT,
+        byTopic: panelByTopic,
+        reaskedRows,
+        attributedRows,
+        note: 'reaskedRows is the differentiated slice: a second answer to a byte-identical stem from the same pseudonymous panelist. attributedRows followed a completed round and carry the round id plus, where the respondent wrote one, their own account of what moved them.',
+        provenance: 'human-authored throughout. No model output in this dataset, so nothing here is gated by an upstream provider ToS.',
+        identity: 'panelistId is a salted one-way hash; rotating CORPUS_HASH_SALT severs the link to any account. Raw account ids never appear on a response row.',
       },
       provenance: {
         allHumanKinds: ['live_round'],

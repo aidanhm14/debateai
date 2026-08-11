@@ -914,6 +914,20 @@ service cloud.firestore {
                   && resource.data.uid == request.auth.uid;
     }
 
+    // ── opinion panel: deliberately absent ───────────────────────────
+    // stance_responses, stance_panelists, and stance_aggregates carry no
+    // rules on purpose, so the default deny below covers them. Every read
+    // and write goes through /api/log-stance and /api/stance-panel with the
+    // admin SDK, which bypasses rules entirely.
+    //
+    // This is not an oversight, and it should stay this way. A client-side
+    // read of stance_panelists would expose one panelist's whole belief
+    // series to anyone who could guess a panelist id, and a client-side
+    // write to stance_aggregates would let a single visitor set the
+    // percentages the widget shows everyone else. Both counters and series
+    // only mean anything if the server is the only thing that can touch
+    // them. If a page ever needs this data, add a function, not a rule.
+
     // ── Default deny ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied.
   }

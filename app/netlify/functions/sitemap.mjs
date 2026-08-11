@@ -226,6 +226,9 @@ const URLS = [
   { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-10' },
   { path: '/reviews',         changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-07-22' },
+  // Weekly rather than monthly: the splits on this page move as answers
+  // land, so the content genuinely changes without the markup changing.
+  { path: '/opinions',        changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-10' },
   { path: '/atlas',           changefreq: 'weekly',  priority: '0.72', lastmod: '2026-08-10' },
   { path: '/float',           changefreq: 'monthly', priority: '0.58', lastmod: '2026-07-23' },
   // Indexable, internally linked, never listed here (found 2026-07-23

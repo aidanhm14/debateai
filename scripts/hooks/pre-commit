@@ -96,6 +96,24 @@ if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Opinion-panel guard. The panel is a measurement instrument: a reworded
+# stem or a duplicate id silently breaks comparability with every answer
+# already collected, and nothing about the incoming data looks wrong
+# afterwards. Also asserts the aggregate maths ignores repeat answers, so
+# a returning panelist cannot drag the published percentages. Verified
+# non-vacuous by injecting each regression and watching it fail.
+# ──────────────────────────────────────────────────────────────────
+STANCE_GUARD="$REPO_ROOT/scripts/test-stance-panel.mjs"
+if [ -f "$STANCE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-stance-panel.mjs >/tmp/stance-guard.log 2>&1); then
+    echo "[stance-guard] commit blocked - the opinion panel's instrument changed:" >&2
+    tail -20 /tmp/stance-guard.log >&2
+    echo "[stance-guard] see scripts/test-stance-panel.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Netlify-function import guard. Blocks a commit that stages a function
 # importing a name a sibling lib module does not export (the repeated
 # `json` vs `jsonResponse` mistake), or importing a lib module that

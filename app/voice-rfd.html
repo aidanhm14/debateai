@@ -1032,6 +1032,18 @@ body{
         + '</section>';
     }
 
+    // Opinion panel, post-round. This is the single best elicitation
+    // moment on the site: the respondent has just argued a real motion
+    // for real and heard it argued back, so an answer taken here has a
+    // cause attached to it rather than floating free. The trigger is
+    // stamped 'post_round' and the round id rides along, which is what
+    // separates this from a poll widget on a marketing page.
+    //
+    // Mounted after the ballot rather than before it, deliberately: asking
+    // someone what they believe before they have read their own verdict
+    // competes with the thing they actually came for.
+    html += '<section id="stancePanelSlot" style="margin:26px 0 0"></section>';
+
     // Anon save-hook (2026-06-08). The ~95% who never sign in finish a
     // round at peak satisfaction with zero reason or mechanism to come
     // back — the profile record is ephemeral. This converts that moment: sign in
@@ -1173,6 +1185,23 @@ body{
     // payload. Named users rate with their Firebase token; anonymous
     // users rate with the browser-session id that created the row.
     if (payload.generationId) wireRatingWidget(payload);
+
+    // Opinion panel. This block is a plain inline script and therefore runs
+    // at parse time, while /js/stance-panel.js is deferred and has not
+    // loaded yet, so calling window.StancePanel here would find nothing.
+    // Queue the request instead; the widget drains the queue on load. If
+    // the script fails to load at all the queue is simply never read and
+    // the ballot page is unchanged.
+    try {
+      (window.__stancePanelQueue = window.__stancePanelQueue || []).push({
+        el: '#stancePanelSlot',
+        roundId: payload.generationId || payload.id || '',
+      });
+      if (window.StancePanel) {
+        // Already loaded (cached, or the load order changes later).
+        window.StancePanel.askAfterRound(window.__stancePanelQueue.pop());
+      }
+    } catch (e) {}
 
     // Post-round save-hook wiring. Reveal the card only for anon (no
     // signed-in user once auth settles); sign-in saves future rounds +
@@ -1454,5 +1483,6 @@ body{
 </script>
 <script defer src="/js/notifications.js"></script>
 <script defer src="/js/coach-fab.js"></script>
+<script defer src="/js/stance-panel.js"></script>
 </body>
 </html>
