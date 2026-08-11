@@ -308,7 +308,7 @@
   var qs = new URLSearchParams(location.search);
   var TKEY = (qs.get('t') || '').trim();
 
-  var state = { user: null, data: null, team: null, poll: null, waiver: null };
+  var state = { user: null, data: null, team: null, poll: null };
 
   function $(id){ return document.getElementById(id); }
   function show(id, on){ var el = $(id); if (el) el.classList.toggle('hidden', !on); }
@@ -622,7 +622,8 @@
   // Prize tournaments (entryFeeCents > 0) carry two extra links: the
   // paid door lives on /tournaments#enter (Stripe checkout + the 18+
   // attestation), and the official rules page carries the payout split
-  // and refund policy. Free tournaments render neither.
+  // and refund policy. Free registration remains available here but
+  // cannot receive cash prizes.
   function appendPrizeLinks(host, t){
     if (!(Number(t.entryFeeCents) > 0)) return;
     if (t.status === 'registration'){
@@ -631,137 +632,17 @@
       pay.href = '/tournaments#enter';
       pay.textContent = 'Pay in for the prize bracket';
       host.appendChild(pay);
+      var eligibility = document.createElement('span');
+      eligibility.className = 'note';
+      eligibility.style.cssText = 'margin-top:0;align-self:center';
+      eligibility.textContent = 'Free registration competes for placement and ranking only. Cash prizes require a completed paid entry.';
+      host.appendChild(eligibility);
     }
     var rules = document.createElement('a');
     rules.className = 'btn';
     rules.href = '/tournament-rules';
     rules.textContent = 'Official rules';
     host.appendChild(rules);
-
-    // The hardship door. Someone who cannot spare $20 should not have
-    // to email a stranger to find out whether that disqualifies them,
-    // so the ask sits next to the pay button and says plainly that the
-    // entry it grants is the same entry.
-    if (state.user && t.status === 'registration'){
-      var ask = document.createElement('button');
-      ask.className = 'btn';
-      ask.textContent = 'Ask for a free entry';
-      ask.addEventListener('click', function(){ openWaiverAsk(t); });
-      host.appendChild(ask);
-      refreshWaiverState(t);
-    }
-  }
-
-  // Shows the caller where their own request stands, so the button
-  // stops being a thing you press twice wondering if it worked.
-  function refreshWaiverState(t){
-    if (!auth || !auth.currentUser) return;
-    auth.currentUser.getIdToken().then(function(tok){
-      return fetch('/api/entry-waiver?t=' + encodeURIComponent(t.tid), {
-        headers: { 'Authorization': 'Bearer ' + tok },
-      });
-    }).then(function(r){ return r.json(); }).then(function(j){
-      if (!j || !j.ok) return;
-      state.waiver = j;
-      var slot = $('entryActions');
-      if (j.mine && slot && !slot.querySelector('[data-waiver-note]')){
-        var note = document.createElement('span');
-        note.className = 'note';
-        note.setAttribute('data-waiver-note', '1');
-        note.style.cssText = 'margin-top:0;align-self:center';
-        note.textContent = j.mine.status === 'approved'
-          ? 'Free entry granted. You are in the prize bracket.'
-          : j.mine.status === 'declined'
-            ? 'Free entry was not granted this time. You can still compete free of charge.'
-            : 'Free entry requested. The host will get back to you.';
-        slot.appendChild(note);
-      }
-      if (j.isHost) renderWaiverQueue(j.queue || [], t);
-    }).catch(function(){});
-  }
-
-  function openWaiverAsk(t){
-    var back = document.createElement('div');
-    back.className = 'modal-back';
-    back.innerHTML =
-      '<div class="modal" role="dialog" aria-modal="true">' +
-        '<h3>Ask for a free entry</h3>' +
-        '<p>Entry is $20 and that pays toward the prizes. If it is out of reach right now, say so and the host will comp you. A comped entry is prize-eligible on exactly the same terms as a paid one.</p>' +
-        '<label class="f" for="wReason">Anything you want to add (optional)</label>' +
-        '<textarea class="in" id="wReason" rows="3" maxlength="400" placeholder="A sentence is plenty."></textarea>' +
-        '<label class="note" style="display:flex;gap:8px;align-items:flex-start;margin-top:12px">' +
-          '<input type="checkbox" id="wAge" style="margin-top:3px">' +
-          '<span>I am 18 or older. Cash prizes only go to entrants 18 and over; under 18 you can still compete and win the placement.</span>' +
-        '</label>' +
-        '<div class="btn-row">' +
-          '<button class="btn btn-primary" data-send>Send it</button>' +
-          '<button class="btn" data-no>Cancel</button>' +
-        '</div></div>';
-    function close(){ back.remove(); }
-    back.querySelector('[data-no]').addEventListener('click', close);
-    back.addEventListener('click', function(e){ if (e.target === back) close(); });
-    var send = back.querySelector('[data-send]');
-    send.addEventListener('click', function(){
-      if (!back.querySelector('#wAge').checked){
-        fail('Confirm you are 18 or older, or compete without the cash prize.');
-        return;
-      }
-      busy(send, true, 'Sending');
-      api('/api/entry-waiver', {
-        action: 'request', tid: t.tid,
-        reason: back.querySelector('#wReason').value,
-        ageAttested: true,
-      }).then(function(){
-        close();
-        good('Asked. The host will get back to you.');
-        return load();
-      }).catch(function(e){ fail(e.message); })
-        .then(function(){ busy(send, false); });
-    });
-    document.body.appendChild(back);
-  }
-
-  // Host side: the queue of people who asked, with the decision.
-  function renderWaiverQueue(queue, t){
-    var pending = queue.filter(function(w){ return w.status === 'pending'; });
-    var card = $('hostBody');
-    if (!card || card.querySelector('[data-waiver-queue]')) return;
-    if (!queue.length) return;
-    var box = document.createElement('div');
-    box.setAttribute('data-waiver-queue', '1');
-    var h = document.createElement('div');
-    h.style.cssText = 'margin-top:20px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
-    h.textContent = 'Free-entry requests · ' + pending.length + ' waiting';
-    box.appendChild(h);
-    queue.forEach(function(w){
-      var row = document.createElement('div');
-      row.className = 'pairing';
-      row.innerHTML =
-        '<div><div class="side">' + esc(w.name) + '</div>' +
-          (w.reason ? '<div class="note" style="margin-top:2px">' + esc(w.reason) + '</div>' : '') +
-        '</div>' +
-        '<span class="pill ' + (w.status === 'approved' ? 'pill-live' : w.status === 'declined' ? 'pill-done' : 'pill-soon') + '">' +
-          esc(w.status) + '</span>' +
-        '<div class="sp"></div>';
-      if (w.status === 'pending'){
-        var sp = row.querySelector('.sp');
-        [['Grant it', true], ['Not this time', false]].forEach(function(pair){
-          var b = document.createElement('button');
-          b.className = 'btn btn-sm' + (pair[1] ? ' btn-primary' : '');
-          b.textContent = pair[0];
-          b.addEventListener('click', function(){
-            busy(b, true, 'Saving');
-            api('/api/entry-waiver', { action: 'decide', tid: t.tid, uid: w.uid, approve: pair[1] })
-              .then(function(){ good(pair[1] ? 'Granted. They are in the prize bracket.' : 'Declined.'); return load(); })
-              .catch(function(e){ fail(e.message); })
-              .then(function(){ busy(b, false); });
-          });
-          sp.appendChild(b);
-        });
-      }
-      box.appendChild(row);
-    });
-    card.appendChild(box);
   }
 
   function register(btn){

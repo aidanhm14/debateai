@@ -77,7 +77,7 @@ export default async (request) => {
   if (!ENTRY_PAYMENTS_LIVE) {
     return jsonResponse({
       error: 'ENTRY_PAYMENTS_OFF',
-      message: 'Paid entry is not open yet. Free entry works today and plays the same bracket.',
+      message: 'Paid entry is not open yet. Free entry works today and plays the same bracket, but it is not eligible for cash prizes.',
     }, 403, request);
   }
   if (body.ageAttested !== true) {

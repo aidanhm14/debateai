@@ -61,7 +61,7 @@
       "availability": "https://schema.org/InStock",
       "url": "https://itsdebatable.com/tournaments",
       "validFrom": "2026-08-11T00:00:00-04:00",
-      "description": "Plays the same field, same motions, same judge and the same leaderboard."
+      "description": "Plays the same field, same motions, same judge and the same leaderboard. Not eligible for cash prizes."
     },
     {
       "@type": "Offer",
@@ -71,7 +71,7 @@
       "availability": "https://schema.org/InStock",
       "url": "https://itsdebatable.com/tournaments",
       "validFrom": "2026-08-11T00:00:00-04:00",
-      "description": "Makes your entry eligible for the cash prizes. Waived for anyone who asks, on identical terms. Cash prizes go to winners aged 18 or over."
+      "description": "Makes your entry eligible for cash prizes. Free entries are not cash-eligible. Cash prizes go to eligible paid entrants aged 18 or over."
     }
   ]
 }
@@ -107,7 +107,7 @@
         {
           "@type": "Question",
           "name": "There is prize money. Where does it come from?",
-          "acceptedAnswer": {"@type": "Answer", "text": "Prizes are funded by the organizer rather than raised from a pot of entry fees, so the amounts are fixed: they do not grow with a big field or shrink with a small one. The one condition on the money is age. Cash prizes are paid to winners aged 18 or over; anyone younger competes for the placement and the ranking."}
+          "acceptedAnswer": {"@type": "Answer", "text": "Prizes are funded by the organizer rather than raised from a pot of entry fees, so the amounts are fixed. Cash prizes are paid only to eligible paid entrants aged 18 or over. Free entrants compete for the same placement title and ranking, but cannot receive cash; the cash moves to the next highest paid entrant."}
         },
         {
           "@type": "Question",
@@ -586,19 +586,13 @@ h1,h2,h3,p{margin-top:0}
     </div>
   </section>
 
-  <!-- ── Bracket entry (2026-08-10, paid door retired same day) ─────
-       One door: entry is free and everyone lands in the same bracket
-       for the same prizes. Hydrates from the `tournaments` Firestore
-       collection (first status:'registration' doc); with no open doc
-       it shows the honest empty state.
-
-       The paid door is GONE from the markup, not merely hidden. It had
-       been hidden only by a JS branch that ran when entryFeeCents was
-       0, so a stale doc with a non-zero fee (which is exactly what was
-       live) re-rendered a "Pay in with card" button pointing at an
-       endpoint that answers 410 ENTRY_IS_FREE. Deleting the markup
-       makes stale data unable to resurrect a payment promise we cannot
-       keep. See entry-checkout.mjs for why paid entry was retired. -->
+  <!-- ── Bracket entry ───────────────────────────────────────────────
+       Two doors enter the same bracket. A completed paid entry is the
+       only route to cash-prize eligibility. Free entry keeps the same
+       rounds, judge, placement title and public ranking, but cannot
+       receive cash. Hydrates from the first public tournament whose
+       status is registration; with no open doc it shows the honest
+       empty state. -->
   <section class="enter" id="enter">
     <style>
       .enter{padding:56px 0;border-top:1px solid var(--line);background:linear-gradient(180deg,var(--paper),var(--paper-2))}
@@ -614,7 +608,6 @@ h1,h2,h3,p{margin-top:0}
       .enter-door-sub{font-family:var(--sans);font-size:.76rem;line-height:1.5;color:var(--muted);margin:0}
       .enter-door--paid{border-color:rgba(217,47,47,.4);background:var(--red-soft)}
       .enter-door--paid .enter-door-k{color:var(--red)}
-      .enter-waiver{padding-top:8px;border-top:1px dashed rgba(217,47,47,.3)}
       .enter-age{display:flex;align-items:flex-start;gap:8px;font-family:var(--sans);font-size:.7rem;line-height:1.45;color:var(--muted);margin-top:2px}
       .enter-age input{margin-top:2px;accent-color:var(--red)}
       .enter-door--paid .enter-btn{background:var(--red);border-color:var(--red-dark)}
@@ -653,8 +646,7 @@ h1,h2,h3,p{margin-top:0}
             <div class="enter-door enter-door--paid" id="paidDoor">
               <span class="enter-door-k">Prize entry</span>
               <span class="enter-door-fee">$20</span>
-              <p class="enter-door-sub">Makes you eligible for the cash prizes. Same rounds, same judge, same standings as a free entry; the only thing it changes is whether the money can come to you. Prizes are fixed and funded by us, so they do not shrink if few people enter.</p>
-              <p class="enter-door-sub enter-waiver">If the fee is what stops you, ask on this page and it gets waived. A waived entry is prize-eligible on identical terms, and nothing public marks it as comped.</p>
+              <p class="enter-door-sub">Makes you eligible for the cash prizes. Same rounds, same judge, same standings as a free entry; the only thing it changes is whether the money can come to you. Cash eligibility requires a completed paid entry.</p>
               <label class="enter-age"><input type="checkbox" id="enterAge"> I confirm I am 18 or older and paid entry is legal where I live.</label>
               <button type="button" class="enter-btn" id="enterPaidBtn">Pay in with card</button>
             </div>
@@ -666,7 +658,7 @@ h1,h2,h3,p{margin-top:0}
             </div>
           </div>
           <p class="enter-status" id="enterStatus" hidden></p>
-          <p class="enter-note" id="enterNote">No purchase is necessary to compete or to climb the leaderboard. Cash prizes are paid to winners aged 18 or over, and are void where prohibited. The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.</p>
+          <p class="enter-note" id="enterNote">No purchase is necessary to compete or to climb the leaderboard. Free entries cannot receive cash prizes. Cash prizes are paid only to eligible paid entrants aged 18 or over and are void where prohibited. The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.</p>
         </div>
       </div>
     </div>
@@ -692,7 +684,7 @@ h1,h2,h3,p{margin-top:0}
         </details>
         <details class="faq-item" id="faqCost">
           <summary id="faqCostQ">There is prize money. Where does it come from?</summary>
-          <p id="faqCostA">Prizes are funded by us, not raised from a pot of entry fees. That is why the amounts are fixed: they do not grow if a thousand people enter and they do not shrink if twelve do. The one condition on the money is age. Cash prizes are paid to winners aged 18 or over, and anyone younger competes for the placement and the ranking rather than the cash.</p>
+          <p id="faqCostA">Prizes are funded by us, not raised from a pot of entry fees. Cash eligibility requires a completed paid entry and age 18 or older. Free entrants play the same field and can win the placement title and ranking, but cannot receive cash. That cash moves to the next highest paid entrant.</p>
         </details>
         <details class="faq-item">
           <summary>Who judges, and is that actually fair?</summary>
@@ -829,11 +821,13 @@ h1,h2,h3,p{margin-top:0}
     }catch(e){return '$'+(cents/100)}
   }
 
-  // A checkout link may still sit in an old tab or inbox from the few
-  // hours paid entry existed. Explain rather than leave them guessing.
+  // Return from Stripe with an explicit status. Registration is made
+  // before checkout, so a canceled payment still leaves a free,
+  // non-prize entry in the bracket.
   try{
     var q=new URLSearchParams(location.search);
-    if(q.get('entry'))say('Entry is free now, so there is nothing to pay. Press enter below and you are in the same bracket, judged the same way, for the same prizes.',null);
+    if(q.get('entry')==='success')say('Payment received. Your entry is eligible for cash prizes after confirmation.','good');
+    if(q.get('entry')==='canceled')say('Payment was canceled. Your free entry remains registered, but it is not eligible for cash prizes.',null);
   }catch(e){}
 
   if(!empty)return;
@@ -866,7 +860,7 @@ h1,h2,h3,p{margin-top:0}
     var lede=document.getElementById('heroLede');
     if(lede&&t.name){
       lede.textContent=t.name+' runs '+(t.startsAt||'soon')+'. One day, entirely online, '+
-        'free to enter, open to anyone.'+
+        'with free non-prize entry available to anyone.'+
         ' You debate from your laptop, one round at a time, and every round ends with a written verdict explaining who won and why.';
     }
 
@@ -878,7 +872,7 @@ h1,h2,h3,p{margin-top:0}
       // report; a "0 entries" counter on a launch page argues against
       // entering, and its absence claims nothing either way.
       var bits=[];
-      bits.push('<b>Free</b> to enter');
+      bits.push('<b>Free</b> non-prize entry');
       bits.push('Every round <b>judged in writing</b>');
       if(t.entryCount>0)bits.push('<b>'+t.entryCount+'</b> '+(t.entryCount===1?'entry':'entries')+' so far');
       bits.push('Final <b>streamed live</b>');
@@ -889,22 +883,18 @@ h1,h2,h3,p{margin-top:0}
     var wm=document.getElementById('watchMetaEntry');
     if(wm)wm.textContent='Nothing either';
 
-    /* Entry is free, permanently (see entry-checkout.mjs). This block
-       used to branch every cost-asserting string on t.entryFeeCents,
-       which meant a stale doc could still tell someone entry was paid.
-       The fee field is no longer read anywhere on this page: there is
-       one entry model, so the copy states it unconditionally and no
-       amount of stale data can contradict the endpoint. */
+    /* The eligibility distinction is stated unconditionally rather
+       than inferred from a possibly stale entryFeeCents field. */
     function setText(id,txt){var e=document.getElementById(id);if(e)e.textContent=txt}
     setText('enterHead','Two doors, one all-day field.');
     setText('enterSub','Sign in and enter. Then show up whenever suits you on the day, get paired, and debate. You are not committing to a start time.');
     var note=document.getElementById('enterNote');
     if(note){
-      note.innerHTML='No purchase is necessary to compete or to climb the leaderboard, and the fee is waived for anyone who asks. Paid entry is 18+ and void where prohibited. '+
+      note.innerHTML='No purchase is necessary to compete or to climb the leaderboard. Free entries cannot receive cash prizes. Paid entry is 18+ and void where prohibited. '+
         'The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.';
     }
     setText('faqCostQ','What does the $20 actually buy?');
-    setText('faqCostA','Eligibility for the cash, and nothing else. Both doors play the same field, on the same motions, in front of the same judge, and both post to the same public leaderboard. Prizes are funded by us rather than raised from entry fees, so the amounts are fixed either way. If the fee is the problem, ask and it is waived, on identical terms, which means nobody is kept out of the money by not having twenty dollars.');
+    setText('faqCostA','Eligibility for the cash, and nothing else. Both doors play the same field, on the same motions, in front of the same judge, and both post to the same public leaderboard. Only a completed paid entry can receive cash. A free entrant can win the placement title and ranking, while that cash moves to the next highest paid entrant.');
 
     var cta=document.getElementById('heroEnter');
     if(cta&&t.status==='registration')cta.firstChild.nodeValue='Enter '+(t.name||'the bracket')+' ';
@@ -1014,8 +1004,8 @@ h1,h2,h3,p{margin-top:0}
             var code=out.j&&out.j.error;
             if(code==='ALREADY_PAID')say('You already paid in. You are prize-eligible.','good');
             else if(code==='FREE_ONLY'||code==='ENTRY_PAYMENTS_OFF')
-              say('Paid entry is not open right now. Your free entry is registered, and the fee can be waived on request.',null);
-            else say((out.j&&(out.j.message||out.j.error))||'Payment could not start. Your entry is registered; try the card again or ask for a waiver.','bad');
+              say('Paid entry is not open right now. Your free entry is registered, but it is not eligible for cash prizes.',null);
+            else say((out.j&&(out.j.message||out.j.error))||'Payment could not start. Your free entry is registered, but it is not eligible for cash prizes.','bad');
           });
         });
       }).catch(function(){say('Network error. Try again.','bad')}).finally(function(){

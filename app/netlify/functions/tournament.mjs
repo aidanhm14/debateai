@@ -282,6 +282,10 @@ export default async (request) => {
       memberNames,
       teamId: teamSize === 2 ? String(body?.teamId || '') : '',
       status: 'registered',
+      // Registration always starts as the free, non-prize path. The
+      // signed Stripe webhook is the only code that can flip this true.
+      paidEntry: false,
+      entryKind: 'free',
       wins: 0,
       losses: 0,
       speaks: 0,
