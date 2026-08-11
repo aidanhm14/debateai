@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Watch Debates Live · Streams, Replays, and Clips · Debatable</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 <meta name="description" content="Watch live debate streams and full round replays. Every published round is recorded end to end and clippable, so you can cut the moment a round turned and share it anywhere: YouTube, TikTok, X, or your team channel." />
@@ -19,6 +19,12 @@
 <meta name="twitter:title" content="Watch Debates Live · Streams, Replays, and Clips">
 <meta name="twitter:description" content="Live debate streams and full round replays. Every published round is recorded and clippable.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+
+<!-- Load FIRST, before any other app script: it sets html.dbnative, which
+     every app-only rule and the bottom tab bar depend on. Without it /watch
+     rendered in the native shell with no tab bar (a dead end, and it is a
+     primary tab) and no status-bar clearance. -->
+<script src="/js/native-bridge.js"></script>
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
@@ -50,7 +56,11 @@ em,i{font-style:normal}
 a{color:inherit}
 
 /* ── Header */
-.page-head{padding:44px 0 10px}
+/* env() rather than the app's --safe-top var so this is correct on the web
+   too, where it resolves to 0. The page runs full-bleed in the native shell,
+   so without it the WATCH eyebrow sat inside the status bar, where iOS eats
+   the touch and nothing on that row can be tapped. */
+.page-head{padding:calc(44px + env(safe-area-inset-top,0px)) 0 10px}
 .page-eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);font-weight:700}
 .page-title{font-size:clamp(30px,5vw,44px);font-weight:800;line-height:1.05;margin-top:8px}
 .page-sub{color:var(--dim);font-size:17px;margin-top:10px;max-width:640px}
@@ -119,7 +129,7 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 
 footer{margin:70px 0 40px;color:var(--faint);font-size:14px;text-align:center}
 footer a{color:var(--dim)}
-@media (max-width:640px){ .page-head{padding-top:30px} }
+@media (max-width:640px){ .page-head{padding-top:calc(30px + env(safe-area-inset-top,0px))} }
 </style>
 </head>
 <body>
