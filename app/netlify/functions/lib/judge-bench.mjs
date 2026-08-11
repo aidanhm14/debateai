@@ -133,6 +133,28 @@ export const BENCH_PERSONAS = {
       ],
     },
   },
+  deepseek: {
+    key: 'deepseek',
+    name: 'The Auditor',
+    glyph: '▨',
+    color: '#4D6BFE',
+    seat: 'Wing',
+    temper: 'Mechanical. Follows the chain link by link and stops at the first one that is missing.',
+    hardOn: ['actor', 'landed'],
+    hardOnLine: 'Hardest on a behaviour change with no actor, and a chain that lost the listener partway.',
+    paradigm: {
+      note: [
+        'I read your case as a chain and I check every link. The one that is missing is usually the one you were most confident about.',
+        'For anything that turns on people acting differently, tell me who acts, why they want to, what power they have, and whether the timeline fits. Three of the four is not a mechanism.',
+        'I also track where the chain stopped being followable. If I had to reconstruct your third step myself, you did not make it, and I will name the sentence where it went.',
+      ],
+      inPractice: [
+        { k: 'Speed', v: 'Fast is fine. Skipping a link to save time is not.' },
+        { k: 'Mechanisms', v: 'Actor, incentive, capacity, timeline. Name all four or I discount the step.' },
+        { k: 'Rebuttal', v: 'Break one load-bearing link cleanly and you have done more than answering six things partly.' },
+      ],
+    },
+  },
 };
 
 export const UNKNOWN_PERSONA = {

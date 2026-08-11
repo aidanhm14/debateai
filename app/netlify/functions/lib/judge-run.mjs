@@ -31,15 +31,31 @@ import { normalizeVote, tallyPanel } from './judge-panel.mjs';
 const PANEL_ENABLED = process.env.JUDGE_PANEL_ENABLED !== '0';
 const REQUIRE_PANEL = process.env.JUDGE_REQUIRE_PANEL === '1';
 
-const DIM_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
-const JUROR_MAX_TOKENS = 900;
+const DIM_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing', 'persuasion'];
+
+// Output budget per juror. Was 900, which had stopped being enough
+// SILENTLY. Measured against a real three-speech round on 2026-08-11:
+// the pinned Anthropic juror spent its entire 900 on reasoning, returned
+// `stop_reason: max_tokens` with no closing brace, failed to parse, and
+// recorded as a missing vote on every ballot. Reasoning models bill
+// thinking against max_tokens, so a cap tuned before they existed reads
+// as a parse bug forever and looks like the parser's fault.
+//
+// 3000 clears the widest measured ballot (2064 tokens) with headroom.
+// This is the one place both surfaces read it from, so live rounds, which
+// can settle credits, were carrying the same defect.
+const JUROR_MAX_TOKENS = Number(process.env.JUDGE_JUROR_MAX_TOKENS || 3000);
 
 /**
- * Per-axis scorecard. All four axes must carry finite scores for BOTH
- * sides or the whole block is dropped: the renderers treat dimensions as
+ * Per-axis scorecard. Every axis must carry finite scores for BOTH sides
+ * or the whole block is dropped: the renderers treat dimensions as
  * all-or-nothing, and a partial scorecard reads as a lopsided verdict. A
  * model that ignores the field yields a ballot shaped exactly like the
  * pre-scorecard ones.
+ *
+ * Persuasion joined the list with the 2026-persuasion season. The
+ * renderers take the four original axes as a FLOOR rather than requiring
+ * the full list, so rounds judged before it still show their scorecard.
  */
 export function parseDims(raw, aKey, bKey) {
   if (!raw || typeof raw !== 'object') return null;
@@ -79,6 +95,11 @@ export function makeBallotParser(aKey, bKey) {
       winner,
       [aPts]: aPoints,
       [bPts]: bPoints,
+      // The one clash this juror says decided the round. Optional on
+      // purpose: a juror that omits it still casts a valid vote, it just
+      // contributes nothing to the issue-agreement figure, which beats
+      // discarding a vote over a missing string.
+      decidingIssue: String(j.decidingIssue || '').slice(0, 160),
       rfd: String(j.rfd || '').slice(0, 1600),
       ...(dimensions ? { dimensions } : {}),
     };
@@ -128,6 +149,13 @@ export async function runPanel(season, system, user, opts = {}) {
         tally: ballot.winner === aKey ? { a: 1, b: 0 } : { a: 0, b: 1 },
         agreement: 1, unanimous: false, dissent: [], dissents: [],
         marginSpread: 0, marginStdev: 0,
+        // One judge cannot agree with anyone, so issue agreement is null
+        // rather than 1. Recording a lone judge as unanimous on the
+        // reason would inflate the published reliability figure using
+        // exactly the rounds that had no panel behind them.
+        decidingIssue: ballot.decidingIssue || '',
+        issuesNamed: ballot.decidingIssue ? 1 : 0,
+        issueAgreement: null,
         models: [singleModel],
         jurorsWanted: wanted.length,
         jurorsAvailable: available.length,
@@ -156,6 +184,10 @@ export async function runPanel(season, system, user, opts = {}) {
     winner: tally.winner === 'a' ? aKey : (tally.winner === 'b' ? bKey : null),
     [`${aKey}Points`]: tally.points.a,
     [`${bKey}Points`]: tally.points.b,
+    // The majority's deciding issue, not a blend: tallyPanel returns the
+    // one from the largest agreeing cluster, so this is the reason the
+    // panel actually converged on rather than whichever juror was first.
+    ...(tally.decidingIssue ? { decidingIssue: tally.decidingIssue } : {}),
     rfd: lead ? lead.rfd : '',
     ...(tally.dimensions ? {
       dimensions: Object.fromEntries(
@@ -169,7 +201,17 @@ export async function runPanel(season, system, user, opts = {}) {
     ballot,
     panel: {
       resolution: tally.resolution,
-      degraded: available.length < wanted.length,
+      // Degraded means the panel did not run at full strength, and the
+      // measure has to be VOTES rather than configured keys. The old
+      // test was `available.length < wanted.length`, which only catches
+      // a juror whose key is unset: a juror whose provider returns 429
+      // or times out was counted as available, cast no vote, and the
+      // ballot still reported degraded:false. That is the silent
+      // degradation the charter exists to forbid, and it is not
+      // hypothetical (the Google seat has been returning 429 on every
+      // round since its billing was exhausted). The reliability endpoint
+      // counts degraded panels off this flag, so it was undercounting.
+      degraded: tally.votesCast < wanted.length,
       votesCast: tally.votesCast,
       panelSize: tally.panelSize,
       quorum,
@@ -180,6 +222,14 @@ export async function runPanel(season, system, user, opts = {}) {
       dissents,
       marginSpread: tally.marginSpread,
       marginStdev: tally.marginStdev,
+      // Agreement on the REASON, recorded next to agreement on the
+      // winner. The reliability endpoint rolls these up, and the two
+      // diverging is the finding worth having: three jurors agreeing on
+      // the winner for three different reasons is a weaker result than
+      // the vote count alone suggests.
+      decidingIssue: tally.decidingIssue,
+      issuesNamed: tally.issuesNamed,
+      issueAgreement: tally.issueAgreement,
       models: available.map((j) => j.model),
       jurorsWanted: wanted.length,
       jurorsAvailable: available.length,

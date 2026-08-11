@@ -12,7 +12,15 @@ import { getBrainBlock } from './lib/brain.mjs';
 import { buildAdjudicationBlock, isJudgeFeature } from './lib/adjudication.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
+// Reasoning-model note that bit the async panel and will bite here next:
+// on these models thinking tokens are billed against max_tokens, so a
+// caller passing a cap tuned for a pre-reasoning model gets a truncated
+// response and blames its own parser. Callers wanting a long structured
+// output (a ballot, a case) should ask for 8000+.
 const ALLOWED_MODELS = [
+  'claude-opus-5',
+  'claude-fable-5',
+  'claude-sonnet-5',
   'claude-sonnet-4-6',
   'claude-sonnet-4-20250514',
   'claude-haiku-4-5-20251001',

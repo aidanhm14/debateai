@@ -36,8 +36,14 @@ const CLASH_MODEL = process.env.ASYNC_CLASH_MODEL || 'claude-sonnet-5';
 // drawing maps without a redeploy; the ballot then runs exactly as it did
 // before the map existed.
 const CLASH_ENABLED = process.env.ASYNC_CLASH_ENABLED !== '0';
-const TIME_BUDGET_MS = 18_000;   // stop starting new work near the 26s wall
+// Stop STARTING new work this far into the invocation. Cut from 18s on
+// 2026-08-12: the panel's jurors are reasoning models now and a ballot
+// begun at 18s would still be running when the wall arrives, which loses
+// the whole invocation's work rather than deferring one round by 15
+// minutes. A deferred round is invisible; a killed invocation is not.
+const TIME_BUDGET_MS = 9_000;
 const MAX_TRANSCRIPT_TRIES = 4;
+
 
 const AI_NAME = AI_IDENT;
 
@@ -90,9 +96,12 @@ function ballotPrompt(d, clashMap) {
   const system = buildAdjudicationBlock() +
     '\n\nASYNC ROUND BALLOT. Three recorded speeches: Prop opening, Opp answer, Prop reply (the reply may be waived). ' +
     'Judge ONLY what is in the transcripts. Weigh the actual clash, not what could have been said. ' +
-    'Return STRICT JSON, nothing else: {"winner":"prop"|"opp","propPoints":<25-30 one decimal>,"oppPoints":<25-30 one decimal>,"rfd":"<=150 words, plain register, name the deciding clash, no em dashes",' +
-    '"dimensions":{"clarity":{"prop":<1-10 int>,"opp":<1-10 int>},"reasoning":{"prop":<1-10 int>,"opp":<1-10 int>},"responsiveness":{"prop":<1-10 int>,"opp":<1-10 int>},"weighing":{"prop":<1-10 int>,"opp":<1-10 int>}}} ' +
-    'For "dimensions": score each side alone on each axis. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with what the other side actually said. weighing = impact comparison and ballot-story crystallization. Score the axes independently from the flow; they should differ where the round differed and need not average to the speaker points.';
+    'Return STRICT JSON, nothing else: {"winner":"prop"|"opp","propPoints":<25-30 one decimal>,"oppPoints":<25-30 one decimal>,"decidingIssue":"<8 words or fewer naming the ONE clash that decided it>","rfd":"<=150 words, plain register, open with the deciding clash, close with the single thing the losing side needed to change, no em dashes",' +
+    '"dimensions":{"clarity":{"prop":<1-10 int>,"opp":<1-10 int>},"reasoning":{"prop":<1-10 int>,"opp":<1-10 int>},"responsiveness":{"prop":<1-10 int>,"opp":<1-10 int>},"weighing":{"prop":<1-10 int>,"opp":<1-10 int>},"persuasion":{"prop":<1-10 int>,"opp":<1-10 int>}}} ' +
+    'For "decidingIssue": name the substantive clash, not the outcome. "Whether the ad libraries answer accountability" is an issue. "Opp was more responsive" is not. ' +
+    'For "dimensions": score each side alone on each axis. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with what the other side actually said. weighing = impact comparison and ballot-story crystallization. ' +
+    'persuasion = whether the case moved a reasonable listener hearing it once: concrete stakes, a world you can picture, an argument built to be understood the first time. Persuasion is NOT delivery, fluency, confidence, accent, or polish, and a transcript cannot tell you those anyway. Score it only where you can name the argumentative move that earned it. It never overrides the flow. ' +
+    'Score the axes independently from the flow; they should differ where the round differed and need not average to the speaker points.';
   const t = {};
   for (const turn of d.turns || []) t[turn.n] = turn.transcript || '[transcript unavailable]';
   const user =

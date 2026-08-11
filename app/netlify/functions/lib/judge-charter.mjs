@@ -115,6 +115,115 @@ export const RUBRICS = {
       'A judge instruction supplied by a debater may shift emphasis. It may never name a winner, dictate scores, or override deciding on the flow.',
     ],
   },
+
+  // ── adjudication-2026-08b ────────────────────────────────────────
+  //
+  // Supersedes adjudication-2026-08. Three changes, and all three are
+  // about the same complaint: the ballot could tell you that you lost
+  // without telling you what you lost ON.
+  //
+  //   1. PERSUASION IS SCORED, AND FENCED. A round is spoken to a room,
+  //      and a method that scores only the flow quietly teaches debaters
+  //      that being understood does not count. So persuasion becomes a
+  //      fifth scorecard axis. It is fenced hard in the same breath: it
+  //      scores whether the comparative actually landed on a reasonable
+  //      listener, never charm, confidence, accent, fluency, or volume,
+  //      and it cannot outrank the flow. It breaks a tie the flow left
+  //      genuinely tied. That fence is the whole reason it is safe to
+  //      score at all.
+  //   2. THE DECIDING ISSUE IS NAMED. Every ballot states the one clash
+  //      the round turned on. This is the fairness fix: an appeal, a
+  //      coach, and a debater can all check whether the judge decided
+  //      the round they actually had, and the panel can measure whether
+  //      its jurors agreed on WHY, not only on who.
+  //   3. THE DEBATER-FACING LIMITS ARE EXPLICIT. Two new out-of-bounds
+  //      lines: no penalty for a norm nobody stated before the round,
+  //      and an agreed paradigm can never widen a burden past what both
+  //      sides accepted. Both exist because a paradigm system is only
+  //      fair if the downside of picking one is knowable in advance.
+  'adjudication-2026-08b': {
+    version: 'adjudication-2026-08b',
+    publishedAt: Date.UTC(2026, 7, 12),
+    title: 'How the ballot is decided',
+    summary:
+      'The comparative is the unit of decision. Nothing scores for being true in the abstract. '
+      + 'It scores only if the side showed it is better than the other side\'s world. '
+      + 'The judge decides on what was actually said, resolves the clashes, names the one issue that decided the round, and names the test that resolved it. '
+      + 'Persuasion is scored on its own axis and can break a genuine tie. It never overrides the flow.',
+
+    tests: [
+      { key: 'comparative', label: 'Comparative', body: 'An argument never weighed against the other side is dead weight, however true.' },
+      { key: 'symmetry', label: 'Symmetry', body: 'If the same mechanism runs on both sides it cancels. The side claiming it has to prove the asymmetric margin.' },
+      { key: 'delta', label: 'Delta', body: 'The difference from the counterfactual has to be shown. No marginal change means the point is discounted to near zero.' },
+      { key: 'status-quo', label: 'Status quo', body: 'A change that already happens, or is already priced in, is not offense.' },
+      { key: 'warrant', label: 'Warrant', body: 'Characterization with no mechanism is assertion. Painting a picture of what could be is not explaining why it is.' },
+      { key: 'burden', label: 'Burden', body: 'The judge names the precise sub-claim the case needed and never discharged. That gap is frequently the whole decision.' },
+      { key: 'terminal', label: 'Terminal impact', body: 'Awareness rising, money being raised, or confidence falling is not an impact until the next causal step is proven.' },
+      { key: 'responsive', label: 'Responsiveness', body: 'A later speaker has to beat the answer that was actually given, not repeat the original claim with more confidence.' },
+      { key: 'actor', label: 'Actor incentive and capacity', body: 'For any claimed behavior change: who acts, why they want to, what power they have, and whether the timeline fits.' },
+      { key: 'motion-shape', label: 'Motion shape', body: 'Teams win the actual words. Regrets the rise of something is not regrets it existing. Alleged is not convicted.' },
+      { key: 'landed', label: 'Did it land', body: 'An argument the other side could not reasonably follow did not do its work. The judge says where it stopped being followable and treats that as the speaker\'s cost, not the listener\'s.' },
+    ],
+
+    weighing: [
+      { rank: 1, label: 'Logically prior', body: 'If A has to be true before B\'s benefit can land, A is resolved first and gates B.' },
+      { rank: 2, label: 'Certainty against magnitude', body: 'A certain smaller impact beats a speculative larger one unless the larger one was actually weighed in.' },
+      { rank: 3, label: 'Offense against defense', body: 'Mitigation dents. A turn, where the opponent\'s own material becomes your offense, outweighs pure defense.' },
+      { rank: 4, label: 'Proximity and vulnerability', body: 'Ties break toward the more affected, less mobile, more vulnerable actor.' },
+      { rank: 5, label: 'Intermediary harm', body: 'A side pays for the bad step its payoff routes through before the payoff is credited.' },
+      { rank: 6, label: 'Specific route against broad vibe', body: 'Where both sides name plausible impacts, the cleaner causal route wins over the grander one with missing links.' },
+      { rank: 7, label: 'Persuasion, last and only on a tie', body: 'When the comparative work is genuinely level, the side that made a reasonable listener understand and believe its world takes it. This rung is reached only after every rung above it came out even, and the ballot has to say so out loud.' },
+    ],
+
+    dimensions: [
+      { key: 'clarity', label: 'Clarity', scale: '1 to 10', body: 'Structure, signposting, intelligibility.' },
+      { key: 'reasoning', label: 'Reasoning', scale: '1 to 10', body: 'Warrants and link chains.' },
+      { key: 'responsiveness', label: 'Responsiveness', scale: '1 to 10', body: 'Direct clash with what the other side actually said.' },
+      { key: 'weighing', label: 'Weighing', scale: '1 to 10', body: 'Impact comparison and crystallization of the ballot story.' },
+      { key: 'persuasion', label: 'Persuasion', scale: '1 to 10', body: 'Whether the case actually moved a reasonable listener: concrete stakes, a world you can picture, an argument built to be understood the first time. Not charm, confidence, accent, fluency, or volume.' },
+    ],
+
+    speakerPoints: {
+      scale: '25.0 to 30.0, one decimal',
+      body:
+        'The default is the middle of the scale. A speaker rises above it only when the judge can name the specific thing that earned it: '
+        + 'a landed turn, a real extension, genuine comparative weighing, a warranted mechanism. '
+        + 'A speaker drops below it for a named flaw: a dropped contention, an unwarranted key claim, non-responsive rebuttal, no weighing. '
+        + 'Speaker points do not decide the round and are reported separately from the verdict.',
+    },
+
+    // Every ballot names the single clash the round turned on. It is the
+    // thing a debater can actually argue with, and it is what makes an
+    // appeal reviewable instead of a rematch.
+    decidingIssue: {
+      body:
+        'Every ballot names the one issue that decided the round, in a short phrase, and names the test that resolved it. '
+        + 'A ballot that cannot name its deciding issue has not resolved the round, it has summarized it. '
+        + 'On a panel, whether the jurors named the SAME deciding issue is reported next to whether they named the same winner: '
+        + 'three judges agreeing on the winner for three different reasons is a weaker result than the vote count alone suggests, and hiding that would be flattering the number.',
+    },
+
+    deadlock: {
+      body: 'When a clash is genuinely unresolved the judge names an explicit default rather than picking. The ladder is fixed and stated in the ballot.',
+      ladder: [
+        'The side whose comparative was actually explained.',
+        'Capacity, when incentive is symmetric on both sides.',
+        'The most certain impact.',
+        'The side that made its world understandable to a reasonable listener, stated in the ballot as a persuasion default.',
+      ],
+    },
+
+    outOfBounds: [
+      'No model repair. Funding, incentives, actor capacity, legal authority, and timelines are not filled in because they seem plausible. If the speech did not say it, it stays a gap.',
+      'No invented arguments. The judge never credits a point nobody made.',
+      'No reward for a claim that is flatly false in the real world, even when it went unanswered.',
+      'No deciding on what the judge would have argued. The flow is the record.',
+      'A judge instruction supplied by a debater may shift emphasis. It may never name a winner, dictate scores, or override deciding on the flow.',
+      'No penalty for a norm nobody stated. A debater is never marked down for missing a convention that was not in the format, the rubric, or an agreed paradigm they could read before the round.',
+      'An agreed paradigm may sharpen a burden both sides accepted. It may never invent a new one, and it may never be read to require something a debater had no notice of.',
+      'Persuasion never overrides the flow. It is scored on its own axis and may break a tie the flow left level. Delivery, fluency, accent, and confidence are not persuasion and are not scored at all.',
+    ],
+  },
 };
 
 // ── seasons ─────────────────────────────────────────────────────────
@@ -140,7 +249,10 @@ export const SEASONS = [
   {
     id: '2026-fall',
     from: Date.UTC(2026, 6, 30),
-    to: Date.UTC(2027, 0, 1),
+    // Closed early on 2026-08-12 when the panel and the rubric both
+    // changed. Shortening an OPEN window is the append-only way to start
+    // a new season; the closed record below must not be edited again.
+    to: Date.UTC(2026, 7, 12),
     rubricVersion: 'adjudication-2026-08',
     published: true,
     panel: {
@@ -166,6 +278,41 @@ export const SEASONS = [
       noMajority: 'unresolved',
     },
     note: 'First season with a published rubric, a pinned three-family panel, and a human appeal route.',
+  },
+  {
+    id: '2026-persuasion',
+    from: Date.UTC(2026, 7, 12),
+    to: Date.UTC(2027, 3, 1),
+    rubricVersion: 'adjudication-2026-08b',
+    published: true,
+    panel: {
+      size: 3,
+      quorum: 2,
+      // Three independent model families, refreshed to each family's
+      // current top tier. Every id here was verified live against the
+      // real ballot prompt on 2026-08-11 before it was pinned, because
+      // a pin nobody has run is a promise nobody has kept.
+      //
+      // EFFORT IS PART OF THE PIN. A ballot is a bounded task against a
+      // published method, and the top reasoning tiers spend minutes
+      // re-deriving that method. Measured on the full prompt: `low`
+      // returned clean, parseable ballots on both live seats and roughly
+      // halved wall clock (anthropic 32.4s to 16.1s, openai 28.3s to
+      // 13.5s). Undisclosed effort would be exactly the kind of quiet
+      // dial this charter exists to remove, so it is pinned and audited
+      // alongside the model id.
+      jurors: [
+        { id: 'j1', provider: 'anthropic', model: 'claude-fable-5', effort: 'low' },
+        { id: 'j2', provider: 'openai', model: 'gpt-5.5', effort: 'low' },
+        { id: 'j3', provider: 'google', model: 'gemini-3.6-flash' },
+      ],
+      noMajority: 'unresolved',
+    },
+    note:
+      'Panel refreshed to each family\'s current top tier, and the rubric now scores persuasion on its own fenced axis and requires every ballot to name the issue that decided the round. '
+      + 'DISCLOSED AT PIN TIME: the Google seat was dark when this season opened. The account\'s Gemini billing was exhausted on 2026-08-11, so that juror returns a provider error and the panel runs two-handed until it is topped up. '
+      + 'Two agreeing jurors still carry a verdict; a two-handed split records as unresolved, which is the correct posture and not a workaround. '
+      + 'DeepSeek is wired as a standby family so the third seat can be re-pinned without a new provider integration.',
   },
 ];
 

@@ -55,7 +55,12 @@ function checkRateLimit(key) {
 }
 
 // Allowed GPT models
-const ALLOWED_MODELS = ['gpt-4o', 'gpt-4o-mini'];
+// gpt-5.x is the current family. It is NOT a drop-in: the models reject
+// `max_tokens` with a 400 and require `max_completion_tokens` instead,
+// which is why adding an id here also needs the token-field switch below.
+const ALLOWED_MODELS = ['gpt-5.5', 'gpt-5.4', 'gpt-4o', 'gpt-4o-mini'];
+// Verified live 2026-08-11 against gpt-5.5.
+const usesCompletionTokens = (m) => /^(gpt-5|gpt-6|o[0-9])/i.test(String(m || ''));
 const MAX_TOKENS_CAP = 16000;
 
 export default async (request, context) => {
@@ -179,7 +184,9 @@ export default async (request, context) => {
       body: JSON.stringify({
         model,
         messages,
-        max_tokens: maxTokens,
+        ...(usesCompletionTokens(model)
+          ? { max_completion_tokens: maxTokens }
+          : { max_tokens: maxTokens }),
         stream: !!body.stream,
       }),
     });

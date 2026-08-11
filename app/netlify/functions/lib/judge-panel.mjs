@@ -56,11 +56,15 @@ export function normalizeVote(juror, ballot, aKey, bKey) {
     // say "a" while disagreeing wildly about how close it was.
     margin: Number.isFinite(a) && Number.isFinite(b) ? Math.round((a - b) * 10) / 10 : null,
     dimensions: normalizeDims(ballot.dimensions, aKey, bKey),
+    // The one clash this juror says decided the round. Carried through
+    // the tally so the panel can report whether the jurors agreed on the
+    // REASON and not just on the name at the top of the ballot.
+    decidingIssue: String(ballot.decidingIssue || '').slice(0, 160),
     rfd: String(ballot.rfd || '').slice(0, 2000),
   };
 }
 
-const DIM_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
+const DIM_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing', 'persuasion'];
 
 function normalizeDims(dm, aKey, bKey) {
   if (!dm || typeof dm !== 'object') return null;
@@ -97,6 +101,68 @@ function stdev(nums) {
   return Math.round(Math.sqrt(varc) * 100) / 100;
 }
 
+// ── did they agree on WHY ───────────────────────────────────────────
+//
+// A 3-0 panel that names three different deciding issues is not the same
+// object as a 3-0 panel that names one, and reporting only the vote count
+// flatters the first case. So the deciding issues are clustered and the
+// largest cluster is published next to the winner tally.
+//
+// The comparison is deliberately crude: a stopworded token set and a
+// Jaccard overlap. Anything cleverer would be a semantic judgement made
+// by another model, which is the exact circularity this whole subsystem
+// exists to avoid. Crude and inspectable beats clever and unauditable,
+// and the failure mode is under-reporting agreement, which is the safe
+// direction to be wrong in for a number we might quote.
+const ISSUE_STOPWORDS = new Set([
+  'the', 'a', 'an', 'of', 'on', 'in', 'to', 'and', 'or', 'is', 'was', 'it', 'its',
+  'this', 'that', 'whether', 'round', 'debate', 'clash', 'issue', 'question',
+  'side', 'case', 'argument', 'point', 'turned', 'turns', 'decided', 'decides',
+  'over', 'about', 'for', 'with', 'their', 'they', 'them',
+]);
+
+export function issueTokens(text) {
+  return new Set(
+    String(text || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !ISSUE_STOPWORDS.has(w)),
+  );
+}
+
+function jaccard(a, b) {
+  if (!a.size || !b.size) return 0;
+  let hits = 0;
+  for (const w of a) if (b.has(w)) hits += 1;
+  return hits / (a.size + b.size - hits);
+}
+
+// Largest set of jurors naming what reads as the same deciding issue.
+// Greedy single-link clustering: with a panel of three there is nothing
+// a smarter algorithm would find that this misses.
+export function issueConsensus(votes, threshold = 0.34) {
+  const named = (votes || []).filter((v) => v && v.decidingIssue && issueTokens(v.decidingIssue).size);
+  if (named.length < 2) {
+    return { named: named.length, largestCluster: named.length, agreement: null, issue: named.length ? named[0].decidingIssue : '' };
+  }
+  const toks = named.map((v) => issueTokens(v.decidingIssue));
+  let best = { members: [0], size: 1 };
+  for (let i = 0; i < named.length; i += 1) {
+    const members = [i];
+    for (let k = 0; k < named.length; k += 1) {
+      if (k !== i && jaccard(toks[i], toks[k]) >= threshold) members.push(k);
+    }
+    if (members.length > best.size) best = { members, size: members.length };
+  }
+  return {
+    named: named.length,
+    largestCluster: best.size,
+    agreement: Math.round((best.size / named.length) * 100) / 100,
+    issue: named[best.members[0]].decidingIssue,
+  };
+}
+
 // ── the tally ───────────────────────────────────────────────────────
 //
 // Returns the panel verdict plus everything needed to publish the
@@ -122,6 +188,12 @@ export function tallyPanel(votes, panel) {
   const winner = decided ? top : null;
 
   const margins = cast.map((v) => v.margin).filter((m) => Number.isFinite(m));
+  // Agreement on the reason, reported whether or not the winner carried.
+  // On an unresolved panel this is the more informative number of the
+  // two: jurors who split the winner but named the same deciding issue
+  // disagreed about a call, while jurors who named different issues were
+  // not judging the same round.
+  const issues = issueConsensus(cast);
 
   return {
     winner,
@@ -147,6 +219,12 @@ export function tallyPanel(votes, panel) {
     // read as a comfortable round.
     marginSpread: margins.length > 1 ? Math.round((Math.max(...margins) - Math.min(...margins)) * 10) / 10 : 0,
     marginStdev: stdev(margins),
+    // Did the jurors agree on WHY. `issueAgreement` is the share of
+    // issue-naming jurors in the largest cluster; null when fewer than
+    // two named one, because one opinion is not agreement.
+    decidingIssue: issues.issue,
+    issuesNamed: issues.named,
+    issueAgreement: issues.agreement,
     // The ballot shown to debaters. The majority's reasoning is the
     // record; a dissent is surfaced separately rather than blended,
     // because averaging two contradictory RFDs produces prose that
@@ -245,6 +323,11 @@ export function reliabilityFrom(records) {
   const unanimous = decided.filter((r) => r.panel.unanimous);
   const unresolved = rows.filter((r) => r.panel.resolution === 'unresolved');
   const spreads = rows.map((r) => Number(r.panel.marginSpread)).filter((n) => Number.isFinite(n));
+  // Published alongside winner agreement because the two can diverge,
+  // and when they do it is the interesting result: a panel that agrees
+  // on the winner far more often than on the reason is agreeing about
+  // something other than the round.
+  const issueRates = rows.map((r) => Number(r.panel.issueAgreement)).filter((n) => Number.isFinite(n));
 
   return {
     rounds: rows.length,
@@ -257,6 +340,10 @@ export function reliabilityFrom(records) {
       ? Math.round((rows.reduce((s, r) => s + (Number(r.panel.agreement) || 0), 0) / rows.length) * 100) / 100
       : null,
     medianMarginSpread: median(spreads),
+    meanIssueAgreement: issueRates.length
+      ? Math.round((issueRates.reduce((s, n) => s + n, 0) / issueRates.length) * 100) / 100
+      : null,
+    issueAgreementN: issueRates.length,
     kappa: kappa ? kappa.kappa : null,
     kappaBand: kappaBand(kappa ? kappa.kappa : null),
     kappaN: kappa ? kappa.n : 0,

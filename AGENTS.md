@@ -378,6 +378,21 @@ The rules that are easy to break by accident:
 - Panel degradation is fine and disclosed (stamped on the audit row,
   surfaced by the charter). Silent degradation is not. `JUDGE_PANEL_ENABLED=0`
   and `JUDGE_REQUIRE_PANEL=1` are the two env switches.
+- **Reasoning models bill thinking against `max_tokens`, and a cap tuned
+  before they existed reads as a parse bug forever.** This is not
+  hypothetical: the panel's Anthropic seat was capped at 900 tokens, spent
+  all of it reasoning on a real three-speech round, returned no closing
+  brace, and recorded as a missing vote on every ballot. `BALLOT_MAX_TOKENS`
+  in async-sweep is 3000 for that reason. Raise it, don't trim the prompt.
+- **Verify a model id against the live provider before pinning it.** A pin
+  is a published promise about what judged someone's round, so a seat
+  nobody has actually run is a promise nobody has kept. `gpt-5.x` rejects
+  `max_tokens` outright and needs `max_completion_tokens`; effort levels
+  differ per family. Run the ballot prompt through the candidate first.
+- **Effort is part of the pin, not a tuning knob.** It changes how a
+  ballot is reached, so it lives in the season next to the model id and
+  is stamped on the audit row. An undisclosed effort is the same quiet
+  dial as an undisclosed model.
 
 ## Voice rules for AI debater outputs
 

@@ -299,6 +299,14 @@ h1{font-size:clamp(2.4rem,6.4vw,4.9rem);line-height:.99;letter-spacing:-.045em;m
       (r.outOfBounds || []).map(function(o){ return '<li>' + esc(o) + '</li>'; }).join('') + '</ul></article>';
     html += '</div>';
 
+    // Rubrics published before the 2026-persuasion season carry no
+    // decidingIssue block, so this renders only when the rubric that
+    // actually governed the round demanded one.
+    if (r.decidingIssue && r.decidingIssue.body){
+      html += '<div class="cards"><article class="card"><div class="card-kicker">What every ballot has to name</div>' +
+        '<h3>The deciding issue</h3><p>' + esc(r.decidingIssue.body) + '</p></article></div>';
+    }
+
     $('rubric').innerHTML = html;
   }
 
@@ -348,7 +356,8 @@ h1{font-size:clamp(2.4rem,6.4vw,4.9rem);line-height:.99;letter-spacing:-.045em;m
         [o.kappa, 'agreement beyond chance (' + esc(o.kappaBand) + '), over ' + esc(o.kappaN) + ' rounds'],
         [Math.round((o.unanimousRate || 0) * 100) + '%', 'of decided rounds were unanimous'],
         [o.unresolved, 'recorded with no winner, out of ' + esc(o.rounds)],
-        [o.medianMarginSpread == null ? '·' : o.medianMarginSpread, 'typical spread between jurors, in speaker points']
+        [o.meanIssueAgreement == null ? '·' : Math.round(o.meanIssueAgreement * 100) + '%',
+         'of jurors named the same deciding issue, over ' + esc(o.issueAgreementN || 0) + ' rounds']
       ];
     }
     $('stats').innerHTML = cells.map(function(c){

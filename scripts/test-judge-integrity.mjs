@@ -16,6 +16,7 @@ import {
 } from '../app/netlify/functions/lib/judge-charter.mjs';
 import {
   normalizeVote, tallyPanel, median, fleissKappa, kappaBand, reliabilityFrom,
+  issueConsensus, issueTokens,
 } from '../app/netlify/functions/lib/judge-panel.mjs';
 import { auditRecord } from '../app/netlify/functions/lib/judge-audit.mjs';
 import {
@@ -100,6 +101,139 @@ function t(label, cond) {
   const banned = ['holistic', 'robust framework', 'at the end of the day', 'it\'s important to note', 'unlimited'];
   t('no banned phrases in published copy',
     !banned.some((p) => copy.toLowerCase().includes(p.toLowerCase())));
+}
+
+// ── 2b. the persuasion rubric and the pinned panel ──────────────────
+//
+// Added with the 2026-persuasion season. Persuasion is the one axis that
+// could quietly turn the ballot into a popularity contest, so its fence
+// is asserted rather than trusted, and the panel pin is asserted to be a
+// real configuration rather than a plausible-looking one.
+{
+  // Deliberately the NEWEST season rather than today's. A season starts
+  // at a stated boundary and never reaches backwards, so on the day a
+  // new configuration ships there is a window where the incoming season
+  // is real but not yet in force. Asserting against `seasonFor(now)`
+  // here would either fail for those hours or push someone to backdate
+  // the boundary, which is the one edit this calendar exists to prevent.
+  const current = SEASONS[SEASONS.length - 1];
+  const rubric = rubricFor(current.rubricVersion);
+
+  t('the newest season is published', current.published === true);
+  t('the newest season resolves a rubric', !!rubric);
+  t('the newest season pins a panel', !!current.panel);
+  t('the newest season is the one in force at its own start',
+    seasonFor(current.from).id === current.id);
+
+  t('rubric scores persuasion', rubric.dimensions.some((d) => d.key === 'persuasion'));
+  const persuasion = rubric.dimensions.find((d) => d.key === 'persuasion');
+
+  // The fence IS the feature. A persuasion axis that does not disclaim
+  // delivery is a delivery score wearing a better name, and it would
+  // penalise exactly the debaters this product is trying to reach.
+  t('persuasion disclaims delivery on the public card',
+    /not charm|Not charm/.test(persuasion.body) && /accent/i.test(persuasion.body));
+
+  const bounds = rubric.outOfBounds.join(' ').toLowerCase();
+  t('persuasion cannot override the flow', bounds.includes('persuasion never overrides the flow'));
+  t('no penalty for an unstated norm', bounds.includes('no penalty for a norm nobody stated'));
+  t('a paradigm cannot invent a burden', bounds.includes('may never invent a new one'));
+
+  // Persuasion sits at the BOTTOM of the weighing order. If it ever
+  // climbs, a well-delivered case starts beating a better-warranted one.
+  const bottom = rubric.weighing[rubric.weighing.length - 1];
+  t('persuasion weighs last', /persuasion/i.test(bottom.label));
+  t('every rung above persuasion is substantive',
+    rubric.weighing.slice(0, -1).every((w) => !/persuasion/i.test(w.label)));
+
+  t('the rubric requires a deciding issue', !!(rubric.decidingIssue && rubric.decidingIssue.body));
+
+  // The pin is a promise about what judged your round, so it has to be
+  // complete. A juror with no model id is a seat nobody can check.
+  const jurors = current.panel.jurors;
+  t('the panel pins three jurors', jurors.length === 3);
+  t('every juror names a provider and a model',
+    jurors.every((j) => !!j.provider && !!j.model));
+  t('the panel spans three model families',
+    new Set(jurors.map((j) => j.provider)).size === 3);
+  t('juror ids are unique', new Set(jurors.map((j) => j.id)).size === jurors.length);
+  // Effort changes how a ballot is reached, so an undisclosed effort is
+  // the same quiet dial as an undisclosed model.
+  t('any pinned effort is a real level',
+    jurors.every((j) => !j.effort || ['low', 'medium', 'high', 'xhigh', 'max'].includes(j.effort)));
+  t('an even panel is still never tie-broken', current.panel.noMajority === 'unresolved');
+
+  // The dispatch table has to know every provider the season pins, or
+  // the seat is dark for a reason no dashboard would explain.
+  // A persona per pinned family, so a debater can read who is on the
+  // bench. An unnamed seat is allowed by design but never for a family
+  // the season actually pinned.
+  const benchSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-bench.mjs', import.meta.url), 'utf8');
+  t('every pinned family has a bench persona',
+    jurors.every((j) => new RegExp('^\\s*' + j.provider + ': \\{', 'm').test(benchSrc)));
+
+  // Degradation is disclosed or it is nothing. The flag has to key off
+  // votes actually cast, not off which keys are configured: a juror
+  // whose provider errors is available by key and absent from the panel,
+  // and reporting that as a full-strength panel is precisely the silent
+  // degradation this layer forbids.
+  const runSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-run.mjs', import.meta.url), 'utf8');
+  t('degradation is measured in votes, not configured keys',
+    /degraded: tally\.votesCast < wanted\.length/.test(runSrc));
+  t('the juror budget clears a reasoning ballot',
+    /JUROR_MAX_TOKENS = Number\(process\.env\.JUDGE_JUROR_MAX_TOKENS \|\| 3000\)/.test(runSrc));
+
+  const jurorsSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-jurors.mjs', import.meta.url), 'utf8');
+  t('every pinned provider has a dispatch entry',
+    jurors.every((j) => new RegExp('^\\s*' + j.provider + ':', 'm').test(jurorsSrc)));
+  t('every pinned provider has an availability check',
+    jurors.every((j) => new RegExp("provider === '" + j.provider + "'").test(jurorsSrc)));
+}
+
+// ── 2c. deciding-issue agreement ────────────────────────────────────
+//
+// Reporting that three jurors picked the same winner while hiding that
+// they picked it for three different reasons is the flattering number
+// this whole subsystem exists to refuse.
+{
+  const mk = (id, winner, issue) => ({ jurorId: id, winner, decidingIssue: issue, points: { a: 28, b: 27 }, margin: 1 });
+
+  const same = issueConsensus([
+    mk('j1', 'a', 'whether the ad libraries answer accountability'),
+    mk('j2', 'a', 'do the libraries actually answer accountability'),
+    mk('j3', 'a', 'accountability and the libraries'),
+  ]);
+  t('jurors naming one issue read as agreed', same.agreement === 1);
+  t('issue consensus counts the jurors who named one', same.named === 3);
+
+  const split = issueConsensus([
+    mk('j1', 'a', 'whether ad libraries answer accountability'),
+    mk('j2', 'a', 'incumbent entrenchment and challenger access'),
+    mk('j3', 'a', 'displacement to organic posts'),
+  ]);
+  t('three different reasons do not read as agreement', split.agreement < 1);
+
+  // One opinion is not agreement. Recording a lone juror as unanimous on
+  // the reason would inflate the published figure using exactly the
+  // rounds that had no panel behind them.
+  t('a lone naming juror reports no agreement',
+    issueConsensus([mk('j1', 'a', 'the comparative')]).agreement === null);
+  t('nobody naming an issue reports no agreement',
+    issueConsensus([mk('j1', 'a', ''), mk('j2', 'a', '')]).agreement === null);
+
+  // Stopwords must not manufacture agreement between unrelated issues.
+  t('stopwords are not evidence of agreement',
+    issueConsensus([mk('j1', 'a', 'the round turned on the issue of solvency'),
+                    mk('j2', 'a', 'the round turned on the issue of topicality')]).agreement < 1);
+  t('issue tokens drop stopwords', !issueTokens('the round turned on solvency').has('round'));
+
+  // It rides the tally, not just the helper.
+  const tallied = tallyPanel([
+    { jurorId: 'j1', winner: 'a', points: { a: 28, b: 27 }, margin: 1, decidingIssue: 'capacity gap on enforcement' },
+    { jurorId: 'j2', winner: 'a', points: { a: 28, b: 27 }, margin: 1, decidingIssue: 'the enforcement capacity gap' },
+  ], { size: 3, quorum: 2 });
+  t('the tally reports issue agreement', tallied.issueAgreement === 1);
+  t('the tally names the deciding issue', !!tallied.decidingIssue);
 }
 
 // ── 3. the charter document ─────────────────────────────────────────

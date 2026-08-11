@@ -4,6 +4,15 @@
  * "what decision rule should settle it?" Keeping those separate lets a user
  * ask for a lay delivery lens with a policymaker decision rule, or a strict
  * flow judge who still values real-world plausibility.
+ *
+ * WHAT NO PARADIGM HERE MAY DO, whatever its prompt says: name a winner,
+ * dictate speaker points, override deciding on the flow, invent a burden
+ * neither side accepted, or penalise a debater for a convention nobody
+ * stated before the round. Those walls live in the server-side
+ * adjudication core (lib/adjudication.mjs), not in these strings, which
+ * is what stops a paradigm from being a back door into the verdict. Any
+ * new entry has to be writable INSIDE those walls or it does not belong
+ * in this file.
  */
 (function () {
   'use strict';
@@ -99,6 +108,20 @@
         bestFor: 'Worlds, Asian Parliamentary, Congress, classroom debate, and public-facing rounds.',
         prompt: 'Use a communication-centered paradigm. Evaluate substance alongside clarity, structure, responsiveness, and audience adaptation. Delivery may break a close tie, but it cannot replace warranted engagement.'
       },
+      moved: {
+        name: 'Did you move me',
+        short: 'Persuasion, fenced',
+        description: 'Asks whether the case actually landed on a reasonable listener hearing it once. Concrete stakes and a world you can picture beat the same warrant left abstract.',
+        bestFor: 'Practising for a real audience, and any round where you suspect you are winning on paper and losing the room.',
+        prompt: 'Judge as a reasonable listener hearing the round once, live, with no transcript. Credit an argument to the extent it was built to be understood the first time: concrete stakes over abstraction, a world the listener can picture and check, and the discipline to develop the two things that matter instead of gesturing at nine. Where both sides hold the same warrant, prefer the side that made the listener actually see it and say which line did that. Score persuasion ONLY where you can name the specific argumentative move that earned it. Never score charm, confidence, volume, pace, fluency, polish, vocabulary, accent, or dialect. Persuasion never repairs a missing warrant, never rescues a side with no offense, and never overturns a won comparative: it decides only a round the flow left genuinely level, and you must say so when it does.'
+      },
+      teaching: {
+        name: 'Teaching chair',
+        short: 'Same call, useful ballot',
+        description: 'Calls the round exactly as a standard chair would, then spends most of the ballot on what to fix and how.',
+        bestFor: 'Drilling, coaching a squad, and your first ballots in an unfamiliar format.',
+        prompt: 'Decide the round exactly as you would without this paradigm: the call, the points, and the standards are unchanged, and do NOT go easier on a debater who reads as less experienced, because that is unfair to their opponent. What changes is the ballot. Spend most of it on developmental feedback in plain language: name the two habits costing each speaker the most, point to the exact moment their argument stopped being followable, and give one concrete, actionable fix for each rather than general advice to weigh more. Say what you understood any jargon to mean instead of silently discounting it. Tell the winner what nearly lost it. Keep the verdict and the teaching visibly separate.'
+      },
       custom: {
         name: 'Custom paradigm',
         short: 'Paste judge preferences',
@@ -115,7 +138,14 @@
         short: 'Recommended',
         description: 'Best default for a long transcript and a structured, careful ballot.',
         endpoint: '/api/claude',
-        model: 'claude-sonnet-4-6',
+        // Opus 5 rather than the top Fable tier, and the reason is drain
+        // rather than quality: this page is public and anonymous, so a
+        // per-ballot price roughly double Opus buys a difference no
+        // debater would notice on a single transcript. The recorded
+        // rounds that actually move standing are judged by the pinned
+        // panel, where the Anthropic seat IS claude-fable-5. Switching
+        // this line is the one-word change if that trade ever flips.
+        model: 'claude-opus-5',
         access: 'Available here'
       },
       gpt: {
@@ -124,7 +154,7 @@
         short: 'Readable feedback',
         description: 'A useful second opinion when you want a direct, conversational explanation.',
         endpoint: '/api/openai-chat',
-        model: 'gpt-4o',
+        model: 'gpt-5.5',
         access: 'Signed-in plan'
       },
       gemini: {

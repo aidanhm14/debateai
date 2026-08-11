@@ -119,6 +119,8 @@ const PAGE_CSS = `
   .vote-strip a{color:#ef4444;font-weight:700}
   .rfd{padding:22px 24px;border-radius:14px;border:1px solid rgba(251,191,36,.22);background:rgba(251,191,36,.04);margin-bottom:40px}
   .rfd h2{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#fbbf24;margin-bottom:14px}
+  .rfd-issue{margin:0 0 12px;font-size:.95rem;line-height:1.5;color:rgba(255,255,255,.92);font-weight:600}
+  .rfd-issue span{display:block;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(251,191,36,.75);margin-bottom:3px}
   .rfd-body p{margin:0 0 10px;font-size:.9rem;line-height:1.65;color:rgba(255,255,255,.78)}
   .dims{padding:20px 24px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02);margin-bottom:40px}
   .dims h2{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
@@ -283,14 +285,23 @@ export function renderPage(id, doc) {
 const TURN_SIDE = { 1: 'prop', 2: 'opp', 3: 'prop' };
 
 // Judge's scorecard axes. async-sweep writes {prop,opp} ints 1-10 per
-// axis; all four must validate or the block is dropped whole, so
-// ballots judged before the schema carried dimensions render unchanged.
+// axis. Persuasion joined the rubric in the 2026-persuasion season, so
+// this list spans two ballot schemas at once: a ballot judged before it
+// existed carries four axes and one judged after carries five.
+//
+// The old rule was all-or-nothing across the whole list, which was right
+// when the list was fixed and becomes a bug the moment it grows: adding
+// an axis under that rule would have silently deleted the scorecard from
+// every previously judged round. Now the floor is the four original axes
+// and anything beyond them renders when present.
 const DIM_AXES = [
   ['clarity', 'Clarity'],
   ['reasoning', 'Reasoning'],
   ['responsiveness', 'Clash'],
   ['weighing', 'Weighing'],
+  ['persuasion', 'Persuasion'],
 ];
+const DIM_FLOOR = 4;
 
 function validDims(b) {
   const dm = b && b.dimensions;
@@ -300,14 +311,14 @@ function validDims(b) {
     const a = dm[key];
     const prop = Number(a && a.prop);
     const opp = Number(a && a.opp);
-    if (!Number.isFinite(prop) || !Number.isFinite(opp)) return null;
+    if (!Number.isFinite(prop) || !Number.isFinite(opp)) continue;
     out.push({
       label,
       prop: Math.max(0, Math.min(10, prop)),
       opp: Math.max(0, Math.min(10, opp)),
     });
   }
-  return out;
+  return out.length >= DIM_FLOOR ? out : null;
 }
 
 // The clash map, rendered as the flow the ballot was built on. Advisory
@@ -421,9 +432,16 @@ export function renderAsyncPage(id, d) {
   </section>`
     : '';
 
+  // The one clash the round turned on, stated above the reasoning. It is
+  // the part a debater can argue with, and on a panel it is what the
+  // jurors had to converge on rather than merely voting alongside.
+  const issueLine = b && b.decidingIssue
+    ? `<p class="rfd-issue"><span>Decided on</span> ${esc(b.decidingIssue)}</p>`
+    : '';
   const rfdBlock = b && b.rfd
     ? `<section class="rfd">
     <h2>Judge's reasoning</h2>
+    ${issueLine}
     <div class="rfd-body"><p>${esc(b.rfd).replace(/\n+/g, '</p><p>')}</p></div>
   </section>`
     : '';

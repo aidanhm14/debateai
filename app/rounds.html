@@ -155,6 +155,8 @@
   .ballot .b-dim-bar{flex:1;height:7px;border-radius:99px;overflow:hidden;background:#3d6b8c;display:block}
   .ballot .b-dim-bar i{display:block;height:100%;background:var(--red)}
   .ballot .b-rfd{font-size:.98rem;line-height:1.65;color:var(--ink)}
+  .ballot .b-issue{margin:0 0 12px;font-size:.97rem;line-height:1.5;font-weight:600;color:var(--ink)}
+  .ballot .b-issue span{display:block;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
   .cm{margin:14px 0 0;padding:16px 18px 6px;border:1px solid rgba(29,25,21,.14);border-radius:16px;background:#fffdf8}
   .cm-h{margin:0 0 4px;font-size:.64rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--red-deep)}
   .cm-h span{font-size:.68rem;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
@@ -764,12 +766,18 @@
     try {
       var dm = b && b.dimensions;
       if (!dm) return '';
-      var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing']];
-      var rows = '';
+      // Persuasion joined the rubric in the 2026-persuasion season, so
+      // this list spans two ballot schemas: four axes before it, five
+      // after. A missing axis is skipped rather than voiding the card,
+      // otherwise adding one would have wiped the scorecard off every
+      // round judged before today.
+      var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['persuasion','Persuasion']];
+      var rows = '', shown = 0;
       for (var i=0;i<AXES.length;i++){
         var a = dm[AXES[i][0]];
         var pv = a && Number(a.prop), ov = a && Number(a.opp);
-        if (!a || !isFinite(pv) || !isFinite(ov)) return '';
+        if (!a || !isFinite(pv) || !isFinite(ov)) continue;
+        shown++;
         pv = Math.max(0, Math.min(10, pv)); ov = Math.max(0, Math.min(10, ov));
         var share = (pv + ov) ? Math.round(pv / (pv + ov) * 100) : 50;
         rows += '<div class="b-dim"><span class="b-dim-l">'+AXES[i][1]+'</span>' +
@@ -777,6 +785,7 @@
           '<span class="b-dim-bar"><i style="width:'+share+'%"></i></span>' +
           '<b class="b-dim-o">'+ov+'</b></span></div>';
       }
+      if (shown < 4) return '';
       return '<div class="b-dims"><p class="b-dims-h">Judge&#39;s scorecard <span>'+esc(propName)+' vs '+esc(oppName)+' · each axis 1 to 10</span></p>'+rows+'</div>';
     } catch(e){ return ''; }
   }
@@ -849,6 +858,7 @@
         panelHtml(pnl) +
         '<p class="b-pts">'+esc(r.prop&&r.prop.name||'Prop')+' '+r.ballot.propPoints+' · '+esc(r.opp&&r.opp.name||'Opp')+' '+r.ballot.oppPoints+' speaker points'+(r.replyWaived?' · reply waived':'')+'</p>' +
         dimBarsHtml(r.ballot, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp') +
+        (r.ballot.decidingIssue ? '<p class="b-issue"><span>Decided on</span>'+esc(r.ballot.decidingIssue)+'</p>' : '') +
         '<div class="b-rfd">'+esc(r.ballot.rfd)+'</div></div>' +
         clashHtml(r.clashMap, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp', r.id, r.clashDisputes);
     }
