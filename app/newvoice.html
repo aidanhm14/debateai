@@ -1287,6 +1287,10 @@ const capYouText = $('capYouText'), capAiText = $('capAiText');
 
 /* ── state ───────────────────────────────────────────────────── */
 let side = 'for';                  // user's side
+try {
+  const savedSide = localStorage.getItem('debateos-newvoice-side');
+  if (savedSide === 'for' || savedSide === 'against') side = savedSide;
+} catch (e) {}
 let status = 'idle';               // idle | connecting | live | ended
 let pc = null, dc = null, micStream = null, audioEl = null;
 let audioCtx = null, userAnalyser = null, aiAnalyser = null;
@@ -1368,6 +1372,23 @@ $('themeBtn').addEventListener('click', () => {
 });
 
 /* ── setup interactions ──────────────────────────────────────── */
+sideSeg.dataset.side = side;
+Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
+  b.setAttribute('aria-pressed', b.dataset.pick === side ? 'true' : 'false');
+});
+window.addEventListener('prefs-synced', (ev) => {
+  const changed = ev && ev.detail && ev.detail.changed || [];
+  if (changed.indexOf('debateos-newvoice-side') === -1) return;
+  try {
+    const synced = localStorage.getItem('debateos-newvoice-side');
+    if (synced !== 'for' && synced !== 'against') return;
+    side = synced;
+    sideSeg.dataset.side = side;
+    Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
+      b.setAttribute('aria-pressed', b.dataset.pick === side ? 'true' : 'false');
+    });
+  } catch (e) {}
+});
 let claimDeck = [];
 function randomClaim(){
   if (!claimDeck.length) {
@@ -1400,6 +1421,7 @@ sideSeg.addEventListener('click', (e) => {
   const pick = btn && btn.dataset && btn.dataset.pick;
   if (!pick) return;
   side = pick;
+  try { localStorage.setItem('debateos-newvoice-side', side); } catch (err) {}
   sideSeg.dataset.side = pick;
   Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
     b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
@@ -2678,6 +2700,7 @@ try {
 $('rematchBtn').addEventListener('click', () => { show('setup'); start(); });
 $('switchBtn').addEventListener('click', () => {
   side = side === 'for' ? 'against' : 'for';
+  try { localStorage.setItem('debateos-newvoice-side', side); } catch (e) {}
   sideSeg.dataset.side = side;
   show('setup'); start();
 });

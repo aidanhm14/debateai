@@ -3323,8 +3323,8 @@ function currentPublicAvatarIdentity() {
     if (window.DBAvatarAccount && DBAvatarAccount.publicIdentity) return DBAvatarAccount.publicIdentity();
     if (window.DBAvatar && DBAvatar.getPublicIdentity) {
       var id = DBAvatar.getPublicIdentity();
-      return id && id.kind === 'live' ? { kind:'live', design:id.design }
-           : id && id.kind === 'portrait' ? { kind:'portrait', config:id.config } : null;
+      return id && id.kind === 'live' ? { kind: 'live', design: id.design } :
+      id && id.kind === 'portrait' ? { kind: 'portrait', config: id.config } : null;
     }
   } catch (e) {}
   return null;
@@ -3741,10 +3741,10 @@ function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
     ctx.restore();
 
     // Park while the tab is hidden; onVis restarts the chain.
-    if (document.hidden) { raf = 0; return; }
+    if (document.hidden) {raf = 0;return;}
     raf = requestAnimationFrame(draw);
   };
-  var onVis = () => { if (!document.hidden && !raf) { raf = requestAnimationFrame(draw); } };
+  var onVis = () => {if (!document.hidden && !raf) {raf = requestAnimationFrame(draw);}};
   document.addEventListener('visibilitychange', onVis);
   draw();
 
@@ -3800,7 +3800,12 @@ function debaterFigure(sideClass) {
 }
 
 function App() {
-  var [mode, setMode] = useState('quickclash');
+  var [mode, setMode] = useState(() => {
+    try {
+      var saved = localStorage.getItem('debateos-voice-mode');
+      return saved && MODES.some((x) => x.key === saved) ? saved : 'quickclash';
+    } catch (e) {return 'quickclash';}
+  });
   // The motion is now optional — the AI opens by ASKING what to debate
   // ("So what are we debating today, {name}?"), so users can either
   // pre-fill a motion or just speak it after the greeting.
@@ -3839,7 +3844,43 @@ function App() {
   // Persona persists across sessions for the gamified bond. Default to
   // whichever character the user picked last time.
   var [personaKey, setPersonaKey] = useState(() => getRememberedPersona());
-  var [side, setSide] = useState('opp');
+  var [side, setSide] = useState(() => {
+    try {
+      var saved = localStorage.getItem('debateos-voice-side');
+      return saved === 'gov' || saved === 'opp' ? saved : 'opp';
+    } catch (e) {return 'opp';}
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('debateos-voice-mode', mode);
+      localStorage.setItem('debateos-round-duration', mode === 'quickclash' ? 'quick' : 'full');
+    } catch (e) {}
+  }, [mode]);
+  useEffect(() => {
+    try {localStorage.setItem('debateos-voice-side', side);} catch (e) {}
+  }, [side]);
+  useEffect(() => {rememberPersona(personaKey);}, [personaKey]);
+  useEffect(() => {
+    var applySyncedVoiceLoadout = (ev) => {
+      var changed = ev && ev.detail && ev.detail.changed || [];
+      try {
+        if (changed.indexOf('debateos-voice-mode') !== -1) {
+          var m = localStorage.getItem('debateos-voice-mode');
+          if (m && MODES.some((x) => x.key === m)) setMode(m);
+        }
+        if (changed.indexOf('debateos-voice-side') !== -1) {
+          var s = localStorage.getItem('debateos-voice-side');
+          if (s === 'gov' || s === 'opp') setSide(s);
+        }
+        if (changed.indexOf('debateai-persona') !== -1) {
+          var p = getRememberedPersona();
+          if (PERSONALITIES.some((x) => x.key === p)) setPersonaKey(p);
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('prefs-synced', applySyncedVoiceLoadout);
+    return () => window.removeEventListener('prefs-synced', applySyncedVoiceLoadout);
+  }, []);
   // Bond tick — bumps when the user finishes a round so the picker
   // re-renders with the new round count without a full reload.
   var [bondTick, setBondTick] = useState(0);
@@ -3946,8 +3987,7 @@ function App() {
       var qs = new URLSearchParams(location.search);
       if (qs.get('ext') === '1') return; // ext bridge owns prefill when in ext mode
       var m = (qs.get('motion') || '').trim();
-      if (!m) return;
-      setMotion(m.slice(0, 600));
+      if (m) setMotion(m.slice(0, 600));
       var wantMode = (qs.get('mode') || '').trim();
       if (wantMode && MODES.some((x) => x.key === wantMode)) {
         try {setMode(wantMode);} catch (_) {}

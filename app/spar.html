@@ -1457,6 +1457,8 @@ h1 em{color:var(--accent);font-style:normal}
     noticeUntil: 0,                // hold a queue-stats notice against tryMatch repaints
     watchPollInterval: null,       // "watch a live round" panel refresh
     roundNavPending: false,        // fallback guard once spar-pair succeeds
+    aiOfferDismissed: false,       // user explicitly chose to keep waiting
+    aiLeaving: false,              // one navigation even if the write is slow
   };
 
   // No forced AI fallback (product decision): the user stays in the
@@ -1762,13 +1764,11 @@ h1 em{color:var(--accent);font-style:normal}
   // phase suggests the queue is actively working a different angle.
   // updateStatusPhase() picks the right one based on elapsed seconds.
   var STATUS_PHASES = [
-    { until:   8, text: 'Matching argument styles',   sub: 'Comparing speed, format, and recent rounds across the live queue.' },
-    { until:  18, text: 'Pinging recent sparrers',    sub: 'Reaching out to debaters who matched in the last hour.' },
-    { until:  35, text: 'Searching active circuits',  sub: 'Checking who is online across the wider competitive scene.' },
-    { until:  60, text: 'Finding your clash',         sub: 'Warm queues pair inside a minute. Hold.' },
-    { until: 110, text: 'Still hunting',              sub: 'No need to wait here. Prep, learn, or browse; your spot in the queue follows you.' },
-    { until: 170, text: 'Casting a wider net',        sub: 'Checking every available debater. If formats differ, both sides get a proposal card.' },
-    { until: 240, text: 'Still holding your spot',     sub: 'The queue is quiet right now. Prep, learn, or browse; your spot stays live and a match card pops the moment a human is ready. Or spar the AI anytime.' },
+    { until:   8, text: 'Searching the live queue', sub: 'Looking for a human opponent who is available now.' },
+    { until:  18, text: 'No human opponent yet', sub: 'Your search is still active. We will not switch you to AI.' },
+    { until:  60, text: 'Still searching for a person', sub: 'The live queue has not produced a match yet.' },
+    { until: 120, text: 'The human queue is quiet', sub: 'Keep waiting, leave with alerts on, or choose an AI round.' },
+    { until: 240, text: 'Your human search is still active', sub: 'There is no time limit and no automatic AI fallback.' },
   ];
 
   // RECENT_PAIRINGS removed (2026-05-25). The 8 handles + pair-second
@@ -1829,21 +1829,18 @@ h1 em{color:var(--accent);font-style:normal}
       // renderRecentSeeks() no-ops without #seekFeed.
       // The status sub-line element stays (startStatusCycle writes both
       // spans and bails if either is missing) but is display:none in CSS.
-      '<div class="status" id="statusText"><span id="statusMain">Matching argument styles</span><span class="dim" id="statusSub" style="display:none">Comparing speed, format, and recent rounds across the live queue.</span></div>' +
+      '<div class="status" id="statusText"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" style="display:none">Looking for a human opponent who is available now.</span></div>' +
       '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
-      // One clear action while waiting: warm up against the AI (you stay
-      // in the queue and get pinged the moment a human is found, anywhere
-      // on the site). Cancel + Skip-to-AI demoted to quiet links so the
-      // screen reads as one next step, not three competing buttons.
-      // 2026-07-27: reframed from "Prep while you wait" — the queue read
-      // as a dead end when thin. The warm-up names the payoff (a round
-      // right now, in your format) and the note under it carries the
-      // no-auto-switch promise: WE never move you to AI; a human match
-      // still interrupts anything.
-      '<div class="btn-row">' +
-        '<button class="btn primary" id="bgAvailBtn" title="Starts an AI round in your chosen format. Keep this itsdebatable.com tab open and switch tabs freely; we keep matching you in the background.">Warm up against the AI &rarr;</button>' +
+      // The AI choice appears only after the person has given the human
+      // queue a real try. It is a decision card, never a timer fallback.
+      '<div id="aiOpponentOffer" hidden style="margin:18px auto 2px;max-width:430px;padding:16px;border:1px solid rgba(239,68,68,.30);border-radius:14px;background:rgba(239,68,68,.06);text-align:left">' +
+        '<strong style="display:block;font-size:.94rem;color:var(--text)">No human match yet</strong>' +
+        '<span style="display:block;margin-top:4px;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Start an AI round in your chosen format, or keep this human search running.</span>' +
+        '<div class="btn-row" style="margin-top:12px;justify-content:flex-start">' +
+          '<button class="btn primary" id="aiNowBtn" type="button">Debate AI now &rarr;</button>' +
+          '<button class="btn" id="keepSearchingBtn" type="button">Keep searching</button>' +
+        '</div>' +
       '</div>' +
-      '<div class="dim" style="margin-top:9px;font-size:.76rem;line-height:1.5">Your queue spot stays live while you warm up.</div>' +
       // Quiet-queue answer (2026-07-22). An empty queue used to read only
       // as "You're first in line" over a timer counting up with no limit,
       // which tells the user to keep waiting without saying what they are
@@ -1865,7 +1862,7 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="quiet-links">' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
         '<span class="ql-sep">·</span>' +
-        '<a class="link-btn" href="/practice">Skip to AI now</a>' +
+        '<button type="button" class="link-btn" id="aiNowLink">Choose an AI opponent</button>' +
       '</div>' +
       // Round alerts: the highest-intent moment to opt into Web Push. If the
       // queue is quiet, leaving with alerts on means you get pinged the
@@ -1975,25 +1972,16 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="foot">Camera and mic stay off until you accept the match.</div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     (function(){
-      // "Prep while you wait" — flip on BACKGROUND availability (the flag
-      // js/notifications.js sparLive reads) and send the user to prep.
-      // They keep matchmaking in the background and get a "Match found"
-      // card the moment a human is found, anywhere on the site, instead of
-      // staring at this page. This is the discoverable on-/spar entry to
-      // the background matcher (the bell pill is suppressed on /spar).
-      var bgBtn = document.getElementById('bgAvailBtn');
-      if (!bgBtn) return;
-      bgBtn.addEventListener('click', function(){
-        // Persist the chosen format BEFORE flipping the availability
-        // flag — js/notifications.js fmt() reads this key to decide
-        // which queue the background matcher joins (defaults to 'apda'
-        // when unset, silently overwriting the user's queue doc).
-        try { localStorage.setItem('debateos-spar-format', formatParam); } catch(e){}
-        try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
-        try { if (window.gtag) gtag('event', 'spar_bg_on', { from: 'spar_searching' }); } catch(e){}
-        // Carry the queued format so /practice lands one tap from Start
-        // in the same format (its prefill effect accepts format-only).
-        location.href = '/practice?format=' + encodeURIComponent(formatParam || '') + '&handoff=spar-warmup';
+      var aiBtn = document.getElementById('aiNowBtn');
+      var aiLink = document.getElementById('aiNowLink');
+      var keepBtn = document.getElementById('keepSearchingBtn');
+      if (aiBtn) aiBtn.addEventListener('click', leaveQueueForAi);
+      if (aiLink) aiLink.addEventListener('click', leaveQueueForAi);
+      if (keepBtn) keepBtn.addEventListener('click', function(){
+        state.aiOfferDismissed = true;
+        var offer = document.getElementById('aiOpponentOffer');
+        if (offer) offer.hidden = true;
+        try { if (window.gtag) gtag('event', 'spar_ai_offer_keep_human', { format: formatParam }); } catch(e){}
       });
     })();
     (function(){
@@ -2795,6 +2783,10 @@ h1 em{color:var(--accent);font-style:normal}
       if (elapsed >= 8 && !state.pingAsked){
         state.pingAsked = true;
         requestPingPermission();
+      }
+      if (elapsed >= 12 && !state.aiOfferDismissed){
+        var offer = document.getElementById('aiOpponentOffer');
+        if (offer) offer.hidden = false;
       }
     }, 250);
   }
@@ -3633,6 +3625,34 @@ h1 em{color:var(--accent);font-style:normal}
     }
     try { gtag('event', 'spar_cancel', { format: formatParam, elapsed_sec: elapsed }); } catch(e){}
     location.href = '/';
+  }
+
+  function leaveQueueForAi(){
+    if (state.aiLeaving) return;
+    state.aiLeaving = true;
+    state.cancelled = true;
+    try { localStorage.removeItem('da-spar-bg'); } catch(e){}
+    try { localStorage.setItem('debateos-spar-format', formatParam); } catch(e){}
+    var elapsed = state.joinedAtMs ? Math.floor((Date.now() - state.joinedAtMs) / 1000) : 0;
+    if (elapsed >= 15) logMissedMatch('ai-choice');
+    try { gtag('event', 'spar_ai_choice', { format: formatParam, elapsed_sec: elapsed }); } catch(e){}
+    teardownQueue();
+    var target = '/practice?now=1&format=' + encodeURIComponent(formatParam || 'quick') + '&handoff=spar-ai-choice';
+    var navigated = false;
+    function go(){
+      if (navigated) return;
+      navigated = true;
+      location.href = target;
+    }
+    if (state.queueDocRef){
+      state.queueDocRef.update({
+        status: 'cancelled',
+        cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).then(go).catch(go);
+      setTimeout(go, 450);
+    } else {
+      go();
+    }
   }
 
   function teardownQueue(){

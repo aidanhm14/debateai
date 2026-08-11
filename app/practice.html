@@ -5385,6 +5385,9 @@ function App() {
 
   var [phase, setPhase] = useState('setup'); // setup|prep|speech|feedback
   var [vis, setVis] = useState(true); // fade transition
+  // Set only by the explicit ?now=1 launch route. It waits for URL and
+  // remembered loadout state to commit, then starts exactly once.
+  var [instantStartPending, setInstantStartPending] = useState(false);
   var [motion, setMotion] = useState('');
   var [background, setBackground] = useState(''); // optional context for the motion
   // 2026-07-02: the pitch-mode "company & the raise · required" field was
@@ -5398,7 +5401,12 @@ function App() {
   var [triageBusy, setTriageBusy] = useState(false);
   var [triageError, setTriageError] = useState('');
   var [triageExpanded, setTriageExpanded] = useState(false);
-  var [format, setFormat] = useState('quick');
+  var [format, setFormat] = useState(() => {
+    try {
+      var saved = localStorage.getItem('debateos-round-format');
+      return saved && FORMATS[saved] ? saved : 'quick';
+    } catch (e) {return 'quick';}
+  });
   var [oppStrengths, setOppStrengths] = useState([]);
   var [oppWeaknesses, setOppWeaknesses] = useState([]);
   var [brain, setBrain] = useState(() => pickBrainForTask('opponent'));
@@ -5418,7 +5426,10 @@ function App() {
   useEffect(() => {
     try {localStorage.setItem('debateos-judgeBrain', judgeBrain);} catch (e) {}
   }, [judgeBrain]);
-  var [voice, setVoice] = useState(DEFAULT_VOICE);
+  var [voice, setVoice] = useState(() => {
+    try {return migrateVoice(localStorage.getItem('debateos-round-voice'));}
+    catch (e) {return DEFAULT_VOICE;}
+  });
   // Sparring Roster state. roster lives in localStorage (sparringStore);
   // activePartner is the partner the user has picked for THIS round.
   // When set, the partner's persona + memorySummary is prepended to
@@ -5494,14 +5505,8 @@ function App() {
       if (wantFormat && typeof FORMATS !== 'undefined' && FORMATS[wantFormat]) {
         try {setFormat(wantFormat);} catch (_) {}
       }
-      var m = (qs.get('motion') || '').trim();
-      if (!m) return;
-      setMotion(m.slice(0, 600));
-      // challenge=1: pre-select the specified side so the friend runs
-      // the other side of the motion their challenger already argued.
-      // Accept any side that exists in the target format's sides array
-      // (og/oo, aff/neg, pro/con, ...); the legacy allow-list stays as
-      // a fallback for old links that predate format-native side keys.
+      // Side and voice are valid format-only handoffs too. Debate now has
+      // no motion in its URL, so these must be applied before that check.
       var wantSide = (qs.get('side') || '').trim();
       var targetFmt = wantFormat && typeof FORMATS !== 'undefined' && FORMATS[wantFormat] ? FORMATS[wantFormat] : null;
       var sideOk = !!(targetFmt && targetFmt.sides && targetFmt.sides.indexOf(wantSide) !== -1);
@@ -5509,6 +5514,19 @@ function App() {
       if (sideOk) {
         try {setSide(wantSide);} catch (_) {}
       }
+      var wantVoice = (qs.get('voice') || '').trim();
+      if (wantVoice && VOICES[wantVoice]) {
+        try {setVoice(wantVoice);} catch (_) {}
+      }
+      var m = (qs.get('motion') || '').trim();
+      if (m) setMotion(m.slice(0, 600));
+      if (qs.get('now') === '1') {
+        // An explicit click chose an AI round. Pick a real motion here,
+        // then let the pending effect start after React commits the loadout.
+        if (!m) setMotion(randomMotionFor(wantFormat || format));
+        setInstantStartPending(true);
+      }
+      if (!m && qs.get('now') !== '1') return;
       try {
         if (typeof gtag === 'function') {
           gtag('event', 'typed_handoff_received', {
@@ -5619,7 +5637,41 @@ function App() {
     return () => window.removeEventListener('message', handle);
   }, []);
 
-  var [side, setSide] = useState('gov');
+  var [side, setSide] = useState(() => {
+    try {return localStorage.getItem('debateos-round-side') || 'gov';}
+    catch (e) {return 'gov';}
+  });
+  // The default loadout follows the signed-in account through
+  // prefs-sync.js. Duration is intentionally coarse: Quick Clash is the
+  // short path; every tournament format is the full path.
+  useEffect(() => {
+    try {
+      localStorage.setItem('debateos-round-format', format);
+      localStorage.setItem('debateos-round-side', side);
+      localStorage.setItem('debateos-round-voice', voice);
+      localStorage.setItem('debateos-round-duration', format === 'quick' ? 'quick' : 'full');
+    } catch (e) {}
+  }, [format, side, voice]);
+  useEffect(() => {
+    var applySyncedLoadout = (ev) => {
+      var changed = ev && ev.detail && ev.detail.changed || [];
+      try {
+        if (changed.indexOf('debateos-round-format') !== -1) {
+          var f = localStorage.getItem('debateos-round-format');
+          if (f && FORMATS[f]) setFormat(f);
+        }
+        if (changed.indexOf('debateos-round-side') !== -1) {
+          var s = localStorage.getItem('debateos-round-side');
+          if (s) setSide(s);
+        }
+        if (changed.indexOf('debateos-round-voice') !== -1) {
+          setVoice(migrateVoice(localStorage.getItem('debateos-round-voice')));
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('prefs-synced', applySyncedLoadout);
+    return () => window.removeEventListener('prefs-synced', applySyncedLoadout);
+  }, []);
   // Judge paradigm, shapes BOTH the AI opponent's strategy (they try to
   // win the judge they're in front of) AND the final RFD voice. Persisted
   // to localStorage so the user's preferred training judge sticks around.
@@ -6293,6 +6345,13 @@ function App() {
   // state has committed (same pattern as quickStart).
   var [simpleStartPending, setSimpleStartPending] = useState(false);
   useEffect(() => {
+    if (!instantStartPending || !motion.trim()) return;
+    var f = FORMATS[format];
+    if (!f || !f.sides.includes(side)) return;
+    setInstantStartPending(false);
+    startDebate();
+  }, [instantStartPending, motion, format, side, voice]);
+  useEffect(() => {
     if (simpleStartPending && motion.trim()) {
       setSimpleStartPending(false);
       startDebate();
@@ -6871,6 +6930,8 @@ function App() {
 
 
 
+
+
       // Only auto-advance if timer actually ran (not on initial mount)
     }}, [prepTimer.left]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
@@ -6879,9 +6940,7 @@ function App() {
       timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start(); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
       if (fmt.poi) {poiCountRef.current = 0;poiAcceptsRef.current = 0;setPoiOffer(false);setPoiActive(null);setPoiText(''); // Offer first POI after 60-90s, second after another 60-90s
         var offerPOI = () => {if (poiCountRef.current < 2) {setPoiOffer(true);poiCountRef.current++; // Schedule a possible second POI
-            if (poiCountRef.current < 2) {
-              poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);
-            }
+            if (poiCountRef.current < 2) {poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);}
           }
         };
         poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);

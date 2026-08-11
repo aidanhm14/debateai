@@ -44,6 +44,12 @@
     'debateos-judge-paradigm-custom', 'debateos-judge-pool',
     'debateos-skip-ai-countdown', 'debateos-auto-mic',
     'debateos-spar-format', 'debateos-spar-paradigm',
+    // One-tap round launch. These four values are the user's default
+    // loadout, not state for one unfinished round.
+    'debateos-round-format', 'debateos-round-side',
+    'debateos-round-voice', 'debateos-round-duration',
+    'debateos-voice-mode', 'debateos-voice-side', 'debateai-persona',
+    'debateos-newvoice-side',
     'debateos-newvoice-diff', 'debateos-newvoice-pace', 'debateos-newvoice-theme',
     'debateos-newvoice-judge-live',
     // /settings turn-taking (js/round-prefs.js). Someone who needs tap to
