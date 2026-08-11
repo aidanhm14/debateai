@@ -49,6 +49,18 @@
     .secondary-label{font:800 30px/1 "Crimson Pro",Georgia,serif}
     .secondary-arrow{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#f6e9e8;color:var(--red);font-size:24px}
     .secondary-meta{display:block;margin-top:10px;font-size:12px;font-weight:750;color:var(--muted)}
+    /* Two webcam stills, because that is what a debate stream looks like:
+       two people arguing into a laptop, not an illustration of one. */
+    .watch-strip{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:0 0 14px;border-radius:14px;overflow:hidden;background:#e7e3dd}
+    .watch-tile{position:relative;display:block;aspect-ratio:16/10;overflow:hidden}
+    .watch-tile img{width:100%;height:100%;object-fit:cover;display:block}
+    /* The broadcast indicator. It states the real state and never invents
+       one: JS flips it to LIVE only when /api/stream-status says so. */
+    .watch-badge{position:absolute;left:8px;top:8px;display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(12,10,9,.72);color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+    .watch-badge i{width:8px;height:8px;border-radius:50%;background:#9a938c;flex:none}
+    .watch-badge.is-live{background:rgba(197,26,30,.94)}
+    .watch-badge.is-live i{background:#fff;animation:rec 1.4s ease-in-out infinite}
+    @keyframes rec{50%{opacity:.25}}
     /* Everything that is not one of the two choices lives here: one quiet
        row of text links. These are real features and still reachable, they
        just stop competing with the thing you opened the app to do. */
@@ -90,6 +102,11 @@
     </a>
 
     <a class="secondary" href="/watch">
+      <span class="watch-strip" aria-hidden="true">
+        <span class="watch-tile"><img src="/img/round/faces/face03.jpg" alt="" loading="lazy" decoding="async" /></span>
+        <span class="watch-tile"><img src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async" /></span>
+        <span class="watch-badge" id="watchBadge"><i></i><b>Off air</b></span>
+      </span>
       <span class="secondary-top"><span class="secondary-label">Watch a debate</span><span class="secondary-arrow" aria-hidden="true">→</span></span>
       <span class="secondary-meta" id="watchMeta">Live rounds and replays</span>
     </a>
@@ -127,6 +144,30 @@
         }
       } catch(e){}
       signIn.addEventListener('click', function(){ if (window.openAuthModal) window.openAuthModal(); });
+
+      /* Watch card state. The badge must never claim a broadcast that is
+         not happening, so nothing here is decorative: LIVE appears only
+         when /api/stream-status reports one, and when there is no stream
+         and no replay the card says so rather than advertising an empty
+         shelf. Fails silent on a network error and keeps the neutral
+         default, which is the honest direction to be wrong in. */
+      (function watchState(){
+        var badge = document.getElementById('watchBadge');
+        var meta = document.getElementById('watchMeta');
+        if (!badge || !meta) return;
+        fetch('/api/stream-status').then(function(r){ return r.ok ? r.json() : null; }).then(function(s){
+          if (s && s.live) {
+            badge.className = 'watch-badge is-live';
+            badge.querySelector('b').textContent = 'Live';
+            meta.textContent = s.title || 'Live from the arena';
+            return null;
+          }
+          return fetch('/api/recordings').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+            var n = d && d.recordings ? d.recordings.length : 0;
+            meta.textContent = n ? (n === 1 ? '1 replay to watch' : n + ' replays to watch') : 'Nothing live right now';
+          });
+        }).catch(function(){});
+      })();
 
       /* Round setup as an option select: one question a screen, a blip on
          each press, Skip to take the defaults. The tile keeps its href, so
