@@ -332,8 +332,12 @@ button{font-family:inherit}
   transform:translateY(-50%);
   display:inline-flex;flex-direction:column;align-items:center;gap:7px;
   padding:14px 8px;border-radius:10px 0 0 10px;cursor:pointer;
-  border:1px solid var(--border,rgba(255,255,255,.14));border-right:0;
-  background:var(--surface,#141417);color:var(--text,#f4f4f2);
+  /* Same trap #audPanel documents: the surface is near-black in every
+     theme, but var(--text) flips to dark ink on the light theme, which
+     rendered the vertical "Audience" label dark-on-dark (verified in a
+     screenshot 2026-08-10). Pin the tab light-on-dark. */
+  border:1px solid rgba(255,255,255,.16);border-right:0;
+  background:#141417;color:#f4f4f2;
   box-shadow:-8px 0 24px rgba(0,0,0,.35);
 }
 #audFab{transition:transform .18s,border-color .18s,box-shadow .18s}
@@ -1359,6 +1363,9 @@ body.lr-pip .lr-pip-notice{display:block}
 .roster-card .rc-eyebrow{
   font-size:.65rem;font-weight:800;letter-spacing:.12em;
   text-transform:uppercase;color:var(--text-ghost);
+  /* Never wrap: on narrow cards a wrapped eyebrow's second line landed
+     behind the side pill ("OPPONENT · PRO" over the PRO chip). */
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .roster-card .rc-name{
   font-size:1rem;font-weight:800;color:var(--text);line-height:1.2;
@@ -3370,22 +3377,25 @@ html.stage-mode .stage-ov{display:block}
       if (ms === 'pro' || (!ms && !spectator)){
         // mySide=pro OR no side info at all → put first-side on the left
         youIsFirstSide = true;
-        rYouEy.textContent = ms ? ('You · ' + firstLabel) : firstLabel;
+        // The side pill on the right already names the side; repeating it
+        // in the eyebrow ("Opponent · Pro" next to a PRO pill) crowded the
+        // card into wrapping on narrow widths.
+        rYouEy.textContent = ms ? 'You' : firstLabel;
         rYouNm.textContent = proName;
         rYouSd.textContent = firstLabel;
         rYouSd.className = 'rc-side is-first-side';
-        rOppEy.textContent = ms ? ('Opponent · ' + secondLabel) : secondLabel;
+        rOppEy.textContent = ms ? 'Opponent' : secondLabel;
         rOppNm.textContent = conName;
         rOppSd.textContent = secondLabel;
         rOppSd.className = 'rc-side is-second-side';
       } else if (ms === 'con'){
         // mySide=con → put your side (second/con) on the left
         youIsFirstSide = false;
-        rYouEy.textContent = 'You · ' + secondLabel;
+        rYouEy.textContent = 'You';
         rYouNm.textContent = conName;
         rYouSd.textContent = secondLabel;
         rYouSd.className = 'rc-side is-second-side';
-        rOppEy.textContent = 'Opponent · ' + firstLabel;
+        rOppEy.textContent = 'Opponent';
         rOppNm.textContent = proName;
         rOppSd.textContent = firstLabel;
         rOppSd.className = 'rc-side is-first-side';
@@ -9464,8 +9474,21 @@ html.stage-mode .stage-ov{display:block}
       lbl.textContent = t.trim() || 'Live round';
     }
 
+    // Where the site shell opens. '/' by default; the brand-link intercept
+    // below points it at whatever the user actually clicked.
+    var shellStartUrl = '/';
     function openSiteShell() {
-      if (window.LivePiP && window.LivePiP.openShell && !window.LivePiP.shellActive()) window.LivePiP.openShell({ url: '/', onReturn: exitAll });
+      if (window.LivePiP && window.LivePiP.openShell && !window.LivePiP.shellActive()) {
+        window.LivePiP.openShell({
+          url: shellStartUrl,
+          onReturn: exitAll,
+          // Real exit: navigate the host page for real, which tears down
+          // the call. Only reachable via the shell bar's double-press
+          // "Leave round" (armed then confirmed), never a single click.
+          onLeave: function (path) { window.location.assign(path || '/'); }
+        });
+        shellStartUrl = '/';
+      }
     }
     function closeSiteShell() {
       if (window.LivePiP && window.LivePiP.closeShell) window.LivePiP.closeShell();
@@ -9692,6 +9715,25 @@ html.stage-mode .stage-ov{display:block}
     if (popBtn) popBtn.addEventListener('click', enterPip);
     if (miniRestore) miniRestore.addEventListener('click', exitAll);
     if (miniPop) miniPop.addEventListener('click', enterPip);
+
+    // Pressing "Debatable" (or "Back to board") mid-call used to hard
+    // navigate, which tears down the Daily iframe and drops the user out
+    // of the round. With a live call, those clicks now dock the video and
+    // browse the target inside the same-origin site shell, so the call
+    // rides along. Leaving for real is the shell bar's double-press
+    // "Leave round". No call yet = the links navigate normally.
+    function callLive() {
+      return !!(jitsiPane.querySelector('iframe') || window.__lrDailyWrapper);
+    }
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('.bar-logo, .bar-back');
+      if (!a || !callLive()) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      if (a.target && a.target !== '_self') return;
+      e.preventDefault();
+      shellStartUrl = a.getAttribute('href') || '/';
+      enterMini();
+    });
 
     // Keep the console fresh as speeches advance + the timer ticks.
     var sh = document.querySelector('.speech-header');

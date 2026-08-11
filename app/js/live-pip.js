@@ -179,6 +179,9 @@
       '#lpip-shellbar .lpsb-where{color:#9aa0a6;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}' +
       '#lpip-shellbar .lpsb-return{font:inherit;font-weight:700;font-size:12px;padding:7px 14px;border-radius:999px;border:0;cursor:pointer;background:#ef4444;color:#fff;white-space:nowrap;transition:background .15s}' +
       '#lpip-shellbar .lpsb-return:hover{background:#dc2626}' +
+      '#lpip-shellbar .lpsb-leave{font:inherit;font-weight:700;font-size:12px;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.22);cursor:pointer;background:transparent;color:rgba(255,255,255,.72);white-space:nowrap;transition:background .15s,color .15s,border-color .15s}' +
+      '#lpip-shellbar .lpsb-leave:hover{color:#fff;border-color:rgba(255,255,255,.4)}' +
+      '#lpip-shellbar .lpsb-leave.is-armed{background:#ef4444;border-color:#ef4444;color:#fff;animation:lpipShellPulse 1.6s infinite}' +
       '@media(max-width:560px){#lpip-shellbar .lpsb-where{display:none}}';
     document.head.appendChild(s);
   }
@@ -208,9 +211,31 @@
     shellBar.innerHTML =
       '<span class="lpsb-live"><i></i>Round live</span>' +
       '<span class="lpsb-where"></span>' +
-      '<button type="button" class="lpsb-return">Return to the round &rarr;</button>';
+      '<button type="button" class="lpsb-return">Return to the round &rarr;</button>' +
+      '<button type="button" class="lpsb-leave">Leave round</button>';
     shellBar.querySelector('.lpsb-return').addEventListener('click', function () {
       if (typeof opts.onReturn === 'function') { try { opts.onReturn(); } catch (e) {} }
+    });
+    // Leaving the call is a double press, Zoom-style: the first press arms
+    // the button ("Sure? Leave the call"), the second within 4s actually
+    // leaves. A single stray click can never end the round.
+    var leaveBtn = shellBar.querySelector('.lpsb-leave');
+    var leaveTimer = null;
+    leaveBtn.addEventListener('click', function () {
+      if (!leaveBtn.classList.contains('is-armed')) {
+        leaveBtn.classList.add('is-armed');
+        leaveBtn.textContent = 'Sure? Leave the call';
+        leaveTimer = setTimeout(function () {
+          leaveBtn.classList.remove('is-armed');
+          leaveBtn.textContent = 'Leave round';
+        }, 4000);
+        return;
+      }
+      if (leaveTimer) clearTimeout(leaveTimer);
+      var path = '';
+      try { var loc = shellFrame && shellFrame.contentWindow.location; if (loc) path = loc.pathname + loc.search; } catch (e) {}
+      if (typeof opts.onLeave === 'function') { try { opts.onLeave(path || '/'); } catch (e) {} }
+      else { try { window.location.assign(path || '/'); } catch (e) {} }
     });
     document.body.appendChild(shellBar);
 
