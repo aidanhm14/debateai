@@ -1007,7 +1007,36 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 .ui-topbar-more-col{
   min-width:0;padding:2px 6px 4px 16px;
   border-left:1px solid color-mix(in srgb,var(--text,#fff) 7%,transparent);
+  /* Per-column accent. Every coloured part of a row reads var(--col), so
+     recolouring a column is one line here rather than six rules below.
+     Default is the brand red, which is also column 1's real value. */
+  --col:var(--accent,#ef4444);
 }
+/* Column palette (set on .ui-topbar-more-col by topbar.js as ui-col-N).
+   Four distinct hues so Debate / Improve / Watch / Train are separable at
+   a glance instead of reading as one 30-item red list.
+
+   NOT amber or orange, on purpose: the 2026-05-19 sweep reserved those for
+   state semantics (warn, achievement, tier). Red stays on column 1 because
+   Debate is the primary action and the brand colour belongs on it.
+
+   These are the DARK-panel values (panel bg #17171b), so they run bright.
+   The light-theme block further down darkens all four for white. */
+.ui-topbar-more-col.ui-col-1{--col:var(--accent,#ef4444)}  /* Debate  · red    */
+.ui-topbar-more-col.ui-col-2{--col:#6ea0f7}                /* Improve · blue   */
+.ui-topbar-more-col.ui-col-3{--col:#a78bfa}                /* Watch   · violet */
+.ui-topbar-more-col.ui-col-4{--col:#3ecfbb}                /* Train   · teal   */
+/* Light theme: the panel goes solid white (--bg-elev-solid), where the
+   bright values above sit around 2:1 on body text and read washed out.
+   Verified against #ffffff, not assumed from the dark pair — a light and
+   dark token pair is not proof that both render (see the standing note in
+   memory). Column 1 needs no entry: --accent is already #b91c1c on light. */
+[data-theme="light"] .ui-topbar-more-col.ui-col-2,
+body.light-theme .ui-topbar-more-col.ui-col-2{--col:#1d4ed8}
+[data-theme="light"] .ui-topbar-more-col.ui-col-3,
+body.light-theme .ui-topbar-more-col.ui-col-3{--col:#6d28d9}
+[data-theme="light"] .ui-topbar-more-col.ui-col-4,
+body.light-theme .ui-topbar-more-col.ui-col-4{--col:#0f766e}
 .ui-topbar-more-head{
   display:flex;align-items:center;gap:7px;
   padding:2px 8px 9px;
@@ -1018,34 +1047,42 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 .ui-topbar-more-head-num{
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size:9.5px;font-weight:800;letter-spacing:.06em;
-  color:color-mix(in srgb,var(--accent) 78%,transparent);
+  color:color-mix(in srgb,var(--col) 82%,transparent);
 }
-/* One destination = icon tile + label + one-line description. */
+/* THREE size tiers, and the gap between them is the point. Before this
+   there were effectively two (a default row and a `big` card) with
+   `is-strong` doing nothing but bolding a label, so a 9-row column read
+   as a flat list with one card floating in it. The icon ramp is now
+   25 -> 32 -> 42px, which is a difference you can see without comparing.
+
+   Tier 3 (default) - utility rows. Deliberately SMALLER than before so
+   the two tiers above it have somewhere to be. */
 .ui-topbar-more-item{
-  display:flex;align-items:center;gap:11px;
-  min-width:0;padding:6px 8px;border-radius:11px;
+  display:flex;align-items:center;gap:10px;
+  min-width:0;padding:5px 8px;border-radius:11px;
   text-decoration:none;transition:background .15s;
 }
 .ui-topbar-more-ico{
-  flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:9px;
+  flex:none;display:grid;place-items:center;width:25px;height:25px;border-radius:8px;
   background:color-mix(in srgb,var(--text,#fff) 4%,transparent);
   border:1px solid color-mix(in srgb,var(--text,#fff) 7%,transparent);
-  color:color-mix(in srgb,var(--text,#fff) 60%,transparent);
+  color:color-mix(in srgb,var(--text,#fff) 58%,transparent);
   transition:color .15s,background .15s,border-color .15s;
 }
+.ui-topbar-more-ico svg{transform:scale(.92)}
 .ui-topbar-more-item-text{min-width:0;display:flex;flex-direction:column;gap:1px}
 .ui-topbar-more-item-label{
   display:flex;align-items:center;gap:6px;min-width:0;
-  font-size:13.5px;font-weight:650;line-height:1.2;letter-spacing:.005em;
-  color:color-mix(in srgb,var(--text,#fff) 90%,transparent);
+  font-size:12.9px;font-weight:620;line-height:1.2;letter-spacing:.005em;
+  color:color-mix(in srgb,var(--text,#fff) 86%,transparent);
   transition:color .15s;
 }
 .ui-topbar-more-item-label>span:first-child{
   min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .ui-topbar-more-item-desc{
-  font-size:11.8px;font-weight:500;line-height:1.25;
-  color:color-mix(in srgb,var(--text,#fff) 52%,transparent);
+  font-size:11.3px;font-weight:500;line-height:1.25;
+  color:color-mix(in srgb,var(--text,#fff) 50%,transparent);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .ui-topbar-more-item:hover,
@@ -1058,43 +1095,73 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 .ui-topbar-more-item:hover .ui-topbar-more-ico,
 .ui-topbar-more-item:focus-visible .ui-topbar-more-ico,
 .ui-topbar-more-item.is-active .ui-topbar-more-ico{
-  color:var(--accent);
-  background:color-mix(in srgb,var(--accent) 10%,transparent);
-  border-color:color-mix(in srgb,var(--accent) 22%,transparent);
+  color:var(--col);
+  background:color-mix(in srgb,var(--col) 12%,transparent);
+  border-color:color-mix(in srgb,var(--col) 26%,transparent);
 }
-.ui-topbar-more-item.is-active .ui-topbar-more-item-label{color:var(--accent)}
-/* One row per column may carry `strong` in topbar.js LINKS. It reads
-   heavier than its neighbours without taking the accent colour, which
-   stays reserved for the active page. */
+.ui-topbar-more-item.is-active .ui-topbar-more-item-label{color:var(--col)}
+/* Tier 2: `strong` in topbar.js. The genuine second rank in each column,
+   for a destination that is a real product surface but not the column's
+   flagship. It gets a bigger icon carrying the column colour at rest (not
+   hover-only) and a heavier label, but NO card border, so it sits visibly
+   between a plain row and a `big` tile rather than competing with it.
+
+   This used to bold a label and nothing else, which is why the menu read
+   as two tiers instead of three. */
+.ui-topbar-more-item.is-strong{
+  padding:7px 8px;
+}
+.ui-topbar-more-item.is-strong .ui-topbar-more-ico{
+  width:32px;height:32px;border-radius:10px;
+  color:color-mix(in srgb,var(--col) 88%,var(--text,#fff));
+  background:color-mix(in srgb,var(--col) 8%,transparent);
+  border-color:color-mix(in srgb,var(--col) 20%,transparent);
+}
+.ui-topbar-more-item.is-strong .ui-topbar-more-ico svg{transform:scale(1.06)}
 .ui-topbar-more-item.is-strong .ui-topbar-more-item-label{
-  font-weight:800;color:var(--text,#fff);
+  font-size:13.8px;font-weight:800;color:var(--text,#fff);
 }
-/* `big` in topbar.js: flagship tiles, sized by venture weight (Watch,
-   Predict, Leaderboard, Tournaments). A bordered card with a larger
-   accent icon and heavier label, so the menu carries a hierarchy
-   instead of reading as a uniform list. The accent tile is permanent
-   here (not hover-only) — these rows are the point of the column. */
+.ui-topbar-more-item.is-strong .ui-topbar-more-item-desc{font-size:11.8px}
+.ui-topbar-more-item.is-strong:hover .ui-topbar-more-ico,
+.ui-topbar-more-item.is-strong:focus-visible .ui-topbar-more-ico{
+  color:var(--col);
+  background:color-mix(in srgb,var(--col) 15%,transparent);
+  border-color:color-mix(in srgb,var(--col) 32%,transparent);
+}
+/* Tier 1: `big` in topbar.js. Flagship tiles, sized by venture weight
+   (Watch, Predict, Leaderboard, Tournaments, Competitive Voice AI). A
+   bordered card with a large column-coloured icon and the heaviest label
+   in the panel. The coloured tile is permanent here, not hover-only:
+   these rows are the point of the column.
+
+   Sizes widened in the 2026-08-12 hierarchy pass (icon 38 -> 42, label
+   15 -> 15.8, and the card now carries a faint tint of its own column)
+   so a tile still outranks the new tier-2 rows underneath it. */
 .ui-topbar-more-item.is-big{
-  padding:10px 10px;margin:3px 0;border-radius:13px;
-  background:color-mix(in srgb,var(--text,#fff) 3%,transparent);
-  border:1px solid color-mix(in srgb,var(--text,#fff) 8%,transparent);
+  padding:11px 10px;margin:4px 0;border-radius:13px;
+  background:
+    linear-gradient(180deg,color-mix(in srgb,var(--col) 7%,transparent),transparent 78%),
+    color-mix(in srgb,var(--text,#fff) 3%,transparent);
+  border:1px solid color-mix(in srgb,var(--col) 20%,transparent);
   transition:background .15s,border-color .15s;
 }
 .ui-topbar-more-item.is-big .ui-topbar-more-ico{
-  width:38px;height:38px;border-radius:12px;
-  color:var(--accent);
-  background:color-mix(in srgb,var(--accent) 9%,transparent);
-  border-color:color-mix(in srgb,var(--accent) 22%,transparent);
+  width:42px;height:42px;border-radius:12px;
+  color:var(--col);
+  background:color-mix(in srgb,var(--col) 12%,transparent);
+  border-color:color-mix(in srgb,var(--col) 28%,transparent);
 }
-.ui-topbar-more-item.is-big .ui-topbar-more-ico svg{transform:scale(1.25)}
+.ui-topbar-more-item.is-big .ui-topbar-more-ico svg{transform:scale(1.34)}
 .ui-topbar-more-item.is-big .ui-topbar-more-item-label{
-  font-size:15px;font-weight:800;color:var(--text,#fff);
+  font-size:15.8px;font-weight:850;letter-spacing:-.01em;color:var(--text,#fff);
 }
 .ui-topbar-more-item.is-big .ui-topbar-more-item-desc{font-size:12.4px}
 .ui-topbar-more-item.is-big:hover,
 .ui-topbar-more-item.is-big:focus-visible{
-  background:color-mix(in srgb,var(--accent) 6%,transparent);
-  border-color:color-mix(in srgb,var(--accent) 30%,transparent);
+  background:
+    linear-gradient(180deg,color-mix(in srgb,var(--col) 13%,transparent),transparent 78%),
+    color-mix(in srgb,var(--text,#fff) 4%,transparent);
+  border-color:color-mix(in srgb,var(--col) 38%,transparent);
 }
 /* Live pulse dot, shared by the spotlight eyebrow and the LIVE row. */
 .ui-topbar-more-live-dot{
@@ -1153,6 +1220,56 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 .ui-topbar-sheet-more a:hover,
 .ui-topbar-sheet-more a:focus-visible{background:rgba(255,255,255,.04);outline:none}
 .ui-topbar-sheet-more a.is-active{color:var(--accent)}
+
+/* ── Social accounts ───────────────────────────────────────────────────
+   Rendered from the SOCIALS array in topbar.js. Monochrome at rest so a
+   row of platform logos doesn't read as a sponsor strip in the middle of
+   the product nav; each link carries its platform colour as --brand and
+   only spends it on hover and focus.
+
+   Desktop rail: icon-only. This bar has overflowed at laptop widths more
+   than once, so the accounts pay for themselves in glyph width or not at
+   all. Hidden under 900px, where the sheet row below takes over. */
+.ui-topbar-socials{display:inline-flex;align-items:center;gap:2px;margin:0 2px}
+.ui-topbar-social{
+  display:grid;place-items:center;width:30px;height:30px;border-radius:9px;
+  color:color-mix(in srgb,var(--text,#fff) 58%,transparent);
+  border:1px solid transparent;
+  text-decoration:none;
+  transition:color .15s,background .15s,border-color .15s;
+}
+.ui-topbar-social:hover,
+.ui-topbar-social:focus-visible{
+  color:var(--brand,var(--accent));
+  background:color-mix(in srgb,var(--brand,var(--accent)) 12%,transparent);
+  border-color:color-mix(in srgb,var(--brand,var(--accent)) 30%,transparent);
+  outline:none;
+}
+[data-lighting="light"] .ui-topbar .ui-topbar-social{color:rgba(0,0,0,.6)}
+[data-lighting="dark"] .ui-topbar .ui-topbar-social{color:rgba(255,255,255,.68)}
+@media(max-width:900px){ .ui-topbar-socials{display:none} }
+
+/* Mobile sheet: labelled rows, because a bare glyph inside a list of
+   words is a guessing game. Handle sits right-aligned so the row still
+   reads as one line rather than two. */
+.ui-topbar-sheet-socials{
+  display:flex;flex-direction:column;
+  margin:10px 14px 4px;padding-top:12px;
+  border-top:1px solid var(--border, rgba(255,255,255,.08));
+}
+.ui-topbar-sheet-social{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 0;border-radius:8px;text-decoration:none;
+  font-size:.9rem;font-weight:600;
+  color:color-mix(in srgb,var(--text,#fff) 84%,transparent);
+}
+.ui-topbar-sheet-social:hover,
+.ui-topbar-sheet-social:focus-visible{color:var(--brand,var(--accent));outline:none}
+.ui-topbar-sheet-social-h{
+  margin-left:auto;font-weight:500;
+  color:color-mix(in srgb,var(--text,#fff) 48%,transparent);
+}
+[data-theme="light"] .ui-topbar-sheet-social{color:#1a1a1f}
 
 /* ── Contrast safeguards ───────────────────────────────────
    A number of React-heavy pages carry a crawler-visible site footer with

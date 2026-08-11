@@ -189,15 +189,20 @@
     // visitor already knew to open the overflow menu. It stays visible
     // beside LIVE in the compact tablet rail, then moves into the mobile
     // sheet with the rest of the primary links on phones.
-    { href: '/how-it-works',  label: 'How it works', compactKeep: true },
+    // 2026-08-12: `strong` is the new MIDDLE tier in the Explore menu
+    // (see ui.css .ui-topbar-more-item.is-strong). The Improve column had
+    // no `big` row at all, so it rendered as six identical rows and the
+    // eye had nowhere to land. "How it works" is the first question a
+    // stranger asks, so it is the one that gets the weight.
+    { href: '/how-it-works',  label: 'How it works', compactKeep: true, strong: true },
     // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
-    { href: '/app#case',      label: 'Prep'         },
+    { href: '/app#case',      label: 'Prep', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // Aidan (still reachable at /float and /exhibition directly).
-    { href: '/judge',         label: 'Judge'        },
+    { href: '/judge',         label: 'Judge', strong: true },
     // 2026-07-02: Certificate + Schedule restored per Aidan ("add more
     // back ... not too much") — high-intent product pillars: proof you
     // can earn, and the organized-round board when random live matching
@@ -304,7 +309,7 @@
     { head: 'Watch & compete', links: [
       // 2026-07-22: async rounds — record now, they answer later. The
       // no-simultaneity surface, so it belongs next to the live ones.
-      { href: '/rounds',      label: 'Async rounds' },
+      { href: '/rounds',      label: 'Async rounds', strong: true },
       { href: '/spectate',    label: 'Spectate live rounds' },
       // 2026-08-10: the debate shows people already watch (Surrounded,
       // Middle Ground, full Oxford Union debates) plus the standing
@@ -334,7 +339,7 @@
       // globe stopped being a link to it. Sits next to Community
       // because both answer "who else is out there".
       { href: '/atlas',       label: 'Debate atlas' },
-      { href: '/community',   label: 'Community' },
+      { href: '/community',   label: 'Community', strong: true },
       // 2026-07-22: chat moved out of the /community Live tab onto its
       // own surface, so the public room and DMs share one frame.
       { href: '/chat',        label: 'Chat and DMs' },
@@ -363,9 +368,9 @@
       // only entry here that sequences the others: each week hands off to
       // /learn, /coach, and /practice in order. Everything below is a
       // surface you have to already know you need.
-      { href: '/masterclass', label: 'Masterclass' },
+      { href: '/masterclass', label: 'Masterclass', strong: true },
       { href: '/voice-debate', label: 'Competitive Voice AI', big: true },
-      { href: '/practice',    label: 'Timed rounds vs AI' },
+      { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
       // 2026-08-10: daily-use flow desk. It accepts one speech or a
       // whole round and keeps true drops distinct from unanswered excerpts.
       { href: '/flow',        label: 'Flow a speech' },
@@ -385,6 +390,40 @@
       { href: '/future',  label: 'Vision' },
     ]},
   ];
+
+  // ── Social accounts ────────────────────────────────────────────────
+  // 2026-08-12: Instagram surfaced per Aidan. Only accounts that ACTUALLY
+  // EXIST go in here. YouTube, TikTok and Twitch are coming but are not
+  // claimed yet, and a nav icon pointing at a 404 is worse than no icon,
+  // so they stay commented out until the handle is real. Adding one then
+  // is a single line: the topbar rail, the mobile sheet row, and the
+  // hover colour all read this array.
+  //
+  // `brand` is the platform's own colour, used only on hover. At rest the
+  // icons are monochrome so the bar does not turn into a sponsor wall.
+  var SOCIALS = [
+    {
+      key: 'instagram',
+      label: 'Instagram',
+      handle: '@trydebatable',
+      href: 'https://instagram.com/trydebatable',
+      brand: '#E1306C',
+      // Rounded-square + lens + flash dot. Stroke-only so it inherits
+      // currentColor like every other topbar glyph (no brand fill at rest).
+      icon: '<rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5"/>'
+          + '<circle cx="12" cy="12" r="4.1"/>'
+          + '<path d="M17.1 6.9h.01"/>',
+    },
+    // { key:'youtube', label:'YouTube', handle:'@…', href:'https://youtube.com/@…', brand:'#FF0000', icon:'…' },
+    // { key:'tiktok',  label:'TikTok',  handle:'@…', href:'https://tiktok.com/@…',  brand:'#000000', icon:'…' },
+    // { key:'twitch',  label:'Twitch',  handle:'…',  href:'https://twitch.tv/…',    brand:'#9146FF', icon:'…' },
+  ];
+
+  function socialIcon(s){
+    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
+      + 'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + s.icon + '</svg>';
+  }
 
   // Desktop Explore panel presentation layer: one small stroke icon and
   // one plain sentence per destination, keyed by href. Labels keep living
@@ -594,8 +633,20 @@
         })},
       ];
       var columnGroups = primaryGroups.concat(MORE_GROUPS.filter(function(G){ return G.head !== 'Site'; }));
+      // 2026-08-12: each column carries its own accent through a `--col`
+      // custom property set by `ui-col-N` in ui.css, and every coloured
+      // part of a row (icon tile, active label, big-tile border, the
+      // numeral in the heading) reads `var(--col)` rather than
+      // `var(--accent)`. Before this the whole panel was one red, so four
+      // groups of destinations read as one long list.
+      //
+      // Colours are navigational category codes, not decoration, which is
+      // the same licence /profile already takes for per-format colours.
+      // Amber and orange are deliberately NOT in the set: the 2026-05-19
+      // sweep reserved them for state (warn, achievement, tier), and a
+      // decorative orange here would quietly reopen that.
       columnGroups.forEach(function(G, groupIndex){
-        var col = el('div', { class: 'ui-topbar-more-col' });
+        var col = el('div', { class: 'ui-topbar-more-col ui-col-' + (groupIndex + 1) });
         var head = el('div', { class: 'ui-topbar-more-head' }, [
           el('span', { class: 'ui-topbar-more-head-num', 'aria-hidden': 'true' }, '0' + (groupIndex + 1)),
           el('span', null, G.head),
@@ -885,6 +936,34 @@
       '</svg>';
     if (DARK_MODE_ENABLED) right.appendChild(themeBtn);
 
+    // Social rail. Icon-only so it costs almost no width on a bar that has
+    // overflowed before (see the 2026-07-02 declutter notes above), and it
+    // sits after the page links rather than among them because following
+    // the account is not a step in the product path.
+    //
+    // Hidden below 900px by ui.css: the mobile sheet carries the same
+    // links as a labelled row, which is the readable form on a phone.
+    if (SOCIALS.length){
+      var socialWrap = el('span', { class: 'ui-topbar-socials' });
+      SOCIALS.forEach(function(s){
+        var a = el('a', {
+          href: s.href,
+          class: 'ui-topbar-social ui-topbar-social--' + s.key,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          'aria-label': s.label + ', ' + s.handle,
+          title: s.label + ' ' + s.handle,
+        });
+        a.style.setProperty('--brand', s.brand);
+        a.innerHTML = socialIcon(s);
+        a.addEventListener('click', function(){
+          navTrack('social_click', { network: s.key, surface: 'topbar', from: location.pathname });
+        });
+        socialWrap.appendChild(a);
+      });
+      right.appendChild(socialWrap);
+    }
+
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
     // this topbar). It inserts itself into .ui-topbar-right before the
@@ -960,6 +1039,31 @@
       }
     });
     sheet.appendChild(sheetSignIn);
+
+    // Social row in the mobile sheet. The desktop rail is icon-only and
+    // hidden on phones, so this is where a phone visitor finds the
+    // accounts. Labelled, because a bare glyph in a text list is a guess.
+    if (SOCIALS.length){
+      var sheetSocial = el('div', { class: 'ui-topbar-sheet-socials' });
+      SOCIALS.forEach(function(s){
+        var a = el('a', {
+          href: s.href,
+          class: 'ui-topbar-sheet-social',
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          role: 'menuitem',
+        });
+        a.style.setProperty('--brand', s.brand);
+        a.innerHTML = socialIcon(s);
+        a.appendChild(el('span', null, s.label));
+        a.appendChild(el('span', { class: 'ui-topbar-sheet-social-h' }, s.handle));
+        a.addEventListener('click', function(){
+          navTrack('social_click', { network: s.key, surface: 'sheet', from: location.pathname });
+        });
+        sheetSocial.appendChild(a);
+      });
+      sheet.appendChild(sheetSocial);
+    }
 
     var sheetBackdrop = el('div', {
       class: 'ui-topbar-sheet-backdrop',
