@@ -6,9 +6,9 @@
 //   GET  /api/admin/recordings            → full list, newest first
 //   POST /api/admin/recordings { action: 'sync' }
 //        → pull Daily's recording list, upsert Firestore docs.
-//          Finished recordings ≥ 45s auto-publish (tournament norm:
-//          every round is recorded and published; unpublish is the
-//          exception, not the default).
+//          Finished tournament streams auto-publish. Debate rounds only
+//          publish when the round doc proves every seated participant
+//          accepted the current recording-consent scope.
 //   POST /api/admin/recordings { action: 'publish', id, published }
 //        → toggle a recording's public visibility.
 //   POST /api/admin/recordings { action: 'meta', id, title }
@@ -36,19 +36,31 @@ async function roundMeta(db, roomName){
     const snap = await db.collection('live_rounds').doc(roomName).get();
     if (!snap.exists) return {};
     const d = snap.data() || {};
+    const participants = [...new Set([
+      d.proUid, d.proUid2, d.conUid, d.conUid2,
+    ].filter(uid => typeof uid === 'string' && uid.length > 0))];
+    const consents = d.recordingConsents || {};
+    const recordingConsentComplete = participants.length >= 2
+      && participants.every(uid => consents[uid] === true)
+      && d.recordingPublishAllowed === true
+      && /^round-recording-v1-/.test(d.recordingConsentVersion || '');
     return {
       motion: d.motion || '',
       format: d.formatKey || d.format || '',
       proName: d.proName || (d.teamNames && d.teamNames.og) || '',
       conName: d.conName || (d.teamNames && d.teamNames.oo) || '',
+      recordingConsentComplete,
+      recordingConsentVersion: recordingConsentComplete ? d.recordingConsentVersion : '',
+      recordingParticipants: recordingConsentComplete ? participants : [],
     };
   } catch {
     return {};
   }
 }
 
-async function syncFromDaily(db){
-  const resp = await fetch(DAILY_API + '/recordings?limit=100', { headers: dailyHeaders() });
+export async function syncFromDaily(db, limit = 100){
+  const safeLimit = Math.max(1, Math.min(100, Number(limit) || 100));
+  const resp = await fetch(DAILY_API + '/recordings?limit=' + safeLimit, { headers: dailyHeaders() });
   if (!resp.ok){
     let detail = '';
     try { detail = await resp.text(); } catch {}
@@ -62,6 +74,9 @@ async function syncFromDaily(db){
     const ref = db.collection('recordings').doc(rec.id);
     const existing = await ref.get();
     const isStream = /^debatable-live-/.test(rec.room_name || '');
+    const meta = isStream ? {} : await roundMeta(db, rec.room_name || '');
+    const finished = (rec.status === 'finished') && (rec.duration || 0) >= AUTO_PUBLISH_MIN_SEC;
+    const publishEligible = finished && (isStream || meta.recordingConsentComplete === true);
     const base = {
       roomName: rec.room_name || '',
       startTs: rec.start_ts || 0,          // unix seconds
@@ -71,11 +86,19 @@ async function syncFromDaily(db){
       syncedAt: FieldValue.serverTimestamp(),
     };
     if (existing.exists){
-      await ref.set(base, { merge: true });
+      const old = existing.data() || {};
+      const managed = old.publishManaged === true;
+      await ref.set({
+        ...base,
+        ...meta,
+        ...(managed && !old.publishOverridden ? {
+          published: publishEligible,
+          publishedAuto: publishEligible,
+        } : {}),
+      }, { merge: true });
       updated++;
       continue;
     }
-    const meta = isStream ? {} : await roundMeta(db, rec.room_name || '');
     let title = '';
     if (isStream){
       // Recover the stream title from the site_stream history if this
@@ -90,13 +113,14 @@ async function syncFromDaily(db){
     } else {
       title = 'Round · ' + (rec.room_name || rec.id).slice(0, 40);
     }
-    const finished = (rec.status === 'finished') && (rec.duration || 0) >= AUTO_PUBLISH_MIN_SEC;
     await ref.set({
       ...base,
       ...meta,
       title,
-      published: finished,
-      publishedAuto: finished,
+      published: publishEligible,
+      publishedAuto: publishEligible,
+      publishManaged: true,
+      publishOverridden: false,
       createdAt: FieldValue.serverTimestamp(),
     });
     created++;
@@ -137,6 +161,8 @@ export default async (req) => {
     await db.collection('recordings').doc(id).set({
       published: body.published !== false,
       publishedAuto: false,
+      publishManaged: false,
+      publishOverridden: true,
     }, { merge: true });
     return jsonResponse({ id, published: body.published !== false }, 200, req);
   }

@@ -1,0 +1,256 @@
+// All-party consent gate for full-round Daily cloud recording.
+//
+// POST /api/round-recording
+//   { action: 'consent', room, consent: true, adultOrGuardianApproved: true }
+//   { action: 'consent', room, consent: false }
+//   { action: 'finish', room }
+//
+// Recording is off by default. The server starts it only after every
+// seated participant has independently opted in for this round. Consent
+// is stamped onto live_rounds/{room} before Daily is called, and any
+// participant can withdraw to stop future capture immediately.
+
+import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { getDb, FieldValue } from './lib/firestore.mjs';
+import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
+
+const DAILY_API = 'https://api.daily.co/v1';
+const CONSENT_VERSION = 'round-recording-v1-2026-08-10';
+const CONSENT_SCOPE = 'Store this round\'s video, audio, display names, and motion; publish the full replay on Watch so signed-in users can make and share clips.';
+
+function safeRoomName(value){
+  return String(value || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 80);
+}
+
+function participantUids(round){
+  return [...new Set([
+    round.proUid,
+    round.proUid2,
+    round.conUid,
+    round.conUid2,
+  ].filter(uid => typeof uid === 'string' && uid.length > 0))];
+}
+
+function publicState(round, participants){
+  const consents = round.recordingConsents || {};
+  return {
+    status: round.recordingStatus || 'idle',
+    participants,
+    consented: participants.filter(uid => consents[uid] === true).length,
+    required: participants.length,
+    publishAllowed: round.recordingPublishAllowed === true,
+  };
+}
+
+async function dailyRecording(room, action){
+  const apiKey = process.env.DAILY_API_KEY;
+  if (!apiKey || process.env.DAILY_RECORD === '0'){
+    return { ok: false, status: 503, detail: 'Recording is not configured.' };
+  }
+  const path = DAILY_API + '/rooms/' + encodeURIComponent(room) + '/recordings/' + action;
+  const body = action === 'start' ? {
+    type: 'cloud',
+    width: 1280,
+    height: 720,
+    fps: 30,
+    minIdleTimeOut: 120,
+    maxDuration: 10800,
+    layout: { preset: 'default', max_cam_streams: 8 },
+  } : { type: 'cloud' };
+  try {
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    let data = null;
+    try { data = await response.json(); } catch {}
+    // A duplicate stop returns 400. Treat it as complete so two clients
+    // finishing together cannot turn a successful stop into a UI error.
+    if (action === 'stop' && response.status === 400){
+      return { ok: true, status: response.status, data };
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      data,
+      detail: response.ok ? '' : String(data?.info || data?.error || 'Daily recording request failed').slice(0, 240),
+    };
+  } catch (error) {
+    return { ok: false, status: 502, detail: String(error?.message || error).slice(0, 240) };
+  }
+}
+
+async function stopIfStarted(room){
+  const stopped = await dailyRecording(room, 'stop');
+  if (!stopped.ok) console.warn('[round-recording] cleanup stop failed:', stopped.status, stopped.detail);
+}
+
+export default async (req) => {
+  if (req.method === 'OPTIONS') return corsResponse(req);
+  if (req.method !== 'POST') return errorResponse('POST only', 405, req);
+
+  const bearer = extractBearerToken(req);
+  if (!bearer) return errorResponse('Sign in to choose recording', 401, req);
+  let decoded;
+  try { decoded = await verifyIdToken(bearer); }
+  catch { return errorResponse('Sign in again to choose recording', 401, req); }
+
+  let body;
+  try { body = await req.json(); }
+  catch { return errorResponse('Invalid JSON', 400, req); }
+
+  const action = String(body.action || 'consent');
+  const room = safeRoomName(body.room);
+  if (!room || room !== String(body.room || '')) return errorResponse('Invalid room', 400, req);
+  if (!['consent', 'finish'].includes(action)) return errorResponse('Unknown action', 400, req);
+  if (action === 'consent' && typeof body.consent !== 'boolean') return errorResponse('consent must be true or false', 400, req);
+  if (action === 'consent' && body.consent && body.adultOrGuardianApproved !== true){
+    return errorResponse('Adult or guardian approval is required to record', 400, req);
+  }
+
+  const db = getDb();
+  const ref = db.collection('live_rounds').doc(room);
+  let result;
+  try {
+    result = await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return { error: 'Round not found', status: 404 };
+      const round = snap.data() || {};
+      const participants = participantUids(round);
+      if (participants.length < 2) return { error: 'Recording needs at least two identified debaters', status: 409 };
+      if (!participants.includes(decoded.sub)) return { error: 'Only seated debaters can choose recording', status: 403 };
+
+      const now = Date.now();
+      const consents = { ...(round.recordingConsents || {}) };
+      let effect = 'none';
+      const update = {
+        recordingConsentVersion: CONSENT_VERSION,
+        recordingParticipants: participants,
+        recordingUpdatedAt: FieldValue.serverTimestamp(),
+        recordingUpdatedAtMs: now,
+      };
+
+      if (action === 'finish'){
+        if (['starting', 'recording', 'stopping', 'stop_failed'].includes(round.recordingStatus)) effect = 'stop';
+        update.recordingStatus = effect === 'stop' ? 'processing' : (round.recordingStatus || 'idle');
+        update.recordingClosed = true;
+        update.recordingStopReason = 'round_complete';
+        update.recordingStoppedAtMs = now;
+      } else {
+        consents[decoded.sub] = body.consent;
+        const receipt = {
+          room,
+          uid: decoded.sub,
+          consent: body.consent,
+          decidedAtMs: now,
+          decidedAt: FieldValue.serverTimestamp(),
+          version: CONSENT_VERSION,
+          scope: CONSENT_SCOPE,
+          adultOrGuardianApproved: body.consent ? true : false,
+        };
+        update.recordingConsents = consents;
+        // The round doc is publicly readable for spectators, so the full
+        // legal receipt belongs in a server-only collection. The public
+        // round state carries only the booleans needed to paint the UI.
+        tx.set(db.collection('recording_consents').doc(room + '_' + decoded.sub + '_' + now), receipt);
+
+        const allAgreed = participants.every(uid => consents[uid] === true);
+        if (!body.consent){
+          update.recordingPublishAllowed = false;
+          update.recordingStatus = ['starting', 'recording'].includes(round.recordingStatus) ? 'stopping' : 'declined';
+          if (['starting', 'recording'].includes(round.recordingStatus)){
+            effect = 'stop';
+            update.recordingClosed = true;
+            update.recordingStopReason = 'consent_withdrawn';
+            update.recordingStoppedBy = decoded.sub;
+            update.recordingStoppedAtMs = now;
+          }
+        } else if (allAgreed && !round.recordingClosed && !['starting', 'recording', 'processing'].includes(round.recordingStatus)){
+          if (round.status === 'ballot' || round.ballot){
+            update.recordingStatus = 'closed';
+            update.recordingClosed = true;
+          } else {
+            effect = 'start';
+            update.recordingStatus = 'starting';
+            update.recordingPublishAllowed = true;
+            update.recordingConsentCompleteAtMs = now;
+          }
+        } else if (!allAgreed && !['starting', 'recording'].includes(round.recordingStatus)){
+          update.recordingStatus = 'awaiting_consent';
+          update.recordingPublishAllowed = false;
+        }
+      }
+
+      tx.set(ref, update, { merge: true });
+      return { effect, participants, round: { ...round, ...update } };
+    });
+  } catch (error) {
+    console.error('[round-recording] transaction failed:', error);
+    return errorResponse('Could not save recording choice', 503, req);
+  }
+
+  if (result.error) return errorResponse(result.error, result.status, req);
+
+  if (result.effect === 'start'){
+    const started = await dailyRecording(room, 'start');
+    if (!started.ok){
+      await ref.set({
+        recordingStatus: 'failed',
+        recordingPublishAllowed: false,
+        recordingErrorCode: started.status || 502,
+        recordingUpdatedAt: FieldValue.serverTimestamp(),
+        recordingUpdatedAtMs: Date.now(),
+      }, { merge: true });
+      return errorResponse('Everyone agreed, but recording could not start. Try again.', 502, req);
+    }
+
+    // A finish/withdraw can race the Daily start request. Re-check the
+    // round before announcing that capture is live; if it closed while
+    // Daily was starting, immediately issue a second stop.
+    let live = false;
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const round = snap.data() || {};
+      if (round.recordingStatus === 'starting' && round.recordingPublishAllowed === true && !round.recordingClosed){
+        live = true;
+        tx.set(ref, {
+          recordingStatus: 'recording',
+          recordingStartedAt: FieldValue.serverTimestamp(),
+          recordingStartedAtMs: Date.now(),
+          recordingErrorCode: FieldValue.delete(),
+        }, { merge: true });
+      }
+    });
+    if (!live) await stopIfStarted(room);
+  }
+
+  if (result.effect === 'stop'){
+    const stopped = await dailyRecording(room, 'stop');
+    if (!stopped.ok){
+      await ref.set({
+        recordingStatus: 'stop_failed',
+        recordingPublishAllowed: false,
+        recordingErrorCode: stopped.status || 502,
+        recordingUpdatedAt: FieldValue.serverTimestamp(),
+        recordingUpdatedAtMs: Date.now(),
+      }, { merge: true });
+      return errorResponse('Could not confirm recording stopped. Try again.', 502, req);
+    }
+    const finalStatus = action === 'finish' && result.round.recordingPublishAllowed === true ? 'processing' : 'stopped';
+    await ref.set({
+      recordingStatus: finalStatus,
+      recordingStoppedAt: FieldValue.serverTimestamp(),
+      recordingStoppedAtMs: Date.now(),
+      recordingErrorCode: FieldValue.delete(),
+    }, { merge: true });
+  }
+
+  const fresh = await ref.get();
+  return jsonResponse(publicState(fresh.data() || {}, result.participants), 200, req);
+};
+
+export const config = { path: '/api/round-recording' };

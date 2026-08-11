@@ -33,6 +33,10 @@ import { verifyIdToken } from './lib/auth.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 
+function recordingEnabled(){
+  return process.env.DAILY_RECORD !== '0';
+}
+
 function safeRoomName(s){
   return String(s || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 80);
 }
@@ -119,22 +123,39 @@ export default async (req) => {
     start_audio_off: false,
     eject_at_room_exp: true,
   };
+  // Enabling cloud recording does not start capture. /api/round-recording
+  // starts it only after every seated debater has opted in for this round.
+  // Inline playback lets the existing Watch player seek through the replay.
+  if (recordingEnabled()){
+    properties.enable_recording = 'cloud';
+    properties.allow_streaming_from_bucket = true;
+  }
 
   // Try create first. If 400 ("already exists"), fall through to GET.
   const headers = {
     'Authorization': 'Bearer ' + apiKey,
     'Content-Type': 'application/json',
   };
-  let resp = await fetch(DAILY_API + '/rooms', {
+  const createRoom = (props) => fetch(DAILY_API + '/rooms', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ name, privacy: 'public', properties }),
+    body: JSON.stringify({ name, privacy: 'public', properties: props }),
   });
+  let recordingAvailable = recordingEnabled();
+  let resp = await createRoom(properties);
 
   if (resp.status === 400 || resp.status === 409) {
     // Room exists — fetch it. Daily returns 400 for "already exists",
     // 409 isn't standard but we handle it just in case.
     resp = await fetch(DAILY_API + '/rooms/' + encodeURIComponent(name), { headers });
+    if (resp.status === 404 && recordingAvailable){
+      // A Daily plan without recording can reject enable_recording with
+      // the same 400 used for "room already exists." Retry bare so the
+      // debate still gets video even when recording is unavailable.
+      recordingAvailable = false;
+      const { enable_recording, allow_streaming_from_bucket, ...bare } = properties;
+      resp = await createRoom(bare);
+    }
   }
 
   if (!resp.ok) {
@@ -170,6 +191,7 @@ export default async (req) => {
     name: room.name || name,
     url: room.url || ('https://' + domain + '.daily.co/' + name),
     token,
+    recordingAvailable,
   });
 };
 

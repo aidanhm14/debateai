@@ -1219,11 +1219,10 @@ body.lr-pip .lr-pip-notice{display:block}
   padding-top:12px;border-top:1px solid var(--border);
 }
 
-/* Record-round control — opt-in local recording via getDisplayMedia.
-   Sits in the motion bar so it's reachable throughout the round
-   without scrolling. Idle = quiet ghost button; armed (recording) =
-   red dot + elapsed timer + Stop. Files download as
-   debateai-round-YYYY-MM-DDTHH-MM.webm. */
+/* Full-round cloud recording. Every seated debater must opt in for this
+   round before Daily starts capture. The pill stays visible throughout
+   the round so nobody can miss whether recording is waiting, live, or
+   stopped. */
 .rmb-rec{
   display:flex;align-items:center;gap:8px;flex-shrink:0;
 }
@@ -1242,6 +1241,13 @@ body.lr-pip .lr-pip-notice{display:block}
   border-color:rgba(239,68,68,.40);
   color:var(--text);
 }
+.rmb-rec-btn:disabled{cursor:default;opacity:.68}
+.rmb-rec.pending .rmb-rec-btn{
+  background:rgba(245,158,11,.10);
+  border-color:rgba(245,158,11,.38);
+  color:#fbbf24;
+}
+.rmb-rec.pending .rmb-rec-dot{background:#f59e0b}
 .rmb-rec-btn .rmb-rec-dot{
   width:8px;height:8px;border-radius:50%;
   background:rgba(255,255,255,.4);flex-shrink:0;
@@ -1265,6 +1271,27 @@ body.lr-pip .lr-pip-notice{display:block}
   letter-spacing:.04em;
 }
 .rmb-rec.recording .rmb-rec-elapsed{color:#fecaca}
+.rec-consent-backdrop{
+  position:fixed;inset:0;z-index:9999;padding:20px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.76);backdrop-filter:blur(7px);
+}
+.rec-consent-card{
+  width:min(520px,100%);padding:24px;border-radius:18px;
+  background:var(--bg-elev,#111118);border:1px solid var(--border-strong,rgba(255,255,255,.14));
+  box-shadow:0 24px 80px rgba(0,0,0,.5);
+}
+.rec-consent-kicker{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;font-weight:850;color:var(--accent,#ef4444);margin-bottom:9px}
+.rec-consent-card h2{font-size:1.35rem;letter-spacing:-.02em;margin:0 0 9px;color:var(--text)}
+.rec-consent-card p{font-size:.9rem;line-height:1.58;color:var(--text-dim);margin:0 0 12px}
+.rec-consent-card p strong{color:var(--text)}
+.rec-consent-check{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:11px;background:var(--ui-soft);border:1px solid var(--border);font-size:.8rem;line-height:1.45;color:var(--text-dim);cursor:pointer}
+.rec-consent-check input{margin-top:2px;accent-color:var(--accent,#ef4444)}
+.rec-consent-actions{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
+.rec-consent-actions button{min-height:40px;padding:9px 15px;border-radius:9px;font-family:inherit;font-size:.8rem;font-weight:750;cursor:pointer}
+.rec-consent-no{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+.rec-consent-yes{background:var(--accent,#ef4444);border:1px solid var(--accent,#ef4444);color:#fff}
+.rec-consent-yes:disabled{opacity:.45;cursor:not-allowed}
 @media (max-width:640px){
   .round-motion-bar{flex-direction:column;align-items:stretch;gap:14px}
   .rmb-tools{max-width:none;justify-content:flex-start}
@@ -2005,12 +2032,12 @@ html.stage-mode .stage-ov{display:block}
           <div class="rmb-brief" id="rmbBrief" hidden></div>
         </div>
         <div class="rmb-tools">
-          <div class="rmb-rec" id="rmbRec" title="Record this round locally, file downloads when you stop">
+          <div class="rmb-rec" id="rmbRec" title="Every seated debater must agree before recording starts">
             <button type="button" class="rmb-rec-btn" id="rmbRecBtn">
               <span class="rmb-rec-dot" aria-hidden="true"></span>
-              <span id="rmbRecLabel">Record</span>
+              <span id="rmbRecLabel">Ask to record</span>
             </button>
-            <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden>0:00</span>
+            <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden></span>
           </div>
           <div class="lr-pip-controls" id="lrPipControls">
             <button type="button" class="lr-pip-btn" id="lrMinBtn" title="Shrink the video to a floating corner and use the full page">⤓ Minimize</button>
@@ -3959,7 +3986,9 @@ html.stage-mode .stage-ov{display:block}
     txt.textContent = text;
   }
 
-  // ── Local-only round recording. Uses getDisplayMedia so the user
+  // ── Legacy local-capture helpers. Kept as a rollback path, but the
+  // visible control is wired to the all-party cloud consent flow below.
+  // Uses getDisplayMedia so the user
   // explicitly picks the tab/window/screen to capture (browser security
   // requires this — we can't tap the cross-origin Daily iframe's tracks
   // directly). MediaRecorder writes a webm to memory; Stop assembles
@@ -4122,13 +4151,222 @@ html.stage-mode .stage-ov{display:block}
     try { gtag('event', 'live_round_record_stop', { dur_sec: Math.round((Date.now() - rec.startedAt)/1000) }); } catch(e){}
   }
 
+  // ── All-party full-round recording. Decisions are per round, never
+  // remembered as a blanket preference. The server verifies the caller is
+  // seated, stamps the exact scope, and starts Daily only after every seat
+  // agrees. A no leaves the debate untouched.
+  var cloudRec = {
+    doc: null,
+    busy: false,
+    prompted: false,
+    modal: null,
+    tick: null,
+    lastStatus: '',
+  };
+
+  function cloudRecordingParticipants(d){
+    var seen = {}, out = [];
+    [d && d.proUid, d && d.proUid2, d && d.conUid, d && d.conUid2].forEach(function(uid){
+      if (uid && !seen[uid]){ seen[uid] = true; out.push(uid); }
+    });
+    return out;
+  }
+
+  function cloudRecordingName(d, uid){
+    if (!d || !uid) return 'a debater';
+    if (d.proUid === uid) return d.proName || 'Pro';
+    if (d.proUid2 === uid) return d.proName2 || 'Pro partner';
+    if (d.conUid === uid) return d.conName || 'Con';
+    if (d.conUid2 === uid) return d.conName2 || 'Con partner';
+    return 'a debater';
+  }
+
+  function closeCloudRecordingModal(){
+    if (cloudRec.modal && cloudRec.modal.parentNode) cloudRec.modal.parentNode.removeChild(cloudRec.modal);
+    cloudRec.modal = null;
+  }
+
+  function cloudRecordingPost(payload){
+    if (!state.user || !state.user.getIdToken) return Promise.reject(new Error('Sign in to choose recording.'));
+    return state.user.getIdToken().then(function(token){
+      return fetch('/api/round-recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify(Object.assign({ room: state.room }, payload)),
+      }).then(function(r){
+        return r.json().catch(function(){ return {}; }).then(function(j){
+          if (!r.ok) throw new Error(j.error || 'Could not save recording choice.');
+          return j;
+        });
+      });
+    });
+  }
+
+  function chooseCloudRecording(consent, adultOrGuardianApproved){
+    if (cloudRec.busy) return;
+    cloudRec.busy = true;
+    var yes = cloudRec.modal && cloudRec.modal.querySelector('#cloudRecYes');
+    var no = cloudRec.modal && cloudRec.modal.querySelector('#cloudRecNo');
+    if (yes) yes.disabled = true;
+    if (no) no.disabled = true;
+    cloudRecordingPost({
+      action: 'consent',
+      consent: !!consent,
+      adultOrGuardianApproved: !!adultOrGuardianApproved,
+    }).then(function(){
+      closeCloudRecordingModal();
+      toast(consent ? 'Your recording consent is saved.' : 'This round will not record unless you change your choice.');
+      try { gtag('event', 'live_round_recording_consent', { granted: consent ? 1 : 0 }); } catch(e){}
+    }).catch(function(error){
+      toast(error.message || 'Could not save recording choice.');
+      if (yes) yes.disabled = false;
+      if (no) no.disabled = false;
+    }).then(function(){ cloudRec.busy = false; });
+  }
+
+  function showCloudRecordingConsent(){
+    if (cloudRec.modal) return;
+    var d = cloudRec.doc || {};
+    if (state.phase !== 'round' || d.recordingClosed) return;
+    var participants = cloudRecordingParticipants(d);
+    if (!state.user || participants.indexOf(state.user.uid) < 0 || participants.length < 2){
+      toast('Recording needs at least two signed-in seated debaters.');
+      return;
+    }
+    // Do not stack this on top of the separate transcript-storage ask.
+    // The recording prompt returns as soon as that one is answered.
+    if (document.getElementById('tcRoot')){
+      setTimeout(showCloudRecordingConsent, 900);
+      return;
+    }
+    var bd = document.createElement('div');
+    bd.className = 'rec-consent-backdrop';
+    bd.innerHTML =
+      '<div class="rec-consent-card" role="dialog" aria-modal="true" aria-labelledby="cloudRecTitle">' +
+        '<div class="rec-consent-kicker">Optional, all-party consent</div>' +
+        '<h2 id="cloudRecTitle">Record this round?</h2>' +
+        '<p>If every seated debater agrees, Debatable will store this round\'s <strong>video, audio, display names, and motion</strong>. The full replay will appear on Watch so signed-in users can make and share clips.</p>' +
+        '<p>Declining does not affect the debate. Anyone who agreed can stop recording later.</p>' +
+        '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
+          '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
+        '<div class="rec-consent-actions">' +
+          '<button type="button" class="rec-consent-no" id="cloudRecNo">No recording</button>' +
+          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>I agree, record it</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(bd);
+    cloudRec.modal = bd;
+    var check = bd.querySelector('#cloudRecAge');
+    var yes = bd.querySelector('#cloudRecYes');
+    check.addEventListener('change', function(){ yes.disabled = !check.checked; });
+    bd.querySelector('#cloudRecNo').addEventListener('click', function(){ chooseCloudRecording(false, false); });
+    yes.addEventListener('click', function(){ chooseCloudRecording(true, check.checked); });
+    try { bd.querySelector('#cloudRecNo').focus(); } catch(e){}
+  }
+
+  function setCloudRecordingUi(d){
+    cloudRec.doc = d || {};
+    var box = document.getElementById('rmbRec');
+    var btn = document.getElementById('rmbRecBtn');
+    var label = document.getElementById('rmbRecLabel');
+    var detail = document.getElementById('rmbRecElapsed');
+    if (!box || !btn || !label || !detail) return;
+
+    var participants = cloudRecordingParticipants(d || {});
+    var consents = (d && d.recordingConsents) || {};
+    var mine = state.user ? consents[state.user.uid] : undefined;
+    var agreed = participants.filter(function(uid){ return consents[uid] === true; }).length;
+    var status = (d && d.recordingStatus) || 'idle';
+    var seated = !!(state.user && participants.indexOf(state.user.uid) >= 0);
+    var active = status === 'recording';
+
+    box.classList.toggle('recording', active);
+    box.classList.toggle('pending', status === 'awaiting_consent' || status === 'starting');
+    btn.disabled = cloudRec.busy || !seated || ['starting','processing','stopped','closed','stop_failed'].indexOf(status) >= 0;
+    detail.hidden = false;
+
+    if (active){
+      label.textContent = seated ? 'Stop recording' : 'Recording';
+      detail.textContent = fmtElapsed(Math.max(0, Date.now() - (d.recordingStartedAtMs || Date.now())));
+      if (!cloudRec.tick){
+        cloudRec.tick = setInterval(function(){ if (cloudRec.doc) setCloudRecordingUi(cloudRec.doc); }, 1000);
+      }
+    } else {
+      if (cloudRec.tick){ clearInterval(cloudRec.tick); cloudRec.tick = null; }
+      if (status === 'starting'){
+        label.textContent = 'Starting recording'; detail.textContent = agreed + '/' + participants.length + ' agreed';
+      } else if (status === 'processing'){
+        label.textContent = d.recordingPublishAllowed === true ? 'Preparing replay' : 'Recording stopped';
+        detail.textContent = d.recordingPublishAllowed === true ? 'Watch and clips soon' : 'Not publishing';
+      } else if (status === 'stopped' || status === 'closed'){
+        label.textContent = 'Recording stopped'; detail.textContent = 'Not publishing';
+      } else if (status === 'failed' || status === 'stop_failed'){
+        label.textContent = 'Recording unavailable'; detail.textContent = 'Try again'; btn.disabled = !seated;
+      } else if (status === 'declined'){
+        label.textContent = mine === false ? 'Allow recording' : 'Not recording'; detail.textContent = 'A debater declined';
+      } else if (status === 'awaiting_consent'){
+        label.textContent = mine === true ? 'Withdraw request' : 'Choose recording';
+        var waiting = participants.filter(function(uid){ return consents[uid] !== true; });
+        detail.textContent = waiting.length === 1 ? 'Waiting on ' + cloudRecordingName(d, waiting[0]) : agreed + '/' + participants.length + ' agreed';
+      } else {
+        label.textContent = 'Ask to record'; detail.textContent = participants.length >= 2 ? 'Everyone must agree' : 'Needs identified seats';
+      }
+    }
+
+    if (status !== cloudRec.lastStatus){
+      if (status === 'recording') toast('Recording started. Everyone agreed.');
+      if (status === 'processing') toast('Recording stopped. The replay is being prepared.');
+      cloudRec.lastStatus = status;
+    }
+  }
+
+  function maybePromptCloudRecording(d){
+    setCloudRecordingUi(d);
+    if (cloudRec.prompted || state.phase !== 'round' || !state.user || isSpectator()) return;
+    var participants = cloudRecordingParticipants(d || {});
+    var consents = (d && d.recordingConsents) || {};
+    if (participants.length < 2 || participants.indexOf(state.user.uid) < 0) return;
+    if (Object.prototype.hasOwnProperty.call(consents, state.user.uid)) return;
+    if (d.recordingClosed || ['processing','stopped','closed'].indexOf(d.recordingStatus) >= 0) return;
+    cloudRec.prompted = true;
+    setTimeout(showCloudRecordingConsent, 650);
+  }
+
+  function handleCloudRecordingButton(){
+    var d = cloudRec.doc || {};
+    var consents = d.recordingConsents || {};
+    var mine = state.user ? consents[state.user.uid] : undefined;
+    if (d.recordingStatus === 'recording'){
+      if (confirm('Stop recording for everyone? The captured replay will not be published.')) chooseCloudRecording(false, false);
+      return;
+    }
+    if (d.recordingStatus === 'awaiting_consent' && mine === true){
+      chooseCloudRecording(false, false);
+      return;
+    }
+    if (d.recordingStatus === 'stop_failed'){
+      finishCloudRecording();
+      return;
+    }
+    showCloudRecordingConsent();
+  }
+
+  function finishCloudRecording(){
+    if (!state.user || !state.user.getIdToken) return;
+    state.user.getIdToken().then(function(token){
+      return fetch('/api/round-recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ action: 'finish', room: state.room }),
+        keepalive: true,
+      });
+    }).catch(function(error){ console.warn('[recording finish]', error); });
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     var btn = document.getElementById('rmbRecBtn');
     if (!btn) return;
-    btn.addEventListener('click', function(){
-      if (rec.recorder) stopRoundRecording();
-      else startRoundRecording();
-    });
+    btn.addEventListener('click', handleCloudRecordingButton);
   });
 
   // ── Camera converter: Camera / Avatar / Off for seated debaters.
@@ -4775,6 +5013,9 @@ html.stage-mode .stage-ov{display:block}
   }
 
   function finishRound(){
+    // End capture with the final speech. The ballot can take minutes to
+    // generate and is not part of the debate footage people will clip.
+    finishCloudRecording();
     state.phase = 'ballot';
     updateRoundGuide();
     $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
@@ -8471,6 +8712,9 @@ html.stage-mode .stage-ov{display:block}
         updateConsentStatus('waiting');
       }
     }
+    // Run after phase reconciliation so someone entering a round already
+    // in progress is asked as soon as their participant seat is known.
+    maybePromptCloudRecording(d);
   }
 
   function publishRoundInit(){
@@ -8515,6 +8759,10 @@ html.stage-mode .stage-ov{display:block}
     if (state.proUid && state.conUid){
       payload.proUid = state.proUid;
       payload.conUid = state.conUid;
+      if (state.proUid2) payload.proUid2 = state.proUid2;
+      if (state.conUid2) payload.conUid2 = state.conUid2;
+      if (state.proName2) payload.proName2 = state.proName2;
+      if (state.conName2) payload.conName2 = state.conName2;
     }
     ref.set(payload, { merge: true }).catch(function(e){ console.warn('[Round sync] init failed', e); });
   }
