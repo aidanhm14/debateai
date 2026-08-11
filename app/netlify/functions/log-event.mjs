@@ -216,6 +216,7 @@ export default async (request) => {
   const token = extractBearerToken(request);
   let uid;
   let isAnon = false;
+  let anonDeviceId = '';
 
   if (token) {
     let decoded;
@@ -242,8 +243,23 @@ export default async (request) => {
     }
     // Synthetic uid keeps the events collection's shape stable —
     // admin-funnel.mjs already dedupes by `d.uid` for unique counting,
-    // so an anon session reads as a single "starter" via this prefix.
-    uid = 'anon:' + sid;
+    // so an anon device reads as a single "starter" via this prefix.
+    //
+    // 2026-08-10: this keys on the DURABLE device id (localStorage
+    // `_da_aid`, sent as metadata.anon_id since the funnel-join work)
+    // rather than the per-tab sessionStorage id. Keyed by session, a
+    // returning visitor and a second tab both minted a brand-new
+    // "anonymous user", so every anon count on /admin was really a
+    // count of TABS and anon retention was unmeasurable by
+    // construction — which is the population that dominates traffic.
+    // Falls back to the session id when localStorage is unavailable
+    // (Safari ITP, in-app browsers), so those visitors degrade to the
+    // old per-tab behavior instead of dropping out entirely.
+    //
+    // DISCONTINUITY: unique anon counts step DOWN from this date. That
+    // is the correction, not a regression. Don't compare across it.
+    anonDeviceId = sanitizeSid(metadata && metadata.anon_id);
+    uid = 'anon:' + (anonDeviceId || sid);
     isAnon = true;
     // Anon rate limit: tighter, keyed by (sid + ip) so one bot rotating
     // sessionIds from a single IP can't quietly spam the events table.
@@ -287,6 +303,12 @@ export default async (request) => {
       // admin-funnel) can slice cleanly. Existing rows have no `anon`
       // field — readers should treat its absence as `false`.
       anon: isAnon,
+      // Present only on anon rows keyed by a durable device id. Its
+      // ABSENCE on an anon row means that visitor had no localStorage,
+      // so their uid is per-tab and they will look like a new person
+      // on every visit. Readers that care about return rates should
+      // exclude rows without it rather than treat them as churned.
+      deviceKeyed: isAnon ? Boolean(anonDeviceId) : false,
       // createdAt is the canonical name across every collection in this
       // project — admin-analytics.mjs filters time-series by createdAt, so
       // writing `timestamp` instead silently zeroed out every chart on the

@@ -37,6 +37,26 @@
     return Number(n).toLocaleString('en-US');
   }
 
+  // Durable per-device id, same `_da_aid` key track.js mints so the
+  // counter and the events pipeline dedupe on the SAME subject. Read
+  // it rather than assuming track.js ran: this module loads on pages
+  // that don't carry track.js, and whoever gets there first wins.
+  // Returns '' when localStorage is blocked, and the server then
+  // declines to increment (see visitor-tick.mjs) instead of counting
+  // that browser again on every page load.
+  var AID_KEY = '_da_aid';
+  function deviceId(){
+    try {
+      var id = localStorage.getItem(AID_KEY);
+      if (!id){
+        id = (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+             (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+        localStorage.setItem(AID_KEY, id);
+      }
+      return id;
+    } catch (e){ return ''; }
+  }
+
   // Minimal fetch wrapper. Returns { count, ticked, source } on success
   // or null on any error. Never throws into the consumer.
   // POST optionally carries a handle so the join event written by
@@ -47,7 +67,7 @@
       const init = { method };
       if (method === 'POST'){
         init.headers = { 'Content-Type': 'application/json' };
-        init.body = JSON.stringify({ handle: handle || null });
+        init.body = JSON.stringify({ handle: handle || null, deviceId: deviceId() });
       }
       const res = await fetch(ENDPOINT, init);
       if (!res.ok) return null;
