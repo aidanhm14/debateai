@@ -455,6 +455,23 @@
     // renders the same feed the bell dropdown does, uncapped. When it
     // exists, every data callback repaints it alongside the panel.
     var pageEl = document.getElementById('daNotifPage');
+    var pageFilter = 'all';
+
+    function bindPageFilters() {
+      var buttons = document.querySelectorAll('[data-notif-filter]');
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].addEventListener('click', function () {
+          var next = this.getAttribute('data-notif-filter') || 'all';
+          if (!/^(all|matches|replies|messages|updates)$/.test(next)) next = 'all';
+          pageFilter = next;
+          for (var j = 0; j < buttons.length; j++) {
+            buttons[j].setAttribute('aria-pressed', buttons[j].getAttribute('data-notif-filter') === pageFilter ? 'true' : 'false');
+          }
+          paintPage();
+        });
+      }
+    }
+    if (pageEl) bindPageFilters();
 
     // updates feed state
     var updates = [], updatesSeen = 0;
@@ -932,8 +949,8 @@
           '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
         '</span>' +
         '<span style="flex:1;min-width:0">' +
-          '<span style="display:block;font-size:.82rem;font-weight:700;color:var(--text,#fff)">Alert me when rounds are forming</span>' +
-          '<span style="display:block;font-size:.7rem;color:var(--text-dim,#9aa)">Get pinged when a debater goes live, even in another app</span>' +
+          '<span style="display:block;font-size:.96rem;font-weight:700;color:var(--text,#fff)">Alert me when rounds are forming</span>' +
+          '<span style="display:block;font-size:.82rem;color:var(--text-dim,#9aa)">Get pinged when a debater goes live, even in another app</span>' +
         '</span>' +
         '<span aria-hidden="true" style="position:relative;flex-shrink:0;width:36px;height:21px;border-radius:999px;transition:background .15s;background:' + (on ? '#22c55e' : 'var(--border,rgba(255,255,255,.18))') + '">' +
           '<span style="position:absolute;top:2px;left:' + (on ? '17px' : '2px') + ';width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s"></span>' +
@@ -954,28 +971,14 @@
       }
     }
 
-    // One feed builder for both surfaces. `full` (the /notifications page)
-    // lifts the row caps so the whole history shows instead of the
-    // dropdown's short slice.
-    function buildFeedHtml(full) {
-      var html = '';
+    function matchesFeedHtml(expanded) {
+      var html = '<div class="ui-bell-head ui-bell-head--mid">Matches and live rounds</div>';
+      var hasRows = false;
       if (myUid) html += liveAlertRowHtml();
-      html += '<div class="ui-bell-head">What’s new</div>';
-      if (!updates.length) {
-        html += '<div class="ui-bell-empty">No updates yet.</div>';
-      } else {
-        html += '<div class="ui-bell-list">' + updates.slice(0, full ? 60 : 6).map(updateRowHtml).join('') + '</div>';
-      }
-      // Site activity — visible to anon visitors too. Shows recent
-      // posted challenges + waitlist invites so the page reads as
-      // inhabited the moment someone lands on it. The presence row
-      // at the top is the strongest "alive right now" signal —
-      // honest number from /api/online-count (Firestore presence
-      // docs with lastPing within the last 5 min).
-      html += '<div class="ui-bell-head ui-bell-head--mid">Site activity</div>';
-      // "Live now" — people actually waiting for a round. The strongest
-      // call to action: tap to spar one of them this second.
+      // People actually waiting for a round. This stays above general
+      // activity because it is the one notification the user can act on now.
       if (liveNow && liveNow.count > 0) {
+        hasRows = true;
         var others = (liveNow.debaters || []).filter(function (d) { return d.uid !== myUid; });
         var names = others.slice(0, 3).map(function (d) { return escHtml((d.name || '').split(/\s+/)[0]); }).filter(Boolean);
         var sub = names.length ? names.join(', ') + (liveNow.count > names.length ? ' and more' : '') : 'Tap to find your match';
@@ -993,6 +996,7 @@
         '</div>';
       }
       if (onlineCount !== null && onlineCount > 0) {
+        hasRows = true;
         html += '<div class="ui-bell-list">' +
           '<a class="ui-bell-row" href="/live">' +
             '<span class="ui-bell-av ui-bell-av--blank" style="position:relative">' +
@@ -1006,9 +1010,8 @@
           '</a>' +
         '</div>';
       }
-      // Next scheduled round (community scheduling). A future-dated
-      // reason to come back, right under the right-now signals.
       if (nextRound && nextRound.startAt > Date.now()) {
+        hasRows = true;
         var nd = new Date(nextRound.startAt);
         var sameDay = nd.toDateString() === new Date().toDateString();
         var whenTxt = (sameDay ? 'Today' : nd.toLocaleDateString(undefined, { weekday: 'short' })) +
@@ -1029,27 +1032,70 @@
           '</a>' +
         '</div>';
       }
-      if (!activity.length) {
+      if (activity.length) {
+        hasRows = true;
+        html += '<div class="ui-bell-list">' + activity.slice(0, expanded ? 40 : 8).map(activityRowHtml).join('') + '</div>';
+        html += '<a class="ui-bell-foot" href="/live">See the live board</a>';
+      }
+      if (!hasRows) {
         html += '<div class="ui-bell-empty">Quiet right now.<br>' +
                 '<a href="/live" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">Post a challenge</a>' +
                 ' or <a href="/spar" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">join the waitlist</a> to start one.</div>';
-      } else {
-        html += '<div class="ui-bell-list">' + activity.slice(0, full ? 40 : 8).map(activityRowHtml).join('') + '</div>';
-        html += '<a class="ui-bell-foot" href="/live">See the live board</a>';
       }
-      if (myUid && replyRows.length) {
-        html += '<div class="ui-bell-head ui-bell-head--mid">Replies to your threads</div>';
+      return html;
+    }
+
+    function repliesFeedHtml(showEmpty) {
+      if (!myUid) {
+        return showEmpty
+          ? '<div class="ui-bell-head ui-bell-head--mid">Replies</div><div class="ui-bell-empty">Sign in to see replies to your community threads.</div>'
+          : '';
+      }
+      if (replyRows.length) {
+        var html = '<div class="ui-bell-head ui-bell-head--mid">Replies to your threads</div>';
         html += '<div class="ui-bell-list">' + replyRows.map(replyRowHtml).join('') + '</div>';
+        return html;
       }
-      if (myUid) {
-        html += '<div class="ui-bell-head ui-bell-head--mid">Messages</div>';
-        if (!dmRows.length) {
-          html += '<div class="ui-bell-empty">No messages yet.<br>Find a sparring partner and DM them from the live board.</div>';
-        } else {
-          html += '<div class="ui-bell-list">' + dmRows.map(dmRowHtml).join('') + '</div>';
-        }
-        html += '<a class="ui-bell-foot" href="/spar">Open all messages</a>';
+      return showEmpty
+        ? '<div class="ui-bell-head ui-bell-head--mid">Replies</div><div class="ui-bell-empty">No replies yet.<br><a href="/community" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">Start a community thread</a> to open the conversation.</div>'
+        : '';
+    }
+
+    function messagesFeedHtml(showEmpty) {
+      if (!myUid) {
+        return showEmpty
+          ? '<div class="ui-bell-head ui-bell-head--mid">Messages</div><div class="ui-bell-empty">Sign in to see your messages.</div>'
+          : '';
       }
+      if (dmRows.length) {
+        return '<div class="ui-bell-head ui-bell-head--mid">Messages</div>' +
+          '<div class="ui-bell-list">' + dmRows.map(dmRowHtml).join('') + '</div>' +
+          '<a class="ui-bell-foot" href="/messages">Open all messages</a>';
+      }
+      return showEmpty
+        ? '<div class="ui-bell-head ui-bell-head--mid">Messages</div><div class="ui-bell-empty">No messages yet.<br>Open a debater profile or the live board to start one.</div><a class="ui-bell-foot" href="/messages">Open messages</a>'
+        : '';
+    }
+
+    function updatesFeedHtml(expanded) {
+      var html = '<div class="ui-bell-head ui-bell-head--mid">Product updates</div>';
+      if (!updates.length) return html + '<div class="ui-bell-empty">No product updates yet.</div>';
+      return html + '<div class="ui-bell-list">' + updates.slice(0, expanded ? 60 : 4).map(updateRowHtml).join('') + '</div>';
+    }
+
+    // The full page is ordered by relevance: personal activity first,
+    // actionable live matches next, and product announcements last.
+    function buildFeedHtml(full, filter) {
+      filter = filter || 'all';
+      if (filter === 'matches') return matchesFeedHtml(true);
+      if (filter === 'replies') return repliesFeedHtml(true);
+      if (filter === 'messages') return messagesFeedHtml(true);
+      if (filter === 'updates') return updatesFeedHtml(true);
+      var html = '';
+      html += messagesFeedHtml(false);
+      html += repliesFeedHtml(false);
+      html += matchesFeedHtml(false);
+      html += updatesFeedHtml(false);
       return html;
     }
 
@@ -1058,14 +1104,14 @@
       if (!panel) return;
       // The dropdown gets a footer link to the full page; the page itself
       // obviously doesn't.
-      panel.innerHTML = buildFeedHtml(false) +
+      panel.innerHTML = buildFeedHtml(false, 'all') +
         '<a class="ui-bell-foot" href="/notifications" style="font-weight:800">All notifications &rarr;</a>';
       if (myUid) bindLiveAlertToggle();
     }
 
     function paintPage() {
       if (!pageEl) return;
-      pageEl.innerHTML = buildFeedHtml(true);
+      pageEl.innerHTML = buildFeedHtml(true, pageFilter);
       if (myUid) bindLiveAlertToggle();
       // Viewing the page reads everything: advance the seen markers (the
       // snapshots above keep this visit's unread dots visible) and clear

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Notifications · Debatable</title>
-<meta name="description" content="Everything happening on Debatable in one place: product updates, live challenges, open invites, replies to your threads, and your messages." />
+<meta name="description" content="Your Debatable matches, replies, messages, and product updates in one filterable inbox." />
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -69,20 +69,52 @@ body{
   background:var(--bg);color:var(--text);
   -webkit-font-smoothing:antialiased;
 }
-.wrap{max-width:680px;margin:0 auto;padding:96px 18px 80px}
-.page-h{margin:0 0 4px;font-size:2rem;font-weight:800;letter-spacing:-.02em}
-.page-sub{margin:0 0 22px;font-size:.95rem;color:var(--text-ghost)}
+.wrap{max-width:940px;margin:0 auto;padding:112px 24px 96px}
+.page-h{margin:0 0 6px;font-size:clamp(2.45rem,4vw,3.35rem);font-weight:800;letter-spacing:-.035em;line-height:1}
+.page-sub{margin:0;font-size:1.12rem;line-height:1.5;color:var(--text-ghost)}
+.notif-filters{display:flex;align-items:center;gap:9px;margin:28px 0 18px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.notif-filters::-webkit-scrollbar{display:none}
+.notif-filter{flex:none;min-height:42px;padding:0 17px;border:1px solid var(--border);border-radius:999px;background:transparent;
+  color:var(--text-dim);font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.88rem;font-weight:750;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s,transform .15s}
+.notif-filter:hover{color:var(--text);border-color:var(--border-strong);transform:translateY(-1px)}
+.notif-filter:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.notif-filter[aria-pressed="true"]{color:#fff;border-color:var(--accent);background:var(--accent);box-shadow:0 8px 22px rgba(239,68,68,.18)}
 /* The feed reuses the .ui-bell-* row styles that notifications.js injects.
-   The card just gives them a bordered, full-width home instead of a
-   320px dropdown. */
+   These id-scoped rules intentionally outrank the compact bell defaults. */
 .notif-card{
-  border:1px solid var(--border);border-radius:16px;overflow:hidden;
+  border:1px solid var(--border);border-radius:18px;overflow:hidden;
   background:var(--bg-card);box-shadow:var(--shadow-lg);
 }
+#daNotifPage .ui-bell-head{padding:18px 22px 13px;font-size:.78rem;letter-spacing:.15em}
+#daNotifPage > .ui-bell-head:first-child{border-top:0}
+#daNotifPage .ui-bell-list{max-height:none;overflow:visible}
+#daNotifPage .ui-bell-row{gap:15px;padding:17px 22px;min-height:76px}
+#daNotifPage .ui-bell-av{width:40px;height:40px;font-size:.9rem}
+#daNotifPage .ui-bell-row__main{gap:4px}
+#daNotifPage .ui-bell-row__name{font-size:1.04rem;line-height:1.25}
+#daNotifPage .ui-bell-row__preview{font-size:.9rem;line-height:1.45}
+#daNotifPage .ui-bell-row__time{font-size:.78rem;padding-left:8px}
+#daNotifPage .ui-bell-empty{padding:30px 22px;font-size:.96rem;line-height:1.6}
+#daNotifPage .ui-bell-foot{padding:14px 18px;font-size:.9rem}
+#daNotifPage .ui-bell-la{padding:18px 22px!important;gap:14px!important}
+#daNotifPage .ui-bell-la > span:first-child{width:40px!important;height:40px!important}
 #daNotifPage:empty::before{
   content:"Loading notifications…";
-  display:block;padding:28px 16px;text-align:center;
-  color:var(--text-ghost);font-size:.9rem;
+  display:block;padding:36px 22px;text-align:center;
+  color:var(--text-ghost);font-size:1rem;
+}
+@media(max-width:640px){
+  .wrap{padding:82px 12px 72px}.page-h{font-size:2.45rem}.page-sub{font-size:1rem}
+  .notif-filters{margin-top:22px;gap:7px}.notif-filter{min-height:40px;padding:0 15px;font-size:.82rem}
+  .notif-card{border-radius:14px}
+  #daNotifPage .ui-bell-head{padding:16px 16px 12px;font-size:.72rem}
+  #daNotifPage .ui-bell-row{align-items:flex-start;gap:12px;padding:16px;min-height:72px}
+  #daNotifPage .ui-bell-av{width:36px;height:36px}
+  #daNotifPage .ui-bell-row__name{font-size:.98rem;white-space:normal}
+  #daNotifPage .ui-bell-row__preview{font-size:.86rem}
+  #daNotifPage .ui-bell-row__time{font-size:.72rem;padding-left:2px;padding-top:2px}
+  #daNotifPage .ui-bell-la{padding:16px!important}
 }
 </style>
 </head>
@@ -92,7 +124,14 @@ body{
 
 <main class="wrap">
   <h1 class="page-h">Notifications</h1>
-  <p class="page-sub">Product updates, live challenges, replies to your threads, and your messages.</p>
+  <p class="page-sub">Matches, replies, messages, and updates. Filter to what matters.</p>
+  <div class="notif-filters" id="daNotifFilters" role="group" aria-label="Filter notifications">
+    <button class="notif-filter" type="button" data-notif-filter="all" aria-pressed="true" aria-controls="daNotifPage">All</button>
+    <button class="notif-filter" type="button" data-notif-filter="matches" aria-pressed="false" aria-controls="daNotifPage">Matches</button>
+    <button class="notif-filter" type="button" data-notif-filter="replies" aria-pressed="false" aria-controls="daNotifPage">Replies</button>
+    <button class="notif-filter" type="button" data-notif-filter="messages" aria-pressed="false" aria-controls="daNotifPage">Messages</button>
+    <button class="notif-filter" type="button" data-notif-filter="updates" aria-pressed="false" aria-controls="daNotifPage">Updates</button>
+  </div>
   <div class="notif-card">
     <div id="daNotifPage"></div>
   </div>
