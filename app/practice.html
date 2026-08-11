@@ -4751,14 +4751,26 @@ function buildPrompt(speech, userSide, motion, history, notes, format, oppStr, o
   var isFirstRound = (historyRounds || []).length === 0;
   var audienceChoice = '';
   try {audienceChoice = localStorage.getItem('da-is-debater') || '';} catch (e) {}
-  var wantsCompetitiveRegister = audienceChoice === 'competing' ||
+  // Explicit per-round opponent pick (`da-opp-register`, set by the
+  // Normal / Competitive toggle in the setup form) OUTRANKS the
+  // onboarding inference. Someone who answered "competing" months ago
+  // and now wants a plain-English round should get one by asking for
+  // it, and a curious visitor who wants the real circuit register
+  // should not have to re-onboard to hear it. Empty = infer as before.
+  var registerChoice = '';
+  try {registerChoice = localStorage.getItem('da-opp-register') || '';} catch (e) {}
+  var wantsCompetitiveRegister = registerChoice === 'competitive' ||
+  !registerChoice && (
+  audienceChoice === 'competing' ||
   audienceChoice === 'coaching' ||
-  audienceChoice === 'yes'; // legacy value from the earlier yes/no intro
-  var wantsPlainRegister = audienceChoice === 'learning' ||
+  audienceChoice === 'yes'); // legacy value from the earlier yes/no intro
+  var wantsPlainRegister = registerChoice === 'normal' ||
+  !registerChoice && (
+  audienceChoice === 'learning' ||
   audienceChoice === 'curious' ||
-  audienceChoice === 'no'; // legacy value from the earlier yes/no intro
+  audienceChoice === 'no'); // legacy value from the earlier yes/no intro
   var usePlainRegister = wantsPlainRegister ||
-  !audienceChoice && isFirstRound && format === 'quick';
+  !registerChoice && !audienceChoice && isFirstRound && format === 'quick';
   var audienceRegisterNote = wantsCompetitiveRegister ? `
 
 ────────────────────────────────────────────────────────
@@ -7508,6 +7520,24 @@ function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [phase, tts.speaking, showShortcuts]);
 
+  // Opponent register: Normal vs Competitive. The onboarding answer
+  // (`da-is-debater`) already forked the AI's vocabulary, but it was
+  // invisible and permanent, so a curious visitor could never hear a
+  // real circuit round and a competitor could never get plain English
+  // for a friend. This is the same fork made explicit and per-round.
+  // '' means "infer from onboarding", which is the pre-existing
+  // behaviour and stays the default for anyone who never touches it.
+  var [oppRegister, setOppRegister] = useState(function () {
+    try {return localStorage.getItem('da-opp-register') || '';} catch (e) {return '';}
+  });
+  var pickRegister = (v) => {
+    setOppRegister(v);
+    try {
+      if (v) localStorage.setItem('da-opp-register', v);else
+      localStorage.removeItem('da-opp-register');
+    } catch (e) {}
+  };
+
   // Adaptive difficulty. check user's win rate against this opponent.
   // Per-format takes precedence: a user crushing APDA might still be
   // struggling in Policy, so we want the difficulty curve to track the
@@ -10050,6 +10080,38 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     ),
     el('div', { style: { fontSize: '.62rem', color: 'var(--c-dim)', marginTop: 6, fontStyle: 'italic', lineHeight: 1.45 } }, 'From your last ', styleSummary.fingerprint.sampleCount || 'few', ' rounds. The judge will also call out the pattern if you repeat it.')
     );
+  }(),
+  // Opponent register picker. Two ways to be argued at: plain English
+  // or full circuit vocabulary. Rendered above the difficulty badge
+  // because it is a choice, not a readout.
+  !isCounterExt && function () {
+    var opts = [
+    { k: 'normal', t: 'Normal', d: 'Plain English. No debate jargon.' },
+    { k: 'competitive', t: 'Competitive', d: 'Full circuit vocabulary and structure.' }];
+
+    return el('div', { style: { marginTop: 16 } },
+    el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--c-dim)', marginBottom: 8 } }, 'Opponent style'),
+    el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+    opts.map(function (o) {
+      var on = oppRegister === o.k;
+      return el('button', {
+        key: o.k,
+        type: 'button',
+        onClick: () => pickRegister(on ? '' : o.k),
+        'aria-pressed': on ? 'true' : 'false',
+        style: {
+          flex: '1 1 180px', textAlign: 'left', cursor: 'pointer',
+          padding: '10px 13px', borderRadius: 12,
+          border: '1px solid ' + (on ? 'rgba(239,68,68,.55)' : 'var(--c-border)'),
+          background: on ? 'rgba(239,68,68,.10)' : 'var(--c-surface)',
+          color: 'var(--c-text)', font: 'inherit'
+        }
+      },
+      el('div', { style: { fontSize: '.82rem', fontWeight: 700, color: on ? '#fca5a5' : 'var(--c-text)' } }, o.t),
+      el('div', { style: { fontSize: '.68rem', color: 'var(--c-dim)', marginTop: 2, lineHeight: 1.4 } }, o.d));
+
+    })));
+
   }(),
   // Difficulty badge \u2014 visible side of the adaptive-difficulty
   // signal. When the user has 3+ rounds in the chosen format and

@@ -597,6 +597,7 @@
         });
         host.appendChild(wd);
       }
+      appendPrizeLinks(host, t);
       return;
     }
     if (t.status !== 'registration'){
@@ -608,11 +609,32 @@
     btn.textContent = t.teamSize === 2 ? 'Register my team' : 'Register';
     btn.addEventListener('click', function(){ register(btn); });
     host.appendChild(btn);
+    appendPrizeLinks(host, t);
     if (t.teamSize === 2){
       var link = document.createElement('a');
       link.className = 'btn'; link.href = '/partners'; link.textContent = 'Find a partner';
       host.appendChild(link);
     }
+  }
+
+  // Prize tournaments (entryFeeCents > 0) carry two extra links: the
+  // paid door lives on /tournaments#enter (Stripe checkout + the 18+
+  // attestation), and the official rules page carries the payout split
+  // and refund policy. Free tournaments render neither.
+  function appendPrizeLinks(host, t){
+    if (!(Number(t.entryFeeCents) > 0)) return;
+    if (t.status === 'registration'){
+      var pay = document.createElement('a');
+      pay.className = 'btn';
+      pay.href = '/tournaments#enter';
+      pay.textContent = 'Pay in for the prize bracket';
+      host.appendChild(pay);
+    }
+    var rules = document.createElement('a');
+    rules.className = 'btn';
+    rules.href = '/tournament-rules';
+    rules.textContent = 'Official rules';
+    host.appendChild(rules);
   }
 
   function register(btn){

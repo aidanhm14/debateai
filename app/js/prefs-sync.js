@@ -52,6 +52,8 @@
     'debateos-newvoice-side',
     'debateos-newvoice-diff', 'debateos-newvoice-pace', 'debateos-newvoice-theme',
     'debateos-newvoice-judge-live',
+    // Normal vs Competitive opponent register (/practice setup form).
+    'da-opp-register',
     // /settings turn-taking (js/round-prefs.js). Someone who needs tap to
     // speak or a noisy-room gate needs it on their phone too; a factory
     // reset on the second device is exactly the problem this file exists for.
