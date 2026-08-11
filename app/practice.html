@@ -1573,10 +1573,20 @@ function useAuth() {
     var unsub = null,cancelled = false,iv = null;
     function wire() {
       unsub = firebaseAuth.onAuthStateChanged(async (u) => {
-        setUser(u);
-        if (u) {
+        // Anonymous Firebase accounts are NOT signed-in users here. This
+        // page never mints one, but /js/notifications.js calls
+        // signInAnonymously() for the background "Spar live" pill on every
+        // page, so a guest arrives with a currentUser and no account. Read
+        // as-is, that guest got the signed-in round cap, lost every sign-in
+        // nudge, and had rounds saved under a uid they can never sign back
+        // into, all while the topbar still said SIGN IN. It also sent an
+        // anonymous token to the account endpoints, which is where the
+        // /api/teams/usage 404 and /api/user/style-summary 500 came from.
+        var named = u && !u.isAnonymous ? u : null;
+        setUser(named);
+        if (named) {
           try {
-            var token = await u.getIdToken();
+            var token = await named.getIdToken();
             var res = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + token } });
             if (res.ok) setTeam(await res.json());
           } catch {}
@@ -3516,6 +3526,46 @@ function remaining() {return Math.max(0, getEffectiveLimit() - getUsage());}
 // effective ceiling for any straggler call sites.
 var LIMIT = ANON_LIMIT;
 
+// A "use" is one ROUND, not one API call. It used to be one call, and a
+// round makes many: the prep-time prefetch, every AI speech, POI answers,
+// the ballot, the panel, the flow sheet. At ANON_LIMIT = 1 that meant a
+// guest could never finish even their first round — the opening AI speech
+// spent the only credit and the next call threw the quota error, which the
+// speech screen rendered as "AI couldn't respond. Guest preview used. Sign
+// in..." mid-debate, then auto-advanced through the rest of the round with
+// empty speeches into a ballot judging nothing. Signed-in users got ~2
+// rounds out of a nominal 10 for the same reason.
+//
+// So the round takes the credit once, at the moment speeches begin, and
+// everything inside that round runs free. hasCredit() is the gate; the
+// window stays open through the ballot (it is part of the same round) and
+// closes when the next round is set up.
+var __roundCreditOpen = false;
+function hasCredit() {
+  return isPro() || !!getStoredKey() || getUsage() < getEffectiveLimit();
+}
+function quotaError() {
+  var err = new Error(isSignedIn() ?
+  window.__DB_NATIVE ? 'Free quota used for now.' : 'Free quota used. Upgrade to keep going.' :
+  'Guest preview used. Sign in to keep your rounds and style profile.');
+  err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
+  if (typeof window !== 'undefined') {
+    try {window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: err.code } }));} catch (e) {}
+  }
+  return err;
+}
+// Charge the round and open the free window. Returns false when the user is
+// out of credit, so the caller can surface the CTA instead of starting a
+// round that will die halfway through.
+function beginRoundCredit() {
+  if (__roundCreditOpen) return true;
+  if (!hasCredit()) return false;
+  if (!isPro() && !getStoredKey()) incUsage();
+  __roundCreditOpen = true;
+  return true;
+}
+function endRoundCredit() {__roundCreditOpen = false;}
+
 // Auth status mirrored from React state into module scope so the helpers
 // above (called from outside the component tree) see the latest value.
 var __proStatus = false;
@@ -3622,14 +3672,11 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   // free quota. The thrown error carries a 'code' the UI catches to surface
   // the upgrade CTA instead of a generic failure. Pro tier (Infinity limit)
   // and BYOK (bring your own Anthropic key) both bypass this.
-  if (!isPro() && !getStoredKey() && getUsage() >= getEffectiveLimit()) {
-    var err = new Error(isSignedIn() ? window.__DB_NATIVE ? 'Free quota used for now.' : 'Free quota used. Upgrade to keep going.' : 'Guest preview used. Sign in to keep your rounds and style profile.');
-    err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
-    if (typeof window !== 'undefined') {
-      try {window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: err.code } }));} catch (e) {}
-    }
-    throw err;
-  }
+  //
+  // Inside an open round the gate never fires and nothing is charged: the
+  // round paid once at beginRoundCredit(). A round that has started always
+  // finishes, including its ballot.
+  if (!__roundCreditOpen && !hasCredit()) throw quotaError();
   var brain = BRAINS[brainKey] || BRAINS.claude;
   var pro = isPro();
   var model = pro && brain.proModel ? brain.proModel : brain.model;
@@ -3776,7 +3823,12 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
       }
     }
   }
-  incUsage();return full;
+  // Calls made inside a round are already paid for; only charge the strays
+  // (motion triage, standalone tools) that run outside one. opts.meter:false
+  // marks speculative work for a round that has not started yet — the prep
+  // prefetch, which is thrown away if the user backs out of prep.
+  if (!__roundCreditOpen && !(opts && opts.meter === false)) incUsage();
+  return full;
 }
 
 // Backwards-compatible wrapper
@@ -6654,6 +6706,7 @@ function App() {
   var prepTimer = useTimer();
   var endingRef = useRef(false); // guard against double endSpeech calls
   var prepPrefetchRef = useRef(null); // holds pre-generated AI text from prep phase
+  var prepRanRef = useRef(false); // true once the prep clock has actually ticked
   // Audio progress tick effect (see audioTick state above). Runs only
   // while TTS is speaking. Placed here, AFTER tts=useTTS(), so the
   // dependency `tts.speaking` resolves at render time instead of hitting
@@ -6760,6 +6813,10 @@ function App() {
     setBackground(recoveryData.background || '');
     setNotes(recoveryData.notes || '');
     if (recoveryData.phase === 'speech') {
+      // A resumed round is the same round the user already paid for, so it
+      // reopens the free window rather than charging again or metering the
+      // rest of its speeches call by call.
+      __roundCreditOpen = true;
       var savedLog = recoveryData.log || [];
       var savedIdx = recoveryData.idx || 0;
       var recFmt = FORMATS[recoveryData.format || 'apda'] || FORMATS.apda;
@@ -6918,7 +6975,7 @@ function App() {
           'Deliver your ' + firstSpeech.code + ' speech on: "' + motion + '"',
           function (chunk) {if (!cancelled) cache.text = chunk;},
           brain,
-          { voiceFormat: format }
+          { voiceFormat: format, meter: false }
         );
         if (!cancelled) {cache.text = rawTxt;cache.done = true;console.log('%c[prefetch] done (' + (rawTxt || '').split(/\s+/).length + 'w)', 'color:lime');}
       } catch (e) {
@@ -6953,6 +7010,9 @@ function App() {
   // Start debate
   var startDebate = () => {
     if (!motion.trim()) return;
+    // Setting up a new round closes the previous round's free window; the
+    // next one charges again when its speeches start.
+    endRoundCredit();
     // SFX/TTS warmup is decorative — wrap in try/catch so a missing
     // method (e.g. the historic /js/sfx.js collision where window.SFX
     // got overwritten and lost startRound) can't take down the entire
@@ -7023,6 +7083,13 @@ function App() {
   // Skip prep → first speech
   var goToSpeeches = () => {
     try {if (SFX && typeof SFX.click === 'function') SFX.click();} catch (e) {}
+    // The round takes its credit here, once, and every AI call between now
+    // and the ballot rides on it. Out of credit means the CTA instead of a
+    // round that breaks at the first AI speech.
+    if (!beginRoundCredit()) {
+      setQuotaCTA(isSignedIn() ? 'pro' : 'signin');
+      return;
+    }
     // Lazy background autogen: only fire if the user is actually entering
     // speeches (not at startDebate, which they might cancel during prep).
     // Saves a Claude call per round when users abort during prep.
@@ -7032,34 +7099,18 @@ function App() {
     transition('speech', () => {setIdx(0);setLog([]);setTimeout(() => runSpeech(0, []), 400);});
   };
 
-  // Auto-advance when prep timer ends
+  // Auto-advance when prep timer ends. The body of this effect had been
+  // emptied at some point, leaving the prep screen counting down to 0:00
+  // and then just sitting there: the round looked frozen, and the only way
+  // forward was noticing the Start Round button. prepRanRef makes sure this
+  // only fires for a timer that actually ran, never on mount.
   useEffect(() => {
-    if (phase === 'prep' && prepTimer.left === 0 && !prepTimer.on && log.length === 0) {
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      // Only auto-advance if timer actually ran (not on initial mount)
-    }}, [prepTimer.left]); // Run a speech
+    if (phase === 'prep' && prepTimer.on && prepTimer.left > 0) prepRanRef.current = true;
+    if (phase === 'prep' && prepRanRef.current && prepTimer.left === 0 && !prepTimer.on && log.length === 0) {
+      prepRanRef.current = false;
+      goToSpeeches();
+    }
+  }, [prepTimer.left, prepTimer.on, phase]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
     var s = SPEECHES[i];var userTurn = s.side === side;setLiveRate(1.0); // reset live speed each speech
     if (userTurn) {// User turn. start timer + mic immediately
@@ -7337,6 +7388,16 @@ function App() {
       } catch (e) {
         stopThinking();
         setAiLoading(false);
+        // Out of credit is not a failed speech, so it does not get the
+        // error banner and the auto-advance. Advancing here marched the
+        // user through the rest of the round with empty AI speeches and
+        // ended on a ballot judging nothing. Show the CTA and hold.
+        if (e && (e.code === 'QUOTA_SIGNIN' || e.code === 'QUOTA_PRO')) {
+          orb.setMode('idle');
+          timer.pause();
+          setQuotaCTA(e.code === 'QUOTA_PRO' ? 'pro' : 'signin');
+          return;
+        }
         // Surface the AI error with both the raw cause and a clear next
         // action. Generic "Something went wrong" leaves users staring
         // at a dead orb wondering whether to refresh, retry, or wait.
@@ -8521,7 +8582,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   };
 
   // Reset
-  var newRound = () => {clearSession();transition('setup', () => {setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null);});};
+  var newRound = () => {clearSession();endRoundCredit();transition('setup', () => {setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null);});};
 
   // Turn the current ballot into one short, specific practice target.
   // Quick Clash has normalized dimension scores. Other formats expose
