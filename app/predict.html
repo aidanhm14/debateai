@@ -1020,8 +1020,24 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
     var stake=Math.max(1,parseInt(($('stk-'+room)||{}).value,10)||0);
     var buy=$('buy-'+room); if(buy){ buy.disabled=true; buy.textContent='Placing…'; }
     var d=await api('bet',{room:room,pick:side,stake:stake});
+    // 18+ gate. Asked at the first stake rather than at sign-up so the
+    // question arrives attached to the thing it is about. Branch on the
+    // CODE, never the message: 'no_attestation' is a one-tap confirm and
+    // 'minor' is a dead end, and showing a confirm box to a 15-year-old
+    // because a sentence got reworded is the failure this gate prevents.
+    if(d&&!d.ok&&d.code==='no_attestation'&&await ensureAgeAttested()){
+      d=await api('bet',{room:room,pick:side,stake:stake});
+    }
     if(d&&d.ok){ toast('Prediction placed: '+stake+' on '+side.toUpperCase()+'.'); load(); }
     else { toast((d&&d.error)||'Could not place the prediction.'); if(buy){ buy.disabled=false; buy.textContent='Place prediction'; } }
+  }
+
+  async function ensureAgeAttested(){
+    if(!confirm('Predictions are 18+.\n\nPoints are free, non-purchasable and have no cash value.\n\nConfirm you are 18 or older?')) return false;
+    var a=await api('attest',{confirm:true});
+    if(a&&a.ok&&a.eligible) return true;
+    toast((a&&a.error)||'Could not confirm your age.');
+    return false;
   }
 
   var loadFails=0;

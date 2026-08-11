@@ -120,23 +120,32 @@ export function poolMult(pool, side) {
   return pool[side] > 0 ? tot / pool[side] : 1;
 }
 
-// Compute a verdict for an unresolved market. If the market was bound to a
-// real round (m.boundResult set by the resolution-binding step), use that;
-// otherwise simulate from ratings. This is the seam where real AI-judge
-// resolution plugs in later without changing settlement.
+// Compute a verdict for an unresolved market. A market settles ONLY from
+// m.boundResult, the real judged outcome. Returns null otherwise, and a
+// null verdict means floor-resolve leaves the market open rather than
+// closing it on a guess.
+//
+// This used to fall through to `Math.random() < skillProb(m)` weighted by
+// two hardcoded persona ratings, with the reason for decision drawn from
+// the RFD template bank below. It paid real balances in floor_users off a
+// coin flip on a 5-minute cron. That was inert only by accident: nothing
+// on origin/main writes floor_markets documents, so the settler had
+// nothing to settle. An accident is not a guard, and the seeder that
+// would have made it live is one file away.
+//
+// Deliberately mirrors lib/credits.mjs, which states the same rule for
+// the newer stack: no simulate path, no fallback winner. A market whose
+// outcome nobody can honestly determine does not get an outcome.
+//
+// NOTE: nothing writes boundResult yet, so today every Floor market is
+// unsettleable by design. Binding markets to real ballots is the build
+// that turns this back on, and it is the ONLY thing that should.
 export function computeVerdict(m) {
   if (m.boundResult && (m.boundResult.judge === 'A' || m.boundResult.judge === 'B')) {
     const r = m.boundResult;
     return { judge: r.judge, crowd: r.crowd || r.judge, diverged: r.crowd ? r.judge !== r.crowd : false, rfd: r.rfd || '', source: 'round' };
   }
-  const pA = skillProb(m);
-  const judge = Math.random() < pA ? 'A' : 'B';
-  const total = (m.backers?.A || 1) + (m.backers?.B || 1);
-  const crowdLeanA = (m.backers?.A || 1) / total;
-  const crowd = Math.random() < crowdLeanA * 0.6 + (judge === 'A' ? 0.4 : 0) ? 'A' : 'B';
-  const L = judge === 'A' ? 'B' : 'A';
-  const rfd = pick(RFD[m.fmt] || RFD['Quick Clash']).replace(/\{W\}/g, m[judge].nm).replace(/\{L\}/g, m[L].nm);
-  return { judge, crowd, diverged: judge !== crowd, rfd, source: 'sim' };
+  return null;
 }
 
 // Blended, Bayesian-shrunk predictor rating. Recomputed on each settlement.

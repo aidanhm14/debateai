@@ -36,6 +36,12 @@ export default async () => {
           const data = fresh.data();
           if ((data.resolveAt || 0) > Date.now()) return;
           verdict = validVerdict(data.result) ? data.result : computeVerdict(data);
+          // computeVerdict returns null when the market carries no
+          // boundResult, i.e. no real judged outcome exists. Leave the
+          // market OPEN rather than stamping settled:true with a null
+          // result, which would lock every stake in it forever while
+          // reading as resolved. An unsettleable market waits.
+          if (!validVerdict(verdict)) return;
           if (!data.settled || !validVerdict(data.result)) {
             tx.update(doc.ref, { settled: true, status: 'settled', result: verdict, positionsSettled: false, settledAt: FieldValue.serverTimestamp() });
           }

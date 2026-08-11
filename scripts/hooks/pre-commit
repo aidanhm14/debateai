@@ -114,6 +114,23 @@ if [ -f "$STANCE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Wager gate: 18+ and jurisdiction on every staking path. This one
+# guards a promise made to minors, so it blocks rather than warns.
+# Verified non-vacuous by three injected regressions (attestation
+# overriding a minor age range, unknown country passing a live
+# blocklist, and caching the fail-closed error); each was caught.
+# ──────────────────────────────────────────────────────────────────
+WAGER_GUARD="$REPO_ROOT/scripts/test-wager-eligibility.mjs"
+if [ -f "$WAGER_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-wager-eligibility.mjs >/tmp/wager-guard.log 2>&1); then
+    echo "[wager-guard] commit blocked - the 18+/jurisdiction gate changed:" >&2
+    tail -20 /tmp/wager-guard.log >&2
+    echo "[wager-guard] see scripts/test-wager-eligibility.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Netlify-function import guard. Blocks a commit that stages a function
 # importing a name a sibling lib module does not export (the repeated
 # `json` vs `jsonResponse` mistake), or importing a lib module that

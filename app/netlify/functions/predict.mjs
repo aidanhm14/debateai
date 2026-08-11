@@ -25,6 +25,8 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
+import { checkWagerEligibility, checkWagerAge, invalidateWagerEligibility, MINOR_AGE_RANGES } from './lib/wager-eligibility.mjs';
+import { judgmentId } from './lib/judgment.mjs';
 
 const START_BALANCE = 1000;          // seed for a new predictor
 const MAX_STAKE = 5000;              // sanity cap per bet
@@ -308,7 +310,7 @@ async function resolveAiMarket(db, origin, room) {
   return judged.verdict;
 }
 
-export default async (request) => {
+export default async (request, context) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
@@ -379,6 +381,34 @@ export default async (request) => {
   }
 
   // ── bet: place a points bet (server-authoritative, atomic) ──────────────
+  // ── attest: record the one-time 18+ confirmation ───────────────────────
+  // Separate from corpusAgeAttested by design. Agreeing to have your
+  // transcript licensed and agreeing to stake are different acts, and one
+  // must never be read as consent to the other.
+  //
+  // A profile that already self-reported a minor age range is refused
+  // here, not just at the stake. Letting them write the flag and bounce
+  // at bet time would leave a stored "I am 18" on an account we already
+  // know is not, which is worse evidence than no flag at all.
+  if (action === 'attest') {
+    if (body.confirm !== true) return errorResponse('Confirmation required', 400, request);
+    const pRef = db.collection('user_profiles').doc(uid);
+    const pSnap = await pRef.get();
+    const pd = pSnap.exists ? pSnap.data() : null;
+    const range = pd && pd.onboarding && typeof pd.onboarding.ageRange === 'string'
+      ? pd.onboarding.ageRange.trim().toLowerCase() : '';
+    if (range && MINOR_AGE_RANGES.has(range)) {
+      return errorResponse('Staking is 18+. Your profile says you are under 18.', 403, request);
+    }
+    await pRef.set({
+      wagerAgeAttested: true,
+      wagerAgeAttestedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    invalidateWagerEligibility(uid);
+    const after = await checkWagerAge(db, uid);
+    return jsonResponse({ ok: true, eligible: after.ok }, 200, request);
+  }
+
   if (action === 'bet') {
     const room = body.room && String(body.room).slice(0, 80);
     const pick = body.pick;
@@ -387,6 +417,17 @@ export default async (request) => {
     if (!SIDES[pick]) return errorResponse('Bad side', 400, request);
     if (!Number.isFinite(stake) || stake < 1) return errorResponse('Bad stake', 400, request);
     stake = Math.min(MAX_STAKE, stake);
+
+    // 18+ and jurisdiction, checked before a balance doc is even seeded.
+    // Seeding first would hand a minor a 1000-point balance and a
+    // leaderboard row, which is an account we then have to explain.
+    // `code` is what the client branches on. Never string-match the
+    // message: 'no_attestation' is a one-tap confirm and 'minor' is a
+    // dead end, and rendering a confirm box to a 15-year-old because a
+    // sentence got reworded is the exact failure this gate exists to stop.
+    const elig = await checkWagerEligibility(db, uid, request, context);
+    if (!elig.ok) return jsonResponse({ error: elig.message, code: elig.reason }, 403, request);
+
     await ensureBalance(db, uid);
 
     const mRef = db.collection('predict_markets').doc(room);
@@ -450,21 +491,67 @@ export default async (request) => {
     if (!room) return errorResponse('Missing room', 400, request);
     const mRef = db.collection('predict_markets').doc(room);
 
-    // Prefer the canonical round verdict if the round recorded one.
+    // ── Verdict provenance ──────────────────────────────────────────
+    // This used to accept `body.verdict` from the caller, and the caller
+    // is required to be one of the two debaters. So a debater decided
+    // the outcome of a market that paid out other people's stakes. The
+    // self-exclusion rule stopped them betting on their own round and
+    // did nothing about them CALLING it, which is the larger of the two
+    // powers. lib/settle.mjs already refuses to move credits on a
+    // verdict an interested party authored (MONEY_VERDICT_SOURCES); this
+    // surface now holds the same line.
+    //
+    // The only accepted verdict is a recorded judgment stamped
+    // verdictSource:'server'. Note what that means today: lib/judgment.mjs
+    // stamps live-round ballots 'participant', because they are written
+    // by a debater's browser. So live-round markets VOID and refund until
+    // live ballots move server-side. That is the correct behaviour, not a
+    // regression. A market nobody can honestly settle should return
+    // everyone's stake, not pay out on the say-so of someone in the round.
     let verdict = null;
     try {
-      const lr = await db.collection('live_rounds').doc(room).get();
-      if (lr.exists && (lr.data().verdict === 'pro' || lr.data().verdict === 'con')) verdict = lr.data().verdict;
-    } catch (e) { /* live_rounds may not exist for this room */ }
-    if (!verdict && (body.verdict === 'pro' || body.verdict === 'con')) verdict = body.verdict;
-    if (!verdict) return errorResponse('No verdict', 400, request);
+      const jSnap = await db.collection('judgments').doc(judgmentId('live', room)).get();
+      const j = jSnap.exists ? jSnap.data() : null;
+      if (j && j.verdictSource === 'server' && (j.winner === 'a' || j.winner === 'b')) {
+        const labels = j.sideLabels || { a: 'pro', b: 'con' };
+        const side = labels[j.winner];
+        if (side === 'pro' || side === 'con') verdict = side;
+      }
+    } catch (e) { /* no judgment recorded is the same as no verdict */ }
 
     // Authorize: only a debater of this round may trigger settlement.
+    // They can no longer influence the OUTCOME, only ask us to close the
+    // market, so this stays a convenience trigger rather than a power.
     const pre = await mRef.get();
     if (!pre.exists) return errorResponse('No market', 404, request);
     const pm = pre.data();
     if (uid !== pm.proUid && uid !== pm.conUid) return errorResponse('Not a participant', 403, request);
     if (pm.status === 'settled') return jsonResponse({ ok: true, already: true, verdict: pm.verdict }, 200, request);
+    if (pm.status === 'voided') return jsonResponse({ ok: true, already: true, voided: true }, 200, request);
+
+    // ── No server verdict: void and refund at face value ─────────────
+    // Side-neutral by construction. No rating moves, because a voided
+    // market measured nobody's read.
+    if (!verdict) {
+      const openBets = await mRef.collection('bets').get();
+      const vBatch = db.batch();
+      vBatch.update(mRef, {
+        status: 'voided',
+        voidReason: 'no_server_verdict',
+        voidedAt: FieldValue.serverTimestamp(),
+      });
+      openBets.forEach((b) => {
+        const d = b.data();
+        if (d.stake > 0) {
+          vBatch.update(db.collection('predict_balances').doc(d.uid), {
+            balance: FieldValue.increment(d.stake),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      });
+      await vBatch.commit();
+      return jsonResponse({ ok: true, voided: true, reason: 'no_server_verdict', refunded: openBets.size }, 200, request);
+    }
 
     const bets = await mRef.collection('bets').get();
     const total = (pm.poolPro || 0) + (pm.poolCon || 0);
