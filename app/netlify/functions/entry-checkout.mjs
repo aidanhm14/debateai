@@ -3,33 +3,31 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
-// The PAID door into a tournament, per Aidan (2026-08-10): "pay in to
-// get payouts or compete for free." The free door is the tournament
-// engine's own register action (POST /api/tournament); this endpoint
-// only mints the Stripe Checkout session that makes an entry
-// payout-eligible. Payment lands as `tournaments/{tid}/payments/{uid}`
-// via stripe-webhook.mjs, so eligibility is a lookup, never a client
-// claim.
+// RETIRED 2026-08-10, same day it shipped, by Aidan: competing is free
+// permanently and advertising is the intended long-term funding. There
+// is no paid door into a tournament any more. Everyone competes in one
+// bracket for the same prizes; eligibility for the CASH turns on
+// placement and age (18+, per the doctrine rule that money never
+// reaches minors), never on payment.
 //
-// Money posture, deliberate:
-// - The fee is `entryFeeCents` on the tournament doc. No price is
-//   hardcoded anywhere in code or copy; turning money on is a data
-//   decision (set the field) plus an env decision (flip the flag
-//   below). 0 or missing = free-only tournament.
-// - ENTRY_PAYMENTS_LIVE defaults OFF. Until the operator flips it in
-//   the Netlify env, this endpoint refuses politely and free entry is
-//   the only door. Mirrors the BETA_NO_CHARGE posture in
-//   create-checkout.mjs.
-// - Paid entry is 18+; the client collects the attestation and the
-//   server refuses without it.
-// - Payouts do NOT auto-run. Settlement marks winners owed and they
-//   are paid manually from the Stripe dashboard until Connect + KYC
-//   exists. Per the judge-integrity layer, money never moves on the
-//   AI ballot alone.
+// The endpoint stays mounted and refuses, rather than being deleted,
+// for three reasons: a checkout URL may already be in someone's tab or
+// inbox and should get an explanation instead of a 404; the Stripe
+// plumbing and the payments-subcollection shape are the same ones a
+// future decision would want; and a live route that refuses is easier
+// to audit than a deleted one that might get re-added by accident.
+//
+// PAID_ENTRY_RETIRED is a constant, NOT an env read, on purpose.
+// ENTRY_PAYMENTS_LIVE is currently 'true' in the Netlify env, so an
+// env-only switch would leave real $20 charges one variable away from
+// firing against a product decision that has already been made. Undoing
+// this is a deliberate code edit plus a soul.md decision-log entry.
+//
+// stripe-webhook.mjs still honours any payment that already completed
+// (there are none: paidEntries was 0 at retirement), so nobody's money
+// is stranded by this.
 
-const ENTRY_PAYMENTS_LIVE = ['true', '1'].includes(
-  String(process.env.ENTRY_PAYMENTS_LIVE ?? 'false').toLowerCase()
-);
+const PAID_ENTRY_RETIRED = true;
 
 async function readTournament(db, key) {
   const byId = await db.collection('tournaments').doc(key).get();
@@ -42,6 +40,15 @@ async function readTournament(db, key) {
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
+
+  // Refused before auth, before the body is read, before Stripe is
+  // constructed. Nothing about the caller can reach a charge.
+  if (PAID_ENTRY_RETIRED) {
+    return jsonResponse({
+      error: 'ENTRY_IS_FREE',
+      message: 'Tournament entry is free. Register on the tournament page and you are in the same bracket, judged the same way, competing for the same prizes.',
+    }, 410, request);
+  }
 
   const token = extractBearerToken(request);
   if (!token) return errorResponse('Sign in to pay in', 401, request);
@@ -74,12 +81,11 @@ export default async (request) => {
   if (feeCents <= 0) {
     return jsonResponse({ error: 'FREE_ONLY', message: 'This tournament has no paid entry. Register free.' }, 400, request);
   }
-  if (!ENTRY_PAYMENTS_LIVE) {
-    return jsonResponse({
-      error: 'ENTRY_PAYMENTS_OFF',
-      message: 'Paid entry is not open yet. Free entry works today and plays the same bracket.',
-    }, 403, request);
-  }
+  // The old ENTRY_PAYMENTS_LIVE env gate lived here. It is gone rather
+  // than left dangling: with PAID_ENTRY_RETIRED above, this code is
+  // unreachable, and a reference to a constant that no longer exists
+  // would throw the moment anyone flipped that switch back, which is
+  // the worst possible time to discover it.
   if (body.ageAttested !== true) {
     return jsonResponse({ error: 'AGE_ATTESTATION_REQUIRED', message: 'Paid entry requires confirming you are 18 or older.' }, 400, request);
   }

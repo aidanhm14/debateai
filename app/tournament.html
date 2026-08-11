@@ -617,19 +617,17 @@
     }
   }
 
-  // Prize tournaments (entryFeeCents > 0) carry two extra links: the
-  // paid door lives on /tournaments#enter (Stripe checkout + the 18+
-  // attestation), and the official rules page carries the payout split
-  // and refund policy. Free tournaments render neither.
+  // Prize tournaments carry a link to the official rules, which hold
+  // the payout order, the age rule on cash, and the streaming consent.
+  //
+  // There is no paid door. Competing is free at every tournament and
+  // prize eligibility turns on placement and age, never on payment
+  // (2026-08-10 decision: free to compete permanently, advertising is
+  // the intended long-term funding). A tournament that still carries a
+  // non-zero entryFeeCents is stale data, not a paid tier, so this
+  // deliberately ignores that field.
   function appendPrizeLinks(host, t){
-    if (!(Number(t.entryFeeCents) > 0)) return;
-    if (t.status === 'registration'){
-      var pay = document.createElement('a');
-      pay.className = 'btn';
-      pay.href = '/tournaments#enter';
-      pay.textContent = 'Pay in for the prize bracket';
-      host.appendChild(pay);
-    }
+    if (!(Number(t.prizePoolCents) > 0) && !(Number(t.entryFeeCents) > 0)) return;
     var rules = document.createElement('a');
     rules.className = 'btn';
     rules.href = '/tournament-rules';
