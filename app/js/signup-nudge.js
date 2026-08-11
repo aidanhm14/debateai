@@ -94,10 +94,10 @@
       variant: 'prominent',
       inviteOptIn: true,
       msg: '<strong>Keep your rounds.</strong> Sign in with Google to save ballots, join the leaderboard, and find your next opponent.' },
-    { match: /^\/practice/,
-      delay: 20,
-      variant: 'community',
-      msg: '<strong>You\'re early.</strong> Sign in to save your rounds and ballots, and help shape where this goes.' },
+    // /practice owns the account moment. Let a guest finish the sample
+    // round, then offer to claim the ballot that now exists. A timer-based
+    // prompt during prep competes with the round before the value is real.
+    { match: /^\/practice/, skip: true },
     { match: /^\/voice-debate/,
       delay: 60,
       msg: 'Sign in and the voice round becomes part of your style profile.' },

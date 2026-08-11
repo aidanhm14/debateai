@@ -6194,6 +6194,7 @@ function App() {
     try {return JSON.parse(localStorage.getItem('debateos-round-history') || '[]');} catch {return [];}
   });
   var [viewingRound, setViewingRound] = useState(null);
+  var ROUND_CLAIM_KEY = 'debatable-pending-round-claim';
 
   // Daily-motion streak: captured from ?dm=YYYY-MM-DD when user lands from
   // /today. saveRound checks if this matches today's UTC date and flips
@@ -6438,13 +6439,30 @@ function App() {
           try {localStorage.setItem('debateos-round-history', JSON.stringify(mergedRounds));} catch {}
         }
         // Adopt local-only rounds. Capped at 20 writes so a long local
-        // history does not fire a burst on first sign-in.
+        // history does not fire a burst on first sign-in. When sign-in
+        // started from the post-ballot claim card, wait for that write and
+        // return the user to the exact ballot they just claimed.
         var known = {};
         serverRounds.forEach((r) => {known[String(r.id)] = 1;});
-        localRounds.filter((r) => r && r.id != null && !known[String(r.id)]).slice(0, 20).
-        forEach((r) => {
-          try {firebaseDb.collection('debate_rounds').doc(user.uid + '_' + r.id).set(r).catch(() => {});} catch (_) {}
-        });
+        var localOnlyRounds = localRounds.filter((r) => r && r.id != null && !known[String(r.id)]).slice(0, 20);
+        var adoptedIds = await Promise.all(localOnlyRounds.map(async (r) => {
+          try {
+            await firebaseDb.collection('debate_rounds').doc(user.uid + '_' + r.id).set(r);
+            return String(r.id);
+          } catch (_) {return '';}
+        }));
+        var pendingClaimId = '';
+        try {pendingClaimId = sessionStorage.getItem(ROUND_CLAIM_KEY) || '';} catch (_) {}
+        if (pendingClaimId && (known[pendingClaimId] || adoptedIds.indexOf(pendingClaimId) !== -1)) {
+          var claimedRound = localRounds.find((r) => String(r && r.id) === pendingClaimId) || null;
+          if (claimedRound) {
+            setSetupTab('saved');
+            setShowHistory(true);
+            setViewingRound(claimedRound);
+          }
+          try {sessionStorage.removeItem(ROUND_CLAIM_KEY);} catch (_) {}
+          try {if (typeof gtag === 'function') gtag('event', 'round_claim_complete', { format: claimedRound && claimedRound.format || '', source: 'practice_ballot' });} catch (_) {}
+        }
       } catch (_) {}
       // ── Cases. One doc per user, shared with the /app library, which
       // owns the separate `cases` field on the same doc. merge:true on
@@ -12186,25 +12204,22 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.10)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.32)';}
     }, 'Voice round on this motion →')
     ),
-    // Contextual sign-in prompt — fires post-round for any anonymous
-    // user with a delivered ballot. Previously gated on a numeric
-    // speakerPoints score; parse misses on some formats meant the
-    // nudge never fired for those users, leaving the highest-intent
-    // sign-in moment uncovered. Now: !user is enough, copy adapts
-    // between scored ("put 28 on the leaderboard") and unscored
-    // ("save this round across devices") variants.
+    // Contextual account prompt. This is the first hard account ask on
+    // /practice: the visitor has a real ballot to claim, and the library
+    // sync above can now deliver that promise immediately after sign-in.
     !user && el('div', { style: { display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 20, borderRadius: 14, background: 'linear-gradient(135deg,rgba(34,197,94,.06),rgba(59,130,246,.04))', border: '1px solid rgba(34,197,94,.22)', flexWrap: 'wrap' } },
     el('div', { style: { flex: 1, minWidth: 200 } },
-    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 4 } }, 'Save this round'),
-    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } },
-    b.speakerPoints && typeof b.speakerPoints.user === 'number' ?
-    'Sign in once to put ' + b.speakerPoints.user + ' on the leaderboard and sync your record across devices.' :
-    'Sign in to save this round and train Debatable, not GPT or Claude.'
-    ),
-    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'Local saves disappear across devices. Your account keeps ballots, leaderboard scores, and your Debatable style profile together. Signed-in debaters can also publish a round to a public page.')
+    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 4 } }, 'Claim your ballot'),
+    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, 'This round is saved only on this device. Create an account to add the ballot to your record, keep it across devices, and count it toward your style profile.'),
+    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'After sign-in, this exact ballot opens in your saved rounds. Private unless you choose to publish it.')
     ),
     el('button', {
-      onClick: signIn,
+      onClick: () => {
+        var currentRound = historyRounds && historyRounds.length ? historyRounds[0] : null;
+        try {if (currentRound && currentRound.id != null) sessionStorage.setItem(ROUND_CLAIM_KEY, String(currentRound.id));} catch (_) {}
+        try {if (typeof gtag === 'function') gtag('event', 'round_claim_start', { format: currentRound && currentRound.format || format || '', source: 'practice_ballot' });} catch (_) {}
+        signIn();
+      },
       style: {
         display: 'inline-flex', alignItems: 'center', gap: 8,
         padding: '9px 18px', borderRadius: 999,
@@ -12214,10 +12229,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         boxShadow: '0 4px 14px rgba(0,0,0,.25)',
         whiteSpace: 'nowrap', flexShrink: 0
       },
-      title: 'Create an account'
+      title: 'Create an account and claim this round'
     },
     el('span', { dangerouslySetInnerHTML: { __html: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' } }),
-    'Create account'
+    'Claim this round'
     )
     ),
     // Publish-to-public panel — signed-in users only. Sends the
