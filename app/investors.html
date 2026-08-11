@@ -18,8 +18,16 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&amp;family=Inter:wght@500;600;700;800;900&amp;display=swap">
 <link rel="stylesheet" href="/css/ui.css">
 <script>
-  document.documentElement.setAttribute('data-theme','light');
-  document.documentElement.setAttribute('data-force-theme','light');
+  /* Theme: resolve the visitor's saved `da-theme` before first paint so
+     the sitewide dark toggle reaches this page. Light is still the
+     default for anyone who has not picked; dark is opt-in. */
+  (function(){
+    var t = 'light';
+    try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+    if (t !== 'light') t = 'crimson';
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+  })();
   (function(){
     var v='';
     var forced=false;
@@ -45,13 +53,13 @@
 <script defer src="/js/experiments.js"></script>
 <style>
   *{box-sizing:border-box}
-  :root{
+  :root{--ink-rgb:26,26,31;--violet:#6d28d9;--col-wash:rgba(255,255,255,.52);--tint-live:#edf8ef;--tint-build:#fff7e8;--tint-long:#eef3ff;--tint-explore:#f2efff;
     --paper:#f7f5ef;
     --card:#fff;
     --ink:#1a1a1f;
     --dim:#655f58;
     --faint:#655f58;
-    --line:rgba(26,26,31,.11);
+    --line:rgba(var(--ink-rgb),.11);
     --red:#b91c1c;
     --red-dark:#b91c1c;
     --red-soft:#fff0ee;
@@ -84,12 +92,12 @@
   .btn:hover{transform:translateY(-2px)}
   .btn--red{background:var(--red);border-color:var(--red);color:#fff}
   .btn--red:hover{background:var(--red-dark)}
-  .btn--white{background:#fff}
-  .vision-note{display:grid;grid-template-columns:auto 1fr;gap:13px;align-items:start;max-width:780px;margin-top:36px;padding:17px 19px;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:0 14px 14px 0;background:#fff}
+  .btn--white{background:var(--card)}
+  .vision-note{display:grid;grid-template-columns:auto 1fr;gap:13px;align-items:start;max-width:780px;margin-top:36px;padding:17px 19px;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:0 14px 14px 0;background:var(--card)}
   .vision-note b{font-family:var(--sans);font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:var(--red)}
   .vision-note p{margin:0;color:var(--dim);font-size:.92rem}
   .snapshots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:48px}
-  .snapshot{border:1px solid var(--line);border-radius:14px;background:#fff;padding:17px}
+  .snapshot{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:17px}
   .snapshot strong{display:block;font-size:1.45rem;line-height:1.05}
   .snapshot span{display:block;margin-top:5px;font-family:var(--sans);font-size:.68rem;color:var(--faint)}
   .section{padding:clamp(72px,9vw,118px) 0;border-top:1px solid var(--line)}
@@ -97,44 +105,44 @@
   .section-copy{max-width:620px;color:var(--dim);font-size:1.12rem}
   .section-copy p{margin-bottom:15px}
   .today-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:42px}
-  .today-card{min-height:190px;padding:26px;border:1px solid var(--line);border-radius:18px;background:#fff}
-  .today-card .tag,.vision-card .tag{display:inline-flex;margin-bottom:22px;padding:5px 9px;border-radius:999px;background:#edf8ef;font-family:var(--sans);font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--green)}
+  .today-card{min-height:190px;padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--card)}
+  .today-card .tag,.vision-card .tag{display:inline-flex;margin-bottom:22px;padding:5px 9px;border-radius:999px;background:var(--tint-live);font-family:var(--sans);font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--green)}
   .today-card p{margin-bottom:0;color:var(--dim)}
   .thesis-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:42px}
-  .thesis-card{padding:26px;border-top:3px solid var(--red);background:#fff;border-radius:0 0 16px 16px}
+  .thesis-card{padding:26px;border-top:3px solid var(--red);background:var(--card);border-radius:0 0 16px 16px}
   .thesis-card .n{font-family:var(--sans);font-size:.68rem;font-weight:900;color:var(--red);letter-spacing:.12em}
   .thesis-card h3{margin:12px 0 8px}
   .thesis-card p{margin-bottom:0;color:var(--dim)}
   .flywheel{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:42px}
-  .fly-node{position:relative;min-height:130px;display:flex;flex-direction:column;justify-content:space-between;padding:18px;border:1px solid var(--line);border-radius:15px;background:#fff}
+  .fly-node{position:relative;min-height:130px;display:flex;flex-direction:column;justify-content:space-between;padding:18px;border:1px solid var(--line);border-radius:15px;background:var(--card)}
   .fly-node:not(:last-child)::after{content:"→";position:absolute;z-index:2;right:-16px;top:50%;transform:translateY(-50%);width:23px;height:23px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--paper);font-family:var(--sans);font-size:.72rem;color:var(--red)}
   .fly-node b{font-size:1.05rem}
   .fly-node span{font-family:var(--sans);font-size:.66rem;color:var(--faint)}
   .board-intro{display:flex;justify-content:space-between;gap:30px;align-items:end}
   .board-key{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px}
   .key{padding:5px 9px;border-radius:999px;font-family:var(--sans);font-size:.62rem;font-weight:850}
-  .key--live{background:#edf8ef;color:var(--green)}
-  .key--build{background:#fff7e8;color:var(--amber)}
-  .key--long{background:#eef3ff;color:var(--blue)}
-  .key--explore{background:#f2efff;color:#6d28d9}
+  .key--live{background:var(--tint-live);color:var(--green)}
+  .key--build{background:var(--tint-build);color:var(--amber)}
+  .key--long{background:var(--tint-long);color:var(--blue)}
+  .key--explore{background:var(--tint-explore);color:var(--violet)}
   .vision-board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:36px}
-  .vision-col{padding:12px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.52)}
+  .vision-col{padding:12px;border:1px solid var(--line);border-radius:18px;background:var(--col-wash)}
   .vision-col-head{padding:9px 8px 14px;font-family:var(--sans);font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
-  .vision-card{margin-bottom:9px;padding:17px;border:1px solid var(--line);border-radius:13px;background:#fff}
+  .vision-card{margin-bottom:9px;padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--card)}
   .vision-card:last-child{margin-bottom:0}
   .vision-card .tag{margin-bottom:12px}
-  .vision-card[data-state="build"] .tag{background:#fff7e8;color:var(--amber)}
-  .vision-card[data-state="long"] .tag{background:#eef3ff;color:var(--blue)}
-  .vision-card[data-state="explore"] .tag{background:#f2efff;color:#6d28d9}
+  .vision-card[data-state="build"] .tag{background:var(--tint-build);color:var(--amber)}
+  .vision-card[data-state="long"] .tag{background:var(--tint-long);color:var(--blue)}
+  .vision-card[data-state="explore"] .tag{background:var(--tint-explore);color:var(--violet)}
   .vision-card h3{margin-bottom:7px;font-size:1.08rem}
   .vision-card p{margin-bottom:0;color:var(--dim);font-size:.9rem;line-height:1.42}
   .models{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
-  .model{padding:25px;border:1px solid var(--line);border-radius:16px;background:#fff}
+  .model{padding:25px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
   .model .who{font-family:var(--sans);font-size:.65rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--red)}
   .model h3{margin:12px 0 8px}
   .model p{margin:0;color:var(--dim)}
   .questions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:40px}
-  details{border:1px solid var(--line);border-radius:13px;background:#fff;padding:17px 19px}
+  details{border:1px solid var(--line);border-radius:13px;background:var(--card);padding:17px 19px}
   summary{cursor:pointer;font-weight:750}
   details p{margin:11px 0 0;color:var(--dim);font-size:.95rem}
   .closing{padding:clamp(80px,12vw,150px) 0;text-align:center;background:#1a1a1f;color:#fff}
@@ -161,6 +169,20 @@
     .board-key{justify-content:flex-start;margin-top:18px}
     .vision-note{grid-template-columns:1fr}
     .hero-actions .btn{width:100%}
+  }
+
+/* ── Dark theme ─────────────────────────────────────────────────────
+   Sitewide dark is an opt-in toggle (topbar sun/moon, localStorage
+   `da-theme`). Light stays the default. Ink and paper are carried as
+   raw rgb triples so every rgba() on the page follows the theme
+   instead of being repeated here. */
+html[data-theme="crimson"],html[data-theme="grey"]{
+    --ink-rgb:236,236,242;
+    --paper:#0b0b0e;--card:#15151a;--ink:#f2f2f6;--dim:#a49f97;--faint:#948f88;
+    --line:rgba(var(--ink-rgb),.14);
+    --red:#ef4444;--red-dark:#dc2626;--red-soft:#2a1516;
+    --green:#4ade80;--amber:#fbbf24;--blue:#93c5fd;
+    --violet:#c4b5fd;--col-wash:rgba(255,255,255,.04);--tint-live:#12251a;--tint-build:#2a2113;--tint-long:#141c33;--tint-explore:#1e1930;
   }
 </style>
 <script type="application/ld+json">

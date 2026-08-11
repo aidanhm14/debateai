@@ -79,8 +79,16 @@
      or /live doesn't see a brief grey flash if they're holding a
      crimson or light preference. Same `da-theme` key as the rest. -->
 <script>
-document.documentElement.setAttribute('data-theme','light');
-document.documentElement.setAttribute('data-force-theme','light');
+/* Theme: resolve the visitor's saved `da-theme` before first paint so
+   the sitewide dark toggle reaches this page. Light is still the
+   default for anyone who has not picked; dark is opt-in. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
 </script>
 
 <!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so

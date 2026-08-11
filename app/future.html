@@ -17,8 +17,16 @@
 <!-- Matches the landing's light system: #fafaf7 page, white cards,
      ink #1a1a1f, red #dc2626, Crimson Pro + Inter. Forced light. -->
 <script>
-  document.documentElement.setAttribute('data-theme','light');
-  document.documentElement.setAttribute('data-force-theme','light');
+  /* Theme: resolve the visitor's saved `da-theme` before first paint so
+     the sitewide dark toggle reaches this page. Light is still the
+     default for anyone who has not picked; dark is opt-in. */
+  (function(){
+    var t = 'light';
+    try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+    if (t !== 'light') t = 'crimson';
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+  })();
 </script>
 
 <link rel="stylesheet" href="/css/ui.css">
@@ -26,16 +34,16 @@
 
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  :root{
+  :root{--ink-rgb:0,0,0;--bg-rgb:250,250,247;--twitch:#6d28d9;
     --serif:'Crimson Pro',Georgia,'Times New Roman',serif;
     --sans:Crimson Pro,Georgia,serif;
     --bg:#fafaf7;
     --white:#ffffff;
     --ink:#1a1a1f;
-    --ink-dim:rgba(0,0,0,.68);
-    --ink-ghost:rgba(0,0,0,.64);
-    --line:rgba(0,0,0,.08);
-    --line-strong:rgba(0,0,0,.14);
+    --ink-dim:rgba(var(--ink-rgb),.68);
+    --ink-ghost:rgba(var(--ink-rgb),.64);
+    --line:rgba(var(--ink-rgb),.08);
+    --line-strong:rgba(var(--ink-rgb),.14);
     --red:#b91c1c;
     --red-soft:rgba(220,38,38,.08);
     --radius:18px;
@@ -104,7 +112,7 @@
   .way .tag{display:inline-block;font-family:var(--sans);font-weight:800;font-size:.62rem;
     letter-spacing:.16em;text-transform:uppercase;padding:5px 12px;border-radius:999px;margin-bottom:16px}
   .way--compete .tag{background:var(--red-soft);color:var(--red)}
-  .way--bet .tag{background:rgba(0,0,0,.05);color:var(--ink-dim)}
+  .way--bet .tag{background:rgba(var(--ink-rgb),.05);color:var(--ink-dim)}
   .way h3{font-weight:700;font-size:1.55rem;margin-bottom:10px}
   .way p{color:var(--ink-dim);font-size:1.06rem;line-height:1.58;margin-bottom:10px}
   .way .fine{font-family:var(--sans);font-size:.76rem;line-height:1.5;color:var(--ink-ghost);
@@ -155,7 +163,7 @@
     padding:10px;box-shadow:var(--shadow)}
   .ph-fill{position:relative;display:flex;align-items:center;justify-content:center;
     border:1px dashed var(--line-strong);border-radius:8px;overflow:hidden;
-    background:repeating-linear-gradient(-45deg,rgba(0,0,0,.026) 0 1px,transparent 1px 10px),#f4f3ee}
+    background:repeating-linear-gradient(-45deg,rgba(var(--ink-rgb),.026) 0 1px,transparent 1px 10px),#f4f3ee}
   .ph-fill .cam{width:24px;height:24px;color:var(--ink-ghost)}
   .ph--wide{margin-top:44px}
   .ph--wide .ph-fill{aspect-ratio:21/9}
@@ -166,7 +174,7 @@
   .history-strip{padding:8px}
   .history-grid{display:grid;grid-template-columns:1.05fr .9fr .95fr 1fr;gap:8px}
   .history-card{position:relative;min-height:172px;border-radius:8px;overflow:hidden;background:#111}
-  .history-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 28%,rgba(0,0,0,.6) 100%);pointer-events:none}
+  .history-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(var(--ink-rgb),0) 28%,rgba(var(--ink-rgb),.6) 100%);pointer-events:none}
   .history-card img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(100%) contrast(1.05);transition:filter .18s,transform .18s}
   .history-card:hover img{filter:grayscale(35%) contrast(1.03);transform:scale(1.018)}
   .history-card--debate img{object-position:center 46%}
@@ -195,7 +203,7 @@
   /* Contents strip. Numbered, sticky under the topbar, with the
      in-view section marked as you scroll. Mirrors the landing's
      numbered section nav so the two long-read pages behave the same. */
-  .toc{position:sticky;top:52px;z-index:40;background:rgba(250,250,247,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .toc{position:sticky;top:52px;z-index:40;background:rgba(var(--bg-rgb),.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .toc-inner{max-width:960px;margin:0 auto;padding:0 clamp(18px,5vw,56px);display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none}
   .toc-inner::-webkit-scrollbar{display:none}
   .toc-lb{font-family:var(--sans);font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-ghost);padding-right:6px;flex:none}
@@ -214,7 +222,7 @@
   /* Platform rail under the stream CTAs: where you can publish it. */
   .plats{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}
   .plat{display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-size:.82rem;font-weight:700;color:var(--ink-dim);background:var(--white);border:1px solid var(--line-strong);border-radius:999px;padding:8px 15px;transition:transform .16s,border-color .16s,color .16s,box-shadow .16s}
-  .plat:hover{transform:translateY(-2px);color:var(--ink);border-color:rgba(0,0,0,.22);box-shadow:0 8px 20px rgba(29,25,21,.08)}
+  .plat:hover{transform:translateY(-2px);color:var(--ink);border-color:rgba(var(--ink-rgb),.22);box-shadow:0 8px 20px rgba(29,25,21,.08)}
   .plat svg{width:15px;height:15px;flex:none}
   .plat--tw svg{fill:#9146FF}
   .plat--yt svg{fill:#FF0000;width:17px}
@@ -222,10 +230,10 @@
   @media(prefers-reduced-motion:reduce){.plat:hover{transform:none}}
 
   /* The show goes public: platform marks are identity only, CTAs stay red */
-  .kicker--twitch{color:#6d28d9}
+  .kicker--twitch{color:var(--twitch)}
   .kicker--twitch .twm{width:13px;height:15px;fill:#9146FF;flex:none}
   .kicker--twitch .ytm{width:18px;height:13px;fill:#FF0000;flex:none}
-  .steps--twitch .n{color:#6d28d9}
+  .steps--twitch .n{color:var(--twitch)}
 
   /* Stream mock: the round as a broadcast, chat arguing the call */
   .showcase{position:relative;margin:40px auto 10px;max-width:820px}
@@ -278,11 +286,11 @@
   .sclip .sc-meta{display:block;margin-top:8px;font-size:.62rem;color:var(--ink-ghost);font-weight:600}
 
   /* Why publish: knowledge + name cards ride the .way grid */
-  .way--know .tag{background:rgba(109,40,217,.08);color:#6d28d9}
+  .way--know .tag{background:rgba(109,40,217,.08);color:var(--twitch)}
   .way--aura .tag{background:var(--red-soft);color:var(--red)}
   .contact-line{font-family:var(--sans);font-size:.8rem;color:var(--ink-ghost);margin-top:18px}
   .contact-line a{font-weight:700;color:var(--ink-dim);border-bottom:1px dotted var(--line-strong)}
-  .contact-line a:hover{color:#6d28d9}
+  .contact-line a:hover{color:var(--twitch)}
 
   /* iOS band */
   .kicker .apm{width:12px;height:15px;fill:currentColor;flex:none;transform:translateY(-1px)}
@@ -366,6 +374,18 @@
   @media (max-width:520px){
     .history-grid{gap:6px}
     .history-card .ph-tag{font-size:.52rem;letter-spacing:.09em;padding:5px 8px}
+  }
+
+/* ── Dark theme ─────────────────────────────────────────────────────
+   Sitewide dark is an opt-in toggle (topbar sun/moon, localStorage
+   `da-theme`). Light stays the default. Ink and paper are carried as
+   raw rgb triples so every rgba() on the page follows the theme
+   instead of being repeated here. */
+html[data-theme="crimson"],html[data-theme="grey"]{
+    --ink-rgb:236,236,242;
+    --bg-rgb:10,10,12;--twitch:#a78bfa;--red:#ef4444;
+    --bg:#0a0a0c;--white:#15151a;--ink:#f2f2f6;--red:#ef4444;
+    --red-soft:rgba(248,113,113,.10);
   }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,600&family=Inter:wght@400;500;600;700;800&display=swap">

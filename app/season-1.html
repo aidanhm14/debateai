@@ -39,17 +39,25 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800&display=swap">
 
 <script>
-document.documentElement.setAttribute('data-theme','light');
-document.documentElement.setAttribute('data-force-theme','light');
+/* Theme: resolve the visitor's saved `da-theme` before first paint so
+   the sitewide dark toggle reaches this page. Light is still the
+   default for anyone who has not picked; dark is opt-in. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
 </script>
 <link rel="stylesheet" href="/css/ui.css">
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
+:root{--ink-rgb:20,22,28;--warn-wash:#fffaf0;--link:#2563eb;
   --bg:#faf8f3;--card:#fff;--card2:#f4f1e8;
-  --bd:rgba(20,22,28,.14);--bd2:rgba(20,22,28,.3);
-  --tx:#17181c;--dim:rgba(23,24,28,.74);--faint:rgba(23,24,28,.64);
+  --bd:rgba(var(--ink-rgb),.14);--bd2:rgba(var(--ink-rgb),.3);
+  --tx:#17181c;--dim:rgba(var(--ink-rgb),.74);--faint:rgba(var(--ink-rgb),.64);
   --red:#b91c1c;--red-d:#991b1b;--green:#166534;--amber:#92400e;
   --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
   --shadow:0 1px 2px rgba(20,22,28,.05),0 4px 16px rgba(20,22,28,.06);
@@ -57,7 +65,7 @@ document.documentElement.setAttribute('data-force-theme','light');
 body{background:var(--bg);color:var(--tx);font-family:'Crimson Pro',Georgia,serif;
   line-height:1.6;-webkit-font-smoothing:antialiased;padding-top:52px}
 .wrap{max-width:820px;margin:0 auto;padding:0 22px}
-a{color:#2563eb;text-decoration:none}
+a{color:var(--link);text-decoration:none}
 a:hover{text-decoration:underline}
 em,i{font-style:normal}
 
@@ -121,13 +129,25 @@ td b{color:var(--tx)}
 
 /* The open-questions block renders on the page, not in a comment, so
    it cannot be shipped and forgotten. */
-.blockers{margin-top:34px;background:#fffaf0;border:1px solid rgba(180,83,9,.34);
+.blockers{margin-top:34px;background:var(--warn-wash);border:1px solid rgba(180,83,9,.34);
   border-radius:13px;padding:18px 20px;box-shadow:var(--shadow)}
 .blockers h2{border-bottom-color:rgba(180,83,9,.3)}
 .blockers ol{margin-top:12px}
 .blockers li{margin-top:9px}
 .foot{margin:40px 0 70px;padding-top:16px;border-top:1px solid var(--bd);
   font-size:.8rem;color:var(--faint)}
+
+/* ── Dark theme ─────────────────────────────────────────────────────
+   Sitewide dark is an opt-in toggle (topbar sun/moon, localStorage
+   `da-theme`). Light stays the default. Ink and paper are carried as
+   raw rgb triples so every rgba() on the page follows the theme
+   instead of being repeated here. */
+html[data-theme="crimson"],html[data-theme="grey"]{
+    --ink-rgb:234,236,242;
+    --bg:#0c0d10;--card:#16171c;--card2:#1c1d23;--tx:#f1f2f6;
+    --red:#ef4444;--red-d:#dc2626;--green:#4ade80;--amber:#fbbf24;
+    --warn-wash:#241d10;--link:#93c5fd;
+  }
 </style>
 </head>
 <body>

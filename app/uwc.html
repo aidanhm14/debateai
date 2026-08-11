@@ -52,15 +52,47 @@
 <!-- Early-load theme restore. ui.css already serves the three-theme
      tokens; this just sets data-theme on <html> before first paint. -->
 <script>
-document.documentElement.setAttribute('data-theme','light');
-document.documentElement.setAttribute('data-force-theme','light');
+/* Theme: resolve the visitor's saved `da-theme` before first paint so
+   the sitewide dark toggle reaches this page. Light is still the
+   default for anyone who has not picked; dark is opt-in. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
 </script>
 <style>
+  /* Theme tokens. This page was authored with its palette inlined, so the
+     values below name what those literals meant. Dark then only has to
+     restate the six that actually change. */
+  :root{
+    --ink-rgb:20,20,30;
+    --bg:#fbfaf7;
+    --ink:#1b1b21;
+    --dim:#5f5f6a;
+    --card:#ffffff;
+    --accent:#dc2626;
+    --accent-deep:#b91c1c;
+    --invert-bg:#1b1b21;
+  }
+  html[data-theme="crimson"],html[data-theme="grey"]{
+    --ink-rgb:232,232,240;
+    --bg:#0b0b0e;
+    --ink:#f2f2f6;
+    --dim:#9a9aa8;
+    --card:#16161b;
+    --accent:#ef4444;
+    --accent-deep:#ef4444;
+    --invert-bg:#22222a;
+  }
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;width:100%;overflow-x:hidden;scroll-behavior:smooth}
 body{
   font-family:'Crimson Pro','Fraunces',Georgia,"Times New Roman",serif;
-  background:#fbfaf7;color:#1b1b21;
+  background:var(--bg);color:var(--ink);
   -webkit-font-smoothing:antialiased;
   line-height:1.5;
 }
@@ -69,19 +101,19 @@ body{
 .nav{
   position:fixed;top:0;left:0;right:0;z-index:100;
   padding:16px 32px;display:flex;align-items:center;justify-content:space-between;
-  background:rgba(251,250,247,.85);border-bottom:1px solid rgba(20,20,30,.08);
+  background:rgba(251,250,247,.85);border-bottom:1px solid rgba(var(--ink-rgb),.08);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
 }
-.nav-logo{font-size:1.05rem;font-weight:900;color:#1b1b21;text-decoration:none;letter-spacing:-.02em}
-.nav-logo span{color:#b91c1c}
+.nav-logo{font-size:1.05rem;font-weight:900;color:var(--ink);text-decoration:none;letter-spacing:-.02em}
+.nav-logo span{color:var(--accent-deep)}
 .nav-links{display:flex;gap:22px;align-items:center}
-.nav-links a{font-size:.72rem;font-weight:600;color:rgba(20,20,30,.64);text-decoration:none;text-transform:uppercase;letter-spacing:.08em;transition:color .2s}
-.nav-links a:hover{color:#1b1b21}
+.nav-links a{font-size:.72rem;font-weight:600;color:rgba(var(--ink-rgb),.64);text-decoration:none;text-transform:uppercase;letter-spacing:.08em;transition:color .2s}
+.nav-links a:hover{color:var(--ink)}
 .nav-cta{
-  padding:9px 18px;border-radius:999px;background:#b91c1c;color:#fff !important;
+  padding:9px 18px;border-radius:999px;background:var(--accent-deep);color:#fff !important;
   font-weight:800;letter-spacing:.04em;
 }
-.nav-cta:hover{background:#dc2626}
+.nav-cta:hover{background:var(--accent)}
 @media(max-width:700px){
   .nav{padding:12px 16px}
   .nav-links{gap:14px}
@@ -100,7 +132,7 @@ body{
 .hero-kicker{
   display:inline-block;padding:5px 12px;border-radius:999px;
   background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);
-  color:#b91c1c;font-weight:800;font-size:.65rem;letter-spacing:.12em;
+  color:var(--accent-deep);font-weight:800;font-size:.65rem;letter-spacing:.12em;
   text-transform:uppercase;margin-bottom:20px;
 }
 .hero h1{
@@ -109,10 +141,10 @@ body{
   letter-spacing:-.035em;line-height:1.02;margin-bottom:22px;
   max-width:14ch;
 }
-.hero h1 em{font-style:normal;color:#b91c1c}
+.hero h1 em{font-style:normal;color:var(--accent-deep)}
 .hero-lede{
   font-size:clamp(1.05rem,1.6vw,1.22rem);font-weight:400;
-  color:rgba(20,20,30,.72);max-width:700px;line-height:1.55;margin-bottom:32px;
+  color:rgba(var(--ink-rgb),.72);max-width:700px;line-height:1.55;margin-bottom:32px;
 }
 .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
 .btn{
@@ -122,10 +154,10 @@ body{
   transition:transform .15s ease,box-shadow .2s ease;
   font-family:inherit;cursor:pointer;border:none;
 }
-.btn-primary{background:#b91c1c;color:#fff}
+.btn-primary{background:var(--accent-deep);color:#fff}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(239,68,68,.35)}
-.btn-ghost{background:rgba(20,20,30,.03);color:#1b1b21;border:1px solid rgba(20,20,30,.12)}
-.btn-ghost:hover{background:rgba(20,20,30,.06);border-color:rgba(20,20,30,.22)}
+.btn-ghost{background:rgba(var(--ink-rgb),.03);color:var(--ink);border:1px solid rgba(var(--ink-rgb),.12)}
+.btn-ghost:hover{background:rgba(var(--ink-rgb),.06);border-color:rgba(var(--ink-rgb),.22)}
 
 /* ── Stats band ───────────────────────────────── */
 .stats{
@@ -133,20 +165,20 @@ body{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;
 }
 .stat{
-  padding:22px 24px;background:#ffffff;border:1px solid rgba(20,20,30,.07);
+  padding:22px 24px;background:var(--card);border:1px solid rgba(var(--ink-rgb),.07);
   border-radius:14px;box-shadow:0 1px 3px rgba(20,20,30,.04);
 }
-.stat-num{font-size:1.9rem;font-weight:900;color:#1b1b21;letter-spacing:-.02em;line-height:1}
-.stat-label{font-size:.8rem;color:rgba(20,20,30,.64);margin-top:6px;line-height:1.4}
-.stat-src{font-size:.68rem;color:rgba(20,20,30,.64);margin-top:10px;line-height:1.4}
+.stat-num{font-size:1.9rem;font-weight:900;color:var(--ink);letter-spacing:-.02em;line-height:1}
+.stat-label{font-size:.8rem;color:rgba(var(--ink-rgb),.64);margin-top:6px;line-height:1.4}
+.stat-src{font-size:.68rem;color:rgba(var(--ink-rgb),.64);margin-top:10px;line-height:1.4}
 
 /* ── Sections ─────────────────────────────────── */
 section.sec{
   max-width:1120px;margin:0 auto;padding:72px 24px;
-  border-top:1px solid rgba(20,20,30,.06);
+  border-top:1px solid rgba(var(--ink-rgb),.06);
 }
 .sec-label{
-  display:inline-block;color:#b91c1c;font-weight:800;font-size:.65rem;
+  display:inline-block;color:var(--accent-deep);font-weight:800;font-size:.65rem;
   letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px;
 }
 .sec h2{
@@ -154,9 +186,9 @@ section.sec{
   font-size:clamp(2rem,4vw,3rem);font-weight:900;letter-spacing:-.03em;
   line-height:1.05;margin-bottom:18px;max-width:22ch;
 }
-.sec h2 em{font-style:normal;color:#b91c1c}
+.sec h2 em{font-style:normal;color:var(--accent-deep)}
 .sec-lede{
-  font-size:1.02rem;color:rgba(20,20,30,.68);max-width:680px;line-height:1.6;margin-bottom:32px;
+  font-size:1.02rem;color:rgba(var(--ink-rgb),.68);max-width:680px;line-height:1.6;margin-bottom:32px;
 }
 
 /* ── The 18-school strip ──────────────────────── */
@@ -165,18 +197,18 @@ section.sec{
   gap:10px;margin-top:8px;
 }
 .uwc-cell{
-  padding:16px 18px;background:#ffffff;
-  border:1px solid rgba(20,20,30,.07);border-radius:12px;
+  padding:16px 18px;background:var(--card);
+  border:1px solid rgba(var(--ink-rgb),.07);border-radius:12px;
   box-shadow:0 1px 3px rgba(20,20,30,.04);
   display:flex;align-items:center;gap:10px;
-  font-size:.9rem;font-weight:600;color:rgba(20,20,30,.85);
+  font-size:.9rem;font-weight:600;color:rgba(var(--ink-rgb),.85);
 }
 .uwc-dot{
   width:8px;height:8px;border-radius:50%;background:#ef4444;
   flex-shrink:0;box-shadow:0 0 12px rgba(239,68,68,.6);
 }
 .uwc-region{
-  font-size:.7rem;color:rgba(20,20,30,.64);font-weight:500;
+  font-size:.7rem;color:rgba(var(--ink-rgb),.64);font-weight:500;
   margin-left:auto;letter-spacing:.02em;
 }
 
@@ -185,57 +217,57 @@ section.sec{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;
 }
 .arg{
-  padding:26px 28px;background:#ffffff;
-  border:1px solid rgba(20,20,30,.07);border-radius:18px;
+  padding:26px 28px;background:var(--card);
+  border:1px solid rgba(var(--ink-rgb),.07);border-radius:18px;
   box-shadow:0 1px 3px rgba(20,20,30,.04);
   transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease;
 }
 .arg:hover{border-color:rgba(239,68,68,.28);transform:translateY(-2px);box-shadow:0 4px 12px rgba(20,20,30,.07)}
 .arg-num{
-  color:#b91c1c;font-weight:900;font-size:.75rem;letter-spacing:.12em;
+  color:var(--accent-deep);font-weight:900;font-size:.75rem;letter-spacing:.12em;
   text-transform:uppercase;margin-bottom:10px;
 }
 .arg h3{font-family:Crimson Pro,Georgia,serif;font-size:1.18rem;font-weight:800;margin-bottom:10px;letter-spacing:-.015em;line-height:1.25}
-.arg p{color:rgba(20,20,30,.65);font-size:.94rem;line-height:1.6}
+.arg p{color:rgba(var(--ink-rgb),.65);font-size:.94rem;line-height:1.6}
 
 /* ── The story block (personal) ─────────────── */
 .story{
   max-width:760px;margin:0 auto;padding:0 24px;
 }
 .story p{
-  font-size:1.05rem;line-height:1.7;color:rgba(20,20,30,.78);
+  font-size:1.05rem;line-height:1.7;color:rgba(var(--ink-rgb),.78);
   margin-bottom:18px;
 }
-.story p strong{color:#1b1b21;font-weight:700}
+.story p strong{color:var(--ink);font-weight:700}
 
 /* ── Two-column include grid ────────────────── */
 .include-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media(max-width:820px){.include-grid{grid-template-columns:1fr}}
-.include-col{padding:26px 28px;border-radius:18px;border:1px solid rgba(20,20,30,.07)}
+.include-col{padding:26px 28px;border-radius:18px;border:1px solid rgba(var(--ink-rgb),.07)}
 .include-you{background:rgba(34,197,94,.05);border-color:rgba(34,197,94,.18)}
 .include-us{background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.16)}
 .include-col h3{font-family:Crimson Pro,Georgia,serif;font-size:1.18rem;font-weight:800;margin-bottom:14px;letter-spacing:-.01em}
 .include-you h3{color:#15803d}
-.include-us h3{color:#b91c1c}
+.include-us h3{color:var(--accent-deep)}
 .include-col ul{list-style:none;margin:0;padding:0}
-.include-col li{font-size:.94rem;line-height:1.55;color:rgba(20,20,30,.78);padding:9px 0 9px 22px;position:relative;border-bottom:1px dashed rgba(20,20,30,.07)}
+.include-col li{font-size:.94rem;line-height:1.55;color:rgba(var(--ink-rgb),.78);padding:9px 0 9px 22px;position:relative;border-bottom:1px dashed rgba(var(--ink-rgb),.07)}
 .include-col li:last-child{border-bottom:none}
 .include-col li::before{position:absolute;left:0;top:9px;font-weight:800;font-size:.85rem}
 .include-you li::before{content:'+';color:#15803d}
-.include-us li::before{content:'·';color:#b91c1c}
+.include-us li::before{content:'·';color:var(--accent-deep)}
 
 /* ── How it works ────────────────────────────── */
 .how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 @media(max-width:900px){.how-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.how-grid{grid-template-columns:1fr}}
 .how-step{
-  padding:22px 22px;background:#ffffff;
-  border:1px solid rgba(20,20,30,.07);border-radius:16px;
+  padding:22px 22px;background:var(--card);
+  border:1px solid rgba(var(--ink-rgb),.07);border-radius:16px;
   box-shadow:0 1px 3px rgba(20,20,30,.04);
 }
-.how-step-num{color:#b91c1c;font-weight:900;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
+.how-step-num{color:var(--accent-deep);font-weight:900;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
 .how-step h4{font-family:Crimson Pro,Georgia,serif;font-size:1rem;font-weight:800;margin-bottom:8px;line-height:1.3}
-.how-step p{font-size:.88rem;color:rgba(20,20,30,.65);line-height:1.55}
+.how-step p{font-size:.88rem;color:rgba(var(--ink-rgb),.65);line-height:1.55}
 
 /* ── Pricing band ────────────────────────────── */
 .price{
@@ -244,48 +276,48 @@ section.sec{
   border:1px solid rgba(239,68,68,.24);border-radius:22px;
   text-align:center;
 }
-.price-label{color:#b91c1c;font-weight:800;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px}
+.price-label{color:var(--accent-deep);font-weight:800;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px}
 .price h3{font-family:Crimson Pro,Georgia,serif;font-size:clamp(1.6rem,3.2vw,2.4rem);font-weight:900;margin-bottom:10px;letter-spacing:-.02em;line-height:1.15}
-.price p{color:rgba(20,20,30,.68);max-width:540px;margin:0 auto 22px;line-height:1.55}
+.price p{color:rgba(var(--ink-rgb),.68);max-width:540px;margin:0 auto 22px;line-height:1.55}
 
 /* ── FAQ ─────────────────────────────────────── */
 .faq details{
-  padding:18px 22px;background:#ffffff;
-  border:1px solid rgba(20,20,30,.07);border-radius:14px;margin-bottom:10px;
+  padding:18px 22px;background:var(--card);
+  border:1px solid rgba(var(--ink-rgb),.07);border-radius:14px;margin-bottom:10px;
   box-shadow:0 1px 3px rgba(20,20,30,.04);
   cursor:pointer;transition:border-color .2s;
 }
 .faq details[open]{border-color:rgba(239,68,68,.22);background:#fffbfa}
 .faq summary{font-weight:700;font-size:.98rem;list-style:none;display:flex;justify-content:space-between;align-items:center}
 .faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:'+';color:#b91c1c;font-weight:800;margin-left:16px;transition:transform .25s}
+.faq summary::after{content:'+';color:var(--accent-deep);font-weight:800;margin-left:16px;transition:transform .25s}
 .faq details[open] summary::after{transform:rotate(45deg)}
-.faq p{margin-top:10px;color:rgba(20,20,30,.68);font-size:.92rem;line-height:1.6}
+.faq p{margin-top:10px;color:rgba(var(--ink-rgb),.68);font-size:.92rem;line-height:1.6}
 
 /* ── Footer ──────────────────────────────────── */
 footer.foot{
   max-width:1120px;margin:0 auto;padding:44px 24px 80px;
-  color:rgba(20,20,30,.64);font-size:.82rem;text-align:center;
+  color:rgba(var(--ink-rgb),.64);font-size:.82rem;text-align:center;
 }
-footer.foot a{color:rgba(20,20,30,.64)}
-footer.foot a:hover{color:#1b1b21}
+footer.foot a{color:rgba(var(--ink-rgb),.64)}
+footer.foot a:hover{color:var(--ink)}
 
 
 /* 2026-07-22 fold pass (same system as /schools): summary card up top,
    evidence behind read-more, one line far larger. */
 .inshort{max-width:1060px;margin:clamp(30px,5vw,56px) auto 0;padding:0 clamp(18px,5vw,56px)}
-.inshort-card{background:#fff;border:1px solid rgba(0,0,0,.09);border-radius:18px;
+.inshort-card{background:var(--card);border:1px solid rgba(var(--ink-rgb),.09);border-radius:18px;
   padding:clamp(24px,4vw,44px);box-shadow:0 18px 52px rgba(29,25,21,.07)}
 .inshort-k{font-size:.64rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
-  color:#b91c1c;display:block;margin-bottom:16px}
+  color:var(--accent-deep);display:block;margin-bottom:16px}
 .inshort-card p{font-family:'Crimson Pro',Georgia,serif;font-weight:500;font-size:clamp(1.7rem,3.6vw,2.7rem);
-  line-height:1.2;letter-spacing:-.015em;color:#17171d;margin:0 0 12px;max-width:46ch}
+  line-height:1.2;letter-spacing:-.015em;color:var(--ink);margin:0 0 12px;max-width:46ch}
 .inshort-card p:last-child{margin-bottom:0}
 .inshort-card p{max-width:26ch}
-.inshort-card p b{color:#b91c1c;font-weight:600}
+.inshort-card p b{color:var(--accent-deep);font-weight:600}
 details.sec-fold{margin-top:8px}
 details.sec-fold>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:9px;
-  font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#b91c1c;padding:10px 0}
+  font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);padding:10px 0}
 details.sec-fold>summary::-webkit-details-marker{display:none}
 details.sec-fold>summary::before{content:"+";font-size:1rem;line-height:1}
 details.sec-fold[open]>summary::before{content:"\2013"}
@@ -293,8 +325,8 @@ details.sec-fold>summary:hover{text-decoration:underline;text-underline-offset:4
 details.sec-fold[open]>summary{margin-bottom:10px}
 .pullline{max-width:1060px;margin:clamp(36px,6vw,72px) auto;padding:0 clamp(18px,5vw,56px)}
 .pullline p{font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(2rem,5vw,3.6rem);
-  line-height:1.06;letter-spacing:-.02em;color:#17171d;max-width:22ch}
-.pullline p b{color:#b91c1c;font-weight:500}
+  line-height:1.06;letter-spacing:-.02em;color:var(--ink);max-width:22ch}
+.pullline p b{color:var(--accent-deep);font-weight:500}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
@@ -531,7 +563,7 @@ details.sec-fold[open]>summary{margin-bottom:10px}
   </details>
   <details>
     <summary>Data privacy. UWC students are under 18 and from a lot of jurisdictions.</summary>
-    <p>We don't sell or share student data, ever. Round transcripts are visible to the student and the advisor. We don't train models on UWC student content without explicit per-school opt-in (off by default). Full privacy page at <a href="/privacy" style="color:#b91c1c">/privacy</a>; happy to sign a school-specific DPA if your administration requires it.</p>
+    <p>We don't sell or share student data, ever. Round transcripts are visible to the student and the advisor. We don't train models on UWC student content without explicit per-school opt-in (off by default). Full privacy page at <a href="/privacy" style="color:var(--accent-deep)">/privacy</a>; happy to sign a school-specific DPA if your administration requires it.</p>
   </details>
 </section>
 
@@ -559,7 +591,7 @@ details.sec-fold[open]>summary{margin-bottom:10px}
     </div>
   </div>
 
-  <p class="sec-lede" style="margin-top:32px;color:rgba(20,20,30,.68)">UWC was always meant to bring students together across borders. Debate is where cross-cultural reasoning is the entire point, and where travel budgets kill the most opportunities.</p>
+  <p class="sec-lede" style="margin-top:32px;color:rgba(var(--ink-rgb),.68)">UWC was always meant to bring students together across borders. Debate is where cross-cultural reasoning is the entire point, and where travel budgets kill the most opportunities.</p>
 </section>
 
 <!-- FINAL CTA -->

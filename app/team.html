@@ -25,20 +25,28 @@
 <script>
 /* Hardcoded light surface — force the topbar's light token set
    regardless of a saved da-theme (same pattern as /story). */
-document.documentElement.setAttribute('data-theme','light');
-document.documentElement.setAttribute('data-force-theme','light');
+/* Theme: resolve the visitor's saved `da-theme` before first paint so
+   the sitewide dark toggle reaches this page. Light is still the
+   default for anyone who has not picked; dark is opt-in. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
 </script>
 <script defer src="/js/track.js"></script>
 <style>
-  :root{
+  :root{--ink-rgb:20,20,30;--card:#ffffff;--card-2:#e7e2da;
     --bg:#fbfaf7;
     --fg:#1b1b21;
     --muted:#5f5f6a;
-    --dim:rgba(20,20,30,.66);
-    --line:rgba(20,20,30,.08);
+    --dim:rgba(var(--ink-rgb),.66);
+    --line:rgba(var(--ink-rgb),.08);
     --accent:#dc2626;
-    --surface:rgba(20,20,30,.022);
-    --surface-2:rgba(20,20,30,.04);
+    --surface:rgba(var(--ink-rgb),.022);
+    --surface-2:rgba(var(--ink-rgb),.04);
     --s-1:8px; --s-2:16px; --s-3:24px; --s-4:40px; --s-5:64px;
   }
   *{box-sizing:border-box}
@@ -54,7 +62,7 @@ document.documentElement.setAttribute('data-force-theme','light');
   }
   body::before{
     content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-    background-image:radial-gradient(rgba(20,20,30,.05) 1px,transparent 1px);
+    background-image:radial-gradient(rgba(var(--ink-rgb),.05) 1px,transparent 1px);
     background-size:4px 4px;
     opacity:.35;mix-blend-mode:overlay;
   }
@@ -86,7 +94,7 @@ document.documentElement.setAttribute('data-force-theme','light');
   }
   .lede{
     font-size:clamp(17px,1.4vw,20px);
-    line-height:1.5;color:rgba(20,20,30,.84);
+    line-height:1.5;color:rgba(var(--ink-rgb),.84);
     max-width:54ch;margin:0;
   }
 
@@ -104,7 +112,7 @@ document.documentElement.setAttribute('data-force-theme','light');
   @media (max-width:560px){.bento{grid-template-columns:1fr;gap:14px}}
 
   .tcard{
-    background:#fff;
+    background:var(--card);
     border:1px solid var(--line);
     border-radius:18px;
     padding:18px 18px 20px;
@@ -125,7 +133,7 @@ document.documentElement.setAttribute('data-force-theme','light');
   .tcard-media.is-pending .tcard-initial{
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
     width:100%;aspect-ratio:1;border-radius:14px;
-    background:#e7e2da;
+    background:var(--card-2);
     font-family:Crimson Pro,Georgia,serif;
     font-size:clamp(48px,7vw,84px);font-weight:700;line-height:1;
     color:#7d776d;
@@ -147,7 +155,7 @@ document.documentElement.setAttribute('data-force-theme','light');
   }
   .tcard-bio{
     font-size:.84rem;line-height:1.6;
-    color:rgba(20,20,30,.78);margin:0;
+    color:rgba(var(--ink-rgb),.78);margin:0;
   }
 
   /* Featured founder card — full-bleed row, photo beside text. The photo
@@ -189,7 +197,7 @@ document.documentElement.setAttribute('data-force-theme','light');
   }
   .tcard--wide p{
     font-size:.88rem;line-height:1.55;
-    color:rgba(20,20,30,.82);margin:0;max-width:52ch;
+    color:rgba(var(--ink-rgb),.82);margin:0;max-width:52ch;
   }
   .tcard--wide .cta-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:4px}
 
@@ -203,13 +211,24 @@ document.documentElement.setAttribute('data-force-theme','light');
   .cta-primary{background:var(--accent-solid,#b91c1c);color:#fff;border:1px solid var(--accent)}
   .cta-primary:hover{background:#dc2626;border-color:#dc2626;transform:translateY(-1px);text-decoration:none}
   .cta-ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-  .cta-ghost:hover{background:rgba(20,20,30,.04);border-color:rgba(20,20,30,.18);text-decoration:none}
+  .cta-ghost:hover{background:rgba(var(--ink-rgb),.04);border-color:rgba(var(--ink-rgb),.18);text-decoration:none}
   .cta-meta{font-size:.74rem;color:var(--muted)}
 
   .closing{
     display:flex;gap:14px;flex-wrap:wrap;align-items:center;
     margin-top:clamp(40px,5vw,64px);
     padding-top:var(--s-3);border-top:1px solid var(--line);
+  }
+
+/* ── Dark theme ─────────────────────────────────────────────────────
+   Sitewide dark is an opt-in toggle (topbar sun/moon, localStorage
+   `da-theme`). Light stays the default. Ink and paper are carried as
+   raw rgb triples so every rgba() on the page follows the theme
+   instead of being repeated here. */
+html[data-theme="crimson"],html[data-theme="grey"]{
+    --ink-rgb:230,230,238;
+    --bg:#0b0b0e;--fg:#f2f2f6;--muted:#9a9aa8;--accent:#f87171;
+    --card:#16161b;--card-2:#2a2a31;
   }
 </style>
 </head>

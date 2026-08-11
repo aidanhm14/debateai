@@ -88,9 +88,18 @@
      so a user coming from / or /live doesn't flash grey if they're
      holding a crimson or light preference. -->
 <script>
-document.documentElement.setAttribute('data-theme','light');
-document.documentElement.setAttribute('data-force-theme','light');
-document.documentElement.setAttribute('data-lighting','light');
+/* Theme: resolve the visitor's saved `da-theme` before first paint so the
+   sitewide dark toggle reaches the round surface too. Light stays the
+   default for anyone who has not picked. This page carries a full dual
+   palette (dark tokens at :root, light override under
+   [data-lighting="light"]), so it no longer pins itself. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
 </script>
 <!-- Firebase (~500KB across the 4 compat SDKs) loaded `defer` so it no longer
      blocks first render. defer preserves document order, so app-check.js still
