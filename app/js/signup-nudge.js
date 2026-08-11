@@ -87,7 +87,10 @@
     // two don't stack into a doubled sign-in nag. 2026-06-14.
     { match: /^\/(spar|live)(?:\.html)?(?:[/?#]|$)/, skip: true },
     { match: /^\/(landing|index)?(\.html)?($|\?)/,
-      delay: 18,
+      // Put the account ask on the first screen while intent is fresh.
+      // Six seconds still gives Firebase time to resolve returning users
+      // before the prompt is eligible to mount.
+      delay: 6,
       variant: 'prominent',
       inviteOptIn: true,
       msg: '<strong>Keep your rounds.</strong> Sign in with Google to save ballots, join the leaderboard, and find your next opponent.' },
@@ -290,7 +293,7 @@
   // The native account chip (the visitor's own Google avatar, one click,
   // no popup window) — the highest-converting capture surface Google
   // ships. Runs alongside the pill: it starts at page load while the
-  // pill waits out its 18-60s delay, and Chrome's own One Tap backoff
+  // pill waits out its 6-60s delay, and Chrome's own One Tap backoff
   // suppresses it for visitors who keep dismissing it, so the two rarely
   // stack. Sign-in through it links anonymous accounts the same way the
   // pill and auth-modal do. Skipped in the native shell (no Google web
