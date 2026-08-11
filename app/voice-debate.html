@@ -982,7 +982,12 @@ input[type=text]:focus,select:focus,textarea:focus{
 .player.is-challenged .player__status{ background:rgba(251,191,36,.16); border-color:rgba(251,191,36,.5); color:#fcd34d; }
 @keyframes dotPulse{ 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.4; transform:scale(.65)} }
 /* AI composing — forming-argument nodes (a reasoning map building). */
-.thinking-nodes{ display:flex; align-items:center; gap:5px; height:13px; }
+/* Same box as .player__status (padding, border, and a zero-width strut to
+   get the identical text line box) because the two swap on every AI turn.
+   A height delta here re-centred the whole opponent card each time it
+   started or stopped composing. */
+.thinking-nodes{ display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:4px 11px; border:1px solid transparent; font-size:.57rem; }
+.thinking-nodes::before{ content:"\200b"; width:0; }
 .thinking-nodes i{ width:6px; height:6px; border-radius:50%; background:rgba(var(--pc),.85); animation:nodePop 1.15s ease-in-out infinite; }
 .thinking-nodes i:nth-child(2){ animation-delay:.16s } .thinking-nodes i:nth-child(3){ animation-delay:.32s } .thinking-nodes i:nth-child(4){ animation-delay:.48s }
 @keyframes nodePop{ 0%,100%{opacity:.22; transform:translateY(0) scale(.8)} 40%{opacity:1; transform:translateY(-4px) scale(1.1)} }
@@ -1035,7 +1040,11 @@ input[type=text]:focus,select:focus,textarea:focus{
 .exchange-node__who{ font-size:.5rem; letter-spacing:.14em; text-transform:uppercase; font-weight:800; }
 .exchange-node.you .exchange-node__who{ color:#86efac; }
 .exchange-node.ai .exchange-node__who{ color:#fca5a5; }
-.exchange-node__text{ font-size:.64rem; line-height:1.32; color:#9a9aab; text-align:center; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+/* height, not just a clamp: this text grows 1 -> 2 -> 3 lines on every
+   transcript delta while the AI speaks, so an auto height made the whole
+   arena below (timing strip, controls, the type-to-interject input) jump
+   several times a second. Three lines are reserved from the start. */
+.exchange-node__text{ font-size:.64rem; line-height:1.32; color:#9a9aab; text-align:center; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; height:calc(.64rem * 1.32 * 3); }
 .exchange-link{ flex:0 0 auto; width:clamp(14px,2.4vw,42px); height:2px; margin-top:6px; background:linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.22), rgba(255,255,255,.05)); }
 @media(max-width:560px){ .exchange-node{ width:90px; } }
 
@@ -2424,8 +2433,14 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
 }
 
 /* Mute button — sits in the live-controls row */
+/* Reserved width: the label walks Mic on -> Listening -> Muted every
+   turn and the listening state also injects a dot, a ~40px swing on the
+   first item of the controls row. Unpinned, the speed control, model
+   badge and window buttons slid sideways on every turn change, and at
+   narrow widths the row flipped between one and two lines. */
 .mute-btn{
-  display:inline-flex;align-items:center;gap:9px;
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  min-width:158px;
   padding:12px 22px;border-radius:11px;
   background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.16);
   color:#f0f0f6;font-size:.92rem;font-weight:700;letter-spacing:.01em;

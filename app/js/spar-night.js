@@ -240,9 +240,12 @@
     '.sn-card--rail{display:block;padding:11px 12px;margin:0}' +
     '.sn-card--rail .sn-title{font-size:.78rem;margin:5px 0 2px}' +
     '.sn-card--rail .sn-sub{font-size:.68rem;margin:0 0 8px}' +
-    '.sn-card--rail .sn-count{font-size:.86rem}' +
+    /* nowrap + row wrap: in a ~280px rail the countdown digits must never
+       break mid-value; if the row runs out of room the CTA drops below
+       instead. */
+    '.sn-card--rail .sn-count{font-size:.86rem;white-space:nowrap}' +
     '.sn-card--rail .sn-local{display:block;font-size:.62rem;margin-top:1px}' +
-    '.sn-card--rail .sn-row{display:flex;align-items:center;justify-content:space-between;gap:10px}' +
+    '.sn-card--rail .sn-row{display:flex;align-items:center;justify-content:space-between;gap:8px 10px;flex-wrap:wrap}' +
     '.sn-card--rail .sn-cta{font-size:.66rem;padding:5px 11px;flex:none}' +
     /* Last, on purpose. Both variants stretch .sn-cta to fill their action
        slot (banner width:100%, rail flex:none), which inside the RSVP form
@@ -266,6 +269,12 @@
   function render(el, variant, page) {
     var st = eventState(Date.now());
     var live = st.live;
+    // The pre-event -> live re-render changes the card's height (RSVP
+    // panel and ghost button drop out). If the card sits above the
+    // reader's viewport when the phase flips, compensate scroll so the
+    // page doesn't jump under them.
+    var prevH = el.offsetHeight;
+    var wasAbove = prevH > 0 && el.getBoundingClientRect().bottom < 0;
     el.className = 'sn-card sn-card--' + variant + (live ? ' sn-live' : '');
     var local = localLabel(st.start);
     var eyebrow = '<div class="sn-eyebrow"><span class="sn-dot"></span>' +
@@ -351,6 +360,10 @@
           (local ? '<span class="sn-local">' + local + '</span>' : '') + '</div>' +
           '<div class="sn-actions">' + solid + ghost + '</div></div>' +
         rsvpPanel;
+    }
+    if (wasAbove) {
+      var dh = el.offsetHeight - prevH;
+      if (dh !== 0) window.scrollBy(0, dh);
     }
     el.querySelectorAll('[data-sn-act]').forEach(function (a) {
       a.addEventListener('click', function () {

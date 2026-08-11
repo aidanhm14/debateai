@@ -19550,7 +19550,7 @@ window.addEventListener('load', function(){
       '#homeLiveBand .hlb-pill{display:inline-flex;align-items:center;gap:7px;background:#ef4444;color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}' +
       '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
       '@keyframes hlbPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
-      '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px}' +
+      '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
       '#homeLiveBand .hlb-open{margin-left:auto;color:rgba(244,244,242,.7);font-size:14.5px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 13px}' +
       '#homeLiveBand .hlb-open:hover{color:#fff;border-color:rgba(239,68,68,.5)}' +
       '#homeLiveBand iframe{width:100%;aspect-ratio:16/9;max-height:62vh;border:0;border-radius:12px;background:#000;display:block}' +
@@ -19566,12 +19566,26 @@ window.addEventListener('load', function(){
     band.querySelector('.hlb-title').textContent = s.title || 'Live from the arena';
     band.querySelector('iframe').src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
     hero.parentNode.insertBefore(band, hero);
+    // A mid-visit mount lands above the hero; if the reader is scrolled
+    // past that point, everything they're reading shoves down by the
+    // band's height. Compensate so their viewport doesn't move.
+    if (band.getBoundingClientRect().bottom < 0){
+      window.scrollBy(0, band.offsetHeight);
+    }
     try { if (window.gtag) gtag('event', 'home_live_band_shown'); } catch(e){}
   }
   function unmount(){
     if (!mounted) return;
     var band = document.getElementById('homeLiveBand');
-    if (band) band.remove();
+    if (band){
+      // Same in reverse: removing ~500px above the reader's scroll
+      // position collapses the page under them. Shift scroll up by the
+      // band's height when it sat fully above the viewport.
+      var above = band.getBoundingClientRect().bottom < 0;
+      var h = band.offsetHeight;
+      band.remove();
+      if (above) window.scrollBy(0, -h);
+    }
     mounted = false;
   }
   function check(){

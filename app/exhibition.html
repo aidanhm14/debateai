@@ -265,9 +265,19 @@ body{
 }
 .speech-card.active{border-color:rgba(168,85,247,.5);box-shadow:0 8px 28px rgba(168,85,247,.08)}
 .speech-model{font-size:.62rem;font-weight:700;color:rgba(255,255,255,.38);margin-left:6px;letter-spacing:.04em}
-.speech-play{margin-left:auto;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);color:#c084fc;border-radius:7px;font-size:.66rem;padding:2px 9px;cursor:pointer}
+/* No margin-left:auto here. .speech-brain already claims the free space,
+   and a second auto margin split it between them, so the brain label
+   jumped left the moment a finished speech mounted its play button. */
+.speech-play{background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);color:#c084fc;border-radius:7px;font-size:.66rem;padding:2px 9px;cursor:pointer}
 .speech-play:hover{background:rgba(168,85,247,.25)}
-.exh-voice-row{display:flex;align-items:center;gap:10px;margin:2px 0 16px}
+/* Always in the row, invisible until the speech can actually be played,
+   so the brain label doesn't slide sideways the moment one finishes. */
+.speech-play.is-ghost{visibility:hidden;pointer-events:none}
+/* wrap + a shrinkable readout: "Speaking: PMC" mounts mid-round and
+   without these the row overflowed .exh-wrap on a phone, so the page
+   gained and lost horizontal scroll with every speech. */
+.exh-voice-row{display:flex;align-items:center;gap:10px;margin:2px 0 16px;flex-wrap:wrap}
+.exh-voice-row .voice-now{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .voice-toggle{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.75);border-radius:8px;font-size:.74rem;font-weight:700;padding:6px 13px;cursor:pointer}
 .voice-toggle.on{background:rgba(168,85,247,.16);border-color:rgba(168,85,247,.5);color:#d8b4fe}
 .voice-toggle.tap{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);color:#fca5a5}
@@ -300,7 +310,9 @@ body{
   display:inline-flex;align-items:center;gap:6px;
 }
 .speech-brain .dot{width:7px;height:7px;border-radius:50%}
-.speech-status{font-size:.62rem;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase}
+/* Reserved width: the label walks queued -> speaking… -> done as the
+   orchestrator advances, and an unpinned width rewrapped the head row. */
+.speech-status{font-size:.62rem;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;min-width:76px;text-align:right}
 .speech-body{font-size:.92rem;line-height:1.65;color:rgba(255,255,255,.85);white-space:pre-wrap}
 .speech-body em{font-style:normal;opacity:.7}
 .speech-error{color:#fca5a5;font-size:.85rem;padding:8px 12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);border-radius:8px}
@@ -1010,7 +1022,7 @@ function App() {
   sp.status === 'queued' && el('span', { className: 'speech-status' }, 'queued'),
   sp.status === 'error' && el('span', { className: 'speech-status', style: { color: '#fca5a5' } }, 'failed'),
   sp.status === 'done' && el('span', { className: 'speech-status', style: { color: '#86efac' } }, 'done'),
-  sp.status === 'done' && !!sp.text && el('button', { className: 'speech-play', title: 'Hear this speech', onClick: () => {if (!voiceOn) {voiceOnRef.current = true;setVoiceOn(true);try {localStorage.setItem('exh-voice', '1');} catch (e) {}}speechQueueRef.current.push(i);playQueueTick();} }, '\u25B6')
+  el('button', { className: 'speech-play' + (sp.status === 'done' && !!sp.text ? '' : ' is-ghost'), title: 'Hear this speech', tabIndex: sp.status === 'done' && !!sp.text ? 0 : -1, 'aria-hidden': sp.status === 'done' && !!sp.text ? null : 'true', onClick: () => {if (!(sp.status === 'done' && !!sp.text)) return;if (!voiceOn) {voiceOnRef.current = true;setVoiceOn(true);try {localStorage.setItem('exh-voice', '1');} catch (e) {}}speechQueueRef.current.push(i);playQueueTick();} }, '\u25B6')
   ),
   sp.error && el('div', { className: 'speech-error' }, sp.error),
   !sp.error && sp.text && el('div', { className: 'speech-body' }, sp.text),
