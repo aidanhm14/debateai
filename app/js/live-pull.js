@@ -88,7 +88,10 @@
   function css() {
     var s = document.createElement('style');
     s.textContent =
-      '.lpull{position:fixed;right:18px;bottom:88px;z-index:12000;width:min(340px,calc(100vw - 28px));' +
+      // Bottom-LEFT, above the read-aloud pill (left:16/bottom:16). The
+      // bottom-right corner belongs to the signup nudge + feedback pill;
+      // parking here means the nudge can pop later without stacking on us.
+      '.lpull{position:fixed;left:18px;bottom:88px;z-index:12000;width:min(340px,calc(100vw - 28px));' +
         'background:#fffdf8;border:1px solid #e8e2dc;border-radius:18px;padding:18px 18px 16px;' +
         'box-shadow:0 24px 60px rgba(31,26,23,.22);font-family:"Crimson Pro",Georgia,serif;color:#1d1d22;' +
         'transform:translateY(14px);opacity:0;transition:transform .28s ease,opacity .28s ease}' +
@@ -141,6 +144,23 @@
     document.body.appendChild(card);
     setTimeout(function () { card.classList.add('on'); }, 30);
     emit('live_pull_seen', { waiting: n });
+
+    // The signup nudge outranks this card. On narrow screens it goes
+    // full-width at the bottom and would sit under us, so if it appears
+    // and actually overlaps, get out of the way (snooze is already set).
+    var yieldT = setInterval(function () {
+      if (!card.isConnected) { clearInterval(yieldT); return; }
+      var nudge = document.querySelector('.signup-nudge');
+      if (!nudge) return;
+      var a = card.getBoundingClientRect();
+      var b = nudge.getBoundingClientRect();
+      if (b.width > 0 && b.height > 0 &&
+          a.left < b.right && b.left < a.right &&
+          a.top < b.bottom && b.top < a.bottom) {
+        clearInterval(yieldT);
+        card.remove();
+      }
+    }, 800);
 
     var later = card.querySelector('.lpull-later');
     if (later) later.addEventListener('click', function () {
