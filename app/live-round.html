@@ -7809,7 +7809,7 @@ html.stage-mode .stage-ov{display:block}
   var audCam = {
     active: false, joining: false,
     stream: null, frame: null, guard: null, guardVideo: null,
-    pill: null, beatNow: null,
+    pill: null, beatNow: null, cfg: null, cfgPending: false,
   };
 
   function startSpectatorBeat(){
@@ -7877,7 +7877,23 @@ html.stage-mode .stage-ov{display:block}
     apply();
   }
 
+  // The pill only exists once the server confirms cameras are switched
+  // on (Daily config AND Turnstile keys). Offering a button that always
+  // answers "not configured" is worse than no button.
   function buildAudCamPill(shell){
+    if (audCam.pill || audCam.cfgPending || !shell) return;
+    audCam.cfgPending = true;
+    fetch('/api/audience-cam')
+      .then(function(r){ return r.json(); })
+      .catch(function(){ return {}; })
+      .then(function(cfg){
+        audCam.cfgPending = false;
+        audCam.cfg = cfg || {};
+        if (!cfg || !cfg.enabled) return;   // stays absent, by design
+        reallyBuildAudCamPill(shell);
+      });
+  }
+  function reallyBuildAudCamPill(shell){
     if (audCam.pill || !shell) return;
     var btn = document.createElement('button');
     btn.id = 'audCamPill';
@@ -7966,10 +7982,13 @@ html.stage-mode .stage-ov{display:block}
     audCam.joining = true;
     paintAudCamPill();
     var tokenOut = null;
-    fetch('/api/audience-cam').then(function(r){ return r.json(); }).catch(function(){ return {}; })
+    Promise.resolve(audCam.cfg || fetch('/api/audience-cam').then(function(r){ return r.json(); }).catch(function(){ return {}; }))
       .then(function(cfg){
-        if (cfg && cfg.enabled === false) throw new Error('Video is not configured on this site.');
-        return cfg && cfg.siteKey ? audCamVerify(cfg.siteKey) : '';
+        audCam.cfg = cfg || {};
+        if (!cfg || !cfg.enabled || !cfg.siteKey){
+          throw new Error('Audience cameras are not switched on for this site yet.');
+        }
+        return audCamVerify(cfg.siteKey);
       })
       .then(function(tsToken){
         return u.getIdToken().then(function(idt){

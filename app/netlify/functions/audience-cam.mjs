@@ -13,10 +13,14 @@
 //      mint (see the 2026-07-28 rate-limit entry), so an anonymous
 //      camera would be an unaccountable camera. sign_in_provider must
 //      not be 'anonymous'.
-//   2. Cloudflare Turnstile when configured (TURNSTILE_SITE_KEY +
-//      TURNSTILE_SECRET_KEY env). Without keys the layer is skipped —
-//      the named-account, ban, and rate layers still hold, and the
-//      keys can be added later with zero redeploy.
+//   2. Cloudflare Turnstile (TURNSTILE_SITE_KEY + TURNSTILE_SECRET_KEY
+//      env). This gate FAILS CLOSED: with no keys configured the whole
+//      feature is unavailable and the client never offers the camera.
+//      Shipping a stranger-camera feature with its human check quietly
+//      skipped is the one degradation that is not acceptable here, so
+//      unconfigured means off, not open. Setting the two env vars turns
+//      cameras on with no redeploy. (A configured-but-unreachable
+//      Cloudflare is different, and fails OPEN: the other gates hold.)
 //   3. video_bans — same identity derivation as create-daily-room, so
 //      a strike earned anywhere in the video system blocks the camera
 //      here too.
@@ -73,7 +77,7 @@ async function banFor(db, keys) {
 
 async function verifyTurnstile(token, request) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) return { ok: true, skipped: true };
+  if (!secret) return { ok: false, unconfigured: true };
   if (!token) return { ok: false };
   try {
     const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
@@ -94,10 +98,14 @@ async function verifyTurnstile(token, request) {
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
 
+  // Cameras need BOTH halves: video config and a working human check.
+  const configured = !!(process.env.DAILY_API_KEY && process.env.DAILY_DOMAIN
+    && process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY);
+
   if (request.method === 'GET') {
     return jsonResponse({
       siteKey: process.env.TURNSTILE_SITE_KEY || null,
-      enabled: !!process.env.DAILY_API_KEY,
+      enabled: configured,
       maxCams: MAX_CAMS,
     }, 200, request);
   }
@@ -106,7 +114,12 @@ export default async (request) => {
 
   const apiKey = process.env.DAILY_API_KEY;
   const domain = process.env.DAILY_DOMAIN;
-  if (!apiKey || !domain) return errorResponse('Video is not configured', 503, request);
+  if (!configured) {
+    return jsonResponse({
+      error: 'Audience cameras are not switched on for this site yet.',
+      unconfigured: true,
+    }, 503, request);
+  }
 
   let body;
   try { body = await request.json(); } catch { return errorResponse('Invalid JSON', 400, request); }
@@ -133,7 +146,8 @@ export default async (request) => {
   ]);
   if (!rl.ok) return errorResponse('Too many camera joins. Try again later.', 429, request);
 
-  // 3. Human check (when configured).
+  // 3. Human check. Unconfigured was already refused above, so a
+  // failure here is a real failed or missing challenge.
   const ts = await verifyTurnstile(body.turnstileToken, request);
   if (!ts.ok) return jsonResponse({ error: 'Verification failed. Reload and try the check again.', turnstile: true }, 403, request);
 
