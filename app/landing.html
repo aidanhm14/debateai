@@ -6470,11 +6470,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var landingGate = document.querySelector('.landing-more-shell');
     var gateCollapsed = document.body.classList.contains('landing-more-ready') &&
       !document.body.classList.contains('landing-more-open');
-    // Chapters gated by the one-pager collapse but physically BEFORE the
-    // shell (see the hide list after #first-screen). Position alone
-    // cannot spot them, so they are named here. Only the `onepager` arm
-    // hides them; in `full` they render, so the map must stay empty
-    // there or a genuinely missing section would keep its pill.
+    // Chapters gated by the one-pager collapse (see the hide list after
+    // #first-screen). Since 2026-08-11 the shell is authored ABOVE all of
+    // them, so the compareDocumentPosition check below already catches
+    // every one and this map is a belt-and-braces duplicate. It stays
+    // because the shell has moved twice now and position is the fragile
+    // half of the test. Only the `onepager` arm hides them; in `full`
+    // they render, so the map must stay empty there or a genuinely
+    // missing section would keep its pill.
     var onepagerArm = document.documentElement.getAttribute('data-onepager') === 'onepager';
     var gatedBeforeShell = onepagerArm ? {
       'how-it-works':1, 'live-now':1, 'live-proof':1,
@@ -8090,6 +8093,315 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }, true);
 })();
 </script>
+
+
+<!-- 2026-08-11: the gate card, the chapter pills and the waitlist moved
+     UP here, above every gated chapter. They used to be authored after
+     #creator-sweepstakes, which read fine collapsed (the five chapters
+     in between are display:none) but stranded the "Collapse the page"
+     control and the chapter index seven chapters deep the moment the
+     page opened. Collapsed rendering is unchanged; expanded, the
+     control + index + waitlist now head the tour instead of sitting
+     in the middle of it. -->
+<!-- The registration band is authored with its styles and submit handler
+     near the footer, then moved into this slot before first paint. It stays
+     outside the optional-content gate so every visitor sees it after the
+     judged-round proof.
+     2026-08-10 (evening): wrapped together with the Explore-more card
+     below into a two-column row (.lm-wl-row) instead of two full-width
+     stacked blocks. They are adjacent siblings under .hero-founder-frame,
+     so wrapping them here is a pure layout change, no relocation logic
+     touched. (Until 2026-08-11 this pair was authored after
+     #creator-sweepstakes and relied on the gated chapters in between
+     collapsing to display:none to look adjacent; now they genuinely are,
+     in source order as well as on screen.) -->
+<div class="lm-wl-row">
+
+<!-- Progressive landing gate (2026-07-25). The first visit now ends after
+     three focused beats: the promise, a live round, and a judged result.
+     Everything below remains in the document for search, deep links, and
+     visitors who want the full tour, but it no longer competes for attention
+     until they choose to open it. -->
+<div class="landing-more-shell">
+  <!-- 2026-08-10: the landing-more-ready flag + the collapsed hide
+       rules moved up to sit right after #first-screen (one-pager
+       gate flag block), so gated chapters never paint before the
+       rules that hide them exist. The gate itself, the pills and the
+       open-state rules still live here. That pass also re-gated
+       #how-it-works, #live-now, #live-proof, #ranked-band and
+       #creator-sweepstakes: the whole page after the first screen is
+       behind the Load more card now. -->
+  <style>
+    .landing-more-shell{background:var(--bg,#faf9f5);padding-top:clamp(18px,2vw,28px)}
+    .landing-more{width:100%}
+    /* Control arm (and JS-off visitors): opening the gate force-renders
+       every chapter at once, the behavior this rule shipped with on
+       2026-07-25. The landing_cv_v1 'cv' arm drops the override so the
+       chapters keep content-visibility:auto after the gate opens and
+       only render near the viewport. QA: ?lpcv=cv|control. */
+    html:not([data-lpcv="cv"]) body.landing-more-open #how-it-works,
+    html:not([data-lpcv="cv"]) body.landing-more-open #live-now,
+    html:not([data-lpcv="cv"]) body.landing-more-open #live-proof,
+    html:not([data-lpcv="cv"]) body.landing-more-open #stream-it,
+    html:not([data-lpcv="cv"]) body.landing-more-open #why-this-exists,
+    html:not([data-lpcv="cv"]) body.landing-more-open #floor-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #mode-select,
+    html:not([data-lpcv="cv"]) body.landing-more-open #engine-select,
+    html:not([data-lpcv="cv"]) body.landing-more-open #credential-path,
+    html:not([data-lpcv="cv"]) body.landing-more-open #community-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #face-wall,
+    html:not([data-lpcv="cv"]) body.landing-more-open #ranked-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #creator-sweepstakes,
+    html:not([data-lpcv="cv"]) body.landing-more-open #reviews,
+    html:not([data-lpcv="cv"]) body.landing-more-open #faq,
+    html:not([data-lpcv="cv"]) body.landing-more-open #book-founders{
+      content-visibility:visible !important;
+    }
+    /* The rest-of-page gate is a real button, not a quiet text row. It is
+       intentionally compact so the five chapter choices below do the
+       explaining without another paragraph of setup copy. */
+    .landing-more{display:flex;justify-content:center}
+    .landing-more-summary{
+      width:min(420px,calc(100% - 36px));
+      margin:0 auto 16px;
+      padding:12px 13px 12px 24px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      list-style:none;
+      cursor:pointer;
+      border:1px solid var(--accent-solid,#b91c1c);
+      border-radius:999px;
+      background:var(--accent-solid,#b91c1c);
+      color:#fff;
+      text-align:center;
+      appearance:none;
+      box-shadow:0 12px 28px color-mix(in srgb,var(--accent,#dc2626) 24%,transparent);
+      transition:transform .18s ease,box-shadow .18s ease,background .18s ease;
+    }
+    .landing-more-summary:hover{transform:translateY(-2px);background:#b91c1c;box-shadow:0 16px 34px rgba(185,28,28,.28)}
+    .landing-more-summary:focus-visible{
+      outline:3px solid color-mix(in srgb,var(--accent,#dc2626) 34%,transparent);
+      outline-offset:4px;
+    }
+    .lm-copy{display:flex;align-items:center;min-width:0}
+    .lm-title{
+      font-family:Crimson Pro,Georgia,serif;
+      font-size:.88rem;font-weight:850;letter-spacing:.01em;line-height:1.1;
+      color:#fff;
+    }
+    .lm-action{
+      display:grid;place-items:center;flex:none;
+      width:36px;height:36px;border-radius:50%;
+      background:rgba(255,255,255,.2);color:#fff;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+    .lm-action svg{width:18px;height:18px;display:block;transition:transform .22s ease}
+    .landing-more:not(.is-open) .lm-action svg{animation:lmChevronNudge 1.8s ease-in-out infinite}
+    @keyframes lmChevronNudge{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
+    .lm-open{display:none}
+    .landing-more.is-open .lm-closed{display:none}
+    .landing-more.is-open .lm-open{display:inline}
+    .landing-more.is-open .lm-action svg{transform:rotate(180deg)}
+    @media (max-width:640px){
+      .landing-more-summary{
+        width:calc(100% - 36px);
+        margin:0 auto 14px;
+        padding:11px 12px 11px 20px;
+      }
+    }
+    @media (prefers-reduced-motion:reduce){
+      .landing-more-summary,.lm-action svg{transition:none}
+      .landing-more:not(.is-open) .lm-action svg{animation:none}
+    }
+    /* Collapsed gate: keep the chapter strip visible as a jump menu under
+       the Explore card, at every width. A pill click deep-links through
+       the gate: the hashchange handler opens it and scrolls to the target. */
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav:not([hidden]){
+      display:block;position:static;z-index:auto;
+      background:transparent;border-bottom:0;
+      -webkit-mask-image:none;mask-image:none;
+      width:calc(100% - clamp(36px,10vw,144px));max-width:1120px;
+      margin:0 auto clamp(28px,3.4vw,44px);
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav ol{
+      display:flex;flex-wrap:wrap;justify-content:center;gap:12px 8px;
+      list-style:none;margin:0;padding:0;
+      overflow:visible;
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a{
+      display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap;
+      padding:8px 14px;border-radius:999px;
+      border:1px solid var(--border,rgba(140,130,115,.22));
+      background:transparent;
+      font-family:'Crimson Pro','Inter',system-ui,-apple-system,sans-serif;
+      font-size:.8rem;font-weight:600;line-height:1;
+      color:var(--text-dim,rgba(0,0,0,.6));
+      text-decoration:none;
+      transition:color .18s,border-color .18s,background .18s;
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num{
+      font-size:.6rem;font-weight:700;font-variant-numeric:tabular-nums;
+      color:var(--text-ghost,rgba(0,0,0,.36));
+    }
+    /* One consistent pill weight, collapsed-gate jump-menu variant.
+       Was two size tiers (bold+bigger "lg", faded+smaller "sm") that
+       implied a priority order between chapters that isn't real, and
+       made the row read as busy. Every chapter is an equally valid
+       jump target, so every pill matches. */
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="lg"],
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="sm"]{
+      font-size:.88rem;font-weight:600;padding:9px 15px;opacity:1;
+      border-color:var(--border,rgba(140,130,115,.22));
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a:hover{
+      color:var(--accent,#dc2626);
+      border-color:color-mix(in srgb,var(--accent,#dc2626) 40%,transparent);
+      background:color-mix(in srgb,var(--accent,#dc2626) 6%,transparent);
+    }
+    [data-theme="dark"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
+    [data-theme="crimson"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
+    [data-theme="grey"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
+    [data-theme="stone"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a{
+      color:rgba(245,239,231,.74);
+      border-color:rgba(245,239,231,.18);
+    }
+    [data-theme="dark"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
+    [data-theme="crimson"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
+    [data-theme="grey"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
+    [data-theme="stone"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num{
+      color:rgba(245,239,231,.68);
+    }
+    /* PARKED 2026-07-31 per Aidan: hide Stream it, The Floor, and Community
+       to simplify what opens behind the gate. PARKED 2026-08-01: the engine
+       picker ("Then choose who argues back") joins them. The sections stay
+       in the file untouched. To restore: drop the id from this rule and
+       uncomment their rows in .page-toc-list above (engine-select never had
+       a TOC row). */
+    #stream-it,#floor-band,#community-band,#engine-select{display:none !important}
+  </style>
+  <div class="landing-more" id="landing-more">
+    <!-- Fold redesign 2026-08-10: eyebrow and lede cut. The headline
+         says it, the button does it, and the chapter pills underneath
+         are the "jump straight to a chapter" sentence made clickable. -->
+    <h2 class="lm-head">That was the short version.</h2>
+    <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false" data-ab-test="landing_cv_v1" data-ab-target="gate_toggle">
+      <span class="lm-copy">
+        <strong class="lm-title"><span class="lm-closed">Open the rest of the page</span><span class="lm-open">Collapse the page</span></strong>
+      </span>
+      <span class="lm-action" aria-hidden="true">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 7.25 5.5 5.5 5.5-5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </button>
+  </div>
+  <script>
+  (function(){
+    var gate = document.getElementById('landing-more');
+    var toggle = document.getElementById('landing-more-toggle');
+    // Sections a deep link has to open the gate to reach. The first five
+    // are arm-dependent: in `full` they are already on the page, and
+    // listing them there would pop the gate open on a jump to a chapter
+    // the visitor can already see.
+    var armGated = document.documentElement.getAttribute('data-onepager') === 'onepager'
+      ? ['#how-it-works', '#live-now', '#live-proof', '#ranked-band', '#creator-sweepstakes']
+      : [];
+    var extraSelector = armGated.concat([
+      '.hero-founder-frame > .hero',
+      '#why-this-exists', '#floor-band', '#mode-select', '#engine-select', '#credential-path',
+      '#community-band', '#face-wall',
+      '#reviews', '#faq', '#book-founders'
+    ]).join(',');
+    if (!gate || !toggle) return;
+
+    function setOpen(open, track){
+      document.body.classList.toggle('landing-more-open', open);
+      gate.classList.toggle('is-open', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      // The TOC is built while these chapters are still collapsed. Let its
+      // scrollspy, visibility range and progress track recalculate after
+      // the gate changes without coupling the two components directly.
+      try {
+        window.dispatchEvent(new CustomEvent('landingmorechange', {
+          detail: { open: open }
+        }));
+      } catch (_) {}
+      if (track) {
+        try {
+          gtag('event', 'landing_more_toggle', {
+            state: open ? 'open' : 'closed',
+            cv: document.documentElement.getAttribute('data-lpcv') || ''
+          });
+        } catch (_) {}
+      }
+    }
+
+    // cv arm: a chapter that has never rendered sits at its
+    // contain-intrinsic-size placeholder, so chapters above a deep-link
+    // target can re-render after the jump and shift the landing.
+    // Render everything above the target up front (founder-scroll
+    // precedent); chapters at and below it keep containment.
+    function forceRenderAbove(target){
+      if (document.documentElement.getAttribute('data-lpcv') !== 'cv') return;
+      var chapters = ['how-it-works','live-now','live-proof','ranked-band','creator-sweepstakes','stream-it','why-this-exists','floor-band','credential-path','community-band','face-wall','reviews','mode-select','engine-select','faq','book-founders'];
+      for (var i = 0; i < chapters.length; i++){
+        var el = document.getElementById(chapters[i]);
+        if (!el) continue;
+        if (el === target || el.contains(target)) break;
+        el.style.contentVisibility = 'visible';
+      }
+    }
+
+    function revealHashTarget(){
+      var raw = (window.location.hash || '').slice(1);
+      if (!raw) return;
+      var id;
+      try { id = decodeURIComponent(raw); } catch (_) { id = raw; }
+      var target = document.getElementById(id);
+      if (!target) return;
+      var inChapters = !!target.closest(extraSelector);
+      // #waitlist sits after the gated chapters but outside the gate, so
+      // a jump to it while the gate is open crosses every contained
+      // chapter and needs the same stabilization.
+      var pastChapters = !inChapters && !!target.closest('#waitlist');
+      if (!inChapters && !pastChapters) return;
+      if (pastChapters && !document.body.classList.contains('landing-more-open')) return;
+      if (inChapters) setOpen(true, false);
+      forceRenderAbove(target);
+      window.requestAnimationFrame(function(){
+        target.scrollIntoView({ block: 'start' });
+        // cv arm: land once more after real heights settle (same
+        // pattern as the founder-call scroll above).
+        if (document.documentElement.getAttribute('data-lpcv') === 'cv'){
+          setTimeout(function(){ target.scrollIntoView({ block: 'start' }); }, 450);
+        }
+      });
+    }
+
+    toggle.addEventListener('click', function(){
+      setOpen(!document.body.classList.contains('landing-more-open'), true);
+    });
+    window.addEventListener('hashchange', revealHashTarget);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', revealHashTarget, { once: true });
+    } else {
+      revealHashTarget();
+    }
+  })();
+  </script>
+</div>
+</div>
+
+<!-- Populated from the page-toc list on load; empty (and hidden) for
+     no-JS visitors, who still get the chapter flow itself. -->
+<nav class="chapter-nav" aria-label="Page sections" hidden></nav>
+
+<!-- 2026-08-10 (fold redesign): the waitlist lands HERE, after the tour
+     button and the chapter pills, not beside the gate. One centered
+     column reads top-down: open the page, jump to a chapter, or leave
+     an email. The section itself still lives at its authored spot
+     further down; this slot pulls it up on load. -->
+<div id="waitlist-slot"></div>
 
 <!-- ── HOW IT WORKS (2026-08-10, v2 same day) ────────────────────────
      Full-viewport swipe deck, dark slab. v1 rode the warm-paper card
@@ -12806,293 +13118,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </section>
 </section>
 
-<!-- The registration band is authored with its styles and submit handler
-     near the footer, then moved into this slot before first paint. It stays
-     outside the optional-content gate so every visitor sees it after the
-     judged-round proof.
-     2026-08-10 (evening): wrapped together with the Explore-more card
-     below into a two-column row (.lm-wl-row) instead of two full-width
-     stacked blocks. They are adjacent siblings under .hero-founder-frame
-     (nothing else renders between them: the gated chapters that sit in
-     between in SOURCE order are collapsed to display:none until the gate
-     opens), so wrapping them here is a pure layout change, no relocation
-     logic touched. -->
-<div class="lm-wl-row">
-
-<!-- Progressive landing gate (2026-07-25). The first visit now ends after
-     three focused beats: the promise, a live round, and a judged result.
-     Everything below remains in the document for search, deep links, and
-     visitors who want the full tour, but it no longer competes for attention
-     until they choose to open it. -->
-<div class="landing-more-shell">
-  <!-- 2026-08-10: the landing-more-ready flag + the collapsed hide
-       rules moved up to sit right after #first-screen (one-pager
-       gate flag block), so gated chapters never paint before the
-       rules that hide them exist. The gate itself, the pills and the
-       open-state rules still live here. That pass also re-gated
-       #how-it-works, #live-now, #live-proof, #ranked-band and
-       #creator-sweepstakes: the whole page after the first screen is
-       behind the Load more card now. -->
-  <style>
-    .landing-more-shell{background:var(--bg,#faf9f5);padding-top:clamp(18px,2vw,28px)}
-    .landing-more{width:100%}
-    /* Control arm (and JS-off visitors): opening the gate force-renders
-       every chapter at once, the behavior this rule shipped with on
-       2026-07-25. The landing_cv_v1 'cv' arm drops the override so the
-       chapters keep content-visibility:auto after the gate opens and
-       only render near the viewport. QA: ?lpcv=cv|control. */
-    html:not([data-lpcv="cv"]) body.landing-more-open #how-it-works,
-    html:not([data-lpcv="cv"]) body.landing-more-open #live-now,
-    html:not([data-lpcv="cv"]) body.landing-more-open #live-proof,
-    html:not([data-lpcv="cv"]) body.landing-more-open #stream-it,
-    html:not([data-lpcv="cv"]) body.landing-more-open #why-this-exists,
-    html:not([data-lpcv="cv"]) body.landing-more-open #floor-band,
-    html:not([data-lpcv="cv"]) body.landing-more-open #mode-select,
-    html:not([data-lpcv="cv"]) body.landing-more-open #engine-select,
-    html:not([data-lpcv="cv"]) body.landing-more-open #credential-path,
-    html:not([data-lpcv="cv"]) body.landing-more-open #community-band,
-    html:not([data-lpcv="cv"]) body.landing-more-open #face-wall,
-    html:not([data-lpcv="cv"]) body.landing-more-open #ranked-band,
-    html:not([data-lpcv="cv"]) body.landing-more-open #creator-sweepstakes,
-    html:not([data-lpcv="cv"]) body.landing-more-open #reviews,
-    html:not([data-lpcv="cv"]) body.landing-more-open #faq,
-    html:not([data-lpcv="cv"]) body.landing-more-open #book-founders{
-      content-visibility:visible !important;
-    }
-    /* The rest-of-page gate is a real button, not a quiet text row. It is
-       intentionally compact so the five chapter choices below do the
-       explaining without another paragraph of setup copy. */
-    .landing-more{display:flex;justify-content:center}
-    .landing-more-summary{
-      width:min(420px,calc(100% - 36px));
-      margin:0 auto 16px;
-      padding:12px 13px 12px 24px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:18px;
-      list-style:none;
-      cursor:pointer;
-      border:1px solid var(--accent-solid,#b91c1c);
-      border-radius:999px;
-      background:var(--accent-solid,#b91c1c);
-      color:#fff;
-      text-align:center;
-      appearance:none;
-      box-shadow:0 12px 28px color-mix(in srgb,var(--accent,#dc2626) 24%,transparent);
-      transition:transform .18s ease,box-shadow .18s ease,background .18s ease;
-    }
-    .landing-more-summary:hover{transform:translateY(-2px);background:#b91c1c;box-shadow:0 16px 34px rgba(185,28,28,.28)}
-    .landing-more-summary:focus-visible{
-      outline:3px solid color-mix(in srgb,var(--accent,#dc2626) 34%,transparent);
-      outline-offset:4px;
-    }
-    .lm-copy{display:flex;align-items:center;min-width:0}
-    .lm-title{
-      font-family:Crimson Pro,Georgia,serif;
-      font-size:.88rem;font-weight:850;letter-spacing:.01em;line-height:1.1;
-      color:#fff;
-    }
-    .lm-action{
-      display:grid;place-items:center;flex:none;
-      width:36px;height:36px;border-radius:50%;
-      background:rgba(255,255,255,.2);color:#fff;
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
-    }
-    .lm-action svg{width:18px;height:18px;display:block;transition:transform .22s ease}
-    .landing-more:not(.is-open) .lm-action svg{animation:lmChevronNudge 1.8s ease-in-out infinite}
-    @keyframes lmChevronNudge{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
-    .lm-open{display:none}
-    .landing-more.is-open .lm-closed{display:none}
-    .landing-more.is-open .lm-open{display:inline}
-    .landing-more.is-open .lm-action svg{transform:rotate(180deg)}
-    @media (max-width:640px){
-      .landing-more-summary{
-        width:calc(100% - 36px);
-        margin:0 auto 14px;
-        padding:11px 12px 11px 20px;
-      }
-    }
-    @media (prefers-reduced-motion:reduce){
-      .landing-more-summary,.lm-action svg{transition:none}
-      .landing-more:not(.is-open) .lm-action svg{animation:none}
-    }
-    /* Collapsed gate: keep the chapter strip visible as a jump menu under
-       the Explore card, at every width. A pill click deep-links through
-       the gate: the hashchange handler opens it and scrolls to the target. */
-    body.landing-more-ready:not(.landing-more-open) .chapter-nav:not([hidden]){
-      display:block;position:static;z-index:auto;
-      background:transparent;border-bottom:0;
-      -webkit-mask-image:none;mask-image:none;
-      width:calc(100% - clamp(36px,10vw,144px));max-width:1120px;
-      margin:0 auto clamp(28px,3.4vw,44px);
-    }
-    body.landing-more-ready:not(.landing-more-open) .chapter-nav ol{
-      display:flex;flex-wrap:wrap;justify-content:center;gap:12px 8px;
-      list-style:none;margin:0;padding:0;
-      overflow:visible;
-    }
-    body.landing-more-ready:not(.landing-more-open) .chapter-nav a{
-      display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap;
-      padding:8px 14px;border-radius:999px;
-      border:1px solid var(--border,rgba(140,130,115,.22));
-      background:transparent;
-      font-family:'Crimson Pro','Inter',system-ui,-apple-system,sans-serif;
-      font-size:.8rem;font-weight:600;line-height:1;
-      color:var(--text-dim,rgba(0,0,0,.6));
-      text-decoration:none;
-      transition:color .18s,border-color .18s,background .18s;
-    }
-    body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num{
-      font-size:.6rem;font-weight:700;font-variant-numeric:tabular-nums;
-      color:var(--text-ghost,rgba(0,0,0,.36));
-    }
-    /* One consistent pill weight, collapsed-gate jump-menu variant.
-       Was two size tiers (bold+bigger "lg", faded+smaller "sm") that
-       implied a priority order between chapters that isn't real, and
-       made the row read as busy. Every chapter is an equally valid
-       jump target, so every pill matches. */
-    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="lg"],
-    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="sm"]{
-      font-size:.88rem;font-weight:600;padding:9px 15px;opacity:1;
-      border-color:var(--border,rgba(140,130,115,.22));
-    }
-    body.landing-more-ready:not(.landing-more-open) .chapter-nav a:hover{
-      color:var(--accent,#dc2626);
-      border-color:color-mix(in srgb,var(--accent,#dc2626) 40%,transparent);
-      background:color-mix(in srgb,var(--accent,#dc2626) 6%,transparent);
-    }
-    [data-theme="dark"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
-    [data-theme="crimson"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
-    [data-theme="grey"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
-    [data-theme="stone"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a{
-      color:rgba(245,239,231,.74);
-      border-color:rgba(245,239,231,.18);
-    }
-    [data-theme="dark"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
-    [data-theme="crimson"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
-    [data-theme="grey"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
-    [data-theme="stone"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num{
-      color:rgba(245,239,231,.68);
-    }
-    /* PARKED 2026-07-31 per Aidan: hide Stream it, The Floor, and Community
-       to simplify what opens behind the gate. PARKED 2026-08-01: the engine
-       picker ("Then choose who argues back") joins them. The sections stay
-       in the file untouched. To restore: drop the id from this rule and
-       uncomment their rows in .page-toc-list above (engine-select never had
-       a TOC row). */
-    #stream-it,#floor-band,#community-band,#engine-select{display:none !important}
-  </style>
-  <div class="landing-more" id="landing-more">
-    <!-- Fold redesign 2026-08-10: eyebrow and lede cut. The headline
-         says it, the button does it, and the chapter pills underneath
-         are the "jump straight to a chapter" sentence made clickable. -->
-    <h2 class="lm-head">That was the short version.</h2>
-    <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false" data-ab-test="landing_cv_v1" data-ab-target="gate_toggle">
-      <span class="lm-copy">
-        <strong class="lm-title"><span class="lm-closed">Open the rest of the page</span><span class="lm-open">Collapse the page</span></strong>
-      </span>
-      <span class="lm-action" aria-hidden="true">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 7.25 5.5 5.5 5.5-5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </span>
-    </button>
-  </div>
-  <script>
-  (function(){
-    var gate = document.getElementById('landing-more');
-    var toggle = document.getElementById('landing-more-toggle');
-    // Sections a deep link has to open the gate to reach. The first five
-    // are arm-dependent: in `full` they are already on the page, and
-    // listing them there would pop the gate open on a jump to a chapter
-    // the visitor can already see.
-    var armGated = document.documentElement.getAttribute('data-onepager') === 'onepager'
-      ? ['#how-it-works', '#live-now', '#live-proof', '#ranked-band', '#creator-sweepstakes']
-      : [];
-    var extraSelector = armGated.concat([
-      '.hero-founder-frame > .hero',
-      '#why-this-exists', '#floor-band', '#mode-select', '#engine-select', '#credential-path',
-      '#community-band', '#face-wall',
-      '#reviews', '#faq', '#book-founders'
-    ]).join(',');
-    if (!gate || !toggle) return;
-
-    function setOpen(open, track){
-      document.body.classList.toggle('landing-more-open', open);
-      gate.classList.toggle('is-open', open);
-      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      // The TOC is built while these chapters are still collapsed. Let its
-      // scrollspy, visibility range and progress track recalculate after
-      // the gate changes without coupling the two components directly.
-      try {
-        window.dispatchEvent(new CustomEvent('landingmorechange', {
-          detail: { open: open }
-        }));
-      } catch (_) {}
-      if (track) {
-        try {
-          gtag('event', 'landing_more_toggle', {
-            state: open ? 'open' : 'closed',
-            cv: document.documentElement.getAttribute('data-lpcv') || ''
-          });
-        } catch (_) {}
-      }
-    }
-
-    // cv arm: a chapter that has never rendered sits at its
-    // contain-intrinsic-size placeholder, so chapters above a deep-link
-    // target can re-render after the jump and shift the landing.
-    // Render everything above the target up front (founder-scroll
-    // precedent); chapters at and below it keep containment.
-    function forceRenderAbove(target){
-      if (document.documentElement.getAttribute('data-lpcv') !== 'cv') return;
-      var chapters = ['how-it-works','live-now','live-proof','ranked-band','creator-sweepstakes','stream-it','why-this-exists','floor-band','credential-path','community-band','face-wall','reviews','mode-select','engine-select','faq','book-founders'];
-      for (var i = 0; i < chapters.length; i++){
-        var el = document.getElementById(chapters[i]);
-        if (!el) continue;
-        if (el === target || el.contains(target)) break;
-        el.style.contentVisibility = 'visible';
-      }
-    }
-
-    function revealHashTarget(){
-      var raw = (window.location.hash || '').slice(1);
-      if (!raw) return;
-      var id;
-      try { id = decodeURIComponent(raw); } catch (_) { id = raw; }
-      var target = document.getElementById(id);
-      if (!target) return;
-      var inChapters = !!target.closest(extraSelector);
-      // #waitlist sits after the gated chapters but outside the gate, so
-      // a jump to it while the gate is open crosses every contained
-      // chapter and needs the same stabilization.
-      var pastChapters = !inChapters && !!target.closest('#waitlist');
-      if (!inChapters && !pastChapters) return;
-      if (pastChapters && !document.body.classList.contains('landing-more-open')) return;
-      if (inChapters) setOpen(true, false);
-      forceRenderAbove(target);
-      window.requestAnimationFrame(function(){
-        target.scrollIntoView({ block: 'start' });
-        // cv arm: land once more after real heights settle (same
-        // pattern as the founder-call scroll above).
-        if (document.documentElement.getAttribute('data-lpcv') === 'cv'){
-          setTimeout(function(){ target.scrollIntoView({ block: 'start' }); }, 450);
-        }
-      });
-    }
-
-    toggle.addEventListener('click', function(){
-      setOpen(!document.body.classList.contains('landing-more-open'), true);
-    });
-    window.addEventListener('hashchange', revealHashTarget);
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', revealHashTarget, { once: true });
-    } else {
-      revealHashTarget();
-    }
-  })();
-  </script>
-</div>
-</div>
 
 
 <!-- ── The Floor ──────────────────────────────────────────────────
@@ -13417,16 +13442,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
 </style>
 
-<!-- Populated from the page-toc list on load; empty (and hidden) for
-     no-JS visitors, who still get the chapter flow itself. -->
-<nav class="chapter-nav" aria-label="Page sections" hidden></nav>
-
-<!-- 2026-08-10 (fold redesign): the waitlist lands HERE, after the tour
-     button and the chapter pills, not beside the gate. One centered
-     column reads top-down: open the page, jump to a chapter, or leave
-     an email. The section itself still lives at its authored spot
-     further down; this slot pulls it up on load. -->
-<div id="waitlist-slot"></div>
 
 <!-- ── Streamers chapter (2026-07-29) ────────────────────────────────
      Streaming was on the page twice and small both times: a narrow red
