@@ -772,6 +772,16 @@ body{
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  function drillModeFor(text, isViva){
+    if (isViva) return 'viva';
+    var s = String(text || '').toLowerCase();
+    if (/cross.?ex|question|concession|admission/.test(s)) return 'crossex';
+    if (/rebut|respond|answer|drop|clash|extend/.test(s)) return 'rebuttal';
+    if (/persuad|clarity|structure|signpost|delivery/.test(s)) return 'layjudge';
+    if (/steelman|strongest argument/.test(s)) return 'steelman';
+    return 'quickclash';
+  }
+
   function render(payload){
     if (!payload || !payload.rfd){
       root.innerHTML =
@@ -800,6 +810,13 @@ body{
     var talkAI  = stats.talkSplit && typeof stats.talkSplit.ai  === 'number' ? Math.round(stats.talkSplit.ai)  : null;
     var sp = sections.speakerPoints;
     var spClass = sp && parseFloat(sp) >= 28 ? 'good' : sp && parseFloat(sp) < 26 ? 'low' : '';
+    var weakestLabel = isViva ? 'Lowest viva stage' : 'Costliest moment';
+    var weakestText = sections.costliest || sections.fixes[0] || '';
+    if (isViva && viva && viva.stages.length){
+      var lowestStage = viva.stages.slice().sort(function(a,b){ return a.score - b.score; })[0];
+      weakestLabel = lowestStage.label + ' at ' + lowestStage.score + '/5';
+      weakestText = lowestStage.note || sections.costliest || sections.fixes[0] || lowestStage.label;
+    }
 
     var rowParts = [];
     if (payload.modeLabel) rowParts.push(escHtml(payload.modeLabel));
@@ -866,6 +883,37 @@ body{
         + '</div>'
       + '</div></section>';
     }
+
+    // Build the next-round choices before the long ballot. The user sees
+    // the decision and immediately gets four concrete ways forward.
+    var roundQ = new URLSearchParams();
+    if (payload.motion) roundQ.set('motion', payload.motion);
+    if (payload.mode || payload.format) roundQ.set('mode', payload.mode || payload.format);
+    if (payload.side) roundQ.set('side', payload.side);
+    roundQ.set('handoff', 'rematch');
+    var runBackHref = '/voice-debate?' + roundQ.toString();
+    var newQ = new URLSearchParams();
+    if (payload.mode || payload.format) newQ.set('mode', payload.mode || payload.format);
+    if (payload.side) newQ.set('side', payload.side);
+    newQ.set('handoff', 'new-motion');
+    var newMotionHref = '/voice-debate?' + newQ.toString();
+    var drillQ = new URLSearchParams();
+    if (payload.motion) drillQ.set('motion', payload.motion);
+    drillQ.set('mode', drillModeFor(weakestText, isViva));
+    if (payload.side) drillQ.set('side', payload.side);
+    drillQ.set('handoff', 'weakest-score');
+    drillQ.set('background', 'Targeted drill from the last judge verdict. Weakest area: ' + weakestLabel + '. Practice target: ' + weakestText);
+    var weakestHref = '/voice-debate?' + drillQ.toString();
+    var motionQ = payload.motion ? '?motion=' + encodeURIComponent(payload.motion) : '';
+    var liveHref = '/live' + (payload.motion ? motionQ + '&compose=1' : '');
+    html +=
+      '<div class="cta-row">'
+        + '<div class="cta-text"><strong>Your next round.</strong> Keep the loadout, change the motion, or drill the score that cost you.</div>'
+        + '<a href="' + runBackHref + '" class="cta-btn primary">Rematch</a>'
+        + '<a href="' + newMotionHref + '" class="cta-btn ghost">New motion</a>'
+        + '<a href="' + weakestHref + '" class="cta-btn ghost" title="' + escHtml(weakestLabel + ': ' + weakestText) + '">Practice weakest score</a>'
+        + '<button class="cta-btn ghost" id="shareBallot" type="button">Share verdict</button>'
+      + '</div>';
 
     // Cert award banner — only when voice-debate.html attached a
     // freshly-issued cert to the payload (signed-in user, score >= 27).
@@ -1011,21 +1059,8 @@ body{
         + '<a href="/spar" class="cta-btn primary" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'spar_cta_click\',{from:\'voice_rfd\'})}catch(e){}">Find a human &rarr;</a>'
       + '</section>';
 
-    // Carry the motion forward so the loop is real, not generic. "Run it
-    // back" replays THIS motion (makes the "second round is better"
-    // promise honest), and "Post this motion live" lands on /live with
-    // the composer prefilled. A round should always end one tap from the
-    // next one, same topic or a live human.
-    var motionQ = payload.motion ? '?motion=' + encodeURIComponent(payload.motion) : '';
-    var runBackHref = '/voice-debate' + motionQ;
-    var liveHref = '/live' + (payload.motion ? motionQ + '&compose=1' : '');
+    // Human paths stay secondary to the immediate four-choice loop above.
     html +=
-      '<div class="cta-row">'
-        + '<div class="cta-text">Ballot saved. <strong>Run it back</strong>; the second round is always the better one.</div>'
-        + '<a href="' + runBackHref + '" class="cta-btn primary">' + (payload.motion ? 'Run this motion again →' : 'Run another round →') + '</a>'
-        + '<button class="cta-btn ghost" id="copyBallot" type="button">Copy ballot</button>'
-        + '<button class="cta-btn ghost" id="shareBallot" type="button">Share link</button>'
-      + '</div>'
       // ── Next-step row: surface /live + /spar after the user has just
       // finished a voice round and is at peak engagement. The primary
       // "Run it back" above is the obvious second-tap; this gives the
@@ -1085,15 +1120,6 @@ body{
     setTimeout(countUpSP, 260);
 
     // Copy + share wiring.
-    var copyBtn = document.getElementById('copyBallot');
-    if (copyBtn) copyBtn.addEventListener('click', function(){
-      try {
-        navigator.clipboard.writeText(payload.rfd || '');
-        copyBtn.textContent = '✓ Copied';
-        setTimeout(function(){ copyBtn.textContent = 'Copy ballot'; }, 1800);
-        try { gtag('event', 'voice_rfd_copy'); } catch(e){}
-      } catch(e){ copyBtn.textContent = 'Couldn\'t copy'; }
-    });
     // Cert copy-link wiring (only present when payload.cert exists).
     var certCopyBtn = document.getElementById('certCopyLink');
     if (certCopyBtn && payload.cert && payload.cert.certId){
@@ -1109,7 +1135,7 @@ body{
     }
 
     var shareBtn = document.getElementById('shareBallot');
-    if (shareBtn) shareBtn.addEventListener('click', function(){
+    if (shareBtn) shareBtn.addEventListener('click', async function(){
       try {
         var url;
         if (payload.id) {
@@ -1124,9 +1150,21 @@ body{
           var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_');
           url = window.location.origin + '/voice-rfd?p=' + b64;
         }
-        navigator.clipboard.writeText(url);
-        shareBtn.textContent = '✓ Link copied';
-        setTimeout(function(){ shareBtn.textContent = 'Share link'; }, 1800);
+        var shareText = (winnerLabel || 'Debatable verdict') + (payload.motion ? ' on "' + payload.motion + '".' : '.') + ' ' + (sections.decision || '');
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: 'My Debatable verdict', text: shareText, url: url });
+            shareBtn.textContent = 'Shared';
+          } catch(e) {
+            if (e && e.name === 'AbortError') return;
+            await navigator.clipboard.writeText(url);
+            shareBtn.textContent = 'Link copied';
+          }
+        } else {
+          await navigator.clipboard.writeText(url);
+          shareBtn.textContent = 'Link copied';
+        }
+        setTimeout(function(){ shareBtn.textContent = 'Share verdict'; }, 1800);
         try { gtag('event', 'voice_rfd_share', { kind: payload.id ? 'id' : 'payload' }); } catch(e){}
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
     });

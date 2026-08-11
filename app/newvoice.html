@@ -961,9 +961,11 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
     </div>
     <div class="transcript" id="transcriptBox"></div>
     <div class="recap-actions">
-      <button class="ctl ctl-end" id="rematchBtn" type="button">Debate again</button>
+      <button class="ctl ctl-end" id="rematchBtn" type="button">Rematch</button>
       <button class="ctl" id="switchBtn" type="button">Switch sides</button>
-      <button class="ctl" id="newClaimBtn" type="button">New topic</button>
+      <button class="ctl" id="newClaimBtn" type="button">New motion</button>
+      <button class="ctl" id="weakestBtn" type="button" disabled>Practice weakest score</button>
+      <button class="ctl" id="shareVerdictBtn" type="button" disabled>Share verdict</button>
       <button class="ctl" id="saveRoundBtn" type="button">Save debate</button>
     </div>
     <p class="recap-saved-note" id="saveNote" hidden></p>
@@ -1298,6 +1300,7 @@ let userBuf = null, aiBuf = null;
 let startedAt = 0, timerIv = null;
 let roundElapsedMs = 0;            // frozen at endRound for the saved record
 let currentMotion = '';
+let lastVerdictText = '';
 let roundLang = 'en';
 // Negotiated at mint by /api/realtime-session. negotiatedReasoningEffort is
 // a string on the gpt-realtime-2.1 family (which added configurable
@@ -2371,6 +2374,9 @@ function endRound(){
    on any failure — the transcript is still the product. */
 function judgeRound(){
   const card = $('ballotCard'), body = $('ballotBody'), pill = $('ballotPill');
+  lastVerdictText = '';
+  $('weakestBtn').disabled = true;
+  $('shareVerdictBtn').disabled = true;
   const t = turns.filter((x) => x && x.who !== 'judge' && (x.text || '').trim());
   const youSpoke = t.filter((x) => x.who === 'you').length;
   if (t.length < 3 || youSpoke < 1) { card.hidden = true; return; }
@@ -2417,6 +2423,9 @@ function judgeRound(){
   }).then((text) => {
     text = (text || '').trim();
     if (!text) throw new Error('empty ballot');
+    lastVerdictText = text;
+    $('weakestBtn').disabled = false;
+    $('shareVerdictBtn').disabled = false;
     body.classList.remove('loading');
     const m = text.match(/^\s*winner\s*:\s*(you|the machine|machine|wash|tie|draw)[.!]?\s*/i);
     if (m) {
@@ -2708,7 +2717,49 @@ $('newClaimBtn').addEventListener('click', () => {
   let next = randomClaim();
   while (next === claimInput.value) next = randomClaim();
   claimInput.value = next;
-  show('setup');
+  show('setup'); start();
+});
+
+function quickVerdictTarget(){
+  const raw = (lastVerdictText || '').replace(/^\s*winner\s*:[^\n]+/i, '').trim();
+  const sentences = raw.match(/[^.!?]+[.!?]+/g) || [raw];
+  return (sentences[sentences.length - 1] || raw || 'Respond directly to the other side before rebuilding your own case.').trim();
+}
+function quickDrillMode(target){
+  const s = String(target || '').toLowerCase();
+  if (/question|cross.?ex|concession/.test(s)) return 'crossex';
+  if (/rebut|respond|answer|drop|clash/.test(s)) return 'rebuttal';
+  if (/clarity|structure|signpost|persuad|delivery/.test(s)) return 'layjudge';
+  return 'quickclash';
+}
+$('weakestBtn').addEventListener('click', () => {
+  const target = quickVerdictTarget();
+  const q = new URLSearchParams();
+  if (currentMotion) q.set('motion', currentMotion);
+  q.set('mode', quickDrillMode(target));
+  q.set('side', side === 'for' ? 'gov' : 'opp');
+  q.set('handoff', 'weakest-score');
+  q.set('background', 'Targeted drill from the last judge verdict. Practice target: ' + target);
+  location.href = '/voice-debate?' + q.toString();
+});
+$('shareVerdictBtn').addEventListener('click', async () => {
+  const btn = $('shareVerdictBtn');
+  const text = 'My Debatable verdict on "' + (currentMotion || 'a live motion') + '". ' + lastVerdictText;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'My Debatable verdict', text, url: 'https://itsdebatable.com/newvoice' });
+      btn.textContent = 'Shared';
+    } else {
+      await navigator.clipboard.writeText(text + ' https://itsdebatable.com/newvoice');
+      btn.textContent = 'Copied';
+    }
+    setTimeout(() => { btn.textContent = 'Share verdict'; }, 1800);
+  } catch (e) {
+    if (!(e && e.name === 'AbortError')) {
+      btn.textContent = 'Try sharing again';
+      setTimeout(() => { btn.textContent = 'Share verdict'; }, 1800);
+    }
+  }
 });
 
 /* Recap next-step row: track exits, and surface the sign-in pill only

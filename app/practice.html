@@ -6932,6 +6932,9 @@ function App() {
 
 
 
+
+
+
       // Only auto-advance if timer actually ran (not on initial mount)
     }}, [prepTimer.left]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
@@ -6940,10 +6943,7 @@ function App() {
       timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start(); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
       if (fmt.poi) {poiCountRef.current = 0;poiAcceptsRef.current = 0;setPoiOffer(false);setPoiActive(null);setPoiText(''); // Offer first POI after 60-90s, second after another 60-90s
         var offerPOI = () => {if (poiCountRef.current < 2) {setPoiOffer(true);poiCountRef.current++; // Schedule a possible second POI
-            if (poiCountRef.current < 2) {poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);}
-          }
-        };
-        poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);
+            if (poiCountRef.current < 2) {poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);}}};poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);
       }
     } else {
       // AI turn. overlapped: start fetching audio for first half while still generating text
@@ -8381,6 +8381,106 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
   // Reset
   var newRound = () => {clearSession();transition('setup', () => {setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null);});};
+
+  // Turn the current ballot into one short, specific practice target.
+  // Quick Clash has normalized dimension scores. Other formats expose
+  // per-speech scores and transcript-referenced improvements, so the
+  // lowest user speech becomes the target. The existing judge has already
+  // done the diagnosis; this only routes it into the right two-minute drill.
+  var weakestBallotFocus = (roundBallot) => {
+    if (!roundBallot) return null;
+    var label = 'Judge priority';
+    var detail = roundBallot.practiceAdvice || (roundBallot.overallWeaknesses || [])[0] || '';
+    if (roundBallot.rubric && roundBallot.rubric.user) {
+      var ru = roundBallot.rubric.user;
+      var dims = [
+      { key: 'argument', label: 'Case building', max: 15, mode: 'layjudge' },
+      { key: 'responses', label: 'Responses', max: 10, mode: 'rebuttal' },
+      { key: 'structure', label: 'Structure and clarity', max: 5, mode: 'quickclash' }].
+      filter((d) => !isNaN(parseFloat(ru[d.key])));
+      if (dims.length) {
+        dims.sort((a, b) => parseFloat(ru[a.key]) / a.max - parseFloat(ru[b.key]) / b.max);
+        label = dims[0].label;
+        return { label, detail: detail || label, mode: dims[0].mode };
+      }
+    }
+    var userSpeeches = (roundBallot.speeches || []).filter((s) => s && /^(you|user)$/i.test(s.who || '') && !isNaN(parseFloat(s.score)));
+    if (userSpeeches.length) {
+      userSpeeches.sort((a, b) => parseFloat(a.score) - parseFloat(b.score));
+      var low = userSpeeches[0];
+      label = (low.code || 'Lowest speech') + ' at ' + low.score;
+      detail = (low.improvements || [])[0] || detail || label;
+    }
+    var hay = (label + ' ' + detail).toLowerCase();
+    var mode = /cross.?ex|question|concession/.test(hay) ? 'crossex' :
+    /rebut|respond|drop|answer|clash/.test(hay) ? 'rebuttal' :
+    /persuad|clarity|structure|signpost|delivery/.test(hay) ? 'layjudge' :
+    /steelman|strongest argument/.test(hay) ? 'steelman' : 'quickclash';
+    return { label, detail, mode };
+  };
+
+  var nextRoundUrl = (kind) => {
+    var q = new URLSearchParams();
+    q.set('now', '1');
+    q.set('format', format);
+    q.set('side', side);
+    q.set('voice', voice);
+    q.set('handoff', kind);
+    if (kind === 'rematch' && motion) q.set('motion', motion);
+    return '/practice?' + q.toString();
+  };
+
+  var weakestDrillUrl = (roundBallot) => {
+    var focus = weakestBallotFocus(roundBallot);
+    if (!focus) return '/voice-debate';
+    var q = new URLSearchParams();
+    if (motion) q.set('motion', motion);
+    q.set('mode', focus.mode);
+    q.set('side', side);
+    q.set('handoff', 'weakest-score');
+    q.set('background', 'Targeted drill from the last judge ballot. Weakest area: ' + focus.label + '. Practice target: ' + focus.detail);
+    return '/voice-debate?' + q.toString();
+  };
+
+  var shareCurrentVerdict = async (roundBallot) => {
+    if (!roundBallot || shareStatus === 'loading') return;
+    setShareStatus('loading');
+    try {
+      var score = roundBallot.speakerPoints && parseFloat(roundBallot.speakerPoints.user);
+      if (!isNaN(score)) {
+        var aiScore = roundBallot.speakerPoints && parseFloat(roundBallot.speakerPoints.ai);
+        var res = await shareScoreCard({
+          score,
+          aiScore: isNaN(aiScore) ? null : aiScore,
+          motion: motion || '',
+          displayName: user && window.DBIdentity ? window.DBIdentity.forUser(user).name : (() => {
+            var fn = (user && user.displayName || '').trim();
+            var parts = fn.split(/\s+/).filter(Boolean);
+            return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0] || 'Anonymous';
+          })(),
+          formatName: fmt.name,
+          won: roundBallot.winner === 'user' ? true : roundBallot.winner === 'ai' ? false : null,
+          decision: (roundBallot.decision || '').toString().trim()
+        });
+        if (res.method === 'share') setShareStatus('shared');else
+        if (res.method === 'download') setShareStatus('downloaded');else
+        if (res.method === 'cancelled') setShareStatus('idle');else
+        setShareStatus('error');
+      } else {
+        var copy = 'Debatable verdict. ' + (roundBallot.winner === 'user' ? 'I won. ' : roundBallot.winner === 'ai' ? 'The AI won. ' : '') + (roundBallot.decision || '') + ' https://itsdebatable.com';
+        if (navigator.share) {
+          await navigator.share({ title: 'My Debatable verdict', text: copy });
+          setShareStatus('shared');
+        } else {
+          await navigator.clipboard.writeText(copy);
+          setShareStatus('downloaded');
+        }
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') setShareStatus('idle');else setShareStatus('error');
+    }
+    setTimeout(() => setShareStatus((s) => s === 'loading' ? 'error' : 'idle'), 3000);
+  };
 
   /* ─── RENDER ─────────────────────── */
 
@@ -11557,6 +11657,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   if (phase === 'feedback') {
     var b = ballot; // structured ballot or null
     var wr = getWinRate();
+    var weakestFocus = weakestBallotFocus(b);
     return el('div', { className: 'page' },
     shortcutsOverlay,
     brandPollOverlay,
@@ -11615,6 +11716,23 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     b.winner === 'user' ? 'You Win' : 'Opponent Wins'
     ),
     el('p', { style: { fontSize: '.86rem', color: 'var(--c-text4)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' } }, b.decision)
+    ),
+
+    // The second-round engine. Four decisions immediately after the
+    // decision, before the long score breakdown. Each carries the current
+    // loadout so continuing never means rebuilding setup from scratch.
+    el('div', { style: { width: '100%', marginBottom: 22, padding: '16px', borderRadius: 16, background: 'var(--c-surface)', border: '1px solid var(--c-border)', boxShadow: '0 14px 40px rgba(0,0,0,.12)' } },
+    el('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 } },
+    el('div', { style: { fontSize: '.68rem', fontWeight: 900, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--c-muted)' } }, 'Your next round'),
+    weakestFocus && el('div', { style: { fontSize: '.7rem', color: '#fca5a5', fontWeight: 700 } }, 'Weakest: ' + weakestFocus.label)
+    ),
+    el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(138px,1fr))', gap: 8 } },
+    el('a', { href: nextRoundUrl('rematch'), className: 'cta', style: { margin: 0, padding: '11px 14px', justifyContent: 'center', textAlign: 'center', textDecoration: 'none' } }, 'Rematch'),
+    el('a', { href: nextRoundUrl('new-motion'), className: 'cta-ghost', style: { margin: 0, padding: '11px 14px', justifyContent: 'center', textAlign: 'center', textDecoration: 'none' } }, 'New motion'),
+    el('a', { href: weakestDrillUrl(b), className: 'cta-ghost', style: { margin: 0, padding: '11px 14px', justifyContent: 'center', textAlign: 'center', textDecoration: 'none' } }, 'Practice weakest score'),
+    el('button', { type: 'button', className: 'cta-ghost', disabled: shareStatus === 'loading', onClick: () => shareCurrentVerdict(b), style: { margin: 0, padding: '11px 14px', justifyContent: 'center' } },
+    shareStatus === 'loading' ? 'Preparing…' : shareStatus === 'shared' ? 'Shared' : shareStatus === 'downloaded' ? 'Copied' : shareStatus === 'error' ? 'Try sharing again' : 'Share verdict')
+    )
     ),
 
     // 30-point lay scorecard. Only the default format asks for it (see
@@ -11736,30 +11854,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('button', {
       type: 'button',
       disabled: shareStatus === 'loading',
-      onClick: async () => {
-        if (shareStatus === 'loading') return;
-        setShareStatus('loading');
-        try {
-          var res = await shareScoreCard({
-            score: b.speakerPoints.user,
-            aiScore: typeof b.speakerPoints.ai === 'number' ? b.speakerPoints.ai : null,
-            motion: motion || '',
-            displayName: user && window.DBIdentity ? window.DBIdentity.forUser(user).name : (() => {
-              var fn = (user && user.displayName || '').trim();
-              var parts = fn.split(/\s+/).filter(Boolean);
-              return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0] || 'Anonymous';
-            })(),
-            formatName: fmt.name,
-            won: b.winner === 'user' ? true : b.winner === 'ai' ? false : null,
-            decision: (b.decision || '').toString().trim()
-          });
-          if (res.method === 'share') setShareStatus('shared');else
-          if (res.method === 'download') setShareStatus('downloaded');else
-          if (res.method === 'cancelled') setShareStatus('idle');else
-          setShareStatus('error');
-        } catch {setShareStatus('error');}
-        if (shareStatus !== 'idle') setTimeout(() => setShareStatus('idle'), 3000);
-      },
+      onClick: () => shareCurrentVerdict(b),
       style: {
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '9px 18px', borderRadius: 999,
@@ -11776,7 +11871,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     shareStatus === 'shared' ? '✓ Shared' :
     shareStatus === 'downloaded' ? '✓ Downloaded · link copied' :
     shareStatus === 'error' ? 'Try again' :
-    '📤 Share your score'
+    'Share verdict'
     )
     ),
     // Retention CTA row. Two parallel paths after a round:
