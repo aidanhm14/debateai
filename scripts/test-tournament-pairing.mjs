@@ -206,6 +206,60 @@ function runPrelims(fieldSize, rounds, seed) {
     !drawn.has('e1') && !drawn.has('e2') && drawn.size === 4, [...drawn].join(','));
 }
 
+// ── Tournament scale, many seeds ───────────────────────────────────
+//
+// Everything above runs one seed per field shape, at n <= 48, and
+// always at an ODD round count. All three of those hid things.
+//
+// PARITY FIRST: |gov - opp| has the same parity as the round count.
+// After an even number of rounds a skew of 1 is arithmetically
+// impossible, so the "within 1" bound above is really "perfectly
+// even" at 4 and 6 rounds, and the honest bound there is 2.
+//
+// SCALE SECOND: on a single seed at n=48 the even-field bound of 1
+// holds. Across 40 seeds it does not, and the failure rate climbs
+// with the field: at 64 to 128 entries over 5 rounds roughly a third
+// of draws hand at least one team a 4-1 side split. That is the
+// deliberate trade documented in lib/tournament.mjs (power pairing
+// outranks side balance, and flattening these costs an unearned
+// pull-up), so this asserts the REAL behaviour rather than a bound
+// the engine does not meet. If a change makes these numbers worse,
+// this is what catches it.
+[
+  { n: 64, rounds: 5, maxSkew: 3, maxOffBalanceAvg: 2 },
+  { n: 128, rounds: 5, maxSkew: 3, maxOffBalanceAvg: 2 },
+  { n: 128, rounds: 4, maxSkew: 2, maxOffBalanceAvg: 14 },
+  { n: 128, rounds: 6, maxSkew: 2, maxOffBalanceAvg: 18 },
+].forEach(({ n, rounds, maxSkew, maxOffBalanceAvg }) => {
+  const SEEDS = 12;
+  let worst = 0;
+  let offTotal = 0;
+  let rematchTotal = 0;
+  let byeStack = 0;
+  for (let s = 0; s < SEEDS; s += 1) {
+    const { entries, log } = runPrelims(n, rounds, seedFrom('scale' + n + '-' + rounds + '-' + s));
+    entries.forEach((e) => {
+      const skew = Math.abs(e.sideCount.gov - e.sideCount.opp);
+      worst = Math.max(worst, skew);
+      if (skew > 1) offTotal += 1;
+      if (e.byes > 1) byeStack += 1;
+    });
+    rematchTotal += log.reduce((a, d) => a + d.rematches, 0);
+    entries.forEach((e) => {
+      rematchTotal += e.opponents.length - new Set(e.opponents).size;
+    });
+  }
+  const tag = 'n=' + n + ' r' + rounds + ' x' + SEEDS + ' seeds';
+  check(tag + ' side skew stays within ' + maxSkew, worst <= maxSkew, 'worst=' + worst);
+  check(tag + ' skewed entries stay rare', offTotal / SEEDS <= maxOffBalanceAvg,
+    (offTotal / SEEDS).toFixed(1) + ' per tournament');
+  // The property that actually matters at scale, and the one the
+  // global matching exists to protect. A rematch in a 128-team field
+  // is never acceptable; there are always fresh opponents.
+  check(tag + ' zero rematches at scale', rematchTotal === 0, rematchTotal + ' rematches');
+  check(tag + ' no entry byes twice', byeStack === 0, byeStack + ' stacked byes');
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) {
   console.log('\nFailures:');

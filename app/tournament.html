@@ -861,6 +861,32 @@
       + ' Once two or more entries have checked in, new draws pair checked-in entries only.';
     host.appendChild(hl);
 
+    // Draw quality and what the rooms cost. Both are things a director
+    // is asked about mid-event and currently has no way to answer.
+    // Side skew: an even number of rounds can only produce an even
+    // skew, so 2 after four rounds is one round off even, not four.
+    // Cost: rooms times seats times minutes at Daily's list rate. The
+    // assumption is stated because a wrong-but-labelled estimate is
+    // useful and an unlabelled one is not.
+    var worstSkew = 0;
+    activeEntries.forEach(function(e){
+      var sc = e.sideCount || { gov: 0, opp: 0 };
+      worstSkew = Math.max(worstSkew, Math.abs((sc.gov || 0) - (sc.opp || 0)));
+    });
+    var q = document.createElement('p');
+    q.className = 'note';
+    var SEATS = 3, MINUTES = 40, RATE = 0.004;
+    var roundCost = totalPairs * SEATS * MINUTES * RATE;
+    var roundsLeft = Math.max(0, (t.prelimRounds || 0) - (t.currentRound || 0));
+    q.textContent = 'Worst side split in the field: ' + worstSkew +
+      (worstSkew >= 3 ? ' (a team is 4 to 1 on one side; power pairing is taking priority over evening sides)' : '') + '. '
+      + (totalPairs
+          ? ('Video estimate: ' + totalPairs + ' rooms this round at ' + SEATS + ' seats for ' + MINUTES
+             + ' minutes is about $' + roundCost.toFixed(2) + ', roughly $'
+             + (roundCost * (roundsLeft + 1)).toFixed(2) + ' for the prelims still to run.')
+          : '');
+    host.appendChild(q);
+
     // Entry admin. The server has always supported these moves
     // (set-entry-status); this is the first UI for them. A director
     // needs to drop a no-show, re-add a late team, or check someone in
