@@ -123,7 +123,7 @@ function styles() {
   .gloss-term h3 a:hover{opacity:1;color:#c12c1f}
   .gloss-term .abbr{
     font:600 11px/1 Georgia,serif;
-    color:#888;margin-left:8px;letter-spacing:.04em;
+    color:#5f5f6a;margin-left:8px;letter-spacing:.04em;
   }
   .gloss-def{
     font-size:15px;line-height:1.6;color:#3a3a3a;
@@ -133,7 +133,7 @@ function styles() {
     font:italic 14px/1.55 Georgia,serif;
     color:#6b6b6b;margin:0 0 8px;
   }
-  .gloss-example::before{content:"e.g. ";color:#888;font-style:normal;font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+  .gloss-example::before{content:"e.g. ";color:#5f5f6a;font-style:normal;font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
   .gloss-more{
     font-size:13px;color:#6b6b6b;
   }
@@ -144,7 +144,7 @@ function styles() {
 
   .gloss-empty{
     grid-column:1/-1;
-    padding:18px;text-align:center;font-style:italic;color:#888;font-size:14px;
+    padding:18px;text-align:center;font-style:italic;color:#5f5f6a;font-size:14px;
   }
 
   footer.gloss-footer{
@@ -244,7 +244,7 @@ function renderPage() {
     .filter(([cat]) => (grouped[cat] || []).length > 0)
     .map(([cat, label]) => {
       const count = (grouped[cat] || []).length;
-      return `<a href="#cat-${esc(cat)}">${esc(label)} <span style="color:#888">(${count})</span></a>`;
+      return `<a href="#cat-${esc(cat)}">${esc(label)} <span style="color:#5f5f6a">(${count})</span></a>`;
     })
     .join('');
 

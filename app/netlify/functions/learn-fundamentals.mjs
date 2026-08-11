@@ -206,7 +206,7 @@ function commonStyles() {
   .hub-q:hover{color:#c12c1f}
   .hub-h{font-size:15px;line-height:1.55;color:#3a3a3a;margin-bottom:4px;font-style:italic}
   .hub-read{
-    font:11px/1 Georgia,serif;color:#888888;
+    font:11px/1 Georgia,serif;color:#5f5f6a;
     letter-spacing:.1em;text-transform:uppercase;
     margin-top:6px;display:inline-block;
   }

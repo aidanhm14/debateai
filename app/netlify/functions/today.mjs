@@ -293,7 +293,7 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   .cta-card{padding:28px;border-radius:16px;border:1px solid rgba(239,68,68,.32);background:linear-gradient(135deg,rgba(239,68,68,.10),rgba(245,158,11,.04));text-align:center;margin-bottom:36px}
   .cta-card h2{font-family:'Inter',sans-serif;font-style:normal;font-size:1.25rem;font-weight:900;letter-spacing:-.01em;margin-bottom:8px}
   .cta-card p{font-size:.92rem;color:rgba(255,255,255,.68);margin-bottom:18px;max-width:520px;margin-left:auto;margin-right:auto}
-  .cta-button{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:999px;background:#ef4444;color:#fff;font-weight:800;letter-spacing:.02em;font-size:.95rem;box-shadow:0 10px 30px -8px rgba(239,68,68,.5);transition:transform .15s,box-shadow .15s}
+  .cta-button{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:999px;background:#b91c1c;color:#fff;font-weight:800;letter-spacing:.02em;font-size:.95rem;box-shadow:0 10px 30px -8px rgba(239,68,68,.5);transition:transform .15s,box-shadow .15s}
   .cta-button:hover{transform:translateY(-1px);box-shadow:0 14px 34px -8px rgba(239,68,68,.7)}
   .archive{margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}
   .archive h3{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:14px}

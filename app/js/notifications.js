@@ -354,7 +354,7 @@
       '.da-spar-pill:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
       '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--text-ghost,#888);transition:background .2s}' +
       '.da-spar-pill.is-on{color:var(--success-text,#4ade80);border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
-      '[data-theme="light"] .da-spar-pill.is-on,[data-lighting="light"] .da-spar-pill.is-on,body.light-theme .da-spar-pill.is-on{color:#15803d;border-color:rgba(21,128,61,.5);background:rgba(21,128,61,.08)}' +
+      '[data-theme="light"] .da-spar-pill.is-on,[data-lighting="light"] .da-spar-pill.is-on,body.light-theme .da-spar-pill.is-on{color:#166534;border-color:rgba(22,101,52,.5);background:rgba(22,101,52,.08)}' +
       '.da-spar-pill.is-on .da-spar-pill__dot{background:#22c55e;animation:daSparPulse 1.7s ease-out infinite}' +
       '@media(max-width:560px){.ui-topbar .da-spar-pill{display:none!important}}' +
       '@keyframes daSparPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
