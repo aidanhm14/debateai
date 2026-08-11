@@ -199,6 +199,13 @@
       // Keep a transition for the floating Feedback pill. It stays in the
       // bottom-left slot now, so this nudge no longer lifts it upward.
       '.fb-floating{transition:bottom .26s ease, transform .18s ease, box-shadow .18s ease}' +
+      // Under 520px the nudge goes full-bleed (left:8px right:8px), which is
+      // the same bottom-left slot the Feedback pill owns, so the pill landed
+      // ON TOP of "Continue with Google" and ate taps on its left third.
+      // One bottom sheet at a time on mobile: the pill yields while the
+      // nudge is up and comes back on dismiss. Lifting it instead is what
+      // produced the "pill floating halfway up the screen" bug above.
+      '@media (max-width:520px){body.signup-nudge-open .fb-floating{display:none!important}}' +
       '@media (max-width:520px){.signup-nudge{right:8px;left:8px;bottom:8px;flex-wrap:wrap;font-size:.78rem;padding:10px 10px 10px 12px}.signup-nudge .su-line{flex:1 1 100%;order:1}.signup-nudge .su-cta{order:2}.signup-nudge .su-close{order:3;margin-left:auto}}';
     document.head.appendChild(s);
   }
@@ -434,6 +441,7 @@
       '<button type="button" class="su-cta"><svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>Continue with Google</button>' +
       '<button type="button" class="su-close" aria-label="Dismiss">×</button>';
     document.body.appendChild(bar);
+    document.body.classList.add('signup-nudge-open');
     bumpSessionAttempts();
     requestAnimationFrame(function(){
       bar.classList.add('is-in');
@@ -456,6 +464,7 @@
 
   function unmount(){
     if (!bar) return;
+    document.body.classList.remove('signup-nudge-open');
     bar.classList.remove('is-in');
     var ref = bar;
     setTimeout(function(){ if (ref && ref.parentNode) ref.parentNode.removeChild(ref); }, 260);

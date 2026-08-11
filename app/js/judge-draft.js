@@ -171,7 +171,7 @@
     wrap.className = 'jb-sheet-wrap';
     wrap.innerHTML =
       '<div class="jb-scrim" data-jb-close></div>'
-      + '<div class="jb-sheet" role="dialog" aria-modal="true" aria-label="Paradigm, ' + esc(seat.name) + '" style="--jbc:' + esc(c) + '">'
+      + '<div class="jb-sheet" role="dialog" aria-modal="true" aria-label="Paradigm, ' + esc(seat.name) + '" style="' + jbcVars(c) + '">'
       + '<button type="button" class="jb-close" data-jb-close aria-label="Close">&#10005;</button>'
       + '<div class="jb-sheet-head">'
       + avatarSvg(seat, 58)
@@ -265,6 +265,37 @@
     });
   }
 
+  /* The bench accents (judge-lenses.js) were picked to sit on a DARK
+     panel, and they are also used as TEXT colour. On a light-theme page
+     the same card renders white, so those names landed at 2.5:1 to 2.8:1
+     at ~10px: measured on /spar, "Standard chair" #9aa4b2 on #ffffff is
+     2.52, well under the 4.5 AA floor. Rather than drop the colour coding
+     (it is how a paradigm is identified at a glance) each accent gets a
+     darkened twin for light surfaces. Emitted as a second custom property
+     next to --jbc so the choice stays in CSS and follows a runtime theme
+     toggle; computing it per render would freeze whichever theme was
+     active when the bench mounted. */
+  function inkOnLight(hex){
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return '#374151';
+    var n = parseInt(m[1], 16);
+    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    // Scale toward black until the result clears ~4.5:1 on white. The hue
+    // survives because all three channels scale together.
+    for (var k = 100; k > 20; k -= 4) {
+      var rr = Math.round(r * k / 100), gg = Math.round(g * k / 100), bb = Math.round(b * k / 100);
+      var lin = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      var L = 0.2126 * lin(rr) + 0.7152 * lin(gg) + 0.0722 * lin(bb);
+      if (1.05 / (L + 0.05) >= 4.5) {
+        return '#' + [rr, gg, bb].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
+      }
+    }
+    return '#374151';
+  }
+  function jbcVars(hex){
+    return '--jbc:' + esc(hex) + ';--jbc-ink:' + esc(inkOnLight(hex)) + ';';
+  }
+
   /* Styles ride with the module so any page that mounts a bench gets
      the whole component, markup and looks together. */
   var CSS = [
@@ -286,7 +317,15 @@
     '.jb-propose{display:inline-block;margin-bottom:9px;padding:9px 16px;border-radius:999px;',
     'background:var(--jbc,#9ca3af);border:none;color:#0b0a09;font:inherit;font-size:.86rem;font-weight:700;cursor:pointer}',
     '.jb-propose[disabled]{background:transparent;border:1px solid var(--jbc,#9ca3af);color:var(--jbc,#9ca3af);cursor:default}',
-    '.jb-strip-name{font-size:.74rem;font-weight:700;line-height:1.15}',
+    '.jb-strip-name{font-size:.74rem;font-weight:700;line-height:1.15;color:var(--jbc,#9ca3af)}',
+    '.arc-opt-sub{color:var(--jbc,#9ca3af)}',
+    // Light surfaces take the darkened twin. See inkOnLight() above.
+    '[data-theme="light"] .jb-strip-name,',
+    '[data-theme="light"] .arc-opt-sub,',
+    '[data-theme="light"] .jb-read,',
+    '[data-theme="light"] .jb-practice dt,',
+    '[data-theme="light"] .jb-test-l{color:var(--jbc-ink,#374151)}',
+    '[data-theme="light"] .jb-propose[disabled]{color:var(--jbc-ink,#374151)}',
     '.jb-strip-seat{font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.62}',
     '.jb-strip-note{font-size:.72rem;line-height:1.5;opacity:.7;margin:8px 0 0}',
     '.jb-sheet-wrap{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:18px}',
@@ -359,12 +398,12 @@
         flags += '<span class="arc-badge arc-badge--warn">Override, pinned was ' + esc(s.pinnedModel) + '</span>';
       }
       return '<button type="button" class="arc-opt jb-card" data-jb-seat="' + esc(s.jurorId || s.key) + '"'
-        + ' aria-haspopup="dialog" style="--jbc:' + esc(s.color) + ';border-left:3px solid ' + esc(s.color) + '">'
+        + ' aria-haspopup="dialog" style="' + jbcVars(s.color) + 'border-left:3px solid ' + esc(s.color) + '">'
         + '<span class="jb-card-top">'
         + avatarSvg(s, 46)
         + '<span class="jb-card-id">'
         + '<span class="arc-opt-name" style="padding-right:0">' + esc(s.name) + '</span>'
-        + '<span class="arc-opt-sub" style="display:block;color:' + esc(s.color) + '">' + esc(s.seat) + '</span>'
+        + '<span class="arc-opt-sub" style="display:block">' + esc(s.seat) + '</span>'
         + '</span>'
         + '</span>'
         + '<p class="arc-opt-body">' + esc(s.temper) + '</p>'
@@ -402,10 +441,10 @@
     return '<div class="jb-strip">'
       + seated.map(function (s) {
         return '<button type="button" class="jb-strip-btn" data-jb-seat="' + esc(s.jurorId || s.key) + '"'
-          + ' aria-haspopup="dialog" style="--jbc:' + esc(s.color) + '">'
+          + ' aria-haspopup="dialog" style="' + jbcVars(s.color) + '">'
           + avatarSvg(s, 30)
           + '<span style="text-align:left">'
-          + '<span class="jb-strip-name" style="display:block;color:' + esc(s.color) + '">' + esc(s.name) + '</span>'
+          + '<span class="jb-strip-name" style="display:block">' + esc(s.name) + '</span>'
           + '<span class="jb-strip-seat" style="display:block">' + esc(s.seat) + '</span>'
           + '</span>'
           + '</button>';
@@ -470,10 +509,10 @@
       + list.map(function (l) {
         var on = l.key === picked.key;
         return '<button type="button" class="jb-strip-btn' + (on ? ' is-on' : '') + '" data-jb-lens="' + esc(l.key) + '"'
-          + ' aria-haspopup="dialog" style="--jbc:' + esc(l.accent) + '">'
+          + ' aria-haspopup="dialog" style="' + jbcVars(l.accent) + '">'
           + avatarSvg(lensAsPersona(l), 30)
           + '<span style="text-align:left">'
-          + '<span class="jb-strip-name" style="display:block;color:' + esc(l.accent) + '">' + esc(l.name) + '</span>'
+          + '<span class="jb-strip-name" style="display:block">' + esc(l.name) + '</span>'
           + '<span class="jb-strip-seat" style="display:block">' + (on ? 'Proposing' : 'Read') + '</span>'
           + '</span>'
           + '</button>';

@@ -968,8 +968,12 @@
         sheetBackdrop.classList.add('is-open');
       });
       document.body.style.overflow = 'hidden';
+      // Floating bottom-left widgets outrank the sheet on z-index and
+      // would cover its last links. See ui.css `body.ui-sheet-open`.
+      document.body.classList.add('ui-sheet-open');
     }
     function closeSheet(){
+      document.body.classList.remove('ui-sheet-open');
       burger.setAttribute('aria-expanded', 'false');
       burger.classList.remove('is-open');
       sheet.classList.remove('is-open');
