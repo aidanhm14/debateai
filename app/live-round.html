@@ -1517,6 +1517,21 @@ body.lr-pip .lr-pip-notice{display:block}
 .auto-mic-toggle.off{color:var(--text-dim);background:transparent}
 .auto-mic-toggle.on{color:#fca5a5;border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.06)}
 
+/* Debating-language select. Same visual family as the auto-mic pill.
+   Non-English picks tint red so a debater can't miss that their mic is
+   transcribing in another language. */
+.lang-select{
+  min-height:38px;padding:7px 8px;border-radius:9px;
+  font-size:.74rem;font-weight:700;letter-spacing:.04em;
+  color:var(--text-dim);cursor:pointer;font-family:inherit;
+  border:1px solid var(--border);background:rgba(255,255,255,.02);
+  transition:color .15s,border-color .15s,background .15s;
+  max-width:150px;
+}
+.lang-select:hover{color:var(--text);border-color:var(--border-strong)}
+.lang-select.xl{color:#fca5a5;border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.06)}
+.lang-select option{background:var(--bg-elev,#16131a);color:var(--text,#f4f4f2)}
+
 /* Speech sequence sidebar (collapsible bottom strip) */
 .sequence{
   padding:14px 22px 16px;background:var(--ui-soft);border-top:1px solid var(--border);
@@ -2171,6 +2186,11 @@ html.stage-mode .stage-ov{display:block}
             <label class="auto-mic-toggle" id="autoMicLabel" title="When on, the mic engages automatically when you click Start speech. Off = mic stays off until you click Start mic yourself.">
               <input type="checkbox" id="autoMicCheckbox" />
               <span>Auto-mic</span>
+            </label>
+            <select id="langSelect" class="lang-select" title="The language you are debating in. Your mic transcribes in it; the other side reads live-translated captions and the judge scores across languages."></select>
+            <label class="auto-mic-toggle" id="speakXlLabel" style="display:none" title="Reads the live translation out loud while the other debater speaks in a language you did not pick.">
+              <input type="checkbox" id="speakXlCheckbox" />
+              <span>🔊 Speak translation</span>
             </label>
             <span class="word-count" id="wordCount">0 words</span>
           </div>
@@ -3864,6 +3884,10 @@ html.stage-mode .stage-ov{display:block}
     zh:'zh-CN', ja:'ja-JP', ko:'ko-KR', ru:'ru-RU', tr:'tr-TR', id:'id-ID',
     vi:'vi-VN', pl:'pl-PL'
   };
+  var XL_NAMES = { en:'English', es:'Spanish', fr:'French', de:'German', pt:'Portuguese',
+    it:'Italian', nl:'Dutch', hi:'Hindi', bn:'Bengali', ta:'Tamil', ur:'Urdu',
+    ar:'Arabic', zh:'Mandarin', ja:'Japanese', ko:'Korean', ru:'Russian',
+    tr:'Turkish', id:'Indonesian', vi:'Vietnamese', pl:'Polish' };
   function myLang(){
     var v = '';
     try { v = localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en'; } catch(e){ v = 'en'; }
@@ -3871,6 +3895,81 @@ html.stage-mode .stage-ov{display:block}
     return SR_LOCALE[v] ? v : 'en';
   }
   function myRecogniserLocale(){ return SR_LOCALE[myLang()] || 'en-US'; }
+
+  // "Debating in" picker. The explicit declaration point for cross-
+  // language rounds: sets the mic's transcription language, tags every
+  // published transcript, and (for the off-side) sets the caption
+  // translation target. Restarting recognition applies a mid-round
+  // change immediately; the Web Speech API reads rec.lang only at
+  // start().
+  function initLangControls(){
+    var sel = $('langSelect');
+    if (!sel) return;
+    Object.keys(SR_LOCALE).forEach(function(code){
+      var o = document.createElement('option');
+      o.value = code;
+      o.textContent = (XL_NAMES[code] || code) + (code === 'en' ? '' : ' · ' + code.toUpperCase());
+      sel.appendChild(o);
+    });
+    sel.value = myLang();
+    sel.classList.toggle('xl', sel.value !== 'en');
+    sel.addEventListener('change', function(){
+      var v = SR_LOCALE[sel.value] ? sel.value : 'en';
+      try { localStorage.setItem('debateos-ai-lang', v); } catch(e){}
+      sel.classList.toggle('xl', v !== 'en');
+      // Rebuild recognition so the new locale takes effect now, not on
+      // the next round.
+      if (state.recognition){
+        var wasOn = state.micActive;
+        try { state.recognition.stop(); } catch(e){}
+        state.recognition = null;
+        state.micFinal = '';
+        if (wasOn){ state.recognition = initRecognition(); try { state.recognition && state.recognition.start(); } catch(e){} }
+      }
+      // Re-tag the live transcript on the next publish tick.
+      _lastPublishedTranscript = '';
+      if (isMyTurn() && state.phase === 'round') schedulePublishLiveTranscript();
+      toast(v === 'en' ? 'Debating in English.' : 'Debating in ' + (XL_NAMES[v] || v) + '. Your opponent reads live-translated captions.');
+    });
+    var spk = $('speakXlCheckbox'), spkLbl = $('speakXlLabel');
+    if (spk && spkLbl){
+      try { spk.checked = localStorage.getItem('debateos-speak-xl') === '1'; } catch(e){}
+      spkLbl.classList.toggle('on', spk.checked);
+      spk.addEventListener('change', function(){
+        try { localStorage.setItem('debateos-speak-xl', spk.checked ? '1' : '0'); } catch(e){}
+        spkLbl.classList.toggle('on', spk.checked);
+        if (!spk.checked) stopSpokenTranslation();
+      });
+    }
+  }
+
+  // Spoken translation. Browser speechSynthesis reads newly completed
+  // sentences of the translated caption while the other debater speaks,
+  // so a listener can follow by ear instead of reading. Sentence-count
+  // watermark rather than a char offset because every translation call
+  // re-renders the WHOLE text and earlier sentences can be rephrased;
+  // we never re-speak, we only speak past the high-water mark.
+  var _spokenSentences = 0, _spokenSpeechIdx = -1;
+  function stopSpokenTranslation(){
+    _spokenSentences = 0; _spokenSpeechIdx = -1;
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}
+  }
+  function speakTranslationDelta(translated){
+    var spk = $('speakXlCheckbox');
+    if (!spk || !spk.checked || !window.speechSynthesis) return;
+    if (_spokenSpeechIdx !== state.speechIdx){ _spokenSentences = 0; _spokenSpeechIdx = state.speechIdx; }
+    var sentences = String(translated).match(/[^.!?…।]+[.!?…।]+/g) || [];
+    if (sentences.length <= _spokenSentences) return;
+    var fresh = sentences.slice(_spokenSentences).join(' ').trim();
+    _spokenSentences = sentences.length;
+    if (!fresh) return;
+    try {
+      var u = new SpeechSynthesisUtterance(fresh);
+      u.lang = SR_LOCALE[myLang()] || 'en-US';
+      u.rate = 1.05;
+      window.speechSynthesis.speak(u);
+    } catch(e){}
+  }
 
   // Live caption translation. Throttled to one call per 1.6s and skipped
   // when the text has not grown, because the speaker's transcript
@@ -3908,13 +4007,11 @@ html.stage-mode .stage-ov{display:block}
     if (!ta || isMyTurn()) return;
     ta.value = translated;
     var hint = $('micHint');
-    if (hint){
-      var NAMES = { en:'English', es:'Spanish', fr:'French', de:'German', pt:'Portuguese',
-        it:'Italian', nl:'Dutch', hi:'Hindi', bn:'Bengali', ta:'Tamil', ur:'Urdu',
-        ar:'Arabic', zh:'Mandarin', ja:'Japanese', ko:'Korean', ru:'Russian',
-        tr:'Turkish', id:'Indonesian', vi:'Vietnamese', pl:'Polish' };
-      hint.textContent = 'Translated live from ' + (NAMES[fromLang] || fromLang) + '.';
-    }
+    if (hint) hint.textContent = 'Translated live from ' + (XL_NAMES[fromLang] || fromLang) + '.';
+    // Cross-language moment confirmed: surface the ear option.
+    var spkLbl = $('speakXlLabel');
+    if (spkLbl && spkLbl.style.display === 'none') spkLbl.style.display = '';
+    speakTranslationDelta(translated);
   }
 
   // ── Mic / SpeechRecognition. Uses the standard Web Speech API. Chrome
@@ -4972,7 +5069,9 @@ html.stage-mode .stage-ov{display:block}
       "- Do NOT call a winner, do NOT give scores, do NOT predict the ballot. The ballot comes at the end of the round.",
       "- Cover: the strongest thing the speaker just did, the biggest thing left hanging (a drop, a missing warrant, an unweighed impact), and what " + (next ? next.code : 'the next speaker') + " most needs to answer.",
       "- Plain varsity-circuit register. No prefaces. Start with the substance.",
-    ].concat(JUDGE_RULES[state.formatKey] ? ["FORMAT LENS:"].concat(JUDGE_RULES[state.formatKey].slice(0, 4)) : []).join('\n');
+    ].concat(roundLangs().some(function(c){ return c !== 'en'; })
+        ? ["- Speeches may be in different languages; you read them all. Judge across languages, comment in English."] : [])
+     .concat(JUDGE_RULES[state.formatKey] ? ["FORMAT LENS:"].concat(JUDGE_RULES[state.formatKey].slice(0, 4)) : []).join('\n');
     var user = "MOTION: " + state.motion
       + "\n\nROUND SO FAR (the last speech is the one that just ended):\n\n" + soFar
       + "\n\nGive your between-speech comment now.";
@@ -5029,6 +5128,10 @@ html.stage-mode .stage-ov{display:block}
       side: sp.side,
       speakerName: speakerName,
       text: opts.skipped ? '(skipped)' : ($('speechText').value.trim() || '(no transcript)'),
+      // The language the speech was DELIVERED in (the speaker's pick, not
+      // the reader's). Rides the synced entry so both benches' ballot
+      // builders can tag the transcript for cross-language judging.
+      lang: myLang(),
       durationSec: Math.round(elapsed),
       // Round-relative start, in ms. Derived from the round clock rather
       // than summed durations so prep, pauses, and setup gaps don't drift
@@ -5103,6 +5206,30 @@ html.stage-mode .stage-ov{display:block}
   // winner or dictates scores is dead on arrival. Both debaters read
   // and accepted the exact text before the round existed, so applying
   // it is consent-backed, not one side's thumb on the scale.
+  // Cross-language adjudication. When any speech was delivered in a
+  // non-English language (or the two sides used different languages),
+  // the judge is told to score across languages on the ORIGINAL text —
+  // never a penalty or credit for language choice. Ballot language:
+  // the round's shared language when there is one, otherwise English.
+  function roundLangs(){
+    var seen = {};
+    state.log.forEach(function(l){
+      if (l.skipped || !l.text || l.text === '(no transcript)' || l.text === '(skipped)') return;
+      seen[l.lang && XL_NAMES[l.lang] ? l.lang : 'en'] = true;
+    });
+    return Object.keys(seen);
+  }
+  function crossLangBallotLines(){
+    var langs = roundLangs();
+    if (!langs.length || (langs.length === 1 && langs[0] === 'en')) return [];
+    var names = langs.map(function(c){ return XL_NAMES[c] || c; });
+    var ballotLang = langs.length === 1 ? names[0] : 'English';
+    return [
+      "",
+      "CROSS-LANGUAGE ROUND — speeches are tagged with the language they were delivered in (" + names.join(', ') + "). You are a fluent multilingual judge; adjudicate every argument on its merits in its ORIGINAL language. Never penalize or credit a debater for which language they spoke, and never dock clarity for speech-recognition artifacts (dropped diacritics, mis-heard homophones, romanization). Clash counts across languages: an argument answered in another language is answered on the flow. When you quote a non-" + ballotLang + " line in the RFD, keep a short original quote and gloss it in " + ballotLang + ". Write the ENTIRE ballot — RFD, feedback, every string field — in " + ballotLang + ".",
+    ];
+  }
+
   function paradigmBallotLines(){
     if (!state.paradigm) return [];
     return [
@@ -5160,6 +5287,7 @@ html.stage-mode .stage-ov{display:block}
       "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END): WUDC Imperial 50-100 — 60-65 incoherent, 67 struggling, 70 below average, 73 average (no weighing), 75 good (real warrants), 77-78 excellent (would break at most tournaments), 80 top-of-field, 85+ essentially never given. DEFAULT TO 73-76. If a speaker dropped a contention, gave 0 POIs, used generic LLM phrasing, or never warranted a key claim, score them 71 or below. Do NOT cluster speakers at 78+ to be encouraging.",
       "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
+      ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
@@ -5203,6 +5331,7 @@ html.stage-mode .stage-ov{display:block}
       return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
         + (l.overran ? ' [OVERRAN]' : '')
         + (l.skipped ? ' [SKIPPED]' : '')
+        + (l.lang && l.lang !== 'en' && XL_NAMES[l.lang] ? ' [DELIVERED IN ' + XL_NAMES[l.lang].toUpperCase() + ']' : '')
         + '\n' + l.text;
     }).join('\n\n');
 
@@ -5238,6 +5367,7 @@ html.stage-mode .stage-ov{display:block}
       "  DEFAULT TO 25-27. If a speaker dropped a contention, had no real weighing, used generic LLM phrasing, or never warranted a key claim, score them 25 or below. If a speech was fundamentally unfinished, 24 or below — yes, 24-25 happens, it is what an honest ballot looks like when someone is over their head. Do NOT cluster both speakers at 28+ to be encouraging. If one debater clearly outclassed the other, separate by 1.5-3 points, not 0.5.",
       "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
+      ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
@@ -8673,6 +8803,9 @@ html.stage-mode .stage-ov{display:block}
     }
     if (typeof d.speechIdx === 'number' && d.speechIdx > state.speechIdx && state.phase === 'round'){
       state.speechIdx = d.speechIdx;
+      // A queued spoken translation from the finished speech must not
+      // talk over the next speaker.
+      try { stopSpokenTranslation(); } catch(e){}
       try { pmLockCheck(); } catch(e){}
       var f = FORMATS[state.formatKey];
       if (state.speechIdx < f.speeches.length){
@@ -8920,6 +9053,7 @@ html.stage-mode .stage-ov{display:block}
     });
     syncAutoMicToggle();
   })();
+  initLangControls();
   $('speechText').addEventListener('input', function(){
     this._lastMicValue = null; // user took control
     updateWordCount();

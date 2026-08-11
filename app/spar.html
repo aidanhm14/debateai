@@ -607,6 +607,16 @@ h1 em{color:var(--accent);font-style:normal}
   padding:9px 11px;resize:vertical;min-height:46px;
 }
 .paradigm-row textarea:focus{outline:none;border-color:var(--accent)}
+.spar-lang-select{
+  width:100%;padding:9px 10px;border-radius:10px;font-family:inherit;
+  font-size:.86rem;font-weight:600;color:var(--text);cursor:pointer;
+  border:1px solid var(--border);background:rgba(255,255,255,.03);
+  transition:border-color .15s,background .15s;
+}
+.spar-lang-select:hover{border-color:var(--border-strong)}
+.spar-lang-select:focus{outline:none;border-color:var(--accent)}
+.spar-lang-select.xl{color:#fca5a5;border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.06)}
+.spar-lang-select option{background:#16131a;color:#f4f4f2}
 .paradigm-meta{
   display:flex;justify-content:space-between;gap:8px;margin-top:5px;
   font-size:.66rem;color:var(--text-ghost);
@@ -1412,6 +1422,26 @@ h1 em{color:var(--accent);font-style:normal}
   try { storedParadigm = cleanParadigm(localStorage.getItem('debateos-spar-paradigm')); } catch(e){}
   if (storedParadigm) setupOpen = true; // a saved judge note must stay visible
 
+  // Debating language. Shares the `debateos-ai-lang` key with
+  // /live-round's picker, so a choice made here is what the round's mic
+  // transcribes in and what the opponent's captions translate FROM. The
+  // codes mirror live-round's SR_LOCALE support list.
+  var SPAR_LANGS = [
+    ['en','English'], ['es','Spanish'], ['fr','French'], ['de','German'],
+    ['pt','Portuguese'], ['it','Italian'], ['nl','Dutch'], ['hi','Hindi'],
+    ['bn','Bengali'], ['ta','Tamil'], ['ur','Urdu'], ['ar','Arabic'],
+    ['zh','Mandarin'], ['ja','Japanese'], ['ko','Korean'], ['ru','Russian'],
+    ['tr','Turkish'], ['id','Indonesian'], ['vi','Vietnamese'], ['pl','Polish']
+  ];
+  function sparLangValid(v){
+    v = String(v || '').toLowerCase().split('-')[0];
+    for (var i = 0; i < SPAR_LANGS.length; i++) if (SPAR_LANGS[i][0] === v) return v;
+    return 'en';
+  }
+  var storedLang = 'en';
+  try { storedLang = sparLangValid(localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale')); } catch(e){}
+  if (storedLang !== 'en') setupOpen = true; // a non-English pick must stay visible
+
   // Judge presets for the setup card. Each fills the judge-instructions note
   // with a canonical archetype in the register real Tabroom paradigms use
   // (lay/flay/flow is the spectrum pools actually describe judges with).
@@ -1448,6 +1478,7 @@ h1 em{color:var(--accent);font-style:normal}
     cancelled: false,
     paradigm: storedParadigm,      // my judge-paradigm note (queue doc `paradigm`)
     judgeLens: storedLens,         // nominated live-round paradigm (rides the round URL)
+    lang: storedLang,              // the language I debate in (queue doc `lang`)
     skipUids: [],                  // mirror of my doc's mutual-skip list (declined proposals)
     inConsent: false,              // a 'consent' proposal is on screen
     consentKey: '',                // fingerprint of the rendered consent state (skip echo re-renders)
@@ -1921,6 +1952,14 @@ h1 em{color:var(--accent);font-style:normal}
           }).join('') +
         '</div>' +
         '<div class="paradigm-row">' +
+          '<label for="sparLangSelect">Debating in <span class="opt">your opponent reads live-translated captions; the judge scores across languages</span></label>' +
+          '<select id="sparLangSelect" class="spar-lang-select">' +
+          SPAR_LANGS.map(function(l){
+            return '<option value="' + l[0] + '"' + (l[0] === state.lang ? ' selected' : '') + '>' + l[1] + '</option>';
+          }).join('') +
+          '</select>' +
+        '</div>' +
+        '<div class="paradigm-row">' +
           '<label for="paradigmInput">Judge proposal <span class="opt">optional · shown to your opponent</span></label>' +
           // Judge presets: one tap fills the note with a real-pool archetype
           // (lay/flay/flow etc., language mirrored from practice.html's
@@ -2213,6 +2252,23 @@ h1 em{color:var(--accent);font-style:normal}
       deb = setTimeout(save, 600);
     });
     ta.addEventListener('blur', save);
+
+    // Debating-language select. Persists to the shared key /live-round
+    // reads, updates the queue doc live so the matcher (and a future
+    // language-aware pairing pass) can see it, and re-tints when the
+    // pick is non-English.
+    var langSel = document.getElementById('sparLangSelect');
+    if (langSel){
+      langSel.classList.toggle('xl', state.lang !== 'en');
+      langSel.addEventListener('change', function(){
+        var v = sparLangValid(langSel.value);
+        state.lang = v;
+        langSel.classList.toggle('xl', v !== 'en');
+        try { localStorage.setItem('debateos-ai-lang', v); } catch(e){}
+        try { gtag('event', 'spar_lang_set', { lang: v, format: formatParam }); } catch(e){}
+        if (state.queueDocRef) state.queueDocRef.update({ lang: v }).catch(function(){});
+      });
+    }
   }
 
   // ── While-you-wait rail (right side, searching only) ─────
@@ -2892,6 +2948,7 @@ h1 em{color:var(--accent);font-style:normal}
       anonymous: !!state.user.isAnonymous,
       format: formatParam,
       paradigm: state.paradigm || '',
+      lang: state.lang || 'en',
       blockedUids: blockedUids.slice(-100),
       status: 'waiting',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
