@@ -196,11 +196,8 @@
       // A sign-in modal owns the screen while open; never stack the nudge
       // under it (the mobile overwhelm was modal + nudge + go-live card).
       'body.signin-modal-open .signup-nudge{display:none!important}' +
-      // 2026-05-20: this nudge pins to right:18/bottom:18 — the same spot as
-      // the floating Feedback pill (.fb-floating), so they'd stack and hide
-      // each other. The lift is now done in JS (syncFeedbackPill) off the
-      // nudge's measured height — deterministic, no `:has()` support needed.
-      // Keep a transition here so the pill glides when JS sets its bottom.
+      // Keep a transition for the floating Feedback pill. It stays in the
+      // bottom-left slot now, so this nudge no longer lifts it upward.
       '.fb-floating{transition:bottom .26s ease, transform .18s ease, box-shadow .18s ease}' +
       '@media (max-width:520px){.signup-nudge{right:8px;left:8px;bottom:8px;flex-wrap:wrap;font-size:.78rem;padding:10px 10px 10px 12px}.signup-nudge .su-line{flex:1 1 100%;order:1}.signup-nudge .su-cta{order:2}.signup-nudge .su-close{order:3;margin-left:auto}}';
     document.head.appendChild(s);
@@ -379,22 +376,12 @@
 
   var bar = null;
 
-  // Keep the floating Feedback pill clear of the nudge. The CSS `:has()`
-  // lift (injectStyle) is the fast path, but `:has()` support is uneven, so
-  // we also set the pill's bottom inline (highest priority) from the nudge's
-  // measured height. Works whether the nudge is a corner pill (desktop) or a
-  // full-width bottom sheet (mobile).
+  // The Feedback pill owns the bottom-left slot. Older code lifted it above
+  // the signup nudge and could leave it floating halfway up the screen.
   function syncFeedbackPill(){
     var fb = document.querySelector('.fb-floating');
     if (!fb) return;
-    if (bar && bar.classList.contains('is-in')) {
-      var r = bar.getBoundingClientRect();
-      var gapBelow = Math.max(0, window.innerHeight - r.bottom);
-      var lift = Math.round(r.height + gapBelow + 12);
-      fb.style.setProperty('bottom', lift + 'px', 'important');
-    } else {
-      fb.style.removeProperty('bottom');
-    }
+    fb.style.removeProperty('bottom');
   }
   var _syncBound = false;
   function bindSync(){

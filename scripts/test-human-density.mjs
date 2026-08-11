@@ -73,7 +73,9 @@ check('human queue never silently changes to AI',
   spar.includes('We will not switch you to AI.')
   && spar.includes('There is no time limit and no automatic AI fallback.'));
 check('AI opponent is an explicit user decision',
-  spar.includes('id="aiNowLink"') && spar.includes('Choose an AI opponent'));
+  spar.includes('id="aiNowLink"') && spar.includes('Open Realtime Voice AI'));
+check('spar page offers prep while waiting',
+  spar.includes('Prep while waiting') && spar.includes('spar_prep_while_waiting'));
 
 check('async board exposes open challenges and personal rounds',
   rounds.includes('Open challenges') && rounds.includes('My rounds'));

@@ -291,13 +291,10 @@
     // moment metering matters, and the landing hero secondary pill rail
     // carries a "Free vs Paid" pill (data-cta="hero-free-vs-paid").
     // /pricing stays live + crawlable; just not a top-nav slot.
-    // 2026-08-10: one explicit Debate an AI action replaces the narrower
-    // Voice AI label. It starts the remembered AI loadout directly.
-    // 2026-08-10: the Waitlist CTA tab (added 2026-07-20) is gone per
-    // Aidan ("remove waitlist from topbar"). Debate an AI takes back the
-    // one kept mobile pill it held before Waitlist displaced it — the
-    // --mobile-keep rule still keeps exactly ONE tab on phones.
-    { href: '/practice?now=1', label: 'Debate an AI', hot: true, mobileKeep: true },
+    // 2026-08-10: the global "Debate an AI" pill came off the rail per
+    // Aidan. AI sparring now lives in Explore and on /spar when the queue
+    // is quiet, where choosing AI reads as intentional instead of global
+    // chrome.
   ];
 
   // Curated secondary destinations for the desktop Explore menu and the
@@ -367,11 +364,11 @@
       // /learn, /coach, and /practice in order. Everything below is a
       // surface you have to already know you need.
       { href: '/masterclass', label: 'Masterclass' },
+      { href: '/voice-debate', label: 'Competitive Voice AI', big: true },
       { href: '/practice',    label: 'Timed rounds vs AI' },
       // 2026-08-10: daily-use flow desk. It accepts one speech or a
       // whole round and keeps true drops distinct from unanswered excerpts.
       { href: '/flow',        label: 'Flow a speech' },
-      { href: '/voice-debate', label: 'Classic voice trainer' },
       { href: '/coaches',      label: 'Coaches' },
       // 2026-07-27: was "Topics and motions", which the landing's plain-
       // audience jargon layer (motion -> topic, lowercase) rendered as
@@ -426,7 +423,7 @@
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },
     '/practice':       { desc: 'Full rounds against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
     '/flow':           { desc: 'Speech to flow, clash, and answers', icon: '<path d="M5 5.2h14M5 10.1h14M5 15h9M5 19.9h6"/><circle cx="18" cy="15.3" r="2.5"/>' },
-    '/voice-debate':   { desc: 'The original spoken round', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
+    '/voice-debate':   { desc: 'Realtime speeches, POIs, and a ballot', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
     '/topics':         { desc: 'PF, LD, Policy, BQ, Worlds', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },
     '/argument-coach': { desc: 'Claim, warrant, impact checks', icon: '<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1"/>' },
@@ -577,11 +574,11 @@
         '</span>';
       spot.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/spar', via: 'spotlight' }); });
       spotWrap.appendChild(spot);
-      var spotAlt = el('a', { href: '/newvoice', role: 'menuitem', class: 'ui-topbar-more-spot-alt' }, [
+      var spotAlt = el('a', { href: '/voice-debate', role: 'menuitem', class: 'ui-topbar-more-spot-alt' }, [
         el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon('/voice-debate') }),
-        el('span', null, 'Try Voice AI instead'),
+        el('span', null, 'Debate Realtime Voice AI'),
       ]);
-      spotAlt.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/newvoice', via: 'spotlight' }); });
+      spotAlt.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/voice-debate', via: 'spotlight' }); });
       spotWrap.appendChild(spotAlt);
       panel.appendChild(spotWrap);
 
@@ -715,9 +712,9 @@
       return wrap;
     }
 
-    // The rail carries Explore and the two emphasized actions, nothing
-    // else. Every regular destination remains in Explore and in the
-    // mobile sheet below.
+    // The rail carries Explore only. Every destination remains in Explore
+    // and in the mobile sheet below; AI sparring is promoted inside those
+    // menus and contextually on /spar, not as a permanent pill.
     right.appendChild(buildExplore());
     pageLinks.filter(function(L){ return L.hot || L.cta || L.rail; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);

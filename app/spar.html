@@ -448,6 +448,7 @@ h1 em{color:var(--accent);font-style:normal}
 .quiet-links .link-btn:hover{color:var(--text-dim)}
 .quiet-links .ql-sep{color:var(--text-ghost);opacity:.5}
 .btn{
+  display:inline-flex;align-items:center;justify-content:center;text-decoration:none;
   padding:11px 22px;border-radius:999px;border:1px solid var(--border);
   background:transparent;color:var(--text);font-family:inherit;font-weight:700;
   font-size:.84rem;letter-spacing:.04em;cursor:pointer;
@@ -1747,7 +1748,7 @@ h1 em{color:var(--accent);font-style:normal}
         '</button>' +
         '<div class="gate-disclaimer">Guest mode uses a temporary Debatable ID. Google adds your name and photo for opponents and messages.</div>' +
         '<a class="discord-schedule-link" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><span class="dot" aria-hidden="true"></span>Discord for times and forum threads</a>' +
-        '<a class="ai-alt" href="/practice">Spar with the AI instead →</a>' +
+        '<a class="ai-alt" href="/voice-debate?mode=quickclash&handoff=spar-gate">Start Realtime Voice AI instead →</a>' +
         '<div id="gateError"></div>' +
       '</div>';
     document.getElementById('guestStartBtn').addEventListener('click', function(){
@@ -1832,7 +1833,7 @@ h1 em{color:var(--accent);font-style:normal}
     { until:   8, text: 'Searching the live queue', sub: 'Looking for a human opponent who is available now.' },
     { until:  18, text: 'No human opponent yet', sub: 'Your search is still active. We will not switch you to AI.' },
     { until:  60, text: 'Still searching for a person', sub: 'The live queue has not produced a match yet.' },
-    { until: 120, text: 'The human queue is quiet', sub: 'Keep waiting, leave with alerts on, or choose an AI round.' },
+    { until: 120, text: 'The human queue is quiet', sub: 'Keep waiting, prep while you wait, or choose a voice AI round.' },
     { until: 240, text: 'Your human search is still active', sub: 'There is no time limit and no automatic AI fallback.' },
   ];
 
@@ -1899,10 +1900,11 @@ h1 em{color:var(--accent);font-style:normal}
       // The AI choice appears only after the person has given the human
       // queue a real try. It is a decision card, never a timer fallback.
       '<div id="aiOpponentOffer" hidden style="margin:18px auto 2px;max-width:430px;padding:16px;border:1px solid rgba(239,68,68,.30);border-radius:14px;background:rgba(239,68,68,.06);text-align:left">' +
-        '<strong style="display:block;font-size:.94rem;color:var(--text)">No human match yet</strong>' +
-        '<span style="display:block;margin-top:4px;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Start an AI round in your chosen format, or keep this human search running.</span>' +
+        '<strong style="display:block;font-size:.94rem;color:var(--text)">Use the wait</strong>' +
+        '<span style="display:block;margin-top:4px;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Prep while the human search stays active, or start a Realtime Voice AI round by choice.</span>' +
         '<div class="btn-row" style="margin-top:12px;justify-content:flex-start">' +
-          '<button class="btn primary" id="aiNowBtn" type="button">Debate AI now &rarr;</button>' +
+          '<button class="btn primary" id="aiNowBtn" type="button">Start Voice AI &rarr;</button>' +
+          '<a class="btn" id="prepWhileWaitingLink" href="/app#case">Prep while waiting</a>' +
           '<button class="btn" id="keepSearchingBtn" type="button">Keep searching</button>' +
         '</div>' +
       '</div>' +
@@ -1927,7 +1929,7 @@ h1 em{color:var(--accent);font-style:normal}
       '<div class="quiet-links">' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
         '<span class="ql-sep">·</span>' +
-        '<button type="button" class="link-btn" id="aiNowLink">Choose an AI opponent</button>' +
+        '<button type="button" class="link-btn" id="aiNowLink">Open Realtime Voice AI</button>' +
       '</div>' +
       // Round alerts: the highest-intent moment to opt into Web Push. If the
       // queue is quiet, leaving with alerts on means you get pinged the
@@ -2047,9 +2049,14 @@ h1 em{color:var(--accent);font-style:normal}
     (function(){
       var aiBtn = document.getElementById('aiNowBtn');
       var aiLink = document.getElementById('aiNowLink');
+      var prepLink = document.getElementById('prepWhileWaitingLink');
       var keepBtn = document.getElementById('keepSearchingBtn');
       if (aiBtn) aiBtn.addEventListener('click', leaveQueueForAi);
       if (aiLink) aiLink.addEventListener('click', leaveQueueForAi);
+      if (prepLink) prepLink.addEventListener('click', function(){
+        try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
+        try { if (window.gtag) gtag('event', 'spar_prep_while_waiting', { format: formatParam }); } catch(e){}
+      });
       if (keepBtn) keepBtn.addEventListener('click', function(){
         state.aiOfferDismissed = true;
         var offer = document.getElementById('aiOpponentOffer');
@@ -2348,7 +2355,8 @@ h1 em{color:var(--accent);font-style:normal}
           '<textarea class="wait-rail__pad" id="warmupPad" placeholder="Sketch your case here."></textarea>' +
         '</div>' +
         '<div class="wait-rail__links">' +
-          '<a class="wait-rail__link" href="/app#case">Prep a case</a>' +
+          '<a class="wait-rail__link" href="/app#case">Prep a case <span class="spot-tag"><i></i>spot kept</span></a>' +
+          '<a class="wait-rail__link" href="/voice-debate?mode=' + encodeURIComponent(formatParam === 'apda' ? 'apda' : 'quickclash') + '&handoff=spar-wait-rail">Competitive Voice AI</a>' +
           '<a class="wait-rail__link" href="/live">Browse scheduled rounds</a>' +
           '<a class="wait-rail__link wait-rail__link--discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer">Set times in Discord</a>' +
         '</div>' +
@@ -3781,7 +3789,8 @@ h1 em{color:var(--accent);font-style:normal}
     if (elapsed >= 15) logMissedMatch('ai-choice');
     try { gtag('event', 'spar_ai_choice', { format: formatParam, elapsed_sec: elapsed }); } catch(e){}
     teardownQueue();
-    var target = '/practice?now=1&format=' + encodeURIComponent(formatParam || 'quick') + '&handoff=spar-ai-choice';
+    var voiceMode = formatParam === 'apda' ? 'apda' : 'quickclash';
+    var target = '/voice-debate?mode=' + encodeURIComponent(voiceMode) + '&handoff=spar-ai-choice';
     var navigated = false;
     function go(){
       if (navigated) return;

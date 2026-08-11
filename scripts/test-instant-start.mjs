@@ -23,7 +23,8 @@ function check(label, ok) {
   'debateai-persona', 'debateos-newvoice-side'
 ].forEach((key) => check('account sync includes ' + key, prefs.includes("'" + key + "'")));
 
-check('global action clearly starts an AI debate', /href: '\/practice\?now=1', label: 'Debate an AI'/.test(topbar));
+check('global AI pill is off the rail', !/label: 'Debate an AI'/.test(topbar));
+check('Explore menu advertises realtime voice AI', topbar.includes('Debate Realtime Voice AI') && topbar.includes('Competitive Voice AI'));
 check('practice seeds the saved format', practice.includes("localStorage.getItem('debateos-round-format')"));
 check('practice seeds the saved side', practice.includes("localStorage.getItem('debateos-round-side')"));
 check('practice seeds the saved voice', practice.includes("localStorage.getItem('debateos-round-voice')"));
@@ -37,9 +38,10 @@ check('quick voice saves side', newvoice.includes("localStorage.setItem('debateo
 check('human queue starts with a factual status', spar.includes('Searching the live queue'));
 check('queue promises no automatic AI switch', spar.includes('We will not switch you to AI.'));
 check('AI choice appears after a short wait', /elapsed >= 12[^]*aiOpponentOffer/.test(spar));
-check('AI option is explicit', spar.includes('Debate AI now'));
+check('AI option is explicit', spar.includes('Start Voice AI'));
 check('human wait remains explicit', spar.includes('Keep searching'));
-check('AI click starts the chosen format', spar.includes("'/practice?now=1&format='"));
+check('AI click starts realtime voice AI explicitly', spar.includes("var target = '/voice-debate?mode='"));
+check('spar offers prep while waiting', spar.includes('Prep while waiting'));
 check('old unverifiable queue claims are gone', !spar.includes('Pinging recent sparrers') && !spar.includes('Searching active circuits'));
 check('no timer invokes fallback', !/setTimeout\s*\(\s*renderFallback/.test(spar));
 
