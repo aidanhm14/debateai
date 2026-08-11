@@ -113,6 +113,24 @@ if [ -f "$BRAIN_HEALTH_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Live-discourse guard. The LIVE DISCOURSE block injects phrasing
+# harvested from X into debate prompts. Two ways that goes wrong quietly:
+# it reaches the JUDGE (a ballot informed by platform opinion breaks the
+# judge charter), or its "this is not evidence" guardrail is edited out
+# (the model then cites posts as proof and drifts toward whichever side
+# had more volume). Both are silent in output, so they are asserted here.
+# ──────────────────────────────────────────────────────────────────
+DISCOURSE_GUARD="$REPO_ROOT/scripts/test-discourse.mjs"
+if [ -f "$DISCOURSE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-discourse.mjs >/tmp/discourse-guard.log 2>&1); then
+    echo "[discourse-guard] commit blocked - the live-discourse block's guarantees no longer hold:" >&2
+    tail -20 /tmp/discourse-guard.log >&2
+    echo "[discourse-guard] see scripts/test-discourse.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Opinion-panel guard. The panel is a measurement instrument: a reworded
 # stem or a duplicate id silently breaks comparability with every answer
 # already collected, and nothing about the incoming data looks wrong

@@ -5,6 +5,7 @@ import { applyVoiceGuidelines } from './lib/voice-guidelines.mjs';
 import { checkMotionBody } from './lib/content-guard.mjs';
 import { applyExemplars } from './lib/exemplars.mjs';
 import { applyDistillations } from './lib/distillations.mjs';
+import { applyDiscourse } from './lib/discourse.mjs';
 import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 import { applyBrain } from './lib/brain.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
@@ -146,9 +147,14 @@ export default async (request, context) => {
     // applyVoiceGuidelines, which strips _voiceFeature/_voiceFormat.
     // Parallel: both hit Firestore independently on cache miss. See
     // claude.mjs for the full rationale.
+    // Captured BEFORE the Promise.all: applyExemplars deletes body._motion
+    // synchronously, before its first await, so applyDiscourse would read
+    // an already-deleted field and silently never fire.
+    const pulseMotion = body._motion || '';
     await Promise.all([
       applyExemplars(body),
       applyDistillations(body),
+      applyDiscourse(body, pulseMotion),
       applyUserFingerprint(body, paidCheck.uid),
       applyBrain(body, paidCheck.uid),
     ]);

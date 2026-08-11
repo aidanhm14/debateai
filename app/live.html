@@ -108,6 +108,7 @@
      is exposed for ad-hoc page events (challenge_post, challenge_accept,
      etc — added inline in this page's script block). -->
 <script defer src="/js/track.js"></script>
+<script defer src="/js/topic-pulse.js"></script>
 <script defer src="/js/world-data.js?v=1"></script>
 <script>
 // Mount the flat live-presence map in the hero once the DOM is ready.
@@ -4959,6 +4960,13 @@ button{font-family:inherit}
     var keys = (cat && cat !== 'any') ? [cat] : Object.keys(MOTION_BANK);
     var bank = [];
     keys.forEach(function(k){ if (MOTION_BANK[k]) bank = bank.concat(MOTION_BANK[k]); });
+    // Live-discourse tier (js/topic-pulse.js), additive to the bank above.
+    // Only on 'any': the pulse is grouped by discourse domain, not by this
+    // picker's categories, so folding it into a category roll would put a
+    // geopolitics motion under 'philosophy'.
+    if (!cat || cat === 'any'){
+      if (window.TopicPulse) bank = bank.concat(window.TopicPulse.texts());
+    }
     if (!bank.length) return '';
     return bank[Math.floor(Math.random() * bank.length)];
   }

@@ -58,6 +58,10 @@ const URLS = [
   // /replays serves the same document, so it is deliberately NOT listed;
   // submitting both would be two URLs for one page against one canonical.
   { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-10' },
+  // Contested now: fault lines harvested from X nightly, published after
+  // review. Daily changefreq because the content genuinely turns over on
+  // that cadence, which is the whole reason the page exists.
+  { path: '/contested',       changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-11' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
   // Aidan's brief ("promote exhibition debate via SEO improvements

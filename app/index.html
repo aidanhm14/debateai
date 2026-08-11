@@ -87,6 +87,7 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
+<script defer src="/js/topic-pulse.js"></script>
 <!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
      top of <body>, above the fixed .app-topbar. The .app-topbar reads
      --cohort-banner-h (wired in the CSS above) and translates down by the
@@ -8838,8 +8839,15 @@ function DebateChat() {
   { motion: 'This house would bring extinct species back to life.', bg: 'Colossal Biosciences has raised hundreds of millions targeting the woolly mammoth and announced engineered dire-wolf pups in 2025. De-extinction advocates cite ecosystem restoration; critics call it a distraction from preventing the extinctions happening now, with real animal-welfare costs in the failures.' },
   { motion: 'This house, offered a pill that stops aging, would take it.', bg: 'Longevity biotech treats aging itself as a disease (Altos Labs launched with $3B). Assume the pill halts biological aging but not death by accident or violence. Gov argues more healthy life is simply good; Opp ground: pensions, entrenchment of the powerful, meaning, and who gets the pill first.' }];
 
+  // Live-discourse tier (js/topic-pulse.js). Motions harvested from X
+  // overnight and approved by an admin roll alongside the hardcoded bank
+  // above rather than replacing it. The bank is frozen by nature, so this
+  // is what keeps a random roll current. TopicPulse never throws and
+  // returns [] until its fetch lands, so a failure costs freshness only.
   var randomMotion = () => {
-    var pick = RANDOM_MOTIONS[Math.floor(Math.random() * RANDOM_MOTIONS.length)];
+    var live = (window.TopicPulse && window.TopicPulse.motions()) || [];
+    var pool = RANDOM_MOTIONS.concat(live);
+    var pick = pool[Math.floor(Math.random() * pool.length)];
     setMotion(pick.motion);
     setBackground(pick.bg);
   };

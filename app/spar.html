@@ -45,6 +45,7 @@
 <script defer src="/js/avatar-account.js"></script>
 
 <script defer src="/js/track.js"></script>
+<script defer src="/js/topic-pulse.js"></script>
 <!-- The draft: menu behaviour plus the pinned-bench reveal in Round
      setup. Both are additive. If either fails to load the chips and the
      judge note still work and the queue is unaffected, which is the only
@@ -2370,8 +2371,18 @@ h1 em{color:var(--accent);font-style:normal}
       '</div>';
     document.body.appendChild(rail);
     var motionEl = rail.querySelector('#warmupMotion');
+    // Live-discourse tier (js/topic-pulse.js), additive to WARMUP_MOTIONS.
+    // Read at shuffle time rather than captured once, so a motion that
+    // lands after the rail mounts is still reachable on the next click.
+    function warmupPool(){
+      var live = (window.TopicPulse && window.TopicPulse.texts()) || [];
+      return WARMUP_MOTIONS.concat(live);
+    }
     var idx = Math.floor(Math.random() * WARMUP_MOTIONS.length);
-    function showMotion(){ if (motionEl) motionEl.textContent = WARMUP_MOTIONS[idx % WARMUP_MOTIONS.length]; }
+    function showMotion(){
+      var pool = warmupPool();
+      if (motionEl) motionEl.textContent = pool[idx % pool.length];
+    }
     showMotion();
     var shuffle = rail.querySelector('#warmupShuffle');
     if (shuffle) shuffle.addEventListener('click', function(){ idx++; showMotion(); });

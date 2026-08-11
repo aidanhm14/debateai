@@ -742,6 +742,25 @@
     </div>
   </div>
 
+  <!-- X pulse review queue. scheduled-x-pulse.mjs harvests live fault lines
+       from X overnight and writes motions as status:'pending'. NOTHING
+       reaches a student until it is approved here, because X discourse is
+       unfiltered and this product ships to schools. Approving rebuilds
+       topic_pulse/current, which feeds the motion pickers, the LIVE
+       DISCOURSE prompt block, and /contested. -->
+  <div class="section" data-pane="product">
+    <div class="card">
+      <div class="title">
+        <span>X pulse · motion review</span>
+        <span class="meta" id="pulse-meta">Loading…</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        Fault lines harvested from X overnight, converted into format-correct motions. Approve to publish into the motion pool and the AI's live-discourse block. Reject is permanent: the nightly job never proposes that fault line again.
+      </div>
+      <div id="pulse-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Livestream + recordings. Go live creates a Daily broadcast room and
        flips the live band on /watch; "Open studio" joins that room with the
        owner token (camera on, cloud recording auto-starts on Daily plans
@@ -1548,6 +1567,10 @@ async function loadAll(force){
       loadBrainHealth(),
       loadCorpusHealth(),
       loadClashDisputes(),
+      // Eager for the same reason as the others: a pending queue nobody
+      // reviews means the motion pool silently stops getting fresher, and
+      // that failure is invisible from every other panel.
+      loadPulse(),
     ]).then(renderAttention);
     renderAttention();
 
@@ -2796,6 +2819,131 @@ async function loadBrainHealth(){
   } catch (e) {
     meta.textContent = 'failed';
     body.innerHTML = '<div class="meta">Could not probe the brains: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── X pulse review queue ──────────────────────────────────────────────
+// Renders pending fault lines with their motions and lets an admin
+// approve, reject, or approve-with-edits. Every action POSTs and then
+// re-renders from the server rather than patching the DOM optimistically:
+// approving rebuilds topic_pulse/current server-side, so the only honest
+// view of what is live is the one the server just wrote.
+async function pulseAction(fingerprint, action, extra){
+  const token = await getToken();
+  const r = await fetch('/api/admin/pulse', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ fingerprint, action }, extra || {})),
+  });
+  if (!r.ok){ const j = await r.json().catch(()=>({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+  return r.json();
+}
+
+function renderPulseCard(row, isPending){
+  const heat = '●'.repeat(row.heat || 3);
+  const motions = (row.motions || []).map(m =>
+    '<div style="padding:6px 0;border-top:1px solid var(--line)">' +
+      '<span class="meta" style="display:inline-block;min-width:52px;text-transform:uppercase;font-size:11px">' + esc(m.format) + '</span>' +
+      '<span style="font-weight:600">' + esc(m.text) + '</span>' +
+      (m.bg ? '<div style="color:var(--muted);font-size:12px;margin:4px 0 0 52px;line-height:1.5">' + esc(m.bg) + '</div>' : '') +
+    '</div>'
+  ).join('');
+
+  // Citations are the receipts. A motion whose fault line cannot be traced
+  // back to real posts is one nobody should approve on trust.
+  const cites = (row.citations || []).slice(0, 5).map((u, i) =>
+    '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" style="color:var(--muted);font-size:11px;margin-right:8px">post ' + (i + 1) + ' ↗</a>'
+  ).join('');
+
+  const actions = isPending
+    ? '<div style="display:flex;gap:8px;margin-top:10px">' +
+        '<button class="pill-btn primary" data-pulse-approve="' + esc(row.fingerprint) + '">Approve</button>' +
+        '<button class="pill-btn" data-pulse-reject="' + esc(row.fingerprint) + '">Reject</button>' +
+        '<button class="pill-btn" data-pulse-edit="' + esc(row.fingerprint) + '">Edit headline</button>' +
+      '</div>'
+    : '<div style="margin-top:10px"><button class="pill-btn" data-pulse-reject="' + esc(row.fingerprint) + '">Unpublish</button></div>';
+
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">' +
+    '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">' +
+      '<span style="font-weight:700">' + esc(row.headline) + '</span>' +
+      '<span class="meta" style="white-space:nowrap">' + esc(row.domainLabel) + ' · ' + heat + '</span>' +
+    '</div>' +
+    (row.summary ? '<div style="color:var(--muted);font-size:12px;margin-top:6px;line-height:1.5">' + esc(row.summary) + '</div>' : '') +
+    (row.sideA && row.sideA.label ? '<div style="font-size:12px;margin-top:8px"><b>' + esc(row.sideA.label) + ':</b> <span style="color:var(--muted)">' + esc((row.sideA.phrasing || []).join(' / ')) + '</span></div>' : '') +
+    (row.sideB && row.sideB.label ? '<div style="font-size:12px;margin-top:3px"><b>' + esc(row.sideB.label) + ':</b> <span style="color:var(--muted)">' + esc((row.sideB.phrasing || []).join(' / ')) + '</span></div>' : '') +
+    '<div style="margin-top:10px">' + motions + '</div>' +
+    (cites ? '<div style="margin-top:8px">' + cites + '</div>' : '') +
+    actions +
+  '</div>';
+}
+
+async function loadPulse(){
+  const meta = $('pulse-meta');
+  const body = $('pulse-body');
+  body.textContent = 'Loading…';
+  meta.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/pulse');
+    const pending = d.pending || [];
+    const approved = d.approved || [];
+    const run = d.lastRun || {};
+
+    const runLabel = run.at
+      ? (run.stale ? 'nightly run STALE' : 'ran ' + Math.round((run.ageMs || 0) / 3600000) + 'h ago')
+      : 'never run';
+    meta.textContent = pending.length + ' pending · ' + approved.length + ' live · ' + runLabel;
+
+    let html = '';
+    if (run.stale){
+      html += '<div style="padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.10);color:#b91c1c;font-weight:600;font-size:12px;margin-bottom:12px">' +
+        'Nightly pulse has not run in over 36h. Check scheduled-x-pulse logs.</div>';
+    }
+    if (!pending.length && !approved.length){
+      html += '<div class="meta">Nothing harvested yet. The nightly job runs at 04:20 UTC.</div>';
+    }
+    if (pending.length){
+      html += '<div class="meta" style="margin:4px 0 8px">Pending review</div>' +
+        pending.map(r => renderPulseCard(r, true)).join('');
+    }
+    if (approved.length){
+      html += '<div class="meta" style="margin:14px 0 8px">Live now</div>' +
+        approved.map(r => renderPulseCard(r, false)).join('');
+    }
+    if (run.costUsd){
+      html += '<div class="meta" style="margin-top:10px">Last run cost $' + run.costUsd.toFixed(3) +
+        ' across ' + (run.domains || []).length + ' domains.</div>';
+    }
+    body.innerHTML = html;
+
+    body.querySelectorAll('[data-pulse-approve]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Approving…';
+        try { await pulseAction(btn.dataset.pulseApprove, 'approve'); await loadPulse(); }
+        catch (e){ btn.disabled = false; btn.textContent = 'Approve'; alert('Failed: ' + (e.message || e)); }
+      });
+    });
+    body.querySelectorAll('[data-pulse-reject]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Working…';
+        try { await pulseAction(btn.dataset.pulseReject, 'reject'); await loadPulse(); }
+        catch (e){ btn.disabled = false; btn.textContent = 'Reject'; alert('Failed: ' + (e.message || e)); }
+      });
+    });
+    body.querySelectorAll('[data-pulse-edit]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const fp = btn.dataset.pulseEdit;
+        const card = btn.closest('div[style*="border:1px solid"]');
+        const current = card ? card.querySelector('span[style*="font-weight:700"]').textContent : '';
+        const next = prompt('Headline for this fault line:', current);
+        if (next === null || !next.trim()) return;
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try { await pulseAction(fp, 'edit', { headline: next.trim(), approve: true }); await loadPulse(); }
+        catch (e){ btn.disabled = false; btn.textContent = 'Edit headline'; alert('Failed: ' + (e.message || e)); }
+      });
+    });
+  } catch (e){
+    meta.textContent = 'Failed';
+    body.innerHTML = '<div class="meta">Could not load: ' + esc(e.message || String(e)) + '</div>';
   }
 }
 
