@@ -19639,78 +19639,346 @@ window.addEventListener('load', function(){
 })();
 </script>
 
-<!-- Homepage live band. When a tournament stream is on, /api/stream-status
-     flips live:true and this injects a player band ABOVE the hero.
-     Injected DOM from a standalone script on purpose: off air the page is
-     byte-for-byte untouched, so the hero A/B arms, the "See more" gate,
-     and the scroll observers never see a new sibling unless a stream is
-     actually running. The status endpoint is CDN-cached 15s; the 90s
-     visible-tab poll costs a handful of function calls an hour sitewide. -->
+<!-- Homepage live band. Two modes, both injected ABOVE the hero.
+     STAGE: a tournament stream is on (/api/stream-status live:true). The
+       player takes the middle and the rooms running alongside it flank
+       it, which is the tournament-day shape: one thing to watch, the
+       rest of the event visible around it.
+     WALL: no stream, but /api/watch-live reports public rounds in
+       progress. Those render as a row of room tiles on their own.
+     Injected DOM from a standalone script on purpose: with nothing live
+     the page is byte-for-byte untouched, so the hero A/B arms, the "See
+     more" gate, and the scroll observers never see a new sibling unless
+     something is actually happening. Both endpoints are shared-cached
+     (15s and 12s), so the 90s visible-tab poll costs a handful of
+     function calls an hour sitewide.
+
+     HONESTY: no floor and no padding. watch-live already refuses to
+     invent inventory (empty list means nothing is live), and this
+     renders nothing rather than a grid of placeholder rectangles. A wall
+     of fake rooms would be the one thing that makes a quiet day worse
+     than the current hero.
+
+     Tiles LINK to the spectate view, they do not embed it. Every watcher
+     joins the round's Daily room receive-only against a participant
+     ceiling, so six embedded players on the homepage would spend real
+     audience slots on people who never chose to watch. -->
+
 <script>
 (function(){
   'use strict';
-  var mounted = false;
-  function mount(s){
-    if (mounted) return;
-    var hero = document.querySelector('section.hero');
-    if (!hero || !hero.parentNode) return;
-    mounted = true;
-    var band = document.createElement('section');
-    band.id = 'homeLiveBand';
-    band.setAttribute('aria-label', 'Live tournament stream');
-    band.innerHTML =
-      '<style>' +
-      '#homeLiveBand{background:#0b0b0d;border-bottom:1px solid rgba(239,68,68,.35);padding:18px 20px 22px}' +
-      '#homeLiveBand .hlb-in{max-width:1080px;margin:0 auto}' +
-      '#homeLiveBand .hlb-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}' +
-      '#homeLiveBand .hlb-pill{display:inline-flex;align-items:center;gap:7px;background:#b91c1c;color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}' +
-      '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
-      '@keyframes hlbPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
-      '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-      '#homeLiveBand .hlb-open{margin-left:auto;color:rgba(244,244,242,.7);font-size:14.5px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 13px}' +
-      '#homeLiveBand .hlb-open:hover{color:#fff;border-color:rgba(239,68,68,.5)}' +
-      '#homeLiveBand iframe{width:100%;aspect-ratio:16/9;max-height:62vh;border:0;border-radius:12px;background:#000;display:block}' +
-      '</style>' +
-      '<div class="hlb-in">' +
-        '<div class="hlb-head">' +
-          '<span class="hlb-pill"><span class="hlb-dot"></span>LIVE</span>' +
-          '<span class="hlb-title"></span>' +
-          '<a class="hlb-open" href="/watch">Open the watch page</a>' +
-        '</div>' +
-        '<iframe title="Live tournament stream" allow="autoplay; clipboard-write"></iframe>' +
-      '</div>';
-    band.querySelector('.hlb-title').textContent = s.title || 'Live from the arena';
-    band.querySelector('iframe').src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
-    hero.parentNode.insertBefore(band, hero);
-    // A mid-visit mount lands above the hero; if the reader is scrolled
-    // past that point, everything they're reading shoves down by the
-    // band's height. Compensate so their viewport doesn't move.
-    if (band.getBoundingClientRect().bottom < 0){
-      window.scrollBy(0, band.offsetHeight);
+
+  var BAND_ID = 'homeLiveBand';
+  var POLL_MS = 90000;
+  var MAX_TILES = 6;
+
+  // Slugs come off the round doc. Anything unmapped renders its own slug
+  // rather than a guess, so a format added later is ugly, not wrong.
+  var FORMAT_NAMES = {
+    quick: 'Quick Clash', apda: 'APDA', bp: 'British Parliamentary',
+    worlds: 'Worlds', wsdc: 'WSDC', asian: 'Asian Parliamentary',
+    ld: 'Lincoln Douglas', pf: 'Public Forum', policy: 'Policy',
+    congress: 'Congress', mun: 'MUN', popper: 'Karl Popper'
+  };
+
+  var mode = null;        // null | 'stage' | 'wall'
+  var streamUrl = '';     // so a poll never reloads a playing iframe
+  var tileKey = '';       // so an unchanged room list never touches the DOM
+
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    // textContent, never innerHTML: motions and display names are typed
+    // by users and this renders them on the front page.
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function formatName(slug){
+    return FORMAT_NAMES[slug] || (slug || 'Debate');
+  }
+
+  function roundStatus(r){
+    if (r.status === 'ballot') return 'Ballot';
+    var n = (typeof r.speechIdx === 'number' ? r.speechIdx : 0) + 1;
+    return 'Speech ' + n;
+  }
+
+  function tile(r){
+    var a = el('a', 'hlb-tile');
+    a.href = '/live-round?room=' + encodeURIComponent(r.room) + '&spectate=1';
+    a.setAttribute('data-room', r.room);
+
+    var top = el('span', 'hlb-tile-top');
+    var live = el('span', 'hlb-tag');
+    live.appendChild(el('i', 'hlb-tag-dot'));
+    live.appendChild(el('span', null, 'LIVE'));
+    top.appendChild(live);
+    top.appendChild(el('span', 'hlb-tile-fmt', formatName(r.format)));
+    a.appendChild(top);
+
+    a.appendChild(el('span', 'hlb-tile-motion', r.motion || 'Live debate'));
+
+    var names = [r.proName, r.conName].filter(Boolean);
+    if (names.length === 2){
+      var vs = el('span', 'hlb-tile-vs');
+      vs.appendChild(el('b', null, names[0]));
+      vs.appendChild(el('span', null, ' vs '));
+      vs.appendChild(el('b', null, names[1]));
+      a.appendChild(vs);
     }
+
+    a.appendChild(el('span', 'hlb-tile-status', roundStatus(r)));
+
+    a.addEventListener('click', function(){
+      try { if (window.gtag) gtag('event', 'home_room_tile_click', { room: r.room, format: r.format || '' }); } catch(e){}
+    });
+    return a;
+  }
+
+  var STYLE =
+    // The band is now the first thing in the frame, so it owns the
+    // clearance under the fixed topbar that #first-screen used to.
+    '#homeLiveBand{background:#0b0b0d;border-bottom:1px solid rgba(239,68,68,.35);padding:84px 20px 22px}' +
+    '#homeLiveBand .hlb-in{max-width:1400px;margin:0 auto}' +
+    '#homeLiveBand .hlb-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}' +
+    '#homeLiveBand .hlb-pill{display:inline-flex;align-items:center;gap:7px;background:#b91c1c;color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}' +
+    '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
+    '@keyframes hlbPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
+    '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '#homeLiveBand .hlb-open{margin-left:auto;color:rgba(244,244,242,.7);font-size:14.5px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 13px}' +
+    '#homeLiveBand .hlb-open:hover{color:#fff;border-color:rgba(239,68,68,.5)}' +
+    '#homeLiveBand iframe{width:100%;aspect-ratio:16/9;max-height:62vh;border:0;border-radius:12px;background:#000;display:block}' +
+    // The stage: player in the middle column, rooms in the rails either
+    // side. Rails are sized so a 16:9 player still gets most of the width.
+    '#homeLiveBand .hlb-stage{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}' +
+    '#homeLiveBand .hlb-rail{display:grid;gap:10px;align-content:start;min-width:0}' +
+    '#homeLiveBand .hlb-rail:empty{display:none}' +
+    '@media(min-width:1180px){' +
+      '#homeLiveBand .hlb-stage.hlb-has-rooms{grid-template-columns:250px minmax(0,1fr) 250px}' +
+      '#homeLiveBand .hlb-stage.hlb-has-rooms .hlb-main{order:2}' +
+      '#homeLiveBand .hlb-stage.hlb-has-rooms .hlb-rail-a{order:1}' +
+      '#homeLiveBand .hlb-stage.hlb-has-rooms .hlb-rail-b{order:3}' +
+    '}' +
+    // Under the stage breakpoint the rails become rows BENEATH the
+    // player. The order matters: source order puts rail A first, so
+    // without this the tiles push the stream itself off the fold on a
+    // laptop, which inverts what the band is for.
+    '@media(max-width:1179px){' +
+      '#homeLiveBand .hlb-stage{display:flex;flex-direction:column}' +
+      '#homeLiveBand .hlb-main{order:1}' +
+      '#homeLiveBand .hlb-rail-a{order:2}' +
+      '#homeLiveBand .hlb-rail-b{order:3}' +
+      '#homeLiveBand .hlb-rail{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:column}' +
+    '}' +
+    '@media(max-width:720px){' +
+      '#homeLiveBand .hlb-rail{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:row}' +
+    '}' +
+    '#homeLiveBand .hlb-wall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}' +
+    '@media(max-width:900px){#homeLiveBand .hlb-wall{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
+    '@media(max-width:520px){#homeLiveBand .hlb-wall{grid-template-columns:minmax(0,1fr)}}' +
+    // Tiles read as room cards, not as video frames. There is no
+    // thumbnail to show (pulling one means joining the call), so the
+    // motion carries the card and nothing pretends to be a still.
+    '#homeLiveBand .hlb-tile{display:flex;flex-direction:column;gap:6px;padding:12px 13px;min-height:118px;' +
+      'background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;' +
+      'transition:border-color .15s ease,transform .15s ease,background .15s ease}' +
+    '#homeLiveBand .hlb-tile:hover{border-color:rgba(239,68,68,.5);background:#18181c;transform:translateY(-1px)}' +
+    '#homeLiveBand .hlb-tile-top{display:flex;align-items:center;gap:8px;justify-content:space-between}' +
+    '#homeLiveBand .hlb-tag{display:inline-flex;align-items:center;gap:5px;color:#f87171;font-size:10.5px;font-weight:800;letter-spacing:.1em}' +
+    '#homeLiveBand .hlb-tag-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:hlbPulse 1.4s infinite;display:block}' +
+    '#homeLiveBand .hlb-tile-fmt{color:rgba(244,244,242,.5);font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '#homeLiveBand .hlb-tile-motion{color:#f4f4f2;font-size:14.5px;font-weight:600;line-height:1.28;' +
+      'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}' +
+    '#homeLiveBand .hlb-tile-vs{color:rgba(244,244,242,.62);font-size:12.5px;margin-top:auto}' +
+    '#homeLiveBand .hlb-tile-vs b{color:rgba(244,244,242,.88);font-weight:700}' +
+    '#homeLiveBand .hlb-tile-status{color:rgba(244,244,242,.45);font-size:11.5px;font-weight:600}' +
+    // Phone: the head stops competing for one line, and the list is
+    // capped. Six full-width cards is a whole screen of tiles before the
+    // reader reaches anything that says what the site is.
+    '@media(max-width:520px){' +
+      '#homeLiveBand{padding-top:76px}' +
+      '#homeLiveBand .hlb-title{white-space:normal;font-size:16px;flex:1 1 100%;order:3}' +
+      '#homeLiveBand .hlb-open{margin-left:auto;padding:6px 11px;font-size:13.5px}' +
+      '#homeLiveBand .hlb-wall .hlb-tile:nth-child(n+4){display:none}' +
+      '#homeLiveBand .hlb-rail .hlb-tile:nth-child(n+3){display:none}' +
+    '}';
+
+  // The band used to anchor on `section.hero`, and that had quietly
+  // stopped meaning the first screen: the page keeps deprecated hero arms
+  // in the DOM at display:none, and since the 2026-07-22 A/B call the
+  // real first screen is #first-screen. Measured, a stream was injecting
+  // roughly 2000px down the page, below every visible section, which is
+  // the one place a live band is worth nothing. Anchor on the first child
+  // of the frame that actually renders, so this survives the next time
+  // the first screen is renamed.
+  function anchorNode(){
+    var frame = document.querySelector('.hero-founder-frame');
+    if (frame){
+      for (var i = 0; i < frame.children.length; i++){
+        var c = frame.children[i];
+        if (c.id === BAND_ID || c.tagName === 'SCRIPT' || c.tagName === 'STYLE') continue;
+        if (c.offsetHeight > 0) return c;
+      }
+    }
+    return document.getElementById('first-screen') || document.querySelector('section.hero');
+  }
+
+  function makeBand(){
+    var band = document.createElement('section');
+    band.id = BAND_ID;
+    var style = document.createElement('style');
+    style.textContent = STYLE;
+    band.appendChild(style);
+    return band;
+  }
+
+  // Mounting above the hero shoves everything below it down. If the
+  // reader is already past that point their viewport has to be held
+  // still, and the same applies in reverse on unmount and on any height
+  // change from tiles arriving or leaving.
+  function withHeightHeld(node, fn){
+    var band = node || document.getElementById(BAND_ID);
+    var above = !!band && band.getBoundingClientRect().bottom < 0;
+    var before = band ? band.offsetHeight : 0;
+    fn();
+    if (!above) return;
+    var after = 0;
+    var now = document.getElementById(BAND_ID);
+    if (now) after = now.offsetHeight;
+    if (after !== before) window.scrollBy(0, after - before);
+  }
+
+  function unmount(){
+    if (!mode) return;
+    withHeightHeld(null, function(){
+      var band = document.getElementById(BAND_ID);
+      if (band) band.remove();
+    });
+    mode = null; streamUrl = ''; tileKey = '';
+  }
+
+  function mountStage(s, rounds){
+    var at = anchorNode();
+    if (!at || !at.parentNode) return;
+    var band = makeBand();
+    band.setAttribute('aria-label', 'Live tournament stream');
+
+    var head = el('div', 'hlb-head');
+    var pill = el('span', 'hlb-pill');
+    pill.appendChild(el('span', 'hlb-dot'));
+    pill.appendChild(el('span', null, 'LIVE'));
+    head.appendChild(pill);
+    head.appendChild(el('span', 'hlb-title', s.title || 'Live from the arena'));
+    var open = el('a', 'hlb-open', 'Open the watch page');
+    open.href = '/watch';
+    head.appendChild(open);
+
+    var stage = el('div', 'hlb-stage');
+    var main = el('div', 'hlb-main');
+    var frame = document.createElement('iframe');
+    frame.title = 'Live tournament stream';
+    frame.setAttribute('allow', 'autoplay; clipboard-write');
+    frame.src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
+    main.appendChild(frame);
+    stage.appendChild(el('div', 'hlb-rail hlb-rail-a'));
+    stage.appendChild(main);
+    stage.appendChild(el('div', 'hlb-rail hlb-rail-b'));
+
+    var inner = el('div', 'hlb-in');
+    inner.appendChild(head);
+    inner.appendChild(stage);
+    band.appendChild(inner);
+
+    withHeightHeld(null, function(){ at.parentNode.insertBefore(band, at); });
+    mode = 'stage'; streamUrl = s.url; tileKey = '';
     try { if (window.gtag) gtag('event', 'home_live_band_shown'); } catch(e){}
   }
-  function unmount(){
-    if (!mounted) return;
-    var band = document.getElementById('homeLiveBand');
-    if (band){
-      // Same in reverse: removing ~500px above the reader's scroll
-      // position collapses the page under them. Shift scroll up by the
-      // band's height when it sat fully above the viewport.
-      var above = band.getBoundingClientRect().bottom < 0;
-      var h = band.offsetHeight;
-      band.remove();
-      if (above) window.scrollBy(0, -h);
-    }
-    mounted = false;
+
+  function mountWall(rounds){
+    var at = anchorNode();
+    if (!at || !at.parentNode) return;
+    var band = makeBand();
+    band.setAttribute('aria-label', 'Debate rounds happening now');
+
+    var head = el('div', 'hlb-head');
+    var pill = el('span', 'hlb-pill');
+    pill.appendChild(el('span', 'hlb-dot'));
+    pill.appendChild(el('span', null, 'LIVE'));
+    head.appendChild(pill);
+    head.appendChild(el('span', 'hlb-title', 'Rounds happening right now.'));
+    var open = el('a', 'hlb-open', 'Watch a round');
+    open.href = '/watch';
+    head.appendChild(open);
+
+    var inner = el('div', 'hlb-in');
+    inner.appendChild(head);
+    inner.appendChild(el('div', 'hlb-wall'));
+    band.appendChild(inner);
+
+    withHeightHeld(null, function(){ at.parentNode.insertBefore(band, at); });
+    mode = 'wall'; streamUrl = ''; tileKey = '';
+    try { if (window.gtag) gtag('event', 'home_room_wall_shown', { rooms: rounds.length }); } catch(e){}
   }
+
+  // Room lists are repainted only when they actually change, so a poll
+  // during a stream never blows away hover or reflows the stage.
+  function paintTiles(rounds){
+    var band = document.getElementById(BAND_ID);
+    if (!band) return;
+    var key = rounds.map(function(r){ return r.room + ':' + r.status + ':' + r.speechIdx; }).join('|');
+    if (key === tileKey) return;
+
+    withHeightHeld(band, function(){
+      if (mode === 'wall'){
+        var wall = band.querySelector('.hlb-wall');
+        if (!wall) return;
+        wall.textContent = '';
+        rounds.forEach(function(r){ wall.appendChild(tile(r)); });
+        return;
+      }
+      var rails = band.querySelectorAll('.hlb-rail');
+      if (!rails.length) return;
+      rails[0].textContent = '';
+      rails[1].textContent = '';
+      // Split so the left rail never sits empty beside a filled right one.
+      var half = Math.ceil(rounds.length / 2);
+      rounds.forEach(function(r, i){ rails[i < half ? 0 : 1].appendChild(tile(r)); });
+      var stage = band.querySelector('.hlb-stage');
+      if (stage) stage.classList.toggle('hlb-has-rooms', rounds.length > 0);
+    });
+    tileKey = key;
+  }
+
+  function apply(s, rounds){
+    rounds = (rounds || []).slice(0, MAX_TILES);
+    var wantStage = !!(s && s.live && s.url);
+    var want = wantStage ? 'stage' : (rounds.length ? 'wall' : null);
+
+    if (!want){ unmount(); return; }
+    // A stream that swaps URL mid-visit rebuilds; anything else keeps the
+    // player alive across polls.
+    if (mode !== want || (want === 'stage' && s.url !== streamUrl)){
+      unmount();
+      if (want === 'stage') mountStage(s, rounds); else mountWall(rounds);
+    }
+    paintTiles(rounds);
+  }
+
   function check(){
-    fetch('/api/stream-status').then(function(r){ return r.json(); }).then(function(s){
-      if (s && s.live && s.url) mount(s); else unmount();
+    // One failing endpoint must not blank the other: a dead watch-live
+    // should never take a running stream off the page.
+    Promise.all([
+      fetch('/api/stream-status').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      fetch('/api/watch-live').then(function(r){ return r.json(); }).catch(function(){ return null; })
+    ]).then(function(out){
+      var s = out[0];
+      var live = out[1];
+      apply(s, live && live.rounds);
     }).catch(function(){});
   }
   check();
-  setInterval(function(){ if (!document.hidden) check(); }, 90000);
+  setInterval(function(){ if (!document.hidden) check(); }, POLL_MS);
 })();
 </script>
 
