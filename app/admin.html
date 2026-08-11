@@ -715,6 +715,20 @@
     </div>
   </div>
 
+  <!-- Brain fleet health. Probes every advertised AI brain through
+       /api/brain-health, which calls the SAME model the picker offers.
+       Exists because on 2026-08-11 three of the six were dead at once
+       and the only reason anyone found out was unrelated work. -->
+  <div class="section" data-pane="product">
+    <div class="card">
+      <div class="title">
+        <span>AI brains · live probe</span>
+        <span class="meta" id="brain-meta">Loading…</span>
+      </div>
+      <div id="brain-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Learning-loop freshness: nightly distill heartbeat.
        Reads learning_distillations/{format} via /api/admin/distillations.
        Stale-first ordering surfaces a missed run at the top. -->
@@ -1510,6 +1524,7 @@ async function loadAll(force){
     // and two server-cached rollups).
     Promise.allSettled([
       loadDistillations(),
+      loadBrainHealth(),
       loadCorpusHealth(),
       loadClashDisputes(),
     ]).then(renderAttention);
@@ -2297,6 +2312,11 @@ function renderAttention(){
   if (ep.failed && ep.failed.length){
     items.push({ sev:'bad', h: ep.failed.length + ' endpoint' + (ep.failed.length > 1 ? 's' : '') + ' failing', b: ep.failed.join(', ') + '. Details in the banner above and the console.' });
   }
+  if (health.brains && health.brains.down > 0){
+    items.push({ sev:'bad', pane:'product', go:'AI brains',
+      h: health.brains.down + ' of ' + health.brains.total + ' AI brains are not answering',
+      b: health.brains.names + '. The site offers six on /judge and /pricing, so every one that is down is a user picking a brain that errors.' });
+  }
   if (health.distill && health.distill.stale > 0){
     items.push({ sev:'bad', pane:'product', go:'Learning loop',
       h: health.distill.stale + ' format' + (health.distill.stale === 1 ? '' : 's') + ' stale in the distill',
@@ -2703,6 +2723,58 @@ async function loadVisitors(){
   } catch (e) {
     body.innerHTML = '<div class="err-box">Visitors load failed: ' + esc(e.message || e) + '</div>';
     meta.textContent = '';
+  }
+}
+
+// Live probe of every advertised brain. The endpoint caches 15 minutes
+// server-side, so this is one cheap read unless an admin forces fresh.
+async function loadBrainHealth(){
+  const meta = $('brain-meta');
+  const body = $('brain-body');
+  body.textContent = 'Loading…';
+  meta.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/brain-health');
+    const rows = d.brains || [];
+    const down = rows.filter(r => !r.ok);
+    health.brains = {
+      down: down.length,
+      total: rows.length,
+      names: down.map(r => r.name).join(', '),
+    };
+    meta.textContent = (d.up || 0) + '/' + (d.total || 0) + ' answering'
+      + (d.generatedAt ? ' · probed ' + new Date(d.generatedAt).toLocaleTimeString() : '');
+    if (!rows.length){ body.innerHTML = '<div class="meta">No brains configured.</div>'; return; }
+    // What to DO about it, per failure category. A dashboard that says
+    // "down" and stops has moved the problem, not surfaced it.
+    const FIX = {
+      unconfigured: 'the key is not set on Netlify',
+      auth: 'the key is invalid, regenerate it',
+      billing: 'the account is out of credit, top it up',
+      rate_limit: 'rate limited, may clear on its own',
+      model: 'the pinned model id no longer exists',
+      timeout: 'no response in time',
+      down: 'provider error',
+    };
+    body.innerHTML = '<table style="width:100%;font-size:13px"><thead>' +
+      '<tr><th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Brain</th>' +
+      '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">Model</th>' +
+      '<th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:600">Latency</th>' +
+      '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600">State</th></tr></thead><tbody>' +
+      rows.map(r => {
+        const state = r.ok
+          ? '<span style="color:#4ade80;font-weight:600">answering</span>'
+          : '<span style="color:#f87171;font-weight:700">' + esc(FIX[r.reason] || r.reason || 'down') + '</span>'
+            + (r.detail ? '<div class="meta" style="margin-top:2px">' + esc(String(r.detail).slice(0, 150)) + '</div>' : '');
+        return '<tr>' +
+          '<td style="padding:6px 8px;font-weight:600">' + esc(r.name) + '<div class="meta">' + esc(r.maker) + '</div></td>' +
+          '<td style="padding:6px 8px"><code style="font-size:12px">' + esc(r.model) + '</code></td>' +
+          '<td style="padding:6px 8px;text-align:right">' + (r.ms ? r.ms + 'ms' : '—') + '</td>' +
+          '<td style="padding:6px 8px">' + state + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  } catch (e) {
+    meta.textContent = 'failed';
+    body.innerHTML = '<div class="meta">Could not probe the brains: ' + esc(e.message) + '</div>';
   }
 }
 

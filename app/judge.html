@@ -1284,6 +1284,42 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('judgeBrain').addEventListener('change', syncJudgeChoice);
     syncJudgeChoice();
     if (params.get('style') || params.get('paradigm') || params.get('brain')) $('judgeChoice').open = true;
+
+    // Grey out a brain that is not answering right now, rather than
+    // letting someone pick it and eat an error after pasting a whole
+    // transcript. On 2026-08-11 three of the six were dead at once
+    // (Gemini billing, an invalid xAI key, an OpenRouter key that was
+    // never set) and the picker offered all six with no hint.
+    //
+    // Progressive enhancement on purpose: the probe is cached
+    // server-side and can be slow or refused, so nothing here is
+    // awaited and a failure leaves the picker exactly as it is. A brain
+    // wrongly greyed out would be worse than one wrongly offered.
+    fetch('/api/brain-health').then(function(r){
+      return r.ok ? r.json() : null;
+    }).then(function(d){
+      if (!d || !d.brains) return;
+      var down = {};
+      d.brains.forEach(function(b){ if (!b.ok) down[b.key] = b; });
+      var sel = $('judgeBrain');
+      var current = sel.value;
+      Array.prototype.forEach.call(sel.options, function(opt){
+        var bad = down[opt.value];
+        if (!bad) return;
+        opt.disabled = true;
+        // The reason belongs on the option a person is about to click,
+        // not in a console nobody opens.
+        opt.text = opt.text.split(' · ')[0] + ' · '
+          + (bad.reason === 'unconfigured' ? 'not set up yet' : 'unavailable right now');
+      });
+      // A saved preference or a deep link can point at a dead brain, and
+      // a disabled selected option still submits. Fall back to Claude,
+      // which is the public default and the one seat we host ourselves.
+      if (down[current] && !down.claude) {
+        sel.value = 'claude';
+        syncJudgeChoice();
+      }
+    }).catch(function(){});
   })();
 
   var teamValues = {};

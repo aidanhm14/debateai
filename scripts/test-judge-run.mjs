@@ -70,5 +70,23 @@ const clamped = parseDims({ ...dims, clarity: { pro: 99, con: -4 } }, 'pro', 'co
 ok(clamped.clarity.pro === 10 && clamped.clarity.con === 1, 'axis scores clamp to 1-10');
 ok(parseDims(null, 'pro', 'con') === null && parseDims('nope', 'pro', 'con') === null, 'non-object dimensions drop cleanly');
 
+// ── the axis list has to be able to GROW ─────────────────────────────
+//
+// Persuasion joined the rubric in the 2026-persuasion season, and adding
+// it under the old strictly-all-or-nothing rule meant a four-axis ballot
+// produced NO scorecard at all, where it used to produce four. That
+// broke this file's own fixture and, with it, every commit in the repo,
+// which is a cheap way to learn that the four originals are a FLOOR and
+// anything after them is additive.
+const withNew = { ...dims, persuasion: { pro: 6, con: 9 } };
+const five = parseDims(withNew, 'pro', 'con');
+ok(five !== null && Object.keys(five).length === 5, 'a newer ballot keeps every axis it scored');
+ok(five.persuasion.con === 9, 'the added axis survives with its scores');
+const four = parseDims(dims, 'pro', 'con');
+ok(four !== null && Object.keys(four).length === 4,
+  'a ballot judged before the new axis existed still renders its four');
+ok(parseDims({ ...withNew, weighing: undefined }, 'pro', 'con') === null,
+  'a REQUIRED axis missing still drops the whole card');
+
 console.log(`\njudge-run: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -394,6 +394,39 @@ The rules that are easy to break by accident:
   is stamped on the audit row. An undisclosed effort is the same quiet
   dial as an undisclosed model.
 
+## Brain fleet health (/api/brain-health)
+
+Six brains are advertised on `/judge`, `/pricing` and the landing. On
+2026-08-11 **three of them were dead at once** and nothing reported it:
+Gemini's billing was exhausted, the xAI key was invalid, and
+`OPENROUTER_API_KEY` had never been set on Netlify. A signed-in user
+picking Grok got an error after pasting a whole transcript.
+
+```
+lib/brain-health.mjs   PURE: the roster, the failure classifier, the
+                         public redaction. Testable, no I/O.
+brain-health.mjs       GET /api/brain-health (public, keyless)
+scripts/test-brain-health.mjs   runs in the pre-commit hook
+```
+
+- **The roster must match `brains` in `js/judge-options.js` exactly.** A
+  brain probed but not offered reports health for something nobody can
+  select; one offered but not probed is the failure this exists to
+  catch. The test asserts both directions.
+- **The provider's raw error is never public.** "Your prepayment credits
+  are depleted" names an account's billing state, so the public payload
+  carries a reason CATEGORY and the raw text is added only for an
+  authenticated admin. The test asserts the redaction and that it does
+  not mutate the admin copy.
+- **Classify on the body before the status.** Providers overload codes:
+  xAI returns 400 for a bad key, Google returns 429 for exhausted
+  prepaid credit rather than for rate. Reading status first sends
+  whoever is on call to the wrong console.
+- **No cron.** It probes lazily when a request finds the 15-minute cache
+  cold, which is the 2026-05-18 credit-audit posture. Only an admin can
+  force a re-probe, or any visitor could spend provider calls with a
+  query parameter.
+
 ## Voice rules for AI debater outputs
 
 The voice bank lives **server-side** in

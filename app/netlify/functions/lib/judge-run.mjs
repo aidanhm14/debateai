@@ -31,7 +31,15 @@ import { normalizeVote, tallyPanel } from './judge-panel.mjs';
 const PANEL_ENABLED = process.env.JUDGE_PANEL_ENABLED !== '0';
 const REQUIRE_PANEL = process.env.JUDGE_REQUIRE_PANEL === '1';
 
-const DIM_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing', 'persuasion'];
+// The four axes every rubric since 2026-07-30 has demanded, plus any
+// added later. REQUIRED is the floor and OPTIONAL is what grew on top,
+// because a list that is strictly all-or-nothing cannot grow: adding
+// persuasion under the old rule made a four-axis ballot yield NO
+// scorecard at all, where it used to yield four. The renderers take the
+// same floor, so the two halves agree.
+const REQUIRED_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
+const OPTIONAL_AXES = ['persuasion'];
+const DIM_AXES = [...REQUIRED_AXES, ...OPTIONAL_AXES];
 
 // Output budget per juror. Was 900, which had stopped being enough
 // SILENTLY. Measured against a real three-speech round on 2026-08-11:
@@ -64,7 +72,14 @@ export function parseDims(raw, aKey, bKey) {
     const a = raw[axis];
     const av = Math.round(Number(a && a[aKey]));
     const bv = Math.round(Number(a && a[bKey]));
-    if (!Number.isFinite(av) || !Number.isFinite(bv)) return null;
+    if (!Number.isFinite(av) || !Number.isFinite(bv)) {
+      // A required axis missing still drops the whole card: a partial
+      // core scorecard reads as a lopsided verdict. An OPTIONAL axis
+      // missing just means this ballot predates it, or the juror
+      // skipped it, and four honest axes beat none.
+      if (REQUIRED_AXES.includes(axis)) return null;
+      continue;
+    }
     out[axis] = {
       [aKey]: Math.max(1, Math.min(10, av)),
       [bKey]: Math.max(1, Math.min(10, bv)),

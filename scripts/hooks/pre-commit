@@ -96,6 +96,23 @@ if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Brain-health guard. The probe redacts the provider's raw error before
+# publishing, because that text names an account's billing state and the
+# endpoint is public. It also has to stay in lockstep with the /judge
+# picker: a brain probed but not offered (or offered but not probed)
+# reports health for something nobody can select. Same posture.
+# ──────────────────────────────────────────────────────────────────
+BRAIN_HEALTH_GUARD="$REPO_ROOT/scripts/test-brain-health.mjs"
+if [ -f "$BRAIN_HEALTH_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-brain-health.mjs >/tmp/brain-health-guard.log 2>&1); then
+    echo "[brain-health-guard] commit blocked - the brain probe's guarantees no longer hold:" >&2
+    tail -20 /tmp/brain-health-guard.log >&2
+    echo "[brain-health-guard] see scripts/test-brain-health.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Opinion-panel guard. The panel is a measurement instrument: a reworded
 # stem or a duplicate id silently breaks comparability with every answer
 # already collected, and nothing about the incoming data looks wrong
