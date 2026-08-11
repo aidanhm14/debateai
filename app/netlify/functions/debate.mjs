@@ -92,7 +92,7 @@ function commonStyles() {
     --line:rgba(20,20,30,.10); --line-2:rgba(20,20,30,.17);
     --red:#dc2626;
     --serif:'Fraunces',Georgia,'Times New Roman',serif;
-    --sans:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    --sans:Crimson Pro,Georgia,serif;
   }
   html{scroll-behavior:smooth}
   body{

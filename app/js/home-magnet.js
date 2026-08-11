@@ -83,7 +83,7 @@
       'position:sticky', 'top:0', 'z-index:2147482000',
       'display:flex', 'align-items:center', 'gap:8px',
       'padding:8px 14px',
-      'font:600 13px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif',
+      'font:600 13px/1 Crimson Pro,Georgia,serif',
       'color:#fff', 'background:#ef4444',
       'box-shadow:0 1px 0 rgba(0,0,0,.10)'
     ].join(';');
@@ -152,7 +152,7 @@
     var s = document.createElement('style');
     s.id = 'ditHomePopCss';
     s.textContent =
-      '#ditHomePop{position:fixed;inset:0;z-index:2147483000;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
+      '#ditHomePop{position:fixed;inset:0;z-index:2147483000;font-family:Crimson Pro,Georgia,serif}' +
       '#ditHomePop .ditHP-back{position:absolute;inset:0;background:rgba(8,6,4,.5);opacity:0;transition:opacity .25s ease}' +
       '#ditHomePop.in .ditHP-back{opacity:1}' +
       '#ditHomePop .ditHP-card{position:absolute;left:50%;top:50%;transform:translate(-50%,calc(-50% + 14px));' +

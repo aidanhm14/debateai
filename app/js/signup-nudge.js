@@ -181,7 +181,7 @@
       '.signup-nudge .su-cta:hover{background:#f3f3f0}' +
       '.signup-nudge .su-close{border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit}' +
       '.signup-nudge .su-close:hover{color:#fff}' +
-      '.signup-nudge .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.65);cursor:pointer}' +
+      '.signup-nudge .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Crimson Pro,Georgia,serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.65);cursor:pointer}' +
       '.signup-nudge .su-optin input{width:15px;height:15px;margin:1px 0 0;accent-color:#dc2626;flex:none}' +
       '.signup-nudge--prominent{width:min(390px,calc(100vw - 36px));flex-wrap:wrap;padding:18px;border-radius:18px}' +
       '.signup-nudge--prominent .su-line{flex:1 1 100%;font-size:.9rem;line-height:1.45}' +

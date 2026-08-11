@@ -186,7 +186,7 @@
       'background:rgba(8,8,14,.95)',
       'border:1px solid rgba(239,68,68,.32)',
       'color:#fff',
-      'font:600 .76rem/1 system-ui,sans-serif',
+      'font:600 .76rem/1 Crimson Pro,Georgia,serif',
       'padding:7px 10px',
       'border-radius:8px',
       'transform:translate(-50%,-130%)',
