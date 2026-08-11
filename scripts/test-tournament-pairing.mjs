@@ -12,6 +12,7 @@
 import {
   pairPrelimRound, standings, breakField, elimPairings, elimLabel,
   advanceElim, resultPatch, byePatch, rng, seedFrom,
+  pairDropIn, availableForDropIn,
 } from '../app/netlify/functions/lib/tournament.mjs';
 
 let pass = 0;
@@ -259,6 +260,254 @@ function runPrelims(fieldSize, rounds, seed) {
   check(tag + ' zero rematches at scale', rematchTotal === 0, rematchTotal + ' rematches');
   check(tag + ' no entry byes twice', byeStack === 0, byeStack + ' stacked byes');
 });
+
+// ── Drop-in pairing ────────────────────────────────────────────────
+//
+// The all-day format the site actually sells. Different failure modes
+// from the synchronous draw, so different assertions: the dangerous
+// ones here are a free win handed to whoever turned up at an odd
+// moment, and a debater who waits all afternoon while later arrivals
+// get seated ahead of them.
+(function dropIn() {
+  const T = 1_000_000;
+  const q = (e, atMs) => ({ ...e, availableAt: atMs });
+
+  // ── availability ────────────────────────────────────────────────
+  const base = makeField(4);
+  check('dropin: unqueued entries are not available',
+    availableForDropIn(base, T).length === 0);
+  check('dropin: queued entries are available',
+    availableForDropIn(base.map((e) => q(e, T)), T).length === 4);
+  check('dropin: a stale queue slot drops out',
+    availableForDropIn([q(base[0], T - 60_000), q(base[1], T - 60 * 60_000)], T).length === 1);
+  check('dropin: someone already in a round is not available',
+    availableForDropIn([q(base[0], T), { ...q(base[1], T), inPairing: 'd1-1' }], T).length === 1);
+  check('dropin: a withdrawn entry is not available',
+    availableForDropIn([q(base[0], T), { ...q(base[1], T), status: 'withdrawn' }], T).length === 1);
+
+  // ── the two rules that are specific to drop-in ──────────────────
+  const one = pairDropIn([q(base[0], T)], { now: T });
+  check('dropin: a lone entrant gets no pairing', one.pairings.length === 0);
+  check('dropin: a lone entrant is reported as waiting', one.waiting.length === 1);
+  check('dropin: waiting is NOT a bye (no bye field at all)', !('bye' in one));
+
+  const odd = pairDropIn([q(base[0], T - 300_000), q(base[1], T - 200_000), q(base[2], T - 5_000)], { now: T });
+  check('dropin: odd pool seats one pair', odd.pairings.length === 1);
+  check('dropin: odd pool leaves exactly one waiting', odd.waiting.length === 1);
+  check('dropin: the NEWEST arrival is the one who waits',
+    odd.waiting[0].entryId === 'e3', 'waited=' + odd.waiting[0].entryId);
+  const seated = [odd.pairings[0].govEntry, odd.pairings[0].oppEntry].sort().join(',');
+  check('dropin: the two longest waiters are the ones seated', seated === 'e1,e2', seated);
+  check('dropin: waiting time is reported', odd.waiting[0].waitingMs === 5_000);
+  // The odd-pool path is the one that could grow a bye by accident,
+  // since it is the only place an entrant is set aside. A bye here
+  // would make arriving at an odd moment worth a free win.
+  check('dropin: the odd-pool draw exposes NO bye', !('bye' in odd));
+  check('dropin: the sit-out is described as waiting, not as a bye',
+    Object.keys(odd).every((k) => k.toLowerCase() !== 'bye'));
+
+  // ── sit-out choice avoids a forced rematch ──────────────────────
+  // A and B have met. C and D have not met anyone. Newest is D. Sitting
+  // D out would leave A,B,C and force the A-B rematch; the engine must
+  // try another sit-out instead.
+  const hist = [
+    q({ ...base[0], opponents: ['e2'] }, T - 400_000),
+    q({ ...base[1], opponents: ['e1'] }, T - 300_000),
+    q(base[2], T - 200_000),
+    q({ ...base[3], entryId: 'e4', name: 'Team 4' }, T - 10_000),
+    q({ ...base[0], entryId: 'e5', name: 'Team 5', opponents: [] }, T - 5_000),
+  ];
+  const avoided = pairDropIn(hist, { now: T });
+  check('dropin: a forced rematch is avoided by choosing a different sit-out',
+    avoided.rematches === 0, avoided.rematches + ' rematches');
+  check('dropin: still seats two pairs from five', avoided.pairings.length === 2);
+
+  // ── patience, and the deadlock it must never recreate ───────────
+  // Two who have met, both freshly arrived: hold rather than repeat.
+  const met2 = [
+    q({ ...base[0], opponents: ['e2'] }, T - 30_000),
+    q({ ...base[1], opponents: ['e1'] }, T - 30_000),
+  ];
+  const held = pairDropIn(met2, { now: T });
+  check('dropin: a repeat is held back while the wait is short', held.pairings.length === 0);
+  check('dropin: holding is reported as such', held.heldForFreshOpponent === true);
+  check('dropin: both are still shown as waiting', held.waiting.length === 2);
+
+  // Same pair, now well past patience: play the repeat rather than
+  // leave them queueing all afternoon.
+  const waited = pairDropIn([
+    q({ ...base[0], opponents: ['e2'] }, T - 5 * 60_000),
+    q({ ...base[1], opponents: ['e1'] }, T - 5 * 60_000),
+  ], { now: T });
+  check('dropin: a repeat is seated once someone has waited past patience',
+    waited.pairings.length === 1);
+  check('dropin: that draw admits it fell back', waited.rematchFallback === true);
+
+  // THE DEADLOCK GUARD. Patience above the staleness window means an
+  // entrant ages out of the queue before the hold releases, so nobody
+  // ever plays. Measured: a 6-entrant day ran 3 rounds instead of 69.
+  // The clamp must make an absurd patience harmless.
+  const absurd = pairDropIn([
+    q({ ...base[0], opponents: ['e2'] }, T - 5 * 60_000),
+    q({ ...base[1], opponents: ['e1'] }, T - 5 * 60_000),
+  ], { now: T, rematchPatienceMs: 60 * 60_000 });
+  check('dropin: patience is clamped below the staleness window, so it cannot deadlock',
+    absurd.pairings.length === 1, 'held with patience > window');
+
+  // ── determinism ─────────────────────────────────────────────────
+  const pool = base.map((e, i) => q(e, T - (4 - i) * 60_000));
+  const a1 = pairDropIn(pool, { tid: 'aug29', seq: 7, now: T });
+  const a2 = pairDropIn(pool, { tid: 'aug29', seq: 7, now: T });
+  check('dropin: same inputs and seq reproduce the same draw',
+    JSON.stringify(a1.pairings) === JSON.stringify(a2.pairings));
+  const a3 = pairDropIn(pool, { tid: 'aug29', seq: 8, now: T });
+  check('dropin: a different seq is allowed to differ', a3.seed !== a1.seed);
+
+  // ── pairing shape ───────────────────────────────────────────────
+  const ids = new Set(a1.pairings.map((p) => p.pairingId));
+  check('dropin: pairing ids are unique', ids.size === a1.pairings.length);
+  check('dropin: pairings are marked kind=dropin', a1.pairings.every((p) => p.kind === 'dropin'));
+  check('dropin: pairings carry roundNo 0', a1.pairings.every((p) => p.roundNo === 0));
+  check('dropin: pairings stamp pairedAt', a1.pairings.every((p) => p.pairedAt === T));
+  check('dropin: nobody is seated twice in one draw', (() => {
+    const seen = new Set();
+    for (const p of a1.pairings) {
+      if (seen.has(p.govEntry) || seen.has(p.oppEntry)) return false;
+      seen.add(p.govEntry); seen.add(p.oppEntry);
+    }
+    return true;
+  })());
+  check('dropin: nobody is paired against themselves',
+    a1.pairings.every((p) => p.govEntry !== p.oppEntry));
+
+  // ── side balance ────────────────────────────────────────────────
+  // Two entrants owed Gov and two owed Opp must be crossed, not stacked.
+  const skewed = [
+    q({ ...base[0], sideCount: { gov: 3, opp: 0 } }, T - 40_000),
+    q({ ...base[1], sideCount: { gov: 0, opp: 3 } }, T - 30_000),
+    q({ ...base[2], sideCount: { gov: 3, opp: 0 } }, T - 20_000),
+    q({ ...base[3], sideCount: { gov: 0, opp: 3 } }, T - 10_000),
+  ];
+  const sides = pairDropIn(skewed, { now: T });
+  const govOwedGetsOpp = sides.pairings.every((p) => {
+    const g = skewed.find((e) => e.entryId === p.govEntry);
+    const o = skewed.find((e) => e.entryId === p.oppEntry);
+    return (g.sideCount.gov - g.sideCount.opp) <= (o.sideCount.gov - o.sideCount.opp);
+  });
+  check('dropin: whoever owes Gov least takes Gov', govOwedGetsOpp);
+
+  // ── a full simulated day ────────────────────────────────────────
+  //
+  // Entrants trickle in across the afternoon, play a round that takes
+  // real time, then rejoin the queue. Round duration is the parameter
+  // that matters most and the first version of this test left it out:
+  // with instant rounds a 14-entrant field played 350 rounds in an
+  // hour, everyone exhausted all 13 possible opponents, and rematches
+  // became arithmetic rather than a defect.
+  //
+  // WHICH IS ALSO THE REAL FINDING, and it is about Aug 29 rather than
+  // about this code: in an all-day format with a small field, people
+  // WILL replay each other. A 14-entrant day at ~25 minutes a round is
+  // roughly 10 rounds each against 13 possible opponents, so it stays
+  // clean; a 6-entrant day would not. The engine cannot invent fresh
+  // opponents, so the assertion below is the honest one: a rematch is
+  // only ever seated when the pool admitted NO rematch-free draw, and
+  // the draw says so on the record when that happens.
+  function simulateDay(fieldSize, roundMs, label) {
+    const next = rng(seedFrom('aug29-' + fieldSize));
+    const field = makeField(fieldSize).map((e) => ({ ...e, availableAt: 0, inPairing: '', busyUntil: 0 }));
+    let now = T;
+    let seq = 0;
+    let seated = 0;
+    let rematches = 0;
+    let unflaggedRematches = 0;
+    let selfPair = 0;
+    let doubleSeat = 0;
+    let maxWait = 0;
+    const winsBefore = field.reduce((s, e) => s + e.wins, 0);
+
+    field.forEach((e, i) => { e.arrivesAt = T + i * 4 * 60_000; });
+
+    const TICK = 2 * 60_000;
+    for (let tick = 0; tick < 300; tick += 1) {   // 10 hours
+      now += TICK;
+
+      // Finish anyone whose round is over, then requeue them.
+      field.forEach((e) => {
+        if (e.inPairing && now >= e.busyUntil) { e.inPairing = ''; e.availableAt = now; }
+      });
+      // New arrivals and idle entrants join the queue.
+      field.forEach((e) => {
+        if (now >= e.arrivesAt && !e.inPairing && !e.availableAt) e.availableAt = now;
+      });
+
+      const draw = pairDropIn(field, { tid: 'aug29', seq: seq += 1, now });
+      const seatedNow = new Set();
+      draw.pairings.forEach((p) => {
+        if (p.govEntry === p.oppEntry) selfPair += 1;
+        if (seatedNow.has(p.govEntry) || seatedNow.has(p.oppEntry)) doubleSeat += 1;
+        seatedNow.add(p.govEntry); seatedNow.add(p.oppEntry);
+
+        const g = field.find((e) => e.entryId === p.govEntry);
+        const o = field.find((e) => e.entryId === p.oppEntry);
+        if (g.opponents.includes(o.entryId)) {
+          rematches += 1;
+          // The guarantee: the engine only seats a rematch when no
+          // rematch-free matching existed over that pool, and it flags
+          // the draw when it does. An unflagged rematch is a real bug.
+          if (!draw.rematchFallback) unflaggedRematches += 1;
+        }
+
+        g.inPairing = p.pairingId; o.inPairing = p.pairingId;
+        g.availableAt = 0; o.availableAt = 0;
+        g.busyUntil = now + roundMs; o.busyUntil = now + roundMs;
+        seated += 1;
+
+        const govWon = next() < 0.5;
+        const gp = resultPatch(g, { won: govWon, speaks: 27, side: 'gov', opponentEntryId: o.entryId });
+        const op = resultPatch(o, { won: !govWon, speaks: 27, side: 'opp', opponentEntryId: g.entryId });
+        Object.assign(g, gp, { inPairing: p.pairingId, availableAt: 0, busyUntil: now + roundMs });
+        Object.assign(o, op, { inPairing: p.pairingId, availableAt: 0, busyUntil: now + roundMs });
+      });
+      draw.waiting.forEach((w) => { maxWait = Math.max(maxWait, w.waitingMs); });
+    }
+
+    const winsAfter = field.reduce((s, e) => s + e.wins, 0);
+    const byes = field.reduce((s, e) => s + Number(e.byes || 0), 0);
+    const tag = 'dropin day (' + label + ')';
+
+    check(tag + ': rounds actually got seated', seated > fieldSize, 'seated=' + seated);
+    check(tag + ': nobody paired against themselves', selfPair === 0);
+    check(tag + ': nobody seated twice in one draw', doubleSeat === 0);
+    check(tag + ': NO byes were ever awarded', byes === 0, byes + ' byes');
+    check(tag + ': every win came from a played round',
+      winsAfter - winsBefore === seated, (winsAfter - winsBefore) + ' wins for ' + seated + ' rounds');
+    check(tag + ': no rematch was seated while a clean draw existed',
+      unflaggedRematches === 0, unflaggedRematches + ' unflagged of ' + rematches);
+    check(tag + ': nobody is starved waiting',
+      maxWait <= 30 * 60_000, 'maxWait=' + Math.round(maxWait / 60_000) + 'min');
+    const spread = field.map((e) => Math.abs(e.sideCount.gov - e.sideCount.opp));
+    check(tag + ': nobody ends more than 2 sides skewed',
+      Math.max(...spread) <= 2, 'max skew ' + Math.max(...spread));
+    check(tag + ': everyone played', field.every((e) => e.wins + (e.losses || 0) > 0));
+    return { seated, rematches, maxWait };
+  }
+
+  const day14 = simulateDay(14, 25 * 60_000, '14 entrants, 25min rounds');
+  const day6 = simulateDay(6, 25 * 60_000, '6 entrants, 25min rounds');
+  const day40 = simulateDay(40, 25 * 60_000, '40 entrants, 25min rounds');
+
+  // The board must still break, which is the whole point of playing.
+  const brField = makeField(16).map((e, i) => ({ ...e, wins: 16 - i, speaks: 27 + (16 - i) / 10 }));
+  check('dropin: a drop-in board still breaks to a real bracket',
+    breakField(brField, 8).breaking.length === 8);
+
+  // Reported, not asserted. This is a planning number for Aug 29, not a
+  // pass/fail: it says how much repeat-play a given turnout produces.
+  console.log('  [drop-in day model] 6 entrants: ' + day6.seated + ' rounds, ' + day6.rematches + ' repeats'
+    + ' | 14: ' + day14.seated + ' rounds, ' + day14.rematches + ' repeats'
+    + ' | 40: ' + day40.seated + ' rounds, ' + day40.rematches + ' repeats');
+})();
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) {

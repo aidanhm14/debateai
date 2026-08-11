@@ -384,6 +384,211 @@ export function pairPrelimRound(entries, roundNo, opts = {}) {
   };
 }
 
+// ── Drop-in pairing ────────────────────────────────────────────────
+//
+// pairPrelimRound above assumes a SYNCHRONOUS tournament: everybody
+// plays round 1, the director pairs round 2, and so on. /tournaments
+// promises the opposite, and has since the all-day format was decided:
+// doors open, you turn up whenever, you get paired, you play as many
+// rounds as you like. On a small base that is the right call, because a
+// fixed start time needs everyone free at the same hour while an
+// all-day pool only needs two people awake at once.
+//
+// Nothing here re-implements the draw. The matcher, the side repair and
+// the side assignment are the same functions the synchronous path uses,
+// so drop-in inherits the rematch ban, the power pairing and the side
+// balance rather than growing a second-rate copy of them. What changes
+// is only WHO is in the pool and what happens to an odd one out.
+//
+// Two rules that are specific to drop-in and easy to get wrong:
+//
+// 1. THERE ARE NO BYES. In a synchronous round a bye is a free win
+//    handed to whoever the field could not seat, and byePatch awards
+//    one. In drop-in an unpaired entrant has not missed a round, they
+//    are simply next in line, so they WAIT. Awarding a bye here would
+//    make arriving at an odd moment worth a free win, which is the
+//    cheapest possible way to farm a $500 prize.
+//
+// 2. THE LONGEST WAITER GETS PRIORITY. The pool is ordered by
+//    standings so the matcher still power-pairs, but when the pool is
+//    odd the person who sits out is the one who just arrived, never the
+//    one who has been waiting twenty minutes. Without that rule a
+//    steady trickle of arrivals can starve someone indefinitely while
+//    the board looks busy.
+// 3. PATIENCE BEFORE A REPEAT. The pool available at any instant is
+//    small even when the field is large, because most entrants are
+//    mid-round. Seating the first legal pair the moment two people are
+//    free therefore produces repeat matchups in a field with plenty of
+//    fresh opponents: measured over a simulated 10-hour day at 25
+//    minutes a round, an eager matcher gave a 40-entrant field 345
+//    repeats across 411 rounds, which is not an opponent shortage, it
+//    is the matcher choosing from whoever happens to be idle.
+//
+//    So when the only available draw needs a repeat, the engine waits
+//    instead, up to DROPIN_REMATCH_PATIENCE_MS. A few more minutes in
+//    the queue buys a much wider pool. Past that threshold a repeat is
+//    seated, because a fresh opponent nobody can find is worth less
+//    than a round you actually get to play.
+const DROPIN_AVAILABLE_MS = 6 * 60 * 1000;   // a queue slot goes stale after 6 min of silence
+const DROPIN_ODD_TRIES = 6;                  // how many sit-out candidates to try for a clean draw
+//    PATIENCE MUST STAY BELOW THE STALENESS WINDOW. Set it above and the
+//    two rules deadlock: an entrant holding out for a fresh opponent
+//    ages out of the pool before the gate ever releases them, so the
+//    queue empties itself and nobody plays. Measured with patience at 8
+//    minutes against a 6-minute window, a 6-entrant day ran 3 rounds
+//    instead of 69. The clamp below makes that unrepresentable rather
+//    than relying on whoever edits these two numbers next to notice.
+const DROPIN_REMATCH_PATIENCE_MS = 4 * 60 * 1000;
+
+function availableAtMs(e) {
+  return Number(e.availableAt || 0);
+}
+
+/**
+ * Everyone who could be paired right now: active, not already in a
+ * round, and with a queue slot that has not gone stale. Stale slots are
+ * excluded rather than deleted; the caller decides whether to clean up.
+ */
+export function availableForDropIn(entries, now, windowMs) {
+  const w = Number(windowMs) || DROPIN_AVAILABLE_MS;
+  const t = Number(now) || 0;
+  return activeEntries(entries).map(norm).filter((e) => {
+    if (e.inPairing) return false;
+    const at = availableAtMs(e);
+    return at > 0 && t - at <= w;
+  });
+}
+
+/**
+ * Pair whoever is available at this moment.
+ *
+ * @param entries  every entry doc; availability is derived, not passed
+ * @param opts     { tid, seq, now, seed, windowMs }
+ *                 `seq` is a monotonic counter the caller increments per
+ *                 pairing attempt. It exists so the draw stays SEEDED
+ *                 and reproducible: a coach asking why they hit the same
+ *                 opponent twice can be answered from the record rather
+ *                 than from memory, which is the same property the
+ *                 synchronous draw has.
+ * @returns { pairings, waiting, seed, rematches, pullUps, rematchFallback, searchExhausted }
+ */
+export function pairDropIn(entries, opts = {}) {
+  const now = Number(opts.now) || 0;
+  const seq = Number(opts.seq) || 0;
+  const seed = opts.seed != null ? opts.seed : seedFrom((opts.tid || 't') + ':d' + seq);
+  const next = rng(seed);
+
+  const pool = availableForDropIn(entries, now, opts.windowMs);
+  const waitingOf = (list) => list
+    .slice()
+    .sort((a, b) => availableAtMs(a) - availableAtMs(b))
+    .map((e) => ({ entryId: e.entryId, name: e.name || 'Team', waitingMs: Math.max(0, now - availableAtMs(e)) }));
+
+  if (pool.length < 2) {
+    return { pairings: [], waiting: waitingOf(pool), seed, rematches: 0, pullUps: 0, rematchFallback: false, searchExhausted: false };
+  }
+
+  // Standings order is what makes the matcher power-pair: its third
+  // cost term is index proximity, so a rank-ordered list means the
+  // nearest acceptable opponent is the nearest in the standings.
+  const ranked = standings(pool);
+
+  let sitOut = [];
+  let pairPool = ranked;
+  let clean = null;
+  let exhausted = false;
+
+  if (ranked.length % 2 === 1) {
+    // Try sitting out the most recently arrived first, then the next
+    // most recent, and so on. Dropping purely by arrival order can
+    // force a rematch that a different choice would have avoided, so
+    // the first candidate that yields a rematch-free draw wins. Bounded
+    // because the pool is small and a director's day is not.
+    const byNewest = ranked.slice().sort((a, b) => availableAtMs(b) - availableAtMs(a));
+    const tries = Math.min(DROPIN_ODD_TRIES, byNewest.length);
+    for (let i = 0; i < tries; i += 1) {
+      const cand = byNewest[i];
+      const rest = ranked.filter((e) => e.entryId !== cand.entryId);
+      const attempt = matchGlobally(rest);
+      exhausted = exhausted || attempt.exhausted;
+      if (attempt.pairs) { clean = attempt.pairs; pairPool = rest; sitOut = [cand]; break; }
+    }
+    if (!clean) {
+      // No sit-out choice produces a clean draw. Fall back to the
+      // newest waiting, which is the fair one, and let the relaxed
+      // matcher run. Someone gets a rematch; nobody gets a free win.
+      sitOut = [byNewest[0]];
+      pairPool = ranked.filter((e) => e.entryId !== byNewest[0].entryId);
+    }
+  } else {
+    const attempt = matchGlobally(ranked);
+    exhausted = attempt.exhausted;
+    clean = attempt.pairs;
+  }
+
+  // Patience: a repeat matchup is worth waiting a few minutes to avoid,
+  // because the pool widens fast as rounds end. Everyone holds unless
+  // somebody has already waited past the threshold, at which point a
+  // repeat beats another twenty minutes in the queue.
+  if (!clean) {
+    const windowMs = Number(opts.windowMs) || DROPIN_AVAILABLE_MS;
+    const wanted = Number.isFinite(Number(opts.rematchPatienceMs))
+      ? Number(opts.rematchPatienceMs)
+      : DROPIN_REMATCH_PATIENCE_MS;
+    // Never hold longer than a queue slot survives. See the note above.
+    const patience = Math.max(0, Math.min(wanted, windowMs - 60_000));
+    const longestWait = pool.reduce((m, e) => Math.max(m, now - availableAtMs(e)), 0);
+    if (longestWait < patience) {
+      return {
+        pairings: [],
+        waiting: waitingOf(pool),
+        seed,
+        pullUps: 0,
+        rematches: 0,
+        rematchFallback: false,
+        heldForFreshOpponent: true,
+        searchExhausted: exhausted,
+      };
+    }
+  }
+
+  const pairs = repairSides(clean || matchRelaxed(pairPool));
+  const rematchFallback = !clean;
+
+  const pullUps = pairs.filter(([a, b]) => a.wins !== b.wins).length;
+  const rematches = pairs.filter(([a, b]) => a.opponents.includes(b.entryId)).length;
+
+  const pairings = pairs.map(([a, b], i) => {
+    const { gov, opp } = assignSides(a, b, next);
+    return {
+      pairingId: 'd' + seq + '-' + (i + 1),
+      // Drop-in play has no round number. Kept on the object at 0 so
+      // every consumer that sorts or renders pairings keeps working;
+      // `kind` is what distinguishes these from a paired round.
+      roundNo: 0,
+      kind: 'dropin',
+      govEntry: gov.entryId,
+      govName: gov.name || 'Team',
+      oppEntry: opp.entryId,
+      oppName: opp.name || 'Team',
+      room: '',
+      status: 'pending',
+      winner: '',
+      pairedAt: now,
+    };
+  });
+
+  return {
+    pairings,
+    waiting: waitingOf(sitOut),
+    seed,
+    pullUps,
+    rematches,
+    rematchFallback,
+    searchExhausted: exhausted,
+  };
+}
+
 // ── Break ──────────────────────────────────────────────────────────
 //
 // The cut from prelims to elims. A bracket needs a power of two, so
