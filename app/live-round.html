@@ -8974,9 +8974,15 @@ html.stage-mode .stage-ov{display:block}
   function audCol(name){
     return (firebaseDb && state.roundDocRef) ? state.roundDocRef.collection(name) : null;
   }
+  // Audience identity. Routes through publicNameOf so a comment, a topic
+  // suggestion and a leaderboard row all carry the same name; this one
+  // writes into audience documents, so getting it from displayName left a
+  // chosen name out of exactly the surfaces other people read.
   function audMe(){
     var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
-    return u ? { uid: u.uid, name: (state.user && state.user.displayName) || u.displayName || 'Viewer' } : null;
+    if (!u) return null;
+    var nm = publicNameOf(state.user || u) || u.displayName || 'Viewer';
+    return { uid: u.uid, name: nm };
   }
   function audStamp(ts){
     try {

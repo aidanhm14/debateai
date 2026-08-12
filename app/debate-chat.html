@@ -400,6 +400,10 @@ footer.foot a{color:var(--text-dim)}
 <body>
 
 <div id="daTopbar"></div>
+<!-- Loaded explicitly rather than through topbar.js's lazy path: this page
+     stamps the user's name into documents other people read, and that read
+     must not race the module's arrival. -->
+<script defer src="/js/public-identity.js"></script>
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/notifications.js"></script>
 
@@ -941,8 +945,15 @@ footer.foot a{color:var(--text-dim)}
     } catch (e) { console.warn('[debate-chat] live count subscribe failed', e); }
   }
 
+  // Chosen name first. See the note in chat.html: reading displayName
+  // straight off the account ignores the override set on /profile, which
+  // is the name this user actually asked to be known by.
   function shortName(u){
     if (!u) return 'Anonymous';
+    if (window.DBIdentity) {
+      var id = window.DBIdentity.forUser(u);
+      if (id && id.chosen && id.name) return id.name;
+    }
     var full = String(u.displayName || '').trim();
     var parts = full.split(/\s+/).filter(Boolean);
     if (parts.length >= 2) return parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.';

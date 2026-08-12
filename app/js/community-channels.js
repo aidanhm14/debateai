@@ -194,12 +194,24 @@
     send.addEventListener('click', doSend);
   }
 
+  // The name this account posts under. Same rule as everywhere else: a
+  // chosen name beats the account name. It matters here because it is
+  // written onto every message document, so the wrong one persists in the
+  // channel rather than being re-rendered correctly next load.
+  function postingName(){
+    if (window.DBIdentity && user) {
+      const id = window.DBIdentity.forUser(user);
+      if (id && id.chosen && id.name) return id.name;
+    }
+    return (user && user.displayName) || '';
+  }
+
   function renderIdent(){
     if (!active) return;
     if (active.anon){
       els.ident.innerHTML = 'posting as <b>' + escHtml(anonHandle()) + '</b> &middot; anonymous room';
     } else if (user && !user.isAnonymous){
-      els.ident.innerHTML = 'posting as <b>' + escHtml(user.displayName || 'you') + '</b>';
+      els.ident.innerHTML = 'posting as <b>' + escHtml(postingName() || 'you') + '</b>';
     } else {
       els.ident.textContent = 'read-only until you sign in';
     }
@@ -271,7 +283,7 @@
     if (!db || !user || user.isAnonymous) return Promise.reject(new Error('signin'));
     return db.collection('community_channels').doc(active.id).collection('messages').add({
       uid: user.uid,
-      name: user.displayName || 'debater',
+      name: postingName() || 'debater',
       photo: user.photoURL || '',
       text: text,
       channel: active.id,

@@ -437,6 +437,10 @@ em,i{font-style:normal}
   </main>
 </div>
 
+<!-- Loaded explicitly rather than through topbar.js's lazy path: this page
+     stamps the user's name into documents other people read, and that read
+     must not race the module's arrival. -->
+<script defer src="/js/public-identity.js"></script>
 <script defer src="/js/topbar.js"></script>
 
 <script>
@@ -499,8 +503,17 @@ em,i{font-style:normal}
     return Math.floor(d/86400000) + 'd';
   }
 
+  // A name the user picked wins over the account name. DBIdentity is the
+  // one place that knows about the override; reading u.displayName here
+  // was showing people their Google name after they had explicitly set
+  // something else. Falls back to the old logic when the module has not
+  // loaded, so this degrades to previous behaviour rather than to blank.
   function shortName(u){
     if (!u) return 'You';
+    if (window.DBIdentity) {
+      var id = window.DBIdentity.forUser(u);
+      if (id && id.chosen && id.name) return id.name;
+    }
     var n = u.displayName || '';
     if (!n) return 'You';
     var parts = n.trim().split(/\s+/);

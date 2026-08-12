@@ -260,6 +260,10 @@ img.msg-av{display:block}
     if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
   } catch (e) { console.error('firebase init', e); }
 </script>
+<!-- Loaded explicitly rather than through topbar.js's lazy path: this page
+     stamps the user's name into documents other people read, and that read
+     must not race the module's arrival. -->
+<script defer src="/js/public-identity.js"></script>
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/home-magnet.js"></script>
 <script>
@@ -452,6 +456,21 @@ img.msg-av{display:block}
     db.collection('dm_threads').doc(activeId).update(upd).catch(function(){});
   }
 
+  // The name that goes out on a DM. This matters more here than on a
+  // render surface: fromName is STAMPED INTO EVERY MESSAGE DOCUMENT, so a
+  // wrong name is frozen in the recipient's thread forever rather than
+  // being corrected on the next paint. Reading me.displayName sent the
+  // Google account name even when the user had set something else on
+  // /profile. Falls back to the previous first-name behaviour when the
+  // identity module has not loaded.
+  function myDmName(){
+    if (window.DBIdentity && me) {
+      var id = window.DBIdentity.forUser(me);
+      if (id && id.chosen && id.name) return id.name;
+    }
+    return ((me && me.displayName) || 'Debater').split(' ')[0];
+  }
+
   // ── send (same doc shapes as /spar so both surfaces interop) ─────
   function send(){
     var input = $('msgInput'), btn = $('msgSend'), errBox = $('msgSendErr');
@@ -464,7 +483,7 @@ img.msg-av{display:block}
     var threadRef = db.collection('dm_threads').doc(activeThread.id);
     var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
     var pInfo = Object.assign({}, activeThread.participantInfo);
-    pInfo[me.uid] = { name: (me.displayName || 'Debater').split(' ')[0], photo: me.photoURL || '' };
+    pInfo[me.uid] = { name: myDmName(), photo: me.photoURL || '' };
     var unread = {};
     (activeThread.participants || []).forEach(function(uid){
       unread[uid] = (uid === me.uid) ? 0 : firebase.firestore.FieldValue.increment(1);
@@ -481,7 +500,7 @@ img.msg-av{display:block}
     threadRef.set(threadDoc, { merge: true }).then(function(){
       return threadRef.collection('messages').add({
         fromUid: me.uid,
-        fromName: (me.displayName || 'Debater').split(' ')[0],
+        fromName: myDmName(),
         text: text,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -517,7 +536,7 @@ img.msg-av{display:block}
       deepLinkDone = true;
       var id = [me.uid, dm].sort().join('_');
       var pInfo = {};
-      pInfo[me.uid] = { name: (me.displayName || 'Debater').split(' ')[0], photo: me.photoURL || '' };
+      pInfo[me.uid] = { name: myDmName(), photo: me.photoURL || '' };
       pInfo[dm] = { name: qs.get('name') || 'Debater', photo: '' };
       openThread(id, { participants: [me.uid, dm], participantInfo: pInfo });
     } else {
@@ -577,7 +596,11 @@ img.msg-av{display:block}
       return;
     }
     paintFormatChips();
-    $('pfName').value = (me.displayName || '').slice(0, 60);
+    // Seed the public-profile name from the chosen name too, so someone
+    // who set one does not get their account name back as the suggestion
+    // and have to correct it a second time. Still editable; the stored
+    // public_profiles value below still wins once it exists.
+    $('pfName').value = (myDmName() || me.displayName || '').slice(0, 60);
     db.collection('public_profiles').doc(me.uid).get().then(function(doc){
       if (!doc.exists) return;
       var d = doc.data() || {};
