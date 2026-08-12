@@ -742,6 +742,24 @@
     </div>
   </div>
 
+  <!-- Reddit answer queue. scheduled-reddit-watch.mjs finds questions on
+       debate subreddits and DRAFTS a reply; nothing is ever posted by a
+       machine. Copy the draft, post it yourself under your own account,
+       then mark it here. Marking 'posted' is bookkeeping, not an action:
+       the endpoint contains no Reddit call at all. -->
+  <div class="section" data-pane="product">
+    <div class="card">
+      <div class="title">
+        <span>Reddit · answer queue</span>
+        <span class="meta" id="oq-meta">Loading…</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
+        Questions worth answering, with a drafted reply. Nothing posts automatically. Read the draft, edit it in your own words, post it yourself, then mark it here so it stops showing up.
+      </div>
+      <div id="oq-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- X pulse review queue. scheduled-x-pulse.mjs harvests live fault lines
        from X overnight and writes motions as status:'pending'. NOTHING
        reaches a student until it is approved here, because X discourse is
@@ -2284,7 +2302,10 @@ const PANE_LOADERS = {
   pulse:     [ () => loadVisitors() ],
   growth:    [ () => loadFunnel(), () => loadRoundFunnel(), () => loadFounderVideo(), () => loadPollResults() ],
   people:    [ () => loadSubscribers(), () => loadProspects() ],
-  product:   [],
+  // Deferred, not eager, per the read-budget note above. The queue holds
+  // a handful of docs and is only actionable when someone is actually
+  // looking at the Product pane, so it costs nothing on a cold open.
+  product:   [ () => loadOutreachQueue() ],
   broadcast: [ () => refreshStreamStatus() ],
   ops:       [ () => loadCoaches(), () => loadWinback() ],
 };
@@ -2819,6 +2840,85 @@ async function loadBrainHealth(){
   } catch (e) {
     meta.textContent = 'failed';
     body.innerHTML = '<div class="meta">Could not probe the brains: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Reddit answer queue ───────────────────────────────────────────────
+// Drafts written by scheduled-reddit-watch. The only actions are "copy the
+// draft" and "record what I did with it". There is deliberately no Post
+// button, because nothing in this codebase can post to Reddit; see
+// lib/reddit-queue.mjs for why that is structural.
+async function oqAction(key, status){
+  const token = await getToken();
+  const r = await fetch('/api/admin/outreach-queue', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, status }),
+  });
+  if (!r.ok){ const j = await r.json().catch(()=>({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+  return r.json();
+}
+
+function renderOqCard(row){
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px">' +
+    '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">' +
+      '<a href="' + esc(row.url) + '" target="_blank" rel="noopener" style="font-weight:700;font-size:13.5px">' + esc(row.title) + '</a>' +
+      '<span class="meta">r/' + esc(row.subreddit) + ' · score ' + (row.score || 0) + ' · ' + (row.numComments || 0) + ' comments</span>' +
+    '</div>' +
+    (row.excerpt ? '<div class="meta" style="margin-bottom:8px;line-height:1.45;max-height:64px;overflow:hidden">' + esc(row.excerpt) + '</div>' : '') +
+    '<div style="background:rgba(0,0,0,.04);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap">' + esc(row.draft) + '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+      '<button class="pill-btn" data-oq-copy="' + esc(row.key) + '">Copy draft</button>' +
+      '<button class="pill-btn" data-oq-posted="' + esc(row.key) + '">I posted it</button>' +
+      '<button class="pill-btn" data-oq-dismiss="' + esc(row.key) + '">Dismiss</button>' +
+    '</div>' +
+  '</div>';
+}
+
+async function loadOutreachQueue(){
+  const meta = $('oq-meta');
+  const body = $('oq-body');
+  if (!meta || !body) return;
+  body.textContent = 'Loading…';
+  meta.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/outreach-queue?status=pending');
+    const rows = d.rows || [];
+    meta.textContent = rows.length + ' pending';
+    if (!rows.length){
+      body.innerHTML = '<div class="meta">Nothing queued. The watcher runs twice a day and only queues posts it can genuinely answer. An empty queue is a normal day, not a fault.</div>';
+      return;
+    }
+    body.innerHTML = rows.map(renderOqCard).join('');
+
+    body.querySelectorAll('[data-oq-copy]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = rows.find(r => r.key === btn.dataset.oqCopy);
+        if (!row) return;
+        navigator.clipboard.writeText(row.draft).then(() => {
+          btn.textContent = 'Copied';
+          setTimeout(() => { btn.textContent = 'Copy draft'; }, 1600);
+        }).catch(() => alert('Copy failed. Select the text manually.'));
+      });
+    });
+    body.querySelectorAll('[data-oq-posted]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try { await oqAction(btn.dataset.oqPosted, 'posted'); await loadOutreachQueue(); }
+        catch (e){ btn.disabled = false; btn.textContent = 'I posted it'; alert('Failed: ' + (e.message || e)); }
+      });
+    });
+    body.querySelectorAll('[data-oq-dismiss]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Working…';
+        try { await oqAction(btn.dataset.oqDismiss, 'dismissed'); await loadOutreachQueue(); }
+        catch (e){ btn.disabled = false; btn.textContent = 'Dismiss'; alert('Failed: ' + (e.message || e)); }
+      });
+    });
+  } catch (e){
+    meta.textContent = 'Error';
+    body.innerHTML = '<div class="meta">Could not load the queue: ' + String(e.message || e) + '</div>';
   }
 }
 

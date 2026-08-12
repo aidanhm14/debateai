@@ -113,6 +113,59 @@ if [ -f "$BRAIN_HEALTH_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Blocks guard. /api/blocks answers an opponent's case, and the one
+# thing it must never do is hand a debater a citation to read. A
+# fabricated card read in a real round loses that round and costs the
+# coach relationship permanently, which is a worse failure than any
+# bug in this repo. The prompt forbids it; scrubFabricatedCites is the
+# enforcement, and this guards the enforcement.
+# ──────────────────────────────────────────────────────────────────
+BLOCKS_GUARD="$REPO_ROOT/scripts/test-blocks-scrub.mjs"
+if [ -f "$BLOCKS_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-blocks-scrub.mjs >/tmp/blocks-guard.log 2>&1); then
+    echo "[blocks-guard] commit blocked - the no-fabricated-citation guarantee no longer holds:" >&2
+    tail -20 /tmp/blocks-guard.log >&2
+    echo "[blocks-guard] see scripts/test-blocks-scrub.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
+# Discord guard. /api/discord/interactions is a public URL, and the
+# Ed25519 check is the entire security model: anything that gets past
+# it can make the bot post in every server that installed us. Discord
+# also REQUIRES a 401 on a bad signature and probes with deliberately
+# invalid ones, so a weakened verifier breaks the integration too.
+# ──────────────────────────────────────────────────────────────────
+DISCORD_GUARD="$REPO_ROOT/scripts/test-discord-interactions.mjs"
+if [ -f "$DISCORD_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-discord-interactions.mjs >/tmp/discord-guard.log 2>&1); then
+    echo "[discord-guard] commit blocked - the bot's signature or reply guarantees no longer hold:" >&2
+    tail -20 /tmp/discord-guard.log >&2
+    echo "[discord-guard] see scripts/test-discord-interactions.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
+# Outreach guard. Two promises: nothing in the Reddit path can post
+# (the test SCANS THE SOURCE for Reddit's write endpoints, because the
+# guarantee is that the capability does not exist), and a draft that
+# reads as an advert never reaches a human to rubber-stamp. Getting
+# either wrong gets the domain banned from the subreddits this is
+# built to reach, which no later commit can undo.
+# ──────────────────────────────────────────────────────────────────
+OUTREACH_GUARD="$REPO_ROOT/scripts/test-reddit-queue.mjs"
+if [ -f "$OUTREACH_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-reddit-queue.mjs >/tmp/outreach-guard.log 2>&1); then
+    echo "[outreach-guard] commit blocked - the never-auto-post or draft-quality guarantees no longer hold:" >&2
+    tail -20 /tmp/outreach-guard.log >&2
+    echo "[outreach-guard] see scripts/test-reddit-queue.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Live-discourse guard. The LIVE DISCOURSE block injects phrasing
 # harvested from X into debate prompts. Two ways that goes wrong quietly:
 # it reaches the JUDGE (a ballot informed by platform opinion breaks the
