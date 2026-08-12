@@ -41,6 +41,16 @@
   :root{
     --bg:#0b0b0d; --panel:#131317; --panel-2:#1a1a20;
     --fg:#f4f4f6; --dim:rgba(244,244,246,.68); --faint:rgba(244,244,246,.68);
+    /* --text and --border are the SHARED tokens ui.css paints the fixed
+       topbar from, and its ink rule reads --text while its background
+       reads --bg. This page overrode --bg to near-black and named its own
+       ink --fg, so --text kept falling through to the light theme's
+       #1a1a1f: near-black nav labels on a near-black bar, measured at
+       1.21:1 against a 4.5 AA floor, with several items at 1.0. Declaring
+       the pair here is the contract that CSS comment asks for. Nothing on
+       this page reads var(--text) itself, so this only reaches the shared
+       chrome. */
+    --text:#f4f4f6; --border:rgba(244,244,246,.14);
     --line:rgba(244,244,246,.11);
     --red:#ef4444; --red-dark:#dc2626; --green:#22c55e; --amber:#f59e0b;
     --serif:'Crimson Pro',Georgia,serif;
@@ -1337,7 +1347,14 @@
 
   if (auth){
     auth.onAuthStateChanged(function(u){
-      state.user = u || null;
+      // An anonymous Firebase user is NOT a signed-in user.
+      // js/notifications.js calls signInAnonymously() on nearly every
+      // page for the background Spar pill, so `u` is almost always
+      // truthy. Reading it as signed-in told a signed-out visitor "You
+      // are not entered in this tournament" (the user-but-no-entry
+      // branch) instead of offering the sign-in button, and hid the
+      // drop-in queue behind an eligibility check that could never pass.
+      state.user = (u && !u.isAnonymous) ? u : null;
       show('createBox', !!u);
       show('createGate', !u);
       if (state.data){ if (TKEY) renderDetail(); }
