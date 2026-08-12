@@ -139,7 +139,7 @@ const URLS = [
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
   { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
   { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },
-  { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-10' },
+  { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-12' },
   // /learn/formats/* pages deliberately canonicalize to the deeper
   // /topics/* pillars. They remain useful mechanics references linked
   // from /learn, but canonical alternates do not belong in a sitemap.
