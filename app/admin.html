@@ -3642,7 +3642,12 @@ async function loadRecordings(){
         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + label.replace(/"/g, '&quot;') + '">' +
           (r.isStream ? '📡 ' : '') + label + '</span>' +
         '<span style="color:var(--muted);font-size:11px">' + date + ' · ' + fmtRecDur(r.duration) + ' · ' + (r.status || '') + '</span>' +
-        '<a class="pill-btn" style="padding:4px 9px;font-size:11px" target="_blank" rel="noopener" href="/watch?r=' + encodeURIComponent(r.id) + '">watch</a>' +
+        '<a class="pill-btn" style="padding:4px 9px;font-size:11px" target="_blank" rel="noopener" href="/w/' + encodeURIComponent(r.id) + '">watch</a>' +
+        // Attaching the YouTube id is what makes /w/{id} eligible for video
+        // rich results: it swaps the brand-card fallback thumbnail for a
+        // real still and adds an embedUrl. Green once set.
+        '<button class="pill-btn rec-yt-btn" style="padding:4px 9px;font-size:11px' + (r.youtubeId ? ';color:var(--good);border-color:var(--good)' : '') + '" data-id="' + r.id + '" data-yt="' + (r.youtubeId || '') + '" title="Attach the YouTube upload of this round">' +
+          (r.youtubeId ? 'on yt' : 'yt') + '</button>' +
         '<button class="pill-btn rec-pub-btn" style="padding:4px 9px;font-size:11px' + (r.published ? ';color:var(--good);border-color:var(--good)' : '') + '" data-id="' + r.id + '" data-pub="' + (r.published ? '1' : '') + '">' +
           (r.published ? 'published' : 'hidden') + '</button>' +
         '<button class="pill-btn rec-del-btn" style="padding:4px 9px;font-size:11px;color:var(--accent);border-color:var(--accent)" data-id="' + r.id + '" data-label="' + label.replace(/"/g, '&quot;') + '">delete</button>' +
@@ -3655,6 +3660,23 @@ async function loadRecordings(){
           await adminPost('/api/admin/recordings', { action: 'publish', id: btn.dataset.id, published: !btn.dataset.pub });
           loadRecordings();
         } catch (e){ btn.textContent = 'failed'; btn.disabled = false; }
+      });
+    });
+    body.querySelectorAll('.rec-yt-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        // Paste a watch URL, a youtu.be link, or a bare id; the server
+        // pulls the id out. Clearing the box removes it, which is the
+        // path to take when a video comes down: a stale id would leave a
+        // dead embed and a 404 thumbnail in the structured data.
+        const next = prompt('YouTube URL or video id for this round.\n\nLeave empty to remove it.', btn.dataset.yt || '');
+        if (next === null) return;
+        btn.disabled = true;
+        const was = btn.textContent;
+        btn.textContent = 'saving…';
+        try {
+          await adminPost('/api/admin/recordings', { action: 'youtube', id: btn.dataset.id, youtubeId: next });
+          loadRecordings();
+        } catch (e){ btn.textContent = (e.message || '').includes('YouTube') ? 'bad id' : 'failed'; btn.disabled = false; setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 2000); }
       });
     });
     body.querySelectorAll('.rec-del-btn').forEach(btn => {

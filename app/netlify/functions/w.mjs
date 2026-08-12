@@ -43,13 +43,39 @@ const FORMAT_NAMES = {
 };
 const DAILY_API = 'https://api.daily.co/v1';
 
-// Fallback only. A per-recording still is what earns video rich results;
-// Google wants a thumbnail that represents the video, and a brand card
-// does not. `thumbnailUrl` on the recording doc overrides this the moment
-// anything sets it, which is the one remaining step for rich-result
-// eligibility. Deliberately NOT an SVG: Google's supported thumbnail
-// formats for VideoObject are bmp/gif/jpeg/png/webp, and SVG is not one.
+// Fallback only, and the weakest link in the markup. Google wants a
+// thumbnail that represents the video, and a brand card does not, so a
+// recording with nothing better is valid schema but not rich-result
+// eligible. Deliberately NOT an SVG: Google's supported thumbnail formats
+// for VideoObject are bmp/gif/jpeg/png/webp, and SVG is not one.
+//
+// Two things override it, in order: an explicit `thumbnailUrl` on the
+// doc, or a `youtubeId`, which is the realistic path (see thumbsFor).
 const FALLBACK_THUMB = `${SITE_ORIGIN}/og-image.png?v=floor1`;
+
+// YouTube publishes a real still per video at a stable, predictable URL,
+// so an uploaded round gets a genuine representative thumbnail for free.
+// maxres does not exist for every video and hq always does, so both are
+// listed: schema.org takes an array and Google picks what resolves.
+// Ordered high to low because the first that resolves is the one used.
+function thumbsFor(d, youtubeId) {
+  if (d.thumbnailUrl) return [d.thumbnailUrl];
+  if (youtubeId) {
+    return [
+      `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`,
+      `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
+    ];
+  }
+  return [FALLBACK_THUMB];
+}
+
+// Only ever trust an id that matches YouTube's shape. This value is
+// interpolated into an iframe src and into structured data, so a
+// malformed one would be an injection point rather than a broken embed.
+function safeYoutubeId(raw) {
+  const s = String(raw || '');
+  return /^[A-Za-z0-9_-]{11}$/.test(s) ? s : '';
+}
 
 function parsePath(url) {
   try {
@@ -146,7 +172,9 @@ export function renderPage(id, d) {
   const dateHuman = humanDate(d.startTs);
   const durHuman = humanDuration(d.duration);
   const uploadDate = isoDate(d.startTs);
-  const thumb = d.thumbnailUrl || FALLBACK_THUMB;
+  const youtubeId = safeYoutubeId(d.youtubeId);
+  const thumbs = thumbsFor(d, youtubeId);
+  const thumb = thumbs[0];
 
   const facts = [formatName, dateHuman, durHuman].filter(Boolean);
   const versus = pro && con ? `${pro} against ${con}` : '';
@@ -162,8 +190,12 @@ export function renderPage(id, d) {
     '@type': 'VideoObject',
     name: title,
     description,
-    thumbnailUrl: [thumb],
+    thumbnailUrl: thumbs,
+    // Both when we have both. contentUrl is the authoritative full round
+    // (the Daily mp4 behind the stable /play address); embedUrl is the
+    // YouTube player. Google accepts either and prefers having both.
     contentUrl: playUrl,
+    ...(youtubeId ? { embedUrl: `https://www.youtube.com/embed/${youtubeId}` } : {}),
     // uploadDate is required by Google. Omit the key entirely rather than
     // publish a guessed date for a recording with no start timestamp.
     ...(uploadDate ? { uploadDate } : {}),
@@ -212,7 +244,7 @@ export function renderPage(id, d) {
 <meta property="og:description" content="${esc(description.slice(0, 300))}">
 <meta property="og:url" content="${canonical}">
 <meta property="og:image" content="${esc(thumb)}">
-<meta property="og:video" content="${playUrl}">
+<meta property="og:video" content="${youtubeId ? `https://www.youtube.com/embed/${youtubeId}` : playUrl}">
 <meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="player">
 <meta name="twitter:title" content="${esc(shortTitle)}">
@@ -241,6 +273,12 @@ h1{font-size:clamp(26px,4.4vw,38px);font-weight:800;line-height:1.14;margin:10px
 .seat b{display:block;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--red);font-weight:700}
 .vs{opacity:.55;font-size:14px}
 video{width:100%;margin-top:22px;background:#000;border:1px solid var(--border);border-radius:var(--radius);display:block}
+/* aspect-ratio rather than a padding-top box: the iframe is always 16:9
+   and this keeps the space reserved before it loads, so the page does not
+   shift under the reader. */
+.embed{margin-top:22px;aspect-ratio:16/9;background:#000;border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden}
+.embed iframe{width:100%;height:100%;border:0;display:block}
 .note{color:var(--dim);font-size:15px;margin-top:12px}
 h2{font-size:20px;font-weight:800;margin:38px 0 8px}
 p{color:var(--dim);margin:0 0 12px}
@@ -260,7 +298,15 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color
     ${seatRow}
   </header>
 
-  <video controls playsinline preload="metadata" poster="${esc(thumb)}" src="${playUrl}"></video>
+  ${youtubeId
+    ? // The YouTube player when the round is on the channel, so the watch
+      // time counts there instead of being split away from it. nocookie
+      // is the same player without the tracking cookie on first load.
+      `<div class="embed"><iframe src="https://www.youtube-nocookie.com/embed/${youtubeId}"
+      title="${esc(shortTitle)}" loading="lazy" allowfullscreen
+      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
+    : `<video controls playsinline preload="metadata" poster="${esc(thumb)}" src="${playUrl}"></video>`}
   <p class="note">The full round, opening speech through to the end. Nothing is cut.</p>
 
   <h2>What you are watching</h2>

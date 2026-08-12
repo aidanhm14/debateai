@@ -231,6 +231,37 @@ export default async (req) => {
     return jsonResponse({ id, deleted: true, ...result }, 200, req);
   }
 
+  // Attach (or clear) the YouTube id for a recording that has also been
+  // uploaded to the channel. Deliberately ABOVE the DAILY_API_KEY gate:
+  // this touches nothing at Daily, and needing a Daily key to record the
+  // fact that a video exists on YouTube would be a nonsense dependency.
+  //
+  // Setting this is what makes /w/{id} eligible for video rich results.
+  // Google wants a thumbnail that represents the video and our fallback
+  // is a brand card, but YouTube publishes a real still per video at a
+  // stable URL, so an id here gives the page a genuine thumbnail plus an
+  // embedUrl, and the watch time lands on the channel rather than being
+  // split away from it.
+  if (body.action === 'youtube'){
+    const id = String(body.id || '');
+    if (!id) return errorResponse('id required', 400, req);
+    const raw = String(body.youtubeId || '').trim();
+    // Accept a bare id or anything you would actually paste: a watch URL,
+    // a youtu.be link, an /embed/ or /live/ URL, with or without query.
+    let ytId = '';
+    if (raw){
+      const m = raw.match(/(?:youtu\.be\/|\/embed\/|\/live\/|[?&]v=)([A-Za-z0-9_-]{11})/)
+        || raw.match(/^([A-Za-z0-9_-]{11})$/);
+      if (!m) return errorResponse('Not a YouTube video id or URL', 400, req);
+      ytId = m[1];
+    }
+    // Empty clears the field, which is the un-publish path: an id left
+    // behind after a video is taken down would put a dead embed and a
+    // 404 thumbnail into structured data.
+    await db.collection('recordings').doc(id).set({ youtubeId: ytId }, { merge: true });
+    return jsonResponse({ id, youtubeId: ytId }, 200, req);
+  }
+
   if (!process.env.DAILY_API_KEY) return errorResponse('DAILY_API_KEY not configured', 503, req);
 
   if (body.action === 'sync'){
@@ -263,7 +294,7 @@ export default async (req) => {
     return jsonResponse({ id }, 200, req);
   }
 
-  return errorResponse('Unknown action (sync | publish | meta | delete)', 400, req);
+  return errorResponse('Unknown action (sync | publish | meta | youtube | delete)', 400, req);
 };
 
 export const config = {
