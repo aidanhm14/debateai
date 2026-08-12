@@ -235,7 +235,6 @@ export default async (request) => {
 
   <p class="foot">Harvested nightly, published only after review. Motions are written in tournament phrasing per format. Want one as a live round? <a href="/practice">Pick a side and start.</a></p>
 </div>
-<script defer src="/js/read-aloud.js"></script>
 </body>
 </html>`;
 

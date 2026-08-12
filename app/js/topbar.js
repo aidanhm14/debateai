@@ -1174,6 +1174,18 @@
       });
     });
     sheet.appendChild(sheetMore);
+    // Signed-in users get a direct route to the full account controls.
+    // Keep this separate from Sign out so the top-right menu is useful for
+    // managing an account, not just leaving it.
+    var sheetAccount = el('a', {
+      href: '/profile#settings',
+      id: 'sheetAccountSettings',
+      class: 'ui-topbar-sheet-link',
+      role: 'menuitem',
+      hidden: 'hidden',
+    }, 'Account & settings');
+    sheet.appendChild(sheetAccount);
+
     // Auth row in the mobile sheet. On desktop the Sign in pill lives in
     // the topbar; on mobile the right-side slot is hidden, so the sheet
     // carries it. Label flips to "Sign out" once signed in (hydrateUser
@@ -1635,7 +1647,9 @@
     else fbLoadOnce('da-avatar-engine', '/js/avatar.js', draw);
   }
 
-  // Signed-IN state: name pill (-> /profile) + Sign out. Extension hook:
+  // Signed-IN state: name pill (-> /profile) + Settings. Sign out lives in
+  // Account & settings and the mobile sheet, where it cannot be mistaken
+  // for the account's only available action. Extension hook:
   // if the page sets window.daTopbarUserSlot(slot, user) BEFORE this
   // script loads, we hand off rendering (e.g. /practice adds an Account
   // button that opens its in-app BYOK / plan modal).
@@ -1677,30 +1691,31 @@
     avaHost.style.cssText = 'width:18px;height:18px;border-radius:50%;overflow:hidden;flex-shrink:0;display:block;position:relative;background:var(--bg-elev)';
     nameLink.appendChild(avaHost);
     paintTopbarFace(avaHost, u);
-    // 2026-07-23: the name and Sign out both drop off the bar on phones
+    // 2026-07-23: the name and trailing action both drop off the bar on phones
     // (see ui.css ≤560px). The avatar already says who is signed in, and
-    // the hamburger sheet already carries a Sign out row, so on a 390px
+    // the avatar opens the profile and the hamburger sheet carries both
+    // Account & settings and Sign out, so on a 390px
     // bar these two were duplicating the sheet and crowding the wordmark.
     // Classed, not conditionally built, so a resize needs no re-render.
     var nameText = document.createElement('span');
     nameText.className = 'ui-topbar-username';
     nameText.textContent = first;
     nameLink.appendChild(nameText);
-    var out = document.createElement('button');
-    out.type = 'button';
-    out.className = 'ui-topbar-signout';
-    out.textContent = 'Sign out';
-    out.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.68rem;padding:0';
-    out.addEventListener('click', function(){ try { window.firebase.auth().signOut(); } catch(e){} });
+    var settings = document.createElement('a');
+    settings.href = '/profile#settings';
+    settings.className = 'ui-topbar-settings';
+    settings.textContent = 'Settings';
+    settings.title = 'Open account settings';
+    settings.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.68rem;padding:0;text-decoration:none';
     slot.appendChild(nameLink);
-    slot.appendChild(out);
+    slot.appendChild(settings);
   }
 
   // Orchestration. Paint immediately (Sign in button, or an Account
   // placeholder for cached-signed-in users), then attach the real auth
   // listener once firebase is ready. notifications.js bootstraps
   // firebase site-wide, so "ready" usually arrives within ~1.5s;
-  // cached-signed-in pages force the bootstrap so name + Sign out
+  // cached-signed-in pages force the bootstrap so the account controls
   // resolve even where it doesn't.
   // ── Display name ──────────────────────────────────────────────────
   // The name a debater picks lives in /js/public-identity.js and is what
@@ -1720,8 +1735,8 @@
   // Never ASK on a surface where a round can be running. A dialog that
   // opens over someone mid-speech is worse than a generated alias, and
   // sign-in can complete at any moment on these pages. Same reasoning and
-  // very nearly the same list as read-aloud.js's SILENT_ROUTES; a new page
-  // that runs or plays a round belongs in both. Hydration still happens
+  // follows the same no-interruption rule as other live-audio surfaces; a
+  // new page that runs or plays a round belongs here too. Hydration still happens
   // everywhere, so the name itself is correct on these pages, and the
   // sheet row and /profile still open the picker on purpose.
   var NO_PROMPT_ROUTES = [
@@ -1889,6 +1904,8 @@
           if (realUser && !wasFirst){ try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){ } }
           var ss = document.getElementById('sheetSignIn');
           if (ss) ss.textContent = realUser ? 'Sign out' : 'Sign in · free';
+          var sa = document.getElementById('sheetAccountSettings');
+          if (sa){ if (realUser) sa.removeAttribute('hidden'); else sa.setAttribute('hidden', 'hidden'); }
           var sn = document.getElementById('sheetSetName');
           if (sn){ if (realUser) sn.removeAttribute('hidden'); else sn.setAttribute('hidden', 'hidden'); }
           // Live debate pages use anonymous Firebase auth as a real guest
@@ -2003,22 +2020,6 @@
     e.preventDefault();
     show(info, href);
   }, true);
-})();
-
-/* ── Page narrator ───────────────────────────────────────────────
-   "Listen to this page" — a pre-generated ElevenLabs narration that
-   explains the page, and keeps playing while the visitor navigates.
-   Loaded from here rather than from a <script> tag on each page so
-   one edit covers every topbar page. read-aloud.js self-guards on
-   window.__ditReadAloud and removes itself on pages that have no
-   narration and nothing to resume, so this is safe everywhere.
-   Built by scripts/generate-narration.mjs. */
-(function(){
-  if (window.__ditReadAloud) return;
-  var s = document.createElement('script');
-  s.src = '/js/read-aloud.js';
-  s.defer = true;
-  (document.body || document.head || document.documentElement).appendChild(s);
 })();
 
 /* ── Preference sync ─────────────────────────────────────────────

@@ -486,106 +486,13 @@ Client passes `voice` (persona key), `intensity` (0-1), `premium`, and
 optionally `provider` to `/api/tts`. `tts.mjs` handles routing and
 provider-fallback.
 
-## Page narration ("listen to this page")
+## Page narration (retired 2026-08-12)
 
-A visitor can have any content page explained to them out loud, and the
-narration keeps playing while they browse the rest of the site.
-
-**This does not use `/api/tts`.** The audio is pre-generated and served
-as static files. That was deliberate: `/api/tts` is capped at 60/min and
-100/day per IP, and a page is far too long for one call, so a live path
-would both cut listeners off mid-browse and bill ElevenLabs for every
-anonymous visitor. Pre-generating costs once per page per rewrite and
-serves free forever.
-
-```
-scripts/generate-narration.mjs    the builder (run by hand, not in CI)
-app/audio/narration/<slug>.mp3    one file per page, 64 kbps
-app/audio/narration/manifest.json route → {slug, title, script, seconds}
-app/js/read-aloud.js              the sitewide player
-```
-
-56 pages as of 2026-07-22. The builder strips a page to visible prose,
-has Claude write a ~170-word SPOKEN explainer of it, lints that script,
-then sends it to ElevenLabs.
-
-**The lint is the important part.** A bad line here ships as audio, which
-is much harder to notice and correct than a bad line of text, so anything
-it flags blocks synthesis rather than being fixed later. Every rule on it
-is there because a real run produced the thing it catches:
-
-| Caught | Real example |
-|---|---|
-| Friction-selling | "no card is required" on /landing and /pricing |
-| Invented urgency | "lock in these rates before beta ends" — a promise that appears nowhere on /pricing |
-| Loading/empty states | "the feature is still loading, check back soon" on /spar |
-| Stale brand names | a retired name on /research, /benchmark, /high-school |
-| Spelled-out URLs | "chrome colon slash slash extensions" on /counter |
-| Prefaces | "Here's what this page lets you inspect" on /benchmark |
-
-Plus em-dashes, banned phrases, and "unlimited" / "free forever".
-
-**`MIN_PROSE` (700 chars) is the other guard, and it matters more than it
-looks.** A page that renders its body with JS scrapes as a skeleton, and
-the model will cheerfully invent a page out of nothing rather than fail:
-/spar extracted **72 characters** and produced a narration announcing the
-feature was still loading; /high-school extracted 192 and invented a
-champion "who coaches high schoolers". Anything under the bar is skipped
-unless its PAGES entry carries a `hint` — a human-verified description
-that is handed to the model as authoritative over the scrape. /spar and
-/high-school both have one. If you add a JS-rendered page, expect to
-write a hint, and re-verify it when that page changes.
-
-**Check the route resolves before adding a page.** `--check-routes` hits
-production and reports anything that redirects away or 404s. Six legacy
-SEO pages were narrated in the first extension pass before anyone noticed
-they now 301 to /practice and friends, so that audio was unreachable the
-moment it shipped. Same class of mistake as /scale, which is a meta
-refresh and got narrated once too. Also leave out anything whose copy
-turns over faster than someone will re-run this.
-
-```bash
-node scripts/generate-narration.mjs --list                    # page list
-node scripts/generate-narration.mjs --only pricing --dry-run  # script, no audio spend
-node scripts/generate-narration.mjs                           # only changed pages
-node scripts/generate-narration.mjs --force --only a,b        # after changing a lint rule
-node scripts/generate-narration.mjs --check-routes             # before adding pages
-```
-
-After changing a lint rule or the brand, audit what already shipped —
-existing scripts are not re-checked on a normal run, and three live pages
-were carrying a stale brand name before the rule existed.
-
-Re-runs are hash-gated on the page's prose, so a no-op run costs nothing.
-**Editing a narrated page's copy does not regenerate its narration** —
-nothing watches for that. Re-run the builder when copy drifts far enough
-that the spoken version is wrong, and bump `CACHE_NAME` in both `sw.js`
-files afterward, because narration is served cache-first and a same-URL
-replacement is otherwise invisible to returning visitors.
-
-`read-aloud.js` is loaded by `topbar.js`, so it reaches all 63 topbar
-pages from one edit. Pages outside that set (the search-entry pages,
-/counter, /benchmark, /atlas, /floor) carry their own
-`<script defer src="/js/read-aloud.js">` before `</body>`; add one if you
-narrate a page that has no topbar.
-
-Continuity across navigation works by writing `{slug, time, playing}` to
-sessionStorage on every tick and resuming on the next document. Browsers
-gate autoplay per document, so that resume can be refused; when it is,
-the pill shows a one-tap Resume rather than failing silently. Chrome
-generally stops refusing once the visitor has played media on the origin
-a few times. Safari tends to keep asking.
-
-**`SILENT_ROUTES` in `read-aloud.js` is a safety rail, not a preference.**
-Because narration follows the listener, a round that starts three clicks
-after they pressed play would otherwise have a narrator talking over it.
-Landing on any of those routes stops playback and clears the resume
-state. It covers the live-round surfaces (/live-round, /voice-debate,
-/newvoice, /room-judge, /casual-room, /voice-rfd, /practice) and the
-pages that make their own sound (/coach, /exhibition, /spectate).
-**Any new page that plays audio or runs a round has to go in that list.**
-Lobbies that hand off to a round (/spar, /debate-chat) are narrated on
-purpose: the handoff target is what's silenced.
+The sitewide "Listen" pill is retired. `topbar.js`, standalone pages, and
+server-rendered pages must not load `app/js/read-aloud.js`. The old player,
+builder, manifest, and narration files remain in the repository as dormant
+history; do not wire them back into a user-facing page without an explicit
+product decision.
 
 ## Editing playbook for the big single-file pages
 
