@@ -1,15 +1,23 @@
 // ──────────────────────────────────────────────────────────────────
 // auth-modal.js — shared sign-in helper for Debatable.
 //
-// Web offers email/password and Google. The native app adds Apple, then
-// exchanges every provider credential into the same Firebase web session
-// used by the live site.
+// Web offers Google, an emailed sign-in link, and email/password. The
+// native app adds Apple, then exchanges every provider credential into
+// the same Firebase web session used by the live site.
 //
 // Open it from anywhere with window.openAuthModal(). Self-bootstraps
 // Firebase (shared script ids with notifications.js so nothing double-loads).
 //
-// Firebase providers: email/password + Google on web; Apple is also shown
-// in the iOS shell to satisfy App Store login-choice rules.
+// Firebase providers: Google, email link (passwordless), and
+// email/password on web; Apple is also shown in the iOS shell to satisfy
+// App Store login-choice rules.
+//
+// The emailed link is the lowest-friction path and the default for
+// someone creating an account: no password to invent, and nothing to
+// remember on the next visit. Password sign-in stays first for people
+// who already have one, since that is what they will reach for.
+// Completing a link is handled on load by completeEmailLink() below,
+// which runs on every page topbar.js touches.
 // ──────────────────────────────────────────────────────────────────
 (function () {
   'use strict';
@@ -148,16 +156,26 @@
     if (m && e) e.textContent = '';
   }
 
-  function renderChooser(mode) {
+  function renderChooser(mode, forceEmailMode) {
     var c = home(); if (!c) return;
     // No explicit mode: someone who has signed in on this device before
     // lands on sign-in, not "Create your account".
     if (mode !== 'signin' && mode !== 'signup') mode = lastMethod() ? 'signin' : 'signup';
     var creating = mode === 'signup';
     var last = lastMethod();
+    // Which email path leads. Creating an account defaults to the emailed
+    // link: a password is a thing to invent now and remember later, and
+    // that is the barrier this is here to remove. Signing in defaults to
+    // the password form, because someone who set one will reach for it,
+    // unless the last thing that worked on this device was a link.
+    var emailMode = forceEmailMode === 'link' || forceEmailMode === 'password'
+      ? forceEmailMode
+      : (creating || last === 'emaillink') ? 'link' : 'password';
+    var linkMode = emailMode === 'link';
     var lastHint = !creating && last
       ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
-        (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' : 'email') + '.</p>'
+        (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
+         last === 'emaillink' ? 'an emailed link' : 'an email and password') + '.</p>'
       : '';
     var nativeButtons = window.__DB_NATIVE ?
       '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>' : '';
@@ -169,17 +187,22 @@
       nativeButtons +
       '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
       '<div class="da-or">or use email</div>' +
-      '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" novalidate>' +
+      '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" data-email-mode="' + emailMode + '" novalidate>' +
         (creating ? '<label class="da-label" for="daName">Name</label><input class="da-input" id="daName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' : '') +
         '<label class="da-label" for="daEmail">Email</label>' +
         '<input class="da-input" id="daEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
-        '<label class="da-label" for="daPassword">Password</label>' +
-        '<input class="da-input" id="daPassword" type="password" autocomplete="' + (creating ? 'new-password' : 'current-password') + '" placeholder="' + (creating ? '8 characters minimum' : 'Your password') + '" />' +
+        (linkMode ? '' :
+          '<label class="da-label" for="daPassword">Password</label>' +
+          '<input class="da-input" id="daPassword" type="password" autocomplete="' + (creating ? 'new-password' : 'current-password') + '" placeholder="' + (creating ? '8 characters minimum' : 'Your password') + '" />') +
         '<div class="da-form-meta">' +
-          '<span>' + (creating ? 'Use at least 8 characters.' : '') + '</span>' +
-          (creating ? '' : '<button type="button" class="da-link" id="daForgot">Forgot password?</button>') +
+          '<span>' + (linkMode ? 'No password needed.' : creating ? 'Use at least 8 characters.' : '') + '</span>' +
+          (linkMode || creating ? '' : '<button type="button" class="da-link" id="daForgot">Forgot password?</button>') +
         '</div>' +
-        '<button type="submit" class="da-btn da-btn--primary" id="daEmailBtn">' + (creating ? 'Create account' : 'Sign in with email') + '</button>' +
+        '<button type="submit" class="da-btn da-btn--primary" id="daEmailBtn">' +
+          (linkMode ? 'Email me a sign-in link' : creating ? 'Create account' : 'Sign in with email') + '</button>' +
+        '<p class="da-switch" style="margin-top:11px">' +
+          '<button type="button" class="da-link" id="daEmailModeSwitch">' +
+            (linkMode ? 'Use a password instead' : 'Email me a link instead') + '</button></p>' +
       '</form>' +
       '<div class="da-status" role="status"></div>' +
       '<div class="da-err" role="alert"></div>' +
@@ -189,8 +212,17 @@
     c.querySelector('.da-x').addEventListener('click', close);
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
-    c.querySelector('#daEmailForm').addEventListener('submit', doEmailPassword);
+    c.querySelector('#daEmailForm').addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
     c.querySelector('#daModeSwitch').addEventListener('click', function () { renderChooser(creating ? 'signin' : 'signup'); });
+    c.querySelector('#daEmailModeSwitch').addEventListener('click', function () {
+      // Carry a typed address across the switch. Retyping it because you
+      // changed your mind about passwords is the kind of small tax that
+      // loses people at the last step.
+      var typed = (c.querySelector('#daEmail') || {}).value || '';
+      renderChooser(mode, linkMode ? 'password' : 'link');
+      var next = home() && home().querySelector('#daEmail');
+      if (next && typed) next.value = typed;
+    });
     if (c.querySelector('#daForgot')) c.querySelector('#daForgot').addEventListener('click', doPasswordReset);
   }
 
@@ -211,7 +243,8 @@
     // method called out, instead of restarting them at "Create your
     // account" with three equal choices.
     try {
-      var fam = /google/.test(method) ? 'google' : /apple/.test(method) ? 'apple' : 'email';
+      var fam = /google/.test(method) ? 'google' : /apple/.test(method) ? 'apple'
+        : /link/.test(method) ? 'emaillink' : 'email';
       localStorage.setItem('debateos-last-signin-method', fam);
     } catch (e) {}
     track('sign_in_complete', { method: method });
@@ -435,6 +468,147 @@
     });
   }
 
+  // ── Emailed sign-in link (passwordless) ────────────────────────────
+  // Firebase calls this "email link" auth; the person using it calls it
+  // a magic link. Two halves: send it here, finish it in
+  // completeEmailLink() when they come back through the link.
+  var LINK_EMAIL_KEY = 'debateos-emaillink-email';
+  var LINK_NAME_KEY = 'debateos-emaillink-name';
+
+  function emailLinkSettings() {
+    return {
+      // Land them back where they started rather than on a generic page.
+      // The whole point of the link is that it costs them nothing, and
+      // losing their place is a cost.
+      url: window.location.origin + destination(),
+      handleCodeInApp: true,
+    };
+  }
+
+  function doEmailLink(event) {
+    if (event) event.preventDefault();
+    setErr('');
+    setStatus('');
+    var c = home();
+    var form = c && c.querySelector('#daEmailForm');
+    var mode = form && form.getAttribute('data-mode') === 'signin' ? 'signin' : 'signup';
+    var emailInput = c && c.querySelector('#daEmail');
+    var nameInput = c && c.querySelector('#daName');
+    var email = (emailInput && emailInput.value || '').trim();
+    var name = (nameInput && nameInput.value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setErr('Enter a valid email.'); return; }
+    if (mode === 'signup' && name.length < 2) { setErr('Enter your name.'); return; }
+    var btn = c.querySelector('#daEmailBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending the link…';
+    bootstrap(function () {
+      try {
+        auth = firebase.auth();
+        if (auth.useDeviceLanguage) auth.useDeviceLanguage();
+        track('sign_in_start', { method: 'email_link', action: mode });
+        auth.sendSignInLinkToEmail(email, emailLinkSettings()).then(function () {
+          // Stashed so the return trip does not have to ask again. Same
+          // browser is the common case; completeEmailLink() prompts when
+          // the link is opened somewhere else.
+          try {
+            localStorage.setItem(LINK_EMAIL_KEY, email);
+            if (name) localStorage.setItem(LINK_NAME_KEY, name);
+          } catch (e) {}
+          btn.disabled = false;
+          btn.textContent = 'Send it again';
+          setStatus('Link sent to ' + email + '. Open it on this device and you are in.');
+          track('email_link_sent', { action: mode });
+        }).catch(function (err) {
+          btn.disabled = false;
+          btn.textContent = 'Email me a sign-in link';
+          setErr(emailLinkMessage(err));
+        });
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Email me a sign-in link';
+        setErr('Could not send the link. Continue with Google or a password.');
+      }
+    });
+  }
+
+  function emailLinkMessage(err) {
+    var code = (err && err.code) || '';
+    if (code === 'auth/invalid-email') return 'Enter a valid email.';
+    if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes and try again.';
+    if (code === 'auth/network-request-failed') return 'Could not reach sign-in. Check your connection and try again.';
+    if (code === 'auth/operation-not-allowed') return 'Sign-in links are unavailable right now. Use a password or Google.';
+    if (code === 'auth/unauthorized-continue-uri') return 'Sign-in links are unavailable on this address. Use a password or Google.';
+    return 'Could not send the link. Try again.';
+  }
+
+  // Finishes the round trip. Runs on load on every page, so it is gated
+  // on a cheap URL test first and only then pays for the Firebase SDK.
+  function completeEmailLink() {
+    var href = window.location.href;
+    if (!/[?&]oobCode=/.test(href) || !/[?&]mode=signIn/.test(href)) return;
+    bootstrap(function () {
+      try {
+        auth = firebase.auth();
+        if (!auth.isSignInWithEmailLink || !auth.isSignInWithEmailLink(href)) return;
+        var email = '';
+        try { email = localStorage.getItem(LINK_EMAIL_KEY) || ''; } catch (e) {}
+        // Opened on a different device or browser than the one that
+        // asked for it. Firebase requires the address to be re-stated,
+        // which is what stops a leaked link from signing in whoever
+        // found it.
+        if (!email) {
+          email = (window.prompt('Confirm the email this link was sent to') || '').trim();
+          if (!email) return;
+        }
+        var name = '';
+        try { name = localStorage.getItem(LINK_NAME_KEY) || ''; } catch (e) {}
+
+        // Same shape as the Google path: notifications.js signs nearly
+        // every visitor in anonymously, so currentUser is usually a
+        // truthy anonymous user. Link that account when it is free to
+        // link, and fall back to a plain sign-in when the email already
+        // owns an account, rather than failing the whole trip.
+        var credential = firebase.auth.EmailAuthProvider.credentialWithLink(email, href);
+        var current = auth.currentUser;
+        var attempt = current && current.isAnonymous && current.linkWithCredential
+          ? current.linkWithCredential(credential).catch(function (err) {
+              var code = (err && err.code) || '';
+              if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+                return auth.signInWithEmailLink(email, href);
+              }
+              throw err;
+            })
+          : auth.signInWithEmailLink(email, href);
+
+        attempt.then(function (result) {
+          var user = (result && result.user) || auth.currentUser;
+          if (name && user && user.updateProfile && !user.displayName) {
+            return user.updateProfile({ displayName: name }).catch(function () {});
+          }
+        }).then(function () {
+          try {
+            localStorage.removeItem(LINK_EMAIL_KEY);
+            localStorage.removeItem(LINK_NAME_KEY);
+          } catch (e) {}
+          // Strip the link parameters so a refresh does not re-run a
+          // now-spent code and surface an error on a page that worked.
+          var clean = window.location.pathname + window.location.hash;
+          try { history.replaceState(null, '', clean); } catch (e) {}
+          finishSignIn('email_link');
+        }).catch(function (err) {
+          var code = (err && err.code) || '';
+          try { localStorage.removeItem(LINK_EMAIL_KEY); } catch (e) {}
+          openAuthModal('signin');
+          setErr(code === 'auth/invalid-action-code'
+            ? 'That sign-in link has expired or was already used. Send a fresh one.'
+            : code === 'auth/invalid-email'
+              ? 'That email does not match the link. Try again.'
+              : 'Could not finish signing you in. Send a fresh link.');
+        });
+      } catch (e) {}
+    });
+  }
+
   function doPasswordReset() {
     setErr('');
     setStatus('');
@@ -492,4 +666,8 @@
     if (closeButton) closeButton.focus();
   }
   window.openAuthModal = openAuthModal;
+
+  // Someone arriving through an emailed link has already done the work;
+  // finish it without making them open the modal and ask again.
+  completeEmailLink();
 })();
