@@ -163,7 +163,9 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 .sec-title{font-size:22px;font-weight:800;margin-bottom:4px}
 .sec-sub{color:var(--faint);font-size:15px;margin-bottom:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text);box-shadow:var(--shadow)}
+/* display+text-decoration so the replay cards can be anchors (they carry a
+   real /w/{id} href for crawlers) without losing the button look. */
+.card{display:block;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text);box-shadow:var(--shadow)}
 .card:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.4)}
 .card:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .card .kicker{display:flex;gap:8px;align-items:center;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
@@ -687,7 +689,12 @@ footer a{color:var(--dim)}
 
   $('shareBtn').addEventListener('click', function(){
     if (!current) return;
-    var url = location.origin + '/watch?r=' + encodeURIComponent(current.id);
+    // Hand out /w/{id}, not /watch?r={id}. The query-string form is a
+    // parameter on a page whose canonical points at bare /watch, so every
+    // replay ever shared piled its links onto the hub and none of them
+    // existed as a crawlable URL. /w/{id} is server-rendered with its own
+    // canonical, so an inbound link now lands on the round it is about.
+    var url = location.origin + '/w/' + encodeURIComponent(current.id);
     navigator.clipboard.writeText(url).then(function(){
       $('shareBtn').textContent = 'Copied';
       setTimeout(function(){ $('shareBtn').textContent = 'Copy link'; }, 1600);
@@ -837,9 +844,15 @@ footer a{color:var(--dim)}
       }
       recs.forEach(function(rec){
         recCache[rec.id] = rec;
-        var btn = document.createElement('button');
+        // An ANCHOR, not a button. The grid is filled by this fetch, so a
+        // crawler that does not run it sees nothing, and one that does saw
+        // only click handlers with no href to follow: /w/{id} existed and
+        // nothing on the site pointed at it. A real href also means
+        // cmd-click and middle-click open the standalone page, which a
+        // button silently swallowed.
+        var btn = document.createElement('a');
         btn.className = 'card';
-        btn.type = 'button';
+        btn.href = '/w/' + encodeURIComponent(rec.id);
         btn.innerHTML =
           '<div class="kicker">' +
             (rec.isStream ? '<span class="chip stream">Stream</span>' : '<span class="chip">' + esc((rec.format || 'round').toUpperCase()) + '</span>') +
@@ -850,9 +863,15 @@ footer a{color:var(--dim)}
             '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : '') + '</span>' +
             '<span>' + fmtTime(rec.duration) + '</span>' +
           '</div>';
-        btn.addEventListener('click', function(){
+        btn.addEventListener('click', function(e){
+          // Let the browser have any click that asks for a new context:
+          // modified, middle, or a click the page cannot improve on.
+          // Everything else stays on the hub and plays inline, which is
+          // the faster path when someone is browsing several replays.
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+          e.preventDefault();
           openRecording(rec, null);
-          try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(rec.id)); } catch(e){}
+          try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(rec.id)); } catch(e2){}
         });
         grid.appendChild(btn);
       });

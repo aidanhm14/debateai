@@ -342,6 +342,20 @@
   status = 200
   force = true
 
+# Per-recording watch page, server-rendered by app/netlify/functions/w.mjs.
+# /w/{id} is the page; /w/{id}/play is a stable URL that 302s to a freshly
+# minted Daily link, which is what lets the page carry a real
+# VideoObject.contentUrl (the signed URL behind it expires within the
+# hour and could never be published directly). Both paths land on the same
+# function, so one rewrite covers them. Same shape as /r/* above:
+# status=200 keeps the public URL short, force=true so no later catch-all
+# can claim /w/*.
+[[redirects]]
+  from = "/w/*"
+  to = "/api/w/:splat"
+  status = 200
+  force = true
+
 # Education sub-hub under /learn. Mirrors app/netlify.toml.
 # /learn/education (index) + /learn/education/{slug} primers with quiz.
 # /debate-chat → /spar (2026-05-26). Consolidating around /spar as
@@ -588,6 +602,12 @@
 [[redirects]]
   from = "/sitemap-motions.xml"
   to = "/api/sitemap-motions"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-recordings.xml"
+  to = "/api/sitemap-recordings"
   status = 200
   force = true
 
