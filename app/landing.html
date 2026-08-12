@@ -724,37 +724,8 @@
   })();
 </script>
 
-<!-- Waitlist copy A/B (2026-08-10). The control leads with the ASK
-     ("Get on our waitlist") and stacks three chores before naming any
-     payoff. The 'opponent' arm leads with what the visitor actually
-     gets, a human to debate, and demotes the mechanics to one line.
-     Also drops the word "waitlist", which reads as "not available
-     yet" on a product that is live and matching people today.
-     Both arms are in the DOM and swapped by attribute so the copy is
-     settled before paint; no flash, no layout shift. QA force with
-     ?wl=control or ?wl=opponent. -->
-<script>
-  (function(){
-    var v='',forced=false;
-    try{
-      var qp=(location.search||'').toLowerCase();
-      if(/[?&]wl=control(?:&|$)/.test(qp)){v='control';forced=true;}
-      else if(/[?&]wl=opponent(?:&|$)/.test(qp)){v='opponent';forced=true;}
-    }catch(e){}
-    if(!v){
-      try{
-        v=localStorage.getItem('da-wl-ab')||'';
-        if(v!=='control'&&v!=='opponent'){v=Math.random()<0.5?'control':'opponent';localStorage.setItem('da-wl-ab',v);}
-      }catch(e){v='control';}
-    }
-    document.documentElement.setAttribute('data-waitlist-copy',v);
-    window.__abAssignments=window.__abAssignments||{};
-    // Deferred: the block sits below the See-more gate at the page
-    // foot, so counting an impression at load would count visitors who
-    // never scrolled to it and bury a real difference in noise.
-    window.__abAssignments.waitlist_copy_v1=forced?{variant:v,forced:true,deferImpression:true}:{variant:v,deferImpression:true};
-  })();
-</script>
+<!-- Waitlist band removed 2026-08-11 (Aidan: not needed). Its copy A/B
+     (waitlist_copy_v1, ?wl=control|opponent) went with it. -->
 
 <!-- Chapter content-visibility A/B (2026-07-27). Pure renderer-perf
      test: the 'cv' arm keeps content-visibility:auto on the gated
@@ -1089,7 +1060,7 @@
 /* landing_lightweb_v1 'web' arm: the constellation actually renders on
    cream. .6 against the ink palette in ui-neural.js lands the edges near
    the same effective alpha the red lines carry on the dark theme. */
-[data-theme="light"][data-lightweb="web"] .ui-neural-canvas{opacity:.6}
+[data-theme="light"][data-lightweb="web"] .ui-neural-canvas{opacity:.8}
 [data-theme="light"] .theme-dot{border-color:rgba(0,0,0,.18)}
 [data-theme="light"] .theme-dot.active{border-color:#1a1a1f}
 [data-theme="light"] .hero-promo{background:linear-gradient(135deg,rgba(220,38,38,.10),rgba(220,38,38,.04)) !important;color:#1a1a1f !important;border-color:rgba(220,38,38,.32) !important}
@@ -6168,7 +6139,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <a href="/ambassadors">Ambassadors</a>
   <a href="#live-proof">Sample ballot</a>
   <a href="#faq">FAQ</a>
-  <a href="#waitlist">Waitlist</a>
   <a href="#" data-open-feedback="1" class="feedback-nav">Feedback</a>
 </nav>
 
@@ -8397,13 +8367,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      collapsing to display:none to look adjacent; now they genuinely are,
      in source order as well as on screen.) -->
 
-<!-- 2026-08-11 (order reversed, Aidan): the waitlist lands HERE, ABOVE
-     the tour button and the chapter pills, not below them. The ask a
-     cold visitor can act on immediately (sign in, we find you an
-     opponent) comes first; the invitation to read the rest of the page
-     comes after it. The section itself still lives at its authored spot
-     further down; this slot pulls it up on load. -->
-<div id="waitlist-slot"></div>
 
 <div class="lm-wl-row">
 
@@ -18512,54 +18475,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      did the same to the Explore-more card and jump pills below it —
      this stretch of the page was reading as three stacked product
      cards; it's the page ending, not another pitch. -->
-<section id="waitlist" class="sec" aria-label="Register for the waitlist">
-  <div class="wrap" style="max-width:1280px;text-align:left">
-    <div class="wl-grid">
-      <!-- Fold redesign 2026-08-10: eyebrow and the visible EMAIL ADDRESS
-           label cut. Google-first later the same day: the primary action
-           is an account, because a signed-in visitor is reachable
-           (notifications, presence, spar invites) where an email row is
-           not. The email form stays behind "Prefer email updates?" and
-           as the automatic fallback when the Firebase SDK is blocked. -->
-      <div class="wl-copy" data-ab-impression="waitlist_copy_v1">
-        <h2 class="wl-title">
-          <span class="wl-arm-a">Get on our waitlist.</span>
-          <span class="wl-arm-b">We will find you an opponent.</span>
-        </h2>
-        <p class="wl-sub">
-          <span class="wl-arm-a">Sign in, keep this tab open while you do other things, and turn notifications on. We ping you the moment a round is ready.</span>
-          <span class="wl-arm-b">Sign in and turn notifications on. Leave the tab open and go do something else. We ping you when a real debater is ready for a round.</span>
-        </p>
-      </div>
-      <div class="wl-action">
-        <div class="wl-google" id="wlGoogleWrap">
-          <button type="button" class="wl-google-btn" id="wlGoogleBtn" data-cta="waitlist-google" data-ab-test="waitlist_copy_v1" data-ab-target="google_signin">
-            <svg class="wl-g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-            Sign in with Google
-          </button>
-          <p class="wl-foot">Low volume. <a href="/privacy">Privacy</a> &middot; <a href="#" id="wlEmailAlt">Prefer email updates?</a></p>
-        </div>
-        <form class="wl-form" id="wlForm" novalidate hidden>
-          <div class="wl-row">
-            <input type="email" id="wlEmail" name="email" required autocomplete="email" aria-label="Email address" placeholder="you@email.com" />
-            <button type="submit" id="wlBtn" class="wl-btn" data-cta="waitlist-register">Join the list</button>
-          </div>
-          <p class="wl-err" id="wlErr" role="alert"></p>
-          <p class="wl-foot">Low volume. <a href="/early">Add format preferences</a> &middot; <a href="/privacy">Privacy</a></p>
-        </form>
-        <div class="wl-success" id="wlSuccess" hidden>
-          <b id="wlSuccessHead">You're on the list.</b>
-          <p id="wlSuccessBody">Watch your inbox for round updates, application openings, and tournament invites.</p>
-        </div>
-        <div class="wl-success" id="wlSigned" hidden>
-          <b>You're in.</b>
-          <p>Leave this tab open and go do something else. We ping you when a real debater is ready for a round.</p>
-          <button type="button" class="wl-btn wl-notif-btn" id="wlNotifBtn">Turn on notifications</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 <style>
   /* Flattened 2026-08-10: was a bordered card with a gradient fill,
      a left accent bar, and a box shadow, sitting directly above the
@@ -18659,6 +18574,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   body.landing-more-ready:not(.landing-more-open) .chapter-nav a{font-size:.88rem;padding:9px 15px}
 </style>
+<!-- DEAD as of 2026-08-11: the #waitlist band was removed from the page
+     (Aidan: not needed). This handler and the #waitlist CSS above it are
+     left inert rather than unpicked from the surrounding style block; the
+     IIFE bails on its own at the `if (!form) return` below because the
+     markup no longer exists. Strip both in a cleanup pass. -->
 <script>
 (function(){
   var section = document.getElementById('waitlist');
@@ -19030,7 +18950,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <a href="/spar" style="color:var(--text-dim)">Spar</a>
     <a href="/newvoice" style="color:var(--text-dim)">Voice round</a>
     <a href="/leaderboard" style="color:var(--text-dim)">Leaderboard</a>
-    <a href="#waitlist" style="color:var(--text-dim)">Waitlist</a>
     <a href="/early" style="color:var(--text-dim)">Early access</a>
     <a href="/debate-an-ai" style="color:var(--text-dim)">Debate an AI</a>
     <a href="/debate-online" style="color:var(--text-dim)">Online debate</a>

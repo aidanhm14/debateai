@@ -91,11 +91,11 @@
         G=lightWeb?64:(isLight?130:68),
         B=lightWeb?68:(isLight?180:68);
     var rgb=R+','+G+','+B;
-    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.17:(isLight?.07:.18))+')';
-    NODE_COLOR='rgba('+rgb+','+(lightWeb?.46:(isLight?.2:.4))+')';
+    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.21:(isLight?.07:.18))+')';
+    NODE_COLOR='rgba('+rgb+','+(lightWeb?.55:(isLight?.2:.4))+')';
     // Pulses stay brand red on the light arm: the ink carries the
     // structure, the red carries the life.
-    PULSE_COLOR=lightWeb?'rgba(200,60,60,.6)':'rgba('+rgb+','+(isLight?.3:.55)+')';
+    PULSE_COLOR=lightWeb?'rgba(200,60,60,.7)':'rgba('+rgb+','+(isLight?.3:.55)+')';
     CDIST=isLight?CONNECT_DIST_LIGHT:CONNECT_DIST_DARK;
     CDIST_SQ=CDIST*CDIST;
     lineW=lightWeb?.5:(isLight?.4:.5);
