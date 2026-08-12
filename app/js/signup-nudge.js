@@ -5,8 +5,9 @@
    page where you want a soft "sign up to save your stuff" prompt
    for unsigned users. The script:
 
-     1. Waits the configured delay (default 25s, longer on
-        tool pages because the user is mid-flow).
+     1. Waits 10 seconds of VISIBLE-tab time and at least one
+        scroll (see armInitial). Tool pages that were already
+        deliberately patient keep their longer delay.
      2. Reads Firebase auth state. If a user is already signed
         in, never mounts. If Firebase isn't loaded on this page,
         skips silently — this isn't a hard requirement.
@@ -15,9 +16,10 @@
      4. Picks copy based on URL path: landing, debate-ai, voice,
         learn, etc. each get a contextual line about WHAT the
         user is being asked to save.
-     5. Mounts a bottom-right pill with an account CTA and a ×
-        dismiss. The CTA opens the shared email/password + Google
-        chooser, with the legacy Google path as a fallback.
+     5. Mounts a CENTERED modal over a blurred page (2026-08-12,
+        replacing the bottom-right pill this used to be) with a
+        Google CTA, a "Not now", and a × dismiss. Escape and a
+        click on the blurred page both dismiss.
 
    Dismissal is "not now", not "never" (2026-07-02 re-nudge policy):
    while the visitor keeps actively using the page, the nudge returns
@@ -61,8 +63,14 @@
   // dismissed it three separate times (they've heard us).
   var DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
   var DISMISS_TTL_LONG_MS = 14 * 24 * 60 * 60 * 1000;
-  var REMIND_ACTIVE_SECONDS = 60;   // active-use seconds before a re-nudge
-  var MAX_ATTEMPTS_PER_SESSION = 3; // initial + two reminders
+  // Seconds of visible-tab time before the first prompt (2026-08-12).
+  var TRIGGER_SECONDS = 10;
+  // The reminder cadence was tuned for a corner pill. This surface takes the
+  // whole screen, so it comes back later and fewer times: 150s of real
+  // interaction instead of 60, and one reminder instead of two. Three
+  // full-screen interruptions in a session is a different product.
+  var REMIND_ACTIVE_SECONDS = 150;  // active-use seconds before a re-nudge
+  var MAX_ATTEMPTS_PER_SESSION = 2; // initial + one reminder
 
   // Benefit-first copy for reminders. The first pass is contextual per
   // page (pageConfig); reminders answer the visitor's actual question,
@@ -75,8 +83,11 @@
   ];
 
   // Per-path config. First match wins. Generic fallback at the end.
-  // Delay is biased longer on tool pages because the user is mid-
-  // flow and doesn't want a prompt while they're typing or speaking.
+  // `delay` is now a FLOOR that only applies when it is 30s or more (see
+  // armInitial): everything faster than that is normalised to the 10-second
+  // scroll trigger, and the patient tool-page delays are kept because a
+  // full-screen modal cannot interrupt a spoken round.
+  // `variant` no longer changes the styling, only the GA4 label.
   // Stakes-driven copy. The vibe: signing in is when the AI starts
   // becoming yours. Loss aversion on patterns the user actually
   // built, not a generic "keep your rounds" pitch. Founder-voice
@@ -87,14 +98,12 @@
     // two don't stack into a doubled sign-in nag. 2026-06-14.
     { match: /^\/(spar|live)(?:\.html)?(?:[/?#]|$)/, skip: true },
     { match: /^\/(landing|index)?(\.html)?($|\?)/,
-      // Put the account ask on the first screen while intent is fresh.
-      // 2026-08-11, per Aidan ("advertise google sign in much earlier and
-      // quicker"): 6s -> 3s. Three seconds is still past Firebase's auth
-      // resolve on a warm cache, so a returning signed-in visitor is
-      // recognised before the prompt is eligible to mount and never sees
-      // it. The hero now carries its own Google row, so this is the
-      // second touch rather than the first, and the copy leads with the
-      // same thing that row does: the score is what an account buys.
+      // 2026-08-11 this was 3s, put deliberately early while intent was
+      // fresh. 2026-08-12 the surface became a full-screen modal and the
+      // trigger moved to 10 seconds plus a scroll: at 3 seconds the modal
+      // would cover the hero before anyone had read it. The hero still
+      // carries its own Google row, so this stays the second touch, and the
+      // copy still leads with what an account buys.
       delay: 3,
       variant: 'prominent',
       inviteOptIn: true,
@@ -181,50 +190,71 @@
     } catch (e) {}
   }
 
-  // Self-contained CSS — injected once. Mirrors the styling that
-  // shipped inline on /landing earlier so the nudge feels native
-  // wherever it appears.
+  // Self-contained CSS — injected once. The prompt is a CENTERED modal over
+  // a blurred page (2026-08-12), replacing the bottom-right pill that shipped
+  // here before. The blur is a backdrop-filter on the overlay rather than a
+  // filter on the page body: filtering the body creates a containing block
+  // for fixed-position children, which would drag the topbar and any open
+  // player into the blurred layer and break their positioning.
   function injectStyle(){
     if (document.getElementById('signupNudgeStyle')) return;
     var s = document.createElement('style');
     s.id = 'signupNudgeStyle';
     s.textContent =
-      '.signup-nudge{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-radius:14px;background:rgba(20,10,12,.94);color:#fff;border:1px solid rgba(220,38,38,.42);box-shadow:0 14px 36px rgba(0,0,0,.32);font-family:"Crimson Pro","Inter",system-ui,-apple-system,sans-serif;font-size:.82rem;line-height:1.35;max-width:calc(100vw - 36px);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:translateY(14px);opacity:0;transition:transform .26s ease,opacity .26s ease}' +
-      '.signup-nudge.is-in{transform:translateY(0);opacity:1}' +
-      '.signup-nudge .su-line{flex:1;color:rgba(255,255,255,.82)}' +
-      '.signup-nudge .su-line strong{color:#fff;font-weight:700}' +
-      '.signup-nudge .su-cta{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:none;border-radius:999px;cursor:pointer;background:#fff;color:#1a1a1f;font-family:inherit;font-size:.76rem;font-weight:700;letter-spacing:.01em;white-space:nowrap}' +
-      '.signup-nudge .su-g{width:15px;height:15px;flex:none}' +
-      '.signup-nudge .su-cta:hover{background:#f3f3f0}' +
-      '.signup-nudge .su-close{border:none;background:transparent;color:rgba(255,255,255,.68);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit}' +
-      '.signup-nudge .su-close:hover{color:#fff}' +
-      '.signup-nudge .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Crimson Pro,Georgia,serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.68);cursor:pointer}' +
-      '.signup-nudge .su-optin input{width:15px;height:15px;margin:1px 0 0;accent-color:#dc2626;flex:none}' +
-      '.signup-nudge--prominent{width:min(390px,calc(100vw - 36px));flex-wrap:wrap;padding:18px;border-radius:18px}' +
-      '.signup-nudge--prominent .su-line{flex:1 1 100%;font-size:.9rem;line-height:1.45}' +
-      '[data-theme="light"] .signup-nudge{background:#fff;color:#1a1a1f;border-color:rgba(220,38,38,.32);box-shadow:0 14px 36px rgba(0,0,0,.10)}' +
-      '[data-theme="light"] .signup-nudge .su-line{color:rgba(0,0,0,.7)}' +
-      '[data-theme="light"] .signup-nudge .su-line strong{color:#1a1a1f}' +
-      '[data-theme="light"] .signup-nudge .su-optin{color:rgba(0,0,0,.64)}' +
-      '[data-theme="light"] .signup-nudge .su-cta{background:#dc2626;color:#fff}' +
-      '[data-theme="light"] .signup-nudge .su-cta:hover{background:#b91c1c}' +
-      '[data-theme="light"] .signup-nudge .su-close{color:rgba(0,0,0,.64)}' +
-      '[data-theme="light"] .signup-nudge .su-close:hover{color:#1a1a1f}' +
-      // A sign-in modal owns the screen while open; never stack the nudge
-      // under it (the mobile overwhelm was modal + nudge + go-live card).
+      '.signup-nudge{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Crimson Pro","Inter",system-ui,-apple-system,sans-serif;opacity:0;transition:opacity .22s ease}' +
+      '.signup-nudge.is-in{opacity:1}' +
+      '.signup-nudge .su-veil{position:absolute;inset:0;background:rgba(12,8,9,.44);backdrop-filter:blur(9px) saturate(.9);-webkit-backdrop-filter:blur(9px) saturate(.9)}' +
+      // Browsers without backdrop-filter (older Firefox) get a heavier dim so
+      // the card still separates from the page instead of floating on text.
+      '@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){.signup-nudge .su-veil{background:rgba(12,8,9,.78)}}' +
+      '.signup-nudge .su-card{position:relative;width:min(460px,100%);max-height:calc(100vh - 40px);overflow-y:auto;padding:30px 30px 26px;border-radius:20px;background:#fff;color:#1a1a1f;border:1px solid rgba(220,38,38,.34);box-shadow:0 30px 80px rgba(0,0,0,.34);text-align:left;transform:translateY(10px) scale(.985);transition:transform .24s cubic-bezier(.2,.8,.3,1)}' +
+      '.signup-nudge.is-in .su-card{transform:none}' +
+      // padding-right keeps the first line clear of the × button, which sits
+      // absolutely in the same corner and would otherwise be run into by a
+      // long headline at narrow widths.
+      '.signup-nudge .su-title{margin:0 0 10px;padding-right:34px;font-size:1.42rem;line-height:1.22;font-weight:700;letter-spacing:-.01em;color:#15151a}' +
+      '.signup-nudge .su-line{margin:0;font-size:1.02rem;line-height:1.45;color:rgba(0,0,0,.68)}' +
+      '.signup-nudge .su-line strong{color:#15151a;font-weight:700}' +
+      '.signup-nudge .su-optin{display:flex;align-items:flex-start;gap:9px;margin:18px 0 0;font-size:.86rem;line-height:1.4;color:rgba(0,0,0,.62);cursor:pointer}' +
+      '.signup-nudge .su-optin input{width:16px;height:16px;margin:2px 0 0;accent-color:#dc2626;flex:none}' +
+      '.signup-nudge .su-actions{display:flex;align-items:center;gap:14px;margin:20px 0 0;flex-wrap:wrap}' +
+      '.signup-nudge .su-cta{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:12px 22px;border:none;border-radius:999px;cursor:pointer;background:#dc2626;color:#fff;font-family:inherit;font-size:1rem;font-weight:700;letter-spacing:.01em}' +
+      '.signup-nudge .su-cta:hover{background:#b91c1c}' +
+      '.signup-nudge .su-g{width:18px;height:18px;flex:none;background:#fff;border-radius:50%;padding:2px;box-sizing:border-box}' +
+      '.signup-nudge .su-later{border:none;background:transparent;padding:6px 2px;cursor:pointer;font-family:inherit;font-size:.92rem;color:rgba(0,0,0,.55);text-decoration:underline;text-underline-offset:3px}' +
+      '.signup-nudge .su-later:hover{color:#15151a}' +
+      '.signup-nudge .su-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border:none;background:transparent;border-radius:50%;color:rgba(0,0,0,.5);cursor:pointer;font-size:1.35rem;line-height:1;font-family:inherit}' +
+      '.signup-nudge .su-close:hover{background:rgba(0,0,0,.06);color:#15151a}' +
+      '.signup-nudge :focus-visible{outline:2px solid #dc2626;outline-offset:2px}' +
+      // Dark surfaces: the card inverts so it does not glare on a black page.
+      '[data-theme="dark"] .signup-nudge .su-card{background:#171113;color:#fff;border-color:rgba(220,38,38,.46);box-shadow:0 30px 80px rgba(0,0,0,.6)}' +
+      '[data-theme="dark"] .signup-nudge .su-title{color:#fff}' +
+      '[data-theme="dark"] .signup-nudge .su-line{color:rgba(255,255,255,.76)}' +
+      '[data-theme="dark"] .signup-nudge .su-line strong{color:#fff}' +
+      '[data-theme="dark"] .signup-nudge .su-optin{color:rgba(255,255,255,.66)}' +
+      '[data-theme="dark"] .signup-nudge .su-later{color:rgba(255,255,255,.62)}' +
+      '[data-theme="dark"] .signup-nudge .su-later:hover{color:#fff}' +
+      '[data-theme="dark"] .signup-nudge .su-close{color:rgba(255,255,255,.62)}' +
+      '[data-theme="dark"] .signup-nudge .su-close:hover{background:rgba(255,255,255,.08);color:#fff}' +
+      // A sign-in modal owns the screen while open; never stack this under it.
       'body.signin-modal-open .signup-nudge{display:none!important}' +
-      // Keep a transition for the floating Feedback pill. It stays in the
-      // bottom-left slot now, so this nudge no longer lifts it upward.
-      '.fb-floating{transition:bottom .26s ease, transform .18s ease, box-shadow .18s ease}' +
-      // Under 520px the nudge goes full-bleed (left:8px right:8px), which is
-      // the same bottom-left slot the Feedback pill owns, so the pill landed
-      // ON TOP of "Continue with Google" and ate taps on its left third.
-      // One bottom sheet at a time on mobile: the pill yields while the
-      // nudge is up and comes back on dismiss. Lifting it instead is what
-      // produced the "pill floating halfway up the screen" bug above.
-      '@media (max-width:520px){body.signup-nudge-open .fb-floating{display:none!important}}' +
-      '@media (max-width:520px){.signup-nudge{right:8px;left:8px;bottom:8px;flex-wrap:wrap;font-size:.78rem;padding:10px 10px 10px 12px}.signup-nudge .su-line{flex:1 1 100%;order:1}.signup-nudge .su-cta{order:2}.signup-nudge .su-close{order:3;margin-left:auto}}';
+      // The page is locked while the modal is up, so nothing else should be
+      // competing for a tap: the floating Feedback pill yields and returns.
+      'body.signup-nudge-open .fb-floating{display:none!important}' +
+      '@media (prefers-reduced-motion:reduce){.signup-nudge,.signup-nudge .su-card{transition:none}}' +
+      '@media (max-width:520px){.signup-nudge{padding:14px}.signup-nudge .su-card{padding:26px 20px 22px;border-radius:16px}.signup-nudge .su-title{font-size:1.24rem}.signup-nudge .su-line{font-size:.96rem}.signup-nudge .su-actions{gap:10px}.signup-nudge .su-cta{width:100%}.signup-nudge .su-later{width:100%;text-align:center}}';
     document.head.appendChild(s);
+  }
+
+  // The pageConfig lines are one string ("<strong>Headline.</strong> Body.").
+  // The modal needs them as two, so split on the leading <strong> when there
+  // is one and on the first sentence when there is not.
+  function splitMsg(msg){
+    var m = /^\s*<strong>([\s\S]*?)<\/strong>\s*([\s\S]*)$/.exec(msg || '');
+    if (m) return { title: m[1], body: m[2] };
+    m = /^\s*([^.!?]+[.!?])\s*([\s\S]*)$/.exec(msg || '');
+    if (m) return { title: m[1], body: m[2] };
+    return { title: msg || '', body: '' };
   }
 
   function isRealUser(user){
@@ -234,7 +264,7 @@
   function rememberInviteChoice(cfg){
     if (!cfg.inviteOptIn || !bar) return;
     try {
-      var optin = bar.querySelector('.su-optin input');
+      var optin = bar.querySelector('.su-optin input, .sum-optin input');
       if (optin && optin.checked) localStorage.setItem(INVITE_OPT_IN_KEY, '1');
       else localStorage.removeItem(INVITE_OPT_IN_KEY);
     } catch (e) {}
@@ -463,47 +493,115 @@
         msg = '<strong>Welcome back.</strong> Sign in again and your rounds, ballots, and rank pick up where they left off.';
       }
     } catch (e) {}
+    // One account chooser at a time: the native One Tap chip is retracted so
+    // it does not sit on top of a modal asking for the same thing.
+    try { window.google.accounts.id.cancel(); } catch (e) {}
+    var parts = splitMsg(msg);
     bar = document.createElement('div');
     bar.className = 'signup-nudge' + (cfg.variant ? ' signup-nudge--' + cfg.variant : '');
     bar.setAttribute('role', 'dialog');
+    bar.setAttribute('aria-modal', 'true');
     bar.setAttribute('aria-label', 'Sign in with Google to save your work');
     var optin = cfg.inviteOptIn
       ? '<label class="su-optin"><input type="checkbox"> <span>Email me occasional round invites and product updates.</span></label>'
       : '';
     bar.innerHTML =
-      '<span class="su-line">' + msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
-      optin +
-      '<button type="button" class="su-cta"><svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>Continue with Google</button>' +
-      '<button type="button" class="su-close" aria-label="Dismiss">×</button>';
+      '<div class="su-veil"></div>' +
+      '<div class="su-card">' +
+        '<button type="button" class="su-close" aria-label="Dismiss">×</button>' +
+        '<h2 class="su-title">' + parts.title + '</h2>' +
+        (parts.body ? '<p class="su-line">' + parts.body + '</p>' : '') +
+        optin +
+        '<div class="su-actions">' +
+          '<button type="button" class="su-cta"><svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>Continue with Google</button>' +
+          '<button type="button" class="su-later">Not now</button>' +
+        '</div>' +
+      '</div>';
     document.body.appendChild(bar);
+    lockScroll();
     document.body.classList.add('signup-nudge-open');
     bumpSessionAttempts();
     requestAnimationFrame(function(){
       bar.classList.add('is-in');
-      // Measure after is-in is applied so the pill lift matches real height.
       requestAnimationFrame(function(){ syncFeedbackPill(); bindSync(); });
     });
-    bar.querySelector('.su-cta').addEventListener('click', function(){ doSignIn(cfg); });
-    bar.querySelector('.su-close').addEventListener('click', function(){
+
+    var cta = bar.querySelector('.su-cta');
+    cta.addEventListener('click', function(){ doSignIn(cfg); });
+    var dismiss = function(how){
       markDismissed();
       unmount();
       try {
-        if (window.gtag) gtag('event', 'signup_nudge_dismissed', { path: location.pathname, attempt: attempt });
+        if (window.gtag) gtag('event', 'signup_nudge_dismissed', { path: location.pathname, attempt: attempt, method: how });
       } catch (e) {}
       armReminder(attempt + 1);
-    });
+    };
+    bar.querySelector('.su-close').addEventListener('click', function(){ dismiss('close'); });
+    bar.querySelector('.su-later').addEventListener('click', function(){ dismiss('later'); });
+    // Clicking the blurred page behind the card dismisses, same as Escape.
+    // Both are "not now" and both feed the reminder cadence.
+    bar.querySelector('.su-veil').addEventListener('click', function(){ dismiss('backdrop'); });
+    _onKey = function(e){
+      if (e.key === 'Escape'){ dismiss('escape'); return; }
+      if (e.key !== 'Tab' || !bar) return;
+      // Keep focus inside the card while it owns the screen.
+      var f = bar.querySelectorAll('button, input, a[href]');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', _onKey, true);
+    _lastFocus = document.activeElement;
+    try { cta.focus({ preventScroll: true }); } catch (e) {}
+
     try {
-      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: attempt > 0 ? 'reminder' : (cfg.variant || 'standard'), delay: cfg.delay, attempt: attempt });
+      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: attempt > 0 ? 'reminder' : (cfg.variant || 'standard'), delay: cfg.delay, attempt: attempt, surface: 'center_modal' });
     } catch (e) {}
+  }
+
+  // Scroll lock. The page is blurred behind the card, so letting it scroll
+  // underneath reads as a rendering fault; the scroll position is restored on
+  // close because position:fixed on <body> otherwise jumps the visitor to the
+  // top of the page they were reading.
+  var _scrollY = 0;
+  var _locked = false;
+  var _onKey = null;
+  var _lastFocus = null;
+  function lockScroll(){
+    if (_locked) return;
+    _locked = true;
+    _scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var b = document.body;
+    b.style.position = 'fixed';
+    b.style.top = (-_scrollY) + 'px';
+    b.style.left = '0';
+    b.style.right = '0';
+    b.style.width = '100%';
+  }
+  function unlockScroll(){
+    if (!_locked) return;
+    _locked = false;
+    var b = document.body;
+    b.style.removeProperty('position');
+    b.style.removeProperty('top');
+    b.style.removeProperty('left');
+    b.style.removeProperty('right');
+    b.style.removeProperty('width');
+    window.scrollTo(0, _scrollY);
   }
 
   function unmount(){
     if (!bar) return;
+    if (_onKey){ document.removeEventListener('keydown', _onKey, true); _onKey = null; }
+    unlockScroll();
     document.body.classList.remove('signup-nudge-open');
     bar.classList.remove('is-in');
     var ref = bar;
     setTimeout(function(){ if (ref && ref.parentNode) ref.parentNode.removeChild(ref); }, 260);
     bar = null;
+    try { if (_lastFocus && _lastFocus.focus) _lastFocus.focus({ preventScroll: true }); } catch (e) {}
+    _lastFocus = null;
     syncFeedbackPill(); // restore the Feedback pill to its resting position
   }
 
@@ -564,7 +662,6 @@
     var cfg = getConfig();
     if (cfg.inlineAuth) return;
     if (recentlyDismissed()) return;
-    var delayMs = (cfg.delay || 25) * 1000;
 
     // Firebase not on this page → bail. Don't show a nudge that
     // can't actually authenticate.
@@ -591,14 +688,39 @@
       return;
     }
 
-    setTimeout(function(){
-      // Re-check just before mounting in case auth resolved during
-      // the delay.
+    armInitial(cfg);
+  }
+
+  // 2026-08-12, per Aidan: the prompt arrives "10 seconds into site
+  // scrolling". Two conditions, not one timer. Seconds are counted only while
+  // the tab is VISIBLE, so a background tab left open all afternoon does not
+  // greet the visitor with a modal the moment they return to it. And on a page
+  // long enough to scroll, at least one scroll is required, so the modal
+  // follows engagement rather than landing on someone who has not read a
+  // sentence yet. A page too short to scroll waives that half rather than
+  // suppressing the prompt forever.
+  function armInitial(cfg){
+    // Tool pages that were already deliberately patient (voice rounds at 60s,
+    // /learn at 30s) keep their delay: a full-screen modal 10 seconds into a
+    // spoken round would interrupt the product mid-sentence.
+    var seconds = (cfg.delay && cfg.delay >= 30) ? cfg.delay : TRIGGER_SECONDS;
+    var scrollable = (document.documentElement.scrollHeight - window.innerHeight) > 120;
+    var scrolled = !scrollable;
+    var onScroll = function(){ scrolled = true; };
+    if (scrollable) window.addEventListener('scroll', onScroll, { passive: true });
+    var elapsed = 0;
+    var timer = setInterval(function(){
+      if (document.hidden) return;
+      elapsed += 1;
+      if (elapsed < seconds || !scrolled) return;
+      clearInterval(timer);
+      window.removeEventListener('scroll', onScroll);
+      // Re-check just before mounting in case auth resolved during the wait.
       try {
         if (isRealUser(firebase.auth().currentUser)) return;
       } catch (e) { return; }
       mount(0);
-    }, delayMs);
+    }, 1000);
   }
 
   if (document.readyState === 'loading') {
