@@ -284,7 +284,7 @@ body{
 </div>
 
 <script>
-// Single click target: anywhere on the stage routes to /landing. The
+// Single click target: anywhere on the stage routes to /. The
 // explicit Skip button does the same thing — kept for visible
 // affordance + keyboard users who'd otherwise tab through nothing.
 //
@@ -294,7 +294,7 @@ body{
 // .play() promise rejects, we swallow the error, and the visual flow
 // continues unchanged. See app/audio/README.md for how to (re)generate.
 //
-// We pre-prefetch /landing on first interaction (mousemove or touchstart)
+// We pre-prefetch / on first interaction (mousemove or touchstart)
 // so the click→nav handoff feels instant. Netlify edges it; the browser
 // just needs the bytes warm.
 (function(){
@@ -386,11 +386,11 @@ body{
     // then the optional richer MP3 hook on top. Either alone is fine.
     try { window.SFX && window.SFX.confirm(); } catch(e){}
     playHook();
-    try { gtag('event','splash_enter',{ via: href === '/landing' ? 'tap' : 'skip' }); } catch(e){}
+    try { gtag('event','splash_enter',{ via: href === '/' ? 'tap' : 'skip' }); } catch(e){}
     // Trigger the press-out animation, then nav. Animation duration
     // is 500ms but we nav at 320ms so the page swap feels instant
     // while the splash is still visually receding. The audio continues
-    // playing right up until /landing replaces the document — usually
+    // playing right up until the homepage replaces the document — usually
     // the visitor still hears the first ~1 second of the line, which
     // is exactly the "I'll push back" hook.
     stage.classList.add('press');
@@ -398,20 +398,20 @@ body{
   }
 
   stage.addEventListener('click', function(){
-    go('/landing');
+    go('/');
   });
   stage.addEventListener('keydown', function(e){
-    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go('/landing'); }
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go('/'); }
   });
 
-  // Prefetch /landing on first interaction. Cheaper than prefetching
+  // Prefetch / on first interaction. Cheaper than prefetching
   // on load because some visitors immediately bounce; we only pay the
   // bytes when we have evidence the user is engaging.
   var prefetched = false;
   function prefetch(){
     if (prefetched) return; prefetched = true;
     var link = document.createElement('link');
-    link.rel = 'prefetch'; link.href = '/landing';
+    link.rel = 'prefetch'; link.href = '/';
     document.head.appendChild(link);
   }
   ['mousemove','touchstart','keydown'].forEach(function(ev){

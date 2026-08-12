@@ -218,6 +218,9 @@ const URLS = [
   // every crawl a wasted hop. The PAGE canonical was corrected to match
   // this instead. Same for '/compare' below.
   { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
+  // Interactive evergreen acquisition tool. Users can filter 57 reviewed
+  // motions by subject, age, and format, then start a prefilled round.
+  { path: '/debate-topic-generator', changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-12' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
