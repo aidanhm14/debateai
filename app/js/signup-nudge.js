@@ -518,7 +518,7 @@
         '</div>' +
       '</div>';
     document.body.appendChild(bar);
-    lockScroll();
+    lockScroll(bar);
     document.body.classList.add('signup-nudge-open');
     bumpSessionAttempts();
     requestAnimationFrame(function(){
@@ -560,41 +560,29 @@
     } catch (e) {}
   }
 
-  // Scroll lock. The page is blurred behind the card, so letting it scroll
-  // underneath reads as a rendering fault; the scroll position is restored on
-  // close because position:fixed on <body> otherwise jumps the visitor to the
-  // top of the page they were reading.
-  var _scrollY = 0;
-  var _locked = false;
+  // Scroll lock. It holds the page still WITHOUT mutating any layout property,
+  // and that constraint is not stylistic. The first version set
+  // `position:fixed` on <body>, which silently KILLED the backdrop blur in
+  // Chrome: the overlay computed `backdrop-filter: blur(9px)` correctly and
+  // painted a flat dim, because a fixed <body> changes what the backdrop root
+  // samples. Measured live on /landing, A/B, with the property as the only
+  // difference. `overflow:hidden` on <html> was the next candidate and is also
+  // out: this site scrolls the body, so it shifts the whole page on open.
+  // Swallowing wheel and touch over the overlay costs no layout at all.
+  // Keyboard scrolling still works, which is fine; Escape closes.
   var _onKey = null;
   var _lastFocus = null;
-  function lockScroll(){
-    if (_locked) return;
-    _locked = true;
-    _scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-    var b = document.body;
-    b.style.position = 'fixed';
-    b.style.top = (-_scrollY) + 'px';
-    b.style.left = '0';
-    b.style.right = '0';
-    b.style.width = '100%';
-  }
-  function unlockScroll(){
-    if (!_locked) return;
-    _locked = false;
-    var b = document.body;
-    b.style.removeProperty('position');
-    b.style.removeProperty('top');
-    b.style.removeProperty('left');
-    b.style.removeProperty('right');
-    b.style.removeProperty('width');
-    window.scrollTo(0, _scrollY);
+  function preventScrollGesture(e){ e.preventDefault(); }
+  function lockScroll(el){
+    el.addEventListener('wheel', preventScrollGesture, { passive: false });
+    el.addEventListener('touchmove', preventScrollGesture, { passive: false });
   }
 
   function unmount(){
     if (!bar) return;
     if (_onKey){ document.removeEventListener('keydown', _onKey, true); _onKey = null; }
-    unlockScroll();
+    // The gesture listeners live on the overlay itself, so removing the node
+    // removes the lock. Nothing global was touched, nothing to restore.
     document.body.classList.remove('signup-nudge-open');
     bar.classList.remove('is-in');
     var ref = bar;
