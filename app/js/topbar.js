@@ -219,10 +219,9 @@
     // Watch CTA beside "Match me with a stranger" in #live-now).
     // 2026-08-10 (again, per Aidan): `big` renders the Explore-menu row
     // as a large flagship tile. Sized by venture weight, not traffic:
-    // Watch (the audience surface), Predict (the market), Leaderboard
-    // (the public record) and Tournaments (the event engine) are the
-    // scale bets; utility rows stay small so the hierarchy means
-    // something.
+    // Watch (the audience surface), Predict (the market) and Tournaments
+    // (the event engine) are the scale bets; utility rows stay small so
+    // the hierarchy means something.
     { href: '/watch',         label: 'Watch', big: true },
     { href: '/credentials',   label: 'Certificate' },
     // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
@@ -285,18 +284,10 @@
     //   Leaderboard-> off the bar since 2026-07-02, and staying off.
     { href: '/get-paid-to-debate', label: 'Money'       },
     { href: '/judge-integrity',    label: 'Judging'     },
-    // 2026-08-10: was `strong` (bolded label); upgraded to a `big` tile
-    // in the venture-weight pass. Leaderboard is the public record the
-    // returning debater comes back for.
-    // 2026-08-11, per Aidan ("have leaderboard be a tab at the top
-    // actually too"): back ON the rail after five weeks in Explore. It
-    // is the only railed link right now, which is the point — the bar
-    // carries the wordmark, one tab, and the actions, so the one tab
-    // reads as a destination rather than as a nav row. It is also the
-    // surface the sign-in pitch now points at (a score that counts, a
-    // place on a public board), and a pitch whose destination is buried
-    // in an overflow menu is a pitch nobody follows.
-    { href: '/leaderboard',        label: 'Leaderboard', big: true, rail: true, compactKeep: true },
+    // 2026-08-12: Leaderboard removed from every topbar surface. The
+    // ranking system is not strong enough yet to deserve a permanent
+    // rail tab, an Explore tile or a mobile-sheet entry. The page stays
+    // live for direct and contextual links while the ranking improves.
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
@@ -342,9 +333,9 @@
       // first); /tournament is the draw, the tab and the bracket.
       { href: '/partners',    label: 'Find a 2v2 partner' },
       { href: '/tournament',  label: 'Enter a tournament' },
-      // Leaderboard is not listed here: it lives in LINKS, so the menu
-      // renders it in the Debate column and the mobile sheet renders it
-      // with the primary links. Adding it here too would list it twice.
+      // Leaderboard is deliberately absent from navigation until the
+      // ranking system is strong enough to promote. The page remains
+      // reachable through direct and contextual links.
       // 2026-08-10: moved up out of the "Site" group, which is pricing,
       // story and vision — pages about the company. The Atlas is a
       // product surface (a live map of real programs), and it lost its
@@ -593,8 +584,8 @@
     // 2026-05-26: mobile-only hamburger. Topbar links display:none at
     // ≤560px (see ui.css), leaving mobile users with no in-bar nav.
     // This button toggles a slide-down sheet that mirrors LINKS so
-    // /voice, /spar, /prep, /learn, /live, /community, /leaderboard,
-    // /cert, /faq are all reachable on mobile. Hidden on desktop via
+    // /voice, /spar, /prep, /learn, /live, /community, /cert and /faq
+    // are all reachable on mobile. Hidden on desktop via
     // CSS (display:none above 560px).
     var burger = el('button', {
       class: 'ui-topbar-burger',
@@ -669,7 +660,7 @@
         // /spar lives in the spotlight card, so it is not repeated here.
         { head: 'Debate', links: pageLinks.filter(function(L){
           return ['/app#case', '/live', '/watch', '/room-judge', '/predict',
-                  '/get-paid-to-debate', '/leaderboard'].indexOf(L.href) !== -1;
+                  '/get-paid-to-debate'].indexOf(L.href) !== -1;
         })},
         { head: 'Improve', links: pageLinks.filter(function(L){
           return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach',
