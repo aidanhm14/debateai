@@ -401,20 +401,24 @@
   ];
 
   // ── Social accounts ────────────────────────────────────────────────
-  // 2026-08-12: Instagram surfaced per Aidan. Only accounts that ACTUALLY
-  // EXIST go in here. YouTube, TikTok and Twitch are coming but are not
-  // claimed yet, and a nav icon pointing at a 404 is worse than no icon,
-  // so they stay commented out until the handle is real. Adding one then
-  // is a single line: the topbar rail, the mobile sheet row, and the
-  // hover colour all read this array.
+  // 2026-08-12: Instagram surfaced per Aidan, then YouTube, Twitch and
+  // TikTok the same day once those handles were claimed (all four are
+  // @trydebatable). Only accounts that ACTUALLY EXIST go in here: a nav
+  // icon pointing at a 404 is worse than no icon. Adding one is a single
+  // entry; the topbar rail, the mobile sheet row, and the hover colour all
+  // read this array.
   //
   // `brand` is the platform's own colour, used for the hover wash. An entry
   // may also carry `gradient`, which paints the glyph itself in the
-  // platform's real colours at rest. The old rule here was monochrome
-  // everywhere so the bar could not turn into a sponsor wall; with one
-  // account in the rail there is no wall to build, and the Instagram mark
-  // is only recognisable in its own colours. Add a second network and this
-  // is the decision to revisit, not the icon to match.
+  // platform's real colours at rest: one stop paints solid, two or more
+  // sweep diagonally. The earlier note here said a second network was the
+  // moment to revisit colour and go back to monochrome. Aidan asked for the
+  // opposite, and he is right for one reason: at 16px these marks are read
+  // by colour before shape, and a monochrome Twitch glyph next to a
+  // monochrome TikTok note is four grey smudges. Colour is what makes the
+  // rail scannable, so it stays. What keeps it from becoming a sponsor wall
+  // is the count. Four is the ceiling; a fifth network needs a rethink of
+  // the rail, not another entry.
   var SOCIALS = [
     {
       key: 'instagram',
@@ -432,9 +436,48 @@
           + '<circle cx="12" cy="12" r="4.1"/>'
           + '<path d="M17.1 6.9h.01"/>',
     },
-    // { key:'youtube', label:'YouTube', handle:'@…', href:'https://youtube.com/@…', brand:'#FF0000', icon:'…' },
-    // { key:'tiktok',  label:'TikTok',  handle:'@…', href:'https://tiktok.com/@…',  brand:'#000000', icon:'…' },
-    // { key:'twitch',  label:'Twitch',  handle:'…',  href:'https://twitch.tv/…',    brand:'#9146FF', icon:'…' },
+    {
+      key: 'youtube',
+      label: 'YouTube',
+      handle: '@trydebatable',
+      href: 'https://www.youtube.com/@trydebatable',
+      brand: '#FF0000',
+      // One stop, so the glyph paints solid red rather than sweeping.
+      gradient: ['#FF0000'],
+      // Rounded plate + play triangle.
+      icon: '<rect x="2.6" y="5.3" width="18.8" height="13.4" rx="4.2"/>'
+          + '<path d="M10.2 9.3l5.5 2.7-5.5 2.7z"/>',
+    },
+    {
+      key: 'twitch',
+      label: 'Twitch',
+      handle: 'trydebatable',
+      href: 'https://www.twitch.tv/trydebatable',
+      brand: '#9146FF',
+      gradient: ['#9146FF'],
+      // The glitch: a bevelled panel with the tab dropping off the
+      // bottom-left, plus the two eye bars.
+      icon: '<path d="M7.2 2.7L3.6 6.3v12.6h4.3v3.4l3.6-3.4h2.9l5.9-5.9V2.7z"/>'
+          + '<path d="M11.6 8.2v4.3M15.5 8.2v4.3"/>',
+    },
+    {
+      key: 'tiktok',
+      label: 'TikTok',
+      handle: '@trydebatable',
+      href: 'https://www.tiktok.com/@trydebatable',
+      brand: '#FE2C55',
+      // TikTok's mark is black with cyan and magenta offset prints, so a
+      // monochrome version is the one thing it cannot be. The cyan-to-pink
+      // sweep is what those offsets read as at 16px. Pink is repeated so it
+      // takes the top half of the sweep rather than a third of it: cyan
+      // carries the recognition but is the palest colour in the rail
+      // against a white bar, and a two-stop version rendered visibly
+      // fainter than its three neighbours at icon size.
+      gradient: ['#25F4EE', '#FE2C55', '#FE2C55'],
+      // Note head, stem, and the flag hooking up to the right.
+      icon: '<circle cx="10.3" cy="14.4" r="4"/>'
+          + '<path d="M14.3 14.4V3.6a5.4 5.4 0 0 0 5.4 5.4"/>',
+    },
   ];
 
   // Gradient ids have to be unique per document: socialIcon runs twice per
@@ -444,7 +487,11 @@
   function socialIcon(s){
     var stroke = 'currentColor';
     var defs = '';
-    if (s.gradient && s.gradient.length){
+    if (s.gradient && s.gradient.length === 1){
+      // A one-stop gradient is legal SVG but paints inconsistently across
+      // engines, and a flat brand colour does not need one anyway.
+      stroke = s.gradient[0];
+    } else if (s.gradient && s.gradient.length){
       var gid = 'dbsoc-' + s.key + '-' + (++socialGradSeq);
       var stops = s.gradient.map(function(c, i){
         var pct = s.gradient.length === 1 ? 0 : Math.round((i / (s.gradient.length - 1)) * 100);
