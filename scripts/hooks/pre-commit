@@ -113,6 +113,25 @@ if [ -f "$BRAIN_HEALTH_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Sender guard. Resend authenticates the sending DOMAIN, not the
+# mailbox, and it REJECTS an unverified From at the API rather than
+# bouncing it later, so a wrong sender is a run of silent 403s in an
+# error tally nobody reads. That is not hypothetical: it is how Spar
+# Night mailed zero people between 2026-07-22 and 08-05. The check
+# asks Resend what is verified instead of trusting a hardcoded list,
+# and it has to keep failing CLOSED when the answer cannot be had.
+# ──────────────────────────────────────────────────────────────────
+SENDER_GUARD="$REPO_ROOT/scripts/test-sender-verify.mjs"
+if [ -f "$SENDER_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-sender-verify.mjs >/tmp/sender-guard.log 2>&1); then
+    echo "[sender-guard] commit blocked - the verified-sender check no longer holds:" >&2
+    tail -20 /tmp/sender-guard.log >&2
+    echo "[sender-guard] see scripts/test-sender-verify.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Blocks guard. /api/blocks answers an opponent's case, and the one
 # thing it must never do is hand a debater a citation to read. A
 # fabricated card read in a real round loses that round and costs the

@@ -37,27 +37,33 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL } from './lib/email.mjs';
+import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL,
+         verifiedSenderDomains, senderDomain } from './lib/email.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
 import { FOUNDING_CUTOFF_LABEL, FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
 
-// Only debateai.com is a verified Resend sender. A From on any other
-// domain does not bounce, it 403s at the API and the run reports errors
-// nobody reads, which is how the Spar Night reminders sent zero emails
-// from 2026-07-22 to 08-05. lib/email.mjs still defaults to a gmail
-// address for the older senders, so this one resolves its own From and
-// REFUSES to send from an unverified domain rather than discovering it
-// afterwards in an error tally.
-const VERIFIED_SENDER_DOMAINS = ['debateai.com'];
+// A From on an unverified domain does not bounce, it 403s at the Resend API
+// and the run reports errors nobody reads, which is how the Spar Night
+// reminders sent zero emails from 2026-07-22 to 08-05. lib/email.mjs still
+// defaults to a gmail address for the older senders, so this one resolves its
+// own From and REFUSES to send from an unverified domain rather than
+// discovering it afterwards in an error tally.
+//
+// The allow-list is ASKED, not hardcoded: verifiedSenderDomains() reads what
+// Resend actually has verified right now. A hardcoded list is a second,
+// independent claim about the truth, and the moment a domain is added or a DNS
+// record lapses it becomes a confident lie in whichever direction hurts more.
+// Adding itsdebatable.com in the Resend dashboard is therefore the ONLY step
+// needed to move the sender there; no deploy follows it.
+//
+// FALLBACK is deliberate and narrow. If the lookup itself fails (network, a
+// Resend outage) the run falls back to the last domain known to work rather
+// than refusing, because a lookup hiccup should not be a new way for the
+// button to stop. The response says which source was used.
+const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
                  || 'Aidan at Debatable <aidan@debateai.com>';
 const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || undefined;
-
-function senderDomain(from) {
-  const m = String(from || '').match(/<([^>]+)>|([^\s<>]+@[^\s<>]+)/);
-  const addr = (m && (m[1] || m[2])) || '';
-  return addr.split('@')[1]?.toLowerCase() || '';
-}
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
 const SUBJECT     = `The Debatable Open, August 29. Your entry is free.`;
@@ -144,12 +150,18 @@ export default async (request) => {
 
   const wantsSend = body?.confirm === 'SEND';
   const fromDomain = senderDomain(FROM_EMAIL);
-  const senderOk = VERIFIED_SENDER_DOMAINS.includes(fromDomain);
+  const live = await verifiedSenderDomains();
+  const allowed = live.ok ? live.domains : FALLBACK_VERIFIED;
+  const verifiedSource = live.ok ? 'resend' : `fallback (${live.reason})`;
+  const senderOk = allowed.includes(fromDomain);
   if (wantsSend && !senderOk) {
     return jsonResponse({
       error: 'UNVERIFIED_SENDER',
       message: `From is ${FROM_EMAIL}, and ${fromDomain || 'that domain'} is not a verified Resend sender. `
-             + `Resend would reject every send. Set OPEN_ANNOUNCE_FROM to an address at ${VERIFIED_SENDER_DOMAINS.join(' or ')}.`,
+             + `Resend would reject every send. Verified right now: ${allowed.join(', ') || 'nothing'}. `
+             + `Either add ${fromDomain || 'the domain'} in the Resend dashboard, or set OPEN_ANNOUNCE_FROM to an address at one of those.`,
+      verifiedDomains: allowed,
+      verifiedSource,
     }, 409, request);
   }
   const dryRun = !wantsSend || !process.env.RESEND_API_KEY;
@@ -261,6 +273,8 @@ export default async (request) => {
     dryRun,
     from: FROM_EMAIL,
     senderVerified: senderOk,
+    verifiedDomains: allowed,
+    verifiedSource,
     subject: SUBJECT,
     tournament: { id: tourn.id, name: tourn.name || '', startsAt: tourn.startsAt || '' },
     cutoff: new Date(FOUNDING_CUTOFF_MS).toISOString(),

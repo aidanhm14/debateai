@@ -143,6 +143,53 @@ export function renderFooter({ uid, stream, reason } = {}) {
   </p>`;
 }
 
+// ── Verified sender domains ──────────────────────────────────────────────────
+// Resend authenticates the DOMAIN, not the mailbox, and it REJECTS an
+// unverified From at the API with a 403 rather than bouncing it later. That
+// failure mode is why Spar Night mailed zero people between 2026-07-22 and
+// 08-05: the send looked like it ran and the errors landed in a tally nobody
+// read. Senders that care can therefore ask Resend what is actually verified
+// instead of trusting a hardcoded list, which is a list that goes stale the
+// moment a domain is added or a DNS record lapses.
+//
+// Cached in module scope for the life of the warm lambda so a batch send makes
+// one lookup, not one per recipient. Never throws: a failed lookup returns
+// ok:false and the caller decides, because this must not become a new way for
+// every email on the site to stop.
+
+let _verifiedCache = null;   // { at: epochMs, domains: string[] }
+const VERIFIED_TTL_MS = 10 * 60 * 1000;
+
+export async function verifiedSenderDomains() {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { ok: false, reason: 'no-key', domains: [] };
+  if (_verifiedCache && Date.now() - _verifiedCache.at < VERIFIED_TTL_MS) {
+    return { ok: true, domains: _verifiedCache.domains, cached: true };
+  }
+  try {
+    const res = await fetch('https://api.resend.com/domains', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return { ok: false, reason: `resend-${res.status}`, domains: [] };
+    const body = await res.json();
+    const domains = (body?.data || [])
+      .filter(d => String(d?.status || '').toLowerCase() === 'verified')
+      .map(d => String(d?.name || '').toLowerCase())
+      .filter(Boolean);
+    _verifiedCache = { at: Date.now(), domains };
+    return { ok: true, domains };
+  } catch (e) {
+    return { ok: false, reason: `fetch-failed: ${e.message}`, domains: [] };
+  }
+}
+
+// Pulls the domain out of either 'Name <a@b.com>' or a bare address.
+export function senderDomain(from) {
+  const m = String(from || '').match(/<([^>]+)>|([^\s<>]+@[^\s<>]+)/);
+  const addr = (m && (m[1] || m[2])) || '';
+  return addr.split('@')[1]?.toLowerCase() || '';
+}
+
 // ── Send via Resend ──────────────────────────────────────────────────────────
 // from:    explicit arg > EMAIL_FROM env > 'Aidan @ Debatable <aidandavidhollinger@gmail.com>'
 //          (the pre-lib prod default for the scheduled senders; do NOT swap
