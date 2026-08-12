@@ -106,20 +106,23 @@ These are the rules that override other considerations. Any change that violates
 - **`netlify.toml` in both root and `/app/`.** They must stay in sync on redirects. The `/` → `/landing.html` redirect needs `force = true` so it wins against any shadow `index.html`.
 - **PWA + service worker.** Bump `CACHE_NAME` when HTML or bundle changes. Never precache `/` directly. it caused a root-routing regression.
 
-## 7. Pricing (decided, stop debating it)
+## 7. Pricing (school Program license is the plan of record. DECIDED 2026-08-11)
 
-**CURRENT STATE (2026-05-14): Beta. All tiers free. The table below is future pricing for reference.** Every paywall surface (landing FAQ, /pricing, debate-ai paywall modal, the floating upgrade-cta pill) frames the tiers as "future pricing once we exit beta" and routes users to the feedback form for pricing proposals rather than to a checkout. No card is collected today. The structure stays defined so users know what's coming and so it's easy to flip back to active billing later.
+**The contradiction is closed.** The doctrine (§13) sells school programs at **$550/season**; the old consumer Team tier was being read as the school answer at 1/11th the price. Aidan's call, 2026-08-11: **$550/season is what a real roster costs.** Team survives but is a study-group tier, never the answer for a program. Agents are unfrozen on pricing surfaces with one standing rule: **never quote a school a seat plan.** Point coaches at the season license.
 
-Four tiers. Individual repriced $5/mo → $5/year (2026-05-14) → $10/year (2026-06-27); Team $20/year → $50/year (2026-06-27). The Lifetime tier (added 2026-05-10, last priced $30 once) was removed from all pricing displays 2026-07-03 per Aidan; the backend `lifetime` entitlement stays for any existing grants. See decision log.
+**Beta state:** consumer tiers are still $0 in practice (the usage cap is the only gate; no card is collected on Free/Individual/Team). Two things ARE live money today: the **$4.99/mo Tokens** subscription and **$20 tournament prize entry** (`ENTRY_PAYMENTS_LIVE=true`).
 
 | Tier | Price | What you get |
 |---|---|---|
-| Free | $0 | 5 anonymous + 5 more on sign-in (10 total) |
+| Free | $0 | 1 local preview, then 10 signed-in requests |
 | BYOK | $1/mo | Unlimited Claude (Anthropic-only, user's key) |
-| Individual | $10/year | 250 requests/mo, 6 brains, HD voice |
-| Team | $50/year | 1,500 requests/mo, 50 seats |
+| Individual | $10/year | 250 requests/mo, 6 brains, typed practice |
+| Voice | $12/mo | Live voice rounds. Monthly because voice costs real money to run |
+| Tokens | $4.99/mo | The one thing on sale during beta |
+| Team | $50/year | 1,500 requests/mo, 50 seats. **Study group, not a program** |
+| Program | $550/season | Whole school roster, unlimited judged rounds, invoicing + privacy paperwork |
 
-Target conversion tier: **Individual at $10/year**. Everything else exists to funnel toward it. The annual price isn't a discount strategy — it's a framing one. At $10 for the whole year, the decision stops being "is this worth a recurring monthly charge" (where the user is weighing it against Netflix) and starts being "is this worth a single tournament entry fee" (where the answer is obviously yes for anyone who debates). BYOK is for the power users who'd otherwise leave on cost; Team is for debate clubs and later sales motion.
+Target consumer tier: **Individual at $10/year** — the frame is "one tournament entry fee," not "another monthly subscription." But the revenue line that matters this season is **Program**: one $550 license is worth 55 Individual subscriptions, and a hired judge costs $60-80 a day, which is the comparison a coach actually makes.
 
 ## 8. Current state (updated 2026-05-20, live admin read)
 
@@ -139,6 +142,8 @@ Target conversion tier: **Individual at $10/year**. Everything else exists to fu
 5. **Community features.** Live Debates / calendar / scheduled-judge sign-ups. Mentioned in Reddit post but thinly implemented. (2026-05-20: first real async community surface shipped — the /spar waitlist + DM marketplace, see decision log. Lets debaters advertise "looking for a round" and DM to organize, instead of only the synchronous random matchmaker. Still thin on the scheduled-judge / calendar side.)
 
 ## 10. Decision log (major decisions with why)
+
+- **Pricing contradiction closed: $550/season Program wins** (2026-08-11, Aidan's call). soul.md and the doctrine had been pointing at two different answers for a school roster ($550/season in doctrine §13 vs a $20/yr, later $50/yr, Team tier on the pricing page), and agents were frozen on pricing surfaces until Aidan picked. He picked $550. Team is not deleted, it is demoted: $50/year for a study group, explicitly not a program license. Code side, /pricing already carried both a Team card and a Program card, so the only live copy that contradicted the decision was `app/schools.html` selling the Team tier's "1,500 requests a month across 50 seats" to coaches on the schools page. Fixed to the season license. §7 rewritten to the live 7-tier lineup (it had drifted: it was missing Voice $12/mo, Tokens $4.99/mo, and Program entirely). Standing rule for agents from here: never quote a school a seat plan.
 
 - **The waiver becomes automatic for everyone who signed up early, and the announcement email goes out** (2026-08-11, Aidan's call, same day as the entry decision below). The $20 prize entry STAYS and this is not a fifth flip of the entry model. It is the waiver that decision already promises ("waived for anyone who asks, on identical terms"), granted automatically to a bounded cohort instead of one email at a time: **any account created on or before 11:59 PM ET on Friday, August 22, 2026 enters the prize bracket free.** Two reasons it is a date and not a blanket. A comp for everyone would delete the paid door, which is the flip the log forbids. A comp for existing accounts only would be a loyalty gift with no acquisition edge, and the whole point of mailing the list is that a recipient can forward it and the person they forward it to can still qualify. So the cutoff is what makes the email worth sending.
   - **Qualification reads Firebase Auth account creation, never `user_profiles.createdAt`.** Sign-in writes to Auth and nothing mirrors the timestamp into the profile doc, so a profiles-based check would have silently disqualified most of the list. Same trap `scheduled-spar-night` hit with emails on 2026-07-22, and worth stating as a habit: **the profile doc is where preferences live, Auth is where the account facts live.**

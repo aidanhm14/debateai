@@ -323,7 +323,7 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 - **Bump `CACHE_NAME` in BOTH `sw.js` files** when HTML/bundle changes. The `scripts/hooks/pre-commit` hook (installed via `bash scripts/install-hooks.sh`) does this automatically on every commit that touches client-side files. Only relevant if you skipped the hook install — in which case bump manually.
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
-- **Pricing is locked**: Free $0, BYOK $1/mo, Individual $10/year, Team $50/year. Currently in beta — every tier is $0 today; the table above is the post-beta plan and lives as JSON-LD/copy across pricing.html, practice.html, landing.html. (Individual + Team flipped to annual 2026-05-14; Individual $5→$10 and Team $20→$50 on 2026-06-27 per the unit-economics audit. **The Lifetime tier was removed from all pricing displays 2026-07-03** — it is no longer offered; the backend `lifetime` plan entitlement stays intact for any existing grants. See soul.md decision log.)
+- **Pricing is locked** (school-vs-consumer contradiction resolved 2026-08-11, Aidan chose $550): Free $0, BYOK $1/mo, Individual $10/year, Voice $12/mo, Tokens $4.99/mo, Team $50/year, **Program $550/season**. Consumer tiers are still $0 in beta; Tokens and $20 tournament prize entry are live money. **A school roster is always the $550 season license, never a seat plan** — do not quote Team to a coach. (Individual + Team flipped to annual 2026-05-14; Individual $5→$10 and Team $20→$50 on 2026-06-27 per the unit-economics audit. **The Lifetime tier was removed from all pricing displays 2026-07-03** — it is no longer offered; the backend `lifetime` plan entitlement stays intact for any existing grants. See soul.md §7 + decision log.)
 
 ## The AI judge integrity layer (READ BEFORE TOUCHING JUDGING)
 
@@ -596,7 +596,7 @@ weight, not a mirror.
 
 ## Things to ask before doing
 
-- New pricing tier (locked: Free, BYOK $1/mo, Individual $10/year, Team $50/year — currently beta, all $0; the Lifetime tier was removed from pricing displays 2026-07-03, backend entitlement kept).
+- New pricing tier (locked: Free, BYOK $1/mo, Individual $10/year, Voice $12/mo, Tokens $4.99/mo, Team $50/year, Program $550/season — consumer tiers still $0 in beta; the Lifetime tier was removed from pricing displays 2026-07-03, backend entitlement kept).
 - Stripe webhook / Firestore rules / App Check token changes.
 - New AI provider integration (currently 6 brains: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab — last two added 2026-05-15: DeepSeek direct, Open Lab OpenRouter-backed pool).
 - Mobile / TWA wrapping (path is Capacitor; deferred — see soul.md §9).
