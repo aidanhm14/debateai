@@ -1170,8 +1170,8 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 
 <aside class="signin-strip" id="signinStrip" hidden>
   <div class="copy">
-    <h4>Claim your spot</h4>
-    <p>Sign in once and your judged voice rounds count automatically. Your best score sets your place.</p>
+    <h4>Get on this board</h4>
+    <p>You do not need an opponent to rank. Debate the AI out loud, and the judge scores you on the same rubric as everyone here. Sign in once and every judged voice round banks XP toward your level; your best score sets your place.</p>
   </div>
   <a class="cta" href="/voice-debate" id="signinStripCta">Start a voice round →</a>
 </aside>
@@ -2229,8 +2229,12 @@ function syncRankingGuide(view){
     guideRankCopy.textContent='One speaker, one place, using their highest judged score.';
     guideRecordTitle.textContent='W / L is your AI record';
     guideRecordCopy.textContent='It tracks wins and losses against the AI. Judge score still sets the rank.';
-    guideActionTitle.textContent='Connect with another speaker';
-    guideActionCopy.innerHTML='Real profiles show Message and Challenge. Examples <a href="/spar">link to matchmaking</a>.';
+    // 2026-08-11: the solo tab's third card used to point at matchmaking,
+    // which is the head-to-head answer. On a board you climb alone, the
+    // useful instruction is the one nobody has to wait for: run a round
+    // against the AI, signed in, and the score lands here.
+    guideActionTitle.textContent='Climb it on your own';
+    guideActionCopy.innerHTML='No opponent needed. <a href="/voice-debate">Debate the AI out loud</a>, signed in, and your best judged score takes a place here.';
   }
 }
 
@@ -2268,6 +2272,21 @@ if(auth){
 if (challengeMode){
   document.body.classList.add('challenge-on');
 }
+
+// Deep link into a tab (2026-08-11). /voice-rfd sends a debater here
+// straight off a solo AI round ("see where that puts you"), and landing
+// them on the head-to-head board shows a list they are not on. #solo and
+// #ai both select the solo board; anything else keeps head-to-head.
+(function(){
+  var h = (location.hash || '').replace('#','').toLowerCase();
+  if (h !== 'solo' && h !== 'ai') return;
+  state.view = 'ai';
+  tabs.forEach(function(x){
+    var on = x.dataset.view === 'ai';
+    x.classList.toggle('active', on);
+    x.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+})();
 
 updateSigninStripCta(state.view);
 syncRankingGuide(state.view);

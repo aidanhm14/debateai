@@ -288,7 +288,15 @@
     // 2026-08-10: was `strong` (bolded label); upgraded to a `big` tile
     // in the venture-weight pass. Leaderboard is the public record the
     // returning debater comes back for.
-    { href: '/leaderboard',        label: 'Leaderboard', big: true },
+    // 2026-08-11, per Aidan ("have leaderboard be a tab at the top
+    // actually too"): back ON the rail after five weeks in Explore. It
+    // is the only railed link right now, which is the point — the bar
+    // carries the wordmark, one tab, and the actions, so the one tab
+    // reads as a destination rather than as a nav row. It is also the
+    // surface the sign-in pitch now points at (a score that counts, a
+    // place on a public board), and a pitch whose destination is buried
+    // in an overflow menu is a pitch nobody follows.
+    { href: '/leaderboard',        label: 'Leaderboard', big: true, rail: true, compactKeep: true },
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
     // Aidan ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA

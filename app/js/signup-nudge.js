@@ -88,19 +88,30 @@
     { match: /^\/(spar|live)(?:\.html)?(?:[/?#]|$)/, skip: true },
     { match: /^\/(landing|index)?(\.html)?($|\?)/,
       // Put the account ask on the first screen while intent is fresh.
-      // Six seconds still gives Firebase time to resolve returning users
-      // before the prompt is eligible to mount.
-      delay: 6,
+      // 2026-08-11, per Aidan ("advertise google sign in much earlier and
+      // quicker"): 6s -> 3s. Three seconds is still past Firebase's auth
+      // resolve on a warm cache, so a returning signed-in visitor is
+      // recognised before the prompt is eligible to mount and never sees
+      // it. The hero now carries its own Google row, so this is the
+      // second touch rather than the first, and the copy leads with the
+      // same thing that row does: the score is what an account buys.
+      delay: 3,
       variant: 'prominent',
       inviteOptIn: true,
-      msg: '<strong>Keep your rounds.</strong> Sign in with Google to save ballots, join the leaderboard, and find your next opponent.' },
+      msg: '<strong>Sign in with Google and your rounds count.</strong> XP, a level, a place on the leaderboard, and every ballot saved.' },
     // /practice owns the account moment. Let a guest finish the sample
     // round, then offer to claim the ballot that now exists. A timer-based
     // prompt during prep competes with the round before the value is real.
     { match: /^\/practice/, skip: true },
-    { match: /^\/voice-debate/,
+    // 2026-08-11, per Aidan: the voice surfaces are the ONLY ones whose
+    // rounds are ranked (typed rounds never write a leaderboard entry),
+    // so their nudge sells the thing signing in actually buys here: a
+    // score that counts, XP, a level, a place on a public board. The
+    // style-profile line stayed abstract to anyone who had not yet run
+    // enough rounds to feel it.
+    { match: /^\/(voice-debate|newvoice|coach)/,
       delay: 60,
-      msg: 'Sign in and the voice round becomes part of your style profile.' },
+      msg: '<strong>Signed out, the score is worth nothing.</strong> Sign in and every judged voice round banks XP, moves your level, and puts your best score on the leaderboard.' },
     { match: /^\/learn/,
       delay: 30,
       msg: "Sign in and I'll track which formats you've drilled, so the AI knows what to push you on." },
@@ -109,7 +120,7 @@
       msg: "Sign in to bookmark today's motion. Tomorrow's lands in your inbox-less feed, not your email." },
     { match: /^\/leaderboard/,
       delay: 25,
-      msg: 'Sign in and your rounds become rated. The rank is real, not anonymous.' },
+      msg: '<strong>Every name here earned it in a judged round.</strong> Sign in, debate the AI out loud, and your best score takes a place on this board.' },
     { match: /^\/spar|\/live|\/community|\/rounds/,
       delay: 20,
       variant: 'community',
@@ -119,7 +130,7 @@
       msg: "Beta is free for everyone. Sign in to keep your rounds when pricing turns on." },
     { match: /.*/,
       delay: 25,
-      msg: 'Sign in and your rounds train Debatable, not GPT or Claude. Rounds, ballots, style profile follow you.' },
+      msg: 'Sign in and your rounds start counting. XP, a level, a leaderboard place, and ballots that follow you on any device.' },
   ];
 
   function getConfig(){

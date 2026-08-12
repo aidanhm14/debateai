@@ -1054,12 +1054,44 @@ body{
     // Hidden by default; the wiring below reveals it only when auth
     // settles to no-user, so a signed-in visitor never sees a flash.
     // Quiet neutral register so it doesn't fight the red primaries below.
+    // 2026-08-11, per Aidan: the pitch is the SCORE, not the filing
+    // cabinet. "Keep your record" asks a stranger to care about an
+    // archive they have never seen; the number they are looking at
+    // right now is the thing that just became worthless because they
+    // are signed out. So the headline is their own speaker points, and
+    // the offer is XP, a level, and a place on a public board. Honesty
+    // holds: it does NOT claim this round is recoverable, only that the
+    // next one counts.
     html +=
       '<section class="save-hook" id="saveCard" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--border-strong,rgba(255,255,255,.18));background:var(--surface,rgba(255,255,255,.03));flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;display:none">'
-        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Keep your record.</strong> This round will not save to your profile. Sign in (free, one tap) and your next rounds save to your record, and the AI starts learning your style and adapting to how you argue.</div>'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55">'
+          + '<strong style="color:var(--text);font-weight:800">'
+          + (sp ? 'You scored ' + escHtml(String(sp)) + '. Nobody can see it.' : 'This round is not on your record.')
+          + '</strong> Signed out, the round leaves with the tab. Sign in and every judged voice round banks XP, moves your level, and puts your best score on the leaderboard next to real debaters. Free, one tap.'
+        + '</div>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-          + '<button class="cta-btn primary" id="saveSignIn" type="button" style="white-space:nowrap">Continue with Google</button>'
+          + '<button class="cta-btn primary" id="saveSignIn" type="button" style="white-space:nowrap">Sign in and rank</button>'
+          + '<a class="cta-btn ghost" href="/leaderboard" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'voice_rfd_board_peek\')}catch(e){}">See the board</a>'
           + '<button class="cta-btn ghost" id="saveDismiss" type="button">Maybe later</button>'
+        + '</div>'
+      + '</section>';
+
+    // Signed-in counterpart (2026-08-11). The anon card sells a rank
+    // nobody signed in ever sees confirmed, which made the promise
+    // unverifiable in both directions. This is the receipt: the score
+    // banked, and one tap to the board it moved. Revealed only for a
+    // NAMED account that has not opted out of the public board (an
+    // opt-out earns no entry, so no XP and no rank, and claiming
+    // otherwise would be the one dishonest version of this card).
+    if (sp) html +=
+      '<section class="xp-hook" id="xpCard" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--border-strong,rgba(255,255,255,.18));background:var(--surface,rgba(255,255,255,.03));flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;display:none">'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55">'
+          + '<strong style="color:var(--text);font-weight:800">' + escHtml(String(sp)) + ' XP banked.</strong> '
+          + 'It is on your record and it counts toward your level. Your best voice score sets your place on the solo board.'
+        + '</div>'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<a class="cta-btn primary" href="/leaderboard#solo" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'voice_rfd_rank_click\')}catch(e){}">See where that puts you &rarr;</a>'
+          + '<a class="cta-btn ghost" href="/profile" style="white-space:nowrap">Your level</a>'
         + '</div>'
       + '</section>';
 
@@ -1080,7 +1112,10 @@ body{
       // more-engaged user a path to face a real human while the prep
       // is still fresh in their head. Quiet visual register so it
       // doesn't compete with the primary CTA above.
-      + '<div class="next-step-row">'
+      // 2026-08-11: this line used to start with a stray `+`, which is
+      // unary plus on a string, so the row rendered a literal "NaN"
+      // ahead of "Take it to a human:" on every ballot.
+      '<div class="next-step-row">'
         + '<span class="next-step-label">Take it to a human:</span>'
         + '<a href="' + liveHref + '" class="next-step-link">Schedule this motion live →</a>'
         + '<a href="/spar" class="next-step-link">Spar now →</a>'
@@ -1213,12 +1248,33 @@ body{
     (function(){
       var card = document.getElementById('saveCard');
       if (!card) return;
+      // The signed-in receipt is the mirror of this card: exactly one of
+      // the two shows, ever. Reveal is gated on the public-board opt-out
+      // because an opted-out round writes no leaderboard entry, which
+      // means no XP and no rank, and a card claiming both would be lying
+      // to the one user who explicitly asked to be off the board.
+      var xpCard = document.getElementById('xpCard');
+      function showXpIfRanked(user){
+        if (!xpCard || !user || user.isAnonymous) return;
+        try {
+          if (typeof firebase.firestore !== 'function') { xpCard.style.display = 'flex'; return; }
+          firebase.firestore().collection('user_profiles').doc(user.uid).get()
+            .then(function(doc){
+              var out = doc.exists && doc.data() && doc.data().leaderboardOptOut === true;
+              if (!out) xpCard.style.display = 'flex';
+            })
+            // Default to showing on a read failure: the write path defaults
+            // to public-board on the same failure, so the two agree.
+            .catch(function(){ xpCard.style.display = 'flex'; });
+        } catch(e){ xpCard.style.display = 'flex'; }
+      }
       try {
         if (typeof firebase !== 'undefined' && firebase.auth) {
           var settled = false;
           var unsub = firebase.auth().onAuthStateChanged(function(user){
             settled = true;
             card.style.display = user && !user.isAnonymous ? 'none' : 'flex';
+            showXpIfRanked(user);
             try { unsub && unsub(); } catch(e){}
           });
           setTimeout(function(){
@@ -1226,6 +1282,7 @@ body{
               try {
                 var cur = firebase.auth().currentUser;
                 card.style.display = cur && !cur.isAnonymous ? 'none' : 'flex';
+                showXpIfRanked(cur);
               } catch(e){}
             }
             try { unsub && unsub(); } catch(e){}
