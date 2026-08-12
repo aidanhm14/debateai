@@ -138,6 +138,17 @@ body{
 .hero-meta .sub{
   font-size:.82rem;color:var(--text-dim);font-weight:500;
 }
+/* Sits directly under the name it edits. The same control exists in the
+   settings panel below, but that panel is a closed <details> and the name
+   is the one setting people go looking for, so it gets a door at eye
+   level rather than only a drawer. */
+.name-edit{
+  display:inline-block;margin:0 0 6px;padding:0;
+  font:inherit;font-size:.72rem;font-weight:700;letter-spacing:.02em;
+  background:none;border:none;cursor:pointer;
+  color:var(--text-dim);border-bottom:1px solid var(--accent-border);
+}
+.name-edit:hover{color:var(--accent)}
 .hero-meta .title-pill{
   display:inline-block;margin-top:10px;
   padding:5px 12px;font-size:.7rem;font-weight:800;letter-spacing:.06em;
@@ -1002,6 +1013,10 @@ a.vr-row:hover{background:rgba(239,68,68,.06)}
 <body>
 
 <div id="daTopbar"></div>
+<!-- Loaded directly rather than left to topbar.js's lazy path: this page
+     is where the name is edited, and the save handler reads DBIdentity
+     synchronously to sanitise and to refresh the shared cache. -->
+<script defer src="/js/public-identity.js"></script>
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/home-magnet.js"></script>
 
@@ -1623,8 +1638,8 @@ function renderSettings(user, profileData){
         <div class="set-row">
           <div class="key">Display name</div>
           <div>
-            <input id="setName" type="text" value="${escapeHtml(nameOverride)}" maxlength="40" placeholder="${escapeHtml(ph)}"/>
-            <div class="hint">Shown on the leaderboard as first name + last initial. Defaults to your Google name if blank.</div>
+            <input id="setName" type="text" value="${escapeHtml(nameOverride)}" maxlength="32" placeholder="${escapeHtml(ph)}"/>
+            <div class="hint">Your name or nickname, shown on the leaderboard, your ballots, and every round you play. Leave it blank to go back to the name on your account.</div>
           </div>
         </div>
         <div class="set-row">
@@ -1712,6 +1727,28 @@ function wireSettings(user, rows){
     });
   }
 
+  // Hero "Change your name" button. Opens the shared picker (topbar.js
+  // exposes it; it lazy-loads /js/public-identity.js if this page got here
+  // before that did) and mirrors the result straight into the hero and the
+  // settings input, so the page never shows a stale name next to the field
+  // that just changed it.
+  const heroNameEdit = document.getElementById('heroNameEdit');
+  if(heroNameEdit){
+    heroNameEdit.addEventListener('click', () => {
+      if(typeof window.daOpenNameEditor === 'function') window.daOpenNameEditor();
+      else if(window.DBIdentity && window.DBIdentity.openEditor) window.DBIdentity.openEditor({ user });
+      else document.getElementById('settings')?.setAttribute('open', 'open');
+    });
+  }
+  window.addEventListener('dbidentity:change', (ev) => {
+    const picked = (ev && ev.detail && ev.detail.name) || '';
+    const shown = picked || user.displayName || user.email || 'Debater';
+    const heroName = document.getElementById('heroName');
+    if(heroName) heroName.textContent = shown.split(/\s+/)[0];
+    const field = document.getElementById('setName');
+    if(field) field.value = picked;
+  });
+
   const saveBtn = document.getElementById('saveSettings');
   if(saveBtn){
     saveBtn.addEventListener('click', async () => {
@@ -1719,7 +1756,13 @@ function wireSettings(user, rows){
       saveBtn.disabled = true;
       setStatus('Saving…');
       try{
-        const name = (document.getElementById('setName')?.value || '').trim().slice(0, 40);
+        // Sanitised through the identity module rather than a local trim, so
+        // the name saved here is byte-for-byte the name every other surface
+        // will render. A stricter clean in one place and a looser one in
+        // another is how a name ends up looking different depending on where
+        // you read it.
+        const rawName = (document.getElementById('setName')?.value || '');
+        const name = (window.DBIdentity ? window.DBIdentity.cleanName(rawName) : rawName.trim().slice(0, 32));
         const lbOn = document.getElementById('setLb')?.checked;
         const sfxOn = document.getElementById('setSfx')?.checked;
         const corpusOn = document.getElementById('setCorpus')?.checked;
@@ -1754,6 +1797,17 @@ function wireSettings(user, rows){
           contributeToCorpusUpdatedAt: new Date(),
           settingsUpdatedAt: new Date(),
         }, { merge: true });
+        // Push the name into the shared identity cache in the same breath.
+        // Without this the Firestore field is correct while every other page
+        // keeps rendering the previously cached value until the next sign-in
+        // hydrate, which is the "it went back to what it was" report this
+        // whole change came from.
+        try {
+          if (window.DBIdentity){
+            if (name) window.DBIdentity.setName(name, undefined, user);
+            else window.DBIdentity.clearName(user);
+          }
+        } catch(_){}
         // Append-only server-side consent ledger. The profile fields are
         // the state; these rows are the receipts a licensing recipient's
         // diligence asks for (when, which surface, which policy version).
@@ -1984,7 +2038,8 @@ function renderEmpty(user, profileData){
       ${avatar}
       <div class="hero-meta">
         <div class="hero-kicker">Your training room</div>
-        <h1 class="name">${escapeHtml(first)}</h1>
+        <h1 class="name" id="heroName">${escapeHtml(first)}</h1>
+        <button type="button" class="name-edit" id="heroNameEdit">Change your name</button>
         <div class="sub">${escapeHtml(user.email || '')}</div>
         <span class="title-pill">Novice</span>
       </div>
@@ -2147,7 +2202,8 @@ function renderDashboard(user, rows, profileData){
       ${avatar}
       <div class="hero-meta">
         <div class="hero-kicker">Your training room</div>
-        <h1 class="name">${escapeHtml(first)}</h1>
+        <h1 class="name" id="heroName">${escapeHtml(first)}</h1>
+        <button type="button" class="name-edit" id="heroNameEdit">Change your name</button>
         <div class="sub">${escapeHtml(user.email || '')}</div>
         <span class="title-pill">${escapeHtml(s.level.cur.name)}</span>
       </div>

@@ -417,8 +417,13 @@
   // is a single line: the topbar rail, the mobile sheet row, and the
   // hover colour all read this array.
   //
-  // `brand` is the platform's own colour, used only on hover. At rest the
-  // icons are monochrome so the bar does not turn into a sponsor wall.
+  // `brand` is the platform's own colour, used for the hover wash. An entry
+  // may also carry `gradient`, which paints the glyph itself in the
+  // platform's real colours at rest. The old rule here was monochrome
+  // everywhere so the bar could not turn into a sponsor wall; with one
+  // account in the rail there is no wall to build, and the Instagram mark
+  // is only recognisable in its own colours. Add a second network and this
+  // is the decision to revisit, not the icon to match.
   var SOCIALS = [
     {
       key: 'instagram',
@@ -426,6 +431,10 @@
       handle: '@trydebatable',
       href: 'https://instagram.com/trydebatable',
       brand: '#E1306C',
+      // Instagram's own mark runs the warm-to-violet sweep from the
+      // bottom-left corner, which is why the stops are ordered this way and
+      // the gradient is diagonal rather than vertical.
+      gradient: ['#F9CE34', '#EE2A7B', '#6228D7'],
       // Rounded-square + lens + flash dot. Stroke-only so it inherits
       // currentColor like every other topbar glyph (no brand fill at rest).
       icon: '<rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5"/>'
@@ -437,10 +446,26 @@
     // { key:'twitch',  label:'Twitch',  handle:'…',  href:'https://twitch.tv/…',    brand:'#9146FF', icon:'…' },
   ];
 
+  // Gradient ids have to be unique per document: socialIcon runs twice per
+  // network (desktop rail + mobile sheet) and two <linearGradient> nodes
+  // sharing an id makes every later reference resolve to the first one.
+  var socialGradSeq = 0;
   function socialIcon(s){
-    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
-      + 'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + s.icon + '</svg>';
+    var stroke = 'currentColor';
+    var defs = '';
+    if (s.gradient && s.gradient.length){
+      var gid = 'dbsoc-' + s.key + '-' + (++socialGradSeq);
+      var stops = s.gradient.map(function(c, i){
+        var pct = s.gradient.length === 1 ? 0 : Math.round((i / (s.gradient.length - 1)) * 100);
+        return '<stop offset="' + pct + '%" stop-color="' + c + '"/>';
+      }).join('');
+      // x1/y1 at the bottom-left corner mirrors the real mark's sweep.
+      defs = '<defs><linearGradient id="' + gid + '" x1="0" y1="1" x2="1" y2="0">' + stops + '</linearGradient></defs>';
+      stroke = 'url(#' + gid + ')';
+    }
+    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="' + stroke + '" '
+      + 'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + defs + s.icon + '</svg>';
   }
 
   // Desktop Explore panel presentation layer: one small stroke icon and
@@ -1059,6 +1084,23 @@
     });
     sheet.appendChild(sheetSignIn);
 
+    // Permanent way back to the name picker, for anyone who dismissed the
+    // one-time prompt or simply wants a different name later. Hidden until
+    // there is an account to attach a name to; flipped on by syncIdentity.
+    var sheetName = el('button', {
+      type: 'button',
+      id: 'sheetSetName',
+      class: 'ui-topbar-sheet-link',
+      role: 'menuitem',
+      hidden: 'hidden',
+    }, 'Change your name');
+    sheetName.style.cssText = 'background:none;border:none;width:100%;text-align:left;font:inherit;cursor:pointer;color:inherit';
+    sheetName.addEventListener('click', function(){
+      closeSheet();
+      openNameEditor();
+    });
+    sheet.appendChild(sheetName);
+
     // Social row in the mobile sheet. The desktop rail is icon-only and
     // hidden on phones, so this is where a phone visitor finds the
     // accounts. Labelled, because a bare glyph in a text list is a guess.
@@ -1495,7 +1537,7 @@
     slot.style.gap = '10px';
     slot.style.fontSize = '.72rem';
     slot.style.color = 'var(--text-dim)';
-    var first = ((u.displayName || u.email || '').split(/\s+/)[0]) || 'Account';
+    var first = topbarName(u);
     slot.innerHTML = '';
     var onProfile = /^\/profile/.test(here);
     var nameLink;
@@ -1545,6 +1587,97 @@
   // firebase site-wide, so "ready" usually arrives within ~1.5s;
   // cached-signed-in pages force the bootstrap so name + Sign out
   // resolve even where it doesn't.
+  // ── Display name ──────────────────────────────────────────────────
+  // The name a debater picks lives in /js/public-identity.js and is what
+  // every community surface renders. Two jobs here, both of which have to
+  // happen on the topbar because the topbar is the only thing on all 63
+  // pages: pull the stored name down on sign-in so it follows the account
+  // across devices, and ask for one exactly once when an account is still
+  // running on a generated alias.
+  //
+  // ASK ONCE is the whole design. A prompt that reappears until it is
+  // answered turns a nicety into a toll gate on a product whose first
+  // principle is that auth is advised rather than required, so a dismissal
+  // is remembered permanently and the entry point moves to the sheet row
+  // and /profile, which are always there.
+  var NAME_ASKED_KEY = 'debatable-name-asked';
+
+  // Never ASK on a surface where a round can be running. A dialog that
+  // opens over someone mid-speech is worse than a generated alias, and
+  // sign-in can complete at any moment on these pages. Same reasoning and
+  // very nearly the same list as read-aloud.js's SILENT_ROUTES; a new page
+  // that runs or plays a round belongs in both. Hydration still happens
+  // everywhere, so the name itself is correct on these pages, and the
+  // sheet row and /profile still open the picker on purpose.
+  var NO_PROMPT_ROUTES = [
+    '/live-round', '/voice-debate', '/newvoice', '/room-judge', '/casual-room',
+    '/voice-rfd', '/practice', '/coach', '/exhibition', '/spectate', '/watch'
+  ];
+  function promptAllowedHere(){
+    for (var i = 0; i < NO_PROMPT_ROUTES.length; i++){
+      if (here.indexOf(NO_PROMPT_ROUTES[i]) === 0) return false;
+    }
+    return true;
+  }
+
+  function withIdentity(cb){
+    if (window.DBIdentity) { cb(window.DBIdentity); return; }
+    fbLoadOnce('da-public-identity', '/js/public-identity.js', function(){
+      if (window.DBIdentity) cb(window.DBIdentity);
+    });
+  }
+
+  function openNameEditor(){
+    withIdentity(function(ID){
+      if (!ID.openEditor) return;
+      try { localStorage.setItem(NAME_ASKED_KEY, '1'); } catch(e){}
+      ID.openEditor().then(function(res){
+        if (res && res.ok) navTrack('display_name_set', { surface: 'topbar' });
+      });
+    });
+  }
+  window.daOpenNameEditor = openNameEditor;
+
+  function syncIdentity(user, slot){
+    if (!user) return;
+    withIdentity(function(ID){
+      if (!ID.hydrate) return;
+      ID.hydrate(user).then(function(){
+        paintUserName(slot, user);
+        if (!ID.needsName || !ID.needsName(user)) return;
+        if (!promptAllowedHere()) return;
+        var asked = '';
+        try { asked = localStorage.getItem(NAME_ASKED_KEY) || ''; } catch(e){}
+        if (asked) return;
+        // Deferred a beat so it lands after the page has painted rather
+        // than on top of whatever the visitor was already reading.
+        setTimeout(openNameEditor, 1200);
+      });
+    });
+  }
+
+  // Repaint the account pill from the chosen name. Kept separate from
+  // renderSignedIn so a name saved mid-session updates the bar without a
+  // reload, which is what the change event below is for.
+  function paintUserName(slot, user){
+    var node = (slot || document).querySelector('.ui-topbar-username');
+    if (!node) return;
+    node.textContent = topbarName(user);
+  }
+
+  function topbarName(u){
+    if (window.DBIdentity && window.DBIdentity.forUser){
+      var id = window.DBIdentity.forUser(u);
+      if (id && id.chosen && id.name) return id.name.split(/\s+/)[0];
+    }
+    return ((u.displayName || u.email || '').split(/\s+/)[0]) || 'Account';
+  }
+
+  window.addEventListener('dbidentity:change', function(){
+    var u = fbRealUser();
+    if (u) paintUserName(document.getElementById('barUser'), u);
+  });
+
   function hydrateUser(slot){
     var cachedSignedIn = false;
     try {
@@ -1571,6 +1704,8 @@
           if (realUser && !wasFirst){ try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){ } }
           var ss = document.getElementById('sheetSignIn');
           if (ss) ss.textContent = realUser ? 'Sign out' : 'Sign in · free';
+          var sn = document.getElementById('sheetSetName');
+          if (sn){ if (realUser) sn.removeAttribute('hidden'); else sn.setAttribute('hidden', 'hidden'); }
           // Live debate pages use anonymous Firebase auth as a real guest
           // seat. They can opt into painting that identity without making
           // anonymous sessions look signed in across the rest of the site.
@@ -1586,6 +1721,7 @@
             return;
           }
           renderSignedIn(slot, realUser);
+          syncIdentity(realUser, slot);
         });
       } catch(e){}
     }

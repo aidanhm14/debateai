@@ -8146,11 +8146,52 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     [data-theme="dark"] .tband-facts,[data-theme="crimson"] .tband-facts,[data-theme="grey"] .tband-facts,[data-theme="stone"] .tband-facts{color:rgba(245,239,231,.68)}
     .tband-facts b{color:var(--ink,#171716);font-weight:800}
     [data-theme="dark"] .tband-facts b,[data-theme="crimson"] .tband-facts b,[data-theme="grey"] .tband-facts b,[data-theme="stone"] .tband-facts b{color:#f5efe7}
-    .tband-ctas{display:flex;flex-wrap:wrap;gap:10px}
+    .tband-ctas{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
     .tband-cta{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 22px;border-radius:999px;border:1px solid var(--accent-solid,#b91c1c);background:var(--accent-solid,#b91c1c);color:#fff;font-size:.85rem;font-weight:850;text-decoration:none;transition:transform .18s ease,filter .18s ease}
     .tband-cta:hover{transform:translateY(-1px);filter:brightness(1.06)}
     .tband-cta--ghost{background:transparent;color:inherit;border-color:var(--border-strong,rgba(0,0,0,.28))}
     .tband-cta:focus-visible{outline:3px solid var(--accent,#dc2626);outline-offset:3px}
+    /* Register is the one button on this band anyone is meant to press, and
+       it was the same pill as the four beside it, separated only by fill.
+       Weight is what fixes that, so it gets a size and a lift the ghosts do
+       not, plus a slow sheen that reads as "live" without moving anything on
+       the page. The prize is the hook per the 2026-08-11 promotion decision,
+       so the amount rides IN the button rather than only in the fact row.
+       Scoped to .tband-cta--go so the shared .tband-cta rules above stay the
+       ghost baseline; a ghost that inherited the glow would flatten the
+       hierarchy this exists to create. */
+    .tband-cta--go{
+      position:relative;overflow:hidden;isolation:isolate;
+      padding:16px 30px;font-size:.95rem;letter-spacing:.005em;
+      background:linear-gradient(135deg,#e02424 0%,#c01717 52%,#8f1212 100%);
+      border-color:rgba(0,0,0,.14);
+      box-shadow:0 10px 26px -10px rgba(185,28,28,.72),0 2px 5px -2px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.22);
+      transition:transform .2s cubic-bezier(.2,.8,.3,1),box-shadow .2s ease,filter .2s ease;
+    }
+    .tband-cta--go:hover{
+      transform:translateY(-2px);filter:none;
+      box-shadow:0 16px 34px -10px rgba(185,28,28,.85),0 3px 8px -3px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.3);
+    }
+    .tband-cta--go:active{transform:translateY(0);box-shadow:0 6px 16px -8px rgba(185,28,28,.7),inset 0 1px 0 rgba(255,255,255,.18)}
+    /* The sheen is a pseudo-element rather than a background-position
+       animation so it never repaints the gradient underneath it. */
+    .tband-cta--go::after{
+      content:'';position:absolute;top:0;bottom:0;left:-60%;width:45%;z-index:-1;
+      background:linear-gradient(100deg,transparent,rgba(255,255,255,.34),transparent);
+      transform:skewX(-18deg);
+      animation:tbandSheen 4.6s ease-in-out 1.2s infinite;
+    }
+    @keyframes tbandSheen{0%{left:-60%}28%{left:130%}100%{left:130%}}
+    .tband-cta-amt{
+      font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+      padding:4px 9px;border-radius:999px;
+      background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.26);
+    }
+    .tband-cta-arrow{display:inline-block;transition:transform .2s cubic-bezier(.2,.8,.3,1)}
+    .tband-cta--go:hover .tband-cta-arrow{transform:translateX(4px)}
+    /* Sits beside the buttons, not under them, so the row still reads as one
+       line of actions with a deadline attached. */
+    .tband-cta-note{font-size:.76rem;font-weight:700;opacity:.66;margin-left:2px}
     /* Share rail sits under the CTAs behind a hairline so it reads as a
        secondary act ("now pass it on"), not a sixth call to action
        competing with Register. */
@@ -8162,7 +8203,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       .tband-shot{order:1}
       .tband-cta{flex:1 1 100%}
     }
-    @media(prefers-reduced-motion:reduce){.tband-shot,.tband-cta{transition:none}}
+    @media(prefers-reduced-motion:reduce){
+      .tband-shot,.tband-cta,.tband-cta-arrow{transition:none}
+      .tband-cta--go::after{animation:none;display:none}
+    }
   </style>
   <div class="tband-wrap">
     <a class="tband-shot" href="/tournaments" data-tband-cta="poster" aria-label="The Debatable Open, Saturday August 29, all day. 500 dollars for first place. Register.">
@@ -8193,7 +8237,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <li>Final <b>streamed live</b></li>
       </ul>
       <div class="tband-ctas">
-        <a class="tband-cta" href="/tournaments" data-tband-cta="register">Register <span aria-hidden="true">&rarr;</span></a>
+        <a class="tband-cta tband-cta--go" href="/tournaments" data-tband-cta="register">Register free <span class="tband-cta-amt">$500 first</span> <span class="tband-cta-arrow" aria-hidden="true">&rarr;</span></a>
         <a class="tband-cta tband-cta--ghost" href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=The%20Debatable%20Open&amp;dates=20260829%2F20260830&amp;ctz=America%2FNew_York&amp;details=A%20one%20day%20online%20debate%20tournament.%20%24500%20for%20first%2C%20%24850%20in%20prizes%20total%2C%20every%20round%20judged%20in%20writing.%20Register%3A%20https%3A%2F%2Fitsdebatable.com%2Ftournaments&amp;location=https%3A%2F%2Fitsdebatable.com%2Ftournaments" target="_blank" rel="noopener" data-tband-cta="calendar">Add to Google Calendar</a>
         <a class="tband-cta tband-cta--ghost" href="/tournament-rules" data-tband-cta="rules">Rules</a>
         <!-- /get-paid-to-debate is the exact-match page for "get paid to
@@ -8202,6 +8246,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              passed it nothing. Its only other inbound link is injected
              by topbar.js, which is not there on first paint. -->
         <a class="tband-cta tband-cta--ghost" href="/get-paid-to-debate" data-tband-cta="getpaid">How the money works</a>
+        <span class="tband-cta-note">Free entry until Aug 22</span>
       </div>
       <!-- Share rail. The poster is the promotional unit that actually
            travels: a WhatsApp group, an Instagram story and a Discord
