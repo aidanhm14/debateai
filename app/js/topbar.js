@@ -401,9 +401,9 @@
   ];
 
   // ── Social accounts ────────────────────────────────────────────────
-  // 2026-08-12: Instagram surfaced per Aidan, then YouTube, Twitch and
-  // TikTok the same day once those handles were claimed (all four are
-  // @trydebatable). Only accounts that ACTUALLY EXIST go in here: a nav
+  // 2026-08-12: Instagram surfaced per Aidan, then YouTube, Twitch, TikTok
+  // and X the same day once those handles were claimed (all five are
+  // trydebatable). Only accounts that ACTUALLY EXIST go in here: a nav
   // icon pointing at a 404 is worse than no icon. Adding one is a single
   // entry; the topbar rail, the mobile sheet row, and the hover colour all
   // read this array.
@@ -415,10 +415,20 @@
   // moment to revisit colour and go back to monochrome. Aidan asked for the
   // opposite, and he is right for one reason: at 16px these marks are read
   // by colour before shape, and a monochrome Twitch glyph next to a
-  // monochrome TikTok note is four grey smudges. Colour is what makes the
-  // rail scannable, so it stays. What keeps it from becoming a sponsor wall
-  // is the count. Four is the ceiling; a fifth network needs a rethink of
-  // the rail, not another entry.
+  // monochrome TikTok note is a row of grey smudges. Colour is what makes
+  // the rail scannable, so it stays.
+  //
+  // X is the exception that proves the rule rather than a break from it:
+  // its mark IS monochrome, so `brand` is `var(--text)` and the glyph
+  // inherits the theme's text colour, black on the light bar and white on
+  // the dark one. That is the platform's real palette, not a fallback.
+  // The rail is five wide at 30px a slot, so 158px. Measured rather than
+  // assumed, because this bar has overflowed at laptop widths before: at
+  // 901px, one pixel above the breakpoint that hides the rail entirely,
+  // the right group ends 230px clear of the wordmark and neither the bar
+  // nor the document scrolls sideways. So width is not what caps this.
+  // Attention is. A sixth network is a rethink of the rail, not another
+  // entry.
   var SOCIALS = [
     {
       key: 'instagram',
@@ -477,6 +487,28 @@
       // Note head, stem, and the flag hooking up to the right.
       icon: '<circle cx="10.3" cy="14.4" r="4"/>'
           + '<path d="M14.3 14.4V3.6a5.4 5.4 0 0 0 5.4 5.4"/>',
+    },
+    {
+      key: 'x',
+      label: 'X',
+      handle: '@trydebatable',
+      href: 'https://x.com/trydebatable',
+      // Not a hex value: X's mark is black on light and white on dark, so
+      // the theme's own text token IS the brand colour. Custom properties
+      // resolve at the element, so this picks up whichever theme block is
+      // live without a per-theme CSS rule.
+      brand: 'var(--text, #fff)',
+      // The one FILLED glyph in the rail, and it has to be. Stroked, X is
+      // two crossing lines with round caps, which reads as a close button
+      // sitting in a nav bar. The real mark is two tapered slabs, so the
+      // path is filled and the svg's stroke is turned off for it.
+      //
+      // Filled from --brand rather than currentColor so it sits at full
+      // strength like the four coloured marks, instead of the 58% wash the
+      // bar applies to inherited glyph colour. It goes in `style` because a
+      // presentation attribute is a weaker source for a var() reference
+      // than an inline declaration.
+      icon: '<path style="fill:var(--brand,currentColor)" stroke="none" d="M18.24 2.6h3.3l-7.22 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.68l7.73-8.84L1.25 2.6h6.83l4.71 6.23zm-1.16 17.52h1.83L7.08 4.48H5.12z"/>',
     },
   ];
 
