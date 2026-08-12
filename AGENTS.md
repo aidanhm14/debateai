@@ -439,6 +439,15 @@ scripts/test-brain-health.mjs   runs in the pre-commit hook
   cold, which is the 2026-05-18 credit-audit posture. Only an admin can
   force a re-probe, or any visitor could spend provider calls with a
   query parameter.
+- **READ `generatedAt` BEFORE BELIEVING A READING.** The cache is shared
+  and survives a deploy, so a fetch can be up to 15 minutes stale and
+  looks identical to a live probe. On 2026-08-12 an agent reported two
+  brains DOWN three times in a row off the same aged row, hours after
+  they had actually been fixed. A probe is only evidence of right now if
+  its age is near zero; otherwise say how old it is or wait for the TTL
+  to lapse. **And a deploy does NOT reset it** — the cache is not
+  per-isolate, which is the assumption that made the stale row look
+  fresh.
 
 ## Voice rules for AI debater outputs
 
