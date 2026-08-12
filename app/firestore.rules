@@ -236,6 +236,25 @@ service cloud.firestore {
         return changed.size() == 0 || changed.hasOnly([request.auth.uid]);
       }
 
+      // Same posture for a proposed resolution change: a debater may
+      // record their OWN agreement and nobody else's. Without this, one
+      // side could write both keys and the round's motion would change
+      // under an opponent who never answered, which is exactly the
+      // thing the consent step exists to prevent.
+      //
+      // Clearing the whole map is allowed on purpose. That is a decline,
+      // a withdrawal, or the commit that follows both sides agreeing,
+      // and either debater is entitled to end a proposal. It can only
+      // ever REMOVE agreement, never manufacture it.
+      function motionAcceptsChangeIsOwnUid() {
+        let oldMap = resource.data.get('motionProposalAccepts', {});
+        let newMap = request.resource.data.get('motionProposalAccepts', {});
+        let changed = newMap.diff(oldMap).affectedKeys();
+        return changed.size() == 0
+          || newMap.size() == 0
+          || changed.hasOnly([request.auth.uid]);
+      }
+
       // Participant-only writes once the round has both UIDs locked
       // in (i.e., a posted+accepted challenge). Spectators land here
       // signed-in but match neither side, so they can read the round
@@ -246,6 +265,7 @@ service cloud.firestore {
       // flows) keep the open update so they don't break.
       allow update: if isSignedIn()
                     && leaderboardConsentChangeIsOwnUid()
+                    && motionAcceptsChangeIsOwnUid()
                     && (
                       !('proUid' in resource.data)
                       || !('conUid' in resource.data)
@@ -334,6 +354,48 @@ service cloud.firestore {
           allow update: if false;
           allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
         }
+      }
+
+      // Audience topic suggestions — what the room wants to hear argued.
+      // Public read (the debaters and every spectator see the same
+      // ranked list). NAMED accounts only, matching audienceEvals: a
+      // suggestion here can become the round's actual resolution if both
+      // debaters agree to it, and anonymous auth is free to mint, so a
+      // guest lane would let one person fill the board with throwaways
+      // and manufacture a consensus that isn't there.
+      //
+      // Updates may only touch `voters`, and may only add or remove the
+      // writer's own uid. That is what makes the vote count mean one
+      // person one vote rather than whatever number the last writer felt
+      // like sending, and it is why the tally is a real array instead of
+      // an increment.
+      match /topics/{topicId} {
+        // `votes` is a denormalised count so the list can be ordered by
+        // popularity in a single query; `voters` is the truth. Letting
+        // the count move without pinning it to the array would make the
+        // ranking forgeable by one writer, so it must always equal the
+        // array's length.
+        function onlyVotersChanged() {
+          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['voters', 'votes'])
+            && request.resource.data.votes == request.resource.data.voters.size();
+        }
+        function voteDiffIsSelf() {
+          let oldV = resource.data.get('voters', []).toSet();
+          let newV = request.resource.data.get('voters', []).toSet();
+          return newV.difference(oldV).union(oldV.difference(newV)).hasOnly([request.auth.uid]);
+        }
+        allow read: if true;
+        allow create: if isNamedAccount()
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() >= 8
+                      && request.resource.data.text.size() <= 200
+                      && request.resource.data.get('name', '') is string
+                      && request.resource.data.get('name', '').size() <= 60
+                      && request.resource.data.voters == [request.auth.uid]
+                      && request.resource.data.votes == 1;
+        allow update: if isNamedAccount() && onlyVotersChanged() && voteDiffIsSelf();
+        allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
       }
 
       // Audience evals — one "tell the judge" note per viewer (doc id

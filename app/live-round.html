@@ -575,6 +575,23 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
 #audPanel .aud-row .aud-t{margin-left:6px;font-size:.66rem;color:var(--text-faint,rgba(244,244,242,.4))}
 #audPanel .aud-row p{margin:2px 0 0;font-size:.92rem;line-height:1.5;color:var(--text-dim,rgba(244,244,242,.75));word-break:break-word}
 #audPanel .aud-empty{padding:20px 8px;text-align:center;font-size:.84rem;line-height:1.5;color:var(--text-faint,rgba(244,244,242,.45))}
+/* Audience topic suggestions. Vote count leads because the ranking is
+   the whole signal; the debater-only "put it to the round" action sits
+   beside it and only renders for a seated debater pre-Speech-1. */
+#audPanel .aud-topic{border:1px solid rgba(255,255,255,.09);margin-bottom:7px;padding:9px 10px}
+#audPanel .aud-topic p{margin:0 0 3px;font-weight:650;line-height:1.36}
+#audPanel .aud-topic-actions{display:flex;align-items:center;gap:7px;margin-top:7px;flex-wrap:wrap}
+#audPanel .aud-vote,#audPanel .aud-put{
+  font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;
+  min-height:32px;padding:6px 11px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.2);background:transparent;
+  color:var(--text-dim,rgba(244,244,242,.72));
+  transition:background .15s,color .15s,border-color .15s;
+}
+#audPanel .aud-vote:hover,#audPanel .aud-put:hover{color:#fff;border-color:rgba(255,255,255,.42)}
+#audPanel .aud-vote.is-on{background:rgba(239,68,68,.17);border-color:rgba(239,68,68,.6);color:#ff9d9d}
+#audPanel .aud-put{margin-left:auto;border-color:rgba(239,68,68,.5);color:#ff8e8e}
+#audPanel .aud-put:hover{background:#b91c1c;border-color:#b91c1c;color:#fff}
 #audPanel .aud-compose{display:flex;gap:6px;margin-top:auto}
 #audPanel .aud-compose input,#audPanel textarea{
   flex:1;min-width:0;padding:10px 12px;border-radius:10px;font:inherit;font-size:.92rem;
@@ -1445,6 +1462,40 @@ body.spectator-mode .transcript-area{padding-top:15px}
 .speech-progress{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--text-dim);margin-bottom:10px}
 .speech-clock{min-width:170px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-left:24px;border-left:1px solid var(--border)}
 .speech-clock-label{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px}
+/* Resolution-change proposal. A motion is the one thing both debaters
+   prepared against, so changing it is a joint decision, not an edit one
+   side gets to make. This bar carries the pending proposal and the two
+   answers to it; it only exists while a proposal is open. */
+.rmb-propose{
+  display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;
+  padding:14px 24px;border-bottom:1px solid var(--border);
+  border-left:4px solid #d9a441;
+  background:rgba(217,164,65,.1);
+}
+.rmb-propose[hidden]{display:none}
+.rmb-propose .rmbp-text{flex:1;min-width:240px}
+.rmb-propose .rmbp-eyebrow{
+  display:block;font-size:.62rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:#b07d18;margin-bottom:5px;
+}
+.rmb-propose .rmbp-motion{font-size:1.02rem;font-weight:700;line-height:1.32;color:var(--text)}
+.rmb-propose .rmbp-by{display:block;margin-top:5px;font-size:.76rem;color:var(--text-dim)}
+.rmb-propose .rmbp-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rmb-propose button{
+  font:inherit;font-size:.8rem;font-weight:800;cursor:pointer;
+  min-height:38px;padding:9px 16px;border-radius:9px;
+  border:1px solid var(--border);background:var(--ui-soft);color:var(--text);
+  transition:background .15s,border-color .15s,color .15s;
+}
+.rmb-propose button:hover{border-color:var(--text-dim)}
+.rmb-propose .rmbp-accept{background:#15803d;border-color:#15803d;color:#fff}
+.rmb-propose .rmbp-accept:hover{background:#16a34a;border-color:#16a34a}
+.rmb-propose .rmbp-wait{font-size:.78rem;font-weight:700;color:#b07d18;white-space:nowrap}
+@media(max-width:700px){
+  .rmb-propose{padding:12px 16px;gap:10px}
+  .rmb-propose .rmbp-actions{width:100%}
+  .rmb-propose .rmbp-actions button{flex:1}
+}
 /* In-round resolution + roster bar. Sits above the speech-header
    so the motion stays visible while the speaker delivers, and the
    two-card roster makes it unambiguous WHO is on WHICH side and
@@ -2325,6 +2376,16 @@ html.stage-mode .stage-ov{display:block}
             <button type="button" class="lr-pip-btn" id="lrPopBtn" title="Pop the video into a floating window that stays on top across tabs">⧉ Pop out</button>
           </div>
         </div>
+      </div>
+      <!-- Pending resolution change. Hidden until one side proposes one;
+           the motion itself does not move until both have agreed. -->
+      <div class="rmb-propose" id="rmbPropose" hidden>
+        <div class="rmbp-text">
+          <span class="rmbp-eyebrow" id="rmbpEyebrow">Resolution change proposed</span>
+          <div class="rmbp-motion" id="rmbpMotion"></div>
+          <span class="rmbp-by" id="rmbpBy"></span>
+        </div>
+        <div class="rmbp-actions" id="rmbpActions"></div>
       </div>
       <!-- Pre-Speech-1 setup. One calm summary line by default; the
            motion tools + style picker live behind Options so the round
@@ -7405,6 +7466,192 @@ html.stage-mode .stage-ov{display:block}
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(function(){});
     }
+
+    // ── Resolution changes take both debaters ────────────────────────
+    // A motion is the one thing both sides prepared against, so one of
+    // them rewriting it is not an edit, it is a change to the contest.
+    // Editing used to publish straight to the round doc and the other
+    // side simply found themselves arguing something else. Now an edit
+    // becomes a PROPOSAL that the opponent accepts or declines, and the
+    // motion moves only when both have said yes.
+    //
+    // A round with only one identified debater (direct-link entry, or
+    // an opponent who has not arrived) has nobody to ask, so those keep
+    // editing directly. Consent needs a second party to be consent.
+    function bothSeatsIdentified(){
+      return !!(state.proUid && state.conUid && state.proUid !== state.conUid);
+    }
+    function proposalRef(){ return getRoundDocRef(); }
+    function myUid(){ return (state.user && state.user.uid) || ''; }
+    function seatUids(){
+      return [state.proUid, state.conUid].filter(function(u){ return !!u; });
+    }
+    function nameForUid(uid){
+      if (uid && uid === state.proUid) return state.proName || 'Prop';
+      if (uid && uid === state.conUid) return state.conName || 'Opp';
+      return 'the other debater';
+    }
+
+    // Ask for a change. The proposer's own acceptance is implied by
+    // proposing, so it is stamped here rather than making them press
+    // accept on their own idea.
+    function proposeMotion(text, source){
+      var ref = proposalRef();
+      var uid = myUid();
+      if (!ref || !uid) return false;
+      var accepts = {};
+      accepts[uid] = true;
+      var payload = {
+        motionProposal: {
+          text: text,
+          from: state.motion || '',
+          by: uid,
+          byName: nameForUid(uid),
+          at: Date.now(),
+          source: source || 'edit',
+        },
+        motionProposalAccepts: accepts,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      ref.update(payload).catch(function(){ ref.set(payload, { merge: true }).catch(function(){}); });
+      try { gtag('event', 'live_round_motion_proposed', { source: source || 'edit' }); } catch(e){}
+      return true;
+    }
+
+    // Answering someone else's proposal. Accepting writes ONLY your own
+    // key, which is also what the Firestore rule allows, so neither side
+    // can manufacture the other's agreement. Declining and withdrawing
+    // are the same operation: clear the proposal. Either debater is
+    // entitled to end a proposal, and nobody can be forced to keep one
+    // open.
+    function answerMotionProposal(accept){
+      var ref = proposalRef();
+      var uid = myUid();
+      if (!ref || !uid) return;
+      if (!accept){
+        ref.update({
+          motionProposal: firebase.firestore.FieldValue.delete(),
+          motionProposalAccepts: {},
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }).catch(function(){});
+        try { gtag('event', 'live_round_motion_declined'); } catch(e){}
+        return;
+      }
+      var patch = {};
+      patch['motionProposalAccepts.' + uid] = true;
+      patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      ref.update(patch).catch(function(){});
+      try { gtag('event', 'live_round_motion_accepted'); } catch(e){}
+    }
+
+    // Everyone agreed: commit the motion and clear the proposal. Any
+    // client that observes the full set can run this and the result is
+    // the same, so a debater whose tab was asleep at the moment of the
+    // second acceptance still lands on the agreed motion.
+    function commitMotionProposal(p){
+      var ref = proposalRef();
+      if (!ref || !p || !p.text) return;
+      state.motion = p.text;
+      state.background = '';
+      var md = $('motionDisplay'); if (md) md.textContent = p.text;
+      var rmb = $('rmbMotion'); if (rmb && document.activeElement !== rmb) rmb.textContent = p.text;
+      var brief = $('motionBrief'); if (brief) brief.hidden = true;
+      var rb = $('rmbBrief'); if (rb) rb.hidden = true;
+      ref.update({
+        motion: p.text,
+        background: '',
+        motionProposal: firebase.firestore.FieldValue.delete(),
+        motionProposalAccepts: {},
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(){});
+      toast('Resolution changed. Both debaters agreed.');
+      try { gtag('event', 'live_round_motion_change_agreed'); } catch(e){}
+    }
+
+    // Paint the pending-proposal bar. Called from the round snapshot, so
+    // it runs on both debaters and on every spectator.
+    function renderMotionProposal(d){
+      var box = $('rmbPropose');
+      if (!box) return;
+      var p = d && d.motionProposal;
+      if (!p || !p.text){ box.hidden = true; return; }
+      var accepts = (d && d.motionProposalAccepts) || {};
+      var seats = seatUids();
+      var pending = seats.filter(function(u){ return accepts[u] !== true; });
+
+      // Both in: commit. Only one client needs to win this race; the
+      // write is idempotent, so a double-commit is harmless.
+      if (seats.length >= 2 && !pending.length){
+        box.hidden = true;
+        if (!isSpectator()) commitMotionProposal(p);
+        else { state.motion = p.text; var mdS = $('motionDisplay'); if (mdS) mdS.textContent = p.text; var rmbS = $('rmbMotion'); if (rmbS) rmbS.textContent = p.text; }
+        return;
+      }
+
+      box.hidden = false;
+      $('rmbpMotion').textContent = p.text;
+      var uid = myUid();
+      var mine = uid && p.by === uid;
+      var iAnswered = uid && accepts[uid] === true;
+      $('rmbpEyebrow').textContent = mine ? 'Your resolution change' : 'Resolution change proposed';
+      // Names routinely end in a period ("Benji N."), so never follow one
+      // with sentence punctuation.
+      $('rmbpBy').textContent = mine
+        ? 'The round keeps the current resolution until ' + nameForUid(pending[0]) + ' agrees.'
+        : (p.byName || 'The other debater') + ' wants to debate this instead.'
+          + (p.source === 'audience' ? ' Pulled from the audience suggestions.' : '');
+
+      var actions = $('rmbpActions');
+      actions.innerHTML = '';
+      if (isSpectator() || !uid){
+        var w = document.createElement('span');
+        w.className = 'rmbp-wait';
+        w.textContent = 'Waiting on the debaters';
+        actions.appendChild(w);
+        return;
+      }
+      if (mine || iAnswered){
+        var wait = document.createElement('span');
+        wait.className = 'rmbp-wait';
+        wait.textContent = 'Waiting on ' + nameForUid(pending[0]);
+        var withdraw = document.createElement('button');
+        withdraw.type = 'button';
+        withdraw.textContent = mine ? 'Withdraw' : 'Change my mind';
+        withdraw.addEventListener('click', function(){ answerMotionProposal(false); });
+        actions.appendChild(wait);
+        actions.appendChild(withdraw);
+        return;
+      }
+      var yes = document.createElement('button');
+      yes.type = 'button';
+      yes.className = 'rmbp-accept';
+      yes.textContent = 'Accept the change';
+      yes.addEventListener('click', function(){ answerMotionProposal(true); });
+      var no = document.createElement('button');
+      no.type = 'button';
+      no.textContent = 'Keep the current one';
+      no.addEventListener('click', function(){ answerMotionProposal(false); });
+      actions.appendChild(yes);
+      actions.appendChild(no);
+    }
+    window.__lrRenderMotionProposal = renderMotionProposal;
+
+    // Single entry point for "the resolution should become X". Routes to
+    // a proposal when there is somebody to ask, and to a direct edit
+    // when there is not.
+    function setMotion(text, source){
+      if (!text || text === state.motion) return;
+      if (bothSeatsIdentified() && !isSpectator() && myUid()){
+        proposeMotion(text, source);
+        toast('Change proposed. It takes effect when ' + nameForUid(
+          seatUids().filter(function(u){ return u !== myUid(); })[0]) + ' agrees.');
+        return;
+      }
+      state.motion = text;
+      var md = $('motionDisplay'); if (md) md.textContent = text;
+      publishRoundMeta();
+    }
+    window.__lrSetMotion = setMotion;
     // Options disclosure: the summary line stays, the tools grid toggles.
     // State lives in the DOM (hidden attr), so renderRound re-runs leave
     // an open panel open.
@@ -7428,9 +7675,11 @@ html.stage-mode .stage-ov{display:block}
       rmbEl.removeAttribute('contenteditable');
       var v = (rmbEl.textContent || '').trim();
       if (v && v !== state.motion){
-        state.motion = v;
-        var md = $('motionDisplay'); if (md) md.textContent = v;
-        publishRoundMeta();
+        // Snap the visible line back to the motion in force. The edit is
+        // now a request, and showing the new text while the opponent has
+        // not agreed would say the round had already changed.
+        setMotion(v, 'edit');
+        rmbEl.textContent = state.motion || '(motion not set)';
         try { gtag('event', 'live_round_motion_edit_inround'); } catch(e){}
       } else {
         rmbEl.textContent = state.motion || '(motion not set)';
@@ -7477,11 +7726,17 @@ html.stage-mode .stage-ov{display:block}
       if (isSpectator() || state.speechIdx > 0) return;
       var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
       var m = pool[Math.floor(Math.random()*pool.length)] || SPAR_MOTIONS[0];
-      state.motion = m; state.background = '';
-      var rmb = $('rmbMotion'); if (rmb && document.activeElement !== rmb) rmb.textContent = m;
-      var md = $('motionDisplay'); if (md) md.textContent = m;
-      publishRoundMeta();
-      genBriefRound(m, gmBtn);
+      // Rolling a fresh motion is the same change of contest as typing
+      // one, so it asks the same way. The brief waits until the motion
+      // is actually in force; writing one for a rejected proposal would
+      // spend a model call on a round nobody is having.
+      var wasProposal = bothSeatsIdentified() && !isSpectator() && myUid();
+      setMotion(m, 'random');
+      if (!wasProposal){
+        state.background = '';
+        var rmb = $('rmbMotion'); if (rmb && document.activeElement !== rmb) rmb.textContent = m;
+        genBriefRound(m, gmBtn);
+      }
       try { gtag('event','live_round_random_motion_inround'); } catch(e){}
     });
     var gbBtn = $('rebGenBrief');
@@ -8749,8 +9004,14 @@ html.stage-mode .stage-ov{display:block}
       '</div>' +
       '<div class="aud-tabs" role="tablist">' +
         '<button type="button" class="aud-tab is-on" data-aud-tab="comments">Comments</button>' +
+        '<button type="button" class="aud-tab" data-aud-tab="topics">Topics</button>' +
         '<button type="button" class="aud-tab" data-aud-tab="groups">Group chats</button>' +
         '<button type="button" class="aud-tab" data-aud-tab="judge">Tell the judge</button>' +
+      '</div>' +
+      '<div class="aud-body" data-aud-pane="topics" hidden>' +
+        '<p class="aud-note">Say what you want argued. The room votes, and the debaters can put the top one to the round. It only becomes the resolution if both of them agree.</p>' +
+        '<div class="aud-list" id="audTopicList"><div class="aud-empty">No suggestions yet. Name a motion you would watch.</div></div>' +
+        '<div class="aud-compose"><input type="text" id="audTopicInput" maxlength="200" placeholder="This House would&hellip;"><button type="button" id="audTopicSend">Suggest</button></div>' +
       '</div>' +
       '<div class="aud-body" data-aud-pane="comments">' +
         '<div class="aud-list" id="audCommentList"><div class="aud-empty">No comments yet. Say what you\'re seeing.</div></div>' +
@@ -8790,6 +9051,7 @@ html.stage-mode .stage-ov{display:block}
       inp.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); fn(inp); } });
     }
     wireSend('audCommentInput', 'audCommentSend', audPostComment);
+    wireSend('audTopicInput', 'audTopicSend', audPostTopic);
     wireSend('audGroupName', 'audGroupCreate', audCreateGroup);
     wireSend('audMsgInput', 'audMsgSend', audPostGroupMsg);
     panel.querySelector('#audEvalSave').addEventListener('click', audSaveEval);
@@ -8834,6 +9096,10 @@ html.stage-mode .stage-ov{display:block}
       p.hidden = p.getAttribute('data-aud-pane') !== tab;
     });
     if (tab === 'judge') audLoadEval();
+    // Whether "put it to the round" renders depends on the round's phase,
+    // which moves without the topic list changing, so repaint on open
+    // rather than trusting the last snapshot's answer.
+    if (tab === 'topics' && AUD.topicRows) audRenderTopics(AUD.topicRows);
   }
 
   function audStart(){
@@ -8875,6 +9141,116 @@ html.stage-mode .stage-ov{display:block}
         });
       });
     }, function(){});
+    // Ranked by votes, so the thing the room most wants argued sits at
+    // the top where a debater between speeches will actually see it.
+    AUD.unsubs.topics = audCol('topics').orderBy('votes', 'desc').limit(40).onSnapshot(function(snap){
+      var rows = [];
+      snap.forEach(function(d){ var v = d.data() || {}; v._id = d.id; rows.push(v); });
+      AUD.topicRows = rows;
+      audRenderTopics(rows);
+    }, function(){});
+  }
+
+  // ── Audience topic suggestions ─────────────────────────────────────
+  // The audience is watching because they care what gets argued, and
+  // until now they had no way to say so. A suggestion here is a request,
+  // never a command: it reaches the debaters as something they can put
+  // to the round, and it still needs both of them to agree before the
+  // resolution moves. The crowd sets the agenda; it does not seize the
+  // round.
+  function audTopicSeat(){
+    // Only a seated debater can put a suggestion to the round, and only
+    // before Speech 1, which is the same window the resolution editor
+    // itself is open for.
+    return !!(typeof isSpectator === 'function' && !isSpectator()
+      && state.phase === 'round' && state.speechIdx === 0
+      && typeof window.__lrSetMotion === 'function');
+  }
+  function audRenderTopics(rows){
+    var list = document.getElementById('audTopicList');
+    if (!list) return;
+    if (!rows.length){
+      list.innerHTML = '<div class="aud-empty">No suggestions yet. Name a motion you would watch.</div>';
+      return;
+    }
+    var me = audMe();
+    var canPut = audTopicSeat();
+    list.innerHTML = rows.map(function(t){
+      var voters = t.voters || [];
+      var mine = !!(me && voters.indexOf(me.uid) >= 0);
+      var n = voters.length;
+      return '<div class="aud-row aud-topic">' +
+        '<p>' + escHtml(String(t.text || '').slice(0, 200)) + '</p>' +
+        '<span class="aud-t">by ' + escHtml(String(t.name || 'a viewer').slice(0, 40)) + '</span>' +
+        '<div class="aud-topic-actions">' +
+          '<button type="button" class="aud-vote' + (mine ? ' is-on' : '') + '" data-aud-vote="' + escHtml(t._id) + '"' +
+            ' aria-pressed="' + (mine ? 'true' : 'false') + '">' +
+            '&#9650; ' + n + ' ' + (n === 1 ? 'vote' : 'votes') + '</button>' +
+          (canPut ? '<button type="button" class="aud-put" data-aud-put="' + escHtml(t._id) + '">Put it to the round</button>' : '') +
+        '</div></div>';
+    }).join('');
+    [].forEach.call(list.querySelectorAll('[data-aud-vote]'), function(b){
+      b.addEventListener('click', function(){ audVoteTopic(b.getAttribute('data-aud-vote')); });
+    });
+    [].forEach.call(list.querySelectorAll('[data-aud-put]'), function(b){
+      b.addEventListener('click', function(){
+        var id = b.getAttribute('data-aud-put');
+        var row = rows.filter(function(r){ return r._id === id; })[0];
+        if (!row || !row.text) return;
+        window.__lrSetMotion(row.text, 'audience');
+        audSetOpen(false);
+      });
+    });
+  }
+  function audPostTopic(inp){
+    var me = audMe();
+    if (!me || (typeof firebase !== 'undefined' && firebase.auth &&
+        firebase.auth().currentUser && firebase.auth().currentUser.isAnonymous)){
+      toast('Sign in to suggest a topic.');
+      return;
+    }
+    var col = audCol('topics');
+    if (!col) return;
+    var text = (inp.value || '').trim().slice(0, 200);
+    if (text.length < 8){ toast('Give the motion a few more words.'); return; }
+    inp.value = '';
+    // The suggester's own vote is implied by suggesting it, and the
+    // create rule requires exactly that one entry.
+    col.add({
+      text: text,
+      uid: me.uid,
+      name: me.name,
+      voters: [me.uid],
+      votes: 1,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(){ toast('Could not post that. Try again.'); });
+    try { gtag('event', 'live_round_topic_suggested'); } catch(e){}
+  }
+  function audVoteTopic(id){
+    var me = audMe();
+    if (!me || (typeof firebase !== 'undefined' && firebase.auth &&
+        firebase.auth().currentUser && firebase.auth().currentUser.isAnonymous)){
+      toast('Sign in to vote.');
+      return;
+    }
+    var col = audCol('topics');
+    if (!col || !id) return;
+    var ref = col.doc(id);
+    // A transaction, because two people voting in the same instant on a
+    // read-modify-write of one array is the normal case here, not the
+    // rare one, and the loser of that race would silently erase the
+    // winner's vote. `votes` is a denormalised count for the ordering
+    // query; `voters` is the truth.
+    firebaseDb.runTransaction(function(tx){
+      return tx.get(ref).then(function(snap){
+        if (!snap.exists) return;
+        var voters = (snap.data() || {}).voters || [];
+        var at = voters.indexOf(me.uid);
+        if (at >= 0) voters.splice(at, 1); else voters.push(me.uid);
+        tx.update(ref, { voters: voters, votes: voters.length });
+      });
+    }).catch(function(){});
+    try { gtag('event', 'live_round_topic_vote'); } catch(e){}
   }
 
   function audOpenGroup(id, name){
@@ -9673,6 +10049,8 @@ html.stage-mode .stage-ov{display:block}
       audCamOnPolicyChange();
     }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; }
+    // Pending resolution change, if either side has asked for one.
+    if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
     if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
