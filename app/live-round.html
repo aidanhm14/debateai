@@ -986,6 +986,17 @@ body.lr-pip .lr-pip-notice{display:block}
 }
 .panel-section{padding:24px 26px;border-bottom:1px solid var(--border)}
 .panel-section:last-child{border-bottom:none}
+/* Spectator market + persuasion controls belong to the round console,
+   not over the people in the call. The two-column grid stays compact on
+   desktop and stacks the cards on phone-width layouts. */
+.spec-dock{
+  flex:0 0 auto;display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;padding:12px 22px;
+  background:var(--bg);border-bottom:1px solid var(--border);
+}
+.spec-dock > div{min-width:0}
+@media(max-width:720px){.spec-dock{grid-template-columns:1fr}}
 
 /* Persistent room guide. The live-round state was already turn-gated in
    code, but the UI hid inactive controls and made the other debater guess
@@ -6019,8 +6030,13 @@ html.stage-mode .stage-ov{display:block}
     if (d) return d;
     d = document.createElement('div');
     d.id = 'specDock';
-    d.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:6000;display:flex;flex-direction:column;gap:10px;width:280px;max-width:calc(100vw - 32px)';
-    document.body.appendChild(d);
+    d.className = 'spec-dock';
+    d.setAttribute('role', 'region');
+    d.setAttribute('aria-label', 'Spectator market and audience calls');
+    var round = document.getElementById('roundView');
+    var motion = document.getElementById('roundMotionBar');
+    if (round && motion) round.insertBefore(d, motion.nextSibling);
+    else (document.getElementById('panel') || document.body).appendChild(d);
     return d;
   }
 
