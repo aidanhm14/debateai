@@ -159,7 +159,7 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   if (!key) return { ok: false, reason: 'no-key' };
   if (!to) return { ok: false, reason: 'no-recipient' };
 
-  const resolvedFrom = from || process.env.EMAIL_FROM || 'Aidan @ Debatable <aidandavidhollinger@gmail.com>';
+  const resolvedFrom = from || process.env.EMAIL_FROM || 'Aidan @ Debatable <aidan@debateai.com>';
   const resolvedReplyTo = replyTo || process.env.EMAIL_REPLY_TO || 'aidandavidhollinger@gmail.com';
   const resolvedText = text || toText(html);
 

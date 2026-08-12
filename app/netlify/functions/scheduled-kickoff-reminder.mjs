@@ -92,7 +92,7 @@ function buildRoundUrl(challenge){
 
 export default async (req) => {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'Debatable <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <onboarding@resend.dev>';
   if (!apiKey) {
     console.warn('[scheduled-kickoff] RESEND_API_KEY missing, skipping run');
     return new Response('skipped (no api key)', { status: 200 });
