@@ -5,10 +5,11 @@
 //
 //   GET  /api/admin/recordings            → full list, newest first
 //   POST /api/admin/recordings { action: 'sync' }
-//        → pull Daily's recording list, upsert Firestore docs.
-//          Finished tournament streams auto-publish. Debate rounds only
-//          publish when the round doc proves every seated participant
-//          accepted the current recording-consent scope.
+//        → pull Daily's recording list, upsert Firestore docs. Nothing
+//          arrives public. A debate round becomes publish-eligible only
+//          when the round doc proves every seated participant accepted
+//          the current recording-consent scope; a stream waits for an
+//          admin to press publish.
 //   POST /api/admin/recordings { action: 'publish', id, published }
 //        → toggle a recording's public visibility.
 //   POST /api/admin/recordings { action: 'meta', id, title }
@@ -97,7 +98,12 @@ export async function syncFromDaily(db, limit = 100){
     const isStream = /^debatable-live-/.test(rec.room_name || '');
     const meta = isStream ? {} : await roundMeta(db, rec.room_name || '');
     const finished = (rec.status === 'finished') && (rec.duration || 0) >= AUTO_PUBLISH_MIN_SEC;
-    const publishEligible = finished && (isStream || meta.recordingConsentComplete === true);
+    // Streams no longer auto-publish. They used to, which meant every
+    // studio camera test over 45 seconds landed on the public watch page
+    // and had to be deleted after the fact. A round publishes on a signal
+    // that a human actually gave (every seated debater consented); a
+    // stream had no equivalent, so it now waits for the publish press.
+    const publishEligible = finished && !isStream && meta.recordingConsentComplete === true;
     const base = {
       roomName: rec.room_name || '',
       startTs: rec.start_ts || 0,          // unix seconds
