@@ -1263,6 +1263,25 @@ body.lr-pip .lr-pip-notice{display:block}
 .round-edit-bar .reb-summary{display:flex;align-items:center;gap:12px;justify-content:space-between}
 .round-edit-bar .reb-note{display:flex;flex-direction:column;gap:2px;min-width:0;font-weight:800;color:var(--text)}
 .round-edit-bar .reb-note small{font-size:.72rem;font-weight:550;color:var(--text-dim)}
+/* Interruption capture is the thing debaters most often assume an AI judge
+   misses, so it gets a badge on the mode line instead of living inside the
+   dim sub-copy where it read as boilerplate. */
+.round-edit-bar .reb-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.round-edit-bar .reb-flag{display:inline-flex;align-items:center;gap:5px;
+  padding:2px 9px;border-radius:99px;font-size:.63rem;font-weight:800;
+  letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;
+  /* red-300 on the dark panel (matches .tag-con); the light theme swaps to
+     a deeper red below. Straight #ef4444 measured 3.76:1 on dark. */
+  color:#fca5a5;background:var(--ui-accent-soft,rgba(239,68,68,.14));
+  border:1px solid rgba(239,68,68,.55)}
+.round-edit-bar .reb-flag::before{content:'';width:6px;height:6px;border-radius:50%;
+  background:currentColor;animation:rebFlagPulse 2s ease-in-out infinite}
+.round-edit-bar .reb-flag[hidden]{display:none}
+/* #ef4444 measures 3.35:1 on the light-theme bar, under the 4.5 floor for
+   text this small. Same deeper red the side tags use on light. */
+[data-theme="light"] .round-edit-bar .reb-flag{color:#b91c1c;border-color:rgba(185,28,28,.45)}
+@keyframes rebFlagPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.round-edit-bar .reb-flag::before{animation:none}}
 .round-edit-bar .reb-edit{min-height:38px;padding:8px 14px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.22));
   width:100%;background:var(--ui-surface);color:var(--text,#fff);font:inherit;font-size:.8rem;font-weight:750;cursor:pointer}
 .round-edit-bar .reb-edit:hover{border-color:var(--text-dim,rgba(255,255,255,.5));background:var(--ui-accent-soft)}
@@ -1293,6 +1312,12 @@ body.lr-pip .lr-pip-notice{display:block}
    green and red keep the side coding and clear AA on light. */
 [data-theme="light"] .tag.tag-pro{color:#166534;border-color:rgba(21,128,61,.38)}
 [data-theme="light"] .tag.tag-con{color:#b91c1c;border-color:rgba(185,28,28,.38)}
+/* Judge-capability pill. Amber is reserved for state, so this borrows the
+   neutral chip and only lifts the text to full --text: it needs to read as
+   a fact about the round, not as a warning. */
+.tag.tag-judge{background:var(--ui-accent-soft,rgba(239,68,68,.10));
+  border-color:rgba(239,68,68,.32);color:var(--text)}
+[data-theme="light"] .tag.tag-judge{color:#b91c1c;border-color:rgba(185,28,28,.38)}
 
 .field{margin-bottom:12px}
 .field label{
@@ -2248,8 +2273,9 @@ html.stage-mode .stage-ov{display:block}
            screen stays readable. -->
       <div class="round-edit-bar" id="roundEditBar" hidden>
         <div class="reb-summary">
-          <span class="reb-note"><span id="rebModeName">General round</span>
-            <small id="rebModeSub">Interruptions are captured by the AI judge. Human judges can watch and score public rounds.</small></span>
+          <span class="reb-note"><span class="reb-title"><span id="rebModeName">General round</span>
+            <span class="reb-flag" id="rebJudgeFlag">Interruptions scored</span></span>
+            <small id="rebModeSub">The AI judge hears every interruption and weighs it in the ballot. Human judges can watch and score public rounds.</small></span>
           <button type="button" class="reb-edit reb-opts" id="rebOptionsBtn" aria-expanded="false" aria-controls="rebTools">Options ▾</button>
         </div>
         <div class="reb-tools" id="rebTools" hidden>
@@ -3049,8 +3075,11 @@ html.stage-mode .stage-ov{display:block}
       '<span class="tag">' + escHtml(f.name) + '</span>' +
       sideChips +
       '<span class="tag">' + f.speeches.length + ' speech' + (f.speeches.length===1?'':'es') + '</span>' +
+      // Sits in the chip row for every format, not just open clash: debaters
+      // routinely assume an AI judge only scores the prepared speeches.
+      '<span class="tag tag-judge">Interruptions scored</span>' +
       (state.formatKey === 'quick'
-        ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Open clash. Interruptions are captured by the AI judge. Human judges can watch and score public rounds. Competition styles are in the Format menu below.</div>'
+        ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Open clash. <strong style="color:var(--text)">The AI judge hears every interruption and weighs it in the ballot.</strong> Human judges can watch and score public rounds. Competition styles are in the Format menu below.</div>'
         : '') +
       // Agreed judge paradigm from /spar's consent handshake — both
       // debaters signed off on it, so keep it visible in the room.
@@ -3504,15 +3533,18 @@ html.stage-mode .stage-ov{display:block}
         if (!rfs.options.length){ var srcSel = $('formatSel'); if (srcSel) rfs.innerHTML = srcSel.innerHTML; }
         rfs.value = state.formatKey;
       }
-      var modeName = $('rebModeName'), modeSub = $('rebModeSub');
+      var modeName = $('rebModeName'), modeSub = $('rebModeSub'), judgeFlag = $('rebJudgeFlag');
       if (modeName && modeSub){
         if (state.formatKey === 'quick'){
           modeName.textContent = 'General round';
-          modeSub.textContent = 'Interruptions are captured by the AI judge. Human judges can watch and score public rounds.';
+          modeSub.textContent = 'The AI judge hears every interruption and weighs it in the ballot. Human judges can watch and score public rounds.';
         } else {
           modeName.textContent = f.name;
-          modeSub.textContent = f.speeches.length + ' speeches · style and motion stay editable under Options until Speech 1.';
+          modeSub.textContent = f.speeches.length + ' speeches · the AI judge scores interruptions and POIs too. Style and motion stay editable under Options until Speech 1.';
         }
+        // The badge is true in every format: the judge transcribes and weighs
+        // interruptions whether they are open clash or structured POIs.
+        if (judgeFlag) judgeFlag.hidden = false;
       }
       if (rmb && !canEdit && rmb.getAttribute('contenteditable') === 'true'){
         rmb.removeAttribute('contenteditable');
