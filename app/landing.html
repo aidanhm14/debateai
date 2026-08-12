@@ -7711,6 +7711,62 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .fs-board{transition:none}
     .fs-board:hover,.fs-board:focus-within{transform:none}
   }
+
+  /* ── Live stream card ────────────────────────────────────────────
+     Takes the example board's slot in the first screen while a stream
+     is on air, and hands it straight back when it ends. It reuses
+     .fs-board's card shell so the swap is a content change, not a
+     layout change.
+
+     The video is OUR OWN <video> element fed by the Daily call object,
+     NOT the Daily prebuilt iframe. Prebuilt paints its own top bar
+     (LIVE / N watching / Speaker view), its own tray (People / Chat /
+     Leave), and a "You're joining as a viewer" welcome gate that a
+     watcher has to click through before any picture appears. None of
+     that is stylable from outside an iframe, so the only way to show
+     the round and nothing else is to take the track and draw it here.
+     See the #fsLive script near the end of the document. */
+  .fs-live{display:none}
+  .fs-live.is-on{display:block}
+  #first-screen.has-live .fs-board:not(.fs-live){display:none}
+  .fs-live .fs-live-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;position:relative;z-index:4}
+  .fs-live-pill{display:inline-flex;align-items:center;gap:6px;background:#b91c1c;color:#fff;
+    font-weight:800;font-size:.58rem;letter-spacing:.13em;padding:4px 10px;border-radius:999px}
+  .fs-live-pill i{width:6px;height:6px;border-radius:50%;background:#fff;animation:fsLivePulse 1.4s infinite}
+  @keyframes fsLivePulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .fs-live-title{font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+    color:rgba(245,239,231,.68);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  [data-theme="light"] .fs-live-title{color:rgba(26,26,31,.64)}
+  .fs-live-open{margin-left:auto;flex:0 0 auto;font-size:.72rem;font-weight:700;text-decoration:none;
+    color:rgba(245,239,231,.72);border:1px solid rgba(245,239,231,.24);border-radius:999px;padding:4px 11px}
+  .fs-live-open:hover{color:#fff;border-color:rgba(239,68,68,.6)}
+  [data-theme="light"] .fs-live-open{color:rgba(26,26,31,.68);border-color:rgba(26,26,31,.2)}
+  [data-theme="light"] .fs-live-open:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
+
+  /* The clip. object-fit:cover on a fixed 16/9 box means a portrait
+     webcam fills the card instead of sitting in pillarbox bars, which
+     is what the prebuilt embed was doing. */
+  .fs-live-stage{position:relative;border-radius:12px;overflow:hidden;background:#000;
+    aspect-ratio:16/9;border:1px solid rgba(245,239,231,.14)}
+  [data-theme="light"] .fs-live-stage{border-color:rgba(26,26,31,.14)}
+  .fs-live-stage video{width:100%;height:100%;display:block;object-fit:cover;background:#000}
+  .fs-live-nm{position:absolute;left:8px;bottom:8px;z-index:2;display:inline-flex;align-items:center;gap:5px;
+    padding:3px 8px;border-radius:7px;background:rgba(0,0,0,.62);color:#fff;
+    font-size:.68rem;font-weight:700;letter-spacing:.02em}
+  .fs-live-sound{position:absolute;right:8px;bottom:8px;z-index:3;cursor:pointer;
+    padding:5px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.24);
+    background:rgba(0,0,0,.62);color:#fff;font:inherit;font-size:.7rem;font-weight:700}
+  .fs-live-sound:hover{border-color:rgba(239,68,68,.7)}
+  .fs-live-sound[hidden]{display:none}
+  /* Waiting state. The stream can be on air with the host's camera
+     still off, so the card says so rather than showing a black hole. */
+  .fs-live-wait{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    color:rgba(255,255,255,.6);font-size:.85rem;letter-spacing:.02em;text-align:center;padding:16px}
+  .fs-live.is-waiting .fs-live-wait{display:flex}
+  .fs-live-cap{margin:12px 0 0;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:700;
+    font-size:clamp(1rem,1.5vw,1.22rem);line-height:1.25;color:#f5efe7}
+  [data-theme="light"] .fs-live-cap{color:#1a1a1f}
+  .fs-live-cap:empty{display:none}
 </style>
 <section id="first-screen" class="fscreen" aria-label="Start a live debate">
   <div class="fscreen-wrap">
@@ -7861,6 +7917,29 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <p id="fsRfd"></p>
         </div>
       </div>
+    </div>
+
+    <!-- The live stream takes this same slot when the arena is on air,
+         and the example board above hides for the duration. A real
+         round happening right now beats a demo of one, and the demo is
+         still what a visitor sees the rest of the time. Empty and
+         inert until the #fsLive script finds a live stream. -->
+    <div class="fs-board fs-live" id="fsLive">
+      <div class="fs-live-top">
+        <span class="fs-live-pill"><i></i>LIVE</span>
+        <span class="fs-live-title">Happening now</span>
+        <a class="fs-live-open" href="/watch" data-cta="first-screen-live-watch">Watch page</a>
+      </div>
+      <div class="fs-live-stage">
+        <video id="fsLiveVideo" autoplay playsinline muted disablepictureinpicture></video>
+        <span class="fs-live-wait">Waiting for the camera</span>
+        <span class="fs-live-nm" id="fsLiveNm">Host</span>
+        <button type="button" class="fs-live-sound" id="fsLiveSound">Sound on</button>
+      </div>
+      <!-- The stream's own title, in the same serif the example board
+           gives the motion, so the swap keeps the card's shape. -->
+      <p class="fs-live-cap" id="fsLiveCap"></p>
+      <audio id="fsLiveAudio" autoplay></audio>
     </div>
   </div>
 </section>
@@ -19798,16 +19877,240 @@ window.addEventListener('load', function(){
 })();
 </script>
 
-<!-- Homepage live band. Two modes, both injected ABOVE the hero.
-     STAGE: a tournament stream is on (/api/stream-status live:true). The
-       player takes the middle and the rooms running alongside it flank
-       it, which is the tournament-day shape: one thing to watch, the
-       rest of the event visible around it.
-     WALL: no stream, but /api/watch-live reports public rounds in
-       progress. Those render as ONE skinny strip of room chips under
-       the topbar, scrolling sideways rather than wrapping into a
-       block — the hero is the point of the page, and a room list
-       earns a line above it, not a panel.
+<!-- First-screen live player (#fsLive).
+
+     WATCH-ONLY, AND NOT A PREBUILT EMBED. The stream used to render as
+     an <iframe> pointed at the Daily room, which meant a visitor got
+     Daily's whole product around the round: a top bar (LIVE, N
+     watching, Speaker view, a settings gear), a tray (Viewing video
+     call, People, Chat, Leave), and, because the room is
+     owner_only_broadcast, a "Welcome! You're joining as a viewer"
+     dialog they had to dismiss before any picture appeared. An iframe's
+     interior is not stylable from out here, so that chrome could not be
+     trimmed; it could only be replaced.
+
+     So this joins with the daily-js CALL OBJECT (no iframe, no UI at
+     all), takes the broadcaster's video and audio tracks, and paints
+     them into our own <video> and <audio>. What a visitor sees is the
+     round, in the card, with our own name chip. No join step, no
+     controls, nothing to dismiss.
+
+     Muted first, by rule not by preference: browsers refuse to autoplay
+     audible media, and a stream that needs a click to show a PICTURE is
+     the thing this replaced. Sound is one button away.
+
+     CONNECT COST. Every watcher is still a real participant in the Daily
+     room, so this connects only while the card is actually on screen in
+     a visible tab, and leaves ~15s after it scrolls away. That keeps the
+     participant count to people who are watching rather than everyone
+     who has ever loaded the homepage. It is a mitigation, not a ceiling:
+     a room caps at max_participants (200 here), so a stream that needs
+     to reach more than that wants Daily's HLS output rather than a seat
+     per viewer. -->
+<script>
+(function(){
+  'use strict';
+
+  var DAILY_SRC = 'https://unpkg.com/@daily-co/daily-js';
+  var IDLE_LEAVE_MS = 15000;
+
+  var card = document.getElementById('fsLive');
+  var screenEl = document.getElementById('first-screen');
+  if (!card || !screenEl) return;
+
+  var video = document.getElementById('fsLiveVideo');
+  var audio = document.getElementById('fsLiveAudio');
+  var capEl = document.getElementById('fsLiveCap');
+  var nameEl = document.getElementById('fsLiveNm');
+  var soundBtn = document.getElementById('fsLiveSound');
+
+  var want = null;          // the URL we should be showing, or null
+  var call = null;          // daily-js call object while connected
+  var joined = '';          // the URL `call` is actually on
+  var onScreen = false;
+  var idleTimer = null;
+  var sdk = null;           // pending or resolved daily-js load
+
+  function loadDaily(){
+    if (window.DailyIframe) return Promise.resolve(window.DailyIframe);
+    if (sdk) return sdk;
+    sdk = new Promise(function(res, rej){
+      var s = document.createElement('script');
+      s.src = DAILY_SRC;
+      s.async = true;
+      s.onload = function(){ window.DailyIframe ? res(window.DailyIframe) : rej(new Error('no DailyIframe')); };
+      s.onerror = function(){ sdk = null; rej(new Error('daily-js blocked')); };
+      document.head.appendChild(s);
+    });
+    return sdk;
+  }
+
+  // Swapping srcObject on every event would restart playback mid-round,
+  // so an unchanged track is left exactly where it is.
+  function attach(elm, track){
+    var cur = elm.srcObject;
+    if (!track){
+      if (cur) elm.srcObject = null;
+      return;
+    }
+    if (cur){
+      var have = cur.getTracks();
+      if (have.length === 1 && have[0].id === track.id) return;
+    }
+    elm.srcObject = new MediaStream([track]);
+    var p = elm.play();
+    if (p && p.catch) p.catch(function(){});
+  }
+
+  function paint(){
+    if (!call) return;
+    var people, keys, i, p, best = null;
+    try { people = call.participants() || {}; } catch(e){ return; }
+    keys = Object.keys(people);
+    for (i = 0; i < keys.length; i++){
+      if (keys[i] === 'local') continue;
+      p = people[keys[i]];
+      var t = (p && p.tracks) || {};
+      var live = (t.video && t.video.state === 'playable') || (t.audio && t.audio.state === 'playable');
+      if (live){ best = p; break; }
+      if (!best) best = p;
+    }
+    var vt = best && best.tracks && best.tracks.video;
+    var at = best && best.tracks && best.tracks.audio;
+    var vTrack = vt && vt.state === 'playable' ? vt.persistentTrack : null;
+    var aTrack = at && at.state === 'playable' ? at.persistentTrack : null;
+    attach(video, vTrack);
+    attach(audio, aTrack);
+    card.classList.toggle('is-waiting', !vTrack);
+    // Daily stamps the host's own display name; fall back rather than
+    // inventing one.
+    nameEl.textContent = (best && best.user_name) || 'Host';
+    soundBtn.hidden = !aTrack || !audio.muted;
+  }
+
+  function disconnect(){
+    if (!call) return;
+    var c = call;
+    call = null; joined = '';
+    try { c.leave(); } catch(e){}
+    try { c.destroy(); } catch(e){}
+    video.srcObject = null;
+    audio.srcObject = null;
+    card.classList.add('is-waiting');
+  }
+
+  function connect(url){
+    if (call || !url) return;
+    loadDaily().then(function(D){
+      // The card may have gone away or the stream ended while the SDK
+      // was downloading.
+      if (call || want !== url || !onScreen) return;
+      var c;
+      try {
+        // videoSource/audioSource false is the receive-only shape: no
+        // camera or mic permission prompt is ever raised on a watcher.
+        c = D.createCallObject({ videoSource: false, audioSource: false, subscribeToTracksAutomatically: true });
+      } catch(e){ return; }
+      call = c;
+      c.on('participant-joined', paint)
+       .on('participant-updated', paint)
+       .on('participant-left', paint)
+       .on('track-started', paint)
+       .on('track-stopped', paint)
+       .on('error', function(){ disconnect(); });
+      c.join({ url: url, userName: 'Viewer', startVideoOff: true, startAudioOff: true })
+        .then(function(){
+          if (call !== c) return;
+          joined = url;
+          paint();
+          try { if (window.gtag) gtag('event', 'home_live_watch'); } catch(e){}
+        })
+        .catch(function(){ if (call === c) disconnect(); });
+    }).catch(function(){
+      // daily-js blocked or offline. The card keeps its waiting state
+      // and the Watch page link, which is a working way through.
+    });
+  }
+
+  function sync(){
+    var live = !!want && onScreen && !document.hidden;
+    if (live){
+      if (idleTimer){ clearTimeout(idleTimer); idleTimer = null; }
+      if (call && joined !== want) disconnect();
+      connect(want);
+      return;
+    }
+    if (call && !idleTimer){
+      idleTimer = setTimeout(function(){ idleTimer = null; disconnect(); }, want ? IDLE_LEAVE_MS : 0);
+    }
+  }
+
+  soundBtn.addEventListener('click', function(){
+    audio.muted = false;
+    video.muted = true;              // audio rides its own element
+    var p = audio.play();
+    if (p && p.catch) p.catch(function(){});
+    soundBtn.hidden = true;
+  });
+
+  // Viewport gate, with a deadline. The connect-only-while-watched rule
+  // is a cost control, and a cost control that can strand the card on
+  // "Waiting for the camera" forever is worse than the cost: if no
+  // observer callback has arrived shortly after a stream goes live,
+  // assume the card is being looked at and connect. Measured cause for
+  // the deadline rather than a hypothetical one: IntersectionObserver
+  // does not fire at all in the preview browser this page is checked in.
+  var heard = false;
+  if (window.IntersectionObserver){
+    new IntersectionObserver(function(entries){
+      heard = true;
+      onScreen = entries[entries.length - 1].isIntersecting;
+      sync();
+    }, { rootMargin: '150px' }).observe(card);
+  } else {
+    onScreen = true;
+  }
+  function assumeVisible(){
+    if (heard || onScreen) return;
+    onScreen = true;
+    sync();
+  }
+  document.addEventListener('visibilitychange', sync);
+
+  // The band poller owns /api/stream-status and hands the result here,
+  // so the two never poll the same endpoint twice.
+  window.__fsLive = {
+    set: function(s){
+      var url = s && s.live && s.url ? s.url : null;
+      if (url === want) return;
+      want = url;
+      card.classList.toggle('is-on', !!url);
+      screenEl.classList.toggle('has-live', !!url);
+      if (url){
+        card.classList.add('is-waiting');
+        capEl.textContent = s.title || 'Live from the arena';
+        setTimeout(assumeVisible, 1200);
+      } else {
+        disconnect();
+      }
+      sync();
+    }
+  };
+})();
+</script>
+
+<!-- Homepage room strip, injected ABOVE the hero when /api/watch-live
+     reports public rounds in progress. ONE skinny row of room chips
+     under the topbar, scrolling sideways rather than wrapping into a
+     block: the hero is the point of the page, and a room list earns a
+     line above it, not a panel.
+
+     This used to have a second "stage" mode that embedded the owner
+     stream up here as well. The stream moved into the first screen
+     (#fsLive), so the band is the room strip and nothing else. This
+     script still polls /api/stream-status and hands the result to
+     #fsLive, which keeps that endpoint on one poller.
+
      Injected DOM from a standalone script on purpose: with nothing live
      the page is byte-for-byte untouched, so the hero A/B arms, the "See
      more" gate, and the scroll observers never see a new sibling unless
@@ -19848,8 +20151,7 @@ window.addEventListener('load', function(){
     congress: 'Congress', mun: 'MUN', popper: 'Karl Popper'
   };
 
-  var mode = null;        // null | 'stage' | 'wall'
-  var streamUrl = '';     // so a poll never reloads a playing iframe
+  var mode = null;        // null | 'wall'
   var tileKey = '';       // so an unchanged room list never touches the DOM
 
   function el(tag, cls, text){
@@ -19922,7 +20224,6 @@ window.addEventListener('load', function(){
     // under a fixed bar.
     '#homeLiveBand.hlb-is-wall{padding:84px 16px 8px}' +
     '#homeLiveBand .hlb-in{max-width:1400px;margin:0 auto}' +
-    '#homeLiveBand .hlb-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}' +
     // The strip head: LIVE pill, the scrollable room row, the watch link.
     // No title line — the chips say what is live, and a sentence above
     // them would double the height to repeat them.
@@ -19932,36 +20233,9 @@ window.addEventListener('load', function(){
     '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
     '#homeLiveBand .hlb-strip .hlb-dot{width:6px;height:6px}' +
     '@keyframes hlbPulse{0%,100%{opacity:1}50%{opacity:.35}}' +
-    '#homeLiveBand .hlb-title{color:#f4f4f2;font-weight:700;font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '#homeLiveBand .hlb-open{margin-left:auto;color:rgba(244,244,242,.7);font-size:14.5px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 13px}' +
     '#homeLiveBand .hlb-open:hover{color:#fff;border-color:rgba(239,68,68,.5)}' +
     '#homeLiveBand .hlb-strip .hlb-open{flex:0 0 auto;margin-left:0;font-size:13px;padding:5px 11px;border-radius:8px;white-space:nowrap}' +
-    '#homeLiveBand iframe{width:100%;aspect-ratio:16/9;max-height:62vh;border:0;border-radius:12px;background:#000;display:block}' +
-    // The stage: player in the middle column, rooms in the rails either
-    // side. Rails are sized so a 16:9 player still gets most of the width.
-    '#homeLiveBand .hlb-stage{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}' +
-    '#homeLiveBand .hlb-rail{display:grid;gap:10px;align-content:start;min-width:0}' +
-    '#homeLiveBand .hlb-rail:empty{display:none}' +
-    '@media(min-width:1180px){' +
-      '#homeLiveBand .hlb-stage.hlb-has-rooms{grid-template-columns:250px minmax(0,1fr) 250px}' +
-      '#homeLiveBand .hlb-stage.hlb-has-rooms .hlb-main{order:2}' +
-      '#homeLiveBand .hlb-stage.hlb-has-rooms .hlb-rail-a{order:1}' +
-      '#homeLiveBand .hlb-stage.hlb-has-rooms .hlb-rail-b{order:3}' +
-    '}' +
-    // Under the stage breakpoint the rails become rows BENEATH the
-    // player. The order matters: source order puts rail A first, so
-    // without this the tiles push the stream itself off the fold on a
-    // laptop, which inverts what the band is for.
-    '@media(max-width:1179px){' +
-      '#homeLiveBand .hlb-stage{display:flex;flex-direction:column}' +
-      '#homeLiveBand .hlb-main{order:1}' +
-      '#homeLiveBand .hlb-rail-a{order:2}' +
-      '#homeLiveBand .hlb-rail-b{order:3}' +
-      '#homeLiveBand .hlb-rail{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:column}' +
-    '}' +
-    '@media(max-width:720px){' +
-      '#homeLiveBand .hlb-rail{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:row}' +
-    '}' +
     // The room row scrolls sideways instead of wrapping: wrapping is
     // what turned this into a block in the first place, and a sixth
     // room should cost a swipe, not another line of the front page.
@@ -19994,7 +20268,6 @@ window.addEventListener('load', function(){
     '@media(max-width:520px){' +
       '#homeLiveBand{padding-top:76px}' +
       '#homeLiveBand.hlb-is-wall{padding:76px 12px 7px}' +
-      '#homeLiveBand .hlb-title{white-space:normal;font-size:16px;flex:1 1 100%;order:3}' +
       '#homeLiveBand .hlb-open{margin-left:auto;padding:6px 11px;font-size:13.5px}' +
       '#homeLiveBand .hlb-strip .hlb-open{padding:5px 9px;font-size:12px}' +
       '#homeLiveBand .hlb-open-rest{display:none}' +
@@ -20062,45 +20335,7 @@ window.addEventListener('load', function(){
       var band = document.getElementById(BAND_ID);
       if (band) band.remove();
     });
-    mode = null; streamUrl = ''; tileKey = '';
-  }
-
-  function mountStage(s, rounds){
-    var at = anchorNode();
-    if (!at || !at.parentNode) return;
-    var band = makeBand();
-    band.className = 'hlb-is-stage';
-    band.setAttribute('aria-label', 'Live tournament stream');
-
-    var head = el('div', 'hlb-head');
-    var pill = el('span', 'hlb-pill');
-    pill.appendChild(el('span', 'hlb-dot'));
-    pill.appendChild(el('span', null, 'LIVE'));
-    head.appendChild(pill);
-    head.appendChild(el('span', 'hlb-title', s.title || 'Live from the arena'));
-    var open = el('a', 'hlb-open', 'Open the watch page');
-    open.href = '/watch';
-    head.appendChild(open);
-
-    var stage = el('div', 'hlb-stage');
-    var main = el('div', 'hlb-main');
-    var frame = document.createElement('iframe');
-    frame.title = 'Live tournament stream';
-    frame.setAttribute('allow', 'autoplay; clipboard-write');
-    frame.src = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
-    main.appendChild(frame);
-    stage.appendChild(el('div', 'hlb-rail hlb-rail-a'));
-    stage.appendChild(main);
-    stage.appendChild(el('div', 'hlb-rail hlb-rail-b'));
-
-    var inner = el('div', 'hlb-in');
-    inner.appendChild(head);
-    inner.appendChild(stage);
-    band.appendChild(inner);
-
-    withHeightHeld(null, function(){ at.parentNode.insertBefore(band, at); });
-    mode = 'stage'; streamUrl = s.url; tileKey = '';
-    try { if (window.gtag) gtag('event', 'home_live_band_shown'); } catch(e){}
+    mode = null; tileKey = '';
   }
 
   function mountWall(rounds){
@@ -20130,7 +20365,7 @@ window.addEventListener('load', function(){
     band.appendChild(inner);
 
     withHeightHeld(null, function(){ at.parentNode.insertBefore(band, at); });
-    mode = 'wall'; streamUrl = ''; tileKey = '';
+    mode = 'wall'; tileKey = '';
     try { if (window.gtag) gtag('event', 'home_room_wall_shown', { rooms: rounds.length }); } catch(e){}
   }
 
@@ -20143,39 +20378,30 @@ window.addEventListener('load', function(){
     if (key === tileKey) return;
 
     withHeightHeld(band, function(){
-      if (mode === 'wall'){
-        var wall = band.querySelector('.hlb-wall');
-        if (!wall) return;
-        wall.textContent = '';
-        rounds.forEach(function(r){ wall.appendChild(tile(r)); });
-        markMore(wall);
-        return;
-      }
-      var rails = band.querySelectorAll('.hlb-rail');
-      if (!rails.length) return;
-      rails[0].textContent = '';
-      rails[1].textContent = '';
-      // Split so the left rail never sits empty beside a filled right one.
-      var half = Math.ceil(rounds.length / 2);
-      rounds.forEach(function(r, i){ rails[i < half ? 0 : 1].appendChild(tile(r)); });
-      var stage = band.querySelector('.hlb-stage');
-      if (stage) stage.classList.toggle('hlb-has-rooms', rounds.length > 0);
+      var wall = band.querySelector('.hlb-wall');
+      if (!wall) return;
+      wall.textContent = '';
+      rounds.forEach(function(r){ wall.appendChild(tile(r)); });
+      markMore(wall);
     });
     tileKey = key;
   }
 
   function apply(s, rounds){
     rounds = (rounds || []).slice(0, MAX_TILES);
-    var wantStage = !!(s && s.live && s.url);
-    var want = wantStage ? 'stage' : (rounds.length ? 'wall' : null);
 
-    if (!want){ unmount(); return; }
-    // A stream that swaps URL mid-visit rebuilds; anything else keeps the
-    // player alive across polls.
-    if (mode !== want || (want === 'stage' && s.url !== streamUrl)){
-      unmount();
-      if (want === 'stage') mountStage(s, rounds); else mountWall(rounds);
-    }
+    // The stream itself no longer lives up here. It renders inside the
+    // first screen (#fsLive), in the slot the example board holds when
+    // nothing is on air, so a visitor sees the live round where they
+    // were already looking instead of a second video block above the
+    // hero. This poller still owns /api/stream-status so the two never
+    // ask the same endpoint twice.
+    try { if (window.__fsLive) window.__fsLive.set(s); } catch(e){}
+
+    // What is left of the band is the room strip: a line of rounds
+    // running right now, which the stream never replaced anyway.
+    if (!rounds.length){ unmount(); return; }
+    if (mode !== 'wall'){ unmount(); mountWall(rounds); }
     paintTiles(rounds);
   }
 
