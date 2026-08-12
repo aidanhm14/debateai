@@ -243,6 +243,16 @@
       <div id="myRoom"></div>
     </section>
 
+    <!-- Drop-in queue. Hidden unless the tournament actually runs
+         drop-in play AND the visitor is a live entrant, because a
+         queue button shown to a spectator is a promise the server
+         will refuse. -->
+    <section class="card hidden" id="dropInCard">
+      <h2>Drop-in queue</h2>
+      <p class="sub" id="dropInSub">Say you are ready and you get paired with whoever else is free. Play as many rounds as you like.</p>
+      <div id="dropInBody"></div>
+    </section>
+
     <section class="card" id="drawCard">
       <h2 id="drawTitle">The draw</h2>
       <p class="sub" id="drawMotion"></p>
@@ -476,6 +486,11 @@
 
     renderEntryActions();
     renderNextUp();
+    renderDropIn();
+    // One poll on first eligible render: someone returning to the tab
+    // mid-tournament should see the room they were seated in, not an
+    // idle "Ready to debate" button that hides it.
+    if (dropInEligible() && !dropIn.state && !dropIn.busy) dropInPoll();
     renderDraw();
     renderTab();
     renderBracket();
@@ -787,6 +802,138 @@
 
   // Both partners on a 2v2 entry get the same four-seat link; the
   // round itself works out which seat the viewer holds from their uid.
+  // ── Drop-in queue ────────────────────────────────────────────────
+  //
+  // /tournaments promises "turn up whenever". This is the surface that
+  // keeps that promise: a queue you stand in, a pool count so a slow
+  // wait reads as a slow wait rather than a broken page, and a room
+  // that opens when the server seats you.
+  //
+  // The queue slot EXPIRES after six minutes and is deliberately not
+  // refreshed by polling. `availableAt` is the same field the pairing
+  // engine measures accrued waiting time from, so a heartbeat would
+  // reset the wait on every poll and the rematch-patience gate would
+  // never release. It is also the presence check: a tab nobody is
+  // sitting at cannot press "still here", so it stops being paired
+  // instead of opening a room onto an empty chair.
+  var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '' };
+
+  function dropInEligible(){
+    var t = state.data && state.data.tournament;
+    if (!t || t.dropIn === false) return false;
+    if (['registration', 'running'].indexOf(t.status) === -1) return false;
+    var mine = myEntry();
+    return !!(state.user && mine && mine.status !== 'withdrawn' && mine.status !== 'eliminated');
+  }
+
+  function dropInCall(action){
+    dropIn.busy = true;
+    dropIn.err = '';
+    return api('/api/tournament/dropin', { action: action, t: TKEY })
+      .then(function(j){ dropIn.state = j; return j; })
+      .catch(function(e){ dropIn.err = e.message || 'That did not go through.'; })
+      .then(function(){ dropIn.busy = false; renderDropIn(); });
+  }
+
+  function dropInPoll(){
+    if (!dropInEligible()) { dropIn.polling = false; return; }
+    dropInCall('poll').then(function(){
+      var self = dropIn.state && dropIn.state.self;
+      // Keep polling while there is something to wait for. A seated
+      // entrant still polls, because their round ending is what puts
+      // them back in the pool and the page should notice.
+      if (self && (self.queued || self.inPairing)){
+        dropIn.polling = true;
+        clearTimeout(dropIn.timer);
+        dropIn.timer = setTimeout(dropInPoll, 5000);
+      } else {
+        dropIn.polling = false;
+      }
+    });
+  }
+
+  function fmtWait(ms){
+    var s = Math.round(Math.max(0, ms) / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    return m + 'm ' + (s - m * 60) + 's';
+  }
+
+  function renderDropIn(){
+    var card = $('dropInCard');
+    var host = $('dropInBody');
+    if (!card || !host) return;
+    if (!dropInEligible()){ card.classList.add('hidden'); return; }
+    card.classList.remove('hidden');
+
+    var self = dropIn.state && dropIn.state.self;
+    var pool = dropIn.state ? Number(dropIn.state.poolSize || 0) : 0;
+    host.innerHTML = '';
+
+    var box = document.createElement('div');
+    box.className = 'nextup';
+    var msg, action = null;
+
+    if (self && self.inPairing && self.pairing){
+      var p = self.pairing;
+      var mine = myEntry();
+      var side = p.govEntry === (mine && mine.entryId) ? 'Gov' : 'Opp';
+      var opp = p.govEntry === (mine && mine.entryId) ? p.oppName : p.govName;
+      msg = 'You are up. ' + side + ' against ' + opp + '.';
+      action = { kind: 'link', href: roomUrl(p, { label: 'Drop-in', motion: '' }, mine), label: 'Join your room' };
+    } else if (self && self.queued){
+      msg = 'In the queue, ' + fmtWait(self.waitingMs) + '. '
+        + (pool > 1 ? (pool + ' ready right now.') : 'Waiting for someone else to be free.');
+      // Say why a pairable-looking pool is not pairing, rather than
+      // spinning silently. The engine holds a few minutes rather than
+      // seat a repeat matchup, and a queue that explains itself does
+      // not read as a broken one.
+      if (dropIn.state && dropIn.state.held){
+        msg += ' Holding briefly to avoid pairing you with someone you have already debated.';
+      }
+      msg += ' Your slot lasts ' + fmtWait(self.expiresInMs) + ' longer.';
+      action = { kind: 'btn', label: 'Leave the queue', act: 'leave', plain: true };
+    } else if (self && self.slotExpired){
+      msg = 'Your queue slot ran out. Still there?';
+      action = { kind: 'btn', label: "I'm still here", act: 'ready' };
+    } else {
+      msg = 'Not in the queue. Join it and you get paired with whoever else is free.';
+      action = { kind: 'btn', label: 'Ready to debate', act: 'ready' };
+    }
+
+    box.innerHTML = '<b>Drop in</b><span>' + esc(msg) + '</span>';
+    if (dropIn.err){
+      var e = document.createElement('span');
+      e.style.color = 'var(--danger-text,#fca5a5)';
+      e.style.display = 'block';
+      e.style.marginTop = '6px';
+      e.textContent = dropIn.err;
+      box.appendChild(e);
+    }
+
+    if (action && action.kind === 'link'){
+      var a = document.createElement('a');
+      a.className = 'btn btn-primary';
+      a.style.marginTop = '12px';
+      a.href = action.href;
+      a.textContent = action.label;
+      box.appendChild(a);
+    } else if (action){
+      var btn = document.createElement('button');
+      btn.className = 'btn' + (action.plain ? '' : ' btn-primary');
+      btn.style.marginTop = '12px';
+      btn.textContent = dropIn.busy ? 'Working…' : action.label;
+      btn.disabled = !!dropIn.busy;
+      btn.addEventListener('click', function(){
+        dropInCall(action.act).then(function(){
+          if (action.act === 'ready' && !dropIn.polling) dropInPoll();
+        });
+      });
+      box.appendChild(btn);
+    }
+    host.appendChild(box);
+  }
+
   function roomUrl(p, r, mine){
     var t = state.data.tournament;
     var entries = {};

@@ -57,6 +57,10 @@ function publicTournament(id, d) {
     breakSize: Number(d.breakSize) || 0,
     currentRound: Number(d.currentRound) || 0,
     currentKind: d.currentKind || 'prelim',
+    // Drop-in defaults ON: /tournaments promises "turn up whenever" and
+    // a host who wants strict synchronous rounds opts OUT explicitly.
+    // Absent means true, so existing tournament docs need no migration.
+    dropIn: d.dropIn !== false,
     description: d.description || '',
     startsAt: d.startsAt || '',
     hostName: d.hostName || '',

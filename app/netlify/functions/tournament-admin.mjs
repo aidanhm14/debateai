@@ -75,6 +75,11 @@ function slugify(s) {
 }
 
 function roundKey(kind, roundNo) {
+  // 'd' is drop-in, and its number is the pairing SEQUENCE rather than
+  // a round number: drop-in play has no rounds, so each seating gets
+  // its own doc. Sharing this function is what lets recordResult below
+  // report a drop-in result through the same path as a paired round.
+  if (kind === 'dropin') return 'd' + roundNo;
   return (kind === 'elim' ? 'e' : 'r') + roundNo;
 }
 
@@ -349,6 +354,18 @@ export default async (request) => {
         // list a set so head-to-head stays meaningful.
         govPatch.opponents = Array.from(new Set(govPatch.opponents));
         oppPatch.opponents = Array.from(new Set(oppPatch.opponents));
+
+        // Releasing both sides back into the drop-in pool is the half
+        // of the loop that makes "play as many rounds as you like"
+        // true. Cleared unconditionally: on a paired round it is a
+        // no-op, and leaving it set on a drop-in pairing would lock
+        // that entrant out of the queue permanently the moment their
+        // round ended. They are released to IDLE, not re-queued, so
+        // rejoining stays a deliberate act by someone still at the
+        // keyboard rather than an automatic re-entry that could seat a
+        // person who has already walked away.
+        govPatch.inPairing = '';
+        oppPatch.inPairing = '';
 
         tx.update(govRef, govPatch);
         tx.update(oppRef, oppPatch);

@@ -285,6 +285,36 @@ function runPrelims(fieldSize, rounds, seed) {
   check('dropin: a withdrawn entry is not available',
     availableForDropIn([q(base[0], T), { ...q(base[1], T), status: 'withdrawn' }], T).length === 1);
 
+  // ── availableAt is a DEADLINE, not a heartbeat ──────────────────
+  //
+  // The field does two jobs at once: freshness for availableForDropIn
+  // and accrued waiting time for the rematch-patience gate. A queue
+  // implementation that keeps the slot warm by rewriting availableAt on
+  // every poll therefore looks correct and deadlocks the second job:
+  // wait never reaches the patience threshold, so a pool whose only
+  // legal draw is a repeat holds forever while the screen says
+  // "searching". These two assertions are the reason
+  // tournament-dropin.mjs writes availableAt exactly once.
+  const metPair = [
+    { ...q(base[0], T), opponents: ['e2'] },
+    { ...q(base[1], T), opponents: ['e1'] },
+  ];
+  const heartbeated = pairDropIn(metPair, { now: T });
+  check('dropin: a freshly-refreshed slot HOLDS rather than seating a repeat',
+    heartbeated.pairings.length === 0 && heartbeated.heldForFreshOpponent === true);
+
+  // The same two people, with the slot left alone long enough to pass
+  // the patience threshold, do get seated. If this ever fails while the
+  // one above passes, the gate has become a deadlock rather than a
+  // delay and nobody with a shared history ever plays again.
+  const patient = [
+    { ...q(base[0], T - 5 * 60_000), opponents: ['e2'] },
+    { ...q(base[1], T - 5 * 60_000), opponents: ['e1'] },
+  ];
+  const released = pairDropIn(patient, { now: T });
+  check('dropin: past the patience threshold the repeat is seated',
+    released.pairings.length === 1 && released.rematchFallback === true);
+
   // ── the two rules that are specific to drop-in ──────────────────
   const one = pairDropIn([q(base[0], T)], { now: T });
   check('dropin: a lone entrant gets no pairing', one.pairings.length === 0);
