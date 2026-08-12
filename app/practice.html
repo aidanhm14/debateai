@@ -12150,6 +12150,42 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('div', { style: { fontSize: '2rem', fontWeight: 900, color: wr.rate >= 0.5 ? '#22c55e' : '#f59e0b' } }, Math.round(wr.rate * 100) + '%')
     )
     ),
+    // MOVED 2026-08-12: the account ask now sits directly under the
+    // score rather than seven blocks below it. A guest previously
+    // scrolled past the rating stars, the leaderboard and share pills,
+    // and the voice CTA before anything mentioned an account, which
+    // put the ask well after the moment the ballot actually lands.
+    // Contextual account prompt. This is the first hard account ask on
+    // /practice: the visitor has a real ballot to claim, and the library
+    // sync above can now deliver that promise immediately after sign-in.
+    !user && el('div', { style: { display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 20, borderRadius: 14, background: 'linear-gradient(135deg,rgba(34,197,94,.06),rgba(59,130,246,.04))', border: '1px solid rgba(34,197,94,.22)', flexWrap: 'wrap' } },
+    el('div', { style: { flex: 1, minWidth: 200 } },
+    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 4 } }, 'Claim your ballot'),
+    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, 'This round is saved only on this device. Create an account to add the ballot to your record, keep it across devices, and count it toward your style profile.'),
+    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'After sign-in, this exact ballot opens in your saved rounds. Private unless you choose to publish it.')
+    ),
+    el('button', {
+      onClick: () => {
+        var currentRound = historyRounds && historyRounds.length ? historyRounds[0] : null;
+        try {if (currentRound && currentRound.id != null) sessionStorage.setItem(ROUND_CLAIM_KEY, String(currentRound.id));} catch (_) {}
+        try {if (typeof gtag === 'function') gtag('event', 'round_claim_start', { format: currentRound && currentRound.format || format || '', source: 'practice_ballot' });} catch (_) {}
+        signIn();
+      },
+      style: {
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '9px 18px', borderRadius: 999,
+        color: '#1f1f1f', background: '#fff', border: 'none',
+        fontSize: '.78rem', fontWeight: 700, letterSpacing: '.02em',
+        cursor: 'pointer', fontFamily: 'inherit',
+        boxShadow: '0 4px 14px rgba(0,0,0,.25)',
+        whiteSpace: 'nowrap', flexShrink: 0
+      },
+      title: 'Create an account and claim this round'
+    },
+    el('span', { dangerouslySetInnerHTML: { __html: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' } }),
+    'Claim this round'
+    )
+    ),
     // Rate this round. Sits directly under the verdict and the points,
     // which is the one moment the user has an opinion about the round
     // and is still looking at the screen. Gated on the capture landing
@@ -12328,37 +12364,6 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       onMouseOver: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.18)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.5)';},
       onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.10)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.32)';}
     }, 'Voice round on this motion →')
-    ),
-    // Contextual account prompt. This is the first hard account ask on
-    // /practice: the visitor has a real ballot to claim, and the library
-    // sync above can now deliver that promise immediately after sign-in.
-    !user && el('div', { style: { display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 20, borderRadius: 14, background: 'linear-gradient(135deg,rgba(34,197,94,.06),rgba(59,130,246,.04))', border: '1px solid rgba(34,197,94,.22)', flexWrap: 'wrap' } },
-    el('div', { style: { flex: 1, minWidth: 200 } },
-    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 4 } }, 'Claim your ballot'),
-    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, 'This round is saved only on this device. Create an account to add the ballot to your record, keep it across devices, and count it toward your style profile.'),
-    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'After sign-in, this exact ballot opens in your saved rounds. Private unless you choose to publish it.')
-    ),
-    el('button', {
-      onClick: () => {
-        var currentRound = historyRounds && historyRounds.length ? historyRounds[0] : null;
-        try {if (currentRound && currentRound.id != null) sessionStorage.setItem(ROUND_CLAIM_KEY, String(currentRound.id));} catch (_) {}
-        try {if (typeof gtag === 'function') gtag('event', 'round_claim_start', { format: currentRound && currentRound.format || format || '', source: 'practice_ballot' });} catch (_) {}
-        signIn();
-      },
-      style: {
-        display: 'inline-flex', alignItems: 'center', gap: 8,
-        padding: '9px 18px', borderRadius: 999,
-        color: '#1f1f1f', background: '#fff', border: 'none',
-        fontSize: '.78rem', fontWeight: 700, letterSpacing: '.02em',
-        cursor: 'pointer', fontFamily: 'inherit',
-        boxShadow: '0 4px 14px rgba(0,0,0,.25)',
-        whiteSpace: 'nowrap', flexShrink: 0
-      },
-      title: 'Create an account and claim this round'
-    },
-    el('span', { dangerouslySetInnerHTML: { __html: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' } }),
-    'Claim this round'
-    )
     ),
     // Publish-to-public panel — signed-in users only. Sends the
     // round to /api/round/publish which writes a sanitized doc to

@@ -16,10 +16,13 @@
      4. Picks copy based on URL path: landing, debate-ai, voice,
         learn, etc. each get a contextual line about WHAT the
         user is being asked to save.
-     5. Mounts a CENTERED modal over a blurred page (2026-08-12,
-        replacing the bottom-right pill this used to be) with a
-        Google CTA, a "Not now", and a × dismiss. Escape and a
-        click on the blurred page both dismiss.
+     5. Mounts one of two surfaces, split 50/50 by the
+        signup_nudge_surface_v1 experiment: a CENTERED modal over a
+        blurred page (Google CTA, "Not now", × dismiss; Escape and a
+        click on the blurred page also dismiss), or the bottom-right
+        PILL that shipped before 2026-08-12, kept as the control arm.
+        Force either with ?nudge=modal / ?nudge=pill for QA; a forced
+        arm is excluded from telemetry.
 
    Dismissal is "not now", not "never" (2026-07-02 re-nudge policy):
    while the visitor keeps actively using the page, the nudge returns
@@ -65,12 +68,76 @@
   var DISMISS_TTL_LONG_MS = 14 * 24 * 60 * 60 * 1000;
   // Seconds of visible-tab time before the first prompt (2026-08-12).
   var TRIGGER_SECONDS = 10;
-  // The reminder cadence was tuned for a corner pill. This surface takes the
+
+  // ── A/B signup_nudge_surface_v1 (2026-08-12) ──────────────────────
+  // The centred modal shipped as a straight replacement for the corner
+  // pill on an explicit instruction, which broke the standing rule that
+  // conversion changes ship as instrumented variants. This restores the
+  // pill as a real control arm so the interruption has to earn itself.
+  // Sticky per browser; ?nudge=modal|pill forces an arm for QA and a
+  // forced arm is excluded from telemetry.
+  //
+  // Telemetry does NOT ride the shared experiments.js rail: only 2 of the
+  // 13 pages carrying this module also load that file, so registering on
+  // window.__abAssignments would report a fraction of the traffic and
+  // read as the whole. Instead this emits ab_impression / ab_conversion
+  // in experiments.js's exact shape via gtag, which track.js bridges to
+  // /api/log-event, which log-event.mjs turns into experiment_events
+  // rows. Same Mission Control rollup, full coverage.
+  var SURFACE_KEY = 'da-ab-nudge-surface';
+  var SURFACE_TEST = 'signup_nudge_surface_v1';
+  var surfaceArm = 'modal';
+  var surfaceForced = false;
+  (function assignSurface(){
+    try {
+      var qp = (location.search || '').toLowerCase();
+      if (/[?&]nudge=modal(?:&|$)/.test(qp)) { surfaceArm = 'modal'; surfaceForced = true; return; }
+      if (/[?&]nudge=pill(?:&|$)/.test(qp)) { surfaceArm = 'pill'; surfaceForced = true; return; }
+    } catch (e) {}
+    try {
+      var v = localStorage.getItem(SURFACE_KEY) || '';
+      if (v !== 'modal' && v !== 'pill') {
+        v = Math.random() < 0.5 ? 'modal' : 'pill';
+        localStorage.setItem(SURFACE_KEY, v);
+      }
+      surfaceArm = v;
+    } catch (e) { surfaceArm = 'modal'; }
+  })();
+  function isModal(){ return surfaceArm === 'modal'; }
+
+  function abEmit(name, params){
+    if (surfaceForced) return;
+    try { if (window.gtag) window.gtag('event', name, params || {}); } catch (e) {}
+  }
+  // One impression per session per path, matching experiments.js's
+  // dedupe key so the two never double-count a page.
+  function abImpression(){
+    var path = location.pathname || '/';
+    var assignments = SURFACE_TEST + '=' + surfaceArm;
+    try {
+      var k = '_da_ab_imp:' + path + ':' + assignments;
+      if (sessionStorage.getItem(k) === '1') return;
+      sessionStorage.setItem(k, '1');
+    } catch (e) {}
+    abEmit('ab_impression', { assignments: assignments, experiment_count: 1, path: path });
+  }
+  function abConversion(target){
+    abEmit('ab_conversion', {
+      test: SURFACE_TEST, variant: surfaceArm,
+      target: String(target || 'click').slice(0, 64),
+      path: location.pathname || '/'
+    });
+  }
+
+  // The reminder cadence was tuned for a corner pill. The modal takes the
   // whole screen, so it comes back later and fewer times: 150s of real
   // interaction instead of 60, and one reminder instead of two. Three
-  // full-screen interruptions in a session is a different product.
-  var REMIND_ACTIVE_SECONDS = 150;  // active-use seconds before a re-nudge
-  var MAX_ATTEMPTS_PER_SESSION = 2; // initial + one reminder
+  // full-screen interruptions in a session is a different product. The
+  // pill arm keeps its original, more forgiving cadence, because the
+  // experiment has to compare each surface at its own best setting
+  // rather than handicap one with the other's numbers.
+  var REMIND_ACTIVE_SECONDS = isModal() ? 150 : 60;
+  var MAX_ATTEMPTS_PER_SESSION = isModal() ? 2 : 3;
 
   // Benefit-first copy for reminders. The first pass is contextual per
   // page (pageConfig); reminders answer the visitor's actual question,
@@ -237,10 +304,43 @@
       '[data-theme="dark"] .signup-nudge .su-close{color:rgba(255,255,255,.62)}' +
       '[data-theme="dark"] .signup-nudge .su-close:hover{background:rgba(255,255,255,.08);color:#fff}' +
       // A sign-in modal owns the screen while open; never stack this under it.
-      'body.signin-modal-open .signup-nudge{display:none!important}' +
+      'body.signin-modal-open .signup-nudge,body.signin-modal-open .signup-pill{display:none!important}' +
       // The page is locked while the modal is up, so nothing else should be
       // competing for a tap: the floating Feedback pill yields and returns.
-      'body.signup-nudge-open .fb-floating{display:none!important}' +
+      'body.su-arm-modal.signup-nudge-open .fb-floating{display:none!important}' +
+
+      // ── The 'pill' control arm ────────────────────────────────────────
+      // Restored verbatim from the surface that shipped before 2026-08-12
+      // so the comparison is against what was actually live, not a
+      // reconstruction of it. Its own root class, so none of the modal
+      // rules above reach it.
+      '.signup-pill{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-radius:14px;background:rgba(20,10,12,.94);color:#fff;border:1px solid rgba(220,38,38,.42);box-shadow:0 14px 36px rgba(0,0,0,.32);font-family:"Crimson Pro","Inter",system-ui,-apple-system,sans-serif;font-size:.82rem;line-height:1.35;max-width:calc(100vw - 36px);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:translateY(14px);opacity:0;transition:transform .26s ease,opacity .26s ease}' +
+      '.signup-pill.is-in{transform:translateY(0);opacity:1}' +
+      '.signup-pill .su-line{flex:1;color:rgba(255,255,255,.82)}' +
+      '.signup-pill .su-line strong{color:#fff;font-weight:700}' +
+      '.signup-pill .su-cta{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:none;border-radius:999px;cursor:pointer;background:#fff;color:#1a1a1f;font-family:inherit;font-size:.76rem;font-weight:700;letter-spacing:.01em;white-space:nowrap}' +
+      '.signup-pill .su-g{width:15px;height:15px;flex:none}' +
+      '.signup-pill .su-cta:hover{background:#f3f3f0}' +
+      '.signup-pill .su-close{border:none;background:transparent;color:rgba(255,255,255,.68);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit}' +
+      '.signup-pill .su-close:hover{color:#fff}' +
+      '.signup-pill .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Crimson Pro,Georgia,serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.68);cursor:pointer}' +
+      '.signup-pill .su-optin input{width:15px;height:15px;margin:1px 0 0;accent-color:#dc2626;flex:none}' +
+      '.signup-pill--prominent{width:min(390px,calc(100vw - 36px));flex-wrap:wrap;padding:18px;border-radius:18px}' +
+      '.signup-pill--prominent .su-line{flex:1 1 100%;font-size:.9rem;line-height:1.45}' +
+      '[data-theme="light"] .signup-pill{background:#fff;color:#1a1a1f;border-color:rgba(220,38,38,.32);box-shadow:0 14px 36px rgba(0,0,0,.10)}' +
+      '[data-theme="light"] .signup-pill .su-line{color:rgba(0,0,0,.7)}' +
+      '[data-theme="light"] .signup-pill .su-line strong{color:#1a1a1f}' +
+      '[data-theme="light"] .signup-pill .su-optin{color:rgba(0,0,0,.64)}' +
+      '[data-theme="light"] .signup-pill .su-cta{background:#dc2626;color:#fff}' +
+      '[data-theme="light"] .signup-pill .su-cta:hover{background:#b91c1c}' +
+      '[data-theme="light"] .signup-pill .su-close{color:rgba(0,0,0,.64)}' +
+      '[data-theme="light"] .signup-pill .su-close:hover{color:#1a1a1f}' +
+      '.fb-floating{transition:bottom .26s ease, transform .18s ease, box-shadow .18s ease}' +
+      // Under 520px the pill goes full-bleed into the Feedback pill's own
+      // bottom-left slot, so the pill yields while it is up. One bottom
+      // sheet at a time; lifting it instead left it floating mid-screen.
+      '@media (max-width:520px){body.su-arm-pill.signup-nudge-open .fb-floating{display:none!important}}' +
+      '@media (max-width:520px){.signup-pill{right:8px;left:8px;bottom:8px;flex-wrap:wrap;font-size:.78rem;padding:10px 10px 10px 12px}.signup-pill .su-line{flex:1 1 100%;order:1}.signup-pill .su-cta{order:2}.signup-pill .su-close{order:3;margin-left:auto}}' +
       '@media (prefers-reduced-motion:reduce){.signup-nudge,.signup-nudge .su-card{transition:none}}' +
       '@media (max-width:520px){.signup-nudge{padding:14px}.signup-nudge .su-card{padding:26px 20px 22px;border-radius:16px}.signup-nudge .su-title{font-size:1.24rem}.signup-nudge .su-line{font-size:.96rem}.signup-nudge .su-actions{gap:10px}.signup-nudge .su-cta{width:100%}.signup-nudge .su-later{width:100%;text-align:center}}';
     document.head.appendChild(s);
@@ -327,8 +427,14 @@
       attempt.then(function(result){
         rememberMethod('google');
         flushInviteOptIn(result && result.user);
+        var src = source || 'signup_nudge';
+        // The CTA click says the surface was noticed; a completed sign-in is
+        // the outcome the arms are actually being compared on. Attributed
+        // only when this module's own prompt started the flow, so an inline
+        // page button borrowing debatableGoogleSignIn never scores an arm.
+        if (src === 'signup_nudge') abConversion('signed_in');
         try {
-          if (window.gtag) gtag('event', 'sign_in_complete', { method: 'google', source: source || 'signup_nudge', path: location.pathname });
+          if (window.gtag) gtag('event', 'sign_in_complete', { method: 'google', source: src, path: location.pathname, surface_arm: surfaceArm });
         } catch (e) {}
       }).catch(function(){
         try {
@@ -339,7 +445,7 @@
         } catch (e) {}
       });
       try {
-        if (window.gtag) gtag('event', 'sign_up_start', { method: 'Google', source: source || 'signup_nudge', path: location.pathname });
+        if (window.gtag) gtag('event', 'sign_up_start', { method: 'Google', source: source || 'signup_nudge', path: location.pathname, surface_arm: surfaceArm });
       } catch (e) {}
     } catch (e) {}
   }
@@ -497,66 +603,91 @@
     // it does not sit on top of a modal asking for the same thing.
     try { window.google.accounts.id.cancel(); } catch (e) {}
     var parts = splitMsg(msg);
-    bar = document.createElement('div');
-    bar.className = 'signup-nudge' + (cfg.variant ? ' signup-nudge--' + cfg.variant : '');
-    bar.setAttribute('role', 'dialog');
-    bar.setAttribute('aria-modal', 'true');
-    bar.setAttribute('aria-label', 'Sign in with Google to save your work');
     var optin = cfg.inviteOptIn
       ? '<label class="su-optin"><input type="checkbox"> <span>Email me occasional round invites and product updates.</span></label>'
       : '';
-    bar.innerHTML =
-      '<div class="su-veil"></div>' +
-      '<div class="su-card">' +
-        '<button type="button" class="su-close" aria-label="Dismiss">×</button>' +
-        '<h2 class="su-title">' + parts.title + '</h2>' +
-        (parts.body ? '<p class="su-line">' + parts.body + '</p>' : '') +
+    var g = '<svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>';
+    bar = document.createElement('div');
+    bar.setAttribute('role', 'dialog');
+    bar.setAttribute('aria-label', 'Sign in with Google to save your work');
+    if (isModal()) {
+      bar.className = 'signup-nudge' + (cfg.variant ? ' signup-nudge--' + cfg.variant : '');
+      bar.setAttribute('aria-modal', 'true');
+      bar.innerHTML =
+        '<div class="su-veil"></div>' +
+        '<div class="su-card">' +
+          '<button type="button" class="su-close" aria-label="Dismiss">\u00d7</button>' +
+          '<h2 class="su-title">' + parts.title + '</h2>' +
+          (parts.body ? '<p class="su-line">' + parts.body + '</p>' : '') +
+          optin +
+          '<div class="su-actions">' +
+            '<button type="button" class="su-cta">' + g + 'Continue with Google</button>' +
+            '<button type="button" class="su-later">Not now</button>' +
+          '</div>' +
+        '</div>';
+    } else {
+      // Control arm: the corner pill exactly as it shipped before
+      // 2026-08-12. One line, no veil, no scroll lock, no focus capture,
+      // because none of those were part of what is being compared.
+      bar.className = 'signup-pill' + (cfg.variant ? ' signup-pill--' + cfg.variant : '');
+      bar.innerHTML =
+        '<span class="su-line">' + msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
         optin +
-        '<div class="su-actions">' +
-          '<button type="button" class="su-cta"><svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>Continue with Google</button>' +
-          '<button type="button" class="su-later">Not now</button>' +
-        '</div>' +
-      '</div>';
+        '<button type="button" class="su-cta">' + g + 'Continue with Google</button>' +
+        '<button type="button" class="su-close" aria-label="Dismiss">\u00d7</button>';
+    }
     document.body.appendChild(bar);
-    lockScroll(bar);
+    if (isModal()) lockScroll(bar);
     document.body.classList.add('signup-nudge-open');
+    document.body.classList.add('su-arm-' + surfaceArm);
     bumpSessionAttempts();
+    abImpression();
     requestAnimationFrame(function(){
       bar.classList.add('is-in');
       requestAnimationFrame(function(){ syncFeedbackPill(); bindSync(); });
     });
 
     var cta = bar.querySelector('.su-cta');
-    cta.addEventListener('click', function(){ doSignIn(cfg); });
+    cta.addEventListener('click', function(){ abConversion('google'); doSignIn(cfg); });
     var dismiss = function(how){
       markDismissed();
       unmount();
       try {
-        if (window.gtag) gtag('event', 'signup_nudge_dismissed', { path: location.pathname, attempt: attempt, method: how });
+        if (window.gtag) gtag('event', 'signup_nudge_dismissed', { path: location.pathname, attempt: attempt, method: how, surface_arm: surfaceArm });
       } catch (e) {}
       armReminder(attempt + 1);
     };
     bar.querySelector('.su-close').addEventListener('click', function(){ dismiss('close'); });
-    bar.querySelector('.su-later').addEventListener('click', function(){ dismiss('later'); });
+    // The modal-only affordances. Each query is guarded rather than assumed,
+    // because the pill arm renders neither and an unguarded querySelector
+    // would throw and take the whole click wiring with it.
+    var later = bar.querySelector('.su-later');
+    if (later) later.addEventListener('click', function(){ dismiss('later'); });
     // Clicking the blurred page behind the card dismisses, same as Escape.
     // Both are "not now" and both feed the reminder cadence.
-    bar.querySelector('.su-veil').addEventListener('click', function(){ dismiss('backdrop'); });
-    _onKey = function(e){
-      if (e.key === 'Escape'){ dismiss('escape'); return; }
-      if (e.key !== 'Tab' || !bar) return;
-      // Keep focus inside the card while it owns the screen.
-      var f = bar.querySelectorAll('button, input, a[href]');
-      if (!f.length) return;
-      var first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', _onKey, true);
-    _lastFocus = document.activeElement;
-    try { cta.focus({ preventScroll: true }); } catch (e) {}
+    var veil = bar.querySelector('.su-veil');
+    if (veil) veil.addEventListener('click', function(){ dismiss('backdrop'); });
+    // Escape and the focus trap belong to the surface that owns the screen.
+    // A corner pill that swallowed Escape or moved focus on arrival would be
+    // a worse pill than the one being measured.
+    if (isModal()) {
+      _onKey = function(e){
+        if (e.key === 'Escape'){ dismiss('escape'); return; }
+        if (e.key !== 'Tab' || !bar) return;
+        // Keep focus inside the card while it owns the screen.
+        var f = bar.querySelectorAll('button, input, a[href]');
+        if (!f.length) return;
+        var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      };
+      document.addEventListener('keydown', _onKey, true);
+      _lastFocus = document.activeElement;
+      try { cta.focus({ preventScroll: true }); } catch (e) {}
+    }
 
     try {
-      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: attempt > 0 ? 'reminder' : (cfg.variant || 'standard'), delay: cfg.delay, attempt: attempt, surface: 'center_modal' });
+      if (window.gtag) gtag('event', 'signup_nudge_shown', { path: location.pathname, variant: attempt > 0 ? 'reminder' : (cfg.variant || 'standard'), delay: cfg.delay, attempt: attempt, surface: isModal() ? 'center_modal' : 'corner_pill', surface_arm: surfaceArm });
     } catch (e) {}
   }
 
@@ -584,6 +715,8 @@
     // The gesture listeners live on the overlay itself, so removing the node
     // removes the lock. Nothing global was touched, nothing to restore.
     document.body.classList.remove('signup-nudge-open');
+    document.body.classList.remove('su-arm-modal');
+    document.body.classList.remove('su-arm-pill');
     bar.classList.remove('is-in');
     var ref = bar;
     setTimeout(function(){ if (ref && ref.parentNode) ref.parentNode.removeChild(ref); }, 260);
