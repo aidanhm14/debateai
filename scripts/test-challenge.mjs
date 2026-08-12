@@ -65,6 +65,13 @@ t('pct computed', leaning.crowd.pctA === 75);
 t('hidden is quiet',   feedKeyFor('open', 'public', 'hidden') === 'quiet');
 t('unlisted is quiet', feedKeyFor('open', 'unlisted', 'clean') === 'quiet');
 t('live is live',      feedKeyFor('live', 'public', 'clean') === 'live-public');
+// A challenge must not disappear from the board between being taken and
+// being judged. Pins the 2026-08-11 fix: no public status falls to quiet.
+t('accepted is upcoming', feedKeyFor('accepted', 'public', 'clean') === 'upcoming-public');
+t('scheduled is upcoming', feedKeyFor('scheduled', 'public', 'clean') === 'upcoming-public');
+t('judging is live',       feedKeyFor('judging', 'public', 'clean') === 'live-public');
+t('completed is done',     feedKeyFor('completed', 'public', 'clean') === 'done-public');
+t('cancelled is quiet',    feedKeyFor('cancelled', 'public', 'clean') === 'quiet');
 
 // ── migration ──
 const legacy = fromLiveChallenge('L1', {

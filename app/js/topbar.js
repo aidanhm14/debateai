@@ -310,6 +310,11 @@
       // 2026-07-22: async rounds — record now, they answer later. The
       // no-simultaneity surface, so it belongs next to the live ones.
       { href: '/rounds',      label: 'Async rounds', strong: true },
+      // 2026-08-11: the challenge board. A challenge is the one object a
+      // stranger understands without knowing a format: someone claimed
+      // something, take the other side. It is `big` because it is the
+      // shortest path from landing on the site to being in a round.
+      { href: '/challenges',  label: 'Challenges', big: true },
       { href: '/spectate',    label: 'Spectate live rounds' },
       // 2026-08-10: the debate shows people already watch (Surrounded,
       // Middle Ground, full Oxford Union debates) plus the standing

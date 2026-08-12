@@ -274,11 +274,20 @@ export function publicChallenge(id, d) {
 
 // Feed bucket, mirroring the async-rounds pattern: one cheap string the
 // arena queries on instead of composing three where-clauses.
+// 2026-08-11: `accepted` and `judging` used to fall through to 'quiet',
+// which meant a challenge vanished from every public feed at the two
+// moments most worth showing — someone just took the other side, and the
+// ballot is being written. The board went open → invisible → settled,
+// so the only visible social act was one that already finished. Both now
+// land in the neighbouring bucket: accepted joins scheduled under
+// upcoming, judging joins live. An accepted challenge has scheduledAt 0
+// and so sorts to the top of the ascending upcoming feed, which is the
+// order we want anyway (the newest match is the news).
 export function feedKeyFor(status, visibility, moderationState) {
   if (moderationState === 'hidden' || visibility !== 'public') return 'quiet';
-  if (status === 'live') return 'live-public';
+  if (status === 'live' || status === 'judging') return 'live-public';
   if (OPEN_STATUSES.has(status)) return 'open-public';
-  if (status === 'scheduled') return 'upcoming-public';
+  if (status === 'scheduled' || status === 'accepted') return 'upcoming-public';
   if (status === 'completed') return 'done-public';
   return 'quiet';
 }
