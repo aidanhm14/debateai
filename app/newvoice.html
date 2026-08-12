@@ -2580,8 +2580,18 @@ function buildRoundDoc(){
     conName: side === 'for' ? 'The machine' : 'You',
     speeches: turns.map((t) => ({ who: t.who, text: (t.text || '').slice(0, 6000) })),
     ballot: { verdict, text: ballotReady ? (body.textContent || '') : '' },
-    winnerSide: /you took it/i.test(verdict) ? side
-      : (/machine/i.test(verdict) ? (side === 'for' ? 'against' : 'for') : ''),
+    // `outcome` is the authoritative result and it is written HERE, where
+    // the verdict is actually known, rather than re-derived by whoever
+    // renders the round later. The pill holds one of exactly three
+    // strings ("You won", "The AI won", "Too close to call"), so match
+    // those. The previous winnerSide regexes tested /you took it/ and
+    // /machine/, which match NONE of the three, so every saved round
+    // stored an empty winnerSide and the profile fell through to a name
+    // comparison that rendered wins and ties alike as losses.
+    outcome: /^you won/i.test(verdict) ? 'win'
+      : (/^the ai won/i.test(verdict) ? 'loss' : (verdict ? 'tie' : '')),
+    winnerSide: /^you won/i.test(verdict) ? side
+      : (/^the ai won/i.test(verdict) ? (side === 'for' ? 'against' : 'for') : ''),
     winnerName: verdict,
     difficulty,
     pace: paceKey,

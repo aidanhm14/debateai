@@ -6905,9 +6905,27 @@ html.stage-mode .stage-ov{display:block}
         return;
       }
       var docId = state.user.uid + '_' + state.room;
+      // Who the saver was in this round, and whether they won, recorded
+      // as data rather than left to be re-derived from names later.
+      //
+      // The profile used to work this out by comparing userName against
+      // winnerName. That can never match: userName is the full display
+      // name ("Noor Jain") while proName/conName/winnerName carry the
+      // shortened public form ("Noor J."), and they come from different
+      // producers (this page vs the spar handoff). The comparison
+      // therefore failed on every live round, and a failed comparison
+      // was read as a loss, so winners saw their wins recorded as
+      // losses. mySide() resolves off proUid/conUid, which is the
+      // authoritative signal and is already on the page.
+      var savedSide = mySide();
       var savedDoc = {
         uid: state.user.uid,
         userName: publicNameOf(state.user),
+        userSide: savedSide || '',
+        outcome: (savedSide && b.winner) ? (b.winner === savedSide ? 'win' : 'loss') : '',
+        proUid: state.proUid || '',
+        conUid: state.conUid || '',
+        source: 'live-round',
         avatarIdentity: currentPublicAvatarIdentity(),
         userEmail: state.user.email || '',
         room: state.room,
@@ -9535,6 +9553,22 @@ html.stage-mode .stage-ov{display:block}
     // Confirm-out if the timer was never started (likely accidental click).
     if (state.timerState === 'ready'){
       if (!confirm('End ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + ' without starting the timer? The speech will be logged as 0:00.')) return;
+    }
+    // Confirm-out if the speech ran but captured no words. Transcription
+    // runs on the SPEAKER'S OWN device, and the Web Speech API is absent
+    // in Firefox and unreliable on iOS Safari, so a debater can deliver a
+    // full speech on camera and publish nothing but a placeholder. That
+    // is silent: they hear themselves, the round moves on, and the gap
+    // only shows up later as an opponent who appears to have said
+    // nothing in the saved record, and as a ballot the judge wrote
+    // without their arguments in front of it. Say so while it can still
+    // be fixed by typing.
+    var taNow = $('speechText');
+    if (taNow && !taNow.value.trim() && state.timerState !== 'ready'){
+      if (!confirm('No transcript was captured for this speech.\n\nThe AI judge reads the transcript, so this speech will not count toward the ballot, and it will show as empty in the saved round. Paste or type what you argued to have it counted.\n\nEnd the speech with no transcript anyway?')){
+        try { taNow.focus(); } catch(e){}
+        return;
+      }
     }
     endSpeech();
   });

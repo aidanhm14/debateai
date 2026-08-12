@@ -542,6 +542,7 @@ a.vr-row:hover{background:rgba(239,68,68,.06)}
 .vr-pill{display:inline-block;margin-left:6px;font-size:.6rem;font-weight:800;letter-spacing:.04em;padding:1px 6px;border-radius:999px;vertical-align:middle}
 .vr-win{background:rgba(34,197,94,.14);color:#4ade80}
 .vr-loss{background:rgba(239,68,68,.12);color:#fca5a5}
+.vr-tie{background:rgba(148,163,184,.16);color:#cbd5e1}
 .r-row.head{
   background:var(--bg-elev);font-size:.62rem;text-transform:uppercase;
   letter-spacing:.10em;font-weight:800;color:var(--text-ghost);
@@ -629,6 +630,7 @@ a.vr-row:hover{background:rgba(239,68,68,.06)}
 }
 .sr-speech:first-of-type{border-top:none}
 .sr-speech b{color:var(--text);font-weight:700}
+.sr-untranscribed{color:var(--text-dim);font-style:normal}
 .sr-empty{padding:22px 18px;text-align:center}
 .sr-empty strong{display:block;font-size:.9rem;color:var(--text);margin-bottom:6px}
 .sr-empty p{font-size:.8rem;color:var(--text-dim);line-height:1.55;margin:0 auto 14px;max-width:420px}
@@ -2376,30 +2378,83 @@ function savedRoundWhen(d){
 // stores userName alongside proName/conName, which is enough to place
 // the user on a bench. Anything ambiguous renders blank rather than
 // guessing.
-function savedRoundSide(d){
-  if (d.userSide) return d.userSide === 'for' ? 'For' : 'Against';
-  const me = (d.userName || '').trim();
-  if (me){
-    if (me === (d.proName || '').trim()) return 'Pro';
-    if (me === (d.conName || '').trim()) return 'Con';
+// Names on these docs come from two different producers and are NOT in
+// the same form: userName is the full display name ("Noor Jain") while
+// proName/conName carry the shortened public form ("Noor J."), so an
+// equality test between them never matched. Normalising both to
+// "firstname lastinitial" is what lets a round saved before userSide
+// existed still place its saver on a bench.
+function normalizedDebaterName(s){
+  const parts = String(s || '').trim().toLowerCase().replace(/\./g, '').split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  return parts.length >= 2 ? parts[0] + ' ' + parts[parts.length - 1][0] : parts[0];
+}
+
+// 'pro' | 'con' | '' — which bench the saver sat on. Prefers the uid,
+// then the recorded side, and only then falls back to matching names.
+// An ambiguous match (both benches normalise the same) returns '' so a
+// coin flip never gets rendered as a fact.
+function savedRoundBench(d){
+  if (d.uid){
+    if (d.proUid && d.proUid === d.uid) return 'pro';
+    if (d.conUid && d.conUid === d.uid) return 'con';
   }
+  if (d.userSide === 'pro' || d.userSide === 'con') return d.userSide;
+  const me = normalizedDebaterName(d.userName);
+  if (!me) return '';
+  const pro = normalizedDebaterName(d.proName);
+  const con = normalizedDebaterName(d.conName);
+  if (pro && con && pro === con) return '';
+  if (me && me === pro) return 'pro';
+  if (me && me === con) return 'con';
   return '';
 }
 
-// Won / lost from the user's point of view. newvoice's winnerSide is
-// 'for'/'against' and lines up with userSide directly. live-round's
-// winnerSide is a format label ("Government"), so the comparison there
-// runs on winnerName vs userName instead. Order matters: newvoice sets
-// winnerName to a verdict sentence, not a name, so userSide is checked
-// first.
-function savedRoundOutcome(d){
-  if (d.userSide && d.winnerSide){
-    if (d.winnerSide === d.userSide) return 'win';
-    return d.winnerSide ? 'loss' : '';
+function savedRoundSide(d){
+  if (d.userSide === 'for' || d.userSide === 'against'){
+    return d.userSide === 'for' ? 'For' : 'Against';
   }
-  const me = (d.userName || '').trim();
-  const win = (d.winnerName || '').trim();
-  if (me && win) return win === me ? 'win' : 'loss';
+  const bench = savedRoundBench(d);
+  if (bench === 'pro') return 'Pro';
+  if (bench === 'con') return 'Con';
+  return '';
+}
+
+// Won / lost / tied from the saver's point of view, or '' when the round
+// genuinely does not say.
+//
+// The rule that matters here: an outcome we cannot determine must render
+// as BLANK, never as a loss. The previous version ended with
+// `win === me ? 'win' : 'loss'`, comparing a full display name against a
+// shortened one, so the comparison failed on every round and every
+// failure was reported to the debater as a defeat. Both writers now
+// stamp an explicit `outcome`; everything below it exists to read rounds
+// saved before they did.
+function savedRoundOutcome(d){
+  // Written by /live-round and /newvoice at save time, from the surface
+  // that actually knows the verdict.
+  if (d.outcome === 'win' || d.outcome === 'loss' || d.outcome === 'tie') return d.outcome;
+
+  // live-round: the ballot names the winning bench directly.
+  const winner = d.ballot && d.ballot.winner;
+  if (winner === 'pro' || winner === 'con'){
+    const bench = savedRoundBench(d);
+    if (bench) return winner === bench ? 'win' : 'loss';
+    return '';
+  }
+
+  // newvoice: sides are 'for'/'against' and line up with winnerSide.
+  if ((d.userSide === 'for' || d.userSide === 'against') && d.winnerSide){
+    return d.winnerSide === d.userSide ? 'win' : 'loss';
+  }
+
+  // newvoice rounds saved while winnerSide was being mis-derived still
+  // carry the verdict pill verbatim in winnerName.
+  const verdict = (d.winnerName || '').trim();
+  if (/^you won/i.test(verdict)) return 'win';
+  if (/^the ai won/i.test(verdict)) return 'loss';
+  if (/^too close/i.test(verdict)) return 'tie';
+
   return '';
 }
 
@@ -2415,15 +2470,30 @@ function savedRoundRow(d, i){
   const when = escapeHtml(savedRoundWhen(d));
   const outcome = savedRoundOutcome(d);
   const pill = outcome === 'win' ? '<span class="vr-pill vr-win">Won</span>'
-             : (outcome === 'loss' ? '<span class="vr-pill vr-loss">Lost</span>' : '');
+             : outcome === 'loss' ? '<span class="vr-pill vr-loss">Lost</span>'
+             : (outcome === 'tie' ? '<span class="vr-pill vr-tie">Tie</span>' : '');
   const pending = d.pending ? '<span class="sr-pending">In this browser</span>' : '';
   const rfd = savedRoundRfd(d);
   const speeches = Array.isArray(d.speeches) ? d.speeches : [];
   const verdict = (d.ballot && d.ballot.verdict) ? escapeHtml(d.ballot.verdict) : '';
 
+  // A speech whose text is the literal "(no transcript)" placeholder DID
+  // happen. Speech-to-text runs on the speaker's own device and is
+  // unavailable in Firefox and unreliable on iOS Safari, so a debater on
+  // one of those publishes a real speech with no words attached. Showing
+  // it as a normal turn reads as though they said the words "(no
+  // transcript)"; dropping it reads as though they never spoke at all.
+  // Keep the turn, say why it is empty.
   const speechHtml = speeches.filter(s => s && (s.text || '').trim()).map(s => {
     const who = escapeHtml(s.speakerName || s.name || s.code || s.who || 'Speaker');
-    return `<div class="sr-speech"><b>${who}</b><br>${escapeHtml(s.text)}</div>`;
+    const text = (s.text || '').trim();
+    if (/^\((?:no transcript|skipped)\)$/i.test(text)){
+      const why = /skipped/i.test(text)
+        ? 'Speech skipped.'
+        : 'Spoken in the round. Their browser did not capture a transcript.';
+      return `<div class="sr-speech"><b>${who}</b><br><span class="sr-untranscribed">${why}</span></div>`;
+    }
+    return `<div class="sr-speech"><b>${who}</b><br>${escapeHtml(text)}</div>`;
   }).join('');
 
   let body = '';

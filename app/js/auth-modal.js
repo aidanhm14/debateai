@@ -253,10 +253,34 @@
         var t0 = Date.now();
         auth = firebase.auth();
         var current = auth.currentUser;
+        // A RETURNING user is the case this has to get right, and it is
+        // the one that used to be impossible. js/notifications.js signs
+        // every visitor in anonymously on page load, so currentUser is
+        // almost always a truthy anonymous user and this path is the
+        // normal one, not the edge case. Linking that anonymous account
+        // to a Google account that ALREADY EXISTS can never succeed:
+        // Firebase rejects it with auth/credential-already-in-use.
+        //
+        // The recovery must not be another popup. The user gesture was
+        // spent on the first one, so a second popup is blocked by the
+        // browser, and the outer catch then retried the SAME doomed link
+        // over a redirect, which failed for the same reason after a full
+        // page round-trip. That loop is why a returning user could not
+        // sign back in at all.
+        //
+        // Firebase hands back the credential the user just proved they
+        // own on that error, so sign in with it directly: no second
+        // popup, no redirect, no gesture needed. `linkRejected` records
+        // that linking is off the table so the redirect fallback below
+        // signs in rather than re-attempting the link.
+        var linkRejected = false;
         var attempt = current && current.isAnonymous && current.linkWithPopup
           ? current.linkWithPopup(provider).catch(function (err) {
               var code = (err && err.code) || '';
               if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+                linkRejected = true;
+                var cred = err && err.credential;
+                if (cred && auth.signInWithCredential) return auth.signInWithCredential(cred);
                 return auth.signInWithPopup(provider);
               }
               throw err;
@@ -268,7 +292,8 @@
           var code = (err && err.code) || 'unknown';
           if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
           try {
-            var redirect = current && current.isAnonymous && current.linkWithRedirect
+            var canLink = current && current.isAnonymous && current.linkWithRedirect && !linkRejected;
+            var redirect = canLink
               ? current.linkWithRedirect(provider)
               : auth.signInWithRedirect(provider);
             Promise.resolve(redirect).catch(function () { setErr('Google sign-in failed. Try again.'); });
