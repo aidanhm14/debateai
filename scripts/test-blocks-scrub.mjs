@@ -107,6 +107,32 @@ ok('a bare year with no author is left alone', () => {
   assert.strictEqual(n, 0, 'over-scrubbed a plain historical year');
 });
 
+// ── Em-dashes, a site-wide hard rule the prompt could not hold ────────
+// The prompt forbids them twice and the model emitted them on the first
+// real production-shaped run. A style rule enforced only by asking is not
+// enforced.
+ok('normalises em-dashes out of every argument field', () => {
+  const d = {
+    answers: [{
+      best: "They'd donate anyway—just less.",
+      frontlines: [{ line: 'Their link fails — badly.', why: 'no mechanism' }],
+    }],
+    gaps: ['They never prove it—at all.'],
+    crossEx: ['Does the donor need a child applying—yes or no?'],
+  };
+  scrubFabricatedCites(d);
+  const blob = JSON.stringify(d);
+  assert.ok(!blob.includes('—'), 'an em-dash survived');
+  assert.ok(!blob.includes('–'), 'an en-dash survived');
+  assert.ok(d.answers[0].best.includes("anyway, just less"), `bad rewrite: ${d.answers[0].best}`);
+  assert.ok(d.gaps[0].includes('prove it, at all'), `bad rewrite: ${d.gaps[0]}`);
+});
+
+ok('em-dash normalisation does not inflate the citation count', () => {
+  const d = { gaps: ['a—b—c'] };
+  assert.strictEqual(scrubFabricatedCites(d), 0, 'em-dashes were counted as stripped citations');
+});
+
 // ── Defensive: never throw on junk ────────────────────────────────────
 ok('handles null / non-object input', () => {
   assert.strictEqual(scrubFabricatedCites(null), 0);
