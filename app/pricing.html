@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-lightweb="web">
 <head>
 <script src="/js/native-bridge.js"></script>
 <meta charset="utf-8">
@@ -91,7 +91,25 @@
 })();
 </script>
 
-<!-- Shared topbar styles. Loaded BEFORE the page's inline <style> so
+<!-- Shared topbar styles. Loaded BEFORE the page's inline <style>
+/* ── Neural constellation on the light surface (2026-08-12, per Aidan:
+   "it adds a nice depth"). The animation already existed and already had
+   a light arm; it was gated to landing.html by the data-lightweb opt-in
+   on <html>, so every other paper page rendered flat.
+
+   The canvas is position:fixed, and a fixed element at z-index 0 painted
+   late in the body sits ON TOP of ordinary static content. Rather than
+   restack this page's elements to climb over it, the page background
+   moves to <html> and <body> goes transparent, which lets the canvas sit
+   at z-index -1: behind every element, still in front of the paper.
+   Nothing else on the page changes stacking, which is the whole point.
+   Dark themes keep ui.css's own opacity; only the light arm is lifted,
+   because red-on-cream at .45 is close to invisible. */
+html[data-lightweb="web"]{background:var(--bg)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:.75}
+ so
      page-specific rules override ui.css's defaults via cascade order. -->
 <link rel="stylesheet" href="/css/ui.css">
 
@@ -647,5 +665,9 @@
 </a>
 <script defer src="/js/notifications.js"></script>
 <script src="/js/home-magnet.js" defer></script>
+<!-- Shared neural-constellation background. Animates on this light
+     surface because <html> carries data-lightweb="web". -->
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
 </body>
 </html>
