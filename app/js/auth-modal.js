@@ -352,7 +352,8 @@
 
   function emailAuthMessage(err, mode) {
     var code = (err && err.code) || '';
-    if (code === 'auth/email-already-in-use') return 'That email already has an account. Sign in instead.';
+    if (code === 'auth/email-already-in-use' || code === 'auth/credential-already-in-use') return 'That email already has an account. Check the password, or use Sign in.';
+    if (code === 'auth/user-disabled') return 'That account is disabled. Contact support.';
     if (code === 'auth/invalid-email') return 'Enter a valid email.';
     if (code === 'auth/weak-password') return 'Use a stronger password with at least 8 characters.';
     if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Email or password is incorrect.';
@@ -387,27 +388,40 @@
         auth = firebase.auth();
         if (auth.useDeviceLanguage) auth.useDeviceLanguage();
         track('sign_in_start', { method: 'email_password', action: mode });
-        var attempt;
+        var attempt, reused = false;
         if (mode === 'signup') {
           var current = auth.currentUser;
           var credential = firebase.auth.EmailAuthProvider.credential(email, password);
+          // Nearly every visitor is already an anonymous Firebase user
+          // (notifications.js signs them in on page load), so the normal
+          // signup path is a link, not a create. When the email already
+          // has an account the link throws; sign in with the same
+          // password instead of dead-ending them, same as Google does.
+          var reuse = function (err) {
+            var code = (err && err.code) || '';
+            if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+              reused = true;
+              return auth.signInWithEmailAndPassword(email, password);
+            }
+            throw err;
+          };
           attempt = current && current.isAnonymous && current.linkWithCredential
-            ? current.linkWithCredential(credential)
-            : auth.createUserWithEmailAndPassword(email, password);
+            ? current.linkWithCredential(credential).catch(reuse)
+            : auth.createUserWithEmailAndPassword(email, password).catch(reuse);
         } else {
           attempt = auth.signInWithEmailAndPassword(email, password);
         }
         attempt.then(function (result) {
           var user = result && result.user;
-          if (mode === 'signup' && user && user.updateProfile) {
+          if (mode === 'signup' && !reused && user && user.updateProfile) {
             return user.updateProfile({ displayName: name }).then(function () { return user; });
           }
           return user;
         }).then(function (user) {
-          if (mode === 'signup' && user && user.sendEmailVerification) {
+          if (mode === 'signup' && !reused && user && !user.emailVerified && user.sendEmailVerification) {
             user.sendEmailVerification().catch(function () {});
           }
-          finishSignIn(mode === 'signup' ? 'email_password_signup' : 'email_password_signin');
+          finishSignIn(mode === 'signup' && !reused ? 'email_password_signup' : 'email_password_signin');
         }).catch(function (err) {
           btn.disabled = false;
           btn.textContent = mode === 'signup' ? 'Create account' : 'Sign in with email';
