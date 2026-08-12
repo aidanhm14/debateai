@@ -151,8 +151,17 @@ export default async (request) => {
   if (t.data.dropIn === false) {
     return errorResponse('This tournament does not run drop-in rounds.', 409, request);
   }
-  if (!['registration', 'running'].includes(t.data.status || '')) {
-    return errorResponse('The queue is not open right now.', 409, request);
+  // 'running' ONLY, and this is a correctness gate rather than a
+  // preference. A drop-in round writes wins, losses and speaks onto the
+  // entry docs that the standings and therefore the prize bracket are
+  // computed from. Allowing the queue during 'registration' — which the
+  // first version of this file did, while the live $500 tournament sat
+  // in exactly that status — would have let entrants bank results
+  // against the board days before the doors opened. The host flipping
+  // the tournament to running IS the doors opening; there is no second
+  // switch to invent.
+  if ((t.data.status || '') !== 'running') {
+    return errorResponse('The queue opens when the tournament starts.', 409, request);
   }
 
   const entriesRef = t.ref.collection('entries');
