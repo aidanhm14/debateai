@@ -13,6 +13,12 @@
 //        → toggle a recording's public visibility.
 //   POST /api/admin/recordings { action: 'meta', id, title }
 //        → set a display title (overrides the derived one).
+//   POST /api/admin/recordings { action: 'delete', id }
+//        → destroy it: the mp4 in Daily's storage, every clip cut from
+//          it, and the Firestore doc. A tombstone in `recordings_deleted`
+//          keeps the next sync from pulling it straight back, which is
+//          the failure mode a plain doc delete has (Daily is the source
+//          of truth for the list, so an undeleted mp4 reappears).
 //
 // Doc shape (recordings/{dailyId}):
 //   { roomName, startTs, duration, status, published, title,
@@ -58,6 +64,17 @@ async function roundMeta(db, roomName){
   }
 }
 
+// Ids an admin has deleted on purpose. One query per sync, not one read
+// per item, so this stays cheap as the tombstone list grows.
+async function deletedIds(db){
+  try {
+    const snap = await db.collection('recordings_deleted').select().limit(1000).get();
+    return new Set(snap.docs.map(d => d.id));
+  } catch {
+    return new Set();
+  }
+}
+
 export async function syncFromDaily(db, limit = 100){
   const safeLimit = Math.max(1, Math.min(100, Number(limit) || 100));
   const resp = await fetch(DAILY_API + '/recordings?limit=' + safeLimit, { headers: dailyHeaders() });
@@ -68,9 +85,13 @@ export async function syncFromDaily(db, limit = 100){
   }
   const data = await resp.json();
   const items = Array.isArray(data.data) ? data.data : [];
-  let created = 0, updated = 0;
+  const gone = await deletedIds(db);
+  let created = 0, updated = 0, skipped = 0;
   for (const rec of items){
     if (!rec.id) continue;
+    // Deleted on purpose. If the mp4 delete failed at Daily, this is the
+    // only thing standing between the round and a resurrection.
+    if (gone.has(rec.id)){ skipped++; continue; }
     const ref = db.collection('recordings').doc(rec.id);
     const existing = await ref.get();
     const isStream = /^debatable-live-/.test(rec.room_name || '');
@@ -125,7 +146,52 @@ export async function syncFromDaily(db, limit = 100){
     });
     created++;
   }
-  return { total: items.length, created, updated };
+  return { total: items.length, created, updated, skipped };
+}
+
+// Destroy a recording everywhere it exists. Order matters: the mp4 goes
+// first (it is the thing that must not stay up), then the clips that
+// point at it, then the index doc, then the tombstone.
+async function destroyRecording(db, id){
+  let dailyDeleted = false;
+  let dailyError = '';
+  if (!process.env.DAILY_API_KEY){
+    dailyError = 'DAILY_API_KEY not configured, the video file was left in Daily';
+  } else {
+    try {
+      const resp = await fetch(DAILY_API + '/recordings/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: dailyHeaders(),
+      });
+      // 404 means it is already gone, which is the state we wanted.
+      dailyDeleted = resp.ok || resp.status === 404;
+      if (!dailyDeleted){
+        let detail = '';
+        try { detail = await resp.text(); } catch {}
+        dailyError = 'Daily returned ' + resp.status + ' ' + detail.slice(0, 200);
+      }
+    } catch (e) {
+      dailyError = e.message || 'Daily delete failed';
+    }
+  }
+
+  let clipsDeleted = 0;
+  try {
+    const clips = await db.collection('clips').where('recordingId', '==', id).limit(500).get();
+    for (const doc of clips.docs){
+      await doc.ref.delete();
+      clipsDeleted++;
+    }
+  } catch (e) {
+    console.error('recordings delete: clip sweep failed', e.message);
+  }
+
+  await db.collection('recordings').doc(id).delete();
+  await db.collection('recordings_deleted').doc(id).set({
+    deletedAt: FieldValue.serverTimestamp(),
+    dailyDeleted,
+  });
+  return { dailyDeleted, dailyError, clipsDeleted };
 }
 
 export default async (req) => {
@@ -135,16 +201,31 @@ export default async (req) => {
   const { db } = gate;
 
   if (req.method === 'GET'){
+    // Cheap "am I an admin" probe. /watch asks this to decide whether to
+    // render owner controls; answering it with the full list would be a
+    // 100-doc read on every page view.
+    const url = new URL(req.url);
+    if (url.searchParams.get('probe')) return jsonResponse({ admin: true }, 200, req);
     const snap = await db.collection('recordings').orderBy('startTs', 'desc').limit(100).get();
     const list = snap.docs.map(d => ({ id: d.id, ...d.data(), syncedAt: undefined, createdAt: undefined }));
     return jsonResponse({ recordings: list }, 200, req);
   }
 
   if (req.method !== 'POST') return errorResponse('GET or POST', 405, req);
-  if (!process.env.DAILY_API_KEY) return errorResponse('DAILY_API_KEY not configured', 503, req);
 
   let body;
   try { body = await req.json(); } catch { return errorResponse('Invalid JSON', 400, req); }
+
+  // Delete runs without a Daily key: pulling the round off the site is
+  // the urgent half, and the response says plainly when the mp4 survived.
+  if (body.action === 'delete'){
+    const id = String(body.id || '');
+    if (!id) return errorResponse('id required', 400, req);
+    const result = await destroyRecording(db, id);
+    return jsonResponse({ id, deleted: true, ...result }, 200, req);
+  }
+
+  if (!process.env.DAILY_API_KEY) return errorResponse('DAILY_API_KEY not configured', 503, req);
 
   if (body.action === 'sync'){
     try {
@@ -176,7 +257,7 @@ export default async (req) => {
     return jsonResponse({ id }, 200, req);
   }
 
-  return errorResponse('Unknown action (sync | publish | meta)', 400, req);
+  return errorResponse('Unknown action (sync | publish | meta | delete)', 400, req);
 };
 
 export const config = {

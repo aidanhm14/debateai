@@ -34,11 +34,28 @@
 
 <script defer src="/js/track.js"></script>
 
+<!-- Theme, before first paint. /watch does not mount the shared topbar,
+     so it reads the same `da-theme` key topbar.js writes and carries the
+     visitor's choice over from every other page instead of forcing dark. -->
+<script>
+(function(){
+  try {
+    var t = localStorage.getItem('da-theme');
+    if (t === 'light'){
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.setAttribute('data-lighting', 'light');
+    }
+  } catch(e){}
+})();
+</script>
+
 <style>
 :root{
+  color-scheme:dark;
   --bg:#0b0b0d;
   --surface:#141417;
   --surface2:#1c1c21;
+  --surface-hover:#26262c;
   --border:rgba(255,255,255,.08);
   --text:#f4f4f2;
   --dim:rgba(244,244,242,.68);
@@ -47,6 +64,22 @@
   --red-deep:#dc2626;
   --green:#22c55e;
   --radius:14px;
+  --shadow:none;
+}
+/* Light theme. Surfaces go BRIGHTER than the page, not darker: the dark
+   theme's white-tint logic reads as invisible cards on paper, which is
+   the 2026-05-20 dashboard-contrast lesson. */
+[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f6f5f0;
+  --surface:#ffffff;
+  --surface2:#f0efe8;
+  --surface-hover:#e7e5dc;
+  --border:rgba(20,20,24,.14);
+  --text:#16161a;
+  --dim:rgba(22,22,26,.74);
+  --faint:rgba(22,22,26,.62);
+  --shadow:0 1px 2px rgba(20,20,24,.06),0 6px 18px rgba(20,20,24,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -62,7 +95,13 @@ a{color:inherit}
    applied the inset twice and left ~170pt of dead space above the eyebrow.
    viewport-fit=cover in the head is what makes that shared rule work. */
 .page-head{padding:44px 0 10px}
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .page-eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);font-weight:700}
+.theme-btn{font-family:inherit;font-size:14px;font-weight:700;padding:7px 14px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--dim);cursor:pointer;white-space:nowrap;
+  box-shadow:var(--shadow);transition:background .15s,color .15s}
+.theme-btn:hover{background:var(--surface-hover);color:var(--text)}
+.theme-btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .page-title{font-size:clamp(30px,5vw,44px);font-weight:800;line-height:1.05;margin-top:8px}
 .page-sub{color:var(--dim);font-size:17px;margin-top:10px;max-width:640px}
 .vote-thesis{margin-top:17px;max-width:760px;padding:14px 16px;border-left:3px solid var(--red);
@@ -82,7 +121,7 @@ a{color:inherit}
 .live-frame{width:100%;aspect-ratio:16/9;border:0;display:block;background:#000}
 
 /* ── Player */
-.player-card{display:none;margin-top:26px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.player-card{display:none;margin-top:26px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .player-card.on{display:block}
 .player-head{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;flex-wrap:wrap}
 .player-head h2{font-size:20px;font-weight:800;flex:1;min-width:220px}
@@ -100,11 +139,18 @@ video{width:100%;max-height:66vh;display:block;background:#000}
 .clip-tools{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .clip-tools .hint{color:var(--faint);font-size:14px;width:100%}
 .btn{font-family:inherit;font-size:15px;font-weight:700;padding:9px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;transition:background .15s,border-color .15s}
-.btn:hover{background:#26262c}
+.btn:hover{background:var(--surface-hover)}
 .btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .btn.primary{background:var(--red);border-color:var(--red);color:#fff}
 .btn.primary:hover{background:var(--red-deep)}
+.btn.danger{color:var(--red);border-color:rgba(239,68,68,.45)}
+.btn.danger:hover{background:var(--red);border-color:var(--red);color:#fff}
 .btn[disabled]{opacity:.45;cursor:default}
+/* Owner-only. Hidden until the admin probe comes back yes. Class, not an
+   inline style: clearing an inline display falls straight back to this
+   rule, so the button could never be revealed that way. */
+#deleteBtn{display:none}
+#deleteBtn.on{display:inline-block}
 .mark{font-variant-numeric:tabular-nums;color:var(--dim);font-size:15px}
 /* Reserve the marks' widest text ("start 1:02:33") so setting one
    doesn't rewrap the clip toolbar onto an extra line. */
@@ -117,11 +163,13 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 .sec-title{font-size:22px;font-weight:800;margin-bottom:4px}
 .sec-sub{color:var(--faint);font-size:15px;margin-bottom:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text);box-shadow:var(--shadow)}
 .card:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.4)}
 .card:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .card .kicker{display:flex;gap:8px;align-items:center;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
-.chip{background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;font-size:12px;letter-spacing:.06em}
+/* --dim, not the inherited --faint: a chip sits on --surface2 rather
+   than on the card, and faint-on-surface2 measured 3.3:1 in light. */
+.chip{background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;font-size:12px;letter-spacing:.06em;color:var(--dim)}
 .chip.stream{border-color:rgba(239,68,68,.4);color:var(--red)}
 .card h3{font-size:17.5px;font-weight:700;line-height:1.3;margin-top:9px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .card .foot{margin-top:12px;color:var(--faint);font-size:14px;display:flex;justify-content:space-between;gap:8px}
@@ -152,7 +200,10 @@ footer a{color:var(--dim)}
 
 <div class="wrap">
   <header class="page-head">
-    <div class="page-eyebrow">Watch</div>
+    <div class="head-row">
+      <div class="page-eyebrow">Watch</div>
+      <button class="theme-btn" id="themeBtn" type="button">Light</button>
+    </div>
     <h1 class="page-title">Live streams and round replays</h1>
     <p class="page-sub">Tournament streams go out live here and on the homepage. Every recorded round lands below, full ballot-to-ballot video you can replay and clip.</p>
     <p class="vote-thesis"><strong>Mass-viewed rounds will become audience-voted rounds.</strong> The judge will say who argued better. Viewers will vote before and after to show how the room moved. <a href="/future#publish">See the plan &rarr;</a></p>
@@ -172,6 +223,7 @@ footer a{color:var(--dim)}
     <div class="player-head">
       <h2 id="playerTitle">Replay</h2>
       <button class="btn" id="shareBtn" type="button">Copy link</button>
+      <button class="btn danger" id="deleteBtn" type="button">Delete</button>
       <button class="btn" id="closePlayer" type="button">Close</button>
       <div class="player-meta" id="playerMeta"></div>
     </div>
@@ -258,6 +310,51 @@ footer a{color:var(--dim)}
       return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
     });
   }
+
+  // ── Theme toggle ─────────────────────────────────────────────────
+  // Same `da-theme` key the shared topbar writes, so a flip here carries
+  // to every other page and back. No reload needed: everything on this
+  // page themes off CSS variables.
+  function currentTheme(){
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+  function syncThemeBtn(){
+    $('themeBtn').textContent = currentTheme() === 'light' ? 'Dark' : 'Light';
+    $('themeBtn').setAttribute('aria-label', 'Switch to ' + (currentTheme() === 'light' ? 'dark' : 'light') + ' mode');
+  }
+  syncThemeBtn();
+  $('themeBtn').addEventListener('click', function(){
+    var next = currentTheme() === 'light' ? 'crimson' : 'light';
+    var lighting = next === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    document.documentElement.setAttribute('data-lighting', lighting);
+    try {
+      localStorage.setItem('da-theme', next);
+      localStorage.setItem('debateos-lighting', lighting);
+    } catch(e){}
+    syncThemeBtn();
+    try { gtag('event', 'watch_theme_toggle', { theme: next }); } catch(e){}
+  });
+
+  // ── Owner controls ───────────────────────────────────────────────
+  // A recording that should not be up needs to come down from the page
+  // it is up on, not only from /admin. The button only appears once the
+  // server has confirmed the signed-in user is an admin; the delete
+  // itself is gated server-side regardless.
+  var isAdmin = false;
+  function syncDeleteBtn(){
+    $('deleteBtn').classList.toggle('on', !!(isAdmin && current));
+  }
+  function checkAdmin(user){
+    if (!user || user.isAnonymous) { isAdmin = false; syncDeleteBtn(); return; }
+    user.getIdToken().then(function(token){
+      return fetch('/api/admin/recordings?probe=1', { headers: { 'Authorization': 'Bearer ' + token } });
+    }).then(function(r){
+      isAdmin = r.ok;
+      syncDeleteBtn();
+    }).catch(function(){});
+  }
+  if (auth) auth.onAuthStateChanged(checkAdmin);
 
   // ── Live stream band ─────────────────────────────────────────────
   var liveWasOn = false;
@@ -352,6 +449,7 @@ footer a{color:var(--dim)}
       $('playerMeta').textContent = 'Playback is not available for this recording right now. Try again in a minute.';
     });
     loadClips(rec.id);
+    syncDeleteBtn();
     $('playerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     try { gtag('event', clip ? 'watch_clip_play' : 'watch_replay_play', { id: rec.id }); } catch(e){}
   }
@@ -376,12 +474,47 @@ footer a{color:var(--dim)}
     try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(current.id)); } catch(e){}
   });
 
-  $('closePlayer').addEventListener('click', function(){
+  function closePlayer(){
     $('player').pause();
     $('playerCard').classList.remove('on');
     $('clipsSec').style.display = 'none';
     current = null; activeClip = null;
+    syncDeleteBtn();
     try { history.replaceState(null, '', '/watch'); } catch(e){}
+  }
+  $('closePlayer').addEventListener('click', closePlayer);
+
+  $('deleteBtn').addEventListener('click', function(){
+    if (!current || !auth || !auth.currentUser) return;
+    var rec = current;
+    if (!confirm('Delete "' + (rec.title || 'this recording') + '"?\n\nThis destroys the video file, every clip cut from it, and the listing. It cannot be undone.')) return;
+    var btn = $('deleteBtn');
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    auth.currentUser.getIdToken().then(function(token){
+      return fetch('/api/admin/recordings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ action: 'delete', id: rec.id }),
+      });
+    }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); })
+      .then(function(res){
+        if (!res.ok) throw new Error((res.body && res.body.error) || 'delete failed');
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+        if (!res.body.dailyDeleted){
+          alert('Removed from the site, but the video file is still in Daily: ' + (res.body.dailyError || 'unknown reason'));
+        }
+        closePlayer();
+        loadReplays();
+        loadRecentClips();
+        try { gtag('event', 'watch_recording_deleted', { id: rec.id }); } catch(e){}
+      }).catch(function(e){
+        btn.disabled = false;
+        btn.textContent = 'Delete failed';
+        setTimeout(function(){ btn.textContent = 'Delete'; }, 2200);
+        console.warn('[watch] delete failed:', e);
+      });
   });
 
   $('shareBtn').addEventListener('click', function(){
@@ -502,10 +635,12 @@ footer a{color:var(--dim)}
   function loadRecentClips(){
     fetch('/api/clips').then(function(r){ return r.json(); }).then(function(j){
       var clips = (j && j.clips) || [];
-      if (!clips.length) return;
-      $('recentClipsSec').style.display = '';
       var grid = $('recentClipsGrid');
       grid.innerHTML = '';
+      // Hide on empty, not just skip: deleting the last clip's source
+      // round otherwise left a section of stale cards behind.
+      if (!clips.length){ $('recentClipsSec').style.display = 'none'; return; }
+      $('recentClipsSec').style.display = '';
       clips.slice(0, 12).forEach(function(c){ grid.appendChild(clipCard(c, true)); });
     }).catch(function(){});
   }

@@ -813,7 +813,7 @@
         <span class="meta" id="rec-meta">—</span>
       </div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
-        Sync pulls finished cloud recordings from Daily and auto-publishes them to /watch (rounds under 45s stay unpublished). Toggle any row to pull it down or put it back up.
+        Sync pulls finished cloud recordings from Daily and auto-publishes them to /watch (rounds under 45s stay unpublished). Toggle any row to pull it down or put it back up. Delete destroys the video file, its clips, and the entry, and a later Sync will not bring it back.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <button id="rec-sync-btn" class="pill-btn primary">Sync recordings</button>
@@ -3645,6 +3645,7 @@ async function loadRecordings(){
         '<a class="pill-btn" style="padding:4px 9px;font-size:11px" target="_blank" rel="noopener" href="/watch?r=' + encodeURIComponent(r.id) + '">watch</a>' +
         '<button class="pill-btn rec-pub-btn" style="padding:4px 9px;font-size:11px' + (r.published ? ';color:var(--good);border-color:var(--good)' : '') + '" data-id="' + r.id + '" data-pub="' + (r.published ? '1' : '') + '">' +
           (r.published ? 'published' : 'hidden') + '</button>' +
+        '<button class="pill-btn rec-del-btn" style="padding:4px 9px;font-size:11px;color:var(--accent);border-color:var(--accent)" data-id="' + r.id + '" data-label="' + label.replace(/"/g, '&quot;') + '">delete</button>' +
         '</div>';
     }).join('');
     body.querySelectorAll('.rec-pub-btn').forEach(btn => {
@@ -3652,6 +3653,18 @@ async function loadRecordings(){
         btn.disabled = true;
         try {
           await adminPost('/api/admin/recordings', { action: 'publish', id: btn.dataset.id, published: !btn.dataset.pub });
+          loadRecordings();
+        } catch (e){ btn.textContent = 'failed'; btn.disabled = false; }
+      });
+    });
+    body.querySelectorAll('.rec-del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete "' + btn.dataset.label + '"?\n\nThis destroys the video file, every clip cut from it, and the entry. It cannot be undone.')) return;
+        btn.disabled = true;
+        btn.textContent = 'deleting…';
+        try {
+          const res = await adminPost('/api/admin/recordings', { action: 'delete', id: btn.dataset.id });
+          if (!res.dailyDeleted) alert('Removed from the site, but the video file is still in Daily: ' + (res.dailyError || 'unknown reason'));
           loadRecordings();
         } catch (e){ btn.textContent = 'failed'; btn.disabled = false; }
       });
