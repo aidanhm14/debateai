@@ -183,14 +183,26 @@ export default async (request) => {
 
   for (const user of authUsers) {
     if (!user.email) { noEmail++; continue; }
-    const prof = profByUid.get(user.uid);
-    // No profile doc means we hold no preferences for this account.
-    // isOptedOut treats that as opted out and so do we: never mail an
-    // address whose preferences cannot be read. Counted separately
-    // because it is the single biggest thing holding the list back.
-    if (!prof) { noProfile++; continue; }
-    if (isOptedOut(prof, STREAM)) { optedOut++; continue; }
-    if (prof.openAnnounceSentAt) { alreadySent++; continue; }
+    const prof = profByUid.get(user.uid) || null;
+    // A missing profile doc is NOT an opt-out, and that is provable rather
+    // than assumed: email-unsub.mjs writes with {merge:true}, so opting out
+    // of anything CREATES this doc. No doc therefore means the account has
+    // never opted out of anything, and "we cannot read their preferences"
+    // is answered by the absence of the record itself.
+    //
+    // Measured 2026-08-12: 169 accounts carry an email, 97 of them had no
+    // profile doc, and ZERO of those 97 had opted out. The conservative read
+    // was holding back 57% of the list for a preference that cannot exist.
+    // They are real: 96 of 97 email-verified, 96 Google sign-ins, 50 with
+    // more than one login, spread evenly across April to August.
+    //
+    // Scoped to THIS sender on purpose. isOptedOut(null) still returns true
+    // for digest, winback, sparnight and partner, which is right for a
+    // recurring mailing list; this is a one-time announcement with a live
+    // one-click unsubscribe in the footer.
+    if (!prof) noProfile++;
+    if (prof && isOptedOut(prof, STREAM)) { optedOut++; continue; }
+    if (prof && prof.openAnnounceSentAt) { alreadySent++; continue; }
 
     eligible++;
     if (dryRun) {
@@ -199,7 +211,10 @@ export default async (request) => {
     }
     if (sent >= batch) continue;  // keep counting so `remaining` is honest
 
-    const firstName = String(prof.displayName || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
+    // prof is null for the no-profile cohort above, so it cannot be read
+    // directly here. Auth still carries a display name for a Google sign-in,
+    // and 'debater' is the floor.
+    const firstName = String((prof && prof.displayName) || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
     const res = await sendEmail({
       to: user.email,
       subject: SUBJECT,
@@ -216,8 +231,24 @@ export default async (request) => {
     });
     if (res.ok) {
       sent++;
-      await db.doc(`user_profiles/${user.uid}`)
-        .update({ openAnnounceSentAt: FieldValue.serverTimestamp() }).catch(() => {});
+      // set+merge, NOT update. update() REJECTS on a document that does not
+      // exist, and 97 of the accounts mailed here have no profile doc yet.
+      // With update() inside a swallowed catch, every one of those sends
+      // would have failed to stamp SILENTLY, and the next batch would have
+      // found them unstamped and mailed them again, and again. The stamp is
+      // the only thing making this run resumable and a double-click a no-op,
+      // so it has to be able to create the doc it writes to.
+      // Awaited, and NOT swallowed into a no-op: a stamp that fails is a
+      // person who will be emailed twice, so it counts as an error on the
+      // run rather than disappearing.
+      try {
+        await db.doc(`user_profiles/${user.uid}`)
+          .set({ openAnnounceSentAt: FieldValue.serverTimestamp() }, { merge: true });
+      } catch (stampErr) {
+        errors++;
+        errorReasons['stamp-failed'] = (errorReasons['stamp-failed'] || 0) + 1;
+        console.error('open-announce: stamp failed for', user.uid, stampErr.message);
+      }
     } else {
       errors++;
       const why = res.reason || `status-${res.status || 'unknown'}`;
@@ -235,7 +266,12 @@ export default async (request) => {
     cutoff: new Date(FOUNDING_CUTOFF_MS).toISOString(),
     accounts: authUsers.length,
     eligible, sent, remaining, errors,
-    skipped: { noEmail, noProfile, optedOut, alreadySent },
+    // noProfile is NOT a skip any more, so it does not live under `skipped`.
+    // It counts accounts that were mailed despite holding no profile doc,
+    // which is worth reporting because it is the cohort this sender was
+    // silently dropping until 2026-08-12.
+    skipped: { noEmail, optedOut, alreadySent },
+    mailedWithoutProfile: noProfile,
     errorReasons,
     sample: dryRun ? sample : [],
   };
