@@ -87,6 +87,12 @@ export function isOptedOut(profile, stream) {
   // 'open' is tournament news. Bulk, so the digest flag suppresses it
   // too: someone who muted the mailing list did not ask for a second one.
   if (stream === 'open') return !!(profile.wauDigestOptOut || profile.openOptOut);
+  // 'stream' is "a round is on air right now". Bulk and RECURRING, so it
+  // takes the digest flag the same way winback and sparnight do. It is
+  // also the most repeatable send here, which is exactly why it needs its
+  // own switch: someone who wants the tournament news and not a weekly
+  // "we are live" has to be able to say so without leaving everything.
+  if (stream === 'stream') return !!(profile.wauDigestOptOut || profile.streamOptOut);
   // 'onboarding', 'transactional', and anything unknown: global switch only.
   return false;
 }

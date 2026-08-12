@@ -798,9 +798,11 @@
         <button id="stream-start-btn" class="pill-btn primary">Go live</button>
         <button id="stream-stop-btn" class="pill-btn">End stream</button>
         <a id="stream-studio-link" class="pill-btn" href="#" target="_blank" rel="noopener" style="display:none">Open studio ↗</a>
+        <button id="stream-announce-btn" class="pill-btn">Email the list</button>
         <a class="pill-btn" href="/watch" target="_blank" rel="noopener">View /watch ↗</a>
       </div>
       <div id="stream-status-line" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+      <div id="stream-announce-line" style="font-size:12px;color:var(--muted);min-height:16px"></div>
     </div>
   </div>
 
@@ -3573,6 +3575,40 @@ $('stream-start-btn').addEventListener('click', async () => {
     line.style.color = 'var(--good)';
     refreshStreamStatus();
   } catch (e){ line.textContent = 'Failed: ' + (e.message || e); line.style.color = 'var(--accent)'; }
+});
+
+// Email the list that a round is on air. Two presses, never one: the
+// first is a dry run that only counts, the second sends one batch. Same
+// shape as the tournament announce, because mailing everyone is the
+// least reversible button on this page.
+let streamAnnouncePreview = null;
+$('stream-announce-btn').addEventListener('click', async () => {
+  const line = $('stream-announce-line');
+  const btn = $('stream-announce-btn');
+  try {
+    if (!streamAnnouncePreview){
+      line.textContent = 'Counting the list…'; line.style.color = 'var(--muted)';
+      const p = await adminPost('/api/admin/stream-announce', {});
+      streamAnnouncePreview = p;
+      line.textContent = `${p.eligible} to email (${p.accounts} accounts, ${p.skipped.optedOut} opted out, `
+        + `${p.skipped.alreadySentThisStream} already told about this stream). Press again to send ${Math.min(p.eligible, 20)}.`;
+      line.style.color = 'var(--good)';
+      btn.textContent = `Send to ${Math.min(streamAnnouncePreview.eligible, 20)} →`;
+      return;
+    }
+    line.textContent = 'Sending…'; line.style.color = 'var(--muted)';
+    const r = await adminPost('/api/admin/stream-announce', { confirm: 'SEND' });
+    line.textContent = `Sent ${r.sent}. ${r.remaining} left${r.errors ? `, ${r.errors} errors` : ''}.`
+      + (r.remaining ? ' Press again for the next batch.' : '');
+    line.style.color = r.errors ? 'var(--accent)' : 'var(--good)';
+    streamAnnouncePreview = r.remaining ? { ...r, eligible: r.remaining } : null;
+    btn.textContent = r.remaining ? `Send ${Math.min(r.remaining, 20)} more →` : 'Email the list';
+  } catch (e){
+    line.textContent = 'Failed: ' + (e.message || e);
+    line.style.color = 'var(--accent)';
+    streamAnnouncePreview = null;
+    btn.textContent = 'Email the list';
+  }
 });
 
 $('stream-stop-btn').addEventListener('click', async () => {

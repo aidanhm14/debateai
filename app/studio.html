@@ -46,6 +46,7 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   <span class="spacer"></span>
   <span class="chip" id="quality">quality: negotiating</span>
   <span class="chip" id="watchers">viewers: 0</span>
+  <span class="chip" id="restream">restream: off</span>
   <a class="chip" href="/" target="_blank" rel="noopener">Open the homepage</a>
 </div>
 
@@ -66,9 +67,11 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   var roomUrl = q.get('url') || '';
   var token = q.get('t') || '';
   var title = q.get('title') || '';
+  var rtmpUrl = q.get('rtmp') || '';
   var stage = document.getElementById('stage');
   var qualityEl = document.getElementById('quality');
   var watchersEl = document.getElementById('watchers');
+  var restreamEl = document.getElementById('restream');
 
   if (title) document.getElementById('ttl').textContent = title;
 
@@ -176,6 +179,44 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     watchersEl.innerHTML = 'viewers: <b>' + n + '</b>';
   }
 
+  // Restream to YouTube. Started HERE rather than server-side because
+  // daily-js owns startLiveStreaming and the host is the only participant
+  // holding an owner token. It runs off the room, not off this tab's
+  // uplink, so the restream survives the studio being resized or hidden;
+  // it stops when the room does.
+  //
+  // 1280x720 at 30fps and 2.5 Mbps is inside YouTube's recommended range
+  // for 720p30 and well inside what the ladder above already sends.
+  function startRestream(){
+    if (!rtmpUrl) { restreamEl.textContent = 'restream: off'; return; }
+    restreamEl.textContent = 'restream: starting';
+    call.startLiveStreaming({
+      endpoints: [{ endpoint: rtmpUrl }],
+      width: 1280, height: 720, fps: 30, videoBitrate: 2500,
+      layout: { preset: 'default' }
+    }).catch(function(e){
+      console.warn('[studio] restream refused:', e && e.message);
+      restreamEl.innerHTML = 'restream <b>failed</b>';
+      restreamEl.className = 'chip warn';
+    });
+  }
+  call.on('live-streaming-started', function(){
+    restreamEl.innerHTML = 'restream <b>on air</b>';
+    restreamEl.className = 'chip ok';
+  });
+  call.on('live-streaming-stopped', function(){
+    restreamEl.textContent = 'restream: stopped';
+    restreamEl.className = 'chip';
+  });
+  call.on('live-streaming-error', function(e){
+    // Loud on purpose. A silent restream failure means the homepage
+    // embed shows nothing while the studio looks perfectly healthy,
+    // which is the exact shape of failure this repo keeps finding.
+    console.warn('[studio] restream error:', e);
+    restreamEl.innerHTML = 'restream <b>error</b>';
+    restreamEl.className = 'chip warn';
+  });
+
   call.on('joined-meeting', function(){
     // Send settings are applied AFTER the join. Applying them to a call
     // that has not negotiated yet is a no-op, which is the quiet way
@@ -185,6 +226,7 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
       qualityEl.textContent = 'quality: defaults';
       qualityEl.className = 'chip warn';
     });
+    startRestream();
     reportQuality();
     reportWatchers();
   });

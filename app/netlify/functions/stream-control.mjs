@@ -28,6 +28,40 @@ import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 const DAILY_API = 'https://api.daily.co/v1';
 const STREAM_DOC = 'current';
 
+// ── Restream to YouTube Live ────────────────────────────────────────────────
+// Every viewer who watches through the Daily room is a PARTICIPANT in it,
+// so the audience is capped by max_participants and costs participant
+// minutes. Daily's own live streaming does not solve that by itself: it
+// pushes to an endpoint you own and hands back no player.
+//
+// So the room restreams over RTMP to YouTube Live, and the homepage
+// embeds YouTube's player. Viewers pull from YouTube's CDN, which is
+// uncapped and free, and nobody but the debaters ever joins the room.
+// The trade is latency: WebRTC is sub-second, an HLS restream is roughly
+// ten to twenty seconds behind. For watching a debate that is invisible.
+//
+// STREAM_RTMP_URL is the full ingest URL INCLUDING the stream key
+// (rtmp://a.rtmp.youtube.com/live2/xxxx-xxxx-xxxx-xxxx-xxxx). It is a
+// credential: it lives in env, is handed only to the authenticated admin
+// opening the studio, and is never written to Firestore or returned to a
+// public endpoint.
+//
+// STREAM_YOUTUBE_CHANNEL_ID is public and PERSISTENT. YouTube's
+// `embed/live_stream?channel=` form resolves to whatever that channel is
+// currently broadcasting, so nothing has to be re-entered per stream and
+// there is no per-broadcast video id to keep in sync.
+//
+// Neither set: no restream. Everything falls back to the direct-join
+// player, which is exactly today's behaviour.
+const RTMP_URL = process.env.STREAM_RTMP_URL || '';
+const YT_CHANNEL = process.env.STREAM_YOUTUBE_CHANNEL_ID || '';
+
+function youtubeEmbedUrl(){
+  if (!RTMP_URL || !YT_CHANNEL) return null;
+  return 'https://www.youtube.com/embed/live_stream?channel='
+       + encodeURIComponent(YT_CHANNEL) + '&autoplay=1&mute=1&playsinline=1';
+}
+
 function dailyHeaders(){
   return {
     'Authorization': 'Bearer ' + process.env.DAILY_API_KEY,
@@ -137,16 +171,6 @@ export default async (req) => {
     }
     const url = created.room.url || ('https://' + process.env.DAILY_DOMAIN + '.daily.co/' + name);
     const token = await mintOwnerToken(name, created.recording, body.userName || 'Host');
-    await ref.set({
-      live: true,
-      roomName: name,
-      url,
-      title,
-      recording: created.recording,
-      startedAt: FieldValue.serverTimestamp(),
-      startedBy: uid,
-      endedAt: null,
-    });
     // studioUrl points at OUR studio page, not the raw Daily room. The
     // raw room opens Daily prebuilt at its default send settings, which
     // are tuned for a many-person meeting and look soft when they are
@@ -156,6 +180,28 @@ export default async (req) => {
     const studioQuery = new URLSearchParams({ url });
     if (token) studioQuery.set('t', token);
     if (title) studioQuery.set('title', title);
+    // The RTMP target rides to the studio, which is where daily-js can
+    // actually start the restream. It is a secret (the stream key is the
+    // whole credential), so it comes from env and never from the client.
+    if (RTMP_URL) studioQuery.set('rtmp', RTMP_URL);
+
+    await ref.set({
+      live: true,
+      roomName: name,
+      url,
+      title,
+      recording: created.recording,
+      // Where VIEWERS should watch. When a restream target is configured
+      // the homepage embeds that player instead of joining the Daily
+      // room, which is the difference between an audience capped at
+      // max_participants and an uncapped one. Null means "no restream,
+      // fall back to joining the room".
+      watchEmbedUrl: youtubeEmbedUrl(),
+      restream: !!RTMP_URL,
+      startedAt: FieldValue.serverTimestamp(),
+      startedBy: uid,
+      endedAt: null,
+    });
 
     return jsonResponse({
       live: true,
@@ -164,6 +210,8 @@ export default async (req) => {
       title,
       token,
       recording: created.recording,
+      restream: !!RTMP_URL,
+      watchEmbedUrl: youtubeEmbedUrl(),
       studioUrl: '/studio?' + studioQuery.toString(),
       rawRoomUrl: token ? url + '?t=' + encodeURIComponent(token) : url,
     }, 200, req);

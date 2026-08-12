@@ -21,6 +21,12 @@ export default async (req) => {
           live: true,
           url: d.url || '',
           title: d.title || 'Live from the arena',
+          // Present when the round is restreaming to YouTube. Viewers
+          // watch THIS instead of joining the Daily room, which is what
+          // takes the audience off max_participants and off participant
+          // minutes. Absent means no restream is configured and the
+          // player falls back to joining the room directly.
+          watchEmbedUrl: d.watchEmbedUrl || null,
           startedAt: d.startedAt && d.startedAt.toMillis ? d.startedAt.toMillis() : null,
         };
       }

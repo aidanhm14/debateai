@@ -38,7 +38,7 @@ import { esc, brandHeader, unsubUrl, verifyUnsubToken, isOptedOut, SITE_URL } fr
 // handful of follow-ups around a prize event. Its own flag, because
 // someone who wants to hear about a tournament and someone who wants a
 // weekly digest are not the same person.
-const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'partner', 'open', 'onboarding', 'all'];
+const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'partner', 'open', 'stream', 'onboarding', 'all'];
 const RSVP_STREAM = 'sparrsvp';
 
 const FLAG_BY_STREAM = {
@@ -51,6 +51,9 @@ const FLAG_BY_STREAM = {
   // leaving both.
   partner: 'partnerOptOut',
   open: 'openOptOut',
+  // Live-stream alerts. Own flag: the most frequent bulk send here, so
+  // leaving it must not mean leaving tournament news too.
+  stream: 'streamOptOut',
   onboarding: 'emailOptOut',
   all: 'emailOptOut',
 };
@@ -66,6 +69,7 @@ const STOP_SENTENCE = {
   sparrsvp: 'The Spar Night reminders stop here. Nothing else changes.',
   partner: 'Partner match alerts stop here. Nothing else changes.',
   open: 'Tournament emails stop here. Nothing else changes.',
+  stream: 'Live stream alerts stop here. Nothing else changes.',
   onboarding: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
   all: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
 };
@@ -77,6 +81,7 @@ const CONFIRM_SENTENCE = {
   sparrsvp: 'This stops the weekly Spar Night reminders. Nothing else changes.',
   partner: 'This stops the partner match alerts. Nothing else changes.',
   open: 'This stops emails about tournaments. Nothing else changes.',
+  stream: 'This stops the emails telling you a round is on air. Nothing else changes.',
   onboarding: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
   all: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
 };
@@ -88,6 +93,7 @@ const RESUME_SENTENCE = {
   sparrsvp: 'The Spar Night reminders are back on.',
   partner: 'Partner match alerts are back on.',
   open: 'Tournament emails are back on.',
+  stream: 'Live stream alerts are back on.',
   onboarding: 'Debatable email is back on.',
   all: 'Debatable email is back on.',
 };

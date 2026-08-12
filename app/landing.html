@@ -7818,6 +7818,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-live-screen{display:none;position:absolute;inset:0;width:100%;height:100%;
     object-fit:contain;background:#000;z-index:2}
   .fs-live.is-screen .fs-live-screen{display:block}
+  /* Restream player. Sits above cameras AND screen share: when the
+     round is going out to YouTube that IS the stream, and the Daily
+     room is never joined at all. */
+  .fs-live-embed{display:none;position:absolute;inset:0;width:100%;height:100%;border:0;z-index:5;background:#000}
+  .fs-live.is-embed .fs-live-embed{display:block}
+  .fs-live.is-embed .fs-live-wait,.fs-live.is-embed .fs-live-sound{display:none}
   /* Bottom RIGHT, not left: slides put their content on the left and
      read left to right, so a strip in the bottom-left sits on top of
      the line the speaker is currently making. */
@@ -8062,6 +8068,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="fs-live-stage">
         <div class="fs-live-cams" id="fsLiveCams" data-n="0"></div>
         <video class="fs-live-screen" id="fsLiveScreen" autoplay playsinline muted disablepictureinpicture></video>
+        <!-- Restream player. When the round is going out to YouTube this
+             covers everything above and nobody joins the Daily room at
+             all, which is what uncaps the audience. -->
+        <iframe class="fs-live-embed" id="fsLiveEmbed" title="Live debate stream"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowfullscreen loading="lazy"></iframe>
         <span class="fs-live-wait">Waiting for the camera</span>
         <button type="button" class="fs-live-sound" id="fsLiveSound">Sound on</button>
       </div>
@@ -20053,6 +20065,7 @@ window.addEventListener('load', function(){
   if (!card || !screenEl) return;
 
   var cams = document.getElementById('fsLiveCams');
+  var embedEl = document.getElementById('fsLiveEmbed');
   var screenEl2 = document.getElementById('fsLiveScreen');
   var capEl = document.getElementById('fsLiveCap');
   var soundBtn = document.getElementById('fsLiveSound');
@@ -20060,7 +20073,8 @@ window.addEventListener('load', function(){
   var muted = true;
   var tiles = {};            // session_id -> { wrap, video, audio, name }
 
-  var want = null;          // the URL we should be showing, or null
+  var want = null;          // the Daily room URL to join, or null
+  var embedUrl = null;      // the restream player URL, or null
   var call = null;          // daily-js call object while connected
   var joined = '';          // the URL `call` is actually on
   var onScreen = false;
@@ -20295,15 +20309,34 @@ window.addEventListener('load', function(){
   // so the two never poll the same endpoint twice.
   window.__fsLive = {
     set: function(s){
-      var url = s && s.live && s.url ? s.url : null;
-      if (url === want) return;
+      var live = !!(s && s.live);
+      // A restream is preferred over joining the room whenever one is
+      // running. It is the difference between an audience capped at the
+      // room's max_participants and an uncapped one, and it costs no
+      // Daily participant minutes at all.
+      var embed = live && s.watchEmbedUrl ? s.watchEmbedUrl : null;
+      var url = live && !embed && s.url ? s.url : null;
+
+      if (embed !== embedUrl){
+        embedUrl = embed;
+        card.classList.toggle('is-embed', !!embed);
+        // Only touch src on a real change. Reassigning it, even to the
+        // same URL, reloads the player and restarts the stream under
+        // anyone already watching.
+        if (embed){ disconnect(); embedEl.src = embed; }
+        else { embedEl.removeAttribute('src'); }
+      }
+      if (url === want && embed === embedUrl && card.classList.contains('is-on') === live) return;
+
       want = url;
-      card.classList.toggle('is-on', !!url);
-      screenEl.classList.toggle('has-live', !!url);
-      if (url){
-        card.classList.add('is-waiting');
+      card.classList.toggle('is-on', live);
+      screenEl.classList.toggle('has-live', live);
+      if (live){
         capEl.textContent = s.title || 'Live from the arena';
-        setTimeout(assumeVisible, 1200);
+        if (url){
+          card.classList.add('is-waiting');
+          setTimeout(assumeVisible, 1200);
+        }
       } else {
         disconnect();
       }
