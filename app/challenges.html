@@ -68,6 +68,7 @@
   .pill-open{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.3);color:#15803d}
   .pill-live{background:rgba(185,28,28,.1);border-color:rgba(185,28,28,.3);color:var(--red)}
   .pill-next{background:rgba(29,78,216,.09);border-color:rgba(29,78,216,.28);color:var(--blue)}
+  .pill-aim{background:var(--ink);border-color:var(--ink);color:#fff}
   .claim{margin:0;font-size:1.2rem;font-weight:800;line-height:1.25;letter-spacing:-.01em}
   .claim a{text-decoration:none}
   .claim a:hover{text-decoration:underline}
@@ -216,6 +217,11 @@
     user:null, tab:'open-public', slug:null,
     feed:null, one:null, loading:true, err:'',
     compose:false, busy:false,
+    // A directed challenge, arrived at from a "Challenge them" button. The
+    // uid is what the server enforces; the name here is only what the
+    // compose card prints while you write, and it is re-resolved server-side
+    // before it reaches the board.
+    toUid:'', toName:'',
     // Signed-out visitors still get to pick a side. The pick is held
     // here and POSTed the moment they sign in, which is the design the
     // `side` action in challenge.mjs describes.
@@ -314,6 +320,14 @@
     var fromPath = /^\/c\/(.+)$/.exec(location.pathname);
     var c = fromPath ? decodeURIComponent(fromPath[1]) : q.get('c');
     var t = q.get('t');
+    // ?to=<uid>&name=<label> arrives from a "Challenge them" button on the
+    // leaderboard. It opens the composer aimed at that person rather than
+    // dropping the visitor on a board and hoping they find the button.
+    if (q.get('to')){
+      state.toUid = String(q.get('to')).slice(0, 128);
+      state.toName = String(q.get('name') || '').slice(0, 60);
+      state.compose = true;
+    }
     state.slug = c || null;
     state.tab = (t && TABS.some(function(x){ return x.key === t; })) ? t : 'open-public';
     if (push === false) load(); else nav({}, false);
@@ -413,6 +427,7 @@
       var r = await post({
         action:'create',
         claim: claim,
+        challengedUid: state.toUid || '',
         description: ($('cDesc').value || '').trim(),
         sideA: ($('cSideA').value || 'For').trim(),
         sideB: ($('cSideB').value || 'Against').trim(),
@@ -420,8 +435,13 @@
         mode: $('cMode').value,
         side: $('cSide').value
       });
-      sfx('confirm'); track('challenge_create', { format:r.challenge.format, mode:r.challenge.mode });
+      sfx('confirm');
+      track('challenge_create', {
+        format:r.challenge.format, mode:r.challenge.mode,
+        directed: r.challenge.challengedUid ? 1 : 0
+      });
       state.busy = false; state.compose = false;
+      state.toUid = ''; state.toName = '';
       nav({ slug: r.challenge.slug });
     } catch(e){
       state.busy = false; state.err = e.message; render();
@@ -451,8 +471,13 @@
     var solo = a || b || c.creator;
     if (!solo) return '';
     var side = solo.side === 'b' ? c.sides.b : c.sides.a;
+    // A directed challenge leads with the callout, because who it is aimed
+    // at is the fact that makes it worth reading.
+    var what = (c.challengedUid && c.challengedName)
+      ? 'called out ' + esc(c.challengedName)
+      : 'is defending ' + esc(side);
     return '<div class="who">' + avatar(solo) + '<span><b>' + esc(solo.name || 'A debater') +
-      '</b> is defending ' + esc(side) + '</span></div>';
+      '</b> ' + what + '</span></div>';
   }
 
   function leanBlock(c, interactive){
@@ -474,18 +499,39 @@
     return out + '</div>';
   }
 
+  // A directed challenge is only takeable by the person it names. Rendering
+  // "Take the other side" to everyone else would offer an action the server
+  // refuses, which reads as a broken button rather than as a rule.
+  function aimState(c){
+    if (!c.challengedUid) return 'open';
+    if (state.user && c.challengedUid === state.user.uid) return 'mine';
+    return 'theirs';
+  }
+
   function cardFor(c){
     var seats = (c.accepted || []).length;
-    var canAccept = (c.status === 'open') && seats < 2 &&
+    var aim = aimState(c);
+    var canAccept = (c.status === 'open') && seats < 2 && aim !== 'theirs' &&
       !(c.accepted || []).some(function(p){ return state.user && p.uid === state.user.uid; });
     var canApply = c.status === 'applications_open';
     var cta = '';
-    if (canAccept) cta = '<button class="btn btn-red btn-sm" data-accept="'+esc(c.id)+'">Take the other side</button>';
-    else if (canApply) cta = '<button class="btn btn-ghost btn-sm" data-open="'+esc(c.slug)+'">Apply ('+c.applicantCount+')</button>';
-    else cta = '<button class="btn btn-ghost btn-sm" data-open="'+esc(c.slug)+'">Open</button>';
+    if (canAccept) {
+      cta = '<button class="btn btn-red btn-sm" data-accept="'+esc(c.id)+'">' +
+        (aim === 'mine' ? 'Answer it' : 'Take the other side') + '</button>';
+    } else if (aim === 'theirs' && c.status === 'open') {
+      cta = '<span class="meta">Waiting on ' + esc(c.challengedName || 'them') + '</span>';
+    } else if (canApply) {
+      cta = '<button class="btn btn-ghost btn-sm" data-open="'+esc(c.slug)+'">Apply ('+c.applicantCount+')</button>';
+    } else {
+      cta = '<button class="btn btn-ghost btn-sm" data-open="'+esc(c.slug)+'">Open</button>';
+    }
 
     return '<article class="card">' +
       '<div class="card-top">' + statusPill(c) +
+        // The name lives in the who-line below, so the pill stays one word
+        // wide and the card top does not wrap onto a second row.
+        (c.challengedUid ? '<span class="pill pill-aim">' +
+          (aim === 'mine' ? 'For you' : 'Called out') + '</span>' : '') +
         '<span class="pill">' + esc(FORMAT_NAMES[c.format] || c.format) + '</span>' +
         '<span class="pill">' + (c.mode === 'live' ? 'Live' : 'Async') + '</span>' +
       '</div>' +
@@ -501,9 +547,15 @@
   function composeHtml(){
     var fopts = Object.keys(FORMAT_NAMES).map(function(k){
       return '<option value="'+k+'">'+esc(FORMAT_NAMES[k])+'</option>'; }).join('');
+    var aimed = !!state.toUid;
+    var who = state.toName || 'this debater';
     return '<div class="modal-bg" id="composeBg"><div class="modal">' +
-      '<h2>Post a challenge</h2>' +
-      '<p class="sub">Write a claim you are willing to defend. It goes on the board until someone takes the other side.</p>' +
+      '<h2>' + (aimed ? 'Challenge ' + esc(who) : 'Post a challenge') + '</h2>' +
+      '<p class="sub">' + (aimed
+        // Shortened names already end in a period ("Priya R."), so the name
+        // is trimmed before a sentence-ending one rather than doubling it.
+        ? 'Write a claim you are willing to defend against ' + esc(who.replace(/\.$/, '')) + '. Only they can take it, and it stays on the board until they do.'
+        : 'Write a claim you are willing to defend. It goes on the board until someone takes the other side.') + '</p>' +
       (state.err ? '<div class="err">'+esc(state.err)+'</div>' : '') +
       '<div class="field"><label for="cClaim">The claim</label>' +
         '<textarea id="cClaim" maxlength="300" placeholder="This House would abolish legacy preference in college admissions."></textarea></div>' +
@@ -590,10 +642,14 @@
     }
     var seats = (c.accepted || []).length;
     var mine = state.user && (c.accepted || []).some(function(p){ return p.uid === state.user.uid; });
+    var aim = aimState(c);
     var acts = '';
-    if (c.status === 'open' && seats < 2 && !mine){
+    if (c.status === 'open' && seats < 2 && !mine && aim !== 'theirs'){
       acts += '<button class="btn btn-red" data-accept="'+esc(c.id)+'"'+(state.busy?' disabled':'')+'>'+
-        (state.busy?'Taking...':'Take the other side')+'</button>';
+        (state.busy ? 'Taking...' : (aim === 'mine' ? 'Answer it' : 'Take the other side'))+'</button>';
+    } else if (c.status === 'open' && aim === 'theirs'){
+      acts += '<span class="meta">This one is aimed at ' + esc(c.challengedName || 'a specific debater') +
+        '. Only they can take it.</span>';
     }
     if (c.status === 'applications_open' && !mine){
       acts += '<button class="btn btn-red" data-apply="'+esc(c.id)+'">Apply to take it</button>';
@@ -654,10 +710,14 @@
         alert('Applied. The creator picks from the list.'); load(); }
       catch(e){ state.err = e.message; render(); } }; });
 
-    var pb = $('postBtn'); if (pb) pb.onclick = function(){ sfx('click'); state.err=''; state.compose = true; render(); };
-    var eb = $('emptyPost'); if (eb) eb.onclick = function(){ sfx('click'); state.err=''; state.compose = true; render(); };
+    // The board's own compose button always opens an OPEN challenge, even if
+    // the visitor arrived on a ?to= link, so the aimed-at state cannot leak
+    // into a claim they meant for everyone.
+    function openCompose(){ sfx('click'); state.err=''; state.toUid=''; state.toName=''; state.compose = true; render(); }
+    var pb = $('postBtn'); if (pb) pb.onclick = openCompose;
+    var eb = $('emptyPost'); if (eb) eb.onclick = openCompose;
     on('[data-seed]', function(b){ b.onclick = function(){
-      state.err=''; state.compose = true; render();
+      state.err=''; state.toUid=''; state.toName=''; state.compose = true; render();
       var f = $('cClaim'); if (f){ f.value = b.getAttribute('data-seed'); f.focus(); } }; });
 
     var go = $('cGo'); if (go) go.onclick = create;

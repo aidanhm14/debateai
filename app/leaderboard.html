@@ -1229,7 +1229,7 @@ const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement
 // /live's "Challenge a debater" used to jump to #postForm, a generic
 // "schedule a debate" form with no named opponent. It now lands here,
 // where real accounts offer Message and Challenge actions. Message
-// deep-links into /messages; Challenge opens /spar's challenge draft.
+// deep-links into /messages; Challenge opens /challenges aimed at them.
 //
 // Two rows deliberately get no button, because both would dead-end:
 //   · seeded rows (r.seed) are synthetic texture, not accounts
@@ -1247,10 +1247,17 @@ function canContact(r){
   if(state.user && uid===state.user.uid) return false;
   return true;
 }
+// 2026-08-11: Challenge used to open a DM draft on /spar, which asked two
+// people to agree a motion and a time in a chat before anything existed.
+// A challenge is now a real object with a claim, two sides and a status
+// machine, so the button creates one aimed at this person: they are the
+// only account that can take it, and it sits on the public board until
+// they do. Message stays a DM, because "let's talk" and "defend this" are
+// different asks and collapsing them loses the second one.
 function challengeBtn(r){
   if(!canContact(r)) return '';
   const name = r.displayName || 'Debater';
-  return `<a class="debater-action chal-btn" href="/spar?dm=${encodeURIComponent(r.uid)}&challenge=1"
+  return `<a class="debater-action chal-btn" href="/challenges?to=${encodeURIComponent(r.uid)}&name=${encodeURIComponent(name)}"
     data-cta="lb-challenge" aria-label="Challenge ${escapeHtml(name)}">Challenge</a>`;
 }
 function messageBtn(r){
@@ -1285,10 +1292,11 @@ function syncChallengeBanner(){
   if(!el) return;
   const n = document.querySelectorAll('.chal-btn').length;
   if(n){
-    el.textContent = 'Pick who you want to call out. Challenge opens a direct message so you can agree a motion and a time.';
+    el.innerHTML = 'Pick who you want to call out. Challenge posts a claim aimed at them, and only they can take it. '
+      + '<a href="/challenges" data-cta="lb-challenge-board">See the open board</a>.';
   } else {
-    el.innerHTML = 'Nobody on the board has a public account to message yet, so there is no one to call out here today. '
-      + '<a href="/spar" data-cta="lb-challenge-spar">Queue up or post an open invite</a> and you will be matched with a real debater.';
+    el.innerHTML = 'Nobody on the board has a public account yet, so there is no one to call out here today. '
+      + '<a href="/challenges" data-cta="lb-challenge-board">Post an open challenge</a> and anyone can take the other side.';
   }
 }
 

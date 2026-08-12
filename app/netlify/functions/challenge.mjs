@@ -15,13 +15,39 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { getCachedShared, setCachedShared, deleteCachedShared } from './lib/admin-cache.mjs';
 import {
   validateChallengeInput, makeChallengeData, publicChallenge,
   canTransition, slugify, normalizeClaim, feedKeyFor, OPEN_STATUSES,
 } from './lib/challenge.mjs';
 
 const FEED_KEYS = new Set(['open-public', 'live-public', 'upcoming-public', 'done-public']);
+
+const feedCacheKey = (feed) => `challenge-feed-${feed}`;
+
+// Any write can move a challenge between buckets (create lands it in open,
+// accept moves it to upcoming, cancel takes it off the board), and which
+// bucket it LEFT is not always knowable from here without another read. Four
+// deletes is cheaper than that read and cheaper than being wrong, so a write
+// clears all of them. Best-effort: a failed invalidation costs one stale
+// minute and must never fail the write that succeeded.
+function invalidateFeeds() {
+  return Promise.all(
+    [...FEED_KEYS].map((f) => deleteCachedShared(feedCacheKey(f)).catch(() => {})),
+  ).catch(() => {});
+}
+
+// Matches shortenName in admin-backfill-leaderboard, so a person is called
+// the same thing on the board that called them out and on the challenge.
+function shortenName(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]} ${(parts[parts.length - 1][0] || '').toUpperCase()}.`.slice(0, 60);
+  }
+  return (parts[0] || '').slice(0, 60);
+}
 const MAX_LIMIT = 40;
+const FEED_CACHE_TTL_MS = 60 * 1000;
 const MAX_APPLICANTS = 200;
 const APPLY_NOTE_MAX = 240;
 
@@ -73,6 +99,25 @@ export default async (request) => {
       const byDate = feed === 'done-public'
         ? ['updatedAt', 'desc']
         : (feed === 'upcoming-public' ? ['scheduledAt', 'asc'] : ['createdAt', 'desc']);
+
+      // 2026-08-11: shared-cached, because the landing's callout strip reads
+      // two of these feeds on every visit. Uncached that would be a Firestore
+      // query per feed per homepage load, which is the drain shape the
+      // 2026-05-18 credit audit exists to prevent.
+      //
+      // The cache is keyed by FEED ONLY and always holds the full page, with
+      // the caller's limit applied on the way out. Keying by limit too would
+      // give the landing (which asks for 6) and the board (40) separate
+      // entries for the same query, so the cheap surface would never benefit
+      // from the expensive one having just run.
+      //
+      // Writes invalidate rather than wait out the TTL: posting a challenge
+      // and not finding it on the board reads as a failed post.
+      const cacheKey = feedCacheKey(feed);
+      const hit = await getCachedShared(cacheKey);
+      if (hit) {
+        return jsonResponse({ ...hit, challenges: (hit.challenges || []).slice(0, limit) }, 200, request);
+      }
       // A board query can fail for reasons that are not the visitor's
       // problem: a composite index still building after a deploy, a
       // cold-start deadline, a transient Firestore blip. The arena is
@@ -85,7 +130,7 @@ export default async (request) => {
           db.collection('challenges')
             .where('feedKey', '==', feed)
             .orderBy(byDate[0], byDate[1])
-            .limit(limit)
+            .limit(MAX_LIMIT)
             .get(), 3000);
       } catch (err) {
         console.error('[challenge] feed query failed', feed, err.message);
@@ -93,11 +138,15 @@ export default async (request) => {
           feed, challenges: [], degraded: true, at: Date.now(),
         }, 200, request);
       }
-      return jsonResponse({
+      const payload = {
         feed,
         challenges: snap.docs.map((d) => publicChallenge(d.id, d.data())),
         at: Date.now(),
-      }, 200, request);
+      };
+      // A degraded read is never cached (it returned above); a transient
+      // index or deadline blip must not pin an empty board for a minute.
+      await setCachedShared(cacheKey, payload, FEED_CACHE_TTL_MS);
+      return jsonResponse({ ...payload, challenges: payload.challenges.slice(0, limit) }, 200, request);
     }
 
     const slug = (url.searchParams.get('slug') || '').slice(0, 120);
@@ -142,7 +191,38 @@ export default async (request) => {
     const ref = db.collection('challenges').doc();
     const slug = slugify(v.value.claim, ref.id);
     const claimNorm = normalizeClaim(v.value.claim);
-    const data = makeChallengeData(v.value, me, { slug, claimId: claimNorm });
+
+    // 2026-08-11: a DIRECTED challenge, which is what "Challenge them" on
+    // the leaderboard creates. `makeChallengeData` and the accept guard
+    // have always understood challengedUid; nothing ever passed one, so
+    // calling a named person out was unreachable through the API. Read
+    // from the body rather than trusting the client's own claim about
+    // who it is: self-challenge is refused because the accept guard
+    // would then be satisfiable only by the creator, who already holds a
+    // seat, leaving a challenge nobody can ever take.
+    let challengedUid = String(body.challengedUid || '').slice(0, 128).trim();
+    if (challengedUid && challengedUid === me.uid) challengedUid = '';
+
+    // The NAME is resolved here, never taken from the body. A client-supplied
+    // label would let anyone post "Aimed at <someone real>" at a uid that is
+    // not theirs, which is impersonation on a public board. The uid is what
+    // the accept guard enforces; the name is only what the board prints, so
+    // it has to come from the same place the leaderboard's names come from.
+    // Unresolvable means no name, not a guess.
+    let challengedName = '';
+    if (challengedUid) {
+      try {
+        const p = await withDeadline(
+          db.collection('user_profiles').doc(challengedUid).get(), 2000);
+        challengedName = p.exists ? shortenName(p.data().displayName || '') : '';
+      } catch (err) {
+        console.warn('[challenge] challenged-name lookup failed', err.message);
+      }
+    }
+
+    const data = makeChallengeData(v.value, me, {
+      slug, claimId: claimNorm, challengedUid, challengedName,
+    });
 
     // The creator holds side A unless they explicitly took B.
     data.accepted = [{
@@ -165,6 +245,7 @@ export default async (request) => {
       }, { merge: true }).catch(() => {});
     }
 
+    await invalidateFeeds();
     return jsonResponse({ challenge: publicChallenge(ref.id, data) }, 201, request);
   }
 
@@ -203,6 +284,7 @@ export default async (request) => {
         });
         return side;
       });
+      await invalidateFeeds();
       return jsonResponse({ ok: true, side: result }, 200, request);
     } catch (e) {
       return errorResponse(e.message || 'Could not accept.', 409, request);
@@ -284,6 +366,7 @@ export default async (request) => {
       feedKey: 'quiet',
       updatedAt: Date.now(),
     });
+    await invalidateFeeds();
     return jsonResponse({ ok: true }, 200, request);
   }
 

@@ -189,6 +189,10 @@ export function makeChallengeData(valid, creator, opts = {}) {
       handle: String(creator.handle || '').slice(0, 40),
     },
     challengedUid: opts.challengedUid || '',
+    // Display label for a directed challenge. Resolved server-side at create
+    // time from the challenged account's own profile, never from the client,
+    // so the board cannot be made to print a name at a uid that is not theirs.
+    challengedName: String(opts.challengedName || '').slice(0, 60),
     sides: valid.sides,
     description: valid.description,
     evidence: valid.evidence,
@@ -238,6 +242,7 @@ export function publicChallenge(id, d) {
     category: d.category || '',
     creator: d.creator || null,
     challengedUid: d.challengedUid || '',
+    challengedName: d.challengedName || '',
     sides: d.sides || { a: 'For', b: 'Against' },
     description: d.description || '',
     evidence: d.evidence || [],
@@ -317,6 +322,7 @@ export function fromLiveChallenge(id, d, now) {
     category: '',
     creator: { uid: d.posterUid || '', name: d.posterName || '', photo: '', handle: '' },
     challengedUid: '',
+    challengedName: '',
     sides: { a: 'For', b: 'Against' },
     description: '',
     evidence: [],

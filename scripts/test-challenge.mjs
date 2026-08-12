@@ -58,6 +58,24 @@ t('prediction closed',   doc.prediction.status === 'closed');
 const pub = publicChallenge('c1', doc);
 t('pct defaults to 50 with no votes', pub.crowd.pctA === 50);
 t('projection hides applicants array', pub.applicants === undefined);
+
+// ── directed challenges ──
+// The uid decides who may accept; the name is only a label, and it is
+// resolved server-side in challenge.mjs rather than taken from the client,
+// so nothing here should ever carry a caller-supplied name.
+const aimed = makeChallengeData(good.value, { uid: 'u1', name: 'Ana' },
+  { challengedUid: 'u2', challengedName: 'Priya R.' });
+t('directed uid stored',      aimed.challengedUid === 'u2');
+t('directed name stored',     aimed.challengedName === 'Priya R.');
+t('directed name projected',  publicChallenge('c3', aimed).challengedName === 'Priya R.');
+t('undirected has empty uid',  doc.challengedUid === '');
+t('undirected has empty name', doc.challengedName === '');
+t('directed name is bounded',
+  makeChallengeData(good.value, { uid: 'u1' }, { challengedName: 'x'.repeat(200) })
+    .challengedName.length === 60);
+// A directed challenge still belongs on the open board; the accept guard,
+// not the feed, is what restricts who can take it.
+t('directed still feeds open', aimed.feedKey === 'open-public');
 const leaning = publicChallenge('c2', { ...doc, crowd: { supportA: 3, supportB: 1, followers: 0 } });
 t('pct computed', leaning.crowd.pctA === 75);
 
