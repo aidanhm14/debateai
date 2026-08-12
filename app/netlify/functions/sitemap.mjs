@@ -192,6 +192,11 @@ const URLS = [
   // schema. Targets entity-level queries.
   { path: '/learn/glossary',                            changefreq: 'weekly',  priority: '0.86' },
   { path: '/community',       changefreq: 'daily',   priority: '0.88' },
+  // Audience topic board. Content is visitor-submitted and reorders on
+  // every vote. Not in DYNAMIC: an empty board does not change daily, so
+  // claiming today's date on every crawl would be the exact lastmod lie
+  // the header warns about. Bump this date when the board has real traffic.
+  { path: '/what-to-debate',  changefreq: 'daily',   priority: '0.82', lastmod: '2026-08-12' },
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
   { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-10' },
