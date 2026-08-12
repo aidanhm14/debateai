@@ -454,57 +454,9 @@
           }),
         });
       }).then(function(res){
-        // The endpoint answers with an event stream, NOT a JSON body, and
-        // that is load-bearing rather than cosmetic: a buffered response
-        // here returns 504, because a Sonnet-sized structured generation
-        // does not fit inside the roughly 30 second gateway budget
-        // (measured on production 2026-08-12). Streaming keeps the
-        // connection warm so the request survives.
-        //
-        // `progress` events are COSMETIC. The authoritative payload only
-        // ever comes from the `result` event, because the server runs the
-        // citation scrub on the complete text before writing it. Never
-        // render from the deltas.
-        var ct = res.headers.get('content-type') || '';
-        if (!res.ok && ct.indexOf('application/json') !== -1){
-          return res.json().catch(function(){ return {}; }).then(function(d){
-            throw new Error(d.error || 'The blocks could not be built.');
-          });
-        }
-        if (!res.ok) throw new Error('The blocks could not be built.');
-        if (!res.body || ct.indexOf('text/event-stream') === -1){
-          // A proxy or extension stripped the stream. Fall back to reading
-          // the whole body rather than dead-ending.
-          return res.text().then(function(t){ return parseEventText(t); });
-        }
-
-        var reader = res.body.getReader();
-        var decoder = new TextDecoder();
-        var buf = '';
-        var finalData = null;
-        var failure = null;
-
-        function pump(){
-          return reader.read().then(function(step){
-            if (step.done) return;
-            buf += decoder.decode(step.value, { stream: true });
-            var idx;
-            while ((idx = buf.indexOf('\n\n')) !== -1){
-              var frame = buf.slice(0, idx);
-              buf = buf.slice(idx + 2);
-              var out = readFrame(frame);
-              if (!out) continue;
-              if (out.event === 'progress') setProgress(out.data.chars || 0);
-              else if (out.event === 'result') finalData = out.data;
-              else if (out.event === 'failed') failure = out.data.error || 'The build failed.';
-            }
-            return pump();
-          });
-        }
-        return pump().then(function(){
-          if (failure) throw new Error(failure);
-          if (!finalData) throw new Error('The build ended without a result. Try again.');
-          return finalData;
+        return res.json().catch(function(){ return {}; }).then(function(data){
+          if (!res.ok) throw new Error(data.error || 'The blocks could not be built.');
+          return data;
         });
       }).then(function(data){
         render(data);
@@ -519,33 +471,6 @@
       }).finally(function(){ setLoading(false); });
     }
 
-    function readFrame(frame){
-      var event = null, data = null;
-      frame.split('\n').forEach(function(line){
-        if (line.indexOf('event:') === 0) event = line.slice(6).trim();
-        else if (line.indexOf('data:') === 0){
-          try { data = JSON.parse(line.slice(5).trim()); } catch (e) { data = null; }
-        }
-      });
-      return (event && data) ? { event: event, data: data } : null;
-    }
-    // Fallback when something between us and Netlify buffered the whole
-    // stream into one body. Same frames, just all at once.
-    function parseEventText(text){
-      var out = null;
-      String(text || '').split('\n\n').forEach(function(frame){
-        var f = readFrame(frame);
-        if (f && f.event === 'result') out = f.data;
-      });
-      if (!out) throw new Error('The build ended without a result. Try again.');
-      return out;
-    }
-    // A blank spinner for half a minute reads as broken. Character count is
-    // honest progress: it is the answer being written.
-    function setProgress(chars){
-      if (!chars) return;
-      $('buildLabel').textContent = 'Writing the answers · ' + chars.toLocaleString();
-    }
     $('buildBtn').addEventListener('click', build);
 
     // ── Export ──────────────────────────────────────────────────────────

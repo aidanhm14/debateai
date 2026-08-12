@@ -39,8 +39,25 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 
-const MODEL = process.env.BLOCKS_MODEL || 'claude-sonnet-5';
-const MAX_TOKENS = 3000;
+// MODEL AND BUDGET ARE SET BY A HARD PLATFORM LIMIT, NOT BY TASTE.
+// Netlify kills a function at roughly 26 to 30 seconds of EXECUTION, and
+// that is not an idle timeout: a streamed response gets its 200 and its
+// first frame out and the function is still killed mid-generation
+// (measured on production, 32.9s, INTERNAL_ERROR, one frame delivered).
+// So the only fix is to finish the work inside the budget.
+//
+// Measured against the real API on 2026-08-12, same prompt shape:
+//   claude-haiku-4-5  max 2200 -> 17.1s   (fits, with room for the
+//                                          format block's input cost)
+//   claude-sonnet-5   max 2200 -> 26.9s   (on the cap; fails in situ)
+//
+// Haiku is therefore the pin. The quality here comes mostly from the
+// format block injected below rather than from raw model tier, which is
+// the same reason argument-lint runs Haiku. `BLOCKS_MODEL` overrides it
+// without a redeploy if the platform budget ever changes; if you raise it
+// to a slower model, re-measure, do not assume.
+const MODEL = process.env.BLOCKS_MODEL || 'claude-haiku-4-5-20251001';
+const MAX_TOKENS = 2200;
 // A 1AC runs long. 14k characters is roughly a full constructive plus
 // tags; past that the case is almost certainly a whole doc dump and the
 // useful move is to tell the user to paste one speech.
@@ -71,9 +88,10 @@ function getCorsHeaders(request) {
 }
 
 // Layered per-IP caps for anonymous callers. Tighter than argument-lint
-// because this is a Sonnet call with a large input, not a Haiku call with
-// a small one. Per the 2026-05-18 credit audit these exist to stop a bot
-// rotating on one IP, not to be the user-facing paywall.
+// because the input here is a whole speech rather than one passage, so a
+// single call costs several times as much even on the same model. Per the
+// 2026-05-18 credit audit these exist to stop a bot rotating on one IP,
+// not to be the user-facing paywall.
 const anonHits = new Map();
 const ANON_LAYERS = [
   { windowMs: 60_000, max: 3, code: 'ANON_LIMIT_MINUTE' },
@@ -296,23 +314,14 @@ export default async (request) => {
     if (tp) system += '\n\nDOMAIN CONTEXT (grounding only, still no fabricated citations):\n' + tp;
   } catch (e) { /* classifier is best effort */ }
 
-  // ── STREAMED, AND THIS IS NOT A UX FLOURISH ────────────────────────
-  // A buffered call here returns 504. Measured on production 2026-08-12:
-  // this endpoint and /api/flow both die at almost exactly 30 seconds,
-  // twice each, while /api/argument-lint (Haiku, 1400 tokens) answers in
-  // 8.6s. The gateway gives a synchronous function about 30 seconds, and a
-  // Sonnet-sized structured generation does not fit in it.
-  //
-  // Streaming defeats that because bytes start flowing immediately and the
-  // connection is never idle. The stream carries `progress` events purely
-  // to keep it warm and drive a real progress indicator, and the FINAL
-  // event carries the authoritative payload.
-  //
-  // The scrub still runs SERVER-SIDE on the complete text before that final
-  // event is written. That ordering is the point: the deltas are cosmetic
-  // and the client is told to ignore them, so a fabricated citation can
-  // never reach the UI through the progress channel. Do not "optimise" this
-  // by rendering from the deltas.
+  // BUFFERED, deliberately. An earlier version streamed this, on the
+  // assumption that the 504 was an idle-connection timeout. It is not: the
+  // streamed version returned 200, delivered its first frame, and was still
+  // killed at 32.9s with the generation unfinished. Netlify caps function
+  // EXECUTION, so streaming bought nothing except a progress channel that
+  // Netlify buffered anyway (35 bytes delivered across 33 seconds). The
+  // real fix is the model and token budget above. Do not re-add streaming
+  // to "make it feel faster" without re-measuring the platform limit.
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -324,13 +333,12 @@ export default async (request) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        stream: true,
         system,
         messages: [{ role: 'user', content: buildUserMessage({ caseText, format, side, motion, sourceNote }) }],
       }),
     });
 
-    if (!upstream.ok || !upstream.body) {
+    if (!upstream.ok) {
       const errText = await upstream.text().catch(() => '');
       console.warn('[blocks] anthropic non-2xx', upstream.status, errText.slice(0, 200));
       return new Response(JSON.stringify({ error: 'Block building failed. Try again in a moment.' }), {
@@ -338,83 +346,26 @@ export default async (request) => {
       });
     }
 
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    const send = (controller, event, payload) => {
-      controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
-    };
+    const data = await upstream.json();
+    const raw = data?.content?.[0]?.text || '';
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    let parsed = null;
+    try { parsed = JSON.parse(cleaned); } catch (e) {
+      console.warn('[blocks] JSON parse failed', e?.message, raw.slice(0, 200));
+      return new Response(JSON.stringify({ error: 'The response came back malformed. Try again.' }), {
+        status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        let raw = '';
-        let buffer = '';
-        // First byte immediately, before the model has produced anything.
-        // This is what actually stops the gateway clock.
-        send(controller, 'progress', { chars: 0 });
+    // Belt and braces on the evidence rule. The prompt forbids author-year
+    // citations in the argument fields, but a prompt is not a guarantee,
+    // and this is the one failure that costs real credibility.
+    const flagged = scrubFabricatedCites(parsed);
 
-        try {
-          const reader = upstream.body.getReader();
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            // Anthropic sends SSE frames separated by a blank line.
-            let idx;
-            while ((idx = buffer.indexOf('\n\n')) !== -1) {
-              const frame = buffer.slice(0, idx);
-              buffer = buffer.slice(idx + 2);
-              const dataLine = frame.split('\n').find((l) => l.startsWith('data:'));
-              if (!dataLine) continue;
-              let evt;
-              try { evt = JSON.parse(dataLine.slice(5).trim()); } catch (e) { continue; }
-              if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
-                raw += evt.delta.text || '';
-                send(controller, 'progress', { chars: raw.length });
-              } else if (evt.type === 'error') {
-                console.warn('[blocks] upstream stream error', JSON.stringify(evt).slice(0, 200));
-              }
-            }
-          }
-        } catch (err) {
-          console.error('[blocks] stream read failed', err?.message);
-          send(controller, 'failed', { error: 'The connection dropped mid-build. Try again.' });
-          controller.close();
-          return;
-        }
-
-        const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-        let parsed = null;
-        try { parsed = JSON.parse(cleaned); } catch (e) {
-          console.warn('[blocks] JSON parse failed', e?.message, raw.slice(0, 200));
-          send(controller, 'failed', { error: 'The response came back malformed. Try again.' });
-          controller.close();
-          return;
-        }
-
-        // Belt and braces on the evidence rule, on the COMPLETE text, before
-        // anything authoritative leaves the server. The prompt forbids
-        // author-year citations in the argument fields; a prompt is not a
-        // guarantee, and this is the one failure that costs real credibility.
-        const flagged = scrubFabricatedCites(parsed);
-
-        send(controller, 'result', {
-          ...parsed,
-          _meta: { model: MODEL, format: format || null, side, citesStripped: flagged, signedIn },
-        });
-        controller.close();
-      },
-    });
-
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-        ...CORS,
-      },
-    });
+    return new Response(JSON.stringify({
+      ...parsed,
+      _meta: { model: MODEL, format: format || null, side, citesStripped: flagged, signedIn },
+    }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
   } catch (err) {
     console.error('[blocks] error', err?.message);
     return new Response(JSON.stringify({ error: 'Block building failed. Try again in a moment.' }), {
