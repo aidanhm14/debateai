@@ -2119,6 +2119,7 @@ function promptSignIn(){
       .catch(function(){ alert('Sign-in could not load. Check your connection and try again.'); });
     return;
   }
+  if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
   var p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'});
   fbAuth.signInWithPopup(p).catch(function(err){
     if(err&&err.code==='auth/popup-closed-by-user') return;
@@ -2229,5 +2230,9 @@ rebuild();
   setTimeout(function(){ if(loader) loader.classList.add('hide'); }, 450);
 })();
 </script>
+<!-- Shared sign-in chooser (Google, emailed link, email/password).
+     These pages have no topbar, which is what loads it everywhere
+     else, so they carry it themselves. -->
+<script defer src="/js/auth-modal.js"></script>
 </body>
 </html>

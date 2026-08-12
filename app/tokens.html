@@ -192,6 +192,7 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
   }
 
   function doSignIn(){
+    if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
     var p=new firebase.auth.GoogleAuthProvider();
     p.setCustomParameters({prompt:'select_account'});
     firebase.auth().signInWithPopup(p).catch(function(e){ try{ firebase.auth().signInWithRedirect(p); }catch(_){} });
@@ -224,5 +225,9 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
   }catch(e){}
 })();
 </script>
+<!-- Shared sign-in chooser (Google, emailed link, email/password).
+     These pages have no topbar, which is what loads it everywhere
+     else, so they carry it themselves. -->
+<script defer src="/js/auth-modal.js"></script>
 </body>
 </html>

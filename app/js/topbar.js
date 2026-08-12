@@ -1398,6 +1398,10 @@
       fbBootstrap(function(){
         try {
           var auth = window.firebase.auth();
+          // Every sign-in surface offers the same choices. The shared modal
+          // carries Google, an emailed link, and email/password; this Google
+          // popup stays as the fallback for a page that loads without it.
+          if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
           var provider = new window.firebase.auth.GoogleAuthProvider();
           provider.setCustomParameters({ prompt: 'select_account' });
           var openedAt = Date.now();

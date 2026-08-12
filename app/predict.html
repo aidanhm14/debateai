@@ -1062,7 +1062,8 @@ catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
   },1000); }
 
   // auth
-  function doSignIn(){ var p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); firebase.auth().signInWithPopup(p).catch(function(e){ try{ firebase.auth().signInWithRedirect(p); }catch(_){} }); }
+  function doSignIn(){ if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
+    var p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); firebase.auth().signInWithPopup(p).catch(function(e){ try{ firebase.auth().signInWithRedirect(p); }catch(_){} }); }
   $('authBtn').onclick=function(){ if(user) firebase.auth().signOut(); else doSignIn(); };
   $('inlineSignin').onclick=function(e){ e.preventDefault(); doSignIn(); };
 

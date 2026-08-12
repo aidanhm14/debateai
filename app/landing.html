@@ -19307,6 +19307,10 @@ window.addEventListener('load', function(){
   // silent redirect. Falls back to redirect-based auth if popups are blocked.
   function triggerGoogleSignIn(source) {
     try { window.dosTrack && window.dosTrack('sign_in_start',{source:source||'landing_hero'}) } catch(e){}
+    // Every sign-in surface offers the same choices. The shared modal
+    // carries Google, an emailed link, and email/password; this Google
+    // popup stays as the fallback for a page that loads without it.
+    if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
     var provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     if (btnText) btnText.textContent = 'Opening Google…';
@@ -19393,6 +19397,10 @@ window.addEventListener('load', function(){
     try { window.dosTrack && window.dosTrack('sign_in_start',{source:'hero_timer',method:'redirect'}) } catch(e){}
     console.log('[landing] hero timer clicked. starting Google sign-in redirect');
     try {
+      // Every sign-in surface offers the same choices. The shared modal
+      // carries Google, an emailed link, and email/password; this Google
+      // popup stays as the fallback for a page that loads without it.
+      if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
       var provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       auth.signInWithRedirect(provider);
@@ -19904,6 +19912,10 @@ window.addEventListener('load', function(){
       var btn = document.getElementById('ljGoogle');
       if (btn) { btn.disabled = true; btn.textContent = 'Opening Google...'; }
       try {
+        // Every sign-in surface offers the same choices. The shared modal
+        // carries Google, an emailed link, and email/password; this Google
+        // popup stays as the fallback for a page that loads without it.
+        if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
         var provider = new firebase.auth.GoogleAuthProvider();
         auth.signInWithPopup(provider).then(function(r){
           var signed = r && r.user ? r.user : auth.currentUser;
