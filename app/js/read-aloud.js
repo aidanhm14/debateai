@@ -130,7 +130,7 @@
       // so it stays reachable, below every real modal (the landing intro
       // gate and signup-nudge both sit at 9999) so a full-screen overlay
       // covers it rather than having a narration pill float over a gate.
-      '.ra-host{position:fixed;left:16px;bottom:16px;z-index:9500;',
+      '.ra-host{position:fixed;left:var(--ra-left,16px);bottom:var(--ra-bottom,16px);z-index:9500;',
       '  font-family:inherit;max-width:calc(100vw - 32px);}',
       '.ra-host *{box-sizing:border-box;}',
       '.ra-card{display:flex;align-items:center;gap:10px;',
@@ -216,10 +216,13 @@
       // OPEN panel earns the full width; closed, it stays a small pill
       // cropped into the bottom-left corner.
       '@media (max-width:540px){',
-      '  .ra-host{left:10px;right:auto;bottom:10px;',
+      '  .ra-host{left:var(--ra-left,10px);right:auto;bottom:var(--ra-bottom,10px);',
       '    max-width:calc(100vw - 20px);}',
       '  .ra-host[data-open="1"]{right:10px;}',
       '  .ra-host[data-open="1"] .ra-card{width:auto;}}',
+      // Spar's community rail is a tall drawer. Yield to it immediately;
+      // the JS dock below provides the fallback for other blockers.
+      'body:has(.waitlist-rail.open) .ra-host{visibility:hidden;}',
       // never fight the print stylesheet
       '@media print{.ra-host{display:none;}}',
       // Every rule above reads its color through var(--x, <paper fallback>),
@@ -449,6 +452,7 @@
       label.setAttribute('aria-expanded', v ? 'true' : 'false');
       if (v) syncTranscript();
       render();
+      scheduleDock();
     }
 
     function syncTranscript() {
@@ -637,31 +641,88 @@
       if (document.visibilityState === 'hidden') persist(true);
     });
 
-    // ── yield to the sign-up nudge ────────────────────────────────
-    // Under 520px signup-nudge.js pins itself full-width at bottom:8px,
-    // which is exactly where this pill goes on mobile. This one has the
-    // higher z-index, so without this it would sit on top of a
-    // conversion surface and hide it. Narration is the lower-priority
-    // element of the two, so it moves.
-    function avoidNudge() {
+    // ── shared utility dock ───────────────────────────────────────
+    // Several pages have another fixed affordance in this corner:
+    // Feedback, the Live side navigation, or Spar's invite drawer.
+    // Measure what is actually visible and place the narrator beside it.
+    // If a narrow screen cannot hold both, move above a short blocker or
+    // yield entirely to a tall drawer instead of covering its controls.
+    var dockFrame = 0;
+    var watchedBlockers = [];
+    var blockerObserver = null;
+    function scheduleDock() {
+      if (dockFrame) window.cancelAnimationFrame(dockFrame);
+      dockFrame = window.requestAnimationFrame(placeDock);
+    }
+    function isVisibleBlocker(el) {
+      if (!el || el === host) return false;
+      var s = window.getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || Number.parseFloat(s.opacity || '1') < .02) return false;
+      var r = el.getBoundingClientRect();
+      return r.width > 4 && r.height > 4 && r.right > 0 && r.left < window.innerWidth && r.bottom > 0 && r.top < window.innerHeight;
+    }
+    function watchBlocker(el) {
+      if (!blockerObserver || watchedBlockers.indexOf(el) >= 0) return;
+      watchedBlockers.push(el);
+      try { blockerObserver.observe(el, { attributes: true, attributeFilter: ['class','hidden','style'] }); }
+      catch (e) {}
+    }
+    function placeDock() {
+      dockFrame = 0;
+      if (!host.parentNode) return;
+      var narrow = window.innerWidth <= 540;
+      var left = narrow ? 10 : 16;
+      var bottom = narrow ? 10 : 16;
       var nudge = document.querySelector('.signup-nudge');
-      var stacked = window.innerWidth <= 540;
-      if (nudge && stacked) {
-        var h = nudge.getBoundingClientRect().height || 56;
-        host.style.bottom = (h + 18) + 'px';
-      } else {
-        host.style.bottom = '';
+      if (nudge && narrow && isVisibleBlocker(nudge)) {
+        bottom = Math.max(bottom, (nudge.getBoundingClientRect().height || 56) + 18);
       }
+      host.style.visibility = '';
+      host.style.setProperty('--ra-left', left + 'px');
+      host.style.setProperty('--ra-bottom', bottom + 'px');
+
+      var hostRect = host.getBoundingClientRect();
+      var blockers = Array.prototype.slice.call(document.querySelectorAll(
+        '.fb-floating,#sideNav,.side-nav,.waitlist-rail'
+      )).filter(function (el) {
+        watchBlocker(el);
+        return isVisibleBlocker(el);
+      });
+      var hits = blockers.filter(function (el) {
+        var r = el.getBoundingClientRect();
+        return Math.min(hostRect.right, r.right) > Math.max(hostRect.left, r.left) &&
+          Math.min(hostRect.bottom, r.bottom) > Math.max(hostRect.top, r.top);
+      });
+      if (!hits.length) return;
+
+      var beside = left;
+      hits.forEach(function (el) { beside = Math.max(beside, el.getBoundingClientRect().right + 10); });
+      if (beside + hostRect.width <= window.innerWidth - 10) {
+        host.style.setProperty('--ra-left', Math.round(beside) + 'px');
+        return;
+      }
+
+      var tall = hits.some(function (el) { return el.getBoundingClientRect().height > window.innerHeight * .55; });
+      if (tall) {
+        host.style.visibility = 'hidden';
+        return;
+      }
+      var above = bottom;
+      hits.forEach(function (el) {
+        above = Math.max(above, window.innerHeight - el.getBoundingClientRect().top + 10);
+      });
+      host.style.setProperty('--ra-bottom', Math.round(above) + 'px');
     }
     try {
-      new window.MutationObserver(avoidNudge)
-        .observe(document.body, { childList: true, subtree: false });
+      blockerObserver = new window.MutationObserver(scheduleDock);
+      new window.MutationObserver(scheduleDock)
+        .observe(document.body, { childList: true, subtree: true });
     } catch (e) {}
-    window.addEventListener('resize', avoidNudge);
+    window.addEventListener('resize', scheduleDock);
 
     // ── mount ─────────────────────────────────────────────────────
     document.body.appendChild(host);
-    avoidNudge();
+    scheduleDock();
     window.requestAnimationFrame(function () { host.classList.add('ra-in'); });
 
     if (resuming) {
