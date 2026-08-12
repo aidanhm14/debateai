@@ -268,34 +268,58 @@ button{font-family:inherit}
    round and writes the ballot at the end; the pulsing dot is the
    "listening in" signal. Also the anchor for floor-judge remarks
    (hidden feature — see the floor-judge module in the main script). */
+/* Laid out as a ROW like the two seats, not a column. The judge is the
+   third party at the table, so it gets the same shape: an avatar, then
+   a name, then a line of state. As a centred column it read as a widget
+   bolted between two people rather than a third one sitting with them. */
 .rail-judge{
-  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  padding:7px 16px;border-radius:12px;
+  flex:0 0 auto;display:flex;flex-direction:row;align-items:center;gap:10px;
+  padding:8px 14px;border-radius:12px;
   border:1px solid rgba(217,201,138,.28);background:rgba(217,201,138,.06);
   transition:border-color .2s,box-shadow .2s;
 }
 .rail-judge:hover{border-color:rgba(217,201,138,.55);box-shadow:0 0 18px rgba(217,201,138,.16)}
-.rail-judge:hover .rj-eye{box-shadow:0 0 14px rgba(217,201,138,.6)}
-.rail-judge:hover .rj-eye b{width:10px;height:10px;margin:-5px 0 0 -5px}
-.rail-judge .rj-glyph{font-size:.72rem;line-height:1;color:#d9c98a;filter:drop-shadow(0 0 5px rgba(217,201,138,.45))}
+.rail-judge:hover .rj-eye{box-shadow:0 0 12px rgba(217,201,138,.65)}
+.rail-judge:hover .rj-eye b{width:6px;height:6px;margin:-3px 0 0 -3px}
+/* The avatar. Same 34px box and 10px radius as .stage-avatar so the three
+   seats line up on one grid. The debaters get real profile photos through
+   paintPublicAvatar; the judge is not a person and deliberately does NOT
+   get an invented face, so it carries a mark: eyes that track the room,
+   and a scales badge that says what it is at a glance. */
+.rail-judge .rj-avatar{
+  position:relative;flex:0 0 auto;width:34px;height:34px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#2a2416,#171208);
+  border:1px solid rgba(217,201,138,.45);
+  box-shadow:inset 0 1px 0 rgba(217,201,138,.18),0 0 12px rgba(217,201,138,.12);
+}
+.rail-judge .rj-glyph{
+  position:absolute;right:-4px;bottom:-4px;width:15px;height:15px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.6rem;line-height:1;color:#1a1408;background:#d9c98a;
+  border:1.5px solid var(--bg,#0b0b0f);
+}
+.rail-judge .rj-meta{min-width:0;display:flex;flex-direction:column;gap:2px}
 .rail-judge .rj-label{font-size:.56rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:#d9c98a;white-space:nowrap}
 /* Judge eyes: the "third party in the room" reads as alive. Pupils
    track the active speaker (data-look left/right, set by
    updateRoomStage from the same signal as the nameplate pulse),
    wander idly between speeches, look down while writing the ballot,
    and blink on their own clock. Pure CSS; JS only flips attributes. */
-.rail-judge .rj-eyes{display:flex;gap:7px;align-items:center;margin-bottom:2px}
-.rail-judge .rj-eye{position:relative;width:20px;height:20px;border-radius:50%;overflow:hidden;
-  background:#fffdf7;border:1.5px solid rgba(217,201,138,.9);box-shadow:0 0 9px rgba(217,201,138,.4);transition:box-shadow .2s}
-.rail-judge .rj-eye b{position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+.rail-judge .rj-eyes{display:flex;gap:4px;align-items:center}
+.rail-judge .rj-eye{position:relative;width:11px;height:11px;border-radius:50%;overflow:hidden;
+  background:#fffdf7;border:1px solid rgba(217,201,138,.9);box-shadow:0 0 7px rgba(217,201,138,.45);transition:box-shadow .2s}
+.rail-judge .rj-eye b{position:absolute;top:50%;left:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;
   background:#1a1408;transition:transform .28s cubic-bezier(.3,.9,.4,1.1),width .2s,height .2s,margin .2s}
-.rail-judge[data-look="left"] .rj-eye b{transform:translateX(-4px)}
-.rail-judge[data-look="right"] .rj-eye b{transform:translateX(4px)}
-.rail-judge[data-phase="ballot"] .rj-eye b{transform:translateY(4px)}
+.rail-judge[data-look="left"] .rj-eye b{transform:translateX(-2px)}
+.rail-judge[data-look="right"] .rj-eye b{transform:translateX(2px)}
+.rail-judge[data-phase="ballot"] .rj-eye b{transform:translateY(2px)}
 .rail-judge:not([data-look]):not([data-phase="ballot"]) .rj-eye b{animation:rjWander 8s ease-in-out infinite}
+/* Travel is scaled to the 11px eye inside the avatar disc. At the old
+   3.5px the pupil hit the rim and read as a glitch rather than a glance. */
 @keyframes rjWander{
-  0%,16%{transform:none}20%,34%{transform:translateX(3.5px)}
-  38%,52%{transform:none}56%,70%{transform:translate(-3.5px,1.5px)}
+  0%,16%{transform:none}20%,34%{transform:translateX(1.8px)}
+  38%,52%{transform:none}56%,70%{transform:translate(-1.8px,.8px)}
   74%,100%{transform:none}}
 .rail-judge .rj-eye::after{content:"";position:absolute;inset:-1px;background:#cfc08b;border-radius:50%;
   transform:translateY(-102%);animation:rjBlink 5.4s infinite}
@@ -311,15 +335,21 @@ button{font-family:inherit}
 .stage-rail{container-type:inline-size}
 @container (max-width:640px){
   .stage-seat{padding:7px 9px;gap:8px}
-  .rail-judge{padding:6px 10px}
+  .rail-judge{padding:6px 10px;gap:8px}
   .rail-judge .rj-status{display:none}
 }
 @container (max-width:470px){
   .stage-avatar{width:28px;height:28px;font-size:.68rem;border-radius:8px}
   .stage-name{font-size:.82rem}
   .stage-role{display:none}
-  .rail-judge .rj-label{display:none}
-  .rail-judge .rj-eyes{margin-bottom:0}
+  /* Below this width the judge collapses to just its avatar. That still
+     reads as the judge because the disc carries the eyes and the scales
+     badge, which is the reason it got an avatar rather than a text chip:
+     the identity survives losing every word next to it. The disc shrinks
+     with the debaters' so the three seats keep matching. */
+  .rail-judge{padding:6px}
+  .rail-judge .rj-meta{display:none}
+  .rail-judge .rj-avatar{width:28px;height:28px;border-radius:8px}
 }
 /* Floor-judge remark card. Slides up from the rail over the bottom of
    the video. Only ever rendered by clients with the floor-judge flag
@@ -1988,7 +2018,7 @@ html.stage-mode .stage-ov{display:block}
     <!-- Stage rail: two nameplates around the AI-judge chip. Viewers
          stay off camera; the judge listens through the round and
          writes the ballot at the end. -->
-    <div class="stage-rail" id="roomStage" aria-label="Live round stage" title="Debaters on camera. Viewers watch off camera. The AI judge listens in and writes the ballot when the round ends.">
+    <div class="stage-rail" id="roomStage" aria-label="Live round stage" title="Debaters on camera, viewers off. The AI judge listens in and writes the ballot at the end.">
       <div class="stage-seat stage-seat--pro" id="stageProSeat">
         <div class="stage-avatar" id="stageProAvatar">P</div>
         <div class="stage-meta">
@@ -1998,9 +2028,14 @@ html.stage-mode .stage-ov{display:block}
         </div>
       </div>
       <div class="rail-judge" id="railJudge">
-        <span class="rj-eyes" aria-hidden="true"><i class="rj-eye"><b></b></i><i class="rj-eye"><b></b></i></span>
-        <span class="rj-label"><span class="rj-glyph" aria-hidden="true">⚖</span> AI Judge</span>
-        <span class="rj-status"><i aria-hidden="true"></i><span id="railJudgeStatusText">Listening in</span></span>
+        <div class="rj-avatar" aria-hidden="true">
+          <span class="rj-eyes"><i class="rj-eye"><b></b></i><i class="rj-eye"><b></b></i></span>
+          <span class="rj-glyph">&#9878;</span>
+        </div>
+        <div class="rj-meta">
+          <span class="rj-label">AI Judge</span>
+          <span class="rj-status"><i aria-hidden="true"></i><span id="railJudgeStatusText">Listening in</span></span>
+        </div>
       </div>
       <div class="stage-seat stage-seat--con" id="stageConSeat">
         <div class="stage-avatar" id="stageConAvatar">C</div>
@@ -10162,7 +10197,7 @@ html.stage-mode .stage-ov{display:block}
           '<div class="lrd-judge">' +
             '<div class="lrj-top"><span class="lrj-glyph">&#9878;</span><span class="lrj-name">AI Judge</span></div>' +
             '<div class="lrj-status" id="lrdJudgeStatus">Tracking the round</div>' +
-            '<div class="lrj-sub" id="lrdJudgeSub">Scoring every speech on the flow.</div>' +
+            '<div class="lrj-sub" id="lrdJudgeSub">Following every speech. Ballot at the end.</div>' +
             '<div class="lrj-live"><i></i>Live</div>' +
           '</div>' +
           '<div class="lrd-vid" id="lrdVid"></div>' +
@@ -10217,7 +10252,11 @@ html.stage-mode .stage-ov{display:block}
       if (sub) {
         var c = code && code.textContent.trim();
         var who = spk && spk.textContent.replace(/[,\s]+$/, '').trim();
-        sub.textContent = c ? ('Scoring ' + c + (who ? ' · ' + who : '')) : 'Scoring every speech on the flow.';
+        // "Scoring X" said the judge was marking each speech as it happened.
+        // It is not: the transcript accumulates and one ballot is written
+        // when the round ends. "Following" is what is actually true, and
+        // the ballot line says when the scoring arrives.
+        sub.textContent = c ? ('Following ' + c + (who ? ' · ' + who : '')) : 'Following every speech. Ballot at the end.';
       }
     }
     var syncTimer = null;
