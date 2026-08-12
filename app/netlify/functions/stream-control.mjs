@@ -147,6 +147,16 @@ export default async (req) => {
       startedBy: uid,
       endedAt: null,
     });
+    // studioUrl points at OUR studio page, not the raw Daily room. The
+    // raw room opens Daily prebuilt at its default send settings, which
+    // are tuned for a many-person meeting and look soft when they are
+    // the only thing on screen. Send quality can only be set through
+    // daily-js, so the host needs a page. rawRoomUrl is kept as the
+    // escape hatch if /studio ever fails to load.
+    const studioQuery = new URLSearchParams({ url });
+    if (token) studioQuery.set('t', token);
+    if (title) studioQuery.set('title', title);
+
     return jsonResponse({
       live: true,
       roomName: name,
@@ -154,7 +164,8 @@ export default async (req) => {
       title,
       token,
       recording: created.recording,
-      studioUrl: token ? url + '?t=' + encodeURIComponent(token) : url,
+      studioUrl: '/studio?' + studioQuery.toString(),
+      rawRoomUrl: token ? url + '?t=' + encodeURIComponent(token) : url,
     }, 200, req);
   }
 

@@ -7778,15 +7778,35 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-live-stage{position:relative;border-radius:12px;overflow:hidden;background:#000;
     aspect-ratio:16/9;border:1px solid rgba(245,239,231,.14)}
   [data-theme="light"] .fs-live-stage{border-color:rgba(26,26,31,.14)}
-  .fs-live-stage video{width:100%;height:100%;display:block;object-fit:cover;background:#000}
-  .fs-live-nm{position:absolute;left:8px;bottom:8px;z-index:2;display:inline-flex;align-items:center;gap:5px;
+  /* Cameras. One speaker fills the stage; two split it down the middle,
+     which is what a round actually looks like. */
+  .fs-live-cams{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr);gap:2px;background:#000}
+  .fs-live-cams[data-n="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fs-live-cam{position:relative;overflow:hidden;background:#000;min-width:0}
+  .fs-live-cam video{width:100%;height:100%;display:block;object-fit:cover;background:#000}
+  /* Screen share. contain, never cover: cropping a slide to fill a box
+     is how the one thing they wanted read gets cut off. */
+  .fs-live-screen{display:none;position:absolute;inset:0;width:100%;height:100%;
+    object-fit:contain;background:#000;z-index:2}
+  .fs-live.is-screen .fs-live-screen{display:block}
+  /* Bottom RIGHT, not left: slides put their content on the left and
+     read left to right, so a strip in the bottom-left sits on top of
+     the line the speaker is currently making. */
+  .fs-live.is-screen .fs-live-cams{inset:auto 8px 8px auto;width:36%;aspect-ratio:16/9;
+    z-index:3;gap:3px;border-radius:8px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+  .fs-live-nm{position:absolute;left:6px;bottom:6px;z-index:2;display:inline-flex;align-items:center;gap:5px;
     padding:3px 8px;border-radius:7px;background:rgba(0,0,0,.62);color:#fff;
-    font-size:.68rem;font-weight:700;letter-spacing:.02em}
+    font-size:.68rem;font-weight:700;letter-spacing:.02em;max-width:calc(100% - 12px);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fs-live.is-screen .fs-live-nm{font-size:.56rem;padding:2px 6px;left:4px;bottom:4px}
   .fs-live-sound{position:absolute;right:8px;bottom:8px;z-index:3;cursor:pointer;
     padding:5px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.24);
     background:rgba(0,0,0,.62);color:#fff;font:inherit;font-size:.7rem;font-weight:700}
   .fs-live-sound:hover{border-color:rgba(239,68,68,.7)}
   .fs-live-sound[hidden]{display:none}
+  /* Out of the corner the camera strip just took. Top-right is the only
+     corner a slide reliably leaves empty. */
+  .fs-live.is-screen .fs-live-sound{bottom:auto;top:8px}
   /* Waiting state. The stream can be on air with the host's camera
      still off, so the card says so rather than showing a black hole. */
   .fs-live-wait{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
@@ -7994,16 +8014,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="fs-live-title">Happening now</span>
         <a class="fs-live-open" href="/watch" data-cta="first-screen-live-watch">Watch page</a>
       </div>
+      <!-- Three layers. Cameras tile the stage (one debater fills it,
+           two split it). A screen share covers them and demotes the
+           cameras to a corner strip, because when someone shares a
+           deck the deck IS the round. Audio elements are appended
+           beside these, one per speaker. -->
       <div class="fs-live-stage">
-        <video id="fsLiveVideo" autoplay playsinline muted disablepictureinpicture></video>
+        <div class="fs-live-cams" id="fsLiveCams" data-n="0"></div>
+        <video class="fs-live-screen" id="fsLiveScreen" autoplay playsinline muted disablepictureinpicture></video>
         <span class="fs-live-wait">Waiting for the camera</span>
-        <span class="fs-live-nm" id="fsLiveNm">Host</span>
         <button type="button" class="fs-live-sound" id="fsLiveSound">Sound on</button>
       </div>
       <!-- The stream's own title, in the same serif the example board
            gives the motion, so the swap keeps the card's shape. -->
       <p class="fs-live-cap" id="fsLiveCap"></p>
-      <audio id="fsLiveAudio" autoplay></audio>
     </div>
   </div>
 </section>
@@ -19954,10 +19978,16 @@ window.addEventListener('load', function(){
      trimmed; it could only be replaced.
 
      So this joins with the daily-js CALL OBJECT (no iframe, no UI at
-     all), takes the broadcaster's video and audio tracks, and paints
-     them into our own <video> and <audio>. What a visitor sees is the
-     round, in the card, with our own name chip. No join step, no
-     controls, nothing to dismiss.
+     all), takes the speakers' tracks, and paints them into our own
+     elements. What a visitor sees is the round, in the card, with our
+     own name chips. No join step, no controls, nothing to dismiss.
+
+     It renders THREE things, in priority order: a screen share (the
+     deck is the round while it is up), then up to two cameras side by
+     side, then per-speaker audio. It also asks for the top simulcast
+     layer, because the default is chosen from the size of the element
+     the subscriber thinks it is drawing into, and this card starts
+     hidden. The matching send ladder is set in /studio.
 
      Muted first, by rule not by preference: browsers refuse to autoplay
      audible media, and a stream that needs a click to show a PICTURE is
@@ -19982,11 +20012,13 @@ window.addEventListener('load', function(){
   var screenEl = document.getElementById('first-screen');
   if (!card || !screenEl) return;
 
-  var video = document.getElementById('fsLiveVideo');
-  var audio = document.getElementById('fsLiveAudio');
+  var cams = document.getElementById('fsLiveCams');
+  var screenEl2 = document.getElementById('fsLiveScreen');
   var capEl = document.getElementById('fsLiveCap');
-  var nameEl = document.getElementById('fsLiveNm');
   var soundBtn = document.getElementById('fsLiveSound');
+  var MAX_CAMS = 2;          // a round is two people
+  var muted = true;
+  var tiles = {};            // session_id -> { wrap, video, audio, name }
 
   var want = null;          // the URL we should be showing, or null
   var call = null;          // daily-js call object while connected
@@ -20026,30 +20058,102 @@ window.addEventListener('load', function(){
     if (p && p.catch) p.catch(function(){});
   }
 
+  function playable(p, key){
+    var t = p && p.tracks && p.tracks[key];
+    return t && t.state === 'playable' ? t.persistentTrack : null;
+  }
+
+  // One tile per speaker, created on arrival and destroyed on exit, so
+  // the DOM matches the room rather than a fixed pair of slots.
+  function tileFor(p){
+    var t = tiles[p.session_id];
+    if (t) return t;
+    var wrap = document.createElement('div');
+    wrap.className = 'fs-live-cam';
+    var v = document.createElement('video');
+    v.autoplay = true; v.muted = true; v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.setAttribute('disablepictureinpicture', '');
+    var nm = document.createElement('span');
+    nm.className = 'fs-live-nm';
+    // Audio rides its own element per speaker: a <video> muted for
+    // autoplay cannot also carry sound, and two speakers need two
+    // independent streams anyway.
+    var a = document.createElement('audio');
+    a.autoplay = true;
+    a.muted = muted;
+    wrap.appendChild(v);
+    wrap.appendChild(nm);
+    cams.appendChild(wrap);
+    card.appendChild(a);
+    t = tiles[p.session_id] = { wrap: wrap, video: v, audio: a, name: nm };
+    return t;
+  }
+
+  function dropTile(id){
+    var t = tiles[id];
+    if (!t) return;
+    t.video.srcObject = null;
+    t.audio.srcObject = null;
+    if (t.wrap.parentNode) t.wrap.parentNode.removeChild(t.wrap);
+    if (t.audio.parentNode) t.audio.parentNode.removeChild(t.audio);
+    delete tiles[id];
+  }
+
   function paint(){
     if (!call) return;
-    var people, keys, i, p, best = null;
+    var people;
     try { people = call.participants() || {}; } catch(e){ return; }
-    keys = Object.keys(people);
-    for (i = 0; i < keys.length; i++){
-      if (keys[i] === 'local') continue;
-      p = people[keys[i]];
-      var t = (p && p.tracks) || {};
-      var live = (t.video && t.video.state === 'playable') || (t.audio && t.audio.state === 'playable');
-      if (live){ best = p; break; }
-      if (!best) best = p;
-    }
-    var vt = best && best.tracks && best.tracks.video;
-    var at = best && best.tracks && best.tracks.audio;
-    var vTrack = vt && vt.state === 'playable' ? vt.persistentTrack : null;
-    var aTrack = at && at.state === 'playable' ? at.persistentTrack : null;
-    attach(video, vTrack);
-    attach(audio, aTrack);
-    card.classList.toggle('is-waiting', !vTrack);
-    // Daily stamps the host's own display name; fall back rather than
-    // inventing one.
-    nameEl.textContent = (best && best.user_name) || 'Host';
-    soundBtn.hidden = !aTrack || !audio.muted;
+
+    var live = [], screen = null, anyAudio = false;
+    Object.keys(people).forEach(function(k){
+      if (k === 'local') return;
+      var p = people[k];
+      if (!p || !p.session_id) return;
+      // A screen share wins the stage. This is the case the first
+      // version missed entirely: it read tracks.video and nothing else,
+      // so a host sharing a deck broadcast their webcam instead.
+      if (!screen){
+        var s = playable(p, 'screenVideo');
+        if (s) screen = { track: s, from: p };
+      }
+      if (playable(p, 'video') || playable(p, 'audio')) live.push(p);
+    });
+    live = live.slice(0, MAX_CAMS);
+
+    var seen = {};
+    live.forEach(function(p){
+      seen[p.session_id] = true;
+      var t = tileFor(p);
+      attach(t.video, playable(p, 'video'));
+      var a = playable(p, 'audio');
+      attach(t.audio, a);
+      if (a) anyAudio = true;
+      t.name.textContent = p.user_name || 'Speaker';
+    });
+    Object.keys(tiles).forEach(function(id){ if (!seen[id]) dropTile(id); });
+    cams.setAttribute('data-n', String(live.length));
+
+    attach(screenEl2, screen ? screen.track : null);
+    card.classList.toggle('is-screen', !!screen);
+    // Waiting only when there is genuinely nothing to look at. A round
+    // running with cameras off but a deck up is not "waiting".
+    card.classList.toggle('is-waiting', !screen && !live.some(function(p){ return playable(p, 'video'); }));
+    soundBtn.hidden = !anyAudio || !muted;
+  }
+
+  // Ask for the top simulcast layer. Without this the subscriber picks a
+  // layer from the size of the element it thinks it is rendering into,
+  // and a card that starts hidden gets scored as tiny, so the stream
+  // arrives soft and stays soft even after it is full width. Layer 2 is
+  // the highest a desktop publishes; Daily clamps to whatever actually
+  // exists, so asking for more than the sender publishes is safe.
+  function pullTopLayer(c){
+    try {
+      c.updateReceiveSettings({
+        '*': { video: { layer: 2 }, screenVideo: { layer: 2 } }
+      });
+    } catch(e){ /* older daily-js: adaptive default stands */ }
   }
 
   function disconnect(){
@@ -20058,8 +20162,10 @@ window.addEventListener('load', function(){
     call = null; joined = '';
     try { c.leave(); } catch(e){}
     try { c.destroy(); } catch(e){}
-    video.srcObject = null;
-    audio.srcObject = null;
+    Object.keys(tiles).forEach(dropTile);
+    screenEl2.srcObject = null;
+    cams.setAttribute('data-n', '0');
+    card.classList.remove('is-screen');
     card.classList.add('is-waiting');
   }
 
@@ -20086,6 +20192,7 @@ window.addEventListener('load', function(){
         .then(function(){
           if (call !== c) return;
           joined = url;
+          pullTopLayer(c);
           paint();
           try { if (window.gtag) gtag('event', 'home_live_watch'); } catch(e){}
         })
@@ -20110,10 +20217,13 @@ window.addEventListener('load', function(){
   }
 
   soundBtn.addEventListener('click', function(){
-    audio.muted = false;
-    video.muted = true;              // audio rides its own element
-    var p = audio.play();
-    if (p && p.catch) p.catch(function(){});
+    muted = false;
+    Object.keys(tiles).forEach(function(id){
+      var a = tiles[id].audio;
+      a.muted = false;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    });
     soundBtn.hidden = true;
   });
 

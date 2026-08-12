@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Broadcast studio · Debatable</title>
+<!-- Owner-only surface reached from /admin with a meeting token in the
+     URL. Never indexed, never linked from a public page. -->
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700;800&display=swap">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<script src="https://unpkg.com/@daily-co/daily-js"></script>
+<style>
+:root{--bg:#0b0b0d;--surface:#141417;--border:rgba(255,255,255,.09);--text:#f4f4f2;
+  --dim:rgba(244,244,242,.66);--red:#ef4444;--green:#22c55e;--amber:#f59e0b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Crimson Pro',Georgia,serif;
+  min-height:100vh;display:flex;flex-direction:column}
+em,i{font-style:normal}
+.bar{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:7px;background:#b91c1c;color:#fff;
+  font-weight:800;font-size:12px;letter-spacing:.09em;padding:5px 12px;border-radius:999px}
+.pill i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+h1{font-size:18px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spacer{margin-left:auto}
+.chip{font-size:13px;color:var(--dim);border:1px solid var(--border);border-radius:999px;padding:5px 11px;white-space:nowrap}
+.chip b{color:var(--text);font-weight:700}
+.chip.ok b{color:var(--green)}
+.chip.warn b{color:var(--amber)}
+a.chip{text-decoration:none}
+a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
+#stage{flex:1;min-height:0;position:relative;background:#000}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+.note{padding:9px 18px;font-size:14px;color:var(--dim);border-top:1px solid var(--border)}
+.note b{color:var(--text)}
+.fail{padding:26px 18px;font-size:16px;color:var(--dim)}
+.fail b{color:var(--text);display:block;font-size:19px;margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="pill"><i></i>STUDIO</span>
+  <h1 id="ttl">Broadcast studio</h1>
+  <span class="spacer"></span>
+  <span class="chip" id="quality">quality: negotiating</span>
+  <span class="chip" id="watchers">viewers: 0</span>
+  <a class="chip" href="/" target="_blank" rel="noopener">Open the homepage</a>
+</div>
+
+<div id="stage"></div>
+
+<p class="note">
+  Everything you send here goes out on the homepage and <b>/watch</b>.
+  <b>Share screen</b> in the tray below to put a slide deck, a tab, or a
+  flow sheet on the stream. Viewers see the screen full-bleed while it is
+  running and your camera comes back the moment you stop.
+</p>
+
+<script>
+(function(){
+  'use strict';
+
+  var q = new URLSearchParams(location.search);
+  var roomUrl = q.get('url') || '';
+  var token = q.get('t') || '';
+  var title = q.get('title') || '';
+  var stage = document.getElementById('stage');
+  var qualityEl = document.getElementById('quality');
+  var watchersEl = document.getElementById('watchers');
+
+  if (title) document.getElementById('ttl').textContent = title;
+
+  function fail(head, body){
+    stage.innerHTML = '';
+    var p = document.createElement('p');
+    p.className = 'fail';
+    var b = document.createElement('b');
+    b.textContent = head;
+    p.appendChild(b);
+    p.appendChild(document.createTextNode(body));
+    stage.appendChild(p);
+  }
+
+  if (!roomUrl || !/^https:\/\/[a-z0-9-]+\.daily\.co\//i.test(roomUrl)){
+    fail('No room to broadcast to.', 'Open this page from the Broadcast card on /admin, which mints the room and the owner token. This page cannot create a stream on its own.');
+    return;
+  }
+  if (!window.DailyIframe){
+    fail('Video library did not load.', 'daily-js is blocked or offline. Reload, and if it keeps failing check for an extension blocking unpkg.com.');
+    return;
+  }
+
+  // WHY THIS PAGE EXISTS. The admin card used to hand the host the raw
+  // Daily room URL, which opens Daily's prebuilt UI with its default
+  // send settings. Those defaults are tuned for a many-person meeting on
+  // unknown networks: roughly VGA, heavily adaptive, and they look soft
+  // the moment they are the ONLY thing on screen, which is exactly what
+  // a broadcast is. Send quality can only be set through daily-js, so
+  // the host needs a page rather than a link.
+  //
+  // The host still gets the full prebuilt UI (camera, mic, screen share,
+  // device pickers). Broadcasting is the one role in this system that
+  // WANTS controls. The viewer is the side that should see none, and it
+  // renders raw tracks in the homepage card for that reason.
+  var call = window.DailyIframe.createFrame(stage, {
+    showLeaveButton: true,
+    showFullscreenButton: true,
+    showLocalVideo: true,
+    iframeStyle: { width: '100%', height: '100%', border: '0' },
+    // Ask the camera for a 1080p30 capture. Capture is the ceiling on
+    // everything downstream: encoding settings cannot add detail the
+    // browser never grabbed, so a 640x360 capture stays soft no matter
+    // what bitrate it is given. `ideal` rather than `exact` so a webcam
+    // that cannot do 1080 negotiates down instead of failing to open.
+    dailyConfig: {
+      userMediaVideoConstraints: {
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 30 }
+      }
+    }
+  });
+
+  // Simulcast ladder. Daily publishes several layers and each subscriber
+  // picks one; the homepage player asks for the top. The `high` layer is
+  // what a watcher on a decent connection actually sees, so it carries
+  // full resolution and a bitrate that can hold a face at 30fps. The
+  // lower two exist so a phone on cellular degrades instead of stalling.
+  //
+  // Screen share is a separate ladder on purpose. Text on a shared
+  // screen dies at camera bitrates: it needs resolution over motion, so
+  // it gets a single full-scale layer at a higher ceiling and a lower
+  // frame rate. A slide does not need 30fps; it needs readable 12pt.
+  var SEND = {
+    video: {
+      maxQuality: 'high',
+      allowAdaptiveLayers: true,
+      encodings: {
+        low:    { maxBitrate: 200000,  scaleResolutionDownBy: 4, maxFramerate: 15 },
+        medium: { maxBitrate: 900000,  scaleResolutionDownBy: 2, maxFramerate: 30 },
+        high:   { maxBitrate: 3000000, scaleResolutionDownBy: 1, maxFramerate: 30 }
+      }
+    },
+    screenVideo: {
+      maxQuality: 'high',
+      encodings: {
+        high: { maxBitrate: 4000000, scaleResolutionDownBy: 1, maxFramerate: 15 }
+      }
+    }
+  };
+
+  function reportQuality(){
+    // Report what the CAMERA actually opened at, not what we asked for.
+    // A studio chip that says 1080p while the webcam negotiated 720
+    // would be the same class of lie as a padded visitor counter.
+    var t = null;
+    try {
+      var me = call.participants().local;
+      t = me && me.tracks && me.tracks.video && me.tracks.video.persistentTrack;
+    } catch(e){}
+    if (!t || !t.getSettings){ qualityEl.textContent = 'quality: camera off'; qualityEl.className = 'chip'; return; }
+    var s = t.getSettings() || {};
+    if (!s.height){ qualityEl.textContent = 'quality: starting'; qualityEl.className = 'chip'; return; }
+    qualityEl.innerHTML = 'sending <b>' + s.height + 'p' + (s.frameRate ? Math.round(s.frameRate) : '') + '</b>';
+    qualityEl.className = 'chip ' + (s.height >= 720 ? 'ok' : 'warn');
+  }
+
+  function reportWatchers(){
+    var n = 0;
+    try {
+      var ps = call.participants();
+      Object.keys(ps).forEach(function(k){ if (k !== 'local') n++; });
+    } catch(e){}
+    watchersEl.innerHTML = 'viewers: <b>' + n + '</b>';
+  }
+
+  call.on('joined-meeting', function(){
+    // Send settings are applied AFTER the join. Applying them to a call
+    // that has not negotiated yet is a no-op, which is the quiet way
+    // this ends up shipping at defaults.
+    call.updateSendSettings(SEND).catch(function(e){
+      console.warn('[studio] send settings refused:', e && e.message);
+      qualityEl.textContent = 'quality: defaults';
+      qualityEl.className = 'chip warn';
+    });
+    reportQuality();
+    reportWatchers();
+  });
+  call.on('participant-updated', function(){ reportQuality(); reportWatchers(); });
+  call.on('participant-joined', reportWatchers);
+  call.on('participant-left', reportWatchers);
+  call.on('track-started', reportQuality);
+  call.on('error', function(e){
+    console.warn('[studio] call error:', e);
+  });
+  call.on('left-meeting', function(){
+    qualityEl.textContent = 'off air';
+    qualityEl.className = 'chip';
+  });
+
+  var opts = { url: roomUrl, userName: 'Host' };
+  if (token) opts.token = token;
+  call.join(opts).catch(function(e){
+    fail('Could not join the broadcast room.', (e && e.message) || 'The room may have expired. Start a new stream from /admin.');
+  });
+
+  setInterval(reportQuality, 5000);
+})();
+</script>
+
+</body>
+</html>
