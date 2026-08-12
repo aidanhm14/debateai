@@ -246,17 +246,10 @@
     });
     row.appendChild(copy);
 
-    // Download is what makes an Instagram story or a printed common-room
-    // poster possible: neither can be reached by a share intent, and both
-    // are how this actually spreads on a school circuit.
-    if (image) {
-      var dl = anchor('', 'download', 'Download poster', image);
-      dl.removeAttribute('target');
-      dl.rel = 'noopener';
-      dl.setAttribute('download', (image.split('/').pop() || 'poster.jpg').split('?')[0]);
-      dl.addEventListener('click', function () { fire('download'); flash(dl, 'Saving'); });
-      row.appendChild(dl);
-    }
+    // 2026-08-11: the Download poster button was removed per Aidan. The
+    // `image` argument is still accepted and still rides the share intents
+    // (it is what a link unfurls with), so restoring the button is adding
+    // this block back rather than re-threading the poster through.
 
     host.appendChild(row);
   }
