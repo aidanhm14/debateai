@@ -3471,8 +3471,18 @@ async function adminPost(url, body){
         (r.remaining ? ' &middot; <b>' + r.remaining + '</b> still to go' : '') +
       '</div>' +
       '<div style="opacity:.7;margin-top:4px">' + esc(r.accounts) + ' accounts &middot; ' +
-        'skipped: ' + (s.noEmail||0) + ' no email, ' + (s.noProfile||0) + ' no preferences on file, ' +
+        'skipped: ' + (s.noEmail||0) + ' no email, ' +
         (s.optedOut||0) + ' opted out, ' + (s.alreadySent||0) + ' already sent</div>' +
+      // Accounts with no profile doc are MAILED now rather than skipped
+      // (2026-08-12: 97 of 169, none of them opted out), so this number
+      // moved out of `skipped` on the endpoint. Reading s.noProfile here
+      // would render a confident 0 and hide the cohort entirely, which is
+      // the exact failure mode the endpoint change was fixing.
+      (r.mailedWithoutProfile
+        ? '<div style="opacity:.7;margin-top:4px">' + r.mailedWithoutProfile +
+          ' have no preferences on file and are mailed anyway. Opting out is what' +
+          ' creates that record, so having none means they never opted out.</div>'
+        : '') +
       '<div style="opacity:.7;margin-top:4px">From ' + esc(r.from) +
         (r.senderVerified ? '' : ' <b style="color:#dc2626">(unverified sender, sending is blocked)</b>') + '</div>' +
       '<div style="opacity:.7;margin-top:4px">Bracket: ' + esc(r.tournament && r.tournament.name) + '</div>' +
