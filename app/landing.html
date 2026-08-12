@@ -6508,20 +6508,91 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var strip = document.querySelector('.chapter-nav');
     var stripLinks = [];
     if (strip && items.length){
-      var ol = document.createElement('ol');
-      items.forEach(function(it){
+      // Grouped tour index (2026-08-12). Eleven bare labels read as a
+      // spreadsheet: a first-time visitor has no idea what "Credential
+      // + vision" or "Choose a path" hold. Each card now carries the
+      // TOC_PREVIEWS icon + note inline (the hover popover used to be
+      // the only place the note showed), and cards cluster under four
+      // visitor questions instead of raw page order. stripLinks stays
+      // index-aligned with `items` (the scrollspy maps links[i] ->
+      // stripLinks[i]); only the DOM placement is grouped, and the
+      // .num values keep the on-page section order so a card still
+      // says where in the tour it lands.
+      var TOUR_GROUP_TITLES = ['Watch it work', 'Debaters + rankings', 'Why it exists', 'Get started'];
+      var TOUR_GROUP_OF = {
+        'how-it-works': 0, 'live-now': 0, 'live-proof': 0, 'stream-it': 0,
+        'ranked-band': 1, 'creator-sweepstakes': 1, 'face-wall': 1, 'reviews': 1,
+        'community-band': 1, 'floor-band': 1,
+        'why-this-exists': 2, 'credential-path': 2,
+        'mode-select': 3, 'engine-select': 3, 'faq': 3
+      };
+      var groupsWrap = document.createElement('div');
+      groupsWrap.className = 'cn-groups';
+      var groupOls = [];
+      function groupOl(gi){
+        if (groupOls[gi]) return groupOls[gi];
+        var block = document.createElement('div');
+        block.className = 'cn-group';
+        block.setAttribute('data-gi', gi);
+        var head = document.createElement('p');
+        head.className = 'cn-group-head';
+        head.textContent = TOUR_GROUP_TITLES[gi];
+        var ol = document.createElement('ol');
+        block.appendChild(head);
+        block.appendChild(ol);
+        // Keep blocks in group order even if a later group fills first
+        // (hidden sections drop out of `items`, so arrival order varies).
+        var placed = false;
+        for (var j = 0; j < groupsWrap.children.length; j++){
+          if (Number(groupsWrap.children[j].getAttribute('data-gi')) > gi){
+            groupsWrap.insertBefore(block, groupsWrap.children[j]);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) groupsWrap.appendChild(block);
+        groupOls[gi] = ol;
+        return ol;
+      }
+      items.forEach(function(it, i){
         var li = document.createElement('li');
         var a = document.createElement('a');
         a.href = it.a.getAttribute('href');
+        var preview = TOC_PREVIEWS[it.sec.id];
+        if (preview && preview.icon){
+          var ico = document.createElement('span');
+          ico.className = 'cn-ico';
+          ico.setAttribute('aria-hidden', 'true');
+          ico.innerHTML = preview.icon;
+          a.appendChild(ico);
+        }
+        var body = document.createElement('span');
+        body.className = 'cn-body';
+        var top = document.createElement('span');
+        top.className = 'cn-top';
         var num = it.a.querySelector('.num');
         var lab = it.a.querySelector('.lab');
         if (num){
           var n = document.createElement('span');
           n.className = 'num';
           n.textContent = num.textContent;
-          a.appendChild(n);
+          top.appendChild(n);
         }
-        a.appendChild(document.createTextNode(lab ? lab.textContent : it.a.textContent));
+        top.appendChild(document.createTextNode(lab ? lab.textContent : it.a.textContent));
+        body.appendChild(top);
+        if (preview && preview.note){
+          var note = document.createElement('span');
+          note.className = 'cn-note';
+          note.textContent = preview.note;
+          body.appendChild(note);
+        }
+        if (i === 0){
+          var chip = document.createElement('span');
+          chip.className = 'cn-start';
+          chip.textContent = 'Start here';
+          body.appendChild(chip);
+        }
+        a.appendChild(body);
         // Carry the size tier from the authored <li data-size> onto the
         // mirrored <a>, since .chapter-nav has no <li> styling hook.
         var srcLi = it.a.closest('li');
@@ -6533,10 +6604,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           }
         });
         li.appendChild(a);
-        ol.appendChild(li);
+        var gi = TOUR_GROUP_OF.hasOwnProperty(it.sec.id) ? TOUR_GROUP_OF[it.sec.id] : TOUR_GROUP_TITLES.length - 1;
+        groupOl(gi).appendChild(li);
         stripLinks.push(a);
       });
-      strip.appendChild(ol);
+      strip.appendChild(groupsWrap);
       strip.hidden = false;
     }
 
@@ -6550,11 +6622,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     });
 
     // Hover/focus preview popovers, shared across both the vertical
-    // rail (links) and the horizontal strip (stripLinks) — same
-    // section ids, same lookup. One popover element is reused rather
-    // than building one per pill: 15 tooltip nodes for a feature only
-    // one is ever showing at a time is wasted DOM.
-    wireTocPreviews(items, links, stripLinks);
+    // rail (links) only. The strip's cards carry the note + icon
+    // inline as of the 2026-08-12 grouped-index redesign, so a hover
+    // popover there would repeat what the card already says.
+    wireTocPreviews(items, links, []);
 
     // Direct-style fade so we don't depend on a cascade-level CSS
     // transition. Earlier testing found the implicit CSSTransition
@@ -8571,7 +8642,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="lm-copy">
       <p class="lm-kicker">Explore Debatable</p>
       <h2 class="lm-head">The full product tour.</h2>
-      <p class="lm-sub">Rounds, ballots, rankings, creators, and the people behind them.</p>
+      <p class="lm-sub">Rounds, ballots, rankings, and the people behind them. Open it end to end, or jump straight to what you care about.</p>
     </div>
     <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false" data-ab-test="landing_cv_v1" data-ab-target="gate_toggle">
       <strong class="lm-title"><span class="lm-closed">View full tour</span><span class="lm-open">Hide full tour</span></strong>
@@ -8678,7 +8749,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        tour panel so the disclosure and its destinations read as one
        piece of navigation instead of two competing bands. -->
   <nav class="chapter-nav" aria-label="Page sections" hidden>
-    <span class="chapter-nav-kicker">Browse sections</span>
+    <span class="chapter-nav-kicker">Or jump straight to a section</span>
   </nav>
 </div>
 </div>
@@ -18570,9 +18641,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="stone"] #waitlist .wl-row input{background:rgba(255,255,255,.04);border-color:var(--border-strong,rgba(255,255,255,.18))}
 </style>
 <style>
-  /* Product-tour panel. The disclosure is secondary navigation, not a
-     conversion CTA, so it uses a quiet control and a proper index rather
-     than a giant red pill followed by a compressed line of links. */
+  /* Product-tour panel. One clear primary action (open the tour) plus a
+     grouped, annotated index: four visitor-question groups, each card
+     carrying an icon and the one-line TOC_PREVIEWS note, so no label
+     needs a hover or prior knowledge to make sense. */
   .lm-wl-row{
     width:min(1120px,calc(100% - clamp(32px,7vw,96px)));
     max-width:none;
@@ -18618,37 +18690,41 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .lm-wl-row .landing-more-summary{
     width:auto;max-width:100%;margin:0;
     flex:none;
-    display:inline-flex;gap:12px;
-    padding:9px 9px 9px 14px;
-    border:1px solid var(--border);
-    border-radius:10px;
-    background:transparent;
-    color:var(--text,#1a1a1e);
-    box-shadow:none;
-    transition:border-color .18s,background .18s,transform .18s;
+    display:inline-flex;gap:14px;
+    padding:10px 10px 10px 18px;
+    border:1px solid var(--accent-solid,#b91c1c);
+    border-radius:12px;
+    background:var(--accent-solid,#b91c1c);
+    color:#fff;
+    box-shadow:0 10px 26px color-mix(in srgb,var(--accent,#dc2626) 20%,transparent);
+    transition:background .18s,box-shadow .18s,transform .18s;
   }
   .lm-wl-row .landing-more-summary:hover{
     transform:translateY(-1px);
-    border-color:color-mix(in srgb,var(--accent,#dc2626) 36%,var(--border));
-    background:color-mix(in srgb,var(--accent,#dc2626) 5%,transparent);
-    box-shadow:none;
+    background:#b91c1c;
+    border-color:#b91c1c;
+    box-shadow:0 14px 30px rgba(185,28,28,.28);
   }
   .lm-wl-row .lm-title{
     font-family:Inter,system-ui,-apple-system,sans-serif;
-    font-size:.76rem;font-weight:700;letter-spacing:.01em;line-height:1.1;
-    color:var(--text,#1a1a1e);
+    font-size:.8rem;font-weight:750;letter-spacing:.01em;line-height:1.1;
+    color:#fff;
   }
   .lm-wl-row .lm-action{
     width:28px;height:28px;
-    background:var(--bg-card,rgba(0,0,0,.03));
-    color:var(--accent,#dc2626);
-    box-shadow:inset 0 0 0 1px var(--border);
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);
   }
   .lm-wl-row .lm-action svg{width:14px;height:14px}
 
-  /* The section index is part of the same panel at every width. A grid
-     gives each label room to breathe and makes the reading order obvious.
-     Phones switch to a touch-friendly horizontal rail. */
+  /* The section index is part of the same panel at every width. Four
+     titled groups answer the visitor's actual questions in order (watch
+     it work, who's on it, why it exists, how to start), and every card
+     carries the one-line TOC_PREVIEWS note inline, so a label like
+     "Credential + vision" explains itself without a hover. Phones keep
+     the vertical group stacks but each group's list becomes a
+     horizontal rail. */
   body.landing-more-ready .lm-wl-row .chapter-nav:not([hidden]){
     display:block !important;
     position:static !important;
@@ -18661,20 +18737,36 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   .lm-wl-row .chapter-nav-kicker{
     display:block;
-    padding-top:16px;margin:0 0 12px;
+    padding-top:16px;margin:0 0 14px;
     border-top:1px solid var(--border);
     font-family:Inter,system-ui,-apple-system,sans-serif;
     font-size:.6rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
     color:var(--text-ghost);
   }
-  body.landing-more-ready .lm-wl-row .chapter-nav ol{
-    display:grid !important;
+  .lm-wl-row .cn-groups{
+    display:grid;
     grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:0 !important;
+    gap:20px clamp(14px,2vw,26px);
+    align-items:start;
+  }
+  .lm-wl-row .cn-group-head{
+    display:flex;align-items:center;gap:8px;
+    margin:0 0 6px;padding:0 12px;
+    font-family:Inter,system-ui,-apple-system,sans-serif;
+    font-size:.64rem;font-weight:750;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .lm-wl-row .cn-group-head::before{
+    content:'';flex:none;width:14px;height:2px;
+    background:var(--accent,#dc2626);border-radius:1px;
+  }
+  body.landing-more-ready .lm-wl-row .chapter-nav ol{
+    display:flex !important;
+    flex-direction:column;
+    gap:2px !important;
     margin:0 !important;padding:0 !important;
     overflow:visible !important;
-    border-top:1px solid var(--border);
-    border-left:1px solid var(--border);
+    border:0;
     list-style:none;
   }
   body.landing-more-ready .lm-wl-row .chapter-nav li{min-width:0}
@@ -18682,40 +18774,68 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   body.landing-more-ready .lm-wl-row .chapter-nav a[data-size="lg"],
   body.landing-more-ready .lm-wl-row .chapter-nav a[data-size="sm"]{
     position:relative;
-    display:flex;align-items:center;gap:10px;
-    min-height:52px;
-    padding:11px 14px !important;
+    display:flex;align-items:flex-start;gap:11px;
+    min-height:0;
+    padding:10px 12px !important;
     white-space:normal;
-    border:0 !important;
-    border-right:1px solid var(--border) !important;
-    border-bottom:1px solid var(--border) !important;
-    border-radius:0 !important;
+    border:1px solid transparent !important;
+    border-radius:12px !important;
     background:transparent !important;
     color:var(--text-dim) !important;
     font-family:Inter,system-ui,-apple-system,sans-serif;
-    font-size:.78rem !important;font-weight:650 !important;line-height:1.25;
+    font-size:.78rem !important;font-weight:650 !important;line-height:1.3;
     opacity:1 !important;
-    transition:color .16s,background .16s;
+    transition:color .16s,background .16s,border-color .16s;
+  }
+  .lm-wl-row .chapter-nav .cn-ico{
+    flex:none;
+    display:grid;place-items:center;
+    width:30px;height:30px;margin-top:1px;
+    border-radius:9px;
+    background:color-mix(in srgb,var(--accent,#dc2626) 8%,transparent);
+    color:var(--accent,#dc2626);
+  }
+  .lm-wl-row .chapter-nav .cn-ico svg{width:16px;height:16px;display:block}
+  .lm-wl-row .chapter-nav .cn-body{display:block;min-width:0}
+  .lm-wl-row .chapter-nav .cn-top{
+    display:flex;align-items:baseline;gap:8px;
+    font-size:.8rem;font-weight:700;
+    color:var(--text,#1a1a1e);
   }
   body.landing-more-ready .lm-wl-row .chapter-nav a .num{
-    flex:none;min-width:21px;
+    flex:none;min-width:0;
     color:var(--text-ghost) !important;
-    font-size:.59rem;font-weight:700;letter-spacing:.03em;
+    font-size:.58rem;font-weight:700;letter-spacing:.03em;
+    font-variant-numeric:tabular-nums;
+  }
+  .lm-wl-row .chapter-nav .cn-start{
+    display:inline-block;margin-top:7px;
+    padding:2px 8px;border-radius:999px;
+    background:var(--accent,#dc2626);color:#fff;
+    font-size:.53rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+    line-height:1.6;
+  }
+  .lm-wl-row .chapter-nav .cn-note{
+    display:block;margin-top:2px;
+    font-size:.72rem;font-weight:500;line-height:1.45;
+    color:var(--text-dim);
+    opacity:.75;
   }
   body.landing-more-ready .lm-wl-row .chapter-nav a:hover{
     color:var(--text,#1a1a1e) !important;
-    background:color-mix(in srgb,var(--accent,#dc2626) 5%,transparent) !important;
+    border-color:var(--border) !important;
+    background:color-mix(in srgb,var(--accent,#dc2626) 4%,transparent) !important;
   }
   body.landing-more-ready .lm-wl-row .chapter-nav a.is-active{
     color:var(--text,#1a1a1e) !important;
+    border-color:color-mix(in srgb,var(--accent,#dc2626) 30%,transparent) !important;
     background:color-mix(in srgb,var(--accent,#dc2626) 6%,transparent) !important;
-    box-shadow:inset 3px 0 0 var(--accent,#dc2626);
   }
   body.landing-more-ready .lm-wl-row .chapter-nav a.is-active .num{
     color:var(--accent,#dc2626) !important;
   }
-  @media(max-width:960px){
-    body.landing-more-ready .lm-wl-row .chapter-nav ol{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media(max-width:1080px){
+    .lm-wl-row .cn-groups{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
   @media(max-width:700px){
     .lm-wl-row{
@@ -18729,8 +18849,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     .lm-wl-row .landing-more-summary{width:100%;justify-content:space-between}
     body.landing-more-ready .lm-wl-row .chapter-nav:not([hidden]){padding:0 20px 22px}
+    .lm-wl-row .cn-groups{display:flex;flex-direction:column;gap:18px}
+    .lm-wl-row .cn-group-head{padding:0 2px}
     body.landing-more-ready .lm-wl-row .chapter-nav ol{
-      display:flex !important;
       flex-direction:row !important;
       flex-wrap:nowrap !important;
       justify-content:flex-start !important;
@@ -18738,19 +18859,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       overflow-x:auto !important;
       overflow-y:hidden !important;
       padding:0 0 4px !important;
-      border:0;
       scroll-snap-type:x proximity;
       scrollbar-width:none;
     }
+    body.landing-more-ready .lm-wl-row .chapter-nav ol::-webkit-scrollbar{width:0;height:0}
     body.landing-more-ready .lm-wl-row .chapter-nav li{
-      flex:0 0 190px;min-width:190px;scroll-snap-align:start;
+      flex:0 0 236px;min-width:236px;scroll-snap-align:start;
     }
     body.landing-more-ready .lm-wl-row .chapter-nav a,
     body.landing-more-ready .lm-wl-row .chapter-nav a[data-size="lg"],
     body.landing-more-ready .lm-wl-row .chapter-nav a[data-size="sm"]{
-      min-height:50px;
+      height:100%;
       border:1px solid var(--border) !important;
-      border-radius:10px !important;
     }
   }
   /* The two-column first step should start near the index on laptop
