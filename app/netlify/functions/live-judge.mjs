@@ -39,6 +39,7 @@ import { settleMarket } from './lib/settle.mjs';
 import { marketId } from './lib/credits.mjs';
 import { applyRoundRating } from './lib/rating-apply.mjs';
 import { verifyTournamentPairing } from './lib/tournament-round.mjs';
+import { applyTournamentResult } from './lib/tournament-ledger.mjs';
 
 const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || 'claude-sonnet-5';
 
@@ -232,16 +233,28 @@ export default async (request, context) => {
   let rated = null;
   try {
     let consents = d.leaderboardConsent || {};
+    let tourney = null;
     const bothConsented = !!(d.proUid && d.conUid
       && consents[d.proUid] === true && consents[d.conUid] === true);
+
+    // Verified ONCE, and unconditionally, because two different things
+    // depend on it. Consent only needs it when consent is missing, but the
+    // tournament LEDGER needs it on every tournament round, and gating the
+    // lookup on missing consent meant a pair who had already ticked the box
+    // never posted a result to the board. Cheap to run on a casual round:
+    // parseTournamentRoom rejects a non-tournament room id on a regex,
+    // before any read.
+    if (d.proUid && d.conUid) {
+      tourney = await verifyTournamentPairing(db, room, d.proUid, d.conUid);
+    }
 
     // Entering the tournament IS consent to a competitive record, per the
     // rules and the entry copy. Rather than teach rating-apply a second
     // consent rule, the tournament's own confirmation is written as real
     // consent with its provenance recorded, so the stored record says why
     // it was rated and the eligibility rule stays exactly one rule.
-    if (!bothConsented && d.proUid && d.conUid) {
-      const t = await verifyTournamentPairing(db, room, d.proUid, d.conUid);
+    if (!bothConsented && tourney) {
+      const t = tourney;
       if (t.ok) {
         await ref.update({
           ['leaderboardConsent.' + d.proUid]: true,
@@ -251,6 +264,30 @@ export default async (request, context) => {
           tournamentRound: t.roundKey,
         });
         consents = { ...consents, [d.proUid]: true, [d.conUid]: true };
+      }
+    }
+
+    // A drop-in tournament round posts its result onto the two entries so
+    // the board moves. Idempotent by room, best effort, and gated on the
+    // SAME verification that consented the round: a round the tournament
+    // cannot vouch for never touches the standings.
+    if (tourney && tourney.ok && ballot && ballot.winner) {
+      try {
+        const proIsGov = (tourney.govMembers || []).includes(d.proUid);
+        const govWon = proIsGov ? ballot.winner === 'pro' : ballot.winner === 'con';
+        const pts = (ballot.panel && ballot.panel.points) || {};
+        // panel points are keyed a=pro, b=con.
+        const govSpeaks = proIsGov ? pts.a : pts.b;
+        const oppSpeaks = proIsGov ? pts.b : pts.a;
+        await applyTournamentResult(db, {
+          tid: tourney.tid,
+          roomId: room,
+          gov: { entryId: tourney.govEntry, won: govWon, speaks: govSpeaks },
+          opp: { entryId: tourney.oppEntry, won: !govWon, speaks: oppSpeaks },
+          now: judgedAt,
+        });
+      } catch (err) {
+        console.error('[live-judge] tournament ledger failed', room, err.message);
       }
     }
 

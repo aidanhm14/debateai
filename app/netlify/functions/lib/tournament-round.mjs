@@ -132,7 +132,15 @@ export async function verifyTournamentPairing(db, room, proUid, conUid) {
     );
     if (!ok) return { ok: false, reason: 'participants_not_in_entries' };
 
-    return { ok: true, tid: tRef.id, roundKey: parsed.roundKey };
+    // The entry ids and their members ride back with the verdict so a
+    // caller can post the result onto the right two entries without
+    // re-reading the pairing. Additive: every existing caller reads only
+    // ok/tid/roundKey.
+    return {
+      ok: true, tid: tRef.id, roundKey: parsed.roundKey,
+      govEntry: String(pairing.govEntry), oppEntry: String(pairing.oppEntry),
+      govMembers: govSnap.data().members || [], oppMembers: oppSnap.data().members || [],
+    };
   } catch (err) {
     console.warn('[tournament-round] verification failed, treating as casual:', err.message);
     return { ok: false, reason: 'error' };
