@@ -1997,7 +1997,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
     var p = buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, submittedRanking, humanReason, usedVoice, styleKey, paradigmKey, customParadigm);
 
-    brainHeaders(brainKey).then(function(headers){
+    // One attempt. Rejects with a labelled error so the retry loop below
+    // can tell a dropped connection apart from a ballot we cannot read:
+    // the first is worth retrying and is not the user's fault, the second
+    // is neither.
+    function attemptBallot(headers){
       return fetch(brain.endpoint, {
         method: 'POST',
         headers: headers,
@@ -2012,15 +2016,43 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
           _feature: 'live-round',
           _voiceFormat: formatKey
         })
+      }).then(function(r){
+        return r.text().then(function(raw){
+          if (!r.ok) throw new Error(serviceError(raw, r.status, brain.name));
+          // A truncated stream arrives as a 200 with a few hundred bytes and
+          // no terminating event. Measured on a real report: 639 bytes,
+          // message_start plus content_block_start, nothing else. Calling
+          // that a bad ballot is what sent one user rewriting a five-line
+          // transcript over and over for a fault on our side.
+          var text = extractModelResponse(raw);
+          if (!text || !text.trim()){
+            var e = new Error('The connection to the judge dropped before the ballot came back.');
+            e.transient = true;
+            throw e;
+          }
+          return text;
+        });
       });
-    }).then(function(r){
-      return r.text().then(function(raw){
-        if (!r.ok) throw new Error(serviceError(raw, r.status, brain.name));
-        return extractModelResponse(raw);
+    }
+
+    var ATTEMPTS = 3;
+    function runAttempt(headers, n){
+      return attemptBallot(headers).catch(function(err){
+        if (!err || !err.transient || n >= ATTEMPTS) throw err;
+        // Jittered, so a room full of debaters ending rounds together does
+        // not retry in lockstep.
+        var wait = (n === 1 ? 1500 : 4000) + Math.floor(Math.random() * 1200);
+        $('loading').querySelector('.lbl').textContent = 'The connection dropped. Trying again…';
+        return new Promise(function(resolve){ setTimeout(resolve, wait); })
+          .then(function(){ return runAttempt(headers, n + 1); });
       });
+    }
+
+    brainHeaders(brainKey).then(function(headers){
+      return runAttempt(headers, 1);
     }).then(function(raw){
       var parsed = parseBallot(raw, formatKey);
-      if (!parsed) throw new Error('The ballot came back in a shape we could not read. Try again, or trim the transcript if it is very long.');
+      if (!parsed) throw new Error('The judge answered, but not in the ballot format we can read. Try again, and if it keeps happening tell us at the feedback link.');
       renderBallot(parsed, formatKey, submittedRanking);
       try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner, judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
     }).catch(function(err){

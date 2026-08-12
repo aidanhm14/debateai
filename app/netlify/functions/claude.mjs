@@ -214,6 +214,57 @@ async function checkSignedInBetaLimit(userId) {
   return { ok: history.length <= SIGNED_IN_BETA_DAILY_MAX, count: history.length };
 }
 
+// Keep a streamed response alive through a silent upstream. See the long
+// note at the return site for the measurement that made this necessary.
+//
+// The beat fires only when BOTH are true: nothing has arrived for
+// HEARTBEAT_MS, and the last bytes we forwarded ended on an SSE event
+// boundary. The second condition is the one that matters: a comment spliced
+// into a half-delivered event corrupts it, so when in doubt we skip the beat
+// and wait. Real gaps start after a complete event, so in practice it fires.
+const HEARTBEAT_MS = 4000;
+
+function withHeartbeat(upstream, enabled) {
+  if (!upstream || !enabled) return upstream;
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  const reader = upstream.getReader();
+  let timer = null;
+  let lastAt = Date.now();
+  let atBoundary = true;   // nothing sent yet, so we are trivially at one
+
+  return new ReadableStream({
+    start(controller) {
+      timer = setInterval(() => {
+        if (!atBoundary) return;
+        if (Date.now() - lastAt < HEARTBEAT_MS) return;
+        try { controller.enqueue(enc.encode(': keepalive\n\n')); lastAt = Date.now(); } catch {}
+      }, 1000);
+
+      (async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+            lastAt = Date.now();
+            atBoundary = /\n\n$/.test(dec.decode(value, { stream: true }));
+          }
+          controller.close();
+        } catch (err) {
+          try { controller.error(err); } catch {}
+        } finally {
+          clearInterval(timer);
+        }
+      })();
+    },
+    cancel(reason) {
+      clearInterval(timer);
+      return reader.cancel(reason);
+    },
+  });
+}
+
 export default async (request, context) => {
   const CORS = getCorsHeaders(request);
 
@@ -569,12 +620,32 @@ export default async (request, context) => {
       } catch {}
     }
 
-    // Stream the response through to the client
-    return new Response(clientBody, {
+    // Stream the response through to the client, with a heartbeat.
+    //
+    // WHY THE HEARTBEAT EXISTS, measured 2026-08-12 on a real /judge report.
+    // A reasoning model opens a thinking block and then sends NOTHING for
+    // several seconds while it reasons. Against api.anthropic.com directly
+    // that is fine: the gap was 6.5s, Anthropic sent its own `ping` at 9.0s,
+    // and the stream completed at 22.4s with message_stop. Proxied through
+    // here, the same request died at 13.6s having last received bytes at
+    // 3.0s: 639 bytes, message_start plus content_block_start, no ping, no
+    // message_stop, and a 200 status. The edge drops a silent stream.
+    //
+    // The client cannot tell that apart from a bad ballot, so /judge told
+    // users their transcript was malformed and they rewrote it, repeatedly,
+    // for a fault that was ours. A comment line every few seconds keeps
+    // bytes moving; SSE readers ignore any line that is not `data:`.
+    //
+    // Injected ONLY at an event boundary. Chunk boundaries can split an SSE
+    // event mid-JSON, and a comment spliced into the middle of one would
+    // corrupt the very payload this is protecting.
+    return new Response(withHeartbeat(clientBody, body.stream === true && response.ok), {
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
         'Cache-Control': 'no-cache',
+        // Netlify and any intermediary proxy: do not buffer this.
+        'X-Accel-Buffering': 'no',
         ...CORS,
       },
     });
