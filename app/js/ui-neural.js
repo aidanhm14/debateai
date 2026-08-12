@@ -77,18 +77,35 @@
     // colors to the lighter palette.
     var isLight=document.documentElement.getAttribute('data-theme')==='light'
               ||document.body.classList.contains('light-theme');
-    themeActive=!isLight;
-    var R=isLight?100:239,G=isLight?130:68,B=isLight?180:68;
+    // landing_lightweb_v1 (2026-08-11). The 'web' arm runs the same
+    // geometry on the light surface so the page has depth instead of a
+    // flat cream field. The old light palette was a pale blue-grey at
+    // .07 alpha behind a .18 canvas, i.e. invisible, which is why the
+    // loop was stopped on light at all. The web arm swaps in a warm
+    // graphite ink sized to land at roughly the same perceptual weight
+    // the red lines carry on black, and keeps the loop running. Only
+    // landing.html sets the attribute, so every other page is unchanged.
+    var lightWeb=isLight&&document.documentElement.getAttribute('data-lightweb')==='web';
+    themeActive=!isLight||lightWeb;
+    var R=lightWeb?74:(isLight?100:239),
+        G=lightWeb?64:(isLight?130:68),
+        B=lightWeb?68:(isLight?180:68);
     var rgb=R+','+G+','+B;
-    EDGE_COLOR='rgba('+rgb+','+(isLight?.07:.18)+')';
-    NODE_COLOR='rgba('+rgb+','+(isLight?.2:.4)+')';
-    PULSE_COLOR='rgba('+rgb+','+(isLight?.3:.55)+')';
+    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.17:(isLight?.07:.18))+')';
+    NODE_COLOR='rgba('+rgb+','+(lightWeb?.46:(isLight?.2:.4))+')';
+    // Pulses stay brand red on the light arm: the ink carries the
+    // structure, the red carries the life.
+    PULSE_COLOR=lightWeb?'rgba(200,60,60,.6)':'rgba('+rgb+','+(isLight?.3:.55)+')';
     CDIST=isLight?CONNECT_DIST_LIGHT:CONNECT_DIST_DARK;
     CDIST_SQ=CDIST*CDIST;
-    lineW=isLight?.4:.5;
-    nodeRMul=isLight?.9:1;
-    // The constellation is intentionally invisible on light surfaces.
-    // Stop its frame loop instead of painting a near-transparent canvas.
+    lineW=lightWeb?.5:(isLight?.4:.5);
+    // Nodes carry the depth on cream: a sub-1px dot antialiases away to
+    // nothing, so the web arm keeps them at full size rather than the
+    // light theme's .9 shrink.
+    nodeRMul=(isLight&&!lightWeb)?.9:1;
+    // The constellation is intentionally invisible on light surfaces
+    // outside the 'web' arm. Stop its frame loop instead of painting a
+    // near-transparent canvas.
     if(!themeActive){
       if(rafId){cancelAnimationFrame(rafId);rafId=0}
       ctx.clearRect(0,0,W,H);
@@ -250,7 +267,7 @@
   // class on <body>; either signal should trigger refreshTheme.
   if(window.MutationObserver){
     new MutationObserver(refreshTheme).observe(document.body,{attributes:true,attributeFilter:['class']});
-    new MutationObserver(refreshTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+    new MutationObserver(refreshTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','data-lightweb']});
   }
   tick();
 })();
