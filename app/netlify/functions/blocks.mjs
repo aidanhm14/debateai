@@ -296,6 +296,23 @@ export default async (request) => {
     if (tp) system += '\n\nDOMAIN CONTEXT (grounding only, still no fabricated citations):\n' + tp;
   } catch (e) { /* classifier is best effort */ }
 
+  // ── STREAMED, AND THIS IS NOT A UX FLOURISH ────────────────────────
+  // A buffered call here returns 504. Measured on production 2026-08-12:
+  // this endpoint and /api/flow both die at almost exactly 30 seconds,
+  // twice each, while /api/argument-lint (Haiku, 1400 tokens) answers in
+  // 8.6s. The gateway gives a synchronous function about 30 seconds, and a
+  // Sonnet-sized structured generation does not fit in it.
+  //
+  // Streaming defeats that because bytes start flowing immediately and the
+  // connection is never idle. The stream carries `progress` events purely
+  // to keep it warm and drive a real progress indicator, and the FINAL
+  // event carries the authoritative payload.
+  //
+  // The scrub still runs SERVER-SIDE on the complete text before that final
+  // event is written. That ordering is the point: the deltas are cosmetic
+  // and the client is told to ignore them, so a fabricated citation can
+  // never reach the UI through the progress channel. Do not "optimise" this
+  // by rendering from the deltas.
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -307,12 +324,13 @@ export default async (request) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
+        stream: true,
         system,
         messages: [{ role: 'user', content: buildUserMessage({ caseText, format, side, motion, sourceNote }) }],
       }),
     });
 
-    if (!upstream.ok) {
+    if (!upstream.ok || !upstream.body) {
       const errText = await upstream.text().catch(() => '');
       console.warn('[blocks] anthropic non-2xx', upstream.status, errText.slice(0, 200));
       return new Response(JSON.stringify({ error: 'Block building failed. Try again in a moment.' }), {
@@ -320,34 +338,83 @@ export default async (request) => {
       });
     }
 
-    const data = await upstream.json();
-    const raw = data?.content?.[0]?.text || '';
-    const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-    let parsed = null;
-    try { parsed = JSON.parse(stripped); } catch (e) {
-      console.warn('[blocks] JSON parse failed', e?.message, raw.slice(0, 200));
-      return new Response(JSON.stringify({ error: 'The response came back malformed. Try again.' }), {
-        status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
-      });
-    }
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const send = (controller, event, payload) => {
+      controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
+    };
 
-    // Belt and braces on the evidence rule. The prompt forbids author-year
-    // citations inside the argument fields, but a prompt is not a
-    // guarantee, and this is the one failure that costs real credibility.
-    // Anything that smells like a card gets stripped to a flag the UI can
-    // render as "verify this yourself" rather than silently shipping it.
-    const flagged = scrubFabricatedCites(parsed);
+    const stream = new ReadableStream({
+      async start(controller) {
+        let raw = '';
+        let buffer = '';
+        // First byte immediately, before the model has produced anything.
+        // This is what actually stops the gateway clock.
+        send(controller, 'progress', { chars: 0 });
 
-    return new Response(JSON.stringify({
-      ...parsed,
-      _meta: {
-        model: MODEL,
-        format: format || null,
-        side,
-        citesStripped: flagged,
-        signedIn,
+        try {
+          const reader = upstream.body.getReader();
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            // Anthropic sends SSE frames separated by a blank line.
+            let idx;
+            while ((idx = buffer.indexOf('\n\n')) !== -1) {
+              const frame = buffer.slice(0, idx);
+              buffer = buffer.slice(idx + 2);
+              const dataLine = frame.split('\n').find((l) => l.startsWith('data:'));
+              if (!dataLine) continue;
+              let evt;
+              try { evt = JSON.parse(dataLine.slice(5).trim()); } catch (e) { continue; }
+              if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+                raw += evt.delta.text || '';
+                send(controller, 'progress', { chars: raw.length });
+              } else if (evt.type === 'error') {
+                console.warn('[blocks] upstream stream error', JSON.stringify(evt).slice(0, 200));
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[blocks] stream read failed', err?.message);
+          send(controller, 'failed', { error: 'The connection dropped mid-build. Try again.' });
+          controller.close();
+          return;
+        }
+
+        const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+        let parsed = null;
+        try { parsed = JSON.parse(cleaned); } catch (e) {
+          console.warn('[blocks] JSON parse failed', e?.message, raw.slice(0, 200));
+          send(controller, 'failed', { error: 'The response came back malformed. Try again.' });
+          controller.close();
+          return;
+        }
+
+        // Belt and braces on the evidence rule, on the COMPLETE text, before
+        // anything authoritative leaves the server. The prompt forbids
+        // author-year citations in the argument fields; a prompt is not a
+        // guarantee, and this is the one failure that costs real credibility.
+        const flagged = scrubFabricatedCites(parsed);
+
+        send(controller, 'result', {
+          ...parsed,
+          _meta: { model: MODEL, format: format || null, side, citesStripped: flagged, signedIn },
+        });
+        controller.close();
       },
-    }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        ...CORS,
+      },
+    });
   } catch (err) {
     console.error('[blocks] error', err?.message);
     return new Response(JSON.stringify({ error: 'Block building failed. Try again in a moment.' }), {
