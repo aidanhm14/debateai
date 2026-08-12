@@ -484,8 +484,17 @@
       // against a white bar, and a two-stop version rendered visibly
       // fainter than its three neighbours at icon size.
       gradient: ['#25F4EE', '#FE2C55', '#FE2C55'],
-      // Note head, stem, and the flag hooking up to the right.
-      icon: '<circle cx="10.3" cy="14.4" r="4"/>'
+      // 2026-08-12, per Aidan ("hard to see"): the note head is FILLED and
+      // the strokes are heavier than the rail default. This mark carries
+      // far less ink than its three neighbours by construction. Instagram
+      // is a rounded square with a lens inside it, YouTube a plate with a
+      // triangle, Twitch a bevelled panel, and TikTok is one open ring and
+      // one thin curve. At 16px an open ring next to three enclosed shapes
+      // reads as the faint one no matter what colour it is, and the real
+      // mark's head is solid anyway, so outlining it was both weaker and
+      // less accurate. Filling the head roughly doubles the mark's ink.
+      strokeWidth: 2.5,
+      icon: '<circle cx="10.3" cy="14.4" r="4" fill="%PAINT%" stroke="none"/>'
           + '<path d="M14.3 14.4V3.6a5.4 5.4 0 0 0 5.4 5.4"/>',
     },
     {
@@ -533,9 +542,14 @@
       defs = '<defs><linearGradient id="' + gid + '" x1="0" y1="1" x2="1" y2="0">' + stops + '</linearGradient></defs>';
       stroke = 'url(#' + gid + ')';
     }
+    // %PAINT% lets one entry fill a shape with whatever this icon is
+    // stroked in (flat colour or the gradient just minted), which a
+    // per-entry literal cannot do because the gradient id is generated
+    // here, per call. TikTok is the only user: see its note head.
+    var body = s.icon.split('%PAINT%').join(stroke);
     return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="' + stroke + '" '
-      + 'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + defs + s.icon + '</svg>';
+      + 'stroke-width="' + (s.strokeWidth || 1.9) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + defs + body + '</svg>';
   }
 
   // Desktop Explore panel presentation layer: one small stroke icon and

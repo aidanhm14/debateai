@@ -4131,7 +4131,10 @@ function initDialecticalFlow() {}
    ═══════════════════════════════════════════════════ */
 
 var SUPPORTED_LOCALES = [
-{ code: 'en', name: 'English', flag: '\ud83c\uddfa\ud83c\uddf8' },
+// Two flags on purpose (UK + US): English is not a US language, and the
+// topbar pill is flag-only now, so a lone Stars and Stripes was the whole
+// statement the control made about who the site is for.
+{ code: 'en', name: 'English', flag: '\ud83c\uddec\ud83c\udde7\ud83c\uddfa\ud83c\uddf8' },
 { code: 'hi', name: '\u0939\u093f\u0928\u094d\u0926\u0940', flag: '\ud83c\uddee\ud83c\uddf3' },
 { code: 'de', name: 'Deutsch', flag: '\ud83c\udde9\ud83c\uddea' },
 { code: 'fr', name: 'Fran\u00e7ais', flag: '\ud83c\uddeb\ud83c\uddf7' },
@@ -17677,10 +17680,16 @@ function App() {
   React.createElement('span', { style: { position: 'relative', display: 'inline-flex', alignItems: 'center' } },
   React.createElement('span', {
     className: 'topbar-pill topbar-tint-pill',
-    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999, display: 'inline-block', pointerEvents: 'none' }
+    // Negative tracking so English's two-flag pair does not widen the
+    // pill past its neighbours in the rail.
+    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999, display: 'inline-block', pointerEvents: 'none', letterSpacing: '-.07em' }
   },
-  (SUPPORTED_LOCALES.find((l) => l.code === locale) || SUPPORTED_LOCALES[0]).flag + ' ' +
-  (SUPPORTED_LOCALES.find((l) => l.code === locale) || SUPPORTED_LOCALES[0]).code.toUpperCase()
+  // 2026-08-12, per Aidan: flag only. The "EN" beside it was the label
+  // spending the most width in the rail to say what the flag already
+  // said, to a reader who can obviously read it. The OPEN list below
+  // still carries full language names, which is the place a name is
+  // load-bearing, and the select keeps its aria-label and title.
+  (SUPPORTED_LOCALES.find((l) => l.code === locale) || SUPPORTED_LOCALES[0]).flag
   ),
   React.createElement('select', {
     value: locale,
