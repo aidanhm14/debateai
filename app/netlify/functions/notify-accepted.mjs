@@ -10,10 +10,11 @@
 //
 // Env vars (set in Netlify):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
-//   RESEND_FROM     — verified sender, e.g. "Debatable <aidandavidhollinger@gmail.com>"
-//                     (when unset: EMAIL_FROM env, then the always-deliverable
-//                      dev sender 'Debatable <onboarding@resend.dev>', which
-//                      Resend accepts on any account with no domain setup)
+//   RESEND_FROM     — verified sender, e.g. "Debatable <aidan@debateai.com>"
+//                     (when unset: EMAIL_FROM env, then the hardcoded verified
+//                      sender 'Debatable <aidan@debateai.com>'). Never fall back
+//                      to onboarding@resend.dev: it only delivers to the account
+//                      owner, so every send to a real user 403s silently.
 //
 // Sends ride through lib/email.mjs on the 'transactional' stream: shared
 // esc, automatic text/plain part, no List-Unsubscribe headers (these are
@@ -103,7 +104,7 @@ export default async (req) => {
   // this file's historical zero-env fallback and works on any Resend
   // account without domain verification; don't let it fall through to the
   // lib's gmail default, which needs a verified sender identity.
-  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <aidan@debateai.com>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',

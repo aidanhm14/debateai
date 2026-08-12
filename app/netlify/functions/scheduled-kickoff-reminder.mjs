@@ -8,7 +8,8 @@
 //
 // Env vars (set in Netlify, same as notify-accepted):
 //   RESEND_API_KEY        — Resend API key
-//   RESEND_FROM           — verified sender (defaults to onboarding@resend.dev)
+//   RESEND_FROM           — verified sender (defaults to aidan@debateai.com; the
+//                           only domain verified in Resend is debateai.com)
 //   GOOGLE_SERVICE_ACCOUNT — Firebase service account JSON for admin Firestore
 
 import { getDb } from './lib/firestore.mjs';
@@ -92,7 +93,7 @@ function buildRoundUrl(challenge){
 
 export default async (req) => {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <aidan@debateai.com>';
   if (!apiKey) {
     console.warn('[scheduled-kickoff] RESEND_API_KEY missing, skipping run');
     return new Response('skipped (no api key)', { status: 200 });
