@@ -378,6 +378,19 @@ The rules that are easy to break by accident:
 - Panel degradation is fine and disclosed (stamped on the audit row,
   surfaced by the charter). Silent degradation is not. `JUDGE_PANEL_ENABLED=0`
   and `JUDGE_REQUIRE_PANEL=1` are the two env switches.
+- **A streamed response must never go silent, or the edge kills it and you
+  get a 200 with no ballot in it.** Measured 2026-08-12 from a real user
+  report: a reasoning model opens a thinking block and sends nothing for
+  seconds, and the proxied stream died at 13.6s with 639 bytes and no
+  `message_stop`, while the identical request straight to Anthropic
+  finished at 22.4s (Anthropic sends its own `ping` at 9s for exactly this
+  reason). `claude.mjs` now emits a `: keepalive` SSE comment after 4s of
+  silence, **only at an event boundary** since a comment spliced into a
+  half-delivered event corrupts it. Do not remove it, and if you add a new
+  streaming proxy, give it the same heartbeat. A client that receives a
+  truncated stream must report it as a dropped connection, never as
+  malformed output: `/judge` told a user to trim a five-line transcript
+  for an hour because of that mislabel.
 - **Reasoning models bill thinking against `max_tokens`, and a cap tuned
   before they existed reads as a parse bug forever.** This is not
   hypothetical: the panel's Anthropic seat was capped at 900 tokens, spent
