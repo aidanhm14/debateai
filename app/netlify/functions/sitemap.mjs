@@ -31,7 +31,7 @@ const DYNAMIC = new Set([
 ]);
 
 const URLS = [
-  { path: '/',                changefreq: 'daily',   priority: '1.0' },
+  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-12' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
@@ -76,7 +76,7 @@ const URLS = [
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-12' },
   // Multilingual search cluster. These are full native-language pages with
   // reciprocal hreflang, visible language links, and localized app handoffs.
   { path: '/languages/',                              changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-10' },

@@ -121,6 +121,12 @@
     { match: /^\/leaderboard/,
       delay: 25,
       msg: '<strong>Every name here earned it in a judged round.</strong> Sign in, debate the AI out loud, and your best score takes a place on this board.' },
+    // /debate-online has a persistent Google button in the first screen.
+    // Offer native One Tap on arrival, but do not stack the floating pill
+    // over that inline account path.
+    { match: /^\/debate-online(?:\.html)?(?:[/?#]|$)/,
+      inlineAuth: true,
+      msg: '<strong>Join the debate pool with Google.</strong> Enter the human queue, keep every ballot, and use AI fallback when the queue is quiet.' },
     { match: /^\/spar|\/live|\/community|\/rounds/,
       delay: 20,
       variant: 'community',
@@ -253,7 +259,7 @@
     try { localStorage.setItem(LAST_METHOD_KEY, method); } catch (e) {}
   }
 
-  function doSignIn(cfg){
+  function doSignIn(cfg, source){
     rememberInviteChoice(cfg);
     // Landing owns the most resilient Google flow: popup first, then a
     // redirect fallback for Safari and in-app browsers. Use its hidden
@@ -288,7 +294,7 @@
         rememberMethod('google');
         flushInviteOptIn(result && result.user);
         try {
-          if (window.gtag) gtag('event', 'sign_in_complete', { method: 'google', source: 'signup_nudge', path: location.pathname });
+          if (window.gtag) gtag('event', 'sign_in_complete', { method: 'google', source: source || 'signup_nudge', path: location.pathname });
         } catch (e) {}
       }).catch(function(){
         try {
@@ -299,10 +305,35 @@
         } catch (e) {}
       });
       try {
-        if (window.gtag) gtag('event', 'sign_up_start', { method: 'Google', source: 'signup_nudge', path: location.pathname });
+        if (window.gtag) gtag('event', 'sign_up_start', { method: 'Google', source: source || 'signup_nudge', path: location.pathname });
       } catch (e) {}
     } catch (e) {}
   }
+
+  // Public hook for first-screen Google buttons on acquisition pages. It
+  // deliberately reuses this module's anonymous-account linking and mobile
+  // redirect fallback instead of creating a second auth implementation.
+  window.debatableGoogleSignIn = function(source){
+    if (typeof firebase !== 'undefined' && firebase.auth){
+      doSignIn(getConfig(), source || 'inline_google');
+      return;
+    }
+    // If the content-page Firebase bootstrap is still in flight, preserve
+    // the user's click by opening the shared modal. Its Google button gives
+    // the account chooser a fresh user gesture after auth is ready.
+    if (typeof window.openAuthModal === 'function'){
+      window.openAuthModal('signin');
+      return;
+    }
+    var attempts = 0;
+    var wait = setInterval(function(){
+      attempts += 1;
+      if (typeof window.openAuthModal === 'function'){
+        clearInterval(wait);
+        window.openAuthModal('signin');
+      } else if (attempts >= 30) clearInterval(wait);
+    }, 100);
+  };
 
   // ── Google One Tap ────────────────────────────────────────────────
   // The native account chip (the visitor's own Google avatar, one click,
@@ -364,22 +395,11 @@
             client_id: ONE_TAP_CLIENT_ID,
             callback: onOneTapCredential,
             cancel_on_tap_outside: false,
-            context: 'signin',
-            use_fedcm_for_prompt: true
+            context: 'signin'
           });
-          window.google.accounts.id.prompt(function(moment){
-            try {
-              if (!window.gtag || !moment) return;
-              if (moment.isSkippedMoment && moment.isSkippedMoment()) {
-                gtag('event', 'one_tap_skipped', { path: location.pathname });
-              } else if (moment.isDismissedMoment && moment.isDismissedMoment()) {
-                gtag('event', 'one_tap_dismissed', {
-                  reason: (moment.getDismissedReason && moment.getDismissedReason()) || '',
-                  path: location.pathname
-                });
-              }
-            } catch (e) {}
-          });
+          // FedCM owns the prompt UI. Do not depend on legacy display/skip
+          // moment callbacks, which Google is removing from the API.
+          window.google.accounts.id.prompt();
           try { if (window.gtag) gtag('event', 'one_tap_attempted', { path: location.pathname }); } catch (e) {}
         } catch (e) {}
       };
@@ -521,15 +541,25 @@
     armReminder(Math.max(1, sessionAttempts()));
   });
 
+  var startAttempts = 0;
   function start(){
+    // Content pages get Firebase asynchronously from topbar.js and
+    // notifications.js. Wait briefly rather than permanently skipping One
+    // Tap because those shared bootstraps finished after DOMContentLoaded.
+    if (typeof firebase === 'undefined' || !firebase.auth){
+      startAttempts += 1;
+      if (startAttempts <= 80) setTimeout(start, 100);
+      return;
+    }
     // One Tap runs regardless of the pill's dismissal cooloff: it is a
     // different surface with Chrome's own escalating backoff (a visitor
     // who closes it gets hours-to-weeks of native quiet), so gating it
     // on the pill's 24h key would only starve the higher-converting
     // surface to protect the lower one.
     tryOneTap();
-    if (recentlyDismissed()) return;
     var cfg = getConfig();
+    if (cfg.inlineAuth) return;
+    if (recentlyDismissed()) return;
     var delayMs = (cfg.delay || 25) * 1000;
 
     // Firebase not on this page → bail. Don't show a nudge that
