@@ -1291,6 +1291,11 @@
     var myUid = null, myUser = null, db = null, myRef = null;
     var ownUnsub = null, hbTimer = null, scanTimer = null;
     var pill = null, overlay = null, handledRoom = null, navigating = false;
+    // Ready-check state. consentRoom marks the room we've already shown a
+    // card for, so the snapshot that lands when our own accept writes
+    // `consents` doesn't restart the countdown. awaitingPeer means we
+    // accepted and are holding for the other side.
+    var consentRoom = null, awaitingPeer = false;
     var declinedPeer = null, declinedAt = 0, scanning = false, pairing = false;
     var suppressAvailableNoteOnce = false;
     // After a decline (or a timed-out invite) we step out of the queue and stay
@@ -1507,19 +1512,49 @@
         }
         docGone = false;
         var d = doc.data() || {};
+        // READY-CHECK (2026-08-12). spar-pair now lands EVERY pair in
+        // 'consent' first, background sessions included, so this is the
+        // state an invite arrives in. 'matched' only appears once both
+        // sides have accepted, and that is the one we navigate on.
+        //
+        // Accepting writes `consents` onto this same doc, which fires
+        // another snapshot with the status still 'consent' — so the
+        // card must not be re-rendered (it would restart the countdown
+        // and re-chime). consentRoom is that guard.
+        var pending = d.status === 'consent' && d.room && d.matchedWith;
         var matched = d.status === 'matched' && d.room && d.matchedWith;
+        if (pending) {
+          if (consentRoom === d.room || navigating) return;
+          if (Date.now() < declineUntil) { sendConsent(d.matchedWith, false, true); return; }
+          consentRoom = d.room;
+          showMatch(d);
+          return;
+        }
         if (matched) {
-          if (handledRoom === d.room || navigating || overlay) return;
+          if (handledRoom === d.room || navigating) return;
           // Post-decline quiet window: a peer paired us before we finished
           // stepping out. Release them back to 'waiting' and stay quiet
           // instead of popping another invite.
           if (Date.now() < declineUntil) { releaseMatch(); return; }
           handledRoom = d.room;
-          showMatch(d);
-        } else if (overlay && !navigating) {
-          // My open match got revoked (peer declined / server released it).
+          consentRoom = null;
+          // Both sides are in. If our own card is still up (we accepted
+          // and were waiting on them) close it and go; if this is a
+          // legacy instant match with no consent phase, showMatch still
+          // covers it.
+          if (awaitingPeer || overlay) { awaitingPeer = false; goToRound(d); }
+          else showMatch(d);
+          return;
+        }
+        if (!pending && !matched && (overlay || awaitingPeer) && !navigating) {
+          // My open invite got revoked: the peer passed, their 20s ran
+          // out, or the server ghost-cancelled a side that never acted.
+          // The doc is back to 'waiting' (or cancelled), so drop the
+          // card and resume scanning.
           closeOverlay();
           handledRoom = null;
+          consentRoom = null;
+          awaitingPeer = false;
           sparNote('Opponent passed. Still looking.');
           if (available && !ON_ROUND && !ON_SPAR) { startTimers(); scan(); }
         }
@@ -1619,7 +1654,9 @@
         left--;
         if (num) num.textContent = left > 0 ? left : 0;
         if (bar) bar.style.strokeDashoffset = (C * (COUNTDOWN_S - left) / COUNTDOWN_S);
-        if (left <= 0) { decline(d); }
+        // Timed out with nobody at the keyboard. Pass as `auto` so the
+        // server can tell a silent tab from a human choosing to skip.
+        if (left <= 0) { decline(d, true); }
       }, 1000);
     }
     function closeOverlay() {
@@ -1647,11 +1684,69 @@
       requestAnimationFrame(function () { t.classList.add('in'); });
       setTimeout(function () { t.classList.remove('in'); setTimeout(function () { if (t.parentNode) t.remove(); }, 320); }, 4000);
     }
+    // Tell the server we are here. The round does NOT open on this — the
+    // doc stays 'consent' until the other side answers too, and the
+    // 'matched' snapshot is what navigates. Accepting into a room the
+    // peer never entered is the whole bug this gate exists to close.
+    function sendConsent(peerUid, ok, auto) {
+      if (!peerUid) return;
+      try { if (window.gtag) gtag('event', ok ? 'spar_bg_consent_accept' : 'spar_bg_consent_pass', { auto: !!auto }); } catch (e) {}
+      try {
+        window.firebase.auth().currentUser.getIdToken().then(function (tok) {
+          return fetch('/.netlify/functions/spar-pair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ action: 'consent', accept: !!ok, auto: !!auto, peerUid: peerUid })
+          });
+        }).then(function (r) { return r.json().catch(function () { return {}; }); })
+          .then(function (j) {
+            if (j && j.ok) return;
+            // 'consent_state_gone' needs nothing: my own snapshot has
+            // already moved me. Any other failure left the proposal
+            // alive but my click dead, so put the card back rather than
+            // leave the user staring at a spinner until a timer unwinds
+            // it. Mirrors spar.html's recoverConsentCard.
+            var reason = (j && (j.reason || j.error)) || 'unknown';
+            if (reason === 'consent_state_gone') return;
+            console.warn('[spar-live] consent POST soft-failed:', reason);
+            if (ok) { awaitingPeer = false; consentRoom = null; }
+          }).catch(function (err) {
+            console.warn('[spar-live] consent POST failed', err);
+            if (ok) { awaitingPeer = false; consentRoom = null; }
+          });
+      } catch (e) { /* auth missing: the peer's own timeout backstops us */ }
+    }
+
     function accept(d) {
+      if (navigating || awaitingPeer) return;
+      try { if (window.gtag) gtag('event', 'spar_bg_accept'); } catch (e) {}
+      // Legacy instant match (no consent phase): go straight in.
+      if (d && d.status === 'matched') { goToRound(d); return; }
+      // Ready-check: register presence and hold. Swap the card for a
+      // waiting state so the click visibly did something and the
+      // countdown stops pretending to be a deadline we still own.
+      awaitingPeer = true;
+      showWaitingForPeer(d);
+      sendConsent(d && d.matchedWith, true, false);
+    }
+
+    // Card state after accepting: their clock is the one still running.
+    function showWaitingForPeer(d) {
+      if (!overlay) return;
+      if (overlay.__tick) { clearInterval(overlay.__tick); overlay.__tick = null; }
+      var card = overlay.querySelector('.da-match-card');
+      if (!card) return;
+      var nm = (d && d.matchedWithName) || 'them';
+      card.innerHTML =
+        '<div class="da-match-eyebrow">You’re in</div>' +
+        '<div class="da-match-name">Waiting for ' + escHtml(nm) + '</div>' +
+        '<div class="da-match-sub">The round opens as soon as they answer.</div>';
+    }
+
+    function goToRound(d) {
       if (navigating) return;
       navigating = true;
       closeOverlay();
-      try { if (window.gtag) gtag('event', 'spar_bg_accept'); } catch (e) {}
       var params = new URLSearchParams({
         motion: d.pairedMotion || '',
         format: d.pairedFormat || fmt(),
@@ -1693,12 +1788,23 @@
         }
       }, Math.max(0, declineUntil - Date.now()));
     }
-    function decline(d) {
+    function decline(d, auto) {
       closeOverlay();
       declinedPeer = (d && d.matchedWith) || null;
       declinedAt = Date.now();
       handledRoom = null;
-      try { if (window.gtag) gtag('event', 'spar_bg_decline'); } catch (e) {}
+      var wasPending = !!consentRoom;
+      consentRoom = null;
+      awaitingPeer = false;
+      try { if (window.gtag) gtag('event', 'spar_bg_decline', { auto: !!auto }); } catch (e) {}
+      // In the ready-check phase the pass goes through the consent API,
+      // which reverts BOTH docs to 'waiting' with a mutual skip so the
+      // pair isn't re-proposed immediately. spar-unmatch is for a match
+      // that already completed, and calling it here would leave the
+      // proposal behind. An `auto` pass (our 20s ran out) additionally
+      // feeds the server's ghost-cancel heuristic, which is how a peer
+      // waiting on a dead tab gets released instead of stranded.
+      if (wasPending) sendConsent(d && d.matchedWith, false, !!auto);
       if (!available || ON_ROUND || ON_SPAR) return;
       // Don't re-invite someone who just declined (or let an invite time out).
       // Stay quiet for REINVITE_COOLDOWN_MS: stop scanning, release the peer
@@ -1708,7 +1814,11 @@
       // a tab-focus can't sneak a card in during the window.
       declineUntil = Date.now() + REINVITE_COOLDOWN_MS;
       stopTimers();
-      releaseMatch();
+      // A consent pass has already reverted the peer server-side, so
+      // only drop our own doc; calling releaseMatch would fire
+      // spar-unmatch against a match that never completed.
+      if (wasPending) { if (myRef) myRef.delete().catch(function () {}); }
+      else releaseMatch();
       pauseForCooldown();
     }
 

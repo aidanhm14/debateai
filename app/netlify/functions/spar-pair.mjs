@@ -534,15 +534,12 @@ export default async (request) => {
         crossFormat,
       };
 
-      // Judge-paradigm notes gate the match behind consent. Background
-      // sessions have no consent surface (js/notifications.js only
-      // knows 'matched'), so those pairs complete instantly and the
-      // notes stay out of the round.
+      // Judge-paradigm notes ride through the same gate: a note only
+      // ever reaches the judge with both debaters' eyes on it.
       const myParadigm = cleanParadigm(mine.paradigm);
       const theirParadigm = cleanParadigm(theirs.paradigm);
-      const anyBackground = !!mine.background || !!theirs.background;
-      // READY-CHECK (2026-08-10): the gate now fires for EVERY foreground
-      // pair, not just ones carrying a judge note or a format conflict.
+      // READY-CHECK (2026-08-10): the gate fires for EVERY pair, not
+      // just ones carrying a judge note or a format conflict.
       //
       // Measured on 411 live rounds: only ~85 ever had both people
       // actually present, 215 had exactly one, and 390 never completed a
@@ -552,11 +549,34 @@ export default async (request) => {
       // people mid-round or at the ballot: past speech one, ~43% of
       // rounds finish. It was matching them against nobody.
       //
-      // So presence has to be proven before a room opens. Background
-      // ("Spar live") sessions still skip the gate because
-      // js/notifications.js has no consent surface to render.
+      // So presence has to be proven before a room opens.
+      //
+      // BACKGROUND SESSIONS NO LONGER SKIP THE GATE (2026-08-12). The
+      // original exemption said js/notifications.js had "no consent
+      // surface to render", which was not true: it has always shown a
+      // 20-second accept/decline overlay. It simply was not wired into
+      // the handshake, so the pair flipped straight to 'matched' and
+      // the FOREGROUND side navigated into the room ~0.9s later while
+      // the background side still had an un-clicked popup. When that
+      // popup timed out, the foreground debater had already been alone
+      // in the room for 19 seconds. That is the empty-room bug the
+      // ready-check was built to stop, arriving through the one door
+      // the ready-check left open.
+      //
+      // Measured before this change: 27 of 60 live queue docs carried
+      // background:true, so roughly 70% of pairs included at least one
+      // and bypassed the gate entirely. Post-ready-check rounds where
+      // both debaters actually arrived: 17.1%, against 23.4% before it
+      // — i.e. the gate was not reaching the pairs that needed it.
+      //
+      // Every caller must now handle status 'consent'. spar.html always
+      // did; js/notifications.js and debate-chat.html were taught to in
+      // the same commit as this line. A caller that cannot render the
+      // card leaves its users spinning until the reaper sweeps them,
+      // which is exactly what /debate-chat did from 2026-08-10 until
+      // this commit.
       const readyCheck = !(myParadigm || theirParadigm) && !crossFormat;
-      const needsConsent = !anyBackground;
+      const needsConsent = true;
 
       if (needsConsent) {
         const proposal = {

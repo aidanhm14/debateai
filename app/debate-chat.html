@@ -305,6 +305,17 @@ h1 em{color:var(--accent);font-style:normal}
 .cancel:hover{color:var(--text);border-color:var(--border-strong)}
 
 .matched{text-align:center;padding:28px 0;display:none}
+/* Ready-check buttons. Shown only in the 'consent' phase. */
+.ready-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.ready-row[hidden]{display:none}
+.ready-yes,.ready-no{font-family:inherit;font-size:.92rem;font-weight:700;padding:11px 22px;border-radius:10px;border:1px solid transparent;transition:transform .12s,background .15s,border-color .15s}
+.ready-yes{background:var(--accent,#ef4444);color:#fff}
+.ready-yes:hover{transform:translateY(-1px);background:#dc2626}
+.ready-yes:disabled{opacity:.6;transform:none;cursor:default}
+.ready-no{background:transparent;color:var(--text-dim);border-color:var(--border)}
+.ready-no:hover{color:var(--text);border-color:var(--text-dim)}
+.ready-yes:focus-visible,.ready-no:focus-visible{outline:2px solid var(--accent,#ef4444);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.ready-yes:hover{transform:none}}
 .matched .check{
   width:64px;height:64px;border-radius:50%;background:var(--green);
   color:#fff;display:inline-flex;align-items:center;justify-content:center;
@@ -468,7 +479,14 @@ footer.foot a{color:var(--text-dim)}
   <div id="matchedBox" class="matched">
     <div class="check">✓</div>
     <div class="searching-title">Paired with <span id="matchedName">a debater</span></div>
-    <div class="searching-sub">Loading the video room…</div>
+    <div class="searching-sub" id="matchedSub">Loading the video room…</div>
+    <!-- Ready-check. Hidden until spar-pair puts the pair in 'consent':
+         both sides confirm someone is actually at the keyboard before a
+         room opens, so nobody lands in an empty one. -->
+    <div id="readyRow" class="ready-row" hidden>
+      <button id="readyBtn" class="ready-yes" type="button">I'm here, start</button>
+      <button id="passBtn" class="ready-no" type="button">Pass</button>
+    </div>
   </div>
 
   <!-- SEO fold -->
@@ -616,7 +634,12 @@ footer.foot a{color:var(--text-dim)}
     pollInterval: null,
     pairInFlight: false,
     cancelled: false,
+    consentPeer: null,     // uid we owe a ready-check answer to
+    consentTimer: null,    // auto-pass if nobody confirms in time
   };
+  // Match the 20s the background matcher gives its card, so a pair made
+  // across the two surfaces has one deadline rather than two.
+  var CONSENT_WINDOW_MS = 20000;
 
   // ── DOM refs ───────────────────────────────────────────
   var $ = function(id){ return document.getElementById(id); };
@@ -632,6 +655,10 @@ footer.foot a{color:var(--text-dim)}
   var peersLine = $('peersLine');
   var matchedBox = $('matchedBox');
   var matchedName = $('matchedName');
+  var matchedSub = $('matchedSub');
+  var readyRow = $('readyRow');
+  var readyBtn = $('readyBtn');
+  var passBtn = $('passBtn');
   var cancelBtn = $('cancelBtn');
   var gateBox = $('gateBox');
   var errorBox = $('errorBox');
@@ -1013,12 +1040,40 @@ footer.foot a{color:var(--text-dim)}
     state.queueUnsub = state.queueDocRef.onSnapshot(function(doc){
       if (!doc.exists) return;
       var d = doc.data();
+      // READY-CHECK. spar-pair lands every pair in 'consent' first and
+      // only flips to 'matched' once BOTH sides confirm they are at the
+      // keyboard. This page had no consent branch between 2026-08-10 and
+      // 2026-08-12, so every pair sat here spinning until the reaper
+      // swept it: matchmaking was silently dead for two days. If you add
+      // another caller of spar-pair, it needs this branch too.
+      if (d.status === 'consent' && d.room && d.matchedWith){
+        searching.style.display = 'none';
+        matchedBox.style.display = 'block';
+        matchedName.textContent = d.matchedWithName || 'a debater';
+        var mine = d.consents && d.consents[state.user.uid];
+        if (mine){
+          // Already confirmed; their clock is the one still running.
+          matchedSub.textContent = 'Waiting for them to confirm…';
+          readyRow.hidden = true;
+        } else {
+          matchedSub.textContent = 'Still there? Confirm so nobody lands in an empty room.';
+          readyRow.hidden = false;
+          readyBtn.disabled = false;
+        }
+        state.consentPeer = d.matchedWith;
+        startConsentTimeout(d.matchedWith);
+        return;
+      }
       if (d.status === 'matched' && d.room && d.matchedWith){
+        stopConsentTimeout();
+        state.consentPeer = null;
+        readyRow.hidden = true;
         teardownQueue(false);
         searching.style.display = 'none';
         // Explicit 'block' overrides .matched{display:none}.
         matchedBox.style.display = 'block';
         matchedName.textContent = d.matchedWithName || 'a debater';
+        matchedSub.textContent = 'Loading the video room…';
         try { gtag('event', 'debate_chat_matched', {}); } catch(e){}
         var params = new URLSearchParams({
           // Prefer pairedMotion (server-chosen older-joiner's motion)
@@ -1038,6 +1093,18 @@ footer.foot a{color:var(--text-dim)}
         // format-aware UI. Source param distinguishes casual-chat
         // pairs from spar pairs in analytics.
         setTimeout(function(){ location.href = '/casual-room.html?' + params.toString(); }, 700);
+      } else if (d.status === 'waiting' && state.consentPeer){
+        // The proposal came apart: someone passed, a clock ran out, or
+        // the server ghost-cancelled a side that never answered. The doc
+        // is back in the queue, so put the searching screen back rather
+        // than leaving a stale "Paired with" card on screen.
+        stopConsentTimeout();
+        state.consentPeer = null;
+        readyRow.hidden = true;
+        matchedBox.style.display = 'none';
+        matchedSub.textContent = 'Loading the video room…';
+        searching.style.display = '';
+        peersLine.textContent = 'They did not confirm. Still looking.';
       } else if (d.status === 'cancelled'){
         var systemCancel = (d.cancelReason === 'stale_peer_skip' || d.cancelReason === 'stale_reaper');
         if (systemCancel && !state.cancelled){
@@ -1097,6 +1164,65 @@ footer.foot a{color:var(--text-dim)}
         console.warn('[debate-chat] tryMatch query failed', err);
       });
   }
+
+  // ── Ready-check ────────────────────────────────────────
+  // Confirm a human is actually here before the room opens. Accepting
+  // does NOT open the room: the doc stays 'consent' until both sides
+  // answer, and the 'matched' snapshot is what navigates.
+  function sendConsent(peerUid, accept, auto){
+    if (!peerUid || !firebaseAuth || !firebaseAuth.currentUser) return;
+    try { gtag('event', accept ? 'debate_chat_consent_accept' : 'debate_chat_consent_pass', { auto: !!auto }); } catch(e){}
+    firebaseAuth.currentUser.getIdToken().then(function(idToken){
+      return fetch('/.netlify/functions/spar-pair', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Authorization':'Bearer ' + idToken},
+        body: JSON.stringify({ action: 'consent', accept: !!accept, auto: !!auto, peerUid: peerUid }),
+      });
+    }).then(function(res){ return res.json().catch(function(){ return {}; }); })
+      .then(function(j){
+        if (j && j.ok) return;
+        var reason = (j && (j.reason || j.error)) || 'unknown';
+        // 'consent_state_gone' needs nothing; my snapshot already moved
+        // me. Anything else killed the click but left the proposal
+        // alive, so give the button back instead of leaving a dead card.
+        if (reason === 'consent_state_gone') return;
+        console.warn('[debate-chat] consent POST soft-failed:', reason);
+        if (accept){ readyBtn.disabled = false; readyRow.hidden = false; matchedSub.textContent = 'That did not register. Try again.'; }
+      }).catch(function(err){
+        console.warn('[debate-chat] consent POST failed', err);
+        if (accept){ readyBtn.disabled = false; readyRow.hidden = false; matchedSub.textContent = 'That did not register. Try again.'; }
+      });
+  }
+  function startConsentTimeout(peerUid){
+    if (state.consentTimer) return;   // already ticking for this proposal
+    state.consentTimer = setTimeout(function(){
+      state.consentTimer = null;
+      if (!state.consentPeer) return;
+      // Nobody answered. Pass as `auto` so the server can tell a silent
+      // tab from a human skip and release the other side cleanly.
+      sendConsent(peerUid, false, true);
+      state.consentPeer = null;
+    }, CONSENT_WINDOW_MS);
+  }
+  function stopConsentTimeout(){
+    if (state.consentTimer){ clearTimeout(state.consentTimer); state.consentTimer = null; }
+  }
+  if (readyBtn) readyBtn.addEventListener('click', function(){
+    if (!state.consentPeer) return;
+    readyBtn.disabled = true;
+    readyRow.hidden = true;
+    matchedSub.textContent = 'Waiting for them to confirm…';
+    stopConsentTimeout();
+    sendConsent(state.consentPeer, true, false);
+  });
+  if (passBtn) passBtn.addEventListener('click', function(){
+    if (!state.consentPeer) return;
+    var peer = state.consentPeer;
+    state.consentPeer = null;
+    stopConsentTimeout();
+    readyRow.hidden = true;
+    sendConsent(peer, false, false);
+  });
 
   function attemptMatch(peerUid){
     if (state.cancelled || state.pairInFlight) return;
