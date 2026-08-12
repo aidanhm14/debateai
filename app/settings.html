@@ -98,6 +98,12 @@
   </header>
 
   <section class="card">
+    <h2>How familiar is debate?</h2>
+    <p class="sub">This changes how much competitive terminology and format detail the site puts in front of you. You can change it anytime.</p>
+    <div id="audienceFields"></div>
+  </section>
+
+  <section class="card">
     <h2>Voice rounds</h2>
     <p class="sub">The AI has to decide when your turn ended. These are the numbers behind that decision.</p>
     <div id="voiceFields"></div>
@@ -257,6 +263,28 @@
     });
   }
 
+  function paintAudience(){
+    var spec = {
+      label: 'Competitive debate experience',
+      help: 'Choose the view that will be easiest to understand. Core features stay the same.',
+      opts: [
+        { id: 'competitive', label: 'I compete', hint: 'Format names and circuit detail are useful.' },
+        { id: 'new', label: 'I am new', hint: 'Use plain language and explain the setup.' },
+        { id: 'unsure', label: 'Not sure yet', hint: 'Start with the plain-language view.' },
+      ]
+    };
+    var current = 'unsure';
+    try { current = localStorage.getItem('debateos-experience') || 'unsure'; } catch (e) {}
+    if (!/^(competitive|new|unsure)$/.test(current)) current = 'unsure';
+    $('audienceFields').textContent = '';
+    renderField($('audienceFields'), spec, current, function(id){
+      try { localStorage.setItem('debateos-experience', id); } catch (e) {}
+      document.documentElement.setAttribute('data-debate-experience', id);
+      if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(id);
+      ga('settings_change', { setting: 'debateos-experience', value: id });
+    });
+  }
+
   $('resetBtn').addEventListener('click', function(){
     RP.reset();
     LOCAL.forEach(function(f){ try { localStorage.removeItem(f.key); } catch (e) {} });
@@ -362,6 +390,7 @@
 
   paintVoice();
   paintLocal();
+  paintAudience();
 })();
 </script>
 </body>

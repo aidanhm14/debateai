@@ -1000,9 +1000,11 @@ h1 em{color:var(--accent);font-style:normal}
   font-family:inherit;
 }
 .waitlist-fab{
-  /* Sits above the read-aloud narration pill (fixed left:16px bottom:16px),
-     which now shares the corner on every width. */
-  position:fixed; left:14px; bottom:72px; z-index:25;
+  /* Read-aloud is retired, so Community owns the bottom-left corner. */
+  position:fixed;
+  left:calc(16px + env(safe-area-inset-left));
+  bottom:calc(16px + env(safe-area-inset-bottom));
+  z-index:25;
   padding:10px 16px; border-radius:999px;
   background:var(--accent-solid,#b91c1c); color:#fff;
   font-size:.78rem; font-weight:700; cursor:pointer; border:none;
@@ -1142,7 +1144,7 @@ h1 em{color:var(--accent);font-style:normal}
     justify-content:center; align-items:start;
     gap:clamp(34px,3vw,56px);
     padding-inline:clamp(24px,3vw,48px);
-    padding-top:52px !important;
+    padding-top:76px !important;
   }
   .wrap.spar-search-layout .shell{
     max-width:720px; justify-self:center;
@@ -2406,18 +2408,18 @@ h1 em{color:var(--accent);font-style:normal}
   // safe links into the rest of the app — safe because searching now
   // flips the background-availability flag (see joinQueue).
   var WARMUP_MOTIONS = [
-    'THBT social media platforms should ban political advertising.',
-    'THW make voting compulsory.',
-    'THBT elite universities do more harm than good.',
-    'THW ban targeted advertising to minors.',
-    'THBT space exploration is a waste of public money.',
-    'THW abolish cash bail.',
-    'THBT AI tutors will do more for educational equality than smaller class sizes.',
-    'THW require a year of national service.',
-    'THBT professional athletes are overpaid.',
-    'THW give every citizen a universal basic income.',
-    'THBT the nuclear family is an outdated ideal.',
-    'THW ban private schools.',
+    'Social media platforms should ban political advertising.',
+    'Voting should be compulsory.',
+    'Elite universities do more harm than good.',
+    'Targeted advertising to minors should be banned.',
+    'Space exploration is a waste of public money.',
+    'Cash bail should be abolished.',
+    'AI tutors will do more for educational equality than smaller class sizes.',
+    'Every citizen should complete a year of national service.',
+    'Professional athletes are overpaid.',
+    'Every citizen should receive a universal basic income.',
+    'The nuclear family is an outdated ideal.',
+    'Private schools should be banned.',
   ];
 
   function mountWaitRail(){
@@ -2430,7 +2432,10 @@ h1 em{color:var(--accent);font-style:normal}
     rail.className = 'wait-rail';
     rail.setAttribute('aria-label', 'Things to do while you wait');
     var savedPad = '';
+    var experience = '';
     try { savedPad = localStorage.getItem('da-spar-warmup') || ''; } catch(e){}
+    try { experience = localStorage.getItem('debateos-experience') || ''; } catch(e){}
+    var warmupLabel = experience === 'competitive' ? 'Warm-up motion' : 'Practice question';
     rail.innerHTML =
       '<div class="wait-rail__head">' +
         '<div class="wait-rail__status"><span class="live-dot"></span>Match search active</div>' +
@@ -2439,7 +2444,7 @@ h1 em{color:var(--accent);font-style:normal}
       '</div>' +
       '<div class="wait-rail__body">' +
         '<div class="wait-rail__card">' +
-          '<div class="wait-rail__label">Warm-up motion <button class="wait-rail__shuffle" id="warmupShuffle" type="button">New motion</button></div>' +
+          '<div class="wait-rail__label">' + warmupLabel + ' <button class="wait-rail__shuffle" id="warmupShuffle" type="button">New question</button></div>' +
           '<div class="wait-rail__motion" id="warmupMotion"></div>' +
           '<textarea class="wait-rail__pad" id="warmupPad" placeholder="Sketch three claims, your strongest rebuttal, and your weighing."></textarea>' +
           '<span class="wait-rail__saved">Saved in this browser as you type.</span>' +
@@ -4192,7 +4197,7 @@ h1 em{color:var(--accent);font-style:normal}
             '</select>' +
           '</div>' +
         '</div>' +
-        '<div class="wl-field"><label class="wl-schedule-label">Motion (optional)</label><input class="wl-input" type="text" id="wlSchedMotion" placeholder="e.g. THW ban social media for under-16s" maxlength="140"></div>' +
+        '<div class="wl-field"><label class="wl-schedule-label">Topic (optional)</label><input class="wl-input" type="text" id="wlSchedMotion" placeholder="For example: Ban social media for children under 16" maxlength="140"></div>' +
         '<div class="wl-schedule-actions">' +
           '<button class="wl-cal-btn" id="wlSchedSend" type="button">📅 Propose &amp; add to calendar</button>' +
           '<button class="wl-cal-cancel" id="wlSchedCancel" type="button">Cancel</button>' +

@@ -66,6 +66,9 @@
     'da-brain-register', 'da-brain-side', 'da-brain-goal', 'da-brain-built',
     // consent + identity
     'debateos-corpus-contribute', 'debateos-use-case', 'debateos-use-case-confirmed',
+    // Beginner vs. competitive presentation mode. This answer changes the
+    // terminology and help shown across devices, not just analytics.
+    'debateos-experience',
     // "stop showing me this" — the most annoying thing to lose on a new device
     'debateos-da-onboarded', 'da-welcome-intro', 'debateos-feedback-given',
     'debateos-hindi-prompt-dismissed', 'debateos-support-snooze',

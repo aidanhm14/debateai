@@ -4,7 +4,8 @@
    Drop <script defer src="/js/onboarding.js"></script> on any page
    where signed-in users land. First time a real (non-anonymous)
    user shows up without onboarding answers on user_profiles/{uid},
-   a 4-step card asks: age range, background, formats, how they
+   a short card asks: competitive experience, age range, background,
+   formats, and how they
    found us. Every step is tappable-once; the whole thing is
    skippable. Answers merge-set into user_profiles/{uid}.onboarding
    so admin analytics can read them via the admin SDK.
@@ -25,9 +26,16 @@
   window.__ditOnboarding = true;
 
   var FIRESTORE_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js';
-  var VERSION = 1;
+  var VERSION = 2;
 
   var STEPS = [
+    { key: 'debateExperience', title: 'Do you already do competitive debate?',
+      sub: 'This changes how much debate terminology and format detail we show you.',
+      options: [
+        { v: 'competitive', label: 'Yes, I compete' },
+        { v: 'new', label: 'No, I am new to it' },
+        { v: 'unsure', label: 'Not sure yet' },
+      ] },
     { key: 'ageRange', title: 'How old are you?', sub: 'A range is all we ask. It keeps matchmaking age-appropriate.',
       options: [
         { v: '13-15', label: '13 to 15' },
@@ -73,6 +81,13 @@
   function lsDone(uid) { try { return localStorage.getItem(lsKey(uid)) === '1'; } catch (e) { return false; } }
   function lsMark(uid) { try { localStorage.setItem(lsKey(uid), '1'); } catch (e) {} }
   function track(ev, meta) { try { if (window.gtag) gtag('event', ev, meta || {}); } catch (e) {} }
+  function experienceValue() { try { return localStorage.getItem('debateos-experience') || ''; } catch (e) { return ''; } }
+  function applyExperience(value) {
+    if (!/^(competitive|new|unsure)$/.test(value || '')) return;
+    try { localStorage.setItem('debateos-experience', value); } catch (e) {}
+    document.documentElement.setAttribute('data-debate-experience', value);
+    if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(value);
+  }
 
   function ensureFirestore(cb) {
     if (typeof window.firebase === 'undefined') return;
@@ -132,6 +147,7 @@
 
   // ── modal ──────────────────────────────────────────────────────
   var card = null, backdrop = null, stepIdx = 0, answers = {}, activeUid = null;
+  var activeSteps = STEPS;
 
   function unmount() {
     var refs = [card, backdrop];
@@ -156,19 +172,21 @@
   function finish() {
     answers.version = VERSION;
     answers.completedAt = new Date();
-    track('onboarding_complete', { age_range: answers.ageRange, role: answers.role, source: answers.source });
+    applyExperience(answers.debateExperience);
+    track('onboarding_complete', { experience: answers.debateExperience, age_range: answers.ageRange, role: answers.role, source: answers.source });
     save(answers);
   }
 
   function skip() {
     track('onboarding_skip', { step: stepIdx });
-    save({ version: VERSION, skipped: true, skippedAt: new Date() });
+    var payload = Object.assign({}, answers, { version: VERSION, skipped: true, skippedAt: new Date() });
+    save(payload);
   }
 
   function renderStep() {
-    var step = STEPS[stepIdx];
+    var step = activeSteps[stepIdx];
     var dots = '';
-    for (var i = 0; i < STEPS.length; i++) dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
+    for (var i = 0; i < activeSteps.length; i++) dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
     var opts = '';
     for (var j = 0; j < step.options.length; j++) {
       var o = step.options[j];
@@ -196,6 +214,7 @@
             else { picked.push(v); btn.classList.add('sel'); }
           } else {
             answers[step.key] = v;
+            if (step.key === 'debateExperience') applyExperience(v);
             advance();
           }
         });
@@ -210,15 +229,17 @@
 
   function advance() {
     stepIdx++;
-    if (stepIdx >= STEPS.length) { finish(); return; }
+    if (stepIdx >= activeSteps.length) { finish(); return; }
     track('onboarding_step', { step: stepIdx });
     renderStep();
   }
 
-  function mount(uid) {
+  function mount(uid, options) {
     if (card) return;
     activeUid = uid;
-    stepIdx = 0; answers = {};
+    stepIdx = 0;
+    answers = options && options.existing ? Object.assign({}, options.existing) : {};
+    activeSteps = options && options.experienceOnly ? [STEPS[0]] : STEPS;
     injectStyle();
     backdrop = document.createElement('div');
     backdrop.className = 'ob-backdrop';
@@ -242,16 +263,22 @@
   // ── entry ──────────────────────────────────────────────────────
   function checkUser(user) {
     if (!user || user.isAnonymous) return;
-    if (lsDone(user.uid)) return;
+    if (lsDone(user.uid) && experienceValue()) return;
     ensureFirestore(function () {
       try {
         firebase.firestore().collection('user_profiles').doc(user.uid).get().then(function (snap) {
           var d = snap && snap.exists ? snap.data() : null;
-          if (d && d.onboarding) { lsMark(user.uid); return; }
+          if (d && d.onboarding && d.onboarding.debateExperience) {
+            applyExperience(d.onboarding.debateExperience);
+            lsMark(user.uid);
+            return;
+          }
           // Small settle delay so we never pop mid page-transition.
           setTimeout(function () {
             // Re-check: another tab may have finished meanwhile.
-            if (!lsDone(user.uid)) mount(user.uid);
+            if (experienceValue()) { lsMark(user.uid); return; }
+            if (d && d.onboarding) mount(user.uid, { experienceOnly: true, existing: d.onboarding });
+            else if (!lsDone(user.uid)) mount(user.uid);
           }, 900);
         }).catch(function () { /* offline / rules hiccup — try next visit */ });
       } catch (e) {}

@@ -2036,3 +2036,16 @@
   s.defer = true;
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
+
+/* ── Audience mode + plain-language motions ─────────────────────
+   The sign-in onboarding answer follows the account and gives pages a
+   stable beginner/competitive hook. The same module expands THBT, THW,
+   and related shorthand in visible copy, including dynamically rendered
+   cards. */
+(function(){
+  if (window.__debatableAudienceMode || document.querySelector('script[src*="/js/audience-mode.js"]')) return;
+  var s = document.createElement('script');
+  s.src = '/js/audience-mode.js';
+  s.defer = true;
+  (document.body || document.head || document.documentElement).appendChild(s);
+})();
