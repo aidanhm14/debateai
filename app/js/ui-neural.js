@@ -77,14 +77,10 @@
     // colors to the lighter palette.
     var isLight=document.documentElement.getAttribute('data-theme')==='light'
               ||document.body.classList.contains('light-theme');
-    // landing_lightweb_v1 (2026-08-11). The 'web' arm runs the same
-    // geometry on the light surface so the page has depth instead of a
-    // flat cream field. The old light palette was a pale blue-grey at
-    // .07 alpha behind a .18 canvas, i.e. invisible, which is why the
-    // loop was stopped on light at all. The web arm swaps in a warm
-    // graphite ink sized to land at roughly the same perceptual weight
-    // the red lines carry on black, and keeps the loop running. Only
-    // landing.html sets the attribute, so every other page is unchanged.
+    // landing.html permanently opts into geometry on its light surface.
+    // Use warm graphite ink sized to land at roughly the same perceptual
+    // weight the red lines carry on black, and keep the loop running.
+    // Other light pages omit data-lightweb and remain unchanged.
     var lightWeb=isLight&&document.documentElement.getAttribute('data-lightweb')==='web';
     themeActive=!isLight||lightWeb;
     var R=lightWeb?74:(isLight?100:239),
@@ -103,9 +99,8 @@
     // nothing, so the web arm keeps them at full size rather than the
     // light theme's .9 shrink.
     nodeRMul=(isLight&&!lightWeb)?.9:1;
-    // The constellation is intentionally invisible on light surfaces
-    // outside the 'web' arm. Stop its frame loop instead of painting a
-    // near-transparent canvas.
+    // The constellation stays off on light surfaces that do not explicitly
+    // opt in. Stop the frame loop instead of painting a transparent canvas.
     if(!themeActive){
       if(rafId){cancelAnimationFrame(rafId);rafId=0}
       ctx.clearRect(0,0,W,H);

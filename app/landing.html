@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-lightweb="web">
 <head>
 <script src="/js/native-bridge.js"></script>
 <meta charset="UTF-8" />
@@ -787,36 +787,10 @@
   })();
 </script>
 
-<!-- Background geometry on the light surface: landing_lightweb_v1
-     (2026-08-11). The shared neural constellation gives the dark themes
-     depth and is switched OFF on light, where its old palette was a pale
-     blue-grey behind an .18 canvas (invisible, so the loop was stopped
-     rather than painted). The 'web' arm runs the same geometry on cream
-     in warm graphite ink at a matched perceptual weight; 'control' keeps
-     today's flat surface. Sticky 50/50 in localStorage, ?lightweb=web|
-     control forces an arm for QA. Only affects [data-theme="light"]:
-     dark and crimson visitors are byte-identical in both arms, so this
-     never collides with the theme toggle. Palette + loop gate live in
-     /js/ui-neural.js keyed on <html data-lightweb>. -->
-<script>
-  (function(){
-    var v='',forced=false;
-    try{
-      var qp=(location.search||'').toLowerCase();
-      if(/[?&]lightweb=web(?:&|$)/.test(qp)){v='web';forced=true;}
-      else if(/[?&]lightweb=control(?:&|$)/.test(qp)){v='control';forced=true;}
-    }catch(e){}
-    if(!v){
-      try{
-        v=localStorage.getItem('da-lightweb-ab')||'';
-        if(v!=='web'&&v!=='control'){v=Math.random()<0.5?'web':'control';localStorage.setItem('da-lightweb-ab',v);}
-      }catch(e){v='control';}
-    }
-    document.documentElement.setAttribute('data-lightweb',v);
-    window.__abAssignments=window.__abAssignments||{};
-    window.__abAssignments.landing_lightweb_v1=forced?{variant:v,forced:true}:{variant:v};
-  })();
-</script>
+<!-- The warm graphite constellation is the permanent light-mode landing
+     background. data-lightweb is set on <html> before first paint so the
+     canvas never falls back to the old flat cream surface. Dark and crimson
+     themes keep their existing palette. -->
 
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -1067,10 +1041,9 @@
 [data-theme="light"] .faq-q{color:#1a1a1f}
 [data-theme="light"] .faq-a{color:rgba(0,0,0,.65)}
 [data-theme="light"] .faq-a strong{color:#1a1a1f}
-[data-theme="light"] .ui-neural-canvas{opacity:.18}
-/* landing_lightweb_v1 'web' arm: the constellation actually renders on
-   cream. .6 against the ink palette in ui-neural.js lands the edges near
-   the same effective alpha the red lines carry on the dark theme. */
+/* The constellation is permanent on the light landing surface. .8 against
+   the ink palette in ui-neural.js lands the edges near the same effective
+   alpha the red lines carry on the dark theme. */
 [data-theme="light"][data-lightweb="web"] .ui-neural-canvas{opacity:.8}
 [data-theme="light"] .theme-dot{border-color:rgba(0,0,0,.18)}
 [data-theme="light"] .theme-dot.active{border-color:#1a1a1f}
