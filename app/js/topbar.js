@@ -1092,6 +1092,33 @@
       right.appendChild(socialWrap);
     }
 
+    // ── Points chip ───────────────────────────────────────────────────
+    // 2026-08-12: 38 people had a Predict wallet and 37 of them sat at
+    // exactly the 1,000 opening grant, untouched. One bet had ever been
+    // placed, across 300 open markets. So the market was not failing to
+    // convince anyone, it was failing to be NOTICED: /predict is one
+    // click deep inside Explore, and nothing anywhere else on the site
+    // told a signed-in person they were holding a balance.
+    //
+    // This is the smallest thing that fixes that. It shows YOUR points,
+    // on all 63 pages, and routes to the board. Deliberately a wallet
+    // and not a nav tab: the 2026-07-28 and 07-30 notes above took the
+    // word "Bet" and the "Money" tile off the bar so the nav would stop
+    // scanning as a betting product to someone skimming, and a balance
+    // reads as a score you already have rather than an invitation to
+    // stake. Signed-out visitors get nothing here at all.
+    var pointsChip = el('a', {
+      href: '/predict',
+      class: 'ui-topbar-points',
+      title: 'Your prediction points',
+      hidden: 'hidden',
+    });
+    pointsChip.addEventListener('click', function(){
+      navTrack('points_chip_click', { from: location.pathname });
+    });
+    right.appendChild(pointsChip);
+    mountPointsChip(pointsChip);
+
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
     // this topbar). It inserts itself into .ui-topbar-right before the
@@ -1765,6 +1792,76 @@
     var u = fbRealUser();
     if (u) paintUserName(document.getElementById('barUser'), u);
   });
+
+  // ── Points chip: fetch + paint ──────────────────────────────────────
+  // Balance comes from the same endpoint /predict itself reads. Two
+  // rules keep this from costing anything on a bar that renders on
+  // every page: it is cached in sessionStorage so a browsing session
+  // makes ONE call, and it never fires for a signed-out or anonymous
+  // visitor. `state` runs ensureBalance, which WRITES a wallet on first
+  // read, so calling it per pageview would mint rows for people who
+  // never opened the board.
+  var POINTS_CACHE = 'da-predict-balance';
+
+  function paintPointsChip(chip, balance){
+    if (balance == null || isNaN(balance)) return;
+    chip.innerHTML = '';
+    chip.appendChild(el('span', { class: 'ui-topbar-points-v' }, Number(balance).toLocaleString()));
+    chip.appendChild(el('span', { class: 'ui-topbar-points-k' }, 'pts'));
+    chip.removeAttribute('hidden');
+  }
+
+  function mountPointsChip(chip){
+    // Paint from cache first so the chip does not pop in late on a
+    // page the visitor has already loaded once this session.
+    var cached = null;
+    try { cached = sessionStorage.getItem(POINTS_CACHE); } catch(e){}
+    if (cached !== null && fbRealUser()) paintPointsChip(chip, Number(cached));
+
+    function load(u){
+      if (!u) { chip.setAttribute('hidden', 'hidden'); return; }
+      if (cached !== null){ paintPointsChip(chip, Number(cached)); return; }
+      u.getIdToken().then(function(tok){
+        return fetch('/.netlify/functions/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+          body: JSON.stringify({ action: 'state' }),
+        });
+      }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+        if (!d || d.balance == null) return;
+        try { sessionStorage.setItem(POINTS_CACHE, String(d.balance)); } catch(e){}
+        paintPointsChip(chip, d.balance);
+      }).catch(function(){ /* a missing chip is the correct failure here */ });
+    }
+
+    function idle(fn){
+      if (window.requestIdleCallback) window.requestIdleCallback(fn, { timeout: 3000 });
+      else setTimeout(fn, 1200);
+    }
+
+    function attach(){
+      try {
+        window.firebase.auth().onAuthStateChanged(function(u){
+          var real = u && !u.isAnonymous ? u : null;
+          if (!real){
+            chip.setAttribute('hidden', 'hidden');
+            try { sessionStorage.removeItem(POINTS_CACHE); } catch(e){}
+            return;
+          }
+          idle(function(){ load(real); });
+        });
+      } catch(e){}
+    }
+    if (fbAuthReady()) attach(); else fbBootstrap(attach);
+  }
+
+  // Let a page that changes the balance (the board itself) push the new
+  // number straight into the bar instead of waiting for a reload.
+  window.daPointsChanged = function(balance){
+    try { sessionStorage.setItem(POINTS_CACHE, String(balance)); } catch(e){}
+    var chip = document.querySelector('.ui-topbar-points');
+    if (chip) paintPointsChip(chip, balance);
+  };
 
   function hydrateUser(slot){
     var cachedSignedIn = false;
