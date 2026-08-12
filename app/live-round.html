@@ -998,6 +998,64 @@ body.lr-pip .lr-pip-notice{display:block}
 .spec-dock > div{min-width:0}
 @media(max-width:720px){.spec-dock{grid-template-columns:1fr}}
 
+/* Spectators need a broadcast console, not the debaters' control stack.
+   Consolidate the repeated owner, prep, judge, roster, and speaker state
+   into the live header so the transcript stays in the first viewport. */
+.spectator-meta{display:none}
+.spectator-meta-chip[hidden]{display:none}
+body.spectator-mode #roundGuide[data-phase="round"],
+body.spectator-mode #judgeDraft,
+body.spectator-mode #prepBanner,
+body.spectator-mode .round-roster,
+body.spectator-mode .round-roster-4{display:none!important}
+body.spectator-mode .round-motion-bar{
+  padding:12px 18px;display:grid;
+  grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:12px;border-left-width:3px;
+}
+body.spectator-mode .round-motion-bar .rmb-text{min-width:0}
+body.spectator-mode .round-motion-bar .rmb-eyebrow{font-size:.58rem;margin-bottom:3px}
+body.spectator-mode .round-motion-bar .rmb-motion{
+  font-size:clamp(1.08rem,1.7vw,1.42rem);line-height:1.16;
+}
+body.spectator-mode .round-motion-bar .rmb-brief{display:none}
+body.spectator-mode .rmb-tools{
+  width:auto;padding:0;border-top:0;flex-wrap:nowrap;justify-content:flex-end;
+}
+body.spectator-mode .rmb-rec{display:none}
+body.spectator-mode .lr-pip-btn{min-height:34px;padding:6px 9px;font-size:.7rem}
+body.spectator-mode .speech-header{
+  padding:13px 18px;gap:9px 18px;border-top:0;
+}
+body.spectator-mode .speech-header .speaker-line{gap:7px;margin-bottom:5px}
+body.spectator-mode .speech-header .speaker-name{font-size:clamp(1.08rem,1.7vw,1.38rem)}
+body.spectator-mode .speech-progress{font-size:.62rem;margin-bottom:6px}
+body.spectator-mode .speech-clock{min-width:132px;padding-left:18px}
+body.spectator-mode .speech-clock-label{font-size:.58rem;margin-bottom:5px}
+body.spectator-mode .timer-num{font-size:clamp(2.45rem,4vw,3.35rem)}
+body.spectator-mode .timer-target{font-size:.76rem}
+body.spectator-mode .timer-progress{height:4px}
+body.spectator-mode .ready-hint{font-size:.72rem;line-height:1.35}
+body.spectator-mode .spectator-meta{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px;
+}
+.spectator-meta-chip{
+  display:inline-flex;align-items:center;min-height:24px;padding:3px 8px;
+  border:1px solid var(--border);border-radius:999px;background:var(--ui-soft);
+  color:var(--text-dim);font-size:.64rem;font-weight:750;line-height:1.2;
+}
+body.spectator-mode .speech-actions{display:none!important}
+body.spectator-mode #micBtn,
+body.spectator-mode #autoMicLabel,
+body.spectator-mode #speakXlLabel{display:none!important}
+body.spectator-mode .transcript-area{padding-top:15px}
+@media(max-width:720px){
+  body.spectator-mode .round-motion-bar{grid-template-columns:1fr;gap:9px;padding:11px 14px}
+  body.spectator-mode .rmb-tools{justify-content:flex-start}
+  body.spectator-mode .speech-header{padding:12px 14px;gap:10px}
+  body.spectator-mode .speech-clock{padding:10px 0 0}
+}
+
 /* Persistent room guide. The live-round state was already turn-gated in
    code, but the UI hid inactive controls and made the other debater guess
    who could advance the clock. This strip names the three page states and
@@ -2325,6 +2383,11 @@ html.stage-mode .stage-ov{display:block}
             <span class="speaker-name" id="speakerName">, </span>
             <span class="tag" id="speakerSide">, </span>
           </div>
+          <div class="spectator-meta" id="spectatorMeta" aria-label="Round details">
+            <span class="spectator-meta-chip" id="spectatorMatchup"></span>
+            <span class="spectator-meta-chip" id="spectatorJudge"></span>
+            <span class="spectator-meta-chip" id="spectatorPrep" hidden></span>
+          </div>
         </div>
         <div class="speech-clock">
           <span class="speech-clock-label">Speech clock</span>
@@ -3503,11 +3566,18 @@ html.stage-mode .stage-ov{display:block}
     var myTurn = isMyTurn();
     var ms = mySide();
     var spectator = isSpectator();
-    var youTag = spectator ? ' · SPECTATING' : (myTurn && ms ? ' · YOUR TURN' : ms ? ' · OPPONENT\'S TURN' : '');
-    $('speakerName').textContent = speakerName + ' (' + sideLabel + ')' + youTag;
+    document.body.classList.toggle('spectator-mode', spectator);
+    var youTag = spectator ? '' : (myTurn && ms ? ' · YOUR TURN' : ms ? ' · OPPONENT\'S TURN' : '');
+    $('speakerName').textContent = speakerName + (spectator ? '' : ' (' + sideLabel + ')' + youTag);
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
     sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
+    var spectatorMatchup = $('spectatorMatchup');
+    if (spectatorMatchup){
+      spectatorMatchup.textContent = isFourTeam(f)
+        ? 'Government vs Opposition'
+        : (state.proName || 'Pro') + ' vs ' + (state.conName || 'Con');
+    }
     updateRoomStage();
 
     // Motion bar — keep the resolution glance-visible during the
@@ -3693,7 +3763,13 @@ html.stage-mode .stage-ov{display:block}
       if (endBtn){ endBtn.disabled = true; endBtn.style.display = ''; endBtn.textContent = 'Debaters control the round'; endBtn.className = 'btn btn-control-locked'; }
       var ppBtn = $('playPauseBtn');
       if (ppBtn){ ppBtn.disabled = true; ppBtn.style.display = ''; ppBtn.textContent = 'Audience mode'; ppBtn.className = 'btn btn-control-locked'; }
-      if (hint) hint.innerHTML = 'You\'re watching <strong>' + escHtml(state.proName || 'Pro') + '</strong> vs <strong>' + escHtml(state.conName || 'Con') + '</strong>. Your camera and mic stay off.';
+      var spectatorMicHint = $('micHint');
+      if (spectatorMicHint){
+        spectatorMicHint.textContent = 'The active speaker\'s words appear here live.';
+        spectatorMicHint.style.color = '';
+        spectatorMicHint.style.fontWeight = '';
+      }
+      if (hint) hint.textContent = 'Audience view. Your camera and mic stay off.';
     } else if (ms && !myTurn){
       if (ta){ ta.disabled = true; ta.placeholder = 'Opponent is speaking. Listen + prep your response.'; }
       if (micBtn){ micBtn.disabled = true; micBtn.style.display = 'none'; }
@@ -6066,8 +6142,8 @@ html.stage-mode .stage-ov{display:block}
     d.setAttribute('role', 'region');
     d.setAttribute('aria-label', 'Spectator market and audience calls');
     var round = document.getElementById('roundView');
-    var motion = document.getElementById('roundMotionBar');
-    if (round && motion) round.insertBefore(d, motion.nextSibling);
+    var liveStatus = round && round.querySelector('.speech-header');
+    if (round && liveStatus) round.insertBefore(d, liveStatus.nextSibling);
     else (document.getElementById('panel') || document.body).appendChild(d);
     return d;
   }
@@ -8065,6 +8141,7 @@ html.stage-mode .stage-ov{display:block}
     // room.
     if (spectatorAdmissionRequired()){
       state.audienceMode = true;
+      document.body.classList.add('spectator-mode');
       var sv0 = $('setupView'); if (sv0) sv0.classList.add('hidden');
       renderAdmissionGate();
       watchAdmission();
@@ -8072,6 +8149,7 @@ html.stage-mode .stage-ov{display:block}
     }
     state.admitted = true;
     state.audienceMode = true;
+    document.body.classList.add('spectator-mode');
     var sv = $('setupView'); if (sv) sv.classList.add('hidden');
     if (state.phase === 'setup' && !document.getElementById('spectatorWait')){
       var spectatorWait = document.createElement('div');
@@ -9237,6 +9315,8 @@ html.stage-mode .stage-ov{display:block}
     var headline = locked
       ? shown.name
       : 'Judge not agreed';
+    var spectatorJudge = $('spectatorJudge');
+    if (spectatorJudge) spectatorJudge.textContent = 'Judge: ' + headline;
     var subline = locked
       ? shown.tag
       : 'Both sides have to land on the same paradigm before it counts.';
@@ -9340,9 +9420,16 @@ html.stage-mode .stage-ov{display:block}
       rv.insertBefore(banner, rv.firstChild);
     }
     function fmt(rem){ var mm = Math.floor(rem / 60), ss = rem % 60; return mm + ':' + (ss < 10 ? '0' : '') + ss; }
+    function setSpectatorPrep(text){
+      var chip = $('spectatorPrep');
+      if (!chip) return;
+      chip.textContent = text || '';
+      chip.hidden = !text;
+    }
     function renderIdle(){
       banner.classList.remove('is-over');
       if (isSpectator()){
+        setSpectatorPrep('Prep ' + state.prepMin + ':00 · waiting');
         banner.innerHTML = '<span>Prep · ' + state.prepMin + ':00 · waiting for a debater to start the clock</span>';
         return;
       }
@@ -9380,9 +9467,11 @@ html.stage-mode .stage-ov{display:block}
         var rem = Math.max(0, Math.round((endMs - Date.now()) / 1000));
         if (rem > 0){
           banner.classList.remove('is-over');
+          if (isSpectator()) setSpectatorPrep('Prep ' + fmt(rem));
           banner.innerHTML = '<span>Prep time · both sides prepare</span><strong>' + fmt(rem) + '</strong>';
         } else {
           banner.classList.add('is-over');
+          if (isSpectator()) setSpectatorPrep('Prep over');
           banner.innerHTML = '<span>Prep over. Hit Start speech when you are ready.</span>';
           if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
         }
@@ -9412,6 +9501,8 @@ html.stage-mode .stage-ov{display:block}
   function hidePrepBanner(){
     if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
     var b = document.getElementById('prepBanner'); if (b) b.remove();
+    var chip = $('spectatorPrep');
+    if (chip){ chip.textContent = ''; chip.hidden = true; }
   }
 
   // Reconciliation: pick up any remote field that's ahead of us.
