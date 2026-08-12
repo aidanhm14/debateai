@@ -327,11 +327,19 @@ export function parseFactChecks(text, d, opts) {
     if (seen.has(key) || seenBefore.has(norm(claim).slice(0, 60))) continue;
     seen.add(key);
 
+    // A card whose finding is "this does not exist" has nothing to cite,
+    // and the search results from that pass are whatever the topic threw
+    // up. Shipped once and it read badly: a denial of a US Supreme Court
+    // case carried three links to UK tipping legislation under the words
+    // "checked against", which invites the audience to open a source that
+    // says nothing about the claim. Absence flags carry no links and say
+    // what actually happened instead.
+    const absence = DENIES_EXISTENCE.test(correction);
     out.push({
       quote, claim, correction, severity,
       confidence: Math.round(confidence * 100) / 100,
-      grounded,
-      sources: grounded ? sources : [],
+      grounded, absence,
+      sources: (grounded && !absence) ? sources : [],
     });
   }
   return out;

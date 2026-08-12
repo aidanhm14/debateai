@@ -124,6 +124,15 @@ const sourced = parseFactChecks(json([good]), d, { grounded: true, sources: [{ t
 t('grounded flags carry their sources', sourced[0].sources.length === 1 && sourced[0].grounded === true);
 const unsourced = parseFactChecks(json([{ ...good, confidence: 0.95 }]), d, { grounded: false, sources: [{ title: 'Fed', url: 'https://example.org' }] });
 t('ungrounded flags carry none', unsourced[0].sources.length === 0 && unsourced[0].grounded === false);
+// Shipped once and read badly: a denial of a US Supreme Court case
+// carried three links to UK tipping legislation under "checked against".
+// A finding of absence has nothing to cite, so it cites nothing.
+const denial = parseFactChecks(json([{ ...good, severity: 'false',
+  correction: 'No such Supreme Court case exists.' }]), d,
+  { grounded: true, sources: [{ title: 'UK tipping act', url: 'https://example.org' }] });
+t('an absence flag is marked as one', denial[0].absence === true);
+t('an absence flag cites nothing', denial[0].sources.length === 0);
+t('an ordinary correction still cites', sourced[0].absence === false && sourced[0].sources.length === 1);
 
 // ── the second opinion ──────────────────────────────────────────────
 // Written against a real failure: run against a deliberately ACCURATE
