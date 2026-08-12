@@ -49,6 +49,31 @@ const MAX_EMAILS     = parseInt(process.env.SPAR_NIGHT_MAX || '500', 10);
 
 const DAY_MS         = 24 * 60 * 60 * 1000;
 const MIN_GAP_RUN_MS = 5 * DAY_MS;   // cron double-fire guard
+// Gap between sends. Resend's window is 10/s; this sits an order of
+// magnitude under it so a burst can never be the thing that fails.
+const PACE_MS        = parseInt(process.env.SPAR_NIGHT_PACE_MS || '250', 10);
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const pace  = () => (PACE_MS > 0 ? sleep(PACE_MS) : Promise.resolve());
+
+// Has this profile already been mailed for THIS event? The stamp is written
+// on success only, so a missing or older stamp means the person never got
+// this week's email and a retry should reach them.
+function alreadySentFor(prof, eventStartMs) {
+  const raw = prof?.sparNightSentAt;
+  const ms = raw?.toMillis ? raw.toMillis()
+           : (raw?._seconds ? raw._seconds * 1000
+           : (raw instanceof Date ? raw.getTime() : 0));
+  if (!ms) return false;
+  // 24h, not "since the last event". This function only runs when the event
+  // is already inside 24h (the guard above returns otherwise), so every
+  // stamp belonging to THIS event is necessarily inside this window and
+  // every stamp from a previous week is necessarily outside it. A 7-day
+  // window also happens to work today, but only by an 11-hour margin
+  // (the send fires ~11h before the event it announces), which a shifted
+  // cron or a moved event time would quietly eat.
+  return ms > (eventStartMs - DAY_MS);
+}
 const LIVE_MS        = 90 * 60 * 1000;
 // First event: Wed 2026-07-22 20:00 EDT = 2026-07-23 00:00 UTC. Must
 // match FIRST_EVENT_UTC in app/js/spar-night.js.
@@ -144,10 +169,22 @@ export default async () => {
   // Run dedup (cron double-fire / redeploy guard).
   const stateRef = db.doc('config/spar_night_state');
   const stateSnap = await stateRef.get().catch(() => null);
-  const lastRunAt = stateSnap?.data?.()?.lastRunAt?.toMillis?.() || 0;
-  if (!dryRun && now - lastRunAt < MIN_GAP_RUN_MS) {
+  const lastState = stateSnap?.data?.() || {};
+  const lastRunAt = lastState?.lastRunAt?.toMillis?.() || 0;
+  // A run that stopped short of the cohort is allowed back in before the
+  // 5-day gap, because the gap exists to stop a double-fire mailing people
+  // twice, not to strand the people who were never mailed once. The
+  // already-sent stamp below is what makes that safe. Without this, the
+  // 2026-08-12 run's 139 unreached accounts would have waited a full week
+  // for an email about an event that had already happened.
+  const lastWasPartial = lastState?.status === 'partial-quota';
+  const retryingPartial = lastWasPartial && (lastState?.eventStart === new Date(start).toISOString());
+  if (!dryRun && !retryingPartial && now - lastRunAt < MIN_GAP_RUN_MS) {
     console.log('[spar-night] ran recently — skipping');
     return;
+  }
+  if (retryingPartial) {
+    console.log('[spar-night] last run stopped on quota for this same event — retrying the unsent');
   }
 
   // 2026-07-22: cohort now comes from Firebase Auth, not user_profiles.
@@ -171,6 +208,13 @@ export default async () => {
   }
 
   let eligible = 0, sent = 0, skipped = 0, errors = 0, noProfile = 0;
+  // Set when the provider says the day's allowance is gone. Every further
+  // send today is guaranteed to fail, so the loops below stop rather than
+  // grinding through the rest of the cohort recording identical errors.
+  // Measured 2026-08-12: without this the run burned 139 doomed requests
+  // after the 31st send and still wrote status:'done'.
+  let quotaExhausted = false;
+  let alreadySent = 0;   // held back because they already have THIS event's email
   const sampleWould = [];
   const errorReasons = {};   // reason -> count, so a failed run says WHY
   // Every address this run has already taken, so the RSVP pass below
@@ -178,7 +222,7 @@ export default async () => {
   const mailedAddrs = new Set();
 
   for (const user of authUsers) {
-    if (sent >= MAX_EMAILS) break;
+    if (sent >= MAX_EMAILS || quotaExhausted) break;
     if (!user.email) { skipped++; continue; }
     const prof = profByUid.get(user.uid);
     // No profile doc = we hold no preferences for this account. isOptedOut
@@ -187,6 +231,11 @@ export default async () => {
     // state doc shows how many addresses this rule is holding back.
     if (!prof) { noProfile++; skipped++; continue; }
     if (isOptedOut(prof, 'sparnight')) { skipped++; continue; }
+    // Already holds THIS event's email. Only reachable on a retry run (see
+    // the partial-run rule above), and it is what makes a retry safe: the
+    // stamp is written on success only, so the people it holds back are
+    // exactly the ones who genuinely received it.
+    if (alreadySentFor(prof, start)) { alreadySent++; skipped++; continue; }
     eligible++;
     mailedAddrs.add(String(user.email).trim().toLowerCase());
 
@@ -208,10 +257,33 @@ export default async () => {
     if (res.ok) {
       sent++;
       await db.doc(`user_profiles/${user.uid}`).update({ sparNightSentAt: FieldValue.serverTimestamp() }).catch(() => {});
+      await pace();
     } else {
       errors++;
       const why = res.reason || `status-${res.status || 'unknown'}`;
       errorReasons[why] = (errorReasons[why] || 0) + 1;
+      if (res.quotaExhausted) { quotaExhausted = true; break; }
+      // A plain rate limit is the one failure worth waiting out, since the
+      // next attempt genuinely can succeed. One retry, then move on.
+      if (res.rateLimited) {
+        await sleep(res.retryAfterMs || 1200);
+        const retry = await sendEmail({
+          to: user.email,
+          subject: 'Open Spar Night is tonight: 8pm ET',
+          html: renderEmail({ firstName, uid: user.uid }),
+          uid: user.uid,
+          stream: 'sparnight',
+          from: FROM_EMAIL,
+          replyTo: REPLY_TO,
+        });
+        if (retry.ok) {
+          errors--; sent++;
+          await db.doc(`user_profiles/${user.uid}`).update({ sparNightSentAt: FieldValue.serverTimestamp() }).catch(() => {});
+        } else if (retry.quotaExhausted) {
+          quotaExhausted = true; break;
+        }
+        await pace();
+      }
     }
   }
 
@@ -227,7 +299,7 @@ export default async () => {
   try {
     const rsvpSnap = await db.collection('spar_night_rsvps').limit(2000).get();
     for (const doc of rsvpSnap.docs) {
-      if (sent + rsvpSent >= MAX_EMAILS) break;
+      if (sent + rsvpSent >= MAX_EMAILS || quotaExhausted) break;
       const r = doc.data() || {};
       const addr = String(r.email || '').trim().toLowerCase();
       if (!addr || r.unsubscribed) { rsvpSkipped++; continue; }
@@ -255,19 +327,33 @@ export default async () => {
       if (res.ok) {
         rsvpSent++;
         await doc.ref.update({ lastSentAt: FieldValue.serverTimestamp() }).catch(() => {});
+        await pace();
       } else {
         rsvpErrors++;
         const why = res.reason || `status-${res.status || 'unknown'}`;
         errorReasons[why] = (errorReasons[why] || 0) + 1;
+        if (res.quotaExhausted) { quotaExhausted = true; break; }
       }
     }
   } catch (e) {
     console.error('[spar-night] rsvp cohort failed:', e.message);
   }
 
+  // Status has to be able to say "this did not work". It read 'done' on a
+  // run that reached 31 of 170, which is how the failure stayed invisible
+  // until someone opened the doc by hand. 'partial-quota' is also the flag
+  // the retry rule above keys on, so an honest status is load-bearing now
+  // rather than decorative.
+  const status = quotaExhausted ? 'partial-quota'
+               : (errors > sent && errors > 0) ? 'mostly-failed'
+               : errors > 0 ? 'done-with-errors'
+               : 'done';
+
   await stateRef.set({
     lastRunAt: FieldValue.serverTimestamp(),
-    status: 'done',
+    status,
+    quotaExhausted,
+    alreadySent,
     dryRun,
     eventStart: new Date(start).toISOString(),
     eligible,

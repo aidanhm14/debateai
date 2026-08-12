@@ -113,6 +113,24 @@ if [ -f "$BRAIN_HEALTH_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Send-quota guard. The sender guard below catches a wrong From. This
+# one catches the other half of the same 2026-08-12 failure: the day's
+# allowance running out mid-cohort while the run kept going and still
+# recorded status:'done'. Asserts that a daily-quota 429 is told apart
+# from a rate-limit 429, that the loop stops on the first one, and that
+# a retry targets only the people who were never reached.
+# ──────────────────────────────────────────────────────────────────
+QUOTA_GUARD="$REPO_ROOT/scripts/test-spar-night-quota.mjs"
+if [ -f "$QUOTA_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT/scripts" && node test-spar-night-quota.mjs >/tmp/quota-guard.log 2>&1); then
+    echo "[quota-guard] commit blocked - send-quota handling no longer holds:" >&2
+    tail -20 /tmp/quota-guard.log >&2
+    echo "[quota-guard] see scripts/test-spar-night-quota.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Sender guard. Resend authenticates the sending DOMAIN, not the
 # mailbox, and it REJECTS an unverified From at the API rather than
 # bouncing it later, so a wrong sender is a run of silent 403s in an

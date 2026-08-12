@@ -246,14 +246,30 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify(payload),
     });
-    let id;
+    let id, errName, errMsg;
     try {
       const body = await res.json();
       id = body?.id;
+      // Resend names its failures, and the name is the only thing that
+      // separates two very different 429s: `rate_limit_exceeded` means wait
+      // a moment and the next one will land, `daily_quota_exceeded` means
+      // every remaining send today will fail. Discarding it is why the
+      // 2026-08-12 spar-night run ground through 139 doomed requests and
+      // recorded them all as an indistinguishable `resend-429`.
+      if (!res.ok) { errName = body?.name; errMsg = body?.message; }
     } catch { /* body optional */ }
     const out = { ok: res.ok, status: res.status };
     if (id) out.id = id;
-    if (!res.ok) out.reason = `resend-${res.status}`;
+    if (!res.ok) {
+      out.reason = errName ? `resend-${res.status}-${errName}` : `resend-${res.status}`;
+      // Structured so a caller can branch without string-matching a reason.
+      out.errorName = errName || null;
+      out.message = errMsg || null;
+      out.quotaExhausted = res.status === 429 && errName === 'daily_quota_exceeded';
+      out.rateLimited = res.status === 429 && errName !== 'daily_quota_exceeded';
+      const ra = parseInt(res.headers.get('retry-after') || '', 10);
+      if (Number.isFinite(ra)) out.retryAfterMs = Math.min(ra * 1000, 30000);
+    }
     return out;
   } catch (e) {
     return { ok: false, reason: `fetch-failed: ${e.message}` };
