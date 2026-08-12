@@ -234,6 +234,21 @@ if [ -f "$TROUND_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# The two rules that decide a cash placement at the Open: the points
+# ledger that ranks a drop-in day, and the crowd verdict that decides the
+# final. Both are published in the tournament rules before the event, so
+# a change here changes the terms of a contest rather than a sort order.
+for GUARD in test-tournament-live test-crowd-verdict; do
+  if [ -f "$REPO_ROOT/scripts/$GUARD.mjs" ] && command -v node >/dev/null 2>&1; then
+    if ! (cd "$REPO_ROOT" && node "scripts/$GUARD.mjs" >"/tmp/$GUARD.log" 2>&1); then
+      echo "[$GUARD] commit blocked - a published tournament rule changed:" >&2
+      tail -20 "/tmp/$GUARD.log" >&2
+      echo "[$GUARD] see scripts/$GUARD.mjs. Never bypass with --no-verify." >&2
+      exit 1
+    fi
+  fi
+done
+
 WAGER_GUARD="$REPO_ROOT/scripts/test-wager-eligibility.mjs"
 if [ -f "$WAGER_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-wager-eligibility.mjs >/tmp/wager-guard.log 2>&1); then

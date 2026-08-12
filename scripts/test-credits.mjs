@@ -187,5 +187,35 @@ const t = (name, cond, got) => {
   t('market ids are deterministic', marketId('live', 'e1') === 'live_e1');
 }
 
+// ── the token firewall ──────────────────────────────────────────────
+// Tokens are PAID usage allowance. Play Points are free and stake the
+// prediction markets. Aidan's call, 2026-08-11: tokens buy CAPACITY
+// (rounds, voice minutes, brains), never positions. A bridge between
+// them would turn the debater market into a real-money market on named
+// people, many of whom are minors, and would give anyone holding a
+// position a financial motive to brigade the audience vote that decides
+// the tournament final. lib/tokens.mjs states the firewall in a comment;
+// this asserts it.
+{
+  // Comments are stripped before asserting. Both files NAME the forbidden
+  // collections in the comment that forbids them, so a raw grep flags the
+  // documentation rather than a breach. Caught on the first run of this
+  // guard, and worth keeping as the shape: assert against code, not prose.
+  const codeOnly = (src) => src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+
+  const tokensRaw = fs.readFileSync(new URL('../app/netlify/functions/lib/tokens.mjs', import.meta.url), 'utf8');
+  const tokensSrc = codeOnly(tokensRaw);
+  t('tokens never touch the play-credit ledger', !/credit_accounts/.test(tokensSrc));
+  t('tokens never touch the prediction wallet',  !/predict_balances/.test(tokensSrc));
+  t('tokens never reach the value market',       !/value-market|lmsr/i.test(tokensSrc));
+  // The comment IS the contract for the next reader, so it has to survive.
+  t('the firewall is still written down', /never convert to money or Play Points/.test(tokensRaw));
+
+  const marketSrc = codeOnly(fs.readFileSync(new URL('../app/netlify/functions/lib/value-market.mjs', import.meta.url), 'utf8'));
+  t('the debater market spends play credits only', !/token_accounts|spendTokens|debitTokens/.test(marketSrc));
+}
+
 console.log(`credits + judgment: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
