@@ -370,6 +370,56 @@ button{font-family:inherit}
   cursor:pointer;font-size:.85rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;
 }
 .floor-remark .fr-close:hover{color:#fff;background:rgba(0,0,0,.6)}
+/* Live fact check. Cards the AI raises to the AUDIENCE mid-speech when a
+   speaker states something flatly wrong. Deliberately quiet chrome: this
+   sits under the transcript, never over the video, because it must not
+   compete with the round for attention. Red = contradicted by the record,
+   amber = real thing badly misstated (state semantics, not decoration). */
+.fact-checks{padding:0 22px 18px;display:flex;flex-direction:column;gap:10px}
+.fact-checks[hidden]{display:none}
+.fc-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:.72rem;color:var(--text-dim)}
+.fc-head strong{
+  font-size:.62rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--text);
+}
+.fc-head .fc-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent-glow);animation:pulse 1.6s ease-in-out infinite;
+}
+.fc-head .fc-off{margin-left:auto;background:none;border:0;padding:0;cursor:pointer;
+  font:inherit;font-size:.68rem;color:var(--text-dim);text-decoration:underline;text-underline-offset:3px}
+.fc-head .fc-off:hover{color:var(--text)}
+.fc-card{
+  padding:12px 14px;border-radius:12px;background:var(--bg-card);
+  border:1px solid var(--border);border-left:3px solid var(--accent);
+  animation:factIn .28s cubic-bezier(.2,.8,.2,1);
+}
+.fc-card.is-distorted{border-left-color:var(--amber)}
+@keyframes factIn{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+.fc-verdict{
+  display:inline-block;margin-bottom:6px;padding:3px 8px;border-radius:999px;
+  font-size:.58rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--ui-accent-soft);color:var(--accent);border:1px solid var(--border);
+}
+.fc-card.is-distorted .fc-verdict{background:rgba(245,158,11,.12);color:var(--amber)}
+.fc-quote{font-size:.86rem;line-height:1.5;color:var(--text-dim);margin-bottom:6px}
+.fc-quote:before{content:'“'}
+.fc-quote:after{content:'”'}
+.fc-correction{font-size:.94rem;line-height:1.5;color:var(--text);font-weight:600}
+.fc-meta{margin-top:7px;font-size:.68rem;color:var(--text-dim);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fc-meta a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px;max-width:220px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fc-meta a:hover{color:var(--text)}
+.fc-held{font-size:.72rem;color:var(--text-dim);padding:2px 0}
+/* Broadcast stage: the newest flag as a lower-third, above the judge card. */
+.sov-fact{
+  position:absolute;left:3.2vw;right:3.2vw;bottom:15vh;z-index:26;display:none;
+  padding:14px 18px;border-radius:14px;
+  background:rgba(24,8,8,.94);border:1px solid rgba(239,68,68,.55);
+  box-shadow:0 16px 50px rgba(0,0,0,.55);color:#fff;
+}
+.sov-fact b{display:block;font-size:.62rem;font-weight:900;letter-spacing:.14em;
+  text-transform:uppercase;color:#fca5a5;margin-bottom:6px}
+.sov-fact span{font-size:1.5vw;line-height:1.45}
 /* Audience camera pill: sits over the spectator video, bottom-left,
    mirroring the debaters' cam-modes bar position. Light-on-dark pinned
    for the same theme trap #audPanel documents. */
@@ -2283,6 +2333,18 @@ html.stage-mode .stage-ov{display:block}
         </div>
       </div>
 
+      <!-- Live fact check. Populated by renderFactChecks from the round
+           doc, so debaters and every spectator read the same cards. -->
+      <div class="fact-checks" id="factChecks" hidden>
+        <div class="fc-head">
+          <span class="fc-dot" aria-hidden="true"></span>
+          <strong>Live fact check</strong>
+          <span id="fcSub">The AI listens in and tells the audience when a claim is flatly wrong.</span>
+          <button type="button" class="fc-off" id="fcOffBtn">Turn off</button>
+        </div>
+        <div id="fcList"></div>
+      </div>
+
       <div class="sequence">
         <div class="label" style="margin-bottom:6px">Speech sequence</div>
         <div class="sequence-list" id="sequenceList"></div>
@@ -2847,6 +2909,13 @@ html.stage-mode .stage-ov{display:block}
     admitPoll: null,
     roundDocSeen: false,
     lastFloorRemark: null, // latest between-speech judge remark (stage overlay)
+    factChecks: [],        // flags raised to the audience, from the round doc
+    fcText: '',            // live transcript the driver client checks against
+    fcLastWords: 0,        // word count at the last check, so we only re-check new material
+    fcCount: 0,            // passes spent this round (FC_MAX_PER_ROUND ceiling)
+    fcInFlight: false,
+    fcDisabled: false,     // server said the checker is unconfigured; stop asking
+    fcLoop: null,
     lastBallot: null,      // latest rendered ballot (stage overlay)
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
     paradigm: prefill.paradigm, // agreed judge instructions from /spar consent
@@ -3371,6 +3440,7 @@ html.stage-mode .stage-ov{display:block}
     // Judge strip repaints with the round: interactive before speech 1,
     // a readable record of what was agreed for the rest of the round.
     try { renderJudgeDraft(); } catch(e){}
+    try { startFactCheckLoop(); renderFactChecks(); } catch(e){}
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = speakerNameFor(f, state.speechIdx);
@@ -5248,6 +5318,196 @@ html.stage-mode .stage-ov{display:block}
     });
   }
 
+  // ── Live fact check ────────────────────────────────────
+  // The AI listens to the speech as it is delivered and tells the AUDIENCE
+  // when a speaker states something flatly, checkably wrong. It is not a
+  // judge: it never scores, never says who is winning, and the ballot never
+  // reads it. The bar, the quote gate and the adversarial second pass live
+  // server-side in lib/fact-check.mjs; this half is cadence, publishing and
+  // rendering. Most passes return nothing, which is the intended shape:
+  // a card is rare enough that seeing one means something.
+  //
+  // ONE CLIENT CHECKS, EVERYONE READS. The driver is a participant whose
+  // bench is NOT speaking: they are idle, they already hold the live
+  // transcript through the round snapshot, and picking the lowest uid on
+  // that bench keeps a 2v2 from firing four identical checks. Flags are
+  // published to the round doc, which every spectator already reads, so an
+  // anonymous watcher sees the same card the debaters do.
+  //
+  // THE SPEAKER IS THE ONE PERSON WHO DOES NOT SEE IT LIVE. A card naming
+  // a bad number, delivered mid-speech to the debater giving it, is
+  // coaching, and coaching from the house in a judged round is worse than
+  // an uncorrected statistic. Their own client holds cards from their
+  // current speech until they hit End; everyone else gets them at once.
+  var FC_TICK_MS = 20000;        // one pass per 20s of speech at most
+  var FC_MIN_NEW_WORDS = 55;     // and only when there is new material
+  var FC_MAX_PER_ROUND = 10;     // hard ceiling on spend per round
+  var FC_MAX_CARDS = 4;          // newest four; older ones scroll off
+
+  // The user's preference only. Whether the checker is CONFIGURED is
+  // state.fcDisabled, checked separately, so a server with no key never
+  // reads back as something the user switched off.
+  function factCheckOn(){
+    try { return localStorage.getItem('lr-fact-check') !== '0'; } catch(e){ return true; }
+  }
+
+  // Which client runs the check. Everyone on the speaking bench is
+  // excluded; the lowest remaining participant uid drives. Falls back to
+  // the lowest known uid when the round only ever names one participant,
+  // so a solo practice room still gets checked.
+  function isFactCheckDriver(){
+    if (!state.user || isSpectator()) return false;
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches[state.speechIdx];
+    if (!sp) return false;
+    var speakingFirst = sideBench(f, sp.side) === 'gov';
+    var speaking = speakingFirst ? [state.proUid, state.proUid2] : [state.conUid, state.conUid2];
+    var all = [state.proUid, state.conUid, state.proUid2, state.conUid2].filter(Boolean);
+    if (!all.length) return true;   // legacy room with no uids: only one client anyway
+    var idle = all.filter(function(u){ return speaking.indexOf(u) === -1; });
+    var pool = idle.length ? idle : all;
+    return state.user.uid === pool.slice().sort()[0];
+  }
+
+  function startFactCheckLoop(){
+    if (state.fcLoop) return;
+    state.fcLoop = setInterval(function(){
+      if (!document.hidden) factCheckTick();
+    }, FC_TICK_MS);
+  }
+
+  function factCheckTick(){
+    if (state.fcDisabled || !factCheckOn() || state.phase !== 'round') return;
+    if (state.fcInFlight || (state.fcCount || 0) >= FC_MAX_PER_ROUND) return;
+    if (!isFactCheckDriver()) return;
+    var text = (state.fcText || '').trim();
+    if (!text) return;
+    var words = text.split(/\s+/).length;
+    if (words < 40 || words - (state.fcLastWords || 0) < FC_MIN_NEW_WORDS) return;
+
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches[state.speechIdx];
+    if (!sp) return;
+    var idx = state.speechIdx;
+    var speaker = speakerNameFor(f, idx);
+    var sideLabel = (f.sideLabels && f.sideLabels[sp.side]) || '';
+    state.fcInFlight = true;
+    state.fcLastWords = words;
+    state.fcCount = (state.fcCount || 0) + 1;
+
+    var already = (state.factChecks || []).map(function(c){ return c.claim; });
+    var body = JSON.stringify({
+      motion: state.motion, format: f.name, speaker: speaker,
+      side: sideLabel, text: text, checked: already,
+    });
+    var user = firebase.auth().currentUser;
+    var withToken = user ? user.getIdToken().catch(function(){ return null; }) : Promise.resolve(null);
+
+    withToken.then(function(tok){
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers.Authorization = 'Bearer ' + tok;
+      return fetch('/api/fact-check', { method: 'POST', headers: headers, body: body });
+    }).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        state.fcInFlight = false;
+        if (!j) return;
+        // The endpoint reports itself unavailable rather than erroring on
+        // every pass, so stop asking for the rest of the round.
+        if (j.disabled){ state.fcDisabled = true; renderFactChecks(); return; }
+        var flags = Array.isArray(j.flags) ? j.flags : [];
+        if (!flags.length) return;
+        publishFactChecks(flags, idx, sp.code, speaker, sideLabel);
+      }).catch(function(){ state.fcInFlight = false; });
+  }
+
+  function publishFactChecks(flags, idx, code, speaker, sideLabel){
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    var rows = flags.slice(0, 2).map(function(fl, i){
+      return {
+        id: idx + '_' + Date.now() + '_' + i,
+        speechIdx: idx, code: code || '', speaker: speaker || '', side: sideLabel || '',
+        quote: fl.quote, claim: fl.claim, correction: fl.correction,
+        severity: fl.severity, grounded: !!fl.grounded,
+        sources: (fl.sources || []).slice(0, 2),
+        atMs: Date.now(),
+      };
+    });
+    // arrayUnion, not a rewrite: two clients can never race the array away
+    // from each other, and serverTimestamp is illegal inside an array so
+    // the row carries its own millis.
+    ref.update({
+      factChecks: firebase.firestore.FieldValue.arrayUnion.apply(null, rows),
+    }).catch(function(){});
+    try { gtag('event', 'live_round_fact_check', { format: state.formatKey, severity: rows[0].severity, grounded: rows[0].grounded }); } catch(e){}
+  }
+
+  function renderFactChecks(){
+    var band = document.getElementById('factChecks');
+    if (!band) return;
+    var all = state.factChecks || [];
+    var offBtn = document.getElementById('fcOffBtn');
+    if (state.fcDisabled || !all.length){ band.hidden = true; return; }
+    // Turned off: keep one quiet line so it is discoverable again exactly
+    // when it matters, rather than being a switch with no way back.
+    if (!factCheckOn()){
+      document.getElementById('fcList').innerHTML = '';
+      var offSub = document.getElementById('fcSub');
+      if (offSub) offSub.textContent = 'Off for you. ' + all.length + ' flagged this round.';
+      if (offBtn) offBtn.textContent = 'Turn on';
+      band.hidden = false;
+      return;
+    }
+    if (offBtn) offBtn.textContent = 'Turn off';
+
+    // Hold this speech's cards from the person giving it. Everyone else,
+    // including the audience, has them already.
+    var held = 0;
+    var show = all.filter(function(c){
+      if (c.speechIdx === state.speechIdx && state.phase === 'round' && isMyTurn()){ held++; return false; }
+      return true;
+    }).slice(-FC_MAX_CARDS).reverse();
+
+    var sub = document.getElementById('fcSub');
+    if (sub) sub.textContent = all.length === 1
+      ? '1 claim flagged this round.'
+      : all.length + ' claims flagged this round.';
+
+    var html = show.map(function(c){
+      var cls = c.severity === 'distorted' ? ' is-distorted' : '';
+      var verdict = c.severity === 'distorted' ? 'Badly misstated' : 'Not what the record says';
+      var who = [c.speaker, c.code].filter(Boolean).join(' · ');
+      var src = (c.sources || []).map(function(s){
+        return '<a href="' + escHtml(s.url) + '" target="_blank" rel="noopener nofollow">' + escHtml(s.title || s.url) + '</a>';
+      }).join('');
+      var meta = c.grounded
+        ? (src ? '<span>Checked against</span>' + src : '<span>Checked against live sources</span>')
+        : '<span>Model knowledge, no live sources</span>';
+      return '<div class="fc-card' + cls + '">'
+        + '<span class="fc-verdict">' + verdict + '</span>'
+        + (who ? '<div class="fc-meta" style="margin:0 0 6px">' + escHtml(who) + '</div>' : '')
+        + '<div class="fc-quote">' + escHtml(c.quote) + '</div>'
+        + '<div class="fc-correction">' + escHtml(c.correction) + '</div>'
+        + '<div class="fc-meta">' + meta + '</div>'
+        + '</div>';
+    }).join('');
+    if (held) html += '<div class="fc-held">' + held + ' check' + (held === 1 ? '' : 's')
+      + ' on your speech. You will see ' + (held === 1 ? 'it' : 'them') + ' when you finish speaking.</div>';
+    document.getElementById('fcList').innerHTML = html;
+    band.hidden = false;
+  }
+
+  (function wireFactCheckToggle(){
+    var btn = document.getElementById('fcOffBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      var next = factCheckOn() ? '0' : '1';
+      try { localStorage.setItem('lr-fact-check', next); } catch(e){}
+      renderFactChecks();
+      try { gtag('event', 'live_round_fact_check_toggle', { format: state.formatKey, on: next === '1' }); } catch(e){}
+    });
+  })();
+
   function endSpeech(opts){
     opts = opts || {};
     if (isSpectator()) return; // spectators can't advance the round
@@ -5294,6 +5554,9 @@ html.stage-mode .stage-ov{display:block}
     }).catch(function(){});
     _lastPublishedTranscript = '';
     if (_liveTranscriptTimer){ clearTimeout(_liveTranscriptTimer); _liveTranscriptTimer = null; }
+    // Release any card held from the speech that just ended.
+    state.fcText = ''; state.fcLastWords = 0;
+    try { renderFactChecks(); } catch(e){}
     if (state.speechIdx >= f.speeches.length){
       finishRound();
     } else {
@@ -9354,6 +9617,10 @@ html.stage-mode .stage-ov{display:block}
       // talk over the next speaker.
       try { stopSpokenTranslation(); } catch(e){}
       try { pmLockCheck(); } catch(e){}
+      // New speech, new transcript to check against, and any card held
+      // from the speaker's own speech is now theirs to read.
+      state.fcText = ''; state.fcLastWords = 0;
+      try { renderFactChecks(); } catch(e){}
       var f = FORMATS[state.formatKey];
       if (state.speechIdx < f.speeches.length){
         $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
@@ -9380,6 +9647,10 @@ html.stage-mode .stage-ov{display:block}
       var taMirror = $('speechText');
       var remoteText = d.currentTranscript.text || '';
       var remoteLang = d.currentTranscript.lang || 'en';
+      // The driver client checks against this copy rather than the
+      // textarea, so a caption translation repainting the box cannot
+      // change what was sent for checking.
+      state.fcText = remoteText;
       // Cross-language round: paint the translation, not the source. The
       // raw text still arrives first so the captions never sit empty
       // while the translation is in flight.
@@ -9401,6 +9672,14 @@ html.stage-mode .stage-ov{display:block}
     state.lastFloorRemark = d.floorRemark || null;
     if (d.floorRemark && floorJudgeOn() && state.phase === 'round'){
       try { renderFloorRemark(d.floorRemark); } catch(e){}
+    }
+
+    // Fact-check sync. One client checks; this is how the other debater
+    // and every spectator read the same cards. Guests included, since
+    // the round doc is publicly readable.
+    if (Array.isArray(d.factChecks) && d.factChecks.length !== (state.factChecks || []).length){
+      state.factChecks = d.factChecks.slice();
+      try { renderFactChecks(); } catch(e){}
     }
 
     // Ballot pending — other side shows 'Ballot generating…' the
@@ -9910,6 +10189,7 @@ html.stage-mode .stage-ov{display:block}
         '<span class="sov-brand">itsdebatable.com</span>' +
       '</div>' +
       '<div class="sov-remark" id="sovRemark"><b>AI JUDGE</b><span id="sovRemarkText"></span></div>' +
+      '<div class="sov-fact" id="sovFact"><b>FACT CHECK</b><span id="sovFactText"></span></div>' +
       '<div class="sov-low">' +
         '<div class="sov-plate" id="sovPro"><span class="sov-name" id="sovProName">Pro</span><span class="sov-side" id="sovProSide">First side</span></div>' +
         '<div class="sov-mid">' +
@@ -9972,6 +10252,19 @@ html.stage-mode .stage-ov{display:block}
              : 'AI judge joins at Speech 1';
       var jhtml = '<b>&#9878;</b> ' + js;
       if (el.innerHTML !== jhtml) el.innerHTML = jhtml;
+    }
+
+    // Fact check as a lower-third. Newest flag only, and it clears after
+    // 40 seconds: a projector band that never leaves stops being read.
+    var fk = document.getElementById('sovFact'), fkT = document.getElementById('sovFactText');
+    if (fk){
+      var latest = (state.factChecks || [])[(state.factChecks || []).length - 1];
+      var fresh = !!(latest && state.phase === 'round' && (Date.now() - (latest.atMs || 0)) < 40000);
+      fk.style.display = fresh ? 'block' : 'none';
+      if (fresh && fkT){
+        var line = latest.correction + ' (' + (latest.speaker || 'the speaker') + ' said: ' + latest.quote + ')';
+        if (fkT.textContent !== line) fkT.textContent = line;
+      }
     }
 
     var rk = document.getElementById('sovRemark'), rkT = document.getElementById('sovRemarkText');
