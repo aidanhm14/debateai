@@ -815,30 +815,6 @@ h1 em{color:var(--accent);font-style:normal}
   color:#4f46e5;background:rgba(88,101,242,.07);
   border-color:rgba(88,101,242,.28);
 }
-.guest-nudge{
-  display:flex;align-items:center;justify-content:space-between;gap:14px;
-  margin:18px auto 0;padding:12px 14px;max-width:520px;
-  background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.22);
-  border-radius:14px;color:var(--text-dim);font-size:.8rem;line-height:1.45;text-align:left;
-}
-/* Held back ~4s after searching starts (see delayed insert in
-   renderSearching): guests see the round genuinely working before the
-   sign-up ask arrives. The base .guest-nudge is fully visible; the fade
-   is opt-in via --in and only applied when the tab is visible, so a
-   backgrounded tab (which pauses the animation) can never leave it stuck
-   invisible. */
-.guest-nudge--in{animation:guestNudgeIn .42s ease}
-@keyframes guestNudgeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-.guest-nudge strong{color:var(--text);font-weight:800}
-.guest-nudge button{
-  flex:0 0 auto;border:1px solid rgba(239,68,68,.34);background:rgba(239,68,68,.12);
-  color:var(--accent);border-radius:999px;padding:8px 12px;
-  font-family:inherit;font-size:.74rem;font-weight:800;cursor:pointer;
-}
-.guest-nudge button:hover{background:rgba(239,68,68,.18)}
-@media(max-width:640px){
-  .guest-nudge{align-items:flex-start;flex-direction:column}
-}
 /* 2026-07-02 — session-style portraits near the signup CTA. */
 .gate-faces{display:flex;justify-content:center;gap:8px;margin:2px 0 6px}
 .gate-faces img{
@@ -1154,12 +1130,12 @@ h1 em{color:var(--accent);font-style:normal}
     font-size:clamp(2.35rem,3.2vw,3.05rem);
   }
   .wrap.spar-search-layout .lede{
-    max-width:590px; font-size:1.04rem;
+    max-width:590px; font-size:1.04rem; margin-bottom:8px;
   }
-  .wrap.spar-search-layout .guest-nudge{ max-width:620px }
   .wrap.spar-search-layout .globe-wrap{
-    width:min(500px,60vh); margin-top:20px;
+    width:min(440px,50vh); margin:0 auto 10px;
   }
+  .wrap.spar-search-layout .meta-strip{ margin:8px auto 14px }
   .wait-rail{
     display:flex; position:sticky; top:90px;
     height:calc(100vh - 114px); max-height:860px;
@@ -1672,51 +1648,6 @@ h1 em{color:var(--accent);font-style:normal}
     return 'Guest' + (tail ? ' ' + tail : '');
   }
 
-  function guestSignupNudgeHtml(){
-    if (!state.user || !state.user.isAnonymous) return '';
-    var identity = window.DBIdentity ? window.DBIdentity.forUser(state.user) : { name: guestName(state.user), username: 'guest' };
-    return '<div class="guest-nudge">' +
-      '<div><strong>' + escHtml(identity.name) + ' · @' + escHtml(identity.username) + '</strong> You can take the live round now. Save this identity for messages and invites that follow you.</div>' +
-      '<button type="button" id="guestSignUpBtn">Save</button>' +
-    '</div>';
-  }
-
-  function bindGuestSignupNudge(){
-    var btn = document.getElementById('guestSignUpBtn');
-    if (btn) btn.addEventListener('click', doGoogleSignIn);
-  }
-
-  // Hold the guest sign-up ask back ~4s after the searching screen mounts.
-  // Requested 2026-07-02: lead with the round working (matchmaking runs on
-  // anonymous auth, no account needed), then invite sign-up. Cleared and
-  // re-armed on each renderSearching so a re-render never double-mounts.
-  var GUEST_NUDGE_DELAY_MS = 4000;
-  var guestNudgeTimer = null;
-  function delayedGuestNudge(){
-    if (guestNudgeTimer){ clearTimeout(guestNudgeTimer); guestNudgeTimer = null; }
-    var html = guestSignupNudgeHtml();
-    if (!html) return; // named user, or no user yet — nothing to show
-    // Mount immediately but invisible: the slot takes its final height on
-    // first paint, so the 4s reveal doesn't shove the globe, status and
-    // setup card down mid-read. The hold-back is visual only; the copy
-    // still arrives after the round has visibly started working.
-    var slot = document.getElementById('guestNudgeSlot');
-    if (!slot || slot.firstChild) return; // gone or already filled
-    slot.innerHTML = html;
-    var nudge = slot.firstElementChild;
-    if (nudge) nudge.style.visibility = 'hidden';
-    bindGuestSignupNudge();
-    guestNudgeTimer = setTimeout(function(){
-      guestNudgeTimer = null;
-      if (state.cancelled) return;
-      if (!nudge || !nudge.isConnected) return;
-      nudge.style.visibility = '';
-      // Fade in only when the tab is actually visible — a paused animation
-      // on a hidden tab must not leave the base (visible) nudge stuck.
-      if (!document.hidden) nudge.classList.add('guest-nudge--in');
-    }, GUEST_NUDGE_DELAY_MS);
-  }
-
   // Render the live waitlist tile shown under the globe. `others` is an
   // array of Firestore docs for queued peers (excluding self). Format is
   // shown as a proposal, not a separate queue.
@@ -1939,12 +1870,6 @@ h1 em{color:var(--accent);font-style:normal}
       // moment before the round.
       '<p class="lede">Wander off if you like. This tab chimes the moment a debater is ready. '
         + 'When the round ends, an <a href="/judge-integrity" style="color:inherit;text-decoration:underline;text-underline-offset:2px">AI judge</a> writes the ballot.</p>' +
-      // Guest sign-up ask lands here, but ~4s after the searching screen
-      // mounts (delayedGuestNudge below) so a non-signed-in visitor first
-      // sees the round actually running — matchmaking works without an
-      // account (anonymous auth), and the delay makes that obvious instead
-      // of leading with "sign up."
-      '<div id="guestNudgeSlot"></div>' +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
       // across time zones," not "tracking targets." Self-contained
@@ -2183,7 +2108,6 @@ h1 em{color:var(--accent);font-style:normal}
     fetchMissedMatchCount();
     logSparAttempt();
     mountGlobalMap('globalDebateMap');
-    delayedGuestNudge();
     wireSetupCard();
     mountWaitRail();
     mountWatchPanel();
