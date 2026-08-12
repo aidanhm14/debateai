@@ -10748,22 +10748,39 @@ html.stage-mode .stage-ov{display:block}
     if (miniRestore) miniRestore.addEventListener('click', exitAll);
     if (miniPop) miniPop.addEventListener('click', enterPip);
 
-    // Pressing "Debatable" (or "Back to board") mid-call used to hard
-    // navigate, which tears down the Daily iframe and drops the user out
-    // of the round. With a live call, those clicks now dock the video and
-    // browse the target inside the same-origin site shell, so the call
-    // rides along. Leaving for real is the shell bar's double-press
-    // "Leave round". No call yet = the links navigate normally.
+    // Navigating away mid-call hard-tears down the Daily iframe and drops
+    // the user out of their own round. This used to be caught for exactly
+    // two links, the brand wordmark and "Back to board", which left every
+    // topbar tab, Explore item, profile link and footer link as a live
+    // trapdoor out of the round. Now ANY same-origin link that would
+    // change the page docks the video and browses the target inside the
+    // same-origin site shell instead, so the call rides along wherever
+    // they go. Leaving for real is the shell bar's double-press "Leave
+    // round". No call yet = every link navigates normally.
     function callLive() {
       return !!(jitsiPane.querySelector('iframe') || window.__lrDailyWrapper);
     }
     document.addEventListener('click', function (e) {
-      var a = e.target.closest && e.target.closest('.bar-logo, .bar-back');
+      if (e.defaultPrevented) return;
+      var a = e.target.closest && e.target.closest('a[href]');
       if (!a || !callLive()) return;
+      // A modified click or an explicit new tab is the user asking for a
+      // separate window on purpose. Honor it; the round stays here.
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
       if (a.target && a.target !== '_self') return;
+      if (a.hasAttribute('download')) return;
+      var raw = a.getAttribute('href') || '';
+      if (!raw || raw.charAt(0) === '#') return;
+      var url;
+      try { url = new URL(a.href, location.href); } catch (err) { return; }
+      // mailto:, tel:, and anything off-site leaves the shell's reach.
+      if (url.origin !== location.origin) return;
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+      // Same page with only a hash change is in-page movement, not a
+      // navigation, so it must not dock the round.
+      if (url.pathname === location.pathname && url.search === location.search) return;
       e.preventDefault();
-      shellStartUrl = a.getAttribute('href') || '/';
+      shellStartUrl = url.pathname + url.search + url.hash;
       enterMini();
     });
 

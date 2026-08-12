@@ -173,13 +173,20 @@
       '#lpip-shell{position:fixed;inset:0;width:100vw;height:100vh;border:0;margin:0;z-index:2147482000;background:var(--bg,#0a0a0c)}' +
       '@keyframes lpipShellPulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.55)}70%{box-shadow:0 0 0 6px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}' +
       '@keyframes lpipShellBarIn{from{transform:translate(-50%,-12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}' +
-      '#lpip-shellbar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147482500;display:flex;align-items:center;gap:11px;padding:7px 9px 7px 15px;border-radius:999px;background:rgba(10,10,12,.86);color:#f0f0f0;border:1px solid rgba(255,255,255,.16);box-shadow:0 12px 40px rgba(0,0,0,.5);font:600 13px/1 Crimson Pro,Georgia,serif;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);max-width:calc(100vw - 28px);animation:lpipShellBarIn .25s cubic-bezier(.2,.8,.2,1)}' +
+      '#lpip-shellbar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147482500;display:flex;align-items:center;gap:12px;padding:9px 10px 9px 17px;border-radius:999px;background:rgba(10,10,12,.9);color:#f0f0f0;border:1px solid rgba(255,255,255,.16);box-shadow:0 12px 40px rgba(0,0,0,.5);font:600 13px/1 Crimson Pro,Georgia,serif;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);max-width:calc(100vw - 28px);animation:lpipShellBarIn .25s cubic-bezier(.2,.8,.2,1)}' +
       '#lpip-shellbar .lpsb-live{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#ff6a6a}' +
       '#lpip-shellbar .lpsb-live i{width:7px;height:7px;border-radius:50%;background:#ff3b3b;animation:lpipShellPulse 1.6s infinite}' +
       '#lpip-shellbar .lpsb-where{color:#9aa0a6;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}' +
-      '#lpip-shellbar .lpsb-return{font:inherit;font-weight:700;font-size:12px;padding:7px 14px;border-radius:999px;border:0;cursor:pointer;background:#b91c1c;color:#fff;white-space:nowrap;transition:background .15s}' +
-      '#lpip-shellbar .lpsb-return:hover{background:#dc2626}' +
-      '#lpip-shellbar .lpsb-leave{font:inherit;font-weight:700;font-size:12px;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.22);cursor:pointer;background:transparent;color:rgba(255,255,255,.72);white-space:nowrap;transition:background .15s,color .15s,border-color .15s}' +
+      // Getting back INTO the round is the one thing this bar exists for,
+      // so it is a proper 44px target rather than a 12px pill sharing the
+      // eye with a same-sized "Leave round". Leave stays deliberately
+      // quieter: it is the destructive one and it already needs two
+      // presses.
+      '#lpip-shellbar .lpsb-return{font:inherit;font-weight:800;font-size:15px;letter-spacing:.01em;min-height:44px;padding:12px 22px;border-radius:999px;border:0;cursor:pointer;background:#dc2626;color:#fff;white-space:nowrap;box-shadow:0 4px 16px rgba(220,38,38,.42);transition:background .15s,transform .15s,box-shadow .15s}' +
+      '#lpip-shellbar .lpsb-return:hover{background:#ef4444;transform:translateY(-1px);box-shadow:0 7px 22px rgba(220,38,38,.55)}' +
+      '#lpip-shellbar .lpsb-return:active{transform:translateY(0)}' +
+      '#lpip-shellbar .lpsb-return:focus-visible{outline:3px solid #fff;outline-offset:2px}' +
+      '#lpip-shellbar .lpsb-leave{font:inherit;font-weight:700;font-size:12px;min-height:36px;padding:8px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.22);cursor:pointer;background:transparent;color:rgba(255,255,255,.72);white-space:nowrap;transition:background .15s,color .15s,border-color .15s}' +
       '#lpip-shellbar .lpsb-leave:hover{color:#fff;border-color:rgba(255,255,255,.4)}' +
       '#lpip-shellbar .lpsb-leave.is-armed{background:#b91c1c;border-color:#b91c1c;color:#fff;animation:lpipShellPulse 1.6s infinite}' +
       '@media(max-width:560px){#lpip-shellbar .lpsb-where{display:none}}';
