@@ -301,6 +301,23 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 
 ## Hard rules (see soul.md §4 for the full list)
 
+- **The audience is ANYONE, so don't call the crowd "debaters"** (Aidan,
+  2026-08-12; soul.md §2 rewritten to match). Say people. "Debater" is
+  fine where it names a role inside a round ("either side can appeal")
+  and in the founder's credential, which is a bio fact. It is not fine
+  in copy that tells a stranger who the site is for. The landing and
+  `topbar.js` were swept; the rest of the site has NOT been. Don't
+  "restore" the old framing from a stale doc.
+- **No faces on the first-screen rounds board** (Aidan, 2026-08-12,
+  "no faces should be circulating here"). Tiles show a camera-off
+  initial disc. The board captions every seat with an invented name, a
+  fabricated score and an AI-written ballot, so a photograph there
+  asserts a round that never happened about a face that belongs to
+  someone. Never put an unlicensed photo of a real person on any
+  surface; the creator-watchlist portraits are CC or public domain with
+  attribution in `app/img/creator-watchlist/README.md`, and that is the
+  bar. NOTE: `#face-wall` further down the landing still runs ~41
+  portraits off a separate bank; that surface has not been cut.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
   sign-up required", "unlimited" on Free, "Pay nothing", "holistic",

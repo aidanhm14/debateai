@@ -15,7 +15,7 @@
 
 ## 1. What this is (one sentence)
 
-Debatable is a **voice-first adversarial-argument trainer** built for competitive debaters, extending to any professional whose job is arguing out loud. Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).
+Debatable is a **live arena for spoken argument, open to anyone who wants to argue something out.** Competitive debate is where the engine is sharpest and professionals are a second room, but neither is the door (see §2, rewritten 2026-08-12). Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).
 
 **Brand system:** the product name is **"Debatable"**, hosted at **itsdebatable.com**. It is the only public name across visible copy, metadata, structured data, generated audio, native labels, and extensions. CTAs describe the action instead of acting as a second brand. The canonical full-round surface is `/practice`; retired public URLs only survive as server-side redirects.
 
@@ -23,10 +23,42 @@ Not a chatbot. Not a writing assistant. Not a research tool. A **live sparring p
 
 ## 2. Who it's for
 
-**Primary (where the product is sharpest):**
-- Competitive debaters, HS through college
+**ANYONE WHO WANTS TO ARGUE SOMETHING OUT (Aidan's call, 2026-08-12).**
+This reverses the old "primary audience = competitive debaters" framing
+below, which is kept underneath as the sharpest USE CASE, not as the
+door. His words: the platform is not for professional debaters, it is
+for anyone. Copy rules that follow from it, and they are enforceable:
+
+- **Do not call the crowd "debaters" in audience-facing copy.** Say
+  people. The landing was swept on 2026-08-12 (live globe caption,
+  section nav, face-wall label, footer, community notes, FAQ section
+  head, leaderboard column, JSON-LD descriptions, plus `topbar.js`
+  "Find debaters and clubs" which rides ~85 pages). "Debater" survives
+  only where it names a ROLE inside a round, and in the founder's own
+  credential, which is a bio fact rather than a gate.
+- **Never gate the reader on knowing a format.** A stranger should not
+  have to decode "Asian Parli" before they understand what a round is.
+  Formats are what the product is good at; they are not the invitation.
+- **The three things the pitch leads with now:** anyone can argue,
+  you can become influential, and you can debate a streamer because
+  the matchups pay high XP.
+
+**On the streamer promise, claims discipline applies.** The path is
+real and shipped (leaderboard standing feeds the challenger pool for a
+creator matchup, `/tournaments` plus the creator-sweepstakes band). No
+creator round has actually happened yet. So write it as the thing you
+can earn, never as a thing that has occurred, and never name a creator
+as a participant. The creator-watchlist portraits are explicitly
+labeled unconfirmed dream matchups for exactly this reason, and every
+one of them is CC-licensed or public domain with attribution in
+`app/img/creator-watchlist/README.md`. Do not put an unlicensed photo
+of a real person on any surface, and do not caption a real person with
+an invented name, score, or ballot.
+
+**Sharpest use case (where the engine is genuinely better than anything else):**
+- Competitive debate, HS through college
 - Format-accurate across APDA, BP, Policy, LD, PF, Worlds (WUDC), Asian Parli, Congress, MUN, and Quick Clash
-- Audience is **global** competitive debaters. The "~80% Indian" traffic figure (Apr 2026) was an ad-driven anonymous spike, not a durable base — see §8. Don't hard-code copy to one geography. Lead with the formats themselves: **Asian Parli, WSDC, and BP** are the highest-volume school circuits worldwide and APDA / Policy / LD / PF anchor the US college and HS scenes, so a format-first hero reads right everywhere. Direction is a broad global-community framing, not an India-targeted one.
+- Audience is **global**. The "~80% Indian" traffic figure (Apr 2026) was an ad-driven anonymous spike, not a durable base; see §8. Don't hard-code copy to one geography. Direction is a broad global-community framing, not an India-targeted one.
 
 **Secondary (same engine, different room):**
 - Lawyers. opening / closing / cross-ex / motion practice
@@ -41,7 +73,7 @@ Each gets its own landing page under `/{slug}` with audience-tuned copy and a di
 **NOT for:**
 - People looking for a generic AI chat buddy. The whole point is that it **pushes back**. it's not a cheerleader.
 - People who want written essays. The voice round is the moat.
-- Casual learners who don't care about format accuracy. This is for people who debate seriously enough to care that APDA doesn't use tagged cards and Policy does.
+- (Retired 2026-08-12: "casual learners who don't care about format accuracy" used to sit here. It was the same gate §2 now rejects, on the same page that says anyone can argue. Someone who has never heard of a tagged card is a user, not a mismatch. Format depth is what they graduate INTO.)
 
 ## 3. The wedge (what makes it different)
 
