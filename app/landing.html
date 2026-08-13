@@ -5719,11 +5719,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <!-- Founding-cohort banner — sitewide recruitment strip. Self-stamps at
      top of <body>, dismissible per session, skips /early itself. -->
 <script src="/js/cohort-banner.js" defer></script>
-<!-- Share rail for the tournament poster (#tournament-band). Deferred and
-     fully self-contained: if it never loads, the band simply has no share
-     row. See the comment on .tband-share for why the poster image, and not
-     the URL, is the unit that travels. -->
-<script src="/js/share-poster.js" defer></script>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap"></noscript>
@@ -7949,7 +7944,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              is the tool underneath it and does not belong in the first
              line a stranger reads. It is still explained in full at
              /judge-integrity, linked from /judge and the footer. -->
-        <p class="fs-sub">and win <a class="fs-sub-a" href="#tournament-band" data-tband-jump>money</a>.</p>
+        <p class="fs-sub">and win <a class="fs-sub-a" href="/tournaments">money</a>.</p>
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Debate <span aria-hidden="true">&rarr;</span></a>
           <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
@@ -7966,7 +7961,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="fs-copy-variant fs-copy-practice" data-nosnippet>
         <p class="fs-slogan">Pick a side. Say it out loud.</p>
         <h1 class="fs-h1">Find someone who disagrees with you.</h1>
-        <p class="fs-sub">Pick a topic, get matched, settle it out loud, and <a class="fs-sub-a" href="#tournament-band" data-tband-jump>win money</a>.</p>
+        <p class="fs-sub">Pick a topic, get matched, settle it out loud, and <a class="fs-sub-a" href="/tournaments">win money</a>.</p>
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find someone to argue with <span aria-hidden="true">&rarr;</span></a>
           <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
@@ -8165,204 +8160,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 
-<!-- ── Tournament band (2026-08-11) ──────────────────────────────────
-     Deliberately ABOVE the one-pager gate. Every other chapter waits
-     behind "Load more", and an ad for a dated event that nobody sees
-     until they expand the page is an ad that does not run. This is the
-     second thing on the page, under the primary CTA, and it is the
-     only thing promoted past the gate.
-
-     Not an A/B. The landing norm is to ship conversion changes as
-     instrumented arms, but the thing being tested here would be
-     "does the tournament get advertised", and holding half the traffic
-     out of a one-day event to measure that costs more than the reading.
-     Clicks are instrumented instead (landing_tournament_click).
-
-     SELF-RETIRING. `data-until` is the end of event day in ET; past
-     that the band removes itself, because a landing page still selling
-     a finished tournament is worse than no band at all. Update the date
-     and the poster together, or delete the section. The poster is a
-     flat image, so its copy cannot drift with the page: when the entry
-     model changes, re-render it. It distinguishes $20 cash-prize entry
-     from free entry for rounds and ranking only. -->
-<section id="tournament-band" class="tband" aria-label="The Debatable Open tournament" data-until="2026-08-30T03:59:00Z">
-  <style>
-    .tband{padding:clamp(28px,4vw,52px) 20px;border-top:1px solid var(--border,rgba(0,0,0,.1));border-bottom:1px solid var(--border,rgba(0,0,0,.1))}
-    .tband-wrap{width:100%;max-width:1040px;margin-inline:auto;display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:clamp(24px,4vw,52px);align-items:center}
-    .tband-shot{display:block;border-radius:14px;overflow:hidden;border:1px solid var(--border,rgba(0,0,0,.12));box-shadow:0 2px 4px rgba(20,18,14,.06),0 24px 60px -30px rgba(20,18,14,.4);transition:transform .2s ease,box-shadow .2s ease}
-    .tband-shot:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(20,18,14,.08),0 30px 70px -30px rgba(20,18,14,.5)}
-    .tband-shot:focus-visible{outline:3px solid var(--accent,#dc2626);outline-offset:4px}
-    .tband-shot img{display:block;width:100%;height:auto}
-    .tband-kicker{display:inline-flex;align-items:center;gap:8px;font-size:.66rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--accent,#dc2626);margin-bottom:14px}
-    .tband-kicker:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
-    .tband h2{margin:0 0 12px;font-size:clamp(1.7rem,3.2vw,2.5rem);line-height:1.05;letter-spacing:-.03em}
-    .tband-prize{color:var(--accent,#dc2626);font-weight:900;white-space:nowrap}
-    .tband p{margin:0 0 20px;max-width:46ch;font-size:1rem;line-height:1.6;color:var(--ink-dim,rgba(0,0,0,.62))}
-    [data-theme="dark"] .tband p,[data-theme="crimson"] .tband p,[data-theme="grey"] .tband p,[data-theme="stone"] .tband p{color:rgba(245,239,231,.72)}
-    /* Selector shape matters twice here. `.tband p` (0,1,1) would win the
-       font-size, and the dark-theme `[data-theme="dark"] .tband p` rule
-       (0,2,1) would win the COLOUR back, which is how this first shipped
-       red on light and grey on dark. `.tband p.tband-date` ties that at
-       (0,2,1) and sits later in the sheet, so it wins on both themes. */
-    .tband p.tband-date{margin:0 0 14px;font-family:'Crimson Pro','Fraunces',Georgia,serif;font-weight:800;font-size:clamp(1.25rem,2.2vw,1.65rem);line-height:1.15;letter-spacing:-.015em;color:var(--accent,#dc2626);max-width:none}
-    .tband .tband-date-t{font-weight:700;color:var(--ink,#171716);white-space:nowrap}
-    [data-theme="dark"] .tband-date-t,[data-theme="crimson"] .tband-date-t,[data-theme="grey"] .tband-date-t,[data-theme="stone"] .tband-date-t{color:#f5efe7}
-    .tband-facts{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 22px;padding:0;list-style:none;font-size:.8rem;color:var(--ink-dim,rgba(0,0,0,.6))}
-    [data-theme="dark"] .tband-facts,[data-theme="crimson"] .tband-facts,[data-theme="grey"] .tband-facts,[data-theme="stone"] .tband-facts{color:rgba(245,239,231,.68)}
-    .tband-facts b{color:var(--ink,#171716);font-weight:800}
-    [data-theme="dark"] .tband-facts b,[data-theme="crimson"] .tband-facts b,[data-theme="grey"] .tband-facts b,[data-theme="stone"] .tband-facts b{color:#f5efe7}
-    .tband-ctas{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .tband-cta{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 22px;border-radius:999px;border:1px solid var(--accent-solid,#b91c1c);background:var(--accent-solid,#b91c1c);color:#fff;font-size:.85rem;font-weight:850;text-decoration:none;transition:transform .18s ease,filter .18s ease}
-    .tband-cta:hover{transform:translateY(-1px);filter:brightness(1.06)}
-    .tband-cta--ghost{background:transparent;color:inherit;border-color:var(--border-strong,rgba(0,0,0,.28))}
-    .tband-cta:focus-visible{outline:3px solid var(--accent,#dc2626);outline-offset:3px}
-    /* Register is the one button on this band anyone is meant to press, and
-       it was the same pill as the four beside it, separated only by fill.
-       Weight is what fixes that, so it gets a size and a lift the ghosts do
-       not, plus a slow sheen that reads as "live" without moving anything on
-       the page. The prize is the hook per the 2026-08-11 promotion decision,
-       so the amount rides IN the button rather than only in the fact row.
-       Scoped to .tband-cta--go so the shared .tband-cta rules above stay the
-       ghost baseline; a ghost that inherited the glow would flatten the
-       hierarchy this exists to create. */
-    .tband-cta--go{
-      position:relative;overflow:hidden;isolation:isolate;
-      padding:16px 30px;font-size:.95rem;letter-spacing:.005em;
-      background:linear-gradient(135deg,#e02424 0%,#c01717 52%,#8f1212 100%);
-      border-color:rgba(0,0,0,.14);
-      box-shadow:0 10px 26px -10px rgba(185,28,28,.72),0 2px 5px -2px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.22);
-      transition:transform .2s cubic-bezier(.2,.8,.3,1),box-shadow .2s ease,filter .2s ease;
-    }
-    .tband-cta--go:hover{
-      transform:translateY(-2px);filter:none;
-      box-shadow:0 16px 34px -10px rgba(185,28,28,.85),0 3px 8px -3px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.3);
-    }
-    .tband-cta--go:active{transform:translateY(0);box-shadow:0 6px 16px -8px rgba(185,28,28,.7),inset 0 1px 0 rgba(255,255,255,.18)}
-    /* The sheen is a pseudo-element rather than a background-position
-       animation so it never repaints the gradient underneath it. */
-    .tband-cta--go::after{
-      content:'';position:absolute;top:0;bottom:0;left:-60%;width:45%;z-index:-1;
-      background:linear-gradient(100deg,transparent,rgba(255,255,255,.34),transparent);
-      transform:skewX(-18deg);
-      animation:tbandSheen 4.6s ease-in-out 1.2s infinite;
-    }
-    @keyframes tbandSheen{0%{left:-60%}28%{left:130%}100%{left:130%}}
-    .tband-cta-amt{
-      font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-      padding:4px 9px;border-radius:999px;
-      background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.26);
-    }
-    .tband-cta-arrow{display:inline-block;transition:transform .2s cubic-bezier(.2,.8,.3,1)}
-    .tband-cta--go:hover .tband-cta-arrow{transform:translateX(4px)}
-    /* Sits beside the buttons, not under them, so the row still reads as one
-       line of actions with a deadline attached. */
-    .tband-cta-note{font-size:.76rem;font-weight:700;opacity:.66;margin-left:2px}
-    /* Share rail sits under the CTAs behind a hairline so it reads as a
-       secondary act ("now pass it on"), not a sixth call to action
-       competing with Register. */
-    .tband-share{margin-top:20px;padding-top:16px;border-top:1px solid var(--border,rgba(0,0,0,.1))}
-    .tband-share:empty{display:none;margin:0;padding:0;border:0}
-    @media(max-width:860px){
-      .tband-wrap{grid-template-columns:1fr;gap:22px;max-width:460px}
-      .tband-copy{order:2}
-      .tband-shot{order:1}
-      .tband-cta{flex:1 1 100%}
-    }
-    @media(prefers-reduced-motion:reduce){
-      .tband-shot,.tband-cta,.tband-cta-arrow{transition:none}
-      .tband-cta--go::after{animation:none;display:none}
-    }
-  </style>
-  <div class="tband-wrap">
-    <a class="tband-shot" href="/tournaments" data-tband-cta="poster" aria-label="The Debatable Open, Saturday August 29, all day. 500 dollars for first place. Register.">
-      <picture>
-        <source srcset="/img/tournament/debatable-open.webp" type="image/webp">
-        <img src="/img/tournament/debatable-open.jpg" width="1120" height="1400" loading="lazy" decoding="async"
-             alt="Poster for The Debatable Open on Saturday August 29: a one day online debate tournament with 20 dollar cash-prize entry, free non-prize entry for rounds and ranking, 500 dollars for first place, 250 for second, 100 for third, and the final streamed live.">
-      </picture>
-    </a>
-    <div class="tband-copy">
-      <div class="tband-kicker">Registration open</div>
-      <!-- Money is the hook, not the scheduling. An earlier version led
-           with "drop in any time", which sells the convenience of a thing
-           nobody has decided to want yet. Lead with what is at stake and
-           let the logistics ride in the fact row underneath. -->
-      <h2>Win <strong class="tband-prize">$500</strong> for winning an argument.</h2>
-      <p>The Debatable Open is a one day online tournament with $850 on the line. Get paired, argue from your laptop, and every round ends with a written verdict explaining who won and why. No experience needed.</p>
-      <!-- The date is the one fact that decides whether someone can come,
-           so it is pulled out of the fact row and set as its own line.
-           CHANGING THE DATE MEANS FOUR PLACES, and they are easy to half
-           do: this <p>, the section's data-until, the Google Calendar href
-           below, and the poster IMAGE, which is flat art and has to be
-           re-rendered rather than edited. -->
-      <p class="tband-date">Saturday, August 29 <span class="tband-date-t">&middot; all day</span></p>
-      <ul class="tband-facts">
-        <li><b>Free</b> prize entry until Aug 22</li>
-        <li><b>$500</b> for first</li>
-        <li>Final <b>streamed live</b></li>
-      </ul>
-      <div class="tband-ctas">
-        <a class="tband-cta tband-cta--go" href="/tournaments" data-tband-cta="register">Register free <span class="tband-cta-amt">$500 first</span> <span class="tband-cta-arrow" aria-hidden="true">&rarr;</span></a>
-        <a class="tband-cta tband-cta--ghost" href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=The%20Debatable%20Open&amp;dates=20260829%2F20260830&amp;ctz=America%2FNew_York&amp;details=A%20one%20day%20online%20debate%20tournament.%20%24500%20for%20first%2C%20%24850%20in%20prizes%20total%2C%20every%20round%20judged%20in%20writing.%20Register%3A%20https%3A%2F%2Fitsdebatable.com%2Ftournaments&amp;location=https%3A%2F%2Fitsdebatable.com%2Ftournaments" target="_blank" rel="noopener" data-tband-cta="calendar">Add to Google Calendar</a>
-        <a class="tband-cta tband-cta--ghost" href="/tournament-rules" data-tband-cta="rules">Rules</a>
-        <!-- /get-paid-to-debate is the exact-match page for "get paid to
-             debate" and "win money debating" and had ZERO inbound links
-             from the homepage, so the site's highest-authority page
-             passed it nothing. Its only other inbound link is injected
-             by topbar.js, which is not there on first paint. -->
-        <a class="tband-cta tband-cta--ghost" href="/get-paid-to-debate" data-tband-cta="getpaid">How the money works</a>
-        <span class="tband-cta-note">Free entry until Aug 22</span>
-      </div>
-      <!-- Share rail. The poster is the promotional unit that actually
-           travels: a WhatsApp group, an Instagram story and a Discord
-           server all pass around the IMAGE, not the link, so on any
-           browser that supports it the primary button shares the JPEG
-           itself rather than a URL. Download is kept because a story post
-           and a printed common-room poster are both reachable only that
-           way. Enhanced by /js/share-poster.js; renders nothing if that
-           file fails to load, so the band degrades to what it was. -->
-      <div class="tband-share"
-           data-share-poster
-           data-share-url="https://itsdebatable.com/tournaments"
-           data-share-title="The Debatable Open"
-           data-share-text="The Debatable Open. One day, all online, Saturday August 29. $500 for winning an argument."
-           data-share-image="/img/tournament/debatable-open.jpg"
-           data-share-event="tournament_share"></div>
-    </div>
-  </div>
-  <script>
-  (function(){
-    var band = document.getElementById('tournament-band');
-    if (!band) return;
-    // Self-retire. A landing page advertising a finished tournament is
-    // worse than one advertising nothing, and nobody will remember to
-    // pull this by hand on the day.
-    var until = Date.parse(band.getAttribute('data-until') || '');
-    if (until && Date.now() > until) {
-      band.remove();
-      // The hero's "win money" jumps here. With the band gone that anchor
-      // scrolls nowhere, so the clause is demoted to plain text rather
-      // than left as a link to a section that no longer exists. Both
-      // first-screen copy arms carry one, hence the loop.
-      [].forEach.call(document.querySelectorAll('[data-tband-jump]'), function(a){
-        var plain = document.createTextNode(a.textContent);
-        if (a.parentNode) a.parentNode.replaceChild(plain, a);
-      });
-      return;
-    }
-    band.addEventListener('click', function(e){
-      var a = e.target.closest && e.target.closest('[data-tband-cta]');
-      if (!a) return;
-      try {
-        if (typeof gtag === 'function') {
-          gtag('event','landing_tournament_click',{ target: a.getAttribute('data-tband-cta') });
-        }
-      } catch(err){}
-    });
-  })();
-  </script>
-</section>
-
+<!-- ── Tournament band ── MOVED OFF THE LANDING 2026-08-12 ───────
+     The Debatable Open poster, prize copy, CTA row and share rail used
+     to live here as a full section above the one-pager gate. On a phone
+     it ran 1285px, roughly a third of the collapsed page, for a dated
+     event with its own page. The tournament is /tournaments now, and
+     the first screen links to it from the "win money" clause instead.
+     Do not re-inline it: update /tournaments and /tournament-rules.
+     The self-retiring `data-until` logic went with it; the landing no
+     longer carries a date that can go stale. -->
 <!-- ── One-pager gate flag (2026-08-10) ──────────────────────────────
      Per Aidan: the landing is one simple screen. Every chapter after
      the first screen waits behind the "Load more" card; the
@@ -18822,29 +18628,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     .lm-wl-row .landing-more-summary{width:100%;justify-content:space-between}
     body.landing-more-ready .lm-wl-row .chapter-nav:not([hidden]){padding:0 20px 22px}
-    .lm-wl-row .cn-groups{display:flex;flex-direction:column;gap:18px}
+    /* align-items:stretch is not the default it looks like: the desktop
+       grid rule sets align-items:start, which in a flex COLUMN is a
+       cross-axis (horizontal) rule, so the group with the shortest label
+       shrank to its content and sat 33px narrower than the other three. */
+    .lm-wl-row .cn-groups{display:flex;flex-direction:column;align-items:stretch;gap:16px}
     .lm-wl-row .cn-group-head{padding:0 2px}
+    /* Phones stack the cards full width. They used to be a horizontal rail
+       per group: four separate side-scrollers on one panel, with 236px
+       cards in ~335px of usable width, so every group showed one whole
+       card and one sliced down the middle mid-word. A card cut in half is
+       read as a rendering fault, not as an invitation to swipe, and four
+       rails means four separate gestures to see eleven destinations that
+       fit fine in a column. Nothing here scrolls sideways now. */
     body.landing-more-ready .lm-wl-row .chapter-nav ol{
-      flex-direction:row !important;
-      flex-wrap:nowrap !important;
-      justify-content:flex-start !important;
-      gap:8px !important;
-      overflow-x:auto !important;
-      overflow-y:hidden !important;
-      padding:0 0 4px !important;
-      scroll-snap-type:x proximity;
-      scrollbar-width:none;
+      flex-direction:column !important;
+      gap:6px !important;
+      padding:0 !important;
+      overflow:visible !important;
     }
-    body.landing-more-ready .lm-wl-row .chapter-nav ol::-webkit-scrollbar{width:0;height:0}
-    body.landing-more-ready .lm-wl-row .chapter-nav li{
-      flex:0 0 236px;min-width:236px;scroll-snap-align:start;
-    }
+    body.landing-more-ready .lm-wl-row .chapter-nav li{width:100%}
     body.landing-more-ready .lm-wl-row .chapter-nav a,
     body.landing-more-ready .lm-wl-row .chapter-nav a[data-size="lg"],
     body.landing-more-ready .lm-wl-row .chapter-nav a[data-size="sm"]{
-      height:100%;
+      align-items:center;
+      padding:11px 13px !important;
       border:1px solid var(--border) !important;
     }
+    .lm-wl-row .chapter-nav .cn-ico{width:28px;height:28px;margin-top:0}
+    /* Two lines is the whole note for every card at this width. The clamp
+       is a guard against a longer one being written later, not something
+       that fires today. */
+    .lm-wl-row .chapter-nav .cn-note{
+      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+      overflow:hidden;
+    }
+    .lm-wl-row .chapter-nav .cn-start{margin-top:5px}
   }
   /* The two-column first step should start near the index on laptop
      widths. Its old viewport-centering created a large blank band. */
