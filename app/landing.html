@@ -8465,14 +8465,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        a TOC row). */
     #stream-it,#floor-band,#community-band,#engine-select{display:none !important}
   </style>
+  <!-- 2026-08-12: the tour panel was a full card (kicker, headline, sub,
+       and an eleven-card grouped index) sitting between the first screen
+       and the rest of the page. Aidan: "just do a small 'full tour'
+       expand button." So the collapsed state is now the button alone;
+       the section index still renders, but only once the tour is open,
+       which is the only state where there is anything to jump to. -->
   <div class="landing-more" id="landing-more">
-    <div class="lm-copy">
-      <p class="lm-kicker">Explore Debatable</p>
-      <h2 class="lm-head">The full product tour.</h2>
-      <p class="lm-sub">Rounds, ballots, rankings, and the people behind them. Open it end to end, or jump straight to what you care about.</p>
-    </div>
     <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false" data-ab-test="landing_cv_v1" data-ab-target="gate_toggle">
-      <strong class="lm-title"><span class="lm-closed">View full tour</span><span class="lm-open">Hide full tour</span></strong>
+      <strong class="lm-title"><span class="lm-closed">Full tour</span><span class="lm-open">Hide tour</span></strong>
       <span class="lm-action" aria-hidden="true">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 7.25 5.5 5.5 5.5-5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
@@ -18415,21 +18416,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="stone"] #waitlist .wl-row input{background:rgba(255,255,255,.04);border-color:var(--border-strong,rgba(255,255,255,.18))}
 </style>
 <style>
-  /* Product-tour panel. One clear primary action (open the tour) plus a
-     grouped, annotated index: four visitor-question groups, each card
-     carrying an icon and the one-line TOC_PREVIEWS note, so no label
-     needs a hover or prior knowledge to make sense. */
+  /* Product-tour panel. Collapsed, it is one small pill and nothing
+     else: the card chrome, the headline block and the grouped index all
+     belong to the OPEN state, which is the only state where there is
+     anywhere to jump to. */
   .lm-wl-row{
     width:min(1120px,calc(100% - clamp(32px,7vw,96px)));
     max-width:none;
-    margin:clamp(42px,6vw,76px) auto clamp(30px,4vw,52px);
+    margin:clamp(30px,4vw,52px) auto clamp(26px,3.4vw,44px);
     padding:0;
     overflow:hidden;
-    border:1px solid var(--border);
+    border:1px solid transparent;
     border-radius:18px;
+    background:transparent;
+  }
+  body.landing-more-open .lm-wl-row{
+    border-color:var(--border);
     background:color-mix(in srgb,var(--bg,#fafaf7) 96%,var(--text,#1a1a1f));
   }
-  [data-theme="light"] .lm-wl-row{
+  [data-theme="light"] body.landing-more-open .lm-wl-row{
     background:#fff;
     box-shadow:0 18px 54px rgba(34,29,23,.07);
   }
@@ -18438,46 +18443,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   .lm-wl-row .landing-more{
     display:flex;
-    align-items:flex-end;
-    justify-content:space-between;
-    gap:32px;
-    padding:clamp(26px,3vw,38px) clamp(24px,3.6vw,44px) clamp(22px,2.5vw,30px);
+    align-items:center;
+    justify-content:center;
+    gap:0;
+    padding:0;
+    text-align:center;
+  }
+  body.landing-more-open .lm-wl-row .landing-more{
+    justify-content:flex-start;
+    padding:clamp(20px,2.4vw,28px) clamp(24px,3.6vw,44px) clamp(16px,1.8vw,22px);
     text-align:left;
   }
-  .lm-wl-row .lm-copy{display:block;min-width:0}
-  .lm-wl-row .lm-kicker{
-    margin:0 0 9px;
-    font-family:Inter,system-ui,-apple-system,sans-serif;
-    font-size:.63rem;font-weight:750;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--accent,#dc2626);
-  }
-  .lm-wl-row .lm-head{
-    margin:0;
-    font-size:clamp(1.65rem,2.4vw,2.15rem);font-weight:750;line-height:1.06;
-    letter-spacing:-.02em;color:var(--text,#1a1a1e);
-  }
-  .lm-wl-row .lm-sub{
-    margin:9px 0 0;
-    max-width:55ch;
-    font-size:.92rem;line-height:1.5;color:var(--text-dim);
-  }
-  /* This is the only control on the panel and the one thing the section
-     asks anyone to press, but it was sized like a chip: 180x50 with .8rem
-     text sitting beside a 34px headline, so the heading read as the loud
-     element and the button as a footnote. Sized up to roughly 250x68 with
-     ~1rem text, which puts it in the same weight class as the copy it sits
-     next to. The row is `align-items:flex-end`, so a taller button aligns
-     on its own baseline without moving the heading. */
+  /* A small pill, deliberately. It used to be sized to hold its own
+     against a 34px headline next to it; with the headline gone it is the
+     whole section, and a 250x68 slab reading "Full tour" in the middle of
+     an otherwise empty band is louder than the thing it opens. */
   .lm-wl-row .landing-more-summary{
     width:auto;max-width:100%;margin:0;
     flex:none;
-    display:inline-flex;gap:16px;
-    padding:15px 15px 15px 28px;
+    display:inline-flex;gap:9px;
+    padding:8px 8px 8px 18px;
     border:1px solid var(--accent-solid,#b91c1c);
-    border-radius:14px;
+    border-radius:999px;
     background:var(--accent-solid,#b91c1c);
     color:#fff;
-    box-shadow:0 14px 32px color-mix(in srgb,var(--accent,#dc2626) 30%,transparent),
+    box-shadow:0 8px 20px color-mix(in srgb,var(--accent,#dc2626) 24%,transparent),
                inset 0 1px 0 rgba(255,255,255,.16);
     transition:background .18s,box-shadow .18s,transform .18s;
   }
@@ -18490,25 +18480,30 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .lm-wl-row .landing-more-summary:active{transform:translateY(0)}
   .lm-wl-row .lm-title{
     font-family:Inter,system-ui,-apple-system,sans-serif;
-    font-size:1.02rem;font-weight:750;letter-spacing:.005em;line-height:1.1;
+    font-size:.84rem;font-weight:700;letter-spacing:.01em;line-height:1.1;
     color:#fff;
   }
   .lm-wl-row .lm-action{
-    width:38px;height:38px;
+    width:24px;height:24px;
     background:rgba(255,255,255,.2);
     color:#fff;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);
   }
-  .lm-wl-row .lm-action svg{width:20px;height:20px}
+  .lm-wl-row .lm-action svg{width:14px;height:14px}
 
-  /* The section index is part of the same panel at every width. Four
-     titled groups answer the visitor's actual questions in order (watch
-     it work, who's on it, why it exists, how to start), and every card
-     carries the one-line TOC_PREVIEWS note inline, so a label like
+  /* The section index rides the OPEN panel only. Collapsed, every
+     chapter it points at is hidden, so it was eleven cards offering to
+     jump to nothing; this rule also has to beat the older collapsed-gate
+     rule further up the file, which sets the strip to display:block. */
+  body.landing-more-ready:not(.landing-more-open) .lm-wl-row .chapter-nav{
+    display:none !important;
+  }
+  /* Four titled groups answer the visitor's actual questions in order
+     (watch it work, who's on it, why it exists, how to start), and every
+     card carries the one-line TOC_PREVIEWS note inline, so a label like
      "Credential + vision" explains itself without a hover. Phones keep
-     the vertical group stacks but each group's list becomes a
-     horizontal rail. */
-  body.landing-more-ready .lm-wl-row .chapter-nav:not([hidden]){
+     the vertical group stacks. */
+  body.landing-more-open .lm-wl-row .chapter-nav:not([hidden]){
     display:block !important;
     position:static !important;
     width:auto !important;max-width:none !important;
@@ -18626,12 +18621,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       margin:30px auto 28px;
       border-radius:14px;
     }
-    .lm-wl-row .landing-more{
-      flex-direction:column;align-items:stretch;gap:20px;
-      padding:24px 20px 20px;
-    }
-    .lm-wl-row .landing-more-summary{width:100%;justify-content:space-between}
-    body.landing-more-ready .lm-wl-row .chapter-nav:not([hidden]){padding:0 20px 22px}
+    /* The pill stays a pill on a phone. It is the only thing in the
+       collapsed band, so stretching it edge to edge would rebuild the
+       slab this pass removed. */
+    .lm-wl-row .landing-more{padding:0}
+    body.landing-more-open .lm-wl-row .landing-more{padding:20px 20px 16px}
+    body.landing-more-open .lm-wl-row .chapter-nav:not([hidden]){padding:0 20px 22px}
     /* align-items:stretch is not the default it looks like: the desktop
        grid rule sets align-items:start, which in a flex COLUMN is a
        cross-axis (horizontal) rule, so the group with the shortest label
