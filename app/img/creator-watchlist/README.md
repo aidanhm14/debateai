@@ -17,3 +17,9 @@ participation, affiliation, or endorsement.
   Summit, June 7, 2024. Photo by Gage Skidmore,
   [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/).
   [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Candace_Owens_(53805331465)_(cropped).jpg).
+- `destiny.jpg`: Steven "Destiny" Bonnell II, November 11, 2022. Photo by
+  Lex Fridman, [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Steven_%22Destiny%22_Bonnell,_2022_(cropped).jpg).
+- `vaush.jpg`: Ian "Vaush" Kochinski at a Ro Khanna event, September 29,
+  2023. Photo by Brianna Wu, released to the public domain.
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Vaush_(cropped).jpg).
