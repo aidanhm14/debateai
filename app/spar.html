@@ -672,6 +672,124 @@ h1 em{color:var(--accent);font-style:normal}
 .consent-format-row.play strong{color:var(--accent)}
 .consent-format-who{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-ghost)}
 
+/* ── Match-found card ─────────────────────────────────────────────
+   The highest-adrenaline moment on the site: a real person is on the
+   other end and the window is seconds wide. The old card said so in
+   grey text and a static number, which read like a cookie banner. So:
+   one expanding ring on arrival, a you-against-them face-off so the
+   opponent is a face rather than a name in a sentence, and the decide
+   window drawn as a bar draining across the accept button, where the
+   eye already is. Everything is red or ink; amber stays reserved for
+   state semantics. */
+.consent-wrap.mf{position:relative}
+.mf-burst{
+  position:absolute;left:50%;top:96px;width:16px;height:16px;margin:-8px 0 0 -8px;
+  border-radius:50%;border:2px solid var(--accent);pointer-events:none;z-index:0;
+  animation:mf-burst 1s cubic-bezier(.16,.84,.44,1) forwards;
+}
+@keyframes mf-burst{from{transform:scale(1);opacity:.85}to{transform:scale(44);opacity:0}}
+.mf > *{position:relative;z-index:1}
+/* The eyebrow is the announcement, so it stops whispering: filled red
+   chip, white type. Everywhere else on the page it stays a quiet label. */
+.mf > .eyebrow{
+  animation:mf-rise .45s cubic-bezier(.2,.9,.3,1) both;
+  padding:6px 14px;border-radius:999px;
+  background:var(--accent-solid,#b91c1c);color:#fff;
+  font-size:.62rem;box-shadow:0 6px 22px var(--accent-glow);
+}
+[data-lighting="dark"] .mf > .eyebrow{color:#fff}
+.mf > .eyebrow .pip{background:#fff;box-shadow:0 0 6px rgba(255,255,255,.9)}
+.mf > .mf-faceoff{animation:mf-rise .5s cubic-bezier(.2,.9,.3,1) .05s both}
+.mf > h1{animation:mf-rise .5s cubic-bezier(.2,.9,.3,1) .12s both}
+.mf > .lede{animation:mf-rise .5s cubic-bezier(.2,.9,.3,1) .18s both}
+.mf > .btn-row{animation:mf-rise .5s cubic-bezier(.2,.9,.3,1) .24s both}
+.mf > .countdown{animation:mf-rise .5s cubic-bezier(.2,.9,.3,1) .3s both}
+@keyframes mf-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.mf-faceoff{
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  margin:0 auto 16px;
+}
+.mf-side{display:flex;flex-direction:column;align-items:center;gap:9px;width:120px}
+.mf-face{
+  position:relative;width:86px;height:86px;border-radius:50%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-card);border:1px solid var(--border);
+  font-size:1.45rem;font-weight:800;color:var(--text-dim);letter-spacing:.02em;
+}
+.mf-face svg,.mf-face img{width:100%;height:100%;display:block;object-fit:cover}
+.mf-side.them .mf-face{
+  border-color:var(--accent);color:var(--accent);
+  box-shadow:0 0 0 5px var(--accent-glow),0 10px 30px var(--accent-glow);
+}
+/* One halo per second on the opponent only. They are the new thing on
+   screen; haloing both sides would just be noise. */
+.mf-side.them::before{
+  content:'';position:absolute;width:86px;height:86px;border-radius:50%;
+  border:1.5px solid var(--accent);pointer-events:none;
+  animation:mf-halo 1.8s ease-out infinite;
+}
+@keyframes mf-halo{0%{transform:scale(1);opacity:.6}75%{transform:scale(1.42);opacity:0}100%{opacity:0}}
+.mf-side{position:relative}
+.mf-tag{
+  font-size:.66rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--text-ghost);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;
+}
+.mf-side.them .mf-tag{color:var(--accent)}
+.mf-vs{
+  font-size:.82rem;font-weight:800;letter-spacing:.18em;color:var(--text-dim);
+  margin-bottom:26px;
+}
+
+/* Accept button: bigger than a normal .btn, with the decide window
+   draining along its bottom edge. The bar is the countdown; the pill
+   below is the number for anyone who wants it exact. */
+.btn.mf-go{
+  position:relative;overflow:hidden;
+  padding:14px 30px;font-size:.92rem;
+}
+.mf-drain{
+  position:absolute;left:0;bottom:0;height:3px;width:100%;
+  background:rgba(255,255,255,.9);transform-origin:left center;
+  animation:mf-drain var(--mf-dur,15s) linear forwards;
+}
+@keyframes mf-drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* Slow sheen across the accept button so it reads as the live thing on
+   a still page. */
+.btn.mf-go::after{
+  content:'';position:absolute;top:0;left:-60%;width:45%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);
+  animation:mf-sheen 2.8s ease-in-out infinite;pointer-events:none;
+}
+@keyframes mf-sheen{0%{left:-60%}55%,100%{left:120%}}
+.btn.mf-go:disabled::after,.btn.mf-go:disabled .mf-drain{display:none}
+
+/* Last five seconds. The button breathes and the number goes red; no
+   new colour is introduced, it just gets louder. */
+.mf.is-urgent .btn.mf-go{animation:mf-pulse .85s ease-in-out infinite}
+@keyframes mf-pulse{
+  0%,100%{transform:none;box-shadow:0 6px 24px var(--accent-glow)}
+  50%{transform:scale(1.035);box-shadow:0 8px 34px var(--accent)}
+}
+.mf.is-urgent .countdown{border-color:var(--accent);color:var(--accent)}
+.mf.is-urgent .countdown strong{color:var(--accent)}
+.mf .countdown{margin-top:16px;margin-bottom:0}
+
+@media (max-width:520px){
+  .mf-faceoff{gap:8px}
+  .mf-side{width:96px}
+  .mf-face{width:68px;height:68px;font-size:1.2rem}
+  .mf-side.them::before{width:68px;height:68px}
+  .mf-tag{max-width:96px}
+  .mf-vs{margin-bottom:24px}
+}
+@media (prefers-reduced-motion:reduce){
+  .mf-burst,.btn.mf-go::after,.mf-side.them::before{display:none}
+  .mf > *{animation:none !important}
+  .mf.is-urgent .btn.mf-go{animation:none}
+  .mf-drain{animation-name:mf-drain}
+}
+
 /* Live waitlist tile — shows other available debaters, with avatars,
    short names, proposed formats, and how long they've been waiting.
    Replaces the older single-line "X in your queue" text. */
@@ -1637,6 +1755,40 @@ h1 em{color:var(--accent);font-style:normal}
       return '<span class="' + cls + '" aria-hidden="true">' + DBAvatar.publicSvg(identity,'100%',{uid:uid,name:name}) + '</span>';
     }
     return fallback || '<span class="' + cls + '" aria-hidden="true"></span>';
+  }
+
+  // Initials disc for anyone without a built avatar. avatarMarkup's
+  // empty-span fallback rendered an invisible circle, which is why the
+  // match card used to show a name and no face at all.
+  function initialsFor(name){
+    var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    var first = parts[0].charAt(0);
+    var last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+    return (first + last).toUpperCase();
+  }
+  function faceMarkup(identity, uid, name){
+    var inner = (identity && window.DBAvatar && DBAvatar.publicSvg)
+      ? DBAvatar.publicSvg(identity, '100%', { uid: uid, name: name })
+      : escHtml(initialsFor(name));
+    return '<span class="mf-face">' + inner + '</span>';
+  }
+  // You against them, so the opponent lands as a face rather than as a
+  // name inside a sentence. My own side reads "You" on purpose: my
+  // display name tells me nothing I don't know.
+  function faceoffMarkup(peerIdentity, peerUid, peerName){
+    var me = state.user || {};
+    return '<div class="mf-faceoff">' +
+        '<div class="mf-side me">' +
+          faceMarkup(currentPublicAvatarIdentity(), me.uid || '', me.displayName || 'You') +
+          '<span class="mf-tag">You</span>' +
+        '</div>' +
+        '<div class="mf-vs" aria-hidden="true">VS</div>' +
+        '<div class="mf-side them">' +
+          faceMarkup(peerIdentity, peerUid || '', peerName) +
+          '<span class="mf-tag">' + peerName + '</span>' +
+        '</div>' +
+      '</div>';
   }
 
   function isNamedUser(u){
@@ -3239,6 +3391,10 @@ h1 em{color:var(--accent);font-style:normal}
       if (showNum){
         var el = document.getElementById('consentCountNum');
         if (el) el.textContent = String(left);
+        // Last five seconds get louder rather than newer: same red, more
+        // of it. Cheap enough to set every tick; the class is idempotent.
+        var card = document.getElementById('consentCard');
+        if (card && left <= 5) card.classList.add('is-urgent');
       }
       if (left <= 0){
         clearConsentTimer();
@@ -3362,13 +3518,16 @@ h1 em{color:var(--accent);font-style:normal}
     // deadline to decide by, because there is nothing to decide.
     if (d.readyCheck && !theirNote && !myNote && !crossFmt){
       shell.innerHTML =
-        '<div class="consent-wrap">' +
+        '<div class="consent-wrap mf" id="consentCard">' +
+          '<span class="mf-burst" aria-hidden="true"></span>' +
           '<div class="eyebrow"><span class="pip"></span>Match found</div>' +
-          peerAvatar +
+          faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName) +
           '<h1><em>' + peerName + '</em> is ready.</h1>' +
           '<p class="lede">Confirm you\'re here and the <strong>' + fmtLabel + '</strong> round starts. If you don\'t, they go back in the queue instead of waiting in an empty room.</p>' +
           '<div class="btn-row">' +
-            '<button class="btn primary" id="consentAcceptBtn">I\'m here, start the round</button>' +
+            '<button class="btn primary mf-go" id="consentAcceptBtn" style="--mf-dur:' + CONSENT_DECIDE_SEC + 's">' +
+              'I\'m here, start the round<span class="mf-drain" aria-hidden="true"></span>' +
+            '</button>' +
             '<button class="btn ghost" id="consentDeclineBtn">Not now</button>' +
           '</div>' +
           '<div class="countdown">Match expires in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
