@@ -13,3 +13,7 @@ participation, affiliation, or endorsement.
 - `pokimane.jpg`: Pokimane at the Creator Economy Caucus launch on June 5,
   2025. U.S. Congress image, public domain.
   [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Pokimane_at_the_Creator_Economy_Caucus_launch,_2025.jpg).
+- `candaceowens.jpg`: Candace Owens at the 2024 Young Women's Leadership
+  Summit, June 7, 2024. Photo by Gage Skidmore,
+  [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Candace_Owens_(53805331465)_(cropped).jpg).
