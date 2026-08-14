@@ -325,6 +325,14 @@ button,input,select,textarea{font-family:inherit}
   font-size:1.15rem;font-weight:900;letter-spacing:-.02em;
   color:var(--text,#fff);cursor:pointer;white-space:nowrap;line-height:1;
   text-decoration:none;display:inline-block;
+  /* Vertical padding cancelled by an equal negative margin: grows the tap
+     target from the ~18px glyph box to 44px without moving a pixel of
+     layout. Vertical only, because the horizontal equivalent would eat
+     into .app-topbar-left's 12px gap and crowd the Tools button. */
+  padding:15px 0;margin:-15px 0;
+}
+.app-topbar-logo:focus-visible{
+  outline:2px solid var(--accent,#ef4444);outline-offset:3px;border-radius:4px;
 }
 .app-topbar-logo span{color:var(--accent,#ef4444)}
 .app-tools-btn{
@@ -4135,10 +4143,14 @@ function initDialecticalFlow() {}
    ═══════════════════════════════════════════════════ */
 
 var SUPPORTED_LOCALES = [
-// Two flags on purpose (UK + US): English is not a US language, and the
-// topbar pill is flag-only now, so a lone Stars and Stripes was the whole
-// statement the control made about who the site is for.
-{ code: 'en', name: 'English', flag: '\ud83c\uddec\ud83c\udde7\ud83c\uddfa\ud83c\uddf8' },
+// One flag, matching landing.html and practice.html (2026-08-12). This
+// carried the UK+US pair on the reasoning that English is not a US
+// language, so a lone Stars and Stripes made a claim about who the site
+// is for. The pair simply looked bad at pill size, two small flags
+// reading as one smudge, so legibility wins over the semantic point.
+// Every other option here is already one flag for a language spoken in
+// many more countries than that flag covers.
+{ code: 'en', name: 'English', flag: '\ud83c\uddfa\ud83c\uddf8' },
 { code: 'hi', name: '\u0939\u093f\u0928\u094d\u0926\u0940', flag: '\ud83c\uddee\ud83c\uddf3' },
 { code: 'de', name: 'Deutsch', flag: '\ud83c\udde9\ud83c\uddea' },
 { code: 'fr', name: 'Fran\u00e7ais', flag: '\ud83c\uddeb\ud83c\uddf7' },
@@ -17571,10 +17583,17 @@ function App() {
   React.createElement('header', { className: 'app-topbar' },
   // Left: logo
   React.createElement('div', { className: 'app-topbar-left', style: { flex: '1 1 auto', minWidth: 0 } },
-  React.createElement('span', {
+  // A real <a href="/">, not a span with an onClick. The wordmark is the
+  // thing every visitor reaches for to get out of the workspace, and it
+  // used to swallow that press into a tab switch (Motions), which reads
+  // as a dead logo. As an anchor it also gets middle-click, cmd-click,
+  // right-click-copy-address, and keyboard focus for free. The .app-home-btn
+  // beside it stays: this is the door people aim at, that one is the door
+  // that is labelled.
+  React.createElement('a', {
     className: 'app-topbar-logo',
-    onClick: () => navigateTab('res'),
-    title: 'Home'
+    href: '/',
+    title: 'Debatable home'
   },
   "Debat",
   React.createElement('span', null, "able")
@@ -17684,9 +17703,12 @@ function App() {
   React.createElement('span', { style: { position: 'relative', display: 'inline-flex', alignItems: 'center' } },
   React.createElement('span', {
     className: 'topbar-pill topbar-tint-pill',
-    // Negative tracking so English's two-flag pair does not widen the
-    // pill past its neighbours in the rail.
-    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999, display: 'inline-block', pointerEvents: 'none', letterSpacing: '-.07em' }
+    // The negative tracking here existed only to squeeze English's
+    // UK+US pair back to one pill width. With a single flag it was
+    // clipping the glyph's right edge, so it goes with the pair.
+    // inline-flex + centring keeps the flag optically centred in the
+    // pill instead of sitting on the text baseline.
+    style: { cursor: 'pointer', padding: '4px 12px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, pointerEvents: 'none' }
   },
   // 2026-08-12, per Aidan: flag only. The "EN" beside it was the label
   // spending the most width in the rail to say what the flag already
