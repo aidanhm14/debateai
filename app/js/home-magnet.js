@@ -36,6 +36,88 @@
   var SEEN_KEY = 'dit-home-prompt-seen';
   var VISITED_HOME_KEY = 'dit-visited-home';
 
+  // ── A/B home_magnet_dest_v1 (2026-08-14) ─────────────────────────
+  // Where a search visitor gets sent. CONTROL is today's behaviour, the
+  // main page. The other arm sends them straight into a round, on the
+  // reasoning that the main page then has to sell them a second time and
+  // a stranger who is already reading a debate dossier has arguably been
+  // sold once. Neither is obviously right, which is why it is an
+  // experiment and not an edit.
+  //
+  // Sticky per browser; ?magnet=home|round forces an arm for QA and a
+  // forced arm is excluded from telemetry entirely.
+  //
+  // Telemetry does NOT ride the shared experiments.js rail, for the same
+  // reason signup-nudge.js does not: measured today, 1 of the 92 pages
+  // carrying this module also loads that file, so registering on
+  // window.__abAssignments would report roughly a hundredth of the
+  // traffic and read as the whole. Worse, that rail sends its impression
+  // at DOMContentLoaded, and this card mounts ~6s later and usually not
+  // at all, so it would have counted a view for every page load rather
+  // than for every card actually shown. Both are emitted below in
+  // experiments.js's exact event shape via gtag, which track.js bridges
+  // to /api/log-event and log-event.mjs turns into experiment_events
+  // rows. Same Mission Control rollup, honest denominator.
+  var DEST_KEY = 'da-ab-magnet-dest';
+  var DEST_TEST = 'home_magnet_dest_v1';
+  var destArm = 'home';
+  var destForced = false;
+  (function assignDest(){
+    try {
+      var qp = (location.search || '').toLowerCase();
+      if (/[?&]magnet=home(?:&|$)/.test(qp)) { destArm = 'home'; destForced = true; return; }
+      if (/[?&]magnet=round(?:&|$)/.test(qp)) { destArm = 'round'; destForced = true; return; }
+    } catch (e) {}
+    try {
+      var v = localStorage.getItem(DEST_KEY) || '';
+      if (v !== 'home' && v !== 'round') {
+        v = Math.random() < 0.5 ? 'home' : 'round';
+        localStorage.setItem(DEST_KEY, v);
+      }
+      destArm = v;
+    } catch (e) { destArm = 'home'; }
+  })();
+
+  var ARMS = {
+    home: {
+      href: HOME,
+      label: 'Go to the main page →',
+      head: 'Debate real people, live.',
+      body: 'You landed on one page. The main page is where it all runs: live rounds against real people in your format, with an AI judge that writes the ballot at the end.'
+    },
+    round: {
+      href: '/practice',
+      label: 'Start a round →',
+      head: 'Argue this one yourself.',
+      body: 'You have been reading one side of it. Pick a side and say it out loud against an opponent that argues back, on a clock, and an AI judge writes the ballot at the end.'
+    }
+  };
+  var ARM = ARMS[destArm] || ARMS.home;
+
+  function abEmit(name, params){
+    if (destForced) return;
+    try { if (window.gtag) window.gtag('event', name, params || {}); } catch (e) {}
+  }
+  // One impression per session per path, using experiments.js's dedupe
+  // key so the two can never double-count the same page.
+  function abImpression(){
+    var p = location.pathname || '/';
+    var assignments = DEST_TEST + '=' + destArm;
+    try {
+      var k = '_da_ab_imp:' + p + ':' + assignments;
+      if (sessionStorage.getItem(k) === '1') return;
+      sessionStorage.setItem(k, '1');
+    } catch (e) {}
+    abEmit('ab_impression', { assignments: assignments, experiment_count: 1, path: p });
+  }
+  function abConversion(target){
+    abEmit('ab_conversion', {
+      test: DEST_TEST, variant: destArm,
+      target: String(target || 'click').slice(0, 64),
+      path: location.pathname || '/'
+    });
+  }
+
   // Already on the home / app shell? Record the visit — once someone has
   // seen the main page, the "go to the main page" popup should never fire
   // for them again — then do nothing else here.
@@ -260,32 +342,48 @@
       '<div class="ditHP-card" role="document">' +
         '<button class="ditHP-x" aria-label="Dismiss">×</button>' +
         '<div class="ditHP-kick"><span class="ditHP-dot"></span>New here?</div>' +
-        '<h2 class="ditHP-h">Debate real people, live.</h2>' +
-        '<p class="ditHP-p">You landed on one page. The main page is where it all runs: live rounds against real people in your format, with an AI judge that writes the ballot at the end.</p>' +
+        '<h2 class="ditHP-h">' + ARM.head + '</h2>' +
+        '<p class="ditHP-p">' + ARM.body + '</p>' +
         '<div class="ditHP-row">' +
-          '<a class="ditHP-go" href="' + HOME + '">Go to the main page →</a>' +
+          '<a class="ditHP-go" href="' + ARM.href + '">' + ARM.label + '</a>' +
           '<button class="ditHP-signin">Sign in</button>' +
           '<button class="ditHP-stay">Stay on this page</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(wrap);
     markSeen();
+    // The denominator, and the reason it is emitted HERE rather than at
+    // boot: this counts cards actually shown, not page loads. Most loads
+    // never reach this line (seen, internal navigation, already visited
+    // the main page, signed in, app surface), and counting those would
+    // have made a working popup look like it converts at ~1%.
+    abImpression();
 
     function close() {
       wrap.classList.remove('in');
       setTimeout(function () { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 300);
       document.removeEventListener('keydown', onKey);
     }
-    function onKey(e) { if (e.key === 'Escape') close(); }
+    function onKey(e) { if (e.key === 'Escape') { abConversion('dismiss'); close(); } }
 
-    wrap.querySelector('.ditHP-x').addEventListener('click', close);
-    wrap.querySelector('.ditHP-stay').addEventListener('click', close);
-    // Let the home button navigate normally; just record intent.
+    // Both refusals are recorded, not just the accepts. A card measured
+    // only by its clicks cannot tell "nobody wanted this" from "nobody
+    // saw it", and dismiss-vs-stay is the difference between annoying and
+    // merely ignored.
+    wrap.querySelector('.ditHP-x').addEventListener('click', function () {
+      abConversion('dismiss'); close();
+    });
+    wrap.querySelector('.ditHP-stay').addEventListener('click', function () {
+      abConversion('stay'); close();
+    });
+    // Let the primary button navigate normally; just record intent first.
     wrap.querySelector('.ditHP-go').addEventListener('click', function () {
-      try { if (window.track) window.track('home_magnet_go', { from: path }); } catch (e) {}
+      abConversion('go');
+      try { if (window.track) window.track('home_magnet_go', { from: path, arm: destArm, to: ARM.href }); } catch (e) {}
     });
     wrap.querySelector('.ditHP-signin').addEventListener('click', function () {
-      try { if (window.track) window.track('home_magnet_signin', { from: path }); } catch (e) {}
+      abConversion('signin');
+      try { if (window.track) window.track('home_magnet_signin', { from: path, arm: destArm }); } catch (e) {}
       close();
       openSharedAuth();
     });
