@@ -833,6 +833,68 @@ service cloud.firestore {
                     && resource.data.uid == request.auth.uid;
     }
 
+    // ── public_profiles ──────────────────────────────────────────────
+    // The social layer: one doc per debater, keyed by uid, rendered at
+    // /users/{handle}. /messages has been reading and writing this
+    // collection since the DM marketplace shipped, but it had NO rule,
+    // so every one of those calls was hitting the default deny. That is
+    // why nobody has ever seen a filled-in public profile.
+    //
+    // Visibility is the user's call and it is enforced HERE, not in the
+    // client. `private` means the doc does not leave the database for
+    // anyone but its owner, so a private profile cannot be scraped by
+    // reading the collection directly. Absent visibility reads as
+    // public, which matches the default a new profile is written with.
+    //
+    // `get` only, never `list`: a profile is something you look up by
+    // handle, not a directory anyone can enumerate for names, schools
+    // and contact links. The handle index below is what turns a URL
+    // into a uid.
+    //
+    // Schema (enforced inline where it matters):
+    //   { uid, name ≤60, handle ≤30, school ≤80, circuit ≤60,
+    //     bio ≤280, formats[] ≤8, photo ≤400, visibility: public|private,
+    //     dmOpen: bool, links: { email, x, instagram, linkedin,
+    //     youtube, website } each ≤200, updatedAt }
+    match /public_profiles/{uid} {
+      // `resource == null` is listed FIRST on purpose. A get against a
+      // document that does not exist evaluates the rest of this
+      // expression against a null resource, which errors and therefore
+      // denies, and the client reads a denial as "private". Without this
+      // clause a handle whose profile was deleted would render as a
+      // private profile rather than an empty one.
+      allow get:    if resource == null
+                    || isOwner(uid)
+                    || !('visibility' in resource.data)
+                    || resource.data.visibility != 'private';
+      allow list:   if false;
+      allow create, update: if isOwner(uid)
+                    && request.resource.data.uid == request.auth.uid
+                    && stringUnder('name', 60)
+                    && stringUnder('bio', 280)
+                    && request.resource.data.visibility in ['public', 'private'];
+      allow delete: if isOwner(uid);
+    }
+
+    // ── profile_handles ──────────────────────────────────────────────
+    // handle → uid index so /users/{handle} resolves without a query.
+    // Doc id IS the lowercased handle, which makes the id itself the
+    // uniqueness constraint: `create` only succeeds when no document
+    // exists at that id, so two people cannot hold the same handle and
+    // no server-side reservation step is needed.
+    //
+    // Update is restricted to the uid already in the doc, so claiming a
+    // handle is permanent until its owner deletes it. Deleting is how
+    // you release one when you rename.
+    match /profile_handles/{handle} {
+      allow get:    if true;
+      allow list:   if false;
+      allow create: if isNamedAccount()
+                    && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isSignedIn()
+                    && resource.data.uid == request.auth.uid;
+    }
+
     // ── dm_threads ───────────────────────────────────────────────────
     // Private 1:1 DMs between two debaters (threadId = sorted uid pair).
     // Read/write gated to the two participants. On create we check the

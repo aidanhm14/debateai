@@ -278,6 +278,9 @@ img.msg-av{display:block}
   var MSG_MAX = 1000;
   var FORMATS = ['APDA','BP','Policy','LD','PF','Worlds','Asian Parli','Congress'];
   var myFormats = [];
+  // Mirrors public_profiles.visibility so a save from this form preserves
+  // the setting rather than resetting it. Editing it lives on /users.
+  var myVisibility = 'public';
 
   // ── error surfacing: never fake-empty on a failed read ──────────
   // The recurring failure mode is the Firestore free-tier daily read
@@ -609,6 +612,7 @@ img.msg-av{display:block}
       $('pfCircuit').value = d.circuit || '';
       $('pfBio').value = d.bio || '';
       myFormats = Array.isArray(d.formats) ? d.formats.slice(0, 8) : [];
+      myVisibility = d.visibility === 'private' ? 'private' : 'public';
       paintFormatChips();
     }).catch(function(err){
       console.warn('[messages] own profile load failed', err && err.code);
@@ -616,18 +620,27 @@ img.msg-av{display:block}
     $('pfSave').addEventListener('click', function(){
       var name = ($('pfName').value || '').trim().slice(0, 60);
       if (!name){ $('pfStatus').textContent = 'Add a display name first.'; return; }
+      // uid and visibility are required by the public_profiles rule
+      // (added 2026-08-14 with /users). uid is what stops a write from
+      // claiming someone else's profile; visibility defaults to public
+      // here rather than being editable, because the full control lives
+      // on /users where the consequences are shown next to it. A merge
+      // write sends the MERGED document to the rule, so re-saving from
+      // this form keeps whatever visibility the profile already has.
       var doc = {
+        uid: me.uid,
         name: name,
         school: ($('pfSchool').value || '').trim().slice(0, 80),
         circuit: ($('pfCircuit').value || '').trim().slice(0, 60),
         bio: ($('pfBio').value || '').trim().slice(0, 280),
         formats: myFormats.slice(0, 8),
         photo: (me.photoURL || '').slice(0, 400),
+        visibility: (myVisibility === 'private' ? 'private' : 'public'),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
       $('pfStatus').textContent = 'Saving…';
       db.collection('public_profiles').doc(me.uid).set(doc, { merge: true }).then(function(){
-        $('pfStatus').textContent = 'Saved. This is what other debaters see.';
+        $('pfStatus').textContent = 'Saved. Full profile, links and privacy live on /users.';
         try { gtag('event', 'public_profile_save'); } catch(e){}
       }).catch(function(e){
         $('pfStatus').textContent = 'Could not save' + ((e && e.code) ? ' (' + e.code + ')' : '') + '.';

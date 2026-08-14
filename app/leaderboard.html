@@ -38,6 +38,11 @@
 <script defer src="/js/avatar.js"></script>
 <script defer src="/js/avatar-account.js"></script>
 
+<!-- Subject-domain classifier + XP. Loaded blocking (not deferred)
+     because the board's first render calls DBDomains synchronously to
+     bucket every row by the domain of its motion. -->
+<script src="/js/domains.js"></script>
+
 <script defer src="/js/track.js"></script>
 
 <!-- community-seed.js removed 2026-05-25. The leaderboard used to merge
@@ -661,6 +666,25 @@ body.has-beta-strip .shell{padding-top:98px}
   background:var(--bg-elev);color:var(--text-dim);
   font-weight:700;font-size:.62rem;letter-spacing:.04em;
 }
+/* Subject chip carries the domain's own colour so the board reads as a
+   map of who argues what, not a wall of identical grey pills. */
+.deb-sub .subj-chip{
+  color:var(--sc,var(--text-dim));
+  background:color-mix(in srgb, var(--sc,#888) 12%, transparent);
+  border:1px solid color-mix(in srgb, var(--sc,#888) 32%, transparent);
+}
+.lvl-chip{
+  display:inline-flex;align-items:center;padding:1px 7px;border-radius:999px;
+  background:var(--bg-elev);color:var(--text-ghost);
+  font-weight:800;font-size:.58rem;letter-spacing:.05em;white-space:nowrap;
+}
+/* A debater's name is the way into their profile. Underline only on
+   hover so the board still reads as a table, not a list of links. */
+a.deb-link,a.pod-name{text-decoration:none;color:inherit;display:block}
+a.deb-link:hover,a.pod-name:hover{text-decoration:underline;text-underline-offset:2px}
+a.deb-link:focus-visible,a.pod-name:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;
+}
 .deb-sub .live-mark{
   display:inline-flex;align-items:center;gap:4px;
   color:var(--accent);font-weight:800;font-size:.6rem;
@@ -1044,7 +1068,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
       <h1>The <span class="hero-acc">leaderboard.</span></h1>
       <p class="hero-sub">
         Head-to-head ranks debates against other people. Solo practice ranks individual speaking.
-        Each person appears once, and their best judged score in the selected format sets their place. <span class="rule">Higher is better. Typed rounds do not count.</span>
+        Each person appears once, and their best judged score in the selected subject sets their place. <span class="rule">Higher is better. Typed rounds do not count.</span> Press any name to read their profile.
       </p>
     </div>
     <div class="hero-side">
@@ -1143,7 +1167,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 
       <div class="side-card" id="sideHotCard">
         <div class="side-head">
-          <span class="side-eye">Most debated formats</span>
+          <span class="side-eye">Most debated subjects</span>
         </div>
         <div id="hotList">
           <div class="side-empty">Waiting on rounds…</div>
@@ -1279,6 +1303,43 @@ function debaterActions(r, extraClass){
 }
 function profileTypeTag(r){
   return r && r.seed ? '<span class="example-mark">Example</span>' : '';
+}
+// A name on the board is a person you can go read about. Seeds are not
+// people, so they stay plain text rather than linking to a profile that
+// would have to invent a history to fill itself in.
+function profileHref(r){
+  if(!r || r.seed) return '';
+  const uid=r.uid;
+  if(!uid || typeof uid!=='string' || uid.length<8) return '';
+  return '/users?uid='+encodeURIComponent(uid);
+}
+function nameCell(r, cls){
+  const name=escapeHtml(r.displayName||'Anonymous');
+  const href=profileHref(r);
+  if(!href) return `<div class="${cls}">${name}</div>`;
+  return `<a class="${cls} deb-link" href="${href}" data-cta="lb-profile">${name}</a>`;
+}
+// Subject is the axis now, but a row whose motion we cannot classify
+// (seeds carry no motion, and some older entries were written before the
+// field existed) still has a format worth showing. Falling back keeps the
+// line informative instead of blanking it.
+function subjectLabel(r){
+  const d=DBDomains.get(domainOf(r));
+  if(d.key!=='general') return {text:d.short||d.name, accent:d.accent, title:d.name+'. '+d.blurb};
+  const fmt=r&&(r.formatName||r.format);
+  if(fmt) return {text:fmt, accent:'', title:'Subject not recorded for this round'};
+  return null;
+}
+function subjectChip(r){
+  const s=subjectLabel(r);
+  if(!s) return '';
+  if(!s.accent) return `<span class="fmt-chip" title="${escapeHtml(s.title)}">${escapeHtml(s.text)}</span>`;
+  return `<span class="fmt-chip subj-chip" style="--sc:${escapeHtml(s.accent)}" title="${escapeHtml(s.title)}">${escapeHtml(s.text)}</span>`;
+}
+function levelChip(r){
+  const L=r&&r._level;
+  if(!L) return '';
+  return `<span class="lvl-chip" title="${L.xp.toLocaleString()} XP">L${L.level} ${escapeHtml(L.title)}</span>`;
 }
 // The board is seeded texture until real rounds land on it, so on most
 // days there is nobody here to call out. Sending a user from /live into
@@ -1432,10 +1493,23 @@ function avatarHTML(row){
     +'<span class="avatar-fallback" hidden>'+fallback+'</span>';
 }
 
+// 2026-08-14: the board used to slice by debate FORMAT, which is the
+// rulebook, not the skill. Everyone here is running the same kind of
+// round; what actually separates two debaters is the SUBJECT they can
+// carry. So the pills filter by the domain of the motion, classified
+// from the motion text every entry already stores. Format still shows
+// on the row, it just stopped being the axis you sort the room by.
+const domainOf = (r) => {
+  if(!r) return 'general';
+  if(r.__domain) return r.__domain;
+  const key = (window.DBDomains ? DBDomains.classify(r.motion||'').key : 'general');
+  try { r.__domain = key; } catch(_){}
+  return key;
+};
 function applyFormatFilter(rows){
   if(!state.format) return rows;
   const f=state.format;
-  return rows.filter(r=>r.format===f||r.formatName===f);
+  return rows.filter(r=>domainOf(r)===f);
 }
 
 // ── enrichment: compute W/L, streak, rounds, lastActive per uid from
@@ -1466,8 +1540,9 @@ function enrichRows(rows){
   const byUid={};
   rows.forEach(r=>{
     const uid=r.uid||r.displayName||Math.random();
-    const cur = byUid[uid] = byUid[uid] || {wins:0,losses:0,rounds:0,lastTs:0,best:-Infinity};
+    const cur = byUid[uid] = byUid[uid] || {wins:0,losses:0,rounds:0,lastTs:0,best:-Infinity,xp:0};
     cur.rounds++;
+    cur.xp += (window.DBDomains ? DBDomains.xpForRound(r) : 0);
     if(r.won) cur.wins++; else cur.losses++;
     const ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
     if(ts>cur.lastTs) cur.lastTs=ts;
@@ -1479,21 +1554,29 @@ function enrichRows(rows){
       // Seeded: use the deterministic augment so the texture is consistent
       // even with a pool of 9 personas (real W/L would always be 1-0 / 0-1).
       const aug=seedAug(uid);
+      const seedXp=aug.rounds*90;
       return Object.assign({}, r, {
         _rounds: aug.rounds,
         _wins: aug.wins,
         _losses: aug.losses,
         _streak: aug.streak,
+        _xp: seedXp,
+        _level: window.DBDomains ? DBDomains.levelFor(seedXp) : null,
       });
     }
-    const agg=byUid[uid] || {wins:r.won?1:0,losses:r.won?0:1,rounds:1};
+    const agg=byUid[uid] || {wins:r.won?1:0,losses:r.won?0:1,rounds:1,xp:0};
     // Streak inferred from this row's W status only (we don't have history).
     // Real W/L is whatever shows up in the loaded top-100 for the uid.
+    // XP is the same deal: it counts the rounds visible in this snapshot,
+    // so a heavy debater's board XP can trail the total on their profile,
+    // which reads their whole history. Understating is the safe direction.
     return Object.assign({}, r, {
       _rounds: agg.rounds,
       _wins: agg.wins,
       _losses: agg.losses,
       _streak: r.won ? Math.max(1, Math.min(agg.wins,3)) : 0,
+      _xp: agg.xp,
+      _level: window.DBDomains ? DBDomains.levelFor(agg.xp) : null,
     });
   });
 }
@@ -1583,8 +1666,6 @@ function podiumWave(uid, score){
 // ── render: podium (top 3) ─────────────────────────────────────────
 function podHTML(row, place){
   const score=fmtScore(row.score);
-  const fmt=escapeHtml(row.formatName||row.format||'—');
-  const name=escapeHtml(row.displayName||'Anonymous');
   const av=avatarHTML(row);
   const wins=row._wins||(row.won?1:0);
   const losses=row._losses||(row.won?0:1);
@@ -1599,11 +1680,12 @@ function podHTML(row, place){
       <div class="pod-body">
         <div class="pod-avatar" aria-hidden="true">${av}</div>
         <div class="pod-id">
-          <div class="pod-name">${name}</div>
+          ${nameCell(row,'pod-name')}
           <div class="pod-meta">
-            <span class="fmt">${fmt}</span>
+            <span class="fmt">${escapeHtml((subjectLabel(row)||{text:'—'}).text)}</span>
             <span class="dot-sep">·</span>
             <span>${escapeHtml(fmtAgo(row.completedAt)||'recent')}</span>
+            ${levelChip(row)}
             ${profileTypeTag(row)}
           </div>
           ${debaterActions(row)}
@@ -1677,7 +1759,7 @@ function streakCell(streak){
 function renderTable(rows){
   if(!rows.length){
     const liveTab=state.view==='live';
-    const filterClause=state.format?` for ${escapeHtml(state.format)}`:'';
+    const filterClause=state.format?` for ${escapeHtml(DBDomains.get(state.format).name)}`:'';
     const tabNoun=liveTab?'live rounds':'solo voice rounds';
     const ctaHref=liveTab?'/live':'/voice-debate';
     const ctaLabel=liveTab?'Open the live board →':'Start a voice round →';
@@ -1799,9 +1881,10 @@ function renderTable(rows){
         <div class="deb">
           <div class="deb-av" aria-hidden="true">${avatarHTML(r)}</div>
           <div class="deb-id">
-            <div class="deb-name">${escapeHtml(r.displayName||'Anonymous')}</div>
+            ${nameCell(r,'deb-name')}
             <div class="deb-sub">
-              <span class="fmt-chip">${escapeHtml(r.formatName||r.format||'—')}</span>
+              ${subjectChip(r)}
+              ${levelChip(r)}
               ${liveMark}
               ${profileTypeTag(r)}
             </div>
@@ -1884,28 +1967,36 @@ function updateHeroStats(allRows, filtered){
 // ── format pills with counts (derived from the current view) ──────
 function renderFormatPills(allRows){
   if(!fmtPillsHost) return;
-  const peopleByFormat=new Map();
+  const peopleByDomain=new Map();
   for(const r of allRows){
-    const display=r.formatName||r.format||'';
-    if(!display) continue;
-    if(!peopleByFormat.has(display)) peopleByFormat.set(display,new Set());
-    peopleByFormat.get(display).add(r.uid||r.displayName||'');
+    const key=domainOf(r);
+    if(!key) continue;
+    if(!peopleByDomain.has(key)) peopleByDomain.set(key,new Set());
+    peopleByDomain.get(key).add(r.uid||r.displayName||'');
   }
-  const counts=new Map(Array.from(peopleByFormat.entries()).map(([name,people])=>[name,people.size]));
+  const counts=new Map(Array.from(peopleByDomain.entries()).map(([key,people])=>[key,people.size]));
   if(counts.size<=1){
     fmtPillsHost.hidden=true;
     fmtPillsHost.innerHTML='';
     return;
   }
   fmtPillsHost.hidden=false;
-  // Sort formats by count desc, then alpha.
-  const formats=Array.from(counts.entries())
-    .sort((a,b)=> (b[1]-a[1]) || a[0].localeCompare(b[0]))
+  // Sort subjects by count desc, then alpha. General sinks last: it is
+  // the "did not match" bucket, not a subject anyone specialises in.
+  const keys=Array.from(counts.entries())
+    .sort((a,b)=>{
+      if((a[0]==='general')!==(b[0]==='general')) return a[0]==='general'?1:-1;
+      const nameA=DBDomains.get(a[0]).name, nameB=DBDomains.get(b[0]).name;
+      return (b[1]-a[1]) || nameA.localeCompare(nameB);
+    })
     .map(e=>e[0]);
   const totalCount = rankPeople(allRows).length;
   const html=[
     `<button class="fmt-pill${state.format===null?' active':''}" data-fmt="" type="button">All<span class="c">${totalCount}</span></button>`,
-    ...formats.map(f=>`<button class="fmt-pill${state.format===f?' active':''}" data-fmt="${escapeHtml(f)}" type="button">${escapeHtml(f)}<span class="c">${counts.get(f)}</span></button>`),
+    ...keys.map(k=>{
+      const d=DBDomains.get(k);
+      return `<button class="fmt-pill${state.format===k?' active':''}" data-fmt="${escapeHtml(k)}" type="button" title="${escapeHtml(d.name+'. '+d.blurb)}">${escapeHtml(d.short||d.name)}<span class="c">${counts.get(k)}</span></button>`;
+    }),
   ].join('');
   fmtPillsHost.innerHTML=html;
   fmtPillsHost.querySelectorAll('.fmt-pill').forEach(p=>{
@@ -2086,23 +2177,37 @@ function renderHotFormats(rows){
     hotListHost.innerHTML = `<div class="side-empty">Waiting on rounds…</div>`;
     return;
   }
+  // Count by subject where the motion classifies, by format where it
+  // does not. The heading follows the data rather than promising a
+  // subject breakdown we cannot produce yet.
   const counts=new Map();
+  let classified=0;
   rows.forEach(r=>{
-    const name=r.formatName||r.format||'';
-    if(!name) return;
-    counts.set(name, (counts.get(name)||0)+1);
+    const s=subjectLabel(r);
+    if(!s) return;
+    if(s.accent) classified++;
+    const cur=counts.get(s.text)||{c:0,accent:s.accent};
+    cur.c++;
+    counts.set(s.text,cur);
   });
   const sorted=Array.from(counts.entries())
-    .sort((a,b)=>b[1]-a[1])
+    .sort((a,b)=>b[1].c-a[1].c)
     .slice(0,5);
-  const max=Math.max(1, sorted[0]?sorted[0][1]:1);
-  hotListHost.innerHTML = sorted.map(([name,c])=>{
-    const pct=Math.max(8, Math.round(c/max*100));
+  const eye=document.querySelector('#sideHotCard .side-eye');
+  if(eye) eye.textContent = classified ? 'Most debated subjects' : 'Most debated formats';
+  if(!sorted.length){
+    hotListHost.innerHTML = `<div class="side-empty">Waiting on rounds…</div>`;
+    return;
+  }
+  const max=Math.max(1, sorted[0]?sorted[0][1].c:1);
+  hotListHost.innerHTML = sorted.map(([name,v])=>{
+    const pct=Math.max(8, Math.round(v.c/max*100));
+    const bg=v.accent?`;background:${escapeHtml(v.accent)}`:'';
     return `
       <div class="hot-row">
         <div class="hot-name">${escapeHtml(name)}</div>
-        <div class="hot-bar"><div class="hot-bar-fill" style="width:${pct}%"></div></div>
-        <div class="hot-c">${c}</div>
+        <div class="hot-bar"><div class="hot-bar-fill" style="width:${pct}%${bg}"></div></div>
+        <div class="hot-c">${v.c}</div>
       </div>`;
   }).join('');
 }
