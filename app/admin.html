@@ -850,6 +850,27 @@
     </div>
   </div>
 
+  <!-- Outcome cohorts: retention split by whether the round was won or
+       lost. Number 2 of the three numbers (see the 2026-08-14 strategy
+       note): what the median user does in the 10 minutes after a loss,
+       and whether they come back.
+
+       Derived from `judgments` + `events`, so it covers the whole back
+       catalogue and adds no write to the judging path. Every rate ships
+       with its matured denominator, because a loss from three days ago
+       cannot answer D30 and scoring it as a no is how this number gets
+       quietly halved. -->
+  <div class="section" data-pane="growth">
+    <div class="card">
+      <div class="title">
+        <span title="Rows are rounds, split by outcome. A window only counts rounds old enough to answer it.">Outcome cohorts · retention after a loss</span>
+        <span class="meta" id="oc-meta">Loading…</span>
+      </div>
+      <div id="oc-headline" style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5"></div>
+      <div id="oc-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Retention: lapsed-user win-back email cohort. Read-only view of
        config/winback_state (written by scheduled-winback.mjs in dry-run).
        Shows what it WOULD email; flipping it live is an env change, not a
@@ -1625,6 +1646,74 @@ async function loadCohorts(){
   cachedCohorts = c;
   renderCohorts(c);
 }
+// Outcome cohorts. Deliberately renders the denominator next to every
+// rate: at this sample size a bare percentage is decoration, and this
+// is the number the company plans to be judged on.
+async function loadOutcomeCohorts(){
+  const meta = $('oc-meta');
+  const head = $('oc-headline');
+  const body = $('oc-body');
+  body.textContent = 'Loading…';
+  meta.textContent = 'Loading…';
+  try {
+    const d = await fetchJson('/api/admin/outcome-cohorts?days=' + Math.max(120, globalDays));
+    const loss = d.loss || {};
+    const win = d.win || {};
+    meta.textContent = (d.rounds || 0) + ' judged rounds · ' + (d.windowDays || 0) + 'd' + (d.truncated ? ' · truncated' : '');
+
+    if (!loss.n && !win.n){
+      head.textContent = '';
+      body.innerHTML = '<div class="meta">No judged rounds in the window. This fills itself the first time a round completes with a verdict.</div>';
+      return;
+    }
+
+    const pct = (r) => r === null || r === undefined ? '—' : (r * 100).toFixed(0) + '%';
+    // A rate with no denominator is the failure mode this panel exists
+    // to avoid, so n rides along with every cell.
+    const cell = (o) => o && o.matured ? pct(o.rate) + ' <span style="color:var(--dim);font-weight:400">n=' + o.matured + '</span>' : '<span style="color:var(--dim)">not aged</span>';
+    const secs = (s) => s === null || s === undefined ? '—' : (s < 90 ? s + 's' : Math.round(s / 60) + 'm');
+
+    const pen = (d.lossPenalty && d.lossPenalty[30]) || {};
+    const penText = pen.delta === null || pen.delta === undefined
+      ? 'After-loss D30 penalty: not readable yet (' + (pen.lossN || 0) + ' matured losses, ' + (pen.winN || 0) + ' matured wins).'
+      : 'After-loss D30 penalty: <strong style="color:' + (pen.delta < 0 ? 'var(--accent)' : 'var(--good)') + '">'
+        + (pen.delta > 0 ? '+' : '') + (pen.delta * 100).toFixed(0) + ' points</strong> versus winners (' + pen.lossN + ' losses vs ' + pen.winN + ' wins).';
+    head.innerHTML = penText + '<br>' + esc(d.reading || '') + '<br><span style="color:var(--dim)">' + esc(d.caveat || '') + '</span>';
+
+    const row = (label, s) => '<tr>'
+      + '<td style="padding:6px 8px;font-weight:600">' + label + '</td>'
+      + '<td style="padding:6px 8px;text-align:right">' + (s.n || 0) + '</td>'
+      + '<td style="padding:6px 8px;text-align:right">' + (s.acted10 && s.acted10.answerable ? pct(s.acted10.rate) + ' <span style="color:var(--dim);font-weight:400">n=' + s.acted10.answerable + '</span>' : '—') + '</td>'
+      + '<td style="padding:6px 8px;text-align:right">' + secs(s.medianSecondsToNextAction) + '</td>'
+      + '<td style="padding:6px 8px;text-align:right">' + cell(s.returnedWithin && s.returnedWithin[1]) + '</td>'
+      + '<td style="padding:6px 8px;text-align:right">' + cell(s.returnedWithin && s.returnedWithin[7]) + '</td>'
+      + '<td style="padding:6px 8px;text-align:right">' + cell(s.returnedWithin && s.returnedWithin[30]) + '</td>'
+      + '</tr>';
+
+    const th = (t, align) => '<th style="text-align:' + (align || 'left') + ';padding:6px 8px;color:var(--muted);font-weight:600">' + t + '</th>';
+    let html = '<table style="width:100%;font-size:13px"><thead><tr>'
+      + th('Cohort') + th('Rounds', 'right') + th('Acted in 10m', 'right') + th('Median to next', 'right')
+      + th('Back ≤1d', 'right') + th('Back ≤7d', 'right') + th('Back ≤30d', 'right')
+      + '</tr></thead><tbody>'
+      + row('Lost', loss) + row('Won', win);
+    // The ladder does not rate AI rounds, but losing to the AI still
+    // churns people, so the split is shown rather than folded in.
+    if (d.vsAi && d.vsAi.loss && d.vsAi.loss.n) html += row('Lost to AI', d.vsAi.loss);
+    if (d.vsHuman && d.vsHuman.loss && d.vsHuman.loss.n) html += row('Lost to a human', d.vsHuman.loss);
+    html += '</tbody></table>';
+
+    const acts = loss.firstActions || [];
+    if (acts.length){
+      html += '<div style="margin-top:12px;color:var(--muted);font-size:12px">First thing they do after a loss: '
+        + acts.map(a => esc(a.event) + ' <span style="color:var(--dim)">' + a.count + '</span>').join(' · ') + '</div>';
+    }
+    body.innerHTML = html;
+  } catch (e) {
+    meta.textContent = 'Failed';
+    body.innerHTML = '<div class="err-box">' + esc(e.message || String(e)) + '</div>';
+  }
+}
+
 async function loadHeatmap(){
   const h = await fetchJson('/api/admin/heatmap?days=' + globalDays);
   cachedHeatmap = h;
@@ -2302,7 +2391,7 @@ function relocatePanes(){
 // is deferred, which is the bulk of the per-open read volume.
 const PANE_LOADERS = {
   pulse:     [ () => loadVisitors() ],
-  growth:    [ () => loadFunnel(), () => loadRoundFunnel(), () => loadFounderVideo(), () => loadPollResults() ],
+  growth:    [ () => loadFunnel(), () => loadRoundFunnel(), () => loadOutcomeCohorts(), () => loadFounderVideo(), () => loadPollResults() ],
   people:    [ () => loadSubscribers(), () => loadProspects() ],
   // Deferred, not eager, per the read-budget note above. The queue holds
   // a handful of docs and is only actionable when someone is actually
