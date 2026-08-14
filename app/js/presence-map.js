@@ -26,10 +26,13 @@
  *   opts.refreshMs — repoll cadence (default 120000; skipped while the
  *                    tab is hidden)
  *   opts.onData    — function(payload|null) called after every fetch,
- *                    so the page can render an honest caption ("N on
- *                    Debatable in the last 24 hours") somewhere in its
- *                    own DOM. payload.online24 is the real count
- *                    (online30 / online5 are still returned).
+ *                    so the page can render an honest caption ("N visits
+ *                    in the last 24 hours") somewhere in its own DOM.
+ *                    payload.online24 is the count (online30 / online5
+ *                    are still returned). These are SESSIONS, not people:
+ *                    a sid is per-tab and per-visit, and the server caps
+ *                    each map cell so one datacenter cannot carry the
+ *                    number. Word any caption as visits, never people.
  *
  * Requires /js/world-data.js (waits for 'world-data:ready' if needed).
  */

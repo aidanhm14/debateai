@@ -15,6 +15,10 @@
 //   online5, online30, online24}. Rides the Firestore-backed shared cache
 //   (60s TTL) so polling costs 1 cache read, not a collection scan —
 //   same quota posture as floor-state's anon payload.
+//   The counts are SESSIONS, not people: a sid is per-tab and per-visit,
+//   so one person in two tabs is two, and coming back after lunch is two.
+//   Anything rendering these must say visits/sessions, not people. They
+//   are also per-cell capped (see CELL_CAP) and are a floor, not a total.
 //
 // DAILY ROLLUP (added 2026-07-28). presence_live is a rolling snapshot:
 //   one doc per tab, overwritten on every beat, swept at 48h. That
@@ -45,6 +49,26 @@ const CACHE_KEY = 'presence-live:pins';
 const CACHE_TTL_MS = 60_000;
 const MAX_DOCS = 600;
 const STALE_MS = 48 * 60 * 60 * 1000; // opportunistic cleanup horizon
+
+// 2026-08-14: one 11 km cell in Dallas was contributing 518 of the 600
+// sampled sessions while online30 and online5 were both ZERO, which is a
+// datacenter rotating sids and not a city. The landing caption was
+// therefore reading "725 people active today" off roughly 600 sessions
+// from one automated source. Every doc behind it is real (nothing here
+// fabricates a beat), so the honest read is not "the number is fake" but
+// "the number counts something other than what the caption claims".
+//
+// A cell is ~11 km wide. A real one producing more than CELL_CAP distinct
+// browser sessions in a day is far beyond this traffic base, and when the
+// product genuinely gets there this constant should be RAISED on purpose
+// rather than discovered. Both the pin's displayed `n` and the caption
+// count use the capped value, so a flood collapses to one ordinary pin
+// instead of dominating the globe and the caption together.
+//
+// Same lesson as the visitor-tick pad and the dead metrics/daily path
+// (2026-08-10): a metric that renders a plausible number is not evidence
+// that it counts what its label says.
+const CELL_CAP = 25;
 
 function dayKey(ms) {
   return new Date(ms).toISOString().slice(0, 10); // UTC, matches the crons
@@ -192,41 +216,65 @@ export default async (request, context) => {
       const cached = await getCachedShared(CACHE_KEY).catch(() => null);
       if (cached) return jsonResponse(cached, 200, request);
 
-      // Pins stay capped at MAX_DOCS (they only need to paint a globe), but
-      // the caption count must be the REAL number, not min(count, 600) —
-      // the landing was displaying a capped "600 debaters". The aggregate
-      // count query is 1 read per 1000 matched docs; if the SDK lacks it,
-      // fall back to the capped snapshot size rather than failing.
-      const baseQuery = db
+      // The counts are summed from the SAMPLE, per cell, capped. The
+      // `.count()` aggregate this used to report is gone on purpose: it
+      // returns one number for the whole window with no way to see which
+      // cell it came from, so it cannot be filtered and it was the number
+      // carrying the bot. Its replacement is a FLOOR bounded by MAX_DOCS,
+      // which is the safe direction to be wrong in for a figure that gets
+      // read aloud on the landing page.
+      //
+      // Docs come back ordered by document id, and a sid is random, so the
+      // sample is roughly uniform over sessions. Do not add an orderBy on
+      // lastSeen to "get the freshest" — a beating bot is always freshest,
+      // so that biases the sample toward exactly what this is filtering.
+      const snap = await db
         .collection('presence_live')
-        .where('lastSeen', '>=', now - WINDOW_MS);
-      const [snap, countSnap] = await Promise.all([
-        baseQuery.limit(MAX_DOCS).get(),
-        baseQuery.count().get().catch(() => null),
-      ]);
+        .where('lastSeen', '>=', now - WINDOW_MS)
+        .limit(MAX_DOCS)
+        .get();
 
       const byCell = new Map();
-      let online5 = 0;
-      let online30 = 0;
       snap.docs.forEach((d) => {
         const p = d.data();
         if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
-        if (now - p.lastSeen <= FIVE_MIN) online5 += 1;
-        if (now - p.lastSeen <= THIRTY_MIN) online30 += 1;
         const key = p.lat + ',' + p.lng;
-        const cell = byCell.get(key) || { lat: p.lat, lng: p.lng, city: p.city || '', country: p.country || '', n: 0, lastSeen: 0 };
+        const cell = byCell.get(key) || {
+          lat: p.lat, lng: p.lng, city: p.city || '', country: p.country || '',
+          n: 0, n30: 0, n5: 0, lastSeen: 0,
+        };
         cell.n += 1;
+        if (now - p.lastSeen <= THIRTY_MIN) cell.n30 += 1;
+        if (now - p.lastSeen <= FIVE_MIN) cell.n5 += 1;
         cell.lastSeen = Math.max(cell.lastSeen || 0, Number(p.lastSeen) || 0);
         if (!cell.city && p.city) cell.city = p.city;
         byCell.set(key, cell);
       });
 
-      const payload = {
-        pins: Array.from(byCell.values()),
-        online24: countSnap ? countSnap.data().count : snap.size,
-        online30,
-        online5,
-      };
+      let online24 = 0;
+      let online30 = 0;
+      let online5 = 0;
+      const pins = [];
+      Array.from(byCell.values()).forEach((cell) => {
+        if (cell.n > CELL_CAP) {
+          // Loud on purpose. A capped cell is either a datacenter or a
+          // milestone, and both are worth seeing in the logs rather than
+          // silently smoothed away.
+          console.warn(
+            'presence-live: cell capped', cell.n, '->', CELL_CAP,
+            'at', cell.lat + ',' + cell.lng, cell.city || '(no city)', cell.country
+          );
+        }
+        online24 += Math.min(cell.n, CELL_CAP);
+        online30 += Math.min(cell.n30, CELL_CAP);
+        online5 += Math.min(cell.n5, CELL_CAP);
+        pins.push({
+          lat: cell.lat, lng: cell.lng, city: cell.city, country: cell.country,
+          n: Math.min(cell.n, CELL_CAP), lastSeen: cell.lastSeen,
+        });
+      });
+
+      const payload = { pins, online24, online30, online5 };
       await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS).catch(() => {});
       return jsonResponse(payload, 200, request);
     } catch (err) {
