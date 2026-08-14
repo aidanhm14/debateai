@@ -8172,6 +8172,96 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 
+<!-- ── Open challenges ─────────────────────────────────────────────
+     2026-08-14, per Aidan: bring this back onto the page you actually
+     land on. It shipped 2026-08-10 as a rail card beside the
+     leaderboard, and the one-pager gate (2026-08-10, same day) hides
+     #ranked-band until someone presses "Load more", so in practice it
+     rendered for almost nobody. It sits ABOVE the gate flag now, which
+     is what keeps it visible; do not move it below one of the gated
+     chapters.
+
+     Self-contained styles (.ocb-*) rather than reusing the rail's
+     .rb-chal-* classes: those lived in #ranked-band's style block ~4000
+     lines further down, so borrowing them would have left this card
+     unstyled until that block parsed. They moved here with the card.
+
+     HONESTY: the empty state is the real one and it is an invite, not
+     a placeholder for invented claims. Nothing here is seeded. -->
+<section id="open-challenges-band" class="ocb" aria-label="Open challenges">
+  <style>
+    .ocb{padding:clamp(18px,2.4vw,30px) var(--mid-gutter);display:flex;justify-content:center}
+    .ocb-card{width:100%;max-width:560px;display:flex;flex-direction:column;
+      padding:clamp(16px,2.2vw,22px);border-radius:6px;
+      border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03)}
+    [data-theme="light"] .ocb-card{border-color:rgba(29,25,21,.14);background:#fffefb;
+      box-shadow:0 6px 18px rgba(29,25,21,.05)}
+    /* The .ocb prefix on every <p> rule is load-bearing, not tidiness:
+       the page carries a `[data-theme="light"] section p` rule at
+       specificity 0-1-1, which outranks a bare class and would paint the
+       kicker and the title flat grey on the light surface. */
+    .ocb .ocb-kicker{font-size:.6rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;
+      color:#ef4444;margin:0 0 8px}
+    .ocb .ocb-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.1rem;font-weight:700;
+      letter-spacing:-.01em;color:var(--text,#f4f4f2);margin:0 0 4px}
+    [data-theme="light"] .ocb .ocb-title{color:#1a1a1f}
+    .ocb .ocb-body{font-size:.86rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.66));margin:0}
+    [data-theme="light"] .ocb .ocb-body{color:rgba(0,0,0,.64)}
+    .ocb-list{display:flex;flex-direction:column;gap:8px;margin:12px 0 4px}
+    .ocb-row{display:block;padding:10px 12px;border-radius:10px;text-decoration:none;
+      border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.025);
+      transition:border-color .15s,transform .15s}
+    .ocb-row:hover{border-color:rgba(239,68,68,.4);transform:translateX(3px)}
+    [data-theme="light"] .ocb-row{border-color:rgba(29,25,21,.08);background:#fff;
+      box-shadow:0 1px 2px rgba(29,25,21,.04)}
+    [data-theme="light"] .ocb-row:hover{background:#fffaf8}
+    .ocb-q{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+      font-size:.9rem;font-weight:700;line-height:1.35;color:var(--text,#f4f4f2)}
+    [data-theme="light"] .ocb-q{color:#1a1a1f}
+    .ocb-meta{display:block;margin-top:5px;font-size:.6rem;font-weight:700;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    [data-theme="light"] .ocb-meta{color:rgba(29,25,21,.64)}
+    .ocb .ocb-empty{margin:0;padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:10px;
+      font-size:.84rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.6))}
+    [data-theme="light"] .ocb .ocb-empty{border-color:rgba(0,0,0,.16);color:rgba(0,0,0,.64)}
+    .ocb-go{display:inline-block;margin-top:auto;padding-top:12px;font-size:.76rem;font-weight:800;
+      color:#ef4444;text-decoration:none}
+    @media(prefers-reduced-motion:reduce){.ocb-row:hover{transform:none}}
+  </style>
+  <div class="ocb-card">
+    <p class="ocb-kicker">Open challenges</p>
+    <p class="ocb-title">Claims waiting for an opponent.</p>
+    <p class="ocb-body">Someone took a side. Answer it, or post your own and see who steps up.</p>
+    <div class="ocb-list" id="ocbList">
+      <p class="ocb-empty">No open claims right now. Yours can be first on the board.</p>
+    </div>
+    <a class="ocb-go" href="/rounds" data-rb="challenges">Post your own claim &rarr;</a>
+  </div>
+</section>
+<script>
+/* Open-challenges hydration. Keeps the static empty state when the feed
+   is empty or unreachable; rows link into the async round. */
+(function(){
+  try{
+    var list=document.getElementById('ocbList');
+    if(!list||!window.fetch)return;
+    function esc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+    fetch('/api/async/feed',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+      var open=((j&&j.open)||[]).filter(function(r){return r&&r.motion}).slice(0,3);
+      if(!open.length)return;
+      list.innerHTML=open.map(function(r){
+        var side=(r.prop&&r.prop.name)?('Prop taken · answer as Opp'):((r.opp&&r.opp.name)?'Opp taken · answer as Prop':'Open seat');
+        var fmt=r.formatName?esc(r.formatName)+' · ':'';
+        return '<a class="ocb-row" href="/rounds?r='+encodeURIComponent(r.id)+'" data-rb="chal">'
+          +'<span class="ocb-q">'+esc(r.motion)+'</span>'
+          +'<span class="ocb-meta">'+fmt+side+'</span></a>';
+      }).join('');
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
+
 <!-- ── Tournament band ── MOVED OFF THE LANDING 2026-08-12 ───────
      The Debatable Open poster, prize copy, CTA row and share rail used
      to live here as a full section above the one-pager gate. On a phone
@@ -12401,23 +12491,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        streamers promo), so the wrapper carries the sticky travel. */
     @media(min-width:981px){.rb-rail{position:sticky;top:72px}}
     .rb-rail{display:flex;flex-direction:column;gap:16px;min-width:0}
-    /* Open-challenges card */
-    .rb-chal-list{display:flex;flex-direction:column;gap:8px;margin:12px 0 4px}
-    .rb-chal-row{display:block;padding:10px 12px;border-radius:10px;text-decoration:none;
-      border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.025);
-      transition:border-color .15s,transform .15s}
-    .rb-chal-row:hover{border-color:rgba(239,68,68,.4);transform:translateX(3px)}
-    [data-theme="light"] .rb-chal-row{border-color:rgba(29,25,21,.08);background:#fff;box-shadow:0 1px 2px rgba(29,25,21,.04)}
-    [data-theme="light"] .rb-chal-row:hover{background:#fffaf8}
-    .rb-chal-q{display:block;font-size:.9rem;font-weight:700;line-height:1.35;color:var(--text,#f4f4f2);
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    [data-theme="light"] .rb-chal-q{color:#1a1a1f}
-    .rb-chal-meta{display:block;margin-top:5px;font-size:.6rem;font-weight:700;letter-spacing:.08em;
-      text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    [data-theme="light"] .rb-chal-meta{color:rgba(29,25,21,.64)}
-    .rb-chal-empty{margin:0;padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:10px;
-      font-size:.84rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.6))}
-    [data-theme="light"] .rb-chal-empty{border-color:rgba(0,0,0,.16);color:rgba(0,0,0,.64)}
+    /* The .rb-chal-list / -row / -q / -meta / -empty rules that used to
+       sit here went with the Open-challenges card when it moved up to
+       #open-challenges-band (2026-08-14). .rb-chal-btn further down is a
+       different thing (the Challenge button on a leaderboard row) and is
+       still in use. */
     /* Streamers rail. Small, so it earns attention on colour rather than
        size: a filled brand-red card against a cream band and the white
        board beside it, with the CTA inverted to white-on-red. */
@@ -12575,18 +12653,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <a class="rb-go" href="/leaderboard" data-rb="leaderboard">See the full leaderboard &rarr;</a>
       </div>
       <div class="rb-rail">
-      <!-- 2026-08-10, per Aidan: open challenges live next to the
-           leaderboard. Hydrates from /api/async/feed (top 3 open
-           claims); the empty state is the invite. -->
-      <div class="rb-card" id="open-challenges">
-        <p class="rb-kicker">Open challenges</p>
-        <p class="rb-card-title">Claims waiting for an opponent.</p>
-        <p class="rb-card-body">Someone took a side. Answer it, or post your own and see who steps up.</p>
-        <div class="rb-chal-list" id="rbChalList">
-          <p class="rb-chal-empty">No open claims right now. Yours can be first on the board.</p>
-        </div>
-        <a class="rb-go" href="/rounds" data-rb="challenges">Post your own claim &rarr;</a>
-      </div>
+      <!-- 2026-08-14: the Open challenges card MOVED OUT of this rail and
+           up to #open-challenges-band, above the one-pager gate. It lived
+           here since 2026-08-10, which meant it only rendered for someone
+           who had already pressed "Load more"; per Aidan it should be on
+           the page you actually land on. Its styles moved with it and are
+           self-contained there. Do not re-add a second copy here. -->
       <div class="rbs" id="stream-band">
         <div class="rbs-eyebrow">
           <svg viewBox="0 0 2400 2800" aria-hidden="true" fill-rule="evenodd"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>
@@ -12604,28 +12676,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="rbs-note">Already streaming debate? <a href="/future#streaming">See how it fits together</a>.</p>
       </div>
       </div><!-- /.rb-rail -->
-      <script>
-      /* Open-challenges hydration. Keeps the static empty-state when the
-         feed is empty or unreachable; rows link into the async round. */
-      (function(){
-        try{
-          var list=document.getElementById('rbChalList');
-          if(!list||!window.fetch)return;
-          function esc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-          fetch('/api/async/feed',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
-            var open=((j&&j.open)||[]).filter(function(r){return r&&r.motion}).slice(0,3);
-            if(!open.length)return;
-            list.innerHTML=open.map(function(r){
-              var side=(r.prop&&r.prop.name)?('Prop taken · answer as Opp'):((r.opp&&r.opp.name)?'Opp taken · answer as Prop':'Open seat');
-              var fmt=r.formatName?esc(r.formatName)+' · ':'';
-              return '<a class="rb-chal-row" href="/rounds?r='+encodeURIComponent(r.id)+'" data-rb="chal">'
-                +'<span class="rb-chal-q">'+esc(r.motion)+'</span>'
-                +'<span class="rb-chal-meta">'+fmt+side+'</span></a>';
-            }).join('');
-          }).catch(function(){});
-        }catch(e){}
-      })();
-      </script>
     </div>
   </div>
 </section>
