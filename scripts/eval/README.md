@@ -35,6 +35,81 @@ Format aliases are normalized by the runner: `bp`, `wudc`, `worlds`, `wsdc`,
 `asian`, `apda`, `npda`, `pf`, `public-forum`, `ld`, `lincoln-douglas`,
 `policy`, `cx`, `congress`, `karl-popper`, and `mun`.
 
+## Verdict stability (does the judge agree with ITSELF)
+
+`run-stability-eval.mjs` asks the question that comes before accuracy. The
+eval above measures agreement with a human panel; this one measures whether
+the same round, unchanged in substance, gets the same verdict twice.
+
+It matters because of what sits downstream. A rating ladder assumes match
+outcomes are ground truth. Noise averages out over many rounds; a
+SYSTEMATIC bias does not, it compounds into the rating, and the ladder then
+measures skill at exploiting the judge rather than skill at debating.
+
+Three perturbations, none of which changes what was argued:
+
+| Condition | What moves | What it catches |
+|---|---|---|
+| `repeat` | nothing, same prompt twice | raw self-agreement at the temperature prod actually uses |
+| `swap` | the two bench blocks change position | position bias |
+| `pad` | the LOSING side's lines are repeated verbatim behind a filler lead-in | verbosity bias |
+
+Both are content-preserving by construction and `scripts/test-stability.mjs`
+pins that: a swap must not change the transcript's length or its multiset of
+lines, and every line padding introduces must be a fixed lead-in plus a
+verbatim copy of a line that was already there. Repetition cannot add an
+argument, so a verdict that moves under padding moved on length.
+
+```bash
+node scripts/eval/run-stability-eval.mjs --dry-run          # assembles prompts, no spend
+ANTHROPIC_API_KEY=sk-ant-... node scripts/eval/run-stability-eval.mjs
+node scripts/eval/run-stability-eval.mjs --limit=6 --conditions=repeat,swap
+node scripts/eval/run-stability-eval.mjs --out=scripts/eval/out/stability-YYYY-MM-DD.json
+```
+
+Flags: `--conditions=` (default `repeat,swap,pad`), `--pad-every=` (repeat
+every Nth line, default 2, lands around 1.4x), `--concurrency=`, `--temp=`
+(**left unset by default because prod leaves it unset** — self-disagreement
+at the default temperature is not a harness artifact, it is what the site
+does to a real round), plus `--format=` / `--only=` / `--limit=` / `--model=`
+as above.
+
+### Reading the output
+
+- **held across all 3 runs** is the headline: the share of rounds whose
+  verdict is a property of the round rather than of the sampling.
+- **position bias** is paired within a round, so the round's own difficulty
+  cancels. For BP it reports the mean rank change of a bench when it is
+  printed first; an interval clear of zero is a defect rather than a
+  preference, because slot order is not something a debater controls.
+- **padding** reports how often padding the loser handed it the round.
+  Anything above zero is the ballot paying for length.
+- **kappa** is chance-corrected agreement across the three unpadded runs,
+  using a multi-category generalization of the `fleissKappa` that prod
+  publishes on `/api/judge/reliability`. The test asserts the two agree
+  exactly on binary input, because two kappas that disagree on the same data
+  is a headline waiting to happen.
+
+Every rate carries a Wilson interval and a seeded bootstrap. The seed is
+fixed on purpose: an unseeded bootstrap gives a slightly different interval
+each run, which invites re-rolling until it reads well.
+
+**Power is printed before the spend, and it is the honest part.** On the 23
+gold rounds a stability rate carries an interval roughly ±12 points wide.
+Pinning one to ±10 needs ~35 rounds, to ±5 needs ~139, and calling position
+bias at 65/35 against a coin needs ~85. **Read a run as a tripwire for a
+gross defect, not as a certification.**
+
+### What it does NOT measure
+
+It runs the eval prompt (winner plus one line) against the shared
+`lib/adjudication.mjs` core, not `async-sweep.mjs`'s richer ballot prompt
+with points, dimensions and an RFD. If the rates here are poor, re-run
+against that prompt before concluding which part is at fault. It also runs a
+single model, so it says nothing about the three-family panel's stability;
+the panel's own disagreement is reported separately at
+`/api/judge/reliability`.
+
 ## The public judge benchmark (lab leaderboard)
 
 `run-judge-benchmark.mjs` runs the same BP gold rounds across every AI lab

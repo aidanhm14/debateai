@@ -26,45 +26,17 @@
 // lower bound and a regression tripwire, not an absolute grade.
 // ────────────────────────────────────────────────────────────────────────
 
-import { existsSync, readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { buildAdjudicationBlock } from '../../app/netlify/functions/lib/adjudication.mjs';
+import { readFileSync } from 'node:fs';
+import {
+  BP_SIDES, TWO_SIDES, normalizeFormat, loadGold, resolveFixturesDir, selectRounds,
+  makeReader, buildPrompt, parseJson, promptTokens,
+} from './lib/adjudication-fixtures.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const BP_SIDES = ['og', 'oo', 'cg', 'co'];
-const TWO_SIDES = ['prop', 'opp'];
-const FORMAT_ALIASES = new Map([
-  ['bp', 'bp'],
-  ['britishparliamentary', 'bp'],
-  ['wudc', 'bp'],
-  ['worlds', 'wsdc'],
-  ['worldschools', 'wsdc'],
-  ['worldschool', 'wsdc'],
-  ['wsdc', 'wsdc'],
-  ['asian', 'asian'],
-  ['asianparli', 'asian'],
-  ['asianparliamentary', 'asian'],
-  ['ap', 'asian'],
-  ['apda', 'apda'],
-  ['npda', 'npda'],
-  ['pf', 'pf'],
-  ['publicforum', 'pf'],
-  ['ld', 'ld'],
-  ['lincolndouglas', 'ld'],
-  ['policy', 'policy'],
-  ['cx', 'policy'],
-  ['congress', 'congress'],
-  ['studentcongress', 'congress'],
-  ['kp', 'karl-popper'],
-  ['karlpopper', 'karl-popper'],
-  ['mun', 'mun'],
-]);
-
-function normalizeFormat(raw) {
-  const compact = String(raw || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-  return FORMAT_ALIASES.get(compact) || compact;
-}
+// Fixture reading, decontamination, round composition and prompt
+// assembly moved to ./lib/adjudication-fixtures.mjs on 2026-08-14 so the
+// stability harness builds the SAME prompt with one thing perturbed.
+// Two copies would mean the accuracy number and the stability number
+// measure two different engines while claiming to measure one.
 
 // ── args ──
 const args = process.argv.slice(2);
@@ -80,171 +52,12 @@ const LIMIT = parseInt(opt('limit', '0'), 10) || 0;
 const MODEL = process.env.ADJ_MODEL || opt('model', 'claude-sonnet-4-6');
 
 // ── load gold ──
-const gold = JSON.parse(readFileSync(join(__dirname, 'adjudication-gold.json'), 'utf8'));
-const fixtureCandidates = [
-  process.env.ADJ_FIXTURES,
-  gold.fixturesDirDefault,
-  gold.fixturesDirLegacy,
-].filter(Boolean);
-const fixturesDir = fixtureCandidates.find((p) => existsSync(p)) || fixtureCandidates[0] || '';
-
-let rounds = gold.rounds.filter((r) => !FORMAT || normalizeFormat(r.format) === FORMAT);
-if (ONLY) rounds = rounds.filter((r) => r.id === ONLY);
-if (LIMIT) rounds = rounds.slice(0, LIMIT);
-
-// ── decontaminate a flow note: strip the judge's inline verdict marks so
-// the AI cannot read the answer off the page. Best-effort. ──
-const VERDICT_LINE_RE = new RegExp(
-  '(default to |fourths|loses to |wins because|non[- ]?responsive|\\bNR to\\b|knifes|uncomparative|missing burden|burden:|weighing on certainty|this concedes|isn.?t this squo|what.?s the delta|d/dx|\\bcall\\b|final calls?)',
-  'i'
-);
-function decontaminate(raw) {
-  return raw
-    .split('\n')
-    .map((line) => {
-      let l = line;
-      l = l.replace(/\*\*[^*]*\*\*/g, ''); // bold spans = judge interjections
-      l = l.replace(/\((?:why+\??|really|d\/dx|knife|unstrategic|same as [a-z]+|nr[^)]*|\?+)\)/gi, '');
-      l = l.replace(/\?{2,}/g, '').replace(/\*{2,}/g, '');
-      return l;
-    })
-    .filter((l) => {
-      const t = l.trim();
-      if (!t) return true;
-      if (/^scores?\s+for\b/i.test(t)) return false;
-      if (/^(\d{1,3}\s*,\s*)+\d{1,3}\s*$/i.test(t)) return false;
-      if (/^[A-Z][A-Z \t!?.'-]{8,}$/.test(t)) return false;
-      if (/^(?:og|oo|cg|co|prop|opp)(?:\s*>\s*(?:og|oo|cg|co|prop|opp)){1,3}$/i.test(t)) return false;
-      if (VERDICT_LINE_RE.test(t) && t.replace(/[*>\- ]/g, '').length < 90) return false;
-      return true;
-    })
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function readFixture(r, key) {
-  const file = r[key];
-  if (!file) return '';
-  return decontaminate(readFileSync(join(fixturesDir, r.folder, file), 'utf8'));
-}
-
-function readFirstFixture(r, keys) {
-  for (const key of keys) {
-    if (r[key]) return readFixture(r, key);
-  }
-  return '';
-}
-
-function loadHumanNotes(r) {
-  const noteKeys = [
-    ['oaFile', 'ORAL ADJUDICATION / OA NOTES'],
-    ['delibFile', 'DELIBERATION NOTES'],
-    ['ballotFile', 'BALLOT NOTES'],
-    ['judgeFile', 'JUDGE NOTES'],
-  ];
-  return noteKeys
-    .filter(([key]) => r[key])
-    .map(([key, label]) => '--- ' + label + ' ---\n' + readFixture(r, key))
-    .join('\n\n');
-}
-
-function loadRound(r) {
-  const format = normalizeFormat(r.format);
-  if (format === 'bp') {
-    const gov = readFixture(r, 'govFile');
-    const opp = readFixture(r, 'oppFile');
-    const notes = loadHumanNotes(r);
-    return [
-      'MOTION: ' + r.motion,
-      '',
-      '=== GOVERNMENT BENCH FLOW (Opening Gov then Closing Gov) ===',
-      gov,
-      '',
-      '=== OPPOSITION BENCH FLOW (Opening Opp then Closing Opp) ===',
-      opp,
-      notes ? '\n=== HUMAN ADJUDICATION NOTES, DECONTAMINATED AND NON-AUTHORITATIVE ===\n' + notes : '',
-    ].filter(Boolean).join('\n');
-  }
-  if (format === 'wsdc') {
-    const prop = readFirstFixture(r, ['propFile', 'govFile', 'affFile', 'proFile']);
-    const opp = readFirstFixture(r, ['oppFile', 'negFile', 'conFile']);
-    const notes = loadHumanNotes(r);
-    return [
-      'MOTION: ' + r.motion,
-      '',
-      '=== PROPOSITION FLOW ===',
-      prop,
-      '',
-      '=== OPPOSITION FLOW ===',
-      opp,
-      notes ? '\n=== HUMAN ADJUDICATION NOTES, DECONTAMINATED AND NON-AUTHORITATIVE ===\n' + notes : '',
-    ].join('\n');
-  }
-  const prop = readFirstFixture(r, ['propFile', 'govFile', 'affFile', 'proFile']);
-  const opp = readFirstFixture(r, ['oppFile', 'negFile', 'conFile']);
-  const notes = loadHumanNotes(r);
-  return [
-    'MOTION: ' + r.motion,
-    '',
-    '=== PRO / AFF FLOW ===',
-    prop,
-    '',
-    '=== OPP / NEG FLOW ===',
-    opp,
-    notes ? '\n=== HUMAN ADJUDICATION NOTES, DECONTAMINATED AND NON-AUTHORITATIVE ===\n' + notes : '',
-  ].join('\n');
-}
-
-function formatPromptLine(format) {
-  const lines = {
-    wsdc: 'You are adjudicating this World Schools round from terse judge flow notes. Decide the winner by WSDC content/style/strategy discipline, with special attention to third-speaker and reply weighing.',
-    asian: 'You are adjudicating this Asian Parliamentary round from terse judge flow notes. Decide the winner by definitions, model, team line, engagement, POIs where extended, and whip weighing.',
-    apda: 'You are adjudicating this APDA round from terse judge flow notes. Decide the winner on general-knowledge parliamentary norms, tight-case fairness, PMR/LOR new-matter discipline, and comparative weighing.',
-    npda: 'You are adjudicating this NPDA round from terse judge flow notes. Decide the winner on the flow, including theory, topicality, kritiks, counterplans, and weighing only when those positions are actually run.',
-    pf: 'You are adjudicating this Public Forum round from terse judge flow notes. Decide the winner by evidence quality, frontlining, Summary/Final Focus consistency, and comparative weighing.',
-    ld: 'You are adjudicating this Lincoln-Douglas round from terse judge flow notes. Resolve value, criterion, role of the ballot, theory, or policy-style layers before contentions when they are live.',
-    policy: 'You are adjudicating this Policy / CX round from terse judge flow notes. Decide the flow across case, disads, counterplans, topicality, theory, kritiks, evidence comparison, and impact calculus.',
-    congress: 'You are adjudicating this Student Congress item from terse judge flow notes. Decide the strongest side or speaker ranking by original analysis, refutation, questioning, crystallization, and chamber awareness.',
-    'karl-popper': 'You are adjudicating this Karl Popper round from terse judge flow notes. Decide the winner by burden, criterion, cross-ex concessions, refutation, and final focus on the central issue.',
-    mun: 'You are adjudicating this MUN or diplomacy exercise from terse notes. Decide who most persuasively moved committee action through feasibility, coalition-building, procedure, and resolution text.',
-  };
-  return lines[format] || 'You are adjudicating this two-sided flow round from terse judge notes. Decide the winner on the flow.';
-}
-
-function buildPrompt(r, transcript) {
-  const format = normalizeFormat(r.format);
-  const core = buildAdjudicationBlock({ format });
-  const notePosture = '\nIf human adjudication notes appear below, treat them as non-authoritative evidence. They may contain useful reasoning, split-panel confusion, or a bad call. Decide independently from the flow.';
-
-  if (format === 'bp') {
-    const instruction =
-      core +
-      '\n\nYou are chairing this British Parliamentary round. The text below is a JUDGE FLOW of what each bench argued (terse notes, both halves of each bench). Decide the round by the half-call and ORDER ALL FOUR TEAMS 1-2-3-4.\n\n' +
-      notePosture + '\n\n' +
-      'Return ONLY a single JSON object, no prose before or after:\n' +
-      '{"order":["<1st>","<2nd>","<3rd>","<4th>"],"oneLine":"<one sentence naming the deciding clash and why 1st beat 2nd>"}\n' +
-      'Each element is one of: og, oo, cg, co (each exactly once).';
-    return { system: instruction, user: transcript };
-  }
-
-  const instruction =
-    core +
-    '\n\n' + formatPromptLine(format) + '\n\n' +
-    notePosture + '\n\n' +
-    'Return ONLY a single JSON object, no prose before or after:\n' +
-    '{"winner":"prop"|"opp","oneLine":"<one sentence naming the deciding issue and why the winner won>"}';
-  return { system: instruction, user: transcript };
-}
+const gold = loadGold();
+const fixturesDir = resolveFixturesDir(gold);
+const rounds = selectRounds(gold, { format: FORMAT, only: ONLY, limit: LIMIT });
+const { loadRound } = makeReader(fixturesDir);
 
 // ── parsing + scoring ──
-function parseJson(text) {
-  const m = text.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try { return JSON.parse(m[0]); }
-  catch { return null; }
-}
-
 function parseBpOrder(text) {
   const o = parseJson(text);
   if (!o || !Array.isArray(o.order) || o.order.length !== 4) return null;
@@ -291,7 +104,14 @@ async function callAnthropic(prompt) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 600,
+      // 3000, not 600. Reasoning models bill thinking against max_tokens,
+      // so a long round spends the whole budget reasoning and returns no
+      // closing brace, which this harness scored as "unparseable output"
+      // and therefore as a wrong call. Measured 2026-08-14: vienna24-r2
+      // (the longest BP flow in the gold set) failed to parse at 600 and
+      // parses at 3000. Same defect prod hit on 2026-08-12; matches
+      // BALLOT_MAX_TOKENS in async-sweep.
+      max_tokens: 3000,
       system: prompt.system,
       messages: [{ role: 'user', content: prompt.user }],
     }),
@@ -315,10 +135,6 @@ function expectedSideWinner(r) {
 
 function goldLabel(r) {
   return normalizeFormat(r.format) === 'bp' ? expectedBpOrder(r).join('>') : expectedSideWinner(r);
-}
-
-function promptTokens(prompt) {
-  return Math.round(prompt.system.length / 4) + Math.round(prompt.user.length / 4);
 }
 
 // ── run ──

@@ -333,9 +333,22 @@
       // first); /tournament is the draw, the tab and the bracket.
       { href: '/partners',    label: 'Find a 2v2 partner' },
       { href: '/tournament',  label: 'Enter a tournament' },
-      // Leaderboard is deliberately absent from navigation until the
-      // ranking system is strong enough to promote. The page remains
-      // reachable through direct and contextual links.
+      // 2026-08-14 (Aidan: "bring leaderboard back"): REVERSES the rule
+      // that used to sit here, which kept Leaderboard out of navigation
+      // "until the ranking system is strong enough to promote". It sits
+      // in the competition cluster because that is the question it
+      // answers: you entered a tournament, where did you land.
+      //
+      // The board is not empty and has not been since the 2026-07-18
+      // seed pass, so the original reason (promoting a blank page) does
+      // not apply. What IS still true, and is worth knowing before
+      // anyone treats this surface as a scoreboard: most of what renders
+      // is seeded (`seed:true` in `leaderboard_entries`), real ranked
+      // entries are few because rounds were not completing, and
+      // `user_ratings` holds a handful of debaters at high rating
+      // deviation. Promoting the page is fine; quoting a standing off it
+      // is not.
+      { href: '/leaderboard', label: 'Leaderboard' },
       // 2026-08-10: moved up out of the "Site" group, which is pricing,
       // story and vision — pages about the company. The Atlas is a
       // product surface (a live map of real programs), and it lost its

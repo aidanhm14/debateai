@@ -143,7 +143,7 @@ const PROVIDERS = [
     call: async function (p, model) {
       const d = await postJSON('https://api.anthropic.com/v1/messages',
         { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-        { model, max_tokens: 600, system: p.system, messages: [{ role: 'user', content: p.user }] });
+        { model, max_tokens: 3000, system: p.system, messages: [{ role: 'user', content: p.user }] });
       this._served = d.model || model;
       return (d.content || []).map((c) => c.text || '').join('');
     },
@@ -155,7 +155,7 @@ const PROVIDERS = [
       // reasoning before output, so they get max_completion_tokens + headroom
       const reasoning = /^(gpt-5|o\d)/.test(model);
       const body = { model, messages: [{ role: 'system', content: p.system }, { role: 'user', content: p.user }] };
-      if (reasoning) body.max_completion_tokens = 4000; else body.max_tokens = 600;
+      if (reasoning) body.max_completion_tokens = 4000; else body.max_tokens = 3000;
       const d = await postJSON('https://api.openai.com/v1/chat/completions',
         { authorization: 'Bearer ' + process.env.OPENAI_API_KEY }, body);
       this._served = d.model || model;
@@ -178,7 +178,7 @@ const PROVIDERS = [
     call: async function (p, model) {
       const d = await postJSON('https://api.x.ai/v1/chat/completions',
         { authorization: 'Bearer ' + process.env.XAI_API_KEY },
-        { model, max_tokens: 600, messages: [{ role: 'system', content: p.system }, { role: 'user', content: p.user }] });
+        { model, max_tokens: 3000, messages: [{ role: 'system', content: p.system }, { role: 'user', content: p.user }] });
       this._served = d.model || model;
       return d.choices?.[0]?.message?.content || '';
     },
