@@ -82,6 +82,7 @@
   let startFiredThisSession = sessionStorage.getItem('_da_sstf') === '1';
   let endFired = false;
   let pageViewFired = false;
+  let pageViews = 0;
 
   // ── Anonymous presence beat (/api/presence-live) ──────────────────
   // Feeds the real "live in the last 30 minutes" pins on the /spar
@@ -414,9 +415,18 @@
   function firePageView() {
     if (pageViewFired) return;
     pageViewFired = true;
+    pageViews += 1;
     post('page_view', baseMeta({
       referrer: (document.referrer || '').slice(0, 200),
       title: (document.title || '').slice(0, 200),
+      // Recorded, never filtered on the way in. The 2026-08-14 presence
+      // work established that this site's dominant traffic source is our
+      // own /today crawl, and that dropping it at the client is how a
+      // visit stops existing anywhere. So every view is written and the
+      // reader decides: `automated` is navigator.webdriver, and `engaged`
+      // (on session_end) says whether the human gate ever opened. A count
+      // of PEOPLE filters on those; a count of VISITS does not.
+      automated: presenceAutomated,
     }));
   }
 
@@ -439,49 +449,99 @@
   }
 
   function fireSessionEnd() {
-    if (endFired || !currentUser) return;
+    if (endFired) return;
     endFired = true;
     // getIdToken is async, but fetch keepalive lets the request complete
     // after pagehide as long as we kick it off synchronously-ish.
     post('session_end', baseMeta({
       duration_s: Math.floor((Date.now() - sessionStart) / 1000),
+      // Did this session ever prove a human was here? Same gate the
+      // presence beat uses (one real interaction, or 20s of VISIBLE
+      // dwell). Written here rather than enforced at the door so a
+      // session that never engaged is still on the record as a visit.
+      engaged: presenceReady,
+      views: pageViews,
     }));
   }
 
+  // session_start + page_view, for everyone. Guarded internally, so the
+  // auth callback firing twice (null, then a user) records one session
+  // and one view rather than two.
+  function fireLifecycle() {
+    fireSessionStart();
+    firePageView();
+  }
+
+  // ── Anonymous visits are recorded (2026-08-14) ────────────────────
+  // This REVERSES the 2026-05-18 rule that anonymous visitors got no
+  // session_start and no page_view. That rule was a Netlify-invocation
+  // decision taken against a ~7K MAU estimate from the ad spike, and
+  // §8 has since recorded that spike as an artifact: real engaged usage
+  // is roughly two orders of magnitude below the number the envelope was
+  // sized against. Its cost is that the majority of traffic on this site
+  // has left no record of ever arriving, which is the thing being fixed.
+  //
+  // The heartbeat stays signed-in only, deliberately. That is the one
+  // event that fires per 3 minutes rather than per visit, so it is the
+  // only part of the lifecycle whose volume scales with dwell instead
+  // of with people, and it is what the 2026-05-18 audit was actually
+  // about. Anonymous visitors get exactly three events per session:
+  // session_start, page_view, session_end.
+  //
+  // Nothing here is filtered on the way in. See firePageView.
+
+  // Waiting for Firebase before recording a visit means a browser that
+  // cannot load Firebase records nothing, and that population is real
+  // and already documented (Safari ITP, in-app browsers, strict
+  // blockers) — it is the same population the 2026-04-20 gate reversal
+  // was for. So: no persisted Firebase session in localStorage means
+  // nobody can be signed in here, and the visit is recorded immediately
+  // under the anonymous path. With a persisted session we wait, so the
+  // events attach to the real uid rather than to a device id.
+  function hasPersistedAuth() {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('firebase:authUser:') === 0) return true;
+      }
+    } catch (e) {
+      // localStorage blocked, so no persisted session is readable
+      // either way. Record now rather than wait for an answer that
+      // cannot arrive.
+    }
+    return false;
+  }
+
   async function init() {
+    // Fire end on tab close / navigate away. Registered BEFORE the
+    // await so a page unloaded during the Firebase fetch still closes
+    // its session. pagehide is more reliable than beforeunload on
+    // mobile; both are registered because iOS Safari skips pagehide.
+    window.addEventListener('pagehide', fireSessionEnd);
+    window.addEventListener('beforeunload', fireSessionEnd);
+
+    if (!hasPersistedAuth()) fireLifecycle();
+    // Backstop: a persisted session whose SDK never loads (blocked CDN,
+    // dead network) would otherwise record nothing at all. Record it
+    // anonymously instead. The guards inside make this a no-op if auth
+    // resolved first.
+    else setTimeout(fireLifecycle, 6000);
+
     await ensureFirebase();
     firebase.auth().onAuthStateChanged(function (user) {
       currentUser = user && !user.isAnonymous ? user : null;
-      // Signed-in lifecycle: session_start + page_view + heartbeat.
-      // Anon users get NEITHER lifecycle nor heartbeat — only the
-      // gtag-bridged app_event path is open to them (the post() gate
-      // + ANON_OK allowlist enforces this). Rationale: the existing
-      // 7K MAU × 3min heartbeat math sits ~70K/month against the
-      // Netlify 125K free-tier ceiling, with ~30K/month for signed-in
-      // session_start + page_view + bridged gtag. Opening lifecycle
-      // to anon (~62% of traffic) would add ~17K/month and push the
-      // total to ~117K, leaving no headroom for product growth before
-      // the next pricing tier kicks in. The funnel only needs
-      // round_start / round_complete (both gtag-bridged), so anon
-      // session_start / page_view are nice-to-have, not load-bearing.
-      // Today's (2026-05-18) credit-burn audit explicitly tightened
-      // this envelope — keeping anon to gtag-only is the cheap path.
+      fireLifecycle();
+      // Heartbeat stays signed-in only. See the note above.
       if (!currentUser) return;
-      fireSessionStart();
-      firePageView();
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(fireHeartbeat, HEARTBEAT_MS);
     });
-
-    // Fire end on tab close / navigate away. pagehide is more reliable
-    // than beforeunload on mobile. visibilitychange to 'hidden' is not
-    // a reliable signal (fires on tab-switch too), so we only use it
-    // as a last-resort on iOS Safari which sometimes skips pagehide.
-    window.addEventListener('pagehide', fireSessionEnd);
-    window.addEventListener('beforeunload', fireSessionEnd);
   }
 
   init().catch(function (e) {
+    // Firebase failed to load. The visit is still recorded: either it
+    // already fired above, or the 6s backstop is pending.
+    fireLifecycle();
     if (window.console && console.warn) console.warn('[track] init failed:', e.message);
   });
 })();

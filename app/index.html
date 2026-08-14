@@ -2857,6 +2857,7 @@ if ('serviceWorker' in navigator) {
        until the file lands; display=swap avoids invisible text. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap"></noscript>
+<script defer src="/js/track.js"></script>
 </head>
 <!-- voice-guidelines.js is a 1.4KB no-op stub (the real voice bank lives
      server-side). Inlined here to drop a render-blocking round-trip while
@@ -3114,13 +3115,24 @@ function logBetaEvent(event, data) {
     try {
       var eventMap = { generate: 'case_generated', tab: 'page_view', battle: 'battle_started', feedback: 'feedback_requested', philosophy: 'philosophy_explored', forum: 'forum_post', motion: 'motion_rolled', practice: 'speech_practiced', map: 'round_mapped', conversion: 'conversion' };
       var mapped = eventMap[event] || 'page_view';
+      // This page now also loads /js/track.js, which fires ONE page_view
+      // per document load. The rows below are in-app TAB SWITCHES (and
+      // the unmapped default), which have always been recorded under the
+      // same name. Tagging them keeps both on the record while letting a
+      // reader count visits without counting navigation inside one visit:
+      // a real page_view carries session_id from track.js's baseMeta,
+      // these carry inAppNav. Don't dedupe by dropping either one.
+      var meta = data || {};
+      if (mapped === 'page_view') {
+        meta = Object.assign({}, meta, { inAppNav: true, nav: String(event).slice(0, 40) });
+      }
       if (typeof __getAuthToken !== 'function') {console.warn('[logBetaEvent] no __getAuthToken');return;}
       var token = await __getAuthToken();
       if (!token) {console.warn('[logBetaEvent] no auth token. user not signed in?');return;}
       var res = await fetch('/api/log-event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ event: mapped, metadata: data || {} })
+        body: JSON.stringify({ event: mapped, metadata: meta })
       });
       if (!res.ok) {
         console.warn('[logBetaEvent]', mapped, 'failed:', res.status, await res.text().catch(() => '?'));
