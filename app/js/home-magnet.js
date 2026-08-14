@@ -124,8 +124,20 @@
   // them. Auth state is whatever firebase resolves to (topbar.js loads it
   // lazily); it's null until it settles, which is why the decision is
   // deferred ~5s and re-checked via onAuthStateChanged below.
+  //
+  // NAMED accounts only, and that word is load-bearing. This read used to
+  // be a bare !!currentUser, which is true for an ANONYMOUS user, and
+  // nearly every visitor is signed in anonymously within a second of
+  // landing (notifications.js mints one for the background Spar pill).
+  // So the popup asked "is this a stranger?", got told "no", and never
+  // fired for anyone on any page. Measured on a live /debate page:
+  // currentUser was anonymous-truthy at t=1s. Same test firestore.rules
+  // already uses via isNamedAccount().
   function signedIn() {
-    try { return !!(window.firebase && window.firebase.auth && window.firebase.auth().currentUser); } catch (e) { return false; }
+    try {
+      var u = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+      return !!(u && !u.isAnonymous);
+    } catch (e) { return false; }
   }
 
   function cameFromUs() {
@@ -136,9 +148,48 @@
     } catch (e) { return false; }
   }
 
+  // One prompt per page. signup-nudge.js runs its own timed card on the
+  // pages it is loaded on, and two cards arriving seconds apart reads as a
+  // site that is nagging rather than offering. Whichever page carries the
+  // nudge, the nudge wins: it asks for the account, which is the larger
+  // commitment, and this popup's "go to the main page" is also reachable
+  // from the topbar wordmark on every page that has one. Caught on /watch,
+  // where a parallel change added the nudge the same day this shipped.
+  function nudgeOwnsThisPage() {
+    return !!document.querySelector('script[src*="/js/signup-nudge.js"]');
+  }
+
   // Semi-app surfaces where a "go home" popup would be noise. The home
   // bar still applies to these; only the popup is suppressed.
   var NO_POPUP = /\/(leaderboard|users|profile|live|live-round|spar|casual-room|debate-chat|exhibition|predict|voice-rfd|admin|admin-rate|admin-runner|linter|argument-coach|verify|voice-debate|newvoice|messages|room-judge|practice|float|debate-online)(\.html)?$/.test(lower);
+
+  // One sign-in chooser, same as everywhere else (2026-08-12). Mirrors
+  // topbar.js's openSharedAuth, but has to load the script itself: this
+  // popup's whole audience is the SEO cluster, and /debate/* and
+  // /learn/guides/* are server-rendered WITHOUT a topbar, so the thing
+  // that pulls auth-modal.js in on the other ~85 pages is absent exactly
+  // where this runs. Falls through to the main page rather than dead-ending
+  // on a button that does nothing.
+  function openSharedAuth() {
+    if (typeof window.openAuthModal === 'function') { window.openAuthModal('signin'); return; }
+    var existing = document.querySelector('script[src*="/js/auth-modal.js"]');
+    if (existing) {
+      existing.addEventListener('load', function () {
+        if (typeof window.openAuthModal === 'function') window.openAuthModal('signin');
+        else location.href = HOME;
+      }, { once: true });
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = '/js/auth-modal.js';
+    s.defer = true;
+    s.onload = function () {
+      if (typeof window.openAuthModal === 'function') window.openAuthModal('signin');
+      else location.href = HOME;
+    };
+    s.onerror = function () { location.href = HOME; };
+    document.head.appendChild(s);
+  }
 
   function injectStyles() {
     if (document.getElementById('ditHomePopCss')) return;
@@ -152,14 +203,21 @@
     var s = document.createElement('style');
     s.id = 'ditHomePopCss';
     s.textContent =
-      '#ditHomePop{position:fixed;inset:0;z-index:2147483000;font-family:Crimson Pro,Georgia,serif}' +
-      '#ditHomePop .ditHP-back{position:absolute;inset:0;background:rgba(8,6,4,.5);opacity:0;transition:opacity .25s ease}' +
-      '#ditHomePop.in .ditHP-back{opacity:1}' +
-      '#ditHomePop .ditHP-card{position:absolute;left:50%;top:50%;transform:translate(-50%,calc(-50% + 14px));' +
-        'width:min(420px,calc(100vw - 32px));background:' + card + ';color:' + ink + ';' +
-        'border:1px solid ' + line + ';border-radius:18px;padding:26px 24px 22px;' +
-        'box-shadow:0 24px 70px rgba(0,0,0,.35);opacity:0;transition:opacity .28s ease,transform .28s cubic-bezier(.2,.8,.2,1)}' +
-      '#ditHomePop.in .ditHP-card{opacity:1;transform:translate(-50%,-50%)}' +
+      // Bottom-RIGHT card, not a centred modal over a dimmed page. Two
+      // reasons. This fires on pages whose whole job is arriving from a
+      // search result, and a full-screen interstitial over search-landed
+      // content is the exact pattern Google's intrusive-interstitial
+      // guidance penalises; a corner card leaves the content readable and
+      // the page usable. The wrapper therefore takes pointer-events:none
+      // so the invisible full-screen box cannot swallow clicks meant for
+      // the article underneath, and only the card takes them back.
+      '#ditHomePop{position:fixed;inset:0;z-index:2147483000;pointer-events:none;font-family:Crimson Pro,Georgia,serif}' +
+      '#ditHomePop .ditHP-card{position:absolute;right:20px;bottom:20px;pointer-events:auto;' +
+        'width:min(380px,calc(100vw - 32px));background:' + card + ';color:' + ink + ';' +
+        'border:1px solid ' + line + ';border-radius:18px;padding:22px 22px 20px;' +
+        'box-shadow:0 24px 70px rgba(0,0,0,.35);opacity:0;transform:translateY(14px);' +
+        'transition:opacity .28s ease,transform .28s cubic-bezier(.2,.8,.2,1)}' +
+      '#ditHomePop.in .ditHP-card{opacity:1;transform:translateY(0)}' +
       '#ditHomePop .ditHP-x{position:absolute;top:12px;right:14px;width:30px;height:30px;border:0;background:transparent;' +
         'color:' + sub + ';font-size:22px;line-height:1;cursor:pointer;border-radius:8px}' +
       '#ditHomePop .ditHP-x:hover{background:' + stayBg + '}' +
@@ -172,15 +230,19 @@
       '#ditHomePop .ditHP-go{display:block;text-align:center;padding:13px 18px;border-radius:11px;background:#b91c1c;color:#fff;' +
         'font-weight:800;font-size:1rem;text-decoration:none;transition:background .15s,transform .15s;box-shadow:0 8px 24px rgba(239,68,68,.3)}' +
       '#ditHomePop .ditHP-go:hover{background:#dc2626;transform:translateY(-1px)}' +
+      '#ditHomePop .ditHP-signin{display:block;width:100%;text-align:center;padding:12px 18px;border-radius:11px;' +
+        'border:1px solid ' + line + ';background:transparent;color:' + ink + ';font-family:inherit;' +
+        'font-weight:800;font-size:.95rem;cursor:pointer;transition:background .15s,border-color .15s}' +
+      '#ditHomePop .ditHP-signin:hover{background:' + stayBg + ';border-color:#ef4444}' +
       '#ditHomePop .ditHP-stay{padding:11px;border:0;background:' + stayBg + ';color:' + sub + ';font-weight:700;' +
-        'font-size:.9rem;border-radius:11px;cursor:pointer}' +
+        'font-size:.9rem;border-radius:11px;cursor:pointer;font-family:inherit}' +
       '#ditHomePop .ditHP-stay:hover{color:' + ink + '}' +
       '@media(max-width:560px){' +
         '#ditHomePop .ditHP-card{left:0;right:0;top:auto;bottom:0;width:auto;transform:translateY(110%);' +
           'border-radius:20px 20px 0 0;padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}' +
         '#ditHomePop.in .ditHP-card{transform:translateY(0)}' +
       '}' +
-      '@media(prefers-reduced-motion:reduce){#ditHomePop .ditHP-back,#ditHomePop .ditHP-card{transition:none}}';
+      '@media(prefers-reduced-motion:reduce){#ditHomePop .ditHP-card{transition:none}}';
     document.head.appendChild(s);
   }
 
@@ -190,17 +252,19 @@
     var wrap = document.createElement('div');
     wrap.id = 'ditHomePop';
     wrap.setAttribute('role', 'dialog');
-    wrap.setAttribute('aria-modal', 'true');
+    // NOT aria-modal. It no longer covers the page or trap focus, and
+    // claiming modality would tell a screen reader the article behind it
+    // has stopped existing when it has not.
     wrap.setAttribute('aria-label', 'Welcome to Debatable');
     wrap.innerHTML =
-      '<div class="ditHP-back"></div>' +
       '<div class="ditHP-card" role="document">' +
         '<button class="ditHP-x" aria-label="Dismiss">×</button>' +
         '<div class="ditHP-kick"><span class="ditHP-dot"></span>New here?</div>' +
         '<h2 class="ditHP-h">Debate real people, live.</h2>' +
-        '<p class="ditHP-p">You landed on one page. The main page is where it all runs: live rounds against real debaters in your format, with an AI judge that writes the ballot at the end.</p>' +
+        '<p class="ditHP-p">You landed on one page. The main page is where it all runs: live rounds against real people in your format, with an AI judge that writes the ballot at the end.</p>' +
         '<div class="ditHP-row">' +
           '<a class="ditHP-go" href="' + HOME + '">Go to the main page →</a>' +
+          '<button class="ditHP-signin">Sign in</button>' +
           '<button class="ditHP-stay">Stay on this page</button>' +
         '</div>' +
       '</div>';
@@ -216,10 +280,14 @@
 
     wrap.querySelector('.ditHP-x').addEventListener('click', close);
     wrap.querySelector('.ditHP-stay').addEventListener('click', close);
-    wrap.querySelector('.ditHP-back').addEventListener('click', close);
     // Let the home button navigate normally; just record intent.
     wrap.querySelector('.ditHP-go').addEventListener('click', function () {
       try { if (window.track) window.track('home_magnet_go', { from: path }); } catch (e) {}
+    });
+    wrap.querySelector('.ditHP-signin').addEventListener('click', function () {
+      try { if (window.track) window.track('home_magnet_signin', { from: path }); } catch (e) {}
+      close();
+      openSharedAuth();
     });
     document.addEventListener('keydown', onKey);
 
@@ -236,7 +304,7 @@
     // who landed deep from search and has never seen the main page. Skip
     // it for app-ish pages, repeat shows, internal navigation, anyone who
     // has already visited the landing/main page, and signed-in users.
-    if (NO_POPUP || seen() || cameFromUs() || visitedHome() || signedIn()) return;
+    if (NO_POPUP || nudgeOwnsThisPage() || seen() || cameFromUs() || visitedHome() || signedIn()) return;
 
     // If firebase is on the page, a sign-in that resolves after this point
     // still cancels the popup (and closes it if it already opened) — a
@@ -244,7 +312,10 @@
     try {
       if (window.firebase && window.firebase.auth) {
         window.firebase.auth().onAuthStateChanged(function (u) {
-          if (!u) return;
+          // Named accounts only, for the same reason signedIn() checks it:
+          // the anonymous sign-in that lands on nearly every visitor would
+          // otherwise cancel this for everybody, permanently.
+          if (!u || u.isAnonymous) return;
           seen.__shown = true;
           var p = document.getElementById('ditHomePop');
           if (p && p.parentNode) p.parentNode.removeChild(p);
@@ -252,12 +323,29 @@
       }
     } catch (e) {}
 
-    // ~5s after a first-time cold landing: long enough that it reads as
+    // ~6s after a first-time cold landing: long enough that it reads as
     // "want the full thing?" rather than an immediate interstitial, and
     // long enough for firebase auth to have resolved.
-    setTimeout(function () {
-      if (document.hidden || seen.__shown || signedIn()) return;
+    //
+    // A hidden tab DEFERS rather than cancels. The old version returned
+    // outright, so a visitor who opened the page in a background tab (the
+    // normal way people open a search result they mean to read later) was
+    // never offered the main page at all, on the one visit where they had
+    // clearly decided to read. Now the timer just waits for the tab to
+    // become visible, then shows it, re-checking the sign-in state at that
+    // point because auth may have resolved in the meantime.
+    var fire = function () {
+      if (seen.__shown || seen() || signedIn()) return;
+      if (document.hidden) {
+        document.addEventListener('visibilitychange', function onVis() {
+          if (document.hidden) return;
+          document.removeEventListener('visibilitychange', onVis);
+          if (!seen.__shown && !seen() && !signedIn()) showPopup();
+        });
+        return;
+      }
       showPopup();
-    }, 5000);
+    };
+    setTimeout(fire, 6000);
   });
 })();
