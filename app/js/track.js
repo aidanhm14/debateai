@@ -91,11 +91,95 @@
   // id (server stamps city-level edge geo; nothing else), and never
   // touches Firebase. 5-min cadence + a 2-min sessionStorage floor so
   // cross-page nav doesn't spam the endpoint.
+  //
+  // 2026-08-14: the FIRST beat of a session now waits for evidence that a
+  // human is here. It used to fire on load, unconditionally, which made
+  // this a counter of page renders rather than of people.
+  //
+  // Measured: of 747 sessions recorded on 2026-08-14, 660 entered on
+  // `/today/{YYYY-MM-DD}` across 576 DISTINCT dates, 509 of them seen
+  // exactly once, essentially all from one 11 km cell in Dallas. That is
+  // not abuse. `/today` is our own server-rendered daily-motion archive,
+  // sitemapped and bounded at +/- 5 years, so a JS-executing crawler
+  // walking ~3650 stable URLs is the SEO surface doing exactly what it
+  // was built to do. The crawl is WANTED. Counting it as visitors was
+  // the bug, and it reached both the landing globe and /admin.
+  //
+  // Two gates, and neither needs an IP, a user-agent sniff, or a shared
+  // rate limiter:
+  //   1. `navigator.webdriver` vetoes outright. This catches automation
+  //      frameworks; it does NOT catch the search renderers, which
+  //      deliberately do not set it. Gate 2 is what handles those.
+  //   2. The first beat waits for one real interaction, or for
+  //      PRESENCE_DWELL_MS of VISIBLE dwell (hidden time does not count)
+  //      for someone who is only reading. A renderer executes for a few
+  //      seconds and never scrolls or clicks.
+  //
+  // Later beats are ungated: the tab already proved itself, and
+  // `_da_plast` survives same-tab navigation exactly like `_da_sid`, so
+  // a person who engaged on page one is counted from page two onward
+  // without re-earning it.
+  //
+  // Accepted cost, and it is the safe direction: a real visitor who
+  // lands, reads nothing, touches nothing and leaves inside 20 seconds
+  // is not counted. Presence should mean presence.
   const PRESENCE_MS = 5 * 60 * 1000;
   const PRESENCE_MIN_GAP_MS = 2 * 60 * 1000;
+  const PRESENCE_DWELL_MS = 20 * 1000;
+  const PRESENCE_SIGNALS = ['pointerdown', 'keydown', 'scroll', 'touchstart', 'wheel'];
+
+  let presenceAutomated = false;
+  try {
+    presenceAutomated = navigator.webdriver === true;
+  } catch (e) {}
+
+  // A tab that has already beaten is already trusted.
+  let presenceReady = Number(sessionStorage.getItem('_da_plast') || 0) > 0;
+  let presenceDwellTimer = null;
+
+  function presenceGateOff() {
+    if (presenceDwellTimer) {
+      clearInterval(presenceDwellTimer);
+      presenceDwellTimer = null;
+    }
+    PRESENCE_SIGNALS.forEach(function (t) {
+      try {
+        window.removeEventListener(t, presenceUnlock, true);
+      } catch (e) {}
+    });
+  }
+
+  function presenceUnlock() {
+    if (presenceReady) return;
+    presenceReady = true;
+    presenceGateOff();
+    presenceBeat();
+  }
+
+  function presenceGateOn() {
+    PRESENCE_SIGNALS.forEach(function (t) {
+      try {
+        window.addEventListener(t, presenceUnlock, { passive: true, capture: true });
+      } catch (e) {
+        window.addEventListener(t, presenceUnlock, true);
+      }
+    });
+    // Visible dwell only. A backgrounded tab is not someone reading, and
+    // a prerendered or preloaded page can sit hidden for a long time.
+    let visibleMs = 0;
+    let lastTick = Date.now();
+    presenceDwellTimer = setInterval(function () {
+      const now = Date.now();
+      if (!document.hidden) visibleMs += now - lastTick;
+      lastTick = now;
+      if (visibleMs >= PRESENCE_DWELL_MS) presenceUnlock();
+    }, 2000);
+  }
+
   function presenceBeat() {
     try {
       if (document.hidden) return;
+      if (presenceAutomated || !presenceReady) return;
       const last = Number(sessionStorage.getItem('_da_plast') || 0);
       if (Date.now() - last < PRESENCE_MIN_GAP_MS) return;
       // No prior beat in this tab = first beat of this session. Same
@@ -120,7 +204,13 @@
       // Presence must never break the page.
     }
   }
-  presenceBeat();
+  if (presenceAutomated) {
+    // Nothing to arm. An automated agent never becomes a visitor.
+  } else if (presenceReady) {
+    presenceBeat(); // this tab already engaged on an earlier page
+  } else {
+    presenceGateOn();
+  }
   setInterval(presenceBeat, PRESENCE_MS);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) presenceBeat();

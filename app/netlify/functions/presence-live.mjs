@@ -46,7 +46,16 @@ const WINDOW_MS = 24 * 60 * 60 * 1000; // pins = seen in the last 24 hours
 const THIRTY_MIN = 30 * 60 * 1000;
 const FIVE_MIN = 5 * 60 * 1000;
 const CACHE_KEY = 'presence-live:pins';
-const CACHE_TTL_MS = 60_000;
+// 2026-08-14: 60s -> 5min. A cache MISS scans up to MAX_DOCS documents, so
+// the read bill is (misses per day) x (docs in the 24h window). At a 60s TTL
+// with a bot inflating the window to ~750 docs that was on the order of
+// 860K reads/day for an ambient globe, which is the same drain shape the
+// 2026-05-18 credit audit cut. Five minutes costs nothing anyone can see:
+// a 24h pin window does not meaningfully move minute to minute. The narrow
+// online5 / online30 counts ride the same cache and are therefore up to
+// 5 minutes stale, which is acceptable because nothing sells liveness off
+// them (the /spar note prefers online24 and falls back to online30).
+const CACHE_TTL_MS = 300_000;
 const MAX_DOCS = 600;
 const STALE_MS = 48 * 60 * 60 * 1000; // opportunistic cleanup horizon
 
@@ -88,10 +97,17 @@ function entryKey(p) {
 // One increment per new session. Bounded: `sessions` is a counter,
 // byCountry maxes out at the number of ISO codes, and byEntry only
 // ever holds real site paths.
+//
+// `engagedGate` stamps WHICH RULE produced the day's number, because
+// 2026-08-14 is a discontinuity: before it a session was a page render
+// (crawlers included), after it a session is a visitor who interacted or
+// dwelled. Sessions step DOWN roughly 8x at that boundary and the drop
+// is the correction, not a regression. Do not compare a window spanning
+// it, and do not read an unstamped day as if it meant the same thing.
 async function bumpDailyRollup(db, now, geo, entry) {
   const inc = FieldValue.increment(1);
   const day = dayKey(now);
-  const patch = { day, sessions: inc, updatedAt: now };
+  const patch = { day, sessions: inc, updatedAt: now, engagedGate: true };
   const cc = /^[A-Za-z]{2}$/.test(geo.country || '') ? geo.country.toUpperCase() : '';
   if (cc) patch.byCountry = { [cc]: inc };
   if (entry) patch.byEntry = { [entry]: inc };
