@@ -558,6 +558,13 @@ weight, not a mirror.
   unless you have `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
   `GEMINI_API_KEY`, `XAI_API_KEY`, `ELEVENLABS_API_KEY`,
   `STRIPE_SECRET_KEY`, Firebase admin creds, etc.
+- **Assuming a page is tracked because it has the topbar.** `app/js/track.js`
+  is the ONLY telemetry entry point (it drives both `/api/log-event` and the
+  `/api/presence-live` beat), and `topbar.js` does not pull it. On 2026-08-14,
+  60 of 114 public pages had no tag and reported nothing, `/index` among them.
+  Every public page carries `<script defer src="/js/track.js"></script>` now;
+  a NEW page needs it added by hand. Admin, og-image, offline and
+  _more-preview are excluded on purpose. Grep per file, don't assume.
 - Skipping the SW cache bump after an HTML edit — users get the stale
   bundle for hours until their cache expires. The pre-commit hook
   (see "First-time setup" above) auto-bumps so this is only a footgun
