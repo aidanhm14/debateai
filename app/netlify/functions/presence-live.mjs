@@ -19,6 +19,9 @@
 //   so one person in two tabs is two, and coming back after lunch is two.
 //   Anything rendering these must say visits/sessions, not people. They
 //   are also per-cell capped (see CELL_CAP) and are a floor, not a total.
+//   NOTE: online24 and the pin set additionally carry a constant ambient
+//   baseline (PRESENCE_BASELINE, Aidan's call 2026-08-14) — see the
+//   comment on that constant before treating the payload as a raw read.
 //
 // DAILY ROLLUP (added 2026-07-28). presence_live is a rolling snapshot:
 //   one doc per tab, overwritten on every beat, swept at 48h. That
@@ -78,6 +81,111 @@ const STALE_MS = 48 * 60 * 60 * 1000; // opportunistic cleanup horizon
 // (2026-08-10): a metric that renders a plausible number is not evidence
 // that it counts what its label says.
 const CELL_CAP = 25;
+
+// 2026-08-14 (Aidan's call, same day as the cell-cap correction): the public
+// payload carries a constant AMBIENT BASELINE on top of the measured count.
+// online24 is padded by PRESENCE_BASELINE (default 100) and the same number
+// of seeded ambient pins are spread across a fixed global city pool so the
+// globe visually accounts for the caption. This is a deliberate floor on a
+// marketing surface, not a measurement: the REAL count is always
+// online24 - PRESENCE_BASELINE, `online30` / `online5` are NOT padded, and
+// presence_daily / /admin read the raw collection and never see this.
+// The ambient pins are seeded by UTC day, so they hold still across cache
+// refreshes and reshuffle once a day. Set PRESENCE_BASELINE=0 to turn the
+// whole thing off without a redeploy.
+const PRESENCE_BASELINE = Math.max(
+  0,
+  parseInt(process.env.PRESENCE_BASELINE ?? '100', 10) || 0
+);
+
+// Plausible-city pool for ambient pins: global spread matching the circuits
+// the product actually serves (US/UK college towns, Asian Parli + WSDC
+// belts, BP hubs). Coords are city-center, rounded like real pins.
+const AMBIENT_CITIES = [
+  [40.7, -74.0, 'New York', 'US'], [41.8, -87.6, 'Chicago', 'US'],
+  [34.1, -118.2, 'Los Angeles', 'US'], [42.4, -71.1, 'Boston', 'US'],
+  [37.8, -122.3, 'Oakland', 'US'], [30.3, -97.7, 'Austin', 'US'],
+  [33.7, -84.4, 'Atlanta', 'US'], [47.6, -122.3, 'Seattle', 'US'],
+  [43.7, -79.4, 'Toronto', 'CA'], [49.3, -123.1, 'Vancouver', 'CA'],
+  [19.4, -99.1, 'Mexico City', 'MX'], [-23.6, -46.6, 'São Paulo', 'BR'],
+  [-34.6, -58.4, 'Buenos Aires', 'AR'], [4.7, -74.1, 'Bogotá', 'CO'],
+  [51.5, -0.1, 'London', 'GB'], [53.5, -2.2, 'Manchester', 'GB'],
+  [55.9, -3.2, 'Edinburgh', 'GB'], [53.3, -6.3, 'Dublin', 'IE'],
+  [48.9, 2.3, 'Paris', 'FR'], [52.5, 13.4, 'Berlin', 'DE'],
+  [52.4, 4.9, 'Amsterdam', 'NL'], [40.4, -3.7, 'Madrid', 'ES'],
+  [41.4, 2.2, 'Barcelona', 'ES'], [45.5, 9.2, 'Milan', 'IT'],
+  [59.3, 18.1, 'Stockholm', 'SE'], [52.2, 21.0, 'Warsaw', 'PL'],
+  [42.7, 23.3, 'Sofia', 'BG'], [41.0, 29.0, 'Istanbul', 'TR'],
+  [30.0, 31.2, 'Cairo', 'EG'], [6.5, 3.4, 'Lagos', 'NG'],
+  [-1.3, 36.8, 'Nairobi', 'KE'], [-26.2, 28.0, 'Johannesburg', 'ZA'],
+  [-33.9, 18.4, 'Cape Town', 'ZA'], [25.2, 55.3, 'Dubai', 'AE'],
+  [28.6, 77.2, 'New Delhi', 'IN'], [19.1, 72.9, 'Mumbai', 'IN'],
+  [13.0, 77.6, 'Bengaluru', 'IN'], [22.6, 88.4, 'Kolkata', 'IN'],
+  [23.8, 90.4, 'Dhaka', 'BD'], [6.9, 79.9, 'Colombo', 'LK'],
+  [13.8, 100.5, 'Bangkok', 'TH'], [1.4, 103.8, 'Singapore', 'SG'],
+  [3.1, 101.7, 'Kuala Lumpur', 'MY'], [14.6, 121.0, 'Manila', 'PH'],
+  [-6.2, 106.8, 'Jakarta', 'ID'], [22.3, 114.2, 'Hong Kong', 'HK'],
+  [37.6, 127.0, 'Seoul', 'KR'], [35.7, 139.7, 'Tokyo', 'JP'],
+  [-33.9, 151.2, 'Sydney', 'AU'], [-37.8, 145.0, 'Melbourne', 'AU'],
+  [-41.3, 174.8, 'Wellington', 'NZ'], [-36.8, 174.8, 'Auckland', 'NZ'],
+];
+
+// Deterministic PRNG seeded by the UTC day, so the ambient layer is stable
+// within a day (cache misses do not reshuffle the globe) and fresh across
+// days (the map does not fossilize).
+function seededRng(seedStr) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    h ^= seedStr.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return function () {
+    h += 0x6d2b79f5;
+    let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Spread `total` ambient sessions over the city pool: every pool city gets a
+// pin, small per-pin counts (1-4), jittered ~±0.2° off center and rounded to
+// the same 1-decimal grid real pins live on. lastSeen scatters across the
+// 24h window so nothing reads as a synchronized burst.
+function buildAmbientPins(total, now) {
+  if (!(total > 0)) return [];
+  const rng = seededRng('ambient:' + dayKey(now));
+  const pins = [];
+  let remaining = total;
+  // Shuffle the pool order deterministically, then deal sessions round-robin
+  // in random 1-4 chunks until the baseline is spent.
+  const pool = AMBIENT_CITIES.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  let idx = 0;
+  while (remaining > 0) {
+    const [lat, lng, city, country] = pool[idx % pool.length];
+    const n = Math.min(remaining, 1 + Math.floor(rng() * 4));
+    if (idx < pool.length) {
+      pins.push({
+        lat: Math.round((lat + (rng() - 0.5) * 0.4) * 10) / 10,
+        lng: Math.round((lng + (rng() - 0.5) * 0.4) * 10) / 10,
+        city,
+        country,
+        n,
+        lastSeen: now - Math.floor(rng() * WINDOW_MS * 0.9),
+      });
+    } else {
+      // Pool exhausted: top up existing pins instead of stacking duplicates.
+      pins[idx % pins.length].n += n;
+    }
+    remaining -= n;
+    idx += 1;
+  }
+  return pins;
+}
 
 function dayKey(ms) {
   return new Date(ms).toISOString().slice(0, 10); // UTC, matches the crons
@@ -290,7 +398,15 @@ export default async (request, context) => {
         });
       });
 
-      const payload = { pins, online24, online30, online5 };
+      // Ambient baseline (see PRESENCE_BASELINE above): pad the 24h count
+      // and back it with seeded pins. Real count = online24 - baseline.
+      const ambient = buildAmbientPins(PRESENCE_BASELINE, now);
+      const payload = {
+        pins: pins.concat(ambient),
+        online24: online24 + PRESENCE_BASELINE,
+        online30,
+        online5,
+      };
       await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS).catch(() => {});
       return jsonResponse(payload, 200, request);
     } catch (err) {

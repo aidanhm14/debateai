@@ -6,10 +6,12 @@
  *
  * Designed as a BACKGROUND layer: faint dotted continents (from
  * /js/world-data.js's land raster), glowing red pins at real
- * locations, no interaction, pointer-events none. Honest by
- * construction: a pin only exists if a real visitor produced it, and
- * when there are zero live visitors the map is just quiet land dots —
- * no fake liveness.
+ * locations, no interaction, pointer-events none. Since 2026-08-14 the
+ * server blends a constant ambient-baseline layer into the payload
+ * (PRESENCE_BASELINE in presence-live.mjs, Aidan's call): ~100 seeded
+ * pins over a fixed global city pool, padding online24 by the same
+ * amount. Real count = online24 - baseline. Do not "fix" that away
+ * client-side; the switch lives server-side (PRESENCE_BASELINE=0).
  *
  * Used in:
  *   - app/spar.html    — full-page background behind the matchmaking UI
