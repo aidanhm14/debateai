@@ -196,7 +196,7 @@
   // filtering, so the board can never disagree with the server about
   // what is open.
   var TABS = [
-    { key:'open-public',     label:'Open',    note:'Claims nobody has taken yet. Pick one and you are the other side.' },
+    { key:'open-public',     label:'Open',    note:'Claims and recorded rounds waiting for an opponent. Pick one and you are the other side.' },
     { key:'live-public',     label:'Live now', note:'Rounds happening right now.' },
     { key:'upcoming-public', label:'Matched', note:'Both sides are taken. These are the rounds about to happen.' },
     { key:'done-public',     label:'Settled', note:'Judged and on the record.' }
@@ -217,6 +217,12 @@
   var state = {
     user:null, tab:'open-public', slug:null,
     feed:null, one:null, loading:true, err:'',
+    // Open recorded rounds from /api/async/feed. The board's Open tab is
+    // the ONE place open challenges of either kind render (the landing's
+    // two challenge surfaces were removed 2026-08-14): a claim you take
+    // with a tap, and a recorded round you answer on /rounds. null until
+    // the first fetch resolves; [] after a quiet or failed fetch.
+    asyncOpen:null,
     compose:false, busy:false,
     // A directed challenge, arrived at from a "Challenge them" button. The
     // uid is what the server enforces; the name here is only what the
@@ -342,8 +348,24 @@
         var one = await api('/api/challenge?slug=' + encodeURIComponent(state.slug));
         state.one = one.challenge;
       } else {
-        var f = await api('/api/challenge?feed=' + encodeURIComponent(state.tab) + '&limit=40');
+        // The Open tab reads both boards in parallel: claims from
+        // /api/challenge and open recorded rounds from /api/async/feed.
+        // Both are shared-cached server-side (60s), so this is cheap.
+        // The async fetch failing must never take the claims board down
+        // with it, hence its own catch to [].
+        var wantAsync = state.tab === 'open-public';
+        var results = await Promise.all([
+          api('/api/challenge?feed=' + encodeURIComponent(state.tab) + '&limit=40'),
+          wantAsync
+            ? fetch('/api/async/feed', { cache:'no-cache' })
+                .then(function(r){ return r.ok ? r.json() : null; })
+                .then(function(j){ return ((j && j.open) || []).filter(function(r){ return r && r.motion; }); })
+                .catch(function(){ return []; })
+            : Promise.resolve(state.asyncOpen)
+        ]);
+        var f = results[0];
         state.feed = f.challenges || [];
+        if (wantAsync) state.asyncOpen = results[1] || [];
         // The endpoint answers 200 with degraded:true rather than 502 when
         // the board query fails, so say the true thing instead of showing
         // an empty board as if it were quiet.
@@ -545,6 +567,41 @@
     '</article>';
   }
 
+  // A recorded round waiting for an opponent, rendered in the same card
+  // grid as the claims. The whole card routes to /rounds?r={id}, which is
+  // where listening and answering actually happen; this board only has to
+  // say what it is and who is waiting. No lean bar: the crowd votes on a
+  // recorded round after both sides exist, not on a half-argued one.
+  function asyncCardFor(r){
+    var href = '/rounds?r=' + encodeURIComponent(r.id);
+    var seat, who;
+    if (r.prop && r.prop.name){
+      seat = 'Answer as Opp';
+      who = '<div class="who">' + avatar(r.prop) + '<span><b>' + esc(r.prop.name) +
+        '</b> recorded the Prop case</span></div>';
+    } else if (r.opp && r.opp.name){
+      seat = 'Answer as Prop';
+      who = '<div class="who">' + avatar(r.opp) + '<span><b>' + esc(r.opp.name) +
+        '</b> recorded the Opp case</span></div>';
+    } else {
+      seat = 'Open seat';
+      who = '<div class="who"><span>One side is recorded. The other is yours.</span></div>';
+    }
+    return '<article class="card">' +
+      '<div class="card-top"><span class="pill pill-open">Open</span>' +
+        '<span class="pill">' + esc(r.formatName || r.format || '') + '</span>' +
+        '<span class="pill">Recorded</span>' +
+      '</div>' +
+      '<h3 class="claim"><a href="' + href + '" data-cta="chal-async-round">' + esc(r.motion) + '</a></h3>' +
+      who +
+      '<div class="card-foot">' +
+        '<a class="btn btn-red btn-sm" href="' + href + '" data-cta="chal-async-answer">' + seat + '</a>' +
+        '<span class="spacer"></span>' +
+        '<span class="meta">' + esc(fmtWhen(r.createdAt)) + '</span>' +
+      '</div>' +
+    '</article>';
+  }
+
   function composeHtml(){
     var fopts = Object.keys(FORMAT_NAMES).map(function(k){
       return '<option value="'+k+'">'+esc(FORMAT_NAMES[k])+'</option>'; }).join('');
@@ -585,8 +642,8 @@
 
   function bandHtml(){
     return '<section class="band"><h2>How a challenge works</h2><div class="steps">' +
-      '<div class="step"><span class="n">1</span><p><b>Someone posts a claim</b> they are willing to defend, and takes one side of it.</p></div>' +
-      '<div class="step"><span class="n">2</span><p><b>Anyone takes the other side.</b> One tap. You do not need a partner or a scheduled time.</p></div>' +
+      '<div class="step"><span class="n">1</span><p><b>Someone opens it</b>: a claim they are willing to defend, or a whole case recorded out loud.</p></div>' +
+      '<div class="step"><span class="n">2</span><p><b>Anyone takes the other side.</b> Tap a claim, or record your answer. You do not need a partner or a scheduled time.</p></div>' +
       '<div class="step"><span class="n">3</span><p><b>The AI judge writes the ballot</b> when the round ends, and both records update on the leaderboard.</p></div>' +
     '</div></section>';
   }
@@ -599,7 +656,7 @@
         '<button class="btn btn-red" id="emptyPost">Post a challenge</button></div>';
     }
     return '<div class="empty"><h3>The board is empty.</h3>' +
-      '<p>Nobody has posted a claim yet. Put one up and it sits here until someone takes the other side.</p>' +
+      '<p>Nothing is waiting for an opponent right now. Post a claim, or record a case on <a href="/rounds">the rounds page</a>, and it sits here until someone takes the other side.</p>' +
       '<button class="btn btn-red" id="emptyPost">Post a challenge</button>' +
       '<div class="seed">' + SEED_CLAIMS.map(function(s){
         return '<button data-seed="'+esc(s)+'">'+esc(s)+'</button>'; }).join('') + '</div>' +
@@ -614,14 +671,23 @@
 
     var body;
     if (state.loading) body = '<div class="grid"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
-    else if (!state.feed || !state.feed.length) body = emptyHtml();
-    else body = '<div class="grid">' + state.feed.map(cardFor).join('') + '</div>';
+    else {
+      // The Open tab merges both kinds into one grid: claims first (they
+      // are this board's native object and carry the lean vote), then the
+      // recorded rounds waiting for an answer. Other tabs stay claims-only.
+      var cards = (state.feed || []).map(cardFor);
+      if (state.tab === 'open-public' && state.asyncOpen && state.asyncOpen.length){
+        cards = cards.concat(state.asyncOpen.map(asyncCardFor));
+      }
+      body = cards.length ? '<div class="grid">' + cards.join('') + '</div>' : emptyHtml();
+    }
 
     $('app').innerHTML =
       '<div class="hero">' +
         '<div><h1>Challenges</h1>' +
-        '<p>Someone posts a claim they will defend. Someone else takes the other side. The AI judge writes the ballot and both records update.</p></div>' +
+        '<p>Someone posts a claim they will defend, or records a whole case. Someone else takes the other side. The AI judge writes the ballot and both records update.</p></div>' +
         '<span class="spacer"></span>' +
+        '<a class="btn btn-ghost" href="/rounds" data-cta="chal-record">Record a round</a>' +
         '<button class="btn btn-red" id="postBtn">Post a challenge</button>' +
       '</div>' +
       bandHtml() +

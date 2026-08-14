@@ -8172,95 +8172,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 
-<!-- ── Open challenges ─────────────────────────────────────────────
-     2026-08-14, per Aidan: bring this back onto the page you actually
-     land on. It shipped 2026-08-10 as a rail card beside the
-     leaderboard, and the one-pager gate (2026-08-10, same day) hides
-     #ranked-band until someone presses "Load more", so in practice it
-     rendered for almost nobody. It sits ABOVE the gate flag now, which
-     is what keeps it visible; do not move it below one of the gated
-     chapters.
-
-     Self-contained styles (.ocb-*) rather than reusing the rail's
-     .rb-chal-* classes: those lived in #ranked-band's style block ~4000
-     lines further down, so borrowing them would have left this card
-     unstyled until that block parsed. They moved here with the card.
-
-     HONESTY: the empty state is the real one and it is an invite, not
-     a placeholder for invented claims. Nothing here is seeded. -->
-<section id="open-challenges-band" class="ocb" aria-label="Open challenges">
-  <style>
-    .ocb{padding:clamp(18px,2.4vw,30px) var(--mid-gutter);display:flex;justify-content:center}
-    .ocb-card{width:100%;max-width:560px;display:flex;flex-direction:column;
-      padding:clamp(16px,2.2vw,22px);border-radius:6px;
-      border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03)}
-    [data-theme="light"] .ocb-card{border-color:rgba(29,25,21,.14);background:#fffefb;
-      box-shadow:0 6px 18px rgba(29,25,21,.05)}
-    /* The .ocb prefix on every <p> rule is load-bearing, not tidiness:
-       the page carries a `[data-theme="light"] section p` rule at
-       specificity 0-1-1, which outranks a bare class and would paint the
-       kicker and the title flat grey on the light surface. */
-    .ocb .ocb-kicker{font-size:.6rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;
-      color:#ef4444;margin:0 0 8px}
-    .ocb .ocb-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:1.1rem;font-weight:700;
-      letter-spacing:-.01em;color:var(--text,#f4f4f2);margin:0 0 4px}
-    [data-theme="light"] .ocb .ocb-title{color:#1a1a1f}
-    .ocb .ocb-body{font-size:.86rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.66));margin:0}
-    [data-theme="light"] .ocb .ocb-body{color:rgba(0,0,0,.64)}
-    .ocb-list{display:flex;flex-direction:column;gap:8px;margin:12px 0 4px}
-    .ocb-row{display:block;padding:10px 12px;border-radius:10px;text-decoration:none;
-      border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.025);
-      transition:border-color .15s,transform .15s}
-    .ocb-row:hover{border-color:rgba(239,68,68,.4);transform:translateX(3px)}
-    [data-theme="light"] .ocb-row{border-color:rgba(29,25,21,.08);background:#fff;
-      box-shadow:0 1px 2px rgba(29,25,21,.04)}
-    [data-theme="light"] .ocb-row:hover{background:#fffaf8}
-    .ocb-q{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-      font-size:.9rem;font-weight:700;line-height:1.35;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .ocb-q{color:#1a1a1f}
-    .ocb-meta{display:block;margin-top:5px;font-size:.6rem;font-weight:700;letter-spacing:.08em;
-      text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5));
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    [data-theme="light"] .ocb-meta{color:rgba(29,25,21,.64)}
-    .ocb .ocb-empty{margin:0;padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:10px;
-      font-size:.84rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.6))}
-    [data-theme="light"] .ocb .ocb-empty{border-color:rgba(0,0,0,.16);color:rgba(0,0,0,.64)}
-    .ocb-go{display:inline-block;margin-top:auto;padding-top:12px;font-size:.76rem;font-weight:800;
-      color:#ef4444;text-decoration:none}
-    @media(prefers-reduced-motion:reduce){.ocb-row:hover{transform:none}}
-  </style>
-  <div class="ocb-card">
-    <p class="ocb-kicker">Open challenges</p>
-    <p class="ocb-title">Claims waiting for an opponent.</p>
-    <p class="ocb-body">Someone took a side. Answer it, or post your own and see who steps up.</p>
-    <div class="ocb-list" id="ocbList">
-      <p class="ocb-empty">No open claims right now. Yours can be first on the board.</p>
-    </div>
-    <a class="ocb-go" href="/rounds" data-rb="challenges">Post your own claim &rarr;</a>
-  </div>
-</section>
-<script>
-/* Open-challenges hydration. Keeps the static empty state when the feed
-   is empty or unreachable; rows link into the async round. */
-(function(){
-  try{
-    var list=document.getElementById('ocbList');
-    if(!list||!window.fetch)return;
-    function esc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-    fetch('/api/async/feed',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
-      var open=((j&&j.open)||[]).filter(function(r){return r&&r.motion}).slice(0,3);
-      if(!open.length)return;
-      list.innerHTML=open.map(function(r){
-        var side=(r.prop&&r.prop.name)?('Prop taken · answer as Opp'):((r.opp&&r.opp.name)?'Opp taken · answer as Prop':'Open seat');
-        var fmt=r.formatName?esc(r.formatName)+' · ':'';
-        return '<a class="ocb-row" href="/rounds?r='+encodeURIComponent(r.id)+'" data-rb="chal">'
-          +'<span class="ocb-q">'+esc(r.motion)+'</span>'
-          +'<span class="ocb-meta">'+fmt+side+'</span></a>';
-      }).join('');
-    }).catch(function(){});
-  }catch(e){}
-})();
-</script>
+<!-- ── Open challenges ── MOVED OFF THE LANDING 2026-08-14 ───────
+     Lived here for a few hours as #open-challenges-band (and before
+     that as a rail card inside the gated #ranked-band). Aidan: the
+     landing is not where challenges live; the board is /challenges,
+     which now also lists the open recorded rounds from
+     /api/async/feed. Do not re-inline a challenges surface here. -->
 
 <!-- ── Tournament band ── MOVED OFF THE LANDING 2026-08-12 ───────
      The Debatable Open poster, prize copy, CTA row and share rail used
@@ -12327,132 +12244,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </div>
 </section>
 
-<!-- 2026-08-11: callouts band. Sits directly above the leaderboard because
-     the two answer neighbouring questions: the board says who is ranked,
-     this says who is calling out whom. Self-contained (scoped styles, own
-     IIFE) to match the sections around it.
-
-     HONESTY, same rule as the homepage live band: this renders nothing at
-     all when there is nothing to show. The section ships `hidden` and
-     REMOVES itself when both feeds come back empty, so a quiet day leaves
-     the page exactly as it was rather than showing an empty frame or a
-     grid of invented callouts. There are no seeded challenges anywhere in
-     this feature; do not add any.
-
-     Reads two shared-cached feeds (60s, keyed by feed in challenge.mjs),
-     so a homepage visit costs no Firestore reads in the common case. -->
-<section id="callouts-band" class="callouts-band" aria-label="Open challenges" hidden>
-  <style>
-    .callouts-band{padding:clamp(30px,3.5vw,46px) var(--mid-gutter);display:flex;justify-content:center}
-    [data-theme="light"] .callouts-band{background:linear-gradient(180deg,#fdfbf6,#faf7f1)}
-    .cob-wrap{width:100%;max-width:var(--mid-w)}
-    .cob-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:0 0 16px}
-    .cob-eyebrow{font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
-      color:var(--text-dim,rgba(255,255,255,.6))}
-    .cob-title{font-family:'Crimson Pro','Fraunces',Georgia,serif;font-size:clamp(1.4rem,2.2vw,1.85rem);
-      font-weight:700;letter-spacing:-.02em;line-height:1.1;margin:0;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .cob-title{color:#1a1a1f}
-    .cob-title em{font-style:normal;color:#ef4444}
-    .cob-head .cob-open{margin-left:auto;font-size:.84rem;font-weight:800;color:#ef4444;text-decoration:none;
-      white-space:nowrap}
-    .cob-head .cob-open:hover{text-decoration:underline;text-underline-offset:3px}
-    .cob-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
-    .cob-row{display:block;padding:13px 15px;border-radius:12px;text-decoration:none;
-      border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.025);
-      transition:border-color .15s,transform .15s}
-    .cob-row:hover{border-color:rgba(239,68,68,.4);transform:translateY(-2px)}
-    [data-theme="light"] .cob-row{border-color:rgba(29,25,21,.08);background:#fff;box-shadow:0 1px 2px rgba(29,25,21,.04)}
-    [data-theme="light"] .cob-row:hover{background:#fffaf8}
-    .cob-who{display:block;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
-      color:#ef4444;margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cob-claim{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-      font-size:.94rem;font-weight:700;line-height:1.35;color:var(--text,#f4f4f2)}
-    [data-theme="light"] .cob-claim{color:#1a1a1f}
-    .cob-tail{display:block;margin-top:6px;font-size:.7rem;font-weight:600;
-      color:var(--text-dim,rgba(255,255,255,.5))}
-    [data-theme="light"] .cob-tail{color:rgba(29,25,21,.6)}
-    @media(max-width:640px){.cob-list{grid-template-columns:1fr}.cob-head .cob-open{margin-left:0}}
-  </style>
-  <div class="cob-wrap">
-    <div class="cob-head">
-      <span class="cob-eyebrow">Callouts</span>
-      <h2 class="cob-title">Someone claimed it. <em>Take the other side.</em></h2>
-      <a class="cob-open" href="/challenges" data-cta="callouts-board">Open the board</a>
-    </div>
-    <div class="cob-list" id="cobList"></div>
-  </div>
-</section>
-<script>
-(function(){
-  'use strict';
-  var band = document.getElementById('callouts-band');
-  var list = document.getElementById('cobList');
-  if (!band || !list) return;
-  var MAX = 6;
-
-  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-
-  function feed(key, n){
-    return fetch('/api/challenge?feed=' + key + '&limit=' + n)
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ return (j && j.challenges) || []; })
-      .catch(function(){ return []; });
-  }
-
-  // The who-line is the whole point of this band: a claim with nobody
-  // attached is a topic, and a topic is not news. Names come off the
-  // challenge document, which stamps them server-side.
-  function whoLine(c){
-    var seats = c.accepted || [];
-    var a = null, b = null;
-    for (var i = 0; i < seats.length; i++){
-      if (seats[i].side === 'b') b = seats[i]; else a = seats[i];
-    }
-    if (a && b) return esc(a.name || 'A debater') + ' vs ' + esc(b.name || 'A debater');
-    var solo = a || b || c.creator;
-    var who = esc((solo && solo.name) || 'A debater');
-    if (c.challengedUid && c.challengedName) return who + ' called out ' + esc(c.challengedName);
-    return who + ' is defending';
-  }
-
-  function tail(c){
-    var side = (c.sides && c.sides.a) ? c.sides.a : 'For';
-    var other = (c.sides && c.sides.b) ? c.sides.b : 'Against';
-    if (c.status === 'open' || c.status === 'applications_open'){
-      return c.challengedUid ? 'Waiting on them' : 'Open. Take ' + esc(other);
-    }
-    if (c.status === 'accepted') return 'Matched';
-    if (c.status === 'scheduled') return 'Scheduled';
-    return esc(side) + ' vs ' + esc(other);
-  }
-
-  function row(c){
-    var href = '/c/' + encodeURIComponent(c.slug || c.id);
-    return '<a class="cob-row" href="' + esc(href) + '" data-cta="callouts-row">' +
-      '<span class="cob-who">' + whoLine(c) + '</span>' +
-      '<span class="cob-claim">' + esc(c.claim || '') + '</span>' +
-      '<span class="cob-tail">' + tail(c) + '</span>' +
-    '</a>';
-  }
-
-  // Matched first: two named people about to debate is a stronger line than
-  // a claim still waiting for anyone. Both are real either way.
-  Promise.all([feed('upcoming-public', 4), feed('open-public', 6)]).then(function(res){
-    var seen = {};
-    var rows = [];
-    res[0].concat(res[1]).forEach(function(c){
-      if (!c || !c.claim || seen[c.id] || rows.length >= MAX) return;
-      seen[c.id] = 1;
-      rows.push(row(c));
-    });
-    if (!rows.length){ band.remove(); return; }
-    list.innerHTML = rows.join('');
-    band.hidden = false;
-    try { if (window.gtag) gtag('event', 'callouts_band_shown', { rows: rows.length }); } catch(e){}
-  }).catch(function(){ band.remove(); });
-})();
-</script>
+<!-- ── Callouts band ── MOVED OFF THE LANDING 2026-08-14 ───────
+     The 2026-08-11 "who is calling out whom" strip (challenge.mjs
+     feeds, self-removing when empty). Same call as the open-challenges
+     band above: challenges live on /challenges, not the landing. It
+     was also a latent oddity here: this section was never in the
+     one-pager gate's hide list, so the first real claim would have
+     surfaced it mid-collapsed-page between hidden chapters. -->
 
 <!-- 2026-08-10: #ranked-band + #creator-sweepstakes promoted from the
      back of the page to directly after the judged-round proof, so the
@@ -12487,15 +12285,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        760px of empty rail underneath. Sticky travels it down the column
        instead, and keeps the CTA beside the rows it is selling. Clears the
        52px fixed topbar. */
-    /* 2026-08-10: the rail is now two cards (open challenges + the
-       streamers promo), so the wrapper carries the sticky travel. */
+    /* The rail is the streamers promo (the Open-challenges card left the
+       landing 2026-08-14; open challenges render on /challenges now).
+       Sticky keeps the card beside the board rows it sits with. */
     @media(min-width:981px){.rb-rail{position:sticky;top:72px}}
     .rb-rail{display:flex;flex-direction:column;gap:16px;min-width:0}
-    /* The .rb-chal-list / -row / -q / -meta / -empty rules that used to
-       sit here went with the Open-challenges card when it moved up to
-       #open-challenges-band (2026-08-14). .rb-chal-btn further down is a
-       different thing (the Challenge button on a leaderboard row) and is
-       still in use. */
+    /* .rb-chal-btn further down is unrelated to that card: it is the
+       Challenge button on a leaderboard row and is still in use. */
     /* Streamers rail. Small, so it earns attention on colour rather than
        size: a filled brand-red card against a cream band and the white
        board beside it, with the CTA inverted to white-on-red. */
@@ -12653,12 +12449,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <a class="rb-go" href="/leaderboard" data-rb="leaderboard">See the full leaderboard &rarr;</a>
       </div>
       <div class="rb-rail">
-      <!-- 2026-08-14: the Open challenges card MOVED OUT of this rail and
-           up to #open-challenges-band, above the one-pager gate. It lived
-           here since 2026-08-10, which meant it only rendered for someone
-           who had already pressed "Load more"; per Aidan it should be on
-           the page you actually land on. Its styles moved with it and are
-           self-contained there. Do not re-add a second copy here. -->
+      <!-- The Open challenges card lived here 2026-08-10 → 08-14, then
+           briefly above the gate, and is now OFF the landing entirely:
+           open challenges (claims + recorded rounds) render on
+           /challenges. Do not re-add a copy here. -->
       <div class="rbs" id="stream-band">
         <div class="rbs-eyebrow">
           <svg viewBox="0 0 2400 2800" aria-hidden="true" fill-rule="evenodd"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>
