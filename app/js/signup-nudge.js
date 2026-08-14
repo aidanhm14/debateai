@@ -210,6 +210,11 @@
     { match: /^\/pricing/,
       delay: 25,
       msg: "Beta is free for everyone. Sign in to keep your rounds when pricing turns on." },
+    // /watch is a common first screen for spectators. Sell the two things
+    // an account buys a viewer: a held seat in a live room, and clips.
+    { match: /^\/(watch|replays)(?:\.html)?(?:[/?#]|$)/,
+      delay: 20,
+      msg: '<strong>Watching is better signed in.</strong> Take a reserved viewer seat in live rounds, save clips of the moment a round turned, and step into a round yourself when you are ready.' },
     { match: /.*/,
       delay: 25,
       msg: 'Sign in and your rounds start counting. XP, round recordings, a leaderboard place, and ballots that follow you on any device.' },

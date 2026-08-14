@@ -34,18 +34,20 @@
 
 <script defer src="/js/track.js"></script>
 
-<!-- Theme, before first paint. /watch does not mount the shared topbar,
-     so it reads the same `da-theme` key topbar.js writes and carries the
-     visitor's choice over from every other page instead of forcing dark. -->
+<!-- Shared topbar styles. Loaded before the page's inline <style> so the
+     page rules win the cascade. Required for the .ui-topbar mount below. -->
+<link rel="stylesheet" href="/css/ui.css">
+
+<!-- Theme, before first paint. Same `da-theme` key topbar.js writes.
+     Light is the sitewide default; dark is a saved choice carried over
+     from any other page. Runs pre-paint so neither theme flashes. -->
 <script>
 (function(){
-  try {
-    var t = localStorage.getItem('da-theme');
-    if (t === 'light'){
-      document.documentElement.setAttribute('data-theme', 'light');
-      document.documentElement.setAttribute('data-lighting', 'light');
-    }
-  } catch(e){}
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
 })();
 </script>
 
@@ -89,21 +91,28 @@ em,i{font-style:normal}
 a{color:inherit}
 
 /* ── Header */
-/* Deliberately NO safe-area inset here. native-app.css already pads .wrap
-   with max(40px, safe-top + 16px) for exactly this case, a page that runs
-   in the app without mounting the shared topbar. Adding env() here too
-   applied the inset twice and left ~170pt of dead space above the eyebrow.
-   viewport-fit=cover in the head is what makes that shared rule work. */
-.page-head{padding:44px 0 10px}
-.head-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+/* 96px clears the fixed shared topbar (52px bar + its 32px offset).
+   In the native app the topbar is display:none and native-app.css's
+   `body:has(.ui-topbar)` rule supplies the safe-top inset instead, so
+   the head drops back to its old compact padding there. Deliberately
+   NO env() inset here; that shared rule owns it. */
+.page-head{padding:96px 0 10px}
+html.dbnative .page-head{padding-top:20px}
 .page-eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);font-weight:700}
-.theme-btn{font-family:inherit;font-size:14px;font-weight:700;padding:7px 14px;border-radius:999px;
-  border:1px solid var(--border);background:var(--surface);color:var(--dim);cursor:pointer;white-space:nowrap;
-  box-shadow:var(--shadow);transition:background .15s,color .15s}
-.theme-btn:hover{background:var(--surface-hover);color:var(--text)}
-.theme-btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .page-title{font-size:clamp(30px,5vw,44px);font-weight:800;line-height:1.05;margin-top:8px}
 .page-sub{color:var(--dim);font-size:17px;margin-top:10px;max-width:640px}
+/* Hero CTAs. This page is many visitors' first screen, so the two moves
+   a stranger can make (get in a round, watch one) are buttons, not
+   links buried in the prose sections below. */
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
+.hero-cta a{display:inline-flex;align-items:center;gap:8px;font-size:16.5px;font-weight:800;
+  padding:13px 24px;border-radius:12px;text-decoration:none;transition:background .15s,border-color .15s,transform .12s}
+.hero-cta a:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.hero-cta .cta-primary{background:var(--red);color:#fff;border:1px solid var(--red)}
+.hero-cta .cta-primary:hover{background:var(--red-deep);border-color:var(--red-deep);transform:translateY(-1px)}
+.hero-cta .cta-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow)}
+.hero-cta .cta-ghost:hover{background:var(--surface-hover);border-color:rgba(239,68,68,.45);transform:translateY(-1px)}
+.hero-cta-note{color:var(--faint);font-size:14.5px;margin-top:10px}
 .vote-thesis{margin-top:17px;max-width:760px;padding:14px 16px;border-left:3px solid var(--red);
   background:rgba(239,68,68,.07);color:var(--dim);font-size:16px;line-height:1.5}
 .vote-thesis strong{color:var(--text)}
@@ -243,7 +252,10 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 
 footer{margin:70px 0 40px;color:var(--faint);font-size:14px;text-align:center}
 footer a{color:var(--dim)}
-@media (max-width:640px){ .page-head{padding-top:18px} }
+@media (max-width:640px){
+  .page-head{padding-top:84px}
+  .hero-cta a{flex:1;justify-content:center;min-width:150px}
+}
 </style>
   <!-- BreadcrumbList (2026-08-11 SEO sweep). These pages carried no
        structured data at all, so Google had nothing to build a SERP
@@ -317,14 +329,22 @@ footer a{color:var(--dim)}
 </head>
 <body>
 
+<!-- Shared topbar. Same nav, theme toggle, and auth slot as the rest of
+     the site; this page is a common first landing for spectators, so it
+     must not be a dead end with no way into the product. -->
+<div id="daTopbar"></div>
+<script defer src="/js/topbar.js"></script>
+
 <div class="wrap">
   <header class="page-head">
-    <div class="head-row">
-      <div class="page-eyebrow">Watch</div>
-      <button class="theme-btn" id="themeBtn" type="button">Light</button>
-    </div>
+    <div class="page-eyebrow">Watch</div>
     <h1 class="page-title">Watch people debate</h1>
     <p class="page-sub">Two speakers, opposite sides, a clock. You watch from inside the room while it happens, and the judge posts a written ballot when the round ends. Live rounds run here and on the homepage. Published replays and clips sit below.</p>
+    <div class="hero-cta">
+      <a class="cta-primary" id="ctaDebate" href="/spar">Enter a live debate</a>
+      <a class="cta-ghost" id="ctaWatch" href="/live">Watch a live round</a>
+    </div>
+    <p class="hero-cta-note">Debating gets you matched with an opponent in about a minute. Watching takes a viewer seat in a scheduled round.</p>
     <p class="vote-thesis"><strong>Mass-viewed rounds will become audience-voted rounds.</strong> The judge will say who argued better. Viewers will vote before and after to show how the room moved. <a href="/future#publish">See the plan &rarr;</a></p>
   </header>
 
@@ -529,29 +549,14 @@ footer a{color:var(--dim)}
     });
   }
 
-  // ── Theme toggle ─────────────────────────────────────────────────
-  // Same `da-theme` key the shared topbar writes, so a flip here carries
-  // to every other page and back. No reload needed: everything on this
-  // page themes off CSS variables.
-  function currentTheme(){
-    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-  }
-  function syncThemeBtn(){
-    $('themeBtn').textContent = currentTheme() === 'light' ? 'Dark' : 'Light';
-    $('themeBtn').setAttribute('aria-label', 'Switch to ' + (currentTheme() === 'light' ? 'dark' : 'light') + ' mode');
-  }
-  syncThemeBtn();
-  $('themeBtn').addEventListener('click', function(){
-    var next = currentTheme() === 'light' ? 'crimson' : 'light';
-    var lighting = next === 'light' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    document.documentElement.setAttribute('data-lighting', lighting);
-    try {
-      localStorage.setItem('da-theme', next);
-      localStorage.setItem('debateos-lighting', lighting);
-    } catch(e){}
-    syncThemeBtn();
-    try { gtag('event', 'watch_theme_toggle', { theme: next }); } catch(e){}
+  // ── Hero CTAs ────────────────────────────────────────────────────
+  // Theme now lives in the shared topbar's toggle; this page just
+  // counts which door a spectator takes.
+  $('ctaDebate').addEventListener('click', function(){
+    try { gtag('event', 'watch_cta_debate'); } catch(e){}
+  });
+  $('ctaWatch').addEventListener('click', function(){
+    try { gtag('event', 'watch_cta_live'); } catch(e){}
   });
 
   // ── Owner controls ───────────────────────────────────────────────
@@ -952,8 +957,13 @@ footer a{color:var(--dim)}
 })();
 </script>
 <!-- Shared sign-in chooser (Google, emailed link, email/password).
-     These pages have no topbar, which is what loads it everywhere
-     else, so they carry it themselves. -->
+     topbar.js loads this too, but it checks for an existing script tag
+     and auth-modal self-guards, so carrying it here keeps sign-in
+     working even if the topbar script fails to load. -->
 <script defer src="/js/auth-modal.js"></script>
+<!-- Soft sign-up prompt for unsigned visitors: after real dwell it
+     offers the Google/email chooser. This page is a common first
+     screen, so the nudge is how a spectator becomes an account. -->
+<script defer src="/js/signup-nudge.js"></script>
 </body>
 </html>
