@@ -20372,6 +20372,27 @@ window.addEventListener('load', function(){
     mode = null; tileKey = '';
   }
 
+  // The CTA used to be a fixed link to /watch, which is the REPLAYS page:
+  // pressing Watch under a live pill took you to recordings and clips, not
+  // to the round the strip was advertising. It now points at what is
+  // actually live: the round itself when there is only one, the spectate
+  // list when there are several. It is repointed whenever the row
+  // changes, since the band outlives any one round.
+  // "a round" / "this round" is dropped on a phone, where the row is only
+  // ~350px wide and every word the CTA keeps is a word of motion lost.
+  function setWatchCta(open, rounds){
+    if (!open) return;
+    var one = rounds.length === 1 ? rounds[0] : null;
+    open.href = one
+      ? '/live-round?room=' + encodeURIComponent(one.room) + '&spectate=1'
+      : '/spectate';
+    open.setAttribute('data-room', one ? one.room : '');
+    open.textContent = 'Watch';
+    // Non-breaking space: the strip's CTA is a flex container, so a plain
+    // leading space in the suffix is trimmed and it renders "Watcha round".
+    open.appendChild(el('span', 'hlb-open-rest', one ? ' this round' : ' a round'));
+  }
+
   function mountWall(rounds){
     var at = anchorNode();
     if (!at || !at.parentNode) return;
@@ -20387,12 +20408,12 @@ window.addEventListener('load', function(){
     var wall = el('div', 'hlb-wall');
     wall.addEventListener('scroll', function(){ markMore(wall); });
     strip.appendChild(wall);
-    // "a round" is dropped on a phone, where the row is only ~350px wide
-    // and every word the CTA keeps is a word of motion the reader loses.
     var open = el('a', 'hlb-open', 'Watch');
-    open.appendChild(el('span', 'hlb-open-rest', ' a round'));
-    open.href = '/watch';
+    open.addEventListener('click', function(){
+      try { if (window.gtag) gtag('event', 'home_live_watch_click', { room: open.getAttribute('data-room') || '' }); } catch(e){}
+    });
     strip.appendChild(open);
+    setWatchCta(open, rounds);
 
     var inner = el('div', 'hlb-in');
     inner.appendChild(strip);
@@ -20408,6 +20429,9 @@ window.addEventListener('load', function(){
   function paintTiles(rounds){
     var band = document.getElementById(BAND_ID);
     if (!band) return;
+    // Ahead of the repaint guard: the CTA tracks the room list, so a band
+    // that survives a round ending must not keep pointing at it.
+    setWatchCta(band.querySelector('.hlb-open'), rounds);
     var key = rounds.map(function(r){ return r.room + ':' + r.status + ':' + r.speechIdx + ':' + (r.shot || 0); }).join('|');
     if (key === tileKey) return;
 
