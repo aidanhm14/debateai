@@ -4931,6 +4931,265 @@ html.stage-mode .stage-ov{display:block}
     showCloudRecordingConsent();
   }
 
+  // ── Verdict reel ───────────────────────────────────────────────────
+  // The ballot, drawn to a canvas and published into the Daily room as a
+  // screen share, so the CLOUD RECORDING captures it. Daily records the
+  // room, not the page, so a replay could never show the verdict: the
+  // one thing the whole round was for was the one thing missing from the
+  // footage. Publishing a custom screen track is only possible because
+  // seated debaters run call object mode now (see CUSTOM_TRACK_OK).
+  //
+  // Exactly ONE client drives it, chosen as the lowest seated uid, or
+  // both sides would publish two screen shares of the same ballot.
+  var reel = {
+    canvas:null, ctx:null, raf:0, stream:null, sharing:false,
+    phase:'', t0:0, ballot:null, cap:0, lines:null,
+  };
+  var REEL_W = 1280, REEL_H = 720;
+  var REEL_END = 22000;      // ballot sequence length
+  var REEL_MAX_WAIT = 240000; // give up if no ballot ever lands
+
+  function shouldDriveReel(){
+    if (!CUSTOM_TRACK_OK || !room.call || !room.joined) return false;
+    if (isSpectator()) return false;
+    var d = cloudRec.doc || {};
+    if (d.recordingStatus !== 'recording') return false;
+    var me = state.user && state.user.uid;
+    if (!me) return false;
+    var uids = [state.proUid, state.conUid].filter(Boolean).sort();
+    return uids.length ? uids[0] === me : true;
+  }
+  function startVerdictReel(){
+    if (reel.canvas) return true;
+    if (!shouldDriveReel()) return false;
+    var cv = document.createElement('canvas');
+    cv.width = REEL_W; cv.height = REEL_H;
+    reel.canvas = cv;
+    reel.ctx = cv.getContext('2d');
+    reel.phase = 'judging';
+    reel.t0 = Date.now();
+    reel.ballot = null;
+    try {
+      reel.stream = cv.captureStream(30);
+      room.call.startScreenShare({ mediaStream: reel.stream });
+      reel.sharing = true;
+    } catch(e){
+      console.warn('[reel] screen share unavailable', e);
+      reel.canvas = null;
+      return false;
+    }
+    drawReel();
+    // A ballot that never arrives must not leave the recording running
+    // and the room staring at a judging card forever.
+    reel.cap = setTimeout(function(){ stopVerdictReel(); }, REEL_MAX_WAIT);
+    try { gtag('event', 'live_round_verdict_reel'); } catch(e){}
+    return true;
+  }
+  function reelShowBallot(b){
+    if (!reel.canvas || reel.phase === 'ballot' || !b) return;
+    reel.ballot = b;
+    reel.lines = null;
+    reel.phase = 'ballot';
+    reel.t0 = Date.now();
+    if (reel.cap){ clearTimeout(reel.cap); reel.cap = 0; }
+  }
+  function stopVerdictReel(){
+    if (reel.cap){ clearTimeout(reel.cap); reel.cap = 0; }
+    if (reel.raf){ cancelAnimationFrame(reel.raf); reel.raf = 0; }
+    if (reel.sharing){
+      try { room.call.stopScreenShare(); } catch(e){}
+      reel.sharing = false;
+    }
+    if (reel.stream){
+      try { reel.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      reel.stream = null;
+    }
+    reel.canvas = null; reel.ctx = null; reel.ballot = null; reel.phase = '';
+    finishCloudRecording();
+  }
+  // ── Reel drawing helpers
+  function reelWrap(ctx, text, maxW){
+    var words = String(text || '').split(/\s+/), lines = [], cur = '';
+    for (var i = 0; i < words.length; i++){
+      var test = cur ? cur + ' ' + words[i] : words[i];
+      if (ctx.measureText(test).width > maxW && cur){ lines.push(cur); cur = words[i]; }
+      else cur = test;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function reelFade(ctx, a){ ctx.globalAlpha = Math.max(0, Math.min(1, a)); }
+  function ease(t){ return t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3); }
+  function reelBg(ctx, t){
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#08080a';
+    ctx.fillRect(0, 0, REEL_W, REEL_H);
+    // A slow red bloom so the frame is never flat black in a replay.
+    var g = ctx.createRadialGradient(REEL_W * 0.5, REEL_H * 0.42, 40, REEL_W * 0.5, REEL_H * 0.42, 620);
+    g.addColorStop(0, 'rgba(221,46,46,' + (0.14 + 0.05 * Math.sin(t / 1400)) + ')');
+    g.addColorStop(1, 'rgba(8,8,10,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, REEL_W, REEL_H);
+    ctx.fillStyle = '#dd2e2e';
+    ctx.fillRect(0, 0, REEL_W, 5);
+  }
+  function reelBrand(ctx){
+    ctx.globalAlpha = 0.5;
+    ctx.textAlign = 'left';
+    ctx.font = '600 20px Georgia, serif';
+    ctx.fillStyle = '#f0ede6';
+    ctx.fillText('Debatable', 56, REEL_H - 44);
+    ctx.globalAlpha = 0.32;
+    ctx.font = '500 18px Georgia, serif';
+    ctx.fillText('itsdebatable.com', 176, REEL_H - 44);
+    ctx.globalAlpha = 1;
+  }
+  function drawJudging(ctx, el){
+    reelBg(ctx, el);
+    ctx.textAlign = 'center';
+    reelFade(ctx, ease(el / 700));
+    ctx.font = '800 20px Georgia, serif';
+    ctx.fillStyle = 'rgba(240,237,230,.62)';
+    ctx.fillText('THE AI JUDGE IS WRITING THE BALLOT', REEL_W / 2, 210);
+    ctx.font = '700 44px Georgia, serif';
+    ctx.fillStyle = '#f0ede6';
+    var lines = reelWrap(ctx, state.motion || '', REEL_W - 260).slice(0, 4);
+    for (var i = 0; i < lines.length; i++) ctx.fillText(lines[i], REEL_W / 2, 310 + i * 58);
+    // Sweeping bar: the only motion on screen, so the footage reads as
+    // live rather than as a frozen frame.
+    var y = 300 + lines.length * 58 + 40;
+    var w = 460, x = REEL_W / 2 - w / 2;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(240,237,230,.13)';
+    ctx.fillRect(x, y, w, 6);
+    var p = (el % 2000) / 2000;
+    ctx.fillStyle = '#dd2e2e';
+    ctx.fillRect(x + (w - 150) * (0.5 - 0.5 * Math.cos(p * Math.PI * 2)), y, 150, 6);
+    reelBrand(ctx);
+  }
+  function drawBallotFrame(ctx, el){
+    var b = reel.ballot, f = FORMATS[state.formatKey] || FORMATS.quick;
+    reelBg(ctx, el);
+    ctx.textAlign = 'center';
+    // 0.0s eyebrow + motion
+    reelFade(ctx, ease(el / 500));
+    ctx.font = '800 19px Georgia, serif';
+    ctx.fillStyle = 'rgba(240,237,230,.6)';
+    ctx.fillText('THE BALLOT', REEL_W / 2, 96);
+    reelFade(ctx, ease((el - 300) / 600));
+    ctx.font = '600 27px Georgia, serif';
+    ctx.fillStyle = 'rgba(240,237,230,.8)';
+    var ml = reelWrap(ctx, state.motion || '', REEL_W - 300).slice(0, 2);
+    for (var i = 0; i < ml.length; i++) ctx.fillText(ml[i], REEL_W / 2, 146 + i * 36);
+    // 1.6s verdict, wiped in from the left
+    var winName = b.winner === 'pro' ? state.proName : state.conName;
+    var winSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
+    var vp = ease((el - 1600) / 900);
+    if (vp > 0){
+      ctx.save();
+      var boxY = 236, boxH = 132;
+      ctx.beginPath();
+      ctx.rect(REEL_W / 2 - 470, boxY, 940 * vp, boxH);
+      ctx.clip();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(221,46,46,.13)';
+      ctx.fillRect(REEL_W / 2 - 470, boxY, 940, boxH);
+      ctx.fillStyle = '#dd2e2e';
+      ctx.fillRect(REEL_W / 2 - 470, boxY, 6, boxH);
+      ctx.textAlign = 'center';
+      ctx.font = '900 62px Georgia, serif';
+      ctx.fillStyle = '#f0ede6';
+      ctx.fillText(winName + ' wins', REEL_W / 2, boxY + 68);
+      ctx.font = '600 24px Georgia, serif';
+      ctx.fillStyle = 'rgba(240,237,230,.66)';
+      ctx.fillText(winSide, REEL_W / 2, boxY + 106);
+      ctx.restore();
+    }
+    // The lower half runs two beats, never both at once: there is not
+    // room for a scorecard and seven lines of reasoning in 720px, and a
+    // reader of a replay can only take one of them at a time anyway.
+    var detail = el < 10200;
+    // 3.2s speaker points, counting up
+    var pp = detail ? ease((el - 3200) / 1500) * Math.min(1, (10200 - el) / 500) : 0;
+    if (pp > 0){
+      var cards = [
+        { n: state.proName, s: f.sideLabels[f.sides[0]], v: b.proPoints, x: REEL_W / 2 - 240 },
+        { n: state.conName, s: f.sideLabels[f.sides[1]], v: b.conPoints, x: REEL_W / 2 + 240 },
+      ];
+      for (var c = 0; c < cards.length; c++){
+        reelFade(ctx, pp);
+        ctx.font = '650 20px Georgia, serif';
+        ctx.fillStyle = 'rgba(240,237,230,.6)';
+        ctx.fillText(cards[c].n + ' · ' + cards[c].s, cards[c].x, 424);
+        var val = Number(cards[c].v);
+        ctx.font = '900 54px Georgia, serif';
+        ctx.fillStyle = '#f0ede6';
+        ctx.fillText(isFinite(val) ? (Math.round(val * pp * 10) / 10).toFixed(1) : '—', cards[c].x, 480);
+        ctx.font = '600 16px Georgia, serif';
+        ctx.fillStyle = 'rgba(240,237,230,.45)';
+        ctx.fillText('SPEAKER POINTS', cards[c].x, 506);
+      }
+    }
+    // 6.0s scorecard bars, each growing on its own beat
+    var dm = b.dimensions;
+    if (dm && el > 6000 && detail){
+      var AX = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing']];
+      for (var a = 0; a < AX.length; a++){
+        var d = dm[AX[a][0]];
+        if (!d) continue;
+        var pv = Number(d.pro), cv2 = Number(d.con);
+        if (!isFinite(pv) || !isFinite(cv2)) continue;
+        var bp = ease((el - 6000 - a * 320) / 800);
+        if (bp <= 0) continue;
+        var by = 566 + a * 32, bx = REEL_W / 2 - 320, bw = 640;
+        reelFade(ctx, bp);
+        ctx.textAlign = 'right';
+        ctx.font = '650 17px Georgia, serif';
+        ctx.fillStyle = 'rgba(240,237,230,.6)';
+        ctx.fillText(AX[a][1], bx - 16, by + 13);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(239,68,68,.6)';
+        ctx.fillRect(bx, by, bw, 10);
+        var share = (pv + cv2) ? pv / (pv + cv2) : 0.5;
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(bx, by, bw * share * bp, 10);
+        ctx.font = '700 15px Georgia, serif';
+        ctx.fillStyle = 'rgba(240,237,230,.75)';
+        ctx.fillText(pv + ' · ' + cv2, bx + bw + 16, by + 12);
+      }
+    }
+    // 10.2s the reason for decision, revealed a line at a time
+    if (!detail){
+      ctx.textAlign = 'left';
+      ctx.font = '800 18px Georgia, serif';
+      reelFade(ctx, ease((el - 10400) / 500));
+      ctx.fillStyle = 'rgba(240,237,230,.55)';
+      ctx.fillText('REASON FOR DECISION', 150, 428);
+      ctx.font = '500 25px Georgia, serif';
+      if (!reel.lines) reel.lines = reelWrap(ctx, b.rfd || '', REEL_W - 300).slice(0, 7);
+      for (var L = 0; L < reel.lines.length; L++){
+        var lp = ease((el - 10600 - L * 380) / 700);
+        if (lp <= 0) break;
+        reelFade(ctx, lp * 0.92);
+        ctx.fillStyle = '#f0ede6';
+        ctx.fillText(reel.lines[L], 150, 476 + L * 36);
+      }
+    }
+    reelBrand(ctx);
+    ctx.globalAlpha = 1;
+  }
+  function drawReel(){
+    if (!reel.ctx) return;
+    var el = Date.now() - reel.t0;
+    if (reel.phase === 'ballot'){
+      drawBallotFrame(reel.ctx, el);
+      if (el > REEL_END){ stopVerdictReel(); return; }
+    } else {
+      drawJudging(reel.ctx, el);
+    }
+    reel.raf = requestAnimationFrame(drawReel);
+  }
+
   function finishCloudRecording(){
     if (!state.user || !state.user.getIdToken) return;
     state.user.getIdToken().then(function(token){
@@ -6286,9 +6545,16 @@ html.stage-mode .stage-ov{display:block}
   }
 
   function finishRound(){
-    // End capture with the final speech. The ballot can take minutes to
-    // generate and is not part of the debate footage people will clip.
-    finishCloudRecording();
+    // The recording used to stop dead on the last speech, because the
+    // ballot takes minutes to write and nobody wants minutes of an empty
+    // room on the end of a replay. So every recording ended before the
+    // one moment the round was building toward. The verdict reel fills
+    // that gap instead: a judging card while the ballot is written, then
+    // the verdict, points, scorecard and RFD animated into the footage,
+    // then the recording stops itself. If the reel cannot run (no
+    // recording, not the driver, no call object), the old behaviour
+    // stands and capture ends here.
+    if (!startVerdictReel()) finishCloudRecording();
     state.phase = 'ballot';
     updateRoundGuide();
     $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
@@ -6553,11 +6819,11 @@ html.stage-mode .stage-ov{display:block}
     // Positioning now comes from #specDock, the shared bottom-left column
     // that also holds the swing-vote panel. Both used to be fixed at the
     // same coordinates and would have sat on top of each other.
-    el.style.cssText='background:#16161c;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5);padding:14px;font-family:inherit;font-size:.82rem;color:#fff';
+    el.style.cssText='background:var(--ui-soft);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.10);padding:14px;font-family:inherit;font-size:.82rem;color:var(--text)';
     el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">Live market · call the verdict</div>'+
       '<div id="pmSides" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>'+
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" type="number" value="50" min="1" step="10" style="width:78px;background:#1d1d25;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#fff;padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Place bet</button></div>'+
-      '<div id="pmStatus" style="font-size:.72rem;color:rgba(255,255,255,.68);line-height:1.45"></div>';
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" type="number" value="50" min="1" step="10" style="width:78px;background:#1d1d25;border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:var(--text);border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Place bet</button></div>'+
+      '<div id="pmStatus" style="font-size:.72rem;color:var(--text-dim);line-height:1.45"></div>';
     svDock().appendChild(el); pmPanel=el;
     el.querySelector('#pmBet').addEventListener('click', pmPlaceBet);
   }
@@ -6569,7 +6835,7 @@ html.stage-mode .stage-ov{display:block}
   function pmSelect(side){ if(pmHasBet) return; pmPick=side; pmUpdateSidesSelection(); var b=pmPanel&&pmPanel.querySelector('#pmBet'); if(b){ b.disabled=false; b.style.opacity='1'; } }
   function pmUpdateSidesSelection(){
     if(!pmPanel) return;
-    [].forEach.call(pmPanel.querySelectorAll('[data-pmside]'),function(c){ c.style.borderColor = c.getAttribute('data-pmside')===pmPick ? '#ef4444' : 'rgba(255,255,255,.14)'; });
+    [].forEach.call(pmPanel.querySelectorAll('[data-pmside]'),function(c){ c.style.borderColor = c.getAttribute('data-pmside')===pmPick ? '#ef4444' : 'var(--border,rgba(127,127,127,.22))'; });
   }
   function pmPlaceBet(){
     if(pmHasBet||!pmPick) return;
@@ -6587,7 +6853,7 @@ html.stage-mode .stage-ov{display:block}
     var locked=m.status!=='open', settled=m.status==='settled';
     var sides=pmPanel.querySelector('#pmSides');
     sides.innerHTML=[['pro',m.proName||'Pro',oPro],['con',m.conName||'Con',oCon]].map(function(x){
-      return '<button data-pmside="'+x[0]+'" '+(locked?'disabled':'')+' style="text-align:left;background:#1d1d25;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 10px;color:#fff;font:inherit;cursor:'+(locked?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
+      return '<button data-pmside="'+x[0]+'" '+(locked?'disabled':'')+' style="text-align:left;background:#1d1d25;border:1px solid var(--border,rgba(127,127,127,.22));border-radius:10px;padding:9px 10px;color:var(--text);font:inherit;cursor:'+(locked?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
     }).join('');
     if(!locked){ [].forEach.call(sides.querySelectorAll('[data-pmside]'),function(c){ c.addEventListener('click',function(){ pmSelect(c.getAttribute('data-pmside')); }); }); pmUpdateSidesSelection(); }
     var st=pmPanel.querySelector('#pmStatus'), inp=pmPanel.querySelector('#pmStake'), bet=pmPanel.querySelector('#pmBet');
@@ -6786,31 +7052,31 @@ html.stage-mode .stage-ov{display:block}
     if (svPanel) return;
     var el = document.createElement('div');
     el.id = 'svPanel';
-    el.style.cssText = 'background:#16161c;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5);padding:14px;font-family:inherit;font-size:.82rem;color:#fff';
+    el.style.cssText = 'background:var(--ui-soft);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.10);padding:14px;font-family:inherit;font-size:.82rem;color:var(--text)';
     el.innerHTML =
       '<div id="svEyebrow" style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#ef4444;margin-bottom:8px">Your call &middot; before the round</div>' +
       '<div id="svTitle" style="font-weight:700;font-size:.9rem;line-height:1.3;margin-bottom:10px">Where do you stand on the motion?</div>' +
       '<div data-sv-phase="before">' +
         '<div id="svSides" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"></div>' +
-        '<label style="display:block;font-size:.7rem;color:rgba(255,255,255,.68);margin-bottom:4px">How sure? <span id="svConfOut" style="color:#fff;font-weight:700">50</span></label>' +
+        '<label style="display:block;font-size:.7rem;color:var(--text-dim);margin-bottom:4px">How sure? <span id="svConfOut" style="color:var(--text);font-weight:700">50</span></label>' +
         '<input id="svConf" type="range" min="0" max="100" value="50" step="5" style="width:100%;margin-bottom:10px">' +
-        '<button id="svLockIn" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Lock it in</button>' +
-        '<div style="font-size:.66rem;color:rgba(255,255,255,.68);margin-top:7px;line-height:1.4">Private until the ballot. Nobody sees the room\'s split, so nobody follows the crowd.</div>' +
+        '<button id="svLockIn" style="width:100%;background:#b91c1c;color:var(--text);border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Lock it in</button>' +
+        '<div style="font-size:.66rem;color:var(--text-dim);margin-top:7px;line-height:1.4">Private until the ballot. Nobody sees the room\'s split, so nobody follows the crowd.</div>' +
       '</div>' +
       '<div data-sv-phase="during" style="display:none">' +
-        '<button id="svTap" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:12px;padding:14px;font:inherit;font-weight:800;font-size:.9rem;cursor:pointer">That moved me</button>' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:.7rem;color:rgba(255,255,255,.68)">' +
-          '<span>Your flags: <b id="svCount" style="color:#fff">0</b></span><span id="svLast" style="font-family:ui-monospace,monospace"></span>' +
+        '<button id="svTap" style="width:100%;background:#b91c1c;color:var(--text);border:none;border-radius:12px;padding:14px;font:inherit;font-weight:800;font-size:.9rem;cursor:pointer">That moved me</button>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:.7rem;color:var(--text-dim)">' +
+          '<span>Your flags: <b id="svCount" style="color:var(--text)">0</b></span><span id="svLast" style="font-family:ui-monospace,monospace"></span>' +
         '</div>' +
       '</div>' +
       '<div data-sv-phase="after" style="display:none">' +
         '<div id="svSidesAfter" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"></div>' +
-        '<label style="display:block;font-size:.7rem;color:rgba(255,255,255,.68);margin-bottom:4px">How sure now? <span id="svConfOutAfter" style="color:#fff;font-weight:700">50</span></label>' +
+        '<label style="display:block;font-size:.7rem;color:var(--text-dim);margin-bottom:4px">How sure now? <span id="svConfOutAfter" style="color:var(--text);font-weight:700">50</span></label>' +
         '<input id="svConfAfter" type="range" min="0" max="100" value="50" step="5" style="width:100%;margin-bottom:10px">' +
-        '<button id="svRestate" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Submit</button>' +
+        '<button id="svRestate" style="width:100%;background:#b91c1c;color:var(--text);border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Submit</button>' +
       '</div>' +
       '<div data-sv-phase="done" style="display:none">' +
-        '<div id="svDone" style="font-size:.76rem;color:rgba(255,255,255,.68);line-height:1.5"></div>' +
+        '<div id="svDone" style="font-size:.76rem;color:var(--text-dim);line-height:1.5"></div>' +
       '</div>';
     svDock().appendChild(el);
     svPanel = el;
@@ -6840,8 +7106,8 @@ html.stage-mode .stage-ov{display:block}
     host.innerHTML = opts.map(function(o){
       var on = o[0] === cur;
       return '<button data-svside="' + o[0] + '" style="background:' + (on ? 'rgba(239,68,68,.18)' : '#1d1d25') +
-        ';border:1px solid ' + (on ? '#ef4444' : 'rgba(255,255,255,.14)') +
-        ';border-radius:10px;padding:8px 4px;color:#fff;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;overflow:hidden;text-overflow:ellipsis">' +
+        ';border:1px solid ' + (on ? '#ef4444' : 'var(--border,rgba(127,127,127,.22))') +
+        ';border-radius:10px;padding:8px 4px;color:var(--text);font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;overflow:hidden;text-overflow:ellipsis">' +
         escHtml(o[1]) + '</button>';
     }).join('');
     [].forEach.call(host.querySelectorAll('[data-svside]'), function(b){
@@ -7676,6 +7942,9 @@ html.stage-mode .stage-ov{display:block}
 
   function renderBallotBody(b, mode){
     var staged = mode === 'staged' || mode === 'read-aloud';
+    // Hand the verdict to the reel so the recording gets it too. No-op
+    // on every client that is not driving one.
+    try { reelShowBallot(b); } catch(e){ console.warn('[reel]', e); }
     $('ballotLoading').classList.add('hidden');
     var result = $('ballotResult');
     result.classList.remove('hidden');
