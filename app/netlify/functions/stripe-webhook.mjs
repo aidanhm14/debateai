@@ -106,6 +106,66 @@ export default async (request) => {
           break;
         }
 
+        // Bounty funding (bounty-checkout.mjs). The contribution lands
+        // as bounties/{bid}/contributions/{uid} — keyed by uid so a
+        // webhook retry is an idempotent overwrite, never a second
+        // charge counted twice into the pot.
+        //
+        // The pot increments ONLY on a first-time contribution from this
+        // uid, guarded inside a transaction. Without that, a Stripe
+        // retry on a delivery we already processed would inflate a pot
+        // that two real people are about to be paid out of.
+        if (session.metadata?.kind === 'bounty_fund') {
+          const { uid, bid } = session.metadata;
+          const amount = session.amount_total ?? 0;
+          if (uid && bid && amount > 0) {
+            const bRef = db.collection('bounties').doc(bid);
+            const cRef = bRef.collection('contributions').doc(uid);
+            try {
+              await db.runTransaction(async (tx) => {
+                const [bSnap, cSnap] = await Promise.all([tx.get(bRef), tx.get(cRef)]);
+                if (!bSnap.exists) throw new Error(`bounty ${bid} is gone`);
+                const prev = cSnap.exists ? (cSnap.data() || {}) : null;
+                // The IDEMPOTENCY KEY IS THE SESSION ID, not "has this
+                // person paid before". Stripe redelivers an event it did
+                // not get a 2xx for, and a same-uid check would read a
+                // redelivery of one payment and a genuine second payment
+                // as the same thing. Every processed session is recorded
+                // so the first is skipped and the second still counts.
+                const seen = Array.isArray(prev?.sessionIds) ? prev.sessionIds : [];
+                if (seen.includes(session.id)) return;
+                const prior = Number(prev?.amountCents) || 0;
+                const firstFromThisPerson = !prev || prev.status !== 'paid';
+                tx.set(cRef, {
+                  uid,
+                  amountCents: prior + amount,
+                  currency: session.currency || 'usd',
+                  status: 'paid',
+                  sessionIds: seen.concat([session.id]),
+                  paymentIntentIds: (Array.isArray(prev?.paymentIntentIds) ? prev.paymentIntentIds : [])
+                    .concat([typeof session.payment_intent === 'string'
+                      ? session.payment_intent
+                      : (session.payment_intent?.id ?? null)].filter(Boolean)),
+                  refund: prev?.refund || { status: 'none', doneAt: null },
+                  updatedAt: FieldValue.serverTimestamp(),
+                  ...(prev ? {} : { createdAt: FieldValue.serverTimestamp() }),
+                }, { merge: true });
+                tx.update(bRef, {
+                  potCents: FieldValue.increment(amount),
+                  // A second contribution from the same person grows the
+                  // pot but not the backer count.
+                  contributorCount: FieldValue.increment(firstFromThisPerson ? 1 : 0),
+                  updatedAt: Date.now(),
+                });
+              });
+              console.log(`Bounty funded: ${bid} by ${uid} (${amount})`);
+            } catch (e) {
+              console.error('bounty fund failed:', e.message);
+            }
+          }
+          break;
+        }
+
         // Handle lifetime one-time payment
         if (session.mode === 'payment') {
           const paymentIntentId = session.payment_intent;

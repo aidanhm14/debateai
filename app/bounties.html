@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-force-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bounties · Pay to make a debate happen · Debatable</title>
+<meta name="description" content="Put money on the debate you want to see. Name the motion, name who should argue it, and anyone can add to the pot. When two people take it and finish the round, the pot goes to them." />
+<link rel="canonical" href="https://itsdebatable.com/bounties">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Debatable">
+<meta property="og:title" content="Bounties · Pay to make a debate happen">
+<meta property="og:description" content="Name the motion, name who should argue it, and anyone can add to the pot. The pot goes to the two people who run the round.">
+<meta property="og:url" content="https://itsdebatable.com/bounties">
+<meta property="og:image" content="https://itsdebatable.com/og-live.png?v=deb1">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Bounties · Pay to make a debate happen">
+<meta name="twitter:description" content="Name the motion, name who should argue it, and anyone can add to the pot.">
+<meta name="twitter:image" content="https://itsdebatable.com/og-live.png?v=deb1">
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/ui.css">
+<script src="/js/native-bridge.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<!-- track.js is the only telemetry entry point and topbar.js does NOT
+     pull it, so a new page has to carry it by hand. -->
+<script defer src="/js/track.js"></script>
+<script defer src="/js/topbar.js"></script>
+<style>
+  :root{
+    --paper:#faf8f3; --card:#ffffff; --ink:#1a1a1f; --ink-soft:rgba(26,26,31,.64);
+    --ink-ghost:rgba(26,26,31,.44); --line:rgba(29,25,21,.11); --red:#b91c1c; --red-deep:#991b1b;
+    --green:#16a34a; --blue:#1d4ed8; --gold:#a16207;
+    --serif:'Crimson Pro','Fraunces',Georgia,serif;
+  }
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:19px;line-height:1.55}
+  a{color:inherit}
+  button{font-family:inherit}
+  em,i{font-style:normal}
+  .wrap{max-width:1080px;margin:0 auto;padding:78px 20px 90px}
+
+  .hero{margin:18px 0 10px}
+  .hero h1{margin:0;font-size:clamp(2.6rem,7vw,4.2rem);font-weight:900;letter-spacing:-.03em;line-height:1.0}
+  .hero p{margin:14px 0 0;color:var(--ink-soft);max-width:56ch;font-size:1.22rem;line-height:1.5}
+  .hero .cta-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;
+    text-decoration:none;border-radius:999px;padding:14px 26px;font-size:1.05rem;font-weight:800;
+    transition:transform .15s,opacity .15s,background .15s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-red{background:var(--red);color:#fff;box-shadow:0 10px 26px rgba(185,28,28,.22)}
+  .btn-red:hover{background:var(--red-deep)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid rgba(26,26,31,.22)}
+  .btn-sm{padding:9px 16px;font-size:.86rem}
+  .btn[disabled]{opacity:.45;cursor:default;transform:none}
+
+  /* ── the money rules, stated up front ── */
+  .rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:26px 0 30px}
+  .rule{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .rule .k{font-size:.68rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:var(--red)}
+  .rule .t{font-size:1.18rem;font-weight:800;margin-top:6px}
+  .rule .d{font-size:.98rem;color:var(--ink-soft);margin-top:5px;line-height:1.5}
+
+  .tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+  .tab{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:10px 20px;
+    font-size:1rem;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* ── board ── */
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .bcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+  .bcard .motion{font-size:1.35rem;font-weight:800;line-height:1.25;letter-spacing:-.015em}
+  .bmeta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.78rem;color:var(--ink-ghost);font-weight:600}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:.72rem;font-weight:800;background:var(--paper)}
+  .chip.named{color:var(--blue);border-color:rgba(29,78,216,.3);background:rgba(29,78,216,.06)}
+  .chip.open{color:var(--green);border-color:rgba(22,163,74,.3);background:rgba(22,163,74,.06)}
+  .chip.done{color:var(--gold);border-color:rgba(161,98,7,.3);background:rgba(161,98,7,.07)}
+  .pot{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .pot .n{font-size:2.6rem;font-weight:900;letter-spacing:-.035em;color:var(--red)}
+  .pot .l{font-size:.8rem;color:var(--ink-ghost);font-weight:700}
+  .split{font-size:.94rem;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);
+    border-radius:10px;padding:9px 12px;line-height:1.5}
+  .seats{display:flex;gap:7px;flex-wrap:wrap;align-items:center;font-size:.84rem;color:var(--ink-soft)}
+  .seat{border:1px dashed rgba(26,26,31,.24);border-radius:999px;padding:4px 12px;font-weight:700;font-size:.8rem}
+  .seat.filled{border-style:solid;border-color:rgba(22,163,74,.4);background:rgba(22,163,74,.07);color:#166534}
+  .bnote{font-size:1rem;color:var(--ink-soft);line-height:1.55}
+  .bactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+
+  .empty{grid-column:1/-1;background:var(--card);border:1px dashed var(--line);border-radius:16px;
+    padding:34px 24px;text-align:center;color:var(--ink-soft);line-height:1.6}
+  .empty b{color:var(--ink)}
+
+  /* ── modal ── */
+  .modal{position:fixed;inset:0;background:rgba(20,18,15,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:60}
+  .modal.on{display:flex}
+  .sheet{background:var(--card);border-radius:18px;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.28)}
+  .sheet h2{margin:0 0 4px;font-size:1.4rem;font-weight:900;letter-spacing:-.02em}
+  .sheet .sub{margin:0 0 18px;color:var(--ink-soft);font-size:.92rem;line-height:1.5}
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:.7rem;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-ghost);margin-bottom:6px}
+  .fld input,.fld textarea,.fld select{width:100%;font:inherit;font-size:.95rem;padding:10px 13px;border-radius:11px;
+    background:var(--paper);border:1px solid var(--line);color:var(--ink)}
+  .fld textarea{resize:vertical;min-height:70px;line-height:1.5}
+  .fld input:focus,.fld textarea:focus,.fld select:focus{outline:none;border-color:rgba(185,28,28,.45)}
+  .fld .hint{font-size:.78rem;color:var(--ink-ghost);margin-top:5px;line-height:1.45}
+  .fld2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .radio-row{display:flex;gap:9px;flex-wrap:wrap}
+  .radio{flex:1 1 160px;border:1px solid var(--line);border-radius:12px;padding:11px 13px;cursor:pointer;background:var(--paper)}
+  .radio.on{border-color:rgba(185,28,28,.5);background:rgba(185,28,28,.05)}
+  .radio .t{font-weight:800;font-size:.9rem}
+  .radio .d{font-size:.78rem;color:var(--ink-ghost);margin-top:3px;line-height:1.4}
+  .amounts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .amt{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:8px 16px;font-weight:800;font-size:.9rem;cursor:pointer}
+  .amt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .attest{display:flex;gap:9px;align-items:flex-start;font-size:.86rem;color:var(--ink-soft);line-height:1.45;
+    background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:14px}
+  .attest input{margin-top:3px;accent-color:var(--red)}
+  .sheet-actions{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}
+  .status{font-size:.86rem;font-weight:700;margin-right:auto;align-self:center}
+  .status.err{color:var(--red)}
+  .status.ok{color:var(--green)}
+
+  /* ── dream matchups: licensed portraits, labeled unconfirmed ── */
+  .dream{margin:34px 0 8px}
+  .dream .eye{font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--red)}
+  .dream h2{margin:6px 0 4px;font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:900;letter-spacing:-.02em}
+  .dream .sub{margin:0 0 18px;color:var(--ink-soft);font-size:1.02rem;max-width:60ch;line-height:1.5}
+  .faces{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:34px}
+  .face{position:relative;border-radius:16px;overflow:hidden;cursor:pointer;border:1px solid var(--line);
+    background:var(--card);padding:0;text-align:left;display:block;width:100%}
+  .face img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;filter:saturate(.92)}
+  .face .nm{position:absolute;left:0;right:0;bottom:0;padding:34px 14px 12px;color:#fff;
+    background:linear-gradient(transparent,rgba(10,8,6,.82));font-weight:900;font-size:1.15rem;letter-spacing:-.01em}
+  .face .tag{position:absolute;top:10px;left:10px;background:rgba(250,248,243,.92);color:var(--ink);
+    border-radius:999px;padding:3px 10px;font-size:.68rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+  .face:hover img{filter:saturate(1.05)}
+  .face:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+
+  .foot{margin-top:34px;font-size:.82rem;color:var(--ink-ghost);line-height:1.6;max-width:70ch}
+  .foot a{text-decoration:underline}
+
+  @media(max-width:860px){ .rules{grid-template-columns:1fr} }
+  @media(max-width:560px){ .fld2{grid-template-columns:1fr} .wrap{padding:70px 14px 80px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>Pay to make a debate happen.</h1>
+    <p>Name the argument you want had and who should have it. Anyone can add to the same pot. When two people take it and finish the round, the pot goes to them and the ballot is public like any other round.</p>
+    <div class="cta-row">
+      <button class="btn btn-red" id="postBtn" type="button">Post a bounty</button>
+      <a class="btn btn-ghost" href="/leaderboard">Find someone to name</a>
+    </div>
+  </div>
+
+  <div class="rules">
+    <div class="rule">
+      <div class="k">Where the money goes</div>
+      <div class="t">All of it, to the two people arguing</div>
+      <div class="d">Split evenly for finishing the round. We take no cut, and no part of the pot depends on who wins.</div>
+    </div>
+    <div class="rule">
+      <div class="k">If nobody takes it</div>
+      <div class="t">You get it back</div>
+      <div class="d">Every bounty has a deadline. Past it, contributions are refunded to whoever paid them.</div>
+    </div>
+    <div class="rule">
+      <div class="k">Naming a person</div>
+      <div class="t">Is an invitation, not a summons</div>
+      <div class="d">Someone named has to accept before the round is on. Ignoring a bounty costs them nothing.</div>
+    </div>
+  </div>
+
+  <div class="dream">
+    <span class="eye">Dream matchups · unconfirmed</span>
+    <h2>Who do you want to see argue it out?</h2>
+    <p class="sub">Press a face to start a bounty aimed at them. Naming someone is an invitation with money attached; none of the people below are affiliated with Debatable or have agreed to anything, and a bounty they ignore is refunded like any other.</p>
+    <div class="faces" aria-label="Unconfirmed dream matchups">
+      <button class="face" type="button" data-name="HasanAbi"><img src="/img/creator-watchlist/hasanabi.jpg" alt="HasanAbi" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">HasanAbi</span></button>
+      <button class="face" type="button" data-name="xQc"><img src="/img/creator-watchlist/xqc.jpg" alt="xQc" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">xQc</span></button>
+      <button class="face" type="button" data-name="Pokimane"><img src="/img/creator-watchlist/pokimane.jpg" alt="Pokimane" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Pokimane</span></button>
+      <button class="face" type="button" data-name="Candace Owens"><img src="/img/creator-watchlist/candaceowens.jpg" alt="Candace Owens" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Candace Owens</span></button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-feed="open" type="button">Open</button>
+    <button class="tab" data-feed="claimed" type="button">Taken</button>
+    <button class="tab" data-feed="done" type="button">Finished</button>
+    <button class="tab" data-feed="mine" type="button">Mine</button>
+  </div>
+
+  <div class="board" id="board">
+    <div class="empty">Loading bounties…</div>
+  </div>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<!-- post -->
+<div class="modal" id="postModal">
+  <div class="sheet">
+    <h2>Post a bounty</h2>
+    <p class="sub">Say what should be argued. You can fund it now or leave it at zero and let other people back it.</p>
+    <div class="fld">
+      <label for="bMotion">The motion</label>
+      <textarea id="bMotion" maxlength="300" placeholder="This house would ban private jets for domestic flights."></textarea>
+      <div class="hint">A clear proposition with two defensible sides. <span id="motionCount">0</span>/300</div>
+    </div>
+    <div class="fld2">
+      <div class="fld">
+        <label for="bFormat">Format</label>
+        <select id="bFormat">
+          <option value="quick">Quick Clash</option>
+          <option value="apda">APDA</option>
+          <option value="bp">British Parli</option>
+          <option value="worlds">Worlds</option>
+          <option value="asian">Asian Parli</option>
+          <option value="ld">Lincoln-Douglas</option>
+          <option value="pf">Public Forum</option>
+          <option value="policy">Policy</option>
+        </select>
+      </div>
+      <div class="fld">
+        <label for="bExpiry">Deadline</label>
+        <select id="bExpiry">
+          <option value="7">7 days</option>
+          <option value="14">14 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+        </select>
+        <div class="hint">Refunded if nobody takes it by then.</div>
+      </div>
+    </div>
+    <div class="fld">
+      <label>Who should argue it</label>
+      <div class="radio-row">
+        <label class="radio on" data-kind="open">
+          <div class="t"><input type="radio" name="bKind" value="open" checked> Anyone</div>
+          <div class="d">First two people to take it.</div>
+        </label>
+        <label class="radio" data-kind="named">
+          <div class="t"><input type="radio" name="bKind" value="named"> Specific people</div>
+          <div class="d">They have to accept first.</div>
+        </label>
+      </div>
+    </div>
+    <div class="fld2" id="targetFields" hidden>
+      <div class="fld"><label for="bT1">First person</label><input id="bT1" maxlength="60" placeholder="Name or handle"></div>
+      <div class="fld"><label for="bT2">Second person</label><input id="bT2" maxlength="60" placeholder="Optional"></div>
+    </div>
+    <div class="fld">
+      <label for="bNote">Why this round</label>
+      <textarea id="bNote" maxlength="240" placeholder="Optional. One or two lines on why you want to see it."></textarea>
+    </div>
+    <div class="sheet-actions">
+      <span class="status" id="postStatus"></span>
+      <button class="btn btn-ghost btn-sm" id="postCancel" type="button">Cancel</button>
+      <button class="btn btn-red btn-sm" id="postSave" type="button">Post it</button>
+    </div>
+  </div>
+</div>
+
+<!-- fund -->
+<div class="modal" id="fundModal">
+  <div class="sheet">
+    <h2>Add to the pot</h2>
+    <p class="sub" id="fundMotion"></p>
+    <div class="fld">
+      <label>Amount</label>
+      <div class="amounts" id="amounts">
+        <button class="amt" data-c="500" type="button">$5</button>
+        <button class="amt on" data-c="1000" type="button">$10</button>
+        <button class="amt" data-c="2500" type="button">$25</button>
+        <button class="amt" data-c="5000" type="button">$50</button>
+        <button class="amt" data-c="10000" type="button">$100</button>
+      </div>
+      <input id="fundCustom" inputmode="numeric" placeholder="Or another amount in dollars">
+      <div class="hint">Smallest is $2. Most one person can add to a single bounty is $500.</div>
+    </div>
+    <label class="attest">
+      <input type="checkbox" id="fundAge">
+      <span>I am 18 or older. I understand this money goes to the two people who run the round, that it is refunded if nobody takes the bounty by its deadline, and that it is not a wager on who wins.</span>
+    </label>
+    <div class="sheet-actions">
+      <span class="status" id="fundStatus"></span>
+      <button class="btn btn-ghost btn-sm" id="fundCancel" type="button">Cancel</button>
+      <button class="btn btn-red btn-sm" id="fundGo" type="button">Continue to payment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+    measurementId: "G-0V4R5MY3BT"
+  };
+  var state = { user:null, feed:'open', rows:[], fundId:null, fundCents:1000, kind:'open' };
+  var fbAuth = null;
+  try {
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbAuth.onAuthStateChanged(function(u){ state.user = u; load(); });
+  } catch(e){ console.warn('firebase init failed', e); }
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function signedIn(){ return !!(state.user && !state.user.isAnonymous); }
+  function track(ev, meta){ try{ if(window.gtag) gtag('event', ev, meta||{}); }catch(e){} }
+  function money(cents){
+    var n = Math.max(0, Math.round(Number(cents)||0)) / 100;
+    return '$' + (n % 1 === 0 ? n.toLocaleString() : n.toFixed(2));
+  }
+  function daysLeft(ms){
+    if (!ms) return '';
+    var d = Math.ceil((ms - Date.now()) / 86400000);
+    if (d <= 0) return 'expired';
+    return d === 1 ? '1 day left' : d + ' days left';
+  }
+
+  async function api(path, opts, needAuth){
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    if (needAuth){
+      if (!signedIn()) throw new Error('Sign in first.');
+      opts.headers.Authorization = 'Bearer ' + (await state.user.getIdToken());
+    }
+    var r = await fetch(path, opts);
+    var j = null;
+    try { j = await r.json(); } catch(e){}
+    if (!r.ok) throw new Error((j && j.message) || (j && j.error) || ('Request failed (' + r.status + ')'));
+    return j;
+  }
+  function post(body){
+    return api('/api/bounty', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }, true);
+  }
+  // Mirrors challenges.html rather than routing through openAuthModal:
+  // both pages consume the resolved user to continue an action mid-flow,
+  // and the shared modal finishes by navigating away, which would drop
+  // the thing the person was in the middle of doing.
+  async function ensureAuth(){
+    if (signedIn()) return state.user;
+    if (typeof window.openAuthModal === 'function' && !state.user) { window.openAuthModal(); throw new Error('Sign in to continue.'); }
+    if (!fbAuth) throw new Error('Sign-in is unavailable in this browser.');
+    var res = await fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    state.user = res.user;
+    return state.user;
+  }
+
+  /* ── board ── */
+  async function load(){
+    var feed = state.feed;
+    if (feed === 'mine' && !signedIn()){
+      $('board').innerHTML = '<div class="empty">Sign in to see the bounties you posted or took.</div>';
+      return;
+    }
+    try {
+      var j = await api('/api/bounty?feed=' + encodeURIComponent(feed), {}, feed === 'mine');
+      state.rows = j.bounties || [];
+      render();
+    } catch(e){
+      $('board').innerHTML = '<div class="empty">Could not load the board. ' + esc(e.message) + '</div>';
+    }
+  }
+
+  function emptyFor(feed){
+    if (feed === 'open') {
+      return '<div class="empty"><b>No open bounties yet.</b><br>Post the first one. Name a motion, say who should argue it, and put something behind it.</div>';
+    }
+    if (feed === 'claimed') return '<div class="empty">Nothing has been taken yet.</div>';
+    if (feed === 'done') return '<div class="empty">No bounty has been argued out yet.</div>';
+    return '<div class="empty">You have not posted or taken a bounty yet.</div>';
+  }
+
+  function card(b){
+    var seats = [];
+    for (var i = 0; i < 2; i++){
+      var d = b.debaters[i];
+      seats.push(d
+        ? '<span class="seat filled">' + esc(d.name) + '</span>'
+        : '<span class="seat">Open seat</span>');
+    }
+    var kindChip = b.targetKind === 'named'
+      ? '<span class="chip named">Named: ' + b.targets.map(function(t){ return esc(t.name) + (t.accepted ? ' ✓' : ''); }).join(', ') + '</span>'
+      : '<span class="chip open">Anyone can take it</span>';
+
+    var splitLine = '';
+    if (b.potCents > 0 && b.status !== 'completed'){
+      var each = b.projectedSplitCents || [];
+      splitLine = '<div class="split">Finish the round and each side takes about <b>' +
+        money(each[1] != null ? each[1] : Math.floor(b.potCents/2)) + '</b>. The pot is not a wager; the ballot does not change the payout.</div>';
+    } else if (b.status === 'completed'){
+      splitLine = '<div class="split">Argued and paid out to both sides.</div>';
+    }
+
+    var actions = [];
+    if (b.status === 'funding' || b.status === 'claimed'){
+      actions.push('<button class="btn btn-red btn-sm" data-fund="' + esc(b.id) + '">Add to pot</button>');
+    }
+    if (b.viewer && b.viewer.canClaim){
+      actions.push('<button class="btn btn-ghost btn-sm" data-claim="' + esc(b.id) + '">Take this bounty</button>');
+    } else if (b.viewer && b.viewer.isDebater && b.status !== 'completed'){
+      actions.push('<button class="btn btn-ghost btn-sm" data-withdraw="' + esc(b.id) + '">Step down</button>');
+    }
+    if (b.viewer && b.viewer.isCreator && (b.status === 'funding')){
+      actions.push('<button class="btn btn-ghost btn-sm" data-cancel="' + esc(b.id) + '">Cancel</button>');
+    }
+    if (b.roundId){
+      actions.push('<a class="btn btn-ghost btn-sm" href="/r/' + encodeURIComponent(b.roundId) + '">Read the round</a>');
+    }
+
+    return '<article class="bcard">' +
+      '<div class="motion">' + esc(b.motion) + '</div>' +
+      '<div class="bmeta">' + kindChip +
+        '<span class="chip">' + esc(b.format) + '</span>' +
+        (b.status === 'completed' ? '<span class="chip done">Finished</span>' : '<span>' + esc(daysLeft(b.expiresAt)) + '</span>') +
+        '<span>' + b.contributorCount + (b.contributorCount === 1 ? ' backer' : ' backers') + '</span>' +
+      '</div>' +
+      '<div class="pot"><span class="n">' + money(b.potCents) + '</span><span class="l">in the pot</span></div>' +
+      splitLine +
+      '<div class="seats">' + seats.join('') + '</div>' +
+      (b.note ? '<div class="bnote">' + esc(b.note) + '</div>' : '') +
+      '<div class="bactions">' + actions.join('') + '</div>' +
+    '</article>';
+  }
+
+  function render(){
+    var board = $('board');
+    if (!state.rows.length){ board.innerHTML = emptyFor(state.feed); return; }
+    board.innerHTML = state.rows.map(card).join('');
+  }
+
+  $('board').addEventListener('click', function(e){
+    var t = e.target.closest('button[data-fund],button[data-claim],button[data-withdraw],button[data-cancel]');
+    if (!t) return;
+    if (t.hasAttribute('data-fund')) return openFund(t.getAttribute('data-fund'));
+    if (t.hasAttribute('data-claim')) return act('claim', t.getAttribute('data-claim'), t);
+    if (t.hasAttribute('data-withdraw')) return act('withdraw', t.getAttribute('data-withdraw'), t);
+    if (t.hasAttribute('data-cancel')) {
+      if (!confirm('Cancel this bounty? Anything already contributed is refunded to whoever paid it.')) return;
+      return act('cancel', t.getAttribute('data-cancel'), t);
+    }
+  });
+
+  async function act(action, id, btn){
+    try {
+      await ensureAuth();
+      btn.disabled = true;
+      await post({ action: action, id: id });
+      track('bounty_' + action, { id: id });
+      await load();
+    } catch(e){
+      alert(e.message);
+      btn.disabled = false;
+    }
+  }
+
+  /* ── tabs ── */
+  $('tabs').addEventListener('click', function(e){
+    var t = e.target.closest('.tab');
+    if (!t) return;
+    state.feed = t.getAttribute('data-feed');
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(x){ x.classList.toggle('on', x === t); });
+    $('board').innerHTML = '<div class="empty">Loading…</div>';
+    load();
+  });
+
+  /* ── post ── */
+  function openPost(){ $('postModal').classList.add('on'); $('bMotion').focus(); }
+  function closePost(){ $('postModal').classList.remove('on'); }
+  $('postBtn').addEventListener('click', function(){
+    ensureAuth().then(openPost).catch(function(e){ alert(e.message); });
+  });
+  $('postCancel').addEventListener('click', closePost);
+  $('postModal').addEventListener('click', function(e){ if (e.target === $('postModal')) closePost(); });
+  $('bMotion').addEventListener('input', function(){ $('motionCount').textContent = String(this.value.length); });
+  Array.prototype.forEach.call(document.querySelectorAll('.radio[data-kind]'), function(r){
+    r.addEventListener('click', function(){
+      state.kind = r.getAttribute('data-kind');
+      Array.prototype.forEach.call(document.querySelectorAll('.radio[data-kind]'), function(x){ x.classList.toggle('on', x === r); });
+      $('targetFields').hidden = state.kind !== 'named';
+    });
+  });
+  $('postSave').addEventListener('click', async function(){
+    var s = $('postStatus');
+    function say(m, cls){ s.textContent = m; s.className = 'status' + (cls ? ' ' + cls : ''); }
+    var targets = [];
+    if (state.kind === 'named'){
+      [$('bT1').value, $('bT2').value].forEach(function(v){
+        v = (v || '').trim();
+        if (v) targets.push({ name: v });
+      });
+      if (!targets.length){ say('Name at least one person.', 'err'); return; }
+    }
+    say('Posting…');
+    try {
+      var j = await post({
+        action:'create',
+        motion: $('bMotion').value,
+        format: $('bFormat').value,
+        expiryDays: Number($('bExpiry').value),
+        targetKind: state.kind,
+        targets: targets,
+        note: $('bNote').value,
+      });
+      track('bounty_create', { format: $('bFormat').value, kind: state.kind });
+      closePost();
+      $('bMotion').value = ''; $('bNote').value = ''; $('motionCount').textContent = '0';
+      say('');
+      state.feed = 'open';
+      // Straight into funding, because a bounty at zero is a wish.
+      await load();
+      openFund(j.id);
+    } catch(e){ say(e.message, 'err'); }
+  });
+
+  /* ── dream matchups: pre-aim the post modal ── */
+  Array.prototype.forEach.call(document.querySelectorAll('.face'), function(f){
+    f.addEventListener('click', function(){
+      ensureAuth().then(function(){
+        openPost();
+        state.kind = 'named';
+        var namedRadio = document.querySelector('.radio[data-kind="named"]');
+        Array.prototype.forEach.call(document.querySelectorAll('.radio[data-kind]'), function(x){ x.classList.toggle('on', x === namedRadio); });
+        namedRadio.querySelector('input').checked = true;
+        $('targetFields').hidden = false;
+        $('bT1').value = f.getAttribute('data-name');
+        track('bounty_dream_face', { name: f.getAttribute('data-name') });
+      }).catch(function(e){ alert(e.message); });
+    });
+  });
+
+  /* ── fund ── */
+  function openFund(id){
+    var b = state.rows.filter(function(x){ return x.id === id; })[0];
+    state.fundId = id;
+    $('fundMotion').textContent = b ? b.motion : '';
+    $('fundStatus').textContent = '';
+    $('fundModal').classList.add('on');
+  }
+  function closeFund(){ $('fundModal').classList.remove('on'); }
+  $('fundCancel').addEventListener('click', closeFund);
+  $('fundModal').addEventListener('click', function(e){ if (e.target === $('fundModal')) closeFund(); });
+  $('amounts').addEventListener('click', function(e){
+    var t = e.target.closest('.amt');
+    if (!t) return;
+    state.fundCents = Number(t.getAttribute('data-c'));
+    $('fundCustom').value = '';
+    Array.prototype.forEach.call(document.querySelectorAll('.amt'), function(x){ x.classList.toggle('on', x === t); });
+  });
+  $('fundCustom').addEventListener('input', function(){
+    var dollars = parseFloat(this.value);
+    if (isFinite(dollars) && dollars > 0){
+      state.fundCents = Math.round(dollars * 100);
+      Array.prototype.forEach.call(document.querySelectorAll('.amt'), function(x){ x.classList.remove('on'); });
+    }
+  });
+  $('fundGo').addEventListener('click', async function(){
+    var s = $('fundStatus');
+    function say(m, cls){ s.textContent = m; s.className = 'status' + (cls ? ' ' + cls : ''); }
+    if (!$('fundAge').checked){ say('Confirm you are 18 or older.', 'err'); return; }
+    say('Opening payment…');
+    try {
+      await ensureAuth();
+      var j = await api('/api/bounty-checkout', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id: state.fundId, amountCents: state.fundCents, ageAttested: true }),
+      }, true);
+      track('bounty_fund_start', { cents: state.fundCents });
+      window.location.href = j.url;
+    } catch(e){ say(e.message, 'err'); }
+  });
+
+  /* ── returning from Stripe ── */
+  (function(){
+    var q = new URLSearchParams(location.search);
+    if (q.get('funded') === '1'){
+      $('foot').innerHTML = '<b>Payment received.</b> The pot updates as soon as the receipt lands, usually within a few seconds. Refresh if you do not see it yet.';
+      track('bounty_funded');
+      try { history.replaceState(null, '', '/bounties'); } catch(e){}
+    }
+  })();
+
+  $('foot').insertAdjacentHTML('beforeend',
+    (($('foot').innerHTML) ? '<br><br>' : '') +
+    'Bounties pay for a round being argued, not for a result. The AI judge writes the ballot exactly as it does on any other round, and nothing about the verdict changes who gets paid or how much. ' +
+    'Funding is 18 or older. Refunds go back to the card that paid. Portraits in the dream-matchup row are Creative Commons or public-domain images, credited in <a href="/img/creator-watchlist/README.md">the image credits file</a>; their use does not imply participation or endorsement. Questions go to <a href="mailto:aidandavidhollinger@gmail.com">aidandavidhollinger@gmail.com</a>.');
+
+  load();
+})();
+</script>
+</body>
+</html>

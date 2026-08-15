@@ -113,6 +113,26 @@ if [ -f "$BRAIN_HEALTH_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Bounty money guard. A bounty holds real money that two people are
+# about to be paid out of, so the three promises the board makes to a
+# stranger are asserted rather than reviewed: the pot pays for
+# COMPLETING the round and never for winning (so the AI judge cannot be
+# worth corrupting), the house takes nothing to the cent, and money
+# that produces no debate is refundable. Also guards the claim rules,
+# so a funder cannot pay themselves and a stranger cannot take a bounty
+# aimed at someone else.
+# ──────────────────────────────────────────────────────────────────
+BOUNTY_GUARD="$REPO_ROOT/scripts/test-bounty.mjs"
+if [ -f "$BOUNTY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-bounty.mjs >/tmp/bounty-guard.log 2>&1); then
+    echo "[bounty-guard] commit blocked - the bounty money rules no longer hold:" >&2
+    tail -20 /tmp/bounty-guard.log >&2
+    echo "[bounty-guard] see scripts/test-bounty.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Send-quota guard. The sender guard below catches a wrong From. This
 # one catches the other half of the same 2026-08-12 failure: the day's
 # allowance running out mid-cohort while the run kept going and still
