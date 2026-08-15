@@ -48,6 +48,13 @@ async function dailyRecording(room, action){
     return { ok: false, status: 503, detail: 'Recording is not configured.' };
   }
   const path = DAILY_API + '/rooms/' + encodeURIComponent(room) + '/recordings/' + action;
+  // `layout.max_cam_streams` USED TO RIDE HERE AND DAILY DOES NOT ACCEPT
+  // IT: every start returned 400 `"layout.max_cam_streams" is not allowed`,
+  // before Daily even looked at the room. Same class of bug as the
+  // `allow_streaming_from_bucket` room property fixed alongside it, so the
+  // same rule applies: verify a property against the live API before
+  // adding it, because one bad key kills the whole feature and the error
+  // it produces points at the room rather than at the request.
   const body = action === 'start' ? {
     type: 'cloud',
     width: 1280,
@@ -55,7 +62,7 @@ async function dailyRecording(room, action){
     fps: 30,
     minIdleTimeOut: 120,
     maxDuration: 10800,
-    layout: { preset: 'default', max_cam_streams: 8 },
+    layout: { preset: 'default' },
   } : { type: 'cloud' };
   try {
     const response = await fetch(path, {
@@ -206,18 +213,32 @@ export default async (req) => {
         recordingUpdatedAtMs: Date.now(),
       }, { merge: true });
       console.warn('[round-recording] start failed for', room, started.status, started.detail);
-      // "Try again" is a lie when the room itself cannot record: a room is
-      // created once per round and keeps the properties it was made with,
-      // so pressing again lands in exactly the same place. Say which of
-      // the two it is.
-      const permanent = started.status === 503 || started.status === 400;
-      return errorResponse(
-        permanent
-          ? 'Everyone agreed, but this round\'s video room was not set up for recording. It will work on a new round.'
-          : 'Everyone agreed, but recording could not start. Try again.',
-        permanent ? 409 : 502,
-        req,
-      );
+      // Each failure gets the message that is actually true of it, checked
+      // against the live API rather than assumed:
+      //   503  we never called Daily (no key, or DAILY_RECORD=0)
+      //   404  "room does not seem to be hosting a call currently" — nobody
+      //        has connected to the video yet, so this is genuinely worth
+      //        retrying once the call is up
+      //   400  Daily rejected OUR request body. A code bug, not anything
+      //        the debaters did or can fix by pressing again.
+      // An earlier version of this branch called 400 "the room was not set
+      // up for recording", which pointed at the room while the real fault
+      // was an invalid property in the request above. A wrong diagnosis is
+      // worse than a vague one: it sends whoever reads it somewhere else.
+      const status = started.status;
+      let message = 'Everyone agreed, but recording could not start. Try again.';
+      let code = 502;
+      if (status === 503){
+        message = 'Everyone agreed, but recording is not available on this site right now.';
+        code = 409;
+      } else if (status === 404){
+        message = 'Everyone agreed. Recording starts once the video call is connected, so try again in a moment.';
+        code = 409;
+      } else if (status === 400){
+        message = 'Everyone agreed, but recording was refused. This one is on us and it is logged.';
+        code = 502;
+      }
+      return errorResponse(message, code, req);
     }
 
     // A finish/withdraw can race the Daily start request. Re-check the
