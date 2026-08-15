@@ -6359,6 +6359,14 @@ html.stage-mode .stage-ov{display:block}
 
   function mountDaily(){
     if (state.dailyMounted) return;
+    // Claim the guard NOW, not inside the fetch callback below. It used to
+    // be set only after the network round trip, so two synchronous calls in
+    // one snapshot pass both got through: a spectator arriving on a
+    // room-only link hits enterAudienceMode() AND the status==='round'
+    // branch, and ended up with two <iframe class="daily-frame"> joined to
+    // the same room, doubled audio, and two seats against max_participants.
+    // Released again on failure so a retry is still possible.
+    state.dailyMounted = true;
     updateRoomStage();
     setCallStatus('Creating video room…', 'closed');
     fetch('/api/create-daily-room', {
@@ -6374,6 +6382,11 @@ html.stage-mode .stage-ov{display:block}
             try { gtag('event', 'live_round_ban_gate'); } catch(e){}
             return;
           }
+          // Release the guard: a transient room-creation failure should
+          // not wedge the room shut for the rest of the session. The BAN
+          // branch above deliberately keeps it claimed, because retrying a
+          // suspension is not a thing we want to invite.
+          state.dailyMounted = false;
           var msg = res.body && res.body.error ? res.body.error : 'Daily room creation failed';
           if (res.body && res.body.hint) msg += ', ' + res.body.hint;
           setCallStatus('Video room unavailable, ' + msg, 'closed');
@@ -6440,6 +6453,7 @@ html.stage-mode .stage-ov{display:block}
         updateRoomStage();
         try { gtag('event', 'live_round_daily_mount'); } catch(e){}
       }).catch(function(e){
+        state.dailyMounted = false;   // let a later attempt try again
         setCallStatus('Could not reach /api/create-daily-room', 'closed');
         console.warn('[Daily] request failed', e);
       });
@@ -11263,6 +11277,17 @@ html.stage-mode .stage-ov{display:block}
       if (state.speechIdx < f.speeches.length){
         $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
         renderRound();
+      } else if (state.timerInterval){
+        // Last speech done. renderRound() is what normally clears the
+        // mirrored timer (via prepareTimer -> stopTimer) and it is skipped
+        // here, while endSpeech deletes currentTimer from the doc so
+        // applyRemoteTimer never runs again either. Left alone, drawTimer
+        // kept firing 5x a second on every non-speaking client for the rest
+        // of the session, and stageSync mirrors #timerNum into the ?stage=1
+        // overlay, so the broadcast clock counted OVERTIME through the
+        // whole ballot instead of freezing.
+        clearInterval(state.timerInterval);
+        state.timerInterval = null;
       }
     }
 
@@ -11548,10 +11573,24 @@ html.stage-mode .stage-ov{display:block}
   // play/pause key.
   document.addEventListener('keydown', function(e){
     if (state.phase !== 'round') return;
-    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) return;
+    // contenteditable is neither TEXTAREA nor INPUT, and the in-round
+    // resolution editor (#rmbMotion) is a contenteditable DIV. Without this
+    // the first space typed into it started the speech clock instead of
+    // inserting a space, "m" toggled the mic, and Enter ended the speech.
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT'
+      || e.target.isContentEditable)) return;
     if (e.key === ' '){ e.preventDefault(); togglePlayPause(); }
     else if (e.key === 'm' || e.key === 'M'){ e.preventDefault(); setMicActive(!state.micActive); }
-    else if (e.key === 'Enter'){ e.preventDefault(); endSpeech(); }
+    else if (e.key === 'Enter'){
+      // Click the button rather than calling endSpeech() directly: the
+      // handler guards a never-started timer and an EMPTY TRANSCRIPT, and
+      // the keyboard path used to skip both. An empty speech is logged as
+      // "(no transcript)" and cannot count toward the ballot, which is
+      // exactly what that confirm exists to catch.
+      e.preventDefault();
+      var endBtnK = $('endSpeechBtn');
+      if (endBtnK && !endBtnK.disabled) endBtnK.click(); else endSpeech();
+    }
   });
 
   // Motion is edited directly in the contenteditable box. Keep state +
