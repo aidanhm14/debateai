@@ -131,6 +131,47 @@ html.dbnative .page-head{padding-top:20px}
 
 /* ── Player */
 .player-card{display:none;margin-top:26px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+/* ── Verdict reveal. A recording ends on the last speech, because that is
+   where the round ends; the ballot is written minutes later and lives on
+   the round document. So the reveal plays HERE, over the player, the
+   moment the video finishes. That covers every recording ever made
+   rather than only rounds recorded after the in-room reel shipped. */
+.player-wrap{position:relative}
+.verdict-reveal{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;padding:clamp(16px,4vw,40px);
+  background:radial-gradient(circle at 50% 42%,rgba(120,20,26,.30),rgba(8,8,10,.94) 62%),rgba(8,8,10,.95);
+  color:#f0ede6;text-align:center;overflow:auto}
+.verdict-reveal.on{display:flex}
+.vr-eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(240,237,230,.6);opacity:0;animation:vrIn .5s ease forwards}
+.vr-winner{margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:900;
+  font-size:clamp(1.7rem,5.2vw,3.1rem);line-height:1.08;
+  opacity:0;animation:vrIn .6s ease .5s forwards}
+.vr-side{font-size:.92rem;color:rgba(240,237,230,.66);opacity:0;animation:vrIn .5s ease .8s forwards}
+.vr-points{display:flex;gap:clamp(18px,6vw,64px);margin-top:6px;opacity:0;animation:vrIn .5s ease 1.2s forwards}
+.vr-pt{display:flex;flex-direction:column;gap:3px;min-width:96px}
+.vr-pt b{font-family:'Crimson Pro',Georgia,serif;font-size:clamp(1.5rem,4vw,2.3rem);font-weight:900;
+  font-variant-numeric:tabular-nums;line-height:1}
+.vr-pt span{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(240,237,230,.55)}
+.vr-bars{width:min(520px,92%);margin-top:4px;display:flex;flex-direction:column;gap:7px;
+  opacity:0;animation:vrIn .5s ease 1.7s forwards}
+.vr-bar{display:grid;grid-template-columns:74px 1fr auto;gap:9px;align-items:center;font-size:.74rem}
+.vr-bar i{font-style:normal;color:rgba(240,237,230,.62);text-align:right}
+.vr-track{height:8px;border-radius:99px;overflow:hidden;background:rgba(239,68,68,.55);display:flex}
+.vr-track u{display:block;height:100%;background:#22c55e;width:0;
+  animation:vrGrow .8s cubic-bezier(.2,.8,.2,1) forwards}
+.vr-bar b{font-variant-numeric:tabular-nums;font-size:.72rem;color:rgba(240,237,230,.8)}
+.vr-rfd{max-width:min(680px,94%);margin-top:8px;font-size:clamp(.86rem,1.6vw,.98rem);line-height:1.55;
+  color:rgba(240,237,230,.86);opacity:0;animation:vrIn .6s ease 2.3s forwards}
+.vr-acts{display:flex;gap:10px;margin-top:6px;opacity:0;animation:vrIn .5s ease 2.8s forwards}
+.vr-acts .btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#f0ede6}
+.vr-acts .btn:hover{background:rgba(255,255,255,.16)}
+@keyframes vrIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@keyframes vrGrow{to{width:var(--vw,50%)}}
+@media(prefers-reduced-motion:reduce){
+  .vr-eyebrow,.vr-winner,.vr-side,.vr-points,.vr-bars,.vr-rfd,.vr-acts{animation-duration:.01s;animation-delay:0s}
+  .vr-track u{animation-duration:.01s}
+}
 .player-card.on{display:block}
 .player-head{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;flex-wrap:wrap}
 .player-head h2{font-size:20px;font-weight:800;flex:1;min-width:220px}
@@ -376,7 +417,10 @@ footer a{color:var(--dim)}
       <button class="btn" id="closePlayer" type="button">Close</button>
       <div class="player-meta" id="playerMeta"></div>
     </div>
-    <video id="player" controls playsinline preload="metadata"></video>
+    <div class="player-wrap">
+      <video id="player" controls playsinline preload="metadata"></video>
+      <div class="verdict-reveal" id="verdictReveal" aria-live="polite"></div>
+    </div>
     <div class="clip-note" id="clipNote">
       <strong id="clipNoteTitle"></strong>
       <span id="clipNoteRange" class="mark"></span>
@@ -635,7 +679,73 @@ footer a{color:var(--dim)}
       .then(function(r){ if (!r.ok) throw new Error('link'); return r.json(); });
   }
 
+  // ── Verdict reveal, played when a replay finishes.
+  // Recordings stop at the last speech, so a replay used to end on a
+  // frozen frame of two people who had just stopped talking, with the
+  // verdict nowhere in it. The ballot rides along on the single-recording
+  // read; if the round has one, it plays here.
+  var vrTimer = 0;
+  function hideVerdict(){
+    var el = $('verdictReveal');
+    if (!el) return;
+    el.classList.remove('on');
+    el.innerHTML = '';
+    if (vrTimer){ clearTimeout(vrTimer); vrTimer = 0; }
+  }
+  function esc(t){ var d=document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+  function showVerdict(rec){
+    var el = $('verdictReveal');
+    var b = rec && rec.ballot;
+    if (!el || !b) return;
+    var proName = rec.proName || 'Proposition';
+    var conName = rec.conName || 'Opposition';
+    var winner  = b.winner === 'pro' ? proName : conName;
+    var winSide = b.winner === 'pro' ? 'Proposition' : 'Opposition';
+    var AX = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['persuasion','Persuasion']];
+    var bars = '';
+    if (b.dimensions){
+      for (var i = 0; i < AX.length; i++){
+        var d = b.dimensions[AX[i][0]];
+        if (!d) continue;
+        var pv = Number(d.pro), cv = Number(d.con);
+        if (!isFinite(pv) || !isFinite(cv)) continue;
+        var share = (pv + cv) ? Math.round(pv / (pv + cv) * 100) : 50;
+        bars += '<div class="vr-bar"><i>' + esc(AX[i][1]) + '</i>'
+             +  '<span class="vr-track"><u style="--vw:' + share + '%;animation-delay:' + (1.8 + i * 0.12) + 's"></u></span>'
+             +  '<b>' + esc(pv) + ' &middot; ' + esc(cv) + '</b></div>';
+      }
+    }
+    var pts = '';
+    if (b.proPoints != null || b.conPoints != null){
+      pts = '<div class="vr-points">'
+          + '<div class="vr-pt"><b>' + esc(b.proPoints == null ? '—' : b.proPoints) + '</b><span>' + esc(proName) + '</span></div>'
+          + '<div class="vr-pt"><b>' + esc(b.conPoints == null ? '—' : b.conPoints) + '</b><span>' + esc(conName) + '</span></div>'
+          + '</div>';
+    }
+    el.innerHTML =
+      '<span class="vr-eyebrow">The ballot</span>' +
+      '<h3 class="vr-winner">' + esc(winner) + ' wins</h3>' +
+      '<div class="vr-side">' + esc(winSide) + '</div>' +
+      pts +
+      (bars ? '<div class="vr-bars">' + bars + '</div>' : '') +
+      (b.rfd ? '<p class="vr-rfd">' + esc(b.rfd) + '</p>' : '') +
+      '<div class="vr-acts">' +
+        '<button class="btn" type="button" data-vr="replay">Watch again</button>' +
+        '<button class="btn" type="button" data-vr="close">Dismiss</button>' +
+      '</div>';
+    el.classList.add('on');
+    el.addEventListener('click', function(ev){
+      var t = ev.target.closest && ev.target.closest('[data-vr]');
+      if (!t) return;
+      if (t.getAttribute('data-vr') === 'replay'){
+        hideVerdict();
+        var p = $('player'); p.currentTime = 0; p.play().catch(function(){});
+      } else hideVerdict();
+    });
+  }
+
   function openRecording(rec, clip){
+    hideVerdict();
     current = rec;
     activeClip = clip || null;
     marks = { start: null, end: null };
@@ -657,6 +767,19 @@ footer a{color:var(--dim)}
     var player = $('player');
     player.pause();
     player.removeAttribute('src');
+    // The list shape has no ballot: attaching one per card would be an
+    // extra Firestore read for every card on the page. Pull the full
+    // recording alongside the link so the reveal has something to play.
+    if (!rec.ballot){
+      fetch('/api/recordings?id=' + encodeURIComponent(rec.id))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){
+          if (j && j.recording && j.recording.ballot && current && current.id === rec.id){
+            current.ballot = j.recording.ballot;
+          }
+        })
+        .catch(function(){ /* no verdict card, playback is unaffected */ });
+    }
     fetchLink(rec.id).then(function(l){
       currentLink = l;
       player.src = l.link;
@@ -698,6 +821,7 @@ footer a{color:var(--dim)}
   });
 
   function closePlayer(){
+    hideVerdict();
     $('player').pause();
     $('playerCard').classList.remove('on');
     $('clipsSec').style.display = 'none';
@@ -706,6 +830,14 @@ footer a{color:var(--dim)}
     try { history.replaceState(null, '', '/watch'); } catch(e){}
   }
   $('closePlayer').addEventListener('click', closePlayer);
+  // Registered ONCE here rather than inside openRecording, which would add
+  // a fresh listener every time a replay is opened.
+  $('player').addEventListener('ended', function(){
+    // A clip is a window into a round, not the round, so its end is not
+    // the verdict's cue.
+    if (activeClip) return;
+    if (current && current.ballot) showVerdict(current);
+  });
 
   $('deleteBtn').addEventListener('click', function(){
     if (!current || !auth || !auth.currentUser) return;

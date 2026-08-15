@@ -53,7 +53,31 @@ export default async (req) => {
       return jsonResponse({ link: data.download_link || '', expires: data.expires || 0 }, 200, req);
     }
 
-    return jsonResponse({ recording: publicShape(id, d) }, 200, req);
+    // The ballot rides along on a SINGLE recording read only. The recording
+    // doc does not hold it, but it carries roomName, and the round doc does.
+    // Deliberately not attached to the list response: that would be one
+    // extra Firestore read per card for a verdict nobody has opened yet.
+    const shape = publicShape(id, d);
+    if (d.roomName){
+      try {
+        const rSnap = await db.collection('live_rounds').doc(String(d.roomName)).get();
+        const b = rSnap.exists ? (rSnap.data() || {}).ballot : null;
+        if (b && (b.winner === 'pro' || b.winner === 'con')){
+          shape.ballot = {
+            winner: b.winner,
+            proPoints: Number.isFinite(Number(b.proPoints)) ? Number(b.proPoints) : null,
+            conPoints: Number.isFinite(Number(b.conPoints)) ? Number(b.conPoints) : null,
+            // Bounded: this is a reveal card, not the full ballot page.
+            rfd: String(b.rfd || '').slice(0, 900),
+            dimensions: b.dimensions && typeof b.dimensions === 'object' ? b.dimensions : null,
+          };
+        }
+      } catch (e){
+        // A missing or unreadable round is not a reason to fail playback.
+        console.warn('[recordings] ballot join failed', e && e.message);
+      }
+    }
+    return jsonResponse({ recording: shape }, 200, req);
   }
 
   // Single-field orderBy + in-code publish filter so no composite
