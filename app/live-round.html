@@ -215,8 +215,65 @@ button{font-family:inherit}
 .bar-user-out{padding:4px 8px;background:transparent;color:var(--text-dim);border:none;font-size:.68rem;cursor:pointer;font-family:inherit;letter-spacing:.06em;text-transform:uppercase}
 .bar-user-out:hover{color:var(--text)}
 
-/* Daily.co iframe, fills the call well under the custom broadcast stage. */
+/* Daily.co iframe, fills the call well under the custom broadcast stage.
+   Spectators and the audience-camera path still ride this; seated
+   debaters get the call-object room below instead. */
 .daily-frame{width:100%;height:100%;border:none;background:#000;display:block}
+/* ── Call-object room (seated debaters). Our own tiles and tray, because
+   Daily Prebuilt cannot publish the avatar canvas: a MediaStreamTrack
+   does not survive the cross-origin iframe boundary. See CUSTOM_TRACK_OK. */
+.cv-room{position:absolute;inset:0;display:flex;flex-direction:column;background:#050506;color:#fff}
+.cv-stage{flex:1;min-height:0;display:grid;gap:8px;padding:8px;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+.cv-stage[data-n="1"]{grid-auto-flow:row}
+.cv-stage[data-n="3"],.cv-stage[data-n="4"]{grid-auto-flow:row;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr)}
+.cv-stage.has-screen{grid-auto-flow:row;grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}
+.cv-tile{position:relative;min-width:0;min-height:0;border-radius:14px;overflow:hidden;background:#0b0b0f;border:1px solid rgba(255,255,255,.09)}
+.cv-tile video{width:100%;height:100%;object-fit:cover;display:block;background:#0b0b0f}
+.cv-tile.is-mirror video{transform:scaleX(-1)}
+.cv-tile.is-screen video{object-fit:contain;background:#000}
+.cv-tile.is-speaking{border-color:rgba(239,68,68,.85);box-shadow:0 0 0 2px rgba(239,68,68,.3)}
+.cv-tile.is-dark video{visibility:hidden}
+.cv-off{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0b0b0f}
+.cv-tile.is-dark .cv-off{display:flex}
+.cv-off span{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);font:700 1.3rem/1 Crimson Pro,Georgia,serif;color:rgba(255,255,255,.8)}
+.cv-plate{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:6px;max-width:calc(100% - 16px);
+  padding:4px 9px;border-radius:8px;background:rgba(6,6,9,.72);backdrop-filter:blur(6px);
+  font:650 .74rem/1.2 Crimson Pro,Georgia,serif;color:rgba(255,255,255,.9)}
+.cv-plate b{font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cv-muted{color:#ef4444;font-size:.8rem;line-height:1}
+.cv-aud{flex:0 0 auto;display:flex;gap:6px;padding:0 8px 8px;overflow-x:auto}
+.cv-aud:empty{display:none}
+.cv-aud .cv-tile{flex:0 0 auto;width:104px;height:78px;border-radius:10px}
+.cv-aud .cv-plate{left:5px;bottom:5px;padding:2px 6px;font-size:.62rem}
+.cv-tray{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+  padding:8px 10px;background:rgba(8,8,10,.92);border-top:1px solid rgba(255,255,255,.08)}
+.cv-btn{appearance:none;display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:8px 12px;cursor:pointer;
+  border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:rgba(255,255,255,.86);
+  font:650 .74rem/1 Crimson Pro,Georgia,serif;letter-spacing:.04em}
+.cv-btn:hover{color:#fff;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.1)}
+.cv-btn.is-off{background:rgba(239,68,68,.9);border-color:rgba(239,68,68,.9);color:#fff}
+.cv-btn.is-on{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);color:#fff}
+.cv-btn--leave{margin-left:6px;border-color:rgba(239,68,68,.45);color:#fca5a5}
+.cv-btn--leave:hover{background:rgba(239,68,68,.9);border-color:rgba(239,68,68,.9);color:#fff}
+.cv-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;
+  font:600 .84rem/1.5 Crimson Pro,Georgia,serif;color:rgba(255,255,255,.6);max-width:min(320px,80%)}
+@media (max-width:900px){
+  .cv-stage{grid-auto-flow:row;grid-auto-columns:auto}
+  .cv-stage[data-n="2"]{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}
+  .cv-tray{gap:6px;padding:7px 8px}
+  .cv-btn{min-height:34px;padding:7px 9px;font-size:.68rem}
+}
+/* Docked mini and pop-out are a 240x150 corner console. The tray, the
+   audience strip and the mode bar would eat the picture there, which is
+   the only thing those modes exist to keep on screen. Same reason the
+   stage rail hides in them. */
+body.lr-mini .cv-tray,body.lr-pip .cv-tray,
+body.lr-mini .cv-aud,body.lr-pip .cv-aud,
+body.lr-mini .cam-modes,body.lr-pip .cam-modes{display:none}
+body.lr-mini .cv-stage,body.lr-pip .cv-stage{padding:4px;gap:4px}
+body.lr-mini .cv-tile,body.lr-pip .cv-tile{border-radius:8px}
+body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;left:5px;bottom:5px}
 /* Camera converter pill (seated debaters only): Camera / Avatar / Design / Off.
    Floats over the Daily iframe, same overlay pattern as the mini timer. */
 .cam-modes{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;display:flex;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.16);background:rgba(10,10,14,.85);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.45)}
@@ -4885,32 +4942,30 @@ html.stage-mode .stage-ov{display:block}
   // and the avatar degrades to a mic-driven mouth plus idle sway if the
   // camera or tracker is unavailable.
   var camConv = { cam:null, camP:null, savedVideoId:null, mode:'camera', bar:null, maskAsserted:false, reassertAt:0 };
-  // ── Avatar mode is OFF on this surface, and the reason is structural.
-  // The room runs on Daily PREBUILT (DailyIframe.createFrame), whose call
-  // machine lives inside a cross-origin iframe. daily-js publishes a
-  // custom MediaStreamTrack by stashing it on the PARENT window
-  // (window._daily.instances[id].tracks) and posting the sentinel string
-  // 'daily-custom-track' across the boundary; only a call-object-mode
-  // client, which runs in the same JS context, can resolve that back to
-  // a track. In prebuilt the lookup finds nothing and the iframe falls
-  // back to getUserMedia on the DEVICE camera.
+  // ── Can this room publish the avatar canvas? Only in CALL OBJECT mode.
+  // Daily PREBUILT (createFrame) runs its call machine inside a
+  // cross-origin iframe, and a MediaStreamTrack cannot cross that
+  // boundary. daily-js publishes a custom track by stashing it on the
+  // PARENT window (window._daily.instances[id].tracks) and posting the
+  // sentinel 'daily-custom-track' over postMessage; only a client running
+  // in the same JS context can resolve that back to a track.
   //
-  // Measured 2026-08-15 against a real room: join({videoSource: track})
-  // throws DataCloneError outright, and setInputDevicesAsync({videoSource:
-  // track}) RESOLVES successfully ({camera:{},mic:{},speaker:{}}) and then
-  // the iframe re-acquires the device camera. So the promise looked
-  // healthy, markCamMode('avatar') ran, the self-check tile rendered the
-  // mask, and the room received the debater's actual face under an Avatar
-  // label. A privacy promise this page makes in a toast ("the room sees
-  // only the animated mask, never your camera") was inverted.
+  // Measured 2026-08-15 against a real room, on prebuilt:
+  //   join({videoSource: track})              -> DataCloneError
+  //   setInputDevicesAsync({videoSource: t})  -> RESOLVES, then the
+  //     iframe calls getUserMedia and publishes the DEVICE camera.
+  // The resolve is what made it invisible: the publish looked healthy,
+  // markCamMode('avatar') ran, the self-check tile drew the mask, and the
+  // room received the debater's actual face under an Avatar label. That
+  // inverted the promise this page makes in a toast. Prebuilt also
+  // withholds the local track object from the parent, so there is no
+  // post-hoc check that would have caught it either.
   //
-  // There is no runtime check that saves this: prebuilt withholds the
-  // local track object from the parent, so the publish cannot be
-  // verified after the fact either. Until the seated path moves to
-  // DailyIframe.createCallObject with our own tile UI, Avatar cannot be
-  // honored here, so it is not offered and it never silently degrades to
-  // the raw feed. Flip this to true in the same commit that lands call
-  // object mode; every branch below is already written for it.
+  // So this stays FALSE until mountCallObject actually succeeds, and it
+  // is a var rather than a constant on purpose: a failure there falls
+  // back to the prebuilt iframe, and that fallback must not inherit a
+  // true it cannot honor. While false, Avatar is not offered and every
+  // route into it lands on camera off rather than on the raw feed.
   var CUSTOM_TRACK_OK = false;
   function seatLabel(){
     var s = (state.mySideHint || '').toUpperCase().slice(0,3);
@@ -4967,7 +5022,14 @@ html.stage-mode .stage-ov{display:block}
   // Self-check tile: shows the published avatar canvas to its owner while
   // Avatar mode is on. The canvas element IS the captureStream source, so
   // what renders here is pixel-identical to what the room receives.
+  //
+  // It exists because the PREBUILT self tile could show the raw camera
+  // while the bar said Avatar. In call object mode the local tile renders
+  // the published track itself, so this would be a second copy of the
+  // same pixels sitting on top of the first one's nameplate. There the
+  // local tile carries the "what the room sees" label instead.
   function showSelfPip(){
+    if (CUSTOM_TRACK_OK){ paintRoom(); return; }
     var cam = camConv.cam;
     var shell = $('callShell') || $('jitsiPane');
     if (!shell || !cam || !cam.canvas) return;
@@ -5121,32 +5183,11 @@ html.stage-mode .stage-ov{display:block}
     });
     (anchor && anchor.parentNode ? anchor.parentNode : ($('callShell') || $('jitsiPane'))).appendChild(sheet);
   }
-  // Publish the parent-owned camera pipeline as soon as the wrapper
-  // joins, so the outgoing feed is guarded from the first frame. If
-  // getUserMedia fails here (parent-origin permission denied), Daily's
-  // internal camera keeps working exactly as before — just unguarded.
-  function unifyCameraPipeline(){
-    if (camConv.unified || !window.DebateCam || !state.dailyFrame) return;
-    camConv.unified = true;
-    ensureAvatarCam('camera').then(function(c){
-      var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
-      if (!hasVideo || camConv.mode !== 'camera') return;
-      // Without custom-track support the publish is a no-op that makes
-      // the iframe drop and re-acquire the device camera, so skip it.
-      // The parent capture still runs: it feeds the NSFW watchdog and
-      // the room still, both of which read the same physical camera the
-      // room is receiving.
-      if (!CUSTOM_TRACK_OK){ startRoomShots(); return; }
-      return state.dailyFrame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
-        state.dailyFrame.setLocalVideo(true);
-        startRoomShots();
-        try { gtag('event', 'live_round_cam_unified'); } catch(e){}
-      });
-    }).catch(function(e){
-      camConv.unified = false;
-      console.warn('[cam-unify]', e);
-    });
-  }
+  // NOTE: the old unifyCameraPipeline() lived here. It published the
+  // parent-owned canvas AFTER the wrapper joined, which was the only
+  // option while the room ran on the prebuilt iframe. joinRoomCall() now
+  // hands the canvas to join() itself, so there is no window in which
+  // Daily owns a camera of its own and nothing to unify afterwards.
   // ── Room still. A public round with a camera on posts a 320x180 frame
   // every 25s so the homepage live strip can show the actual room
   // instead of a text card. The source is camConv.cam.canvas — the exact
@@ -5332,6 +5373,409 @@ html.stage-mode .stage-ov{display:block}
     markCamMode('camera');
   }
 
+  // ── The room, rendered by us (call object mode) ────────────────────
+  // Seated debaters run DailyIframe.createCallObject instead of the
+  // prebuilt iframe, because the prebuilt call machine is cross-origin
+  // and a MediaStreamTrack cannot reach it (see CUSTOM_TRACK_OK). In
+  // call object mode the call machine runs in THIS window, so the avatar
+  // canvas publishes for real, the NSFW watchdog reads the feed the room
+  // actually receives, and local track objects are readable so a publish
+  // can be verified rather than assumed.
+  //
+  // The cost is that Daily's tiles and control tray are ours to build.
+  // That is what this block is: a tile per participant, a screen-share
+  // tile when someone shares, an audience strip for camera spectators,
+  // and a tray with mic, camera flip, screen share and leave. Camera /
+  // Avatar / Off stay on the existing cam-modes bar over the top.
+  //
+  // Spectators and the audience-camera path deliberately still ride the
+  // prebuilt iframe further down: neither publishes a custom track, so
+  // neither is blocked, and leaving them alone keeps this change to the
+  // one surface that needed it.
+  var room = {
+    call:null, wrap:null, stage:null, aud:null, tray:null, note:null,
+    audioHost:null, tiles:{}, audios:{}, active:'', joined:false,
+    micOn:true, sharing:false, canFlip:false, facing:'user',
+  };
+
+  function setRoomNote(msg){
+    if (!room.note) return;
+    room.note.textContent = msg || '';
+    room.note.style.display = msg ? '' : 'none';
+  }
+  function isAudienceName(n){ return String(n || '').indexOf('Audience · ') === 0; }
+  function myRoomName(){
+    try {
+      var n = state.user ? publicNameOf(state.user) : '';
+      if (n) return String(n).slice(0, 40);
+    } catch(e){}
+    var seat = (state.mySideHint === 'con') ? state.conName : state.proName;
+    return String(seat || 'Debater').slice(0, 40) || 'Debater';
+  }
+  function trackOf(slot){
+    if (!slot || slot.state !== 'playable') return null;
+    return slot.persistentTrack || slot.track || null;
+  }
+  // Assign only when the underlying track actually changed. Re-setting
+  // srcObject on every repaint restarts decode and makes the tile blink
+  // on every participant-updated event, which fire several a second.
+  function attachTrack(el, track){
+    if (!track){
+      if (el.srcObject) el.srcObject = null;
+      return;
+    }
+    var cur = el.srcObject && el.srcObject.getTracks && el.srcObject.getTracks()[0];
+    if (cur && cur.id === track.id) return;
+    el.srcObject = new MediaStream([track]);
+    var p = el.play && el.play();
+    if (p && p.catch) p.catch(function(){});
+  }
+  function buildRoomUI(shell){
+    if (room.wrap) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'cv-room';
+    var stage = document.createElement('div');
+    stage.className = 'cv-stage';
+    var aud = document.createElement('div');
+    aud.className = 'cv-aud';
+    aud.setAttribute('aria-label', 'Audience cameras');
+    var note = document.createElement('div');
+    note.className = 'cv-note';
+    var tray = document.createElement('div');
+    tray.className = 'cv-tray';
+    tray.setAttribute('role', 'group');
+    tray.setAttribute('aria-label', 'Room controls');
+    var audioHost = document.createElement('div');
+    audioHost.style.display = 'none';
+    wrap.appendChild(stage); wrap.appendChild(aud); wrap.appendChild(note); wrap.appendChild(tray);
+    wrap.appendChild(audioHost);
+    shell.appendChild(wrap);
+    room.wrap = wrap; room.stage = stage; room.aud = aud; room.note = note;
+    room.tray = tray; room.audioHost = audioHost;
+    buildTray();
+    setRoomNote('Connecting to the video room.');
+  }
+  function trayBtn(id, label, title){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'cv-btn'; b.id = id;
+    b.textContent = label;
+    if (title) b.title = title;
+    room.tray.appendChild(b);
+    return b;
+  }
+  function buildTray(){
+    var mic = trayBtn('cvMic', 'Mute', 'Mute or unmute your microphone');
+    mic.addEventListener('click', function(){
+      room.micOn = !room.micOn;
+      try { room.call && room.call.setLocalAudio(room.micOn); } catch(e){}
+      paintTray();
+    });
+    var flip = trayBtn('cvFlip', 'Flip camera', 'Switch between the front and rear camera');
+    flip.style.display = 'none';
+    flip.addEventListener('click', flipCamera);
+    var share = trayBtn('cvShare', 'Share screen', 'Share your screen with the room');
+    share.addEventListener('click', function(){
+      var call = room.call; if (!call) return;
+      try {
+        if (room.sharing) call.stopScreenShare();
+        else call.startScreenShare();
+      } catch(e){ toast('Screen sharing is unavailable in this browser'); }
+    });
+    var leave = trayBtn('cvLeave', 'Leave', 'Leave the video room');
+    leave.className = 'cv-btn cv-btn--leave';
+    leave.addEventListener('click', function(){
+      var call = room.call; if (!call) return;
+      if (room.joined){
+        try { call.leave(); } catch(e){}
+      } else {
+        joinRoomCall();
+      }
+    });
+    // The flip button only earns its place on a device with more than one
+    // camera, which in practice means a phone. Enumerating needs no
+    // permission for the COUNT, only for the labels.
+    try {
+      navigator.mediaDevices.enumerateDevices().then(function(list){
+        var cams = list.filter(function(d){ return d.kind === 'videoinput'; });
+        room.canFlip = cams.length > 1;
+        paintTray();
+      }).catch(function(){});
+    } catch(e){}
+    paintTray();
+  }
+  function paintTray(){
+    var mic = document.getElementById('cvMic');
+    if (mic){
+      mic.textContent = room.micOn ? 'Mute' : 'Unmute';
+      mic.classList.toggle('is-off', !room.micOn);
+    }
+    var flip = document.getElementById('cvFlip');
+    if (flip) flip.style.display = room.canFlip ? '' : 'none';
+    var share = document.getElementById('cvShare');
+    if (share){
+      share.textContent = room.sharing ? 'Stop sharing' : 'Share screen';
+      share.classList.toggle('is-on', room.sharing);
+    }
+    var leave = document.getElementById('cvLeave');
+    if (leave) leave.textContent = room.joined ? 'Leave' : 'Rejoin';
+  }
+  function dropTile(key){
+    var t = room.tiles[key];
+    if (!t) return;
+    try { t.video.srcObject = null; } catch(e){}
+    try { t.el.remove(); } catch(e){}
+    delete room.tiles[key];
+  }
+  function ensureTile(host, key, local){
+    var t = room.tiles[key];
+    if (!t){
+      var el = document.createElement('div');
+      el.className = 'cv-tile';
+      var v = document.createElement('video');
+      v.autoplay = true; v.muted = !!local; v.playsInline = true;
+      v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+      var off = document.createElement('div');
+      off.className = 'cv-off';
+      var initial = document.createElement('span');
+      off.appendChild(initial);
+      var plate = document.createElement('div');
+      plate.className = 'cv-plate';
+      var nm = document.createElement('b');
+      var mu = document.createElement('i');
+      mu.className = 'cv-muted'; mu.textContent = 'muted'; mu.style.display = 'none';
+      plate.appendChild(nm); plate.appendChild(mu);
+      el.appendChild(v); el.appendChild(off); el.appendChild(plate);
+      t = room.tiles[key] = { el:el, video:v, name:nm, muted:mu, initial:initial };
+    }
+    if (t.el.parentNode !== host) host.appendChild(t.el);
+    return t;
+  }
+  function paintTile(t, p, opts){
+    var name = (opts.screen ? 'Screen · ' : '') + (p.user_name || (p.local ? 'You' : 'Debater'));
+    if (p.local && !opts.screen){
+      name = (p.user_name || 'You') + ' (you)';
+      // This tile renders the track the room is receiving, so in Avatar
+      // mode it is also the proof that the mask is what went out.
+      if (camConv.mode === 'avatar') name += ' · what the room sees';
+    }
+    if (t.name.textContent !== name) t.name.textContent = name;
+    var letter = (String(p.user_name || 'D').trim().charAt(0) || 'D').toUpperCase();
+    if (t.initial.textContent !== letter) t.initial.textContent = letter;
+    var slot = opts.screen ? (p.tracks && p.tracks.screenVideo) : (p.tracks && p.tracks.video);
+    var track = trackOf(slot);
+    attachTrack(t.video, track);
+    t.el.classList.toggle('is-dark', !track);
+    t.el.classList.toggle('is-screen', !!opts.screen);
+    t.el.classList.toggle('is-speaking', !opts.screen && !!room.active && room.active === p.session_id);
+    // The local tile mirrors in camera mode because a self-view that does
+    // not mirror reads as someone else. The avatar canvas carries baked
+    // text, so mirroring it would render that text backwards.
+    t.el.classList.toggle('is-mirror', !!p.local && !opts.screen && camConv.mode === 'camera');
+    var muted = !opts.screen && !p.local && !trackOf(p.tracks && p.tracks.audio);
+    t.muted.style.display = muted ? '' : 'none';
+  }
+  // Remote audio is ours to play in call object mode; the prebuilt UI used
+  // to do it. The local participant is deliberately never given an audio
+  // element, which is the whole reason this room does not echo.
+  function paintAudio(list){
+    var seen = {};
+    list.forEach(function(p){
+      if (p.local) return;
+      var track = trackOf(p.tracks && p.tracks.audio);
+      if (!track) return;
+      seen[p.session_id] = true;
+      var a = room.audios[p.session_id];
+      if (!a){
+        a = document.createElement('audio');
+        a.autoplay = true; a.playsInline = true;
+        a.setAttribute('playsinline', '');
+        room.audioHost.appendChild(a);
+        room.audios[p.session_id] = a;
+      }
+      attachTrack(a, track);
+    });
+    Object.keys(room.audios).forEach(function(sid){
+      if (seen[sid]) return;
+      try { room.audios[sid].srcObject = null; room.audios[sid].remove(); } catch(e){}
+      delete room.audios[sid];
+    });
+  }
+  function paintRoom(){
+    var call = room.call;
+    if (!call || !room.stage) return;
+    var ps;
+    try { ps = call.participants() || {}; } catch(e){ return; }
+    var list = [], seats = [], auds = [], screens = [];
+    Object.keys(ps).forEach(function(k){
+      var p = ps[k];
+      if (!p || !p.session_id) return;
+      list.push(p);
+      if (isAudienceName(p.user_name)) auds.push(p); else seats.push(p);
+      if (trackOf(p.tracks && p.tracks.screenVideo)) screens.push(p);
+    });
+    // Local last so the opponent holds the first, largest cell.
+    seats.sort(function(a, b){
+      if (!!a.local !== !!b.local) return a.local ? 1 : -1;
+      return String(a.session_id) < String(b.session_id) ? -1 : 1;
+    });
+    var keep = {};
+    screens.forEach(function(p){
+      var key = 'screen:' + p.session_id;
+      keep[key] = true;
+      paintTile(ensureTile(room.stage, key, p.local), p, { screen:true });
+    });
+    seats.forEach(function(p){
+      var key = 'seat:' + p.session_id;
+      keep[key] = true;
+      paintTile(ensureTile(room.stage, key, p.local), p, {});
+    });
+    auds.forEach(function(p){
+      var key = 'aud:' + p.session_id;
+      keep[key] = true;
+      paintTile(ensureTile(room.aud, key, p.local), p, {});
+    });
+    Object.keys(room.tiles).forEach(function(key){ if (!keep[key]) dropTile(key); });
+    room.stage.setAttribute('data-n', String(seats.length + screens.length));
+    room.stage.classList.toggle('has-screen', screens.length > 0);
+    paintAudio(list);
+    var local = ps.local;
+    room.sharing = !!(local && trackOf(local.tracks && local.tracks.screenVideo));
+    if (local && local.tracks && local.tracks.audio) room.micOn = local.audio !== false;
+    paintTray();
+    if (room.joined) setRoomNote(seats.length > 1 ? '' : 'Waiting for the other debater to join.');
+  }
+  // Front/rear switch. The published track is the DebateCam canvas, so a
+  // flip cannot go through Daily's device picker: it has to rebuild the
+  // pipeline on the other camera and republish. Everything downstream
+  // reads camConv.cam through a getter, so the watchdog, the self-check
+  // tile and the room still all follow the new canvas.
+  function flipCamera(){
+    if (!CUSTOM_TRACK_OK || !window.DebateCam || !state.dailyFrame) return;
+    var btn = document.getElementById('cvFlip');
+    if (btn) btn.disabled = true;
+    var want = room.facing === 'user' ? 'environment' : 'user';
+    var mode = camConv.mode === 'avatar' ? 'avatar' : 'camera';
+    var old = camConv.cam;
+    navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, facingMode: { ideal: want } } })
+      .then(function(ms){ return window.DebateCam.start(ms, { mode: mode, label: seatLabel() }); })
+      .then(function(c){
+        camConv.cam = c;
+        camConv.camP = Promise.resolve(c);
+        room.facing = want;
+        return state.dailyFrame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
+          if (camConv.mode !== 'off') state.dailyFrame.setLocalVideo(true);
+          if (camConv.mode === 'avatar') showSelfPip();
+          if (old && old !== c) try { old.stop(); } catch(e){}
+          paintRoom();
+        });
+      })
+      .catch(function(e){
+        console.warn('[flip camera]', e);
+        toast('Could not switch cameras');
+      })
+      .then(function(){ if (btn) btn.disabled = false; });
+  }
+  function joinWith(videoSource){
+    // The token key is OMITTED rather than set to undefined when there is
+    // none: daily-js validates on the key's presence, so `token:undefined`
+    // fails with "token should be a string" and takes the whole join with
+    // it. Tokenless joins are a real case (create-daily-room returns no
+    // token when Firebase is unreachable), so this is not hypothetical.
+    var props = {
+      url: state.dailyUrl,
+      userName: myRoomName(),
+      videoSource: videoSource,
+    };
+    if (typeof room.token === 'string' && room.token) props.token = room.token;
+    return room.call.join(props).catch(function(e){
+      console.warn('[Daily join]', e);
+      setRoomNote('Could not join the video room. Press Rejoin to try again.');
+      room.joined = false;
+      paintTray();
+    });
+  }
+  function joinRoomCall(){
+    if (!room.call || room.joined) return;
+    setRoomNote('Connecting to the video room.');
+    // ONE camera capture for the whole page. Starting the canvas pipeline
+    // BEFORE joining means Daily is handed the canvas as its video source
+    // from the first frame and never acquires a device camera of its own.
+    // Under prebuilt there were always two captures of the same camera,
+    // the iframe's and the parent's, which phones do not reliably allow.
+    // It also means the safety watchdog is reading the exact feed the
+    // room receives from the first frame rather than from a moment later.
+    camConv.unified = true;
+    ensureAvatarCam('camera')
+      .then(function(c){
+        var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
+        return joinWith(hasVideo ? c.videoTrack : false);
+      })
+      .catch(function(e){
+        // No camera, or permission denied. Joining audio-only is the
+        // right outcome; the round does not need a picture to run.
+        console.warn('[cam pipeline]', e);
+        camConv.unified = false;
+        return joinWith(false);
+      });
+  }
+  function teardownRoom(){
+    Object.keys(room.tiles).forEach(dropTile);
+    Object.keys(room.audios).forEach(function(sid){
+      try { room.audios[sid].srcObject = null; room.audios[sid].remove(); } catch(e){}
+      delete room.audios[sid];
+    });
+    room.joined = false;
+  }
+  function mountCallObject(shell, token){
+    var call = window.DailyIframe.createCallObject({ subscribeToTracksAutomatically: true });
+    room.call = call;
+    room.token = token || '';
+    state.dailyFrame = call;
+    // The link interceptor and the pop-out guard both read this. It stays
+    // true for the call object: there is no iframe to look for, and
+    // reparenting the pane into a Document PiP window would move every
+    // <video> across documents mid-round.
+    window.__lrDailyWrapper = true;
+    buildRoomUI(shell);
+    call.on('joined-meeting', function(){
+      room.joined = true;
+      paintTray();
+      setRoomNote('');
+      // The canvas track went in with join(), so there is nothing to
+      // publish here. A camera on stage means the room still has a
+      // picture worth posting to the homepage strip.
+      if (camConv.cam) startRoomShots();
+      try { gtag('event', 'live_round_cam_unified'); } catch(e){}
+      paintRoom();
+    });
+    call.on('participant-joined', paintRoom);
+    call.on('participant-updated', function(ev){ paintRoom(); reassertMask(ev); });
+    call.on('participant-left', paintRoom);
+    call.on('track-started', paintRoom);
+    call.on('track-stopped', paintRoom);
+    call.on('active-speaker-change', function(ev){
+      room.active = (ev && ev.activeSpeaker && ev.activeSpeaker.peerId) || '';
+      paintRoom();
+    });
+    call.on('camera-error', function(ev){ console.warn('[Daily camera]', ev && ev.errorMsg); });
+    call.on('error', function(ev){
+      console.warn('[Daily]', ev);
+      setRoomNote('The video room dropped. Press Rejoin to reconnect.');
+      room.joined = false;
+      paintTray();
+    });
+    call.on('left-meeting', function(){
+      room.joined = false;
+      teardownRoom();
+      teardownCamPipeline();
+      setRoomNote('You left the video room.');
+      paintTray();
+    });
+    wireAudienceReceiveSettings(call);
+    joinRoomCall();
+    return call;
+  }
+
   function mountDaily(){
     if (state.dailyMounted) return;
     updateRoomStage();
@@ -5376,31 +5820,28 @@ html.stage-mode .stage-ov{display:block}
         if (res.body.token){
           url += (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(res.body.token);
         }
-        // Seated debaters get the daily-js wrapper (same prebuilt UI in
-        // the same slot) so the Camera / Avatar / Off converter can
-        // publish a custom track. Spectators and any wrapper failure
-        // fall through to the plain iframe below, which behaves exactly
-        // as before.
-        if (!isSpectator() && window.DailyIframe){
+        // Seated debaters get the CALL OBJECT and our own tiles, because
+        // the prebuilt iframe cannot publish the avatar canvas. Spectators
+        // and any failure here fall through to the plain iframe below,
+        // which behaves exactly as before (and never needed a custom
+        // track). CUSTOM_TRACK_OK is flipped only on this path, so a
+        // fallback to prebuilt cannot resurrect the silent camera leak.
+        if (!isSpectator() && window.DailyIframe && window.DailyIframe.createCallObject){
           try {
-            var frame = window.DailyIframe.createFrame(shell, {
-              showLeaveButton: true,
-              iframeStyle: { width:'100%', height:'100%', border:'0', background:'#000', position:'absolute', top:'0', left:'0' }
-            });
-            state.dailyFrame = frame;
-            window.__lrDailyWrapper = true; // pop-out must not adopt this iframe (see enterPip)
-            frame.on('joined-meeting', function(){ unifyCameraPipeline(); });
-            frame.on('participant-updated', reassertMask);
-            frame.on('left-meeting', teardownCamPipeline);
-            wireAudienceReceiveSettings(frame);
-            frame.join({ url: url });
+            CUSTOM_TRACK_OK = true;
+            mountCallObject(shell, res.body.token);
             buildCamModes(shell);
             state.dailyMounted = true;
             updateRoomStage();
-            try { gtag('event', 'live_round_daily_mount', { wrapper: 1 }); } catch(e){}
+            try { gtag('event', 'live_round_daily_mount', { wrapper: 2 }); } catch(e){}
             return;
           } catch(e){
-            console.warn('[Daily] createFrame failed, falling back to plain iframe', e);
+            CUSTOM_TRACK_OK = false;
+            if (room.wrap){ try { room.wrap.remove(); } catch(e2){} room.wrap = null; room.stage = null; }
+            room.call = null;
+            state.dailyFrame = null;
+            window.__lrDailyWrapper = false;
+            console.warn('[Daily] createCallObject failed, falling back to plain iframe', e);
           }
         }
         var iframe = document.createElement('iframe');
