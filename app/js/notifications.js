@@ -11,7 +11,8 @@
  *      (shared topbar pages).
  *   2. .bar-links        → inserted before the bar CTA (custom-bar
  *      pages like /leaderboard).
- *   3. floating          → fixed top-right chip when no known bar
+ *   3. nav.bar .bar-meta → inserted after Back to board on /live-round.
+ *   4. floating          → fixed top-right chip when no known bar
  *      exists (in-round pages with bespoke chrome).
  *
  * Data model (matches /spar's existing DM system):
@@ -311,6 +312,7 @@
     if (document.getElementById('da-bell-styles')) return;
     var css =
       '.ui-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;margin-right:6px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;transition:color .15s,border-color .15s,background .15s;font-family:inherit}' +
+      '.ui-bell--round{flex:0 0 auto;margin-right:0}' +
       '.ui-bell:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
       '.ui-bell.has-unread{color:var(--accent,#ef4444);border-color:var(--accent,#ef4444)}' +
       '.ui-bell--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:16px;z-index:99996;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
@@ -430,6 +432,16 @@
       if (barLinks) {
         var cta = barLinks.querySelector('.bar-cta');
         barLinks.insertBefore(bell, cta || barLinks.firstChild);
+        return true;
+      }
+      // /live-round has bespoke chrome rather than the shared topbar. Its
+      // old floating fallback sat directly over the Back to board link on
+      // narrow screens. Keep the bell in the row so flexbox reserves its
+      // width and the unread badge can never cover navigation.
+      var roundMeta = document.querySelector('nav.bar .bar-meta');
+      if (roundMeta) {
+        bell.classList.add('ui-bell--round');
+        roundMeta.appendChild(bell);
         return true;
       }
       return false;
