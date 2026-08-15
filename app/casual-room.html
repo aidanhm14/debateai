@@ -421,6 +421,16 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   var camGuard = null;         // DebateGuard instance
   var camMode = 'camera';
   var modBar = null;
+  // Same structural block as live-round.html: this room runs on Daily
+  // PREBUILT, whose call machine sits in a cross-origin iframe, and a
+  // MediaStreamTrack cannot cross that boundary. daily-js posts the
+  // sentinel 'daily-custom-track' and the iframe, unable to resolve it
+  // against the parent's shared-track map, falls back to the DEVICE
+  // camera. Measured 2026-08-15: setInputDevicesAsync RESOLVES and the
+  // raw feed goes out, so the "never leaks camera pixels" comment above
+  // was false and Avatar mode published the debater's face. Not offered
+  // until the room moves to createCallObject; see live-round.html.
+  var CUSTOM_TRACK_OK = false;
 
   function localSessionId(){
     try {
@@ -438,6 +448,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       })
       .then(function(c){
         cam = c;
+        // The parent capture still runs so the NSFW watchdog has a feed
+        // to read; only the publish is skipped, because it is a no-op
+        // that makes the iframe re-acquire the device camera.
+        if (!CUSTOM_TRACK_OK){ buildModBar(false); startGuard(); return; }
         return callFrame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
           callFrame.setLocalVideo(true);
           buildModBar(false);
@@ -456,11 +470,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     modBar = document.createElement('div');
     modBar.className = 'cam-modes';
     modBar.innerHTML = noConverter
-      ? (window.DebateCam && window.DebateCam.openDesigner ? '<button type="button" data-m="design" title="Design your avatar">Design</button>' : '') +
+      ? (CUSTOM_TRACK_OK && window.DebateCam && window.DebateCam.openDesigner ? '<button type="button" data-m="design" title="Design your avatar">Design</button>' : '') +
         '<button type="button" class="report" data-m="report">⚑ Report</button>'
       : '<button type="button" data-m="camera" class="on">Camera</button>' +
-        '<button type="button" data-m="avatar">Avatar</button>' +
-        '<button type="button" data-m="design" title="Design your avatar">Design</button>' +
+        (CUSTOM_TRACK_OK
+          ? '<button type="button" data-m="avatar">Avatar</button>' +
+            '<button type="button" data-m="design" title="Design your avatar">Design</button>'
+          : '') +
         '<button type="button" data-m="off">Off</button>' +
         '<button type="button" class="report" data-m="report">⚑ Report</button>';
     modBar.addEventListener('click', function(ev){
@@ -481,6 +497,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
   function setCamMode(m){
     if (!cam || !callFrame || m === camMode) return;
+    // Fail closed: the mask cannot be published here, and someone asking
+    // to be anonymous gets camera off rather than camera on.
+    if (m === 'avatar' && !CUSTOM_TRACK_OK) m = 'off';
     camMode = m;
     if (m === 'off'){
       cam.setMode('off');
@@ -492,15 +511,17 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       // publish, and Avatar must never ride on top of a raw feed. In
       // Avatar mode a failed push fails CLOSED (camera off), never the
       // raw camera under an Avatar label.
-      callFrame.setInputDevicesAsync({ videoSource: cam.videoTrack }).then(function(){
-        if (camMode === m) maskAsserted = true;
-      }).catch(function(e){
-        console.warn('[cam-mode publish]', e);
-        if (m === 'avatar' && camMode === 'avatar'){
-          try { callFrame.setLocalVideo(false); } catch(e2){}
-          setCamMode('off');
-        }
-      });
+      if (CUSTOM_TRACK_OK){
+        callFrame.setInputDevicesAsync({ videoSource: cam.videoTrack }).then(function(){
+          if (camMode === m) maskAsserted = true;
+        }).catch(function(e){
+          console.warn('[cam-mode publish]', e);
+          if (m === 'avatar' && camMode === 'avatar'){
+            try { callFrame.setLocalVideo(false); } catch(e2){}
+            setCamMode('off');
+          }
+        });
+      }
       callFrame.setLocalVideo(true);
     }
     if (modBar) Array.prototype.forEach.call(modBar.querySelectorAll('button'), function(b){

@@ -4885,6 +4885,33 @@ html.stage-mode .stage-ov{display:block}
   // and the avatar degrades to a mic-driven mouth plus idle sway if the
   // camera or tracker is unavailable.
   var camConv = { cam:null, camP:null, savedVideoId:null, mode:'camera', bar:null, maskAsserted:false, reassertAt:0 };
+  // ── Avatar mode is OFF on this surface, and the reason is structural.
+  // The room runs on Daily PREBUILT (DailyIframe.createFrame), whose call
+  // machine lives inside a cross-origin iframe. daily-js publishes a
+  // custom MediaStreamTrack by stashing it on the PARENT window
+  // (window._daily.instances[id].tracks) and posting the sentinel string
+  // 'daily-custom-track' across the boundary; only a call-object-mode
+  // client, which runs in the same JS context, can resolve that back to
+  // a track. In prebuilt the lookup finds nothing and the iframe falls
+  // back to getUserMedia on the DEVICE camera.
+  //
+  // Measured 2026-08-15 against a real room: join({videoSource: track})
+  // throws DataCloneError outright, and setInputDevicesAsync({videoSource:
+  // track}) RESOLVES successfully ({camera:{},mic:{},speaker:{}}) and then
+  // the iframe re-acquires the device camera. So the promise looked
+  // healthy, markCamMode('avatar') ran, the self-check tile rendered the
+  // mask, and the room received the debater's actual face under an Avatar
+  // label. A privacy promise this page makes in a toast ("the room sees
+  // only the animated mask, never your camera") was inverted.
+  //
+  // There is no runtime check that saves this: prebuilt withholds the
+  // local track object from the parent, so the publish cannot be
+  // verified after the fact either. Until the seated path moves to
+  // DailyIframe.createCallObject with our own tile UI, Avatar cannot be
+  // honored here, so it is not offered and it never silently degrades to
+  // the raw feed. Flip this to true in the same commit that lands call
+  // object mode; every branch below is already written for it.
+  var CUSTOM_TRACK_OK = false;
   function seatLabel(){
     var s = (state.mySideHint || '').toUpperCase().slice(0,3);
     return s || 'ANON';
@@ -4897,8 +4924,10 @@ html.stage-mode .stage-ov{display:block}
     bar.setAttribute('aria-label', 'Your camera mode');
     bar.innerHTML =
       '<button type="button" data-m="camera" class="on">Camera</button>' +
-      '<button type="button" data-m="avatar">Avatar</button>' +
-      '<button type="button" data-m="design" title="Design your avatar">Design</button>' +
+      (CUSTOM_TRACK_OK
+        ? '<button type="button" data-m="avatar">Avatar</button>' +
+          '<button type="button" data-m="design" title="Design your avatar">Design</button>'
+        : '') +
       '<button type="button" data-m="off">Off</button>' +
       '<button type="button" data-m="report" title="Report a debater">⚑ Report</button>';
     bar.addEventListener('click', function(ev){
@@ -5102,6 +5131,12 @@ html.stage-mode .stage-ov{display:block}
     ensureAvatarCam('camera').then(function(c){
       var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
       if (!hasVideo || camConv.mode !== 'camera') return;
+      // Without custom-track support the publish is a no-op that makes
+      // the iframe drop and re-acquire the device camera, so skip it.
+      // The parent capture still runs: it feeds the NSFW watchdog and
+      // the room still, both of which read the same physical camera the
+      // room is receiving.
+      if (!CUSTOM_TRACK_OK){ startRoomShots(); return; }
       return state.dailyFrame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
         state.dailyFrame.setLocalVideo(true);
         startRoomShots();
@@ -5173,6 +5208,17 @@ html.stage-mode .stage-ov{display:block}
     var frame = state.dailyFrame;
     if (!frame || m === camConv.mode) return;
     if (m === 'avatar'){
+      // Fail CLOSED, never open. The mask cannot be published on this
+      // surface (see CUSTOM_TRACK_OK), and the honest state for someone
+      // asking to be anonymous is camera off, not camera on.
+      if (!CUSTOM_TRACK_OK){
+        if (camConv.cam) try { camConv.cam.setMode('off'); } catch(e){}
+        try { frame.setLocalVideo(false); } catch(e){}
+        markCamMode('off');
+        hideSelfPip();
+        toast('Avatar mode is off while the room is rebuilt to carry it. Your camera is off, so nothing is being sent.');
+        return;
+      }
       if (!window.DebateCam){ toast('Avatar mode is still loading, try again in a second'); return; }
       frame.getInputDevices().then(function(d){
         if (d && d.camera && d.camera.deviceId) camConv.savedVideoId = d.camera.deviceId;
@@ -5201,7 +5247,7 @@ html.stage-mode .stage-ov{display:block}
       // Preferred: passthrough through the parent-owned canvas so the
       // safety watchdog sees what the room sees. Fall back to Daily's
       // internal device restore if the pipeline is unavailable.
-      if (window.DebateCam && (camConv.cam || camConv.unified !== false)){
+      if (CUSTOM_TRACK_OK && window.DebateCam && (camConv.cam || camConv.unified !== false)){
         ensureAvatarCam('camera').then(function(c){
           var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
           if (!hasVideo) throw new Error('no parent camera');
