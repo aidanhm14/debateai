@@ -4615,12 +4615,21 @@ html.stage-mode .stage-ov{display:block}
   }
   function micWatch(){
     if (!state.micActive) return;
-    // The engine ended and did not come back: re-arm it.
-    if (!mic.running){ micRestart(); return; }
+    // Both engines can stop without saying so, and they stop differently,
+    // so the liveness half branches while the silence half does not.
+    if ((state.micSupport && state.micSupport.engine) === 'server'){
+      // The recorder should always be either recording or between
+      // segments. Parked in neither state means the segment loop died.
+      if (srv.on && srv.stream && (!srv.rec || srv.rec.state === 'inactive')) srvSegment();
+    } else {
+      if (!mic.running){ micRestart(); return; }
+    }
     var quiet = Date.now() - (mic.lastAt || mic.startedAt || Date.now());
-    if (!mic.everHeard && quiet > 18000){
-      // Running, permitted, and has never returned a single word. This
-      // is the case that used to look identical to working.
+    // Running, permitted, and has never returned a single word. This is
+    // the case that used to look identical to working. The server engine
+    // gets a longer fuse because its text arrives a segment behind.
+    var deafAfter = (state.micSupport && state.micSupport.engine) === 'server' ? 30000 : 18000;
+    if (!mic.everHeard && quiet > deafAfter){
       micState('deaf', 'Not hearing you');
     } else if (mic.everHeard && quiet > 6000){
       micState('idle', 'Listening');
@@ -4789,10 +4798,17 @@ html.stage-mode .stage-ov{display:block}
         mic.finals = []; mic.offset = 0; state.micFinal = '';
         mic.everHeard = false; mic.startedAt = Date.now(); mic.lastAt = 0;
         srvStart();
+        // The watchdog lives in the browser branch below, which this path
+        // returns before reaching, so it has to be armed here too. Without
+        // it the server engine can go silently dead and say "Listening"
+        // for the whole round, which is the exact failure the state pill
+        // exists to make impossible.
+        if (!mic.timer) mic.timer = setInterval(micWatch, 3000);
         btn.textContent = '⏸ Stop mic';
         btn.classList.add('live');
       } else {
         srvStop();
+        if (mic.timer){ clearInterval(mic.timer); mic.timer = 0; }
         if ($('micState') && $('micState').getAttribute('data-kind') !== 'dead') micState(null);
         btn.textContent = 'Start mic';
         btn.classList.remove('live');
