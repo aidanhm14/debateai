@@ -3981,8 +3981,10 @@ html.stage-mode .stage-ov{display:block}
       var micHint = $('micHint');
       if (micHint){
         micHint.textContent = noMic
-          ? 'Type your speech below. (Mic transcription not available on this browser.)'
-          : 'Live transcribes the active speaker. Edit the text directly anytime.';
+          ? 'Type your speech below. The AI judge reads what you write.'
+          : (state.micSupport.engine === 'server'
+              ? 'Transcribes as you speak, a few seconds behind. Edit the text directly anytime.'
+              : 'Live transcribes the active speaker. Edit the text directly anytime.');
         micHint.style.color = noMic ? '#fbbf24' : '';
         micHint.style.fontWeight = noMic ? '700' : '';
       }
@@ -4367,6 +4369,9 @@ html.stage-mode .stage-ov{display:block}
       sel.classList.toggle('xl', v !== 'en');
       // Rebuild recognition so the new locale takes effect now, not on
       // the next round.
+      if ((state.micSupport && state.micSupport.engine) === 'server'){
+        try { srvStop(); } catch(e){}
+      }
       if (state.recognition){
         var wasOn = state.micActive;
         try { state.recognition.stop(); } catch(e){}
@@ -4478,10 +4483,27 @@ html.stage-mode .stage-ov{display:block}
   // works. We TRY it now and fall back only on a real failure: a
   // recogniser that errors, or one that runs a whole speech and returns
   // nothing. A measured failure is honest; a UA guess was not.
+  // Two engines, and the second one is why this stopped being a Chrome
+  // feature. The Web Speech API is free and instant but it is NOT in
+  // Firefox, it is switched off in Brave, and it is unreliable on iOS,
+  // which is most of the browsers that are not Chrome. Removing the old
+  // user-agent block did nothing for any of them: you cannot un-block
+  // your way into an API the browser does not ship.
+  //
+  // So when it is missing we record with MediaRecorder and POST short
+  // segments to /api/transcribe, the same endpoint /judge already uses
+  // to sit on a table and listen. Slower to appear (one segment at a
+  // time) and it costs about $0.006/minute, but it works in every
+  // browser that can open a microphone at all, which is the bar the AI
+  // judge actually needs: the judge reads the transcript and nothing
+  // else, so a browser with no transcript is a round nobody scored.
   function detectMicSupport(){
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return { available: false, reason: 'no-api' };
-    return { available: true };
+    if (SR) return { available: true, engine: 'browser' };
+    var canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+      && window.MediaRecorder && window.MediaRecorder.isTypeSupported);
+    if (canRecord) return { available: true, engine: 'server' };
+    return { available: false, reason: 'no-api' };
   }
   state.micSupport = detectMicSupport();
 
@@ -4663,8 +4685,120 @@ html.stage-mode .stage-ov{display:block}
     };
     return rec;
   }
+  // ── Server transcription. The fallback engine: record the mic in short
+  // segments and send each one to /api/transcribe. Results land in the
+  // SAME mic.finals array the Web Speech path writes to, indexed by
+  // sequence, so out-of-order responses still render in speech order and
+  // every rule above (full rewrite, user-edit rebaselining, per-speech
+  // reset) applies unchanged.
+  var SEG_MS = 10000;   // shorter than /judge's 25s: a live speech wants text sooner
+  var srv = { stream:null, rec:null, mime:'', seq:0, timer:0, on:false, fails:0 };
+  function srvMime(){
+    var c = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'];
+    for (var i = 0; i < c.length; i++) if (MediaRecorder.isTypeSupported(c[i])) return c[i];
+    return '';
+  }
+  function srvUpload(blob, mySeq, attempt){
+    if (!blob || blob.size < 2048) return;
+    var fd = new FormData();
+    fd.append('audio', blob, 'segment');
+    fd.append('carry', String(state.micFinal || '').slice(-380));
+    fetch('/api/transcribe', { method:'POST', body: fd })
+      .then(function(r){ if (!r.ok) throw new Error('transcribe ' + r.status); return r.json(); })
+      .then(function(d){
+        var txt = (d && d.text) ? String(d.text).trim() : '';
+        mic.finals[mySeq] = txt;
+        if (txt){ mic.everHeard = true; mic.lastAt = Date.now(); }
+        state.micFinal = mic.finals.filter(Boolean).join(' ');
+        srv.fails = 0;
+        micRender('');
+        micState(txt ? 'live' : 'idle', 'Listening');
+      })
+      .catch(function(){
+        if ((attempt || 0) < 1) return srvUpload(blob, mySeq, (attempt || 0) + 1);
+        mic.finals[mySeq] = '';        // a 10s hole beats stalling the speech
+        // Two dead segments with nothing heard yet means the service is
+        // down, not that the room is quiet. Say so while the round can
+        // still be saved by typing.
+        if (++srv.fails >= 2 && !mic.everHeard){
+          micFail('Transcription is not responding. Type the speech instead; the judge reads what you write.');
+        }
+      });
+  }
+  function srvSegment(){
+    if (!srv.on || !srv.stream) return;
+    var chunks = [];
+    try {
+      srv.rec = srv.mime ? new MediaRecorder(srv.stream, { mimeType: srv.mime }) : new MediaRecorder(srv.stream);
+    } catch(e){
+      micFail('This browser will not let us record. Type the speech instead.');
+      return;
+    }
+    var mySeq = mic.offset + (srv.seq++);
+    srv.rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
+    srv.rec.onstop = function(){
+      // Reopen the mic BEFORE uploading, so the gap between segments is
+      // milliseconds rather than a network round trip.
+      if (srv.on) srvSegment();
+      srvUpload(new Blob(chunks, { type: srv.mime || 'audio/webm' }), mySeq, 0);
+    };
+    srv.rec.start();
+    srv.timer = setTimeout(function(){
+      if (srv.rec && srv.rec.state === 'recording') srv.rec.stop();
+    }, SEG_MS);
+  }
+  function srvStart(){
+    if (srv.on) return;
+    srv.on = true;
+    srv.seq = 0;
+    srv.fails = 0;
+    srv.mime = srvMime();
+    micState('idle', 'Starting mic');
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(function(s){
+        if (!srv.on){ try { s.getTracks().forEach(function(t){ t.stop(); }); } catch(e){} return; }
+        srv.stream = s;
+        micState('idle', 'Listening');
+        srvSegment();
+      })
+      .catch(function(){
+        srv.on = false;
+        micFail('Mic blocked. Allow the microphone, or type the speech instead.');
+      });
+  }
+  function srvStop(){
+    srv.on = false;
+    if (srv.timer){ clearTimeout(srv.timer); srv.timer = 0; }
+    try { if (srv.rec && srv.rec.state === 'recording') srv.rec.stop(); } catch(e){}
+    srv.rec = null;
+    if (srv.stream){
+      try { srv.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      srv.stream = null;
+    }
+  }
+
   function setMicActive(on){
     var btn = $('micBtn');
+    var engine = (state.micSupport && state.micSupport.engine) || 'browser';
+    if (engine === 'server'){
+      state.micActive = on;
+      if (on){
+        var taS = $('speechText');
+        mic.base = taS ? taS.value : '';
+        mic.own = mic.base;
+        mic.finals = []; mic.offset = 0; state.micFinal = '';
+        mic.everHeard = false; mic.startedAt = Date.now(); mic.lastAt = 0;
+        srvStart();
+        btn.textContent = '⏸ Stop mic';
+        btn.classList.add('live');
+      } else {
+        srvStop();
+        if ($('micState') && $('micState').getAttribute('data-kind') !== 'dead') micState(null);
+        btn.textContent = 'Start mic';
+        btn.classList.remove('live');
+      }
+      return;
+    }
     if (on && !state.recognition) state.recognition = initRecognition();
     if (on && !state.recognition){
       toast('Mic not supported in this browser. Use Chrome or just type.');
