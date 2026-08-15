@@ -1271,12 +1271,20 @@ h1 em{color:var(--accent);font-style:normal}
    toggles it at every width and the close button always renders. */
 
 /* ── Modal scaffold (post composer + DM thread + inbox) ─── */
+/* z-index 10001 clears every fixed thing this page stacks under a modal:
+   .ui-topbar (1000), the bell toasts + signup pill (9999), and the beta
+   strip (10000). At the old z-index:100 the topbar sat ON TOP of the
+   modal, so on a phone (where the modal is tall enough to reach the top
+   of the screen) the close button and the modal head took no taps at
+   all. Stays below the bell panel (99998), the match overlay (100000)
+   and the auth modal, which all legitimately outrank a DM. */
 .wl-modal-backdrop{
-  position:fixed; inset:0; z-index:100;
+  position:fixed; inset:0; z-index:10001;
   background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
   -webkit-backdrop-filter:blur(4px);
   display:flex; align-items:center; justify-content:center;
   padding:20px;
+  overscroll-behavior:contain;
   animation:wl-fade-in .18s ease;
 }
 @keyframes wl-fade-in{from{opacity:0}to{opacity:1}}
@@ -1284,6 +1292,12 @@ h1 em{color:var(--accent);font-style:normal}
   background:var(--bg-card); border:1px solid var(--border);
   border-radius:18px; box-shadow:var(--shadow-lg);
   width:100%; max-width:480px; max-height:88vh;
+  /* dvh, not vh: on iOS Safari vh resolves against the LARGE viewport
+     (URL bar hidden), so 88vh is taller than what the user can actually
+     see with the bars up. The modal then centres inside a box bigger
+     than the screen and pushes its own header and footer off both ends,
+     which is what made Send and the close button unpressable. */
+  max-height:88dvh;
   display:flex; flex-direction:column; overflow:hidden;
 }
 .wl-modal__head{
@@ -1499,6 +1513,64 @@ h1 em{color:var(--accent);font-style:normal}
   content:''; width:7px; height:7px; border-radius:50%;
   background:var(--accent); flex-shrink:0;
 }
+
+/* ── Modals on a phone (2026-08-15) ───────────────────────
+   The wl-* modals (DM thread, inbox, new group) shipped with desktop-only
+   sizing and no mobile query at all, which made them close to unusable on
+   a phone in three separate ways:
+     1) a centred 88vh card put its header under the fixed topbar and its
+        footer under the browser's own bottom bar, so the close button and
+        Send took no taps;
+     2) every field is .88rem (~12px), and iOS Safari auto-zooms the whole
+        page on focus of any input under 16px — the zoom then shifts the
+        card out from under the finger, which is the "glitching";
+     3) the page behind kept scrolling, so a drag inside the thread
+        rubber-banded the whole document.
+   Below 560px the modal becomes a bottom sheet anchored to the real
+   (dynamic) viewport, which fixes all three at once: nothing can be
+   pushed off the top or bottom, and the thumb reaches the actions. */
+@media (max-width:560px){
+  .wl-modal-backdrop{ padding:0; align-items:flex-end }
+  .wl-modal{
+    max-width:none; width:100%;
+    border-radius:18px 18px 0 0; border-bottom:0;
+    max-height:92vh; max-height:92dvh;
+  }
+  .wl-modal__head{ padding:14px 16px }
+  .wl-modal__body{ padding:14px 16px }
+  .wl-modal__foot{
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  }
+  /* The body is already the scroll container; a nested 50vh scroller
+     inside it just created a second, smaller trap for the thumb. */
+  .wl-thread{ max-height:none; min-height:180px }
+  .wl-pick-list{ max-height:none }
+  /* 16px exactly: the threshold under which iOS zooms on focus. */
+  .wl-input, .wl-textarea, .wl-select,
+  .wl-schedule-panel .wl-input[type="date"],
+  .wl-schedule-panel .wl-input[type="time"],
+  .wl-schedule-panel .wl-input[type="text"],
+  .wl-schedule-panel .wl-select{ font-size:16px }
+  /* Buttons don't shrink below their content by default, so a long
+     footer squeezed the message field to nothing. */
+  .wl-modal__foot .wl-input{ min-width:0 }
+  .wl-btn{ padding:11px 16px; font-size:.86rem }
+  /* Real thumb targets. */
+  .wl-modal__close{ width:36px; height:36px }
+  .wl-inbox-row{ padding:13px 12px }
+}
+@media (max-width:400px){
+  /* At this width the calendar toggle's label is what pushes Send off
+     the row; the emoji alone still reads. */
+  .wl-cal-toggle__lbl{ display:none }
+  .wl-cal-toggle{ padding:9px 11px }
+}
+
+/* The shared mobile nav sheet (css/ui.css) covers the screen and already
+   makes the other bottom-left floaters yield to it. The Community pill is
+   this page's own widget, so it isn't in that list, and it sat over the
+   sheet's last links and took their taps. */
+body.ui-sheet-open .waitlist-fab{ display:none !important }
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
 </head>
@@ -4288,7 +4360,7 @@ h1 em{color:var(--accent);font-style:normal}
         '</div>' +
       '</div>',
       [
-        { html: '<button class="wl-cal-toggle" id="wlCalToggle" type="button">📅 Schedule</button>' },
+        { html: '<button class="wl-cal-toggle" id="wlCalToggle" type="button">📅<span class="wl-cal-toggle__lbl"> Schedule</span></button>' },
         { html: '<input class="wl-input wl-send-input" id="wlSendInput" placeholder="' + (at.isGroup ? 'Message the group…' : 'Message…') + '" maxlength="' + WL_MSG_MAX + '" style="flex:1">' },
         { label: 'Send', kind: 'primary', id: 'wlSendBtn', onClick: sendThreadMessage },
       ]
@@ -4929,9 +5001,23 @@ h1 em{color:var(--accent);font-style:normal}
         (footButtons && footButtons.length ? '<div class="wl-modal__foot">' + footHtml + '</div>' : '') +
       '</div>';
     document.body.appendChild(backdrop);
+    // Scroll lock. Without it the document behind kept scrolling under a
+    // touch drag, so scrolling a thread rubber-banded the whole page and
+    // the sheet appeared to jump around.
+    wlPrevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     document.getElementById('wlModalClose').addEventListener('click', closeModal);
+    // Tap-outside closes, but ONLY when the press STARTED outside too. A
+    // touch drag that begins on a message bubble and ends past the edge of
+    // the sheet fires its click on the backdrop, so the old target-only
+    // check dismissed the modal every time someone scrolled the thread.
+    var downOnBackdrop = false;
+    backdrop.addEventListener('pointerdown', function(e){
+      downOnBackdrop = (e.target === backdrop);
+    });
     backdrop.addEventListener('click', function(e){
-      if (e.target === backdrop) closeModal();
+      if (e.target === backdrop && downOnBackdrop) closeModal();
+      downOnBackdrop = false;
     });
     (footButtons || []).forEach(function(b, i){
       if (!b.onClick) return;
@@ -4941,9 +5027,12 @@ h1 em{color:var(--accent);font-style:normal}
     document.addEventListener('keydown', wlEscClose);
   }
   function wlEscClose(e){ if (e.key === 'Escape') closeModal(); }
+  var wlPrevOverflow = '';
   function closeModal(){
     var b = document.getElementById('wlModalBackdrop');
     if (b) b.remove();
+    document.body.style.overflow = wlPrevOverflow;
+    wlPrevOverflow = '';
     document.removeEventListener('keydown', wlEscClose);
     if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} wl.activeThreadUnsub = null; }
     if (wl.activeThreadDocUnsub){ try { wl.activeThreadDocUnsub(); } catch(e){} wl.activeThreadDocUnsub = null; }
