@@ -20181,6 +20181,32 @@ window.addEventListener('load', function(){
   var mode = null;        // null | 'wall'
   var tileKey = '';       // so an unchanged room list never touches the DOM
 
+  /* The first screen normally starts underneath the fixed topbar, so it
+     carries its own top clearance and a full-viewport minimum height. A
+     live band takes over that clearance and occupies real document height.
+     Keep its measured height on the shared frame so the first screen can
+     use only the viewport that remains instead of opening a second shelf. */
+  function syncBandHeight(band){
+    if (!band || !band.parentNode) return;
+    band.parentNode.style.setProperty('--home-live-band-height', band.offsetHeight + 'px');
+  }
+
+  function watchBandHeight(band){
+    syncBandHeight(band);
+    if (!band || typeof ResizeObserver !== 'function') return;
+    band.__heightObserver = new ResizeObserver(function(){
+      if (band.isConnected) syncBandHeight(band);
+    });
+    band.__heightObserver.observe(band);
+  }
+
+  function clearBandHeight(band){
+    if (band && band.__heightObserver) band.__heightObserver.disconnect();
+    var frame = band && band.parentNode;
+    if (!frame) frame = document.querySelector('.hero-founder-frame');
+    if (frame) frame.style.removeProperty('--home-live-band-height');
+  }
+
   function el(tag, cls, text){
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -20246,6 +20272,11 @@ window.addEventListener('load', function(){
     '#homeLiveBand{background:#0b0b0d;border-bottom:1px solid rgba(239,68,68,.35);padding:64px 20px 14px}' +
     '#homeLiveBand.hlb-is-wall{padding:64px clamp(14px,3vw,28px) 12px}' +
     'body.has-beta-strip #homeLiveBand.hlb-is-wall{padding-top:96px}' +
+    // The band already clears the fixed topbar. Drop the first screen's
+    // duplicate 84-120px clearance and, on desktop, subtract the band's
+    // measured height so the two pieces still fit in one viewport.
+    '#homeLiveBand + .fscreen{padding-top:clamp(28px,4vh,44px)}' +
+    '@media(min-width:941px){#homeLiveBand + .fscreen{min-height:calc(100svh - var(--home-live-band-height,0px))}}' +
     // A centered 1080px rail keeps a lone room from huddling against the
     // left edge on wide screens. The room card fills the middle column,
     // so the space between LIVE and Watch belongs to content, not void.
@@ -20367,6 +20398,7 @@ window.addEventListener('load', function(){
     if (!mode) return;
     withHeightHeld(null, function(){
       var band = document.getElementById(BAND_ID);
+      clearBandHeight(band);
       if (band) band.remove();
     });
     mode = null; tileKey = '';
@@ -20420,6 +20452,7 @@ window.addEventListener('load', function(){
     band.appendChild(inner);
 
     withHeightHeld(null, function(){ at.parentNode.insertBefore(band, at); });
+    watchBandHeight(band);
     mode = 'wall'; tileKey = '';
     try { if (window.gtag) gtag('event', 'home_room_wall_shown', { rooms: rounds.length }); } catch(e){}
   }
