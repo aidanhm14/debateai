@@ -170,11 +170,18 @@ export default async (req) => {
   };
   // Enabling cloud recording does not start capture. /api/round-recording
   // starts it only after every seated debater has opted in for this round.
-  // Inline playback lets the existing Watch player seek through the replay.
-  if (recordingEnabled()){
-    properties.enable_recording = 'cloud';
-    properties.allow_streaming_from_bucket = true;
-  }
+  //
+  // `allow_streaming_from_bucket` USED TO RIDE HERE AND IT IS NOT A ROOM
+  // PROPERTY. Daily answers the whole create with
+  // 400 invalid property name 'allow_streaming_from_bucket', which fell
+  // into the "room already exists" branch below, found no room, and
+  // retried BARE, stripping enable_recording. So every live room ever
+  // created came out with recording disabled (verified 2026-08-15: all
+  // five rooms on the account reported enable_recording: null), and
+  // /api/round-recording could never start capture on any of them. Do
+  // not add a property here without checking it against the live API;
+  // one bad key silently disables the whole feature.
+  if (recordingEnabled()) properties.enable_recording = 'cloud';
 
   // Try create first. If 400 ("already exists"), fall through to GET.
   const headers = {
@@ -192,13 +199,20 @@ export default async (req) => {
   if (resp.status === 400 || resp.status === 409) {
     // Room exists — fetch it. Daily returns 400 for "already exists",
     // 409 isn't standard but we handle it just in case.
+    let createErr = '';
+    try { createErr = (await resp.text()).slice(0, 300); } catch {}
     resp = await fetch(DAILY_API + '/rooms/' + encodeURIComponent(name), { headers });
     if (resp.status === 404 && recordingAvailable){
       // A Daily plan without recording can reject enable_recording with
       // the same 400 used for "room already exists." Retry bare so the
       // debate still gets video even when recording is unavailable.
+      // LOUDLY: this path silently disabled recording on every round for
+      // as long as a bogus property sat in the create body, and nothing
+      // reported it. If you see this line, recording is OFF and Daily's
+      // own message says why.
+      console.warn('[create-daily-room] create rejected and no such room exists; retrying WITHOUT recording. Daily said:', createErr);
       recordingAvailable = false;
-      const { enable_recording, allow_streaming_from_bucket, ...bare } = properties;
+      const { enable_recording, ...bare } = properties;
       resp = await createRoom(bare);
     }
   }
@@ -210,6 +224,29 @@ export default async (req) => {
   }
 
   const room = await resp.json();
+
+  // Create-or-fetch means an EXISTING room keeps the properties it was
+  // made with, so every room made before the bogus-property fix above
+  // would stay unrecordable until it expired (24h). Repair it in place
+  // instead: one extra call, only when the room actually lacks the
+  // setting. Never blocks the round; a failed repair just means this
+  // room cannot record, which is where it already was.
+  if (recordingAvailable && room && room.config && !room.config.enable_recording){
+    try {
+      const patched = await fetch(DAILY_API + '/rooms/' + encodeURIComponent(name), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ properties: { enable_recording: 'cloud' } }),
+      });
+      if (!patched.ok){
+        recordingAvailable = false;
+        console.warn('[create-daily-room] could not enable recording on existing room', name, patched.status);
+      }
+    } catch (e) {
+      recordingAvailable = false;
+      console.warn('[create-daily-room] recording repair threw for', name, String(e && e.message || e));
+    }
+  }
 
   // Mint a meeting token attributing this caller's identity to their
   // participant record (presence.userId). user_id caps at 36 chars —

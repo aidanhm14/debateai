@@ -205,7 +205,19 @@ export default async (req) => {
         recordingUpdatedAt: FieldValue.serverTimestamp(),
         recordingUpdatedAtMs: Date.now(),
       }, { merge: true });
-      return errorResponse('Everyone agreed, but recording could not start. Try again.', 502, req);
+      console.warn('[round-recording] start failed for', room, started.status, started.detail);
+      // "Try again" is a lie when the room itself cannot record: a room is
+      // created once per round and keeps the properties it was made with,
+      // so pressing again lands in exactly the same place. Say which of
+      // the two it is.
+      const permanent = started.status === 503 || started.status === 400;
+      return errorResponse(
+        permanent
+          ? 'Everyone agreed, but this round\'s video room was not set up for recording. It will work on a new round.'
+          : 'Everyone agreed, but recording could not start. Try again.',
+        permanent ? 409 : 502,
+        req,
+      );
     }
 
     // A finish/withdraw can race the Daily start request. Re-check the

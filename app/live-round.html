@@ -1592,8 +1592,26 @@ body.spectator-mode .transcript-area{padding-top:15px}
 .rec-consent-card p strong{color:var(--text)}
 .rec-consent-check{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:11px;background:var(--ui-soft);border:1px solid var(--border);font-size:.8rem;line-height:1.45;color:var(--text-dim);cursor:pointer}
 .rec-consent-check input{margin-top:2px;accent-color:var(--accent,#ef4444)}
+/* Inline failure line. A toast is the wrong surface for an error raised
+   by a modal that covers the screen, so the card says it itself. */
+.rec-consent-error{
+  display:none;margin-top:12px;padding:10px 12px;border-radius:10px;
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.42);
+  color:#fca5a5;font-size:.82rem;line-height:1.45;
+}
+.rec-consent-error.is-on{display:block}
 .rec-consent-actions{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
-.rec-consent-actions button{min-height:40px;padding:9px 15px;border-radius:9px;font-family:inherit;font-size:.8rem;font-weight:750;cursor:pointer}
+.rec-consent-actions button{min-height:44px;padding:11px 16px;border-radius:9px;font-family:inherit;font-size:.85rem;font-weight:750;cursor:pointer}
+@media (max-width:560px){
+  /* Thumb targets, and a card that can never push its own buttons off a
+     phone screen. dvh because iOS resolves vh against the large viewport
+     (URL bar hidden), which would let the card grow taller than what the
+     user can actually see and strand the actions under the browser bar. */
+  .rec-consent-backdrop{padding:14px;align-items:flex-end}
+  .rec-consent-card{padding:20px 18px;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0}
+  .rec-consent-actions{margin-top:16px}
+  .rec-consent-actions button{flex:1 1 auto;min-height:48px;justify-content:center}
+}
 .rec-consent-no{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
 .rec-consent-yes{background:var(--accent,#ef4444);border:1px solid var(--accent,#ef4444);color:#fff}
 .rec-consent-yes:disabled{opacity:.45;cursor:not-allowed}
@@ -1953,11 +1971,18 @@ body.spectator-mode .transcript-area{padding-top:15px}
 .hidden{display:none !important}
 
 /* Toasts */
+/* z-index above every in-page layer (the recording-consent backdrop is
+   9999, the DM modal 9500, the docked call 2147483001). At the old
+   z-index:200 a toast fired while a modal was open painted UNDERNEATH
+   the modal's own opaque scrim, so the recording-consent failure
+   message was invisible and pressing "I agree, record it" looked like
+   it did nothing at all. Feedback has to outrank what triggered it. */
 .toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  max-width:calc(100vw - 32px);text-align:center;
   padding:10px 20px;background:var(--bg-card);border:1px solid var(--border-strong);
   border-radius:999px;font-size:.82rem;font-weight:600;
-  box-shadow:var(--shadow-lg);z-index:200;
+  box-shadow:var(--shadow-lg);z-index:2147483002;
   animation:toast-in .25s ease-out;
 }
 @keyframes toast-in{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
@@ -4680,7 +4705,10 @@ html.stage-mode .stage-ov{display:block}
     cloudRec.busy = true;
     var yes = cloudRec.modal && cloudRec.modal.querySelector('#cloudRecYes');
     var no = cloudRec.modal && cloudRec.modal.querySelector('#cloudRecNo');
-    if (yes) yes.disabled = true;
+    var errBox = cloudRec.modal && cloudRec.modal.querySelector('#cloudRecError');
+    var yesLabel = yes && yes.textContent;
+    if (errBox){ errBox.textContent = ''; errBox.classList.remove('is-on'); }
+    if (yes){ yes.disabled = true; if (consent) yes.textContent = 'Starting…'; }
     if (no) no.disabled = true;
     cloudRecordingPost({
       action: 'consent',
@@ -4691,8 +4719,14 @@ html.stage-mode .stage-ov{display:block}
       toast(consent ? 'Consent saved. If everyone agrees, the replay will appear on Watch.' : 'This round will not record unless you change your choice.');
       try { gtag('event', 'live_round_recording_consent', { granted: consent ? 1 : 0 }); } catch(e){}
     }).catch(function(error){
-      toast(error.message || 'Could not save recording choice.');
-      if (yes) yes.disabled = false;
+      // The modal covers the screen, so the failure is reported INSIDE it.
+      // It used to go only to a toast that rendered under the modal's own
+      // scrim, which is why a failed press read as a dead button.
+      var msg = (error && error.message) || 'Could not save recording choice.';
+      if (errBox){ errBox.textContent = msg; errBox.classList.add('is-on'); }
+      else toast(msg);
+      try { gtag('event', 'live_round_recording_consent_failed', { reason: String(msg).slice(0, 80) }); } catch(e){}
+      if (yes){ yes.disabled = false; if (yesLabel) yes.textContent = yesLabel; }
       if (no) no.disabled = false;
     }).then(function(){ cloudRec.busy = false; });
   }
@@ -4722,6 +4756,7 @@ html.stage-mode .stage-ov{display:block}
         '<p>Declining does not affect the debate. Anyone who agreed can stop recording later.</p>' +
         '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
           '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
+        '<div class="rec-consent-error" id="cloudRecError" role="alert"></div>' +
         '<div class="rec-consent-actions">' +
           '<button type="button" class="rec-consent-no" id="cloudRecNo">No recording</button>' +
           '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>I agree, record it</button>' +
