@@ -1422,7 +1422,7 @@ body.spectator-mode .transcript-area{padding-top:15px}
 .round-edit-bar .reb-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:10px;margin-top:10px;
   padding-top:10px;border-top:1px solid var(--border,rgba(255,255,255,.14))}
 .round-edit-bar .reb-tools[hidden]{display:none}
-.round-edit-bar .reb-lock{grid-column:1/-1;font-size:.72rem;font-weight:600;color:var(--text-dim)}
+.round-edit-bar .reb-lock{grid-column:1/-1;font-size:.68rem;font-weight:600;color:var(--text-ghost,var(--text-dim));opacity:.8}
 .round-edit-bar .reb-fmt{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;font-size:.78rem;font-weight:750;color:var(--text-dim)}
 .round-edit-bar .reb-fmt select{min-height:38px;font:inherit;font-size:.82rem;font-weight:650;padding:7px 34px 7px 10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.22));
   width:100%;min-width:0;background:var(--ui-surface);color:var(--text,#fff);cursor:pointer}
@@ -2481,13 +2481,13 @@ html.stage-mode .stage-ov{display:block}
           <button type="button" class="reb-edit reb-opts" id="rebOptionsBtn" aria-expanded="false" aria-controls="rebTools">Options ▾</button>
         </div>
         <div class="reb-tools" id="rebTools" hidden>
-          <span class="reb-lock">Shared setup, either debater can edit. Locks when Speech 1 starts.</span>
-          <button type="button" class="reb-edit" id="rebMotionBtn">Edit resolution</button>
-          <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 New motion</button>
-          <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Add context</button>
           <label class="reb-fmt">Style
             <select id="roundFormatSel" aria-label="Debate style"></select>
           </label>
+          <button type="button" class="reb-edit" id="rebMotionBtn">Edit motion</button>
+          <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 Random</button>
+          <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Context</button>
+          <span class="reb-lock">Either side can edit until Speech 1.</span>
         </div>
       </div>
       <div class="round-roster" id="roundRoster">
@@ -3751,10 +3751,10 @@ html.stage-mode .stage-ov{display:block}
       if (modeName && modeSub){
         if (state.formatKey === 'quick'){
           modeName.textContent = 'General round';
-          modeSub.textContent = 'The AI judge hears every interruption and weighs it in the ballot. Human judges can watch and score public rounds.';
+          modeSub.textContent = '4 speeches, then the ballot.';
         } else {
           modeName.textContent = f.name;
-          modeSub.textContent = f.speeches.length + ' speeches · the AI judge scores interruptions and POIs too. Style and motion stay editable under Options until Speech 1.';
+          modeSub.textContent = f.speeches.length + ' speeches, then the ballot.';
         }
         // The badge is true in every format: the judge transcribes and weighs
         // interruptions whether they are open clash or structured POIs.
@@ -4432,12 +4432,15 @@ html.stage-mode .stage-ov{display:block}
   // mobile browser for the 80% Indian audience. Treat iOS as unsupported
   // and route those users to type-instead. Firefox also has no Web
   // Speech support; same fallback.
+  // 2026-08-15: iOS is no longer blocked on the user agent. Blanket-
+  // refusing it meant every iPhone was told "not available on this
+  // browser" and handed a keyboard, including the ones where the API
+  // works. We TRY it now and fall back only on a real failure: a
+  // recogniser that errors, or one that runs a whole speech and returns
+  // nothing. A measured failure is honest; a UA guess was not.
   function detectMicSupport(){
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return { available: false, reason: 'no-api' };
-    var ua = navigator.userAgent || '';
-    var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-    if (isIOS) return { available: false, reason: 'ios-safari-unreliable' };
     return { available: true };
   }
   state.micSupport = detectMicSupport();
@@ -4497,6 +4500,18 @@ html.stage-mode .stage-ov{display:block}
       if (e.error === 'not-allowed') {
         toast('Mic blocked. Type the speech instead.');
         setMicActive(false);
+        return;
+      }
+      // The browser has the API and cannot run it (no speech service, or
+      // the language is unsupported). THIS is what "not available on this
+      // browser" is allowed to mean; it is now measured rather than
+      // guessed from the user agent.
+      if (e.error === 'service-not-allowed' || e.error === 'language-not-supported' || e.error === 'audio-capture'){
+        state.micSupport = { available: false, reason: e.error };
+        setMicActive(false);
+        syncAutoMicToggle();
+        renderRound();
+        toast('Speech to text is unavailable here. Type the speech instead.');
       }
     };
     rec.onend = function(){
