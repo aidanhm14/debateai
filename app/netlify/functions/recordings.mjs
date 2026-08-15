@@ -15,6 +15,17 @@ import { jsonResponse, errorResponse } from './lib/response.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 
+// Trim to the last sentence end inside the limit, falling back to the last
+// word break, so a long RFD ends on a full thought rather than mid-word.
+function trimToSentence(text, max){
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  if (stop > max * 0.55) return cut.slice(0, stop + 1);
+  const space = cut.lastIndexOf(' ');
+  return (space > 0 ? cut.slice(0, space) : cut).replace(/[,;:]$/, '') + '...';
+}
+
 function publicShape(id, d){
   return {
     id,
@@ -68,7 +79,9 @@ export default async (req) => {
             proPoints: Number.isFinite(Number(b.proPoints)) ? Number(b.proPoints) : null,
             conPoints: Number.isFinite(Number(b.conPoints)) ? Number(b.conPoints) : null,
             // Bounded: this is a reveal card, not the full ballot page.
-            rfd: String(b.rfd || '').slice(0, 900),
+            // Cut at a SENTENCE boundary, not at 900 exactly, or the card
+            // ends mid-word. The live Taiwan round hit the cap dead on.
+            rfd: trimToSentence(String(b.rfd || ''), 900),
             dimensions: b.dimensions && typeof b.dimensions === 'object' ? b.dimensions : null,
           };
         }
