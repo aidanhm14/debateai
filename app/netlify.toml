@@ -30,7 +30,12 @@
   SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDqHa-AHzx-K9MeBaIv9TY4WPdfV5ECgrU"
 
 [functions]
-  external_node_modules = ["@google-cloud/firestore", "stripe"]
+  # ffmpeg-static is external + explicitly included: esbuild cannot trace
+  # the binary (index.js resolves it off __dirname at runtime), so bundling
+  # the module would ship a path to a file that is not in the zip.
+  # recording-thumb.mjs is the only consumer.
+  external_node_modules = ["@google-cloud/firestore", "stripe", "ffmpeg-static"]
+  included_files = ["node_modules/ffmpeg-static/ffmpeg", "node_modules/ffmpeg-static/package.json", "node_modules/ffmpeg-static/index.js"]
   node_bundler = "esbuild"
 
 # ──────────────────────────────────────────────────────────────────

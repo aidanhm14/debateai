@@ -275,10 +275,17 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
    tag where a platform puts its badge and the duration where every
    video site puts it. The names still ride the card foot as text. */
 .thumb{position:relative;aspect-ratio:16/9;background:#141417;overflow:hidden}
-.thumb::before{content:"";position:absolute;inset:0;
+.thumb::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
   background:radial-gradient(120% 90% at 50% 22%,rgba(239,68,68,.16),transparent 58%),
              radial-gradient(140% 120% at 50% 118%,rgba(255,255,255,.07),transparent 55%),
              linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,.38) 100%)}
+/* The real frame, cut server-side from the recording by
+   /api/recording-thumb. It layers over the initials stage, which stays
+   underneath as the loading state and the fallback when the grab fails
+   (onerror removes the img). z-order: stage 0 → frame 1 → wash 2 →
+   tag/duration 3 → play 4. */
+.th-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;transition:opacity .16s}
+.card:hover .th-img{opacity:.8}
 .th-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8%}
 .th-av{width:24%;max-width:64px;aspect-ratio:1;border-radius:50%;flex:none;
   display:flex;align-items:center;justify-content:center;
@@ -286,13 +293,13 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
   background:hsl(var(--av,356) 30% 27%);border:2px solid rgba(255,255,255,.16);
   box-shadow:0 6px 18px rgba(0,0,0,.45)}
 .th-vs{font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:800;color:rgba(244,244,242,.6)}
-.th-tag{position:absolute;top:9px;left:9px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+.th-tag{position:absolute;top:9px;left:9px;z-index:3;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
   font-weight:800;color:rgba(244,244,242,.92);background:rgba(8,8,10,.62);border:1px solid rgba(255,255,255,.14);
   border-radius:999px;padding:3px 10px;backdrop-filter:blur(2px)}
 .th-tag.stream{color:#fff;background:var(--red);border-color:var(--red)}
-.th-dur{position:absolute;bottom:8px;right:8px;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;
+.th-dur{position:absolute;bottom:8px;right:8px;z-index:3;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;
   color:#fff;background:rgba(8,8,10,.78);border-radius:6px;padding:2px 7px}
-.th-play{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
+.th-play{position:absolute;left:50%;top:50%;z-index:4;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
   background:var(--red);display:flex;align-items:center;justify-content:center;
   box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transform:scale(.82);
   transition:opacity .16s,transform .16s;pointer-events:none}
@@ -1015,16 +1022,27 @@ footer a{color:var(--dim)}
       : '<span class="th-tag">' + esc((rec.format || 'round').toUpperCase()) + '</span>';
     return '<div class="thumb" aria-hidden="true">' +
         '<div class="th-stage">' + stage + '</div>' +
+        thFrameImg(rec.id) +
         tag +
         (rec.duration ? '<span class="th-dur">' + fmtTime(rec.duration) + '</span>' : '') +
         '<span class="th-play">' + TH_PLAY_SVG + '</span>' +
       '</div>';
+  }
+  // The real frame from the recording, served (and cut on first
+  // request) by /api/recording-thumb. Loads over the initials stage;
+  // if the server has no frame for this recording the img removes
+  // itself and the stage underneath is the card.
+  function thFrameImg(recordingId){
+    return '<img class="th-img" alt="" loading="lazy" decoding="async" ' +
+      'src="/api/recording-thumb?id=' + encodeURIComponent(recordingId) + '" ' +
+      'onerror="this.remove()">';
   }
   // No avatar on clip thumbs: a lone centered disc sits exactly under the
   // play mark and reads as misalignment. The mark is the subject; the
   // clipper's name rides the card foot as text.
   function clipThumbHTML(clip){
     return '<div class="thumb clip" aria-hidden="true">' +
+        thFrameImg(clip.recordingId) +
         '<span class="th-tag">Clip</span>' +
         '<span class="th-dur">' + fmtTime(clip.end - clip.start) + '</span>' +
         '<span class="th-play">' + TH_PLAY_SVG + '</span>' +
