@@ -4,16 +4,24 @@
 //
 // The mp4s live behind short-lived Daily access links, so there is no
 // stable image URL to point a card at. This endpoint makes one: the
-// first request per recording mints a fresh Daily link, pulls a single
-// frame out of the video with ffmpeg over HTTP range requests (the
-// file is never downloaded in full), scales it to 640w, and keeps the
-// JPEG in Netlify Blobs permanently. Every later request is a blob
-// read behind a long CDN cache, so the ffmpeg cost is paid once per
-// recording ever, not per view.
+// first request per recording mints a fresh Daily link, downloads the
+// FIRST 16MB with a single range request, cuts one frame out of that
+// chunk with ffmpeg, scales it to 640w, and keeps the JPEG in Netlify
+// Blobs permanently. Every later request is a blob read behind a long
+// CDN cache, so the extraction cost is paid once per recording ever.
 //
-// The frame is taken a quarter of the way in (clamped 4s..600s) so it
-// shows the round mid-argument rather than the black connect screen;
-// if that seek fails (bad duration on the doc), it retries at 2s.
+// The one-range-then-local shape is load-bearing, not an optimization:
+// Daily records fragmented mp4 (iso6, no usable seek index), so ffmpeg
+// reading the URL directly walks it in dozens of serial range requests
+// and took ~27s WHEREVER it ran — measured against a real 327MB
+// recording, and it 502'd the first deploy of this function by blowing
+// the ~26s execution wall. One ranged GET of the same file took 1.2s
+// and the local decode 0.1s.
+//
+// The frame is seeked ~60% into whatever slice of the round the 16MB
+// window covers (capped 45s) so it shows the round mid-argument rather
+// than the connect screen; if that seek overshoots the chunk, it
+// retries at the chunk's start.
 //
 // On success the public URL is also written back to the recording doc
 // as `thumbnailUrl`, which /w/{id} (w.mjs) already prefers for
@@ -63,21 +71,23 @@ function softFail(req){
   return r;
 }
 
-function extractFrame(link, seekSec, outPath){
+const CHUNK_BYTES = 16 * 1024 * 1024;
+
+function extractFrame(inPath, seekSec, outPath){
   return new Promise((resolve, reject) => {
     const args = [
       '-hide_banner', '-loglevel', 'error',
       '-ss', String(seekSec),
-      '-i', link,
+      '-i', inPath,
       '-frames:v', '1',
       '-vf', 'scale=640:-2',
       '-q:v', '5',
       '-y', outPath,
     ];
-    // 18s kill: the function dies at ~26s of execution, and a failed
-    // grab must leave room to answer with the soft 404 instead of
-    // timing out into a 502.
-    const proc = spawn(ffmpegPath, args, { signal: AbortSignal.timeout(18000) });
+    // Local decode of a 16MB chunk measured 0.1s; 8s is a generous
+    // kill that still leaves room to answer with the soft 404 instead
+    // of timing out into a 502.
+    const proc = spawn(ffmpegPath, args, { signal: AbortSignal.timeout(8000) });
     let err = '';
     proc.stderr.on('data', (d) => { err += d; });
     proc.on('error', reject);
@@ -110,17 +120,35 @@ export default async (req) => {
   const link = ((await linkResp.json()) || {}).download_link;
   if (!link) return softFail(req);
 
-  const duration = Number(d.duration) || 0;
-  const seek = Math.min(Math.max(Math.round(duration * 0.25), 4), 600);
+  const inPath = path.join(os.tmpdir(), 'thumb-' + id + '.mp4');
   const out = path.join(os.tmpdir(), 'thumb-' + id + '.jpg');
   try {
+    const vidResp = await fetch(link, {
+      headers: { Range: 'bytes=0-' + (CHUNK_BYTES - 1) },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!vidResp.ok) return softFail(req);
+    const chunk = Buffer.from(await vidResp.arrayBuffer());
+    if (!chunk.length) return softFail(req);
+    await fs.writeFile(inPath, chunk);
+
+    // Seek ~60% into the slice of the round the chunk covers, capped
+    // at 45s. Content-Range carries the full size, so the covered
+    // seconds are duration * (chunk / total); a short round fits in
+    // the chunk entirely (206 short or plain 200) and covered =
+    // duration.
+    const duration = Number(d.duration) || 0;
+    const range = vidResp.headers.get('content-range') || '';
+    const total = Number((range.split('/')[1] || '').trim()) || chunk.length;
+    const covered = total > 0 ? duration * (chunk.length / total) : 0;
+    const seek = Math.max(0, Math.min(Math.round(covered * 0.6), 45));
     try {
-      await extractFrame(link, seek, out);
+      await extractFrame(inPath, seek, out);
     } catch (e) {
-      // A seek past the real end of a mis-durationed file fails; the
-      // very start of the recording is always there.
-      if (seek <= 2) throw e;
-      await extractFrame(link, 2, out);
+      // A seek past what the chunk actually decodes to fails; the
+      // start of the chunk is always there.
+      if (seek < 1) throw e;
+      await extractFrame(inPath, 0, out);
     }
     const buf = await fs.readFile(out);
     if (!buf.length) return softFail(req);
@@ -138,5 +166,6 @@ export default async (req) => {
     return softFail(req);
   } finally {
     fs.unlink(out).catch(() => {});
+    fs.unlink(inPath).catch(() => {});
   }
 };
