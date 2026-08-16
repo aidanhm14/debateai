@@ -253,17 +253,57 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 /* display+text-decoration so the replay cards can be anchors (they carry a
    real /w/{id} href for crawlers) without losing the button look. */
-.card{display:block;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text);box-shadow:var(--shadow)}
+.card{display:block;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text);box-shadow:var(--shadow)}
 .card:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.4)}
 .card:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.card-body{padding:12px 15px 14px}
 .card .kicker{display:flex;gap:8px;align-items:center;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
 /* --dim, not the inherited --faint: a chip sits on --surface2 rather
    than on the card, and faint-on-surface2 measured 3.3:1 in light. */
 .chip{background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;font-size:12px;letter-spacing:.06em;color:var(--dim)}
 .chip.stream{border-color:rgba(239,68,68,.4);color:var(--red)}
-.card h3{font-size:17.5px;font-weight:700;line-height:1.3;margin-top:9px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.card .foot{margin-top:12px;color:var(--faint);font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.card h3{font-size:17px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card .foot{margin-top:10px;color:var(--faint);font-size:14px;display:flex;justify-content:space-between;gap:8px}
 .card .foot span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Card thumbnails.
+   There is no frame to grab: recordings live behind short-lived Daily
+   links minted per request, so a real still would cost a Daily API call
+   per card per page view. The thumbnail is drawn from the round's own
+   data instead: a dark stage (dark in both themes on purpose, it reads
+   as a video frame), the two debaters' initials facing off, the format
+   tag where a platform puts its badge and the duration where every
+   video site puts it. The names still ride the card foot as text. */
+.thumb{position:relative;aspect-ratio:16/9;background:#141417;overflow:hidden}
+.thumb::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 90% at 50% 22%,rgba(239,68,68,.16),transparent 58%),
+             radial-gradient(140% 120% at 50% 118%,rgba(255,255,255,.07),transparent 55%),
+             linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,.38) 100%)}
+.th-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8%}
+.th-av{width:24%;max-width:64px;aspect-ratio:1;border-radius:50%;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:clamp(18px,2vw,26px);color:#f4f4f2;
+  background:hsl(var(--av,356) 30% 27%);border:2px solid rgba(255,255,255,.16);
+  box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.th-vs{font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:800;color:rgba(244,244,242,.6)}
+.th-tag{position:absolute;top:9px;left:9px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:800;color:rgba(244,244,242,.92);background:rgba(8,8,10,.62);border:1px solid rgba(255,255,255,.14);
+  border-radius:999px;padding:3px 10px;backdrop-filter:blur(2px)}
+.th-tag.stream{color:#fff;background:var(--red);border-color:var(--red)}
+.th-dur{position:absolute;bottom:8px;right:8px;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:#fff;background:rgba(8,8,10,.78);border-radius:6px;padding:2px 7px}
+.th-play{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
+  background:var(--red);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transform:scale(.82);
+  transition:opacity .16s,transform .16s;pointer-events:none}
+.th-play svg{display:block;margin-left:3px}
+.card:hover .th-play,.card:focus-visible .th-play{opacity:1;transform:scale(1)}
+.card:hover .th-stage{opacity:.45;transition:opacity .16s}
+/* Clip thumbs keep the play mark visible at rest, smaller: a clip card
+   has no vs-matchup to carry the frame, the mark IS the subject. */
+.thumb.clip .th-play{opacity:.92;transform:scale(.7)}
+.thumb.clip:hover .th-play{transform:scale(.85)}
+@media(prefers-reduced-motion:reduce){.th-play{transition:none}}
 .empty{color:var(--faint);font-size:16px;padding:26px;border:1px dashed var(--border);border-radius:var(--radius);text-align:center}
 
 /* ── STATIC EXPLAINER BLOCKS ───────────────────────────────────────
@@ -946,16 +986,63 @@ footer a{color:var(--dim)}
     });
   });
 
+  // ── Card thumbnails ──────────────────────────────────────────────
+  // Muted hue bank for the initial discs; deterministic per name so the
+  // same debater keeps the same color across cards and visits.
+  var TH_HUES = [356, 24, 204, 152, 262, 38, 178, 312];
+  function thHue(s){
+    s = String(s || '');
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return TH_HUES[h % TH_HUES.length];
+  }
+  function thInitial(s){
+    s = String(s || '').trim();
+    return s ? s.charAt(0).toUpperCase() : '?';
+  }
+  var TH_PLAY_SVG = '<svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M1 1.5v15l14-7.5z" fill="#fff"/></svg>';
+  function thumbHTML(rec){
+    var stage;
+    if (rec.proName && rec.conName){
+      stage = '<span class="th-av" style="--av:' + thHue(rec.proName) + '">' + esc(thInitial(rec.proName)) + '</span>' +
+              '<span class="th-vs">vs</span>' +
+              '<span class="th-av" style="--av:' + thHue(rec.conName) + '">' + esc(thInitial(rec.conName)) + '</span>';
+    } else {
+      stage = '<span class="th-av" style="--av:' + thHue(rec.title) + '">' + esc(thInitial(rec.title)) + '</span>';
+    }
+    var tag = rec.isStream
+      ? '<span class="th-tag stream">Stream</span>'
+      : '<span class="th-tag">' + esc((rec.format || 'round').toUpperCase()) + '</span>';
+    return '<div class="thumb" aria-hidden="true">' +
+        '<div class="th-stage">' + stage + '</div>' +
+        tag +
+        (rec.duration ? '<span class="th-dur">' + fmtTime(rec.duration) + '</span>' : '') +
+        '<span class="th-play">' + TH_PLAY_SVG + '</span>' +
+      '</div>';
+  }
+  // No avatar on clip thumbs: a lone centered disc sits exactly under the
+  // play mark and reads as misalignment. The mark is the subject; the
+  // clipper's name rides the card foot as text.
+  function clipThumbHTML(clip){
+    return '<div class="thumb clip" aria-hidden="true">' +
+        '<span class="th-tag">Clip</span>' +
+        '<span class="th-dur">' + fmtTime(clip.end - clip.start) + '</span>' +
+        '<span class="th-play">' + TH_PLAY_SVG + '</span>' +
+      '</div>';
+  }
+
   // ── Clip lists ───────────────────────────────────────────────────
   function clipCard(clip, withSource){
     var btn = document.createElement('button');
     btn.className = 'card';
     btn.type = 'button';
     btn.innerHTML =
-      '<div class="kicker"><span class="chip">Clip · ' + fmtTime(clip.end - clip.start) + '</span></div>' +
-      '<h3>' + esc(clip.title) + '</h3>' +
-      '<div class="foot"><span>' + esc(clip.name) + '</span>' +
-      (withSource ? '<span>' + esc(clip.recordingTitle || '') + '</span>' : '<span>' + fmtTime(clip.start) + ' to ' + fmtTime(clip.end) + '</span>') +
+      clipThumbHTML(clip) +
+      '<div class="card-body">' +
+        '<h3>' + esc(clip.title) + '</h3>' +
+        '<div class="foot"><span>' + esc(clip.name) + '</span>' +
+        (withSource ? '<span>' + esc(clip.recordingTitle || '') + '</span>' : '<span>' + fmtTime(clip.start) + ' to ' + fmtTime(clip.end) + '</span>') +
+        '</div>' +
       '</div>';
     btn.addEventListener('click', function(){ openClipById(clip); });
     return btn;
@@ -1038,15 +1125,16 @@ footer a{color:var(--dim)}
         var btn = document.createElement('a');
         btn.className = 'card';
         btn.href = '/w/' + encodeURIComponent(rec.id);
+        // Format tag and duration live on the thumbnail now, so the body
+        // carries what a video card carries: title, then names and date.
         btn.innerHTML =
-          '<div class="kicker">' +
-            (rec.isStream ? '<span class="chip stream">Stream</span>' : '<span class="chip">' + esc((rec.format || 'round').toUpperCase()) + '</span>') +
-            '<span>' + fmtDate(rec.startTs) + '</span>' +
-          '</div>' +
-          '<h3>' + esc(rec.title) + '</h3>' +
-          '<div class="foot">' +
-            '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : '') + '</span>' +
-            '<span>' + fmtTime(rec.duration) + '</span>' +
+          thumbHTML(rec) +
+          '<div class="card-body">' +
+            '<h3>' + esc(rec.title) + '</h3>' +
+            '<div class="foot">' +
+              '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : '') + '</span>' +
+              '<span>' + fmtDate(rec.startTs) + '</span>' +
+            '</div>' +
           '</div>';
         btn.addEventListener('click', function(e){
           // Let the browser have any click that asks for a new context:
