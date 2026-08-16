@@ -47,13 +47,18 @@
   SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDqHa-AHzx-K9MeBaIv9TY4WPdfV5ECgrU"
 
 [functions]
-  # ffmpeg-static is external + explicitly included: esbuild cannot trace
-  # the binary (index.js resolves it off __dirname at runtime), so bundling
-  # the module would ship a path to a file that is not in the zip.
-  # recording-thumb.mjs is the only consumer.
+  external_node_modules = ["@google-cloud/firestore", "stripe"]
+  node_bundler = "esbuild"
+
+# ffmpeg rides ONLY in recording-thumb's bundle. This block must stay
+# per-function: putting ffmpeg-static in the global [functions] block
+# copies the ~78MB binary into every one of the 200+ function zips and
+# fills the build disk (ENOSPC, measured 2026-08-16, deploy 6a814cd2).
+# external because esbuild cannot trace the binary (index.js resolves
+# it off __dirname at runtime); included_files ships the binary itself.
+[functions."recording-thumb"]
   external_node_modules = ["@google-cloud/firestore", "stripe", "ffmpeg-static"]
   included_files = ["node_modules/ffmpeg-static/ffmpeg", "node_modules/ffmpeg-static/package.json", "node_modules/ffmpeg-static/index.js"]
-  node_bundler = "esbuild"
 
 # Domain canonicalization → itsdebatable.com (2026-07-22). The
 # canonical domain is now itsdebatable.com (brand = Debatable; the
