@@ -318,6 +318,7 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   attribution in `app/img/creator-watchlist/README.md`, and that is the
   bar. NOTE: `#face-wall` further down the landing still runs ~41
   portraits off a separate bank; that surface has not been cut.
+- **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
   sign-up required", "unlimited" on Free, "Pay nothing", "holistic",
