@@ -138,24 +138,36 @@ html.dbnative .page-head{padding-top:20px}
    rather than only rounds recorded after the in-room reel shipped. */
 .player-wrap{position:relative}
 .verdict-reveal{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
-  align-items:center;justify-content:center;gap:14px;padding:clamp(16px,4vw,40px);
+  /* flex-start + .vr-inner{margin:auto}, NOT justify-content:center:
+     centering an overflowing flex column clips its top edge, which is
+     how "X wins" got cut in half whenever the ballot ran taller than
+     the player. margin:auto centers when short and scrolls when tall. */
+  align-items:center;justify-content:flex-start;padding:clamp(16px,4vw,40px);
   background:radial-gradient(circle at 50% 42%,rgba(120,20,26,.30),rgba(8,8,10,.94) 62%),rgba(8,8,10,.95);
   color:#f0ede6;text-align:center;overflow:auto}
 .verdict-reveal.on{display:flex}
+.vr-inner{position:relative;margin:auto;display:flex;flex-direction:column;align-items:center;gap:14px;width:100%}
 .vr-eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
   color:rgba(240,237,230,.6);opacity:0;animation:vrIn .5s ease forwards}
 .vr-winner{margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:900;
   font-size:clamp(1.7rem,5.2vw,3.1rem);line-height:1.08;
-  opacity:0;animation:vrIn .6s ease .5s forwards}
+  opacity:0;animation:vrTitle .7s cubic-bezier(.2,.8,.2,1) .5s forwards,
+                     vrWinGlow 3.4s ease-in-out 1.6s infinite}
+@keyframes vrTitle{from{opacity:0;transform:translateY(16px) scale(.93);filter:blur(8px)}
+  to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes vrWinGlow{0%,100%{text-shadow:0 0 0 rgba(239,68,68,0)}
+  50%{text-shadow:0 0 34px rgba(239,68,68,.5)}}
 .vr-side{font-size:.92rem;color:rgba(240,237,230,.66);opacity:0;animation:vrIn .5s ease .8s forwards}
 .vr-points{display:flex;gap:clamp(18px,6vw,64px);margin-top:6px;opacity:0;animation:vrIn .5s ease 1.2s forwards}
 .vr-pt{display:flex;flex-direction:column;gap:3px;min-width:96px}
 .vr-pt b{font-family:'Crimson Pro',Georgia,serif;font-size:clamp(1.5rem,4vw,2.3rem);font-weight:900;
   font-variant-numeric:tabular-nums;line-height:1}
 .vr-pt span{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(240,237,230,.55)}
-.vr-bars{width:min(520px,92%);margin-top:4px;display:flex;flex-direction:column;gap:7px;
-  opacity:0;animation:vrIn .5s ease 1.7s forwards}
-.vr-bar{display:grid;grid-template-columns:74px 1fr auto;gap:9px;align-items:center;font-size:.74rem}
+.vr-bars{width:min(520px,92%);margin-top:4px;display:flex;flex-direction:column;gap:7px}
+/* Rows fade in one after another (inline animation-delay from the
+   builder), each one's fill growing right behind it. */
+.vr-bar{display:grid;grid-template-columns:74px 1fr auto;gap:9px;align-items:center;font-size:.74rem;
+  opacity:0;animation:vrIn .5s ease forwards}
 .vr-bar i{font-style:normal;color:rgba(240,237,230,.62);text-align:right}
 .vr-track{height:8px;border-radius:99px;overflow:hidden;background:rgba(239,68,68,.55);display:flex}
 .vr-track u{display:block;height:100%;background:#22c55e;width:0;
@@ -169,8 +181,8 @@ html.dbnative .page-head{padding-top:20px}
 @keyframes vrIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 @keyframes vrGrow{to{width:var(--vw,50%)}}
 @media(prefers-reduced-motion:reduce){
-  .vr-eyebrow,.vr-winner,.vr-side,.vr-points,.vr-bars,.vr-rfd,.vr-acts{animation-duration:.01s;animation-delay:0s}
-  .vr-track u{animation-duration:.01s}
+  .vr-eyebrow,.vr-winner,.vr-side,.vr-points,.vr-bar,.vr-rfd,.vr-acts{animation-duration:.01s;animation-delay:0s;animation-iteration-count:1}
+  .vr-track u{animation-duration:.01s;animation-delay:0s}
 }
 .player-card.on{display:block}
 .player-head{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;flex-wrap:wrap}
@@ -757,30 +769,60 @@ footer a{color:var(--dim)}
         var pv = Number(d.pro), cv = Number(d.con);
         if (!isFinite(pv) || !isFinite(cv)) continue;
         var share = (pv + cv) ? Math.round(pv / (pv + cv) * 100) : 50;
-        bars += '<div class="vr-bar"><i>' + esc(AX[i][1]) + '</i>'
-             +  '<span class="vr-track"><u style="--vw:' + share + '%;animation-delay:' + (1.8 + i * 0.12) + 's"></u></span>'
+        // Row fades in, then its fill grows .25s behind it, one
+        // dimension after another down the card.
+        bars += '<div class="vr-bar" style="animation-delay:' + (1.7 + i * 0.14) + 's"><i>' + esc(AX[i][1]) + '</i>'
+             +  '<span class="vr-track"><u style="--vw:' + share + '%;animation-delay:' + (1.95 + i * 0.14) + 's"></u></span>'
              +  '<b>' + esc(pv) + ' &middot; ' + esc(cv) + '</b></div>';
       }
     }
     var pts = '';
     if (b.proPoints != null || b.conPoints != null){
+      // data-n is the count-up hook below; the final value is rendered
+      // as the text so the number is right even if the script stops here.
       pts = '<div class="vr-points">'
-          + '<div class="vr-pt"><b>' + esc(b.proPoints == null ? '—' : b.proPoints) + '</b><span>' + esc(proName) + '</span></div>'
-          + '<div class="vr-pt"><b>' + esc(b.conPoints == null ? '—' : b.conPoints) + '</b><span>' + esc(conName) + '</span></div>'
+          + '<div class="vr-pt"><b' + (b.proPoints != null && isFinite(Number(b.proPoints)) ? ' data-n="' + Number(b.proPoints) + '"' : '') + '>' + esc(b.proPoints == null ? '—' : b.proPoints) + '</b><span>' + esc(proName) + '</span></div>'
+          + '<div class="vr-pt"><b' + (b.conPoints != null && isFinite(Number(b.conPoints)) ? ' data-n="' + Number(b.conPoints) + '"' : '') + '>' + esc(b.conPoints == null ? '—' : b.conPoints) + '</b><span>' + esc(conName) + '</span></div>'
           + '</div>';
     }
     el.innerHTML =
-      '<span class="vr-eyebrow">The ballot</span>' +
-      '<h3 class="vr-winner">' + esc(winner) + ' wins</h3>' +
-      '<div class="vr-side">' + esc(winSide) + '</div>' +
-      pts +
-      (bars ? '<div class="vr-bars">' + bars + '</div>' : '') +
-      (b.rfd ? '<p class="vr-rfd">' + esc(b.rfd) + '</p>' : '') +
-      '<div class="vr-acts">' +
-        '<button class="btn" type="button" data-vr="replay">Watch again</button>' +
-        '<button class="btn" type="button" data-vr="close">Dismiss</button>' +
+      '<div class="vr-inner">' +
+        '<span class="vr-eyebrow">The ballot</span>' +
+        '<h3 class="vr-winner">' + esc(winner) + ' wins</h3>' +
+        '<div class="vr-side">' + esc(winSide) + '</div>' +
+        pts +
+        (bars ? '<div class="vr-bars">' + bars + '</div>' : '') +
+        (b.rfd ? '<p class="vr-rfd">' + esc(b.rfd) + '</p>' : '') +
+        '<div class="vr-acts">' +
+          '<button class="btn" type="button" data-vr="replay">Watch again</button>' +
+          '<button class="btn" type="button" data-vr="close">Dismiss</button>' +
+        '</div>' +
       '</div>';
     el.classList.add('on');
+    el.scrollTop = 0;
+    // Speaker points count up to the ballot's numbers, starting when
+    // their block fades in (1.2s). Skipped under reduced motion; the
+    // rendered text already holds the final value either way.
+    if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)){
+      Array.prototype.forEach.call(el.querySelectorAll('.vr-pt b[data-n]'), function(node){
+        var target = Number(node.getAttribute('data-n'));
+        var dec = String(node.getAttribute('data-n')).indexOf('.') >= 0 ? 1 : 0;
+        var from = Math.max(0, target - 6);
+        var D = 900;
+        node.textContent = from.toFixed(dec);
+        setTimeout(function(){
+          var t0 = null;
+          function step(ts){
+            if (t0 === null) t0 = ts;
+            var k = Math.min(1, (ts - t0) / D);
+            k = 1 - Math.pow(1 - k, 3);
+            node.textContent = (from + (target - from) * k).toFixed(dec);
+            if (k < 1) requestAnimationFrame(step);
+          }
+          requestAnimationFrame(step);
+        }, 1200);
+      });
+    }
     el.addEventListener('click', function(ev){
       var t = ev.target.closest && ev.target.closest('[data-vr]');
       if (!t) return;
