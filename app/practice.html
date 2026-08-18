@@ -9241,8 +9241,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   )
   );
 
-  // SAVED VIEW, saved cases + past rounds + "how I think as a debater"
-  if (phase === 'setup' && setupTab === 'saved') return el('div', { className: 'page' },
+  // SAVED VIEW, saved cases + past rounds + "how I think as a debater".
+  // Built here but RETURNED after the fmt-quiz useEffect below: an early
+  // return at this point skips that hook, shrinks the hook count, and
+  // throws React #300 the moment the Saved tab renders.
+  var savedView = phase === 'setup' && setupTab === 'saved' && el('div', { className: 'page' },
   shortcutsOverlay,
   brandPollOverlay,
   accountOverlay,
@@ -9677,6 +9680,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [fmtQuiz]);
+  // Saved tab return, deferred past the hook above so every render of
+  // this component calls the same hooks in the same order.
+  if (savedView) return savedView;
   // Portaled to <body>: .center.visible keeps an identity transform
   // (entrance animation end state), which makes it the containing
   // block for position:fixed descendants — an in-tree overlay would
