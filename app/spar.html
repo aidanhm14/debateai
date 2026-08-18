@@ -1794,6 +1794,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     roundNavPending: false,        // fallback guard once spar-pair succeeds
     aiOfferDismissed: false,       // user explicitly chose to keep waiting
     aiLeaving: false,              // one navigation even if the write is slow
+    zombieParked: false,           // queue parked after hours unattended; first touch rejoins
   };
 
   // No forced AI fallback (product decision): the user stays in the
@@ -3412,6 +3413,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
                          // OS sleep), rejoin with a clean doc.
                          || d.cancelReason === 'consent_ghost');
         if (systemCancel && !state.cancelled){
+          // Zombie-tab guard: if nobody has touched this tab in hours,
+          // the server calling us stale/ghost is CORRECT — park instead
+          // of silently rejoining. The attention tracker rejoins on the
+          // first real touch. Without this gate, an abandoned tab loops
+          // ghost-cancel → auto-requeue forever and every new human in
+          // the queue pays a dead 20s proposal to it.
+          if (!humanIsAround()){
+            state.zombieParked = true;
+            updateDiag({ last: 'parked (away, ' + d.cancelReason + ')' });
+            teardownQueue();
+            return;
+          }
           console.info('[spar] system cancel (' + d.cancelReason + '), re-queueing');
           updateDiag({ last: 're-queue' });
           teardownQueue();
@@ -4063,6 +4076,46 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     renderFallback();
   }
 
+  // ── Zombie-tab guard ─────────────────────────────────────────────
+  // The queue heartbeat used to run forever, so a /spar tab someone
+  // walked away from stayed 'waiting' for DAYS: every new human got a
+  // dead 20-second proposal from it before mutual skipUids kicked in.
+  // Measured 2026-08-18: one abandoned anonymous tab sat in 4 created
+  // rounds over a week without ever arriving, and threw two dead
+  // proposals at a live tester in one afternoon. "Wander off if you
+  // like" stays honest — 4 hours is far past any wander — but past
+  // that with zero interaction the doc is parked (heartbeat stops, the
+  // reaper sweeps it) and the FIRST real touch or tab return rejoins
+  // with a fresh doc, so a returning human is requeued within a second
+  // of actually being back.
+  var ATTN_STALE_MS = 4 * 60 * 60 * 1000;
+  var lastAttentionAt = Date.now();
+  function humanIsAround(){ return Date.now() - lastAttentionAt < ATTN_STALE_MS; }
+  (function(){
+    var moveT = 0;
+    function mark(){
+      lastAttentionAt = Date.now();
+      // Parked while away? The human is back: rejoin on a clean doc.
+      if (state.zombieParked && !state.cancelled){
+        state.zombieParked = false;
+        updateDiag({ last: 'back from away, re-queueing' });
+        joinQueue();
+      }
+    }
+    ['pointerdown','keydown','touchstart'].forEach(function(ev){
+      document.addEventListener(ev, mark, { passive: true });
+    });
+    // Mouse movement counts as presence on desktops, throttled so this
+    // never becomes a hot listener.
+    document.addEventListener('pointermove', function(){
+      var n = Date.now();
+      if (n - moveT > 60000){ moveT = n; mark(); }
+    }, { passive: true });
+    document.addEventListener('visibilitychange', function(){
+      if (!document.hidden) mark();
+    });
+  })();
+
   // Re-stamp joinedAt every 90s while searching, mirroring the
   // background matcher in js/notifications.js. spar-pair skips (and
   // cancels) peers older than 3 min (STALE_PEER_MS) — without this
@@ -4075,6 +4128,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (state.heartbeatInterval) clearInterval(state.heartbeatInterval);
     state.heartbeatInterval = setInterval(function(){
       if (state.cancelled || !state.queueDocRef) return;
+      if (!humanIsAround()){
+        // Stop refreshing joinedAt; the reaper sweeps the doc and the
+        // attention tracker above rejoins the moment the human is back.
+        state.zombieParked = true;
+        return;
+      }
       state.queueDocRef.update({
         joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(function(){});

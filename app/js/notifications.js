@@ -1472,12 +1472,35 @@
           .catch(function (err) { console.warn('[spar-live] join failed', err && err.message); });
       });
     }
+    // Zombie-screen guard (2026-08-18, mirrors spar.html): the heartbeat
+    // below already stops for hidden tabs, but a VISIBLE unattended
+    // screen (monitor left on, kiosk browser) heartbeated and requeued
+    // forever, throwing dead 20s proposals at every new human. Past 4
+    // hours with zero interaction the doc is left to the reaper; the
+    // first real touch requeues instantly, so "Available" stays a
+    // standing intent for anyone actually around.
+    var ATTN_STALE_MS = 4 * 60 * 60 * 1000;
+    var lastAttn = Date.now(), attnMoveT = 0;
+    function humanAround() { return Date.now() - lastAttn < ATTN_STALE_MS; }
+    function markAttn() {
+      lastAttn = Date.now();
+      if (docGone && !document.hidden) requeue();
+    }
+    ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+      document.addEventListener(ev, markAttn, { passive: true });
+    });
+    document.addEventListener('pointermove', function () {
+      var n = Date.now();
+      if (n - attnMoveT > 60000) { attnMoveT = n; markAttn(); }
+    }, { passive: true });
+
     // Re-create the waiting doc after the server reaper cancelled it (or a
     // stale_peer_skip), so a green "Available" pill can never sit on a doc
     // peers can't see. Guards mirror goAvailable + the overlay/nav states.
     function requeue() {
       if (!myUid || !myRef || !available || ON_ROUND || ON_SPAR || ON_PUBLIC || overlay || navigating) return;
       if (Date.now() < declineUntil) return; // honour the post-decline quiet window
+      if (!humanAround()) return;            // zombie-screen guard: rejoin on next real touch
       docGone = false;
       var blockedUids = [];
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
@@ -1498,6 +1521,7 @@
       stopTimers();
       hbTimer = setInterval(function () {
         if (document.hidden || !available || !myRef) return;
+        if (!humanAround()) { docGone = true; return; } // stop feeding a zombie doc; reaper sweeps it
         myRef.update({ joinedAt: ts() }).catch(function () {});
       }, HEARTBEAT_MS);
       scanTimer = setInterval(function () { if (!document.hidden) scan(); }, SCAN_MS);
