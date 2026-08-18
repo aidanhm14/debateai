@@ -278,6 +278,16 @@ export default async (request) => {
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
 
+  // Named accounts only, matching the /spar gate (2026-08-18). The client
+  // gate is a product decision; this is the enforcement, because a
+  // hand-rolled POST with an anonymous token would otherwise still pair.
+  // Anonymous accounts are free and unlimited to mint (the 2026-07-28
+  // rate-limit lesson), so an anonymous lane is an unaccountable opponent
+  // and an unbounded queue-filler. Same guard as tournament-dropin.mjs.
+  if (decoded.firebase?.sign_in_provider === 'anonymous') {
+    return errorResponse('Create an account to join the live queue.', 403, request);
+  }
+
   const myUid = decoded.sub;
   if (!myUid) return errorResponse('Invalid token subject', 401, request);
 

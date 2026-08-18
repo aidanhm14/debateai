@@ -5599,9 +5599,13 @@ button{font-family:inherit}
     if (!f.slotKeys.some(function(k){ return k === slotKey; })){
       toast('That seat doesn’t exist on this format.'); return;
     }
-    if (!currentUser){
-      toast('Creating your guest identity…');
-      ensureGuestAuth().then(function(){ handleJoinSlot(challengeId, slotKey); }).catch(function(){});
+    // Named accounts only (2026-08-18). Taking a seat means a real person
+    // is going to show up expecting an opponent, so this used to MINT an
+    // anonymous account to fill the chair; an account nobody can sign back
+    // into is exactly the empty chair the ready-check work was about.
+    if (!isNamedUser(currentUser)){
+      toast('Sign in to take a seat.');
+      doGoogleSignIn();
       return;
     }
     var slots = c.slots && typeof c.slots === 'object' ? Object.assign({}, c.slots) : {};
@@ -5698,9 +5702,11 @@ button{font-family:inherit}
     var c = list.find(function(x){ return x.id === challengeId; });
     if (!c){ toast('Debate not found.'); return; }
     if (!c.needJudge){ toast('No judge slot on this room.'); return; }
-    if (!currentUser){
-      toast('Creating your guest identity…');
-      ensureGuestAuth().then(function(){ handleJudgeSignup(challengeId); }).catch(function(){});
+    // Judging a live round is a named role in someone else's round, so it
+    // takes a real account for the same reason a seat does.
+    if (!isNamedUser(currentUser)){
+      toast('Sign in to judge a round.');
+      doGoogleSignIn();
       return;
     }
     var judges = Array.isArray(c.judges) ? c.judges.slice() : [];
@@ -6150,8 +6156,8 @@ button{font-family:inherit}
       toast('Firestore not loaded, debate saved locally only.');
       return;
     }
-    if (!currentUser){
-      toast('Not signed in, debate saved locally only.');
+    if (!isNamedUser(currentUser)){
+      toast('Sign in to post this to the board. Saved locally for now.');
       return;
     }
     var fsEntry = {
@@ -6274,7 +6280,7 @@ button{font-family:inherit}
   // companion doc — readable only by posterUid + accepterUid per
   // Firestore rule. Keeps both sides' inboxes out of the public board.
   function publishAcceptance(challengeId, payload){
-    if (!firebaseDb || !currentUser) return;
+    if (!firebaseDb || !isNamedUser(currentUser)) return;
     firebaseDb.collection('live_challenges').doc(challengeId).update({
       accepterUid: currentUser.uid,
       accepterName: payload.name || currentUser.displayName || '',

@@ -223,6 +223,13 @@ export default async (request) => {
     console.error('[partner-match] auth error:', err.message);
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
+  // Named accounts only (2026-08-18). A partner is a bigger commitment
+  // than an opponent, and an anonymous account cannot be reached again
+  // after the tab closes, so a throwaway in the pool strands a real
+  // person. Same guard as spar-pair.mjs and tournament-dropin.mjs.
+  if (decoded.firebase?.sign_in_provider === 'anonymous') {
+    return errorResponse('Create an account to find a partner.', 403, request);
+  }
   const myUid = decoded.sub;
   if (!myUid) return errorResponse('Invalid token subject', 401, request);
 

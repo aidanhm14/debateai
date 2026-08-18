@@ -498,7 +498,11 @@ html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:.75}
   }
 
   function api(path, body){
-    if (!auth || !auth.currentUser) return Promise.reject(new Error('signed out'));
+    // Anonymous tokens are refused by partner-match.mjs and duo-pair.mjs;
+    // fail here rather than spending a round trip to be told so.
+    if (!auth || !auth.currentUser || auth.currentUser.isAnonymous) {
+      return Promise.reject(new Error('signed out'));
+    }
     return auth.currentUser.getIdToken().then(function(tok){
       return fetch(path, {
         method: 'POST',
@@ -1098,9 +1102,13 @@ html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:.75}
 
   if (auth){
     auth.onAuthStateChanged(function(u){
-      state.user = u || null;
+      // Named accounts only (2026-08-18), matching /spar and the server
+      // guard in partner-match.mjs. js/notifications.js signs nearly every
+      // visitor in anonymously, so a truthy user is not a signed-in user;
+      // an anonymous partner cannot be reached again once the tab closes.
+      state.user = (u && !u.isAnonymous) ? u : null;
       paint();
-      if (u){
+      if (state.user){
         loadTeam();
         watchMyPool();
       }

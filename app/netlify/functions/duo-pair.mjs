@@ -177,6 +177,11 @@ export default async (request) => {
     console.error('[duo-pair] auth error:', err.message);
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
+  // Named accounts only (2026-08-18). This is the call that puts four
+  // people in one room, so it carries the same guard as spar-pair.mjs.
+  if (decoded.firebase?.sign_in_provider === 'anonymous') {
+    return errorResponse('Create an account to queue for a 2v2.', 403, request);
+  }
   const myUid = decoded.sub;
   if (!myUid) return errorResponse('Invalid token subject', 401, request);
 
