@@ -8179,50 +8179,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="fs-live-cap" id="fsLiveCap"></p>
     </div>
   </div>
-  <!-- ── Audience chooser (2026-08-18) ─────────────────────────────
-       One quiet line at the foot of the first screen. Someone who
-       competes keeps the site's debate-register copy; anyone else gets
-       the data-plain variants swapped in by /js/audience-mode.js. The
-       answer lives at localStorage debateos-experience, follows the
-       account through prefs-sync.js, and is changeable any time in
-       /settings. Hidden forever once answered. Present identically in
-       both first_screen_copy_v1 arms, so it does not tilt that test. -->
-  <style>
-    #first-screen{position:relative}
-    .aud-choose{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;padding:0 16px;z-index:5;font-size:13px;color:var(--text-ghost)}
-    .aud-choose[hidden]{display:none}
-    .aud-choose-btn{appearance:none;border:1px solid var(--text-ghost);background:transparent;color:var(--text-dim);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
-    .aud-choose-btn:hover{color:var(--text);border-color:var(--text-dim)}
-    @media(max-width:940px){.aud-choose{position:static;margin:18px 0 4px}}
-  </style>
-  <div class="aud-choose" id="audChoose" hidden>
-    <span class="aud-choose-q">Do you compete in debate?</span>
-    <button type="button" class="aud-choose-btn" data-exp="competitive" data-cta="audience-competitive">I compete</button>
-    <button type="button" class="aud-choose-btn" data-exp="new" data-cta="audience-new">I'm new to this</button>
-  </div>
-  <script>
-    (function(){
-      var KEY='debateos-experience';
-      var el=document.getElementById('audChoose');
-      if(!el) return;
-      var cur='';
-      try{cur=localStorage.getItem(KEY)||''}catch(e){}
-      if(cur) return;
-      el.hidden=false;
-      el.addEventListener('click',function(e){
-        var btn=e.target.closest&&e.target.closest('[data-exp]');
-        if(!btn) return;
-        var v=btn.getAttribute('data-exp');
-        if(window.DebatableAudience&&window.DebatableAudience.set){window.DebatableAudience.set(v);}
-        else{
-          try{localStorage.setItem(KEY,v)}catch(err){}
-          document.documentElement.setAttribute('data-debate-experience',v);
-        }
-        if(window.dosTrack)dosTrack('audience_choice',{value:v,surface:'landing_first_screen'});
-        el.hidden=true;
-      });
-    })();
-  </script>
+  <!-- The audience chooser ("Do you compete in debate?") used to overlay
+       the foot of this screen; 2026-08-18 (same day it shipped) Aidan
+       asked for a cleaner first screen, so it moved down into the Full
+       tour row and sits to the left of #landing-more-toggle now. -->
 </section>
 
 <!-- ── Open challenges ── MOVED OFF THE LANDING 2026-08-14 ───────
@@ -8550,7 +8510,57 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        expand button." So the collapsed state is now the button alone;
        the section index still renders, but only once the tour is open,
        which is the only state where there is anything to jump to. -->
+  <!-- ── Audience chooser (2026-08-18) ─────────────────────────────
+       One quiet line, docked to the left of the Full tour button. It
+       shipped earlier the same day overlaying the foot of #first-screen;
+       Aidan asked for a clean first screen, so it lives in this row now.
+       Someone who competes keeps the site's debate-register copy; anyone
+       else gets the data-plain variants swapped in by
+       /js/audience-mode.js. The answer lives at localStorage
+       debateos-experience, follows the account through prefs-sync.js,
+       and is changeable any time in /settings. Hidden forever once
+       answered (the Full tour button re-centers on its own). Present
+       identically in both first_screen_copy_v1 arms, so it does not
+       tilt that test. -->
+  <style>
+    /* The id keeps this ahead of the .lm-wl-row block authored near the
+       footer, which resets gap to 0 and is later in the cascade. */
+    .lm-wl-row #landing-more{gap:clamp(18px,3vw,36px);flex-wrap:wrap}
+    .aud-choose{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--text-ghost)}
+    .aud-choose[hidden]{display:none}
+    .aud-choose-btn{appearance:none;border:1px solid var(--text-ghost);background:transparent;color:var(--text-dim);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
+    .aud-choose-btn:hover{color:var(--text);border-color:var(--text-dim)}
+    @media(max-width:700px){.aud-choose{width:100%}}
+  </style>
   <div class="landing-more" id="landing-more">
+    <div class="aud-choose" id="audChoose" hidden>
+      <span class="aud-choose-q">Do you compete in debate?</span>
+      <button type="button" class="aud-choose-btn" data-exp="competitive" data-cta="audience-competitive">I compete</button>
+      <button type="button" class="aud-choose-btn" data-exp="new" data-cta="audience-new">I'm new to this</button>
+    </div>
+    <script>
+      (function(){
+        var KEY='debateos-experience';
+        var el=document.getElementById('audChoose');
+        if(!el) return;
+        var cur='';
+        try{cur=localStorage.getItem(KEY)||''}catch(e){}
+        if(cur) return;
+        el.hidden=false;
+        el.addEventListener('click',function(e){
+          var btn=e.target.closest&&e.target.closest('[data-exp]');
+          if(!btn) return;
+          var v=btn.getAttribute('data-exp');
+          if(window.DebatableAudience&&window.DebatableAudience.set){window.DebatableAudience.set(v);}
+          else{
+            try{localStorage.setItem(KEY,v)}catch(err){}
+            document.documentElement.setAttribute('data-debate-experience',v);
+          }
+          if(window.dosTrack)dosTrack('audience_choice',{value:v,surface:'landing_tour_row'});
+          el.hidden=true;
+        });
+      })();
+    </script>
     <button class="landing-more-summary" id="landing-more-toggle" type="button" aria-expanded="false" data-ab-test="landing_cv_v1" data-ab-target="gate_toggle">
       <span class="lm-copy">
         <strong class="lm-title"><span class="lm-closed">Full tour</span><span class="lm-open">Hide tour</span></strong>
