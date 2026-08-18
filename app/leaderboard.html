@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <script src="/js/native-bridge.js"></script>
 <title>Leaderboard · Debatable</title>
-<meta name="description" content="Voice-only leaderboard on Debatable. Speaker points (your speaking score) come from live voice rounds; typed rounds don't rank. Judged by the same AI ballot across APDA, BP, PF, LD, Policy, Worlds." />
+<meta name="description" content="The Debatable ladder. Head-to-head places come from a rating earned by winning live rounds against real people; solo practice ranks your best judged score. Typed rounds don't rank." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://itsdebatable.com/leaderboard">
@@ -26,7 +26,7 @@
 <meta property="og:image" content="https://itsdebatable.com/og-leaderboard.png?v=deb1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Leaderboard · Debatable">
-<meta name="twitter:description" content="Voice-only leaderboard on Debatable. Speaker points come from live voice rounds; typed rounds don't rank.">
+<meta name="twitter:description" content="The Debatable ladder. Head-to-head places come from a rating earned by winning live rounds; solo practice ranks your best judged score.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-leaderboard.png?v=deb1">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -695,6 +695,14 @@ a.deb-link:focus-visible,a.pod-name:focus-visible{
   background:rgba(217,119,6,.10);color:var(--bronze);
   font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
 }
+/* Provisional = a real rating that has not settled yet (rd too high or
+   under 3 rated rounds). It is a state, so it borrows the amber-for-state
+   palette, and rows carrying it hold no rank number. */
+.prov-mark{
+  display:inline-flex;align-items:center;padding:1px 6px;border-radius:999px;
+  background:rgba(217,119,6,.10);color:var(--bronze);
+  font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+}
 /* Direct actions for every real profile. Message is quiet, Challenge is
    the primary path. Both use the existing DM system. */
 .debater-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -1067,8 +1075,8 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
       </div>
       <h1>The <span class="hero-acc">leaderboard.</span></h1>
       <p class="hero-sub">
-        Head-to-head ranks debates against other people. Solo practice ranks individual speaking.
-        Each person appears once, and their best judged score in the selected subject sets their place. <span class="rule">Higher is better. Typed rounds do not count.</span> Press any name to read their profile.
+        Head-to-head places come from your rating, earned by beating real people in judged live rounds. Solo practice ranks your best judged score.
+        Each person appears once. <span class="rule">Higher is better. Typed rounds do not count.</span> Press any name to read their profile.
       </p>
     </div>
     <div class="hero-side">
@@ -1183,8 +1191,8 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
             <path d="M17 4l3 3-7 7-3-3 7-7z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h4>What does the score mean?</h4>
-        <p class="body">The score is the judge's rating of how well you argued. Higher is better. Formats use different scoring scales, so choose a format before comparing people.</p>
+        <h4>What do the numbers mean?</h4>
+        <p class="body">On the head-to-head ladder the number is a rating. It moves when you win or lose against real people, and beating stronger opponents moves it more. A rating stays provisional until it settles over 3 rated rounds. On solo practice the number is the judge's score for how well you argued.</p>
         <a class="side-link" href="/voice-debate">Try a judged voice round →</a>
       </div>
     </aside>
@@ -1195,7 +1203,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 <aside class="signin-strip" id="signinStrip" hidden>
   <div class="copy">
     <h4>Get on this board</h4>
-    <p>You do not need an opponent to rank. Debate the AI out loud, and the judge scores you on the same rubric as everyone here. Sign in once and every judged voice round banks XP toward your level; your best score sets your place.</p>
+    <p>Two ways up. Win judged live rounds against real people and your rating puts you on the head-to-head ladder. Or debate the AI out loud on your own, and your best judged score takes a place on the solo board. Sign in once and every judged round counts.</p>
   </div>
   <a class="cta" href="/voice-debate" id="signinStripCta">Start a voice round →</a>
 </aside>
@@ -1247,7 +1255,7 @@ const guideRecordCopy=document.getElementById('guideRecordCopy');
 const guideActionTitle=document.getElementById('guideActionTitle');
 const guideActionCopy=document.getElementById('guideActionCopy');
 
-const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement:{}};
+const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement:{},ratingRows:null,rankableCount:0};
 
 // ── direct profile actions ────────────────────────────────────────
 // /live's "Challenge a debater" used to jump to #postForm, a generic
@@ -1387,6 +1395,16 @@ function isFresh(ts,minutes){
 function fmtScore(s){
   if(typeof s!=='number'||isNaN(s))return '—';
   return s.toFixed(1);
+}
+// Ratings render as integers; judge scores keep one decimal.
+function scoreText(r){
+  if(r&&r._ratingRow) return typeof r.score==='number' ? String(Math.round(r.score)) : '—';
+  return fmtScore(r&&r.score);
+}
+function provChip(r){
+  if(!r||!r._ratingRow||!r._provisional) return '';
+  const range=r._range&&r._range.length===2 ? `Likely between ${r._range[0]} and ${r._range[1]}. ` : '';
+  return `<span class="prov-mark" title="${escapeHtml(range+'A rating settles after 3 rated head-to-head rounds.')}">Provisional</span>`;
 }
 
 function escapeHtml(s){
@@ -1602,7 +1620,10 @@ function rankPeople(rounds){
 // ── rank movement vs the viewer's previous visit. localStorage snapshot
 // keyed by view+format; first load has no arrows (nothing to compare to).
 function snapshotKey(){
-  return 'da-lb-snap:'+state.view+':'+(state.format||'all');
+  // v2: the head-to-head board switched from score-rank to rating-rank
+  // (2026-08-18); old snapshots would render movement arrows comparing
+  // two different orderings, so the key namespace moved.
+  return 'da-lb-snap2:'+state.view+':'+(state.format||'all');
 }
 function loadSnapshot(){
   try{
@@ -1665,7 +1686,7 @@ function podiumWave(uid, score){
 
 // ── render: podium (top 3) ─────────────────────────────────────────
 function podHTML(row, place){
-  const score=fmtScore(row.score);
+  const score=scoreText(row);
   const av=avatarHTML(row);
   const wins=row._wins||(row.won?1:0);
   const losses=row._losses||(row.won?0:1);
@@ -1695,8 +1716,8 @@ function podHTML(row, place){
         <path d="${wave}" pathLength="100"/>
       </svg>
       <div class="pod-score-row">
-        <div class="pod-score"${typeof row.score==='number'?` data-count="${row.score}"`:''}>${score}</div>
-        <div class="pod-score-l">Judge score</div>
+        <div class="pod-score"${typeof row.score==='number'?` data-count="${row.score}"${row._ratingRow?' data-int="1"':''}`:''}>${score}</div>
+        <div class="pod-score-l">${row._ratingRow?'Rating':'Judge score'}</div>
       </div>
       <div class="pod-wl">
         <span class="w">${wins}W</span>
@@ -1705,10 +1726,19 @@ function podHTML(row, place){
       </div>
     </article>`;
 }
+// On the ladder only settled ratings can be crowned: a podium needs
+// three RANKABLE people. Rows are sorted rankable-first, so checking the
+// first three covers it. renderTable slices around the podium, so both
+// renderers must agree through this one predicate.
+function podiumEligible(rows){
+  if(rows.length<3) return false;
+  if(state.view!=='live') return true;
+  return rows.slice(0,3).every(r=>r._ratingRow && r._rankable);
+}
 function renderPodium(rows){
   if(!podium) return;
   const top=rows.slice(0,3);
-  if(top.length<3){
+  if(!podiumEligible(rows)){
     podium.hidden=true;
     podium.innerHTML='';
     return;
@@ -1727,12 +1757,14 @@ function animatePodScores(){
     podium.querySelectorAll('.pod-score[data-count]').forEach(el=>{
       const target=parseFloat(el.getAttribute('data-count'));
       if(!isFinite(target)) return;
+      const asInt=el.getAttribute('data-int')==='1';
+      const fmt=v=>asInt?String(Math.round(v)):v.toFixed(1);
       const dur=950, t0=performance.now();
       function tick(t){
         const p=Math.min(1,(t-t0)/dur);
         const eased=1-Math.pow(1-p,3);
-        el.textContent=(target*eased).toFixed(1);
-        if(p<1) requestAnimationFrame(tick); else el.textContent=target.toFixed(1);
+        el.textContent=fmt(target*eased);
+        if(p<1) requestAnimationFrame(tick); else el.textContent=fmt(target);
       }
       requestAnimationFrame(tick);
     });
@@ -1760,7 +1792,7 @@ function renderTable(rows){
   if(!rows.length){
     const liveTab=state.view==='live';
     const filterClause=state.format?` for ${escapeHtml(DBDomains.get(state.format).name)}`:'';
-    const tabNoun=liveTab?'live rounds':'solo voice rounds';
+    const tabNoun=liveTab?'rated head-to-head rounds':'solo voice rounds';
     const ctaHref=liveTab?'/live':'/voice-debate';
     const ctaLabel=liveTab?'Open the live board →':'Start a voice round →';
     // Honest empty-state. We are not seeding fake debaters into this
@@ -1779,8 +1811,9 @@ function renderTable(rows){
         </div>
         <h3>No ${tabNoun} on the board yet${filterClause}.</h3>
         <p class="state-honest">
-          The product is in beta with about ten people playing on a given day. The leaderboard fills
-          with real names only, no padding. You can be one of the first.
+          ${liveTab
+            ? 'The ladder ranks on a rating earned by winning judged rounds against real people. Nobody holds one yet, so the first settled rating tops the board. You can be that person.'
+            : 'The product is in beta with about ten people playing on a given day. The leaderboard fills with real names only, no padding. You can be one of the first.'}
         </p>
         <div class="state-cta-row">
           <a class="cta" href="${ctaHref}">${ctaLabel}</a>
@@ -1837,9 +1870,11 @@ function renderTable(rows){
     } catch(_){}
     return;
   }
-  // Top 3 are in the podium. With fewer than three people, keep every
-  // person in the table so a small board never renders as an empty shell.
-  const hasPodium=rows.length>=3;
+  // Top 3 are in the podium. With fewer than three people (or a ladder
+  // whose top holds provisional ratings), keep every person in the table
+  // so a small board never renders as an empty shell.
+  const liveLadder=state.view==='live';
+  const hasPodium=podiumEligible(rows);
   const tail = hasPodium ? rows.slice(3) : rows;
   const head = `
     <div class="board-row head" role="row">
@@ -1849,14 +1884,22 @@ function renderTable(rows){
       <div>Streak</div>
       <div class="cell-rounds">Rounds</div>
       <div class="cell-when">Last</div>
-      <div style="text-align:right">Judge score</div>
+      <div style="text-align:right">${liveLadder?'Rating':'Judge score'}</div>
       <div class="cell-connect" style="text-align:right">Connect</div>
     </div>`;
+  // On the ladder, only rankable rows carry a rank number. Provisional
+  // ratings and Example seeds sit below the ranked places with no number:
+  // an empty place is more honest than one held by a single-round record.
+  const prov = liveLadder ? rows.filter(r=>r._ratingRow && !r._rankable).length : 0;
+  const provNote = (liveLadder && prov>0)
+    ? `<div class="seed-note"><span class="seed-note-tag">Provisional</span><span class="seed-note-text">${prov===1?'One debater is':prov+' debaters are'} rated but unranked. A rating settles after 3 rated head-to-head rounds; win rated rounds to claim a numbered place.</span></div>`
+    : '';
   const selfUid = state.user && state.user.uid;
   // Score bars: normalize against the visible spread, not a fixed
   // scale floor. Formats score on different scales (30-pt PF, 50-100
   // Worlds), so the floor sits a bit below the lowest visible score
-  // and the leader reads 100%.
+  // and the leader reads 100%. On the ladder only rating rows carry a
+  // number (seed speaker points are blanked), so the spread is ratings.
   const scored = rows.filter(r=>typeof r.score==='number' && isFinite(r.score));
   const maxS = scored.length ? Math.max.apply(null, scored.map(r=>r.score)) : null;
   const minS = scored.length ? Math.min.apply(null, scored.map(r=>r.score)) : null;
@@ -1866,6 +1909,7 @@ function renderTable(rows){
     const uid=r.uid||r.displayName||'';
     const isSelf = selfUid && uid===selfUid;
     const fresh = isFresh(r.completedAt, 30);
+    const ranked = !liveLadder || (idx < state.rankableCount);
     const pct = (barFloor!==null && typeof r.score==='number' && isFinite(r.score))
       ? Math.max(6, Math.min(100, Math.round(((r.score-barFloor)/(maxS-barFloor))*100)))
       : null;
@@ -1875,8 +1919,8 @@ function renderTable(rows){
     return `
       <div class="board-row${isSelf?' self':''}" role="row" style="--d:${Math.min(i,14)*40}ms">
         <div class="rank-cell">
-          <span class="rank-n">${idx+1}</span>
-          ${moveBadge(uid, idx)}
+          <span class="rank-n"${ranked?'':' style="opacity:.35"'}>${ranked?idx+1:'—'}</span>
+          ${ranked?moveBadge(uid, idx):'<span class="move flat" aria-hidden="true">·</span>'}
         </div>
         <div class="deb">
           <div class="deb-av" aria-hidden="true">${avatarHTML(r)}</div>
@@ -1886,6 +1930,7 @@ function renderTable(rows){
               ${subjectChip(r)}
               ${levelChip(r)}
               ${liveMark}
+              ${provChip(r)}
               ${profileTypeTag(r)}
             </div>
             ${debaterActions(r,'table-mobile-actions')}
@@ -1895,11 +1940,11 @@ function renderTable(rows){
         <div class="streak-col">${streakCell(r._streak||0)}</div>
         <div class="cell-rounds">${r._rounds||0}</div>
         <div class="cell-when${fresh?' fresh':''}">${escapeHtml(fmtAgo(r.completedAt))}</div>
-        <div class="cell-score"><span>${fmtScore(r.score)}</span>${pct!==null?`<span class="score-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>`:''}</div>
+        <div class="cell-score"><span>${scoreText(r)}</span>${pct!==null?`<span class="score-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>`:''}</div>
         <div class="cell-connect">${debaterActions(r)}</div>
       </div>`;
   }).join('');
-  board.innerHTML = head + body;
+  board.innerHTML = provNote + head + body;
 }
 
 // ── results ticker: latest scores across the active view ──────────
@@ -1935,7 +1980,9 @@ function renderTicker(rows){
 
 function renderBoard(allRowsRaw){
   const roundRows = applyFormatFilter(allRowsRaw);
-  const rows = rankPeople(roundRows);
+  // Head-to-head standings come from the rating ladder; the round rows
+  // still feed the ticker and hero stats below. Solo keeps score rank.
+  const rows = state.view==='live' ? liveStandings() : rankPeople(roundRows);
   state.rankMovement = computeMovement(rows);
   renderPodium(rows);
   renderTable(rows);
@@ -1967,6 +2014,14 @@ function updateHeroStats(allRows, filtered){
 // ── format pills with counts (derived from the current view) ──────
 function renderFormatPills(allRows){
   if(!fmtPillsHost) return;
+  // The rating ladder is ONE ladder: a rating is earned across every
+  // subject, so subject pills would filter a list they cannot re-rank.
+  // Solo keeps them (scores are per-round and carry a motion).
+  if(state.view==='live'){
+    fmtPillsHost.hidden=true;
+    fmtPillsHost.innerHTML='';
+    return;
+  }
   const peopleByDomain=new Map();
   for(const r of allRows){
     const key=domainOf(r);
@@ -2021,6 +2076,52 @@ async function renderYourRank(){
     return;
   }
   const uid=state.user.uid;
+
+  // Head-to-head: your place comes from the rating ladder, never from a
+  // leaderboard_entries score. notifications.js signs most visitors in
+  // anonymously, so the unrated invite is gated to NAMED accounts.
+  if(state.view==='live'){
+    if(state.user.isAnonymous){
+      yourRankHost.hidden=true;
+      yourRankHost.innerHTML='';
+      return;
+    }
+    const ladder=state.ratingRows||[];
+    const i=ladder.findIndex(r=>r.uid===uid);
+    let line, sub;
+    if(i<0){
+      line='You are unrated. Win judged head-to-head rounds against real people and your rating appears here.';
+      sub='Rated rounds need a real opponent and a verdict.';
+    } else {
+      const me=ladder[i];
+      const rating=Math.round(me.score);
+      if(me._rankable){
+        const behind=ladder.length-i-1;
+        line = i===0
+          ? `You're #1 with a <strong>${rating}</strong> rating${behind?`. ${behind} below you`:''}.`
+          : `You're #${i+1} with a <strong>${rating}</strong> rating, ${i} above, ${behind} below.`;
+      } else {
+        line=`Your rating is <strong>${rating}</strong>, still provisional. Win rated rounds to settle it and claim a numbered place.`;
+      }
+      sub=`${me._wins||0}W ${me._losses||0}L · ${me._rounds||0} rated round${(me._rounds||0)===1?'':'s'}`;
+    }
+    yourRankHost.hidden=false;
+    yourRankHost.innerHTML=`
+      <div class="your-rank-card">
+        <div>
+          <div class="your-rank-eye">Your rank</div>
+          <div class="your-rank-line">${line}</div>
+          <div class="your-rank-sub">${escapeHtml(sub)}</div>
+        </div>
+        <a class="your-rank-cta" href="${i<0?'/spar':'/profile'}">${i<0?'Find an opponent →':'Open your dashboard →'}</a>
+      </div>`;
+    if (i>=0 && i<=9 && (state.ratingRows||[])[i] && state.ratingRows[i]._rankable && !state._top10ChimeFired){
+      state._top10ChimeFired = true;
+      try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
+    }
+    return;
+  }
+
   const allRows=state.cache[state.view]||[];
   const filteredRows=applyFormatFilter(allRows);
   const rankedRows=rankPeople(filteredRows);
@@ -2214,9 +2315,10 @@ function renderHotFormats(rows){
 
 // ── tab counts (run after load) ───────────────────────────────────
 function updateTabCounts(){
-  const liveRows = state.cache.live || [];
   const aiRows = state.cache.ai || [];
-  const livePeople=rankPeople(liveRows).length;
+  // Head-to-head counts people holding a rating (ranked + provisional),
+  // not round entries and not seeds.
+  const livePeople=(state.ratingRows||[]).length;
   const aiPeople=rankPeople(aiRows).length;
   if(countLive) countLive.textContent = livePeople ? String(livePeople) : '';
   if(countAi)   countAi.textContent   = aiPeople   ? String(aiPeople)   : '';
@@ -2237,6 +2339,60 @@ async function loadWithFallback(primary, fallback){
   }
 }
 
+// ── the head-to-head ladder ───────────────────────────────────────
+// 2026-08-18: head-to-head standings rank on the Glicko rating from
+// /api/leaderboard-ratings (server-side user_ratings), not on raw judge
+// score. The stability eval showed raw points carry a length premium
+// and a soft fine-grained ordering; the binary winner is what holds, and
+// the rating is built from nothing but winners. Round entries are still
+// loaded for the ticker, hero stats and the hot-subjects rail.
+// Rankable rows (settled rating, 3+ rated rounds) hold the numbered
+// places; provisional rows follow unranked; a few Example seeds keep
+// texture at the bottom with no rank and no number in the rating column.
+async function loadRatingLadder(){
+  try{
+    const res=await fetch('/api/leaderboard-ratings');
+    if(!res.ok) return [];
+    const data=await res.json();
+    return (data.rows||[]).map(r=>({
+      uid:r.uid,
+      displayName:r.name||'A debater',
+      photoURL:r.photoURL||'',
+      avatarIdentity:r.avatarIdentity||null,
+      score:typeof r.rating==='number'?r.rating:null,
+      completedAt:r.lastEventAt||null,
+      kind:'live',
+      _ratingRow:true,
+      _rankable:r.rankable===true,
+      _provisional:r.provisional!==false,
+      _rd:r.rd,
+      _range:r.range||null,
+      _tier:r.tier||'',
+      _rounds:r.games||0,
+      _wins:r.wins||0,
+      _losses:r.losses||0,
+      _streak:0,
+    }));
+  }catch(e){
+    console.warn('[leaderboard] rating ladder fetch failed:', e&&e.message);
+    return [];
+  }
+}
+// Standings for the head-to-head tab: rated people first (the server
+// already sorts rankable-then-provisional by rating), then up to 8
+// Example seeds for texture. Seeds carry speaker points, which are not
+// ratings, so their number is blanked rather than rendered under a
+// Rating header.
+function liveStandings(){
+  const ladder=state.ratingRows||[];
+  const onLadder=new Set(ladder.map(r=>r.uid));
+  const seeds=rankPeople(state.cache.live||[])
+    .filter(r=>r.seed===true && !onLadder.has(r.uid||r.displayName||''))
+    .slice(0,8)
+    .map(r=>Object.assign({},r,{score:null}));
+  return ladder.concat(seeds);
+}
+
 async function loadView(view){
   if(!db){
     // No Firestore (offline / Firebase blocked). Show the same honest
@@ -2251,7 +2407,7 @@ async function loadView(view){
     signinStrip.hidden=false;
     return;
   }
-  if(state.cache[view]){
+  if(state.cache[view] && (view==='live' ? state.ratingRows!==null : true)){
     renderBoard(state.cache[view]);
     renderFormatPills(state.cache[view]);
     renderHotFormats(state.cache[view]);
@@ -2262,16 +2418,26 @@ async function loadView(view){
   try{
     let rows=[];
     if(view==='live'){
-      rows=await loadWithFallback(
-        db.collection('leaderboard_entries')
-          .where('kind','==','live')
-          .orderBy('score','desc')
-          .limit(100),
-        ()=>db.collection('leaderboard_entries')
-          .orderBy('score','desc')
-          .limit(500)
-      );
-      rows=rows.filter(r=>r.kind==='live').slice(0,100);
+      // Ladder and round entries load in parallel. A failed entries read
+      // costs the ticker and stats, never the standings, and vice versa.
+      const [ladder, entryRows]=await Promise.all([
+        state.ratingRows!==null ? Promise.resolve(state.ratingRows) : loadRatingLadder(),
+        loadWithFallback(
+          db.collection('leaderboard_entries')
+            .where('kind','==','live')
+            .orderBy('score','desc')
+            .limit(100),
+          ()=>db.collection('leaderboard_entries')
+            .orderBy('score','desc')
+            .limit(500)
+        ).catch(e=>{
+          console.warn('[leaderboard] live entries load failed:', e&&e.message);
+          return [];
+        }),
+      ]);
+      state.ratingRows=ladder;
+      state.rankableCount=ladder.filter(r=>r._rankable).length;
+      rows=entryRows.filter(r=>r.kind==='live').slice(0,100);
     }else if(view==='ai'){
       rows=await loadWithFallback(
         db.collection('leaderboard_entries')
@@ -2323,10 +2489,10 @@ function updateSigninStripCta(view){
 
 function syncRankingGuide(view){
   if(view==='live'){
-    guideRankTitle.textContent='Best head-to-head score sets the rank';
-    guideRankCopy.textContent='One person, one place, using their highest judged score.';
-    guideRecordTitle.textContent='W / L is the record';
-    guideRecordCopy.textContent='Wins and losses from the head-to-head rounds shown.';
+    guideRankTitle.textContent='Your rating sets the rank';
+    guideRankCopy.textContent='Win judged rounds against real people and it climbs. Beating stronger opponents moves it more.';
+    guideRecordTitle.textContent='Ratings settle over 3 rated rounds';
+    guideRecordCopy.textContent='Until then a rating is provisional and holds no numbered place. W / L is the full rated record.';
     guideActionTitle.textContent='Debate someone on the board';
     guideActionCopy.innerHTML='Real profiles show Message and Challenge. Examples <a href="/spar">link to matchmaking</a>.';
   }else{
