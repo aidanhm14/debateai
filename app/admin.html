@@ -906,6 +906,26 @@
     </div>
   </div>
 
+  <!-- August 2026 community update. One-time send to EVERY account:
+       bring a friend before the founding cutoff, reply with what to fix,
+       the judge rebuild. Same preview-then-confirm machinery as the Open
+       announcement above; the per-user stamp (updateAug18SentAt) makes a
+       stopped run resumable and a double-click a no-op. -->
+  <div class="section" data-pane="ops">
+    <div class="card">
+      <div class="title">
+        <span>August update · friends + feedback + judge</span>
+        <span class="meta" id="ua-meta">Not run yet</span>
+      </div>
+      <div id="ua-body" class="ts" style="padding:6px 2px">Preview to count the cohort. Nothing sends until you confirm.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 2px 2px">
+        <button class="pill-btn" id="ua-preview">Preview cohort</button>
+        <button class="pill-btn primary" id="ua-send" disabled>Send</button>
+        <button class="pill-btn" id="ua-stop" hidden>Stop</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Micro-poll A/B results (poll_responses, tallied by qvariant). -->
   <div class="section" data-pane="growth">
     <div class="card">
@@ -3543,13 +3563,16 @@ async function adminPost(url, body){
   return data;
 }
 
-// ── The Debatable Open announcement ─────────────────────────────────
+// ── One-time announcement emails (the Open, the August update) ──────
 // Two-step by design. Preview is a dry run; Send needs a second click
-// inside five seconds, because this is the most irreversible button on
-// the dashboard and a single misclick reaches every account we have.
-(function(){
-  const meta = $('oa-meta'), body = $('oa-body');
-  const previewBtn = $('oa-preview'), sendBtn = $('oa-send'), stopBtn = $('oa-stop');
+// inside five seconds, because these are the most irreversible buttons
+// on the dashboard and a single misclick reaches every account we have.
+// One wiring function, one card per campaign: same endpoint contract
+// (POST {} = dry run, POST {confirm:'SEND'} = one batch, per-user stamp
+// makes it resumable), different prefix + path.
+function wireAnnounceCard(prefix, endpoint){
+  const meta = $(prefix + '-meta'), body = $(prefix + '-body');
+  const previewBtn = $(prefix + '-preview'), sendBtn = $(prefix + '-send'), stopBtn = $(prefix + '-stop');
   if (!previewBtn) return;
   let armed = false, armTimer = null, stopped = false;
 
@@ -3593,7 +3616,7 @@ async function adminPost(url, body){
   previewBtn.addEventListener('click', async () => {
     previewBtn.disabled = true; meta.textContent = 'Counting…';
     try {
-      const r = await adminPost('/api/admin/open-announce', {});
+      const r = await adminPost(endpoint, {});
       render(r);
       // Arming Send on a real preview is the point: nobody sends this
       // without having seen the number it is about to reach.
@@ -3616,7 +3639,7 @@ async function adminPost(url, body){
       // Batched loop. Each pass stamps the people it reached, so Stop
       // leaves a resumable state rather than a half-finished mess.
       for (;;) {
-        const r = await adminPost('/api/admin/open-announce', { confirm: 'SEND' });
+        const r = await adminPost(endpoint, { confirm: 'SEND' });
         total += r.sent || 0;
         render(r);
         meta.textContent = total + ' sent · ' + r.remaining + ' to go';
@@ -3629,7 +3652,9 @@ async function adminPost(url, body){
 
   stopBtn.addEventListener('click', () => { stopped = true; stopBtn.disabled = true;
     setTimeout(() => { stopBtn.disabled = false; }, 1000); });
-})();
+}
+wireAnnounceCard('oa', '/api/admin/open-announce');
+wireAnnounceCard('ua', '/api/admin/update-announce');
 
 async function refreshStreamStatus(){
   try {
