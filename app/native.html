@@ -187,14 +187,11 @@
                 { value: 'ai', label: 'The AI', sub: 'Starts immediately. It argues back and takes interruptions.' },
                 { value: 'human', label: 'A stranger', sub: 'Matched live. Falls back to the AI if the queue is quiet.' }
               ] },
-            { key: 'format', q: 'Which format?', summaryLabel: 'Format',
-              hint: 'General is the short one. The rest run real speech times.',
+            { key: 'format', q: 'How do you want to argue?', summaryLabel: 'Format',
+              hint: 'General clash is the round. Formal formats are there when you want them.',
               options: [
-                { value: 'quick', label: 'General', sub: 'Two speeches a side. Judged out of 30.' },
-                { value: 'apda', label: 'APDA', sub: 'American Parliamentary. Impromptu.' },
-                { value: 'bp', label: 'British Parliamentary', sub: 'Four benches, extensions, whips.' },
-                { value: 'ld', label: 'Lincoln Douglas', sub: 'Value and criterion.' },
-                { value: 'pf', label: 'Public Forum', sub: 'Evidence and weighing.' }
+                { value: 'quick', label: 'General clash', sub: 'The default. Make your case, take the pushback, get judged out of 30.' },
+                { value: 'choose', label: 'A competitive format', sub: 'APDA, BP, LD, PF and more. Pick it on the round screen.' }
               ] },
             { key: 'side', q: 'Which side?', summaryLabel: 'Side',
               hint: 'Take the side you disagree with when you want the harder round.',
@@ -207,7 +204,10 @@
           launch: { title: 'That is the setup.', hint: 'Microphone access is requested when the round starts, not before.', cta: 'Start the round' },
           onDone: function (a) {
             var q = [];
-            if (a.format) q.push('format=' + encodeURIComponent(a.format));
+            // 'choose' means pick a formal format on the destination's
+            // own picker; sending no format param leaves that picker
+            // in charge instead of pre-pinning one here.
+            if (a.format && a.format !== 'choose') q.push('format=' + encodeURIComponent(a.format));
             if (a.side) q.push('side=' + encodeURIComponent(a.side));
             q.push('source=ios_home');
             var base = a.who === 'human' ? '/spar' : '/practice';
