@@ -57,6 +57,11 @@ export default async (request) => {
       const d = doc.data() || {};
       if (!Number.isFinite(d.rating)) return;
       if (!(Number(d.games) > 0)) return; // never rated a round: not on a ladder
+      // Humans only. Real Firebase uids are 28 chars; anything short is
+      // a synthetic seat (the seeded async challenges use uid 'ai', and
+      // one of those rated for real before eligibility() learned to
+      // check the seats). The ladder never ranks an AI.
+      if (doc.id.length < 20) return;
       raw.push({ uid: doc.id, d });
     });
 

@@ -42,6 +42,12 @@ export function eligibility(source, d) {
     const b = d.opp && d.opp.uid;
     if (!a || !b) return { ok: false, reason: 'missing_participant' };
     if (a === b) return { ok: false, reason: 'same_user' };
+    // The aiOpp flag is not the only way an AI sits in a round: seeded
+    // async challenges carry the AI as a named participant with
+    // uid 'ai' and no flag. One of those rated for real (2026-08-18,
+    // "The Debater · AI" at 1662 on the ladder), so the human-vs-human
+    // rule checks the seats, not just the flag.
+    if (a === 'ai' || b === 'ai') return { ok: false, reason: 'ai_opponent' };
     return {
       ok: true,
       a: { uid: a, name: (d.prop && d.prop.name) || '', side: 'prop' },

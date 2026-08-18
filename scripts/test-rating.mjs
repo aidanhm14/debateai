@@ -137,6 +137,13 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
 
   t('AI opponent excluded',
     eligibility('async', { ...asyncBase, aiOpp: true }).reason === 'ai_opponent');
+  // Seeded async challenges carry the AI as a NAMED seat (uid 'ai') with
+  // no aiOpp flag; one rated for real on 2026-08-18. The rule checks the
+  // seats, not just the flag.
+  t('AI seated as prop excluded even without aiOpp flag',
+    eligibility('async', { ...asyncBase, prop: { uid: 'ai', name: 'The Debater' } }).reason === 'ai_opponent');
+  t('AI seated as opp excluded even without aiOpp flag',
+    eligibility('async', { ...asyncBase, opp: { uid: 'ai', name: 'The Debater' } }).reason === 'ai_opponent');
   t('unlisted excluded',
     eligibility('async', { ...asyncBase, visibility: 'unlisted' }).reason === 'not_public');
   t('hidden excluded',
