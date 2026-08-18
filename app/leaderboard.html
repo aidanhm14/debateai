@@ -506,12 +506,17 @@ body.has-beta-strip .shell{padding-top:98px}
   display:flex;align-items:center;gap:12px;margin-top:14px;
 }
 .pod-avatar{
-  width:50px;height:50px;flex-shrink:0;border-radius:50%;
+  width:68px;height:68px;flex-shrink:0;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
   background:var(--bg-card-2);
   border:2px solid var(--border-strong);
 }
+/* The avatar is a doorway, not decoration: wrapped in the profile link
+   wherever the row belongs to a real account. */
+a.av-link{display:block;border-radius:50%;line-height:0}
+a.av-link:hover{box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent)}
+a.av-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pod-avatar svg,.deb-av svg,
 .pod-avatar>img,.deb-av>img,
 .avatar-fallback,.seed-portrait{width:100%;height:100%;display:block}
@@ -523,7 +528,7 @@ body.has-beta-strip .shell{padding-top:98px}
   transform:scale(1.035);
 }
 /* Medal-ringed avatars; #1 gets the bigger frame + gold bloom */
-.pod--1 .pod-avatar{width:58px;height:58px;border-color:rgba(251,191,36,.6);box-shadow:0 0 0 3px rgba(251,191,36,.14),0 0 26px rgba(251,191,36,.2)}
+.pod--1 .pod-avatar{width:80px;height:80px;border-color:rgba(251,191,36,.6);box-shadow:0 0 0 3px rgba(251,191,36,.14),0 0 26px rgba(251,191,36,.2)}
 .pod--2 .pod-avatar{border-color:rgba(203,213,225,.45);box-shadow:0 0 0 3px rgba(203,213,225,.08)}
 .pod--3 .pod-avatar{border-color:rgba(217,119,6,.5);box-shadow:0 0 0 3px rgba(217,119,6,.1)}
 .pod-id{min-width:0;flex:1}
@@ -582,7 +587,7 @@ body.has-beta-strip .shell{padding-top:98px}
   .podium{grid-template-columns:1fr;gap:10px}
   .pod--1{order:-1}
   .pod{padding:14px 16px 14px}
-  .pod-avatar,.pod--1 .pod-avatar{width:44px;height:44px}
+  .pod-avatar,.pod--1 .pod-avatar{width:54px;height:54px}
   .pod-score{font-size:1.7rem}
   .pod--1 .pod-score{font-size:1.9rem}
 }
@@ -643,13 +648,23 @@ body.has-beta-strip .shell{padding-top:98px}
   letter-spacing:.08em;text-transform:uppercase;
 }
 .deb{
-  display:flex;align-items:center;gap:10px;min-width:0;
+  display:flex;align-items:center;gap:12px;min-width:0;
 }
 .deb-av{
-  width:30px;height:30px;flex-shrink:0;border-radius:50%;
+  width:46px;height:46px;flex-shrink:0;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
   background:var(--bg-card-2);border:1px solid var(--border);
+}
+/* A row that belongs to a real account is pressable end to end: click
+   anywhere that is not a button and you land on their profile. */
+.board-row[data-profile]{cursor:pointer}
+.tier-chip{
+  display:inline-flex;align-items:center;padding:1px 7px;border-radius:999px;
+  color:var(--tc,var(--text-dim));
+  background:color-mix(in srgb, var(--tc,#888) 12%, transparent);
+  border:1px solid color-mix(in srgb, var(--tc,#888) 32%, transparent);
+  font-weight:800;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
 }
 .deb-id{min-width:0}
 .deb-name{
@@ -824,7 +839,7 @@ body.challenge-on .chal-banner{display:flex}
   .board-row .move{display:none}
   .deb-name{font-size:.85rem}
   .cell-score{font-size:.95rem}
-  .deb-av{width:26px;height:26px;font-size:.66rem}
+  .deb-av{width:38px;height:38px;font-size:.66rem}
   .deb{align-items:flex-start}
   .table-mobile-actions{display:flex;margin-top:7px}
   .table-mobile-actions .debater-action{min-height:27px;padding:4px 9px}
@@ -1076,7 +1091,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
       <h1>The <span class="hero-acc">leaderboard.</span></h1>
       <p class="hero-sub">
         Head-to-head places come from your rating, earned by beating real people in judged live rounds. Solo practice ranks your best judged score.
-        Each person appears once. <span class="rule">Higher is better. Typed rounds do not count.</span> Press any name to read their profile.
+        Each person appears once. <span class="rule">Higher is better. Typed rounds do not count.</span> Press anyone to open their profile.
       </p>
     </div>
     <div class="hero-side">
@@ -1320,6 +1335,40 @@ function profileHref(r){
   const uid=r.uid;
   if(!uid || typeof uid!=='string' || uid.length<8) return '';
   return '/users?uid='+encodeURIComponent(uid);
+}
+// One plain-language sentence about the person, carried as the title on
+// their row and avatar so hovering anywhere descriptive actually
+// describes them.
+function profileTitle(r){
+  if(!r) return '';
+  const name=r.displayName||'A debater';
+  if(r.seed) return name+' is an example row. Real accounts open a profile.';
+  const bits=[name];
+  if(r._ratingRow){
+    if(r._tier && r._tier!=='Unranked') bits.push(r._tier);
+    if(typeof r.score==='number') bits.push((r._provisional?'provisional rating ':'rating ')+Math.round(r.score));
+    bits.push((r._wins||0)+'W '+(r._losses||0)+'L over '+(r._rounds||0)+' rated round'+((r._rounds||0)===1?'':'s'));
+    if(r._peak && r._peak>Math.round(r.score||0)) bits.push('peak '+r._peak);
+  } else if(typeof r.score==='number'){
+    bits.push('best judged score '+r.score.toFixed(1));
+  }
+  return bits.join(' · ')+(profileHref(r)?'. Press to open their profile.':'');
+}
+// Tier gets its own colour so the ladder reads as bands, not a wall of
+// grey pills. Amber stays reserved for state; these are category tints.
+const TIER_COLORS={Titan:'#fbbf24',Elite:'#a78bfa',Varsity:'#ef4444',Contender:'#60a5fa',Regular:'#34d399',Rookie:'#94a3b8',Newcomer:'#94a3b8'};
+function tierChip(r){
+  if(!r||!r._ratingRow||!r._tier||r._tier==='Unranked') return '';
+  const c=TIER_COLORS[r._tier]||'#94a3b8';
+  return `<span class="tier-chip" style="--tc:${c}" title="Rating tier">${escapeHtml(r._tier)}</span>`;
+}
+// Avatar wrapped in the profile link for real accounts; plain for seeds.
+function avatarCell(r, cls){
+  const av=avatarHTML(r);
+  const href=profileHref(r);
+  const inner=`<div class="${cls}" aria-hidden="true">${av}</div>`;
+  if(!href) return inner;
+  return `<a class="av-link" href="${href}" data-cta="lb-profile-av" tabindex="-1" aria-hidden="true">${inner}</a>`;
 }
 function nameCell(r, cls){
   const name=escapeHtml(r.displayName||'Anonymous');
@@ -1677,7 +1726,10 @@ function podiumWave(uid, score){
     const v = (acc & 0xff)/255;            // 0..1
     const env = Math.sin((i/(N-1))*Math.PI);  // bell envelope
     const amp = 4 + v*8;                     // 4..12 px
-    const y = 12 - amp*env*(0.4 + (score||28)/40); // taller for higher scores
+    // Taller for higher scores, clamped: the factor was tuned for ~28pt
+    // judge scores, and a 4-digit rating would draw spikes far outside
+    // the 24px viewBox.
+    const y = 12 - amp*env*Math.min(1.15, 0.4 + (score||28)/40);
     points.push([i/(N-1)*100, y]);
   }
   const d = points.map((p,i)=> (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
@@ -1687,7 +1739,6 @@ function podiumWave(uid, score){
 // ── render: podium (top 3) ─────────────────────────────────────────
 function podHTML(row, place){
   const score=scoreText(row);
-  const av=avatarHTML(row);
   const wins=row._wins||(row.won?1:0);
   const losses=row._losses||(row.won?0:1);
   const streak=row._streak||0;
@@ -1696,13 +1747,14 @@ function podHTML(row, place){
     ? '<svg class="pod-laurel" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 4c1 0 2 .5 3 1.5M3 8c1 0 2 .5 3 1.5M3 12c1 0 2 .5 3 1.5M13 4c-1 0-2 .5-3 1.5M13 8c-1 0-2 .5-3 1.5M13 12c-1 0-2 .5-3 1.5M8 4v9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
     : '';
   return `
-    <article class="pod pod--${place}">
+    <article class="pod pod--${place}" title="${escapeHtml(profileTitle(row))}">
       <div class="pod-rank"><span class="medal" aria-hidden="true">${place}</span><span>${place===1?'1st place':place===2?'2nd place':'3rd place'}</span>${laurel}</div>
       <div class="pod-body">
-        <div class="pod-avatar" aria-hidden="true">${av}</div>
+        ${avatarCell(row,'pod-avatar')}
         <div class="pod-id">
           ${nameCell(row,'pod-name')}
           <div class="pod-meta">
+            ${tierChip(row)}
             <span class="fmt">${escapeHtml((subjectLabel(row)||{text:'—'}).text)}</span>
             <span class="dot-sep">·</span>
             <span>${escapeHtml(fmtAgo(row.completedAt)||'recent')}</span>
@@ -1916,17 +1968,19 @@ function renderTable(rows){
     const liveMark = r.kind==='live' && fresh
       ? `<span class="live-mark"><span style="width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px rgba(239,68,68,.18)"></span>live</span>`
       : '';
+    const pHref=profileHref(r);
     return `
-      <div class="board-row${isSelf?' self':''}" role="row" style="--d:${Math.min(i,14)*40}ms">
+      <div class="board-row${isSelf?' self':''}" role="row" style="--d:${Math.min(i,14)*40}ms"${pHref?` data-profile="${escapeHtml(pHref)}"`:''} title="${escapeHtml(profileTitle(r))}">
         <div class="rank-cell">
           <span class="rank-n"${ranked?'':' style="opacity:.35"'}>${ranked?idx+1:'—'}</span>
           ${ranked?moveBadge(uid, idx):'<span class="move flat" aria-hidden="true">·</span>'}
         </div>
         <div class="deb">
-          <div class="deb-av" aria-hidden="true">${avatarHTML(r)}</div>
+          ${avatarCell(r,'deb-av')}
           <div class="deb-id">
             ${nameCell(r,'deb-name')}
             <div class="deb-sub">
+              ${tierChip(r)}
               ${subjectChip(r)}
               ${levelChip(r)}
               ${liveMark}
@@ -2368,6 +2422,7 @@ async function loadRatingLadder(){
       _rd:r.rd,
       _range:r.range||null,
       _tier:r.tier||'',
+      _peak:typeof r.peak==='number'?r.peak:null,
       _rounds:r.games||0,
       _wins:r.wins||0,
       _losses:r.losses||0,
@@ -2508,6 +2563,19 @@ function syncRankingGuide(view){
     guideActionCopy.innerHTML='No opponent needed. <a href="/voice-debate">Debate the AI out loud</a>, signed in, and your best judged score takes a place here.';
   }
 }
+
+// Whole-row press → profile. Message / Challenge and the name link keep
+// their own behavior; only a press on inert row area navigates, so the
+// row acts like a card without stealing its buttons' clicks.
+board.addEventListener('click',(e)=>{
+  const row=e.target.closest('.board-row[data-profile]');
+  if(!row) return;
+  if(e.target.closest('a,button,input,textarea,select')) return;
+  const sel=window.getSelection&&window.getSelection();
+  if(sel && String(sel).length) return; // selecting text is not a press
+  try{ if(typeof gtag==='function') gtag('event','lb_row_profile',{view:state.view||''}); }catch(_){}
+  window.location.href=row.getAttribute('data-profile');
+});
 
 tabs.forEach(t=>{
   t.addEventListener('click',()=>{
