@@ -311,7 +311,7 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 - **First-screen rounds board faces: consented stills only** (updated
   2026-08-18). The 2026-08-12 "no faces should be circulating here"
   rule was partially reversed by Aidan himself: he supplied a batch of
-  real webcam stills (face46-49 and face51-54, plus the face50 Anonymous
+  real webcam stills (face46-49 and face51-55, plus the face50 Anonymous
   avatar) and
   confirmed on record that everyone shown is 18+ and consented to
   appearing as example-round debaters. Those, and the pre-existing
