@@ -912,6 +912,34 @@ body::before{
 
 /* The community intro stays sans serif for easier reading. */
 .hero h1{font-family:Crimson Pro,Georgia,serif}
+
+/* ── Readability pass (2026-08-18) ─────────────────────────
+   Message bodies, previews, and metadata one size up; a social feed
+   should read like a feed, not fine print. Appended last so these
+   win the earlier declarations. */
+.card .motion{font-size:1.05rem}
+.card .preview{font-size:.9rem}
+.card .meta{font-size:.78rem}
+.thread-title{font-size:1.08rem}
+.thread-preview{font-size:.9rem}
+.thread-meta{font-size:.78rem}
+.thread-vote .vote-score{font-size:.94rem}
+.chat-row{font-size:.95rem}
+.chat-msg-handle{font-size:.85rem}
+.chat-msg-time{font-size:.72rem}
+.chat-join{font-size:.8rem}
+.chat-empty{font-size:.94rem}
+.reply{font-size:.96rem}
+.reply .reply-meta{font-size:.78rem}
+.ident-badge{font-size:.62rem}
+.verified-badge{font-size:.6rem}
+.disc-id,.disc-sys{font-size:.85rem}
+.disc-time{font-size:.78rem}
+.sched-meta,.sched-as{font-size:.82rem}
+.sched-cal{font-size:.8rem}
+.bar-meta{font-size:.82rem}
+.build-link{font-size:.86rem}
+.join-history-list li .jh-date{font-size:.84rem}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap">
   <!-- BreadcrumbList (2026-08-11 SEO sweep). These pages carried no
@@ -975,7 +1003,7 @@ body::before{
     <div class="intro-you" id="memberYou">+ you, here today</div>
     <div class="cta-row">
       <a class="cta primary" href="/practice">Publish a case</a>
-      <a class="cta primary" href="/spar" style="background:transparent;border:1px solid rgba(185,28,28,.5);color:#b91c1c">Find a debater now →</a>
+      <a class="cta primary" href="/spar" style="background:transparent;border:1px solid rgba(185,28,28,.5);color:#b91c1c">Find an opponent now →</a>
       <a class="cta fund" href="mailto:aidandavidhollinger@gmail.com?subject=Help%20fund%20Debatable">Help fund the build</a>
     </div>
     <a class="build-link" href="/report">Read the build report &rarr;</a>
@@ -1324,7 +1352,7 @@ body::before{
     else if (role === 'mod') out.push(badgeChip('Mod', 'mod'));
     if (role === 'judge') out.push(badgeChip('Judge', 'judge'));
     if (role === 'coach') out.push(badgeChip('Coach', 'coach'));
-    if (!verified && !role) out.push(badgeChip(it.isNew ? 'New Member' : 'Debater', it.isNew ? 'new' : 'debater'));
+    if (!verified && !role) out.push(badgeChip(it.isNew ? 'New Member' : 'Member', it.isNew ? 'new' : 'debater'));
     return out.join('');
   }
   // Clickable author name → public profile at /users/[handle].
@@ -1617,7 +1645,7 @@ body::before{
   // the browse cards can show thread size without a subcollection read.
   function shortName(u){
     if (u && window.DBIdentity) return window.DBIdentity.forUser(u).name;
-    var n = String((u && u.displayName) || 'Debater').trim().split(/\s+/);
+    var n = String((u && u.displayName) || 'Member').trim().split(/\s+/);
     return n.length > 1 ? n[0] + ' ' + n[n.length - 1].charAt(0).toUpperCase() + '.' : n[0];
   }
   function initialsOf(name){
@@ -1636,7 +1664,7 @@ body::before{
     return '<div class="cmt">' +
       '<span class="cmt-ava">' + escHtml(initialsOf(m.authorName)) + '</span>' +
       '<div class="cmt-main">' +
-        '<div class="cmt-head"><b>' + escHtml(m.authorName || 'Debater') + '</b> · ' + timeAgo(m.createdAt) + '</div>' +
+        '<div class="cmt-head"><b>' + escHtml(m.authorName || 'Member') + '</b> · ' + timeAgo(m.createdAt) + '</div>' +
         '<div class="cmt-text">' + escHtml(m.text || '') + '</div>' +
       '</div></div>';
   }
@@ -1675,7 +1703,7 @@ body::before{
     }
     compose.innerHTML =
       '<textarea id="cmtInput" maxlength="1200" placeholder="What holds up? What would you attack?"></textarea>' +
-      '<div class="cmt-row"><span class="cmt-hint">Attack the case, not the debater.</span>' +
+      '<div class="cmt-row"><span class="cmt-hint">Attack the case, not the person.</span>' +
       '<button class="btn primary" id="cmtPost">Post</button></div>';
     var input = $('cmtInput'), btn = $('cmtPost');
     function post(){
@@ -2076,7 +2104,7 @@ body::before{
     if (!host || host.dataset.rendered) return;
     var personas = (window.DEBATEAI_THREADS && window.DEBATEAI_THREADS.personas) || [];
     host.innerHTML =
-      '<div class="pane-intro">These are the AI personas that seed the boards. They are bots, labeled as bots. They start arguments so the room is never empty: they drop motions, post counters, steelman, summarize, and demand warrants. They never pose as a person, claim a school, or invent a story. Real debaters always rank above them.</div>' +
+      '<div class="pane-intro">These are the AI personas that seed the boards. They are bots, labeled as bots. They start arguments so the room is never empty: they drop motions, post counters, steelman, summarize, and demand warrants. They never pose as a person, claim a school, or invent a story. Real people always rank above them.</div>' +
       '<div class="persona-grid">' +
         personas.map(function(p){
           var h = encodeURIComponent(p.handle || '');
@@ -2103,10 +2131,10 @@ body::before{
       '<div class="pane-intro">The honest identity layer. Three kinds of accounts post here, and you can always tell which is which.</div>' +
       '<div class="people-legend">' +
         '<div class="legend-row"><span class="ident-badge ident-human">Human Verified</span><span>a real person who has run a real round or published a case. The badge is earned, not clicked.</span></div>' +
-        '<div class="legend-row"><span class="ident-badge ident-debater">Debater</span><span>a real person, not yet verified. Most new accounts start here.</span></div>' +
+        '<div class="legend-row"><span class="ident-badge ident-debater">Member</span><span>a real person, not yet verified. Most new accounts start here.</span></div>' +
         '<div class="legend-row"><span class="ident-badge ident-ai">AI Persona</span><span>a labeled bot that starts conversations and never pretends to be human. See the AI Personas tab.</span></div>' +
       '</div>' +
-      '<div class="pane-intro" style="margin-top:18px">Real debaters show up here as they post and publish. Run a round or publish a case, then create your profile to earn the green badge next to your name.</div>';
+      '<div class="pane-intro" style="margin-top:18px">Real people show up here as they post and publish. Run a round or publish a case, then create your profile to earn the green badge next to your name.</div>';
     host.dataset.rendered = '1';
   }
 
