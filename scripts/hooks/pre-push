@@ -17,6 +17,14 @@
 # Also guards the 0-byte sw.js failure, which shipped to production
 # twice: a read-then-write in the same expression truncates the file
 # before reading it.
+#
+# And guards a corrupted sw.js: on 2026-08-18 both sw.js files reached
+# origin/main carrying unresolved conflict markers around CACHE_NAME
+# (a rebase resolution gone wrong in a parallel session). That is a JS
+# syntax error, so browsers keep the previous service worker and every
+# visitor stays on the stale cache indefinitely — worse than a missed
+# bump, and invisible until someone reads the deployed file. So every
+# push is checked for conflict markers and run through `node --check`.
 set -euo pipefail
 
 CLIENT_RE='^(app/)?[^/]*\.(html|js|css)$|^app/(js|css)/|^(js|css)/'
@@ -35,6 +43,38 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
 
   changed="$(git diff --name-only "$base" "$local_sha" || true)"
   [ -z "$changed" ] && continue
+
+  # Service-worker integrity at the commit being pushed. Runs on every
+  # push (not just client-file pushes): a broken sw.js already sitting
+  # in the commit is worth blocking no matter what this push touches.
+  for f in app/sw.js sw.js; do
+    size="$(git cat-file -s "$local_sha:$f" 2>/dev/null || echo 0)"
+    if [ "$size" -lt 200 ]; then
+      echo "BLOCKED: $f is ${size} bytes at the commit being pushed." >&2
+      echo "  A truncated service worker breaks caching for every visitor." >&2
+      fail=1
+      continue
+    fi
+    content="$(git show "$local_sha:$f" 2>/dev/null || true)"
+    if printf '%s\n' "$content" | grep -nE '^(<{7} |={7}$|>{7} |[|]{7})' >&2; then
+      echo "BLOCKED: $f contains unresolved merge conflict markers (lines above)." >&2
+      echo "  That is a JS syntax error: browsers keep the previous service" >&2
+      echo "  worker and every visitor stays on the stale cache. Resolve the" >&2
+      echo "  conflict, amend, and push again." >&2
+      fail=1
+      continue
+    fi
+    if command -v node >/dev/null 2>&1; then
+      tmpbase="$(mktemp)"; tmp="$tmpbase.js"
+      printf '%s\n' "$content" >"$tmp"
+      if ! node --check "$tmp" >"$tmpbase.log" 2>&1; then
+        echo "BLOCKED: $f fails node --check at the commit being pushed:" >&2
+        sed "s|$tmp|$f|g" "$tmpbase.log" | head -8 >&2
+        fail=1
+      fi
+      rm -f "$tmpbase" "$tmp" "$tmpbase.log"
+    fi
+  done
 
   client="$(printf '%s\n' "$changed" | grep -E "$CLIENT_RE" | grep -v "$FN_RE" || true)"
   [ -z "$client" ] && continue
@@ -58,15 +98,6 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
     echo "" >&2
     fail=1
   fi
-
-  for f in app/sw.js sw.js; do
-    size="$(git cat-file -s "$local_sha:$f" 2>/dev/null || echo 0)"
-    if [ "$size" -lt 200 ]; then
-      echo "BLOCKED: $f is ${size} bytes at the commit being pushed." >&2
-      echo "  A truncated service worker breaks caching for every visitor." >&2
-      fail=1
-    fi
-  done
 done
 
 [ "$fail" -eq 0 ] || { echo "Push aborted. Override only if you are certain: git push --no-verify" >&2; exit 1; }

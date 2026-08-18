@@ -39,6 +39,44 @@ STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
 [ -z "$STAGED" ] && exit 0
 
 # ──────────────────────────────────────────────────────────────────
+# Service-worker integrity guard. On 2026-08-18 both sw.js files
+# reached origin/main carrying unresolved conflict markers around
+# CACHE_NAME (a rebase resolution gone wrong). That is a JS syntax
+# error: browsers keep the previous service worker and users stay on
+# the stale cache indefinitely. Checks the STAGED copy (what the
+# commit will actually contain) for conflict markers and runs it
+# through `node --check`. Hard-fails, like the price guard.
+# ──────────────────────────────────────────────────────────────────
+sw_integrity() {
+  # $1 = repo-relative path of a staged sw file (e.g. app/sw.js)
+  local content
+  content="$(git show ":$1" 2>/dev/null || true)"
+  if [ -z "$content" ]; then
+    echo "[sw-guard] BLOCKED: staged $1 is empty. A truncated service worker breaks caching for every visitor." >&2
+    return 1
+  fi
+  if printf '%s\n' "$content" | grep -nE '^(<{7} |={7}$|>{7} |[|]{7})' >&2; then
+    echo "[sw-guard] BLOCKED: staged $1 contains unresolved merge conflict markers (lines above)." >&2
+    echo "[sw-guard] That is a JS syntax error: browsers keep the previous service worker and users stay on the stale cache. Resolve the conflict and re-stage. Never bypass with --no-verify." >&2
+    return 1
+  fi
+  if command -v node >/dev/null 2>&1; then
+    local tmpbase tmp
+    tmpbase="$(mktemp)"; tmp="$tmpbase.js"
+    printf '%s\n' "$content" >"$tmp"
+    if ! node --check "$tmp" >"$tmpbase.log" 2>&1; then
+      echo "[sw-guard] BLOCKED: staged $1 fails node --check (syntax error):" >&2
+      sed "s|$tmp|$1|g" "$tmpbase.log" | head -8 >&2
+      echo "[sw-guard] Fix the syntax error and re-stage. Never bypass with --no-verify." >&2
+      rm -f "$tmpbase" "$tmp" "$tmpbase.log"
+      return 1
+    fi
+    rm -f "$tmpbase" "$tmp" "$tmpbase.log"
+  fi
+  return 0
+}
+
+# ──────────────────────────────────────────────────────────────────
 # Canonical-price guard. Blocks a commit that stages an off-canonical
 # price string in a user-facing surface — catches pricing drift and
 # agents "correcting" prices backwards to superseded values. Canonical
@@ -410,7 +448,11 @@ fi
 # If the user is already touching sw.js in this commit, trust them.
 # They either bumped manually or are intentionally editing the SW
 # logic itself — we don't want to clobber their version choice.
+# Trusting the version choice does not mean trusting the bytes:
+# the staged copies still have to parse.
 if printf '%s\n' "$STAGED" | grep -qE '^(app/)?sw\.js$'; then
+  sw_integrity app/sw.js || exit 1
+  sw_integrity sw.js || exit 1
   exit 0
 fi
 
@@ -447,6 +489,12 @@ rm -f "$SW_APP.bak" "$SW_ROOT.bak"
 
 # Re-stage the bumped files so they ride along on the commit.
 git add "$SW_APP" "$SW_ROOT" 2>/dev/null || true
+
+# The auto-bump stages the whole working-tree file, not just the version
+# line — so if the working copy was carrying conflict markers, the bump
+# just staged them. Verify what actually landed in the index.
+sw_integrity app/sw.js || exit 1
+sw_integrity sw.js || exit 1
 
 # One-line summary so the dev can see exactly what fired and why.
 TRIGGER_COUNT="$(printf '%s\n' "$TRIGGERS" | wc -l | tr -d ' ')"
