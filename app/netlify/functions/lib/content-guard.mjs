@@ -57,17 +57,27 @@ const SEXUAL_EXPLICIT_PATTERNS = [
   /\bcock\s*suck/i,
   /\bjerk\s*off/i,
   /\bjack\s*off/i,
-  /\bblow\s*job/i,
-  /\bhand\s*job/i,
-  /\brim\s*job/i,
+  // "blow/hand/rim job": the compact form is unambiguous, but the spaced
+  // form collides with unpunctuated speech-to-text on jobs motions —
+  // "I raise my hand jobs are being lost" transcribes with "hand" right
+  // before "jobs" and \s* also spans newlines. A real user got their
+  // round flagged for exactly this (2026-08-18). So: compact form always
+  // blocked; spaced form only with a determiner/verb in front, which the
+  // explicit sense virtually always carries and the ASR collision never
+  // does.
+  /\b(blowjob|handjob|rimjob)/i,
+  /\b(a|an|the|give|gives|gave|giving|get|gets|got|getting|want|wants|wanted|offer|offers|offered|free)\s+(blow|hand|rim)\s?jobs?\b/i,
   /\bcum\s*(slut|dump|shot|bucket)/i,
   /\bgang\s*bang/i,
   /\bdeep\s*throat/i,
   /\b(suck|lick|eat|ride|fuck)\s+(my|your|his|her|the)?\s*(dick|cock|pussy|ass|tits|boobs)\b/i,
   /\b(my|your|his|her)\s+(throbbing|hard|wet|big|huge|massive|long|thick|tight)\s+(dick|cock|pussy|tits|boobs|ass)\b/i,
   // First-person "I have a [adj?] [genital]" — flexible middle so
-  // articles and adjectives in any order still match.
-  /\b(i|me)\s+(have|got|own|love|like|am|got\s+a|got\s+the|got\s+such)\s+[a-z\s'-]{0,40}?(dick|cock|penis|pussy|vagina|tits|boobs|balls|nuts)\b/i,
+  // articles and adjectives in any order still match. "balls to <verb>"
+  // (courage idiom: "I have the balls to say") and "nuts and bolts" are
+  // carved out — both showed up in real debate speech and are not
+  // sexual (same 2026-08-18 false-flag report as the hand/jobs fix).
+  /\b(i|me)\s+(have|got|own|love|like|am|got\s+a|got\s+the|got\s+such)\s+[a-z\s'-]{0,40}?(dick|cock|penis|pussy|vagina|tits|boobs|balls(?!\s+(to|of)\b)|nuts(?!\s+(and\s+bolts|of)\b))\b/i,
   /\b(send|show|see|gimme|give\s+me|want)\s+(me\s+)?(your\s+)?(nudes|tits|dick|pussy|ass|cock)\b/i,
 ];
 
