@@ -45,6 +45,8 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/transcript-consent.js"></script>
 <script defer src="/js/voice-transcript.js"></script>
+<script defer src="/js/judge-roster.js"></script>
+<script defer src="/js/judge-intro.js"></script>
 
 <style>
 :root{
@@ -1473,6 +1475,26 @@ $('paceSeg').addEventListener('click', (e) => {
    so the user chooses to spend it. */
 let liveJudge = false;
 try { liveJudge = localStorage.getItem('debateos-newvoice-judge-live') === 'on'; } catch (e) {}
+
+/* The assigned judge for this round. Drawn fresh per round from the
+   roster (js/judge-roster.js), never repeating the previous round's
+   judge, so every round opens with a different bench. The paradigm
+   rides the ballot prompt as an emphasis lens only; it cannot name a
+   winner or change the ballot's shape (see PARADIGM_GUARD). */
+let roundJudge = null;
+function drawRoundJudge(){
+  if (!window.JudgeRoster) return null;
+  let lastKey = '';
+  try { lastKey = localStorage.getItem('debateos-last-judge') || ''; } catch (e) {}
+  const pool = JudgeRoster.ROSTER.filter((j) => j.key !== lastKey);
+  const pick = pool[Math.floor(Math.random() * pool.length)] || JudgeRoster.ROSTER[0];
+  try { localStorage.setItem('debateos-last-judge', pick.key); } catch (e) {}
+  return pick;
+}
+function judgeStripLine(){
+  if (!roundJudge) return 'Sitting in. Notes come with the ballot.';
+  return roundJudge.name + ' · ' + roundJudge.tag;
+}
 paintSeg($('judgeSeg'), 'judge', liveJudge ? 'on' : 'off');
 // Mic mode is read from localStorage at declaration; paint the setup seg and
 // the stage controls to match it before anything renders.
@@ -1485,7 +1507,10 @@ $('judgeSeg').addEventListener('click', (e) => {
   paintSeg($('judgeSeg'), 'judge', v);
   markGuide($('intentGuide'), null);
   try { localStorage.setItem('debateos-newvoice-judge-live', v); } catch (err) {}
-  if (status === 'live') $('judgeStrip').hidden = !liveJudge;
+  if (status === 'live') {
+    $('judgeStrip').hidden = !(liveJudge || roundJudge);
+    $('judgeStripText').textContent = judgeStripLine();
+  }
 });
 
 function markGuide(group, btn){
@@ -1618,6 +1643,22 @@ async function start(){
     // measurement is free, and if it somehow is not done by the time the
     // round starts the gates just sit at their quiet-room constants.
     measureNoiseFloor();
+
+    // The judge walks in while the connection is being built. The
+    // handshake is 3-8s of dead time; the intro card fills it with the
+    // one thing worth reading before you speak: who is judging and what
+    // wins in front of them. Mounted AFTER the mic prompt so the card
+    // never covers a permission dialog.
+    try {
+      roundJudge = drawRoundJudge();
+      if (roundJudge && window.JudgeIntro) {
+        JudgeIntro.show(roundJudge, {
+          eyebrow: 'Your judge this round',
+          foot: 'A different judge hears every round',
+          autoMs: 12000,
+        });
+      }
+    } catch (e) {}
 
     // 2. Mint the ephemeral session.
     let authHeader = {};
@@ -1792,8 +1833,11 @@ async function start(){
   paintMic();
   lastActiveAt = Date.now(); lastAiDoneAt = 0;
   turnsJudged = 0; lastJudgeAt = 0; judgeBusy = false;
-  $('judgeStrip').hidden = !liveJudge;
-  $('judgeStripText').textContent = 'Sitting in. Notes come with the ballot.';
+  // The strip names the assigned judge whenever one exists; the round
+  // is judged either way, so the identity is not gated on the live
+  // commentary toggle.
+  $('judgeStrip').hidden = !(liveJudge || roundJudge);
+  $('judgeStripText').textContent = judgeStripLine();
   $('tsPanel').hidden = true;
   renderTs();
   statusPill.classList.remove('connecting');
@@ -2204,7 +2248,8 @@ function maybeLiveJudge(){
         'You are silently scoring a live spoken argument between USER and MACHINE, mid-round. ' +
         'Reply with ONE sentence under 22 words, plain English, present tense, addressed to USER as "you": ' +
         'who is ahead right now and the single biggest reason. Call the other side "the machine". ' +
-        'No hedging, no preamble, no final-verdict language; the round is still going.',
+        'No hedging, no preamble, no final-verdict language; the round is still going.' +
+        ((roundJudge && window.JudgeRoster) ? ('\n' + JudgeRoster.promptBlock(roundJudge)) : ''),
       messages: [{ role: 'user', content: 'Claim: "' + (currentMotion || '') + '". USER argues ' + (side === 'for' ? 'FOR' : 'AGAINST') + ' it.\n\n' + transcript }],
       _feature: 'newvoice-livejudge',
     }),
@@ -2385,8 +2430,20 @@ function judgeRound(){
   pill.hidden = true;
   body.classList.add('loading');
   body.textContent = 'Reviewing what you said…';
+  // The ballot header names the judge who heard the round.
+  try {
+    const eb = card.querySelector('.ballot-eyebrow');
+    if (eb) eb.textContent = roundJudge ? ('The ballot · ' + roundJudge.glyph + ' ' + roundJudge.name) : 'Your result';
+  } catch (e) {}
 
   const transcript = t.map((x) => (x.who === 'you' ? 'USER' : 'MACHINE') + ': ' + x.text).join('\n');
+  // The assigned judge's paradigm rides the ballot as an emphasis lens.
+  // Guard-wrapped by promptBlock: it may shift what gets rewarded, it
+  // may not name a winner or change the required output shape.
+  const personaBlock = (roundJudge && window.JudgeRoster)
+    ? '\n\n' + JudgeRoster.promptBlock(roundJudge) +
+      '\nWrite the ballot in the voice and priorities of ' + roundJudge.name + '. The required output shape below still applies exactly.'
+    : '';
   const sys =
     'You are a fair, plain-spoken judge adjudicating a short casual spoken argument. USER and MACHINE argued opposite sides of a claim. ' +
     'Decide who had the better of it from the transcript alone. Judge arguments, not grammar; speech transcripts are messy. ' +
@@ -2394,7 +2451,7 @@ function judgeRound(){
     'Reply in EXACTLY this shape, under 140 words total, plain prose, no headings, no lists, no em-dashes: ' +
     'First line starts "Winner: You." or "Winner: The machine." or "Winner: Wash." ' +
     'Then three or four sentences: the clash that decided it (quote a short phrase from the transcript), the single best moment each side had, and one concrete, doable tip for USER\'s next round. ' +
-    'Address USER as "you" and call the other side "the machine".';
+    'Address USER as "you" and call the other side "the machine".' + personaBlock;
   const user =
     'Claim: "' + (currentMotion || 'unknown') + '". USER argued ' + (side === 'for' ? 'FOR' : 'AGAINST') +
     ' it; MACHINE argued the opposite.\n\nTranscript:\n' + transcript.slice(0, 12000);

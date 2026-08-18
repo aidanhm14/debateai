@@ -37,6 +37,13 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      defer on purpose: the inline round script below reads it at parse
      time, and a deferred copy would not exist yet. -->
 <script src="/js/judge-lenses.js"></script>
+<!-- The rotating judge roster + intro card. Loaded without defer for the
+     same parse-time reason as judge-lenses.js. Assignment is a seeded
+     draw on the room id, so both clients derive the same judge with no
+     write; lib/judge-roster.mjs is the server-side twin and the two
+     must stay in sync (scripts/test-judge-roster.mjs asserts it). -->
+<script src="/js/judge-roster.js"></script>
+<script src="/js/judge-intro.js"></script>
 <script defer src="/js/track.js"></script>
 <!-- Client-side floor for the publish-to-/disclosures flow: profanity
      word-list, min length, URL-spam ratio. Cheap pre-check before the
@@ -6865,6 +6872,7 @@ html.stage-mode .stage-ov{display:block}
     startJoinRequestHost();   // now a participant + room doc exists
     renderRound();
     startPrepBanner();
+    try { maybePlayAssignedJudgeIntro(); } catch(e){}
     try { gtag('event', 'live_round_start', { format: state.formatKey }); } catch(e){}
   }
 
@@ -7357,6 +7365,7 @@ html.stage-mode .stage-ov{display:block}
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
+      ...assignedJudgeBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
       "",
@@ -7438,6 +7447,7 @@ html.stage-mode .stage-ov{display:block}
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
+      ...assignedJudgeBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
       "",
@@ -8087,7 +8097,7 @@ html.stage-mode .stage-ov{display:block}
       'You are the tournament judge who just issued the verdict in a ' + f.name + ' round between real people. The verdict is FINAL. Your job now is THE FULL BALLOT: the long-form Reason for Decision the debaters keep and reread. Explain the verdict; never contradict or soften the winner, the points, or the ranking.',
       '',
       'FORMAT LENS:',
-    ].concat(JUDGE_RULES[state.formatKey] || []).concat(paradigmBallotLines()).concat([
+    ].concat(JUDGE_RULES[state.formatKey] || []).concat(judgeLensBallotLines()).concat(assignedJudgeBallotLines()).concat(paradigmBallotLines()).concat([
       '',
       'HARD RULES:',
       '- MINIMUM 700 words. Target 900 to 1300. A ballot under 700 words means you summarized instead of adjudicating; go deeper, not longer-winded — depth comes from covering more of the flow, not from restating the same rulings.',
@@ -11520,9 +11530,12 @@ html.stage-mode .stage-ov{display:block}
         '<span class="jd-chev">&#9660;</span>' +
       '</div>';
 
+    var aj = (typeof assignedJudge === 'function') ? assignedJudge() : null;
     var note = live
       ? (iAmDebater
-          ? 'Pick the lens you want judging this round. It binds when your opponent picks the same one, and it can shift what the ballot emphasises, never who wins.'
+          ? (aj
+              ? 'This round drew ' + aj.name + ' from the bench. Happy with the draw? Do nothing. Or agree on a card below with your opponent to override it; a lens binds when you both pick the same one, and it shifts what the ballot emphasises, never who wins.'
+              : 'Pick the lens you want judging this round. It binds when your opponent picks the same one, and it can shift what the ballot emphasises, never who wins.')
           : 'The debaters are agreeing on a paradigm. It binds only when both pick the same card.')
       : 'Locked in for this round. The ballot reads through this lens.';
 
@@ -11576,6 +11589,44 @@ html.stage-mode .stage-ov{display:block}
   // paradigmBallotLines() so a /spar-consented note and a drafted
   // archetype can both apply without either overwriting the other.
   // Same guard either way: emphasis yes, verdict no.
+  // ── the assigned judge ─────────────────────────────────────────
+  // Every round is heard by a judge drawn from the roster, seeded on
+  // the room id: both clients (and the server ballot path) derive the
+  // same judge independently, and neither debater can reroll it. An
+  // agreed non-chair lens outranks the draw, because two people who
+  // both chose a paradigm outrank a random assignment. Same walls as
+  // every lens: emphasis only, never the verdict.
+  function assignedJudge(){
+    if (!window.JudgeRoster || !state.room) return null;
+    return JudgeRoster.draw(state.room);
+  }
+  function assignedJudgeBallotLines(){
+    var key = judgeLockKey();
+    if (key && key !== 'chair') return [];   // agreed lens outranks the draw
+    var j = assignedJudge();
+    if (!j || !j.lens) return [];
+    return [
+      "",
+      "ASSIGNED JUDGE PARADIGM (\"" + j.name + "\") — assigned to this round the way a tab room assigns a judge; neither debater chose it, and both were shown it before the round started. Apply it as your evaluative posture ON TOP of the adjudication method above. It may shift emphasis: what you resolve first, how hard you punish a drop, how much rope you give jargon or speed, what earns speaker points. It may NOT override honest adjudication. If it ever conflicts with deciding the round on the flow, the flow wins. It may sharpen a burden both sides accepted; it may NOT invent a new one, and it may NEVER be read to require something a debater had no notice of before the round. Where the paradigm is ambiguous, read it the way that does not cost anyone the round. Name the judge once in the RFD so the debaters can see who heard the round.",
+      "PARADIGM: " + j.lens,
+    ];
+  }
+  // The intro card, once per round, on whichever transition put this
+  // client into the live round. Skipped when both benches agreed a
+  // lens; the agreed-lens reveal already played for that case.
+  function maybePlayAssignedJudgeIntro(){
+    if (state.judgeIntroShown) return;
+    var key = judgeLockKey();
+    if (key && key !== 'chair') { state.judgeIntroShown = true; return; }
+    var j = assignedJudge();
+    if (!j || !window.JudgeIntro) return;
+    state.judgeIntroShown = true;
+    JudgeIntro.show(j, {
+      eyebrow: isSpectator() ? 'Judging this round' : 'Your judge this round',
+      foot: 'Assigned by the tab room. A different judge hears every round.',
+      autoMs: 12000,
+    });
+  }
   function judgeLensBallotLines(){
     var key = judgeLockKey();
     if (!key || key === 'chair') return [];
@@ -11928,6 +11979,7 @@ html.stage-mode .stage-ov{display:block}
       try { pmOpen(); pmInitSpectator(); pmLockCheck(); } catch(e){}
       try { svInitSpectator(); } catch(e){}
       startPrepBanner();
+      try { maybePlayAssignedJudgeIntro(); } catch(e){}
     }
 
     // Speech reconciliation

@@ -116,6 +116,23 @@ if [ -f "$JUDGE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Judge-roster guard. The rotating round judge exists in two files
+# (app/js/judge-roster.js client, lib/judge-roster.mjs server) and
+# the draw is (hash % length), so a one-sided edit or reorder makes
+# the ballot apply a different judge than the intro card showed.
+# Same hard-fail, soft-skip posture.
+# ──────────────────────────────────────────────────────────────────
+ROSTER_GUARD="$REPO_ROOT/scripts/test-judge-roster.mjs"
+if [ -f "$ROSTER_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-judge-roster.mjs >/tmp/judge-roster-guard.log 2>&1); then
+    echo "[judge-roster-guard] commit blocked - client and server judge rosters have drifted:" >&2
+    grep '^FAIL' /tmp/judge-roster-guard.log >&2 || tail -20 /tmp/judge-roster-guard.log >&2
+    echo "[judge-roster-guard] see scripts/test-judge-roster.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Debate-brain guard. The stored brain is concatenated into the system
 # prompt of every future round its owner runs, so the allow-list in
 # lib/brain-schema.mjs is a prompt-injection boundary rather than a
