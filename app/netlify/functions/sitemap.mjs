@@ -31,7 +31,7 @@ const DYNAMIC = new Set([
 ]);
 
 const URLS = [
-  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-12' },
+  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-18' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
