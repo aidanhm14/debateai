@@ -4414,6 +4414,9 @@ html.stage-mode .stage-ov{display:block}
     state.timerState = 'ended';
   }
   function updatePlayPauseBtn(){
+    // Runs on every timer transition, local and remote-mirrored, which is
+    // exactly when the speech-1 kickoff strip must appear or clear.
+    try { checkKickoffPrompt(); } catch(e){}
     var btn = $('playPauseBtn');
     if (!btn) return;
     if (state.phase === 'round' && isSpectator()){
@@ -9953,8 +9956,12 @@ html.stage-mode .stage-ov{display:block}
     // debater" strip rides the same check: at 7s a debater could sit in a
     // silent empty room for most of the first beat before anything
     // acknowledged them, which is the exact gap this strip exists to fill.
-    if (!state.noShowTimer) state.noShowTimer = setInterval(checkOpponentPresence, 3000);
+    if (!state.noShowTimer) state.noShowTimer = setInterval(function(){
+      checkOpponentPresence();
+      try { checkKickoffPrompt(); } catch(e){}
+    }, 3000);
     checkOpponentPresence();
+    try { checkKickoffPrompt(); } catch(e){}
     window.addEventListener('pagehide', function(){ if (state.noShowTimer){ clearInterval(state.noShowTimer); state.noShowTimer = null; } });
   }
 
@@ -11759,8 +11766,16 @@ html.stage-mode .stage-ov{display:block}
   function checkOpponentPresence(){
     var me = state.user && state.user.uid;
     var oppUid = noShowOpponentUid();
-    // Only identified human-vs-human rounds, pre-start, non-spectator.
-    var eligible = me && oppUid && oppUid !== me && !isSpectator() && state.phase === 'setup';
+    // Pre-speech covers BOTH phases on purpose. Spar rounds auto-start
+    // (phase flips to 'round' within a second of arrival), so the old
+    // setup-only gate made every prompt below unreachable on exactly the
+    // surface the matchmaker feeds: an opener sat in an empty room with
+    // no explanation. Funnel read 2026-08-18: half of matched rounds
+    // still had an empty chair, and nobody in the room was ever told.
+    var preSpeech = state.phase === 'setup' ||
+      (state.phase === 'round' && state.speechIdx === 0 && state.timerState === 'ready');
+    // Only identified human-vs-human rounds, pre-speech, non-spectator.
+    var eligible = me && oppUid && oppUid !== me && !isSpectator() && preSpeech;
     if (!eligible){ hideNoShow(); hideLooking(); return; }
     // Trust the signal only once MY OWN presence write has round-tripped.
     // If the write is denied (rules) or hasn't landed, seatSeen[me] is
@@ -11840,6 +11855,77 @@ html.stage-mode .stage-ov{display:block}
   }
   function hideNoShow(){ if (state.noShowEl) state.noShowEl.style.display = 'none'; }
 
+  // ── Speech-1 kickoff strip ─────────────────────────────────────────
+  // The funnel (admin-round-funnel, read 2026-08-18) says the leak moved:
+  // after the ready-check, 50% of matched rounds got BOTH debaters into
+  // the room but only 19% ever started a speech. The turn overlay flashes
+  // for 1.7 seconds while people are still sorting out mic and camera,
+  // and after that the only cue is a grey hint line above a button below
+  // the video fold. Two humans sit in a call with no idea whose move it
+  // is. This strip stays up until the clock actually runs: the opener's
+  // strip carries the start button itself (routed through playPauseBtn so
+  // the judge-lock guard in startSpeechTimer still applies), the other
+  // side is told who opens so they stop waiting for a cue that is not
+  // coming. Presence-gated the same way as the no-show flow: with a known
+  // opposing uid it waits for their seat beat, so it can never tell
+  // someone to start a round against an empty chair.
+  var kickoffEl = null, kickoffMode = '', kickoffDismissed = false;
+  function hideKickoff(){ if (kickoffEl){ kickoffEl.remove(); kickoffEl = null; kickoffMode = ''; } }
+  function checkKickoffPrompt(){
+    var live = state.phase === 'round' && state.speechIdx === 0 &&
+      state.timerState === 'ready' && !isSpectator() && !!mySide() && !kickoffDismissed;
+    if (live){
+      var me = state.user && state.user.uid;
+      var opp = noShowOpponentUid();
+      // Same trust rule as checkOpponentPresence: presence only counts
+      // once my own beat has round-tripped. Uid-less rounds (direct link,
+      // names only, one device) are already out via the mySide() gate
+      // above: a hotseat round has one person driving every control and
+      // needs no whose-move strip.
+      if (opp && !(state.seatSeen && me && state.seatSeen[me] && state.seatSeen[opp])) live = false;
+    }
+    if (!live){ hideKickoff(); return; }
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches && f.speeches[0];
+    if (!sp){ hideKickoff(); return; }
+    var mode = isMyTurn() ? 'mine' : 'theirs';
+    if (kickoffEl && kickoffMode === mode) return;
+    hideKickoff();
+    kickoffMode = mode;
+    var mins = Math.round((sp.time || 0) / 60);
+    var openerName = speakerNameFor(f, 0) || 'Your opponent';
+    var el = document.createElement('div');
+    el.id = 'kickoffPrompt';
+    el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:560px;width:calc(100% - 32px);padding:14px 16px;border-radius:14px;z-index:319;box-shadow:0 14px 40px rgba(0,0,0,.45);display:flex;align-items:center;gap:12px;font-family:inherit;background:var(--bg-elev,#16131a);border:1px solid ' +
+      (mode === 'mine' ? 'rgba(34,197,94,.55)' : 'var(--border-strong,rgba(255,255,255,.2))');
+    if (mode === 'mine'){
+      el.innerHTML =
+        '<span style="flex:1;min-width:0;font-size:.87rem;line-height:1.5;color:var(--text,#fff)">' +
+          '<b style="font-weight:800">You’re both here. You open the round.</b> ' +
+          '<span style="color:var(--text-dim,rgba(255,255,255,.62))">' + escHtml(sp.name) + (mins ? ' · ' + mins + ' min' : '') + '. The clock starts when you do.</span>' +
+        '</span>' +
+        '<button type="button" id="kickoffStart" style="flex:none;padding:11px 18px;border-radius:10px;border:1px solid var(--green,#22c55e);background:var(--green,#22c55e);color:#06240f;font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer">▶ Start Speech 1</button>';
+    } else {
+      el.innerHTML =
+        '<span style="flex:1;min-width:0;font-size:.87rem;line-height:1.5;color:var(--text,#fff)">' +
+          '<b style="font-weight:800">You’re both here. ' + escHtml(openerName) + ' opens.</b> ' +
+          '<span style="color:var(--text-dim,rgba(255,255,255,.62))">You speak next. Their clock isn’t running yet.</span>' +
+        '</span>' +
+        '<button type="button" id="kickoffDismiss" aria-label="Dismiss" style="flex:none;width:30px;height:30px;border-radius:9px;border:1px solid var(--border,rgba(255,255,255,.18));background:transparent;color:var(--text-dim,rgba(255,255,255,.6));font-family:inherit;font-size:.9rem;cursor:pointer">×</button>';
+    }
+    document.body.appendChild(el);
+    var sb = el.querySelector('#kickoffStart');
+    if (sb) sb.addEventListener('click', function(){
+      var pp = document.getElementById('playPauseBtn');
+      if (pp) pp.click();
+      try { gtag('event', 'live_kickoff_start', { format: state.formatKey }); } catch(e){}
+    });
+    var db2 = el.querySelector('#kickoffDismiss');
+    if (db2) db2.addEventListener('click', function(){ kickoffDismissed = true; hideKickoff(); });
+    kickoffEl = el;
+    try { gtag('event', 'live_kickoff_shown', { format: state.formatKey, mode: mode }); } catch(e){}
+  }
+
   function onRoundSnapshot(d){
     var changedSetup = false;
     if (d.participantAvatars && typeof d.participantAvatars === 'object'){
@@ -11886,7 +11972,7 @@ html.stage-mode .stage-ov{display:block}
     }
     // Per-uid presence: keep the latest map so checkOpponentPresence() can
     // tell if the opponent has actually entered the room yet.
-    if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); }
+    if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); try { checkKickoffPrompt(); } catch(e){} }
     // Adopt participant UIDs from the round doc when the URL didn't
     // carry them (the /spar watch list and the landing live feed hand
     // off only ?room=…). Only visitors with no seat claim adopt, and a
