@@ -7754,7 +7754,13 @@ html.stage-mode .stage-ov{display:block}
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 4000,
-        stream: false,
+        // STREAMED, and that is load-bearing: a 900-1300 word ballot
+        // generates for 35-45s, and the non-stream path gets killed at
+        // ~30s by an inactivity timeout (measured 2026-08-18: identical
+        // request 504'd non-stream at 30.9s, completed streamed at 43s
+        // with message_stop). The claude.mjs keepalive comments hold
+        // the pipe open only when streaming.
+        stream: true,
         system: system,
         messages: [{ role: 'user', content: user }],
         _feature: 'live-round',
@@ -7764,12 +7770,25 @@ html.stage-mode .stage-ov{display:block}
       return r.text();
     }).then(function(raw){
       var text = raw || '';
-      try {
-        var wrap = JSON.parse(raw);
-        if (wrap && Array.isArray(wrap.content)){
-          text = wrap.content.map(function(c){ return (c && typeof c.text === 'string') ? c.text : ''; }).join('');
-        }
-      } catch(e){ /* already plain text */ }
+      if ((raw || '').indexOf('data:') >= 0){
+        // SSE stream: collect the text deltas, same shape generateBallot
+        // parses. Keepalive comment lines don't start with data: and
+        // fall out in the filter.
+        text = raw.split('\n').filter(function(l){ return l.indexOf('data:') === 0; }).map(function(l){
+          try { return JSON.parse(l.slice(5).trim()); } catch(e){ return null; }
+        }).filter(Boolean).map(function(c){
+          if (c.delta && c.delta.text) return c.delta.text;
+          if (c.content_block && c.content_block.text) return c.content_block.text;
+          return '';
+        }).join('');
+      } else {
+        try {
+          var wrap = JSON.parse(raw);
+          if (wrap && Array.isArray(wrap.content)){
+            text = wrap.content.map(function(c){ return (c && typeof c.text === 'string') ? c.text : ''; }).join('');
+          }
+        } catch(e){ /* already plain text */ }
+      }
       text = String(text || '').trim();
       if (!text) throw new Error('deep ballot empty');
       state.deepRfdPending = false;

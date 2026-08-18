@@ -6958,17 +6958,33 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           max_tokens: 3000,
           system: sys,
           messages: [{ role: 'user', content: user }],
-          stream: false,
+          // STREAMED: the THE BALLOT section pushes generation past the
+          // ~30s inactivity timeout that kills non-stream responses
+          // (measured 2026-08-18); claude.mjs's keepalive holds a
+          // streamed pipe open, so collect the SSE deltas here.
+          stream: true,
           _feature: 'voice-rfd'
         })
       });
       if (!res.ok) throw new Error('RFD ' + res.status);
-      var data = await res.json();
-      var text = data && data.content && data.content[0] && data.content[0].text ||
-      data?.choices?.[0]?.message?.content ||
-      data?.message?.content ||
-      data?.text ||
-      '';
+      var text = '';
+      var rawBody = await res.text();
+      if (rawBody.indexOf('data:') >= 0) {
+        text = rawBody.split('\n').filter((l) => l.indexOf('data:') === 0).map((l) => {
+          try {return JSON.parse(l.slice(5).trim());} catch (_) {return null;}
+        }).filter(Boolean).map((c) =>
+        c.delta && c.delta.text ||
+        c.content_block && c.content_block.text ||
+        '').join('');
+      } else {
+        var data = null;
+        try {data = JSON.parse(rawBody);} catch (_) {}
+        text = data && data.content && data.content[0] && data.content[0].text ||
+        data?.choices?.[0]?.message?.content ||
+        data?.message?.content ||
+        data?.text ||
+        '';
+      }
       setRfd(text || '(No RFD returned.)');
       // Verdict-lands sting. Distinct from the generic success/start
       // chime: this is the "ballot opening" moment — the one beat in
