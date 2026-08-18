@@ -403,6 +403,10 @@ h1,h2,h3,p{margin-top:0}
 }
 </style>
 <script defer src="/js/track.js"></script>
+<!-- This page has no topbar, so nothing pulls the sign-in chooser in for
+     it. Same pattern /atlas, /floor and /live-round already use. Without
+     it withUser() falls back to the Google-only popup. -->
+<script defer src="/js/auth-modal.js"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -1095,10 +1099,32 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     empty.textContent='Could not load brackets. Refresh to retry.';
   });
 
+  // Entry sign-in used to be a bare Google popup, which quietly excluded
+  // two groups the announcement email had already invited: the 11
+  // password-only accounts, who have no Google identity to offer, and
+  // anyone opening that email in the Gmail or Instagram in-app browser,
+  // where Google itself refuses OAuth in an embedded webview. Both got a
+  // popup that could not succeed on a page telling them their entry was
+  // free. The shared chooser carries password and emailed-link sign-in,
+  // and the emailed link is the one method that works in a webview.
+  //
+  // It runs with {onDone} so the entry survives: the modal's default is
+  // to reload the page, which would drop the click mid-flow. That is the
+  // reason this page was left on the popup during the 2026-08-12 sweep.
   function withUser(fn){
     if(!auth){say('Sign-in is unavailable in this browser.','bad');return}
     var u=auth.currentUser;
     if(u&&!u.isAnonymous){fn(u);return}
+    if(typeof window.openAuthModal==='function'){
+      window.openAuthModal('signin',{onDone:function(user){
+        if(user&&!user.isAnonymous){fn(user);return}
+        say('Sign-in did not complete. Try again when ready.',null);
+      }});
+      return;
+    }
+    // Fallback for a load where the chooser script never arrived. Same
+    // behaviour as before, so a missing script degrades instead of
+    // leaving the button dead.
     auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(function(res){
       if(res&&res.user)fn(res.user);
     }).catch(function(){say('Sign-in was closed. Try again when ready.',null)});

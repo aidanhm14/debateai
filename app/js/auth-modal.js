@@ -127,8 +127,14 @@
   }
 
   var modal = null, auth = null, lastFocus = null;
+  // Set by openAuthModal(mode, {onDone}); consumed once by handOff().
+  var onDone = null;
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
   function close() {
+    // Dismissing the modal abandons whatever action opened it. handOff()
+    // has already cleared this before calling close(), so the only path
+    // that reaches here with a callback set is a real dismissal.
+    onDone = null;
     if (modal) modal.classList.remove('on');
     document.body.classList.remove('signin-modal-open');
     if (lastFocus && lastFocus.focus) {
@@ -248,7 +254,30 @@
       localStorage.setItem('debateos-last-signin-method', fam);
     } catch (e) {}
     track('sign_in_complete', { method: method });
+    if (handOff(method)) return;
     window.location.href = window.__DB_NATIVE ? '/native' : destination();
+  }
+
+  // A caller mid-action (entering a tournament, paying in) cannot survive
+  // the reload finishSignIn normally does: the click that started it is
+  // gone by the time the page comes back. openAuthModal(mode, {onDone})
+  // registers a callback that receives the signed-in user INSTEAD of
+  // navigating, which is what lets a page keep its flow. Callers that
+  // pass nothing are byte-identical to before.
+  //
+  // One-shot on purpose: the callback is cleared before it runs, so a
+  // second sign-in on the same page cannot re-fire a stale action, and a
+  // throw inside it still leaves the modal closed rather than stuck open
+  // over a page the person can no longer reach.
+  function handOff(method) {
+    if (typeof onDone !== 'function') return false;
+    var cb = onDone;
+    onDone = null;
+    close();
+    try {
+      cb((firebase.auth && firebase.auth().currentUser) || null, method);
+    } catch (e) {}
+    return true;
   }
 
   function doGoogle() {
@@ -372,6 +401,7 @@
         auth.signInWithPopup(provider).then(function () {
           try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
           track('sign_in_complete', { method: 'apple' });
+          if (handOff('apple')) return;
           window.location.href = destination();
         }).catch(function (err) {
           var code = (err && err.code) || 'unknown';
@@ -645,7 +675,8 @@
     });
   }
 
-  function openAuthModal(mode) {
+  function openAuthModal(mode, opts) {
+    onDone = (opts && typeof opts.onDone === 'function') ? opts.onDone : null;
     injectStyles();
     if (!modal) {
       modal = el('<div id="ditAuth" role="dialog" aria-modal="true" aria-label="Sign in"><div class="da-card" id="ditAuthCard"></div></div>');
