@@ -181,6 +181,10 @@
   // Voice so the two real-time-entry actions sit adjacent at the front
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
+    // 2026-08-18: the signed-in home feed. Social platforms open on
+    // "what's happening", and this is that surface: live band, open
+    // challenges, fresh results, top of the board.
+    { href: '/home',          label: 'Home', compactKeep: true },
     // 2026-07-09: order follows the product path. Start live, learn the
     // rules, prep the case, judge a round, then schedule and credential.
     { href: '/spar',          label: 'LIVE', pulse: true, compactKeep: true },
@@ -569,6 +573,7 @@
   // one plain sentence per destination, keyed by href. Labels keep living
   // in LINKS / MORE_GROUPS; the mobile sheet stays label-only.
   var MENU_META = {
+    '/home':           { desc: 'What is happening right now', icon: '<path d="M4.4 10.6L12 4.4l7.6 6.2M6.2 9.2v9.2a1.4 1.4 0 0 0 1.4 1.4h8.8a1.4 1.4 0 0 0 1.4-1.4V9.2M9.8 19.8v-5.4h4.4v5.4"/>' },
     '/spar':           { desc: 'Random matchmaking, right now', icon: '<circle cx="12" cy="12" r="2.1"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2"/>' },
     '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
     '/learn':          { desc: 'Lessons, drills, and formats', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
