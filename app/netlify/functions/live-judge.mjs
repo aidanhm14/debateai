@@ -299,6 +299,24 @@ export default async (request, context) => {
       // the pre-stamp copy would refuse the very round we just consented.
       roundData: { ...d, ballot, leaderboardConsent: consents, completedAt: judgedAt },
     });
+
+    // A rating that moved and was never shown is a reward nobody
+    // collects. Compact per-uid deltas ride the round doc so BOTH
+    // clients (and a late refresh) render "your rating moved" off the
+    // snapshot they already hold; the full record stays in
+    // rating_changes. Admin-SDK write, so no rules change.
+    if (rated && rated.applied && Array.isArray(rated.changes)) {
+      const rc = {};
+      for (const c of rated.changes) {
+        rc[c.uid] = {
+          delta: c.delta,
+          after: Math.round((c.after && c.after.rating) || 0),
+          result: c.result,
+        };
+      }
+      await ref.update({ ratingChanges: rc })
+        .catch((e) => console.error('[live-judge] ratingChanges write failed', room, e.message));
+    }
   } catch (err) {
     console.error('[live-judge] rating apply failed', room, err.message);
   }
@@ -308,8 +326,10 @@ export default async (request, context) => {
     ballot,
     panel: judged.panel,
     settled: settled && settled.ok ? true : false,
-    rated: !!(rated && rated.ok),
-    ratedReason: rated && !rated.ok ? rated.reason : undefined,
+    // applyRoundRating returns { applied }, not { ok } — the old read
+    // reported rated:false on every round that actually rated.
+    rated: !!(rated && rated.applied),
+    ratedReason: rated && !rated.applied ? rated.reason : undefined,
   }, 200, request);
 };
 

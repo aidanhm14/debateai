@@ -912,12 +912,25 @@ body{
     var weakestHref = '/voice-debate?' + drillQ.toString();
     var motionQ = payload.motion ? '?motion=' + encodeURIComponent(payload.motion) : '';
     var liveHref = '/live' + (payload.motion ? motionQ + '&compose=1' : '');
+    // The minutes after a loss decide whether it becomes a loop or an
+    // exit, so the loser gets loss-specific copy and every choice here
+    // is tagged with the outcome (the after-loss D30 read needs it).
+    var outcome = winner === 'user' ? 'win' : (winner ? 'loss' : null);
+    var ctaText = outcome === 'loss'
+      ? '<strong>Run it back.</strong> Same motion, and you know exactly what cost you. Take the round this time, or drill the score that slipped.'
+      : outcome === 'win'
+        ? '<strong>You took it.</strong> Keep the loadout and go again, or defend the win against a new motion.'
+        : '<strong>Your next round.</strong> Keep the loadout, change the motion, or drill the score that cost you.';
+    var tagClick = function(action){
+      return ' onclick="try{if(window.gtag)gtag(\'event\',\'after_round_next\',{action:\'' + action + '\',outcome:\'' + (outcome || 'none') + '\',surface:\'voice\'})}catch(e){}"';
+    };
+    try { gtag('event', 'after_round_view', { outcome: outcome || 'none', surface: 'voice', format: payload.mode || payload.format || '' }); } catch(e){}
     html +=
       '<div class="cta-row">'
-        + '<div class="cta-text"><strong>Your next round.</strong> Keep the loadout, change the motion, or drill the score that cost you.</div>'
-        + '<a href="' + runBackHref + '" class="cta-btn primary">Rematch</a>'
-        + '<a href="' + newMotionHref + '" class="cta-btn ghost">New motion</a>'
-        + '<a href="' + weakestHref + '" class="cta-btn ghost" title="' + escHtml(weakestLabel + ': ' + weakestText) + '">Practice weakest score</a>'
+        + '<div class="cta-text">' + ctaText + '</div>'
+        + '<a href="' + runBackHref + '" class="cta-btn primary"' + tagClick('rematch') + '>Rematch</a>'
+        + '<a href="' + newMotionHref + '" class="cta-btn ghost"' + tagClick('new') + '>New motion</a>'
+        + '<a href="' + weakestHref + '" class="cta-btn ghost"' + tagClick('drill') + ' title="' + escHtml(weakestLabel + ': ' + weakestText) + '">Practice weakest score</a>'
         + '<button class="cta-btn ghost" id="shareBallot" type="button">Share verdict</button>'
       + '</div>';
 

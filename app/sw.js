@@ -6,7 +6,11 @@
 
 
 
-const CACHE_NAME = 'debateos-v2483';
+<<<<<<< HEAD
+const CACHE_NAME = 'debateos-v2484';
+=======
+const CACHE_NAME = 'debateos-v2484';
+>>>>>>> e0b83143 (After-round screen + bigger hand-built Full tour button)
 
 
 

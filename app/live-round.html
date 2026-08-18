@@ -2031,6 +2031,22 @@ body.speech-live .transcript-area{margin-top:4px}
 .rfd h3{font-size:.7rem;font-weight:800;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
 .rfd p{margin-bottom:10px}
 .rfd-actions{padding:0 22px 22px;display:flex;gap:8px;flex-wrap:wrap}
+/* After-round band: the personalized next step under the ballot. Loss
+   carries the accent edge because that is the reader it exists for. */
+.after-round{
+  margin:14px 0;padding:16px 22px 8px;border-radius:14px;
+  border:1px solid var(--border,rgba(255,255,255,.12));
+  background:var(--bg-elev,rgba(255,255,255,.03));
+}
+.after-round.after-lost{border-left:3px solid var(--accent,#ef4444)}
+.after-round.after-won{border-left:3px solid var(--green,#22c55e)}
+.after-eyebrow{
+  font-size:.68rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-dim,#94a3b8);
+}
+.after-eyebrow strong{font-size:.8rem;letter-spacing:0}
+.after-line{margin:8px 0 4px;font-size:.95rem;line-height:1.55}
+.after-round .rfd-actions{padding:0 0 14px}
 
 /* Leaderboard consent panel — appears in the rfd-actions strip and
    gates the public-leaderboard write on dual consent + a validity
@@ -3196,6 +3212,7 @@ html.stage-mode .stage-ov{display:block}
     fcLoop: null,
     lastBallot: null,      // latest rendered ballot (stage overlay)
     rfdDeep: null,         // long-form full ballot text, synced via round doc
+    ratingChanges: null,   // per-uid rating deltas, written by live-judge onto the round doc
     deepRfdPending: false, // deep-ballot call in flight (shows the writing note)
     deepRfdRequested: false, // guard so the generating client fires it once
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
@@ -8405,6 +8422,67 @@ html.stage-mode .stage-ov{display:block}
     } catch(e){ return ''; }
   }
 
+  // ── after the round: the personalized next step ─────────────────
+  // The minutes after a verdict decide whether a loss is an exit or a
+  // loop, and until now this surface said nothing to the loser that a
+  // winner didn't also get. Participants now get a band naming their
+  // outcome, the clash the round turned on (the ballot's decidingIssue),
+  // their rating move once the ladder takes the round, and one obvious
+  // way to go again. Spectators get nothing: the round is not theirs to
+  // run back. BP 4-team rounds skip it (renderBpBallotBody returns
+  // before this renders; a 1-2-3-4 ordering has no single "you lost").
+  function afterRoundBandHtml(b){
+    var ms = mySide();
+    if (!ms || isSpectator() || !b || (b.winner !== 'pro' && b.winner !== 'con')) return '';
+    var iWon = b.winner === ms;
+    var oppUid  = ms === 'pro' ? state.conUid  : state.proUid;
+    var oppName = ms === 'pro' ? state.conName : state.proName;
+    var issue = String(b.decidingIssue || '').trim().replace(/\.$/, '');
+    var rematchHref = (oppUid && String(oppUid).length >= 8)
+      ? '/challenges?to=' + encodeURIComponent(oppUid) + '&name=' + encodeURIComponent(oppName || 'Debater')
+      : '/spar?format=' + encodeURIComponent(state.formatKey);
+    var newHref = '/spar?format=' + encodeURIComponent(state.formatKey);
+    if (!state._afterViewFired){
+      state._afterViewFired = true;
+      try { gtag('event', 'after_round_view', { outcome: iWon ? 'win' : 'loss', surface: 'live', format: state.formatKey }); } catch(e){}
+    }
+    var line;
+    if (iWon){
+      line = issue
+        ? 'It turned on ' + escHtml(issue) + ', and you held that ground. Hold it against the next person.'
+        : 'You held the deciding ground. Hold it against the next person.';
+    } else {
+      line = issue
+        ? 'It turned on ' + escHtml(issue) + '. That is the thread to pull. Run it back and take it away from them.'
+        : 'One clash decided it, and the ballot names it. Run it back and take it away from them.';
+    }
+    return '' +
+      '<div class="ballot-section after-round' + (iWon ? ' after-won' : ' after-lost') + '" data-stage="3" id="afterRoundBand">' +
+        '<div class="after-eyebrow">' + (iWon ? 'You took the round' : 'You dropped the round') + '<span id="afterRatingSlot"></span></div>' +
+        '<p class="after-line">' + line + '</p>' +
+        '<div class="rfd-actions" style="margin-top:12px">' +
+          (iWon
+            ? '<a class="btn btn-primary" href="' + newHref + '" data-after="new">Next opponent →</a>' +
+              '<a class="btn" href="' + rematchHref + '" data-after="rematch">Run it back vs ' + escHtml(oppName || 'them') + '</a>'
+            : '<a class="btn btn-primary" href="' + rematchHref + '" data-after="rematch">Run it back vs ' + escHtml(oppName || 'them') + '</a>' +
+              '<a class="btn" href="' + newHref + '" data-after="new">New opponent</a>') +
+        '</div>' +
+      '</div>';
+  }
+  // Fills the rating slot in the after-round band. Called on render and
+  // again when the round doc delivers ratingChanges (live-judge writes
+  // them a beat after the ballot). Most rounds never rate (consent or an
+  // AI seat), and then the slot simply stays empty.
+  function renderAfterRating(){
+    var slot = document.getElementById('afterRatingSlot');
+    if (!slot || !state.ratingChanges || !state.user) return;
+    var mine = state.ratingChanges[state.user.uid];
+    if (!mine || typeof mine.after !== 'number') return;
+    var up = (mine.delta || 0) >= 0;
+    slot.innerHTML = ' · Rating <strong style="color:' + (up ? 'var(--green,#22c55e)' : 'var(--accent,#ef4444)') + '">' +
+      Math.round(mine.after) + '</strong> (' + (up ? '+' : '') + (mine.delta != null ? mine.delta : 0) + ')';
+  }
+
   function renderBallotBody(b, mode){
     var staged = mode === 'staged' || mode === 'read-aloud';
     // Hand the verdict to the reel so the recording gets it too. No-op
@@ -8485,6 +8563,7 @@ html.stage-mode .stage-ov{display:block}
         (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
         '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>' +
       '</div>' +
+      afterRoundBandHtml(b) +
       '<div class="ballot-section" data-stage="3">' +
       lbBlock +
       '<div class="rfd-actions">' +
@@ -8520,6 +8599,23 @@ html.stage-mode .stage-ov{display:block}
       var pdb = document.getElementById('publishDiscBtn');
       if (pdb) pdb.remove();
     }
+
+    // After-round band: clicks tagged by outcome (the after-loss D30
+    // read lives or dies on this), rating slot filled if the deltas
+    // already arrived on the doc before the ballot rendered.
+    Array.prototype.forEach.call(document.querySelectorAll('#afterRoundBand [data-after]'), function(a){
+      a.addEventListener('click', function(){
+        try {
+          var band = document.getElementById('afterRoundBand');
+          gtag('event', 'after_round_next', {
+            action: a.getAttribute('data-after'),
+            outcome: band && band.classList.contains('after-won') ? 'win' : 'loss',
+            surface: 'live',
+          });
+        } catch(e){}
+      });
+    });
+    try { renderAfterRating(); } catch(e){}
 
     // Publish-to-/disclosures handler. Builds the speaker's own
     // speeches into a single text blob and writes a shared_cases doc
@@ -11530,6 +11626,14 @@ html.stage-mode .stage-ov{display:block}
       state.rfdDeep = d.rfdDeep;
       state.deepRfdPending = false;
       try { renderDeepRfd(); } catch(e){}
+    }
+
+    // Rating deltas — written by live-judge after it applies the round
+    // to the ladder. Arrives on its own beat (rating applies while the
+    // ballot renders), so the after-round band fills its slot late.
+    if (d.ratingChanges && d.ratingChanges !== state.ratingChanges){
+      state.ratingChanges = d.ratingChanges;
+      try { renderAfterRating(); } catch(e){}
     }
 
     // Leaderboard dual-consent reconciliation. Once both proUid and
