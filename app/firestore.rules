@@ -448,6 +448,49 @@ service cloud.firestore {
       allow delete: if isSignedIn() && queueUid == request.auth.uid;
     }
 
+    // ── partner_pool ─────────────────────────────────────────────────
+    // The open half of 2v2 partner matching (/partners). Doc ID === uid.
+    // FOUND 2026-08-18: this collection had NO rules at all, so under
+    // the default deny every client write since the 2026-07-28 build
+    // silently failed and the open pool never held a doc; /partners
+    // rendered an empty pool with no error. The invite-code path
+    // (partner-match.mjs, admin SDK) was unaffected.
+    // Shape mirrors matchmaking_queue: signed-in reads (the pool list
+    // is browsed and ranked by fit), own-doc writes only. Writes are
+    // NAMED accounts only with no legacy carve-out: no doc has ever
+    // existed here, so there is nothing anonymous to clean up.
+    // joinPool writes the full doc; the 45s heartbeat and leavePool
+    // are merge sets, so update must accept partial writes whose
+    // merged uid still matches the caller.
+    match /partner_pool/{poolUid} {
+      allow read:   if isSignedIn();
+      allow create: if isNamedAccount()
+                    && poolUid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && (!('note' in request.resource.data)
+                        || stringUnder('note', 1024));
+      allow update: if isNamedAccount()
+                    && poolUid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && (!('note' in request.resource.data)
+                        || stringUnder('note', 1024));
+      allow delete: if isNamedAccount() && poolUid == request.auth.uid;
+    }
+
+    // ── duo_queue / duo_teams ────────────────────────────────────────
+    // 2v2 team + queue docs. ALL writes go through partner-match.mjs /
+    // duo-pair.mjs on the admin SDK (which bypasses these rules); the
+    // team-keyed queue doc is the two-document pairing transaction, so
+    // a client write here could forge a match. The client only READS
+    // duo_queue: its own team doc (to navigate when it flips to
+    // matched) and the waiting list (the "N other teams are waiting"
+    // note). duo_teams is never read client-side (my-team rides the
+    // API), so it stays under the default deny on purpose.
+    match /duo_queue/{teamId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
     // ── live_challenges ──────────────────────────────────────────────
     // Cross-user challenge board — replaces the localStorage-only
     // /live.html state. Doc has: posterUid, motion, format, side,
