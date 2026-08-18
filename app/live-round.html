@@ -1543,6 +1543,31 @@ body.speech-live .transcript-area{margin-top:4px}
    prepared against, so changing it is a joint decision, not an edit one
    side gets to make. This bar carries the pending proposal and the two
    answers to it; it only exists while a proposal is open. */
+/* ── Which side argues what ─────────────────────────────────
+   Two cells under the resolution. Real users have read "Pro" on a
+   negative motion and argued the wrong side; this strip says the job
+   in one line each, with YOU on the reader's own cell. */
+.sides-guide{
+  display:grid;grid-template-columns:1fr 1fr;gap:1px;
+  background:var(--border);border-bottom:1px solid var(--border);
+}
+.sg-cell{background:var(--surface,var(--bg));padding:11px 24px 12px}
+.sg-cell.is-you{background:color-mix(in srgb, var(--accent,#ef4444) 5%, var(--surface,var(--bg)))}
+.sg-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+.sg-side{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.sg-side.for{color:var(--green,#34d399)}
+.sg-side.against{color:var(--accent,#ef4444)}
+.sg-who{font-size:.8rem;font-weight:700;color:var(--text-dim)}
+.sg-you-chip{
+  font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  border-radius:999px;padding:2px 8px;color:#fff;background:var(--accent,#ef4444);
+}
+.sg-what{font-size:.88rem;line-height:1.5;color:var(--text-dim)}
+.sg-what strong{color:var(--text)}
+@media(max-width:760px){
+  .sides-guide{grid-template-columns:1fr}
+  .sg-cell{padding:10px 14px}
+}
 .rmb-propose{
   display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;
   padding:14px 24px;border-bottom:1px solid var(--border);
@@ -2509,6 +2534,10 @@ html.stage-mode .stage-ov{display:block}
           </div>
         </div>
       </div>
+      <!-- Which side argues what. Filled by renderSidesGuide(); exists
+           because real users read "Pro" on a negative motion ("This
+           House regrets...") and argued the wrong side. -->
+      <div class="sides-guide" id="sidesGuide" hidden></div>
       <!-- Pending resolution change. Hidden until one side proposes one;
            the motion itself does not move until both have agreed. -->
       <div class="rmb-propose" id="rmbPropose" hidden>
@@ -3787,6 +3816,7 @@ html.stage-mode .stage-ov{display:block}
       if (state.background){ rmbBr.textContent = state.background; rmbBr.hidden = false; }
       else { rmbBr.hidden = true; rmbBr.textContent = ''; }
     }
+    renderSidesGuide();
 
     // In-round editor: before Speech 1, debaters can still fix the
     // resolution + format (format drives speaker count + the AI judging
@@ -4049,6 +4079,42 @@ html.stage-mode .stage-ov{display:block}
     // handoff. Auto-mic still engages when Start is pressed.
   }
 
+  // ── Which side argues what ──────────────────────────────────────
+  // One plain line per side, because "Pro" on a negative motion reads
+  // backwards to new people: on "This House regrets the rise of social
+  // media", Pro AGREES with the regret and argues AGAINST social media.
+  // Deterministic, no model call: For = the resolution is true or
+  // should happen, Against = it is false or should not.
+  function renderSidesGuide(){
+    var el = $('sidesGuide');
+    if (!el) return;
+    if (state.phase !== 'round'){ el.hidden = true; return; }
+    var f = FORMATS[state.formatKey] || FORMATS.quick;
+    var fourTeam = isFourTeam(f);
+    var forLabel = fourTeam ? 'Government (OG + CG)' : (f.sideLabels[f.sides[0]] || 'Pro');
+    var againstLabel = fourTeam ? 'Opposition (OO + CO)' : (f.sideLabels[f.sides[1]] || 'Con');
+    var side = mySide();
+    var proWho = !fourTeam ? (state.proName || '') : '';
+    var conWho = !fourTeam ? (state.conName || '') : '';
+    function cell(sideKey, label, who, what){
+      var you = side === sideKey;
+      return '<div class="sg-cell' + (you ? ' is-you' : '') + '">' +
+        '<div class="sg-head">' +
+          '<span class="sg-side ' + (sideKey === 'pro' ? 'for' : 'against') + '">' + escHtml(label) + '</span>' +
+          (who ? '<span class="sg-who">' + escHtml(who) + '</span>' : '') +
+          (you ? '<span class="sg-you-chip">You</span>' : '') +
+        '</div>' +
+        '<div class="sg-what">' + what + '</div>' +
+      '</div>';
+    }
+    el.innerHTML =
+      cell('pro', forLabel, proWho,
+        'Argues <strong>yes to the resolution</strong>: it is true, or should happen. Defend exactly what it says. If it says regret, argue we should regret it; if it says ban, argue for the ban.') +
+      cell('con', againstLabel, conWho,
+        'Argues <strong>no to the resolution</strong>: it is false, or should not happen. Attack the claim and defend the world it criticizes.');
+    el.hidden = false;
+  }
+
   // Strip countdown styling off the big clock readout. Called from
   // every countdown bail-out path so a cancelled/preempted countdown
   // never leaves the timer-num stuck in a flash state.
@@ -4154,6 +4220,24 @@ html.stage-mode .stage-ov{display:block}
   }
   function startSpeechTimer(){
     if (state.timerState === 'running' || state.timerState === 'ended') return;
+    // 2026-08-18 (Aidan): the judge has to be settled before the round
+    // starts. judgeLockKey() is 'chair' when both benches sit on the
+    // untouched default (that IS agreement, no friction added) and ''
+    // only when the two picks differ, which is the one state the round
+    // must not start in: someone would be judged by a lens they never
+    // accepted. Speech 1 only; mid-round the picks are already locked.
+    if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){
+      state.judgeDraftOpen = true;
+      renderJudgeDraft();
+      var jHint = $('readyHint');
+      if (jHint){
+        jHint.style.display = '';
+        jHint.innerHTML = '<strong>Settle the judge first.</strong> You and your opponent picked different judge paradigms. Land on the same card, or either of you can hit Re-draft to reset to Standard chair. Then start the round.';
+      }
+      var jd = document.getElementById('judgeDraft');
+      if (jd && jd.scrollIntoView) jd.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     hidePrepBanner();   // prep is over once a speech actually starts
     var wasReady = state.timerState === 'ready';
     state.timerStart = Date.now();
@@ -11013,7 +11097,7 @@ html.stage-mode .stage-ov{display:block}
     if (spectatorJudge) spectatorJudge.textContent = 'Judge: ' + headline;
     var subline = locked
       ? shown.tag
-      : 'Both sides have to land on the same paradigm before it counts.';
+      : 'Both sides have to land on the same paradigm before the round can start. Untouched means you both take Standard chair.';
 
     // Initials only once a judge is actually agreed. While the benches
     // differ, a two-letter mark for one side's nomination reads like a
