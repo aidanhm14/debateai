@@ -171,6 +171,8 @@
     '.sn-rsvp-input{flex:1 1 200px;min-width:0;border-radius:999px;padding:10px 15px;font:inherit;' +
       'font-size:.86rem;color:var(--text,#f4f4f2);background:var(--bg-input,rgba(255,255,255,.06));' +
       'border:1px solid var(--border,rgba(255,255,255,.18));min-height:44px;box-sizing:border-box}' +
+    // 16px on phones: iOS Safari auto-zooms a focused input under 16px.
+    '@media(max-width:640px){.sn-rsvp-input{font-size:16px}}' +
     '.sn-rsvp-input::placeholder{color:var(--text-dim,rgba(255,255,255,.45))}' +
     '.sn-rsvp-input:focus{outline:none;border-color:var(--accent,#ef4444)}' +
     '[data-theme="light"] .sn-rsvp-input,[data-theme="stone"] .sn-rsvp-input{background:#fff;' +

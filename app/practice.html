@@ -1630,7 +1630,7 @@ function useAuth() {
     // Every sign-in surface offers the same choices. The shared modal
     // carries Google, an emailed link, and email/password; this Google
     // popup stays as the fallback for a page that loads without it.
-    if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
+    if (typeof window.openAuthModal === 'function') {window.openAuthModal();return;}
     var provider = new firebase.auth.GoogleAuthProvider();
     // In-app browsers (Instagram, FB, TikTok, LinkedIn, Twitter, WeChat, Line)
     // and iOS Safari ITP block popup OAuth silently, that's the bulk of the
@@ -7041,6 +7041,14 @@ function App() {
   // Start debate
   var startDebate = () => {
     if (!motion.trim()) return;
+    // Out of credit? Say so HERE, before the person invests prep time.
+    // The round is still charged once at goToSpeeches(); without this
+    // check a creditless user walked through the full prep phase and
+    // only met the CTA at START ROUND, minutes of prep too late.
+    if (!hasCredit()) {
+      setQuotaCTA(isSignedIn() ? 'pro' : 'signin');
+      return;
+    }
     // Setting up a new round closes the previous round's free window; the
     // next one charges again when its speeches start.
     endRoundCredit();
@@ -8224,25 +8232,25 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           // ever feed. It has to be the format slug, not the label.
           format: format || '',
           brain: brain || '',
-          model: (BRAINS[brain] && BRAINS[brain].model) || '',
+          model: BRAINS[brain] && BRAINS[brain].model || '',
           output: transcript + '\n\n=== BALLOT ===\n' + (fb || ''),
           context: {
             source: 'practice_round',
-            winner: (parsed && parsed.winner) || '',
+            winner: parsed && parsed.winner || '',
             speeches: (allLog || []).length,
-            formatName: (FORMATS[format] || FORMATS.apda).name,
-          },
+            formatName: (FORMATS[format] || FORMATS.apda).name
+          }
           // Corpus contribution is deliberately NOT requested here. It is
           // a separate consent with an 18+ attestation behind it, this
           // page holds no such state, and the distill does not read the
           // flag. Asserting it from a page that cannot know would be the
           // client claiming a permission it has no basis for.
-        }),
+        })
       });
       if (!res.ok) return;
       var out = await res.json();
       if (out && out.id) setRoundGenId(out.id);
-    } catch (e) { /* capture is best-effort; never block the ballot */ }
+    } catch (e) {/* capture is best-effort; never block the ballot */}
   };
 
   // One tap on the ballot is the whole rating flow. The existing widget
@@ -8260,10 +8268,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       await fetch('/api/log-generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ action: 'signal', generationId: roundGenId, signal: 'rate', value: n, meta: { format: format, surface: 'practice_ballot' } }),
+        body: JSON.stringify({ action: 'signal', generationId: roundGenId, signal: 'rate', value: n, meta: { format: format, surface: 'practice_ballot' } })
       });
-      try { window.gtag && gtag('event', 'practice_round_rate', { format: format, value: n }); } catch (e) {}
-    } catch (e) { /* the star stays lit; a failed label is not worth a scary state */ }
+      try {window.gtag && gtag('event', 'practice_round_rate', { format: format, value: n });} catch (e) {}
+    } catch (e) {/* the star stays lit; a failed label is not worth a scary state */}
   };
 
   // Save round to history

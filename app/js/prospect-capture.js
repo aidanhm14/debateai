@@ -124,6 +124,9 @@
         '.pc-label{font-size:.72rem;font-weight:600;letter-spacing:.04em;color:var(--text-dim,#94a3b8);text-align:center;margin:2px 0 2px}' +
         '.pc-row{display:flex;gap:6px;align-items:stretch}' +
         '.pc-input{flex:1;min-width:0;padding:11px 14px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.16));background:var(--c-surface2,rgba(255,255,255,.04));color:var(--text,#e4e8f0);font-size:.92rem;font-family:inherit;outline:none;transition:border-color .15s,background .15s}' +
+        // 16px on phones: iOS Safari auto-zooms any focused input under
+        // 16px, and the zoom does not undo itself on blur.
+        '@media(max-width:640px){.pc-input{font-size:16px}}' +
         '.pc-input:focus{border-color:var(--accent,#ef4444);background:var(--c-surface,rgba(255,255,255,.06))}' +
         '.pc-input::placeholder{color:var(--text-dim,#94a3b8);opacity:.7}' +
         '.pc-submit{padding:11px 18px;border-radius:10px;border:none;background:var(--accent,#ef4444);color:#fff;font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,transform .15s}' +
