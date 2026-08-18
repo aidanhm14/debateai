@@ -835,6 +835,11 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- Audience mode: stamps data-debate-experience on <html> and swaps
+     data-plain copy for visitors who said they are new to debate.
+     Loaded directly here (rather than waiting for topbar.js to inject
+     it) so plain-language swaps land before the first paint settles. -->
+<script defer src="/js/audience-mode.js"></script>
 <script defer src="/js/experiments.js"></script>
 <script defer src="/js/spar-night.js"></script>
 <!-- Reusable A/B primitive (sticky bucket + GA4 tagging). -->
@@ -8190,6 +8195,50 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="fs-live-cap" id="fsLiveCap"></p>
     </div>
   </div>
+  <!-- ── Audience chooser (2026-08-18) ─────────────────────────────
+       One quiet line at the foot of the first screen. Someone who
+       competes keeps the site's debate-register copy; anyone else gets
+       the data-plain variants swapped in by /js/audience-mode.js. The
+       answer lives at localStorage debateos-experience, follows the
+       account through prefs-sync.js, and is changeable any time in
+       /settings. Hidden forever once answered. Present identically in
+       both first_screen_copy_v1 arms, so it does not tilt that test. -->
+  <style>
+    #first-screen{position:relative}
+    .aud-choose{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;padding:0 16px;z-index:5;font-size:13px;color:var(--text-ghost)}
+    .aud-choose[hidden]{display:none}
+    .aud-choose-btn{appearance:none;border:1px solid var(--text-ghost);background:transparent;color:var(--text-dim);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
+    .aud-choose-btn:hover{color:var(--text);border-color:var(--text-dim)}
+    @media(max-width:940px){.aud-choose{position:static;margin:18px 0 4px}}
+  </style>
+  <div class="aud-choose" id="audChoose" hidden>
+    <span class="aud-choose-q">Do you compete in debate?</span>
+    <button type="button" class="aud-choose-btn" data-exp="competitive" data-cta="audience-competitive">I compete</button>
+    <button type="button" class="aud-choose-btn" data-exp="new" data-cta="audience-new">I'm new to this</button>
+  </div>
+  <script>
+    (function(){
+      var KEY='debateos-experience';
+      var el=document.getElementById('audChoose');
+      if(!el) return;
+      var cur='';
+      try{cur=localStorage.getItem(KEY)||''}catch(e){}
+      if(cur) return;
+      el.hidden=false;
+      el.addEventListener('click',function(e){
+        var btn=e.target.closest&&e.target.closest('[data-exp]');
+        if(!btn) return;
+        var v=btn.getAttribute('data-exp');
+        if(window.DebatableAudience&&window.DebatableAudience.set){window.DebatableAudience.set(v);}
+        else{
+          try{localStorage.setItem(KEY,v)}catch(err){}
+          document.documentElement.setAttribute('data-debate-experience',v);
+        }
+        if(window.dosTrack)dosTrack('audience_choice',{value:v,surface:'landing_first_screen'});
+        el.hidden=true;
+      });
+    })();
+  </script>
 </section>
 
 <!-- ── Open challenges ── MOVED OFF THE LANDING 2026-08-14 ───────
@@ -8973,14 +9022,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <article class="hiw-card" data-hiw-step="verdict">
             <div>
               <p class="hiw-step-k"><span class="hiw-step-num">2</span><span class="hiw-step-of">Verdict</span></p>
-              <h3 class="hiw-card-title">The judge writes the ballot.</h3>
+              <h3 class="hiw-card-title" data-plain="The AI judge explains who won.">The judge writes the ballot.</h3>
               <p class="hiw-card-body">The round ends, the AI judge writes the ballot in seconds: <b>winner, speaker points, and the reasons</b>, citing what was actually said. The rubric's public, so every call is checkable.</p>
               <ul class="hiw-mech" aria-label="Ballot contents">
-                <li><b>Decided on</b><span>The flow, never the topic</span></li>
+                <li><b>Decided on</b><span data-plain="The arguments made, never the topic">The flow, never the topic</span></li>
                 <li><b>Rubric</b><span>Published and versioned</span></li>
                 <li><b>Turnaround</b><span>Seconds after the last speech</span></li>
               </ul>
-              <a class="hiw-go" href="#live-proof" data-cta="hiw-step2-verdict">See a real ballot</a>
+              <a class="hiw-go" href="#live-proof" data-cta="hiw-step2-verdict" data-plain="See real judge feedback">See a real ballot</a>
               <!-- 2026-08-11: the card says "AI judge" and "the rubric's
                    public"; this is the link that lets someone act on
                    that instead of taking it on faith. -->
@@ -9007,7 +9056,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <div>
               <p class="hiw-step-k"><span class="hiw-step-num">3</span><span class="hiw-step-of">Leaderboard</span></p>
               <h3 class="hiw-card-title">Your speaks go on the board.</h3>
-              <p class="hiw-card-body">Every judged round posts to the <b>public leaderboard</b>, one scale across every format, so a 29 in APDA means a 29 in PF. Best entry per person, live and AI rounds marked apart.</p>
+              <p class="hiw-card-body">Every judged round posts to the <b>public leaderboard</b>, one scale across every format, <span data-plain="so your score means the same thing whichever style you play.">so a 29 in APDA means a 29 in PF.</span> Best entry per person, live and AI rounds marked apart.</p>
               <ul class="hiw-mech" aria-label="Board rules">
                 <li><b>Scale</b><span>Speaker points out of 30</span></li>
                 <li><b>Entry</b><span>Best per person</span></li>
@@ -10390,7 +10439,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <a href="/how-it-works" class="hi-lf-founder-quiet" data-cta="hero-livefirst-how">How it works <span aria-hidden="true">&rarr;</span></a>
           </div>
           <h2>Debate the AI.</h2>
-          <p class="hi-lf-amb-copy">Speak out loud. It pushes back, tracks the clash, and writes your ballot.</p>
+          <p class="hi-lf-amb-copy" data-plain="Speak out loud. It pushes back, follows every argument, and scores the round.">Speak out loud. It pushes back, tracks the clash, and writes your ballot.</p>
           <div class="hi-lf-amb-foot">
             <div class="hi-path-meta"><span>Instant</span><span>Voice</span><span>Judged</span></div>
             <a href="/newvoice" class="hi-lf-cta hi-lf-cta--primary hi-lf-cta--full" data-cta="hero-livefirst-ai">Start a voice round <span aria-hidden="true">&rarr;</span></a>
@@ -11558,7 +11607,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="hsr-sep" aria-hidden="true">·</span>
         <span class="hsr-item">Real opponents</span>
         <span class="hsr-sep" aria-hidden="true">·</span>
-        <span class="hsr-item">AI ballot on every round</span>
+        <span class="hsr-item" data-plain="AI feedback on every round">AI ballot on every round</span>
       </div>
 
       <!-- Legacy #editorialSignInLink kept off-canvas as a screenreader +
@@ -12196,8 +12245,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            model, and the sub hands off to the trust strip below the
            ballot instead of asserting an audience vote this surface has
            no path for (see the 2026-07-20 truth boundary in soul.md). -->
-      <h2 class="live-proof-headline">An AI judge writes the full ballot in seconds.</h2>
-      <p class="live-proof-sub">Winner, speaker points, and the reason for decision, citing what was actually said. It is a model and not a person, so the four things below are how you check its work.</p>
+      <h2 class="live-proof-headline" data-plain="An AI judge scores the whole round in seconds.">An AI judge writes the full ballot in seconds.</h2>
+      <p class="live-proof-sub" data-plain="Who won, a score for each speaker, and the reasons, citing what was actually said. It is a model and not a person, so the four things below are how you check its work.">Winner, speaker points, and the reason for decision, citing what was actually said. It is a model and not a person, so the four things below are how you check its work.</p>
     </div>
 
     <div class="live-proof-frame">
@@ -12516,7 +12565,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="rb-wrap">
     <div class="rb-eyebrow">Live ranks &middot; AI-judged</div>
     <h2 class="rb-title">The <em>leaderboard</em>.</h2>
-    <p class="rb-sub">Every ballot puts your speaks on the cross-format leaderboard. Best entry per person, public, and every name is challengeable.</p>
+    <p class="rb-sub" data-plain="Every judged round posts your score to one public leaderboard. Best entry per person, and every name is challengeable.">Every ballot puts your speaks on the cross-format leaderboard. Best entry per person, public, and every name is challengeable.</p>
     <div class="rb-grid">
       <div class="rb-card">
         <p class="rb-kicker">The leaderboard</p>
@@ -13996,7 +14045,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <a class="si-cta si-cta--ghost" href="/plugins/twitch" data-si="howto" data-cta="stream-band-howto">Twitch setup</a>
         <a class="si-cta si-cta--ghost" href="/watch" data-si="watch" data-cta="stream-band-watch">Watch streams and replays</a>
       </div>
-      <p class="si-note">Chat tells the judge where the room was persuaded or lost. It never decides who won; the ballot comes from the flow. Runs as a panel or overlay URL today. Want a bracket instead? <a href="#creator-sweepstakes">Creator tournaments</a>.</p>
+      <p class="si-note">Chat tells the judge where the room was persuaded or lost. <span data-plain="It never decides who won; the verdict comes from the arguments alone.">It never decides who won; the ballot comes from the flow.</span> Runs as a panel or overlay URL today. Want a bracket instead? <a href="#creator-sweepstakes">Creator tournaments</a>.</p>
     </div>
 
     <div class="si-demo">
@@ -15827,7 +15876,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="fw-copy">
     <span class="fw-eyebrow"><i aria-hidden="true"></i>The room</span>
     <h2 class="fw-title">Somebody is always up for a round.</h2>
-    <p class="fw-sub">Post a motion, take a side, and get a ballot when the clock runs out.</p>
+    <p class="fw-sub" data-plain="Post a topic, pick a side, and get the verdict when the clock runs out.">Post a motion, take a side, and get a ballot when the clock runs out.</p>
     <a class="fw-cta" href="/spar" data-cta="face-wall-spar">Find an opponent <span aria-hidden="true">&rarr;</span></a>
   </div>
 </section>
@@ -16204,7 +16253,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <a class="ms-tile ms-door" href="/practice" data-mode="voice">
         <span class="ms-num">02</span>
         <h3>Debate the AI</h3>
-        <p>Run a full-format round on the clock against an AI opponent that interrupts, takes POIs, and argues back. Finish with a written ballot.</p>
+        <p data-plain="Run a timed round against an AI opponent that interrupts, asks questions mid-speech, and argues back. Finish with written feedback on who won and why.">Run a full-format round on the clock against an AI opponent that interrupts, takes POIs, and argues back. Finish with a written ballot.</p>
         <span class="ms-go" aria-hidden="true">Open Debatable <span class="ms-arrow">→</span></span>
         <span class="ms-knob" aria-hidden="true"></span>
       </a>
@@ -17965,7 +18014,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Isn't this just another AI debate tool?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-        <div class="faq-stack-a"><p>Most hand you a wall of generic text. No clock, no format, no judge.</p><p>This runs a live round: a motion, a side, a clock that does not pause. It takes POIs in WSDC, reads at Policy speed, stays impromptu in APDA, then writes a real ballot.</p><p>It still says wrong things. Catching them is the drill.</p></div>
+        <div class="faq-stack-a"><p>Most hand you a wall of generic text. No clock, no format, no judge.</p><p data-plain="This runs a live round: a topic, a side, a clock that does not pause. The AI plays by the rules of whichever debate style you pick, then writes real feedback.">This runs a live round: a motion, a side, a clock that does not pause. It takes POIs in WSDC, reads at Policy speed, stays impromptu in APDA, then writes a real ballot.</p><p>It still says wrong things. Catching them is the drill.</p></div>
       </details>
 
       <details class="faq-stack-row">

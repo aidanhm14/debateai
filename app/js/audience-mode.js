@@ -8,6 +8,12 @@
  * Motion acronyms are never useful to a first-time visitor. Expand them in
  * visible page copy for everyone, including content rendered after load.
  * Inputs are left alone so we never rewrite something while a person types.
+ *
+ * Plain-copy swaps: an element carrying data-plain="simpler wording" shows
+ * that wording when the visitor said they are new (or unsure), and keeps its
+ * authored debate-register text for competitive visitors and for anyone who
+ * never answered. The authored text is stashed on the element so the swap
+ * reverses cleanly when the answer changes.
  */
 (function () {
   'use strict';
@@ -52,7 +58,35 @@
     if (!VALID[value]) return;
     try { localStorage.setItem(KEY, value); } catch (e) {}
     apply(value);
+    if (document.body) swapPlainCopy(document.body);
     try { window.dispatchEvent(new CustomEvent('debatable:experience', { detail: { value: value } })); } catch (e) {}
+  }
+
+  function plainActive() {
+    var v = read();
+    return v === 'new' || v === 'unsure';
+  }
+
+  function swapPlainCopy(root) {
+    var scope = root && root.nodeType === 1 ? root : document.body;
+    if (!scope || !scope.querySelectorAll) return;
+    var els = Array.prototype.slice.call(scope.querySelectorAll('[data-plain]'));
+    if (scope !== document.body && scope.matches && scope.matches('[data-plain]')) els.push(scope);
+    var wantPlain = plainActive();
+    els.forEach(function (el) {
+      var plain = el.getAttribute('data-plain');
+      if (!plain) return;
+      if (wantPlain) {
+        if (el.getAttribute('data-plain-on') === '1') return;
+        el.setAttribute('data-comp-text', el.textContent);
+        el.textContent = plain;
+        el.setAttribute('data-plain-on', '1');
+      } else if (el.getAttribute('data-plain-on') === '1') {
+        var original = el.getAttribute('data-comp-text');
+        if (original != null) el.textContent = original;
+        el.removeAttribute('data-plain-on');
+      }
+    });
   }
 
   function eligible(node) {
@@ -80,17 +114,22 @@
     get: read,
     set: set,
     isCompetitive: function () { return read() === 'competitive'; },
+    isPlain: plainActive,
     plainMotion: plainMotion,
   };
 
   apply(read());
   function start() {
     normalize(document.body);
+    swapPlainCopy(document.body);
     if (!document.body || !window.MutationObserver) return;
     new MutationObserver(function (records) {
       records.forEach(function (record) {
         if (record.type === 'characterData') normalize(record.target);
-        else Array.prototype.forEach.call(record.addedNodes || [], normalize);
+        else Array.prototype.forEach.call(record.addedNodes || [], function (node) {
+          normalize(node);
+          if (node.nodeType === 1) swapPlainCopy(node);
+        });
       });
     }).observe(document.body, { childList: true, subtree: true, characterData: true });
   }

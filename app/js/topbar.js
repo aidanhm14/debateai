@@ -126,6 +126,18 @@
     document.head.appendChild(s);
   })();
 
+  // Audience mode rides every topbar page: it stamps
+  // data-debate-experience on <html> and swaps data-plain copy for
+  // visitors who said they are new to debate, so any page can offer
+  // plain-language variants of debate-register copy.
+  (function ensureAudienceModeLoaded(){
+    if (document.querySelector('script[src*="/js/audience-mode.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/audience-mode.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+
   function openSharedAuth(mode){
     mode = mode || 'signin';
     if (typeof window.openAuthModal === 'function'){

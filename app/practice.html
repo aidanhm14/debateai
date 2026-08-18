@@ -4816,6 +4816,18 @@ function buildPrompt(speech, userSide, motion, history, notes, format, oppStr, o
   var isFirstRound = (historyRounds || []).length === 0;
   var audienceChoice = '';
   try {audienceChoice = localStorage.getItem('da-is-debater') || '';} catch (e) {}
+  // `da-is-debater` lost its writer when the animated landing intro was
+  // deleted, so without this fallback the register fork below never
+  // fires. `debateos-experience` is the live answer to the same
+  // question: asked by onboarding.js, the landing chooser, and
+  // /settings, and synced across devices by prefs-sync.js.
+  if (!audienceChoice) {
+    var expChoice = '';
+    try {expChoice = localStorage.getItem('debateos-experience') || '';} catch (e) {}
+    if (expChoice === 'competitive') audienceChoice = 'competing';else
+    if (expChoice === 'new') audienceChoice = 'learning';else
+    if (expChoice === 'unsure') audienceChoice = 'curious';
+  }
   // Explicit per-round opponent pick (`da-opp-register`, set by the
   // Normal / Competitive toggle in the setup form) OUTRANKS the
   // onboarding inference. Someone who answered "competing" months ago
@@ -5546,7 +5558,15 @@ function App() {
   var audienceChoice = useMemo(() => {
     try {return localStorage.getItem('da-is-debater') || '';} catch {return '';}
   }, []);
-  var plainAudience = audienceChoice === 'learning' || audienceChoice === 'curious' || audienceChoice === 'no';
+  // Fallback: `da-is-debater` has no writer since the animated landing
+  // intro was deleted. `debateos-experience` (onboarding.js, the landing
+  // chooser, /settings; synced by prefs-sync.js) answers the same
+  // question, so the plain-language copy fork keys off it too.
+  var experienceChoice = useMemo(() => {
+    try {return localStorage.getItem('debateos-experience') || '';} catch {return '';}
+  }, []);
+  var plainAudience = audienceChoice === 'learning' || audienceChoice === 'curious' || audienceChoice === 'no' ||
+  !audienceChoice && (experienceChoice === 'new' || experienceChoice === 'unsure');
   var audienceCopy = (competitiveCopy, plainCopy) => plainAudience ? plainCopy : competitiveCopy;
   var ballotAudienceRegister = plainAudience ?
   `FINAL AUDIENCE LANGUAGE: The person reading this is new to debate or simply curious. Keep every user-visible string value in the JSON intelligent but accessible. Never use or mention "RFD," "ballot," "flow," "framework," "warrant," "drop," "cross-apply," "impact calculus," "extension," or "contention." Translate the underlying idea into ordinary English instead. Preserve the exact JSON keys and score fields because the interface needs them.` :
