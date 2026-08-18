@@ -5079,11 +5079,13 @@ button{font-family:inherit}
   }
   formEl.addEventListener('submit', function(e){
     e.preventDefault();
-    if (!currentUser && firebaseAuth){
-      toast('Creating your guest identity…');
-      ensureGuestAuth().then(submitPost).catch(function(){
-        toast('Guest access did not start. Try again in a moment.');
-      });
+    // Ask up front rather than minting an anonymous account here and
+    // letting publishChallenge refuse it three calls later: that path
+    // left a throwaway account behind AND told the poster their debate
+    // was "saved locally only", which reads as a bug rather than a gate.
+    if (!isNamedUser(currentUser) && firebaseAuth){
+      toast('Sign in to post a debate to the board.');
+      doGoogleSignIn();
       return;
     }
     submitPost();
