@@ -252,17 +252,38 @@ export default async (req) => {
   // participant record (presence.userId). user_id caps at 36 chars —
   // a Firebase uid (28) and our 'ip:'+24-hex key both fit. Failure
   // here never blocks the room.
+  //
+  // Spectators (role:'viewer' from the client) join HIDDEN via the
+  // token's `permissions`: no name tile in the grid, no people-list
+  // row, and no send path even if the iframe's AV gate is stripped.
+  // The page's own "N watching" pill is the audience count. The role is
+  // client-claimed and safe to trust: claiming "debater" only gets what
+  // every joiner already has, claiming "viewer" only restricts.
+  // `permissions` is a documented MEETING-TOKEN property — this block
+  // deliberately does NOT touch the room create body (see the loud
+  // comment above about one bad room key silently killing recording),
+  // and a rejected mint retries without it so identity attribution
+  // survives on plans that lack the permissions API.
+  const role = body && body.role === 'viewer' ? 'viewer' : 'debater';
+  const tokenProps = {
+    room_name: name,
+    user_id: (who.uid || who.ipKey).slice(0, 36),
+    exp: expSec,
+  };
+  if (role === 'viewer') tokenProps.permissions = { hasPresence: false, canSend: false };
+  const mintToken = (props) => fetch(DAILY_API + '/meeting-tokens', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ properties: props }),
+  });
   let token = null;
   try {
-    const tr = await fetch(DAILY_API + '/meeting-tokens', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ properties: {
-        room_name: name,
-        user_id: (who.uid || who.ipKey).slice(0, 36),
-        exp: expSec,
-      } }),
-    });
+    let tr = await mintToken(tokenProps);
+    if (!tr.ok && tokenProps.permissions){
+      console.warn('[create-daily-room] viewer permissions rejected (' + tr.status + '), reminting without');
+      delete tokenProps.permissions;
+      tr = await mintToken(tokenProps);
+    }
     if (tr.ok) token = (await tr.json()).token || null;
   } catch (e) { /* tokenless join still works */ }
 

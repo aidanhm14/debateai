@@ -533,6 +533,15 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 #audFab span{font-size:.98rem;line-height:1}
 #audFab b{font-size:.68rem;font-weight:800;letter-spacing:.06em;writing-mode:vertical-rl;text-orientation:mixed}
 body.lr-aud-open #audFab{display:none}
+
+/* Comment pop-ups: fading bubbles over the video pane while the rail is
+   closed. Read-only surface; composing stays in the Audience rail. */
+#audPops{position:absolute;left:12px;bottom:14px;z-index:7;display:flex;flex-direction:column;gap:6px;align-items:flex-start;pointer-events:none;max-width:min(64%,340px)}
+.aud-pop{background:rgba(8,8,10,.72);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:6px 11px;font-size:.78rem;line-height:1.45;color:#f0ede6;max-width:100%;overflow-wrap:break-word;animation:audPopIn .22s ease}
+.aud-pop b{color:#ef4444;font-size:.7rem;margin-right:4px}
+.aud-pop.is-fading{opacity:0;transition:opacity .65s ease}
+@keyframes audPopIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+body.lr-mini #audPops,body.lr-pip #audPops{display:none}
 /* Docked chat rail (2026-08-10). This was a floating 370px card pinned
    above the FAB, which overlapped the live transcript and collided with
    the pop-out control stack — chat and the thing being discussed fought
@@ -4949,7 +4958,7 @@ html.stage-mode .stage-ov{display:block}
         '<p style="font-size:.92rem;line-height:1.55;color:var(--text,#fff);margin:0 0 12px"><strong>Tell your opponent</strong> you\'re about to record. Recording without consent is rude, and depending on where you both live, illegal.</p>' +
         '<ul style="font-size:.82rem;line-height:1.55;color:var(--text-dim,#ccc);margin:0 0 16px;padding-left:1.15em">' +
           '<li style="margin-bottom:4px">The file stays on your device. We don\'t upload, store, or see it.</li>' +
-          '<li style="margin-bottom:4px">Your browser will ask which window/tab to capture. Pick this tab to get the full round.</li>' +
+          '<li style="margin-bottom:4px">The recording captures this tab, so you keep the full debate layout: clocks, scoreboard, reactions. If your browser shows a picker, choose this tab.</li>' +
           '<li>Stop the recording anytime. The file downloads as soon as you stop.</li>' +
         '</ul>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end">' +
@@ -4983,14 +4992,45 @@ html.stage-mode .stage-ov{display:block}
     }
   }
 
+  // Ask for a display capture that defaults to THIS tab, so the file
+  // keeps the whole debate layout (motion, clocks, scoreboard) instead
+  // of a bare call-window capture. Chrome-family browsers honor the
+  // hints with a one-click "record this tab" confirm; browsers that
+  // reject the option combo fall back to the plain picker, where the
+  // consent modal tells the user to pick this tab. A user cancel
+  // (NotAllowedError) never re-opens the picker.
+  function captureRoundDisplay(){
+    var base = {
+      video: { frameRate: 24, displaySurface: 'browser' },
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    };
+    var hinted = {
+      preferCurrentTab: true,
+      selfBrowserSurface: 'include',
+      monitorTypeSurfaces: 'exclude',
+      surfaceSwitching: 'exclude',
+      video: base.video,
+      audio: base.audio
+    };
+    var attempt;
+    try {
+      attempt = navigator.mediaDevices.getDisplayMedia(hinted);
+    } catch (e) {
+      return navigator.mediaDevices.getDisplayMedia(base);
+    }
+    return attempt.catch(function(err){
+      if (err && (err.name === 'TypeError' || err.name === 'NotSupportedError' || err.name === 'OverconstrainedError')){
+        return navigator.mediaDevices.getDisplayMedia(base);
+      }
+      throw err;
+    });
+  }
+
   function startRoundRecording(){
     if (rec.recorder) return;
     showRecConsent(function(){
       // getDisplayMedia must be called from a user-gesture context.
-      navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 24 },
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-      }).then(function(displayStream){
+      captureRoundDisplay().then(function(displayStream){
         // Combine the user's mic with the captured tab audio so the
         // recording catches the user's own voice even on platforms
         // where getDisplayMedia's audio track only includes tab audio.
@@ -5251,6 +5291,15 @@ html.stage-mode .stage-ov{display:block}
       if (status === 'processing') toast('Recording stopped. The replay is being prepared.');
       cloudRec.lastStatus = status;
     }
+
+    // The layout board rides the recording: publish it while capture is
+    // live, tear it down if the recording ends mid-round. Called on
+    // every round-doc snapshot, so a join that lands after the status
+    // flip still picks the board up on the next sync.
+    try {
+      if (status === 'recording') startRoundBoard();
+      else stopRoundBoardIfOrphaned(status);
+    } catch(e){}
   }
 
   function maybePromptCloudRecording(d){
@@ -5313,7 +5362,16 @@ html.stage-mode .stage-ov{display:block}
     return uids.length ? uids[0] === me : true;
   }
   function startVerdictReel(){
-    if (reel.canvas) return true;
+    if (reel.canvas){
+      // The round board is already publishing this canvas — hand it the
+      // judging phase instead of restarting the screen share.
+      if (reel.phase === 'round'){
+        reel.phase = 'judging';
+        reel.t0 = Date.now();
+        reel.cap = setTimeout(function(){ stopVerdictReel(); }, REEL_MAX_WAIT);
+      }
+      return true;
+    }
     if (!shouldDriveReel()) return false;
     var cv = document.createElement('canvas');
     cv.width = REEL_W; cv.height = REEL_H;
@@ -5537,10 +5595,126 @@ html.stage-mode .stage-ov{display:block}
     if (reel.phase === 'ballot'){
       drawBallotFrame(reel.ctx, el);
       if (el > REEL_END){ stopVerdictReel(); return; }
+    } else if (reel.phase === 'round'){
+      drawRoundBoard(reel.ctx, el);
     } else {
       drawJudging(reel.ctx, el);
     }
     reel.raf = requestAnimationFrame(drawReel);
+  }
+
+  // ── Round board ──────────────────────────────────────────────────
+  // Daily's cloud recording composites the ROOM (camera tiles), not the
+  // page, so a replay used to look like a bare video call. While a
+  // consented recording runs, one debater (the same lowest-uid driver
+  // the verdict reel elects) publishes the round's layout as a canvas
+  // screen share: motion, current speech, live clock, speakers, and the
+  // watching count. Daily pins the share large with the tiles beside
+  // it, so the replay reads as the debate UI. At judging the SAME
+  // canvas hands off to the verdict reel, so the share never restarts.
+  var reelWatchers = 0;
+  function startRoundBoard(){
+    if (reel.canvas) return;               // board or reel already live
+    if (state.phase !== 'round') return;   // judging starts its own reel
+    if (!shouldDriveReel()) return;
+    var cv = document.createElement('canvas');
+    cv.width = REEL_W; cv.height = REEL_H;
+    reel.canvas = cv;
+    reel.ctx = cv.getContext('2d');
+    reel.phase = 'round';
+    reel.t0 = Date.now();
+    try {
+      reel.stream = cv.captureStream(30);
+      room.call.startScreenShare({ mediaStream: reel.stream });
+      reel.sharing = true;
+    } catch(e){
+      console.warn('[board] screen share unavailable', e);
+      reel.canvas = null; reel.ctx = null; reel.phase = '';
+      return;
+    }
+    drawReel();
+    try { gtag('event', 'live_round_layout_board'); } catch(e){}
+  }
+  // Recording stopped mid-round (someone withdrew, or the server closed
+  // it): tear the board down so the room isn't stuck staring at it.
+  function stopRoundBoardIfOrphaned(status){
+    if (reel.phase !== 'round') return;
+    if (status === 'recording') return;
+    if (reel.raf){ cancelAnimationFrame(reel.raf); reel.raf = 0; }
+    if (reel.sharing){
+      try { room.call.stopScreenShare(); } catch(e){}
+      reel.sharing = false;
+    }
+    if (reel.stream){
+      try { reel.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      reel.stream = null;
+    }
+    reel.canvas = null; reel.ctx = null; reel.phase = '';
+  }
+  function drawRoundBoard(ctx, t){
+    reelBg(ctx, t);
+    var f = FORMATS[state.formatKey] || FORMATS.quick;
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 1;
+    ctx.font = '800 18px Georgia, serif';
+    ctx.fillStyle = 'rgba(240,237,230,.55)';
+    ctx.fillText(String(f.name || 'Live round').toUpperCase() + ' · LIVE ROUND', REEL_W / 2, 78);
+    ctx.font = '700 36px Georgia, serif';
+    ctx.fillStyle = '#f0ede6';
+    var ml = reelWrap(ctx, state.motion || '', REEL_W - 240).slice(0, 3);
+    for (var i = 0; i < ml.length; i++) ctx.fillText(ml[i], REEL_W / 2, 128 + i * 46);
+    var y0 = 128 + ml.length * 46 + 26;
+    var sp = f.speeches && f.speeches[state.speechIdx];
+    if (sp){
+      var speaker = '';
+      try { speaker = speakerNameFor(f, state.speechIdx) || ''; } catch(e){}
+      ctx.font = '650 22px Georgia, serif';
+      ctx.fillStyle = 'rgba(240,237,230,.66)';
+      ctx.fillText('Speech ' + (state.speechIdx + 1) + ' of ' + f.speeches.length + ' · ' + (sp.name || '') + (speaker ? ' · ' + speaker : ''), REEL_W / 2, y0 + 8);
+      var totalSec = state.timerTotalSec || sp.time || 0;
+      var elapsed = 0;
+      try { elapsed = getElapsed(); } catch(e){}
+      var remaining = Math.max(0, totalSec - elapsed);
+      ctx.font = '900 84px Georgia, serif';
+      ctx.fillStyle = (remaining < 30 && state.timerState === 'running') ? '#dd2e2e' : '#f0ede6';
+      ctx.fillText(fmtTime(Math.ceil(remaining)), REEL_W / 2, y0 + 108);
+      var pw = 520, px = REEL_W / 2 - pw / 2, py = y0 + 132;
+      ctx.fillStyle = 'rgba(240,237,230,.13)';
+      ctx.fillRect(px, py, pw, 8);
+      ctx.fillStyle = '#dd2e2e';
+      ctx.fillRect(px, py, pw * Math.min(1, elapsed / Math.max(1, totalSec)), 8);
+    }
+    // Speakers, current one lit.
+    var sides = f.sides || ['pro','con'];
+    var names = [state.proName || 'Proposition', state.conName || 'Opposition'];
+    var labels = [
+      (f.sideLabels && f.sideLabels[sides[0]]) || 'Pro',
+      (f.sideLabels && f.sideLabels[sides[1]]) || 'Con'
+    ];
+    var speakerNow = '';
+    try { speakerNow = speakerNameFor(f, state.speechIdx) || ''; } catch(e){}
+    var xs = [REEL_W / 2 - 240, REEL_W / 2 + 240];
+    for (var s = 0; s < 2; s++){
+      var active = speakerNow && names[s] === speakerNow;
+      ctx.font = (active ? '800' : '650') + ' 24px Georgia, serif';
+      ctx.fillStyle = active ? '#f0ede6' : 'rgba(240,237,230,.55)';
+      ctx.fillText(names[s], xs[s], REEL_H - 116);
+      ctx.font = '600 16px Georgia, serif';
+      ctx.fillStyle = active ? '#dd2e2e' : 'rgba(240,237,230,.4)';
+      ctx.fillText(labels[s].toUpperCase(), xs[s], REEL_H - 90);
+      if (active){
+        ctx.fillStyle = '#dd2e2e';
+        ctx.fillRect(xs[s] - 60, REEL_H - 80, 120, 4);
+      }
+    }
+    if (reelWatchers > 0){
+      ctx.textAlign = 'right';
+      ctx.font = '600 18px Georgia, serif';
+      ctx.fillStyle = 'rgba(240,237,230,.5)';
+      ctx.fillText(reelWatchers + ' watching', REEL_W - 56, REEL_H - 44);
+    }
+    reelBrand(ctx);
+    ctx.globalAlpha = 1;
   }
 
   function finishCloudRecording(){
@@ -6418,7 +6592,10 @@ html.stage-mode .stage-ov{display:block}
     fetch('/api/create-daily-room', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: state.room }),
+      // role lets the server mint spectators a hidden-presence token
+      // (no name tile in the grid). Client-claimed and safe to trust:
+      // claiming "debater" only gets what every joiner already has.
+      body: JSON.stringify({ name: state.room, role: isSpectator() ? 'viewer' : 'debater' }),
     }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); })
       .then(function(res){
         if (!res.ok){
@@ -9591,6 +9768,7 @@ html.stage-mode .stage-ov{display:block}
       onRoundSnapshot(doc.data() || {});
     }, function(e){ console.warn('[Round sync] snapshot error', e); });
     startWatchPresence();
+    startCommentPops();
     startJoinRequestHost();
     // Poll opponent presence so the no-show prompt appears promptly after
     // the grace window even between the slow (30s) round-doc snapshots.
@@ -10333,6 +10511,7 @@ html.stage-mode .stage-ov{display:block}
   }
 
   function renderWatchCount(n, capped){
+    try { reelWatchers = capped ? WATCH_COUNT_CAP : (n || 0); } catch(e){}
     var pill = document.getElementById('watchCountPill');
     var num = document.getElementById('watchCountNum');
     if (num) num.textContent = capped ? (WATCH_COUNT_CAP + '+') : n;
@@ -10354,6 +10533,61 @@ html.stage-mode .stage-ov{display:block}
       audN.appendChild(document.createTextNode(audLabel));
     }
     updateRoomStage();
+  }
+
+  // ── Comment pop-ups ─────────────────────────────────────────────────
+  // The audience deck holds the full comment feed, but it only renders
+  // when someone opens the rail. New comments also POP over the video
+  // pane as fading bubbles, so the room feels the audience without
+  // anyone giving up layout space. Bounded listener (12 docs), the
+  // backlog is skipped on load, bubbles cap at 4 and remove themselves.
+  var POPS = { started:false, since:0 };
+  function popWrap(){
+    var pane = document.getElementById('jitsiPane');
+    if (!pane) return null;
+    var w = document.getElementById('audPops');
+    if (!w){
+      w = document.createElement('div');
+      w.id = 'audPops';
+      w.setAttribute('aria-live', 'polite');
+      pane.appendChild(w);
+    }
+    return w;
+  }
+  function popComment(name, text){
+    // The open rail already shows the feed; bubbles would double it.
+    var panel = document.getElementById('audPanel');
+    if (panel && !panel.hidden) return;
+    var w = popWrap();
+    if (!w) return;
+    var el = document.createElement('div');
+    el.className = 'aud-pop';
+    var b = document.createElement('b');
+    b.textContent = String(name || 'Viewer').slice(0, 40);
+    el.appendChild(b);
+    el.appendChild(document.createTextNode(' ' + String(text || '').slice(0, 160)));
+    w.appendChild(el);
+    while (w.children.length > 4) w.removeChild(w.firstChild);
+    setTimeout(function(){
+      el.classList.add('is-fading');
+      setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 700);
+    }, 6500);
+  }
+  function startCommentPops(){
+    if (POPS.started) return;
+    var col = audCol('comments');
+    if (!col) return;
+    POPS.started = true;
+    POPS.since = Date.now();
+    col.orderBy('createdAt', 'desc').limit(12).onSnapshot(function(snap){
+      snap.docChanges().forEach(function(ch){
+        if (ch.type !== 'added') return;
+        var d = ch.doc.data() || {};
+        var ts = (d.createdAt && d.createdAt.toMillis) ? d.createdAt.toMillis() : Date.now();
+        if (ts < POPS.since - 2000) return; // no backlog replay on join
+        popComment(d.name, d.text);
+      });
+    }, function(){});
   }
 
   // ── Audience deck: live comments, viewer group chats, and
