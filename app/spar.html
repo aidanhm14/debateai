@@ -977,7 +977,14 @@ h1 em{color:var(--accent);font-style:normal}
   border:1px solid var(--border);
   box-shadow:0 10px 24px rgba(0,0,0,.22);
 }
-.gate-seat img{display:block;width:100%;height:100%;object-fit:cover}
+.gate-seat img{
+  display:block;width:100%;height:100%;object-fit:cover;
+  /* Crossfade for the gate's portrait rotation (see startGateFaces). */
+  transition:opacity .4s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  .gate-seat img{transition:none}
+}
 .gate-seat--you{border:2px solid var(--accent)}
 .gate-seat-chip{
   position:absolute;top:8px;left:8px;
@@ -2054,12 +2061,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
         '<div class="gate-preview" aria-hidden="true">' +
           '<div class="gate-seat gate-seat--you">' +
-            '<img src="/img/round/faces/face02.jpg" alt="" decoding="async" />' +
+            '<img src="/img/round/faces/face02.jpg" alt="" decoding="async" data-gate-face />' +
             '<span class="gate-seat-chip gate-seat-chip--live">LIVE</span>' +
           '</div>' +
           '<span class="gate-vs">VS</span>' +
           '<div class="gate-seat">' +
-            '<img src="/img/round/faces/face06.jpg" alt="" decoding="async" />' +
+            '<img src="/img/round/faces/face06.jpg" alt="" decoding="async" data-gate-face />' +
           '</div>' +
         '</div>' +
         '<div class="gate-faces-note">Portraits AI-generated to depict a live session.</div>' +
@@ -2081,7 +2088,100 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // visible before the modal opens.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     document.getElementById('emailStartBtn').addEventListener('click', doGoogleSignIn);
+    startGateFaces();
     try { gtag('event', 'spar_gate_view', { required: 1 }); } catch(e){}
+  }
+
+  // ── Gate preview: circulate the two portraits ────────
+  // The gate previewed the same two faces on every load, so a visitor
+  // who bounced and came back saw the identical pair behind a LIVE
+  // chip. Now the pair is drawn fresh per load and swapped on a slow
+  // crossfade while the gate is open, matching the per-load shuffle
+  // /debate-strangers and the other doorway pages already run.
+  //
+  // Pool is deliberately restricted to portraits ALREADY shipped on
+  // live surfaces (the shared [3,8,12,17,21,29,33,41] bank plus the
+  // pairs /debate-online rotates and the two this gate used). New
+  // imagery is an ask-first call, so this rotates what is approved
+  // rather than reaching into the full 51-file directory.
+  var GATE_FACE_POOL = [1,2,3,6,7,8,11,12,16,17,18,20,21,24,29,31,33,34,37,41,43];
+  var GATE_FACE_MS = 4500;
+  var gateFaceTimer = null;
+
+  function gateFaceSrc(n){
+    return '/img/round/faces/face' + (n < 10 ? '0' : '') + n + '.jpg';
+  }
+
+  // Two distinct picks, neither of them the face currently on screen,
+  // so a swap always visibly changes both seats.
+  function pickGateFaces(avoid){
+    var pool = GATE_FACE_POOL.filter(function(n){
+      return (avoid || []).indexOf(n) === -1;
+    });
+    var a = pool[Math.floor(Math.random() * pool.length)];
+    var rest = pool.filter(function(n){ return n !== a; });
+    var b = rest[Math.floor(Math.random() * rest.length)];
+    return [a, b];
+  }
+
+  function paintGateFaces(imgs, pair, fade){
+    for (var i = 0; i < imgs.length; i++){
+      (function(img, n){
+        // Decode before swapping so the crossfade never lands on a
+        // blank tile over a slow connection. Whatever happens after
+        // this point, opacity MUST come back to 1: the swap fades the
+        // tile out first, so any path that fails to restore it leaves
+        // the visitor staring at two empty squares behind a LIVE chip.
+        var src = gateFaceSrc(n);
+        var settled = false;
+        function show(swap){
+          if (settled) return;
+          settled = true;
+          if (swap){
+            img.src = src;
+            img.setAttribute('data-face-n', String(n));
+          }
+          if (fade) img.style.opacity = '1';
+        }
+        var pre = new Image();
+        pre.onload = function(){ show(true); };
+        // A missing file keeps the portrait already on screen rather
+        // than swapping in a broken-image glyph.
+        pre.onerror = function(){ show(false); };
+        pre.src = src;
+        // Stalled request (background-throttled timer, dead network):
+        // show it anyway rather than stranding the tile invisible.
+        setTimeout(function(){ show(true); }, 1200);
+      })(imgs[i], pair[i]);
+    }
+  }
+
+  function startGateFaces(){
+    var imgs = document.querySelectorAll('#sparGateCard [data-gate-face]');
+    if (imgs.length < 2) return;
+    if (gateFaceTimer){ clearInterval(gateFaceTimer); gateFaceTimer = null; }
+    paintGateFaces(imgs, pickGateFaces([]), false);
+    // Reduced motion keeps the fresh-per-load pair and skips the swap.
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    } catch(e){}
+    gateFaceTimer = setInterval(function(){
+      var card = document.getElementById('sparGateCard');
+      // The gate is gone (signed in, or navigated): stop rather than
+      // hold a timer against a detached node.
+      if (!card){ clearInterval(gateFaceTimer); gateFaceTimer = null; return; }
+      if (document.hidden) return;
+      var live = card.querySelectorAll('[data-gate-face]');
+      if (live.length < 2) return;
+      var shown = [];
+      for (var i = 0; i < live.length; i++){
+        var n = parseInt(live[i].getAttribute('data-face-n'), 10);
+        if (n) shown.push(n);
+      }
+      var next = pickGateFaces(shown);
+      for (var j = 0; j < live.length; j++) live[j].style.opacity = '0';
+      setTimeout(function(){ paintGateFaces(live, next, true); }, 420);
+    }, GATE_FACE_MS);
   }
 
   function doGoogleSignIn(){
