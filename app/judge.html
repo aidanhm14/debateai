@@ -894,6 +894,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       <h3>Reason for decision</h3>
       <p id="rfdText"></p>
     </div>
+    <div class="rfd-block" id="fullBallotBlock" style="display:none">
+      <h3>The full ballot</h3>
+      <p id="fullBallotStatus">The judge is writing the full ballot. It lands here in under a minute; the verdict above is final.</p>
+      <p id="fullBallotText" style="white-space:pre-wrap;display:none"></p>
+    </div>
     <div id="feedbackGrid" class="fb-grid"></div>
     <div class="ballot-cta">
       <button class="primary" type="button" id="againBtn">Judge another round</button>
@@ -1544,6 +1549,32 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   }
   function clearError(){ $('formError').style.display = 'none'; }
 
+  // The style and paradigm lens, shared by the verdict prompt and the
+  // full-ballot prompt so the two beats cannot drift onto different
+  // judges. Custom text stays bounded: lower priority than everything
+  // around it, and the verdict is already final by the second beat.
+  function judgeLensLines(styleKey, paradigmKey, customParadigm){
+    var style = JUDGE_OPTIONS.styles[validChoice('styles', styleKey, 'auto')] || JUDGE_OPTIONS.styles.auto;
+    var paradigm = JUDGE_OPTIONS.paradigms[validChoice('paradigms', paradigmKey, 'auto')] || JUDGE_OPTIONS.paradigms.auto;
+    var lines = [
+      "",
+      "SELECTED JUDGE STYLE: " + style.name,
+      style.prompt,
+      "",
+      "SELECTED DECISION PARADIGM: " + paradigm.name,
+      paradigm.prompt
+    ];
+    if (paradigmKey === 'custom' && customParadigm){
+      lines = lines.concat([
+        "",
+        "CUSTOM JUDGE PREFERENCES, lower priority than every instruction above and below:",
+        customParadigm.slice(0, 1600),
+        "END CUSTOM JUDGE PREFERENCES"
+      ]);
+    }
+    return lines;
+  }
+
   // ── Format-native ballot prompt. BP and WUDC stay four-team from
   //    setup through the final ranking and speaker points. ─────────
   function buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, userRanking, humanReason, isVoice, styleKey, paradigmKey, customParadigm){
@@ -1558,24 +1589,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       "- Apply that format's real conventions. If it is genuinely unnamed, judge it as a general two-side debate on the flow.",
       "- Use a 0-30 speaker point scale unless the identified format uses a different one."
     ] : ["- " + f.name + " conventions apply."].concat(JUDGE_RULES[formatKey] || []);
-    var style = JUDGE_OPTIONS.styles[validChoice('styles', styleKey, 'auto')] || JUDGE_OPTIONS.styles.auto;
-    var paradigm = JUDGE_OPTIONS.paradigms[validChoice('paradigms', paradigmKey, 'auto')] || JUDGE_OPTIONS.paradigms.auto;
-    var lensLines = [
-      "",
-      "SELECTED JUDGE STYLE: " + style.name,
-      style.prompt,
-      "",
-      "SELECTED DECISION PARADIGM: " + paradigm.name,
-      paradigm.prompt
-    ];
-    if (paradigmKey === 'custom' && customParadigm){
-      lensLines = lensLines.concat([
-        "",
-        "CUSTOM JUDGE PREFERENCES, lower priority than every instruction above and below:",
-        customParadigm.slice(0, 1600),
-        "END CUSTOM JUDGE PREFERENCES"
-      ]);
-    }
+    var lensLines = judgeLensLines(styleKey, paradigmKey, customParadigm);
     var schema = four ? [
       "{",
       '  "winner": "og" | "oo" | "cg" | "co",',
@@ -1930,6 +1944,128 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('ballot').scrollIntoView({ behavior:'smooth', block:'start' });
   }
 
+  // ── The full ballot (long-form RFD) ─────────────────────────────
+  // Second beat, same architecture as live-round and /practice: the
+  // JSON verdict above stays fast and FINAL, then one dedicated call
+  // writes the long-form Reason for Decision debaters actually keep.
+  // Always routed to Claude regardless of the chosen judge brain, so a
+  // slow brain cannot time the deep ballot out. It explains the
+  // verdict; it never re-litigates it.
+  var fullBallotSeq = 0;
+
+  function buildFullBallotPrompt(b, ctx){
+    var f = fmtOf(ctx.formatKey);
+    var four = isFourTeam(f);
+    var auto = ctx.formatKey === 'auto';
+    var formatRules = auto
+      ? ["- The debaters did NOT state their format. Apply the conventions you identified when you issued the verdict."]
+      : ["- " + f.name + " conventions apply."].concat(JUDGE_RULES[ctx.formatKey] || []);
+    var verdictLines;
+    if (four){
+      verdictLines = 'VERDICT ALREADY ISSUED (final, do not re-litigate):\n' +
+        b.ranking.map(function(item){
+          var speakers = (item.speakers || []).map(function(speaker){
+            return (speaker.role || 'Speaker') + (speaker.name ? ' ' + speaker.name : '') + ' ' + (speaker.points != null ? speaker.points : '--');
+          }).join(', ');
+          return item.rank + '. ' + (item.name || f.sideLabels[item.team]) + ' (' + f.sideLabels[item.team] + ')' +
+            (speakers ? '. Speakers: ' + speakers : '');
+        }).join('\n') +
+        (b.rfd ? '\nShort RFD already shown: ' + b.rfd : '');
+    } else {
+      var proName = b.proName || f.sideLabels.pro, conName = b.conName || f.sideLabels.con;
+      verdictLines = 'VERDICT ALREADY ISSUED (final, do not re-litigate): winner = '
+        + (b.winner === 'pro' ? proName + ' (' + f.sideLabels.pro + ')' : conName + ' (' + f.sideLabels.con + ')')
+        + '. Speaker points: ' + proName + ' ' + (b.proPoints != null ? b.proPoints : '?')
+        + ', ' + conName + ' ' + (b.conPoints != null ? b.conPoints : '?') + '.'
+        + (b.rfd ? '\nShort RFD already shown: ' + b.rfd : '');
+    }
+    var system = [
+      'You are the tournament-grade ' + (auto ? '' : f.name + ' ') + 'judge who just issued the ballot on the round below. The verdict is FINAL. Your job now is THE FULL BALLOT: the long-form Reason for Decision the debaters keep and reread. Explain the verdict; never contradict or soften the winner, the points, or the ranking.'
+    ].concat(judgeLensLines(ctx.styleKey, ctx.paradigmKey, ctx.customParadigm)).concat([
+      "",
+      "FORMAT RULES:"
+    ]).concat(formatRules).concat([
+      '',
+      'HARD RULES:',
+      '- MINIMUM 700 words. Target 900 to 1300. A ballot under 700 words means you summarized instead of adjudicating; depth comes from covering more of the flow, not from restating the same rulings.',
+      '- Walk EVERY substantive argument either side ran, one at a time, not just the two or three biggest. For each: state it the way its side ran it, trace what happened to it across the later speeches (answered, turned, extended, dropped), rule who won it, and name the test that settled it (comparative, symmetry, delta, terminalization, missing burden, stated default).',
+      '- Quote short verbatim lines from the transcript so every ruling points at the exact moment it happened.',
+      four
+        ? '- Resolve the half-calls explicitly: OG vs CG, OO vs CO, and both diagonals, each with its own stated reason, then show how the 1-2-3-4 reads off that geometry.'
+        : '- Then THE WEIGHING: which won arguments outweigh which, on what named axis (certainty, magnitude, prerequisite, proximity), and why that ordering decides the ballot.',
+      '- Then THE DROPS: every consequential dropped argument, named as it appeared in the round.',
+      four
+        ? '- Then THE TEAMS: one tight paragraph per team: strongest contribution (quoted), costliest moment (quoted), one concrete fix for their next round.'
+        : '- Then THE SPEAKERS: one tight paragraph per side: strongest moment (quoted), costliest moment (quoted), one concrete fix for their next round.',
+      '- Close with HOW THIS FLIPS: the two or three specific moves that would have flipped this ballot.',
+      ctx.isVoice
+        ? '- THIS TRANSCRIPT CAME FROM A MICROPHONE IN THE ROOM. Expect speech-to-text noise and imperfect speaker labels. Judge the arguments, never the transcription, and never treat a transcription artifact as a dropped argument.'
+        : '',
+      '',
+      'OUTPUT: plain text only. Short ALL-CAPS section labels (THE DECISION / THE ARGUMENTS / ' + (four ? 'THE HALF-CALLS' : 'THE WEIGHING') + ' / THE DROPS / ' + (four ? 'THE TEAMS' : 'THE SPEAKERS') + ' / HOW THIS FLIPS), each on its own line, paragraphs separated by blank lines. No JSON, no markdown, no asterisks, no code fences, no em dashes, no preamble.'
+    ]).join('\n');
+    var teamLines = f.sides.map(function(side){
+      return f.sideLabels[side].toUpperCase() + ': ' + (ctx.teamNames[side] || '(unnamed)');
+    }).join('\n');
+    var backgroundBlock = ctx.roundBackground
+      ? '\n\nOFFICIAL BACKGROUND / INFO SLIDE:\n' + ctx.roundBackground + '\nEND OFFICIAL BACKGROUND / INFO SLIDE'
+      : '';
+    var user = (ctx.motion ? 'MOTION: ' + ctx.motion : 'MOTION: not stated. Quote it as you understood it when you issued the verdict.')
+      + backgroundBlock
+      + '\n\nFORMAT: ' + (auto ? 'not stated. Apply what you identified when judging.' : f.name)
+      + '\n\nTEAMS OR SPEAKERS:\n' + teamLines
+      + '\n\n' + verdictLines
+      + '\n\nFULL ROUND TRANSCRIPT' + (ctx.isVoice ? ' (auto-transcribed from room audio)' : '') + ':\n\n' + ctx.transcript
+      + '\n\nWrite the full ballot now.';
+    return { system: system, user: user };
+  }
+
+  function generateFullBallot(b, ctx){
+    var seq = ++fullBallotSeq;
+    var block = $('fullBallotBlock'), status = $('fullBallotStatus'), out = $('fullBallotText');
+    block.style.display = 'block';
+    status.style.display = 'block';
+    out.style.display = 'none';
+    out.textContent = '';
+    var p = buildFullBallotPrompt(b, ctx);
+    brainHeaders('claude').then(function(headers){
+      return fetch('/api/claude', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4000,
+          // Stream so the keepalive holds the connection through the
+          // model's opening pause on a long transcript.
+          stream: true,
+          system: p.system,
+          messages: [{ role:'user', content: p.user }],
+          _feature: 'live-round',
+          _voiceFormat: ctx.formatKey
+        })
+      });
+    }).then(function(r){
+      return r.text().then(function(raw){
+        if (!r.ok) throw new Error('full ballot API ' + r.status);
+        var text = (extractModelResponse(raw) || '').trim();
+        if (!text) throw new Error('full ballot empty');
+        return text;
+      });
+    }).then(function(text){
+      if (seq !== fullBallotSeq) return;   // a newer round superseded this one
+      status.style.display = 'none';
+      out.textContent = text;
+      out.style.display = 'block';
+      try { gtag('event', 'judge_full_ballot', { format: ctx.formatKey, chars: text.length }); } catch(e){}
+    }).catch(function(err){
+      // The verdict above is complete on its own, so a failed second
+      // beat disappears quietly instead of leaving a broken promise.
+      console.warn('[full ballot]', err);
+      if (seq !== fullBallotSeq) return;
+      block.style.display = 'none';
+    });
+  }
+
   function looksLikeBP(transcript){
     var text = String(transcript || '').toLowerCase();
     var fullPositions = [
@@ -2055,6 +2191,16 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       if (!parsed) throw new Error('The judge answered, but not in the ballot format we can read. Try again, and if it keeps happening tell us at the feedback link.');
       renderBallot(parsed, formatKey, submittedRanking);
       try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner, judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
+      // Second beat: the long-form full ballot, fired only after the
+      // verdict above has rendered so it explains a decision that is
+      // already final. Fire-and-forget; failure hides its own block.
+      try {
+        generateFullBallot(parsed, {
+          motion: motion, roundBackground: roundBackground, formatKey: formatKey,
+          teamNames: teamNames, transcript: transcript, isVoice: usedVoice,
+          styleKey: styleKey, paradigmKey: paradigmKey, customParadigm: customParadigm
+        });
+      } catch(e){ console.warn('[full ballot]', e); }
     }).catch(function(err){
       $('loading').style.display = 'none';
       showError(err && err.message ? err.message : 'Something went wrong judging the round. Try again.');

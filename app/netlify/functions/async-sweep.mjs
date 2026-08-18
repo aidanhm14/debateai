@@ -32,6 +32,7 @@ const SITE = process.env.SITE_ORIGIN || 'https://itsdebatable.com';
 const OPP_MODEL   = process.env.ASYNC_OPP_MODEL   || 'claude-sonnet-5';
 const JUDGE_MODEL = process.env.ASYNC_JUDGE_MODEL || 'claude-sonnet-5';
 const CLASH_MODEL = process.env.ASYNC_CLASH_MODEL || 'claude-sonnet-5';
+const DEEP_MODEL  = process.env.ASYNC_DEEP_MODEL  || 'claude-sonnet-5';
 // One extra call per completed round. Set ASYNC_CLASH_ENABLED=0 to stop
 // drawing maps without a redeploy; the ballot then runs exactly as it did
 // before the map existed.
@@ -113,6 +114,48 @@ function ballotPrompt(d, clashMap) {
   return { system, user };
 }
 
+// The full ballot, second beat. The panel's RFD is deliberately compact
+// (three concurrent jurors cannot each write 1,000 words inside the
+// ~26s execution wall), so the long-form Reason for Decision is one
+// dedicated call that fires on a LATER sweep pass, after the verdict is
+// recorded, with a whole invocation's budget to itself. Same
+// architecture as live-round and /practice: it explains a verdict that
+// is already final, it never re-litigates it, and the charter is
+// untouched because RFD length is per-surface output shape, which the
+// adjudication core explicitly leaves to the surfaces.
+function deepBallotPrompt(d) {
+  const b = d.ballot || {};
+  const t = {};
+  for (const turn of d.turns || []) t[turn.n] = turn.transcript || '[transcript unavailable]';
+  const propName = (d.prop && d.prop.name) || 'Prop';
+  const oppName = (d.opp && d.opp.name) || 'Opp';
+  const winName = b.winner === 'prop' ? propName : oppName;
+  const system = buildAdjudicationBlock() +
+    '\n\nTHE FULL BALLOT, ASYNC ROUND. The panel verdict on this round is already issued and FINAL; it is included in the message. Your job is the long-form Reason for Decision the debaters keep and reread. Explain the verdict; never contradict or soften the winner or the points.' +
+    '\n\nHARD RULES:' +
+    '\n- MINIMUM 450 words. Target 550 to 900. This round is three short recorded speeches, so depth comes from walking all of them completely, not from padding.' +
+    '\n- Walk EVERY substantive argument either side ran, one at a time, not just the biggest. For each: state it the way its side ran it, trace what happened to it across the later speeches (answered, turned, extended, dropped), rule who won it, and name the test that settled it (comparative, symmetry, delta, terminalization, missing burden, stated default).' +
+    '\n- Quote short verbatim lines from the transcripts so every ruling points at the exact moment it happened.' +
+    '\n- Then THE WEIGHING: which won arguments outweigh which, on what named axis (certainty, magnitude, prerequisite, proximity), and why that ordering decides the ballot.' +
+    '\n- Then THE DROPS: every consequential dropped argument, named as it appeared in the round.' +
+    '\n- Then THE SPEAKERS: one tight paragraph per side: strongest moment (quoted), costliest moment (quoted), one concrete fix for their next round.' +
+    '\n- Close with HOW THIS FLIPS: the two or three specific moves that would have flipped this ballot.' +
+    '\n- These are speech transcripts: expect speech-to-text noise. Judge the arguments, never the transcription, and never treat a transcription artifact as a dropped argument.' +
+    '\n\nOUTPUT: plain text only. Short ALL-CAPS section labels (THE DECISION / THE ARGUMENTS / THE WEIGHING / THE DROPS / THE SPEAKERS / HOW THIS FLIPS), each on its own line, paragraphs separated by blank lines. No JSON, no markdown, no asterisks, no code fences, no em dashes, no preamble.';
+  const user =
+    'Motion: ' + d.motion + '\nFormat: ' + (FORMAT_NAMES[d.format] || d.format) +
+    '\n\nVERDICT ALREADY ISSUED (final, do not re-litigate): winner = ' + winName + ' (' + b.winner + ').' +
+    ' Speaker points: ' + propName + ' ' + b.propPoints + ', ' + oppName + ' ' + b.oppPoints + '.' +
+    (b.decidingIssue ? ' Deciding issue: ' + b.decidingIssue + '.' : '') +
+    (b.rfd ? '\nShort RFD already shown: ' + b.rfd : '') +
+    '\n\nPROP OPENING (' + propName + '):\n' + (t[1] || '[missing]') +
+    '\n\nOPP ANSWER (' + oppName + (d.aiOpp ? ', AI opponent' : '') + '):\n' + (t[2] || '[missing]') +
+    '\n\nPROP REPLY:\n' + (d.replyWaived ? '[reply waived — the opener did not record within the window]' : (t[3] || '[missing]')) +
+    clashMapForBallot(d.clashMap) +
+    '\n\nWrite the full ballot now.';
+  return { system, user };
+}
+
 // The panel, the ballot parser and the scorecard clamp all moved to
 // lib/judge-run.mjs when live rounds needed the same machinery. Two
 // copies of "how a panel decides a round" is how degraded-mode and
@@ -150,7 +193,7 @@ export default async () => {
   const started = Date.now();
   const db = getDb();
   const store = mediaStore();
-  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, clashMaps: 0, rated: 0, settled: 0, audited: 0, unresolved: 0, errors: 0 };
+  const stats = { scanned: 0, transcribed: 0, aiAnswers: 0, waived: 0, ballots: 0, deepBallots: 0, clashMaps: 0, rated: 0, settled: 0, audited: 0, unresolved: 0, errors: 0 };
 
   try {
     // ── board inventory: keep a couple of AI-opened challenges live so a
@@ -309,11 +352,18 @@ export default async () => {
 
           const ballot = judged.ballot;
           const judgedAt = Date.now();
+          // A decided round keeps sweepAt set so the NEXT sweep pass
+          // writes the long-form full ballot (see the 'complete' branch
+          // below). A split panel has no verdict to explain, so it
+          // finishes here. The deep write cannot ride THIS invocation:
+          // the panel already spent 16-24s of the ~26s wall.
+          const deepDue = ballot.winner === 'prop' || ballot.winner === 'opp';
           await ref.update({
             state: 'complete', feedKey: feedKeyFor('complete', d.visibility, d.hidden),
             ballot: { ...ballot, panel: judged.panel, at: judgedAt },
             ...(clashMap ? { clashMap: { ...clashMap, model: CLASH_MODEL } } : {}),
-            completedAt: judgedAt, sweepAt: FieldValue.delete(),
+            completedAt: judgedAt,
+            ...(deepDue ? { sweepAt: judgedAt } : { sweepAt: FieldValue.delete() }),
           });
           stats.ballots++;
           if (judged.panel.resolution === 'unresolved') stats.unresolved++;
@@ -399,7 +449,36 @@ export default async () => {
         }
 
         if (d.state === 'complete') {
-          await ref.update({ sweepAt: FieldValue.delete() });
+          // Second beat: the long-form full ballot. Only rounds judged
+          // with a winner arrive here with sweepAt still set (see the
+          // judging branch), so old completed rounds are never
+          // backfilled and a split panel never schedules a ballot it
+          // has no verdict to explain. Best effort with a tries cap:
+          // the verdict above is complete on its own, so a round that
+          // cannot get its full ballot is left as it was, not stranded.
+          const b = d.ballot || null;
+          const needDeep = b && (b.winner === 'prop' || b.winner === 'opp')
+            && !b.rfdDeep && (b.rfdDeepTries || 0) < 3;
+          if (!needDeep) { await ref.update({ sweepAt: FieldValue.delete() }); continue; }
+          try {
+            const { system, user } = deepBallotPrompt(d);
+            const text = (await claude(system, user, 1800, DEEP_MODEL)).trim();
+            if (!text) throw new Error('empty full ballot');
+            await ref.update({
+              'ballot.rfdDeep': text,
+              'ballot.rfdDeepModel': DEEP_MODEL,
+              'ballot.rfdDeepAt': Date.now(),
+              sweepAt: FieldValue.delete(),
+            });
+            stats.deepBallots++;
+          } catch (err) {
+            console.warn('[async-sweep] full ballot failed', ref.id, err && err.message);
+            const tries = ((b && b.rfdDeepTries) || 0) + 1;
+            await ref.update({
+              'ballot.rfdDeepTries': tries,
+              ...(tries >= 3 ? { sweepAt: FieldValue.delete() } : { sweepAt: Date.now() + 10 * 60_000 }),
+            });
+          }
         }
       } catch (err) {
         stats.errors++;

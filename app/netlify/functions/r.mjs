@@ -122,6 +122,7 @@ const PAGE_CSS = `
   .rfd-issue{margin:0 0 12px;font-size:.95rem;line-height:1.5;color:rgba(255,255,255,.92);font-weight:600}
   .rfd-issue span{display:block;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(251,191,36,.75);margin-bottom:3px}
   .rfd-body p{margin:0 0 10px;font-size:.9rem;line-height:1.65;color:rgba(255,255,255,.78)}
+  .rfd-deep{font-size:.9rem;line-height:1.65;color:rgba(255,255,255,.78);white-space:pre-wrap}
   .dims{padding:20px 24px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02);margin-bottom:40px}
   .dims h2{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
   .dims-key{font-size:.78rem;color:rgba(255,255,255,.55);margin-bottom:12px}
@@ -446,6 +447,16 @@ export function renderAsyncPage(id, d) {
   </section>`
     : '';
 
+  // The long-form second-beat ballot, written by a dedicated call after
+  // the panel verdict (async-sweep's 'complete' pass). Absent on split
+  // panels and on rounds judged before it shipped.
+  const deepBlock = b && b.rfdDeep
+    ? `<section class="rfd">
+    <h2>The full ballot</h2>
+    <div class="rfd-deep">${esc(b.rfdDeep)}</div>
+  </section>`
+    : '';
+
   const dims = validDims(b);
   const dimBlock = dims
     ? `<section class="dims" aria-label="Judge's scorecard">
@@ -524,6 +535,8 @@ export function renderAsyncPage(id, d) {
   ${clashBlock}
 
   ${rfdBlock}
+
+  ${deepBlock}
 
   ${voteStrip}
 
