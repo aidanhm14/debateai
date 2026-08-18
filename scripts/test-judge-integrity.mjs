@@ -671,5 +671,70 @@ function t(label, cond) {
   );
 }
 
+// ── 12. the public board ranks on rating, never on the scorecard ────
+//
+// Measured 2026-08-14 (judge bias probe: 48 runs of the live panel over
+// constructed speech pairs). No manipulation flipped a verdict, but
+// padding a speech buys roughly +0.3 speaker points of clarity on the
+// scorecard. Ratings, credits and settlement read ballot.winner only,
+// so the one path that measured softness had to a public ranking was a
+// surface ordering people by raw judge score. These assertions keep
+// every standings endpoint on the rating ladder, and keep the money
+// path off speaker-point fields, so reintroducing either is a failing
+// commit rather than a quiet regression.
+{
+  const { composeTopRows } = await import('../app/netlify/functions/lib/rating-board.mjs');
+
+  const ratedUid = 'r'.repeat(28);
+  const rated = [{ uid: ratedUid, kind: 'rating', rating: 1420 }];
+  const entries = [
+    { uid: null, kind: 'live', score: 29.9 },            // seed, top speaker score
+    { uid: ratedUid, kind: 'voice', score: 29.8 },       // same person's score entry
+    { uid: 'w'.repeat(28), kind: 'live', score: 28.1 },
+  ];
+  const rows = composeTopRows(rated, entries, 8);
+  t('no speaker score outranks a rated debater', rows[0] && rows[0].kind === 'rating');
+  t('a rated debater never reappears as a score row',
+    rows.filter((r) => r.uid === ratedUid).length === 1);
+  t('score rows still fill a thin ladder', rows.some((r) => r.kind !== 'rating'));
+  t('an empty ladder leaves the board to the entries',
+    composeTopRows([], entries, 8)[0] === entries[0]);
+  t('the row cap holds', composeTopRows(rated, entries, 2).length === 2);
+
+  const boardSrc = {};
+  for (const f of ['leaderboard-top.mjs', 'leaderboard-ratings.mjs', 'lib/rating-board.mjs']) {
+    try {
+      boardSrc[f] = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
+    } catch {
+      t(`${f} exists to be guarded`, false);
+      boardSrc[f] = '';
+    }
+  }
+  t('the ladder orders on rating', /orderBy\('rating'/.test(boardSrc['lib/rating-board.mjs']));
+  t('the ladder never orders on judge score', !/orderBy\('score'/.test(boardSrc['lib/rating-board.mjs']));
+  t('/api/leaderboard-ratings serves the shared ladder',
+    /fetchRatingRows/.test(boardSrc['leaderboard-ratings.mjs'])
+    && !/orderBy\('score'/.test(boardSrc['leaderboard-ratings.mjs']));
+  t('/api/leaderboard-top puts the ladder first',
+    /fetchRatingRows/.test(boardSrc['leaderboard-top.mjs'])
+    && /composeTopRows/.test(boardSrc['leaderboard-top.mjs']));
+  t('the ladder never ranks an AI seat', /doc\.id\.length < 20/.test(boardSrc['lib/rating-board.mjs']));
+
+  // The probe's clean boundary, kept clean: the paths that move ratings
+  // and money never read a speaker-point field.
+  const POINTS = /proPoints|conPoints|speakerPoints/;
+  for (const f of ['lib/rating-apply.mjs', 'lib/settle.mjs', 'lib/credits.mjs']) {
+    let code = '';
+    try {
+      code = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
+    } catch {
+      t(`${f} exists to be guarded`, false);
+      continue;
+    }
+    const stripped = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    t(`${f} never reads speaker points`, !POINTS.test(stripped));
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

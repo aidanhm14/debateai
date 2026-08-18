@@ -1,14 +1,20 @@
 // /api/leaderboard-top → GET. Public top-of-the-leaderboard teaser for the
 // landing page, which deliberately doesn't ship firebase-firestore-compat
-// (dropped 2026-05-26 for ~100KB gzipped). Reads the same `leaderboard_entries`
-// collection /leaderboard renders, deduped to one best entry per debater.
+// (dropped 2026-05-26 for ~100KB gzipped).
 //
-// Honesty: real entries only, no seed merge (matches the 2026-05-25
-// /leaderboard decision). An empty board returns rows:[] and the client
-// shows the be-among-the-first pitch instead of fake names.
+// 2026-08-18: rated debaters lead the teaser. The bias probe showed the
+// judge's speaker points carry a ~+0.3 clarity premium for longer
+// speeches, so raw score is no longer the primary ordering anywhere
+// public. Rows come from the Glicko ladder first (kind:'rating', same
+// user_ratings source as /api/leaderboard-ratings, via the shared
+// lib/rating-board.mjs), and judge-score entries from
+// `leaderboard_entries` fill the remaining places while the ladder is
+// thin, deduped to one best entry per debater. As rounds rate, the
+// score rows age off the teaser on their own.
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
+import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
 
 const CACHE_KEY = 'leaderboard-top';
 const CACHE_TTL_MS = 5 * 60 * 1000;   // rankings move round-by-round, not second-by-second
@@ -33,11 +39,47 @@ export default async (request) => {
   catch (err) { return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request); }
 
   try {
-    // Single-field orderBy rides the automatic index; no composite needed.
-    const snap = await withDeadline(db.collection('leaderboard_entries')
-      .orderBy('score', 'desc')
-      .limit(QUERY_LIMIT)
-      .get(), 2500);
+    // Ladder and entries fetched concurrently; either failing alone
+    // degrades to the other rather than emptying the board.
+    const [ratingResult, entriesResult] = await Promise.allSettled([
+      fetchRatingRows(db, { limit: ROWS * 3 }),
+      withDeadline(db.collection('leaderboard_entries')
+        .orderBy('score', 'desc')
+        .limit(QUERY_LIMIT)
+        .get(), 2500),
+    ]);
+    if (ratingResult.status === 'rejected') {
+      console.warn('[leaderboard-top] rating ladder read failed', ratingResult.reason && ratingResult.reason.message);
+    }
+    if (entriesResult.status === 'rejected') {
+      console.warn('[leaderboard-top] entries read failed', entriesResult.reason && entriesResult.reason.message);
+    }
+    if (ratingResult.status === 'rejected' && entriesResult.status === 'rejected') {
+      throw ratingResult.reason || entriesResult.reason;
+    }
+
+    // Rated debaters, in ladder order, mapped onto the teaser row shape.
+    // score stays null on these rows: a Glicko number rendered where a
+    // 30-scale speaker score is expected would read as a broken board.
+    const ratingRows = (ratingResult.status === 'fulfilled' ? ratingResult.value : []).map((r) => ({
+      name: r.name,
+      format: '',
+      score: null,
+      rating: r.rating,
+      tier: r.tier,
+      provisional: r.provisional === true,
+      rankable: r.rankable === true,
+      kind: 'rating',
+      side: '',
+      completedAt: r.lastEventAt || null,
+      won: null,
+      rounds: r.games,
+      wins: r.wins,
+      losses: r.losses,
+      uid: r.uid,
+    }));
+
+    const snap = entriesResult.status === 'fulfilled' ? entriesResult.value : { forEach() {} };
 
     // First pass: per-debater aggregates over the whole snapshot, so a
     // row can say "3 ranked rounds, 2 wins" from data that is actually
@@ -54,9 +96,9 @@ export default async (request) => {
     });
 
     const seen = new Set();
-    const rows = [];
+    const entryRows = [];
     snap.forEach((doc) => {
-      if (rows.length >= ROWS) return;
+      if (entryRows.length >= ROWS) return;
       const d = doc.data() || {};
       const uid = d.uid || doc.id;
       if (seen.has(uid)) return; // one best entry per debater on the teaser
@@ -70,7 +112,7 @@ export default async (request) => {
         ? d.completedAt
         : (d.completedAt && typeof d.completedAt.toMillis === 'function' ? d.completedAt.toMillis() : null);
       const a = agg.get(uid) || { rounds: 1, wins: d.won === true ? 1 : 0 };
-      rows.push({
+      entryRows.push({
         name: String(d.displayName || 'A debater').slice(0, 40),
         format: String(d.formatName || d.format || '').slice(0, 24),
         score: d.score,
@@ -89,7 +131,15 @@ export default async (request) => {
       });
     });
 
-    const payload = { rows, total: seen.size, at: Date.now() };
+    // Rated debaters first, entries filling out a thin ladder. Pure and
+    // asserted by scripts/test-judge-integrity.mjs: no speaker score,
+    // however high, outranks a rated debater.
+    const ratedUids = new Set(ratingRows.map((r) => r.uid));
+    const rows = composeTopRows(ratingRows, entryRows, ROWS);
+    const total = ratingRows.length
+      + [...seen].filter((uid) => !ratedUids.has(uid)).length;
+
+    const payload = { rows, total, at: Date.now() };
     await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS);
     return jsonResponse(payload, 200, request);
   } catch (err) {

@@ -313,12 +313,21 @@
       return;
     }
     el.innerHTML = rows.slice(0, 5).map(function(r, i){
-      var sub = [r.format, (typeof r.wins === 'number' && typeof r.rounds === 'number') ? r.wins + 'W / ' + r.rounds + ' rounds' : ''].filter(Boolean).join(' · ');
+      // Rated rows (kind:'rating') lead the board: Glicko head-to-head,
+      // rendered as a whole number. Judge-score rows keep the 30-scale
+      // decimal while the ladder fills in.
+      var rated = r.kind === 'rating' && typeof r.rating === 'number';
+      var sub = [
+        rated ? (r.provisional ? 'provisional' : (r.tier || 'rated')) : r.format,
+        (typeof r.wins === 'number' && typeof r.rounds === 'number') ? r.wins + 'W / ' + r.rounds + ' rounds' : ''
+      ].filter(Boolean).join(' · ');
+      var scoreCell = rated ? String(Math.round(r.rating))
+        : (typeof r.score === 'number' ? r.score.toFixed(1) : '');
       return '<a class="board-row" href="/leaderboard">' +
         '<span class="board-rank">' + (i+1) + '</span>' +
         '<span class="board-name">' + esc(r.name || 'A member') + '</span>' +
         '<span class="board-sub">' + esc(sub) + '</span>' +
-        '<span class="board-score">' + (typeof r.score === 'number' ? r.score.toFixed(1) : '') + '</span>' +
+        '<span class="board-score">' + scoreCell + '</span>' +
       '</a>';
     }).join('');
   }).catch(function(){

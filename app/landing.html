@@ -12651,17 +12651,39 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // deeper cut of the standings than it did in the old 2-up layout.
     var n = Math.min(rows.length, 8);
     var usedFaces = {};
-    var html = '<span class="rb-scale">Best speaks &middot; out of 30'
+    // Rated rows (kind:'rating', the Glicko head-to-head ladder) come
+    // first from the API; judge-score rows fill the rest while the
+    // ladder is thin. The scale caption follows what actually tops the
+    // board, and the rating bar normalizes against the visible rated
+    // spread because a fixed 25-30 scale means nothing at 1500.
+    var hasRating = false;
+    var rLo = Infinity, rHi = -Infinity;
+    for (var rj = 0; rj < n; rj++){
+      var rr = rows[rj];
+      if (rr && rr.kind === 'rating' && typeof rr.rating === 'number'){
+        hasRating = true;
+        if (rr.rating < rLo) rLo = rr.rating;
+        if (rr.rating > rHi) rHi = rr.rating;
+      }
+    }
+    var html = '<span class="rb-scale">' + (hasRating ? 'Head-to-head rating &middot; wins move it' : 'Best speaks &middot; out of 30')
       + (sample ? '<em class="rb-sample-pill">Sample board</em>' : '')
       + (!sample && total > n ? '<em class="rb-total">' + (total | 0) + ' ranked</em>' : '')
       + '</span><div class="rb-board">';
     for (var i = 0; i < n; i++){
       var r = rows[i];
+      var isRated = r.kind === 'rating' && typeof r.rating === 'number';
       // Speaker points live in the 25-30 band in practice; bar is scaled
-      // to that band so half-point gaps stay visible.
-      var w = Math.max(10, Math.min(100, Math.round((r.score - 25) / 5 * 100)));
+      // to that band so half-point gaps stay visible. Rated rows scale
+      // within the rated spread on the board.
+      var w;
+      if (isRated){
+        w = rHi > rLo ? Math.max(10, Math.min(100, Math.round((r.rating - rLo) / (rHi - rLo) * 90 + 10))) : 100;
+      } else {
+        w = Math.max(10, Math.min(100, Math.round((r.score - 25) / 5 * 100)));
+      }
       var medal = i === 1 ? ' rb-rk--silver' : i === 2 ? ' rb-rk--bronze' : '';
-      var fmt = r.format || (r.kind === 'live' ? 'live' : 'ai round');
+      var fmt = isRated ? 'Head-to-head' : (r.format || (r.kind === 'live' ? 'live' : 'ai round'));
       // Meta line: only fields the row actually carries. The card claims
       // "live rounds and AI rounds both score", so which one this was is
       // the most load-bearing extra fact; side and recency follow.
@@ -12675,6 +12697,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var line;
       if (sample){
         line = '<b>' + esc(r.rec) + '</b> &middot; ' + esc(r.line);
+      } else if (isRated){
+        var rbits = ['<b>' + Math.round(r.rating) + '</b> '
+          + (r.provisional ? 'provisional rating' : esc(String(r.tier || 'rated').toLowerCase()) + ' tier')];
+        if (r.rounds > 0) rbits.push(r.wins + ' of ' + r.rounds + ' rated round' + (r.rounds === 1 ? '' : 's') + ' won');
+        line = rbits.join(' &middot; ');
       } else {
         var bits = ['<b>' + esc(fmtScore(r.score)) + '</b> ' + bandLabel(r.score)];
         if (r.rounds > 1) bits.push(r.wins + ' of ' + r.rounds + ' ranked rounds won');
@@ -12690,14 +12717,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         + '<span class="rb-rk' + medal + '">' + (i + 1) + '</span>'
         + '<span class="rb-ava"><img src="/img/round/faces/' + (r.face || faceFor(r.name, usedFaces)) + '.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>'
         + '<span class="rb-who"><span class="rb-nm">' + esc(r.name)
-        + (i === 0 ? ' <span class="rb-top-tag">Top speaker</span>' : '') + '</span>'
+        + (i === 0 ? ' <span class="rb-top-tag">' + (isRated ? 'Top rated' : 'Top speaker') + '</span>' : '') + '</span>'
         + '<span class="rb-tags"><span class="rb-chip">' + esc(fmt) + '</span>'
-        + '<span class="rb-kind' + (r.kind === 'live' ? ' rb-kind--live' : '') + '">'
-        + (r.kind === 'live' ? 'Live' : 'AI') + '</span>'
+        + '<span class="rb-kind' + (isRated || r.kind === 'live' ? ' rb-kind--live' : '') + '">'
+        + (isRated || r.kind === 'live' ? 'Live' : 'AI') + '</span>'
         + (meta.length ? '<span class="rb-meta">' + meta.join(' &middot; ') + '</span>' : '')
         + '</span>'
         + '<span class="rb-line">' + line + '</span></span>'
-        + '<span class="rb-pts"><b>' + fmtScore(r.score) + '</b>'
+        + '<span class="rb-pts"><b>' + (isRated ? Math.round(r.rating) : fmtScore(r.score)) + '</b>'
         + '<span class="rb-bar"><i style="width:' + w + '%;animation-delay:' + (i * 90) + 'ms"></i></span>'
         + '<a class="rb-chal-btn" href="' + chalHref + '" data-rb="leaderboard-challenge">Challenge</a>'
         + '</span></div>';
