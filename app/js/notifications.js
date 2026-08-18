@@ -1324,8 +1324,12 @@
     function isRealUser(u) {
       return !!(u && !u.isAnonymous);
     }
+    // 2026-08-18: the live queue is named accounts only, matching the
+    // /spar gate. This file signs nearly every visitor in anonymously
+    // for the bell, so `!!u` used to let a guest into matchmaking from
+    // the background pill and into a live round without ever signing up.
     function isQueueUser(u) {
-      return !!u;
+      return isRealUser(u);
     }
     function shortNm(u) {
       if (!u) return 'You';
@@ -1354,15 +1358,14 @@
           }
           cb(u);
         }
+        // Going available means a stranger can be paired into a live
+        // round with you, so it needs a real account. An anonymous
+        // session is treated as signed out here and routed to the
+        // chooser rather than quietly minted into the queue.
         var u = auth.currentUser;
-        if (u) { use(u); return; }
-        if (!auth.signInAnonymously) { if (window.openAuthModal) window.openAuthModal(); return; }
-        auth.signInAnonymously()
-          .then(function (res) { use((res && res.user) || auth.currentUser); })
-          .catch(function () {
-            if (window.openAuthModal) window.openAuthModal();
-            else try { location.href = '/spar'; } catch (e) {}
-          });
+        if (isRealUser(u)) { use(u); return; }
+        if (window.openAuthModal) window.openAuthModal();
+        else try { location.href = '/spar'; } catch (e) {}
       });
     }
 

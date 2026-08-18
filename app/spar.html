@@ -1996,20 +1996,24 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '</div>';
   }
 
-  // ── Render: guest-auth recovery gate ─────────────────
-  // Normal visitors are signed into Firebase anonymously and enter the
-  // live queue. This recovery surface only appears if anonymous auth
-  // fails to bootstrap, or when someone chooses Google explicitly.
+  // ── Render: required sign-in gate ─────────────────
+  // 2026-08-18 (Aidan): the live queue requires a named account. Guest
+  // (anonymous Firebase) queueing is retired on this surface; the gate
+  // routes everyone through the shared auth modal (Google, emailed
+  // link, email/password). notifications.js still mints an anonymous
+  // session on every page, so callers must treat isAnonymous users as
+  // signed out, not as queue-eligible.
   function renderGate(){
+    if (document.getElementById('sparGateCard')) return;
     shell.innerHTML =
-      '<div class="gate">' +
+      '<div class="gate" id="sparGateCard">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
         '<div class="globe-wrap"><div class="globe-frame">' +
           '<canvas id="sparGlobe" aria-label="Live network of people online"></canvas>' +
         '</div></div>' +
-        '<h2>Join the live queue.</h2>' +
+        '<h2>Sign in to join the live queue.</h2>' +
         '<p>Debate a real person on video. An AI judge writes the ballot at the end. '
-          + 'You can start as a guest. Sign up when you want a named profile, saved messages, and invites that follow you.</p>' +
+          + 'Sign in with Google or email so opponents see a real name, and your rounds, messages, and invites follow you.</p>' +
         '<div class="gate-faces" aria-hidden="true">' +
           '<img src="/img/round/faces/face02.jpg" alt="" decoding="async" />' +
           '<img src="/img/round/faces/face06.jpg" alt="" decoding="async" />' +
@@ -2017,22 +2021,23 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<img src="/img/round/faces/face19.jpg" alt="" decoding="async" />' +
         '</div>' +
         '<div class="gate-faces-note">Portraits AI-generated to depict a live session.</div>' +
-        '<button class="gate-guest" id="guestStartBtn" type="button">Start as guest</button>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
-          'Sign up with Google' +
+          'Continue with Google' +
         '</button>' +
-        '<div class="gate-disclaimer">Guest mode uses a temporary Debatable ID. Google adds your name and photo for opponents and messages.</div>' +
+        '<button class="gate-guest" id="emailStartBtn" type="button">Sign in with email</button>' +
+        '<div class="gate-disclaimer">Your name and photo appear to opponents and in messages. One account across every device.</div>' +
         '<a class="discord-schedule-link" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><span class="dot" aria-hidden="true"></span>Discord for times and forum threads</a>' +
         '<a class="ai-alt" href="/voice-debate?mode=quickclash&handoff=spar-gate">Start Realtime Voice AI instead →</a>' +
         '<div id="gateError"></div>' +
       '</div>';
-    document.getElementById('guestStartBtn').addEventListener('click', function(){
-      ensureGuestAuth().catch(function(){});
-    });
+    // Both buttons open the shared chooser (Google + emailed link +
+    // email/password); the email button exists so the emailed path is
+    // visible before the modal opens.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
+    document.getElementById('emailStartBtn').addEventListener('click', doGoogleSignIn);
     mountGlobe('sparGlobe');
-    try { gtag('event', 'spar_gate_view', {}); } catch(e){}
+    try { gtag('event', 'spar_gate_view', { required: 1 }); } catch(e){}
   }
 
   function doGoogleSignIn(){
@@ -2079,29 +2084,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (ge) ge.innerHTML = '<div class="error">Sign-in failed: ' + escHtml(err && err.message || 'unknown') + '</div>';
       }
     });
-  }
-
-  var guestAuthPromise = null;
-  function ensureGuestAuth(){
-    if (!firebaseAuth){
-      renderGate();
-      return Promise.reject(new Error('firebase-auth-unavailable'));
-    }
-    if (firebaseAuth.currentUser) return Promise.resolve(firebaseAuth.currentUser);
-    if (guestAuthPromise) return guestAuthPromise;
-    guestAuthPromise = firebaseAuth.signInAnonymously().then(function(cred){
-      guestAuthPromise = null;
-      try { if (window.gtag) gtag('event', 'spar_guest_start', { format: formatParam }); } catch(e){}
-      return (cred && cred.user) || firebaseAuth.currentUser;
-    }).catch(function(err){
-      guestAuthPromise = null;
-      console.warn('[spar] anonymous auth failed', err && err.message);
-      renderGate();
-      var ge = document.getElementById('gateError');
-      if (ge) ge.innerHTML = '<div class="error">Guest mode did not start. Try again, sign up with Google, or skip to AI.</div>';
-      throw err;
-    });
-    return guestAuthPromise;
   }
 
   // Phased status messages, tied to elapsed wait time. Replaces the
@@ -2472,8 +2454,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (modeLabel) modeLabel.textContent = setupModeText();
     if (state.queueDocRef){
       state.queueDocRef.update({ format: key }).catch(function(){});
-    } else if (!state.user || !firebaseDb) {
-      ensureGuestAuth().catch(function(){ renderGate(); });
     }
   }
 
@@ -3273,7 +3253,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // every spar request falls through to the AI fallback at 4 min.
   // ──────────────────────────────────────────────────────────
   function joinQueue(){
-    if (!state.user || !firebaseDb) return;
+    if (!firebaseDb) return;
+    // Named accounts only. isAnonymous covers the anonymous session
+    // notifications.js mints on every page; those users see the gate.
+    if (!isNamedUser(state.user)){ renderGate(); return; }
     state.cancelled = false;
     state.joinedAtMs = Date.now();
     // Remember the chosen format for the background matcher —
@@ -5243,11 +5226,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
-      if (!user){
-        ensureGuestAuth().catch(function(){});
-        return;
-      }
-      state.user = user;
+      // A signed-out visitor and an anonymous session are the same thing
+      // on this page now: neither may queue, and both see the gate.
+      state.user = isNamedUser(user) ? user : null;
       renderWaitlistContent();
       if (state.user){
         startInboxFeed();
