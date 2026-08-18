@@ -433,8 +433,14 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
+      //  - create: NAMED accounts only (2026-08-18). The /spar gate and
+      //    spar-pair.mjs both refuse anonymous callers; this is the third
+      //    layer, so a hand-rolled SDK write cannot put an unaccountable
+      //    opponent in front of a real person. delete stays open to any
+      //    signed-in owner so a stale anonymous doc can still be cleaned
+      //    up by the client that wrote it before the gate landed.
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
+      allow create: if isNamedAccount()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.status == 'waiting';
@@ -453,8 +459,11 @@ service cloud.firestore {
       // anyone, signed in or not. Challenge docs hold no PII (poster
       // email moved to live_challenge_contacts). Posting/accepting are
       // writes and still require sign-in.
+      // Posting and accepting are NAMED-account actions (2026-08-18):
+      // both put a real person on the other side of a live round, and an
+      // anonymous account cannot be reached again once its tab closes.
       allow read:   if true;
-      allow create: if isSignedIn()
+      allow create: if isNamedAccount()
                     && request.resource.data.posterUid == request.auth.uid
                     && stringUnder('motion', 1024);
       // Update paths: the poster can edit their own challenge freely.
@@ -471,8 +480,12 @@ service cloud.firestore {
                         request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['accepterUid', 'accepterName', 'acceptedAt'])
                         && (
-                          // accept: claim the slot as yourself, no takeover
+                          // accept: claim the slot as yourself, no takeover.
+                          // Named accounts only; un-accepting below stays
+                          // open so an anonymous claim made before the gate
+                          // can still release the slot it is holding.
                           (('accepterUid' in request.resource.data)
+                            && isNamedAccount()
                             && request.resource.data.accepterUid == request.auth.uid
                             && (!('accepterUid' in resource.data)
                                 || resource.data.accepterUid == request.auth.uid))
