@@ -857,9 +857,14 @@ footer.foot a{color:var(--text-dim)}
     console.warn('[debate-chat] firebase init failed', e);
   }
 
+  // Named accounts only, matching /spar. js/notifications.js mints an
+  // anonymous session on every page, so a truthy currentUser is not a
+  // signed-in user; gate on isNamedUser() everywhere on this page.
+  function isNamedUser(u){ return !!(u && !u.isAnonymous); }
+
   function showGate(){
     gateBox.className = 'gate';
-    gateBox.innerHTML = '<strong>Sign in to find a debater.</strong> Quick, free, Google only. Stops bots from polluting the queue.<br/><button id="gateSignIn">Sign in with Google</button>';
+    gateBox.innerHTML = '<strong>Sign in to find a debater.</strong> Google or email, free, takes a moment. Keeps the queue real people.<br/><button id="gateSignIn">Sign in</button>';
     $('gateSignIn').addEventListener('click', signIn);
   }
   function hideGate(){ gateBox.innerHTML = ''; gateBox.className = ''; }
@@ -912,11 +917,13 @@ footer.foot a{color:var(--text-dim)}
   // + run autoqueue if requested by the Next-opponent loop.
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(u){
-      state.user = u || null;
-      if (u){
+      state.user = isNamedUser(u) ? u : null;
+      if (state.user){
         hideGate();
         watchLiveQueue();
         maybeAutoqueue();
+      } else {
+        showGate();
       }
     });
   }
@@ -1011,6 +1018,9 @@ footer.foot a{color:var(--text-dim)}
   });
 
   function joinQueue(motion){
+    // Single choke point: no anonymous session reaches the queue,
+    // whichever caller got here (find button, autoqueue, requeue).
+    if (!isNamedUser(state.user)){ showGate(); signIn(); return; }
     state.cancelled = false;
     state.currentMotion = motion;
     idleBlock.style.display = 'none';
