@@ -195,24 +195,13 @@
   }
 
   window.DBShareLandingPayload = function (text) {
-    var variants = ['bet', 'opinion', 'streamers'];
-    var variant = variants[Math.floor(Math.random() * variants.length)];
-    var titles = {
-      bet: 'Debatable - Bet on your words',
-      opinion: 'Debatable - Everyone has an opinion',
-      streamers: 'Debatable - Strangers vs streamers',
-    };
-    var title = titles[variant];
     try {
-      if (window.gtag) gtag('event', 'share_title_created', {
-        test: 'share_title_v2',
-        variant: variant,
-      });
+      if (window.gtag) gtag('event', 'share_created', {});
     } catch (e) {}
     return {
-      title: title,
+      title: 'Debatable - Everyone has an opinion',
       text: text || 'Practice a real debate out loud.',
-      url: 'https://itsdebatable.com/?share_title=' + variant,
+      url: 'https://itsdebatable.com/',
     };
   };
 
