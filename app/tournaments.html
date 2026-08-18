@@ -978,7 +978,8 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     var kick=document.getElementById('heroKicker');
     if(kick){
       var day=String(t.startsAt||'').split(',')[0].trim();
-      var state=t.status==='registration'?'Registration open':'Tournament';
+      var state=t.status==='registration'?'Registration open'
+               :(t.status==='running'?'Live now, doors open':'Tournament');
       kick.textContent=day?(day+' · '+state):state;
     }
 
@@ -1027,7 +1028,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     setText('faqCostA','Eligibility for the cash, and nothing else. Both doors play the same field, on the same motions, in front of the same judge, and both post to the same public leaderboard. If your account was created before Friday, August 22, that eligibility costs you nothing. After that it is $20, and still waived for anyone who asks. A free entrant can win the placement title and ranking, while that cash moves to the next highest prize-eligible entrant.');
 
     var cta=document.getElementById('heroEnter');
-    if(cta&&t.status==='registration')cta.firstChild.nodeValue='Enter '+(t.name||'the bracket')+' ';
+    if(cta&&(t.status==='registration'||t.status==='running'))cta.firstChild.nodeValue='Enter '+(t.name||'the bracket')+' ';
 
     // Countdown. Ticking digits are aria-hidden; the sentence beside
     // them carries the same fact for a screen reader, because a live
@@ -1066,7 +1067,15 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   fetch('/api/tournament',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     var list=(j&&j.tournaments)||[];
     var t=null;
+    // 'registration' OR 'running'. A drop-in day spends the whole event
+    // in 'running' (that is the only status the pairing queue seats
+    // anyone in), so matching 'registration' alone made this card
+    // disappear the moment the doors actually opened, which is the one
+    // hour it matters most. Prefer a bracket still in registration when
+    // both exist, so an upcoming event does not get hidden behind one
+    // already under way.
     for(var i=0;i<list.length;i++){if(list[i].status==='registration'){t=list[i];break}}
+    if(!t){for(var j=0;j<list.length;j++){if(list[j].status==='running'){t=list[j];break}}}
     if(!t){
       empty.innerHTML='No bracket is open for entry right now. The next one is announced to the <a href="/#waitlist">waitlist</a> first, and you can <a href="/watch">watch past rounds</a> in the meantime.';
       return;
@@ -1079,7 +1088,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     if(t.entryCount>0)bits.push(t.entryCount+(t.entryCount===1?' entry':' entries')+' so far');
     if(t.prizePoolCents>0)bits.push(money(t.prizePoolCents,t.currency)+' in prizes');
     if(t.startsAt)bits.push('Starts '+t.startsAt);
-    document.getElementById('enterMeta').textContent=bits.join(' · ')||'Registration open';
+    document.getElementById('enterMeta').textContent=bits.join(' · ')||(t.status==='running'?'Running now, doors still open':'Registration open');
     try{hydrateHero(t)}catch(e){console.warn('[tournaments] hero hydrate failed:',e)}
   }).catch(function(e){
     console.warn('[tournaments] bracket read failed:',e);

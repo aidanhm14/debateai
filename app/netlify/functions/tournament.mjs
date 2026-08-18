@@ -254,8 +254,27 @@ export default async (request) => {
   }
 
   // ── register ────────────────────────────────────────────────────
+  //
+  // 'registration' AND 'running', and that pair is load-bearing rather
+  // than lenient. This gate used to be 'registration' only, which was
+  // right when every tournament was synchronous: register, close the
+  // doors, pair the field, run rounds. A DROP-IN day inverts that.
+  // tournament-dropin.mjs refuses to seat anyone unless the status is
+  // 'running', so under the old rule the two states were mutually
+  // exclusive and the Open could only ever be half-open: either people
+  // could enter and no round could start, or rounds ran and every
+  // latecomer was refused.
+  //
+  // The published rules and the announcement email both promise the
+  // second thing does not happen ("doors open at 10:00 AM Eastern and
+  // stay open through the day", "turning up late does not shut you
+  // out"), so the engine has to be able to hold both at once. Entries
+  // close when the director moves to 'break' or 'elims' in the
+  // evening, which is what the rules describe and what the control
+  // room's own button now says.
   if (action === 'register') {
-    if (t.data.status !== 'registration') {
+    const OPEN_TO_ENTRY = new Set(['registration', 'running']);
+    if (!OPEN_TO_ENTRY.has(String(t.data.status || ''))) {
       return errorResponse('Registration is not open for this tournament.', 409, request);
     }
 

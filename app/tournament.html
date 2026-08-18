@@ -1063,7 +1063,17 @@ html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:.75}
     }
 
     if (t.status === 'draft') act('Open registration', function(){ setStatus('registration'); }, true);
-    if (t.status === 'registration') act('Close registration', function(){ setStatus('running'); }, true);
+    // 'running' is what OPENS the drop-in queue, and entries stay open
+    // through it (see the OPEN_TO_ENTRY gate in tournament.mjs), so the
+    // old label "Close registration" told the director the opposite of
+    // what the button does. On a drop-in day that mislabel is the whole
+    // event: someone who wants latecomers to keep arriving would avoid
+    // pressing it, and the queue that refuses everyone until it is
+    // pressed would never open.
+    if (t.status === 'registration') act('Start the day (doors stay open)', function(){ setStatus('running'); }, true);
+    // Closing entries is now its own deliberate step in the evening,
+    // which is the point the rules actually describe.
+    if (t.status === 'running') act('Close entries', function(){ setStatus('break'); });
 
     var nextRound = (t.currentRound || 0) + 1;
     var pendingPrelim = (state.data.rounds || []).filter(function(r){
