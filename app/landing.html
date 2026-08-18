@@ -9324,6 +9324,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       rfd:'Aarav wins because revival without a restored habitat creates expensive museum populations. Miguel proves the science could work but not that the animals would have a world to return to.' }
   ];
 
+  /* 2026-08-18, per Aidan: circulate the deck. Each page load shuffles the
+     round order and flips seats on a coin toss so a returning visitor sees
+     a different opener, sequence, and left/right placement instead of the
+     same 24 cards in the same order. The authored pairings, winners, and
+     ballots are untouched; a flip swaps the two seat objects and mirrors
+     open/drift/score so the bar and clock still read left-seat-first.
+     The opener rule from 2026-07-22 survives the shuffle: the first card
+     shown is always a mixed pair of real tiles, never two same-list names
+     and never the Anonymous avatar. */
+  var FS_MALE = {Dev:1, Marcus:1, Timothee:1, Jae:1, Kenji:1, Arjun:1, Luka:1, Mateo:1, Miguel:1, Aarav:1, Emeka:1};
+  var FS_FEMALE = {Anika:1, Priya:1, Elena:1, Mei:1, Sofia:1, Claire:1, Yuna:1, Zainab:1, Zuri:1, Hana:1, Samira:1, Amara:1, Rin:1};
+  (function circulateRounds(){
+    var i, j, t, r;
+    for (i = ROUNDS.length - 1; i > 0; i--) {
+      j = Math.floor(Math.random() * (i + 1));
+      t = ROUNDS[i]; ROUNDS[i] = ROUNDS[j]; ROUNDS[j] = t;
+    }
+    for (i = 0; i < ROUNDS.length; i++) {
+      if (Math.random() < 0.5) {
+        r = ROUNDS[i];
+        t = r.a; r.a = r.b; r.b = t;
+        r.won = r.won === 'a' ? 'b' : 'a';
+        r.open = 100 - r.open;
+        r.drift = 100 - r.drift;
+        r.score = r.score.split(' - ').reverse().join(' - ');
+      }
+    }
+    for (i = 0; i < ROUNDS.length; i++) {
+      r = ROUNDS[i];
+      if ((FS_MALE[r.a.nm] && FS_FEMALE[r.b.nm]) || (FS_FEMALE[r.a.nm] && FS_MALE[r.b.nm])) {
+        if (i > 0) { t = ROUNDS[0]; ROUNDS[0] = ROUNDS[i]; ROUNDS[i] = t; }
+        break;
+      }
+    }
+  })();
+
   var el = {};
   ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
