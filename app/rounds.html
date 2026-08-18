@@ -544,9 +544,21 @@ html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:.75}
     return '<span class="ava">'+esc(init)+'</span>';
   }
 
+  // See challenges.html: the shared chooser adds password and emailed-link
+  // sign-in, and takes {onDone} so the action that opened it survives
+  // instead of being lost to the modal's usual reload. onDone always
+  // fires, with null on dismissal, so this await cannot hang.
   async function ensureAuth(){
     if (state.user) return state.user;
     if (!fbAuth) throw new Error('Sign-in unavailable in this browser.');
+    if (typeof window.openAuthModal === 'function'){
+      var picked = await new Promise(function(resolve){
+        window.openAuthModal('signin', { onDone: function(u){ resolve(u || null); } });
+      });
+      if (!picked || picked.isAnonymous) throw new Error('Sign in first.');
+      state.user = picked;
+      return state.user;
+    }
     var res = await fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     state.user = res.user;
     return state.user;

@@ -131,10 +131,17 @@
   var onDone = null;
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
   function close() {
-    // Dismissing the modal abandons whatever action opened it. handOff()
-    // has already cleared this before calling close(), so the only path
-    // that reaches here with a callback set is a real dismissal.
-    onDone = null;
+    // Dismissing the modal abandons whatever action opened it, and the
+    // caller has to be TOLD that. handOff() clears the callback before
+    // calling close(), so anything still set here is a real dismissal and
+    // gets onDone(null). The contract is therefore: onDone fires exactly
+    // once, with a user or with null, never not at all. A caller that
+    // wraps this in a promise would otherwise await forever on a close.
+    if (typeof onDone === 'function') {
+      var abandoned = onDone;
+      onDone = null;
+      try { abandoned(null, null); } catch (e) {}
+    }
     if (modal) modal.classList.remove('on');
     document.body.classList.remove('signin-modal-open');
     if (lastFocus && lastFocus.focus) {
