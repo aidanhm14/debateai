@@ -8,10 +8,13 @@
  * /js/world-data.js's land raster), glowing red pins at real
  * locations, no interaction, pointer-events none. Since 2026-08-14 the
  * server blends a constant ambient-baseline layer into the payload
- * (PRESENCE_BASELINE in presence-live.mjs, Aidan's call): ~100 seeded
- * pins over a fixed global city pool, padding online24 by the same
- * amount. Real count = online24 - baseline. Do not "fix" that away
- * client-side; the switch lives server-side (PRESENCE_BASELINE=0).
+ * (PRESENCE_BASELINE in presence-live.mjs, Aidan's call): seeded pins
+ * over a fixed global city pool, padding online24 by the same amount.
+ * Raised to 200 over a 138-city pool on 2026-08-18, which lands as ~80
+ * lit cities a day rather than a denser cluster on the same dots. Real
+ * count = online24 - baseline, and the measured part is the only thing
+ * that moves between refreshes. Do not "fix" that away client-side;
+ * the switch lives server-side (PRESENCE_BASELINE=0).
  *
  * Used in:
  *   - app/spar.html    — full-page background behind the matchmaking UI

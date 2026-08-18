@@ -84,18 +84,22 @@ const CELL_CAP = 25;
 
 // 2026-08-14 (Aidan's call, same day as the cell-cap correction): the public
 // payload carries a constant AMBIENT BASELINE on top of the measured count.
-// online24 is padded by PRESENCE_BASELINE (default 100) and the same number
-// of seeded ambient pins are spread across a fixed global city pool so the
-// globe visually accounts for the caption. This is a deliberate floor on a
+// online24 is padded by PRESENCE_BASELINE and the same number of seeded
+// ambient pins are spread across a fixed global city pool so the globe
+// visually accounts for the caption. This is a deliberate floor on a
 // marketing surface, not a measurement: the REAL count is always
 // online24 - PRESENCE_BASELINE, `online30` / `online5` are NOT padded, and
 // presence_daily / /admin read the raw collection and never see this.
 // The ambient pins are seeded by UTC day, so they hold still across cache
 // refreshes and reshuffle once a day. Set PRESENCE_BASELINE=0 to turn the
 // whole thing off without a redeploy.
+// 2026-08-18 (Aidan's call): floor raised 100 -> 200, and the city pool
+// roughly doubled below so the extra 100 lands on NEW cities instead of
+// stacking on the same 52 dots. The measured Firestore count still rides on
+// top and is the only part that moves between refreshes.
 const PRESENCE_BASELINE = Math.max(
   0,
-  parseInt(process.env.PRESENCE_BASELINE ?? '100', 10) || 0
+  parseInt(process.env.PRESENCE_BASELINE ?? '200', 10) || 0
 );
 
 // Plausible-city pool for ambient pins: global spread matching the circuits
@@ -128,6 +132,53 @@ const AMBIENT_CITIES = [
   [37.6, 127.0, 'Seoul', 'KR'], [35.7, 139.7, 'Tokyo', 'JP'],
   [-33.9, 151.2, 'Sydney', 'AU'], [-37.8, 145.0, 'Melbourne', 'AU'],
   [-41.3, 174.8, 'Wellington', 'NZ'], [-36.8, 174.8, 'Auckland', 'NZ'],
+  // 2026-08-18: second tier, added with the 100 -> 200 baseline so the extra
+  // sessions light new cities rather than doubling the counts on the first
+  // 52. Same rule as above: real circuit towns, city-center coords.
+  [38.9, -77.0, 'Washington', 'US'], [39.9, -75.2, 'Philadelphia', 'US'],
+  [29.8, -95.4, 'Houston', 'US'], [32.8, -96.8, 'Dallas', 'US'],
+  [39.7, -105.0, 'Denver', 'US'], [45.0, -93.3, 'Minneapolis', 'US'],
+  [42.3, -83.7, 'Ann Arbor', 'US'], [40.4, -80.0, 'Pittsburgh', 'US'],
+  [41.8, -71.4, 'Providence', 'US'], [41.3, -72.9, 'New Haven', 'US'],
+  [25.8, -80.2, 'Miami', 'US'], [33.4, -112.1, 'Phoenix', 'US'],
+  [32.7, -117.2, 'San Diego', 'US'], [36.2, -86.8, 'Nashville', 'US'],
+  [45.5, -73.6, 'Montreal', 'CA'], [45.4, -75.7, 'Ottawa', 'CA'],
+  [51.0, -114.1, 'Calgary', 'CA'],
+  [-12.0, -77.0, 'Lima', 'PE'], [-33.4, -70.7, 'Santiago', 'CL'],
+  [-22.9, -43.2, 'Rio de Janeiro', 'BR'], [-34.9, -56.2, 'Montevideo', 'UY'],
+  [-0.2, -78.5, 'Quito', 'EC'], [9.0, -79.5, 'Panama City', 'PA'],
+  [51.8, -1.3, 'Oxford', 'GB'], [52.2, 0.1, 'Cambridge', 'GB'],
+  [55.9, -4.3, 'Glasgow', 'GB'], [52.5, -1.9, 'Birmingham', 'GB'],
+  [53.8, -1.5, 'Leeds', 'GB'], [51.5, -3.2, 'Cardiff', 'GB'],
+  [54.6, -5.9, 'Belfast', 'GB'], [55.7, 12.6, 'Copenhagen', 'DK'],
+  [59.9, 10.8, 'Oslo', 'NO'], [60.2, 24.9, 'Helsinki', 'FI'],
+  [48.2, 16.4, 'Vienna', 'AT'], [47.4, 8.5, 'Zurich', 'CH'],
+  [50.1, 14.4, 'Prague', 'CZ'], [47.5, 19.1, 'Budapest', 'HU'],
+  [44.4, 26.1, 'Bucharest', 'RO'], [38.0, 23.7, 'Athens', 'GR'],
+  [38.7, -9.1, 'Lisbon', 'PT'], [44.8, 20.5, 'Belgrade', 'RS'],
+  [45.8, 16.0, 'Zagreb', 'HR'], [50.5, 30.5, 'Kyiv', 'UA'],
+  [41.7, 44.8, 'Tbilisi', 'GE'], [40.2, 44.5, 'Yerevan', 'AM'],
+  [43.2, 76.9, 'Almaty', 'KZ'], [41.3, 69.3, 'Tashkent', 'UZ'],
+  [33.6, -7.6, 'Casablanca', 'MA'], [5.6, -0.2, 'Accra', 'GH'],
+  [9.1, 7.4, 'Abuja', 'NG'], [0.3, 32.6, 'Kampala', 'UG'],
+  [-6.8, 39.3, 'Dar es Salaam', 'TZ'], [9.0, 38.8, 'Addis Ababa', 'ET'],
+  [-17.8, 31.0, 'Harare', 'ZW'], [-15.4, 28.3, 'Lusaka', 'ZM'],
+  [31.9, 35.9, 'Amman', 'JO'], [25.3, 51.5, 'Doha', 'QA'],
+  [33.9, 35.5, 'Beirut', 'LB'], [32.1, 34.8, 'Tel Aviv', 'IL'],
+  [13.1, 80.3, 'Chennai', 'IN'], [17.4, 78.5, 'Hyderabad', 'IN'],
+  [18.5, 73.9, 'Pune', 'IN'], [23.0, 72.6, 'Ahmedabad', 'IN'],
+  [26.9, 75.8, 'Jaipur', 'IN'], [30.7, 76.8, 'Chandigarh', 'IN'],
+  [31.5, 74.3, 'Lahore', 'PK'], [24.9, 67.1, 'Karachi', 'PK'],
+  [33.7, 73.1, 'Islamabad', 'PK'], [27.7, 85.3, 'Kathmandu', 'NP'],
+  [21.0, 105.8, 'Hanoi', 'VN'], [10.8, 106.7, 'Ho Chi Minh City', 'VN'],
+  [11.6, 104.9, 'Phnom Penh', 'KH'], [16.9, 96.2, 'Yangon', 'MM'],
+  [25.0, 121.5, 'Taipei', 'TW'], [31.2, 121.5, 'Shanghai', 'CN'],
+  [39.9, 116.4, 'Beijing', 'CN'], [34.7, 135.5, 'Osaka', 'JP'],
+  [35.2, 129.1, 'Busan', 'KR'], [10.3, 123.9, 'Cebu', 'PH'],
+  [-7.3, 112.7, 'Surabaya', 'ID'], [-6.9, 107.6, 'Bandung', 'ID'],
+  [-27.5, 153.0, 'Brisbane', 'AU'], [-32.0, 115.9, 'Perth', 'AU'],
+  [-34.9, 138.6, 'Adelaide', 'AU'], [-35.3, 149.1, 'Canberra', 'AU'],
+  [-43.5, 172.6, 'Christchurch', 'NZ'],
 ];
 
 // Deterministic PRNG seeded by the UTC day, so the ambient layer is stable
